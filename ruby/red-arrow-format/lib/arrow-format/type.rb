@@ -911,6 +911,20 @@ module ArrowFormat
   end
 
   class FixedSizeBinaryType < Type
+    class << self
+      def try_convert(value)
+        case value
+        when Integer
+          byte_width = value
+          new(byte_width)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :byte_width
     def initialize(byte_width)
       super()

@@ -64,6 +64,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARROW_ENABLE_TIMING_TESTS: OFF
+  DOCKER_VOLUME_PREFIX: ".docker/"
+
 jobs:
   check-labels:
     uses: ./.github/workflows/check_labels.yml
@@ -128,10 +133,6 @@ jobs:
               -e ARROW_CXXFLAGS=-march=x86-64
             runs-on: ubuntu-latest
             title: AMD64 Debian SIMD Level NONE
-    env:
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
@@ -140,7 +141,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -169,7 +170,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -229,7 +230,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -251,7 +252,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -306,7 +307,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ccache
           key: jni-macos
@@ -352,7 +353,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ccache
           key: jni-macos
@@ -407,7 +408,7 @@ jobs:
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -476,7 +477,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -491,9 +492,6 @@ jobs:
       fail-fast: false
     env:
       ARCH: amd64
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
       UBUNTU: 24.04
     steps:
       - name: Checkout Arrow
@@ -513,7 +511,7 @@ jobs:
           docker compose up -d dremio
           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -529,7 +527,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -603,7 +601,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -626,7 +624,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}

@@ -139,8 +139,8 @@ class ARROW_EXPORT Executor {
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(TaskHints hints, StopToken stop_token, Function&& func,
                             Args&&... args) {
     using ValueType = typename FutureType::ValueType;
@@ -165,24 +165,24 @@ class ARROW_EXPORT Executor {
   }
 
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(StopToken stop_token, Function&& func, Args&&... args) {
     return Submit(TaskHints{}, stop_token, std::forward<Function>(func),
                   std::forward<Args>(args)...);
   }
 
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
     return Submit(std::move(hints), StopToken::Unstoppable(),
                   std::forward<Function>(func), std::forward<Args>(args)...);
   }
 
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(Function&& func, Args&&... args) {
     return Submit(TaskHints{}, StopToken::Unstoppable(), std::forward<Function>(func),
                   std::forward<Args>(args)...);

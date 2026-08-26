@@ -917,16 +917,12 @@ def test_compression_level(compression):
         with pytest.raises(ValueError):
             codec.decompress(compressed_bytes)
 
-    # The ability to set a seed this way is not present on older versions of
-    # numpy (currently in our python 3.6 CI build).  Some inputs might just
-    # happen to compress the same between the two levels so using seeded
-    # random numbers is necessary to help get more reliable results
+    # Some inputs might just happen to compress the same between the two levels,
+    # so using seeded random numbers makes the results more reliable.
     #
     # The goal of this part is to ensure the compression_level is being
     # passed down to the C++ layer, not to verify the compression algs
     # themselves
-    if not hasattr(np.random, 'default_rng'):
-        pytest.skip('Requires newer version of numpy')
     rng = np.random.default_rng(seed=42)
     values = rng.integers(0, 100, 1000)
     arr = pa.array(values)

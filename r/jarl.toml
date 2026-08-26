@@ -15,25 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[build_sphinx]
-source-dir = doc/
-build-dir  = doc/_build
+[lint]
+# exclude below files as all are generated or used for generating other files
+exclude = ["R/arrowExports.R", "R/dplyr-funcs-doc.R", "data-raw/codegen.R"]
 
-[tool:pytest]
-addopts = --ignore=scripts
-filterwarnings =
-    # https://github.com/apache/arrow/issues/49227
-    ignore:pyarrow.gandiva is deprecated:FutureWarning
-    # https://github.com/apache/arrow/issues/38239
-    ignore:Setting custom ClientSession:DeprecationWarning
-    # https://github.com/apache/arrow/issues/49255
-    error:Constructing a Categorical with a dtype and values containing non-null entries:DeprecationWarning
-# Get a debug traceback when a test takes a really long time
-faulthandler_timeout = 300
-
-[pep8]
-ignore = E211,E225,E226,E227,E402,W503,W504
-max_line_length = 88
-
-[flake8]
-max-line-length = 88
+# TODO: these rules currently fire on existing code; re-enable incrementally
+# after triaging/fixing the findings (see GH-46646).
+ignore = [
+  "any_is_na",
+  "comparison_negation",
+  "download_file",
+  "duplicated_arguments",
+  "equals_null",
+  "implicit_assignment",
+  "internal_function",
+  "numeric_leading_zero",
+  "outer_negation",
+  "redundant_equals",
+  "redundant_ifelse",
+  "repeat",
+  "seq",
+  "sprintf",
+  "unused_function",
+]
