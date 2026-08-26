@@ -17,7 +17,6 @@
 
 // Implementation of casting to (or between) list types
 
-#include <iostream>
 #include <limits>
 #include <map>
 #include <utility>
