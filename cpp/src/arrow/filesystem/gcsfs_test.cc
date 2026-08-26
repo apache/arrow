@@ -77,7 +77,9 @@ class GcsTestbench : public ::testing::Environment {
     }
 
     server_process->SetArgs({"--port", port_});
-    server_process->IgnoreStderr();
+    // Do not discard stderr: the testbench, and Werkzeug underneath it, report
+    // startup progress and failures there, and without it a startup failure in
+    // CI cannot be diagnosed.
     status = server_process->Execute();
     if (!status.ok()) {
       error += ": " + status.ToString();
@@ -85,8 +87,16 @@ class GcsTestbench : public ::testing::Environment {
       return;
     }
 
+    // The testbench is a Python application importing grpcio, protobuf and
+    // flask, and it serves through Werkzeug's reloader, which pays that import
+    // cost twice: the parent process binds the listening socket immediately
+    // and only the reloader child answers requests.  Connecting therefore
+    // succeeds well before the first response arrives.  Keep the per-attempt
+    // retry budget well below the overall one, otherwise a single slow request
+    // consumes all of it and this loop only ever runs once.
     auto testbench_is_running = [&server_process, this]() {
-      auto ready_timeout = std::chrono::seconds(10);
+      auto ready_timeout = std::chrono::seconds(60);
+      auto attempt_timeout = std::chrono::seconds(5);
       std::chrono::time_point<std::chrono::steady_clock> end =
           std::chrono::steady_clock::now() + ready_timeout;
       while (server_process->IsRunning() && std::chrono::steady_clock::now() < end) {
@@ -95,7 +105,7 @@ class GcsTestbench : public ::testing::Environment {
                 .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
                 .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
                 .set<gcs::RetryPolicyOption>(
-                    gcs::LimitedTimeRetryPolicy(ready_timeout).clone()));
+                    gcs::LimitedTimeRetryPolicy(attempt_timeout).clone()));
         auto metadata = client.GetBucketMetadata("nonexistent");
         if (metadata.status().code() == google::cloud::StatusCode::kNotFound) {
           return true;
@@ -105,7 +115,7 @@ class GcsTestbench : public ::testing::Environment {
     };
 
     if (!testbench_is_running()) {
-      error += " (failed to listen)";
+      error += " (timed out waiting for it to become ready)";
       error_ = std::move(error);
       return;
     }
