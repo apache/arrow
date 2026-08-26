@@ -1052,7 +1052,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
       : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool}, vector_size_(vector_size) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
                   "ALP only supports float and double types");
-    if (!::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size_))) {
+    if (vector_size_ <= 0 || !std::has_single_bit(static_cast<uint32_t>(vector_size_))) {
       throw ParquetException("ALP vector_size must be a positive power of 2, got " +
                              std::to_string(vector_size_));
     }

@@ -17,11 +17,11 @@
 
 #include "arrow/util/alp/alp.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstring>
 #include <functional>
-#include <iostream>
 #include <map>
 #include <span>
 
@@ -197,6 +197,53 @@ void AlpEncodedVector<T>::StoreDataOnly(std::span<uint8_t> output_buffer) const 
       << "alp_bit_packed_vector_data_size_mismatch: " << offset << " vs " << data_size;
 }
 
+namespace {
+
+/// \brief Range-check the metadata fields that size or steer the decode
+///
+/// `exponent` and `factor` index the power-of-ten tables, whose own bounds are
+/// asserted with ARROW_DCHECK and so go unchecked in a release build, and
+/// `num_exceptions` counts writes into an output of `num_elements` slots.
+template <typename T>
+Status ValidateVectorInfo(const AlpEncodedVectorInfo& alp_info, int32_t num_elements) {
+  using Constants = AlpTypedConstants<T>;
+  if (alp_info.exponent() > Constants::kMaxExponent) {
+    return Status::Invalid("ALP exponent ", static_cast<int>(alp_info.exponent()),
+                           " exceeds ", static_cast<int>(Constants::kMaxExponent));
+  }
+  // A factor above the exponent would index the table below its first entry.
+  if (alp_info.factor() > alp_info.exponent()) {
+    return Status::Invalid("ALP factor ", static_cast<int>(alp_info.factor()),
+                           " exceeds exponent ", static_cast<int>(alp_info.exponent()));
+  }
+  if (alp_info.num_exceptions() > num_elements) {
+    return Status::Invalid("ALP vector has ", alp_info.num_exceptions(),
+                           " exceptions but only ", num_elements, " elements");
+  }
+  return Status::OK();
+}
+
+/// \brief Check that every exception position indexes the vector it belongs to
+///
+/// The patch step writes `output[position]`, so one past the end is an
+/// out-of-bounds write. Take the maximum first: a reduction still vectorizes,
+/// where a bounds check inside the patch loop would not.
+Status ValidateExceptionPositions(
+    std::span<const AlpConstants::PositionType> exception_positions,
+    int32_t num_elements) {
+  AlpConstants::PositionType max_position = 0;
+  for (const AlpConstants::PositionType position : exception_positions) {
+    max_position = std::max(max_position, position);
+  }
+  if (!exception_positions.empty() && max_position >= num_elements) {
+    return Status::Invalid("ALP exception position ", max_position,
+                           " is outside a vector of ", num_elements, " elements");
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 template <typename T>
 Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
     std::span<const uint8_t> input_buffer, int32_t num_elements) {
@@ -225,6 +272,8 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
 
   result.set_num_elements(num_elements);
 
+  RETURN_NOT_OK(ValidateVectorInfo<T>(alp_info, num_elements));
+
   const int64_t overall_size = GetStoredSize(alp_info, for_info, num_elements);
 
   if (static_cast<int64_t>(input_buffer.size()) < overall_size) {
@@ -249,6 +298,7 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
   std::memcpy(result.mutable_exception_positions().data(),
               input_buffer.data() + input_offset, exception_position_size);
   input_offset += exception_position_size;
+  RETURN_NOT_OK(ValidateExceptionPositions(result.exception_positions(), num_elements));
 
   result.mutable_exceptions().resize(alp_info.num_exceptions());
   const int64_t exception_size = alp_info.num_exceptions() * sizeof(T);
@@ -358,6 +408,8 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
                            (1 << AlpConstants::kMaxLogVectorSize));
   }
 
+  RETURN_NOT_OK(ValidateVectorInfo<T>(alp_info, num_elements));
+
   AlpEncodedVectorView<T> result;
   result.set_alp_info(alp_info);
   result.set_for_info(for_info);
@@ -389,6 +441,7 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
   std::memcpy(result.mutable_exception_positions().data(),
               input_buffer.data() + input_offset, exception_position_size);
   input_offset += exception_position_size;
+  RETURN_NOT_OK(ValidateExceptionPositions(result.exception_positions(), num_elements));
 
   // Copy exception values into aligned storage to avoid UB from misaligned access.
   const int64_t exception_size = alp_info.num_exceptions() * sizeof(T);
