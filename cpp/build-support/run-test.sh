@@ -223,9 +223,9 @@ for ATTEMPT_NUMBER in $(seq 1 "$TEST_EXECUTION_ATTEMPTS") ; do
   echo "Running $TEST_NAME, redirecting output into $LOGFILE" \
     "(attempt ${ATTEMPT_NUMBER}/$TEST_EXECUTION_ATTEMPTS)"
   if [ "$RUN_TYPE" = "test" ]; then
-    run_test "$*"
+    run_test "$@"
   else
-    run_other "$*"
+    run_other "$@"
   fi
   if [ "$STATUS" -eq "0" ]; then
     break
