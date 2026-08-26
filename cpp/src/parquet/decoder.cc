@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -2418,8 +2417,10 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
       return decoded;
     }
 
-    // Slow path: partial read - decode to intermediate buffer
-    // ALP Bit unpacker needs batches of 64
+    // Slow path: partial read - decode to intermediate buffer. AlpCodec::Decode
+    // always starts from the beginning of the page and keeps no resumption
+    // state, so a partial read decodes the whole page once and then serves this
+    // and later calls out of `decoded_buffer_`.
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(

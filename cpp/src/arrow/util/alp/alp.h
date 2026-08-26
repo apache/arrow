@@ -37,14 +37,13 @@ namespace alp {
 //
 // IMPORTANT: For abstract interfaces or examples how to use ALP, consult
 // alp_codec.h.
-// This is our implementation of the adaptive lossless floating-point
-// compression for decimals (ALP) (https://dl.acm.org/doi/10.1145/3626717).
-// It works by converting a float into a decimal (if possible). The exponent
-// and factor are chosen per vector. Each float is converted using
-// c(f) = int64(f * 10^exponent * 10^-factor). The converted floats are then
-// encoded via a delta frame of reference and bitpacked. Every exception,
-// where the conversion/reconversion changes the value of the float, is stored
-// separately and has to be patched into the decompressed vector afterwards.
+// This file implements adaptive lossless floating-point compression for
+// decimals (ALP) (https://dl.acm.org/doi/10.1145/3626717). ALP converts each
+// float into a decimal where it can, using an exponent and factor chosen per
+// vector: c(f) = int64(f * 10^exponent * 10^-factor). It then encodes the
+// converted integers with a frame of reference and bit-packs them.
+// A value the conversion cannot round-trip becomes an exception. ALP stores
+// exceptions separately and patches them back into the vector after decoding.
 //
 // ==========================================================================
 //                    ALP COMPRESSION/DECOMPRESSION PIPELINE
@@ -82,7 +81,8 @@ namespace alp {
 //                                        v
 //   +------------------------------------------------------------------+
 //   | 4. BIT PACKING                                                   |
-//   |    * Calculate bit_width = log2(max_delta)                       |
+//   |    * Calculate bit_width = std::bit_width(max_delta), i.e. the   |
+//   |      number of bits needed to hold max_delta                     |
 //   |    * Pack each value into bit_width bits                         |
 //   |    * Result: tightly packed binary data                          |
 //   +------------------------------------+-----------------------------+
@@ -390,11 +390,11 @@ class AlpEncodedForVectorInfo {
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
 ///   - AlpInfo:            4 bytes (fixed)
-///   - ForInfo:            6 bytes (float)
+///   - ForInfo:            5 bytes (float: 4-byte frame_of_reference + 1-byte bit_width)
 ///   - Packed Values:   1024 bytes (1024 * 8 bits / 8)
 ///   - Exception Pos:     10 bytes (5 * 2)
 ///   - Exception Values:  20 bytes (5 * 4)
-///   Total:             1064 bytes
+///   Total:             1063 bytes
 template <typename T>
 class AlpEncodedVector {
  public:
@@ -648,7 +648,7 @@ class AlpSampler;
 /// the input data, then compress it vector-wise via CompressVector(). To
 /// serialize the data, use the facilities provided by AlpEncodedVector.
 ///
-/// \tparam T the type of data to be compressed. Currently float and double.
+/// \tparam T the type of data to compress. Currently float and double.
 template <typename T>
 class AlpCompression {
  public:
@@ -660,15 +660,15 @@ class AlpCompression {
   /// \brief Compress a vector of floating point values via ALP
   ///
   /// \param[in] input_vector a vector of floats containing input to compress
-  /// \param[in] num_elements the number of values to be compressed
-  /// \param[in] preset the preset to be used for compression
+  /// \param[in] num_elements the number of values to compress
+  /// \param[in] preset the preset to use for compression
   /// \return an ALP encoded vector
   static AlpEncodedVector<T> CompressVector(const T* input_vector, int32_t num_elements,
                                             const AlpEncodingParameters& preset);
 
   /// \brief Decompress a compressed vector with ALP
   ///
-  /// \param[in] encoded_vector the ALP encoded vector to be decompressed
+  /// \param[in] encoded_vector the ALP encoded vector to decompress
   /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
   ///             Must be able to contain encoded_vector.num_elements().

@@ -111,10 +111,14 @@ typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParam
   const int64_t num_sampled_values = static_cast<int64_t>(
       std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments));
 
-  // Safety: num_lookup_values is capped at kAlpVectorSize (line 105-106), and
-  // num_sampled_increments >= 1 (line 109), so num_sampled_values =
-  // ceil(num_lookup_values / num_sampled_increments) <= kAlpVectorSize.
-  // This check is a defensive invariant, not a runtime error path.
+  // Safety: num_sampled_values is bounded by samples_per_vector_. If
+  // num_lookup_values <= samples_per_vector_ the increment is 1 and
+  // num_sampled_values == num_lookup_values; otherwise the increment is
+  // ceil(num_lookup_values / samples_per_vector_) >= 2, which divides
+  // num_lookup_values back down to at most samples_per_vector_. Since
+  // samples_per_vector_ is kSamplerSamplesPerVector (256), the count stays
+  // well under kAlpVectorSize. This check is a defensive invariant, not a
+  // runtime error path.
   ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize)
       << "alp_sample_too_large";
 
@@ -134,8 +138,10 @@ bool AlpSampler<T>::MustSkipSamplingFromCurrentVector(
     return true;
   }
 
-  // Do not take samples of non-complete vectors (usually the last one),
-  // except in the case of too little data.
+  // Skip vectors holding fewer values than we would draw samples from, which
+  // is typically the trailing partial vector. The exception is when nothing
+  // has been sampled yet: for inputs shorter than that threshold, a short
+  // vector is the only sample available.
   if (current_vector_n_values < AlpConstants::kSamplerSamplesPerVector &&
       vectors_sampled_count != 0) {
     return true;
