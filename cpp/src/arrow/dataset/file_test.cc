@@ -33,6 +33,7 @@
 #include <arrow/util/async_generator.h>
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/test_util_internal.h"
+#include "arrow/acero/util.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/dataset/api.h"
@@ -444,6 +445,27 @@ class MockDataset : public Dataset {
   };
 };
 
+Result<bool> HasOutOfOrderRows(const Table& table) {
+  TableBatchReader reader(table);
+  std::shared_ptr<RecordBatch> batch;
+  ARROW_RETURN_NOT_OK(reader.ReadNext(&batch));
+  int32_t prev = 0;
+  bool has_prev = false;
+  while (batch != nullptr) {
+    const auto* values = batch->column(0)->data()->GetValues<int32_t>(1);
+    for (int row = 0; row < batch->num_rows(); ++row) {
+      int32_t value = values[row];
+      if (has_prev && value <= prev) {
+        return true;
+      }
+      prev = value;
+      has_prev = true;
+    }
+    ARROW_RETURN_NOT_OK(reader.ReadNext(&batch));
+  }
+  return false;
+}
+
 TEST_F(TestFileSystemDataset, MultiThreadedWritePersistsOrder) {
   // Test for GH-26818
   //
@@ -500,24 +522,88 @@ TEST_F(TestFileSystemDataset, MultiThreadedWritePersistsOrder) {
     ASSERT_OK(scanner_builder->UseThreads(false));
     ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
     ASSERT_OK_AND_ASSIGN(auto actual, scanner->ToTable());
-    TableBatchReader reader(*actual);
-    std::shared_ptr<RecordBatch> batch;
-    ASSERT_OK(reader.ReadNext(&batch));
-    int32_t prev = -1;
-    auto out_of_order = false;
-    while (batch != nullptr) {
-      const auto* values = batch->column(0)->data()->GetValues<int32_t>(1);
-      for (int row = 0; row < batch->num_rows(); ++row) {
-        int32_t value = values[row];
-        if (value <= prev) {
-          out_of_order = true;
-        }
-        prev = value;
-      }
-      ASSERT_OK(reader.ReadNext(&batch));
-    }
+    ASSERT_OK_AND_ASSIGN(auto out_of_order, HasOutOfOrderRows(*actual));
     ASSERT_EQ(!out_of_order, preserve_order);
   }
+}
+
+TEST_F(TestFileSystemDataset, MultiThreadedTeeWritePersistsOrder) {
+  dataset::internal::Initialize();
+
+  auto format = std::make_shared<IpcFileFormat>();
+  auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = format->DefaultWriteOptions();
+  write_options.filesystem = fs;
+  write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+  write_options.basename_template = "{i}.feather";
+
+  auto unordered_write_options = write_options;
+  unordered_write_options.base_dir = "unordered";
+  unordered_write_options.preserve_order = false;
+  auto ordered_write_options = write_options;
+  ordered_write_options.base_dir = "ordered";
+  ordered_write_options.preserve_order = true;
+
+  auto dataset = std::make_shared<MockDataset>(schema({field("f0", int32())}));
+
+  auto delay_func = std::make_shared<compute::ScalarFunction>(
+      "tee_delay", compute::Arity(1), compute::FunctionDoc());
+  compute::ScalarKernel delay_kernel;
+  delay_kernel.exec = delay;
+  delay_kernel.signature = compute::KernelSignature::Make({int32()}, boolean());
+  ASSERT_OK(delay_func->AddKernel(delay_kernel));
+  ASSERT_OK(compute::GetFunctionRegistry()->AddFunction(delay_func));
+
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK(scanner_builder->UseThreads(true));
+  ASSERT_OK(
+      scanner_builder->Filter(compute::call("tee_delay", {compute::field_ref("f0")})));
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+  AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
+  // The first TeeNode records the delayed, out-of-order stream without changing it.
+  // The second TeeNode must use the batch indices to restore order.
+  ASSERT_OK(
+      acero::Declaration::Sequence(
+          {
+              {"scan", ScanNodeOptions{dataset, scanner->options(),
+                                       /*require_sequenced_output=*/true,
+                                       /*implicit_ordering=*/true}},
+              {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
+              {"project", acero::ProjectNodeOptions{{compute::field_ref("f0")}, {"f0"}}},
+              {"tee", WriteNodeOptions{unordered_write_options}, "unordered_tee"},
+              {"tee", WriteNodeOptions{ordered_write_options}, "ordered_tee"},
+              {"sink", acero::SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto output_batches,
+                                acero::StartAndCollect(plan.get(), sink_gen));
+  ASSERT_OK_AND_ASSIGN(auto output_table,
+                       acero::TableFromExecBatches(dataset->schema(), output_batches));
+  ASSERT_OK_AND_ASSIGN(auto output_out_of_order, HasOutOfOrderRows(*output_table));
+  ASSERT_FALSE(output_out_of_order);
+
+  auto read_written_table =
+      [&](const std::string& path) -> Result<std::shared_ptr<Table>> {
+    ARROW_ASSIGN_OR_RAISE(auto dataset_factory,
+                          FileSystemDatasetFactory::Make(fs, {path}, format, {}));
+    ARROW_ASSIGN_OR_RAISE(auto written_dataset, dataset_factory->Finish(FinishOptions{}));
+    ARROW_ASSIGN_OR_RAISE(auto written_scanner_builder, written_dataset->NewScan());
+    ARROW_RETURN_NOT_OK(written_scanner_builder->UseThreads(false));
+    ARROW_ASSIGN_OR_RAISE(auto written_scanner, written_scanner_builder->Finish());
+    return written_scanner->ToTable();
+  };
+
+  ASSERT_OK_AND_ASSIGN(auto unordered_table, read_written_table("unordered/0.feather"));
+  ASSERT_OK_AND_ASSIGN(auto unordered_out_of_order, HasOutOfOrderRows(*unordered_table));
+  ASSERT_TRUE(unordered_out_of_order);
+
+  ASSERT_OK_AND_ASSIGN(auto ordered_table, read_written_table("ordered/0.feather"));
+  ASSERT_OK_AND_ASSIGN(auto ordered_out_of_order, HasOutOfOrderRows(*ordered_table));
+  ASSERT_FALSE(ordered_out_of_order);
 }
 
 class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
