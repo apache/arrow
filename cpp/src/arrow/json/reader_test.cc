@@ -24,6 +24,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/io/slow.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/options.h"
 #include "arrow/json/reader.h"
 #include "arrow/json/test_common.h"
@@ -550,10 +551,14 @@ class StreamingReaderTestBase {
     auto options = GenerateOptions::Defaults();
     options.null_probability = 0;
     for (int i = 0; i < num_rows; ++i) {
-      StringBuffer string_buffer;
-      Writer writer(string_buffer);
+      Writer writer;
       ABORT_NOT_OK(Generate(data_fields, engine, &writer, options));
-      std::string json = string_buffer.GetString();
+
+      auto json_result = writer.GetString();
+      ABORT_NOT_OK(json_result.status());
+      auto json_view = std::move(json_result).ValueOrDie();
+      std::string json(json_view);
+
       rows[i] = Join({"{\"i\":", std::to_string(i), ",\"d\":", json, "}\n"});
       max_row_size = std::max(max_row_size, rows[i].size());
     }

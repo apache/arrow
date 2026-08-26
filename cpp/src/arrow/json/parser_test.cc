@@ -321,5 +321,17 @@ TEST(BlockParser, AdHoc) {
        R"([{"c":true, "d": "1991-02-03"}, {"c":false, "d":"2019-04-01"}])"});
 }
 
+TEST(JsonTest, PrettyPrintEscapesObjectKeys) {
+  const std::string input = R"({"a\"b":1,"a\\b":2})";
+
+  const std::string expected =
+      "{\n"
+      "    \"a\\\"b\": 1,\n"
+      "    \"a\\\\b\": 2\n"
+      "}";
+
+  EXPECT_EQ(PrettyPrint(input), expected);
+}
+
 }  // namespace json
 }  // namespace arrow
