@@ -17,6 +17,7 @@
 
 #include "arrow/util/alp/alp_codec.h"
 
+#include <bit>
 #include <cmath>
 #include <limits>
 
@@ -123,7 +124,7 @@ struct AlpHeader {
   /// \param[in] value a power-of-2 value
   /// \return the log base 2 of value
   static uint8_t Log2(int32_t value) {
-    ARROW_CHECK(::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(value)))
+    ARROW_CHECK(value > 0 && std::has_single_bit(static_cast<uint32_t>(value)))
         << "value_must_be_power_of_2: " << value;
     return static_cast<uint8_t>(std::countr_zero(static_cast<uint32_t>(value)));
   }
@@ -221,8 +222,7 @@ namespace {
 Status ValidateVectorSize(int32_t vector_size) {
   constexpr int32_t kMin = 1 << AlpConstants::kMinLogVectorSize;
   constexpr int32_t kMax = 1 << AlpConstants::kMaxLogVectorSize;
-  if (vector_size <= 0 ||
-      !::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size))) {
+  if (vector_size <= 0 || !std::has_single_bit(static_cast<uint32_t>(vector_size))) {
     return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
                            vector_size);
   }

@@ -2713,7 +2713,8 @@ const std::vector<Encoding::type>& SupportedEncodingsRef(Type::type physical_typ
       return ConstVectorRef<Type::INT96>({Encoding::PLAIN});
     case Type::FLOAT:
     case Type::DOUBLE:
-      return ConstVectorRef<Type::FLOAT>({Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT});
+      return ConstVectorRef<Type::FLOAT>(
+          {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::ALP});
     case Type::FIXED_LEN_BYTE_ARRAY:
       return ConstVectorRef<Type::FIXED_LEN_BYTE_ARRAY>(
           {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY});

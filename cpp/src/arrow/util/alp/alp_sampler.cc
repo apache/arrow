@@ -41,7 +41,7 @@ AlpSampler<T>::AlpSampler()
                             sample_vector_size_) {}
 
 template <typename T>
-void AlpSampler<T>::AddSample(arrow::util::span<const T> input) {
+void AlpSampler<T>::AddSample(std::span<const T> input) {
   const int64_t input_size = static_cast<int64_t>(input.size());
   for (int64_t i = 0; i < input_size; i += sample_vector_size_) {
     const int64_t elements = std::min(input_size - i, sample_vector_size_);
@@ -50,7 +50,7 @@ void AlpSampler<T>::AddSample(arrow::util::span<const T> input) {
 }
 
 template <typename T>
-void AlpSampler<T>::AddSampleVector(arrow::util::span<const T> input) {
+void AlpSampler<T>::AddSampleVector(std::span<const T> input) {
   const int64_t input_size = static_cast<int64_t>(input.size());
   const bool must_skip_current_vector = MustSkipSamplingFromCurrentVector(
       vectors_count_, vectors_sampled_count_, input_size);
