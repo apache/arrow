@@ -2632,7 +2632,7 @@ std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
       return {Encoding::PLAIN};
     case Type::FLOAT:
     case Type::DOUBLE:
-      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::ALP};
     case Type::FIXED_LEN_BYTE_ARRAY:
       return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
     case Type::BYTE_ARRAY:

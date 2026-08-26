@@ -30,6 +30,7 @@
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/alp/alp_sampler.h"
 #include "arrow/util/bit_stream_utils_internal.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 
 namespace arrow {
@@ -802,7 +803,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
   // Try different offsets to hit various alignment scenarios
   for (size_t offset = 0; offset < 8; ++offset) {
     uint8_t* buffer_start = oversized_buffer.data() + offset;
-    arrow::util::span<uint8_t> buffer(buffer_start, encoded.GetStoredSize());
+    std::span<uint8_t> buffer(buffer_start, encoded.GetStoredSize());
 
     encoded.Store(buffer);
 
@@ -1724,6 +1725,22 @@ void ExpectInvalidWithSubstring(const Status& status, const std::string& needle)
       << "message did not mention \"" << needle << "\": " << status.ToString();
 }
 
+// AlpHeader is only forward-declared in alp_codec.h, so spell its size here.
+constexpr int64_t kAlpHeaderSize = 7;
+
+// Within AlpInfo, num_exceptions follows the one-byte exponent and factor.
+constexpr int64_t kNumExceptionsOffset = 2;
+
+// Offset of the first vector within a page. Layout: [header][vector offsets]
+// [AlpInfo | ForInfo | packed values | exception positions | exception values]...,
+// where each offset is relative to the start of the body.
+int64_t FirstVectorPos(const std::vector<uint8_t>& page) {
+  AlpConstants::OffsetType first_vector_offset = 0;
+  std::memcpy(&first_vector_offset, page.data() + kAlpHeaderSize,
+              sizeof(first_vector_offset));
+  return kAlpHeaderSize + first_vector_offset;
+}
+
 // A page written by a future ALP variant (e.g. ALP-RD) carries a compression_mode
 // this reader does not know. Nothing else in the decode path inspects this byte,
 // so without this check such a page decodes as kAlp and returns wrong values
@@ -1776,15 +1793,8 @@ TYPED_TEST(AlpCodecTest, RejectsOutOfRangeForBitWidth) {
   const std::vector<uint8_t> comp_buffer = EncodeSmallPage(&input);
   std::vector<TypeParam> output(input.size());
 
-  // AlpHeader is only forward-declared in alp_codec.h, so spell its size here.
-  // Layout: [header][vector offsets][AlpInfo | ForInfo | Data]..., where each
-  // offset is relative to the start of the body and bit_width is the last byte
-  // of ForInfo.
-  constexpr int64_t kHeaderSize = 7;
-  AlpConstants::OffsetType first_vector_offset = 0;
-  std::memcpy(&first_vector_offset, comp_buffer.data() + kHeaderSize,
-              sizeof(first_vector_offset));
-  const int64_t bit_width_pos = kHeaderSize + first_vector_offset +
+  // bit_width is the last byte of ForInfo.
+  const int64_t bit_width_pos = FirstVectorPos(comp_buffer) +
                                 AlpEncodedVectorInfo::kStoredSize +
                                 AlpEncodedForVectorInfo<TypeParam>::kStoredSize - 1;
   ASSERT_LT(bit_width_pos, static_cast<int64_t>(comp_buffer.size()));
@@ -1799,6 +1809,123 @@ TYPED_TEST(AlpCodecTest, RejectsOutOfRangeForBitWidth) {
                                    static_cast<int32_t>(input.size()), corrupted.data(),
                                    static_cast<int64_t>(corrupted.size()), output.data()),
                                "bit_width out of range");
+  }
+}
+
+// exponent and factor index the power-of-ten tables. Those tables guard their
+// own bounds with ARROW_DCHECK, which compiles away, so a release build reads
+// past the end of the table unless the metadata is checked as it is loaded.
+// Encodings.md gives exponent the range [0, 10] for FLOAT and [0, 18] for
+// DOUBLE.
+TYPED_TEST(AlpCodecTest, RejectsOutOfRangeExponent) {
+  std::vector<TypeParam> input;
+  const std::vector<uint8_t> comp_buffer = EncodeSmallPage(&input);
+  std::vector<TypeParam> output(input.size());
+
+  // exponent is the first byte of AlpInfo, factor the second.
+  const int64_t exponent_pos = FirstVectorPos(comp_buffer);
+  constexpr uint8_t kMaxExponent = AlpTypedConstants<TypeParam>::kMaxExponent;
+  for (const uint8_t bad : {static_cast<uint8_t>(kMaxExponent + 1), uint8_t{255}}) {
+    SCOPED_TRACE("exponent=" + std::to_string(bad));
+    std::vector<uint8_t> corrupted = comp_buffer;
+    corrupted[exponent_pos] = bad;
+    // Leave factor at 0 so the exponent is the only field out of range.
+    corrupted[exponent_pos + 1] = 0;
+    ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                   static_cast<int32_t>(input.size()), corrupted.data(),
+                                   static_cast<int64_t>(corrupted.size()), output.data()),
+                               "ALP exponent");
+  }
+}
+
+// Encodings.md gives factor the range [0, e]. A larger factor indexes the
+// power-of-ten table below its first entry, since the decode looks up
+// 10^(exponent - factor) as a negative power.
+TYPED_TEST(AlpCodecTest, RejectsFactorAboveExponent) {
+  std::vector<TypeParam> input;
+  const std::vector<uint8_t> comp_buffer = EncodeSmallPage(&input);
+  std::vector<TypeParam> output(input.size());
+
+  const int64_t exponent_pos = FirstVectorPos(comp_buffer);
+  const uint8_t exponent = comp_buffer[exponent_pos];
+  ASSERT_LE(exponent, AlpTypedConstants<TypeParam>::kMaxExponent);
+
+  std::vector<uint8_t> corrupted = comp_buffer;
+  corrupted[exponent_pos + 1] = static_cast<uint8_t>(exponent + 1);
+  ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                 static_cast<int32_t>(input.size()), corrupted.data(),
+                                 static_cast<int64_t>(corrupted.size()), output.data()),
+                             "ALP factor");
+}
+
+// num_exceptions sizes the patch loop, which writes into an output of
+// num_elements slots, so a count above the vector length is malformed.
+TYPED_TEST(AlpCodecTest, RejectsNumExceptionsAboveVectorLength) {
+  std::vector<TypeParam> input;
+  std::vector<uint8_t> corrupted = EncodeSmallPage(&input);
+  std::vector<TypeParam> output(input.size());
+
+  const int64_t num_exceptions_pos = FirstVectorPos(corrupted) + kNumExceptionsOffset;
+  const uint16_t bad = static_cast<uint16_t>(input.size() + 1);
+  std::memcpy(corrupted.data() + num_exceptions_pos, &bad, sizeof(bad));
+
+  // The claimed exceptions have to fit in the page, or the decoder rejects it
+  // as truncated before it ever compares the count against the vector length.
+  // The padding reads back as position 0, which is itself in range.
+  corrupted.resize(
+      corrupted.size() + bad * (sizeof(AlpConstants::PositionType) + sizeof(TypeParam)),
+      0);
+  ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                 static_cast<int32_t>(input.size()), corrupted.data(),
+                                 static_cast<int64_t>(corrupted.size()), output.data()),
+                             "exceptions but only");
+}
+
+// The patch step writes output[position], so a position at or past the end of
+// the vector is an out-of-bounds write into the caller's buffer.
+TYPED_TEST(AlpCodecTest, RejectsExceptionPositionPastVector) {
+  constexpr int32_t kNumElements = 64;
+  std::vector<TypeParam> input(kNumElements);
+  for (int32_t i = 0; i < kNumElements; ++i) {
+    input[i] = static_cast<TypeParam>(i);
+  }
+  // Whole numbers encode exactly and NaN never does, so this page carries
+  // exactly one exception and its position is the last index.
+  input.back() = std::numeric_limits<TypeParam>::quiet_NaN();
+
+  ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
+                       AlpCodec<TypeParam>::GetMaxCompressedSize(kNumElements));
+  std::vector<uint8_t> comp_buffer(max_comp_size);
+  int64_t comp_size = comp_buffer.size();
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), kNumElements, comp_buffer.data(),
+                                        &comp_size));
+  comp_buffer.resize(comp_size);
+
+  const int64_t vector_pos = FirstVectorPos(comp_buffer);
+  uint16_t num_exceptions = 0;
+  std::memcpy(&num_exceptions, comp_buffer.data() + vector_pos + kNumExceptionsOffset,
+              sizeof(num_exceptions));
+  ASSERT_EQ(num_exceptions, 1);
+
+  // Positions follow the packed values, whose length comes from bit_width, the
+  // last byte of ForInfo.
+  const int64_t for_info_pos = vector_pos + AlpEncodedVectorInfo::kStoredSize;
+  constexpr int64_t kForInfoSize = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
+  const uint8_t bit_width = comp_buffer[for_info_pos + kForInfoSize - 1];
+  const int64_t position_pos = for_info_pos + kForInfoSize +
+                               bit_util::BytesForBits(int64_t{kNumElements} * bit_width);
+  ASSERT_LE(position_pos + static_cast<int64_t>(sizeof(AlpConstants::PositionType)),
+            static_cast<int64_t>(comp_buffer.size()));
+
+  std::vector<TypeParam> output(kNumElements);
+  for (const uint16_t bad : {static_cast<uint16_t>(kNumElements), uint16_t{65535}}) {
+    SCOPED_TRACE("position=" + std::to_string(bad));
+    std::vector<uint8_t> corrupted = comp_buffer;
+    std::memcpy(corrupted.data() + position_pos, &bad, sizeof(bad));
+    ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                   kNumElements, corrupted.data(),
+                                   static_cast<int64_t>(corrupted.size()), output.data()),
+                               "exception position");
   }
 }
 
