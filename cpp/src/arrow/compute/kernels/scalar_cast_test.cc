@@ -3715,10 +3715,9 @@ TEST(Cast, ListViewToList) {
   auto null_val_src_values = ArrayFromJSON(int32(), "[10, 40000]");
   auto null_val_src_offsets = ArrayFromJSON(int32(), "[0, 1]");
   auto null_val_src_sizes = ArrayFromJSON(int32(), "[1, 1]");
-  ASSERT_OK_AND_ASSIGN(
-      auto null_val_src,
-      ListViewArray::FromArrays(*null_val_src_offsets, *null_val_src_sizes,
-                                *null_val_src_values));
+  ASSERT_OK_AND_ASSIGN(auto null_val_src, ListViewArray::FromArrays(
+                                              *null_val_src_offsets, *null_val_src_sizes,
+                                              *null_val_src_values));
   auto null_val_src_masked = MaskArrayWithNullsAt(null_val_src, {1});
   auto null_val_expected = ArrayFromJSON(list(int16()), "[[10], null]");
   CheckCast(null_val_src_masked, null_val_expected);

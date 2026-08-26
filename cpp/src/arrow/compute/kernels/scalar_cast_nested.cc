@@ -180,8 +180,8 @@ struct CastListView {
       auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
       dest_offsets[0] = 0;
       std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                            Cast(values->Slice(0, 0), child_type, options, ctx->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(values->Slice(0, 0), child_type,
+                                                    options, ctx->exec_context()));
       DCHECK(cast_values.is_array());
       out_array->child_data.push_back(cast_values.array());
       return Status::OK();
@@ -203,12 +203,14 @@ struct CastListView {
       auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
 
       src_offset_type start_offset = offsets[0];
-      src_offset_type end_offset = offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
+      src_offset_type end_offset =
+          offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
 
       if (is_downcast) {
         if (end_offset > std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("Array of type ", in_array.type->ToString(),
-                                 " too large to convert to ", out_array->type->ToString());
+                                 " too large to convert to ",
+                                 out_array->type->ToString());
         }
       }
 
@@ -239,7 +241,8 @@ struct CastListView {
       if (is_downcast) {
         if (current_offset > std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("Array of type ", in_array.type->ToString(),
-                                 " too large to convert to ", out_array->type->ToString());
+                                 " too large to convert to ",
+                                 out_array->type->ToString());
         }
       }
 
