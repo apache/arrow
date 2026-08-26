@@ -55,9 +55,10 @@ namespace {
 /// https://github.com/apache/parquet-format/blob/master/src/main/thrift/parquet.thrift
 ///
 /// Note: log_vector_size stores the base-2 logarithm of the vector size.
-/// The actual vector size is computed as: 1u << log_vector_size (i.e.,
-/// 2^log_vector_size). For example, log_vector_size=10 means vector_size=1024. This
-/// allows representing any power-of-2 vector size up to 2^255 in a single byte.
+/// The actual vector size is computed as: 1 << log_vector_size (i.e.,
+/// 2^log_vector_size). For example, log_vector_size=10 means vector_size=1024.
+/// LoadHeader rejects anything outside [kMinLogVectorSize, kMaxLogVectorSize],
+/// so the representable vector sizes are 2^3 (8) through 2^15 (32768).
 ///
 /// Header format (7 bytes):
 ///
@@ -77,7 +78,7 @@ namespace {
 ///   +-------------------------------------------------------------------+
 ///   |  [AlpHeader (7B)]                                                 |
 ///   |  [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]       ← Vector offsets     |
-///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]            ← Interleaved data   |
+///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]            ← Concatenated       |
 ///   +-------------------------------------------------------------------+
 ///   where each Vector = [AlpInfo | ForInfo | Data]
 ///
@@ -89,7 +90,7 @@ struct AlpHeader {
   uint8_t compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   /// Integer encoding method used (currently only kForBitPack is supported).
   uint8_t integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
-  /// Log base 2 of vector size. Actual vector size = 1u << log_vector_size.
+  /// Log base 2 of vector size. Actual vector size = 1 << log_vector_size.
   /// For example: 10 means 2^10 = 1024 elements per vector.
   uint8_t log_vector_size = 0;
   /// Total number of elements in the page (int32_t to match Parquet's i32 num_values).

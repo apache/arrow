@@ -61,7 +61,9 @@ class AlpSampler {
   /// \brief Add a single vector as a sample
   ///
   /// \param[in] input the input vector to add.
-  ///            Size should be <= AlpConstants::kAlpVectorSize.
+  ///            Size should be <= AlpConstants::kSamplerVectorSize, which is
+  ///            how AddSample() chunks its input. Only the first
+  ///            AlpConstants::kAlpVectorSize elements are ever examined.
   void AddSampleVector(std::span<const T> input);
 
   /// \brief Finalize sampling and generate the encoding preset
@@ -101,20 +103,21 @@ class AlpSampler {
   int64_t vectors_count_ = 0;
   /// Number of samples stored
   int64_t sample_stored_ = 0;
-  /// Samples collected from current rowgroup
+  /// Strided samples, one entry per sampled vector. Accumulates over the
+  /// sampler's whole lifetime; nothing clears it between rowgroups.
   std::vector<std::vector<T>> rowgroup_sample_;
 
-  /// Complete vectors sampled
+  /// The unstrided lookup window of each sampled vector
   std::vector<std::vector<T>> complete_vectors_sampled_;
-  /// Size of each sample vector
+  /// Elements per sample vector, i.e. the granularity AddSample() chunks at
   const int64_t sample_vector_size_;
-  /// Size of each rowgroup
+  /// Elements per rowgroup
   const int64_t rowgroup_size_;
   /// Number of samples to take per vector
   const int64_t samples_per_vector_;
-  /// Number of vectors to sample per rowgroup
+  /// Nominal number of vectors to sample per rowgroup
   const int64_t sample_vectors_per_rowgroup_;
-  /// Jump interval for rowgroup sampling
+  /// Interval between sampled vectors, counted in vectors
   const int64_t rowgroup_sample_jump_;
 };
 
