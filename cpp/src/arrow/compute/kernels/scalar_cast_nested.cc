@@ -206,7 +206,7 @@ struct CastListView {
       src_offset_type end_offset =
           offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
 
-      if (is_downcast) {
+      if constexpr (is_downcast) {
         if (end_offset > std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("Array of type ", in_array.type->ToString(),
                                  " too large to convert to ",
@@ -238,7 +238,7 @@ struct CastListView {
         }
       }
 
-      if (is_downcast) {
+      if constexpr (is_downcast) {
         if (current_offset > std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("Array of type ", in_array.type->ToString(),
                                  " too large to convert to ",
