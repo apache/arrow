@@ -1155,9 +1155,8 @@ function(build_boost)
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
-  get_directory_property(Boost_VERSION
-                         DIRECTORY "${boost_SOURCE_DIR}"
-                         DEFINITION Boost_VERSION)
+  get_directory_property(Boost_VERSION DIRECTORY "${boost_SOURCE_DIR}" DEFINITION
+                                                 Boost_VERSION)
 
   set(boost_include_dirs)
   foreach(library ${BOOST_INCLUDE_LIBRARIES})
