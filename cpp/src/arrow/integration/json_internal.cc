@@ -884,8 +884,7 @@ template <typename IntType = int>
 Result<IntType> GetMemberInt(const JsonObject& obj, std::string_view key) {
   ARROW_ASSIGN_OR_RAISE(
       auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
-  ARROW_ASSIGN_OR_RAISE(auto integer, internal::ResolveSimdjsonResult(
-                                          value.get_int64(), "field was not an integer"));
+  ARROW_ASSIGN_OR_RAISE(auto integer, internal::GetJsonInt(value, key, "an integer"));
   return static_cast<IntType>(integer);
 }
 
@@ -914,7 +913,7 @@ Result<JsonArray> GetMemberArray(const JsonObject& obj, std::string_view key) {
   ARROW_ASSIGN_OR_RAISE(
       auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
 
-  return internal::ResolveSimdjsonResult(value.get_array(), "field was not an array");
+  return internal::GetJsonArray(value, key);
 }
 
 Result<TimeUnit::type> GetMemberTimeUnit(const JsonObject& obj, std::string_view key) {
@@ -1048,16 +1047,16 @@ Result<std::shared_ptr<DataType>> GetDuration(const JsonObject& json_type) {
 Result<std::shared_ptr<DataType>> GetTimestamp(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
 
-  auto timezone_result = json_type["timezone"];
-  if (timezone_result.error() == simdjson::NO_SUCH_FIELD) {
+  ARROW_ASSIGN_OR_RAISE(auto timezone,
+                        internal::GetOptionalJsonField(json_type, "timezone"));
+
+  if (!timezone.has_value()) {
     return timestamp(unit);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto timezone, internal::ResolveSimdjsonResult(
-                                           timezone_result, "Failed to get JSON field"));
   ARROW_ASSIGN_OR_RAISE(
       auto timezone_string,
-      internal::ResolveSimdjsonResult(timezone.get_string(), "field was not a string"));
+      internal::ResolveSimdjsonResult(timezone->get_string(), "field was not a string"));
   return timestamp(unit, std::string(timezone_string));
 }
 
@@ -1087,16 +1086,18 @@ Result<std::shared_ptr<DataType>> GetUnion(const JsonObject& json_type,
     return Status::Invalid("Invalid union mode: ", mode_str);
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto json_type_codes, GetMemberArray(json_type, "typeIds"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto type_id_value,
+      internal::ResolveSimdjsonResult(json_type["typeIds"], "Failed to get JSON field"));
+
+  ARROW_ASSIGN_OR_RAISE(auto json_type_codes,
+                        internal::GetJsonIntArray(type_id_value, "typeIds"));
 
   std::vector<int8_t> type_codes;
   type_codes.reserve(json_type_codes.size());
 
-  for (const auto& value : json_type_codes) {
-    ARROW_ASSIGN_OR_RAISE(auto integer,
-                          internal::ResolveSimdjsonResult(
-                              value.get_int64(), "Union type codes must be integers"));
-    type_codes.push_back(static_cast<int8_t>(integer));
+  for (auto type_code : json_type_codes) {
+    type_codes.push_back(static_cast<int8_t>(type_code));
   }
 
   if (mode == UnionMode::SPARSE) {
@@ -1239,22 +1240,15 @@ Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
     const FieldOrStruct& field_or_struct) {
   auto metadata = std::make_shared<KeyValueMetadata>();
 
-  auto metadata_result = field_or_struct["metadata"];
-  if (metadata_result.error() == simdjson::NO_SUCH_FIELD) {
-    return metadata;
-  }
+  ARROW_ASSIGN_OR_RAISE(auto metadata_value,
+                        internal::GetOptionalJsonField(field_or_struct, "metadata"));
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto metadata_value,
-      internal::ResolveSimdjsonResult(metadata_result, "Failed to get metadata"));
-
-  if (metadata_value.is_null()) {
+  if (!metadata_value || metadata_value->is_null()) {
     return metadata;
   }
 
   ARROW_ASSIGN_OR_RAISE(auto metadata_array,
-                        internal::ResolveSimdjsonResult(metadata_value.get_array(),
-                                                        "Metadata was not a JSON array"));
+                        internal::GetJsonArray(*metadata_value, "metadata"));
 
   for (const auto& val : metadata_array) {
     ARROW_ASSIGN_OR_RAISE(
@@ -1295,23 +1289,19 @@ Result<std::shared_ptr<Field>> GetField(const JsonValue& obj, FieldPosition fiel
   std::shared_ptr<DataType> dict_value_type;
 
   if (dictionary_memo != nullptr) {
-    auto dictionary_result = json_field["dictionary"];
+    ARROW_ASSIGN_OR_RAISE(auto dictionary_value,
+                          internal::GetOptionalJsonField(json_field, "dictionary"));
 
-    if (dictionary_result.error() != simdjson::NO_SUCH_FIELD) {
-      ARROW_ASSIGN_OR_RAISE(auto dictionary_value,
-                            internal::ResolveSimdjsonResult(
-                                dictionary_result, "Failed to get dictionary field"));
-
+    if (dictionary_value) {
       ARROW_ASSIGN_OR_RAISE(
           auto dictionary_object,
-          internal::ResolveSimdjsonResult(dictionary_value.get_object(),
+          internal::ResolveSimdjsonResult(dictionary_value->get_object(),
                                           "dictionary was not a JSON object"));
 
       bool is_ordered{};
       std::shared_ptr<DataType> index_type;
       RETURN_NOT_OK(
           ParseDictionary(dictionary_object, &dictionary_id, &is_ordered, &index_type));
-
       dict_value_type = type;
       type = ::arrow::dictionary(index_type, type, is_ordered);
     }
@@ -1358,8 +1348,7 @@ template <typename T, typename CType = typename T::c_type>
 enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t),
             Result<CType>>
 UnboxValue(const JsonValue& val) {
-  ARROW_ASSIGN_OR_RAISE(auto integer, internal::ResolveSimdjsonResult(
-                                          val.get_int64(), "Expected integer value"));
+  ARROW_ASSIGN_OR_RAISE(auto integer, internal::GetJsonInt(val, "value", "an integer"));
   return static_cast<CType>(integer);
 }
 
@@ -1741,9 +1730,8 @@ class ArrayReader {
 
     for (auto [i, val] : Zip(Enumerate<size_t>, json_array)) {
       if constexpr (sizeof(T) < sizeof(int64_t)) {
-        ARROW_ASSIGN_OR_RAISE(
-            auto integer,
-            internal::ResolveSimdjsonResult(val.get_int64(), "Expected integer value"));
+        ARROW_ASSIGN_OR_RAISE(auto integer,
+                              internal::GetJsonInt(val, "value", "an integer"));
         values[i] = static_cast<T>(integer);
       } else {
         // Read 64-bit integers as strings, as JSON numbers cannot represent
@@ -1911,9 +1899,10 @@ class ArrayReader {
   }
 
   Status GetChildren(const JsonObject& obj, const DataType& type) {
-    auto children_result = obj["children"];
+    ARROW_ASSIGN_OR_RAISE(auto children_value,
+                          internal::GetOptionalJsonField(obj, "children"));
 
-    if (children_result.error() == simdjson::NO_SUCH_FIELD) {
+    if (!children_value) {
       if (type.num_fields() == 0) {
         data_->child_data.clear();
         return Status::OK();
@@ -1921,13 +1910,8 @@ class ArrayReader {
       return Status::Invalid("Expected ", type.num_fields(), " children, but got 0");
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto children_value,
-        internal::ResolveSimdjsonResult(children_result, "Failed to get JSON field"));
-
     ARROW_ASSIGN_OR_RAISE(const auto json_children,
-                          internal::ResolveSimdjsonResult(children_value.get_array(),
-                                                          "field was not an array"));
+                          internal::GetJsonArray(*children_value, "children"));
 
     if (type.num_fields() != static_cast<int>(json_children.size())) {
       return Status::Invalid("Expected ", type.num_fields(), " children, but got ",
@@ -1960,8 +1944,7 @@ class ArrayReader {
     is_valid_.reserve(json_validity.size());
     for (const auto& value : json_validity) {
       ARROW_ASSIGN_OR_RAISE(auto integer,
-                            internal::ResolveSimdjsonResult(
-                                value.get_int64(), "VALIDITY value was not an integer"));
+                            internal::GetJsonInt(value, "VALIDITY value", "an integer"));
       is_valid_.push_back(integer != 0);
     }
     return Status::OK();
@@ -2037,17 +2020,14 @@ Status ReadDictionaries(const JsonValue& doc, MemoryPool* pool,
       auto obj, internal::ResolveSimdjsonResult(doc.get_object(),
                                                 "JSON document was not an object"));
 
-  auto dictionaries_result = obj["dictionaries"];
-  if (dictionaries_result.error() == simdjson::NO_SUCH_FIELD) {
+  ARROW_ASSIGN_OR_RAISE(auto dictionaries_value,
+                        internal::GetOptionalJsonField(obj, "dictionaries"));
+
+  if (!dictionaries_value) {
     return Status::OK();
   }
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto dictionaries_value,
-      internal::ResolveSimdjsonResult(dictionaries_result, "Failed to get dictionaries"));
-  ARROW_ASSIGN_OR_RAISE(auto dictionary_array, internal::ResolveSimdjsonResult(
-                                                   dictionaries_value.get_array(),
-                                                   "dictionaries was not a JSON array"));
+  ARROW_ASSIGN_OR_RAISE(auto dictionary_array,
+                        internal::GetJsonArray(*dictionaries_value, "dictionaries"));
 
   for (const auto& value : dictionary_array) {
     ARROW_ASSIGN_OR_RAISE(auto dictionary_object,
