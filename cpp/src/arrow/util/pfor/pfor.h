@@ -84,7 +84,7 @@ class PforVectorInfo {
   void Store(std::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, frame_of_reference_);
-    // bits 0..5 = bit width; bits 6..7 reserved (0).
+    // bits 0..6 = bit width; bit 7 reserved (0).
     ptr[sizeof(T)] = static_cast<uint8_t>(bit_width_ & kBitWidthMask);
     util::SafeStore(ptr + sizeof(T) + 1, num_exceptions_);
   }
@@ -98,7 +98,7 @@ class PforVectorInfo {
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
     info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
-    // Mask off the reserved high bits (6..7).
+    // Mask off the reserved high bit (7).
     info.bit_width_ = static_cast<uint8_t>(ptr[sizeof(T)] & kBitWidthMask);
     info.num_exceptions_ = util::SafeLoadAs<uint16_t>(ptr + sizeof(T) + 1);
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
