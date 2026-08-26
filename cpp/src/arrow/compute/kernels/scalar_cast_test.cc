@@ -3710,6 +3710,18 @@ TEST(Cast, ListViewToList) {
   auto sliced_overlapping_src = overlapping_src->Slice(1, 1);
   auto sliced_overlapping_expected = ArrayFromJSON(list(int16()), "[[20, 999]]");
   CheckCast(sliced_overlapping_src, sliced_overlapping_expected);
+
+  // 8. ListView with Nulls containing overflow values in null slots
+  auto null_val_src_values = ArrayFromJSON(int32(), "[10, 40000]");
+  auto null_val_src_offsets = ArrayFromJSON(int32(), "[0, 1]");
+  auto null_val_src_sizes = ArrayFromJSON(int32(), "[1, 1]");
+  ASSERT_OK_AND_ASSIGN(
+      auto null_val_src,
+      ListViewArray::FromArrays(*null_val_src_offsets, *null_val_src_sizes,
+                                *null_val_src_values));
+  auto null_val_src_masked = MaskArrayWithNullsAt(null_val_src, {1});
+  auto null_val_expected = ArrayFromJSON(list(int16()), "[[10], null]");
+  CheckCast(null_val_src_masked, null_val_expected);
 }
 
 static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_types,

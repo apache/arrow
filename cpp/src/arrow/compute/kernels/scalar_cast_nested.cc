@@ -150,13 +150,19 @@ struct CastListView {
   static constexpr bool is_downcast = sizeof(src_offset_type) > sizeof(dest_offset_type);
 
   static bool IsContiguous(const ArraySpan& in_array) {
-    if (in_array.length == 0) return true;
     const auto* offsets = in_array.GetValues<src_offset_type>(1);
     const auto* sizes = in_array.GetValues<src_offset_type>(2);
     for (int64_t i = 0; i < in_array.length - 1; ++i) {
+      if (in_array.IsNull(i) && sizes[i] != 0) {
+        return false;
+      }
       if (offsets[i] + sizes[i] != offsets[i + 1]) {
         return false;
       }
+    }
+    if (in_array.length > 0 && in_array.IsNull(in_array.length - 1) &&
+        sizes[in_array.length - 1] != 0) {
+      return false;
     }
     return true;
   }
@@ -166,6 +172,20 @@ struct CastListView {
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
     const ArraySpan& in_array = batch[0].array;
     ArrayData* out_array = out->array_data().get();
+
+    if (in_array.length == 0) {
+      out_array->buffers[0] = nullptr;
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
+                            ctx->Allocate(sizeof(dest_offset_type)));
+      auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
+      dest_offsets[0] = 0;
+      std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                            Cast(values->Slice(0, 0), child_type, options, ctx->exec_context()));
+      DCHECK(cast_values.is_array());
+      out_array->child_data.push_back(cast_values.array());
+      return Status::OK();
+    }
 
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
                           GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
@@ -182,34 +202,24 @@ struct CastListView {
           ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
       auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
 
-      src_offset_type start_offset = in_array.length > 0 ? offsets[0] : 0;
-      src_offset_type end_offset = 0;
-      if (in_array.length > 0) {
-        end_offset = offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
-      }
+      src_offset_type start_offset = offsets[0];
+      src_offset_type end_offset = offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
 
-      if (is_downcast && in_array.length > 0) {
+      if (is_downcast) {
         if (end_offset > std::numeric_limits<dest_offset_type>::max()) {
-          return Status::Invalid("ListView too large to convert to List");
+          return Status::Invalid("Array of type ", in_array.type->ToString(),
+                                 " too large to convert to ", out_array->type->ToString());
         }
       }
 
       for (int64_t i = 0; i < in_array.length; ++i) {
         dest_offsets[i] = static_cast<dest_offset_type>(offsets[i] - start_offset);
       }
-      if (in_array.length > 0) {
-        dest_offsets[in_array.length] = static_cast<dest_offset_type>(end_offset);
-      } else {
-        dest_offsets[0] = 0;
-      }
+      dest_offsets[in_array.length] = static_cast<dest_offset_type>(end_offset);
 
-      if (in_array.length > 0) {
-        values = values->Slice(start_offset, dest_offsets[in_array.length]);
-      } else {
-        values = values->Slice(0, 0);
-      }
+      values = values->Slice(start_offset, dest_offsets[in_array.length]);
     } else {
-      // Non-contiguous path: compute new offsets, build take indices, call Take
+      // Non-contiguous path: compute new offsets, flatten/concatenate values
       ARROW_ASSIGN_OR_RAISE(
           out_array->buffers[1],
           ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
@@ -228,31 +238,17 @@ struct CastListView {
 
       if (is_downcast) {
         if (current_offset > std::numeric_limits<dest_offset_type>::max()) {
-          return Status::Invalid("ListView too large to convert to List");
+          return Status::Invalid("Array of type ", in_array.type->ToString(),
+                                 " too large to convert to ", out_array->type->ToString());
         }
       }
 
-      Int64Builder builder(ctx->memory_pool());
-      RETURN_NOT_OK(builder.Reserve(current_offset));
-      for (int64_t i = 0; i < in_array.length; ++i) {
-        if (!in_array.IsNull(i)) {
-          src_offset_type start = offsets[i];
-          src_offset_type size = sizes[i];
-          for (src_offset_type j = 0; j < size; ++j) {
-            builder.UnsafeAppend(start + j);
-          }
-        }
-      }
-
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> take_indices, builder.Finish());
-
-      // Call take function
-      ExecContext* exec_ctx = ctx->exec_context();
-      ARROW_ASSIGN_OR_RAISE(
-          Datum taken_values,
-          CallFunction("take", {MakeArray(values), take_indices}, exec_ctx));
-      DCHECK(taken_values.is_array());
-      values = taken_values.array();
+      // Use TypeTraits<SrcType>::ArrayType::Flatten to get values
+      using ArrayType = typename TypeTraits<SrcType>::ArrayType;
+      auto input_array = MakeArray(in_array.ToArrayData());
+      const auto& list_view_array = checked_cast<const ArrayType&>(*input_array);
+      ARROW_ASSIGN_OR_RAISE(auto flattened, list_view_array.Flatten(ctx->memory_pool()));
+      values = flattened->data();
     }
 
     // Cast values
