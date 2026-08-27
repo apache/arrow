@@ -84,12 +84,12 @@ constexpr bool has_null_like_values() {
 
 template <typename Type, typename Value>
 int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
-                      NullPlacement null_placement) {
+                      NullPlacement null_placement, int on_equality_result = 0) {
   if constexpr (has_null_like_values<Type>()) {
     const bool is_nan_left = std::isnan(left);
     const bool is_nan_right = std::isnan(right);
     if (is_nan_left && is_nan_right) {
-      return 0;
+      return on_equality_result;
     } else if (is_nan_left) {
       return null_placement == NullPlacement::AtStart ? -1 : 1;
     } else if (is_nan_right) {
@@ -98,7 +98,7 @@ int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
   }
   int compared;
   if (left == right) {
-    compared = 0;
+    compared = on_equality_result;
   } else if (left > right) {
     compared = 1;
   } else {
