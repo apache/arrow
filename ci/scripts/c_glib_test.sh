@@ -42,7 +42,7 @@ if [ -n "${RUNNER_DEBUG}" ]; then
 fi
 #ruby test/run-test.rb "${run_test_args[@]}"
 pushd "${build_dir}"
-DEBUGGER="lldb" ../c_glib/test/run-test.sh -t TestFlightSQLClient
+DEBUGGER="lldb" ${source_dir}/test/run-test.sh -t TestFlightSQLClient
 popd
 
 if [[ "$(uname -s)" == "Linux" ]]; then
