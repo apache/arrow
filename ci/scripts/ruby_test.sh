@@ -32,4 +32,14 @@ if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
   export ARROW_DEBUG_MEMORY_POOL=trap
 fi
 
-rake -f "${source_dir}/Rakefile" BUILD_DIR="${build_dir}" USE_BUNDLER=yes
+cd $build_dir
+echo "*******************************************************"
+echo "* HERE HERE HERE HERE HERE HERE"
+echo "* HERE HERE HERE HERE HERE HERE"
+echo "* HERE HERE HERE HERE HERE HERE"
+echo "*******************************************************"
+
+
+DEBUGGER="lldb" ../c_glib/test/run-test.sh -t TestFlightSQLClient
+
+#rake -f "${source_dir}/Rakefile" BUILD_DIR="${build_dir}" USE_BUNDLER=yes

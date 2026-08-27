@@ -71,6 +71,7 @@ case "${DEBUGGER}" in
     ;;
   "lldb")
     DEBUGGER_ARGS+=(--one-line "env DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}")
+    DEBUGGER_ARGS+=(--batch -o run -o bt)
     DEBUGGER_ARGS+=(--)
     ;;
 esac
