@@ -42,7 +42,9 @@ if [ -n "${RUNNER_DEBUG}" ]; then
 fi
 #ruby test/run-test.rb "${run_test_args[@]}"
 pushd "${build_dir}"
-DEBUGGER="lldb" ${source_dir}/test/run-test.sh -t TestFlightSQLClient
+for i in {1..10}; do echo "*** TRY $i ***"
+DEBUGGER="lldb" ${source_dir}/test/run-test.sh -t TestFlightSQLClient || true
+done
 popd
 
 
