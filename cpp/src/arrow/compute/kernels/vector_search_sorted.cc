@@ -193,6 +193,7 @@ const FunctionDoc search_sorted_doc(
   VISIT(UInt16Type)                               \
   VISIT(UInt32Type)                               \
   VISIT(UInt64Type)                               \
+  VISIT(HalfFloatType)                            \
   VISIT(FloatType)                                \
   VISIT(DoubleType)                               \
   VISIT(BinaryType)                               \
@@ -584,21 +585,15 @@ class ChunkedRunEndEncodedValuesAccessor : public ChunkedRunEndEncodedValuesAcce
   std::vector<RunEndEncodedValuesAccessor<ArrowType>> accessors_;
 };
 
-template <typename T>
-bool IsNan(T value) {
-  static_assert(std::is_floating_point_v<T>);
-  return std::isnan(value);
-}
-
 inline bool IsNanPrimitive(const Array& array, int64_t index) {
   switch (array.type_id()) {
-    // TODO write a IsNan primitive that takes float/double/Float16?
     case Type::FLOAT:
       return std::isnan(checked_cast<const FloatArray&>(array).Value(index));
     case Type::DOUBLE:
       return std::isnan(checked_cast<const DoubleArray&>(array).Value(index));
     case Type::HALF_FLOAT:
-      return Float16(checked_cast<const HalfFloatArray&>(array).Value(index)).is_nan();
+      return Float16::FromBits(checked_cast<const HalfFloatArray&>(array).Value(index))
+          .is_nan();
     default:
       return false;
   }
