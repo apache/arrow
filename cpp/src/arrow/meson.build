@@ -18,7 +18,7 @@
 dl_dep = dependency('dl')
 threads_dep = dependency('threads')
 
-if needs_json or needs_integration or needs_parquet
+if needs_simdjson
     simdjson_dep = dependency('simdjson', allow_fallback: false, required: false)
 
     if not simdjson_dep.found()
@@ -240,7 +240,7 @@ arrow_util_srcs = [
 
 arrow_util_deps = [threads_dep]
 
-if needs_json or needs_integration or needs_parquet
+if needs_simdjson
     arrow_util_srcs += [
         'util/json_writer_internal.cc',
         'util/simdjson_internal.cc',
