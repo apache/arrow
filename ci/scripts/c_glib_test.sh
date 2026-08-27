@@ -41,7 +41,9 @@ if [ -n "${RUNNER_DEBUG}" ]; then
   run_test_args+=(-v)
 fi
 #ruby test/run-test.rb "${run_test_args[@]}"
-DEBUGGER="lldb" run-test.sh -t TestFlightSQLClient
+pushd ${build_dir}
+DEBUGGER="lldb" ../c_glib/test/run-test.sh -t TestFlightSQLClient
+popd
 
 if [[ "$(uname -s)" == "Linux" ]]; then
   # TODO(kszucs): on osx it fails to load 'lgi.corelgilua51' despite that lgi
