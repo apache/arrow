@@ -2384,36 +2384,58 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
 template <typename DType>
 class PforDecoder : public TypedDecoderImpl<DType> {
  public:
+  using Base = TypedDecoderImpl<DType>;
   using T = typename DType::c_type;
 
   explicit PforDecoder(const ColumnDescriptor* descr,
                        MemoryPool* pool = ::arrow::default_memory_pool())
-      : TypedDecoderImpl<DType>(descr, Encoding::PFOR), pool_(pool) {}
+      : Base(descr, Encoding::PFOR),
+        pool_(pool),
+        decoded_values_(AllocateBuffer(pool, 0)) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
-    this->num_values_ = num_values;
-    data_ = data;
-    data_len_ = len;
-    values_decoded_ = 0;
+    Base::SetData(num_values, data, len);
+    if (num_values > 0 && len <= 0) {
+      throw ParquetException("PFOR SetData: num_values=" + std::to_string(num_values) +
+                             " but len=" + std::to_string(len));
+    }
     // A decoder is cached per encoding and reused across the data pages of a
-    // column chunk, and a non-empty `decoded_values_` is what marks the page as
-    // already decoded, so it has to be dropped along with the page it came from.
-    decoded_values_.clear();
+    // column chunk, so every piece of state describing the previous page has to
+    // be dropped along with the page itself.
+    needs_decode_ = num_values > 0;
+    values_decoded_ = 0;
   }
 
   int Decode(T* buffer, int max_values) override {
-    int values_to_decode = std::min(max_values, this->num_values_);
+    const int values_to_decode = std::min(max_values, this->num_values_);
     if (values_to_decode == 0) return 0;
 
-    // Decode all values on first call, cache for subsequent calls
-    if (decoded_values_.empty() && this->num_values_ > 0) {
-      decoded_values_.resize(this->num_values_);
+    // The caller asked for the whole remaining page, so decode straight into
+    // its buffer -- no page-sized scratch and no copy. This is the path a full
+    // column read takes.
+    if (needs_decode_ && max_values >= this->num_values_) {
       PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
-          data_, data_len_, this->num_values_, decoded_values_.data()));
+          this->data_, this->len_, this->num_values_, buffer));
+      needs_decode_ = false;
+      this->num_values_ = 0;
+      return values_to_decode;
     }
 
-    std::memcpy(buffer, decoded_values_.data() + values_decoded_,
-                values_to_decode * sizeof(T));
+    // Partial read. PforWrapper::Decode always starts at the top of the page
+    // and keeps no resumption state, so decode the page once into the scratch
+    // buffer and serve this call and the later ones out of that.
+    if (needs_decode_) {
+      PARQUET_THROW_NOT_OK(
+          decoded_values_->Resize(static_cast<int64_t>(this->num_values_) * sizeof(T),
+                                  /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
+          this->data_, this->len_, this->num_values_,
+          decoded_values_->mutable_data_as<T>()));
+      needs_decode_ = false;
+    }
+
+    std::memcpy(buffer, decoded_values_->data_as<T>() + values_decoded_,
+                static_cast<size_t>(values_to_decode) * sizeof(T));
     values_decoded_ += values_to_decode;
     this->num_values_ -= values_to_decode;
     return values_to_decode;
@@ -2466,10 +2488,11 @@ class PforDecoder : public TypedDecoderImpl<DType> {
 
  private:
   MemoryPool* pool_;
-  const uint8_t* data_ = nullptr;
-  int data_len_ = 0;
+  // Whole-page scratch, used only by partial reads. Pool-backed so the
+  // allocation is accounted for like the other decoders' scratch space.
+  std::shared_ptr<ResizableBuffer> decoded_values_;
+  bool needs_decode_ = false;
   int values_decoded_ = 0;
-  std::vector<T> decoded_values_;
 };
 
 }  // namespace
