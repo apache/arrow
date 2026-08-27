@@ -106,6 +106,22 @@ int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
   return count;
 }
 
+int64_t CountAndNotSetBits(const uint8_t* left_bitmap, int64_t left_offset,
+                           const uint8_t* right_bitmap, int64_t right_offset,
+                           int64_t length) {
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t count = 0;
+  while (true) {
+    BitBlockCount block = bit_counter.NextAndNotWord();
+    if (block.length == 0) {
+      break;
+    }
+    count += block.popcount;
+  }
+  return count;
+}
+
 namespace {
 
 // Reverse all bits from entire byte(uint8)
