@@ -138,7 +138,8 @@ void CheckChunkedSearchSortedAndConcatenated(const std::shared_ptr<ChunkedArray>
                     expected_left_json, expected_right_json);
 }
 
-const std::vector<std::shared_ptr<DataType>> kSupportedFloatTypes{float32(), float64()};
+const std::vector<std::shared_ptr<DataType>> kSupportedFloatTypes{float16(), float32(),
+                                                                  float64()};
 
 struct SearchSortedSmokeCase {
   std::string name;
@@ -217,6 +218,8 @@ std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
           "[0, 1, 5]",
           "[0, 3, 5]",
       },
+      {"Float16", float16(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]", "[0, 1, 5]",
+       "[0, 3, 5]"},
       {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]", "[0, 1, 5]",
        "[0, 3, 5]"},
       {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]", "[0, 1, 5]",
