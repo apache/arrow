@@ -19,7 +19,7 @@
 //
 // Implementation notes:
 //   - Vector size: 1024
-//   - Max exceptions: uint16
+//   - Max exceptions: PforConstants::ExceptionCountType
 //   - Exception values: original integers (not FOR offsets)
 //   - Bit packing: Arrow's BitWriter/unpack
 
@@ -52,7 +52,8 @@ template <typename T>
 BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
                                                        int32_t num_elements) {
   constexpr uint8_t max_bits = PforTypeTraits<T>::kMaxBitWidth;
-  constexpr int32_t position_bits = 16;
+  constexpr int32_t position_bits =
+      static_cast<int32_t>(sizeof(PforConstants::PositionType)) * 8;
   constexpr int32_t value_bits = sizeof(T) * 8;
 
   // Build histogram: histogram[b] = count of deltas requiring exactly b bits.
@@ -74,7 +75,7 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   // Evaluate each candidate bit width
   int64_t best_cost = std::numeric_limits<int64_t>::max();
   uint8_t best_bit_width = max_bits;
-  uint16_t best_num_exceptions = 0;
+  PforConstants::ExceptionCountType best_num_exceptions = 0;
 
   int64_t exceptions_above = num_elements;
 
@@ -96,7 +97,8 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
     if (total_cost < best_cost) {
       best_cost = total_cost;
       best_bit_width = b;
-      best_num_exceptions = static_cast<uint16_t>(exceptions_above);
+      best_num_exceptions =
+          static_cast<PforConstants::ExceptionCountType>(exceptions_above);
     }
   }
 
@@ -178,8 +180,8 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 // DecodeVector
 
 template <typename T>
-Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint8_t> data,
-                                                 int32_t num_elements) {
+Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
+                                                 int32_t num_elements, T* values) {
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
@@ -249,7 +251,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
   }
 
   // Step 4: Patch exceptions (stored as original values at their positions).
-  const uint16_t num_exceptions = info.num_exceptions();
+  const PforConstants::ExceptionCountType num_exceptions = info.num_exceptions();
   if (num_exceptions > 0) {
     const uint8_t* positions_ptr = read_ptr;
     read_ptr += num_exceptions * sizeof(PforConstants::PositionType);
@@ -261,7 +263,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
     // write. Take the maximum first: a reduction still vectorizes, where a
     // bounds check with an early return inside the patch loop would not.
     PforConstants::PositionType max_position = 0;
-    for (uint16_t i = 0; i < num_exceptions; ++i) {
+    for (PforConstants::ExceptionCountType i = 0; i < num_exceptions; ++i) {
       max_position = std::max(
           max_position, util::SafeLoadAs<PforConstants::PositionType>(
                             positions_ptr + i * sizeof(PforConstants::PositionType)));
@@ -271,9 +273,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
                              " is outside a vector of ", num_elements, " elements");
     }
 
-#pragma GCC unroll PforConstants::kLoopUnrolls
-#pragma GCC ivdep
-    for (uint16_t i = 0; i < num_exceptions; ++i) {
+    for (PforConstants::ExceptionCountType i = 0; i < num_exceptions; ++i) {
       PforConstants::PositionType pos = util::SafeLoadAs<PforConstants::PositionType>(
           positions_ptr + i * sizeof(PforConstants::PositionType));
       T value = util::SafeLoadAs<T>(values_ptr + i * sizeof(T));
@@ -283,77 +283,6 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
 
   return static_cast<int64_t>(read_ptr - data.data());
 }
-
-// ----------------------------------------------------------------------
-// Serialization helpers
-
-// ----------------------------------------------------------------------
-// PforEncodedVectorView::LoadView
-
-template <typename T>
-Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
-    std::span<const uint8_t> data, int32_t num_elements) {
-  ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
-
-  // The sections below are sized by fields that came off the wire, and both the
-  // view's spans and the patch step that later consumes them are bounded by
-  // num_elements, so check the counts against it first.
-  if (info.num_exceptions() > num_elements) {
-    return Status::Invalid("PFOR vector has ", info.num_exceptions(),
-                           " exceptions but only ", num_elements, " elements");
-  }
-  const int64_t packed_bytes =
-      bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
-  const int64_t exception_bytes =
-      info.num_exceptions() *
-      (static_cast<int64_t>(sizeof(PforConstants::PositionType)) + sizeof(T));
-  if (PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes >
-      static_cast<int64_t>(data.size())) {
-    return Status::Invalid(
-        "PFOR vector needs ",
-        PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes,
-        " bytes but only ", data.size(), " remain");
-  }
-
-  PforEncodedVectorView<T> view;
-  view.set_info(info);
-  view.set_num_elements(num_elements);
-
-  const uint8_t* ptr = data.data() + PforVectorInfo<T>::kStoredSize;
-
-  // packed_values: zero-copy span into the buffer
-  if (info.bit_width() > 0) {
-    view.set_packed_values(std::span<const uint8_t>(ptr, packed_bytes));
-    ptr += packed_bytes;
-  }
-
-  // Exception positions and values: copy into aligned storage
-  if (info.num_exceptions() > 0) {
-    view.mutable_exception_positions().resize(info.num_exceptions());
-    std::memcpy(view.mutable_exception_positions().data(), ptr,
-                info.num_exceptions() * sizeof(PforConstants::PositionType));
-    ptr += info.num_exceptions() * sizeof(PforConstants::PositionType);
-
-    view.mutable_exception_values().resize(info.num_exceptions());
-    std::memcpy(view.mutable_exception_values().data(), ptr,
-                info.num_exceptions() * sizeof(T));
-
-    // Whoever patches with this view writes values[position], so reject a
-    // position outside the vector here rather than leaving it to the caller.
-    const auto& positions = view.exception_positions();
-    const PforConstants::PositionType max_position =
-        *std::max_element(positions.begin(), positions.end());
-    if (max_position >= num_elements) {
-      return Status::Invalid("PFOR exception position ", max_position,
-                             " is outside a vector of ", num_elements, " elements");
-    }
-  }
-
-  return view;
-}
-
-template class PforEncodedVectorView<int32_t>;
-template class PforEncodedVectorView<int64_t>;
 
 // ----------------------------------------------------------------------
 // Serialization helpers
@@ -382,6 +311,27 @@ Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& 
                            dest.size(), " remain");
   }
 
+  // `needed` is computed from bit_width and num_exceptions, while the memcpys
+  // below take their lengths from the sections themselves, so a vector whose
+  // info disagrees with its sections would write past `needed` bytes.
+  const int64_t expected_packed_bytes =
+      vec.info().bit_width() > 0
+          ? bit_util::BytesForBits(static_cast<int64_t>(num_elements) *
+                                   vec.info().bit_width())
+          : 0;
+  if (static_cast<int64_t>(vec.packed_values().size()) != expected_packed_bytes) {
+    return Status::Invalid("PFOR vector has ", vec.packed_values().size(),
+                           " packed bytes but bit_width ",
+                           static_cast<int>(vec.info().bit_width()), " over ",
+                           num_elements, " elements needs ", expected_packed_bytes);
+  }
+  if (vec.exception_positions().size() != vec.info().num_exceptions() ||
+      vec.exception_values().size() != vec.info().num_exceptions()) {
+    return Status::Invalid("PFOR vector claims ", vec.info().num_exceptions(),
+                           " exceptions but carries ", vec.exception_positions().size(),
+                           " positions and ", vec.exception_values().size(), " values");
+  }
+
   uint8_t* write_ptr = dest.data();
 
   // Write vector info
@@ -389,7 +339,7 @@ Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& 
   write_ptr += PforVectorInfo<T>::kStoredSize;
 
   // Write packed values
-  if (vec.info().bit_width() > 0 && !vec.packed_values().empty()) {
+  if (vec.info().bit_width() > 0) {
     std::memcpy(write_ptr, vec.packed_values().data(), vec.packed_values().size());
     write_ptr += vec.packed_values().size();
   }

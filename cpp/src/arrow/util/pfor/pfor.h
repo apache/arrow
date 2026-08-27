@@ -49,6 +49,7 @@ namespace pfor {
 ///
 /// num_exceptions is unsigned: a vector holds up to kMaxVectorSize elements,
 /// so the count has to reach 32768, which a signed 16-bit field cannot hold.
+/// Its wire type is PforConstants::ExceptionCountType.
 ///
 /// The bit_width byte stores the actual bit width in bits 0..6; bit 7 is
 /// reserved (always written as 0 and ignored on load), leaving room for a
@@ -65,20 +66,23 @@ class PforVectorInfo {
   static constexpr uint8_t kBitWidthMask = 0x7F;
 
   PforVectorInfo() = default;
-  PforVectorInfo(T frame_of_reference, uint8_t bit_width, uint16_t num_exceptions)
+  PforVectorInfo(T frame_of_reference, uint8_t bit_width,
+                 PforConstants::ExceptionCountType num_exceptions)
       : frame_of_reference_(frame_of_reference),
         bit_width_(bit_width),
         num_exceptions_(num_exceptions) {}
 
   T frame_of_reference() const { return frame_of_reference_; }
   uint8_t bit_width() const { return bit_width_; }
-  uint16_t num_exceptions() const { return num_exceptions_; }
+  PforConstants::ExceptionCountType num_exceptions() const { return num_exceptions_; }
 
   void set_frame_of_reference(T frame_of_reference) {
     frame_of_reference_ = frame_of_reference;
   }
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
-  void set_num_exceptions(uint16_t num_exceptions) { num_exceptions_ = num_exceptions; }
+  void set_num_exceptions(PforConstants::ExceptionCountType num_exceptions) {
+    num_exceptions_ = num_exceptions;
+  }
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(std::span<uint8_t> dest) const {
@@ -100,7 +104,8 @@ class PforVectorInfo {
     info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
     // Mask off the reserved high bit (7).
     info.bit_width_ = static_cast<uint8_t>(ptr[sizeof(T)] & kBitWidthMask);
-    info.num_exceptions_ = util::SafeLoadAs<uint16_t>(ptr + sizeof(T) + 1);
+    info.num_exceptions_ =
+        util::SafeLoadAs<PforConstants::ExceptionCountType>(ptr + sizeof(T) + 1);
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
       return Status::Invalid("PFOR bit_width out of range: ",
                              static_cast<int>(info.bit_width_));
@@ -118,7 +123,11 @@ class PforVectorInfo {
  private:
   T frame_of_reference_ = 0;
   uint8_t bit_width_ = 0;
-  uint16_t num_exceptions_ = 0;
+  PforConstants::ExceptionCountType num_exceptions_ = 0;
+
+  static_assert(kStoredSize == sizeof(frame_of_reference_) + sizeof(bit_width_) +
+                                   sizeof(num_exceptions_),
+                "kStoredSize must match the fields Store writes and Load reads");
 };
 
 // ----------------------------------------------------------------------
@@ -160,64 +169,12 @@ class PforEncodedVector {
 };
 
 // ----------------------------------------------------------------------
-// Zero-copy encoded vector view
-
-/// \brief A zero-copy view over a serialized PFOR vector
-///
-/// The packed_values span points directly into the compressed buffer.
-/// Exception positions and values are copied into aligned storage.
-template <typename T>
-class PforEncodedVectorView {
- public:
-  PforEncodedVectorView() = default;
-
-  const PforVectorInfo<T>& info() const { return info_; }
-  PforVectorInfo<T>& mutable_info() { return info_; }
-  void set_info(const PforVectorInfo<T>& info) { info_ = info; }
-
-  int32_t num_elements() const { return num_elements_; }
-  void set_num_elements(int32_t n) { num_elements_ = n; }
-
-  std::span<const uint8_t> packed_values() const { return packed_values_; }
-  void set_packed_values(std::span<const uint8_t> v) { packed_values_ = v; }
-
-  const std::vector<PforConstants::PositionType>& exception_positions() const {
-    return exception_positions_;
-  }
-  std::vector<PforConstants::PositionType>& mutable_exception_positions() {
-    return exception_positions_;
-  }
-  void set_exception_positions(std::vector<PforConstants::PositionType> v) {
-    exception_positions_ = std::move(v);
-  }
-
-  const std::vector<T>& exception_values() const { return exception_values_; }
-  std::vector<T>& mutable_exception_values() { return exception_values_; }
-  void set_exception_values(std::vector<T> v) { exception_values_ = std::move(v); }
-
-  /// \brief Create a zero-copy view from a serialized vector buffer
-  ///
-  /// \param[in] data span over the serialized vector data
-  /// \param[in] num_elements number of elements in this vector
-  /// \return the view, or an error if the buffer is too small
-  static Result<PforEncodedVectorView> LoadView(std::span<const uint8_t> data,
-                                                int32_t num_elements);
-
- private:
-  PforVectorInfo<T> info_;
-  int32_t num_elements_ = 0;
-  std::span<const uint8_t> packed_values_;
-  std::vector<PforConstants::PositionType> exception_positions_;
-  std::vector<T> exception_values_;
-};
-
-// ----------------------------------------------------------------------
 // Cost model result
 
 /// \brief Result of the optimal bit width search
 struct BitWidthResult {
   uint8_t bit_width = 0;
-  uint16_t num_exceptions = 0;
+  PforConstants::ExceptionCountType num_exceptions = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -246,17 +203,19 @@ class PforCompression {
   ///
   /// \param[in] values input integer values
   /// \param[in] num_elements number of elements (up to vector_size)
+  /// \pre num_elements > 0; the frame of reference is values[0] reduced over the
+  ///      rest, so there is no answer for an empty vector
   /// \return the encoded vector with all sections
   static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements);
 
   /// \brief Decode a single vector from compressed data
   ///
-  /// \param[out] values output buffer for decoded integers
   /// \param[in] data span over the compressed vector data
   /// \param[in] num_elements number of elements in this vector
+  /// \param[out] values output buffer for num_elements decoded integers
   /// \return number of bytes consumed from data, or error
-  static Result<int64_t> DecodeVector(T* values, std::span<const uint8_t> data,
-                                      int32_t num_elements);
+  static Result<int64_t> DecodeVector(std::span<const uint8_t> data, int32_t num_elements,
+                                      T* values);
 
   /// \brief Calculate the serialized size of an encoded vector
   static int64_t SerializedVectorSize(const PforEncodedVector<T>& vec,
