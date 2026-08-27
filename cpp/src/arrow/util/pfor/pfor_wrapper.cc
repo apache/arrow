@@ -41,6 +41,9 @@ namespace pfor {
 
 namespace {
 
+/// Width of one entry in the per-page offset array.
+constexpr int64_t kOffsetSize = sizeof(PforConstants::OffsetType);
+
 /// \brief Accept only the vector sizes the page header can describe
 ///
 /// A size outside this range would encode a page that Decode then rejects, so
@@ -63,6 +66,11 @@ Status ValidateVectorSize(int32_t vector_size) {
 
 template <typename T>
 void PforWrapper<T>::StoreHeader(std::span<uint8_t> dest, const PforHeader& header) {
+  static_assert(PforConstants::kHeaderSize == sizeof(PforHeader::packing_mode) +
+                                                  sizeof(PforHeader::log_vector_size) +
+                                                  sizeof(PforHeader::value_byte_width) +
+                                                  sizeof(PforHeader::num_elements),
+                "kHeaderSize must match the fields StoreHeader and LoadHeader move");
   uint8_t* ptr = dest.data();
   util::SafeStore(ptr + 0, header.packing_mode);
   util::SafeStore(ptr + 1, header.log_vector_size);
@@ -138,9 +146,10 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
   const int32_t num_vectors =
       static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
 
-  // Compute log2(vector_size)
-  uint8_t log_vector_size = 0;
-  for (int32_t v = vector_size; v > 1; v >>= 1) ++log_vector_size;
+  // ValidateVectorSize has already established that vector_size is a power of
+  // two, so its trailing-zero count is log2 of it.
+  const auto log_vector_size =
+      static_cast<uint8_t>(std::countr_zero(static_cast<uint32_t>(vector_size)));
 
   uint8_t* dest = comp;
 
@@ -155,22 +164,20 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
 
   // Step 2: Reserve space for offset array
   uint8_t* offset_array_start = write_ptr;
-  write_ptr += num_vectors * sizeof(uint32_t);
+  write_ptr += num_vectors * kOffsetSize;
 
   // Step 3: Encode each vector and build offset array
   const uint8_t* data_start = offset_array_start;
 
   for (int32_t v = 0; v < num_vectors; ++v) {
     // Record offset (from start of offset array)
-    uint32_t offset = static_cast<uint32_t>(write_ptr - data_start);
-    util::SafeStore(offset_array_start + v * sizeof(uint32_t), offset);
+    const auto offset = static_cast<PforConstants::OffsetType>(write_ptr - data_start);
+    util::SafeStore(offset_array_start + v * kOffsetSize, offset);
 
     // Determine elements in this vector
     int32_t start_idx = v * vector_size;
     int32_t elements_in_vector = std::min(vector_size, num_values - start_idx);
 
-    // Encode vector (EncodeVector itself falls back to BitPack for partial
-    // tails or 64-bit T, so it's safe to pass `mode` unconditionally).
     auto encoded =
         PforCompression<T>::EncodeVector(values + start_idx, elements_in_vector);
 
@@ -205,6 +212,13 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
   if (comp == nullptr) {
     return Status::Invalid("PFOR compressed data pointer is null");
   }
+  // Every bound below is expressed against `comp_size`, and it also becomes the
+  // size of a std::span, where a negative value would convert to a huge size_t
+  // and read past the end of the buffer.
+  if (comp_size < PforConstants::kHeaderSize) {
+    return Status::Invalid("PFOR compressed buffer too small for header: ", comp_size,
+                           " < ", PforConstants::kHeaderSize);
+  }
 
   const uint8_t* src = comp;
 
@@ -225,7 +239,7 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
 
   // Step 2: Read offset array
   const uint8_t* offset_array_start = src + PforConstants::kHeaderSize;
-  const int64_t offset_array_size = num_vectors * static_cast<int64_t>(sizeof(uint32_t));
+  const int64_t offset_array_size = num_vectors * kOffsetSize;
   if (PforConstants::kHeaderSize + offset_array_size > comp_size) {
     return Status::Invalid("PFOR offset array for ", num_vectors,
                            " vectors does not fit in ", comp_size, " bytes");
@@ -233,8 +247,8 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
 
   // Step 3: Decode each vector
   for (int32_t v = 0; v < num_vectors; ++v) {
-    uint32_t offset =
-        util::SafeLoadAs<uint32_t>(offset_array_start + v * sizeof(uint32_t));
+    const auto offset =
+        util::SafeLoadAs<PforConstants::OffsetType>(offset_array_start + v * kOffsetSize);
     if (PforConstants::kHeaderSize + static_cast<int64_t>(offset) >= comp_size) {
       return Status::Invalid("PFOR vector ", v, " offset ", offset,
                              " is past the end of the ", comp_size, " byte buffer");
@@ -246,9 +260,8 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
     int32_t elements_in_vector = std::min(vector_size, header.num_elements - start_idx);
 
     ARROW_RETURN_NOT_OK(PforCompression<T>::DecodeVector(
-        values + start_idx,
         std::span<const uint8_t>(vector_data, src + comp_size - vector_data),
-        elements_in_vector));
+        elements_in_vector, values + start_idx));
   }
 
   return Status::OK();
@@ -276,8 +289,7 @@ Result<int64_t> PforWrapper<T>::GetMaxCompressedSize(int32_t num_values,
   const int64_t max_vector_size =
       PforVectorInfo<T>::kStoredSize + vector_size * static_cast<int64_t>(sizeof(T)) + 1;
 
-  return PforConstants::kHeaderSize +
-         num_vectors * (static_cast<int64_t>(sizeof(uint32_t)) + max_vector_size);
+  return PforConstants::kHeaderSize + num_vectors * (kOffsetSize + max_vector_size);
 }
 
 // Explicit template instantiations

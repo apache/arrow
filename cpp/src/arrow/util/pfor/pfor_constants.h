@@ -46,22 +46,26 @@ class PforConstants {
   using OffsetType = uint32_t;
 
   /// Type used to store exception positions within a compressed vector.
+  using PositionType = uint16_t;
+
+  /// Type used to store the number of exceptions in a compressed vector.
   ///
   /// Unsigned: a vector holds up to 2^kMaxLogVectorSize elements and every one
   /// of them can be an exception, so a count of 32768 has to be representable.
-  using PositionType = uint16_t;
+  using ExceptionCountType = uint16_t;
 
   /// Largest vector the format allows, in elements.
   static constexpr int32_t kMaxVectorSize = 1 << kMaxLogVectorSize;
 
-  /// Page header size in bytes.
-  static constexpr int64_t kHeaderSize = 7;
+  /// Page header size in bytes: packing_mode, log_vector_size and
+  /// value_byte_width one byte each, then num_elements. Derived from the field
+  /// types rather than written out, so that widening a field cannot leave the
+  /// constant behind; StoreHeader and LoadHeader are the two readers of it.
+  static constexpr int64_t kHeaderSize =
+      sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(int32_t);
 
   /// Packing mode: FOR + bit-packing (currently the only mode).
   static constexpr uint8_t kPackingModeForBitPack = 0;
-
-  /// Loop unroll factor for compiler hints in decode loops.
-  static constexpr int64_t kLoopUnrolls = 4;
 };
 
 /// \brief Type traits for PFOR integer types
@@ -72,10 +76,9 @@ template <>
 struct PforTypeTraits<int32_t> {
   using UnsignedType = uint32_t;
   static constexpr uint8_t kMaxBitWidth = 32;
-  static constexpr uint8_t kValueByteWidth = 4;
-
-  /// PforVectorInfo size: 4B FOR + 1B bitWidth + 2B numExceptions = 7 bytes
-  static constexpr int64_t kVectorInfoSize = 7;
+  /// PforVectorInfo size: frame of reference, bit-width byte, exception count.
+  static constexpr int64_t kVectorInfoSize =
+      sizeof(int32_t) + sizeof(uint8_t) + sizeof(PforConstants::ExceptionCountType);
 
   static uint8_t BitsRequired(uint32_t value) {
     return static_cast<uint8_t>(std::bit_width(value));
@@ -86,10 +89,9 @@ template <>
 struct PforTypeTraits<int64_t> {
   using UnsignedType = uint64_t;
   static constexpr uint8_t kMaxBitWidth = 64;
-  static constexpr uint8_t kValueByteWidth = 8;
-
-  /// PforVectorInfo size: 8B FOR + 1B bitWidth + 2B numExceptions = 11 bytes
-  static constexpr int64_t kVectorInfoSize = 11;
+  /// PforVectorInfo size: frame of reference, bit-width byte, exception count.
+  static constexpr int64_t kVectorInfoSize =
+      sizeof(int64_t) + sizeof(uint8_t) + sizeof(PforConstants::ExceptionCountType);
 
   static uint8_t BitsRequired(uint64_t value) {
     return static_cast<uint8_t>(std::bit_width(value));
