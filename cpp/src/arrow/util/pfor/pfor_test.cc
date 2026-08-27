@@ -34,6 +34,114 @@
 namespace arrow::util::pfor {
 
 // ======================================================================
+// Test fixture
+//
+// PFOR is instantiated for int32_t and int64_t, and the two differ in the
+// widths of the frame of reference, the packed deltas and the exception values,
+// so nearly every test here belongs to both. The helpers hide the width
+// arithmetic; tests that poke at particular byte offsets derive them from
+// sizeof(T) and kStoredSize rather than writing them out.
+
+template <typename T>
+class PforTest : public ::testing::Test {
+ protected:
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+
+  /// Encode, serialize and decode a single vector, checking that it round-trips.
+  ///
+  /// \param[out] encoded_out the encoded form, for tests that assert on its
+  ///             metadata; may be null
+  void RoundTripVector(const std::vector<T>& values,
+                       PforEncodedVector<T>* encoded_out = nullptr) {
+    const auto num_elements = static_cast<int32_t>(values.size());
+    auto encoded = PforCompression<T>::EncodeVector(values.data(), num_elements);
+
+    const int64_t needed =
+        PforCompression<T>::SerializedVectorSize(encoded, num_elements);
+    std::vector<uint8_t> buffer(needed);
+    ASSERT_OK_AND_ASSIGN(const int64_t written, PforCompression<T>::SerializeVector(
+                                                    encoded, num_elements, buffer));
+    ASSERT_EQ(needed, written);
+
+    std::vector<T> decoded(values.size());
+    ASSERT_OK(PforCompression<T>::DecodeVector(buffer, num_elements, decoded.data()));
+    ASSERT_EQ(values, decoded);
+
+    if (encoded_out != nullptr) {
+      *encoded_out = std::move(encoded);
+    }
+  }
+
+  /// Encode and decode a whole page, checking that it round-trips and stays
+  /// inside the bound the encoder allocates from.
+  ///
+  /// \param[out] comp_size_out the compressed size, for tests that assert on
+  ///             the compression ratio; may be null
+  void RoundTripPage(const std::vector<T>& values, int64_t* comp_size_out = nullptr) {
+    const auto num_values = static_cast<int32_t>(values.size());
+    ASSERT_OK_AND_ASSIGN(const int64_t max_size,
+                         PforWrapper<T>::GetMaxCompressedSize(num_values));
+    std::vector<uint8_t> compressed(max_size);
+    int64_t comp_size = max_size;
+    ASSERT_OK(
+        PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
+    ASSERT_GT(comp_size, 0);
+    ASSERT_LE(comp_size, max_size);
+
+    std::vector<T> decoded(values.size());
+    ASSERT_OK(
+        PforWrapper<T>::Decode(compressed.data(), comp_size, num_values, decoded.data()));
+    ASSERT_EQ(values, decoded);
+
+    if (comp_size_out != nullptr) {
+      *comp_size_out = comp_size;
+    }
+  }
+
+  /// Encode `values` and return the compressed bytes, sized exactly.
+  static std::vector<uint8_t> EncodePage(const std::vector<T>& values) {
+    const auto num_values = static_cast<int32_t>(values.size());
+    int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> compressed(comp_size);
+    ARROW_CHECK_OK(
+        PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
+    compressed.resize(comp_size);
+    return compressed;
+  }
+
+  /// Offset of the first vector in a single-vector page: header, then the
+  /// one-entry offset array.
+  static constexpr int64_t kFirstVectorOffset =
+      PforConstants::kHeaderSize +
+      static_cast<int64_t>(sizeof(PforConstants::OffsetType));
+
+  /// Offsets of the PforVectorInfo fields, relative to the start of a vector.
+  static constexpr int64_t kBitWidthOffset = static_cast<int64_t>(sizeof(T));
+  static constexpr int64_t kNumExceptionsOffset = kBitWidthOffset + 1;
+
+  static std::vector<T> RandomValues(int32_t num_values, T min, T max, uint32_t seed) {
+    std::vector<T> values(num_values);
+    std::mt19937 rng(seed);
+    std::uniform_int_distribution<T> dist(min, max);
+    for (auto& v : values) v = dist(rng);
+    return values;
+  }
+};
+
+using PforTypes = ::testing::Types<int32_t, int64_t>;
+TYPED_TEST_SUITE(PforTest, PforTypes);
+
+namespace {
+
+void StoreLE32(uint8_t* dest, uint32_t value) {
+  for (int i = 0; i < 4; ++i) {
+    dest[i] = static_cast<uint8_t>(value >> (8 * i));
+  }
+}
+
+}  // namespace
+
+// ======================================================================
 // Constants Tests
 
 TEST(PforConstantsTest, VectorSizeIsPowerOfTwo) {
@@ -49,107 +157,121 @@ TEST(PforConstantsTest, VectorInfoSizes) {
 // ======================================================================
 // BitsRequired Tests
 
-TEST(PforBitsRequiredTest, Int32) {
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(0), 0);
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(1), 1);
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(2), 2);
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(3), 2);
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(255), 8);
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(256), 9);
-  EXPECT_EQ(PforTypeTraits<int32_t>::BitsRequired(0xFFFFFFFF), 32);
-}
+TYPED_TEST(PforTest, BitsRequired) {
+  using T = TypeParam;
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
 
-TEST(PforBitsRequiredTest, Int64) {
-  EXPECT_EQ(PforTypeTraits<int64_t>::BitsRequired(0), 0);
-  EXPECT_EQ(PforTypeTraits<int64_t>::BitsRequired(1), 1);
-  EXPECT_EQ(PforTypeTraits<int64_t>::BitsRequired(0xFFFFFFFFFFFFFFFFULL), 64);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(0), 0);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(1), 1);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(2), 2);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(3), 2);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(255), 8);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(256), 9);
+  EXPECT_EQ(PforTypeTraits<T>::BitsRequired(std::numeric_limits<UnsignedT>::max()),
+            PforTypeTraits<T>::kMaxBitWidth);
 }
 
 // ======================================================================
 // VectorInfo Serialization Tests
 
-TEST(PforVectorInfoTest, Int32RoundTrip) {
-  PforVectorInfo<int32_t> info;
+TYPED_TEST(PforTest, VectorInfoRoundTrip) {
+  using T = TypeParam;
+  PforVectorInfo<T> info;
   info.set_frame_of_reference(-42);
   info.set_bit_width(17);
   info.set_num_exceptions(300);
 
-  uint8_t buf[7];
-  info.Store(std::span<uint8_t>(buf, 7));
-  ASSERT_OK_AND_ASSIGN(auto loaded,
-                       PforVectorInfo<int32_t>::Load(std::span<const uint8_t>(buf, 7)));
+  std::vector<uint8_t> buf(PforVectorInfo<T>::kStoredSize);
+  info.Store(buf);
+  ASSERT_OK_AND_ASSIGN(auto loaded, PforVectorInfo<T>::Load(buf));
 
   EXPECT_EQ(loaded.frame_of_reference(), -42);
   EXPECT_EQ(loaded.bit_width(), 17);
   EXPECT_EQ(loaded.num_exceptions(), 300);
 }
 
-TEST(PforVectorInfoTest, Int64RoundTrip) {
-  PforVectorInfo<int64_t> info;
-  info.set_frame_of_reference(-123456789012345LL);
-  info.set_bit_width(48);
-  info.set_num_exceptions(30000);
+// The extremes of every field at once: the widest frame of reference the type
+// can hold and the full bit width. A six-bit width field could not store 64,
+// and reported such a vector as constant.
+TYPED_TEST(PforTest, VectorInfoRoundTripAtFieldExtremes) {
+  using T = TypeParam;
+  constexpr T kFrameOfReference = std::numeric_limits<T>::min();
+  PforVectorInfo<T> info(kFrameOfReference, PforTypeTraits<T>::kMaxBitWidth, 30000);
 
-  uint8_t buf[11];
-  info.Store(std::span<uint8_t>(buf, 11));
-  ASSERT_OK_AND_ASSIGN(auto loaded,
-                       PforVectorInfo<int64_t>::Load(std::span<const uint8_t>(buf, 11)));
+  std::vector<uint8_t> buf(PforVectorInfo<T>::kStoredSize);
+  info.Store(buf);
+  ASSERT_OK_AND_ASSIGN(auto loaded, PforVectorInfo<T>::Load(buf));
 
-  EXPECT_EQ(loaded.frame_of_reference(), -123456789012345LL);
-  EXPECT_EQ(loaded.bit_width(), 48);
+  EXPECT_EQ(loaded.frame_of_reference(), kFrameOfReference);
+  EXPECT_EQ(loaded.bit_width(), PforTypeTraits<T>::kMaxBitWidth);
   EXPECT_EQ(loaded.num_exceptions(), 30000);
 }
 
 // Every element of a maximum-size vector can be an exception, so the count has
 // to reach kMaxVectorSize. A signed 16-bit field stopped one short of that.
-TEST(PforVectorInfoTest, NumExceptionsAtMaxVectorSize) {
-  PforVectorInfo<int32_t> info;
+TYPED_TEST(PforTest, VectorInfoNumExceptionsAtMaxVectorSize) {
+  using T = TypeParam;
+  PforVectorInfo<T> info;
   info.set_bit_width(3);
   info.set_num_exceptions(PforConstants::kMaxVectorSize);
 
-  uint8_t buf[7];
-  info.Store(std::span<uint8_t>(buf, 7));
-  ASSERT_OK_AND_ASSIGN(auto loaded,
-                       PforVectorInfo<int32_t>::Load(std::span<const uint8_t>(buf, 7)));
+  std::vector<uint8_t> buf(PforVectorInfo<T>::kStoredSize);
+  info.Store(buf);
+  ASSERT_OK_AND_ASSIGN(auto loaded, PforVectorInfo<T>::Load(buf));
 
   EXPECT_EQ(loaded.num_exceptions(), PforConstants::kMaxVectorSize);
 }
 
-TEST(PforVectorInfoTest, RejectsNumExceptionsAboveMaxVectorSize) {
-  // [FOR 4B] [bit_width 1B] [num_exceptions 2B], with a count no vector can have.
-  uint8_t buf[7] = {0, 0, 0, 0, 3, 0xFF, 0xFF};
-  ASSERT_RAISES(Invalid, PforVectorInfo<int32_t>::Load(std::span<const uint8_t>(buf, 7)));
+TYPED_TEST(PforTest, VectorInfoRejectsNumExceptionsAboveMaxVectorSize) {
+  using T = TypeParam;
+  // [FOR] [bit_width 1B] [num_exceptions 2B], with a count no vector can have.
+  std::vector<uint8_t> buf(PforVectorInfo<T>::kStoredSize, 0);
+  buf[TestFixture::kBitWidthOffset] = 3;
+  buf[TestFixture::kNumExceptionsOffset] = 0xFF;
+  buf[TestFixture::kNumExceptionsOffset + 1] = 0xFF;
+  ASSERT_RAISES(Invalid, PforVectorInfo<T>::Load(buf));
+}
+
+TYPED_TEST(PforTest, VectorInfoRejectsUndersizedBuffer) {
+  using T = TypeParam;
+  std::vector<uint8_t> buf(PforVectorInfo<T>::kStoredSize - 1, 0);
+  ASSERT_RAISES(Invalid, PforVectorInfo<T>::Load(buf));
 }
 
 // ======================================================================
 // Cost Model Tests
 
-TEST(PforCostModelTest, AllIdentical) {
+TYPED_TEST(PforTest, CostModelAllIdentical) {
+  using T = TypeParam;
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
   // All deltas are 0 => bit_width should be 0, no exceptions
-  std::vector<uint32_t> deltas(100, 0);
-  auto result =
-      PforCompression<int32_t>::FindOptimalBitWidth(deltas.data(), 100);  // NOLINT
+  std::vector<UnsignedT> deltas(100, 0);
+  auto result = PforCompression<T>::FindOptimalBitWidth(deltas.data(), 100);
   EXPECT_EQ(result.bit_width, 0);
   EXPECT_EQ(result.num_exceptions, 0);
 }
 
-TEST(PforCostModelTest, SingleOutlier) {
+TYPED_TEST(PforTest, CostModelSingleOutlier) {
+  using T = TypeParam;
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
   // 99 values fit in 3 bits, 1 outlier needs 16 bits
-  std::vector<uint32_t> deltas(100, 5);  // all fit in 3 bits
-  deltas[50] = 50000;                    // outlier: 16 bits
-  auto result = PforCompression<int32_t>::FindOptimalBitWidth(deltas.data(), 100);
-  // Cost at bit_width=3: 100*3 + 1*(16+32) = 300 + 48 = 348
-  // Cost at bit_width=16: 100*16 + 0 = 1600
-  // 348 < 1600, so should pick 3 with 1 exception
+  std::vector<UnsignedT> deltas(100, 5);  // all fit in 3 bits
+  deltas[50] = 50000;                     // outlier: 16 bits
+  auto result = PforCompression<T>::FindOptimalBitWidth(deltas.data(), 100);
+  // An exception costs a 16-bit position plus a full-width value, so at
+  // bit_width=3 the vector costs 100*3 + 1*(16 + 8*sizeof(T)) bits, against
+  // 100*16 at bit_width=16. Patching the one outlier wins for both widths of T.
   EXPECT_EQ(result.bit_width, 3);
   EXPECT_EQ(result.num_exceptions, 1);
 }
 
-TEST(PforCostModelTest, NoOutliers) {
+TYPED_TEST(PforTest, CostModelNoOutliers) {
+  using T = TypeParam;
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
   // All values fit in 8 bits
-  std::vector<uint32_t> deltas(100);
+  std::vector<UnsignedT> deltas(100);
   for (int32_t i = 0; i < 100; ++i) deltas[i] = i * 2;
-  auto result = PforCompression<int32_t>::FindOptimalBitWidth(deltas.data(), 100);
+  auto result = PforCompression<T>::FindOptimalBitWidth(deltas.data(), 100);
   EXPECT_EQ(result.num_exceptions, 0);
   EXPECT_LE(result.bit_width, 8);
 }
@@ -157,369 +279,172 @@ TEST(PforCostModelTest, NoOutliers) {
 // ======================================================================
 // Vector Encode/Decode Round-Trip Tests
 
-TEST(PforVectorTest, Int32SimpleSequence) {
-  std::vector<int32_t> values(64);
+TYPED_TEST(PforTest, VectorSimpleSequence) {
+  using T = TypeParam;
+  std::vector<T> values(64);
   std::iota(values.begin(), values.end(), 100);
 
-  auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 64);
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
   EXPECT_EQ(encoded.info().frame_of_reference(), 100);
   EXPECT_EQ(encoded.info().num_exceptions(), 0);
-
-  // Serialize then decode
-  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 64);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 64, buffer));
-
-  std::vector<int32_t> decoded(64);
-  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 64));
-
-  EXPECT_EQ(values, decoded);
 }
 
-TEST(PforVectorTest, Int32WithOutlier) {
-  std::vector<int32_t> values = {100, 102, 101, 103, 100, 99, 50000, 104};
+TYPED_TEST(PforTest, VectorWithOutlier) {
+  using T = TypeParam;
+  std::vector<T> values = {100, 102, 101, 103, 100, 99, 50000, 104};
 
-  auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 8);
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
   EXPECT_EQ(encoded.info().frame_of_reference(), 99);
   EXPECT_GT(encoded.info().num_exceptions(), 0);
-
-  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 8);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 8, buffer));
-
-  std::vector<int32_t> decoded(8);
-  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 8));
-
-  EXPECT_EQ(values, decoded);
 }
 
-TEST(PforVectorTest, Int32AllIdentical) {
-  std::vector<int32_t> values(100, 42);
+TYPED_TEST(PforTest, VectorAllIdentical) {
+  using T = TypeParam;
+  std::vector<T> values(100, 42);
 
-  auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 100);
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
   EXPECT_EQ(encoded.info().bit_width(), 0);
   EXPECT_EQ(encoded.info().num_exceptions(), 0);
-
-  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 100);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 100, buffer));
-
-  std::vector<int32_t> decoded(100);
-  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 100));
-
-  EXPECT_EQ(values, decoded);
 }
 
-TEST(PforVectorTest, Int32NegativeValues) {
-  std::vector<int32_t> values = {-100, -50, -200, -1, -150};
+TYPED_TEST(PforTest, VectorNegativeValues) {
+  using T = TypeParam;
+  std::vector<T> values = {-100, -50, -200, -1, -150};
 
-  auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 5);
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
   EXPECT_EQ(encoded.info().frame_of_reference(), -200);
-
-  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 5, buffer));
-
-  std::vector<int32_t> decoded(5);
-  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 5));
-
-  EXPECT_EQ(values, decoded);
 }
 
-TEST(PforVectorTest, Int32MinMaxEdge) {
-  std::vector<int32_t> values = {std::numeric_limits<int32_t>::min(),
-                                 std::numeric_limits<int32_t>::max(), 0, -1, 1};
-
-  auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 5);
-
-  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 5, buffer));
-
-  std::vector<int32_t> decoded(5);
-  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 5));
-
-  EXPECT_EQ(values, decoded);
+// The frame of reference is subtracted in the unsigned domain, so a vector
+// spanning the whole range of T has a delta that only wraps to the right answer.
+TYPED_TEST(PforTest, VectorMinMaxEdge) {
+  using T = TypeParam;
+  std::vector<T> values = {std::numeric_limits<T>::min(), std::numeric_limits<T>::max(),
+                           0, -1, 1};
+  this->RoundTripVector(values);
 }
 
-TEST(PforVectorTest, Int64SimpleSequence) {
-  std::vector<int64_t> values(64);
-  std::iota(values.begin(), values.end(), 1000000000LL);
-
-  auto encoded = PforCompression<int64_t>::EncodeVector(values.data(), 64);
-
-  size_t serialized_size = PforCompression<int64_t>::SerializedVectorSize(encoded, 64);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int64_t>::SerializeVector(encoded, 64, buffer));
-
-  std::vector<int64_t> decoded(64);
-  ASSERT_OK(PforCompression<int64_t>::DecodeVector(decoded.data(), buffer, 64));
-
-  EXPECT_EQ(values, decoded);
-}
-
-TEST(PforVectorTest, Int64WithOutlier) {
-  std::vector<int64_t> values(100, 5000000LL);
-  values[42] = 999999999999LL;  // Outlier
-
-  auto encoded = PforCompression<int64_t>::EncodeVector(values.data(), 100);
-  EXPECT_GT(encoded.info().num_exceptions(), 0);
-
-  size_t serialized_size = PforCompression<int64_t>::SerializedVectorSize(encoded, 100);
-  std::vector<uint8_t> buffer(serialized_size);
-  ASSERT_OK(PforCompression<int64_t>::SerializeVector(encoded, 100, buffer));
-
-  std::vector<int64_t> decoded(100);
-  ASSERT_OK(PforCompression<int64_t>::DecodeVector(decoded.data(), buffer, 100));
-
-  EXPECT_EQ(values, decoded);
+TYPED_TEST(PforTest, VectorSingleElement) {
+  using T = TypeParam;
+  this->RoundTripVector(std::vector<T>{42});
 }
 
 // ======================================================================
 // Page-Level Wrapper Tests
 
-TEST(PforWrapperTest, Int32SmallPage) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50};
+TYPED_TEST(PforTest, PageSmall) { this->RoundTripPage({10, 20, 30, 40, 50}); }
 
-  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(5));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), 5, compressed.data(), &comp_size));
-  EXPECT_GT(comp_size, 0);
-
-  std::vector<int32_t> decoded(5);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 5, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
-}
-
-TEST(PforWrapperTest, Int32ExactOneVector) {
-  std::vector<int32_t> values(1024);
+TYPED_TEST(PforTest, PageExactOneVector) {
+  using T = TypeParam;
+  std::vector<T> values(PforConstants::kPforVectorSize);
   std::iota(values.begin(), values.end(), 0);
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
-
-  std::vector<int32_t> decoded(1024);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1024, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
+  this->RoundTripPage(values);
 }
 
-TEST(PforWrapperTest, Int32MultipleVectors) {
+TYPED_TEST(PforTest, PageMultipleVectors) {
   // 2.5 vectors worth of data
-  const int32_t n = 2560;
-  std::vector<int32_t> values(n);
-  std::mt19937 rng(42);
-  std::uniform_int_distribution<int32_t> dist(0, 1000);
-  for (auto& v : values) v = dist(rng);
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(n));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size));
-
-  std::vector<int32_t> decoded(n);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
+  this->RoundTripPage(TestFixture::RandomValues(2560, 0, 1000, /*seed=*/42));
 }
 
-TEST(PforWrapperTest, Int32WithOutliers) {
-  std::vector<int32_t> values(1024, 100);
-  // Sprinkle outliers
+TYPED_TEST(PforTest, PageWithOutliers) {
+  using T = TypeParam;
+  std::vector<T> values(1024, 100);
   values[0] = -999999;
   values[100] = 888888;
   values[500] = 777777;
   values[1023] = -123456;
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
-
-  std::vector<int32_t> decoded(1024);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1024, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
+  this->RoundTripPage(values);
 }
 
-TEST(PforWrapperTest, Int64MultipleVectors) {
-  const int32_t n = 3000;
-  std::vector<int64_t> values(n);
-  std::mt19937 rng(123);
-  std::uniform_int_distribution<int64_t> dist(0, 100000);
-  for (auto& v : values) v = dist(rng);
-  // Add outliers
-  values[0] = 9999999999999LL;
-  values[1500] = -9999999999999LL;
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int64_t>::GetMaxCompressedSize(n));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int64_t>::Encode(values.data(), n, compressed.data(), &comp_size));
-
-  std::vector<int64_t> decoded(n);
-  ASSERT_OK(
-      PforWrapper<int64_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
+TYPED_TEST(PforTest, PagePartialTrailingVector) {
+  using T = TypeParam;
+  auto values = TestFixture::RandomValues(3000, 0, 100000, /*seed=*/123);
+  values[0] = std::numeric_limits<T>::max() / 2;
+  values[1500] = std::numeric_limits<T>::min() / 2;
+  this->RoundTripPage(values);
 }
 
-TEST(PforWrapperTest, Int32SingleElement) {
-  std::vector<int32_t> values = {42};
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(1));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), 1, compressed.data(), &comp_size));
-
-  std::vector<int32_t> decoded(1);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
+TYPED_TEST(PforTest, PageSingleElement) {
+  using T = TypeParam;
+  this->RoundTripPage(std::vector<T>{42});
 }
 
-TEST(PforWrapperTest, Int32AllZeros) {
-  std::vector<int32_t> values(1024, 0);
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
-
-  // Should compress very well (bit_width = 0)
+TYPED_TEST(PforTest, PageAllZeros) {
+  using T = TypeParam;
+  std::vector<T> values(1024, 0);
+  int64_t comp_size = 0;
+  this->RoundTripPage(values, &comp_size);
+  // bit_width is 0, so the page is header, offset array and vector info only.
   EXPECT_LT(comp_size, 100);
-
-  std::vector<int32_t> decoded(1024);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1024, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
 }
 
-TEST(PforWrapperTest, Int32LargeRandom) {
-  const int32_t n = 10000;
-  std::vector<int32_t> values(n);
-  std::mt19937 rng(99);
-  std::uniform_int_distribution<int32_t> dist(std::numeric_limits<int32_t>::min(),
-                                              std::numeric_limits<int32_t>::max());
-  for (auto& v : values) v = dist(rng);
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(n));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size));
-
-  std::vector<int32_t> decoded(n);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
-
-  EXPECT_EQ(values, decoded);
+TYPED_TEST(PforTest, PageLargeRandom) {
+  using T = TypeParam;
+  this->RoundTripPage(TestFixture::RandomValues(10000, std::numeric_limits<T>::min(),
+                                                std::numeric_limits<T>::max(),
+                                                /*seed=*/99));
 }
 
 // Covers the FOR==0 fast path (bit_width > 0 with frame_of_reference == 0):
 // decode unpacks straight into the output, skipping the scratch buffer and the
 // add-FOR pass. Forces min == 0, a range that needs bit_width > 0, outliers to
 // exercise the exception patch on that path, and multiple vectors.
-TEST(PforWrapperTest, Int32ZeroMinWithExceptions) {
-  const int32_t n = 3000;
-  std::vector<int32_t> values(n);
-  std::mt19937 rng(2024);
-  std::uniform_int_distribution<int32_t> dist(0, 500);
-  for (auto& v : values) v = dist(rng);
+TYPED_TEST(PforTest, PageZeroMinWithExceptions) {
+  auto values = TestFixture::RandomValues(3000, 0, 500, /*seed=*/2024);
   values[0] = 0;            // force min == 0 -> FOR == 0
   values[100] = 1'000'000;  // outliers -> exceptions on the FOR==0 path
   values[1500] = 999'999;
   values[2999] = 500'000;
-
-  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(n));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size));
-
-  std::vector<int32_t> decoded(n);
-  ASSERT_OK(
-      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
-  EXPECT_EQ(values, decoded);
+  this->RoundTripPage(values);
 }
 
 // ======================================================================
 // Encode Argument Validation
 
-TEST(PforWrapperTest, EncodeRejectsEmptyInput) {
-  std::vector<int32_t> values = {1, 2, 3};
+TYPED_TEST(PforTest, EncodeRejectsEmptyInput) {
+  using T = TypeParam;
+  std::vector<T> values = {1, 2, 3};
   std::vector<uint8_t> compressed(64);
   int64_t comp_size = 64;
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 0, compressed.data(),
-                                                      &comp_size));
+  ASSERT_RAISES(Invalid,
+                PforWrapper<T>::Encode(values.data(), 0, compressed.data(), &comp_size));
 }
 
-TEST(PforWrapperTest, EncodeRejectsUnrepresentableVectorSize) {
-  std::vector<int32_t> values = {1, 2, 3};
+TYPED_TEST(PforTest, EncodeRejectsUnrepresentableVectorSize) {
+  using T = TypeParam;
+  std::vector<T> values = {1, 2, 3};
   std::vector<uint8_t> compressed(64);
 
   // Not a power of two.
   int64_t comp_size = 64;
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 3, 1000,
-                                                      compressed.data(), &comp_size));
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Encode(values.data(), 3, 1000, compressed.data(),
+                                                &comp_size));
 
   // A power of two, but the header's log_vector_size field cannot describe it.
   comp_size = 64;
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 3,
-                                                      PforConstants::kMaxVectorSize * 2,
-                                                      compressed.data(), &comp_size));
+  ASSERT_RAISES(
+      Invalid, PforWrapper<T>::Encode(values.data(), 3, PforConstants::kMaxVectorSize * 2,
+                                      compressed.data(), &comp_size));
 }
 
 // ======================================================================
 // Compression Ratio Test
 
-TEST(PforCompressionRatioTest, ClusteredDataCompresses) {
+TYPED_TEST(PforTest, ClusteredDataCompresses) {
+  using T = TypeParam;
   // Data clustered around 1000 with one outlier
-  std::vector<int32_t> values(1024);
-  std::mt19937 rng(42);
-  std::uniform_int_distribution<int32_t> dist(1000, 1255);
-  for (auto& v : values) v = dist(rng);
-  values[500] = 999999;  // One outlier
+  auto values = TestFixture::RandomValues(1024, 1000, 1255, /*seed=*/42);
+  values[500] = 999999;
 
-  ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
-  std::vector<uint8_t> compressed(max_size);
-  int64_t comp_size = max_size;
+  int64_t comp_size = 0;
+  this->RoundTripPage(values, &comp_size);
 
-  ASSERT_OK(
-      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
-
-  // PLAIN would be 4096 bytes. PFOR should be much smaller.
-  size_t plain_size = 1024 * sizeof(int32_t);
-  EXPECT_LT(comp_size, plain_size / 2);
+  const size_t plain_size = 1024 * sizeof(T);
+  EXPECT_LT(comp_size, static_cast<int64_t>(plain_size / 2));
 }
 
 // ======================================================================
@@ -531,209 +456,209 @@ TEST(PforCompressionRatioTest, ClusteredDataCompresses) {
 
 namespace {
 
-// Encode `values` and return the compressed bytes, sized exactly.
-std::vector<uint8_t> EncodeInt32(const std::vector<int32_t>& values) {
-  int64_t comp_size =
-      PforWrapper<int32_t>::GetMaxCompressedSize(static_cast<int32_t>(values.size()))
-          .ValueOrDie();
-  std::vector<uint8_t> compressed(comp_size);
-  ARROW_CHECK_OK(PforWrapper<int32_t>::Encode(
-      values.data(), static_cast<int32_t>(values.size()), compressed.data(), &comp_size));
-  compressed.resize(comp_size);
-  return compressed;
-}
-
-void StoreLE32(uint8_t* dest, uint32_t value) {
-  for (int i = 0; i < 4; ++i) {
-    dest[i] = static_cast<uint8_t>(value >> (8 * i));
-  }
+// A tight cluster plus one far outlier, so the cost model packs narrow and
+// patches the outlier. The outlier is 31 bits out rather than 16: an exception
+// costs a position plus a full-width value, so a 16-bit outlier is cheaper to
+// pack than to patch once the values are 64 bits wide, and the tests below need
+// a vector that actually has an exception section.
+template <typename T>
+std::vector<T> ClusterWithOutlier() {
+  return {10, 20, 30, 40, 2'000'000'000};
 }
 
 }  // namespace
 
-TEST(PforCorruptPageTest, BufferTooSmallForHeader) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50};
-  auto compressed = EncodeInt32(values);
+TYPED_TEST(PforTest, CorruptBufferTooSmallForHeader) {
+  using T = TypeParam;
+  const std::vector<T> values = {10, 20, 30, 40, 50};
+  auto compressed = TestFixture::EncodePage(values);
 
-  std::vector<int32_t> decoded(values.size());
-  ASSERT_RAISES(
-      Invalid, PforWrapper<int32_t>::Decode(
-                   compressed.data(), PforConstants::kHeaderSize - 1, 5, decoded.data()));
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid,
+                PforWrapper<T>::Decode(compressed.data(), PforConstants::kHeaderSize - 1,
+                                       5, decoded.data()));
 }
 
-TEST(PforCorruptPageTest, ElementCountExceedsOutputCapacity) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50};
-  auto compressed = EncodeInt32(values);
+TYPED_TEST(PforTest, CorruptElementCountExceedsOutputCapacity) {
+  using T = TypeParam;
+  const std::vector<T> values = {10, 20, 30, 40, 50};
+  auto compressed = TestFixture::EncodePage(values);
 
   // num_elements lives at header byte 3.
   StoreLE32(compressed.data() + 3, 6);
 
-  std::vector<int32_t> decoded(values.size());
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             compressed.data(), compressed.size(), 5, decoded.data()));
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(), 5,
+                                                decoded.data()));
 }
 
-TEST(PforCorruptPageTest, OffsetArrayTruncated) {
+TYPED_TEST(PforTest, CorruptOffsetArrayTruncated) {
+  using T = TypeParam;
   // Four vectors, so the offset array is 16 bytes; hand Decode a buffer with
   // room for only two of them.
-  std::vector<int32_t> values(4096);
+  std::vector<T> values(4096);
   std::iota(values.begin(), values.end(), 0);
-  auto compressed = EncodeInt32(values);
+  auto compressed = TestFixture::EncodePage(values);
 
-  std::vector<int32_t> decoded(values.size());
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(compressed.data(),
-                                                      PforConstants::kHeaderSize + 8,
-                                                      4096, decoded.data()));
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid,
+                PforWrapper<T>::Decode(compressed.data(), PforConstants::kHeaderSize + 8,
+                                       4096, decoded.data()));
 }
 
-TEST(PforCorruptPageTest, VectorOffsetPastEndOfBuffer) {
-  std::vector<int32_t> values(2048);
+TYPED_TEST(PforTest, CorruptVectorOffsetPastEndOfBuffer) {
+  using T = TypeParam;
+  std::vector<T> values(2048);
   std::iota(values.begin(), values.end(), 0);
-  auto compressed = EncodeInt32(values);
+  auto compressed = TestFixture::EncodePage(values);
 
   // Point the second vector past the end of the buffer.
-  StoreLE32(compressed.data() + PforConstants::kHeaderSize + 4,
+  StoreLE32(compressed.data() + TestFixture::kFirstVectorOffset,
             static_cast<uint32_t>(compressed.size()));
 
-  std::vector<int32_t> decoded(values.size());
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             compressed.data(), compressed.size(), 2048, decoded.data()));
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(),
+                                                2048, decoded.data()));
 }
 
-TEST(PforCorruptPageTest, ExceptionPositionPastEndOfVector) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
-  auto compressed = EncodeInt32(values);
+TYPED_TEST(PforTest, CorruptExceptionPositionPastEndOfVector) {
+  using T = TypeParam;
+  const std::vector<T> values = ClusterWithOutlier<T>();
+  auto compressed = TestFixture::EncodePage(values);
 
-  // Locate the stored exception position: page header, 4-byte offset array,
-  // then the vector info and the packed deltas.
-  const int64_t vector_start = PforConstants::kHeaderSize + 4;
-  const uint8_t bit_width = compressed[vector_start + 4];
+  // Locate the stored exception position: the vector info, then the packed
+  // deltas at whatever width the cost model chose.
+  const int64_t vector_start = TestFixture::kFirstVectorOffset;
+  ASSERT_GT(compressed[vector_start + TestFixture::kNumExceptionsOffset], 0)
+      << "the cost model packed this vector without exceptions, so there is no "
+         "exception position to corrupt";
+  const uint8_t bit_width = compressed[vector_start + TestFixture::kBitWidthOffset];
   const int64_t packed_bytes = (5 * bit_width + 7) / 8;
   const int64_t position_offset =
-      vector_start + PforVectorInfo<int32_t>::kStoredSize + packed_bytes;
+      vector_start + PforVectorInfo<T>::kStoredSize + packed_bytes;
 
   // Point the exception at index 100 of a five-element vector.
   compressed[position_offset] = 100;
   compressed[position_offset + 1] = 0;
 
-  std::vector<int32_t> decoded(5);
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             compressed.data(), compressed.size(), 5, decoded.data()));
+  std::vector<T> decoded(5);
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(), 5,
+                                                decoded.data()));
 }
 
-TEST(PforCorruptPageTest, ExceptionCountExceedsVectorLength) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
-  auto compressed = EncodeInt32(values);
+TYPED_TEST(PforTest, CorruptExceptionCountExceedsVectorLength) {
+  using T = TypeParam;
+  const std::vector<T> values = ClusterWithOutlier<T>();
+  auto compressed = TestFixture::EncodePage(values);
 
-  // num_exceptions sits at vector info offset 5 for INT32.
-  const int64_t vector_start = PforConstants::kHeaderSize + 4;
-  compressed[vector_start + 5] = 6;
-  compressed[vector_start + 6] = 0;
+  const int64_t vector_start = TestFixture::kFirstVectorOffset;
+  compressed[vector_start + TestFixture::kNumExceptionsOffset] = 6;
+  compressed[vector_start + TestFixture::kNumExceptionsOffset + 1] = 0;
 
-  std::vector<int32_t> decoded(5);
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             compressed.data(), compressed.size(), 5, decoded.data()));
+  std::vector<T> decoded(5);
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(), 5,
+                                                decoded.data()));
 }
 
-TEST(PforCorruptPageTest, ExceptionDataTruncated) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
-  auto compressed = EncodeInt32(values);
+TYPED_TEST(PforTest, CorruptExceptionDataTruncated) {
+  using T = TypeParam;
+  const std::vector<T> values = ClusterWithOutlier<T>();
+  auto compressed = TestFixture::EncodePage(values);
 
   // Drop the trailing exception value, leaving its position behind.
-  std::vector<int32_t> decoded(5);
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             compressed.data(),
-                             static_cast<int64_t>(compressed.size()) - sizeof(int32_t), 5,
-                             decoded.data()));
-}
-
-// A view hands its spans to whoever patches with it, so it has to reject the
-// same malformed vectors DecodeVector does rather than pointing past the buffer.
-TEST(PforCorruptPageTest, LoadViewRejectsMalformedVector) {
-  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
-  const auto compressed = EncodeInt32(values);
-  const int64_t vector_start = PforConstants::kHeaderSize + 4;
-  const std::span<const uint8_t> vector_data(compressed.data() + vector_start,
-                                             compressed.size() - vector_start);
-  ASSERT_OK(PforEncodedVectorView<int32_t>::LoadView(vector_data, 5));
-
-  {
-    // num_exceptions above the element count.
-    std::vector<uint8_t> corrupted(vector_data.begin(), vector_data.end());
-    corrupted[5] = 6;
-    corrupted[6] = 0;
-    ASSERT_RAISES(Invalid, PforEncodedVectorView<int32_t>::LoadView(corrupted, 5));
-  }
-  {
-    // An exception position outside the vector.
-    std::vector<uint8_t> corrupted(vector_data.begin(), vector_data.end());
-    const int64_t packed_bytes = (5 * corrupted[4] + 7) / 8;
-    const int64_t position_offset = PforVectorInfo<int32_t>::kStoredSize + packed_bytes;
-    corrupted[position_offset] = 100;
-    corrupted[position_offset + 1] = 0;
-    ASSERT_RAISES(Invalid, PforEncodedVectorView<int32_t>::LoadView(corrupted, 5));
-  }
-  {
-    // A buffer that stops before the sections the metadata describes.
-    ASSERT_RAISES(Invalid, PforEncodedVectorView<int32_t>::LoadView(
-                               vector_data.subspan(0, vector_data.size() - 1), 5));
-  }
+  ASSERT_GT(
+      compressed[TestFixture::kFirstVectorOffset + TestFixture::kNumExceptionsOffset], 0);
+  std::vector<T> decoded(5);
+  ASSERT_RAISES(
+      Invalid, PforWrapper<T>::Decode(compressed.data(),
+                                      static_cast<int64_t>(compressed.size() - sizeof(T)),
+                                      5, decoded.data()));
 }
 
 // ======================================================================
 // Output sizing
 
-TEST(PforMaxCompressedSizeTest, RejectsInvalidArguments) {
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::GetMaxCompressedSize(-1));
+TYPED_TEST(PforTest, MaxCompressedSizeRejectsInvalidArguments) {
+  using T = TypeParam;
+  ASSERT_RAISES(Invalid, PforWrapper<T>::GetMaxCompressedSize(-1));
   // A zero vector_size would divide by zero on the way to the answer.
   for (const int32_t vector_size : {0, 3, 1000, PforConstants::kMaxVectorSize * 2}) {
     SCOPED_TRACE("vector_size=" + std::to_string(vector_size));
-    ASSERT_RAISES(Invalid, PforWrapper<int32_t>::GetMaxCompressedSize(1024, vector_size));
-    std::vector<int32_t> values(16, 0);
+    ASSERT_RAISES(Invalid, PforWrapper<T>::GetMaxCompressedSize(1024, vector_size));
+    std::vector<T> values(16, 0);
     int64_t comp_size = 1 << 20;
     std::vector<uint8_t> compressed(comp_size);
-    ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 16, vector_size,
-                                                        compressed.data(), &comp_size));
+    ASSERT_RAISES(Invalid, PforWrapper<T>::Encode(values.data(), 16, vector_size,
+                                                  compressed.data(), &comp_size));
   }
 }
 
-TEST(PforMaxCompressedSizeTest, EncodeRejectsUndersizedOutputBuffer) {
-  std::vector<int32_t> values(1024);
+TYPED_TEST(PforTest, EncodeRejectsUndersizedOutputBuffer) {
+  using T = TypeParam;
+  std::vector<T> values(1024);
   std::iota(values.begin(), values.end(), 0);
   ASSERT_OK_AND_ASSIGN(const int64_t max_size,
-                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
+                       PforWrapper<T>::GetMaxCompressedSize(1024));
 
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size - 1;
-  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 1024,
-                                                      compressed.data(), &comp_size));
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Encode(values.data(), 1024, compressed.data(),
+                                                &comp_size));
 }
 
-TEST(PforSerializeVectorTest, RejectsUndersizedDestination) {
-  std::vector<int32_t> values(64);
+TYPED_TEST(PforTest, SerializeVectorRejectsUndersizedDestination) {
+  using T = TypeParam;
+  std::vector<T> values(64);
   std::iota(values.begin(), values.end(), 0);
-  const auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 64);
-  const int64_t needed = PforCompression<int32_t>::SerializedVectorSize(encoded, 64);
+  const auto encoded = PforCompression<T>::EncodeVector(values.data(), 64);
+  const int64_t needed = PforCompression<T>::SerializedVectorSize(encoded, 64);
 
   std::vector<uint8_t> buffer(needed);
   ASSERT_OK_AND_ASSIGN(const int64_t written,
-                       PforCompression<int32_t>::SerializeVector(encoded, 64, buffer));
+                       PforCompression<T>::SerializeVector(encoded, 64, buffer));
   ASSERT_EQ(needed, written);
-  ASSERT_RAISES(Invalid, PforCompression<int32_t>::SerializeVector(
+  ASSERT_RAISES(Invalid, PforCompression<T>::SerializeVector(
                              encoded, 64, std::span<uint8_t>(buffer).subspan(1)));
+}
+
+// SerializedVectorSize is derived from the vector info, while the copy that
+// follows it takes its lengths from the sections, so a vector whose info and
+// sections disagree has to be refused rather than written past the size the
+// caller reserved.
+TYPED_TEST(PforTest, SerializeVectorRejectsInfoInconsistentWithSections) {
+  using T = TypeParam;
+  std::vector<T> values(64);
+  std::iota(values.begin(), values.end(), 0);
+  const auto encoded = PforCompression<T>::EncodeVector(values.data(), 64);
+  std::vector<uint8_t> buffer(PforCompression<T>::SerializedVectorSize(encoded, 64) + 64);
+
+  {
+    // A bit width that does not account for the packed bytes present.
+    auto corrupted = encoded;
+    corrupted.mutable_info().set_bit_width(
+        static_cast<uint8_t>(encoded.info().bit_width() + 1));
+    ASSERT_RAISES(Invalid, PforCompression<T>::SerializeVector(corrupted, 64, buffer));
+  }
+  {
+    // An exception count with no exception sections behind it.
+    auto corrupted = encoded;
+    corrupted.mutable_info().set_num_exceptions(1);
+    ASSERT_RAISES(Invalid, PforCompression<T>::SerializeVector(corrupted, 64, buffer));
+  }
 }
 
 // GetMaxCompressedSize is what the encoder allocates, and it is derived from the
 // cost model rather than from a worst case that assumes every value is an
 // exception, so inputs that push the model in different directions all have to
 // land inside it.
-TEST(PforMaxCompressedSizeTest, BoundHoldsForAdversarialInputs) {
+TYPED_TEST(PforTest, MaxCompressedSizeBoundHoldsForAdversarialInputs) {
+  using T = TypeParam;
   constexpr int32_t kNumValues = 3000;
   std::mt19937 rng(7);
-  std::uniform_int_distribution<int32_t> full_range(std::numeric_limits<int32_t>::min(),
-                                                    std::numeric_limits<int32_t>::max());
+  std::uniform_int_distribution<T> full_range(std::numeric_limits<T>::min(),
+                                              std::numeric_limits<T>::max());
 
-  std::vector<std::vector<int32_t>> inputs;
+  std::vector<std::vector<T>> inputs;
   // Incompressible: every delta needs the full width, so the model picks it.
   inputs.emplace_back(kNumValues);
   for (auto& v : inputs.back()) v = full_range(rng);
@@ -746,25 +671,13 @@ TEST(PforMaxCompressedSizeTest, BoundHoldsForAdversarialInputs) {
   // Alternating extremes, so the frame of reference cannot help.
   inputs.emplace_back(kNumValues);
   for (int32_t i = 0; i < kNumValues; ++i) {
-    inputs.back()[i] = (i % 2 == 0) ? std::numeric_limits<int32_t>::min()
-                                    : std::numeric_limits<int32_t>::max();
+    inputs.back()[i] =
+        (i % 2 == 0) ? std::numeric_limits<T>::min() : std::numeric_limits<T>::max();
   }
 
   for (size_t i = 0; i < inputs.size(); ++i) {
     SCOPED_TRACE("input " + std::to_string(i));
-    const auto& values = inputs[i];
-    ASSERT_OK_AND_ASSIGN(const int64_t max_size,
-                         PforWrapper<int32_t>::GetMaxCompressedSize(kNumValues));
-    std::vector<uint8_t> compressed(max_size);
-    int64_t comp_size = max_size;
-    ASSERT_OK(PforWrapper<int32_t>::Encode(values.data(), kNumValues, compressed.data(),
-                                           &comp_size));
-    EXPECT_LE(comp_size, max_size);
-
-    std::vector<int32_t> decoded(kNumValues);
-    ASSERT_OK(PforWrapper<int32_t>::Decode(compressed.data(), comp_size, kNumValues,
-                                           decoded.data()));
-    EXPECT_EQ(values, decoded);
+    this->RoundTripPage(inputs[i]);
   }
 }
 
