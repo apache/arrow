@@ -138,6 +138,8 @@ void CheckChunkedSearchSortedAndConcatenated(const std::shared_ptr<ChunkedArray>
                     expected_left_json, expected_right_json);
 }
 
+const std::vector<std::shared_ptr<DataType>> kSupportedFloatTypes{float32(), float64()};
+
 struct SearchSortedSmokeCase {
   std::string name;
   std::shared_ptr<DataType> type;
@@ -244,18 +246,18 @@ std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
        R"(["1970-01-01", "1970-01-04", "1970-01-10"])", "[0, 1, 5]", "[0, 3, 5]"},
       {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
        "[0, 3, 5]"},
-      {"Binary", binary(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
-       "[0, 1, 5]", "[0, 3, 5]"},
-      {"String", utf8(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
-       "[0, 1, 5]", "[0, 3, 5]"},
+      {"Binary", binary(), R"(["aa", "bb", "bb", "dd", "ff"])",
+       R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
+      {"String", utf8(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "c", "bb", "z"])",
+       "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
       {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd", "ff"])",
-       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+       R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
       {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd", "ff"])",
-       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+       R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
       {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
-       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+       R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
       {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
-       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+       R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
   };
 }
 
@@ -304,22 +306,34 @@ TEST(SearchSorted, ValuesWithTrailingNulls) {
                           "[0, 0, 1, 3]", "[0, 1, 1, 3]");
 }
 
-TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNulls) {
-  CheckSimpleSearchSortedAndScalar(float64(), "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
-                                   "[0.0, 3.0, 4.0, NaN]", "[0, 1, 3, 4]",
-                                   "[0, 3, 3, 6]");
-}
-
-TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNullsAndNullNeedles) {
-  CheckSimpleSearchSortedAndScalar(float64(), "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
-                                   "[0.0, 3.0, 4.0, NaN, null]", "[0, 1, 3, 4, null]",
-                                   "[0, 3, 3, 6, null]");
-}
-
-TEST(SearchSorted, FloatValuesWithLeadingNullsAndTrailingNaNsAndNullNeedles) {
-  CheckSimpleSearchSortedAndScalar(float64(), "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
-                                   "[0.0, 3.0, 4.0, NaN, null]", "[1, 2, 4, 5, null]",
-                                   "[1, 4, 4, 7, null]");
+TEST(SearchSorted, FloatValuesWithNaNs) {
+  for (const auto& type : kSupportedFloatTypes) {
+    // Nulls last, NaN in needles but not in haystack
+    CheckSimpleSearchSortedAndScalar(type, "[1.0, 3.0, 3.0, 5.0]",
+                                     "[3.0, 0.0, NaN, 4.0, 6.0]", "[1, 0, 4, 3, 4]",
+                                     "[3, 0, 4, 3, 4]");
+    CheckSimpleSearchSortedAndScalar(type, "[1.0, 3.0, 3.0, 5.0, null]",
+                                     "[3.0, 0.0, NaN, 4.0, 6.0]", "[1, 0, 4, 3, 4]",
+                                     "[3, 0, 4, 3, 4]");
+    // Nulls last, NaN in needles and in haystack
+    CheckSimpleSearchSortedAndScalar(type, "[1.0, 3.0, 3.0, 5.0, NaN, NaN]",
+                                     "[3.0, 0.0, NaN, 4.0]", "[1, 0, 4, 3]",
+                                     "[3, 0, 6, 3]");
+    CheckSimpleSearchSortedAndScalar(type, "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
+                                     "[3.0, 0.0, NaN, 4.0]", "[1, 0, 4, 3]",
+                                     "[3, 0, 6, 3]");
+    // Nulls first, NaN in needles but not in haystack
+    CheckSimpleSearchSortedAndScalar(type, "[null, 1.0, 3.0, 3.0, 5.0]",
+                                     "[3.0, 0.0, NaN, 4.0, 6.0]", "[2, 1, 1, 4, 5]",
+                                     "[4, 1, 1, 4, 5]");
+    // Nulls first, NaN in needles and in haystack
+    CheckSimpleSearchSortedAndScalar(type, "[NaN, NaN, NaN, 1.0, 3.0, 3.0, 5.0]",
+                                     "[3.0, 0.0, NaN, 4.0, 6.0]", "[4, 3, 0, 6, 7]",
+                                     "[6, 3, 3, 6, 7]");
+    CheckSimpleSearchSortedAndScalar(type, "[null, NaN, NaN, 1.0, 3.0, 3.0, 5.0]",
+                                     "[3.0, 0.0, NaN, 4.0, 6.0]", "[4, 3, 1, 6, 7]",
+                                     "[6, 3, 3, 6, 7]");
+  }
 }
 
 TEST(SearchSorted, NullNeedlesEmitNull) {
@@ -371,6 +385,63 @@ TEST(SearchSorted, ChunkedValuesChunkedNeedles) {
 
   CheckChunkedSearchSortedAndConcatenated(values, needles, "[null, 0, 0, 3, null, 5]",
                                           "[null, 0, 2, 3, null, 5]");
+}
+
+TEST(SearchSorted, ChunkedFloatValuesWithNaNs) {
+  for (const auto& type : kSupportedFloatTypes) {
+    auto needles = ArrayFromJSON(type, "[3.0, 0.0, NaN, 4.0, 6.0]");
+    {
+      // Nulls last
+      auto values_without_nans =
+          ChunkedArrayFromJSON(type, {"[]", "[1.0, 3.0]", "[3.0, 5.0]"});
+      // (stress NullPlacement detection by chunking in different ways)
+      auto values_with_nans1 =
+          ChunkedArrayFromJSON(type, {"[]", "[1.0, 3.0]", "[3.0, 5.0, NaN, NaN]"});
+      auto values_with_nans2 =
+          ChunkedArrayFromJSON(type, {"[]", "[1.0, 3.0]", "[3.0, 5.0]", "[NaN, NaN]"});
+      auto values_with_nans_and_nulls1 = ChunkedArrayFromJSON(
+          type, {"[]", "[1.0, 3.0]", "[3.0, 5.0, NaN, NaN, null, null]"});
+      auto values_with_nans_and_nulls2 = ChunkedArrayFromJSON(
+          type, {"[]", "[1.0, 3.0]", "[3.0, 5.0]", "[NaN, NaN]", "[null, null]"});
+      auto values_with_nans_and_nulls3 = ChunkedArrayFromJSON(
+          type, {"[]", "[1.0, 3.0]", "[3.0, 5.0]", "[NaN]", "[NaN, null, null]"});
+      CheckSearchSorted(Datum(values_without_nans), Datum(needles), "[1, 0, 4, 3, 4]",
+                        "[3, 0, 4, 3, 4]");
+      CheckSearchSorted(Datum(values_with_nans1), Datum(needles), "[1, 0, 4, 3, 4]",
+                        "[3, 0, 6, 3, 4]");
+      CheckSearchSorted(Datum(values_with_nans2), Datum(needles), "[1, 0, 4, 3, 4]",
+                        "[3, 0, 6, 3, 4]");
+      CheckSearchSorted(Datum(values_with_nans_and_nulls1), Datum(needles),
+                        "[1, 0, 4, 3, 4]", "[3, 0, 6, 3, 4]");
+      CheckSearchSorted(Datum(values_with_nans_and_nulls2), Datum(needles),
+                        "[1, 0, 4, 3, 4]", "[3, 0, 6, 3, 4]");
+      CheckSearchSorted(Datum(values_with_nans_and_nulls3), Datum(needles),
+                        "[1, 0, 4, 3, 4]", "[3, 0, 6, 3, 4]");
+    }
+    {
+      // Nulls first
+      auto values_with_nans1 =
+          ChunkedArrayFromJSON(type, {"[]", "[NaN, NaN, 1.0, 3.0]", "[3.0, 5.0]"});
+      auto values_with_nans2 =
+          ChunkedArrayFromJSON(type, {"[]", "[NaN, NaN]", "[1.0, 3.0]", "[3.0, 5.0]"});
+      auto values_with_nans_and_nulls1 = ChunkedArrayFromJSON(
+          type, {"[]", "[null, null, NaN, NaN, 1.0, 3.0]", "[3.0, 5.0]"});
+      auto values_with_nans_and_nulls2 = ChunkedArrayFromJSON(
+          type, {"[]", "[null, null, NaN]", "[NaN, 1.0, 3.0]", "[3.0, 5.0]"});
+      auto values_with_nans_and_nulls3 = ChunkedArrayFromJSON(
+          type, {"[]", "[null, null]", "[NaN]", "[NaN, 1.0, 3.0]", "[3.0, 5.0]"});
+      CheckSearchSorted(Datum(values_with_nans1), Datum(needles), "[3, 2, 0, 5, 6]",
+                        "[5, 2, 2, 5, 6]");
+      CheckSearchSorted(Datum(values_with_nans2), Datum(needles), "[3, 2, 0, 5, 6]",
+                        "[5, 2, 2, 5, 6]");
+      CheckSearchSorted(Datum(values_with_nans_and_nulls1), Datum(needles),
+                        "[5, 4, 2, 7, 8]", "[7, 4, 4, 7, 8]");
+      CheckSearchSorted(Datum(values_with_nans_and_nulls2), Datum(needles),
+                        "[5, 4, 2, 7, 8]", "[7, 4, 4, 7, 8]");
+      CheckSearchSorted(Datum(values_with_nans_and_nulls3), Datum(needles),
+                        "[5, 4, 2, 7, 8]", "[7, 4, 4, 7, 8]");
+    }
+  }
 }
 
 TEST(SearchSorted, ChunkedRunEndEncodedValues) {
@@ -432,24 +503,14 @@ TEST(SearchSorted, ChunkedRunEndEncodedValuesTrailingNullsAcrossEmptyChunks) {
 }
 
 TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
-  auto values = std::make_shared<ChunkedArray>(ArrayVector{
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[null, null]"),
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[2, 4, 4]"),
-  });
+  auto values = ChunkedArrayFromJSON(int32(), {"[]", "[null, null]", "[]", "[2, 4, 4]"});
   auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[2, 3, 5]", "[2, 5, 5]");
 }
 
 TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
-  auto values = std::make_shared<ChunkedArray>(ArrayVector{
-      ArrayFromJSON(int32(), "[2, 4, 4]"),
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[null, null]"),
-      ArrayFromJSON(int32(), "[]"),
-  });
+  auto values = ChunkedArrayFromJSON(int32(), {"[]", "[2, 4, 4]", "[]", "[null, null]"});
   auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
@@ -471,8 +532,8 @@ TEST(SearchSorted, RunEndEncodedNulls) {
   ASSERT_OK_AND_ASSIGN(auto ree_needles,
                        REEFromJSON(needles_type, "[null, null, 1, 4, 4, null, 8]"));
 
-  CheckSearchSorted(Datum(ree_values), Datum(ree_needles), SearchSortedOptions::Left,
-                    "[null, null, 2, 3, 3, null, 5]");
+  CheckSearchSorted(Datum(ree_values), Datum(ree_needles),
+                    "[null, null, 2, 3, 3, null, 5]", "[null, null, 2, 5, 5, null, 5]");
 }
 
 TEST(SearchSorted, RunEndEncodedValuesWithTrailingNulls) {
@@ -550,18 +611,7 @@ TEST(SearchSorted, SlicedRunEndEncodedValues) {
   auto sliced = ree_values->Slice(1, 5);
   auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 90]");
 
-  CheckSearchSorted(Datum(sliced), Datum(needles), SearchSortedOptions::Left,
-                    "[0, 0, 1, 4, 4, 5]");
-}
-
-TEST(SearchSorted, SlicedRunEndEncodedValuesRight) {
-  auto values_type = run_end_encoded(int32(), int32());
-  ASSERT_OK_AND_ASSIGN(auto ree_values,
-                       REEFromJSON(values_type, "[10, 10, 20, 20, 20, 40, 40, 90]"));
-  auto sliced = ree_values->Slice(1, 5);
-  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 90]");
-
-  CheckSearchSorted(Datum(sliced), Datum(needles), SearchSortedOptions::Right,
+  CheckSearchSorted(Datum(sliced), Datum(needles), "[0, 0, 1, 4, 4, 5]",
                     "[0, 1, 4, 4, 5, 5]");
 }
 
