@@ -40,6 +40,10 @@ echo "* HERE HERE HERE HERE HERE HERE"
 echo "*******************************************************"
 
 
-DEBUGGER="lldb" ../c_glib/test/run-test.sh -t TestFlightSQLClient
+OS=$( uname -s )
 
-#rake -f "${source_dir}/Rakefile" BUILD_DIR="${build_dir}" USE_BUNDLER=yes
+if [ "$OS" = "Darwin" ] ; then
+DEBUGGER="lldb" ../c_glib/test/run-test.sh -t TestFlightSQLClient
+else
+rake -f "${source_dir}/Rakefile" BUILD_DIR="${build_dir}" USE_BUNDLER=yes
+fi
