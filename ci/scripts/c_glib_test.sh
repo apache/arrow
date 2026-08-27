@@ -45,6 +45,7 @@ pushd "${build_dir}"
 DEBUGGER="lldb" ${source_dir}/test/run-test.sh -t TestFlightSQLClient
 popd
 
+
 if [[ "$(uname -s)" == "Linux" ]]; then
   # TODO(kszucs): on osx it fails to load 'lgi.corelgilua51' despite that lgi
   # was installed by luarocks
