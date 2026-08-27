@@ -98,119 +98,97 @@ TEST(AlpIntegerEncodingTest, GetIntegerEncodingMetadataSize) {
 }
 
 // ============================================================================
-// ALP Compression Tests (Float)
+// ALP Compression Tests
 // ============================================================================
 
-class AlpCompressionFloatTest : public ::testing::Test {
+template <typename T>
+class AlpCompressionTest : public ::testing::Test {
  protected:
-  void TestCompressDecompressFloat(const std::vector<float>& input) {
-    AlpCompression<float> compressor;
+  void TestCompressDecompress(const std::vector<T>& input) {
+    AlpCompression<T> compressor;
 
     // Compress
     AlpEncodingParameters preset{};  // Default preset
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     // Decompress
-    std::vector<float> output(input.size());
+    std::vector<T> output(input.size());
     compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
-    // Verify
+    // Verify bit-exact recovery (important for -0.0, NaN; see IsBitwiseEqual).
     ASSERT_EQ(output.size(), input.size());
-    for (size_t i = 0; i < input.size(); ++i) {
-      EXPECT_FLOAT_EQ(output[i], input[i]) << "Mismatch at index " << i;
-    }
+    EXPECT_TRUE(IsBitwiseEqual(output, input));
   }
 };
 
-TEST_F(AlpCompressionFloatTest, SimpleSequence) {
-  std::vector<float> input(64);
+using CompressionTestTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(AlpCompressionTest, CompressionTestTypes);
+
+TYPED_TEST(AlpCompressionTest, SimpleSequence) {
+  std::vector<TypeParam> input(64);
   for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = static_cast<float>(i + 1);
+    input[i] = static_cast<TypeParam>(i + 1);
   }
-  TestCompressDecompressFloat(input);
+  this->TestCompressDecompress(input);
 }
 
-TEST_F(AlpCompressionFloatTest, DecimalValues) {
-  std::vector<float> input(64);
+TYPED_TEST(AlpCompressionTest, DecimalValues) {
+  std::vector<TypeParam> input(64);
   for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = static_cast<float>(i) + 0.5f;
+    input[i] = static_cast<TypeParam>(i) + static_cast<TypeParam>(0.5);
   }
-  TestCompressDecompressFloat(input);
+  this->TestCompressDecompress(input);
 }
 
-TEST_F(AlpCompressionFloatTest, SmallValues) {
-  std::vector<float> input(64);
+TYPED_TEST(AlpCompressionTest, SmallValues) {
+  std::vector<TypeParam> input(64);
   for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = 0.001f * (i + 1);
+    input[i] = static_cast<TypeParam>(0.001) * static_cast<TypeParam>(i + 1);
   }
-  TestCompressDecompressFloat(input);
+  this->TestCompressDecompress(input);
 }
 
-TEST_F(AlpCompressionFloatTest, MixedValues) {
-  std::vector<float> input = {100.5f,     200.25f,     300.125f,     400.0625f,
-                              500.03125f, 600.015625f, 700.0078125f, 800.00390625f};
-  TestCompressDecompressFloat(input);
+TYPED_TEST(AlpCompressionTest, MixedValues) {
+  // Exact binary fractions, so the values themselves are representable in both
+  // float and double and any loss would come from the codec, not the literals.
+  std::vector<TypeParam> input = {
+      static_cast<TypeParam>(100.5),       static_cast<TypeParam>(200.25),
+      static_cast<TypeParam>(300.125),     static_cast<TypeParam>(400.0625),
+      static_cast<TypeParam>(500.03125),   static_cast<TypeParam>(600.015625),
+      static_cast<TypeParam>(700.0078125), static_cast<TypeParam>(800.00390625)};
+  this->TestCompressDecompress(input);
 }
 
-TEST_F(AlpCompressionFloatTest, RandomValues) {
+TYPED_TEST(AlpCompressionTest, RandomValues) {
   std::mt19937 rng(42);
-  std::uniform_real_distribution<float> dist(0.0f, 1000.0f);
+  std::uniform_real_distribution<TypeParam> dist(static_cast<TypeParam>(0.0),
+                                                 static_cast<TypeParam>(1000.0));
 
-  std::vector<float> input(64);
+  std::vector<TypeParam> input(64);
   for (auto& v : input) {
     v = dist(rng);
   }
 
-  TestCompressDecompressFloat(input);
+  this->TestCompressDecompress(input);
 }
 
-// ============================================================================
-// ALP Compression Tests (Double)
-// ============================================================================
-
-class AlpCompressionDoubleTest : public ::testing::Test {
- protected:
-  void TestCompressDecompressDouble(const std::vector<double>& input) {
-    AlpCompression<double> compressor;
-
-    // Compress
-    AlpEncodingParameters preset{};  // Default preset
-    auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
-
-    // Decompress
-    std::vector<double> output(input.size());
-    compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
-
-    // Verify
-    ASSERT_EQ(output.size(), input.size());
-    for (size_t i = 0; i < input.size(); ++i) {
-      EXPECT_DOUBLE_EQ(output[i], input[i]) << "Mismatch at index " << i;
-    }
-  }
-};
-
-TEST_F(AlpCompressionDoubleTest, SimpleSequence) {
-  std::vector<double> input(64);
+TYPED_TEST(AlpCompressionTest, HighPrecision) {
+  // More decimal digits than float can hold, so for float these values arrive
+  // already rounded and mostly become exceptions; the codec must still return
+  // them bit for bit.
+  std::vector<TypeParam> input(64);
   for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = static_cast<double>(i + 1);
+    input[i] = static_cast<TypeParam>(1.123456789) * static_cast<TypeParam>(i + 1);
   }
-  TestCompressDecompressDouble(input);
+  this->TestCompressDecompress(input);
 }
 
-TEST_F(AlpCompressionDoubleTest, HighPrecision) {
-  std::vector<double> input(64);
+TYPED_TEST(AlpCompressionTest, VerySmallValues) {
+  std::vector<TypeParam> input(64);
   for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = 1.123456789 * (i + 1);
+    input[i] = static_cast<TypeParam>(1e-10) * static_cast<TypeParam>(i + 1);
   }
-  TestCompressDecompressDouble(input);
-}
-
-TEST_F(AlpCompressionDoubleTest, VerySmallValues) {
-  std::vector<double> input(64);
-  for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = 1e-10 * (i + 1);
-  }
-  TestCompressDecompressDouble(input);
+  this->TestCompressDecompress(input);
 }
 
 // ============================================================================
@@ -936,10 +914,10 @@ TYPED_TEST(AlpCodecTest, WideningDecode) {
                                                        comp_buffer.data(), comp_size,
                                                        output.data()));
 
-    // Verify values match (as double)
-    for (size_t i = 0; i < input.size(); ++i) {
-      EXPECT_DOUBLE_EQ(output[i], static_cast<double>(input[i]));
-    }
+    // Widening float to double is exact for finite values, so the decoded
+    // doubles must match the inputs bit for bit, not merely approximately.
+    std::vector<double> expected(input.begin(), input.end());
+    EXPECT_TRUE(IsBitwiseEqual(output, expected));
   }
 }
 

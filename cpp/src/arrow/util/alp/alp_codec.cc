@@ -124,6 +124,10 @@ struct AlpHeader {
   ///
   /// \param[in] value a power-of-2 value
   /// \return the log base 2 of value
+  /// \pre value is positive and a power of two. Callers reach this only after
+  ///      ValidateVectorSize has already rejected other inputs with
+  ///      Status::Invalid, so a violation here is a programmer error rather
+  ///      than malformed data; it is enforced with `ARROW_CHECK`, which aborts.
   static uint8_t Log2(int32_t value) {
     ARROW_CHECK(value > 0 && std::has_single_bit(static_cast<uint32_t>(value)))
         << "value_must_be_power_of_2: " << value;
