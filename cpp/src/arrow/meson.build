@@ -758,6 +758,7 @@ if needs_testing
             filesystem_dep,
             gmock_dep,
             gtest_dep,
+            simdjson_dep,
         ],
     )
 
