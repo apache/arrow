@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/json/json_writer_internal.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 

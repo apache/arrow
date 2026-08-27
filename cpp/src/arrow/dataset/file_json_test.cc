@@ -20,10 +20,10 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {

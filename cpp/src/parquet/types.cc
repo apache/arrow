@@ -24,11 +24,11 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 
 #include "parquet/exception.h"

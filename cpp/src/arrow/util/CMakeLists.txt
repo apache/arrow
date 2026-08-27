@@ -87,6 +87,14 @@ add_arrow_test(utility-test
                EXTRA_LINK_LIBS
                ${ARROW_UTILITY_TEST_LINK_LIBS})
 
+if(ARROW_WITH_SIMDJSON)
+  add_arrow_test(json-writer-internal-test
+                 SOURCES
+                 json_writer_internal_test.cc
+                 EXTRA_LINK_LIBS
+                 simdjson::simdjson)
+endif()
+
 add_arrow_test(async-utility-test
                SOURCES
                async_generator_test.cc

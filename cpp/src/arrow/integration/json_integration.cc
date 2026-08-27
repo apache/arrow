@@ -29,11 +29,11 @@
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/simdjson_internal.h"
 

@@ -18,6 +18,22 @@
 dl_dep = dependency('dl')
 threads_dep = dependency('threads')
 
+if needs_json or needs_integration or needs_parquet
+    simdjson_dep = dependency('simdjson', allow_fallback: false, required: false)
+
+    if not simdjson_dep.found()
+        cmake = import('cmake')
+        simdjson_opts = cmake.subproject_options()
+
+        simdjson_opts.add_cmake_defines({'SIMDJSON_EXCEPTIONS': 'OFF'})
+
+        simdjson_proj = cmake.subproject('simdjson', options: simdjson_opts)
+        simdjson_dep = simdjson_proj.dependency('simdjson')
+    endif
+else
+    simdjson_dep = disabler()
+endif
+
 arrow_components = {
     'arrow_array': {
         'sources': [
@@ -224,6 +240,14 @@ arrow_util_srcs = [
 
 arrow_util_deps = [threads_dep]
 
+if needs_json or needs_integration or needs_parquet
+    arrow_util_srcs += [
+        'util/json_writer_internal.cc',
+        'util/simdjson_internal.cc',
+    ]
+    arrow_util_deps += [simdjson_dep]
+endif
+
 if needs_brotli
     arrow_util_srcs += ['util/compression_brotli.cc']
     arrow_util_deps += [dependency('libbrotlidec'), dependency('libbrotlienc')]
@@ -316,22 +340,6 @@ if needs_json or needs_integration
     )
 else
     rapidjson_dep = disabler()
-endif
-
-if needs_json or needs_integration
-    simdjson_dep = dependency('simdjson', allow_fallback: false, required: false)
-
-    if not simdjson_dep.found()
-        cmake = import('cmake')
-        simdjson_opts = cmake.subproject_options()
-
-        simdjson_opts.add_cmake_defines({'SIMDJSON_EXCEPTIONS': 'OFF'})
-
-        simdjson_proj = cmake.subproject('simdjson', options: simdjson_opts)
-        simdjson_dep = simdjson_proj.dependency('simdjson')
-    endif
-else
-    simdjson_dep = disabler()
 endif
 
 azure_dep = disabler()
@@ -530,7 +538,6 @@ if needs_json
                 'json/chunker.cc',
                 'json/converter.cc',
                 'json/from_string.cc',
-                'json/json_writer_internal.cc',
                 'json/object_parser.cc',
                 'json/options.cc',
                 'json/parser.cc',

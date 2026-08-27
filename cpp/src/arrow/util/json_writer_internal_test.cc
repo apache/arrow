@@ -17,8 +17,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/json_writer_internal.h"
 
 namespace sj = simdjson::ondemand;
 

@@ -38,7 +38,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -49,6 +48,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/simdjson_internal.h"
 
 DEFINE_string(arrow, "", "Arrow file name");

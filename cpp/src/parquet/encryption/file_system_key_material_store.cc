@@ -20,9 +20,9 @@
 #include "arrow/buffer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/object_parser.h"
 #include "arrow/result.h"
+#include "arrow/util/json_writer_internal.h"
 
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"

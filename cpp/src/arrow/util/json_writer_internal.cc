@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/json/json_writer_internal.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/simdjson_internal.h"
 
 namespace arrow::json {

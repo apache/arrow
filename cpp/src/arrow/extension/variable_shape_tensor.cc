@@ -23,9 +23,9 @@
 #include "arrow/extension/variable_shape_tensor.h"
 
 #include "arrow/array/array_primitive.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/tensor.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
 #include "arrow/util/simdjson_internal.h"

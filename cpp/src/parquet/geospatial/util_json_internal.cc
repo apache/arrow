@@ -20,8 +20,8 @@
 #include <string>
 
 #include "arrow/extension_type.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/result.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/simdjson_internal.h"
 #include "arrow/util/string.h"
 

@@ -19,7 +19,7 @@
 
 #include <sstream>
 
-#include "arrow/json/json_writer_internal.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/simdjson_internal.h"
 

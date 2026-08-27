@@ -17,8 +17,8 @@
 
 #include <string_view>
 
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/object_parser.h"
+#include "arrow/util/json_writer_internal.h"
 
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"

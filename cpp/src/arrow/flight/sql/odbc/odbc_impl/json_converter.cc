@@ -20,8 +20,8 @@
 #include <boost/beast/core/detail/base64.hpp>
 #include "arrow/builder.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/scalar.h"
+#include "arrow/util/json_writer_internal.h"
 #include "arrow/visitor.h"
 
 using boost::beast::detail::base64::encode;
