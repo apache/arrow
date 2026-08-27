@@ -566,6 +566,8 @@ set(ARROW_UTIL_SRCS
     util/math_internal.cc
     util/memory.cc
     util/mutex.cc
+    util/pfor/pfor.cc
+    util/pfor/pfor_wrapper.cc
     util/ree_util.cc
     util/secure_string.cc
     util/string.cc
