@@ -41,7 +41,7 @@ if [ -n "${RUNNER_DEBUG}" ]; then
   run_test_args+=(-v)
 fi
 #ruby test/run-test.rb "${run_test_args[@]}"
-pushd ${build_dir}
+pushd "${build_dir}"
 DEBUGGER="lldb" ../c_glib/test/run-test.sh -t TestFlightSQLClient
 popd
 
