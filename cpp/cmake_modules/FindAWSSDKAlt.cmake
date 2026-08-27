@@ -35,7 +35,7 @@ if(DEFINED ENV{CONDA_PREFIX})
 endif()
 find_package(AWSSDK ${find_package_args}
              COMPONENTS config
-                        s3
+                        s3-crt
                         transfer
                         identity-management
                         sts)
