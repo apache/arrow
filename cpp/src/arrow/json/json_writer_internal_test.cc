@@ -290,4 +290,47 @@ TEST(JsonWriter, WriteValueAllNumberTypes) {
       R"({"signed":-42,"unsigned":18446744073709551615,"double":2.5,"big":184467440737095516161234567890})");
 }
 
+TEST(JsonWriter, IntField) {
+  JsonWriter writer;
+
+  writer.StartObject();
+  writer.IntField("a", 42);
+  writer.EndObject();
+
+  ASSERT_OK_AND_ASSIGN(std::string_view json, writer.GetString());
+
+  EXPECT_EQ(json, R"({"a":42})");
+}
+
+TEST(JsonWriter, GetPrettyString) {
+  JsonWriter writer;
+
+  writer.StartObject();
+  writer.Key("a");
+  writer.Int(42);
+  writer.Key("b");
+  writer.String("hello");
+  writer.EndObject();
+
+  ASSERT_OK_AND_ASSIGN(std::string pretty, writer.GetPrettyString());
+
+  // Pretty output should differ from the compact form (padded spacing, at minimum),
+  // even though a small object like this may still be rendered on one line.
+  EXPECT_NE(pretty, R"({"a":42,"b":"hello"})");
+
+  // But it should still parse back to the same values.
+  sj::parser parser;
+  simdjson::padded_string padded(pretty);
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(padded).get(doc), simdjson::SUCCESS);
+
+  int64_t a_value;
+  ASSERT_EQ(doc["a"].get(a_value), simdjson::SUCCESS);
+  EXPECT_EQ(a_value, 42);
+
+  std::string_view b_value;
+  ASSERT_EQ(doc["b"].get(b_value), simdjson::SUCCESS);
+  EXPECT_EQ(b_value, "hello");
+}
+
 }  // namespace arrow::json

@@ -197,6 +197,12 @@ Result<std::string_view> JsonWriter::GetString() const {
   return view;
 }
 
+Result<std::string> JsonWriter::GetPrettyString(
+    const simdjson::fractured_json_options& options) const {
+  ARROW_ASSIGN_OR_RAISE(std::string_view json, GetString());
+  return simdjson::fractured_json_string(json, options);
+}
+
 void JsonWriter::Clear() {
   builder_.clear();
   needs_comma_ = false;
@@ -216,6 +222,11 @@ void JsonWriter::StringField(std::string_view key, std::string_view value) {
 void JsonWriter::BoolField(std::string_view key, bool value) {
   Key(key);
   Bool(value);
+}
+
+void JsonWriter::IntField(std::string_view key, int32_t value) {
+  Key(key);
+  Int(value);
 }
 
 }  // namespace arrow::json
