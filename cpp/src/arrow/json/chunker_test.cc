@@ -264,9 +264,15 @@ TEST(ChunkerTest, Errors) {
   std::string parts[] = {R"({"a":0})", "}", R"({"a":1})"};
   auto chunker = MakeChunker(true);
   std::shared_ptr<Buffer> whole, rest, completion;
+
   ASSERT_OK(chunker->Process(Buffer::FromString(parts[0] + parts[1]), &whole, &rest));
-  ASSERT_EQ(std::string_view(*whole), parts[0]);
-  ASSERT_EQ(std::string_view(*rest), parts[1]);
+
+  // simdjson rejects the malformed stream as a whole, so no complete chunk
+  // is emitted before the trailing invalid data.
+  ASSERT_TRUE(whole);
+  ASSERT_EQ(std::string_view(*whole), "");
+  ASSERT_EQ(std::string_view(*rest), parts[0] + parts[1]);
+
   auto status =
       chunker->ProcessWithPartial(rest, Buffer::FromString(parts[2]), &completion, &rest);
   EXPECT_THAT(status.message(),

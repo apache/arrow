@@ -17,10 +17,8 @@
 
 #include "arrow/json/chunker.h"
 
-#include <algorithm>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include <simdjson.h>
 
@@ -51,46 +49,48 @@ static size_t ConsumeWholeObject(std::string_view input) {
     return 0;
   }
 
+  // Keep the padded buffer alive while iterating the document stream.
   simdjson::padded_string padded(input);
   simdjson::ondemand::parser parser;
+  simdjson::ondemand::document_stream stream;
 
-  auto doc_result = parser.iterate(padded);
-  auto doc_status =
-      internal::ResolveSimdjsonResult(std::move(doc_result),
-                                      "Failed to parse JSON document");
-  if (!doc_status.ok()) {
+  auto stream_status = internal::ResolveSimdjsonResult(
+      parser.iterate_many(padded), "Failed to create JSON document stream");
+  if (!stream_status.ok()) {
     return std::string_view::npos;
   }
 
-  auto document = std::move(doc_status).ValueUnsafe();
+  stream = std::move(stream_status).ValueUnsafe();
 
-  auto value_result = document.get_value();
+  auto it = stream.begin();
+  if (it == stream.end()) {
+    return 0;
+  }
+
+  // Force parsing of the first document.
+  auto document = *it;
+  if (it.error() != simdjson::SUCCESS) {
+    return std::string_view::npos;
+  }
+
   auto value_status =
-      internal::ResolveSimdjsonResult(std::move(value_result),
-                                      "Failed to get JSON value");
+      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
   if (!value_status.ok()) {
     return std::string_view::npos;
   }
 
   auto value = std::move(value_status).ValueUnsafe();
-
-  // Fully consume exactly the first top-level value.
   auto consume_status = internal::ConsumeJsonValue(value);
   if (!consume_status.ok()) {
     return std::string_view::npos;
   }
 
-  // current_location() should now point immediately after the consumed value.
-  auto location_result = document.current_location();
-  auto location_status =
-      internal::ResolveSimdjsonResult(std::move(location_result),
-                                      "Failed to get JSON location");
-  if (!location_status.ok()) {
-    return std::string_view::npos;
-  }
+  // current_index() is the start of this document. source() is the
+  // complete source span of the current document.
+  const size_t document_start = it.current_index();
+  const size_t document_length = it.source().size();
 
-  const char* location = std::move(location_status).ValueUnsafe();
-  return static_cast<size_t>(location - padded.data());
+  return document_start + document_length;
 }
 
 namespace {
@@ -116,7 +116,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     if (length == std::string_view::npos) {
       *out_pos = -1;
     } else if (ARROW_PREDICT_FALSE(length < partial.size())) {
-      return Status::Invalid("JSON parse error: Invalid value");
+      return Status::Invalid("JSON chunk error: invalid data at end of document");
     } else {
       DCHECK_LE(length, partial.size() + block.size());
       *out_pos = static_cast<int64_t>(length - partial.size());
@@ -138,8 +138,6 @@ class ParsingBoundaryFinder : public BoundaryFinder {
 
     while (consumed_length < block_length) {
       const auto length = ConsumeWholeObject(block);
-
-        ARROW_LOG(INFO) << "block: [" << block << "], consumed: " << length;
 
       if (length == std::string_view::npos || length == 0) {
         const size_t start = ConsumeWhitespace(block);
