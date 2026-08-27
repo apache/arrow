@@ -24,7 +24,7 @@ Nothing: called for side effects in the file system
 Copy files between FileSystems
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 # Copy an S3 bucket's files to a local directory:
 copy_files("s3://your-bucket-name", "local-directory")
 # Using a FileSystem object

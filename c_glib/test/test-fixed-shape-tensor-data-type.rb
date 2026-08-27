@@ -104,4 +104,9 @@ class TestFixedShapeTensorDataType < Test::Unit::TestCase
     assert_equal(message,
                  error.message.lines.first.chomp)
   end
+
+  def test_converted_from_cpp
+    schema = Arrow::Schema.new([Arrow::Field.new("tensor", @data_type)])
+    assert_equal(@data_type, schema.fields[0].data_type)
+  end
 end

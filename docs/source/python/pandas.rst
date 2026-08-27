@@ -31,10 +31,10 @@ to them.
 
 To follow examples in this document, make sure to run:
 
-.. ipython:: python
+.. code-block:: python
 
-   import pandas as pd
-   import pyarrow as pa
+   >>> import pandas as pd
+   >>> import pyarrow as pa
 
 DataFrames
 ----------
@@ -50,17 +50,14 @@ Conversion from a Table to a DataFrame is done by calling
 
 .. code-block:: python
 
-    import pyarrow as pa
-    import pandas as pd
+    >>> df = pd.DataFrame({"a": [1, 2, 3]})
+    >>> # Convert from pandas to Arrow
+    >>> table = pa.Table.from_pandas(df)
+    >>> # Convert back to pandas
+    >>> df_new = table.to_pandas()
 
-    df = pd.DataFrame({"a": [1, 2, 3]})
-    # Convert from pandas to Arrow
-    table = pa.Table.from_pandas(df)
-    # Convert back to pandas
-    df_new = table.to_pandas()
-
-    # Infer Arrow schema from pandas
-    schema = pa.Schema.from_pandas(df)
+    >>> # Infer Arrow schema from pandas
+    >>> schema = pa.Schema.from_pandas(df)
 
 By default ``pyarrow`` tries to preserve and restore the ``.index``
 data as accurately as possible. See the section below for more about
@@ -169,24 +166,52 @@ columns are converted to :ref:`Arrow dictionary arrays <data.dictionary>`,
 a special array type optimized to handle repeated and limited
 number of possible values.
 
-.. ipython:: python
+.. code-block:: python
 
-   df = pd.DataFrame({"cat": pd.Categorical(["a", "b", "c", "a", "b", "c"])})
-   df.cat.dtype.categories
-   df
-
-   table = pa.Table.from_pandas(df)
-   table
+   >>> df = pd.DataFrame({"cat": pd.Categorical(["a", "b", "c", "a", "b", "c"])})
+   >>> df.cat.dtype.categories
+   Index(['a', 'b', 'c'], dtype='str')
+   >>> df
+     cat
+   0   a
+   1   b
+   2   c
+   3   a
+   4   b
+   5   c
+   >>> table = pa.Table.from_pandas(df)
+   >>> table
+   pyarrow.Table
+   cat: dictionary<values=large_string, indices=int8, ordered=0>
+   ----
+   cat: [  -- dictionary:
+   ["a","b","c"]  -- indices:
+   [0,1,2,0,1,2]]
 
 We can inspect the :class:`~.ChunkedArray` of the created table and see the
 same categories of the Pandas DataFrame.
 
-.. ipython:: python
+.. code-block:: python
 
-   column = table[0]
-   chunk = column.chunk(0)
-   chunk.dictionary
-   chunk.indices
+   >>> column = table[0]
+   >>> chunk = column.chunk(0)
+   >>> chunk.dictionary
+   <pyarrow.lib.LargeStringArray object at ...>
+   [
+     "a",
+     "b",
+     "c"
+   ]
+   >>> chunk.indices
+   <pyarrow.lib.Int8Array object at ...>
+   [
+     0,
+     1,
+     2,
+     0,
+     1,
+     2
+   ]
 
 Datetime (Timestamp) types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,14 +220,23 @@ Datetime (Timestamp) types
 use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
 :class:`~.TimestampArray`.
 
-.. ipython:: python
+.. code-block:: python
 
-   df = pd.DataFrame({"datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=3)})
-   df.dtypes
-   df
-
-   table = pa.Table.from_pandas(df)
-   table
+   >>> df = pd.DataFrame({"datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=3)})
+   >>> df.dtypes
+   datetime    datetime64[us, UTC]
+   dtype: object
+   >>> df
+                      datetime
+   0 2020-01-01 00:00:00+00:00
+   1 2020-01-01 01:00:00+00:00
+   2 2020-01-01 02:00:00+00:00
+   >>> table = pa.Table.from_pandas(df)
+   >>> table
+   pyarrow.Table
+   datetime: timestamp[us, tz=UTC]
+   ----
+   datetime: [[2020-01-01 00:00:00.000000Z,2020-01-01 01:00:00.000000Z,2020-01-01 02:00:00.000000Z]]
 
 In this example the Pandas Timestamp is time zone aware
 (``UTC`` on this case), and this information is used to create the Arrow
@@ -215,42 +249,54 @@ While dates can be handled using the ``datetime64[ns]`` type in
 pandas, some systems work with object arrays of Python's built-in
 ``datetime.date`` object:
 
-.. ipython:: python
+.. code-block:: python
 
-   from datetime import date
-   s = pd.Series([date(2018, 12, 31), None, date(2000, 1, 1)])
-   s
+   >>> from datetime import date
+   >>> s = pd.Series([date(2018, 12, 31), None, date(2000, 1, 1)])
+   >>> s
+   0    2018-12-31
+   1          None
+   2    2000-01-01
+   dtype: object
 
 When converting to an Arrow array, the ``date32`` type will be used by
 default:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr = pa.array(s)
-   arr.type
-   arr[0]
+   >>> arr = pa.array(s)
+   >>> arr.type
+   DataType(date32[day])
+   >>> arr[0]
+   <pyarrow.Date32Scalar: datetime.date(2018, 12, 31)>
 
 To use the 64-bit ``date64``, specify this explicitly:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr = pa.array(s, type='date64')
-   arr.type
+   >>> arr = pa.array(s, type='date64')
+   >>> arr.type
+   DataType(date64[ms])
 
 When converting back with ``to_pandas``, object arrays of
 ``datetime.date`` objects are returned:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr.to_pandas()
+   >>> arr.to_pandas()
+   0    2018-12-31
+   1          None
+   2    2000-01-01
+   dtype: object
 
 If you want to use NumPy's ``datetime64`` dtype instead, pass
 ``date_as_object=False``:
 
-.. ipython:: python
+.. code-block:: python
 
-   s2 = pd.Series(arr.to_pandas(date_as_object=False))
-   s2.dtype
+   >>> s2 = pd.Series(arr.to_pandas(date_as_object=False))
+   >>> s2.dtype
+   dtype('<M8[ms]')
 
 .. warning::
 
@@ -264,21 +310,32 @@ Time types
 The builtin ``datetime.time`` objects inside Pandas data structures will be
 converted to an Arrow ``time64`` and :class:`~.Time64Array` respectively.
 
-.. ipython:: python
+.. code-block:: python
 
-   from datetime import time
-   s = pd.Series([time(1, 1, 1), time(2, 2, 2)])
-   s
-
-   arr = pa.array(s)
-   arr.type
-   arr
+   >>> from datetime import time
+   >>> s = pd.Series([time(1, 1, 1), time(2, 2, 2)])
+   >>> s
+   0    01:01:01
+   1    02:02:02
+   dtype: object
+   >>> arr = pa.array(s)
+   >>> arr.type
+   Time64Type(time64[us])
+   >>> arr
+   <pyarrow.lib.Time64Array object at ...>
+   [
+     01:01:01.000000,
+     02:02:02.000000
+   ]
 
 When converting to pandas, arrays of ``datetime.time`` objects are returned:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr.to_pandas()
+   >>> arr.to_pandas()
+   0    01:01:01
+   1    02:02:02
+   dtype: object
 
 Nullable types
 --------------
@@ -294,7 +351,7 @@ missing values are present:
 
    >>> arr = pa.array([1, 2, None])
    >>> arr
-   <pyarrow.lib.Int64Array object at 0x7f07d467c640>
+   <pyarrow.lib.Int64Array object at ...>
    [
      1,
      2,
@@ -321,7 +378,6 @@ round trip conversion for those:
 
    >>> table = pa.table(df)
    >>> table
-   Out[32]:
    pyarrow.Table
    a: int64
    ----
@@ -371,22 +427,21 @@ dictionary becomes:
 
 .. code-block:: python
 
-   dtype_mapping = {
-       pa.int8(): pd.Int8Dtype(),
-       pa.int16(): pd.Int16Dtype(),
-       pa.int32(): pd.Int32Dtype(),
-       pa.int64(): pd.Int64Dtype(),
-       pa.uint8(): pd.UInt8Dtype(),
-       pa.uint16(): pd.UInt16Dtype(),
-       pa.uint32(): pd.UInt32Dtype(),
-       pa.uint64(): pd.UInt64Dtype(),
-       pa.bool_(): pd.BooleanDtype(),
-       pa.float32(): pd.Float32Dtype(),
-       pa.float64(): pd.Float64Dtype(),
-       pa.string(): pd.StringDtype(),
-   }
-
-   df = table.to_pandas(types_mapper=dtype_mapping.get)
+   >>> dtype_mapping = {
+   ...     pa.int8(): pd.Int8Dtype(),
+   ...     pa.int16(): pd.Int16Dtype(),
+   ...     pa.int32(): pd.Int32Dtype(),
+   ...     pa.int64(): pd.Int64Dtype(),
+   ...     pa.uint8(): pd.UInt8Dtype(),
+   ...     pa.uint16(): pd.UInt16Dtype(),
+   ...     pa.uint32(): pd.UInt32Dtype(),
+   ...     pa.uint64(): pd.UInt64Dtype(),
+   ...     pa.bool_(): pd.BooleanDtype(),
+   ...     pa.float32(): pd.Float32Dtype(),
+   ...     pa.float64(): pd.Float64Dtype(),
+   ...     pa.string(): pd.StringDtype(),
+   ... }
+   >>> df = table.to_pandas(types_mapper=dtype_mapping.get)
 
 
 When using the pandas API for reading Parquet files (``pd.read_parquet(..)``),
@@ -394,7 +449,7 @@ this can also be achieved by passing ``use_nullable_dtypes``:
 
 .. code-block:: python
 
-   df = pd.read_parquet(path, use_nullable_dtypes=True)
+   >>> df = pd.read_parquet(path, use_nullable_dtypes=True)  # doctest: +SKIP
 
 
 Memory Usage and Zero Copy
@@ -463,8 +518,8 @@ Used together, the call
 
 .. code-block:: python
 
-   df = table.to_pandas(split_blocks=True, self_destruct=True)
-   del table  # not necessary, but a good practice
+   >>> df = table.to_pandas(split_blocks=True, self_destruct=True)
+   >>> del table  # not necessary, but a good practice
 
 will yield significantly lower memory usage in some scenarios. Without these
 options, ``to_pandas`` will always double memory.

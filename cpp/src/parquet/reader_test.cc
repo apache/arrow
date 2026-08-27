@@ -27,12 +27,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>
-#include <rapidjson/error/en.h>
-#include <rapidjson/stringbuffer.h>
-
 #include "arrow/array.h"
 #include "arrow/array/array_binary.h"
 #include "arrow/array/builder_binary.h"
@@ -44,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/range.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -58,8 +53,6 @@
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
-
-namespace rj = arrow::rapidjson;
 
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Zip;
@@ -1023,7 +1016,7 @@ Column 0
   Uncompressed Size: 103, Compressed Size: 104
 Column 1
   Values: 3, Null Values: 0, Distinct Values: 0
-  Max: 1, Min: 1
+  Max (exact: unknown): 1, Min (exact: unknown): 1
   Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 52, Compressed Size: 56
 )###";
@@ -1108,57 +1101,116 @@ class TestJSONWithLocalFile : public ::testing::Test {
   }
 };
 
+TEST_F(TestJSONWithLocalFile, JSONOutputWithStatistics) {
+  std::string json_output = R"###({
+    "FileName": "nested_lists.snappy.parquet",
+    "Version": "1.0",
+    "CreatedBy": "parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)",
+    "TotalRows": "3",
+    "NumberOfRowGroups": "1",
+    "NumberOfRealColumns": "2",
+    "NumberOfColumns": "2",
+    "Columns": [
+        {
+            "Id": "0",
+            "Name": "a.list.element.list.element.list.element",
+            "PhysicalType": "BYTE_ARRAY",
+            "ConvertedType": "UTF8",
+            "LogicalType": { "Type": "String" }
+        },
+        {
+            "Id": "1",
+            "Name": "b",
+            "PhysicalType": "INT32",
+            "ConvertedType": "NONE",
+            "LogicalType": { "Type": "None" }
+        }
+    ],
+    "RowGroups": [
+        {
+            "Id": "0",
+            "TotalBytes": "155",
+            "TotalCompressedBytes": "0",
+            "Rows": "3",
+            "ColumnChunks": [
+                {
+                    "Id": "0",
+                    "Values": "18",
+                    "StatsSet": "False",
+                    "Compression": "SNAPPY",
+                    "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY",
+                    "UncompressedSize": "103",
+                    "CompressedSize": "104"
+                },
+                {
+                    "Id": "1",
+                    "Values": "3",
+                    "StatsSet": "True",
+                    "Stats": {
+                        "NumNulls": "0",
+                        "Max": "1",
+                        "Min": "1",
+                        "IsMaxValueExact": "unknown",
+                        "IsMinValueExact": "unknown"
+                    },
+                    "Compression": "SNAPPY",
+                    "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY",
+                    "UncompressedSize": "52",
+                    "CompressedSize": "56"
+                }
+            ]
+        }
+    ]
+}
+)###";
+
+  std::string json_content = ReadFromLocalFile("nested_lists.snappy.parquet");
+  ASSERT_EQ(json_output, json_content);
+}
+
 TEST_F(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
-  "FileName": "alltypes_plain.parquet",
-  "Version": "1.0",
-  "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
-  "TotalRows": "8",
-  "NumberOfRowGroups": "1",
-  "NumberOfRealColumns": "11",
-  "NumberOfColumns": "11",
-  "Columns": [
-     { "Id": "0", "Name": "id", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "1", "Name": "bool_col", "PhysicalType": "BOOLEAN", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "2", "Name": "tinyint_col", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "3", "Name": "smallint_col", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "4", "Name": "int_col", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "5", "Name": "bigint_col", "PhysicalType": "INT64", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "6", "Name": "float_col", "PhysicalType": "FLOAT", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "7", "Name": "double_col", "PhysicalType": "DOUBLE", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "8", "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "9", "Name": "string_col", "PhysicalType": "BYTE_ARRAY", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
-     { "Id": "10", "Name": "timestamp_col", "PhysicalType": "INT96", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
-  ],
-  "RowGroups": [
-     {
-       "Id": "0",  "TotalBytes": "671",  "TotalCompressedBytes": "0",  "Rows": "8",
-       "ColumnChunks": [
-          {"Id": "0", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "73", "CompressedSize": "73" },
-          {"Id": "1", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "24", "CompressedSize": "24" },
-          {"Id": "2", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "47", "CompressedSize": "47" },
-          {"Id": "3", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "47", "CompressedSize": "47" },
-          {"Id": "4", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "47", "CompressedSize": "47" },
-          {"Id": "5", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "55", "CompressedSize": "55" },
-          {"Id": "6", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "47", "CompressedSize": "47" },
-          {"Id": "7", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "55", "CompressedSize": "55" },
-          {"Id": "8", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "88", "CompressedSize": "88" },
-          {"Id": "9", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "49", "CompressedSize": "49" },
-          {"Id": "10", "Values": "8", "StatsSet": "False",
-           "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "139", "CompressedSize": "139" }
-        ]
-     }
-  ]
+    "FileName": "alltypes_plain.parquet",
+    "Version": "1.0",
+    "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
+    "TotalRows": "8",
+    "NumberOfRowGroups": "1",
+    "NumberOfRealColumns": "11",
+    "NumberOfColumns": "11",
+    "Columns": [
+        { "ConvertedType": "NONE", "Id": "0" , "LogicalType": { "Type": "None" }, "Name": "id"             , "PhysicalType": "INT32" },
+        { "ConvertedType": "NONE", "Id": "1" , "LogicalType": { "Type": "None" }, "Name": "bool_col"       , "PhysicalType": "BOOLEAN" },
+        { "ConvertedType": "NONE", "Id": "2" , "LogicalType": { "Type": "None" }, "Name": "tinyint_col"    , "PhysicalType": "INT32" },
+        { "ConvertedType": "NONE", "Id": "3" , "LogicalType": { "Type": "None" }, "Name": "smallint_col"   , "PhysicalType": "INT32" },
+        { "ConvertedType": "NONE", "Id": "4" , "LogicalType": { "Type": "None" }, "Name": "int_col"        , "PhysicalType": "INT32" },
+        { "ConvertedType": "NONE", "Id": "5" , "LogicalType": { "Type": "None" }, "Name": "bigint_col"     , "PhysicalType": "INT64" },
+        { "ConvertedType": "NONE", "Id": "6" , "LogicalType": { "Type": "None" }, "Name": "float_col"      , "PhysicalType": "FLOAT" },
+        { "ConvertedType": "NONE", "Id": "7" , "LogicalType": { "Type": "None" }, "Name": "double_col"     , "PhysicalType": "DOUBLE" },
+        { "ConvertedType": "NONE", "Id": "8" , "LogicalType": { "Type": "None" }, "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY" },
+        { "ConvertedType": "NONE", "Id": "9" , "LogicalType": { "Type": "None" }, "Name": "string_col"     , "PhysicalType": "BYTE_ARRAY" },
+        { "ConvertedType": "NONE", "Id": "10", "LogicalType": { "Type": "None" }, "Name": "timestamp_col"  , "PhysicalType": "INT96" }
+    ],
+    "RowGroups": [
+        {
+            "Id": "0",
+            "TotalBytes": "671",
+            "TotalCompressedBytes": "0",
+            "Rows": "8",
+            "ColumnChunks": [
+                { "CompressedSize": "73" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "0" , "StatsSet": "False", "UncompressedSize": "73" , "Values": "8" },
+                { "CompressedSize": "24" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "1" , "StatsSet": "False", "UncompressedSize": "24" , "Values": "8" },
+                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "2" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
+                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "3" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
+                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "4" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
+                { "CompressedSize": "55" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "5" , "StatsSet": "False", "UncompressedSize": "55" , "Values": "8" },
+                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "6" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
+                { "CompressedSize": "55" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "7" , "StatsSet": "False", "UncompressedSize": "55" , "Values": "8" },
+                { "CompressedSize": "88" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "8" , "StatsSet": "False", "UncompressedSize": "88" , "Values": "8" },
+                { "CompressedSize": "49" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "9" , "StatsSet": "False", "UncompressedSize": "49" , "Values": "8" },
+                { "CompressedSize": "139", "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "10", "StatsSet": "False", "UncompressedSize": "139", "Values": "8" }
+            ]
+        }
+    ]
 }
 )###";
 
@@ -1172,16 +1224,22 @@ TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
   std::string json_content = ReadFromLocalFile("fixed_length_byte_array.parquet");
 
   std::string json_contains = R"###({
-  "FileName": "fixed_length_byte_array.parquet",
-  "Version": "1.0",
-  "CreatedBy": "parquet-mr version 1.13.0-SNAPSHOT (build d057b39d93014fe40f5067ee4a33621e65c91552)",
-  "TotalRows": "1000",
-  "NumberOfRowGroups": "1",
-  "NumberOfRealColumns": "1",
-  "NumberOfColumns": "1",
-  "Columns": [
-     { "Id": "0", "Name": "flba_field", "PhysicalType": "FIXED_LEN_BYTE_ARRAY(4)", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
-  ])###";
+    "FileName": "fixed_length_byte_array.parquet",
+    "Version": "1.0",
+    "CreatedBy": "parquet-mr version 1.13.0-SNAPSHOT (build d057b39d93014fe40f5067ee4a33621e65c91552)",
+    "TotalRows": "1000",
+    "NumberOfRowGroups": "1",
+    "NumberOfRealColumns": "1",
+    "NumberOfColumns": "1",
+    "Columns": [
+        {
+            "Id": "0",
+            "Name": "flba_field",
+            "PhysicalType": "FIXED_LEN_BYTE_ARRAY(4)",
+            "ConvertedType": "NONE",
+            "LogicalType": { "Type": "None" }
+        }
+    ],)###";
 
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
@@ -1190,23 +1248,19 @@ TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
   std::string json_content = ReadFromLocalFile("sort_columns.parquet");
 
   std::string json_contains = R"###("SortColumns": [
-         {"column_idx": 0, "descending": 1, "nulls_first": 1},
-         {"column_idx": 1, "descending": 0, "nulls_first": 0}
-       ])###";
+                { "column_idx": 0, "descending": 1, "nulls_first": 1 }, { "column_idx": 1, "descending": 0, "nulls_first": 0 }
+            ],)###";
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
 
 namespace {
 
 ::arrow::Status CheckJsonValid(std::string_view json_string) {
-  rj::Document json_doc;
-  constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
-  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
-  if (json_doc.HasParseError()) {
-    return ::arrow::Status::Invalid("JSON parse error at offset ",
-                                    json_doc.GetErrorOffset(), ": ",
-                                    rj::GetParseError_En(json_doc.GetParseError()));
-  }
+  simdjson::ondemand::parser parser;
+  auto padded_json = simdjson::padded_string(json_string);
+
+  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, padded_json));
+
   return ::arrow::Status::OK();
 }
 

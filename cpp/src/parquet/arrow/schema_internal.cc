@@ -39,8 +39,12 @@ using ::arrow::internal::checked_cast;
 
 namespace {
 
-Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type,
+                                                    bool smallest_decimal_enabled) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
+  if (smallest_decimal_enabled) {
+    return ::arrow::smallest_decimal(decimal.precision(), decimal.scale());
+  }
   if (decimal.precision() <= ::arrow::Decimal128Type::kMaxPrecision) {
     return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale());
   }
@@ -154,7 +158,7 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
     case LogicalType::Type::STRING:
       return utf8_type();
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, reader_properties.smallest_decimal_enabled());
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
     case LogicalType::Type::BSON:
@@ -192,7 +196,7 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
     const ArrowReaderProperties& reader_properties) {
   switch (logical_type.type()) {
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, reader_properties.smallest_decimal_enabled());
     case LogicalType::Type::FLOAT16:
       return ::arrow::float16();
     case LogicalType::Type::NONE:
@@ -212,7 +216,8 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
 
 }  // namespace
 
-::arrow::Result<std::shared_ptr<ArrowType>> FromInt32(const LogicalType& logical_type) {
+::arrow::Result<std::shared_ptr<ArrowType>> FromInt32(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties) {
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeArrowInt(logical_type);
@@ -221,7 +226,7 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
     case LogicalType::Type::TIME:
       return MakeArrowTime32(logical_type);
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, reader_properties.smallest_decimal_enabled());
     case LogicalType::Type::NONE:
       return ::arrow::int32();
     default:
@@ -230,12 +235,13 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> FromInt64(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties) {
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeArrowInt64(logical_type);
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, reader_properties.smallest_decimal_enabled());
     case LogicalType::Type::TIMESTAMP:
       return MakeArrowTimestamp(logical_type);
     case LogicalType::Type::TIME:
@@ -265,9 +271,9 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::BOOLEAN:
       return ::arrow::boolean();
     case ParquetType::INT32:
-      return FromInt32(logical_type);
+      return FromInt32(logical_type, reader_properties);
     case ParquetType::INT64:
-      return FromInt64(logical_type);
+      return FromInt64(logical_type, reader_properties);
     case ParquetType::INT96:
       return ::arrow::timestamp(reader_properties.coerce_int96_timestamp_unit());
     case ParquetType::FLOAT:

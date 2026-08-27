@@ -12,10 +12,12 @@ export DH_OPTIONS
 override_dh_auto_build:
 	gpg \
 	  --no-default-keyring \
+	  --homedir /tmp \
 	  --keyring ./apache-arrow-apt-source.kbx \
 	  --import KEYS
 	gpg \
 	  --no-default-keyring \
+	  --homedir /tmp \
 	  --keyring ./apache-arrow-apt-source.kbx \
 	  --armor \
 	  --export > apache-arrow-apt-source.asc

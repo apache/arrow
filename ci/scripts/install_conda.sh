@@ -30,7 +30,11 @@ installer=$1
 version=$2
 prefix=$3
 
-download_url=https://github.com/conda-forge/miniforge/releases/${version}/download/${installer^}-${platform}-${arch}.sh
+if [ "$version" = "latest" ]; then
+  download_url=https://github.com/conda-forge/miniforge/releases/latest/download/${installer^}-${platform}-${arch}.sh
+else
+  download_url=https://github.com/conda-forge/miniforge/releases/download/${version}/${installer^}-${platform}-${arch}.sh
+fi
 
 echo "Downloading Miniconda installer from ${download_url} ..."
 

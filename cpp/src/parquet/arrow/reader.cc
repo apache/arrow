@@ -19,20 +19,25 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iterator>
 #include <memory>
+#include <span>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array.h"  // IWYU pragma: keep
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -40,6 +45,8 @@
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/type_traits.h"
+
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -195,9 +202,9 @@ class FileReaderImpl : public FileReader {
 
   std::shared_ptr<RowGroupReader> RowGroup(int row_group_index) override;
 
-  Status ReadTable(const std::vector<int>& indices,
-                   std::shared_ptr<Table>* out) override {
-    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), indices, out);
+  Result<std::shared_ptr<Table>> ReadTable(
+      const std::vector<int>& column_indices) override {
+    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), column_indices);
   }
 
   Status GetFieldReader(int i,
@@ -298,13 +305,12 @@ class FileReaderImpl : public FileReader {
     return ReadColumn(i, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
-  Status ReadTable(std::shared_ptr<Table>* table) override {
-    return ReadTable(Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadTable() override {
+    return ReadTable(Iota(reader_->metadata()->num_columns()));
   }
 
-  Status ReadRowGroups(const std::vector<int>& row_groups,
-                       const std::vector<int>& indices,
-                       std::shared_ptr<Table>* table) override;
+  Result<std::shared_ptr<Table>> ReadRowGroups(const std::vector<int>& row_groups,
+                                               const std::vector<int>& indices) override;
 
   // Helper method used by ReadRowGroups - read the given row groups/columns, skipping
   // bounds checks and pre-buffering. Takes a shared_ptr to self to keep the reader
@@ -313,18 +319,18 @@ class FileReaderImpl : public FileReader {
       std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
       const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor);
 
-  Status ReadRowGroups(const std::vector<int>& row_groups,
-                       std::shared_ptr<Table>* table) override {
-    return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadRowGroups(
+      const std::vector<int>& row_groups) override {
+    return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()));
   }
 
-  Status ReadRowGroup(int row_group_index, const std::vector<int>& column_indices,
-                      std::shared_ptr<Table>* out) override {
-    return ReadRowGroups({row_group_index}, column_indices, out);
+  Result<std::shared_ptr<Table>> ReadRowGroup(
+      int row_group_index, const std::vector<int>& column_indices) override {
+    return ReadRowGroups({row_group_index}, column_indices);
   }
 
-  Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
-    return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadRowGroup(int i) override {
+    return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()));
   }
 
   Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
@@ -427,11 +433,13 @@ class RowGroupReaderImpl : public RowGroupReader {
 
   Status ReadTable(const std::vector<int>& column_indices,
                    std::shared_ptr<::arrow::Table>* out) override {
-    return impl_->ReadRowGroup(row_group_index_, column_indices, out);
+    ARROW_ASSIGN_OR_RAISE(*out, impl_->ReadRowGroup(row_group_index_, column_indices));
+    return Status::OK();
   }
 
   Status ReadTable(std::shared_ptr<::arrow::Table>* out) override {
-    return impl_->ReadRowGroup(row_group_index_, out);
+    ARROW_ASSIGN_OR_RAISE(*out, impl_->ReadRowGroup(row_group_index_));
+    return Status::OK();
   }
 
  private:
@@ -666,11 +674,43 @@ class ListReader : public ColumnReaderImpl {
 
   const std::shared_ptr<Field> field() override { return field_; }
 
- private:
+ protected:
   std::shared_ptr<ReaderContext> ctx_;
+
+ private:
   std::shared_ptr<Field> field_;
   ::parquet::internal::LevelInfo level_info_;
   std::unique_ptr<ColumnReaderImpl> item_reader_;
+};
+
+template <typename IndexType>
+class PARQUET_NO_EXPORT ListViewReader : public ListReader<IndexType> {
+ public:
+  using ListReader<IndexType>::ListReader;
+
+  ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
+      std::shared_ptr<ArrayData> data) final {
+    static_assert(::arrow::internal::IsOneOf<IndexType, int32_t, int64_t>::value);
+    constexpr auto expected_type_id = std::is_same_v<IndexType, int32_t>
+                                          ? ::arrow::Type::LIST_VIEW
+                                          : ::arrow::Type::LARGE_LIST_VIEW;
+    DCHECK_EQ(this->field()->type()->id(), expected_type_id);
+    DCHECK_EQ(data->buffers.size(), 2);
+    const auto* offsets = reinterpret_cast<const IndexType*>(data->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(
+        auto sizes_buffer,
+        AllocateResizableBuffer(sizeof(IndexType) * data->length, this->ctx_->pool));
+    auto* sizes = reinterpret_cast<IndexType*>(sizes_buffer->mutable_data());
+    for (int64_t i = 0; i < data->length; ++i) {
+      sizes[i] = offsets[i + 1] - offsets[i];
+    }
+    // ListReader produces length + 1 offsets; ListView stores one offset per slot.
+    data->buffers[1] = ::arrow::SliceBuffer(std::move(data->buffers[1]), /*offset=*/0,
+                                            sizeof(IndexType) * data->length);
+    data->buffers.push_back(std::move(sizes_buffer));
+    std::shared_ptr<Array> result = ::arrow::MakeArray(data);
+    return std::make_shared<ChunkedArray>(std::move(result));
+  }
 };
 
 class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
@@ -685,13 +725,63 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     DCHECK_EQ(data->buffers.size(), 2);
     DCHECK_EQ(field()->type()->id(), ::arrow::Type::FIXED_SIZE_LIST);
     const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
-    const int32_t* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
-    for (int x = 1; x <= data->length; x++) {
-      int32_t size = offsets[x] - offsets[x - 1];
-      if (size != type.list_size()) {
-        return Status::Invalid("Expected all lists to be of size=", type.list_size(),
-                               " but index ", x, " had size=", size);
+    const auto* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
+    const int32_t list_size = type.list_size();
+    auto validate_offsets = [&](int64_t start, int64_t length,
+                                bool has_elements) -> Status {
+      const int32_t expected_size = has_elements ? list_size : 0;
+      std::span<const int32_t> run_offsets(offsets + start,
+                                           static_cast<size_t>(length + 1));
+      const auto first_invalid_offset = std::adjacent_find(
+          run_offsets.begin(), run_offsets.end(),
+          [&](int32_t left, int32_t right) { return right - left != expected_size; });
+      if (first_invalid_offset != run_offsets.end()) {
+        const int64_t x =
+            start + std::distance(run_offsets.begin(), first_invalid_offset);
+        const int32_t size = offsets[x + 1] - offsets[x];
+        if (has_elements) {
+          return Status::Invalid("Expected all lists to be of size=", list_size,
+                                 " but index ", x + 1, " had size=", size);
+        }
+        return Status::Invalid("Expected null fixed-size list at index ", x + 1,
+                               " to have no child values but had size=", size);
       }
+      return Status::OK();
+    };
+    if (data->GetNullCount() != 0) {
+      // Rebuild the child array run-by-run so null fixed-size list slots still
+      // contribute list_size child values in the final layout.
+      ::arrow::ArrayVector child_arrays;
+
+      auto visit_run = [&](int64_t start, int64_t length, bool has_elements) -> Status {
+        RETURN_NOT_OK(validate_offsets(start, length, has_elements));
+
+        const int64_t child_length = length * list_size;
+        // Valid runs reuse the decoded child slice; null runs materialize null
+        // children to preserve the fixed-size list shape.
+        if (!has_elements) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto null_array,
+              ::arrow::MakeArrayOfNull(type.value_type(), child_length, ctx_->pool));
+          child_arrays.push_back(std::move(null_array));
+          return Status::OK();
+        }
+        child_arrays.push_back(
+            ::arrow::MakeArray(data->child_data[0]->Slice(offsets[start], child_length)));
+        return Status::OK();
+      };
+
+      DCHECK_NE(data->buffers[0], nullptr);
+      RETURN_NOT_OK(::arrow::internal::VisitBitRuns(
+          data->buffers[0]->data(), data->offset, data->length, visit_run));
+
+      // TODO(GH-50271): Build one padded child array directly instead of creating
+      // one temporary Array/ArrayData per validity run and concatenating them.
+      ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
+                            ::arrow::Concatenate(child_arrays, ctx_->pool));
+      data->child_data[0] = child_array_with_padding->data();
+    } else {
+      RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, /*valid=*/true));
     }
     data->buffers.resize(1);
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
@@ -881,7 +971,9 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
                                         field.level_info);
   } else if (type_id == ::arrow::Type::LIST || type_id == ::arrow::Type::MAP ||
              type_id == ::arrow::Type::FIXED_SIZE_LIST ||
-             type_id == ::arrow::Type::LARGE_LIST) {
+             type_id == ::arrow::Type::LARGE_LIST ||
+             type_id == ::arrow::Type::LIST_VIEW ||
+             type_id == ::arrow::Type::LARGE_LIST_VIEW) {
     auto list_field = arrow_field;
     auto child = &field.children[0];
     std::unique_ptr<ColumnReaderImpl> child_reader;
@@ -934,6 +1026,20 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
 
       *out = std::make_unique<ListReader<int64_t>>(ctx, list_field, field.level_info,
                                                    std::move(child_reader));
+    } else if (type_id == ::arrow::Type::LIST_VIEW) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::list_view(reader_child_type));
+      }
+
+      *out = std::make_unique<ListViewReader<int32_t>>(ctx, list_field, field.level_info,
+                                                       std::move(child_reader));
+    } else if (type_id == ::arrow::Type::LARGE_LIST_VIEW) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::large_list_view(reader_child_type));
+      }
+
+      *out = std::make_unique<ListViewReader<int64_t>>(ctx, list_field, field.level_info,
+                                                       std::move(child_reader));
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
       if (!reader_child_type->Equals(schema_child_type)) {
         auto& fixed_list_type =
@@ -1244,9 +1350,8 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   return Status::OK();
 }
 
-Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
-                                     const std::vector<int>& column_indices,
-                                     std::shared_ptr<Table>* out) {
+Result<std::shared_ptr<Table>> FileReaderImpl::ReadRowGroups(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
@@ -1260,8 +1365,7 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
 
   auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
                              /*cpu_executor=*/nullptr);
-  ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
-  return Status::OK();
+  return fut.MoveResult();
 }
 
 Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
@@ -1310,40 +1414,53 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
-Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
-  out->reset(tmp.release());
+Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadTable());
   return Status::OK();
 }
 
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader(row_group_indices));
-  out->reset(tmp.release());
+Status FileReader::ReadTable(const std::vector<int>& column_indices,
+                             std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadTable(column_indices));
   return Status::OK();
 }
 
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp,
-                        GetRecordBatchReader(row_group_indices, column_indices));
-  out->reset(tmp.release());
+Status FileReader::ReadRowGroup(int i, const std::vector<int>& column_indices,
+                                std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroup(i, column_indices));
   return Status::OK();
 }
 
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
-                        const ArrowReaderProperties& properties,
-                        std::unique_ptr<FileReader>* out) {
-  *out = std::make_unique<FileReaderImpl>(pool, std::move(reader), properties);
-  return static_cast<FileReaderImpl*>(out->get())->Init();
+Status FileReader::ReadRowGroup(int i, std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroup(i));
+  return Status::OK();
 }
 
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
-                        std::unique_ptr<FileReader>* out) {
-  return Make(pool, std::move(reader), default_arrow_reader_properties(), out);
+Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
+                                 const std::vector<int>& column_indices,
+                                 std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroups(row_groups, column_indices));
+  return Status::OK();
+}
+
+Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
+                                 std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroups(row_groups));
+  return Status::OK();
+}
+
+Result<std::unique_ptr<FileReader>> FileReader::Make(
+    ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> parquet_reader,
+    const ArrowReaderProperties& properties) {
+  std::unique_ptr<FileReader> reader =
+      std::make_unique<FileReaderImpl>(pool, std::move(parquet_reader), properties);
+  RETURN_NOT_OK(static_cast<FileReaderImpl*>(reader.get())->Init());
+  return reader;
+}
+
+Result<std::unique_ptr<FileReader>> FileReader::Make(
+    ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> parquet_reader) {
+  return Make(pool, std::move(parquet_reader), default_arrow_reader_properties());
 }
 
 FileReaderBuilder::FileReaderBuilder()
@@ -1378,13 +1495,13 @@ FileReaderBuilder* FileReaderBuilder::properties(
 }
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
-  return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+  ARROW_ASSIGN_OR_RAISE(*out,
+                        FileReader::Make(pool_, std::move(raw_reader_), properties_));
+  return Status::OK();
 }
 
 Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
-  std::unique_ptr<FileReader> out;
-  RETURN_NOT_OK(FileReader::Make(pool_, std::move(raw_reader_), properties_, &out));
-  return out;
+  return FileReader::Make(pool_, std::move(raw_reader_), properties_);
 }
 
 Result<std::unique_ptr<FileReader>> OpenFile(
@@ -1393,47 +1510,5 @@ Result<std::unique_ptr<FileReader>> OpenFile(
   RETURN_NOT_OK(builder.Open(std::move(file)));
   return builder.memory_pool(pool)->Build();
 }
-
-namespace internal {
-
-namespace {
-
-Status FuzzReader(std::unique_ptr<FileReader> reader) {
-  auto st = Status::OK();
-  for (int i = 0; i < reader->num_row_groups(); ++i) {
-    std::shared_ptr<Table> table;
-    auto row_group_status = reader->ReadRowGroup(i, &table);
-    if (row_group_status.ok()) {
-      row_group_status &= table->ValidateFull();
-    }
-    st &= row_group_status;
-  }
-  return st;
-}
-
-}  // namespace
-
-Status FuzzReader(const uint8_t* data, int64_t size) {
-  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
-  Status st;
-  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 1, 13, 300}) {
-    auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-    FileReaderBuilder builder;
-    ArrowReaderProperties properties;
-    if (batch_size) {
-      properties.set_batch_size(batch_size.value());
-    }
-    builder.properties(properties);
-
-    RETURN_NOT_OK(builder.Open(std::move(file)));
-
-    std::unique_ptr<FileReader> reader;
-    RETURN_NOT_OK(builder.Build(&reader));
-    st &= FuzzReader(std::move(reader));
-  }
-  return st;
-}
-
-}  // namespace internal
 
 }  // namespace parquet::arrow

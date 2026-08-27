@@ -23,6 +23,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -44,7 +45,6 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
-#include "arrow/util/span.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -125,8 +125,7 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(out_buffer));
+    return out_buffer;
   }
 
   template <typename VALUE_TYPE>

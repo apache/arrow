@@ -42,8 +42,7 @@ Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::WrapDeviceSyncEvent(
   return nullptr;
 }
 
-Device::~Device() {}
-
+Device::~Device(){}
 #define COPY_BUFFER_SUCCESS(maybe_buffer) \
   ((maybe_buffer).ok() && *(maybe_buffer) != nullptr)
 

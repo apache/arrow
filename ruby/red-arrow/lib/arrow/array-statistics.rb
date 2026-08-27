@@ -17,6 +17,18 @@
 
 module Arrow
   class ArrayStatistics
+    if method_defined?(:null_count_exact)
+      alias_method :null_count_raw, :null_count
+      def null_count
+        return nil unless has_null_count?
+        if null_count_exact?
+          null_count_exact
+        else
+          null_count_approximate
+        end
+      end
+    end
+
     if method_defined?(:distinct_count_exact)
       alias_method :distinct_count_raw, :distinct_count
       def distinct_count

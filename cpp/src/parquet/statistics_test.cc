@@ -320,9 +320,11 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_min = statistics1->EncodeMin();
     std::string encoded_max = statistics1->EncodeMax();
 
-    auto statistics2 =
-        MakeStatistics<TestType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                 this->values_.size(), 0, 0, true, true, true);
+    auto statistics2 = MakeStatistics<TestType>(
+        this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+        /*null_count=*/0, /*distinct_count=*/0,
+        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true,
+        /*is_min_value_exact=*/true, /*is_max_value_exact=*/true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
@@ -332,14 +334,29 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_min_spaced = statistics3->EncodeMin();
     std::string encoded_max_spaced = statistics3->EncodeMax();
 
+    // Use old API without is_{min/max}_value_exact
+    auto statistics4 = MakeStatistics<TestType>(
+        this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+        /*null_count=*/0, /*distinct_count=*/0,
+        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true);
     ASSERT_EQ(encoded_min, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
     ASSERT_EQ(statistics1->max(), statistics2->max());
+    ASSERT_EQ(statistics1->is_min_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics1->is_max_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics2->is_min_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics2->is_max_value_exact(), std::make_optional(true));
     ASSERT_EQ(encoded_min_spaced, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max_spaced, statistics2->EncodeMax());
     ASSERT_EQ(statistics3->min(), statistics2->min());
     ASSERT_EQ(statistics3->max(), statistics2->max());
+    ASSERT_EQ(statistics3->is_min_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics3->is_max_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics4->min(), statistics2->min());
+    ASSERT_EQ(statistics4->max(), statistics2->max());
+    ASSERT_EQ(statistics4->is_min_value_exact(), std::nullopt);
+    ASSERT_EQ(statistics4->is_max_value_exact(), std::nullopt);
   }
 
   void TestReset() {
@@ -459,6 +476,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     EXPECT_TRUE(enc_stats->has_max);
     EXPECT_EQ(expected_stats->EncodeMin(), enc_stats->min());
     EXPECT_EQ(expected_stats->EncodeMax(), enc_stats->max());
+    EXPECT_EQ(enc_stats->is_min_value_exact, std::make_optional(true));
+    EXPECT_EQ(enc_stats->is_max_value_exact, std::make_optional(true));
   }
 };
 
@@ -550,9 +569,12 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
             std::string(reinterpret_cast<const char*>(statistics1->max().ptr),
                         statistics1->max().len));
 
-  auto statistics2 =
-      MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                    this->values_.size(), 0, 0, true, true, true);
+  auto statistics2 = MakeStatistics<ByteArrayType>(
+      this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+      /*null_count=*/0,
+      /*distinct_count=*/0, /*has_min_max=*/true, /*has_null_count=*/true,
+      /*has_distinct_count=*/true, /*is_min_value_exact=*/true,
+      /*is_max_value_exact=*/true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
@@ -693,6 +715,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       EXPECT_FALSE(statistics1->HasMinMax());
       EXPECT_FALSE(encoded_stats1.has_min);
       EXPECT_FALSE(encoded_stats1.has_max);
+      EXPECT_EQ(encoded_stats1.is_max_value_exact, std::nullopt);
+      EXPECT_EQ(encoded_stats1.is_min_value_exact, std::nullopt);
     }
     // Create a statistics object with min-max.
     std::shared_ptr<TypedStatistics<TestType>> statistics2;
@@ -703,12 +727,18 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       EXPECT_TRUE(statistics2->HasMinMax());
       EXPECT_TRUE(encoded_stats2.has_min);
       EXPECT_TRUE(encoded_stats2.has_max);
+      EXPECT_EQ(encoded_stats2.is_min_value_exact, std::make_optional(true));
+      EXPECT_EQ(encoded_stats2.is_max_value_exact, std::make_optional(true));
     }
     VerifyMergedStatistics(*statistics1, *statistics2,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasMinMax());
                              EXPECT_TRUE(merged_statistics->Encode().has_min);
                              EXPECT_TRUE(merged_statistics->Encode().has_max);
+                             EXPECT_EQ(merged_statistics->Encode().is_min_value_exact,
+                                       std::make_optional(true));
+                             EXPECT_EQ(merged_statistics->Encode().is_max_value_exact,
+                                       std::make_optional(true));
                            });
   }
 
@@ -775,6 +805,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     EXPECT_FALSE(encoded.has_distinct_count);
     EXPECT_FALSE(encoded.has_min);
     EXPECT_FALSE(encoded.has_max);
+    EXPECT_FALSE(encoded.is_min_value_exact.has_value());
+    EXPECT_FALSE(encoded.is_max_value_exact.has_value());
   }
 };
 
@@ -884,7 +916,7 @@ TEST(CorrectStatistics, Basics) {
   AssertStatsSet(version, props, schema.Column(1), true);
   AssertStatsSet(version, props, schema.Column(2), true);
   AssertStatsSet(version, props, schema.Column(3), true);
-  AssertStatsSet(version, props, schema.Column(4), false);
+  AssertStatsSet(version, props, schema.Column(4), true);
   AssertStatsSet(version, props, schema.Column(5), true);
 }
 
@@ -971,6 +1003,8 @@ class TestStatisticsSortOrder : public ::testing::Test {
           rg_metadata->ColumnChunk(i);
       EXPECT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
       EXPECT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
+      EXPECT_EQ(stats_[i].is_max_value_exact, std::make_optional(true));
+      EXPECT_EQ(stats_[i].is_min_value_exact, std::make_optional(true));
     }
   }
 
@@ -1007,11 +1041,15 @@ void TestStatisticsSortOrder<Int32Type>::SetValues() {
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 
   // Write INT32 min/max values
   stats_[1]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[1].is_max_value_exact = true;
+  stats_[1].is_min_value_exact = true;
 }
 
 // TYPE::INT64
@@ -1035,11 +1073,15 @@ void TestStatisticsSortOrder<Int64Type>::SetValues() {
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 
   // Write INT64 min/max values
   stats_[1]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[1].is_max_value_exact = true;
+  stats_[1].is_min_value_exact = true;
 }
 
 // TYPE::FLOAT
@@ -1054,6 +1096,8 @@ void TestStatisticsSortOrder<FloatType>::SetValues() {
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 }
 
 // TYPE::DOUBLE
@@ -1068,6 +1112,8 @@ void TestStatisticsSortOrder<DoubleType>::SetValues() {
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
       .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 }
 
 // TYPE::ByteArray
@@ -1100,6 +1146,8 @@ void TestStatisticsSortOrder<ByteArrayType>::SetValues() {
           std::string(reinterpret_cast<const char*>(vals[2].c_str()), vals[2].length()))
       .set_max(
           std::string(reinterpret_cast<const char*>(vals[9].c_str()), vals[9].length()));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 }
 
 // TYPE::FLBAArray
@@ -1129,6 +1177,8 @@ void TestStatisticsSortOrder<FLBAType>::SetValues() {
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(&vals[1][0]), FLBA_LENGTH))
       .set_max(std::string(reinterpret_cast<const char*>(&vals[8][0]), FLBA_LENGTH));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 }
 
 template <>
@@ -1162,6 +1212,8 @@ void TestStatisticsSortOrder<Float16LogicalType>::SetValues() {
   stats_[0]
       .set_min(std::string(reinterpret_cast<const char*>(values_[7].ptr), kValueLen))
       .set_max(std::string(reinterpret_cast<const char*>(values_[2].ptr), kValueLen));
+  stats_[0].is_max_value_exact = true;
+  stats_[0].is_min_value_exact = true;
 }
 
 TYPED_TEST_SUITE(TestStatisticsSortOrder, CompareTestTypes);
@@ -1243,6 +1295,8 @@ void AssertMinMaxAre(Stats stats, const Array& values, T expected_min, T expecte
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->EncodeMin(), EncodeValue(expected_min));
   EXPECT_EQ(stats->EncodeMax(), EncodeValue(expected_max));
+  EXPECT_EQ(stats->is_min_value_exact(), std::make_optional(true));
+  EXPECT_EQ(stats->is_max_value_exact(), std::make_optional(true));
 }
 
 template <typename Stats, typename Array, typename T = typename Stats::T>
@@ -1256,12 +1310,16 @@ void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitm
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->EncodeMin(), EncodeValue(expected_min));
   EXPECT_EQ(stats->EncodeMax(), EncodeValue(expected_max));
+  EXPECT_EQ(stats->is_min_value_exact(), std::make_optional(true));
+  EXPECT_EQ(stats->is_max_value_exact(), std::make_optional(true));
 }
 
 template <typename Stats, typename Array>
 void AssertUnsetMinMax(Stats stats, const Array& values) {
   stats->Update(values.data(), values.size(), 0);
   ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_FALSE(stats->is_min_value_exact().has_value());
+  ASSERT_FALSE(stats->is_max_value_exact().has_value());
 }
 
 template <typename Stats, typename Array>
@@ -1272,6 +1330,8 @@ void AssertUnsetMinMax(Stats stats, const Array& values, const uint8_t* valid_bi
   stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
                       non_null_count, null_count);
   ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_FALSE(stats->is_min_value_exact().has_value());
+  ASSERT_FALSE(stats->is_max_value_exact().has_value());
 }
 
 template <typename ParquetType, typename T = typename ParquetType::c_type>
@@ -1425,6 +1485,7 @@ class TestFloatStatistics : public ::testing::Test {
   }
 
   void TestNaNs();
+  void TestInfinities();
 
  protected:
   std::vector<uint8_t> data_buf_;
@@ -1499,6 +1560,30 @@ void TestFloatStatistics<T>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+// GH-50182: an all-infinity column must report that infinity as its min/max,
+// rather than the largest finite value (a finite seed is never displaced by an
+// infinity of the same sign). A NaN interspersed in such a column must be
+// ignored without corrupting the infinite min/max.
+template <typename T>
+void TestFloatStatistics<T>::TestInfinities() {
+  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  constexpr c_type inf = std::numeric_limits<c_type>::infinity();
+  constexpr c_type nan = std::numeric_limits<c_type>::quiet_NaN();
+  std::vector<c_type> all_pos_inf{inf, inf, inf};
+  std::vector<c_type> all_neg_inf{-inf, -inf, -inf};
+  std::vector<c_type> mixed_inf{inf, -inf};
+  std::vector<c_type> pos_inf_with_nan{inf, nan, inf};
+  std::vector<c_type> neg_inf_with_nan{-inf, nan, -inf};
+
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, -inf, -inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, -inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, -inf, -inf);
+}
+
 struct BufferedFloat16 {
   explicit BufferedFloat16(Float16 f16) : f16(f16) {
     this->f16.ToLittleEndian(bytes_.data());
@@ -1551,12 +1636,39 @@ void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+template <>
+void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
+  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  using F16 = BufferedFloat16;
+  const auto pos_inf = F16(std::numeric_limits<Float16>::infinity());
+  const auto neg_inf = F16(-std::numeric_limits<Float16>::infinity());
+  const auto nan = F16(std::numeric_limits<Float16>::quiet_NaN());
+  const auto pinf = FLBA{pos_inf.bytes()};
+  const auto ninf = FLBA{neg_inf.bytes()};
+  const auto fnan = FLBA{nan.bytes()};
+
+  std::vector<FLBA> all_pos_inf{pinf, pinf, pinf};
+  std::vector<FLBA> all_neg_inf{ninf, ninf, ninf};
+  std::vector<FLBA> mixed_inf{pinf, ninf};
+  std::vector<FLBA> pos_inf_with_nan{pinf, fnan, pinf};
+  std::vector<FLBA> neg_inf_with_nan{ninf, fnan, ninf};
+
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, pinf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, ninf, ninf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, ninf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, pinf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, ninf, ninf);
+}
+
 using FloatingPointTypes = ::testing::Types<FloatType, DoubleType, Float16LogicalType>;
 
 TYPED_TEST_SUITE(TestFloatStatistics, FloatingPointTypes);
 
 TYPED_TEST(TestFloatStatistics, NegativeZeros) { this->TestNegativeZeroes(); }
 TYPED_TEST(TestFloatStatistics, NaNs) { this->TestNaNs(); }
+TYPED_TEST(TestFloatStatistics, Infinities) { this->TestInfinities(); }
 
 // ARROW-7376
 TEST(TestStatisticsSortOrderFloatNaN, NaNAndNullsInfiniteLoop) {
@@ -1570,6 +1682,43 @@ TEST(TestStatisticsSortOrderFloatNaN, NaNAndNullsInfiniteLoop) {
   uint8_t all_but_last_valid = 0x7F;  // 0b01111111
   auto stats = MakeStatistics<FloatType>(&descr);
   AssertUnsetMinMax(stats, nans_but_last, &all_but_last_valid);
+}
+
+// Test read statistics for column with UNKNOWN sort order
+TEST(TestStatisticsSortOrder, UNKNOWN) {
+  std::string dir_string(test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/int96_from_spark.parquet";
+  auto path = ss.str();
+
+  // The file contains a single column of INT96 type (deprecated)
+  // with SortOrder UNKNOWN.
+  // It contains 6 values with a single null value.
+  // The null_count statistics value is preserved.
+  auto file_reader = ParquetFileReader::OpenFile(path);
+  auto rg_reader = file_reader->RowGroup(0);
+  auto metadata = rg_reader->metadata();
+  auto column_schema = metadata->schema()->Column(0);
+  ASSERT_EQ(SortOrder::UNKNOWN, column_schema->sort_order());
+
+  auto column_chunk = metadata->ColumnChunk(0);
+  ASSERT_TRUE(column_chunk->is_stats_set());
+
+  std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
+  ASSERT_TRUE(enc_stats->has_null_count);
+  ASSERT_FALSE(enc_stats->has_distinct_count);
+  ASSERT_FALSE(enc_stats->has_min);
+  ASSERT_FALSE(enc_stats->has_max);
+  ASSERT_EQ(1, enc_stats->null_count);
+  ASSERT_FALSE(enc_stats->is_max_value_exact.has_value());
+  ASSERT_FALSE(enc_stats->is_min_value_exact.has_value());
+
+  // Unknown sort order should not cause min/max to be set
+  std::shared_ptr<Statistics> stats = column_chunk->statistics();
+  ASSERT_NE(nullptr, stats);
+  ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_TRUE(stats->HasNullCount());
+  ASSERT_EQ(1, stats->null_count());
 }
 
 // Test statistics for binary column with UNSIGNED sort order
@@ -1598,31 +1747,104 @@ TEST(TestStatisticsSortOrderMinMax, Unsigned) {
   ASSERT_EQ(12, stats->num_values());
   ASSERT_EQ(0x00, stats->EncodeMin()[0]);
   ASSERT_EQ(0x0b, stats->EncodeMax()[0]);
+  std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
+  ASSERT_FALSE(enc_stats->is_max_value_exact.has_value());
+  ASSERT_FALSE(enc_stats->is_min_value_exact.has_value());
+}
+
+// Test statistics for binary column with truncated max and min values
+TEST(TestEncodedStatistics, TruncatedMinMax) {
+  std::string dir_string(test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/binary_truncated_min_max.parquet";
+  auto path = ss.str();
+
+  // The file is generated by parquet-rs 55.1.0. It
+  // contains six columns of utf-8 and binary type. statistics_truncate_length
+  // is set to 2. Columns 0 and 1 will have truncation of min and max value,
+  // columns 2 and 3 will have truncation of min value only.
+  // Columns 4 and 5 will have no truncation where is_min_value_exact and
+  // is_max_value_exact are set to true.
+  // More file details in:
+  // https://github.com/apache/parquet-testing/tree/master/data#binary-truncated-min-and-max-statistics
+  auto file_reader = ParquetFileReader::OpenFile(path);
+  auto rg_reader = file_reader->RowGroup(0);
+  auto metadata = rg_reader->metadata();
+  auto column_schema = metadata->schema()->Column(0);
+  ASSERT_EQ(SortOrder::UNSIGNED, column_schema->sort_order());
+  ASSERT_EQ(6, metadata->num_columns());
+
+  for (int num_column = 0; num_column < metadata->num_columns(); ++num_column) {
+    auto column_chunk = metadata->ColumnChunk(num_column);
+    ASSERT_TRUE(column_chunk->is_stats_set());
+
+    std::shared_ptr<EncodedStatistics> encoded_statistics =
+        column_chunk->encoded_statistics();
+    ASSERT_TRUE(encoded_statistics != NULL);
+    ASSERT_EQ(0, encoded_statistics->null_count);
+    EXPECT_EQ("Al", encoded_statistics->min());
+    ASSERT_TRUE(encoded_statistics->is_max_value_exact.has_value());
+    ASSERT_TRUE(encoded_statistics->is_min_value_exact.has_value());
+    switch (num_column) {
+      case 2:
+        // Max couldn't truncate the utf-8 string longer than 2 bytes
+        EXPECT_EQ("🚀Kevin Bacon", encoded_statistics->max());
+        ASSERT_TRUE(encoded_statistics->is_max_value_exact.value());
+        ASSERT_FALSE(encoded_statistics->is_min_value_exact.value());
+        break;
+      case 3:
+        // Max couldn't truncate 0xFFFF binary string
+        EXPECT_EQ("\xFF\xFF\x1\x2", encoded_statistics->max());
+        ASSERT_TRUE(encoded_statistics->is_max_value_exact.value());
+        ASSERT_FALSE(encoded_statistics->is_min_value_exact.value());
+        break;
+      case 4:
+      case 5:
+        // Min and Max are not truncated, fit on 2 bytes
+        EXPECT_EQ("Ke", encoded_statistics->max());
+        ASSERT_TRUE(encoded_statistics->is_max_value_exact.value());
+        ASSERT_TRUE(encoded_statistics->is_min_value_exact.value());
+        break;
+      default:
+        // Max truncated to 2 bytes on columns 0 and 1
+        EXPECT_EQ("Kf", encoded_statistics->max());
+        ASSERT_FALSE(encoded_statistics->is_max_value_exact.value());
+        ASSERT_FALSE(encoded_statistics->is_min_value_exact.value());
+    }
+  }
 }
 
 TEST(TestEncodedStatistics, CopySafe) {
   EncodedStatistics encoded_statistics;
   encoded_statistics.set_max("abc");
-  encoded_statistics.has_max = true;
+  ASSERT_TRUE(encoded_statistics.has_max);
+  encoded_statistics.is_max_value_exact = true;
+  ASSERT_TRUE(encoded_statistics.is_max_value_exact.has_value());
 
   encoded_statistics.set_min("abc");
-  encoded_statistics.has_min = true;
+  ASSERT_TRUE(encoded_statistics.has_min);
+  encoded_statistics.is_min_value_exact = true;
+  ASSERT_TRUE(encoded_statistics.is_min_value_exact.has_value());
 
   EncodedStatistics copy_statistics = encoded_statistics;
   copy_statistics.set_max("abcd");
   copy_statistics.set_min("a");
+  copy_statistics.is_max_value_exact = false;
+  copy_statistics.is_min_value_exact = false;
 
   EXPECT_EQ("abc", encoded_statistics.min());
   EXPECT_EQ("abc", encoded_statistics.max());
+  EXPECT_EQ(encoded_statistics.is_min_value_exact, std::make_optional(true));
+  EXPECT_EQ(encoded_statistics.is_max_value_exact, std::make_optional(true));
 }
 
 TEST(TestEncodedStatistics, ApplyStatSizeLimits) {
   EncodedStatistics encoded_statistics;
   encoded_statistics.set_min("a");
-  encoded_statistics.has_min = true;
+  ASSERT_TRUE(encoded_statistics.has_min);
 
   encoded_statistics.set_max("abc");
-  encoded_statistics.has_max = true;
+  ASSERT_TRUE(encoded_statistics.has_max);
 
   encoded_statistics.ApplyStatSizeLimits(2);
 

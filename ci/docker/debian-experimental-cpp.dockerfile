@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:experimental
-ARG arch
+FROM --platform=linux/${arch} debian:experimental
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -45,10 +44,11 @@ RUN if [ -n "${gcc}" ]; then \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
+        libboost-process-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -58,12 +58,15 @@ RUN if [ -n "${gcc}" ]; then \
         libkrb5-dev \
         libldap-dev \
         liblz4-dev \
+        libncurses-dev \
         libnghttp2-dev \
+        libopentelemetry-proto-dev \
         libprotobuf-dev \
         libprotoc-dev \
         libpsl-dev \
         libre2-dev \
         librtmp-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssh-dev \
@@ -72,13 +75,13 @@ RUN if [ -n "${gcc}" ]; then \
         libthrift-dev \
         libutf8proc-dev \
         libxml2-dev \
-        libxsimd-dev \
         libzstd-dev \
         make \
         ninja-build \
         nlohmann-json3-dev \
         npm \
         opentelemetry-cpp-dev \
+        patch \
         pkg-config \
         protobuf-compiler-grpc \
         python3-dev \
@@ -87,6 +90,7 @@ RUN if [ -n "${gcc}" ]; then \
         rapidjson-dev \
         rsync \
         tzdata \
+        tzdata-legacy \
         zlib1g-dev && \
     apt-get install -y -q --no-install-recommends -t experimental \
         clang${llvm_package_suffix} \
@@ -140,4 +144,5 @@ ENV ARROW_ACERO=ON \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

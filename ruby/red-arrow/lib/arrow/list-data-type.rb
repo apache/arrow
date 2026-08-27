@@ -17,6 +17,8 @@
 
 module Arrow
   class ListDataType
+    include ListFieldResolvable
+
     alias_method :initialize_raw, :initialize
     private :initialize_raw
 
@@ -75,39 +77,7 @@ module Arrow
     #   @example Create a list data type with data type as Array
     #     Arrow::ListDataType.new([:time32, :milli])
     def initialize(arg)
-      data_type = resolve_data_type(arg)
-      if data_type
-        field = Field.new(default_field_name, data_type)
-      else
-        field = resolve_field(arg)
-      end
-      initialize_raw(field)
-    end
-
-    private
-    def resolve_data_type(arg)
-      case arg
-      when DataType, String, Symbol, ::Array
-        DataType.resolve(arg)
-      when Hash
-        return nil if arg[:name]
-        return nil unless arg[:type]
-        DataType.resolve(arg)
-      else
-        nil
-      end
-    end
-
-    def default_field_name
-      "item"
-    end
-
-    def resolve_field(arg)
-      if arg.is_a?(Hash) and arg.key?(:field)
-        description = arg
-        arg = description[:field]
-      end
-      arg
+      initialize_raw(resolve_field(arg))
     end
   end
 end

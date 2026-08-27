@@ -17,6 +17,7 @@
 
 #include "arrow/array/validate.h"
 
+#include <span>
 #include <vector>
 
 #include "arrow/array.h"  // IWYU pragma: keep
@@ -503,6 +504,12 @@ struct ValidateArrayImpl {
                              : *layout.variadic_spec;
 
       if (buffer == nullptr) {
+        if (layout.variadic_spec && i >= static_cast<int>(layout.buffers.size())) {
+          return Status::Invalid("Array of type ", type.ToString(),
+                                 " has a null variadic buffer at buffer index #", i,
+                                 " (variadic buffer index #", i - layout.buffers.size(),
+                                 ")");
+        }
         continue;
       }
       int64_t min_buffer_size = 0;
@@ -650,9 +657,9 @@ struct ValidateArrayImpl {
                              HexEncode(data, BinaryViewType::kPrefixSize));
     };
 
-    util::span views(data.GetValues<BinaryViewType::c_type>(1),
-                     static_cast<size_t>(data.length));
-    util::span data_buffers(data.buffers.data() + 2, data.buffers.size() - 2);
+    std::span views(data.GetValues<BinaryViewType::c_type>(1),
+                    static_cast<size_t>(data.length));
+    std::span data_buffers(data.buffers.data() + 2, data.buffers.size() - 2);
 
     for (size_t i = 0; i < static_cast<size_t>(data.length); ++i) {
       if (data.IsNull(i)) continue;
@@ -663,7 +670,7 @@ struct ValidateArrayImpl {
       }
 
       if (views[i].is_inline()) {
-        auto padding_bytes = util::span(views[i].inlined.data).subspan(views[i].size());
+        auto padding_bytes = std::span(views[i].inlined.data).subspan(views[i].size());
         for (auto padding_byte : padding_bytes) {
           if (padding_byte != 0) {
             return Status::Invalid("View at slot ", i, " was inline with size ",

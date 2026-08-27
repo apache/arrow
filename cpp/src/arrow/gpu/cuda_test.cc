@@ -91,7 +91,12 @@ class TestCudaBase : public ::testing::Test {
 
   Result<CUcontext> NonPrimaryRawContext() {
     CUcontext ctx;
+#if CUDA_VERSION >= 13000
+    RETURN_NOT_OK(StatusFromCuda(cuCtxCreate(&ctx, /*ctxCreateParams=*/nullptr,
+                                             /*flags=*/0, device_->handle())));
+#else
     RETURN_NOT_OK(StatusFromCuda(cuCtxCreate(&ctx, /*flags=*/0, device_->handle())));
+#endif
     non_primary_contexts_.push_back(ctx);
     return ctx;
   }

@@ -391,7 +391,7 @@ struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
                                                 const T& pow10, const int32_t scale) {
     auto scaled = val->ReduceScaleBy(scale, /*round=*/false);
     if (scaled.low_bits() % 2 == 0) {
-      scaled += remainder.Sign() ? 1 : -1;
+      scaled += remainder.Sign() >= 0 ? 1 : -1;
     }
     *val = scaled.IncreaseScaleBy(scale);
   }
@@ -915,29 +915,20 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundBinaryOptions, double>;
   const ArrowType& ty;
-  int32_t pow;
-  // pow10 is "1" for the given decimal scale. Similarly half_pow10 is "0.5".
-  CType half_pow10, neg_half_pow10;
 
   explicit RoundBinary(const State& state, const DataType& out_ty)
       : RoundBinary(out_ty) {}
 
   explicit RoundBinary(const DataType& out_ty)
-      : ty(checked_cast<const ArrowType&>(out_ty)),
-        pow(static_cast<int32_t>(ty.scale() - 0)) {
-    if (pow >= ty.precision() || pow < 0) {
-      half_pow10 = neg_half_pow10 = 0;
-    } else {
-      half_pow10 = CType::GetHalfScaleMultiplier(pow);
-      neg_half_pow10 = -half_pow10;
-    }
-  }
+      : ty(checked_cast<const ArrowType&>(out_ty)) {}
 
   template <typename T = ArrowType, typename CType0 = typename TypeTraits<T>::CType0,
             typename CType1 = typename TypeTraits<T>::CType1>
   enable_if_decimal_value<CType> Call(KernelContext* ctx, CType0 arg0, CType1 arg1,
                                       Status* st) const {
-    if (pow - arg1 >= ty.precision()) {
+    int32_t pow = static_cast<int32_t>(ty.scale() - arg1);
+
+    if (pow >= ty.precision()) {
       *st = Status::Invalid("Rounding to ", arg1, " digits will not fit in precision of ",
                             ty);
       return 0;
@@ -946,7 +937,8 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
       return arg0;
     }
 
-    CType0 pow10 = CType0::GetScaleMultiplier(static_cast<int32_t>(ty.scale() - arg1));
+    // pow10 is "1" for the given decimal scale. Similarly half_pow10 is "0.5".
+    CType0 pow10 = CType0::GetScaleMultiplier(pow);
 
     std::pair<CType, CType> pair;
     *st = arg0.Divide(pow10).Value(&pair);
@@ -955,6 +947,8 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
     const auto& remainder = pair.second;
     if (remainder == 0) return arg0;
     if (kRoundMode >= RoundMode::HALF_DOWN) {
+      CType0 half_pow10 = CType::GetHalfScaleMultiplier(pow);
+      CType0 neg_half_pow10 = -half_pow10;
       if (remainder == half_pow10 || remainder == neg_half_pow10) {
         // On the halfway point, use tiebreaker
         RoundImpl<CType0, kRoundMode>::Round(&arg0, remainder, pow10, pow);

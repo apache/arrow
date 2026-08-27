@@ -26,6 +26,14 @@ version=$(. /etc/os-release && echo ${VERSION_ID})
 
 apt-get update -y -q
 
+# The Ubuntu 22.04 verification image supplies a supported Python separately.
+if [ "${INSTALL_PYTHON:-1}" -gt 0 ]; then
+  apt-get install -y -q --no-install-recommends \
+    python3-dev \
+    python3-pip \
+    python3-venv
+fi
+
 if [ ${version} \> "22.04" ]; then
   # Some tests rely on legacy timezone aliases such as "US/Pacific"
   apt-get install -y -q --no-install-recommends \
@@ -45,14 +53,10 @@ apt-get install -y -q --no-install-recommends \
   libglib2.0-dev \
   libsqlite3-dev \
   libssl-dev \
-  libxsimd-dev \
   llvm-dev \
   ninja-build \
   nlohmann-json3-dev \
   pkg-config \
-  python3-dev \
-  python3-venv \
-  python3-pip \
   ruby-dev \
   tzdata \
   wget

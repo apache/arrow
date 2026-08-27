@@ -42,10 +42,14 @@ G_BEGIN_DECLS
  * Since: 6.0.0
  */
 
-typedef struct GArrowExpressionPrivate_
+enum {
+  PROP_EXPRESSION = 1,
+};
+
+struct GArrowExpressionPrivate
 {
   arrow::compute::Expression expression;
-} GArrowExpressionPrivate;
+};
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExpression, garrow_expression, G_TYPE_OBJECT)
 
@@ -62,6 +66,25 @@ garrow_expression_finalize(GObject *object)
 }
 
 static void
+garrow_expression_set_property(GObject *object,
+                               guint prop_id,
+                               const GValue *value,
+                               GParamSpec *pspec)
+{
+  auto priv = GARROW_EXPRESSION_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_EXPRESSION:
+    priv->expression =
+      *static_cast<arrow::compute::Expression *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
 garrow_expression_init(GArrowExpression *object)
 {
   auto priv = GARROW_EXPRESSION_GET_PRIVATE(object);
@@ -74,6 +97,15 @@ garrow_expression_class_init(GArrowExpressionClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize = garrow_expression_finalize;
+  gobject_class->set_property = garrow_expression_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer(
+    "expression",
+    "Expression",
+    "The raw arrow::compute::Expression *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_EXPRESSION, spec);
 }
 
 /**
@@ -112,7 +144,71 @@ garrow_expression_equal(GArrowExpression *expression, GArrowExpression *other_ex
   return priv->expression.Equals(other_priv->expression);
 }
 
-G_DEFINE_TYPE(GArrowLiteralExpression, garrow_literal_expression, GARROW_TYPE_EXPRESSION)
+enum {
+  PROP_DATUM = 1,
+};
+
+struct GArrowLiteralExpressionPrivate
+{
+  GArrowDatum *datum;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowLiteralExpression,
+                           garrow_literal_expression,
+                           GARROW_TYPE_EXPRESSION)
+
+#define GARROW_LITERAL_EXPRESSION_GET_PRIVATE(object)                                    \
+  static_cast<GArrowLiteralExpressionPrivate *>(                                         \
+    garrow_literal_expression_get_instance_private(GARROW_LITERAL_EXPRESSION(object)))
+
+static void
+garrow_literal_expression_dispose(GObject *object)
+{
+  auto priv = GARROW_LITERAL_EXPRESSION_GET_PRIVATE(object);
+
+  if (priv->datum) {
+    g_object_unref(priv->datum);
+    priv->datum = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_literal_expression_parent_class)->dispose(object);
+}
+
+static void
+garrow_literal_expression_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_LITERAL_EXPRESSION_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DATUM:
+    priv->datum = GARROW_DATUM(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_literal_expression_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_LITERAL_EXPRESSION_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DATUM:
+    g_value_set_object(value, priv->datum);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_literal_expression_init(GArrowLiteralExpression *object)
@@ -122,6 +218,28 @@ garrow_literal_expression_init(GArrowLiteralExpression *object)
 static void
 garrow_literal_expression_class_init(GArrowLiteralExpressionClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_literal_expression_dispose;
+  gobject_class->set_property = garrow_literal_expression_set_property;
+  gobject_class->get_property = garrow_literal_expression_get_property;
+
+  GParamSpec *spec;
+
+  /**
+   * GArrowLiteralExpression:datum:
+   *
+   * The datum of this literal.
+   *
+   * Since: 24.0.0
+   */
+  spec = g_param_spec_object(
+    "datum",
+    "Datum",
+    "The datum of this literal",
+    GARROW_TYPE_DATUM,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_DATUM, spec);
 }
 
 /**
@@ -137,7 +255,12 @@ garrow_literal_expression_new(GArrowDatum *datum)
 {
   auto arrow_datum = garrow_datum_get_raw(datum);
   auto arrow_expression = arrow::compute::literal(arrow_datum);
-  return GARROW_LITERAL_EXPRESSION(garrow_expression_new_raw(arrow_expression));
+  return GARROW_LITERAL_EXPRESSION(garrow_expression_new_raw(arrow_expression,
+                                                             "expression",
+                                                             &arrow_expression,
+                                                             "datum",
+                                                             datum,
+                                                             nullptr));
 }
 
 G_DEFINE_TYPE(GArrowFieldExpression, garrow_field_expression, GARROW_TYPE_EXPRESSION)
@@ -173,7 +296,29 @@ garrow_field_expression_new(const gchar *reference, GError **error)
   return GARROW_FIELD_EXPRESSION(garrow_expression_new_raw(arrow_expression));
 }
 
-G_DEFINE_TYPE(GArrowCallExpression, garrow_call_expression, GARROW_TYPE_EXPRESSION)
+struct GArrowCallExpressionPrivate
+{
+  GList *arguments;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCallExpression,
+                           garrow_call_expression,
+                           GARROW_TYPE_EXPRESSION)
+
+#define GARROW_CALL_EXPRESSION_GET_PRIVATE(object)                                       \
+  static_cast<GArrowCallExpressionPrivate *>(                                            \
+    garrow_call_expression_get_instance_private(GARROW_CALL_EXPRESSION(object)))
+
+static void
+garrow_call_expression_dispose(GObject *object)
+{
+  auto priv = GARROW_CALL_EXPRESSION_GET_PRIVATE(object);
+
+  g_list_free_full(priv->arguments, g_object_unref);
+  priv->arguments = nullptr;
+
+  G_OBJECT_CLASS(garrow_call_expression_parent_class)->dispose(object);
+}
 
 static void
 garrow_call_expression_init(GArrowCallExpression *object)
@@ -183,6 +328,9 @@ garrow_call_expression_init(GArrowCallExpression *object)
 static void
 garrow_call_expression_class_init(GArrowCallExpressionClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_call_expression_dispose;
 }
 
 /**
@@ -211,13 +359,57 @@ garrow_call_expression_new(const gchar *function,
     arrow_options.reset(garrow_function_options_get_raw(options)->Copy().release());
   }
   auto arrow_expression = arrow::compute::call(function, arrow_arguments, arrow_options);
-  return GARROW_CALL_EXPRESSION(garrow_expression_new_raw(arrow_expression));
+  auto expression = GARROW_CALL_EXPRESSION(garrow_expression_new_raw(arrow_expression));
+  auto priv = GARROW_CALL_EXPRESSION_GET_PRIVATE(expression);
+  priv->arguments =
+    g_list_copy_deep(arguments, reinterpret_cast<GCopyFunc>(g_object_ref), nullptr);
+  return expression;
+}
+
+/**
+ * garrow_call_expression_get_arguments:
+ * @expression: A #GArrowCallExpression.
+ *
+ * Returns: (transfer none) (element-type GArrowExpression): Arguments
+ *   of this expression.
+ *
+ * Since: 24.0.0
+ */
+GList *
+garrow_call_expression_get_arguments(GArrowCallExpression *expression)
+{
+  auto priv = GARROW_CALL_EXPRESSION_GET_PRIVATE(expression);
+  return priv->arguments;
 }
 
 G_END_DECLS
 
 GArrowExpression *
 garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression)
+{
+  return garrow_expression_new_raw(arrow_expression,
+                                   "expression",
+                                   &arrow_expression,
+                                   nullptr);
+}
+
+GArrowExpression *
+garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression,
+                          const gchar *first_property_name,
+                          ...)
+{
+  va_list args;
+  va_start(args, first_property_name);
+  auto array =
+    garrow_expression_new_raw_valist(arrow_expression, first_property_name, args);
+  va_end(args);
+  return array;
+}
+
+GArrowExpression *
+garrow_expression_new_raw_valist(const arrow::compute::Expression &arrow_expression,
+                                 const gchar *first_property_name,
+                                 va_list args)
 {
   GType gtype = GARROW_TYPE_EXPRESSION;
   if (arrow_expression.literal()) {
@@ -227,10 +419,7 @@ garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression)
   } else if (arrow_expression.call()) {
     gtype = GARROW_TYPE_CALL_EXPRESSION;
   }
-  auto expression = GARROW_EXPRESSION(g_object_new(gtype, NULL));
-  auto priv = GARROW_EXPRESSION_GET_PRIVATE(expression);
-  priv->expression = arrow_expression;
-  return expression;
+  return GARROW_EXPRESSION(g_object_new_valist(gtype, first_property_name, args));
 }
 
 arrow::compute::Expression *

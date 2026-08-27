@@ -5,11 +5,22 @@
 \alias{FixedWidthType}
 \title{FixedWidthType class}
 \description{
-FixedWidthType class
+\code{FixedWidthType} is a base class for data types with a fixed width in bits.
+This includes all integer types, floating-point types, \code{Boolean},
+\code{FixedSizeBinary}, temporal types (dates, times, timestamps, durations),
+and decimal types.
 }
-\section{Methods}{
+\section{R6 Methods}{
 
 
-TODO
+\code{FixedWidthType} inherits from \link{DataType}, so it has the same methods.
 }
 
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$bit_width}: The width of the type in bits
+}
+}
+
+\keyword{internal}

@@ -199,7 +199,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{decimal128(), int64()},
                      utf8(), kResultNullIfNull, "castVARCHAR_decimal128_int64",
-                     NativeFunction::kNeedsContext),
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("crc32", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
                      "gdv_fn_crc_32_utf8", NativeFunction::kNeedsContext),
@@ -253,6 +253,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("regexp_replace", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_regexp_replace_utf8_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("regexp_extract", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_regexp_extract_utf8_utf8",
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
@@ -432,7 +438,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("binary_string", {}, DataTypeVector{utf8()}, binary(),
-                     kResultNullIfNull, "binary_string", NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "binary_string",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("left", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "left_utf8_int32", NativeFunction::kNeedsContext),

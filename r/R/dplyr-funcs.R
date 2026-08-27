@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 #' @include expression.R
 NULL
 
@@ -49,9 +48,7 @@ NULL
 #' @return The previously registered binding or `NULL` if no previously
 #'   registered function existed.
 #' @keywords internal
-register_binding <- function(fun_name,
-                             fun,
-                             notes = character(0)) {
+register_binding <- function(fun_name, fun, notes = character(0)) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- .cache$functions[[unqualified_name]]

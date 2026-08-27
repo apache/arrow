@@ -44,6 +44,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     version=*,
     write_statistics=*,
     data_page_size=*,
+    max_rows_per_page=*,
     compression_level=*,
     use_byte_stream_split=*,
     column_encoding=*,
@@ -55,7 +56,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     write_page_checksum=*,
     sorting_columns=*,
     store_decimal_as_integer=*,
-    use_content_defined_chunking=*
+    use_content_defined_chunking=*,
+    bloom_filter_options=*
 ) except *
 
 
@@ -66,6 +68,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     writer_engine_version=*,
     use_compliant_nested_type=*,
     store_schema=*,
+    write_time_adjusted_to_utc=*,
 ) except *
 
 

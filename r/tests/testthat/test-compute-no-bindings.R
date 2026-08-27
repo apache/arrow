@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("non-bound compute kernels using TrimOptions", {
   skip_if_not_available("utf8proc")
   expect_equal(
@@ -128,8 +127,8 @@ test_that("non-bound compute kernels using PartitionNthOptions", {
   )
   # Order of indices on either side of the pivot is not deterministic
   # (depends on C++ standard library implementation)
-  expect_true(all(as.vector(result[1:3]) < 3))
-  expect_true(all(as.vector(result[4:10]) >= 3))
+  expect_all_true(as.vector(result[1:3]) < 3)
+  expect_all_true(as.vector(result[4:10]) >= 3)
 })
 
 

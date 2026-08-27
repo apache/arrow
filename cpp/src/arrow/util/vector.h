@@ -18,12 +18,12 @@
 #pragma once
 
 #include <algorithm>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/result.h"
 #include "arrow/util/algorithm.h"
-#include "arrow/util/functional.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -106,8 +106,8 @@ std::vector<To> MapVector(Fn&& map, std::vector<From>&& source) {
 }
 
 /// \brief Like MapVector, but where the function can fail.
-template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
-          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
+template <typename Fn, typename From,
+          typename To = typename std::invoke_result_t<Fn, From>::ValueType>
 Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& source) {
   std::vector<To> out;
   out.reserve(source.size());
@@ -116,8 +116,8 @@ Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& source
   return out;
 }
 
-template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
-          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
+template <typename Fn, typename From,
+          typename To = typename std::invoke_result_t<Fn, From>::ValueType>
 Result<std::vector<To>> MaybeMapVector(Fn&& map, std::vector<From>&& source) {
   std::vector<To> out;
   out.reserve(source.size());
@@ -145,12 +145,11 @@ template <typename T>
 Result<std::vector<T>> UnwrapOrRaise(std::vector<Result<T>>&& results) {
   std::vector<T> out;
   out.reserve(results.size());
-  auto end = std::make_move_iterator(results.end());
-  for (auto it = std::make_move_iterator(results.begin()); it != end; it++) {
-    if (!it->ok()) {
-      return it->status();
+  for (auto&& result : results) {
+    if (!result.ok()) {
+      return result.status();
     }
-    out.push_back(it->MoveValueUnsafe());
+    out.push_back(result.MoveValueUnsafe());
   }
   return out;
 }

@@ -669,7 +669,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       for (int i = 0; i < map.key_values_size(); ++i) {
         const auto& kv = map.key_values(i);
 
-        static const std::array<char const*, 4> kMissing = {"key and value", "value",
+        static const std::array<const char*, 4> kMissing = {"key and value", "value",
                                                             "key", nullptr};
         if (auto missing = kMissing[kv.has_key() + kv.has_value() * 2]) {
           return Status::Invalid("While converting to MapScalar encountered missing ",
@@ -804,7 +804,13 @@ struct ScalarToProtoImpl {
     auto user_defined = std::make_unique<Lit::UserDefined>();
     user_defined->set_type_reference(anchor);
     auto value_any = std::make_unique<google::protobuf::Any>();
+#if PROTOBUF_VERSION >= 3015000
+    if (!value_any->PackFrom(value)) {
+      return Status::IOError("Failed to pack user-defined type value");
+    }
+#else
     value_any->PackFrom(value);
+#endif
     user_defined->set_allocated_value(value_any.release());
     lit_->set_allocated_user_defined(user_defined.release());
     return Status::OK();

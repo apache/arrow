@@ -18,6 +18,7 @@
 #include <cerrno>
 #include <deque>
 #include <functional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -592,8 +593,8 @@ struct ArrayExportChecker {
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
     }
     if (has_variadic_buffer_sizes) {
-      auto variadic_buffers = util::span(expected_data.buffers).subspan(2);
-      auto variadic_buffer_sizes = util::span(
+      auto variadic_buffers = std::span(expected_data.buffers).subspan(2);
+      auto variadic_buffer_sizes = std::span(
           static_cast<const int64_t*>(c_export->buffers[c_export->n_buffers - 1]),
           variadic_buffers.size());
       for (auto [buf, size] : Zip(variadic_buffers, variadic_buffer_sizes)) {
@@ -927,6 +928,28 @@ TEST_F(TestArrayExport, PrimitiveSliced) {
   auto factory = []() { return ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2); };
 
   TestPrimitive(factory);
+}
+
+TEST_F(TestArrayExport, RejectNullVariadicBuffers) {
+  // GH-49740: _export_to_c segmentation fault for binary_view array.
+  for (const auto& type : {binary_view(), utf8_view()}) {
+    auto arr =
+        MakeArray(ArrayData::Make(type, /*length=*/2,
+                                  {nullptr,
+                                   Buffer::FromVector(std::vector<BinaryViewType::c_type>{
+                                       util::ToInlineBinaryView("hello"),
+                                       util::ToInlineBinaryView("world"),
+                                   }),
+                                   nullptr}));
+
+    struct ArrowArray c_export;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "Cannot export array of type " + type->ToString() +
+            ": null variadic buffer at buffer index #2 (variadic buffer index #0)"),
+        ExportArray(*arr, &c_export));
+  }
 }
 
 constexpr std::string_view binary_view_buffer_content0 = "12345foo bar baz quux",
@@ -2357,6 +2380,34 @@ TEST_F(TestSchemaImport, DictionaryError) {
   CheckImportError();
 }
 
+TEST_F(TestSchemaImport, DecimalError) {
+  // Decimal precision out of bounds
+  FillPrimitive("d:0,10");
+  CheckImportError();
+  FillPrimitive("d:39,10");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,32");
+  CheckImportError();
+  FillPrimitive("d:10,4,32");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,64");
+  CheckImportError();
+  FillPrimitive("d:19,4,64");
+  CheckImportError();
+
+  FillPrimitive("d:0,10,128");
+  CheckImportError();
+  FillPrimitive("d:39,10,128");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,256");
+  CheckImportError();
+  FillPrimitive("d:77,4,256");
+  CheckImportError();
+}
+
 TEST_F(TestSchemaImport, ExtensionError) {
   ExtensionTypeGuard guard(uuid());
 
@@ -2965,6 +3016,43 @@ TEST_F(TestArrayImport, String) {
   CheckImport(ArrayFromJSON(utf8(), "[]"));
   FillStringLike(0, 0, 0, large_string_buffers_omitted);
   CheckImport(ArrayFromJSON(large_binary(), "[]"));
+}
+
+TEST_F(TestArrayImport, NullVariadicBuffers) {
+  // The C Data Interface allows null variadic buffer pointers with size 0.
+  // Import normalizes them to non-null zero-size buffers in Arrow C++.
+  std::vector<BinaryViewType::c_type> views = {
+      util::ToInlineBinaryView("hello"),
+      util::ToInlineBinaryView("world"),
+  };
+  constexpr int64_t null_variadic_buffer_sizes[] = {0};
+  const void* null_variadic_buffer[] = {
+      nullptr,
+      views.data(),
+      nullptr,
+      null_variadic_buffer_sizes,
+  };
+
+  for (const auto& type : {binary_view(), utf8_view()}) {
+    FillStringViewLike(/*length=*/2, /*null_count=*/0, /*offset=*/0, null_variadic_buffer,
+                       /*data_buffer_count=*/1);
+
+    ArrayReleaseCallback cb(&c_struct_);
+    ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_struct_, type));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_struct_));
+    Reset();
+
+    ASSERT_OK(array->ValidateFull());
+    AssertArraysEqual(*ArrayFromJSON(type, R"(["hello", "world"])"), *array,
+                      /*verbose=*/true);
+
+    ASSERT_EQ(array->data()->buffers.size(), 3);
+    ASSERT_NE(array->data()->buffers[2], nullptr);
+    ASSERT_EQ(array->data()->buffers[2]->size(), 0);
+    cb.AssertNotCalled();
+    array.reset();
+    cb.AssertCalled();
+  }
 }
 
 TEST_F(TestArrayImport, StringWithOffset) {

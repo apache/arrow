@@ -24,17 +24,46 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   label_components:
     name: Label Components
     if: github.event.issue.pull_request == null
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
-      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      - uses: actions/github-script@v9
         with:
           script: |
+            const moved_repos = {
+              "Go": "arrow-go",
+              "Java": "arrow-java",
+              "JavaScript": "arrow-js",
+              "Julia": "arrow-julia",
+              "Rust": "arrow-rs",
+              "Swift": "arrow-swift",
+              "C#": "arrow-dotnet",
+              "DataFusion": "datafusion",
+            };
+
+            let repo_moved_msg = (component, repo) =>
+              `Thanks for your report! The ${component} implementation has moved to https://github.com/apache/${repo}.\n\n` +
+              `This issue has been closed automatically - please open a new issue there.`;
+
+            let component_to_prefix = (component) => {
+              const prefix_overrides = {
+                "Continuous Integration": "CI",
+                "Developer Tools": "Dev",
+                "Documentation": "Docs",
+              };
+              return prefix_overrides[component] || component;
+            };
+
+            let title_has_prefix = (title, prefix) => {
+              return title.includes(`[${prefix}]`);
+            };
+
             let split_body = context.payload.issue.body.split('### Component(s)');
             if (split_body.length != 2) throw new Error('No components found!');
 
@@ -52,10 +81,28 @@ jobs:
               label => !label.startsWith("Component: ")
             );
 
-            let component_labels = split_body[1]
+            let components = split_body[1]
               .split(',')
-              .map(component => component.trim())
-              .map(component => "Component: " + component);
+              .map(component => component.trim());
+            let moved_component = components.find(comp => comp in moved_repos);
+
+            if (moved_component) {
+               await github.rest.issues.createComment({
+                "owner": context.repo.owner,
+                "repo": context.repo.repo,
+                "issue_number": context.payload.issue.number,
+                "body": repo_moved_msg(moved_component, moved_repos[moved_component]),
+              });
+              await github.rest.issues.update({
+                "owner": context.repo.owner,
+                "repo": context.repo.repo,
+                "issue_number": context.payload.issue.number,
+                "state": "closed",
+              });
+              return;
+            }
+
+            let component_labels = components.map(component => "Component: " + component);
 
             let repo_labels = await github.rest.issues.listLabelsForRepo({
               "owner": context.repo.owner,
@@ -67,8 +114,32 @@ jobs:
             component_labels = component_labels.filter(
               label => repo_labels.data.some(repo_label => repo_label.name === label)
             );
-          
+
             if (component_labels.length == 0) throw new Error('No components found!');
+
+            let component_prefixes = component_labels.map(
+              label => component_to_prefix(label.substring("Component: ".length))
+            );
+
+            let issue_title = context.payload.issue.title.trimStart();
+
+            let missing_prefixes = component_prefixes.filter(
+              prefix => !title_has_prefix(issue_title, prefix)
+            );
+
+            let missing_title_prefix = missing_prefixes
+              .map(prefix => `[${prefix}]`)
+              .join("");
+
+            if (missing_title_prefix) {
+              let title_separator = issue_title.startsWith("[") ? "" : " ";
+              await github.rest.issues.update({
+                "owner": context.repo.owner,
+                "repo": context.repo.repo,
+                "issue_number": context.payload.issue.number,
+                "title": missing_title_prefix + title_separator + issue_title,
+              });
+            }
 
             await github.rest.issues.setLabels({
               "owner": context.repo.owner,

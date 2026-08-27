@@ -646,6 +646,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             version=self._properties["version"],
             write_statistics=self._properties["write_statistics"],
             data_page_size=self._properties["data_page_size"],
+            max_rows_per_page=self._properties["max_rows_per_page"],
             compression_level=self._properties["compression_level"],
             use_byte_stream_split=(
                 self._properties["use_byte_stream_split"]
@@ -695,6 +696,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             version="2.6",
             write_statistics=None,
             data_page_size=None,
+            max_rows_per_page=None,
             compression_level=None,
             use_byte_stream_split=False,
             column_encoding=None,

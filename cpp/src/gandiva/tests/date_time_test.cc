@@ -20,6 +20,11 @@
 #include <cmath>
 #include <ctime>
 
+#ifdef _WIN32
+// Windows provides _mkgmtime instead of timegm.
+#  define timegm _mkgmtime
+#endif
+
 #include "arrow/memory_pool.h"
 #include "gandiva/precompiled/time_constants.h"
 #include "gandiva/projector.h"
@@ -45,23 +50,21 @@ class DateTimeTestProjector : public ::testing::Test {
 };
 
 time_t Epoch() {
-  // HACK: MSVC mktime() fails on UTC times before 1970-01-01 00:00:00.
-  // But it first converts its argument from local time to UTC time,
-  // so we ask for 1970-01-02 to avoid failing in timezones ahead of UTC.
   struct tm y1970;
   memset(&y1970, 0, sizeof(struct tm));
   y1970.tm_year = 70;
   y1970.tm_mon = 0;
-  y1970.tm_mday = 2;
+  y1970.tm_mday = 1;
   y1970.tm_hour = 0;
   y1970.tm_min = 0;
   y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
+
+  time_t epoch = timegm(&y1970);
   if (epoch == static_cast<time_t>(-1)) {
-    ARROW_LOG(FATAL) << "mktime() failed";
+    ARROW_LOG(FATAL) << "timegm() failed";
   }
-  // Adjust for the 24h offset above.
-  return epoch - 24 * 3600;
+
+  return epoch;
 }
 
 int32_t MillisInDay(int32_t hh, int32_t mm, int32_t ss, int32_t millis) {
@@ -82,9 +85,9 @@ int64_t MillisSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_
   given_ts.tm_min = min;
   given_ts.tm_sec = sec;
 
-  time_t ts = mktime(&given_ts);
+  time_t ts = timegm(&given_ts);
   if (ts == static_cast<time_t>(-1)) {
-    ARROW_LOG(FATAL) << "mktime() failed";
+    ARROW_LOG(FATAL) << "timegm() failed";
   }
   // time_t is an arithmetic type on both POSIX and Windows, we can simply
   // subtract to get a duration in seconds.
@@ -102,9 +105,9 @@ int32_t DaysSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_t 
   given_ts.tm_min = min;
   given_ts.tm_sec = sec;
 
-  time_t ts = mktime(&given_ts);
+  time_t ts = timegm(&given_ts);
   if (ts == static_cast<time_t>(-1)) {
-    ARROW_LOG(FATAL) << "mktime() failed";
+    ARROW_LOG(FATAL) << "timegm() failed";
   }
   // time_t is an arithmetic type on both POSIX and Windows, we can simply
   // subtract to get a duration in seconds.

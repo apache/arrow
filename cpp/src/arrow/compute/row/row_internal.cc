@@ -17,6 +17,8 @@
 
 #include "arrow/compute/row/row_internal.h"
 
+#include <bit>
+
 #include "arrow/compute/util.h"
 #include "arrow/util/logging_internal.h"
 
@@ -89,9 +91,9 @@ void RowTableMetadata::FromColumnMetadataVector(
   std::sort(
       column_order.begin(), column_order.end(), [&cols](uint32_t left, uint32_t right) {
         bool is_left_pow2 =
-            !cols[left].is_fixed_length || ARROW_POPCOUNT64(cols[left].fixed_length) <= 1;
-        bool is_right_pow2 = !cols[right].is_fixed_length ||
-                             ARROW_POPCOUNT64(cols[right].fixed_length) <= 1;
+            !cols[left].is_fixed_length || std::popcount(cols[left].fixed_length) <= 1;
+        bool is_right_pow2 =
+            !cols[right].is_fixed_length || std::popcount(cols[right].fixed_length) <= 1;
         bool is_left_fixedlen = cols[left].is_fixed_length;
         bool is_right_fixedlen = cols[right].is_fixed_length;
         uint32_t width_left =
@@ -127,7 +129,7 @@ void RowTableMetadata::FromColumnMetadataVector(
   for (uint32_t i = 0; i < num_cols; ++i) {
     const KeyColumnMetadata& col = cols[column_order[i]];
     if (col.is_fixed_length && col.fixed_length != 0 &&
-        ARROW_POPCOUNT64(col.fixed_length) != 1) {
+        std::popcount(col.fixed_length) != 1) {
       offset_within_row += RowTableMetadata::padding_for_alignment_within_row(
           offset_within_row, string_alignment, col);
     }

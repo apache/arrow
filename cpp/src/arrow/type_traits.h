@@ -317,6 +317,11 @@ struct TypeTraits<HalfFloatType> {
 };
 
 template <>
+struct CTypeTraits<util::Float16> : public TypeTraits<HalfFloatType> {
+  using ArrowType = HalfFloatType;
+};
+
+template <>
 struct TypeTraits<Decimal32Type> {
   using ArrayType = Decimal32Array;
   using BuilderType = Decimal32Builder;
@@ -350,6 +355,26 @@ struct TypeTraits<Decimal256Type> {
   using ScalarType = Decimal256Scalar;
   using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct CTypeTraits<Decimal32> : public TypeTraits<Decimal32Type> {
+  using ArrowType = Decimal32Type;
+};
+
+template <>
+struct CTypeTraits<Decimal64> : public TypeTraits<Decimal64Type> {
+  using ArrowType = Decimal64Type;
+};
+
+template <>
+struct CTypeTraits<Decimal128> : public TypeTraits<Decimal128Type> {
+  using ArrowType = Decimal128Type;
+};
+
+template <>
+struct CTypeTraits<Decimal256> : public TypeTraits<Decimal256Type> {
+  using ArrowType = Decimal256Type;
 };
 
 template <>

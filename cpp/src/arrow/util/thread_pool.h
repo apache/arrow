@@ -139,8 +139,8 @@ class ARROW_EXPORT Executor {
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(TaskHints hints, StopToken stop_token, Function&& func,
                             Args&&... args) {
     using ValueType = typename FutureType::ValueType;
@@ -165,24 +165,24 @@ class ARROW_EXPORT Executor {
   }
 
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(StopToken stop_token, Function&& func, Args&&... args) {
     return Submit(TaskHints{}, stop_token, std::forward<Function>(func),
                   std::forward<Args>(args)...);
   }
 
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
     return Submit(std::move(hints), StopToken::Unstoppable(),
                   std::forward<Function>(func), std::forward<Args>(args)...);
   }
 
   template <typename Function, typename... Args,
-            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
-                Function && (Args && ...)>>
+            typename FutureType = ::arrow::detail::ContinueFuture::ForReturn<
+                std::invoke_result_t<Function, Args...>>>
   Result<FutureType> Submit(Function&& func, Args&&... args) {
     return Submit(TaskHints{}, StopToken::Unstoppable(), std::forward<Function>(func),
                   std::forward<Args>(args)...);
@@ -593,6 +593,36 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 }
 
 /// \brief Potentially iterate an async generator serially (if use_threads is false)
+///   using a potentially custom Executor
+/// \see IterateGenerator
+///
+/// If `use_threads` is true, the custom executor or, if null,
+///   the global CPU executor will be used.  Each call to
+///   the iterator will simply wait until the next item is available.  Tasks may run in
+///   the background between calls.
+///
+/// If `use_threads` is false, the calling thread only will be used.  Each call to
+///   the iterator will use the calling thread to do enough work to generate one item.
+///   Tasks will be left in a queue until the next call and no work will be done between
+///   calls.
+template <typename T>
+Iterator<T> IterateSynchronously(
+    FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads,
+    Executor* executor) {
+  if (use_threads) {
+    auto used_executor = executor != NULLPTR ? executor : GetCpuThreadPool();
+    auto maybe_gen = std::move(get_gen)(used_executor);
+    if (!maybe_gen.ok()) {
+      return MakeErrorIterator<T>(maybe_gen.status());
+    }
+    return MakeGeneratorIterator(*maybe_gen);
+  } else {
+    return SerialExecutor::IterateGenerator(std::move(get_gen));
+  }
+}
+
+/// \brief Potentially iterate an async generator serially (if use_threads is false)
+///   using the default CPU thread pool
 /// \see IterateGenerator
 ///
 /// If `use_threads` is true, the global CPU executor will be used.  Each call to
@@ -606,15 +636,7 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 template <typename T>
 Iterator<T> IterateSynchronously(
     FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads) {
-  if (use_threads) {
-    auto maybe_gen = std::move(get_gen)(GetCpuThreadPool());
-    if (!maybe_gen.ok()) {
-      return MakeErrorIterator<T>(maybe_gen.status());
-    }
-    return MakeGeneratorIterator(*maybe_gen);
-  } else {
-    return SerialExecutor::IterateGenerator(std::move(get_gen));
-  }
+  return IterateSynchronously(std::move(get_gen), use_threads, NULLPTR);
 }
 
 }  // namespace internal

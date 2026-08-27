@@ -46,6 +46,7 @@ class Future;
 namespace util {
 class Codec;
 class CodecOptions;
+class Float16;
 }  // namespace util
 
 class Buffer;
@@ -530,16 +531,6 @@ ARROW_EXPORT const std::shared_ptr<DataType>& date64();
 /// \brief Create a FixedSizeBinaryType instance.
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
-
-/// \brief Create a DecimalType instance depending on the precision
-///
-/// If the precision is greater than 38, a Decimal256Type is returned,
-/// otherwise a Decimal128Type.
-///
-/// Deprecated: prefer `smallest_decimal` instead.
-ARROW_DEPRECATED("Deprecated in 18.0. Use `smallest_decimal` instead")
-ARROW_EXPORT
-std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
 /// \brief Create a the smallest DecimalType instance depending on precision
 ///

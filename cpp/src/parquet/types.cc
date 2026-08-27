@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -23,21 +24,23 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 #include "generated/parquet_types.h"
+
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
 
 using arrow::internal::checked_cast;
 using arrow::util::Codec;
@@ -105,8 +108,11 @@ template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, std::string> FormatNumericValue(
     ::std::string_view val) {
   std::stringstream result;
+  // The statistics value comes from the file's Thrift metadata, so its length
+  // is attacker controlled and the spec allows it to be truncated. Only copy
+  // the bytes that are actually present and leave the rest zero-padded.
   T value{};
-  std::memcpy(&value, val.data(), sizeof(T));
+  std::memcpy(&value, val.data(), std::min(sizeof(T), val.size()));
   result << value;
   return result.str();
 }
@@ -123,21 +129,21 @@ std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
   switch (parquet_type) {
     case Type::INT32: {
       int32_t int_value{};
-      std::memcpy(&int_value, val.data(), sizeof(int32_t));
+      std::memcpy(&int_value, val.data(), std::min(sizeof(int32_t), val.size()));
       ::arrow::Decimal128 decimal_value(int_value);
       result << decimal_value.ToString(scale);
       break;
     }
     case Type::INT64: {
       int64_t long_value{};
-      std::memcpy(&long_value, val.data(), sizeof(int64_t));
+      std::memcpy(&long_value, val.data(), std::min(sizeof(int64_t), val.size()));
       ::arrow::Decimal128 decimal_value(long_value);
       result << decimal_value.ToString(scale);
       break;
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
     case Type::BYTE_ARRAY: {
-      auto decimal_result = ::arrow::Decimal128::FromBigEndian(
+      auto decimal_result = ::arrow::Decimal256::FromBigEndian(
           reinterpret_cast<const uint8_t*>(val.data()), static_cast<int32_t>(val.size()));
       if (!decimal_result.ok()) {
         throw ParquetException("Failed to parse decimal value: ",
@@ -169,8 +175,11 @@ std::string FormatNonUTF8Value(::std::string_view val) {
 
 std::string FormatFloat16Value(::std::string_view val) {
   std::stringstream result;
-  auto float16 = ::arrow::util::Float16::FromLittleEndian(
-      reinterpret_cast<const uint8_t*>(val.data()));
+  // FromLittleEndian reads two bytes unconditionally; a truncated stat value
+  // may be shorter, so copy into a zero-padded buffer first.
+  std::array<uint8_t, 2> bytes{};
+  std::memcpy(bytes.data(), val.data(), std::min(bytes.size(), val.size()));
+  auto float16 = ::arrow::util::Float16::FromLittleEndian(bytes.data());
   result << float16.ToFloat();
   return result.str();
 }
@@ -179,12 +188,16 @@ std::string FormatFloat16Value(::std::string_view val) {
 
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
                             const std::shared_ptr<const LogicalType>& logical_type) {
+  // Statistics values come straight from the file's Thrift metadata, so their
+  // length is attacker controlled and the spec allows them to be truncated.
+  // Every fixed-width read below clamps its copy to val.size() so a too-short
+  // value cannot drive a load past the end of the buffer.
   std::stringstream result;
   const char* bytes = val.data();
   switch (parquet_type) {
     case Type::BOOLEAN: {
       bool value{};
-      std::memcpy(&value, bytes, sizeof(bool));
+      std::memcpy(&value, bytes, std::min(sizeof(bool), val.size()));
       result << value;
       break;
     }
@@ -208,7 +221,7 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
     }
     case Type::INT96: {
       std::array<int32_t, 3> values{};
-      std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
+      std::memcpy(values.data(), bytes, std::min(sizeof(values), val.size()));
       result << values[0] << " " << values[1] << " " << values[2];
       break;
     }
@@ -439,6 +452,7 @@ SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& logical_t
 
 ColumnOrder ColumnOrder::undefined_ = ColumnOrder(ColumnOrder::UNDEFINED);
 ColumnOrder ColumnOrder::type_defined_ = ColumnOrder(ColumnOrder::TYPE_DEFINED_ORDER);
+ColumnOrder ColumnOrder::unknown_ = ColumnOrder(ColumnOrder::UNKNOWN);
 
 // Static methods for LogicalType class
 
@@ -591,7 +605,12 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
 
     return GeographyLogicalType::Make(std::move(crs), algorithm);
   } else if (type.__isset.VARIANT) {
-    return VariantLogicalType::Make();
+    int8_t spec_version = kVariantSpecVersion;
+    if (type.VARIANT.__isset.specification_version) {
+      spec_version = type.VARIANT.specification_version;
+    }
+
+    return VariantLogicalType::Make(spec_version);
   } else {
     // Sentinel type for one we do not recognize
     return UndefinedLogicalType::Make();
@@ -659,8 +678,8 @@ std::shared_ptr<const LogicalType> LogicalType::Geography(
   return GeographyLogicalType::Make(std::move(crs), algorithm);
 }
 
-std::shared_ptr<const LogicalType> LogicalType::Variant() {
-  return VariantLogicalType::Make();
+std::shared_ptr<const LogicalType> LogicalType::Variant(int8_t spec_version) {
+  return VariantLogicalType::Make(spec_version);
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -698,9 +717,12 @@ class LogicalType::Impl {
   }
 
   virtual std::string ToJSON() const {
-    std::stringstream json;
-    json << R"({"Type": ")" << ToString() << R"("})";
-    return json.str();
+    ::arrow::json::JsonWriter writer;
+    writer.StartObject();
+    writer.StringField("Type", ToString());
+    writer.EndObject();
+    PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+    return std::string(json);
   }
 
   virtual format::LogicalType ToThrift() const {
@@ -1152,10 +1174,14 @@ std::string LogicalType::Impl::Decimal::ToString() const {
 }
 
 std::string LogicalType::Impl::Decimal::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Decimal", "precision": )" << precision_ << R"(, "scale": )"
-       << scale_ << "}";
-  return json.str();
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Decimal");
+  writer.IntField("precision", precision_);
+  writer.IntField("scale", scale_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Decimal::ToThrift() const {
@@ -1297,10 +1323,14 @@ std::string LogicalType::Impl::Time::ToString() const {
 }
 
 std::string LogicalType::Impl::Time::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Time", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
-       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"("})";
-  return json.str();
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Time");
+  writer.BoolField("isAdjustedToUTC", adjusted_);
+  writer.StringField("timeUnit", time_unit_string(unit_));
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Time::ToThrift() const {
@@ -1444,12 +1474,16 @@ std::string LogicalType::Impl::Timestamp::ToString() const {
 }
 
 std::string LogicalType::Impl::Timestamp::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Timestamp", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
-       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"(")"
-       << R"(, "is_from_converted_type": )" << is_from_converted_type_
-       << R"(, "force_set_converted_type": )" << force_set_converted_type_ << R"(})";
-  return json.str();
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Timestamp");
+  writer.BoolField("isAdjustedToUTC", adjusted_);
+  writer.StringField("timeUnit", time_unit_string(unit_));
+  writer.BoolField("is_from_converted_type", is_from_converted_type_);
+  writer.BoolField("force_set_converted_type", force_set_converted_type_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Timestamp::ToThrift() const {
@@ -1634,10 +1668,14 @@ std::string LogicalType::Impl::Int::ToString() const {
 }
 
 std::string LogicalType::Impl::Int::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Int", "bitWidth": )" << width_ << R"(, "isSigned": )"
-       << std::boolalpha << signed_ << "}";
-  return json.str();
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Int");
+  writer.IntField("bitWidth", width_);
+  writer.BoolField("isSigned", signed_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Int::ToThrift() const {
@@ -1759,20 +1797,6 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 
 GENERATE_MAKE(Float16)
 
-namespace {
-void WriteCrsKeyAndValue(const std::string_view crs, std::ostream& json) {
-  // There is no restriction on the crs value here, and it may contain quotes
-  // or backslashes that would result in invalid JSON if unescaped.
-  namespace rj = ::arrow::rapidjson;
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  rj::Value v;
-  v.SetString(crs.data(), static_cast<int32_t>(crs.size()));
-  v.Accept(writer);
-  json << R"(, "crs": )" << buffer.GetString();
-}
-}  // namespace
-
 class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
                                           public LogicalType::Impl::SimpleApplicable {
  public:
@@ -1801,15 +1825,15 @@ std::string LogicalType::Impl::Geometry::ToString() const {
 }
 
 std::string LogicalType::Impl::Geometry::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Geometry")";
-
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Geometry");
   if (!crs_.empty()) {
-    WriteCrsKeyAndValue(crs_, json);
+    writer.StringField("crs", crs_);
   }
-
-  json << "}";
-  return json.str();
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
@@ -1892,19 +1916,18 @@ std::string LogicalType::Impl::Geography::ToString() const {
 }
 
 std::string LogicalType::Impl::Geography::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Geography")";
-
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Geography");
   if (!crs_.empty()) {
-    WriteCrsKeyAndValue(crs_, json);
+    writer.StringField("crs", crs_);
   }
-
   if (algorithm_ != LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
-    json << R"(, "algorithm": ")" << algorithm_name() << R"(")";
+    writer.StringField("algorithm", algorithm_name());
   }
-
-  json << "}";
-  return json.str();
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Geography::ToThrift() const {
@@ -1958,16 +1981,55 @@ class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
  public:
   friend class VariantLogicalType;
 
-  OVERRIDE_TOSTRING(Variant)
-  OVERRIDE_TOTHRIFT(VariantType, VARIANT)
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+
+  int8_t spec_version() const { return spec_version_; }
 
  private:
-  Variant()
+  explicit Variant(const int8_t spec_version)
       : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
-        LogicalType::Impl::Inapplicable() {}
+        LogicalType::Impl::Inapplicable() {
+    this->spec_version_ = spec_version;
+  }
+
+  int8_t spec_version_;
 };
 
-GENERATE_MAKE(Variant)
+int8_t VariantLogicalType::spec_version() const {
+  return (dynamic_cast<const LogicalType::Impl::Variant&>(*impl_)).spec_version();
+}
+
+std::string LogicalType::Impl::Variant::ToString() const {
+  std::stringstream type;
+  type << "Variant(" << static_cast<int>(spec_version_) << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Variant::ToJSON() const {
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Variant");
+  writer.IntField("SpecVersion", static_cast<int>(spec_version_));
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
+}
+
+format::LogicalType LogicalType::Impl::Variant::ToThrift() const {
+  format::LogicalType type;
+  format::VariantType variant_type;
+  variant_type.__set_specification_version(spec_version_);
+  type.__set_VARIANT(variant_type);
+  return type;
+}
+
+std::shared_ptr<const LogicalType> VariantLogicalType::Make(const int8_t spec_version) {
+  auto logical_type = std::shared_ptr<VariantLogicalType>(new VariantLogicalType());
+  logical_type->impl_.reset(new LogicalType::Impl::Variant(spec_version));
+  return logical_type;
+}
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {

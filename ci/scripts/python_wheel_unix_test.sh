@@ -31,9 +31,9 @@ source_dir=${1}
 : "${ARROW_AZURE:=ON}"
 : "${ARROW_FLIGHT:=ON}"
 : "${ARROW_GCS:=ON}"
+: "${CHECK_IMPORTS:=ON}"
 : "${ARROW_S3:=ON}"
 : "${ARROW_SUBSTRAIT:=ON}"
-: "${CHECK_IMPORTS:=ON}"
 : "${CHECK_WHEEL_CONTENT:=ON}"
 : "${CHECK_UNITTESTS:=ON}"
 : "${INSTALL_PYARROW:=ON}"
@@ -47,7 +47,12 @@ export PYARROW_TEST_GANDIVA=OFF
 export PYARROW_TEST_GCS=${ARROW_GCS}
 export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
-export PYARROW_TEST_PANDAS=ON
+# TODO: To be removed once pandas provides wheels for Python 3.15
+if python -c "import sys; sys.exit(0 if sys.version_info < (3, 15) else 1)"; then
+  export PYARROW_TEST_PANDAS=ON
+else
+  export PYARROW_TEST_PANDAS=OFF
+fi
 export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PARQUET_ENCRYPTION=ON
 export PYARROW_TEST_SUBSTRAIT=${ARROW_SUBSTRAIT}

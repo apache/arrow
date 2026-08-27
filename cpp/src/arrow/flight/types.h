@@ -47,6 +47,7 @@ class Table;
 
 namespace ipc {
 class DictionaryMemo;
+struct ReadStats;
 }  // namespace ipc
 
 namespace util {
@@ -903,6 +904,9 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 
   /// \brief Check that the payload can be written to the wire.
   Status Validate() const;
+
+  /// \brief Serialize this payload to a vector of buffers.
+  arrow::Result<BufferVector> SerializeToBuffers() const;
 };
 
 // A wrapper around arrow.flight.protocol.PutResult is not defined
@@ -1179,6 +1183,9 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
 
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
+
+  /// \brief Return current read statistics
+  virtual arrow::ipc::ReadStats stats() const = 0;
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.

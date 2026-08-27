@@ -118,6 +118,12 @@ module Helper
                   values)
     end
 
+    def build_duration_array(unit, values)
+      data_type = Arrow::DurationDataType.new(unit)
+      build_array(Arrow::DurationArrayBuilder.new(data_type),
+                  values)
+    end
+
     def build_binary_array(values)
       build_array(Arrow::BinaryArrayBuilder.new, values)
     end
@@ -172,6 +178,16 @@ module Helper
       builder.finish
     end
 
+    def build_fixed_size_list_array(value_data_type, list_size, values_list, field_name: "value")
+      value_field = Arrow::Field.new(field_name, value_data_type)
+      data_type = Arrow::FixedSizeListDataType.new(value_field, list_size)
+      builder = Arrow::FixedSizeListArrayBuilder.new(data_type)
+      values_list.each do |values|
+        append_to_builder(builder, values)
+      end
+      builder.finish
+    end
+
     def build_map_array(key_data_type, item_data_type, maps)
       data_type = Arrow::MapDataType.new(key_data_type, item_data_type)
       builder = Arrow::MapArrayBuilder.new(data_type)
@@ -204,7 +220,7 @@ module Helper
             append_to_builder(key_builder, k)
             append_to_builder(item_builder, v)
           end
-        when Arrow::ListDataType, Arrow::LargeListDataType
+        when Arrow::ListDataType, Arrow::LargeListDataType, Arrow::FixedSizeListDataType
           builder.append_value
           value_builder = builder.value_builder
           value.each do |v|

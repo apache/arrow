@@ -41,8 +41,6 @@ to use the functionality of it:
   To install: `pip install -e "arrow/dev/archery[release]"`
 * crossbow – to trigger + interact with the crossbow build system
   To install: `pip install -e "arrow/dev/archery[crossbow]"`
-* crossbow-upload
-  To install: `pip install -e "arrow/dev/archery[crossbow-upload]"`
 
 Additionally, if you would prefer to install everything at once,
 `pip install -e "arrow/dev/archery[all]"` is an alias for all of

@@ -121,7 +121,7 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
                 type = arrays{1}.Type;
             end
 
-            proxyIDs = arrow.array.internal.getArrayProxyIDs(arrays);
+            proxyIDs = arrow.array.internal.getProxyIDs(arrays);
             args = struct(ArrayProxyIDs=proxyIDs, TypeProxyID=type.Proxy.ID);
             proxyName = "arrow.array.proxy.ChunkedArray";
             proxy = arrow.internal.proxy.create(proxyName, args);

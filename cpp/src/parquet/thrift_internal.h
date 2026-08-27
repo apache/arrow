@@ -21,10 +21,11 @@
 
 #include <cstdint>
 #include <limits>
-
 #include <memory>
+#include <span>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -44,6 +45,7 @@
 #include "parquet/geospatial/statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
 #include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
@@ -186,32 +188,22 @@ struct SafeLoader {
     return static_cast<ApiTypeRawEnum>(LoadEnumRaw(in));
   }
 
-  template <typename ThriftType, bool IsUnsigned = true>
-  inline static ApiTypeEnum LoadChecked(
-      const typename std::enable_if<IsUnsigned, ThriftType>::type* in) {
-    auto raw_value = LoadRaw(in);
-    if (ARROW_PREDICT_FALSE(raw_value >=
-                            static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
-      return ApiType::UNDEFINED;
-    }
-    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
-  }
-
-  template <typename ThriftType, bool IsUnsigned = false>
-  inline static ApiTypeEnum LoadChecked(
-      const typename std::enable_if<!IsUnsigned, ThriftType>::type* in) {
-    auto raw_value = LoadRaw(in);
-    if (ARROW_PREDICT_FALSE(raw_value >=
-                                static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||
-                            raw_value < 0)) {
-      return ApiType::UNDEFINED;
-    }
-    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
-  }
-
   template <typename ThriftType>
   inline static ApiTypeEnum Load(const ThriftType* in) {
-    return LoadChecked<ThriftType, std::is_unsigned<ApiTypeRawEnum>::value>(in);
+    const auto raw_value = LoadRaw(in);
+    if constexpr (std::is_unsigned_v<ApiTypeRawEnum>) {
+      if (ARROW_PREDICT_FALSE(raw_value >=
+                              static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
+        return ApiType::UNDEFINED;
+      }
+    } else {
+      if (ARROW_PREDICT_FALSE(raw_value >=
+                                  static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||
+                              raw_value < 0)) {
+        return ApiType::UNDEFINED;
+      }
+    }
+    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
   }
 };
 
@@ -262,21 +254,52 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
-static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
+// Selects how thrift Statistics min/max fields should populate EncodedStatistics.
+enum class StatisticsMinMaxField {
+  // Do not populate min/max, because the ordering is undefined or unsupported.
+  kInvalid,
+  // Populate min/max from the min_value/max_value fields.
+  kMinValueMaxValue,
+  // Populate min/max from the legacy min/max fields.
+  kLegacyMinMax,
+};
+
+// Keep this field-selection logic consistent with ColumnDescriptor::can_use_min_max().
+static inline StatisticsMinMaxField GetStatisticsMinMaxField(
+    const ColumnDescriptor& descr) {
+  switch (descr.column_order().get_order()) {
+    case ColumnOrder::TYPE_DEFINED_ORDER:
+      return descr.sort_order() != SortOrder::UNKNOWN
+                 ? StatisticsMinMaxField::kMinValueMaxValue
+                 : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::UNDEFINED:
+      return descr.sort_order() == SortOrder::SIGNED
+                 ? StatisticsMinMaxField::kLegacyMinMax
+                 : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::UNKNOWN:
+      return StatisticsMinMaxField::kInvalid;
+  }
+  return StatisticsMinMaxField::kInvalid;
+}
+
+static inline EncodedStatistics FromThrift(const format::Statistics& stats,
+                                           StatisticsMinMaxField min_max) {
   EncodedStatistics out;
 
-  // Use the new V2 min-max statistics over the former one if it is filled
-  if (stats.__isset.max_value || stats.__isset.min_value) {
-    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
+  if (min_max == StatisticsMinMaxField::kMinValueMaxValue) {
     if (stats.__isset.max_value) {
       out.set_max(stats.max_value);
+      if (stats.__isset.is_max_value_exact) {
+        out.is_max_value_exact = stats.is_max_value_exact;
+      }
     }
     if (stats.__isset.min_value) {
       out.set_min(stats.min_value);
+      if (stats.__isset.is_min_value_exact) {
+        out.is_min_value_exact = stats.is_min_value_exact;
+      }
     }
-  } else if (stats.__isset.max || stats.__isset.min) {
-    // TODO: check created_by to see if it is corrupted for some types.
-    // TODO: check if the sort_order is SIGNED.
+  } else if (min_max == StatisticsMinMaxField::kLegacyMinMax) {
     if (stats.__isset.max) {
       out.set_max(stats.max);
     }
@@ -475,6 +498,9 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
   if (stats.has_min) {
     statistics.__set_min_value(stats.min());
+    if (stats.is_min_value_exact.has_value()) {
+      statistics.__set_is_min_value_exact(stats.is_min_value_exact.value());
+    }
     // If the order is SIGNED, then the old min value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
@@ -483,6 +509,9 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   }
   if (stats.has_max) {
     statistics.__set_max_value(stats.max());
+    if (stats.is_max_value_exact.has_value()) {
+      statistics.__set_is_max_value_exact(stats.is_max_value_exact.value());
+    }
     // If the order is SIGNED, then the old max value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
@@ -558,35 +587,35 @@ class ThriftDeserializer {
         container_size_limit_(container_size_limit) {}
 
   // Deserialize a thrift message from buf/len.  buf/len must at least contain
-  // all the bytes needed to store the thrift message.  On return, len will be
-  // set to the actual length of the header.
+  // all the bytes needed to store the thrift message.
+  // The actual length of the header is returned.
   template <class T>
-  void DeserializeMessage(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
-                          Decryptor* decryptor = NULLPTR) {
+  int64_t DeserializeMessage(const uint8_t* buf, int64_t len, T* deserialized_msg,
+                             Decryptor* decryptor = NULLPTR) {
     if (decryptor == NULLPTR) {
       // thrift message is not encrypted
-      DeserializeUnencryptedMessage(buf, len, deserialized_msg);
+      return DeserializeUnencryptedMessage(buf, len, deserialized_msg);
     } else {
       // thrift message is encrypted
-      uint32_t clen;
-      clen = *len;
-      if (clen > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+      if (len > std::numeric_limits<int32_t>::max()) {
         std::stringstream ss;
-        ss << "Cannot decrypt buffer with length " << clen << ", which overflows int32\n";
+        ss << "Cannot decrypt buffer with length " << len << ", which overflows int32\n";
         throw ParquetException(ss.str());
       }
       // decrypt
       auto decrypted_buffer = AllocateBuffer(
-          decryptor->pool(), decryptor->PlaintextLength(static_cast<int32_t>(clen)));
-      ::arrow::util::span<const uint8_t> cipher_buf(buf, clen);
-      uint32_t decrypted_buffer_len =
+          decryptor->pool(), decryptor->PlaintextLength(static_cast<int32_t>(len)));
+      std::span<const uint8_t> cipher_buf(buf, len);
+      int32_t decrypted_buffer_len =
           decryptor->Decrypt(cipher_buf, decrypted_buffer->mutable_span_as<uint8_t>());
       if (decrypted_buffer_len <= 0) {
         throw ParquetException("Couldn't decrypt buffer\n");
       }
-      *len = decryptor->CiphertextLength(static_cast<int32_t>(decrypted_buffer_len));
-      DeserializeUnencryptedMessage(decrypted_buffer->data(), &decrypted_buffer_len,
+      int64_t read_bytes = decryptor->CiphertextLength(decrypted_buffer_len);
+      ARROW_DCHECK_LE(read_bytes, len);
+      DeserializeUnencryptedMessage(decrypted_buffer->data(), decrypted_buffer_len,
                                     deserialized_msg);
+      return read_bytes;
     }
   }
 
@@ -594,21 +623,28 @@ class ThriftDeserializer {
   // On Thrift 0.14.0+, we want to use TConfiguration to raise the max message size
   // limit (ARROW-13655).  If we wanted to protect against huge messages, we could
   // do it ourselves since we know the message size up front.
-  std::shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf, uint32_t len) {
+  std::shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf, int64_t len) {
+    if (len >= static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
+      std::stringstream ss;
+      ss << "Cannot deserialize Thrift message with length " << len
+         << ", which overflows uint32\n";
+      throw ParquetException(ss.str());
+    }
 #if PARQUET_THRIFT_VERSION_MAJOR > 0 || PARQUET_THRIFT_VERSION_MINOR >= 14
     auto conf = std::make_shared<apache::thrift::TConfiguration>();
     conf->setMaxMessageSize(std::numeric_limits<int>::max());
-    return std::make_shared<ThriftBuffer>(buf, len, ThriftBuffer::OBSERVE, conf);
+    return std::make_shared<ThriftBuffer>(buf, static_cast<uint32_t>(len),
+                                          ThriftBuffer::OBSERVE, conf);
 #else
-    return std::make_shared<ThriftBuffer>(buf, len);
+    return std::make_shared<ThriftBuffer>(buf, static_cast<uint32_t>(len));
 #endif
   }
 
   template <class T>
-  void DeserializeUnencryptedMessage(const uint8_t* buf, uint32_t* len,
-                                     T* deserialized_msg) {
+  int64_t DeserializeUnencryptedMessage(const uint8_t* buf, int64_t len,
+                                        T* deserialized_msg) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
-    auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len);
+    auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), len);
     auto tproto = apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>(
         tmem_transport, string_size_limit_, container_size_limit_);
     try {
@@ -620,8 +656,7 @@ class ThriftDeserializer {
       ss << "Couldn't deserialize thrift: " << e.what() << "\n";
       throw ParquetException(ss.str());
     }
-    uint32_t bytes_left = tmem_transport->available_read();
-    *len = *len - bytes_left;
+    return len - static_cast<int64_t>(tmem_transport->available_read());
   }
 
   const int32_t string_size_limit_;
@@ -644,30 +679,35 @@ class ThriftSerializer {
   /// memory returned is owned by this object and will be invalid when another object
   /// is serialized.
   template <class T>
-  void SerializeToBuffer(const T* obj, uint32_t* len, uint8_t** buffer) {
+  std::span<const uint8_t> SerializeToBuffer(const T* obj) {
     SerializeObject(obj);
-    mem_buffer_->getBuffer(buffer, len);
+    uint8_t* data;
+    uint32_t data_len;
+    mem_buffer_->getBuffer(&data, &data_len);
+    return std::span(data, data_len);
   }
 
   template <class T>
-  void SerializeToString(const T* obj, std::string* result) {
+  std::string_view SerializeToString(const T* obj) {
     SerializeObject(obj);
-    *result = mem_buffer_->getBufferAsString();
+    uint8_t* data;
+    uint32_t data_len;
+    mem_buffer_->getBuffer(&data, &data_len);
+    return std::string_view(reinterpret_cast<const char*>(data), data_len);
   }
 
   template <class T>
   int64_t Serialize(const T* obj, ArrowOutputStream* out,
                     Encryptor* encryptor = NULLPTR) {
-    uint8_t* out_buffer;
-    uint32_t out_length;
-    SerializeToBuffer(obj, &out_length, &out_buffer);
+    auto out_buffer = SerializeToBuffer(obj);
 
     // obj is not encrypted
     if (encryptor == NULLPTR) {
-      PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
-      return static_cast<int64_t>(out_length);
+      PARQUET_THROW_NOT_OK(
+          out->Write(out_buffer.data(), static_cast<int64_t>(out_buffer.size())));
+      return static_cast<int64_t>(out_buffer.size());
     } else {  // obj is encrypted
-      return SerializeEncryptedObj(out, out_buffer, out_length, encryptor);
+      return SerializeEncryptedObj(out, out_buffer, encryptor);
     }
   }
 
@@ -684,16 +724,16 @@ class ThriftSerializer {
     }
   }
 
-  int64_t SerializeEncryptedObj(ArrowOutputStream* out, const uint8_t* out_buffer,
-                                uint32_t out_length, Encryptor* encryptor) {
+  int64_t SerializeEncryptedObj(ArrowOutputStream* out,
+                                std::span<const uint8_t> serialized,
+                                Encryptor* encryptor) {
     auto cipher_buffer =
-        AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
-    ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
+        AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(serialized.size()));
     int32_t cipher_buffer_len =
-        encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
+        encryptor->Encrypt(serialized, cipher_buffer->mutable_span_as<uint8_t>());
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
-    return static_cast<int64_t>(cipher_buffer_len);
+    return cipher_buffer_len;
   }
 
   std::shared_ptr<ThriftBuffer> mem_buffer_;

@@ -54,9 +54,9 @@ put there:
 library(arrow)
 library(dplyr)
 client <- flight_connect(port = 8089)
-client %>%
-  flight_get("test_data/iris") %>%
-  group_by(Species) %>%
+client |>
+  flight_get("test_data/iris") |>
+  group_by(Species) |>
   summarize(max_petal = max(Petal.Length))
 
 ## # A tibble: 3 x 2

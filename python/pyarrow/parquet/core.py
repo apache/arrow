@@ -236,10 +236,13 @@ class ParquetFile:
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
-    pre_buffer : bool, default False
+    pre_buffer : bool, default True
         Coalesce and issue file reads in parallel to improve performance on
-        high-latency filesystems (e.g. S3). If True, Arrow will use a
-        background I/O thread pool.
+        high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
+        background I/O thread pool. If using a filesystem layer that itself
+        performs readahead (e.g. fsspec's S3FS), disable readahead for best
+        results. Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
     coerce_int96_timestamp_unit : str, default None
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
@@ -262,9 +265,9 @@ class ParquetFile:
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
     arrow_extensions_enabled : bool, default True
-        If True, read Parquet logical types as Arrow extension types where possible,
-        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-        the canonical `arrow.uuid` extension type).
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g., read JSON as the canonical `arrow.json` extension type
+        or UUID as the canonical `arrow.uuid` extension type).
 
     Examples
     --------
@@ -310,7 +313,7 @@ class ParquetFile:
 
     def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, binary_type=None, list_type=None,
-                 memory_map=False, buffer_size=0, pre_buffer=False,
+                 memory_map=False, buffer_size=0, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
@@ -768,7 +771,9 @@ use_dictionary : bool or list, default True
     doesn't support dictionary encoding.
 compression : str or dict, default 'snappy'
     Specify the compression codec, either on a general basis or per-column.
-    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'LZ4_RAW', 'ZSTD'}.
+    'LZ4_RAW' is accepted as an alias for 'LZ4' (both use the LZ4_RAW
+    codec as defined in the Parquet specification).
 write_statistics : bool or list, default True
     Specify if we should write statistics in general (default is True) or only
     for some columns.
@@ -795,6 +800,10 @@ data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
+max_rows_per_page : int, default None
+    Maximum number of rows per page within a column chunk.
+    If None, use the default of 20000.
+    Smaller values reduce memory usage during reads but increase metadata overhead.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems.
@@ -853,6 +862,7 @@ use_compliant_nested_type : bool, default True
                 <element-repetition> <element-type> item;
             }
         }
+
 encryption_properties : FileEncryptionProperties, default None
     File encryption properties for Parquet Modular Encryption.
     If None, no encryption will be done.
@@ -892,6 +902,7 @@ sorting_columns : Sequence of SortingColumn, default None
 store_decimal_as_integer : bool, default False
     Allow decimals with 1 <= precision <= 18 to be stored as integers.
     In Parquet, DECIMAL can be stored in any of the following physical types:
+
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: precision is limited by the array size.
@@ -901,6 +912,7 @@ store_decimal_as_integer : bool, default False
 
     By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
     When enabled, the writer will use the following physical types to store decimals:
+
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: for precision > 18.
@@ -921,6 +933,7 @@ use_content_defined_chunking : bool or dict, default False
     before any Parquet encodings).
 
     A `dict` can be passed to adjust the chunker parameters with the following keys:
+
     - `min_chunk_size`: minimum chunk size in bytes, default 256 KiB
       The rolling hash will not be updated until this size is reached for each chunk.
       Note that all data sent through the hash function is counted towards the chunk
@@ -939,6 +952,39 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+
+write_time_adjusted_to_utc : bool, default False
+    Set the value of isAdjustedTOUTC when writing a TIME column.
+    If True, this tells the Parquet reader that the TIME columns
+    are expressed in reference to midnight in the UTC timezone.
+    If False (the default), the TIME columns are assumed to be expressed
+    in reference to midnight in an unknown, presumably local, timezone.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 """
 
 _parquet_writer_example_doc = """\
@@ -1035,6 +1081,8 @@ Examples
                  write_page_checksum=False,
                  sorting_columns=None,
                  store_decimal_as_integer=False,
+                 write_time_adjusted_to_utc=False,
+                 max_rows_per_page=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1088,6 +1136,8 @@ Examples
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+            max_rows_per_page=max_rows_per_page,
             **options)
         self.is_open = True
 
@@ -1399,6 +1449,8 @@ Examples
                     path_or_paths, filesystem, memory_map=memory_map
                 )
                 finfo = filesystem.get_file_info(path_or_paths)
+                if finfo.is_file:
+                    single_file = path_or_paths
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
             else:
@@ -1879,10 +1931,23 @@ def read_table(source, *, columns=None, use_threads=True,
                 "the 'schema' argument is not supported when the "
                 "pyarrow.dataset module is not available"
             )
+        if isinstance(source, list):
+            raise ValueError(
+                "the 'source' argument cannot be a list of files "
+                "when the pyarrow.dataset module is not available"
+            )
+
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
+            if not filesystem.get_file_info(path).is_file:
+                raise ValueError(
+                    "the 'source' argument should be "
+                    "an existing parquet file and not a directory "
+                    "when the pyarrow.dataset module is not available"
+                )
+
             source = filesystem.open_input_file(path)
-        # TODO test that source is not a directory or a list
+
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
@@ -1949,6 +2014,9 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_checksum=False,
                 sorting_columns=None,
                 store_decimal_as_integer=False,
+                write_time_adjusted_to_utc=False,
+                max_rows_per_page=None,
+                bloom_filter_options=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -1980,6 +2048,9 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_checksum=write_page_checksum,
                 sorting_columns=sorting_columns,
                 store_decimal_as_integer=store_decimal_as_integer,
+                write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+                max_rows_per_page=max_rows_per_page,
+                bloom_filter_options=bloom_filter_options,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -2301,7 +2372,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,
-                  filesystem=None):
+                  filesystem=None, arrow_extensions_enabled=True):
     """
     Read FileMetaData from footer of a single Parquet file.
 
@@ -2316,6 +2387,10 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    arrow_extensions_enabled : bool, default True
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g. UUID as the canonical `arrow.uuid` extension type).
+        If False, use the underlying storage types instead.
 
     Returns
     -------
@@ -2345,13 +2420,17 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
         file_ctx = where = filesystem.open_input_file(where)
 
     with file_ctx:
-        file = ParquetFile(where, memory_map=memory_map,
-                           decryption_properties=decryption_properties)
+        file = ParquetFile(
+            where,
+            memory_map=memory_map,
+            decryption_properties=decryption_properties,
+            arrow_extensions_enabled=arrow_extensions_enabled,
+        )
         return file.metadata
 
 
 def read_schema(where, memory_map=False, decryption_properties=None,
-                filesystem=None):
+                filesystem=None, arrow_extensions_enabled=True):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -2366,6 +2445,9 @@ def read_schema(where, memory_map=False, decryption_properties=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    arrow_extensions_enabled : bool, default True
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g., UUID as the canonical `arrow.uuid` extension type).
 
     Returns
     -------
@@ -2391,9 +2473,12 @@ def read_schema(where, memory_map=False, decryption_properties=None,
 
     with file_ctx:
         file = ParquetFile(
-            where, memory_map=memory_map,
-            decryption_properties=decryption_properties)
-        return file.schema.to_arrow_schema()
+            where,
+            memory_map=memory_map,
+            decryption_properties=decryption_properties,
+            arrow_extensions_enabled=arrow_extensions_enabled,
+        )
+        return file.schema_arrow
 
 
 __all__ = (

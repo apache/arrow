@@ -2,12 +2,9 @@
 % Please edit documentation in R/feather.R
 \name{read_feather}
 \alias{read_feather}
-\alias{read_ipc_file}
-\title{Read a Feather file (an Arrow IPC file)}
+\title{Read a Feather file (deprecated)}
 \usage{
 read_feather(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
-
-read_ipc_file(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 }
 \arguments{
 \item{file}{A character file name or URI, connection, \code{raw} vector, an
@@ -31,23 +28,13 @@ A \code{tibble} if \code{as_data_frame} is \code{TRUE} (the default), or an
 Arrow \link{Table} otherwise
 }
 \description{
-Feather provides binary columnar serialization for data frames.
-It is designed to make reading and writing data frames efficient,
-and to make sharing data across data analysis languages easy.
-\code{\link[=read_feather]{read_feather()}} can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
-and the Version 2 (V2), which is the Apache Arrow IPC file format.
-\code{\link[=read_ipc_file]{read_ipc_file()}} is an alias of \code{\link[=read_feather]{read_feather()}}.
-}
-\examples{
-# We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
-tf <- tempfile(fileext = ".arrow")
-on.exit(unlink(tf))
-write_feather(mtcars, tf)
-df <- read_feather(tf)
-dim(df)
-# Can select columns
-df <- read_feather(tf, col_select = starts_with("d"))
+\code{read_feather()} is deprecated and will be removed in a future release.
+Use \code{\link[=read_ipc_file]{read_ipc_file()}} instead.
+
+\code{read_feather()} can read both the Feather V1 format (a legacy format which
+is also being deprecated) and the Feather V2 format (which is the Arrow IPC format).
+\code{read_ipc_file()} can also read both formats.
 }
 \seealso{
-\link{FeatherReader} and \link{RecordBatchReader} for lower-level access to reading Arrow IPC data.
+\code{\link[=read_ipc_file]{read_ipc_file()}}
 }

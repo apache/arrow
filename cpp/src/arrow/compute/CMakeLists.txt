@@ -43,14 +43,12 @@ if(ARROW_TESTING AND ARROW_COMPUTE)
   add_library(arrow_compute_testing OBJECT ${ARROW_COMPUTE_TESTING_SRCS})
   # Even though this is still just an object library we still need to "link"
   # arrow_compute_core_testing so that is also included correctly
-  if(MSVC)
-    target_link_libraries(arrow_compute_testing
-                          PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
-                          PUBLIC ${ARROW_GTEST_GTEST_MAIN})
-  else()
-    target_link_libraries(arrow_compute_testing
-                          PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
-                          PUBLIC ${ARROW_GTEST_GTEST})
+  target_link_libraries(arrow_compute_testing
+                        PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
+                        PUBLIC ${ARROW_GTEST_GTEST})
+  if(ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_compute_testing PUBLIC ARROW_COMPUTE_STATIC
+                                                            ARROW_STATIC)
   endif()
 endif()
 
@@ -76,6 +74,7 @@ set(ARROW_COMPUTE_TEST_ARGS PREFIX ${ARROW_COMPUTE_TEST_PREFIX} LABELS
 # Also see: GH-34388, GH-34615
 function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   if(NOT ARROW_COMPUTE)
+    # libarrow_compute is not enabled, skip building test
     return()
   endif()
 
@@ -115,6 +114,11 @@ endfunction()
 # part of libarrow.
 # It will also link the compute libraries to the benchmark target.
 function(add_arrow_compute_benchmark REL_TEST_NAME)
+  if(NOT ARROW_COMPUTE)
+    # libarrow_compute is not enabled, skip building benchmark
+    return()
+  endif()
+
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args EXTRA_SOURCES EXTRA_LINK_LIBS)

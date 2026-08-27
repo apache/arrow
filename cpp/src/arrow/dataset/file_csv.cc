@@ -474,6 +474,7 @@ std::shared_ptr<FileWriteOptions> CsvFileFormat::DefaultWriteOptions() {
       new CsvFileWriteOptions(shared_from_this()));
   csv_options->write_options =
       std::make_shared<csv::WriteOptions>(csv::WriteOptions::Defaults());
+  csv_options->write_options->delimiter = parse_options.delimiter;
   return csv_options;
 }
 

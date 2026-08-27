@@ -38,7 +38,8 @@
 #' @rdname DataType-class
 #' @name DataType
 #' @seealso [`data-type`]
-DataType <- R6Class("DataType",
+DataType <- R6Class(
+  "DataType",
   inherit = ArrowObject,
   public = list(
     ToString = function() {
@@ -68,8 +69,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 
 #' Infer the arrow Array type from an R object
 #'
-#' [type()] is deprecated in favor of [infer_type()].
-#'
 #' @param x an R object (usually a vector) to be converted to an [Array] or
 #'   [ChunkedArray].
 #' @param ... Passed to S3 methods
@@ -87,12 +86,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @export
 infer_type <- function(x, ...) UseMethod("infer_type")
 
-#' @rdname infer_type
-#' @export
-type <- function(x) {
-  .Deprecated("infer_type")
-  infer_type(x)
-}
 
 #' @export
 infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
@@ -145,17 +138,29 @@ infer_type.Expression <- function(x, ...) x$type()
 
 #' @title FixedWidthType class
 #'
+#' @description
+#' `FixedWidthType` is a base class for data types with a fixed width in bits.
+#' This includes all integer types, floating-point types, `Boolean`,
+#' `FixedSizeBinary`, temporal types (dates, times, timestamps, durations),
+#' and decimal types.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
-#' @section Methods:
+#' @section R6 Methods:
 #'
-#' TODO
+#' `FixedWidthType` inherits from [DataType], so it has the same methods.
+#'
+#' @section Active bindings:
+#'
+#' - `$bit_width`: The width of the type in bits
 #'
 #' @rdname FixedWidthType
 #' @name FixedWidthType
-FixedWidthType <- R6Class("FixedWidthType",
+#' @keywords internal
+FixedWidthType <- R6Class(
+  "FixedWidthType",
   inherit = DataType,
   public = list(
     code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow")
@@ -175,37 +180,44 @@ UInt32 <- R6Class("UInt32", inherit = FixedWidthType)
 UInt64 <- R6Class("UInt64", inherit = FixedWidthType)
 Float16 <- R6Class("Float16", inherit = FixedWidthType)
 Float32 <- R6Class("Float32", inherit = FixedWidthType)
-Float64 <- R6Class("Float64",
+Float64 <- R6Class(
+  "Float64",
   inherit = FixedWidthType,
   public = list(
     code = function(namespace = FALSE) call2("float64", .ns = if (namespace) "arrow")
   )
 )
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
-Utf8 <- R6Class("Utf8",
+Utf8 <- R6Class(
+  "Utf8",
   inherit = DataType,
   public = list(
     code = function(namespace = FALSE) call2("utf8", .ns = if (namespace) "arrow")
   )
 )
-LargeUtf8 <- R6Class("LargeUtf8",
+LargeUtf8 <- R6Class(
+  "LargeUtf8",
   inherit = DataType,
   public = list(
     code = function(namespace = FALSE) call2("large_utf8", .ns = if (namespace) "arrow")
   )
 )
-Binary <- R6Class("Binary",
+Binary <- R6Class(
+  "Binary",
   inherit = DataType,
   public = list(
     code = function(namespace = FALSE) call2("binary", .ns = if (namespace) "arrow")
   )
 )
-LargeBinary <- R6Class("LargeBinary",
-  inherit = DataType, public = list(
+LargeBinary <- R6Class(
+  "LargeBinary",
+  inherit = DataType,
+  public = list(
     code = function(namespace = FALSE) call2("large_binary", .ns = if (namespace) "arrow")
   )
 )
-FixedSizeBinary <- R6Class("FixedSizeBinary",
+FixedSizeBinary <- R6Class(
+  "FixedSizeBinary",
   inherit = FixedWidthType,
   public = list(
     byte_width = function() FixedSizeBinary__byte_width(self),
@@ -215,7 +227,8 @@ FixedSizeBinary <- R6Class("FixedSizeBinary",
   )
 )
 
-DateType <- R6Class("DateType",
+DateType <- R6Class(
+  "DateType",
   inherit = FixedWidthType,
   public = list(
     code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow"),
@@ -225,13 +238,15 @@ DateType <- R6Class("DateType",
 Date32 <- R6Class("Date32", inherit = DateType)
 Date64 <- R6Class("Date64", inherit = DateType)
 
-TimeType <- R6Class("TimeType",
+TimeType <- R6Class(
+  "TimeType",
   inherit = FixedWidthType,
   public = list(
     unit = function() TimeType__unit(self)
   )
 )
-Time32 <- R6Class("Time32",
+Time32 <- R6Class(
+  "Time32",
   inherit = TimeType,
   public = list(
     code = function(namespace = FALSE) {
@@ -244,7 +259,8 @@ Time32 <- R6Class("Time32",
     }
   )
 )
-Time64 <- R6Class("Time64",
+Time64 <- R6Class(
+  "Time64",
   inherit = TimeType,
   public = list(
     code = function(namespace = FALSE) {
@@ -258,21 +274,24 @@ Time64 <- R6Class("Time64",
   )
 )
 
-DurationType <- R6Class("DurationType",
+DurationType <- R6Class(
+  "DurationType",
   inherit = FixedWidthType,
   public = list(
     unit = function() DurationType__unit(self)
   )
 )
 
-Null <- R6Class("Null",
+Null <- R6Class(
+  "Null",
   inherit = DataType,
   public = list(
     code = function(namespace = FALSE) call2("null", .ns = if (namespace) "arrow")
   )
 )
 
-Timestamp <- R6Class("Timestamp",
+Timestamp <- R6Class(
+  "Timestamp",
   inherit = FixedWidthType,
   public = list(
     code = function(namespace = FALSE) {
@@ -289,7 +308,8 @@ Timestamp <- R6Class("Timestamp",
   )
 )
 
-DecimalType <- R6Class("DecimalType",
+DecimalType <- R6Class(
+  "DecimalType",
   inherit = FixedWidthType,
   public = list(
     code = function(namespace = FALSE) {
@@ -328,13 +348,14 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' `date32()` creates a datetime type with a "day" unit, like the R `Date`
 #' class. `date64()` has a "ms" unit.
 #'
-#' `uint32` (32 bit unsigned integer), `uint64` (64 bit unsigned integer), and
-#' `int64` (64-bit signed integer) types may contain values that exceed the
-#' range of R's `integer` type (32-bit signed integer). When these arrow objects
-#' are translated to R objects, `uint32` and `uint64` are converted to `double`
-#' ("numeric") and `int64` is converted to `bit64::integer64`. For `int64`
-#' types, this conversion can be disabled (so that `int64` always yields a
-#' `bit64::integer64` object) by setting `options(arrow.int64_downcast =
+#' `uint64` (64 bit unsigned integer) is always converted to `double`
+#' ("numeric") in R. Note that doubles cannot exactly represent all uint64
+#' values; precision may be lost for values above 2^53. `uint32` (32 bit unsigned integer) and `int64` (64-bit
+#' signed integer) types may contain values that exceed the range of R's
+#' `integer` type (32-bit signed integer). When they do, `uint32` is converted
+#' to `double` ("numeric") and `int64` is converted to `bit64::integer64`. For
+#' `int64` types, this conversion can be disabled (so that `int64` always yields
+#' a `bit64::integer64` object) by setting `options(arrow.int64_downcast =
 #' FALSE)`.
 #'
 #' `decimal128()` creates a `Decimal128Type`. Arrow decimals are fixed-point
@@ -408,11 +429,11 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' # You can also use `cast()` in an Arrow dplyr query.
 #' if (requireNamespace("dplyr", quietly = TRUE)) {
 #'   library(dplyr, warn.conflicts = FALSE)
-#'   arrow_table(mtcars) %>%
+#'   arrow_table(mtcars) |>
 #'     transmute(
 #'       col1 = cast(cyl, string()),
 #'       col2 = cast(cyl, int8())
-#'     ) %>%
+#'     ) |>
 #'     compute()
 #' }
 int8 <- function() Int8__initialize()
@@ -587,16 +608,7 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
 #' @export
 decimal <- function(precision, scale) {
   args <- check_decimal_args(precision, scale)
-
-  if (args$precision > 38) {
-    decimal256(args$precision, args$scale)
-  } else if (args$precision > 18) {
-    decimal128(args$precision, args$scale)
-  } else if (args$precision > 9) {
-    decimal64(args$precision, args$scale)
-  } else {
-    decimal32(args$precision, args$scale)
-  }
+  SmallestDecimal__initialize(args$precision, args$scale)
 }
 
 #' @rdname data-type
@@ -645,7 +657,8 @@ check_decimal_args <- function(precision, scale) {
   list(precision = precision, scale = scale)
 }
 
-StructType <- R6Class("StructType",
+StructType <- R6Class(
+  "StructType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
@@ -669,7 +682,8 @@ struct <- StructType$create
 #' @export
 names.StructType <- function(x) StructType__field_names(x)
 
-ListType <- R6Class("ListType",
+ListType <- R6Class(
+  "ListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
@@ -686,7 +700,8 @@ ListType <- R6Class("ListType",
 #' @export
 list_of <- function(type) list__(type)
 
-LargeListType <- R6Class("LargeListType",
+LargeListType <- R6Class(
+  "LargeListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
@@ -705,12 +720,16 @@ large_list_of <- function(type) large_list__(type)
 
 #' @rdname data-type
 #' @export
-FixedSizeListType <- R6Class("FixedSizeListType",
+FixedSizeListType <- R6Class(
+  "FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("fixed_size_list_of", self$value_type$code(namespace),
-        list_size = self$list_size, .ns = if (namespace) "arrow"
+      call2(
+        "fixed_size_list_of",
+        self$value_type$code(namespace),
+        list_size = self$list_size,
+        .ns = if (namespace) "arrow"
       )
     }
   ),
@@ -727,7 +746,8 @@ fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_siz
 
 #' @rdname data-type
 #' @export
-MapType <- R6Class("MapType",
+MapType <- R6Class(
+  "MapType",
   inherit = ListType,
   active = list(
     key_field = function() MapType__key_field(self),
@@ -760,7 +780,8 @@ canonical_type_str <- function(type_str) {
   if (grepl("[([<]", type_str)) {
     stop("Cannot interpret string representations of data types that have parameters", call. = FALSE)
   }
-  switch(type_str,
+  switch(
+    type_str,
     int8 = "int8",
     int16 = "int16",
     int32 = "int32",

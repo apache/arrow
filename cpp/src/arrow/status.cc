@@ -13,6 +13,7 @@
 #include "arrow/status.h"
 
 #include <cassert>
+#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
@@ -131,8 +132,25 @@ std::string Status::ToStringWithoutContextLines() const {
     if (last_new_line_position == std::string::npos) {
       break;
     }
-    // TODO: We may want to check /:\d+ /
-    if (message.find(":", last_new_line_position) == std::string::npos) {
+    // Check for the pattern ":\d+ " (colon followed by one or more digits and a space)
+    // to identify context lines in the format "filename:line  expr"
+    auto colon_position = message.find(":", last_new_line_position);
+    if (colon_position == std::string::npos) {
+      break;
+    }
+    // Verify that the colon is followed by one or more digits and then a space
+    size_t pos = colon_position + 1;
+    if (pos >= message.size() ||
+        !std::isdigit(static_cast<unsigned char>(message[pos]))) {
+      break;
+    }
+    // Skip all digits
+    while (pos < message.size() &&
+           std::isdigit(static_cast<unsigned char>(message[pos]))) {
+      pos++;
+    }
+    // Check if followed by a space
+    if (pos >= message.size() || message[pos] != ' ') {
       break;
     }
     message = message.substr(0, last_new_line_position);

@@ -54,16 +54,11 @@
 #endif
 
 namespace arrow {
-
-namespace memory_pool {
-
-namespace internal {
+namespace memory_pool::internal {
 
 alignas(kDefaultBufferAlignment) int64_t zero_size_area[1] = {kDebugXorSuffix};
 
-}  // namespace internal
-
-}  // namespace memory_pool
+}  // namespace memory_pool::internal
 
 namespace {
 
@@ -400,15 +395,15 @@ class MimallocAllocator {
       *out = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
-    *out = reinterpret_cast<uint8_t*>(
-        mi_malloc_aligned(static_cast<size_t>(size), static_cast<size_t>(alignment)));
+    *out = reinterpret_cast<uint8_t*>(arrow_mi_malloc_aligned(
+        static_cast<size_t>(size), static_cast<size_t>(alignment)));
     if (*out == NULL) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
     return Status::OK();
   }
 
-  static void ReleaseUnused() { mi_collect(true); }
+  static void ReleaseUnused() { arrow_mi_collect(true); }
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
                                   uint8_t** ptr) {
@@ -423,7 +418,7 @@ class MimallocAllocator {
       return Status::OK();
     }
     *ptr = reinterpret_cast<uint8_t*>(
-        mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), alignment));
+        arrow_mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), alignment));
     if (*ptr == NULL) {
       *ptr = previous_ptr;
       return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -435,7 +430,7 @@ class MimallocAllocator {
     if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
-      mi_free(ptr);
+      arrow_mi_free(ptr);
     }
   }
 
@@ -855,6 +850,45 @@ std::vector<std::string> SupportedMemoryBackendNames() {
     supported.push_back(backend.name);
   }
   return supported;
+}
+
+///////////////////////////////////////////////////////////////////////
+// CappedMemoryPool implementation
+
+Status CappedMemoryPool::Allocate(int64_t size, int64_t alignment, uint8_t** out) {
+  // XXX Another thread may allocate memory between the limit check and
+  // the `Allocate` call. It is possible for the two allocations to be successful
+  // while going above the limit.
+  // Solving this issue would require refactoring the `MemoryPool` implementation
+  // to delegate the limit check to `MemoryPoolStats`.
+  const int64_t allocated = wrapped_->bytes_allocated();
+  if (ARROW_PREDICT_FALSE(bytes_allocated_limit_ - allocated < size)) {
+    return OutOfMemory(allocated, size);
+  }
+  return wrapped_->Allocate(size, alignment, out);
+}
+
+Status CappedMemoryPool::Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                                    uint8_t** ptr) {
+  if (new_size > old_size) {
+    const int64_t allocated = wrapped_->bytes_allocated();
+    if (ARROW_PREDICT_FALSE(bytes_allocated_limit_ - allocated < new_size - old_size)) {
+      return OutOfMemory(allocated, new_size - old_size);
+    }
+  }
+  return wrapped_->Reallocate(old_size, new_size, alignment, ptr);
+}
+
+void CappedMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
+  return wrapped_->Free(buffer, size, alignment);
+}
+
+Status CappedMemoryPool::OutOfMemory(int64_t current_allocated, int64_t requested) const {
+  return Status::OutOfMemory(
+      "MemoryPool bytes_allocated cap exceeded: "
+      "limit=",
+      bytes_allocated_limit_, ", current allocation=", current_allocated,
+      ", requested=", requested);
 }
 
 // -----------------------------------------------------------------------

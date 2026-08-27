@@ -29,7 +29,8 @@ on:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
   pull_request:
     paths:
@@ -37,7 +38,8 @@ on:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
 
 concurrency:
@@ -60,61 +62,57 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         name:
           - conda-python-docs
-          - conda-python-3.10-nopandas
-          - conda-python-3.9-pandas-1.1.3
-          - conda-python-3.11-pandas-latest
-          - conda-python-3.11-no-numpy
+          - conda-python-3.12-nopandas
+          - conda-python-3.11-pandas-2.2.2-numpy-2.0.2
+          - conda-python-3.14-pandas-latest
+          - conda-python-3.13-no-numpy
         include:
           - name: conda-python-docs
-            cache: conda-python-3.10
             image: conda-python-docs
-            title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
-            python: "3.10"
-          - name: conda-python-3.10-nopandas
-            cache: conda-python-3.10
+            title: AMD64 Conda Python 3.12 Sphinx & Numpydoc
+            python: "3.12"
+          - name: conda-python-3.12-nopandas
             image: conda-python
-            title: AMD64 Conda Python 3.10 Without Pandas
-            python: "3.10"
-          - name: conda-python-3.9-pandas-1.1.3
-            cache: conda-python-3.9
+            title: AMD64 Conda Python 3.12 Without Pandas
+            python: "3.12"
+          - name: conda-python-3.11-pandas-2.2.2-numpy-2.0.2
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.9 Pandas 1.1.3
-            python: 3.9
-            pandas: "1.1.3"
-            numpy: 1.19.5
-          - name: conda-python-3.11-pandas-latest
-            cache: conda-python-3.11
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.11 Pandas latest
+            title: AMD64 Conda Python 3.11 Pandas 2.2.2 NumPy 2.0.2
             python: "3.11"
+            pandas: "2.2.2"
+            numpy: "2.0.2"
+          - name: conda-python-3.14-pandas-latest
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.14 Pandas latest
+            python: "3.14"
             pandas: latest
-          - name: conda-python-3.11-no-numpy
-            cache: conda-python-3.11
+          - name: conda-python-3.13-no-numpy
             image: conda-python-no-numpy
-            title: AMD64 Conda Python 3.11 without NumPy
-            python: "3.11"
+            title: AMD64 Conda Python 3.13 without NumPy
+            python: "3.13"
     env:
-      PYTHON: ${{ matrix.python || 3.9 }}
+      PYTHON: ${{ matrix.python || 3.11 }}
       UBUNTU: ${{ matrix.ubuntu || 22.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v4
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: .docker
-          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.cache }}-
+          key: python-${{ matrix.name }}
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -126,6 +124,14 @@ jobs:
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
+        with:
+          path: .docker
+          key: python-${{ matrix.name }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -145,12 +151,15 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "13"
+            macos-version: "15-intel"
+            large-memory-tests: "OFF"
           - architecture: ARM64
             macos-version: "14"
+            large-memory-tests: "ON"
     env:
       ARROW_HOME: /tmp/local
       ARROW_AZURE: ON
@@ -173,29 +182,25 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
-      PYARROW_TEST_LARGE_MEMORY: ON
+      PYARROW_TEST_LARGE_MEMORY: ${{ matrix.large-memory-tests }}
+      PYTEST_ARGS: "-n auto --durations=40"
       # Current oldest supported version according to https://endoflife.date/macos
       MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
-
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
@@ -210,16 +215,15 @@ jobs:
         id: ccache-info
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v4
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
-          restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
+          key: python-ccache-macos-${{ matrix.macos-version }}
       - name: Build
         shell: bash
         run: |
-          if [ "${{ matrix.macos-version }}" = "13" ]; then
+          if [ "${{ matrix.macos-version }}" = "15-intel" ]; then
             # This is a workaround.
             #
             # Homebrew uses /usr/local as prefix. So packages
@@ -236,6 +240,76 @@ jobs:
           python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: python-ccache-macos-${{ matrix.macos-version }}
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 Windows 2022 Python 3.13
+    runs-on: windows-2022
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    env:
+      CCACHE_DIR: C:/ccache
+      PYTHON_CMD: "py -3.13"
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.13.6 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: Generate path variables
+        id: path-info
+        shell: bash
+        run: |
+          echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: python-ccache-windows
+      - name: Build Arrow C++ and PyArrow
+        shell: cmd
+        env:
+          USR_WINDOWS_DIR: ${{ steps.path-info.outputs.usr-windows-dir }}
+        run: |
+          call "ci\scripts\python_build.bat" %cd% "%USR_WINDOWS_DIR%"
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: python-ccache-windows
+      - name: Test PyArrow
+        shell: cmd
+        run: |
+          call "ci\scripts\python_test.bat" %cd%

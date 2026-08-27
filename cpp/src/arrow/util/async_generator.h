@@ -24,6 +24,7 @@
 #include <limits>
 #include <optional>
 #include <queue>
+#include <type_traits>
 
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/async_util.h"
@@ -266,7 +267,7 @@ class MappingGenerator {
 ///
 /// If the source generator is async-reentrant then this generator will be also
 template <typename T, typename MapFn,
-          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename Mapped = std::invoke_result_t<MapFn, const T&>,
           typename V = typename EnsureFuture<Mapped>::type::ValueType>
 AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
   auto map_callback = [map = std::move(map)](const T& val) mutable -> Future<V> {
@@ -286,7 +287,7 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn 
 ///
 /// If the source generator is async-reentrant then this generator will be also
 template <typename T, typename MapFn,
-          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename Mapped = std::invoke_result_t<MapFn, const T&>,
           typename V = typename EnsureFuture<Mapped>::type::ValueType>
 AsyncGenerator<T> MakeFlatMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
   return MakeConcatenatedGenerator(
@@ -1439,9 +1440,8 @@ class MergedGenerator {
             immediate_inner(next_item.result());
             if (immediate_inner.was_empty) {
               Future<AsyncGenerator<T>> next_source = state->PullSource();
-              if (next_source.TryAddCallback([this] {
-                    return OuterCallback{state, index};
-                  })) {
+              if (next_source.TryAddCallback(
+                      [this] { return OuterCallback{state, index}; })) {
                 // We hit an unfinished future so we can stop looping
                 return;
               }

@@ -58,6 +58,16 @@ constexpr int GZIP_CODEC = 16;
 // Determine if this is libz or gzip from header.
 constexpr int DETECT_CODEC = 32;
 
+// Default "memory level"
+//
+// Memory consumption when compressing is given by the formula:
+// `(1 << (windowBits+2)) +  (1 << (memLevel+9))`
+//
+// With windowBits=15 and memLevel=8 (default zlib values), 262 kB is used.
+//
+// (see `zconf.h` from zlib)
+constexpr int kGzipDefaultMemLevel = 8;
+
 constexpr int kGZipMinCompressionLevel = 1;
 constexpr int kGZipMaxCompressionLevel = 9;
 
@@ -196,8 +206,8 @@ class GZipCompressor : public Compressor {
     int ret;
     // Initialize to run specified format
     int window_bits = CompressionWindowBitsForFormat(format, input_window_bits);
-    if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
-                            compression_level_, Z_DEFAULT_STRATEGY)) != Z_OK) {
+    if ((ret = deflateInit2(&stream_, compression_level_, Z_DEFLATED, window_bits,
+                            kGzipDefaultMemLevel, Z_DEFAULT_STRATEGY)) != Z_OK) {
       return ZlibError("zlib deflateInit failed: ");
     } else {
       initialized_ = true;
@@ -343,8 +353,8 @@ class GZipCodec : public Codec {
     int ret;
     // Initialize to run specified format
     int window_bits = CompressionWindowBitsForFormat(format_, window_bits_);
-    if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
-                            compression_level_, Z_DEFAULT_STRATEGY)) != Z_OK) {
+    if ((ret = deflateInit2(&stream_, compression_level_, Z_DEFLATED, window_bits,
+                            kGzipDefaultMemLevel, Z_DEFAULT_STRATEGY)) != Z_OK) {
       return ZlibErrorPrefix("zlib deflateInit failed: ", stream_.msg);
     }
     compressor_initialized_ = true;

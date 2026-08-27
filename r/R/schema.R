@@ -65,7 +65,7 @@
 #'   schema (column names and types) which is compatible with other Arrow
 #'   clients. The R metadata is only read by R and is ignored by other clients
 #'   (e.g. Pandas has its own custom metadata). This metadata is stored in
-#'   `$metadata$r`.
+#'   `$metadata[["r"]]`.
 #'
 #'   Since Schema metadata keys and values must be strings, this metadata is
 #'   saved by serializing R's attribute list structure to a string. If the
@@ -78,7 +78,8 @@
 #'
 #' @rdname Schema-class
 #' @export
-Schema <- R6Class("Schema",
+Schema <- R6Class(
+  "Schema",
   inherit = ArrowObject,
   public = list(
     ToString = function(truncate = FALSE) {
@@ -137,8 +138,8 @@ Schema <- R6Class("Schema",
       renamed_schema <- Schema__WithNames(self, names)
 
       # if we have R metadata containing column names, update names there too
-      if (!is.null(existing_metadata$r$columns)) {
-        names(existing_metadata$r$columns) <- names
+      if (!is.null(existing_metadata[["r"]]$columns)) {
+        names(existing_metadata[["r"]]$columns) <- names
       }
       renamed_schema$WithMetadata(existing_metadata)
     }
@@ -175,10 +176,10 @@ Schema <- R6Class("Schema",
       # Helper for the R metadata that handles the serialization
       # See also method on ArrowTabular
       if (missing(new)) {
-        self$metadata$r
+        self$metadata[["r"]]
       } else {
         # Set the R metadata
-        self$metadata$r <- new
+        self$metadata[["r"]] <- new
         self
       }
     }
@@ -365,14 +366,15 @@ length.Schema <- function(x) x$num_fields
   if (is.numeric(i)) {
     if (all(i < 0)) {
       # in R, negative i means "everything but i"
-      i <- setdiff(seq_len(length(x)), -1 * i)
+      i <- setdiff(seq_along(x), -1 * i)
     }
   }
   fields <- map(i, ~ x[[.]])
   invalid <- map_lgl(fields, is.null)
   if (any(invalid)) {
     stop(
-      "Invalid field name", ifelse(sum(invalid) > 1, "s: ", ": "),
+      "Invalid field name",
+      ifelse(sum(invalid) > 1, "s: ", ": "),
       oxford_paste(i[invalid]),
       call. = FALSE
     )
@@ -465,7 +467,7 @@ as_schema.StructType <- function(x, ...) {
 
 #' @export
 as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
-  as.data.frame(Table__from_schema(x))
+  Table__from_schema(x)$to_data_frame()
 }
 
 #' @export

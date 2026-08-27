@@ -456,6 +456,7 @@ cdef class FileSystem(_Weakrefable):
             result = CFileSystemFromUriOrPath(c_uri, &c_path)
         return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
 
+    @staticmethod
     def from_uri(uri):
         """
         Create a new FileSystem from URI or Path.

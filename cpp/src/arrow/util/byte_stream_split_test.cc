@@ -195,7 +195,7 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
 TYPED_TEST_SUITE(TestByteStreamSplitSpecialized, ByteStreamSplitTypes);
 
 TYPED_TEST(TestByteStreamSplitSpecialized, RoundtripSmall) {
-  for (int64_t num_values : {1, 5, 7, 12, 19, 31, 32}) {
+  for (int64_t num_values : {0, 1, 5, 7, 12, 19, 31, 32}) {
     this->TestRoundtrip(num_values);
   }
 }
@@ -208,6 +208,15 @@ TYPED_TEST(TestByteStreamSplitSpecialized, RoundtripMidsized) {
 
 TYPED_TEST(TestByteStreamSplitSpecialized, PiecewiseDecode) {
   this->TestPiecewiseDecode(/*num_values=*/500);
+}
+
+class TestByteStreamSplitLargeWidth
+    : public TestByteStreamSplitSpecialized<std::array<uint8_t, 3000>> {};
+
+TEST_F(TestByteStreamSplitLargeWidth, Roundtrip) {
+  for (int64_t num_values : {0, 1, 5, 100}) {
+    this->TestRoundtrip(num_values);
+  }
 }
 
 }  // namespace arrow::util::internal

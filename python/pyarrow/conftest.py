@@ -22,7 +22,6 @@ import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 from pyarrow.lib import is_threading_enabled
-from pyarrow.tests.util import windows_has_tzdata
 import sys
 
 
@@ -34,7 +33,6 @@ groups = [
     'cython',
     'dataset',
     'hypothesis',
-    'fastparquet',
     'flight',
     'gandiva',
     'gcs',
@@ -70,7 +68,6 @@ defaults = {
     'bz2': Codec.is_available('bz2'),
     'cython': False,
     'dataset': False,
-    'fastparquet': False,
     'flight': False,
     'gandiva': False,
     'gcs': False,
@@ -108,9 +105,7 @@ if sys.platform == "emscripten":
     defaults['processes'] = False
     defaults['sockets'] = False
 
-if sys.platform == "win32":
-    defaults['timezone_data'] = windows_has_tzdata()
-elif sys.platform == "emscripten":
+if sys.platform == "emscripten":
     defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:
@@ -120,13 +115,10 @@ except ImportError:
     pass
 
 try:
-    import fastparquet  # noqa
-    defaults['fastparquet'] = True
-except ImportError:
-    pass
-
-try:
-    import pyarrow.gandiva  # noqa
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
 except ImportError:
     pass
@@ -218,6 +210,13 @@ except ImportError:
 
 # Doctest should ignore files for the modules that are not built
 def pytest_ignore_collect(collection_path, config):
+    def _cuda_is_available():
+        try:
+            import pyarrow.cuda  # noqa
+            return True
+        except ImportError:
+            return False
+
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
         if "/pyarrow/tests/" in str(collection_path):
@@ -242,11 +241,7 @@ def pytest_ignore_collect(collection_path, config):
                 return True
 
         if 'pyarrow/cuda' in str(collection_path):
-            try:
-                import pyarrow.cuda  # noqa
-                return False
-            except ImportError:
-                return True
+            return not _cuda_is_available()
 
         if 'pyarrow/fs' in str(collection_path):
             try:
@@ -260,6 +255,8 @@ def pytest_ignore_collect(collection_path, config):
             return True
         if "/pyarrow/_parquet_encryption" in str(collection_path):
             return True
+        if "/pyarrow/_cuda" in str(collection_path):
+            return not _cuda_is_available()
 
     return False
 

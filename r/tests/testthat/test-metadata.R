@@ -62,16 +62,16 @@ test_that("Table R metadata", {
 
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
   tab <- Table$create(example_data[1:6])
-  expect_null(tab$metadata$r)
+  expect_null(tab$metadata[["r"]])
 
-  expect_null(Table$create(example_with_times[1:3])$metadata$r)
+  expect_null(Table$create(example_with_times[1:3])$metadata[["r"]])
 })
 
 test_that("R metadata is not stored for ExtensionType columns", {
   tab <- Table$create(
     x = vctrs::new_vctr(1:5, class = "special_integer")
   )
-  expect_null(tab$metadata$r)
+  expect_null(tab$metadata[["r"]])
 })
 
 test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
@@ -81,13 +81,13 @@ test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixe
   large_binary <- Array$create(list(raws), large_binary())
   fixed_size_binary <- Array$create(list(raws), fixed_size_binary(7L))
 
-  expect_null(RecordBatch$create(b = binary)$metadata$r)
-  expect_null(RecordBatch$create(b = large_binary)$metadata$r)
-  expect_null(RecordBatch$create(b = fixed_size_binary)$metadata$r)
+  expect_null(RecordBatch$create(b = binary)$metadata[["r"]])
+  expect_null(RecordBatch$create(b = large_binary)$metadata[["r"]])
+  expect_null(RecordBatch$create(b = fixed_size_binary)$metadata[["r"]])
 
-  expect_null(Table$create(b = binary)$metadata$r)
-  expect_null(Table$create(b = large_binary)$metadata$r)
-  expect_null(Table$create(b = fixed_size_binary)$metadata$r)
+  expect_null(Table$create(b = binary)$metadata[["r"]])
+  expect_null(Table$create(b = large_binary)$metadata[["r"]])
+  expect_null(Table$create(b = fixed_size_binary)$metadata[["r"]])
 })
 
 test_that("Garbage R metadata doesn't break things", {
@@ -95,7 +95,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab$metadata$r <- "garbage"
   expect_warning(
     as.data.frame(tab),
-    "Invalid metadata$r",
+    'Invalid metadata$[["r"]]',
     fixed = TRUE
   )
   # serialize data like .serialize_arrow_r_metadata does, but don't call that
@@ -104,7 +104,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     as.data.frame(tab),
-    "Invalid metadata$r",
+    'Invalid metadata$[["r"]]',
     fixed = TRUE
   )
 
@@ -113,12 +113,13 @@ test_that("Garbage R metadata doesn't break things", {
   tab$metadata <- list(r = rawToChar(serialize(bad, NULL, ascii = TRUE)))
   expect_warning(
     as.data.frame(tab),
-    "Invalid metadata$r",
+    'Invalid metadata$[["r"]]',
     fixed = TRUE
   )
 
   # https://hiddenlayer.com/research/r-bitrary-code-execution/
-  tab$metadata <- list(r = "A
+  tab$metadata <- list(
+    r = "A
 3
 262913
 197888
@@ -138,11 +139,12 @@ message
 32
 arbitrary\040code\040was\040just\040executed
 254
-")
+"
+  )
   expect_message(
     expect_warning(
       as.data.frame(tab),
-      "Invalid metadata$r",
+      'Invalid metadata$[["r"]]',
       fixed = TRUE
     ),
     NA
@@ -258,20 +260,20 @@ test_that("R metadata roundtrip via parquet", {
   expect_identical(read_parquet(tf), example_with_metadata)
 })
 
-test_that("R metadata roundtrip via feather", {
+test_that("R metadata roundtrip via IPC", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  write_feather(example_with_metadata, tf)
-  expect_identical(read_feather(tf), example_with_metadata)
+  write_ipc_file(example_with_metadata, tf)
+  expect_identical(read_ipc_file(tf), example_with_metadata)
 })
 
-test_that("haven types roundtrip via feather", {
+test_that("haven types roundtrip via IPC", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  write_feather(haven_data, tf)
-  expect_identical(read_feather(tf), haven_data)
+  write_ipc_file(haven_data, tf)
+  expect_identical(read_ipc_file(tf), haven_data)
 })
 
 test_that("Date/time type roundtrip", {
@@ -295,13 +297,15 @@ test_that("metadata drops readr's problems attribute", {
   )
   attributes(readr_like) <- append(
     attributes(readr_like),
-    list(problems = tibble::tibble(
-      row = 1L,
-      col = NA_character_,
-      expected = "2 columns",
-      actual = "1 columns",
-      file = "'test'"
-    ))
+    list(
+      problems = tibble::tibble(
+        row = 1L,
+        col = NA_character_,
+        expected = "2 columns",
+        actual = "1 columns",
+        file = "'test'"
+      )
+    )
   )
 
   tab <- Table$create(readr_like)
@@ -379,7 +383,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   # however there is *no* warning if we don't select the metadata column
   expect_warning(
-    df_from_ds <- ds %>% dplyr::select(int) %>% dplyr::collect(),
+    df_from_ds <- ds |> dplyr::select(int) |> dplyr::collect(),
     NA
   )
 })
@@ -397,9 +401,9 @@ test_that("Dataset writing does handle other metadata", {
 
   ds <- open_dataset(dst_dir)
   expect_equal(
-    ds %>%
+    ds |>
       # partitioning on b puts it last, so move it back
-      select(a, b, c, d) %>%
+      select(a, b, c, d) |>
       collect(),
     example_with_metadata
   )
@@ -412,45 +416,45 @@ test_that("dplyr with metadata", {
   skip_if_not_available("dataset")
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      select(a) %>%
+    .input |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = b * 4) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = b * 4) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = nchar(d)) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = nchar(d)) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   # dplyr drops top-level attributes if you do summarize, though attributes
   # of grouping columns appear to come through
   compare_dplyr_binding(
-    .input %>%
-      group_by(d) %>%
-      summarize(n()) %>%
+    .input |>
+      group_by(d) |>
+      summarize(n()) |>
       collect(),
     example_with_metadata
   )
   # Same name in output but different data, so the column metadata shouldn't
   # carry through
   compare_dplyr_binding(
-    .input %>%
-      mutate(a = b) %>%
-      select(a) %>%
+    .input |>
+      mutate(a = b) |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
@@ -461,7 +465,7 @@ test_that("grouped_df metadata is recorded (efficiently)", {
   expect_s3_class(grouped, "grouped_df")
   grouped_tab <- Table$create(grouped)
   expect_r6_class(grouped_tab, "Table")
-  expect_equal(grouped_tab$metadata$r$attributes$.group_vars, "a")
+  expect_equal(grouped_tab$metadata[["r"]]$attributes$.group_vars, "a")
 })
 
 test_that("grouped_df non-arrow metadata is preserved", {
@@ -485,4 +489,39 @@ test_that("data.frame class attribute is not saved", {
   attributes(df)$foo <- "bar"
   df_arrow <- arrow_table(df)
   expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
+})
+
+test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame objects - GH48057", {
+  # with just a plain df the (empty) column metadata is not preserved
+  plain_df <- data.frame(x = 1:5)
+  plain_df_arrow <- arrow_table(plain_df)
+
+  expect_equal(plain_df_arrow$metadata[["r"]]$columns, list(x = NULL))
+
+  plain_df_no_metadata <- plain_df_arrow$to_data_frame()
+  plain_df_with_metadata <- apply_arrow_r_metadata(plain_df_no_metadata, plain_df_arrow$metadata[["r"]])
+
+  expect_identical(plain_df_no_metadata, plain_df_with_metadata)
+
+  # with more complex column metadata - it preserves it
+  spicy_df_arrow <- arrow_table(haven_data)
+
+  expect_equal(
+    spicy_df_arrow$metadata[["r"]]$columns,
+    list(num = list(attributes = list(format.spss = "F8.2"), columns = NULL), cat_int = NULL, cat_chr = NULL)
+  )
+
+  spicy_df_no_metadata <- spicy_df_arrow$to_data_frame()
+  spicy_df_with_metadata <- apply_arrow_r_metadata(spicy_df_no_metadata, spicy_df_arrow$metadata[["r"]])
+
+  expect_null(attr(spicy_df_no_metadata$num, "format.spss"))
+  expect_equal(attr(spicy_df_with_metadata$num, "format.spss"), "F8.2")
+})
+
+test_that("metadata keys starting with 'r' don't cause partial matching - GH-50163", {
+  tbl <- arrow_table(x = 1:3)
+  tbl <- tbl$cast(tbl$schema$WithMetadata(list(rachel = "some_value")))
+
+  expect_no_warning(as.data.frame(tbl))
+  expect_no_warning(collect.ArrowTabular(tbl))
 })

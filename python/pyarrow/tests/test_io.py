@@ -17,6 +17,7 @@
 
 import bz2
 from contextlib import contextmanager
+import errno
 from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import itertools
 import gc
@@ -681,7 +682,7 @@ def test_allocate_buffer_resizable():
 
 @pytest.mark.numpy
 def test_non_cpu_buffer(pickle_module):
-    cuda = pytest.importorskip("pyarrow.cuda")
+    cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     ctx = cuda.Context(0)
 
     data = np.array([b'testing'])
@@ -916,16 +917,12 @@ def test_compression_level(compression):
         with pytest.raises(ValueError):
             codec.decompress(compressed_bytes)
 
-    # The ability to set a seed this way is not present on older versions of
-    # numpy (currently in our python 3.6 CI build).  Some inputs might just
-    # happen to compress the same between the two levels so using seeded
-    # random numbers is necessary to help get more reliable results
+    # Some inputs might just happen to compress the same between the two levels,
+    # so using seeded random numbers makes the results more reliable.
     #
     # The goal of this part is to ensure the compression_level is being
     # passed down to the C++ layer, not to verify the compression algs
     # themselves
-    if not hasattr(np.random, 'default_rng'):
-        pytest.skip('Requires newer version of numpy')
     rng = np.random.default_rng(seed=42)
     values = rng.integers(0, 100, 1000)
     arr = pa.array(values)
@@ -1278,6 +1275,30 @@ def test_os_file_writer(tmpdir):
         f4.write(b'bar')
     with pa.OSFile(path) as f5:
         assert f5.size() == 6  # foo + bar
+
+
+def test_os_file_raw_fd(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    binary_flag = getattr(os, "O_BINARY", 0)
+
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | binary_flag,
+                 0o666)
+    with pa.OSFile(fd, mode='wb') as f:
+        assert f.fileno() == fd
+        f.write(b'foo')
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(fd)
+    assert exc.value.errno == errno.EBADF
+
+    fd = os.open(path, os.O_RDONLY | binary_flag)
+    with pa.OSFile(fd, mode='rb') as f:
+        assert f.fileno() == fd
+        assert f.read() == b'foo'
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(fd)
+    assert exc.value.errno == errno.EBADF
 
 
 def test_native_file_write_reject_unicode():

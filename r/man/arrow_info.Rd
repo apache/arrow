@@ -2,19 +2,17 @@
 % Please edit documentation in R/arrow-info.R
 \name{arrow_info}
 \alias{arrow_info}
-\alias{arrow_available}
 \alias{arrow_with_acero}
 \alias{arrow_with_dataset}
 \alias{arrow_with_substrait}
 \alias{arrow_with_parquet}
 \alias{arrow_with_s3}
 \alias{arrow_with_gcs}
+\alias{arrow_with_azure}
 \alias{arrow_with_json}
 \title{Report information on the package's capabilities}
 \usage{
 arrow_info()
-
-arrow_available()
 
 arrow_with_acero()
 
@@ -27,6 +25,8 @@ arrow_with_parquet()
 arrow_with_s3()
 
 arrow_with_gcs()
+
+arrow_with_azure()
 
 arrow_with_json()
 }

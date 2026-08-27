@@ -21,7 +21,6 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
-#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -38,6 +37,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/visit_type_inline.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -58,18 +58,23 @@ constexpr int value_length(int type_length, const FLBA& value) { return type_len
 // Static "constants" for normalizing float16 min/max values. These need to be expressed
 // as pointers because `Float16LogicalType` represents an FLBA.
 struct Float16Constants {
-  static constexpr const uint8_t* lowest() { return lowest_.data(); }
-  static constexpr const uint8_t* max() { return max_.data(); }
   static constexpr const uint8_t* positive_zero() { return positive_zero_.data(); }
   static constexpr const uint8_t* negative_zero() { return negative_zero_.data(); }
+  static constexpr const uint8_t* positive_infinity() {
+    return positive_infinity_.data();
+  }
+  static constexpr const uint8_t* negative_infinity() {
+    return negative_infinity_.data();
+  }
 
  private:
   using Bytes = std::array<uint8_t, 2>;
-  static constexpr Bytes lowest_ =
-      std::numeric_limits<Float16>::lowest().ToLittleEndian();
-  static constexpr Bytes max_ = std::numeric_limits<Float16>::max().ToLittleEndian();
   static constexpr Bytes positive_zero_ = (+Float16::FromBits(0)).ToLittleEndian();
   static constexpr Bytes negative_zero_ = (-Float16::FromBits(0)).ToLittleEndian();
+  static constexpr Bytes positive_infinity_ =
+      std::numeric_limits<Float16>::infinity().ToLittleEndian();
+  static constexpr Bytes negative_infinity_ =
+      (-std::numeric_limits<Float16>::infinity()).ToLittleEndian();
 };
 
 template <typename DType, bool is_signed>
@@ -79,8 +84,24 @@ struct CompareHelper {
   static_assert(!std::is_unsigned<T>::value || std::is_same<T, bool>::value,
                 "T is an unsigned numeric");
 
-  constexpr static T DefaultMin() { return std::numeric_limits<T>::max(); }
-  constexpr static T DefaultMax() { return std::numeric_limits<T>::lowest(); }
+  // For floating point, seed the running min/max with +/-infinity rather than
+  // the largest/smallest finite value: a finite seed is not an identity for
+  // min/max once the data contains infinities, so an all-+Inf (resp. all--Inf)
+  // column would otherwise never displace the seed and report a finite bound.
+  constexpr static T DefaultMin() {
+    if constexpr (std::is_floating_point_v<T>) {
+      return std::numeric_limits<T>::infinity();
+    } else {
+      return std::numeric_limits<T>::max();
+    }
+  }
+  constexpr static T DefaultMax() {
+    if constexpr (std::is_floating_point_v<T>) {
+      return -std::numeric_limits<T>::infinity();
+    } else {
+      return std::numeric_limits<T>::lowest();
+    }
+  }
 
   // MSVC17 fix, isnan is not overloaded for IntegralType as per C++11
   // standard requirements.
@@ -300,8 +321,8 @@ template <>
 struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
   using T = FLBA;
 
-  static T DefaultMin() { return T{Float16Constants::max()}; }
-  static T DefaultMax() { return T{Float16Constants::lowest()}; }
+  static T DefaultMin() { return T{Float16Constants::positive_infinity()}; }
+  static T DefaultMax() { return T{Float16Constants::negative_infinity()}; }
 
   static T Coalesce(T val, T fallback) {
     return (val.ptr == nullptr || Float16::FromLittleEndian(val.ptr).is_nan()) ? fallback
@@ -330,9 +351,25 @@ struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
 
 using ::std::optional;
 
+// A usable min/max pair always satisfies min <= max. The reverse ordering
+// (min > max) is produced only by the inverted DefaultMin()/DefaultMax() seeds
+// -- left in place when no valid, non-NaN value was observed -- or by an
+// inverted caller-supplied range; in either case there is no statistic to emit.
+// Testing the ordering keeps this independent of the specific seed values, so it
+// cannot drift from DefaultMin()/DefaultMax().
+template <typename T>
+bool IsInvalidMinMax(const T& min, const T& max) {
+  return max < min;
+}
+
 template <typename T>
 ::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
 CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
+  return min_max;
+}
+
+std::optional<std::pair<Int96, Int96>> CleanStatistic(std::pair<Int96, Int96> min_max,
+                                                      LogicalType::Type::type) {
   return min_max;
 }
 
@@ -352,7 +389,9 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
     return ::std::nullopt;
   }
 
-  if (min == std::numeric_limits<T>::max() && max == std::numeric_limits<T>::lowest()) {
+  // Discard an inverted min/max: either an empty/all-NaN input left the seeds in
+  // place, or the supplied range is invalid. A real value always has min <= max.
+  if (IsInvalidMinMax(min, max)) {
     return ::std::nullopt;
   }
 
@@ -379,8 +418,7 @@ optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_
     return ::std::nullopt;
   }
 
-  if (min == std::numeric_limits<Float16>::max() &&
-      max == std::numeric_limits<Float16>::lowest()) {
+  if (IsInvalidMinMax(min, max)) {
     return ::std::nullopt;
   }
 
@@ -573,7 +611,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)),
         logical_type_(LogicalTypeId(descr_)) {
-    comparator_ = MakeComparator<DType>(descr);
+    if (descr->sort_order() != SortOrder::UNKNOWN) {
+      comparator_ = MakeComparator<DType>(descr);
+    }
     TypedStatisticsImpl::Reset();
   }
 
@@ -590,6 +630,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 
   // Create stats from a thrift Statistics object.
@@ -597,6 +639,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
+      : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
+                            distinct_count, has_min_max, has_null_count,
+                            has_distinct_count,
+                            /*is_min_value_exact=*/std::nullopt,
+                            /*is_max_value_exact=*/std::nullopt, pool) {}
+
+  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
+                      const std::string& encoded_max, int64_t num_values,
+                      int64_t null_count, int64_t distinct_count, bool has_min_max,
+                      bool has_null_count, bool has_distinct_count,
+                      std::optional<bool> is_min_value_exact,
+                      std::optional<bool> is_max_value_exact, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     if (has_null_count) {
@@ -613,6 +667,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (has_min_max) {
       PlainDecode(encoded_min, &min_);
       PlainDecode(encoded_max, &max_);
+      statistics_.is_min_value_exact = is_min_value_exact;
+      statistics_.is_max_value_exact = is_max_value_exact;
     }
 
     has_min_max_ = has_min_max;
@@ -659,7 +715,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
     return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
-           num_values() == other.num_values();
+           num_values() == other.num_values() &&
+           is_min_value_exact() == other.is_min_value_exact() &&
+           is_max_value_exact() == other.is_max_value_exact();
   }
 
   bool MinMaxEqual(const TypedStatisticsImpl& other) const;
@@ -714,6 +772,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
+    if (comparator_ == nullptr) return;
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
@@ -742,6 +801,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());
       s.set_max(this->EncodeMax());
+      s.is_min_value_exact = this->is_min_value_exact();
+      s.is_max_value_exact = this->is_max_value_exact();
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
@@ -757,6 +818,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   int64_t null_count() const override { return statistics_.null_count; }
   int64_t distinct_count() const override { return statistics_.distinct_count; }
   int64_t num_values() const override { return num_values_; }
+  std::optional<bool> is_min_value_exact() const override {
+    return statistics_.is_min_value_exact;
+  }
+  std::optional<bool> is_max_value_exact() const override {
+    return statistics_.is_max_value_exact;
+  }
 
  private:
   const ColumnDescriptor* descr_;
@@ -806,6 +873,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
+    if (comparator_ == nullptr) return;
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
     auto maybe_min_max = CleanStatistic(min_max, logical_type_);
     if (!maybe_min_max) return;
@@ -821,6 +889,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 };
 
@@ -866,7 +936,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -881,7 +951,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -1042,7 +1112,8 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count,
+              encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
@@ -1052,26 +1123,26 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t distinct_count, bool has_min_max,
                                              bool has_null_count, bool has_distinct_count,
                                              ::arrow::MemoryPool* pool) {
-#define MAKE_STATS(CAP_TYPE, KLASS)                                              \
-  case Type::CAP_TYPE:                                                           \
-    return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
-        descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, has_null_count, has_distinct_count, pool)
+  return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                          distinct_count, has_min_max, has_null_count, has_distinct_count,
+                          /*is_min_value_exact=*/std::nullopt,
+                          /*is_max_value_exact=*/std::nullopt, pool);
+}
 
-  switch (descr->physical_type()) {
-    MAKE_STATS(BOOLEAN, BooleanType);
-    MAKE_STATS(INT32, Int32Type);
-    MAKE_STATS(INT64, Int64Type);
-    MAKE_STATS(FLOAT, FloatType);
-    MAKE_STATS(DOUBLE, DoubleType);
-    MAKE_STATS(BYTE_ARRAY, ByteArrayType);
-    MAKE_STATS(FIXED_LEN_BYTE_ARRAY, FLBAType);
-    default:
-      break;
-  }
-#undef MAKE_STATS
-  DCHECK(false) << "Cannot reach here";
-  return nullptr;
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
+  return VisitType(descr->physical_type(),
+                   [&](auto* type) -> std::shared_ptr<Statistics> {
+                     using DType = std::decay_t<decltype(*type)>;
+                     return std::make_shared<TypedStatisticsImpl<DType>>(
+                         descr, encoded_min, encoded_max, num_values, null_count,
+                         distinct_count, has_min_max, has_null_count, has_distinct_count,
+                         is_min_value_exact, is_max_value_exact, pool);
+                   });
 }
 
 }  // namespace parquet

@@ -125,7 +125,7 @@ table FixedSizeList {
 /// may be set in the metadata for this field.
 ///
 /// In a field with Map type, the field has a child Struct field, which then
-/// has two children: key type and the second the value type. The names of the
+/// has two children: the key type and the value type. The names of the
 /// child fields may be respectively "entries", "key", and "value", but this is
 /// not enforced.
 ///
@@ -395,42 +395,50 @@ table Timestamp {
   timezone: string;
 }
 
-enum IntervalUnit: short { YEAR_MONTH, DAY_TIME, MONTH_DAY_NANO}
-// A "calendar" interval which models types that don't necessarily
-// have a precise duration without the context of a base timestamp (e.g.
-// days can differ in length during day light savings time transitions).
-// All integers in the types below are stored in the endianness indicated
-// by the schema.
-//
-// YEAR_MONTH - Indicates the number of elapsed whole months, stored as
-//   4-byte signed integers.
-// DAY_TIME - Indicates the number of elapsed days and milliseconds (no leap seconds),
-//   stored as 2 contiguous 32-bit signed integers (8-bytes in total). Support
-//   of this IntervalUnit is not required for full arrow compatibility.
-// MONTH_DAY_NANO - A triple of the number of elapsed months, days, and nanoseconds.
-//  The values are stored contiguously in 16-byte blocks. Months and days are
-//  encoded as 32-bit signed integers and nanoseconds is encoded as a 64-bit
-//  signed integer. Nanoseconds does not allow for leap seconds. Each field is
-//  independent (e.g. there is no constraint that nanoseconds have the same
-//  sign as days or that the quantity of nanoseconds represents less than a
-//  day's worth of time).
+/// The unit of an Interval.
+///
+/// All integers in the units below are stored in the endianness indicated
+/// by the schema.
+enum IntervalUnit: short {
+  /// Indicates the number of elapsed whole months, stored as
+  /// 4-byte signed integers.
+  YEAR_MONTH,
+
+  /// Indicates the number of elapsed days and milliseconds (no leap seconds),
+  /// stored as 2 contiguous 32-bit signed integers (8-bytes in total). Support
+  /// of this IntervalUnit is not required for full Arrow compatibility.
+  DAY_TIME,
+
+  /// A triple of the number of elapsed months, days, and nanoseconds.
+  /// The values are stored contiguously in 16-byte blocks. Months and days are
+  /// encoded as 32-bit signed integers and nanoseconds is encoded as a 64-bit
+  /// signed integer. Nanoseconds does not allow for leap seconds. Each field is
+  /// independent (e.g. there is no constraint that nanoseconds have the same
+  /// sign as days or that the quantity of nanoseconds represents less than a
+  /// day's worth of time).
+  MONTH_DAY_NANO
+}
+
+/// A "calendar" interval which models types that don't necessarily
+/// have a precise duration without the context of a base timestamp (e.g.
+/// days can differ in length during day light savings time transitions).
 table Interval {
   unit: IntervalUnit;
 }
 
-// An absolute length of time unrelated to any calendar artifacts.
-//
-// For the purposes of Arrow Implementations, adding this value to a Timestamp
-// ("t1") naively (i.e. simply summing the two numbers) is acceptable even
-// though in some cases the resulting Timestamp (t2) would not account for
-// leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
-// representing the difference between two Unix timestamp is acceptable, but
-// would yield a value that is possibly a few seconds off from the true elapsed
-// time.
-//
-//  The resolution defaults to millisecond, but can be any of the other
-//  supported TimeUnit values as with Timestamp and Time types.  This type is
-//  always represented as an 8-byte integer.
+/// An absolute length of time unrelated to any calendar artifacts.
+///
+/// For the purposes of Arrow Implementations, adding this value to a Timestamp
+/// ("t1") naively (i.e. simply summing the two numbers) is acceptable even
+/// though in some cases the resulting Timestamp (t2) would not account for
+/// leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
+/// representing the difference between two Unix timestamps is acceptable, but
+/// would yield a value that is possibly a few seconds off from the true elapsed
+/// time.
+///
+/// The resolution defaults to millisecond, but can be any of the other
+/// supported TimeUnit values as with Timestamp and Time types.  This type is
+/// always represented as an 8-byte integer.
 table Duration {
   unit: TimeUnit = MILLISECOND;
 }
@@ -469,7 +477,7 @@ union Type {
 }
 
 /// ----------------------------------------------------------------------
-/// user defined key value pairs to add custom metadata to arrow
+/// user defined key value pairs to add custom metadata to Arrow
 /// key namespacing is the responsibility of the user
 
 table KeyValue {
@@ -497,7 +505,7 @@ table DictionaryEncoding {
   indexType: Int;
 
   /// By default, dictionaries are not ordered, or the order does not have
-  /// semantic meaning. In some statistical, applications, dictionary-encoding
+  /// semantic meaning. In some statistical applications, dictionary-encoding
   /// is used to represent ordered categorical data, and we provide a way to
   /// preserve that metadata here
   isOrdered: bool;
@@ -561,7 +569,8 @@ table Schema {
   endianness: Endianness=Little;
 
   fields: [Field];
-  // User-defined metadata
+
+  /// User-defined metadata
   custom_metadata: [ KeyValue ];
 
   /// Features used in the stream/file.

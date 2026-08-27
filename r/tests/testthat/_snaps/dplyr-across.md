@@ -1,7 +1,7 @@
 # expand_across correctly expands quosures
 
     Code
-      InMemoryDataset$create(example_data) %>% mutate(across(c(dbl, dbl2), round,
+      mutate(InMemoryDataset$create(example_data), across(c(dbl, dbl2), round,
       digits = -1))
     Condition
       Error in `mutate.Dataset()`:

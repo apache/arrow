@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 #include <sstream>
+
+#include <simdjson.h>
 
 #include "arrow/extension/fixed_shape_tensor.h"
 #include "arrow/extension/tensor_internal.h"
@@ -24,65 +27,17 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/tensor.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
+using ::arrow::json::JsonWriter;
 
-namespace rj = arrow::rapidjson;
-
-namespace arrow {
-
-namespace extension {
-
-namespace {
-
-Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
-                      const std::vector<int64_t>& permutation,
-                      std::vector<int64_t>* strides) {
-  if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(type, shape, strides);
-  }
-
-  const int byte_width = type.byte_width();
-
-  int64_t remaining = 0;
-  if (!shape.empty() && shape.front() > 0) {
-    remaining = byte_width;
-    for (auto i : permutation) {
-      if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
-          return Status::Invalid(
-              "Strides computed from shape would not fit in 64-bit integer");
-        }
-      }
-    }
-  }
-
-  if (remaining == 0) {
-    strides->assign(shape.size(), byte_width);
-    return Status::OK();
-  }
-
-  strides->push_back(remaining);
-  for (auto i : permutation) {
-    if (i > 0) {
-      remaining /= shape[i];
-      strides->push_back(remaining);
-    }
-  }
-  internal::Permute(permutation, strides);
-
-  return Status::OK();
-}
-
-}  // namespace
+namespace arrow::extension {
 
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
@@ -90,18 +45,10 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   }
   const auto& other_ext = internal::checked_cast<const FixedShapeTensorType&>(other);
 
-  auto is_permutation_trivial = [](const std::vector<int64_t>& permutation) {
-    for (size_t i = 1; i < permutation.size(); ++i) {
-      if (permutation[i - 1] + 1 != permutation[i]) {
-        return false;
-      }
-    }
-    return true;
-  };
   const bool permutation_equivalent =
-      ((permutation_ == other_ext.permutation()) ||
-       (permutation_.empty() && is_permutation_trivial(other_ext.permutation())) ||
-       (is_permutation_trivial(permutation_) && other_ext.permutation().empty()));
+      (permutation_ == other_ext.permutation()) ||
+      (internal::IsPermutationTrivial(permutation_) &&
+       internal::IsPermutationTrivial(other_ext.permutation()));
 
   return (storage_type()->Equals(other_ext.storage_type())) &&
          (this->shape() == other_ext.shape()) && (dim_names_ == other_ext.dim_names()) &&
@@ -125,36 +72,41 @@ std::string FixedShapeTensorType::ToString(bool show_metadata) const {
 }
 
 std::string FixedShapeTensorType::Serialize() const {
-  rj::Document document;
-  document.SetObject();
-  rj::Document::AllocatorType& allocator = document.GetAllocator();
+  JsonWriter writer;
 
-  rj::Value shape(rj::kArrayType);
+  writer.StartObject();
+
+  writer.Key("shape");
+  writer.StartArray();
   for (auto v : shape_) {
-    shape.PushBack(v, allocator);
+    writer.Int64(v);
   }
-  document.AddMember(rj::Value("shape", allocator), shape, allocator);
+  writer.EndArray();
 
   if (!permutation_.empty()) {
-    rj::Value permutation(rj::kArrayType);
+    writer.Key("permutation");
+    writer.StartArray();
     for (auto v : permutation_) {
-      permutation.PushBack(v, allocator);
+      writer.Int64(v);
     }
-    document.AddMember(rj::Value("permutation", allocator), permutation, allocator);
+    writer.EndArray();
   }
 
   if (!dim_names_.empty()) {
-    rj::Value dim_names(rj::kArrayType);
-    for (const std::string& v : dim_names_) {
-      dim_names.PushBack(rj::Value{}.SetString(v.c_str(), allocator), allocator);
+    writer.Key("dim_names");
+    writer.StartArray();
+    for (const auto& v : dim_names_) {
+      writer.String(v);
     }
-    document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
+    writer.EndArray();
   }
 
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  document.Accept(writer);
-  return buffer.GetString();
+  writer.EndObject();
+
+  Result<std::string_view> json = writer.GetString();
+  // can only fail in OutOfMemory scenarios
+  ARROW_CHECK_OK(json.status());
+  return std::string(*json);
 }
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
@@ -163,38 +115,62 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     return Status::Invalid("Expected FixedSizeList storage type, got ",
                            storage_type->ToString());
   }
-  auto value_type =
-      internal::checked_pointer_cast<FixedSizeListType>(storage_type)->value_type();
-  rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
-      !document.HasMember("shape") || !document["shape"].IsArray()) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
 
-  std::vector<int64_t> shape;
-  for (auto& x : document["shape"].GetArray()) {
-    shape.emplace_back(x.GetInt64());
-  }
+  auto fsl_type = internal::checked_pointer_cast<FixedSizeListType>(storage_type);
+  auto value_type = fsl_type->value_type();
+
+  simdjson::dom::parser parser;
+  ARROW_ASSIGN_OR_RAISE(auto object, internal::ParseJsonObject(parser, serialized_data));
+
+  ARROW_ASSIGN_OR_RAISE(auto shape_value,
+                        internal::ResolveSimdjsonResult(object.at_key("shape"),
+                                                        "Invalid serialized JSON data"));
+  ARROW_ASSIGN_OR_RAISE(auto shape, internal::GetJsonIntArray(shape_value, "shape"));
+  ARROW_ASSIGN_OR_RAISE(auto permutation_value,
+                        internal::GetOptionalJsonField(object, "permutation"));
+
   std::vector<int64_t> permutation;
-  if (document.HasMember("permutation")) {
-    for (auto& x : document["permutation"].GetArray()) {
-      permutation.emplace_back(x.GetInt64());
-    }
+  if (permutation_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(permutation,
+                          internal::GetJsonIntArray(*permutation_value, "permutation"));
+
     if (shape.size() != permutation.size()) {
       return Status::Invalid("Invalid permutation");
     }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto dim_names_value,
+                        internal::GetOptionalJsonField(object, "dim_names"));
+
   std::vector<std::string> dim_names;
-  if (document.HasMember("dim_names")) {
-    for (auto& x : document["dim_names"].GetArray()) {
-      dim_names.emplace_back(x.GetString());
-    }
+  if (dim_names_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(dim_names,
+                          internal::GetJsonStringArray(*dim_names_value, "dim_names"));
+
     if (shape.size() != dim_names.size()) {
       return Status::Invalid("Invalid dim_names");
     }
   }
 
-  return fixed_shape_tensor(value_type, shape, permutation, dim_names);
+  // Validate product of shape dimensions matches storage type list_size.
+  // This check is intentionally after field parsing so that metadata-level errors
+  // (type mismatches, size mismatches) are reported first.
+  ARROW_ASSIGN_OR_RAISE(auto ext_type, FixedShapeTensorType::Make(
+                                           value_type, shape, permutation, dim_names));
+
+  const auto& fst_type = internal::checked_cast<const FixedShapeTensorType&>(*ext_type);
+
+  ARROW_ASSIGN_OR_RAISE(const int64_t expected_size,
+                        internal::ComputeShapeProduct(fst_type.shape()));
+
+  if (expected_size != fsl_type->list_size()) {
+    return Status::Invalid("Product of shape dimensions (", expected_size,
+                           ") does not match FixedSizeList size (", fsl_type->list_size(),
+                           ")");
+  }
+
+  return ext_type;
 }
 
 std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
@@ -202,7 +178,7 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.fixed_shape_tensor",
             internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<ExtensionArray>(data);
+  return std::make_shared<FixedShapeTensorArray>(data);
 }
 
 Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
@@ -218,10 +194,6 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
   if (array->null_count() > 0) {
     return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
-  const auto& value_type =
-      internal::checked_cast<const FixedWidthType&>(*ext_type.value_type());
-  const auto byte_width = value_type.byte_width();
-
   std::vector<int64_t> permutation = ext_type.permutation();
   if (permutation.empty()) {
     permutation.resize(ext_type.ndim());
@@ -236,13 +208,10 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
     internal::Permute<std::string>(permutation, &dim_names);
   }
 
-  std::vector<int64_t> strides;
-  RETURN_NOT_OK(ComputeStrides(value_type, shape, permutation, &strides));
-  const auto start_position = array->offset() * byte_width;
-  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                    std::multiplies<>());
-  const auto buffer =
-      SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
+  ARROW_ASSIGN_OR_RAISE(
+      auto strides, internal::ComputeStrides(ext_type.value_type(), shape, permutation));
+  ARROW_ASSIGN_OR_RAISE(const auto buffer, internal::SliceTensorBuffer(
+                                               *array, *ext_type.value_type(), shape));
 
   return Tensor::Make(ext_type.value_type(), buffer, shape, strides, dim_names);
 }
@@ -304,7 +273,7 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
       break;
     }
     case Type::UINT64: {
-      value_array = std::make_shared<Int64Array>(tensor->size(), tensor->data());
+      value_array = std::make_shared<UInt64Array>(tensor->size(), tensor->data());
       break;
     }
     case Type::INT64: {
@@ -370,15 +339,12 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   }
 
   std::vector<int64_t> shape = ext_type.shape();
-  auto cell_size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                   std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t cell_size, internal::ComputeShapeProduct(shape));
   shape.insert(shape.begin(), 1, this->length());
   internal::Permute<int64_t>(permutation, &shape);
 
-  std::vector<int64_t> tensor_strides;
-  const auto* fw_value_type = internal::checked_cast<FixedWidthType*>(value_type.get());
-  ARROW_RETURN_NOT_OK(
-      ComputeStrides(*fw_value_type, shape, permutation, &tensor_strides));
+  ARROW_ASSIGN_OR_RAISE(auto tensor_strides,
+                        internal::ComputeStrides(value_type, shape, permutation));
 
   const auto& raw_buffer = this->storage()->data()->child_data[0]->buffers[1];
   ARROW_ASSIGN_OR_RAISE(
@@ -392,6 +358,11 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
   const size_t ndim = shape.size();
+  for (auto dim : shape) {
+    if (dim < 0) {
+      return Status::Invalid("shape must have non-negative values, got ", dim);
+    }
+  }
   if (!permutation.empty() && ndim != permutation.size()) {
     return Status::Invalid("permutation size must match shape size. Expected: ", ndim,
                            " Got: ", permutation.size());
@@ -404,19 +375,22 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
-  const int64_t size = std::accumulate(shape.begin(), shape.end(),
-                                       static_cast<int64_t>(1), std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t size, internal::ComputeShapeProduct(shape));
+  if (size > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("Product of shape dimensions (", size,
+                           ") exceeds maximum FixedSizeList size (",
+                           std::numeric_limits<int32_t>::max(), ")");
+  }
   return std::make_shared<FixedShapeTensorType>(value_type, static_cast<int32_t>(size),
                                                 shape, permutation, dim_names);
 }
 
 const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
-    auto value_type = internal::checked_cast<FixedWidthType*>(this->value_type_.get());
-    std::vector<int64_t> tensor_strides;
-    ARROW_CHECK_OK(
-        ComputeStrides(*value_type, this->shape(), this->permutation(), &tensor_strides));
-    strides_ = tensor_strides;
+    auto maybe_strides =
+        internal::ComputeStrides(this->value_type_, this->shape(), this->permutation());
+    ARROW_CHECK_OK(maybe_strides.status());
+    strides_ = std::move(maybe_strides).MoveValueUnsafe();
   }
   return strides_;
 }
@@ -426,9 +400,8 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
                                              const std::vector<int64_t>& permutation,
                                              const std::vector<std::string>& dim_names) {
   auto maybe_type = FixedShapeTensorType::Make(value_type, shape, permutation, dim_names);
-  ARROW_DCHECK_OK(maybe_type.status());
+  ARROW_CHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension

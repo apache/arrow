@@ -20,8 +20,8 @@ class TestSortOptions < Test::Unit::TestCase
 
   def test_new
     sort_keys = [
-      Arrow::SortKey.new("column1", :ascending),
-      Arrow::SortKey.new("column2", :descending),
+      Arrow::SortKey.new("column1", :ascending, :at_end),
+      Arrow::SortKey.new("column2", :descending, :at_end),
     ]
     options = Arrow::SortOptions.new(sort_keys)
     assert_equal(sort_keys, options.sort_keys)
@@ -29,20 +29,20 @@ class TestSortOptions < Test::Unit::TestCase
 
   def test_add_sort_key
     options = Arrow::SortOptions.new
-    options.add_sort_key(Arrow::SortKey.new("column1", :ascending))
-    options.add_sort_key(Arrow::SortKey.new("column2", :descending))
+    options.add_sort_key(Arrow::SortKey.new("column1", :ascending, :at_end))
+    options.add_sort_key(Arrow::SortKey.new("column2", :descending, :at_end))
     assert_equal([
-                   Arrow::SortKey.new("column1", :ascending),
-                   Arrow::SortKey.new("column2", :descending),
+                   Arrow::SortKey.new("column1", :ascending, :at_end),
+                   Arrow::SortKey.new("column2", :descending, :at_end),
                  ],
                  options.sort_keys)
   end
 
   def test_set_sort_keys
-    options = Arrow::SortOptions.new([Arrow::SortKey.new("column3", :ascending)])
+    options = Arrow::SortOptions.new([Arrow::SortKey.new("column3", :ascending, :at_end)])
     sort_keys = [
-      Arrow::SortKey.new("column1", :ascending),
-      Arrow::SortKey.new("column2", :descending),
+      Arrow::SortKey.new("column1", :ascending, :at_end),
+      Arrow::SortKey.new("column2", :descending, :at_end),
     ]
     options.sort_keys = sort_keys
     assert_equal(sort_keys, options.sort_keys)
@@ -50,8 +50,8 @@ class TestSortOptions < Test::Unit::TestCase
 
   def test_equal
     sort_keys = [
-      Arrow::SortKey.new("column1", :ascending),
-      Arrow::SortKey.new("column2", :descending),
+      Arrow::SortKey.new("column1", :ascending, :at_start),
+      Arrow::SortKey.new("column2", :descending, :at_end),
     ]
     assert_equal(Arrow::SortOptions.new(sort_keys),
                  Arrow::SortOptions.new(sort_keys))

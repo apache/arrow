@@ -21,7 +21,6 @@
 #include <utility>
 
 #include "arrow/type.h"
-#include "arrow/util/span.h"
 
 namespace arrow::util {
 

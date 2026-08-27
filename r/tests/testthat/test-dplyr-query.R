@@ -31,8 +31,8 @@ tbl$another_chr <- tail(letters, 10)
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
 
-  b2 <- batch %>%
-    select(int, chr) %>%
+  b2 <- batch |>
+    select(int, chr) |>
     filter(int > 5)
 
   expect_s3_class(b2, "arrow_dplyr_query")
@@ -44,9 +44,9 @@ test_that("basic select/filter/collect", {
 
 test_that("dim() on query", {
   compare_dplyr_binding(
-    .input %>%
-      filter(int > 5) %>%
-      select(int, chr) %>%
+    .input |>
+      filter(int > 5) |>
+      select(int, chr) |>
       dim(),
     tbl
   )
@@ -54,11 +54,11 @@ test_that("dim() on query", {
 
 test_that("Print method", {
   expect_output(
-    record_batch(tbl) %>%
-      filter(dbl > 2, chr == "d" | chr == "f") %>%
-      select(chr, int, lgl) %>%
-      filter(int < 5) %>%
-      select(int, chr) %>%
+    record_batch(tbl) |>
+      filter(dbl > 2, chr == "d" | chr == "f") |>
+      select(chr, int, lgl) |>
+      filter(int < 5) |>
+      select(int, chr) |>
       print(),
     'RecordBatch (query)
 int: int32
@@ -72,23 +72,23 @@ See $.data for the source Arrow object',
 
 test_that("pull", {
   compare_dplyr_binding(
-    .input %>% pull() %>% as.vector(),
+    .input |> pull() |> as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>% pull(1) %>% as.vector(),
+    .input |> pull(1) |> as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>% pull(chr) %>% as.vector(),
+    .input |> pull(chr) |> as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(int > 4) %>%
-      rename(strng = chr) %>%
-      group_by(dbl) %>%
-      pull(strng) %>%
+    .input |>
+      filter(int > 4) |>
+      rename(strng = chr) |>
+      group_by(dbl) |>
+      pull(strng) |>
       as.vector(),
     tbl
   )
@@ -96,8 +96,8 @@ test_that("pull", {
 
 test_that("pull() shows a deprecation warning if the option isn't set", {
   expect_warning(
-    vec <- tbl %>%
-      arrow_table() %>%
+    vec <- tbl |>
+      arrow_table() |>
       pull(as_vector = NULL),
     "Current behavior of returning an R vector is deprecated"
   )
@@ -108,13 +108,13 @@ test_that("pull() shows a deprecation warning if the option isn't set", {
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
 
-  b1 <- batch %>% collect(as_data_frame = FALSE)
+  b1 <- batch |> collect(as_data_frame = FALSE)
 
   expect_r6_class(b1, "RecordBatch")
 
-  b2 <- batch %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
+  b2 <- batch |>
+    select(int, chr) |>
+    filter(int > 5) |>
     collect(as_data_frame = FALSE)
 
   # collect(as_data_frame = FALSE) always returns Table now
@@ -122,23 +122,23 @@ test_that("collect(as_data_frame=FALSE)", {
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal_data_frame(b2, expected)
 
-  b3 <- batch %>%
-    select(int, strng = chr) %>%
-    filter(int > 5) %>%
+  b3 <- batch |>
+    select(int, strng = chr) |>
+    filter(int > 5) |>
     collect(as_data_frame = FALSE)
   expect_r6_class(b3, "Table")
   expect_equal_data_frame(b3, set_names(expected, c("int", "strng")))
 
-  b4 <- batch %>%
-    select(int, strng = chr) %>%
-    filter(int > 5) %>%
-    group_by(int) %>%
+  b4 <- batch |>
+    select(int, strng = chr) |>
+    filter(int > 5) |>
+    group_by(int) |>
     collect(as_data_frame = FALSE)
   expect_r6_class(b4, "Table")
   expect_equal_data_frame(
     b4,
-    expected %>%
-      rename(strng = chr) %>%
+    expected |>
+      rename(strng = chr) |>
       group_by(int)
   )
 })
@@ -146,59 +146,59 @@ test_that("collect(as_data_frame=FALSE)", {
 test_that("compute()", {
   batch <- record_batch(tbl)
 
-  b1 <- batch %>% compute()
+  b1 <- batch |> compute()
 
   expect_r6_class(b1, "RecordBatch")
 
-  b2 <- batch %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
+  b2 <- batch |>
+    select(int, chr) |>
+    filter(int > 5) |>
     compute()
 
   expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal_data_frame(b2, expected)
 
-  b3 <- batch %>%
-    select(int, strng = chr) %>%
-    filter(int > 5) %>%
+  b3 <- batch |>
+    select(int, strng = chr) |>
+    filter(int > 5) |>
     compute()
   expect_r6_class(b3, "Table")
   expect_equal_data_frame(b3, set_names(expected, c("int", "strng")))
 
-  b4 <- batch %>%
-    select(int, strng = chr) %>%
-    filter(int > 5) %>%
-    group_by(int) %>%
+  b4 <- batch |>
+    select(int, strng = chr) |>
+    filter(int > 5) |>
+    group_by(int) |>
     compute()
   expect_r6_class(b4, "Table")
   expect_equal_data_frame(
     b4,
-    expected %>%
-      rename(strng = chr) %>%
+    expected |>
+      rename(strng = chr) |>
       group_by(int)
   )
 })
 
 test_that("head", {
   compare_dplyr_binding(
-    .input %>%
-      select(int, strng = chr) %>%
-      filter(int > 5) %>%
-      group_by(int) %>%
-      head(2) %>%
+    .input |>
+      select(int, strng = chr) |>
+      filter(int > 5) |>
+      group_by(int) |>
+      head(2) |>
       collect(),
     tbl
   )
 
   # This would fail if we evaluated head() after filter()
   compare_dplyr_binding(
-    .input %>%
-      select(int, strng = chr) %>%
-      arrange(int) %>%
-      head(2) %>%
-      filter(int > 5) %>%
-      mutate(twice = int * 2) %>%
+    .input |>
+      select(int, strng = chr) |>
+      arrange(int) |>
+      head(2) |>
+      filter(int > 5) |>
+      mutate(twice = int * 2) |>
       collect(),
     tbl
   )
@@ -206,10 +206,10 @@ test_that("head", {
 
 test_that("arrange then head returns the right data (ARROW-14162)", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       # mpg has ties so we need to sort by two things to get deterministic order
-      arrange(mpg, disp) %>%
-      head(4) %>%
+      arrange(mpg, disp) |>
+      head(4) |>
       collect(),
     tibble::as_tibble(mtcars)
   )
@@ -217,10 +217,10 @@ test_that("arrange then head returns the right data (ARROW-14162)", {
 
 test_that("arrange then tail returns the right data", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       # mpg has ties so we need to sort by two things to get deterministic order
-      arrange(mpg, disp) %>%
-      tail(4) %>%
+      arrange(mpg, disp) |>
+      tail(4) |>
       collect(),
     tibble::as_tibble(mtcars)
   )
@@ -229,21 +229,21 @@ test_that("arrange then tail returns the right data", {
 test_that("tail", {
   # With sorting
   compare_dplyr_binding(
-    .input %>%
-      select(int, chr) %>%
-      filter(int < 5) %>%
-      arrange(int) %>%
-      tail(2) %>%
+    .input |>
+      select(int, chr) |>
+      filter(int < 5) |>
+      arrange(int) |>
+      tail(2) |>
       collect(),
     tbl
   )
   # Without sorting: table order is implicit, and we can compute the filter
   # row length, so the query can use Fetch with offset
   compare_dplyr_binding(
-    .input %>%
-      select(int, chr) %>%
-      filter(int < 5) %>%
-      tail(2) %>%
+    .input |>
+      select(int, chr) |>
+      filter(int < 5) |>
+      tail(2) |>
       collect(),
     tbl
   )
@@ -251,7 +251,7 @@ test_that("tail", {
 
 test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
   expect_error(
-    Table$create(tbl, tbl) %>%
+    Table$create(tbl, tbl) |>
       filter(int > 0),
     regexp = paste0(
       'The following field names were found more than once in the data: "int", "dbl", ',
@@ -266,34 +266,34 @@ test_that("all_sources() finds all data sources in a query", {
   ds <- InMemoryDataset$create(tab)
   expect_equal(all_sources(tab), list(tab))
   expect_equal(
-    tab %>%
-      filter(a > 0) %>%
-      summarize(a = sum(a)) %>%
-      arrange(desc(a)) %>%
+    tab |>
+      filter(a > 0) |>
+      summarize(a = sum(a)) |>
+      arrange(desc(a)) |>
       all_sources(),
     list(tab)
   )
   expect_equal(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(ds) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(ds) |>
       all_sources(),
     list(tab, ds)
   )
 
   expect_equal(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(ds) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(ds) |>
+      left_join(tab) |>
       all_sources(),
     list(tab, ds, tab)
   )
   expect_equal(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(left_join(ds, tab)) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(left_join(ds, tab)) |>
+      left_join(tab) |>
       all_sources(),
     list(tab, ds, tab, tab)
   )
@@ -306,31 +306,31 @@ test_that("query_on_dataset() looks at all data sources in a query", {
   expect_false(query_on_dataset(tab))
   expect_true(query_on_dataset(ds))
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      summarize(a = sum(a)) %>%
-      arrange(desc(a)) %>%
+    tab |>
+      filter(a > 0) |>
+      summarize(a = sum(a)) |>
+      arrange(desc(a)) |>
       query_on_dataset()
   )
   expect_true(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(ds) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(ds) |>
       query_on_dataset()
   )
 
   expect_true(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(left_join(ds, tab)) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(left_join(ds, tab)) |>
+      left_join(tab) |>
       query_on_dataset()
   )
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(left_join(tab, tab)) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(left_join(tab, tab)) |>
+      left_join(tab) |>
       query_on_dataset()
   )
 })
@@ -343,62 +343,62 @@ test_that("query_can_stream()", {
   expect_true(query_can_stream(ds))
   expect_true(query_can_stream(NULL))
   expect_true(
-    ds %>%
-      filter(a > 0) %>%
+    ds |>
+      filter(a > 0) |>
       query_can_stream()
   )
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      arrange(desc(a)) %>%
+    tab |>
+      filter(a > 0) |>
+      arrange(desc(a)) |>
       query_can_stream()
   )
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      summarize(a = sum(a)) %>%
+    tab |>
+      filter(a > 0) |>
+      summarize(a = sum(a)) |>
       query_can_stream()
   )
   expect_true(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(ds) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(ds) |>
       query_can_stream()
   )
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(summarize(ds, a = sum(a))) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(summarize(ds, a = sum(a))) |>
       query_can_stream()
   )
 
   expect_true(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(left_join(ds, tab)) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(left_join(ds, tab)) |>
+      left_join(tab) |>
       query_can_stream()
   )
   expect_true(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(left_join(tab, tab)) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(left_join(tab, tab)) |>
+      left_join(tab) |>
       query_can_stream()
   )
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      union_all(left_join(tab, tab)) %>%
-      left_join(ds) %>%
+    tab |>
+      filter(a > 0) |>
+      union_all(left_join(tab, tab)) |>
+      left_join(ds) |>
       query_can_stream()
   )
   expect_false(
-    tab %>%
-      filter(a > 0) %>%
-      arrange(a) %>%
-      union_all(left_join(tab, tab)) %>%
-      left_join(tab) %>%
+    tab |>
+      filter(a > 0) |>
+      arrange(a) |>
+      union_all(left_join(tab, tab)) |>
+      left_join(tab) |>
       query_can_stream()
   )
 })
@@ -410,8 +410,8 @@ test_that("show_exec_plan(), show_query() and explain()", {
   # minimal test - this fails if we don't coerce the input to `show_exec_plan()`
   # to be an `arrow_dplyr_query`
   expect_output(
-    mtcars %>%
-      arrow_table() %>%
+    mtcars |>
+      arrow_table() |>
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with 2 nodes:.*", # boiler plate for ExecPlan
@@ -422,11 +422,11 @@ test_that("show_exec_plan(), show_query() and explain()", {
 
   # arrow_table and mutate
   expect_output(
-    tbl %>%
-      arrow_table() %>%
-      filter(dbl > 2, chr != "e") %>%
-      select(chr, int, lgl) %>%
-      mutate(int_plus_ten = int + 10) %>%
+    tbl |>
+      arrow_table() |>
+      filter(dbl > 2, chr != "e") |>
+      select(chr, int, lgl) |>
+      mutate(int_plus_ten = int + 10) |>
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
@@ -440,11 +440,11 @@ test_that("show_exec_plan(), show_query() and explain()", {
 
   # record_batch and mutate
   expect_output(
-    tbl %>%
-      record_batch() %>%
-      filter(dbl > 2, chr != "e") %>%
-      select(chr, int, lgl) %>%
-      mutate(int_plus_ten = int + 10) %>%
+    tbl |>
+      record_batch() |>
+      filter(dbl > 2, chr != "e") |>
+      select(chr, int, lgl) |>
+      mutate(int_plus_ten = int + 10) |>
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
@@ -457,10 +457,10 @@ test_that("show_exec_plan(), show_query() and explain()", {
 
   # test with group_by and summarise
   expect_output(
-    tbl %>%
-      arrow_table() %>%
-      group_by(lgl) %>%
-      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
+    tbl |>
+      arrow_table() |>
+      group_by(lgl) |>
+      summarise(avg = mean(dbl, na.rm = TRUE)) |>
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
@@ -474,16 +474,16 @@ test_that("show_exec_plan(), show_query() and explain()", {
 
   # test with join
   expect_output(
-    tbl %>%
-      arrow_table() %>%
+    tbl |>
+      arrow_table() |>
       left_join(
-        example_data %>%
-          arrow_table() %>%
-          mutate(doubled_dbl = dbl * 2) %>%
+        example_data |>
+          arrow_table() |>
+          mutate(doubled_dbl = dbl * 2) |>
           select(int, doubled_dbl),
         by = "int"
-      ) %>%
-      select(int, verses, doubled_dbl) %>%
+      ) |>
+      select(int, verses, doubled_dbl) |>
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
@@ -497,10 +497,10 @@ test_that("show_exec_plan(), show_query() and explain()", {
   )
 
   expect_output(
-    mtcars %>%
-      arrow_table() %>%
-      filter(mpg > 20) %>%
-      arrange(desc(wt)) %>%
+    mtcars |>
+      arrow_table() |>
+      filter(mpg > 20) |>
+      arrange(desc(wt)) |>
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
@@ -513,10 +513,10 @@ test_that("show_exec_plan(), show_query() and explain()", {
   # printing the ExecPlan for a nested query would currently force the
   # evaluation of the inner one(s), which we want to avoid => no output
   expect_output(
-    mtcars %>%
-      arrow_table() %>%
-      filter(mpg > 20) %>%
-      head(3) %>%
+    mtcars |>
+      arrow_table() |>
+      filter(mpg > 20) |>
+      head(3) |>
       show_exec_plan(),
     paste0(
       "ExecPlan with 4 nodes:.*",
@@ -536,58 +536,58 @@ test_that("needs_projection unit tests", {
   }
   expect_false(query_needs_projection(as_adq(tab)))
   expect_false(query_needs_projection(
-    tab %>% collapse() %>% collapse()
+    tab |> collapse() |> collapse()
   ))
   expect_true(query_needs_projection(
-    tab %>% mutate(int = int + 2)
+    tab |> mutate(int = int + 2)
   ))
   expect_true(query_needs_projection(
-    tab %>% select(int, chr)
+    tab |> select(int, chr)
   ))
   expect_true(query_needs_projection(
-    tab %>% rename(int2 = int)
+    tab |> rename(int2 = int)
   ))
   expect_true(query_needs_projection(
-    tab %>% relocate(lgl)
+    tab |> relocate(lgl)
   ))
 })
 
 test_that("compute() on a grouped query returns a Table with groups in metadata", {
-  tab1 <- tbl %>%
-    arrow_table() %>%
-    group_by(int) %>%
+  tab1 <- tbl |>
+    arrow_table() |>
+    group_by(int) |>
     compute()
   expect_r6_class(tab1, "Table")
   expect_equal_data_frame(
     tab1,
-    tbl %>%
+    tbl |>
       group_by(int)
   )
   expect_equal(
     collect(tab1),
-    tbl %>%
+    tbl |>
       group_by(int)
   )
 })
 
-test_that("collect() is identical to compute() %>% collect()", {
-  tab1 <- tbl %>%
+test_that("collect() is identical to compute() |> collect()", {
+  tab1 <- tbl |>
     arrow_table()
-  adq1 <- tab1 %>%
+  adq1 <- tab1 |>
     group_by(int)
 
   expect_equal(
-    tab1 %>%
-      compute() %>%
+    tab1 |>
+      compute() |>
       collect(),
-    tab1 %>%
+    tab1 |>
       collect()
   )
   expect_equal(
-    adq1 %>%
-      compute() %>%
+    adq1 |>
+      compute() |>
       collect(),
-    adq1 %>%
+    adq1 |>
       collect()
   )
 })
@@ -600,8 +600,8 @@ test_that("Scalars in expressions match the type of the field, if possible", {
 
   # 5 is double in R but is properly interpreted as int, no cast is added
   expect_output(
-    tab %>%
-      filter(int == 5) %>%
+    tab |>
+      filter(int == 5) |>
       show_exec_plan(),
     "int == 5"
   )
@@ -609,34 +609,34 @@ test_that("Scalars in expressions match the type of the field, if possible", {
   # Because 5.2 can't cast to int32 without truncation, we pass as is
   # and Acero will cast int to float64
   expect_output(
-    tab %>%
-      filter(int == 5.2) %>%
+    tab |>
+      filter(int == 5.2) |>
       show_exec_plan(),
     "filter=(cast(int, {to_type=double",
     fixed = TRUE
   )
   expect_equal(
-    tab %>%
-      filter(int == 5.2) %>%
+    tab |>
+      filter(int == 5.2) |>
       nrow(),
     0
   )
 
   # int == string, errors starting in dplyr 1.1.0
   expect_snapshot_warning(
-    tab %>% filter(int == "5")
+    tab |> filter(int == "5")
   )
 
   # Strings automatically parsed to date/timestamp
   expect_output(
-    tab %>%
-      filter(dates > "2022-09-01") %>%
+    tab |>
+      filter(dates > "2022-09-01") |>
       show_exec_plan(),
     "dates > 2022-09-01"
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(dates > "2022-09-01") %>%
+    .input |>
+      filter(dates > "2022-09-01") |>
       collect(),
     tbl_with_datetime
   )
@@ -648,29 +648,29 @@ test_that("Scalars in expressions match the type of the field, if possible", {
   skip_if(identical(Sys.timezone(), "/UTC"))
 
   expect_output(
-    tab %>%
-      filter(times > "2018-10-07 19:04:05") %>%
+    tab |>
+      filter(times > "2018-10-07 19:04:05") |>
       show_exec_plan(),
     "times > 2018-10-0. ..:..:05"
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(times > "2018-10-07 19:04:05") %>%
+    .input |>
+      filter(times > "2018-10-07 19:04:05") |>
       collect(),
     tbl_with_datetime
   )
 
-  tab_with_decimal <- tab %>%
-    mutate(dec = cast(dbl, decimal(15, 2))) %>%
+  tab_with_decimal <- tab |>
+    mutate(dec = cast(dbl, decimal(15, 2))) |>
     compute()
 
   # This reproduces the issue on ARROW-17601, found in the TPC-H query 1
   # In ARROW-17462, we chose not to auto-cast to decimal to avoid that issue
-  result <- tab_with_decimal %>%
+  result <- tab_with_decimal |>
     summarize(
       tpc_h_1 = sum(dec * (1 - dec) * (1 + dec), na.rm = TRUE),
       as_dbl = sum(dbl * (1 - dbl) * (1 + dbl), na.rm = TRUE)
-    ) %>%
+    ) |>
     collect()
   expect_equal(result$tpc_h_1, result$as_dbl)
 })
@@ -679,24 +679,24 @@ test_that("Can use nested field refs", {
   nested_data <- tibble(int = 1:5, df_col = tibble(a = 6:10, b = 11:15))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         nested = df_col$a,
         times2 = df_col$a * 2
-      ) %>%
-      filter(nested > 7) %>%
+      ) |>
+      filter(nested > 7) |>
       collect(),
     nested_data
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         nested = df_col$a,
         times2 = df_col$a * 2
-      ) %>%
-      filter(nested > 7) %>%
-      summarize(sum(times2)) %>%
+      ) |>
+      filter(nested > 7) |>
+      summarize(sum(times2)) |>
       collect(),
     nested_data
   )
@@ -712,41 +712,41 @@ test_that("Can use nested field refs with Dataset", {
   ds <- open_dataset(tf)
 
   expect_equal(
-    ds %>%
+    ds |>
       mutate(
         nested = df_col$a,
         times2 = df_col$a * 2
-      ) %>%
-      filter(nested > 7) %>%
+      ) |>
+      filter(nested > 7) |>
       collect(),
-    nested_data %>%
+    nested_data |>
       mutate(
         nested = df_col$a,
         times2 = df_col$a * 2
-      ) %>%
+      ) |>
       filter(nested > 7)
   )
   # Issue #34519: error when projecting same name, but only on file dataset
   expect_equal(
-    ds %>%
-      mutate(int = as.numeric(int)) %>%
+    ds |>
+      mutate(int = as.numeric(int)) |>
       collect(),
-    nested_data %>%
-      mutate(int = as.numeric(int)) %>%
+    nested_data |>
+      mutate(int = as.numeric(int)) |>
       collect()
   )
 })
 
 test_that("Use struct_field for $ on non-field-ref", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         df_col = tibble(i = int, d = dbl)
-      ) %>%
+      ) |>
       transmute(
         int2 = df_col$i,
         dbl2 = df_col$d
-      ) %>%
+      ) |>
       collect(),
     example_data
   )
@@ -754,9 +754,9 @@ test_that("Use struct_field for $ on non-field-ref", {
 
 test_that("nested field ref error handling", {
   expect_error(
-    example_data %>%
-      arrow_table() %>%
-      mutate(x = int$nested) %>%
+    example_data |>
+      arrow_table() |>
+      mutate(x = int$nested) |>
       compute(),
     "No match"
   )

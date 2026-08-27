@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <span>
+
 #include "parquet/encryption/internal_file_decryptor.h"
 
 #include "arrow/util/logging.h"
@@ -47,8 +49,8 @@ int32_t Decryptor::CiphertextLength(int32_t plaintext_len) const {
   return aes_decryptor_->CiphertextLength(plaintext_len);
 }
 
-int32_t Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                           ::arrow::util::span<uint8_t> plaintext) {
+int32_t Decryptor::Decrypt(std::span<const uint8_t> ciphertext,
+                           std::span<uint8_t> plaintext) {
   return aes_decryptor_->Decrypt(ciphertext, key_.as_span(), str2span(aad_), plaintext);
 }
 
@@ -78,7 +80,7 @@ const SecureString& InternalFileDecryptor::GetFooterKey() {
     if (properties_->key_retriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
-      footer_key_ = properties_->key_retriever()->GetKeyById(footer_key_metadata_);
+      footer_key_ = properties_->key_retriever()->GetKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";
@@ -117,7 +119,7 @@ SecureString InternalFileDecryptor::GetColumnKey(const std::string& column_path,
   if (column_key.empty() && !column_key_metadata.empty() &&
       properties_->key_retriever() != nullptr) {
     try {
-      column_key = properties_->key_retriever()->GetKeyById(column_key_metadata);
+      column_key = properties_->key_retriever()->GetKey(column_key_metadata);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
       ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";

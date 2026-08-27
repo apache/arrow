@@ -319,7 +319,6 @@ Result<std::shared_ptr<Table>> ConcatAndCombine(
 }
 
 Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>& data) {
-  std::shared_ptr<Table> result;
   FileReaderBuilder builder;
   std::unique_ptr<FileReader> reader;
   auto props = default_arrow_reader_properties();
@@ -329,7 +328,7 @@ Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>
   RETURN_NOT_OK(builder.memory_pool(::arrow::default_memory_pool())
                     ->properties(props)
                     ->Build(&reader));
-  RETURN_NOT_OK(reader->ReadTable(&result));
+  ARROW_ASSIGN_OR_RAISE(auto result, reader->ReadTable());
   return result;
 }
 

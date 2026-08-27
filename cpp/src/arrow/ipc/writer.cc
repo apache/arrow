@@ -150,39 +150,53 @@ class RecordBatchSerializer {
       return Status::Invalid("Max recursion depth reached");
     }
 
-    if (!options_.allow_64bit && arr.length() > std::numeric_limits<int32_t>::max()) {
+    // An extension array is serialized as its storage array: the extension type
+    // itself is carried in the schema, not in the record batch body.  The storage
+    // array shares the extension array's ArrayData, so length, offset and null
+    // count are unchanged; only the type id differs, and it is the storage type id
+    // that decides the buffer layout below.
+    const Array& physical_arr = arr.type_id() == Type::EXTENSION
+                                    ? *checked_cast<const ExtensionArray&>(arr).storage()
+                                    : arr;
+
+    if (!options_.allow_64bit &&
+        physical_arr.length() > std::numeric_limits<int32_t>::max()) {
       return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
-    if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+    if (physical_arr.offset() != 0 &&
+        physical_arr.device_type() != DeviceAllocationType::kCPU) {
       // https://github.com/apache/arrow/issues/43029
       return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
     }
 
     // push back all common elements
-    field_nodes_.push_back({arr.length(), arr.null_count(), 0});
+    field_nodes_.push_back({physical_arr.length(), physical_arr.null_count(), 0});
 
     // In V4, null types have no validity bitmap
     // In V5 and later, null and union types have no validity bitmap
-    if (internal::HasValidityBitmap(arr.type_id(), options_.metadata_version)) {
-      if (arr.null_count() > 0) {
+    if (internal::HasValidityBitmap(physical_arr.type_id(), options_.metadata_version)) {
+      if (physical_arr.null_count() > 0) {
         std::shared_ptr<Buffer> bitmap;
-        RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
-                                         options_.memory_pool, &bitmap));
+        RETURN_NOT_OK(GetTruncatedBitmap(physical_arr.offset(), physical_arr.length(),
+                                         physical_arr.null_bitmap(), options_.memory_pool,
+                                         &bitmap));
         out_->body_buffers.emplace_back(std::move(bitmap));
       } else {
         // Push a dummy zero-length buffer, not to be copied
         out_->body_buffers.emplace_back(kNullBuffer);
       }
     }
-    return VisitType(arr);
+    return VisitType(physical_arr);
   }
 
   // Override this for writing dictionary metadata
   virtual Status SerializeMetadata(int64_t num_rows) {
-    return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
-                                   field_nodes_, buffer_meta_, variadic_counts_, options_,
-                                   &out_->metadata);
+    ARROW_ASSIGN_OR_RAISE(
+        out_->metadata,
+        WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
+                                field_nodes_, buffer_meta_, variadic_counts_, options_));
+    return Status::OK();
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
@@ -746,9 +760,12 @@ class DictionarySerializer : public RecordBatchSerializer {
         is_delta_(is_delta) {}
 
   Status SerializeMetadata(int64_t num_rows) override {
-    return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
-                                  custom_metadata_, field_nodes_, buffer_meta_,
-                                  variadic_counts_, options_, &out_->metadata);
+    ARROW_ASSIGN_OR_RAISE(
+        out_->metadata,
+        WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
+                               custom_metadata_, field_nodes_, buffer_meta_,
+                               variadic_counts_, options_));
+    return Status::OK();
   }
 
   Status Assemble(const std::shared_ptr<Array>& dictionary) {
@@ -804,7 +821,9 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
                         const DictionaryFieldMapper& mapper, IpcPayload* out) {
   out->type = MessageType::SCHEMA;
-  return internal::WriteSchemaMessage(schema, mapper, options, &out->metadata);
+  ARROW_ASSIGN_OR_RAISE(out->metadata,
+                        internal::WriteSchemaMessage(schema, mapper, options));
+  return Status::OK();
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
@@ -1493,7 +1512,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     RETURN_NOT_OK(UpdatePosition());
 
     // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(kArrowMagicBytes, strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Write(kArrowMagicBytes.data(), kArrowMagicBytes.size()));
     RETURN_NOT_OK(Align());
 
     return Status::OK();
@@ -1521,7 +1540,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
 
     // Write magic bytes to end file
-    return Write(kArrowMagicBytes, strlen(kArrowMagicBytes));
+    return Write(kArrowMagicBytes.data(), kArrowMagicBytes.size());
   }
 
  protected:
@@ -1580,8 +1599,7 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
   auto writer = std::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
   RETURN_NOT_OK(writer->Start());
-  // R build with openSUSE155 requires an explicit unique_ptr construction
-  return std::unique_ptr<RecordBatchWriter>(std::move(writer));
+  return writer;
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(

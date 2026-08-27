@@ -63,9 +63,11 @@ find . -not -path ./ccache -a -not -path "./ccache/*" -delete
 if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPILERCHECK=content
   export CCACHE_COMPRESS=1
-  export CCACHE_COMPRESSLEVEL=6
-  export CCACHE_MAXSIZE=500M
   export CCACHE_DIR="${PWD}/ccache"
+  export CCACHE_LOGFILE="${PWD}/ccache.log"
+  export CCACHE_MAXSIZE=3GiB
+  rm -f "${CCACHE_LOGFILE}"
+  ccache --zero-stats
   ccache --show-stats --verbose || :
   if [ -d "${lib_directory}/ccache" ]; then
     PATH="${lib_directory}/ccache:$PATH"
@@ -93,7 +95,7 @@ fi
 repositories="/host/repositories"
 repository="${repositories}/${distribution}/${distribution_version}"
 rpm_dir="${repository}/${architecture}/Packages"
-srpm_dir="${repository}/source/SRPMS"
+srpm_dir="${repository}/Source/Packages"
 run mkdir -p "${rpm_dir}" "${srpm_dir}"
 
 # for debug
@@ -147,6 +149,17 @@ WHICH_STRIP
   run cat <<USE_SCL_STRIP >> ~/.rpmmacros
 %__strip $(run scl enable ${SCL} ./which-strip.sh)
 USE_SCL_STRIP
+
+  case "${SCL}" in
+    gcc-toolset-*)
+      gcc_major=${SCL#gcc-toolset-}
+      # Apply workaround from https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/developing_c_and_cpp_applications_in_rhel_9/assembly_additional-toolsets-for-development-rhel-9_developing-applications#ref_specifics-of-annobin-in-gcc-toolset-12_annobin
+      pushd /opt/rh/${SCL}/root/usr/lib/gcc/$(arch)-redhat-linux/${gcc_major}/plugin/
+      ln -s annobin.so gcc-annobin.so
+      popd
+      ;;
+  esac
+
   if [ "${DEBUG:-no}" = "yes" ]; then
     run scl enable ${SCL} ./build.sh
   else

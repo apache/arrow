@@ -237,9 +237,17 @@ void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
-  ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
-  ASSERT_TRUE(buffer.Equals(expected));
+void AssertBufferEqual(const Buffer& buffer, const Buffer& expected, bool verbose) {
+  ASSERT_EQ(buffer.size(), expected.size())
+      << "Mismatching buffer size, got " << buffer.size() << ", expected "
+      << expected.size();
+  if (verbose) {
+    ASSERT_TRUE(buffer.Equals(expected))
+        << "Mismatching buffers, got : " << buffer.ToHexString()
+        << " but expected: " << expected.ToHexString();
+  } else {
+    ASSERT_TRUE(buffer.Equals(expected));
+  }
 }
 
 template <typename T>
@@ -660,21 +668,24 @@ LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {
 
 LocaleGuard::~LocaleGuard() {}
 
-EnvVarGuard::EnvVarGuard(const std::string& name, const std::string& value)
-    : name_(name) {
-  auto maybe_value = arrow::internal::GetEnvVar(name);
+EnvVarGuard::EnvVarGuard(std::string name, std::optional<std::string> value)
+    : name_(std::move(name)) {
+  auto maybe_value = arrow::internal::GetEnvVar(name_);
   if (maybe_value.ok()) {
-    was_set_ = true;
     old_value_ = *std::move(maybe_value);
   } else {
-    was_set_ = false;
+    old_value_ = std::nullopt;
   }
-  ARROW_CHECK_OK(arrow::internal::SetEnvVar(name, value));
+  if (value.has_value()) {
+    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, *value));
+  } else {
+    ARROW_CHECK_OK(arrow::internal::DelEnvVar(name_));
+  }
 }
 
 EnvVarGuard::~EnvVarGuard() {
-  if (was_set_) {
-    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, old_value_));
+  if (old_value_.has_value()) {
+    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, *old_value_));
   } else {
     ARROW_CHECK_OK(arrow::internal::DelEnvVar(name_));
   }
@@ -966,6 +977,29 @@ Result<std::shared_ptr<DataType>> BinaryViewExtensionType::Deserialize(
   return std::make_shared<BinaryViewExtensionType>();
 }
 
+bool UnionExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> UnionExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK(ExtensionEquals(checked_cast<const ExtensionType&>(*data->type)));
+  return std::make_shared<UnionExtensionArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> UnionExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != extension_name_) {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*storage_type_)) {
+    return Status::Invalid("Invalid storage type for ", extension_name_, ": ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<UnionExtensionType>(std::move(storage_type), extension_name_);
+}
+
 bool Complex128Type::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -1007,6 +1041,18 @@ std::shared_ptr<DataType> dict_extension_type() {
 }
 
 std::shared_ptr<DataType> complex128() { return std::make_shared<Complex128Type>(); }
+
+std::shared_ptr<DataType> dense_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      dense_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "dense-union-extension");
+}
+
+std::shared_ptr<DataType> sparse_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      sparse_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "sparse-union-extension");
+}
 
 std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
                                       const std::shared_ptr<Array>& imag) {

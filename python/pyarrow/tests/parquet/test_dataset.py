@@ -1250,6 +1250,27 @@ def test_parquet_dataset_new_filesystem(tempdir):
     assert result.equals(table)
 
 
+def test_parquet_dataset_partitions_not_loaded_for_single_file(tempdir):
+    # Ensure single-file reads do not include partitions from higher levels of the path
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'p=a' / 'data.parquet'
+    path.parent.mkdir()
+    pq.write_table(table, path)
+    # read using a path object
+    dataset = pq.ParquetDataset(path)
+    path_schema = dataset.schema
+    result = dataset.read()
+    assert result.equals(table)
+    # read using a file object; expect same result
+    with path.open("rb") as file:
+        dataset = pq.ParquetDataset(file)
+        file_schema = dataset.schema
+        result = dataset.read()
+    assert result.equals(table)
+    # schemas should match
+    assert path_schema.equals(file_schema)
+
+
 def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ARROW-10462 ensure that on Windows we properly use posix-style paths
     # as used by fsspec

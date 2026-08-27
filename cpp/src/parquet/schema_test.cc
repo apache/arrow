@@ -660,6 +660,32 @@ TEST(TestColumnDescriptor, TestAttrs) {
   ASSERT_EQ(expected_descr, descr2.ToString());
 }
 
+TEST(TestColumnDescriptor, CanUseStats) {
+  NodePtr node = Int32("name");
+  ColumnDescriptor descr(node, 0, 0);
+  // Type-defined column order is usable when the type has a known sort order.
+  EXPECT_TRUE(descr.can_use_min_max());
+
+  auto primitive_node = std::static_pointer_cast<PrimitiveNode>(node);
+  primitive_node->SetColumnOrder(ColumnOrder::undefined_);
+  // Missing column order falls back to legacy min/max, which are signed.
+  EXPECT_TRUE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  primitive_node->SetColumnOrder(ColumnOrder::unknown_);
+  // Unsupported column order means min/max ordering is unknown to this reader.
+  EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  node = PrimitiveNode::Make("name", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  primitive_node = std::static_pointer_cast<PrimitiveNode>(node);
+  primitive_node->SetColumnOrder(ColumnOrder::undefined_);
+  // Legacy min/max are signed, so they cannot represent unsigned byte ordering.
+  EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  node = PrimitiveNode::Make("name", Repetition::REQUIRED, Type::INT96);
+  // INT96 has no defined sort order in the Parquet type-defined ordering.
+  EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+}
+
 class TestSchemaDescriptor : public ::testing::Test {
  public:
   void setUp() {}
@@ -1469,119 +1495,120 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
   };
 
   std::vector<ExpectedRepresentation> cases = {
-      {UndefinedLogicalType::Make(), "Undefined", R"({"Type": "Undefined"})"},
-      {LogicalType::String(), "String", R"({"Type": "String"})"},
-      {LogicalType::Map(), "Map", R"({"Type": "Map"})"},
-      {LogicalType::List(), "List", R"({"Type": "List"})"},
-      {LogicalType::Enum(), "Enum", R"({"Type": "Enum"})"},
+      {UndefinedLogicalType::Make(), "Undefined", R"({"Type":"Undefined"})"},
+      {LogicalType::String(), "String", R"({"Type":"String"})"},
+      {LogicalType::Map(), "Map", R"({"Type":"Map"})"},
+      {LogicalType::List(), "List", R"({"Type":"List"})"},
+      {LogicalType::Enum(), "Enum", R"({"Type":"Enum"})"},
       {LogicalType::Decimal(10, 4), "Decimal(precision=10, scale=4)",
-       R"({"Type": "Decimal", "precision": 10, "scale": 4})"},
+       R"({"Type":"Decimal","precision":10,"scale":4})"},
       {LogicalType::Decimal(10), "Decimal(precision=10, scale=0)",
-       R"({"Type": "Decimal", "precision": 10, "scale": 0})"},
-      {LogicalType::Date(), "Date", R"({"Type": "Date"})"},
+       R"({"Type":"Decimal","precision":10,"scale":0})"},
+      {LogicalType::Date(), "Date", R"({"Type":"Date"})"},
       {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        "Time(isAdjustedToUTC=true, timeUnit=milliseconds)",
-       R"({"Type": "Time", "isAdjustedToUTC": true, "timeUnit": "milliseconds"})"},
+       R"({"Type":"Time","isAdjustedToUTC":true,"timeUnit":"milliseconds"})"},
       {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
        "Time(isAdjustedToUTC=true, timeUnit=microseconds)",
-       R"({"Type": "Time", "isAdjustedToUTC": true, "timeUnit": "microseconds"})"},
+       R"({"Type":"Time","isAdjustedToUTC":true,"timeUnit":"microseconds"})"},
       {LogicalType::Time(true, LogicalType::TimeUnit::NANOS),
        "Time(isAdjustedToUTC=true, timeUnit=nanoseconds)",
-       R"({"Type": "Time", "isAdjustedToUTC": true, "timeUnit": "nanoseconds"})"},
+       R"({"Type":"Time","isAdjustedToUTC":true,"timeUnit":"nanoseconds"})"},
       {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
        "Time(isAdjustedToUTC=false, timeUnit=milliseconds)",
-       R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "milliseconds"})"},
+       R"({"Type":"Time","isAdjustedToUTC":false,"timeUnit":"milliseconds"})"},
       {LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
        "Time(isAdjustedToUTC=false, timeUnit=microseconds)",
-       R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "microseconds"})"},
+       R"({"Type":"Time","isAdjustedToUTC":false,"timeUnit":"microseconds"})"},
       {LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
        "Time(isAdjustedToUTC=false, timeUnit=nanoseconds)",
-       R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "nanoseconds"})"},
+       R"({"Type":"Time","isAdjustedToUTC":false,"timeUnit":"nanoseconds"})"},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=milliseconds, "
        "is_from_converted_type=false, force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "milliseconds", )"
-       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
+       R"({"Type":"Timestamp","isAdjustedToUTC":true,"timeUnit":"milliseconds",)"
+       R"("is_from_converted_type":false,"force_set_converted_type":false})"},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=microseconds, "
        "is_from_converted_type=false, force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "microseconds", )"
-       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
+       R"({"Type":"Timestamp","isAdjustedToUTC":true,"timeUnit":"microseconds",)"
+       R"("is_from_converted_type":false,"force_set_converted_type":false})"},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=nanoseconds, "
        "is_from_converted_type=false, force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "nanoseconds", )"
-       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
+       R"({"Type":"Timestamp","isAdjustedToUTC":true,"timeUnit":"nanoseconds",)"
+       R"("is_from_converted_type":false,"force_set_converted_type":false})"},
       {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS, true, true),
        "Timestamp(isAdjustedToUTC=false, timeUnit=milliseconds, "
        "is_from_converted_type=true, force_set_converted_type=true)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "milliseconds", )"
-       R"("is_from_converted_type": true, "force_set_converted_type": true})"},
+       R"({"Type":"Timestamp","isAdjustedToUTC":false,"timeUnit":"milliseconds",)"
+       R"("is_from_converted_type":true,"force_set_converted_type":true})"},
       {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=microseconds, "
        "is_from_converted_type=false, force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "microseconds", )"
-       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
+       R"({"Type":"Timestamp","isAdjustedToUTC":false,"timeUnit":"microseconds",)"
+       R"("is_from_converted_type":false,"force_set_converted_type":false})"},
       {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=nanoseconds, "
        "is_from_converted_type=false, force_set_converted_type=false)",
-       R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "nanoseconds", )"
-       R"("is_from_converted_type": false, "force_set_converted_type": false})"},
-      {LogicalType::Interval(), "Interval", R"({"Type": "Interval"})"},
+       R"({"Type":"Timestamp","isAdjustedToUTC":false,"timeUnit":"nanoseconds",)"
+       R"("is_from_converted_type":false,"force_set_converted_type":false})"},
+      {LogicalType::Interval(), "Interval", R"({"Type":"Interval"})"},
       {LogicalType::Int(8, false), "Int(bitWidth=8, isSigned=false)",
-       R"({"Type": "Int", "bitWidth": 8, "isSigned": false})"},
+       R"({"Type":"Int","bitWidth":8,"isSigned":false})"},
       {LogicalType::Int(16, false), "Int(bitWidth=16, isSigned=false)",
-       R"({"Type": "Int", "bitWidth": 16, "isSigned": false})"},
+       R"({"Type":"Int","bitWidth":16,"isSigned":false})"},
       {LogicalType::Int(32, false), "Int(bitWidth=32, isSigned=false)",
-       R"({"Type": "Int", "bitWidth": 32, "isSigned": false})"},
+       R"({"Type":"Int","bitWidth":32,"isSigned":false})"},
       {LogicalType::Int(64, false), "Int(bitWidth=64, isSigned=false)",
-       R"({"Type": "Int", "bitWidth": 64, "isSigned": false})"},
+       R"({"Type":"Int","bitWidth":64,"isSigned":false})"},
       {LogicalType::Int(8, true), "Int(bitWidth=8, isSigned=true)",
-       R"({"Type": "Int", "bitWidth": 8, "isSigned": true})"},
+       R"({"Type":"Int","bitWidth":8,"isSigned":true})"},
       {LogicalType::Int(16, true), "Int(bitWidth=16, isSigned=true)",
-       R"({"Type": "Int", "bitWidth": 16, "isSigned": true})"},
+       R"({"Type":"Int","bitWidth":16,"isSigned":true})"},
       {LogicalType::Int(32, true), "Int(bitWidth=32, isSigned=true)",
-       R"({"Type": "Int", "bitWidth": 32, "isSigned": true})"},
+       R"({"Type":"Int","bitWidth":32,"isSigned":true})"},
       {LogicalType::Int(64, true), "Int(bitWidth=64, isSigned=true)",
-       R"({"Type": "Int", "bitWidth": 64, "isSigned": true})"},
-      {LogicalType::Null(), "Null", R"({"Type": "Null"})"},
-      {LogicalType::JSON(), "JSON", R"({"Type": "JSON"})"},
-      {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
-      {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
-      {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
-      {LogicalType::Geometry(), "Geometry(crs=)", R"({"Type": "Geometry"})"},
+       R"({"Type":"Int","bitWidth":64,"isSigned":true})"},
+      {LogicalType::Null(), "Null", R"({"Type":"Null"})"},
+      {LogicalType::JSON(), "JSON", R"({"Type":"JSON"})"},
+      {LogicalType::BSON(), "BSON", R"({"Type":"BSON"})"},
+      {LogicalType::UUID(), "UUID", R"({"Type":"UUID"})"},
+      {LogicalType::Float16(), "Float16", R"({"Type":"Float16"})"},
+      {LogicalType::Geometry(), "Geometry(crs=)", R"({"Type":"Geometry"})"},
       {LogicalType::Geometry("srid:1234"), "Geometry(crs=srid:1234)",
-       R"({"Type": "Geometry", "crs": "srid:1234"})"},
+       R"({"Type":"Geometry","crs":"srid:1234"})"},
       {LogicalType::Geometry(R"(crs with "quotes" and \backslashes\)"),
        R"(Geometry(crs=crs with "quotes" and \backslashes\))",
-       R"({"Type": "Geometry", "crs": "crs with \"quotes\" and \\backslashes\\"})"},
-      {LogicalType::Geometry("crs with control characters \u0001 and \u001F"),
-       "Geometry(crs=crs with control characters \u0001 and \u001F)",
-       R"({"Type": "Geometry", "crs": "crs with control characters \u0001 and \u001F"})"},
+       R"({"Type":"Geometry","crs":"crs with \"quotes\" and \\backslashes\\"})"},
+      {LogicalType::Geometry("crs with control characters \u0001 and \u001f"),
+       "Geometry(crs=crs with control characters \u0001 and \u001f)",
+       R"({"Type":"Geometry","crs":"crs with control characters \u0001 and \u001f"})"},
       {LogicalType::Geography(), "Geography(crs=, algorithm=spherical)",
-       R"({"Type": "Geography"})"},
+       R"({"Type":"Geography"})"},
       {LogicalType::Geography("srid:1234",
                               LogicalType::EdgeInterpolationAlgorithm::SPHERICAL),
        "Geography(crs=srid:1234, algorithm=spherical)",
-       R"({"Type": "Geography", "crs": "srid:1234"})"},
+       R"({"Type":"Geography","crs":"srid:1234"})"},
       {LogicalType::Geography("srid:1234",
                               LogicalType::EdgeInterpolationAlgorithm::VINCENTY),
        "Geography(crs=srid:1234, algorithm=vincenty)",
-       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "vincenty"})"},
+       R"({"Type":"Geography","crs":"srid:1234","algorithm":"vincenty"})"},
       {LogicalType::Geography("srid:1234",
                               LogicalType::EdgeInterpolationAlgorithm::THOMAS),
        "Geography(crs=srid:1234, algorithm=thomas)",
-       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "thomas"})"},
+       R"({"Type":"Geography","crs":"srid:1234","algorithm":"thomas"})"},
       {LogicalType::Geography("srid:1234",
                               LogicalType::EdgeInterpolationAlgorithm::ANDOYER),
        "Geography(crs=srid:1234, algorithm=andoyer)",
-       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "andoyer"})"},
+       R"({"Type":"Geography","crs":"srid:1234","algorithm":"andoyer"})"},
       {LogicalType::Geography("srid:1234",
                               LogicalType::EdgeInterpolationAlgorithm::KARNEY),
        "Geography(crs=srid:1234, algorithm=karney)",
-       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "karney"})"},
-      {LogicalType::Variant(), "Variant", R"({"Type": "Variant"})"},
-      {LogicalType::None(), "None", R"({"Type": "None"})"},
+       R"({"Type":"Geography","crs":"srid:1234","algorithm":"karney"})"},
+      {LogicalType::Variant(), "Variant(1)", R"({"Type":"Variant","SpecVersion":1})"},
+      {LogicalType::Variant(2), "Variant(2)", R"({"Type":"Variant","SpecVersion":2})"},
+      {LogicalType::None(), "None", R"({"Type":"None"})"},
   };
 
   for (const ExpectedRepresentation& c : cases) {
@@ -2353,6 +2380,37 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
   // Group nodes ...
   ConfirmGroupNodeRoundtrip("map", LogicalType::Map());
   ConfirmGroupNodeRoundtrip("list", LogicalType::List());
+  ConfirmGroupNodeRoundtrip("variant", LogicalType::Variant());
+}
+
+TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
+  // Confirm that Variant logical type sets specification_version to expected value in
+  // thrift serialization
+  constexpr int8_t spec_version = 2;
+  auto metadata = PrimitiveNode::Make("metadata", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  auto value = PrimitiveNode::Make("value", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  NodePtr variant_node =
+      GroupNode::Make("variant", Repetition::REQUIRED, {metadata, value},
+                      LogicalType::Variant(spec_version));
+
+  // Verify variant logical type
+  auto logical_type = variant_node->logical_type();
+  ASSERT_TRUE(logical_type->is_variant());
+  const auto& variant_type = checked_cast<const VariantLogicalType&>(*logical_type);
+  ASSERT_EQ(variant_type.spec_version(), spec_version);
+
+  // Verify thrift serialization
+  std::vector<format::SchemaElement> elements;
+  ToParquet(reinterpret_cast<GroupNode*>(variant_node.get()), &elements);
+
+  // Verify that logicalType is set and is VARIANT
+  ASSERT_EQ(elements[0].name, "variant");
+  ASSERT_TRUE(elements[0].__isset.logicalType);
+  ASSERT_TRUE(elements[0].logicalType.__isset.VARIANT);
+
+  // Verify that specification_version is set properly
+  ASSERT_TRUE(elements[0].logicalType.VARIANT.__isset.specification_version);
+  ASSERT_EQ(elements[0].logicalType.VARIANT.specification_version, spec_version);
 }
 
 }  // namespace schema

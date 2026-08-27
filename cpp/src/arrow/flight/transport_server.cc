@@ -26,6 +26,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace flight {
@@ -136,6 +137,13 @@ class TransportMessageReader final : public FlightMessageReader {
     return out;
   }
 
+  ipc::ReadStats stats() const override {
+    if (batch_reader_ == nullptr) {
+      return ipc::ReadStats{};
+    }
+    return batch_reader_->stats();
+  }
+
  private:
   /// Ensure we are set up to read data.
   Status EnsureDataStarted() {
@@ -156,29 +164,67 @@ class TransportMessageReader final : public FlightMessageReader {
   FlightDescriptor descriptor_;
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
   std::shared_ptr<MemoryManager> memory_manager_;
-  std::shared_ptr<RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
 };
 
-// TODO(ARROW-10787): this should use the same writer/ipc trick as client
+/// \brief An IpcPayloadWriter for ServerDataStream.
+///
+/// To support app_metadata and reuse the existing IPC infrastructure,
+/// this takes a pointer to a buffer to be combined with the IPC
+/// payload when writing a Flight payload.
+class TransportMessagePayloadWriter : public ipc::internal::IpcPayloadWriter {
+ public:
+  TransportMessagePayloadWriter(ServerDataStream* stream,
+                                std::shared_ptr<Buffer>* app_metadata)
+      : stream_(stream), app_metadata_(app_metadata) {}
+
+  Status Start() override { return Status::OK(); }
+  Status WritePayload(const ipc::IpcPayload& ipc_payload) override {
+    FlightPayload payload;
+    payload.ipc_message = ipc_payload;
+
+    if (ipc_payload.type == ipc::MessageType::RECORD_BATCH && *app_metadata_) {
+      payload.app_metadata = std::move(*app_metadata_);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+    if (!success) {
+      return MakeFlightError(
+          FlightStatusCode::Internal,
+          "Could not write record batch to stream (client disconnect?)");
+    }
+    return arrow::Status::OK();
+  }
+  Status Close() override {
+    // Closing is handled one layer up in TransportMessageWriter::Close
+    return Status::OK();
+  }
+
+ private:
+  ServerDataStream* stream_;
+  std::shared_ptr<Buffer>* app_metadata_;
+};
+
 class TransportMessageWriter final : public FlightMessageWriter {
  public:
   explicit TransportMessageWriter(ServerDataStream* stream)
-      : stream_(stream), ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
+      : stream_(stream),
+        app_metadata_(nullptr),
+        ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
 
   Status Begin(const std::shared_ptr<Schema>& schema,
                const ipc::IpcWriteOptions& options) override {
-    if (started_) {
+    if (batch_writer_) {
       return Status::Invalid("This writer has already been started.");
     }
-    started_ = true;
     ipc_options_ = options;
+    std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(
+        new TransportMessagePayloadWriter(stream_, &app_metadata_));
 
-    RETURN_NOT_OK(mapper_.AddSchemaFields(*schema));
-    FlightPayload schema_payload;
-    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema, ipc_options_, mapper_,
-                                        &schema_payload.ipc_message));
-    return WritePayload(schema_payload);
+    ARROW_ASSIGN_OR_RAISE(batch_writer_,
+                          ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
+                                                               schema, ipc_options_));
+    return Status::OK();
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
@@ -188,71 +234,50 @@ class TransportMessageWriter final : public FlightMessageWriter {
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
     FlightPayload payload{};
     payload.app_metadata = app_metadata;
-    return WritePayload(payload);
+    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+    if (!success) {
+      ARROW_RETURN_NOT_OK(Close());
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not write metadata to stream (client disconnect?)");
+    }
+    return Status::OK();
   }
 
   Status WriteWithMetadata(const RecordBatch& batch,
                            std::shared_ptr<Buffer> app_metadata) override {
     RETURN_NOT_OK(CheckStarted());
-    RETURN_NOT_OK(EnsureDictionariesWritten(batch));
-    FlightPayload payload{};
-    if (app_metadata) {
-      payload.app_metadata = app_metadata;
+    app_metadata_ = app_metadata;
+    auto status = batch_writer_->WriteRecordBatch(batch);
+    if (!status.ok()) {
+      ARROW_RETURN_NOT_OK(Close());
     }
-    RETURN_NOT_OK(ipc::GetRecordBatchPayload(batch, ipc_options_, &payload.ipc_message));
-    RETURN_NOT_OK(WritePayload(payload));
-    ++stats_.num_record_batches;
-    return Status::OK();
+    return status;
   }
 
   Status Close() override {
-    // It's fine to Close() without writing data
+    if (batch_writer_) {
+      RETURN_NOT_OK(batch_writer_->Close());
+    }
     return Status::OK();
   }
 
-  ipc::WriteStats stats() const override { return stats_; }
+  ipc::WriteStats stats() const override {
+    ARROW_CHECK_NE(batch_writer_, nullptr);
+    return batch_writer_->stats();
+  }
 
  private:
-  Status WritePayload(const FlightPayload& payload) {
-    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
-    if (!success) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Could not write metadata to stream (client disconnect?)");
-    }
-    ++stats_.num_messages;
-    return Status::OK();
-  }
-
   Status CheckStarted() {
-    if (!started_) {
+    if (!batch_writer_) {
       return Status::Invalid("This writer is not started. Call Begin() with a schema");
     }
     return Status::OK();
   }
 
-  Status EnsureDictionariesWritten(const RecordBatch& batch) {
-    if (dictionaries_written_) {
-      return Status::OK();
-    }
-    dictionaries_written_ = true;
-    ARROW_ASSIGN_OR_RAISE(const auto dictionaries,
-                          ipc::CollectDictionaries(batch, mapper_));
-    for (const auto& pair : dictionaries) {
-      FlightPayload payload{};
-      RETURN_NOT_OK(ipc::GetDictionaryPayload(pair.first, pair.second, ipc_options_,
-                                              &payload.ipc_message));
-      RETURN_NOT_OK(WritePayload(payload));
-      ++stats_.num_dictionary_batches;
-    }
-    return Status::OK();
-  }
-
   ServerDataStream* stream_;
+  std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
+  std::shared_ptr<Buffer> app_metadata_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
-  ipc::DictionaryFieldMapper mapper_;
-  ipc::WriteStats stats_;
-  bool started_ = false;
-  bool dictionaries_written_ = false;
 };
 
 /// \brief Adapt TransportDataStream to the FlightMetadataWriter

@@ -370,9 +370,19 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& left_schema,
                                               const Schema& right_schema,
                                               ExecContext* exec_context) {
-  if (filter.IsBound() || filter == literal(true)) {
+  auto ValidateFilterTypeAndReturn = [](Expression filter) -> Result<Expression> {
+    if (filter.type()->id() != Type::BOOL) {
+      return Status::TypeError("Filter expression must evaluate to bool, but ",
+                               filter.ToString(), " evaluates to ",
+                               filter.type()->ToString());
+    }
     return filter;
+  };
+
+  if (filter.IsBound()) {
+    return ValidateFilterTypeAndReturn(std::move(filter));
   }
+
   // Step 1: Construct filter schema
   FieldVector fields;
   auto left_f_to_i =
@@ -401,12 +411,8 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
 
   // Step 3: Bind
   ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema, exec_context));
-  if (filter.type()->id() != Type::BOOL) {
-    return Status::TypeError("Filter expression must evaluate to bool, but ",
-                             filter.ToString(), " evaluates to ",
-                             filter.type()->ToString());
-  }
-  return filter;
+
+  return ValidateFilterTypeAndReturn(std::move(filter));
 }
 
 Expression HashJoinSchema::RewriteFilterToUseFilterSchema(

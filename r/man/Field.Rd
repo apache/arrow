@@ -4,14 +4,15 @@
 \alias{field}
 \title{Create a Field}
 \usage{
-field(name, type, metadata, nullable = TRUE)
+field(name, type, metadata = NULL, nullable = TRUE)
 }
 \arguments{
 \item{name}{field name}
 
 \item{type}{logical type, instance of \link{DataType}}
 
-\item{metadata}{currently ignored}
+\item{metadata}{a named character vector or list to attach as field metadata.
+All values will be coerced to \code{character}.}
 
 \item{nullable}{TRUE if field is nullable}
 }
@@ -20,6 +21,7 @@ Create a Field
 }
 \examples{
 field("x", int32())
+field("x", int32(), metadata = list(key = "value"))
 }
 \seealso{
 \link{Field}

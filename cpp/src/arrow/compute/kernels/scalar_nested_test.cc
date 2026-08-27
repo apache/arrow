@@ -176,6 +176,12 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
   auto input = ArrayFromJSON(fixed_size_list(int32(), 1), "[[1]]");
   auto expected = ArrayFromJSON(list(int32()), "[[1]]");
   CheckScalarUnary("list_slice", input, expected, &args);
+
+  args.start = 0;
+  args.stop = 0;
+  auto input_empty = ArrayFromJSON(list(int32()), "[[1, 2, 3], [4, 5], null]");
+  auto expected_empty = ArrayFromJSON(list(int32()), "[[], [], null]");
+  CheckScalarUnary("list_slice", input_empty, expected_empty, &args);
 }
 
 TEST(TestScalarNested, ListSliceFixedOutput) {
@@ -315,7 +321,8 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
-          "`start`(-1) should be greater than 0 and smaller than `stop`(1)"),
+          "`start`(-1) should be greater than or equal to 0 and not greater than "
+          "`stop`(1)"),
       CallFunction("list_slice", {input}, &args));
   // start greater than stop
   args.start = 1;
@@ -323,14 +330,8 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
-          "`start`(1) should be greater than 0 and smaller than `stop`(0)"),
-      CallFunction("list_slice", {input}, &args));
-  // start same as stop
-  args.stop = args.start;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          "`start`(1) should be greater than 0 and smaller than `stop`(1)"),
+          "`start`(1) should be greater than or equal to 0 and not greater than "
+          "`stop`(0)"),
       CallFunction("list_slice", {input}, &args));
   // stop not set and FixedSizeList requested with variable sized input
   args.stop = std::nullopt;
@@ -343,9 +344,9 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   args.start = 0;
   args.stop = 2;
   args.step = 0;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  ::testing::HasSubstr("`step` must be >= 1, got: 0"),
-                                  CallFunction("list_slice", {input}, &args));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("`step` must be greater than or equal to 1, got: 0"),
+      CallFunction("list_slice", {input}, &args));
 }
 
 TEST(TestScalarNested, StructField) {

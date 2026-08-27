@@ -33,6 +33,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 
 #include "parquet/column_page.h"
@@ -319,8 +320,9 @@ class DataPageBuilder {
     encoder.Encode(static_cast<int>(levels.size()), levels.data());
 
     int32_t rle_bytes = encoder.len();
+    int32_t rle_bytes_le = ::arrow::bit_util::ToLittleEndian(rle_bytes);
     PARQUET_THROW_NOT_OK(
-        sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(int32_t)));
+        sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes_le), sizeof(int32_t)));
     PARQUET_THROW_NOT_OK(sink_->Write(encode_buffer.data(), rle_bytes));
   }
 };
@@ -835,7 +837,7 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
 // ----------------------------------------------------------------------
 // Test utility functions for geometry
 
-#if defined(ARROW_LITTLE_ENDIAN)
+#if ARROW_LITTLE_ENDIAN
 static constexpr uint8_t kWkbNativeEndianness = 0x01;
 #else
 static constexpr uint8_t kWkbNativeEndianness = 0x00;

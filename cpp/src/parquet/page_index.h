@@ -19,6 +19,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "parquet/encryption/type_fwd.h"
+#include "parquet/index_location.h"
 #include "parquet/type_fwd.h"
 #include "parquet/types.h"
 
@@ -33,7 +34,7 @@ class PARQUET_EXPORT ColumnIndex {
   /// \brief Create a ColumnIndex from a serialized thrift message.
   static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
                                            const void* serialized_index,
-                                           uint32_t index_len,
+                                           int64_t index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor = NULLPTR);
 
@@ -131,7 +132,7 @@ class PARQUET_EXPORT OffsetIndex {
  public:
   /// \brief Create a OffsetIndex from a serialized thrift message.
   static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
-                                           uint32_t index_len,
+                                           int64_t index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor = NULLPTR);
 
@@ -372,15 +373,19 @@ class PARQUET_EXPORT PageIndexBuilder {
   /// \brief Complete the page index builder and no more write is allowed.
   virtual void Finish() = 0;
 
+  struct WriteResult {
+    IndexLocations column_index_locations;
+    IndexLocations offset_index_locations;
+  };
+
   /// \brief Serialize the page index thrift message.
   ///
   /// Only valid column indexes and offset indexes are serialized and their locations
   /// are set.
   ///
   /// \param[out] sink The output stream to write the page index.
-  /// \param[out] location The location of all page index to the start of sink.
-  virtual void WriteTo(::arrow::io::OutputStream* sink,
-                       PageIndexLocation* location) const = 0;
+  /// \return The location of all page indexes.
+  virtual WriteResult WriteTo(::arrow::io::OutputStream* sink) const = 0;
 };
 
 }  // namespace parquet

@@ -55,6 +55,16 @@ Buffers
 .. doxygenclass:: arrow::ResizableBuffer
    :members:
 
+Non-owning Buffer
+-----------------
+
+.. warning::
+   This class is exposed solely as a building block for :class:`arrow::ArraySpan`.
+   For any other purpose, please use :class:`arrow::Buffer`.
+
+.. doxygenclass:: arrow::BufferSpan
+   :members:
+
 Memory Pools
 ------------
 
@@ -90,6 +100,8 @@ Slicing
 
 .. doxygengroup:: buffer-slicing-functions
    :content-only:
+
+.. _cpp-api-buffer-builders:
 
 Buffer Builders
 ---------------

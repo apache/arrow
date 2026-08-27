@@ -41,28 +41,28 @@ jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
-    # Use Ubuntu 22.04 to ensure working pre-commit on Ubuntu 22.04.
-    runs-on: ubuntu-22.04
+    # Use Ubuntu 24.04 to ensure working pre-commit on Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install pre-commit
         run: |
           sudo apt update
           sudo apt install -y -V \
             pre-commit \
-            r-base \
-            ruby-dev
+            ruby-dev \
+            libuv1-dev
       - name: Cache pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/pre-commit
-            ~/.local/share/renv/cache
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Run pre-commit
         run: |
@@ -86,26 +86,23 @@ jobs:
       GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ruby
-      - name: Install .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
-        with:
-          dotnet-version: '8.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
-          gem install test-unit
-          pip install "cython>=3" setuptools pytest requests setuptools-scm
+          gem install test-unit openssl
+          pip install build "cython>=3.1" pytest requests scikit-build-core setuptools-scm
       - name: Run Release Test
         shell: bash
         run: |

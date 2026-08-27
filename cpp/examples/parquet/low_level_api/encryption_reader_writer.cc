@@ -68,13 +68,10 @@ int main(int argc, char** argv) {
     auto column_path1 = schema_desc.Column(5)->path()->ToDotString();
     auto column_path2 = schema_desc.Column(4)->path()->ToDotString();
 
-    parquet::ColumnEncryptionProperties::Builder encryption_col_builder0(column_path1);
-    parquet::ColumnEncryptionProperties::Builder encryption_col_builder1(column_path2);
-    encryption_col_builder0.key(kColumnEncryptionKey1)->key_id("kc1");
-    encryption_col_builder1.key(kColumnEncryptionKey2)->key_id("kc2");
-
-    encryption_cols[column_path1] = encryption_col_builder0.build();
-    encryption_cols[column_path2] = encryption_col_builder1.build();
+    encryption_cols[column_path1] =
+        parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+    encryption_cols[column_path2] =
+        parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2, "kc2");
 
     parquet::FileEncryptionProperties::Builder file_encryption_builder(
         kFooterEncryptionKey);

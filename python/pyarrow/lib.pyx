@@ -38,6 +38,10 @@ cimport cpython as cp
 
 # Initialize NumPy C API only if numpy was able to be imported
 if np is not None:
+    if int(np.__version__.partition('.')[0]) < 2:
+        raise ImportError(
+            f"pyarrow requires NumPy 2.0 or newer, found {np.__version__}"
+        )
     arrow_init_numpy()
 
 # Initialize PyArrow C++ API
@@ -83,6 +87,13 @@ def set_cpu_count(int count):
     if count < 1:
         raise ValueError("CPU count must be strictly positive")
     check_status(SetCpuThreadPoolCapacity(count))
+
+
+def is_opentelemetry_enabled() -> bool:
+    """
+    Returns True if OpenTelemetry is enabled in libarrow.
+    """
+    return libarrow_python.IsOpenTelemetryEnabled()
 
 
 def is_threading_enabled() -> bool:

@@ -76,5 +76,8 @@ GArrowCallExpression *
 garrow_call_expression_new(const gchar *function,
                            GList *arguments,
                            GArrowFunctionOptions *options);
+GARROW_AVAILABLE_IN_24_0
+GList *
+garrow_call_expression_get_arguments(GArrowCallExpression *expression);
 
 G_END_DECLS

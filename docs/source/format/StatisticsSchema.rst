@@ -104,14 +104,14 @@ Here is the details of top-level ``struct``:
      - ``int32``
      - ``true``
      - The zero-based column index, or null if the statistics
-       describe the whole table or record batch.
+       describe the whole record batch or array.
 
        The column index is computed as the same rule used by
        :ref:`ipc-recordbatch-message`.
    * - ``statistics``
      - ``map``
      - ``false``
-     - Statistics for the target column, table or record batch. See
+     - Statistics for the target column, record batch or array. See
        the separate table below for details.
 
 Here is the details of the ``map`` of the ``statistics``:
@@ -151,7 +151,7 @@ Standard statistics
 -------------------
 
 Each statistic kind has a name that appears as a key in the statistics
-map for each column or entire table. ``dictionary<values: utf8,
+map for each column or entire record batch or array. ``dictionary<values: utf8,
 indices: int32>`` is used to encode the name for space-efficiency.
 
 We assign different names for variations of the same statistic instead
@@ -217,11 +217,11 @@ Here are pre-defined statistics names:
      - The number of nulls in the target column. (approximate)
    * - ``ARROW:row_count:exact``
      - ``int64``
-     - The number of rows in the target table, record batch or
+     - The number of rows in the target record batch or
        array. (exact)
    * - ``ARROW:row_count:approximate``
      - ``float64``
-     - The number of rows in the target table, record batch or
+     - The number of rows in the target record batch or
        array. (approximate)
 
 If you find a statistic that might be useful to multiple systems,

@@ -30,6 +30,16 @@
 namespace arrow {
 namespace stl {
 
+class BadAlloc : public std::bad_alloc {
+ public:
+  explicit BadAlloc(Status st) noexcept : st_(std::move(st)) {}
+
+  const char* what() const noexcept override { return st_.message().c_str(); }
+
+ protected:
+  Status st_;
+};
+
 /// \brief A STL allocator delegating allocations to a Arrow MemoryPool
 template <class T>
 class allocator {
@@ -50,7 +60,7 @@ class allocator {
   /// \brief Construct an allocator from the default MemoryPool
   allocator() noexcept : pool_(default_memory_pool()) {}
   /// \brief Construct an allocator from the given MemoryPool
-  explicit allocator(MemoryPool* pool) noexcept : pool_(pool) {}
+  allocator(MemoryPool* pool) noexcept : pool_(pool) {}  // NOLINT: runtime/explicit
 
   template <class U>
   allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool()) {}
@@ -64,7 +74,7 @@ class allocator {
   pointer allocate(size_type n, const void* /*hint*/ = NULLPTR) {
     uint8_t* data;
     Status s = pool_->Allocate(n * sizeof(T), &data);
-    if (!s.ok()) throw std::bad_alloc();
+    if (!s.ok()) throw BadAlloc(std::move(s));
     return reinterpret_cast<pointer>(data);
   }
 

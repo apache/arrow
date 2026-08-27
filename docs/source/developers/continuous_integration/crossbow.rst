@@ -108,7 +108,7 @@ to step 3:
 
    or pass as an argument to the CLI script ``--github-token``
 
-6. Install Python (minimum supported version is 3.9):
+6. Install Python (minimum supported version is 3.11):
 
    | Miniconda is preferred, see installation instructions:
    | https://conda.io/docs/user-guide/install/index.html
@@ -207,11 +207,11 @@ Just render without applying or committing the changes:
 
    $ archery crossbow submit --dry-run task_name
 
-Run only ``conda`` package builds and a Linux one:
+Run only ``conda`` package builds and a C++ one:
 
 .. code::
 
-   $ archery crossbow submit --group conda centos-7
+   $ archery crossbow submit --group conda test-ubuntu-24.04-cpp
 
 Run ``wheel`` builds:
 

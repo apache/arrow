@@ -35,6 +35,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -104,6 +105,13 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Note: The IOContext executor will be ignored if use_threads is set to false
   io::IOContext io_context;
 
+  /// Executor for any CPU tasks
+  ///
+  /// If null, the global CPU executor will be used
+  ///
+  /// Note: The Executor will be ignored if use_threads is set to false
+  arrow::internal::Executor* cpu_executor = NULLPTR;
+
   /// If true the scanner will scan in parallel
   ///
   /// Note: If true, this will use threads from both the cpu_executor and the
@@ -142,6 +150,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<FieldRef> MaterializedFields() const;
 
   /// Parameters which control when the plan should pause for a slow consumer
+  /// \hideinitializer
   acero::BackpressureOptions backpressure =
       acero::BackpressureOptions::DefaultBackpressure();
 };

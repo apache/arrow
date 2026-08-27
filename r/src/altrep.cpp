@@ -24,30 +24,9 @@
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/visit_data_inline.h>
 
-#include <cpp11/altrep.hpp>
 #include <cpp11/declarations.hpp>
-#if defined(HAS_ALTREP)
 
-#if R_VERSION < R_Version(3, 6, 0)
-
-// workaround because R's <R_ext/Altrep.h> not so conveniently uses `class`
-// as a variable name, and C++ is not happy about that
-//
-// SEXP R_new_altrep(R_altrep_class_t class, SEXP data1, SEXP data2);
-//
-#define class klass
-
-// Because functions declared in <R_ext/Altrep.h> have C linkage
-extern "C" {
 #include <R_ext/Altrep.h>
-}
-
-// undo the workaround
-#undef class
-
-#else
-#include <R_ext/Altrep.h>
-#endif
 
 #include "./r_task_group.h"
 
@@ -149,8 +128,8 @@ struct AltrepVectorBase {
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    SEXP data_class_sym = CAR(ATTRIB(ALTREP_CLASS(alt)));
-    const char* class_name = CHAR(PRINTNAME(data_class_sym));
+    SEXP class_sym = R_altrep_class_name(alt);
+    const char* class_name = CHAR(PRINTNAME(class_sym));
 
     if (IsMaterialized(alt)) {
       Rprintf("materialized %s len=%ld\n", class_name,
@@ -572,13 +551,12 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
   static SEXP Duplicate(SEXP alt, Rboolean /* deep */) {
     // the representation integer vector
-    SEXP dup = PROTECT(Rf_lazy_duplicate(Materialize(alt)));
+    SEXP dup = PROTECT(Rf_shallow_duplicate(Materialize(alt)));
 
-    // additional attributes from the altrep
-    SEXP atts = PROTECT(Rf_duplicate(ATTRIB(alt)));
-    SET_ATTRIB(dup, atts);
+    // copy attributes from the altrep object
+    DUPLICATE_ATTRIB(dup, alt);
 
-    UNPROTECT(2);
+    UNPROTECT(1);
     return dup;
   }
 
@@ -1094,9 +1072,7 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 
 bool is_arrow_altrep(SEXP x) {
   if (ALTREP(x)) {
-    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
-    SEXP pkg = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
-
+    SEXP pkg = R_altrep_class_package(x);
     if (pkg == symbols::arrow) return true;
   }
 
@@ -1119,29 +1095,6 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
 }  // namespace r
 }  // namespace arrow
 
-#else  // HAS_ALTREP
-
-namespace arrow {
-namespace r {
-namespace altrep {
-
-// return an altrep R vector that shadows the array if possible
-SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
-  return R_NilValue;
-}
-
-bool is_arrow_altrep(SEXP) { return false; }
-
-std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
-
-bool is_unmaterialized_arrow_altrep(SEXP) { return false; }
-
-}  // namespace altrep
-}  // namespace r
-}  // namespace arrow
-
-#endif
-
 // [[arrow::export]]
 bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }
 
@@ -1160,8 +1113,8 @@ sexp test_arrow_altrep_is_materialized(sexp x) {
     return Rf_ScalarLogical(NA_LOGICAL);
   }
 
-  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
-  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+  SEXP class_sym = R_altrep_class_name(x);
+  std::string class_name(CHAR(PRINTNAME(class_sym)));
 
   int result = NA_LOGICAL;
   if (class_name == "arrow::array_dbl_vector") {
@@ -1191,8 +1144,8 @@ bool test_arrow_altrep_force_materialize(sexp x) {
     stop("x is already materialized");
   }
 
-  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
-  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+  SEXP class_sym = R_altrep_class_name(x);
+  std::string class_name(CHAR(PRINTNAME(class_sym)));
 
   if (class_name == "arrow::array_dbl_vector") {
     arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::Materialize(x);

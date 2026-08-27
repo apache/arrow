@@ -389,6 +389,10 @@ TEST_F(TestProjector, TestAllIntTypes) {
 }
 
 TEST_F(TestProjector, TestExtendedMath) {
+#ifdef __aarch64__
+  GTEST_SKIP() << "Failed on aarch64 with 'JIT session error: Symbols not found: [ "
+                  "__multf3, __subtf3, __trunctfdf2, __extenddftf2, __divtf3 ]'";
+#endif
   // schema for input fields
   auto field0 = arrow::field("f0", arrow::float64());
   auto field1 = arrow::field("f1", arrow::float64());
@@ -415,11 +419,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto field_radians = arrow::field("radians", arrow::float64());
   auto field_degrees = arrow::field("degrees", arrow::float64());
   auto field_udfdegrees = arrow::field("udfdegrees", arrow::float64());
+  auto field_ln = arrow::field("ln", arrow::float64());
 
   // Build expression
   auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
   auto exp_expr = TreeExprBuilder::MakeExpression("exp", {field0}, field_exp);
   auto log_expr = TreeExprBuilder::MakeExpression("log", {field0}, field_log);
+  auto ln_expr = TreeExprBuilder::MakeExpression("ln", {field0}, field_ln);
   auto log10_expr = TreeExprBuilder::MakeExpression("log10", {field0}, field_log10);
   auto logb_expr = TreeExprBuilder::MakeExpression("log", {field0, field1}, field_logb);
   auto power_expr =
@@ -443,10 +449,11 @@ TEST_F(TestProjector, TestExtendedMath) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema, {cbrt_expr,  exp_expr,  log_expr,     log10_expr,   logb_expr,
-               power_expr, sin_expr,  cos_expr,     asin_expr,    acos_expr,
-               tan_expr,   atan_expr, sinh_expr,    cosh_expr,    tanh_expr,
-               atan2_expr, cot_expr,  radians_expr, degrees_expr, udfdegrees_expr},
+      schema,
+      {cbrt_expr,    exp_expr,     log_expr,       ln_expr,   log10_expr, logb_expr,
+       power_expr,   sin_expr,     cos_expr,       asin_expr, acos_expr,  tan_expr,
+       atan_expr,    sinh_expr,    cosh_expr,      tanh_expr, atan2_expr, cot_expr,
+       radians_expr, degrees_expr, udfdegrees_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -480,10 +487,12 @@ TEST_F(TestProjector, TestExtendedMath) {
   std::vector<double> radians_vals;
   std::vector<double> degrees_vals;
   std::vector<double> udfdegrees_vals;
+  std::vector<double> ln_vals;
   for (int i = 0; i < num_records; i++) {
     cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
     exp_vals.push_back(static_cast<double>(expl(input0[i])));
     log_vals.push_back(static_cast<double>(logl(input0[i])));
+    ln_vals.push_back(static_cast<double>(logl(input0[i])));
     log10_vals.push_back(static_cast<double>(log10l(input0[i])));
     logb_vals.push_back(static_cast<double>(logl(input1[i]) / logl(input0[i])));
     power_vals.push_back(static_cast<double>(powl(input0[i], input1[i])));
@@ -525,6 +534,7 @@ TEST_F(TestProjector, TestExtendedMath) {
       MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
   auto expected_udfdegrees =
       MakeArrowArray<arrow::DoubleType, double>(udfdegrees_vals, validity);
+  auto expected_ln = MakeArrowArray<arrow::DoubleType, double>(ln_vals, validity);
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -535,26 +545,28 @@ TEST_F(TestProjector, TestExtendedMath) {
 
   // Validate results
   double epsilon = 1E-13;
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cbrt, outputs.at(0), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_exp, outputs.at(1), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log, outputs.at(2), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log10, outputs.at(3), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_logb, outputs.at(4), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_power, outputs.at(5), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sin, outputs.at(6), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cos, outputs.at(7), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_asin, outputs.at(8), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_acos, outputs.at(9), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tan, outputs.at(10), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan, outputs.at(11), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sinh, outputs.at(12), 1E-08);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cosh, outputs.at(13), 1E-08);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tanh, outputs.at(14), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan2, outputs.at(15), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(16), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(17), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(18), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_udfdegrees, outputs.at(19), epsilon);
+  int index = 0;
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cbrt, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_exp, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_ln, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log10, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_logb, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_power, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sin, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cos, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_asin, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_acos, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tan, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sinh, outputs.at(index++), 1E-08);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cosh, outputs.at(index++), 1E-08);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tanh, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan2, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_udfdegrees, outputs.at(index++), epsilon);
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {
@@ -1313,13 +1325,16 @@ TEST_F(TestProjector, TestChr) {
   auto status = Projector::Make(schema, {chr_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  // Create a row-batch with some sample data
+  // Create a row-batch with code points spanning 1- to 4-byte UTF-8 encodings.
+  // 65 -> "A", 237 -> "í" (U+00ED), 8364 -> "€" (U+20AC), 26085 -> "日" (U+65E5),
+  // 128512 -> "😀" (U+1F600).
   int num_records = 5;
   auto array0 =
-      MakeArrowArrayInt64({65, 84, 255, 340, -5}, {true, true, true, true, true});
-  // expected output
-  auto exp_chr =
-      MakeArrowArrayUtf8({"A", "T", "\xFF", "T", "\xFB"}, {true, true, true, true, true});
+      MakeArrowArrayInt64({65, 237, 8364, 26085, 128512}, {true, true, true, true, true});
+  // expected UTF-8 output
+  auto exp_chr = MakeArrowArrayUtf8(
+      {"A", "\xC3\xAD", "\xE2\x82\xAC", "\xE6\x97\xA5", "\xF0\x9F\x98\x80"},
+      {true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -1331,6 +1346,37 @@ TEST_F(TestProjector, TestChr) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_chr, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestChrInvalidCodePoint) {
+  // schema for input fields
+  auto field0 = field("f0", int64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_chr = field("chr", arrow::utf8());
+
+  // Build expression
+  auto chr_expr = TreeExprBuilder::MakeExpression("chr", {field0}, field_chr);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {chr_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // A code point outside the valid Unicode range (here, a negative value) must
+  // fail evaluation rather than wrap around.
+  int num_records = 1;
+  auto array0 = MakeArrowArrayInt64({-5}, {true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("not a valid Unicode code point"), std::string::npos)
+      << status.message();
+  // The message should include the offending value for debuggability.
+  EXPECT_NE(status.message().find("-5"), std::string::npos) << status.message();
 }
 
 TEST_F(TestProjector, TestBase64) {
@@ -3020,6 +3066,47 @@ TEST_F(TestProjector, TestRegexpExtract) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_extract, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestRegexpExtractTwoArg) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_extract = field("extract", arrow::utf8());
+
+  // The two-arg overload defaults to extracting the first capture group (index 1).
+  std::string pattern(R"((\w+) (\w+))");
+  auto literal = TreeExprBuilder::MakeStringLiteral(pattern);
+  auto node0 = TreeExprBuilder::MakeField(field0);
+
+  // Build expression with the two-arg overload: regexp_extract(string, pattern)
+  auto regexp_extract_func =
+      TreeExprBuilder::MakeFunction("regexp_extract", {node0, literal}, arrow::utf8());
+  auto extract_expr = TreeExprBuilder::MakeExpression(regexp_extract_func, field_extract);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {extract_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"John Doe", "Ringo Beast", "stringthatdonotmatch"},
+                                   {true, true, true});
+  // expected output: first capture group, empty string when the pattern does not match
+  auto exp_extract = MakeArrowArrayUtf8({"John", "Ringo", ""}, {true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_extract, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestCastVarbinary) {
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int64());
@@ -3672,6 +3759,163 @@ TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestRandomNoArgs) {
+  // Test random() with no arguments - returns double in [0, 1)
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::float64());
+
+  auto rand_node = TreeExprBuilder::MakeFunction("random", {}, arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(rand_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [0, 1)
+  auto result = std::dynamic_pointer_cast<arrow::DoubleArray>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    double value = result->Value(i);
+    EXPECT_GE(value, 0.0);
+    EXPECT_LT(value, 1.0);
+  }
+}
+
+TEST_F(TestProjector, TestRandomWithSeed) {
+  // Test rand(seed) - with seed literal, returns double in [0, 1)
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::float64());
+
+  auto seed_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(12345));
+  auto rand_node =
+      TreeExprBuilder::MakeFunction("rand", {seed_literal}, arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(rand_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [0, 1)
+  auto result = std::dynamic_pointer_cast<arrow::DoubleArray>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    double value = result->Value(i);
+    EXPECT_GE(value, 0.0);
+    EXPECT_LT(value, 1.0);
+  }
+}
+
+TEST_F(TestProjector, TestRandIntegerNoArgs) {
+  // Test rand_integer() with no arguments - full int32 range
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::int32());
+
+  auto rand_int_node = TreeExprBuilder::MakeFunction("rand_integer", {}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(rand_int_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are valid int32 (no specific range check for full range)
+  auto result = std::dynamic_pointer_cast<arrow::Int32Array>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+}
+
+TEST_F(TestProjector, TestRandIntegerWithRange) {
+  // Test rand_integer(10) - range [0, 9]
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::int32());
+
+  auto range_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(10));
+  auto rand_int_node =
+      TreeExprBuilder::MakeFunction("rand_integer", {range_literal}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(rand_int_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [0, 9]
+  auto result = std::dynamic_pointer_cast<arrow::Int32Array>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    int32_t value = result->Value(i);
+    EXPECT_GE(value, 0);
+    EXPECT_LT(value, 10);
+  }
+}
+
+TEST_F(TestProjector, TestRandIntegerWithMinMax) {
+  // Test rand_integer(5, 15) - range [5, 15] inclusive
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::int32());
+
+  auto min_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(5));
+  auto max_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(15));
+  auto rand_int_node = TreeExprBuilder::MakeFunction(
+      "rand_integer", {min_literal, max_literal}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(rand_int_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [5, 15] inclusive
+  auto result = std::dynamic_pointer_cast<arrow::Int32Array>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    int32_t value = result->Value(i);
+    EXPECT_GE(value, 5);
+    EXPECT_LE(value, 15);
+  }
 }
 
 }  // namespace gandiva

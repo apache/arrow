@@ -92,7 +92,7 @@ using CBuilderType =
 template <typename ValueCType, typename Range>
 inline Status AppendListValues(CBuilderType<ValueCType>& value_builder,
                                Range&& cell_range) {
-  for (auto const& value : cell_range) {
+  for (const auto& value : cell_range) {
     ARROW_RETURN_NOT_OK(ConversionTraits<ValueCType>::AppendRow(value_builder, value));
   }
   return Status::OK();
@@ -441,12 +441,12 @@ Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
   std::vector<std::unique_ptr<ArrayBuilder>> builders(n_columns);
   ARROW_RETURN_NOT_OK(internal::CreateBuildersRecursive<row_type>::Make(pool, &builders));
 
-  for (auto const& row : rows) {
+  for (const auto& row : rows) {
     ARROW_RETURN_NOT_OK(internal::RowIterator<row_type>::Append(builders, row));
   }
 
   std::vector<std::shared_ptr<Array>> arrays;
-  for (auto const& builder : builders) {
+  for (const auto& builder : builders) {
     std::shared_ptr<Array> array;
     ARROW_RETURN_NOT_OK(builder->Finish(&array));
     arrays.emplace_back(array);

@@ -43,19 +43,19 @@ test_that("JSON dataset", {
   expect_identical(dim(ds), c(20L, 7L))
 
   expect_equal(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
+    ds |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 5) |>
+      collect() |>
       summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% arrange(part) %>% pull(part),
+    collect(ds) |> arrange(part) |> pull(part),
     c(rep(5, 10), rep(6, 10))
   )
 })

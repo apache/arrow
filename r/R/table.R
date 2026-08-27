@@ -76,7 +76,8 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table-class
 #' @export
-Table <- R6Class("Table",
+Table <- R6Class(
+  "Table",
   inherit = ArrowTabular,
   public = list(
     column = function(i) Table__column(self, i),
@@ -166,7 +167,8 @@ names.Table <- function(x) x$ColumnNames()
 #' does not copy array data, but instead creates new chunked arrays for each
 #' column that point at existing array data.
 #'
-#' @param ... A [Table]
+#' @param ... One or more [Table] or [RecordBatch] objects. RecordBatch objects
+#'   will be automatically converted to Tables.
 #' @param unify_schemas If TRUE, the schemas of the tables will be first unified
 #' with fields of the same name being merged, then each table will be promoted
 #' to the unified schema before being concatenated. Otherwise, all tables should
@@ -176,6 +178,10 @@ names.Table <- function(x) x$ColumnNames()
 #' prius <- arrow_table(name = "Prius", mpg = 58, cyl = 4, disp = 1.8)
 #' combined <- concat_tables(tbl, prius)
 #' tail(combined)$to_data_frame()
+#'
+#' # Can also pass RecordBatch objects
+#' batch <- record_batch(name = "Volt", mpg = 53, cyl = 4, disp = 1.5)
+#' combined2 <- concat_tables(tbl, batch)
 #' @export
 concat_tables <- function(..., unify_schemas = TRUE) {
   tables <- list2(...)
@@ -183,6 +189,15 @@ concat_tables <- function(..., unify_schemas = TRUE) {
   if (length(tables) == 0) {
     abort("Must pass at least one Table.")
   }
+
+  # Convert any RecordBatch objects to Tables
+  tables <- lapply(tables, function(x) {
+    if (inherits(x, "RecordBatch")) {
+      arrow_table(x)
+    } else {
+      x
+    }
+  })
 
   if (!unify_schemas) {
     # assert they have same schema
@@ -230,9 +245,7 @@ cbind.Table <- function(...) {
       as.list(input)
     } else {
       if (name == "") {
-        abort("Vector and array arguments must have names",
-          i = sprintf("Argument ..%d is missing a name", i)
-        )
+        abort("Vector and array arguments must have names", i = sprintf("Argument ..%d is missing a name", i))
       }
       list2("{name}" := input)
     }
