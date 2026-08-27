@@ -109,6 +109,9 @@ static void SetNanBitsDictionary(const ArraySpan& arr, const ArraySpan& dict_spa
   const IndexType* indices = arr.GetValues<IndexType>(1);
   const ValueType* dict_values = dict_span.GetValues<ValueType>(1);
   for (int64_t i = 0; i < arr.length; ++i) {
+    if (arr.IsNull(i)) {
+      continue;
+    }
     auto dict_index = indices[i];
     bool is_nan;
     if constexpr (std::is_same_v<ValueType, uint16_t>) {
@@ -152,7 +155,8 @@ static void DispatchIndexType(const ArraySpan& arr, const ArraySpan& dict_span,
       SetNanBitsDictionary<uint64_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
       break;
     default:
-      SetNanBitsDictionary<int32_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      DCHECK(false) << "unreachable: unsupported dictionary index type "
+                    << dict_type.index_type()->ToString();
       break;
   }
 }
