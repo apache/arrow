@@ -1774,6 +1774,26 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 // across calls, so the encoder can produce output progressively and use
 // bounded memory. This is deferred to a follow-up change; the decoder
 // carries the matching TODO.
+//
+// TODO: fall back to PLAIN when PFOR is not paying for itself. This encoder
+// always emits a PFOR page, and the cost model's worst case is the full width
+// with no exceptions, so a column whose deltas never narrow (random values, or
+// a low null sentinel that becomes the frame of reference and can never be an
+// exception) encodes to its plain size plus the page header, the offset array
+// and one PforVectorInfo per vector.
+//
+// The decision belongs in ColumnWriterImpl, not here: `encoding_` is const, so
+// this encoder cannot relabel its own page, and the choice depends on the page
+// compressor, which this layer knows nothing about. The mechanism already
+// exists -- mirror `FallbackToPlainEncoding()` in column_writer.cc, which swaps
+// `current_encoder_` for a PLAIN encoder and updates `encoding_`. Parquet
+// records the encoding per page, so mixing PLAIN and PFOR pages in one column
+// chunk needs no format change.
+//
+// What is missing on this side is a way for the writer to know the ratio
+// before paying for the encode. FindOptimalBitWidth already computes the cost
+// of a vector in bits, so a sampled estimate over the first few vectors would
+// answer the question without encoding the page twice.
 template <typename DType>
 class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
