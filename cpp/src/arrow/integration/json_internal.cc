@@ -51,6 +51,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
@@ -111,11 +112,11 @@ std::string GetTimeUnitName(TimeUnit::type unit) {
   return "UNKNOWN";
 }
 
-Result<std::string_view> GetStringView(const rj::Value& str) {
-  if (!str.IsString()) {
-    return Status::Invalid("field was not a string");
-  }
-  return std::string_view{str.GetString(), str.GetStringLength()};
+Result<std::string_view> GetStringView(const JsonValue& value) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto string_view,
+      internal::ResolveSimdjsonResult(value.get_string(), "field was not a string"));
+  return string_view;
 }
 
 class SchemaWriter {
@@ -880,48 +881,47 @@ Result<TimeUnit::type> GetUnitFromString(const std::string& unit_str) {
 }
 
 template <typename IntType = int>
-Result<IntType> GetMemberInt(const RjObject& obj, const std::string& key) {
-  const auto& it = obj.FindMember(key);
-  RETURN_NOT_INT(key, it, obj);
-  return static_cast<IntType>(it->value.GetInt64());
+Result<IntType> GetMemberInt(const JsonObject& obj, std::string_view key) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
+  ARROW_ASSIGN_OR_RAISE(auto integer, internal::GetJsonInt(value, key, "an integer"));
+  return static_cast<IntType>(integer);
 }
 
-Result<bool> GetMemberBool(const RjObject& obj, const std::string& key) {
-  const auto& it = obj.FindMember(key);
-  RETURN_NOT_BOOL(key, it, obj);
-  return it->value.GetBool();
+Result<bool> GetMemberBool(const JsonObject& obj, std::string_view key) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
+  return internal::ResolveSimdjsonResult(value.get_bool(), "field was not a boolean");
 }
 
-Result<std::string> GetMemberString(const RjObject& obj, const std::string& key) {
-  const auto& it = obj.FindMember(key);
-  RETURN_NOT_STRING(key, it, obj);
-  return it->value.GetString();
+Result<std::string> GetMemberString(const JsonObject& obj, std::string_view key) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto string_view,
+      internal::ResolveSimdjsonResult(value.get_string(), "field was not a string"));
+  return std::string(string_view);
 }
 
-Result<const RjObject> GetMemberObject(const RjObject& obj, const std::string& key) {
-  const auto& it = obj.FindMember(key);
-  RETURN_NOT_OBJECT(key, it, obj);
-  return it->value.GetObject();
+Result<JsonObject> GetMemberObject(const JsonObject& obj, std::string_view key) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
+  return internal::ResolveSimdjsonResult(value.get_object(), "field was not an object");
 }
 
-Result<const RjArray> GetMemberArray(const RjObject& obj, const std::string& key,
-                                     bool allow_absent = false) {
-  static const auto empty_array = rj::Value(rj::kArrayType);
+Result<JsonArray> GetMemberArray(const JsonObject& obj, std::string_view key) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
 
-  const auto& it = obj.FindMember(key);
-  if (allow_absent && it == obj.MemberEnd()) {
-    return empty_array.GetArray();
-  }
-  RETURN_NOT_ARRAY(key, it, obj);
-  return it->value.GetArray();
+  return internal::GetJsonArray(value, key);
 }
 
-Result<TimeUnit::type> GetMemberTimeUnit(const RjObject& obj, const std::string& key) {
+Result<TimeUnit::type> GetMemberTimeUnit(const JsonObject& obj, std::string_view key) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(obj, key));
   return GetUnitFromString(unit_str);
 }
 
-Result<std::shared_ptr<DataType>> GetInteger(const rj::Value::ConstObject& json_type) {
+Result<std::shared_ptr<DataType>> GetInteger(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const bool is_signed, GetMemberBool(json_type, "isSigned"));
   ARROW_ASSIGN_OR_RAISE(const int bit_width, GetMemberInt<int>(json_type, "bitWidth"));
 
@@ -938,7 +938,7 @@ Result<std::shared_ptr<DataType>> GetInteger(const rj::Value::ConstObject& json_
   return Status::Invalid("Invalid bit width: ", bit_width);
 }
 
-Result<std::shared_ptr<DataType>> GetFloatingPoint(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetFloatingPoint(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto precision, GetMemberString(json_type, "precision"));
 
   if (precision == "DOUBLE") {
@@ -951,7 +951,7 @@ Result<std::shared_ptr<DataType>> GetFloatingPoint(const RjObject& json_type) {
   return Status::Invalid("Invalid precision: ", precision);
 }
 
-Result<std::shared_ptr<DataType>> GetMap(const RjObject& json_type,
+Result<std::shared_ptr<DataType>> GetMap(const JsonObject& json_type,
                                          const FieldVector& children) {
   if (children.size() != 1) {
     return Status::Invalid("Map must have exactly one child");
@@ -961,13 +961,13 @@ Result<std::shared_ptr<DataType>> GetMap(const RjObject& json_type,
   return MapType::Make(children[0], keys_sorted);
 }
 
-Result<std::shared_ptr<DataType>> GetFixedSizeBinary(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetFixedSizeBinary(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const int32_t byte_width,
                         GetMemberInt<int32_t>(json_type, "byteWidth"));
   return fixed_size_binary(byte_width);
 }
 
-Result<std::shared_ptr<DataType>> GetFixedSizeList(const RjObject& json_type,
+Result<std::shared_ptr<DataType>> GetFixedSizeList(const JsonObject& json_type,
                                                    const FieldVector& children) {
   if (children.size() != 1) {
     return Status::Invalid("FixedSizeList must have exactly one child");
@@ -978,7 +978,7 @@ Result<std::shared_ptr<DataType>> GetFixedSizeList(const RjObject& json_type,
   return fixed_size_list(children[0], list_size);
 }
 
-Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetDecimal(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                         GetMemberInt<int32_t>(json_type, "precision"));
   ARROW_ASSIGN_OR_RAISE(const int32_t scale, GetMemberInt<int32_t>(json_type, "scale"));
@@ -1003,7 +1003,7 @@ Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
                          bit_width);
 }
 
-Result<std::shared_ptr<DataType>> GetDate(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetDate(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
 
   if (unit_str == "DAY") {
@@ -1014,7 +1014,7 @@ Result<std::shared_ptr<DataType>> GetDate(const RjObject& json_type) {
   return Status::Invalid("Invalid date unit: ", unit_str);
 }
 
-Result<std::shared_ptr<DataType>> GetTime(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetTime(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
   ARROW_ASSIGN_OR_RAISE(const int bit_width, GetMemberInt<int>(json_type, "bitWidth"));
 
@@ -1039,24 +1039,28 @@ Result<std::shared_ptr<DataType>> GetTime(const RjObject& json_type) {
   return type;
 }
 
-Result<std::shared_ptr<DataType>> GetDuration(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetDuration(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
   return duration(unit);
 }
 
-Result<std::shared_ptr<DataType>> GetTimestamp(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetTimestamp(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
 
-  const auto& it_tz = json_type.FindMember("timezone");
-  if (it_tz == json_type.MemberEnd()) {
+  ARROW_ASSIGN_OR_RAISE(auto timezone,
+                        internal::GetOptionalJsonField(json_type, "timezone"));
+
+  if (!timezone.has_value()) {
     return timestamp(unit);
-  } else {
-    RETURN_NOT_STRING("timezone", it_tz, json_type);
-    return timestamp(unit, it_tz->value.GetString());
   }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto timezone_string,
+      internal::ResolveSimdjsonResult(timezone->get_string(), "field was not a string"));
+  return timestamp(unit, std::string(timezone_string));
 }
 
-Result<std::shared_ptr<DataType>> GetInterval(const RjObject& json_type) {
+Result<std::shared_ptr<DataType>> GetInterval(const JsonObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
 
   if (unit_str == kDayTime) {
@@ -1069,7 +1073,7 @@ Result<std::shared_ptr<DataType>> GetInterval(const RjObject& json_type) {
   return Status::Invalid("Invalid interval unit: " + unit_str);
 }
 
-Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
+Result<std::shared_ptr<DataType>> GetUnion(const JsonObject& json_type,
                                            const FieldVector& children) {
   ARROW_ASSIGN_OR_RAISE(const auto mode_str, GetMemberString(json_type, "mode"));
 
@@ -1082,15 +1086,18 @@ Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
     return Status::Invalid("Invalid union mode: ", mode_str);
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto json_type_codes, GetMemberArray(json_type, "typeIds"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto type_id_value,
+      internal::ResolveSimdjsonResult(json_type["typeIds"], "Failed to get JSON field"));
+
+  ARROW_ASSIGN_OR_RAISE(auto json_type_codes,
+                        internal::GetJsonIntArray(type_id_value, "typeIds"));
 
   std::vector<int8_t> type_codes;
-  type_codes.reserve(json_type_codes.Size());
-  for (const rj::Value& val : json_type_codes) {
-    if (!val.IsInt()) {
-      return Status::Invalid("Union type codes must be integers");
-    }
-    type_codes.push_back(static_cast<int8_t>(val.GetInt()));
+  type_codes.reserve(json_type_codes.size());
+
+  for (auto type_code : json_type_codes) {
+    type_codes.push_back(static_cast<int8_t>(type_code));
   }
 
   if (mode == UnionMode::SPARSE) {
@@ -1100,7 +1107,7 @@ Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
   }
 }
 
-Result<std::shared_ptr<DataType>> GetRunEndEncoded(const RjObject& json_type,
+Result<std::shared_ptr<DataType>> GetRunEndEncoded(const JsonObject& json_type,
                                                    const FieldVector& children) {
   if (children.size() != 2) {
     return Status::Invalid("Run-end encoded array must have exactly 2 fields, but got ",
@@ -1128,7 +1135,7 @@ Result<std::shared_ptr<DataType>> GetRunEndEncoded(const RjObject& json_type,
   return run_end_encoded(children[0]->type(), children[1]->type());
 }
 
-Result<std::shared_ptr<DataType>> GetType(const RjObject& json_type,
+Result<std::shared_ptr<DataType>> GetType(const JsonObject& json_type,
                                           const FieldVector& children) {
   ARROW_ASSIGN_OR_RAISE(const auto type_name, GetMemberString(json_type, "name"));
 
@@ -1200,13 +1207,13 @@ Result<std::shared_ptr<DataType>> GetType(const RjObject& json_type,
   return Status::Invalid("Unrecognized type name: ", type_name);
 }
 
-Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition field_pos,
+Result<std::shared_ptr<Field>> GetField(const JsonValue& obj, FieldPosition field_pos,
                                         DictionaryMemo* dictionary_memo);
 
-Result<FieldVector> GetFieldsFromArray(const RjArray& json_fields,
+Result<FieldVector> GetFieldsFromArray(const JsonArray& json_fields,
                                        FieldPosition parent_pos,
                                        DictionaryMemo* dictionary_memo) {
-  FieldVector fields(json_fields.Size());
+  FieldVector fields(json_fields.size());
   for (auto [json_field, field, i] : Zip(json_fields, fields, Enumerate<int>)) {
     ARROW_ASSIGN_OR_RAISE(field,
                           GetField(json_field, parent_pos.child(i), dictionary_memo));
@@ -1214,7 +1221,7 @@ Result<FieldVector> GetFieldsFromArray(const RjArray& json_fields,
   return fields;
 }
 
-Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered,
+Status ParseDictionary(const JsonObject& obj, int64_t* id, bool* is_ordered,
                        std::shared_ptr<DataType>* index_type) {
   ARROW_ASSIGN_OR_RAISE(*id, GetMemberInt<int64_t>(obj, "id"));
   ARROW_ASSIGN_OR_RAISE(*is_ordered, GetMemberBool(obj, "isOrdered"));
@@ -1232,34 +1239,37 @@ template <typename FieldOrStruct>
 Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
     const FieldOrStruct& field_or_struct) {
   auto metadata = std::make_shared<KeyValueMetadata>();
-  auto it = field_or_struct.FindMember("metadata");
-  if (it == field_or_struct.MemberEnd() || it->value.IsNull()) {
+
+  ARROW_ASSIGN_OR_RAISE(auto metadata_value,
+                        internal::GetOptionalJsonField(field_or_struct, "metadata"));
+
+  if (!metadata_value || metadata_value->is_null()) {
     return metadata;
   }
-  if (!it->value.IsArray()) {
-    return Status::Invalid("Metadata was not a JSON array");
-  }
 
-  for (const auto& val : it->value.GetArray()) {
-    if (!val.IsObject()) {
-      return Status::Invalid("Metadata KeyValue was not a JSON object");
-    }
-    const auto& key_value_pair = val.GetObject();
+  ARROW_ASSIGN_OR_RAISE(auto metadata_array,
+                        internal::GetJsonArray(*metadata_value, "metadata"));
+
+  for (const auto& val : metadata_array) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto key_value_pair,
+        internal::ResolveSimdjsonResult(val.get_object(),
+                                        "Metadata KeyValue was not a JSON object"));
 
     ARROW_ASSIGN_OR_RAISE(const auto key, GetMemberString(key_value_pair, "key"));
     ARROW_ASSIGN_OR_RAISE(const auto value, GetMemberString(key_value_pair, "value"));
 
     metadata->Append(std::move(key), std::move(value));
   }
+
   return metadata;
 }
 
-Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition field_pos,
+Result<std::shared_ptr<Field>> GetField(const JsonValue& obj, FieldPosition field_pos,
                                         DictionaryMemo* dictionary_memo) {
-  if (!obj.IsObject()) {
-    return Status::Invalid("Field was not a JSON object");
-  }
-  const auto& json_field = obj.GetObject();
+  ARROW_ASSIGN_OR_RAISE(
+      auto json_field,
+      internal::ResolveSimdjsonResult(obj.get_object(), "Field was not a JSON object"));
 
   ARROW_ASSIGN_OR_RAISE(const auto name, GetMemberString(json_field, "name"));
   ARROW_ASSIGN_OR_RAISE(const bool nullable, GetMemberBool(json_field, "nullable"));
@@ -1277,18 +1287,24 @@ Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition fiel
   // Is it a dictionary type?
   int64_t dictionary_id = -1;
   std::shared_ptr<DataType> dict_value_type;
-  const auto& it_dictionary = json_field.FindMember("dictionary");
-  if (dictionary_memo != nullptr && it_dictionary != json_field.MemberEnd()) {
-    // Parse dictionary id in JSON and add dictionary field to the
-    // memo, and parse the dictionaries later
-    RETURN_NOT_OBJECT("dictionary", it_dictionary, json_field);
-    bool is_ordered{};
-    std::shared_ptr<DataType> index_type;
-    RETURN_NOT_OK(ParseDictionary(it_dictionary->value.GetObject(), &dictionary_id,
-                                  &is_ordered, &index_type));
 
-    dict_value_type = type;
-    type = ::arrow::dictionary(index_type, type, is_ordered);
+  if (dictionary_memo != nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto dictionary_value,
+                          internal::GetOptionalJsonField(json_field, "dictionary"));
+
+    if (dictionary_value) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto dictionary_object,
+          internal::ResolveSimdjsonResult(dictionary_value->get_object(),
+                                          "dictionary was not a JSON object"));
+
+      bool is_ordered{};
+      std::shared_ptr<DataType> index_type;
+      RETURN_NOT_OK(
+          ParseDictionary(dictionary_object, &dictionary_id, &is_ordered, &index_type));
+      dict_value_type = type;
+      type = ::arrow::dictionary(index_type, type, is_ordered);
+    }
   }
 
   // Is it an extension type?
@@ -1324,41 +1340,46 @@ Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition fiel
 }
 
 template <typename T>
-enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsBool());
-  return val.GetBool();
+enable_if_boolean<T, Result<bool>> UnboxValue(const JsonValue& val) {
+  return internal::ResolveSimdjsonResult(val.get_bool(), "Expected boolean value");
 }
 
 template <typename T, typename CType = typename T::c_type>
-enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t), CType>
-UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsInt64());
-  return static_cast<CType>(val.GetInt64());
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t),
+            Result<CType>>
+UnboxValue(const JsonValue& val) {
+  ARROW_ASSIGN_OR_RAISE(auto integer, internal::GetJsonInt(val, "value", "an integer"));
+  return static_cast<CType>(integer);
 }
 
 template <typename T, typename CType = typename T::c_type>
-enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
-UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsString());
+enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t),
+            Result<CType>>
+UnboxValue(const JsonValue& val) {
+  ARROW_ASSIGN_OR_RAISE(auto string, internal::ResolveSimdjsonResult(
+                                         val.get_string(), "Expected string value"));
 
   CType out;
-  bool success = ::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
-      val.GetString(), val.GetStringLength(), &out);
-
-  DCHECK(success);
+  if (!::arrow::internal::ParseValue<typename CTypeTraits<CType>::ArrowType>(
+          string.data(), string.size(), &out)) {
+    return Status::Invalid("Failed to parse integer value");
+  }
   return out;
 }
 
 template <typename T>
-enable_if_physical_floating_point<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
-  DCHECK(val.IsFloat());
-  return static_cast<typename T::c_type>(val.GetDouble());
+enable_if_physical_floating_point<T, Result<typename T::c_type>> UnboxValue(
+    const JsonValue& val) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto floating_point,
+      internal::ResolveSimdjsonResult(val.get_double(), "Expected floating point value"));
+  return static_cast<typename T::c_type>(floating_point);
 }
 
 class ArrayReader {
  public:
-  ArrayReader(const RjObject& obj, MemoryPool* pool, const std::shared_ptr<Field>& field)
+  ArrayReader(const JsonObject& obj, MemoryPool* pool,
+              const std::shared_ptr<Field>& field)
       : obj_(obj), pool_(pool), field_(field), type_(field->type()) {}
 
   template <typename BuilderType>
@@ -1369,13 +1390,14 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Result<const RjArray> GetDataArray(const RjObject& obj,
-                                     const std::string& key = kData) {
+  Result<JsonArray> GetDataArray(const JsonObject& obj, std::string_view key = kData) {
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetMemberArray(obj, key));
-    if (static_cast<int32_t>(json_data_arr.Size()) != length_) {
-      return Status::Invalid("JSON ", key, " array size ", json_data_arr.Size(),
+
+    if (static_cast<int32_t>(json_data_arr.size()) != length_) {
+      return Status::Invalid("JSON ", key, " array size ", json_data_arr.size(),
                              " differs from advertised array length ", length_);
     }
+
     return json_data_arr;
   }
 
@@ -1385,19 +1407,23 @@ class ArrayReader {
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
     for (auto [is_valid, val] : Zip(is_valid_, json_data_arr)) {
-      RETURN_NOT_OK(is_valid ? builder.Append(UnboxValue<T>(val)) : builder.AppendNull());
+      if (is_valid) {
+        ARROW_ASSIGN_OR_RAISE(auto value, UnboxValue<T>(val));
+        RETURN_NOT_OK(builder.Append(value));
+      } else {
+        RETURN_NOT_OK(builder.AppendNull());
+      }
     }
     return FinishBuilder(&builder);
   }
 
-  int64_t ParseOffset(const rj::Value& json_offset) {
-    DCHECK(json_offset.IsInt() || json_offset.IsInt64() || json_offset.IsString());
-
-    if (json_offset.IsInt64()) {
-      return json_offset.GetInt64();
-    } else {
-      return UnboxValue<Int64Type>(json_offset);
+  Result<int64_t> ParseOffset(const JsonValue& json_offset) {
+    auto integer_result = json_offset.get_int64();
+    if (integer_result.error() == simdjson::SUCCESS) {
+      return internal::ResolveSimdjsonResult(integer_result, "Expected integer offset");
     }
+
+    return UnboxValue<Int64Type>(json_offset);
   }
 
   template <typename T>
@@ -1407,21 +1433,27 @@ class ArrayReader {
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
     ARROW_ASSIGN_OR_RAISE(const auto json_offsets, GetMemberArray(obj_, "OFFSET"));
-    if (static_cast<int32_t>(json_offsets.Size()) != (length_ + 1)) {
+    if (static_cast<int32_t>(json_offsets.size()) != (length_ + 1)) {
       return Status::Invalid(
           "JSON OFFSET array size differs from advertised array length + 1");
     }
 
-    for (auto [i, is_valid, json_val] :
-         Zip(Enumerate<rj::SizeType>, is_valid_, json_data_arr)) {
+    auto offset_it = json_offsets.begin();
+
+    for (auto [is_valid, json_val] : Zip(is_valid_, json_data_arr)) {
+      auto offset_start_json = *offset_it;
+      ++offset_it;
+      auto offset_end_json = *offset_it;
+
       if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
+
       ARROW_ASSIGN_OR_RAISE(auto val, GetStringView(json_val));
 
-      int64_t offset_start = ParseOffset(json_offsets[i]);
-      int64_t offset_end = ParseOffset(json_offsets[i + 1]);
+      ARROW_ASSIGN_OR_RAISE(auto offset_start, ParseOffset(offset_start_json));
+      ARROW_ASSIGN_OR_RAISE(auto offset_end, ParseOffset(offset_end_json));
       DCHECK_GE(offset_end, offset_start);
       auto val_len = static_cast<size_t>(offset_end - offset_start);
 
@@ -1430,7 +1462,7 @@ class ArrayReader {
           return Status::Invalid("Value ", std::quoted(val),
                                  " differs from advertised length ", val_len);
         }
-        RETURN_NOT_OK(builder.Append(json_val.GetString()));
+        RETURN_NOT_OK(builder.Append(val));
       } else {
         if (val.size() % 2 != 0) {
           return Status::Invalid("Expected base16 hex string");
@@ -1463,7 +1495,7 @@ class ArrayReader {
     using internal::Zip;
 
     BufferVector buffers;
-    buffers.resize(json_variadic_bufs.Size() + 2);
+    buffers.resize(json_variadic_bufs.size() + 2);
     for (auto [json_buf, buf] : Zip(json_variadic_bufs, std::span{buffers}.subspan(2))) {
       ARROW_ASSIGN_OR_RAISE(auto hex_string, GetStringView(json_buf));
       ARROW_ASSIGN_OR_RAISE(
@@ -1492,51 +1524,44 @@ class ArrayReader {
         continue;
       }
 
-      DCHECK(json_view.IsObject());
-      const auto& json_view_obj = json_view.GetObject();
+      ARROW_ASSIGN_OR_RAISE(auto json_view_obj, internal::ResolveSimdjsonResult(
+                                                    json_view.get_object(),
+                                                    "Binary view was not a JSON object"));
 
-      auto json_size = json_view_obj.FindMember("SIZE");
-      RETURN_NOT_INT("SIZE", json_size, json_view_obj);
-      auto size = json_size->value.GetInt();
+      ARROW_ASSIGN_OR_RAISE(const int size, GetMemberInt<int>(json_view_obj, "SIZE"));
       if (size < 0) {
         return Status::Invalid("Invalid binary view SIZE: ", size,
                                ". Expected a non-negative value");
       }
 
       if (size <= BinaryViewType::kInlineSize) {
-        auto json_inlined = json_view_obj.FindMember("INLINED");
-        RETURN_NOT_STRING("INLINED", json_inlined, json_view_obj);
+        ARROW_ASSIGN_OR_RAISE(const auto inlined,
+                              GetMemberString(json_view_obj, "INLINED"));
+
         out_view.inlined = {size, {}};
 
         if constexpr (ViewType::is_utf8) {
-          if (json_inlined->value.GetStringLength() != static_cast<rj::SizeType>(size)) {
-            return Status::Invalid("Invalid binary view INLINED length: ",
-                                   json_inlined->value.GetStringLength(),
+          if (static_cast<int>(inlined.size()) != size) {
+            return Status::Invalid("Invalid binary view INLINED length: ", inlined.size(),
                                    ". Expected exactly ", size, " bytes");
           }
-          memcpy(&out_view.inlined.data, json_inlined->value.GetString(), size);
+          memcpy(&out_view.inlined.data, inlined.data(), size);
         } else {
-          if (json_inlined->value.GetStringLength() !=
-              static_cast<rj::SizeType>(size * 2)) {
-            return Status::Invalid("Invalid binary view INLINED hex length: ",
-                                   json_inlined->value.GetStringLength(),
-                                   ". Expected exactly ", size * 2, " characters");
+          if (static_cast<int>(inlined.size()) != size * 2) {
+            return Status::Invalid(
+                "Invalid binary view INLINED hex length: ", inlined.size(),
+                ". Expected exactly ", size * 2, " characters");
           }
-          ARROW_ASSIGN_OR_RAISE(auto inlined, GetStringView(json_inlined->value));
           RETURN_NOT_OK(ParseHexValues(inlined, out_view.inlined.data.data()));
         }
         continue;
       }
 
-      auto json_prefix = json_view_obj.FindMember("PREFIX_HEX");
-      auto json_buffer_index = json_view_obj.FindMember("BUFFER_INDEX");
-      auto json_offset = json_view_obj.FindMember("OFFSET");
-      RETURN_NOT_STRING("PREFIX_HEX", json_prefix, json_view_obj);
-      RETURN_NOT_INT("BUFFER_INDEX", json_buffer_index, json_view_obj);
-      RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
-
-      const auto buffer_index = json_buffer_index->value.GetInt();
-      const auto offset = json_offset->value.GetInt();
+      ARROW_ASSIGN_OR_RAISE(const auto prefix,
+                            GetMemberString(json_view_obj, "PREFIX_HEX"));
+      ARROW_ASSIGN_OR_RAISE(const int buffer_index,
+                            GetMemberInt<int>(json_view_obj, "BUFFER_INDEX"));
+      ARROW_ASSIGN_OR_RAISE(const int offset, GetMemberInt<int>(json_view_obj, "OFFSET"));
       if (buffer_index < 0) {
         return Status::Invalid("Invalid binary view BUFFER_INDEX: ", buffer_index,
                                ". Expected a non-negative value");
@@ -1545,9 +1570,8 @@ class ArrayReader {
         return Status::Invalid("Invalid binary view OFFSET: ", offset,
                                ". Expected a non-negative value");
       }
-      if (json_prefix->value.GetStringLength() != BinaryViewType::kPrefixSize * 2) {
-        return Status::Invalid("Invalid binary view PREFIX_HEX length: ",
-                               json_prefix->value.GetStringLength(),
+      if (prefix.size() != BinaryViewType::kPrefixSize * 2) {
+        return Status::Invalid("Invalid binary view PREFIX_HEX length: ", prefix.size(),
                                ". Expected exactly ", BinaryViewType::kPrefixSize * 2,
                                " characters");
       }
@@ -1573,7 +1597,6 @@ class ArrayReader {
           offset,
       };
 
-      ARROW_ASSIGN_OR_RAISE(auto prefix, GetStringView(json_prefix->value));
       RETURN_NOT_OK(ParseHexValues(prefix, out_view.ref.prefix.data()));
     }
 
@@ -1591,10 +1614,14 @@ class ArrayReader {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-      DCHECK(val.IsObject());
+      ARROW_ASSIGN_OR_RAISE(
+          auto object, internal::ResolveSimdjsonResult(
+                           val.get_object(), "Interval value was not a JSON object"));
+
       DayTimeIntervalType::DayMilliseconds dm;
-      dm.days = val[kDays].GetInt();
-      dm.milliseconds = val[kMilliseconds].GetInt();
+      ARROW_ASSIGN_OR_RAISE(dm.days, GetMemberInt<int32_t>(object, kDays));
+      ARROW_ASSIGN_OR_RAISE(dm.milliseconds,
+                            GetMemberInt<int32_t>(object, kMilliseconds));
       RETURN_NOT_OK(builder.Append(dm));
     }
     return FinishBuilder(&builder);
@@ -1610,11 +1637,14 @@ class ArrayReader {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-      DCHECK(val.IsObject());
+      ARROW_ASSIGN_OR_RAISE(
+          auto object, internal::ResolveSimdjsonResult(
+                           val.get_object(), "Interval value was not a JSON object"));
+
       MonthDayNanoIntervalType::MonthDayNanos mdn;
-      mdn.months = val[kMonths].GetInt();
-      mdn.days = val[kDays].GetInt();
-      mdn.nanoseconds = val[kNanoseconds].GetInt64();
+      ARROW_ASSIGN_OR_RAISE(mdn.months, GetMemberInt<int32_t>(object, kMonths));
+      ARROW_ASSIGN_OR_RAISE(mdn.days, GetMemberInt<int32_t>(object, kDays));
+      ARROW_ASSIGN_OR_RAISE(mdn.nanoseconds, GetMemberInt<int64_t>(object, kNanoseconds));
       RETURN_NOT_OK(builder.Append(mdn));
     }
     return FinishBuilder(&builder);
@@ -1639,10 +1669,11 @@ class ArrayReader {
         continue;
       }
 
-      DCHECK(json_val.IsString())
-          << "Found non-string JSON value when parsing FixedSizeBinary value";
-
-      std::string_view val = json_val.GetString();
+      ARROW_ASSIGN_OR_RAISE(
+          auto val,
+          internal::ResolveSimdjsonResult(
+              json_val.get_string(),
+              "Found non-string JSON value when parsing FixedSizeBinary value"));
       if (static_cast<int32_t>(val.size()) != byte_width * 2) {
         DCHECK(false) << "Expected size: " << byte_width * 2 << " got: " << val.size();
       }
@@ -1660,8 +1691,8 @@ class ArrayReader {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
-    if (static_cast<rj::SizeType>(length_) != json_data_arr.Size()) {
-      return Status::Invalid("Integer array had unexpected length ", json_data_arr.Size(),
+    if (static_cast<int64_t>(json_data_arr.size()) != length_) {
+      return Status::Invalid("Integer array had unexpected length ", json_data_arr.size(),
                              " (expected ", length_, ")");
     }
 
@@ -1671,13 +1702,14 @@ class ArrayReader {
         continue;
       }
 
-      DCHECK(val.IsString())
-          << "Found non-string JSON value when parsing Decimal128 value";
-      DCHECK_GT(val.GetStringLength(), 0)
-          << "Empty string found when parsing Decimal128 value";
+      ARROW_ASSIGN_OR_RAISE(auto string,
+                            internal::ResolveSimdjsonResult(
+                                val.get_string(), "Expected decimal value as string"));
+
+      DCHECK_GT(string.size(), 0) << "Empty string found when parsing Decimal128 value";
 
       using Value = typename TypeTraits<T>::ScalarType::ValueType;
-      ARROW_ASSIGN_OR_RAISE(Value decimal_val, Value::FromString(val.GetString()));
+      ARROW_ASSIGN_OR_RAISE(Value decimal_val, Value::FromString(string));
       RETURN_NOT_OK(builder.Append(decimal_val));
     }
 
@@ -1685,10 +1717,10 @@ class ArrayReader {
   }
 
   template <typename T>
-  Status GetIntArray(const RjArray& json_array, const int32_t length,
+  Status GetIntArray(const JsonArray& json_array, const int32_t length,
                      std::shared_ptr<Buffer>* out) {
-    if (static_cast<rj::SizeType>(length) != json_array.Size()) {
-      return Status::Invalid("Integer array had unexpected length ", json_array.Size(),
+    if (static_cast<int32_t>(json_array.size()) != length) {
+      return Status::Invalid("Integer array had unexpected length ", json_array.size(),
                              " (expected ", length, ")");
     }
 
@@ -1696,24 +1728,21 @@ class ArrayReader {
 
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
 
-    for (auto [i, val] : Zip(Enumerate<rj::SizeType>, json_array)) {
+    for (auto [i, val] : Zip(Enumerate<size_t>, json_array)) {
       if constexpr (sizeof(T) < sizeof(int64_t)) {
-        DCHECK(val.IsInt() || val.IsInt64());
-        if (val.IsInt()) {
-          values[i] = static_cast<T>(val.GetInt());
-        } else {
-          values[i] = static_cast<T>(val.GetInt64());
-        }
+        ARROW_ASSIGN_OR_RAISE(auto integer,
+                              internal::GetJsonInt(val, "value", "an integer"));
+        values[i] = static_cast<T>(integer);
       } else {
         // Read 64-bit integers as strings, as JSON numbers cannot represent
         // them exactly.
-        DCHECK(val.IsString());
+        ARROW_ASSIGN_OR_RAISE(auto string,
+                              internal::ResolveSimdjsonResult(
+                                  val.get_string(), "Expected integer value as string"));
 
         using ArrowType = typename CTypeTraits<T>::ArrowType;
-        if (!ParseValue<ArrowType>(val.GetString(), val.GetStringLength(), &values[i])) {
-          return Status::Invalid("Failed to parse integer: '",
-                                 std::string(val.GetString(), val.GetStringLength()),
-                                 "'");
+        if (!ParseValue<ArrowType>(string.data(), string.size(), &values[i])) {
+          return Status::Invalid("Failed to parse integer: '", std::string(string), "'");
         }
       }
     }
@@ -1868,24 +1897,36 @@ class ArrayReader {
 
     return Status::OK();
   }
-  Status GetChildren(const RjObject& obj, const DataType& type) {
-    ARROW_ASSIGN_OR_RAISE(const auto json_children,
-                          GetMemberArray(obj, "children", /*allow_absent=*/true));
 
-    if (type.num_fields() != static_cast<int>(json_children.Size())) {
+  Status GetChildren(const JsonObject& obj, const DataType& type) {
+    ARROW_ASSIGN_OR_RAISE(auto children_value,
+                          internal::GetOptionalJsonField(obj, "children"));
+
+    if (!children_value) {
+      if (type.num_fields() == 0) {
+        data_->child_data.clear();
+        return Status::OK();
+      }
+      return Status::Invalid("Expected ", type.num_fields(), " children, but got 0");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(const auto json_children,
+                          internal::GetJsonArray(*children_value, "children"));
+
+    if (type.num_fields() != static_cast<int>(json_children.size())) {
       return Status::Invalid("Expected ", type.num_fields(), " children, but got ",
-                             json_children.Size());
+                             json_children.size());
     }
 
     data_->child_data.resize(type.num_fields());
     for (auto [json_child, child_field, child_data] :
          Zip(json_children, type.fields(), data_->child_data)) {
-      DCHECK(json_child.IsObject());
-      const auto& child_obj = json_child.GetObject();
+      ARROW_ASSIGN_OR_RAISE(
+          auto child_obj, internal::ResolveSimdjsonResult(json_child.get_object(),
+                                                          "Child was not a JSON object"));
 
-      auto it = json_child.FindMember("name");
-      RETURN_NOT_STRING("name", it, json_child);
-      DCHECK_EQ(it->value.GetString(), child_field->name());
+      ARROW_ASSIGN_OR_RAISE(const auto name, GetMemberString(child_obj, "name"));
+      DCHECK_EQ(name, child_field->name());
 
       ArrayReader child_reader(child_obj, pool_, child_field);
       ARROW_ASSIGN_OR_RAISE(child_data, child_reader.Parse());
@@ -1896,13 +1937,15 @@ class ArrayReader {
 
   Status ParseValidityBitmap() {
     ARROW_ASSIGN_OR_RAISE(const auto json_validity, GetMemberArray(obj_, "VALIDITY"));
-    if (static_cast<int>(json_validity.Size()) != length_) {
+    if (static_cast<int>(json_validity.size()) != length_) {
       return Status::Invalid("JSON VALIDITY size differs from advertised array length");
     }
-    is_valid_.reserve(json_validity.Size());
-    for (const rj::Value& val : json_validity) {
-      DCHECK(val.IsInt());
-      is_valid_.push_back(val.GetInt() != 0);
+
+    is_valid_.reserve(json_validity.size());
+    for (const auto& value : json_validity) {
+      ARROW_ASSIGN_OR_RAISE(auto integer,
+                            internal::GetJsonInt(value, "VALIDITY value", "an integer"));
+      is_valid_.push_back(integer != 0);
     }
     return Status::OK();
   }
@@ -1920,7 +1963,7 @@ class ArrayReader {
   }
 
  private:
-  const RjObject& obj_;
+  JsonObject obj_;
   MemoryPool* pool_;
   std::shared_ptr<Field> field_;
   std::shared_ptr<DataType> type_;
@@ -1932,17 +1975,17 @@ class ArrayReader {
 };
 
 Result<std::shared_ptr<ArrayData>> ReadArrayData(MemoryPool* pool,
-                                                 const rj::Value& json_array,
+                                                 const JsonValue& json_array,
                                                  const std::shared_ptr<Field>& field) {
-  if (!json_array.IsObject()) {
-    return Status::Invalid("Array element was not a JSON object");
-  }
-  auto obj = json_array.GetObject();
+  ARROW_ASSIGN_OR_RAISE(
+      auto obj, internal::ResolveSimdjsonResult(json_array.get_object(),
+                                                "Array element was not a JSON object"));
+
   ArrayReader parser(obj, pool, field);
   return parser.Parse();
 }
 
-Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
+Status ReadDictionary(const JsonObject& obj, MemoryPool* pool,
                       DictionaryMemo* dictionary_memo) {
   ARROW_ASSIGN_OR_RAISE(int64_t dictionary_id, GetMemberInt<int64_t>(obj, "id"));
 
@@ -1954,12 +1997,16 @@ Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
   ARROW_ASSIGN_OR_RAISE(const int64_t num_rows,
                         GetMemberInt<int64_t>(batch_obj, "count"));
   ARROW_ASSIGN_OR_RAISE(const auto json_columns, GetMemberArray(batch_obj, "columns"));
-  if (json_columns.Size() != 1) {
+  if (json_columns.size() != 1) {
     return Status::Invalid("Dictionary batch must contain only one column");
   }
 
+  ARROW_ASSIGN_OR_RAISE(
+      auto column, internal::ResolveSimdjsonResult(json_columns.at(0),
+                                                   "Failed to get dictionary column"));
+
   ARROW_ASSIGN_OR_RAISE(auto dict_data,
-                        ReadArrayData(pool, json_columns[0], field("dummy", value_type)));
+                        ReadArrayData(pool, column, field("dummy", value_type)));
   if (num_rows != dict_data->length) {
     return Status::Invalid("Dictionary batch length mismatch: advertised (", num_rows,
                            ") != actual (", dict_data->length, ")");
@@ -1967,31 +2014,40 @@ Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
   return dictionary_memo->AddDictionary(dictionary_id, dict_data);
 }
 
-Status ReadDictionaries(const rj::Value& doc, MemoryPool* pool,
+Status ReadDictionaries(const JsonValue& doc, MemoryPool* pool,
                         DictionaryMemo* dictionary_memo) {
-  auto it = doc.FindMember("dictionaries");
-  if (it == doc.MemberEnd()) {
-    // No dictionaries
+  ARROW_ASSIGN_OR_RAISE(
+      auto obj, internal::ResolveSimdjsonResult(doc.get_object(),
+                                                "JSON document was not an object"));
+
+  ARROW_ASSIGN_OR_RAISE(auto dictionaries_value,
+                        internal::GetOptionalJsonField(obj, "dictionaries"));
+
+  if (!dictionaries_value) {
     return Status::OK();
   }
+  ARROW_ASSIGN_OR_RAISE(auto dictionary_array,
+                        internal::GetJsonArray(*dictionaries_value, "dictionaries"));
 
-  RETURN_NOT_ARRAY("dictionaries", it, doc);
-  const auto& dictionary_array = it->value.GetArray();
-
-  for (const rj::Value& val : dictionary_array) {
-    DCHECK(val.IsObject());
-    RETURN_NOT_OK(ReadDictionary(val.GetObject(), pool, dictionary_memo));
+  for (const auto& value : dictionary_array) {
+    ARROW_ASSIGN_OR_RAISE(auto dictionary_object,
+                          internal::ResolveSimdjsonResult(
+                              value.get_object(), "Dictionary was not a JSON object"));
+    RETURN_NOT_OK(ReadDictionary(dictionary_object, pool, dictionary_memo));
   }
   return Status::OK();
 }
 
 }  // namespace
 
-Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
+Result<std::shared_ptr<Schema>> ReadSchema(const JsonValue& json_schema, MemoryPool* pool,
                                            DictionaryMemo* dictionary_memo) {
-  DCHECK(json_schema.IsObject());
+  ARROW_ASSIGN_OR_RAISE(auto schema_document,
+                        internal::ResolveSimdjsonResult(json_schema.get_object(),
+                                                        "JSON schema was not an object"));
+
   ARROW_ASSIGN_OR_RAISE(const auto obj_schema,
-                        GetMemberObject(json_schema.GetObject(), "schema"));
+                        GetMemberObject(schema_document, "schema"));
 
   ARROW_ASSIGN_OR_RAISE(const auto json_fields, GetMemberArray(obj_schema, "fields"));
 
@@ -1999,31 +2055,31 @@ Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_schema, MemoryP
   ARROW_ASSIGN_OR_RAISE(
       FieldVector fields,
       GetFieldsFromArray(json_fields, FieldPosition(), dictionary_memo));
-  // Read the dictionaries (if any) and cache in the memo
+
   RETURN_NOT_OK(ReadDictionaries(json_schema, pool, dictionary_memo));
 
   return ::arrow::schema(fields, metadata);
-  return Status::OK();
 }
 
-Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const rj::Value& json_array,
+Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const JsonValue& json_array,
                                          const std::shared_ptr<Field>& field) {
   ARROW_ASSIGN_OR_RAISE(auto data, ReadArrayData(pool, json_array, field));
   return MakeArray(data);
 }
 
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
+    const JsonValue& json_obj, const std::shared_ptr<Schema>& schema,
     DictionaryMemo* dictionary_memo, MemoryPool* pool) {
-  DCHECK(json_obj.IsObject());
-  const auto& batch_obj = json_obj.GetObject();
+  ARROW_ASSIGN_OR_RAISE(auto batch_obj,
+                        internal::ResolveSimdjsonResult(
+                            json_obj.get_object(), "Record batch was not a JSON object"));
 
   ARROW_ASSIGN_OR_RAISE(const int64_t num_rows,
                         GetMemberInt<int64_t>(batch_obj, "count"));
 
   ARROW_ASSIGN_OR_RAISE(const auto json_columns, GetMemberArray(batch_obj, "columns"));
 
-  ArrayDataVector columns(json_columns.Size());
+  ArrayDataVector columns(json_columns.size());
   for (auto [column, json_column, field] : Zip(columns, json_columns, schema->fields())) {
     ARROW_ASSIGN_OR_RAISE(column, ReadArrayData(pool, json_column, field));
   }
