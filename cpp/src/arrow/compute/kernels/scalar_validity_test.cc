@@ -152,6 +152,37 @@ TEST(TestValidityKernels, IsNullSetsZeroNullCount) {
   ASSERT_EQ(out.array()->null_count, 0);
 }
 
+TEST(TestValidityKernels, IsNullDictionaryNanIsNull) {
+  NullOptions default_options;
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(int32(), float64());
+  auto arr = DictArrayFromJSON(dict_ty, "[0, 1, 2, null, 1]", "[1.5, NaN, -0.0]");
+
+  // Without nan_is_null, dictionary-encoded NaNs are not treated as null.
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, false, false, true, false]"));
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, false, false, true, false]"),
+                   &default_options);
+
+  // With nan_is_null, the dictionary entry backing index 1 is NaN, so every
+  // slot referencing it is null; the pre-existing null index stays null.
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, true, false, true, true]"),
+                   &nan_is_null_options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullHalfFloat) {
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(int8(), float16());
+  auto arr = DictArrayFromJSON(dict_ty, "[0, 1]", "[1.5, NaN]");
+
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true]"),
+                   &nan_is_null_options);
+}
+
 template <typename ArrowType>
 class TestFloatingPointValidityKernels : public TestValidityKernels<ArrowType> {
  public:
