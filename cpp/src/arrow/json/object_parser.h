@@ -29,7 +29,7 @@ namespace json {
 namespace internal {
 
 /// This class is a helper to parse a json object from a string.
-/// It uses rapidjson::Document in implementation.
+/// It uses simdjson in the implementation.
 class ARROW_EXPORT ObjectParser {
  public:
   ObjectParser();

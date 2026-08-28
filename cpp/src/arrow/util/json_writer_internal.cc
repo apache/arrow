@@ -100,21 +100,21 @@ void JsonWriter::Double(double value) {
 }
 
 Status JsonWriter::WriteValue(sj::value value) {
-  return internal::VisitJsonValue(
+  return ::arrow::internal::VisitJsonValue(
       value,
 
       [&](sj::object object) -> Status {
         StartObject();
 
         for (auto field : object) {
-          ARROW_ASSIGN_OR_RAISE(
-              auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
-                                                        "Failed to get object key"));
+          ARROW_ASSIGN_OR_RAISE(auto key,
+                                ::arrow::internal::ResolveSimdjsonResult(
+                                    field.unescaped_key(), "Failed to get object key"));
 
           Key(key);
 
           ARROW_ASSIGN_OR_RAISE(auto field_value,
-                                internal::ResolveSimdjsonResult(
+                                ::arrow::internal::ResolveSimdjsonResult(
                                     field.value(), "Failed to get object value"));
 
           RETURN_NOT_OK(WriteValue(field_value));
@@ -128,9 +128,9 @@ Status JsonWriter::WriteValue(sj::value value) {
         StartArray();
 
         for (auto element : array) {
-          ARROW_ASSIGN_OR_RAISE(
-              auto element_value,
-              internal::ResolveSimdjsonResult(element, "Failed to iterate JSON array"));
+          ARROW_ASSIGN_OR_RAISE(auto element_value,
+                                ::arrow::internal::ResolveSimdjsonResult(
+                                    element, "Failed to iterate JSON array"));
 
           RETURN_NOT_OK(WriteValue(element_value));
         }
@@ -170,7 +170,7 @@ Status JsonWriter::WriteValue(sj::value value) {
       },
 
       [&](sj::value value) -> Status {
-        ARROW_ASSIGN_OR_RAISE(auto raw_json, internal::ResolveSimdjsonResult(
+        ARROW_ASSIGN_OR_RAISE(auto raw_json, ::arrow::internal::ResolveSimdjsonResult(
                                                  simdjson::to_json_string(value),
                                                  "Failed to get raw JSON"));
         RawValue(raw_json);

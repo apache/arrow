@@ -92,7 +92,7 @@ if(ARROW_WITH_SIMDJSON)
                  SOURCES
                  json_writer_internal_test.cc
                  EXTRA_LINK_LIBS
-                 simdjson::simdjson)
+                 arrow::simdjson)
 endif()
 
 add_arrow_test(async-utility-test
