@@ -466,6 +466,39 @@ Result<bool> HasOutOfOrderRows(const Table& table) {
   return false;
 }
 
+TEST_F(TestFileSystemDataset, RejectPreserveOrderWithUnorderedInput) {
+  dataset::internal::Initialize();
+
+  auto format = std::make_shared<IpcFileFormat>();
+  FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = format->DefaultWriteOptions();
+  write_options.filesystem = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  write_options.base_dir = "root";
+  write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+  write_options.basename_template = "{i}.feather";
+  write_options.preserve_order = true;
+
+  auto source_data = acero::MakeBasicBatches();
+  for (const char* factory_name : {"write", "tee"}) {
+    SCOPED_TRACE(factory_name);
+    ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
+    AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
+    std::vector<acero::Declaration> declarations = {
+        {"source",
+         acero::SourceNodeOptions{source_data.schema, source_data.gen(false, false)}},
+        {factory_name, WriteNodeOptions{write_options}},
+    };
+    if (std::string(factory_name) == "tee") {
+      declarations.emplace_back("sink", acero::SinkNodeOptions{&sink_gen});
+    }
+    ASSERT_OK(
+        acero::Declaration::Sequence(std::move(declarations)).AddToPlan(plan.get()));
+    ASSERT_THAT(plan->Validate(),
+                Raises(StatusCode::Invalid,
+                       ::testing::HasSubstr("no meaningful ordering in the input")));
+  }
+}
+
 TEST_F(TestFileSystemDataset, MultiThreadedWritePersistsOrder) {
   // Test for GH-26818
   //

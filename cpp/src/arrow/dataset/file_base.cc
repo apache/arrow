@@ -598,6 +598,16 @@ class TeeNode : public acero::MapNode,
 
   const char* kind_name() const override { return "TeeNode"; }
 
+  Status Validate() const override {
+    ARROW_RETURN_NOT_OK(acero::MapNode::Validate());
+    if (inputs_[0]->ordering().is_unordered() && sequencer_) {
+      return Status::Invalid("Tee node '", label(),
+                             "' is configured to sequence output but there is no "
+                             "meaningful ordering in the input");
+    }
+    return Status::OK();
+  }
+
   Status InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
     if (sequencer_) {
