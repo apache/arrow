@@ -1952,9 +1952,17 @@ def generate_extension_wrapped_union_case():
                              get_field('f2', 'binary')],
                         type_ids=[10, 20]))
 
+    # These extension names are not registered in the integration binaries, so
+    # flag them as allow-unregistered: the extension metadata is preserved and
+    # the union storage is round-tripped by every implementation.
+    allow_unregistered = [
+        ('ARROW:integration:allow_unregistered_extension', 'true'),
+    ]
     fields = [
-        ExtensionField('sparse_union_ext', sparse_union_type),
-        ExtensionField('dense_union_ext', dense_union_type),
+        ExtensionField('sparse_union_ext', sparse_union_type,
+                       metadata=allow_unregistered),
+        ExtensionField('dense_union_ext', dense_union_type,
+                       metadata=allow_unregistered),
     ]
 
     batch_sizes = [0, 7]
