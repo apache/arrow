@@ -25,25 +25,35 @@ module Helper
 
     private
     def virtual_do_list_flights(context, criteria)
+      puts "#{__FILE__}:#{__LINE__}"
       generator = InfoGenerator.new
+      puts "#{__FILE__}:#{__LINE__}"
       [generator.page_view]
     end
 
     def virtual_do_do_get(context, ticket)
+      puts "#{__FILE__}:#{__LINE__}"
       generator = InfoGenerator.new
+      puts "#{__FILE__}:#{__LINE__}"
       if ticket.data.to_s != generator.page_view_ticket
         raise Arrow::Error::Invalid.new("invalid ticket")
       end
+      puts "#{__FILE__}:#{__LINE__}"
       table = generator.page_view_table
+      puts "#{__FILE__}:#{__LINE__}"
       ArrowFlight::RecordBatchStream.new(table)
     end
 
     def virtual_do_do_put(context, reader, writer)
+      puts "#{__FILE__}:#{__LINE__}"
       @uploaded_table = reader.read_all
+      puts "#{__FILE__}:#{__LINE__}"
       writer.write(Arrow::Buffer.new("done"))
+      puts "#{__FILE__}:#{__LINE__}"
       if @uploaded_table.n_rows.zero?
         raise Arrow::Error::Invalid.new("empty table")
       end
+      puts "#{__FILE__}:#{__LINE__}"
       true
     end
   end
