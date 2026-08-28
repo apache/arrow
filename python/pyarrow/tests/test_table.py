@@ -913,6 +913,11 @@ def test_table_from_struct_array_invalid():
         pa.Table.from_struct_array(pa.array(range(5)))
 
 
+def test_table_from_struct_array_empty_chunked_array_invalid():
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
+        pa.Table.from_struct_array(pa.chunked_array([], type=pa.int64()))
+
+
 def test_table_from_struct_array():
     struct_array = pa.array(
         [{"ints": 1}, {"floats": 1.0}],
@@ -939,6 +944,21 @@ def test_table_from_struct_array_chunked_array():
             pa.array([None, 1.0], type=pa.float32()),
         ], ["ints", "floats"]
     ))
+
+
+def test_table_from_struct_array_for_empty_chunked_array():
+    # GH-48344
+    struct_type = pa.struct([("ints", pa.int32()), ("floats", pa.float32())])
+    empty_chunked_struct_array = pa.chunked_array([], type=struct_type)
+    result = pa.Table.from_struct_array(empty_chunked_struct_array)
+    expected = pa.Table.from_arrays(
+        [
+            pa.array([], type=pa.int32()),
+            pa.array([], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    assert result.equals(expected)
+    assert result.schema == expected.schema
 
 
 def test_table_to_struct_array():
