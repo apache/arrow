@@ -28,7 +28,7 @@ version=$1
 prefix=$2
 
 mkdir -p /tmp/bison
-url="https://ftp.gnu.org/gnu/bison/bison-${version}.tar.gz"
+url="https://ftpmirror.gnu.org/bison/bison-${version}.tar.gz"
 
 wget -q "${url}" -O - | tar -xzf - --directory /tmp/bison --strip-components=1
 
