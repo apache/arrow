@@ -102,9 +102,18 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
     std::string combined;
-    combined.reserve(partial.size() + block.size());
-    combined.append(partial);
-    combined.append(block);
+    std::string_view input;
+
+    if (partial.empty()) {
+      input = block;
+    } else if (block.empty()) {
+      input = partial;
+    } else {
+      combined.reserve(partial.size() + block.size());
+      combined.append(partial);
+      combined.append(block);
+      input = combined;
+    }
 
     const size_t start = ConsumeWhitespace(combined);
     if (start < combined.size() && combined[start] != '{' && combined[start] != '[') {
@@ -145,6 +154,10 @@ class ParsingBoundaryFinder : public BoundaryFinder {
         if (start < block.size()) {
           const char first_char = block[start];
 
+          // An incomplete object/array is valid here because it may continue
+          // in the next block. However, non-object/array data cannot start a
+          // JSON record, except for a lone closing delimiter which may be the
+          // remainder of an incomplete value.
           if (first_char != '{' && first_char != '[') {
             const size_t remaining_len = block.size() - start;
 
