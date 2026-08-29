@@ -27,10 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/json/rapidjson_defs.h"
-#include "rapidjson/error/en.h"
-#include "rapidjson/reader.h"
-
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/buffer_builder.h"
@@ -38,6 +34,7 @@
 #include "arrow/util/bitset_stack_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/trie_internal.h"
 #include "arrow/visit_type_inline.h"
 
@@ -48,7 +45,7 @@ using internal::checked_cast;
 
 namespace json {
 
-namespace rj = arrow::rapidjson;
+namespace sj = simdjson::ondemand;
 
 template <typename... T>
 static Status ParseError(T&&... t) {
