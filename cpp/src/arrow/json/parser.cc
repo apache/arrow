@@ -53,9 +53,8 @@ static Status ParseError(T&&... t) {
 }
 
 static std::string_view TrimTrailingWhitespace(std::string_view value) {
-  while (!value.empty() &&
-         (value.back() == ' ' || value.back() == '\t' ||
-          value.back() == '\n' || value.back() == '\r')) {
+  while (!value.empty() && (value.back() == ' ' || value.back() == '\t' ||
+                            value.back() == '\n' || value.back() == '\r')) {
     value.remove_suffix(1);
   }
   return value;
@@ -735,22 +734,19 @@ class HandlerBase : public BlockParser {
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
 
-    simdjson::padded_string padded_json(
-        reinterpret_cast<const char*>(json->data()), json->size());
+    simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
+                                        json->size());
 
     sj::parser parser;
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto stream,
-        internal::ResolveSimdjsonResult(
-            parser.iterate_many(padded_json),
-            "Failed to create JSON document stream"));
+    ARROW_ASSIGN_OR_RAISE(auto stream, internal::ResolveSimdjsonResult(
+                                           parser.iterate_many(padded_json),
+                                           "Failed to create JSON document stream"));
 
     for (auto document_result : stream) {
       ARROW_ASSIGN_OR_RAISE(
-          auto document,
-          internal::ResolveSimdjsonResult(
-              document_result, "Failed to iterate JSON document stream"));
+          auto document, internal::ResolveSimdjsonResult(
+                             document_result, "Failed to iterate JSON document stream"));
 
       if (num_rows_ == std::numeric_limits<int32_t>::max()) {
         return Status::Invalid("Row count overflowed int32_t");
@@ -758,8 +754,8 @@ class HandlerBase : public BlockParser {
 
       ARROW_ASSIGN_OR_RAISE(
           auto value,
-          internal::ResolveSimdjsonResult(
-              document.get_value(), "JSON parse error: Failed to get JSON value"));
+          internal::ResolveSimdjsonResult(document.get_value(),
+                                          "JSON parse error: Failed to get JSON value"));
 
       RETURN_NOT_OK(ParseValue(handler, value));
 
@@ -804,10 +800,8 @@ class HandlerBase : public BlockParser {
 
   template <typename Handler>
   Status ParseValue(Handler& handler, sj::value value) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto type,
-        internal::ResolveSimdjsonResult(
-            value.type(), "Failed to determine JSON type"));
+    ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                         value.type(), "Failed to determine JSON type"));
 
     switch (type) {
       case sj::json_type::null:
@@ -817,9 +811,8 @@ class HandlerBase : public BlockParser {
         RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kBoolean>());
 
         ARROW_ASSIGN_OR_RAISE(
-            auto boolean,
-            internal::ResolveSimdjsonResult(
-                value.get_bool(), "Failed to get JSON boolean"));
+            auto boolean, internal::ResolveSimdjsonResult(value.get_bool(),
+                                                          "Failed to get JSON boolean"));
         return Bool(boolean);
       }
 
@@ -827,9 +820,8 @@ class HandlerBase : public BlockParser {
         RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kString>());
 
         ARROW_ASSIGN_OR_RAISE(
-            auto string,
-            internal::ResolveSimdjsonResult(
-                value.get_string(), "Failed to get JSON string"));
+            auto string, internal::ResolveSimdjsonResult(value.get_string(),
+                                                         "Failed to get JSON string"));
         return String(string);
       }
 
@@ -855,18 +847,15 @@ class HandlerBase : public BlockParser {
   Status ParseArray(Handler& handler, sj::value value) {
     RETURN_NOT_OK(StartArrayImpl());
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto array,
-        internal::ResolveSimdjsonResult(
-            value.get_array(), "Failed to get JSON array"));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::ResolveSimdjsonResult(
+                                          value.get_array(), "Failed to get JSON array"));
 
     size_t size = 0;
 
     for (auto element_result : array) {
       ARROW_ASSIGN_OR_RAISE(
-          auto element,
-          internal::ResolveSimdjsonResult(
-              element_result, "Failed to iterate JSON array"));
+          auto element, internal::ResolveSimdjsonResult(element_result,
+                                                        "Failed to iterate JSON array"));
 
       RETURN_NOT_OK(ParseValue(handler, element));
       ++size;
@@ -881,8 +870,7 @@ class HandlerBase : public BlockParser {
 
     ARROW_ASSIGN_OR_RAISE(
         auto object,
-        internal::ResolveSimdjsonResult(
-            value.get_object(), "Failed to get JSON object"));
+        internal::ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object"));
 
     for (auto field_result : object) {
       ARROW_ASSIGN_OR_RAISE(
@@ -891,9 +879,8 @@ class HandlerBase : public BlockParser {
               field_result, "JSON parse error: Failed to iterate JSON object"));
 
       ARROW_ASSIGN_OR_RAISE(
-          auto key,
-          internal::ResolveSimdjsonResult(
-              field.unescaped_key(), "Failed to get JSON object key"));
+          auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
+                                                    "Failed to get JSON object key"));
 
       auto field_value = field.value();
 
@@ -1075,7 +1062,6 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
   Status HandleUnexpectedField(std::string_view, sj::value) {
     return ParseError("unexpected field");
   }
-
 };
 
 template <>
@@ -1087,9 +1073,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
     return DoParse(*this, json);
   }
 
-  Status HandleUnexpectedField(std::string_view, sj::value) {
-    return Status::OK();
-  }
+  Status HandleUnexpectedField(std::string_view, sj::value) { return Status::OK(); }
 };
 
 template <>
