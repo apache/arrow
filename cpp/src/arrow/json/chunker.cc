@@ -68,10 +68,13 @@ static size_t ConsumeWholeObject(std::string_view input) {
   }
 
   // Force parsing of the first document.
-  auto document = *it;
-  if (it.error() != simdjson::SUCCESS) {
+  auto document_status =
+      internal::ResolveSimdjsonResult(*it, "Failed to get JSON document");
+  if (!document_status.ok()) {
     return std::string_view::npos;
   }
+
+  auto document = std::move(document_status).ValueUnsafe();
 
   auto value_status =
       internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
