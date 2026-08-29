@@ -60,6 +60,15 @@ static std::string_view TrimTrailingWhitespace(std::string_view value) {
   return value;
 }
 
+static bool IsWhitespaceOnly(std::string_view value) {
+  for (const auto c : value) {
+    if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+      return false;
+    }
+  }
+  return true;
+}
+
 const std::string& Kind::Name(Kind::type kind) {
   static const std::string names[] = {
       "null", "boolean", "number", "string", "array", "object", "number_or_string",
@@ -734,6 +743,13 @@ class HandlerBase : public BlockParser {
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
 
+    const std::string_view input(reinterpret_cast<const char*>(json->data()),
+                                 json->size());
+
+    if (IsWhitespaceOnly(input)) {
+      return Status::OK();
+    }
+
     simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
                                         json->size());
 
@@ -995,7 +1011,8 @@ class HandlerBase : public BlockParser {
     EndNested();
     // append to list_builder here
     auto list_builder = Cast<Kind::kArray>(builder_);
-    return list_builder->Append(size);
+    DCHECK_LE(size, std::numeric_limits<int32_t>::max());
+    return list_builder->Append(static_cast<int32_t>(size));
   }
 
   /// helper method for StartArray and StartObject
