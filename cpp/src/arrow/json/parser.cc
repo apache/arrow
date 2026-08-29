@@ -52,6 +52,15 @@ static Status ParseError(T&&... t) {
   return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
 }
 
+static std::string_view TrimTrailingWhitespace(std::string_view value) {
+  while (!value.empty() &&
+         (value.back() == ' ' || value.back() == '\t' ||
+          value.back() == '\n' || value.back() == '\r')) {
+    value.remove_suffix(1);
+  }
+  return value;
+}
+
 const std::string& Kind::Name(Kind::type kind) {
   static const std::string names[] = {
       "null", "boolean", "number", "string", "array", "object", "number_or_string",
@@ -644,8 +653,7 @@ class RawBuilderSet {
 /// Three implementations are provided for BlockParser, one for each
 /// UnexpectedFieldBehavior. However most of the logic is identical in each
 /// case, so the majority of the implementation is in this base class
-class HandlerBase : public BlockParser,
-                    public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
+class HandlerBase : public BlockParser {
  public:
   explicit HandlerBase(MemoryPool* pool)
       : BlockParser(pool),
@@ -662,67 +670,31 @@ class HandlerBase : public BlockParser,
   /// Accessor for a stored error Status
   Status Error() { return status_; }
 
-  /// \defgroup rapidjson-handler-interface functions expected by rj::Reader
-  ///
-  /// bool Key(const char* data, rj::SizeType size, ...) is omitted since
-  /// the behavior varies greatly between UnexpectedFieldBehaviors
-  ///
-  /// @{
-  bool Null() {
-    status_ = builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
-    return status_.ok();
+  Status Null() {
+    return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
   }
 
-  bool Bool(bool value) {
+  Status Bool(bool value) {
     constexpr auto kind = Kind::kBoolean;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
-      status_ = IllegallyChangedTo(kind);
-      return status_.ok();
+      return IllegallyChangedTo(kind);
     }
-    status_ = Cast<kind>(builder_)->Append(value);
-    return status_.ok();
+    return Cast<kind>(builder_)->Append(value);
   }
 
-  bool RawNumber(const char* data, rj::SizeType size, ...) {
+  Status RawNumber(std::string_view value) {
     if (builder_.kind == Kind::kNumberOrString) {
-      status_ =
-          AppendScalar<Kind::kNumberOrString>(builder_, std::string_view(data, size));
-    } else {
-      status_ = AppendScalar<Kind::kNumber>(builder_, std::string_view(data, size));
+      return AppendScalar<Kind::kNumberOrString>(builder_, value);
     }
-    return status_.ok();
+    return AppendScalar<Kind::kNumber>(builder_, value);
   }
 
-  bool String(const char* data, rj::SizeType size, ...) {
+  Status String(std::string_view value) {
     if (builder_.kind == Kind::kNumberOrString) {
-      status_ =
-          AppendScalar<Kind::kNumberOrString>(builder_, std::string_view(data, size));
-    } else {
-      status_ = AppendScalar<Kind::kString>(builder_, std::string_view(data, size));
+      return AppendScalar<Kind::kNumberOrString>(builder_, value);
     }
-    return status_.ok();
+    return AppendScalar<Kind::kString>(builder_, value);
   }
-
-  bool StartObject() {
-    status_ = StartObjectImpl();
-    return status_.ok();
-  }
-
-  bool EndObject(...) {
-    status_ = EndObjectImpl();
-    return status_.ok();
-  }
-
-  bool StartArray() {
-    status_ = StartArrayImpl();
-    return status_.ok();
-  }
-
-  bool EndArray(rj::SizeType size) {
-    status_ = EndArrayImpl(size);
-    return status_.ok();
-  }
-  /// @}
 
   /// \brief Set up builders using an expected Schema
   Status Initialize(const std::shared_ptr<Schema>& s) {
@@ -759,43 +731,191 @@ class HandlerBase : public BlockParser,
   }
 
  protected:
-  template <typename Handler, typename Stream>
-  Status DoParse(Handler& handler, Stream&& json, size_t json_size) {
-    constexpr auto parse_flags = rj::kParseIterativeFlag | rj::kParseNanAndInfFlag |
-                                 rj::kParseStopWhenDoneFlag |
-                                 rj::kParseNumbersAsStringsFlag;
-
-    rj::Reader reader;
-    // ensure that the loop can exit when the block too large.
-    for (; num_rows_ < std::numeric_limits<int32_t>::max(); ++num_rows_) {
-      auto ok = reader.Parse<parse_flags>(json, handler);
-      switch (ok.Code()) {
-        case rj::kParseErrorNone:
-          // parse the next object
-          continue;
-        case rj::kParseErrorDocumentEmpty:
-          if (json.Tell() < json_size) {
-            return ParseError(rj::GetParseError_En(ok.Code()));
-          }
-          // parsed all objects, finish
-          return Status::OK();
-        case rj::kParseErrorTermination:
-          // handler emitted an error
-          return handler.Error();
-        default:
-          // rj emitted an error
-          return ParseError(rj::GetParseError_En(ok.Code()), " in row ", num_rows_);
-      }
-    }
-    return Status::Invalid("Row count overflowed int32_t");
-  }
-
   template <typename Handler>
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
-    rj::MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
-    using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
-    return DoParse(handler, InputStream(ms), static_cast<size_t>(json->size()));
+
+    simdjson::padded_string padded_json(
+        reinterpret_cast<const char*>(json->data()), json->size());
+
+    sj::parser parser;
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto stream,
+        internal::ResolveSimdjsonResult(
+            parser.iterate_many(padded_json),
+            "Failed to create JSON document stream"));
+
+    for (auto document_result : stream) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto document,
+          internal::ResolveSimdjsonResult(
+              document_result, "Failed to iterate JSON document stream"));
+
+      if (num_rows_ == std::numeric_limits<int32_t>::max()) {
+        return Status::Invalid("Row count overflowed int32_t");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto value,
+          internal::ResolveSimdjsonResult(
+              document.get_value(), "JSON parse error: Failed to get JSON value"));
+
+      RETURN_NOT_OK(ParseValue(handler, value));
+
+      ++num_rows_;
+    }
+
+    if (stream.truncated_bytes() != 0) {
+      return ParseError("The document is empty");
+    }
+
+    return Status::OK();
+  }
+
+  template <Kind::type kind>
+  Status MaybePromoteFromNull() {
+    if (builder_.kind != Kind::kNull) {
+      return Status::OK();
+    }
+
+    auto parent = builder_stack_.back();
+
+    if (parent.kind == Kind::kArray) {
+      auto list_builder = Cast<Kind::kArray>(parent);
+      DCHECK_EQ(list_builder->value_builder(), builder_);
+
+      RETURN_NOT_OK(builder_set_.MakeBuilder<kind>(builder_.index, &builder_));
+
+      list_builder = Cast<Kind::kArray>(parent);
+      list_builder->value_builder(builder_);
+    } else {
+      auto struct_builder = Cast<Kind::kObject>(parent);
+      DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
+
+      RETURN_NOT_OK(builder_set_.MakeBuilder<kind>(builder_.index, &builder_));
+
+      struct_builder = Cast<Kind::kObject>(parent);
+      struct_builder->field_builder(field_index_, builder_);
+    }
+
+    return Status::OK();
+  }
+
+  template <typename Handler>
+  Status ParseValue(Handler& handler, sj::value value) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto type,
+        internal::ResolveSimdjsonResult(
+            value.type(), "Failed to determine JSON type"));
+
+    switch (type) {
+      case sj::json_type::null:
+        return Null();
+
+      case sj::json_type::boolean: {
+        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kBoolean>());
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto boolean,
+            internal::ResolveSimdjsonResult(
+                value.get_bool(), "Failed to get JSON boolean"));
+        return Bool(boolean);
+      }
+
+      case sj::json_type::string: {
+        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kString>());
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto string,
+            internal::ResolveSimdjsonResult(
+                value.get_string(), "Failed to get JSON string"));
+        return String(string);
+      }
+
+      case sj::json_type::number: {
+        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kNumber>());
+        return RawNumber(TrimTrailingWhitespace(value.raw_json_token()));
+      }
+
+      case sj::json_type::array:
+        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kArray>());
+        return ParseArray(handler, value);
+
+      case sj::json_type::object:
+        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kObject>());
+        return ParseObject(handler, value);
+
+      default:
+        return ParseError("Invalid value");
+    }
+  }
+
+  template <typename Handler>
+  Status ParseArray(Handler& handler, sj::value value) {
+    RETURN_NOT_OK(StartArrayImpl());
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto array,
+        internal::ResolveSimdjsonResult(
+            value.get_array(), "Failed to get JSON array"));
+
+    size_t size = 0;
+
+    for (auto element_result : array) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto element,
+          internal::ResolveSimdjsonResult(
+              element_result, "Failed to iterate JSON array"));
+
+      RETURN_NOT_OK(ParseValue(handler, element));
+      ++size;
+    }
+
+    return EndArrayImpl(size);
+  }
+
+  template <typename Handler>
+  Status ParseObject(Handler& handler, sj::value value) {
+    RETURN_NOT_OK(StartObjectImpl());
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto object,
+        internal::ResolveSimdjsonResult(
+            value.get_object(), "Failed to get JSON object"));
+
+    for (auto field_result : object) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto field,
+          internal::ResolveSimdjsonResult(
+              field_result, "JSON parse error: Failed to iterate JSON object"));
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto key,
+          internal::ResolveSimdjsonResult(
+              field.unescaped_key(), "Failed to get JSON object key"));
+
+      auto field_value = field.value();
+
+      RETURN_NOT_OK(ParseObjectField(handler, key, field_value));
+    }
+
+    return EndObjectImpl();
+  }
+
+  template <typename Handler>
+  Status ParseObjectField(Handler& handler, std::string_view key, sj::value value) {
+    bool duplicate_keys = false;
+
+    if (SetFieldBuilder(key, &duplicate_keys)) {
+      return ParseValue(handler, value);
+    }
+
+    if (duplicate_keys) {
+      return status_;
+    }
+
+    return handler.HandleUnexpectedField(key, value);
   }
 
   /// \defgroup handlerbase-append-methods append non-nested values
@@ -884,7 +1004,7 @@ class HandlerBase : public BlockParser,
     return Status::OK();
   }
 
-  Status EndArrayImpl(rj::SizeType size) {
+  Status EndArrayImpl(size_t size) {
     EndNested();
     // append to list_builder here
     auto list_builder = Cast<Kind::kArray>(builder_);
@@ -952,20 +1072,10 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
     return DoParse(*this, json);
   }
 
-  /// \ingroup rapidjson-handler-interface
-  ///
-  /// if an unexpected field is encountered, emit a parse error and bail
-  bool Key(const char* key, rj::SizeType len, ...) {
-    bool duplicate_keys = false;
-    if (ARROW_PREDICT_FALSE(
-            SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
-      return true;
-    }
-    if (!duplicate_keys) {
-      status_ = ParseError("unexpected field");
-    }
-    return false;
+  Status HandleUnexpectedField(std::string_view, sj::value) {
+    return ParseError("unexpected field");
   }
+
 };
 
 template <>
@@ -977,96 +1087,9 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
     return DoParse(*this, json);
   }
 
-  bool Null() {
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::Null();
+  Status HandleUnexpectedField(std::string_view, sj::value) {
+    return Status::OK();
   }
-
-  bool Bool(bool value) {
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::Bool(value);
-  }
-
-  bool RawNumber(const char* data, rj::SizeType size, ...) {
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::RawNumber(data, size);
-  }
-
-  bool String(const char* data, rj::SizeType size, ...) {
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::String(data, size);
-  }
-
-  bool StartObject() {
-    ++depth_;
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::StartObject();
-  }
-
-  /// \ingroup rapidjson-handler-interface
-  ///
-  /// if an unexpected field is encountered, skip until its value has been consumed
-  bool Key(const char* key, rj::SizeType len, ...) {
-    MaybeStopSkipping();
-    if (Skipping()) {
-      return true;
-    }
-    bool duplicate_keys = false;
-    if (ARROW_PREDICT_TRUE(
-            SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
-      return true;
-    }
-    if (ARROW_PREDICT_FALSE(duplicate_keys)) {
-      return false;
-    }
-    skip_depth_ = depth_;
-    return true;
-  }
-
-  bool EndObject(...) {
-    MaybeStopSkipping();
-    --depth_;
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::EndObject();
-  }
-
-  bool StartArray() {
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::StartArray();
-  }
-
-  bool EndArray(rj::SizeType size) {
-    if (Skipping()) {
-      return true;
-    }
-    return HandlerBase::EndArray(size);
-  }
-
- private:
-  bool Skipping() { return depth_ >= skip_depth_; }
-
-  void MaybeStopSkipping() {
-    if (skip_depth_ == depth_) {
-      skip_depth_ = std::numeric_limits<int>::max();
-    }
-  }
-
-  int depth_ = 0;
-  int skip_depth_ = std::numeric_limits<int>::max();
 };
 
 template <>
@@ -1078,91 +1101,14 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     return DoParse(*this, json);
   }
 
-  bool Bool(bool value) {
-    if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kBoolean>())) {
-      return false;
-    }
-    return HandlerBase::Bool(value);
-  }
-
-  bool RawNumber(const char* data, rj::SizeType size, ...) {
-    if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kNumber>())) {
-      return false;
-    }
-    return HandlerBase::RawNumber(data, size);
-  }
-
-  bool String(const char* data, rj::SizeType size, ...) {
-    if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kString>())) {
-      return false;
-    }
-    return HandlerBase::String(data, size);
-  }
-
-  bool StartObject() {
-    if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kObject>())) {
-      return false;
-    }
-    return HandlerBase::StartObject();
-  }
-
-  /// \ingroup rapidjson-handler-interface
-  ///
-  /// If an unexpected field is encountered, add a new builder to
-  /// the current parent builder. It is added as a NullBuilder with
-  /// (parent.length - 1) leading nulls. The next value parsed
-  /// will probably trigger promotion of this field from null
-  bool Key(const char* key, rj::SizeType len, ...) {
-    bool duplicate_keys = false;
-    if (ARROW_PREDICT_TRUE(
-            SetFieldBuilder(std::string_view(key, len), &duplicate_keys))) {
-      return true;
-    }
-    if (ARROW_PREDICT_FALSE(duplicate_keys)) {
-      return false;
-    }
+  Status HandleUnexpectedField(std::string_view key, sj::value value) {
     auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
     auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);
+
     builder_ = BuilderPtr(Kind::kNull, leading_nulls, true);
-    field_index_ = struct_builder->AddField(std::string_view(key, len), builder_);
-    return true;
-  }
+    field_index_ = struct_builder->AddField(key, builder_);
 
-  bool StartArray() {
-    if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kArray>())) {
-      return false;
-    }
-    return HandlerBase::StartArray();
-  }
-
- private:
-  // return true if a terminal error was encountered
-  template <Kind::type kind>
-  bool MaybePromoteFromNull() {
-    if (ARROW_PREDICT_TRUE(builder_.kind != Kind::kNull)) {
-      return false;
-    }
-    auto parent = builder_stack_.back();
-    if (parent.kind == Kind::kArray) {
-      auto list_builder = Cast<Kind::kArray>(parent);
-      DCHECK_EQ(list_builder->value_builder(), builder_);
-      status_ = builder_set_.MakeBuilder<kind>(builder_.index, &builder_);
-      if (ARROW_PREDICT_FALSE(!status_.ok())) {
-        return true;
-      }
-      list_builder = Cast<Kind::kArray>(parent);
-      list_builder->value_builder(builder_);
-    } else {
-      auto struct_builder = Cast<Kind::kObject>(parent);
-      DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
-      status_ = builder_set_.MakeBuilder<kind>(builder_.index, &builder_);
-      if (ARROW_PREDICT_FALSE(!status_.ok())) {
-        return true;
-      }
-      struct_builder = Cast<Kind::kObject>(parent);
-      struct_builder->field_builder(field_index_, builder_);
-    }
-    return false;
+    return ParseValue(*this, value);
   }
 };
 
