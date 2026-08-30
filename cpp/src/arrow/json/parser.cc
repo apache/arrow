@@ -755,13 +755,13 @@ class HandlerBase : public BlockParser {
 
     sj::parser parser;
 
-    ARROW_ASSIGN_OR_RAISE(auto stream, internal::ResolveSimdjsonResult(
+    ARROW_ASSIGN_OR_RAISE(auto stream, arrow::internal::ResolveSimdjsonResult(
                                            parser.iterate_many(padded_json),
                                            "Failed to create JSON document stream"));
 
     for (auto document_result : stream) {
       ARROW_ASSIGN_OR_RAISE(
-          auto document, internal::ResolveSimdjsonResult(
+          auto document, arrow::internal::ResolveSimdjsonResult(
                              document_result, "Failed to iterate JSON document stream"));
 
       if (num_rows_ == std::numeric_limits<int32_t>::max()) {
@@ -770,8 +770,8 @@ class HandlerBase : public BlockParser {
 
       ARROW_ASSIGN_OR_RAISE(
           auto value,
-          internal::ResolveSimdjsonResult(document.get_value(),
-                                          "JSON parse error: Failed to get JSON value"));
+          arrow::internal::ResolveSimdjsonResult(
+              document.get_value(), "JSON parse error: Failed to get JSON value"));
 
       RETURN_NOT_OK(ParseValue(handler, value));
 
@@ -816,7 +816,7 @@ class HandlerBase : public BlockParser {
 
   template <typename Handler>
   Status ParseValue(Handler& handler, sj::value value) {
-    ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+    ARROW_ASSIGN_OR_RAISE(auto type, arrow::internal::ResolveSimdjsonResult(
                                          value.type(), "Failed to determine JSON type"));
 
     switch (type) {
@@ -826,18 +826,18 @@ class HandlerBase : public BlockParser {
       case sj::json_type::boolean: {
         RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kBoolean>());
 
-        ARROW_ASSIGN_OR_RAISE(
-            auto boolean, internal::ResolveSimdjsonResult(value.get_bool(),
-                                                          "Failed to get JSON boolean"));
+        ARROW_ASSIGN_OR_RAISE(auto boolean,
+                              arrow::internal::ResolveSimdjsonResult(
+                                  value.get_bool(), "Failed to get JSON boolean"));
         return Bool(boolean);
       }
 
       case sj::json_type::string: {
         RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kString>());
 
-        ARROW_ASSIGN_OR_RAISE(
-            auto string, internal::ResolveSimdjsonResult(value.get_string(),
-                                                         "Failed to get JSON string"));
+        ARROW_ASSIGN_OR_RAISE(auto string,
+                              arrow::internal::ResolveSimdjsonResult(
+                                  value.get_string(), "Failed to get JSON string"));
         return String(string);
       }
 
@@ -863,15 +863,15 @@ class HandlerBase : public BlockParser {
   Status ParseArray(Handler& handler, sj::value value) {
     RETURN_NOT_OK(StartArrayImpl());
 
-    ARROW_ASSIGN_OR_RAISE(auto array, internal::ResolveSimdjsonResult(
+    ARROW_ASSIGN_OR_RAISE(auto array, arrow::internal::ResolveSimdjsonResult(
                                           value.get_array(), "Failed to get JSON array"));
 
     size_t size = 0;
 
     for (auto element_result : array) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto element, internal::ResolveSimdjsonResult(element_result,
-                                                        "Failed to iterate JSON array"));
+      ARROW_ASSIGN_OR_RAISE(auto element,
+                            arrow::internal::ResolveSimdjsonResult(
+                                element_result, "Failed to iterate JSON array"));
 
       RETURN_NOT_OK(ParseValue(handler, element));
       ++size;
@@ -885,18 +885,18 @@ class HandlerBase : public BlockParser {
     RETURN_NOT_OK(StartObjectImpl());
 
     ARROW_ASSIGN_OR_RAISE(
-        auto object,
-        internal::ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object"));
+        auto object, arrow::internal::ResolveSimdjsonResult(value.get_object(),
+                                                            "Failed to get JSON object"));
 
     for (auto field_result : object) {
       ARROW_ASSIGN_OR_RAISE(
           auto field,
-          internal::ResolveSimdjsonResult(
+          arrow::internal::ResolveSimdjsonResult(
               field_result, "JSON parse error: Failed to iterate JSON object"));
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
-                                                    "Failed to get JSON object key"));
+      ARROW_ASSIGN_OR_RAISE(auto key,
+                            arrow::internal::ResolveSimdjsonResult(
+                                field.unescaped_key(), "Failed to get JSON object key"));
 
       auto field_value = field.value();
 
