@@ -92,5 +92,21 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
 ARROW_EXPORT
 std::vector<ArrayVector> RechunkArraysConsistently(const std::vector<ArrayVector>&);
 
+/// \brief Return an equivalent ArrayData whose buffers are trimmed to the range
+/// the array actually references (its offset/length window), recursively for
+/// child and dictionary data.
+///
+/// A sliced array shares its parent's (potentially large) buffers and only
+/// references a window of them. Serializing the raw buffers -- e.g. pickling in
+/// PyArrow (GH-26685) -- would otherwise copy the whole parent buffers. If the
+/// buffers are already minimal, \p data is returned unchanged without copying.
+///
+/// \param[in] data the array contents
+/// \param[in] pool the memory pool to allocate trimmed buffers from
+/// \return the trimmed ArrayData (or \p data itself if already minimal)
+ARROW_EXPORT
+Result<std::shared_ptr<ArrayData>> TrimArrayDataBuffers(
+    const std::shared_ptr<ArrayData>& data, MemoryPool* pool = default_memory_pool());
+
 }  // namespace internal
 }  // namespace arrow
