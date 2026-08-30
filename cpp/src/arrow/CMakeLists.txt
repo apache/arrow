@@ -325,6 +325,13 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+macro(append_runtime_sse4_2_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SSE4_2 AND ARROW_SIMD_LEVEL STREQUAL "NONE")
+    list(APPEND ${SRCS} ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SSE4_2_FLAG}")
+  endif()
+endmacro()
+
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
@@ -612,8 +619,16 @@ set(ARROW_UTIL_SRCS
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
+append_runtime_sse4_2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_sse4_2.cc)
+
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
+
+# also provides the NEON kernels on aarch64, so it stays in ARROW_UTIL_SRCS
+if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
+  set_source_files_properties(util/bpacking_simd_128.cc PROPERTIES COMPILE_OPTIONS
+                                                                   "${ARROW_SSE4_2_FLAG}")
+endif()
 
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
@@ -982,6 +997,13 @@ if(ARROW_FILESYSTEM)
                                   PROPERTIES COMPILE_OPTIONS
                                              "-Wno-documentation;-Wno-documentation-deprecated-sync"
       )
+    endif()
+    # Workaround deprecated Abseil APIs used by google-cloud-cpp on macOS
+    # https://github.com/googleapis/google-cloud-cpp/issues/16354
+    if(APPLE)
+      set_property(SOURCE filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                   APPEND
+                   PROPERTY COMPILE_OPTIONS "-Wno-error=deprecated-declarations")
     endif()
   endif()
   if(ARROW_HDFS)

@@ -21,9 +21,11 @@
 #include <cstdio>
 #include <memory>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 
@@ -254,16 +256,18 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
 void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected_columns,
                                    const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
-  stream << "{\n";
-  stream << "  \"FileName\": \"" << filename << "\",\n";
-  stream << "  \"Version\": \"" << ParquetVersionToString(file_metadata->version())
-         << "\",\n";
-  stream << "  \"CreatedBy\": \"" << file_metadata->created_by() << "\",\n";
-  stream << "  \"TotalRows\": \"" << file_metadata->num_rows() << "\",\n";
-  stream << "  \"NumberOfRowGroups\": \"" << file_metadata->num_row_groups() << "\",\n";
-  stream << "  \"NumberOfRealColumns\": \""
-         << file_metadata->schema()->group_node()->field_count() << "\",\n";
-  stream << "  \"NumberOfColumns\": \"" << file_metadata->num_columns() << "\",\n";
+  ::arrow::json::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("FileName", filename);
+  writer.StringField("Version", ParquetVersionToString(file_metadata->version()));
+  writer.StringField("CreatedBy", file_metadata->created_by());
+  writer.StringField("TotalRows", std::to_string(file_metadata->num_rows()));
+  writer.StringField("NumberOfRowGroups",
+                     std::to_string(file_metadata->num_row_groups()));
+  writer.StringField(
+      "NumberOfRealColumns",
+      std::to_string(file_metadata->schema()->group_node()->field_count()));
+  writer.StringField("NumberOfColumns", std::to_string(file_metadata->num_columns()));
 
   if (selected_columns.empty()) {
     for (int i = 0; i < file_metadata->num_columns(); i++) {
@@ -277,161 +281,152 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     }
   }
 
-  stream << "  \"Columns\": [\n";
-  int c = 0;
+  writer.Key("Columns");
+  writer.StartArray();
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-    stream << "     { \"Id\": \"" << i << "\","
-           << " \"Name\": \"" << descr->path()->ToDotString() << "\","
-           << " \"PhysicalType\": \""
-           << TypeToString(descr->physical_type(), descr->type_length()) << "\","
-           << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
-           << "\","
-           << " \"LogicalType\": " << (descr->logical_type())->ToJSON() << " }";
-    c++;
-    if (c != static_cast<int>(selected_columns.size())) {
-      stream << ",\n";
-    }
+    writer.StartObject();
+    writer.StringField("Id", std::to_string(i));
+    writer.StringField("Name", descr->path()->ToDotString());
+    writer.StringField("PhysicalType",
+                       TypeToString(descr->physical_type(), descr->type_length()));
+    writer.StringField("ConvertedType", ConvertedTypeToString(descr->converted_type()));
+    writer.Key("LogicalType");
+    writer.RawValue(descr->logical_type()->ToJSON());
+    writer.EndObject();
   }
+  writer.EndArray();
 
-  stream << "\n  ],\n  \"RowGroups\": [\n";
+  writer.Key("RowGroups");
+  writer.StartArray();
   for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
-    stream << "     {\n       \"Id\": \"" << r << "\", ";
+    writer.StartObject();
+    writer.StringField("Id", std::to_string(r));
 
     auto group_reader = fileReader->RowGroup(r);
     std::unique_ptr<RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
 
-    stream << " \"TotalBytes\": \"" << group_metadata->total_byte_size() << "\", ";
-    stream << " \"TotalCompressedBytes\": \"" << group_metadata->total_compressed_size()
-           << "\", ";
+    writer.StringField("TotalBytes", std::to_string(group_metadata->total_byte_size()));
+    writer.StringField("TotalCompressedBytes",
+                       std::to_string(group_metadata->total_compressed_size()));
     auto row_group_sorting_columns = group_metadata->sorting_columns();
     if (!row_group_sorting_columns.empty()) {
-      stream << " \"SortColumns\": [\n";
-      for (size_t i = 0; i < row_group_sorting_columns.size(); i++) {
-        stream << "         {\"column_idx\": " << row_group_sorting_columns[i].column_idx
-               << ", \"descending\": " << row_group_sorting_columns[i].descending
-               << ", \"nulls_first\": " << row_group_sorting_columns[i].nulls_first
-               << "}";
-        if (i + 1 != row_group_sorting_columns.size()) {
-          stream << ",";
-        }
-        stream << '\n';
+      writer.Key("SortColumns");
+      writer.StartArray();
+      for (const auto& sorting_column : row_group_sorting_columns) {
+        writer.StartObject();
+        writer.IntField("column_idx", sorting_column.column_idx);
+        writer.IntField("descending", sorting_column.descending);
+        writer.IntField("nulls_first", sorting_column.nulls_first);
+        writer.EndObject();
       }
-      stream << "       ], ";
+      writer.EndArray();
     }
-    stream << " \"Rows\": \"" << group_metadata->num_rows() << "\",\n";
+    writer.StringField("Rows", std::to_string(group_metadata->num_rows()));
 
-    // Print column metadata
-    stream << "       \"ColumnChunks\": [\n";
-    int c1 = 0;
+    writer.Key("ColumnChunks");
+    writer.StartArray();
     for (auto i : selected_columns) {
       auto column_chunk = group_metadata->ColumnChunk(i);
       std::shared_ptr<Statistics> stats = column_chunk->statistics();
-
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-      stream << "          {\"Id\": \"" << i << "\", \"Values\": \""
-             << column_chunk->num_values() << "\", "
-             << "\"StatsSet\": ";
+
+      writer.StartObject();
+      writer.StringField("Id", std::to_string(i));
+      writer.StringField("Values", std::to_string(column_chunk->num_values()));
       if (column_chunk->is_stats_set()) {
-        stream << R"("True", "Stats": {)";
+        writer.StringField("StatsSet", "True");
+        writer.Key("Stats");
+        writer.StartObject();
         if (stats->HasNullCount()) {
-          stream << R"("NumNulls": ")" << stats->null_count() << "\"";
+          writer.StringField("NumNulls", std::to_string(stats->null_count()));
         }
         if (stats->HasDistinctCount()) {
-          stream << ", "
-                 << R"("DistinctValues": ")" << stats->distinct_count() << "\"";
+          writer.StringField("DistinctValues", std::to_string(stats->distinct_count()));
         }
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();
-          stream << ", "
-                 << R"("Max": ")"
-                 << FormatStatValue(descr->physical_type(), max, descr->logical_type())
-                 << "\", "
-                 << R"("Min": ")"
-                 << FormatStatValue(descr->physical_type(), min, descr->logical_type())
-                 << "\"";
+          writer.StringField(
+              "Max", FormatStatValue(descr->physical_type(), max, descr->logical_type()));
+          writer.StringField(
+              "Min", FormatStatValue(descr->physical_type(), min, descr->logical_type()));
           if (stats->is_max_value_exact().has_value()) {
-            stream << ", "
-                   << R"("IsMaxValueExact": ")"
-                   << (stats->is_max_value_exact().value() ? "True" : "False") << "\"";
+            writer.StringField("IsMaxValueExact",
+                               stats->is_max_value_exact().value() ? "True" : "False");
           } else {
-            stream << ", "
-                   << R"("IsMaxValueExact": "unknown")";
+            writer.StringField("IsMaxValueExact", "unknown");
           }
           if (stats->is_min_value_exact().has_value()) {
-            stream << ", "
-                   << R"("IsMinValueExact": ")"
-                   << (stats->is_min_value_exact().value() ? "True" : "False") << "\"";
+            writer.StringField("IsMinValueExact",
+                               stats->is_min_value_exact().value() ? "True" : "False");
           } else {
-            stream << ", "
-                   << R"("IsMinValueExact": "unknown")";
+            writer.StringField("IsMinValueExact", "unknown");
           }
         }
-        stream << " },";
+        writer.EndObject();
       } else {
-        stream << "\"False\",";
+        writer.StringField("StatsSet", "False");
       }
-      stream << "\n           \"Compression\": \""
-             << ::arrow::internal::AsciiToUpper(
-                    Codec::GetCodecAsString(column_chunk->compression()))
-             << R"(", "Encodings": )";
-      stream << "\"";
+
+      writer.StringField("Compression",
+                         ::arrow::internal::AsciiToUpper(
+                             Codec::GetCodecAsString(column_chunk->compression())));
+
+      std::ostringstream encodings_stream;
       if (column_chunk->encoding_stats().empty()) {
         for (auto encoding : column_chunk->encodings()) {
-          stream << EncodingToString(encoding) << " ";
+          encodings_stream << EncodingToString(encoding) << " ";
         }
       } else {
-        PrintPageEncodingStats(stream, column_chunk->encoding_stats());
+        PrintPageEncodingStats(encodings_stream, column_chunk->encoding_stats());
       }
-      stream << "\"";
-      stream << ", "
-             << R"("UncompressedSize": ")" << column_chunk->total_uncompressed_size()
-             << R"(", "CompressedSize": ")" << column_chunk->total_compressed_size()
-             << "\"";
+      writer.StringField("Encodings", encodings_stream.str());
+
+      writer.StringField("UncompressedSize",
+                         std::to_string(column_chunk->total_uncompressed_size()));
+      writer.StringField("CompressedSize",
+                         std::to_string(column_chunk->total_compressed_size()));
 
       if (column_chunk->bloom_filter_offset()) {
-        // Output BloomFilter {offset, length}
-        stream << ", \"BloomFilter\": {"
-               << R"("offset": ")" << column_chunk->bloom_filter_offset().value() << "\"";
+        writer.Key("BloomFilter");
+        writer.StartObject();
+        writer.StringField("offset",
+                           std::to_string(column_chunk->bloom_filter_offset().value()));
         if (column_chunk->bloom_filter_length()) {
-          stream << R"(, "length": ")" << column_chunk->bloom_filter_length().value()
-                 << "\"";
+          writer.StringField("length",
+                             std::to_string(column_chunk->bloom_filter_length().value()));
         }
-        stream << "}";
+        writer.EndObject();
       }
 
       if (column_chunk->GetColumnIndexLocation()) {
         auto location = column_chunk->GetColumnIndexLocation().value();
-        // Output ColumnIndex {offset, length}
-        stream << ", \"ColumnIndex\": {"
-               << R"("offset": ")" << location.offset;
-        stream << R"(", "length": ")" << location.length;
-        stream << "\"}";
+        writer.Key("ColumnIndex");
+        writer.StartObject();
+        writer.StringField("offset", std::to_string(location.offset));
+        writer.StringField("length", std::to_string(location.length));
+        writer.EndObject();
       }
 
       if (column_chunk->GetOffsetIndexLocation()) {
         auto location = column_chunk->GetOffsetIndexLocation().value();
-        // Output OffsetIndex {offset, length}
-        stream << ", \"OffsetIndex\": {"
-               << R"("offset": ")" << location.offset << "\"";
-        stream << R"(, "length": ")" << location.length << "\"";
-        stream << "}";
+        writer.Key("OffsetIndex");
+        writer.StartObject();
+        writer.StringField("offset", std::to_string(location.offset));
+        writer.StringField("length", std::to_string(location.length));
+        writer.EndObject();
       }
 
-      // end of a ColumnChunk
-      stream << " }";
-      c1++;
-      if (c1 != static_cast<int>(selected_columns.size())) {
-        stream << ",\n";
-      }
+      writer.EndObject();
     }
-
-    stream << "\n        ]\n     }";
-    if ((r + 1) != static_cast<int>(file_metadata->num_row_groups())) {
-      stream << ",\n";
-    }
+    writer.EndArray();
+    writer.EndObject();
   }
-  stream << "\n  ]\n}\n";
+  writer.EndArray();
+  writer.EndObject();
+
+  PARQUET_ASSIGN_OR_THROW(std::string pretty_json, writer.GetPrettyString());
+  stream << pretty_json << "\n";
 }
 
 }  // namespace parquet
