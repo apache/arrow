@@ -27,6 +27,7 @@
 
 #include <simdjson.h>
 
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 
@@ -285,6 +286,118 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
       }
 
       return Status::Invalid("Unknown JSON number type");
+    }
+
+    case simdjson::ondemand::json_type::unknown:
+      return Status::Invalid("Unknown JSON type");
+  }
+
+  return Status::Invalid("Unreachable");
+}
+
+inline Status PrettyPrintJsonValue(simdjson::ondemand::value value, std::string* out,
+                                   int indent = 0) {
+  constexpr int kIndentSize = 4;
+
+  auto append_indent = [&](int level) {
+    out->append(static_cast<size_t>(level * kIndentSize), ' ');
+  };
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto type, ResolveSimdjsonResult(value.type(), "Failed to determine JSON type"));
+
+  switch (type) {
+    case simdjson::ondemand::json_type::object: {
+      ARROW_ASSIGN_OR_RAISE(
+          auto object,
+          ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object"));
+
+      out->append("{");
+
+      bool first = true;
+      for (auto field_result : object) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto field,
+            ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
+
+        ARROW_ASSIGN_OR_RAISE(auto key,
+                              ResolveSimdjsonResult(field.unescaped_key(),
+                                                    "Failed to get JSON object key"));
+
+        auto field_value = field.value();
+
+        if (first) {
+          out->append("\n");
+          first = false;
+        } else {
+          out->append(",\n");
+        }
+
+        append_indent(indent + 1);
+
+        json::JsonWriter writer;
+        writer.String(key);
+
+        ARROW_ASSIGN_OR_RAISE(auto escaped_key, writer.GetString());
+        out->append(escaped_key);
+        out->append(": ");
+
+        RETURN_NOT_OK(PrettyPrintJsonValue(field_value, out, indent + 1));
+      }
+
+      if (!first) {
+        out->append("\n");
+        append_indent(indent);
+      }
+
+      out->append("}");
+      return Status::OK();
+    }
+
+    case simdjson::ondemand::json_type::array: {
+      ARROW_ASSIGN_OR_RAISE(
+          auto array,
+          ResolveSimdjsonResult(value.get_array(), "Failed to get JSON array"));
+
+      out->append("[");
+
+      bool first = true;
+      for (auto element_result : array) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto element,
+            ResolveSimdjsonResult(element_result, "Failed to iterate JSON array"));
+
+        if (first) {
+          out->append("\n");
+          first = false;
+        } else {
+          out->append(",\n");
+        }
+
+        append_indent(indent + 1);
+
+        RETURN_NOT_OK(PrettyPrintJsonValue(element, out, indent + 1));
+      }
+
+      if (!first) {
+        out->append("\n");
+        append_indent(indent);
+      }
+
+      out->append("]");
+      return Status::OK();
+    }
+
+    case simdjson::ondemand::json_type::string:
+    case simdjson::ondemand::json_type::boolean:
+    case simdjson::ondemand::json_type::null:
+    case simdjson::ondemand::json_type::number: {
+      ARROW_ASSIGN_OR_RAISE(auto serialized,
+                            ResolveSimdjsonResult(simdjson::to_json_string(value),
+                                                  "Failed to serialize JSON value"));
+
+      out->append(serialized);
+      return Status::OK();
     }
 
     case simdjson::ondemand::json_type::unknown:

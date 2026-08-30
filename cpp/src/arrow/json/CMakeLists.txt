@@ -35,7 +35,9 @@ add_arrow_benchmark(parser_benchmark
                     PREFIX
                     "arrow-json"
                     EXTRA_LINK_LIBS
-                    RapidJSON)
+                    RapidJSON
+                    simdjson::simdjson)
+
 arrow_install_all_headers("arrow/json")
 
 # pkg-config support
