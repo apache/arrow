@@ -1953,7 +1953,11 @@ class ArrayReader {
   Result<std::shared_ptr<ArrayData>> Parse() {
     ARROW_ASSIGN_OR_RAISE(length_, GetMemberInt<int32_t>(obj_, "count"));
 
-    if (::arrow::internal::may_have_validity_bitmap(type_->id())) {
+    const auto physical_type_id =
+        type_->id() == Type::EXTENSION
+            ? checked_cast<const ExtensionType&>(*type_).storage_type()->id()
+            : type_->id();
+    if (::arrow::internal::may_have_validity_bitmap(physical_type_id)) {
       // Null and union types don't have a validity bitmap
       RETURN_NOT_OK(ParseValidityBitmap());
     }

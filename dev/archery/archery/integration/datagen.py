@@ -1942,27 +1942,19 @@ def generate_extension_wrapped_union_case():
     # Unions wrapped in an extension type, exercising the extension/union
     # interaction across implementations (see the C++ fix in GH-50623).
     sparse_union_type = ExtensionType(
-        'sparse-union-extension', '',
-        SparseUnionField('', [get_field('f1', 'int32'),
-                              get_field('f2', 'utf8')],
-                         type_ids=[5, 7]))
+        'sparse-union-extension', 'sparse-union-extension',
+        SparseUnionField('', [get_field('floats', 'float64'),
+                              get_field('strings', 'largeutf8')],
+                         type_ids=[0, 1]))
     dense_union_type = ExtensionType(
-        'dense-union-extension', '',
-        DenseUnionField('', [get_field('f1', 'int16'),
-                             get_field('f2', 'binary')],
-                        type_ids=[10, 20]))
+        'dense-union-extension', 'dense-union-extension',
+        DenseUnionField('', [get_field('floats', 'float64'),
+                             get_field('strings', 'largeutf8')],
+                        type_ids=[0, 1]))
 
-    # These extension names are not registered in the integration binaries, so
-    # flag them as allow-unregistered: the extension metadata is preserved and
-    # the union storage is round-tripped by every implementation.
-    allow_unregistered = [
-        ('ARROW:integration:allow_unregistered_extension', 'true'),
-    ]
     fields = [
-        ExtensionField('sparse_union_ext', sparse_union_type,
-                       metadata=allow_unregistered),
-        ExtensionField('dense_union_ext', dense_union_type,
-                       metadata=allow_unregistered),
+        ExtensionField('sparse_union_ext', sparse_union_type),
+        ExtensionField('dense_union_ext', dense_union_type),
     ]
 
     batch_sizes = [0, 7]
