@@ -2039,6 +2039,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                                               CMemoryPool* pool)
 
     CStatus GetRecordBatchSize(const CRecordBatch& batch, int64_t* size)
+    CStatus GetRecordBatchSize(const CRecordBatch& batch,
+                               const CIpcWriteOptions& options, int64_t* size)
     CStatus GetTensorSize(const CTensor& tensor, int64_t* size)
 
     CStatus WriteTensor(const CTensor& tensor, COutputStream* dst,
@@ -2057,6 +2059,10 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CResult[shared_ptr[CBuffer]] SerializeRecordBatch(
         const CRecordBatch& schema, const CIpcWriteOptions& options)
+
+    CStatus SerializeRecordBatch(const CRecordBatch& batch,
+                                 const CIpcWriteOptions& options,
+                                 COutputStream* out)
 
     CResult[shared_ptr[CSchema]] ReadSchema(const CMessage& message,
                                             CDictionaryMemo* dictionary_memo)
