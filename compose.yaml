@@ -1867,7 +1867,10 @@ services:
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache, *sccache]
+      ARCHERY_INTEGRATION_WITH_DOTNET: 0
       ARCHERY_INTEGRATION_WITH_GO: 0
+      ARCHERY_INTEGRATION_WITH_JAVA: 0
+      ARCHERY_INTEGRATION_WITH_JS: 0
       ARCHERY_INTEGRATION_WITH_NANOARROW: 0
       ARCHERY_INTEGRATION_WITH_RUST: 0
       # Tell Archery where Arrow binaries are located
