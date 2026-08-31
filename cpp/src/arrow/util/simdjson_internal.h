@@ -19,9 +19,11 @@
 
 #include <concepts>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -29,9 +31,76 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
+
+/// This class is a helper to parse a JSON object from a string.
+/// It uses simdjson in the implementation.
+class ARROW_EXPORT JsonObjectParser {
+ public:
+  JsonObjectParser();
+  ~JsonObjectParser();
+
+  Status Parse(std::string_view json);
+
+  Result<std::string> GetString(const char* key) const;
+
+  Result<bool> GetBool(const char* key) const;
+
+  // Get all members of the object as a map from string keys to string values
+  Result<std::unordered_map<std::string, std::string>> GetStringMap() const;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+class ARROW_EXPORT JsonWriter {
+ public:
+  JsonWriter() = default;
+
+  void StartObject();
+  void EndObject();
+
+  void StartArray();
+  void EndArray();
+
+  void Key(std::string_view key);
+
+  void String(std::string_view value);
+  void RawValue(std::string_view value);
+  void Bool(bool value);
+
+  void Int(int32_t value);
+  void Int64(int64_t value);
+
+  void Uint(uint32_t value);
+  void Uint64(uint64_t value);
+
+  void Double(double value);
+
+  Status WriteValue(simdjson::ondemand::value value);
+
+  void Null();
+
+  void StringField(std::string_view key, std::string_view value);
+  void BoolField(std::string_view key, bool value);
+  void IntField(std::string_view key, int32_t value);
+
+  Result<std::string_view> GetString() const;
+
+  Result<std::string> GetPrettyString(
+      const simdjson::fractured_json_options& options = {}) const;
+
+  void Clear();
+
+ private:
+  void MaybeComma();
+
+  simdjson::builder::string_builder builder_;
+  bool needs_comma_ = false;
+};
 
 // Empty struct to represent the type of a simdjson null value
 struct SimdjsonNull {};
@@ -94,121 +163,30 @@ Result<T> ResolveSimdjsonResult(simdjson::simdjson_result<T> result,
   return value;
 }
 
-inline const char* JsonTypeName(simdjson::dom::element_type type) {
-  switch (type) {
-    case simdjson::dom::element_type::ARRAY:
-      return "array";
-    case simdjson::dom::element_type::OBJECT:
-      return "object";
-    case simdjson::dom::element_type::INT64:
-    case simdjson::dom::element_type::UINT64:
-    case simdjson::dom::element_type::DOUBLE:
-      return "number";
-    case simdjson::dom::element_type::STRING:
-      return "string";
-    case simdjson::dom::element_type::BOOL:
-      return "boolean";
-    case simdjson::dom::element_type::NULL_VALUE:
-      return "null";
-    default:
-      return "unknown";
-  }
-}
+ARROW_EXPORT const char* JsonTypeName(simdjson::dom::element_type type);
 
-inline Result<simdjson::dom::array> GetJsonArray(simdjson::dom::element value,
-                                                 std::string_view name) {
-  if (!value.is_array()) {
-    return Status::Invalid(name, " must be an array, got ", JsonTypeName(value.type()));
-  }
-  return ResolveSimdjsonResult(value.get_array(), "Failed to get JSON array");
-}
+ARROW_EXPORT Result<simdjson::dom::array> GetJsonArray(simdjson::dom::element value,
+                                                       std::string_view name);
 
-inline Result<int64_t> GetJsonInt(simdjson::dom::element value, std::string_view name,
-                                  std::string_view expected) {
-  if (!value.is_int64()) {
-    return Status::Invalid(name, " must contain ", expected, ", got ",
-                           JsonTypeName(value.type()));
-  }
-  return ResolveSimdjsonResult(value.get_int64(), "Failed to get JSON integer");
-}
+ARROW_EXPORT Result<int64_t> GetJsonInt(simdjson::dom::element value,
+                                        std::string_view name, std::string_view expected);
 
-inline Result<simdjson::dom::object> ParseJsonObject(simdjson::dom::parser& parser,
-                                                     const std::string& json) {
-  return ResolveSimdjsonResult(parser.parse(json).get_object(),
-                               "Invalid serialized JSON data");
-}
+ARROW_EXPORT Result<simdjson::dom::object> ParseJsonObject(simdjson::dom::parser& parser,
+                                                           const std::string& json);
 
 // object.at_key() performs a linear search. This is acceptable here
 // since these objects are expected to contain only a small number of fields.
-inline Result<std::optional<simdjson::dom::element>> GetOptionalJsonField(
-    const simdjson::dom::object& object, std::string_view key) {
-  auto field = object.at_key(key);
-  if (field.error() == simdjson::NO_SUCH_FIELD) {
-    return std::nullopt;
-  }
+ARROW_EXPORT Result<std::optional<simdjson::dom::element>> GetOptionalJsonField(
+    const simdjson::dom::object& object, std::string_view key);
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto value,
-      ResolveSimdjsonResult(std::move(field), "Failed to get JSON object field"));
+ARROW_EXPORT Result<std::vector<int64_t>> GetJsonIntArray(simdjson::dom::element value,
+                                                          std::string_view name);
 
-  return std::optional<simdjson::dom::element>(std::move(value));
-}
+ARROW_EXPORT Result<std::vector<std::optional<int64_t>>> GetJsonNullableIntArray(
+    simdjson::dom::element value, std::string_view name);
 
-inline Result<std::vector<int64_t>> GetJsonIntArray(simdjson::dom::element value,
-                                                    std::string_view name) {
-  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonArray(value, name));
-
-  std::vector<int64_t> result;
-  result.reserve(array.size());
-
-  for (auto element : array) {
-    ARROW_ASSIGN_OR_RAISE(auto number, GetJsonInt(element, name, "integers"));
-    result.push_back(number);
-  }
-
-  return result;
-}
-
-inline Result<std::vector<std::optional<int64_t>>> GetJsonNullableIntArray(
-    simdjson::dom::element value, std::string_view name) {
-  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonArray(value, name));
-
-  std::vector<std::optional<int64_t>> result;
-  result.reserve(array.size());
-
-  for (auto element : array) {
-    if (element.is_null()) {
-      result.emplace_back(std::nullopt);
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto number, GetJsonInt(element, name, "integers or nulls"));
-      result.emplace_back(number);
-    }
-  }
-
-  return result;
-}
-
-inline Result<std::vector<std::string>> GetJsonStringArray(simdjson::dom::element value,
-                                                           std::string_view name) {
-  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonArray(value, name));
-
-  std::vector<std::string> result;
-  result.reserve(array.size());
-
-  for (auto element : array) {
-    if (!element.is_string()) {
-      return Status::Invalid(name, " must contain strings, got ",
-                             JsonTypeName(element.type()));
-    }
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto string,
-        ResolveSimdjsonResult(element.get_string(), "Failed to get JSON string"));
-    result.emplace_back(string);
-  }
-
-  return result;
-}
+ARROW_EXPORT Result<std::vector<std::string>> GetJsonStringArray(
+    simdjson::dom::element value, std::string_view name);
 
 template <typename ObjectFn, typename ArrayFn, typename StringFn, typename BoolFn,
           typename NullFn, typename Int64Fn, typename Uint64Fn, typename DoubleFn,
@@ -294,35 +272,10 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
   return Status::Invalid("Unreachable");
 }
 
-inline const char* JsonTypeName(simdjson::ondemand::json_type type) {
-  switch (type) {
-    case simdjson::ondemand::json_type::array:
-      return "array";
-    case simdjson::ondemand::json_type::object:
-      return "object";
-    case simdjson::ondemand::json_type::number:
-      return "number";
-    case simdjson::ondemand::json_type::string:
-      return "string";
-    case simdjson::ondemand::json_type::boolean:
-      return "boolean";
-    case simdjson::ondemand::json_type::null:
-      return "null";
-    default:
-      return "unknown";
-  }
-}
+ARROW_EXPORT const char* JsonTypeName(simdjson::ondemand::json_type type);
 
 // Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
-inline Result<bool> IsJsonNull(simdjson::ondemand::value& value) {
-  bool is_null;
-  auto error_code = value.is_null().get(is_null);
-  if (error_code != simdjson::SUCCESS) {
-    return Status::Invalid("Error checking for JSON null: ",
-                           simdjson::error_message(error_code));
-  }
-  return is_null;
-}
+ARROW_EXPORT Result<bool> IsJsonNull(simdjson::ondemand::value& value);
 
 template <typename SimdjsonValueType>
 Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
@@ -386,66 +339,15 @@ Result<T> GetJsonField(simdjson::ondemand::object& object, std::string_view key)
   return Status::KeyError("Missing JSON field: ", key);
 }
 
-inline Result<std::string> MinifyJson(std::string_view json) {
-  std::string minified(json.size(), '\0');
-  size_t minified_len = 0;
+ARROW_EXPORT Result<std::string> MinifyJson(std::string_view json);
 
-  if (auto error =
-          simdjson::minify(json.data(), json.size(), minified.data(), minified_len);
-      error != simdjson::SUCCESS) {
-    return Status::Invalid("Failed to minify JSON: ", simdjson::error_message(error));
-  }
+ARROW_EXPORT Status ValidateJsonObject(simdjson::ondemand::object object);
 
-  minified.resize(minified_len);
-  return minified;
-}
+ARROW_EXPORT Status ValidateJsonArray(simdjson::ondemand::array array);
 
-inline Status ValidateJsonObject(simdjson::ondemand::object object);
+ARROW_EXPORT Status ConsumeJsonValue(simdjson::ondemand::value value);
 
-inline Status ValidateJsonArray(simdjson::ondemand::array array);
+ARROW_EXPORT Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
+                                         simdjson::padded_string& json);
 
-inline Status ConsumeJsonValue(simdjson::ondemand::value value) {
-  return VisitJsonValue(
-      value, ValidateJsonObject, ValidateJsonArray,
-      [](std::string_view) { return Status::OK(); }, [](bool) { return Status::OK(); },
-      []() { return Status::OK(); }, [](int64_t) { return Status::OK(); },
-      [](uint64_t) { return Status::OK(); }, [](double) { return Status::OK(); },
-      [](simdjson::ondemand::value) { return Status::OK(); });
-}
-
-inline Status ValidateJsonObject(simdjson::ondemand::object object) {
-  for (auto field_result : object) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto field, ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
-
-    RETURN_NOT_OK(ConsumeJsonValue(field.value()));
-  }
-
-  return Status::OK();
-}
-
-inline Status ValidateJsonArray(simdjson::ondemand::array array) {
-  for (auto element_result : array) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto value,
-        ResolveSimdjsonResult(element_result, "Failed to iterate JSON array"));
-
-    RETURN_NOT_OK(ConsumeJsonValue(value));
-  }
-
-  return Status::OK();
-}
-
-inline Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
-                                   simdjson::padded_string& json) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto document, ResolveSimdjsonResult(parser.iterate(json), "Failed to parse JSON"));
-
-  ARROW_ASSIGN_OR_RAISE(auto value, ResolveSimdjsonResult(document.get_value(),
-                                                          "Failed to get JSON value"));
-
-  return ConsumeJsonValue(value);
-}
-
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -20,11 +20,11 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 namespace arrow {
 
@@ -104,11 +104,11 @@ struct WriteVisitor {
     return Status::OK();
   }
 
-  json::JsonWriter& writer_;
+  ::arrow::internal::JsonWriter& writer_;
   const Scalar& scalar_;
 };
 
-Status WriteJson(const StructScalar& scalar, json::JsonWriter* writer) {
+Status WriteJson(const StructScalar& scalar, ::arrow::internal::JsonWriter* writer) {
   WriteVisitor visitor{*writer, scalar};
   return VisitWriteableTypeId(Type::STRUCT, &visitor);
 }
@@ -122,7 +122,7 @@ class JsonFormatHelper {
     std::stringstream ss;
 
     for (const auto& scalar : scalars) {
-      json::JsonWriter writer;
+      ::arrow::internal::JsonWriter writer;
       RETURN_NOT_OK(WriteJson(*scalar, &writer));
 
       ARROW_ASSIGN_OR_RAISE(auto json, writer.GetString());

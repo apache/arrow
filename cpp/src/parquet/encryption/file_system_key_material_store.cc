@@ -20,9 +20,8 @@
 #include "arrow/buffer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
-#include "arrow/json/json_writer_internal.h"
-#include "arrow/json/object_parser.h"
 #include "arrow/result.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
@@ -74,14 +73,14 @@ void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
   PARQUET_ASSIGN_OR_THROW(input_size, input->GetSize());
   PARQUET_ASSIGN_OR_THROW(buff, input->ReadAt(0, input_size));
   std::string buff_str = buff->ToString();
-  ::arrow::json::internal::ObjectParser parser;
+  ::arrow::internal::JsonObjectParser parser;
   auto status = parser.Parse(buff_str);
   PARQUET_THROW_NOT_OK(status);
   PARQUET_ASSIGN_OR_THROW(key_material_map_, parser.GetStringMap());
 }
 
 std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   for (const auto& it : key_material_map_) {
     writer.StringField(it.first, it.second);

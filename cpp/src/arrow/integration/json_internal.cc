@@ -36,7 +36,6 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -66,7 +65,7 @@ using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
 using arrow::ipc::internal::FieldPosition;
 
-using JsonWriter = arrow::json::JsonWriter;
+using JsonWriter = arrow::internal::JsonWriter;
 
 namespace arrow::internal::integration::json {
 

@@ -38,7 +38,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -725,7 +724,7 @@ static const char* json_example6 = R"example(
 )example";
 
 void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
-  arrow::json::JsonWriter writer;
+  arrow::internal::JsonWriter writer;
 
   DictionaryFieldMapper mapper(*schema);
 
@@ -749,7 +748,7 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
 void TestArrayRoundTrip(const Array& array) {
   static std::string name = "dummy";
 
-  arrow::json::JsonWriter writer;
+  arrow::internal::JsonWriter writer;
 
   ASSERT_OK(json::WriteArray(name, array, &writer));
 

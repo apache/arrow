@@ -25,8 +25,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/string.h"
 
 #include "parquet/column_scanner.h"
@@ -256,7 +256,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
 void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected_columns,
                                    const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("FileName", filename);
   writer.StringField("Version", ParquetVersionToString(file_metadata->version()));
