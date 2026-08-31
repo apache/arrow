@@ -579,16 +579,23 @@ struct ArrayExporter {
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
     // not able to import arrays without a null bitmap and null_count == -1.
     data->GetNullCount();
+
+    const DataType* physical_type = data->type.get();
+    if (physical_type->id() == Type::EXTENSION) {
+      physical_type =
+          checked_cast<const ExtensionType&>(*physical_type).storage_type().get();
+    }
+
     // Store buffer pointers
     size_t n_buffers = data->buffers.size();
     auto buffers_begin = data->buffers.begin();
-    if (n_buffers > 0 && !internal::may_have_validity_bitmap(data->type->id())) {
+    if (n_buffers > 0 && !internal::may_have_validity_bitmap(physical_type->id())) {
       --n_buffers;
       ++buffers_begin;
     }
 
-    bool need_variadic_buffer_sizes = data->type->storage_id() == Type::BINARY_VIEW ||
-                                      data->type->storage_id() == Type::STRING_VIEW;
+    bool need_variadic_buffer_sizes =
+        physical_type->id() == Type::BINARY_VIEW || physical_type->id() == Type::STRING_VIEW;
     if (need_variadic_buffer_sizes) {
       ++n_buffers;
     }
