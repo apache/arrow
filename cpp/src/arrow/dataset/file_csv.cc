@@ -165,6 +165,8 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
   std::optional<csv::ParseOptions> inspection_parse_options;
   const auto* parser_options = &parse_options;
   if (parse_options.pad_short_rows) {
+    // Do not pad short rows while determining column names, since padding cannot
+    // synthesize missing names. Copy the parse options only when needed.
     inspection_parse_options.emplace(parse_options);
     inspection_parse_options->pad_short_rows = false;
     parser_options = &*inspection_parse_options;
