@@ -6378,6 +6378,7 @@ class ParquetAlpEncodingTest : public ::testing::Test {
     // Create writer properties with ALP encoding for float/double columns
     auto writer_props = WriterProperties::Builder()
                             .disable_dictionary()
+                            ->enable_alp_encoding()
                             ->encoding(Encoding::ALP)
                             ->build();
 
@@ -6391,6 +6392,7 @@ class ParquetAlpEncodingTest : public ::testing::Test {
                               Compression::type compression) {
     auto writer_props = WriterProperties::Builder()
                             .disable_dictionary()
+                            ->enable_alp_encoding()
                             ->encoding(Encoding::ALP)
                             ->compression(compression)
                             ->build();
@@ -6431,6 +6433,8 @@ TEST_F(ParquetAlpEncodingTest, MixedTypesWithFloatDouble) {
   // Use ALP encoding only for float/double columns, default for others
   auto writer_props = WriterProperties::Builder()
                           .disable_dictionary()
+                          ->enable_alp_encoding("value_f")
+                          ->enable_alp_encoding("value_d")
                           ->encoding("value_f", Encoding::ALP)
                           ->encoding("value_d", Encoding::ALP)
                           ->build();
@@ -6515,8 +6519,11 @@ TEST_F(ParquetAlpEncodingTest, MultipleRowGroups) {
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
 
   // Write with small row group size to create multiple row groups
-  auto writer_props =
-      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::ALP)->build();
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->enable_alp_encoding()
+                          ->encoding(Encoding::ALP)
+                          ->build();
 
   std::shared_ptr<Table> result;
   DoRoundtrip(table, /*row_group_size=*/1000, &result, writer_props);
@@ -6561,8 +6568,11 @@ TEST_F(ParquetAlpEncodingTest, VerifyAlpEncodingUsed) {
   ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
 
-  auto writer_props =
-      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::ALP)->build();
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->enable_alp_encoding()
+                          ->encoding(Encoding::ALP)
+                          ->build();
 
   auto sink = CreateOutputStream();
   ASSERT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink, table->num_rows(),
@@ -6662,8 +6672,11 @@ TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
   auto schema = ::arrow::schema({::arrow::field("all_exceptions", ::arrow::float64())});
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
 
-  auto writer_props =
-      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::ALP)->build();
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->enable_alp_encoding()
+                          ->encoding(Encoding::ALP)
+                          ->build();
 
   std::shared_ptr<Table> result;
   DoRoundtrip(table, table->num_rows(), &result, writer_props);

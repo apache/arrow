@@ -91,6 +91,14 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
       }
     }
 
+    if (col_props.alp_enabled() != default_column_properties_.alp_enabled()) {
+      if (col_props.alp_enabled()) {
+        this->enable_alp_encoding(col_path);
+      } else {
+        this->disable_alp_encoding(col_path);
+      }
+    }
+
     if (col_props.compression() != default_column_properties_.compression()) {
       this->compression(col_path, col_props.compression());
     }
