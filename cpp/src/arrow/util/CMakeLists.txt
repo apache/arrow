@@ -88,9 +88,9 @@ add_arrow_test(utility-test
                ${ARROW_UTILITY_TEST_LINK_LIBS})
 
 if(ARROW_WITH_SIMDJSON)
-  add_arrow_test(json-writer-internal-test
+  add_arrow_test(simdjson-internal-test
                  SOURCES
-                 json_writer_internal_test.cc
+                 simdjson_internal_test.cc
                  EXTRA_LINK_LIBS
                  arrow::simdjson)
 endif()

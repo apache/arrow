@@ -224,7 +224,7 @@ utility_test_srcs = [
 
 utility_test_deps = [arrow_test_dep_no_main]
 if needs_simdjson
-    utility_test_srcs += ['json_writer_internal_test.cc']
+    utility_test_srcs += ['simdjson_internal_test.cc']
     utility_test_deps += [simdjson_dep]
 endif
 

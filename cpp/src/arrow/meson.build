@@ -241,11 +241,7 @@ arrow_util_srcs = [
 arrow_util_deps = [threads_dep]
 
 if needs_simdjson
-    arrow_util_srcs += [
-        'json/object_parser.cc',
-        'util/json_writer_internal.cc',
-        'util/simdjson_internal.cc',
-    ]
+    arrow_util_srcs += ['util/simdjson_internal.cc']
     arrow_util_deps += [simdjson_dep]
 endif
 

@@ -25,14 +25,13 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/scalar.h"
 #include "arrow/tensor.h"
-#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
 #include "arrow/util/simdjson_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
-using ::arrow::json::JsonWriter;
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 

@@ -32,26 +32,25 @@ using JsonValue = simdjson::dom::element;
 using JsonObject = simdjson::dom::object;
 using JsonArray = simdjson::dom::array;
 
-namespace arrow::json {
+namespace arrow::internal {
 class JsonWriter;
-}  // namespace arrow::json
+}  // namespace arrow::internal
 
 namespace arrow::internal::integration::json {
 
 /// \brief Append integration test Schema format to JSON writer
 ARROW_EXPORT
 Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
-                   arrow::json::JsonWriter*);
+                   JsonWriter*);
 
 ARROW_EXPORT
-Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
-                       arrow::json::JsonWriter*);
+Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary, JsonWriter*);
 
 ARROW_EXPORT
-Status WriteRecordBatch(const RecordBatch& batch, arrow::json::JsonWriter*);
+Status WriteRecordBatch(const RecordBatch& batch, JsonWriter*);
 
 ARROW_EXPORT
-Status WriteArray(const std::string& name, const Array& array, arrow::json::JsonWriter*);
+Status WriteArray(const std::string& name, const Array& array, JsonWriter*);
 
 ARROW_EXPORT
 Result<std::shared_ptr<Schema>> ReadSchema(const JsonValue& json_obj, MemoryPool* pool,

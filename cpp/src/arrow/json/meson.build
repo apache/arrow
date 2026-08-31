@@ -43,7 +43,6 @@ install_headers(
         'chunker.h',
         'converter.h',
         'from_string.h',
-        'object_parser.h',
         'options.h',
         'parser.h',
         'rapidjson_defs.h',

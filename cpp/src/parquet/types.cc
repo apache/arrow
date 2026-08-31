@@ -28,8 +28,8 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -717,7 +717,7 @@ class LogicalType::Impl {
   }
 
   virtual std::string ToJSON() const {
-    ::arrow::json::JsonWriter writer;
+    ::arrow::internal::JsonWriter writer;
     writer.StartObject();
     writer.StringField("Type", ToString());
     writer.EndObject();
@@ -1174,7 +1174,7 @@ std::string LogicalType::Impl::Decimal::ToString() const {
 }
 
 std::string LogicalType::Impl::Decimal::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Decimal");
   writer.IntField("precision", precision_);
@@ -1323,7 +1323,7 @@ std::string LogicalType::Impl::Time::ToString() const {
 }
 
 std::string LogicalType::Impl::Time::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Time");
   writer.BoolField("isAdjustedToUTC", adjusted_);
@@ -1474,7 +1474,7 @@ std::string LogicalType::Impl::Timestamp::ToString() const {
 }
 
 std::string LogicalType::Impl::Timestamp::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Timestamp");
   writer.BoolField("isAdjustedToUTC", adjusted_);
@@ -1668,7 +1668,7 @@ std::string LogicalType::Impl::Int::ToString() const {
 }
 
 std::string LogicalType::Impl::Int::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Int");
   writer.IntField("bitWidth", width_);
@@ -1825,7 +1825,7 @@ std::string LogicalType::Impl::Geometry::ToString() const {
 }
 
 std::string LogicalType::Impl::Geometry::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Geometry");
   if (!crs_.empty()) {
@@ -1916,7 +1916,7 @@ std::string LogicalType::Impl::Geography::ToString() const {
 }
 
 std::string LogicalType::Impl::Geography::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Geography");
   if (!crs_.empty()) {
@@ -2008,7 +2008,7 @@ std::string LogicalType::Impl::Variant::ToString() const {
 }
 
 std::string LogicalType::Impl::Variant::ToJSON() const {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Variant");
   writer.IntField("SpecVersion", static_cast<int>(spec_version_));

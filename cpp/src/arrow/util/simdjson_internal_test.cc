@@ -15,14 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <string>
+#include <unordered_map>
+
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/json_writer_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 namespace sj = simdjson::ondemand;
 
-namespace arrow::json {
+namespace arrow::internal {
 
 TEST(JsonWriter, SimpleObject) {
   JsonWriter writer;
@@ -333,4 +337,83 @@ TEST(JsonWriter, GetPrettyString) {
   EXPECT_EQ(b_value, "hello");
 }
 
-}  // namespace arrow::json
+TEST(ObjectParser, GetString) {
+  ObjectParser parser;
+
+  ASSERT_OK(parser.Parse(R"({"name":"arrow"})"));
+
+  ASSERT_OK_AND_ASSIGN(auto value, parser.GetString("name"));
+  EXPECT_EQ(value, "arrow");
+}
+
+TEST(ObjectParser, GetBool) {
+  ObjectParser parser;
+
+  ASSERT_OK(parser.Parse(R"({"enabled":true})"));
+
+  ASSERT_OK_AND_ASSIGN(auto value, parser.GetBool("enabled"));
+  EXPECT_TRUE(value);
+}
+
+TEST(ObjectParser, InvalidJson) {
+  ObjectParser parser;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("JSON parse error"),
+                                  parser.Parse(R"({"name":)"));
+}
+
+TEST(ObjectParser, GetStringMap) {
+  ObjectParser parser;
+
+  ASSERT_OK(parser.Parse(R"({
+    "k1": "v1",
+    "k2": "v2"
+  })"));
+
+  ASSERT_OK_AND_ASSIGN(auto map, parser.GetStringMap());
+
+  ASSERT_EQ(map.size(), 2U);
+  EXPECT_EQ(map["k1"], "v1");
+  EXPECT_EQ(map["k2"], "v2");
+}
+
+TEST(ObjectParser, MissingKey) {
+  ObjectParser parser;
+
+  ASSERT_OK(parser.Parse(R"({
+    "name": "arrow"
+  })"));
+
+  ASSERT_RAISES(KeyError, parser.GetString("missing"));
+  ASSERT_RAISES(KeyError, parser.GetBool("missing"));
+}
+
+TEST(ObjectParser, WrongType) {
+  ObjectParser parser;
+
+  ASSERT_OK(parser.Parse(R"({
+    "flag": true,
+    "name": "arrow"
+  })"));
+
+  ASSERT_RAISES(TypeError, parser.GetString("flag"));
+  ASSERT_RAISES(TypeError, parser.GetBool("name"));
+}
+
+TEST(ObjectParser, NonObjectRoot) {
+  ObjectParser parser;
+
+  ASSERT_RAISES(TypeError, parser.Parse(R"(["a", "b"])"));
+}
+
+TEST(ObjectParser, EmptyObject) {
+  ObjectParser parser;
+
+  ASSERT_OK(parser.Parse(R"({})"));
+
+  ASSERT_OK_AND_ASSIGN(auto map, parser.GetStringMap());
+
+  EXPECT_TRUE(map.empty());
+}
+
+}  // namespace arrow::internal

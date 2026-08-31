@@ -17,14 +17,13 @@
 
 #include <string_view>
 
-#include "arrow/json/object_parser.h"
-#include "arrow/util/json_writer_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::JsonWriter;
-using ::arrow::json::internal::ObjectParser;
+using ::arrow::internal::JsonWriter;
+using ::arrow::internal::ObjectParser;
 
 namespace parquet::encryption {
 

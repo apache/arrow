@@ -19,6 +19,365 @@
 
 namespace arrow::internal {
 
+class ObjectParser::Impl {
+ public:
+  Status Parse(std::string_view json) {
+    // Copy into padded buffer
+    padded_json_ = simdjson::padded_string(json);
+
+    // Store parsed document
+    if (auto error = parser_.iterate(padded_json_).get(document_)) {
+      return Status::Invalid("JSON parse error: ", simdjson::error_message(error));
+    }
+
+    // Validate root is an object
+    auto object = document_.get_object();
+    if (object.error()) {
+      if (object.error() == simdjson::INCORRECT_TYPE) {
+        return Status::TypeError("Not a JSON object");
+      }
+      return Status::Invalid("JSON parse error: ",
+                             simdjson::error_message(object.error()));
+    }
+
+    return Status::OK();
+  }
+
+  Result<std::string> GetString(const char* key) {
+    document_.rewind();
+
+    auto object = document_.get_object();
+
+    auto field = object.find_field(key);
+
+    if (field.error() == simdjson::NO_SUCH_FIELD) {
+      return Status::KeyError("Key '", key, "' does not exist");
+    }
+    if (field.error()) {
+      return Status::Invalid("Error accessing key '", key,
+                             "': ", simdjson::error_message(field.error()));
+    }
+
+    auto str_result = field.get_string();
+    if (str_result.error() == simdjson::INCORRECT_TYPE) {
+      return Status::TypeError("Key '", key, "' is not a string");
+    }
+    if (str_result.error()) {
+      return Status::Invalid("Error getting string for key '", key,
+                             "': ", simdjson::error_message(str_result.error()));
+    }
+
+    std::string_view str;
+    if (auto error = std::move(str_result).get(str)) {
+      return Status::Invalid("Error getting string for key '", key,
+                             "': ", simdjson::error_message(error));
+    }
+    return std::string(str);
+  }
+
+  Result<std::unordered_map<std::string, std::string>> GetStringMap() {
+    std::unordered_map<std::string, std::string> map;
+
+    document_.rewind();
+
+    auto object = document_.get_object();
+
+    for (auto field : object) {
+      std::string_view key;
+      if (auto error = field.unescaped_key().get(key)) {
+        return Status::Invalid("Error getting object key: ",
+                               simdjson::error_message(error));
+      }
+
+      auto value = field.value();
+
+      auto str_result = value.get_string();
+
+      if (str_result.error() == simdjson::INCORRECT_TYPE) {
+        return Status::TypeError("Key '", std::string(key),
+                                 "' does not have a string value");
+      }
+      if (str_result.error()) {
+        return Status::Invalid("Error getting value for key '", std::string(key),
+                               "': (code=", static_cast<int>(str_result.error()), ")");
+      }
+
+      std::string_view str;
+      if (auto error = std::move(str_result).get(str)) {
+        return Status::Invalid("Error getting value for key '", std::string(key),
+                               "': ", simdjson::error_message(error));
+      }
+
+      map.emplace(std::string(key), std::string(str));
+    }
+
+    return map;
+  }
+
+  Result<bool> GetBool(const char* key) {
+    document_.rewind();
+
+    auto object = document_.get_object();
+
+    auto field = object.find_field(key);
+
+    if (field.error() == simdjson::NO_SUCH_FIELD) {
+      return Status::KeyError("Key '", key, "' does not exist");
+    }
+    if (field.error()) {
+      return Status::Invalid("Error accessing key '", key,
+                             "': ", simdjson::error_message(field.error()));
+    }
+
+    auto bool_result = field.get_bool();
+    if (bool_result.error() == simdjson::INCORRECT_TYPE) {
+      return Status::TypeError("Key '", key, "' is not a boolean");
+    }
+    if (bool_result.error()) {
+      return Status::Invalid("Error getting bool for key '", key,
+                             "': ", simdjson::error_message(bool_result.error()));
+    }
+
+    bool value;
+    if (auto error = std::move(bool_result).get(value)) {
+      return Status::Invalid("Error getting bool for key '", key,
+                             "': ", simdjson::error_message(error));
+    }
+
+    return value;
+  }
+
+ private:
+  simdjson::ondemand::parser parser_;
+  simdjson::padded_string padded_json_;
+  simdjson::ondemand::document document_;
+};
+
+ObjectParser::ObjectParser() : impl_(new ObjectParser::Impl()) {}
+
+ObjectParser::~ObjectParser() = default;
+
+Status ObjectParser::Parse(std::string_view json) { return impl_->Parse(json); }
+
+Result<std::string> ObjectParser::GetString(const char* key) const {
+  return impl_->GetString(key);
+}
+
+Result<bool> ObjectParser::GetBool(const char* key) const { return impl_->GetBool(key); }
+
+Result<std::unordered_map<std::string, std::string>> ObjectParser::GetStringMap() const {
+  return impl_->GetStringMap();
+}
+
+namespace sj = simdjson::ondemand;
+
+void JsonWriter::StartObject() {
+  MaybeComma();
+  builder_.start_object();
+  needs_comma_ = false;
+}
+
+void JsonWriter::EndObject() {
+  builder_.end_object();
+  needs_comma_ = true;
+}
+
+void JsonWriter::StartArray() {
+  MaybeComma();
+  builder_.start_array();
+  needs_comma_ = false;
+}
+
+void JsonWriter::EndArray() {
+  builder_.end_array();
+  needs_comma_ = true;
+}
+
+void JsonWriter::Key(std::string_view key) {
+  MaybeComma();
+  builder_.escape_and_append_with_quotes(key);
+  builder_.append_colon();
+  needs_comma_ = false;
+}
+
+void JsonWriter::String(std::string_view value) {
+  MaybeComma();
+  builder_.escape_and_append_with_quotes(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::RawValue(std::string_view value) {
+  MaybeComma();
+  builder_.append_raw(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::Bool(bool value) {
+  MaybeComma();
+  builder_.append(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::Int(int32_t value) {
+  MaybeComma();
+  builder_.append(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::Int64(int64_t value) {
+  MaybeComma();
+  builder_.append(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::Uint(uint32_t value) {
+  MaybeComma();
+  builder_.append(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::Uint64(uint64_t value) {
+  MaybeComma();
+  builder_.append(value);
+  needs_comma_ = true;
+}
+
+void JsonWriter::Double(double value) {
+  MaybeComma();
+  builder_.append(value);
+  needs_comma_ = true;
+}
+
+Status JsonWriter::WriteValue(sj::value value) {
+  return VisitJsonValue(
+      value,
+
+      [&](sj::object object) -> Status {
+        StartObject();
+
+        for (auto field : object) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto key,
+              ResolveSimdjsonResult(field.unescaped_key(), "Failed to get object key"));
+
+          Key(key);
+
+          ARROW_ASSIGN_OR_RAISE(
+              auto field_value,
+              ResolveSimdjsonResult(field.value(), "Failed to get object value"));
+
+          RETURN_NOT_OK(WriteValue(field_value));
+        }
+
+        EndObject();
+        return Status::OK();
+      },
+
+      [&](sj::array array) -> Status {
+        StartArray();
+
+        for (auto element : array) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto element_value,
+              ResolveSimdjsonResult(element, "Failed to iterate JSON array"));
+
+          RETURN_NOT_OK(WriteValue(element_value));
+        }
+
+        EndArray();
+        return Status::OK();
+      },
+
+      [&](std::string_view string_value) -> Status {
+        String(string_value);
+        return Status::OK();
+      },
+
+      [&](bool bool_value) -> Status {
+        Bool(bool_value);
+        return Status::OK();
+      },
+
+      [&]() -> Status {
+        Null();
+        return Status::OK();
+      },
+
+      [&](int64_t value) -> Status {
+        Int64(value);
+        return Status::OK();
+      },
+
+      [&](uint64_t value) -> Status {
+        Uint64(value);
+        return Status::OK();
+      },
+
+      [&](double value) -> Status {
+        Double(value);
+        return Status::OK();
+      },
+
+      [&](sj::value value) -> Status {
+        ARROW_ASSIGN_OR_RAISE(auto raw_json,
+                              ResolveSimdjsonResult(simdjson::to_json_string(value),
+                                                    "Failed to get raw JSON"));
+        RawValue(raw_json);
+        return Status::OK();
+      });
+}
+
+void JsonWriter::Null() {
+  MaybeComma();
+  builder_.append_null();
+  needs_comma_ = true;
+}
+
+Result<std::string_view> JsonWriter::GetString() const {
+  std::string_view view;
+  if (auto error = builder_.view().get(view); error != simdjson::SUCCESS) {
+    if (error == simdjson::OUT_OF_CAPACITY) {
+      return Status::OutOfMemory(
+          "OutOfMemory when allocating buffer to serialize json to string");
+    }
+    return Status::Invalid("Failed to retrieve json from string builder: ",
+                           simdjson::error_message(error));
+  }
+  return view;
+}
+
+Result<std::string> JsonWriter::GetPrettyString(
+    const simdjson::fractured_json_options& options) const {
+  ARROW_ASSIGN_OR_RAISE(std::string_view json, GetString());
+  return simdjson::fractured_json_string(json, options);
+}
+
+void JsonWriter::Clear() {
+  builder_.clear();
+  needs_comma_ = false;
+}
+
+void JsonWriter::MaybeComma() {
+  if (needs_comma_) {
+    builder_.append_comma();
+  }
+}
+
+void JsonWriter::StringField(std::string_view key, std::string_view value) {
+  Key(key);
+  String(value);
+}
+
+void JsonWriter::BoolField(std::string_view key, bool value) {
+  Key(key);
+  Bool(value);
+}
+
+void JsonWriter::IntField(std::string_view key, int32_t value) {
+  Key(key);
+  Int(value);
+}
+
 const char* JsonTypeName(simdjson::dom::element_type type) {
   switch (type) {
     case simdjson::dom::element_type::ARRAY:

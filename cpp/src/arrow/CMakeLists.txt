@@ -645,11 +645,7 @@ if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_UTIL_SRCS util/tracing_internal.cc)
 endif()
 if(ARROW_WITH_SIMDJSON)
-  list(APPEND
-       ARROW_UTIL_SRCS
-       json/object_parser.cc
-       util/json_writer_internal.cc
-       util/simdjson_internal.cc)
+  list(APPEND ARROW_UTIL_SRCS util/simdjson_internal.cc)
 endif()
 if(ARROW_WITH_SNAPPY)
   list(APPEND ARROW_UTIL_SRCS util/compression_snappy.cc)

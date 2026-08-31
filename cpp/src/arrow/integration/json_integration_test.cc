@@ -48,7 +48,6 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/simdjson_internal.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
@@ -725,7 +724,7 @@ static const char* json_example6 = R"example(
 )example";
 
 void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
-  arrow::json::JsonWriter writer;
+  arrow::internal::JsonWriter writer;
 
   DictionaryFieldMapper mapper(*schema);
 
@@ -749,7 +748,7 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
 void TestArrayRoundTrip(const Array& array) {
   static std::string name = "dummy";
 
-  arrow::json::JsonWriter writer;
+  arrow::internal::JsonWriter writer;
 
   ASSERT_OK(json::WriteArray(name, array, &writer));
 

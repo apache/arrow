@@ -33,14 +33,13 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/simdjson_internal.h"
 
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
 
-using JsonWriter = arrow::json::JsonWriter;
+using JsonWriter = arrow::internal::JsonWriter;
 
 namespace arrow::internal::integration {
 

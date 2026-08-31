@@ -47,7 +47,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
@@ -66,7 +65,7 @@ using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
 using arrow::ipc::internal::FieldPosition;
 
-using JsonWriter = arrow::json::JsonWriter;
+using JsonWriter = arrow::internal::JsonWriter;
 
 namespace arrow::internal::integration::json {
 

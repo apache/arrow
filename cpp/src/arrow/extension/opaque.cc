@@ -19,13 +19,12 @@
 
 #include <sstream>
 
-#include "arrow/util/json_writer_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/simdjson_internal.h"
 
 #include <simdjson.h>
 
-using ::arrow::json::JsonWriter;
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 

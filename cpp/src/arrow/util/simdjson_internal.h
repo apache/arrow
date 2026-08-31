@@ -19,9 +19,11 @@
 
 #include <concepts>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -32,6 +34,73 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow::internal {
+
+/// This class is a helper to parse a JSON object from a string.
+/// It uses simdjson in the implementation.
+class ARROW_EXPORT ObjectParser {
+ public:
+  ObjectParser();
+  ~ObjectParser();
+
+  Status Parse(std::string_view json);
+
+  Result<std::string> GetString(const char* key) const;
+
+  Result<bool> GetBool(const char* key) const;
+
+  // Get all members of the object as a map from string keys to string values
+  Result<std::unordered_map<std::string, std::string>> GetStringMap() const;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+class ARROW_EXPORT JsonWriter {
+ public:
+  JsonWriter() = default;
+
+  void StartObject();
+  void EndObject();
+
+  void StartArray();
+  void EndArray();
+
+  void Key(std::string_view key);
+
+  void String(std::string_view value);
+  void RawValue(std::string_view value);
+  void Bool(bool value);
+
+  void Int(int32_t value);
+  void Int64(int64_t value);
+
+  void Uint(uint32_t value);
+  void Uint64(uint64_t value);
+
+  void Double(double value);
+
+  Status WriteValue(simdjson::ondemand::value value);
+
+  void Null();
+
+  void StringField(std::string_view key, std::string_view value);
+  void BoolField(std::string_view key, bool value);
+  void IntField(std::string_view key, int32_t value);
+
+  Result<std::string_view> GetString() const;
+
+  Result<std::string> GetPrettyString(
+      const simdjson::fractured_json_options& options = {}) const;
+
+  void Clear();
+
+ private:
+  void MaybeComma();
+
+  simdjson::builder::string_builder builder_;
+  bool needs_comma_ = false;
+};
 
 // Empty struct to represent the type of a simdjson null value
 struct SimdjsonNull {};
