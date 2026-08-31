@@ -78,23 +78,7 @@ static size_t ConsumeWholeObject(const simdjson::padded_string& input) {
   }
 
   // Force parsing of the first document.
-  auto document_status =
-      internal::ResolveSimdjsonResult(*it, "Failed to get JSON document");
-  if (!document_status.ok()) {
-    return std::string_view::npos;
-  }
-
-  auto document = std::move(document_status).ValueUnsafe();
-
-  auto value_status =
-      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
-  if (!value_status.ok()) {
-    return std::string_view::npos;
-  }
-
-  auto value = std::move(value_status).ValueUnsafe();
-  auto consume_status = internal::ConsumeJsonValue(value);
-  if (!consume_status.ok()) {
+  if (!ConsumeDocument(it)) {
     return std::string_view::npos;
   }
 
@@ -157,11 +141,6 @@ class ParsingBoundaryFinder : public BoundaryFinder {
       if (start < block.size() && block[start] != '{' && block[start] != '[') {
         return Status::Invalid("JSON parse error: Invalid value");
       }
-    }
-
-    if (block.empty()) {
-      *out_pos = -1;
-      return Status::OK();
     }
 
     // Keep the padded buffer alive while iterating the document stream.
