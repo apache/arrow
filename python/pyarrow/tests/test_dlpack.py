@@ -163,10 +163,8 @@ def multidim_arrays():
 @check_bytes_allocated
 @pytest.mark.parametrize(('arr', 'expected'), multidim_arrays())
 def test_array_to_tensor_dlpack(arr, expected):
-    if Version(np.__version__) < Version("1.24.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
-                    "strict keyword in assert_array_equal added in numpy version "
-                    "1.24.0")
+    if Version(np.__version__) < Version("2.1.0"):
+        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
 
     tensor = arr.to_tensor()
     # A Tensor sharing an Array buffer is immutable, so it can only be exported
