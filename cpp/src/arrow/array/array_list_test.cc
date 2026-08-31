@@ -1532,6 +1532,43 @@ TEST_F(TestMapArray, ValueBuilder) {
   ASSERT_ARRAYS_EQUAL(*actual_list, map_as_list);
 }
 
+// GH-51029: Validate MapArray keys with an all-valid bitmap and unknown null count.
+TEST_F(TestMapArray, ValidateKeysWithAllValidBitmap) {
+  auto keys = ArrayFromJSON(utf8(), R"(["a", "b"])");
+  auto items = ArrayFromJSON(int32(), "[1, 2]");
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 2]");
+
+  // Inject an all-valid validity bitmap with kUnknownNullCount.
+  auto keys_data = keys->data()->Copy();
+  keys_data->buffers[0] = ArrayFromJSON(boolean(), "[true, true]")->data()->buffers[1];
+  keys_data->null_count = kUnknownNullCount;
+
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       MapArray::FromArrays(offsets, MakeArray(keys_data), items));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(result->length(), 2);
+}
+
+TEST_F(TestMapArray, FromArraysWithAllValidOffsetsBitmap) {
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto keys = ArrayFromJSON(utf8(), R"(["a", "b"])");
+  auto items = ArrayFromJSON(int32(), "[1, 2]");
+
+  // Inject an all-valid validity bitmap with kUnknownNullCount.
+  auto offsets_data = offsets->data()->Copy();
+  offsets_data->buffers[0] =
+      ArrayFromJSON(boolean(), "[true, true, true]")->data()->buffers[1];
+  offsets_data->null_count = kUnknownNullCount;
+  offsets = MakeArray(offsets_data);
+
+  auto null_bitmap = ArrayFromJSON(boolean(), "[true, true]")->data()->buffers[1];
+
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       MapArray::FromArrays(offsets, keys, items, pool_, null_bitmap));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(result->length(), 2);
+}
+
 // ----------------------------------------------------------------------
 // FixedSizeList tests
 
