@@ -1824,8 +1824,7 @@ TEST_F(TestFixedSizeListArray, FlattenRecursively) {
 
 namespace {
 
-/// The flat values a tensor views: the innermost values of the nested fixed size
-/// lists, windowed to what ``array`` covers.
+/// The innermost values of the nested fixed size lists.
 std::shared_ptr<Array> LeafValues(std::shared_ptr<Array> array) {
   while (array->type_id() == Type::FIXED_SIZE_LIST) {
     const auto& fsl = checked_cast<const FixedSizeListArray&>(*array);
