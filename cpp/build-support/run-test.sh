@@ -23,42 +23,44 @@
 #    $ARGN - arguments for executable
 #
 
-OUTPUT_ROOT=$1
+set -e
+
+OUTPUT_ROOT="$1"
 shift
-ROOT=$(cd $(dirname $BASH_SOURCE)/..; pwd)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-TEST_LOGDIR=$OUTPUT_ROOT/build/$1-logs
-mkdir -p $TEST_LOGDIR
+TEST_LOGDIR="$OUTPUT_ROOT/build/$1-logs"
+mkdir -p "$TEST_LOGDIR"
 
-RUN_TYPE=$1
+RUN_TYPE="$1"
 shift
-TEST_DEBUGDIR=$OUTPUT_ROOT/build/$RUN_TYPE-debug
-mkdir -p $TEST_DEBUGDIR
+TEST_DEBUGDIR="$OUTPUT_ROOT/build/$RUN_TYPE-debug"
+mkdir -p "$TEST_DEBUGDIR"
 
-TEST_DIRNAME=$(cd $(dirname $1); pwd)
-TEST_FILENAME=$(basename $1)
+TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd)
+TEST_FILENAME=$(basename "$1")
 shift
 TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
-TEST_NAME=$(echo $TEST_FILENAME | sed -E -e 's/\..+$//') # Remove path and extension (if any).
+TEST_NAME=$(echo "$TEST_FILENAME" | sed -E -e 's/\..+$//') # Remove path and extension (if any).
 
 # We run each test in its own subdir to avoid core file related races.
-TEST_WORKDIR=$OUTPUT_ROOT/build/test-work/$TEST_NAME
-mkdir -p $TEST_WORKDIR
-pushd $TEST_WORKDIR >/dev/null || exit 1
-rm -f *
+TEST_WORKDIR="$OUTPUT_ROOT/build/test-work/$TEST_NAME"
+mkdir -p "$TEST_WORKDIR"
+pushd "$TEST_WORKDIR" >/dev/null
+rm -f ./*
 
 set -o pipefail
 
-LOGFILE=$TEST_LOGDIR/$TEST_NAME.txt
-XMLFILE=$TEST_LOGDIR/$TEST_NAME.xml
+LOGFILE="$TEST_LOGDIR/$TEST_NAME.txt"
+XMLFILE="$TEST_LOGDIR/$TEST_NAME.xml"
 
 TEST_EXECUTION_ATTEMPTS=1
 
 # Remove both the uncompressed output, so the developer doesn't accidentally get confused
 # and read output from a prior test run.
-rm -f $LOGFILE $LOGFILE.gz
+rm -f "$LOGFILE" "${LOGFILE}.gz"
 
-pipe_cmd=cat
+pipe_cmd="cat"
 
 function setup_sanitizers() {
   # Sets environment variables for different sanitizers (it configures how) the run_tests. Function works.
@@ -90,15 +92,18 @@ function run_test() {
 
   # gtest won't overwrite old junit test files, resulting in a build failure
   # even when retries are successful.
-  rm -f $XMLFILE
+  rm -f "$XMLFILE"
 
-  $TEST_EXECUTABLE "$@" > $LOGFILE.raw 2>&1
-  STATUS=$?
-  cat $LOGFILE.raw \
-    | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
-    | ${CXXFILT:-c++filt} \
-    | $pipe_cmd 2>&1 | tee $LOGFILE
-  rm -f $LOGFILE.raw
+  if "$TEST_EXECUTABLE" "$@" > "${LOGFILE}.raw" 2>&1 ; then
+    STATUS=0
+  else
+    STATUS=1
+  fi
+  cat "${LOGFILE}.raw" \
+    | "${PYTHON:-python}" "${ROOT}/build-support/asan_symbolize.py" \
+    | "${CXXFILT:-c++filt}" \
+    | "$pipe_cmd" 2>&1 | tee "$LOGFILE"
+  rm -f "${LOGFILE}.raw"
 
   # TSAN doesn't always exit with a non-zero exit code due to a bug:
   # mutex errors don't get reported through the normal error reporting infrastructure.
@@ -108,10 +113,10 @@ function run_test() {
   # XML output from gtest. We assume that gtest knows better than us and our
   # regexes in most cases, but for certain errors we delete the resulting xml
   # file and let our own post-processing step regenerate it.
-  if grep -E -q "ThreadSanitizer|Leak check.*detected leaks" $LOGFILE ; then
-    echo ThreadSanitizer or leak check failures in $LOGFILE
+  if grep -E -q "ThreadSanitizer|Leak check.*detected leaks" "$LOGFILE" ; then
+    echo ThreadSanitizer or leak check failures in "$LOGFILE"
     STATUS=1
-    rm -f $XMLFILE
+    rm -f "$XMLFILE"
   fi
 }
 
@@ -134,10 +139,9 @@ function print_coredumps() {
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
   FILENAME=$(basename "${TEST_EXECUTABLE}")
-  FILENAME=$(echo ${FILENAME} | cut -c-15)
-  PATTERN="^core\.${FILENAME}"
+  FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
-  COREFILES=$(ls /tmp | grep $PATTERN)
+  COREFILES=$(find /tmp -maxdepth 1 -type f -name "core.${FILENAME}*" -exec basename {} \;)
   if [ -n "$COREFILES" ]; then
     for COREFILE in $COREFILES; do
       COREPATH="/tmp/${COREFILE}"
@@ -147,7 +151,7 @@ function print_coredumps() {
       if [ "$(uname)" == "Darwin" ]; then
         lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
       else
-        gdb -c "${COREPATH}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
+        gdb -c "${COREPATH}" "$TEST_EXECUTABLE" -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
       echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       # Remove the coredump, it can be regenerated via running the test case directly
@@ -160,7 +164,7 @@ function post_process_tests() {
   # If we have a LeakSanitizer report, and XML reporting is configured, add a new test
   # case result to the XML file for the leak report. Otherwise Jenkins won't show
   # us which tests had LSAN errors.
-  if grep -E -q "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
+  if grep -E -q "ERROR: LeakSanitizer: detected memory leaks" "$LOGFILE" ; then
     echo Test had memory leaks. Editing XML
     sed -i.bak -e '/<\/testsuite>/ i\
   <testcase name="LeakSanitizer" status="run" classname="LSAN">\
@@ -168,36 +172,39 @@ function post_process_tests() {
       See txt log file for details\
     </failure>\
   </testcase>' \
-      $XMLFILE
-    mv $XMLFILE.bak $XMLFILE
+      "$XMLFILE"
+    mv "${XMLFILE}.bak" "$XMLFILE"
   fi
 }
 
 function run_other() {
   # Generic run function for test like executables that aren't actually gtest
-  $TEST_EXECUTABLE "$@" 2>&1 | $pipe_cmd > $LOGFILE
-  STATUS=$?
+  if "$TEST_EXECUTABLE" "$@" 2>&1 | "$pipe_cmd" > "$LOGFILE" ; then
+    STATUS=0
+  else
+    STATUS=1
+  fi
 }
 
-if [ $RUN_TYPE = "test" ]; then
+if [ "$RUN_TYPE" = "test" ]; then
   setup_sanitizers
 fi
 
 # Run the actual test.
-for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
-  if [ $ATTEMPT_NUMBER -lt $TEST_EXECUTION_ATTEMPTS ]; then
+for ATTEMPT_NUMBER in $(seq 1 "$TEST_EXECUTION_ATTEMPTS") ; do
+  if [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
     # If the test fails, the test output may or may not be left behind,
     # depending on whether the test cleaned up or exited immediately. Either
     # way we need to clean it up. We do this by comparing the data directory
     # contents before and after the test runs, and deleting anything new.
     #
     # The comm program requires that its two inputs be sorted.
-    TEST_TMPDIR_BEFORE=$(find $TEST_TMPDIR -maxdepth 1 -type d | sort)
+    TEST_TMPDIR_BEFORE=$(find "$TEST_TMPDIR" -maxdepth 1 -type d | sort)
   fi
 
-  if [ $ATTEMPT_NUMBER -lt $TEST_EXECUTION_ATTEMPTS ]; then
+  if [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
     # Now delete any new test output.
-    TEST_TMPDIR_AFTER=$(find $TEST_TMPDIR -maxdepth 1 -type d | sort)
+    TEST_TMPDIR_AFTER=$(find "$TEST_TMPDIR" -maxdepth 1 -type d | sort)
     DIFF=$(comm -13 <(echo "$TEST_TMPDIR_BEFORE") \
                     <(echo "$TEST_TMPDIR_AFTER"))
     for DIR in $DIFF; do
@@ -215,26 +222,26 @@ for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
   fi
   echo "Running $TEST_NAME, redirecting output into $LOGFILE" \
     "(attempt ${ATTEMPT_NUMBER}/$TEST_EXECUTION_ATTEMPTS)"
-  if [ $RUN_TYPE = "test" ]; then
-    run_test $*
+  if [ "$RUN_TYPE" = "test" ]; then
+    run_test "$@"
   else
-    run_other $*
+    run_other "$@"
   fi
   if [ "$STATUS" -eq "0" ]; then
     break
   elif [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
-    echo Test failed attempt number $ATTEMPT_NUMBER
+    echo Test failed attempt number "$ATTEMPT_NUMBER"
     echo Will retry...
   fi
 done
 
-if [ $RUN_TYPE = "test" ]; then
+if [ "$RUN_TYPE" = "test" ]; then
   post_process_tests
 fi
 
 print_coredumps
 
 popd
-rm -Rf $TEST_WORKDIR
+rm -Rf "$TEST_WORKDIR"
 
-exit $STATUS
+exit "$STATUS"
