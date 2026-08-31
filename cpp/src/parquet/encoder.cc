@@ -1015,9 +1015,9 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // emits ALP-encoded pages, so a column whose values never compress (every
 // value an exception, e.g. random doubles or NaN) pays the per-vector
 // metadata and exception overhead and lands larger than PLAIN. This is not
-// hypothetical: on the encoding_alp_benchmark datasets, msg_sp encodes to
-// 113% of its plain size, and poi_longitude, num_brain and num_control are
-// all within 8% of break-even.
+// hypothetical: measured over the ALP paper's reference datasets, msg_sp
+// encodes to 113% of its plain size, and poi_longitude, num_brain and
+// num_control are all within 8% of break-even.
 //
 // The decision belongs in ColumnWriterImpl, not here: `encoding_` is const,
 // so this encoder cannot relabel its own page, and the choice depends on the
