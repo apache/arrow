@@ -31,21 +31,8 @@ namespace arrow {
 
 namespace json {
 
-static size_t ConsumeWhitespace(std::string_view view) {
-  const auto ws_count = view.find_first_not_of(" \t\r\n");
-  if (ws_count == std::string_view::npos) {
-    return view.size();
-  }
-  return ws_count;
-}
-
 static size_t ConsumeWholeObject(std::string_view input) {
   if (input.empty()) {
-    return 0;
-  }
-
-  const size_t start = ConsumeWhitespace(input);
-  if (start >= input.size()) {
     return 0;
   }
 
@@ -118,11 +105,6 @@ class ParsingBoundaryFinder : public BoundaryFinder {
       input = combined;
     }
 
-    const size_t start = ConsumeWhitespace(combined);
-    if (start < combined.size() && combined[start] != '{' && combined[start] != '[') {
-      return Status::Invalid("JSON chunk error: invalid data at end of document");
-    }
-
     const auto length = ConsumeWholeObject(combined);
 
     if (length == std::string_view::npos) {
@@ -141,35 +123,10 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     const size_t block_length = block.size();
     size_t consumed_length = 0;
 
-    if (block_length > 0) {
-      const size_t start = ConsumeWhitespace(block);
-      if (start < block.size() && block[start] != '{' && block[start] != '[') {
-        return Status::Invalid("JSON parse error: Invalid value");
-      }
-    }
-
     while (consumed_length < block_length) {
       const auto length = ConsumeWholeObject(block);
 
       if (length == std::string_view::npos || length == 0) {
-        const size_t start = ConsumeWhitespace(block);
-
-        if (start < block.size()) {
-          const char first_char = block[start];
-
-          // An incomplete object/array is valid here because it may continue
-          // in the next block. However, non-object/array data cannot start a
-          // JSON record, except for a lone closing delimiter which may be the
-          // remainder of an incomplete value.
-          if (first_char != '{' && first_char != '[') {
-            const size_t remaining_len = block.size() - start;
-
-            if (remaining_len > 1 || (first_char != '}' && first_char != ']')) {
-              return Status::Invalid("JSON parse error: Invalid value");
-            }
-          }
-        }
-
         break;
       }
 
@@ -180,7 +137,6 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     if (consumed_length == 0) {
       *out_pos = -1;
     } else {
-      consumed_length += ConsumeWhitespace(block);
       DCHECK_LE(consumed_length, block_length);
       *out_pos = static_cast<int64_t>(consumed_length);
     }
