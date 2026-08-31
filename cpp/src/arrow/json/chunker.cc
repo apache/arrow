@@ -60,22 +60,15 @@ static bool ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
   return consume_status.ok();
 }
 
-static size_t ConsumeWholeObject(std::string_view input) {
-  if (input.empty()) {
+static size_t ConsumeWholeObject(const simdjson::padded_string& input) {
+  if (input.size() == 0) {
     return 0;
   }
 
-  const size_t start = ConsumeWhitespace(input);
-  if (start >= input.size()) {
-    return 0;
-  }
-
-  // Keep the padded buffer alive while iterating the document stream.
-  simdjson::padded_string padded(input);
   simdjson::ondemand::parser parser;
   simdjson::ondemand::document_stream stream;
 
-  if (parser.iterate_many(padded).get(stream) != simdjson::SUCCESS) {
+  if (parser.iterate_many(input).get(stream) != simdjson::SUCCESS) {
     return std::string_view::npos;
   }
 
@@ -84,7 +77,24 @@ static size_t ConsumeWholeObject(std::string_view input) {
     return 0;
   }
 
-  if (!ConsumeDocument(it)) {
+  // Force parsing of the first document.
+  auto document_status =
+      internal::ResolveSimdjsonResult(*it, "Failed to get JSON document");
+  if (!document_status.ok()) {
+    return std::string_view::npos;
+  }
+
+  auto document = std::move(document_status).ValueUnsafe();
+
+  auto value_status =
+      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
+  if (!value_status.ok()) {
+    return std::string_view::npos;
+  }
+
+  auto value = std::move(value_status).ValueUnsafe();
+  auto consume_status = internal::ConsumeJsonValue(value);
+  if (!consume_status.ok()) {
     return std::string_view::npos;
   }
 
@@ -103,27 +113,28 @@ namespace {
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
   Status FindFirst(std::string_view partial, std::string_view block,
-                   int64_t* out_pos) override {
-    std::string combined;
-    std::string_view input;
+                  int64_t* out_pos) override {
+    simdjson::padded_string input;
 
     if (partial.empty()) {
-      input = block;
+      input = simdjson::padded_string(block);
     } else if (block.empty()) {
-      input = partial;
+      input = simdjson::padded_string(partial);
     } else {
-      combined.reserve(partial.size() + block.size());
-      combined.append(partial);
-      combined.append(block);
-      input = combined;
+      simdjson::padded_string_builder builder(partial.size() + block.size());
+      builder.append(partial);
+      builder.append(block);
+      input = builder.convert();
     }
 
-    const size_t start = ConsumeWhitespace(combined);
-    if (start < combined.size() && combined[start] != '{' && combined[start] != '[') {
+    const std::string_view input_view(input.data(), input.size());
+    const size_t start = ConsumeWhitespace(input_view);
+    if (start < input_view.size() && input_view[start] != '{' &&
+        input_view[start] != '[') {
       return Status::Invalid("JSON chunk error: invalid data at end of document");
     }
 
-    const auto length = ConsumeWholeObject(combined);
+    const auto length = ConsumeWholeObject(input);
 
     if (length == std::string_view::npos) {
       *out_pos = -1;
