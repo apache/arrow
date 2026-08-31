@@ -254,7 +254,7 @@ jobs:
         if: >-
           !cancelled()
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
