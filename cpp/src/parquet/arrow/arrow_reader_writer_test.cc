@@ -24,10 +24,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <type_traits>
@@ -5458,243 +5460,171 @@ TEST(TestArrowReadDeltaEncoding, OptionalColumn) {
 
 #endif
 
-// ALP encoding correctness tests — reads ALP-encoded parquet files and verifies
-// values match expected CSV data bit-exactly. Uses std::ifstream for CSV parsing
-// (no ARROW_CSV dependency).
+// The PLAIN reference columns of alp_extended.zstd.parquet are zstd-compressed,
+// so the whole fixture needs zstd support.
+#ifdef ARROW_WITH_ZSTD
+
+// ALP encoding conformance tests, run against the example file published in
+// apache/parquet-testing for exactly this purpose (its PR #119).
+//
+// All eight columns of `alp_extended.zstd.parquet` hold the same 9032 values.
+// `float_plain` and `double_plain` are PLAIN-encoded references, so a correctly
+// decoded ALP column is bit-identical to its reference and the test needs no
+// hardcoded expected values. The three ALP columns per type use vector sizes
+// 1024, 4096 and 32, which forces a reader to honour `log_vector_size` from the
+// page header instead of assuming the default.
+//
+// The value distribution deliberately covers the corner cases: three distinct
+// NaN bit patterns, +/-Inf, -0.0, subnormals, a full-mantissa value that cannot
+// round-trip as a decimal, large magnitudes, vectors that are entirely
+// exceptions, a constant vector (bit_width 0), and nulls. See `data/README.md`
+// in apache/parquet-testing for the full table.
+//
+// Comparison is on bit patterns rather than values, so that NaN payloads are
+// checked (NaN != NaN under ==) and -0.0 is not accepted in place of 0.0.
 class TestArrowReadAlpEncoding : public ::testing::Test {
  public:
-  void ReadTableFromParquetFile(const std::string& file_name,
-                                std::shared_ptr<Table>* out) {
-    auto file = test::get_data_file(file_name);
-    auto pool = ::arrow::default_memory_pool();
-    std::unique_ptr<FileReader> parquet_reader;
-    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
-                               &parquet_reader));
-    ASSERT_OK(parquet_reader->ReadTable(out));
-    ASSERT_OK((*out)->ValidateFull());
+  static constexpr int64_t kNumRows = 9032;
+
+  void SetUp() override {
+    auto path = test::get_data_file("alp_extended.zstd.parquet");
+    auto reader = ParquetFileReader::OpenFile(path, /*memory_map=*/false);
+    metadata_ = reader->metadata();
+    ASSERT_OK_AND_ASSIGN(
+        auto file_reader,
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
+    ASSERT_OK_AND_ASSIGN(table_, file_reader->ReadTable());
+    ASSERT_OK(table_->ValidateFull());
+    ASSERT_EQ(table_->num_rows(), kNumRows);
   }
 
-  // Parse a CSV file with a header row into column names and a 2D vector of doubles.
-  void ReadDoublesFromCSV(const std::string& file_name,
-                          std::vector<std::string>* column_names,
-                          std::vector<std::vector<double>>* columns) {
-    auto file_path = test::get_data_file(file_name);
-    std::ifstream file(file_path);
-    ASSERT_TRUE(file.is_open()) << "Failed to open CSV: " << file_path;
+  // Flatten a chunked column to one bit pattern per row, widening float bits to
+  // 64 bits so both types share a comparison path. std::nullopt marks a null,
+  // which keeps nulls distinguishable from every representable value.
+  template <typename ArrowType>
+  std::vector<std::optional<uint64_t>> ColumnBits(const std::string& name) {
+    using CType = typename ArrowType::c_type;
+    using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
-    // Parse header
-    std::string line;
-    ASSERT_TRUE(std::getline(file, line)) << "CSV has no header";
-    {
-      std::istringstream header_stream(line);
-      std::string col_name;
-      while (std::getline(header_stream, col_name, ',')) {
-        col_name.erase(0, col_name.find_first_not_of(" \t\r\n"));
-        col_name.erase(col_name.find_last_not_of(" \t\r\n") + 1);
-        column_names->push_back(col_name);
-      }
-    }
-    columns->resize(column_names->size());
+    std::vector<std::optional<uint64_t>> bits;
+    const auto column = table_->GetColumnByName(name);
+    EXPECT_NE(column, nullptr) << "no column named " << name;
+    if (column == nullptr) return bits;
+    bits.reserve(column->length());
 
-    // Parse data rows
-    while (std::getline(file, line)) {
-      if (line.empty()) continue;
-      std::istringstream row_stream(line);
-      std::string cell;
-      size_t col_idx = 0;
-      while (std::getline(row_stream, cell, ',') && col_idx < columns->size()) {
-        (*columns)[col_idx].push_back(std::stod(cell));
-        col_idx++;
-      }
-      ASSERT_EQ(col_idx, columns->size()) << "Row has wrong number of columns";
-    }
-  }
-
-  // Parse a CSV file with a header row into column names and a 2D vector of floats.
-  void ReadFloatsFromCSV(const std::string& file_name,
-                         std::vector<std::string>* column_names,
-                         std::vector<std::vector<float>>* columns) {
-    auto file_path = test::get_data_file(file_name);
-    std::ifstream file(file_path);
-    ASSERT_TRUE(file.is_open()) << "Failed to open CSV: " << file_path;
-
-    // Parse header
-    std::string line;
-    ASSERT_TRUE(std::getline(file, line)) << "CSV has no header";
-    {
-      std::istringstream header_stream(line);
-      std::string col_name;
-      while (std::getline(header_stream, col_name, ',')) {
-        col_name.erase(0, col_name.find_first_not_of(" \t\r\n"));
-        col_name.erase(col_name.find_last_not_of(" \t\r\n") + 1);
-        column_names->push_back(col_name);
-      }
-    }
-    columns->resize(column_names->size());
-
-    // Parse data rows
-    while (std::getline(file, line)) {
-      if (line.empty()) continue;
-      std::istringstream row_stream(line);
-      std::string cell;
-      size_t col_idx = 0;
-      while (std::getline(row_stream, cell, ',') && col_idx < columns->size()) {
-        (*columns)[col_idx].push_back(std::stof(cell));
-        col_idx++;
-      }
-      ASSERT_EQ(col_idx, columns->size()) << "Row has wrong number of columns";
-    }
-  }
-
-  // Compare an Arrow table against expected float values bit-exactly.
-  void AssertTableMatchesCSVFloat(
-      const std::shared_ptr<Table>& table, const std::vector<std::string>& column_names,
-      const std::vector<std::vector<float>>& expected_columns) {
-    ASSERT_EQ(table->num_columns(), static_cast<int64_t>(column_names.size()));
-    ASSERT_GT(expected_columns[0].size(), 0u);
-    ASSERT_EQ(table->num_rows(), static_cast<int64_t>(expected_columns[0].size()));
-
-    for (int col = 0; col < table->num_columns(); col++) {
-      ASSERT_EQ(table->field(col)->name(), column_names[col]);
-      auto chunked = table->column(col);
-      int64_t row = 0;
-      for (int chunk = 0; chunk < chunked->num_chunks(); chunk++) {
-        auto array = std::static_pointer_cast<::arrow::FloatArray>(chunked->chunk(chunk));
-        for (int64_t i = 0; i < array->length(); i++, row++) {
-          float actual = array->Value(i);
-          float expected = expected_columns[col][row];
-          // Bit-exact comparison
-          uint32_t actual_bits, expected_bits;
-          std::memcpy(&actual_bits, &actual, sizeof(float));
-          std::memcpy(&expected_bits, &expected, sizeof(float));
-          ASSERT_EQ(actual_bits, expected_bits)
-              << "Mismatch at column " << column_names[col] << " row " << row
-              << ": expected=" << expected << " actual=" << actual;
+    for (const auto& chunk : column->chunks()) {
+      const auto& values = checked_cast<const ArrayType&>(*chunk);
+      for (int64_t i = 0; i < values.length(); ++i) {
+        if (values.IsNull(i)) {
+          bits.push_back(std::nullopt);
+          continue;
         }
+        std::conditional_t<sizeof(CType) == 4, uint32_t, uint64_t> pattern;
+        const CType value = values.Value(i);
+        std::memcpy(&pattern, &value, sizeof(CType));
+        bits.push_back(static_cast<uint64_t>(pattern));
       }
-      ASSERT_EQ(row, table->num_rows());
+    }
+    return bits;
+  }
+
+  // Assert that `alp_column` decoded to exactly the bits of `plain_column`, and
+  // that it really was stored with ALP so the test cannot pass vacuously.
+  template <typename ArrowType>
+  void AssertMatchesPlainReference(const std::string& alp_column,
+                                   const std::string& plain_column) {
+    ASSERT_NO_FATAL_FAILURE(AssertColumnUsesAlp(alp_column));
+
+    const auto expected = ColumnBits<ArrowType>(plain_column);
+    const auto actual = ColumnBits<ArrowType>(alp_column);
+    ASSERT_EQ(expected.size(), static_cast<size_t>(kNumRows));
+    ASSERT_EQ(actual.size(), expected.size());
+
+    for (size_t i = 0; i < expected.size(); ++i) {
+      ASSERT_EQ(actual[i].has_value(), expected[i].has_value())
+          << alp_column << " null-ness differs from " << plain_column << " at row " << i;
+      if (expected[i].has_value()) {
+        ASSERT_EQ(actual[i].value(), expected[i].value())
+            << alp_column << " bits differ from " << plain_column << " at row " << i;
+      }
     }
   }
 
-  // Compare an Arrow table against expected double values bit-exactly.
-  void AssertTableMatchesCSV(const std::shared_ptr<Table>& table,
-                             const std::vector<std::string>& column_names,
-                             const std::vector<std::vector<double>>& expected_columns) {
-    ASSERT_EQ(table->num_columns(), static_cast<int64_t>(column_names.size()));
-    ASSERT_GT(expected_columns[0].size(), 0u);
-    ASSERT_EQ(table->num_rows(), static_cast<int64_t>(expected_columns[0].size()));
-
-    for (int col = 0; col < table->num_columns(); col++) {
-      ASSERT_EQ(table->field(col)->name(), column_names[col]);
-      auto chunked = table->column(col);
-      int64_t row = 0;
-      for (int chunk = 0; chunk < chunked->num_chunks(); chunk++) {
-        auto array =
-            std::static_pointer_cast<::arrow::DoubleArray>(chunked->chunk(chunk));
-        for (int64_t i = 0; i < array->length(); i++, row++) {
-          double actual = array->Value(i);
-          double expected = expected_columns[col][row];
-          // Bit-exact comparison
-          uint64_t actual_bits, expected_bits;
-          std::memcpy(&actual_bits, &actual, sizeof(double));
-          std::memcpy(&expected_bits, &expected, sizeof(double));
-          ASSERT_EQ(actual_bits, expected_bits)
-              << "Mismatch at column " << column_names[col] << " row " << row
-              << ": expected=" << expected << " actual=" << actual;
-        }
-      }
-      ASSERT_EQ(row, table->num_rows());
+  // Every row group must record ALP for this column.
+  void AssertColumnUsesAlp(const std::string& name) {
+    const int column_index = metadata_->schema()->ColumnIndex(name);
+    ASSERT_GE(column_index, 0) << "no column named " << name;
+    for (int rg = 0; rg < metadata_->num_row_groups(); ++rg) {
+      // Keep the owners alive: encodings() hands back a reference into the
+      // column chunk metadata.
+      const auto row_group = metadata_->RowGroup(rg);
+      const auto column_chunk = row_group->ColumnChunk(column_index);
+      ASSERT_THAT(column_chunk->encodings(), ::testing::Contains(Encoding::ALP))
+          << name << " row group " << rg << " was not written with ALP";
     }
   }
+
+ protected:
+  std::shared_ptr<Table> table_;
+  std::shared_ptr<FileMetaData> metadata_;
 };
 
-TEST_F(TestArrowReadAlpEncoding, AlpSpotify1) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_spotify1.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<double>> expected_columns;
-  ReadDoublesFromCSV("alp_spotify1_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSV(table, column_names, expected_columns);
+TEST_F(TestArrowReadAlpEncoding, FloatVectorSize1024) {
+  AssertMatchesPlainReference<::arrow::FloatType>("float_alp_1024", "float_plain");
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpArade) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_arade.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<double>> expected_columns;
-  ReadDoublesFromCSV("alp_arade_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSV(table, column_names, expected_columns);
+TEST_F(TestArrowReadAlpEncoding, FloatVectorSize4096) {
+  AssertMatchesPlainReference<::arrow::FloatType>("float_alp_4096", "float_plain");
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpJavaSpotify1) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_java_spotify1.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<double>> expected_columns;
-  ReadDoublesFromCSV("alp_spotify1_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSV(table, column_names, expected_columns);
+TEST_F(TestArrowReadAlpEncoding, FloatVectorSize32) {
+  AssertMatchesPlainReference<::arrow::FloatType>("float_alp_32", "float_plain");
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpJavaArade) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_java_arade.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<double>> expected_columns;
-  ReadDoublesFromCSV("alp_arade_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSV(table, column_names, expected_columns);
+TEST_F(TestArrowReadAlpEncoding, DoubleVectorSize1024) {
+  AssertMatchesPlainReference<::arrow::DoubleType>("double_alp_1024", "double_plain");
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpFloatSpotify1) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_float_spotify1.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<float>> expected_columns;
-  ReadFloatsFromCSV("alp_float_spotify1_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSVFloat(table, column_names, expected_columns);
+TEST_F(TestArrowReadAlpEncoding, DoubleVectorSize4096) {
+  AssertMatchesPlainReference<::arrow::DoubleType>("double_alp_4096", "double_plain");
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpFloatArade) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_float_arade.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<float>> expected_columns;
-  ReadFloatsFromCSV("alp_float_arade_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSVFloat(table, column_names, expected_columns);
+TEST_F(TestArrowReadAlpEncoding, DoubleVectorSize32) {
+  AssertMatchesPlainReference<::arrow::DoubleType>("double_alp_32", "double_plain");
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpJavaFloatSpotify1) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_java_float_spotify1.parquet", &table);
+// The reference columns carry the corner cases the ALP columns are checked
+// against, so assert they are actually there. Without this, a file whose
+// references had been regenerated as ordinary values would make every test
+// above pass while checking nothing interesting.
+TEST_F(TestArrowReadAlpEncoding, ReferenceColumnsCoverCornerCases) {
+  const auto doubles = ColumnBits<::arrow::DoubleType>("double_plain");
+  ASSERT_EQ(doubles.size(), static_cast<size_t>(kNumRows));
 
-  std::vector<std::string> column_names;
-  std::vector<std::vector<float>> expected_columns;
-  ReadFloatsFromCSV("alp_float_spotify1_expect.csv", &column_names, &expected_columns);
+  int64_t nan_count = 0, inf_count = 0, negative_zero_count = 0, subnormal_count = 0,
+          null_count = 0;
+  for (const auto& bits : doubles) {
+    if (!bits.has_value()) {
+      ++null_count;
+      continue;
+    }
+    double value;
+    const uint64_t pattern = bits.value();
+    std::memcpy(&value, &pattern, sizeof(value));
+    if (std::isnan(value)) ++nan_count;
+    if (std::isinf(value)) ++inf_count;
+    if (value == 0.0 && std::signbit(value)) ++negative_zero_count;
+    if (std::fpclassify(value) == FP_SUBNORMAL) ++subnormal_count;
+  }
 
-  AssertTableMatchesCSVFloat(table, column_names, expected_columns);
+  EXPECT_EQ(nan_count, 3) << "expected three distinct NaN bit patterns";
+  EXPECT_EQ(inf_count, 2) << "expected +Inf and -Inf";
+  EXPECT_EQ(negative_zero_count, 1);
+  EXPECT_EQ(subnormal_count, 1);
+  EXPECT_EQ(null_count, 8);
 }
 
-TEST_F(TestArrowReadAlpEncoding, AlpJavaFloatArade) {
-  std::shared_ptr<::arrow::Table> table;
-  ReadTableFromParquetFile("alp_java_float_arade.parquet", &table);
-
-  std::vector<std::string> column_names;
-  std::vector<std::vector<float>> expected_columns;
-  ReadFloatsFromCSV("alp_float_arade_expect.csv", &column_names, &expected_columns);
-
-  AssertTableMatchesCSVFloat(table, column_names, expected_columns);
-}
+#endif  // ARROW_WITH_ZSTD
 
 struct NestedFilterTestCase {
   std::shared_ptr<::arrow::DataType> write_schema;
