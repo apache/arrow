@@ -97,7 +97,7 @@ namespace {
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
   Status FindFirst(std::string_view partial, std::string_view block,
-                  int64_t* out_pos) override {
+                   int64_t* out_pos) override {
     simdjson::padded_string input;
 
     if (partial.empty()) {
