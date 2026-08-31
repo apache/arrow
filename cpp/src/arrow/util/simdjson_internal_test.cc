@@ -337,8 +337,8 @@ TEST(JsonWriter, GetPrettyString) {
   EXPECT_EQ(b_value, "hello");
 }
 
-TEST(ObjectParser, GetString) {
-  ObjectParser parser;
+TEST(JsonObjectParser, GetString) {
+  JsonObjectParser parser;
 
   ASSERT_OK(parser.Parse(R"({"name":"arrow"})"));
 
@@ -346,8 +346,8 @@ TEST(ObjectParser, GetString) {
   EXPECT_EQ(value, "arrow");
 }
 
-TEST(ObjectParser, GetBool) {
-  ObjectParser parser;
+TEST(JsonObjectParser, GetBool) {
+  JsonObjectParser parser;
 
   ASSERT_OK(parser.Parse(R"({"enabled":true})"));
 
@@ -355,15 +355,15 @@ TEST(ObjectParser, GetBool) {
   EXPECT_TRUE(value);
 }
 
-TEST(ObjectParser, InvalidJson) {
-  ObjectParser parser;
+TEST(JsonObjectParser, InvalidJson) {
+  JsonObjectParser parser;
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("JSON parse error"),
                                   parser.Parse(R"({"name":)"));
 }
 
-TEST(ObjectParser, GetStringMap) {
-  ObjectParser parser;
+TEST(JsonObjectParser, GetStringMap) {
+  JsonObjectParser parser;
 
   ASSERT_OK(parser.Parse(R"({
     "k1": "v1",
@@ -377,8 +377,8 @@ TEST(ObjectParser, GetStringMap) {
   EXPECT_EQ(map["k2"], "v2");
 }
 
-TEST(ObjectParser, MissingKey) {
-  ObjectParser parser;
+TEST(JsonObjectParser, MissingKey) {
+  JsonObjectParser parser;
 
   ASSERT_OK(parser.Parse(R"({
     "name": "arrow"
@@ -388,8 +388,8 @@ TEST(ObjectParser, MissingKey) {
   ASSERT_RAISES(KeyError, parser.GetBool("missing"));
 }
 
-TEST(ObjectParser, WrongType) {
-  ObjectParser parser;
+TEST(JsonObjectParser, WrongType) {
+  JsonObjectParser parser;
 
   ASSERT_OK(parser.Parse(R"({
     "flag": true,
@@ -400,14 +400,14 @@ TEST(ObjectParser, WrongType) {
   ASSERT_RAISES(TypeError, parser.GetBool("name"));
 }
 
-TEST(ObjectParser, NonObjectRoot) {
-  ObjectParser parser;
+TEST(JsonObjectParser, NonObjectRoot) {
+  JsonObjectParser parser;
 
   ASSERT_RAISES(TypeError, parser.Parse(R"(["a", "b"])"));
 }
 
-TEST(ObjectParser, EmptyObject) {
-  ObjectParser parser;
+TEST(JsonObjectParser, EmptyObject) {
+  JsonObjectParser parser;
 
   ASSERT_OK(parser.Parse(R"({})"));
 

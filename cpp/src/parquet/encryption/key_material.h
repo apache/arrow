@@ -22,7 +22,7 @@
 #include "parquet/platform.h"
 
 namespace arrow::internal {
-class ObjectParser;
+class JsonObjectParser;
 }  // namespace arrow::internal
 
 namespace parquet::encryption {
@@ -82,7 +82,7 @@ class PARQUET_EXPORT KeyMaterial {
 
   static KeyMaterial Parse(const std::string& key_material_string);
 
-  static KeyMaterial Parse(const ::arrow::internal::ObjectParser* key_material_json);
+  static KeyMaterial Parse(const ::arrow::internal::JsonObjectParser* key_material_json);
 
   /// This method returns a json string that will be stored either inside a parquet file
   /// or in a key material store outside the parquet file.

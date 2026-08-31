@@ -73,7 +73,7 @@ void FileSystemKeyMaterialStore::LoadKeyMaterialMap() {
   PARQUET_ASSIGN_OR_THROW(input_size, input->GetSize());
   PARQUET_ASSIGN_OR_THROW(buff, input->ReadAt(0, input_size));
   std::string buff_str = buff->ToString();
-  ::arrow::internal::ObjectParser parser;
+  ::arrow::internal::JsonObjectParser parser;
   auto status = parser.Parse(buff_str);
   PARQUET_THROW_NOT_OK(status);
   PARQUET_ASSIGN_OR_THROW(key_material_map_, parser.GetStringMap());

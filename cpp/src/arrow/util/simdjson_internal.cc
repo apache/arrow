@@ -19,7 +19,7 @@
 
 namespace arrow::internal {
 
-class ObjectParser::Impl {
+class JsonObjectParser::Impl {
  public:
   Status Parse(std::string_view json) {
     // Copy into padded buffer
@@ -153,19 +153,22 @@ class ObjectParser::Impl {
   simdjson::ondemand::document document_;
 };
 
-ObjectParser::ObjectParser() : impl_(new ObjectParser::Impl()) {}
+JsonObjectParser::JsonObjectParser() : impl_(new JsonObjectParser::Impl()) {}
 
-ObjectParser::~ObjectParser() = default;
+JsonObjectParser::~JsonObjectParser() = default;
 
-Status ObjectParser::Parse(std::string_view json) { return impl_->Parse(json); }
+Status JsonObjectParser::Parse(std::string_view json) { return impl_->Parse(json); }
 
-Result<std::string> ObjectParser::GetString(const char* key) const {
+Result<std::string> JsonObjectParser::GetString(const char* key) const {
   return impl_->GetString(key);
 }
 
-Result<bool> ObjectParser::GetBool(const char* key) const { return impl_->GetBool(key); }
+Result<bool> JsonObjectParser::GetBool(const char* key) const {
+  return impl_->GetBool(key);
+}
 
-Result<std::unordered_map<std::string, std::string>> ObjectParser::GetStringMap() const {
+Result<std::unordered_map<std::string, std::string>> JsonObjectParser::GetStringMap()
+    const {
   return impl_->GetStringMap();
 }
 

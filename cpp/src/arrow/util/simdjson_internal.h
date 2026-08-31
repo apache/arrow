@@ -37,10 +37,10 @@ namespace arrow::internal {
 
 /// This class is a helper to parse a JSON object from a string.
 /// It uses simdjson in the implementation.
-class ARROW_EXPORT ObjectParser {
+class ARROW_EXPORT JsonObjectParser {
  public:
-  ObjectParser();
-  ~ObjectParser();
+  JsonObjectParser();
+  ~JsonObjectParser();
 
   Status Parse(std::string_view json);
 

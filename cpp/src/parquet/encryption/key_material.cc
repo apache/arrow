@@ -23,8 +23,8 @@
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
+using ::arrow::internal::JsonObjectParser;
 using ::arrow::internal::JsonWriter;
-using ::arrow::internal::ObjectParser;
 
 namespace parquet::encryption {
 
@@ -59,7 +59,7 @@ KeyMaterial::KeyMaterial(bool is_footer_key, const std::string& kms_instance_id,
       encoded_wrapped_dek_(encoded_wrapped_dek) {}
 
 KeyMaterial KeyMaterial::Parse(const std::string& key_material_string) {
-  ObjectParser json_parser;
+  JsonObjectParser json_parser;
   ::arrow::Status status = json_parser.Parse(key_material_string);
   if (!status.ok()) {
     throw ParquetException("Failed to parse key material " + key_material_string);
@@ -77,7 +77,7 @@ KeyMaterial KeyMaterial::Parse(const std::string& key_material_string) {
   return Parse(&json_parser);
 }
 
-KeyMaterial KeyMaterial::Parse(const ObjectParser* key_material_json) {
+KeyMaterial KeyMaterial::Parse(const JsonObjectParser* key_material_json) {
   // 2. Check if "key material" belongs to file footer key
   bool is_footer_key;
   PARQUET_ASSIGN_OR_THROW(is_footer_key, key_material_json->GetBool(kIsFooterKeyField));
