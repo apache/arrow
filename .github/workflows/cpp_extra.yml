@@ -141,7 +141,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -230,7 +230,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -307,7 +307,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ccache
           key: jni-macos
@@ -408,7 +408,7 @@ jobs:
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -511,7 +511,7 @@ jobs:
           docker compose up -d dremio
           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -601,7 +601,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
