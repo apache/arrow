@@ -39,17 +39,17 @@ OUT=$1
 
 # Arrow IPC
 
-rm -rf ${CORPUS_DIR}
-${OUT}/arrow-ipc-generate-fuzz-corpus -stream ${CORPUS_DIR}
+rm -rf "${CORPUS_DIR}"
+"${OUT}/arrow-ipc-generate-fuzz-corpus" -stream "${CORPUS_DIR}"
 # Add "golden" IPC integration files
 IPC_INTEGRATION_FILES=$(find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" -name "*.stream")
 [ -z "${IPC_INTEGRATION_FILES}" ] && exit 1
 # Several IPC integration files can have the same name, make sure
 # they all appear in the corpus by numbering the duplicates.
-cp --backup=numbered "${IPC_INTEGRATION_FILES}" ${CORPUS_DIR}
-"${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" ${CORPUS_DIR} "${OUT}"/arrow-ipc-stream-fuzz_seed_corpus.zip
+cp --backup=numbered "${IPC_INTEGRATION_FILES}" "${CORPUS_DIR}"
+"${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}"/arrow-ipc-stream-fuzz_seed_corpus.zip
 
-rm -rf ${CORPUS_DIR}
+rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -file "${CORPUS_DIR}"
 IPC_INTEGRATION_FILES=$(find "${ARROW_ROOT}"/testing/data/arrow-ipc-stream/integration -name "*.arrow_file")
 [ -z "${IPC_INTEGRATION_FILES}" ] && exit 1
@@ -62,11 +62,11 @@ rm -rf "${CORPUS_DIR}"
 
 # Parquet file-level fuzzer
 
-rm -rf ${CORPUS_DIR}
+rm -rf "${CORPUS_DIR}"
 "${OUT}/parquet-arrow-generate-fuzz-corpus" "${CORPUS_DIR}"
 # Add Parquet testing examples
-cp "${ARROW_CPP}/submodules/parquet-testing/data/*.parquet" "${CORPUS_DIR}"
-cp "${ARROW_CPP}/submodules/parquet-testing/bad_data/*.parquet" "${CORPUS_DIR}"
+cp "${ARROW_CPP}"/submodules/parquet-testing/data/*.parquet "${CORPUS_DIR}"
+cp "${ARROW_CPP}"/submodules/parquet-testing/bad_data/*.parquet "${CORPUS_DIR}"
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/parquet-arrow-fuzz_seed_corpus.zip"
 
 # Parquet encoding fuzzer
