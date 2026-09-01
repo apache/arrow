@@ -137,13 +137,11 @@ class NumericArray : public PrimitiveArray {
     const int64_t byte_width = type()->byte_width();
     std::shared_ptr<Buffer> buffer;
     if (data_->buffers[1] != NULLPTR) {
-      int64_t boffset = 0;
-      int64_t blength = 0;
-      if (internal::MultiplyWithOverflow(data_->offset, byte_width, &boffset) ||
-          internal::MultiplyWithOverflow(length(), byte_width, &blength)) {
-        return Status::Invalid("Array byte size does not fit in an int64");
-      }
-      ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(data_->buffers[1], boffset, blength));
+      // Array guarantees this will not overflow.
+      const int64_t byte_offset = data_->offset * byte_width;
+      const int64_t byte_length = length() * byte_width;
+      ARROW_ASSIGN_OR_RAISE(buffer,
+                            SliceBufferSafe(data_->buffers[1], byte_offset, byte_length));
     }
     return Tensor::Make(type(), std::move(buffer), {length()});
   }

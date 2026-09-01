@@ -1016,12 +1016,10 @@ Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensor() const {
     const auto* fsl = internal::checked_cast<const FixedSizeListType*>(type.get());
     type = fsl->value_type();
     data = data->child_data.front().get();
-
-    if (internal::MultiplyWithOverflow(offset, int64_t{fsl->list_size()}, &offset) ||
-        internal::AddWithOverflow(offset, data->offset, &offset) ||
-        internal::MultiplyWithOverflow(length, int64_t{fsl->list_size()}, &length)) {
-      return Status::Invalid("Flattened fixed size list does not fit in an int64");
-    }
+    // Overflow cannot happen on a valid array (its data needs to fit in memory,
+    // therefore be smaller than INT64_MAX)
+    offset = offset * fsl->list_size() + data->offset;
+    length = length * fsl->list_size();
     shape.push_back(fsl->list_size());
   }
 
@@ -1033,13 +1031,10 @@ Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensor() const {
   std::shared_ptr<Buffer> buffer = nullptr;
   if (const auto& buf = data->buffers[1]; buf != NULLPTR) {
     const int64_t byte_width = type->byte_width();
-    int64_t boffset = 0;
-    int64_t blength = 0;
-    if (internal::MultiplyWithOverflow(offset, byte_width, &boffset) ||
-        internal::MultiplyWithOverflow(length, byte_width, &blength)) {
-      return Status::Invalid("Array byte size does not fit in an int64");
-    }
-    ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(buf, boffset, blength));
+    // Buffer guarantees this fits into an int64_t.
+    const int64_t byte_offset = offset * byte_width;
+    const int64_t byte_length = length * byte_width;
+    ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(buf, byte_offset, byte_length));
   }
 
   return Tensor::Make(std::move(type), std::move(buffer), std::move(shape));
