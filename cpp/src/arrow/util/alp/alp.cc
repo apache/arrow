@@ -37,11 +37,37 @@ namespace arrow {
 namespace util {
 namespace alp {
 
-// ALP serialization stores multi-byte integers (frame_of_reference,
-// num_exceptions, offsets) via the util::SafeLoadAs/SafeStore helpers, which
-// handle unaligned access, and uses memcpy for bulk array copies. Both assume
-// little-endian byte order on disk.
-static_assert(ARROW_LITTLE_ENDIAN, "ALP serialization assumes little-endian byte order");
+namespace {
+
+// The ALP wire format is little-endian, so every multi-byte field is converted on
+// the way in and out. The bit-packed values need no conversion of their own:
+// bit_util::BitWriter writes them little-endian and arrow::internal::unpack reads
+// them back the same way, so those bytes are copied verbatim.
+//
+// On a little-endian host both helpers below are a plain memcpy.
+template <typename T>
+void StoreLittleEndianArray(const T* values, int64_t num_values, uint8_t* output) {
+  if constexpr (ARROW_LITTLE_ENDIAN == 1) {
+    std::memcpy(output, values, static_cast<size_t>(num_values) * sizeof(T));
+  } else {
+    for (int64_t i = 0; i < num_values; ++i) {
+      util::SafeStore(output + i * sizeof(T), bit_util::ToLittleEndian(values[i]));
+    }
+  }
+}
+
+template <typename T>
+void LoadLittleEndianArray(const uint8_t* input, int64_t num_values, T* values) {
+  if constexpr (ARROW_LITTLE_ENDIAN == 1) {
+    std::memcpy(values, input, static_cast<size_t>(num_values) * sizeof(T));
+  } else {
+    for (int64_t i = 0; i < num_values; ++i) {
+      values[i] = bit_util::FromLittleEndian(util::SafeLoadAs<T>(input + i * sizeof(T)));
+    }
+  }
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // AlpEncodedVectorInfo implementation (4 bytes)
@@ -58,7 +84,7 @@ void AlpEncodedVectorInfo::Store(std::span<uint8_t> output_buffer) const {
   *ptr++ = factor_;
 
   // num_exceptions: 2 bytes
-  util::SafeStore(ptr, num_exceptions_);
+  util::SafeStore(ptr, bit_util::ToLittleEndian(num_exceptions_));
 }
 
 Result<AlpEncodedVectorInfo> AlpEncodedVectorInfo::Load(
@@ -76,7 +102,7 @@ Result<AlpEncodedVectorInfo> AlpEncodedVectorInfo::Load(
   result.factor_ = *ptr++;
 
   // num_exceptions: 2 bytes
-  result.num_exceptions_ = util::SafeLoadAs<uint16_t>(ptr);
+  result.num_exceptions_ = bit_util::FromLittleEndian(util::SafeLoadAs<uint16_t>(ptr));
 
   return result;
 }
@@ -93,7 +119,7 @@ void AlpEncodedForVectorInfo<T>::Store(std::span<uint8_t> output_buffer) const {
   uint8_t* ptr = output_buffer.data();
 
   // frame_of_reference: 4 bytes for float, 8 bytes for double
-  util::SafeStore(ptr, frame_of_reference_);
+  util::SafeStore(ptr, bit_util::ToLittleEndian(frame_of_reference_));
   ptr += sizeof(frame_of_reference_);
 
   // bit_width: 1 byte
@@ -112,8 +138,8 @@ Result<AlpEncodedForVectorInfo<T>> AlpEncodedForVectorInfo<T>::Load(
   const uint8_t* ptr = input_buffer.data();
 
   // frame_of_reference: 4 bytes for float, 8 bytes for double
-  result.frame_of_reference_ =
-      util::SafeLoadAs<typename AlpEncodedForVectorInfo<T>::ExactType>(ptr);
+  result.frame_of_reference_ = bit_util::FromLittleEndian(
+      util::SafeLoadAs<typename AlpEncodedForVectorInfo<T>::ExactType>(ptr));
   ptr += sizeof(result.frame_of_reference_);
 
   // bit_width: 1 byte
@@ -183,13 +209,14 @@ void AlpEncodedVector<T>::StoreDataOnly(std::span<uint8_t> output_buffer) const 
   // Store exception positions.
   const int64_t exception_position_size =
       alp_info_.num_exceptions() * sizeof(AlpConstants::PositionType);
-  std::memcpy(output_buffer.data() + offset, exception_positions_.data(),
-              exception_position_size);
+  StoreLittleEndianArray(exception_positions_.data(), alp_info_.num_exceptions(),
+                         output_buffer.data() + offset);
   offset += exception_position_size;
 
   // Store exception values.
   const int64_t exception_size = alp_info_.num_exceptions() * sizeof(T);
-  std::memcpy(output_buffer.data() + offset, exceptions_.data(), exception_size);
+  StoreLittleEndianArray(exceptions_.data(), alp_info_.num_exceptions(),
+                         output_buffer.data() + offset);
   offset += exception_size;
 
   // Internal invariant: total bytes written must match precomputed size.
@@ -298,15 +325,14 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
   result.mutable_exception_positions().resize(alp_info.num_exceptions());
   const int64_t exception_position_size =
       alp_info.num_exceptions() * sizeof(AlpConstants::PositionType);
-  std::memcpy(result.mutable_exception_positions().data(),
-              input_buffer.data() + input_offset, exception_position_size);
+  LoadLittleEndianArray(input_buffer.data() + input_offset, alp_info.num_exceptions(),
+                        result.mutable_exception_positions().data());
   input_offset += exception_position_size;
   RETURN_NOT_OK(ValidateExceptionPositions(result.exception_positions(), num_elements));
 
   result.mutable_exceptions().resize(alp_info.num_exceptions());
-  const int64_t exception_size = alp_info.num_exceptions() * sizeof(T);
-  std::memcpy(result.mutable_exceptions().data(), input_buffer.data() + input_offset,
-              exception_size);
+  LoadLittleEndianArray(input_buffer.data() + input_offset, alp_info.num_exceptions(),
+                        result.mutable_exceptions().data());
   return result;
 }
 
@@ -441,16 +467,15 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
   const int64_t exception_position_size =
       alp_info.num_exceptions() * sizeof(AlpConstants::PositionType);
   result.mutable_exception_positions().resize(alp_info.num_exceptions());
-  std::memcpy(result.mutable_exception_positions().data(),
-              input_buffer.data() + input_offset, exception_position_size);
+  LoadLittleEndianArray(input_buffer.data() + input_offset, alp_info.num_exceptions(),
+                        result.mutable_exception_positions().data());
   input_offset += exception_position_size;
   RETURN_NOT_OK(ValidateExceptionPositions(result.exception_positions(), num_elements));
 
   // Copy exception values into aligned storage to avoid UB from misaligned access.
-  const int64_t exception_size = alp_info.num_exceptions() * sizeof(T);
   result.mutable_exceptions().resize(alp_info.num_exceptions());
-  std::memcpy(result.mutable_exceptions().data(), input_buffer.data() + input_offset,
-              exception_size);
+  LoadLittleEndianArray(input_buffer.data() + input_offset, alp_info.num_exceptions(),
+                        result.mutable_exceptions().data());
 
   return result;
 }
