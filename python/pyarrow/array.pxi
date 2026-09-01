@@ -1853,7 +1853,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        allow_nulls: bool, default `True`
+        allow_nulls : bool, default `False`
             When true, nulls are ignored, leaving the output tensor with
             unspecified values where this array has null entries.
             When false, nulls are rejected.
@@ -4974,7 +4974,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         return self.to_tensor().to_numpy()
 
-    def to_tensor(self):
+    def to_tensor(self, allow_nulls=False):
         """
         Convert fixed shape tensor extension array to a pyarrow.Tensor.
 
@@ -4985,6 +4985,13 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         The conversion is zero-copy.
 
+        Parameters
+        ----------
+        allow_nulls : bool, default `False`
+            When true, nulls are ignored, leaving the output tensor with
+            unspecified values where this array has null entries.
+            When false, nulls are rejected.
+
         Returns
         -------
         pyarrow.Tensor
@@ -4992,7 +4999,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             along the first dimension.
         """
 
-        return Array.to_tensor(self)
+        return Array.to_tensor(self, allow_nulls=allow_nulls)
 
     @staticmethod
     def from_numpy_ndarray(obj, dim_names=None):
