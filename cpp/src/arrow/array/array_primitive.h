@@ -131,8 +131,18 @@ class NumericArray : public PrimitiveArray {
 
   IteratorType end() const { return IteratorType(*this, length()); }
 
+ protected:
+  NumericArray() : values_(NULLPTR) {}
+
+  void SetData(const std::shared_ptr<ArrayData>& data) {
+    this->PrimitiveArray::SetData(data);
+    values_ = raw_values_
+                  ? (reinterpret_cast<const value_type*>(raw_values_) + data_->offset)
+                  : NULLPTR;
+  }
+
   /// \brief Return a one dimensional Tensor.
-  Result<std::shared_ptr<Tensor>> ToTensor() const override {
+  Result<std::shared_ptr<Tensor>> ToTensorWithNulls() const override {
     // Could be non-templated
     const int64_t byte_width = type()->byte_width();
     std::shared_ptr<Buffer> buffer;
@@ -144,16 +154,6 @@ class NumericArray : public PrimitiveArray {
                             SliceBufferSafe(data_->buffers[1], byte_offset, byte_length));
     }
     return Tensor::Make(type(), std::move(buffer), {length()});
-  }
-
- protected:
-  NumericArray() : values_(NULLPTR) {}
-
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->PrimitiveArray::SetData(data);
-    values_ = raw_values_
-                  ? (reinterpret_cast<const value_type*>(raw_values_) + data_->offset)
-                  : NULLPTR;
   }
 
   const value_type* values_;

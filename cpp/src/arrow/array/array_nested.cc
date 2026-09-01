@@ -1003,7 +1003,7 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
   return FlattenListArray(*this, memory_pool);
 }
 
-Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensor() const {
+Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensorWithNulls() const {
   const auto* data = this->data().get();
   auto type = this->type();
   int64_t offset = data->offset;

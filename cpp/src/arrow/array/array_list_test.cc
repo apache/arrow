@@ -1898,9 +1898,13 @@ TEST_F(TestFixedSizeListArray, ToTensorNested) {
 }
 
 TEST_F(TestFixedSizeListArray, ToTensorNulls) {
-  // Nulls are ignored, leaving unspecified values in the output tensor.
   auto array = ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2], null, [5, null]]");
-  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+
+  // Default behaviour is to not allow nulls
+  ASSERT_RAISES(NotImplemented, array->ToTensor());
+
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
   ASSERT_OK(tensor->Validate());
   ASSERT_EQ(std::vector<int64_t>({3, 2}), tensor->shape());
 }

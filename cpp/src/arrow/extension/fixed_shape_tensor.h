@@ -37,6 +37,7 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
   static Result<std::shared_ptr<FixedShapeTensorArray>> FromTensor(
       const std::shared_ptr<Tensor>& tensor);
 
+ protected:
   /// \brief Create a Tensor from FixedShapeTensorArray
   ///
   /// This method will create a Tensor from a FixedShapeTensorArray, setting its first
@@ -46,7 +47,7 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
   ///
   /// Nulls are ignored, leaving the output tensor with unspecified values where this
   /// array has null entries.
-  Result<std::shared_ptr<Tensor>> ToTensor() const override;
+  Result<std::shared_ptr<Tensor>> ToTensorWithNulls() const override;
 };
 
 /// \brief Concrete type class for constant-size Tensor data.

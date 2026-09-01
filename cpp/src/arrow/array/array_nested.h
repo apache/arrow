@@ -645,17 +645,17 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
 
+ protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
+  int32_t list_size_;
+
   /// \brief Return a Tensor sharing the data.
   ///
   /// The output tensor has a row major layout with the number of elements as the first
   /// dimension and the fixed size list as the remaining ones (possibly nested).
   /// Nulls are ignored, leaving the output tensor with unspecified values where this
   /// array has null entries.
-  Result<std::shared_ptr<Tensor>> ToTensor() const override;
-
- protected:
-  void SetData(const std::shared_ptr<ArrayData>& data);
-  int32_t list_size_;
+  Result<std::shared_ptr<Tensor>> ToTensorWithNulls() const override;
 
  private:
   std::shared_ptr<Array> values_;

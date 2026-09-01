@@ -1250,9 +1250,13 @@ TEST(TestPrimitiveArray, ToTensorSliced) {
 TEST(TestPrimitiveArray, ToTensorNulls) {
   // Nulls are ignored, leaving unspecified values in the output tensor.
   const std::vector<int64_t> shape = {3};
-
   auto array = ArrayFromJSON(int32(), "[1, null, 3]");
-  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+
+  // Default behaviour is to not allow nulls
+  ASSERT_RAISES(NotImplemented, array->ToTensor());
+
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
   ASSERT_OK(tensor->Validate());
 
   EXPECT_EQ(shape, tensor->shape());
