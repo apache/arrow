@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/alp/alp_codec.h"
+#include "arrow/util/alp/alp_codec_internal.h"
 
 #include <bit>
 #include <cmath>
@@ -23,9 +23,9 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/alp/alp.h"
-#include "arrow/util/alp/alp_constants.h"
-#include "arrow/util/alp/alp_sampler.h"
+#include "arrow/util/alp/alp_constants_internal.h"
+#include "arrow/util/alp/alp_internal.h"
+#include "arrow/util/alp/alp_sampler_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"

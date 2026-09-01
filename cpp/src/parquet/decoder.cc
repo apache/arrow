@@ -35,7 +35,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/alp/alp_codec.h"
+#include "arrow/util/alp/alp_codec_internal.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
