@@ -26,7 +26,7 @@ on:
 
 env:
   ARCHERY_DEBUG: 1
-  SCCACHE_OIDC_ROLE: {{ '${{ secrets.AWS_ROLE_ARN }}' }}
+  SCCACHE_ENABLED: {{ "${{ secrets.SCCACHE_REGION != '' }}" }}
 {% endmacro %}
 
 {%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
@@ -290,18 +290,18 @@ env:
 
 {%- macro github_configure_aws_credentials() -%}
   - name: Configure AWS credentials for sccache
-    if: env.SCCACHE_OIDC_ROLE != ''
+    if: env.SCCACHE_ENABLED == 'true'
     uses: aws-actions/configure-aws-credentials@v6
     with:
       aws-region: {{ '${{ secrets.SCCACHE_REGION }}' }}
-      role-to-assume: {{ '${{ env.SCCACHE_OIDC_ROLE }}' }}
+      role-to-assume: {{ '${{ secrets.AWS_ROLE_ARN }}' }}
       role-duration-seconds: 14400
 {% endmacro %}
 
 {% macro github_set_sccache_envvars(sccache_key_prefix = "sccache") %}
   {% set sccache_vars =  {
-            "AWS_ACCESS_KEY_ID": '${{ env.AWS_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID }}',
-            "AWS_SECRET_ACCESS_KEY": '${{ env.AWS_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY }}',
+            "AWS_ACCESS_KEY_ID": '${{ env.AWS_ACCESS_KEY_ID }}',
+            "AWS_SECRET_ACCESS_KEY": '${{ env.AWS_SECRET_ACCESS_KEY }}',
             "AWS_SESSION_TOKEN": '${{ env.AWS_SESSION_TOKEN }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
             "SCCACHE_REGION": '${{ secrets.SCCACHE_REGION }}',
