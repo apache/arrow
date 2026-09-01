@@ -109,6 +109,12 @@ class ARROW_EXPORT Tensor {
     return std::make_shared<Tensor>(type, data, shape, strides, dim_names);
   }
 
+  /// \brief Attempt to create a Tensor from an Array.
+  ///
+  /// \see Array::ToTensor
+  static Result<std::shared_ptr<Tensor>> FromArray(const std::shared_ptr<Array>& array,
+                                                   bool allow_nulls = false);
+
   virtual ~Tensor() = default;
 
   /// Constructor with no dimension names or strides, data assumed to be row-major

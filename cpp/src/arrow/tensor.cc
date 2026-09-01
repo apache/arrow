@@ -488,6 +488,11 @@ Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_
 
 }  // namespace internal
 
+Result<std::shared_ptr<Tensor>> Tensor::FromArray(const std::shared_ptr<Array>& array,
+                                                  bool allow_nulls) {
+  return array->ToTensor(allow_nulls);
+}
+
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
                const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
