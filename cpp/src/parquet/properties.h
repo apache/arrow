@@ -963,9 +963,10 @@ class PARQUET_EXPORT WriterProperties {
 
       // ALP is a Preview feature in the Parquet format, so it must never be
       // written by accident. Refuse to build properties that select ALP for a
-      // column without also granting permission for it. `default_column_properties_`
-      // covers every column not named in one of the maps above; the map covers
-      // the rest.
+      // column without also granting permission for it. Between them the two
+      // checks below cover every column of any schema these properties are used
+      // with: `column_properties` holds the columns named in one of the maps
+      // above, and `default_column_properties_` applies to all the others.
       CheckAlpEnabled(default_column_properties_, "the default column properties");
       for (const auto& item : column_properties) {
         CheckAlpEnabled(item.second, "column '" + item.first + "'");

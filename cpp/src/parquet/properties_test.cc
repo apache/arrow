@@ -265,8 +265,10 @@ TEST(TestWriterProperties, AlpRejectedWithoutOptIn) {
   EXPECT_THROW_THAT(
       [&]() { WriterProperties::Builder().encoding(Encoding::ALP)->build(); },
       ParquetException,
-      ::testing::Property(&ParquetException::what,
-                          ::testing::HasSubstr("enable_alp_encoding")));
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::AllOf(::testing::HasSubstr("default column properties"),
+                           ::testing::HasSubstr("enable_alp_encoding"))));
 }
 
 TEST(TestWriterProperties, AlpRejectedForColumnWithoutOptIn) {
