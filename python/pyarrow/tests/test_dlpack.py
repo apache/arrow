@@ -175,6 +175,38 @@ def test_array_to_tensor_dlpack(arr, expected):
     assert tensor.__dlpack_device__() == (1, 0)
 
 
+def multidim_arrays_with_nulls():
+    np_arr = np.arange(6, dtype=np.int32).reshape(3, 2)
+    # Masked entries keep defined values in the child array, so the tensor
+    # contents stay fully predictable.
+    nested_list = pa.FixedSizeListArray.from_arrays(
+        pa.array(np_arr.ravel(), type=pa.int32()), 2,
+        mask=pa.array([False, True, False]))
+    return [
+        pytest.param(nested_list, np_arr, id="fixed_size_list"),
+        pytest.param(
+            pa.ExtensionArray.from_storage(
+                pa.fixed_shape_tensor(pa.int32(), [2]), nested_list),
+            np_arr,
+            id="fixed_shape_tensor",
+        ),
+    ]
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize(('arr', 'expected'), multidim_arrays_with_nulls())
+def test_array_to_tensor_dlpack_nulls(arr, expected):
+    if Version(np.__version__) < Version("2.1.0"):
+        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
+
+    with pytest.raises(pa.ArrowNotImplementedError, match="Array contains nulls"):
+        arr.to_tensor()
+
+    tensor = arr.to_tensor(allow_nulls=True)
+    result = np.from_dlpack(DLPackForwarder(tensor, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+
 def dlpack_objects():
     arr = pa.array([1, 2, 3], type=pa.int32())
     return [
