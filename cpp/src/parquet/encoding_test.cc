@@ -2811,6 +2811,38 @@ TYPED_TEST(TestAlpEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(3000, 1));
 }
 
+TYPED_TEST(TestAlpEncoding, BatchedDecode) {
+  // A caller that reads a page in more than one batch takes a different path
+  // through the decoder than one that asks for the whole page at once, and the
+  // remaining count is the only record of how far it has got.
+  using c_type = typename TypeParam::c_type;
+  this->InitData(2000, 1);
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, /*use_dictionary=*/false,
+                                             this->descr_.get());
+  encoder->Put(this->draws_, this->num_values_);
+  auto buffer = encoder->FlushValues();
+
+  const std::vector<std::vector<int>> batch_plans = {
+      {2000}, {1999, 1}, {1, 1999}, {1, 7, 100, 1892}, {1024, 976}, {500, 500, 500, 500}};
+  for (const auto& batches : batch_plans) {
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
+    decoder->SetData(this->num_values_, buffer->data(), static_cast<int>(buffer->size()));
+    ASSERT_EQ(this->num_values_, decoder->values_left());
+
+    int decoded = 0;
+    for (int batch : batches) {
+      SCOPED_TRACE("decoded=" + std::to_string(decoded) +
+                   " batch=" + std::to_string(batch));
+      ASSERT_EQ(batch, decoder->Decode(this->decode_buf_ + decoded, batch));
+      decoded += batch;
+      ASSERT_EQ(this->num_values_ - decoded, decoder->values_left());
+    }
+    ASSERT_EQ(this->num_values_, decoded);
+    ASSERT_EQ(0, std::memcmp(this->draws_, this->decode_buf_,
+                             this->num_values_ * sizeof(c_type)));
+  }
+}
+
 TYPED_TEST(TestAlpEncoding, RoundTripWithRepeats) {
   // Test with repeated patterns
   ASSERT_NO_FATAL_FAILURE(this->Execute(100, 10));

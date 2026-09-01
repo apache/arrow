@@ -1000,20 +1000,15 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 };
 
 // ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
 // ALP encoder (Adaptive Lossless floating-Point)
 
-// TODO: encode incrementally. `Put` buffers raw input and `FlushValues` runs the
-// whole ALP pipeline over it in one shot, so working memory scales with the page
-// rather than with a vector.
+// TODO: encode incrementally. `Put` buffers the raw input and `FlushValues` runs
+// the whole pipeline over it, so working memory scales with the page.
 //
-// TODO: fall back to PLAIN when ALP does not pay for itself. Measured over the ALP
-// paper's reference datasets, msg_sp encodes to 113% of its plain size, and
-// poi_longitude, num_brain and num_control land within 8% of break-even. The
-// decision belongs in ColumnWriterImpl, which owns `encoding_` and already has
-// `FallbackToPlainEncoding()`; what is missing is a cheap ratio estimate, which the
-// sampler computes in AlpCompression<T>::EstimateCompressedSize but does not
-// expose. This should be resolved before ALP is enabled by default.
+// TODO: fall back to PLAIN where ALP does not pay off. On the ALP paper's datasets
+// msg_sp encodes to 113% of plain and three more columns land within 8% of
+// break-even. ColumnWriterImpl already has FallbackToPlainEncoding(); what is
+// missing is a ratio estimate, which the sampler computes but does not expose.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
