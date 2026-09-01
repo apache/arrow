@@ -126,13 +126,6 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     const size_t block_length = block.size();
     size_t consumed_length = 0;
 
-    if (block_length > 0) {
-      const size_t start = ConsumeWhitespace(block);
-      if (start < block.size() && block[start] != '{' && block[start] != '[') {
-        return Status::Invalid("JSON parse error: Invalid value");
-      }
-    }
-
     // Keep the padded buffer alive while iterating the document stream.
     simdjson::padded_string padded(block);
     simdjson::ondemand::parser parser;
