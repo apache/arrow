@@ -4970,6 +4970,32 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         return self.to_tensor().to_numpy()
 
     @staticmethod
+    def from_tensor(Tensor tensor not None):
+        """
+        Convert a pyarrow.Tensor to a fixed shape tensor extension array.
+
+        The first dimension of the tensor becomes the length of the fixed shape
+        tensor array and the remaining dimensions the shape of the individual
+        tensors. If the tensor provides strides, they are used to determine the
+        dimension permutation, otherwise row-major layout is assumed.
+
+        Parameters
+        ----------
+        tensor : pyarrow.Tensor
+
+        Returns
+        -------
+        FixedShapeTensorArray
+        """
+        cdef shared_ptr[CFixedShapeTensorArray] c_array
+
+        with nogil:
+            c_array = GetResultValue(
+                CFixedShapeTensorArray.FromTensor(tensor.sp_tensor))
+
+        return pyarrow_wrap_array(<shared_ptr[CArray]> c_array)
+
+    @staticmethod
     def from_numpy_ndarray(obj, dim_names=None):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
