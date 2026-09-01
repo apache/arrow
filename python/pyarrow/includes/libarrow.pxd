@@ -280,7 +280,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const shared_ptr[CArrayStatistics]& statistics() const
 
-        CResult[shared_ptr[CTensor]] ToTensor() const
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool allow_nulls) const
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(

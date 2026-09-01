@@ -1841,7 +1841,7 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
-    def to_tensor(self):
+    def to_tensor(self, allow_nulls=False):
         """
         Convert this array to a pyarrow.Tensor.
 
@@ -1849,18 +1849,24 @@ cdef class Array(_PandasConvertible):
         multi-dimensional numeric tensor, such as numeric arrays (1D), nested
         fixed size list arrays, and fixed shape tensor arrays.
         The resulting tensor has a row major layout with the array elements
-        as the first dimension.
-        Null values are ignored, leaving the corresponding entries of the
-        tensor with unspecified values.
-        The conversion is zero-copy.
+        as the first dimension. The conversion is zero-copy.
+
+        Parameters
+        ----------
+        allow_nulls: bool, default `True`
+            When true, nulls are ignored, leaving the output tensor with
+            unspecified values where this array has null entries.
+            When false, nulls are rejected.
 
         Returns
         -------
         pyarrow.Tensor
         """
-        cdef shared_ptr[CTensor] ctensor
+        cdef:
+            shared_ptr[CTensor] ctensor
+            c_bool c_allow_nulls = allow_nulls
         with nogil:
-            ctensor = GetResultValue(self.ap.ToTensor())
+            ctensor = GetResultValue(self.ap.ToTensor(c_allow_nulls))
         return pyarrow_wrap_tensor(ctensor)
 
     def to_pylist(self, *, maps_as_pydicts=None):
