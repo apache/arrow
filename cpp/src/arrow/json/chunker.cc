@@ -39,25 +39,19 @@ static size_t ConsumeWhitespace(std::string_view view) {
   return ws_count;
 }
 
-static bool ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
-  // Force parsing of the current document.
-  auto document_status =
+static Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
+  auto document_result =
       internal::ResolveSimdjsonResult(*it, "Failed to get JSON document");
-  if (!document_status.ok()) {
-    return false;
-  }
+  ARROW_RETURN_NOT_OK(document_result.status());
 
-  auto document = std::move(document_status).ValueUnsafe();
+  auto document = *document_result;
 
-  auto value_status =
+  auto value_result =
       internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
-  if (!value_status.ok()) {
-    return false;
-  }
+  ARROW_RETURN_NOT_OK(value_result.status());
 
-  auto value = std::move(value_status).ValueUnsafe();
-  auto consume_status = internal::ConsumeJsonValue(value);
-  return consume_status.ok();
+  auto value = *value_result;
+  return internal::ConsumeJsonValue(value);
 }
 
 static size_t ConsumeWholeObject(const simdjson::padded_string& input) {
@@ -78,7 +72,7 @@ static size_t ConsumeWholeObject(const simdjson::padded_string& input) {
   }
 
   // Force parsing of the first document.
-  if (!ConsumeDocument(it)) {
+  if (!ConsumeDocument(it).ok()) {
     return std::string_view::npos;
   }
 
@@ -160,7 +154,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     }
 
     while (it != stream.end()) {
-      if (!ConsumeDocument(it)) {
+      if (!ConsumeDocument(it).ok()) {
         break;
       }
 
