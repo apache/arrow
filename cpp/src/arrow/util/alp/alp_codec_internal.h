@@ -25,8 +25,8 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/alp/alp.h"
-#include "arrow/util/alp/alp_sampler.h"
+#include "arrow/util/alp/alp_internal.h"
+#include "arrow/util/alp/alp_sampler_internal.h"
 
 namespace arrow {
 namespace util {

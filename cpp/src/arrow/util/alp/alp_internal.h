@@ -25,7 +25,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/alp/alp_constants.h"
+#include "arrow/util/alp/alp_constants_internal.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
@@ -36,7 +36,7 @@ namespace alp {
 // ALP Overview
 //
 // IMPORTANT: For abstract interfaces or examples how to use ALP, consult
-// alp_codec.h.
+// alp_codec_internal.h.
 // This file implements adaptive lossless floating-point compression for
 // decimals (ALP) (https://dl.acm.org/doi/10.1145/3626717). ALP converts each
 // float into a decimal where it can, using an exponent and factor chosen per

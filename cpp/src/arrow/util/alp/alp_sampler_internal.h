@@ -23,7 +23,7 @@
 #include <span>
 #include <vector>
 
-#include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_internal.h"
 
 namespace arrow {
 namespace util {

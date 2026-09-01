@@ -26,10 +26,10 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/alp/alp.h"
-#include "arrow/util/alp/alp_codec.h"
-#include "arrow/util/alp/alp_constants.h"
-#include "arrow/util/alp/alp_sampler.h"
+#include "arrow/util/alp/alp_codec_internal.h"
+#include "arrow/util/alp/alp_constants_internal.h"
+#include "arrow/util/alp/alp_internal.h"
+#include "arrow/util/alp/alp_sampler_internal.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
@@ -1838,7 +1838,7 @@ void ExpectInvalidWithSubstring(const Status& status, const std::string& needle)
       << "message did not mention \"" << needle << "\": " << status.ToString();
 }
 
-// AlpHeader is only forward-declared in alp_codec.h, so spell its size here.
+// AlpHeader is only forward-declared in alp_codec_internal.h, so spell its size here.
 constexpr int64_t kAlpHeaderSize = 7;
 
 // Within AlpInfo, num_exceptions follows the one-byte exponent and factor.
