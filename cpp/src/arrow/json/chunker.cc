@@ -123,10 +123,8 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   }
 
   Status FindLast(std::string_view block, int64_t* out_pos) override {
-    const size_t block_length = block.size();
     size_t consumed_length = 0;
 
-    // Keep the padded buffer alive while iterating the document stream.
     simdjson::padded_string padded(block);
     simdjson::ondemand::parser parser;
     simdjson::ondemand::document_stream stream;
@@ -146,57 +144,19 @@ class ParsingBoundaryFinder : public BoundaryFinder {
       if (!ConsumeDocument(it).ok()) {
         break;
       }
-
       consumed_length = it.current_index() + it.source().size();
       ++it;
     }
 
     if (consumed_length == 0) {
-      const size_t start = ConsumeWhitespace(block);
-
-      if (start < block.size()) {
-        const char first_char = block[start];
-
-        // An incomplete object/array is valid here because it may continue
-        // in the next block. However, non-object/array data cannot start a
-        // JSON record, except for a lone closing delimiter which may be the
-        // remainder of an incomplete value.
-        if (first_char != '{' && first_char != '[') {
-          const size_t remaining_len = block.size() - start;
-
-          if (remaining_len > 1 || (first_char != '}' && first_char != ']')) {
-            return Status::Invalid("JSON parse error: Invalid value");
-          }
-        }
-      }
-
       *out_pos = -1;
     } else {
-      // Check the suffix after the last complete document. This is the part
-      // that may contain an incomplete document spanning into the next block.
-      const auto remaining = block.substr(consumed_length);
-      const size_t start = ConsumeWhitespace(remaining);
-
-      if (start < remaining.size()) {
-        const char first_char = remaining[start];
-
-        if (first_char != '{' && first_char != '[') {
-          const size_t remaining_len = remaining.size() - start;
-
-          if (remaining_len > 1 || (first_char != '}' && first_char != ']')) {
-            return Status::Invalid("JSON parse error: Invalid value");
-          }
-        }
-      }
-
-      consumed_length += ConsumeWhitespace(remaining);
-      DCHECK_LE(consumed_length, block_length);
+      consumed_length += ConsumeWhitespace(block.substr(consumed_length));
       *out_pos = static_cast<int64_t>(consumed_length);
     }
 
     return Status::OK();
   }
-
   Status FindNth(std::string_view partial, std::string_view block, int64_t count,
                  int64_t* out_pos, int64_t* num_found) override {
     return Status::NotImplemented("ParsingBoundaryFinder::FindNth");
