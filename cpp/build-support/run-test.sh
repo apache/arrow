@@ -54,8 +54,6 @@ set -o pipefail
 LOGFILE="$TEST_LOGDIR/$TEST_NAME.txt"
 XMLFILE="$TEST_LOGDIR/$TEST_NAME.xml"
 
-TEST_EXECUTION_ATTEMPTS=1
-
 # Remove both the uncompressed output, so the developer doesn't accidentally get confused
 # and read output from a prior test run.
 rm -f "$LOGFILE" "${LOGFILE}.gz"
@@ -91,7 +89,7 @@ function run_test() {
   # Run gtest style tests with sanitizers if they are setup appropriately.
 
   # gtest won't overwrite old junit test files, resulting in a build failure
-  # even when retries are successful.
+  # when CTest retries are used.
   rm -f "$XMLFILE"
 
   if "$TEST_EXECUTABLE" "$@" > "${LOGFILE}.raw" 2>&1 ; then
@@ -191,49 +189,12 @@ if [ "$RUN_TYPE" = "test" ]; then
 fi
 
 # Run the actual test.
-for ATTEMPT_NUMBER in $(seq 1 "$TEST_EXECUTION_ATTEMPTS") ; do
-  if [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
-    # If the test fails, the test output may or may not be left behind,
-    # depending on whether the test cleaned up or exited immediately. Either
-    # way we need to clean it up. We do this by comparing the data directory
-    # contents before and after the test runs, and deleting anything new.
-    #
-    # The comm program requires that its two inputs be sorted.
-    TEST_TMPDIR_BEFORE=$(find "$TEST_TMPDIR" -maxdepth 1 -type d | sort)
-  fi
-
-  if [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
-    # Now delete any new test output.
-    TEST_TMPDIR_AFTER=$(find "$TEST_TMPDIR" -maxdepth 1 -type d | sort)
-    DIFF=$(comm -13 <(echo "$TEST_TMPDIR_BEFORE") \
-                    <(echo "$TEST_TMPDIR_AFTER"))
-    for DIR in $DIFF; do
-      # Multiple tests may be running concurrently. To avoid deleting the
-      # wrong directories, constrain to only directories beginning with the
-      # test name.
-      #
-      # This may delete old test directories belonging to this test, but
-      # that's not typically a concern when rerunning flaky tests.
-      if [[ $DIR =~ ^$TEST_TMPDIR/$TEST_NAME ]]; then
-        echo Deleting leftover flaky test directory "$DIR"
-        rm -Rf "$DIR"
-      fi
-    done
-  fi
-  echo "Running $TEST_NAME, redirecting output into $LOGFILE" \
-    "(attempt ${ATTEMPT_NUMBER}/$TEST_EXECUTION_ATTEMPTS)"
-  if [ "$RUN_TYPE" = "test" ]; then
-    run_test "$@"
-  else
-    run_other "$@"
-  fi
-  if [ "$STATUS" -eq "0" ]; then
-    break
-  elif [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
-    echo Test failed attempt number "$ATTEMPT_NUMBER"
-    echo Will retry...
-  fi
-done
+echo "Running $TEST_NAME, redirecting output into $LOGFILE"
+if [ "$RUN_TYPE" = "test" ]; then
+  run_test "$@"
+else
+  run_other "$@"
+fi
 
 if [ "$RUN_TYPE" = "test" ]; then
   post_process_tests
