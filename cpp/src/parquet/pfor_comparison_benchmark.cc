@@ -19,7 +19,10 @@
 //                       vs ByteStreamSplit+ZSTD vs ByteStreamSplit+LZ4
 //
 // All throughput is reported as uncompressed_size / time (MB/s).
-// Data generators mimic ClickBench and TPC-DS column distributions.
+// Data generators mimic ClickBench and TPC-DS column distributions. A second
+// group covers columns with structure between neighbouring values, or with a
+// cluster the minimum is not part of; those are the ones on which PFOR's delta
+// mode and DELTA_BINARY_PACKED make different choices.
 
 #include <algorithm>
 #include <bit>
@@ -439,6 +442,200 @@ std::vector<int64_t> GenByteCount(int64_t n) {
   for (auto& x : v) x = dist(rng);
   return v;
 }
+
+// ============================================================================
+// Data Generators — structure between neighbouring values
+// ============================================================================
+
+// The generators above are all either unordered or perfectly regular, so none
+// of them separates an encoding that differences neighbouring values from one
+// that packs them, and none of them puts a frame of reference anywhere but the
+// minimum. These do. They are the columns on which PFOR's delta mode and
+// DELTA_BINARY_PACKED make different choices, so they are what this file needs
+// in order to compare the two.
+//
+// Unlike the generators above, these are templates rather than a pair of
+// per-width functions: it keeps the int32 and int64 arms of every REGISTER
+// below on provably the same distribution, which two hand-written copies would
+// not. They live in their own namespace because two of them build on base
+// distributions whose names are already taken in this file by columns drawn
+// from different seeds -- keeping them separate is what makes these figures
+// comparable with pfor_benchmark.cc, which uses the same shapes.
+namespace delta_shapes {
+
+template <typename T>
+std::vector<T> GenSmallRange(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(12345);
+  std::uniform_int_distribution<T> dist(100000, 200000);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+template <typename T>
+std::vector<T> GenTpcdsItemSk(int64_t n) {
+  std::vector<T> v(n);
+  const T kMax = 100000;
+  std::mt19937_64 rng(12345);
+  std::exponential_distribution<double> exp_dist(0.00005);
+  for (auto& x : v) {
+    T val = static_cast<T>(exp_dist(rng));
+    x = std::min(static_cast<T>(val + 1), kMax);
+  }
+  return v;
+}
+
+/// A timestamp column with a fixed sampling interval and jitter: the
+/// differences cluster tightly around the interval, the values do not.
+template <typename T>
+std::vector<T> GenTrendJitter(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(7);
+  std::normal_distribution<double> jitter(0.0, 40.0);
+  double t = 1704067200.0;
+  for (auto& x : v) {
+    t += 3.0;
+    x = static_cast<T>(t + jitter(rng));
+  }
+  return v;
+}
+
+/// A TCP congestion window: a linear climb cut by a sharp halving. Almost
+/// every difference is the same small number and a few are large and
+/// negative, which is the shape a two-sided frame plus patching handles at
+/// close to no cost and a one-sided one cannot.
+template <typename T>
+std::vector<T> GenSawtooth(int64_t n) {
+  std::vector<T> v(n);
+  T cur = 1000;
+  for (int64_t i = 0; i < n; ++i) {
+    if (i % 200 == 199) {
+      cur /= 2;
+    } else {
+      cur += 12;
+    }
+    v[i] = cur;
+  }
+  return v;
+}
+
+/// A continuous quantity sampled over time, so the rate of change is bounded
+/// but the level wanders: differencing wins, though not by much.
+template <typename T>
+std::vector<T> GenMeasurement(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(11);
+  std::normal_distribution<double> noise(0.0, 1.0);
+  double level = 0.0;
+  double rate = 0.0;
+  for (int64_t i = 0; i < n; ++i) {
+    rate = 0.95 * rate + noise(rng);
+    level += rate;
+    v[i] = static_cast<T>(4000.0 * level / 50.0) + static_cast<T>(500000);
+  }
+  return v;
+}
+
+/// A sorted surrogate key column, which is what a clustered index or a
+/// sorted-by-key file produces.
+template <typename T>
+std::vector<T> GenSortedKeys(int64_t n) {
+  auto v = GenTpcdsItemSk<T>(n);
+  std::sort(v.begin(), v.end());
+  return v;
+}
+
+/// A measurement series punctuated by a low sentinel standing in for "no
+/// reading". The sentinel sits far below the cluster, so a frame pinned to
+/// the minimum has to widen to reach it and no value can ever be patched.
+template <typename T>
+std::vector<T> GenSensorDropouts(int64_t n) {
+  auto v = GenMeasurement<T>(n);
+  std::mt19937_64 rng(3);
+  std::uniform_int_distribution<int64_t> pos(0, n - 1);
+  for (int64_t i = 0; i < std::max<int64_t>(1, n / 200); ++i) {
+    v[pos(rng)] = static_cast<T>(-999999);
+  }
+  return v;
+}
+
+/// Monotonic ids with occasional large jumps, as a sequence shared between
+/// writers or restarted produces.
+template <typename T>
+std::vector<T> GenIdsWithGaps(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(5);
+  std::uniform_int_distribution<int> step(1, 6);
+  std::uniform_int_distribution<int> jump(0, 199);
+  T cur = 1000000;
+  for (auto& x : v) {
+    cur += static_cast<T>(step(rng));
+    if (jump(rng) == 0) cur += 100000;
+    x = cur;
+  }
+  return v;
+}
+
+/// Prices on a random walk: small signed steps around a high base, and no
+/// trend for the differences to line up on.
+template <typename T>
+std::vector<T> GenRandomWalk(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(13);
+  std::uniform_int_distribution<int> step(-25, 25);
+  T cur = 1500000;
+  for (auto& x : v) {
+    cur += static_cast<T>(step(rng));
+    x = cur;
+  }
+  return v;
+}
+
+/// Event arrival times in milliseconds since the epoch, bursty, so the gaps
+/// are skewed rather than clustered.
+template <typename T>
+std::vector<T> GenEventMillis(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(17);
+  std::exponential_distribution<double> gap(0.4);
+  double t = 1704067200.0;
+  for (auto& x : v) {
+    t += gap(rng);
+    x = static_cast<T>(t);
+  }
+  return v;
+}
+
+/// A tight unordered cluster with a low "missing" sentinel: the frame cannot
+/// sit at the minimum and differencing has nothing to exploit either, so
+/// this is the column that has to come out no worse than before.
+template <typename T>
+std::vector<T> GenLowSentinel(int64_t n) {
+  auto v = GenSmallRange<T>(n);
+  std::mt19937_64 rng(23);
+  std::uniform_int_distribution<int64_t> pos(0, n - 1);
+  for (int64_t i = 0; i < std::max<int64_t>(1, n / 200); ++i) {
+    v[pos(rng)] = static_cast<T>(-1000);
+  }
+  return v;
+}
+
+/// Two interleaved clusters far apart, so no single window covers the vector
+/// and the cheaper cluster is worth framing on its own.
+template <typename T>
+std::vector<T> GenBimodal(int64_t n) {
+  std::vector<T> v(n);
+  std::mt19937_64 rng(19);
+  std::uniform_int_distribution<T> lo(1000, 1100);
+  std::uniform_int_distribution<T> hi(900000, 900100);
+  std::uniform_int_distribution<int> pick(0, 9);
+  for (auto& x : v) {
+    x = pick(rng) < 8 ? lo(rng) : hi(rng);
+  }
+  return v;
+}
+
+}  // namespace delta_shapes
 
 // ============================================================================
 // Helpers
@@ -1009,6 +1206,23 @@ REGISTER_DATASET64(OrderKey, GenOrderKey)
 REGISTER_DATASET64(PriceMicros, GenPriceMicros)
 REGISTER_DATASET64(SnowflakeId, GenSnowflakeId)
 REGISTER_DATASET64(ByteCount, GenByteCount)
+
+// Columns with structure between neighbouring values (see delta_shapes above),
+// registered at both widths from the same distribution.
+#define REGISTER_DELTA_SHAPE(Name, GenFunc) \
+  REGISTER_DATASET(Name, GenFunc<int32_t>)  \
+  REGISTER_DATASET64(Name, GenFunc<int64_t>)
+
+REGISTER_DELTA_SHAPE(TrendJitter, delta_shapes::GenTrendJitter)
+REGISTER_DELTA_SHAPE(Sawtooth, delta_shapes::GenSawtooth)
+REGISTER_DELTA_SHAPE(MeasurementSeries, delta_shapes::GenMeasurement)
+REGISTER_DELTA_SHAPE(SortedKeys, delta_shapes::GenSortedKeys)
+REGISTER_DELTA_SHAPE(SensorDropouts, delta_shapes::GenSensorDropouts)
+REGISTER_DELTA_SHAPE(IdsWithGaps, delta_shapes::GenIdsWithGaps)
+REGISTER_DELTA_SHAPE(RandomWalk, delta_shapes::GenRandomWalk)
+REGISTER_DELTA_SHAPE(EventMillis, delta_shapes::GenEventMillis)
+REGISTER_DELTA_SHAPE(LowSentinel, delta_shapes::GenLowSentinel)
+REGISTER_DELTA_SHAPE(Bimodal, delta_shapes::GenBimodal)
 
 }  // namespace
 }  // namespace parquet
