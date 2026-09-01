@@ -241,6 +241,7 @@ exc = executable(
 test('arrow-utility-test', exc)
 
 util_tests = {
+    'arrow-alp-test': {'sources': ['alp/alp_test.cc']},
     'arrow-async-utility-test': {
         'sources': [
             'async_generator_test.cc',

@@ -562,6 +562,9 @@ endforeach()
 
 set(ARROW_UTIL_SRCS
     util/align_util.cc
+    util/alp/alp.cc
+    util/alp/alp_codec.cc
+    util/alp/alp_sampler.cc
     util/async_util.cc
     util/atfork_internal.cc
     util/basic_decimal.cc
@@ -653,12 +656,6 @@ endif()
 if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_UTIL_SRCS util/compression_zstd.cc)
 endif()
-
-# ALP (for Parquet encoder/decoder)
-list(APPEND ARROW_UTIL_SRCS
-  util/alp/alp.cc
-  util/alp/alp_sampler.cc
-  util/alp/alp_codec.cc)
 
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 

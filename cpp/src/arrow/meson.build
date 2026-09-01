@@ -166,6 +166,9 @@ arrow_components = {
 
 arrow_util_srcs = [
     'util/align_util.cc',
+    'util/alp/alp.cc',
+    'util/alp/alp_codec.cc',
+    'util/alp/alp_sampler.cc',
     'util/async_util.cc',
     'util/atfork_internal.cc',
     'util/basic_decimal.cc',
