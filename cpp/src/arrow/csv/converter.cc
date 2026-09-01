@@ -534,8 +534,9 @@ class NullConverter : public ConcreteConverter {
                                          int32_t col_index) override {
     NullBuilder builder(pool_);
 
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (ARROW_PREDICT_TRUE(decoder_.IsNull(data, size, quoted))) {
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
+                     bool missing) -> Status {
+      if (missing || ARROW_PREDICT_TRUE(decoder_.IsNull(data, size, quoted))) {
         return builder.AppendNull();
       } else {
         return GenericConversionError(type_, data, size);
@@ -573,8 +574,9 @@ class PrimitiveConverter : public ConcreteConverter {
     BuilderType builder(type_, pool_);
     RETURN_NOT_OK(PresizeBuilder(parser, &builder));
 
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (decoder_.IsNull(data, size, quoted /* quoted */)) {
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
+                     bool missing) -> Status {
+      if (missing || decoder_.IsNull(data, size, quoted /* quoted */)) {
         return builder.AppendNull();
       }
       value_type value{};
@@ -617,8 +619,9 @@ class TypedDictionaryConverter : public ConcreteDictionaryConverter {
     BuilderType builder(value_type_, pool_);
     RETURN_NOT_OK(PresizeBuilder(parser, &builder));
 
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (decoder_.IsNull(data, size, quoted /* quoted */)) {
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
+                     bool missing) -> Status {
+      if (missing || decoder_.IsNull(data, size, quoted /* quoted */)) {
         return builder.AppendNull();
       }
       if (ARROW_PREDICT_FALSE(builder.dictionary_length() > max_cardinality_)) {

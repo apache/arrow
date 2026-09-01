@@ -852,7 +852,21 @@ module ArrowFormat
   end
 
   class FixedSizeBinaryArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
+    include BufferAlignable
+
+    def initialize(type, *args)
+      unless type.is_a?(Type)
+        type = FixedSizeBinaryType.try_convert(type) || type
+      end
+      if args.size == 1
+        args = build_data(args.first, type)
+      elsif args.size != 3
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size + 1}, expected 2 or 4)"
+      end
+
+      size, validity_buffer, values_buffer = args
+
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
@@ -874,6 +888,44 @@ module ArrowFormat
         @values_buffer.get_string(offset, byte_width)
       end
       apply_validity(values)
+    end
+
+    private
+    def build_data(data, type)
+      n = 0
+      validity_buffer_builder = nil
+
+      values = +"".b
+      byte_width = type.byte_width
+      null_value = "\x00" * byte_width
+
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+          values.append_as_bytes(null_value)
+        else
+          unless value.bytesize == byte_width
+            message = "value size must be #{byte_width}: #{value.inspect}"
+            raise ArgumentError, message
+          end
+          values.append_as_bytes(value)
+        end
+
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+
+      pad!(values, buffer_padding_size(values))
+      values.freeze
+      values_buffer = IO::Buffer.for(values)
+
+      [
+        n,
+        validity_buffer,
+        values_buffer,
+      ]
     end
   end
 

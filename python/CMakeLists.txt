@@ -167,16 +167,7 @@ if($ENV{PYODIDE})
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
   set(Python3_EXECUTABLE)
-  execute_process(COMMAND ${Python3_EXECUTABLE} -c
-                          "import numpy; print(numpy.__version__)"
-                  OUTPUT_VARIABLE PYODIDE_NUMPY_VERSION
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
-  string(REGEX MATCH "^([0-9]+)" PYODIDE_NUMPY_MAJOR_VERSION ${PYODIDE_NUMPY_VERSION})
-  if(PYODIDE_NUMPY_MAJOR_VERSION GREATER_EQUAL 2)
-    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
-  else()
-    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-  endif()
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
   # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.
@@ -278,6 +269,10 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
+if(Python3_NumPy_VERSION AND Python3_NumPy_VERSION VERSION_LESS "2.0")
+  message(FATAL_ERROR "PyArrow requires NumPy 2.0 or newer, found ${Python3_NumPy_VERSION}"
+  )
+endif()
 message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
 message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
 

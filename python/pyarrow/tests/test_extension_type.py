@@ -31,7 +31,6 @@ except ImportError:
     np = None
 
 import pyarrow as pa
-from pyarrow.vendored.version import Version
 
 
 @contextlib.contextmanager
@@ -1432,6 +1431,47 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+@pytest.mark.numpy
+def test_uuid_to_numpy_uses_storage():
+    value = uuid4()
+    array = pa.array([value], type=pa.uuid())
+    assert array.to_numpy(zero_copy_only=False).tolist() == [value.bytes]
+
+
+@pytest.mark.pandas
+def test_uuid_to_pandas():
+    import pandas as pd
+    import pandas.testing as tm
+    values = [uuid4(), None, uuid4()]
+    array = pa.array(values, type=pa.uuid())
+    chunked_array = pa.chunked_array([array.slice(0, 1), array.slice(1)])
+    expected = pd.Series(values, dtype=object)
+    tm.assert_series_equal(array.to_pandas(), expected)
+    tm.assert_series_equal(chunked_array.to_pandas(), expected)
+    tm.assert_frame_equal(
+        pa.table({"uuid": chunked_array}).to_pandas(),
+        expected.to_frame(name="uuid"),
+    )
+
+
+@pytest.mark.pandas
+def test_uuid_to_pandas_options():
+    values = [uuid4(), uuid4()] * 2
+    array = pa.array(values, type=pa.uuid())
+    chunked_array = pa.chunked_array([array.slice(0, 2), array.slice(2)])
+    for obj in [array, chunked_array, pa.table({"uuid": chunked_array})]:
+        with pytest.raises(pa.ArrowInvalid):
+            obj.to_pandas(zero_copy_only=True)
+        result = obj.to_pandas()
+        if result.ndim == 2:
+            result = result["uuid"]
+        assert len({id(value) for value in result}) == 2
+        result = obj.to_pandas(deduplicate_objects=False)
+        if result.ndim == 2:
+            result = result["uuid"]
+        assert len({id(value) for value in result}) == 4
+
+
 def test_uuid_scalar_from_python():
     # Test with explicit type
     py_uuid = uuid4()
@@ -1924,13 +1964,9 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     assert result["ext"].dtype == pandas_dtype
 
     import pandas as pd
-    # Skip tests for 2.0.x, See: GH-35821
-    if (
-        Version(pd.__version__) >= Version("2.1.0")
-    ):
-        # Check the usage of types_mapper
-        result = table.to_pandas(types_mapper=pd.ArrowDtype)
-        assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+    # Check the usage of types_mapper
+    result = table.to_pandas(types_mapper=pd.ArrowDtype)
+    assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
 def test_tensor_type_is_picklable(pickle_module):
@@ -2086,7 +2122,7 @@ def test_bool8_to_numpy_conversion():
     )
 
     # zero-copy possible with non-null array
-    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool)
     arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([-1, 0, 1, 2], pa.int8()),
@@ -2108,7 +2144,7 @@ def test_bool8_to_numpy_conversion():
 
 @pytest.mark.numpy
 def test_bool8_from_numpy_conversion():
-    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool)
     canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([1, 0, 1, 1], pa.int8()),
@@ -2126,14 +2162,14 @@ def test_bool8_from_numpy_conversion():
         match="Cannot convert 2-D array to bool8 array",
     ):
         pa.Bool8Array.from_numpy(
-            np.array([[True, False], [False, True]], dtype=np.bool_),
+            np.array([[True, False], [False, True]], dtype=np.bool),
         )
 
     with pytest.raises(
         ValueError,
         match="Cannot convert 0-D array to bool8 array",
     ):
-        pa.Bool8Array.from_numpy(np.bool_())
+        pa.Bool8Array.from_numpy(np.bool())
 
     # must use compatible storage type
     with pytest.raises(

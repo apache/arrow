@@ -56,7 +56,6 @@ jobs:
           sudo apt update
           sudo apt install -y -V \
             pre-commit \
-            r-base \
             ruby-dev \
             libuv1-dev
       - name: Cache pre-commit
@@ -64,7 +63,6 @@ jobs:
         with:
           path: |
             ~/.cache/pre-commit
-            ~/.local/share/renv/cache
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Run pre-commit
         run: |

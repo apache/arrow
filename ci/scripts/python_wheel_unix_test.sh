@@ -47,7 +47,12 @@ export PYARROW_TEST_GANDIVA=OFF
 export PYARROW_TEST_GCS=${ARROW_GCS}
 export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
-export PYARROW_TEST_PANDAS=ON
+# TODO: To be removed once pandas provides wheels for Python 3.15
+if python -c "import sys; sys.exit(0 if sys.version_info < (3, 15) else 1)"; then
+  export PYARROW_TEST_PANDAS=ON
+else
+  export PYARROW_TEST_PANDAS=OFF
+fi
 export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PARQUET_ENCRYPTION=ON
 export PYARROW_TEST_SUBSTRAIT=${ARROW_SUBSTRAIT}

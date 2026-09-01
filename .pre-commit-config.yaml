@@ -146,7 +146,7 @@ repos:
           ?^python/pyarrow/vendored/|
           )
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.16.2
+    rev: v0.21.0
     hooks:
       - id: cython-lint
         alias: python
@@ -155,6 +155,10 @@ repos:
           - "--no-pycodestyle"
         files: >-
           ^python/
+        # Pin Cython to 3.2.9 until cython-lint supports Cython 3.3:
+        # https://github.com/MarcoGorelli/cython-lint/issues/201
+        additional_dependencies:
+        - Cython==3.2.9
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.8
     hooks:
@@ -188,21 +192,12 @@ repos:
           ?^python/pyarrow/util\.py$|
           ?^python/pyarrow/vendored/|
           )
-  - repo: local
+  - repo: https://github.com/etiennebacher/jarl-pre-commit
+    rev: "0.5.0"
     hooks:
-      - id: lintr
+      - id: jarl-check
         alias: r
-        name: R Lint
-        language: r
-        additional_dependencies:
-          - cyclocomp
-          - lintr
-          - testthat
-        entry: |
-          Rscript -e "Sys.setenv(NOT_CRAN = 'TRUE'); lintr::expect_lint_free('r')"
-        pass_filenames: false
-        files: >-
-          ^r/.*\.(R|Rmd)$
+        name: R Lint (jarl)
   - repo: https://github.com/posit-dev/air-pre-commit
     rev: 0.8.2
     hooks:
@@ -296,7 +291,10 @@ repos:
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|
           ?^cpp/build-support/get-upstream-commit\.sh$|
+          ?^cpp/build-support/run-test\.sh$|
+          ?^cpp/build-support/update-flatbuffers\.sh$|
           ?^cpp/build-support/update-thrift\.sh$|
+          ?^cpp/build-support/vendor-flatbuffers\.sh$|
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/install/mac/postinstall$|
