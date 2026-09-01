@@ -309,23 +309,23 @@ Status AlpCodec<T>::Decode(int32_t num_elements, const uint8_t* input, int64_t i
                            TargetType* output) {
   ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input, input_size));
 
-  // DecodeAlp sizes all of its work from the header's count while bounding its
-  // writes by `num_elements`, so a header claiming fewer elements would decode
-  // part of `output` and still return OK. Require the two to agree.
+  // Decoding is sized entirely from the header's count, so a header claiming
+  // fewer elements would leave part of `output` unwritten and still return OK,
+  // and a larger one would overrun it. Require the two to agree.
   if (header.num_elements != num_elements) {
     return Status::Invalid("ALP header element count ", header.num_elements,
                            " does not match the expected value count ", num_elements);
   }
 
-  const int32_t vector_size = header.GetVectorSize();
+  ARROW_ASSIGN_OR_RAISE(const VectorReader reader, VectorReader::Open(input, input_size));
 
-  const uint8_t* body = input + AlpHeader::kSize;
-  const int64_t body_size = input_size - static_cast<int64_t>(AlpHeader::kSize);
-
-  ARROW_RETURN_NOT_OK(DecodeAlp<TargetType>(num_elements, body, body_size,
-                                            header.GetIntegerEncoding(), vector_size,
-                                            header.num_elements, output)
-                          .status());
+  int32_t decoded = 0;
+  for (int32_t vector_index = 0; vector_index < reader.num_vectors(); ++vector_index) {
+    ARROW_RETURN_NOT_OK(reader.DecodeVector(vector_index, output + decoded));
+    decoded += reader.VectorLength(vector_index);
+  }
+  ARROW_CHECK(decoded == num_elements)
+      << "alp_decode_element_count_mismatch: " << decoded << " vs " << num_elements;
   return Status::OK();
 }
 
@@ -460,35 +460,42 @@ typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
 }
 
 template <typename T>
-template <typename TargetType>
-Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
-    int64_t num_elements, const uint8_t* input, int64_t input_size,
-    AlpIntegerEncoding integer_encoding, int32_t vector_size, int32_t total_elements,
-    TargetType* output) {
+Result<typename AlpCodec<T>::VectorReader> AlpCodec<T>::VectorReader::Open(
+    const uint8_t* input, int64_t input_size) {
   // OFFSET-BASED LAYOUT:
+  // [Header]                                  ← 7 bytes
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
   // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
   // [AlpInfo₁ | ForInfo₁ | Data₁]             ← Vector 1
   // ...
   //
-  // Benefits:
-  // - O(1) random access to any vector (no cumulative offset computation)
-  // - Better locality for single-vector access (metadata + data together)
-  // - Enables parallel decompression without coordination
+  // Offsets are relative to the first byte after the header. Keeping a vector's
+  // metadata next to its data gives O(1) access to any vector on its own, which
+  // is what lets a caller decode a batch without touching the rest of the page.
+  ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input, input_size));
 
-  // Calculate number of vectors
-  const int32_t num_vectors =
-      static_cast<int32_t>(::arrow::bit_util::CeilDiv(total_elements, vector_size));
+  VectorReader reader;
+  reader.body_ = input + AlpHeader::kSize;
+  reader.body_size_ = input_size - static_cast<int64_t>(AlpHeader::kSize);
+  reader.num_elements_ = header.num_elements;
+  reader.vector_size_ = header.GetVectorSize();
+  reader.integer_encoding_ = header.GetIntegerEncoding();
 
+  if (reader.integer_encoding_ != AlpIntegerEncoding::kForBitPack) {
+    return Status::Invalid("Unsupported ALP integer encoding: ",
+                           static_cast<int>(reader.integer_encoding_));
+  }
+
+  const int32_t num_vectors = header.GetNumVectors();
   if (num_vectors == 0) {
-    return DecompressionProgress{0, 0};
+    return reader;
   }
 
   const int64_t offsets_section_size =
       static_cast<int64_t>(num_vectors) * sizeof(AlpConstants::OffsetType);
-  if (input_size < offsets_section_size) {
+  if (reader.body_size_ < offsets_section_size) {
     return Status::Invalid("ALP compressed buffer too small for offsets section: ",
-                           input_size, " < ", offsets_section_size);
+                           reader.body_size_, " < ", offsets_section_size);
   }
 
   // Sanity check: each vector must have at least its metadata. Reject obviously
@@ -496,118 +503,129 @@ Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
   constexpr int64_t kMinBytesPerVector =
       AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
   if (offsets_section_size + static_cast<int64_t>(num_vectors) * kMinBytesPerVector >
-      input_size) {
+      reader.body_size_) {
     return Status::Invalid("ALP num_vectors inconsistent with buffer size: num_vectors=",
-                           num_vectors, ", input_size=", input_size);
+                           num_vectors, ", input_size=", reader.body_size_);
   }
 
   // Read all offsets. The wire format is little-endian, so each offset is
   // converted rather than copied in bulk; FromLittleEndian is a no-op on a
   // little-endian host.
-  std::vector<AlpConstants::OffsetType> vector_offsets(num_vectors);
+  reader.vector_offsets_.resize(num_vectors);
   for (int32_t i = 0; i < num_vectors; ++i) {
-    vector_offsets[i] =
+    reader.vector_offsets_[i] =
         bit_util::FromLittleEndian(util::SafeLoadAs<AlpConstants::OffsetType>(
-            input + i * sizeof(AlpConstants::OffsetType)));
+            reader.body_ + i * sizeof(AlpConstants::OffsetType)));
   }
 
-  // Decode each vector using its offset for O(1) random access.
-  //
   // The spec fixes the whole offset array: vector 0 starts immediately after the
   // array, and every later vector starts where the previous one ended. Checking
   // each offset only against the buffer bounds would accept duplicate, backward
   // or gapped offsets, all of which decode the wrong bytes, so each offset is
-  // compared against the position the previous vector ended at instead.
-  int64_t output_offset = 0;
+  // compared against the position the previous vector ended at instead. Walking
+  // the chain here means a later per-vector decode needs no check of its own.
   int64_t expected_offset = offsets_section_size;
-
-  for (int32_t vector_index = 0; vector_index < num_vectors; vector_index++) {
-    // Calculate number of elements in this vector
-    const int32_t num_full_vectors = total_elements / vector_size;
-    const int32_t remainder = total_elements % vector_size;
-    int32_t this_vector_elements;
-    if (vector_index < num_full_vectors) {
-      this_vector_elements = vector_size;
-    } else if (vector_index == num_full_vectors && remainder > 0) {
-      this_vector_elements = remainder;
-    } else {
-      return Status::Invalid("ALP vector index out of range: ", vector_index,
-                             " (total_elements=", total_elements,
-                             ", vector_size=", vector_size, ")");
-    }
-
-    if (output_offset + this_vector_elements > num_elements) {
-      return Status::Invalid("ALP decode output buffer too small: offset=", output_offset,
-                             " + elements=", this_vector_elements,
-                             " > capacity=", num_elements);
-    }
-
-    const int64_t vector_offset = vector_offsets[vector_index];
+  for (int32_t vector_index = 0; vector_index < num_vectors; ++vector_index) {
+    const int64_t vector_offset = reader.vector_offsets_[vector_index];
     if (vector_offset != expected_offset) {
       return Status::Invalid("ALP vector ", vector_index, " starts at offset ",
                              vector_offset, " but the previous vector ends at ",
                              expected_offset);
     }
-
-    // Validate offset is within bounds and enough buffer remains for metadata
-    constexpr int64_t kMinVectorMetadataSize =
-        AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
-    if (vector_offset + kMinVectorMetadataSize > input_size) {
-      return Status::Invalid(
-          "ALP vector offset out of bounds or insufficient buffer "
-          "for metadata: offset=",
-          vector_offset, ", metadata_size=", kMinVectorMetadataSize,
-          ", buffer_size=", input_size);
-    }
-
-    // Jump directly to this vector using its offset
-    const uint8_t* vector_start = input + vector_offset;
-    const int64_t remaining = input_size - vector_offset;
-
-    // Read AlpInfo (interleaved)
-    const size_t remaining_bytes = static_cast<size_t>(remaining);
-    ARROW_ASSIGN_OR_RAISE(const AlpEncodedVectorInfo alp_info,
-                          AlpEncodedVectorInfo::Load({vector_start, remaining_bytes}));
-    const uint8_t* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
-
-    // Validate integer encoding before decoding
-    if (integer_encoding != AlpIntegerEncoding::kForBitPack) {
-      return Status::Invalid("Unsupported ALP integer encoding: ",
-                             static_cast<int>(integer_encoding));
-    }
-
-    // Read ForInfo (interleaved)
-    ARROW_ASSIGN_OR_RAISE(
-        const AlpEncodedForVectorInfo<T> for_info,
-        AlpEncodedForVectorInfo<T>::Load(
-            {ptr, remaining_bytes - AlpEncodedVectorInfo::kStoredSize}));
-    ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
-
-    // Validate enough buffer remains for the data section
-    const int64_t data_remaining = input_size - (ptr - input);
-    const int64_t data_size =
-        for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions());
-    if (data_size > data_remaining) {
-      return Status::Invalid("ALP insufficient buffer for vector data: need=", data_size,
-                             ", remaining=", data_remaining,
-                             ", vector_index=", vector_index);
-    }
-
-    // Load view from data section (packed values + exceptions)
-    ARROW_ASSIGN_OR_RAISE(const AlpEncodedVectorView<T> encoded_view,
-                          AlpEncodedVectorView<T>::LoadViewDataOnly(
-                              {ptr, static_cast<size_t>(data_remaining)}, alp_info,
-                              for_info, this_vector_elements));
-
-    AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
-                                            output + output_offset);
-
-    expected_offset = (ptr - input) + data_size;
-    output_offset += this_vector_elements;
+    ARROW_ASSIGN_OR_RAISE(const int64_t vector_size_in_bytes,
+                          reader.VectorSizeInBytes(vector_index));
+    expected_offset = vector_offset + vector_size_in_bytes;
+  }
+  if (expected_offset > reader.body_size_) {
+    return Status::Invalid("ALP vectors run past the buffer: end=", expected_offset,
+                           ", buffer_size=", reader.body_size_);
   }
 
-  return DecompressionProgress{output_offset, expected_offset};
+  return reader;
 }
+
+template <typename T>
+int32_t AlpCodec<T>::VectorReader::VectorLength(int32_t vector_index) const {
+  ARROW_CHECK(vector_index >= 0 && vector_index < num_vectors())
+      << "alp_vector_index_out_of_range: " << vector_index << " of " << num_vectors();
+  if (vector_index == num_vectors() - 1) {
+    const int32_t remainder = num_elements_ % vector_size_;
+    return remainder == 0 ? vector_size_ : remainder;
+  }
+  return vector_size_;
+}
+
+template <typename T>
+Result<typename AlpCodec<T>::VectorReader::VectorLayout>
+AlpCodec<T>::VectorReader::LoadVectorLayout(int32_t vector_index) const {
+  const int64_t vector_offset = vector_offsets_[vector_index];
+  if (vector_offset >= body_size_) {
+    return Status::Invalid("ALP vector offset out of bounds: offset=", vector_offset,
+                           ", buffer_size=", body_size_);
+  }
+  const uint8_t* vector_start = body_ + vector_offset;
+  const size_t remaining_bytes = static_cast<size_t>(body_size_ - vector_offset);
+
+  constexpr size_t kMetadataSize =
+      AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
+  if (remaining_bytes < kMetadataSize) {
+    return Status::Invalid(
+        "ALP insufficient buffer for vector metadata: remaining=", remaining_bytes,
+        ", metadata_size=", kMetadataSize, ", vector_index=", vector_index);
+  }
+
+  VectorLayout layout;
+  ARROW_ASSIGN_OR_RAISE(layout.alp_info,
+                        AlpEncodedVectorInfo::Load({vector_start, remaining_bytes}));
+  ARROW_ASSIGN_OR_RAISE(layout.for_info,
+                        AlpEncodedForVectorInfo<T>::Load(
+                            {vector_start + AlpEncodedVectorInfo::kStoredSize,
+                             remaining_bytes - AlpEncodedVectorInfo::kStoredSize}));
+
+  layout.data = vector_start + kMetadataSize;
+  layout.num_elements = VectorLength(vector_index);
+  layout.data_size = layout.for_info.GetDataStoredSize(layout.num_elements,
+                                                       layout.alp_info.num_exceptions());
+  const int64_t data_remaining =
+      body_size_ - vector_offset - static_cast<int64_t>(kMetadataSize);
+  if (layout.data_size > data_remaining) {
+    return Status::Invalid(
+        "ALP insufficient buffer for vector data: need=", layout.data_size,
+        ", remaining=", data_remaining, ", vector_index=", vector_index);
+  }
+  return layout;
+}
+
+template <typename T>
+Result<int64_t> AlpCodec<T>::VectorReader::VectorSizeInBytes(int32_t vector_index) const {
+  ARROW_ASSIGN_OR_RAISE(const VectorLayout layout, LoadVectorLayout(vector_index));
+  constexpr int64_t kMetadataSize =
+      AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
+  return kMetadataSize + layout.data_size;
+}
+
+template <typename T>
+template <typename TargetType>
+Status AlpCodec<T>::VectorReader::DecodeVector(int32_t vector_index,
+                                               TargetType* output) const {
+  if (vector_index < 0 || vector_index >= num_vectors()) {
+    return Status::Invalid("ALP vector index out of range: ", vector_index, " of ",
+                           num_vectors());
+  }
+  ARROW_ASSIGN_OR_RAISE(const VectorLayout layout, LoadVectorLayout(vector_index));
+
+  ARROW_ASSIGN_OR_RAISE(const AlpEncodedVectorView<T> encoded_view,
+                        AlpEncodedVectorView<T>::LoadViewDataOnly(
+                            {layout.data, static_cast<size_t>(layout.data_size)},
+                            layout.alp_info, layout.for_info, layout.num_elements));
+
+  AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding_, output);
+  return Status::OK();
+}
+
+template Status AlpCodec<float>::VectorReader::DecodeVector(int32_t, float*) const;
+template Status AlpCodec<float>::VectorReader::DecodeVector(int32_t, double*) const;
+template Status AlpCodec<double>::VectorReader::DecodeVector(int32_t, double*) const;
 
 // ----------------------------------------------------------------------
 // Template instantiations
