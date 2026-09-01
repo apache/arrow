@@ -536,6 +536,7 @@ set(ARROW_VENDORED_SRCS
     vendored/musl/strptime.c
     vendored/uriparser/UriCommon.c
     vendored/uriparser/UriCompare.c
+    vendored/uriparser/UriCopy.c
     vendored/uriparser/UriEscape.c
     vendored/uriparser/UriFile.c
     vendored/uriparser/UriIp4.c
@@ -548,7 +549,20 @@ set(ARROW_VENDORED_SRCS
     vendored/uriparser/UriQuery.c
     vendored/uriparser/UriRecompose.c
     vendored/uriparser/UriResolve.c
-    vendored/uriparser/UriShorten.c)
+    vendored/uriparser/UriSetFragment.c
+    vendored/uriparser/UriSetHostAuto.c
+    vendored/uriparser/UriSetHostCommon.c
+    vendored/uriparser/UriSetHostIp4.c
+    vendored/uriparser/UriSetHostIp6.c
+    vendored/uriparser/UriSetHostIpFuture.c
+    vendored/uriparser/UriSetHostRegName.c
+    vendored/uriparser/UriSetPath.c
+    vendored/uriparser/UriSetPort.c
+    vendored/uriparser/UriSetQuery.c
+    vendored/uriparser/UriSetScheme.c
+    vendored/uriparser/UriSetUserInfo.c
+    vendored/uriparser/UriShorten.c
+    vendored/uriparser/UriVersion.c)
 if(APPLE)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
