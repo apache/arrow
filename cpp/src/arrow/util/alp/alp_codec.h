@@ -21,6 +21,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
+
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/alp/alp.h"
@@ -157,6 +159,79 @@ class AlpCodec {
   ///         power of two in `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
   static Result<int64_t> GetMaxCompressedSize(int64_t num_elements, int32_t vector_size);
 
+  /// \brief Random access to the vectors of one compressed buffer
+  ///
+  /// `Open` reads the header and validates the whole offset chain once. A caller
+  /// can then decode any single vector on its own, so serving a batch of values
+  /// costs work in proportion to the batch rather than to the buffer, and needs
+  /// scratch for one vector rather than for the whole buffer.
+  class VectorReader {
+   public:
+    /// \brief Read the header and validate the offset chain
+    ///
+    /// \param[in] input pointer to the compressed data, starting at the header
+    /// \param[in] input_size size of the compressed data in bytes
+    /// \return a reader over `input`, which it does not own and which must
+    ///         outlive it, or an error if the buffer is malformed
+    static Result<VectorReader> Open(const uint8_t* input, int64_t input_size);
+
+    /// Number of values the header declares.
+    int32_t num_elements() const { return num_elements_; }
+
+    /// Number of values in every vector but the last.
+    int32_t vector_size() const { return vector_size_; }
+
+    /// Number of vectors the buffer holds.
+    int32_t num_vectors() const { return static_cast<int32_t>(vector_offsets_.size()); }
+
+    /// \brief Number of values in one vector
+    ///
+    /// Every vector but the last holds `vector_size()` values.
+    ///
+    /// \param[in] vector_index index of the vector, in `[0, num_vectors())`
+    int32_t VectorLength(int32_t vector_index) const;
+
+    /// \brief Decode one vector
+    ///
+    /// \param[in] vector_index index of the vector, in `[0, num_vectors())`
+    /// \param[out] output room for `VectorLength(vector_index)` values
+    /// \return Status::OK on success, or an error if the vector is malformed
+    /// \tparam TargetType the type that is used to store the output.
+    ///         May not be a narrowing conversion from T.
+    template <typename TargetType>
+    Status DecodeVector(int32_t vector_index, TargetType* output) const;
+
+   private:
+    /// \brief Where one vector's metadata and data sit in the buffer
+    struct VectorLayout {
+      AlpEncodedVectorInfo alp_info;
+      AlpEncodedForVectorInfo<T> for_info;
+      /// First byte of the bit-packed values, after both metadata blocks.
+      const uint8_t* data = nullptr;
+      int64_t data_size = 0;
+      int32_t num_elements = 0;
+    };
+
+    /// \brief Read one vector's metadata and bound-check its data
+    ///
+    /// \param[in] vector_index index of the vector, already known to be in range
+    Result<VectorLayout> LoadVectorLayout(int32_t vector_index) const;
+
+    /// \brief Total bytes one vector occupies, metadata included
+    ///
+    /// \param[in] vector_index index of the vector, already known to be in range
+    Result<int64_t> VectorSizeInBytes(int32_t vector_index) const;
+
+    /// First byte after the header, which every offset is relative to.
+    const uint8_t* body_ = nullptr;
+    int64_t body_size_ = 0;
+    int32_t num_elements_ = 0;
+    int32_t vector_size_ = 0;
+    AlpIntegerEncoding integer_encoding_ = AlpIntegerEncoding::kForBitPack;
+    /// Byte offset of each vector, checked against the chain rule by `Open`.
+    std::vector<AlpConstants::OffsetType> vector_offsets_;
+  };
+
  private:
   struct AlpHeader;
 
@@ -168,16 +243,6 @@ class AlpCodec {
     int64_t num_compressed_bytes_produced = 0;
     /// Number of input elements consumed
     int64_t num_uncompressed_elements_taken = 0;
-  };
-
-  /// \brief Tracks the progress of a decompression operation
-  ///
-  /// Used to report how much data was consumed and produced during decoding.
-  struct DecompressionProgress {
-    /// Number of decompressed elements written
-    int64_t num_decompressed_elements_produced = 0;
-    /// Number of compressed bytes consumed
-    int64_t num_compressed_bytes_taken = 0;
   };
 
   /// \brief Compress a buffer using ALP
@@ -195,28 +260,6 @@ class AlpCodec {
                                        const AlpEncodingParameters& preset,
                                        int32_t vector_size, uint8_t* output,
                                        int64_t output_size);
-
-  /// \brief Decompress a buffer using ALP
-  ///
-  /// \param[in] num_elements capacity of `output` in elements; a vector that
-  ///            would write past it is rejected rather than truncated
-  /// \param[in] input the compressed buffer
-  /// \param[in] input_size the size of the compressed data in bytes
-  /// \param[in] integer_encoding the bit packing layout used
-  /// \param[in] vector_size the number of elements per vector (from header)
-  /// \param[in] total_elements the total number of elements in the page (from
-  ///            the ALP header); this is what determines the vector count
-  /// \param[out] output the buffer to decompress into
-  /// \return the decompression progress, or an error if the compressed data is malformed
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
-  template <typename TargetType>
-  static Result<DecompressionProgress> DecodeAlp(int64_t num_elements,
-                                                 const uint8_t* input, int64_t input_size,
-                                                 AlpIntegerEncoding integer_encoding,
-                                                 int32_t vector_size,
-                                                 int32_t total_elements,
-                                                 TargetType* output);
 
   /// \brief Load the AlpHeader from compressed data
   ///

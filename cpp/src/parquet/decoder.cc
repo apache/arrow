@@ -2382,9 +2382,6 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   using Base = TypedDecoderImpl<DType>;
   using T = typename DType::c_type;
 
-  // TODO: decode incrementally. AlpCodec::Decode keeps no resumption state, so a
-  // caller that reads a page in batches decodes the whole page into `scratch_`
-  // on the first batch and is served from it afterwards.
   explicit AlpDecoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
       : Base(descr, Encoding::ALP), pool_(pool) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
@@ -2393,7 +2390,6 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
 
   void SetData(int num_values, const uint8_t* data, int len) final {
     Base::SetData(num_values, data, len);
-    scratch_filled_ = false;
     if (num_values > 0 && len <= 0) {
       throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
                              " but len=" + std::to_string(len));
@@ -2403,13 +2399,15 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // how many, so take the count from there.
     if (len > 0) {
       PARQUET_ASSIGN_OR_THROW(
-          total_values_, ::arrow::util::alp::AlpCodec<T>::DecodeElementCount(data, len));
+          reader_, ::arrow::util::alp::AlpCodec<T>::VectorReader::Open(data, len));
+      total_values_ = reader_.num_elements();
       if (total_values_ > num_values) {
         throw ParquetException("ALP page declares " + std::to_string(total_values_) +
                                " values but the page header allows at most " +
                                std::to_string(num_values));
       }
     } else {
+      reader_ = {};
       total_values_ = 0;
     }
     this->num_values_ = total_values_;
@@ -2420,12 +2418,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (max_values == 0) {
       return 0;
     }
-    if (CanDecodeWholePage(max_values)) {
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          total_values_, this->data_, this->len_, buffer));
-    } else {
-      std::memcpy(buffer, NextDecoded(), max_values * sizeof(T));
-    }
+    DecodeInto(buffer, max_values);
     this->num_values_ -= max_values;
     return max_values;
   }
@@ -2446,12 +2439,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // 1. Land the values in the builder's storage packed to the right, so step 2
     //    can expand them in place into their final positions.
     T* decode_out = builder->GetMutableValue(builder->length() + null_count);
-    if (CanDecodeWholePage(values_to_decode)) {
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          total_values_, this->data_, this->len_, decode_out));
-    } else {
-      std::memcpy(decode_out, NextDecoded(), values_to_decode * sizeof(T));
-    }
+    DecodeInto(decode_out, values_to_decode);
 
     // 2. Expand the values into their final positions.
     if (null_count == 0) {
@@ -2475,37 +2463,55 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   }
 
  private:
-  /// \brief Whether `count` values can be decoded straight to the caller
+  /// \brief Decode the next `count` values into `out`
   ///
-  /// AlpCodec::Decode only decodes a page from its start, so this holds when the
-  /// caller wants the whole page and nothing has been served from it yet.
-  bool CanDecodeWholePage(int count) const {
-    return !scratch_filled_ && count == total_values_;
+  /// Only the vectors holding those values are decoded. A vector that is entered
+  /// at its first value and read to its end goes straight to `out`; any other is
+  /// decoded into one vector of scratch, from which the requested part is copied.
+  void DecodeInto(T* out, int count) {
+    const int32_t vector_size = reader_.vector_size();
+    int32_t index = total_values_ - this->num_values_;
+    int32_t remaining = count;
+    while (remaining > 0) {
+      const int32_t vector_index = index / vector_size;
+      const int32_t position = index % vector_size;
+      const int32_t vector_length = reader_.VectorLength(vector_index);
+      const int32_t take = std::min(remaining, vector_length - position);
+      if (take == vector_length) {
+        PARQUET_THROW_NOT_OK(reader_.DecodeVector(vector_index, out));
+      } else {
+        T* scratch = VectorScratch();
+        PARQUET_THROW_NOT_OK(reader_.DecodeVector(vector_index, scratch));
+        std::memcpy(out, scratch + position, take * sizeof(T));
+      }
+      out += take;
+      index += take;
+      remaining -= take;
+    }
   }
 
-  /// \brief Pointer to the next undelivered value, decoding the page if needed
-  const T* NextDecoded() {
-    if (!scratch_filled_) {
-      if (scratch_ == nullptr) {
-        PARQUET_ASSIGN_OR_THROW(scratch_, ::arrow::AllocateResizableBuffer(0, pool_));
-      }
-      PARQUET_THROW_NOT_OK(scratch_->Resize(total_values_ * sizeof(T),
-                                            /*shrink_to_fit=*/false));
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          total_values_, this->data_, this->len_, scratch_->mutable_data_as<T>()));
-      scratch_filled_ = true;
+  /// \brief Room for one decoded vector, allocated on first use
+  T* VectorScratch() {
+    if (scratch_ == nullptr) {
+      PARQUET_ASSIGN_OR_THROW(scratch_, ::arrow::AllocateResizableBuffer(0, pool_));
     }
-    return scratch_->data_as<T>() + (total_values_ - this->num_values_);
+    const int64_t bytes = static_cast<int64_t>(reader_.vector_size()) * sizeof(T);
+    if (scratch_->size() < bytes) {
+      PARQUET_THROW_NOT_OK(scratch_->Resize(bytes, /*shrink_to_fit=*/false));
+    }
+    return scratch_->mutable_data_as<T>();
   }
 
   ::arrow::MemoryPool* pool_;
+  /// Reads the page's header and offset chain once, then decodes any vector of
+  /// it on its own.
+  typename ::arrow::util::alp::AlpCodec<T>::VectorReader reader_;
   /// Values the page's ALP header declares. The inherited `num_values_` counts
   /// down from this as values are served and is the only record of progress, so
   /// the next value sits at index `total_values_ - num_values_`.
   int32_t total_values_ = 0;
-  /// Whole-page scratch for callers that read a page in more than one batch.
+  /// Room for one vector, used when a batch starts or ends inside one.
   std::shared_ptr<::arrow::ResizableBuffer> scratch_;
-  bool scratch_filled_ = false;
 };
 
 }  // namespace
