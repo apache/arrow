@@ -65,63 +65,15 @@ void StoreLittleEndianArray(const T* values, int64_t num_values, uint8_t* output
 }  // namespace
 
 // ----------------------------------------------------------------------
-// FindOptimalBitWidth: histogram-based cost model
+// FindOptimalBitWidth
 
 template <typename T>
 BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
                                                        int32_t num_elements) {
-  constexpr uint8_t max_bits = PforTypeTraits<T>::kMaxBitWidth;
-  constexpr int32_t position_bits =
-      static_cast<int32_t>(sizeof(PforConstants::PositionType)) * 8;
-  constexpr int32_t value_bits = sizeof(T) * 8;
-
-  // Build histogram: histogram[b] = count of deltas requiring exactly b bits.
-  // Use 4 independent accumulators so the read-modify-write doesn't serialize
-  // on repeated bins and the four load->clz->bump chains overlap (this loop is
-  // ~half of encode time; a single histogram array runs scalar and stalls).
-  std::array<int32_t, 65> h0{}, h1{}, h2{}, h3{};
-  int32_t i = 0;
-  for (; i + 4 <= num_elements; i += 4) {
-    ++h0[PforTypeTraits<T>::BitsRequired(deltas[i])];
-    ++h1[PforTypeTraits<T>::BitsRequired(deltas[i + 1])];
-    ++h2[PforTypeTraits<T>::BitsRequired(deltas[i + 2])];
-    ++h3[PforTypeTraits<T>::BitsRequired(deltas[i + 3])];
-  }
-  for (; i < num_elements; ++i) ++h0[PforTypeTraits<T>::BitsRequired(deltas[i])];
   std::array<int32_t, 65> histogram{};
-  for (int b = 0; b <= 64; ++b) histogram[b] = h0[b] + h1[b] + h2[b] + h3[b];
-
-  // Evaluate each candidate bit width
-  int64_t best_cost = std::numeric_limits<int64_t>::max();
-  uint8_t best_bit_width = max_bits;
-  PforConstants::ExceptionCountType best_num_exceptions = 0;
-
-  int64_t exceptions_above = num_elements;
-
-  for (uint8_t b = 0; b <= max_bits; ++b) {
-    exceptions_above -= histogram[b];
-
-    // A vector holds at most kMaxVectorSize elements, so that is also the most
-    // exceptions one can name. Skipping the wider counts keeps the cast below
-    // exact; the full-width candidate has none at all, so a best is always
-    // found.
-    if (exceptions_above > PforConstants::kMaxVectorSize) {
-      continue;
-    }
-
-    int64_t packing_cost = static_cast<int64_t>(num_elements) * b;
-    int64_t exception_cost = exceptions_above * (position_bits + value_bits);
-    int64_t total_cost = packing_cost + exception_cost;
-
-    if (total_cost < best_cost) {
-      best_cost = total_cost;
-      best_bit_width = b;
-      best_num_exceptions =
-          static_cast<PforConstants::ExceptionCountType>(exceptions_above);
-    }
-  }
-
-  return {best_bit_width, best_num_exceptions};
+  BuildOffsetHistogram<T>(deltas, num_elements, &histogram);
+  int64_t cost_bits = 0;
+  return BestWidthFromHistogram<T>(histogram, num_elements, &cost_bits);
 }
 
 // ----------------------------------------------------------------------
@@ -132,53 +84,68 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
                                                       int32_t num_elements) {
   ARROW_DCHECK(num_elements > 0);
 
-  // Step 1: Find min (frame of reference)
-  T min_val = values[0];
-  for (int32_t i = 1; i < num_elements; ++i) {
-    if (values[i] < min_val) min_val = values[i];
-  }
-
-  // Step 2: Compute unsigned deltas. Use a stack scratch for the common
-  // (<=vector-size) case to avoid a per-vector heap alloc + zero-init.
-  const auto unsigned_min = static_cast<UnsignedT>(min_val);
+  // One scratch buffer serves both stages. ChooseVectorPlan fills it with the
+  // differences, and if the plan takes them it is also the source the offsets
+  // are computed from -- read at index i, written at index i, so the offsets
+  // can go back into the same storage. A stack buffer for the common
+  // (<=vector-size) case avoids a per-vector heap alloc and zero-init.
   constexpr int32_t kFull = static_cast<int32_t>(PforConstants::kPforVectorSize);
-  UnsignedT stack_deltas[kFull];
-  std::vector<UnsignedT> heap_deltas;
-  UnsignedT* deltas = stack_deltas;
+  T stack_scratch[kFull];
+  std::vector<T> heap_scratch;
+  T* scratch = stack_scratch;
   if (num_elements > kFull) {
-    heap_deltas.resize(num_elements);
-    deltas = heap_deltas.data();
-  }
-  for (int32_t i = 0; i < num_elements; ++i) {
-    deltas[i] = static_cast<UnsignedT>(values[i]) - unsigned_min;
+    heap_scratch.resize(num_elements);
+    scratch = heap_scratch.data();
   }
 
-  // Step 3: Find optimal bit width
-  auto [bit_width, num_exceptions] = FindOptimalBitWidth(deltas, num_elements);
+  const PforVectorPlan<T> plan = ChooseVectorPlan<T>(values, num_elements, scratch);
+  const T* source = plan.delta ? scratch : values;
 
-  // Step 4: Collect exceptions and replace with placeholder (0)
   PforEncodedVector<T> result;
-  result.set_info(PforVectorInfo<T>(min_val, bit_width, num_exceptions));
+  result.set_info(PforVectorInfo<T>(plan.frame_of_reference, plan.bit_width,
+                                    plan.num_exceptions, plan.delta));
+  result.set_start_value(plan.start_value);
 
-  if (num_exceptions > 0) {
-    result.mutable_exception_positions().reserve(num_exceptions);
-    result.mutable_exception_values().reserve(num_exceptions);
+  // Step 1: reduce by the frame, collecting whatever will not fit.
+  //
+  // The comparison is against the packed mask in the unsigned domain, which is
+  // what lets the frame sit above the minimum: a source value below the frame
+  // wraps to a huge offset, fails the same test as one above the window, and is
+  // patched from the exception list like any other. No second test, no sign.
+  auto* offsets = reinterpret_cast<UnsignedT*>(scratch);
+  const auto unsigned_frame = static_cast<UnsignedT>(plan.frame_of_reference);
+  const uint8_t bit_width = plan.bit_width;
 
-    UnsignedT mask = (bit_width >= PforTypeTraits<T>::kMaxBitWidth)
-                         ? static_cast<UnsignedT>(-1)
-                         : (static_cast<UnsignedT>(1) << bit_width) - 1;
+  if (plan.num_exceptions > 0) {
+    result.mutable_exception_positions().reserve(plan.num_exceptions);
+    result.mutable_exception_values().reserve(plan.num_exceptions);
+
+    const UnsignedT mask = (bit_width >= PforTypeTraits<T>::kMaxBitWidth)
+                               ? static_cast<UnsignedT>(-1)
+                               : (static_cast<UnsignedT>(1) << bit_width) - 1;
 
     for (int32_t i = 0; i < num_elements; ++i) {
-      if (deltas[i] > mask) {
+      const T value = source[i];
+      UnsignedT offset = static_cast<UnsignedT>(value) - unsigned_frame;
+      if (offset > mask) {
         result.mutable_exception_positions().push_back(
             static_cast<PforConstants::PositionType>(i));
-        result.mutable_exception_values().push_back(values[i]);
-        deltas[i] = 0;
+        // The exception carries whatever the packed stream carries: a value in
+        // a plain vector, a difference in a delta vector. The decoder patches
+        // it in before the running sum, so a patched difference is summed like
+        // any other.
+        result.mutable_exception_values().push_back(value);
+        offset = 0;
       }
+      offsets[i] = offset;
+    }
+  } else {
+    for (int32_t i = 0; i < num_elements; ++i) {
+      offsets[i] = static_cast<UnsignedT>(source[i]) - unsigned_frame;
     }
   }
 
-  // Step 5: Bit-pack the deltas
+  // Step 2: bit-pack the offsets
   if (bit_width > 0) {
     int64_t packed_size =
         bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bit_width);
@@ -187,7 +154,7 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
     bit_util::BitWriter writer(result.mutable_packed_values().data(),
                                static_cast<int>(packed_size));
     for (int32_t i = 0; i < num_elements; ++i) {
-      writer.PutValue(static_cast<uint64_t>(deltas[i]), bit_width);
+      writer.PutValue(static_cast<uint64_t>(offsets[i]), bit_width);
     }
     writer.Flush();
   }
@@ -203,7 +170,20 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
                                                  int32_t num_elements, T* values) {
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
+  const int64_t info_bytes = info.stored_bytes();
+  if (info_bytes > static_cast<int64_t>(data.size())) {
+    return Status::Invalid("PFOR delta vector needs ", info_bytes,
+                           " bytes of metadata but only ", data.size(), " remain");
+  }
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
+
+  // A delta vector stores its own first value, which is what lets it decode
+  // without the vector before it -- the property the whole mode exists for.
+  T start_value = 0;
+  if (info.is_delta()) {
+    start_value = util::SafeLoadAs<T>(read_ptr);
+    read_ptr += sizeof(T);
+  }
 
   // `values` holds num_elements slots, and everything below is sized by fields
   // that came off the wire, so check them against it before reading or writing.
@@ -216,18 +196,29 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
   const int64_t exception_bytes =
       info.num_exceptions() *
       (static_cast<int64_t>(sizeof(PforConstants::PositionType)) + sizeof(T));
-  if (PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes >
-      static_cast<int64_t>(data.size())) {
-    return Status::Invalid(
-        "PFOR vector needs ",
-        PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes,
-        " bytes but only ", data.size(), " remain");
+  if (info_bytes + packed_bytes + exception_bytes > static_cast<int64_t>(data.size())) {
+    return Status::Invalid("PFOR vector needs ",
+                           info_bytes + packed_bytes + exception_bytes,
+                           " bytes but only ", data.size(), " remain");
   }
 
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width() == 0 && info.num_exceptions() == 0) {
-    std::fill(values, values + num_elements, info.frame_of_reference());
-    return PforVectorInfo<T>::kStoredSize;
+    if (info.is_delta()) {
+      // Every difference is the frame, so the values step by it from the start
+      // value. Slot 0 always holds a difference of zero (see ComputeDeltas), so
+      // a frame other than zero cannot occur here, but the running sum below
+      // reconstructs the sequence either way rather than assuming it.
+      const auto step = static_cast<UnsignedT>(info.frame_of_reference());
+      auto acc = static_cast<UnsignedT>(start_value);
+      for (int32_t i = 0; i < num_elements; ++i) {
+        if (i > 0) acc += step;
+        std::memcpy(&values[i], &acc, sizeof(T));
+      }
+    } else {
+      std::fill(values, values + num_elements, info.frame_of_reference());
+    }
+    return info_bytes;
   }
 
   // Step 3: Unpack bit-packed deltas and add FOR
@@ -303,6 +294,23 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
     }
   }
 
+  // Step 5: In a delta vector, everything above produced differences. Sum them.
+  //
+  // This has to come after the patch: an exception in a delta vector is a
+  // difference too, and summing before patching would carry the placeholder
+  // zero into every value that follows.
+  //
+  // The sum runs in the unsigned type. Signed overflow is undefined, and a
+  // column that spans the type's range will overflow -- the encoder took the
+  // differences the same way, so the bits round-trip exactly.
+  if (info.is_delta()) {
+    auto acc = static_cast<UnsignedT>(start_value);
+    for (int32_t i = 0; i < num_elements; ++i) {
+      acc += static_cast<UnsignedT>(values[i]);
+      std::memcpy(&values[i], &acc, sizeof(T));
+    }
+  }
+
   return static_cast<int64_t>(read_ptr - data.data());
 }
 
@@ -312,7 +320,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
 template <typename T>
 int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec,
                                                  int32_t num_elements) {
-  int64_t size = PforVectorInfo<T>::kStoredSize;
+  int64_t size = vec.info().stored_bytes();
   if (vec.info().bit_width() > 0) {
     size += bit_util::BytesForBits(static_cast<int64_t>(num_elements) *
                                    vec.info().bit_width());
@@ -359,6 +367,12 @@ Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& 
   // Write vector info
   vec.info().Store(std::span<uint8_t>(write_ptr, PforVectorInfo<T>::kStoredSize));
   write_ptr += PforVectorInfo<T>::kStoredSize;
+
+  // Write the start value of a delta vector
+  if (vec.info().is_delta()) {
+    util::SafeStore(write_ptr, vec.start_value());
+    write_ptr += sizeof(T);
+  }
 
   // Write packed values
   if (vec.info().bit_width() > 0) {

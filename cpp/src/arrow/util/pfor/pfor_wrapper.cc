@@ -339,14 +339,17 @@ Result<int64_t> PforWrapper<T>::GetMaxCompressedSize(int32_t num_values,
 
   const int64_t num_vectors = bit_util::CeilDiv(num_values, vector_size);
 
-  // A vector never serializes to more than its values occupy unpacked.
-  // FindOptimalBitWidth minimises `num_elements * bit_width + num_exceptions *
-  // (16 + 8 * sizeof(T))` bits, and the full-width candidate scores
+  // A vector never serializes to more than its values occupy unpacked. The cost
+  // model minimises `num_elements * bit_width + num_exceptions * (16 +
+  // 8 * sizeof(T))` bits, and the full-width candidate scores
   // `num_elements * 8 * sizeof(T)` bits with no exceptions at all, so whatever
   // width it does pick costs no more than that. Bit packing rounds the packed
-  // section up to a whole byte, hence the trailing byte.
-  const int64_t max_vector_size =
-      PforVectorInfo<T>::kStoredSize + vector_size * static_cast<int64_t>(sizeof(T)) + 1;
+  // section up to a whole byte, hence the trailing byte. The delta mode adds
+  // one full-width start value, and the model only chooses it when doing so
+  // still comes out cheaper, but the bound has to hold for either outcome.
+  const int64_t max_vector_size = PforVectorInfo<T>::kStoredSize +
+                                  static_cast<int64_t>(sizeof(T)) +
+                                  vector_size * static_cast<int64_t>(sizeof(T)) + 1;
 
   return PforConstants::kHeaderSize + num_vectors * (kOffsetSize + max_vector_size);
 }

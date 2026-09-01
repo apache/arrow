@@ -34,6 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/pfor/pfor_constants_internal.h"
+#include "arrow/util/pfor/pfor_plan_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -52,9 +53,15 @@ namespace pfor {
 /// so the count has to reach 32768, which a signed 16-bit field cannot hold.
 /// Its wire type is PforConstants::ExceptionCountType.
 ///
-/// The bit_width byte stores the actual bit width in bits 0..6; bit 7 is
-/// reserved (always written as 0 and ignored on load), leaving room for a
-/// future flag without changing the layout of existing buffers.
+/// The bit_width byte stores the actual bit width in bits 0..6 and the delta
+/// flag in bit 7. A vector with the flag set packs the backward differences of
+/// its values rather than the values, and carries one extra full-width field
+/// after this info block -- the vector's first value -- so that it still
+/// decodes without reading the vector before it.
+///
+/// The flag is deliberately a bit of its own rather than another code in a
+/// mode field: differencing is orthogonal to how the payload is laid out, so
+/// the two have to be able to combine.
 ///
 /// Seven bits, not six: the range is 0..64 inclusive, and 64 does not fit in
 /// six. A 6-bit mask stored an INT64 vector whose deltas need the full 64 bits
@@ -65,17 +72,20 @@ template <typename T>
 class PforVectorInfo {
  public:
   static constexpr uint8_t kBitWidthMask = 0x7F;
+  static constexpr uint8_t kDeltaFlag = 0x80;
 
   PforVectorInfo() = default;
   PforVectorInfo(T frame_of_reference, uint8_t bit_width,
-                 PforConstants::ExceptionCountType num_exceptions)
+                 PforConstants::ExceptionCountType num_exceptions, bool is_delta = false)
       : frame_of_reference_(frame_of_reference),
         bit_width_(bit_width),
-        num_exceptions_(num_exceptions) {}
+        num_exceptions_(num_exceptions),
+        is_delta_(is_delta) {}
 
   T frame_of_reference() const { return frame_of_reference_; }
   uint8_t bit_width() const { return bit_width_; }
   PforConstants::ExceptionCountType num_exceptions() const { return num_exceptions_; }
+  bool is_delta() const { return is_delta_; }
 
   void set_frame_of_reference(T frame_of_reference) {
     frame_of_reference_ = frame_of_reference;
@@ -84,13 +94,25 @@ class PforVectorInfo {
   void set_num_exceptions(PforConstants::ExceptionCountType num_exceptions) {
     num_exceptions_ = num_exceptions;
   }
+  void set_is_delta(bool is_delta) { is_delta_ = is_delta; }
+
+  /// \brief Bytes this info occupies on the wire, start value included.
+  ///
+  /// Not a constant: the start value is only present on a delta vector. Paying
+  /// for it unconditionally would be free at a 1024-value vector and ruinous at
+  /// the smallest one the format allows (kMinLogVectorSize is 3, where eight
+  /// bytes across eight values is a byte per value).
+  int64_t stored_bytes() const {
+    return kStoredSize + (is_delta_ ? static_cast<int64_t>(sizeof(T)) : 0);
+  }
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(std::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, bit_util::ToLittleEndian(frame_of_reference_));
-    // bits 0..6 = bit width; bit 7 reserved (0).
-    ptr[sizeof(T)] = static_cast<uint8_t>(bit_width_ & kBitWidthMask);
+    // bits 0..6 = bit width; bit 7 = delta flag.
+    ptr[sizeof(T)] =
+        static_cast<uint8_t>((bit_width_ & kBitWidthMask) | (is_delta_ ? kDeltaFlag : 0));
     util::SafeStore(ptr + sizeof(T) + 1, bit_util::ToLittleEndian(num_exceptions_));
   }
 
@@ -103,8 +125,9 @@ class PforVectorInfo {
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
     info.frame_of_reference_ = bit_util::FromLittleEndian(util::SafeLoadAs<T>(ptr));
-    // Mask off the reserved high bit (7).
-    info.bit_width_ = static_cast<uint8_t>(ptr[sizeof(T)] & kBitWidthMask);
+    const uint8_t packed_bit_width = ptr[sizeof(T)];
+    info.bit_width_ = static_cast<uint8_t>(packed_bit_width & kBitWidthMask);
+    info.is_delta_ = (packed_bit_width & kDeltaFlag) != 0;
     info.num_exceptions_ = bit_util::FromLittleEndian(
         util::SafeLoadAs<PforConstants::ExceptionCountType>(ptr + sizeof(T) + 1));
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
@@ -125,7 +148,10 @@ class PforVectorInfo {
   T frame_of_reference_ = 0;
   uint8_t bit_width_ = 0;
   PforConstants::ExceptionCountType num_exceptions_ = 0;
+  bool is_delta_ = false;
 
+  // is_delta_ rides in a spare bit of the bit-width byte, so it adds nothing to
+  // the stored size.
   static_assert(kStoredSize == sizeof(frame_of_reference_) + sizeof(bit_width_) +
                                    sizeof(num_exceptions_),
                 "kStoredSize must match the fields Store writes and Load reads");
@@ -162,20 +188,16 @@ class PforEncodedVector {
   std::vector<T>& mutable_exception_values() { return exception_values_; }
   void set_exception_values(std::vector<T> v) { exception_values_ = std::move(v); }
 
+  /// \brief First value of the vector; stored only when info().is_delta().
+  T start_value() const { return start_value_; }
+  void set_start_value(T start_value) { start_value_ = start_value; }
+
  private:
   PforVectorInfo<T> info_;
+  T start_value_ = 0;
   std::vector<uint8_t> packed_values_;
   std::vector<PforConstants::PositionType> exception_positions_;
   std::vector<T> exception_values_;
-};
-
-// ----------------------------------------------------------------------
-// Cost model result
-
-/// \brief Result of the optimal bit width search
-struct BitWidthResult {
-  uint8_t bit_width = 0;
-  PforConstants::ExceptionCountType num_exceptions = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -202,10 +224,12 @@ class PforCompression {
 
   /// \brief Encode a single vector of integers
   ///
+  /// The cost model decides per vector whether to difference the values first
+  /// and where to put the frame of reference; see ChooseVectorPlan.
+  ///
   /// \param[in] values input integer values
   /// \param[in] num_elements number of elements (up to vector_size)
-  /// \pre num_elements > 0; the frame of reference is values[0] reduced over the
-  ///      rest, so there is no answer for an empty vector
+  /// \pre num_elements > 0; there is no frame of reference for an empty vector
   /// \return the encoded vector with all sections
   static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements);
 
