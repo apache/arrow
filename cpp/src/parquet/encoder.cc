@@ -32,7 +32,6 @@
 #include "arrow/array.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_stream_utils_internal.h"
@@ -1004,39 +1003,17 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // ----------------------------------------------------------------------
 // ALP encoder (Adaptive Lossless floating-Point)
 
-// TODO: support incremental encoding. Today `Put` only appends raw input
-// to `sink_`, and `FlushValues` runs the entire ALP pipeline (sample +
-// preset selection + per-vector compression) on the whole buffer in one
-// shot. A future revision should encode complete vectors as `Put` calls
-// fill them, holding only a partial-vector tail across calls, so the
-// encoder can produce output progressively and use bounded memory.
+// TODO: encode incrementally. `Put` buffers raw input and `FlushValues` runs the
+// whole ALP pipeline over it in one shot, so working memory scales with the page
+// rather than with a vector.
 //
-// TODO: fall back to PLAIN when ALP is not paying for itself. ALP always
-// emits ALP-encoded pages, so a column whose values never compress (every
-// value an exception, e.g. random doubles or NaN) pays the per-vector
-// metadata and exception overhead and lands larger than PLAIN. This is not
-// hypothetical: measured over the ALP paper's reference datasets, msg_sp
-// encodes to 113% of its plain size, and poi_longitude, num_brain and
-// num_control are all within 8% of break-even.
-//
-// The decision belongs in ColumnWriterImpl, not here: `encoding_` is const,
-// so this encoder cannot relabel its own page, and the choice depends on the
-// page compressor (ALP at 113% of raw may still beat PLAIN+ZSTD), which this
-// layer knows nothing about. The mechanism already exists — mirror
-// `FallbackToPlainEncoding()` in column_writer.cc, which swaps
-// `current_encoder_` for a PLAIN encoder and updates `encoding_`. Parquet
-// records encoding per page, so mixing PLAIN and ALP pages in one column
-// chunk needs no format change.
-//
-// What is missing on this side is a way for the writer to know: AlpCodec
-// should expose the ratio it achieved or expects to achieve. The sampler
-// already computes an estimate in AlpCompression<T>::EstimateCompressedSize,
-// which is currently private. Deciding from that estimate before encoding
-// avoids encode-then-discard; a sticky post-hoc check is still worth keeping
-// as a safety net, since the sampler only inspects a subsample and can be
-// fooled by a column that changes character partway through.
-//
-// This needs to be resolved before ALP is enabled by default.
+// TODO: fall back to PLAIN when ALP does not pay for itself. Measured over the ALP
+// paper's reference datasets, msg_sp encodes to 113% of its plain size, and
+// poi_longitude, num_brain and num_control land within 8% of break-even. The
+// decision belongs in ColumnWriterImpl, which owns `encoding_` and already has
+// `FallbackToPlainEncoding()`; what is missing is a cheap ratio estimate, which the
+// sampler computes in AlpCompression<T>::EstimateCompressedSize but does not
+// expose. This should be resolved before ALP is enabled by default.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
@@ -1044,48 +1021,32 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using ArrowType = typename EncodingTraits<DType>::ArrowType;
   using TypedEncoder<DType>::Put;
 
-  explicit AlpEncoder(
-      const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      int32_t vector_size = ::arrow::util::alp::AlpConstants::kAlpVectorSize)
-      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool}, vector_size_(vector_size) {
+  explicit AlpEncoder(const ColumnDescriptor* descr,
+                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool} {
     static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
                   "ALP only supports float and double types");
-    if (vector_size_ <= 0 || !std::has_single_bit(static_cast<uint32_t>(vector_size_))) {
-      throw ParquetException("ALP vector_size must be a positive power of 2, got " +
-                             std::to_string(vector_size_));
-    }
-    constexpr int32_t kMinVectorSize =
-        1 << ::arrow::util::alp::AlpConstants::kMinLogVectorSize;
-    constexpr int32_t kMaxVectorSize =
-        1 << ::arrow::util::alp::AlpConstants::kMaxLogVectorSize;
-    if (vector_size_ < kMinVectorSize || vector_size_ > kMaxVectorSize) {
-      throw ParquetException(
-          "ALP vector_size must be in [" + std::to_string(kMinVectorSize) + ", " +
-          std::to_string(kMaxVectorSize) + "], got " + std::to_string(vector_size_));
-    }
   }
 
+  // TODO: estimate the encoded size. This is the buffered input size, which
+  // over-reports for a column ALP compresses and under-reports for one it does
+  // not; the sampler could supply a ratio estimate instead.
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
 
   std::shared_ptr<Buffer> FlushValues() override {
-    if (sink_.length() == 0) {
-      // Empty buffer case
-      PARQUET_ASSIGN_OR_THROW(auto buf, sink_.Finish());
-      return buf;
-    }
-
-    // Call AlpCodec::Encode() - it handles sampling, preset selection, and compression
+    // An all-null optional page adds no values but is still written, so an empty
+    // sink has to encode to a header-only page rather than to zero bytes, which
+    // the reader would reject.
     const int64_t num_elements = sink_.length() / static_cast<int64_t>(sizeof(T));
-    PARQUET_ASSIGN_OR_THROW(int64_t comp_size,
-                            ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(
-                                num_elements, vector_size_));
+    PARQUET_ASSIGN_OR_THROW(
+        int64_t comp_size,
+        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(num_elements, kVectorSize));
 
     PARQUET_ASSIGN_OR_THROW(auto compressed_buffer, ::arrow::AllocateResizableBuffer(
                                                         comp_size, this->memory_pool()));
 
     PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Encode(
-        reinterpret_cast<const T*>(sink_.data()), num_elements, vector_size_,
+        reinterpret_cast<const T*>(sink_.data()), num_elements, kVectorSize,
         compressed_buffer->mutable_data(), &comp_size));
 
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(comp_size));
@@ -1127,8 +1088,11 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   }
 
  private:
+  // The vector size the page header records. It is fixed rather than configurable:
+  // a reader takes it from the header, so nothing depends on it being settable here.
+  static constexpr int32_t kVectorSize = ::arrow::util::alp::AlpConstants::kAlpVectorSize;
+
   ::arrow::BufferBuilder sink_;
-  int32_t vector_size_;
 };
 
 // ----------------------------------------------------------------------
