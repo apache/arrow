@@ -160,6 +160,20 @@ struct AlpHeader {
   }
 };
 
+/// \brief Validate an element count against what the format can describe
+///
+/// The header stores the count as int32, so anything above INT32_MAX cannot be
+/// written and must be refused before it is used to size a span or a buffer.
+Status ValidateElementCount(int64_t num_elements) {
+  if (num_elements < 0) {
+    return Status::Invalid("ALP num_elements must be non-negative, got ", num_elements);
+  }
+  if (num_elements > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("ALP num_elements exceeds INT32_MAX, got ", num_elements);
+  }
+  return Status::OK();
+}
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -208,9 +222,8 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(const uint8_t* i
 template <typename T>
 Result<typename AlpCodec<T>::AlpSamplerResult> AlpCodec<T>::CreateSamplingPreset(
     const T* input, int64_t num_elements) {
-  if (num_elements < 0) {
-    return Status::Invalid("ALP num_elements must be non-negative, got ", num_elements);
-  }
+  // Checked before the span below is formed: `num_elements` becomes its length.
+  RETURN_NOT_OK(ValidateElementCount(num_elements));
 
   AlpSampler<T> sampler;
   sampler.AddSample({input, static_cast<size_t>(num_elements)});
@@ -244,12 +257,7 @@ template <typename T>
 Status AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
                                      const AlpSamplerResult& preset, int32_t vector_size,
                                      uint8_t* output, int64_t* output_size) {
-  if (num_elements < 0) {
-    return Status::Invalid("ALP num_elements must be non-negative, got ", num_elements);
-  }
-  if (num_elements > std::numeric_limits<int32_t>::max()) {
-    return Status::Invalid("ALP num_elements exceeds INT32_MAX, got ", num_elements);
-  }
+  RETURN_NOT_OK(ValidateElementCount(num_elements));
   RETURN_NOT_OK(ValidateVectorSize(vector_size));
 
   // Make room to store header afterwards.
@@ -296,6 +304,15 @@ template <typename TargetType>
 Status AlpCodec<T>::Decode(int32_t num_elements, const uint8_t* input, int64_t input_size,
                            TargetType* output) {
   ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input, input_size));
+
+  // DecodeAlp sizes all of its work from the header's count while bounding its
+  // writes by `num_elements`, so a header claiming fewer elements would decode
+  // part of `output` and still return OK. Require the two to agree.
+  if (header.num_elements != num_elements) {
+    return Status::Invalid("ALP header element count ", header.num_elements,
+                           " does not match the expected value count ", num_elements);
+  }
+
   const int32_t vector_size = header.GetVectorSize();
 
   const uint8_t* body = input + AlpHeader::kSize;
@@ -316,11 +333,16 @@ template Status AlpCodec<double>::Decode(int32_t num_elements, const uint8_t* in
                                          int64_t input_size, double* output);
 
 template <typename T>
+Result<int32_t> AlpCodec<T>::DecodeElementCount(const uint8_t* input,
+                                                int64_t input_size) {
+  ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input, input_size));
+  return header.num_elements;
+}
+
+template <typename T>
 Result<int64_t> AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
                                                   int32_t vector_size) {
-  if (num_elements < 0) {
-    return Status::Invalid("ALP num_elements must be non-negative, got ", num_elements);
-  }
+  RETURN_NOT_OK(ValidateElementCount(num_elements));
   RETURN_NOT_OK(ValidateVectorSize(vector_size));
   int64_t max_alp_size = AlpHeader::kSize;
 
@@ -480,9 +502,15 @@ Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
   std::memcpy(vector_offsets.data(), input,
               num_vectors * sizeof(AlpConstants::OffsetType));
 
-  // Decode each vector using its offset for O(1) random access
+  // Decode each vector using its offset for O(1) random access.
+  //
+  // The spec fixes the whole offset array: vector 0 starts immediately after the
+  // array, and every later vector starts where the previous one ended. Checking
+  // each offset only against the buffer bounds would accept duplicate, backward
+  // or gapped offsets, all of which decode the wrong bytes, so each offset is
+  // compared against the position the previous vector ended at instead.
   int64_t output_offset = 0;
-  int64_t bytes_consumed = offsets_section_size;
+  int64_t expected_offset = offsets_section_size;
 
   for (int32_t vector_index = 0; vector_index < num_vectors; vector_index++) {
     // Calculate number of elements in this vector
@@ -505,8 +533,14 @@ Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
                              " > capacity=", num_elements);
     }
 
-    // Validate offset is within bounds and enough buffer remains for metadata
     const int64_t vector_offset = vector_offsets[vector_index];
+    if (vector_offset != expected_offset) {
+      return Status::Invalid("ALP vector ", vector_index, " starts at offset ",
+                             vector_offset, " but the previous vector ends at ",
+                             expected_offset);
+    }
+
+    // Validate offset is within bounds and enough buffer remains for metadata
     constexpr int64_t kMinVectorMetadataSize =
         AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
     if (vector_offset + kMinVectorMetadataSize > input_size) {
@@ -559,17 +593,11 @@ Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
     AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
                                             output + output_offset);
 
-    // Track bytes consumed for last vector
-    if (vector_index == num_vectors - 1) {
-      bytes_consumed =
-          (ptr - input) +
-          for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions());
-    }
-
+    expected_offset = (ptr - input) + data_size;
     output_offset += this_vector_elements;
   }
 
-  return DecompressionProgress{output_offset, bytes_consumed};
+  return DecompressionProgress{output_offset, expected_offset};
 }
 
 // ----------------------------------------------------------------------
