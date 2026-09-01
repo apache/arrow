@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <random>
 #include <string>
 #include <vector>
@@ -32,6 +33,8 @@
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace util {
@@ -1303,6 +1306,107 @@ TEST(AlpRobustnessTest, TruncatedData) {
     ASSERT_NOT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()),
                                            buffer.data(), truncated_size, output.data()));
   }
+}
+
+TEST(AlpRobustnessTest, HeaderElementCountMismatch) {
+  // A header count that disagrees with the count the caller expects must be
+  // rejected: DecodeAlp sizes its work from the header, so a smaller count would
+  // fill only part of the output and still return OK.
+  std::vector<double> input(1024);
+  for (size_t i = 0; i < input.size(); ++i) {
+    input[i] = static_cast<double>(i) * 0.123;
+  }
+  const int64_t num_elements = static_cast<int64_t>(input.size());
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, AlpCodec<double>::GetMaxCompressedSize(
+                                             num_elements, AlpConstants::kAlpVectorSize));
+  std::vector<uint8_t> buffer(max_size);
+  int64_t comp_size = max_size;
+  ASSERT_OK(
+      AlpCodec<double>::Encode(input.data(), num_elements, buffer.data(), &comp_size));
+
+  std::vector<double> output(input.size());
+  ASSERT_OK(AlpCodec<double>::Decode(1024, buffer.data(), comp_size, output.data()));
+
+  // The caller expects a different count than the page declares.
+  ASSERT_NOT_OK(AlpCodec<double>::Decode(1023, buffer.data(), comp_size, output.data()));
+  ASSERT_NOT_OK(AlpCodec<double>::Decode(1025, buffer.data(), comp_size, output.data()));
+
+  // The page declares a different count than it holds. num_elements sits at byte
+  // 3 of the header.
+  for (int32_t corrupt_count : {int32_t{0}, int32_t{512}, int32_t{2048}}) {
+    SCOPED_TRACE("corrupt_count=" + std::to_string(corrupt_count));
+    std::vector<uint8_t> corrupted = buffer;
+    util::SafeStore(corrupted.data() + 3, bit_util::ToLittleEndian(corrupt_count));
+    ASSERT_NOT_OK(
+        AlpCodec<double>::Decode(1024, corrupted.data(), comp_size, output.data()));
+  }
+}
+
+TEST(AlpRobustnessTest, CorruptedOffsetChain) {
+  // The spec fixes every offset, so a duplicate, backward or gapped offset has to
+  // be rejected rather than used to read the wrong bytes.
+  constexpr int32_t kNumElements = 4 * AlpConstants::kAlpVectorSize;
+  std::vector<double> input(kNumElements);
+  for (size_t i = 0; i < input.size(); ++i) {
+    input[i] = static_cast<double>(i) * 0.123;
+  }
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, AlpCodec<double>::GetMaxCompressedSize(
+                                             kNumElements, AlpConstants::kAlpVectorSize));
+  std::vector<uint8_t> buffer(max_size);
+  int64_t comp_size = max_size;
+  ASSERT_OK(
+      AlpCodec<double>::Encode(input.data(), kNumElements, buffer.data(), &comp_size));
+
+  std::vector<double> output(input.size());
+  ASSERT_OK(
+      AlpCodec<double>::Decode(kNumElements, buffer.data(), comp_size, output.data()));
+  ASSERT_TRUE(IsBitwiseEqual(output, input));
+
+  // The offsets follow the 7-byte header, one uint32 per vector.
+  constexpr int64_t kOffsetsStart = 7;
+  using OffsetType = AlpConstants::OffsetType;
+  const auto read_offset = [&](int i) {
+    return bit_util::FromLittleEndian(util::SafeLoadAs<OffsetType>(
+        buffer.data() + kOffsetsStart + i * sizeof(OffsetType)));
+  };
+  const OffsetType offset0 = read_offset(0);
+  const OffsetType offset1 = read_offset(1);
+  const OffsetType offset2 = read_offset(2);
+  ASSERT_EQ(offset0, 4 * sizeof(OffsetType));
+  ASSERT_LT(offset0, offset1);
+
+  // Each corruption keeps every offset inside the buffer, so only the chain rule
+  // can reject it.
+  const std::vector<std::pair<const char*, OffsetType>> corruptions = {
+      {"duplicate", offset0},
+      {"backward", static_cast<OffsetType>(offset0 + 1)},
+      {"gapped", static_cast<OffsetType>(offset1 + 4)},
+      {"skips a vector", offset2},
+  };
+  for (const auto& [name, corrupt_offset] : corruptions) {
+    SCOPED_TRACE(name);
+    std::vector<uint8_t> corrupted = buffer;
+    util::SafeStore(corrupted.data() + kOffsetsStart + sizeof(OffsetType),
+                    bit_util::ToLittleEndian(corrupt_offset));
+    ASSERT_LT(corrupt_offset, comp_size);
+    ASSERT_NOT_OK(AlpCodec<double>::Decode(kNumElements, corrupted.data(), comp_size,
+                                           output.data()));
+  }
+}
+
+TEST(AlpRobustnessTest, ElementCountAboveInt32Max) {
+  // The header stores the count as int32, so a larger count has to be refused
+  // before it is used to form a span over the input.
+  constexpr int64_t kTooMany = int64_t{std::numeric_limits<int32_t>::max()} + 1;
+  double one_value = 1.0;
+  int64_t output_size = 0;
+  uint8_t output_byte = 0;
+
+  ASSERT_NOT_OK(
+      AlpCodec<double>::GetMaxCompressedSize(kTooMany, AlpConstants::kAlpVectorSize));
+  ASSERT_NOT_OK(
+      AlpCodec<double>::Encode(&one_value, kTooMany, &output_byte, &output_size));
+  ASSERT_NOT_OK(AlpCodec<double>::Encode(&one_value, -1, &output_byte, &output_size));
 }
 
 // ============================================================================
