@@ -5464,8 +5464,8 @@ TEST(TestArrowReadDeltaEncoding, OptionalColumn) {
 // so the whole fixture needs zstd support.
 #ifdef ARROW_WITH_ZSTD
 
-// ALP encoding conformance tests, run against the example file published in
-// apache/parquet-testing for exactly this purpose (its PR #119).
+// ALP encoding conformance tests, run against `alp_extended.zstd.parquet`, which
+// apache/parquet-testing publishes for exactly this purpose.
 //
 // All eight columns of `alp_extended.zstd.parquet` hold the same 9032 values.
 // `float_plain` and `double_plain` are PLAIN-encoded references, so a correctly
@@ -5486,6 +5486,30 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
  public:
   static constexpr int64_t kNumRows = 9032;
 
+  // The unsigned integer type holding the bit pattern of a floating point value.
+  template <typename T>
+  using FloatBits = std::conditional_t<sizeof(T) == 4, uint32_t, uint64_t>;
+
+  template <typename T>
+  static FloatBits<T> ToBits(T value) {
+    static_assert(sizeof(T) == 4 || sizeof(T) == 8,
+                  "only 32- and 64-bit floating point values are covered here");
+    FloatBits<T> bits;
+    std::memcpy(&bits, &value, sizeof(value));
+    return bits;
+  }
+
+  // The corner cases a reference column is expected to carry. NaNs are collected
+  // as bit patterns rather than counted, because the payload has to survive the
+  // round trip, not just the fact that the value is a NaN.
+  struct CornerCaseCounts {
+    std::set<uint64_t> distinct_nans;
+    int64_t infinities = 0;
+    int64_t negative_zeros = 0;
+    int64_t subnormals = 0;
+    int64_t nulls = 0;
+  };
+
   void SetUp() override {
     auto path = test::get_data_file("alp_extended.zstd.parquet");
     auto reader = ParquetFileReader::OpenFile(path, /*memory_map=*/false);
@@ -5503,7 +5527,6 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
   // which keeps nulls distinguishable from every representable value.
   template <typename ArrowType>
   std::vector<std::optional<uint64_t>> ColumnBits(const std::string& name) {
-    using CType = typename ArrowType::c_type;
     using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
     std::vector<std::optional<uint64_t>> bits;
@@ -5519,10 +5542,7 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
           bits.push_back(std::nullopt);
           continue;
         }
-        std::conditional_t<sizeof(CType) == 4, uint32_t, uint64_t> pattern;
-        const CType value = values.Value(i);
-        std::memcpy(&pattern, &value, sizeof(CType));
-        bits.push_back(static_cast<uint64_t>(pattern));
+        bits.push_back(ToBits(values.Value(i)));
       }
     }
     return bits;
@@ -5545,9 +5565,46 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
           << alp_column << " null-ness differs from " << plain_column << " at row " << i;
       if (expected[i].has_value()) {
         ASSERT_EQ(actual[i].value(), expected[i].value())
-            << alp_column << " bits differ from " << plain_column << " at row " << i;
+            << alp_column << " bits differ from " << plain_column << " at row " << i
+            << ": 0x" << std::hex << actual[i].value() << " vs 0x" << expected[i].value();
       }
     }
+  }
+
+  // Tally the corner cases present in a column.
+  template <typename ArrowType>
+  CornerCaseCounts CountCornerCases(const std::string& name) {
+    using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+
+    CornerCaseCounts counts;
+    const auto column = table_->GetColumnByName(name);
+    EXPECT_NE(column, nullptr) << "no column named " << name;
+    if (column == nullptr) return counts;
+
+    for (const auto& chunk : column->chunks()) {
+      const auto& values = checked_cast<const ArrayType&>(*chunk);
+      for (int64_t i = 0; i < values.length(); ++i) {
+        if (values.IsNull(i)) {
+          ++counts.nulls;
+          continue;
+        }
+        const auto value = values.Value(i);
+        if (std::isnan(value)) counts.distinct_nans.insert(ToBits(value));
+        if (std::isinf(value)) ++counts.infinities;
+        if (value == 0 && std::signbit(value)) ++counts.negative_zeros;
+        if (std::fpclassify(value) == FP_SUBNORMAL) ++counts.subnormals;
+      }
+    }
+    return counts;
+  }
+
+  static void AssertCornerCases(const CornerCaseCounts& counts) {
+    EXPECT_EQ(counts.distinct_nans.size(), 3u)
+        << "expected three distinct NaN bit patterns";
+    EXPECT_EQ(counts.infinities, 2) << "expected +Inf and -Inf";
+    EXPECT_EQ(counts.negative_zeros, 1);
+    EXPECT_EQ(counts.subnormals, 1);
+    EXPECT_EQ(counts.nulls, 8);
   }
 
   // Every row group must record ALP for this column.
@@ -5598,30 +5655,14 @@ TEST_F(TestArrowReadAlpEncoding, DoubleVectorSize32) {
 // references had been regenerated as ordinary values would make every test
 // above pass while checking nothing interesting.
 TEST_F(TestArrowReadAlpEncoding, ReferenceColumnsCoverCornerCases) {
-  const auto doubles = ColumnBits<::arrow::DoubleType>("double_plain");
-  ASSERT_EQ(doubles.size(), static_cast<size_t>(kNumRows));
-
-  int64_t nan_count = 0, inf_count = 0, negative_zero_count = 0, subnormal_count = 0,
-          null_count = 0;
-  for (const auto& bits : doubles) {
-    if (!bits.has_value()) {
-      ++null_count;
-      continue;
-    }
-    double value;
-    const uint64_t pattern = bits.value();
-    std::memcpy(&value, &pattern, sizeof(value));
-    if (std::isnan(value)) ++nan_count;
-    if (std::isinf(value)) ++inf_count;
-    if (value == 0.0 && std::signbit(value)) ++negative_zero_count;
-    if (std::fpclassify(value) == FP_SUBNORMAL) ++subnormal_count;
+  {
+    SCOPED_TRACE("double_plain");
+    AssertCornerCases(CountCornerCases<::arrow::DoubleType>("double_plain"));
   }
-
-  EXPECT_EQ(nan_count, 3) << "expected three distinct NaN bit patterns";
-  EXPECT_EQ(inf_count, 2) << "expected +Inf and -Inf";
-  EXPECT_EQ(negative_zero_count, 1);
-  EXPECT_EQ(subnormal_count, 1);
-  EXPECT_EQ(null_count, 8);
+  {
+    SCOPED_TRACE("float_plain");
+    AssertCornerCases(CountCornerCases<::arrow::FloatType>("float_plain"));
+  }
 }
 
 #endif  // ARROW_WITH_ZSTD
