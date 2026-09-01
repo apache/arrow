@@ -5402,6 +5402,32 @@ def test_dataset_join_asof(tempdir):
 
 
 @pytest.mark.dataset
+def test_dataset_join_asof_tolerance_range(tempdir):
+    left = pa.table({
+        "left": [10, 20, 30, 40],
+        "key": [1, 1, 1, 1],
+    })
+    right = pa.table({
+        "right": [9, 12, 30, 41],
+        "key": [1, 1, 1, 1],
+        "value": [1, 2, 3, 4],
+    })
+    ds.write_dataset(left, tempdir / "left", format="ipc")
+    ds.write_dataset(right, tempdir / "right", format="ipc")
+
+    result = ds.dataset(tempdir / "left", format="ipc").join_asof(
+        ds.dataset(tempdir / "right", format="ipc"),
+        on="left", by="key", tolerance=(-10, -1),
+        right_on="right", right_by="key",
+    )
+    assert result.to_table() == pa.table({
+        "left": [10, 20, 30, 40],
+        "key": [1, 1, 1, 1],
+        "value": [1, 2, None, 3],
+    })
+
+
+@pytest.mark.dataset
 def test_dataset_join_asof_multiple_by(tempdir):
     t1 = pa.table({
         "colA": [1, 2, 6],
