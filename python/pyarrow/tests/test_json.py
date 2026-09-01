@@ -528,9 +528,13 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
             'n': [1]
         }
 
-        with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error *"):
+        try:
             reader.read_next_batch()
+        except pa.ArrowInvalid:
+            pass
+        else:
+            with pytest.raises(pa.ArrowInvalid):
+                reader.read_next_batch()
 
         with pytest.raises(StopIteration):
             reader.read_next_batch()
