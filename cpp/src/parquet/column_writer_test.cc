@@ -182,6 +182,40 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
+  // Round-trip an optional ALP column through a DataPageV2 page. Optional pages
+  // carry definition levels, and when every value is null the encoder is flushed
+  // with no values at all.
+  void TestAlpOptionalDataPageV2(int num_nulls) {
+    ASSERT_LE(num_nulls, SMALL_SIZE);
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->descr_ = this->schema_.Column(0);
+    this->GenerateData(SMALL_SIZE);
+
+    // The nulls come first, so the values the writer consumes are the leading
+    // SMALL_SIZE - num_nulls entries of `values_`.
+    std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
+    for (int i = 0; i < num_nulls; ++i) {
+      definition_levels[i] = 0;
+    }
+
+    ColumnProperties column_properties;
+    column_properties.set_encoding(Encoding::ALP);
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(SMALL_SIZE, definition_levels.data(), nullptr, this->values_ptr_);
+    writer->Close();
+
+    ASSERT_EQ(SMALL_SIZE, this->metadata_num_values());
+
+    this->ReadColumn();
+    const int64_t num_expected = SMALL_SIZE - num_nulls;
+    ASSERT_EQ(num_expected, this->values_read_);
+    this->values_out_.resize(num_expected);
+    this->values_.resize(num_expected);
+    ASSERT_EQ(this->values_, this->values_out_);
+  }
+
   void TestRequiredWithCodecOptions(Encoding::type encoding,
                                     Compression::type compression, bool enable_dictionary,
                                     bool enable_statistics, int64_t num_rows = SMALL_SIZE,
@@ -2561,6 +2595,24 @@ TEST_F(TestDoubleValuesWriter, AlpWithPageChecksum) {
   this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, false,
                                  LARGE_SIZE, Codec::UseDefaultCompressionLevel(),
                                  /*enable_checksum=*/true);
+}
+
+// ALP on an optional column with DataPageV2 pages
+TEST_F(TestFloatValuesWriter, AlpOptionalDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/3);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpOptionalDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/3);
+}
+
+// An all-null page holds no values, so its ALP payload is a bare header
+TEST_F(TestFloatValuesWriter, AlpAllNullDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpAllNullDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
 }
 
 }  // namespace test
