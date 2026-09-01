@@ -42,10 +42,12 @@ OUT=$1
 rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -stream "${CORPUS_DIR}"
 # Add "golden" IPC integration files
+# Store the files found by the find command in an array.
 mapfile -d '' IPC_INTEGRATION_FILES < <(
   find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
     -name "*.stream" -print0
 )
+# Exit with an error if find returns no files.
 [ "${#IPC_INTEGRATION_FILES[@]}" -eq 0 ] && exit 1
 # Several IPC integration files can have the same name, make sure
 # they all appear in the corpus by numbering the duplicates.
@@ -54,10 +56,12 @@ cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
 
 rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -file "${CORPUS_DIR}"
+# Store the files found by the find command in an array.
 mapfile -d '' IPC_INTEGRATION_FILES < <(
   find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
     -name "*.arrow_file" -print0
 )
+# Exit with an error if find returns no files.
 [ "${#IPC_INTEGRATION_FILES[@]}" -eq 0 ] && exit 1
 cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}"/arrow-ipc-file-fuzz_seed_corpus.zip
