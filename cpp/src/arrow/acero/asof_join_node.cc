@@ -288,7 +288,7 @@ struct FlowAction {
 
 class AsofJoinNode;
 
-class InputState : public util::SequencingQueue::Processor {
+class InputState final : public util::SequencingQueue::Processor {
  public:
   InputState(AsofJoinNode* node, size_t index, ExecNode* input, col_index_t on_key,
              std::vector<col_index_t> by_keys,
