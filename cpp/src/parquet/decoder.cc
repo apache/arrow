@@ -35,9 +35,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_codec.h"
-#include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
@@ -2384,62 +2382,52 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   using Base = TypedDecoderImpl<DType>;
   using T = typename DType::c_type;
 
-  // TODO: support incremental decode. Partial reads currently decode the entire
-  // page into `decoded_buffer_` on first call and copy out the requested range;
-  // a future revision should decode only the requested values, with state
-  // tracking for cross-call resumption.
-  explicit AlpDecoder(const ColumnDescriptor* descr)
-      : Base(descr, Encoding::ALP), current_offset_{0}, needs_decode_{false} {
+  // TODO: decode incrementally. AlpCodec::Decode keeps no resumption state, so a
+  // caller that reads a page in batches decodes the whole page into `scratch_`
+  // on the first batch and is served from it afterwards.
+  explicit AlpDecoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : Base(descr, Encoding::ALP), pool_(pool) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
                   "ALP only supports float and double types");
   }
 
   void SetData(int num_values, const uint8_t* data, int len) final {
     Base::SetData(num_values, data, len);
-    current_offset_ = 0;
+    scratch_filled_ = false;
     if (num_values > 0 && len <= 0) {
       throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
                              " but len=" + std::to_string(len));
     }
-    needs_decode_ = (num_values > 0);
-    decoded_buffer_.clear();
+    // `num_values` is the page's level count, which includes nulls, while the ALP
+    // payload holds only the non-null values. Its own header is the authority on
+    // how many, so take the count from there.
+    if (len > 0) {
+      PARQUET_ASSIGN_OR_THROW(
+          total_values_, ::arrow::util::alp::AlpCodec<T>::DecodeElementCount(data, len));
+      if (total_values_ > num_values) {
+        throw ParquetException("ALP page declares " + std::to_string(total_values_) +
+                               " values but the page header allows at most " +
+                               std::to_string(num_values));
+      }
+    } else {
+      total_values_ = 0;
+    }
+    this->num_values_ = total_values_;
   }
 
   int Decode(T* buffer, int max_values) override {
-    // Fast path: decode directly into output buffer if requesting all values
-    if (needs_decode_ && max_values >= this->num_values_) {
+    max_values = std::min(max_values, this->num_values_);
+    if (max_values == 0) {
+      return 0;
+    }
+    if (CanDecodeWholePage(max_values)) {
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, this->data_, this->len_, buffer));
-
-      const int decoded = this->num_values_;
-      this->num_values_ = 0;
-      needs_decode_ = false;
-      return decoded;
+          total_values_, this->data_, this->len_, buffer));
+    } else {
+      std::memcpy(buffer, NextDecoded(), max_values * sizeof(T));
     }
-
-    // Slow path: partial read - decode to intermediate buffer. AlpCodec::Decode
-    // always starts from the beginning of the page and keeps no resumption
-    // state, so a partial read decodes the whole page once and then serves this
-    // and later calls out of `decoded_buffer_`.
-    if (needs_decode_) {
-      decoded_buffer_.resize(this->num_values_);
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, this->data_, this->len_, decoded_buffer_.data()));
-      needs_decode_ = false;
-    }
-
-    // Copy from intermediate buffer
-    const int values_to_decode =
-        std::min(max_values, static_cast<int>(decoded_buffer_.size() - current_offset_));
-
-    if (values_to_decode > 0) {
-      std::memcpy(buffer, decoded_buffer_.data() + current_offset_,
-                  values_to_decode * sizeof(T));
-      current_offset_ += values_to_decode;
-      this->num_values_ -= values_to_decode;
-    }
-
-    return values_to_decode;
+    this->num_values_ -= max_values;
+    return max_values;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -2448,43 +2436,36 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     const int values_to_decode = num_values - null_count;
     if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
       ParquetException::EofException(
-          "ALP DecodeArrow: Not enough values available. "
-          "Available: " +
+          "ALP DecodeArrow: Not enough values available. Available: " +
           std::to_string(this->num_values_) +
           ", Requested: " + std::to_string(values_to_decode));
     }
 
-    // Decode if needed (DecodeArrow always needs intermediate buffer for nulls)
-    if (needs_decode_) {
-      decoded_buffer_.resize(this->num_values_);
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+    // 1. Land the values in the builder's storage packed to the right, so step 2
+    //    can expand them in place into their final positions.
+    T* decode_out = builder->GetMutableValue(builder->length() + null_count);
+    if (CanDecodeWholePage(values_to_decode)) {
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, this->data_, this->len_, decoded_buffer_.data()));
-      needs_decode_ = false;
+          total_values_, this->data_, this->len_, decode_out));
+    } else {
+      std::memcpy(decode_out, NextDecoded(), values_to_decode * sizeof(T));
     }
 
+    // 2. Expand the values into their final positions.
     if (null_count == 0) {
-      // Fast path: no nulls
-      PARQUET_THROW_NOT_OK(builder->AppendValues(decoded_buffer_.data() + current_offset_,
-                                                 values_to_decode));
-      current_offset_ += values_to_decode;
-      this->num_values_ -= values_to_decode;
-      return values_to_decode;
+      // No expansion required, and no need to append the bitmap
+      builder->UnsafeAdvance(num_values);
     } else {
-      // Slow path: with nulls
-      int value_idx = 0;
-      for (int i = 0; i < num_values; ++i) {
-        if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-          PARQUET_THROW_NOT_OK(
-              builder->Append(decoded_buffer_[current_offset_ + value_idx]));
-          ++value_idx;
-        } else {
-          PARQUET_THROW_NOT_OK(builder->AppendNull());
-        }
-      }
-      current_offset_ += values_to_decode;
-      this->num_values_ -= values_to_decode;
-      return values_to_decode;
+      ::arrow::util::internal::SpacedExpandLeftward(
+          reinterpret_cast<uint8_t*>(builder->GetMutableValue(builder->length())),
+          static_cast<int>(sizeof(T)), num_values, null_count, valid_bits,
+          valid_bits_offset);
+      builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
     }
+    this->num_values_ -= values_to_decode;
+    return values_to_decode;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -2494,9 +2475,37 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   }
 
  private:
-  std::vector<T> decoded_buffer_;
-  size_t current_offset_;
-  bool needs_decode_;
+  /// \brief Whether `count` values can be decoded straight to the caller
+  ///
+  /// AlpCodec::Decode only decodes a page from its start, so this holds when the
+  /// caller wants the whole page and nothing has been served from it yet.
+  bool CanDecodeWholePage(int count) const {
+    return !scratch_filled_ && count == total_values_;
+  }
+
+  /// \brief Pointer to the next undelivered value, decoding the page if needed
+  const T* NextDecoded() {
+    if (!scratch_filled_) {
+      if (scratch_ == nullptr) {
+        PARQUET_ASSIGN_OR_THROW(scratch_, ::arrow::AllocateResizableBuffer(0, pool_));
+      }
+      PARQUET_THROW_NOT_OK(scratch_->Resize(total_values_ * sizeof(T),
+                                            /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
+          total_values_, this->data_, this->len_, scratch_->mutable_data_as<T>()));
+      scratch_filled_ = true;
+    }
+    return scratch_->data_as<T>() + (total_values_ - this->num_values_);
+  }
+
+  ::arrow::MemoryPool* pool_;
+  /// Values the page's ALP header declares. The inherited `num_values_` counts
+  /// down from this as values are served and is the only record of progress, so
+  /// the next value sits at index `total_values_ - num_values_`.
+  int32_t total_values_ = 0;
+  /// Whole-page scratch for callers that read a page in more than one batch.
+  std::shared_ptr<::arrow::ResizableBuffer> scratch_;
+  bool scratch_filled_ = false;
 };
 
 }  // namespace
@@ -2548,9 +2557,9 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::ALP) {
     switch (type_num) {
       case Type::FLOAT:
-        return std::make_unique<AlpDecoder<FloatType>>(descr);
+        return std::make_unique<AlpDecoder<FloatType>>(descr, pool);
       case Type::DOUBLE:
-        return std::make_unique<AlpDecoder<DoubleType>>(descr);
+        return std::make_unique<AlpDecoder<DoubleType>>(descr, pool);
       default:
         throw ParquetException("ALP encoding only supports FLOAT and DOUBLE");
     }

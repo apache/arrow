@@ -2709,11 +2709,14 @@ class TestAlpEncoding : public TestEncodingBase<Type> {
       encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
       encode_buffer_ = encoder->FlushValues();
 
-      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+      // Mirror the production caller, which passes DataPage::num_values() -- the
+      // level count, nulls included -- rather than the non-null count.
+      decoder->SetData(num_values_, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
       auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                   valid_bits, valid_bits_offset);
       ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_EQ(0, decoder->values_left());
 
       // Verify only valid values
       for (int j = 0; j < num_values_; ++j) {
