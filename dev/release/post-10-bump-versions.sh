@@ -73,8 +73,8 @@ fi
 
 if [ ${BUMP_CHANGELOG} -gt 0 ]; then
   echo "Updating CHANGELOG.md for ${version}"
-  archery release changelog add ${version}
-  git add "${SOURCE_DIR}/../../CHANGELOG.md"
+  archery release --src "${ARROW_DIR}" changelog add "${version}"
+  git add "${ARROW_DIR}/CHANGELOG.md"
   git commit -m "MINOR: [Release] Update CHANGELOG.md for ${version}"
 fi
 
