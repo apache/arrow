@@ -3090,6 +3090,13 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+    cdef cppclass CFixedShapeTensorArray \
+            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
+
+        @staticmethod
+        CResult[shared_ptr[CFixedShapeTensorArray]] FromTensor(
+            const shared_ptr[CTensor]& tensor)
+
 
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
     cdef cppclass COpaqueType \
