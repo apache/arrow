@@ -33,6 +33,8 @@
 
 namespace arrow {
 
+class Array;
+
 constexpr bool is_tensor_supported(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
