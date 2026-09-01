@@ -298,6 +298,19 @@ TEST(BlockParser, PadShortRows) {
   ASSERT_EQ(last_row_missing, std::vector<bool>({false, false, true}));
 }
 
+TEST(BlockParser, IgnoreExtraColumns) {
+  auto options = ParseOptions::Defaults();
+  options.ignore_extra_columns = true;
+
+  BlockParser parser(options, /*num_cols=*/2);
+  AssertParseOk(parser, "a,\"b\",c,\nd,e\n");
+  AssertColumnsEq(parser, {{"a", "d"}, {"b", "e"}}, {{false, false}, {true, false}});
+
+  BlockParser final_parser(options, /*num_cols=*/2);
+  AssertParseFinal(final_parser, "a,b,");
+  AssertColumnsEq(final_parser, {{"a"}, {"b"}});
+}
+
 TEST(BlockParser, EmptyHeader) {
   // Cannot infer number of columns
   uint32_t out_size;
