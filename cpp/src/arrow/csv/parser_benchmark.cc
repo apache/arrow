@@ -168,7 +168,7 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
     // vary depending on the parser's internal data structures.
     bool dummy_quoted = false;
     uint32_t dummy_size = 0;
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) {
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted, bool missing) {
       dummy_size += size;
       dummy_quoted ^= quoted;
       return Status::OK();

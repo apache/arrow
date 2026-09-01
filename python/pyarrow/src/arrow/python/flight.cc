@@ -86,6 +86,12 @@ PyFlightServer::PyFlightServer(PyObject* server, const PyFlightServerVtable& vta
   server_.reset(server);
 }
 
+void PyFlightServer::ReleasePythonServerRef() {
+  // Resets OwnedRefNoGIL to break the reference cycle between the C++ FlightServerBase
+  // and the Python object.
+  server_.reset();
+}
+
 Status PyFlightServer::ListFlights(
     const arrow::flight::ServerCallContext& context,
     const arrow::flight::Criteria* criteria,

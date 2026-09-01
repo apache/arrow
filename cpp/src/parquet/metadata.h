@@ -241,9 +241,18 @@ class FileMetaDataBuilder;
 /// \brief FileMetaData is a proxy around format::FileMetaData.
 class PARQUET_EXPORT FileMetaData {
  public:
-  /// \brief Create a FileMetaData from a serialized thrift message.
+  PARQUET_DEPRECATED("Deprecated in 26.0.0. Please pass metadata length as a int64_t.")
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, uint32_t* inout_metadata_len,
+      const ReaderProperties& properties = default_reader_properties(),
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+
+  /// \brief Create a FileMetaData from a serialized Thrift message.
+  ///
+  /// The actual size in bytes of the metadata buffer can be obtained using
+  /// the `size()` method.
+  static std::shared_ptr<FileMetaData> Make(
+      const void* serialized_metadata, int64_t metadata_len,
       const ReaderProperties& properties = default_reader_properties(),
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
@@ -311,7 +320,7 @@ class PARQUET_EXPORT FileMetaData {
   const ApplicationVersion& writer_version() const;
 
   /// \brief Size of the original thrift encoded metadata footer.
-  uint32_t size() const;
+  int64_t size() const;
 
   /// \brief Indicate if all of the FileMetaData's RowGroups can be decompressed.
   ///
@@ -377,7 +386,7 @@ class PARQUET_EXPORT FileMetaData {
   friend class SerializedFile;
   friend class SerializedRowGroup;
 
-  explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
+  explicit FileMetaData(const void* serialized_metadata, int64_t metadata_len,
                         const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
@@ -397,20 +406,29 @@ class PARQUET_EXPORT FileMetaData {
 
 class PARQUET_EXPORT FileCryptoMetaData {
  public:
-  // API convenience to get a MetaData accessor
+  PARQUET_DEPRECATED("Deprecated in 26.0.0. Please pass metadata length as a int64_t.")
   static std::shared_ptr<FileCryptoMetaData> Make(
       const uint8_t* serialized_metadata, uint32_t* metadata_len,
+      const ReaderProperties& properties = default_reader_properties());
+
+  /// \brief Create a FileMetaData from a serialized Thrift message.
+  ///
+  /// The actual size in bytes of the metadata buffer can be obtained using
+  /// the `size()` method.
+  static std::shared_ptr<FileCryptoMetaData> Make(
+      const uint8_t* serialized_metadata, int64_t metadata_len,
       const ReaderProperties& properties = default_reader_properties());
   ~FileCryptoMetaData();
 
   EncryptionAlgorithm encryption_algorithm() const;
   const std::string& key_metadata() const;
+  int64_t size() const;
 
   void WriteTo(::arrow::io::OutputStream* dst) const;
 
  private:
   friend FileMetaDataBuilder;
-  FileCryptoMetaData(const uint8_t* serialized_metadata, uint32_t* metadata_len,
+  FileCryptoMetaData(const uint8_t* serialized_metadata, int64_t metadata_len,
                      const ReaderProperties& properties);
 
   // PIMPL Idiom

@@ -67,7 +67,7 @@ jobs:
         name:
           - conda-python-docs
           - conda-python-3.12-nopandas
-          - conda-python-3.11-pandas-2.0.3
+          - conda-python-3.11-pandas-2.2.2-numpy-2.0.2
           - conda-python-3.14-pandas-latest
           - conda-python-3.13-no-numpy
         include:
@@ -79,12 +79,12 @@ jobs:
             image: conda-python
             title: AMD64 Conda Python 3.12 Without Pandas
             python: "3.12"
-          - name: conda-python-3.11-pandas-2.0.3
+          - name: conda-python-3.11-pandas-2.2.2-numpy-2.0.2
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.11 Pandas 2.0.3
+            title: AMD64 Conda Python 3.11 Pandas 2.2.2 NumPy 2.0.2
             python: "3.11"
-            pandas: "2.0.3"
-            numpy: "1.23.2"
+            pandas: "2.2.2"
+            numpy: "2.0.2"
           - name: conda-python-3.14-pandas-latest
             image: conda-python-pandas
             title: AMD64 Conda Python 3.14 Pandas latest
@@ -107,7 +107,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: .docker
           key: python-${{ matrix.name }}
@@ -127,7 +127,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: .docker
           key: python-${{ matrix.name }}
@@ -200,9 +200,6 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          # Workaround for https://github.com/grpc/grpc/issues/41755
-          # Remove once the runner ships a newer Homebrew.
-          brew update
           brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
@@ -219,7 +216,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}
@@ -246,7 +243,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}
@@ -295,7 +292,7 @@ jobs:
         run: |
           echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows
@@ -308,7 +305,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
         with:
           path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows

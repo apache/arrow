@@ -34,7 +34,6 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-from pyarrow.vendored.version import Version
 import pyarrow.compute as pc
 
 
@@ -3800,21 +3799,12 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0.0.dev0"):
-        # copy keyword is not strict and not passed down to __array__
-        result = np.array(arr, copy=False)
-        np.testing.assert_array_equal(result, expected)
+    with pytest.raises(ValueError, match="Unable to avoid a copy"):
+        np.array(arr, copy=False)
 
-        result = np.array(arr, dtype="float64", copy=False)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
-        with pytest.raises(ValueError, match="Unable to avoid a copy"):
-            np.array(arr, copy=False)
-
-        arr = pa.array([1, 2, 3])
-        with pytest.raises(ValueError):
-            np.array(arr, dtype="float64", copy=False)
+    arr = pa.array([1, 2, 3])
+    with pytest.raises(ValueError):
+        np.array(arr, dtype="float64", copy=False)
 
     # copy=True -> not yet passed by numpy, so we have to call this directly to test
     arr = pa.array([1, 2, 3])
@@ -4436,7 +4426,7 @@ def test_non_cpu_array():
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)
-    validity = np.array([True, False, True, False], dtype=np.bool_)
+    validity = np.array([True, False, True, False], dtype=np.bool)
     cuda_data_buf = ctx.buffer_from_data(data)
     cuda_validity_buf = ctx.buffer_from_data(validity)
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
@@ -4583,3 +4573,42 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+@pytest.mark.parametrize("index_type", [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                                        pa.uint8(), pa.uint16(), pa.uint32(),
+                                        pa.uint64()])
+def test_dictionary_array_preserves_index_type(index_type):
+    # GH-37476: an unsigned dictionary index type must be preserved, not replaced by the
+    # signed integer type of the same width. Signed index types are kept as-is.
+    dict_type = pa.dictionary(index_type, pa.string())
+
+    arr = pa.array(["a", "b", None, "a"], type=dict_type)
+    assert arr.type == dict_type
+    assert arr.to_pylist() == ["a", "b", None, "a"]
+    arr.validate(full=True)
+
+    chunked = pa.chunked_array([["a", "b", "a"]], dict_type)
+    assert chunked.type == dict_type
+
+
+@pytest.mark.parametrize("start_type, widened_type", [(pa.int8(), pa.int16()),
+                                                      (pa.uint8(), pa.uint16())])
+def test_dictionary_array_index_width_adapts(start_type, widened_type):
+    # The index width adapts to the number of distinct values, as it does for signed
+    # indices; only the signedness of the requested type is preserved.
+    values = [str(i) for i in range(200)]
+    arr = pa.array(values, type=pa.dictionary(start_type, pa.string()))
+    assert arr.type == pa.dictionary(widened_type, pa.string())
+    assert arr.to_pylist() == values
+
+
+@pytest.mark.pandas
+def test_dictionary_uint64_index_to_pandas():
+    # GH-37476: uint64 dictionary indices are preserved, and converting them to pandas
+    # maps the indices to int64 categorical codes, which is safe because the indices are
+    # bounded by the dictionary length.
+    arr = pa.array(["a", "b", None, "a"], type=pa.dictionary(pa.uint64(), pa.string()))
+    result = arr.to_pandas()
+    assert list(result.cat.categories) == ["a", "b"]
+    assert result.cat.codes.tolist() == [0, 1, -1, 0]

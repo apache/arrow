@@ -48,6 +48,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/simdjson_internal.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");
@@ -723,8 +724,7 @@ static const char* json_example6 = R"example(
 )example";
 
 void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
-  rj::StringBuffer sb;
-  rj::Writer<rj::StringBuffer> writer(sb);
+  arrow::internal::JsonWriter writer;
 
   DictionaryFieldMapper mapper(*schema);
 
@@ -732,12 +732,12 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
   ASSERT_OK(json::WriteSchema(*schema, mapper, &writer));
   writer.EndObject();
 
-  std::string json_schema = sb.GetString();
+  ASSERT_OK_AND_ASSIGN(std::string_view json_schema, writer.GetString());
 
-  rj::Document d;
-  // Pass explicit size to avoid ASAN issues with
-  // SIMD loads in RapidJson.
-  d.Parse(json_schema.data(), json_schema.size());
+  simdjson::dom::parser parser;
+  ASSERT_OK_AND_ASSIGN(auto d, internal::ResolveSimdjsonResult(
+                                   parser.parse(json_schema.data(), json_schema.size()),
+                                   "Failed to parse JSON"));
 
   DictionaryMemo in_memo;
   ASSERT_OK_AND_ASSIGN(auto result_schema,
@@ -748,27 +748,22 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
 void TestArrayRoundTrip(const Array& array) {
   static std::string name = "dummy";
 
-  rj::StringBuffer sb;
-  rj::Writer<rj::StringBuffer> writer(sb);
+  arrow::internal::JsonWriter writer;
 
   ASSERT_OK(json::WriteArray(name, array, &writer));
 
-  std::string array_as_json = sb.GetString();
+  ASSERT_OK_AND_ASSIGN(std::string_view array_as_json, writer.GetString());
 
-  rj::Document d;
-  // Pass explicit size to avoid ASAN issues with
-  // SIMD loads in RapidJson.
-  d.Parse(array_as_json.data(), array_as_json.size());
-  if (d.HasParseError()) {
-    FAIL() << "JSON parsing failed";
-  }
-
+  simdjson::dom::parser parser;
+  ASSERT_OK_AND_ASSIGN(auto d,
+                       internal::ResolveSimdjsonResult(
+                           parser.parse(array_as_json.data(), array_as_json.size()),
+                           "Failed to parse JSON"));
   ASSERT_OK_AND_ASSIGN(
       auto result_array,
       json::ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type())));
   ASSERT_OK(result_array->ValidateFull());
 
-  // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *result_array, array);
 }
 
@@ -1113,10 +1108,10 @@ TEST(TestJsonFileReadWrite, JsonExample6) {
 }
 
 static void AssertInvalidBinaryViewJson(const std::string& json_array) {
-  rj::Document d;
-  // Pass explicit size to avoid ASAN issues with SIMD loads in RapidJson.
-  d.Parse(json_array.data(), json_array.size());
-  ASSERT_FALSE(d.HasParseError());
+  simdjson::dom::parser parser;
+  ASSERT_OK_AND_ASSIGN(auto d, internal::ResolveSimdjsonResult(
+                                   parser.parse(json_array.data(), json_array.size()),
+                                   "Failed to parse JSON"));
 
   ASSERT_RAISES(Invalid,
                 json::ReadArray(default_memory_pool(), d, field("f", binary_view())));

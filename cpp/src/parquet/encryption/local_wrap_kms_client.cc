@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/json/object_parser.h"
-#include "arrow/json/object_writer.h"
+#include <string_view>
+
 #include "arrow/util/secure_string.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/encryption/local_wrap_kms_client.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::internal::ObjectParser;
-using ::arrow::json::internal::ObjectWriter;
+using ::arrow::internal::JsonObjectParser;
+using ::arrow::internal::JsonWriter;
 using ::arrow::util::SecureString;
 
 namespace parquet::encryption {
@@ -41,17 +42,22 @@ LocalWrapKmsClient::LocalKeyWrap::LocalKeyWrap(std::string master_key_version,
 
 std::string LocalWrapKmsClient::LocalKeyWrap::CreateSerialized(
     const std::string& encrypted_encoded_key) {
-  ObjectWriter json_writer;
+  JsonWriter json_writer;
 
-  json_writer.SetString(kLocalWrapKeyVersionField, kLocalWrapNoKeyVersion);
-  json_writer.SetString(kLocalWrapEncryptedKeyField, encrypted_encoded_key);
+  json_writer.StartObject();
 
-  return json_writer.Serialize();
+  json_writer.StringField(kLocalWrapKeyVersionField, kLocalWrapNoKeyVersion);
+  json_writer.StringField(kLocalWrapEncryptedKeyField, encrypted_encoded_key);
+
+  json_writer.EndObject();
+
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, json_writer.GetString());
+  return std::string(json);
 }
 
 LocalWrapKmsClient::LocalKeyWrap LocalWrapKmsClient::LocalKeyWrap::Parse(
     const std::string& wrapped_key) {
-  ObjectParser json_parser;
+  JsonObjectParser json_parser;
   auto status = json_parser.Parse(wrapped_key);
   if (!status.ok()) {
     throw ParquetException("Failed to parse local key wrap json " + wrapped_key);

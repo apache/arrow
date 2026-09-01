@@ -60,6 +60,7 @@ RUN \
     libgtest-dev \
     liblz4-dev \
     libmimalloc-dev \
+    libopentelemetry-proto-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libre2-dev \
@@ -74,6 +75,7 @@ RUN \
     meson \
     ninja-build \
     nlohmann-json3-dev \
+    opentelemetry-cpp-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \

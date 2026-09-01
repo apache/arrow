@@ -69,8 +69,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 
 #' Infer the arrow Array type from an R object
 #'
-#' [type()] is deprecated in favor of [infer_type()].
-#'
 #' @param x an R object (usually a vector) to be converted to an [Array] or
 #'   [ChunkedArray].
 #' @param ... Passed to S3 methods
@@ -88,12 +86,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @export
 infer_type <- function(x, ...) UseMethod("infer_type")
 
-#' @rdname infer_type
-#' @export
-type <- function(x) {
-  .Deprecated("infer_type")
-  infer_type(x)
-}
 
 #' @export
 infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {

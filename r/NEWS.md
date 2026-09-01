@@ -17,7 +17,13 @@
   under the License.
 -->
 
-# arrow 25.0.0.9000
+# arrow 25.0.1.9000
+
+# arrow 25.0.1
+
+## Minor improvements and fixes
+
+- Improved mimalloc memory allocator configuration on macOS (#50428).
 
 # arrow 25.0.0
 

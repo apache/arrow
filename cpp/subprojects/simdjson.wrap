@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow as pa  # noqa
-import sys
-
-assert 'pandas' not in sys.modules
+[wrap-file]
+source_url = https://github.com/simdjson/simdjson/archive/refs/tags/v4.6.4.tar.gz
+source_filename = simdjson-v4.6.4.tar.gz
+source_hash = b091107844fe928158c5c2265c20360fff312889ddf7ebc4528a0f0f8f2ff9cd
+directory = simdjson-v4.6.4
+method = cmake

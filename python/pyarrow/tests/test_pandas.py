@@ -254,13 +254,13 @@ class TestConvertMetadata:
         result = table.to_pandas()
         tm.assert_frame_equal(result, df)
         assert isinstance(result.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result.index, 'step') == 2
+        assert result.index.step == 2
         assert result.index.name == index_name
 
         result2 = table_no_index_name.to_pandas()
         tm.assert_frame_equal(result2, df2)
         assert isinstance(result2.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
+        assert result2.index.step == 1
         assert result2.index.name is None
 
     def test_range_index_force_serialization(self):
@@ -1686,10 +1686,6 @@ class TestConvertDateTimeLikeTypes:
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
-    @pytest.mark.skipif(
-        np is not None and Version('1.16.0') <= Version(
-            np.__version__) < Version('1.16.1'),
-        reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
             'a': [
@@ -2783,7 +2779,7 @@ class TestConvertStructTypes:
 
     def test_from_numpy(self):
         dt = np.dtype([('x', np.int32),
-                       (('y_title', 'y'), np.bool_)])
+                       (('y_title', 'y'), np.bool)])
         ty = pa.struct([pa.field('x', pa.int32()),
                         pa.field('y', pa.bool_())])
 
@@ -2797,7 +2793,7 @@ class TestConvertStructTypes:
                                    {'x': 43, 'y': False}]
 
         # With mask
-        arr = pa.array(data, mask=np.bool_([False, True]), type=ty)
+        arr = pa.array(data, mask=np.bool([False, True]), type=ty)
         assert arr.to_pylist() == [{'x': 42, 'y': True}, None]
 
         # Trivial struct type
@@ -2815,7 +2811,7 @@ class TestConvertStructTypes:
     def test_from_numpy_nested(self):
         # Note: an object field inside a struct
         dt = np.dtype([('x', np.dtype([('xx', np.int8),
-                                       ('yy', np.bool_)])),
+                                       ('yy', np.bool)])),
                        ('y', np.int16),
                        ('z', np.object_)])
         # Note: itemsize is not necessarily a multiple of sizeof(object)
@@ -2899,7 +2895,7 @@ class TestConvertStructTypes:
         ty = pa.struct([pa.field('x', pa.int32()),
                         pa.field('y', pa.bool_())])
         dt = np.dtype([('x', np.int32),
-                       ('z', np.bool_)])
+                       ('z', np.bool)])
 
         data = np.array([], dtype=dt)
         with pytest.raises(ValueError,
@@ -3859,7 +3855,7 @@ def test_array_uses_memory_pool():
     # ARROW-6570
     N = 10000
     arr = pa.array(np.arange(N, dtype=np.int64),
-                   mask=np.random.randint(0, 2, size=N).astype(np.bool_))
+                   mask=np.random.randint(0, 2, size=N).astype(np.bool))
 
     # In the case the gc is caught loading
     gc.collect()
@@ -4149,21 +4145,14 @@ def test_dictionary_with_pandas():
         d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
         d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-        if index_type == 'uint64':
-            # uint64 is not supported due to overflow risk (values > 2^63-1)
-            with pytest.raises(TypeError,
-                               match="UInt64 dictionary indices"):
-                d1.to_pandas()
-            continue
-
         pandas1 = d1.to_pandas()
         # Pandas Categorical uses signed int codes. Arrow converts:
-        # uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+        # uint8 to int16, uint16 to int32, uint32 and uint64 to int64, signed unchanged
         if index_type == 'uint8':
             compare_indices = indices.astype('int16')
         elif index_type == 'uint16':
             compare_indices = indices.astype('int32')
-        elif index_type == 'uint32':
+        elif index_type in ('uint32', 'uint64'):
             compare_indices = indices.astype('int64')
         else:
             compare_indices = indices
@@ -4179,7 +4168,7 @@ def test_dictionary_with_pandas():
             signed_indices = indices.astype('int16')
         elif index_type == 'uint16':
             signed_indices = indices.astype('int32')
-        elif index_type == 'uint32':
+        elif index_type in ('uint32', 'uint64'):
             signed_indices = indices.astype('int64')
         else:
             signed_indices = indices

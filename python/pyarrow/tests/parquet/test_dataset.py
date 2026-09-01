@@ -369,7 +369,7 @@ def test_filters_invalid_pred_op(tempdir):
                           filesystem=local,
                           filters=[('integers', 'in', 3), ])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='"=<" is not a valid operator'):
         pq.ParquetDataset(base_path,
                           filesystem=local,
                           filters=[('integers', '=<', 3), ])

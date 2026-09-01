@@ -47,7 +47,6 @@ class FlightSqlConnection : public Connection {
   std::unique_ptr<FlightSqlClient> sql_client_;
   GetInfoCache info_;
   Diagnostics diagnostics_;
-  OdbcVersion odbc_version_;
   bool closed_;
 
   void PopulateMetadataSettings(const Connection::ConnPropertyMap& conn_property_map);

@@ -329,7 +329,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_FLIGHT)
 
   define_option(ARROW_FLIGHT_SQL_ODBC
-                "Build the Arrow Flight SQL ODBC extension"
+                "Build the Arrow Flight SQL ODBC driver"
                 OFF
                 DEPENDS
                 ARROW_FLIGHT_SQL
@@ -599,8 +599,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build support for encryption. Fail if OpenSSL is not found"
                 OFF
                 DEPENDS
-                ARROW_FILESYSTEM
-                ARROW_JSON)
+                ARROW_FILESYSTEM)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")

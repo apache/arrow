@@ -31,6 +31,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/extension_type.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -56,16 +57,7 @@ using internal::checked_pointer_cast;
 namespace compute {
 
 static std::shared_ptr<Array> InvalidUtf8(std::shared_ptr<DataType> type) {
-  return ArrayFromJSON(type,
-                       "["
-                       R"(
-                       "Hi",
-                       "olá mundo",
-                       "你好世界",
-                       "",
-                       )"
-                       "\"\xa0\xa1\""
-                       "]");
+  return BinaryArrayFromStrings(type, {"Hi", "olá mundo", "你好世界", "", "\xa0\xa1"});
 }
 
 static std::shared_ptr<Array> FixedSizeInvalidUtf8(std::shared_ptr<DataType> type) {
@@ -73,16 +65,7 @@ static std::shared_ptr<Array> FixedSizeInvalidUtf8(std::shared_ptr<DataType> typ
     // Assume a particular width for testing
     EXPECT_EQ(3, checked_cast<const FixedSizeBinaryType&>(*type).byte_width());
   }
-  return ArrayFromJSON(type,
-                       "["
-                       R"(
-                       "Hi!",
-                       "lá",
-                       "你",
-                       "   ",
-                       )"
-                       "\"\xa0\xa1\xa2\""
-                       "]");
+  return BinaryArrayFromStrings(type, {"Hi!", "lá", "你", "   ", "\xa0\xa1\xa2"});
 }
 
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {

@@ -21,89 +21,49 @@
 #include <memory>
 #include <string>
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>      // IWYU pragma: export
-#include <rapidjson/encodings.h>     // IWYU pragma: export
-#include <rapidjson/error/en.h>      // IWYU pragma: export
-#include <rapidjson/rapidjson.h>     // IWYU pragma: export
-#include <rapidjson/stringbuffer.h>  // IWYU pragma: export
-#include <rapidjson/writer.h>        // IWYU pragma: export
+#include <simdjson.h>
 
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace rj = arrow::rapidjson;
-using RjWriter = rj::Writer<rj::StringBuffer>;
-using RjArray = rj::Value::ConstArray;
-using RjObject = rj::Value::ConstObject;
+using JsonValue = simdjson::dom::element;
+using JsonObject = simdjson::dom::object;
+using JsonArray = simdjson::dom::array;
 
-#define RETURN_NOT_FOUND(TOK, NAME, PARENT)              \
-  if (NAME == (PARENT).MemberEnd()) {                    \
-    return Status::Invalid("field ", TOK, " not found"); \
-  }
-
-#define RETURN_NOT_STRING(TOK, NAME, PARENT)                          \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                \
-  if (!NAME->value.IsString()) {                                      \
-    return Status::Invalid("field was not a string line ", __LINE__); \
-  }
-
-#define RETURN_NOT_BOOL(TOK, NAME, PARENT)                             \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                 \
-  if (!NAME->value.IsBool()) {                                         \
-    return Status::Invalid("field was not a boolean line ", __LINE__); \
-  }
-
-#define RETURN_NOT_INT(TOK, NAME, PARENT)                           \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);                              \
-  if (!NAME->value.IsInt()) {                                       \
-    return Status::Invalid("field was not an int line ", __LINE__); \
-  }
-
-#define RETURN_NOT_ARRAY(TOK, NAME, PARENT)                           \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                \
-  if (!NAME->value.IsArray()) {                                       \
-    return Status::Invalid("field was not an array line ", __LINE__); \
-  }
-
-#define RETURN_NOT_OBJECT(TOK, NAME, PARENT)                           \
-  RETURN_NOT_FOUND(TOK, NAME, PARENT);                                 \
-  if (!NAME->value.IsObject()) {                                       \
-    return Status::Invalid("field was not an object line ", __LINE__); \
-  }
+namespace arrow::internal {
+class JsonWriter;
+}  // namespace arrow::internal
 
 namespace arrow::internal::integration::json {
 
-/// \brief Append integration test Schema format to rapidjson writer
+/// \brief Append integration test Schema format to JSON writer
 ARROW_EXPORT
 Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
-                   RjWriter* writer);
+                   JsonWriter*);
 
 ARROW_EXPORT
-Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
-                       RjWriter* writer);
+Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary, JsonWriter*);
 
 ARROW_EXPORT
-Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
+Status WriteRecordBatch(const RecordBatch& batch, JsonWriter*);
 
 ARROW_EXPORT
-Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
+Status WriteArray(const std::string& name, const Array& array, JsonWriter*);
 
 ARROW_EXPORT
-Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
+Result<std::shared_ptr<Schema>> ReadSchema(const JsonValue& json_obj, MemoryPool* pool,
                                            ipc::DictionaryMemo* dictionary_memo);
 
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
+    const JsonValue& json_obj, const std::shared_ptr<Schema>& schema,
     ipc::DictionaryMemo* dict_memo, MemoryPool* pool);
 
 // NOTE: Doesn't work with dictionary arrays, use ReadRecordBatch instead.
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const rj::Value& json_obj,
+Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const JsonValue& json_obj,
                                          const std::shared_ptr<Field>& field);
 
 }  // namespace arrow::internal::integration::json
