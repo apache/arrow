@@ -131,17 +131,6 @@ namespace alp {
 // ==========================================================================
 
 // ----------------------------------------------------------------------
-// AlpMode
-
-/// \brief ALP compression mode
-///
-/// Currently only ALP (decimal compression) is implemented.
-///
-/// The underlying type is fixed at `uint8_t` because this enum is serialized
-/// as a single byte in `AlpHeader::compression_mode`.
-enum class AlpMode : uint8_t { kAlp = 0 };
-
-// ----------------------------------------------------------------------
 // AlpExponentAndFactor
 
 /// \brief Helper struct to encapsulate the exponent and factor
