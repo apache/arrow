@@ -139,9 +139,10 @@ Result<int64_t> ComputeTensorSize(std::span<const int64_t> shape,
   return largest_offset;
 }
 
-inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
-                                    const std::vector<int64_t>& shape,
-                                    const std::vector<int64_t>& strides) {
+namespace {
+bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
+                             const std::vector<int64_t>& shape,
+                             const std::vector<int64_t>& strides) {
   std::vector<int64_t> c_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
   if (internal::ComputeRowMajorStrides(fw_type, shape, &c_strides).ok()) {
@@ -151,9 +152,9 @@ inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
   }
 }
 
-inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
-                                       const std::vector<int64_t>& shape,
-                                       const std::vector<int64_t>& strides) {
+bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
+                                const std::vector<int64_t>& shape,
+                                const std::vector<int64_t>& strides) {
   std::vector<int64_t> f_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
   if (internal::ComputeColumnMajorStrides(fw_type, shape, &f_strides).ok()) {
@@ -163,9 +164,9 @@ inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
   }
 }
 
-inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
-                                  const std::shared_ptr<Buffer>& data,
-                                  const std::vector<int64_t>& shape) {
+Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
+                           const std::shared_ptr<Buffer>& data,
+                           const std::vector<int64_t>& shape) {
   if (!type) {
     return Status::Invalid("Null type is supplied");
   }
@@ -219,7 +220,7 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   }
   return Status::OK();
 }
-
+}  // namespace
 }  // namespace internal
 
 namespace internal {
