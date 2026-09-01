@@ -119,11 +119,10 @@ class AlpCodec {
   /// \brief Decode floating point values
   ///
   /// \param[in] num_elements number of elements the caller expects, which is
-  ///            also the capacity of `output` in elements. This comes from
-  ///            Parquet's page header (`num_values`), not from the ALP header
-  ///            embedded in `input`; if the ALP header's own element count
-  ///            would overrun this capacity, decoding fails rather than
-  ///            writing past `output`.
+  ///            also the capacity of `output` in elements. The ALP header
+  ///            embedded in `input` carries its own count, and decoding fails
+  ///            unless the two are equal: a smaller header count would leave
+  ///            part of `output` unwritten, and a larger one would overrun it.
   /// \param[in] input pointer to the compressed data
   /// \param[in] input_size size of the compressed data in bytes
   /// \param[out] output pointer to the memory region we will decode into.
@@ -136,6 +135,17 @@ class AlpCodec {
   static Status Decode(int32_t num_elements, const uint8_t* input, int64_t input_size,
                        TargetType* output);
 
+  /// \brief Read the number of values the page's ALP header declares
+  ///
+  /// A Parquet page header counts nulls, while an ALP payload holds only the
+  /// non-null values, so a decoder needs this to learn how many values the page
+  /// actually carries before decoding it.
+  ///
+  /// \param[in] input pointer to the compressed data, starting at the header
+  /// \param[in] input_size size of the compressed data in bytes
+  /// \return the declared element count, or an error if the header is malformed
+  static Result<int32_t> DecodeElementCount(const uint8_t* input, int64_t input_size);
+
   /// \brief Get the maximum compressed size for a given number of elements
   ///
   /// \param[in] num_elements number of elements to compress
@@ -145,8 +155,7 @@ class AlpCodec {
   /// \return the maximum size of the compressed buffer in bytes, or
   ///         Status::Invalid if `num_elements < 0` or `vector_size` is not a
   ///         power of two in `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
-  static Result<int64_t> GetMaxCompressedSize(
-      int64_t num_elements, int32_t vector_size = AlpConstants::kAlpVectorSize);
+  static Result<int64_t> GetMaxCompressedSize(int64_t num_elements, int32_t vector_size);
 
  private:
   struct AlpHeader;
