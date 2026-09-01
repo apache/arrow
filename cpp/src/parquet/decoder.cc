@@ -1561,6 +1561,20 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
     }
 
     total_values_remaining_ = total_value_count_;
+    // GH-50314: mini_blocks_per_block_ comes from the page header and sizes the
+    // allocation below, while InitBlock() reads one bit-width byte per miniblock.
+    // A count larger than the bytes left can never decode, so we reject it here
+    // instead of allowing it to drive a large allocation. A page holding a single
+    // value keeps that value in the header and never calls InitBlock(), so this
+    // check skips it.
+    if (total_value_count_ > 1 &&
+        static_cast<int64_t>(mini_blocks_per_block_) > decoder_->bytes_left()) {
+      throw ParquetException(
+          "the number of miniblocks per block (" +
+          std::to_string(mini_blocks_per_block_) +
+          ") is larger than the number of bytes remaining in the page (" +
+          std::to_string(decoder_->bytes_left()) + ")");
+    }
     if (delta_bit_widths_ == nullptr) {
       delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
     } else {
