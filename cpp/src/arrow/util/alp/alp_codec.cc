@@ -35,10 +35,6 @@ namespace arrow {
 namespace util {
 namespace alp {
 
-// ALP serialization uses memcpy for multi-byte integers (header fields,
-// offsets, frame_of_reference) and assumes little-endian byte order on disk.
-static_assert(ARROW_LITTLE_ENDIAN, "ALP serialization assumes little-endian byte order");
-
 namespace {
 
 // ----------------------------------------------------------------------
@@ -196,7 +192,7 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(const uint8_t* i
   header.compression_mode = util::SafeLoadAs<uint8_t>(input);
   header.integer_encoding = util::SafeLoadAs<uint8_t>(input + 1);
   header.log_vector_size = util::SafeLoadAs<uint8_t>(input + 2);
-  header.num_elements = util::SafeLoadAs<int32_t>(input + 3);
+  header.num_elements = bit_util::FromLittleEndian(util::SafeLoadAs<int32_t>(input + 3));
 
   if (header.compression_mode != static_cast<uint8_t>(AlpMode::kAlp)) {
     return Status::Invalid("ALP unsupported compression mode: ",
@@ -279,7 +275,7 @@ Status AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
   util::SafeStore(encoded_header + 0, header.compression_mode);
   util::SafeStore(encoded_header + 1, header.integer_encoding);
   util::SafeStore(encoded_header + 2, header.log_vector_size);
-  util::SafeStore(encoded_header + 3, header.num_elements);
+  util::SafeStore(encoded_header + 3, bit_util::ToLittleEndian(header.num_elements));
   *output_size = static_cast<int64_t>(AlpHeader::kSize) +
                  compression_progress.num_compressed_bytes_produced;
   return Status::OK();
@@ -430,7 +426,7 @@ typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
   // Phase 3: Write offsets section
   uint8_t* offset_ptr = output;
   for (const auto& offset : vector_offsets) {
-    util::SafeStore(offset_ptr, offset);
+    util::SafeStore(offset_ptr, bit_util::ToLittleEndian(offset));
     offset_ptr += sizeof(AlpConstants::OffsetType);
   }
 
@@ -497,10 +493,15 @@ Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
                            num_vectors, ", input_size=", input_size);
   }
 
-  // Read all offsets
+  // Read all offsets. The wire format is little-endian, so each offset is
+  // converted rather than copied in bulk; FromLittleEndian is a no-op on a
+  // little-endian host.
   std::vector<AlpConstants::OffsetType> vector_offsets(num_vectors);
-  std::memcpy(vector_offsets.data(), input,
-              num_vectors * sizeof(AlpConstants::OffsetType));
+  for (int32_t i = 0; i < num_vectors; ++i) {
+    vector_offsets[i] =
+        bit_util::FromLittleEndian(util::SafeLoadAs<AlpConstants::OffsetType>(
+            input + i * sizeof(AlpConstants::OffsetType)));
+  }
 
   // Decode each vector using its offset for O(1) random access.
   //
