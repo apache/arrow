@@ -1179,18 +1179,8 @@ TEST_F(TestArrayExport, Extension) {
   TestPrimitive(ExampleUuid);
   TestPrimitive(ExampleSmallint);
   TestPrimitive(ExampleComplex128);
-  TestPrimitive([]() {
-    auto type = dense_union_extension_type();
-    auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
-    return ExtensionType::WrapArray(
-        type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
-  });
-  TestPrimitive([]() {
-    auto type = sparse_union_extension_type();
-    auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
-    return ExtensionType::WrapArray(
-        type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
-  });
+  TestPrimitive(ExampleDenseUnionExtension);
+  TestPrimitive(ExampleSparseUnionExtension);
 }
 
 TEST_F(TestArrayExport, MovePrimitive) {
