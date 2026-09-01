@@ -40,17 +40,13 @@ static size_t ConsumeWhitespace(std::string_view view) {
 }
 
 static Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
-  auto document_result =
-      internal::ResolveSimdjsonResult(*it, "Failed to get JSON document");
-  ARROW_RETURN_NOT_OK(document_result.status());
+  ARROW_ASSIGN_OR_RAISE(
+      auto document, internal::ResolveSimdjsonResult(*it, "Failed to get JSON document"));
 
-  auto document = *document_result;
+  ARROW_ASSIGN_OR_RAISE(
+      auto value,
+      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value"));
 
-  auto value_result =
-      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
-  ARROW_RETURN_NOT_OK(value_result.status());
-
-  auto value = *value_result;
   return internal::ConsumeJsonValue(value);
 }
 
