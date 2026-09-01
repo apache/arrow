@@ -131,6 +131,42 @@ BitWidthResult BestWidthFromHistogram(const std::array<int32_t, 65>& histogram,
   return {best_bit_width, best_num_exceptions};
 }
 
+/// Bucket count used by the frame search, as a shift and as a count. 256 keeps
+/// the scan in ChooseFrameAndWidth at roughly two passes' worth of work over a
+/// 1024-value vector.
+constexpr int32_t kFrameSearchBits = 8;
+constexpr int32_t kFrameSearchBuckets = 1 << kFrameSearchBits;
+
+/// \brief One walk producing both histograms the frame search needs.
+///
+/// The bit-width histogram costs the frame it is given; the bucket counts cost
+/// every other frame. They are gathered together because each needs the same
+/// offset, and computing that offset twice was measurably the larger half of
+/// the search.
+///
+/// Bucketing is by shift rather than division: `1 << shift` values per bucket
+/// keeps the count at or below kFrameSearchBuckets without a per-element divide.
+template <typename T>
+void BuildFrameSearchHistograms(const T* values, int32_t num_elements, T frame,
+                                int32_t shift, std::array<int32_t, 65>* width_hist,
+                                std::array<int32_t, kFrameSearchBuckets + 1>* buckets) {
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+  const auto unsigned_frame = static_cast<UnsignedT>(frame);
+
+  // Four accumulators, as in BuildOffsetHistogram: a column whose offsets share
+  // a width -- which is most of them -- sends every element to one bin, and a
+  // single accumulator turns that into a serial read-modify-write chain.
+  std::array<std::array<int32_t, 65>, 4> h{};
+  for (int32_t i = 0; i < num_elements; ++i) {
+    const UnsignedT offset = static_cast<UnsignedT>(values[i]) - unsigned_frame;
+    ++h[i & 3][PforTypeTraits<T>::BitsRequired(offset)];
+    ++(*buckets)[static_cast<size_t>(offset >> shift)];
+  }
+  for (int b = 0; b <= 64; ++b) {
+    (*width_hist)[b] = h[0][b] + h[1][b] + h[2][b] + h[3][b];
+  }
+}
+
 /// \brief Histogram over offsets that were already reduced by their frame.
 template <typename T>
 void BuildOffsetHistogram(const typename PforTypeTraits<T>::UnsignedType* offsets,
@@ -145,6 +181,13 @@ void BuildOffsetHistogram(const typename PforTypeTraits<T>::UnsignedType* offset
 // ----------------------------------------------------------------------
 // Frame search
 
+/// \brief The extremes of a run of values.
+template <typename T>
+struct MinMax {
+  T min = 0;
+  T max = 0;
+};
+
 /// \brief A frame of reference together with the width that suits it.
 template <typename T>
 struct FrameChoice {
@@ -153,10 +196,6 @@ struct FrameChoice {
   PforConstants::ExceptionCountType num_exceptions = 0;
   int64_t cost_bits = std::numeric_limits<int64_t>::max();
 };
-
-/// Buckets used by the frame search. 256 keeps the scan below (see
-/// ChooseFrameAndWidth) at roughly two passes over a 1024-value vector.
-constexpr int32_t kFrameSearchBuckets = 256;
 
 /// \brief Choose a frame of reference and a bit width together.
 ///
@@ -173,25 +212,44 @@ constexpr int32_t kFrameSearchBuckets = 256;
 /// sorted; instead the range is bucketed with a shift, and for each candidate
 /// width a window is slid over the bucket counts. Only whole buckets count as
 /// covered, so the exception estimate is an upper bound -- never optimistic.
-/// The winning frame is then re-costed exactly against a real histogram, and
-/// the minimum-frame answer is always among the candidates, so the result can
-/// never be worse than what the old cost model would have picked.
+/// The minimum-frame answer is always among the candidates, and it alone is
+/// costed from a real histogram, so the search can never do worse than what the
+/// old cost model would have picked.
 template <typename T>
-FrameChoice<T> ChooseFrameAndWidth(const T* values, int32_t num_elements) {
+FrameChoice<T> ChooseFrameAndWidth(const T* values, int32_t num_elements,
+                                   MinMax<T> bounds) {
   using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
   constexpr uint8_t max_bits = PforTypeTraits<T>::kMaxBitWidth;
 
-  T min_val = values[0];
-  T max_val = values[0];
-  for (int32_t i = 1; i < num_elements; ++i) {
-    if (values[i] < min_val) min_val = values[i];
-    if (values[i] > max_val) max_val = values[i];
+  const T min_val = bounds.min;
+  const T max_val = bounds.max;
+
+  // A constant vector is already at the floor, and min/max has just proved it
+  // constant, so it needs no histogram to find that out. Worth the special case
+  // for its own sake: a run of equal values sends every element to one
+  // histogram bin, where the read-modify-write serializes and the pass runs at
+  // a fraction of its usual rate.
+  const auto range = static_cast<UnsignedT>(max_val) - static_cast<UnsignedT>(min_val);
+  if (range == 0) {
+    FrameChoice<T> constant_choice;
+    constant_choice.frame_of_reference = min_val;
+    constant_choice.cost_bits = 0;
+    return constant_choice;
   }
 
-  // Candidate 0: the minimum, i.e. what PFOR has always done. Evaluated
-  // unconditionally so the search cannot regress against it.
+  const auto range_bits = PforTypeTraits<T>::BitsRequired(range);
+  const int32_t shift = range_bits > kFrameSearchBits ? range_bits - kFrameSearchBits : 0;
+
+  // One walk serves both halves of the search: the bit-width histogram costs
+  // the minimum as a frame, the bucket counts cost every other frame.
   std::array<int32_t, 65> histogram{};
-  BuildOffsetHistogram<T>(values, num_elements, min_val, &histogram);
+  std::array<int32_t, kFrameSearchBuckets + 1> counts{};
+  BuildFrameSearchHistograms<T>(values, num_elements, min_val, shift, &histogram,
+                                &counts);
+
+  // Candidate 0: the minimum, i.e. what PFOR has always done. Costed
+  // unconditionally, and from a real histogram, so the search cannot regress
+  // against it.
   FrameChoice<T> best;
   best.frame_of_reference = min_val;
   int64_t cost_bits = 0;
@@ -200,60 +258,103 @@ FrameChoice<T> ChooseFrameAndWidth(const T* values, int32_t num_elements) {
   best.num_exceptions = r.num_exceptions;
   best.cost_bits = cost_bits;
 
-  // A constant vector has nothing left to improve. A vector that merely has no
-  // exceptions does: the whole point of a frame above the minimum is to trade a
-  // narrower width for a few patches, so an exception-free choice is a starting
-  // point for the search, not a reason to skip it. The sawtooth is the case --
-  // its differences pack at width 12 with no exceptions, or at width 0 with
-  // five, and only the second is worth having.
+  // Already at width 0, with a handful of patches carrying the rest. Nothing a
+  // frame can do about it. Note this is not the same as having no exceptions:
+  // the whole point of a frame above the minimum is to trade a narrower width
+  // for a few patches, so an exception-free choice is where the search starts,
+  // not a reason to skip it. The sawtooth is the example -- its differences pack
+  // at width 12 with no exceptions, or at width 0 with five, and only the second
+  // is worth having.
   if (best.bit_width == 0) return best;
 
-  const auto range = static_cast<UnsignedT>(max_val) - static_cast<UnsignedT>(min_val);
-  const auto range_bits = PforTypeTraits<T>::BitsRequired(range);
-  constexpr int32_t kBucketBits = 8;  // 1 << kBucketBits == kFrameSearchBuckets
-  const int32_t shift = range_bits > kBucketBits ? range_bits - kBucketBits : 0;
-
-  std::array<int32_t, kFrameSearchBuckets + 1> counts{};
-  const auto unsigned_min = static_cast<UnsignedT>(min_val);
-  for (int32_t i = 0; i < num_elements; ++i) {
-    const UnsignedT offset = static_cast<UnsignedT>(values[i]) - unsigned_min;
-    ++counts[static_cast<size_t>(offset >> shift)];
-  }
   const int32_t num_buckets = static_cast<int32_t>(range >> shift) + 1;
-
   std::array<int32_t, kFrameSearchBuckets + 2> prefix{};
   for (int32_t b = 0; b < num_buckets; ++b) prefix[b + 1] = prefix[b] + counts[b];
 
-  // Slide a 2^w-wide window over the buckets. Widths below the bucket size
-  // cannot be scanned at this resolution, and once one window spans every
-  // bucket there are no exceptions left to remove, so the loop is short: it
-  // covers only the ~kBucketBits widths in between.
-  T scan_frame = min_val;
-  int64_t scan_cost = std::numeric_limits<int64_t>::max();
+  // Slide a 2^w-wide window over the buckets and keep the position that costs
+  // least. Widths below the bucket size cannot be resolved at this granularity,
+  // and once one window spans every bucket there are no exceptions left to
+  // remove, so the loop covers only the ~kFrameSearchBits widths in between --
+  // fixed work, and none of it touching the data again.
+  //
+  // What comes out of this is a frame, not a width. Only whole buckets count as
+  // covered, so `w` here is an upper bound on the width the frame really needs,
+  // and the exception count an upper bound too. The exact pass below is what
+  // turns the frame into a plan.
+  //
+  // Seeded with the incumbent's cost, so a window only registers if it beats
+  // the minimum as a frame. Everything after this loop -- the walk that lowers
+  // the frame onto a real value, and the exact pass that turns it into a width
+  // -- is then skipped entirely on a column the frame cannot help, which is
+  // most of them. Seeding it costs the conservative direction: the scan
+  // over-counts exceptions, so it can decline a frame whose exact cost would
+  // have won, but it cannot accept one that loses.
+  int32_t best_start = -1;
+  int32_t best_end = 0;
+  int64_t scan_cost = best.cost_bits;
   for (int32_t w = shift; w <= max_bits; ++w) {
     const int64_t whole_buckets = static_cast<int64_t>(1) << (w - shift);
     if (whole_buckets <= 0) break;
     const int32_t k =
         static_cast<int32_t>(whole_buckets < num_buckets ? whole_buckets : num_buckets);
-    for (int32_t s = 0; s + 1 <= num_buckets; ++s) {
+    for (int32_t s = 0; s < num_buckets; ++s) {
       const int32_t end = s + k < num_buckets ? s + k : num_buckets;
-      const int64_t covered = prefix[end] - prefix[s];
-      const int64_t exceptions = num_elements - covered;
+      const int64_t exceptions = num_elements - (prefix[end] - prefix[s]);
       if (exceptions > PforConstants::kMaxVectorSize) continue;
       const int64_t cost =
           static_cast<int64_t>(num_elements) * w + exceptions * ExceptionBits<T>();
       if (cost < scan_cost) {
         scan_cost = cost;
-        scan_frame = static_cast<T>(unsigned_min + (static_cast<UnsignedT>(s) << shift));
+        best_start = s;
+        best_end = end;
       }
     }
     if (k >= num_buckets) break;  // one window already spans the data
   }
 
+  if (best_start < 0) return best;
+
+  // Lower the frame from the boundary of the winning window onto the smallest
+  // value the window actually covers. Bucket boundaries stand 2^shift apart,
+  // which on a wide column is thousands, and a cluster sitting just above one
+  // would otherwise pay those bits for nothing.
+  //
+  // A walk of its own, rather than per-bucket minima kept by the pass above:
+  // tracking them there costs every vector a compare and a store per element,
+  // including the vectors where the scan finds nothing and the minima are
+  // discarded. Over the distributions in pfor_benchmark.cc that cost about 30%
+  // of encode throughput to improve one of them. Here only a vector the search has
+  // already won pays, and it pays one traversal.
+  const auto window_lo = static_cast<UnsignedT>(best_start) << shift;
+  // A window reaching the last bucket has no upper edge to test against: the
+  // edge would be num_buckets << shift, which is one past the representable
+  // range whenever the offsets span the whole type.
+  const bool bounded_above = best_end < num_buckets;
+  const UnsignedT window_hi =
+      bounded_above ? (static_cast<UnsignedT>(best_end) << shift) : UnsignedT{0};
+
+  const auto unsigned_min = static_cast<UnsignedT>(min_val);
+  UnsignedT frame_offset = 0;
+  bool covers_anything = false;
+  for (int32_t i = 0; i < num_elements; ++i) {
+    const UnsignedT offset = static_cast<UnsignedT>(values[i]) - unsigned_min;
+    if (offset < window_lo || (bounded_above && offset >= window_hi)) continue;
+    if (!covers_anything || offset < frame_offset) {
+      frame_offset = offset;
+      covers_anything = true;
+    }
+  }
+  if (!covers_anything) return best;
+
+  const auto scan_frame = static_cast<T>(unsigned_min + frame_offset);
   if (scan_frame == min_val) return best;
 
-  // Re-cost the winning frame exactly. The bucketed estimate over-counts
-  // exceptions, so the real cost can only come out lower than `scan_cost`.
+  // Cost the winning frame exactly. This pass is not bookkeeping -- it is where
+  // the width and the exception count are actually decided. The scan works at
+  // bucket granularity and so cannot see a window narrower than one bucket,
+  // which is exactly where the answers worth having tend to be: the sawtooth's
+  // differences span 12 bits, so its buckets are 16 wide, and no scan over them
+  // can resolve the 0-bit window that its five patches leave behind.
   BuildOffsetHistogram<T>(values, num_elements, scan_frame, &histogram);
   int64_t exact_cost = 0;
   r = BestWidthFromHistogram<T>(histogram, num_elements, &exact_cost);
@@ -264,6 +365,17 @@ FrameChoice<T> ChooseFrameAndWidth(const T* values, int32_t num_elements) {
     best.cost_bits = exact_cost;
   }
   return best;
+}
+
+/// \brief Overload for callers that have not already seen the values.
+template <typename T>
+FrameChoice<T> ChooseFrameAndWidth(const T* values, int32_t num_elements) {
+  MinMax<T> bounds{values[0], values[0]};
+  for (int32_t i = 1; i < num_elements; ++i) {
+    if (values[i] < bounds.min) bounds.min = values[i];
+    if (values[i] > bounds.max) bounds.max = values[i];
+  }
+  return ChooseFrameAndWidth<T>(values, num_elements, bounds);
 }
 
 // ----------------------------------------------------------------------
@@ -295,14 +407,21 @@ struct PforVectorPlan {
 ///
 /// Subtraction is done unsigned and copied across, because signed overflow is
 /// undefined and a column that spans the type's range will overflow.
+/// The bounds of the differences come back with them: this walk has just seen
+/// every one, and the search needs them before it can do anything else.
 template <typename T>
-void ComputeDeltas(const T* values, int32_t num_elements, T* deltas) {
+void ComputeDeltas(const T* values, int32_t num_elements, T* deltas, MinMax<T>* bounds) {
   using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
   deltas[0] = 0;
+  *bounds = MinMax<T>{0, 0};
   for (int32_t i = 1; i < num_elements; ++i) {
     const UnsignedT d =
         static_cast<UnsignedT>(values[i]) - static_cast<UnsignedT>(values[i - 1]);
-    std::memcpy(&deltas[i], &d, sizeof(T));
+    T signed_delta;
+    std::memcpy(&signed_delta, &d, sizeof(T));
+    deltas[i] = signed_delta;
+    if (signed_delta < bounds->min) bounds->min = signed_delta;
+    if (signed_delta > bounds->max) bounds->max = signed_delta;
   }
 }
 
@@ -333,7 +452,8 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
   // width 0 cannot be improved on.
   if (num_elements < 2 || raw.bit_width == 0) return plan;
 
-  ComputeDeltas<T>(values, num_elements, delta_scratch);
+  MinMax<T> delta_bounds;
+  ComputeDeltas<T>(values, num_elements, delta_scratch, &delta_bounds);
 
   // Both candidates get the full search. A cheaper gate on the spread of the
   // differences was tried first and had to go: the sawtooth is a tight cluster
@@ -341,7 +461,8 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
   // span is as wide as the raw span while its cost is a fraction of it. Any
   // gate that reads a span rather than a distribution throws away the one shape
   // the mode is here for.
-  const FrameChoice<T> delta = ChooseFrameAndWidth<T>(delta_scratch, num_elements);
+  const FrameChoice<T> delta =
+      ChooseFrameAndWidth<T>(delta_scratch, num_elements, delta_bounds);
 
   // A delta vector carries its own first value, so it starts one full-width
   // value behind.

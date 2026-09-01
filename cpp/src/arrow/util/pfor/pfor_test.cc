@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <numeric>
 #include <random>
@@ -279,6 +280,9 @@ TYPED_TEST(PforTest, CostModelNoOutliers) {
 // ======================================================================
 // Vector Encode/Decode Round-Trip Tests
 
+// An ascending run is what the delta mode is for, so this no longer measures
+// the frame of reference: the packed stream holds the differences, all of them
+// 1, and the frame belongs to those. The first value travels separately.
 TYPED_TEST(PforTest, VectorSimpleSequence) {
   using T = TypeParam;
   std::vector<T> values(64);
@@ -286,7 +290,22 @@ TYPED_TEST(PforTest, VectorSimpleSequence) {
 
   PforEncodedVector<T> encoded;
   this->RoundTripVector(values, &encoded);
-  EXPECT_EQ(encoded.info().frame_of_reference(), 100);
+  EXPECT_TRUE(encoded.info().is_delta());
+  EXPECT_EQ(encoded.start_value(), 100);
+}
+
+// The same shape with the differences made unpredictable, which is what leaves
+// the values themselves as the cheaper thing to pack. Here the frame is the
+// minimum and nothing is patched, as it was before there was a delta mode.
+TYPED_TEST(PforTest, VectorSimpleSequenceWithoutDelta) {
+  using T = TypeParam;
+  std::vector<T> values = this->RandomValues(64, 100, 163, 11);
+
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
+  EXPECT_FALSE(encoded.info().is_delta());
+  EXPECT_EQ(encoded.info().frame_of_reference(),
+            *std::min_element(values.begin(), values.end()));
   EXPECT_EQ(encoded.info().num_exceptions(), 0);
 }
 
@@ -729,9 +748,13 @@ TYPED_TEST(PforTest, SerializeVectorRejectsInfoInconsistentWithSections) {
     ASSERT_RAISES(Invalid, PforCompression<T>::SerializeVector(corrupted, 64, buffer));
   }
   {
-    // An exception count with no exception sections behind it.
+    // An exception count with nothing behind it. Taken relative to the real
+    // count, which need not be zero: the frame search buys a narrower width
+    // with patches, so even a plain ascending run can arrive with one.
     auto corrupted = encoded;
-    corrupted.mutable_info().set_num_exceptions(1);
+    corrupted.mutable_info().set_num_exceptions(
+        static_cast<PforConstants::ExceptionCountType>(encoded.info().num_exceptions() +
+                                                       1));
     ASSERT_RAISES(Invalid, PforCompression<T>::SerializeVector(corrupted, 64, buffer));
   }
 }
@@ -768,6 +791,270 @@ TYPED_TEST(PforTest, MaxCompressedSizeBoundHoldsForAdversarialInputs) {
     SCOPED_TRACE("input " + std::to_string(i));
     this->RoundTripPage(inputs[i]);
   }
+}
+
+// ======================================================================
+// Delta Mode and Frame Search Tests
+
+// The mode has to survive every width, not just the ones a plausible column
+// produces, so this drives it through all of them: a cumulative sum whose
+// differences are exactly w bits wide leaves the encoder no cheaper option than
+// differencing, since the values themselves span 1024 times as much.
+TYPED_TEST(PforTest, DeltaRoundTripsAtEveryBitWidth) {
+  using T = TypeParam;
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+  constexpr int32_t kNumValues = 1024;
+
+  for (uint8_t width = 0; width <= PforTypeTraits<T>::kMaxBitWidth; ++width) {
+    SCOPED_TRACE("delta width " + std::to_string(width));
+    // Differences that need exactly `width` bits, and whose top bit is set so
+    // the width cannot be mistaken for a narrower one.
+    const UnsignedT step =
+        width == 0 ? UnsignedT{0} : static_cast<UnsignedT>(UnsignedT{1} << (width - 1));
+
+    std::vector<T> values(kNumValues);
+    auto acc = static_cast<UnsignedT>(0);
+    for (int32_t i = 0; i < kNumValues; ++i) {
+      std::memcpy(&values[i], &acc, sizeof(T));
+      acc += step;
+    }
+    this->RoundTripVector(values);
+  }
+}
+
+// The negative control for the sweep above. If the encoder stopped choosing the
+// delta mode -- a cost-model change, a gate that reads the wrong thing -- every
+// round-trip test would still pass while testing nothing, so assert here that
+// the path is reached at all, and that it is not reached for data it would only
+// make bigger.
+TYPED_TEST(PforTest, DeltaIsChosenForRunsAndDeclinedForNoise) {
+  using T = TypeParam;
+  constexpr int32_t kNumValues = 1024;
+
+  std::vector<T> ascending(kNumValues);
+  std::iota(ascending.begin(), ascending.end(), static_cast<T>(1'000'000));
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(ascending, &encoded);
+  EXPECT_TRUE(encoded.info().is_delta());
+
+  // Independent draws from a narrow band: the values fit in 10 bits, while
+  // their differences take 11 and swing both ways.
+  const std::vector<T> noise = this->RandomValues(kNumValues, 0, 1000, 42);
+  this->RoundTripVector(noise, &encoded);
+  EXPECT_FALSE(encoded.info().is_delta());
+}
+
+// The property the mode exists for: a delta vector carries its own first value,
+// so it decodes without the vector before it. Decoding vector 1 of a page
+// straight out of the middle is what a reader doing block-level random access
+// would do, and it has to produce that vector's values and no others.
+TYPED_TEST(PforTest, DeltaVectorDecodesWithoutThePrecedingVector) {
+  using T = TypeParam;
+  constexpr int32_t kVectorSize = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  constexpr int32_t kNumValues = 3 * kVectorSize;
+
+  std::vector<T> values(kNumValues);
+  std::iota(values.begin(), values.end(), static_cast<T>(500));
+  const std::vector<uint8_t> page = this->EncodePage(values);
+
+  // The offset array follows the header, one entry per vector, each counted
+  // from the start of the array itself.
+  const uint8_t* offsets = page.data() + PforConstants::kHeaderSize;
+  const auto second = util::SafeLoadAs<PforConstants::OffsetType>(
+      offsets + sizeof(PforConstants::OffsetType));
+  const uint8_t* vector = offsets + second;
+
+  std::vector<T> decoded(kVectorSize);
+  ASSERT_OK(PforCompression<T>::DecodeVector(
+      std::span<const uint8_t>(vector, page.data() + page.size() - vector), kVectorSize,
+      decoded.data()));
+  EXPECT_EQ(
+      std::vector<T>(values.begin() + kVectorSize, values.begin() + 2 * kVectorSize),
+      decoded);
+}
+
+// Two-sided patching. A tight cluster with one value far below it is the case
+// the old frame could not handle: at the minimum, the packed window has to span
+// the whole gap and every value in the cluster pays for it. The frame belongs
+// above the low value, which then becomes an exception like any other.
+TYPED_TEST(PforTest, FrameSitsAboveTheMinimumToPatchALowOutlier) {
+  using T = TypeParam;
+  constexpr int32_t kNumValues = 1024;
+
+  std::vector<T> values = this->RandomValues(kNumValues, 1'000'000, 1'000'063, 5);
+  values[500] = 0;  // one value four orders of magnitude below the cluster
+
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
+  EXPECT_GT(encoded.info().frame_of_reference(),
+            *std::min_element(values.begin(), values.end()));
+  EXPECT_GE(encoded.info().num_exceptions(), 1);
+  // Six bits covers the cluster; spanning the gap would take twenty. The bound
+  // is loose because the search picks the frame from bucketed counts and then
+  // lowers it to the smallest value it actually covers, which lands on the
+  // cluster minimum only when the cluster falls inside one bucket.
+  EXPECT_LE(encoded.info().bit_width(), 8);
+}
+
+// The two features together, on the shape that motivated them: a counter that
+// climbs steadily and resets, whose differences are a run of small positive
+// values with a handful of large negative ones. The differences want a frame
+// above their minimum, and the drops want patching -- neither alone is enough,
+// and this is where both of the encoder's bugs showed up during development.
+TYPED_TEST(PforTest, SawtoothPacksAtNearlyNoCost) {
+  using T = TypeParam;
+  constexpr int32_t kNumValues = 8192;
+
+  std::vector<T> values(kNumValues);
+  T level = 0;
+  for (int32_t i = 0; i < kNumValues; ++i) {
+    values[i] = level;
+    level = (i % 200 == 199) ? 0 : static_cast<T>(level + 12);
+  }
+
+  int64_t comp_size = 0;
+  this->RoundTripPage(values, &comp_size);
+  // The differences pack at width 0 with one patch per reset. Anything that
+  // falls back to a width wide enough to hold the climb costs at least 12 bits
+  // a value, so a bound of one is far from the boundary.
+  const double bits_per_value = 8.0 * comp_size / kNumValues;
+  EXPECT_LT(bits_per_value, 1.0) << "compressed to " << bits_per_value << " bits/value";
+}
+
+// An exception in a delta vector is itself a difference, so the decoder has to
+// patch before it sums. Summing first would carry the placeholder zero into
+// every value after the patch, which round-trips as a plausible-looking
+// sequence rather than an obvious corruption.
+TYPED_TEST(PforTest, DeltaExceptionsArePatchedBeforeTheSum) {
+  using T = TypeParam;
+  constexpr int32_t kNumValues = 1024;
+
+  // A steady climb with occasional jumps far larger than the packed width can
+  // hold, so the jumps become exceptions and everything after one depends on
+  // the patch having landed.
+  std::vector<T> values(kNumValues);
+  T level = 1000;
+  for (int32_t i = 0; i < kNumValues; ++i) {
+    values[i] = level;
+    level = static_cast<T>(level + ((i % 137 == 100) ? 1'000'000 : 3));
+  }
+
+  PforEncodedVector<T> encoded;
+  this->RoundTripVector(values, &encoded);
+  EXPECT_TRUE(encoded.info().is_delta());
+  EXPECT_GE(encoded.info().num_exceptions(), 1);
+}
+
+// The delta flag shares its byte with the bit width, and the width goes up to
+// 64, which needs all seven of the bits left over. A vector whose differences
+// span the type is the case that would catch the two fields overlapping.
+TYPED_TEST(PforTest, DeltaAtFullWidthRoundTrips) {
+  using T = TypeParam;
+  constexpr int32_t kNumValues = 1024;
+  std::mt19937_64 rng(3);
+
+  // Values whose differences are full-width, built by accumulating full-width
+  // steps, so the sequence wraps the type as it goes.
+  std::vector<T> values(kNumValues);
+  auto acc = static_cast<typename PforTypeTraits<T>::UnsignedType>(0);
+  for (int32_t i = 0; i < kNumValues; ++i) {
+    std::memcpy(&values[i], &acc, sizeof(T));
+    acc += static_cast<typename PforTypeTraits<T>::UnsignedType>(rng());
+  }
+  this->RoundTripVector(values);
+}
+
+// The same overlap, tested at the metadata directly rather than through data
+// that happens to produce it, at every width the type allows.
+TYPED_TEST(PforTest, VectorInfoKeepsTheDeltaFlagOutOfTheWidth) {
+  using T = TypeParam;
+  std::vector<uint8_t> buffer(PforVectorInfo<T>::kStoredSize);
+
+  for (uint8_t width = 0; width <= PforTypeTraits<T>::kMaxBitWidth; ++width) {
+    for (bool is_delta : {false, true}) {
+      SCOPED_TRACE("width " + std::to_string(width) + " delta " +
+                   std::to_string(is_delta));
+      const PforVectorInfo<T> info(static_cast<T>(-7), width, 123, is_delta);
+      info.Store(buffer);
+      ASSERT_OK_AND_ASSIGN(const auto loaded, PforVectorInfo<T>::Load(buffer));
+      EXPECT_EQ(loaded.bit_width(), width);
+      EXPECT_EQ(loaded.is_delta(), is_delta);
+      EXPECT_EQ(loaded.frame_of_reference(), static_cast<T>(-7));
+      EXPECT_EQ(loaded.num_exceptions(), 123);
+      EXPECT_EQ(loaded.stored_bytes(),
+                PforVectorInfo<T>::kStoredSize +
+                    (is_delta ? static_cast<int64_t>(sizeof(T)) : 0));
+    }
+  }
+}
+
+// Differencing is done in the unsigned domain because signed overflow is
+// undefined, and a column spanning the type's range will overflow. The bits
+// have to round-trip anyway.
+TYPED_TEST(PforTest, DeltaRoundTripsAcrossTheTypeExtremes) {
+  using T = TypeParam;
+  const T lo = std::numeric_limits<T>::min();
+  const T hi = std::numeric_limits<T>::max();
+
+  std::vector<std::vector<T>> inputs = {
+      {lo, hi, lo, hi, lo, hi, lo, hi},
+      {lo, static_cast<T>(lo + 1), static_cast<T>(lo + 2), hi, static_cast<T>(hi - 1)},
+      {hi, static_cast<T>(hi - 1), static_cast<T>(hi - 2), lo, static_cast<T>(lo + 1)},
+  };
+  // A ramp from the bottom of the type that runs off the top of it.
+  inputs.emplace_back(1024);
+  auto acc = static_cast<typename PforTypeTraits<T>::UnsignedType>(lo);
+  for (auto& v : inputs.back()) {
+    std::memcpy(&v, &acc, sizeof(T));
+    acc += static_cast<typename PforTypeTraits<T>::UnsignedType>(hi / 100);
+  }
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    SCOPED_TRACE("input " + std::to_string(i));
+    this->RoundTripVector(inputs[i]);
+  }
+}
+
+// Small vectors are where the start value is expensive: the format allows eight
+// values to a vector, and eight bytes across eight of them is a byte each. The
+// cost model has to account for it rather than differencing whenever the
+// differences happen to be narrower.
+TYPED_TEST(PforTest, StartValueIsPaidForAtEveryVectorSize) {
+  using T = TypeParam;
+  for (int32_t log_size = PforConstants::kMinLogVectorSize;
+       log_size <= PforConstants::kMaxLogVectorSize; ++log_size) {
+    const int32_t vector_size = 1 << log_size;
+    SCOPED_TRACE("vector size " + std::to_string(vector_size));
+
+    std::vector<T> values(static_cast<size_t>(vector_size) * 3);
+    std::iota(values.begin(), values.end(), static_cast<T>(77));
+
+    const auto num_values = static_cast<int32_t>(values.size());
+    ASSERT_OK_AND_ASSIGN(const int64_t max_size,
+                         PforWrapper<T>::GetMaxCompressedSize(num_values, vector_size));
+    std::vector<uint8_t> compressed(max_size);
+    int64_t comp_size = max_size;
+    ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, vector_size,
+                                     compressed.data(), &comp_size));
+    ASSERT_LE(comp_size, max_size);
+
+    std::vector<T> decoded(values.size());
+    ASSERT_OK(
+        PforWrapper<T>::Decode(compressed.data(), comp_size, num_values, decoded.data()));
+    EXPECT_EQ(values, decoded);
+  }
+}
+
+// A one-element vector has no difference to take, and a two-element one has
+// exactly one. Both are inside the range the format allows for a trailing
+// partial vector.
+TYPED_TEST(PforTest, DeltaHandlesVectorsTooShortToDifference) {
+  using T = TypeParam;
+  this->RoundTripVector(std::vector<T>{42});
+  this->RoundTripVector(std::vector<T>{42, 43});
+  this->RoundTripVector(std::vector<T>{std::numeric_limits<T>::max()});
+  this->RoundTripVector(
+      std::vector<T>{std::numeric_limits<T>::max(), std::numeric_limits<T>::min()});
 }
 
 }  // namespace arrow::util::pfor
