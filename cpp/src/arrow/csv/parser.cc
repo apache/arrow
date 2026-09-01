@@ -287,7 +287,23 @@ class BlockParserImpl {
 
     DCHECK_GT(data_end, data);
 
-    auto FinishField = [&]() { values_writer->FinishField(parsed_writer); };
+    bool ignoring_extra_field = false;
+
+    auto IsExtraField = [&]() {
+      return batch_.num_cols_ >= 0 && options_.ignore_extra_columns &&
+             num_cols >= batch_.num_cols_;
+    };
+    auto StartField = [&](bool quoted) {
+      ignoring_extra_field = IsExtraField();
+      if (!ignoring_extra_field) {
+        values_writer->StartField(quoted);
+      }
+    };
+    auto FinishField = [&]() {
+      if (!IsExtraField()) {
+        values_writer->FinishField(parsed_writer);
+      }
+    };
 
     values_writer->BeginLine();
     parsed_writer->BeginLine();
@@ -314,7 +330,7 @@ class BlockParserImpl {
     // At the start of a field
     if (*data == options_.delimiter) {
       // Empty cells are very common in some files, shortcut them
-      values_writer->StartField(false /* quoted */);
+      StartField(false /* quoted */);
       FinishField();
       ++data;
       ++num_cols;
@@ -328,17 +344,18 @@ class BlockParserImpl {
     if (SpecializedOptions::quoting &&
         ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
       ++data;
-      values_writer->StartField(true /* quoted */);
+      StartField(true /* quoted */);
       goto InQuotedField;
     } else {
-      values_writer->StartField(false /* quoted */);
+      StartField(false /* quoted */);
       goto InField;
     }
 
   InField:
     // Inside a non-quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
+      const char* bulk_end =
+          RunBulkFilter(parsed_writer, data, data_end, bulk_filter, ignoring_extra_field);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         if (is_final) {
           data = data_end;
@@ -358,7 +375,9 @@ class BlockParserImpl {
         goto AbortLine;
       }
       c = *data++;
-      parsed_writer->PushFieldChar(c);
+      if (!ignoring_extra_field) {
+        parsed_writer->PushFieldChar(c);
+      }
       goto InField;
     }
     if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
@@ -376,13 +395,16 @@ class BlockParserImpl {
         goto LineEnd;
       }
     }
-    parsed_writer->PushFieldChar(c);
+    if (!ignoring_extra_field) {
+      parsed_writer->PushFieldChar(c);
+    }
     goto InField;
 
   InQuotedField:
     // Inside a quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
+      const char* bulk_end =
+          RunBulkFilter(parsed_writer, data, data_end, bulk_filter, ignoring_extra_field);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         if (is_final) {
           data = data_end;
@@ -401,7 +423,9 @@ class BlockParserImpl {
         goto AbortLine;
       }
       c = *data++;
-      parsed_writer->PushFieldChar(c);
+      if (!ignoring_extra_field) {
+        parsed_writer->PushFieldChar(c);
+      }
       goto InQuotedField;
     }
     if (ARROW_PREDICT_FALSE(c == options_.quote_char)) {
@@ -414,7 +438,9 @@ class BlockParserImpl {
         goto InField;
       }
     }
-    parsed_writer->PushFieldChar(c);
+    if (!ignoring_extra_field) {
+      parsed_writer->PushFieldChar(c);
+    }
     goto InQuotedField;
 
   FieldEnd:
@@ -436,11 +462,11 @@ class BlockParserImpl {
       } else if (options_.pad_short_rows && num_cols < batch_.num_cols_) {
         batch_.missing_fields_.push_back({batch_.num_rows_, num_cols});
         while (num_cols < batch_.num_cols_) {
-          values_writer->StartField(false /* quoted */);
+          StartField(false /* quoted */);
           FinishField();
           ++num_cols;
         }
-      } else {
+      } else if (!options_.ignore_extra_columns || num_cols < batch_.num_cols_) {
         return HandleInvalidRow(values_writer, parsed_writer, start, data, num_cols,
                                 out_data);
       }
@@ -466,9 +492,10 @@ class BlockParserImpl {
         batch_.num_cols_ = 1;
       }
       // Record as row of empty (null?) values
-      while (num_cols++ < batch_.num_cols_) {
-        values_writer->StartField(false /* quoted */);
+      while (num_cols < batch_.num_cols_) {
+        StartField(false /* quoted */);
         FinishField();
+        ++num_cols;
       }
       ++batch_.num_rows_;
     }
@@ -479,7 +506,8 @@ class BlockParserImpl {
   template <typename DataWriter, typename SpecializedBulkFilter>
   const char* RunBulkFilter(DataWriter* data_writer, const char* data,
                             const char* data_end,
-                            const SpecializedBulkFilter& bulk_filter) {
+                            const SpecializedBulkFilter& bulk_filter,
+                            bool ignoring_extra_field) {
     while (true) {
       using WordType = typename SpecializedBulkFilter::WordType;
 
@@ -495,7 +523,9 @@ class BlockParserImpl {
         return data;
       }
       // No special chars
-      data_writer->PushFieldWord(word);
+      if (!ignoring_extra_field) {
+        data_writer->PushFieldWord(word);
+      }
       data += sizeof(WordType);
     }
   }
