@@ -24,8 +24,6 @@
 #include <string>
 
 #include <grpcpp/grpcpp.h>
-#include <grpcpp/server_context.h>
-#include <grpcpp/support/server_callback.h>
 
 #include "arrow/flight/transport.h"
 #include "arrow/flight/types.h"
@@ -314,8 +312,7 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
 
 /// Convert an Arrow status to a gRPC status, and add extra headers to
 /// the response to encode the original Arrow status.
-template <typename GrpcContext>
-::grpc::Status ToGrpcStatusImpl(const Status& arrow_status, GrpcContext* ctx) {
+::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
   ::grpc::Status status = ToRawGrpcStatus(arrow_status);
   if (!status.ok() && ctx) {
     const std::string code = ToChars(static_cast<int>(arrow_status.code()));
@@ -331,19 +328,6 @@ template <typename GrpcContext>
     }
   }
 
-  return status;
-}
-
-::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
-  return ToGrpcStatusImpl(arrow_status, ctx);
-}
-
-::grpc::Status ToGrpcStatus(const Status& arrow_status,
-                            ::grpc::CallbackServerContext* ctx) {
-  ::grpc::Status status = ToGrpcStatusImpl(arrow_status, ctx);
-  if (status.error_code() == ::grpc::StatusCode::UNKNOWN && arrow_status.IsIOError()) {
-    status = ::grpc::Status(::grpc::StatusCode::INTERNAL, arrow_status.message());
-  }
   return status;
 }
 
