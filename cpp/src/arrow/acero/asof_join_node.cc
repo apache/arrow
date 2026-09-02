@@ -593,6 +593,7 @@ class AsofJoinNode : public ExecNode {
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
     bool activate = false;
+    Future<> handoff;
     {
       std::lock_guard lock(coordinator_mutex_);
       if (std::holds_alternative<Terminal>(coordinator_) ||
@@ -604,9 +605,21 @@ class AsofJoinNode : public ExecNode {
       if (left_gate_ != LeftGate::Flushing) {
         left_gate_ = LeftGate::Open;
       }
+      if (activate) {
+        // Resume may be called outside the scheduler by a consuming sink.  Reserve a
+        // scheduler task before releasing the coordinator lock so a concurrent final
+        // InputFinished cannot end the scheduler before activation is registered.
+        auto maybe_handoff =
+            plan()->query_context()->BeginExternalTask("AsofJoinNode::ResumeHandoff");
+        if (!maybe_handoff.ok() || !maybe_handoff->is_valid()) {
+          return;
+        }
+        handoff = std::move(*maybe_handoff);
+      }
     }
     if (activate) {
       Schedule([this] { return ActivateAfterResume(); }, "AsofJoinNode::Resume");
+      handoff.MarkFinished();
     }
   }
 
