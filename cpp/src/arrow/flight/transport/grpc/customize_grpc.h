@@ -86,7 +86,6 @@ namespace grpc {
 // protobuf without copying
 ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
     ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
-
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight
