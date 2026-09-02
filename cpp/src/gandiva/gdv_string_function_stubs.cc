@@ -289,6 +289,14 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
     }
 
     // Control reaches here when we encounter a multibyte character
+    // Ensure the multibyte sequence fits within the buffer to avoid
+    // reading past data_len (truncated trailing multibyte sequence).
+    if (i + char_len > data_len) {
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
     const auto* in_char = (const uint8_t*)(data + i);
 
     // Decode the multibyte character
@@ -366,6 +374,14 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
     }
 
     // Control reaches here when we encounter a multibyte character
+    // Ensure the multibyte sequence fits within the buffer to avoid
+    // reading past data_len (truncated trailing multibyte sequence).
+    if (i + char_len > data_len) {
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
     const auto* in_char = (const uint8_t*)(data + i);
 
     // Decode the multibyte character
@@ -584,6 +600,14 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
     char_len = gdv_fn_utf8_char_length(data[i]);
 
     // Control reaches here when we encounter a multibyte character
+    // Ensure the multibyte sequence fits within the buffer to avoid
+    // reading past data_len (truncated trailing multibyte sequence).
+    if (i + char_len > data_len) {
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
     const auto* in_char = (const uint8_t*)(data + i);
 
     // Decode the multibyte character
