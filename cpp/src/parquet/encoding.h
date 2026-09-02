@@ -162,6 +162,32 @@ class Encoder {
   virtual std::shared_ptr<Buffer> FlushValues() = 0;
   virtual Encoding::type encoding() const = 0;
 
+  /// The encoding used by the most recently flushed data page.  This can
+  /// differ from encoding() for encoders, such as FSST, that can fall back to
+  /// PLAIN on a page-by-page basis.
+  virtual Encoding::type page_encoding() const { return encoding(); }
+
+  /// The serialized shared symbol table, when this encoder has produced an
+  /// FSST page.
+  virtual std::shared_ptr<Buffer> fsst_symbol_table() const { return nullptr; }
+  virtual SymbolTableType::type fsst_symbol_table_type() const {
+    return SymbolTableType::UNDEFINED;
+  }
+
+  /// Whether an FSST encoder has collected its configured training pages and
+  /// produced the shared symbol table.
+  virtual bool fsst_training_complete() const { return true; }
+
+  /// Complete FSST training with the pages collected so far.  Used when a
+  /// column chunk ends before its configured training-page count is reached.
+  virtual void FinishFsstTraining() {}
+
+  /// Number of data pages retained until the shared FSST table is trained.
+  virtual size_t num_buffered_fsst_pages() const { return 0; }
+
+  /// Encode and remove the oldest retained FSST data page.
+  virtual std::shared_ptr<Buffer> FlushBufferedFsstPage() { return nullptr; }
+
   virtual void Put(const ::arrow::Array& values) = 0;
 
   // Report the number of bytes written to the encoder since the last report.
@@ -424,6 +450,12 @@ std::unique_ptr<Encoder> MakeEncoder(
     const ColumnDescriptor* descr = NULLPTR,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
+PARQUET_EXPORT
+std::unique_ptr<Encoder> MakeFsstEncoder(
+    const ColumnDescriptor* descr, FsstOffsetEncoding::type offset_encoding,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    int32_t training_data_pages = 1);
+
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
     Encoding::type encoding, bool use_dictionary = false,
@@ -438,6 +470,12 @@ std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
 PARQUET_EXPORT
 std::unique_ptr<Decoder> MakeDecoder(
     Type::type type_num, Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+PARQUET_EXPORT
+std::unique_ptr<Decoder> MakeFsstDecoder(
+    const ColumnDescriptor* descr, SymbolTableType::type symbol_table_type,
+    const std::shared_ptr<Buffer>& symbol_table_body,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 namespace detail {

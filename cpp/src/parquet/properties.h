@@ -168,6 +168,7 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+static constexpr int32_t DEFAULT_FSST_TRAINING_DATA_PAGES = 1;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
 
@@ -240,6 +241,23 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
+  void set_fsst_offset_encoding(FsstOffsetEncoding::type encoding) {
+    if (encoding != FsstOffsetEncoding::PLAIN &&
+        encoding != FsstOffsetEncoding::DELTA_BINARY_PACKED) {
+      throw ParquetException("Unsupported FSST offset encoding");
+    }
+    fsst_offset_encoding_ = encoding;
+  }
+
+  void set_fsst_training_data_pages(int32_t num_pages) {
+    if (num_pages == 0 || num_pages < -1) {
+      throw ParquetException(
+          "FSST training data pages must be positive, or -1 for the entire column "
+          "chunk");
+    }
+    fsst_training_data_pages_ = num_pages;
+  }
+
   void set_compression(Compression::type codec) { codec_ = codec; }
 
   void set_dictionary_enabled(bool dictionary_enabled) {
@@ -284,6 +302,10 @@ class PARQUET_EXPORT ColumnProperties {
 
   Encoding::type encoding() const { return encoding_; }
 
+  FsstOffsetEncoding::type fsst_offset_encoding() const { return fsst_offset_encoding_; }
+
+  int32_t fsst_training_data_pages() const { return fsst_training_data_pages_; }
+
   Compression::type compression() const { return codec_; }
 
   bool dictionary_enabled() const { return dictionary_enabled_; }
@@ -311,6 +333,8 @@ class PARQUET_EXPORT ColumnProperties {
 
  private:
   Encoding::type encoding_;
+  FsstOffsetEncoding::type fsst_offset_encoding_ = FsstOffsetEncoding::PLAIN;
+  int32_t fsst_training_data_pages_ = DEFAULT_FSST_TRAINING_DATA_PAGES;
   Compression::type codec_;
   bool dictionary_enabled_;
   bool statistics_enabled_;
@@ -570,6 +594,50 @@ class PARQUET_EXPORT WriterProperties {
     Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
                       Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
+    }
+
+    /// Select PLAIN or DELTA_BINARY_PACKED end offsets for FSST data pages.
+    Builder* fsst_offset_encoding(FsstOffsetEncoding::type encoding) {
+      default_column_properties_.set_fsst_offset_encoding(encoding);
+      return this;
+    }
+
+    Builder* fsst_offset_encoding(const std::string& path,
+                                  FsstOffsetEncoding::type encoding) {
+      if (encoding != FsstOffsetEncoding::PLAIN &&
+          encoding != FsstOffsetEncoding::DELTA_BINARY_PACKED) {
+        throw ParquetException("Unsupported FSST offset encoding");
+      }
+      fsst_offset_encodings_[path] = encoding;
+      return this;
+    }
+
+    Builder* fsst_offset_encoding(const std::shared_ptr<schema::ColumnPath>& path,
+                                  FsstOffsetEncoding::type encoding) {
+      return fsst_offset_encoding(path->ToDotString(), encoding);
+    }
+
+    /// Select how many initial data pages are used to train the shared FSST table.
+    /// Positive values defer that many pages before training.  -1 defers the entire
+    /// column chunk and trains when the column writer closes.  Default is 1.
+    Builder* fsst_training_data_pages(int32_t num_pages) {
+      default_column_properties_.set_fsst_training_data_pages(num_pages);
+      return this;
+    }
+
+    Builder* fsst_training_data_pages(const std::string& path, int32_t num_pages) {
+      if (num_pages == 0 || num_pages < -1) {
+        throw ParquetException(
+            "FSST training data pages must be positive, or -1 for the entire column "
+            "chunk");
+      }
+      fsst_training_data_pages_[path] = num_pages;
+      return this;
+    }
+
+    Builder* fsst_training_data_pages(const std::shared_ptr<schema::ColumnPath>& path,
+                                      int32_t num_pages) {
+      return fsst_training_data_pages(path->ToDotString(), num_pages);
     }
 
     /// Specify compression codec in general for all columns.
@@ -877,6 +945,10 @@ class PARQUET_EXPORT WriterProperties {
       };
 
       for (const auto& item : encodings_) get(item.first).set_encoding(item.second);
+      for (const auto& item : fsst_offset_encodings_)
+        get(item.first).set_fsst_offset_encoding(item.second);
+      for (const auto& item : fsst_training_data_pages_)
+        get(item.first).set_fsst_training_data_pages(item.second);
       for (const auto& item : codecs_) get(item.first).set_compression(item.second);
       for (const auto& item : codec_options_)
         get(item.first).set_codec_options(item.second);
@@ -930,6 +1002,8 @@ class PARQUET_EXPORT WriterProperties {
     // Settings used for each column unless overridden in any of the maps below
     ColumnProperties default_column_properties_;
     std::unordered_map<std::string, Encoding::type> encodings_;
+    std::unordered_map<std::string, FsstOffsetEncoding::type> fsst_offset_encodings_;
+    std::unordered_map<std::string, int32_t> fsst_training_data_pages_;
     std::unordered_map<std::string, Compression::type> codecs_;
     std::unordered_map<std::string, std::shared_ptr<CodecOptions>> codec_options_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
@@ -1001,6 +1075,16 @@ class PARQUET_EXPORT WriterProperties {
 
   Encoding::type encoding(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).encoding();
+  }
+
+  FsstOffsetEncoding::type fsst_offset_encoding(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).fsst_offset_encoding();
+  }
+
+  int32_t fsst_training_data_pages(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).fsst_training_data_pages();
   }
 
   Compression::type compression(const std::shared_ptr<schema::ColumnPath>& path) const {

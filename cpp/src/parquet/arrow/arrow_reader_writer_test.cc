@@ -470,6 +470,122 @@ void CheckConfiguredRoundtrip(
   }
 }
 
+TEST(FsstEncoding, ArrowRoundTripAndMetadata) {
+  ::arrow::StringBuilder values_builder;
+  for (int i = 0; i < 1000; ++i) {
+    if (i % 17 == 0) {
+      ASSERT_OK(values_builder.AppendNull());
+    } else {
+      ASSERT_OK(values_builder.Append("https://arrow.apache.org/parquet/fsst/record/" +
+                                      std::to_string(i % 23)));
+    }
+  }
+  ASSERT_OK_AND_ASSIGN(auto values, values_builder.Finish());
+  auto table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("value", ::arrow::utf8())}), {values});
+
+  for (auto offset_encoding :
+       {FsstOffsetEncoding::PLAIN, FsstOffsetEncoding::DELTA_BINARY_PACKED}) {
+    for (auto page_version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+      for (const int32_t training_pages : {1, 3, -1}) {
+        ARROW_SCOPED_TRACE("offset encoding = ", offset_encoding,
+                           ", page version = ", static_cast<int>(page_version),
+                           ", training pages = ", training_pages);
+        auto properties = WriterProperties::Builder()
+                              .disable_dictionary()
+                              ->encoding(Encoding::FSST)
+                              ->fsst_offset_encoding(offset_encoding)
+                              ->fsst_training_data_pages(training_pages)
+                              ->data_page_version(page_version)
+                              ->data_pagesize(512)
+                              ->enable_write_page_index()
+                              ->build();
+
+        CheckConfiguredRoundtrip(table, nullptr, properties);
+
+        ASSERT_OK_AND_ASSIGN(auto buffer,
+                             WriteTableToBuffer(table, table->num_rows(), properties));
+        auto reader =
+            ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+        auto column = reader->metadata()->RowGroup(0)->ColumnChunk(0);
+        ASSERT_TRUE(column->has_symbol_table_page());
+        ASSERT_GT(column->symbol_table_page_offset(), 0);
+        ASSERT_GT(column->symbol_table_page_length(), 0);
+        ASSERT_LT(column->symbol_table_page_offset(), column->data_page_offset());
+        ASSERT_THAT(column->encodings(), ::testing::Contains(Encoding::FSST));
+        ASSERT_THAT(column->encoding_stats(),
+                    ::testing::Contains(::testing::AllOf(
+                        ::testing::Field(&PageEncodingStats::page_type,
+                                         PageType::SYMBOL_TABLE_PAGE),
+                        ::testing::Field(&PageEncodingStats::encoding, Encoding::FSST),
+                        ::testing::Field(&PageEncodingStats::count, 1))));
+      }
+    }
+  }
+
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->encoding(Encoding::FSST)
+                        ->data_pagesize(512)
+                        ->build();
+  std::shared_ptr<Table> multi_row_group_result;
+  ASSERT_NO_FATAL_FAILURE(
+      DoRoundtrip(table, /*row_group_size=*/127, &multi_row_group_result, properties));
+  ::arrow::AssertTablesEqual(*table, *multi_row_group_result);
+}
+
+TEST(FsstEncoding, ArrowNestedRoundTrip) {
+  auto type = ::arrow::list(::arrow::field("item", ::arrow::utf8()));
+  auto values = ::arrow::ArrayFromJSON(
+      type,
+      R"([["https://arrow.apache.org/a", null, "https://arrow.apache.org/b"], null, [], ["https://arrow.apache.org/c"], [null]])");
+  auto table =
+      ::arrow::Table::Make(::arrow::schema({::arrow::field("values", type)}), {values});
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->encoding(Encoding::FSST)
+                        ->data_pagesize(64)
+                        ->enable_write_page_index()
+                        ->build();
+  CheckConfiguredRoundtrip(table, nullptr, properties);
+}
+
+TEST(FsstEncoding, ArrowDictionaryOutput) {
+  ::arrow::StringBuilder values_builder;
+  for (int i = 0; i < 500; ++i) {
+    if (i % 13 == 0) {
+      ASSERT_OK(values_builder.AppendNull());
+    } else {
+      ASSERT_OK(values_builder.Append("https://arrow.apache.org/fsst/value/" +
+                                      std::to_string(i % 31)));
+    }
+  }
+  ASSERT_OK_AND_ASSIGN(auto values, values_builder.Finish());
+  auto table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("value", ::arrow::utf8())}), {values});
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->encoding(Encoding::FSST)
+                        ->data_pagesize(512)
+                        ->build();
+  ASSERT_OK_AND_ASSIGN(auto buffer,
+                       WriteTableToBuffer(table, table->num_rows(), properties));
+
+  ArrowReaderProperties reader_properties;
+  reader_properties.set_read_dictionary(0, true);
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<::arrow::io::BufferReader>(buffer)));
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK(builder.properties(reader_properties)->Build(&reader));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ReadTable());
+  ASSERT_EQ(actual->column(0)->type()->id(), ::arrow::Type::DICTIONARY);
+  ASSERT_EQ(actual->column(0)->num_chunks(), 1);
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Array> decoded,
+      ::arrow::compute::Cast(*actual->column(0)->chunk(0), ::arrow::utf8()));
+  ::arrow::AssertArraysEqual(*values, *decoded);
+}
+
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,

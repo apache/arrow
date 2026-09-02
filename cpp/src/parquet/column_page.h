@@ -180,4 +180,22 @@ class DictionaryPage : public Page {
   bool is_sorted_;
 };
 
+/// A symbol table shared by all FSST-encoded data pages in a column chunk.
+class SymbolTablePage : public Page {
+ public:
+  SymbolTablePage(const std::shared_ptr<Buffer>& buffer,
+                  SymbolTableType::type symbol_table_type, bool is_compressed)
+      : Page(buffer, PageType::SYMBOL_TABLE_PAGE),
+        symbol_table_type_(symbol_table_type),
+        is_compressed_(is_compressed) {}
+
+  SymbolTableType::type symbol_table_type() const { return symbol_table_type_; }
+
+  bool is_compressed() const { return is_compressed_; }
+
+ private:
+  SymbolTableType::type symbol_table_type_;
+  bool is_compressed_;
+};
+
 }  // namespace parquet

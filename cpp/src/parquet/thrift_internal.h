@@ -80,6 +80,10 @@ constexpr PageType::type FromThriftUnsafe(format::PageType::type type) {
   return static_cast<PageType::type>(type);
 }
 
+constexpr SymbolTableType::type FromThriftUnsafe(format::SymbolTableType::type type) {
+  return static_cast<SymbolTableType::type>(type);
+}
+
 constexpr Compression::type FromThriftUnsafe(format::CompressionCodec::type type) {
   switch (type) {
     case format::CompressionCodec::UNCOMPRESSED:
@@ -155,6 +159,11 @@ struct ThriftEnumTypeTraits<::parquet::format::Encoding::type> {
 template <>
 struct ThriftEnumTypeTraits<::parquet::format::PageType::type> {
   using ParquetEnum = PageType;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::SymbolTableType::type> {
+  using ParquetEnum = SymbolTableType;
 };
 
 template <>
@@ -418,6 +427,10 @@ constexpr format::FieldRepetitionType::type ToThrift(Repetition::type type) {
 
 constexpr format::Encoding::type ToThrift(Encoding::type type) {
   return static_cast<format::Encoding::type>(type);
+}
+
+constexpr format::SymbolTableType::type ToThrift(SymbolTableType::type type) {
+  return static_cast<format::SymbolTableType::type>(type);
 }
 
 constexpr format::CompressionCodec::type ToThrift(Compression::type type) {

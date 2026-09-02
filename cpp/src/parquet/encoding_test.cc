@@ -43,6 +43,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
+#include "parquet/fsst_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
@@ -2658,6 +2659,275 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     const std::string suffix_data = "καλημέρα\xbcηλιέρη\xbbημέρα";
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
+}
+
+class FsstEncodingTest : public ::testing::TestWithParam<FsstOffsetEncoding::type> {};
+
+TEST_P(FsstEncodingTest, RoundTrip) {
+  const auto offset_encoding = GetParam();
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, /*max_definition_level=*/0,
+                         /*max_repetition_level=*/0);
+  auto base_encoder = MakeFsstEncoder(&descr, offset_encoding);
+  auto* encoder = dynamic_cast<ByteArrayEncoder*>(base_encoder.get());
+  ASSERT_NE(encoder, nullptr);
+
+  const std::vector<std::string> input = {
+      "https://arrow.apache.org/docs/parquet/fsst/alpha",
+      "https://arrow.apache.org/docs/parquet/fsst/beta",
+      "https://arrow.apache.org/docs/parquet/fsst/gamma",
+      "https://arrow.apache.org/docs/parquet/fsst/alpha",
+      "https://arrow.apache.org/docs/parquet/fsst/beta",
+  };
+  std::vector<ByteArray> parquet_input;
+  for (const auto& value : input) {
+    parquet_input.emplace_back(static_cast<uint32_t>(value.size()),
+                               reinterpret_cast<const uint8_t*>(value.data()));
+  }
+  encoder->Put(parquet_input.data(), static_cast<int>(parquet_input.size()));
+  auto encoded = encoder->FlushValues();
+  ASSERT_EQ(base_encoder->page_encoding(), Encoding::FSST);
+  ASSERT_NE(base_encoder->fsst_symbol_table(), nullptr);
+
+  auto base_decoder =
+      MakeFsstDecoder(&descr, SymbolTableType::FSST, base_encoder->fsst_symbol_table());
+  auto* decoder = dynamic_cast<ByteArrayDecoder*>(base_decoder.get());
+  ASSERT_NE(decoder, nullptr);
+  decoder->SetData(static_cast<int>(input.size()), encoded->data(),
+                   static_cast<int>(encoded->size()));
+  std::vector<ByteArray> output(input.size());
+  ASSERT_EQ(decoder->Decode(output.data(), static_cast<int>(output.size())),
+            output.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    ASSERT_EQ(
+        std::string_view(reinterpret_cast<const char*>(output[i].ptr), output[i].len),
+        input[i]);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(Fsst8WithBothOffsetEncodings, FsstEncodingTest,
+                         ::testing::Values(FsstOffsetEncoding::PLAIN,
+                                           FsstOffsetEncoding::DELTA_BINARY_PACKED));
+
+TEST(FsstEncoding, ConfigurableTrainingPageCount) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  for (const int32_t training_pages : {2, 10, -1}) {
+    auto base_encoder = MakeFsstEncoder(&descr, FsstOffsetEncoding::PLAIN,
+                                        ::arrow::default_memory_pool(), training_pages);
+    auto* encoder = dynamic_cast<ByteArrayEncoder*>(base_encoder.get());
+    ASSERT_NE(encoder, nullptr);
+
+    std::vector<std::string> first_page;
+    std::vector<std::string> second_page;
+    for (int i = 0; i < 100; ++i) {
+      first_page.push_back("https://arrow.apache.org/fsst/first/" +
+                           std::to_string(i % 5));
+      second_page.push_back("https://arrow.apache.org/fsst/second/" +
+                            std::to_string(i % 7));
+    }
+    auto put_page = [&](const std::vector<std::string>& page) {
+      std::vector<ByteArray> values;
+      values.reserve(page.size());
+      for (const auto& value : page) {
+        values.emplace_back(value);
+      }
+      encoder->Put(values.data(), static_cast<int>(values.size()));
+      ASSERT_EQ(encoder->FlushValues(), nullptr);
+    };
+
+    put_page(first_page);
+    ASSERT_FALSE(base_encoder->fsst_training_complete());
+    ASSERT_EQ(base_encoder->num_buffered_fsst_pages(), 1);
+    put_page(second_page);
+    ASSERT_EQ(base_encoder->num_buffered_fsst_pages(), 2);
+    ASSERT_EQ(base_encoder->fsst_training_complete(), training_pages == 2);
+
+    base_encoder->FinishFsstTraining();
+    ASSERT_TRUE(base_encoder->fsst_training_complete());
+    ASSERT_NE(base_encoder->fsst_symbol_table(), nullptr);
+
+    for (const auto* expected : {&first_page, &second_page}) {
+      auto encoded = base_encoder->FlushBufferedFsstPage();
+      ASSERT_EQ(base_encoder->page_encoding(), Encoding::FSST);
+      auto decoder = MakeFsstDecoder(&descr, SymbolTableType::FSST,
+                                     base_encoder->fsst_symbol_table());
+      decoder->SetData(static_cast<int>(expected->size()), encoded->data(),
+                       static_cast<int>(encoded->size()));
+      auto* typed_decoder = dynamic_cast<ByteArrayDecoder*>(decoder.get());
+      ASSERT_NE(typed_decoder, nullptr);
+      std::vector<ByteArray> actual(expected->size());
+      ASSERT_EQ(typed_decoder->Decode(actual.data(), static_cast<int>(actual.size())),
+                actual.size());
+      for (size_t i = 0; i < actual.size(); ++i) {
+        ASSERT_EQ(static_cast<std::string_view>(actual[i]), (*expected)[i]);
+      }
+    }
+    ASSERT_EQ(base_encoder->num_buffered_fsst_pages(), 0);
+  }
+}
+
+TEST(FsstEncoding, FallsBackToPlainWhenEncodingExpandsPage) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+  auto base_encoder = MakeFsstEncoder(&descr, FsstOffsetEncoding::PLAIN);
+  auto* encoder = dynamic_cast<ByteArrayEncoder*>(base_encoder.get());
+  const std::string value = "x";
+  const ByteArray input(static_cast<uint32_t>(value.size()),
+                        reinterpret_cast<const uint8_t*>(value.data()));
+  encoder->Put(&input, 1);
+  const auto encoded = encoder->FlushValues();
+  ASSERT_EQ(base_encoder->page_encoding(), Encoding::PLAIN);
+  ASSERT_EQ(encoded->size(), 5);
+}
+
+TEST(FsstEncoding, EmptyTrainingCorpusCanEncodeLaterValues) {
+  const auto table = internal::FsstSymbolTable::Train(/*values=*/{});
+  ASSERT_LE(table->symbol_count(), 1);
+  ASSERT_GE(table->Serialize(::arrow::default_memory_pool())->size(), 9);
+
+  std::vector<uint8_t> compressed;
+  ASSERT_TRUE(table->Compress("abc", /*max_output_size=*/6, &compressed));
+  ASSERT_EQ(compressed, (std::vector<uint8_t>{0xFF, 'a', 0xFF, 'b', 0xFF, 'c'}));
+
+  std::vector<uint8_t> decompressed;
+  table->Decompress(compressed.data(), compressed.size(), &decompressed);
+  ASSERT_EQ(decompressed, (std::vector<uint8_t>{'a', 'b', 'c'}));
+}
+
+TEST(FsstEncoding, EveryTrainedSymbolIsReachable) {
+  std::vector<std::string> training_values;
+  for (int pattern = 0; pattern < 400; ++pattern) {
+    std::string value = "common-prefix-" + std::to_string(pattern) + "-";
+    value.push_back(static_cast<char>(pattern & 0xFF));
+    value += "-common-suffix";
+    for (int repetition = 0; repetition < 8; ++repetition) {
+      training_values.push_back(value);
+    }
+  }
+
+  const auto table = internal::FsstSymbolTable::Train(training_values);
+  ASSERT_GT(table->symbol_count(), 0);
+  for (uint32_t code = 0; code < table->symbol_count(); ++code) {
+    std::vector<uint8_t> compressed;
+    ASSERT_TRUE(table->Compress(table->symbol(code), /*max_output_size=*/1, &compressed))
+        << "symbol code " << code;
+    ASSERT_EQ(compressed.size(), 1) << "symbol code " << code;
+  }
+}
+
+TEST(FsstEncoding, TrainedTableUsesPortableLengthOrderedLayout) {
+  const std::vector<std::string> training_values = {
+      "https://arrow.apache.org/parquet/fsst/alpha",
+      "https://arrow.apache.org/parquet/fsst/beta",
+      "https://arrow.apache.org/parquet/fsst/gamma"};
+  const auto table = internal::FsstSymbolTable::Train(training_values);
+  const auto body = table->Serialize(::arrow::default_memory_pool());
+
+  ASSERT_EQ(body->data()[0], table->symbol_count());
+  size_t code = 0;
+  size_t symbol_offset = 9;
+  for (size_t length = 1; length <= 8; ++length) {
+    const size_t length_count = body->data()[length];
+    for (size_t i = 0; i < length_count; ++i, ++code) {
+      ASSERT_LT(code, table->symbol_count());
+      ASSERT_EQ(table->symbol(static_cast<uint32_t>(code)).size(), length);
+      ASSERT_EQ(std::memcmp(body->data() + symbol_offset,
+                            table->symbol(static_cast<uint32_t>(code)).data(), length),
+                0);
+      symbol_offset += length;
+    }
+  }
+  ASSERT_EQ(code, table->symbol_count());
+  ASSERT_EQ(symbol_offset, body->size());
+}
+
+TEST(FsstEncoding, DecodesSpecificationExample) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  const std::vector<uint8_t> table = {
+      6,   0,   0,   0,   0,   2,   0,   2,   2,   '/', 'p', 'a', 'g', 'e', '/', 'd', 'a',
+      't', 'a', 'h', 't', 't', 'p', ':', '/', '/', 'e', 'x', 'a', 'm', 'p', 'l', 'e', 'h',
+      't', 't', 'p', 's', ':', '/', '/', 't', 'e', 's', 't', '.', 'c', 'o', 'm'};
+  auto table_buffer = std::make_shared<Buffer>(table.data(), table.size());
+
+  const std::vector<uint8_t> page = {0,            // PLAIN offsets
+                                     4,  0, 0, 0,  // Four physical values
+                                     16, 0, 0, 0,  // Offset section size
+                                     5,  0, 0, 0,  // End offsets
+                                     10, 0, 0, 0,    13,  0,    0,   0, 15, 0,
+                                     0,  0, 4, 3,    0,   0xFF, '1',  // Encoded values
+                                     4,  3, 0, 0xFF, '2', 4,    5,   1, 2,  3};
+  auto decoder = MakeFsstDecoder(&descr, SymbolTableType::FSST, table_buffer);
+  decoder->SetData(4, page.data(), static_cast<int>(page.size()));
+  auto* typed_decoder = dynamic_cast<ByteArrayDecoder*>(decoder.get());
+  ASSERT_NE(typed_decoder, nullptr);
+  std::vector<ByteArray> actual(4);
+  ASSERT_EQ(typed_decoder->Decode(actual.data(), 4), 4);
+  const std::vector<std::string> expected = {"https://example/page1",
+                                             "https://example/page2",
+                                             "https://test.com/data", "http://example"};
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(static_cast<std::string_view>(actual[i]), expected[i]);
+  }
+}
+
+TEST(FsstEncoding, RejectsUnsupportedSymbolTableType) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+  std::vector<uint8_t> table(34, 0);
+  auto table_buffer = std::make_shared<Buffer>(table.data(), table.size());
+  ASSERT_THROW(MakeFsstDecoder(&descr, SymbolTableType::UNDEFINED, table_buffer),
+               ParquetException);
+}
+
+TEST(FsstEncoding, RejectsMalformedTablesAndValues) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  std::vector<uint8_t> invalid_table(9, 0);
+  invalid_table[0] = 1;  // Symbol count does not match the empty histogram.
+  auto invalid_table_buffer =
+      std::make_shared<Buffer>(invalid_table.data(), invalid_table.size());
+  ASSERT_THROW(MakeFsstDecoder(&descr, SymbolTableType::FSST, invalid_table_buffer),
+               ParquetException);
+
+  std::vector<uint8_t> table(10, 0);
+  table[0] = 1;
+  table[1] = 1;
+  table[9] = 'a';
+  auto table_buffer = std::make_shared<Buffer>(table.data(), table.size());
+
+  auto SetSingleCompressedValue = [&](uint8_t code) {
+    std::vector<uint8_t> page(14, 0);
+    page[0] = static_cast<uint8_t>(FsstOffsetEncoding::PLAIN);
+    page[1] = 1;  // One physical value.
+    page[5] = 4;  // Four bytes of PLAIN end offsets.
+    page[9] = 1;  // The only value ends after one compressed byte.
+    page[13] = code;
+    auto decoder = MakeFsstDecoder(&descr, SymbolTableType::FSST, table_buffer);
+    decoder->SetData(1, page.data(), static_cast<int>(page.size()));
+  };
+  ASSERT_THROW(SetSingleCompressedValue(1), ParquetException);     // Invalid code.
+  ASSERT_THROW(SetSingleCompressedValue(0xFF), ParquetException);  // Truncated escape.
+}
+
+TEST(FsstEncoding, RejectsImpossiblePlainOffsetsBeforeAllocation) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+  auto table_buffer = Buffer::FromVector(std::vector<uint8_t>(9, 0));
+  auto decoder = MakeFsstDecoder(&descr, SymbolTableType::FSST, table_buffer);
+
+  std::vector<uint8_t> page(9, 0);
+  page[0] = static_cast<uint8_t>(FsstOffsetEncoding::PLAIN);
+  const int32_t physical_values =
+      ::arrow::bit_util::ToLittleEndian(std::numeric_limits<int32_t>::max());
+  std::memcpy(page.data() + 1, &physical_values, sizeof(physical_values));
+  ASSERT_THROW(decoder->SetData(std::numeric_limits<int32_t>::max(), page.data(),
+                                static_cast<int>(page.size())),
+               ParquetException);
 }
 
 }  // namespace parquet::test
