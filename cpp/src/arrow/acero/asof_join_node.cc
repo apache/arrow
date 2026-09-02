@@ -299,7 +299,7 @@ class InputState final : public util::SerialSequencingQueue::Processor {
 
   FlowAction BatchBuffered();
   FlowAction BatchConsumed();
-  FlowAction Shutdown();
+  void Shutdown();
 
  private:
   FlowAction SetUpstreamPausedUnlocked(bool paused);
@@ -1096,7 +1096,7 @@ class AsofJoinNode : public ExecNode {
   Status StopInputs() {
     Status status = Status::OK();
     for (auto& input_state : input_states_) {
-      input_state->Shutdown().Apply();
+      input_state->Shutdown();
     }
     for (ExecNode* input : inputs_) {
       status &= input->StopProducing();
@@ -1212,16 +1212,13 @@ FlowAction InputState::BatchConsumed() {
                                             : FlowAction{};
 }
 
-FlowAction InputState::Shutdown() {
+void InputState::Shutdown() {
   std::lock_guard lock(flow_mutex_);
   if (shutdown_) {
-    return {};
+    return;
   }
   shutdown_ = true;
-  upstream_paused_ = false;
   buffered_batches_ = 0;
-  // Always send a final, newer resume so a delayed pause cannot strand an input.
-  return {FlowAction::Kind::Resume, input_, node_, ++outgoing_counter_};
 }
 
 bool RhsLane::StreamEndedUnlocked() const {
