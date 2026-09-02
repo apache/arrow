@@ -259,7 +259,7 @@ class InputState final : public util::SerialSequencingQueue::Processor {
 
   FlowAction BatchBuffered();
   FlowAction BatchConsumed();
-  FlowAction Shutdown();
+  void Shutdown();
 
  private:
   FlowAction SetUpstreamPausedUnlocked(bool paused);
@@ -653,7 +653,7 @@ class SortedMergeNode : public ExecNode {
 
   Status FinishNormally() {
     for (auto& input : state_) {
-      input->Shutdown().Apply();
+      input->Shutdown();
     }
     return output_->InputFinished(this, batches_produced_);
   }
@@ -668,7 +668,7 @@ class SortedMergeNode : public ExecNode {
       }
     }
     for (auto& input : state_) {
-      input->Shutdown().Apply();
+      input->Shutdown();
     }
   }
 
@@ -781,16 +781,13 @@ FlowAction InputState::BatchConsumed() {
                                             : FlowAction{};
 }
 
-FlowAction InputState::Shutdown() {
+void InputState::Shutdown() {
   std::lock_guard lock(flow_mutex_);
   if (shutdown_) {
-    return {};
+    return;
   }
   shutdown_ = true;
-  upstream_paused_ = false;
   buffered_batches_ = 0;
-  // Always send a final, newer resume so a delayed pause cannot strand an input.
-  return {FlowAction::Kind::Resume, input_, node_, ++outgoing_counter_};
 }
 
 }  // namespace
