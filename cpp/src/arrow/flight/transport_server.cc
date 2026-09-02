@@ -37,8 +37,10 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
 
 Status ServerTransport::DoPut(const ServerCallContext& context,
                               ServerDataStream* stream) {
-  ARROW_ASSIGN_OR_RAISE(auto reader, MakeMessageReader(stream));
-  auto writer = MakeMetadataWriter(stream);
+  std::unique_ptr<TransportMessageReader> reader(
+      new TransportMessageReader(stream, memory_manager_));
+  std::unique_ptr<FlightMetadataWriter> writer(new TransportMetadataWriter(stream));
+  RETURN_NOT_OK(reader->Init());
   RETURN_NOT_OK(base_->DoPut(context, std::move(reader), std::move(writer)));
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();
@@ -46,8 +48,10 @@ Status ServerTransport::DoPut(const ServerCallContext& context,
 
 Status ServerTransport::DoExchange(const ServerCallContext& context,
                                    ServerDataStream* stream) {
-  ARROW_ASSIGN_OR_RAISE(auto reader, MakeMessageReader(stream));
-  auto writer = MakeMessageWriter(stream);
+  std::unique_ptr<TransportMessageReader> reader(
+      new TransportMessageReader(stream, memory_manager_));
+  std::unique_ptr<FlightMessageWriter> writer(new TransportMessageWriter(stream));
+  RETURN_NOT_OK(reader->Init());
   RETURN_NOT_OK(base_->DoExchange(context, std::move(reader), std::move(writer)));
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();
