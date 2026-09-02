@@ -50,36 +50,6 @@ static Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it)
   return internal::ConsumeJsonValue(value);
 }
 
-static size_t ConsumeWholeObject(const simdjson::padded_string& input) {
-  if (input.size() == 0) {
-    return 0;
-  }
-
-  simdjson::ondemand::parser parser;
-  simdjson::ondemand::document_stream stream;
-
-  if (parser.iterate_many(input).get(stream) != simdjson::SUCCESS) {
-    return std::string_view::npos;
-  }
-
-  auto it = stream.begin();
-  if (it == stream.end()) {
-    return 0;
-  }
-
-  // Force parsing of the first document.
-  if (!ConsumeDocument(it).ok()) {
-    return std::string_view::npos;
-  }
-
-  // current_index() is the start of this document. source() is the
-  // complete source span of the current document.
-  const size_t document_start = it.current_index();
-  const size_t document_length = it.source().size();
-
-  return document_start + document_length;
-}
-
 namespace {
 
 // A BoundaryFinder implementation that assumes JSON objects can contain raw newlines,
@@ -101,13 +71,6 @@ class ParsingBoundaryFinder : public BoundaryFinder {
       input = builder.convert();
     }
 
-    const std::string_view input_view(input.data(), input.size());
-    const size_t start = ConsumeWhitespace(input_view);
-    if (start < input_view.size() && input_view[start] != '{' &&
-        input_view[start] != '[') {
-      return Status::Invalid("JSON chunk error: invalid data at end of document");
-    }
-
     const auto length = ConsumeWholeObject(input);
 
     if (length == std::string_view::npos) {
@@ -125,11 +88,10 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   Status FindLast(std::string_view block, int64_t* out_pos) override {
     size_t consumed_length = 0;
 
-    simdjson::padded_string padded(block);
-    simdjson::ondemand::parser parser;
     simdjson::ondemand::document_stream stream;
 
-    if (parser.iterate_many(padded).get(stream) != simdjson::SUCCESS) {
+    if (parser_.iterate_many(GetPaddedStringView(block)).get(stream) !=
+        simdjson::SUCCESS) {
       *out_pos = -1;
       return Status::OK();
     }
@@ -161,8 +123,50 @@ class ParsingBoundaryFinder : public BoundaryFinder {
                  int64_t* out_pos, int64_t* num_found) override {
     return Status::NotImplemented("ParsingBoundaryFinder::FindNth");
   }
-};
 
+ private:
+  simdjson::ondemand::parser parser_;
+  std::string buffer_;
+
+  simdjson::padded_string_view GetPaddedStringView(std::string_view input) {
+    buffer_.assign(input);
+    if (buffer_.capacity() - buffer_.size() < simdjson::SIMDJSON_PADDING) {
+      buffer_.reserve(buffer_.size() + simdjson::SIMDJSON_PADDING);
+    }
+    return simdjson::padded_string_view(buffer_.data(), buffer_.size(),
+                                        buffer_.capacity());
+  }
+
+  size_t ConsumeWholeObject(std::string_view input) {
+    if (input.size() == 0) {
+      return 0;
+    }
+
+    simdjson::ondemand::document_stream stream;
+
+    if (parser_.iterate_many(GetPaddedStringView(input)).get(stream) !=
+        simdjson::SUCCESS) {
+      return std::string_view::npos;
+    }
+
+    auto it = stream.begin();
+    if (it == stream.end()) {
+      return 0;
+    }
+
+    // Force parsing of the first document.
+    if (!ConsumeDocument(it).ok()) {
+      return std::string_view::npos;
+    }
+
+    // current_index() is the start of this document. source() is the
+    // complete source span of the current document.
+    const size_t document_start = it.current_index();
+    const size_t document_length = it.source().size();
+
+    return document_start + document_length;
+  }
+};
 }  // namespace
 
 std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
