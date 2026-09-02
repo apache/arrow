@@ -55,6 +55,38 @@ file into an executable linked with the Arrow C++ shared library:
    add_executable(my_example my_example.cc)
    target_link_libraries(my_example PRIVATE Arrow::arrow_shared)
 
+.. _cpp-build-system-linking-parquet:
+
+Linking Parquet
+---------------
+
+The Parquet reader and writer used in the :doc:`tutorials/io_tutorial` and the
+:doc:`tutorials/datasets_tutorial` (the ``parquet::arrow`` namespace, declared in
+``parquet/arrow/reader.h`` and ``parquet/arrow/writer.h``) live in a separate
+library, so linking ``Arrow::arrow_shared`` alone is not enough. Look up the
+Parquet package as well and link its target:
+
+.. code-block:: cmake
+
+   cmake_minimum_required(VERSION 3.25)
+
+   project(MyExample)
+
+   find_package(Arrow REQUIRED)
+   find_package(Parquet REQUIRED)
+
+   add_executable(my_example my_example.cc)
+   target_link_libraries(my_example PRIVATE Arrow::arrow_shared
+                                            Parquet::parquet_shared)
+
+Use ``Parquet::parquet_static`` instead if you are linking the static libraries.
+
+The same applies to other Arrow components: each one is a separate package with
+its own target, as described in `Other available packages`_ below. For example,
+the dataset API used in the :doc:`tutorials/datasets_tutorial` requires
+``find_package(ArrowDataset REQUIRED)`` and
+``ArrowDataset::arrow_dataset_shared``.
+
 Available variables and targets
 -------------------------------
 
