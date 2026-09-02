@@ -538,6 +538,7 @@ if needs_json
                 'json/options.cc',
                 'json/parser.cc',
                 'json/reader.cc',
+                'json/writer.cc',
             ],
             'dependencies': [rapidjson_dep, simdjson_dep],
         },
