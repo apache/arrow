@@ -207,7 +207,7 @@ if [ "$RUN_TYPE" = "test" ]; then
   post_process_tests
 fi
 
-if [ "$STATUS" -ne 0 ] ; then
+if [ "$STATUS" -ne 0 ]; then
   print_coredumps
 fi
 
