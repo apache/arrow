@@ -119,7 +119,6 @@ function run_test() {
 }
 
 function print_coredumps() {
-  STATUS=0
   # The script expects core files relative to the build directory with unique
   # names per test executable because of the parallel running. So the corefile
   # patterns must be set with prefix `core.{test-executable}*`:
@@ -141,6 +140,11 @@ function print_coredumps() {
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
   for COREPATH in "/tmp/core.${FILENAME}"*; do
+    # Skip if the glob did not match any core files.
+    if [[ "${COREPATH}" == *\* ]]; then
+      continue
+    fi
+
     if [ ! -e "${COREPATH}" ]; then
       echo "Core file '${COREPATH}' no longer exists. It may have been removed by another process."
       continue
@@ -158,8 +162,6 @@ function print_coredumps() {
     # Remove the coredump, it can be regenerated via running the test case directly
     rm "${COREPATH}"
 
-    # Fail the CI if lldb or gdb was run.
-    STATUS=1
   done
 }
 
@@ -205,7 +207,9 @@ if [ "$RUN_TYPE" = "test" ]; then
   post_process_tests
 fi
 
-print_coredumps
+if [ "$STATUS" -ne 0 ] ; then
+  print_coredumps
+fi
 
 popd
 rm -Rf "$TEST_WORKDIR"
