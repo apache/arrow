@@ -19,10 +19,10 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/io/hdfs.h"
 #include "arrow/util/uri.h"
 
 namespace arrow::fs {
@@ -32,10 +32,7 @@ struct ARROW_EXPORT HdfsOptions {
   HdfsOptions() = default;
   ~HdfsOptions() = default;
 
-  /// Hdfs configuration options, contains host, port, driver
-  io::HdfsConnectionConfig connection_config;
-
-  /// Used by Hdfs OpenWritable Interface.
+  /// Used by OpenOutputStream and OpenAppendStream
   int32_t buffer_size = 0;
   int16_t replication = 3;
   int64_t default_block_size = 0;
@@ -52,12 +49,22 @@ struct ARROW_EXPORT HdfsOptions {
 
   static Result<HdfsOptions> FromUri(const ::arrow::util::Uri& uri);
   static Result<HdfsOptions> FromUri(const std::string& uri);
+
+  const std::string& host() const { return host_; }
+  int port() const { return port_; }
+  const std::string& user() const { return user_; }
+  const std::string& kerb_ticket() const { return kerb_ticket_; }
+  std::unordered_map<std::string, std::string> extra_conf() const { return extra_conf_; }
+
+ private:
+  std::string host_;
+  int port_ = 0;
+  std::string user_;
+  std::string kerb_ticket_;
+  std::unordered_map<std::string, std::string> extra_conf_;
 };
 
 /// HDFS-backed FileSystem implementation.
-///
-/// implementation notes:
-/// - This is a wrapper of arrow/io/hdfs, so we can use FileSystem API to handle hdfs.
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
   ~HadoopFileSystem() override;
@@ -113,5 +120,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
+
+ARROW_EXPORT Status HaveLibHdfs();
 
 }  // namespace arrow::fs

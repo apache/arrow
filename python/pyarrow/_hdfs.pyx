@@ -23,7 +23,20 @@ from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
 from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib cimport check_status
 from pyarrow.util import _stringify_path
+
+
+def _have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
+    try:
+        with nogil:
+            check_status(HaveLibHdfs())
+        return True
+    except Exception:
+        return False
 
 
 cdef class HadoopFileSystem(FileSystem):
@@ -144,14 +157,14 @@ replication=1)``
         cdef CHdfsOptions opts = self.hdfs.options()
         return (
             HadoopFileSystem._reconstruct, (dict(
-                host=frombytes(opts.connection_config.host),
-                port=opts.connection_config.port,
-                user=frombytes(opts.connection_config.user),
+                host=frombytes(opts.host()),
+                port=opts.port(),
+                user=frombytes(opts.user()),
                 replication=opts.replication,
                 buffer_size=opts.buffer_size,
                 default_block_size=opts.default_block_size,
-                kerb_ticket=frombytes(opts.connection_config.kerb_ticket),
+                kerb_ticket=frombytes(opts.kerb_ticket()),
                 extra_conf={frombytes(k): frombytes(v)
-                            for k, v in opts.connection_config.extra_conf},
+                            for k, v in opts.extra_conf()},
             ),)
         )
