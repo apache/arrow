@@ -47,6 +47,23 @@ int64_t LogicalNullCount(const ArraySpan& span) {
   return null_count;
 }
 
+template <typename RunEndCType>
+void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
+                        bool set_on_null) {
+  const auto& values = ValuesArray(span);
+  const auto& values_bitmap = values.buffers[0].data;
+
+  RunEndEncodedArraySpan<RunEndCType> ree_span(span);
+  auto end = ree_span.end();
+  for (auto it = ree_span.begin(); it != end; ++it) {
+    const bool is_null =
+        values_bitmap &&
+        !bit_util::GetBit(values_bitmap, values.offset + it.index_into_array());
+    bit_util::SetBitsTo(out_bitmap, out_offset, it.run_length(), set_on_null == is_null);
+    out_offset += it.run_length();
+  }
+}
+
 }  // namespace
 
 int64_t LogicalNullCount(const ArraySpan& span) {
@@ -59,6 +76,19 @@ int64_t LogicalNullCount(const ArraySpan& span) {
   }
   DCHECK_EQ(type_id, Type::INT64);
   return LogicalNullCount<int64_t>(span);
+}
+
+void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
+                        bool set_on_null) {
+  const auto type_id = RunEndsArray(span).type->id();
+  if (type_id == Type::INT16) {
+    SetLogicalNullBits<int16_t>(span, out_bitmap, out_offset, set_on_null);
+  } else if (type_id == Type::INT32) {
+    SetLogicalNullBits<int32_t>(span, out_bitmap, out_offset, set_on_null);
+  } else {
+    DCHECK_EQ(type_id, Type::INT64);
+    SetLogicalNullBits<int64_t>(span, out_bitmap, out_offset, set_on_null);
+  }
 }
 
 namespace internal {
