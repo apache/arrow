@@ -139,23 +139,25 @@ function print_coredumps() {
   FILENAME=$(basename "${TEST_EXECUTABLE}")
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
-  COREFILES=$(find /tmp -maxdepth 1 -type f -name "core.${FILENAME}*" -exec basename {} \;)
-  if [ -n "$COREFILES" ]; then
-    for COREFILE in $COREFILES; do
-      COREPATH="/tmp/${COREFILE}"
-      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-      echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
-      # Print backtrace
-      if [ "$(uname)" == "Darwin" ]; then
-        lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
-      else
-        gdb -c "${COREPATH}" "$TEST_EXECUTABLE" -ex "thread apply all bt" -ex "set pagination 0" -batch
-      fi
-      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-      # Remove the coredump, it can be regenerated via running the test case directly
-      rm "${COREPATH}"
-    done
-  fi
+  for COREPATH in "/tmp/core.${FILENAME}"*; do
+    # Skip if the glob did not match any core files or the core file has been removed by another process.
+    if [ ! -e "${COREPATH}" ]; then
+      continue
+    fi
+
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
+    # Print backtrace
+    if [ "$(uname)" == "Darwin" ]; then
+      lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
+    else
+      gdb -c "${COREPATH}" "$TEST_EXECUTABLE" -ex "thread apply all bt" -ex "set pagination 0" -batch
+    fi
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    # Remove the coredump, it can be regenerated via running the test case directly
+    rm "${COREPATH}"
+
+  done
 }
 
 function post_process_tests() {
@@ -200,7 +202,9 @@ if [ "$RUN_TYPE" = "test" ]; then
   post_process_tests
 fi
 
-print_coredumps
+if [ "$STATUS" -ne 0 ]; then
+  print_coredumps
+fi
 
 popd
 rm -Rf "$TEST_WORKDIR"
