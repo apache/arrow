@@ -225,7 +225,9 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
                   const std::string& command) {
   // Make sure the required extension types are registered, as they will be
   // referenced in test data.
-  ExtensionTypeGuard ext_guard({uuid(), dict_extension_type()});
+  ExtensionTypeGuard ext_guard({uuid(), dict_extension_type(),
+                                dense_union_extension_type(),
+                                sparse_union_extension_type()});
 
   if (json_path == "") {
     return Status::Invalid("Must specify json file name");

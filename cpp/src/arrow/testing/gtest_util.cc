@@ -1092,6 +1092,20 @@ std::shared_ptr<Array> ExampleComplex128() {
   return ExtensionType::WrapArray(complex128(), arr);
 }
 
+std::shared_ptr<Array> ExampleDenseUnionExtension() {
+  auto type = dense_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  return ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
+}
+
+std::shared_ptr<Array> ExampleSparseUnionExtension() {
+  auto type = sparse_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  return ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
+}
+
 ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type)
     : ExtensionTypeGuard(DataTypeVector{type}) {}
 
