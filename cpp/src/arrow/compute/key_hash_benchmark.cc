@@ -69,6 +69,8 @@ static void KeyHashIntegers32(benchmark::State& state) {  // NOLINT non-const re
   while (state.KeepRunning()) {
     compute::Hashing32::HashMultiColumn(
         columns, &hash_ctx, reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
+    benchmark::DoNotOptimize(hash_buffer->mutable_data());
+    benchmark::ClobberMemory();
   }
 
   state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int32_t));
@@ -102,6 +104,8 @@ static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const re
   while (state.KeepRunning()) {
     compute::Hashing64::HashMultiColumn(
         columns, &hash_ctx, reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
+    benchmark::DoNotOptimize(hash_buffer->mutable_data());
+    benchmark::ClobberMemory();
   }
 
   state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int64_t));
