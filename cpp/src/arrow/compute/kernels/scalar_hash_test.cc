@@ -1301,6 +1301,26 @@ TEST_F(TestScalarHash, UnsupportedTypes) {
   }
 }
 
+// Same as above, but for an unsupported type nested inside a supported one: only the
+// top-level id was checked, so the child slipped past dispatch and failed deep inside
+// ToColumnArray with a raw TypeError instead of a clean NotImplemented.
+TEST_F(TestScalarHash, UnsupportedNestedChildType) {
+  auto types = {list(binary_view()),
+                large_list(utf8_view()),
+                fixed_size_list(binary_view(), 2),
+                struct_({field("a", int64()), field("b", binary_view())}),
+                list(struct_({field("a", list_view(int64()))})),
+                map(int64(), run_end_encoded(int16(), utf8()))};
+  for (const auto& type : types) {
+    ARROW_SCOPED_TRACE("type: ", type->ToString());
+    // Dispatch rejects these before touching data, so an all-null array suffices (and
+    // unlike ArrayFromJSON it can represent every type here).
+    ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(type, 1));
+    ASSERT_RAISES(NotImplemented, CallFunction("hash32", {arr}));
+    ASSERT_RAISES(NotImplemented, CallFunction("hash64", {arr}));
+  }
+}
+
 // HashableMatcher only saw the top-level EXTENSION type id, so an extension wrapping
 // an unsupported storage type (e.g. binary_view) passed dispatch and only failed
 // later with a raw TypeError from ToColumnArray instead of a clean NotImplemented.

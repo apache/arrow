@@ -399,9 +399,19 @@ class HashableMatcher : public TypeMatcher {
         break;
       }
     }
-    return !(is_union(*physical_type) || is_binary_view_like(*physical_type) ||
-             is_list_view(*physical_type) ||
-             physical_type->id() == Type::RUN_END_ENCODED);
+    if (is_union(*physical_type) || is_binary_view_like(*physical_type) ||
+        is_list_view(*physical_type) || physical_type->id() == Type::RUN_END_ENCODED) {
+      return false;
+    }
+    // A nested type is hashable only if every child is: otherwise an unsupported child
+    // (e.g. list<binary_view>) passes dispatch on its top-level id alone and then fails
+    // deep inside ToColumnArray, exactly as an extension's storage type used to.
+    for (const auto& child_field : physical_type->fields()) {
+      if (!Matches(*child_field->type())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool Equals(const TypeMatcher& other) const override {
