@@ -288,15 +288,14 @@ struct FlowAction {
 
 class AsofJoinNode;
 
-class InputState final : public util::SequencingQueue::Processor {
+class InputState final : public util::SerialSequencingQueue::Processor {
  public:
   InputState(AsofJoinNode* node, size_t index, ExecNode* input, col_index_t on_key,
              std::vector<col_index_t> by_keys,
              std::optional<NullPlacement> null_placement);
 
   Status InsertBatch(ExecBatch batch);
-  Result<std::optional<Task>> Process(ExecBatch token) override;
-  void Schedule(Task task) override;
+  Status Process(ExecBatch batch) override;
 
   FlowAction BatchBuffered();
   FlowAction BatchConsumed();
@@ -314,10 +313,7 @@ class InputState final : public util::SequencingQueue::Processor {
   ExecNode* input_;
   col_index_t on_key_;
   std::vector<col_index_t> by_keys_;
-  std::unique_ptr<util::SequencingQueue> sequencer_;
-
-  std::mutex prepared_mutex_;
-  std::unordered_map<int64_t, std::shared_ptr<PreparedBatch>> prepared_;
+  std::unique_ptr<util::SerialSequencingQueue> sequencer_;
 
   std::optional<OnType> last_time_;
   std::optional<NullPlacement> null_placement_;
@@ -1005,25 +1001,27 @@ class AsofJoinNode : public ExecNode {
   Status OnLeftSequenced(std::shared_ptr<PreparedBatch> batch) {
     std::vector<Task> tasks;
     bool finish = false;
+    bool consume = false;
     {
       std::lock_guard lock(coordinator_mutex_);
       if (std::holds_alternative<Terminal>(coordinator_)) {
-        // This callback runs under SequencingQueue's mutex.  Defer flow-control
-        // callbacks until that mutex has been released, since an upstream resume may
-        // synchronously produce another batch.
-        Schedule([this] {
-          InputBatchConsumed(0);
-          return Status::OK();
-        });
-        return Status::OK();
+        consume = true;
+      } else {
+        ++left_received_batches_;
+        if (left_total_batches_ && left_received_batches_ > *left_total_batches_) {
+          return Status::Invalid(
+              "AsofJoin left input produced more batches than declared");
+        }
+        left_batches_.push_back(std::move(batch));
+        MaybeEnterFlushingUnlocked();
+        ARROW_RETURN_NOT_OK(ActivateOrFinishUnlocked(&tasks, &finish));
       }
-      ++left_received_batches_;
-      if (left_total_batches_ && left_received_batches_ > *left_total_batches_) {
-        return Status::Invalid("AsofJoin left input produced more batches than declared");
-      }
-      left_batches_.push_back(std::move(batch));
-      MaybeEnterFlushingUnlocked();
-      ARROW_RETURN_NOT_OK(ActivateOrFinishUnlocked(&tasks, &finish));
+    }
+    if (consume) {
+      // Flow-control callbacks may synchronously produce another batch, so keep them
+      // outside the coordinator mutex.
+      InputBatchConsumed(0);
+      return Status::OK();
     }
     DCHECK(!finish);
     // If this batch opened a generation, post work for every RHS lane.  RHS arrival,
@@ -1133,63 +1131,34 @@ InputState::InputState(AsofJoinNode* node, size_t index, ExecNode* input,
       input_(input),
       on_key_(on_key),
       by_keys_(std::move(by_keys)),
-      sequencer_(util::SequencingQueue::Make(this)),
+      sequencer_(util::SerialSequencingQueue::Make(this)),
       null_placement_(null_placement) {}
 
 Status InputState::InsertBatch(ExecBatch batch) {
   if (batch.index == compute::kUnsequencedIndex) {
     return Status::Invalid("AsofJoin requires sequenced input");
   }
-  const int64_t index = batch.index;
-  const int64_t length = batch.length;
+  return sequencer_->InsertBatch(std::move(batch));
+}
+
+Status InputState::Process(ExecBatch batch) {
+  if (node_->IsTerminal()) {
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto prepared,
                         PrepareBatch(std::move(batch), on_key_, by_keys_,
                                      node_->plan()->query_context()->exec_context()));
-  {
-    std::lock_guard lock(prepared_mutex_);
-    if (!prepared_.emplace(index, std::move(prepared)).second) {
-      return Status::Invalid("AsofJoin received duplicate batch index ", index,
-                             " on input ", index_);
-    }
-  }
-  ExecBatch token({}, length);
-  token.index = index;
-  return sequencer_->InsertBatch(std::move(token));
-}
-
-Result<std::optional<Task>> InputState::Process(ExecBatch token) {
-  std::shared_ptr<PreparedBatch> prepared;
-  {
-    std::lock_guard lock(prepared_mutex_);
-    auto it = prepared_.find(token.index);
-    if (it == prepared_.end()) {
-      return Status::Invalid("AsofJoin lost prepared batch ", token.index, " on input ",
-                             index_);
-    }
-    prepared = std::move(it->second);
-    prepared_.erase(it);
-  }
-  Status validation = ValidateTimes(*prepared);
-  if (!validation.ok()) {
-    return validation;
-  }
+  ARROW_RETURN_NOT_OK(ValidateTimes(*prepared));
 
   // Only sequenced batches count toward backpressure.  Counting physical arrivals can
   // deadlock with a reordering input: the high watermark may be reached by later
-  // batches while that input still holds the missing earlier batch.  Apply the action
-  // from the follow-up task because Process runs under SequencingQueue's mutex.
+  // batches while that input still holds the missing earlier batch.
   FlowAction buffered = BatchBuffered();
   ARROW_ASSIGN_OR_RAISE(auto task, node_->OnSequenced(index_, std::move(prepared)));
-  if (buffered.kind == FlowAction::Kind::None) {
-    return task;
-  }
-  return Task([buffered, task = std::move(task)]() mutable {
-    buffered.Apply();
-    return task ? std::move(*task)() : Status::OK();
-  });
+  buffered.Apply();
+  return task ? std::move(*task)() : Status::OK();
 }
-
-void InputState::Schedule(Task task) { node_->Schedule(std::move(task)); }
 
 Status InputState::ValidateTimes(const PreparedBatch& batch) {
   for (const auto& time : batch.times) {
