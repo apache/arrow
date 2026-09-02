@@ -35,14 +35,6 @@ namespace arrow::flight::transport::grpc {
 using MiddlewareFactoryList =
     std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>;
 
-ARROW_FLIGHT_EXPORT
-::grpc::Status FinishGrpcServerStatus(const Status& arrow_status,
-                                      ::grpc::ServerContext* context);
-
-ARROW_FLIGHT_EXPORT
-::grpc::Status FinishGrpcServerStatus(const Status& arrow_status,
-                                      ::grpc::CallbackServerContext* context);
-
 template <typename GrpcContext>
 class GrpcAddServerHeaders : public AddCallHeaders {
  public:
@@ -86,7 +78,7 @@ class GrpcServerCallContext : public ServerCallContext {
     for (const auto& instance : middleware_) {
       instance->CallCompleted(status);
     }
-    return FinishGrpcServerStatus(status, context_);
+    return ToGrpcStatus(status, context_);
   }
 
   void AddHeader(const std::string& key, const std::string& value) const override {

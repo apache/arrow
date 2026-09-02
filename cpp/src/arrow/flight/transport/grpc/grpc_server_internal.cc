@@ -21,19 +21,7 @@
 
 #include <grpcpp/support/server_callback.h>
 
-#include "arrow/flight/transport/grpc/customize_grpc.h"
-
 namespace arrow::flight::transport::grpc {
-
-::grpc::Status FinishGrpcServerStatus(const Status& arrow_status,
-                                      ::grpc::ServerContext* context) {
-  return ToGrpcStatus(arrow_status, context);
-}
-
-::grpc::Status FinishGrpcServerStatus(const Status& arrow_status,
-                                      ::grpc::CallbackServerContext* context) {
-  return ToGrpcStatus(arrow_status, context);
-}
 
 Status AddServerListeningPort(const FlightServerOptions& options,
                               const arrow::util::Uri& uri, ::grpc::ServerBuilder* builder,
