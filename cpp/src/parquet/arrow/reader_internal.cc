@@ -451,16 +451,18 @@ template <typename ArrowType, typename ParquetType>
 std::shared_ptr<Array> TransferZeroCopy(
     RecordReader* reader, std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
     const ReaderContext* ctx, const std::shared_ptr<Field>& field) {
+  // Releasing the buffers resets values_written(), so read the length first.
+  const int64_t length = reader->values_written();
   std::shared_ptr<::arrow::ArrayData> data;
   if (field->nullable()) {
     std::vector<std::shared_ptr<Buffer>> buffers = {reader->ReleaseIsValid(),
                                                     reader->ReleaseValues()};
-    data = std::make_shared<::arrow::ArrayData>(field->type(), reader->values_written(),
-                                                std::move(buffers), reader->null_count());
+    data = std::make_shared<::arrow::ArrayData>(field->type(), length, std::move(buffers),
+                                                reader->null_count());
   } else {
     std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, reader->ReleaseValues()};
-    data = std::make_shared<::arrow::ArrayData>(field->type(), reader->values_written(),
-                                                std::move(buffers), /*null_count=*/0);
+    data = std::make_shared<::arrow::ArrayData>(field->type(), length, std::move(buffers),
+                                                /*null_count=*/0);
   }
   AttachStatistics<ArrowType, ParquetType>(data.get(), std::move(metadata), ctx);
   return ::arrow::MakeArray(std::move(data));
