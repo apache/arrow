@@ -140,13 +140,7 @@ function print_coredumps() {
   FILENAME=$(basename "${TEST_EXECUTABLE}")
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
-  COREFILES=(/tmp/"core.${FILENAME}"*)
-  # Clear the array if no core files match the pattern.
-  if [[ "${COREFILES[0]}" == *\* ]]; then
-    COREFILES=()
-  fi
-
-  for COREPATH in "${COREFILES[@]}"; do
+  for COREPATH in "/tmp/core.${FILENAME}"*; do
     if [ ! -e "${COREPATH}" ]; then
       echo "Core file '${COREPATH}' no longer exists. It may have been removed by another process."
       continue
