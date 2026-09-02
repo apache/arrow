@@ -119,6 +119,7 @@ function run_test() {
 }
 
 function print_coredumps() {
+  STATUS=0
   # The script expects core files relative to the build directory with unique
   # names per test executable because of the parallel running. So the corefile
   # patterns must be set with prefix `core.{test-executable}*`:
@@ -139,23 +140,33 @@ function print_coredumps() {
   FILENAME=$(basename "${TEST_EXECUTABLE}")
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
-  COREFILES=$(find /tmp -maxdepth 1 -type f -name "core.${FILENAME}*" -exec basename {} \;)
-  if [ -n "$COREFILES" ]; then
-    for COREFILE in $COREFILES; do
-      COREPATH="/tmp/${COREFILE}"
-      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-      echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
-      # Print backtrace
-      if [ "$(uname)" == "Darwin" ]; then
-        lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
-      else
-        gdb -c "${COREPATH}" "$TEST_EXECUTABLE" -ex "thread apply all bt" -ex "set pagination 0" -batch
-      fi
-      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-      # Remove the coredump, it can be regenerated via running the test case directly
-      rm "${COREPATH}"
-    done
+  COREFILES=(/tmp/"core.${FILENAME}"*)
+  # Clear the array if no core files match the pattern.
+  if [ ! -e "${COREFILES[0]}" ]; then
+    COREFILES=()
   fi
+
+  for COREPATH in "${COREFILES[@]}"; do
+    if [ ! -e "${COREPATH}" ]; then
+      echo "Core file '${COREPATH}' no longer exists. It may have been removed by another process."
+      continue
+    fi
+
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
+    # Print backtrace
+    if [ "$(uname)" == "Darwin" ]; then
+      lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
+    else
+      gdb -c "${COREPATH}" "$TEST_EXECUTABLE" -ex "thread apply all bt" -ex "set pagination 0" -batch
+    fi
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    # Remove the coredump, it can be regenerated via running the test case directly
+    rm "${COREPATH}"
+
+    # Fail the CI if lldb or gdb was run.
+    STATUS=1
+  done
 }
 
 function post_process_tests() {
