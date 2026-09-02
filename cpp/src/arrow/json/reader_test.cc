@@ -767,13 +767,13 @@ TEST_P(StreamingReaderTest, PropagateErrorsNonLinewiseChunker) {
   // the parser or the chunker on the next read.
   auto status = reader->ReadNext(&batch);
   if (status.ok()) {
-    status = reader->ReadNext(&batch);
+    ASSERT_RAISES_WITH_MESSAGE(INVALID,
+                               ::testing::StartsWith("Invalid: JSON parse error"),
+                               reader->ReadNext(&batch));
+  } else {
+    ASSERT_RAISES_WITH_MESSAGE(
+        INVALID, ::testing::StartsWith("Invalid: JSON chunk error"), status);
   }
-  ASSERT_FALSE(status.ok());
-  EXPECT_TRUE(status.IsInvalid());
-  EXPECT_THAT(status.ToStringWithoutContextLines(),
-              ::testing::AnyOf(::testing::StartsWith("Invalid: JSON parse error"),
-                               ::testing::StartsWith("Invalid: JSON chunk error")));
 
   AssertReadEnd(reader);
   AssertReadEnd(reader);

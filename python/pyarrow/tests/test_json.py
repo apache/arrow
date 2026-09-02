@@ -528,12 +528,13 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
             'n': [1]
         }
 
-        try:
-            reader.read_next_batch()
-        except pa.ArrowInvalid:
-            pass
+        if self.use_threads:
+            # The first read may not raise an error with threads due to readahead.
+            with pytest.raises(pa.ArrowInvalid, match="JSON (parse|chunk) error"):
+                reader.read_next_batch()
+                reader.read_next_batch()
         else:
-            with pytest.raises(pa.ArrowInvalid):
+            with pytest.raises(pa.ArrowInvalid, match="JSON parse error"):
                 reader.read_next_batch()
 
         with pytest.raises(StopIteration):
