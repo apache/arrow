@@ -140,13 +140,8 @@ function print_coredumps() {
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
   for COREPATH in "/tmp/core.${FILENAME}"*; do
-    # Skip if the glob did not match any core files.
-    if [[ "${COREPATH}" == *\* ]]; then
-      continue
-    fi
-
+    # Skip if the glob did not match any core files or the core file has been removed by another process.
     if [ ! -e "${COREPATH}" ]; then
-      echo "Core file '${COREPATH}' no longer exists. It may have been removed by another process."
       continue
     fi
 
