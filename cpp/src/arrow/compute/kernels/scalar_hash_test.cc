@@ -498,6 +498,37 @@ TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryRowsHashEqually) {
   }
 }
 
+// The same zero-width hazard, but as a struct field: a struct's non-nested children go
+// straight to ToColumnArray, bypassing HashArray's dedicated zero-width branch, so the
+// nonexistent-bit read came back for struct<fixed_size_binary(0)>.
+TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryStructFieldHashesEqually) {
+  auto single = ArrayFromJSON(struct_({field("f0", fixed_size_binary(0))}),
+                              R"([{"f0": ""}, {"f0": ""}, {"f0": ""}, {"f0": ""}])");
+  // Alongside a real field, so the zero-width column is one of several in
+  // HashMultiColumn.
+  auto paired =
+      ArrayFromJSON(struct_({field("f0", fixed_size_binary(0)), field("f1", int32())}),
+                    R"([{"f0": "", "f1": 7}, {"f0": "", "f1": 7}, {"f0": "", "f1": 7},
+          {"f0": "", "f1": 7}])");
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& input : {single, paired}) {
+      ARROW_SCOPED_TRACE("type: ", input->type()->ToString(), " func: ", func);
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {input}));
+      auto hashes = result.make_array();
+      ASSERT_OK_AND_ASSIGN(auto first, hashes->GetScalar(0));
+      for (int64_t i = 1; i < hashes->length(); i++) {
+        ASSERT_OK_AND_ASSIGN(auto other, hashes->GetScalar(i));
+        ASSERT_TRUE(first->Equals(*other))
+            << "row " << i << " holds the same values as row 0 and must hash the same";
+      }
+      auto sliced = input->Slice(2, 2);
+      ASSERT_OK_AND_ASSIGN(Datum sliced_result, CallFunction(func, {sliced}));
+      AssertArraysEqual(*sliced_result.make_array(), *hashes->Slice(2, 2));
+    }
+  }
+}
+
 TEST_F(TestScalarHash, RandomPrimitive) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {int8(),

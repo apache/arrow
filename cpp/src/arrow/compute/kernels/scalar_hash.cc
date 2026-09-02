@@ -86,12 +86,18 @@ Result<KeyColumnArray> ToColumnArray(const ArraySpan& array) {
                         var_length_buffer);
 }
 
-// Whether HashArray must handle `type_id` itself rather than passing it to
+// Whether HashArray must handle `type` itself rather than passing it to
 // ToColumnArray/HashMultiColumn. Broader than is_nested(): EXTENSION and DICTIONARY
 // aren't nested, but ToColumnArray has no case for either (and hashing a dictionary's
-// raw indices would be wrong anyway).
-bool NeedsRecursiveHash(Type::type type_id) {
-  return type_id == Type::EXTENSION || type_id == Type::DICTIONARY || is_nested(type_id);
+// raw indices would be wrong anyway). A zero-width fixed_size_binary isn't nested
+// either, but ToColumnArray can only describe it as a fixed-width column of length 0 --
+// exactly how a bit-packed boolean is encoded -- so HashMultiColumn would take each
+// row's hash from a bit that doesn't exist (see HashArray's dedicated branch).
+bool NeedsRecursiveHash(const DataType& type) {
+  auto type_id = type.id();
+  return type_id == Type::EXTENSION || type_id == Type::DICTIONARY ||
+         is_nested(type_id) ||
+         (type_id == Type::FIXED_SIZE_BINARY && type.byte_width() == 0);
 }
 
 // Writes `array`'s own validity into `out_validity` (a fresh 0-offset bitmap), rebasing
@@ -174,7 +180,7 @@ struct FastHashScalar {
       // `child` may have its own offset independent of the struct's (see
       // StructArray::GetFlattenedField): struct row r reads child row
       // (child.offset + array.offset + r).
-      if (NeedsRecursiveHash(child.type->id())) {
+      if (NeedsRecursiveHash(*child.type)) {
         // StructArray::Slice() doesn't reslice child_data, so `child` may be larger
         // than this slice of `array` references -- hash only the referenced range.
         ARROW_ASSIGN_OR_RAISE(child_hashes[i],
@@ -283,7 +289,7 @@ struct FastHashScalar {
       std::fill(out, out + array.length, Hasher::CombineHashes(0, 0));
       WriteOwnValidity(array, out_validity);
       return Status::OK();
-    } else if (!NeedsRecursiveHash(type_id)) {
+    } else if (!NeedsRecursiveHash(*array.type)) {
       ARROW_ASSIGN_OR_RAISE(auto column, ToColumnArray(array));
       std::vector<KeyColumnArray> columns{column.Slice(array.offset, array.length)};
       Hasher::HashMultiColumn(columns, hash_ctx, out);
