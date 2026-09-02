@@ -24,7 +24,6 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/array/builder_primitive.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/hashing.h"
 
