@@ -128,12 +128,14 @@ FlightSqlClient::FlightSqlClient(std::shared_ptr<FlightClient> client)
 
 PreparedStatement::PreparedStatement(FlightSqlClient* client, std::string handle,
                                      std::shared_ptr<Schema> dataset_schema,
-                                     std::shared_ptr<Schema> parameter_schema)
+                                     std::shared_ptr<Schema> parameter_schema,
+                                     bool is_update)
     : client_(client),
       handle_(std::move(handle)),
       dataset_schema_(std::move(dataset_schema)),
       parameter_schema_(std::move(parameter_schema)),
-      is_closed_(false) {}
+      is_closed_(false),
+      is_update_(is_update) {}
 
 PreparedStatement::~PreparedStatement() {
   if (IsClosed()) return;
@@ -632,7 +634,8 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
   auto handle = prepared_statement_result.prepared_statement_handle();
 
   return std::make_shared<PreparedStatement>(client, handle, dataset_schema,
-                                             parameter_schema);
+                                             parameter_schema,
+                                             prepared_statement_result.is_update());
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
@@ -699,6 +702,8 @@ Status PreparedStatement::SetParameters(
 }
 
 bool PreparedStatement::IsClosed() const { return is_closed_; }
+
+bool PreparedStatement::is_update() const { return is_update_; }
 
 const std::shared_ptr<Schema>& PreparedStatement::dataset_schema() const {
   return dataset_schema_;
