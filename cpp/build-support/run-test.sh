@@ -142,7 +142,7 @@ function print_coredumps() {
 
   COREFILES=(/tmp/"core.${FILENAME}"*)
   # Clear the array if no core files match the pattern.
-  if [ ! -e "${COREFILES[0]}" ]; then
+  if [[ "${COREFILES[0]}" == *\* ]]; then
     COREFILES=()
   fi
 
