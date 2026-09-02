@@ -3709,6 +3709,10 @@ TEST(TestCoalesce, DispatchBest) {
                     {decimal256(3, 2), decimal256(3, 2)});
   CheckDispatchBest("coalesce", {decimal256(3, 2), decimal128(3, 2)},
                     {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {decimal256(4, 1), decimal128(3, 2)},
+                    {decimal256(5, 2), decimal256(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(4, 1)},
+                    {decimal256(5, 2), decimal256(5, 2)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), date32()},
                     {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
@@ -3735,6 +3739,8 @@ TEST(TestCoalesce, DispatchExact) {
   CheckDispatchExactFails("coalesce", {decimal128(4, 3), decimal128(3, 2)});
   CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(3, 2)});
   CheckDispatchExactFails("coalesce", {decimal256(3, 2), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal256(4, 1), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(4, 1)});
 }
 
 template <typename Type>

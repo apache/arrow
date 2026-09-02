@@ -942,7 +942,7 @@ TEST(Expression, BindWithImplicitCastsForCoalesceOnDecimal) {
   auto exciting_schema = schema(
       {field("dec128_3_2", decimal128(3, 2)), field("dec128_4_1", decimal128(4, 1)),
        field("dec128_4_2", decimal128(4, 2)), field("dec128_4_3", decimal128(4, 3)),
-       field("dec256_3_2", decimal256(3, 2))});
+       field("dec256_3_2", decimal256(3, 2)), field("dec256_4_1", decimal256(4, 1))});
 
   ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_2")}),
                 call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(4, 2)),
@@ -975,6 +975,14 @@ TEST(Expression, BindWithImplicitCastsForCoalesceOnDecimal) {
   ExpectBindsTo(call("coalesce", {field_ref("dec256_3_2"), field_ref("dec128_3_2")}),
                 call("coalesce", {field_ref("dec256_3_2"),
                                   cast(field_ref("dec128_3_2"), decimal256(3, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec256_4_1"), field_ref("dec128_3_2")}),
+                call("coalesce", {cast(field_ref("dec256_4_1"), decimal256(5, 2)),
+                                  cast(field_ref("dec128_3_2"), decimal256(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec256_4_1")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal256(5, 2)),
+                                  cast(field_ref("dec256_4_1"), decimal256(5, 2))}),
                 /*bound_out=*/nullptr, *exciting_schema);
 }
 
