@@ -2471,6 +2471,10 @@ TYPED_TEST(TestStringKernels, TrimUTF8) {
                    "[\"zȺz矢ba\", null, \"\", \"zȺz\"]", &options);
   this->CheckUnary("utf8_rtrim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
                    "[\"azȺz矢\", null, \"\", \"zȺz\"]", &options);
+  this->CheckUnary("utf8_trim",
+                   ArrayFromJSON(dictionary(int32(), this->type()),
+                                 R"(["azȺz矢ba", null, "bab", "zȺz"])"),
+                   this->type(), R"(["zȺz矢", null, "", "zȺz"])", &options);
 
   options = TrimOptions{"ȺA"};
   this->CheckUnary("utf8_trim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
