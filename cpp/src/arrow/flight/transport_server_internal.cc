@@ -61,99 +61,89 @@ class TransportIpcMessageReader : public ipc::MessageReader {
   bool stream_finished_ = false;
 };
 
-/// \brief Adapt TransportDataStream to the FlightMessageReader
-///   interface for DoPut.
-class TransportMessageReader final : public FlightMessageReader {
- public:
-  TransportMessageReader(ServerDataStream* stream,
-                         std::shared_ptr<MemoryManager> memory_manager)
-      : peekable_reader_(new PeekableFlightDataReader(stream)),
-        memory_manager_(std::move(memory_manager)) {}
+}  // namespace
 
-  Status Init() {
-    // Peek the first message to get the descriptor.
-    FlightData* data;
-    peekable_reader_->Peek(&data);
-    if (!data) {
-      return Status::IOError("Stream finished before first message sent");
-    }
-    if (!data->descriptor) {
-      return Status::IOError("Descriptor missing on first message");
-    }
-    descriptor_ = *data->descriptor;
-    // If there's a schema (=DoPut), also Open().
-    if (data->metadata) {
-      return EnsureDataStarted();
-    }
-    peekable_reader_->Next(&data);
-    return Status::OK();
+TransportMessageReader::TransportMessageReader(
+    ServerDataStream* stream, std::shared_ptr<MemoryManager> memory_manager)
+    : peekable_reader_(new PeekableFlightDataReader(stream)),
+      memory_manager_(std::move(memory_manager)) {}
+
+Status TransportMessageReader::Init() {
+  // Peek the first message to get the descriptor.
+  FlightData* data;
+  peekable_reader_->Peek(&data);
+  if (!data) {
+    return Status::IOError("Stream finished before first message sent");
   }
-
-  const FlightDescriptor& descriptor() const override { return descriptor_; }
-
-  arrow::Result<std::shared_ptr<Schema>> GetSchema() override {
-    RETURN_NOT_OK(EnsureDataStarted());
-    return batch_reader_->schema();
+  if (!data->descriptor) {
+    return Status::IOError("Descriptor missing on first message");
   }
+  descriptor_ = *data->descriptor;
+  // If there's a schema (=DoPut), also Open().
+  if (data->metadata) {
+    return EnsureDataStarted();
+  }
+  peekable_reader_->Next(&data);
+  return Status::OK();
+}
 
-  arrow::Result<FlightStreamChunk> Next() override {
-    FlightStreamChunk out;
-    FlightData* data = nullptr;
-    peekable_reader_->Peek(&data);
-    if (!data) {
-      out.app_metadata = nullptr;
-      out.data = nullptr;
-      return out;
-    }
+const FlightDescriptor& TransportMessageReader::descriptor() const { return descriptor_; }
 
-    if (!data->metadata) {
-      // Metadata-only (data->metadata is the IPC header)
-      out.app_metadata = data->app_metadata;
-      out.data = nullptr;
-      peekable_reader_->Next(&data);
-      return out;
-    }
+arrow::Result<std::shared_ptr<Schema>> TransportMessageReader::GetSchema() {
+  RETURN_NOT_OK(EnsureDataStarted());
+  return batch_reader_->schema();
+}
 
-    if (!batch_reader_) {
-      RETURN_NOT_OK(EnsureDataStarted());
-      // re-peek here since EnsureDataStarted() advances the stream
-      return Next();
-    }
-    RETURN_NOT_OK(batch_reader_->ReadNext(&out.data));
-    out.app_metadata = std::move(app_metadata_);
+arrow::Result<FlightStreamChunk> TransportMessageReader::Next() {
+  FlightStreamChunk out;
+  FlightData* data = nullptr;
+  peekable_reader_->Peek(&data);
+  if (!data) {
+    out.app_metadata = nullptr;
+    out.data = nullptr;
     return out;
   }
 
-  ipc::ReadStats stats() const override {
-    if (batch_reader_ == nullptr) {
-      return ipc::ReadStats{};
-    }
-    return batch_reader_->stats();
+  if (!data->metadata) {
+    // Metadata-only (data->metadata is the IPC header)
+    out.app_metadata = data->app_metadata;
+    out.data = nullptr;
+    peekable_reader_->Next(&data);
+    return out;
   }
 
- private:
-  /// Ensure we are set up to read data.
-  Status EnsureDataStarted() {
-    if (!batch_reader_) {
-      // peek() until we find the first data message; discard metadata
-      if (!peekable_reader_->SkipToData()) {
-        return Status::IOError("Client never sent a data message");
-      }
-      auto message_reader =
-          std::unique_ptr<ipc::MessageReader>(new TransportIpcMessageReader(
-              peekable_reader_, memory_manager_, &app_metadata_));
-      ARROW_ASSIGN_OR_RAISE(
-          batch_reader_, ipc::RecordBatchStreamReader::Open(std::move(message_reader)));
-    }
-    return Status::OK();
+  if (!batch_reader_) {
+    RETURN_NOT_OK(EnsureDataStarted());
+    // re-peek here since EnsureDataStarted() advances the stream
+    return Next();
   }
+  RETURN_NOT_OK(batch_reader_->ReadNext(&out.data));
+  out.app_metadata = std::move(app_metadata_);
+  return out;
+}
 
-  FlightDescriptor descriptor_;
-  std::shared_ptr<PeekableFlightDataReader> peekable_reader_;
-  std::shared_ptr<MemoryManager> memory_manager_;
-  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
-  std::shared_ptr<Buffer> app_metadata_;
-};
+ipc::ReadStats TransportMessageReader::stats() const {
+  if (batch_reader_ == nullptr) {
+    return ipc::ReadStats{};
+  }
+  return batch_reader_->stats();
+}
+
+Status TransportMessageReader::EnsureDataStarted() {
+  if (!batch_reader_) {
+    // peek() until we find the first data message; discard metadata
+    if (!peekable_reader_->SkipToData()) {
+      return Status::IOError("Client never sent a data message");
+    }
+    auto message_reader = std::unique_ptr<ipc::MessageReader>(
+        new TransportIpcMessageReader(peekable_reader_, memory_manager_, &app_metadata_));
+    ARROW_ASSIGN_OR_RAISE(batch_reader_,
+                          ipc::RecordBatchStreamReader::Open(std::move(message_reader)));
+  }
+  return Status::OK();
+}
+
+namespace {
 
 /// \brief An IpcPayloadWriter for ServerDataStream.
 ///
@@ -193,95 +183,79 @@ class TransportMessagePayloadWriter : public ipc::internal::IpcPayloadWriter {
   std::shared_ptr<Buffer>* app_metadata_;
 };
 
-class TransportMessageWriter final : public FlightMessageWriter {
- public:
-  explicit TransportMessageWriter(ServerDataStream* stream)
-      : stream_(stream),
-        app_metadata_(nullptr),
-        ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
-
-  Status Begin(const std::shared_ptr<Schema>& schema,
-               const ipc::IpcWriteOptions& options) override {
-    if (batch_writer_) {
-      return Status::Invalid("This writer has already been started.");
-    }
-    ipc_options_ = options;
-    std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(
-        new TransportMessagePayloadWriter(stream_, &app_metadata_));
-    ARROW_ASSIGN_OR_RAISE(batch_writer_,
-                          ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
-                                                               schema, ipc_options_));
-    return Status::OK();
-  }
-
-  Status WriteRecordBatch(const RecordBatch& batch) override {
-    return WriteWithMetadata(batch, nullptr);
-  }
-
-  Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
-    FlightPayload payload{};
-    payload.app_metadata = std::move(app_metadata);
-    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
-    if (!success) {
-      ARROW_RETURN_NOT_OK(Close());
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Could not write metadata to stream (client disconnect?)");
-    }
-    return Status::OK();
-  }
-
-  Status WriteWithMetadata(const RecordBatch& batch,
-                           std::shared_ptr<Buffer> app_metadata) override {
-    RETURN_NOT_OK(CheckStarted());
-    app_metadata_ = std::move(app_metadata);
-    auto status = batch_writer_->WriteRecordBatch(batch);
-    if (!status.ok()) {
-      ARROW_RETURN_NOT_OK(Close());
-    }
-    return status;
-  }
-
-  Status Close() override {
-    if (batch_writer_) {
-      RETURN_NOT_OK(batch_writer_->Close());
-    }
-    return Status::OK();
-  }
-
-  ipc::WriteStats stats() const override {
-    ARROW_CHECK_NE(batch_writer_, nullptr);
-    return batch_writer_->stats();
-  }
-
- private:
-  Status CheckStarted() {
-    if (!batch_writer_) {
-      return Status::Invalid("This writer is not started. Call Begin() with a schema");
-    }
-    return Status::OK();
-  }
-
-  ServerDataStream* stream_;
-  std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
-  std::shared_ptr<Buffer> app_metadata_;
-  ::arrow::ipc::IpcWriteOptions ipc_options_;
-};
-
-/// \brief Adapt TransportDataStream to the FlightMetadataWriter
-///   interface for DoPut.
-class TransportMetadataWriter final : public FlightMetadataWriter {
- public:
-  explicit TransportMetadataWriter(ServerDataStream* stream) : stream_(stream) {}
-
-  Status WriteMetadata(const Buffer& buffer) override {
-    return stream_->WritePutMetadata(buffer);
-  }
-
- private:
-  ServerDataStream* stream_;
-};
-
 }  // namespace
+
+TransportMessageWriter::TransportMessageWriter(ServerDataStream* stream)
+    : stream_(stream),
+      app_metadata_(nullptr),
+      ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
+
+Status TransportMessageWriter::Begin(const std::shared_ptr<Schema>& schema,
+                                     const ipc::IpcWriteOptions& options) {
+  if (batch_writer_) {
+    return Status::Invalid("This writer has already been started.");
+  }
+  ipc_options_ = options;
+  std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(
+      new TransportMessagePayloadWriter(stream_, &app_metadata_));
+  ARROW_ASSIGN_OR_RAISE(batch_writer_,
+                        ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
+                                                             schema, ipc_options_));
+  return Status::OK();
+}
+
+Status TransportMessageWriter::WriteRecordBatch(const RecordBatch& batch) {
+  return WriteWithMetadata(batch, nullptr);
+}
+
+Status TransportMessageWriter::WriteMetadata(std::shared_ptr<Buffer> app_metadata) {
+  FlightPayload payload{};
+  payload.app_metadata = std::move(app_metadata);
+  ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+  if (!success) {
+    ARROW_RETURN_NOT_OK(Close());
+    return MakeFlightError(FlightStatusCode::Internal,
+                           "Could not write metadata to stream (client disconnect?)");
+  }
+  return Status::OK();
+}
+
+Status TransportMessageWriter::WriteWithMetadata(const RecordBatch& batch,
+                                                 std::shared_ptr<Buffer> app_metadata) {
+  RETURN_NOT_OK(CheckStarted());
+  app_metadata_ = std::move(app_metadata);
+  auto status = batch_writer_->WriteRecordBatch(batch);
+  if (!status.ok()) {
+    ARROW_RETURN_NOT_OK(Close());
+  }
+  return status;
+}
+
+Status TransportMessageWriter::Close() {
+  if (batch_writer_) {
+    RETURN_NOT_OK(batch_writer_->Close());
+  }
+  return Status::OK();
+}
+
+ipc::WriteStats TransportMessageWriter::stats() const {
+  ARROW_CHECK_NE(batch_writer_, nullptr);
+  return batch_writer_->stats();
+}
+
+Status TransportMessageWriter::CheckStarted() {
+  if (!batch_writer_) {
+    return Status::Invalid("This writer is not started. Call Begin() with a schema");
+  }
+  return Status::OK();
+}
+
+TransportMetadataWriter::TransportMetadataWriter(ServerDataStream* stream)
+    : stream_(stream) {}
+
+Status TransportMetadataWriter::WriteMetadata(const Buffer& buffer) {
+  return stream_->WritePutMetadata(buffer);
+}
 
 std::atomic<ServerSignalState*> ServerSignalState::running_instance_;
 
@@ -330,24 +304,6 @@ int PortFromLocation(const Location& location) {
     return -1;
   }
   return maybe_uri.ValueUnsafe().port();
-}
-
-arrow::Result<std::unique_ptr<FlightMessageReader>>
-ServerTransportBase::MakeMessageReader(ServerDataStream* stream) const {
-  auto reader = std::unique_ptr<TransportMessageReader>(
-      new TransportMessageReader(stream, memory_manager_));
-  RETURN_NOT_OK(reader->Init());
-  return std::unique_ptr<FlightMessageReader>(std::move(reader));
-}
-
-std::unique_ptr<FlightMetadataWriter> ServerTransportBase::MakeMetadataWriter(
-    ServerDataStream* stream) const {
-  return std::unique_ptr<FlightMetadataWriter>(new TransportMetadataWriter(stream));
-}
-
-std::unique_ptr<FlightMessageWriter> ServerTransportBase::MakeMessageWriter(
-    ServerDataStream* stream) const {
-  return std::unique_ptr<FlightMessageWriter>(new TransportMessageWriter(stream));
 }
 
 Status ServerTransportBase::WriteDataStream(std::unique_ptr<FlightDataStream> data_stream,

@@ -36,6 +36,74 @@
 namespace arrow::flight::internal {
 
 class ServerDataStream;
+class PeekableFlightDataReader;
+
+/// \brief Adapt TransportDataStream to the FlightMessageReader
+///   interface for DoPut.
+class TransportMessageReader final : public FlightMessageReader {
+ public:
+  TransportMessageReader(ServerDataStream* stream,
+                         std::shared_ptr<MemoryManager> memory_manager);
+
+  Status Init();
+
+  const FlightDescriptor& descriptor() const override;
+
+  arrow::Result<std::shared_ptr<Schema>> GetSchema() override;
+
+  arrow::Result<FlightStreamChunk> Next() override;
+
+  ipc::ReadStats stats() const override;
+
+ private:
+  /// Ensure we are set up to read data.
+  Status EnsureDataStarted();
+
+  FlightDescriptor descriptor_;
+  std::shared_ptr<PeekableFlightDataReader> peekable_reader_;
+  std::shared_ptr<MemoryManager> memory_manager_;
+  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
+  std::shared_ptr<Buffer> app_metadata_;
+};
+
+/// \brief A writer for IPC payloads to a ServerDataStream.
+class TransportMessageWriter final : public FlightMessageWriter {
+ public:
+  explicit TransportMessageWriter(ServerDataStream* stream);
+
+  Status Begin(const std::shared_ptr<Schema>& schema,
+               const ipc::IpcWriteOptions& options) override;
+
+  Status WriteRecordBatch(const RecordBatch& batch) override;
+
+  Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override;
+
+  Status WriteWithMetadata(const RecordBatch& batch,
+                           std::shared_ptr<Buffer> app_metadata) override;
+
+  Status Close() override;
+
+  ipc::WriteStats stats() const override;
+
+ private:
+  Status CheckStarted();
+
+  ServerDataStream* stream_;
+  std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
+  std::shared_ptr<Buffer> app_metadata_;
+  ::arrow::ipc::IpcWriteOptions ipc_options_;
+};
+
+/// \brief A writer for application-defined metadata to a ServerDataStream.
+class TransportMetadataWriter final : public FlightMetadataWriter {
+ public:
+  explicit TransportMetadataWriter(ServerDataStream* stream);
+
+  Status WriteMetadata(const Buffer& buffer) override;
+
+ private:
+  ServerDataStream* stream_;
+};
 
 /// \brief Base class for server transport implementations.
 ///
@@ -49,20 +117,6 @@ class ARROW_FLIGHT_EXPORT ServerTransportBase {
   virtual ~ServerTransportBase() = default;
 
  protected:
-  /// \brief Create a FlightMessageReader that reads from a transport-level stream.
-  ///
-  /// \param[in] stream The transport-specific data stream to read from.
-  arrow::Result<std::unique_ptr<FlightMessageReader>> MakeMessageReader(
-      ServerDataStream* stream) const;
-  /// \brief Create a FlightMetadataWriter that writes to a transport-level stream.
-  ///
-  /// \param[in] stream The transport-specific data stream to write to.
-  std::unique_ptr<FlightMetadataWriter> MakeMetadataWriter(
-      ServerDataStream* stream) const;
-  /// \brief Create a FlightMessageWriter that writes to a transport-level stream.
-  ///
-  /// \param[in] stream The transport-specific data stream to write to.
-  std::unique_ptr<FlightMessageWriter> MakeMessageWriter(ServerDataStream* stream) const;
   /// \brief Write a FlightDataStream to a transport-level stream.
   ///
   /// Used by DoGet and DoExchange to stream results back to the client.
