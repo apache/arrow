@@ -29,7 +29,6 @@
 #include "arrow/result.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
@@ -366,16 +365,15 @@ struct FastHashScalar {
     ARROW_RETURN_NOT_OK(
         HashArray(hash_input, &hash_ctx, exec_ctx, result_ptr, validity->mutable_data()));
 
+    // `validity` is contiguous and 0-offset, so copy it into the (possibly bit-offset)
+    // output bitmap in bulk rather than generating it bit by bit.
     const uint8_t* validity_data = validity->data();
-    int64_t out_null_count = 0;
-    int64_t row = 0;
-    ::arrow::internal::GenerateBitsUnrolled(
-        result_span->buffers[0].data, result_span->offset, hash_input.length, [&] {
-          bool is_valid = bit_util::GetBit(validity_data, row++);
-          out_null_count += !is_valid;
-          return is_valid;
-        });
-    result_span->null_count = out_null_count;
+    ::arrow::internal::CopyBitmap(validity_data, /*offset=*/0, hash_input.length,
+                                  result_span->buffers[0].data, result_span->offset);
+    result_span->null_count =
+        hash_input.length - ::arrow::internal::CountSetBits(validity_data,
+                                                            /*bit_offset=*/0,
+                                                            hash_input.length);
 
     return Status::OK();
   }
