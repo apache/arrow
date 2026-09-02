@@ -139,30 +139,19 @@ function print_coredumps() {
   FILENAME=$(basename "${TEST_EXECUTABLE}")
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
 
-  # Use read instead of mapfile because macOS uses Bash 3.2.
-  # A trailing slash is required to follow the /tmp symbolic link on macOS.
-  COREFILES=()
-  while IFS= read -r COREFILE; do
-    COREFILES+=("$COREFILE")
-  done < <(
-    find /tmp/ -maxdepth 1 -type f -name "core.${FILENAME}*"
-  )
-
-  if [ "${#COREFILES[@]}" -gt 0 ]; then
-    for COREPATH in "${COREFILES[@]}"; do
+  COREFILES=$(find /tmp -maxdepth 1 -type f -name "core.${FILENAME}*" -exec basename {} \;)
+  if [ -n "$COREFILES" ]; then
+    for COREFILE in $COREFILES; do
+      COREPATH="/tmp/${COREFILE}"
       echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
-
       # Print backtrace
       if [ "$(uname)" == "Darwin" ]; then
         lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
       else
-        gdb -c "${COREPATH}" "$TEST_EXECUTABLE" \
-          -ex "thread apply all bt" -ex "set pagination 0" -batch
+        gdb -c "${COREPATH}" "$TEST_EXECUTABLE" -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
-
       echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-
       # Remove the coredump, it can be regenerated via running the test case directly
       rm "${COREPATH}"
     done
