@@ -496,7 +496,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
 
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
-  FRIEND_TEST(TestThreadPoolForkSafety, FailedWorkerLaunch);
+  FRIEND_TEST(TestThreadPool, FailedWorkerLaunch);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
   ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
 
@@ -508,7 +508,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();
   // Launch a given number of additional workers
-  void LaunchWorkersUnlocked(int threads);
+  Status LaunchWorkersUnlocked(int threads);
   // Get the current actual capacity
   int GetActualCapacity();
 

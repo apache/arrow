@@ -23,6 +23,7 @@
 #include <list>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -580,7 +581,7 @@ Status ThreadPool::SetCapacity(int threads) {
                                 threads - static_cast<int>(state_->workers_.size()));
   if (required > 0) {
     // Some tasks are pending, spawn the number of needed threads immediately
-    LaunchWorkersUnlocked(required);
+    RETURN_NOT_OK(LaunchWorkersUnlocked(required));
   } else if (required < 0) {
     // Excess threads are running, wake them so that they stop
     state_->cv_.notify_all();
@@ -692,7 +693,7 @@ static void SetCurrentThreadPool(ThreadPool* pool) { current_thread_pool_ = pool
 
 bool ThreadPool::OwnsThisThread() { return GetCurrentThreadPool() == this; }
 
-void ThreadPool::LaunchWorkersUnlocked(int threads) {
+Status ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
 
   for (int i = 0; i < threads; i++) {
@@ -703,11 +704,12 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
         SetCurrentThreadPool(this);
         WorkerLoop(state, it);
       });
-    } catch (...) {
+    } catch (const std::exception& e) {
       state_->workers_.erase(it);
-      throw;
+      return Status::UnknownError("Failed to launch worker thread: ", e.what());
     }
   }
+  return Status::OK();
 }
 
 Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
@@ -737,7 +739,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     if (static_cast<int>(state_->workers_.size()) <= state_->tasks_queued_or_running_ &&
         state_->desired_capacity_ > static_cast<int>(state_->workers_.size())) {
       // We can still spin up more workers so spin up a new worker
-      LaunchWorkersUnlocked(/*threads=*/1);
+      RETURN_NOT_OK(LaunchWorkersUnlocked(/*threads=*/1));
     }
     state_->tasks_queued_or_running_++;
     state_->pending_tasks_.push(
