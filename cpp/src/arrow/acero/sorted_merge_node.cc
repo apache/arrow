@@ -440,6 +440,7 @@ class SortedMergeNode : public ExecNode {
 
   void ResumeProducing(arrow::acero::ExecNode* output, int32_t counter) override {
     std::optional<Task> task;
+    Future<> handoff;
     {
       std::lock_guard lock(coordinator_mutex_);
       if (merge_state_ == MergeState::Terminal || counter <= downstream_counter_) {
@@ -450,9 +451,22 @@ class SortedMergeNode : public ExecNode {
         output_gate_ = OutputGate::Open;
       }
       task = MaybeStartUnlocked();
+      if (task) {
+        // Resume may be called outside the scheduler by a consuming sink.  Reserve a
+        // scheduler task before releasing the coordinator lock so a concurrent final
+        // InputFinished cannot end the scheduler before the drain is registered.
+        auto maybe_handoff =
+            plan()->query_context()->BeginExternalTask("SortedMergeNode::ResumeHandoff");
+        if (!maybe_handoff.ok() || !maybe_handoff->is_valid()) {
+          merge_state_ = MergeState::Idle;
+          return;
+        }
+        handoff = std::move(*maybe_handoff);
+      }
     }
     if (task) {
       Schedule(std::move(*task), "SortedMergeNode::Resume");
+      handoff.MarkFinished();
     }
   }
 
