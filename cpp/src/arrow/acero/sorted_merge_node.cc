@@ -308,7 +308,7 @@ enum class MergeState { Idle, Running, Terminal };
 enum class OutputGate { Open, Paused, Flushing };
 
 class SortedMergeNode : public ExecNode {
-  static constexpr int64_t kTargetOutputBatchSize = 1024 * 1024;
+  static constexpr int64_t kTargetOutputBatchSize = ExecPlan::kMaxBatchSize;
 
  public:
   SortedMergeNode(arrow::acero::ExecPlan* plan,
