@@ -24,9 +24,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 // ----------------------------------------------------------------------
 // AlpSampler implementation
@@ -155,6 +153,4 @@ bool AlpSampler<T>::MustSkipSamplingFromCurrentVector(
 template class AlpSampler<float>;
 template class AlpSampler<double>;
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp

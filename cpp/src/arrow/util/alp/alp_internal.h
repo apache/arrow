@@ -28,9 +28,7 @@
 #include "arrow/util/alp/alp_constants_internal.h"
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 // ----------------------------------------------------------------------
 // ALP Overview
@@ -818,6 +816,4 @@ class AlpCompression {
       TargetType* output);
 };
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp

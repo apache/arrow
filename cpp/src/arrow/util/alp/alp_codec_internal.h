@@ -27,10 +27,9 @@
 #include "arrow/status.h"
 #include "arrow/util/alp/alp_internal.h"
 #include "arrow/util/alp/alp_sampler_internal.h"
+#include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 // ----------------------------------------------------------------------
 // AlpCodec
@@ -46,7 +45,7 @@ namespace alp {
 ///
 /// \tparam T the floating point type (float or double)
 template <typename T>
-class AlpCodec {
+class ARROW_EXPORT AlpCodec {
  public:
   /// Type alias for the sampler result containing encoding presets
   using AlpSamplerResult = typename AlpSampler<T>::AlpSamplerResult;
@@ -265,6 +264,4 @@ class AlpCodec {
   static Result<AlpHeader> LoadHeader(const uint8_t* input, int64_t input_size);
 };
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp
