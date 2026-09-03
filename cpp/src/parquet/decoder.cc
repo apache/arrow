@@ -2387,6 +2387,13 @@ class PforDecoder : public TypedDecoderImpl<DType> {
   using Base = TypedDecoderImpl<DType>;
   using T = typename DType::c_type;
 
+  // TODO: decode a vector at a time. PforWrapper::Decode keeps no resumption
+  // state, so a caller that reads a page in batches decodes the whole page into
+  // `decoded_values_` on the first batch and is served from it afterwards, which
+  // costs a page-sized allocation. The page layout is already addressed by
+  // vector: its offset array locates any vector in constant time, so a batched
+  // read could decode the vectors it needs into a scratch buffer of one vector
+  // and leave the rest of the page untouched.
   explicit PforDecoder(const ColumnDescriptor* descr,
                        MemoryPool* pool = ::arrow::default_memory_pool())
       : Base(descr, Encoding::PFOR),
