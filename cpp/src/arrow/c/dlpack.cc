@@ -38,6 +38,11 @@
 
 namespace arrow::dlpack {
 
+extern const DLPackVersion VERSION = {
+    .major = DLPACK_MAJOR_VERSION,
+    .minor = DLPACK_MINOR_VERSION,
+};
+
 namespace {
 
 /***************
@@ -118,7 +123,7 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
   // Strides must be non-null when ndim > 0
   ctx->tensor.dl_tensor.strides = ctx->strides.data();
   if constexpr (std::is_same_v<DT, DLManagedTensorVersioned>) {
-    ctx->tensor.version = {.major = DLPACK_MAJOR_VERSION, .minor = DLPACK_MINOR_VERSION};
+    ctx->tensor.version = VERSION;
     ctx->tensor.flags = p.flags;
   }
 
@@ -276,9 +281,9 @@ class CppDLTensor {
     // Create the wrapper before checking the version as the spec mandates that the
     // deleter MUST be called on version major mismatch.
     auto out = CppDLTensor(ptr);
-    if (out.ptr_->version.major != DLPACK_MAJOR_VERSION) {
+    if (out.ptr_->version.major != VERSION.major) {
       return Status::Invalid("Unsupported DLPack major version ", out.ptr_->version.major,
-                             ", expected ", DLPACK_MAJOR_VERSION);
+                             ", expected ", VERSION.major);
     }
     return out;
   }

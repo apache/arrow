@@ -25,6 +25,9 @@
 
 namespace arrow::dlpack {
 
+/// The DLPack version used during compilation.
+extern const DLPackVersion VERSION;
+
 /// \brief Export Arrow array as DLPack tensor.
 ///
 /// DLMangedTensor is produced as defined by the DLPack protocol,
