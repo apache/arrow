@@ -254,6 +254,148 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
   }
 }
 
+TEST(TestWriterProperties, PforDisabledByDefault) {
+  auto props = WriterProperties::Builder().build();
+
+  ASSERT_FALSE(props->pfor_enabled());
+  ASSERT_FALSE(props->pfor_enabled(ColumnPath::FromDotString("a")));
+}
+
+TEST(TestWriterProperties, PforRejectedWithoutOptIn) {
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().encoding(Encoding::PFOR)->build(); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("enable_pfor_encoding")));
+}
+
+TEST(TestWriterProperties, PforRejectedForColumnWithoutOptIn) {
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().encoding("a", Encoding::PFOR)->build(); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'a'")));
+}
+
+// Enabling PFOR for one column does not grant permission to another.
+TEST(TestWriterProperties, PforRejectedForColumnEnabledElsewhere) {
+  EXPECT_THROW_THAT(
+      [&]() {
+        WriterProperties::Builder()
+            .enable_pfor_encoding("a")
+            ->encoding("b", Encoding::PFOR)
+            ->build();
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'b'")));
+}
+
+// A global PFOR selection reaches every column, including one that opted out.
+TEST(TestWriterProperties, PforRejectedWhenDisabledForColumnUnderGlobalEncoding) {
+  EXPECT_THROW_THAT(
+      [&]() {
+        WriterProperties::Builder()
+            .enable_pfor_encoding()
+            ->disable_pfor_encoding("a")
+            ->encoding(Encoding::PFOR)
+            ->build();
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'a'")));
+}
+
+// A per-column disable overrides a global enable, so the column must be rejected.
+TEST(TestWriterProperties, PforRejectedWhenDisabledForColumn) {
+  EXPECT_THROW_THAT(
+      [&]() {
+        WriterProperties::Builder()
+            .enable_pfor_encoding()
+            ->disable_pfor_encoding("a")
+            ->encoding("a", Encoding::PFOR)
+            ->build();
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'a'")));
+}
+
+TEST(TestWriterProperties, PforAcceptedWhenEnabledForAllColumns) {
+  auto props = WriterProperties::Builder()
+                   .enable_pfor_encoding()
+                   ->encoding(Encoding::PFOR)
+                   ->build();
+
+  ASSERT_TRUE(props->pfor_enabled());
+  ASSERT_TRUE(props->pfor_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_EQ(Encoding::PFOR, props->encoding(ColumnPath::FromDotString("a")));
+}
+
+TEST(TestWriterProperties, PforAcceptedWhenEnabledForOneColumn) {
+  auto props = WriterProperties::Builder()
+                   .enable_pfor_encoding("a")
+                   ->encoding("a", Encoding::PFOR)
+                   ->build();
+
+  // pfor_enabled() with no argument answers "any column", so it is true here even
+  // though only one column opted in.
+  ASSERT_TRUE(props->pfor_enabled());
+  ASSERT_TRUE(props->pfor_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_FALSE(props->pfor_enabled(ColumnPath::FromDotString("b")));
+}
+
+// The flag grants permission; it does not select the encoding.
+TEST(TestWriterProperties, PforEnabledDoesNotSelectPfor) {
+  auto props = WriterProperties::Builder().enable_pfor_encoding()->build();
+
+  ASSERT_TRUE(props->pfor_enabled());
+  ASSERT_EQ(DEFAULT_ENCODING, props->encoding(ColumnPath::FromDotString("a")));
+}
+
+// The delta mode is part of PFOR rather than a Preview feature of its own, so it
+// is on by default and needs no opt-in.
+TEST(TestWriterProperties, PforDeltaEnabledByDefault) {
+  auto props = WriterProperties::Builder().build();
+
+  ASSERT_TRUE(props->pfor_delta_enabled(ColumnPath::FromDotString("a")));
+}
+
+TEST(TestWriterProperties, PforDeltaCanBeDisabledForAllColumns) {
+  auto props = WriterProperties::Builder().disable_pfor_delta_encoding()->build();
+
+  ASSERT_FALSE(props->pfor_delta_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_FALSE(props->pfor_delta_enabled(ColumnPath::FromDotString("b")));
+}
+
+TEST(TestWriterProperties, PforDeltaCanBeDisabledForOneColumn) {
+  auto props = WriterProperties::Builder().disable_pfor_delta_encoding("a")->build();
+
+  ASSERT_FALSE(props->pfor_delta_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_TRUE(props->pfor_delta_enabled(ColumnPath::FromDotString("b")));
+}
+
+// A per-column enable survives a global disable, so a writer can turn the mode
+// off broadly and keep it for the one column that benefits.
+TEST(TestWriterProperties, PforDeltaPerColumnEnableOverridesGlobalDisable) {
+  auto props = WriterProperties::Builder()
+                   .disable_pfor_delta_encoding()
+                   ->enable_pfor_delta_encoding("a")
+                   ->build();
+
+  ASSERT_TRUE(props->pfor_delta_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_FALSE(props->pfor_delta_enabled(ColumnPath::FromDotString("b")));
+}
+
+// The delta mode is not a permission, so turning it off never makes build()
+// throw the way a missing PFOR opt-in does.
+TEST(TestWriterProperties, PforDeltaDisabledStillBuildsWithPfor) {
+  auto props = WriterProperties::Builder()
+                   .enable_pfor_encoding()
+                   ->disable_pfor_delta_encoding()
+                   ->encoding(Encoding::PFOR)
+                   ->build();
+
+  ASSERT_EQ(Encoding::PFOR, props->encoding(ColumnPath::FromDotString("a")));
+  ASSERT_FALSE(props->pfor_delta_enabled(ColumnPath::FromDotString("a")));
+}
+
 struct WriterPropertiesTestCase {
   WriterPropertiesTestCase(std::shared_ptr<WriterProperties> props, std::string label)
       : properties(std::move(props)), label(std::move(label)) {}

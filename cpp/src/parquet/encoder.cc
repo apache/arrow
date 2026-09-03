@@ -48,6 +48,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
@@ -1800,8 +1801,9 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using T = typename DType::c_type;
   using TypedEncoder<DType>::Put;
 
-  explicit PforEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::PFOR, pool), pool_(pool) {}
+  PforEncoder(const ColumnDescriptor* descr, MemoryPool* pool,
+              const ::arrow::util::pfor::PforEncodeOptions& options)
+      : EncoderImpl(descr, Encoding::PFOR, pool), pool_(pool), options_(options) {}
 
   std::shared_ptr<Buffer> FlushValues() override {
     // An all-null optional page adds no values and is still written, so an empty
@@ -1816,7 +1818,7 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
     int64_t comp_size = max_size;
     PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
-        values_.data(), num_values, buffer->mutable_data(), &comp_size));
+        values_.data(), num_values, buffer->mutable_data(), &comp_size, options_));
 
     PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
     values_.clear();
@@ -1861,6 +1863,7 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
  private:
   MemoryPool* pool_;
+  ::arrow::util::pfor::PforEncodeOptions options_;
   std::vector<T> values_;
 };
 
@@ -1869,7 +1872,8 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
                                      bool use_dictionary, const ColumnDescriptor* descr,
-                                     MemoryPool* pool) {
+                                     MemoryPool* pool,
+                                     const WriterProperties* properties) {
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
@@ -1964,11 +1968,18 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
             "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
     }
   } else if (encoding == Encoding::PFOR) {
+    // The delta mode is a per-column option, so it is read off the properties
+    // rather than baked into the encoder. A caller with no properties to hand --
+    // the encoding tests, and MakeTypedEncoder's default -- gets the default.
+    ::arrow::util::pfor::PforEncodeOptions options;
+    if (properties != nullptr && descr != nullptr) {
+      options.delta_enabled = properties->pfor_delta_enabled(descr->path());
+    }
     switch (type_num) {
       case Type::INT32:
-        return std::make_unique<PforEncoder<Int32Type>>(descr, pool);
+        return std::make_unique<PforEncoder<Int32Type>>(descr, pool, options);
       case Type::INT64:
-        return std::make_unique<PforEncoder<Int64Type>>(descr, pool);
+        return std::make_unique<PforEncoder<Int64Type>>(descr, pool, options);
       default:
         throw ParquetException("PFOR encoder only supports INT32 and INT64");
     }
