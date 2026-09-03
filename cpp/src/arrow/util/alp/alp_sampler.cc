@@ -30,19 +30,10 @@ namespace arrow::util::alp {
 // AlpSampler implementation
 
 template <typename T>
-AlpSampler<T>::AlpSampler()
-    : sample_vector_size_(AlpConstants::kSamplerVectorSize),
-      rowgroup_size_(AlpConstants::kSamplerRowgroupSize),
-      samples_per_vector_(AlpConstants::kSamplerSamplesPerVector),
-      sample_vectors_per_rowgroup_(AlpConstants::kSamplerSampleVectorsPerRowgroup),
-      rowgroup_sample_jump_((rowgroup_size_ / sample_vectors_per_rowgroup_) /
-                            sample_vector_size_) {}
-
-template <typename T>
 void AlpSampler<T>::AddSample(std::span<const T> input) {
   const int64_t input_size = static_cast<int64_t>(input.size());
-  for (int64_t i = 0; i < input_size; i += sample_vector_size_) {
-    const int64_t elements = std::min(input_size - i, sample_vector_size_);
+  for (int64_t i = 0; i < input_size; i += AlpConstants::kSamplerVectorSize) {
+    const int64_t elements = std::min(input_size - i, AlpConstants::kSamplerVectorSize);
     AddSampleVector({input.data() + i, static_cast<size_t>(elements)});
   }
 }
@@ -103,20 +94,21 @@ typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParam
   const int64_t num_lookup_values = std::min(
       num_current_vector_values, static_cast<int64_t>(AlpConstants::kAlpVectorSize));
   // Sample equidistant values within a vector; jump a fixed number of values.
-  const int64_t num_sampled_increments = std::max(
-      int64_t{1}, static_cast<int64_t>(std::ceil(static_cast<double>(num_lookup_values) /
-                                                 samples_per_vector_)));
+  const int64_t num_sampled_increments =
+      std::max(int64_t{1},
+               static_cast<int64_t>(std::ceil(static_cast<double>(num_lookup_values) /
+                                              AlpConstants::kSamplerSamplesPerVector)));
   const int64_t num_sampled_values = static_cast<int64_t>(
       std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments));
 
-  // Safety: num_sampled_values is bounded by samples_per_vector_. If
-  // num_lookup_values <= samples_per_vector_ the increment is 1 and
+  // Safety: num_sampled_values is bounded by kSamplerSamplesPerVector. If
+  // num_lookup_values <= kSamplerSamplesPerVector the increment is 1 and
   // num_sampled_values == num_lookup_values; otherwise the increment is
-  // ceil(num_lookup_values / samples_per_vector_) >= 2, which divides
-  // num_lookup_values back down to at most samples_per_vector_. Since
-  // samples_per_vector_ is kSamplerSamplesPerVector (256), the count stays
-  // well under kAlpVectorSize. This check is a defensive invariant, not a
-  // runtime error path.
+  // ceil(num_lookup_values / kSamplerSamplesPerVector) >= 2, which divides
+  // num_lookup_values back down to at most kSamplerSamplesPerVector. Since
+  // kSamplerSamplesPerVector is 256, the count stays well under
+  // kAlpVectorSize. This check is a defensive invariant, not a runtime error
+  // path.
   ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize)
       << "alp_sample_too_large";
 
@@ -129,7 +121,7 @@ bool AlpSampler<T>::MustSkipSamplingFromCurrentVector(
     const int64_t vectors_count, const int64_t vectors_sampled_count,
     const int64_t current_vector_n_values) {
   // Sample equidistant vectors; skip a fixed number of vectors.
-  const bool must_select_rowgroup_samples = (vectors_count % rowgroup_sample_jump_) == 0;
+  const bool must_select_rowgroup_samples = (vectors_count % kRowgroupSampleJump) == 0;
 
   // If we are not in the correct jump, do not take sample from this vector.
   if (!must_select_rowgroup_samples) {
