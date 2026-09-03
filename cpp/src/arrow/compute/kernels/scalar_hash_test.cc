@@ -516,9 +516,7 @@ TEST_F(TestScalarHash, ListNullElementDoesNotCollideWithZeroElement) {
       {fixed_size_list(int32(), 1), "[[null]]", "[[0]]"},
       {list(int64()), "[[null]]", "[[0]]"},
       {list(float64()), "[[null]]", "[[0.0]]"},
-      // A null *field* of an element reaches the same fold via the propagated bitmap: a
-      // struct row with a null field is itself null, so these elements are absent, not
-      // zero-valued.
+      // A null field makes its struct row null, so these elements are absent.
       {map(utf8(), int32()), R"([[["a", null]]])", R"([[["a", 0]]])"},
       {list(struct_({field("a", int32())})), R"([[{"a": null}]])", R"([[{"a": 0}]])"},
       {list(struct_({field("a", struct_({field("x", int32())}))})),
@@ -539,11 +537,182 @@ TEST_F(TestScalarHash, ListNullElementDoesNotCollideWithZeroElement) {
   }
 }
 
-// A struct row with a null field is itself null (see the hash32/hash64 note in
-// docs/source/cpp/compute.rst), so as a list element it is *absent*: it folds the same
-// stand-in as an explicitly null element, and carries no value to tell it apart from any
-// other null. The list row itself stays valid either way, since only its own validity
-// counts there.
+// A struct row with a null field is itself null, so as a list element it is absent and
+// indistinguishable from any other null. The list row itself stays valid.
+// Arrow requires non-null map keys and allows null items, so an entry with a null item
+// is not an absent entry: throwing it away would discard the key, hashing every map with
+// null items alike.
+
+TEST_F(TestScalarHash, MapWithNullItemStillHashesItsKey) {
+  auto arr = ArrayFromJSON(
+      map(utf8(), int32()),
+      R"([[["a", null]], [["b", null]], [["a", 1]], [["b", 1]], [["a", 0]]])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    ARROW_SCOPED_TRACE("func: ", func);
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+    auto hashes = result.make_array();
+    // Every row is a distinct map, so no two may share a hash. Rows 0 and 1 differ only
+    // in their key, both with a null item.
+    for (int64_t i = 0; i < hashes->length(); i++) {
+      ASSERT_TRUE(hashes->IsValid(i)) << "row " << i << " is a valid map";
+      for (int64_t j = i + 1; j < hashes->length(); j++) {
+        ASSERT_OK_AND_ASSIGN(auto a, hashes->GetScalar(i));
+        ASSERT_OK_AND_ASSIGN(auto b, hashes->GetScalar(j));
+        ASSERT_FALSE(a->Equals(*b))
+            << "rows " << i << " and " << j << " are distinct maps";
+      }
+    }
+  }
+}
+
+// Keys and items are hashed by the same routine that hashes a list's values, so either
+// can itself be a map, to any depth, and a null item deep inside still keeps its key.
+TEST_F(TestScalarHash, NestedMapHashesDistinctly) {
+  auto arr = ArrayFromJSON(map(utf8(), map(utf8(), int32())), R"([
+      [["a", [["x", 1]]]],
+      [["b", [["x", 1]]]],
+      [["a", [["y", 1]]]],
+      [["a", [["x", 2]]]],
+      [["a", [["x", null]]]],
+      [["a", [["y", null]]]],
+      [["a", []]],
+      [["a", null]],
+      null
+  ])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    ARROW_SCOPED_TRACE("func: ", func);
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+    auto hashes = result.make_array();
+    ASSERT_OK(hashes->ValidateFull());
+    // The last row is a null map, so it produces a null; the rest are distinct maps.
+    ASSERT_TRUE(hashes->IsNull(8));
+    for (int64_t i = 0; i < 8; i++) {
+      ASSERT_TRUE(hashes->IsValid(i)) << "row " << i;
+      for (int64_t j = i + 1; j < 8; j++) {
+        ASSERT_OK_AND_ASSIGN(auto a, hashes->GetScalar(i));
+        ASSERT_OK_AND_ASSIGN(auto b, hashes->GetScalar(j));
+        ASSERT_FALSE(a->Equals(*b))
+            << "rows " << i << " and " << j << " are distinct maps";
+      }
+    }
+  }
+}
+
+// Same recursion three levels deep, plus a non-map nested item.
+TEST_F(TestScalarHash, DeeplyNestedMapHashesDistinctly) {
+  auto deep = ArrayFromJSON(map(utf8(), map(utf8(), map(utf8(), int32()))),
+                            R"([[["a", [["b", [["c", 1]]]]]],
+                                [["a", [["b", [["c", 2]]]]]],
+                                [["a", [["b", [["d", 1]]]]]],
+                                [["a", [["b", [["c", null]]]]]]])");
+  auto listy = ArrayFromJSON(map(utf8(), list(int32())),
+                             R"([[["a", [1, 2]]], [["a", [2, 1]]], [["b", [1, 2]]],
+                                 [["a", [1, null]]], [["a", null]]])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& input : {deep, listy}) {
+      ARROW_SCOPED_TRACE("type: ", input->type()->ToString(), " func: ", func);
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {input}));
+      auto hashes = result.make_array();
+      ASSERT_OK(hashes->ValidateFull());
+      for (int64_t i = 0; i < hashes->length(); i++) {
+        for (int64_t j = i + 1; j < hashes->length(); j++) {
+          ASSERT_OK_AND_ASSIGN(auto a, hashes->GetScalar(i));
+          ASSERT_OK_AND_ASSIGN(auto b, hashes->GetScalar(j));
+          ASSERT_FALSE(a->Equals(*b)) << "rows " << i << " and " << j << " differ";
+        }
+      }
+    }
+  }
+}
+
+// Maps reach their keys and items through the entries struct's offset on top of their
+// own, so an offset dropped or applied twice shows up as a slice mismatch.
+TEST_F(TestScalarHash, SlicedMapHashesMatchUnsliced) {
+  auto flat = ArrayFromJSON(map(utf8(), int32()),
+                            R"([[["a", 1]], [["b", null]], null, [["c", 3], ["d", 4]],
+                                [], [["e", 5]]])");
+  auto nested = ArrayFromJSON(map(utf8(), map(utf8(), int32())),
+                              R"([[["a", [["x", 1]]]], [["b", null]], null,
+                                  [["c", [["y", 2], ["z", 3]]]], [], [["d", []]]])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& input : {flat, nested}) {
+      ASSERT_OK_AND_ASSIGN(Datum whole, CallFunction(func, {input}));
+      auto expected = whole.make_array();
+      for (int64_t offset = 0; offset < input->length(); offset++) {
+        for (int64_t length = 0; length + offset <= input->length(); length++) {
+          ARROW_SCOPED_TRACE("type: ", input->type()->ToString(), " func: ", func,
+                             " offset: ", offset, " length: ", length);
+          ASSERT_OK_AND_ASSIGN(Datum sliced,
+                               CallFunction(func, {input->Slice(offset, length)}));
+          AssertArraysEqual(*expected->Slice(offset, length), *sliced.make_array());
+        }
+      }
+    }
+  }
+}
+
+// A nested map's own offset stacks on its parent's.
+TEST_F(TestScalarHash, MapInsideListAndStruct) {
+  auto in_list = ArrayFromJSON(list(map(utf8(), int32())),
+                               R"([[[["a", 1]]], [[["b", 1]]], [[["a", null]]],
+                                   [[["b", null]]], [[]], [null], []])");
+  auto in_struct = ArrayFromJSON(struct_({field("m", map(utf8(), int32()))}),
+                                 R"([{"m": [["a", 1]]}, {"m": [["b", 1]]},
+                                     {"m": [["a", null]]}, {"m": [["b", null]]},
+                                     {"m": []}])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& input : {in_list, in_struct}) {
+      ARROW_SCOPED_TRACE("type: ", input->type()->ToString(), " func: ", func);
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {input}));
+      auto hashes = result.make_array();
+      ASSERT_OK(hashes->ValidateFull());
+      for (int64_t i = 0; i < hashes->length(); i++) {
+        if (hashes->IsNull(i)) continue;
+        for (int64_t j = i + 1; j < hashes->length(); j++) {
+          if (hashes->IsNull(j)) continue;
+          ASSERT_OK_AND_ASSIGN(auto a, hashes->GetScalar(i));
+          ASSERT_OK_AND_ASSIGN(auto b, hashes->GetScalar(j));
+          ASSERT_FALSE(a->Equals(*b)) << "rows " << i << " and " << j << " differ";
+        }
+      }
+      // Hashing a slice must still agree with slicing the hash.
+      ASSERT_OK_AND_ASSIGN(Datum sliced, CallFunction(func, {input->Slice(1, 3)}));
+      AssertArraysEqual(*hashes->Slice(1, 3), *sliced.make_array());
+    }
+  }
+}
+
+// A child of length zero can carry null data buffers, so nothing may dereference them.
+TEST_F(TestScalarHash, EmptyAndZeroLengthChildrenHashWithoutCrashing) {
+  std::vector<std::pair<std::shared_ptr<DataType>, std::vector<std::string>>> cases = {
+      {list(int64()), {"[]", "[[], [], []]", "[null, []]"}},
+      {large_list(int64()), {"[]", "[[], [], []]", "[null, []]"}},
+      {fixed_size_list(int64(), 0), {"[]", "[[], []]", "[null, []]"}},
+      {map(utf8(), int32()), {"[]", "[[], []]", "[null, []]"}},
+      {list(struct_({field("f0", int32())})), {"[]", "[[], []]", "[null, []]"}},
+  };
+  for (const auto& c : cases) {
+    for (const auto& json : c.second) {
+      for (const std::string func : {"hash32", "hash64"}) {
+        ARROW_SCOPED_TRACE("type: ", c.first->ToString(), " json: ", json,
+                           " func: ", func);
+        auto arr = ArrayFromJSON(c.first, json);
+        ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+        auto hashes = result.make_array();
+        ASSERT_EQ(hashes->length(), arr->length());
+        ASSERT_OK(hashes->ValidateFull());
+        // Hashing is deterministic, including over these degenerate buffers.
+        ASSERT_OK_AND_ASSIGN(Datum again, CallFunction(func, {arr}));
+        AssertArraysEqual(*hashes, *again.make_array());
+        // A null row stays null; an empty row is a valid, present value.
+        for (int64_t i = 0; i < arr->length(); i++) {
+          ASSERT_EQ(hashes->IsNull(i), arr->IsNull(i)) << "row " << i;
+        }
+      }
+    }
+  }
+}
+
 TEST_F(TestScalarHash, ListStructElementWithNullFieldIsANullElement) {
   auto arr = ArrayFromJSON(list(struct_({field("f0", int32()), field("f1", int32())})),
                            R"([[{"f0": 1, "f1": null}], [{"f0": 2, "f1": null}], [null],
