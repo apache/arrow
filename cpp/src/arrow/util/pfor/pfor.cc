@@ -232,9 +232,13 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
     // its load extends beyond this vector's packed payload.
     //
     // `data` runs from this vector to the end of the page, so every byte after
-    // this vector's header is inside the caller's buffer and ours to read.
+    // this vector's header is inside the caller's buffer and ours to read. The
+    // bound is measured from `info_bytes` rather than the fixed metadata size,
+    // because a delta vector's header also carries its start value and
+    // `read_ptr` is already past it -- subtracting the fixed size would hand
+    // the kernels sizeof(T) bytes that belong to no one.
     const auto readable_bytes = static_cast<int>(std::min<int64_t>(
-        static_cast<int64_t>(data.size()) - PforVectorInfo<T>::kStoredSize,
+        static_cast<int64_t>(data.size()) - info_bytes,
         std::numeric_limits<int>::max()));
 
     if (unsigned_for == 0) {

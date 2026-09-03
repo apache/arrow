@@ -684,6 +684,59 @@ TYPED_TEST(PforTest, CorruptExceptionDataTruncated) {
 }
 
 // ----------------------------------------------------------------------
+// A page whose vector is sized exactly leaves no slack, so setting the delta
+// flag on a vector that was written without one makes the decoder ask for
+// sizeof(T) more bytes than the page holds. That has to be an error rather than
+// a read past the end.
+TYPED_TEST(PforTest, CorruptDeltaFlagSetOnANonDeltaVector) {
+  using T = TypeParam;
+  const std::vector<T> values = ClusterWithOutlier<T>();
+  auto compressed = TestFixture::EncodePage(values);
+
+  const int64_t width_byte =
+      TestFixture::kFirstVectorOffset + TestFixture::kBitWidthOffset;
+  ASSERT_EQ(compressed[width_byte] & PforVectorInfo<T>::kDeltaFlag, 0)
+      << "this page was supposed to be encoded without the delta mode";
+  compressed[width_byte] |= PforVectorInfo<T>::kDeltaFlag;
+
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(
+                             compressed.data(), static_cast<int64_t>(compressed.size()),
+                             static_cast<int32_t>(values.size()), decoded.data()));
+}
+
+// A delta vector's start value sits between the info block and the packed
+// payload, so a page that ends inside it has enough bytes for the info block
+// and not enough for the vector. The check that catches this is the only one
+// that reads is_delta(), so it needs its own case: the width and exception
+// fields are already valid here.
+TYPED_TEST(PforTest, CorruptDeltaVectorTruncatedInsideTheStartValue) {
+  using T = TypeParam;
+  std::vector<T> values(64);
+  std::iota(values.begin(), values.end(), static_cast<T>(1'000'000));
+  auto compressed = TestFixture::EncodePage(values);
+
+  const int64_t width_byte =
+      TestFixture::kFirstVectorOffset + TestFixture::kBitWidthOffset;
+  ASSERT_NE(compressed[width_byte] & PforVectorInfo<T>::kDeltaFlag, 0)
+      << "an arithmetic run was supposed to be encoded in the delta mode";
+
+  // One byte short of the start value, so PforVectorInfo::Load succeeds and the
+  // vector as a whole does not fit.
+  const int64_t truncated =
+      TestFixture::kFirstVectorOffset + PforVectorInfo<T>::kStoredSize + sizeof(T) - 1;
+  ASSERT_LT(truncated, static_cast<int64_t>(compressed.size()));
+
+  std::vector<T> decoded(values.size());
+  const Status status = PforWrapper<T>::Decode(
+      compressed.data(), truncated, static_cast<int32_t>(values.size()), decoded.data());
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_NE(status.message().find("metadata"), std::string::npos)
+      << "a truncated start value should be reported as missing metadata, got: "
+      << status.message();
+}
+
+// ----------------------------------------------------------------------
 // Output sizing
 
 TYPED_TEST(PforTest, MaxCompressedSizeRejectsInvalidArguments) {
@@ -793,7 +846,7 @@ TYPED_TEST(PforTest, MaxCompressedSizeBoundHoldsForAdversarialInputs) {
   }
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Delta Mode and Frame Search Tests
 
 // The mode has to survive every width, not just the ones a plausible column
@@ -873,8 +926,8 @@ TYPED_TEST(PforTest, DeltaVectorDecodesWithoutThePrecedingVector) {
       decoded);
 }
 
-// Two-sided patching. A tight cluster with one value far below it is the case
-// the old frame could not handle: at the minimum, the packed window has to span
+// Two-sided patching. A tight cluster with one value far below it is the case a
+// frame pinned to the minimum cannot handle: the packed window then has to span
 // the whole gap and every value in the cluster pays for it. The frame belongs
 // above the low value, which then becomes an exception like any other.
 TYPED_TEST(PforTest, FrameSitsAboveTheMinimumToPatchALowOutlier) {
