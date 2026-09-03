@@ -39,8 +39,8 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/util/logging.h"
-#include "arrow/util/pfor/pfor.h"
-#include "arrow/util/pfor/pfor_wrapper.h"
+#include "arrow/util/pfor/pfor_internal.h"
+#include "arrow/util/pfor/pfor_wrapper_internal.h"
 
 namespace arrow::util::pfor {
 namespace {

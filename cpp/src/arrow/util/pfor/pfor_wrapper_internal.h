@@ -27,7 +27,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/pfor/pfor.h"
+#include "arrow/util/pfor/pfor_internal.h"
 
 namespace arrow {
 namespace util {

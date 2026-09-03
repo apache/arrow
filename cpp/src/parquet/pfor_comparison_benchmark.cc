@@ -37,7 +37,7 @@
 
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/pfor/pfor_wrapper.h"
+#include "arrow/util/pfor/pfor_wrapper_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 
 #include "parquet/encoding.h"

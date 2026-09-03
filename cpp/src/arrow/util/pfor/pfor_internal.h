@@ -33,7 +33,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/pfor/pfor_constants.h"
+#include "arrow/util/pfor/pfor_constants_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {

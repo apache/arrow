@@ -23,7 +23,7 @@
 //   - Exception values: original integers (not FOR offsets)
 //   - Bit packing: Arrow's BitWriter/unpack
 
-#include "arrow/util/pfor/pfor.h"
+#include "arrow/util/pfor/pfor_internal.h"
 
 #include <algorithm>
 #include <array>

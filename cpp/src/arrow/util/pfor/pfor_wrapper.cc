@@ -23,7 +23,7 @@
 // Each vector:
 //   [PforVectorInfo] [PackedValues] [ExceptionPositions] [ExceptionValues]
 
-#include "arrow/util/pfor/pfor_wrapper.h"
+#include "arrow/util/pfor/pfor_wrapper_internal.h"
 
 #include <algorithm>
 #include <bit>
