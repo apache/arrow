@@ -2174,19 +2174,22 @@ TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
   auto file_schema = std::static_pointer_cast<GroupNode>(
       GroupNode::Make("schema", Repetition::REQUIRED, {node}));
 
-  // Little-endian 96-bit values: 1,000,000 (fits int64), 2^64 (overflows INT64_MAX),
-  // and -2^64 (underflows INT64_MIN).
-  uint8_t in_range[12] = {0x40, 0x42, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  // Little-endian 96-bit values: 1,000,000 and -1,000,000 (both fit int64),
+  // 2^64 (overflows INT64_MAX), and -2^64 (underflows INT64_MIN).
+  uint8_t pos_in_range[12] = {0x40, 0x42, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  uint8_t neg_in_range[12] = {0xc0, 0xbd, 0xf0, 0xff, 0xff, 0xff,
+                              0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
   uint8_t overflow[12] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0};
   uint8_t neg_overflow[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff};
-  FLBA values[3] = {FLBA(in_range), FLBA(overflow), FLBA(neg_overflow)};
+  FLBA values[4] = {FLBA(pos_in_range), FLBA(neg_in_range), FLBA(overflow),
+                    FLBA(neg_overflow)};
 
   auto sink = CreateOutputStream();
   auto writer = ParquetFileWriter::Open(sink, file_schema);
   RowGroupWriter* rg_writer = writer->AppendRowGroup();
   auto* col_writer = dynamic_cast<TypedColumnWriter<FLBAType>*>(rg_writer->NextColumn());
   ASSERT_NE(col_writer, nullptr);
-  col_writer->WriteBatch(3, nullptr, nullptr, values);
+  col_writer->WriteBatch(4, nullptr, nullptr, values);
   col_writer->Close();
   rg_writer->Close();
   writer->Close();
@@ -2229,10 +2232,11 @@ TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
               *table->schema()->field(0)->type());
     auto ts =
         std::static_pointer_cast<::arrow::TimestampArray>(table->column(0)->chunk(0));
-    ASSERT_EQ(3, ts->length());
+    ASSERT_EQ(4, ts->length());
     ASSERT_EQ(1000000, ts->Value(0));
-    ASSERT_EQ(INT64_MAX, ts->Value(1));
-    ASSERT_EQ(INT64_MIN, ts->Value(2));
+    ASSERT_EQ(-1000000, ts->Value(1));
+    ASSERT_EQ(INT64_MAX, ts->Value(2));
+    ASSERT_EQ(INT64_MIN, ts->Value(3));
   }
 }
 
