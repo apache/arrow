@@ -793,15 +793,31 @@ TEST_F(TestArray, TestMakeArrayFromScalarOffsetOverflow) {
   ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*large_scalar, 16));
   ASSERT_EQ(arr->length(), 16);
 
-  // A length that itself exceeds the offset type's range must be rejected too,
-  // even independent of the value size (e.g. an empty string repeated too many
-  // times to index with int32 offsets).
-  auto empty_scalar = std::make_shared<StringScalar>("");
-  int64_t length4 = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
-  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*empty_scalar, length4));
-
   // A negative length must be rejected outright.
   ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar, -1));
+}
+
+// These cases require multi-GB allocations to actually exercise the success path at
+// the int32 offset boundary (as opposed to the rejection path above, which fails
+// before any large buffer is fully populated), so they're gated like other
+// large-memory tests in this codebase (see gtest_util.h).
+TEST_F(TestArray, LARGE_MEMORY_TEST(MakeArrayFromScalarOffsetBoundary)) {
+  // Only the total data size (value size * length) needs to fit in OffsetType, not
+  // length on its own: an empty string can be repeated far more than
+  // int32_t::max() times, since every offset stays 0. This guards against the
+  // false-positive case flagged in https://github.com/apache/arrow/pull/38504
+  // (a length-only check would incorrectly reject this).
+  auto empty_scalar = std::make_shared<StringScalar>("");
+  int64_t empty_length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+  ASSERT_OK_AND_ASSIGN(auto empty_arr, MakeArrayFromScalar(*empty_scalar, empty_length));
+  ASSERT_EQ(empty_arr->length(), empty_length);
+
+  // Boundary case that should just work: "aa" repeated int32::max/2 times fits
+  // exactly within int32 offsets (avoid false positives at the edge).
+  auto scalar3 = MakeScalar("aa");
+  int64_t length5 = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) / 2;
+  ASSERT_OK_AND_ASSIGN(auto arr3, MakeArrayFromScalar(*scalar3, length5));
+  ASSERT_EQ(arr3->length(), length5);
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalarSliced) {

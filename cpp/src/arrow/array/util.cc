@@ -855,21 +855,18 @@ class RepeatedArrayFactory {
 
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
-    // `length_` is the repeat count and is always representable in OffsetType here:
-    // MakeArrayFromScalar rejects negative lengths up front, and a length that itself
-    // exceeds the offset type's range can never produce a valid offsets buffer.
-    if (length_ > static_cast<int64_t>(std::numeric_limits<OffsetType>::max())) {
+    // The only thing that must fit in OffsetType is the total data size
+    // (value_length * length_), not length_ or value_length individually — e.g. an
+    // empty string repeated far more than OffsetType::max() times is perfectly valid,
+    // since every offset stays 0. Compute the product in int64_t (wide enough for a
+    // 32-bit OffsetType) and compare against OffsetType::max() directly, per
+    // https://github.com/apache/arrow/pull/38504#discussion_r1394400239.
+    int64_t total_size;
+    if (MultiplyWithOverflow(static_cast<int64_t>(value_length), length_, &total_size) ||
+        total_size > static_cast<int64_t>(std::numeric_limits<OffsetType>::max())) {
       return Status::Invalid("length exceeds the maximum value of offset_type: ",
-                              length_, " is greater than ",
-                              std::numeric_limits<OffsetType>::max());
-    }
-    // Guard against the total data size (value_length * length_) overflowing the
-    // offset type, which would otherwise silently wrap around and produce an
-    // invalid array with negative/garbage offsets.
-    OffsetType total_size;
-    if (MultiplyWithOverflow(value_length, static_cast<OffsetType>(length_),
-                              &total_size)) {
-      return Status::Invalid("offset overflow in repeated array construction");
+                              std::to_string(total_size), " is greater than ",
+                              std::to_string(std::numeric_limits<OffsetType>::max()));
     }
     TypedBufferBuilder<OffsetType> builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ + 1));
