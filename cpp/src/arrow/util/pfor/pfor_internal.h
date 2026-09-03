@@ -33,6 +33,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/pfor/pfor_constants_internal.h"
 #include "arrow/util/pfor/pfor_plan_internal.h"
 #include "arrow/util/ubsan.h"
@@ -108,6 +109,11 @@ class PforVectorInfo {
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(std::span<uint8_t> dest) const {
+    // A width above the type's maximum would lose its high bits to the mask and
+    // set the delta flag on the way out, turning an encoder bug into a page that
+    // decodes to the wrong values with no error anywhere. Load rejects such a
+    // width on the way in; this catches it on the way out, where the bug is.
+    ARROW_DCHECK_LE(bit_width_, PforTypeTraits<T>::kMaxBitWidth);
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, bit_util::ToLittleEndian(frame_of_reference_));
     // bits 0..6 = bit width; bit 7 = delta flag.
