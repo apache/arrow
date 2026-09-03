@@ -1568,6 +1568,7 @@ Examples
         # column selection, to be able to restore those in the pandas DataFrame
         metadata = self.schema.metadata or {}
 
+        common_metadata = None
         if use_pandas_metadata:
             # if the dataset schema metadata itself doesn't have pandas
             # then try to get this from common file (for backwards compat)
@@ -1592,13 +1593,12 @@ Examples
             use_threads=use_threads
         )
 
-        # if use_pandas_metadata, restore the pandas metadata (which gets
-        # lost if doing a specific `columns` selection in to_table)
-        if use_pandas_metadata:
-            if metadata and b"pandas" in metadata:
-                new_metadata = table.schema.metadata or {}
-                new_metadata.update({b"pandas": metadata[b"pandas"]})
-                table = table.replace_schema_metadata(new_metadata)
+        # if the "pandas" metadata entry was retrieved from common_metadata,
+        # it will not live on the read table -> add it to the table metadata
+        if common_metadata and b"pandas" in metadata:
+            new_metadata = table.schema.metadata or {}
+            new_metadata.update({b"pandas": metadata[b"pandas"]})
+            table = table.replace_schema_metadata(new_metadata)
 
         return table
 
