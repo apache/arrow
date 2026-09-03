@@ -2068,6 +2068,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_checksum=False,
         sorting_columns=None,
         store_decimal_as_integer=False,
+        write_size_statistics=None,
         use_content_defined_chunking=False,
         bloom_filter_options=None) except *:
 
@@ -2271,6 +2272,22 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     else:
         props.disable_write_page_index()
 
+    # size statistics
+
+    if write_size_statistics is not None:
+        if write_size_statistics == "none":
+            props.set_size_statistics_level(SizeStatisticsLevel_None)
+        elif write_size_statistics == "columnchunk":
+            props.set_size_statistics_level(SizeStatisticsLevel_ColumnChunk)
+        elif write_size_statistics == "pageandcolumnchunk":
+            props.set_size_statistics_level(
+                SizeStatisticsLevel_PageAndColumnChunk)
+        else:
+            raise ValueError(
+                "Unsupported size statistics level: "
+                f"{write_size_statistics!r}. Expected one of 'none', "
+                "'columnchunk', 'pageandcolumnchunk'.")
+
     properties = props.build()
 
     return properties
@@ -2398,7 +2415,8 @@ cdef class ParquetWriter(_Weakrefable):
                   store_decimal_as_integer=False,
                   use_content_defined_chunking=False,
                   write_time_adjusted_to_utc=False,
-                  bloom_filter_options=None):
+                  bloom_filter_options=None,
+                  write_size_statistics=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2435,7 +2453,8 @@ cdef class ParquetWriter(_Weakrefable):
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
             use_content_defined_chunking=use_content_defined_chunking,
-            bloom_filter_options=bloom_filter_options
+            bloom_filter_options=bloom_filter_options,
+            write_size_statistics=write_size_statistics
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
