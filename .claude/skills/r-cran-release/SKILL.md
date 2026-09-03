@@ -55,7 +55,7 @@ All subsequent steps should be done on this branch.
 In `r/README.md`, delete everything between `<!-- badges: start -->` and `<!-- badges: end -->` (inclusive):
 
 ```bash
-sed -i '/<!-- badges: start -->/,/<!-- badges: end -->/d' r/README.md
+sed -i.bak '/<!-- badges: start -->/,/<!-- badges: end -->/d' r/README.md && rm r/README.md.bak
 ```
 
 Commit this change to the `maint-<VERSION>-r` branch.
