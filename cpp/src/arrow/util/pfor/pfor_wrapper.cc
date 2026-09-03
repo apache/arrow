@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
@@ -72,7 +73,8 @@ Status ValidateOffsets(const uint8_t* offset_array_start, int32_t num_vectors,
   int64_t previous = -1;
   for (int32_t v = 0; v < num_vectors; ++v) {
     const int64_t offset =
-        util::SafeLoadAs<PforConstants::OffsetType>(offset_array_start + v * kOffsetSize);
+        bit_util::FromLittleEndian(util::SafeLoadAs<PforConstants::OffsetType>(
+            offset_array_start + v * kOffsetSize));
     if (v == 0) {
       if (offset != offset_array_size) {
         return Status::Invalid("PFOR first vector offset ", offset,
@@ -109,7 +111,7 @@ void PforWrapper<T>::StoreHeader(std::span<uint8_t> dest, const PforHeader& head
   util::SafeStore(ptr + 0, header.packing_mode);
   util::SafeStore(ptr + 1, header.log_vector_size);
   util::SafeStore(ptr + 2, header.value_byte_width);
-  util::SafeStore(ptr + 3, header.num_elements);
+  util::SafeStore(ptr + 3, bit_util::ToLittleEndian(header.num_elements));
 }
 
 template <typename T>
@@ -124,7 +126,7 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
   header.packing_mode = util::SafeLoadAs<uint8_t>(ptr + 0);
   header.log_vector_size = util::SafeLoadAs<uint8_t>(ptr + 1);
   header.value_byte_width = util::SafeLoadAs<uint8_t>(ptr + 2);
-  header.num_elements = util::SafeLoadAs<int32_t>(ptr + 3);
+  header.num_elements = bit_util::FromLittleEndian(util::SafeLoadAs<int32_t>(ptr + 3));
 
   if (header.packing_mode != PforConstants::kPackingModeForBitPack) {
     return Status::Invalid("PFOR unsupported packing mode: ",
@@ -210,7 +212,8 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
   for (int32_t v = 0; v < num_vectors; ++v) {
     // Record offset (from start of offset array)
     const auto offset = static_cast<PforConstants::OffsetType>(write_ptr - data_start);
-    util::SafeStore(offset_array_start + v * kOffsetSize, offset);
+    util::SafeStore(offset_array_start + v * kOffsetSize,
+                    bit_util::ToLittleEndian(offset));
 
     // Determine elements in this vector
     int32_t start_idx = v * vector_size;
@@ -291,7 +294,8 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
   // Step 3: Decode each vector
   for (int32_t v = 0; v < num_vectors; ++v) {
     const auto offset =
-        util::SafeLoadAs<PforConstants::OffsetType>(offset_array_start + v * kOffsetSize);
+        bit_util::FromLittleEndian(util::SafeLoadAs<PforConstants::OffsetType>(
+            offset_array_start + v * kOffsetSize));
     const uint8_t* vector_data = offset_array_start + offset;
 
     int32_t start_idx = v * vector_size;

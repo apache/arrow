@@ -43,7 +43,26 @@ namespace arrow {
 namespace util {
 namespace pfor {
 
-static_assert(ARROW_LITTLE_ENDIAN, "PFOR serialization assumes little-endian byte order");
+namespace {
+
+// The PFOR wire format is little-endian, so every multi-byte field converts on the
+// way in and out. The bit-packed deltas need no conversion of their own:
+// bit_util::BitWriter writes them little-endian and arrow::internal::unpack reads
+// them back the same way, so those bytes are copied verbatim.
+//
+// On a little-endian host both helpers below are a plain memcpy.
+template <typename T>
+void StoreLittleEndianArray(const T* values, int64_t num_values, uint8_t* output) {
+  if constexpr (ARROW_LITTLE_ENDIAN == 1) {
+    std::memcpy(output, values, static_cast<size_t>(num_values) * sizeof(T));
+  } else {
+    for (int64_t i = 0; i < num_values; ++i) {
+      util::SafeStore(output + i * sizeof(T), bit_util::ToLittleEndian(values[i]));
+    }
+  }
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // FindOptimalBitWidth: histogram-based cost model
@@ -265,8 +284,9 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
     PforConstants::PositionType max_position = 0;
     for (PforConstants::ExceptionCountType i = 0; i < num_exceptions; ++i) {
       max_position = std::max(
-          max_position, util::SafeLoadAs<PforConstants::PositionType>(
-                            positions_ptr + i * sizeof(PforConstants::PositionType)));
+          max_position,
+          bit_util::FromLittleEndian(util::SafeLoadAs<PforConstants::PositionType>(
+              positions_ptr + i * sizeof(PforConstants::PositionType))));
     }
     if (max_position >= num_elements) {
       return Status::Invalid("PFOR exception position ", max_position,
@@ -274,9 +294,11 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
     }
 
     for (PforConstants::ExceptionCountType i = 0; i < num_exceptions; ++i) {
-      PforConstants::PositionType pos = util::SafeLoadAs<PforConstants::PositionType>(
-          positions_ptr + i * sizeof(PforConstants::PositionType));
-      T value = util::SafeLoadAs<T>(values_ptr + i * sizeof(T));
+      PforConstants::PositionType pos =
+          bit_util::FromLittleEndian(util::SafeLoadAs<PforConstants::PositionType>(
+              positions_ptr + i * sizeof(PforConstants::PositionType)));
+      T value =
+          bit_util::FromLittleEndian(util::SafeLoadAs<T>(values_ptr + i * sizeof(T)));
       values[static_cast<size_t>(pos)] = value;
     }
   }
@@ -311,7 +333,7 @@ Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& 
                            dest.size(), " remain");
   }
 
-  // `needed` is computed from bit_width and num_exceptions, while the memcpys
+  // `needed` is computed from bit_width and num_exceptions, while the copies
   // below take their lengths from the sections themselves, so a vector whose
   // info disagrees with its sections would write past `needed` bytes.
   const int64_t expected_packed_bytes =
@@ -346,13 +368,13 @@ Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& 
 
   // Write exception positions
   if (vec.info().num_exceptions() > 0) {
-    std::memcpy(write_ptr, vec.exception_positions().data(),
-                vec.info().num_exceptions() * sizeof(PforConstants::PositionType));
+    StoreLittleEndianArray(vec.exception_positions().data(), vec.info().num_exceptions(),
+                           write_ptr);
     write_ptr += vec.info().num_exceptions() * sizeof(PforConstants::PositionType);
 
     // Write exception values (original integers)
-    std::memcpy(write_ptr, vec.exception_values().data(),
-                vec.info().num_exceptions() * sizeof(T));
+    StoreLittleEndianArray(vec.exception_values().data(), vec.info().num_exceptions(),
+                           write_ptr);
     write_ptr += vec.info().num_exceptions() * sizeof(T);
   }
 

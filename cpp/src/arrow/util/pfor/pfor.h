@@ -32,6 +32,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/pfor/pfor_constants.h"
 #include "arrow/util/ubsan.h"
 
@@ -87,10 +88,10 @@ class PforVectorInfo {
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(std::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
-    util::SafeStore(ptr, frame_of_reference_);
+    util::SafeStore(ptr, bit_util::ToLittleEndian(frame_of_reference_));
     // bits 0..6 = bit width; bit 7 reserved (0).
     ptr[sizeof(T)] = static_cast<uint8_t>(bit_width_ & kBitWidthMask);
-    util::SafeStore(ptr + sizeof(T) + 1, num_exceptions_);
+    util::SafeStore(ptr + sizeof(T) + 1, bit_util::ToLittleEndian(num_exceptions_));
   }
 
   /// \brief Load this info from a byte buffer (little-endian)
@@ -101,11 +102,11 @@ class PforVectorInfo {
     }
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
-    info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
+    info.frame_of_reference_ = bit_util::FromLittleEndian(util::SafeLoadAs<T>(ptr));
     // Mask off the reserved high bit (7).
     info.bit_width_ = static_cast<uint8_t>(ptr[sizeof(T)] & kBitWidthMask);
-    info.num_exceptions_ =
-        util::SafeLoadAs<PforConstants::ExceptionCountType>(ptr + sizeof(T) + 1);
+    info.num_exceptions_ = bit_util::FromLittleEndian(
+        util::SafeLoadAs<PforConstants::ExceptionCountType>(ptr + sizeof(T) + 1));
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
       return Status::Invalid("PFOR bit_width out of range: ",
                              static_cast<int>(info.bit_width_));
