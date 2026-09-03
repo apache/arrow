@@ -440,6 +440,7 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   /// \param[in] handle                Handle for this prepared statement.
   /// \param[in] dataset_schema        Schema of the resulting dataset.
   /// \param[in] parameter_schema      Schema of the parameters (if any).
+  /// \param[in] is_update             Whether this is an update query.
   PreparedStatement(FlightSqlClient* client, std::string handle,
                     std::shared_ptr<Schema> dataset_schema,
                     std::shared_ptr<Schema> parameter_schema,
