@@ -763,17 +763,11 @@ TEST_P(StreamingReaderTest, PropagateErrorsNonLinewiseChunker) {
   EXPECT_EQ(reader->bytes_processed(), 20);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":1}]"), *batch);
 
-  // Depending on readahead, the malformed record may be reported by either
-  // the parser or the chunker on the next read.
-  auto status = reader->ReadNext(&batch);
-  if (status.ok()) {
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::StartsWith("Invalid: JSON parse error"),
-                                    reader->ReadNext(&batch));
-  } else {
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::StartsWith("Invalid: JSON chunk error"), status);
-  }
+  // Depending on readahead and chunking, the malformed record may be reported
+  // by either of the two next reads.
+  auto status = reader->ReadNext(&batch) & reader->ReadNext(&batch);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("JSON parse error"),
+                                  status);
 
   AssertReadEnd(reader);
   AssertReadEnd(reader);

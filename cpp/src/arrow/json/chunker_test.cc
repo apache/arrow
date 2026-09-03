@@ -277,7 +277,7 @@ TEST(ChunkerTest, Errors) {
       chunker->ProcessWithPartial(rest, Buffer::FromString(parts[2]), &completion, &rest);
   ASSERT_RAISES(Invalid, status);
   EXPECT_THAT(status.message(),
-              ::testing::StartsWith("JSON chunk error: invalid data at end of document"));
+              ::testing::StartsWith("JSON parse error: invalid data at end of document"));
 }
 
 TEST_P(BaseChunkerTest, StraddlingEmpty) {
