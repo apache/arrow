@@ -193,13 +193,16 @@ class AlpCodec {
 
     /// \brief Decode one vector
     ///
+    /// Not const: the reader keeps the scratch one vector needed and reuses it
+    /// for the next, so decoding a run of vectors does not allocate per vector.
+    ///
     /// \param[in] vector_index index of the vector, in `[0, num_vectors())`
     /// \param[out] output room for `VectorLength(vector_index)` values
     /// \return Status::OK on success, or an error if the vector is malformed
     /// \tparam TargetType the type that is used to store the output.
     ///         May not be a narrowing conversion from T.
     template <typename TargetType>
-    Status DecodeVector(int32_t vector_index, TargetType* output) const;
+    Status DecodeVector(int32_t vector_index, TargetType* output);
 
    private:
     /// \brief Where one vector's metadata and data sit in the buffer
@@ -230,6 +233,10 @@ class AlpCodec {
     AlpIntegerEncoding integer_encoding_ = AlpIntegerEncoding::kForBitPack;
     /// Byte offset of each vector, checked against the chain rule by `Open`.
     std::vector<AlpConstants::OffsetType> vector_offsets_;
+    /// Reused by `DecodeVector` so that the exception arrays are allocated once.
+    AlpEncodedVectorView<T> decode_view_;
+    /// Room for one vector of unpacked integers, likewise allocated once.
+    std::vector<typename AlpTypedConstants<T>::FloatingToExact> unpacked_integers_;
   };
 
  private:

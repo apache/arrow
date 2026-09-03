@@ -704,7 +704,9 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   // Decompress using the view - this exercises PatchExceptions with the
   // std::vector members (previously spans that could be misaligned)
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
+  std::vector<typename AlpCompression<TypeParam>::ExactType> unpacked(input.size());
+  compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data(),
+                                  unpacked);
 
   // Verify bit-exact reconstruction
   EXPECT_TRUE(IsBitwiseEqual(output, input));
@@ -776,7 +778,9 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
 
   // Decompress and verify
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
+  std::vector<typename AlpCompression<TypeParam>::ExactType> unpacked(input.size());
+  compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data(),
+                                  unpacked);
 
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
@@ -818,7 +822,9 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
 
     // Decompress - this is where the fix matters
     std::vector<TypeParam> output(input.size());
-    compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
+    std::vector<typename AlpCompression<TypeParam>::ExactType> unpacked(input.size());
+    compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data(),
+                                    unpacked);
 
     // Verify
     EXPECT_TRUE(IsBitwiseEqual(output, input)) << "Failed at buffer offset " << offset;

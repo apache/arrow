@@ -317,7 +317,7 @@ Status AlpCodec<T>::Decode(int32_t num_elements, const uint8_t* input, int64_t i
                            " does not match the expected value count ", num_elements);
   }
 
-  ARROW_ASSIGN_OR_RAISE(const VectorReader reader, VectorReader::Open(input, input_size));
+  ARROW_ASSIGN_OR_RAISE(VectorReader reader, VectorReader::Open(input, input_size));
 
   int32_t decoded = 0;
   for (int32_t vector_index = 0; vector_index < reader.num_vectors(); ++vector_index) {
@@ -606,26 +606,28 @@ Result<int64_t> AlpCodec<T>::VectorReader::VectorSizeInBytes(int32_t vector_inde
 
 template <typename T>
 template <typename TargetType>
-Status AlpCodec<T>::VectorReader::DecodeVector(int32_t vector_index,
-                                               TargetType* output) const {
+Status AlpCodec<T>::VectorReader::DecodeVector(int32_t vector_index, TargetType* output) {
   if (vector_index < 0 || vector_index >= num_vectors()) {
     return Status::Invalid("ALP vector index out of range: ", vector_index, " of ",
                            num_vectors());
   }
   ARROW_ASSIGN_OR_RAISE(const VectorLayout layout, LoadVectorLayout(vector_index));
 
-  ARROW_ASSIGN_OR_RAISE(const AlpEncodedVectorView<T> encoded_view,
-                        AlpEncodedVectorView<T>::LoadViewDataOnly(
-                            {layout.data, static_cast<size_t>(layout.data_size)},
-                            layout.alp_info, layout.for_info, layout.num_elements));
+  RETURN_NOT_OK(
+      decode_view_.ResetDataOnly({layout.data, static_cast<size_t>(layout.data_size)},
+                                 layout.alp_info, layout.for_info, layout.num_elements));
 
-  AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding_, output);
+  // resize() keeps whatever the previous vector allocated, so a run of vectors
+  // pays for the largest one rather than for each one.
+  unpacked_integers_.resize(layout.num_elements);
+  AlpCompression<T>::DecompressVectorView(decode_view_, integer_encoding_, output,
+                                          unpacked_integers_);
   return Status::OK();
 }
 
-template Status AlpCodec<float>::VectorReader::DecodeVector(int32_t, float*) const;
-template Status AlpCodec<float>::VectorReader::DecodeVector(int32_t, double*) const;
-template Status AlpCodec<double>::VectorReader::DecodeVector(int32_t, double*) const;
+template Status AlpCodec<float>::VectorReader::DecodeVector(int32_t, float*);
+template Status AlpCodec<float>::VectorReader::DecodeVector(int32_t, double*);
+template Status AlpCodec<double>::VectorReader::DecodeVector(int32_t, double*);
 
 // ----------------------------------------------------------------------
 // Template instantiations
