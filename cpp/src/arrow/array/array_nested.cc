@@ -1023,9 +1023,10 @@ Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensorWithNulls() const {
     shape.push_back(fsl->list_size());
   }
 
-  // Only checking byte_width and leaving Tensor::Make error on unsupported types.
+  // Only checking byte_width which we need here and leaving Tensor::Make error on
+  // unsupported types.
   if (!is_fixed_width(*type)) {
-    return Status::NotImplemented("Expected a fixed width leaf type, got ", type->name());
+    return Status::TypeError("Expected a fixed width leaf type, got ", type->name());
   }
 
   std::shared_ptr<Buffer> buffer = nullptr;

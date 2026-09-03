@@ -1903,7 +1903,7 @@ TEST_F(TestFixedSizeListArray, ToTensorNulls) {
   auto array = ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2], null, [5, null]]");
 
   // Default behaviour is to not allow nulls
-  ASSERT_RAISES(NotImplemented, array->ToTensor());
+  ASSERT_RAISES(Invalid, array->ToTensor());
 
   // Nulls are ignored, leaving unspecified values in the output tensor.
   ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
@@ -1923,12 +1923,12 @@ TEST_F(TestFixedSizeListArray, ToTensorZeroLength) {
 
 TEST_F(TestFixedSizeListArray, ToTensorUnsupportedType) {
   ASSERT_RAISES(
-      NotImplemented,
+      TypeError,
       ArrayFromJSON(fixed_size_list(utf8(), 1), R"([["a"], ["b"]])")->ToTensor());
   ASSERT_RAISES(
-      Invalid,
+      TypeError,
       ArrayFromJSON(fixed_size_list(boolean(), 2), "[[true, false]]")->ToTensor());
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 ArrayFromJSON(fixed_size_list(date32(), 2), "[[1, 2]]")->ToTensor());
 }
 

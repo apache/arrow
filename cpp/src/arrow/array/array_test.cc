@@ -1264,7 +1264,7 @@ TEST(TestPrimitiveArray, ToTensorNulls) {
   auto array = ArrayFromJSON(int32(), "[1, null, 3]");
 
   // Default behaviour is to not allow nulls
-  ASSERT_RAISES(NotImplemented, array->ToTensor());
+  ASSERT_RAISES(Invalid, array->ToTensor());
 
   // Nulls are ignored, leaving unspecified values in the output tensor.
   ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
@@ -1276,9 +1276,8 @@ TEST(TestPrimitiveArray, ToTensorNulls) {
 
 TEST(TestPrimitiveArray, ToTensorUnsupportedType) {
   auto array = ArrayFromJSON(date32(), "[1, 2, 3]");
-  ASSERT_RAISES(Invalid, array->ToTensor());
-
-  ASSERT_RAISES(NotImplemented, ArrayFromJSON(utf8(), R"(["a"])")->ToTensor());
+  ASSERT_RAISES(TypeError, array->ToTensor());
+  ASSERT_RAISES(TypeError, ArrayFromJSON(utf8(), R"(["a"])")->ToTensor());
 }
 
 class TestBuilder : public ::testing::Test {

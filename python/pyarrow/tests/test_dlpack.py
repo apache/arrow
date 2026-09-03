@@ -199,7 +199,7 @@ def test_array_to_tensor_dlpack_nulls(arr, expected):
     if Version(np.__version__) < Version("2.1.0"):
         pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
 
-    with pytest.raises(pa.ArrowNotImplementedError, match="Array contains nulls"):
+    with pytest.raises(pa.ArrowInvalid, match="Array contains nulls"):
         arr.to_tensor()
 
     tensor = arr.to_tensor(allow_nulls=True)

@@ -325,7 +325,7 @@ Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
 
 Result<std::shared_ptr<Tensor>> Array::ToTensor(bool allow_nulls) const {
   if (!allow_nulls && null_count() > 0) {
-    return Status::NotImplemented(
+    return Status::Invalid(
         "Array contains nulls, explicitly pass `allow_nulls=true` to leave them "
         "undefined.");
   }
@@ -334,8 +334,7 @@ Result<std::shared_ptr<Tensor>> Array::ToTensor(bool allow_nulls) const {
 }
 
 Result<std::shared_ptr<Tensor>> Array::ToTensorWithNulls() const {
-  return Status::NotImplemented("ToTensor is not implemented for Array type ",
-                                type()->name());
+  return Status::TypeError("ToTensor is not implemented for Array type ", type()->name());
 }
 
 // ----------------------------------------------------------------------
