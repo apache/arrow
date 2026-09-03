@@ -1158,7 +1158,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         arrow_extensions_enabled_(false),
         should_load_statistics_(false),
         smallest_decimal_enabled_(false),
-        convert_flba_timestamps_(false),
+        convert_flba_timestamps_(true),
         flba_timestamp_clamp_on_overflow_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
@@ -1300,7 +1300,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// \brief Set whether to infer Arrow timestamps from Parquet FLBA types.
   ///
   /// When enabled, Parquet FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
-  /// VAlues that do not fit in 64 bit timestamps are handled per
+  /// Values that do not fit in 64 bit timestamps are handled per
   /// flba_timestamp_clamp_on_overflow(). When disabled, Parquet FLBA(12) TIMESTAMP
   /// columns are read as FixedSizeBinary(12).
   void set_convert_flba_timestamps(bool convert) { convert_flba_timestamps_ = convert; }

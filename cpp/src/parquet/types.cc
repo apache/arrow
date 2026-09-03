@@ -1415,7 +1415,8 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
 bool LogicalType::Impl::Timestamp::is_applicable(parquet::Type::type primitive_type,
                                                  int32_t primitive_length) const {
   return primitive_type == parquet::Type::INT64 ||
-         (primitive_type == parquet::Type::FIXED_LEN_BYTE_ARRAY && primitive_length == 12);
+         (primitive_type == parquet::Type::FIXED_LEN_BYTE_ARRAY &&
+          primitive_length == 12);
 }
 
 bool LogicalType::Impl::Timestamp::is_serialized() const {

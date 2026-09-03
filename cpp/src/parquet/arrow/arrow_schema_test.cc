@@ -322,17 +322,17 @@ TEST_F(TestConvertParquetSchema, FlbaTimestampConversion) {
     return fields;
   };
 
-  // Should output the raw FLBA value.
-  ASSERT_OK(ConvertSchema(make_fields()));
-  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
-      ::arrow::schema({::arrow::field("ts", ::arrow::fixed_size_binary(12), false)})));
-
   // Should convert to an Arrow timestamp.
-  ArrowReaderProperties props;
-  props.set_convert_flba_timestamps(true);
-  ASSERT_OK(ConvertSchema(make_fields(), /*key_value_metadata=*/{}, props));
+  ASSERT_OK(ConvertSchema(make_fields()));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema({::arrow::field(
       "ts", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"), false)})));
+
+  // Should output the raw FLBA value.
+  ArrowReaderProperties props;
+  props.set_convert_flba_timestamps(false);
+  ASSERT_OK(ConvertSchema(make_fields(), /*key_value_metadata=*/{}, props));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+      ::arrow::schema({::arrow::field("ts", ::arrow::fixed_size_binary(12), false)})));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {

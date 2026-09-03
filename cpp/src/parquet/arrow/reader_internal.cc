@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/datum.h"
 #include "arrow/io/memory.h"
@@ -856,46 +855,80 @@ Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
-// Read a TIMESTAMP-annotated FLBA(12) column as a 64-bit Arrow timestamp. Values that do
-// not fit in the 64 bit range either error or clamp to min/max int64, depending on
-// configuration.
+// Decode a little-endian 96-bit FLBA(12) TIMESTAMP value into a 64-bit Arrow timestamp.
+// Values that do not fit in the int64 range either error or clamp to INT64_MIN/INT64_MAX,
+// depending on clamp_on_overflow.
+Status FlbaTimestampToInt64(const uint8_t* bytes, bool clamp_on_overflow, int64_t* out) {
+  const uint64_t low = bit_util::FromLittleEndian(SafeLoadAs<uint64_t>(bytes));
+  const uint32_t high = bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(bytes + 8));
+  const int32_t high_signed = static_cast<int32_t>(high);
+  const int64_t low_signed = static_cast<int64_t>(low);
+  const int32_t sign_extension = (low_signed < 0) ? -1 : 0;
+  // Fits in int64 iff the high part is a pure sign-extension of the low part.
+  if (high_signed != sign_extension) {
+    if (!clamp_on_overflow) {
+      return Status::Invalid(
+          "FLBA(12) TIMESTAMP value does not fit in a 64-bit Arrow timestamp");
+    }
+    *out = high_signed < 0 ? INT64_MIN : INT64_MAX;
+  } else {
+    *out = low_signed;
+  }
+  return Status::OK();
+}
+
+Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(LogicalType::TimeUnit::unit unit) {
+  switch (unit) {
+    case LogicalType::TimeUnit::MILLIS:
+      return ::arrow::TimeUnit::MILLI;
+    case LogicalType::TimeUnit::MICROS:
+      return ::arrow::TimeUnit::MICRO;
+    case LogicalType::TimeUnit::NANOS:
+      return ::arrow::TimeUnit::NANO;
+    default:
+      return Status::Invalid("Unrecognized Parquet TIMESTAMP time unit");
+  }
+}
+
+// Read a TIMESTAMP-annotated FLBA(12) column as a 64-bit Arrow timestamp.
 Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
                              const std::shared_ptr<Field>& field, Datum* out,
                              bool clamp_on_overflow) {
-  static const auto binary_type = ::arrow::fixed_size_binary(12);
-  std::shared_ptr<ChunkedArray> chunked_array;
-  RETURN_NOT_OK(
-      TransferBinary(reader, pool, field->WithType(binary_type), &chunked_array));
+  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
+  DCHECK(binary_reader);
+  ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
 
-  ::arrow::TimestampBuilder builder(field->type(), pool);
-  RETURN_NOT_OK(builder.Reserve(chunked_array->length()));
-  for (const auto& chunk : chunked_array->chunks()) {
+  for (auto& chunk : chunks) {
     const auto& values = checked_cast<const ::arrow::FixedSizeBinaryArray&>(*chunk);
-    for (int64_t i = 0; i < values.length(); ++i) {
-      if (values.IsNull(i)) {
-        builder.UnsafeAppendNull();
-        continue;
-      }
-      const uint8_t* bytes = values.GetValue(i);
-      const uint64_t low = bit_util::FromLittleEndian(SafeLoadAs<uint64_t>(bytes));
-      const uint32_t high = bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(bytes + 8));
-      const int64_t low_signed = static_cast<int64_t>(low);
-      // Fits in int64 iff the high part is a pure sign-extension of the low part.
-      if (static_cast<int32_t>(high) != (low_signed < 0 ? -1 : 0)) {
-        if (!clamp_on_overflow) {
-          return Status::Invalid(
-              "FLBA(12) TIMESTAMP value does not fit in a 64-bit Arrow timestamp");
+    const int64_t length = values.length();
+    ARROW_ASSIGN_OR_RAISE(auto data,
+                          ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
+    auto out_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
+
+    const int64_t null_count = values.null_count();
+    if (null_count > 0) {
+      for (int64_t i = 0; i < length; ++i) {
+        if (!values.IsNull(i)) {
+          RETURN_NOT_OK(
+              FlbaTimestampToInt64(values.GetValue(i), clamp_on_overflow, &out_ptr[i]));
+        } else {
+          out_ptr[i] = 0;
         }
-        const bool negative = (bytes[11] & 0x80) != 0;
-        builder.UnsafeAppend(negative ? INT64_MIN : INT64_MAX);
-      } else {
-        builder.UnsafeAppend(low_signed);
+      }
+    } else {
+      for (int64_t i = 0; i < length; ++i) {
+        RETURN_NOT_OK(
+            FlbaTimestampToInt64(values.GetValue(i), clamp_on_overflow, &out_ptr[i]));
       }
     }
+
+    chunk = std::make_shared<::arrow::TimestampArray>(
+        field->type(), length, std::move(data), values.null_bitmap(), null_count);
   }
-  std::shared_ptr<::arrow::Array> array;
-  RETURN_NOT_OK(builder.Finish(&array));
-  *out = array;
+  if (!field->nullable()) {
+    ReconstructChunksWithoutNulls(&chunks);
+  }
+  *out = std::make_shared<ChunkedArray>(std::move(chunks), field->type());
   return Status::OK();
 }
 
@@ -1011,6 +1044,17 @@ Status TransferColumnData(RecordReader* reader,
         RETURN_NOT_OK(
             TransferInt96(reader, pool, value_field, &result, timestamp_type.unit()));
       } else if (descr->physical_type() == ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
+        // Validate that the provided Arrow timestamp unit matches the Parquet unit.
+        const auto& ts_logical =
+            checked_cast<const TimestampLogicalType&>(*descr->logical_type());
+        ARROW_ASSIGN_OR_RAISE(auto expected_unit,
+                              ArrowTimeUnitFromParquet(ts_logical.time_unit()));
+        if (timestamp_type.unit() != expected_unit) {
+          return Status::Invalid(
+              "Arrow timestamp unit ", timestamp_type.unit(),
+              " does not match Parquet FLBA(12) TIMESTAMP logical type ",
+              ts_logical.ToString());
+        }
         RETURN_NOT_OK(TransferFlbaTimestamp(
             reader, pool, value_field, &result,
             ctx->reader_properties->flba_timestamp_clamp_on_overflow()));
