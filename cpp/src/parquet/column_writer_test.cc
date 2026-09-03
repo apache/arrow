@@ -122,6 +122,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
     } else {
       wp_builder.disable_dictionary();
+      if (column_properties.encoding() == Encoding::PFOR) {
+        // PFOR is opt-in because it is a Preview feature in the format.
+        wp_builder.enable_pfor_encoding();
+      }
       wp_builder.encoding(column_properties.encoding());
     }
     if (enable_checksum) {

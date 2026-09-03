@@ -153,7 +153,8 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
 
 template <typename T>
 Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
-                              uint8_t* comp, int64_t* comp_size) {
+                              uint8_t* comp, int64_t* comp_size,
+                              const PforEncodeOptions& options) {
   if (num_values < 0) {
     return Status::Invalid("PFOR num_values must be non-negative: ", num_values);
   }
@@ -220,7 +221,7 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
     int32_t elements_in_vector = std::min(vector_size, num_values - start_idx);
 
     auto encoded =
-        PforCompression<T>::EncodeVector(values + start_idx, elements_in_vector);
+        PforCompression<T>::EncodeVector(values + start_idx, elements_in_vector, options);
 
     // Serialize to output
     ARROW_ASSIGN_OR_RAISE(
@@ -237,8 +238,8 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
 
 template <typename T>
 Status PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
-                              int64_t* comp_size) {
-  return Encode(values, num_values, kVectorSize, comp, comp_size);
+                              int64_t* comp_size, const PforEncodeOptions& options) {
+  return Encode(values, num_values, kVectorSize, comp, comp_size, options);
 }
 
 // ----------------------------------------------------------------------

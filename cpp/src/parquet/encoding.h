@@ -35,6 +35,8 @@ class Dictionary32Builder;
 
 namespace parquet {
 
+class WriterProperties;
+
 template <typename DType>
 class TypedEncoder;
 
@@ -418,20 +420,27 @@ class FLBADecoder : virtual public TypedDecoder<FLBAType> {
   // then perhaps not
 };
 
+/// \brief Construct an encoder.
+///
+/// \param[in] properties the writer properties, consulted for the options an
+///            encoding offers per column. May be null, in which case every such
+///            option takes its default.
 PARQUET_EXPORT
 std::unique_ptr<Encoder> MakeEncoder(
     Type::type type_num, Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    const WriterProperties* properties = NULLPTR);
 
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
     Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    const WriterProperties* properties = NULLPTR) {
   using OutType = typename EncodingTraits<DType>::Encoder;
   std::unique_ptr<Encoder> base =
-      MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool);
+      MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool, properties);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 
