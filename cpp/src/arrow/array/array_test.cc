@@ -50,6 +50,7 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_compat.h"
@@ -1216,6 +1217,67 @@ TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
   std::shared_ptr<Buffer> data = *AllocateBuffer(40);
   Int32Array arr(10, data);
   ASSERT_EQ(arr.data()->null_count, 0);
+}
+
+TEST(TestPrimitiveArray, ToTensor) {
+  const std::vector<int64_t> shape = {5};
+  const std::vector<int64_t> strides = {sizeof(int32_t)};
+
+  auto array = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]");
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(int32(), tensor->type());
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(strides, tensor->strides());
+  EXPECT_TRUE(tensor->is_contiguous());
+  EXPECT_TRUE(
+      TensorFromJSON(int32(), "[1, 2, 3, 4, 5]", shape, strides)->Equals(*tensor));
+}
+
+TEST(TestPrimitiveArray, ToTensorSliced) {
+  const std::vector<int64_t> shape = {3};
+  const std::vector<int64_t> strides = {sizeof(int64_t)};
+
+  auto array = ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]")->Slice(2);
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_TRUE(TensorFromJSON(int64(), "[3, 4, 5]", shape, strides)->Equals(*tensor));
+}
+
+TEST(TestPrimitiveArray, ZeroLength) {
+  Int64Builder builder;
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(int64(), tensor->type());
+  EXPECT_EQ(std::vector<int64_t>{0}, tensor->shape());
+  EXPECT_EQ(std::vector<int64_t>{sizeof(int64_t)}, tensor->strides());
+}
+
+TEST(TestPrimitiveArray, ToTensorNulls) {
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  auto array = ArrayFromJSON(int32(), "[1, null, 3]");
+
+  // Default behaviour is to not allow nulls
+  ASSERT_RAISES(Invalid, array->ToTensor());
+
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
+  ASSERT_OK(tensor->Validate());
+  ASSERT_EQ(tensor->Value<Int32Type>({0}), 1);
+  ASSERT_EQ(tensor->Value<Int32Type>({2}), 3);
+  EXPECT_EQ(std::vector<int64_t>{3}, tensor->shape());
+}
+
+TEST(TestPrimitiveArray, ToTensorUnsupportedType) {
+  auto array = ArrayFromJSON(date32(), "[1, 2, 3]");
+  ASSERT_RAISES(TypeError, array->ToTensor());
+  ASSERT_RAISES(TypeError, ArrayFromJSON(utf8(), R"(["a"])")->ToTensor());
 }
 
 class TestBuilder : public ::testing::Test {

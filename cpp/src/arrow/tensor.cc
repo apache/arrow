@@ -144,7 +144,7 @@ inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
     return Status::Invalid("Null type is supplied");
   }
   if (!is_tensor_supported(type->id())) {
-    return Status::Invalid(type->ToString(), " is not valid data type for a tensor");
+    return Status::TypeError(type->ToString(), " is not valid data type for a tensor");
   }
   if (!data) {
     return Status::Invalid("Null data is supplied");
@@ -487,6 +487,11 @@ Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_
 }
 
 }  // namespace internal
+
+Result<std::shared_ptr<Tensor>> Tensor::FromArray(const std::shared_ptr<Array>& array,
+                                                  bool allow_nulls) {
+  return array->ToTensor(allow_nulls);
+}
 
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,

@@ -29,6 +29,7 @@
 #include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -1856,6 +1857,116 @@ TEST_F(TestFixedSizeListArray, FlattenRecursively) {
   ASSERT_EQ(2, flattened->null_count());
   AssertArraysEqual(*flattened,
                     *ArrayFromJSON(value_type_, "[0, 1, null, 3, 7, null, 2, 5]"));
+}
+
+namespace {
+
+/// The innermost values of the nested fixed size lists.
+std::shared_ptr<Array> LeafValues(std::shared_ptr<Array> array) {
+  while (array->type_id() == Type::FIXED_SIZE_LIST) {
+    const auto& fsl = checked_cast<const FixedSizeListArray&>(*array);
+    array =
+        fsl.values()->Slice(fsl.value_offset(0), array->length() * fsl.value_length());
+  }
+  return array;
+}
+
+template <typename T>
+void CheckToTensor(const std::shared_ptr<Array>& array, const std::vector<int64_t>& shape,
+                   std::initializer_list<T> values) {
+  const auto value_type = CTypeTraits<T>::type_singleton();
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      Tensor::Make(value_type, Buffer::Wrap(values.begin(), values.size()), shape));
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  AssertTypeEqual(*value_type, *tensor->type());
+  ASSERT_EQ(shape, tensor->shape());
+  ASSERT_TRUE(tensor->is_row_major());
+  ASSERT_TRUE(tensor->Equals(*expected));
+
+  // The tensor shares the values buffer, it does not copy
+  const auto leaf = LeafValues(array);
+  ASSERT_EQ(leaf->data()->buffers[1]->data() + leaf->offset() * sizeof(T),
+            tensor->data()->data());
+}
+
+}  // namespace
+
+TEST_F(TestFixedSizeListArray, ToTensor) {
+  auto array = ArrayFromJSON(fixed_size_list(int32(), 3),
+                             "[[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]");
+  CheckToTensor<int32_t>(array, {4, 3}, {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+
+  // Offset on the list array itself
+  CheckToTensor<int32_t>(array->Slice(2, 2), {2, 3}, {7, 8, 9, 10, 11, 12});
+
+  // Offset on the values array
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]")->Slice(3);
+  ASSERT_OK_AND_ASSIGN(auto from_values, FixedSizeListArray::FromArrays(values, 3));
+  CheckToTensor<int32_t>(from_values, {2, 3}, {4, 5, 6, 7, 8, 9});
+
+  // Offsets on both the list array and its values
+  CheckToTensor<int32_t>(from_values->Slice(1), {1, 3}, {7, 8, 9});
+}
+
+TEST_F(TestFixedSizeListArray, ToTensorNested) {
+  auto array = ArrayFromJSON(fixed_size_list(fixed_size_list(float32(), 2), 3), R"([
+    [[1, 2], [3, 4], [5, 6]],
+    [[7, 8], [9, 10], [11, 12]],
+    [[13, 14], [15, 16], [17, 18]]
+  ])");
+  CheckToTensor<float>(array, {3, 3, 2},
+                       {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18});
+
+  CheckToTensor<float>(array->Slice(1, 2), {2, 3, 2},
+                       {7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18});
+
+  // Slice offsets at each level contribute to the leaf offset, scaled by the list
+  // sizes above them.
+  auto values = ArrayFromJSON(float32(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]")
+                    ->Slice(2, 12);
+  ASSERT_OK_AND_ASSIGN(auto inner, FixedSizeListArray::FromArrays(values, 2));
+  ASSERT_OK_AND_ASSIGN(auto outer, FixedSizeListArray::FromArrays(inner, 3));
+  // Offset 2 for initial value slice
+  CheckToTensor<float>(outer, {2, 3, 2}, {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13});
+  // Offset of 2 (initial values) + 1 * 3 * 2 (outer slice times parent dimensions) = 8
+  CheckToTensor<float>(outer->Slice(1), {1, 3, 2}, {8, 9, 10, 11, 12, 13});
+}
+
+TEST_F(TestFixedSizeListArray, ToTensorNulls) {
+  auto array = ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2], null, [5, null]]");
+
+  // Default behaviour is to not allow nulls
+  ASSERT_RAISES(Invalid, array->ToTensor());
+
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
+  ASSERT_OK(tensor->Validate());
+  ASSERT_EQ(tensor->Value<Int32Type>({0, 0}), 1);
+  ASSERT_EQ(tensor->Value<Int32Type>({0, 1}), 2);
+  ASSERT_EQ(tensor->Value<Int32Type>({2, 0}), 5);
+  ASSERT_EQ(std::vector<int64_t>({3, 2}), tensor->shape());
+}
+
+TEST_F(TestFixedSizeListArray, ToTensorZeroLength) {
+  auto array = ArrayFromJSON(fixed_size_list(int64(), 2), "[]");
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+  ASSERT_EQ(std::vector<int64_t>({0, 2}), tensor->shape());
+}
+
+TEST_F(TestFixedSizeListArray, ToTensorUnsupportedType) {
+  ASSERT_RAISES(
+      TypeError,
+      ArrayFromJSON(fixed_size_list(utf8(), 1), R"([["a"], ["b"]])")->ToTensor());
+  ASSERT_RAISES(
+      TypeError,
+      ArrayFromJSON(fixed_size_list(boolean(), 2), "[[true, false]]")->ToTensor());
+  ASSERT_RAISES(TypeError,
+                ArrayFromJSON(fixed_size_list(date32(), 2), "[[1, 2]]")->ToTensor());
 }
 
 }  // namespace arrow

@@ -33,6 +33,7 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -40,6 +41,7 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/list_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
@@ -999,6 +1001,44 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
 Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
     MemoryPool* memory_pool) const {
   return FlattenListArray(*this, memory_pool);
+}
+
+Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensorWithNulls() const {
+  const auto* data = this->data().get();
+  auto type = this->type();
+  int64_t offset = data->offset;
+  int64_t length = data->length;
+  std::vector<int64_t> shape{length};
+
+  // Iterate over nested fixed length container types.
+  // Each nested container increase the tensor dimension.
+  while (type->id() == Type::FIXED_SIZE_LIST) {
+    const auto* fsl = internal::checked_cast<const FixedSizeListType*>(type.get());
+    type = fsl->value_type();
+    data = data->child_data.front().get();
+    // Overflow cannot happen on a valid array (its data needs to fit in memory,
+    // therefore be smaller than INT64_MAX)
+    offset = offset * fsl->list_size() + data->offset;
+    length = length * fsl->list_size();
+    shape.push_back(fsl->list_size());
+  }
+
+  // Only checking byte_width which we need here and leaving Tensor::Make error on
+  // unsupported types.
+  if (!is_fixed_width(*type)) {
+    return Status::TypeError("Expected a fixed width leaf type, got ", type->name());
+  }
+
+  std::shared_ptr<Buffer> buffer = nullptr;
+  if (const auto& buf = data->buffers[1]; buf != NULLPTR) {
+    const int64_t byte_width = type->byte_width();
+    // Buffer guarantees this fits into an int64_t.
+    const int64_t byte_offset = offset * byte_width;
+    const int64_t byte_length = length * byte_width;
+    ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(buf, byte_offset, byte_length));
+  }
+
+  return Tensor::Make(std::move(type), std::move(buffer), std::move(shape));
 }
 
 // ----------------------------------------------------------------------
