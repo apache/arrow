@@ -2202,26 +2202,26 @@ TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
     return ::arrow::Status::OK();
   };
 
-  // Default: raw, lossless FixedSizeBinary(12).
-  {
-    std::shared_ptr<Table> table;
-    ASSERT_OK(read_table(ArrowReaderProperties(), &table));
-    ASSERT_EQ(::arrow::Type::FIXED_SIZE_BINARY, table->schema()->field(0)->type()->id());
-  }
-
-  // Convert, error on overflow (default policy): the out-of-range rows fail the read.
+  // Convert, error on overflow (default): the out-of-range rows fail the read.
   {
     ArrowReaderProperties props;
-    props.set_convert_flba_timestamps(true);
     std::shared_ptr<Table> table;
     ASSERT_RAISES(Invalid, read_table(props, &table));
+  }
+
+  // Conversion disabled: raw, lossless FixedSizeBinary(12).
+  {
+    ArrowReaderProperties props;
+    props.set_convert_flba_timestamps(false);
+    std::shared_ptr<Table> table;
+    ASSERT_OK(read_table(props, &table));
+    ASSERT_EQ(::arrow::Type::FIXED_SIZE_BINARY, table->schema()->field(0)->type()->id());
   }
 
   // Convert, clamp on overflow: in-range value is exact; positive overflow clamps
   // to INT64_MAX and negative overflow clamps to INT64_MIN.
   {
     ArrowReaderProperties props;
-    props.set_convert_flba_timestamps(true);
     props.set_flba_timestamp_clamp_on_overflow(true);
     std::shared_ptr<Table> table;
     ASSERT_OK(read_table(props, &table));
