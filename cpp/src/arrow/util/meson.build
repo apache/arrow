@@ -269,6 +269,7 @@ util_tests = {
         ],
     },
     'arrow-crc32-test': {'sources': ['crc32_test.cc']},
+    'arrow-pfor-test': {'sources': ['pfor/pfor_test.cc']},
 }
 
 foreach key, val : util_tests
