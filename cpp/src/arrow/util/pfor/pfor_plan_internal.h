@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -398,6 +399,20 @@ struct PforVectorPlan {
   int64_t cost_bits = 0;
 };
 
+/// \brief Map a signed value onto an unsigned one of the same magnitude.
+///
+/// Negative values interleave with positive ones instead of wrapping to the top
+/// of the range, so a small negative difference needs few bits rather than all
+/// of them. Used only by the estimate below; nothing on the wire is zigzagged.
+template <typename T>
+typename PforTypeTraits<T>::UnsignedType ZigZag(T value) {
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+  constexpr int kBits = static_cast<int>(sizeof(T)) * 8;
+  const auto u = static_cast<UnsignedT>(value);
+  const UnsignedT sign_mask = UnsignedT{0} - (u >> (kBits - 1));
+  return static_cast<UnsignedT>((u << 1) ^ sign_mask);
+}
+
 /// \brief Fill `deltas` with the backward differences of `values`.
 ///
 /// deltas[0] is 0: the first value travels in the plan's start_value, and
@@ -423,6 +438,59 @@ void ComputeDeltas(const T* values, int32_t num_elements, T* deltas, MinMax<T>* 
     if (signed_delta < bounds->min) bounds->min = signed_delta;
     if (signed_delta > bounds->max) bounds->max = signed_delta;
   }
+}
+
+/// \brief Estimate what packing the differences of `values` would cost, in bits.
+///
+/// The full decision needs the differences written out and searched, which is
+/// most of what encoding a vector costs. This reaches an answer good enough to
+/// decline the mode from a strided sample, without writing anything.
+///
+/// The sample is of widths, not of a span. A gate on the span of the
+/// differences was tried first and had to go: the sawtooth is a tight cluster
+/// of small positive differences with a handful of large negative ones, so its
+/// span is as wide as its raw span while its cost is a fraction of it. Feeding
+/// widths to the same cost model the search uses keeps that shape, because the
+/// model can trade a wide bin against a patch.
+///
+/// Zigzagging is what lets a histogram stand in for a frame search that has not
+/// run. Differences in [-k, k] zigzag into [0, 2k], and a frame at -k maps them
+/// onto the same [0, 2k], so for a range that straddles zero evenly the
+/// estimated width is the width the search would find. Where the range leans
+/// one way the estimate runs a bit or two wide.
+template <typename T>
+int64_t EstimateDeltaCostBits(const T* values, int32_t num_elements) {
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+  // Enough of a sample to place a distribution across the width bins, and few
+  // enough that the pass is a fraction of the one it is deciding against.
+  constexpr int32_t kSampleTarget = 128;
+  const int32_t stride = std::max(1, num_elements / kSampleTarget);
+
+  // Four accumulators, as in the histogram passes above: most columns send
+  // nearly every difference to one bin, and one array would serialize on it.
+  std::array<std::array<int32_t, 65>, 4> h{};
+  int32_t sampled = 0;
+  for (int32_t i = stride; i < num_elements; i += stride) {
+    const UnsignedT d =
+        static_cast<UnsignedT>(values[i]) - static_cast<UnsignedT>(values[i - 1]);
+    T signed_delta;
+    std::memcpy(&signed_delta, &d, sizeof(T));
+    ++h[sampled & 3][PforTypeTraits<T>::BitsRequired(ZigZag<T>(signed_delta))];
+    ++sampled;
+  }
+  if (sampled == 0) return 0;
+
+  std::array<int32_t, 65> histogram{};
+  for (int b = 0; b <= 64; ++b) {
+    histogram[b] = h[0][b] + h[1][b] + h[2][b] + h[3][b];
+  }
+  int64_t sample_cost = 0;
+  BestWidthFromHistogram<T>(histogram, sampled, &sample_cost);
+
+  // Scale to the whole vector. Both terms of the model are per-element -- a
+  // width costs its bits every element, an exception costs its slot every time
+  // it occurs -- so the sample cost scales with the count.
+  return sample_cost * num_elements / sampled;
 }
 
 /// \brief Decide how to encode one vector.
@@ -452,21 +520,28 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
   // width 0 cannot be improved on.
   if (num_elements < 2 || raw.bit_width == 0) return plan;
 
+  // A delta vector carries its own first value, so it starts one full-width
+  // value behind whatever its differences pack to.
+  const int64_t start_value_bits = static_cast<int64_t>(sizeof(T)) * 8;
+
+  // Estimate the mode before paying for it, and drop it here if the estimate
+  // cannot reach the incumbent. What is skipped is the whole of the rest of the
+  // mode: the pass that writes the differences out, and the frame search over
+  // them. The estimate is deliberately loose, so it declines only where the two
+  // modes are more than a sampling error apart -- which is where the choice
+  // matters least.
+  if (EstimateDeltaCostBits<T>(values, num_elements) + start_value_bits >=
+      plan.cost_bits) {
+    return plan;
+  }
+
   MinMax<T> delta_bounds;
   ComputeDeltas<T>(values, num_elements, delta_scratch, &delta_bounds);
 
-  // Both candidates get the full search. A cheaper gate on the spread of the
-  // differences was tried first and had to go: the sawtooth is a tight cluster
-  // of small positive differences with a handful of large negative ones, so its
-  // span is as wide as the raw span while its cost is a fraction of it. Any
-  // gate that reads a span rather than a distribution throws away the one shape
-  // the mode is here for.
   const FrameChoice<T> delta =
       ChooseFrameAndWidth<T>(delta_scratch, num_elements, delta_bounds);
 
-  // A delta vector carries its own first value, so it starts one full-width
-  // value behind.
-  const int64_t delta_cost = delta.cost_bits + static_cast<int64_t>(sizeof(T)) * 8;
+  const int64_t delta_cost = delta.cost_bits + start_value_bits;
   if (delta_cost < plan.cost_bits) {
     plan.delta = true;
     plan.frame_of_reference = delta.frame_of_reference;
