@@ -708,43 +708,34 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
 
 template <typename T>
 Status NumPyConverter::VisitStringDType(T* builder) {
+  auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
   const char* data = PyArray_BYTES(arr_);
-  auto* allocator =
-      NpyString_acquire_allocator(reinterpret_cast<PyArray_StringDTypeObject*>(dtype_));
-  if (allocator == nullptr) {
-    return Status::Invalid("Failed to acquire NumPy StringDType allocator");
+  Ndarray1DIndexer<uint8_t> mask_values;
+  if (mask_ != nullptr) {
+    mask_values = Ndarray1DIndexer<uint8_t>(mask_);
   }
+
+  // NumPy takes the GIL while holding this lock, so never take it with the GIL held
+  auto* allocator = NpyString_acquire_allocator(descr);
   std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
       allocator_guard(allocator, &NpyString_release_allocator);
 
   npy_static_string value = {0, nullptr};
-  const auto append_value = [&](const char* item) -> Status {
-    const auto* packed = reinterpret_cast<const npy_packed_static_string*>(item);
+  for (int64_t i = 0; i < length_; ++i, data += stride_) {
+    if (mask_ != nullptr && mask_values[i]) {
+      RETURN_NOT_OK(builder->AppendNull());
+      continue;
+    }
+    const auto* packed = reinterpret_cast<const npy_packed_static_string*>(data);
     const int is_null = NpyString_load(allocator, packed, &value);
     if (is_null == -1) {
       return Status::Invalid("Failed to load NumPy StringDType value");
     }
     if (is_null) {
-      return builder->AppendNull();
+      RETURN_NOT_OK(builder->AppendNull());
+      continue;
     }
-    return builder->Append(std::string_view(value.buf, value.size));
-  };
-
-  if (mask_ != nullptr) {
-    Ndarray1DIndexer<uint8_t> mask_values(mask_);
-    for (int64_t i = 0; i < length_; ++i) {
-      if (mask_values[i]) {
-        RETURN_NOT_OK(builder->AppendNull());
-      } else {
-        RETURN_NOT_OK(append_value(data));
-      }
-      data += stride_;
-    }
-  } else {
-    for (int64_t i = 0; i < length_; ++i) {
-      RETURN_NOT_OK(append_value(data));
-      data += stride_;
-    }
+    RETURN_NOT_OK(builder->Append(std::string_view(value.buf, value.size)));
   }
   return Status::OK();
 }
@@ -752,6 +743,7 @@ Status NumPyConverter::VisitStringDType(T* builder) {
 template <typename T>
 Status NumPyConverter::VisitString(T* builder) {
   if (dtype_->type_num == NPY_VSTRING) {
+    // Acquires a lock, so must stay ahead of the gil_lock below
     return VisitStringDType(builder);
   }
 
