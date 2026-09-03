@@ -4,6 +4,8 @@ Guide the R package maintainer through the CRAN release process for the Apache A
 
 Use exactly this sequence of steps. Print a checklist of all steps at the start, and update it as you go. Do not skip ahead. After completing each step, ask the user to confirm before moving on. Once confirmed, update the corresponding checkbox on the tracking issue. Use exactly the commands and approaches specified in each step — do not improvise or substitute alternatives without checking with the user.
 
+Never run `git push` yourself, under any circumstances. Whenever a step requires pushing, show the user the exact command to run and wait for them to confirm they have pushed before continuing. The `git push` commands in this file are for the user to run, not you.
+
 If any earlier step reveals something that needs to be cherry-picked into the release branch, note it as a comment on the tracking issue. When you reach the cherry-pick step later, check the tracking issue comments for anything noted earlier.
 
 ## 1. Create GitHub Tracking Issue
@@ -20,7 +22,7 @@ Track the issue number - update checkboxes as you complete each step.
 
 ## 2. Create CRAN Release Branch
 
-Ask the user which RC number to use (e.g., rc1, rc2), then confirm before creating and pushing.
+Ask the user which RC number to use (e.g., rc1, rc2), then confirm before creating the branch. Ask the user to run the push command themselves.
 
 ```bash
 git fetch upstream
@@ -139,7 +141,7 @@ For each confirmed commit:
 git cherry-pick <commit-sha>
 ```
 
-Ask before pushing:
+Ask the user to push:
 
 ```bash
 git push upstream maint-<VERSION>-r
@@ -209,7 +211,7 @@ git add r/man/ r/inst/NOTICE.txt
 git commit -m "[R] Update generated documentation"
 ```
 
-Ask before pushing.
+Ask the user to push.
 
 Then run the check:
 
@@ -238,7 +240,7 @@ git add -f tools/checksums/
 git commit -m "[CRAN] Add checksums"
 ```
 
-Ask before pushing.
+Ask the user to push.
 
 ## 15. Rebuild Package
 
@@ -254,7 +256,7 @@ Check for any new doc changes after rebuild:
 git status
 ```
 
-Commit any changes and ask before pushing.
+Commit any changes and ask the user to push.
 
 ## 16. Check Binary Distributions
 
@@ -298,7 +300,7 @@ Ping Jon to confirm the submission email when it arrives.
 
 ## 18. Tag for r-universe
 
-After CRAN accepts the package:
+After CRAN accepts the package, ask the user to run:
 
 ```bash
 git tag -f r-universe-release maint-<VERSION>-r
@@ -348,7 +350,7 @@ Rebuild news page:
 pkgdown::build_news("./r")
 ```
 
-Submit a PR to the `asf-site` branch of https://github.com/apache/arrow-site with contents of `arrow/r/docs/news/index.html` replacing `arrow-site/docs/r/news/index.html`.
+Submit a PR to the `asf-site` branch of https://github.com/apache/arrow-site with contents of `arrow/r/docs/news/index.html` replacing `arrow-site/docs/r/news/index.html`. Ask the user to run the final push command.
 
 ```bash
 cd ~/arrow-site
