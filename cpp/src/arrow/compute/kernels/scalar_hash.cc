@@ -117,29 +117,17 @@ void WriteOwnValidity(const ArraySpan& array, uint8_t* out_validity) {
 // Folds one row's child elements into a single hash. `validity` is the elements'
 // validity, 0-based like `value_hashes`, or nullptr when no element is null.
 //
-// A valid element folds its hash into `combined`; a null one folds its position into
-// `combined_validity`, and the two are mixed at the end. A null element's hash is
-// deliberately never folded, since a null slot's bytes are undefined per the columnar
-// spec -- folding them would let list<struct<f0:int32>> rows [{f0: 7}] and [null] (whose
-// f0 slot also holds 7) hash alike.
-//
-// A null still has to contribute something, or [null] would equal [] and [null, 5] would
-// equal [5]. Substituting a stand-in hash for it does not work: whatever constant is
-// picked collides with a real element hashing to the same value, and 0 in particular is
-// both what a valid integer 0 hashes to and what HashMultiColumn writes for a null slot,
-// which is what made [null] and [0] identical. Keeping the two on separate accumulators
-// is what removes the ambiguity -- nothing folded into `combined_validity` can be
-// mistaken for a value hash -- so it need only record *where* the nulls are. Positions
-// rather than a bare count, so [null, x] and [x, null] stay apart.
-//
-// A row with no null element therefore folds nothing into `combined_validity`, whether or
-// not the array allocated a bitmap, so the same row hashes the same either way. That also
-// means the two chains stay short, and can issue in parallel rather than lengthening the
-// single serial chain this loop is latency-bound on.
+// A valid element folds its hash; a null one folds its position into a second
+// accumulator, mixed in at the end. A null's own hash is never folded, since a null
+// slot's bytes are undefined per the columnar spec. It must still contribute something,
+// or [null] would equal [], but no stand-in hash works: any constant collides with a
+// real element hashing to it, and 0 in particular is both what a valid integer 0 hashes
+// to and what HashMultiColumn writes for a null slot, which made [null] and [0]
+// identical. Nothing in the second accumulator can be mistaken for a value hash, so it
+// need only record where the nulls are -- positions, so [null, x] and [x, null] differ.
 //
 // Seeded with CombineHashes(0, 0) rather than 0 just so an empty list doesn't hash to a
-// bare 0 -- a hash-quality nicety, not a requirement, since a list row's validity is
-// independent of its hash value.
+// bare 0.
 template <typename c_type, typename Hasher>
 c_type CombineRange(const c_type* value_hashes, const uint8_t* validity, int64_t start,
                     int64_t end) {
@@ -307,6 +295,40 @@ struct FastHashScalar {
     return Status::OK();
   }
 
+  // A map's entries struct isn't a user-visible struct: Arrow requires non-null keys and
+  // allows null items (MapArray::ValidateChildData), so the struct rule that a null field
+  // nullifies the row must not apply -- it would mark an entry with a null item absent
+  // and discard its key, hashing every map with null items alike. Fold the keys and the
+  // items as two list folds over the map's own offsets instead, which encodes a null item
+  // just as a null list element is encoded and keeps every key contributing.
+  static Status HashMapArray(const ArraySpan& array, LightContext* hash_ctx,
+                             ExecContext* exec_ctx, c_type* out, uint8_t* out_validity) {
+    const ArraySpan& entries = array.child_data[0];
+    const int32_t* offsets = array.GetValues<int32_t>(1);
+
+    // Stand each field in as this map's values child. The map's offsets index the entries
+    // struct's own rows, so rebase the field on that struct's offset.
+    ArraySpan keys = array;
+    keys.child_data[0] = entries.child_data[0];
+    keys.child_data[0].offset += entries.offset;
+    ARROW_RETURN_NOT_OK(HashListArray<int32_t>(keys, /*list_size=*/0, offsets, hash_ctx,
+                                               exec_ctx, out, out_validity));
+
+    ArraySpan items = array;
+    items.child_data[0] = entries.child_data[1];
+    items.child_data[0].offset += entries.offset;
+    ARROW_ASSIGN_OR_RAISE(auto item_buffer, AllocateBuffer(array.length * sizeof(c_type),
+                                                           exec_ctx->memory_pool()));
+    c_type* item_hashes = item_buffer->mutable_data_as<c_type>();
+    ARROW_RETURN_NOT_OK(HashListArray<int32_t>(items, /*list_size=*/0, offsets, hash_ctx,
+                                               exec_ctx, item_hashes, out_validity));
+
+    for (int64_t i = 0; i < array.length; i++) {
+      out[i] = Hasher::CombineHashes(out[i], item_hashes[i]);
+    }
+    return Status::OK();
+  }
+
   // Routes to the per-shape hashing routine for `array`'s type, writing both hash
   // values (`out`) and real per-row validity (`out_validity`, a fresh 0-offset bitmap,
   // same convention `out` has via ArraySpan::GetValues).
@@ -350,6 +372,8 @@ struct FastHashScalar {
       return HashArray(*decoded->data(), hash_ctx, exec_ctx, out, out_validity);
     } else if (type_id == Type::STRUCT) {
       return HashStructArray(array, hash_ctx, exec_ctx, out, out_validity);
+    } else if (type_id == Type::MAP) {
+      return HashMapArray(array, hash_ctx, exec_ctx, out, out_validity);
     } else if (type_id == Type::FIXED_SIZE_LIST) {
       auto list_size = checked_cast<const FixedSizeListType*>(array.type)->list_size();
       return HashListArray<int32_t>(array, list_size, /*offsets=*/nullptr, hash_ctx,
@@ -358,7 +382,7 @@ struct FastHashScalar {
       return HashListArray<int64_t>(array, /*list_size=*/0, array.GetValues<int64_t>(1),
                                     hash_ctx, exec_ctx, out, out_validity);
     } else if (is_list_like(type_id)) {
-      // LIST and MAP both use 32-bit offsets.
+      // MAP took its own branch above; LIST is what is left, with 32-bit offsets.
       return HashListArray<int32_t>(array, /*list_size=*/0, array.GetValues<int32_t>(1),
                                     hash_ctx, exec_ctx, out, out_validity);
     } else {
