@@ -15,7 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+from cpython.pycapsule cimport (
+    PyCapsule_CheckExact,
+    PyCapsule_GetPointer,
+    PyCapsule_New,
+    PyCapsule_SetName,
+)
 
 from collections.abc import Sequence
 import os
@@ -2268,6 +2273,48 @@ cdef class Array(_PandasConvertible):
             array = GetResultValue(ImportDeviceArray(c_array, c_schema))
 
         return pyarrow_wrap_array(array)
+
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct an Array from an object implementing the DLPack protocol.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting Array should reside, in the
+            format returned by :meth:`Array.__dlpack_device__`. When None,
+            the output Array occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        Array
+            An Array housing the data from the input object, potentially
+            as a copy or view.
+        """
+        version = (DLPACK_VERSION.major, DLPACK_VERSION.minor)
+        pycapsule = x.__dlpack__(max_version=version, dl_device=device, copy=copy)
+        cdef DLManagedTensorVersioned* ptr = <DLManagedTensorVersioned*>PyCapsule_GetPointer(
+            pycapsule, "dltensor_versioned")
+        if ptr == NULL:
+            raise ValueError(
+                'DLPack producer did not produce a "dltensor_versioned" PyCapsule')
+        # Mark the capsule as consumed so its destructor does not also invoke the deleter.
+        # ImportArrayVersionedFromDLPack will take ownership even if it errors (calling
+        # the deleter in that case).
+        PyCapsule_SetName(pycapsule, "used_dltensor_versioned")
+        with nogil:
+            # Copy handled on producer side
+            result = ImportArrayVersionedFromDLPack(ptr, False)
+        carray = GetResultValue(result)
+        return pyarrow_wrap_array(carray)
 
     def __dlpack__(self, stream=None, max_version=None, dl_device=None, copy=None):
         """
