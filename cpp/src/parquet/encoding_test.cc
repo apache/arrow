@@ -2210,8 +2210,10 @@ TYPED_TEST(TestPforEncoding, AllNullPage) {
                                   /*use_dictionary=*/false, this->descr_.get());
   auto buffer = encoder->FlushValues();
 
+  // A reader hands the decoder the page's level count, which counts the nulls, so
+  // the page and its bare header have to survive being handed the full count.
   auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
-  decoder->SetData(/*num_values=*/0, buffer->data(), static_cast<int>(buffer->size()));
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
 
   // All slots are null, so the page carries no encoded values at all.
   std::vector<uint8_t> valid_bits(bit_util::BytesForBits(kNumValues), 0);

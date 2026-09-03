@@ -45,7 +45,8 @@ class PforWrapper {
   /// \brief Encode integer values into a PFOR-compressed page
   ///
   /// \param[in] values pointer to input integers
-  /// \param[in] num_values total number of values
+  /// \param[in] num_values total number of values; zero writes a bare header,
+  ///            which is what an all-null page encodes to
   /// \param[in] vector_size number of elements per vector (must be a power of 2,
   ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
   /// \param[out] comp pointer to output buffer, at least
@@ -66,7 +67,8 @@ class PforWrapper {
   /// \param[in] comp pointer to compressed data
   /// \param[in] comp_size size of compressed data
   /// \param[in] num_values number of values the page holds, which must equal the
-  ///            count in its header; DecodeElementCount reads that count
+  ///            count in its header; DecodeElementCount reads that count. Zero is
+  ///            valid: an all-null page is a bare header.
   /// \param[out] values pointer to output buffer, sized for num_values
   /// \return Status::OK on success, or an error if the data is malformed
   static Status Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,

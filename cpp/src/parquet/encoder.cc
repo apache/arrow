@@ -1804,11 +1804,9 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
       : EncoderImpl(descr, Encoding::PFOR, pool), pool_(pool) {}
 
   std::shared_ptr<Buffer> FlushValues() override {
-    if (values_.empty()) {
-      PARQUET_ASSIGN_OR_THROW(auto empty_buf, ::arrow::AllocateBuffer(0, pool_));
-      return empty_buf;
-    }
-
+    // An all-null optional page adds no values and is still written, so an empty
+    // buffer has to encode to a header-only page rather than to zero bytes, which
+    // the reader would reject for having no header to load.
     const int32_t num_values = static_cast<int32_t>(values_.size());
     PARQUET_ASSIGN_OR_THROW(
         int64_t max_size,

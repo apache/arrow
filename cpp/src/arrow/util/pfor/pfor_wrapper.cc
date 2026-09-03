@@ -152,10 +152,14 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
 template <typename T>
 Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
                               uint8_t* comp, int64_t* comp_size) {
-  if (num_values <= 0) {
-    return Status::Invalid("PFOR num_values must be positive: ", num_values);
+  if (num_values < 0) {
+    return Status::Invalid("PFOR num_values must be non-negative: ", num_values);
   }
-  if (values == nullptr) {
+  // An all-null page holds no values and is still written, and a reader loads the
+  // header before it knows how many values a page has, so zero values encodes to a
+  // bare header rather than to nothing at all. The buffer it comes from is empty in
+  // that case, and an empty container is entitled to a null data pointer.
+  if (values == nullptr && num_values > 0) {
     return Status::Invalid("PFOR input pointer is null");
   }
   if (comp == nullptr) {
@@ -240,8 +244,8 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp
 template <typename T>
 Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,
                               T* values) {
-  if (num_values <= 0) {
-    return Status::Invalid("PFOR num_values must be positive: ", num_values);
+  if (num_values < 0) {
+    return Status::Invalid("PFOR num_values must be non-negative: ", num_values);
   }
   if (comp == nullptr) {
     return Status::Invalid("PFOR compressed data pointer is null");

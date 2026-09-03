@@ -405,13 +405,37 @@ TYPED_TEST(PforTest, PageZeroMinWithExceptions) {
 // ======================================================================
 // Encode Argument Validation
 
-TYPED_TEST(PforTest, EncodeRejectsEmptyInput) {
+TYPED_TEST(PforTest, EncodeZeroValuesWritesABareHeader) {
+  using T = TypeParam;
+  // An all-null page holds no values, and the reader still has to be able to load
+  // a header from it, so zero values encodes to the header and nothing else. The
+  // pointer is null because the buffer the values would come from is empty.
+  std::vector<uint8_t> compressed(64);
+  int64_t comp_size = 64;
+  ASSERT_OK(PforWrapper<T>::Encode(nullptr, 0, compressed.data(), &comp_size));
+  ASSERT_EQ(PforConstants::kHeaderSize, comp_size);
+
+  ASSERT_OK_AND_ASSIGN(const int32_t count,
+                       PforWrapper<T>::DecodeElementCount(compressed.data(), comp_size));
+  ASSERT_EQ(0, count);
+  ASSERT_OK(PforWrapper<T>::Decode(compressed.data(), comp_size, 0, nullptr));
+}
+
+TYPED_TEST(PforTest, EncodeRejectsNegativeCount) {
   using T = TypeParam;
   std::vector<T> values = {1, 2, 3};
   std::vector<uint8_t> compressed(64);
   int64_t comp_size = 64;
   ASSERT_RAISES(Invalid,
-                PforWrapper<T>::Encode(values.data(), 0, compressed.data(), &comp_size));
+                PforWrapper<T>::Encode(values.data(), -1, compressed.data(), &comp_size));
+}
+
+TYPED_TEST(PforTest, EncodeRejectsNullInputWithValuesToEncode) {
+  using T = TypeParam;
+  std::vector<uint8_t> compressed(64);
+  int64_t comp_size = 64;
+  ASSERT_RAISES(Invalid,
+                PforWrapper<T>::Encode(nullptr, 3, compressed.data(), &comp_size));
 }
 
 TYPED_TEST(PforTest, EncodeRejectsUnrepresentableVectorSize) {
