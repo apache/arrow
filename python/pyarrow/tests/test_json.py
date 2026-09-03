@@ -150,7 +150,7 @@ class BaseTestJSON(abc.ABC):
             for newlines_in_values in [False, True]:
                 parse_options.newlines_in_values = newlines_in_values
                 read_options.block_size = 4
-                with pytest.raises(ValueError):
+                with pytest.raises(ValueError, match="try to increase block size"):
                     self.read_bytes(data, read_options=read_options,
                                     parse_options=parse_options)
 
@@ -528,14 +528,10 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
             'n': [1]
         }
 
-        if self.use_threads:
-            # The first read may not raise an error with threads due to readahead.
-            with pytest.raises(pa.ArrowInvalid, match="JSON (parse|chunk) error"):
-                reader.read_next_batch()
-                reader.read_next_batch()
-        else:
-            with pytest.raises(pa.ArrowInvalid, match="JSON parse error"):
-                reader.read_next_batch()
+        # The first read may succeed depending on chunking and readahead.
+        with pytest.raises(pa.ArrowInvalid, match="JSON parse error"):
+            assert reader.read_next_batch().to_pydict() == {'n': [None]}
+            reader.read_next_batch()
 
         with pytest.raises(StopIteration):
             reader.read_next_batch()
