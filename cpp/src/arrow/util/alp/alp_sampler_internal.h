@@ -40,9 +40,6 @@ namespace arrow::util::alp {
 template <typename T>
 class AlpSampler {
  public:
-  /// \brief Default constructor
-  AlpSampler();
-
   /// \brief Helper struct containing the preset for ALP compression
   struct AlpSamplerResult {
     AlpEncodingParameters alp_parameters;
@@ -70,6 +67,12 @@ class AlpSampler {
   AlpSamplerResult Finalize();
 
  private:
+  /// Interval between sampled vectors, counted in vectors
+  static constexpr int64_t kRowgroupSampleJump =
+      (AlpConstants::kSamplerRowgroupSize /
+       AlpConstants::kSamplerSampleVectorsPerRowgroup) /
+      AlpConstants::kSamplerVectorSize;
+
   /// \brief Helper struct to encapsulate settings used for sampling
   struct AlpSamplingParameters {
     int64_t num_lookup_value;
@@ -107,16 +110,6 @@ class AlpSampler {
 
   /// The unstrided lookup window of each sampled vector
   std::vector<std::vector<T>> complete_vectors_sampled_;
-  /// Elements per sample vector, i.e. the granularity AddSample() chunks at
-  const int64_t sample_vector_size_;
-  /// Elements per rowgroup
-  const int64_t rowgroup_size_;
-  /// Number of samples to take per vector
-  const int64_t samples_per_vector_;
-  /// Nominal number of vectors to sample per rowgroup
-  const int64_t sample_vectors_per_rowgroup_;
-  /// Interval between sampled vectors, counted in vectors
-  const int64_t rowgroup_sample_jump_;
 };
 
 }  // namespace arrow::util::alp
