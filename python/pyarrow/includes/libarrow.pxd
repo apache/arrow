@@ -1468,12 +1468,22 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
     ctypedef struct DLManagedTensor:
         void (*deleter)(DLManagedTensor*)
 
+    ctypedef struct DLManagedTensorVersioned:
+        void (*deleter)(DLManagedTensorVersioned*)
+
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
     CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
     CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
         const shared_ptr[CTensor]& tensor)
+
+    CResult[DLManagedTensorVersioned*] \
+        ExportArrayVersionedToDLPack" arrow::dlpack::ExportArrayVersioned"(
+            const shared_ptr[CArray]& arr, c_bool copy)
+    CResult[DLManagedTensorVersioned*] \
+        ExportTensorVersionedToDLPack" arrow::dlpack::ExportTensorVersioned"(
+            const shared_ptr[CTensor]& tensor, c_bool copy)
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
     CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)

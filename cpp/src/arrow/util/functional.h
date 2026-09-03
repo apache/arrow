@@ -52,23 +52,10 @@ struct call_traits {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) &&);
 
-  template <typename F, typename R, typename... A>
-  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...));
-
-  template <typename F, typename R, typename... A>
-  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...)
-                                                                           const);
-
-  template <typename F, typename R, typename... A>
-  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...) &&);
-
   /// If F is not overloaded, the argument types of its call operator can be
   /// extracted via call_traits::argument_type<Index, F>
   template <std::size_t I, typename F>
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
-
-  template <typename F>
-  using argument_count = decltype(argument_count_impl(&std::decay<F>::type::operator()));
 };
 
 /// A type erased callable object which may only be invoked once.

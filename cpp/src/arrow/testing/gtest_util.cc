@@ -977,6 +977,29 @@ Result<std::shared_ptr<DataType>> BinaryViewExtensionType::Deserialize(
   return std::make_shared<BinaryViewExtensionType>();
 }
 
+bool UnionExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> UnionExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK(ExtensionEquals(checked_cast<const ExtensionType&>(*data->type)));
+  return std::make_shared<UnionExtensionArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> UnionExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != extension_name_) {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*storage_type_)) {
+    return Status::Invalid("Invalid storage type for ", extension_name_, ": ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<UnionExtensionType>(std::move(storage_type), extension_name_);
+}
+
 bool Complex128Type::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -1019,6 +1042,18 @@ std::shared_ptr<DataType> dict_extension_type() {
 
 std::shared_ptr<DataType> complex128() { return std::make_shared<Complex128Type>(); }
 
+std::shared_ptr<DataType> dense_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      dense_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "dense-union-extension");
+}
+
+std::shared_ptr<DataType> sparse_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      sparse_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "sparse-union-extension");
+}
+
 std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
                                       const std::shared_ptr<Array>& imag) {
   auto type = complex128();
@@ -1055,6 +1090,20 @@ std::shared_ptr<Array> ExampleComplex128() {
   auto arr = arrow::ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
                                   "[[1.0, -2.5], null, [3.0, -4.5]]");
   return ExtensionType::WrapArray(complex128(), arr);
+}
+
+std::shared_ptr<Array> ExampleDenseUnionExtension() {
+  auto type = dense_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  return ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
+}
+
+std::shared_ptr<Array> ExampleSparseUnionExtension() {
+  auto type = sparse_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  return ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
 }
 
 ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type)

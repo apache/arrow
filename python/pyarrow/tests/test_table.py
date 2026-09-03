@@ -28,7 +28,6 @@ import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.interchange import from_dataframe
-from pyarrow.vendored.version import Version
 
 
 def test_chunked_array_basics():
@@ -914,6 +913,11 @@ def test_table_from_struct_array_invalid():
         pa.Table.from_struct_array(pa.array(range(5)))
 
 
+def test_table_from_struct_array_empty_chunked_array_invalid():
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
+        pa.Table.from_struct_array(pa.chunked_array([], type=pa.int64()))
+
+
 def test_table_from_struct_array():
     struct_array = pa.array(
         [{"ints": 1}, {"floats": 1.0}],
@@ -940,6 +944,21 @@ def test_table_from_struct_array_chunked_array():
             pa.array([None, 1.0], type=pa.float32()),
         ], ["ints", "floats"]
     ))
+
+
+def test_table_from_struct_array_for_empty_chunked_array():
+    # GH-48344
+    struct_type = pa.struct([("ints", pa.int32()), ("floats", pa.float32())])
+    empty_chunked_struct_array = pa.chunked_array([], type=struct_type)
+    result = pa.Table.from_struct_array(empty_chunked_struct_array)
+    expected = pa.Table.from_arrays(
+        [
+            pa.array([], type=pa.int32()),
+            pa.array([], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    assert result.equals(expected)
+    assert result.schema == expected.schema
 
 
 def test_table_to_struct_array():
@@ -3556,16 +3575,9 @@ def test_numpy_asarray(constructor):
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
 def test_numpy_array_protocol(constructor):
     table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
-    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
 
-    if Version(np.__version__) < Version("2.0.0.dev0"):
-        # copy keyword is not strict and not passed down to __array__
-        result = np.array(table, copy=False)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
-        with pytest.raises(ValueError, match="Unable to avoid a copy"):
-            np.array(table, copy=False)
+    with pytest.raises(ValueError, match="Unable to avoid a copy"):
+        np.array(table, copy=False)
 
 
 @pytest.mark.acero

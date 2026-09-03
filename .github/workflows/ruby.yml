@@ -88,7 +88,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: .docker
           key: ruby-ubuntu-${{ matrix.ubuntu }}
@@ -115,7 +115,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: .docker
           key: ruby-ubuntu-${{ matrix.ubuntu }}
@@ -192,7 +192,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos
@@ -205,7 +205,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos
@@ -278,7 +278,7 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           # CCACHE_DIR is set by `msys2_setup.sh`
           path: ${{ env.CCACHE_DIR }}
@@ -302,7 +302,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}
@@ -415,7 +415,7 @@ jobs:
         run: |
           ci/scripts/ccache_setup.sh
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-msvc
@@ -467,7 +467,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-msvc

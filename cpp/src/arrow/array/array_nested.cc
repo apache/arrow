@@ -115,7 +115,7 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
     return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
   }
 
-  if (null_bitmap != nullptr && offsets.data()->MayHaveNulls()) {
+  if (null_bitmap != nullptr && offsets.data()->GetNullCount() != 0) {
     return Status::Invalid(
         "Ambiguous to specify both validity map and offsets with nulls");
   }
@@ -826,7 +826,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     return Status::Invalid("Map key and item arrays must be equal length");
   }
 
-  if (null_bitmap != nullptr && offsets->data()->MayHaveNulls()) {
+  if (null_bitmap != nullptr && offsets->data()->GetNullCount() != 0) {
     return Status::Invalid(
         "Ambiguous to specify both validity map and offsets with nulls");
   }
@@ -835,7 +835,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     return Status::NotImplemented("Null bitmap with offsets slice not supported.");
   }
 
-  if (offsets->data()->MayHaveNulls()) {
+  if (offsets->data()->GetNullCount() != 0) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
                           CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
     return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
@@ -896,13 +896,13 @@ Status MapArray::ValidateChildData(
   if (pair_data->type->id() != Type::STRUCT) {
     return Status::Invalid("Map array child array should have struct type");
   }
-  if (pair_data->MayHaveNulls()) {
+  if (pair_data->GetNullCount() != 0) {
     return Status::Invalid("Map array child array should have no nulls");
   }
   if (pair_data->child_data.size() != 2) {
     return Status::Invalid("Map array child array should have two fields");
   }
-  if (pair_data->child_data[0]->MayHaveNulls()) {
+  if (pair_data->child_data[0]->GetNullCount() != 0) {
     return Status::Invalid("Map array keys array should have no nulls");
   }
   return Status::OK();

@@ -383,7 +383,6 @@ if(ARROW_WITH_OPENTELEMETRY)
 endif()
 
 if(ARROW_PARQUET)
-  set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
@@ -411,11 +410,11 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
+if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
-if(ARROW_JSON)
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_SIMDJSON ON)
 endif()
 
@@ -2853,7 +2852,7 @@ function(build_simdjson)
 endfunction()
 
 if(ARROW_WITH_SIMDJSON)
-  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.0.0")
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.3.0")
   resolve_dependency(simdjson
                      FORCE_ANY_NEWER_VERSION
                      TRUE

@@ -19,24 +19,22 @@
 #include <numeric>
 #include <sstream>
 
+#include <simdjson.h>
+
 #include "arrow/extension/fixed_shape_tensor.h"
 #include "arrow/extension/tensor_internal.h"
 #include "arrow/scalar.h"
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
-#include "arrow/json/json_writer_internal.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/tensor.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
-#include <rapidjson/document.h>
-
-namespace rj = arrow::rapidjson;
-using ::arrow::json::JsonWriter;
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 
@@ -116,57 +114,39 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     return Status::Invalid("Expected FixedSizeList storage type, got ",
                            storage_type->ToString());
   }
+
   auto fsl_type = internal::checked_pointer_cast<FixedSizeListType>(storage_type);
   auto value_type = fsl_type->value_type();
-  rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
-      !document.IsObject() || !document.HasMember("shape") ||
-      !document["shape"].IsArray()) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
 
-  std::vector<int64_t> shape;
-  for (const auto& x : document["shape"].GetArray()) {
-    if (!x.IsInt64()) {
-      return Status::Invalid("shape must contain integers, got ",
-                             internal::JsonTypeName(x));
-    }
-    shape.emplace_back(x.GetInt64());
-  }
+  simdjson::dom::parser parser;
+  ARROW_ASSIGN_OR_RAISE(auto object, internal::ParseJsonObject(parser, serialized_data));
+
+  ARROW_ASSIGN_OR_RAISE(auto shape_value,
+                        internal::ResolveSimdjsonResult(object.at_key("shape"),
+                                                        "Invalid serialized JSON data"));
+  ARROW_ASSIGN_OR_RAISE(auto shape, internal::GetJsonIntArray(shape_value, "shape"));
+  ARROW_ASSIGN_OR_RAISE(auto permutation_value,
+                        internal::GetOptionalJsonField(object, "permutation"));
 
   std::vector<int64_t> permutation;
-  if (document.HasMember("permutation")) {
-    const auto& json_permutation = document["permutation"];
-    if (!json_permutation.IsArray()) {
-      return Status::Invalid("permutation must be an array, got ",
-                             internal::JsonTypeName(json_permutation));
-    }
-    for (const auto& x : json_permutation.GetArray()) {
-      if (!x.IsInt64()) {
-        return Status::Invalid("permutation must contain integers, got ",
-                               internal::JsonTypeName(x));
-      }
-      permutation.emplace_back(x.GetInt64());
-    }
+  if (permutation_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(permutation,
+                          internal::GetJsonIntArray(*permutation_value, "permutation"));
+
     if (shape.size() != permutation.size()) {
       return Status::Invalid("Invalid permutation");
     }
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto dim_names_value,
+                        internal::GetOptionalJsonField(object, "dim_names"));
+
   std::vector<std::string> dim_names;
-  if (document.HasMember("dim_names")) {
-    const auto& json_dim_names = document["dim_names"];
-    if (!json_dim_names.IsArray()) {
-      return Status::Invalid("dim_names must be an array, got ",
-                             internal::JsonTypeName(json_dim_names));
-    }
-    for (const auto& x : json_dim_names.GetArray()) {
-      if (!x.IsString()) {
-        return Status::Invalid("dim_names must contain strings, got ",
-                               internal::JsonTypeName(x));
-      }
-      dim_names.emplace_back(x.GetString());
-    }
+  if (dim_names_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(dim_names,
+                          internal::GetJsonStringArray(*dim_names_value, "dim_names"));
+
     if (shape.size() != dim_names.size()) {
       return Status::Invalid("Invalid dim_names");
     }
@@ -177,14 +157,18 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   // (type mismatches, size mismatches) are reported first.
   ARROW_ASSIGN_OR_RAISE(auto ext_type, FixedShapeTensorType::Make(
                                            value_type, shape, permutation, dim_names));
+
   const auto& fst_type = internal::checked_cast<const FixedShapeTensorType&>(*ext_type);
+
   ARROW_ASSIGN_OR_RAISE(const int64_t expected_size,
                         internal::ComputeShapeProduct(fst_type.shape()));
+
   if (expected_size != fsl_type->list_size()) {
     return Status::Invalid("Product of shape dimensions (", expected_size,
                            ") does not match FixedSizeList size (", fsl_type->list_size(),
                            ")");
   }
+
   return ext_type;
 }
 
