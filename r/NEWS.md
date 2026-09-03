@@ -21,11 +21,11 @@
 
 ## Minor improvements and fixes
 
-- When converting Arrow list-columns to R (e.g. via `as.data.frame()` or
-  `collect()`), every element now has the same type as the column's `ptype`:
-  factors share one set of levels and `int64`/`uint32` values are either all
-  integers or all `integer64`/doubles, so `tidyr::unnest()` works on them
-  (#50514).
+- Factor levels inside list columns are now unified across the whole column
+  when converting to R, so data read in multiple batches (e.g. via
+  `read_ipc_stream()` or `open_dataset()`) produces valid factors that can be
+  unnested. Similarly, `int64` and `uint32` values inside list columns are
+  converted to a single R type across the column (#50514).
 
 # arrow 25.0.1
 
