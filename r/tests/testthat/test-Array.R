@@ -1483,8 +1483,6 @@ test_that("list of dictionary: ptype and elements share the dictionary's levels 
 })
 
 test_that("list<struct<dictionary>> unifies factor levels across chunks (GH-50514)", {
-  skip_if_not_installed("tidyr")
-
   batch1 <- record_batch(
     id = 1:2,
     resources = list(
@@ -1512,10 +1510,11 @@ test_that("list<struct<dictionary>> unifies factor levels across chunks (GH-5051
   )
   expect_identical(as.character(df$resources[[3]]$type), c("sea", "lake"))
 
-  unnested <- tidyr::unnest(df, "resources", names_sep = "_")
-  expect_s3_class(unnested$resources_type, "factor")
+  # tidyr::unnest() combines the elements via vctrs using the list's ptype
+  unnested <- vctrs::vec_rbind(!!!df$resources, .ptype = attr(df$resources, "ptype"))
+  expect_s3_class(unnested$type, "factor")
   expect_identical(
-    as.character(unnested$resources_type),
+    as.character(unnested$type),
     c("river", "lake", "river", "sea", "lake")
   )
 })
