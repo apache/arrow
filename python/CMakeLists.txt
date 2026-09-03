@@ -135,7 +135,11 @@ if(CCACHE_FOUND
   # 2. Set ccache base_dir to the build output directory as it is typically
   #    a temporary directory, and would otherwise fail caching because of
   #    using different paths everytime.
-  set(ccache_command ${CCACHE_FOUND} keep_comments_cpp=true base_dir=${CMAKE_BINARY_DIR})
+  # Also, we use `cmake -E env` to set environment variables as the
+  # `ccache option=value ...` form of passing configuration options
+  # is not supported by ccache < 4.8.
+  set(ccache_command ${CMAKE_COMMAND} -E env CCACHE_COMMENTS=1
+                     CCACHE_BASEDIR=${CMAKE_BINARY_DIR} -- ${CCACHE_FOUND})
   set(CMAKE_C_COMPILER_LAUNCHER ${ccache_command})
   set(CMAKE_CXX_COMPILER_LAUNCHER ${ccache_command})
 endif()
