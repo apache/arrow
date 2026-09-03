@@ -450,7 +450,7 @@ std::vector<int64_t> GenByteCount(int64_t n) {
 // in order to compare the two.
 //
 // Unlike the generators above, these are templates rather than a pair of
-// per-width functions: it keeps the int32 and int64 arms of every REGISTER
+// per-width functions: it keeps the two widths of every REGISTER_DELTA_SHAPE
 // below on provably the same distribution, which two hand-written copies would
 // not. They live in their own namespace because two of them build on base
 // distributions whose names are already taken in this file by columns drawn
