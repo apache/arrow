@@ -501,6 +501,73 @@ TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryRowsHashEqually) {
 // The same zero-width hazard, but as a struct field: a struct's non-nested children go
 // straight to ToColumnArray, bypassing HashArray's dedicated zero-width branch, so the
 // nonexistent-bit read came back for struct<fixed_size_binary(0)>.
+// A null child element used to be canonicalized to hash 0 before the fold, throwing away
+// its validity. Since a valid integer 0 also hashes to 0, [null] and [0] then combined
+// identically, so the fold must take the child's own validity into account instead.
+TEST_F(TestScalarHash, ListNullElementDoesNotCollideWithZeroElement) {
+  struct Case {
+    std::shared_ptr<DataType> type;
+    std::string with_null;
+    std::string with_zero;
+  };
+  std::vector<Case> cases = {
+      {list(int32()), "[[null]]", "[[0]]"},
+      {large_list(int32()), "[[null]]", "[[0]]"},
+      {fixed_size_list(int32(), 1), "[[null]]", "[[0]]"},
+      {list(int64()), "[[null]]", "[[0]]"},
+      {list(float64()), "[[null]]", "[[0.0]]"},
+      // A null *field* of an element reaches the same fold via the propagated bitmap: a
+      // struct row with a null field is itself null, so these elements are absent, not
+      // zero-valued.
+      {map(utf8(), int32()), R"([[["a", null]]])", R"([[["a", 0]]])"},
+      {list(struct_({field("a", int32())})), R"([[{"a": null}]])", R"([[{"a": 0}]])"},
+      {list(struct_({field("a", struct_({field("x", int32())}))})),
+       R"([[{"a": {"x": null}}]])", R"([[{"a": {"x": 0}}]])"},
+  };
+  for (const auto& c : cases) {
+    for (const std::string func : {"hash32", "hash64"}) {
+      ARROW_SCOPED_TRACE("type: ", c.type->ToString(), " func: ", func);
+      ASSERT_OK_AND_ASSIGN(Datum null_result,
+                           CallFunction(func, {ArrayFromJSON(c.type, c.with_null)}));
+      ASSERT_OK_AND_ASSIGN(Datum zero_result,
+                           CallFunction(func, {ArrayFromJSON(c.type, c.with_zero)}));
+      ASSERT_OK_AND_ASSIGN(auto null_hash, null_result.make_array()->GetScalar(0));
+      ASSERT_OK_AND_ASSIGN(auto zero_hash, zero_result.make_array()->GetScalar(0));
+      ASSERT_FALSE(null_hash->Equals(*zero_hash))
+          << "a row holding a null element must not hash the same as one holding zero";
+    }
+  }
+}
+
+// A struct row with a null field is itself null (see the hash32/hash64 note in
+// docs/source/cpp/compute.rst), so as a list element it is *absent*: it folds the same
+// stand-in as an explicitly null element, and carries no value to tell it apart from any
+// other null. The list row itself stays valid either way, since only its own validity
+// counts there.
+TEST_F(TestScalarHash, ListStructElementWithNullFieldIsANullElement) {
+  auto arr = ArrayFromJSON(list(struct_({field("f0", int32()), field("f1", int32())})),
+                           R"([[{"f0": 1, "f1": null}], [{"f0": 2, "f1": null}], [null],
+                               [{"f0": null, "f1": null}], [{"f0": 1, "f1": 2}]])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    ARROW_SCOPED_TRACE("func: ", func);
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+    auto hashes = result.make_array();
+    // Rows 0-3 each hold one null element, however that nullness arose.
+    for (int64_t i = 0; i < 4; i++) {
+      ASSERT_TRUE(hashes->IsValid(i)) << "row " << i << " is a valid list";
+      ASSERT_OK_AND_ASSIGN(auto first, hashes->GetScalar(0));
+      ASSERT_OK_AND_ASSIGN(auto other, hashes->GetScalar(i));
+      ASSERT_TRUE(first->Equals(*other))
+          << "row " << i << " holds a null element, like row 0";
+    }
+    // Row 4's element is fully valid, so it must not look like a null element.
+    ASSERT_OK_AND_ASSIGN(auto null_elem, hashes->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto valid_elem, hashes->GetScalar(4));
+    ASSERT_FALSE(null_elem->Equals(*valid_elem))
+        << "a valid element must not hash like a null one";
+  }
+}
+
 TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryStructFieldHashesEqually) {
   auto single = ArrayFromJSON(struct_({field("f0", fixed_size_binary(0))}),
                               R"([{"f0": ""}, {"f0": ""}, {"f0": ""}, {"f0": ""}])");

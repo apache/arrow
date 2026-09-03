@@ -27,7 +27,6 @@
 #include "arrow/compute/registry_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/result.h"
-#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 
@@ -115,16 +114,54 @@ void WriteOwnValidity(const ArraySpan& array, uint8_t* out_validity) {
                                 out_validity, /*dest_offset=*/0);
 }
 
-// Folds one row's child hashes into a single hash. Seeded with CombineHashes(0, 0) rather
-// than 0 just so an empty list doesn't hash to a bare 0 -- a hash-quality nicety, not a
-// requirement, since a list row's validity is independent of its hash value.
+// Folds one row's child elements into a single hash. `validity` is the elements'
+// validity, 0-based like `value_hashes`, or nullptr when no element is null.
+//
+// A valid element folds its hash into `combined`; a null one folds its position into
+// `combined_validity`, and the two are mixed at the end. A null element's hash is
+// deliberately never folded, since a null slot's bytes are undefined per the columnar
+// spec -- folding them would let list<struct<f0:int32>> rows [{f0: 7}] and [null] (whose
+// f0 slot also holds 7) hash alike.
+//
+// A null still has to contribute something, or [null] would equal [] and [null, 5] would
+// equal [5]. Substituting a stand-in hash for it does not work: whatever constant is
+// picked collides with a real element hashing to the same value, and 0 in particular is
+// both what a valid integer 0 hashes to and what HashMultiColumn writes for a null slot,
+// which is what made [null] and [0] identical. Keeping the two on separate accumulators
+// is what removes the ambiguity -- nothing folded into `combined_validity` can be
+// mistaken for a value hash -- so it need only record *where* the nulls are. Positions
+// rather than a bare count, so [null, x] and [x, null] stay apart.
+//
+// A row with no null element therefore folds nothing into `combined_validity`, whether or
+// not the array allocated a bitmap, so the same row hashes the same either way. That also
+// means the two chains stay short, and can issue in parallel rather than lengthening the
+// single serial chain this loop is latency-bound on.
+//
+// Seeded with CombineHashes(0, 0) rather than 0 just so an empty list doesn't hash to a
+// bare 0 -- a hash-quality nicety, not a requirement, since a list row's validity is
+// independent of its hash value.
 template <typename c_type, typename Hasher>
-c_type CombineRange(const c_type* value_hashes, int64_t start, int64_t end) {
+c_type CombineRange(const c_type* value_hashes, const uint8_t* validity, int64_t start,
+                    int64_t end) {
   c_type combined = Hasher::CombineHashes(0, 0);
-  for (int64_t j = start; j < end; j++) {
-    combined = Hasher::CombineHashes(combined, value_hashes[j]);
+  c_type combined_validity = Hasher::CombineHashes(0, 0);
+  if (validity == nullptr) {
+    // Nothing in the child is null, so no element can contribute to combined_validity:
+    // fold the values alone, with the bit test hoisted out of the loop.
+    for (int64_t j = start; j < end; j++) {
+      combined = Hasher::CombineHashes(combined, value_hashes[j]);
+    }
+  } else {
+    for (int64_t j = start; j < end; j++) {
+      if (bit_util::GetBit(validity, j)) {
+        combined = Hasher::CombineHashes(combined, value_hashes[j]);
+      } else {
+        combined_validity =
+            Hasher::CombineHashes(combined_validity, static_cast<c_type>(j - start + 1));
+      }
+    }
   }
-  return combined;
+  return Hasher::CombineHashes(combined, combined_validity);
 }
 
 template <typename ArrowType, typename Hasher>
@@ -236,35 +273,31 @@ struct FastHashScalar {
     ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                           HashChild(values, values.offset + rel_start,
                                     rel_end - rel_start, hash_ctx, exec_ctx));
-    // Zero the null elements' hashes: CombineRange folds values blind, and a null slot's
-    // bytes are undefined per the columnar spec, so otherwise a null element contributes
-    // whatever garbage it sat on and list<struct<f0:int32>> rows [{f0: 7}] and [null]
-    // (whose f0 slot also holds 7) hash alike. Filling only the gaps between runs of
-    // valid rows leaves the common all-valid case free. HashStructArray needs no
-    // equivalent: HashMultiColumn gets its fields' validity and already fixes each null
-    // row's contribution.
-    c_type* value_hash_data = value_hashes->buffers[1]->mutable_data_as<c_type>();
-    int64_t valid_end = 0;
-    ::arrow::internal::VisitSetBitRunsVoid(
-        value_hashes->buffers[0]->data(), /*offset=*/0, value_hashes->length,
-        [&](int64_t position, int64_t run_length) {
-          std::fill(value_hash_data + valid_end, value_hash_data + position, c_type{0});
-          valid_end = position + run_length;
-        });
-    std::fill(value_hash_data + valid_end, value_hash_data + value_hashes->length,
-              c_type{0});
+    const c_type* value_hash_data = value_hashes->buffers[1]->data_as<c_type>();
+
+    // The validity CombineRange folds is the one HashChild propagated: for a struct
+    // element that is the struct's own ANDed with every field's, so a struct row with a
+    // null field counts as null here, matching the documented semantics (a field that is
+    // null makes the struct row's output null). Passing nullptr when nothing is null
+    // saves the per-element bit test; it folds the same result either way.
+    const uint8_t* values_validity = value_hashes->buffers[0]->data();
+    if (value_hashes->GetNullCount() == 0) {
+      values_validity = nullptr;
+    }
 
     if (offsets != nullptr) {
       // offsets[] index the values child; value_hash_data starts at rel_start.
       for (int64_t i = 0; i < array.length; i++) {
-        out[i] = CombineRange<c_type, Hasher>(value_hash_data, offsets[i] - rel_start,
+        out[i] = CombineRange<c_type, Hasher>(value_hash_data, values_validity,
+                                              offsets[i] - rel_start,
                                               offsets[i + 1] - rel_start);
       }
     } else {
       // rel_start is array.offset * list_size, so row i starts at i * list_size.
       for (int64_t i = 0; i < array.length; i++) {
         int64_t start = i * list_size;
-        out[i] = CombineRange<c_type, Hasher>(value_hash_data, start, start + list_size);
+        out[i] = CombineRange<c_type, Hasher>(value_hash_data, values_validity, start,
+                                              start + list_size);
       }
     }
     // A list/map row's validity is its own only -- what's inside it (even a null
