@@ -46,6 +46,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/visit_data_inline.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -905,25 +906,21 @@ Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
                           ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
     auto out_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
 
-    const int64_t null_count = values.null_count();
-    if (null_count > 0) {
-      for (int64_t j = 0; j < length; ++j) {
-        if (!values.IsNull(j)) {
-          RETURN_NOT_OK(
-              FlbaTimestampToInt64(values.GetValue(j), clamp_on_overflow, &out_ptr[j]));
-        } else {
-          out_ptr[j] = 0;
-        }
-      }
-    } else {
-      for (int64_t j = 0; j < length; ++j) {
-        RETURN_NOT_OK(
-            FlbaTimestampToInt64(values.GetValue(j), clamp_on_overflow, &out_ptr[j]));
-      }
-    }
+    int64_t j = 0;
+    RETURN_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
+        ::arrow::ArraySpan(*values.data()),
+        [&](std::string_view v) {
+          return FlbaTimestampToInt64(reinterpret_cast<const uint8_t*>(v.data()),
+                                      clamp_on_overflow, &out_ptr[j++]);
+        },
+        [&]() {
+          out_ptr[j++] = 0;
+          return ::arrow::Status::OK();
+        }));
 
     chunks[i] = std::make_shared<::arrow::TimestampArray>(
-        field->type(), length, std::move(data), values.null_bitmap(), null_count);
+        field->type(), length, std::move(data), values.null_bitmap(),
+        values.null_count());
   }
   if (!field->nullable()) {
     ReconstructChunksWithoutNulls(&chunks);
