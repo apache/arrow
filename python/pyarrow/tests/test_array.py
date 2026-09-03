@@ -2993,6 +2993,17 @@ def test_array_from_numpy_string_dtype_rejects_non_string_type(
 
 
 @pytest.mark.numpy
+def test_array_from_list_of_numpy_string_dtype_arrays(numpy_string_dtype):
+    values = [["a", "bb"], ["ccc"]]
+    arrays = [np.array(v, dtype=numpy_string_dtype()) for v in values]
+
+    result = pa.array(arrays)
+
+    assert result.type == pa.list_(pa.string())
+    assert result.to_pylist() == values
+
+
+@pytest.mark.numpy
 def test_array_string_from_non_string():
     # ARROW-5682 - when converting to string raise on non string-like dtype
     with pytest.raises(TypeError):
