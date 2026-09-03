@@ -80,7 +80,6 @@ requirements.txt
 *.svg
 *.devhelp2
 *.scss
-r/.lintr
 r/R/arrowExports.R
 r/src/arrowExports.cpp
 r/DESCRIPTION
