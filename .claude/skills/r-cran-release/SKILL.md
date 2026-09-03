@@ -22,11 +22,28 @@ Track the issue number - update checkboxes as you complete each step.
 
 ## 2. Create CRAN Release Branch
 
-Ask the user which RC number to use (e.g., rc1, rc2), then confirm before creating the branch. Ask the user to run the push command themselves.
+First check whether the final release tag exists:
 
 ```bash
-git fetch upstream
+git fetch upstream --tags
+git tag -l 'apache-arrow-<VERSION>*'
+```
+
+If `apache-arrow-<VERSION>` (no rc suffix) exists, the vote has already passed. Always branch from the final tag in this case — do not ask about RCs, as an earlier RC may be a different commit from the final release:
+
+```bash
+git checkout apache-arrow-<VERSION>
+```
+
+Only if the final tag does not exist yet (vote still in progress), ask the user which RC number to use (e.g., rc1, rc2), then branch from it:
+
+```bash
 git checkout apache-arrow-<VERSION>-rc<N>
+```
+
+Confirm with the user before creating the branch, then ask them to run the push command themselves:
+
+```bash
 git checkout -b maint-<VERSION>-r
 git push upstream maint-<VERSION>-r
 ```
@@ -223,7 +240,7 @@ Fix any issues before proceeding.
 
 ## 13. Wait for Release Vote
 
-Check if the Apache Arrow release vote has passed before continuing.
+Check if the Apache Arrow release vote has passed before continuing. If the release branch was created from the final `apache-arrow-<VERSION>` tag in step 2, the vote has already passed and this step is a no-op.
 
 ## 14. Update Checksums
 
