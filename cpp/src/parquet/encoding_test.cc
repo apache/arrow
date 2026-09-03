@@ -3025,78 +3025,35 @@ TEST(AlpEncodingAdHoc, InvalidDataTypes) {
 // Encode with AlpCodec at non-default vector sizes (64, 512, 2048, 4096),
 // then decode through the parquet AlpDecoder to verify it correctly reads
 // log_vector_size from the ALP header and round-trips at any valid size.
-TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
-  const std::vector<int32_t> vector_sizes = {64, 512, 2048, 4096};
+TYPED_TEST(TestAlpEncoding, NonDefaultVectorSizeRoundTrip) {
+  using c_type = typename TypeParam::c_type;
+  using AlpCodec = ::arrow::util::alp::AlpCodec<c_type>;
 
-  // Test double
-  {
-    auto descr = ExampleDescr<DoubleType>();
-    for (const int32_t vs : vector_sizes) {
-      for (const size_t n :
-           {static_cast<size_t>(vs / 2), static_cast<size_t>(vs),
-            static_cast<size_t>(vs * 3), static_cast<size_t>(vs * 2 + 17)}) {
-        SCOPED_TRACE("double vector_size=" + std::to_string(vs) +
-                     " n=" + std::to_string(n));
+  auto descr = ExampleDescr<TypeParam>();
 
-        std::vector<double> input(n);
-        for (size_t i = 0; i < n; ++i) {
-          input[i] = static_cast<double>(i) * 0.123;
-        }
+  for (const int32_t vs : {64, 512, 2048, 4096}) {
+    // Below, at, and above a vector boundary, plus a size that leaves a partial
+    // trailing vector.
+    for (const int32_t n : {vs / 2, vs, vs * 3, vs * 2 + 17}) {
+      SCOPED_TRACE("vector_size=" + std::to_string(vs) + " n=" + std::to_string(n));
 
-        ASSERT_OK_AND_ASSIGN(int64_t max_comp,
-                             ::arrow::util::alp::AlpCodec<double>::GetMaxCompressedSize(
-                                 static_cast<int64_t>(n), vs));
-        std::vector<uint8_t> comp(max_comp);
-        int64_t comp_size = comp.size();
-
-        ASSERT_OK(::arrow::util::alp::AlpCodec<double>::Encode(
-            input.data(), static_cast<int64_t>(n), vs, comp.data(), &comp_size));
-        ASSERT_GT(comp_size, 0u);
-
-        auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
-        decoder->SetData(static_cast<int>(n), comp.data(), static_cast<int>(comp_size));
-
-        std::vector<double> output(n);
-        int decoded = decoder->Decode(output.data(), static_cast<int>(n));
-        ASSERT_EQ(decoded, static_cast<int>(n));
-        ASSERT_THAT(output, ::testing::ElementsAreArray(input));
+      std::vector<c_type> input(n);
+      for (int32_t i = 0; i < n; ++i) {
+        input[i] = static_cast<c_type>(i) * static_cast<c_type>(0.123);
       }
-    }
-  }
 
-  // Test float
-  {
-    auto descr = ExampleDescr<FloatType>();
-    for (const int32_t vs : vector_sizes) {
-      for (const size_t n :
-           {static_cast<size_t>(vs / 2), static_cast<size_t>(vs),
-            static_cast<size_t>(vs * 3), static_cast<size_t>(vs * 2 + 17)}) {
-        SCOPED_TRACE("float vector_size=" + std::to_string(vs) +
-                     " n=" + std::to_string(n));
+      ASSERT_OK_AND_ASSIGN(int64_t max_comp, AlpCodec::GetMaxCompressedSize(n, vs));
+      std::vector<uint8_t> comp(max_comp);
+      int64_t comp_size = comp.size();
+      ASSERT_OK(AlpCodec::Encode(input.data(), n, vs, comp.data(), &comp_size));
+      ASSERT_GT(comp_size, 0);
 
-        std::vector<float> input(n);
-        for (size_t i = 0; i < n; ++i) {
-          input[i] = static_cast<float>(i) * 0.123f;
-        }
+      auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+      decoder->SetData(n, comp.data(), static_cast<int>(comp_size));
 
-        ASSERT_OK_AND_ASSIGN(int64_t max_comp,
-                             ::arrow::util::alp::AlpCodec<float>::GetMaxCompressedSize(
-                                 static_cast<int64_t>(n), vs));
-        std::vector<uint8_t> comp(max_comp);
-        int64_t comp_size = comp.size();
-
-        ASSERT_OK(::arrow::util::alp::AlpCodec<float>::Encode(
-            input.data(), static_cast<int64_t>(n), vs, comp.data(), &comp_size));
-        ASSERT_GT(comp_size, 0u);
-
-        auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP, descr.get());
-        decoder->SetData(static_cast<int>(n), comp.data(), static_cast<int>(comp_size));
-
-        std::vector<float> output(n);
-        int decoded = decoder->Decode(output.data(), static_cast<int>(n));
-        ASSERT_EQ(decoded, static_cast<int>(n));
-        ASSERT_THAT(output, ::testing::ElementsAreArray(input));
-      }
+      std::vector<c_type> output(n);
+      ASSERT_EQ(n, decoder->Decode(output.data(), n));
+      ASSERT_THAT(output, ::testing::ElementsAreArray(input));
     }
   }
 }
