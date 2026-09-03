@@ -1002,13 +1002,15 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // ----------------------------------------------------------------------
 // ALP encoder (Adaptive Lossless floating-Point)
 
-// TODO: encode incrementally. `Put` buffers the raw input and `FlushValues` runs
-// the whole pipeline over it, so working memory scales with the page.
+// TODO(GH-48701): encode incrementally. `Put` buffers the raw input and
+// `FlushValues` runs the whole pipeline over it, so working memory scales with
+// the page.
 //
-// TODO: fall back to PLAIN where ALP does not pay off. On the ALP paper's datasets
-// msg_sp encodes to 113% of plain and three more columns land within 8% of
-// break-even. ColumnWriterImpl already has FallbackToPlainEncoding(); what is
-// missing is a ratio estimate, which the sampler computes but does not expose.
+// TODO(GH-48701): fall back to PLAIN where ALP does not pay off. On the ALP
+// paper's datasets msg_sp encodes to 113% of plain and three more columns land
+// within 8% of break-even. ColumnWriterImpl already has
+// FallbackToPlainEncoding(); what is missing is a ratio estimate, which the
+// sampler computes but does not expose.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
@@ -1023,7 +1025,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
                   "ALP only supports float and double types");
   }
 
-  // TODO: estimate the encoded size. This is the buffered input size, which
+  // TODO(GH-48701): estimate the encoded size. This is the buffered input size, which
   // over-reports for a column ALP compresses and under-reports for one it does
   // not; the sampler could supply a ratio estimate instead.
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
