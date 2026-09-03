@@ -415,15 +415,9 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadView(
   }
 
   // Load data section (after metadata)
-  ARROW_ASSIGN_OR_RAISE(AlpEncodedVectorView<T> data_view,
-                        LoadViewDataOnly({input_buffer.data() + input_offset,
-                                          input_buffer.size() - input_offset},
-                                         alp_info, for_info, num_elements));
-
-  // Copy the loaded data into result
-  result.set_packed_values(data_view.packed_values());
-  result.set_exception_positions(std::move(data_view.mutable_exception_positions()));
-  result.set_exceptions(std::move(data_view.mutable_exceptions()));
+  RETURN_NOT_OK(result.ResetDataOnly(
+      {input_buffer.data() + input_offset, input_buffer.size() - input_offset}, alp_info,
+      for_info, num_elements));
 
   return result;
 }
@@ -432,6 +426,16 @@ template <typename T>
 Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
     std::span<const uint8_t> input_buffer, const AlpEncodedVectorInfo& alp_info,
     const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements) {
+  AlpEncodedVectorView<T> result;
+  RETURN_NOT_OK(result.ResetDataOnly(input_buffer, alp_info, for_info, num_elements));
+  return result;
+}
+
+template <typename T>
+Status AlpEncodedVectorView<T>::ResetDataOnly(std::span<const uint8_t> input_buffer,
+                                              const AlpEncodedVectorInfo& alp_info,
+                                              const AlpEncodedForVectorInfo<T>& for_info,
+                                              int32_t num_elements) {
   if (num_elements > (1 << AlpConstants::kMaxLogVectorSize)) {
     return Status::Invalid("ALP view data element count too large: ", num_elements, " > ",
                            (1 << AlpConstants::kMaxLogVectorSize));
@@ -439,10 +443,9 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
 
   RETURN_NOT_OK(ValidateVectorInfo<T>(alp_info, num_elements));
 
-  AlpEncodedVectorView<T> result;
-  result.set_alp_info(alp_info);
-  result.set_for_info(for_info);
-  result.set_num_elements(num_elements);
+  set_alp_info(alp_info);
+  set_for_info(for_info);
+  set_num_elements(num_elements);
 
   const int64_t data_size =
       for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions());
@@ -458,26 +461,27 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
       bit_util::BytesForBits(int64_t{num_elements} * for_info.bit_width());
 
   // Zero-copy for packed values (bytes have no alignment requirements)
-  result.set_packed_values(
+  set_packed_values(
       {input_buffer.data() + input_offset, static_cast<size_t>(bit_packed_size)});
   input_offset += bit_packed_size;
 
   // Copy exception positions into aligned storage to avoid UB from misaligned access.
-  // Exceptions are rare (typically < 5%), so the copy overhead is negligible.
+  // resize() only reallocates when this view held a smaller vector before, so a
+  // caller walking a buffer pays for the largest vector rather than for each one.
   const int64_t exception_position_size =
       alp_info.num_exceptions() * sizeof(AlpConstants::PositionType);
-  result.mutable_exception_positions().resize(alp_info.num_exceptions());
+  exception_positions_.resize(alp_info.num_exceptions());
   LoadLittleEndianArray(input_buffer.data() + input_offset, alp_info.num_exceptions(),
-                        result.mutable_exception_positions().data());
+                        exception_positions_.data());
   input_offset += exception_position_size;
-  RETURN_NOT_OK(ValidateExceptionPositions(result.exception_positions(), num_elements));
+  RETURN_NOT_OK(ValidateExceptionPositions(exception_positions_, num_elements));
 
   // Copy exception values into aligned storage to avoid UB from misaligned access.
-  result.mutable_exceptions().resize(alp_info.num_exceptions());
+  exceptions_.resize(alp_info.num_exceptions());
   LoadLittleEndianArray(input_buffer.data() + input_offset, alp_info.num_exceptions(),
-                        result.mutable_exceptions().data());
+                        exceptions_.data());
 
-  return result;
+  return Status::OK();
 }
 
 template <typename T>
@@ -923,11 +927,9 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(
 }
 
 template <typename T>
-std::vector<typename AlpCompression<T>::ExactType> AlpCompression<T>::BitUnpackIntegers(
-    std::span<const uint8_t> packed_integers, const AlpEncodedForVectorInfo<T>& for_info,
-    int32_t num_elements) {
-  std::vector<ExactType> encoded_integers(num_elements);
-
+void AlpCompression<T>::BitUnpackIntegers(std::span<const uint8_t> packed_integers,
+                                          const AlpEncodedForVectorInfo<T>& for_info,
+                                          int32_t num_elements, ExactType* output) {
   if (for_info.bit_width() > 0) {
     // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
     // then unpack_exact for the remainder. No need to manually split.
@@ -935,11 +937,10 @@ std::vector<typename AlpCompression<T>::ExactType> AlpCompression<T>::BitUnpackI
         .batch_size = static_cast<int>(num_elements),
         .bit_width = for_info.bit_width(),
     };
-    arrow::internal::unpack(packed_integers.data(), encoded_integers.data(), opts);
+    arrow::internal::unpack(packed_integers.data(), output, opts);
   } else {
-    std::memset(encoded_integers.data(), 0, num_elements * sizeof(ExactType));
+    std::memset(output, 0, num_elements * sizeof(ExactType));
   }
-  return encoded_integers;
 }
 
 template <typename T>
@@ -991,8 +992,9 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
   const AlpEncodedForVectorInfo<T>& for_info = packed_vector.for_info();
   const int32_t num_elements = packed_vector.num_elements();
 
-  std::vector<ExactType> encoded_integers =
-      BitUnpackIntegers(packed_vector.packed_values(), for_info, num_elements);
+  std::vector<ExactType> encoded_integers(num_elements);
+  BitUnpackIntegers(packed_vector.packed_values(), for_info, num_elements,
+                    encoded_integers.data());
   DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
                            alp_info, for_info, num_elements, output);
   PatchExceptions<TargetType>(packed_vector.exceptions(),
@@ -1003,15 +1005,17 @@ template <typename T>
 template <typename TargetType>
 void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
                                              const AlpIntegerEncoding integer_encoding,
-                                             TargetType* output) {
+                                             TargetType* output,
+                                             std::span<ExactType> integer_scratch) {
   static_assert(sizeof(T) <= sizeof(TargetType));
   const AlpEncodedVectorInfo& alp_info = encoded_view.alp_info();
   const AlpEncodedForVectorInfo<T>& for_info = encoded_view.for_info();
   const int32_t num_elements = encoded_view.num_elements();
+  ARROW_DCHECK_GE(integer_scratch.size(), static_cast<size_t>(num_elements));
 
-  std::vector<ExactType> encoded_integers =
-      BitUnpackIntegers(encoded_view.packed_values(), for_info, num_elements);
-  DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
+  BitUnpackIntegers(encoded_view.packed_values(), for_info, num_elements,
+                    integer_scratch.data());
+  DecodeVector<TargetType>({integer_scratch.data(), static_cast<size_t>(num_elements)},
                            alp_info, for_info, num_elements, output);
   PatchExceptions<TargetType>(
       {encoded_view.exceptions().data(), encoded_view.exceptions().size()},
@@ -1035,13 +1039,13 @@ template void AlpCompression<double>::DecompressVector<double>(
 
 template void AlpCompression<float>::DecompressVectorView<double>(
     const AlpEncodedVectorView<float>& encoded_view, AlpIntegerEncoding integer_encoding,
-    double* output);
+    double* output, std::span<AlpCompression<float>::ExactType> integer_scratch);
 template void AlpCompression<float>::DecompressVectorView<float>(
     const AlpEncodedVectorView<float>& encoded_view, AlpIntegerEncoding integer_encoding,
-    float* output);
+    float* output, std::span<AlpCompression<float>::ExactType> integer_scratch);
 template void AlpCompression<double>::DecompressVectorView<double>(
     const AlpEncodedVectorView<double>& encoded_view, AlpIntegerEncoding integer_encoding,
-    double* output);
+    double* output, std::span<AlpCompression<double>::ExactType> integer_scratch);
 
 template class AlpCompression<float>;
 template class AlpCompression<double>;
