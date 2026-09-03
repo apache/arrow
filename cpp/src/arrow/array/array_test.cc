@@ -3260,6 +3260,21 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendEmptyValue) {
   AssertArraysEqual(*result_, *ArrayFromJSON(uint8(), "[null, null, 0, 42, 0, 0]"));
 }
 
+TEST_F(TestAdaptiveUIntBuilder, TestAppendValuesAfterAppend) {
+  ASSERT_OK(builder_->Append(1));
+  ASSERT_OK(builder_->Append(2));
+  ASSERT_OK(builder_->Append(3));
+  ASSERT_OK(builder_->Append(4));
+  std::vector<uint64_t> values{5, 6, 7, 8};
+  ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+  Done();
+  ASSERT_OK(result_->ValidateFull());
+
+  std::shared_ptr<Array> expected;
+  ArrayFromVector<UInt8Type>({1, 2, 3, 4, 5, 6, 7, 8}, &expected);
+  AssertArraysEqual(*expected, *result_);
+}
+
 TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {
   auto builder = std::make_shared<AdaptiveUIntBuilder>(
       static_cast<uint8_t>(sizeof(uint16_t)), default_memory_pool());
