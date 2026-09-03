@@ -25,9 +25,7 @@
 
 #include "arrow/util/alp/alp_internal.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 // ----------------------------------------------------------------------
 // AlpSampler
@@ -121,6 +119,4 @@ class AlpSampler {
   const int64_t rowgroup_sample_jump_;
 };
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp
