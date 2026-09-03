@@ -31,9 +31,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 namespace {
 
@@ -628,6 +626,4 @@ template Status AlpCodec<double>::VectorReader::DecodeVector(int32_t, double*);
 template class AlpCodec<float>;
 template class AlpCodec<double>;
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp

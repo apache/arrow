@@ -24,9 +24,7 @@
 
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 // ----------------------------------------------------------------------
 // AlpConstants
@@ -287,6 +285,4 @@ class AlpTypedConstants<double> {
   using FloatingToSignedExact = int64_t;
 };
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp
