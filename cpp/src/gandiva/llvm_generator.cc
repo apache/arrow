@@ -1241,15 +1241,27 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
 
 LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair& pair) {
   // generate code for value
-  auto value_expr = pair.value_expr();
-  value_expr->Accept(*this);
-  auto value = result()->data();
-  auto length = result()->length();
+  auto value = BuildDex(pair.value_expr());
 
   // generate code for validity
   auto validity = BuildCombinedValidity(pair.validity_exprs());
 
-  return std::make_shared<LValue>(value, length, validity);
+  return std::make_shared<LValue>(value->data(), value->length(), validity);
+}
+
+LValuePtr LLVMGenerator::Visitor::BuildDex(const DexPtr& dex) {
+  auto* block = ir_builder()->GetInsertBlock();
+  auto cached = dex_cache_.find(dex.get());
+  if (cached != dex_cache_.end() && cached->second.block == block) {
+    return cached->second.value;
+  }
+
+  dex->Accept(*this);
+  auto value = result();
+  if (ir_builder()->GetInsertBlock() == block) {
+    dex_cache_.insert_or_assign(dex.get(), CachedDexValue{block, value});
+  }
+  return value;
 }
 
 LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
@@ -1335,9 +1347,7 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
   // build the function params, along with the validities.
   for (auto& pair : args) {
     // build value.
-    DexPtr value_expr = pair->value_expr();
-    value_expr->Accept(*this);
-    LValue& result_ref = *result();
+    LValue& result_ref = *BuildDex(pair->value_expr());
 
     // append all the parameters corresponding to this LValue.
     result_ref.AppendFunctionParams(&params);
@@ -1359,8 +1369,8 @@ llvm::Value* LLVMGenerator::Visitor::BuildCombinedValidity(const DexVector& vali
 
   llvm::Value* isValid = types->true_constant();
   for (auto& dex : validities) {
-    dex->Accept(*this);
-    isValid = builder->CreateAnd(isValid, result()->data(), "validityBitAnd");
+    auto value = BuildDex(dex);
+    isValid = builder->CreateAnd(isValid, value->data(), "validityBitAnd");
   }
   ADD_VISITOR_TRACE("combined validity is %T", isValid);
   return isValid;

@@ -19,11 +19,13 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/node.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 
@@ -33,6 +35,22 @@ class TestExprDecomposer : public ::testing::Test {
  protected:
   std::shared_ptr<FunctionRegistry> registry_ = default_function_registry();
 };
+
+TEST_F(TestExprDecomposer, TestSharedDagValidityIsMergedOnce) {
+  auto value = arrow::field("value", arrow::int32());
+  NodePtr root = TreeExprBuilder::MakeField(value);
+  constexpr int kDepth = 24;
+  for (int depth = 0; depth < kDepth; ++depth) {
+    root = TreeExprBuilder::MakeFunction("add", {root, root}, arrow::int32());
+  }
+
+  Annotator annotator;
+  ExprDecomposer decomposer(*registry_, annotator);
+  ValueValidityPairPtr decomposed;
+  ASSERT_OK(decomposer.Decompose(*root, &decomposed));
+  ASSERT_NE(nullptr, decomposed);
+  EXPECT_EQ(1, decomposed->validity_exprs().size());
+}
 
 TEST_F(TestExprDecomposer, TestStackSimple) {
   Annotator annotator;
