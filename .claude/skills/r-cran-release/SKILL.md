@@ -373,11 +373,11 @@ Submit a PR to the `asf-site` branch of https://github.com/apache/arrow-site wit
 cd ~/arrow-site
 git fetch upstream
 git checkout upstream/asf-site
-git checkout -b "r-25.0.0"
+git checkout -b "r-<VERSION>"
 cp ~/arrow/r/docs/news/index.html ./docs/r/news/index.html
 git add docs/r/news/index.html
 git commit -m "update R news page"
-git push --set-upstream origin r-25.0.0
+git push --set-upstream origin r-<VERSION>
 ```
 
 If necessary, bump the version in `r/pkgdown/assets/versions.json` too.
