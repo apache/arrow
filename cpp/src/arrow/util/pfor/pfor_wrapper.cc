@@ -59,6 +59,40 @@ Status ValidateVectorSize(int32_t vector_size) {
   return Status::OK();
 }
 
+/// \brief Check the offset array before any of it steers a read
+///
+/// The offsets are byte counts from the start of the offset array, and the
+/// vectors they point at were written back to back in order, so a well-formed
+/// page has the first offset landing just past the array and the rest strictly
+/// increasing. Checking the chain as a whole, before decoding any of it, keeps a
+/// page whose offsets overlap or run backwards from decoding part-way and
+/// emitting values built out of the wrong bytes.
+Status ValidateOffsets(const uint8_t* offset_array_start, int32_t num_vectors,
+                       int64_t offset_array_size, int64_t payload_size) {
+  int64_t previous = -1;
+  for (int32_t v = 0; v < num_vectors; ++v) {
+    const int64_t offset =
+        util::SafeLoadAs<PforConstants::OffsetType>(offset_array_start + v * kOffsetSize);
+    if (v == 0) {
+      if (offset != offset_array_size) {
+        return Status::Invalid("PFOR first vector offset ", offset,
+                               " does not follow the ", offset_array_size,
+                               " byte offset array");
+      }
+    } else if (offset <= previous) {
+      return Status::Invalid("PFOR vector ", v, " offset ", offset,
+                             " does not follow offset ", previous,
+                             " of the vector before it");
+    }
+    if (offset >= payload_size) {
+      return Status::Invalid("PFOR vector ", v, " offset ", offset,
+                             " is past the end of the ", payload_size, " byte payload");
+    }
+    previous = offset;
+  }
+  return Status::OK();
+}
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -226,34 +260,34 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
   ARROW_ASSIGN_OR_RAISE(PforHeader header,
                         LoadHeader(std::span<const uint8_t>(src, comp_size)));
 
-  // The caller sized `values` for num_values, so a header claiming more than
-  // that would have us write past the end of it.
-  if (header.num_elements > num_values) {
+  // The loop below sizes its work from the header's count while `values` is only
+  // as large as `num_values`, so a header claiming more would write past the end
+  // of the output and one claiming fewer would fill part of it and still return
+  // OK, leaving the rest whatever it held before. Require the two to agree.
+  if (header.num_elements != num_values) {
     return Status::Invalid("PFOR header element count ", header.num_elements,
-                           " exceeds output capacity ", num_values);
+                           " does not match the expected value count ", num_values);
   }
 
   const int32_t vector_size = 1 << header.log_vector_size;
   const int32_t num_vectors =
       static_cast<int32_t>(bit_util::CeilDiv(header.num_elements, vector_size));
 
-  // Step 2: Read offset array
+  // Step 2: Read and check the offset array
   const uint8_t* offset_array_start = src + PforConstants::kHeaderSize;
   const int64_t offset_array_size = num_vectors * kOffsetSize;
   if (PforConstants::kHeaderSize + offset_array_size > comp_size) {
     return Status::Invalid("PFOR offset array for ", num_vectors,
                            " vectors does not fit in ", comp_size, " bytes");
   }
+  const int64_t payload_size = comp_size - PforConstants::kHeaderSize;
+  ARROW_RETURN_NOT_OK(
+      ValidateOffsets(offset_array_start, num_vectors, offset_array_size, payload_size));
 
   // Step 3: Decode each vector
   for (int32_t v = 0; v < num_vectors; ++v) {
     const auto offset =
         util::SafeLoadAs<PforConstants::OffsetType>(offset_array_start + v * kOffsetSize);
-    if (PforConstants::kHeaderSize + static_cast<int64_t>(offset) >= comp_size) {
-      return Status::Invalid("PFOR vector ", v, " offset ", offset,
-                             " is past the end of the ", comp_size, " byte buffer");
-    }
-
     const uint8_t* vector_data = offset_array_start + offset;
 
     int32_t start_idx = v * vector_size;

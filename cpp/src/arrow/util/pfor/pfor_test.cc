@@ -514,6 +514,20 @@ TYPED_TEST(PforTest, CorruptElementCountExceedsOutputCapacity) {
                                                 decoded.data()));
 }
 
+TYPED_TEST(PforTest, CorruptElementCountBelowOutputCapacity) {
+  using T = TypeParam;
+  const std::vector<T> values = {10, 20, 30, 40, 50};
+  auto compressed = TestFixture::EncodePage(values);
+
+  // A count short of the caller's capacity would fill part of the output and
+  // leave the rest holding whatever it held before.
+  StoreLE32(compressed.data() + 3, 4);
+
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(), 5,
+                                                decoded.data()));
+}
+
 TYPED_TEST(PforTest, CorruptOffsetArrayTruncated) {
   using T = TypeParam;
   // Four vectors, so the offset array is 16 bytes; hand Decode a buffer with
@@ -537,6 +551,35 @@ TYPED_TEST(PforTest, CorruptVectorOffsetPastEndOfBuffer) {
   // Point the second vector past the end of the buffer.
   StoreLE32(compressed.data() + TestFixture::kFirstVectorOffset,
             static_cast<uint32_t>(compressed.size()));
+
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(),
+                                                2048, decoded.data()));
+}
+
+TYPED_TEST(PforTest, CorruptFirstVectorOffsetSkipsTheOffsetArray) {
+  using T = TypeParam;
+  const std::vector<T> values = {10, 20, 30, 40, 50};
+  auto compressed = TestFixture::EncodePage(values);
+
+  // One vector, so its data starts right after the four byte offset array.
+  StoreLE32(compressed.data() + PforConstants::kHeaderSize, 5);
+
+  std::vector<T> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(), 5,
+                                                decoded.data()));
+}
+
+TYPED_TEST(PforTest, CorruptVectorOffsetsRunBackwards) {
+  using T = TypeParam;
+  std::vector<T> values(2048);
+  std::iota(values.begin(), values.end(), 0);
+  auto compressed = TestFixture::EncodePage(values);
+
+  // Point the second vector at the first one's data. Both offsets are inside the
+  // buffer, so only reading them as a chain catches it.
+  StoreLE32(compressed.data() + TestFixture::kFirstVectorOffset,
+            static_cast<uint32_t>(2 * sizeof(PforConstants::OffsetType)));
 
   std::vector<T> decoded(values.size());
   ASSERT_RAISES(Invalid, PforWrapper<T>::Decode(compressed.data(), compressed.size(),

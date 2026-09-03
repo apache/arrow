@@ -65,7 +65,8 @@ class PforWrapper {
   ///
   /// \param[in] comp pointer to compressed data
   /// \param[in] comp_size size of compressed data
-  /// \param[in] num_values number of values to decode (from page context)
+  /// \param[in] num_values number of values the page holds, which must equal the
+  ///            count in its header; DecodeElementCount reads that count
   /// \param[out] values pointer to output buffer, sized for num_values
   /// \return Status::OK on success, or an error if the data is malformed
   static Status Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,
