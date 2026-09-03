@@ -506,6 +506,10 @@ class AlpEncodedVector {
 /// Use LoadView() to create a view, then pass to DecompressVectorView().
 /// The underlying buffer must remain valid for the lifetime of the view
 /// (for packed_values access).
+///
+/// A caller that walks many vectors should keep one view and point it at each
+/// vector in turn with ResetDataOnly(), which reuses the exception storage
+/// instead of allocating it again per vector.
 template <typename T>
 class AlpEncodedVectorView {
  public:
@@ -528,16 +532,8 @@ class AlpEncodedVectorView {
   const std::vector<AlpConstants::PositionType>& exception_positions() const {
     return exception_positions_;
   }
-  std::vector<AlpConstants::PositionType>& mutable_exception_positions() {
-    return exception_positions_;
-  }
-  void set_exception_positions(std::vector<AlpConstants::PositionType> v) {
-    exception_positions_ = std::move(v);
-  }
 
   const std::vector<T>& exceptions() const { return exceptions_; }
-  std::vector<T>& mutable_exceptions() { return exceptions_; }
-  void set_exceptions(std::vector<T> v) { exceptions_ = std::move(v); }
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
@@ -564,6 +560,22 @@ class AlpEncodedVectorView {
   static Result<AlpEncodedVectorView> LoadViewDataOnly(
       std::span<const uint8_t> input_buffer, const AlpEncodedVectorInfo& alp_info,
       const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
+
+  /// \brief Point this view at another vector's data section
+  ///
+  /// Same input as LoadViewDataOnly, but it overwrites this view rather than
+  /// returning a new one, so the exception storage a previous vector allocated
+  /// is reused. Prefer this when decoding a run of vectors.
+  ///
+  /// \param[in] input_buffer the buffer containing only the data section
+  /// \param[in] alp_info the ALP metadata (already read)
+  /// \param[in] for_info the FOR metadata (already read)
+  /// \param[in] num_elements the number of elements (from page header)
+  /// \return Status::OK, or Status::Invalid if the data is malformed. The view
+  ///         is left in an unspecified but valid state on error.
+  Status ResetDataOnly(std::span<const uint8_t> input_buffer,
+                       const AlpEncodedVectorInfo& alp_info,
+                       const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
 
   /// \brief Get the stored size of this vector in the buffer
   ///
@@ -668,18 +680,24 @@ class AlpCompression {
                                AlpIntegerEncoding integer_encoding,
                                TargetType* output_vector);
 
-  /// \brief Decompress using a zero-copy view (faster, no memory allocation)
+  /// \brief Decompress using a zero-copy view
+  ///
+  /// Allocates nothing: the unpacked integers land in `integer_scratch`, which a
+  /// caller decoding a run of vectors can allocate once and pass every time.
   ///
   /// \param[in] encoded_view the zero-copy view into compressed data
   /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
   ///             Must be able to contain encoded_view.vector_info.num_elements.
+  /// \param[out] integer_scratch room for the unpacked integers, at least
+  ///             encoded_view.num_elements() of them
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
                                    AlpIntegerEncoding integer_encoding,
-                                   TargetType* output_vector);
+                                   TargetType* output_vector,
+                                   std::span<ExactType> integer_scratch);
 
  protected:
   /// \brief Creates an EncodingParameters consisting of multiple factors/exponents
@@ -777,10 +795,11 @@ class AlpCompression {
   /// \param[in] packed_integers the bitpacked integer data to unpack
   /// \param[in] for_info FOR metadata with bit width and frame of reference
   /// \param[in] num_elements number of elements to unpack
-  /// \return a vector of unpacked integers (still with frame of reference)
-  static std::vector<ExactType> BitUnpackIntegers(
-      std::span<const uint8_t> packed_integers,
-      const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
+  /// \param[out] output room for `num_elements` unpacked integers (still with
+  ///             frame of reference)
+  static void BitUnpackIntegers(std::span<const uint8_t> packed_integers,
+                                const AlpEncodedForVectorInfo<T>& for_info,
+                                int32_t num_elements, ExactType* output);
 
   /// \brief Patch exceptions into the decoded output vector
   ///
