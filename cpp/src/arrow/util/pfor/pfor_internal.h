@@ -203,6 +203,16 @@ class PforEncodedVector {
 // ----------------------------------------------------------------------
 // Core compression/decompression
 
+/// \brief What the encoder is allowed to do, for one page.
+///
+/// Nothing here changes how a page is read: a decoder is told which mode each
+/// vector used by the vector's own header, so turning a mode off only narrows
+/// what the encoder will choose, and pages written either way read the same.
+struct PforEncodeOptions {
+  /// Let the planner difference a vector when its cost model prefers that.
+  bool delta_enabled = true;
+};
+
 /// \brief PFOR compression and decompression algorithms
 ///
 /// \tparam T the integer type (int32_t or int64_t)
@@ -229,9 +239,11 @@ class PforCompression {
   ///
   /// \param[in] values input integer values
   /// \param[in] num_elements number of elements (up to vector_size)
+  /// \param[in] options what the encoder is allowed to choose
   /// \pre num_elements > 0; there is no frame of reference for an empty vector
   /// \return the encoded vector with all sections
-  static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements);
+  static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements,
+                                           const PforEncodeOptions& options = {});
 
   /// \brief Decode a single vector from compressed data
   ///

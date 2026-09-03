@@ -1290,7 +1290,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
                          properties) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
-                                   descr_, properties->memory_pool());
+                                   descr_, properties->memory_pool(), properties);
     // We have to dynamic_cast as some compilers don't want to static_cast
     // through virtual inheritance.
     current_value_encoder_ =

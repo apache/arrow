@@ -91,6 +91,23 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
       }
     }
 
+    if (col_props.pfor_enabled() != default_column_properties_.pfor_enabled()) {
+      if (col_props.pfor_enabled()) {
+        this->enable_pfor_encoding(col_path);
+      } else {
+        this->disable_pfor_encoding(col_path);
+      }
+    }
+
+    if (col_props.pfor_delta_enabled() !=
+        default_column_properties_.pfor_delta_enabled()) {
+      if (col_props.pfor_delta_enabled()) {
+        this->enable_pfor_delta_encoding(col_path);
+      } else {
+        this->disable_pfor_delta_encoding(col_path);
+      }
+    }
+
     if (col_props.compression() != default_column_properties_.compression()) {
       this->compression(col_path, col_props.compression());
     }

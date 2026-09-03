@@ -81,7 +81,8 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
 
 template <typename T>
 PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
-                                                      int32_t num_elements) {
+                                                      int32_t num_elements,
+                                                      const PforEncodeOptions& options) {
   ARROW_DCHECK(num_elements > 0);
 
   // One scratch buffer serves both stages. ChooseVectorPlan fills it with the
@@ -98,7 +99,8 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
     scratch = heap_scratch.data();
   }
 
-  const PforVectorPlan<T> plan = ChooseVectorPlan<T>(values, num_elements, scratch);
+  const PforVectorPlan<T> plan =
+      ChooseVectorPlan<T>(values, num_elements, scratch, options.delta_enabled);
   const T* source = plan.delta ? scratch : values;
 
   PforEncodedVector<T> result;

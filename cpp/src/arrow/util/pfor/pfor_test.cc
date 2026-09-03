@@ -1178,7 +1178,8 @@ TYPED_TEST(PforTest, DeltaGateAgreesWithTheUngatedChooser) {
     const auto n = static_cast<int32_t>(column.values.size());
     std::vector<T> scratch(n);
     const PforVectorPlan<T> gated =
-        ChooseVectorPlan<T>(column.values.data(), n, scratch.data());
+        ChooseVectorPlan<T>(column.values.data(), n, scratch.data(),
+                            /*delta_enabled=*/true);
     const PforVectorPlan<T> ungated =
         ChooseVectorPlanUngated<T>(column.values.data(), n, scratch.data());
 
@@ -1206,7 +1207,8 @@ TYPED_TEST(PforTest, DeltaGateAdmitsTheSawtooth) {
     values[i] = static_cast<T>((i % 200) * 13 + 100'000);
   }
   std::vector<T> scratch(kN);
-  const PforVectorPlan<T> plan = ChooseVectorPlan<T>(values.data(), kN, scratch.data());
+  const PforVectorPlan<T> plan =
+      ChooseVectorPlan<T>(values.data(), kN, scratch.data(), /*delta_enabled=*/true);
   EXPECT_TRUE(plan.delta);
   // Five resets in 1024 values, patched, leaving a very narrow packed window.
   EXPECT_LE(plan.bit_width, 5);

@@ -500,13 +500,14 @@ int64_t EstimateDeltaCostBits(const T* values, int32_t num_elements) {
 /// \param[out] delta_scratch scratch for num_elements differences; on return it
 ///             holds the differences if the plan chose the delta mode, and is
 ///             clobbered either way
+/// \param[in] delta_enabled whether the delta mode may be chosen at all
 ///
 /// Both transforms are costed with the same model and the cheaper one wins, so
 /// the mode is a per-vector decision. It has to be: differencing loses 6-19% on
 /// every unclustered draw, and a column is rarely all one shape.
 template <typename T>
 PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
-                                   T* delta_scratch) {
+                                   T* delta_scratch, bool delta_enabled) {
   const FrameChoice<T> raw = ChooseFrameAndWidth<T>(values, num_elements);
 
   PforVectorPlan<T> plan;
@@ -518,7 +519,7 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
 
   // One element has no difference to take, and a vector already packing at
   // width 0 cannot be improved on.
-  if (num_elements < 2 || raw.bit_width == 0) return plan;
+  if (!delta_enabled || num_elements < 2 || raw.bit_width == 0) return plan;
 
   // A delta vector carries its own first value, so it starts one full-width
   // value behind whatever its differences pack to.

@@ -168,6 +168,17 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+
+/// PFOR is a Preview feature in the Parquet format, so writers must not emit it
+/// unless the user has explicitly asked for it. See the PFOR section of
+/// `Encodings.md` in apache/parquet-format.
+static constexpr bool DEFAULT_IS_PFOR_ENABLED = false;
+
+/// The delta mode is part of PFOR, not a separate encoding: every PFOR reader
+/// has to handle it, because each vector says in its own header which mode it
+/// used. It is on wherever PFOR is, and this exists to turn it off for a column
+/// whose writer would rather spend nothing deciding.
+static constexpr bool DEFAULT_IS_PFOR_DELTA_ENABLED = true;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
 
@@ -230,13 +241,17 @@ class PARQUET_EXPORT ColumnProperties {
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
                    size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE,
-                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED)
+                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED,
+                   bool pfor_enabled = DEFAULT_IS_PFOR_ENABLED,
+                   bool pfor_delta_enabled = DEFAULT_IS_PFOR_DELTA_ENABLED)
       : encoding_(encoding),
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        page_index_enabled_(page_index_enabled) {}
+        page_index_enabled_(page_index_enabled),
+        pfor_enabled_(pfor_enabled),
+        pfor_delta_enabled_(pfor_delta_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -267,6 +282,12 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_page_index_enabled(bool page_index_enabled) {
     page_index_enabled_ = page_index_enabled;
+  }
+
+  void set_pfor_enabled(bool pfor_enabled) { pfor_enabled_ = pfor_enabled; }
+
+  void set_pfor_delta_enabled(bool pfor_delta_enabled) {
+    pfor_delta_enabled_ = pfor_delta_enabled;
   }
 
   void set_bloom_filter_options(const BloomFilterOptions& bloom_filter_options) {
@@ -303,6 +324,10 @@ class PARQUET_EXPORT ColumnProperties {
 
   bool page_index_enabled() const { return page_index_enabled_; }
 
+  bool pfor_enabled() const { return pfor_enabled_; }
+
+  bool pfor_delta_enabled() const { return pfor_delta_enabled_; }
+
   std::optional<BloomFilterOptions> bloom_filter_options() const {
     return bloom_filter_options_;
   }
@@ -317,6 +342,8 @@ class PARQUET_EXPORT ColumnProperties {
   size_t max_stats_size_;
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
+  bool pfor_enabled_;
+  bool pfor_delta_enabled_;
   std::optional<BloomFilterOptions> bloom_filter_options_;
 };
 
@@ -853,6 +880,102 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_write_page_index(path->ToDotString());
     }
 
+    /// \brief Allow PFOR encoding to be written for all columns. Default disabled.
+    ///
+    /// PFOR is a Preview feature in the Parquet format: the specification is
+    /// stable, but readers across the ecosystem may not implement it yet, and a
+    /// reader that does not implement it must fail rather than return wrong
+    /// values. parquet-format therefore asks writers to keep PFOR behind an
+    /// opt-in flag, which is what this method is.
+    ///
+    /// This flag only grants permission; it does not select PFOR. To write PFOR,
+    /// enable the flag *and* select the encoding, for example:
+    ///
+    ///     builder.enable_pfor_encoding()->encoding(Encoding::PFOR);
+    ///
+    /// Selecting Encoding::PFOR for a column that has not been granted
+    /// permission makes `build()` throw.
+    ///
+    /// Please check the link below for more details:
+    /// https://github.com/apache/parquet-format/blob/master/Encodings.md#patched-frame-of-reference-pfor--11
+    Builder* enable_pfor_encoding() {
+      default_column_properties_.set_pfor_enabled(true);
+      return this;
+    }
+
+    /// Disallow PFOR encoding for all columns. Default disabled.
+    Builder* disable_pfor_encoding() {
+      default_column_properties_.set_pfor_enabled(false);
+      return this;
+    }
+
+    /// Allow PFOR encoding for the column specified by `path`. Default disabled.
+    Builder* enable_pfor_encoding(const std::string& path) {
+      pfor_enabled_[path] = true;
+      return this;
+    }
+
+    /// Allow PFOR encoding for the column specified by `path`. Default disabled.
+    Builder* enable_pfor_encoding(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_pfor_encoding(path->ToDotString());
+    }
+
+    /// Disallow PFOR encoding for the column specified by `path`. Default disabled.
+    Builder* disable_pfor_encoding(const std::string& path) {
+      pfor_enabled_[path] = false;
+      return this;
+    }
+
+    /// Disallow PFOR encoding for the column specified by `path`. Default disabled.
+    Builder* disable_pfor_encoding(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_pfor_encoding(path->ToDotString());
+    }
+
+    /// \brief Let PFOR difference a vector before packing it. Default enabled.
+    ///
+    /// PFOR decides per vector whether to pack the values or their differences,
+    /// whichever its cost model makes smaller, and records the choice in the
+    /// vector's own header. Turning this off narrows the encoder to packing
+    /// values; it does not change how a page is read, and it has no effect on a
+    /// column that is not written with PFOR.
+    ///
+    /// Deciding is not free -- a vector that ends up declining the mode still
+    /// pays for an estimate -- so a writer that knows a column has no structure
+    /// between neighbouring values can turn it off and keep that.
+    Builder* enable_pfor_delta_encoding() {
+      default_column_properties_.set_pfor_delta_enabled(true);
+      return this;
+    }
+
+    /// Stop PFOR from differencing any column. Default enabled.
+    Builder* disable_pfor_delta_encoding() {
+      default_column_properties_.set_pfor_delta_enabled(false);
+      return this;
+    }
+
+    /// Let PFOR difference the column specified by `path`. Default enabled.
+    Builder* enable_pfor_delta_encoding(const std::string& path) {
+      pfor_delta_enabled_[path] = true;
+      return this;
+    }
+
+    /// Let PFOR difference the column specified by `path`. Default enabled.
+    Builder* enable_pfor_delta_encoding(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_pfor_delta_encoding(path->ToDotString());
+    }
+
+    /// Stop PFOR from differencing the column specified by `path`. Default enabled.
+    Builder* disable_pfor_delta_encoding(const std::string& path) {
+      pfor_delta_enabled_[path] = false;
+      return this;
+    }
+
+    /// Stop PFOR from differencing the column specified by `path`. Default enabled.
+    Builder* disable_pfor_delta_encoding(
+        const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_pfor_delta_encoding(path->ToDotString());
+    }
+
     /// \brief Set the level to write size statistics for all columns. Default is
     /// PageAndColumnChunk.
     ///
@@ -886,6 +1009,10 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
+      for (const auto& item : pfor_enabled_)
+        get(item.first).set_pfor_enabled(item.second);
+      for (const auto& item : pfor_delta_enabled_)
+        get(item.first).set_pfor_delta_enabled(item.second);
       for (const auto& item : bloom_filter_options_) {
         const auto& bloom_filter_options = item.second;
         if (bloom_filter_options.ndv.has_value()) {
@@ -895,6 +1022,16 @@ class PARQUET_EXPORT WriterProperties {
           resolved_options.ndv = max_row_group_length_;
           get(item.first).set_bloom_filter_options(resolved_options);
         }
+      }
+
+      // PFOR is a Preview feature in the Parquet format, so it must never be
+      // written by accident. Refuse to build properties that select PFOR for a
+      // column without also granting permission for it. `default_column_properties_`
+      // covers every column not named in one of the maps above; the map covers
+      // the rest.
+      CheckPforEnabled(default_column_properties_, "the default column properties");
+      for (const auto& item : column_properties) {
+        CheckPforEnabled(item.second, "column '" + item.first + "'");
       }
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
@@ -908,6 +1045,19 @@ class PARQUET_EXPORT WriterProperties {
 
    private:
     void CopyColumnSpecificProperties(const WriterProperties& properties);
+
+    static void CheckPforEnabled(const ColumnProperties& properties,
+                                 const std::string& what) {
+      if (properties.encoding() == Encoding::PFOR && !properties.pfor_enabled()) {
+        throw ParquetException(
+            "PFOR is a Preview feature in the Parquet format and is disabled by "
+            "default, but " +
+            what +
+            " selected Encoding::PFOR. Call "
+            "WriterProperties::Builder::enable_pfor_encoding(), optionally with a "
+            "column path, to allow it.");
+      }
+    }
 
     MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
@@ -935,6 +1085,8 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    std::unordered_map<std::string, bool> pfor_enabled_;
+    std::unordered_map<std::string, bool> pfor_delta_enabled_;
     std::unordered_map<std::string, BloomFilterOptions> bloom_filter_options_;
 
     bool content_defined_chunking_enabled_;
@@ -1044,6 +1196,32 @@ class PARQUET_EXPORT WriterProperties {
       }
     }
     return false;
+  }
+
+  /// \brief Whether PFOR encoding is allowed for the column at `path`.
+  ///
+  /// PFOR is a Preview feature in the Parquet format, so this is false unless the
+  /// writer opted in through WriterProperties::Builder::enable_pfor_encoding().
+  bool pfor_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).pfor_enabled();
+  }
+
+  /// \brief Whether PFOR encoding is allowed for any column.
+  bool pfor_enabled() const {
+    if (default_column_properties_.pfor_enabled()) {
+      return true;
+    }
+    for (const auto& item : column_properties_) {
+      if (item.second.pfor_enabled()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// \brief Whether PFOR may difference the column at `path` before packing it.
+  bool pfor_delta_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).pfor_delta_enabled();
   }
 
   // Return whether bloom filter is enabled for any column.

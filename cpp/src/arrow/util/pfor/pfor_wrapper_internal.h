@@ -54,13 +54,15 @@ class PforWrapper {
   /// \param[in,out] comp_size input: available buffer size, which must be at
   ///                least GetMaxCompressedSize(num_values, vector_size);
   ///                output: bytes written
+  /// \param[in] options what the encoder is allowed to choose
   /// \return Status::OK on success, or an error if the arguments are invalid
   static Status Encode(const T* values, int32_t num_values, int32_t vector_size,
-                       uint8_t* comp, int64_t* comp_size);
+                       uint8_t* comp, int64_t* comp_size,
+                       const PforEncodeOptions& options = {});
 
   /// Convenience overload with default vector_size = kPforVectorSize
   static Status Encode(const T* values, int32_t num_values, uint8_t* comp,
-                       int64_t* comp_size);
+                       int64_t* comp_size, const PforEncodeOptions& options = {});
 
   /// \brief Decode a PFOR-compressed page
   ///

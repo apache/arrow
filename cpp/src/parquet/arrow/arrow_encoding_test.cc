@@ -101,6 +101,7 @@ class ParquetPforEncodingTest : public ::testing::Test {
                          int64_t row_group_size = -1) {
     auto writer_props = WriterProperties::Builder()
                             .disable_dictionary()
+                            ->enable_pfor_encoding()
                             ->encoding(Encoding::PFOR)
                             ->build();
 
@@ -117,6 +118,7 @@ class ParquetPforEncodingTest : public ::testing::Test {
                                Compression::type compression) {
     auto writer_props = WriterProperties::Builder()
                             .disable_dictionary()
+                            ->enable_pfor_encoding()
                             ->encoding(Encoding::PFOR)
                             ->compression(compression)
                             ->build();
@@ -167,6 +169,7 @@ TEST_F(ParquetPforEncodingTest, MixedTypesWithInt32Int64) {
   // PFOR takes only the two integer columns; the rest keep their defaults.
   auto writer_props = WriterProperties::Builder()
                           .disable_dictionary()
+                          ->enable_pfor_encoding()
                           ->encoding("id", Encoding::PFOR)
                           ->encoding("count", Encoding::PFOR)
                           ->build();
@@ -331,8 +334,11 @@ TEST_F(ParquetPforEncodingTest, VerifyPforEncodingUsed) {
   }
   auto table = TableOf<::arrow::Int64Type>(::arrow::int64(), values);
 
-  auto writer_props =
-      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::PFOR)->build();
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->enable_pfor_encoding()
+                          ->encoding(Encoding::PFOR)
+                          ->build();
 
   auto sink = CreateOutputStream();
   ASSERT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink, table->num_rows(),
@@ -360,8 +366,11 @@ TEST_F(ParquetPforEncodingTest, ReadInSmallBatches) {
   auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
 
-  auto writer_props =
-      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::PFOR)->build();
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->enable_pfor_encoding()
+                          ->encoding(Encoding::PFOR)
+                          ->build();
 
   auto sink = CreateOutputStream();
   ASSERT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink, table->num_rows(),
@@ -379,6 +388,44 @@ TEST_F(ParquetPforEncodingTest, ReadInSmallBatches) {
 
   ASSERT_NO_FATAL_FAILURE(
       ::arrow::AssertTablesEqual(*table, *result, /*same_chunk_layout=*/false));
+}
+
+// The delta mode is a per-column writer option, so a column it clearly helps
+// must come out smaller with the mode left on than with it turned off, and both
+// files must read back the same values.
+TEST_F(ParquetPforEncodingTest, DeltaModeCanBeTurnedOffPerColumn) {
+  // A long arithmetic run: undifferenced it needs enough bits to cover the whole
+  // span, differenced it is a constant and needs none.
+  std::vector<int64_t> values(4096);
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = 3'000'000'000'000LL + static_cast<int64_t>(i) * 7;
+  }
+  auto table = TableOf<::arrow::Int64Type>(::arrow::int64(), values);
+
+  auto size_of = [&](bool delta_enabled) {
+    auto builder = WriterProperties::Builder();
+    builder.disable_dictionary()
+        ->enable_pfor_encoding()
+        ->encoding(Encoding::PFOR)
+        ->disable_statistics();
+    if (!delta_enabled) {
+      builder.disable_pfor_delta_encoding("values");
+    }
+    std::shared_ptr<Table> result;
+    std::shared_ptr<Buffer> file;
+    DoRoundtrip(table, table->num_rows(), &result, builder.build(), &file);
+    ::arrow::AssertTablesEqual(*table, *result);
+
+    auto metadata =
+        ParquetFileReader::Open(std::make_shared<BufferReader>(file))->metadata();
+    return metadata->RowGroup(0)->ColumnChunk(0)->total_uncompressed_size();
+  };
+
+  const int64_t with_delta = size_of(/*delta_enabled=*/true);
+  const int64_t without_delta = size_of(/*delta_enabled=*/false);
+  EXPECT_LT(with_delta, without_delta)
+      << "disable_pfor_delta_encoding did not reach the encoder: " << with_delta
+      << " bytes with the mode on, " << without_delta << " with it off";
 }
 
 }  // namespace
