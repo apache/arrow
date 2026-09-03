@@ -1057,4 +1057,159 @@ TYPED_TEST(PforTest, DeltaHandlesVectorsTooShortToDifference) {
       std::vector<T>{std::numeric_limits<T>::max(), std::numeric_limits<T>::min()});
 }
 
+namespace {
+
+/// A named column shape, for the gate test below.
+template <typename T>
+struct NamedColumn {
+  std::string name;
+  std::vector<T> values;
+};
+
+/// The distributions in pfor_benchmark.cc, plus the extremes, as one battery.
+/// Anything that changes the encoder's mind about differencing has to be seen
+/// on one of these or it is not being tested.
+template <typename T>
+std::vector<NamedColumn<T>> DeltaDecisionColumns() {
+  constexpr int32_t kN = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+  std::vector<NamedColumn<T>> columns;
+  auto add = [&columns](std::string name, std::vector<T> values) {
+    columns.push_back({std::move(name), std::move(values)});
+  };
+  auto make = [](auto fn) {
+    std::vector<T> v(kN);
+    for (int32_t i = 0; i < kN; ++i) v[i] = fn(i);
+    return v;
+  };
+
+  add("constant", std::vector<T>(kN, static_cast<T>(-7)));
+  add("ascending", make([](int32_t i) { return static_cast<T>(1'000'000 + i); }));
+  add("descending", make([](int32_t i) { return static_cast<T>(1'000'000 - i); }));
+  add("monotonic_with_gaps", make([](int32_t i) {
+        return static_cast<T>(500'000 + i * 3 + (i % 64 == 0 ? 4096 : 0));
+      }));
+  add("timestamps",
+      make([](int32_t i) { return static_cast<T>(1'700'000'000 + i * 17 + (i % 7)); }));
+  // A ramp that resets: small positive differences with a handful of large
+  // negative ones. The shape the two-sided frame exists for.
+  add("sawtooth",
+      make([](int32_t i) { return static_cast<T>((i % 200) * 13 + 100'000); }));
+  add("cluster_far_from_zero",
+      make([](int32_t i) { return static_cast<T>(1'000'000 + (i % 37)); }));
+  add("two_clusters", make([](int32_t i) {
+        return static_cast<T>(i % 2 == 0 ? 100 + (i % 8) : 900'000 + (i % 8));
+      }));
+  add("cluster_with_outliers", make([](int32_t i) {
+        return static_cast<T>(i % 97 == 0 ? 1'000'000 + i : 500 + (i % 11));
+      }));
+  add("type_extremes", make([](int32_t i) {
+        return i % 2 == 0 ? std::numeric_limits<T>::lowest() + static_cast<T>(i)
+                          : std::numeric_limits<T>::max() - static_cast<T>(i);
+      }));
+  // A random walk, and independent draws at several spreads. The walk is where
+  // differencing pays; the draws are where it must be declined.
+  for (uint32_t seed : {1u, 7u, 42u, 1234u}) {
+    std::mt19937 rng(seed);
+    std::uniform_int_distribution<int32_t> step(-40, 40);
+    auto walk = static_cast<UnsignedT>(0);
+    std::vector<T> values(kN);
+    for (int32_t i = 0; i < kN; ++i) {
+      walk += static_cast<UnsignedT>(static_cast<T>(step(rng)));
+      std::memcpy(&values[i], &walk, sizeof(T));
+    }
+    add("random_walk_" + std::to_string(seed), std::move(values));
+  }
+  for (T spread : {static_cast<T>(1), static_cast<T>(1000), static_cast<T>(1'000'000)}) {
+    for (uint32_t seed : {3u, 99u}) {
+      std::vector<T> values(kN);
+      std::mt19937 rng(seed);
+      std::uniform_int_distribution<T> dist(static_cast<T>(0), spread);
+      for (auto& v : values) v = dist(rng);
+      add("noise_" + std::to_string(static_cast<int64_t>(spread)) + "_" +
+              std::to_string(seed),
+          std::move(values));
+    }
+  }
+  return columns;
+}
+
+/// What ChooseVectorPlan would decide with no gate in front of the delta
+/// search: cost both modes properly and keep the cheaper.
+template <typename T>
+PforVectorPlan<T> ChooseVectorPlanUngated(const T* values, int32_t num_elements,
+                                          T* delta_scratch) {
+  const FrameChoice<T> raw = ChooseFrameAndWidth<T>(values, num_elements);
+  PforVectorPlan<T> plan;
+  plan.frame_of_reference = raw.frame_of_reference;
+  plan.bit_width = raw.bit_width;
+  plan.num_exceptions = raw.num_exceptions;
+  plan.cost_bits = raw.cost_bits;
+  if (num_elements < 2 || raw.bit_width == 0) return plan;
+
+  MinMax<T> delta_bounds;
+  ComputeDeltas<T>(values, num_elements, delta_scratch, &delta_bounds);
+  const FrameChoice<T> delta =
+      ChooseFrameAndWidth<T>(delta_scratch, num_elements, delta_bounds);
+  const int64_t delta_cost = delta.cost_bits + static_cast<int64_t>(sizeof(T)) * 8;
+  if (delta_cost < plan.cost_bits) {
+    plan.delta = true;
+    plan.frame_of_reference = delta.frame_of_reference;
+    plan.start_value = values[0];
+    plan.bit_width = delta.bit_width;
+    plan.num_exceptions = delta.num_exceptions;
+    plan.cost_bits = delta_cost;
+  }
+  return plan;
+}
+
+}  // namespace
+
+// The gate in front of the delta search is an estimate, so it can in principle
+// decline a vector the search would have won. Pin that it does not, on every
+// shape the encoder is meant to handle: same mode, same width, same cost as the
+// ungated chooser. A change that makes the estimate too pessimistic shows up
+// here as a lost delta rather than as a silent ratio regression.
+TYPED_TEST(PforTest, DeltaGateAgreesWithTheUngatedChooser) {
+  using T = TypeParam;
+  int delta_chosen = 0;
+  for (const auto& column : DeltaDecisionColumns<T>()) {
+    SCOPED_TRACE(column.name);
+    const auto n = static_cast<int32_t>(column.values.size());
+    std::vector<T> scratch(n);
+    const PforVectorPlan<T> gated =
+        ChooseVectorPlan<T>(column.values.data(), n, scratch.data());
+    const PforVectorPlan<T> ungated =
+        ChooseVectorPlanUngated<T>(column.values.data(), n, scratch.data());
+
+    EXPECT_EQ(ungated.delta, gated.delta);
+    EXPECT_EQ(ungated.cost_bits, gated.cost_bits);
+    EXPECT_EQ(ungated.bit_width, gated.bit_width);
+    EXPECT_EQ(ungated.frame_of_reference, gated.frame_of_reference);
+    EXPECT_EQ(ungated.num_exceptions, gated.num_exceptions);
+    if (gated.delta) ++delta_chosen;
+  }
+  // The battery has to exercise both answers, or the agreement above is only
+  // evidence that the gate declines everything.
+  EXPECT_GT(delta_chosen, 0);
+}
+
+// The estimate is the point of the gate, so check it reaches the shape it was
+// built for. A gate reading the spread of the differences rather than their
+// distribution declines the sawtooth, whose differences are as widely spread as
+// its values and far cheaper to pack.
+TYPED_TEST(PforTest, DeltaGateAdmitsTheSawtooth) {
+  using T = TypeParam;
+  constexpr int32_t kN = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  std::vector<T> values(kN);
+  for (int32_t i = 0; i < kN; ++i) {
+    values[i] = static_cast<T>((i % 200) * 13 + 100'000);
+  }
+  std::vector<T> scratch(kN);
+  const PforVectorPlan<T> plan = ChooseVectorPlan<T>(values.data(), kN, scratch.data());
+  EXPECT_TRUE(plan.delta);
+  // Five resets in 1024 values, patched, leaving a very narrow packed window.
+  EXPECT_LE(plan.bit_width, 5);
+}
+
 }  // namespace arrow::util::pfor
