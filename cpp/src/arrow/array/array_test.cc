@@ -1247,9 +1247,20 @@ TEST(TestPrimitiveArray, ToTensorSliced) {
   EXPECT_TRUE(TensorFromJSON(int64(), "[3, 4, 5]", shape, strides)->Equals(*tensor));
 }
 
+TEST(TestPrimitiveArray, ZeroLength) {
+  Int64Builder builder;
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(int64(), tensor->type());
+  EXPECT_EQ(std::vector<int64_t>{0}, tensor->shape());
+  EXPECT_EQ(std::vector<int64_t>{sizeof(int64_t)}, tensor->strides());
+}
+
 TEST(TestPrimitiveArray, ToTensorNulls) {
   // Nulls are ignored, leaving unspecified values in the output tensor.
-  const std::vector<int64_t> shape = {3};
   auto array = ArrayFromJSON(int32(), "[1, null, 3]");
 
   // Default behaviour is to not allow nulls
@@ -1258,8 +1269,9 @@ TEST(TestPrimitiveArray, ToTensorNulls) {
   // Nulls are ignored, leaving unspecified values in the output tensor.
   ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
   ASSERT_OK(tensor->Validate());
-
-  EXPECT_EQ(shape, tensor->shape());
+  ASSERT_EQ(tensor->Value<Int32Type>({0}), 1);
+  ASSERT_EQ(tensor->Value<Int32Type>({2}), 3);
+  EXPECT_EQ(std::vector<int64_t>{3}, tensor->shape());
 }
 
 TEST(TestPrimitiveArray, ToTensorUnsupportedType) {

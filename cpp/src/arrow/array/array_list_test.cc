@@ -1887,13 +1887,15 @@ TEST_F(TestFixedSizeListArray, ToTensorNested) {
   CheckToTensor<float>(array->Slice(1, 2), {2, 3, 2},
                        {7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18});
 
-  // Offsets accumulate at every level: the innermost values are offset by 2, the
-  // middle lists by 3 * 2 and the outer lists by 1 * 3 * 2.
+  // Slice offsets at each level contribute to the leaf offset, scaled by the list
+  // sizes above them.
   auto values = ArrayFromJSON(float32(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]")
                     ->Slice(2, 12);
   ASSERT_OK_AND_ASSIGN(auto inner, FixedSizeListArray::FromArrays(values, 2));
   ASSERT_OK_AND_ASSIGN(auto outer, FixedSizeListArray::FromArrays(inner, 3));
+  // Offset 2 for initial value slice
   CheckToTensor<float>(outer, {2, 3, 2}, {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13});
+  // Offset of 2 (initial values) + 1 * 3 * 2 (outer slice times parent dimensions) = 8
   CheckToTensor<float>(outer->Slice(1), {1, 3, 2}, {8, 9, 10, 11, 12, 13});
 }
 
@@ -1906,6 +1908,9 @@ TEST_F(TestFixedSizeListArray, ToTensorNulls) {
   // Nulls are ignored, leaving unspecified values in the output tensor.
   ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
   ASSERT_OK(tensor->Validate());
+  ASSERT_EQ(tensor->Value<Int32Type>({0, 0}), 1);
+  ASSERT_EQ(tensor->Value<Int32Type>({0, 1}), 2);
+  ASSERT_EQ(tensor->Value<Int32Type>({2, 0}), 5);
   ASSERT_EQ(std::vector<int64_t>({3, 2}), tensor->shape());
 }
 

@@ -1841,7 +1841,7 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
-    def to_tensor(self, allow_nulls=False):
+    def to_tensor(self, *, allow_nulls=False):
         """
         Convert this array to a pyarrow.Tensor.
 
@@ -4973,33 +4973,6 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         """
 
         return self.to_tensor().to_numpy()
-
-    def to_tensor(self, allow_nulls=False):
-        """
-        Convert fixed shape tensor extension array to a pyarrow.Tensor.
-
-        The resulting Tensor will have (ndim + 1) dimensions.
-        The size of the first dimension will be the length of the fixed shape tensor array
-        and the rest of the dimensions will match the permuted shape of the fixed
-        shape tensor.
-
-        The conversion is zero-copy.
-
-        Parameters
-        ----------
-        allow_nulls : bool, default `False`
-            When true, nulls are ignored, leaving the output tensor with
-            unspecified values where this array has null entries.
-            When false, nulls are rejected.
-
-        Returns
-        -------
-        pyarrow.Tensor
-            Tensor representing tensors in the fixed shape tensor array concatenated
-            along the first dimension.
-        """
-
-        return Array.to_tensor(self, allow_nulls=allow_nulls)
 
     @staticmethod
     def from_numpy_ndarray(obj, dim_names=None):
