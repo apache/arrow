@@ -26,7 +26,7 @@
 namespace arrow::dlpack {
 
 /// The DLPack version used during compilation.
-extern const DLPackVersion VERSION;
+ARROW_EXPORT extern const DLPackVersion VERSION;
 
 /// \brief Export Arrow array as DLPack tensor.
 ///
