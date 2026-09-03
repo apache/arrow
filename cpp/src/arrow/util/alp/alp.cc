@@ -315,7 +315,7 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
   const int64_t bit_packed_size =
       bit_util::BytesForBits(int64_t{num_elements} * for_info.bit_width());
 
-  // TODO: resize() zero-initializes before memcpy overwrites. Consider
+  // TODO(GH-48701): resize() zero-initializes before memcpy overwrites. Consider
   // using uninitialized storage if this shows up in decode-path profiling.
   result.mutable_packed_values().resize(bit_packed_size);
   std::memcpy(result.mutable_packed_values().data(), input_buffer.data() + input_offset,

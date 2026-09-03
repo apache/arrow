@@ -337,13 +337,6 @@ template Status AlpCodec<double>::Decode(int32_t num_elements, const uint8_t* in
                                          int64_t input_size, double* output);
 
 template <typename T>
-Result<int32_t> AlpCodec<T>::DecodeElementCount(const uint8_t* input,
-                                                int64_t input_size) {
-  ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input, input_size));
-  return header.num_elements;
-}
-
-template <typename T>
 Result<int64_t> AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
                                                   int32_t vector_size) {
   RETURN_NOT_OK(ValidateElementCount(num_elements));
