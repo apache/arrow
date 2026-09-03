@@ -71,6 +71,17 @@ class PforWrapper {
   static Status Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,
                        T* values);
 
+  /// \brief Read the value count a page declares in its own header
+  ///
+  /// The parquet page header counts nulls, which a PFOR page does not store, so
+  /// a caller holding a page needs this to learn how many values are in it.
+  ///
+  /// \param[in] comp pointer to compressed data
+  /// \param[in] comp_size size of compressed data
+  /// \return the number of values the page holds, or an error if the header is
+  ///         malformed
+  static Result<int32_t> DecodeElementCount(const uint8_t* comp, int64_t comp_size);
+
   /// \brief Get the maximum compressed size for a given number of values
   ///
   /// \param[in] num_values number of integer values

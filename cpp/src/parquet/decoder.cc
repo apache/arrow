@@ -2402,70 +2402,84 @@ class PforDecoder : public TypedDecoderImpl<DType> {
     // A decoder is cached per encoding and reused across the data pages of a
     // column chunk, so every piece of state describing the previous page has to
     // be dropped along with the page itself.
-    needs_decode_ = num_values > 0;
-    values_decoded_ = 0;
+    scratch_filled_ = false;
+    // `num_values` is the page's level count, which includes nulls, while a PFOR
+    // page stores only the non-null values. Its own header is the authority on
+    // how many, so take the count from there.
+    if (len > 0) {
+      PARQUET_ASSIGN_OR_THROW(total_values_,
+                              ::arrow::util::pfor::PforWrapper<T>::DecodeElementCount(
+                                  this->data_, this->len_));
+      if (total_values_ > num_values) {
+        throw ParquetException("PFOR page declares " + std::to_string(total_values_) +
+                               " values but the page header allows at most " +
+                               std::to_string(num_values));
+      }
+    } else {
+      total_values_ = 0;
+    }
+    this->num_values_ = total_values_;
   }
 
   int Decode(T* buffer, int max_values) override {
-    const int values_to_decode = std::min(max_values, this->num_values_);
-    if (values_to_decode == 0) return 0;
+    max_values = std::min(max_values, this->num_values_);
+    if (max_values == 0) return 0;
 
-    // The caller asked for the whole remaining page, so decode straight into
-    // its buffer -- no page-sized scratch and no copy. This is the path a full
-    // column read takes.
-    if (needs_decode_ && max_values >= this->num_values_) {
+    // The caller asked for the whole page and none of it has been served yet, so
+    // decode straight into its buffer -- no page-sized scratch and no copy. This
+    // is the path a full column read takes.
+    if (CanDecodeWholePage(max_values)) {
       PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
-          this->data_, this->len_, this->num_values_, buffer));
-      needs_decode_ = false;
-      this->num_values_ = 0;
-      return values_to_decode;
+          this->data_, this->len_, total_values_, buffer));
+    } else {
+      std::memcpy(buffer, NextDecoded(), static_cast<size_t>(max_values) * sizeof(T));
     }
-
-    // Partial read. PforWrapper::Decode always starts at the top of the page
-    // and keeps no resumption state, so decode the page once into the scratch
-    // buffer and serve this call and the later ones out of that.
-    if (needs_decode_) {
-      PARQUET_THROW_NOT_OK(
-          decoded_values_->Resize(static_cast<int64_t>(this->num_values_) * sizeof(T),
-                                  /*shrink_to_fit=*/false));
-      PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
-          this->data_, this->len_, this->num_values_,
-          decoded_values_->mutable_data_as<T>()));
-      needs_decode_ = false;
-    }
-
-    std::memcpy(buffer, decoded_values_->data_as<T>() + values_decoded_,
-                static_cast<size_t>(values_to_decode) * sizeof(T));
-    values_decoded_ += values_to_decode;
-    this->num_values_ -= values_to_decode;
-    return values_to_decode;
+    this->num_values_ -= max_values;
+    return max_values;
   }
 
   // `num_values` counts output slots; only the non-null ones are backed by
   // encoded values, so decode that many and spread them over the valid runs.
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<DType>::Accumulator* out) override {
-    const int values_decoded = num_values - null_count;
-    std::vector<T> values(values_decoded);
-    if (Decode(values.data(), values_decoded) != values_decoded) {
-      ParquetException::EofException();
+                  typename EncodingTraits<DType>::Accumulator* builder) override {
+    const int values_to_decode = num_values - null_count;
+    if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
+      ParquetException::EofException(
+          "PFOR DecodeArrow: not enough values available. "
+          "Available: " +
+          std::to_string(this->num_values_) +
+          ", requested: " + std::to_string(values_to_decode));
     }
 
-    const T* data = values.data();
-    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
-    PARQUET_THROW_NOT_OK(
-        VisitBitRuns(valid_bits, valid_bits_offset, num_values,
-                     [&](int64_t position, int64_t run_length, bool is_valid) {
-                       if (is_valid) {
-                         RETURN_NOT_OK(out->AppendValues(data, run_length));
-                         data += run_length;
-                       } else {
-                         RETURN_NOT_OK(out->AppendNulls(run_length));
-                       }
-                       return Status::OK();
-                     }));
-    return values_decoded;
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+    // 1. Land the values in the builder's storage packed to the right, so step 2
+    //    can expand them in place into their final positions. An all-null run
+    //    asks for no values, and a page carrying none has nothing to decode.
+    if (values_to_decode > 0) {
+      T* decode_out = builder->GetMutableValue(builder->length() + null_count);
+      if (CanDecodeWholePage(values_to_decode)) {
+        PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
+            this->data_, this->len_, total_values_, decode_out));
+      } else {
+        std::memcpy(decode_out, NextDecoded(),
+                    static_cast<size_t>(values_to_decode) * sizeof(T));
+      }
+    }
+
+    // 2. Expand the values into their final positions.
+    if (null_count == 0) {
+      builder->UnsafeAdvance(num_values);
+    } else {
+      ::arrow::util::internal::SpacedExpandLeftward(
+          reinterpret_cast<uint8_t*>(builder->GetMutableValue(builder->length())),
+          static_cast<int>(sizeof(T)), num_values, null_count, valid_bits,
+          valid_bits_offset);
+      builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
+    }
+    this->num_values_ -= values_to_decode;
+    return values_to_decode;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -2487,12 +2501,36 @@ class PforDecoder : public TypedDecoderImpl<DType> {
   }
 
  private:
+  /// \brief Whether `count` values can be decoded straight to the caller
+  ///
+  /// PforWrapper::Decode only decodes a page from its start, so this holds when
+  /// the caller wants the whole page and nothing has been served from it yet.
+  bool CanDecodeWholePage(int count) const {
+    return !scratch_filled_ && count == total_values_;
+  }
+
+  /// \brief Pointer to the next undelivered value, decoding the page if needed
+  const T* NextDecoded() {
+    if (!scratch_filled_) {
+      PARQUET_THROW_NOT_OK(
+          decoded_values_->Resize(static_cast<int64_t>(total_values_) * sizeof(T),
+                                  /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
+          this->data_, this->len_, total_values_, decoded_values_->mutable_data_as<T>()));
+      scratch_filled_ = true;
+    }
+    return decoded_values_->data_as<T>() + (total_values_ - this->num_values_);
+  }
+
   MemoryPool* pool_;
+  /// Values the page's PFOR header declares. The inherited `num_values_` counts
+  /// down from this as values are served and is the only record of progress, so
+  /// the next value sits at index `total_values_ - num_values_`.
+  int32_t total_values_ = 0;
   // Whole-page scratch, used only by partial reads. Pool-backed so the
   // allocation is accounted for like the other decoders' scratch space.
   std::shared_ptr<ResizableBuffer> decoded_values_;
-  bool needs_decode_ = false;
-  int values_decoded_ = 0;
+  bool scratch_filled_ = false;
 };
 
 }  // namespace

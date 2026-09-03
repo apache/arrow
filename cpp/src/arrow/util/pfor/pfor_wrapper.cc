@@ -268,6 +268,23 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
 }
 
 // ----------------------------------------------------------------------
+// DecodeElementCount
+
+template <typename T>
+Result<int32_t> PforWrapper<T>::DecodeElementCount(const uint8_t* comp,
+                                                   int64_t comp_size) {
+  if (comp == nullptr) {
+    return Status::Invalid("PFOR compressed data pointer is null");
+  }
+  if (comp_size < 0) {
+    return Status::Invalid("PFOR compressed size must be non-negative: ", comp_size);
+  }
+  ARROW_ASSIGN_OR_RAISE(const PforHeader header,
+                        LoadHeader(std::span<const uint8_t>(comp, comp_size)));
+  return header.num_elements;
+}
+
+// ----------------------------------------------------------------------
 // GetMaxCompressedSize
 
 template <typename T>

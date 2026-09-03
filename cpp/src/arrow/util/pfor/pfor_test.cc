@@ -468,6 +468,28 @@ std::vector<T> ClusterWithOutlier() {
 
 }  // namespace
 
+TYPED_TEST(PforTest, DecodeElementCountReadsThePageHeader) {
+  using T = TypeParam;
+  std::vector<T> values(2048);
+  std::iota(values.begin(), values.end(), 0);
+  auto compressed = TestFixture::EncodePage(values);
+
+  ASSERT_OK_AND_ASSIGN(const int32_t count, PforWrapper<T>::DecodeElementCount(
+                                                compressed.data(), compressed.size()));
+  EXPECT_EQ(count, static_cast<int32_t>(values.size()));
+}
+
+TYPED_TEST(PforTest, DecodeElementCountRejectsMalformedInput) {
+  using T = TypeParam;
+  const std::vector<T> values = {10, 20, 30, 40, 50};
+  auto compressed = TestFixture::EncodePage(values);
+
+  ASSERT_RAISES(Invalid, PforWrapper<T>::DecodeElementCount(
+                             compressed.data(), PforConstants::kHeaderSize - 1));
+  ASSERT_RAISES(Invalid, PforWrapper<T>::DecodeElementCount(nullptr, compressed.size()));
+  ASSERT_RAISES(Invalid, PforWrapper<T>::DecodeElementCount(compressed.data(), -1));
+}
+
 TYPED_TEST(PforTest, CorruptBufferTooSmallForHeader) {
   using T = TypeParam;
   const std::vector<T> values = {10, 20, 30, 40, 50};
