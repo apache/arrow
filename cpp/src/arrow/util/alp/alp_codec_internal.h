@@ -137,17 +137,6 @@ class AlpCodec {
   static Status Decode(int32_t num_elements, const uint8_t* input, int64_t input_size,
                        TargetType* output);
 
-  /// \brief Read the number of values the page's ALP header declares
-  ///
-  /// A Parquet page header counts nulls, while an ALP payload holds only the
-  /// non-null values, so a decoder needs this to learn how many values the page
-  /// actually carries before decoding it.
-  ///
-  /// \param[in] input pointer to the compressed data, starting at the header
-  /// \param[in] input_size size of the compressed data in bytes
-  /// \return the declared element count, or an error if the header is malformed
-  static Result<int32_t> DecodeElementCount(const uint8_t* input, int64_t input_size);
-
   /// \brief Get the maximum compressed size for a given number of elements
   ///
   /// \param[in] num_elements number of elements to compress

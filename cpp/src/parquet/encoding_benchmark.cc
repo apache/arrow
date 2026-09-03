@@ -686,10 +686,8 @@ static void BM_AlpDecodingFloat(benchmark::State& state) {
   auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP);
   std::vector<float> output(values.size());
   for (auto _ : state) {
-    state.PauseTiming();
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
-    state.ResumeTiming();
     decoder->Decode(output.data(), static_cast<int>(values.size()));
     benchmark::ClobberMemory();
   }
@@ -721,10 +719,8 @@ static void BM_AlpDecodingDouble(benchmark::State& state) {
   auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP);
   std::vector<double> output(values.size());
   for (auto _ : state) {
-    state.PauseTiming();
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
-    state.ResumeTiming();
     decoder->Decode(output.data(), static_cast<int>(values.size()));
     benchmark::ClobberMemory();
   }
