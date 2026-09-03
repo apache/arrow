@@ -17,7 +17,7 @@
 
 # Contributor statistics for release announcements.
 #
-# The `print_new_contributors()` helper below is copied from Bryce Mecum's gist:
+# The `print_new_contributors()` helper below is adapted from Bryce Mecum's gist:
 # https://gist.github.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a
 #
 # Usage: launch R from the root of the arrow git repo, then:
@@ -29,86 +29,70 @@
 #
 #   print_new_contributors("apache-arrow-20.0.0", "apache-arrow-21.0.0", "r")
 
-#' new_contributors.R
-#'
-#' Produce a list of names of new contributors between two git refs. The method
-#' this uses is to first get the list of unique contrbutors referancable from
-#' the first ref, then the second ref, and then compute the set difference and
-#' return that.
-#'
-#' Usage
-#'
-#'   Launch an R session from the directory containing the git repo you want to
-#'   query against.
-#'
-#'   Run this to get a list of new contributors between the refs
-#'   "apache-arrow-13.0.0" and "apache-arrow-14.0.0" for commits that touched
-#'   the "r" subdirectory":
-#
-#'   print_new_contributors(
-#'     "apache-arrow-13.0.0",
-#'     "apache-arrow-14.0.0",
-#'     "r"
-#'   )
-#'
-#'   Note that the third argument, subdirectory, is optional. If omitted, it
-#'   will use the root directory.
-
-stopunlesscommand <- function(command, arguments) {
-  out <- tryCatch(
-    {
-      system2("git", arguments, stdout = TRUE)
-    },
-    warning = function(w) {
-      stop(w)
-    },
-    error = function(e) {
-      stop(e)
-    }
-  )
-
-  TRUE
+# Run a git command, erroring if it fails. Returns stdout as a character vector.
+git <- function(...) {
+  out <- suppressWarnings(system2("git", c(...), stdout = TRUE, stderr = TRUE))
+  status <- attr(out, "status")
+  if (!is.null(status) && status != 0) {
+    stop("git ", paste(c(...), collapse = " "), " failed:\n", paste(out, collapse = "\n"))
+  }
+  as.character(out)
 }
 
-stopfinotinrepo <- function() {
-  stopunlesscommand("git", "reflog main")
+stopifnotinrepo <- function() {
+  git("rev-parse", "--is-inside-work-tree")
+  invisible(TRUE)
 }
 
 stopifnotref <- function(ref) {
-  stopifnot(is.character(ref))
-  stopifnot(nchar(ref) > 0)
-  stopunlesscommand("git", paste("reflog", ref))
+  stopifnot(is.character(ref), length(ref) == 1, nchar(ref) > 0)
+  status <- system2(
+    "git",
+    c("rev-parse", "--verify", "--quiet", paste0(ref, "^{commit}")),
+    stdout = FALSE,
+    stderr = FALSE
+  )
+  if (status != 0) {
+    stop(
+      "'",
+      ref,
+      "' is not a git ref in this repo. Release tags look like ",
+      "'apache-arrow-",
+      sub("^apache-arrow-", "", ref),
+      "'."
+    )
+  }
+  invisible(TRUE)
 }
 
-make_git_log_prev_args <- function(ref_from, subdirectory) {
-  paste0("log --pretty='format: %an' ", ref_from, " ", subdirectory, " | sort | uniq")
+# Unique author names for commits in `revision_range` that touched `subdirectory`
+git_authors <- function(revision_range, subdirectory) {
+  sort(unique(trimws(git("log", "--pretty=format:%an", revision_range, "--", subdirectory))))
 }
 
-make_git_log_next_args <- function(ref_from, ref_to, subdirectory) {
-  paste0("log --pretty='format: %an' ", ref_from, "..", ref_to, " ", subdirectory, " | sort | uniq")
-}
-
+# Contributors to `subdirectory` between `ref_from` and `ref_to` with no
+# commits reachable from `ref_from`, i.e. first-time contributors in that range.
 print_new_contributors <- function(ref_from, ref_to, subdirectory = ".") {
-  stopfinotinrepo()
+  stopifnotinrepo()
   stopifnotref(ref_from)
   stopifnotref(ref_to)
   stopifnot(file.exists(subdirectory))
 
-  prev_out <- trimws(system2("git", make_git_log_prev_args(ref_from, subdirectory), stdout = TRUE))
-  new_out <- trimws(system2("git", make_git_log_next_args(ref_from, ref_to, subdirectory), stdout = TRUE))
+  prev_out <- git_authors(ref_from, subdirectory)
+  new_out <- git_authors(paste0(ref_from, "..", ref_to), subdirectory)
 
   setdiff(new_out, prev_out)
 }
 
 # Contributors (author names) to `subdirectory` between two refs
 contributors_between <- function(ref_from, ref_to, subdirectory = ".") {
-  trimws(system2("git", make_git_log_next_args(ref_from, ref_to, subdirectory), stdout = TRUE))
+  git_authors(paste0(ref_from, "..", ref_to), subdirectory)
 }
 
 # Summary stats for the release announcement: total contributors, and how
 # many touched only C++, only R, or both, plus first-time contributors.
 release_contributor_stats <- function(ref_from, ref_to) {
-  stopfinotinrepo()
+  stopifnotinrepo()
   stopifnotref(ref_from)
   stopifnotref(ref_to)
 
