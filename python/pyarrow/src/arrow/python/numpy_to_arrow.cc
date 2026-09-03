@@ -706,9 +706,22 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
 
 }  // namespace
 
+namespace {
+
+std::string_view ToStringView(const npy_static_string& value) {
+  return value.buf == nullptr ? std::string_view()
+                              : std::string_view(value.buf, value.size);
+}
+
+}  // namespace
+
 template <typename T>
 Status NumPyConverter::VisitStringDType(T* builder) {
   auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
+  // NumPy reports a null entry as the na_object itself when that is a string
+  const bool null_is_missing = descr->na_object != nullptr && !descr->has_string_na;
+  const std::string_view null_string = ToStringView(descr->default_string);
+
   const char* data = PyArray_BYTES(arr_);
   Ndarray1DIndexer<uint8_t> mask_values;
   if (mask_ != nullptr) {
@@ -732,10 +745,14 @@ Status NumPyConverter::VisitStringDType(T* builder) {
       return Status::Invalid("Failed to load NumPy StringDType value");
     }
     if (is_null) {
-      RETURN_NOT_OK(builder->AppendNull());
+      if (null_is_missing) {
+        RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder->Append(null_string));
+      }
       continue;
     }
-    RETURN_NOT_OK(builder->Append(std::string_view(value.buf, value.size)));
+    RETURN_NOT_OK(builder->Append(ToStringView(value)));
   }
   return Status::OK();
 }

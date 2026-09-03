@@ -2963,20 +2963,24 @@ def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
 
 
 @pytest.mark.numpy
-@pytest.mark.parametrize('na_object', [None, "__placeholder__"])
-def test_array_from_numpy_string_dtype_nulls_and_mask(
-        numpy_string_dtype, na_object):
+@pytest.mark.parametrize('na_object, expected', [
+    (None, None),
+    (float("nan"), None),
+    ("__placeholder__", "__placeholder__"),
+])
+def test_array_from_numpy_string_dtype_na_object(
+        numpy_string_dtype, na_object, expected):
     arr = np.array(["some", na_object, "strings"],
                    dtype=numpy_string_dtype(na_object=na_object))
 
     arrow_arr = pa.array(arr)
     arrow_arr.validate(full=True)
-    assert arrow_arr.to_pylist() == ["some", None, "strings"]
+    assert arrow_arr.to_pylist() == ["some", expected, "strings"]
 
     mask = np.array([False, False, True])
     arrow_arr = pa.array(arr, mask=mask)
     arrow_arr.validate(full=True)
-    assert arrow_arr.to_pylist() == ["some", None, None]
+    assert arrow_arr.to_pylist() == ["some", expected, None]
 
 
 @pytest.mark.numpy
