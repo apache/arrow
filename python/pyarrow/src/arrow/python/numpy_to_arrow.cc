@@ -348,7 +348,8 @@ Status NumPyConverter::Convert() {
 
   if (dtype_->type_num == NPY_VSTRING && !is_string_or_string_view(type_->id())) {
     return Status::TypeError(
-        "NumPy StringDType can only be converted to Arrow string types");
+        "NumPy StringDType can only be converted to Arrow string types, got ",
+        type_->ToString());
   }
 
   // Visit the type to perform conversion
