@@ -898,8 +898,8 @@ Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
   DCHECK(binary_reader);
   ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
 
-  for (auto& chunk : chunks) {
-    const auto& values = checked_cast<const ::arrow::FixedSizeBinaryArray&>(*chunk);
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    const auto& values = checked_cast<const ::arrow::FixedSizeBinaryArray&>(*chunks[i]);
     const int64_t length = values.length();
     ARROW_ASSIGN_OR_RAISE(auto data,
                           ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
@@ -907,22 +907,22 @@ Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
 
     const int64_t null_count = values.null_count();
     if (null_count > 0) {
-      for (int64_t i = 0; i < length; ++i) {
-        if (!values.IsNull(i)) {
+      for (int64_t j = 0; j < length; ++j) {
+        if (!values.IsNull(j)) {
           RETURN_NOT_OK(
-              FlbaTimestampToInt64(values.GetValue(i), clamp_on_overflow, &out_ptr[i]));
+              FlbaTimestampToInt64(values.GetValue(j), clamp_on_overflow, &out_ptr[j]));
         } else {
-          out_ptr[i] = 0;
+          out_ptr[j] = 0;
         }
       }
     } else {
-      for (int64_t i = 0; i < length; ++i) {
+      for (int64_t j = 0; j < length; ++j) {
         RETURN_NOT_OK(
-            FlbaTimestampToInt64(values.GetValue(i), clamp_on_overflow, &out_ptr[i]));
+            FlbaTimestampToInt64(values.GetValue(j), clamp_on_overflow, &out_ptr[j]));
       }
     }
 
-    chunk = std::make_shared<::arrow::TimestampArray>(
+    chunks[i] = std::make_shared<::arrow::TimestampArray>(
         field->type(), length, std::move(data), values.null_bitmap(), null_count);
   }
   if (!field->nullable()) {
