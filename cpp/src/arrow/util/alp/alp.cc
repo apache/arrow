@@ -33,9 +33,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 namespace {
 
@@ -1050,6 +1048,4 @@ template void AlpCompression<double>::DecompressVectorView<double>(
 template class AlpCompression<float>;
 template class AlpCompression<double>;
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp

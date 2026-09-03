@@ -36,9 +36,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace util {
-namespace alp {
+namespace arrow::util::alp {
 
 // ============================================================================
 // Test helpers
@@ -2049,6 +2047,4 @@ TYPED_TEST(AlpCodecTest, RejectsExceptionPositionPastVector) {
   }
 }
 
-}  // namespace alp
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::alp
