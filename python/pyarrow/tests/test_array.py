@@ -2988,7 +2988,8 @@ def test_array_from_numpy_string_dtype_rejects_non_string_type(
         numpy_string_dtype):
     arr = np.array(["some", "strings"], dtype=numpy_string_dtype())
 
-    with pytest.raises(TypeError, match="can only be converted.*got binary"):
+    msg = "Expected an Arrow string type.*got binary"
+    with pytest.raises(TypeError, match=msg):
         pa.array(arr, type=pa.binary())
 
 

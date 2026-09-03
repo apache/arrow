@@ -347,9 +347,8 @@ Status NumPyConverter::Convert() {
   }
 
   if (dtype_->type_num == NPY_VSTRING && !is_string_or_string_view(type_->id())) {
-    return Status::TypeError(
-        "NumPy StringDType can only be converted to Arrow string types, got ",
-        type_->ToString());
+    return Status::TypeError("Expected an Arrow string type for NumPy StringDType, got ",
+                             type_->ToString());
   }
 
   // Visit the type to perform conversion
@@ -719,7 +718,7 @@ std::string_view ToStringView(const npy_static_string& value) {
 template <typename T>
 Status NumPyConverter::VisitStringDType(T* builder) {
   auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
-  // NumPy reports a null entry as the na_object itself when that is a string
+  // Use the na_object itself when na_object is a string
   const bool null_is_missing = descr->na_object != nullptr && !descr->has_string_na;
   const std::string_view null_string = ToStringView(descr->default_string);
 
@@ -729,7 +728,8 @@ Status NumPyConverter::VisitStringDType(T* builder) {
     mask_values = Ndarray1DIndexer<uint8_t>(mask_);
   }
 
-  // NumPy takes the GIL while holding this lock, so never take it with the GIL held
+  // Acquiring the allocator lock, so do not acquire the GIL or lock other
+  // mutexes below or risk deadlocks
   auto* allocator = NpyString_acquire_allocator(descr);
   std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
       allocator_guard(allocator, &NpyString_release_allocator);
