@@ -291,6 +291,8 @@ env:
 {%- macro github_configure_aws_credentials() -%}
   - name: Configure AWS credentials for sccache
     if: env.SCCACHE_ENABLED == 'true'
+    # don't fail the build if AWS credentials are unavailable
+    continue-on-error: true
     uses: aws-actions/configure-aws-credentials@v6
     with:
       aws-region: {{ '${{ secrets.SCCACHE_REGION }}' }}
