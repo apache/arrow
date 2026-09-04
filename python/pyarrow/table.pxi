@@ -911,6 +911,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         cdef shared_ptr[CChunkedArray] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -918,6 +919,7 @@ cdef class ChunkedArray(_PandasConvertible):
         if length is None:
             result = self.chunked_array.Slice(offset)
         else:
+            length = operator.index(length)
             result = self.chunked_array.Slice(offset, length)
 
         return pyarrow_wrap_chunked_array(result)
@@ -3172,6 +3174,7 @@ cdef class RecordBatch(_Tabular):
         """
         cdef shared_ptr[CRecordBatch] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -3179,6 +3182,7 @@ cdef class RecordBatch(_Tabular):
         if length is None:
             result = self.batch.Slice(offset)
         else:
+            length = operator.index(length)
             result = self.batch.Slice(offset, length)
 
         return pyarrow_wrap_batch(result)
@@ -4292,6 +4296,7 @@ cdef class Table(_Tabular):
         """
         cdef shared_ptr[CTable] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -4299,6 +4304,7 @@ cdef class Table(_Tabular):
         if length is None:
             result = self.table.Slice(offset)
         else:
+            length = operator.index(length)
             result = self.table.Slice(offset, length)
 
         return pyarrow_wrap_table(result)
