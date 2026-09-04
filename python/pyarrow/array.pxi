@@ -18,6 +18,7 @@
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
 
 from collections.abc import Sequence
+import operator
 import os
 import warnings
 from cython import sizeof
@@ -1631,6 +1632,7 @@ cdef class Array(_PandasConvertible):
         """
         cdef shared_ptr[CArray] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -1638,6 +1640,7 @@ cdef class Array(_PandasConvertible):
         if length is None:
             result = self.ap.Slice(offset)
         else:
+            length = operator.index(length)
             if length < 0:
                 raise ValueError('Length must be non-negative')
             result = self.ap.Slice(offset, length)
