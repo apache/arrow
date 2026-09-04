@@ -165,6 +165,29 @@ def test_array_to_tensor_dlpack(arr, expected):
     assert tensor.__dlpack_device__() == (1, 0)
 
 
+@check_bytes_allocated
+def test_fixed_shape_tensor_dlpack_permuted():
+    if Version(np.__version__) < Version("2.1.0"):
+        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
+
+    # A non-trivial permutation makes to_tensor() produce a non-row-major
+    # tensor: each row-major [3, 2] block is exposed as a logical [2, 3] cell.
+    storage = pa.FixedSizeListArray.from_arrays(
+        pa.array(range(24), type=pa.int32()), 6)
+    arr = pa.ExtensionArray.from_storage(
+        pa.fixed_shape_tensor(pa.int32(), [3, 2], permutation=[1, 0]), storage)
+
+    tensor = arr.to_tensor()
+    assert tensor.shape == (4, 2, 3)
+    assert not tensor.is_contiguous
+
+    # expected[i, j, k] == i * 6 + k * 2 + j (numpy is only the DLPack consumer)
+    expected = np.arange(24, dtype=np.int32).reshape(4, 3, 2).transpose(0, 2, 1)
+    result = np.from_dlpack(DLPackForwarder(arr, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+    assert arr.__dlpack_device__() == (1, 0)
+
+
 def multidim_arrays_with_nulls():
     np_arr = np.arange(6, dtype=np.int32).reshape(3, 2)
     # Masked entries keep defined values in the child array, so the tensor
