@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/extension/json.h"
+#include "arrow/extension/parquet_file.h"
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
@@ -50,6 +51,7 @@ using arrow::Field;
 using arrow::FieldVector;
 using arrow::KeyValueMetadata;
 using arrow::Status;
+using arrow::extension::kFileExtensionName;
 using arrow::internal::checked_cast;
 using arrow::internal::ToChars;
 
@@ -148,6 +150,25 @@ Status VariantToNode(
                          {std::move(metadata_node), std::move(value_node)},
                          LogicalType::Variant(), field_id);
 
+  return Status::OK();
+}
+
+Status FileToNode(const std::shared_ptr<::arrow::extension::FileExtensionType>& type,
+                  const std::string& name, bool nullable, int field_id,
+                  const WriterProperties& properties,
+                  const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  std::vector<NodePtr> children;
+  children.reserve(type->storage_type()->num_fields());
+  for (const auto& child : type->storage_type()->fields()) {
+    NodePtr child_node;
+    RETURN_NOT_OK(
+        FieldToNode(child->name(), child, properties, arrow_properties, &child_node));
+    children.push_back(std::move(child_node));
+  }
+
+  auto file_node = GroupNode::Make(name, RepetitionFromNullable(nullable), children,
+                                   LogicalType::File(), field_id);
+  *out = std::move(file_node);
   return Status::OK();
 }
 
@@ -497,6 +518,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
 
         return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
                              arrow_properties, out);
+      } else if (ext_type->extension_name() == kFileExtensionName) {
+        auto file_type = std::static_pointer_cast<::arrow::extension::FileExtensionType>(
+            field->type());
+        return FileToNode(file_type, name, field->nullable(), field_id, properties,
+                          arrow_properties, out);
       }
 
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
@@ -602,13 +628,21 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
     arrow_fields.push_back(out->children[i].field);
   }
   auto struct_type = ::arrow::struct_(arrow_fields);
-  if (ctx->properties.get_arrow_extensions_enabled() &&
-      node.logical_type()->is_variant()) {
-    auto extension_type = ::arrow::GetExtensionType("arrow.parquet.variant");
-    if (extension_type) {
-      ARROW_ASSIGN_OR_RAISE(
-          struct_type,
-          extension_type->Deserialize(std::move(struct_type), /*serialized_data=*/""));
+  if (ctx->properties.get_arrow_extensions_enabled()) {
+    if (node.logical_type()->is_variant()) {
+      auto extension_type = ::arrow::GetExtensionType("arrow.parquet.variant");
+      if (extension_type) {
+        ARROW_ASSIGN_OR_RAISE(
+            struct_type,
+            extension_type->Deserialize(std::move(struct_type), /*serialized_data=*/""));
+      }
+    } else if (node.logical_type()->is_file()) {
+      auto extension_type = ::arrow::GetExtensionType(std::string(kFileExtensionName));
+      if (extension_type) {
+        ARROW_ASSIGN_OR_RAISE(
+            struct_type,
+            extension_type->Deserialize(std::move(struct_type), /*serialized_data=*/""));
+      }
     }
   }
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
@@ -1042,7 +1076,8 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
 }
 
 Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
-                                          SchemaField* inferred) {
+                                          SchemaField* inferred,
+                                          bool match_children_by_name = false) {
   bool modified = false;
 
   auto& origin_type = origin_field.type();
@@ -1059,9 +1094,16 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
       // Apply original metadata recursively to children
       for (int i = 0; i < inferred_type->num_fields(); ++i) {
+        std::shared_ptr<::arrow::Field> origin_child;
+        if (match_children_by_name) {
+          origin_child = checked_cast<const ::arrow::StructType&>(*origin_type)
+                             .GetFieldByName(inferred_type->field(i)->name());
+        } else {
+          origin_child = origin_type->field(i);
+        }
         ARROW_ASSIGN_OR_RAISE(
             const bool child_modified,
-            ApplyOriginalMetadata(*origin_type->field(i), &inferred->children[i]));
+            ApplyOriginalMetadata(*origin_child, &inferred->children[i]));
         modified |= child_modified;
       }
       if (modified) {
@@ -1150,6 +1192,21 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   return modified;
 }
 
+bool FileStorageTypesCompatible(const std::shared_ptr<::arrow::DataType>& origin_type,
+                                const std::shared_ptr<::arrow::DataType>& inferred_type) {
+  if (origin_type->num_fields() != inferred_type->num_fields()) {
+    return false;
+  }
+  const auto& inferred_struct_type =
+      checked_cast<const ::arrow::StructType&>(*inferred_type);
+  for (const auto& origin_field : origin_type->fields()) {
+    if (inferred_struct_type.GetFieldByName(origin_field->name()) == nullptr) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred) {
   bool modified = false;
 
@@ -1161,28 +1218,42 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& origin_extension_type =
         checked_cast<const ::arrow::ExtensionType&>(*origin_type);
+    std::string origin_extension_name = origin_extension_type.extension_name();
+
+    // Whether or not the inferred type is also an extension type. This can occur when
+    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
+    // are not currently inferred for any other reason.
+    bool arrow_extension_inferred =
+        inferred->field->type()->id() == ::arrow::Type::EXTENSION;
+
+    bool restore_file_extension = false;
+    if (origin_extension_name == kFileExtensionName && arrow_extension_inferred) {
+      const auto& inferred_extension_type =
+          checked_cast<const ::arrow::ExtensionType&>(*inferred->field->type());
+      if (FileStorageTypesCompatible(origin_extension_type.storage_type(),
+                                     inferred_extension_type.storage_type())) {
+        inferred->field =
+            inferred->field->WithType(inferred_extension_type.storage_type());
+        restore_file_extension = true;
+      }
+    }
 
     // (Recursively) Apply the original storage metadata from the original storage field
     // This applies extension types to child elements, if any.
     auto origin_storage_field =
         origin_field.WithType(origin_extension_type.storage_type());
-    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred,
+                                               restore_file_extension));
 
     // Use the inferred type after child updates for below checks to see if
     // we can restore an extension type on the output.
     const auto& inferred_type = inferred->field->type();
-
-    // Whether or not the inferred type is also an extension type. This can occur when
-    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
-    // are not currently inferred for any other reason.
-    bool arrow_extension_inferred = inferred_type->id() == ::arrow::Type::EXTENSION;
 
     // Check if the inferred storage type is compatible with the extension type
     // we're hoping to apply. We assume that if an extension type was inferred
     // that it was constructed with a valid storage type. Otherwise, we check with
     // extension types that we know about for valid storage, falling back to
     // storage type equality for extension types that we don't know about.
-    std::string origin_extension_name = origin_extension_type.extension_name();
     bool extension_supports_inferred_storage;
 
     if (origin_extension_name == "arrow.json") {
@@ -1198,6 +1269,8 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
           ::arrow::extension::VariantExtensionType::IsSupportedStorageType(inferred_type);
+    } else if (origin_extension_name == kFileExtensionName && restore_file_extension) {
+      extension_supports_inferred_storage = true;
     } else {
       extension_supports_inferred_storage =
           origin_extension_type.storage_type()->Equals(*inferred_type);
@@ -1207,7 +1280,14 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
     // the Arrow storage type we would otherwise return, we restore the extension
     // type to the output.
     if (extension_supports_inferred_storage) {
-      inferred->field = inferred->field->WithType(origin_type);
+      if (restore_file_extension) {
+        ARROW_ASSIGN_OR_RAISE(auto restored_type,
+                              origin_extension_type.Deserialize(
+                                  inferred_type, origin_extension_type.Serialize()));
+        inferred->field = inferred->field->WithType(std::move(restored_type));
+      } else {
+        inferred->field = inferred->field->WithType(origin_type);
+      }
     }
 
     modified = true;

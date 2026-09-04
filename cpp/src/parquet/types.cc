@@ -611,6 +611,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     }
 
     return VariantLogicalType::Make(spec_version);
+  } else if (type.__isset.FILE) {
+    return FileLogicalType::Make();
   } else {
     // Sentinel type for one we do not recognize
     return UndefinedLogicalType::Make();
@@ -681,6 +683,8 @@ std::shared_ptr<const LogicalType> LogicalType::Geography(
 std::shared_ptr<const LogicalType> LogicalType::Variant(int8_t spec_version) {
   return VariantLogicalType::Make(spec_version);
 }
+
+std::shared_ptr<const LogicalType> LogicalType::File() { return FileLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
@@ -770,6 +774,7 @@ class LogicalType::Impl {
   class Geometry;
   class Geography;
   class Variant;
+  class File;
   class No;
   class Undefined;
 
@@ -851,6 +856,7 @@ bool LogicalType::is_geography() const {
 bool LogicalType::is_variant() const {
   return impl_->type() == LogicalType::Type::VARIANT;
 }
+bool LogicalType::is_file() const { return impl_->type() == LogicalType::Type::FILE; }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
   return impl_->type() != LogicalType::Type::UNDEFINED;
@@ -859,7 +865,8 @@ bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
   return impl_->type() == LogicalType::Type::LIST ||
          impl_->type() == LogicalType::Type::MAP ||
-         impl_->type() == LogicalType::Type::VARIANT;
+         impl_->type() == LogicalType::Type::VARIANT ||
+         impl_->type() == LogicalType::Type::FILE;
 }
 bool LogicalType::is_nonnested() const { return !is_nested(); }
 bool LogicalType::is_serialized() const { return impl_->is_serialized(); }
@@ -2030,6 +2037,20 @@ std::shared_ptr<const LogicalType> VariantLogicalType::Make(const int8_t spec_ve
   logical_type->impl_.reset(new LogicalType::Impl::Variant(spec_version));
   return logical_type;
 }
+
+class LogicalType::Impl::File final : public LogicalType::Impl::Incompatible,
+                                      public LogicalType::Impl::Inapplicable {
+ public:
+  friend class FileLogicalType;
+
+  OVERRIDE_TOSTRING(File)
+  OVERRIDE_TOTHRIFT(FileType, FILE)
+
+ private:
+  File() : LogicalType::Impl(LogicalType::Type::FILE, SortOrder::UNKNOWN) {}
+};
+
+GENERATE_MAKE(File)
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {
