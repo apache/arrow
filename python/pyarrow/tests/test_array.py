@@ -928,6 +928,10 @@ def test_dictionary_from_buffers(offset):
                                         offset=offset)
     assert a[offset:] == b
 
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            None, len(a), a.indices.buffers(), a.dictionary)
+
 
 @pytest.mark.numpy
 def test_dictionary_from_numpy():
