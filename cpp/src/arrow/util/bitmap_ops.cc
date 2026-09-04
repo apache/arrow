@@ -25,6 +25,7 @@
 #include <memory>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
@@ -107,6 +108,15 @@ int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
 }
 
 namespace {
+
+// Equivalent to std::identity, which is not available in the libc++ shipped with
+// older macOS SDKs (< 12) that we still need to support.
+struct Identity {
+  template <typename T>
+  constexpr T&& operator()(T&& value) const noexcept {
+    return std::forward<T>(value);
+  }
+};
 
 // Reverse all bits from entire byte(uint8)
 uint8_t ReverseUint8(uint8_t num) {
@@ -227,7 +237,7 @@ void MapBitmapUnary(const uint8_t* data, int64_t offset, int64_t length,
     const uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
     uint8_t last_data;
 
-    if constexpr (std::is_same_v<std::decay_t<Op>, std::identity>) {
+    if constexpr (std::is_same_v<std::decay_t<Op>, Identity>) {
       std::memcpy(dest, data, static_cast<size_t>(num_bytes - 1));
       last_data = data[num_bytes - 1];
     } else {
@@ -304,7 +314,7 @@ Result<std::shared_ptr<Buffer>> MapBitmapUnary(MemoryPool* pool, const uint8_t* 
 
 void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                 int64_t dest_offset) {
-  MapBitmapUnary<std::identity>(data, offset, length, dest_offset, dest);
+  MapBitmapUnary<Identity>(data, offset, length, dest_offset, dest);
 }
 
 void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
@@ -320,7 +330,7 @@ void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t*
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
                                            int64_t offset, int64_t length,
                                            int64_t out_offset) {
-  return MapBitmapUnary<std::identity>(pool, data, offset, length, out_offset);
+  return MapBitmapUnary<Identity>(pool, data, offset, length, out_offset);
 }
 
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
