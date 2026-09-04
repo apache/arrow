@@ -424,7 +424,10 @@ class FLBADecoder : virtual public TypedDecoder<FLBAType> {
 ///
 /// \param[in] properties the writer properties, consulted for the options an
 ///            encoding offers per column. May be null, in which case every such
-///            option takes its default.
+///            option takes its default -- including PFOR's EXPERIMENTAL
+///            lane-interleaved bit-packing layout, ignored by every other
+///            encoding and by PFOR itself where the layout cannot apply. See
+///            WriterProperties::Builder::enable_pfor_interleaved_bit_packing.
 PARQUET_EXPORT
 std::unique_ptr<Encoder> MakeEncoder(
     Type::type type_num, Encoding::type encoding, bool use_dictionary = false,

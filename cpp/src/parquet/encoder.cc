@@ -1968,12 +1968,21 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
             "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
     }
   } else if (encoding == Encoding::PFOR) {
-    // The delta mode is a per-column option, so it is read off the properties
-    // rather than baked into the encoder. A caller with no properties to hand --
-    // the encoding tests, and MakeTypedEncoder's default -- gets the default.
+    // The delta mode and the bit-packing layout are both per-writer options, so
+    // they are read off the properties rather than baked into the encoder. A
+    // caller with no properties to hand -- the encoding tests, and
+    // MakeTypedEncoder's default -- gets the default for both.
     ::arrow::util::pfor::PforEncodeOptions options;
-    if (properties != nullptr && descr != nullptr) {
-      options.delta_enabled = properties->pfor_delta_enabled(descr->path());
+    if (properties != nullptr) {
+      if (descr != nullptr) {
+        options.delta_enabled = properties->pfor_delta_enabled(descr->path());
+      }
+      // The encoder treats the layout as a request: a column it cannot apply to
+      // records the layout PFOR has always used, so one writer-side setting can
+      // cover a file whose columns are not all eligible.
+      options.mode = properties->pfor_interleaved_bit_packing()
+                         ? ::arrow::util::pfor::PackingMode::kForBitPackInterleaved
+                         : ::arrow::util::pfor::PackingMode::kForBitPack;
     }
     switch (type_num) {
       case Type::INT32:
