@@ -1588,7 +1588,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
 
     def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
         """
-        Export a tensor array as a DLPack capsule.
+        Export a tensor scalar as a DLPack capsule.
 
         See :meth:`Tensor.__dlpack__` for the parameter semantics.
         """
