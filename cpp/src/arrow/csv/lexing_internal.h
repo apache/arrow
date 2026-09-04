@@ -35,6 +35,25 @@ class SpecializedOptions {
   static constexpr bool escaping = Escaping;
 };
 
+template <typename... CompiledBools, typename Fn, typename... Rest>
+  requires std::invocable<Fn, CompiledBools...,
+                          std::conditional_t<true, std::true_type, Rest>...>
+decltype(auto) DispatchBool(Fn&& fn, Rest... rest) {
+  if constexpr (sizeof...(Rest) == 0) {
+    return std::forward<Fn>(fn)(CompiledBools{}...);
+  } else {
+    return [&](bool head, auto... tail) -> decltype(auto) {
+      if (head) {
+        return DispatchBool<CompiledBools..., std::true_type>(std::forward<Fn>(fn),
+                                                              tail...);
+      } else {
+        return DispatchBool<CompiledBools..., std::false_type>(std::forward<Fn>(fn),
+                                                               tail...);
+      }
+    }(rest...);
+  }
+}
+
 //
 // Bulk filters for packed character matching.
 // These filters allow checking multiple CSV bytes at once for specific

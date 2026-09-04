@@ -18,8 +18,10 @@
 #include "arrow/csv/parser.h"
 
 #include <algorithm>
+#include <concepts>
 #include <cstdio>
 #include <limits>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/csv/lexing_internal.h"
@@ -58,6 +60,14 @@ Status MismatchingColumns(const InvalidRow& row) {
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
+
+template <bool IgnoreExtraColumns>
+constexpr bool ShouldWrite(bool ignoring_extra_field) {
+  if constexpr (IgnoreExtraColumns) {
+    return !ignoring_extra_field;
+  }
+  return true;
+}
 
 // A helper class allocating the buffer for parsed values and writing into it
 // without any further resizes, except at the end.
@@ -276,8 +286,8 @@ class BlockParserImpl {
     return MismatchingColumns(row);
   }
 
-  template <typename SpecializedOptions, bool UseBulkFilter, typename ValueDescWriter,
-            typename DataWriter, typename BulkFilter>
+  template <typename SpecializedOptions, bool UseBulkFilter, bool IgnoreExtraColumns,
+            typename ValueDescWriter, typename DataWriter, typename BulkFilter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
                    const char** out_data, const BulkFilter& bulk_filter) {
@@ -290,17 +300,22 @@ class BlockParserImpl {
     bool ignoring_extra_field = false;
 
     auto IsExtraField = [&]() {
-      return batch_.num_cols_ >= 0 && options_.ignore_extra_columns &&
-             num_cols >= batch_.num_cols_;
+      if constexpr (!IgnoreExtraColumns) {
+        return false;
+      }
+      return batch_.num_cols_ >= 0 && num_cols >= batch_.num_cols_;
     };
     auto StartField = [&](bool quoted) {
-      ignoring_extra_field = IsExtraField();
-      if (!ignoring_extra_field) {
-        values_writer->StartField(quoted);
+      if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
+        if (ARROW_PREDICT_FALSE(IsExtraField())) {
+          ignoring_extra_field = true;
+        } else {
+          values_writer->StartField(quoted);
+        }
       }
     };
     auto FinishField = [&]() {
-      if (!IsExtraField()) {
+      if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
         values_writer->FinishField(parsed_writer);
       }
     };
@@ -354,8 +369,8 @@ class BlockParserImpl {
   InField:
     // Inside a non-quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end =
-          RunBulkFilter(parsed_writer, data, data_end, bulk_filter, ignoring_extra_field);
+      const char* bulk_end = RunBulkFilter<IgnoreExtraColumns>(
+          parsed_writer, data, data_end, bulk_filter, ignoring_extra_field);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         if (is_final) {
           data = data_end;
@@ -375,7 +390,7 @@ class BlockParserImpl {
         goto AbortLine;
       }
       c = *data++;
-      if (!ignoring_extra_field) {
+      if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
         parsed_writer->PushFieldChar(c);
       }
       goto InField;
@@ -395,7 +410,7 @@ class BlockParserImpl {
         goto LineEnd;
       }
     }
-    if (!ignoring_extra_field) {
+    if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
       parsed_writer->PushFieldChar(c);
     }
     goto InField;
@@ -403,8 +418,8 @@ class BlockParserImpl {
   InQuotedField:
     // Inside a quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end =
-          RunBulkFilter(parsed_writer, data, data_end, bulk_filter, ignoring_extra_field);
+      const char* bulk_end = RunBulkFilter<IgnoreExtraColumns>(
+          parsed_writer, data, data_end, bulk_filter, ignoring_extra_field);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         if (is_final) {
           data = data_end;
@@ -423,7 +438,7 @@ class BlockParserImpl {
         goto AbortLine;
       }
       c = *data++;
-      if (!ignoring_extra_field) {
+      if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
         parsed_writer->PushFieldChar(c);
       }
       goto InQuotedField;
@@ -438,7 +453,7 @@ class BlockParserImpl {
         goto InField;
       }
     }
-    if (!ignoring_extra_field) {
+    if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
       parsed_writer->PushFieldChar(c);
     }
     goto InQuotedField;
@@ -466,7 +481,7 @@ class BlockParserImpl {
           FinishField();
           ++num_cols;
         }
-      } else if (!options_.ignore_extra_columns || num_cols < batch_.num_cols_) {
+      } else if (!IgnoreExtraColumns || num_cols < batch_.num_cols_) {
         return HandleInvalidRow(values_writer, parsed_writer, start, data, num_cols,
                                 out_data);
       }
@@ -478,6 +493,10 @@ class BlockParserImpl {
   AbortLine:
     // Not a full line except perhaps if in final block
     if (is_final) {
+      if constexpr (IgnoreExtraColumns) {
+        // Handle an implicit trailing empty field after a delimiter.
+        ignoring_extra_field = IsExtraField();
+      }
       goto LineEnd;
     }
     // Truncated line at end of block, rewind parsed state
@@ -503,7 +522,7 @@ class BlockParserImpl {
     return Status::OK();
   }
 
-  template <typename DataWriter, typename SpecializedBulkFilter>
+  template <bool IgnoreExtraColumns, typename DataWriter, typename SpecializedBulkFilter>
   const char* RunBulkFilter(DataWriter* data_writer, const char* data,
                             const char* data_end,
                             const SpecializedBulkFilter& bulk_filter,
@@ -523,15 +542,15 @@ class BlockParserImpl {
         return data;
       }
       // No special chars
-      if (!ignoring_extra_field) {
+      if (ARROW_PREDICT_TRUE(ShouldWrite<IgnoreExtraColumns>(ignoring_extra_field))) {
         data_writer->PushFieldWord(word);
       }
       data += sizeof(WordType);
     }
   }
 
-  template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter,
-            typename BulkFilter>
+  template <typename SpecializedOptions, bool IgnoreExtraColumns,
+            typename ValueDescWriter, typename DataWriter, typename BulkFilter>
   Status ParseChunk(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                     const char* data, const char* data_end, bool is_final,
                     int32_t rows_in_chunk, const char** out_data, bool* finished_parsing,
@@ -542,9 +561,9 @@ class BlockParserImpl {
     if (use_bulk_filter_) {
       while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
         const char* line_end = data;
-        RETURN_NOT_OK((ParseLine<SpecializedOptions, true>(values_writer, parsed_writer,
-                                                           data, data_end, is_final,
-                                                           &line_end, bulk_filter)));
+        RETURN_NOT_OK((ParseLine<SpecializedOptions, true, IgnoreExtraColumns>(
+            values_writer, parsed_writer, data, data_end, is_final, &line_end,
+            bulk_filter)));
         RETURN_NOT_OK(values_writer->status());
         if (line_end == data) {
           // Cannot parse any further
@@ -556,9 +575,9 @@ class BlockParserImpl {
     } else {
       while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
         const char* line_end = data;
-        RETURN_NOT_OK((ParseLine<SpecializedOptions, false>(values_writer, parsed_writer,
-                                                            data, data_end, is_final,
-                                                            &line_end, bulk_filter)));
+        RETURN_NOT_OK((ParseLine<SpecializedOptions, false, IgnoreExtraColumns>(
+            values_writer, parsed_writer, data, data_end, is_final, &line_end,
+            bulk_filter)));
         RETURN_NOT_OK(values_writer->status());
         if (line_end == data) {
           // Cannot parse any further
@@ -589,7 +608,7 @@ class BlockParserImpl {
     return Status::OK();
   }
 
-  template <typename SpecializedOptions>
+  template <typename SpecializedOptions, bool IgnoreExtraColumns>
   Status ParseSpecialized(const std::vector<std::string_view>& views, bool is_final,
                           uint32_t* out_size) {
     internal::PreferredBulkFilterType<SpecializedOptions> bulk_filter(options_);
@@ -628,9 +647,9 @@ class BlockParserImpl {
         ARROW_ASSIGN_OR_RAISE(auto values_writer, ResizableValueDescWriter::Make(pool_));
         values_writer.Start(parsed_writer);
 
-        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
+        RETURN_NOT_OK((ParseChunk<SpecializedOptions, IgnoreExtraColumns>(
             &values_writer, &parsed_writer, data, data_end, is_final, rows_in_chunk,
-            &data, &finished_parsing, bulk_filter));
+            &data, &finished_parsing, bulk_filter)));
         if (batch_.num_cols_ == -1) {
           return ParseError("Empty CSV file or block: cannot infer number of columns");
         }
@@ -666,9 +685,9 @@ class BlockParserImpl {
             PresizedValueDescWriter::Make(pool_, rows_in_chunk, batch_.num_cols_));
         values_writer.Start(parsed_writer);
 
-        RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
+        RETURN_NOT_OK((ParseChunk<SpecializedOptions, IgnoreExtraColumns>(
             &values_writer, &parsed_writer, data, data_end, is_final, rows_in_chunk,
-            &data, &finished_parsing, bulk_filter));
+            &data, &finished_parsing, bulk_filter)));
       }
       DCHECK_GE(data, view.data());
       DCHECK_LE(data, data_end);
@@ -709,23 +728,14 @@ class BlockParserImpl {
 
   Status Parse(const std::vector<std::string_view>& data, bool is_final,
                uint32_t* out_size) {
-    if (options_.quoting) {
-      if (options_.escaping) {
-        return ParseSpecialized<internal::SpecializedOptions<true, true>>(data, is_final,
-                                                                          out_size);
-      } else {
-        return ParseSpecialized<internal::SpecializedOptions<true, false>>(data, is_final,
-                                                                           out_size);
-      }
-    } else {
-      if (options_.escaping) {
-        return ParseSpecialized<internal::SpecializedOptions<false, true>>(data, is_final,
-                                                                           out_size);
-      } else {
-        return ParseSpecialized<internal::SpecializedOptions<false, false>>(
-            data, is_final, out_size);
-      }
-    }
+    return internal::DispatchBool(
+        [&](auto quoting, auto escaping, auto ignore_extra_columns) {
+          using SpecializedOptions =
+              internal::SpecializedOptions<quoting.value, escaping.value>;
+          return ParseSpecialized<SpecializedOptions, ignore_extra_columns.value>(
+              data, is_final, out_size);
+        },
+        options_.quoting, options_.escaping, options_.ignore_extra_columns);
   }
 
  protected:
