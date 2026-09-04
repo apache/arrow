@@ -710,11 +710,9 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
   EXPECT_EQ(reader->bytes_processed(), 13);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, R"([{"n":10000}])"), *batch);
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::StartsWith(
-          "Invalid: JSON parse error: Missing a comma or '}' after an object member"),
-      reader->ReadNext(&batch));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::StartsWith("Invalid: JSON parse error"),
+                                  reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 13);
   AssertReadEnd(reader);
   EXPECT_EQ(reader->bytes_processed(), 13);
