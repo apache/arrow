@@ -254,6 +254,101 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
   }
 }
 
+TEST(TestWriterProperties, AlpDisabledByDefault) {
+  auto props = WriterProperties::Builder().build();
+
+  ASSERT_FALSE(props->alp_enabled());
+  ASSERT_FALSE(props->alp_enabled(ColumnPath::FromDotString("a")));
+}
+
+TEST(TestWriterProperties, AlpRejectedWithoutOptIn) {
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().encoding(Encoding::ALP)->build(); },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::AllOf(::testing::HasSubstr("default column properties"),
+                           ::testing::HasSubstr("enable_alp_encoding"))));
+}
+
+TEST(TestWriterProperties, AlpRejectedForColumnWithoutOptIn) {
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().encoding("a", Encoding::ALP)->build(); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'a'")));
+}
+
+// Enabling ALP for one column does not grant permission to another.
+TEST(TestWriterProperties, AlpRejectedForColumnEnabledElsewhere) {
+  EXPECT_THROW_THAT(
+      [&]() {
+        WriterProperties::Builder()
+            .enable_alp_encoding("a")
+            ->encoding("b", Encoding::ALP)
+            ->build();
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'b'")));
+}
+
+// A global ALP selection reaches every column, including one that opted out.
+TEST(TestWriterProperties, AlpRejectedWhenDisabledForColumnUnderGlobalEncoding) {
+  EXPECT_THROW_THAT(
+      [&]() {
+        WriterProperties::Builder()
+            .enable_alp_encoding()
+            ->disable_alp_encoding("a")
+            ->encoding(Encoding::ALP)
+            ->build();
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'a'")));
+}
+
+// A per-column disable overrides a global enable, so the column must be rejected.
+TEST(TestWriterProperties, AlpRejectedWhenDisabledForColumn) {
+  EXPECT_THROW_THAT(
+      [&]() {
+        WriterProperties::Builder()
+            .enable_alp_encoding()
+            ->disable_alp_encoding("a")
+            ->encoding("a", Encoding::ALP)
+            ->build();
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what, ::testing::HasSubstr("column 'a'")));
+}
+
+TEST(TestWriterProperties, AlpAcceptedWhenEnabledForAllColumns) {
+  auto props =
+      WriterProperties::Builder().enable_alp_encoding()->encoding(Encoding::ALP)->build();
+
+  ASSERT_TRUE(props->alp_enabled());
+  ASSERT_TRUE(props->alp_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_EQ(Encoding::ALP, props->encoding(ColumnPath::FromDotString("a")));
+}
+
+TEST(TestWriterProperties, AlpAcceptedWhenEnabledForOneColumn) {
+  auto props = WriterProperties::Builder()
+                   .enable_alp_encoding("a")
+                   ->encoding("a", Encoding::ALP)
+                   ->build();
+
+  // alp_enabled() with no argument answers "any column", so it is true here even
+  // though only one column opted in.
+  ASSERT_TRUE(props->alp_enabled());
+  ASSERT_TRUE(props->alp_enabled(ColumnPath::FromDotString("a")));
+  ASSERT_FALSE(props->alp_enabled(ColumnPath::FromDotString("b")));
+}
+
+// The flag grants permission; it does not select the encoding.
+TEST(TestWriterProperties, AlpEnabledDoesNotSelectAlp) {
+  auto props = WriterProperties::Builder().enable_alp_encoding()->build();
+
+  ASSERT_TRUE(props->alp_enabled());
+  ASSERT_EQ(DEFAULT_ENCODING, props->encoding(ColumnPath::FromDotString("a")));
+}
+
 struct WriterPropertiesTestCase {
   WriterPropertiesTestCase(std::shared_ptr<WriterProperties> props, std::string label)
       : properties(std::move(props)), label(std::move(label)) {}
@@ -313,6 +408,7 @@ TEST_P(WriterPropertiesTest, RoundTripThroughBuilder) {
               column_properties.compression_level());
     ASSERT_EQ(round_tripped_col.dictionary_enabled(),
               column_properties.dictionary_enabled());
+    ASSERT_EQ(round_tripped_col.alp_enabled(), column_properties.alp_enabled());
     ASSERT_EQ(round_tripped_col.encoding(), column_properties.encoding());
     ASSERT_EQ(round_tripped_col.max_statistics_size(),
               column_properties.max_statistics_size());
@@ -396,6 +492,21 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     builder.disable_write_page_index();
     builder.enable_write_page_index(column_a);
     test_cases.emplace_back(builder.build(), "page_index_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.enable_alp_encoding();
+    builder.disable_alp_encoding(column_a);
+    test_cases.emplace_back(builder.build(), "alp_column_override");
+  }
+  {
+    // The round trip has to carry the per-column permission across, or the
+    // rebuilt properties select ALP for a column that is no longer allowed it
+    // and build() throws.
+    WriterProperties::Builder builder;
+    builder.enable_alp_encoding(column_a);
+    builder.encoding(column_a, Encoding::ALP);
+    test_cases.emplace_back(builder.build(), "alp_enabled_column_only");
   }
   {
     WriterProperties::Builder builder;

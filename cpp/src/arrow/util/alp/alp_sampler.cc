@@ -1,0 +1,148 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include "arrow/util/alp/alp_sampler_internal.h"
+
+#include <cmath>
+
+#include "arrow/util/alp/alp_constants_internal.h"
+#include "arrow/util/alp/alp_internal.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/ubsan.h"
+
+namespace arrow::util::alp {
+
+// ----------------------------------------------------------------------
+// AlpSampler implementation
+
+template <typename T>
+void AlpSampler<T>::AddSample(std::span<const T> input) {
+  const int64_t input_size = static_cast<int64_t>(input.size());
+  for (int64_t i = 0; i < input_size; i += AlpConstants::kSamplerVectorSize) {
+    const int64_t elements = std::min(input_size - i, AlpConstants::kSamplerVectorSize);
+    AddSampleVector({input.data() + i, static_cast<size_t>(elements)});
+  }
+}
+
+template <typename T>
+void AlpSampler<T>::AddSampleVector(std::span<const T> input) {
+  const int64_t input_size = static_cast<int64_t>(input.size());
+  const bool must_skip_current_vector = MustSkipSamplingFromCurrentVector(
+      vectors_count_, vectors_sampled_count_, input_size);
+
+  vectors_count_ += 1;
+  total_values_count_ += input_size;
+  if (must_skip_current_vector) {
+    return;
+  }
+
+  const AlpSamplingParameters sampling_params = GetAlpSamplingParameters(input_size);
+
+  // Slice: take first num_lookup_value elements.
+  std::vector<T> current_vector_values(
+      input.begin(),
+      input.begin() + std::min<int64_t>(sampling_params.num_lookup_value, input_size));
+
+  // Stride: take every num_sampled_increments-th element.
+  std::vector<T> current_vector_sample;
+  const int64_t lookup_size = static_cast<int64_t>(current_vector_values.size());
+  for (int64_t i = 0; i < lookup_size; i += sampling_params.num_sampled_increments) {
+    current_vector_sample.push_back(current_vector_values[i]);
+  }
+  sample_stored_ += static_cast<int64_t>(current_vector_sample.size());
+
+  complete_vectors_sampled_.push_back(std::move(current_vector_values));
+  rowgroup_sample_.push_back(std::move(current_vector_sample));
+  vectors_sampled_count_++;
+}
+
+template <typename T>
+typename AlpSampler<T>::AlpSamplerResult AlpSampler<T>::Finalize() {
+  ARROW_LOG(DEBUG) << "AlpSampler finalized: vectorsSampled=" << vectors_sampled_count_
+                   << "/" << vectors_count_ << " total"
+                   << ", valuesSampled=" << sample_stored_ << "/" << total_values_count_
+                   << " total";
+
+  AlpSamplerResult result;
+  result.alp_parameters = AlpCompression<T>::CreateEncodingParameters(rowgroup_sample_);
+
+  ARROW_LOG(DEBUG) << "AlpSampler preset: " << result.alp_parameters.combinations.size()
+                   << " exponent/factor combinations"
+                   << ", estimatedSize=" << result.alp_parameters.best_compressed_size
+                   << " bytes";
+
+  return result;
+}
+
+template <typename T>
+typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParameters(
+    int64_t num_current_vector_values) {
+  const int64_t num_lookup_values = std::min(
+      num_current_vector_values, static_cast<int64_t>(AlpConstants::kAlpVectorSize));
+  // Sample equidistant values within a vector; jump a fixed number of values.
+  const int64_t num_sampled_increments =
+      std::max(int64_t{1},
+               static_cast<int64_t>(std::ceil(static_cast<double>(num_lookup_values) /
+                                              AlpConstants::kSamplerSamplesPerVector)));
+  const int64_t num_sampled_values = static_cast<int64_t>(
+      std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments));
+
+  // Safety: num_sampled_values is bounded by kSamplerSamplesPerVector. If
+  // num_lookup_values <= kSamplerSamplesPerVector the increment is 1 and
+  // num_sampled_values == num_lookup_values; otherwise the increment is
+  // ceil(num_lookup_values / kSamplerSamplesPerVector) >= 2, which divides
+  // num_lookup_values back down to at most kSamplerSamplesPerVector. Since
+  // kSamplerSamplesPerVector is 256, the count stays well under
+  // kAlpVectorSize. This check is a defensive invariant, not a runtime error
+  // path.
+  ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize)
+      << "alp_sample_too_large";
+
+  return AlpSamplingParameters{num_lookup_values, num_sampled_increments,
+                               num_sampled_values};
+}
+
+template <typename T>
+bool AlpSampler<T>::MustSkipSamplingFromCurrentVector(
+    const int64_t vectors_count, const int64_t vectors_sampled_count,
+    const int64_t current_vector_n_values) {
+  // Sample equidistant vectors; skip a fixed number of vectors.
+  const bool must_select_rowgroup_samples = (vectors_count % kRowgroupSampleJump) == 0;
+
+  // If we are not in the correct jump, do not take sample from this vector.
+  if (!must_select_rowgroup_samples) {
+    return true;
+  }
+
+  // Skip vectors holding fewer values than we would draw samples from, which
+  // is typically the trailing partial vector. The exception is when nothing
+  // has been sampled yet: for inputs shorter than that threshold, a short
+  // vector is the only sample available.
+  if (current_vector_n_values < AlpConstants::kSamplerSamplesPerVector &&
+      vectors_sampled_count != 0) {
+    return true;
+  }
+  return false;
+}
+
+// ----------------------------------------------------------------------
+// Template instantiations
+
+template class AlpSampler<float>;
+template class AlpSampler<double>;
+
+}  // namespace arrow::util::alp

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -37,6 +38,8 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/alp/alp_codec_internal.h"
+#include "arrow/util/alp/alp_constants_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
@@ -2657,6 +2660,401 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([16, 13, 0, 11])");
     const std::string suffix_data = "καλημέρα\xbcηλιέρη\xbbημέρα";
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+}
+
+// ----------------------------------------------------------------------
+// ALP encoding tests for float/double
+
+template <typename Type>
+class TestAlpEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+  static constexpr size_t kNumRoundTrips = 3;
+
+  void CheckRoundtrip() override {
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::ALP, /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::ALP, descr_.get());
+
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      int values_decoded = decoder->Decode(decode_buf_, num_values_);
+      ASSERT_EQ(num_values_, values_decoded);
+
+      // Use memcmp for bit-exact comparison (important for -0.0, NaN bit patterns)
+      ASSERT_EQ(0, std::memcmp(draws_, decode_buf_, num_values_ * sizeof(c_type)));
+    }
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits,
+                            int64_t valid_bits_offset) override {
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::ALP, /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::ALP, descr_.get());
+
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+      encode_buffer_ = encoder->FlushValues();
+
+      // Mirror the production caller, which passes DataPage::num_values() -- the
+      // level count, nulls included -- rather than the non-null count.
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                  valid_bits, valid_bits_offset);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_EQ(0, decoder->values_left());
+
+      // Verify only valid values
+      for (int j = 0; j < num_values_; ++j) {
+        if (bit_util::GetBit(valid_bits, valid_bits_offset + j)) {
+          ASSERT_EQ(0, std::memcmp(&draws_[j], &decode_buf_[j], sizeof(c_type))) << j;
+        }
+      }
+    }
+  }
+
+  void InitDataWithSpecialValues(int nvalues, int repeats) {
+    num_values_ = nvalues * repeats;
+    this->input_bytes_.resize(num_values_ * sizeof(c_type));
+    this->output_bytes_.resize(num_values_ * sizeof(c_type));
+    draws_ = reinterpret_cast<c_type*>(this->input_bytes_.data());
+    decode_buf_ = reinterpret_cast<c_type*>(this->output_bytes_.data());
+
+    // Fill with mix of normal and special values
+    for (int i = 0; i < nvalues; ++i) {
+      if (i % 20 == 0) {
+        draws_[i] = std::numeric_limits<c_type>::quiet_NaN();
+      } else if (i % 20 == 5) {
+        draws_[i] = std::numeric_limits<c_type>::infinity();
+      } else if (i % 20 == 10) {
+        draws_[i] = -std::numeric_limits<c_type>::infinity();
+      } else if (i % 20 == 15) {
+        draws_[i] = static_cast<c_type>(-0.0);
+      } else {
+        draws_[i] = static_cast<c_type>(i) * static_cast<c_type>(0.123);
+      }
+    }
+
+    // Repeat pattern
+    for (int j = 1; j < repeats; ++j) {
+      for (int i = 0; i < nvalues; ++i) {
+        draws_[nvalues * j + i] = draws_[i];
+      }
+    }
+  }
+
+  void InitDataDecimalPattern(int nvalues, int repeats) {
+    num_values_ = nvalues * repeats;
+    this->input_bytes_.resize(num_values_ * sizeof(c_type));
+    this->output_bytes_.resize(num_values_ * sizeof(c_type));
+    draws_ = reinterpret_cast<c_type*>(this->input_bytes_.data());
+    decode_buf_ = reinterpret_cast<c_type*>(this->output_bytes_.data());
+
+    // Decimal-like values that ALP compresses well
+    for (int i = 0; i < nvalues; ++i) {
+      draws_[i] = static_cast<c_type>(100.0 + i * 0.01);
+    }
+
+    for (int j = 1; j < repeats; ++j) {
+      for (int i = 0; i < nvalues; ++i) {
+        draws_[nvalues * j + i] = draws_[i];
+      }
+    }
+  }
+
+  void ExecuteSpecialValues(int nvalues, int repeats) {
+    InitDataWithSpecialValues(nvalues, repeats);
+    CheckRoundtrip();
+  }
+
+  void ExecuteDecimalPattern(int nvalues, int repeats) {
+    InitDataDecimalPattern(nvalues, repeats);
+    CheckRoundtrip();
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+};
+
+using AlpEncodedTypes = ::testing::Types<FloatType, DoubleType>;
+TYPED_TEST_SUITE(TestAlpEncoding, AlpEncodedTypes);
+
+TYPED_TEST(TestAlpEncoding, BasicRoundTrip) {
+  // Test various sizes including edge cases
+  for (int values = 1; values < 32; ++values) {
+    ASSERT_NO_FATAL_FAILURE(this->Execute(values, 1));
+  }
+
+  // Test exactly vector size (1024)
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1024, 1));
+
+  // Test just under and over vector size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1023, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1025, 1));
+
+  // Test multiple vectors
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2048, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(3000, 1));
+}
+
+TYPED_TEST(TestAlpEncoding, BatchedDecode) {
+  // A caller that reads a page in more than one batch takes a different path
+  // through the decoder than one that asks for the whole page at once, and the
+  // remaining count is the only record of how far it has got.
+  using c_type = typename TypeParam::c_type;
+  this->InitData(2000, 1);
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, /*use_dictionary=*/false,
+                                             this->descr_.get());
+  encoder->Put(this->draws_, this->num_values_);
+  auto buffer = encoder->FlushValues();
+
+  const std::vector<std::vector<int>> batch_plans = {
+      {2000}, {1999, 1}, {1, 1999}, {1, 7, 100, 1892}, {1024, 976}, {500, 500, 500, 500}};
+  for (const auto& batches : batch_plans) {
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
+    decoder->SetData(this->num_values_, buffer->data(), static_cast<int>(buffer->size()));
+    ASSERT_EQ(this->num_values_, decoder->values_left());
+
+    int decoded = 0;
+    for (int batch : batches) {
+      SCOPED_TRACE("decoded=" + std::to_string(decoded) +
+                   " batch=" + std::to_string(batch));
+      ASSERT_EQ(batch, decoder->Decode(this->decode_buf_ + decoded, batch));
+      decoded += batch;
+      ASSERT_EQ(this->num_values_ - decoded, decoder->values_left());
+    }
+    ASSERT_EQ(this->num_values_, decoded);
+    ASSERT_EQ(0, std::memcmp(this->draws_, this->decode_buf_,
+                             this->num_values_ * sizeof(c_type)));
+  }
+}
+
+TYPED_TEST(TestAlpEncoding, RoundTripWithRepeats) {
+  // Test with repeated patterns
+  ASSERT_NO_FATAL_FAILURE(this->Execute(100, 10));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1024, 3));
+}
+
+TYPED_TEST(TestAlpEncoding, SpecialValues) {
+  // Test NaN, Inf, -Inf, -0.0 (these become exceptions in ALP)
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpecialValues(100, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpecialValues(1024, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpecialValues(2000, 1));
+}
+
+TYPED_TEST(TestAlpEncoding, DecimalPatterns) {
+  // Test decimal-like values that ALP compresses efficiently
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteDecimalPattern(100, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteDecimalPattern(1024, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteDecimalPattern(5000, 1));
+}
+
+TYPED_TEST(TestAlpEncoding, SpacedRoundTrip) {
+  // Test with null values at various probabilities
+  for (double null_prob : {0.0, 0.1, 0.5, 0.9}) {
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(100, 1, 0, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(1024, 1, 0, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(2000, 1, 0, null_prob));
+  }
+
+  // Test with offset
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(1024, 1, 7, 0.3));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(1024, 1, 64, 0.5));
+}
+
+TYPED_TEST(TestAlpEncoding, LargeDataset) {
+  // Test with large dataset (multiple pages worth)
+  ASSERT_NO_FATAL_FAILURE(this->Execute(100000, 1));
+}
+
+TYPED_TEST(TestAlpEncoding, RandomData) {
+  using c_type = typename TypeParam::c_type;
+  ::arrow::random::RandomArrayGenerator rag(42);
+
+  // Spread the magnitude so values land on both sides of the ALP encodable
+  // window (`int64(v * 10^e * 10^-f)` overflows for large magnitudes and
+  // falls through to the exception path). The previous ±1000 range stayed
+  // entirely in encodable territory and never exercised the fallback.
+  std::shared_ptr<::arrow::Array> arr;
+  if constexpr (std::is_same_v<c_type, float>) {
+    arr = rag.Float32(10000, -1e30f, 1e30f);
+  } else {
+    arr = rag.Float64(10000, -1e30, 1e30);
+  }
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
+  ASSERT_NO_THROW(encoder->Put(*arr));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
+  decoder->SetData(static_cast<int>(arr->length()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(arr->length());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(arr->length()));
+  ASSERT_EQ(decoded, arr->length());
+
+  // Verify round-trip
+  auto typed_arr = std::static_pointer_cast<typename std::conditional<
+      std::is_same_v<c_type, float>, ::arrow::FloatArray, ::arrow::DoubleArray>::type>(
+      arr);
+  ASSERT_THAT(output,
+              ::testing::ElementsAreArray(typed_arr->raw_values(), arr->length()));
+}
+
+TYPED_TEST(TestAlpEncoding, ConstantValues) {
+  // All-same values should compress to bit_width=0.
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data(1024, static_cast<c_type>(123.456));
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), static_cast<int>(data.size()));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(data.size());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
+  ASSERT_EQ(decoded, static_cast<int>(data.size()));
+
+  ASSERT_THAT(output, ::testing::ElementsAreArray(data));
+}
+
+TYPED_TEST(TestAlpEncoding, AllExceptions) {
+  // All-NaN forces every value through the ALP exception path.
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data(100, std::numeric_limits<c_type>::quiet_NaN());
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), static_cast<int>(data.size()));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(data.size());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
+  ASSERT_EQ(decoded, static_cast<int>(data.size()));
+
+  // Bit-exact: NaN != NaN under ==, so memcmp on the raw bytes is the
+  // contract being verified.
+  ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
+}
+
+TYPED_TEST(TestAlpEncoding, SingleElement) {
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data = {static_cast<c_type>(42.5)};
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), 1);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(1, buffer->data(), static_cast<int>(buffer->size()));
+
+  c_type output;
+  int decoded = decoder->Decode(&output, 1);
+  ASSERT_EQ(1, decoded);
+  ASSERT_EQ(data[0], output);
+}
+
+TYPED_TEST(TestAlpEncoding, BoundaryValues) {
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data = {
+      std::numeric_limits<c_type>::max(),
+      std::numeric_limits<c_type>::min(),
+      std::numeric_limits<c_type>::lowest(),
+      std::numeric_limits<c_type>::denorm_min(),
+      std::numeric_limits<c_type>::epsilon(),
+      static_cast<c_type>(0.0),
+      static_cast<c_type>(-0.0),
+      static_cast<c_type>(1.0),
+      static_cast<c_type>(-1.0),
+  };
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), static_cast<int>(data.size()));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(data.size());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
+  ASSERT_EQ(decoded, static_cast<int>(data.size()));
+
+  // Bit-exact comparison (handles -0.0 / NaN signatures correctly).
+  ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
+}
+
+TEST(AlpEncodingAdHoc, InvalidDataTypes) {
+  // ALP only supports float and double
+  ASSERT_THROW(MakeTypedEncoder<Int32Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<Int64Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<BooleanType>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<ByteArrayType>(Encoding::ALP), ParquetException);
+
+  ASSERT_THROW(MakeTypedDecoder<Int32Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<Int64Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<BooleanType>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<ByteArrayType>(Encoding::ALP), ParquetException);
+}
+
+// Encode with AlpCodec at non-default vector sizes (64, 512, 2048, 4096),
+// then decode through the parquet AlpDecoder to verify it correctly reads
+// log_vector_size from the ALP header and round-trips at any valid size.
+TYPED_TEST(TestAlpEncoding, NonDefaultVectorSizeRoundTrip) {
+  using c_type = typename TypeParam::c_type;
+  using AlpCodec = ::arrow::util::alp::AlpCodec<c_type>;
+
+  auto descr = ExampleDescr<TypeParam>();
+
+  for (const int32_t vs : {64, 512, 2048, 4096}) {
+    // Below, at, and above a vector boundary, plus a size that leaves a partial
+    // trailing vector.
+    for (const int32_t n : {vs / 2, vs, vs * 3, vs * 2 + 17}) {
+      SCOPED_TRACE("vector_size=" + std::to_string(vs) + " n=" + std::to_string(n));
+
+      std::vector<c_type> input(n);
+      for (int32_t i = 0; i < n; ++i) {
+        input[i] = static_cast<c_type>(i) * static_cast<c_type>(0.123);
+      }
+
+      ASSERT_OK_AND_ASSIGN(int64_t max_comp, AlpCodec::GetMaxCompressedSize(n, vs));
+      std::vector<uint8_t> comp(max_comp);
+      int64_t comp_size = comp.size();
+      ASSERT_OK(AlpCodec::Encode(input.data(), n, vs, comp.data(), &comp_size));
+      ASSERT_GT(comp_size, 0);
+
+      auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+      decoder->SetData(n, comp.data(), static_cast<int>(comp_size));
+
+      std::vector<c_type> output(n);
+      ASSERT_EQ(n, decoder->Decode(output.data(), n));
+      ASSERT_THAT(output, ::testing::ElementsAreArray(input));
+    }
   }
 }
 

@@ -168,6 +168,11 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+
+/// ALP is a Preview feature in the Parquet format, so writers must not emit it
+/// unless the user has explicitly asked for it. See the ALP section of
+/// `Encodings.md` in apache/parquet-format.
+static constexpr bool DEFAULT_IS_ALP_ENABLED = false;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
 
@@ -230,13 +235,15 @@ class PARQUET_EXPORT ColumnProperties {
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
                    size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE,
-                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED)
+                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED,
+                   bool alp_enabled = DEFAULT_IS_ALP_ENABLED)
       : encoding_(encoding),
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        page_index_enabled_(page_index_enabled) {}
+        page_index_enabled_(page_index_enabled),
+        alp_enabled_(alp_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -268,6 +275,8 @@ class PARQUET_EXPORT ColumnProperties {
   void set_page_index_enabled(bool page_index_enabled) {
     page_index_enabled_ = page_index_enabled;
   }
+
+  void set_alp_enabled(bool alp_enabled) { alp_enabled_ = alp_enabled; }
 
   void set_bloom_filter_options(const BloomFilterOptions& bloom_filter_options) {
     if (!(bloom_filter_options.fpp > 0.0 && bloom_filter_options.fpp < 1.0)) {
@@ -303,6 +312,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   bool page_index_enabled() const { return page_index_enabled_; }
 
+  bool alp_enabled() const { return alp_enabled_; }
+
   std::optional<BloomFilterOptions> bloom_filter_options() const {
     return bloom_filter_options_;
   }
@@ -317,6 +328,7 @@ class PARQUET_EXPORT ColumnProperties {
   size_t max_stats_size_;
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
+  bool alp_enabled_;
   std::optional<BloomFilterOptions> bloom_filter_options_;
 };
 
@@ -853,6 +865,57 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_write_page_index(path->ToDotString());
     }
 
+    /// \brief Allow ALP encoding to be written for all columns. Default disabled.
+    ///
+    /// ALP is a Preview feature in the Parquet format: the specification is
+    /// stable, but readers across the ecosystem may not implement it yet, and a
+    /// reader that does not implement it must fail rather than return wrong
+    /// values. parquet-format therefore asks writers to keep ALP behind an
+    /// opt-in flag, which is what this method is.
+    ///
+    /// This flag only grants permission; it does not select ALP. To write ALP,
+    /// enable the flag *and* select the encoding, for example:
+    ///
+    ///     builder.enable_alp_encoding()->encoding(Encoding::ALP);
+    ///
+    /// Selecting Encoding::ALP for a column that has not been granted
+    /// permission makes `build()` throw.
+    ///
+    /// Please check the link below for more details:
+    /// https://github.com/apache/parquet-format/blob/master/Encodings.md#adaptive-lossless-floating-point-alp--10
+    Builder* enable_alp_encoding() {
+      default_column_properties_.set_alp_enabled(true);
+      return this;
+    }
+
+    /// Disallow ALP encoding for all columns. Default disabled.
+    Builder* disable_alp_encoding() {
+      default_column_properties_.set_alp_enabled(false);
+      return this;
+    }
+
+    /// Allow ALP encoding for the column specified by `path`. Default disabled.
+    Builder* enable_alp_encoding(const std::string& path) {
+      alp_enabled_[path] = true;
+      return this;
+    }
+
+    /// Allow ALP encoding for the column specified by `path`. Default disabled.
+    Builder* enable_alp_encoding(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_alp_encoding(path->ToDotString());
+    }
+
+    /// Disallow ALP encoding for the column specified by `path`. Default disabled.
+    Builder* disable_alp_encoding(const std::string& path) {
+      alp_enabled_[path] = false;
+      return this;
+    }
+
+    /// Disallow ALP encoding for the column specified by `path`. Default disabled.
+    Builder* disable_alp_encoding(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_alp_encoding(path->ToDotString());
+    }
+
     /// \brief Set the level to write size statistics for all columns. Default is
     /// PageAndColumnChunk.
     ///
@@ -886,6 +949,7 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
+      for (const auto& item : alp_enabled_) get(item.first).set_alp_enabled(item.second);
       for (const auto& item : bloom_filter_options_) {
         const auto& bloom_filter_options = item.second;
         if (bloom_filter_options.ndv.has_value()) {
@@ -895,6 +959,17 @@ class PARQUET_EXPORT WriterProperties {
           resolved_options.ndv = max_row_group_length_;
           get(item.first).set_bloom_filter_options(resolved_options);
         }
+      }
+
+      // ALP is a Preview feature in the Parquet format, so it must never be
+      // written by accident. Refuse to build properties that select ALP for a
+      // column without also granting permission for it. Between them the two
+      // checks below cover every column of any schema these properties are used
+      // with: `column_properties` holds the columns named in one of the maps
+      // above, and `default_column_properties_` applies to all the others.
+      CheckAlpEnabled(default_column_properties_, "the default column properties");
+      for (const auto& item : column_properties) {
+        CheckAlpEnabled(item.second, "column '" + item.first + "'");
       }
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
@@ -908,6 +983,19 @@ class PARQUET_EXPORT WriterProperties {
 
    private:
     void CopyColumnSpecificProperties(const WriterProperties& properties);
+
+    static void CheckAlpEnabled(const ColumnProperties& properties,
+                                const std::string& what) {
+      if (properties.encoding() == Encoding::ALP && !properties.alp_enabled()) {
+        throw ParquetException(
+            "ALP is a Preview feature in the Parquet format and is disabled by "
+            "default, but " +
+            what +
+            " selected Encoding::ALP. Call "
+            "WriterProperties::Builder::enable_alp_encoding(), optionally with a "
+            "column path, to allow it.");
+      }
+    }
 
     MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
@@ -935,6 +1023,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    std::unordered_map<std::string, bool> alp_enabled_;
     std::unordered_map<std::string, BloomFilterOptions> bloom_filter_options_;
 
     bool content_defined_chunking_enabled_;
@@ -1040,6 +1129,27 @@ class PARQUET_EXPORT WriterProperties {
     }
     for (const auto& item : column_properties_) {
       if (item.second.page_index_enabled()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// \brief Whether ALP encoding is allowed for the column at `path`.
+  ///
+  /// ALP is a Preview feature in the Parquet format, so this is false unless the
+  /// writer opted in through WriterProperties::Builder::enable_alp_encoding().
+  bool alp_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).alp_enabled();
+  }
+
+  /// \brief Whether ALP encoding is allowed for any column.
+  bool alp_enabled() const {
+    if (default_column_properties_.alp_enabled()) {
+      return true;
+    }
+    for (const auto& item : column_properties_) {
+      if (item.second.alp_enabled()) {
         return true;
       }
     }
