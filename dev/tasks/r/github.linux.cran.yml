@@ -19,6 +19,11 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  contents: read
+  # For OIDC token for sccache
+  id-token: write
+
 jobs:
   as-cran:
     name: "rhub/{{ '${{ matrix.config.r_image }}' }}"
@@ -43,6 +48,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
 
+      {{ macros.github_configure_aws_credentials()|indent }}
       - name: Docker Run
         shell: bash
         env:
