@@ -4573,6 +4573,19 @@ TEST(Cast, DictTypeToAnotherDict) {
       Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
 }
 
+TEST(Cast, EmptyDictionaryToAnotherDictionary) {
+  auto dictionary_values = ArrayFromJSON(utf8(), R"(["foo", "bar"])");
+
+  ASSERT_OK_AND_ASSIGN(auto input, DictionaryArray::FromArrays(
+                                       dictionary(int32(), utf8()),
+                                       ArrayFromJSON(int32(), "[]"), dictionary_values));
+  ASSERT_OK_AND_ASSIGN(auto result, Cast(*input, dictionary(int64(), utf8())));
+  auto dictionary_result = checked_pointer_cast<DictionaryArray>(result);
+
+  ASSERT_TRUE(dictionary_result->indices()->type()->Equals(int64()));
+  AssertArraysEqual(*dictionary_values, *dictionary_result->dictionary());
+}
+
 TEST(Cast, NoOutBitmapIfInIsAllValid) {
   auto a = ArrayFromJSON(int8(), "[1]");
   CastOptions options;
