@@ -29,6 +29,13 @@ pytestmark = pytest.mark.numpy
 np = pytest.importorskip("numpy")
 
 
+def requires_numpy_version(min_version):
+    return pytest.mark.skipif(
+        Version(np.__version__) < Version(min_version),
+        reason=f"Test requires numpy {min_version} or later",
+    )
+
+
 def PyCapsule_IsValid(capsule, name):
     return ctypes.pythonapi.PyCapsule_IsValid(ctypes.py_object(capsule), name) == 1
 
@@ -150,12 +157,10 @@ def multidim_arrays():
     ]
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize(('arr', 'expected'), multidim_arrays())
 def test_array_to_tensor_dlpack(arr, expected):
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     tensor = arr.to_tensor()
     # A Tensor sharing an Array buffer is immutable, so it can only be exported
     # through the versioned DLPack protocol.
@@ -165,11 +170,9 @@ def test_array_to_tensor_dlpack(arr, expected):
     assert tensor.__dlpack_device__() == (1, 0)
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 def test_fixed_shape_tensor_dlpack_permuted():
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     # A non-trivial permutation makes to_tensor() produce a non-row-major
     # tensor: each row-major [3, 2] block is exposed as a logical [2, 3] cell.
     storage = pa.FixedSizeListArray.from_arrays(
@@ -206,12 +209,10 @@ def multidim_arrays_with_nulls():
     ]
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize(('arr', 'expected'), multidim_arrays_with_nulls())
 def test_array_to_tensor_dlpack_nulls(arr, expected):
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     with pytest.raises(pa.ArrowInvalid, match="Array contains nulls"):
         arr.to_tensor()
 
@@ -287,12 +288,10 @@ def test_dlpack_versioned_capsule(obj, max_version, copy):
     assert PyCapsule_IsValid(capsule, b"dltensor_versioned") is True
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize('obj', dlpack_objects())
 def test_dlpack_versioned_roundtrip(obj):
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     expected = np.from_dlpack(DLPackForwarder(obj, max_version=None))
     for copy in [None, False, True]:
         result = np.from_dlpack(
@@ -300,12 +299,10 @@ def test_dlpack_versioned_roundtrip(obj):
         np.testing.assert_array_equal(result, expected, strict=True)
 
 
+@requires_numpy_version("2.2.5")
 @check_bytes_allocated
 def test_dlpack_copy_is_writeable():
     # NumPy did not set the writeable flag on DLPack imports before 2.2.5.
-    if Version(np.__version__) < Version("2.2.5"):
-        pytest.skip("Writable DLPack imports require numpy 2.2.5 or later")
-
     arr = pa.array([1, 2, 3], type=pa.int32())
 
     # Arrow arrays are immutable, so a shared export is read-only
