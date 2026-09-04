@@ -1,8 +1,7 @@
 /*
  * uriparser - RFC 3986 URI parsing library
  *
- * Copyright (C) 2007, Weijia Song <songweijia@gmail.com>
- * Copyright (C) 2007, Sebastian Pipping <sebastian@pipping.org>
+ * Copyright (C) 2025, Sebastian Pipping <sebastian@pipping.org>
  * All rights reserved.
  *
  * Redistribution and use in source  and binary forms, with or without
@@ -37,49 +36,39 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef URI_DOXYGEN
-#  include "UriParseBase.h"
+#if (defined(URI_PASS_ANSI) && !defined(URI_SET_HOST_COMMON_H_ANSI)) \
+    || (defined(URI_PASS_UNICODE) && !defined(URI_SET_HOST_COMMON_H_UNICODE)) \
+    || (!defined(URI_PASS_ANSI) && !defined(URI_PASS_UNICODE))
+/* What encodings are enabled? */
+#  include "UriDefsConfig.h"
+#  if (!defined(URI_PASS_ANSI) && !defined(URI_PASS_UNICODE))
+/* Include SELF twice */
+#    ifdef URI_ENABLE_ANSI
+#      define URI_PASS_ANSI 1
+#      include "UriSetHostCommon.h"
+#      undef URI_PASS_ANSI
+#    endif
+#    ifdef URI_ENABLE_UNICODE
+#      define URI_PASS_UNICODE 1
+#      include "UriSetHostCommon.h"
+#      undef URI_PASS_UNICODE
+#    endif
+/* Only one pass for each encoding */
+#  elif (defined(URI_PASS_ANSI) && !defined(URI_SET_HOST_COMMON_H_ANSI) \
+         && defined(URI_ENABLE_ANSI)) \
+      || (defined(URI_PASS_UNICODE) && !defined(URI_SET_HOST_COMMON_H_UNICODE) \
+          && defined(URI_ENABLE_UNICODE))
+#    ifdef URI_PASS_ANSI
+#      define URI_SET_HOST_COMMON_H_ANSI 1
+#      include "UriDefsAnsi.h"
+#    else
+#      define URI_SET_HOST_COMMON_H_UNICODE 1
+#      include "UriDefsUnicode.h"
+#    endif
+
+int URI_FUNC(InternalSetHostMm)(URI_TYPE(Uri) * uri, UriHostType hostType,
+                                const URI_CHAR * first, const URI_CHAR * afterLast,
+                                UriMemoryManager * memory);
+
+#  endif
 #endif
-
-void uriWriteQuadToDoubleByte(const unsigned char * hexDigits, int digitCount,
-                              unsigned char * output) {
-    switch (digitCount) {
-    case 1:
-        /* 0x___? -> \x00 \x0? */
-        output[0] = 0;
-        output[1] = hexDigits[0];
-        break;
-
-    case 2:
-        /* 0x__?? -> \0xx \x?? */
-        output[0] = 0;
-        output[1] = 16 * hexDigits[0] + hexDigits[1];
-        break;
-
-    case 3:
-        /* 0x_??? -> \0x? \x?? */
-        output[0] = hexDigits[0];
-        output[1] = 16 * hexDigits[1] + hexDigits[2];
-        break;
-
-    case 4:
-        /* 0x???? -> \0?? \x?? */
-        output[0] = 16 * hexDigits[0] + hexDigits[1];
-        output[1] = 16 * hexDigits[2] + hexDigits[3];
-        break;
-    }
-}
-
-unsigned char uriGetOctetValue(const unsigned char * digits, int digitCount) {
-    switch (digitCount) {
-    case 1:
-        return digits[0];
-
-    case 2:
-        return 10 * digits[0] + digits[1];
-
-    case 3:
-    default:
-        return 100 * digits[0] + 10 * digits[1] + digits[2];
-    }
-}
