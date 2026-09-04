@@ -644,6 +644,27 @@ TEST(ReaderTests, ShortRows) {
   ASSERT_TRUE(table->Equals(*expected_table));
 }
 
+TEST(ReaderTests, IgnoreExtraColumns) {
+  auto input =
+      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a,b\n1,2,3\n4,5\n"));
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.ignore_extra_columns = true;
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.default_column_type = int64();
+
+  ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(io::default_io_context(), input,
+                                                      ReadOptions::Defaults(),
+                                                      parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+
+  auto expected_schema = schema({field("a", int64()), field("b", int64())});
+  auto expected_table = TableFromJSON(expected_schema, {R"([
+    {"a":1, "b":2},
+    {"a":4, "b":5}
+  ])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
 TEST(ReaderTests, ShortRowsTypedConverters) {
   auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>("1,10\n2\n"));
   auto read_options = ReadOptions::Defaults();
