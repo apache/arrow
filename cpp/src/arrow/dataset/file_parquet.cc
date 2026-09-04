@@ -130,6 +130,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   // Must be set here since the sync ScanTask handles pre-buffering itself
   arrow_properties.set_pre_buffer(
       parquet_scan_options.arrow_reader_properties->pre_buffer());
+  // Dataset scans consume each row group once, so cached ranges can be released.
+  arrow_properties.set_auto_evict_read_cache(true);
   arrow_properties.set_cache_options(
       parquet_scan_options.arrow_reader_properties->cache_options());
   arrow_properties.set_io_context(
