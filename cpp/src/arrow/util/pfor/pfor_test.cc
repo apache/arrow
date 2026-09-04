@@ -1266,4 +1266,282 @@ TYPED_TEST(PforTest, DeltaGateAdmitsTheSawtooth) {
   EXPECT_LE(plan.bit_width, 5);
 }
 
+// Interleaved bit-packing layout
+//
+// The interleaved layout writes the same number of bytes as the sequential one,
+// so a wrong-layout decode returns wrong values rather than running out of
+// input. That makes these round trips the only thing standing between the two
+// layouts, and it is why the tests below also assert that the two payloads are
+// genuinely different bytes: without that, a silent fallback on both sides
+// would pass every round trip here.
+
+namespace {
+
+/// The packing_mode byte a page recorded, which is the first byte of the header.
+uint8_t PackingModeOf(const std::vector<uint8_t>& page) { return page[0]; }
+
+/// Build a vector whose deltas need exactly `width` bits, so that a loop over
+/// widths reaches every one of the packing kernels.
+///
+/// A frame of reference of zero exercises the plain unpack; a non-zero one the
+/// unpack that folds the frame into its own store. At the full width of the type
+/// there is no choice between them: deltas that wide only fit under the type's
+/// minimum, so that width is always framed.
+template <typename T>
+std::vector<T> ValuesForWidth(int width, bool zero_frame, int32_t num_values,
+                              uint32_t seed) {
+  using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
+  constexpr int kBits = 8 * static_cast<int>(sizeof(T));
+
+  const T base =
+      width == kBits ? std::numeric_limits<T>::min() : (zero_frame ? T{0} : T{-1000});
+  std::vector<T> values(num_values, base);
+  if (width == 0) {
+    return values;
+  }
+
+  const UnsignedT mask = width == kBits
+                             ? ~UnsignedT{0}
+                             : static_cast<UnsignedT>((UnsignedT{1} << width) - 1);
+  std::mt19937_64 rng(seed);
+  for (int32_t i = 0; i < num_values; ++i) {
+    values[i] = static_cast<T>(static_cast<UnsignedT>(base) +
+                               (static_cast<UnsignedT>(rng()) & mask));
+  }
+  // Pin the two ends, so the vector cannot land on a narrower width by chance.
+  values[0] = base;
+  values[1] = static_cast<T>(static_cast<UnsignedT>(base) + mask);
+  return values;
+}
+
+}  // namespace
+
+/// Every bit width round-trips through the interleaved layout, with and without
+/// a frame of reference to fold into the unpack.
+///
+/// For int64 this exercises the other side of the same request: the layout does
+/// not apply, so the page must come back correct in the sequential layout.
+TYPED_TEST(PforTest, InterleavedAllBitWidths) {
+  using T = TypeParam;
+  constexpr auto kInterleaved = PackingMode::kForBitPackInterleaved;
+  const auto num_values = static_cast<int32_t>(PforConstants::kPforVectorSize);
+
+  for (int width = 0; width <= 32; ++width) {
+    for (const bool zero_frame : {true, false}) {
+      // A 32-bit delta only fits under the minimum of a 32-bit type, so there is
+      // no unframed form of that width to test.
+      if (zero_frame && width == 8 * static_cast<int>(sizeof(T))) continue;
+      const auto values =
+          ValuesForWidth<T>(width, zero_frame, num_values, static_cast<uint32_t>(width));
+
+      int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+      std::vector<uint8_t> page(comp_size);
+      ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, page.data(), &comp_size,
+                                       kInterleaved));
+      page.resize(comp_size);
+
+      std::vector<T> decoded(num_values);
+      ASSERT_OK(
+          PforWrapper<T>::Decode(page.data(), comp_size, num_values, decoded.data()))
+          << "width " << width << " zero_frame " << zero_frame;
+      ASSERT_EQ(values, decoded) << "width " << width << " zero_frame " << zero_frame;
+
+      const uint8_t expected_mode =
+          static_cast<uint8_t>(sizeof(T) == 4 ? kInterleaved : PackingMode::kForBitPack);
+      ASSERT_EQ(expected_mode, PackingModeOf(page)) << "width " << width;
+    }
+  }
+}
+
+/// Exceptions are stored at the positions the encoder recorded, and the
+/// interleaved layout does not move values between positions, so those
+/// positions need no translation.
+TYPED_TEST(PforTest, InterleavedWithExceptions) {
+  using T = TypeParam;
+  const auto num_values = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  auto values = TestFixture::RandomValues(num_values, T{100}, T{140}, /*seed=*/7);
+  // First, middle and last position, so an off-by-one in either direction shows.
+  values[0] = std::numeric_limits<T>::max() / 2;
+  values[num_values / 2] = std::numeric_limits<T>::max() / 2;
+  values[num_values - 1] = std::numeric_limits<T>::max() / 2;
+
+  int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+  std::vector<uint8_t> page(comp_size);
+  ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, page.data(), &comp_size,
+                                   PackingMode::kForBitPackInterleaved));
+
+  std::vector<T> decoded(num_values);
+  ASSERT_OK(PforWrapper<T>::Decode(page.data(), comp_size, num_values, decoded.data()));
+  ASSERT_EQ(values, decoded);
+}
+
+/// A page whose length is not a multiple of the vector size ends in a short
+/// vector, which the interleaved layout cannot hold. Both sides derive that from
+/// the element count, so it round-trips without a per-vector flag.
+TYPED_TEST(PforTest, InterleavedShortTailVector) {
+  using T = TypeParam;
+  for (const int32_t num_values : {1, 1023, 1025, 2048, 3000, 4096}) {
+    auto values = TestFixture::RandomValues(num_values, T{0}, T{5000},
+                                            static_cast<uint32_t>(num_values));
+    int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> page(comp_size);
+    ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, page.data(), &comp_size,
+                                     PackingMode::kForBitPackInterleaved));
+
+    std::vector<T> decoded(num_values);
+    ASSERT_OK(PforWrapper<T>::Decode(page.data(), comp_size, num_values, decoded.data()))
+        << "num_values " << num_values;
+    ASSERT_EQ(values, decoded) << "num_values " << num_values;
+  }
+}
+
+/// The two layouts write the same number of bytes, so choosing one costs no
+/// space.
+TYPED_TEST(PforTest, InterleavedCostsNoSpace) {
+  using T = TypeParam;
+  for (const int32_t num_values : {1024, 2048, 3000}) {
+    auto values = TestFixture::RandomValues(num_values, T{0}, T{5000}, /*seed=*/11);
+
+    int64_t sequential_size =
+        PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> sequential(sequential_size);
+    ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, sequential.data(),
+                                     &sequential_size));
+
+    int64_t interleaved_size =
+        PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> interleaved(interleaved_size);
+    ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, interleaved.data(),
+                                     &interleaved_size,
+                                     PackingMode::kForBitPackInterleaved));
+
+    ASSERT_EQ(sequential_size, interleaved_size) << "num_values " << num_values;
+  }
+}
+
+/// The two layouts really are different bytes, which is what keeps the round
+/// trips above honest: if a mode request quietly fell back to sequential on both
+/// the encode and the decode side, every one of them would still pass.
+///
+/// At 32 bits the layouts coincide -- the sequential layout puts value i in word
+/// i, and so does the interleaved one -- so the payloads are identical there by
+/// construction, not by accident.
+TEST(PforInterleavedTest, LayoutsDifferBelowThirtyTwoBits) {
+  using T = int32_t;
+  const auto num_values = static_cast<int32_t>(PforConstants::kPforVectorSize);
+
+  for (int width = 1; width <= 32; ++width) {
+    const auto values = ValuesForWidth<T>(width, /*zero_frame=*/width < 32, num_values,
+                                          static_cast<uint32_t>(width));
+
+    int64_t sequential_size =
+        PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> sequential(sequential_size);
+    ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, sequential.data(),
+                                     &sequential_size));
+    sequential.resize(sequential_size);
+
+    int64_t interleaved_size =
+        PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> interleaved(interleaved_size);
+    ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, interleaved.data(),
+                                     &interleaved_size,
+                                     PackingMode::kForBitPackInterleaved));
+    interleaved.resize(interleaved_size);
+
+    ASSERT_EQ(sequential.size(), interleaved.size()) << "width " << width;
+
+    // The cost model is free to choose a narrower width and pay for exceptions,
+    // which would leave this loop testing one width many times over. Read the
+    // width it settled on out of the vector's own metadata: header, then the
+    // one-entry offset array, then the frame of reference.
+    const int64_t bit_width_offset =
+        PforConstants::kHeaderSize +
+        static_cast<int64_t>(sizeof(PforConstants::OffsetType)) +
+        static_cast<int64_t>(sizeof(T));
+    ASSERT_EQ(width, sequential[bit_width_offset]) << "requested width " << width;
+
+    // Skip the header, whose packing_mode byte differs on purpose.
+    const bool payload_differs =
+        !std::equal(sequential.begin() + PforConstants::kHeaderSize, sequential.end(),
+                    interleaved.begin() + PforConstants::kHeaderSize);
+    if (width == 32) {
+      ASSERT_FALSE(payload_differs) << "the layouts coincide at 32 bits";
+    } else {
+      ASSERT_TRUE(payload_differs) << "width " << width;
+    }
+  }
+}
+
+/// A request the page cannot satisfy is recorded as the sequential layout rather
+/// than refused, so one writer-side setting can cover a file whose columns are
+/// not all eligible.
+TEST(PforInterleavedTest, UnsatisfiableRequestRecordsSequential) {
+  const auto num_values = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  constexpr auto kInterleaved = PackingMode::kForBitPackInterleaved;
+
+  // Eight bytes per element.
+  {
+    std::vector<int64_t> values(num_values);
+    std::iota(values.begin(), values.end(), int64_t{1} << 40);
+    int64_t comp_size =
+        PforWrapper<int64_t>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> page(comp_size);
+    ASSERT_OK(PforWrapper<int64_t>::Encode(values.data(), num_values, page.data(),
+                                           &comp_size, kInterleaved));
+    ASSERT_EQ(static_cast<uint8_t>(PackingMode::kForBitPack), PackingModeOf(page));
+
+    std::vector<int64_t> decoded(num_values);
+    ASSERT_OK(
+        PforWrapper<int64_t>::Decode(page.data(), comp_size, num_values, decoded.data()));
+    ASSERT_EQ(values, decoded);
+  }
+
+  // A vector size other than 1024.
+  {
+    std::vector<int32_t> values(num_values);
+    std::iota(values.begin(), values.end(), 0);
+    constexpr int32_t kVectorSize = 512;
+    int64_t comp_size =
+        PforWrapper<int32_t>::GetMaxCompressedSize(num_values, kVectorSize).ValueOrDie();
+    std::vector<uint8_t> page(comp_size);
+    ASSERT_OK(PforWrapper<int32_t>::Encode(values.data(), num_values, kVectorSize,
+                                           page.data(), &comp_size, kInterleaved));
+    ASSERT_EQ(static_cast<uint8_t>(PackingMode::kForBitPack), PackingModeOf(page));
+
+    std::vector<int32_t> decoded(num_values);
+    ASSERT_OK(
+        PforWrapper<int32_t>::Decode(page.data(), comp_size, num_values, decoded.data()));
+    ASSERT_EQ(values, decoded);
+  }
+}
+
+/// A page that declares the interleaved layout alongside a vector size or an
+/// element width that cannot support it is rejected, rather than decoded into
+/// wrong values.
+TEST(PforInterleavedTest, ForgedHeaderIsRejected) {
+  const auto num_values = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  std::vector<int32_t> values(num_values);
+  std::iota(values.begin(), values.end(), 0);
+  constexpr int32_t kVectorSize = 512;
+
+  int64_t comp_size =
+      PforWrapper<int32_t>::GetMaxCompressedSize(num_values, kVectorSize).ValueOrDie();
+  std::vector<uint8_t> page(comp_size);
+  ASSERT_OK(PforWrapper<int32_t>::Encode(values.data(), num_values, kVectorSize,
+                                         page.data(), &comp_size));
+
+  std::vector<int32_t> decoded(num_values);
+  page[0] = static_cast<uint8_t>(PackingMode::kForBitPackInterleaved);
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(page.data(), comp_size, num_values,
+                                                      decoded.data()));
+
+  // An unknown layout is an error too, so a page written by a later encoder is
+  // refused instead of misread. The two layouts are the same size, so a reader
+  // that guessed would not run short.
+  page[0] = 2;
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(page.data(), comp_size, num_values,
+                                                      decoded.data()));
+}
+
 }  // namespace arrow::util::pfor

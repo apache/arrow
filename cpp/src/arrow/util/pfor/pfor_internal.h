@@ -232,6 +232,13 @@ class PforEncodedVector {
 /// vector used by the vector's own header, so turning a mode off only narrows
 /// what the encoder will choose, and pages written either way read the same.
 struct PforEncodeOptions {
+  PforEncodeOptions() = default;
+  /// Implicit, so a caller that only cares about the layout can pass a bare
+  /// mode rather than spelling out the whole struct.
+  PforEncodeOptions(PackingMode mode) : mode(mode) {}  // NOLINT(runtime/explicit)
+  PforEncodeOptions(bool delta_enabled, PackingMode mode)
+      : delta_enabled(delta_enabled), mode(mode) {}
+
   /// Let the planner difference a vector when its cost model prefers that.
   bool delta_enabled = true;
 
