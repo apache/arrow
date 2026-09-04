@@ -290,17 +290,20 @@ class BlockParserImpl {
     bool ignoring_extra_field = false;
 
     auto IsExtraField = [&]() {
-      return batch_.num_cols_ >= 0 && options_.ignore_extra_columns &&
+      return options_.ignore_extra_columns && batch_.num_cols_ >= 0 &&
              num_cols >= batch_.num_cols_;
     };
     auto StartField = [&](bool quoted) {
-      ignoring_extra_field = IsExtraField();
-      if (!ignoring_extra_field) {
-        values_writer->StartField(quoted);
+      if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
+        if (ARROW_PREDICT_FALSE(IsExtraField())) {
+          ignoring_extra_field = true;
+        } else {
+          values_writer->StartField(quoted);
+        }
       }
     };
     auto FinishField = [&]() {
-      if (!IsExtraField()) {
+      if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
         values_writer->FinishField(parsed_writer);
       }
     };
@@ -375,7 +378,7 @@ class BlockParserImpl {
         goto AbortLine;
       }
       c = *data++;
-      if (!ignoring_extra_field) {
+      if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
         parsed_writer->PushFieldChar(c);
       }
       goto InField;
@@ -395,7 +398,7 @@ class BlockParserImpl {
         goto LineEnd;
       }
     }
-    if (!ignoring_extra_field) {
+    if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
       parsed_writer->PushFieldChar(c);
     }
     goto InField;
@@ -423,7 +426,7 @@ class BlockParserImpl {
         goto AbortLine;
       }
       c = *data++;
-      if (!ignoring_extra_field) {
+      if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
         parsed_writer->PushFieldChar(c);
       }
       goto InQuotedField;
@@ -438,7 +441,7 @@ class BlockParserImpl {
         goto InField;
       }
     }
-    if (!ignoring_extra_field) {
+    if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
       parsed_writer->PushFieldChar(c);
     }
     goto InQuotedField;
@@ -478,6 +481,8 @@ class BlockParserImpl {
   AbortLine:
     // Not a full line except perhaps if in final block
     if (is_final) {
+      // Handle an implicit trailing empty field after a delimiter.
+      ignoring_extra_field = IsExtraField();
       goto LineEnd;
     }
     // Truncated line at end of block, rewind parsed state
@@ -523,7 +528,7 @@ class BlockParserImpl {
         return data;
       }
       // No special chars
-      if (!ignoring_extra_field) {
+      if (ARROW_PREDICT_TRUE(!ignoring_extra_field)) {
         data_writer->PushFieldWord(word);
       }
       data += sizeof(WordType);
