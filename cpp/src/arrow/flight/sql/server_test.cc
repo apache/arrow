@@ -448,7 +448,7 @@ TEST_F(TestFlightSqlServer, TestCommandStatementUpdate) {
 TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   ASSERT_OK_AND_ASSIGN(auto prepared_statement,
                        sql_client->Prepare({}, "SELECT * FROM intTable"));
-  ASSERT_FALSE(prepared_statement->is_update());
+  ASSERT_EQ(prepared_statement->is_update(), std::optional<bool>(false));
 
   ASSERT_OK_AND_ASSIGN(auto flight_info, prepared_statement->Execute());
 
@@ -588,7 +588,7 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
       auto prepared_statement,
       sql_client->Prepare(
           {}, "INSERT INTO INTTABLE (keyName, value) VALUES ('new_value', 999)"));
-  ASSERT_TRUE(prepared_statement->is_update());
+  ASSERT_EQ(prepared_statement->is_update(), std::optional<bool>(true));
 
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
   ASSERT_OK_AND_EQ(1, prepared_statement->ExecuteUpdate());
