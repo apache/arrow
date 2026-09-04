@@ -49,6 +49,63 @@ BinaryViewBuilder::BinaryViewBuilder(const std::shared_ptr<DataType>& type,
                                      MemoryPool* pool)
     : BinaryViewBuilder(pool) {}
 
+Status BinaryViewBuilder::AppendValues(std::span<const std::string_view> values,
+                                       const uint8_t* valid_bytes) {
+  int64_t out_of_line_total = 0;
+  bool reserve_data = true;
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (valid_bytes != NULLPTR && !valid_bytes[i]) {
+      continue;
+    }
+    const auto value_size = values[i].size();
+    if (ARROW_PREDICT_FALSE(
+            value_size >
+            static_cast<size_t>(internal::StringHeapBuilder::ValueSizeLimit()))) {
+      return Status::CapacityError(
+          "BinaryView or StringView elements cannot reference strings larger than 2GB");
+    }
+    if (reserve_data && value_size > BinaryViewType::kInlineSize) {
+      if (value_size >
+          static_cast<uint64_t>(internal::StringHeapBuilder::ValueSizeLimit() -
+                                out_of_line_total)) {
+        reserve_data = false;
+      } else {
+        out_of_line_total += static_cast<int64_t>(value_size);
+      }
+    }
+  }
+
+  RETURN_NOT_OK(Reserve(static_cast<int64_t>(values.size())));
+  if (reserve_data) {
+    RETURN_NOT_OK(ReserveData(out_of_line_total));
+    for (size_t i = 0; i < values.size(); ++i) {
+      if (valid_bytes != NULLPTR && !valid_bytes[i]) {
+        data_builder_.UnsafeAppend(BinaryViewType::c_type{});
+      } else {
+        const auto value = values[i];
+        data_builder_.UnsafeAppend(data_heap_builder_.Append</*Safe=*/false>(
+            reinterpret_cast<const uint8_t*>(value.data()),
+            static_cast<int64_t>(value.size())));
+      }
+    }
+  } else {
+    for (size_t i = 0; i < values.size(); ++i) {
+      if (valid_bytes != NULLPTR && !valid_bytes[i]) {
+        data_builder_.UnsafeAppend(BinaryViewType::c_type{});
+      } else {
+        const auto value = values[i];
+        ARROW_ASSIGN_OR_RAISE(auto view,
+                              data_heap_builder_.Append</*Safe=*/true>(
+                                  reinterpret_cast<const uint8_t*>(value.data()),
+                                  static_cast<int64_t>(value.size())));
+        data_builder_.UnsafeAppend(view);
+      }
+    }
+  }
+  UnsafeAppendToBitmap(valid_bytes, static_cast<int64_t>(values.size()));
+  return Status::OK();
+}
+
 Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                            int64_t length) {
   auto bitmap = array.GetValues<uint8_t>(0, 0);
@@ -212,6 +269,74 @@ ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
                                            int32_t max_chunk_length, MemoryPool* pool)
     : ChunkedBinaryBuilder(max_chunk_value_length, pool) {
   max_chunk_length_ = max_chunk_length;
+}
+
+Status ChunkedBinaryBuilder::AppendValues(std::span<const std::string_view> values,
+                                          const uint8_t* valid_bytes) {
+  size_t offset = 0;
+  while (offset < values.size()) {
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
+      RETURN_NOT_OK(NextChunk());
+    }
+
+    const int64_t available_values = max_chunk_length_ - builder_->length();
+    size_t batch_length = 0;
+    int64_t batch_bytes = 0;
+    bool oversized_chunk = false;
+    while (batch_length < static_cast<size_t>(available_values) &&
+           offset + batch_length < values.size()) {
+      const size_t i = offset + batch_length;
+      if (valid_bytes != NULLPTR && !valid_bytes[i]) {
+        ++batch_length;
+        continue;
+      }
+
+      if (ARROW_PREDICT_FALSE(values[i].size() >
+                              static_cast<size_t>(BinaryBuilder::memory_limit()))) {
+        return Status::CapacityError("Binary values cannot exceed 2GB, got ",
+                                     values[i].size(), " bytes");
+      }
+      const int64_t value_length = static_cast<int64_t>(values[i].size());
+      const int64_t current_bytes = builder_->value_data_length() + batch_bytes;
+      if (value_length > max_chunk_value_length_ - current_bytes) {
+        if (current_bytes == 0) {
+          batch_bytes += value_length;
+          ++batch_length;
+          oversized_chunk = true;
+        }
+        break;
+      }
+      batch_bytes += value_length;
+      ++batch_length;
+    }
+
+    if (batch_length == 0) {
+      RETURN_NOT_OK(NextChunk());
+      continue;
+    }
+
+    RETURN_NOT_OK(builder_->Reserve(static_cast<int64_t>(batch_length)));
+    RETURN_NOT_OK(builder_->ReserveData(batch_bytes));
+    builder_->UnsafeAppendValues(values.subspan(offset, batch_length),
+                                 valid_bytes == NULLPTR ? NULLPTR : valid_bytes + offset);
+    offset += batch_length;
+    if (oversized_chunk) {
+      RETURN_NOT_OK(NextChunk());
+    }
+  }
+  return Status::OK();
+}
+
+Status ChunkedBinaryBuilder::AppendNulls(int64_t length) {
+  while (length > 0) {
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
+      RETURN_NOT_OK(NextChunk());
+    }
+    const int64_t batch_length = std::min(length, max_chunk_length_ - builder_->length());
+    RETURN_NOT_OK(builder_->AppendNulls(batch_length));
+    length -= batch_length;
+  }
+  return Status::OK();
 }
 
 Status ChunkedBinaryBuilder::Finish(ArrayVector* out) {

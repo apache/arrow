@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <numeric>
 #include <sstream>
 
 #include <simdjson.h>
