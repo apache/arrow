@@ -985,6 +985,14 @@ bloom_filter_options : dict, default None
     - A boolean, with ``True`` indicating that a Bloom filter should be produced with
       the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
       equivalent to passing an empty dict.
+use_threads : bool, default False
+    Encode the columns of each row group in parallel on the Arrow CPU
+    thread pool (see :func:`pyarrow.cpu_count`) instead of one after
+    another. The row groups written are the same either way. While a row
+    group is being written, all of its column chunks are held in memory
+    until it is complete, instead of one column chunk at a time; use a
+    smaller ``row_group_size`` if that is a concern. Do not enable this in
+    code that itself runs on the Arrow CPU thread pool: it can deadlock.
 """
 
 _parquet_writer_example_doc = """\
@@ -2017,6 +2025,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
                 bloom_filter_options=None,
+                use_threads=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2051,6 +2060,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
                 bloom_filter_options=bloom_filter_options,
+                use_threads=use_threads,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
