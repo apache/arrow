@@ -63,10 +63,40 @@ class PforConstants {
   /// constant behind; StoreHeader and LoadHeader are the two readers of it.
   static constexpr int64_t kHeaderSize =
       sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + sizeof(int32_t);
-
-  /// Packing mode: FOR + bit-packing (currently the only mode).
-  static constexpr uint8_t kPackingModeForBitPack = 0;
 };
+
+/// \brief Layout of the bit-packed payload, recorded in the page header.
+///
+/// One byte per page, not per vector: a reader picks its unpacking kernel once
+/// and the choice is uniform for the page, which is also what makes a reader
+/// that does not implement a layout able to reject the page up front instead of
+/// misreading it.
+enum class PackingMode : uint8_t {
+  /// Frame of reference plus a sequential little-endian bit-packed stream --
+  /// the layout every Parquet implementation already has, expanded here by
+  /// arrow::internal::unpack. Values of a vector occupy consecutive bit
+  /// positions in stream order.
+  kForBitPack = 0,
+
+  /// Frame of reference plus the lane-interleaved container from FastLanes
+  /// (Afroozeh & Boncz, VLDB '23), packed by arrow::util::fastlanes. Same
+  /// payload size as kForBitPack and the same value order on the way out; the
+  /// bits of one vector are distributed across 32 lanes so that a register load
+  /// brings in values the unpacker needs together.
+  ///
+  /// Only legal for a page whose vector size is exactly the interleaved block
+  /// size (1024) and whose values are 4 bytes wide. A vector shorter than a
+  /// full block -- which is to say the tail vector of a page -- uses
+  /// kForBitPack, so a page mixes the two, and the decoder derives which is
+  /// which from the element count rather than reading a per-vector flag.
+  kForBitPackInterleaved = 1,
+};
+
+/// \brief Whether `mode` names a layout this build can read and write.
+inline bool IsSupportedPackingMode(uint8_t mode) {
+  return mode == static_cast<uint8_t>(PackingMode::kForBitPack) ||
+         mode == static_cast<uint8_t>(PackingMode::kForBitPackInterleaved);
+}
 
 /// \brief Type traits for PFOR integer types
 template <typename T>

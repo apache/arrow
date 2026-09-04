@@ -21,7 +21,8 @@
 //   - Vector size: 1024
 //   - Max exceptions: PforConstants::ExceptionCountType
 //   - Exception values: original integers (not FOR offsets)
-//   - Bit packing: Arrow's BitWriter/unpack
+//   - Bit packing: Arrow's BitWriter/unpack, or the lane-interleaved kernels in
+//     arrow::util::fastlanes when the page asks for that layout
 
 #include "arrow/util/pfor/pfor_internal.h"
 
@@ -30,11 +31,13 @@
 #include <cstring>
 #include <limits>
 #include <span>
+#include <utility>
 
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/fastlanes/fastlanes_kernels_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
@@ -75,6 +78,61 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   int64_t cost_bits = 0;
   return BestWidthFromHistogram<T>(histogram, num_elements, &cost_bits);
 }
+
+namespace {
+
+static_assert(PforConstants::kPforVectorSize ==
+                  static_cast<int64_t>(fastlanes::kBlockSize),
+              "the interleaved layout is only reachable while PFOR's vector size "
+              "and the interleaved block size are the same number");
+
+// Dispatch a runtime bit width into the templated interleaved kernels. Only
+// reached when InterleavedApplies<T>() holds, so the width is in [1, 32] and
+// the block is a full 1024 values.
+//
+// A table of function pointers rather than a switch over 32 cases, because the
+// table keeps each width's body out of line. Folding all 32 into one dispatch
+// function is not free: doing exactly that to Arrow's NEON unpacker cost
+// between 1.2x and 2.1x, the compiler having lost the register allocation it
+// finds for a body it compiles on its own. One indirect call per 1024 values
+// is not measurable against that.
+using InterleavedPackFn = void (*)(const uint32_t*, uint32_t*);
+using InterleavedUnpackFn = void (*)(const uint32_t*, uint32_t*, uint32_t);
+
+// Index by bit width: entry w handles width w, and entry 0 is never called
+// because a vector of width 0 is constant and never reaches a kernel.
+template <size_t... W>
+constexpr std::array<InterleavedPackFn, 33> MakePackTable(std::index_sequence<W...>) {
+  return {nullptr, &fastlanes::PackBlock<W + 1>...};
+}
+
+template <bool kHasBias, size_t... W>
+constexpr std::array<InterleavedUnpackFn, 33> MakeUnpackTable(std::index_sequence<W...>) {
+  return {nullptr, &fastlanes::UnpackBlock<W + 1, kHasBias>...};
+}
+
+constexpr auto kPackTable = MakePackTable(std::make_index_sequence<32>{});
+constexpr auto kUnpackTable = MakeUnpackTable<false>(std::make_index_sequence<32>{});
+constexpr auto kUnpackBiasTable = MakeUnpackTable<true>(std::make_index_sequence<32>{});
+
+inline void InterleavedPackBlock(uint8_t bit_width, const uint32_t* in, uint32_t* out) {
+  ARROW_DCHECK(bit_width >= 1 && bit_width <= 32);
+  kPackTable[bit_width](in, out);
+}
+
+// The frame of reference is folded into the kernel's own store, so a non-zero
+// frame costs no second pass over the output.
+inline void InterleavedUnpackBlock(uint8_t bit_width, const uint32_t* packed,
+                                   uint32_t* out, uint32_t bias) {
+  ARROW_DCHECK(bit_width >= 1 && bit_width <= 32);
+  if (bias == 0) {
+    kUnpackTable[bit_width](packed, out, 0);
+  } else {
+    kUnpackBiasTable[bit_width](packed, out, bias);
+  }
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // EncodeVector
@@ -153,12 +211,25 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
         bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bit_width);
     result.mutable_packed_values().resize(static_cast<size_t>(packed_size), 0);
 
-    bit_util::BitWriter writer(result.mutable_packed_values().data(),
-                               static_cast<int>(packed_size));
-    for (int32_t i = 0; i < num_elements; ++i) {
-      writer.PutValue(static_cast<uint64_t>(offsets[i]), bit_width);
+    if (InterleavedApplies<T>(options.mode, num_elements)) {
+      // A full block of 4-byte deltas. The interleaved payload is 128 * w bytes,
+      // which is what BytesForBits computed above, so both layouts write the
+      // same number of bytes and only their arrangement differs. Values keep
+      // their input positions, so there is nothing to gather on the way in and
+      // the exception positions recorded in step 4 stay correct.
+      if constexpr (sizeof(T) == 4) {
+        InterleavedPackBlock(
+            bit_width, reinterpret_cast<const uint32_t*>(offsets),
+            reinterpret_cast<uint32_t*>(result.mutable_packed_values().data()));
+      }
+    } else {
+      bit_util::BitWriter writer(result.mutable_packed_values().data(),
+                                 static_cast<int>(packed_size));
+      for (int32_t i = 0; i < num_elements; ++i) {
+        writer.PutValue(static_cast<uint64_t>(offsets[i]), bit_width);
+      }
+      writer.Flush();
     }
-    writer.Flush();
   }
 
   return result;
@@ -169,7 +240,8 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 
 template <typename T>
 Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
-                                                 int32_t num_elements, T* values) {
+                                                 int32_t num_elements, T* values,
+                                                 PackingMode mode) {
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const int64_t info_bytes = info.stored_bytes();
@@ -248,7 +320,21 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
         static_cast<int64_t>(data.size()) - info_bytes,
         std::numeric_limits<int>::max()));
 
-    if (unsigned_for == 0) {
+    if (InterleavedApplies<T>(mode, num_elements)) {
+      // The interleaved kernel writes values in input order, so it writes into
+      // `values` directly for the same reason the two sequential paths below do:
+      // T and UnsignedT are the same width, so the unsigned bits the kernel
+      // stores ARE the signed values. It also takes the frame of reference as a
+      // bias, so a non-zero frame costs no extra traversal -- there is no
+      // separate FOR==0 fast path to write here. Exceptions are patched in
+      // step 4, at the positions the encoder recorded, which need no
+      // translation because nothing was permuted.
+      if constexpr (sizeof(T) == 4) {
+        InterleavedUnpackBlock(
+            info.bit_width(), reinterpret_cast<const uint32_t*>(read_ptr),
+            reinterpret_cast<uint32_t*>(values), static_cast<uint32_t>(unsigned_for));
+      }
+    } else if (unsigned_for == 0) {
       // FOR is zero: there is no bias to add, so unpack straight into the
       // output. T and UnsignedT are the same width, so the unsigned bits the
       // unpacker writes ARE the signed values — no scratch buffer and no

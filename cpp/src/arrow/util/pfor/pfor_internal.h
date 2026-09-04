@@ -43,6 +43,23 @@ namespace util {
 namespace pfor {
 
 // ----------------------------------------------------------------------
+// Layout applicability
+
+/// \brief Whether the interleaved layout covers a vector of this size and type.
+///
+/// The interleaved container is defined for one block of 1024 four-byte values.
+/// Anything else -- a 64-bit column, or the short tail vector of a page whose
+/// length is not a multiple of the vector size -- takes the sequential layout.
+/// So a page can hold both, and neither side needs a per-vector flag to say
+/// which: the element count answers it, and encoder and decoder ask the same
+/// question of the same number.
+template <typename T>
+constexpr bool InterleavedApplies(PackingMode mode, int32_t num_elements) {
+  return mode == PackingMode::kForBitPackInterleaved && sizeof(T) == 4 &&
+         num_elements == static_cast<int32_t>(PforConstants::kPforVectorSize);
+}
+
+// ----------------------------------------------------------------------
 // Per-vector metadata
 
 /// \brief PFOR vector metadata stored at the start of each compressed vector.
@@ -217,6 +234,14 @@ class PforEncodedVector {
 struct PforEncodeOptions {
   /// Let the planner difference a vector when its cost model prefers that.
   bool delta_enabled = true;
+
+  /// Layout for the bit-packed payload. Advisory:
+  /// PackingMode::kForBitPackInterleaved is honoured only when
+  /// InterleavedApplies<T>() holds for this vector, and the sequential layout
+  /// is used otherwise. The caller cannot tell from the returned vector which
+  /// was used -- the page header records the request and the decoder
+  /// re-derives the same answer.
+  PackingMode mode = PackingMode::kForBitPack;
 };
 
 /// \brief PFOR compression and decompression algorithms
@@ -245,7 +270,8 @@ class PforCompression {
   ///
   /// \param[in] values input integer values
   /// \param[in] num_elements number of elements (up to vector_size)
-  /// \param[in] options what the encoder is allowed to choose
+  /// \param[in] options what the encoder is allowed to choose: whether to
+  ///            difference the vector, and which bit-packing layout to use
   /// \pre num_elements > 0; there is no frame of reference for an empty vector
   /// \return the encoded vector with all sections
   static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements,
@@ -256,9 +282,14 @@ class PforCompression {
   /// \param[in] data span over the compressed vector data
   /// \param[in] num_elements number of elements in this vector
   /// \param[out] values output buffer for num_elements decoded integers
+  /// \param[in] mode the layout the page header declares. Must be the mode the
+  ///            encoder was given: the two layouts produce payloads of the same
+  ///            size, so reading one as the other yields wrong values rather
+  ///            than a length error.
   /// \return number of bytes consumed from data, or error
   static Result<int64_t> DecodeVector(std::span<const uint8_t> data, int32_t num_elements,
-                                      T* values);
+                                      T* values,
+                                      PackingMode mode = PackingMode::kForBitPack);
 
   /// \brief Calculate the serialized size of an encoded vector
   static int64_t SerializedVectorSize(const PforEncodedVector<T>& vec,
