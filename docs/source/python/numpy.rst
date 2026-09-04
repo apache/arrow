@@ -51,7 +51,28 @@ factory function.
    ]
 
 Converting from NumPy supports a wide range of input dtypes, including
-structured dtypes or strings.
+structured dtypes and both fixed-width (``S`` and ``U``) and variable-width
+(:class:`numpy.dtypes.StringDType`) strings.
+
+A ``StringDType`` array converts to :func:`~pyarrow.string` unless
+:func:`~pyarrow.large_string` or :func:`~pyarrow.string_view` is requested with
+``type``. Missing entries become nulls:
+
+.. code-block:: python
+
+   >>> dtype = np.dtypes.StringDType(na_object=np.nan)
+   >>> arr = pa.array(np.array(["some", np.nan, "strings"], dtype=dtype))
+   >>> arr
+   <pyarrow.lib.StringArray object at ...>
+   [
+     "some",
+     null,
+     "strings"
+   ]
+
+When the ``na_object`` is a string, NumPy treats missing entries as that string
+in every operation, and so does the conversion. Pass ``mask`` to mark values as
+null explicitly.
 
 Arrow to NumPy
 --------------
