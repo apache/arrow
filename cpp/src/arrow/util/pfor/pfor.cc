@@ -299,9 +299,9 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
   if (info.bit_width() > 0) {
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference());
 
-    // The vector kernels load a fixed-size window per step. Use the remaining
-    // page bytes as the read bound so a kernel can process the final step when
-    // its load extends beyond this vector's packed payload.
+    // The sequential vector kernels load a fixed-size window per step. Use the
+    // remaining page bytes as the read bound so a kernel can process the final
+    // step when its load extends beyond this vector's packed payload.
     //
     // `data` runs from this vector to the end of the page, so every byte after
     // this vector's header is inside the caller's buffer and ours to read. The

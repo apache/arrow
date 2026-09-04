@@ -839,8 +839,7 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// EXPERIMENTAL: Ask the PFOR encoder for the lane-interleaved bit-packing
-    /// layout, which decodes faster and takes the same number of bytes.
+    /// EXPERIMENTAL: Ask the PFOR encoder to use lane-interleaved bit packing.
     ///
     /// Default disabled. The layout is not yet in the Parquet specification, so
     /// a file written with it can only be read by an implementation that knows
