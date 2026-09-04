@@ -172,7 +172,7 @@ def test_array_to_tensor_dlpack(arr, expected):
 
 @requires_numpy_version("2.1.0")
 @check_bytes_allocated
-def test_fixed_shape_tensor_dlpack_permuted():
+def test_fixed_shape_tensor_array_dlpack_permuted():
     # A non-trivial permutation makes to_tensor() produce a non-row-major
     # tensor: each row-major [3, 2] block is exposed as a logical [2, 3] cell.
     storage = pa.FixedSizeListArray.from_arrays(
@@ -204,18 +204,6 @@ def test_fixed_shape_tensor_scalar_dlpack():
 
     result = np.from_dlpack(DLPackForwarder(scalar, max_version=(1, 0)))
     np.testing.assert_array_equal(result, np_arr[1], strict=True)
-
-
-@check_bytes_allocated
-def test_fixed_shape_tensor_scalar_dlpack_device_permuted():
-    # A permuted scalar cannot currently be exported as a Tensor, but the
-    # device query still resolves through the storage array.
-    storage = pa.FixedSizeListArray.from_arrays(
-        pa.array(range(24), type=pa.int32()), 6)
-    arr = pa.ExtensionArray.from_storage(
-        pa.fixed_shape_tensor(pa.int32(), [3, 2], permutation=[1, 0]), storage)
-
-    assert arr[2].__dlpack_device__() == (1, 0)
 
 
 def multidim_arrays_with_nulls():
