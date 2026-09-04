@@ -97,6 +97,20 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
     return Status::OK();
   }
 
+  // Keep the common per-value path small when callers already know the remaining size.
+  ARROW_FORCE_INLINE Status AppendValue(const uint8_t* data, int32_t length,
+                                        int64_t estimated_remaining_data_length) {
+    DCHECK_GT(entries_remaining_, 0);
+
+    if (ARROW_PREDICT_FALSE(!CanFit(length))) {
+      return AppendValueWithKnownSizeSlow(data, length, estimated_remaining_data_length);
+    }
+    chunk_space_remaining_ -= length;
+    --entries_remaining_;
+    builder_->UnsafeAppend(data, length);
+    return Status::OK();
+  }
+
   // If a new chunk is created and estimated_remaining_data_length is provided,
   // it will also reserve the estimated data length for this chunk.
   Status AppendValue(const uint8_t* data, int32_t length,
@@ -133,6 +147,9 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
   }
 
  private:
+  ARROW_NOINLINE Status AppendValueWithKnownSizeSlow(
+      const uint8_t* data, int32_t length, int64_t estimated_remaining_data_length);
+
   Status PushChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, acc_->builder->Finish());
     acc_->chunks.push_back(std::move(chunk));
@@ -1024,8 +1041,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
   // memory use in most cases
   std::shared_ptr<ResizableBuffer> byte_array_offsets_;
 
-  // Reusable buffer for decoding dictionary indices to be appended to a
-  // BinaryDictionary32Builder
+  // Reusable buffer for decoding dictionary indices into Arrow builders.
   std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
   ::arrow::util::RleBitPackedDecoder<int32_t> idx_decoder_;
@@ -1257,6 +1273,11 @@ void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* bui
   PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));
 }
 
+// Keep defensive bitmap validation out of the hot dictionary decode function.
+ARROW_NOINLINE void ValidateBinaryValidityBitmap(int num_values, int null_count,
+                                                 const uint8_t* valid_bits,
+                                                 int64_t valid_bits_offset);
+
 class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
  public:
   using BASE = DictDecoderImpl<ByteArrayType>;
@@ -1284,6 +1305,17 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
                                             /*valid_bits=*/nullptr, valid_bits_offset,
                                             out, &result));
     } else {
+      switch (out->builder->type()->id()) {
+        case ::arrow::Type::BINARY:
+        case ::arrow::Type::STRING:
+        case ::arrow::Type::LARGE_BINARY:
+        case ::arrow::Type::LARGE_STRING:
+          ValidateBinaryValidityBitmap(num_values, null_count, valid_bits,
+                                       valid_bits_offset);
+          break;
+        default:
+          break;
+      }
       PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                             valid_bits_offset, out, &result));
     }
@@ -1295,12 +1327,82 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
+    const auto* dict_values = dictionary_->data_as<ByteArray>();
+    const int values_to_decode = num_values - null_count;
+
+    switch (out->builder->type()->id()) {
+      case ::arrow::Type::BINARY:
+      case ::arrow::Type::STRING:
+      case ::arrow::Type::LARGE_BINARY:
+      case ::arrow::Type::LARGE_STRING: {
+        if (values_to_decode > 0) {
+          RETURN_NOT_OK(indices_scratch_space_->TypedResize<int32_t>(
+              values_to_decode, /*shrink_to_fit=*/false));
+        }
+        auto* decoded_indices = indices_scratch_space_->mutable_data_as<int32_t>();
+        const int num_indices = idx_decoder_.GetBatch(decoded_indices, values_to_decode);
+        if (ARROW_PREDICT_FALSE(num_indices != values_to_decode)) {
+          return Status::Invalid(
+              "Invalid or truncated dictionary index stream: expected ", values_to_decode,
+              " indices but decoded ", num_indices);
+        }
+
+        int64_t data_length = 0;
+        for (int i = 0; i < values_to_decode; ++i) {
+          const auto index = decoded_indices[i];
+          RETURN_NOT_OK(IndexInBounds(index));
+          if (ARROW_PREDICT_FALSE(AddWithOverflow(
+                  data_length, static_cast<int64_t>(dict_values[index].len),
+                  &data_length))) {
+            return Status::Invalid(
+                "excess expansion while decoding dictionary-encoded BYTE_ARRAY");
+          }
+        }
+
+        auto append_predecoded = [&](auto* helper) {
+          int values_decoded = 0;
+          int pos_indices = 0;
+          int64_t remaining_data_length = data_length;
+
+          RETURN_NOT_OK(VisitBitRuns(
+              valid_bits, valid_bits_offset, num_values,
+              [&](int64_t position, int64_t length, bool valid) {
+                if (valid) {
+                  for (int64_t i = 0; i < length; ++i) {
+                    const auto& val = dict_values[decoded_indices[pos_indices++]];
+                    RETURN_NOT_OK(helper->AppendValue(
+                        val.ptr, static_cast<int32_t>(val.len), remaining_data_length));
+                    remaining_data_length -= val.len;
+                  }
+                  values_decoded += static_cast<int>(length);
+                } else {
+                  for (int64_t i = 0; i < length; ++i) {
+                    helper->UnsafeAppendNull();
+                  }
+                }
+                return Status::OK();
+              }));
+          DCHECK_EQ(pos_indices, values_to_decode);
+          DCHECK_EQ(remaining_data_length, 0);
+          *out_num_values = values_decoded;
+          return Status::OK();
+        };
+
+        return DispatchArrowBinaryHelper<ByteArrayType>(out, num_values, data_length,
+                                                        append_predecoded);
+      }
+      default:
+        // Binary-view builders don't benefit from reserving the dictionary values'
+        // total byte length, since short values are stored inline. Keep their
+        // existing bounded streaming decode path. Unsupported builder types are
+        // rejected by DispatchArrowBinaryHelper below before decoding any indices.
+        break;
+    }
+
     constexpr int32_t kBufferSize = 1024;
     int32_t indices[kBufferSize];
 
-    auto visit_binary_helper = [&](auto* helper) {
-      const auto* dict_values = dictionary_->data_as<ByteArray>();
-      const int values_to_decode = num_values - null_count;
+    auto append_streaming = [&](auto* helper) {
       int values_decoded = 0;
       int num_indices = 0;
       int pos_indices = 0;
@@ -1309,7 +1411,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
         if (valid) {
           while (length > 0) {
             if (num_indices == pos_indices) {
-              // Refill indices buffer
+              // Refill the bounded indices buffer for binary-view builders.
               const auto max_batch_size =
                   std::min<int32_t>(kBufferSize, values_to_decode - values_decoded);
               num_indices = idx_decoder_.GetBatch(indices, max_batch_size);
@@ -1341,11 +1443,9 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
       *out_num_values = values_decoded;
       return Status::OK();
     };
-    // The `len_` in the ByteArrayDictDecoder is the total length of the
-    // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
-    // space for binary data.
+
     return DispatchArrowBinaryHelper<ByteArrayType>(
-        out, num_values, /*estimated_data_length=*/{}, visit_binary_helper);
+        out, num_values, /*estimated_data_length=*/{}, append_streaming);
   }
 
   template <typename BuilderType>
@@ -2371,6 +2471,33 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
     return num_decoded;
   }
 };
+
+// Keep chunk rollover out of the hot decoder functions that instantiate this helper.
+Status
+ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType>::AppendValueWithKnownSizeSlow(
+    const uint8_t* data, int32_t length, int64_t estimated_remaining_data_length) {
+  RETURN_NOT_OK(PushChunk());
+  // Validate that the first value fits in an empty chunk before UnsafeAppend below.
+  RETURN_NOT_OK(builder_->ReserveData(length));
+  RETURN_NOT_OK(ReserveInitialChunkData(estimated_remaining_data_length));
+  chunk_space_remaining_ -= length;
+  --entries_remaining_;
+  builder_->UnsafeAppend(data, length);
+  return Status::OK();
+}
+
+void ValidateBinaryValidityBitmap(int num_values, int null_count,
+                                  const uint8_t* valid_bits, int64_t valid_bits_offset) {
+  const int64_t actual_non_null =
+      valid_bits == nullptr
+          ? num_values
+          : ::arrow::internal::CountSetBits(valid_bits, valid_bits_offset, num_values);
+  if (ARROW_PREDICT_FALSE(actual_non_null != num_values - null_count)) {
+    throw ParquetException(
+        "Invalid validity bitmap: null_count does not match the number of non-null "
+        "values");
+  }
+}
 
 }  // namespace
 
