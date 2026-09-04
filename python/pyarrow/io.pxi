@@ -1336,6 +1336,8 @@ cdef class FixedSizeBufferWriter(NativeFile):
     """
 
     def __cinit__(self, Buffer buffer):
+        if not buffer.is_mutable:
+            raise ValueError("pa.FixedSizeBufferWriter() requires a mutable buffer")
         self.output_stream.reset(new CFixedSizeBufferWriter(buffer.buffer))
         self.is_writable = True
 
