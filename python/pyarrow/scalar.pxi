@@ -1586,6 +1586,35 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
             ctensor = GetResultValue(c_type.MakeTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
 
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
+        """
+        Export a tensor scalar as a DLPack capsule.
+
+        See :meth:`Tensor.__dlpack__` for the parameter semantics.
+        """
+        return self.to_tensor().__dlpack__(
+            stream=stream, max_version=max_version,
+            dl_device=dl_device, copy=copy,
+        )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this scalar resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dlpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        cdef:
+            CExtensionScalar* ext = <CExtensionScalar*> self.wrapped.get()
+            CBaseListScalar* storage = <CBaseListScalar*> ext.value.get()
+        # The base storage for this type is an Array, so we call into this function
+        device = GetResultValue(ExportDevice(storage.value))
+        return device.device_type, device.device_id
+
 
 cdef class OpaqueScalar(ExtensionScalar):
     """

@@ -2269,7 +2269,7 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(array)
 
-    def __dlpack__(self, stream=None, max_version=None, dl_device=None, copy=None):
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
         """
         Export a primitive array as a DLPack capsule.
 
@@ -5043,6 +5043,20 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                                dim_names=dim_names,
                                permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
+        )
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
+        """
+        Export a tensor array as a DLPack capsule.
+
+        The element positions in the array become the first dimension of the
+        resulting tensor (equal to ``len(self)``).
+
+        See :meth:`Tensor.__dlpack__` for the parameter semantics.
+        """
+        return self.to_tensor().__dlpack__(
+            stream=stream, max_version=max_version,
+            dl_device=dl_device, copy=copy,
         )
 
 
