@@ -938,6 +938,173 @@ TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
   this->AssertBinop(Divide, MakeArray(min), MakeArray(-1), "[0]");
 }
 
+// ============== REMAINDER (Truncated) Tests ==============
+
+TYPED_TEST(TestBinaryArithmeticIntegral, Remainder) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertBinop(Remainder, "[]", "[]", "[]");
+    // Basic positive cases
+    this->AssertBinop(Remainder, "[7, 10, 20]", "[3, 4, 7]", "[1, 2, 6]");
+    // Array with nulls
+    this->AssertBinop(Remainder, "[null, 10, 30, null, 20]", "[1, 4, 2, 5, 10]",
+                      "[null, 2, 0, null, 0]");
+    // Scalar % Array
+    this->AssertBinop(Remainder, 33, "[null, 1, 3, null, 2]", "[null, 0, 0, null, 1]");
+    // Array % Scalar
+    this->AssertBinop(Remainder, "[null, 10, 30, null, 2]", 3, "[null, 1, 0, null, 2]");
+    // Scalar % Scalar
+    this->AssertBinop(Remainder, 16, 7, 2);
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, Remainder) {
+  // Truncated semantics: sign follows dividend
+  this->AssertBinop(Remainder, "[7]", "[3]", "[1]");
+  this->AssertBinop(Remainder, "[-7]", "[3]", "[-1]");
+  this->AssertBinop(Remainder, "[7]", "[-3]", "[1]");
+  this->AssertBinop(Remainder, "[-7]", "[-3]", "[-1]");
+  // Mixed array
+  this->AssertBinop(Remainder, "[-3, 2, -7, 10]", "[1, 1, 2, 3]", "[0, 0, -1, 1]");
+}
+
+TYPED_TEST(TestBinaryArithmeticUnsigned, Remainder) {
+  this->AssertBinop(Remainder, "[7, 100, 255]", "[3, 30, 16]", "[1, 10, 15]");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, RemainderOverflow) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::lowest();
+
+  // Unchecked: returns 0 (the mathematically correct result)
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Remainder, MakeArray(min), MakeArray(CType(-1)), "[0]");
+
+  // Checked: raises overflow error
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Remainder, MakeArray(min), MakeArray(CType(-1)), "overflow");
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, RemainderByZero) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertBinopRaises(Remainder, "[3, 2, 6]", "[1, 1, 0]", "divide by zero");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, Remainder) {
+  SKIP_IF_HALF_FLOAT();
+
+  this->SetNansEqual(true);
+
+  // Basic cases
+  this->AssertBinop(Remainder, "[7.5, 10.0]", "[2.5, 3.0]", "[0.0, 1.0]");
+  // Negative numbers - truncated semantics: sign follows dividend
+  this->AssertBinop(Remainder, "[-7.5]", "[2.5]", "[-0.0]");
+  this->AssertBinop(Remainder, "[7.5]", "[-2.5]", "[0.0]");
+  this->AssertBinop(Remainder, "[-7.5]", "[-2.5]", "[-0.0]");
+
+  // Division by zero returns NaN (unchecked)
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Remainder, "[1.0]", "[0.0]", "[NaN]");
+
+  // Division by zero raises error (checked)
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Remainder, "[1.0]", "[0.0]", "divide by zero");
+
+  // Infinity edge cases (unchecked)
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Remainder, "[Inf]", "[2.0]", "[NaN]");
+  this->AssertBinop(Remainder, "[-Inf]", "[2.0]", "[NaN]");
+  this->AssertBinop(Remainder, "[2.0]", "[Inf]", "[2.0]");
+  this->AssertBinop(Remainder, "[2.0]", "[-Inf]", "[2.0]");
+  this->AssertBinop(Remainder, "[Inf]", "[Inf]", "[NaN]");
+}
+
+// ============== MOD (Floored) Tests ==============
+
+TYPED_TEST(TestBinaryArithmeticIntegral, Modulo) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertBinop(Modulo, "[]", "[]", "[]");
+    // Basic positive cases (same as remainder for positive numbers)
+    this->AssertBinop(Modulo, "[7, 10, 20]", "[3, 4, 7]", "[1, 2, 6]");
+    // Array with nulls
+    this->AssertBinop(Modulo, "[null, 10, 30, null, 20]", "[1, 4, 2, 5, 10]",
+                      "[null, 2, 0, null, 0]");
+    // Scalar % Array
+    this->AssertBinop(Modulo, 33, "[null, 1, 3, null, 2]", "[null, 0, 0, null, 1]");
+    // Array % Scalar
+    this->AssertBinop(Modulo, "[null, 10, 30, null, 2]", 3, "[null, 1, 0, null, 2]");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, Modulo) {
+  // Floored semantics: sign follows divisor
+  this->AssertBinop(Modulo, "[7]", "[3]", "[1]");
+  this->AssertBinop(Modulo, "[-7]", "[3]", "[2]");
+  this->AssertBinop(Modulo, "[7]", "[-3]", "[-2]");
+  this->AssertBinop(Modulo, "[-7]", "[-3]", "[-1]");
+  // Edge case: -1 mod positive
+  this->AssertBinop(Modulo, "[-1]", "[3]", "[2]");
+}
+
+TYPED_TEST(TestBinaryArithmeticUnsigned, Modulo) {
+  // Same as remainder for unsigned (no negative numbers)
+  this->AssertBinop(Modulo, "[7, 100, 255]", "[3, 30, 16]", "[1, 10, 15]");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, ModuloOverflow) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::lowest();
+
+  // Unchecked: returns 0
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Modulo, MakeArray(min), MakeArray(CType(-1)), "[0]");
+
+  // Checked: raises overflow error
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Modulo, MakeArray(min), MakeArray(CType(-1)), "overflow");
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, ModuloByZero) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertBinopRaises(Modulo, "[3, 2, 6]", "[1, 1, 0]", "divide by zero");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, Modulo) {
+  SKIP_IF_HALF_FLOAT();
+
+  this->SetNansEqual(true);
+
+  // Basic cases
+  this->AssertBinop(Modulo, "[7.5, 10.0]", "[2.5, 3.0]", "[0.0, 1.0]");
+  // Negative numbers - floored semantics: sign follows divisor
+  this->AssertBinop(Modulo, "[-7.5]", "[2.5]", "[0.0]");
+  this->AssertBinop(Modulo, "[7.5]", "[-2.5]", "[-0.0]");
+  this->AssertBinop(Modulo, "[-7.5]", "[-2.5]", "[-0.0]");
+
+  // Division by zero returns NaN (unchecked)
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Modulo, "[1.0]", "[0.0]", "[NaN]");
+
+  // Division by zero raises error (checked)
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Modulo, "[1.0]", "[0.0]", "divide by zero");
+
+  // Infinity edge cases (unchecked)
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Modulo, "[Inf]", "[2.0]", "[NaN]");
+  this->AssertBinop(Modulo, "[-Inf]", "[2.0]", "[NaN]");
+  this->AssertBinop(Modulo, "[2.0]", "[Inf]", "[2.0]");
+  this->AssertBinop(Modulo, "[2.0]", "[-Inf]", "[-Inf]");  // floored: 2.0 + (-Inf) = -Inf
+  this->AssertBinop(Modulo, "[Inf]", "[Inf]", "[NaN]");
+}
+
 TYPED_TEST(TestBinaryArithmeticFloating, Power) {
   SKIP_IF_HALF_FLOAT();
 
@@ -2406,6 +2573,183 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
     auto left = ScalarFromJSON(decimal256(1, 0), R"("1")");
     auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
     ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Remainder) {
+  // Truncated semantics: sign follows dividend
+
+  // array array, decimal128
+  {
+    auto left = ArrayFromJSON(decimal128(5, 2), R"(["7.00", "-7.00", "7.00", "-7.00"])");
+    auto right = ArrayFromJSON(decimal128(5, 2), R"(["3.00", "3.00", "-3.00", "-3.00"])");
+    auto expected =
+        ArrayFromJSON(decimal128(5, 2), R"(["1.00", "-1.00", "1.00", "-1.00"])");
+    CheckScalarBinary("remainder", left, right, expected);
+  }
+
+  // array array, decimal256
+  {
+    auto left = ArrayFromJSON(decimal256(5, 2), R"(["7.00", "-7.00"])");
+    auto right = ArrayFromJSON(decimal256(5, 2), R"(["3.00", "3.00"])");
+    auto expected = ArrayFromJSON(decimal256(5, 2), R"(["1.00", "-1.00"])");
+    CheckScalarBinary("remainder", left, right, expected);
+  }
+
+  // scalar scalar
+  {
+    auto left = ScalarFromJSON(decimal128(5, 2), R"("17.50")");
+    auto right = ScalarFromJSON(decimal128(5, 2), R"("5.00")");
+    auto expected = ScalarFromJSON(decimal128(5, 2), R"("2.50")");
+    CheckScalarBinary("remainder", left, right, expected);
+  }
+
+  // null handling
+  {
+    auto left = ArrayFromJSON(decimal128(5, 2), R"(["7.00", null, null])");
+    auto right = ArrayFromJSON(decimal128(5, 2), R"(["3.00", "3.00", null])");
+    auto expected = ArrayFromJSON(decimal128(5, 2), R"(["1.00", null, null])");
+    CheckScalarBinary("remainder", left, right, expected);
+  }
+
+  // failed case: divide by 0
+  {
+    auto left = ScalarFromJSON(decimal256(1, 0), R"("7")");
+    auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
+    ASSERT_RAISES(Invalid, CallFunction("remainder", {left, right}));
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, Modulo) {
+  // Floored semantics: sign follows divisor
+
+  // array array, decimal128
+  {
+    auto left = ArrayFromJSON(decimal128(5, 2), R"(["7.00", "-7.00", "7.00", "-7.00"])");
+    auto right = ArrayFromJSON(decimal128(5, 2), R"(["3.00", "3.00", "-3.00", "-3.00"])");
+    auto expected =
+        ArrayFromJSON(decimal128(5, 2), R"(["1.00", "2.00", "-2.00", "-1.00"])");
+    CheckScalarBinary("modulo", left, right, expected);
+  }
+
+  // array array, decimal256
+  {
+    auto left = ArrayFromJSON(decimal256(5, 2), R"(["7.00", "-7.00"])");
+    auto right = ArrayFromJSON(decimal256(5, 2), R"(["3.00", "3.00"])");
+    auto expected = ArrayFromJSON(decimal256(5, 2), R"(["1.00", "2.00"])");
+    CheckScalarBinary("modulo", left, right, expected);
+  }
+
+  // scalar scalar
+  {
+    auto left = ScalarFromJSON(decimal128(5, 2), R"("-17.50")");
+    auto right = ScalarFromJSON(decimal128(5, 2), R"("5.00")");
+    auto expected = ScalarFromJSON(decimal128(5, 2), R"("2.50")");
+    CheckScalarBinary("modulo", left, right, expected);
+  }
+
+  // null handling
+  {
+    auto left = ArrayFromJSON(decimal128(5, 2), R"(["-7.00", null, null])");
+    auto right = ArrayFromJSON(decimal128(5, 2), R"(["3.00", "3.00", null])");
+    auto expected = ArrayFromJSON(decimal128(5, 2), R"(["2.00", null, null])");
+    CheckScalarBinary("modulo", left, right, expected);
+  }
+
+  // failed case: divide by 0
+  {
+    auto left = ScalarFromJSON(decimal256(1, 0), R"("7")");
+    auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
+    ASSERT_RAISES(Invalid, CallFunction("modulo", {left, right}));
+  }
+}
+
+// The output of remainder/modulo never exceeds the magnitude of the divisor, so
+// unlike add/subtract the result precision needs no extra digit for a carry.
+TEST_F(TestBinaryArithmeticDecimal, RemainderAndModuloResultType) {
+  for (const auto& func : {"remainder", "modulo"}) {
+    ARROW_SCOPED_TRACE(func);
+
+    // same type in, same type out
+    {
+      auto left = ArrayFromJSON(decimal128(5, 2), R"(["17.00"])");
+      auto right = ArrayFromJSON(decimal128(5, 2), R"(["5.00"])");
+      auto expected = ArrayFromJSON(decimal128(5, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+
+    // mixed precision, same scale: precision = max(p1, p2)
+    {
+      auto left = ArrayFromJSON(decimal128(5, 2), R"(["17.00"])");
+      auto right = ArrayFromJSON(decimal128(3, 2), R"(["5.00"])");
+      auto expected = ArrayFromJSON(decimal128(5, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+    {
+      auto left = ArrayFromJSON(decimal128(3, 2), R"(["7.00"])");
+      auto right = ArrayFromJSON(decimal128(5, 2), R"(["5.00"])");
+      auto expected = ArrayFromJSON(decimal128(5, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+
+    // mixed scale: both arguments are scaled up to max(s1, s2) first
+    {
+      auto left = ArrayFromJSON(decimal128(5, 2), R"(["17.00"])");
+      auto right = ArrayFromJSON(decimal128(4, 1), R"(["5.0"])");
+      auto expected = ArrayFromJSON(decimal128(5, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+    {
+      auto left = ArrayFromJSON(decimal128(4, 1), R"(["17.0"])");
+      auto right = ArrayFromJSON(decimal128(6, 3), R"(["5.000"])");
+      auto expected = ArrayFromJSON(decimal128(6, 3), R"(["2.000"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+
+    // decimal128 and decimal256 promote to decimal256
+    {
+      auto left = ArrayFromJSON(decimal128(5, 2), R"(["17.00"])");
+      auto right = ArrayFromJSON(decimal256(5, 2), R"(["5.00"])");
+      auto expected = ArrayFromJSON(decimal256(5, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+    {
+      auto left = ArrayFromJSON(decimal256(40, 2), R"(["17.00"])");
+      auto right = ArrayFromJSON(decimal128(5, 2), R"(["5.00"])");
+      auto expected = ArrayFromJSON(decimal256(40, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+
+    // decimal and integer promote to decimal
+    {
+      auto left = ArrayFromJSON(decimal128(5, 2), R"(["17.00"])");
+      auto right = ArrayFromJSON(int32(), "[5]");
+      auto expected = ArrayFromJSON(decimal128(12, 2), R"(["2.00"])");
+      CheckScalarBinary(func, left, right, expected);
+    }
+
+    // maximum precision inputs must not overflow the result precision
+    {
+      auto left = ScalarFromJSON(decimal128(38, 0), R"("7")");
+      auto right = ScalarFromJSON(decimal128(38, 0), R"("3")");
+      auto expected = ScalarFromJSON(decimal128(38, 0), R"("1")");
+      CheckScalarBinary(func, left, right, expected);
+    }
+    {
+      auto left = ScalarFromJSON(decimal256(76, 0), R"("7")");
+      auto right = ScalarFromJSON(decimal256(76, 0), R"("3")");
+      auto expected = ScalarFromJSON(decimal256(76, 0), R"("1")");
+      CheckScalarBinary(func, left, right, expected);
+    }
+  }
+
+  // maximum precision, negative dividend: the two kernels differ
+  {
+    auto left = ScalarFromJSON(decimal256(76, 0), R"("-7")");
+    auto right = ScalarFromJSON(decimal256(76, 0), R"("3")");
+    CheckScalarBinary("remainder", left, right,
+                      ScalarFromJSON(decimal256(76, 0), R"("-1")"));
+    CheckScalarBinary("modulo", left, right, ScalarFromJSON(decimal256(76, 0), R"("2")"));
   }
 }
 
