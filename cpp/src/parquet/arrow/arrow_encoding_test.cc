@@ -200,6 +200,71 @@ TEST_F(ParquetPforEncodingTest, LargeInt64Dataset) {
   TestPforRoundTrip(table);
 }
 
+// EXPERIMENTAL: the lane-interleaved bit-packing layout is off unless a writer
+// asks for it, and when it is on it reaches the page and costs no space.
+//
+// The two layouts write the same number of bytes, so a flag that never reached
+// the encoder would still round-trip. Writing the same table both ways and
+// comparing the files is what shows it arrived: same length, different bytes.
+TEST_F(ParquetPforEncodingTest, InterleavedBitPackingLayout) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  // Several full vectors and a short tail, which is written in the layout PFOR
+  // has always used whatever the writer asked for.
+  auto array = rag.Int32(3000, -1000000, 1000000);
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto build = [](bool interleaved) {
+    auto builder = WriterProperties::Builder();
+    builder.disable_dictionary()->encoding(Encoding::PFOR);
+    if (interleaved) {
+      builder.enable_pfor_interleaved_bit_packing();
+    }
+    return builder.build();
+  };
+
+  std::shared_ptr<Table> sequential_result, interleaved_result;
+  std::shared_ptr<Buffer> sequential_file, interleaved_file;
+  DoRoundtrip(table, table->num_rows(), &sequential_result, build(false),
+              &sequential_file);
+  DoRoundtrip(table, table->num_rows(), &interleaved_result, build(true),
+              &interleaved_file);
+
+  ASSERT_NO_FATAL_FAILURE(AssertAllColumnsUse(interleaved_file, Encoding::PFOR));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *interleaved_result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *sequential_result));
+
+  ASSERT_EQ(sequential_file->size(), interleaved_file->size());
+  ASSERT_FALSE(sequential_file->Equals(*interleaved_file));
+}
+
+// An int64 column cannot use the interleaved layout, and asking for it is not an
+// error: the writer records the layout PFOR has always used, so one setting can
+// cover a file whose columns are not all eligible.
+TEST_F(ParquetPforEncodingTest, InterleavedRequestIgnoredForInt64) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto array = rag.Int64(3000, -1000000000LL, 1000000000LL);
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto with_flag = WriterProperties::Builder()
+                       .disable_dictionary()
+                       ->encoding(Encoding::PFOR)
+                       ->enable_pfor_interleaved_bit_packing()
+                       ->build();
+  auto without_flag =
+      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::PFOR)->build();
+
+  std::shared_ptr<Table> flagged_result, plain_result;
+  std::shared_ptr<Buffer> flagged_file, plain_file;
+  DoRoundtrip(table, table->num_rows(), &flagged_result, with_flag, &flagged_file);
+  DoRoundtrip(table, table->num_rows(), &plain_result, without_flag, &plain_file);
+
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *flagged_result));
+  // Byte for byte the same file, because the request could not be honoured.
+  ASSERT_TRUE(plain_file->Equals(*flagged_file));
+}
+
 // The distribution PFOR is built for: a tight cluster sitting a long way from
 // zero, so the frame of reference carries the magnitude and the bit-packed
 // payload carries only the spread.
