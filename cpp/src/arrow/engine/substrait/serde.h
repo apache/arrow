@@ -183,6 +183,27 @@ ARROW_ENGINE_EXPORT Result<BoundExpressions> DeserializeExpressions(
     const ConversionOptions& conversion_options = {},
     ExtensionSet* ext_set_out = NULLPTR);
 
+/// \brief Deserialize a Substrait ExtendedExpression message using a supplied schema
+///
+/// This overload is intended for partially bound Substrait expressions whose
+/// `base_schema` uses unresolved types or whose expressions use unresolved
+/// names. The supplied Arrow schema is used to bind the deserialized expressions
+/// before they are returned.
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a collection of
+/// expressions
+/// \param[in] input_schema the Arrow schema to bind unresolved expressions against
+/// \param[in] registry an extension-id-registry to use, or null for the default one
+/// \param[in] conversion_options options to control how the conversion is done
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// message is returned here.
+/// \return A collection of expressions bound to the supplied schema
+ARROW_ENGINE_EXPORT Result<BoundExpressions> DeserializeExpressions(
+    const Buffer& buf, const Schema& input_schema,
+    const ExtensionIdRegistry* registry = NULLPTR,
+    const ConversionOptions& conversion_options = {},
+    ExtensionSet* ext_set_out = NULLPTR);
+
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Type
