@@ -329,4 +329,353 @@ TYPED_TEST(TestExportTensor, TestTensorStrided) {
                            f_dlpack_strides);
 }
 
+/***************
+ *  Consumers  *
+ ***************/
+
+/// A DLPack tensor as a foreign library would produce it.
+struct ForeignTensor {
+  DLDataType dtype = {.code = kDLFloat, .bits = 32, .lanes = 1};
+  std::vector<int64_t> shape = {};
+  /// In number of elements, as mandated by DLPack.
+  std::vector<int64_t> strides = {};
+  std::vector<uint8_t> data = {};
+  DLDevice device = {.device_type = kDLCPU, .device_id = 0};
+  uint64_t byte_offset = 0;
+  uint64_t flags = 0;
+  /// Incremented when the consumer releases the tensor.
+  std::shared_ptr<int> deleted = std::make_shared<int>(0);
+
+  DLManagedTensorVersioned managed = {};
+};
+
+template <typename T>
+std::vector<uint8_t> ToBytes(const std::vector<T>& values) {
+  std::vector<uint8_t> bytes(values.size() * sizeof(T));
+  std::memcpy(bytes.data(), values.data(), bytes.size());
+  return bytes;
+}
+
+/// Hand out a DLPack tensor owning ``foreign``, releasing it through its deleter.
+DLManagedTensorVersioned* Produce(ForeignTensor foreign) {
+  auto owned = std::make_unique<ForeignTensor>(std::move(foreign));
+  owned->managed = {
+      .version = {.major = DLPACK_MAJOR_VERSION, .minor = DLPACK_MINOR_VERSION},
+      .manager_ctx = owned.get(),
+      .deleter =
+          [](DLManagedTensorVersioned* self) {
+            auto* ctx = static_cast<ForeignTensor*>(self->manager_ctx);
+            ++(*ctx->deleted);
+            delete ctx;
+          },
+      .flags = owned->flags,
+      .dl_tensor =
+          {
+              .data = owned->data.data(),
+              .device = owned->device,
+              .ndim = static_cast<int32_t>(owned->shape.size()),
+              .dtype = owned->dtype,
+              .shape = owned->shape.data(),
+              .strides = owned->strides.data(),
+              .byte_offset = owned->byte_offset,
+          },
+  };
+  return &owned.release()->managed;
+}
+
+template <bool kCopy>
+struct TensorConsumer {
+  using Imported = std::shared_ptr<Tensor>;
+  static constexpr bool copy = kCopy;
+  static constexpr const char* name = copy ? "TensorCopied" : "TensorShared";
+
+  static Result<Imported> Import(DLManagedTensorVersioned* raw) {
+    return ImportTensorVersioned(raw, copy);
+  }
+  static std::shared_ptr<DataType> ValueType(const Imported& t) { return t->type(); }
+  static const uint8_t* RawData(const Imported& t) { return t->raw_data(); }
+  static bool IsMutable(const Imported& t) { return t->is_mutable(); }
+  static int64_t Size(const Imported& t) { return t->size(); }
+};
+
+template <bool kCopy>
+struct ArrayConsumer {
+  using Imported = std::shared_ptr<Array>;
+  static constexpr bool copy = kCopy;
+  static constexpr const char* name = copy ? "ArrayCopied" : "ArrayShared";
+
+  static Result<Imported> Import(DLManagedTensorVersioned* raw) {
+    return ImportArrayVersioned(raw, copy);
+  }
+  static std::shared_ptr<DataType> ValueType(const Imported& arr) { return arr->type(); }
+  static const uint8_t* RawData(const Imported& arr) {
+    return arr->data()->buffers[1]->data() + arr->offset() * arr->type()->byte_width();
+  }
+  static bool IsMutable(const Imported& arr) {
+    return arr->data()->buffers[1]->is_mutable();
+  }
+  static int64_t Size(const Imported& arr) { return arr->length(); }
+};
+
+struct ConsumerNames {
+  template <typename Consumer>
+  static std::string GetName(int) {
+    return Consumer::name;
+  }
+};
+
+using ConsumerTypes = ::testing::Types<TensorConsumer<false>, TensorConsumer<true>,
+                                       ArrayConsumer<false>, ArrayConsumer<true>>;
+using TensorConsumerTypes = ::testing::Types<TensorConsumer<false>, TensorConsumer<true>>;
+using ArrayConsumerTypes = ::testing::Types<ArrayConsumer<false>, ArrayConsumer<true>>;
+
+/// Tests sharing the same expectations for Arrow Tensor and Array imports.
+template <typename Consumer>
+class TestImport : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestImport, ConsumerTypes, ConsumerNames);
+
+TYPED_TEST(TestImport, Basic) {
+  auto foreign = ForeignTensor{
+      .shape = {6},
+      .strides = {1},
+      .data = ToBytes(std::vector<float>{0, 0, 1, 2, 3, 4, 5, 6}),
+      .byte_offset = 2 * sizeof(float),
+      .flags = DLPACK_FLAG_BITMASK_READ_ONLY,
+  };
+  const auto deleted = foreign.deleted;
+  const auto expected = std::vector<float>{1, 2, 3, 4, 5, 6};
+  const auto* values = foreign.data.data() + foreign.byte_offset;
+
+  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(Produce(std::move(foreign))));
+
+  AssertTypeEqual(*float32(), *TypeParam::ValueType(imported));
+  ASSERT_EQ(6, TypeParam::Size(imported));
+  // A copy is ours to mutate, whatever the producer flagged
+  ASSERT_EQ(TypeParam::copy, TypeParam::IsMutable(imported));
+  ASSERT_EQ(0, std::memcmp(TypeParam::RawData(imported), expected.data(),
+                           expected.size() * sizeof(float)));
+
+  if constexpr (TypeParam::copy) {
+    // The producer tensor is released as soon as its data has been copied
+    ASSERT_EQ(1, *deleted);
+  } else {
+    ASSERT_EQ(TypeParam::RawData(imported), values);
+    // The producer tensor is kept alive by the imported data
+    ASSERT_EQ(0, *deleted);
+    imported.reset();
+    ASSERT_EQ(1, *deleted);
+  }
+}
+
+TYPED_TEST(TestImport, Mutable) {
+  auto foreign = ForeignTensor{
+      .shape = {4},
+      .strides = {1},
+      .data = ToBytes(std::vector<float>{1, 2, 3, 4}),
+      .flags = 0,
+  };
+  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(Produce(std::move(foreign))));
+  ASSERT_TRUE(TypeParam::IsMutable(imported));
+}
+
+TYPED_TEST(TestImport, NullDeleter) {
+  // The DLPack spec allows producers not to set a deleter
+  auto* managed =
+      Produce({.shape = {2}, .strides = {1}, .data = std::vector<uint8_t>(8)});
+  auto* foreign = static_cast<ForeignTensor*>(managed->manager_ctx);
+  managed->deleter = nullptr;
+
+  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(managed));
+  imported.reset();
+  delete foreign;
+}
+
+TYPED_TEST(TestImport, DataTypes) {
+  const std::vector<std::pair<DLDataType, std::shared_ptr<DataType>>> cases = {
+      {{kDLInt, 8, 1}, int8()},       {{kDLInt, 16, 1}, int16()},
+      {{kDLInt, 32, 1}, int32()},     {{kDLInt, 64, 1}, int64()},
+      {{kDLUInt, 8, 1}, uint8()},     {{kDLUInt, 16, 1}, uint16()},
+      {{kDLUInt, 32, 1}, uint32()},   {{kDLUInt, 64, 1}, uint64()},
+      {{kDLFloat, 16, 1}, float16()}, {{kDLFloat, 32, 1}, float32()},
+      {{kDLFloat, 64, 1}, float64()}};
+
+  for (const auto& [dtype, expected] : cases) {
+    ARROW_SCOPED_TRACE("dtype ", expected->ToString());
+    ASSERT_OK_AND_ASSIGN(
+        auto imported, TypeParam::Import(Produce(
+                           {.dtype = dtype,
+                            .shape = {3},
+                            .strides = {1},
+                            .data = std::vector<uint8_t>(3 * expected->byte_width())})));
+    AssertTypeEqual(*expected, *TypeParam::ValueType(imported));
+  }
+}
+
+TYPED_TEST(TestImport, Empty) {
+  // DLPack mandates a null data pointer when the tensor holds no element
+  auto* managed = Produce({.shape = {0}, .strides = {1}});
+  managed->dl_tensor.data = nullptr;
+
+  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(managed));
+  ASSERT_EQ(0, TypeParam::Size(imported));
+}
+
+TYPED_TEST(TestImport, Errors) {
+  auto check = [](ForeignTensor foreign, const std::string& message) {
+    const auto deleted = foreign.deleted;
+    const auto status = TypeParam::Import(Produce(std::move(foreign))).status();
+    EXPECT_EQ(message, status.ToStringWithoutContextLines());
+    // Ownership is taken even when the import fails
+    EXPECT_EQ(1, *deleted);
+  };
+
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Received null pointer.",
+                             TypeParam::Import(nullptr));
+  check({.shape = {2},
+         .strides = {1},
+         .data = std::vector<uint8_t>(8),
+         .device = {.device_type = kDLCUDA, .device_id = 0}},
+        "NotImplemented: DLPack support is implemented only for buffers on CPU device.");
+  check({.dtype = {kDLFloat, 32, 2}, .shape = {2}, .strides = {1}},
+        "Type error: Only type with one lane are supported.");
+  check({.dtype = {kDLInt, 4, 1}, .shape = {2}, .strides = {1}},
+        "Invalid: unsupported integer bit width 4");
+  check({.dtype = {kDLBool, 8, 1}, .shape = {2}, .strides = {1}},
+        "Invalid: unsupported DLPack type " + std::to_string(kDLBool));
+}
+
+TYPED_TEST(TestImport, UnsupportedVersion) {
+  auto* managed =
+      Produce({.shape = {2}, .strides = {1}, .data = std::vector<uint8_t>(8)});
+  const auto deleted = static_cast<ForeignTensor*>(managed->manager_ctx)->deleted;
+  const auto major = DLPACK_MAJOR_VERSION + 1;
+  managed->version.major = major;
+
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Unsupported DLPack major version " +
+                                 std::to_string(major) + ", expected " +
+                                 std::to_string(DLPACK_MAJOR_VERSION),
+                             TypeParam::Import(managed));
+  // The spec mandates the deleter to be called on major version mismatch
+  ASSERT_EQ(1, *deleted);
+}
+
+template <typename Consumer>
+class TestImportTensor : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestImportTensor, TensorConsumerTypes, ConsumerNames);
+
+TYPED_TEST(TestImportTensor, ShapeAndStrides) {
+  auto foreign = ForeignTensor{
+      .shape = {2, 3},
+      .strides = {3, 1},
+      .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6}),
+  };
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(Produce(std::move(foreign))));
+
+  ASSERT_THAT(tensor->shape(), ::testing::ElementsAre(2, 3));
+  // Arrow strides are in bytes, DLPack strides in elements
+  ASSERT_THAT(tensor->strides(),
+              ::testing::ElementsAre(3 * sizeof(float), sizeof(float)));
+}
+
+TYPED_TEST(TestImportTensor, Empty) {
+  auto* managed = Produce({.shape = {0, 3}, .strides = {3, 1}});
+  managed->dl_tensor.data = nullptr;
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(managed));
+  ASSERT_THAT(tensor->shape(), ::testing::ElementsAre(0, 3));
+}
+
+TYPED_TEST(TestImportTensor, Strided) {
+  auto column_major = ForeignTensor{
+      .shape = {2, 3},
+      .strides = {1, 2},
+      .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6}),
+  };
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(Produce(std::move(column_major))));
+  ASSERT_TRUE(tensor->is_column_major());
+
+  // A 2x2 window over every other row of a 4x2 buffer
+  auto non_contiguous = ForeignTensor{
+      .shape = {2, 2},
+      .strides = {4, 1},
+      .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8}),
+  };
+  ASSERT_OK_AND_ASSIGN(tensor, TypeParam::Import(Produce(std::move(non_contiguous))));
+  ASSERT_FALSE(tensor->is_contiguous());
+  ASSERT_EQ(6, tensor->template Value<FloatType>({1, 1}));
+}
+
+TYPED_TEST(TestImportTensor, NegativeStrides) {
+  auto foreign = ForeignTensor{
+      .shape = {2, 2},
+      .strides = {-2, 1},
+      .data = std::vector<uint8_t>(16),
+  };
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: negative strides not supported",
+                             TypeParam::Import(Produce(std::move(foreign))));
+}
+
+TYPED_TEST(TestImportTensor, RoundTrip) {
+  const auto original = TensorFromJSON(float64(), "[1, 2, 3, 4, 5, 6]", {3, 2});
+
+  ASSERT_OK_AND_ASSIGN(auto* managed, ExportTensorVersioned(original, /*copy=*/false));
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(managed));
+
+  ASSERT_TRUE(tensor->Equals(*original));
+  if constexpr (!TypeParam::copy) {
+    ASSERT_EQ(original->raw_data(), tensor->raw_data());
+  }
+}
+
+template <typename Consumer>
+class TestImportArray : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestImportArray, ArrayConsumerTypes, ConsumerNames);
+
+TYPED_TEST(TestImportArray, OneDimension) {
+  auto foreign = ForeignTensor{
+      .dtype = {.code = kDLInt, .bits = 32, .lanes = 1},
+      .shape = {4},
+      .strides = {1},
+      .data = ToBytes(std::vector<int32_t>{1, 2, 3, 4}),
+  };
+  ASSERT_OK_AND_ASSIGN(auto array, TypeParam::Import(Produce(std::move(foreign))));
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[1, 2, 3, 4]"), *array);
+}
+
+TYPED_TEST(TestImportArray, Unsupported) {
+  auto check = [](ForeignTensor foreign) {
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        "Invalid: Only contiguous one dimensional tensor can be imported as"
+        " arrays. Try importing to Tensor first.",
+        TypeParam::Import(Produce(std::move(foreign))));
+  };
+
+  // Only a Tensor can hold more than one dimension
+  check({.shape = {2, 3},
+         .strides = {3, 1},
+         .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6})});
+  check({.shape = {0, 3}, .strides = {1, 1}});
+  // Array values are contiguous, whatever the dimension count
+  check(
+      {.shape = {3}, .strides = {2}, .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5})});
+  check({.shape = {2, 2}, .strides = {-2, 1}, .data = std::vector<uint8_t>(16)});
+}
+
+TYPED_TEST(TestImportArray, RoundTrip) {
+  const auto original = ArrayFromJSON(float64(), "[1, 2, 3, 4, 5, 6]");
+
+  ASSERT_OK_AND_ASSIGN(auto* managed, ExportArrayVersioned(original, /*copy=*/false));
+  ASSERT_OK_AND_ASSIGN(auto array, TypeParam::Import(managed));
+
+  AssertArraysEqual(*original, *array);
+  if constexpr (!TypeParam::copy) {
+    ASSERT_EQ(TypeParam::RawData(original), TypeParam::RawData(array));
+  }
+}
+
 }  // namespace arrow::dlpack

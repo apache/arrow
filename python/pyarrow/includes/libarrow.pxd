@@ -1460,6 +1460,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef struct DLPackVersion:
+        uint32_t major
+        uint32_t minor
+
     ctypedef enum DLDeviceType:
         kDLCPU = 1
 
@@ -1475,6 +1479,8 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
 
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    const DLPackVersion DLPACK_VERSION" arrow::dlpack::VERSION"
+
     CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
     CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
@@ -1489,6 +1495,13 @@ cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
     CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
+
+    CResult[shared_ptr[CArray]] \
+        ImportArrayVersionedFromDLPack" arrow::dlpack::ImportArrayVersioned"(
+            DLManagedTensorVersioned* raw, c_bool copy)
+    CResult[shared_ptr[CTensor]] \
+        ImportTensorVersionedFromDLPack" arrow::dlpack::ImportTensorVersioned"(
+            DLManagedTensorVersioned* raw, c_bool copy)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
@@ -3089,6 +3102,13 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
+
+    cdef cppclass CFixedShapeTensorArray \
+            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
+
+        @staticmethod
+        CResult[shared_ptr[CFixedShapeTensorArray]] FromTensor(
+            const shared_ptr[CTensor]& tensor)
 
 
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
