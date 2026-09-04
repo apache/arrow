@@ -1494,18 +1494,6 @@ struct CaseWhenFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
-
-  // For case_when exact dispatch, all value arguments must have identical DataType.
-  static std::shared_ptr<MatchConstraint> AllValueTypesMatchConstraint() {
-    static auto constraint =
-        MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
-          DCHECK_GE(types.size(), 2);
-          return std::all_of(
-              types.begin() + 2, types.end(),
-              [&types](const TypeHolder& type) { return type == types[1]; });
-        });
-    return constraint;
-  }
 };
 
 // Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar conditions
@@ -2793,9 +2781,10 @@ void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
 }
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
-                       detail::GetTypeId get_id, ArrayKernelExec exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec,
+                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
   ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
-                                            /*is_varargs=*/true),
+                                            /*is_varargs=*/true, std::move(constraint)),
                       exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
@@ -2911,7 +2900,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<CaseWhenFunction>(
         "case_when", Arity::VarArgs(/*min_args=*/2), case_when_doc);
-    auto all_value_types_match = CaseWhenFunction::AllValueTypesMatchConstraint();
+    auto all_value_types_match = AllTypesAreIdenticalFrom(/*first_type_index=*/1);
     AddPrimitiveCaseWhenKernels(func, NumericTypes(), all_value_types_match);
     AddPrimitiveCaseWhenKernels(func, TemporalTypes(), all_value_types_match);
     AddPrimitiveCaseWhenKernels(func, IntervalTypes(), all_value_types_match);
@@ -2938,8 +2927,10 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, {boolean(), null(), float16()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
-    AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
-    AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<FixedSizeBinaryType>::Exec);
+    AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec,
+                      AllTypesAreIdentical());
+    AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<FixedSizeBinaryType>::Exec,
+                      AllTypesAreIdentical());
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }

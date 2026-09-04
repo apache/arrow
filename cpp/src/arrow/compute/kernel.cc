@@ -519,6 +519,22 @@ std::shared_ptr<MatchConstraint> DecimalsHaveSameScale() {
   return instance;
 }
 
+std::shared_ptr<MatchConstraint> AllTypesAreIdenticalFrom(size_t first_type_index) {
+  return MatchConstraint::Make(
+      [first_type_index](const std::vector<TypeHolder>& types) -> bool {
+        DCHECK_LT(first_type_index, types.size());
+        return std::all_of(types.begin() + first_type_index + 1, types.end(),
+                           [&types, first_type_index](const TypeHolder& type) {
+                             return type == types[first_type_index];
+                           });
+      });
+}
+
+std::shared_ptr<MatchConstraint> AllTypesAreIdentical() {
+  static auto instance = AllTypesAreIdenticalFrom(/*first_type_index=*/0);
+  return instance;
+}
+
 // ----------------------------------------------------------------------
 // KernelSignature
 
