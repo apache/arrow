@@ -323,7 +323,8 @@ std::vector<T> GenBimodal(int64_t n) {
 // Benchmark Core
 
 template <typename T>
-void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int64_t)) {
+void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int64_t),
+                       PackingMode mode = PackingMode::kForBitPack) {
   const int64_t num_values = state.range(0);
   auto values = generator(num_values);
 
@@ -333,8 +334,8 @@ void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
 
   for (auto _ : state) {
     int64_t comp_size = max_size;
-    ARROW_CHECK_OK(
-        PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
+    ARROW_CHECK_OK(PforWrapper<T>::Encode(values.data(), num_values, compressed.data(),
+                                          &comp_size, mode));
     benchmark::DoNotOptimize(comp_size);
     benchmark::ClobberMemory();
   }
@@ -345,15 +346,16 @@ void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
 
   // Report compression ratio
   int64_t comp_size = max_size;
-  ARROW_CHECK_OK(
-      PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
+  ARROW_CHECK_OK(PforWrapper<T>::Encode(values.data(), num_values, compressed.data(),
+                                        &comp_size, mode));
   state.counters["CompRatio%"] =
       benchmark::Counter(100.0 * static_cast<double>(comp_size) /
                          static_cast<double>(num_values * sizeof(T)));
 }
 
 template <typename T>
-void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int64_t)) {
+void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int64_t),
+                       PackingMode mode = PackingMode::kForBitPack) {
   const int64_t num_values = state.range(0);
   auto values = generator(num_values);
 
@@ -361,8 +363,8 @@ void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
       PforWrapper<T>::GetMaxCompressedSize(static_cast<int32_t>(num_values)).ValueOrDie();
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
-  ARROW_CHECK_OK(
-      PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
+  ARROW_CHECK_OK(PforWrapper<T>::Encode(values.data(), num_values, compressed.data(),
+                                        &comp_size, mode));
 
   std::vector<T> decoded(num_values);
 
@@ -385,6 +387,14 @@ void BM_PforEncodeInt32(benchmark::State& state, Int32Gen gen) {
 }
 void BM_PforDecodeInt32(benchmark::State& state, Int32Gen gen) {
   BM_PforDecodeImpl<int32_t>(state, gen);
+}
+// The lane-interleaved layout, for a paired comparison against the two arms
+// above. Only 32-bit values reach it, so there is no int64 counterpart.
+void BM_PforEncodeInt32Interleaved(benchmark::State& state, Int32Gen gen) {
+  BM_PforEncodeImpl<int32_t>(state, gen, PackingMode::kForBitPackInterleaved);
+}
+void BM_PforDecodeInt32Interleaved(benchmark::State& state, Int32Gen gen) {
+  BM_PforDecodeImpl<int32_t>(state, gen, PackingMode::kForBitPackInterleaved);
 }
 void BM_PforEncodeInt64(benchmark::State& state, Int64Gen gen) {
   BM_PforEncodeImpl<int64_t>(state, gen);
@@ -551,6 +561,66 @@ BENCHMARK_CAPTURE(BM_PforDecodeInt64, EventMillis, &GenEventMillis<int64_t>)
 BENCHMARK_CAPTURE(BM_PforDecodeInt64, LowSentinel, &GenLowSentinel<int64_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt64, Bimodal, &GenBimodal<int64_t>)->Apply(CustomArgs);
+
+// ======================================================================
+// INT32 with the lane-interleaved bit-packing layout
+//
+// Every size here is a multiple of the 1024-value vector, so each vector is
+// packed interleaved rather than sequentially. Compare each arm against the
+// same distribution above: CompRatio% should match to the byte, because the
+// two layouts write the same number of bits.
+
+// Interleaved Encode
+
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, Constant, &GenConstant<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, Sequential, &GenSequential<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, SmallRange, &GenSmallRange<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, HighBaseSmallRange,
+                  &GenHighBaseSmallRange<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, WithOutliers, &GenWithOutliers<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, Random, &GenRandom<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, TpcdsSoldDateSk,
+                  &GenTpcdsSoldDateSk<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, TpcdsStoreSk, &GenTpcdsStoreSk<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, TpcdsItemSk, &GenTpcdsItemSk<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32Interleaved, TpcdsQuantity,
+                  &GenTpcdsQuantity<int32_t>)
+    ->Apply(CustomArgs);
+
+// Interleaved Decode
+
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, Constant, &GenConstant<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, Sequential, &GenSequential<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, SmallRange, &GenSmallRange<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, HighBaseSmallRange,
+                  &GenHighBaseSmallRange<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, WithOutliers, &GenWithOutliers<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, Random, &GenRandom<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, TpcdsSoldDateSk,
+                  &GenTpcdsSoldDateSk<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, TpcdsStoreSk, &GenTpcdsStoreSk<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, TpcdsItemSk, &GenTpcdsItemSk<int32_t>)
+    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32Interleaved, TpcdsQuantity,
+                  &GenTpcdsQuantity<int32_t>)
+    ->Apply(CustomArgs);
 
 }  // namespace
 }  // namespace arrow::util::pfor
