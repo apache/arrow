@@ -263,6 +263,15 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::fixed_size_binary(16)},
       {"float16", LogicalType::Float16(), ParquetType::FIXED_LEN_BYTE_ARRAY, 2,
        ::arrow::float16()},
+      {"timestamp_flba12_ms", LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
+       ::arrow::timestamp(::arrow::TimeUnit::MILLI, "UTC")},
+      {"timestamp_flba12_us", LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
+       ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC")},
+      {"timestamp_flba12_ns", LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
+       ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC")},
       {"none", LogicalType::None(), ParquetType::BOOLEAN, -1, ::arrow::boolean()},
       {"none", LogicalType::None(), ParquetType::INT32, -1, ::arrow::int32()},
       {"none", LogicalType::None(), ParquetType::INT64, -1, ::arrow::int64()},
@@ -304,6 +313,29 @@ TEST_F(TestConvertParquetSchema, DuplicateFieldNames) {
   ASSERT_OK(ConvertSchema(parquet_fields));
   arrow_fields = {arrow_field1, arrow_field2};
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema(arrow_fields)));
+}
+
+TEST_F(TestConvertParquetSchema, FlbaTimestampConversion) {
+  auto make_fields = [] {
+    std::vector<NodePtr> fields;
+    fields.push_back(
+        PrimitiveNode::Make("ts", Repetition::REQUIRED,
+                            LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+                            ParquetType::FIXED_LEN_BYTE_ARRAY, /*length=*/12));
+    return fields;
+  };
+
+  // Should convert to an Arrow timestamp.
+  ASSERT_OK(ConvertSchema(make_fields()));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema({::arrow::field(
+      "ts", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"), false)})));
+
+  // Should output the raw FLBA value.
+  ArrowReaderProperties props;
+  props.set_convert_flba_timestamps(false);
+  ASSERT_OK(ConvertSchema(make_fields(), /*key_value_metadata=*/{}, props));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+      ::arrow::schema({::arrow::field("ts", ::arrow::fixed_size_binary(12), false)})));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {
