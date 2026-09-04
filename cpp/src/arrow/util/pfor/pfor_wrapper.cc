@@ -376,6 +376,7 @@ Result<typename PforWrapper<T>::VectorReader> PforWrapper<T>::VectorReader::Open
   reader.vector_size_ = 1 << header.log_vector_size;
   reader.num_vectors_ =
       static_cast<int32_t>(bit_util::CeilDiv(reader.num_elements_, reader.vector_size_));
+  reader.packing_mode_ = static_cast<PackingMode>(header.packing_mode);
   reader.offset_array_start_ = input.data() + PforConstants::kHeaderSize;
   const int64_t offset_array_size =
       static_cast<int64_t>(reader.num_vectors_) * kOffsetSize;
@@ -414,7 +415,7 @@ Status PforWrapper<T>::VectorReader::DecodeVector(int32_t vector_index,
   return PforCompression<T>::DecodeVector(
              std::span<const uint8_t>(vector_data,
                                       input_.data() + input_.size() - vector_data),
-             vector_length, output.data())
+             vector_length, output.data(), packing_mode_)
       .status();
 }
 
