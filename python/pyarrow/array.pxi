@@ -2274,6 +2274,7 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(array)
 
+    @staticmethod
     def from_dlpack(x, /, *, device=None, copy=None):
         """
         Construct an Array from an object implementing the DLPack protocol.
@@ -2301,6 +2302,8 @@ cdef class Array(_PandasConvertible):
         """
         version = (DLPACK_VERSION.major, DLPACK_VERSION.minor)
         pycapsule = x.__dlpack__(max_version=version, dl_device=device, copy=copy)
+        if not PyCapsule_CheckExact(pycapsule):
+            raise TypeError("DLPack producer did not return a PyCapsule")
         cdef DLManagedTensorVersioned* ptr = <DLManagedTensorVersioned*>PyCapsule_GetPointer(
             pycapsule, "dltensor_versioned")
         if ptr == NULL:
