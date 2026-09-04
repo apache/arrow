@@ -1561,11 +1561,22 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
     }
 
     total_values_remaining_ = total_value_count_;
-    if (delta_bit_widths_ == nullptr) {
-      delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
-    } else {
-      PARQUET_THROW_NOT_OK(
-          delta_bit_widths_->Resize(mini_blocks_per_block_, /*shrink_to_fit*/ false));
+    if (total_value_count_ > 1) {
+      const int64_t bytes_left = decoder_->bytes_left();
+      const int64_t bit_width_bytes_left = std::max<int64_t>(0, bytes_left - 1);
+      if (static_cast<int64_t>(mini_blocks_per_block_) > bit_width_bytes_left) {
+        throw ParquetException(
+            "the number of miniblocks per block (" +
+            std::to_string(mini_blocks_per_block_) +
+            ") is larger than the number of bytes available for miniblock bit widths (" +
+            std::to_string(bit_width_bytes_left) + ")");
+      }
+      if (delta_bit_widths_ == nullptr) {
+        delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+      } else {
+        PARQUET_THROW_NOT_OK(
+            delta_bit_widths_->Resize(mini_blocks_per_block_, /*shrink_to_fit*/ false));
+      }
     }
     first_block_initialized_ = false;
     values_remaining_current_mini_block_ = 0;
