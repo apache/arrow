@@ -19,6 +19,11 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  contents: read
+  # For OIDC token for sccache
+  id-token: write
+
 jobs:
   grab-dependencies:
     name: "Download thirdparty dependencies"
@@ -77,6 +82,7 @@ jobs:
           install.packages(c("remotes", "glue", "sys"))
           remotes::install_deps("arrow/r", dependencies = TRUE)
         shell: Rscript {0}
+      {{ macros.github_configure_aws_credentials()|indent }}
       - name: Install
         env:
           ARROW_OFFLINE_BUILD: true
