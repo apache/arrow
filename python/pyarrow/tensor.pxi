@@ -18,7 +18,11 @@
 # Avoid name clash with `pa.struct` function
 import struct as _struct
 
-from cpython.pycapsule cimport PyCapsule_SetName, PyCapsule_GetPointer
+from cpython.pycapsule cimport (
+    PyCapsule_CheckExact,
+    PyCapsule_GetPointer,
+    PyCapsule_SetName,
+)
 
 
 cdef class Tensor(_Weakrefable):
@@ -302,6 +306,7 @@ strides: {self.strides}"""
         buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
+    @staticmethod
     def from_dlpack(x, /, *, device=None, copy=None):
         """
         Construct a Tensor from an object implementing the DLPack protocol.
@@ -310,8 +315,7 @@ strides: {self.strides}"""
         ----------
         x : object
             The input object containing array data, following the DLPack
-            protocol (has a ``__dlpack__`` method) or the array API's
-            ``__array_namespace__`` protocol.
+            protocol (has a ``__dlpack__`` method).
         device : tuple[enum.Enum, int], optional
             Designates where the resulting Tensor should reside, in the
             format returned by :meth:`Tensor.__dlpack_device__`. When None,
@@ -330,6 +334,8 @@ strides: {self.strides}"""
         """
         version = (DLPACK_VERSION.major, DLPACK_VERSION.minor)
         pycapsule = x.__dlpack__(max_version=version, dl_device=device, copy=copy)
+        if not PyCapsule_CheckExact(pycapsule):
+            raise TypeError("DLPack producer did not return a PyCapsule")
         cdef DLManagedTensorVersioned* ptr = <DLManagedTensorVersioned*>PyCapsule_GetPointer(
             pycapsule, "dltensor_versioned")
         if ptr == NULL:

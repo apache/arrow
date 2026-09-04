@@ -412,7 +412,8 @@ def test_array_from_dlpack_multi_dim_not_supported():
         pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
 
     expected = np.arange(6, dtype=np.int32).reshape((2, 3))
-    with pytest.raises(pa.ArrowNotImplementedError,
-                       match="Only contiguous one dimensional tensor can be "
-                             "imported as arrays"):
+    with pytest.raises(
+        pa.ArrowInvalid,
+        match="Only contiguous one dimensional tensor can be imported as arrays",
+    ):
         pa.Array.from_dlpack(expected)

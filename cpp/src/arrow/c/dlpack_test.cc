@@ -649,8 +649,8 @@ TYPED_TEST(TestImportArray, OneDimension) {
 TYPED_TEST(TestImportArray, Unsupported) {
   auto check = [](ForeignTensor foreign) {
     ASSERT_RAISES_WITH_MESSAGE(
-        NotImplemented,
-        "NotImplemented: Only contiguous one dimensional tensor can be imported as"
+        Invalid,
+        "Invalid: Only contiguous one dimensional tensor can be imported as"
         " arrays. Try importing to Tensor first.",
         TypeParam::Import(Produce(std::move(foreign))));
   };
