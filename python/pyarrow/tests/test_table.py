@@ -3308,6 +3308,60 @@ def test_table_join_asof():
 
 
 @pytest.mark.dataset
+def test_table_join_asof_tolerance_range():
+    left = pa.table({
+        "left": [10, 20, 30, 40],
+        "key": [1, 1, 1, 1],
+    })
+    right = pa.table({
+        "right": [9, 12, 30, 41],
+        "key": [1, 1, 1, 1],
+        "value": [1, 2, 3, 4],
+    })
+
+    result = left.join_asof(
+        right, on="left", by="key", tolerance=(-10, -1),
+        right_on="right", right_by="key",
+    )
+    assert result == pa.table({
+        "left": [10, 20, 30, 40],
+        "key": [1, 1, 1, 1],
+        "value": [1, 2, None, 3],
+    })
+
+    tie_left = pa.table({"on": [10], "key": [1]})
+    tie_right = pa.table({
+        "on": [8, 12],
+        "key": [1, 1],
+        "value": [8, 12],
+    })
+    assert tie_left.join_asof(
+        tie_right, on="on", by="key", tolerance=(-2, 2)
+    )["value"].to_pylist() == [8]
+    assert tie_left.join_asof(
+        tie_right, on="on", by="key", tolerance=(-2, 2),
+        prefer_earlier_on_tie=False,
+    )["value"].to_pylist() == [12]
+
+    with pytest.raises(pa.ArrowInvalid, match="lower bound must not exceed"):
+        left.join_asof(
+            right, on="left", by="key", tolerance=(1, -1),
+            right_on="right", right_by="key",
+        )
+
+
+@pytest.mark.dataset
+def test_table_join_asof_null_on_keys():
+    left = pa.table({"time": pa.array([None], type=pa.int64())})
+    right = pa.table({"time": [0], "value": [True]})
+
+    assert left.join_asof(right, on="time", by=[], tolerance=0) == pa.table({
+        "time": pa.array([None], type=pa.int64()),
+        "value": pa.array([None], type=pa.bool_()),
+    })
+
+
+@pytest.mark.dataset
 def test_table_join_asof_multiple_by():
     t1 = pa.table({
         "colA": [1, 2, 6],
