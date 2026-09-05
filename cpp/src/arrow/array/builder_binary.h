@@ -34,9 +34,11 @@
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/binary_view_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -135,6 +137,64 @@ class BaseBinaryBuilder
       offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
     }
     UnsafeAppendToBitmap(length, true);
+    return Status::OK();
+  }
+
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    if (scalar.type->id() == Type::NA) {
+      return AppendNulls(n_repeats);
+    }
+    if (scalar.type->id() != type()->id()) {
+      return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+    const auto& s =
+        internal::checked_cast<const typename TypeTraits<TYPE>::ScalarType&>(scalar);
+    int64_t data_size = s.is_valid ? s.value->size() : 0;
+    ARROW_RETURN_NOT_OK(Reserve(n_repeats));
+    ARROW_RETURN_NOT_OK(ReserveData(n_repeats * data_size));
+    if (s.is_valid) {
+      std::string_view sv{*s.value};
+      for (int64_t i = 0; i < n_repeats; ++i) {
+        UnsafeAppend(sv);
+      }
+    } else {
+      for (int64_t i = 0; i < n_repeats; ++i) {
+        UnsafeAppendNull();
+      }
+    }
+    return Status::OK();
+  }
+
+  Status AppendScalars(const ScalarVector& scalars) override {
+    if (scalars.empty()) return Status::OK();
+    const auto ty_id = type()->id();
+    int64_t data_size = 0;
+    for (const auto& scalar : scalars) {
+      if (scalar->type->id() != Type::NA && scalar->type->id() != ty_id) {
+        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                               " to builder for type ", type()->ToString());
+      }
+      if (scalar->type->id() != Type::NA) {
+        const auto& s =
+            internal::checked_cast<const typename TypeTraits<TYPE>::ScalarType&>(*scalar);
+        if (s.is_valid) {
+          data_size += s.value->size();
+        }
+      }
+    }
+    ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
+    ARROW_RETURN_NOT_OK(ReserveData(data_size));
+    for (const auto& scalar : scalars) {
+      if (scalar->type->id() == Type::NA || !scalar->is_valid) {
+        UnsafeAppendNull();
+      } else {
+        const auto& s =
+            internal::checked_cast<const typename TypeTraits<TYPE>::ScalarType&>(*scalar);
+        UnsafeAppend(std::string_view{*s.value});
+      }
+    }
     return Status::OK();
   }
 
@@ -665,6 +725,10 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  Status AppendScalars(const ScalarVector& scalars) override;
+
   /// \brief Append a empty element (length-0 inline string)
   Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -780,6 +844,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status AppendNull() final;
   Status AppendNulls(int64_t length) final;
+
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  Status AppendScalars(const ScalarVector& scalars) override;
 
   Status AppendEmptyValue() final;
   Status AppendEmptyValues(int64_t length) final;
