@@ -398,6 +398,8 @@ def test_types_stack(gdb_arrow):
     check_stack_repr(gdb_arrow, "string_type", "arrow::utf8()")
     check_stack_repr(gdb_arrow, "large_binary_type", "arrow::large_binary()")
     check_stack_repr(gdb_arrow, "large_string_type", "arrow::large_utf8()")
+    check_stack_repr(gdb_arrow, "binary_view_type", "arrow::binary_view()")
+    check_stack_repr(gdb_arrow, "string_view_type", "arrow::utf8_view()")
     check_stack_repr(gdb_arrow, "fixed_size_binary_type",
                      "arrow::fixed_size_binary(10)")
 
@@ -461,6 +463,8 @@ def test_types_heap(gdb_arrow):
                     "arrow::decimal64(16, 5)")
     check_heap_repr(gdb_arrow, "heap_decimal128_type",
                     "arrow::decimal128(16, 5)")
+    check_heap_repr(gdb_arrow, "heap_binary_view_type", "arrow::binary_view()")
+    check_heap_repr(gdb_arrow, "heap_string_view_type", "arrow::utf8_view()")
 
     check_heap_repr(gdb_arrow, "heap_list_type",
                     "arrow::list(arrow::uint8())")
@@ -681,6 +685,12 @@ def test_scalars_stack(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "large_binary_scalar_abc",
         'arrow::LargeBinaryScalar of size 3, value "abc"')
+    check_stack_repr(
+        gdb_arrow, "binary_view_scalar_null",
+        "arrow::BinaryViewScalar of null value")
+    check_stack_repr(
+        gdb_arrow, "binary_view_scalar_abc",
+        'arrow::BinaryViewScalar of size 3, value "abc"')
 
     check_stack_repr(
         gdb_arrow, "string_scalar_null",
@@ -701,6 +711,12 @@ def test_scalars_stack(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "large_string_scalar_hehe",
         'arrow::LargeStringScalar of size 6, value "héhé"')
+    check_stack_repr(
+        gdb_arrow, "string_view_scalar_null",
+        "arrow::StringViewScalar of null value")
+    check_stack_repr(
+        gdb_arrow, "string_view_scalar_hehe",
+        'arrow::StringViewScalar of size 6, value "héhé"')
 
     check_stack_repr(
         gdb_arrow, "fixed_size_binary_scalar",
@@ -1075,6 +1091,24 @@ def test_arrays_heap(gdb_arrow):
         gdb_arrow, "heap_binary_array_sliced",
         (r'arrow::BinaryArray of length 1, offset 1, unknown null count = '
          r'{[0] = "abcd"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_binary_view_array",
+        (r'arrow::BinaryViewArray of length 4, offset 0, null count 1 = {'
+         r'[0] = null, [1] = "abcd", [2] = "\000\037\377", '
+         r'[3] = "12345678901234567890"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_string_view_array",
+        (r'arrow::StringViewArray of length 4, offset 0, null count 1 = {'
+         r'[0] = null, [1] = "héhé", [2] = "invalid \\xff char", '
+         r'[3] = "this string is longer than 12 bytes for view"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_binary_view_array_sliced",
+        (r'arrow::BinaryViewArray of length 2, offset 1, unknown null count = '
+         r'{[0] = "abcd", [1] = "\000\037\377"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_string_view_array_sliced",
+        (r'arrow::StringViewArray of length 2, offset 1, unknown null count = '
+         r'{[0] = "héhé", [1] = "invalid \\xff char"}'))
 
     # Nested
     check_heap_repr(
