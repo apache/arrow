@@ -4293,8 +4293,9 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
-    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
-                     int64_t null_count=-1, int64_t offset=0):
+    def from_buffers(DataType type not None, int64_t length, buffers,
+                     Array dictionary not None, int64_t null_count=-1,
+                     int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
 
