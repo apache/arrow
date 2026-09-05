@@ -132,6 +132,7 @@ vector_kernel_benchmarks = [
     'vector_partition_benchmark',
     'vector_topk_benchmark',
     'vector_replace_benchmark',
+    'vector_search_sorted_benchmark',
     'vector_selection_benchmark',
 ]
 
