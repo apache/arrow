@@ -2118,6 +2118,65 @@ def test_concat_tables_with_promotion_error():
         pa.concat_tables([t1, t2], promote_options="default")
 
 
+def test_concat_tables_with_struct_promotion():
+    # GH-38809: fields of a struct are unified, and fields missing from one
+    # of the tables are filled with nulls
+    t1 = pa.Table.from_pydict(
+        {'a': [1.0, 2.0], 'b': [{'k1': 0, 'k2': 1}, {'k3': 'ok'}]})
+    t2 = pa.Table.from_pydict(
+        {'a': [1.0, None], 'b': [{'k1': None}, {'k3': None}]})
+
+    expected_type = pa.struct(
+        [('k1', pa.int64()), ('k2', pa.int64()), ('k3', pa.string())])
+    expected_values = [
+        {'k1': 0, 'k2': 1, 'k3': None},
+        {'k1': None, 'k2': None, 'k3': 'ok'},
+        {'k1': None, 'k2': None, 'k3': None},
+        {'k1': None, 'k2': None, 'k3': None},
+    ]
+
+    for promote_options in ["default", "permissive"]:
+        result = pa.concat_tables([t1, t2], promote_options=promote_options)
+        assert result.schema.field('b').type == expected_type
+        assert result.column('b').to_pylist() == expected_values
+
+    # the unified struct keeps the field order of the first table
+    result = pa.concat_tables([t2, t1], promote_options="permissive")
+    assert result.schema.field('b').type == pa.struct(
+        [('k1', pa.int64()), ('k3', pa.string()), ('k2', pa.int64())])
+
+
+def test_concat_tables_with_nested_struct_promotion():
+    # GH-38809: types nested inside a struct are promoted as well
+    t1 = pa.Table.from_pydict(
+        {'a': [{'k': 1}]},
+        schema=pa.schema([('a', pa.struct([('k', pa.int32())]))]))
+    t2 = pa.Table.from_pydict(
+        {'a': [{'k': 2.5}]},
+        schema=pa.schema([('a', pa.struct([('k', pa.float64())]))]))
+
+    result = pa.concat_tables([t1, t2], promote_options="permissive")
+    assert result.schema.field('a').type == pa.struct([('k', pa.float64())])
+    assert result.column('a').to_pylist() == [{'k': 1.0}, {'k': 2.5}]
+
+    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
+        pa.concat_tables([t1, t2], promote_options="default")
+
+
+def test_concat_tables_with_list_of_struct_promotion():
+    # GH-38809: struct promotion also applies below a list
+    t1 = pa.Table.from_pydict({'a': [[{'k1': 1}]]})
+    t2 = pa.Table.from_pydict({'a': [[{'k2': 'ok'}]]})
+
+    result = pa.concat_tables([t1, t2], promote_options="permissive")
+    assert result.schema.field('a').type == pa.list_(
+        pa.struct([('k1', pa.int64()), ('k2', pa.string())]))
+    assert result.column('a').to_pylist() == [
+        [{'k1': 1, 'k2': None}],
+        [{'k1': None, 'k2': 'ok'}],
+    ]
+
+
 def test_table_negative_indexing():
     data = [
         pa.array(range(5)),
