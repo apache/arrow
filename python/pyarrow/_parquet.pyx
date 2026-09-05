@@ -26,7 +26,7 @@ from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
-from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
+from pyarrow.lib cimport (_Weakrefable, Buffer, DataType, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Table, KeyValueMetadata,
@@ -1656,6 +1656,8 @@ cdef class ParquetReader(_Weakrefable):
         properties.set_page_checksum_verification(page_checksum_verification)
 
         if binary_type is not None:
+            if not isinstance(binary_type, DataType):
+                raise TypeError(f"DataType expected, got {type(binary_type)!r}")
             c_binary_type = pyarrow_unwrap_data_type(binary_type)
             arrow_props.set_binary_type(c_binary_type.get().id())
 
