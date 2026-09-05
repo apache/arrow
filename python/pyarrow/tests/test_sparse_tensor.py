@@ -89,6 +89,17 @@ def test_sparse_tensor_attrs(sparse_tensor_type):
     assert wr() is None
 
 
+@pytest.mark.parametrize('sparse_tensor_type', [
+    pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
+    pa.SparseCOOTensor,
+    pa.SparseCSFTensor,
+])
+def test_sparse_tensor_from_tensor_rejects_invalid_type(sparse_tensor_type):
+    with pytest.raises(TypeError, match="Argument 'obj' has incorrect type"):
+        sparse_tensor_type.from_tensor(0)
+
+
 def test_sparse_coo_tensor_base_object():
     expected_data = np.array([[8, 2, 5, 3, 4, 6]]).T
     expected_coords = np.array([
