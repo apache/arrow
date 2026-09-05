@@ -30,11 +30,8 @@ ARG jdk=17
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
 
-# Pin Python until pythonnet is made compatible with 3.12
-# (https://github.com/pythonnet/pythonnet/pull/2249)
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
-        "python < 3.12" \
         numpy \
         compilers \
         go \
