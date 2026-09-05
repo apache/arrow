@@ -211,10 +211,12 @@ garrow_output_stream_write_tensor(GArrowOutputStream *stream,
   auto arrow_tensor = garrow_tensor_get_raw(tensor);
   int32_t metadata_length;
   int64_t body_length;
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   auto status = arrow::ipc::WriteTensor(*arrow_tensor,
                                         arrow_stream.get(),
                                         &metadata_length,
                                         &body_length);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   if (garrow::check(error, status, "[output-stream][write-tensor]")) {
     return metadata_length + body_length;
   } else {
