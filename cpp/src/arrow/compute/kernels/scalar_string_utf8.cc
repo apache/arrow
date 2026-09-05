@@ -881,10 +881,32 @@ const FunctionDoc utf8_rtrim_whitespace_doc(
 
 #endif  // ARROW_WITH_UTF8PROC
 
+// Trim functions additionally dispatch dictionary-encoded inputs to the kernel
+// for their value type (the dictionary is then decoded via Cast() before Exec
+// runs), matching CompareFunction/ScalarCTypeToInt64Function elsewhere.
+struct UnaryStringWithDictionaryFunction : public ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+
+    EnsureDictionaryDecoded(types);
+
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
+  }
+};
+
 void AddUtf8StringTrim(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, utf8_trim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, utf8_ltrim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, utf8_rtrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8Trim, UnaryStringWithDictionaryFunction>(
+      "utf8_trim", registry, utf8_trim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8LTrim, UnaryStringWithDictionaryFunction>(
+      "utf8_ltrim", registry, utf8_ltrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8RTrim, UnaryStringWithDictionaryFunction>(
+      "utf8_rtrim", registry, utf8_rtrim_doc);
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  utf8_trim_whitespace_doc);
