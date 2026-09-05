@@ -885,6 +885,12 @@ void AddAsciiStringLength(FunctionRegistry* registry) {
             ty);
     DCHECK_OK(func->AddKernel({ty}, int64(), std::move(exec)));
   }
+  // View element length is int32-sized, so both view types emit int32.
+  for (const auto& ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<applicator::ScalarUnaryNotNull, Int32Type,
+                                          BinaryLength>(*ty);
+    DCHECK_OK(func->AddKernel({ty}, int32(), std::move(exec)));
+  }
   DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                             BinaryLength::FixedSizeExec));
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1198,24 +1204,6 @@ void AddAsciiStringPad(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Exact pattern detection
 
-using StrToBoolTransformFunc =
-    std::function<void(const void*, const uint8_t*, int64_t, int64_t, uint8_t*)>;
-
-// Apply `transform` to input character data- this function cannot change the
-// length
-template <typename Type>
-void StringBoolTransform(KernelContext* ctx, const ExecSpan& batch,
-                         StrToBoolTransformFunc transform, ExecResult* out) {
-  using offset_type = typename Type::offset_type;
-  const ArraySpan& input = batch[0].array;
-  ArraySpan* out_arr = out->array_span_mutable();
-  if (input.length > 0) {
-    transform(reinterpret_cast<const offset_type*>(input.buffers[1].data) + input.offset,
-              input.buffers[2].data, input.length, out_arr->offset,
-              out_arr->buffers[1].data);
-  }
-}
-
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
 // This is an implementation of the Knuth-Morris-Pratt algorithm
@@ -1333,27 +1321,26 @@ struct RegexSubstringMatcher {
 
 template <typename Type, typename Matcher>
 struct MatchSubstringImpl {
-  using offset_type = typename Type::offset_type;
-
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
                      const Matcher* matcher) {
-    StringBoolTransform<Type>(
-        ctx, batch,
-        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
-                   int64_t output_offset, uint8_t* output) {
-          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
-          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-          for (int64_t i = 0; i < length; ++i) {
-            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
-            int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(std::string_view(current_data, current_length))) {
-              bitmap_writer.Set();
-            }
-            bitmap_writer.Next();
+    // Evaluate per element and skip null slots. The matcher may be expensive
+    // (e.g. a regex), so running it on nulls is wasteful; additionally, for the
+    // view types a null slot's header is unvalidated and may carry a bogus
+    // buffer_index/offset that decoding would dereference.
+    const ArraySpan& input = batch[0].array;
+    ArraySpan* out_arr = out->array_span_mutable();
+    FirstTimeBitmapWriter bitmap_writer(out_arr->buffers[1].data, out_arr->offset,
+                                        input.length);
+    VisitArrayValuesInline<Type>(
+        input,
+        [&](std::string_view val) {
+          if (matcher->Match(val)) {
+            bitmap_writer.Set();
           }
-          bitmap_writer.Finish();
+          bitmap_writer.Next();
         },
-        out);
+        [&]() { bitmap_writer.Next(); });
+    bitmap_writer.Finish();
     return Status::OK();
   }
 };
@@ -1635,6 +1622,20 @@ const FunctionDoc match_like_doc(
     {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
+// Register the view kernels for a match-substring-style predicate. Both view types
+// use the BinaryViewType physical exec; is_utf8 is determined at runtime from the
+// input type (utf8_view -> true, binary_view -> false), so ignore_case/regex folding
+// stays correct without a separate StringViewType instantiation.
+template <template <typename...> class ExecTemplate, typename... Matcher>
+void AddMatchSubstringViewKernels(ScalarFunction* func) {
+  DCHECK_OK(func->AddKernel({binary_view()}, boolean(),
+                            ExecTemplate<BinaryViewType, Matcher...>::Exec,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({utf8_view()}, boolean(),
+                            ExecTemplate<BinaryViewType, Matcher...>::Exec,
+                            MatchSubstringState::Init));
+}
+
 void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
@@ -1645,6 +1646,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
+    AddMatchSubstringViewKernels<MatchSubstring, PlainSubstringMatcher>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -1656,6 +1658,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
+    AddMatchSubstringViewKernels<MatchSubstring, PlainStartsWithMatcher>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -1667,6 +1670,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
+    AddMatchSubstringViewKernels<MatchSubstring, PlainEndsWithMatcher>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1679,6 +1683,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
+    AddMatchSubstringViewKernels<MatchSubstring, RegexSubstringMatcher>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -1689,6 +1694,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
+    AddMatchSubstringViewKernels<MatchLike>(func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1696,6 +1702,17 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
 
 // ----------------------------------------------------------------------
 // Substring find - lfind/index/etc.
+
+// The output offset type for find/count kernels. Like TypeTraits<T>::OffsetType,
+// but also defined for the view types, whose per-element length is int32-sized.
+template <typename T, typename Enable = void>
+struct StringOffsetType {
+  using type = typename TypeTraits<T>::OffsetType;
+};
+template <typename T>
+struct StringOffsetType<T, enable_if_binary_view_like<T>> {
+  using type = Int32Type;
+};
 
 struct FindSubstring {
   const PlainSubstringMatcher matcher_;
@@ -1743,7 +1760,9 @@ struct FindSubstringRegex {
 
 template <typename InputPhysicalType>
 struct FindSubstringExec {
-  using OffsetType = typename TypeTraits<InputPhysicalType>::OffsetType;
+  // StringOffsetType maps the view types (which have no TypeTraits::OffsetType)
+  // to int32; for the other physical types it forwards to TypeTraits::OffsetType.
+  using OffsetType = typename StringOffsetType<InputPhysicalType>::type;
 
   static_assert(!is_string_or_string_view(InputPhysicalType::type_id),
                 "should only codegen on physical types");
@@ -1779,7 +1798,7 @@ const FunctionDoc find_substring_doc(
 #ifdef ARROW_WITH_RE2
 template <typename InputPhysicalType>
 struct FindSubstringRegexExec {
-  using OffsetType = typename TypeTraits<InputPhysicalType>::OffsetType;
+  using OffsetType = typename StringOffsetType<InputPhysicalType>::type;
 
   static_assert(!is_string_or_string_view(InputPhysicalType::type_id),
                 "should only codegen on physical types");
@@ -1813,6 +1832,13 @@ void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    // Per view type to keep the is_utf8 distinction; view length fits int32.
+    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
+                              FindSubstringExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
+    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
+                              FindSubstringExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               FindSubstringExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
@@ -1829,6 +1855,12 @@ void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
+                              FindSubstringRegexExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
+    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
+                              FindSubstringRegexExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               FindSubstringRegexExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
@@ -1902,7 +1934,7 @@ struct CountSubstringRegex {
 
 template <typename InputType>
 struct CountSubstringRegexExec {
-  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  using OffsetType = typename StringOffsetType<InputType>::type;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
@@ -1916,7 +1948,7 @@ struct CountSubstringRegexExec {
 
 template <typename InputType>
 struct CountSubstringExec {
-  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  using OffsetType = typename StringOffsetType<InputType>::type;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
@@ -1963,6 +1995,12 @@ void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
+                              CountSubstringExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
+    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
+                              CountSubstringExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               CountSubstringExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
@@ -1979,6 +2017,12 @@ void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
+    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
+                              CountSubstringRegexExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
+    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
+                              CountSubstringRegexExec<BinaryViewType>::Exec,
+                              MatchSubstringState::Init));
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               CountSubstringRegexExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
