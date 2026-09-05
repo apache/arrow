@@ -1164,6 +1164,65 @@ class BaseCSVTableRead(BaseTestCSV):
             'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
         }
 
+    def test_dates_with_timestamp_parsers(self):
+        # Custom timestamp parsers are used as a fallback for explicitly-typed
+        # date columns (GH-28303, GH-41488)
+        rows = b"a,b\n15/10/2015,1970-01-02\n18/06/1990,15/10/2015\n"
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.date32(), 'b': pa.date64()}
+        with pytest.raises(pa.ArrowInvalid,
+                           match="CSV conversion error to date"):
+            self.read_bytes(rows, convert_options=opts)
+
+        opts.timestamp_parsers = ['%d/%m/%Y']
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.date32()),
+                            ('b', pa.date64())])
+        assert table.schema == schema
+        # ISO values keep working alongside custom-parsed ones
+        assert table.to_pydict() == {
+            'a': [date(2015, 10, 15), date(1990, 6, 18)],
+            'b': [date(1970, 1, 2), date(2015, 10, 15)],
+        }
+
+        # Month names are parsed case-insensitively
+        rows = b"a\n15-OCT-15\n18-Jun-90\n"
+        opts = ConvertOptions(column_types={'a': pa.date32()},
+                              timestamp_parsers=['%d-%b-%y'])
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.to_pydict() == {
+            'a': [date(2015, 10, 15), date(1990, 6, 18)],
+        }
+
+        # Inference is unaffected by the fallback: a non-ISO date string
+        # still infers as timestamp, not date32
+        rows = b"a\n15/10/2015\n"
+        opts = ConvertOptions(timestamp_parsers=['%d/%m/%Y'])
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.schema == pa.schema([('a', pa.timestamp('s'))])
+
+    def test_times_with_timestamp_parsers(self):
+        # Custom timestamp parsers are used as a fallback for explicitly-typed
+        # time columns (GH-41488)
+        from datetime import time
+
+        rows = b"a,b\n7:55:00,12:01:02\n23:59:59,0:00:01\n"
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.time32('s'), 'b': pa.time64('us')}
+        with pytest.raises(pa.ArrowInvalid,
+                           match="CSV conversion error to time"):
+            self.read_bytes(rows, convert_options=opts)
+
+        opts.timestamp_parsers = ['%H:%M:%S']
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.time32('s')),
+                            ('b', pa.time64('us'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [time(7, 55, 0), time(23, 59, 59)],
+            'b': [time(12, 1, 2), time(0, 0, 1)],
+        }
+
     def test_times(self):
         # Times are inferred as time32[s] by default
         from datetime import time
