@@ -87,6 +87,12 @@ namespace fastlanes {
 
 enum class TransposedBaseCoding { kRaw, kPacked };
 
+// How a decoder gets back to file order. kNone is not a conforming decoder and
+// exists only to price the other two. kSeparate walks the block twice, once for
+// the prefix sums and once to permute; kFused does both in one pass, which is
+// available because a lane's chain does not depend on any other lane.
+enum class TransposedRepair { kNone, kSeparate, kFused };
+
 // The output slot that container slot (row, lane) belongs to, and its inverse.
 // Not used on the hot path -- the decoder transposes in blocks instead.
 inline size_t TransposedSource(size_t t) {
@@ -130,16 +136,14 @@ inline void UnpackScalar32(const uint8_t* in, uint32_t w, uint32_t* out) {
     return;
   }
   const uint32_t mask = w == 32 ? ~uint32_t{0} : ((uint32_t{1} << w) - 1);
-  uint64_t acc = 0;
-  uint32_t have = 0;
+  // Branchless: one unaligned 64-bit load per value covers any w <= 32 at any
+  // bit offset. The last load reads up to 7 bytes beyond the base stream, which
+  // TransposedMaxEncodedSize leaves slack for.
   for (size_t i = 0; i < kLanes; ++i) {
-    while (have < w) {
-      acc |= static_cast<uint64_t>(*in++) << have;
-      have += 8;
-    }
-    out[i] = static_cast<uint32_t>(acc) & mask;
-    acc >>= w;
-    have -= w;
+    const size_t bit = i * w;
+    uint64_t word;
+    std::memcpy(&word, in + (bit >> 3), sizeof(word));
+    out[i] = static_cast<uint32_t>(word >> (bit & 7)) & mask;
   }
 }
 
@@ -349,10 +353,42 @@ inline void Transpose32x32(const uint32_t* ARROW_RESTRICT grid,
 #endif
 }
 
+#ifdef ARROW_TRANSPOSED_DELTA_NEON
+// The 32 prefix sums and the permutation in one pass. Four lanes' chains run in
+// one register, so four rows of results can be transposed and stored while they
+// are still in registers, sparing the block a second 4 KB round trip.
+inline void PrefixSumAndTranspose(const uint32_t* ARROW_RESTRICT grid,
+                                  const uint32_t* ARROW_RESTRICT bases,
+                                  int32_t* ARROW_RESTRICT out) {
+  for (size_t lane = 0; lane < kLanes; lane += 4) {
+    uint32x4_t acc = vld1q_u32(bases + lane);
+    for (size_t row = 0; row < kRowsPerBlock; row += 4) {
+      const uint32_t* src = grid + row * kLanes + lane;
+      const uint32x4_t v0 = vaddq_u32(acc, vld1q_u32(src));
+      const uint32x4_t v1 = vaddq_u32(v0, vld1q_u32(src + kLanes));
+      const uint32x4_t v2 = vaddq_u32(v1, vld1q_u32(src + 2 * kLanes));
+      const uint32x4_t v3 = vaddq_u32(v2, vld1q_u32(src + 3 * kLanes));
+      acc = v3;
+      const uint32x4x2_t a = vtrnq_u32(v0, v1);
+      const uint32x4x2_t c = vtrnq_u32(v2, v3);
+      uint32_t* dst = reinterpret_cast<uint32_t*>(out) + lane * kRowsPerBlock + row;
+      vst1q_u32(dst, vcombine_u32(vget_low_u32(a.val[0]), vget_low_u32(c.val[0])));
+      dst += kRowsPerBlock;
+      vst1q_u32(dst, vcombine_u32(vget_low_u32(a.val[1]), vget_low_u32(c.val[1])));
+      dst += kRowsPerBlock;
+      vst1q_u32(dst, vcombine_u32(vget_high_u32(a.val[0]), vget_high_u32(c.val[0])));
+      dst += kRowsPerBlock;
+      vst1q_u32(dst, vcombine_u32(vget_high_u32(a.val[1]), vget_high_u32(c.val[1])));
+    }
+  }
+}
+#endif
+
 // kRepair off leaves the block in transposed order, which isolates the cost of
 // the transpose from the rest of the decode. Only kRepair on is a conforming
 // Parquet decoder.
-template <TransposedBaseCoding kBases, bool kRepair = true>
+template <TransposedBaseCoding kBases,
+          TransposedRepair kRepair = TransposedRepair::kFused>
 inline void TransposedDeltaDecode(const uint8_t* in, size_t n, int32_t* out) {
   const size_t nblocks = n / kBlockSize;
   const uint8_t* widths = in;
@@ -399,6 +435,12 @@ inline void TransposedDeltaDecode(const uint8_t* in, size_t n, int32_t* out) {
       cur += w * kLanes * sizeof(uint32_t);
     }
 
+#ifdef ARROW_TRANSPOSED_DELTA_NEON
+    if constexpr (kRepair == TransposedRepair::kFused) {
+      PrefixSumAndTranspose(grid, bases, out + b * kBlockSize);
+      continue;
+    }
+#endif
     // 32 independent prefix sums, one vector add per row. Row 0 starts from
     // the base, which is the value before the lane's run.
     for (size_t lane = 0; lane < kLanes; ++lane) {
@@ -412,10 +454,10 @@ inline void TransposedDeltaDecode(const uint8_t* in, size_t n, int32_t* out) {
       }
     }
 
-    if constexpr (kRepair) {
-      Transpose32x32(grid, out + b * kBlockSize);
-    } else {
+    if constexpr (kRepair == TransposedRepair::kNone) {
       std::memcpy(out + b * kBlockSize, grid, sizeof(grid));
+    } else {
+      Transpose32x32(grid, out + b * kBlockSize);
     }
   }
 

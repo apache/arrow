@@ -1734,6 +1734,7 @@ static void BM_DbpGeom1024x1(benchmark::State& state, Gen32 gen) {
 // the other one isolates what the transpose costs.
 
 using ::arrow::util::fastlanes::TransposedBaseCoding;
+using ::arrow::util::fastlanes::TransposedRepair;
 
 static void BM_LaneDeltaDecode(benchmark::State& state, Gen32 gen) {
   namespace fl = ::arrow::util::fastlanes;
@@ -1775,7 +1776,7 @@ static std::vector<int32_t> TransposeReference(const std::vector<int32_t>& in) {
   return out;
 }
 
-template <TransposedBaseCoding kBases, bool kRepair>
+template <TransposedBaseCoding kBases, TransposedRepair kRepair>
 static void TposeDecodeImpl(benchmark::State& state, Gen32 gen) {
   namespace fl = ::arrow::util::fastlanes;
   const int64_t num_values = state.range(0);
@@ -1789,7 +1790,7 @@ static void TposeDecodeImpl(benchmark::State& state, Gen32 gen) {
 
   std::vector<int32_t> decoded(num_values);
   fl::TransposedDeltaDecode<kBases, kRepair>(buf.data(), num_values, decoded.data());
-  if constexpr (kRepair) {
+  if constexpr (kRepair != TransposedRepair::kNone) {
     ARROW_CHECK(decoded == values) << "transposed delta round trip failed";
   } else {
     ARROW_CHECK(decoded == TransposeReference(values))
@@ -1807,19 +1808,23 @@ static void TposeDecodeImpl(benchmark::State& state, Gen32 gen) {
 }
 
 static void BM_TposeRawDecode(benchmark::State& state, Gen32 gen) {
-  TposeDecodeImpl<TransposedBaseCoding::kRaw, true>(state, gen);
+  TposeDecodeImpl<TransposedBaseCoding::kRaw, TransposedRepair::kSeparate>(state, gen);
 }
 static void BM_TposePackedDecode(benchmark::State& state, Gen32 gen) {
-  TposeDecodeImpl<TransposedBaseCoding::kPacked, true>(state, gen);
+  TposeDecodeImpl<TransposedBaseCoding::kPacked, TransposedRepair::kSeparate>(state, gen);
+}
+// The conforming decoder: adjacent deltas, file order out, one pass over the block.
+static void BM_TposeFusedDecode(benchmark::State& state, Gen32 gen) {
+  TposeDecodeImpl<TransposedBaseCoding::kPacked, TransposedRepair::kFused>(state, gen);
 }
 // Neither of these is a conforming decoder: they leave the block transposed.
 // Raw-vs-Packed at fixed repair isolates the base stream, and NoRepair-vs-not at
 // fixed base coding isolates the 32x32 transpose.
 static void BM_TposeNoRepairDecode(benchmark::State& state, Gen32 gen) {
-  TposeDecodeImpl<TransposedBaseCoding::kPacked, false>(state, gen);
+  TposeDecodeImpl<TransposedBaseCoding::kPacked, TransposedRepair::kNone>(state, gen);
 }
 static void BM_TposeRawNoRepairDecode(benchmark::State& state, Gen32 gen) {
-  TposeDecodeImpl<TransposedBaseCoding::kRaw, false>(state, gen);
+  TposeDecodeImpl<TransposedBaseCoding::kRaw, TransposedRepair::kNone>(state, gen);
 }
 
 static void BM_LaneDeltaEncode(benchmark::State& state, Gen32 gen) {
@@ -1884,6 +1889,7 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
   BENCHMARK_CAPTURE(BM_LaneDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);      \
   BENCHMARK_CAPTURE(BM_TposeRawDecode, Name, &GenFunc)->Apply(CustomArgs);       \
   BENCHMARK_CAPTURE(BM_TposePackedDecode, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_TposeFusedDecode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_TposeNoRepairDecode, Name, &GenFunc)->Apply(CustomArgs);  \
   BENCHMARK_CAPTURE(BM_TposeRawNoRepairDecode, Name, &GenFunc)                     \
       ->Apply(CustomArgs);                                                       \
