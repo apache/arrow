@@ -240,6 +240,9 @@ def test_option_class_equality(request):
     assert repr(pc.ArraySortOptions()) == \
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
+    with pytest.raises(TypeError, match="Argument 'value' has incorrect type"):
+        pc.IndexOptions(0)
+
 
 def test_list_functions():
     assert len(pc.list_functions()) > 10
