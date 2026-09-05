@@ -931,6 +931,9 @@ def test_dictionary_from_buffers(offset):
     with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
         pa.DictionaryArray.from_buffers(
             None, len(a), a.indices.buffers(), a.dictionary)
+    with pytest.raises(TypeError, match="Argument 'dictionary' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            a.type, len(a), a.indices.buffers(), None)
 
 
 @pytest.mark.numpy

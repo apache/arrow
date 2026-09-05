@@ -4294,7 +4294,7 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_buffers(DataType type not None, int64_t length, buffers,
-                     Array dictionary, int64_t null_count=-1,
+                     Array dictionary not None, int64_t null_count=-1,
                      int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
