@@ -1231,6 +1231,10 @@ class AsofJoinNode : public ExecNode {
       case Type::LARGE_STRING:
       case Type::BINARY:
       case Type::LARGE_BINARY:
+      case Type::LIST:
+      case Type::FIXED_SIZE_LIST:
+      case Type::STRUCT:
+      case Type::MAP:
         return Status::OK();
       default:
         return Status::Invalid("Unsupported type for data field ", field->name(), " : ",
