@@ -145,7 +145,8 @@ static inline int Log2(uint64_t x) {
 // TODO: We can remove this condition once CRAN upgrades its macOS
 // SDK from 11.3.
 // __apple_build_version__ should be defined only on Apple clang
-#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+// std::bit_width is guarded by __cpp_lib_int_pow2, not __cpp_lib_bitops
+#if defined(__apple_build_version__) && !defined(__cpp_lib_int_pow2)
   return std::log2p1(x - 1);
 #else
   return std::bit_width(x - 1);
