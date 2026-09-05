@@ -690,9 +690,9 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
     return Status::Invalid("failed converting UTF32 to UTF8");
   }
 
-  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
-  return builder->Append(
-      reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(utf8_obj.obj())), length);
+  const std::string_view utf8_view = internal::PyBytes_AsStdStringView(utf8_obj.obj());
+  return builder->Append(reinterpret_cast<const uint8_t*>(utf8_view.data()),
+                         static_cast<int32_t>(utf8_view.size()));
 }
 
 }  // namespace
@@ -836,9 +836,12 @@ Status NumPyConverter::Visit(const StructType& type) {
         return Status::Invalid("Missing field '", field->name(), "' in struct array");
       }
       PyArray_Descr* sub_dtype =
-          reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));
+          reinterpret_cast<PyArray_Descr*>(PyTuple_GetItem(tup, 0));
+      RETURN_IF_PYERROR();
       ARROW_DCHECK(PyObject_TypeCheck(sub_dtype, &PyArrayDescr_Type));
-      int offset = static_cast<int>(PyLong_AsLong(PyTuple_GET_ITEM(tup, 1)));
+      PyObject* offset_obj = PyTuple_GetItem(tup, 1);
+      RETURN_IF_PYERROR();
+      int offset = static_cast<int>(PyLong_AsLong(offset_obj));
       RETURN_IF_PYERROR();
       Py_INCREF(sub_dtype); /* PyArray_GetField() steals ref */
       PyObject* sub_array = PyArray_GetField(arr_, sub_dtype, offset);
