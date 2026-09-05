@@ -299,7 +299,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
   if (info.bit_width() > 0) {
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference());
 
-    // How far past this vector's own packed bytes the bit-unpacker may
+    // How far past this vector's own packed bytes the sequential unpacker may
     // read. Its vector kernels load a fixed-size window per step -- wider than
     // the step consumes at most bit widths -- and refuse any step whose window
     // would cross this bound, leaving the rest of the vector to their scalar
