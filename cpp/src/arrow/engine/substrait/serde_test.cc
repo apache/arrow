@@ -2085,6 +2085,82 @@ TEST(Substrait, AggregateBasic) {
   EXPECT_EQ(agg_options.aggregates[0].function, "hash_sum");
 }
 
+// Grouping keys referenced by index (expression_references into the
+// AggregateRel-level grouping_expressions) must be resolved; otherwise the keys
+// are dropped and the aggregate degrades from a grouped hash_sum to a global sum.
+TEST(Substrait, AggregateGroupingExpressionReferences) {
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{ "i32": {} }, { "i32": {} }, { "i32": {} }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  { "uri_file": "file:///tmp/dat.parquet", "parquet": {} }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "expressionReferences": [0]
+          }],
+          "groupingExpressions": [{
+            "selection": {
+              "directReference": { "structField": { "field": 0 } }
+            }
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": { "structField": { "field": 1 } }
+                  }
+                }
+              }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "outputType": { "i64": {} }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+  })",
+                                                   /*ignore_unknown_fields=*/false));
+
+  ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                       DeserializePlans(*buf, [] { return kNullConsumer; }));
+  const auto& agg_rel = std::get<acero::Declaration>(sink_decls[0].inputs[0]);
+  const auto& agg_options =
+      checked_cast<const acero::AggregateNodeOptions&>(*agg_rel.options);
+
+  EXPECT_EQ(agg_rel.factory_name, "aggregate");
+  ASSERT_EQ(agg_options.keys.size(), 1);
+  EXPECT_EQ(agg_options.aggregates[0].function, "hash_sum");
+}
+
 TEST(Substrait, AggregateInvalidRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", R"({
@@ -5580,6 +5656,233 @@ TEST(Substrait, SortAndFetch) {
       AlwaysProvideSameTable(std::move(input_table));
 
   CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
+}
+
+// Current producers (e.g. DataFusion) express a FetchRel limit through the
+// count_expr/offset_expr arms; the consumer must evaluate them instead of reading
+// the unset scalar fields (which default to 0, i.e. LIMIT 0).
+TEST(Substrait, FetchViaCountAndOffsetExpr) {
+  std::string substrait_json = R"({
+    "version": {
+        "major_number": 9999,
+        "minor_number": 9999,
+        "patch_number": 9999
+    },
+    "relations": [
+        {
+            "rel": {
+                "fetch": {
+                    "input": {
+                        "sort": {
+                            "input": {
+                                "read": {
+                                    "base_schema": {
+                                        "names": ["A"],
+                                        "struct": {
+                                            "types": [{"i32": {}}]
+                                        }
+                                    },
+                                    "namedTable": {
+                                        "names": ["table"]
+                                    }
+                                }
+                            },
+                            "sorts": [
+                                {
+                                    "expr": {
+                                        "selection": {
+                                            "directReference": {
+                                                "structField": {"field": 0}
+                                            },
+                                            "rootReference": {}
+                                        }
+                                    },
+                                    "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+                                }
+                            ]
+                        }
+                    },
+                    "offset_expr": {"literal": {"i64": "2"}},
+                    "count_expr": {"literal": {"i64": "3"}}
+                }
+            }
+        }
+    ],
+    "extension_uris": [],
+    "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [null], [5], [null], [null], [3], [9], [4]
+  ])"});
+
+  // Sort A ascending, nulls first, yields [null, null, null, 3, 4, 5, 9].
+  // offset_expr=2, count_expr=3 grabs [null, 3, 4].
+  auto output_table = TableFromJSON(test_schema, {R"([
+    [null], [3], [4]
+  ])"});
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(std::move(input_table));
+
+  CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
+}
+
+// An unset `count_mode` means "return ALL rows" (not `LIMIT 0`). With no offset
+// either, the FetchRel is a no-op that must pass every row through.
+TEST(Substrait, FetchUnsetCountReturnsAllRows) {
+  std::string substrait_json = R"({
+    "version": {
+        "major_number": 9999,
+        "minor_number": 9999,
+        "patch_number": 9999
+    },
+    "relations": [
+        {
+            "rel": {
+                "fetch": {
+                    "input": {
+                        "read": {
+                            "base_schema": {
+                                "names": ["A"],
+                                "struct": {
+                                    "types": [{"i32": {}}]
+                                }
+                            },
+                            "namedTable": {
+                                "names": ["table"]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "extension_uris": [],
+    "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [1], [2], [3], [4]
+  ])"});
+  auto output_table = TableFromJSON(test_schema, {R"([
+      [1], [2], [3], [4]
+  ])"});
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(std::move(input_table));
+
+  CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
+}
+
+// offset_expr in isolation, with an unset count (ALL). Also covers the "offset
+// but no limit" path (a fetch node with an unbounded count).
+TEST(Substrait, FetchOffsetExprWithUnsetCount) {
+  std::string substrait_json = R"({
+    "version": {
+        "major_number": 9999,
+        "minor_number": 9999,
+        "patch_number": 9999
+    },
+    "relations": [
+        {
+            "rel": {
+                "fetch": {
+                    "input": {
+                        "sort": {
+                            "input": {
+                                "read": {
+                                    "base_schema": {
+                                        "names": ["A"],
+                                        "struct": {
+                                            "types": [{"i32": {}}]
+                                        }
+                                    },
+                                    "namedTable": {
+                                        "names": ["table"]
+                                    }
+                                }
+                            },
+                            "sorts": [
+                                {
+                                    "expr": {
+                                        "selection": {
+                                            "directReference": {
+                                                "structField": {"field": 0}
+                                            },
+                                            "rootReference": {}
+                                        }
+                                    },
+                                    "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+                                }
+                            ]
+                        }
+                    },
+                    "offset_expr": {"literal": {"i64": "2"}}
+                }
+            }
+        }
+    ],
+    "extension_uris": [],
+    "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [1], [2], [3], [4], [5]
+  ])"});
+
+  // Sort ascending yields [1, 2, 3, 4, 5]; offset_expr=2 skips the first two and,
+  // with no count, returns all remaining rows.
+  auto output_table = TableFromJSON(test_schema, {R"([
+      [3], [4], [5]
+  ])"});
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(std::move(input_table));
+
+  CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
+}
+
+// A count/offset expression must evaluate to an integer literal; a non-integer
+// literal is out of contract and must be rejected rather than silently coerced.
+TEST(Substrait, FetchNonIntegerCountExprRejected) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+    "relations": [{
+      "rel": {
+        "fetch": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A"],
+                "struct": { "types": [{ "i32": {} }] }
+              },
+              "local_files": {
+                "items": [ { "uri_file": "file:///tmp/dat.parquet", "parquet": {} } ]
+              }
+            }
+          },
+          "count_expr": { "literal": { "fp64": 3.0 } }
+        }
+      }
+    }],
+    "extension_uris": [],
+    "extensions": []
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, MixedSort) {
