@@ -159,9 +159,6 @@ std::string ToSlashes(std::string_view s);
 ARROW_EXPORT
 bool IsEmptyPath(std::string_view s);
 
-ARROW_EXPORT
-bool IsLikelyUri(std::string_view s);
-
 class ARROW_EXPORT Globber {
  public:
   ~Globber();

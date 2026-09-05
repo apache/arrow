@@ -1725,6 +1725,89 @@ def test_filesystem_from_path_object(path):
     assert path == p.resolve().absolute().as_posix()
 
 
+def test_is_likely_uri():
+    """Unit tests for the _is_likely_uri() heuristic."""
+    from pyarrow.fs import _is_likely_uri
+
+    # Valid URI schemes
+    assert _is_likely_uri("s3://bucket/key")
+    assert _is_likely_uri("gs://bucket/key")
+    assert _is_likely_uri("hdfs://host/path")
+    assert _is_likely_uri("file:///local/path")
+    assert _is_likely_uri("abfss://container@account/path")
+    assert _is_likely_uri("grpc+https://host:443")
+
+    # Only the scheme (everything before the first ':') is inspected, so
+    # non-ASCII characters in the *path* don't change the verdict.
+    assert _is_likely_uri("s3://asdf/äöü")
+    assert _is_likely_uri("s3://bucket/über/daten.parquet")
+    assert _is_likely_uri("s3://bucket/数据/file.parquet")
+
+    # Not URIs — local paths, Windows drives, empty, etc.
+    assert not _is_likely_uri("")
+    assert not _is_likely_uri("/absolute/path")
+    assert not _is_likely_uri("relative/path")
+    assert not _is_likely_uri("C:\\Users\\foo")      # single-letter → drive
+    assert not _is_likely_uri("C:/Users/foo")
+    assert not _is_likely_uri("3bucket://key")       # scheme starts with digit
+    assert not _is_likely_uri("-scheme://key")        # scheme starts with dash
+    assert not _is_likely_uri("schéme://bucket/key")  # non-ASCII in scheme
+    assert not _is_likely_uri("漢字://bucket/key")     # non-ASCII in scheme
+    assert not _is_likely_uri("/tmp/äöü/data")        # non-ASCII local path
+    assert not _is_likely_uri("dätä/file.parquet")    # non-ASCII, no scheme
+
+
+@pytest.mark.parametrize('uri', [
+    # Un-encoded spaces
+    "s3://bucket/path with space/file.parquet",
+    "gs://bucket/path with space/file.csv",
+    "abfss://container@account/dir with space/file",
+    # Un-encoded non-ASCII
+    "s3://asdf/äöü",
+    "s3://bucket/über/daten.parquet",
+    "s3://bucket/数据/file.parquet",
+    "gs://bucket/äöü/x.csv",
+    "abfss://container@account/äöü",
+])
+def test_resolve_filesystem_and_path_uri_unencoded(uri):
+    """
+    A URI with a recognised scheme but un-encoded characters must raise
+    ValueError — NOT silently fall back to LocalFileSystem.  The URI parser
+    rejects any byte outside the RFC 3986 set, so such paths have to be
+    percent-encoded (e.g. "s3://asdf/%C3%A4%C3%B6%C3%BC").
+    (GH-41365)
+    """
+    from pyarrow.fs import _resolve_filesystem_and_path
+
+    with pytest.raises(ValueError, match="Cannot parse URI"):
+        _resolve_filesystem_and_path(uri)
+
+
+@pytest.mark.parametrize('path', [
+    # Spaces
+    "/tmp/path with spaces/data",
+    "/nonexistent/path",
+    # Non-ASCII
+    "/tmp/äöü/data",
+    "/tmp/数据/data",
+    # Relative non-ASCII paths do reach the URI parser and fail with
+    # "Cannot parse URI", but _is_likely_uri() rejects them as URIs, so
+    # they must still fall back to LocalFileSystem.
+    "dätä/file.parquet",
+    "dätä/fi:le.parquet",
+])
+def test_resolve_filesystem_and_path_local_unencoded(path):
+    """
+    Local paths (no scheme) containing spaces or non-ASCII characters should
+    still resolve to LocalFileSystem — they must NOT be confused with
+    malformed URIs.
+    """
+    from pyarrow.fs import _resolve_filesystem_and_path
+
+    fs, _ = _resolve_filesystem_and_path(path)
+    assert isinstance(fs, LocalFileSystem)
+
+
 @pytest.mark.s3
 def test_filesystem_from_uri_s3(s3_server):
     from pyarrow.fs import S3FileSystem
