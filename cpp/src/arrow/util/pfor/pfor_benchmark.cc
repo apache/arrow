@@ -404,10 +404,10 @@ void BM_PforDecodeInt64(benchmark::State& state, Int64Gen gen) {
 }
 
 // ======================================================================
-// Benchmark sizes: 1K, 10K, 100K, 1M
+// Benchmark sizes: one vector, 10K, a default page (max_rows_per_page), 100K, 1M
 
 static void CustomArgs(benchmark::internal::Benchmark* b) {
-  for (int64_t n : {1024, 10240, 102400, 1048576}) {
+  for (int64_t n : {1024, 10240, 20000, 102400, 1048576}) {
     b->Arg(n);
   }
 }
