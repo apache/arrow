@@ -2033,6 +2033,15 @@ def test_concat_tables_invalid_option():
         pa.concat_tables([t, t], promote_options="invalid")
 
 
+def test_concat_tables_rejects_unknown_keyword_arguments():
+    t = pa.Table.from_arrays([list(range(10))], names=('a',))
+
+    with pytest.raises(
+            TypeError,
+            match="unexpected keyword argument 'totally_bogus_kwarg'"):
+        pa.concat_tables([t, t], totally_bogus_kwarg=True)
+
+
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):
