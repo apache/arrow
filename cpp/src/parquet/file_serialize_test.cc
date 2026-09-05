@@ -18,9 +18,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <utility>
+
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/util/config.h"
 
+#include "parquet/arrow/schema.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -478,6 +481,74 @@ TEST(ParquetRoundtrip, AllNulls) {
   def_levels[2] = -1;
   column_reader->ReadBatch(3, def_levels, nullptr, values, &values_read);
   EXPECT_THAT(def_levels, ElementsAre(0, 0, 0));
+}
+
+TEST(TestFileWriter, FloatingPointColumnOrder) {
+  auto arrow_schema = ::arrow::schema({::arrow::field("float", ::arrow::float32()),
+                                       ::arrow::field("double", ::arrow::float64()),
+                                       ::arrow::field("float16", ::arrow::float16()),
+                                       ::arrow::field("int", ::arrow::int32())});
+
+  auto assert_type_lengths = [](const SchemaDescriptor* schema) {
+    ASSERT_EQ(-1, schema->Column(0)->type_length());
+    ASSERT_EQ(-1, schema->Column(1)->type_length());
+    ASSERT_EQ(2, schema->Column(2)->type_length());
+    ASSERT_EQ(-1, schema->Column(3)->type_length());
+  };
+
+  auto properties = WriterProperties::Builder().build();
+  std::shared_ptr<SchemaDescriptor> ieee_parquet_schema;
+  ASSERT_NO_THROW(PARQUET_THROW_NOT_OK(arrow::ToParquetSchema(
+      arrow_schema.get(), *properties,
+      *ArrowWriterProperties::Builder()
+           .floating_point_column_order(ColumnOrder::IEEE_754_TOTAL_ORDER)
+           ->build(),
+      &ieee_parquet_schema)));
+  std::shared_ptr<SchemaDescriptor> type_parquet_schema;
+  ASSERT_NO_THROW(PARQUET_THROW_NOT_OK(arrow::ToParquetSchema(
+      arrow_schema.get(), *properties,
+      *ArrowWriterProperties::Builder()
+           .floating_point_column_order(ColumnOrder::TYPE_DEFINED_ORDER)
+           ->build(),
+      &type_parquet_schema)));
+
+  auto write_schema = [&](const std::shared_ptr<SchemaDescriptor>& parquet_schema) {
+    auto schema = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+    auto sink = CreateOutputStream();
+    auto writer = ParquetFileWriter::Open(sink, schema, properties);
+    assert_type_lengths(writer->schema());
+    writer->Close();
+    auto writer_metadata = writer->metadata();
+    PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+    auto file_metadata =
+        ParquetFileReader::Open(
+            std::make_shared<::arrow::io::BufferReader>(std::move(buffer)))
+            ->metadata();
+    return std::pair{std::move(writer_metadata), std::move(file_metadata)};
+  };
+
+  auto assert_orders = [](const SchemaDescriptor* schema,
+                          ColumnOrder::type floating_point_order) {
+    for (int column_index = 0; column_index < 3; ++column_index) {
+      ASSERT_EQ(floating_point_order,
+                schema->Column(column_index)->column_order().get_order());
+    }
+    ASSERT_EQ(ColumnOrder::TYPE_DEFINED_ORDER,
+              schema->Column(3)->column_order().get_order());
+  };
+
+  auto [ieee_writer, ieee_file] = write_schema(ieee_parquet_schema);
+  assert_orders(ieee_writer->schema(), ColumnOrder::IEEE_754_TOTAL_ORDER);
+  assert_orders(ieee_file->schema(), ColumnOrder::IEEE_754_TOTAL_ORDER);
+
+  auto [type_writer, type_file] = write_schema(type_parquet_schema);
+  assert_orders(type_writer->schema(), ColumnOrder::TYPE_DEFINED_ORDER);
+  assert_orders(type_file->schema(), ColumnOrder::TYPE_DEFINED_ORDER);
+
+  EXPECT_THROW_THAT([&]() { ieee_file->AppendRowGroups(*type_file); }, ParquetException,
+                    ::testing::Property(
+                        &ParquetException::what,
+                        ::testing::HasSubstr("AppendRowGroups requires equal schemas.")));
 }
 
 }  // namespace test

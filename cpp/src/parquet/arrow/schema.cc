@@ -519,6 +519,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
 
   PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(name, repetition, logical_type, type,
                                                   length, field_id));
+  if (type == ParquetType::FLOAT || type == ParquetType::DOUBLE ||
+      logical_type->type() == LogicalType::Type::FLOAT16) {
+    std::static_pointer_cast<PrimitiveNode>(*out)->SetColumnOrder(
+        ColumnOrder(arrow_properties.floating_point_column_order()));
+  }
 
   return Status::OK();
 }

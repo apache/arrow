@@ -131,7 +131,10 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
                              int length, int precision, int scale, int id)
     : Node(Node::PRIMITIVE, name, repetition, converted_type, id),
       physical_type_(type),
-      type_length_(length) {
+      type_length_(length),
+      column_order_(type == Type::FLOAT || type == Type::DOUBLE
+                        ? ColumnOrder::ieee_754_total_order_
+                        : ColumnOrder::type_defined_) {
   std::stringstream ss;
 
   // PARQUET-842: In an earlier revision, decimal_metadata_.isset was being
@@ -244,8 +247,14 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
                              Type::type physical_type, int physical_length, int id)
     : Node(Node::PRIMITIVE, name, repetition, std::move(logical_type), id),
       physical_type_(physical_type),
-      type_length_(physical_length) {
+      type_length_(physical_length),
+      column_order_(physical_type == Type::FLOAT || physical_type == Type::DOUBLE
+                        ? ColumnOrder::ieee_754_total_order_
+                        : ColumnOrder::type_defined_) {
   std::stringstream error;
+  if (logical_type_ && logical_type_->is_float16()) {
+    column_order_ = ColumnOrder::ieee_754_total_order_;
+  }
   if (logical_type_) {
     // Check for logical type <=> node type consistency
     if (!logical_type_->is_nested()) {
@@ -295,6 +304,7 @@ bool PrimitiveNode::EqualsInternal(const PrimitiveNode* other) const {
   if (physical_type_ == Type::FIXED_LEN_BYTE_ARRAY) {
     is_equal &= (type_length_ == other->type_length_);
   }
+  is_equal &= (column_order_.get_order() == other->column_order_.get_order());
   return is_equal;
 }
 
@@ -620,6 +630,11 @@ void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out)
   schema->VisitConst(&visitor);
 }
 
+bool IsFloatingPointType(const ColumnDescriptor& descr) {
+  return descr.physical_type() == Type::FLOAT || descr.physical_type() == Type::DOUBLE ||
+         descr.logical_type()->type() == LogicalType::Type::FLOAT16;
+}
+
 // ----------------------------------------------------------------------
 // Schema printing
 
@@ -931,6 +946,8 @@ std::string ColumnDescriptor::ToString() const {
      << "  converted_type: " << ConvertedTypeToString(converted_type()) << ","
      << std::endl
      << "  logical_type: " << logical_type()->ToString() << "," << std::endl
+     << "  column_order: " << ColumnOrderToString(column_order().get_order()) << ","
+     << std::endl
      << "  max_definition_level: " << max_definition_level() << "," << std::endl
      << "  max_repetition_level: " << max_repetition_level() << "," << std::endl;
 

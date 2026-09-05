@@ -92,46 +92,6 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 namespace {
 
-template <typename DType>
-std::shared_ptr<Statistics> MakeTypedColumnStats(const format::ColumnMetaData& metadata,
-                                                 const ColumnDescriptor* descr,
-                                                 ::arrow::MemoryPool* pool) {
-  const auto& statistics = metadata.statistics;
-  const std::string kEmpty = "";
-  const std::string* encoded_min = &kEmpty;
-  const std::string* encoded_max = &kEmpty;
-  bool has_min_max = false;
-  std::optional<bool> min_exact = std::nullopt;
-  std::optional<bool> max_exact = std::nullopt;
-
-  switch (GetStatisticsMinMaxField(*descr)) {
-    case StatisticsMinMaxField::kMinValueMaxValue:
-      encoded_min = &statistics.min_value;
-      encoded_max = &statistics.max_value;
-      has_min_max = statistics.__isset.max_value && statistics.__isset.min_value;
-      min_exact = statistics.__isset.is_min_value_exact
-                      ? std::optional<bool>(statistics.is_min_value_exact)
-                      : std::nullopt;
-      max_exact = statistics.__isset.is_max_value_exact
-                      ? std::optional<bool>(statistics.is_max_value_exact)
-                      : std::nullopt;
-      break;
-    case StatisticsMinMaxField::kLegacyMinMax:
-      encoded_min = &statistics.min;
-      encoded_max = &statistics.max;
-      has_min_max = statistics.__isset.max && statistics.__isset.min;
-      break;
-    case StatisticsMinMaxField::kInvalid:
-      break;
-  }
-
-  return MakeStatistics<DType>(
-      descr, *encoded_min, *encoded_max, metadata.num_values - statistics.null_count,
-      statistics.null_count, statistics.distinct_count, has_min_max,
-      statistics.__isset.null_count, statistics.__isset.distinct_count, min_exact,
-      max_exact, pool);
-}
-
 std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
@@ -145,6 +105,7 @@ std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
                                             const ColumnDescriptor* descr,
+                                            const EncodedStatistics& encoded_statistics,
                                             ::arrow::MemoryPool* pool) {
   auto metadata_type = LoadEnumSafe(&meta_data.type);
   if (descr->physical_type() != metadata_type) {
@@ -152,27 +113,8 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
         "ColumnMetaData type does not match ColumnDescriptor physical type: " +
         TypeToString(metadata_type) + " vs. " + TypeToString(descr->physical_type()));
   }
-  switch (metadata_type) {
-    case Type::BOOLEAN:
-      return MakeTypedColumnStats<BooleanType>(meta_data, descr, pool);
-    case Type::INT32:
-      return MakeTypedColumnStats<Int32Type>(meta_data, descr, pool);
-    case Type::INT64:
-      return MakeTypedColumnStats<Int64Type>(meta_data, descr, pool);
-    case Type::INT96:
-      return MakeTypedColumnStats<Int96Type>(meta_data, descr, pool);
-    case Type::DOUBLE:
-      return MakeTypedColumnStats<DoubleType>(meta_data, descr, pool);
-    case Type::FLOAT:
-      return MakeTypedColumnStats<FloatType>(meta_data, descr, pool);
-    case Type::BYTE_ARRAY:
-      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr, pool);
-    case Type::FIXED_LEN_BYTE_ARRAY:
-      return MakeTypedColumnStats<FLBAType>(meta_data, descr, pool);
-    case Type::UNDEFINED:
-      break;
-  }
-  throw ParquetException("Can't decode page statistics for selected column type");
+  return Statistics::Make(descr, &encoded_statistics,
+                          meta_data.num_values - encoded_statistics.null_count, pool);
 }
 
 // Get KeyValueMetadata from parquet Thrift RowGroup or ColumnChunk metadata.
@@ -348,6 +290,9 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
             FromThrift(column_metadata_->statistics, GetStatisticsMinMaxField(*descr_)));
       }
     }
+    if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      return true;
+    }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
                                                  descr_->sort_order());
   }
@@ -371,7 +316,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
         possible_stats_ =
-            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
+            MakeColumnStats(*column_metadata_, descr_, *possible_encoded_stats_,
+                            properties_.memory_pool());
       }
       return possible_stats_;
     }
@@ -1030,10 +976,20 @@ class FileMetaData::FileMetaDataImpl {
     // update ColumnOrder
     std::vector<parquet::ColumnOrder> column_orders;
     if (metadata_->__isset.column_orders) {
+      if (metadata_->column_orders.size() != static_cast<size_t>(schema_.num_columns())) {
+        throw ParquetException(
+            "Malformed schema: ColumnOrder count does not match number of columns");
+      }
       column_orders.reserve(metadata_->column_orders.size());
-      for (auto& column_order : metadata_->column_orders) {
+      for (size_t i = 0; i < metadata_->column_orders.size(); ++i) {
+        const auto& column_order = metadata_->column_orders[i];
         if (column_order.__isset.TYPE_ORDER) {
           column_orders.push_back(ColumnOrder::type_defined_);
+        } else if (column_order.__isset.IEEE_754_TOTAL_ORDER) {
+          const auto* column = schema_.Column(static_cast<int>(i));
+          column_orders.push_back(schema::IsFloatingPointType(*column)
+                                      ? ColumnOrder::ieee_754_total_order_
+                                      : ColumnOrder::unknown_);
         } else {
           column_orders.push_back(ColumnOrder::unknown_);
         }
@@ -2115,16 +2071,23 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_version(file_version);
     metadata_->__set_created_by(properties_->created_by());
 
-    // Users cannot set the `ColumnOrder` since we do not have user defined sort order
-    // in the spec yet.
-    // We always default to `TYPE_DEFINED_ORDER`. We can expose it in
-    // the API once we have user defined sort orders in the Parquet format.
-    // TypeDefinedOrder implies choose SortOrder based on ConvertedType/PhysicalType
-    format::TypeDefinedOrder type_defined_order;
-    format::ColumnOrder column_order;
-    column_order.__set_TYPE_ORDER(type_defined_order);
-    column_order.__isset.TYPE_ORDER = true;
-    metadata_->column_orders.resize(schema_->num_columns(), column_order);
+    metadata_->column_orders.reserve(schema_->num_columns());
+    for (int column_index = 0; column_index < schema_->num_columns(); ++column_index) {
+      format::ColumnOrder column_order;
+      switch (schema_->Column(column_index)->column_order().get_order()) {
+        case ColumnOrder::TYPE_DEFINED_ORDER:
+          column_order.__set_TYPE_ORDER(format::TypeDefinedOrder{});
+          break;
+        case ColumnOrder::IEEE_754_TOTAL_ORDER:
+          column_order.__set_IEEE_754_TOTAL_ORDER(format::IEEE754TotalOrder{});
+          break;
+        case ColumnOrder::UNDEFINED:
+        case ColumnOrder::UNKNOWN:
+          // Writer schemas have an effective order for every column.
+          throw ParquetException("Invalid writer column order");
+      }
+      metadata_->column_orders.push_back(std::move(column_order));
+    }
     metadata_->__isset.column_orders = true;
 
     // if plaintext footer, set footer signing algorithm
@@ -2152,6 +2115,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
     file_meta_data->impl_->metadata_ = std::move(metadata_);
     file_meta_data->impl_->InitSchema();
+    file_meta_data->impl_->InitColumnOrders();
     file_meta_data->impl_->InitKeyValueMetadata();
     return file_meta_data;
   }
