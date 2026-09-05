@@ -3184,6 +3184,18 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     if (outcome.IsSuccess()) {
       // "File" object found
       FileObjectToInfo(path.key, outcome.GetResult(), &info);
+      if (info.type() == FileType::File && info.size() == 0) {
+        // GH-24093: some third-party tools create zero-byte "directory marker"
+        // objects that use neither a trailing slash nor the conventional
+        // "application/x-directory" content type, so IsDirectory() above
+        // doesn't recognize them.  If other objects exist nested under this
+        // key, treat it as a directory rather than an (invalid) empty file.
+        ARROW_ASSIGN_OR_RAISE(bool is_dir, impl_->IsNonEmptyDirectory(path));
+        if (is_dir) {
+          info.set_type(FileType::Directory);
+          info.set_size(kNoSize);
+        }
+      }
       return info;
     }
     impl_->GetOrSetBackend(outcome.GetError());
