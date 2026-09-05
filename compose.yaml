@@ -302,8 +302,10 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
+    # WORKAROUND: Revert export after S3 is moved out of libarrow (GH-50194)
     command: &conda-cpp-command
       ["
+        export ARROW_CMAKE_ARGS=\"$${ARROW_CMAKE_ARGS:-} -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON\" &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
