@@ -143,6 +143,13 @@ exc = executable(
 )
 benchmark('arrow-compute-function-benchmark', exc)
 
+exc = executable(
+    'arrow-compute-key-hash-benchmark',
+    sources: ['key_hash_benchmark.cc'],
+    dependencies: [arrow_benchmark_dep],
+)
+benchmark('arrow-compute-key-hash-benchmark', exc)
+
 subdir('kernels')
 
 subdir('row')
