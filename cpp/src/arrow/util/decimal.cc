@@ -768,7 +768,8 @@ std::string Decimal128::ToString(int32_t scale) const {
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(std::string_view input, uint64_t out[], size_t out_size) {
+static inline bool ShiftAndAddWithOverflow(std::string_view input, uint64_t out[],
+                                           size_t out_size) {
   for (size_t posn = 0; posn < input.size();) {
     const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
     const uint64_t multiple = kUInt64PowersOfTen[group_size];
@@ -783,8 +784,25 @@ static inline void ShiftAndAdd(std::string_view input, uint64_t out[], size_t ou
       out[i] = static_cast<uint64_t>(tmp & 0xFFFFFFFFFFFFFFFFULL);
       chunk = static_cast<uint64_t>(tmp >> 64);
     }
+    if (chunk != 0) {
+      return true;
+    }
     posn += group_size;
   }
+  return false;
+}
+
+static inline bool MagnitudeOverflowsSignedDecimal(const uint64_t out[], size_t out_size,
+                                                   bool negative) {
+  constexpr uint64_t kSignBit = uint64_t{1} << 63;
+  const uint64_t high = out[out_size - 1];
+  if (high < kSignBit) {
+    return false;
+  }
+  if (!negative || high > kSignBit) {
+    return true;
+  }
+  return std::any_of(out, out + out_size - 1, [](uint64_t word) { return word != 0; });
 }
 
 namespace {
@@ -895,9 +913,14 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
   if (out != nullptr) {
     static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
     std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
-    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
-    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
-                little_endian_array.size());
+    if (ShiftAndAddWithOverflow(dec.whole_digits, little_endian_array.data(),
+                                little_endian_array.size()) ||
+        ShiftAndAddWithOverflow(dec.fractional_digits, little_endian_array.data(),
+                                little_endian_array.size()) ||
+        MagnitudeOverflowsSignedDecimal(little_endian_array.data(),
+                                        little_endian_array.size(), dec.sign == '-')) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
     *out = Decimal(bit_util::little_endian::ToNative(little_endian_array));
     if (dec.sign == '-') {
       out->Negate();
@@ -962,9 +985,9 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
 
   if (out != nullptr) {
     uint64_t value{0};
-    ShiftAndAdd(dec.whole_digits, &value, 1);
-    ShiftAndAdd(dec.fractional_digits, &value, 1);
-    if (value > static_cast<uint64_t>(
+    if (ShiftAndAddWithOverflow(dec.whole_digits, &value, 1) ||
+        ShiftAndAddWithOverflow(dec.fractional_digits, &value, 1) ||
+        value > static_cast<uint64_t>(
                     std::numeric_limits<typename DecimalClass::ValueType>::max())) {
       return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }

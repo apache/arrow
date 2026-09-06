@@ -435,15 +435,19 @@ TEST(Decimal128Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
-  // XXX conversion overflows are currently not detected
+  // XXX conversion overflows after parsing are currently not detected
   //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
   //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
   //   ASSERT_RAISES(Invalid,
   //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
   //   ASSERT_RAISES(Invalid,
   //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("999999999999999999999999999999999999999"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString(
+                             "1.55555555555555555555555555555555555555555555555555"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("170141183460469231731687303715884105728"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("-170141183460469231731687303715884105729"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
@@ -541,7 +545,8 @@ TEST(Decimal256Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
   ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
 
-  // XXX conversion overflows are currently not detected
+  // XXX precision limits and conversion overflows after parsing are currently not
+  // detected
   //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
   //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
   //   ASSERT_RAISES(Invalid,
@@ -550,6 +555,9 @@ TEST(Decimal256Test, FromStringLimits) {
   //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
   //   ASSERT_RAISES(Invalid,
   //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString(std::string(78, '9')));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("5789604461865809771178549250434395392663"
+                                                "4992332820282019728792003956564819968"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString(
