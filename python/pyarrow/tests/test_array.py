@@ -2925,6 +2925,85 @@ def test_array_from_numpy_unicode(string_type):
     assert arrow_arr.equals(expected)
 
 
+@pytest.fixture
+def numpy_string_dtype():
+    dtypes = pytest.importorskip("numpy.dtypes")
+    return dtypes.StringDType
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.string(),
+    pa.large_string(),
+    pa.string_view()])
+def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
+    values = [
+        "short",
+        "a" * 100,
+        "b" * 300,
+        "árvíztűrő tükörfúrógép 🥐 你好",
+        "🥐" * 200,
+        "",
+    ]
+    arr = np.array(values, dtype=numpy_string_dtype())
+
+    arrow_arr = pa.array(arr, type=string_type)
+
+    arrow_arr.validate(full=True)
+    assert arrow_arr.type == (string_type or pa.string())
+    assert arrow_arr.to_pylist() == arr.tolist()
+
+    for sliced in (arr[:0], arr[::2], arr[::-1]):
+        arrow_arr = pa.array(sliced, type=string_type)
+        arrow_arr.validate(full=True)
+        assert arrow_arr.to_pylist() == sliced.tolist()
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.large_string(),
+    pa.string_view(),
+])
+@pytest.mark.parametrize('na_object', [None, "__placeholder__", float("nan")])
+def test_array_from_numpy_string_dtype_nulls_and_mask(
+        numpy_string_dtype, string_type, na_object):
+    arr = np.array(["some", na_object, "strings"],
+                   dtype=numpy_string_dtype(na_object=na_object))
+
+    arrow_arr = pa.array(arr, type=string_type)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == ["some", None, "strings"]
+
+    mask = np.array([False, False, True])
+    arrow_arr = pa.array(arr, mask=mask, type=string_type)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == ["some", None, None]
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('string_type', [pa.large_string(), pa.string_view()])
+def test_array_from_numpy_string_dtype_batches(
+        numpy_string_dtype, string_type):
+    values = [None] * 4096 + [f"value-{i}" for i in range(904)]
+    arr = np.array(values, dtype=numpy_string_dtype(na_object=None))
+
+    arrow_arr = pa.array(arr, type=string_type)
+
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == values
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype_rejects_non_string_type(
+        numpy_string_dtype):
+    arr = np.array(["some", "strings"], dtype=numpy_string_dtype())
+
+    with pytest.raises(TypeError, match="can only be converted"):
+        pa.array(arr, type=pa.binary())
+
+
 @pytest.mark.numpy
 def test_array_string_from_non_string():
     # ARROW-5682 - when converting to string raise on non string-like dtype

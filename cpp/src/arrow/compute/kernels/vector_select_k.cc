@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <numeric>
 #include <queue>
 #include <span>
 

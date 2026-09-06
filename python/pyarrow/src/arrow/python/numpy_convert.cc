@@ -151,6 +151,7 @@ Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr) {
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
     TO_ARROW_TYPE_CASE(STRING, binary);
     TO_ARROW_TYPE_CASE(UNICODE, utf8);
+    TO_ARROW_TYPE_CASE(VSTRING, utf8);
     case NPY_DATETIME: {
       auto date_dtype =
           reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(descr));
