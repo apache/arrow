@@ -840,7 +840,10 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// EXPERIMENTAL: Ask the PFOR encoder for the lane-interleaved bit-packing
-    /// layout, which decodes faster and takes the same number of bytes.
+    /// layout, which takes the same number of bytes and decodes faster where the
+    /// compiler vectorizes its kernels: about 1.08x on a page-sized destination
+    /// at -O3, a tie at the -O2 an Arrow Release build uses, and no advantage
+    /// once a reader decodes into a destination of several MB at a time.
     ///
     /// Default disabled. The layout is not yet in the Parquet specification, so
     /// a file written with it can only be read by an implementation that knows
