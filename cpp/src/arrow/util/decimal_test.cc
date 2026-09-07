@@ -444,6 +444,8 @@ TEST(Decimal128Test, FromStringLimits) {
   //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
   ASSERT_RAISES(Invalid, Decimal128::FromString(
                              "1.55555555555555555555555555555555555555555555555555"));
+  AssertDecimalFromString("-170141183460469231731687303715884105728",
+                          Decimal128FromLE({0, uint64_t{1} << 63}), 39, 0);
   ASSERT_RAISES(Invalid,
                 Decimal128::FromString("170141183460469231731687303715884105728"));
   ASSERT_RAISES(Invalid,
@@ -556,8 +558,14 @@ TEST(Decimal256Test, FromStringLimits) {
   //   ASSERT_RAISES(Invalid,
   //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
   ASSERT_RAISES(Invalid, Decimal256::FromString(std::string(78, '9')));
+  AssertDecimalFromString(
+      "-57896044618658097711785492504343953926634992332820282019728792003956564819968",
+      Decimal256FromLE({0, 0, 0, uint64_t{1} << 63}), 77, 0);
   ASSERT_RAISES(Invalid, Decimal256::FromString("5789604461865809771178549250434395392663"
                                                 "4992332820282019728792003956564819968"));
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("-5789604461865809771178549250434395392663"
+                                       "4992332820282019728792003956564819969"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString(
