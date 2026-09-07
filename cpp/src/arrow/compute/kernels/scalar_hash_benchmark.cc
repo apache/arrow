@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>

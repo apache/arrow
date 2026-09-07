@@ -16,7 +16,10 @@
 // under the License.
 
 #include <algorithm>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/util.h"
