@@ -498,9 +498,6 @@ TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryRowsHashEqually) {
   }
 }
 
-// The same zero-width hazard, but as a struct field: a struct's non-nested children go
-// straight to ToColumnArray, bypassing HashArray's dedicated zero-width branch, so the
-// nonexistent-bit read came back for struct<fixed_size_binary(0)>.
 // A null child element used to be canonicalized to hash 0 before the fold, throwing away
 // its validity. Since a valid integer 0 also hashes to 0, [null] and [0] then combined
 // identically, so the fold must take the child's own validity into account instead.
@@ -542,7 +539,6 @@ TEST_F(TestScalarHash, ListNullElementDoesNotCollideWithZeroElement) {
 // Arrow requires non-null map keys and allows null items, so an entry with a null item
 // is not an absent entry: throwing it away would discard the key, hashing every map with
 // null items alike.
-
 TEST_F(TestScalarHash, MapWithNullItemStillHashesItsKey) {
   auto arr = ArrayFromJSON(
       map(utf8(), int32()),
@@ -737,6 +733,9 @@ TEST_F(TestScalarHash, ListStructElementWithNullFieldIsANullElement) {
   }
 }
 
+// The same zero-width hazard, but as a struct field: a struct's non-nested children go
+// straight to ToColumnArray, bypassing HashArray's dedicated zero-width branch, so the
+// nonexistent-bit read came back for struct<fixed_size_binary(0)>.
 TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryStructFieldHashesEqually) {
   auto single = ArrayFromJSON(struct_({field("f0", fixed_size_binary(0))}),
                               R"([{"f0": ""}, {"f0": ""}, {"f0": ""}, {"f0": ""}])");
