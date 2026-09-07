@@ -1,0 +1,66 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Limits the number of concurrently open pull requests a contributor
+# without write access can have. This mirrors GitHub's native
+# "pull request creation cap" setting, which requires admin rights and
+# so can only be configured for ASF repositories via .asf.yaml. Once
+# https://github.com/apache/infrastructure-asfyaml/pull/111 is merged,
+# this workflow can be replaced by the `github.pull_requests.creation_cap`
+# directive in .asf.yaml.
+
+name: PR Limit
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.event.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  issues: write
+
+env:
+  # Maximum number of open pull requests per contributor without write
+  # access. A pull request that takes the contributor over this limit is
+  # closed with an explanatory comment.
+  PR_LIMIT: 3
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      # Always run the script from main, never from the PR head.
+      - uses: actions/checkout@v7
+        with:
+          repository: apache/arrow
+          ref: main
+          persist-credentials: false
+
+      - name: Check open pull request count
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/pr_limit/check.js`);
+            await script({github, context, core});

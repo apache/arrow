@@ -237,6 +237,17 @@ still active.
    ``Status: needs champion`` are confirmed-wanted enhancements that need
    a contributor. See :ref:`finding-issues` for more.
 
+.. _pr-limit:
+
+Limit on concurrent pull requests
++++++++++++++++++++++++++++++++++
+
+To keep the review queue manageable, contributors without write access to
+the repository may have at most **3 pull requests open at the same time**.
+A pull request opened beyond that limit is automatically closed by a GitHub
+Actions workflow, with a comment explaining why. Once one of your other pull
+requests has been merged or closed, you can reopen it.
+
 .. _issue-assignment:
 
 Issue assignment
