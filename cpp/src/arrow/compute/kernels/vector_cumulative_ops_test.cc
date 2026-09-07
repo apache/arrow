@@ -972,10 +972,10 @@ TEST(TestCumulative, NegativeValues) {
 
     // The default start must compare lower (higher for min) than every value
     // of the type, including infinities
-    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-inf, -2.5]"),
-                     ArrayFromJSON(ty, "[-inf, -2.5]"), &options);
-    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[inf, 2.5]"),
-                     ArrayFromJSON(ty, "[inf, 2.5]"), &options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-Inf, -2.5]"),
+                     ArrayFromJSON(ty, "[-Inf, -2.5]"), &options);
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[Inf, 2.5]"),
+                     ArrayFromJSON(ty, "[Inf, 2.5]"), &options);
   }
 }
 }  // namespace compute
