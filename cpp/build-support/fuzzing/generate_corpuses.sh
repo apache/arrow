@@ -47,7 +47,7 @@ IPC_INTEGRATION_FILES=()
 while IFS= read -r -d '' IPC_INTEGRATION_FILE; do
   IPC_INTEGRATION_FILES+=("${IPC_INTEGRATION_FILE}")
 done < <(
-  find "${IPC_INTEGRATION_DIR}" \
+  find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
     -name "*.stream" -print0
 )
 # Exit with an error if find returns no files.
@@ -64,7 +64,7 @@ IPC_INTEGRATION_FILES=()
 while IFS= read -r -d '' IPC_INTEGRATION_FILE; do
   IPC_INTEGRATION_FILES+=("${IPC_INTEGRATION_FILE}")
 done < <(
-  find "${IPC_INTEGRATION_DIR}" \
+  find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
     -name "*.arrow_file" -print0
 )
 # Exit with an error if find returns no files.
