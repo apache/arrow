@@ -42,30 +42,21 @@ OUT=$1
 rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -stream "${CORPUS_DIR}"
 # Add "golden" IPC integration files
-# Use read instead of mapfile to keep this compatible with Bash 3.2 on macOS.
-IPC_INTEGRATION_FILES=()
-while IFS= read -r -d '' IPC_INTEGRATION_FILE; do
-  IPC_INTEGRATION_FILES+=("${IPC_INTEGRATION_FILE}")
-done < <(
-  find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
-    -name "*.stream" -print0
-)
 # Several IPC integration files can have the same name, make sure
 # they all appear in the corpus by numbering the duplicates.
-cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
+find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
+  -name "*.stream" \
+  -exec cp --backup=numbered '{}' "${CORPUS_DIR}" \;
+
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-ipc-stream-fuzz_seed_corpus.zip"
 
 rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -file "${CORPUS_DIR}"
 
-IPC_INTEGRATION_FILES=()
-while IFS= read -r -d '' IPC_INTEGRATION_FILE; do
-  IPC_INTEGRATION_FILES+=("${IPC_INTEGRATION_FILE}")
-done < <(
-  find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
-    -name "*.arrow_file" -print0
-)
-cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
+find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
+  -name "*.arrow_file" \
+  -exec cp --backup=numbered '{}' "${CORPUS_DIR}" \;
+
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-ipc-file-fuzz_seed_corpus.zip"
 
 rm -rf "${CORPUS_DIR}"
