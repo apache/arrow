@@ -273,9 +273,6 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
   return Status::Invalid("Unreachable");
 }
 
-<<<<<<< HEAD
-ARROW_EXPORT const char* JsonTypeName(simdjson::ondemand::json_type type);
-=======
 inline Status PrettyPrintJsonValue(simdjson::ondemand::value value, std::string* out,
                                    int indent = 0) {
   constexpr int kIndentSize = 4;
@@ -406,7 +403,6 @@ inline const char* JsonTypeName(simdjson::ondemand::json_type type) {
       return "unknown";
   }
 }
->>>>>>> 8ed25131dc (Replace in test_commons)
 
 // Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
 ARROW_EXPORT Result<bool> IsJsonNull(simdjson::ondemand::value& value);
