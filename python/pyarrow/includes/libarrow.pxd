@@ -1479,7 +1479,7 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
 
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
-    const DLPackVersion DLPACK_VERSION" arrow::dlpack::VERSION"
+    const DLPackVersion DLPACK_VERSION" arrow::dlpack::kVersion"
 
     CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)

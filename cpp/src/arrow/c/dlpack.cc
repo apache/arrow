@@ -36,7 +36,7 @@
 
 namespace arrow::dlpack {
 
-extern const DLPackVersion VERSION = {
+extern const DLPackVersion kVersion = {
     .major = DLPACK_MAJOR_VERSION,
     .minor = DLPACK_MINOR_VERSION,
 };
@@ -121,7 +121,7 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
   // Strides must be non-null when ndim > 0
   ctx->tensor.dl_tensor.strides = ctx->strides.data();
   if constexpr (std::is_same_v<DT, DLManagedTensorVersioned>) {
-    ctx->tensor.version = VERSION;
+    ctx->tensor.version = kVersion;
     ctx->tensor.flags = p.flags;
   }
 
@@ -279,9 +279,9 @@ class CppDLTensor {
     // Create the wrapper before checking the version as the spec mandates that the
     // deleter MUST be called on version major mismatch.
     auto out = CppDLTensor(ptr);
-    if (ARROW_PREDICT_FALSE(out.ptr_->version.major != VERSION.major)) {
+    if (ARROW_PREDICT_FALSE(out.ptr_->version.major != kVersion.major)) {
       return Status::Invalid("Unsupported DLPack major version ", out.ptr_->version.major,
-                             ", expected ", VERSION.major);
+                             ", expected ", kVersion.major);
     }
     if (ARROW_PREDICT_FALSE(out.tensor().ndim < 0)) {
       return Status::Invalid("Invalid DLPack tensor: ndim must be >= 0");
