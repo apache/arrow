@@ -36,7 +36,7 @@ RUN apk update && \
 RUN set -e; \
     case "${python_version}" in \
       3.14) python_patch_version="3.14.7";; \
-      3.15) python_patch_version="3.15.0rc1";; \
+      3.15) python_patch_version="3.15.0rc2";; \
     esac && \
     curl -L -o python.tar.zst \
     https://github.com/astral-sh/python-build-standalone/releases/download/${build_date}/cpython-${python_patch_version}+${build_date}-${arch}-unknown-linux-musl-freethreaded+lto-full.tar.zst && \
