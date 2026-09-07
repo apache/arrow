@@ -753,10 +753,8 @@ class HandlerBase : public BlockParser {
     simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
                                         json->size());
 
-    sj::parser parser;
-
     ARROW_ASSIGN_OR_RAISE(auto stream, arrow::internal::ResolveSimdjsonResult(
-                                           parser.iterate_many(padded_json),
+                                           parser_.iterate_many(padded_json),
                                            "Failed to create JSON document stream"));
 
     for (auto document_result : stream) {
@@ -1062,6 +1060,7 @@ class HandlerBase : public BlockParser {
   // top of this stack == field_index_
   std::vector<int> field_index_stack_;
   StringBuilder scalar_values_builder_;
+  sj::parser parser_;
 };
 
 template <UnexpectedFieldBehavior>
