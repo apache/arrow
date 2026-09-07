@@ -385,14 +385,18 @@ def test_tensor_from_dlpack(np_type):
     if Version(np.__version__) < Version("2.1.0"):
         pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
 
+    def make_array():
+        base = np.arange(24, dtype=np_type).reshape((4, 6))
+        array = base[::2, 1::2]
+        assert not array.flags['C_CONTIGUOUS']
+        return array
+
     # Non-contiguous, strided slice: DLPack carries explicit strides, so this
     # should not need a copy on export.
-    base = np.arange(24, dtype=np_type).reshape((4, 6))
-    expected = base[::2, 1::2]
-    assert not expected.flags['C_CONTIGUOUS']
-    tensor = pa.Tensor.from_dlpack(expected)
+    tensor = pa.Tensor.from_dlpack(make_array())
     assert isinstance(tensor, pa.Tensor)
-    np.testing.assert_array_equal(tensor.to_numpy(), expected, strict=True)
+    gc.collect()  # Attempts to free input array memory
+    np.testing.assert_array_equal(tensor.to_numpy(), make_array(), strict=True)
 
 
 @check_bytes_allocated
@@ -406,6 +410,7 @@ def test_array_from_dlpack(np_type):
 
     expected = np.array([1, 2, 3, 4, 5], dtype=np_type)
     arr = pa.Array.from_dlpack(expected)
+    arr.validate(full=True)
     assert isinstance(arr, pa.Array)
     np.testing.assert_array_equal(arr.to_numpy(), expected, strict=True)
 
@@ -418,9 +423,12 @@ def test_from_dlpack_zero_copy():
     expected = np.array([1, 2, 3], dtype=np.int64)
     tensor = pa.Tensor.from_dlpack(expected)
     result = tensor.to_numpy()
-    expected[0] = 100
     # Zero-copy import: mutating the source is visible through the tensor.
+    expected[0] = 100
     assert result[0] == 100
+    # Same for mutating the result
+    result[1] = 42
+    assert expected[1] == 42
 
 
 @check_bytes_allocated

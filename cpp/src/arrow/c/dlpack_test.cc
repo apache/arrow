@@ -396,6 +396,14 @@ struct TensorConsumer {
   static const uint8_t* RawData(const Imported& t) { return t->raw_data(); }
   static bool IsMutable(const Imported& t) { return t->is_mutable(); }
   static int64_t Size(const Imported& t) { return t->size(); }
+  static Status Validate(const Imported& t) { return t->Validate(); }
+
+  /// Import and additionally check the result is a well-formed Arrow object.
+  static Result<Imported> ImportAndValidate(DLManagedTensorVersioned* raw) {
+    ARROW_ASSIGN_OR_RAISE(auto imported, Import(raw));
+    RETURN_NOT_OK(Validate(imported));
+    return imported;
+  }
 };
 
 template <bool kCopy>
@@ -415,6 +423,14 @@ struct ArrayConsumer {
     return arr->data()->buffers[1]->is_mutable();
   }
   static int64_t Size(const Imported& arr) { return arr->length(); }
+  static Status Validate(const Imported& t) { return t->ValidateFull(); }
+
+  /// Import and additionally check the result is a well-formed Arrow object.
+  static Result<Imported> ImportAndValidate(DLManagedTensorVersioned* raw) {
+    ARROW_ASSIGN_OR_RAISE(auto imported, Import(raw));
+    RETURN_NOT_OK(Validate(imported));
+    return imported;
+  }
 };
 
 struct ConsumerNames {
@@ -447,7 +463,8 @@ TYPED_TEST(TestImport, Basic) {
   const auto expected = std::vector<float>{1, 2, 3, 4, 5, 6};
   const auto* values = foreign.data.data() + foreign.byte_offset;
 
-  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(Produce(std::move(foreign))));
+  ASSERT_OK_AND_ASSIGN(auto imported,
+                       TypeParam::ImportAndValidate(Produce(std::move(foreign))));
 
   AssertTypeEqual(*float32(), *TypeParam::ValueType(imported));
   ASSERT_EQ(6, TypeParam::Size(imported));
@@ -475,7 +492,8 @@ TYPED_TEST(TestImport, Mutable) {
       .data = ToBytes(std::vector<float>{1, 2, 3, 4}),
       .flags = 0,
   };
-  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(Produce(std::move(foreign))));
+  ASSERT_OK_AND_ASSIGN(auto imported,
+                       TypeParam::ImportAndValidate(Produce(std::move(foreign))));
   ASSERT_TRUE(TypeParam::IsMutable(imported));
 }
 
@@ -486,7 +504,7 @@ TYPED_TEST(TestImport, NullDeleter) {
   auto* foreign = static_cast<ForeignTensor*>(managed->manager_ctx);
   managed->deleter = nullptr;
 
-  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(managed));
+  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::ImportAndValidate(managed));
   imported.reset();
   delete foreign;
 }
@@ -503,7 +521,7 @@ TYPED_TEST(TestImport, DataTypes) {
   for (const auto& [dtype, expected] : cases) {
     ARROW_SCOPED_TRACE("dtype ", expected->ToString());
     ASSERT_OK_AND_ASSIGN(
-        auto imported, TypeParam::Import(Produce(
+        auto imported, TypeParam::ImportAndValidate(Produce(
                            {.dtype = dtype,
                             .shape = {3},
                             .strides = {1},
@@ -517,21 +535,22 @@ TYPED_TEST(TestImport, Empty) {
   auto* managed = Produce({.shape = {0}, .strides = {1}});
   managed->dl_tensor.data = nullptr;
 
-  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::Import(managed));
+  ASSERT_OK_AND_ASSIGN(auto imported, TypeParam::ImportAndValidate(managed));
   ASSERT_EQ(0, TypeParam::Size(imported));
 }
 
 TYPED_TEST(TestImport, Errors) {
   auto check = [](ForeignTensor foreign, const std::string& message) {
     const auto deleted = foreign.deleted;
-    const auto status = TypeParam::Import(Produce(std::move(foreign))).status();
+    const auto status =
+        TypeParam::ImportAndValidate(Produce(std::move(foreign))).status();
     EXPECT_EQ(message, status.ToStringWithoutContextLines());
     // Ownership is taken even when the import fails
     EXPECT_EQ(1, *deleted);
   };
 
   ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Received null pointer.",
-                             TypeParam::Import(nullptr));
+                             TypeParam::ImportAndValidate(nullptr));
   check({.shape = {2},
          .strides = {1},
          .data = std::vector<uint8_t>(8),
@@ -556,7 +575,7 @@ TYPED_TEST(TestImport, UnsupportedVersion) {
                              "Invalid: Unsupported DLPack major version " +
                                  std::to_string(major) + ", expected " +
                                  std::to_string(DLPACK_MAJOR_VERSION),
-                             TypeParam::Import(managed));
+                             TypeParam::ImportAndValidate(managed));
   // The spec mandates the deleter to be called on major version mismatch
   ASSERT_EQ(1, *deleted);
 }
@@ -572,7 +591,8 @@ TYPED_TEST(TestImportTensor, ShapeAndStrides) {
       .strides = {3, 1},
       .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6}),
   };
-  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(Produce(std::move(foreign))));
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       TypeParam::ImportAndValidate(Produce(std::move(foreign))));
 
   ASSERT_THAT(tensor->shape(), ::testing::ElementsAre(2, 3));
   // Arrow strides are in bytes, DLPack strides in elements
@@ -584,7 +604,7 @@ TYPED_TEST(TestImportTensor, Empty) {
   auto* managed = Produce({.shape = {0, 3}, .strides = {3, 1}});
   managed->dl_tensor.data = nullptr;
 
-  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(managed));
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::ImportAndValidate(managed));
   ASSERT_THAT(tensor->shape(), ::testing::ElementsAre(0, 3));
 }
 
@@ -594,7 +614,8 @@ TYPED_TEST(TestImportTensor, Strided) {
       .strides = {1, 2},
       .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6}),
   };
-  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(Produce(std::move(column_major))));
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       TypeParam::ImportAndValidate(Produce(std::move(column_major))));
   ASSERT_TRUE(tensor->is_column_major());
 
   // A 2x2 window over every other row of a 4x2 buffer
@@ -603,7 +624,8 @@ TYPED_TEST(TestImportTensor, Strided) {
       .strides = {4, 1},
       .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8}),
   };
-  ASSERT_OK_AND_ASSIGN(tensor, TypeParam::Import(Produce(std::move(non_contiguous))));
+  ASSERT_OK_AND_ASSIGN(tensor,
+                       TypeParam::ImportAndValidate(Produce(std::move(non_contiguous))));
   ASSERT_FALSE(tensor->is_contiguous());
   ASSERT_EQ(6, tensor->template Value<FloatType>({1, 1}));
 }
@@ -615,14 +637,14 @@ TYPED_TEST(TestImportTensor, NegativeStrides) {
       .data = std::vector<uint8_t>(16),
   };
   ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: negative strides not supported",
-                             TypeParam::Import(Produce(std::move(foreign))));
+                             TypeParam::ImportAndValidate(Produce(std::move(foreign))));
 }
 
 TYPED_TEST(TestImportTensor, RoundTrip) {
   const auto original = TensorFromJSON(float64(), "[1, 2, 3, 4, 5, 6]", {3, 2});
 
   ASSERT_OK_AND_ASSIGN(auto* managed, ExportTensorVersioned(original, /*copy=*/false));
-  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::Import(managed));
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::ImportAndValidate(managed));
 
   ASSERT_TRUE(tensor->Equals(*original));
   if constexpr (!TypeParam::copy) {
@@ -642,7 +664,8 @@ TYPED_TEST(TestImportArray, OneDimension) {
       .strides = {1},
       .data = ToBytes(std::vector<int32_t>{1, 2, 3, 4}),
   };
-  ASSERT_OK_AND_ASSIGN(auto array, TypeParam::Import(Produce(std::move(foreign))));
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       TypeParam::ImportAndValidate(Produce(std::move(foreign))));
   AssertArraysEqual(*ArrayFromJSON(int32(), "[1, 2, 3, 4]"), *array);
 }
 
@@ -652,7 +675,7 @@ TYPED_TEST(TestImportArray, Unsupported) {
         Invalid,
         "Invalid: Only contiguous one dimensional tensor can be imported as"
         " arrays. Try importing to Tensor first.",
-        TypeParam::Import(Produce(std::move(foreign))));
+        TypeParam::ImportAndValidate(Produce(std::move(foreign))));
   };
 
   // Only a Tensor can hold more than one dimension
@@ -670,7 +693,7 @@ TYPED_TEST(TestImportArray, RoundTrip) {
   const auto original = ArrayFromJSON(float64(), "[1, 2, 3, 4, 5, 6]");
 
   ASSERT_OK_AND_ASSIGN(auto* managed, ExportArrayVersioned(original, /*copy=*/false));
-  ASSERT_OK_AND_ASSIGN(auto array, TypeParam::Import(managed));
+  ASSERT_OK_AND_ASSIGN(auto array, TypeParam::ImportAndValidate(managed));
 
   AssertArraysEqual(*original, *array);
   if constexpr (!TypeParam::copy) {
