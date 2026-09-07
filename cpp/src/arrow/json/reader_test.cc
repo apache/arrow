@@ -24,7 +24,6 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/io/slow.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/options.h"
 #include "arrow/json/reader.h"
 #include "arrow/json/test_common.h"

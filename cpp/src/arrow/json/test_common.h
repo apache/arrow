@@ -31,7 +31,6 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/io/memory.h"
 #include "arrow/json/converter.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/result.h"
@@ -49,7 +48,7 @@ using internal::checked_cast;
 namespace json {
 
 using std::string_view;
-using Writer = JsonWriter;
+using Writer = internal::JsonWriter;
 
 struct GenerateOptions {
   // Probability of a field being written
@@ -260,9 +259,8 @@ inline static Status ParseFromString(ParseOptions options, string_view src_str,
   return Status::OK();
 }
 
-static inline std::string PrettyPrint(string_view one_line) {
+static inline std::string PrettyPrint(std::string_view one_line) {
   simdjson::ondemand::parser parser;
-
   // Must pass size to avoid ASAN issues.
   simdjson::padded_string json(one_line.data(), one_line.size());
 
@@ -276,11 +274,9 @@ static inline std::string PrettyPrint(string_view one_line) {
   ABORT_NOT_OK(value_result.status());
   auto value = std::move(value_result).ValueOrDie();
 
-  std::string result;
-  result.reserve(one_line.size());
-
-  ABORT_NOT_OK(internal::PrettyPrintJsonValue(value, &result));
-  return result;
+  auto result = internal::PrettyPrintJsonValue(value);
+  ABORT_NOT_OK(result.status());
+  return std::move(result).ValueOrDie();
 }
 
 template <typename T>
