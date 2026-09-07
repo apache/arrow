@@ -115,12 +115,9 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t);
 /// an error-safe fashion.
 ///
 /// \param[in] raw DLPack tensor
-/// \param[in] copy Whether to copy the data instead of sharing it with the DLPack
-///            producer.
 /// \return An Arrow Array
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* raw,
-                                                    bool copy);
+Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* raw);
 
 /// \brief Import a DLPack tensor as an Arrow Tensor.
 ///
@@ -129,11 +126,8 @@ Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* ra
 /// If the DLPack input is marked as readonly, this will produce an immutable tensor.
 ///
 /// \param[in] raw Arrow array
-/// \param[in] copy Whether to copy the data instead of sharing it with the DLPack
-///            producer.
 /// \return An Arrow Tensor
 ARROW_EXPORT
-Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* raw,
-                                                      bool copy);
+Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* raw);
 
 }  // namespace arrow::dlpack

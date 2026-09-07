@@ -2315,7 +2315,7 @@ cdef class Array(_PandasConvertible):
         PyCapsule_SetName(pycapsule, "used_dltensor_versioned")
         with nogil:
             # Copy handled on producer side
-            result = ImportArrayVersionedFromDLPack(ptr, False)
+            result = ImportArrayVersionedFromDLPack(ptr)
         carray = GetResultValue(result)
         return pyarrow_wrap_array(carray)
 

@@ -413,7 +413,7 @@ Result<std::vector<int64_t>> StridesInBytes(std::span<const int64_t> strides,
   return out;
 }
 
-Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl, bool copy) {
+Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl) {
   // DLPack strides are in number of elements, so is the size we compute from them.
   ARROW_ASSIGN_OR_RAISE(const auto nelements,
                         internal::ComputeTensorSize(dl.shape(), dl.strides(), 1));
@@ -431,9 +431,6 @@ Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl, bool copy) {
   if (nbytes == 0) {
     // DLPack data pointer may be null on empty tensors
     buffer = std::make_shared<Buffer>(data, nbytes);
-  } else if (copy) {
-    ARROW_ASSIGN_OR_RAISE(buffer, MutableBuffer::CopyNonOwned(
-                                      {data, nbytes}, default_cpu_memory_manager()));
   } else if (const auto byte_offset = dl.tensor().byte_offset; dl.is_readonly()) {
     auto get_data = [byte_offset](auto& d) {
       return d.template data_as<const uint8_t>() + byte_offset;
@@ -453,8 +450,7 @@ Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl, bool copy) {
 
 }  // namespace
 
-Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* unmanaged,
-                                                    bool copy) {
+Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* unmanaged) {
   ARROW_ASSIGN_OR_RAISE(auto dl, CppDLTensor::TakeOwnership(unmanaged));
 
   if (dl.tensor().device.device_type != kDLCPU) {
@@ -470,13 +466,13 @@ Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* un
 
   ARROW_ASSIGN_OR_RAISE(auto type, DataTypeFromDLPack(dl.tensor().dtype));
   const auto nelements = dl.shape().front();
-  ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl), copy));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl)));
   auto data = ArrayData::Make(type, nelements, {nullptr, std::move(buffer)});
   return MakeArray(std::move(data));
 }
 
-Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* unmanaged,
-                                                      bool copy) {
+Result<std::shared_ptr<Tensor>> ImportTensorVersioned(
+    DLManagedTensorVersioned* unmanaged) {
   ARROW_ASSIGN_OR_RAISE(auto dl, CppDLTensor::TakeOwnership(unmanaged));
 
   if (dl.tensor().device.device_type != kDLCPU) {
@@ -487,7 +483,7 @@ Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* 
   ARROW_ASSIGN_OR_RAISE(auto type, DataTypeFromDLPack(dl.tensor().dtype));
   auto shape = std::vector<int64_t>(dl.shape().begin(), dl.shape().end());
   auto strides = std::vector<int64_t>(dl.strides().begin(), dl.strides().end());
-  ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl), copy));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl)));
   const auto byte_width = type->byte_width();
   ARROW_ASSIGN_OR_RAISE(auto strides_bytes, StridesInBytes(strides, byte_width));
 

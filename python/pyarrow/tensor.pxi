@@ -347,7 +347,7 @@ strides: {self.strides}"""
         PyCapsule_SetName(pycapsule, "used_dltensor_versioned")
         with nogil:
             # Copy handled on producer side
-            result = ImportTensorVersionedFromDLPack(ptr, False)
+            result = ImportTensorVersionedFromDLPack(ptr)
         ctensor = GetResultValue(result)
         return pyarrow_wrap_tensor(ctensor)
 

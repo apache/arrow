@@ -383,14 +383,12 @@ DLManagedTensorVersioned* Produce(ForeignTensor foreign) {
   return &owned.release()->managed;
 }
 
-template <bool kCopy>
 struct TensorConsumer {
   using Imported = std::shared_ptr<Tensor>;
-  static constexpr bool copy = kCopy;
-  static constexpr const char* name = copy ? "TensorCopied" : "TensorShared";
+  static constexpr const char* name = "Tensor";
 
   static Result<Imported> Import(DLManagedTensorVersioned* raw) {
-    return ImportTensorVersioned(raw, copy);
+    return ImportTensorVersioned(raw);
   }
   static std::shared_ptr<DataType> ValueType(const Imported& t) { return t->type(); }
   static const uint8_t* RawData(const Imported& t) { return t->raw_data(); }
@@ -406,14 +404,12 @@ struct TensorConsumer {
   }
 };
 
-template <bool kCopy>
 struct ArrayConsumer {
   using Imported = std::shared_ptr<Array>;
-  static constexpr bool copy = kCopy;
-  static constexpr const char* name = copy ? "ArrayCopied" : "ArrayShared";
+  static constexpr const char* name = "Array";
 
   static Result<Imported> Import(DLManagedTensorVersioned* raw) {
-    return ImportArrayVersioned(raw, copy);
+    return ImportArrayVersioned(raw);
   }
   static std::shared_ptr<DataType> ValueType(const Imported& arr) { return arr->type(); }
   static const uint8_t* RawData(const Imported& arr) {
@@ -440,10 +436,9 @@ struct ConsumerNames {
   }
 };
 
-using ConsumerTypes = ::testing::Types<TensorConsumer<false>, TensorConsumer<true>,
-                                       ArrayConsumer<false>, ArrayConsumer<true>>;
-using TensorConsumerTypes = ::testing::Types<TensorConsumer<false>, TensorConsumer<true>>;
-using ArrayConsumerTypes = ::testing::Types<ArrayConsumer<false>, ArrayConsumer<true>>;
+using ConsumerTypes = ::testing::Types<TensorConsumer, ArrayConsumer>;
+using TensorConsumerTypes = ::testing::Types<TensorConsumer>;
+using ArrayConsumerTypes = ::testing::Types<ArrayConsumer>;
 
 /// Tests sharing the same expectations for Arrow Tensor and Array imports.
 template <typename Consumer>
@@ -468,21 +463,15 @@ TYPED_TEST(TestImport, Basic) {
 
   AssertTypeEqual(*float32(), *TypeParam::ValueType(imported));
   ASSERT_EQ(6, TypeParam::Size(imported));
-  // A copy is ours to mutate, whatever the producer flagged
-  ASSERT_EQ(TypeParam::copy, TypeParam::IsMutable(imported));
+  ASSERT_FALSE(TypeParam::IsMutable(imported));
   ASSERT_EQ(0, std::memcmp(TypeParam::RawData(imported), expected.data(),
                            expected.size() * sizeof(float)));
 
-  if constexpr (TypeParam::copy) {
-    // The producer tensor is released as soon as its data has been copied
-    ASSERT_EQ(1, *deleted);
-  } else {
-    ASSERT_EQ(TypeParam::RawData(imported), values);
-    // The producer tensor is kept alive by the imported data
-    ASSERT_EQ(0, *deleted);
-    imported.reset();
-    ASSERT_EQ(1, *deleted);
-  }
+  ASSERT_EQ(TypeParam::RawData(imported), values);
+  // The producer tensor is kept alive by the imported data
+  ASSERT_EQ(0, *deleted);
+  imported.reset();
+  ASSERT_EQ(1, *deleted);
 }
 
 TYPED_TEST(TestImport, Mutable) {
@@ -647,9 +636,7 @@ TYPED_TEST(TestImportTensor, RoundTrip) {
   ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::ImportAndValidate(managed));
 
   ASSERT_TRUE(tensor->Equals(*original));
-  if constexpr (!TypeParam::copy) {
-    ASSERT_EQ(original->raw_data(), tensor->raw_data());
-  }
+  ASSERT_EQ(original->raw_data(), tensor->raw_data());
 }
 
 template <typename Consumer>
@@ -696,9 +683,7 @@ TYPED_TEST(TestImportArray, RoundTrip) {
   ASSERT_OK_AND_ASSIGN(auto array, TypeParam::ImportAndValidate(managed));
 
   AssertArraysEqual(*original, *array);
-  if constexpr (!TypeParam::copy) {
-    ASSERT_EQ(TypeParam::RawData(original), TypeParam::RawData(array));
-  }
+  ASSERT_EQ(TypeParam::RawData(original), TypeParam::RawData(array));
 }
 
 }  // namespace arrow::dlpack

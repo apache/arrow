@@ -1498,10 +1498,10 @@ cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
 
     CResult[shared_ptr[CArray]] \
         ImportArrayVersionedFromDLPack" arrow::dlpack::ImportArrayVersioned"(
-            DLManagedTensorVersioned* raw, c_bool copy)
+            DLManagedTensorVersioned* raw)
     CResult[shared_ptr[CTensor]] \
         ImportTensorVersionedFromDLPack" arrow::dlpack::ImportTensorVersioned"(
-            DLManagedTensorVersioned* raw, c_bool copy)
+            DLManagedTensorVersioned* raw)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
