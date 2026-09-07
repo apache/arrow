@@ -2483,6 +2483,8 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
       total_values_ = 0;
     }
     this->num_values_ = total_values_;
+    page_levels_ = num_values;
+    null_levels_ = 0;
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -2492,7 +2494,19 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     }
     DecodeInto(buffer, max_values);
     this->num_values_ -= max_values;
+    CheckPageConsumed();
     return max_values;
+  }
+
+  int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
+                   int64_t valid_bits_offset) override {
+    // Count the nulls before decoding, so that the check `Decode` makes on the way
+    // out already knows how many of this batch's levels carried no value.
+    null_levels_ += null_count;
+    const int num_decoded =
+        Base::DecodeSpaced(buffer, num_values, null_count, valid_bits, valid_bits_offset);
+    CheckPageConsumed();
+    return num_decoded;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -2505,6 +2519,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
           std::to_string(this->num_values_) +
           ", Requested: " + std::to_string(values_to_decode));
     }
+    null_levels_ += null_count;
 
     PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
@@ -2525,6 +2540,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
       builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
     }
     this->num_values_ -= values_to_decode;
+    CheckPageConsumed();
     return values_to_decode;
   }
 
@@ -2562,6 +2578,24 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     }
   }
 
+  /// \brief Fail if the page's levels are spent while its payload is not
+  ///
+  /// `SetData` can only check the header's value count against the page's level
+  /// count, which an optional page satisfies with room to spare. A page that
+  /// over-declares its values would therefore decode the values the definition
+  /// levels ask for and leave the rest unread, reporting no error. Once the levels
+  /// are accounted for, anything left in the payload means the two disagree.
+  void CheckPageConsumed() const {
+    const int64_t levels_used =
+        static_cast<int64_t>(total_values_ - this->num_values_) + null_levels_;
+    if (ARROW_PREDICT_FALSE(levels_used >= page_levels_ && this->num_values_ > 0)) {
+      throw ParquetException("ALP page declares " + std::to_string(total_values_) +
+                             " values but its " + std::to_string(page_levels_) +
+                             " definition levels account for only " +
+                             std::to_string(total_values_ - this->num_values_));
+    }
+  }
+
   /// \brief Room for one decoded vector, allocated on first use
   T* VectorScratch() {
     if (scratch_ == nullptr) {
@@ -2584,6 +2618,11 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   int32_t total_values_ = 0;
   /// Room for one vector, used when a batch starts or ends inside one.
   std::shared_ptr<::arrow::ResizableBuffer> scratch_;
+  /// Definition levels the page carries, which is the count `SetData` is given.
+  int32_t page_levels_ = 0;
+  /// Levels of this page seen so far that carried no value. Together with the
+  /// values already served this says how much of the page is accounted for.
+  int64_t null_levels_ = 0;
 };
 
 }  // namespace
