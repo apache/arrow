@@ -233,6 +233,9 @@ TEST(Decimal32Test, TestIntMinFitsPrecision) {
 TEST(Decimal32Test, FromStringLimits) {
   AssertDecimalFromString("-2147483648", Decimal32(INT32_MIN), 10, 0);
   ASSERT_RAISES(Invalid, Decimal32::FromString("-2147483649"));
+  int32_t precision, scale;
+  ASSERT_RAISES(Invalid,
+                Decimal32::FromString("-2147483649", nullptr, &precision, &scale));
 }
 
 TEST(Decimal64Test, TestIntMinNegate) {
@@ -249,6 +252,9 @@ TEST(Decimal64Test, TestIntMinFitsPrecision) {
 TEST(Decimal64Test, FromStringLimits) {
   AssertDecimalFromString("-9223372036854775808", Decimal64(INT64_MIN), 19, 0);
   ASSERT_RAISES(Invalid, Decimal64::FromString("-9223372036854775809"));
+  int32_t precision, scale;
+  ASSERT_RAISES(Invalid, Decimal64::FromString("-9223372036854775809", nullptr,
+                                               &precision, &scale));
 }
 
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
@@ -460,6 +466,10 @@ TEST(Decimal128Test, FromStringLimits) {
                 Decimal128::FromString("170141183460469231731687303715884105728"));
   ASSERT_RAISES(Invalid,
                 Decimal128::FromString("-170141183460469231731687303715884105729"));
+  int32_t precision, scale;
+  ASSERT_RAISES(
+      Invalid, Decimal128::FromString("-170141183460469231731687303715884105729", nullptr,
+                                      &precision, &scale));
 
   // No exponent, many fractional digits
   AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
@@ -576,6 +586,11 @@ TEST(Decimal256Test, FromStringLimits) {
   ASSERT_RAISES(Invalid,
                 Decimal256::FromString("-5789604461865809771178549250434395392663"
                                        "4992332820282019728792003956564819969"));
+  int32_t precision, scale;
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("-5789604461865809771178549250434395392663"
+                                       "4992332820282019728792003956564819969",
+                                       nullptr, &precision, &scale));
 
   // No exponent, many fractional digits
   AssertDecimalFromString(

@@ -904,15 +904,15 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
+  static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
+  std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
+  if (ShiftAndAddWithOverflow(dec.whole_digits, little_endian_array.data(),
+                              little_endian_array.size(), dec.sign == '-') ||
+      ShiftAndAddWithOverflow(dec.fractional_digits, little_endian_array.data(),
+                              little_endian_array.size(), dec.sign == '-')) {
+    return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+  }
   if (out != nullptr) {
-    static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
-    std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
-    if (ShiftAndAddWithOverflow(dec.whole_digits, little_endian_array.data(),
-                                little_endian_array.size(), dec.sign == '-') ||
-        ShiftAndAddWithOverflow(dec.fractional_digits, little_endian_array.data(),
-                                little_endian_array.size(), dec.sign == '-')) {
-      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
-    }
     *out = Decimal(bit_util::little_endian::ToNative(little_endian_array));
     if (dec.sign == '-') {
       out->Negate();
@@ -975,16 +975,15 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
+  uint64_t value{0};
+  if (ShiftAndAddWithOverflow(dec.whole_digits, &value, 1, dec.sign == '-') ||
+      ShiftAndAddWithOverflow(dec.fractional_digits, &value, 1, dec.sign == '-') ||
+      value > static_cast<uint64_t>(
+                  std::numeric_limits<typename DecimalClass::ValueType>::max()) +
+                  static_cast<uint64_t>(dec.sign == '-')) {
+    return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+  }
   if (out != nullptr) {
-    uint64_t value{0};
-    if (ShiftAndAddWithOverflow(dec.whole_digits, &value, 1, dec.sign == '-') ||
-        ShiftAndAddWithOverflow(dec.fractional_digits, &value, 1, dec.sign == '-') ||
-        value > static_cast<uint64_t>(
-                    std::numeric_limits<typename DecimalClass::ValueType>::max()) +
-                    static_cast<uint64_t>(dec.sign == '-')) {
-      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
-    }
-
     *out = DecimalClass(value);
     if (dec.sign == '-') {
       out->Negate();
