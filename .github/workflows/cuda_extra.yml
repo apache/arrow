@@ -105,12 +105,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v6
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@ce952724eb5210790bd5d466d70d5d60ac3e6c21
         with:
           path: .docker
-          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
-          restore-keys: extra-${{ matrix.image }}-
+          key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
@@ -134,6 +133,14 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@ce952724eb5210790bd5d466d70d5d60ac3e6c21
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
