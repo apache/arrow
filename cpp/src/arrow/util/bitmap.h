@@ -21,12 +21,14 @@
 #include <array>
 #include <bitset>
 #include <cassert>
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -36,7 +38,6 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/functional.h"
 #include "arrow/util/string_util.h"
 #include "arrow/util/visibility.h"
 
@@ -145,9 +146,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   // carefully in other cases.
   // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
   // and BitmapUInt64Reader.
-  template <size_t N, typename Visitor,
-            typename Word = typename std::decay<
-                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
+  template <typename Word = uint64_t, size_t N, typename Visitor>
+    requires std::same_as<void, std::invoke_result_t<Visitor, std::array<Word, N>&>>
   static int64_t VisitWords(const Bitmap (&bitmaps_arg)[N], Visitor&& visitor) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
@@ -248,13 +248,12 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return min_offset;
   }
 
-  template <size_t N, size_t M, typename ReaderT, typename WriterT, typename Visitor,
-            typename Word = typename std::decay<
-                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
+  template <size_t N, size_t M, typename ReaderT, typename WriterT, typename Visitor>
   static void RunVisitWordsAndWriteLoop(int64_t bit_length,
                                         std::array<ReaderT, N>& readers,
                                         std::array<WriterT, M>& writers,
                                         Visitor&& visitor) {
+    using Word = decltype(readers[0].NextWord());
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
     std::array<Word, N> visited_words;
@@ -318,6 +317,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// may be offset within the first visited word, but words will otherwise contain
   /// densely packed bits loaded from the bitmap. That offset within the first word is
   /// returned.
+  ///
   /// Visitor is expected to have the following signature
   ///     [](const std::array<Word, N>& in_words, std::array<Word, M>* out_words){...}
   ///
@@ -326,9 +326,9 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   // carefully in other cases.
   // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
   // and BitmapUInt64Reader.
-  template <size_t N, size_t M, typename Visitor,
-            typename Word = typename std::decay<
-                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
+  template <typename Word = uint64_t, size_t N, size_t M, typename Visitor>
+    requires std::same_as<
+        void, std::invoke_result_t<Visitor, std::array<Word, N>&, std::array<Word, M>*>>
   static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
                                  std::array<Bitmap, M>* out_bitmaps_arg,
                                  Visitor&& visitor) {
