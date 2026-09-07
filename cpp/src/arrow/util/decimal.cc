@@ -980,7 +980,8 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     if (ShiftAndAddWithOverflow(dec.whole_digits, &value, 1, dec.sign == '-') ||
         ShiftAndAddWithOverflow(dec.fractional_digits, &value, 1, dec.sign == '-') ||
         value > static_cast<uint64_t>(
-                    std::numeric_limits<typename DecimalClass::ValueType>::max())) {
+                    std::numeric_limits<typename DecimalClass::ValueType>::max()) +
+                    static_cast<uint64_t>(dec.sign == '-')) {
       return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }
 

@@ -230,6 +230,11 @@ TEST(Decimal32Test, TestIntMinFitsPrecision) {
   ASSERT_FALSE(d.FitsInPrecision(9));
 }
 
+TEST(Decimal32Test, FromStringLimits) {
+  AssertDecimalFromString("-2147483648", Decimal32(INT32_MIN), 10, 0);
+  ASSERT_RAISES(Invalid, Decimal32::FromString("-2147483649"));
+}
+
 TEST(Decimal64Test, TestIntMinNegate) {
   Decimal64 d(INT64_MIN);
   auto neg = d.Negate();
@@ -239,6 +244,11 @@ TEST(Decimal64Test, TestIntMinNegate) {
 TEST(Decimal64Test, TestIntMinFitsPrecision) {
   Decimal64 d(INT64_MIN);
   ASSERT_FALSE(d.FitsInPrecision(18));
+}
+
+TEST(Decimal64Test, FromStringLimits) {
+  AssertDecimalFromString("-9223372036854775808", Decimal64(INT64_MIN), 19, 0);
+  ASSERT_RAISES(Invalid, Decimal64::FromString("-9223372036854775809"));
 }
 
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
