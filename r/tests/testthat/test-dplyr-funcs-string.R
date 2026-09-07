@@ -428,6 +428,33 @@ test_that("sub and gsub with namespacing", {
   )
 })
 
+test_that("str_replace/sub with an NA replacement match base/stringr (GH-33432)", {
+  df <- tibble(x = c("", "one", "two", "three", "four", NA))
+
+  # A match sets the whole value to NA; non-matches and NA input are unchanged
+  compare_dplyr_binding(
+    .input |>
+      transmute(
+        regex = str_replace(x, "o", NA_character_),
+        regex_all = str_replace_all(x, "o", NA_character_),
+        fixed = str_replace_all(x, fixed("o"), NA_character_),
+        ci = str_replace_all(x, regex("O", ignore_case = TRUE), NA_character_)
+      ) |>
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      transmute(
+        subbed = sub("o", NA_character_, x),
+        gsubbed = gsub("o", NA_character_, x)
+      ) |>
+      collect(),
+    df
+  )
+})
+
 test_that("str_replace and str_replace_all", {
   x <- Expression$field_ref("x")
 

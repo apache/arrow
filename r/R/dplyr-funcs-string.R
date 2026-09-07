@@ -367,6 +367,26 @@ register_bindings_string_regex <- function() {
       if (length(replacement) != 1) {
         validation_error("`replacement` must be a length 1 character vector")
       }
+      # An NA replacement sets the whole string to NA wherever the pattern
+      # matches, matching base::sub()/gsub() and stringr::str_replace(). The
+      # replace_substring[_regex] kernels don't support this, so rewrite it as
+      # if_else(<pattern matches>, NA, x). GH-33432
+      if (is.na(replacement)) {
+        is_match <- Expression$create(
+          ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
+          x,
+          options = list(
+            pattern = format_string_pattern(pattern, ignore.case, fixed),
+            ignore_case = FALSE
+          )
+        )
+        return(Expression$create(
+          "if_else",
+          is_match,
+          Expression$scalar(NA_character_),
+          x
+        ))
+      }
       Expression$create(
         ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
         x,
