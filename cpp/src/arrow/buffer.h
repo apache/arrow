@@ -24,6 +24,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -146,6 +147,58 @@ class ARROW_EXPORT Buffer {
     }
   }
 
+  /// \brief Default data accessor used by TakeOwnership.
+  struct DefaultGetData {
+    template <typename T>
+    auto* operator()(T& container) const {
+      return container.data();
+    }
+  };
+
+  /// \brief Construct an immutable buffer that takes ownership of a container.
+  ///
+  /// This operation does not make a copy. If the underlying container is mutable (as
+  /// detected by the return type of `get_data`) then returned buffer will be mutable.
+  ///
+  /// \param[in] container The container to own. The container mus own data as a
+  ///            contiguous slice. This buffer does not need to remain stable across a
+  ///            container move.
+  /// \param[in] nbytes The size of the data, which must not exceed the number of bytes
+  ///            readable from the pointer returned by \p get_data
+  /// \param[in] get_data Callable returning the address of the container's data. This
+  ///            function enable the function to get the data *after* the container has
+  ///            been moved to a stable to work with types such as `std::string`.
+  /// \return a new Buffer instance
+  template <typename T, typename Func = DefaultGetData>
+  static auto TakeOwnership(T container, int64_t nbytes, Func&& get_data = {}) {
+    using DataPtr = decltype(std::forward<Func>(get_data)(container));
+    constexpr bool is_mutable = !std::is_const_v<std::remove_pointer_t<DataPtr>>;
+    using BufferType = std::conditional_t<is_mutable, MutableBuffer, Buffer>;
+    using Byte = std::conditional_t<is_mutable, uint8_t, const uint8_t>;
+
+    // Hold the container and the Buffer in a single allocation. Declaration order
+    // matters: the container is constructed first and destroyed last, so the Buffer
+    // never outlives the memory it points into.
+    struct ControlBlock {
+      T container;
+      BufferType buffer;
+
+      ControlBlock(T container, int64_t nbytes, Func&& get_data)
+          : container(std::move(container)),
+            // Read the data pointer only once the container has reached its final
+            // address, since moving it may invalidate the pointer (e.g. in a small
+            // string optimization).
+            buffer(reinterpret_cast<Byte*>(std::forward<Func>(get_data)(this->container)),
+                   nbytes) {}
+    };
+
+    auto owner = std::make_shared<ControlBlock>(std::move(container), nbytes,
+                                                std::forward<Func>(get_data));
+    // Aliasing constructor
+    auto* buffer = &owner->buffer;
+    return std::shared_ptr<BufferType>{std::move(owner), buffer};
+  }
+
   /// \brief Construct an immutable buffer that takes ownership of the contents
   /// of an std::string (without copying it).
   ///
@@ -168,15 +221,8 @@ class ARROW_EXPORT Buffer {
       return std::shared_ptr<Buffer>{new Buffer()};
     }
 
-    auto* data = reinterpret_cast<uint8_t*>(vec.data());
     auto size_in_bytes = static_cast<int64_t>(vec.size() * sizeof(T));
-    return std::shared_ptr<Buffer>{
-        new Buffer{data, size_in_bytes},
-        // Keep the vector's buffer alive inside the shared_ptr's destructor until after
-        // we have deleted the Buffer. Note we can't use this trick in FromString since
-        // std::string's data is inline for short strings so moving invalidates pointers
-        // into the string's buffer.
-        [vec = std::move(vec)](Buffer* buffer) { delete buffer; }};
+    return TakeOwnership(std::move(vec), size_in_bytes);
   }
 
   /// \brief Create buffer referencing typed memory with some length without

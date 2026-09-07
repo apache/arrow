@@ -434,18 +434,18 @@ Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl, bool copy) {
   } else if (copy) {
     ARROW_ASSIGN_OR_RAISE(buffer, MutableBuffer::CopyNonOwned(
                                       {data, nbytes}, default_cpu_memory_manager()));
+  } else if (const auto byte_offset = dl.tensor().byte_offset; dl.is_readonly()) {
+    auto get_data = [byte_offset](auto& d) {
+      return d.template data_as<const uint8_t>() + byte_offset;
+    };
+    buffer = Buffer::TakeOwnership(std::move(dl), nbytes, get_data);
+    ARROW_DCHECK(!buffer->is_mutable());
   } else {
-    const bool readonly = dl.is_readonly();
-    // Trick to keep DLPack data alive taken from `Buffer::FromVector`.
-    auto deleter = [dl = std::move(dl)](auto* buffer) { delete buffer; };
-    if (readonly) {
-      buffer = {new Buffer{data, nbytes}, std::move(deleter)};
-    } else {
-      buffer = std::shared_ptr<MutableBuffer>{
-          new MutableBuffer{data, nbytes},
-          std::move(deleter),
-      };
-    }
+    auto get_data = [byte_offset](auto& d) {
+      return d.template data_as<uint8_t>() + byte_offset;
+    };
+    buffer = Buffer::TakeOwnership(std::move(dl), nbytes, get_data);
+    ARROW_DCHECK(buffer->is_mutable());
   }
 
   return buffer;
