@@ -33,6 +33,17 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
+// GCC honours both pragmas below on the two hot decode loops. Clang and MSVC do
+// not recognize `GCC ivdep`, and warn about the unknown pragma, which is an error
+// under `-Werror`; they get nothing and fall back to whatever the optimizer works
+// out on its own.
+#if defined(__GNUC__) && !defined(__clang__)
+#  define ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT \
+    _Pragma("GCC unroll AlpConstants::kLoopUnrolls") _Pragma("GCC ivdep")
+#else
+#  define ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
+#endif
+
 namespace arrow::util::alp {
 
 namespace {
@@ -952,8 +963,7 @@ void AlpCompression<T>::DecodeVector(std::span<ExactType> input_vector,
   const ExactType* data = input_vector.data();
   const ExactType frame_of_ref = for_info.frame_of_reference();
 
-#pragma GCC unroll AlpConstants::kLoopUnrolls
-#pragma GCC ivdep
+  ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
   for (int32_t i = 0; i < num_elements; ++i) {
     // 1. Apply frame of reference (unFOR) - unsigned arithmetic
     const ExactType unfored_value = data[i] + frame_of_ref;
@@ -972,8 +982,7 @@ void AlpCompression<T>::PatchExceptions(
     std::span<const AlpConstants::PositionType> exception_positions, TargetType* output) {
   // Exceptions Patching.
   int64_t exception_idx = 0;
-#pragma GCC unroll AlpConstants::kLoopUnrolls
-#pragma GCC ivdep
+  ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
   for (const AlpConstants::PositionType exception_position : exception_positions) {
     output[exception_position] = static_cast<T>(exceptions[exception_idx]);
     exception_idx++;
@@ -1049,3 +1058,5 @@ template class AlpCompression<float>;
 template class AlpCompression<double>;
 
 }  // namespace arrow::util::alp
+
+#undef ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
