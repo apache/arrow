@@ -153,7 +153,11 @@ class ARROW_EXPORT AlpCodec {
   /// can then decode any single vector on its own, so serving a batch of values
   /// costs work in proportion to the batch rather than to the buffer, and needs
   /// scratch for one vector rather than for the whole buffer.
-  class VectorReader {
+  ///
+  /// The marker is needed on the nested class as well as on the enclosing one:
+  /// dllexport does not reach into a nested class, so libparquet cannot see
+  /// `Open`, `VectorLength` or `DecodeVector` without it.
+  class ARROW_EXPORT VectorReader {
    public:
     /// \brief Read the header and validate the offset chain
     ///
