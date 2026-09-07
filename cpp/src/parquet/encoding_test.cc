@@ -3185,6 +3185,47 @@ TEST(AlpEncodingAdHoc, InvalidDataTypes) {
   ASSERT_THROW(MakeTypedDecoder<ByteArrayType>(Encoding::ALP), ParquetException);
 }
 
+// A page whose ALP header declares more values than its definition levels account
+// for passes the count check in SetData, because an optional page legitimately
+// carries fewer values than it has levels. The decoder has to notice that its
+// payload still holds values once every level has been served.
+TYPED_TEST(TestAlpEncoding, RejectsPageWithUnreadValues) {
+  using c_type = typename TypeParam::c_type;
+  constexpr int kNumValues = 200;
+  constexpr int kNullCount = 30;
+
+  std::vector<c_type> values(kNumValues);
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = static_cast<c_type>(i) / static_cast<c_type>(100);
+  }
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, /*use_dictionary=*/false,
+                                             this->descr_.get());
+  encoder->Put(values.data(), kNumValues);
+  auto encoded = encoder->FlushValues();
+
+  std::vector<uint8_t> valid_bits(static_cast<size_t>(bit_util::BytesForBits(kNumValues)),
+                                  0);
+  for (int i = 0; i < kNumValues - kNullCount; ++i) {
+    bit_util::SetBit(valid_bits.data(), i);
+  }
+
+  std::vector<c_type> output(kNumValues);
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
+
+  // kNullCount of the levels carry no value, which leaves kNullCount encoded values
+  // that nothing asks for.
+  decoder->SetData(kNumValues, encoded->data(), static_cast<int>(encoded->size()));
+  ASSERT_THROW(decoder->DecodeSpaced(output.data(), kNumValues, kNullCount,
+                                     valid_bits.data(), /*valid_bits_offset=*/0),
+               ParquetException);
+
+  // The same page, read with every level carrying a value, consumes all of them.
+  decoder->SetData(kNumValues, encoded->data(), static_cast<int>(encoded->size()));
+  ASSERT_NO_THROW(decoder->DecodeSpaced(output.data(), kNumValues, /*null_count=*/0,
+                                        valid_bits.data(), /*valid_bits_offset=*/0));
+}
+
 // Encode with AlpCodec at non-default vector sizes (64, 512, 2048, 4096),
 // then decode through the parquet AlpDecoder to verify it correctly reads
 // log_vector_size from the ALP header and round-trips at any valid size.
