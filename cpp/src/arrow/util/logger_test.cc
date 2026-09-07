@@ -23,8 +23,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logger.h"
 
-// Emit log via the default logger
-#define DO_LOG(LEVEL, ...) ARROW_LOGGER_CALL("", LEVEL, __VA_ARGS__)
+// Emit log via the default logger. Token-paste here to prevent Windows' ERROR
+// macro from expanding before the logger macro is selected.
+#define DO_LOG(LEVEL, ...) ARROW_LOGGER_##LEVEL("", __VA_ARGS__)
 
 namespace arrow {
 namespace util {

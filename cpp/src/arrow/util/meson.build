@@ -121,6 +121,8 @@ install_headers(
         'byte_size.h',
         'cancel.h',
         'checked_cast.h',
+        'chrono_config_internal.h',
+        'chrono_internal.h',
         'compare.h',
         'compression.h',
         'concurrent_map.h',

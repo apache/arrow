@@ -22,6 +22,11 @@
 # Headers: top level
 arrow_install_all_headers("arrow/util")
 
+# The automatic rule excludes internal headers, but these are dependencies of
+# the installed formatting.h and value_parsing.h headers.
+install(FILES chrono_config_internal.h chrono_internal.h
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
+
 #
 # arrow_test_main
 #

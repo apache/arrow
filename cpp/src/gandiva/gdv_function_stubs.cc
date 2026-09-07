@@ -27,6 +27,7 @@
 
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -37,6 +38,8 @@
 #include "gandiva/interval_holder.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
+
+namespace chrono = arrow::internal::chrono;
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
@@ -835,8 +838,8 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
 GANDIVA_EXPORT
 gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_milliseconds,
                                         const char* timezone, gdv_int32 length) {
-  using arrow_vendored::date::locate_zone;
-  using arrow_vendored::date::sys_time;
+  using chrono::locate_zone;
+  using chrono::sys_time;
   using std::chrono::milliseconds;
 
   sys_time<milliseconds> tp{milliseconds{time_milliseconds}};
@@ -855,8 +858,8 @@ GANDIVA_EXPORT
 gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
                                           gdv_timestamp time_milliseconds,
                                           const char* timezone, gdv_int32 length) {
-  using arrow_vendored::date::sys_time;
-  using arrow_vendored::date::zoned_time;
+  using chrono::sys_time;
+  using chrono::zoned_time;
   using std::chrono::milliseconds;
 
   const sys_time<milliseconds> tp{milliseconds{time_milliseconds}};

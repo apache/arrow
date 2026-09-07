@@ -42,7 +42,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
-#include "arrow/vendored/datetime.h"
 #include "arrow/visit_array_inline.h"
 
 namespace arrow {
