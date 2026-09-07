@@ -41,7 +41,7 @@ bool is_last_day_of_month(const EpochTimePoint& tp) {
   return (tp.TmMday() == days_in_a_month[matrix_index][tp.TmMon()]);
 }
 
-bool did_days_overflow(arrow_vendored::date::year_month_day ymd) {
+bool did_days_overflow(chrono::year_month_day ymd) {
   int year = static_cast<int>(ymd.year());
   int month = static_cast<unsigned int>(ymd.month());
   int days = static_cast<unsigned int>(ymd.day());

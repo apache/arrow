@@ -17,7 +17,7 @@
 
 #include <cstdint>
 
-#include "arrow/vendored/datetime.h"
+#include "arrow/util/chrono_internal.h"
 
 #include "gandiva/precompiled/time_fields.h"
 
@@ -48,17 +48,19 @@ arrow::Status ExportedTimeFunctions::AddMappings(Engine* engine) const {
 }  // namespace gandiva
 #endif  // !GANDIVA_UNIT_TEST
 
+namespace chrono = arrow::internal::chrono;
+
 extern "C" {
 
 // TODO : Do input validation or make sure the callers do that ?
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time) {
-  using arrow_vendored::date::day;
-  using arrow_vendored::date::local_days;
-  using arrow_vendored::date::locate_zone;
-  using arrow_vendored::date::month;
-  using arrow_vendored::date::time_zone;
-  using arrow_vendored::date::year;
+  using chrono::day;
+  using chrono::local_days;
+  using chrono::locate_zone;
+  using chrono::month;
+  using chrono::time_zone;
+  using chrono::year;
   using std::chrono::hours;
   using std::chrono::milliseconds;
   using std::chrono::minutes;

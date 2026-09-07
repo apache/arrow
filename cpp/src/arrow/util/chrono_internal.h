@@ -21,45 +21,19 @@
 /// \brief Abstraction layer for C++20 chrono calendar/timezone APIs
 ///
 /// This header provides a unified interface for chrono calendar and timezone
-/// functionality. On compilers with full C++20 chrono support, it uses
-/// std::chrono. On other compilers, it falls back to the vendored Howard Hinnant
+/// functionality. It uses std::chrono with supported C++20 timezone
+/// implementations, otherwise falling back to the vendored Howard Hinnant
 /// date library.
+/// See chrono_config_internal.h for backend selection.
 ///
-/// The main benefit is on Windows where std::chrono uses the system timezone
-/// database, eliminating the need for users to install IANA tzdata separately.
+/// On Windows with MSVC, std::chrono uses the system timezone database,
+/// eliminating the need for users to install IANA tzdata separately.
 
 #include <chrono>
 #include <string>
 #include <string_view>
 
-// Feature detection for C++20 chrono timezone support
-// https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L
-//
-// On Windows with MSVC: std::chrono uses Windows' internal timezone database,
-// eliminating the need for users to install IANA tzdata separately.
-//
-// On Windows with MinGW/GCC: libstdc++ reads tzdata files via TZDIR env var.
-// Set TZDIR=/usr/share/zoneinfo to use the system tzdata.
-//
-// On non-Windows: GCC libstdc++ has a bug where DST state is incorrectly reset when
-// a timezone transitions between rule sets (e.g., Australia/Broken_Hill around
-// 2000-02-29). Until this is fixed, we use the vendored date.h library.
-// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-
-// Use std::chrono on Windows when C++20 chrono timezone support is available.
-// The __cpp_lib_chrono >= 201907L feature test macro indicates full support:
-// - MSVC: Uses Windows' internal timezone database (no IANA tzdata needed)
-// - GCC/libstdc++: Requires TZDIR environment variable to locate tzdata
-// - Clang/libc++: Does not define 201907L (no timezone support), so falls back
-//
-// On non-Windows, we use the vendored date library due to a GCC libstdc++ bug
-// where DST state is incorrectly reset during timezone rule transitions.
-// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  define ARROW_USE_STD_CHRONO 1
-#else
-#  define ARROW_USE_STD_CHRONO 0
-#endif
+#include "arrow/util/chrono_config_internal.h"
 
 #if ARROW_USE_STD_CHRONO
 // Use C++20 standard library chrono
@@ -247,6 +221,11 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 }
 
 inline const time_zone* current_zone() { return vendored::current_zone(); }
+
+#  if !ARROW_CHRONO_USE_OS_TZDB
+using vendored::reload_tzdb;
+using vendored::set_install;
+#  endif
 
 // Formatting support
 using vendored::format;
