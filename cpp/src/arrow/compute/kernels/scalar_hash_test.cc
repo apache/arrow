@@ -154,6 +154,9 @@ class TestScalarHash : public ::testing::Test {
     if (arr->null_count()) {
       expected -= (arr->null_count() - 1);
     }
+    // Both branches below read the raw value regardless of validity: every null row
+    // still stores a deterministic 0 internally, so nulls collapse into exactly one
+    // shared bucket, matching `expected`'s `null_count - 1` adjustment above.
     if (func == "hash64") {
       auto hashes64 = dynamic_cast<const UInt64Array*>(hashes.get());
       std::unordered_set<uint64_t> hash_set;
@@ -166,9 +169,6 @@ class TestScalarHash : public ::testing::Test {
       auto hashes32 = dynamic_cast<const UInt32Array*>(hashes.get());
       std::unordered_set<uint32_t> hash_set;
       for (int64_t i = 0; i < hashes32->length(); ++i) {
-        // Read the raw value regardless of validity: every null row still stores a
-        // deterministic 0 internally, so nulls collapse into exactly one shared bucket
-        // here, matching `expected`'s `null_count - 1` above (same as hash64 below).
         hash_set.insert(hashes32->Value(i));
       }
       ASSERT_LE(hash_set.size(), expected);
@@ -283,6 +283,7 @@ TEST_F(TestScalarHash, ZeroValueIsValid) {
       {uint16(), R"([null, 0, 1])"},
       {uint32(), R"([null, 0, 1])"},
       {uint64(), R"([null, 0, 1])"},
+      {float16(), R"([null, 0, 1])"},
       {float32(), R"([null, 0.0, 1.0])"},
       {float64(), R"([null, 0.0, 1.0])"},
       {date32(), R"([null, 0, 1])"},
@@ -384,7 +385,7 @@ TEST_F(TestScalarHash, BinaryLike) {
       CheckBinary(func, ArrayFromJSON(type, R"([""])"));
       CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", null])"));
       CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", "third"])"));
-      CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", "third"])"));
+      CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", "first"])"));
     }
   }
   for (auto func : {"hash32", "hash64"}) {
@@ -777,6 +778,8 @@ TEST_F(TestScalarHash, RandomPrimitive) {
                 float16(),
                 float32(),
                 float64(),
+                decimal32(9, 5),
+                decimal64(18, 5),
                 decimal128(18, 5),
                 decimal256(38, 5),
                 time32(TimeUnit::SECOND),
@@ -1576,7 +1579,8 @@ TEST_F(TestScalarHash, UnsupportedNestedChildType) {
                 fixed_size_list(binary_view(), 2),
                 struct_({field("a", int64()), field("b", binary_view())}),
                 list(struct_({field("a", list_view(int64()))})),
-                map(int64(), run_end_encoded(int16(), utf8()))};
+                map(int64(), run_end_encoded(int16(), utf8())),
+                struct_({field("a", dictionary(int8(), binary_view()))})};
   for (const auto& type : types) {
     ARROW_SCOPED_TRACE("type: ", type->ToString());
     // Dispatch rejects these before touching data, so an all-null array suffices (and
