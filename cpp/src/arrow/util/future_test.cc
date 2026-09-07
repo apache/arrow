@@ -1539,13 +1539,11 @@ TEST(FnOnceTest, MoveOnlyDataType) {
         return *i0.data + *i1.data + (i0.moves * 1000) + (i1.moves * 100);
       };
 
-  using arg0 = call_traits::argument_type<0, decltype(fn)>;
-  using arg1 = call_traits::argument_type<1, decltype(fn)>;
-  using arg2 = call_traits::argument_type<2, decltype(fn)>;
-  static_assert(std::is_same<arg0, const MoveOnlyDataType&>::value, "");
-  static_assert(std::is_same<arg1, MoveOnlyDataType>::value, "");
-  static_assert(std::is_same<arg2, std::string>::value,
-                "should not add a && to the call type (demanding rvalue unnecessarily)");
+  static_assert(std::is_invocable_r_v<int, decltype(fn), const MoveOnlyDataType&,
+                                      MoveOnlyDataType, std::string&>);
+  // a move-only by-value argument must be moved in
+  static_assert(!std::is_invocable_v<decltype(fn), const MoveOnlyDataType&,
+                                     MoveOnlyDataType&, std::string&>);
 
   MoveOnlyDataType i0{1}, i1{41};
   std::string copyable = "";

@@ -26,7 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/functional.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -167,11 +166,12 @@ struct ThreadUnsafeMemoizer {
 };
 
 template <template <typename...> class Cache, template <typename...> class MemoizerType,
-          typename Func, typename Key = std::decay_t<call_traits::argument_type<0, Func>>,
-          typename Value = std::decay_t<std::invoke_result_t<Func, const Key&>>,
-          typename Memoizer = MemoizerType<Key, Value, Cache<Key, Value>, Func>,
-          typename RetType = typename Memoizer::RetType>
-static std::function<RetType(const Key&)> Memoize(Func&& func, int32_t cache_capacity) {
+          typename Key, typename Func>
+static auto Memoize(Func&& func, int32_t cache_capacity) {
+  using Value = std::decay_t<std::invoke_result_t<Func, const Key&>>;
+  using Memoizer = MemoizerType<Key, Value, Cache<Key, Value>, Func>;
+  using RetType = typename Memoizer::RetType;
+
   // std::function<> requires copy constructibility
   struct {
     RetType operator()(const Key& key) const { return (*memoized_)(key); }
@@ -179,30 +179,29 @@ static std::function<RetType(const Key&)> Memoize(Func&& func, int32_t cache_cap
   } shared_memoized = {
       std::make_shared<Memoizer>(std::forward<Func>(func), cache_capacity)};
 
-  return shared_memoized;
+  return std::function<RetType(const Key&)>(std::move(shared_memoized));
 }
 
 }  // namespace detail
 
 // Apply a LRU memoization cache to a callable.
-template <typename Func>
-static auto MemoizeLru(Func&& func, int32_t cache_capacity)
-    -> decltype(detail::Memoize<LruCache, detail::ThreadSafeMemoizer>(
-        std::forward<Func>(func), cache_capacity)) {
-  return detail::Memoize<LruCache, detail::ThreadSafeMemoizer>(std::forward<Func>(func),
-                                                               cache_capacity);
+// `Key` is the type of the callable's (single) argument.
+template <typename Key, typename Func>
+  requires std::is_invocable_v<Func, const Key&>
+static auto MemoizeLru(Func&& func, int32_t cache_capacity) {
+  return detail::Memoize<LruCache, detail::ThreadSafeMemoizer, Key>(
+      std::forward<Func>(func), cache_capacity);
 }
 
 // Like MemoizeLru, but not thread-safe.  This version allows for much faster
 // lookups (more than 2x faster), but you'll have to manage thread safety yourself.
 // A recommended usage is to declare per-thread caches using `thread_local`
 // (see cache_benchmark.cc).
-template <typename Func>
-static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity)
-    -> decltype(detail::Memoize<LruCache, detail::ThreadUnsafeMemoizer>(
-        std::forward<Func>(func), cache_capacity)) {
-  return detail::Memoize<LruCache, detail::ThreadUnsafeMemoizer>(std::forward<Func>(func),
-                                                                 cache_capacity);
+template <typename Key, typename Func>
+  requires std::is_invocable_v<Func, const Key&>
+static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity) {
+  return detail::Memoize<LruCache, detail::ThreadUnsafeMemoizer, Key>(
+      std::forward<Func>(func), cache_capacity);
 }
 
 }  // namespace internal
