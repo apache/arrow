@@ -467,7 +467,15 @@ int _kEncodingValues[] = {
    * Added in 2.8 for FLOAT and DOUBLE.
    * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
-  Encoding::BYTE_STREAM_SPLIT
+  Encoding::BYTE_STREAM_SPLIT,
+  /**
+   * Adaptive Lossless floating-Point (ALP) encoding for FLOAT and DOUBLE.
+   * Losslessly converts decimal-like floating-point values to integers via
+   * decimal scaling, then applies Frame of Reference (FOR) encoding and
+   * bit-packing; values that cannot be converted losslessly are stored as
+   * exceptions. See Encodings.md for the detailed specification.
+   */
+  Encoding::ALP
 };
 const char* _kEncodingNames[] = {
   /**
@@ -529,9 +537,17 @@ const char* _kEncodingNames[] = {
    * Added in 2.8 for FLOAT and DOUBLE.
    * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
-  "BYTE_STREAM_SPLIT"
+  "BYTE_STREAM_SPLIT",
+  /**
+   * Adaptive Lossless floating-Point (ALP) encoding for FLOAT and DOUBLE.
+   * Losslessly converts decimal-like floating-point values to integers via
+   * decimal scaling, then applies Frame of Reference (FOR) encoding and
+   * bit-packing; values that cannot be converted losslessly are stored as
+   * exceptions. See Encodings.md for the detailed specification.
+   */
+  "ALP"
 };
-const std::map<int, const char*> _Encoding_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(9, _kEncodingValues, _kEncodingNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char*> _Encoding_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(10, _kEncodingValues, _kEncodingNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
 std::ostream& operator<<(std::ostream& out, const Encoding::type& val) {
   std::map<int, const char*>::const_iterator it = _Encoding_VALUES_TO_NAMES.find(val);
