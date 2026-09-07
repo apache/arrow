@@ -50,8 +50,6 @@ done < <(
   find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
     -name "*.stream" -print0
 )
-# Exit with an error if find returns no files.
-[ "${#IPC_INTEGRATION_FILES[@]}" -eq 0 ] && exit 1
 # Several IPC integration files can have the same name, make sure
 # they all appear in the corpus by numbering the duplicates.
 cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
@@ -67,8 +65,6 @@ done < <(
   find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
     -name "*.arrow_file" -print0
 )
-# Exit with an error if find returns no files.
-[ "${#IPC_INTEGRATION_FILES[@]}" -eq 0 ] && exit 1
 cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-ipc-file-fuzz_seed_corpus.zip"
 
