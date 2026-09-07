@@ -553,10 +553,7 @@ class StreamingReaderTestBase {
       Writer writer;
       ABORT_NOT_OK(Generate(data_fields, engine, &writer, options));
 
-      auto json_result = writer.GetString();
-      ABORT_NOT_OK(json_result.status());
-      auto json_view = std::move(json_result).ValueOrDie();
-      std::string json(json_view);
+      std::string json(writer.GetString().ValueOrDie());
 
       rows[i] = Join({"{\"i\":", std::to_string(i), ",\"d\":", json, "}\n"});
       max_row_size = std::max(max_row_size, rows[i].size());
