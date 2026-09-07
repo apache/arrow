@@ -150,32 +150,44 @@ class RecordBatchSerializer {
       return Status::Invalid("Max recursion depth reached");
     }
 
-    if (!options_.allow_64bit && arr.length() > std::numeric_limits<int32_t>::max()) {
+    // An extension array is serialized as its storage array: the extension type
+    // itself is carried in the schema, not in the record batch body.  The storage
+    // array shares the extension array's ArrayData, so length, offset and null
+    // count are unchanged; only the type id differs, and it is the storage type id
+    // that decides the buffer layout below.
+    const Array& physical_arr = arr.type_id() == Type::EXTENSION
+                                    ? *checked_cast<const ExtensionArray&>(arr).storage()
+                                    : arr;
+
+    if (!options_.allow_64bit &&
+        physical_arr.length() > std::numeric_limits<int32_t>::max()) {
       return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
-    if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+    if (physical_arr.offset() != 0 &&
+        physical_arr.device_type() != DeviceAllocationType::kCPU) {
       // https://github.com/apache/arrow/issues/43029
       return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
     }
 
     // push back all common elements
-    field_nodes_.push_back({arr.length(), arr.null_count(), 0});
+    field_nodes_.push_back({physical_arr.length(), physical_arr.null_count(), 0});
 
     // In V4, null types have no validity bitmap
     // In V5 and later, null and union types have no validity bitmap
-    if (internal::HasValidityBitmap(arr.type_id(), options_.metadata_version)) {
-      if (arr.null_count() > 0) {
+    if (internal::HasValidityBitmap(physical_arr.type_id(), options_.metadata_version)) {
+      if (physical_arr.null_count() > 0) {
         std::shared_ptr<Buffer> bitmap;
-        RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
-                                         options_.memory_pool, &bitmap));
+        RETURN_NOT_OK(GetTruncatedBitmap(physical_arr.offset(), physical_arr.length(),
+                                         physical_arr.null_bitmap(), options_.memory_pool,
+                                         &bitmap));
         out_->body_buffers.emplace_back(std::move(bitmap));
       } else {
         // Push a dummy zero-length buffer, not to be copied
         out_->body_buffers.emplace_back(kNullBuffer);
       }
     }
-    return VisitType(arr);
+    return VisitType(physical_arr);
   }
 
   // Override this for writing dictionary metadata

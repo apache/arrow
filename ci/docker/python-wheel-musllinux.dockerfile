@@ -33,13 +33,13 @@ RUN apk add --no-cache \
     curl \
     flex \
     git \
+    mono \
     ninja \
+    sccache \
     unzip \
     wget \
-    zip
-# Add mono from community repo because it's not in the main repo.
-# We will be able to use the main repo once we move to alpine 3.22 or later.
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mono
+    zip && \
+    cert-sync /etc/ssl/certs/ca-certificates.crt
 
 # The linker shipped in Alpine (ld 2.44) causes issue with the generated wheel
 # on x86_64 which makes "import pyarrow" abort at startup with:

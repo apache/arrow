@@ -51,6 +51,14 @@ TEST(SizeStatistics, UpdateLevelHistogram) {
     EXPECT_THAT(histogram, ::testing::ElementsAre(3, 5));
   }
   {
+    // Cross the chunk boundary used by the max_level = 1 fast path.
+    std::vector<int16_t> levels(1 << 14, 1);
+    levels.push_back(0);
+    std::vector<int64_t> histogram(2, 0);
+    UpdateLevelHistogram(levels, histogram);
+    EXPECT_THAT(histogram, ::testing::ElementsAre(1, 1 << 14));
+  }
+  {
     // max_level > 1
     std::vector<int64_t> histogram(3, 0);
     UpdateLevelHistogram(std::vector<int16_t>{0, 1, 2, 2, 0}, histogram);

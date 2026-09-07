@@ -433,6 +433,13 @@ class BlockParserImpl {
     if (ARROW_PREDICT_FALSE(num_cols != batch_.num_cols_)) {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
+      } else if (options_.pad_short_rows && num_cols < batch_.num_cols_) {
+        batch_.missing_fields_.push_back({batch_.num_rows_, num_cols});
+        while (num_cols < batch_.num_cols_) {
+          values_writer->StartField(false /* quoted */);
+          FinishField();
+          ++num_cols;
+        }
       } else {
         return HandleInvalidRow(values_writer, parsed_writer, start, data, num_cols,
                                 out_data);

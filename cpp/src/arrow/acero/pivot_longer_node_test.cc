@@ -43,9 +43,15 @@ TEST(PivotLongerNode, Basic) {
           ->Table(kRowsPerBatch, kNumBatches);
 
   PivotLongerNodeOptions options;
-  options.feature_field_names = {"feature1", "feature2"};
+  options.feature_field_names = {"feature1", "feature2", "feature3"};
   options.measurement_field_names = {"meas1", "meas2"};
-  options.row_templates = {{{"a", "x"}, {{1}, {3}}}, {{"b", "y"}, {{2}, std::nullopt}}};
+  options.row_templates = {
+      {{std::make_shared<StringScalar>("a"), std::make_shared<StringScalar>("x"),
+        std::make_shared<UInt32Scalar>(12)},
+       {{1}, {3}}},
+      {{std::make_shared<StringScalar>("b"), std::make_shared<StringScalar>("y"),
+        std::make_shared<UInt32Scalar>(13)},
+       {{2}, std::nullopt}}};
 
   Declaration plan = Declaration::Sequence({
       {"table_source", TableSourceNodeOptions(std::move(input))},
@@ -62,6 +68,7 @@ TEST(PivotLongerNode, Basic) {
       field("f3", uint32()),
       field("feature1", utf8()),
       field("feature2", utf8()),
+      field("feature3", uint32()),
       field("meas1", uint32()),
       field("meas2", uint32()),
   });
@@ -70,7 +77,8 @@ TEST(PivotLongerNode, Basic) {
   AssertSchemaEqual(expected_out_schema, output->schema());
 }
 
-void CheckError(const PivotLongerNodeOptions& options, const std::string& message) {
+void CheckError(const PivotLongerNodeOptions& options, const std::string& message,
+                StatusCode code = StatusCode::Invalid) {
   std::shared_ptr<Table> input = gen::Gen({gen::Step(), gen::Random(boolean())})
                                      ->FailOnError()
                                      ->Table(/*rows_per_chunk=*/1, /*num_chunks=*/1);
@@ -81,19 +89,19 @@ void CheckError(const PivotLongerNodeOptions& options, const std::string& messag
   });
 
   ASSERT_THAT(DeclarationToStatus(std::move(plan)),
-              Raises(StatusCode::Invalid, testing::HasSubstr(message)));
+              Raises(code, testing::HasSubstr(message)));
 }
 
 TEST(PivotLongerNode, Error) {
   PivotLongerNodeOptions options;
   CheckError(options, "There must be at least one row template");
 
-  options.row_templates = {{{}, {{0}}}};
+  options.row_templates = {{std::vector<std::string>{}, {{0}}}};
   CheckError(options, "at least one feature column and one measurement column");
 
   options.feature_field_names = {"feat1"};
   options.measurement_field_names = {"meas1"};
-  options.row_templates = {{{}, {{0}}}};
+  options.row_templates = {{std::vector<std::string>{}, {{0}}}};
   CheckError(options,
              "There were names given for 1 feature columns but one of the row templates "
              "only had 0 feature values");
@@ -111,6 +119,13 @@ TEST(PivotLongerNode, Error) {
 
   options.row_templates = {{{"x"}, {std::nullopt}}, {{"y"}, {std::nullopt}}};
   CheckError(options, "All row templates had nullopt");
+
+  options.row_templates = {{{std::make_shared<StringScalar>("x")}, {{0}}},
+                           {{std::make_shared<UInt32Scalar>(1)}, {{0}}}};
+  CheckError(options,
+             "Some row templates had the type string but later row templates had the "
+             "type uint32",
+             StatusCode::TypeError);
 }
 
 // The following examples are smaller versions of examples taken from
@@ -183,7 +198,8 @@ TEST(PivotLongerNode, ExamplesFromTidyr2) {
   PivotLongerNodeOptions options;
   options.feature_field_names = {"week"};
   options.measurement_field_names = {"rank"};
-  options.row_templates = {{{"1"}, {{2}}}, {{"2"}, {{3}}}};
+  options.row_templates = {{{std::make_shared<UInt32Scalar>(1)}, {{2}}},
+                           {{std::make_shared<UInt32Scalar>(2)}, {{3}}}};
 
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(input))},
@@ -196,14 +212,14 @@ TEST(PivotLongerNode, ExamplesFromTidyr2) {
                        DeclarationToTable(std::move(plan)));
 
   std::shared_ptr<Schema> expected_schema =
-      schema({field("artist", utf8()), field("track", utf8()), field("week", utf8()),
+      schema({field("artist", utf8()), field("track", utf8()), field("week", uint32()),
               field("rank", float64())});
   std::shared_ptr<Table> expected = TableFromJSON(expected_schema, {{
                                                                        R"([
-        ["2 Pac", "Baby Don't Cry", "1", 87],
-        ["2Ge+her", "The Hardest Part Of", "1", 91],
-        ["2 Pac", "Baby Don't Cry", "2", 82],
-        ["2Ge+her", "The Hardest Part Of", "2", 87]
+        ["2 Pac", "Baby Don't Cry", 1, 87],
+        ["2Ge+her", "The Hardest Part Of", 1, 91],
+        ["2 Pac", "Baby Don't Cry", 2, 82],
+        ["2Ge+her", "The Hardest Part Of", 2, 87]
     ])"}});
 
   AssertTablesEqual(*expected, *output, /*same_chunk_layout=*/false);
