@@ -146,7 +146,7 @@ repos:
           ?^python/pyarrow/vendored/|
           )
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.21.0
+    rev: v0.21.1
     hooks:
       - id: cython-lint
         alias: python
@@ -155,10 +155,6 @@ repos:
           - "--no-pycodestyle"
         files: >-
           ^python/
-        # Pin Cython to 3.2.9 until cython-lint supports Cython 3.3:
-        # https://github.com/MarcoGorelli/cython-lint/issues/201
-        additional_dependencies:
-        - Cython==3.2.9
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.8
     hooks:
