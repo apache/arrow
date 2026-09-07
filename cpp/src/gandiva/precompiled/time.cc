@@ -637,11 +637,11 @@ void set_error_for_date(gdv_int32 length, const char* input, const char* msg,
 }
 
 gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
-  using arrow_vendored::date::day;
-  using arrow_vendored::date::month;
-  using arrow_vendored::date::sys_days;
-  using arrow_vendored::date::year;
-  using arrow_vendored::date::year_month_day;
+  using chrono::day;
+  using chrono::month;
+  using chrono::sys_days;
+  using chrono::year;
+  using chrono::year_month_day;
   using gandiva::TimeFields;
   // format : 0 is year, 1 is month and 2 is day.
   int dateFields[3];
@@ -701,11 +701,11 @@ gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
  * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
  */
 gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 length) {
-  using arrow_vendored::date::day;
-  using arrow_vendored::date::month;
-  using arrow_vendored::date::sys_days;
-  using arrow_vendored::date::year;
-  using arrow_vendored::date::year_month_day;
+  using chrono::day;
+  using chrono::month;
+  using chrono::sys_days;
+  using chrono::year;
+  using chrono::year_month_day;
   using gandiva::TimeFields;
   using std::chrono::hours;
   using std::chrono::milliseconds;

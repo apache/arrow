@@ -66,8 +66,8 @@ struct RuntimeInfo {
   /// The SIMD level available on the OS and CPU
   std::string detected_simd_level;
 
-  /// Whether using the OS-based timezone database
-  /// This is set at compile-time.
+  /// Whether the timezone database is managed by the OS or standard library,
+  /// rather than Arrow's configurable text database. This is set at compile-time.
   bool using_os_timezone_db;
 
   /// The path to the timezone database; by default None.

@@ -17,11 +17,12 @@
 
 #pragma once
 
-// TODO(wesm): IR compilation does not have any include directories set
-#include "../../arrow/vendored/datetime/date.h"
+#include "arrow/util/chrono_internal.h"
+
+namespace chrono = arrow::internal::chrono;
 
 bool is_leap_year(int yy);
-bool did_days_overflow(arrow_vendored::date::year_month_day ymd);
+bool did_days_overflow(chrono::year_month_day ymd);
 int last_possible_day_in_month(int month, int year);
 
 // A point of time measured in millis since epoch.
@@ -38,19 +39,16 @@ class EpochTimePoint {
   int TmMon() const { return static_cast<unsigned int>(YearMonthDay().month()) - 1; }
 
   int TmYday() const {
-    auto to_days = arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
-    auto first_day_in_year = arrow_vendored::date::sys_days{
-        YearMonthDay().year() / arrow_vendored::date::jan / 1};
+    auto to_days = chrono::floor<chrono::days>(tp_);
+    auto first_day_in_year = chrono::sys_days{YearMonthDay().year() / chrono::jan / 1};
     return (to_days - first_day_in_year).count();
   }
 
   int TmMday() const { return static_cast<unsigned int>(YearMonthDay().day()); }
 
   int TmWday() const {
-    auto to_days = arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
-    return (arrow_vendored::date::weekday{to_days} -  // NOLINT
-            arrow_vendored::date::Sunday)
-        .count();
+    auto to_days = chrono::floor<chrono::days>(tp_);
+    return (chrono::weekday{to_days} - chrono::Sunday).count();
   }
 
   int TmHour() const { return static_cast<int>(TimeOfDay().hours().count()); }
@@ -63,16 +61,16 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddYears(int num_years) const {
-    auto ymd = YearMonthDay() + arrow_vendored::date::years(num_years);
-    return EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
+    auto ymd = YearMonthDay() + chrono::years(num_years);
+    return EpochTimePoint((chrono::sys_days{ymd} +  // NOLINT
                            TimeOfDay().to_duration())
                               .time_since_epoch());
   }
 
   EpochTimePoint AddMonths(int num_months) const {
-    auto ymd = YearMonthDay() + arrow_vendored::date::months(num_months);
+    auto ymd = YearMonthDay() + chrono::months(num_months);
 
-    EpochTimePoint tp = EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
+    EpochTimePoint tp = EpochTimePoint((chrono::sys_days{ymd} +  // NOLINT
                                         TimeOfDay().to_duration())
                                            .time_since_epoch());
 
@@ -87,8 +85,8 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch = arrow_vendored::date::sys_days{YearMonthDay()} +  // NOLINT
-                            arrow_vendored::date::days(num_days);
+    auto days_since_epoch = chrono::sys_days{YearMonthDay()} +  // NOLINT
+                            chrono::days(num_days);
     return EpochTimePoint(
         (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
   }
@@ -101,17 +99,14 @@ class EpochTimePoint {
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
-  arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {
-    auto millis_since_midnight =
-        tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
-    return arrow_vendored::date::time_of_day<std::chrono::milliseconds>(
-        millis_since_midnight);
+  chrono::hh_mm_ss<std::chrono::milliseconds> TimeOfDay() const {
+    auto millis_since_midnight = tp_ - chrono::floor<chrono::days>(tp_);
+    return chrono::hh_mm_ss<std::chrono::milliseconds>{millis_since_midnight};
   }
 
  private:
-  arrow_vendored::date::year_month_day YearMonthDay() const {
-    return arrow_vendored::date::year_month_day{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
+  chrono::year_month_day YearMonthDay() const {
+    return chrono::year_month_day{chrono::floor<chrono::days>(tp_)};  // NOLINT
   }
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> tp_;
