@@ -42,9 +42,12 @@ OUT=$1
 rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -stream "${CORPUS_DIR}"
 # Add "golden" IPC integration files
-# Store the files found by the find command in an array.
-mapfile -d '' IPC_INTEGRATION_FILES < <(
-  find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
+# Use read instead of mapfile to keep this compatible with Bash 3.2 on macOS.
+IPC_INTEGRATION_FILES=()
+while IFS= read -r -d '' IPC_INTEGRATION_FILE; do
+  IPC_INTEGRATION_FILES+=("${IPC_INTEGRATION_FILE}")
+done < <(
+  find "${IPC_INTEGRATION_DIR}" \
     -name "*.stream" -print0
 )
 # Exit with an error if find returns no files.
@@ -56,9 +59,12 @@ cp --backup=numbered "${IPC_INTEGRATION_FILES[@]}" "${CORPUS_DIR}"
 
 rm -rf "${CORPUS_DIR}"
 "${OUT}/arrow-ipc-generate-fuzz-corpus" -file "${CORPUS_DIR}"
-# Store the files found by the find command in an array.
-mapfile -d '' IPC_INTEGRATION_FILES < <(
-  find "${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration" \
+
+IPC_INTEGRATION_FILES=()
+while IFS= read -r -d '' IPC_INTEGRATION_FILE; do
+  IPC_INTEGRATION_FILES+=("${IPC_INTEGRATION_FILE}")
+done < <(
+  find "${IPC_INTEGRATION_DIR}" \
     -name "*.arrow_file" -print0
 )
 # Exit with an error if find returns no files.
