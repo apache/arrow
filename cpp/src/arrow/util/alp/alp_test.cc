@@ -310,8 +310,10 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripDouble) {
 }
 
 TEST(AlpEncodedVectorInfoTest, Size) {
-  // AlpEncodedVectorInfo is fixed at 4 bytes
-  EXPECT_EQ(AlpEncodedVectorInfo::kStoredSize, 4);
+  // AlpEncodedVectorInfo is fixed at 4 bytes. Read the size through the accessor
+  // rather than binding a reference to kStoredSize: a static constexpr member of an
+  // exported class is an import on Windows, and taking its address needs a definition
+  // in the shared library that a constexpr member does not have.
   EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), 4);
 }
 
