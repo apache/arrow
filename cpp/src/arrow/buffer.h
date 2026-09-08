@@ -155,7 +155,7 @@ class ARROW_EXPORT Buffer {
     }
   };
 
-  /// \brief Construct an immutable buffer that takes ownership of a container.
+  /// \brief Construct a buffer that takes ownership of a container.
   ///
   /// This operation does not make a copy. If the underlying container is mutable (as
   /// detected by the return type of `get_data`) then returned buffer will be mutable.
@@ -172,9 +172,9 @@ class ARROW_EXPORT Buffer {
   template <typename T, typename Func = DefaultGetData>
   static auto TakeOwnership(T container, int64_t nbytes, Func&& get_data = {}) {
     using DataPtr = decltype(std::forward<Func>(get_data)(container));
-    constexpr bool is_mutable = !std::is_const_v<std::remove_pointer_t<DataPtr>>;
-    using BufferType = std::conditional_t<is_mutable, MutableBuffer, Buffer>;
-    using Byte = std::conditional_t<is_mutable, uint8_t, const uint8_t>;
+    constexpr bool kIsMutable = !std::is_const_v<std::remove_pointer_t<DataPtr>>;
+    using BufferType = std::conditional_t<kIsMutable, MutableBuffer, Buffer>;
+    using Byte = std::conditional_t<kIsMutable, uint8_t, const uint8_t>;
 
     // Hold the container and the Buffer in a single allocation. Declaration order
     // matters: the container is constructed first and destroyed last, so the Buffer

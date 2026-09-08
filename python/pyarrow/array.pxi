@@ -2278,8 +2278,8 @@ cdef class Array(_PandasConvertible):
     def from_dlpack(x, /, *, device=None, copy=None):
         """
         Construct an Array from an object implementing the DLPack protocol.
-        Only 1 dimensional contiguous tensor are accepted as input.
-        For multi-dimensional tensor, first use `Tensor.from_dpack`, then
+        Only 1-dimensional contiguous tensors are accepted as input.
+        For multi-dimensional tensors, first use `Tensor.from_dlpack`, then
         convert to an array using `FixedShapeTensorArray.from_tensor()`.
 
         Parameters
