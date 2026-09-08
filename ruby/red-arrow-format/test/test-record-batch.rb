@@ -92,20 +92,21 @@ class TestRecordBatch < Test::Unit::TestCase
       end
 
       test("unknown column") do
-        assert_raise(TypeError) do
-          ArrowFormat::RecordBatch.new(
-            @schema,
-            {
-              visible: [true],
-              count: [1],
-              extra: [2],
-            },
-          )
-        end
+        record_batch = ArrowFormat::RecordBatch.new(
+          @schema,
+          {
+            visible: [true],
+            count: [1],
+            extra: [2],
+          },
+        )
+        assert_equal([{"visible" => true, "count" => 1}],
+                     record_batch.records.collect(&:to_h))
       end
 
       test("too many row values") do
-        assert_raise(NoMethodError) do
+        error = ArgumentError.new("row 0 has more values than schema fields")
+        assert_raise(error) do
           ArrowFormat::RecordBatch.new(@schema, [[true, 1, 2]])
         end
       end
