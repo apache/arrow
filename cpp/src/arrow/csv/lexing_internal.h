@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 #include "arrow/csv/options.h"
 #include "arrow/util/simd.h"
@@ -37,20 +37,21 @@ class SpecializedOptions {
   static constexpr bool escaping = Escaping;
 };
 
-template <typename... CompiledBools, typename Fn, typename... Rest>
-  requires std::invocable<Fn, CompiledBools...,
-                          std::conditional_t<true, std::true_type, Rest>...>
-decltype(auto) DispatchBool(Fn&& fn, Rest... rest) {
+template <bool... CompiledBools, typename Fn, typename... Rest>
+decltype(auto) DispatchBool(Fn&& fn, Rest... rest)
+  requires requires {
+    std::forward<Fn>(fn)
+        .template operator()<CompiledBools..., std::is_convertible_v<Rest, bool>...>();
+  }
+{
   if constexpr (sizeof...(Rest) == 0) {
-    return std::forward<Fn>(fn)(CompiledBools{}...);
+    return std::forward<Fn>(fn).template operator()<CompiledBools...>();
   } else {
     return [&](bool head, auto... tail) -> decltype(auto) {
       if (head) {
-        return DispatchBool<CompiledBools..., std::true_type>(std::forward<Fn>(fn),
-                                                              tail...);
+        return DispatchBool<CompiledBools..., true>(std::forward<Fn>(fn), tail...);
       } else {
-        return DispatchBool<CompiledBools..., std::false_type>(std::forward<Fn>(fn),
-                                                               tail...);
+        return DispatchBool<CompiledBools..., false>(std::forward<Fn>(fn), tail...);
       }
     }(rest...);
   }

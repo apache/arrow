@@ -727,11 +727,10 @@ class BlockParserImpl {
   Status Parse(const std::vector<std::string_view>& data, bool is_final,
                uint32_t* out_size) {
     return internal::DispatchBool(
-        [&](auto quoting, auto escaping, auto ignore_extra_columns) {
-          using SpecializedOptions =
-              internal::SpecializedOptions<quoting.value, escaping.value>;
-          return ParseSpecialized<SpecializedOptions, ignore_extra_columns.value>(
-              data, is_final, out_size);
+        [&]<bool Quoting, bool Escaping, bool IgnoreExtraColumns>() {
+          using SpecializedOptions = internal::SpecializedOptions<Quoting, Escaping>;
+          return ParseSpecialized<SpecializedOptions, IgnoreExtraColumns>(data, is_final,
+                                                                          out_size);
         },
         options_.quoting, options_.escaping, options_.ignore_extra_columns);
   }
