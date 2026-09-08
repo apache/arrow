@@ -22,9 +22,9 @@ libdir=@ARROW_PKG_CONFIG_LIBDIR@
 Name: Apache Arrow S3
 Description: Apache Arrow's S3 filesystem implementation.
 Version: @ARROW_VERSION@
-Requires: arrow
+Requires: arrow@ARROW_S3_PC_REQUIRES@
 Requires.private:@ARROW_S3_PC_REQUIRES_PRIVATE@
-Libs: -L${libdir} -larrow_s3
+Libs: -L${libdir} -larrow_s3@ARROW_S3_PC_LIBS@
 Libs.private:@ARROW_S3_PC_LIBS_PRIVATE@
 Cflags:@ARROW_S3_PC_CFLAGS@
 Cflags.private:@ARROW_S3_PC_CFLAGS_PRIVATE@
