@@ -38,8 +38,10 @@
 #if ARROW_USE_STD_CHRONO
 // Use C++20 standard library chrono
 #  include <format>
-#  include <iterator>
+#  include <locale>
 #  include <ostream>
+#  include <ratio>
+#  include <type_traits>
 #else
 // Use vendored Howard Hinnant date library
 #  include "arrow/vendored/datetime.h"
@@ -125,22 +127,172 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 
 inline const time_zone* current_zone() { return std::chrono::current_zone(); }
 
-// Formatting support - streams directly using C++20 std::vformat_to
-// Provides: direct streaming, stream state preservation, chaining, rich format specifiers
+namespace detail {
+
+// Argument positions passed to std::vformat by to_stream below.
+enum class FormatArgument : char {
+  ZonedTime = '0',
+  TimeOfDay = '1',
+  TimeOfDayCount = '2',
+};
+
+template <typename CharT>
+void AppendEscapedLiteral(std::basic_string<CharT>* out, CharT value) {
+  out->push_back(value);
+  if (value == CharT{'{'} || value == CharT{'}'}) {
+    out->push_back(value);
+  }
+}
+
+// These are the directives accepted by Arrow's existing strftime syntax. Treat
+// all others as literals to preserve compatibility.
+template <typename CharT>
+bool IsSupportedStrftimeSpecifier(CharT modifier, CharT specifier) {
+  const auto contains = [specifier](const char* candidates) {
+    for (; *candidates != '\0'; ++candidates) {
+      if (specifier == static_cast<CharT>(*candidates)) return true;
+    }
+    return false;
+  };
+  if (modifier == CharT{}) {
+    return contains("aAbBhcCxdeDFgGHIjmMprRSTuUVWwXyYzZ");
+  }
+  if (modifier == CharT{'E'}) {
+    return contains("cCxXyYz");
+  }
+  if (modifier == CharT{'O'}) {
+    return contains("deHImMSuUVwWyz");
+  }
+  return false;
+}
+
+template <typename CharT>
+void AppendChronoField(std::basic_string<CharT>* out, FormatArgument argument,
+                       CharT specifier, CharT modifier = CharT{}) {
+  *out += {CharT{'{'}, static_cast<CharT>(argument), CharT{':'}, CharT{'L'}, CharT{'%'}};
+  if (modifier != CharT{}) out->push_back(modifier);
+  *out += {specifier, CharT{'}'}};
+}
+
+template <typename CharT>
+void AppendLocalizedField(std::basic_string<CharT>* out, FormatArgument argument) {
+  *out += {CharT{'{'}, static_cast<CharT>(argument), CharT{':'}, CharT{'L'}, CharT{'}'}};
+}
+
+template <typename CharT>
+std::basic_string<CharT> ToChronoFormat(const CharT* fmt, bool use_microseconds_suffix) {
+  std::basic_string<CharT> out;
+  while (*fmt != CharT{}) {
+    if (*fmt != CharT{'%'}) {
+      AppendEscapedLiteral(&out, *fmt++);
+      continue;
+    }
+
+    ++fmt;
+    if (*fmt == CharT{}) {
+      AppendEscapedLiteral(&out, CharT{'%'});
+      break;
+    }
+
+    CharT modifier{};
+    if (*fmt == CharT{'E'} || *fmt == CharT{'O'}) {
+      modifier = *fmt++;
+      if (*fmt == CharT{}) {
+        AppendEscapedLiteral(&out, CharT{'%'});
+        AppendEscapedLiteral(&out, modifier);
+        break;
+      }
+    }
+    const CharT specifier = *fmt++;
+
+    if (modifier == CharT{}) {
+      switch (specifier) {
+        case CharT{'%'}:
+          AppendEscapedLiteral(&out, CharT{'%'});
+          continue;
+        case CharT{'n'}:
+          AppendEscapedLiteral(&out, CharT{'\n'});
+          continue;
+        case CharT{'t'}:
+          AppendEscapedLiteral(&out, CharT{'\t'});
+          continue;
+        case CharT{'Q'}:
+          // Formatting a duration's %Q does not consistently apply the numeric locale.
+          AppendLocalizedField(&out, FormatArgument::TimeOfDayCount);
+          continue;
+        case CharT{'q'}:
+          if (use_microseconds_suffix) {
+            // Some standard libraries use "us"; Arrow uses the micro sign.
+            if constexpr (std::is_same_v<CharT, char>) {
+              AppendEscapedLiteral(&out, CharT{'\xC2'});
+              AppendEscapedLiteral(&out, CharT{'\xB5'});
+            } else {
+              AppendEscapedLiteral(&out, static_cast<CharT>(0xB5));
+            }
+            AppendEscapedLiteral(&out, CharT{'s'});
+          } else {
+            AppendChronoField(&out, FormatArgument::TimeOfDay, specifier);
+          }
+          continue;
+        default:
+          break;
+      }
+    }
+
+#  if defined(__GLIBCXX__)
+    if (modifier == CharT{'O'} && specifier == CharT{'V'}) {
+      // libstdc++ does not yet accept %OV; use its equivalent base representation.
+      AppendChronoField(&out, FormatArgument::ZonedTime, specifier);
+      continue;
+    }
+#  endif
+
+    if (IsSupportedStrftimeSpecifier(modifier, specifier)) {
+      AppendChronoField(&out, FormatArgument::ZonedTime, specifier, modifier);
+    } else {
+      AppendEscapedLiteral(&out, CharT{'%'});
+      if (modifier != CharT{}) AppendEscapedLiteral(&out, modifier);
+      AppendEscapedLiteral(&out, specifier);
+    }
+  }
+  return out;
+}
+
+}  // namespace detail
+
+// Convert Arrow's strftime syntax to C++20 replacement fields. Literal braces and
+// unsupported directives remain literal, and %Q/%q use local time of day.
 template <typename CharT, typename Traits, typename Duration, typename TimeZonePtr>
 std::basic_ostream<CharT, Traits>& to_stream(
     std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
     const std::chrono::zoned_time<Duration, TimeZonePtr>& zt) {
-  std::vformat_to(std::ostreambuf_iterator<CharT>(os), std::string("{:") + fmt + "}",
-                  std::make_format_args(zt));
+  static_assert(std::is_same_v<CharT, char> || std::is_same_v<CharT, wchar_t>);
+  using Precision = typename std::chrono::zoned_time<Duration, TimeZonePtr>::duration;
+  const auto standard_format = detail::ToChronoFormat(
+      fmt, std::ratio_equal_v<typename Precision::period, std::micro>);
+  const auto local_time = zt.get_local_time();
+  const auto local_day = std::chrono::floor<std::chrono::days>(local_time);
+  const auto time_of_day = local_time - local_day;
+  const auto time_of_day_count = time_of_day.count();
+
+  std::basic_string<CharT> formatted;
+  if constexpr (std::is_same_v<CharT, char>) {
+    formatted = std::vformat(os.getloc(), standard_format,
+                             std::make_format_args(zt, time_of_day, time_of_day_count));
+  } else {
+    formatted = std::vformat(os.getloc(), standard_format,
+                             std::make_wformat_args(zt, time_of_day, time_of_day_count));
+  }
+  os.write(formatted.data(), static_cast<std::streamsize>(formatted.size()));
   return os;
 }
 
-// Format a duration using strftime-like format specifiers
-// Converts "%H%M" style to C++20's "{:%H%M}" style and uses std::vformat
-template <typename Duration>
-std::string format(const char* fmt, const Duration& d) {
-  return std::vformat(std::string("{:") + fmt + "}", std::make_format_args(d));
+// Format a duration or time point using strftime-like format specifiers.
+// Converts "%H%M" style to C++20's "{:L%H%M}" style and uses std::vformat.
+template <typename Temporal>
+std::string format(const char* fmt, const Temporal& value) {
+  return std::vformat(std::locale{}, std::string("{:L") + fmt + "}",
+                      std::make_format_args(value));
 }
 
 inline constexpr std::chrono::month jan = std::chrono::January;
