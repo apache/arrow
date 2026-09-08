@@ -37,6 +37,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/fastlanes/lane_delta_wrapper_internal.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
@@ -1868,6 +1869,80 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 };
 
 // ----------------------------------------------------------------------
+// Lane-parallel delta encoder
+
+// Deltas a value against the one 32 positions back rather than the one
+// immediately before it, so the decoder advances 32 independent chains with one
+// vector add per row instead of walking a single chain of dependent adds. INT32
+// only: the kernel packs 32-bit lanes.
+class LaneDeltaEncoder : public EncoderImpl, virtual public TypedEncoder<Int32Type> {
+ public:
+  using T = int32_t;
+  using TypedEncoder<Int32Type>::Put;
+
+  LaneDeltaEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
+      : EncoderImpl(descr, Encoding::LANE_DELTA, pool), pool_(pool) {}
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    // An all-null optional page carries no values and is still written, so it
+    // has to encode to a bare value count rather than to zero bytes.
+    const int32_t num_values = static_cast<int32_t>(values_.size());
+    const int64_t max_size =
+        ::arrow::util::fastlanes::LaneDeltaWrapper<T>::GetMaxCompressedSize(num_values);
+    PARQUET_ASSIGN_OR_THROW(auto buffer,
+                            ::arrow::AllocateResizableBuffer(max_size, pool_));
+
+    int64_t comp_size = max_size;
+    PARQUET_THROW_NOT_OK(::arrow::util::fastlanes::LaneDeltaWrapper<T>::Encode(
+        values_.data(), num_values, buffer->mutable_data(), &comp_size));
+
+    PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
+    values_.clear();
+    return buffer;
+  }
+
+  int64_t EstimatedDataEncodedSize() override {
+    return static_cast<int64_t>(values_.size() * sizeof(T));
+  }
+
+  void Put(const ::arrow::Array& values) override {
+    const auto& data = *values.data();
+    if (data.length > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Array cannot be longer than ",
+                             std::numeric_limits<int32_t>::max());
+    }
+    if (values.null_count() == 0) {
+      Put(data.GetValues<T>(1), static_cast<int>(data.length));
+    } else {
+      PutSpaced(data.GetValues<T>(1), static_cast<int>(data.length),
+                data.GetValues<uint8_t>(0, 0), data.offset);
+    }
+  }
+
+  void Put(const T* buffer, int num_values) override {
+    values_.insert(values_.end(), buffer, buffer + num_values);
+  }
+
+  void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+                 int64_t valid_bits_offset) override {
+    if (valid_bits != NULLPTR) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer,
+                              ::arrow::AllocateBuffer(num_values * sizeof(T), pool_));
+      T* dest = reinterpret_cast<T*>(buffer->mutable_data());
+      int num_valid = ::arrow::util::internal::SpacedCompress<T>(
+          src, num_values, valid_bits, valid_bits_offset, dest);
+      Put(dest, num_valid);
+    } else {
+      Put(src, num_values);
+    }
+  }
+
+ private:
+  MemoryPool* pool_;
+  std::vector<T> values_;
+};
+
+// ----------------------------------------------------------------------
 // Factory function
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
@@ -1991,6 +2066,13 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
         return std::make_unique<PforEncoder<Int64Type>>(descr, pool, options);
       default:
         throw ParquetException("PFOR encoder only supports INT32 and INT64");
+    }
+  } else if (encoding == Encoding::LANE_DELTA) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::make_unique<LaneDeltaEncoder>(descr, pool);
+      default:
+        throw ParquetException("LANE_DELTA encoder only supports INT32");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
