@@ -2003,6 +2003,28 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
                    &options_earliest);
 }
 
+TEST_F(ScalarTemporalTest, StrftimeFormatSyntax) {
+  const auto type = timestamp(TimeUnit::MILLI, "UTC");
+  const char* input = R"(["1970-01-01T00:00:00.123", null])";
+  for (const auto& [format, expected] :
+       {std::pair{"", R"(["", null])"},
+        std::pair{"literal {%Y}", R"(["literal {1970}", null])"},
+        std::pair{"unmatched }%Y{", R"(["unmatched }1970{", null])"},
+        std::pair{"%Y}", R"(["1970}", null])"},
+        std::pair{"%Q %q %J %z %Z", R"(["123 ms %J +0000 UTC", null])"},
+        std::pair{"%% %n%t %Ez %Oz %OV %EJ end%",
+                  R"(["% \n\t +00:00 +00:00 01 %EJ end%", null])"}}) {
+    SCOPED_TRACE(format);
+    const auto options = StrftimeOptions(format);
+    CheckScalarUnary("strftime", type, input, utf8(), expected, &options);
+  }
+
+  const auto options = StrftimeOptions("%Q %q");
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "UTC"),
+                   R"(["1970-01-01T00:00:00.000001", null])", utf8(),
+                   R"(["1 \u00b5s", null])", &options);
+}
+
 TEST_F(ScalarTemporalTest, StrftimeOffsetTimezone) {
   auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
 
