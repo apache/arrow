@@ -3516,6 +3516,8 @@ def call_tabular_function(function_name, args=None, func_registry=None):
     c_func_name = tobytes(function_name)
     if func_registry is None:
         c_func_registry = NULL
+    elif not isinstance(func_registry, FunctionRegistry):
+        raise TypeError("func_registry must be a FunctionRegistry")
     else:
         c_func_registry = (<FunctionRegistry>func_registry).registry
     if args is None:
