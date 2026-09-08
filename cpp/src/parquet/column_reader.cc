@@ -972,7 +972,8 @@ class ColumnReaderImplBase {
         case Encoding::DELTA_BINARY_PACKED:
         case Encoding::DELTA_BYTE_ARRAY:
         case Encoding::DELTA_LENGTH_BYTE_ARRAY:
-        case Encoding::PFOR: {
+        case Encoding::PFOR:
+        case Encoding::LANE_DELTA: {
           auto decoder = MakeTypedDecoder<DType>(encoding, descr_, pool_);
           current_decoder_.SetDecoder(decoder.get());
           decoders_[static_cast<int>(encoding)] = std::move(decoder);

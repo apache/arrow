@@ -42,6 +42,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/fastlanes/lane_delta_wrapper_internal.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pfor/pfor_wrapper_internal.h"
@@ -2540,6 +2541,163 @@ class PforDecoder : public TypedDecoderImpl<DType> {
   bool scratch_filled_ = false;
 };
 
+// ----------------------------------------------------------------------
+// Lane-parallel delta decoder
+
+// The mirror of the lane-parallel delta encoder. Its reconstruction advances 32
+// independent chains with one vector add per row, in place of the single chain
+// of dependent adds that DELTA_BINARY_PACKED walks. INT32 only.
+//
+// Partial reads take the same route as PFOR's: the kernel keeps no resumption
+// state, so a caller reading a page in batches decodes the whole page into
+// scratch on the first batch and is served from it afterwards.
+class LaneDeltaDecoder : public TypedDecoderImpl<Int32Type> {
+ public:
+  using Base = TypedDecoderImpl<Int32Type>;
+  using T = int32_t;
+  using Wrapper = ::arrow::util::fastlanes::LaneDeltaWrapper<T>;
+
+  explicit LaneDeltaDecoder(const ColumnDescriptor* descr,
+                            MemoryPool* pool = ::arrow::default_memory_pool())
+      : Base(descr, Encoding::LANE_DELTA),
+        pool_(pool),
+        decoded_values_(AllocateBuffer(pool, 0)) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    Base::SetData(num_values, data, len);
+    if (num_values > 0 && len <= 0) {
+      throw ParquetException(
+          "LANE_DELTA SetData: num_values=" + std::to_string(num_values) +
+          " but len=" + std::to_string(len));
+    }
+    // A decoder is cached per encoding and reused across the data pages of a
+    // column chunk, so state describing the previous page has to be dropped
+    // with the page.
+    scratch_filled_ = false;
+    // `num_values` is the page's level count, which includes nulls, while the
+    // page stores only the non-null values. Its own count is the authority.
+    if (len > 0) {
+      PARQUET_ASSIGN_OR_THROW(total_values_,
+                              Wrapper::DecodeElementCount(this->data_, this->len_));
+      if (total_values_ > num_values) {
+        throw ParquetException(
+            "LANE_DELTA page declares " + std::to_string(total_values_) +
+            " values but the page header allows at most " + std::to_string(num_values));
+      }
+    } else {
+      total_values_ = 0;
+    }
+    this->num_values_ = total_values_;
+  }
+
+  int Decode(T* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    if (max_values == 0) return 0;
+
+    // The caller asked for the whole page and none of it has been served yet,
+    // so decode straight into its buffer -- no page-sized scratch and no copy.
+    if (CanDecodeWholePage(max_values)) {
+      PARQUET_THROW_NOT_OK(
+          Wrapper::Decode(this->data_, this->len_, total_values_, buffer));
+    } else {
+      std::memcpy(buffer, NextDecoded(), static_cast<size_t>(max_values) * sizeof(T));
+    }
+    this->num_values_ -= max_values;
+    return max_values;
+  }
+
+  // `num_values` counts output slots; only the non-null ones are backed by
+  // encoded values, so decode that many and spread them over the valid runs.
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<Int32Type>::Accumulator* builder) override {
+    const int values_to_decode = num_values - null_count;
+    if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
+      ParquetException::EofException(
+          "LANE_DELTA DecodeArrow: not enough values available. "
+          "Available: " +
+          std::to_string(this->num_values_) +
+          ", requested: " + std::to_string(values_to_decode));
+    }
+
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+    // 1. Land the values in the builder's storage packed to the right, so step
+    //    2 can expand them in place into their final positions.
+    if (values_to_decode > 0) {
+      T* decode_out = builder->GetMutableValue(builder->length() + null_count);
+      if (CanDecodeWholePage(values_to_decode)) {
+        PARQUET_THROW_NOT_OK(
+            Wrapper::Decode(this->data_, this->len_, total_values_, decode_out));
+      } else {
+        std::memcpy(decode_out, NextDecoded(),
+                    static_cast<size_t>(values_to_decode) * sizeof(T));
+      }
+    }
+
+    // 2. Expand the values into their final positions.
+    if (null_count == 0) {
+      builder->UnsafeAdvance(num_values);
+    } else {
+      ::arrow::util::internal::SpacedExpandLeftward(
+          reinterpret_cast<uint8_t*>(builder->GetMutableValue(builder->length())),
+          static_cast<int>(sizeof(T)), num_values, null_count, valid_bits,
+          valid_bits_offset);
+      builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
+    }
+    this->num_values_ -= values_to_decode;
+    return values_to_decode;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<Int32Type>::DictAccumulator* out) override {
+    const int values_decoded = num_values - null_count;
+    std::vector<T> values(values_decoded);
+    if (Decode(values.data(), values_decoded) != values_decoded) {
+      ParquetException::EofException();
+    }
+    const T* data = values.data();
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() { PARQUET_THROW_NOT_OK(out->Append(*data++)); },
+        [&]() { PARQUET_THROW_NOT_OK(out->AppendNull()); });
+    return values_decoded;
+  }
+
+ private:
+  /// \brief Whether `count` values can be decoded straight to the caller
+  ///
+  /// The kernel only decodes a page from its start, so this holds when the
+  /// caller wants the whole page and nothing has been served from it yet.
+  bool CanDecodeWholePage(int count) const {
+    return !scratch_filled_ && count == total_values_;
+  }
+
+  /// \brief Pointer to the next undelivered value, decoding the page if needed
+  const T* NextDecoded() {
+    if (!scratch_filled_) {
+      PARQUET_THROW_NOT_OK(
+          decoded_values_->Resize(static_cast<int64_t>(total_values_) * sizeof(T),
+                                  /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(Wrapper::Decode(this->data_, this->len_, total_values_,
+                                           decoded_values_->mutable_data_as<T>()));
+      scratch_filled_ = true;
+    }
+    return decoded_values_->data_as<T>() + (total_values_ - this->num_values_);
+  }
+
+  MemoryPool* pool_;
+  /// Values the page's own count declares. The inherited `num_values_` counts
+  /// down from this as values are served and is the only record of progress, so
+  /// the next value sits at index `total_values_ - num_values_`.
+  int32_t total_values_ = 0;
+  // Whole-page scratch, used only by partial reads.
+  std::shared_ptr<ResizableBuffer> decoded_values_;
+  bool scratch_filled_ = false;
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -2625,6 +2783,13 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       default:
         throw ParquetException("PFOR decoder only supports INT32 and INT64");
     }
+  } else if (encoding == Encoding::LANE_DELTA) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::make_unique<LaneDeltaDecoder>(descr, pool);
+      default:
+        throw ParquetException("LANE_DELTA decoder only supports INT32");
+    }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }
@@ -2667,6 +2832,8 @@ std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
     case Type::BOOLEAN:
       return {Encoding::PLAIN, Encoding::RLE};
     case Type::INT32:
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED, Encoding::BYTE_STREAM_SPLIT,
+              Encoding::PFOR, Encoding::LANE_DELTA};
     case Type::INT64:
       return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED, Encoding::BYTE_STREAM_SPLIT,
               Encoding::PFOR};

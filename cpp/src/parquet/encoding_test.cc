@@ -2229,6 +2229,194 @@ TYPED_TEST(TestPforEncoding, AllNullPage) {
 }
 
 // ----------------------------------------------------------------------
+// Lane-parallel delta encode/decode tests.
+
+template <typename Type>
+class TestLaneDeltaEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+
+  void CheckDecoding(int read_batch_size) {
+    auto decoder = MakeTypedDecoder<Type>(Encoding::LANE_DELTA, descr_.get());
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+
+    std::vector<c_type> decoded(num_values_);
+    int values_decoded = 0;
+    while (values_decoded < num_values_) {
+      const int decoded_now =
+          decoder->Decode(decoded.data() + values_decoded, read_batch_size);
+      ASSERT_GT(decoded_now, 0);
+      values_decoded += decoded_now;
+    }
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decoded.data(), draws_, num_values_));
+  }
+
+  void CheckRoundtrip() override {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::LANE_DELTA,
+                                          /*use_dictionary=*/false, descr_.get());
+    encoder->Put(draws_, num_values_);
+    encode_buffer_ = encoder->FlushValues();
+
+    // A reader asks for whatever its batch size is, so the page has to come out
+    // the same whether it is drained in one call or in many.
+    for (const int read_batch_size : {1, 11, num_values_}) {
+      if (read_batch_size > 0) {
+        ASSERT_NO_FATAL_FAILURE(CheckDecoding(read_batch_size));
+      }
+    }
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+};
+
+// INT32 only: the packing kernel works on 32-bit lanes.
+using TestLaneDeltaEncodingTypes = ::testing::Types<Int32Type>;
+TYPED_TEST_SUITE(TestLaneDeltaEncoding, TestLaneDeltaEncodingTypes);
+
+TYPED_TEST(TestLaneDeltaEncoding, BasicRoundTrip) {
+  // Blocks are 1024 values and any tail is stored raw, so cover an empty page, a
+  // page shorter than one block, an exact multiple, and both sides of a boundary.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(100, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1023, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1024, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1025, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1024, 4));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(4099, 1));
+}
+
+TYPED_TEST(TestLaneDeltaEncoding, WideDeltas) {
+  using c_type = typename TypeParam::c_type;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+
+  // Alternating extremes make an in-lane delta span 33 bits, which does not fit
+  // a 32-bit width after subtracting the minimum. Reconstruction wraps, so the
+  // block is stored at full width with no minimum and still round-trips.
+  constexpr int kNumValues = 2048;
+  std::vector<c_type> values(kNumValues);
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = (i % 2 == 0) ? std::numeric_limits<c_type>::min()
+                             : std::numeric_limits<c_type>::max();
+  }
+
+  encoder->Put(values.data(), kNumValues);
+  auto buffer = encoder->FlushValues();
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+
+  std::vector<c_type> decoded(kNumValues);
+  ASSERT_EQ(kNumValues, decoder->Decode(decoded.data(), kNumValues));
+  ASSERT_EQ(values, decoded);
+}
+
+TYPED_TEST(TestLaneDeltaEncoding, DecoderReusedAcrossPages) {
+  using c_type = typename TypeParam::c_type;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+
+  // A column chunk reuses one decoder for all of its data pages, with only
+  // SetData between them. The second page is the longer one, so a decoder that
+  // kept the first page's values would also read past the end of them.
+  std::vector<std::vector<c_type>> pages = {{10, 11, 12, 13}, {}};
+  pages[1].resize(1100);
+  for (int i = 0; i < 1100; ++i) {
+    pages[1][i] = 900 + i * 3;
+  }
+
+  for (const auto& page : pages) {
+    const int page_values = static_cast<int>(page.size());
+    encoder->Put(page.data(), page_values);
+    auto buffer = encoder->FlushValues();
+    decoder->SetData(page_values, buffer->data(), static_cast<int>(buffer->size()));
+
+    std::vector<c_type> decoded(page.size());
+    ASSERT_EQ(page_values, decoder->Decode(decoded.data(), page_values));
+    ASSERT_EQ(page, decoded);
+  }
+}
+
+TYPED_TEST(TestLaneDeltaEncoding, AllNullPage) {
+  constexpr int kNumValues = 40;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto buffer = encoder->FlushValues();
+
+  // A reader hands the decoder the page's level count, which counts the nulls, so
+  // the page and its bare value count have to survive being handed the full count.
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+
+  // All slots are null, so the page carries no encoded values at all.
+  std::vector<uint8_t> valid_bits(bit_util::BytesForBits(kNumValues), 0);
+  typename EncodingTraits<TypeParam>::Accumulator acc;
+  ASSERT_EQ(0, decoder->DecodeArrow(kNumValues, /*null_count=*/kNumValues,
+                                    valid_bits.data(), /*valid_bits_offset=*/0, &acc));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(kNumValues, result->length());
+  ASSERT_EQ(kNumValues, result->null_count());
+}
+
+TYPED_TEST(TestLaneDeltaEncoding, SpacedRoundTrip) {
+  using c_type = typename TypeParam::c_type;
+  // Nulls are dropped on the way in and re-spread on the way out, so the values
+  // the page carries are fewer than the slots the reader asks for.
+  constexpr int kNumValues = 3000;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                  /*use_dictionary=*/false, this->descr_.get());
+
+  std::vector<c_type> values(kNumValues);
+  std::vector<uint8_t> valid_bits(bit_util::BytesForBits(kNumValues), 0);
+  int null_count = 0;
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = i * 7 - 100;
+    // Every fifth slot is null.
+    if (i % 5 == 4) {
+      ++null_count;
+    } else {
+      bit_util::SetBit(valid_bits.data(), i);
+    }
+  }
+
+  encoder->PutSpaced(values.data(), kNumValues, valid_bits.data(),
+                     /*valid_bits_offset=*/0);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+
+  typename EncodingTraits<TypeParam>::Accumulator acc;
+  ASSERT_EQ(kNumValues - null_count,
+            decoder->DecodeArrow(kNumValues, null_count, valid_bits.data(),
+                                 /*valid_bits_offset=*/0, &acc));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(kNumValues, result->length());
+  ASSERT_EQ(null_count, result->null_count());
+  const auto& typed = checked_cast<const ::arrow::Int32Array&>(*result);
+  for (int i = 0; i < kNumValues; ++i) {
+    if (bit_util::GetBit(valid_bits.data(), i)) {
+      ASSERT_EQ(values[i], typed.Value(i)) << "at " << i;
+    }
+  }
+}
+
+// ----------------------------------------------------------------------
 // Rle for Boolean encode/decode tests.
 
 class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {

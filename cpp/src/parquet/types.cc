@@ -272,6 +272,8 @@ std::string EncodingToString(Encoding::type t) {
       return "BYTE_STREAM_SPLIT";
     case Encoding::PFOR:
       return "PFOR";
+    case Encoding::LANE_DELTA:
+      return "LANE_DELTA";
     default:
       return "UNKNOWN";
   }

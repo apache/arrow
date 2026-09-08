@@ -540,8 +540,9 @@ struct Encoding {
     RLE_DICTIONARY = 8,
     BYTE_STREAM_SPLIT = 9,
     PFOR = 11,
+    LANE_DELTA = 12,
     // Should always be last element (except UNKNOWN)
-    UNDEFINED = 12,
+    UNDEFINED = 13,
     UNKNOWN = 999
   };
 };

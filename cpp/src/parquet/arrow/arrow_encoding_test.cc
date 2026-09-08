@@ -493,6 +493,120 @@ TEST_F(ParquetPforEncodingTest, DeltaModeCanBeTurnedOffPerColumn) {
       << " bytes with the mode on, " << without_delta << " with it off";
 }
 
+// ============================================================================
+// Lane-parallel delta encoding file-level integration tests
+// ============================================================================
+
+// INT32 only, so a table mixing types leaves its other columns on their
+// defaults rather than failing the write.
+class ParquetLaneDeltaEncodingTest : public ::testing::Test {
+ public:
+  void TestRoundTrip(const std::shared_ptr<Table>& table, int64_t row_group_size = -1,
+                     Compression::type compression = Compression::UNCOMPRESSED) {
+    auto writer_props = WriterProperties::Builder()
+                            .disable_dictionary()
+                            ->encoding(Encoding::LANE_DELTA)
+                            ->compression(compression)
+                            ->build();
+
+    std::shared_ptr<Table> result;
+    std::shared_ptr<Buffer> file;
+    DoRoundtrip(table, row_group_size < 0 ? table->num_rows() : row_group_size, &result,
+                writer_props, &file);
+
+    ASSERT_NO_FATAL_FAILURE(AssertAllColumnsUse(file, Encoding::LANE_DELTA));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+  }
+};
+
+TEST_F(ParquetLaneDeltaEncodingTest, SimpleInt32Table) {
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
+  auto table = ::arrow::TableFromJSON(
+      schema, {R"([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])"});
+  TestRoundTrip(table);
+}
+
+// Blocks are 1024 values, so a column longer than one block exercises the carry
+// from one block's last row into the next block's first.
+TEST_F(ParquetLaneDeltaEncodingTest, ManyBlocksAndATail) {
+  ::arrow::random::RandomArrayGenerator rag(1234);
+  auto array = rag.Int32(5000, -1'000'000, 1'000'000, /*null_probability=*/0.0);
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
+  TestRoundTrip(Table::Make(schema, {std::make_shared<ChunkedArray>(array)}));
+}
+
+TEST_F(ParquetLaneDeltaEncodingTest, WithNulls) {
+  ::arrow::random::RandomArrayGenerator rag(4321);
+  auto array = rag.Int32(5000, -50'000, 50'000, /*null_probability=*/0.3);
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32(),
+                                                /*nullable=*/true)});
+  TestRoundTrip(Table::Make(schema, {std::make_shared<ChunkedArray>(array)}));
+}
+
+TEST_F(ParquetLaneDeltaEncodingTest, MultipleRowGroups) {
+  ::arrow::random::RandomArrayGenerator rag(555);
+  auto array = rag.Int32(4000, 0, 1'000'000, /*null_probability=*/0.0);
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
+  TestRoundTrip(Table::Make(schema, {std::make_shared<ChunkedArray>(array)}),
+                /*row_group_size=*/1500);
+}
+
+#ifdef ARROW_WITH_ZSTD
+TEST_F(ParquetLaneDeltaEncodingTest, WithCompression) {
+  ::arrow::random::RandomArrayGenerator rag(777);
+  auto array = rag.Int32(3000, -2000, 2000, /*null_probability=*/0.0);
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
+  TestRoundTrip(Table::Make(schema, {std::make_shared<ChunkedArray>(array)}),
+                /*row_group_size=*/-1, Compression::ZSTD);
+}
+#endif
+
+// A reader that asks for fewer values than the page holds is served the rest on
+// later calls, so batches smaller than a page must reassemble exactly.
+TEST_F(ParquetLaneDeltaEncodingTest, ReadInSmallBatches) {
+  ::arrow::random::RandomArrayGenerator rag(99);
+  auto array = rag.Int32(4096, -30000, 30000, /*null_probability=*/0.0);
+
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int32())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding(Encoding::LANE_DELTA)
+                          ->build();
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink, table->num_rows(),
+                       writer_props));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(default_arrow_reader_properties())->Build(&reader));
+  reader->set_batch_size(97);
+
+  ASSERT_OK_AND_ASSIGN(auto batch_reader, reader->GetRecordBatchReader());
+  ASSERT_OK_AND_ASSIGN(auto result, batch_reader->ToTable());
+
+  ASSERT_NO_FATAL_FAILURE(
+      ::arrow::AssertTablesEqual(*table, *result, /*same_chunk_layout=*/false));
+}
+
+// An INT64 column cannot be written in this encoding, and the writer has to say
+// so rather than fall back silently.
+TEST_F(ParquetLaneDeltaEncodingTest, Int64Rejected) {
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::int64())});
+  auto table = ::arrow::TableFromJSON(schema, {R"([[1], [2], [3]])"});
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding(Encoding::LANE_DELTA)
+                          ->build();
+  auto sink = CreateOutputStream();
+  ASSERT_RAISES(IOError, WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                    table->num_rows(), writer_props));
+}
+
 }  // namespace
 }  // namespace arrow
 }  // namespace parquet
