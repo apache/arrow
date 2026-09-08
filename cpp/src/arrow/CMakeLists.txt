@@ -644,6 +644,9 @@ endif()
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_UTIL_SRCS util/tracing_internal.cc)
 endif()
+if(ARROW_WITH_SIMDJSON)
+  list(APPEND ARROW_UTIL_SRCS util/simdjson_internal.cc)
+endif()
 if(ARROW_WITH_SNAPPY)
   list(APPEND ARROW_UTIL_SRCS util/compression_snappy.cc)
 endif()
@@ -663,6 +666,12 @@ endforeach()
 foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
   target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
 endforeach()
+
+if(ARROW_WITH_SIMDJSON)
+  foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+    target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE arrow::simdjson)
+  endforeach()
+endif()
 
 if(ARROW_USE_BOOST)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
@@ -732,8 +741,8 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
-set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers arrow::simdjson)
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers arrow::simdjson arrow_static
                                    ${ARROW_GTEST_GTEST})
 if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::Boost::process)
@@ -1088,8 +1097,6 @@ if(ARROW_JSON)
                            json/chunker.cc
                            json/converter.cc
                            json/from_string.cc
-                           json/json_writer_internal.cc
-                           json/object_parser.cc
                            json/parser.cc
                            json/reader.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})

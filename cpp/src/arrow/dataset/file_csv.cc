@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -161,7 +162,16 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
 
   uint32_t parsed_size = 0;
   int32_t max_num_rows = read_options.skip_rows + 1;
-  csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1, /*first_row=*/1,
+  std::optional<csv::ParseOptions> inspection_parse_options;
+  const auto* parser_options = &parse_options;
+  if (parse_options.pad_short_rows) {
+    // Do not pad short rows while determining column names, since padding cannot
+    // synthesize missing names. Copy the parse options only when needed.
+    inspection_parse_options.emplace(parse_options);
+    inspection_parse_options->pad_short_rows = false;
+    parser_options = &*inspection_parse_options;
+  }
+  csv::BlockParser parser(pool, *parser_options, /*num_cols=*/-1, /*first_row=*/1,
                           max_num_rows);
 
   RETURN_NOT_OK(parser.Parse(std::string_view{first_block}, &parsed_size));
@@ -188,8 +198,9 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
     return column_names;
   }
 
-  RETURN_NOT_OK(
-      parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+  RETURN_NOT_OK(parser.VisitLastRow(
+      [&](const uint8_t* data, uint32_t size, bool quoted, bool missing) -> Status {
+        DCHECK(!missing);
         std::string_view view{reinterpret_cast<const char*>(data), size};
         column_names.emplace_back(view);
         return Status::OK();
@@ -367,7 +378,8 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
          parse_options.escaping == other_parse_options.escaping &&
          parse_options.escape_char == other_parse_options.escape_char &&
          parse_options.newlines_in_values == other_parse_options.newlines_in_values &&
-         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines;
+         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines &&
+         parse_options.pad_short_rows == other_parse_options.pad_short_rows;
 }
 
 Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {

@@ -575,9 +575,15 @@ struct ArrayExportChecker {
     ASSERT_EQ(c_export->null_count, expected_data.null_count);
     ASSERT_EQ(c_export->offset, expected_data.offset);
 
+    const DataType* physical_type = expected_data.type.get();
+    if (physical_type->id() == Type::EXTENSION) {
+      physical_type =
+          checked_cast<const ExtensionType&>(*physical_type).storage_type().get();
+    }
+
     auto expected_n_buffers = static_cast<int64_t>(expected_data.buffers.size());
     auto expected_buffers = expected_data.buffers.data();
-    if (!internal::may_have_validity_bitmap(expected_data.type->id())) {
+    if (!internal::may_have_validity_bitmap(physical_type->id())) {
       --expected_n_buffers;
       ++expected_buffers;
     }
@@ -1173,6 +1179,8 @@ TEST_F(TestArrayExport, Extension) {
   TestPrimitive(ExampleUuid);
   TestPrimitive(ExampleSmallint);
   TestPrimitive(ExampleComplex128);
+  TestPrimitive(ExampleDenseUnionExtension);
+  TestPrimitive(ExampleSparseUnionExtension);
 }
 
 TEST_F(TestArrayExport, MovePrimitive) {

@@ -76,7 +76,7 @@ class FeatherDataset:
 
     def read_pandas(self, columns=None, use_threads=True):
         """
-        Read multiple Parquet files as a single pandas DataFrame
+        Read multiple Feather files as a single pandas DataFrame
 
         Parameters
         ----------

@@ -27,7 +27,6 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
@@ -35,7 +34,7 @@
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
-using ::arrow::json::JsonWriter;
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 
@@ -304,7 +303,7 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
   return std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
 }
 
-const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
+Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensorWithNulls() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 

@@ -102,7 +102,14 @@ jobs:
         shell: bash
         run: |
           gem install test-unit openssl
-          pip install build "cython>=3.1" pytest requests scikit-build-core setuptools-scm
+          pip install \
+            build \
+            "cython>=3.1" \
+            "dev/archery[release]" \
+            pytest \
+            requests \
+            scikit-build-core \
+            setuptools-scm
       - name: Run Release Test
         shell: bash
         run: |

@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstring>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/buffer.h"
@@ -76,25 +78,28 @@ TYPED_TEST_SUITE(TestExportArray, ProducerTypes, ProducerNames);
 template <typename Producer>
 void CheckDLTensor(const std::shared_ptr<Array>& arr,
                    const std::shared_ptr<DataType>& arrow_type,
-                   DLDataTypeCode dlpack_type, int64_t length) {
+                   DLDataTypeCode dlpack_type, const std::vector<int64_t>& shape,
+                   const std::vector<int64_t>& strides) {
   ASSERT_OK_AND_ASSIGN(auto* dlmtensor, Producer::Export(arr));
   auto dltensor = dlmtensor->dl_tensor;
 
-  const auto byte_width = arr->type()->byte_width();
+  ASSERT_EQ(arrow_type->id(), arr->type_id());
+  const auto byte_width = arrow_type->byte_width();
   const auto start = arr->offset() * byte_width;
   ASSERT_OK_AND_ASSIGN(auto sliced_buffer,
                        SliceBufferSafe(arr->data()->buffers[1], start));
   if constexpr (Producer::copy) {
     ASSERT_NE(sliced_buffer->data(), dltensor.data);
-    ASSERT_EQ(0, std::memcmp(sliced_buffer->data(), dltensor.data, length * byte_width));
+    ASSERT_EQ(
+        0, std::memcmp(sliced_buffer->data(), dltensor.data, arr->length() * byte_width));
   } else {
     ASSERT_EQ(sliced_buffer->data(), dltensor.data);
   }
 
   ASSERT_EQ(0, dltensor.byte_offset);
-  ASSERT_EQ(length, dltensor.shape[0]);
-  ASSERT_EQ(1, dltensor.ndim);
-  ASSERT_EQ(1, *dltensor.strides);  // Must be non-null with ndim>0 since 1.2
+  ASSERT_EQ(shape.size(), static_cast<size_t>(dltensor.ndim));
+  ASSERT_THAT(shape, ::testing::ElementsAreArray(dltensor.shape, dltensor.ndim));
+  ASSERT_THAT(strides, ::testing::ElementsAreArray(dltensor.strides, dltensor.ndim));
 
   ASSERT_EQ(dlpack_type, dltensor.dtype.code);
   ASSERT_EQ(arrow_type->bit_width(), dltensor.dtype.bits);
@@ -148,13 +153,13 @@ TYPED_TEST(TestExportArray, TestSupportedArray) {
   for (auto [arrow_type, dlpack_type] : cases) {
     const std::shared_ptr<Array> array =
         ArrayFromJSON(arrow_type, "[1, 0, 10, 0, 2, 1, 3, 5, 1, 0]");
-    CheckDLTensor<TypeParam>(array, arrow_type, dlpack_type, 10);
+    CheckDLTensor<TypeParam>(array, arrow_type, dlpack_type, {10}, {1});
     ASSERT_OK_AND_ASSIGN(auto sliced_1, array->SliceSafe(1, 5));
-    CheckDLTensor<TypeParam>(sliced_1, arrow_type, dlpack_type, 5);
+    CheckDLTensor<TypeParam>(sliced_1, arrow_type, dlpack_type, {5}, {1});
     ASSERT_OK_AND_ASSIGN(auto sliced_2, array->SliceSafe(0, 5));
-    CheckDLTensor<TypeParam>(sliced_2, arrow_type, dlpack_type, 5);
+    CheckDLTensor<TypeParam>(sliced_2, arrow_type, dlpack_type, {5}, {1});
     ASSERT_OK_AND_ASSIGN(auto sliced_3, array->SliceSafe(3));
-    CheckDLTensor<TypeParam>(sliced_3, arrow_type, dlpack_type, 7);
+    CheckDLTensor<TypeParam>(sliced_3, arrow_type, dlpack_type, {7}, {1});
   }
 
   ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
@@ -164,7 +169,9 @@ TYPED_TEST(TestExportArray, TestErrors) {
   const std::shared_ptr<Array> array_null = ArrayFromJSON(null(), "[]");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +
-                                 array_null->type()->ToString(),
+                                 array_null->type()->ToString() +
+                                 ", try converting to a Tensor for multi"
+                                 " dimensional data support",
                              TypeParam::Export(array_null));
 
   const std::shared_ptr<Array> array_with_null = ArrayFromJSON(int8(), "[1, 100, null]");
@@ -176,13 +183,19 @@ TYPED_TEST(TestExportArray, TestErrors) {
       ArrayFromJSON(utf8(), R"(["itsy", "bitsy", "spider"])");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +
-                                 array_string->type()->ToString(),
+                                 array_string->type()->ToString() +
+                                 ", try converting to a Tensor for multi"
+                                 " dimensional data support",
                              TypeParam::Export(array_string));
 
   const std::shared_ptr<Array> array_boolean = ArrayFromJSON(boolean(), "[true, false]");
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
-      arrow::dlpack::ExportDevice(array_boolean));
+      TypeParam::Export(array_boolean));
+
+  // ExportDevice only reports the device, it does not validate the type
+  ASSERT_OK(arrow::dlpack::ExportDevice(array_boolean));
+  ASSERT_OK(arrow::dlpack::ExportDevice(array_null));
 }
 
 template <typename Producer>

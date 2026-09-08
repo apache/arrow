@@ -1938,6 +1938,29 @@ def generate_extension_case():
                           dictionaries=[dict0])
 
 
+def generate_extension_wrapped_union_case():
+    # Unions wrapped in an extension type, exercising the extension/union
+    # interaction across implementations (see the C++ fix in GH-50623).
+    sparse_union_type = ExtensionType(
+        'sparse-union-extension', 'sparse-union-extension',
+        SparseUnionField('', [get_field('floats', 'float64'),
+                              get_field('strings', 'largeutf8')],
+                         type_ids=[0, 1]))
+    dense_union_type = ExtensionType(
+        'dense-union-extension', 'dense-union-extension',
+        DenseUnionField('', [get_field('floats', 'float64'),
+                             get_field('strings', 'largeutf8')],
+                        type_ids=[0, 1]))
+
+    fields = [
+        ExtensionField('sparse_union_ext', sparse_union_type),
+        ExtensionField('dense_union_ext', dense_union_type),
+    ]
+
+    batch_sizes = [0, 7]
+    return _generate_file("extension_union", fields, batch_sizes)
+
+
 def get_generated_json_files(tempdir=None):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
@@ -2047,6 +2070,8 @@ def get_generated_json_files(tempdir=None):
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET')
         .skip_tester('Ruby'),
+
+        generate_extension_wrapped_union_case(),
     ]
 
     generated_paths = []

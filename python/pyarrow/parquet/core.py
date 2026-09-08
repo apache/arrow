@@ -181,7 +181,7 @@ def filters_to_expression(filters):
         elif op == 'not in':
             return ~field.isin(val)
         else:
-            raise ValueError(f'"{col}" is not a valid operator in predicates.')
+            raise ValueError(f'"{op}" is not a valid operator in predicates.')
 
     disjunction_members = []
 

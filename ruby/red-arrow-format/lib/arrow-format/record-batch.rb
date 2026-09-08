@@ -30,9 +30,14 @@ module ArrowFormat
     attr_reader :message_metadata
     def initialize(*args, message_metadata: nil)
       n_args = args.size
-      args = build(args[0]) if n_args == 1
+      case n_args
+      when 1
+        args = build(args[0])
+      when 2
+        args = build_with_schema(*args)
+      end
       if args.size != 3
-        message = "wrong number of arguments (given #{n_args}, expected 1 or 3)"
+        message = "wrong number of arguments (given #{n_args}, expected 1..3)"
         raise ArgumentError, message
       end
       schema, n_rows, columns = args
@@ -143,6 +148,57 @@ module ArrowFormat
     end
 
     private
+    def build_with_schema(schema, data)
+      fields = schema.fields
+      name_to_index = {}
+      fields.each_with_index do |field, i|
+        name_to_index[field.name] = i
+      end
+      if data.is_a?(Hash)
+        raw_columns = []
+        data.each do |name, values|
+          field_index = name_to_index[name.to_s]
+          raw_columns[field_index] = values if field_index
+        end
+        columns = fields.zip(raw_columns).collect do |field, values|
+          field.type.build_array(values || [])
+        end
+        all_n_rows = columns.collect(&:size)
+        if all_n_rows.uniq.size != 1
+          message = "inconsistent the number of rows: #{all_n_rows.join(", ")}"
+          raise ArgumentError, message
+        end
+      else
+        raw_columns = fields.collect { [] }
+        data.each_with_index do |record, nth_record|
+          case record
+          when nil
+          when Hash
+            record.each do |name, value|
+              field_index = name_to_index[name.to_s]
+              raw_columns[field_index] << value if field_index
+            end
+          else
+            if record.size > raw_columns.size
+              message = "row #{nth_record} has more values than schema fields"
+              raise ArgumentError, message
+            end
+            record.each_with_index do |value, field_index|
+              raw_columns[field_index] << value
+            end
+          end
+          raw_columns.each do |column|
+            column << nil if column.size != nth_record + 1
+          end
+        end
+        columns = fields.zip(raw_columns).collect do |field, values|
+          field.type.build_array(values)
+        end
+      end
+      n_rows = columns.first&.size || 0
+      [schema, n_rows, columns]
+    end
+
     def build(data)
       records = nil
       fields = []

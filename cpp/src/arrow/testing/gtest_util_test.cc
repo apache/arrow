@@ -179,6 +179,23 @@ TEST_F(TestTensorFromJSON, FromJSON) {
   EXPECT_TRUE(tensor_expected->Equals(*result));
 }
 
+TEST_F(TestTensorFromJSON, FromJSONWithStridesAndDimNames) {
+  std::vector<int64_t> shape = {2, 3};
+  std::vector<int64_t> strides = {sizeof(int64_t) * 3, sizeof(int64_t)};
+  std::vector<std::string> dim_names = {"row", "column"};
+  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6};
+  auto data = Buffer::Wrap(values);
+
+  std::shared_ptr<Tensor> tensor_expected;
+  ASSERT_OK_AND_ASSIGN(tensor_expected,
+                       Tensor::Make(int64(), data, shape, strides, dim_names));
+
+  std::shared_ptr<Tensor> result = TensorFromJSON(int64(), "[1, 2, 3, 4, 5, 6]", "[2, 3]",
+                                                  "[24, 8]", R"(["row", "column"])");
+
+  EXPECT_TRUE(tensor_expected->Equals(*result));
+}
+
 TEST(AssertTestWithinUlp, Basics) {
   AssertWithinUlp(123.4567, 123.45670000000015, 11);
   AssertWithinUlp(123.456f, 123.456085f, 11);

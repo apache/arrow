@@ -3626,6 +3626,28 @@ def test_cumulative_max(start, skip_nulls):
 
 
 @pytest.mark.numpy
+def test_cumulative_max_min_negative_default_start():
+    # GH-51194: the implicit start for cumulative_max was initialized with
+    # std::numeric_limits<T>::min(), which is the smallest positive value for
+    # floating-point types, so non-positive values never replaced the start
+    values = [-2.5, 2.5]
+    arr = pa.array(values, type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, 2.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5]
+
+    arr = pa.chunked_array([[-2.5, -1.5], [-3.5, -0.5]])
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, -1.5, -1.5, -0.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5, -3.5, -3.5]
+
+    # The default start must compare lower (higher for min) than every value
+    # of the type, including infinities
+    arr = pa.array([-np.inf, -2.5], type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-np.inf, -2.5]
+    arr = pa.array([np.inf, 2.5], type=pa.float64())
+    assert pc.cumulative_min(arr).to_pylist() == [np.inf, 2.5]
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_min(start, skip_nulls):
