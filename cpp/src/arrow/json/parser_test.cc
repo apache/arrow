@@ -323,12 +323,7 @@ TEST(BlockParser, AdHoc) {
 
 TEST(JsonTest, PrettyPrintEscapesObjectKeys) {
   const std::string input = R"({"a\"b":1,"a\\b":2})";
-
-  const std::string expected =
-      "{\n"
-      "    \"a\\\"b\": 1,\n"
-      "    \"a\\\\b\": 2\n"
-      "}";
+  const std::string expected = R"({ "a\"b": 1, "a\\b": 2 })";
 
   EXPECT_EQ(PrettyPrint(input), expected);
 }

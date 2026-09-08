@@ -350,7 +350,4 @@ ARROW_EXPORT Status ConsumeJsonValue(simdjson::ondemand::value value);
 ARROW_EXPORT Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
                                          simdjson::padded_string& json);
 
-ARROW_EXPORT Result<std::string> PrettyPrintJsonValue(simdjson::ondemand::value value,
-                                                      int indent = 0);
-
 }  // namespace arrow::internal

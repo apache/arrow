@@ -260,23 +260,7 @@ inline static Status ParseFromString(ParseOptions options, string_view src_str,
 }
 
 static inline std::string PrettyPrint(std::string_view one_line) {
-  simdjson::ondemand::parser parser;
-  // Must pass size to avoid ASAN issues.
-  simdjson::padded_string json(one_line.data(), one_line.size());
-
-  auto document_result =
-      internal::ResolveSimdjsonResult(parser.iterate(json), "Failed to parse JSON");
-  ABORT_NOT_OK(document_result.status());
-  auto document = std::move(document_result).ValueOrDie();
-
-  auto value_result =
-      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value");
-  ABORT_NOT_OK(value_result.status());
-  auto value = std::move(value_result).ValueOrDie();
-
-  auto result = internal::PrettyPrintJsonValue(value);
-  ABORT_NOT_OK(result.status());
-  return std::move(result).ValueOrDie();
+  return simdjson::fractured_json_string(one_line);
 }
 
 template <typename T>
