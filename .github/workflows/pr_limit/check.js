@@ -111,6 +111,14 @@ module.exports = async ({github, context, core}) => {
     return;
   }
 
+  // A committer reopening a previously closed pull request is a deliberate
+  // decision to accept it, so don't close it again.
+  const sender = context.payload.sender;
+  if (sender.login !== user.login && await hasWriteAccess(github, context, sender.login)) {
+    core.info(`Skipping: ${context.payload.action} by ${sender.login}, who has write access.`);
+    return;
+  }
+
   const count = await countOpenPullRequests(github, context, user.login);
   core.info(`${user.login} has ${count} open pull request(s); limit is ${limit}.`);
   if (count <= limit) {

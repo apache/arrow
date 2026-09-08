@@ -27,5 +27,5 @@ Once one of [your other open pull requests](https://github.com/apache/arrow/pull
 
 See also:
 
-  * [Contribution Guidelines - Limit on concurrent pull requests](https://arrow.apache.org/docs/developers/bug_reports.html#pr-limit)
+  * [Contribution Guidelines - Limit on concurrent pull requests](https://arrow.apache.org/docs/dev/developers/bug_reports.html#pr-limit)
   * [Contribution Guidelines - Contributing Overview](https://arrow.apache.org/docs/developers/overview.html)
