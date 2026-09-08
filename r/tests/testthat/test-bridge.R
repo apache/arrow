@@ -85,9 +85,12 @@ test_that("Pointer wrapper errors for unknown object", {
 test_that("the C Data Interface allocators are exported", {
   exported <- getNamespaceExports("arrow")
   for (f in c(
-    "allocate_arrow_schema", "delete_arrow_schema",
-    "allocate_arrow_array", "delete_arrow_array",
-    "allocate_arrow_array_stream", "delete_arrow_array_stream"
+    "allocate_arrow_schema",
+    "delete_arrow_schema",
+    "allocate_arrow_array",
+    "delete_arrow_array",
+    "allocate_arrow_array_stream",
+    "delete_arrow_array_stream"
   )) {
     expect_true(f %in% exported, label = paste(f, "is exported"))
   }
@@ -100,7 +103,7 @@ test_that("an Array round-trips through the exported C Data Interface functions"
     arrow::delete_arrow_array(array_ptr)
     arrow::delete_arrow_schema(schema_ptr)
   })
-  a <- Array(c(1.5, NA, 3))
-  a(array_ptr, schema_ptr)
-  expect_equal(Array(array_ptr, schema_ptr), a)
+  a <- Array$create(c(1.5, NA, 3))
+  a$export_to_c(array_ptr, schema_ptr)
+  expect_equal(Array$import_from_c(array_ptr, schema_ptr), a)
 })
