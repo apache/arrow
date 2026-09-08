@@ -96,9 +96,9 @@ function configure_binaries() {
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_S3_STATIC -DARROW_R_WITH_GCS" # -DARROW_R_WITH_AZURE
-    # Order matters. Arrow S3 depends on Arrow (part of PKG_LIBS) and AWS_LIBS,
-    # so -larrow_s3 must come before both. Do not turn this into an append.
-    PKG_LIBS="-larrow_s3 ${PKG_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
+    # Order is important. arrow_s3 depends on arrow, so insert it into the -l list
+    # before -larrow but after -L search paths.
+    PKG_LIBS="${PKG_LIBS/ -larrow_dataset/ -larrow_s3 -larrow_dataset} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
   else
     # It seems that order matters
     PKG_LIBS="${PKG_LIBS} -lws2_32"

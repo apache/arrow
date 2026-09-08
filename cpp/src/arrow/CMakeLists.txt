@@ -1037,9 +1037,20 @@ if(ARROW_FILESYSTEM)
     endforeach()
   endif()
   if(ARROW_S3)
+    # If libarrow_s3.a is only built, "pkg-config --cflags --libs
+    # arrow-s3" outputs build flags for static linking not shared
+    # linking. ARROW_S3_PC_* except ARROW_S3_PC_*_PRIVATE are for the
+    # static linking case.
     if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
       string(APPEND ARROW_S3_PC_CFLAGS "${ARROW_S3_PC_CFLAGS_PRIVATE}")
       set(ARROW_S3_PC_CFLAGS_PRIVATE "")
+      set(ARROW_S3_PC_LIBS "${ARROW_S3_PC_LIBS_PRIVATE}")
+      set(ARROW_S3_PC_LIBS_PRIVATE "")
+      set(ARROW_S3_PC_REQUIRES "${ARROW_S3_PC_REQUIRES_PRIVATE}")
+      set(ARROW_S3_PC_REQUIRES_PRIVATE "")
+    else()
+      set(ARROW_S3_PC_LIBS "")
+      set(ARROW_S3_PC_REQUIRES "")
     endif()
     list(APPEND ARROW_S3_LIB_SRCS filesystem/s3fs_module.cc filesystem/s3fs.cc)
     add_arrow_lib(arrow_s3
