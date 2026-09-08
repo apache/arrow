@@ -1763,6 +1763,67 @@ static void BM_LaneDeltaDecode(benchmark::State& state, Gen32 gen) {
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
 
+// ============================================================================
+// Lane-parallel delta through the decoder interface
+// ============================================================================
+//
+// BM_LaneDeltaDecode above measures the kernel: it is handed a payload and told
+// how many values it holds. These two arms go through the encoder and decoder
+// the library registers for the encoding, so they pay for page framing, for
+// SetData, and for reading the value count out of the page. That makes them
+// comparable with BM_DeltaBitPackEncode / BM_DeltaBitPackDecode, which is the
+// pair libparquet ships, and it is the comparison a margin should be quoted
+// over -- decoder against decoder rather than kernel against decoder.
+
+static void BM_LaneDeltaApiDecode(benchmark::State& state, Gen32 gen) {
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+
+  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::LANE_DELTA);
+  encoder->Put(values.data(), static_cast<int>(num_values));
+  auto buf = encoder->FlushValues();
+  const int64_t comp_size = buf->size();
+
+  std::vector<int32_t> decoded(num_values);
+  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::LANE_DELTA);
+  decoder->SetData(static_cast<int>(num_values), buf->data(),
+                   static_cast<int>(buf->size()));
+  ARROW_CHECK_EQ(decoder->Decode(decoded.data(), static_cast<int>(num_values)),
+                 static_cast<int>(num_values));
+  ARROW_CHECK(decoded == values) << "lane delta decoder round trip failed";
+
+  for (auto _ : state) {
+    decoder->SetData(static_cast<int>(num_values), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(decoded.data(), static_cast<int>(num_values));
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
+static void BM_LaneDeltaApiEncode(benchmark::State& state, Gen32 gen) {
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+
+  int64_t comp_size = 0;
+  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::LANE_DELTA);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(num_values));
+    auto buf = encoder->FlushValues();
+    comp_size = buf->size();
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
 // The values a decoder that stops in transposed order should produce.
 static std::vector<int32_t> TransposeReference(const std::vector<int32_t>& in) {
   namespace fl = ::arrow::util::fastlanes;
@@ -1868,42 +1929,43 @@ static void BM_TposePackedEncode(benchmark::State& state, Gen32 gen) {
 static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 
 // Macro to register all algorithms for a given dataset
-#define REGISTER_DATASET(Name, GenFunc)                                        \
-  BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_DbpAbFull, Name, &GenFunc)->Apply(CustomArgs);           \
-  BENCHMARK_CAPTURE(BM_DbpAbNoSum, Name, &GenFunc)->Apply(CustomArgs);          \
-  BENCHMARK_CAPTURE(BM_DbpAbNoUnpack, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_DbpAbHeaderOnly, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_DbpAbFullHeapReader, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_DbpRsCoalesce, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_DbpRsBlockSum, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_DbpRsBoth, Name, &GenFunc)->Apply(CustomArgs);           \
-  BENCHMARK_CAPTURE(BM_DbpRsDirect, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_DbpGeom128x1, Name, &GenFunc)->Apply(CustomArgs);        \
-  BENCHMARK_CAPTURE(BM_DbpGeom1024x32, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_DbpGeom1024x8, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_DbpGeom1024x1, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_LaneDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_TposeRawDecode, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_TposePackedDecode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_TposeFusedDecode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_TposeNoRepairDecode, Name, &GenFunc)->Apply(CustomArgs);  \
-  BENCHMARK_CAPTURE(BM_TposeRawNoRepairDecode, Name, &GenFunc)                     \
-      ->Apply(CustomArgs);                                                       \
-  BENCHMARK_CAPTURE(BM_LaneDeltaEncode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_TposePackedEncode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_PlainLz4Decode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_RleBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_RleBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_BssZstdEncode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);       \
+#define REGISTER_DATASET(Name, GenFunc)                                            \
+  BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_DbpAbFull, Name, &GenFunc)->Apply(CustomArgs);              \
+  BENCHMARK_CAPTURE(BM_DbpAbNoSum, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_DbpAbNoUnpack, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_DbpAbHeaderOnly, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_DbpAbFullHeapReader, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_DbpRsCoalesce, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_DbpRsBlockSum, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_DbpRsBoth, Name, &GenFunc)->Apply(CustomArgs);              \
+  BENCHMARK_CAPTURE(BM_DbpRsDirect, Name, &GenFunc)->Apply(CustomArgs);            \
+  BENCHMARK_CAPTURE(BM_DbpGeom128x1, Name, &GenFunc)->Apply(CustomArgs);           \
+  BENCHMARK_CAPTURE(BM_DbpGeom1024x32, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_DbpGeom1024x8, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_DbpGeom1024x1, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_LaneDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_LaneDeltaApiDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_LaneDeltaApiEncode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_TposeRawDecode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_TposePackedDecode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_TposeFusedDecode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_TposeNoRepairDecode, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_TposeRawNoRepairDecode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_LaneDeltaEncode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_TposePackedEncode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_PlainLz4Decode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_RleBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_RleBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_BssZstdEncode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);           \
   BENCHMARK_CAPTURE(BM_BssLz4Decode, Name, &GenFunc)->Apply(CustomArgs);
 
 // Same as REGISTER_DATASET but for int64 (BIGINT) columns; benchmark names get
