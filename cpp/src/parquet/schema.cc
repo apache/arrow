@@ -586,6 +586,9 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
            << max_depth << ")";
         throw ParquetException(ss.str());
       }
+      if (element.num_children < 0) {
+        throw ParquetException("Invalid Parquet schema: negative number of children");
+      }
       NodeVector fields(element.num_children);
       for (int i = 0; i < element.num_children; ++i) {
         fields[i] = NextNode(depth + 1);
