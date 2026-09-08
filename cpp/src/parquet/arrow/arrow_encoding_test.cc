@@ -64,9 +64,9 @@ namespace arrow {
 namespace {
 
 // Write `table` with `writer_props` and read it straight back.
-void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
-                 std::shared_ptr<Table>* out,
-                 const std::shared_ptr<WriterProperties>& writer_properties) {
+void WriteAndReadBack(const std::shared_ptr<Table>& table, int64_t row_group_size,
+                      std::shared_ptr<Table>* out,
+                      const std::shared_ptr<WriterProperties>& writer_properties) {
   auto sink = CreateOutputStream();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, writer_properties));
@@ -303,7 +303,7 @@ class ParquetAlpEncodingTest : public ::testing::Test {
                             ->build();
 
     std::shared_ptr<Table> result;
-    DoRoundtrip(table, table->num_rows(), &result, writer_props);
+    WriteAndReadBack(table, table->num_rows(), &result, writer_props);
 
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
   }
@@ -318,7 +318,7 @@ class ParquetAlpEncodingTest : public ::testing::Test {
                             ->build();
 
     std::shared_ptr<Table> result;
-    DoRoundtrip(table, table->num_rows(), &result, writer_props);
+    WriteAndReadBack(table, table->num_rows(), &result, writer_props);
 
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
   }
@@ -360,7 +360,7 @@ TEST_F(ParquetAlpEncodingTest, MixedTypesWithFloatDouble) {
                           ->build();
 
   std::shared_ptr<Table> result;
-  DoRoundtrip(table, table->num_rows(), &result, writer_props);
+  WriteAndReadBack(table, table->num_rows(), &result, writer_props);
 
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
@@ -446,7 +446,7 @@ TEST_F(ParquetAlpEncodingTest, MultipleRowGroups) {
                           ->build();
 
   std::shared_ptr<Table> result;
-  DoRoundtrip(table, /*row_group_size=*/1000, &result, writer_props);
+  WriteAndReadBack(table, /*row_group_size=*/1000, &result, writer_props);
 
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
@@ -599,7 +599,7 @@ TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
                           ->build();
 
   std::shared_ptr<Table> result;
-  DoRoundtrip(table, table->num_rows(), &result, writer_props);
+  WriteAndReadBack(table, table->num_rows(), &result, writer_props);
 
   // AssertTablesEqual compares NaN by value, so check the bits directly.
   ASSERT_EQ(result->num_rows(), table->num_rows());
