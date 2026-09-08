@@ -63,6 +63,7 @@ jobs:
       issues: write
     if: |
       github.event.comment.body == 'take' &&
+      github.event.issue.pull_request == null &&
       github.event.issue.assignee == null
     runs-on: ubuntu-latest
     steps:
