@@ -172,8 +172,8 @@ struct ArraySpanFillFromScalarScratchSpace {
 };
 
 struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
-  explicit PrimitiveScalarBase(std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), false) {}
+  explicit PrimitiveScalarBase(const std::shared_ptr<DataType>& type)
+      : Scalar(type, false) {}
 
   using Scalar::Scalar;
   /// \brief Get a const pointer to the value of this scalar. May be null.
@@ -189,11 +189,11 @@ struct PrimitiveScalar : public PrimitiveScalarBase {
   using ValueType = CType;
 
   // Non-null constructor.
-  PrimitiveScalar(ValueType value, std::shared_ptr<DataType> type)
-      : PrimitiveScalarBase(std::move(type), true), value(value) {}
+  PrimitiveScalar(ValueType value, const std::shared_ptr<DataType>& type)
+      : PrimitiveScalarBase(type, true), value(value) {}
 
-  explicit PrimitiveScalar(std::shared_ptr<DataType> type)
-      : PrimitiveScalarBase(std::move(type), false) {}
+  explicit PrimitiveScalar(const std::shared_ptr<DataType>& type)
+      : PrimitiveScalarBase(type, false) {}
 
   ValueType value{};
 
