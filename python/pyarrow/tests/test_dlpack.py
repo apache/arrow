@@ -376,15 +376,13 @@ def test_dlpack_cuda_not_supported():
         carr.__dlpack_device__()
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize('np_type',
                          [np.uint8, np.uint16, np.uint32, np.uint64,
                           np.int8, np.int16, np.int32, np.int64,
                           np.float16, np.float32, np.float64])
 def test_tensor_from_dlpack(np_type):
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     def make_array():
         base = np.arange(24, dtype=np_type).reshape((4, 6))
         array = base[::2, 1::2]
@@ -399,15 +397,13 @@ def test_tensor_from_dlpack(np_type):
     np.testing.assert_array_equal(tensor.to_numpy(), make_array(), strict=True)
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize('np_type',
                          [np.uint8, np.uint16, np.uint32, np.uint64,
                           np.int8, np.int16, np.int32, np.int64,
                           np.float16, np.float32, np.float64])
 def test_array_from_dlpack(np_type):
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     expected = np.array([1, 2, 3, 4, 5], dtype=np_type)
     arr = pa.Array.from_dlpack(expected)
     arr.validate(full=True)
@@ -415,11 +411,31 @@ def test_array_from_dlpack(np_type):
     np.testing.assert_array_equal(arr.to_numpy(), expected, strict=True)
 
 
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize('np_type',
+                         [np.uint8, np.uint16, np.uint32, np.uint64,
+                          np.int8, np.int16, np.int32, np.int64,
+                          np.float16, np.float32, np.float64])
+def test_fixed_shape_tensor_array_from_dlpack(np_type):
+    source = np.arange(12, dtype=np_type).reshape((3, 2, 2))
+    arr = pa.FixedShapeTensorArray.from_dlpack(source)
+    arr.validate(full=True)
+    assert arr.type == pa.fixed_shape_tensor(pa.from_numpy_dtype(np_type), [2, 2])
+    assert arr.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+
+    # Zero-copy import: mutating the source is visible through the array.
+    source[0, 0, 0] = 100
+    assert arr.to_pylist()[0] == [100, 1, 2, 3]
+
+    copied = pa.FixedShapeTensorArray.from_dlpack(source, copy=True)
+    source[0, 0, 0] = 0
+    assert copied.to_pylist()[0] == [100, 1, 2, 3]
+
+
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 def test_from_dlpack_zero_copy():
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     expected = np.array([1, 2, 3], dtype=np.int64)
     tensor = pa.Tensor.from_dlpack(expected)
     result = tensor.to_numpy()
@@ -431,11 +447,9 @@ def test_from_dlpack_zero_copy():
     assert expected[1] == 42
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 def test_from_dlpack_explicit_copy():
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     expected = np.array([1, 2, 3], dtype=np.int64)
     tensor = pa.Tensor.from_dlpack(expected, copy=True)
     result = tensor.to_numpy()
@@ -449,11 +463,9 @@ def test_from_dlpack_no_dlpack_method():
         pa.Tensor.from_dlpack(object())
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 def test_array_from_dlpack_multi_dim_not_supported():
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     expected = np.arange(6, dtype=np.int32).reshape((2, 3))
     with pytest.raises(
         pa.ArrowInvalid,

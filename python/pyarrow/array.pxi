@@ -2279,8 +2279,8 @@ cdef class Array(_PandasConvertible):
         """
         Construct an Array from an object implementing the DLPack protocol.
         Only 1-dimensional contiguous tensors are accepted as input.
-        For multi-dimensional tensors, first use `Tensor.from_dlpack`, then
-        convert to an array using `FixedShapeTensorArray.from_tensor()`.
+        For multi-dimensional tensors, use `Tensor.from_dlpack` or
+        `FixedShapeTensorArray.from_dlpack`.
 
         Parameters
         ----------
@@ -5123,6 +5123,41 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                                permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
+
+    @staticmethod
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct a FixedShapeTensorArray from an object implementing the DLPack
+        protocol.
+
+        The outermost dimension of the input becomes the length of the tensor
+        array, and the remaining dimensions the shape of the individual tensors.
+        The outermost dimension must have the largest stride.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting array should reside, in the
+            format returned by :meth:`Array.__dlpack_device__`. When None,
+            the output array occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        FixedShapeTensorArray
+            An array housing the data from the input object, potentially
+            as a copy or view.
+
+        """
+        return FixedShapeTensorArray.from_tensor(
+            Tensor.from_dlpack(x, device=device, copy=copy))
 
     def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
         """
