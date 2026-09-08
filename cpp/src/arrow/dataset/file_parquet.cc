@@ -68,7 +68,7 @@ parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
     const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  // Can't mutate pool after construction
+  // FIXME: Can't mutate pool after ReaderProperties construction.
   parquet::ReaderProperties properties(pool);
   if (parquet_scan_options->reader_properties->is_buffered_stream_enabled()) {
     properties.enable_buffered_stream();
@@ -76,6 +76,8 @@ parquet::ReaderProperties MakeReaderProperties(
     properties.disable_buffered_stream();
   }
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
+  properties.set_footer_read_size(
+      parquet_scan_options->reader_properties->footer_read_size());
 
   auto file_decryption_prop =
       parquet_scan_options->reader_properties->file_decryption_properties();
@@ -101,6 +103,8 @@ parquet::ReaderProperties MakeReaderProperties(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
   properties.set_thrift_container_size_limit(
       parquet_scan_options->reader_properties->thrift_container_size_limit());
+  properties.set_schema_depth_limit(
+      parquet_scan_options->reader_properties->schema_depth_limit());
 
   properties.set_page_checksum_verification(
       parquet_scan_options->reader_properties->page_checksum_verification());

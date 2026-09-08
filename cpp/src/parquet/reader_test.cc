@@ -138,6 +138,8 @@ std::string byte_stream_split_extended() {
   return data_file("byte_stream_split_extended.gzip.parquet");
 }
 
+std::string nested_lists() { return data_file("nested_lists.snappy.parquet"); }
+
 template <typename DType, typename ValueType = typename DType::c_type>
 std::vector<ValueType> ReadColumnValues(ParquetFileReader* file_reader, int row_group,
                                         int column, int64_t expected_values_read) {
@@ -705,14 +707,32 @@ TEST(TestFileReader, RecordReaderWithExposingDictionary) {
   }
 }
 
+TEST(TestFileReader, SchemaDepthLimit) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  ReaderProperties reader_props;
+  // File has a column "a.list.element.list.element.list.element"
+  // (nesting depth 8 including the root)
+  reader_props.set_schema_depth_limit(8);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::OpenFile(nested_lists(), /*memory_map=*/false, reader_props);
+  reader_props.set_schema_depth_limit(7);
+  EXPECT_THAT(
+      [&] {
+        ParquetFileReader::OpenFile(nested_lists(), /*memory_map=*/false, reader_props);
+      },
+      ::testing::ThrowsMessage<ParquetException>(
+          ::testing::HasSubstr("Parquet schema too deeply nested")));
+}
+
 class TestLocalFile : public ::testing::Test {
  public:
   void SetUp() {
     std::string dir_string(test::get_data_dir());
 
     std::stringstream ss;
-    ss << dir_string << "/"
-       << "alltypes_plain.parquet";
+    ss << dir_string << "/" << "alltypes_plain.parquet";
 
     PARQUET_ASSIGN_OR_THROW(handle, ReadableFile::Open(ss.str()));
     fileno = handle->file_descriptor();

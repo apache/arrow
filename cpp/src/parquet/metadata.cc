@@ -1022,8 +1022,8 @@ class FileMetaData::FileMetaDataImpl {
     if (metadata_->schema.empty()) {
       throw ParquetException("Empty file schema (no root)");
     }
-    schema_.Init(schema::Unflatten(&metadata_->schema[0],
-                                   static_cast<int>(metadata_->schema.size())));
+    schema_.Init(schema::Unflatten(metadata_->schema,
+                                   /*max_depth=*/properties_.schema_depth_limit()));
   }
 
   void InitColumnOrders() {
@@ -2147,8 +2147,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       }
     }
 
-    ToParquet(static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
-              &metadata_->schema);
+    SchemaToThrift(static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
+                   &metadata_->schema);
     auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
     file_meta_data->impl_->metadata_ = std::move(metadata_);
     file_meta_data->impl_->InitSchema();
