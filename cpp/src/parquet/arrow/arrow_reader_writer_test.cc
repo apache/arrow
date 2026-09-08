@@ -6081,7 +6081,17 @@ TEST(TestArrowReadWrite, AllNulls) {
   ASSERT_TRUE(expected_table->Equals(*read_table));
 }
 
-class TestArrowReadWriteFileType : public ::testing::Test {
+struct FileRoundtripTestCase {
+  std::shared_ptr<::arrow::DataType> storage_type;
+
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const FileRoundtripTestCase& test_case) {
+    return os << "{storage_type=" << test_case.storage_type->ToString() << "}";
+  }
+};
+
+class TestArrowReadWriteFileType
+    : public ::testing::TestWithParam<FileRoundtripTestCase> {
  protected:
   ::arrow::Result<std::unique_ptr<FileReader>> OpenReader(
       const std::shared_ptr<::arrow::Buffer>& buffer,
@@ -6100,10 +6110,9 @@ class TestArrowReadWriteFileType : public ::testing::Test {
   std::optional<::arrow::ExtensionTypeGuard> extension_guard_;
 };
 
-TEST_F(TestArrowReadWriteFileType, FileExtensionRoundtrip) {
-  auto storage_type = ::arrow::struct_({::arrow::field("uri", ::arrow::utf8()),
-                                        ::arrow::field("offset", ::arrow::int64()),
-                                        ::arrow::field("inline", ::arrow::binary())});
+TEST_P(TestArrowReadWriteFileType, FileExtensionRoundtrip) {
+  const auto& test_case = GetParam();
+  const auto& storage_type = test_case.storage_type;
   auto file_type = ::arrow::extension::file(storage_type);
   auto storage_array = ::arrow::ArrayFromJSON(
       storage_type,
@@ -6113,18 +6122,16 @@ TEST_F(TestArrowReadWriteFileType, FileExtensionRoundtrip) {
       ::arrow::Table::Make(::arrow::schema({::arrow::field("file", file_type)}),
                            {std::make_shared<::arrow::ChunkedArray>(file_array)});
 
+  auto arrow_writer_properties = ArrowWriterProperties::Builder().store_schema()->build();
   auto sink = CreateOutputStream();
-  ASSERT_OK(WriteTable(*input, ::arrow::default_memory_pool(), sink, input->num_rows()));
+  ASSERT_OK(WriteTable(*input, ::arrow::default_memory_pool(), sink, input->num_rows(),
+                       default_writer_properties(), arrow_writer_properties));
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(buffer, file_type));
 
   ASSERT_OK_AND_ASSIGN(auto full, reader->ReadTable());
-  ASSERT_EQ(full->schema()->field(0)->type()->id(), ::arrow::Type::EXTENSION);
-  auto full_extension =
-      ::arrow::internal::checked_pointer_cast<const ::arrow::ExtensionType>(
-          full->schema()->field(0)->type());
-  ASSERT_EQ(full_extension->storage_type()->num_fields(), 3);
+  ::arrow::AssertTypeEqual(file_type, full->schema()->field(0)->type());
   ASSERT_TRUE(full->Equals(*input));
 
   ASSERT_OK_AND_ASSIGN(auto partial, reader->ReadTable(std::vector<int>{0}));
@@ -6140,6 +6147,18 @@ TEST_F(TestArrowReadWriteFileType, FileExtensionRoundtrip) {
   ASSERT_TRUE(partial->column(0)->Equals(
       std::make_shared<::arrow::ChunkedArray>(std::move(expected_partial))));
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    FileTypes, TestArrowReadWriteFileType,
+    ::testing::Values(
+        FileRoundtripTestCase{
+            ::arrow::struct_({::arrow::field("uri", ::arrow::utf8()),
+                              ::arrow::field("offset", ::arrow::int64()),
+                              ::arrow::field("inline", ::arrow::binary())})},
+        FileRoundtripTestCase{
+            ::arrow::struct_({::arrow::field("uri", ::arrow::utf8_view()),
+                              ::arrow::field("offset", ::arrow::int64()),
+                              ::arrow::field("inline", ::arrow::large_binary())})}));
 
 }  // namespace arrow
 }  // namespace parquet

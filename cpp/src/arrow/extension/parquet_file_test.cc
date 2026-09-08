@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <vector>
-
 #include <gtest/gtest.h>
 
 #include "arrow/extension/parquet_file.h"
@@ -26,15 +24,28 @@
 namespace arrow::extension {
 
 TEST(FileType, InvalidStorage) {
-  // FILE storage fields must use one of the six recognized names.
-  ASSERT_NOT_OK(FileExtensionType::Make(struct_({field("unknown", binary())})));
+  // FILE storage must be a non-empty struct.
+  ASSERT_NOT_OK(FileExtensionType::Make(nullptr));
+  ASSERT_NOT_OK(FileExtensionType::Make(utf8()));
+  ASSERT_NOT_OK(FileExtensionType::Make(struct_({})));
 
-  // Every FILE storage field must be nullable.
+  // Every FILE storage field must be nullable, including when other fields are valid.
+  ASSERT_NOT_OK(FileExtensionType::Make(
+      struct_({field("uri", utf8()), field("inline", binary(), /*nullable=*/false)})));
+
+  // FILE storage fields must use one of the six recognized names.
+  ASSERT_NOT_OK(FileExtensionType::Make(
+      struct_({field("uri", utf8()), field("unknown", binary())})));
+
+  // The uri, content_type, and checksum fields must use a string storage family.
+  ASSERT_NOT_OK(FileExtensionType::Make(struct_({field("uri", binary())})));
   ASSERT_NOT_OK(
-      FileExtensionType::Make(struct_({field("uri", utf8(), /*nullable=*/false)})));
+      FileExtensionType::Make(struct_({field("content_type", large_binary())})));
+  ASSERT_NOT_OK(FileExtensionType::Make(struct_({field("checksum", binary_view())})));
 
   // The offset and size fields must use INT64 storage.
   ASSERT_NOT_OK(FileExtensionType::Make(struct_({field("offset", int32())})));
+  ASSERT_NOT_OK(FileExtensionType::Make(struct_({field("size", int32())})));
 
   // The inline field must use a binary storage family.
   ASSERT_NOT_OK(FileExtensionType::Make(struct_({field("inline", utf8())})));
