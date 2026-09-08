@@ -545,6 +545,14 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
   }
 }
 
+TEST_F(TestReplaceBoolean, ReplaceWithMaskSlicedInput) {
+  auto input =
+      this->array("[true, false, null, true, true, false, null, true]")->Slice(3, 5);
+
+  this->Assert(ReplaceWithMask, input, this->mask("[true, false, false, false, false]"),
+               this->array("[false]"), this->array("[false, true, false, null, true]"));
+}
+
 // Regression test: ReplaceMaskChunked (the ChunkedArray path of replace_with_mask)
 // sized each output chunk's data buffer via byte_width(), which is 0 for boolean
 // (bit-packed), the same GH-45086 buffer-overflow pattern fixed elsewhere in this
@@ -2124,6 +2132,16 @@ TYPED_TEST(TestFillNullBinary, FillBackwardChunkedArray) {
 // the same, and filling the chunk wrote past the end of the (near-)empty buffer.
 // The corruption/crash only reliably manifests once a chunk is large enough to
 // write past the buffer's small built-in padding, hence the large pad length here.
+TEST_F(TestFillNullBoolean, FillNullSlicedArray) {
+  auto input =
+      this->array("[true, false, null, true, true, false, null, true]")->Slice(3, 5);
+
+  this->AssertFillNullArray(FillNullForward, input,
+                            this->array("[true, true, false, false, true]"));
+  this->AssertFillNullArray(FillNullBackward, input,
+                            this->array("[true, true, false, true, true]"));
+}
+
 TEST_F(TestFillNullBoolean, FillNullForwardChunkedArray) {
   constexpr int64_t kPadLength = 4096;
   ASSERT_OK_AND_ASSIGN(auto null_pad, MakeArrayOfNull(boolean(), kPadLength));

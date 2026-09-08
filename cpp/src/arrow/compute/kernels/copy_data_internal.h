@@ -42,8 +42,10 @@ struct CopyDataUtils<BooleanType> {
 
   static void CopyData(const DataType&, const ArraySpan& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
+    // Boolean values are bit-packed, so apply the array's offset to the bit index
+    // rather than to the data pointer.
     const auto in_arr = in.GetValues<uint8_t>(1, /*absolute_offset=*/0);
-    CopyData(*in.type, in_arr, in_offset, out, out_offset, length);
+    CopyData(*in.type, in_arr, in.offset + in_offset, out, out_offset, length);
   }
 };
 
