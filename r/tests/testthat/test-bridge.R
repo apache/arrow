@@ -81,3 +81,26 @@ test_that("Pointer wrapper errors for unknown object", {
     "Can't parse 'this is not an integer'"
   )
 })
+
+test_that("the C Data Interface allocators are exported", {
+  exported <- getNamespaceExports("arrow")
+  for (f in c(
+    "allocate_arrow_schema", "delete_arrow_schema",
+    "allocate_arrow_array", "delete_arrow_array",
+    "allocate_arrow_array_stream", "delete_arrow_array_stream"
+  )) {
+    expect_true(f %in% exported, label = paste(f, "is exported"))
+  }
+})
+
+test_that("an Array round-trips through the exported C Data Interface functions", {
+  array_ptr <- arrow::allocate_arrow_array()
+  schema_ptr <- arrow::allocate_arrow_schema()
+  on.exit({
+    arrow::delete_arrow_array(array_ptr)
+    arrow::delete_arrow_schema(schema_ptr)
+  })
+  a <- Array(c(1.5, NA, 3))
+  a(array_ptr, schema_ptr)
+  expect_equal(Array(array_ptr, schema_ptr), a)
+})
