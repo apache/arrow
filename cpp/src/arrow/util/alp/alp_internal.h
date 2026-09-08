@@ -607,8 +607,11 @@ enum class AlpIntegerEncoding : uint8_t { kForBitPack = 0 };
 
 /// \brief Get the per-vector metadata size for a given integer encoding
 ///
+/// The size does not depend on the encoding yet, because FOR+BitPack is the only
+/// one. The parameter is here so that adding a second encoding does not have to
+/// touch the call sites.
+///
 /// \tparam T the floating point type (float or double)
-/// \param[in] encoding the integer encoding method
 /// \return size in bytes of the per-vector metadata for this encoding
 template <typename T>
 inline int64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding /*encoding*/) {
@@ -667,12 +670,13 @@ class AlpCompression {
 
   /// \brief Decompress a compressed vector with ALP
   ///
+  /// `TargetType` is the type the values are written as. It may be wider than
+  /// `T` but never narrower.
+  ///
   /// \param[in] encoded_vector the ALP encoded vector to decompress
   /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
   ///             Must be able to contain encoded_vector.num_elements().
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecompressVector(const AlpEncodedVector<T>& encoded_vector,
                                AlpIntegerEncoding integer_encoding,
@@ -683,14 +687,15 @@ class AlpCompression {
   /// Allocates nothing: the unpacked integers land in `integer_scratch`, which a
   /// caller decoding a run of vectors can allocate once and pass every time.
   ///
+  /// `TargetType` is the type the values are written as. It may be wider than
+  /// `T` but never narrower.
+  ///
   /// \param[in] encoded_view the zero-copy view into compressed data
   /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
   ///             Must be able to contain encoded_view.vector_info.num_elements.
   /// \param[out] integer_scratch room for the unpacked integers, at least
   ///             encoded_view.num_elements() of them
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
                                    AlpIntegerEncoding integer_encoding,
@@ -754,13 +759,14 @@ class AlpCompression {
 
   /// \brief Decode a vector of integers back to floating point values
   ///
+  /// `TargetType` is the type the values are written as. It may be wider than
+  /// `T` but never narrower.
+  ///
   /// \param[in] input_vector encoded integers (after bit unpacking, still with FOR)
   /// \param[in] alp_info ALP metadata with exponent and factor
   /// \param[in] for_info FOR metadata with frame_of_reference
   /// \param[in] num_elements number of elements to decode
   /// \param[out] output_vector output buffer to write decoded floats to
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecodeVector(std::span<ExactType> input_vector,
                            const AlpEncodedVectorInfo& alp_info,
@@ -804,11 +810,12 @@ class AlpCompression {
   /// Replaces placeholder values at exception positions with the original
   /// floating point values that could not be losslessly encoded.
   ///
+  /// `TargetType` is the type the values are written as. It may be wider than
+  /// `T` but never narrower.
+  ///
   /// \param[in] exceptions the original floats stored as exceptions
   /// \param[in] exception_positions indices where exceptions should be placed
   /// \param[out] output the decoded output vector to patch exceptions into
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void PatchExceptions(
       std::span<const T> exceptions,
