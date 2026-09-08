@@ -1,7 +1,10 @@
+--find-links https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/pandas/ # TODO: Remove after cp315 release
+
 cffi
 hypothesis
 packaging
-pandas; python_version < "3.15"  # TODO: temporary - reenable when 3.15 wheels ship
+pandas; python_version < "3.15"
+pandas>=3.1.0.dev0; python_version >= "3.15" # TODO: Remove after cp315 release
 pytest
 pytest-xdist
 pytz
