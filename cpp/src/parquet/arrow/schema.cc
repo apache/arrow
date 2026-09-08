@@ -1098,6 +1098,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
         if (match_children_by_name) {
           origin_child = checked_cast<const ::arrow::StructType&>(*origin_type)
                              .GetFieldByName(inferred_type->field(i)->name());
+          DCHECK(origin_child != nullptr);
         } else {
           origin_child = origin_type->field(i);
         }
