@@ -157,7 +157,8 @@ class ARROW_EXPORT AlpCodec {
   ///
   /// The marker is needed on the nested class as well as on the enclosing one:
   /// dllexport does not reach into a nested class, so libparquet cannot see
-  /// `Open`, `VectorLength` or `DecodeVector` without it.
+  /// `Open` or `VectorLength` without it. `DecodeVector` is a member template and
+  /// needs more than this; see the instantiations below the class.
   class ARROW_EXPORT VectorReader {
    public:
     /// \brief Read the header and validate the offset chain
@@ -269,5 +270,27 @@ class ARROW_EXPORT AlpCodec {
   /// \return the AlpHeader, or an error if the buffer is too small
   static Result<AlpHeader> LoadHeader(const uint8_t* input, int64_t input_size);
 };
+
+// The marker on the class does not reach a member template: a member template is
+// instantiated on its own, so its instantiations need their own marker to land in
+// the shared library's export table. The definitions are in the implementation
+// file. Wider output than T is allowed, narrower is not, which is why float ->
+// float, float -> double and double -> double are the only three.
+extern template ARROW_TEMPLATE_EXPORT Status AlpCodec<float>::Decode(int32_t,
+                                                                     const uint8_t*,
+                                                                     int64_t, float*);
+extern template ARROW_TEMPLATE_EXPORT Status AlpCodec<float>::Decode(int32_t,
+                                                                     const uint8_t*,
+                                                                     int64_t, double*);
+extern template ARROW_TEMPLATE_EXPORT Status AlpCodec<double>::Decode(int32_t,
+                                                                      const uint8_t*,
+                                                                      int64_t, double*);
+
+extern template ARROW_TEMPLATE_EXPORT Status
+AlpCodec<float>::VectorReader::DecodeVector(int32_t, float*);
+extern template ARROW_TEMPLATE_EXPORT Status
+AlpCodec<float>::VectorReader::DecodeVector(int32_t, double*);
+extern template ARROW_TEMPLATE_EXPORT Status
+AlpCodec<double>::VectorReader::DecodeVector(int32_t, double*);
 
 }  // namespace arrow::util::alp
