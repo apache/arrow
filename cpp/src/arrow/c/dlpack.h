@@ -125,7 +125,7 @@ Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* ra
 /// Takes ownership of the `DLManagedTensorVersioned` in an error-safe fashion.
 /// If the DLPack input is marked as readonly, this will produce an immutable tensor.
 ///
-/// \param[in] raw Arrow array
+/// \param[in] raw DLPack tensor
 /// \return An Arrow Tensor
 ARROW_EXPORT
 Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* raw);
