@@ -247,6 +247,7 @@ def test_list_functions():
     assert "add" in pc.list_functions()
 
 
+@pytest.mark.processes
 def test_call_tabular_function_rejects_invalid_registry():
     code = """if 1:
     import pyarrow.compute as pc
