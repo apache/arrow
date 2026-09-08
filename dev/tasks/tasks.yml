@@ -452,6 +452,17 @@ tasks:
         LLVM: "22"
       image: debian-cpp
 
+  test-debian-experimental-cpp-gcc-16:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        ARCH: "amd64"
+        DEBIAN: "experimental"
+        GCC: "16"
+        LLVM: "22"
+      image: debian-cpp
+
   test-fedora-42-cpp:
     ci: github
     template: docker-tests/github.linux.yml
