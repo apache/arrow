@@ -36,9 +36,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  contents: read
   pull-requests: write
   issues: write
-
 env:
   # Maximum number of open pull requests per contributor without write
   # access. A pull request that takes the contributor over this limit is
