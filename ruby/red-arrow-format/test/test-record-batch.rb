@@ -26,6 +26,92 @@ class TestRecordBatch < Test::Unit::TestCase
   end
 
   sub_test_case("#initialize") do
+    sub_test_case("[Schema, values]") do
+      def setup
+        @schema = ArrowFormat::Schema.new([
+                                             ArrowFormat::Field.new(
+                                               "visible",
+                                               ArrowFormat::BooleanType.singleton,
+                                             ),
+                                             ArrowFormat::Field.new(
+                                               "count",
+                                               ArrowFormat::UInt32Type.singleton,
+                                             ),
+                                           ])
+      end
+
+      test("records") do
+        record_batch = ArrowFormat::RecordBatch.new(
+          @schema,
+          [
+            {visible: true, count: 1},
+            nil,
+            [false, 3],
+          ],
+        )
+        assert_equal(@schema, record_batch.schema)
+        assert_equal(ArrowFormat::BooleanArray,
+                     record_batch.find_column("visible").class)
+        assert_equal(ArrowFormat::UInt32Array,
+                     record_batch.find_column("count").class)
+        assert_equal([
+                       {"visible" => true,  "count" => 1},
+                       {"visible" => nil,   "count" => nil},
+                       {"visible" => false, "count" => 3},
+                     ],
+                     record_batch.records.collect(&:to_h))
+      end
+
+      test("columns") do
+        record_batch = ArrowFormat::RecordBatch.new(
+          @schema,
+          {
+            visible: [true, nil, false],
+            "count" => [1, 2, nil],
+          },
+        )
+        assert_equal([
+                       {"visible" => true,  "count" => 1},
+                       {"visible" => nil,   "count" => 2},
+                       {"visible" => false, "count" => nil},
+                     ],
+                     record_batch.records.collect(&:to_h))
+      end
+
+      test("inconsistent column lengths") do
+        error = ArgumentError.new("inconsistent the number of rows: 2, 3")
+        assert_raise(error) do
+          ArrowFormat::RecordBatch.new(
+            @schema,
+            {
+              visible: [true, nil],
+              count: [1, 2, 3],
+            },
+          )
+        end
+      end
+
+      test("unknown column") do
+        record_batch = ArrowFormat::RecordBatch.new(
+          @schema,
+          {
+            visible: [true],
+            count: [1],
+            extra: [2],
+          },
+        )
+        assert_equal([{"visible" => true, "count" => 1}],
+                     record_batch.records.collect(&:to_h))
+      end
+
+      test("too many row values") do
+        error = ArgumentError.new("row 0 has more values than schema fields")
+        assert_raise(error) do
+          ArrowFormat::RecordBatch.new(@schema, [[true, 1, 2]])
+        end
+      end
+    end
+
     test("{}") do
       error = ArgumentError.new("no data")
       assert_raise(error) do
