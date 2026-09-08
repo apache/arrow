@@ -2416,6 +2416,58 @@ TYPED_TEST(TestLaneDeltaEncoding, SpacedRoundTrip) {
   }
 }
 
+TYPED_TEST(TestLaneDeltaEncoding, RejectsCorruptPages) {
+  using c_type = typename TypeParam::c_type;
+  // The fuzzer reaches every registered encoding, so a page that does not
+  // describe itself consistently has to be refused rather than read past.
+  constexpr int kNumValues = 2048;
+  std::vector<c_type> values(kNumValues);
+  // Vary the stride so the blocks carry packed words: a constant stride packs
+  // to width zero, and then a truncation test never reaches the width bytes.
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = i * 3 + (i % 7);
+  }
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  encoder->Put(values.data(), kNumValues);
+  auto page = encoder->FlushValues();
+  std::vector<c_type> decoded(kNumValues);
+
+  // A page shorter than its own value count.
+  {
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+    decoder->SetData(kNumValues, page->data(),
+                     static_cast<int>(page->size()) - static_cast<int>(sizeof(c_type)));
+    EXPECT_THROW(decoder->Decode(decoded.data(), kNumValues), ParquetException);
+  }
+
+  // A page too short to hold even a value count.
+  {
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+    EXPECT_THROW(decoder->SetData(kNumValues, page->data(), 2), ParquetException);
+  }
+
+  // A page whose declared count exceeds what the level count allows.
+  {
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+    EXPECT_THROW(
+        decoder->SetData(kNumValues - 1, page->data(), static_cast<int>(page->size())),
+        ParquetException);
+  }
+
+  // A block claiming a width no 32-bit lane can hold. The width bytes sit right
+  // after the lane seeds.
+  {
+    std::vector<uint8_t> corrupt(page->data(), page->data() + page->size());
+    constexpr int kWidthsOffset = 4 + 32 * static_cast<int>(sizeof(uint32_t));
+    corrupt[kWidthsOffset] = 33;
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+    decoder->SetData(kNumValues, corrupt.data(), static_cast<int>(corrupt.size()));
+    EXPECT_THROW(decoder->Decode(decoded.data(), kNumValues), ParquetException);
+  }
+}
+
 // ----------------------------------------------------------------------
 // Rle for Boolean encode/decode tests.
 
