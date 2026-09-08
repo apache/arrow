@@ -243,5 +243,5 @@ Issue assignment
 ++++++++++++++++
 
 Assignment signals commitment to work on an issue, and contributors should
-self-assign issues when that work starts. Anyone can now self-assign issues
-by commenting ``take``.
+self-assign issues when that work starts. Anyone can self-assign an
+unassigned issue by commenting ``take``.
