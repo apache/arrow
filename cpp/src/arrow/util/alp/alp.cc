@@ -762,8 +762,9 @@ std::vector<T> AlpCompression<T>::CreateSample(std::span<const T> input) {
   const int32_t idx_increments = std::max<int32_t>(
       1, static_cast<int32_t>(std::ceil(static_cast<double>(input.size()) /
                                         AlpConstants::kSamplerSamplesPerVector)));
+  const size_t increment = static_cast<size_t>(idx_increments);
   std::vector<T> vector_sample;
-  vector_sample.reserve(std::ceil(input.size() / static_cast<double>(idx_increments)));
+  vector_sample.reserve((input.size() + increment - 1) / increment);
   for (size_t i = 0; i < input.size(); i += idx_increments) {
     vector_sample.push_back(input[i]);
   }
