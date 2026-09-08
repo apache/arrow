@@ -1245,7 +1245,7 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
 
   // decomposed: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
   // composed: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
-  const char* json_composed = "[\"foo\", \"á\"]";
+  const char* json_composed = "[\"foo\", \"\xc3\xa1\"]";
   const char* json_decomposed = "[\"foo\", \"a\xcc\x81\"]";
   for (const auto& options : compose_options) {
     this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_composed,
