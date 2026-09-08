@@ -51,6 +51,15 @@ namespace arrow {
 ///
 /// The following invariant is always true: Size <= Capacity
 class ARROW_EXPORT Buffer {
+ private:
+  /// \brief Default data accessor used by TakeOwnership.
+  struct DefaultGetData {
+    template <typename T>
+    auto* operator()(T& container) const {
+      return container.data();
+    }
+  };
+
  public:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 
@@ -146,14 +155,6 @@ class ARROW_EXPORT Buffer {
       memset(mutable_data() + size_, 0, static_cast<size_t>(capacity_ - size_));
     }
   }
-
-  /// \brief Default data accessor used by TakeOwnership.
-  struct DefaultGetData {
-    template <typename T>
-    auto* operator()(T& container) const {
-      return container.data();
-    }
-  };
 
   /// \brief Construct a buffer that takes ownership of a container.
   ///

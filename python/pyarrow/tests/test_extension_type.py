@@ -1718,6 +1718,7 @@ def test_tensor_array_from_tensor(transpose, permutation):
     arr = arr.transpose(0, 2, 1) if transpose else arr
 
     result = pa.FixedShapeTensorArray.from_tensor(pa.Tensor.from_numpy(arr))
+    result.validate(full=True)
 
     assert isinstance(result.type, pa.FixedShapeTensorType)
     assert result.type.value_type == pa.int32()
@@ -1726,6 +1727,16 @@ def test_tensor_array_from_tensor(transpose, permutation):
     assert result.type.permutation == permutation
     assert len(result) == 2
     np.testing.assert_array_equal(result.to_numpy_ndarray(), arr)
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize("permutation", [(1, 0, 2), (1, 2, 0), (2, 1, 0)])
+def test_tensor_array_from_tensor_not_first_major(permutation):
+    arr = np.arange(24, dtype=np.int32).reshape(2, 3, 4).transpose(*permutation)
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Only first-major tensors can be zero-copy"):
+        pa.FixedShapeTensorArray.from_tensor(pa.Tensor.from_numpy(arr))
 
 
 @pytest.mark.numpy

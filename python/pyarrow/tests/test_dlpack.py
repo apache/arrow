@@ -435,6 +435,38 @@ def test_fixed_shape_tensor_array_from_dlpack(np_type):
 
 @requires_numpy_version("2.1.0")
 @check_bytes_allocated
+@pytest.mark.parametrize('np_type', [np.uint8, np.int32, np.float64])
+def test_fixed_shape_tensor_array_from_dlpack_transposed(np_type):
+    source = np.arange(12, dtype=np_type).reshape((3, 2, 2)).transpose(0, 2, 1)
+    arr = pa.FixedShapeTensorArray.from_dlpack(source)
+    arr.validate(full=True)
+    assert arr.type == pa.fixed_shape_tensor(
+        pa.from_numpy_dtype(np_type), [2, 2], permutation=[1, 0])
+    np.testing.assert_array_equal(arr.to_numpy_ndarray(), source)
+
+    # Zero-copy import: mutating the source is visible through the array.
+    source[0, 0, 0] = 100
+    np.testing.assert_array_equal(arr.to_numpy_ndarray(), source)
+
+    copied = pa.FixedShapeTensorArray.from_dlpack(source, copy=True)
+    expected = source.copy()
+    source[0, 0, 0] = 0
+    np.testing.assert_array_equal(copied.to_numpy_ndarray(), expected)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_fixed_shape_tensor_array_from_dlpack_not_first_major():
+    # The outermost dimension indexes the tensor elements, so it must remain
+    # the major one.
+    source = np.arange(12, dtype=np.int32).reshape((3, 2, 2)).transpose(1, 0, 2)
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Only first-major tensors can be zero-copy"):
+        pa.FixedShapeTensorArray.from_dlpack(source)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
 def test_from_dlpack_zero_copy():
     expected = np.array([1, 2, 3], dtype=np.int64)
     tensor = pa.Tensor.from_dlpack(expected)
