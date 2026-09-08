@@ -160,14 +160,14 @@ class ARROW_EXPORT Buffer {
   /// This operation does not make a copy. If the underlying container is mutable (as
   /// detected by the return type of `get_data`) then returned buffer will be mutable.
   ///
-  /// \param[in] container The container to own. The container mus own data as a
-  ///            contiguous slice. This buffer does not need to remain stable across a
-  ///            container move.
+  /// \param[in] container The container to own. The container must own its data as a
+  ///            contiguous slice. That data does not need to remain at a stable address
+  ///            across a container move.
   /// \param[in] nbytes The size of the data, which must not exceed the number of bytes
   ///            readable from the pointer returned by \p get_data
   /// \param[in] get_data Callable returning the address of the container's data. This
-  ///            function enable the function to get the data *after* the container has
-  ///            been moved to a stable to work with types such as `std::string`.
+  ///            callable is invoked *after* the container has been moved to its final
+  ///            address, to work with types such as `std::string`.
   /// \return a new Buffer instance
   template <typename T, typename Func = DefaultGetData>
   static auto TakeOwnership(T container, int64_t nbytes, Func&& get_data = {}) {
@@ -199,14 +199,14 @@ class ARROW_EXPORT Buffer {
     return std::shared_ptr<BufferType>{std::move(owner), buffer};
   }
 
-  /// \brief Construct an mutable buffer that takes ownership of the contents
+  /// \brief Construct a mutable buffer that takes ownership of the contents
   /// of an std::string (without copying it).
   ///
   /// \param[in] data a string to own
   /// \return a new Buffer instance
   static std::shared_ptr<Buffer> FromString(std::string data);
 
-  /// \brief Construct an mutable buffer that takes ownership of the contents
+  /// \brief Construct a mutable buffer that takes ownership of the contents
   /// of an std::vector (without copying it). Only vectors of TrivialType objects
   /// (integers, floating point numbers, ...) can be wrapped by this function.
   ///
