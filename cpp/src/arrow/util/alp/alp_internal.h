@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/util/alp/alp_constants_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow::util::alp {
 
@@ -171,7 +172,7 @@ struct AlpExponentAndFactor {
 ///   |    1    |  factor (uint8_t)   |  1 byte  |
 ///   |    2    |  num_exceptions     |  2 bytes |
 ///   +------------------------------------------+
-class AlpEncodedVectorInfo {
+class ARROW_EXPORT AlpEncodedVectorInfo {
  private:
   // Members are declared before the public kStoredSize below so its
   // initializer can use `sizeof(exponent_) + …`. Static data member
@@ -263,7 +264,7 @@ class AlpEncodedVectorInfo {
 ///
 /// \tparam T the floating point type (float or double)
 template <typename T>
-class AlpEncodedForVectorInfo {
+class ARROW_EXPORT AlpEncodedForVectorInfo {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
                 "AlpEncodedForVectorInfo only supports float and double");
 
@@ -383,7 +384,7 @@ class AlpEncodedForVectorInfo {
 ///   - Exception Values:  20 bytes (5 * 4)
 ///   Total:             1063 bytes
 template <typename T>
-class AlpEncodedVector {
+class ARROW_EXPORT AlpEncodedVector {
  public:
   AlpEncodedVector() = default;
 
@@ -509,7 +510,7 @@ class AlpEncodedVector {
 /// vector in turn with ResetDataOnly(), which reuses the exception storage
 /// instead of allocating it again per vector.
 template <typename T>
-class AlpEncodedVectorView {
+class ARROW_EXPORT AlpEncodedVectorView {
  public:
   AlpEncodedVectorView() = default;
 
@@ -637,7 +638,7 @@ struct AlpEncodingParameters {
 };
 
 template <typename T>
-class AlpSampler;
+class ARROW_EXPORT AlpSampler;
 
 // ----------------------------------------------------------------------
 // AlpCompression
@@ -652,7 +653,7 @@ class AlpSampler;
 ///
 /// \tparam T the type of data to compress. Currently float and double.
 template <typename T>
-class AlpCompression {
+class ARROW_EXPORT AlpCompression {
  public:
   using Constants = AlpTypedConstants<T>;
   using ExactType = typename Constants::FloatingToExact;
@@ -822,5 +823,27 @@ class AlpCompression {
       std::span<const AlpConstants::PositionType> exception_positions,
       TargetType* output);
 };
+
+// The marker on a class template does not reach its member templates: each is
+// instantiated on its own, so its instantiations need their own marker to land in
+// the shared library's export table. The definitions are in the implementation
+// file. Wider output than T is allowed, narrower is not, which is why float ->
+// float, float -> double and double -> double are the only three.
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::DecompressVector(
+    const AlpEncodedVector<float>&, AlpIntegerEncoding, float*);
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::DecompressVector(
+    const AlpEncodedVector<float>&, AlpIntegerEncoding, double*);
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<double>::DecompressVector(
+    const AlpEncodedVector<double>&, AlpIntegerEncoding, double*);
+
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::DecompressVectorView(
+    const AlpEncodedVectorView<float>&, AlpIntegerEncoding, float*,
+    std::span<AlpCompression<float>::ExactType>);
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::DecompressVectorView(
+    const AlpEncodedVectorView<float>&, AlpIntegerEncoding, double*,
+    std::span<AlpCompression<float>::ExactType>);
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<double>::DecompressVectorView(
+    const AlpEncodedVectorView<double>&, AlpIntegerEncoding, double*,
+    std::span<AlpCompression<double>::ExactType>);
 
 }  // namespace arrow::util::alp

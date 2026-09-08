@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/util/alp/alp_internal.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow::util::alp {
 
@@ -38,7 +39,7 @@ namespace arrow::util::alp {
 ///
 /// \tparam T the floating point type (float or double) to sample
 template <typename T>
-class AlpSampler {
+class ARROW_EXPORT AlpSampler {
  public:
   /// \brief Helper struct containing the preset for ALP compression
   struct AlpSamplerResult {
