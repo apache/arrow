@@ -39,14 +39,14 @@ class FunctionRegistry::FunctionRegistryImpl {
       : parent_(parent) {}
   ~FunctionRegistryImpl() {}
 
-  Status CanAddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+  Status CanAddFunction(const std::shared_ptr<Function>& function, bool allow_overwrite) {
     if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
     }
     return DoAddFunction(function, allow_overwrite, /*add=*/false);
   }
 
-  Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+  Status AddFunction(const std::shared_ptr<Function>& function, bool allow_overwrite) {
     if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
     }

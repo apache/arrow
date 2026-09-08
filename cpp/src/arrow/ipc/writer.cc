@@ -1620,7 +1620,7 @@ Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
 // Serialization public APIs
 
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
-                                                     std::shared_ptr<MemoryManager> mm) {
+                                                     const std::shared_ptr<MemoryManager>& mm) {
   auto options = IpcWriteOptions::Defaults();
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, options, &size));

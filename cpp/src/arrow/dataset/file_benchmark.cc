@@ -63,7 +63,7 @@ static void GetAllFragments(benchmark::State& state) {
   auto dataset = GetDataset();
   for (auto _ : state) {
     ASSERT_OK_AND_ASSIGN(auto fragments, dataset.dataset->GetFragments());
-    ABORT_NOT_OK(fragments.Visit([](std::shared_ptr<Fragment>) { return Status::OK(); }));
+    ABORT_NOT_OK(fragments.Visit([](const std::shared_ptr<Fragment>&) { return Status::OK(); }));
   }
   state.SetItemsProcessed(state.iterations() * dataset.num_fragments);
   state.counters["num_fragments"] = static_cast<double>(dataset.num_fragments);
@@ -76,7 +76,7 @@ static void GetFilteredFragments(benchmark::State& state, compute::Expression fi
   for (auto _ : state) {
     num_filtered_fragments = 0;
     ASSERT_OK_AND_ASSIGN(auto fragments, dataset.dataset->GetFragments(filter));
-    ABORT_NOT_OK(fragments.Visit([&](std::shared_ptr<Fragment>) {
+    ABORT_NOT_OK(fragments.Visit([&](const std::shared_ptr<Fragment>&) {
       ++num_filtered_fragments;
       return Status::OK();
     }));

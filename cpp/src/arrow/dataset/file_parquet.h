@@ -346,7 +346,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   /// \param[in] format to read the file with.
   /// \param[in] options see ParquetFactoryOptions
   static Result<std::shared_ptr<DatasetFactory>> Make(
-      const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
+      const std::string& metadata_path, const std::shared_ptr<fs::FileSystem>& filesystem,
       std::shared_ptr<ParquetFileFormat> format, ParquetFactoryOptions options);
 
   /// \brief Create a ParquetDatasetFactory from a metadata source.

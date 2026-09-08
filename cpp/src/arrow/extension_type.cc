@@ -172,7 +172,7 @@ std::shared_ptr<ExtensionTypeRegistry> ExtensionTypeRegistry::GetGlobalRegistry(
   return g_registry;
 }
 
-Status RegisterExtensionType(std::shared_ptr<ExtensionType> type) {
+Status RegisterExtensionType(const std::shared_ptr<ExtensionType>& type) {
   auto registry = ExtensionTypeRegistry::GetGlobalRegistry();
   return registry->RegisterType(type);
 }

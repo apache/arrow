@@ -244,7 +244,7 @@ class ExchangeDataStream final : public internal::ServerDataStream {
 class GrpcServiceHandler final : public FlightService::Service {
  public:
   GrpcServiceHandler(
-      std::shared_ptr<ServerAuthHandler> auth_handler,
+      const std::shared_ptr<ServerAuthHandler>& auth_handler,
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,
       internal::ServerTransport* impl)

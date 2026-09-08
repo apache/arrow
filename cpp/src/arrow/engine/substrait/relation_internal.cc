@@ -302,7 +302,7 @@ namespace internal {
 Result<compute::Aggregate> ParseAggregateMeasure(
     const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options, bool is_hash,
-    const std::shared_ptr<Schema> input_schema) {
+    const std::shared_ptr<Schema>& input_schema) {
   if (agg_measure.has_measure()) {
     if (agg_measure.has_filter()) {
       return Status::NotImplemented("Aggregate filters are not supported.");
@@ -326,7 +326,7 @@ Result<compute::Aggregate> ParseAggregateMeasure(
 }
 
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    acero::Declaration input_decl, std::shared_ptr<Schema> aggregate_schema,
+    acero::Declaration input_decl, const std::shared_ptr<Schema>& aggregate_schema,
     std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
     std::vector<FieldRef> segment_keys) {
   return DeclarationInfo{

@@ -333,7 +333,7 @@ struct GroupedPivotAccumulator {
     return Status::OK();
   }
 
-  Status MergeColumn(std::shared_ptr<Array>* column, std::shared_ptr<Array> other_column,
+  Status MergeColumn(std::shared_ptr<Array>* column, const std::shared_ptr<Array>& other_column,
                      const ColumnTransform& transform = {}) {
     if (other_column->null_count() == other_column->length()) {
       // Avoid paying for the transform step below, since merging will be a no-op anyway.

@@ -1506,7 +1506,7 @@ class ImportedBuffer : public Buffer {
                  std::shared_ptr<ImportedArrayData> import)
       : Buffer(data, size), import_(std::move(import)) {}
 
-  ImportedBuffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
+  ImportedBuffer(const uint8_t* data, int64_t size, const std::shared_ptr<MemoryManager>& mm,
                  DeviceAllocationType device_type,
                  std::shared_ptr<ImportedArrayData> import)
       : Buffer(data, size, mm, nullptr, device_type), import_(std::move(import)) {}
@@ -1960,7 +1960,7 @@ struct ArrayImporter {
 }  // namespace
 
 Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array,
-                                           std::shared_ptr<DataType> type) {
+                                           const std::shared_ptr<DataType>& type) {
   ArrayImporter importer(type);
   RETURN_NOT_OK(importer.Import(array));
   return importer.MakeArray();
@@ -2002,7 +2002,7 @@ Result<std::shared_ptr<MemoryManager>> DefaultDeviceMemoryMapper(
 }
 
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
-                                                 std::shared_ptr<DataType> type,
+                                                 const std::shared_ptr<DataType>& type,
                                                  const DeviceMemoryMapper& mapper) {
   ArrayImporter importer(type);
   RETURN_NOT_OK(importer.Import(array, mapper));
@@ -2287,22 +2287,22 @@ class ArrayStreamReader {
   }
 
   Result<std::shared_ptr<RecordBatch>> ImportRecordBatchInternal(
-      struct ArrowArray* array, std::shared_ptr<Schema> schema) {
+      struct ArrowArray* array, const std::shared_ptr<Schema>& schema) {
     return ImportRecordBatch(array, schema);
   }
 
   Result<std::shared_ptr<RecordBatch>> ImportRecordBatchInternal(
-      struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema) {
+      struct ArrowDeviceArray* array, const std::shared_ptr<Schema>& schema) {
     return ImportDeviceRecordBatch(array, schema, mapper_);
   }
 
   Result<std::shared_ptr<Array>> ImportArrayInternal(
-      struct ArrowArray* array, std::shared_ptr<arrow::DataType> type) {
+      struct ArrowArray* array, const std::shared_ptr<arrow::DataType>& type) {
     return ImportArray(array, type);
   }
 
   Result<std::shared_ptr<Array>> ImportArrayInternal(
-      struct ArrowDeviceArray* array, std::shared_ptr<arrow::DataType> type) {
+      struct ArrowDeviceArray* array, const std::shared_ptr<arrow::DataType>& type) {
     return ImportDeviceArray(array, type, mapper_);
   }
 
@@ -2835,7 +2835,7 @@ Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
 }
 
 Future<> ExportAsyncRecordBatchReader(
-    std::shared_ptr<Schema> schema,
+    const std::shared_ptr<Schema>& schema,
     AsyncGenerator<std::shared_ptr<RecordBatch>> generator,
     DeviceAllocationType device_type, struct ArrowAsyncDeviceStreamHandler* handler) {
   if (!schema) {

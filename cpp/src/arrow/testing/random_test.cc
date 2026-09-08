@@ -225,7 +225,7 @@ class RandomNumericArrayTest : public ::testing::Test {
  protected:
   std::shared_ptr<Field> GetField() { return field("field0", std::make_shared<T>()); }
 
-  std::shared_ptr<NumericArray<T>> Downcast(std::shared_ptr<Array> array) {
+  std::shared_ptr<NumericArray<T>> Downcast(const std::shared_ptr<Array>& array) {
     return internal::checked_pointer_cast<NumericArray<T>>(array);
   }
 };

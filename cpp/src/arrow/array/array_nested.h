@@ -160,7 +160,7 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   explicit ListArray(std::shared_ptr<ArrayData> data);
 
   ListArray(std::shared_ptr<DataType> type, int64_t length,
-            std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
+            std::shared_ptr<Buffer> value_offsets, const std::shared_ptr<Array>& values,
             std::shared_ptr<Buffer> null_bitmap = NULLPTR,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
@@ -319,7 +319,7 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
 
   ListViewArray(std::shared_ptr<DataType> type, int64_t length,
                 std::shared_ptr<Buffer> value_offsets,
-                std::shared_ptr<Buffer> value_sizes, std::shared_ptr<Array> values,
+                std::shared_ptr<Buffer> value_sizes, const std::shared_ptr<Array>& values,
                 std::shared_ptr<Buffer> null_bitmap = NULLPTR,
                 int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
@@ -407,7 +407,7 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
 
   LargeListViewArray(std::shared_ptr<DataType> type, int64_t length,
                      std::shared_ptr<Buffer> value_offsets,
-                     std::shared_ptr<Buffer> value_sizes, std::shared_ptr<Array> values,
+                     std::shared_ptr<Buffer> value_sizes, const std::shared_ptr<Array>& values,
                      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
                      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 

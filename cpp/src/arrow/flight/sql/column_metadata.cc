@@ -58,7 +58,7 @@ const char* ColumnMetadata::kIsSearchable = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
 const char* ColumnMetadata::kRemarks = "ARROW:FLIGHT:SQL:REMARKS";
 
 ColumnMetadata::ColumnMetadata(
-    std::shared_ptr<const arrow::KeyValueMetadata> metadata_map) {
+    const std::shared_ptr<const arrow::KeyValueMetadata>& metadata_map) {
   metadata_map_ =
       metadata_map ? metadata_map : std::make_shared<arrow::KeyValueMetadata>();
 }

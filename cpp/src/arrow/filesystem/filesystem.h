@@ -421,7 +421,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
  public:
   // This constructor may abort if base_path is invalid.
   explicit SubTreeFileSystem(const std::string& base_path,
-                             std::shared_ptr<FileSystem> base_fs);
+                             const std::shared_ptr<FileSystem>& base_fs);
   ~SubTreeFileSystem() override;
 
   std::string type_name() const override { return "subtree"; }
@@ -503,8 +503,8 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
  public:
   SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                  std::shared_ptr<io::LatencyGenerator> latencies);
-  SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency);
-  SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency,
+  SlowFileSystem(const std::shared_ptr<FileSystem>& base_fs, double average_latency);
+  SlowFileSystem(const std::shared_ptr<FileSystem>& base_fs, double average_latency,
                  int32_t seed);
 
   std::string type_name() const override { return "slow"; }

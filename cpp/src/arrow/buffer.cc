@@ -124,7 +124,7 @@ Result<std::shared_ptr<io::OutputStream>> Buffer::GetWriter(std::shared_ptr<Buff
   return buf->memory_manager_->GetBufferWriter(std::move(buf));
 }
 
-Result<std::shared_ptr<Buffer>> Buffer::Copy(std::shared_ptr<Buffer> source,
+Result<std::shared_ptr<Buffer>> Buffer::Copy(const std::shared_ptr<Buffer>& source,
                                              const std::shared_ptr<MemoryManager>& to) {
   return MemoryManager::CopyBuffer(source, to);
 }
@@ -134,13 +134,13 @@ Result<std::unique_ptr<Buffer>> Buffer::CopyNonOwned(
   return MemoryManager::CopyNonOwned(source, to);
 }
 
-Result<std::shared_ptr<Buffer>> Buffer::View(std::shared_ptr<Buffer> source,
+Result<std::shared_ptr<Buffer>> Buffer::View(const std::shared_ptr<Buffer>& source,
                                              const std::shared_ptr<MemoryManager>& to) {
   return MemoryManager::ViewBuffer(source, to);
 }
 
 Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
-    std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to) {
+    const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to) {
   auto maybe_buffer = MemoryManager::ViewBuffer(source, to);
   if (maybe_buffer.ok()) {
     return maybe_buffer;

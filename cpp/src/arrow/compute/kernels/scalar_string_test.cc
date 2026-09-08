@@ -55,13 +55,13 @@ class BaseTestStringKernels : public ::testing::Test {
   using ScalarType = typename TypeTraits<TestType>::ScalarType;
 
   void CheckUnary(std::string func_name, std::string json_input,
-                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const std::shared_ptr<DataType>& out_ty, std::string json_expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
   }
 
   void CheckUnary(std::string func_name, const std::shared_ptr<Array>& input,
-                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const std::shared_ptr<DataType>& out_ty, std::string json_expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, {Datum(input)}, Datum(ArrayFromJSON(out_ty, json_expected)),
                 options);
@@ -74,7 +74,7 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   void CheckVarArgsScalar(std::string func_name, std::string json_input,
-                          std::shared_ptr<DataType> out_ty, std::string json_expected,
+                          const std::shared_ptr<DataType>& out_ty, std::string json_expected,
                           const FunctionOptions* options = nullptr) {
     // CheckScalar (on arrays) checks scalar arguments individually,
     // but this lets us test the all-scalar case explicitly
@@ -88,7 +88,7 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   void CheckVarArgs(std::string func_name, const DatumVector& inputs,
-                    std::shared_ptr<DataType> out_ty, std::string json_expected,
+                    const std::shared_ptr<DataType>& out_ty, std::string json_expected,
                     const FunctionOptions* options = nullptr) {
     CheckScalar(func_name, inputs, ArrayFromJSON(out_ty, json_expected), options);
   }
@@ -794,7 +794,7 @@ TYPED_TEST(TestBaseBinaryKernels, BinaryJoinElementWise) {
 class TestFixedSizeBinaryKernels : public ::testing::Test {
  protected:
   void CheckUnary(std::string func_name, std::string json_input,
-                  std::shared_ptr<DataType> out_ty, std::string json_expected,
+                  const std::shared_ptr<DataType>& out_ty, std::string json_expected,
                   const FunctionOptions* options = nullptr) {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
     // Ensure the equivalent binary kernel does the same thing

@@ -147,7 +147,7 @@ class ARROW_EXPORT ExtensionTypeRegistry {
 /// \param[in] type an instance of the extension type
 /// \return Status
 ARROW_EXPORT
-Status RegisterExtensionType(std::shared_ptr<ExtensionType> type);
+Status RegisterExtensionType(const std::shared_ptr<ExtensionType>& type);
 
 /// \brief Delete an extension type from the global registry. This method is
 /// thread-safe

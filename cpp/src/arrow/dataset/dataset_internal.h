@@ -43,7 +43,7 @@ inline Result<FragmentIterator> GetFragmentsFromDatasets(const DatasetVector& da
   auto datasets_it = MakeVectorIterator(datasets);
 
   // Dataset -> Iterator<Fragment>
-  auto fn = [predicate](std::shared_ptr<Dataset> dataset) -> Result<FragmentIterator> {
+  auto fn = [predicate](const std::shared_ptr<Dataset>& dataset) -> Result<FragmentIterator> {
     return dataset->GetFragments(predicate);
   };
 

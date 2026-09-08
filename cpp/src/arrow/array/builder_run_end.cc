@@ -34,7 +34,7 @@ namespace internal {
 
 RunCompressorBuilder::RunCompressorBuilder(MemoryPool* pool,
                                            std::shared_ptr<ArrayBuilder> inner_builder,
-                                           std::shared_ptr<DataType> type)
+                                           const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool), inner_builder_(std::move(inner_builder)) {}
 
 RunCompressorBuilder::~RunCompressorBuilder() = default;
@@ -166,7 +166,7 @@ RunEndEncodedBuilder::ValueRunBuilder::ValueRunBuilder(
 
 RunEndEncodedBuilder::RunEndEncodedBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& run_end_builder,
-    const std::shared_ptr<ArrayBuilder>& value_builder, std::shared_ptr<DataType> type)
+    const std::shared_ptr<ArrayBuilder>& value_builder, const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool), type_(internal::checked_pointer_cast<RunEndEncodedType>(type)) {
   auto value_run_builder =
       std::make_shared<ValueRunBuilder>(pool, value_builder, type_->value_type(), *this);

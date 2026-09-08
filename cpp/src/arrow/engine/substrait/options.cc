@@ -257,7 +257,7 @@ ConfigurableSingleton<NamedTapProvider>& default_named_tap_provider_singleton() 
   static ConfigurableSingleton<NamedTapProvider> singleton(
       [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
+         const std::shared_ptr<Schema>& tap_schema) -> Result<acero::Declaration> {
         return Status::NotImplemented(
             "Plan contained a NamedTapRel but no provider configured");
       });

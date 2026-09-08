@@ -40,7 +40,7 @@ namespace {
 class TransportIpcMessageReader : public ipc::MessageReader {
  public:
   TransportIpcMessageReader(
-      std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader,
+      const std::shared_ptr<internal::PeekableFlightDataReader>& peekable_reader,
       std::shared_ptr<MemoryManager> memory_manager,
       std::shared_ptr<Buffer>* app_metadata)
       : peekable_reader_(peekable_reader),

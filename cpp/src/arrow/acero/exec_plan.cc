@@ -1150,10 +1150,10 @@ ExecFactoryRegistry* default_exec_factory_registry() {
 }
 
 Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
-    std::shared_ptr<RecordBatchReader> reader, ::arrow::internal::Executor* io_executor,
+    const std::shared_ptr<RecordBatchReader>& reader, ::arrow::internal::Executor* io_executor,
     int max_q, int q_restart) {
   auto batch_it = MakeMapIterator(
-      [](std::shared_ptr<RecordBatch> batch) {
+      [](const std::shared_ptr<RecordBatch>& batch) {
         return std::make_optional(ExecBatch(*batch));
       },
       MakeIteratorFromReader(reader));

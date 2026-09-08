@@ -48,7 +48,7 @@ namespace compute {
 // ----------------------------------------------------------------------
 // IsIn tests
 
-void CheckIsIn(const std::shared_ptr<Array> input,
+void CheckIsIn(const std::shared_ptr<Array>& input,
                const std::shared_ptr<Array>& value_set, const std::string& expected_json,
                SetLookupOptions::NullMatchingBehavior null_matching_behavior =
                    SetLookupOptions::MATCH) {
@@ -108,7 +108,7 @@ void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
-void CheckIsIn(const std::shared_ptr<Array> input,
+void CheckIsIn(const std::shared_ptr<Array>& input,
                const std::shared_ptr<Array>& value_set, const std::string& expected_json,
                bool skip_nulls) {
   auto expected = ArrayFromJSON(boolean(), expected_json);

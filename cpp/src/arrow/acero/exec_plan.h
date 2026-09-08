@@ -812,7 +812,7 @@ constexpr int kDefaultBackgroundQRestart = 16;
 /// Useful as a source node for an Exec plan
 ARROW_ACERO_EXPORT
 Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
-    std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
+    const std::shared_ptr<RecordBatchReader>& reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
 
 }  // namespace acero

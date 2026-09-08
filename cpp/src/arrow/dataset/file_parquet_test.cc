@@ -115,7 +115,7 @@ class ParquetFormatHelper {
     }
 
     return MakeFunctionIterator([reader] { return reader->Next(); })
-        .Visit([&](std::shared_ptr<RecordBatch> batch) {
+        .Visit([&](const std::shared_ptr<RecordBatch>& batch) {
           return WriteRecordBatch(*batch, writer);
         });
   }
@@ -537,13 +537,13 @@ TEST_F(TestParquetFileSystemDataset, WriteWithEncryptionConfigNotSupported) {
 
 class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper> {
  public:
-  std::shared_ptr<RecordBatch> SingleBatch(std::shared_ptr<Fragment> fragment) {
+  std::shared_ptr<RecordBatch> SingleBatch(const std::shared_ptr<Fragment>& fragment) {
     auto batches = IteratorToVector(PhysicalBatches(fragment));
     EXPECT_EQ(batches.size(), 1);
     return batches.front();
   }
 
-  void CountRowsAndBatchesInScan(std::shared_ptr<Fragment> fragment,
+  void CountRowsAndBatchesInScan(const std::shared_ptr<Fragment>& fragment,
                                  int64_t expected_rows, int64_t expected_batches) {
     int64_t actual_rows = 0;
     int64_t actual_batches = 0;
@@ -767,7 +767,7 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   // select all row groups
   EXPECT_OK_AND_ASSIGN(auto all_row_groups_fragment,
                        format_->MakeFragment(*source, literal(true))
-                           .Map([](std::shared_ptr<FileFragment> f) {
+                           .Map([](const std::shared_ptr<FileFragment>& f) {
                              return checked_pointer_cast<ParquetFileFragment>(f);
                            }));
 

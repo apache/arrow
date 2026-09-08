@@ -134,7 +134,7 @@ class ARROW_EXPORT DictionaryUnifier {
   /// \param[in] value_type the data type of the dictionaries
   /// \param[in] pool MemoryPool to use for memory allocations
   static Result<std::unique_ptr<DictionaryUnifier>> Make(
-      std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
+      const std::shared_ptr<DataType>& value_type, MemoryPool* pool = default_memory_pool());
 
   /// \brief Unify dictionaries across array chunks
   ///

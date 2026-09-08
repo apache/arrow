@@ -34,7 +34,7 @@ class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
  public:
   class ColumnMetadataBuilder;
 
-  explicit ColumnMetadata(std::shared_ptr<const arrow::KeyValueMetadata> metadata_map);
+  explicit ColumnMetadata(const std::shared_ptr<const arrow::KeyValueMetadata>& metadata_map);
 
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.

@@ -1495,7 +1495,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
 namespace {
 
-static Bitmap Copy(const Bitmap& bitmap, std::shared_ptr<Buffer> storage) {
+static Bitmap Copy(const Bitmap& bitmap, const std::shared_ptr<Buffer>& storage) {
   int64_t i = 0;
   Bitmap bitmaps[] = {bitmap};
   auto min_offset = Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {

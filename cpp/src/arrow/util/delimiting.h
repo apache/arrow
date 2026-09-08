@@ -82,7 +82,7 @@ std::shared_ptr<BoundaryFinder> MakeNewlineBoundaryFinder();
 /// which can only parse whole objects).
 class ARROW_EXPORT Chunker {
  public:
-  explicit Chunker(std::shared_ptr<BoundaryFinder> delimiter);
+  explicit Chunker(const std::shared_ptr<BoundaryFinder>& delimiter);
   ~Chunker();
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
@@ -104,7 +104,7 @@ class ARROW_EXPORT Chunker {
   /// \param[in] block data to be chunked
   /// \param[out] whole subrange of block containing whole delimited objects
   /// \param[out] partial subrange of block starting with a partial delimited object
-  Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
+  Status Process(const std::shared_ptr<Buffer>& block, std::shared_ptr<Buffer>* whole,
                  std::shared_ptr<Buffer>* partial);
 
   /// \brief Carve the completion of a partial object out of a block
@@ -128,8 +128,8 @@ class ARROW_EXPORT Chunker {
   /// \param[in] block delimited data following partial
   /// \param[out] completion subrange of block containing the completion of partial
   /// \param[out] rest subrange of block containing what completion does not cover
-  Status ProcessWithPartial(std::shared_ptr<Buffer> partial,
-                            std::shared_ptr<Buffer> block,
+  Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial,
+                            const std::shared_ptr<Buffer>& block,
                             std::shared_ptr<Buffer>* completion,
                             std::shared_ptr<Buffer>* rest);
 
@@ -148,7 +148,7 @@ class ARROW_EXPORT Chunker {
   /// - `completion` doesn't contain an entire delimited object
   ///   (IOW: `completion` is generally small)
   ///
-  Status ProcessFinal(std::shared_ptr<Buffer> partial, std::shared_ptr<Buffer> block,
+  Status ProcessFinal(const std::shared_ptr<Buffer>& partial, std::shared_ptr<Buffer> block,
                       std::shared_ptr<Buffer>* completion, std::shared_ptr<Buffer>* rest);
 
   /// \brief Skip count number of rows
@@ -169,7 +169,7 @@ class ARROW_EXPORT Chunker {
   /// \param[in] final whether this is the final chunk
   /// \param[in,out] count number of rows that need to be skipped
   /// \param[out] rest subrange of block containing what was not skipped
-  Status ProcessSkip(std::shared_ptr<Buffer> partial, std::shared_ptr<Buffer> block,
+  Status ProcessSkip(const std::shared_ptr<Buffer>& partial, std::shared_ptr<Buffer> block,
                      bool final, int64_t* count, std::shared_ptr<Buffer>* rest);
 
  protected:

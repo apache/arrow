@@ -489,7 +489,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// to support writing data from streaming sources or other sources
   /// that can be iterated only once.
   static std::shared_ptr<ScannerBuilder> FromRecordBatchReader(
-      std::shared_ptr<RecordBatchReader> reader);
+      const std::shared_ptr<RecordBatchReader>& reader);
 
   /// \brief Set the subset of columns to materialize.
   ///

@@ -143,7 +143,7 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
   auto source = file->source();
   auto open_reader = OpenReaderAsync(source);
   auto reopen_reader = [self, options,
-                        source](std::shared_ptr<ipc::RecordBatchFileReader> reader)
+                        source](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
       -> Future<std::shared_ptr<ipc::RecordBatchFileReader>> {
     ARROW_ASSIGN_OR_RAISE(auto options,
                           GetReadOptions(*reader->schema(), *self, *options));

@@ -29,7 +29,7 @@
 
 namespace arrow::flight::sql::odbc {
 namespace {
-arrow::Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
+arrow::Result<std::shared_ptr<Array>> MakeEmptyArray(const std::shared_ptr<DataType>& type,
                                                      MemoryPool* memory_pool,
                                                      int64_t array_size) {
   std::unique_ptr<ArrayBuilder> builder;

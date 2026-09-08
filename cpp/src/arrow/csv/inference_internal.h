@@ -102,12 +102,12 @@ class InferStatus {
 
   Result<std::shared_ptr<Converter>> MakeConverter(MemoryPool* pool) {
     auto make_converter =
-        [&](std::shared_ptr<DataType> type) -> Result<std::shared_ptr<Converter>> {
+        [&](const std::shared_ptr<DataType>& type) -> Result<std::shared_ptr<Converter>> {
       return Converter::Make(type, options_, pool);
     };
 
     auto make_dict_converter =
-        [&](std::shared_ptr<DataType> type) -> Result<std::shared_ptr<Converter>> {
+        [&](const std::shared_ptr<DataType>& type) -> Result<std::shared_ptr<Converter>> {
       ARROW_ASSIGN_OR_RAISE(auto dict_converter,
                             DictionaryConverter::Make(type, options_, pool));
       dict_converter->SetMaxCardinality(options_.auto_dict_max_cardinality);

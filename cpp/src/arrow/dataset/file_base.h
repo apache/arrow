@@ -77,13 +77,13 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
         custom_size_(size),
         compression_(compression) {}
 
-  FileSource(std::shared_ptr<io::RandomAccessFile> file, int64_t size,
+  FileSource(const std::shared_ptr<io::RandomAccessFile>& file, int64_t size,
              Compression::type compression = Compression::UNCOMPRESSED)
       : custom_open_([=] { return ToResult(file); }),
         custom_size_(size),
         compression_(compression) {}
 
-  explicit FileSource(std::shared_ptr<io::RandomAccessFile> file,
+  explicit FileSource(const std::shared_ptr<io::RandomAccessFile>& file,
                       Compression::type compression = Compression::UNCOMPRESSED);
 
   FileSource() : custom_open_(CustomOpen{&InvalidOpen}) {}
@@ -283,7 +283,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
 
   /// \brief Write a dataset.
   static Status Write(const FileSystemDatasetWriteOptions& write_options,
-                      std::shared_ptr<Scanner> scanner);
+                      const std::shared_ptr<Scanner>& scanner);
 
   /// \brief Return the type name of the dataset.
   std::string type_name() const override { return "filesystem"; }

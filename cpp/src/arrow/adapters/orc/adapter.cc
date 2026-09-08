@@ -135,7 +135,7 @@ constexpr int64_t kReadRowsBatch = 1000;
 class OrcStripeReader : public RecordBatchReader {
  public:
   OrcStripeReader(std::unique_ptr<liborc::RowReader> row_reader,
-                  std::shared_ptr<Schema> schema, int64_t batch_size, MemoryPool* pool)
+                  const std::shared_ptr<Schema>& schema, int64_t batch_size, MemoryPool* pool)
       : row_reader_(std::move(row_reader)),
         schema_(schema),
         pool_(pool),

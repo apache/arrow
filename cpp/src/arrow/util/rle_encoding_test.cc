@@ -1056,7 +1056,7 @@ std::vector<uint8_t> EncodeTestArray(const Array& data, int bit_width,
 ///         is valid.
 template <typename Type>
 void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts,
-                    std::shared_ptr<FloatArray> dict = {}) {
+                    const std::shared_ptr<FloatArray>& dict = {}) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using value_type = typename Type::c_type;
 

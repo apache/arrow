@@ -1059,7 +1059,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
 }
 
 template <template <int64_t> class Op>
-void AddArithmeticFunctionTimeDuration(std::shared_ptr<ScalarFunction> func) {
+void AddArithmeticFunctionTimeDuration(const std::shared_ptr<ScalarFunction>& func) {
   // Add Op(time32, duration) -> time32
   TimeUnit::type unit = TimeUnit::SECOND;
   auto exec_1 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400>>::Exec;
@@ -1085,7 +1085,7 @@ void AddArithmeticFunctionTimeDuration(std::shared_ptr<ScalarFunction> func) {
 }
 
 template <template <int64_t> class Op>
-void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
+void AddArithmeticFunctionDurationTime(const std::shared_ptr<ScalarFunction>& func) {
   // Add Op(duration, time32) -> time32
   TimeUnit::type unit = TimeUnit::SECOND;
   auto exec_1 = ScalarBinary<Time32Type, DurationType, Time32Type, Op<86400>>::Exec;

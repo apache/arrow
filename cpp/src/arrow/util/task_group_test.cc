@@ -50,7 +50,7 @@ static std::vector<double> RandomSleepDurations(int nsleeps, double min_seconds,
 }
 
 // Check TaskGroup behaviour with a bunch of all-successful tasks
-void TestTaskGroupSuccess(std::shared_ptr<TaskGroup> task_group) {
+void TestTaskGroupSuccess(const std::shared_ptr<TaskGroup>& task_group) {
   const int NTASKS = 10;
   auto sleeps = RandomSleepDurations(NTASKS, 1e-3, 4e-3);
 
@@ -73,7 +73,7 @@ void TestTaskGroupSuccess(std::shared_ptr<TaskGroup> task_group) {
 }
 
 // Check TaskGroup behaviour with some successful and some failing tasks
-void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
+void TestTaskGroupErrors(const std::shared_ptr<TaskGroup>& task_group) {
   const int NSUCCESSES = 2;
   const int NERRORS = 20;
 
@@ -115,7 +115,7 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
   ASSERT_RAISES(Invalid, task_group->Finish());
 }
 
-void TestTaskGroupCancel(std::shared_ptr<TaskGroup> task_group, StopSource* stop_source) {
+void TestTaskGroupCancel(const std::shared_ptr<TaskGroup>& task_group, StopSource* stop_source) {
   const int NSUCCESSES = 2;
   const int NCANCELS = 20;
 
@@ -186,7 +186,7 @@ class CopyCountingTask {
 };
 
 // Check TaskGroup behaviour with tasks spawning other tasks
-void TestTasksSpawnTasks(std::shared_ptr<TaskGroup> task_group) {
+void TestTasksSpawnTasks(const std::shared_ptr<TaskGroup>& task_group) {
   const int N = 6;
 
   std::atomic<int> count(0);
@@ -280,7 +280,7 @@ void StressFailingTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> 
   }
 }
 
-void TestNoCopyTask(std::shared_ptr<TaskGroup> task_group) {
+void TestNoCopyTask(const std::shared_ptr<TaskGroup>& task_group) {
   auto counter = std::make_shared<uint8_t>(0);
   CopyCountingTask task(counter);
   task_group->Append(std::move(task));
@@ -327,7 +327,7 @@ void TestFinishNotSticky(std::function<std::shared_ptr<TaskGroup>()> factory) {
   }
 }
 
-void TestFinishNeverStarted(std::shared_ptr<TaskGroup> task_group) {
+void TestFinishNeverStarted(const std::shared_ptr<TaskGroup>& task_group) {
   // If we call FinishAsync we are done adding tasks so if we never added any it should be
   // completed
   auto finished = task_group->FinishAsync();

@@ -218,7 +218,7 @@ Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
 /// \return the serialized message
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
-                                                     std::shared_ptr<MemoryManager> mm);
+                                                     const std::shared_ptr<MemoryManager>& mm);
 
 /// \brief Write record batch to OutputStream
 ///

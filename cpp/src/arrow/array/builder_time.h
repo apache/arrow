@@ -38,7 +38,7 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeInterva
                                   int64_t alignment = kDefaultBufferAlignment)
       : DayTimeIntervalBuilder(day_time_interval(), pool, alignment) {}
 
-  explicit DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
+  explicit DayTimeIntervalBuilder(const std::shared_ptr<DataType>& type,
                                   MemoryPool* pool = default_memory_pool(),
                                   int64_t alignment = kDefaultBufferAlignment)
       : NumericBuilder<DayTimeIntervalType>(type, pool, alignment) {}
@@ -53,7 +53,7 @@ class ARROW_EXPORT MonthDayNanoIntervalBuilder
                                        int64_t alignment = kDefaultBufferAlignment)
       : MonthDayNanoIntervalBuilder(month_day_nano_interval(), pool, alignment) {}
 
-  explicit MonthDayNanoIntervalBuilder(std::shared_ptr<DataType> type,
+  explicit MonthDayNanoIntervalBuilder(const std::shared_ptr<DataType>& type,
                                        MemoryPool* pool = default_memory_pool(),
                                        int64_t alignment = kDefaultBufferAlignment)
       : NumericBuilder<MonthDayNanoIntervalType>(type, pool, alignment) {}

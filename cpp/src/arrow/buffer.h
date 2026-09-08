@@ -328,7 +328,7 @@ class ARROW_EXPORT Buffer {
   ///
   /// The buffer contents will be copied into a new buffer allocated by the
   /// given MemoryManager.  This function supports cross-device copies.
-  static Result<std::shared_ptr<Buffer>> Copy(std::shared_ptr<Buffer> source,
+  static Result<std::shared_ptr<Buffer>> Copy(const std::shared_ptr<Buffer>& source,
                                               const std::shared_ptr<MemoryManager>& to);
 
   /// \brief Copy a non-owned buffer
@@ -349,7 +349,7 @@ class ARROW_EXPORT Buffer {
   /// If a non-copy view is unsupported for the buffer on the given device,
   /// nullptr is returned.  An error can be returned if some low-level
   /// operation fails (such as an out-of-memory condition).
-  static Result<std::shared_ptr<Buffer>> View(std::shared_ptr<Buffer> source,
+  static Result<std::shared_ptr<Buffer>> View(const std::shared_ptr<Buffer>& source,
                                               const std::shared_ptr<MemoryManager>& to);
 
   /// \brief View or copy buffer
@@ -357,7 +357,7 @@ class ARROW_EXPORT Buffer {
   /// Try to view buffer contents on the given MemoryManager's device, but
   /// fall back to copying if a no-copy view isn't supported.
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
-      std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
+      const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
 
   virtual std::shared_ptr<Device::SyncEvent> device_sync_event() const { return NULLPTR; }
 

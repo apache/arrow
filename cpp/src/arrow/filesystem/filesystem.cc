@@ -167,13 +167,13 @@ Future<std::vector<FileInfo>> FileSystem::GetFileInfoAsync(
     const std::vector<std::string>& paths) {
   return FileSystemDefer(
       this, default_async_is_sync_,
-      [paths](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(paths); });
+      [paths](const std::shared_ptr<FileSystem>& self) { return self->GetFileInfo(paths); });
 }
 
 FileInfoGenerator FileSystem::GetFileInfoGenerator(const FileSelector& select) {
   auto fut = FileSystemDefer(
       this, default_async_is_sync_,
-      [select](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(select); });
+      [select](const std::shared_ptr<FileSystem>& self) { return self->GetFileInfo(select); });
   return MakeSingleFutureGenerator(std::move(fut));
 }
 
@@ -202,7 +202,7 @@ Status ValidateInputFileInfo(const FileInfo& info) {
 Future<> FileSystem::DeleteDirContentsAsync(const std::string& path,
                                             bool missing_dir_ok) {
   return FileSystemDefer(this, default_async_is_sync_,
-                         [path, missing_dir_ok](std::shared_ptr<FileSystem> self) {
+                         [path, missing_dir_ok](const std::shared_ptr<FileSystem>& self) {
                            return self->DeleteDirContents(path, missing_dir_ok);
                          });
 }
@@ -227,7 +227,7 @@ Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
     const std::string& path) {
   return FileSystemDefer(
       this, default_async_is_sync_,
-      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(path); });
+      [path](const std::shared_ptr<FileSystem>& self) { return self->OpenInputStream(path); });
 }
 
 Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
@@ -235,14 +235,14 @@ Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
   RETURN_NOT_OK(ValidateInputFileInfo(info));
   return FileSystemDefer(
       this, default_async_is_sync_,
-      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(info); });
+      [info](const std::shared_ptr<FileSystem>& self) { return self->OpenInputStream(info); });
 }
 
 Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
     const std::string& path) {
   return FileSystemDefer(
       this, default_async_is_sync_,
-      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(path); });
+      [path](const std::shared_ptr<FileSystem>& self) { return self->OpenInputFile(path); });
 }
 
 Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
@@ -250,7 +250,7 @@ Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
   RETURN_NOT_OK(ValidateInputFileInfo(info));
   return FileSystemDefer(
       this, default_async_is_sync_,
-      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(info); });
+      [info](const std::shared_ptr<FileSystem>& self) { return self->OpenInputFile(info); });
 }
 
 Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
@@ -287,7 +287,7 @@ Status ValidateSubPath(std::string_view s) {
 }  // namespace
 
 SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
-                                     std::shared_ptr<FileSystem> base_fs)
+                                     const std::shared_ptr<FileSystem>& base_fs)
     : FileSystem(base_fs->io_context()),
       base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()),
       base_fs_(base_fs) {}
@@ -515,13 +515,13 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
       base_fs_(std::move(base_fs)),
       latencies_(std::move(latencies)) {}
 
-SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+SlowFileSystem::SlowFileSystem(const std::shared_ptr<FileSystem>& base_fs,
                                double average_latency)
     : FileSystem(base_fs->io_context()),
       base_fs_(base_fs),
       latencies_(io::LatencyGenerator::Make(average_latency)) {}
 
-SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+SlowFileSystem::SlowFileSystem(const std::shared_ptr<FileSystem>& base_fs,
                                double average_latency, int32_t seed)
     : FileSystem(base_fs->io_context()),
       base_fs_(base_fs),

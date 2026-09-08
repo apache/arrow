@@ -528,7 +528,7 @@ class TestScannerBase : public ::testing::TestWithParam<ScannerTestParams> {
     return as_one_batch;
   }
 
-  acero::Declaration MakeScanNode(std::shared_ptr<Dataset> dataset) {
+  acero::Declaration MakeScanNode(const std::shared_ptr<Dataset>& dataset) {
     ScanV2Options options(dataset);
     options.columns = ScanV2Options::AllColumns(*dataset->schema());
     return acero::Declaration("scan2", options);
@@ -582,7 +582,7 @@ INSTANTIATE_TEST_SUITE_P(BasicNewScannerTests, TestScannerBase,
                            return std::to_string(info.index) + info.param.ToString();
                          });
 
-void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Options options,
+void CheckScannerBackpressure(const std::shared_ptr<MockDataset>& dataset, ScanV2Options options,
                               int maxConcurrentFragments, int maxConcurrentBatches,
                               ::arrow::internal::ThreadPool* thread_pool) {
   // Start scanning
@@ -878,8 +878,8 @@ TEST(TestNewScanner, MissingColumn) {
 }
 
 void WriteIpcData(const std::string& path,
-                  const std::shared_ptr<fs::FileSystem> file_system,
-                  const std::shared_ptr<Table> input) {
+                  const std::shared_ptr<fs::FileSystem>& file_system,
+                  const std::shared_ptr<Table>& input) {
   EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
   ASSERT_OK_AND_ASSIGN(
       auto file_writer,
@@ -949,7 +949,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     return scanner;
   }
 
-  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<RecordBatch> batch) {
+  std::shared_ptr<Scanner> MakeScanner(const std::shared_ptr<RecordBatch>& batch) {
     RecordBatchVector batches{static_cast<size_t>(GetParam().num_batches), batch};
 
     DatasetVector children{static_cast<size_t>(GetParam().num_child_datasets),
@@ -960,7 +960,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
   }
 
   void AssertScannerEqualsRepetitionsOf(
-      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const std::shared_ptr<Scanner>& scanner, const std::shared_ptr<RecordBatch>& batch,
       const int64_t total_batches = GetParam().num_child_datasets *
                                     GetParam().num_batches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
@@ -971,7 +971,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
   }
 
   void AssertScanBatchesEqualRepetitionsOf(
-      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const std::shared_ptr<Scanner>& scanner, const std::shared_ptr<RecordBatch>& batch,
       const int64_t total_batches = GetParam().num_child_datasets *
                                     GetParam().num_batches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
@@ -979,7 +979,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     AssertScanBatchesEquals(expected.get(), scanner.get());
   }
 
-  void AssertNoAugmentedFields(std::shared_ptr<Scanner> scanner) {
+  void AssertNoAugmentedFields(const std::shared_ptr<Scanner>& scanner) {
     ASSERT_OK_AND_ASSIGN(auto table, scanner.get()->ToTable());
     auto columns = table.get()->ColumnNames();
     EXPECT_TRUE(std::none_of(columns.begin(), columns.end(), [](std::string& x) {
@@ -989,7 +989,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
   }
 
   void AssertScanBatchesUnorderedEqualRepetitionsOf(
-      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const std::shared_ptr<Scanner>& scanner, const std::shared_ptr<RecordBatch>& batch,
       const int64_t total_batches = GetParam().num_child_datasets *
                                     GetParam().num_batches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);

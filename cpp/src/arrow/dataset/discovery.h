@@ -94,7 +94,7 @@ class ARROW_DS_EXPORT DatasetFactory {
   /// \brief Create a Dataset
   Result<std::shared_ptr<Dataset>> Finish();
   /// \brief Create a Dataset with the given schema (see \a InspectOptions::schema)
-  Result<std::shared_ptr<Dataset>> Finish(std::shared_ptr<Schema> schema);
+  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema);
   /// \brief Create a Dataset with the given options
   virtual Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) = 0;
 

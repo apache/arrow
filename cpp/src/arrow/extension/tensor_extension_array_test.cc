@@ -385,7 +385,7 @@ TEST_F(TestFixedShapeTensorType, CreateFromTensor) {
 }
 
 void CheckFromTensorType(const std::shared_ptr<Tensor>& tensor,
-                         std::shared_ptr<DataType> expected_ext_type) {
+                         const std::shared_ptr<DataType>& expected_ext_type) {
   auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(expected_ext_type);
   ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
   auto generated_ext_type =
@@ -426,7 +426,7 @@ TEST_F(TestFixedShapeTensorType, TestFromTensorType) {
 }
 
 template <typename T>
-void CheckToTensor(const std::vector<T>& values, const std::shared_ptr<DataType> typ,
+void CheckToTensor(const std::vector<T>& values, const std::shared_ptr<DataType>& typ,
                    const int32_t& element_size, const std::vector<int64_t>& element_shape,
                    const std::vector<int64_t>& element_permutation,
                    const std::vector<std::string>& element_dim_names,

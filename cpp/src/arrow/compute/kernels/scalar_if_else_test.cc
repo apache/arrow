@@ -1957,8 +1957,8 @@ TEST(TestCaseWhen, Decimal) {
 
 TEST(TestCaseWhen, DecimalPromotion) {
   auto check_case_when_decimal_promotion =
-      [](std::shared_ptr<Scalar> body_true, std::shared_ptr<Scalar> body_false,
-         std::shared_ptr<Scalar> promoted_true, std::shared_ptr<Scalar> promoted_false) {
+      [](const std::shared_ptr<Scalar>& body_true, const std::shared_ptr<Scalar>& body_false,
+         const std::shared_ptr<Scalar>& promoted_true, const std::shared_ptr<Scalar>& promoted_false) {
         auto cond_true = ScalarFromJSON(boolean(), "true");
         auto cond_false = ScalarFromJSON(boolean(), "false");
         CheckScalar("case_when", {MakeStruct({cond_true}), body_true, body_false},

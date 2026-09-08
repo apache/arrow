@@ -54,7 +54,7 @@ static void TableJoinOverhead(benchmark::State& state,
                               TableGenerationProperties right_table_properties,
                               int batch_size, int num_right_tables,
                               std::string factory_name,
-                              std::shared_ptr<ExecNodeOptions> options) {
+                              const std::shared_ptr<ExecNodeOptions>& options) {
   left_table_properties.column_prefix = "lt";
   left_table_properties.seed = 0;
   ASSERT_OK_AND_ASSIGN(TableStats left_table_stats, MakeTable(left_table_properties));

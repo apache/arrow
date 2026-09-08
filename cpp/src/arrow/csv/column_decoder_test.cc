@@ -103,7 +103,7 @@ class ColumnDecoderTest : public ::testing::Test {
     return decoded_chunks_[read_ptr_++].result();
   }
 
-  void AssertChunk(std::vector<std::string> chunk, std::shared_ptr<Array> expected) {
+  void AssertChunk(std::vector<std::string> chunk, const std::shared_ptr<Array>& expected) {
     std::shared_ptr<BlockParser> parser;
     MakeColumnParser(chunk, &parser);
     ASSERT_FINISHES_OK_AND_ASSIGN(auto decoded, decoder_->Decode(parser));
@@ -116,7 +116,7 @@ class ColumnDecoderTest : public ::testing::Test {
     ASSERT_FINISHES_AND_RAISES(Invalid, decoder_->Decode(parser));
   }
 
-  void AssertFetch(std::shared_ptr<Array> expected_chunk) {
+  void AssertFetch(const std::shared_ptr<Array>& expected_chunk) {
     ASSERT_OK_AND_ASSIGN(auto chunk, NextChunk());
     ASSERT_NE(chunk, nullptr);
     AssertArraysEqual(*expected_chunk, *chunk);
@@ -140,7 +140,7 @@ class NullColumnDecoderTest : public ColumnDecoderTest {
  public:
   NullColumnDecoderTest() {}
 
-  void MakeDecoder(std::shared_ptr<DataType> type) {
+  void MakeDecoder(const std::shared_ptr<DataType>& type) {
     ASSERT_OK_AND_ASSIGN(auto decoder,
                          ColumnDecoder::MakeNull(default_memory_pool(), type));
     SetDecoder(decoder);

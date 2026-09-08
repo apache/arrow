@@ -1764,7 +1764,7 @@ class BackgroundGenerator {
     State* state;
   };
 
-  static void WorkerTask(std::shared_ptr<State> state) {
+  static void WorkerTask(const std::shared_ptr<State>& state) {
     state->worker_thread_id.store(::arrow::internal::GetThreadId());
     // We need to capture the state to read while outside the mutex
     bool reading = true;

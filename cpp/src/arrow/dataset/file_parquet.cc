@@ -66,7 +66,7 @@ namespace {
 
 parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
-    const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
+    const std::string& path = "", const std::shared_ptr<fs::FileSystem>& filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   // Can't mutate pool after construction
   parquet::ReaderProperties properties(pool);
@@ -1064,7 +1064,7 @@ Result<std::shared_ptr<Schema>> GetSchema(
 }  // namespace
 
 Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
-    const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
+    const std::string& metadata_path, const std::shared_ptr<fs::FileSystem>& filesystem,
     std::shared_ptr<ParquetFileFormat> format, ParquetFactoryOptions options) {
   // Paths in ColumnChunk are relative to the `_metadata` file. Thus, the base
   // directory of all parquet files is `dirname(metadata_path)`.

@@ -242,7 +242,7 @@ class UnmaterializedSliceBuilder {
       UnmaterializedCompositeTable<MAX_COMPOSITE_TABLES>* table_)
       : table(table_) {}
 
-  void AddEntry(std::shared_ptr<RecordBatch> rb, uint64_t start, uint64_t end) {
+  void AddEntry(const std::shared_ptr<RecordBatch>& rb, uint64_t start, uint64_t end) {
     if (rb) {
       table->AddRecordBatchRef(rb);
     }

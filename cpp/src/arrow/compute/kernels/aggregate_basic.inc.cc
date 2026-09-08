@@ -164,7 +164,7 @@ struct SumLikeInit {
   std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
+  SumLikeInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -287,7 +287,7 @@ struct MeanImpl<ArrowType, SimdLevel,
 
 template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
-  MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
+  MeanKernelInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
 

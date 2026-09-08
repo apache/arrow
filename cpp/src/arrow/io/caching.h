@@ -113,11 +113,11 @@ class ARROW_EXPORT ReadRangeCache {
   static constexpr int64_t kDefaultRangeSizeLimit = 32 * 1024 * 1024;
 
   /// Construct a read cache with default
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx)
+  explicit ReadRangeCache(const std::shared_ptr<RandomAccessFile>& file, IOContext ctx)
       : ReadRangeCache(file, file.get(), std::move(ctx), CacheOptions::Defaults()) {}
 
   /// Construct a read cache with given options
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
+  explicit ReadRangeCache(const std::shared_ptr<RandomAccessFile>& file, IOContext ctx,
                           CacheOptions options)
       : ReadRangeCache(file, file.get(), std::move(ctx), options) {}
 

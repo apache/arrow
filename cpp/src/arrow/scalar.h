@@ -467,7 +467,7 @@ struct TemporalScalar : internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
   using ValueType = typename internal::PrimitiveScalar<T>::ValueType;
 
-  TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
+  TemporalScalar(ValueType value, const std::shared_ptr<DataType>& type)
       : internal::PrimitiveScalar<T>(std::move(value), type) {}
 };
 
@@ -630,7 +630,7 @@ struct ARROW_EXPORT ListScalar
       : BaseListScalar(std::move(value), std::move(type), is_valid),
         ArraySpanFillFromScalarScratchSpace(this->value) {}
 
-  explicit ListScalar(std::shared_ptr<Array> value, bool is_valid = true);
+  explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 
  private:
   static void FillScratchSpace(uint8_t* scratch_space,
@@ -652,7 +652,7 @@ struct ARROW_EXPORT LargeListScalar
       : BaseListScalar(std::move(value), std::move(type), is_valid),
         ArraySpanFillFromScalarScratchSpace(this->value) {}
 
-  explicit LargeListScalar(std::shared_ptr<Array> value, bool is_valid = true);
+  explicit LargeListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 
  private:
   static void FillScratchSpace(uint8_t* scratch_space,
@@ -674,7 +674,7 @@ struct ARROW_EXPORT ListViewScalar
       : BaseListScalar(std::move(value), std::move(type), is_valid),
         ArraySpanFillFromScalarScratchSpace(this->value) {}
 
-  explicit ListViewScalar(std::shared_ptr<Array> value, bool is_valid = true);
+  explicit ListViewScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 
  private:
   static void FillScratchSpace(uint8_t* scratch_space,
@@ -696,7 +696,7 @@ struct ARROW_EXPORT LargeListViewScalar
       : BaseListScalar(std::move(value), std::move(type), is_valid),
         ArraySpanFillFromScalarScratchSpace(this->value) {}
 
-  explicit LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid = true);
+  explicit LargeListViewScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 
  private:
   static void FillScratchSpace(uint8_t* scratch_space,
@@ -718,7 +718,7 @@ struct ARROW_EXPORT MapScalar
       : BaseListScalar(std::move(value), std::move(type), is_valid),
         ArraySpanFillFromScalarScratchSpace(this->value) {}
 
-  explicit MapScalar(std::shared_ptr<Array> value, bool is_valid = true);
+  explicit MapScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 
  private:
   static void FillScratchSpace(uint8_t* scratch_space,
@@ -734,7 +734,7 @@ struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
   FixedSizeListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                       bool is_valid = true);
 
-  explicit FixedSizeListScalar(std::shared_ptr<Array> value, bool is_valid = true);
+  explicit FixedSizeListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {
@@ -955,7 +955,7 @@ std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type);
 
 /// \brief Scalar factory for non-null scalars
 template <typename Value>
-Result<std::shared_ptr<Scalar>> MakeScalar(std::shared_ptr<DataType> type,
+Result<std::shared_ptr<Scalar>> MakeScalar(const std::shared_ptr<DataType>& type,
                                            Value&& value) {
   return MakeScalarImpl<Value&&>{type, std::forward<Value>(value), NULLPTR}.Finish();
 }

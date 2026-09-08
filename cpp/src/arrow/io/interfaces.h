@@ -389,7 +389,7 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
 /// (unlike InputStream::Read() which returns an empty buffer).
 ARROW_EXPORT
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
-    std::shared_ptr<InputStream> stream, int64_t block_size);
+    const std::shared_ptr<InputStream>& stream, int64_t block_size);
 
 }  // namespace io
 }  // namespace arrow

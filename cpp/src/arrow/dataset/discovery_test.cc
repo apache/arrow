@@ -45,7 +45,7 @@ void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,
 
 class DatasetFactoryTest : public TestFileSystemDataset {
  public:
-  void AssertInspect(std::shared_ptr<Schema> expected, InspectOptions options = {}) {
+  void AssertInspect(const std::shared_ptr<Schema>& expected, InspectOptions options = {}) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(options));
     EXPECT_EQ(*actual, *expected);
   }
@@ -137,7 +137,7 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths,
-                             std::shared_ptr<Schema> schema = nullptr,
+                             const std::shared_ptr<Schema>& schema = nullptr,
                              InspectOptions options = {}) {
     if (schema == nullptr) {
       ASSERT_OK_AND_ASSIGN(schema, factory_->Inspect(options));

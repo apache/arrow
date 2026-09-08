@@ -428,7 +428,7 @@ TEST(TestCompareTimestamps, Basics) {
   const char* example1_json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
   const char* example2_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
 
-  auto CheckArrayCase = [&](std::shared_ptr<DataType> type, CompareOperator op,
+  auto CheckArrayCase = [&](const std::shared_ptr<DataType>& type, CompareOperator op,
                             const char* expected_json) {
     auto lhs = ArrayFromJSON(type, example1_json);
     auto rhs = ArrayFromJSON(type, example2_json);
@@ -510,8 +510,8 @@ TEST(TestCompareTimestamps, ScalarArray) {
   struct ArrayCase {
     Datum side1, side2, expected;
   };
-  auto CheckArrayCase = [&](std::shared_ptr<DataType> scalar_type,
-                            std::shared_ptr<DataType> array_type, CompareOperator op,
+  auto CheckArrayCase = [&](const std::shared_ptr<DataType>& scalar_type,
+                            const std::shared_ptr<DataType>& array_type, CompareOperator op,
                             const std::string& expected_json,
                             const std::string& flip_expected_json) {
     auto scalar_side = ScalarFromJSON(scalar_type, scalar_json);

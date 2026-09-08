@@ -77,7 +77,7 @@ class ColumnBuilderTest : public ::testing::Test {
 
   void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
                      const ConvertOptions& options,
-                     std::shared_ptr<ChunkedArray> expected, bool validate_full = true) {
+                     const std::shared_ptr<ChunkedArray>& expected, bool validate_full = true) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK_AND_ASSIGN(
@@ -97,7 +97,7 @@ class ColumnBuilderTest : public ::testing::Test {
   void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
                       const std::shared_ptr<DataType>& type, const ChunkData& csv_data,
                       const ConvertOptions& options,
-                      std::shared_ptr<ChunkedArray> expected) {
+                      const std::shared_ptr<ChunkedArray>& expected) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::Make(default_memory_pool(), type, 0,

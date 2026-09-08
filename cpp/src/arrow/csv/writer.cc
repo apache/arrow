@@ -746,7 +746,7 @@ Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
 
 ARROW_EXPORT
 Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
-    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const std::shared_ptr<io::OutputStream>& sink, const std::shared_ptr<Schema>& schema,
     const WriteOptions& options) {
   return CSVWriterImpl::Make(sink.get(), sink, schema, options);
 }

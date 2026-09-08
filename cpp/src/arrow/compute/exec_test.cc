@@ -1220,7 +1220,7 @@ void TestCallScalarFunctionPreallocationCases::DoTest(FunctionCallerMaker caller
 
   auto arr = GetUInt8Array(100, null_prob);
 
-  auto CheckFunction = [&](std::shared_ptr<FunctionCaller> test_copy) {
+  auto CheckFunction = [&](const std::shared_ptr<FunctionCaller>& test_copy) {
     ResetContexts();
 
     // The default should be a single array output
@@ -1307,7 +1307,7 @@ void TestCallScalarFunctionBasicNonStandardCases::DoTest(
   auto arr = GetUInt8Array(1000, null_prob);
   std::vector<Datum> args = {Datum(arr)};
 
-  auto CheckFunction = [&](std::shared_ptr<FunctionCaller> test_nopre) {
+  auto CheckFunction = [&](const std::shared_ptr<FunctionCaller>& test_nopre) {
     ResetContexts();
 
     // The default should be a single array output

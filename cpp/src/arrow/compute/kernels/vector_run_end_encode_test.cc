@@ -49,7 +49,7 @@ struct REETestData {
   }
 
  public:
-  static REETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
+  static REETestData JSON(const std::shared_ptr<DataType>& data_type, std::string input_json,
                           std::string expected_values_json,
                           std::string expected_run_ends_json, int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
@@ -69,7 +69,7 @@ struct REETestData {
         "[null * " + std::to_string(input_slice_length) + "]");
   }
 
-  static REETestData JSONChunked(std::shared_ptr<DataType> data_type,
+  static REETestData JSONChunked(const std::shared_ptr<DataType>& data_type,
                                  std::vector<std::string> inputs_json,
                                  std::vector<std::string> expected_values_json,
                                  std::vector<std::string> expected_run_ends_json,

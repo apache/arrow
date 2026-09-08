@@ -83,7 +83,7 @@ class TestSelectKBase : public ::testing::Test {
 
  protected:
   template <SortOrder order>
-  void AssertSelectKArray(const std::shared_ptr<Array> values, int k) {
+  void AssertSelectKArray(const std::shared_ptr<Array>& values, int k) {
     std::shared_ptr<Array> select_k;
     ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(Datum(*values), k));
     ASSERT_EQ(select_k->data()->null_count, 0);
@@ -91,10 +91,10 @@ class TestSelectKBase : public ::testing::Test {
     ValidateSelectK(Datum(*values), *select_k, order);
   }
 
-  void AssertTopKArray(const std::shared_ptr<Array> values, int n) {
+  void AssertTopKArray(const std::shared_ptr<Array>& values, int n) {
     AssertSelectKArray<SortOrder::Descending>(values, n);
   }
-  void AssertBottomKArray(const std::shared_ptr<Array> values, int n) {
+  void AssertBottomKArray(const std::shared_ptr<Array>& values, int n) {
     AssertSelectKArray<SortOrder::Ascending>(values, n);
   }
 

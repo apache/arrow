@@ -231,7 +231,7 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
   ///
   /// \return a generated RecordBatchReader
   static std::shared_ptr<RecordBatchReader> Repeat(
-      int64_t n_batch, const std::shared_ptr<RecordBatch> batch);
+      int64_t n_batch, const std::shared_ptr<RecordBatch>& batch);
 
   /// \brief Generates a RecordBatchReader of zeroes batches
   ///

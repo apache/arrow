@@ -90,8 +90,8 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(partitioning_, factory_->Finish(actual));
   }
 
-  void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
-                       const std::shared_ptr<RecordBatch> full_batch,
+  void AssertPartition(const std::shared_ptr<Partitioning>& partitioning,
+                       const std::shared_ptr<RecordBatch>& full_batch,
                        const RecordBatchVector& expected_batches,
                        const std::vector<compute::Expression>& expected_expressions) {
     ASSERT_OK_AND_ASSIGN(auto partition_results, partitioning->Partition(full_batch));
@@ -116,10 +116,10 @@ class TestPartitioning : public ::testing::Test {
     }
   }
 
-  void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
-                       const std::shared_ptr<Schema> schema,
+  void AssertPartition(const std::shared_ptr<Partitioning>& partitioning,
+                       const std::shared_ptr<Schema>& schema,
                        const std::string& record_batch_json,
-                       const std::shared_ptr<Schema> partitioned_schema,
+                       const std::shared_ptr<Schema>& partitioned_schema,
                        const std::vector<std::string>& expected_record_batch_strs,
                        const std::vector<compute::Expression>& expected_expressions) {
     auto record_batch = RecordBatchFromJSON(schema, record_batch_json);

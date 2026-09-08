@@ -636,7 +636,7 @@ BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
   }
 }
 
-ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
+ListScalar::ListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : ListScalar(value, list(value->type()), is_valid) {}
 
 void ListScalar::FillScratchSpace(uint8_t* scratch_space,
@@ -646,7 +646,7 @@ void ListScalar::FillScratchSpace(uint8_t* scratch_space,
       {int32_t(0), value ? static_cast<int32_t>(value->length()) : int32_t(0)});
 }
 
-LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
+LargeListScalar::LargeListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : LargeListScalar(value, large_list(value->type()), is_valid) {}
 
 void LargeListScalar::FillScratchSpace(uint8_t* scratch_space,
@@ -655,7 +655,7 @@ void LargeListScalar::FillScratchSpace(uint8_t* scratch_space,
                          {int64_t(0), value ? value->length() : int64_t(0)});
 }
 
-ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+ListViewScalar::ListViewScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : ListViewScalar(value, list_view(value->type()), is_valid) {}
 
 void ListViewScalar::FillScratchSpace(uint8_t* scratch_space,
@@ -665,7 +665,7 @@ void ListViewScalar::FillScratchSpace(uint8_t* scratch_space,
       {int32_t(0), value ? static_cast<int32_t>(value->length()) : int32_t(0)});
 }
 
-LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+LargeListViewScalar::LargeListViewScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : LargeListViewScalar(value, large_list_view(value->type()), is_valid) {}
 
 void LargeListViewScalar::FillScratchSpace(uint8_t* scratch_space,
@@ -680,7 +680,7 @@ inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pa
   return map(pair_type->field(0)->type(), pair_type->field(1)->type());
 }
 
-MapScalar::MapScalar(std::shared_ptr<Array> value, bool is_valid)
+MapScalar::MapScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : MapScalar(value, MakeMapType(value->type()), is_valid) {}
 
 void MapScalar::FillScratchSpace(uint8_t* scratch_space,
@@ -699,7 +699,7 @@ FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
   }
 }
 
-FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value, bool is_valid)
+FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : BaseListScalar(
           value, fixed_size_list(value->type(), static_cast<int32_t>(value->length())),
           is_valid) {}
@@ -1091,7 +1091,7 @@ std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& 
 // error fallback
 template <typename To>
 Result<std::shared_ptr<Scalar>> CastImpl(const Scalar& from,
-                                         std::shared_ptr<DataType> to_type) {
+                                         const std::shared_ptr<DataType>& to_type) {
   return Status::NotImplemented("casting scalars of type ", *from.type, " to type ",
                                 *to_type);
 }

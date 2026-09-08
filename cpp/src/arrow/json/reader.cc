@@ -245,7 +245,7 @@ class TableReaderImpl : public TableReader,
         read_options_(read_options),
         task_group_(std::move(task_group)) {}
 
-  Status Init(std::shared_ptr<io::InputStream> input) {
+  Status Init(const std::shared_ptr<io::InputStream>& input) {
     ARROW_ASSIGN_OR_RAISE(auto it,
                           io::MakeInputStreamIterator(input, read_options_.block_size));
     return MakeReadaheadIterator(std::move(it), task_group_->parallelism())
@@ -499,7 +499,7 @@ class StreamingReaderImpl : public StreamingReader {
 }  // namespace
 
 Result<std::shared_ptr<TableReader>> TableReader::Make(
-    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+    MemoryPool* pool, const std::shared_ptr<io::InputStream>& input,
     const ReadOptions& read_options, const ParseOptions& parse_options) {
   std::shared_ptr<TableReaderImpl> ptr;
   if (read_options.use_threads) {
@@ -535,7 +535,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 }
 
 Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
-                                              std::shared_ptr<Buffer> json) {
+                                              const std::shared_ptr<Buffer>& json) {
   DecodeContext context(std::move(options));
 
   std::unique_ptr<BlockParser> parser;

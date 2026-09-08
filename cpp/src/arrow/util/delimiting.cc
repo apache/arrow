@@ -103,10 +103,10 @@ std::shared_ptr<BoundaryFinder> MakeNewlineBoundaryFinder() {
 
 Chunker::~Chunker() {}
 
-Chunker::Chunker(std::shared_ptr<BoundaryFinder> delimiter)
+Chunker::Chunker(const std::shared_ptr<BoundaryFinder>& delimiter)
     : boundary_finder_(delimiter) {}
 
-Status Chunker::Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
+Status Chunker::Process(const std::shared_ptr<Buffer>& block, std::shared_ptr<Buffer>* whole,
                         std::shared_ptr<Buffer>* partial) {
   int64_t last_pos = -1;
   RETURN_NOT_OK(boundary_finder_->FindLast(std::string_view(*block), &last_pos));
@@ -122,8 +122,8 @@ Status Chunker::Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* 
   return Status::OK();
 }
 
-Status Chunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
-                                   std::shared_ptr<Buffer> block,
+Status Chunker::ProcessWithPartial(const std::shared_ptr<Buffer>& partial,
+                                   const std::shared_ptr<Buffer>& block,
                                    std::shared_ptr<Buffer>* completion,
                                    std::shared_ptr<Buffer>* rest) {
   if (partial->size() == 0) {
@@ -145,7 +145,7 @@ Status Chunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
   }
 }
 
-Status Chunker::ProcessFinal(std::shared_ptr<Buffer> partial,
+Status Chunker::ProcessFinal(const std::shared_ptr<Buffer>& partial,
                              std::shared_ptr<Buffer> block,
                              std::shared_ptr<Buffer>* completion,
                              std::shared_ptr<Buffer>* rest) {
@@ -169,7 +169,7 @@ Status Chunker::ProcessFinal(std::shared_ptr<Buffer> partial,
   return Status::OK();
 }
 
-Status Chunker::ProcessSkip(std::shared_ptr<Buffer> partial,
+Status Chunker::ProcessSkip(const std::shared_ptr<Buffer>& partial,
                             std::shared_ptr<Buffer> block, bool final, int64_t* count,
                             std::shared_ptr<Buffer>* rest) {
   DCHECK_GT(*count, 0);

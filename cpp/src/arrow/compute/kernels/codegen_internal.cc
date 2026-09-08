@@ -545,7 +545,7 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count) {
 }
 
 Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
-    std::shared_ptr<DataType> type) {
+    const std::shared_ptr<DataType>& type) {
   DCHECK(is_decimal(type->id()));
   auto cast_type = checked_pointer_cast<DecimalType>(type);
   switch (type->id()) {

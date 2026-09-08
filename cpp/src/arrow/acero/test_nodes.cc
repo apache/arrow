@@ -274,7 +274,7 @@ struct GatedNode : public ExecNode, public TracedNode {
   }
 
   GatedNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-            std::shared_ptr<Schema> output_schema, const GatedNodeOptions& options)
+            const std::shared_ptr<Schema>& output_schema, const GatedNodeOptions& options)
       : ExecNode(plan, inputs, {"input"}, output_schema),
         TracedNode(this),
         gate_(options.gate) {}

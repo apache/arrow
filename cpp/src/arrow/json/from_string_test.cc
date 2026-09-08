@@ -570,7 +570,7 @@ TEST(TestFixedSizeBinaryFromString, Dictionary) {
 }
 
 template <typename DecimalValue, typename DecimalBuilder>
-void TestDecimalBasic(std::shared_ptr<DataType> type) {
+void TestDecimalBasic(const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Array> expected, actual;
 
   ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSONString(type, "[]"));

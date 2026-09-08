@@ -301,7 +301,7 @@ struct SourceNode : ExecNode, public TracedNode {
 };
 
 struct TableSourceNode : public SourceNode {
-  TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
+  TableSourceNode(ExecPlan* plan, const std::shared_ptr<Table>& table, int64_t batch_size)
       : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size),
                    Ordering::Implicit()) {}
 
@@ -319,7 +319,7 @@ struct TableSourceNode : public SourceNode {
 
   const char* kind_name() const override { return "TableSourceNode"; }
 
-  static arrow::Status ValidateTableSourceNodeInput(const std::shared_ptr<Table> table,
+  static arrow::Status ValidateTableSourceNodeInput(const std::shared_ptr<Table>& table,
                                                     const int64_t batch_size) {
     if (table == nullptr) {
       return Status::Invalid("TableSourceNode requires table which is not null");
@@ -370,7 +370,7 @@ struct TableSourceNode : public SourceNode {
 
 template <typename This, typename Options>
 struct SchemaSourceNode : public SourceNode {
-  SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+  SchemaSourceNode(ExecPlan* plan, const std::shared_ptr<Schema>& schema,
                    arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
       : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
 
@@ -406,7 +406,7 @@ struct SchemaSourceNode : public SourceNode {
 };
 
 struct RecordBatchReaderSourceNode : public SourceNode {
-  RecordBatchReaderSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+  RecordBatchReaderSourceNode(ExecPlan* plan, const std::shared_ptr<Schema>& schema,
                               arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
       : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
 

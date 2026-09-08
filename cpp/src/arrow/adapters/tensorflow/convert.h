@@ -77,7 +77,7 @@ Status GetArrowType(::tensorflow::DataType dtype, std::shared_ptr<DataType>* out
   return Status::OK();
 }
 
-Status GetTensorFlowType(std::shared_ptr<DataType> dtype, ::tensorflow::DataType* out) {
+Status GetTensorFlowType(const std::shared_ptr<DataType>& dtype, ::tensorflow::DataType* out) {
   switch (dtype->id()) {
     case Type::BOOL:
       *out = ::tensorflow::DT_BOOL;

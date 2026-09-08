@@ -1305,7 +1305,7 @@ void CheckTakeXA(const std::shared_ptr<DataType>& type, const std::string& value
   }
 }
 
-void CheckTakeXADictionary(std::shared_ptr<DataType> value_type,
+void CheckTakeXADictionary(const std::shared_ptr<DataType>& value_type,
                            const std::string& dictionary_values,
                            const std::string& dictionary_indices,
                            const std::string& indices,
@@ -1489,7 +1489,7 @@ class TestTakeKernel : public ::testing::Test {
  public:
   void DoTestNoValidityBitmapButUnknownNullCount(
       const std::shared_ptr<DataType>& type, const std::string& values,
-      const std::string& indices, std::shared_ptr<DataType> index_type = int8()) {
+      const std::string& indices, const std::shared_ptr<DataType>& index_type = int8()) {
     DoTestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
                                               ArrayFromJSON(index_type, indices));
   }

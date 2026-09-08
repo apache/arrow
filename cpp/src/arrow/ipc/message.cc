@@ -208,7 +208,7 @@ bool Message::Equals(const Message& other) const {
   }
 }
 
-Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metadata,
+Result<std::unique_ptr<Message>> Message::ReadFrom(const std::shared_ptr<Buffer>& metadata,
                                                    io::InputStream* stream) {
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
@@ -225,7 +225,7 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metad
 }
 
 Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
-                                                   std::shared_ptr<Buffer> metadata,
+                                                   const std::shared_ptr<Buffer>& metadata,
                                                    io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
@@ -335,7 +335,7 @@ struct ReadMessageState {
 // A common continuation callback for ReadMessage and ReadMessageAsync overloads
 static Result<std::unique_ptr<Message>> ReadMessageContinued(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
-    std::shared_ptr<Buffer> metadata, io::RandomAccessFile* file,
+    const std::shared_ptr<Buffer>& metadata, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader, ReadMessageState* state) {
   MessageDecoder* decoder = state->decoder.get();
   if (body_length.has_value()) {
@@ -400,8 +400,8 @@ static Result<std::unique_ptr<Message>> ReadMessageContinued(
 
 }  // namespace
 
-Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
-                                             std::shared_ptr<Buffer> body) {
+Result<std::unique_ptr<Message>> ReadMessage(const std::shared_ptr<Buffer>& metadata,
+                                             const std::shared_ptr<Buffer>& body) {
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   // If the user does not pass in a body buffer then we assume they are skipping it
@@ -501,7 +501,7 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
   return file
       ->ReadAsync(context, offset, metadata_length + body_length,
                   /*allow_short_read=*/false)
-      .Then([=](std::shared_ptr<Buffer> metadata) -> Result<std::shared_ptr<Message>> {
+      .Then([=](const std::shared_ptr<Buffer>& metadata) -> Result<std::shared_ptr<Message>> {
         // Pass a nullptr file to ensure that no further IO occurs
         // (we have fetched all the required bytes).
         return ReadMessageContinued(offset, metadata_length, body_length, metadata,
@@ -1025,7 +1025,7 @@ Status MessageDecoder::Consume(const uint8_t* data, int64_t size) {
   return impl_->ConsumeData(data, size);
 }
 
-Status MessageDecoder::Consume(std::shared_ptr<Buffer> buffer) {
+Status MessageDecoder::Consume(const std::shared_ptr<Buffer>& buffer) {
   return impl_->ConsumeBuffer(buffer);
 }
 

@@ -965,7 +965,7 @@ Status CreateEmptyBlockBlob(const Blobs::BlockBlobClient& block_blob_client) {
 }
 
 Result<Blobs::Models::GetBlockListResult> GetBlockList(
-    std::shared_ptr<Blobs::BlockBlobClient> block_blob_client) {
+    const std::shared_ptr<Blobs::BlockBlobClient>& block_blob_client) {
   try {
     return block_blob_client->GetBlockList().Value;
   } catch (Core::RequestFailedException& exception) {
@@ -975,7 +975,7 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
   }
 }
 
-Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_blob_client,
+Status CommitBlockList(const std::shared_ptr<Storage::Blobs::BlockBlobClient>& block_blob_client,
                        const std::vector<std::string>& block_ids,
                        const Blobs::CommitBlockListOptions& options) {
   try {
@@ -1230,7 +1230,7 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Status DoWrite(const void* data, int64_t nbytes,
-                 std::shared_ptr<Buffer> owned_buffer = nullptr) {
+                 const std::shared_ptr<Buffer>& owned_buffer = nullptr) {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
@@ -1324,7 +1324,7 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Status AppendBlock(const void* data, int64_t nbytes,
-                     std::shared_ptr<Buffer> owned_buffer = nullptr) {
+                     const std::shared_ptr<Buffer>& owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
 
     if (nbytes == 0) {
@@ -1363,7 +1363,7 @@ class ObjectAppendStream final : public io::OutputStream {
     return Status::OK();
   }
 
-  Status AppendBlock(std::shared_ptr<Buffer> buffer) {
+  Status AppendBlock(const std::shared_ptr<Buffer>& buffer) {
     return AppendBlock(buffer->data(), buffer->size(), buffer);
   }
 

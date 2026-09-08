@@ -70,7 +70,7 @@ ARROW_EXPORT Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
 /// \return Result<std::shared_ptr<RecordBatchWriter>>
 ARROW_EXPORT
 Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
-    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const std::shared_ptr<io::OutputStream>& sink, const std::shared_ptr<Schema>& schema,
     const WriteOptions& options = WriteOptions::Defaults());
 
 /// \brief Create a new CSV writer.

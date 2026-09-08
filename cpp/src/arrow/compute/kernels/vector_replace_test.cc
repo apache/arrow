@@ -148,7 +148,7 @@ class TestReplaceKernel : public ::testing::Test {
   }
 
   void AssertFillNullChunkedArray(FillNullFunction func,
-                                  const std::shared_ptr<ChunkedArray> array,
+                                  const std::shared_ptr<ChunkedArray>& array,
                                   const std::shared_ptr<ChunkedArray>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, func(Datum(*array), nullptr));
     AssertChunkedEquivalent(*expected, *actual.chunked_array());

@@ -60,7 +60,7 @@ namespace internal {
 class RunCompressorBuilder : public ArrayBuilder {
  public:
   RunCompressorBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> inner_builder,
-                       std::shared_ptr<DataType> type);
+                       const std::shared_ptr<DataType>& type);
 
   ~RunCompressorBuilder() override;
 
@@ -202,7 +202,7 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
   RunEndEncodedBuilder(MemoryPool* pool,
                        const std::shared_ptr<ArrayBuilder>& run_end_builder,
                        const std::shared_ptr<ArrayBuilder>& value_builder,
-                       std::shared_ptr<DataType> type);
+                       const std::shared_ptr<DataType>& type);
 
   /// \brief Allocate enough memory for a given number of array elements.
   ///

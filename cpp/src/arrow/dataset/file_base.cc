@@ -59,7 +59,7 @@ using internal::checked_pointer_cast;
 
 namespace dataset {
 
-FileSource::FileSource(std::shared_ptr<io::RandomAccessFile> file,
+FileSource::FileSource(const std::shared_ptr<io::RandomAccessFile>& file,
                        Compression::type compression)
     : custom_open_([=] { return ToResult(file); }),
       custom_size_(-1),
@@ -439,7 +439,7 @@ class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
   }
 
  private:
-  Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
+  Status WriteNextBatch(const std::shared_ptr<RecordBatch>& batch,
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
@@ -461,7 +461,7 @@ class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
-                                std::shared_ptr<Scanner> scanner) {
+                                const std::shared_ptr<Scanner>& scanner) {
   auto exprs = scanner->options()->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scanner->options()->projection.call()->options.get())
@@ -629,10 +629,10 @@ class TeeNode : public acero::MapNode,
     return batch;
   }
 
-  Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
+  Status WriteNextBatch(const std::shared_ptr<RecordBatch>& batch,
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
-                      [this](std::shared_ptr<RecordBatch> next_batch,
+                      [this](const std::shared_ptr<RecordBatch>& next_batch,
                              const PartitionPathFormat& destination) {
                         dataset_writer_->WriteRecordBatch(
                             next_batch, destination.directory, destination.filename);

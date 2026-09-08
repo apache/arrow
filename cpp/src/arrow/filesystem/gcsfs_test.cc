@@ -212,7 +212,7 @@ class GcsIntegrationTest : public ::testing::Test {
     std::vector<FileInfo> contents;
   };
 
-  Result<Hierarchy> CreateHierarchy(std::shared_ptr<arrow::fs::FileSystem> fs) {
+  Result<Hierarchy> CreateHierarchy(const std::shared_ptr<arrow::fs::FileSystem>& fs) {
     const char* const kTestFolders[] = {
         "b",
         "b/0",

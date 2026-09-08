@@ -1004,7 +1004,7 @@ TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
 }
 
 void TestGetRecordBatchSize(const IpcWriteOptions& options,
-                            std::shared_ptr<RecordBatch> batch) {
+                            const std::shared_ptr<RecordBatch>& batch) {
   io::MockOutputStream mock;
   ipc::IpcPayload payload;
   int32_t mock_metadata_length = -1;
@@ -2178,7 +2178,7 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
 // Delimit IPC stream messages and reassemble with the indicated messages
 // included. This way we can remove messages from an IPC stream to test
 // different failure modes or other difficult-to-test behaviors
-void SpliceMessages(std::shared_ptr<Buffer> stream,
+void SpliceMessages(const std::shared_ptr<Buffer>& stream,
                     const std::vector<int>& included_indices,
                     std::shared_ptr<Buffer>* spliced_stream) {
   ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
@@ -2227,7 +2227,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
-  auto Read = [](std::shared_ptr<Buffer> stream) -> Status {
+  auto Read = [](const std::shared_ptr<Buffer>& stream) -> Status {
     io::BufferReader reader(stream);
     ARROW_ASSIGN_OR_RAISE(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;
@@ -2780,7 +2780,7 @@ class TestDictionaryReplacement : public ::testing::Test {
   }
 
   // Make one-column batch
-  std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> column) {
+  std::shared_ptr<RecordBatch> MakeBatch(const std::shared_ptr<Array>& column) {
     return RecordBatch::Make(schema({field("f", column->type())}), column->length(),
                              {column});
   }

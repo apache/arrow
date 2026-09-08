@@ -83,7 +83,7 @@ void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& in
 }
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
-                 std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
+                 const std::shared_ptr<Scalar>& expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
   ValidateOutput(out);
   if (!out.scalar()->Equals(*expected)) {
@@ -259,8 +259,8 @@ void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
   CheckScalar(std::move(func_name), input_vector, expected, options);
 }
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
-                      std::string json_input, std::shared_ptr<DataType> out_ty,
+void CheckScalarUnary(std::string func_name, const std::shared_ptr<DataType>& in_ty,
+                      std::string json_input, const std::shared_ptr<DataType>& out_ty,
                       std::string json_expected, const FunctionOptions* options) {
   CheckScalarUnary(std::move(func_name), ArrayFromJSON(in_ty, json_input),
                    ArrayFromJSON(out_ty, json_expected), options);

@@ -67,7 +67,7 @@ class ARROW_EXPORT Message {
   /// \return the created Message
   ///
   /// \note If stream supports zero-copy, this is zero-copy
-  static Result<std::unique_ptr<Message>> ReadFrom(std::shared_ptr<Buffer> metadata,
+  static Result<std::unique_ptr<Message>> ReadFrom(const std::shared_ptr<Buffer>& metadata,
                                                    io::InputStream* stream);
 
   /// \brief Read message body from position in file, and create Message given
@@ -79,7 +79,7 @@ class ARROW_EXPORT Message {
   ///
   /// \note If file supports zero-copy, this is zero-copy
   static Result<std::unique_ptr<Message>> ReadFrom(const int64_t offset,
-                                                   std::shared_ptr<Buffer> metadata,
+                                                   const std::shared_ptr<Buffer>& metadata,
                                                    io::RandomAccessFile* file);
 
   /// \brief Return true if message type and contents are equal
@@ -321,7 +321,7 @@ class ARROW_EXPORT MessageDecoder {
   ///
   /// \param[in] buffer a Buffer to be processed.
   /// \return Status
-  Status Consume(std::shared_ptr<Buffer> buffer);
+  Status Consume(const std::shared_ptr<Buffer>& buffer);
 
   /// \brief Return the number of bytes needed to advance the state of
   /// the decoder.
@@ -515,7 +515,7 @@ Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
 /// \param body The bytes for the body
 /// \return The message represented by the buffers
 ARROW_EXPORT Result<std::unique_ptr<Message>> ReadMessage(
-    std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body);
+    const std::shared_ptr<Buffer>& metadata, const std::shared_ptr<Buffer>& body);
 
 ARROW_EXPORT
 Future<std::shared_ptr<Message>> ReadMessageAsync(

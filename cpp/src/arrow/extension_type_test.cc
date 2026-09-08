@@ -259,7 +259,7 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
   CompareBatch(*batch_no_ext, *read_batch);
 }
 
-std::shared_ptr<Array> ExampleParametric(std::shared_ptr<DataType> type,
+std::shared_ptr<Array> ExampleParametric(const std::shared_ptr<DataType>& type,
                                          const std::string& json_data) {
   auto arr = ArrayFromJSON(int32(), json_data);
   auto ext_data = arr->data()->Copy();

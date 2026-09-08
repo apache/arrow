@@ -224,8 +224,8 @@ void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) 
 
 // Check the streaming compressor and decompressor together
 
-void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
-                             std::shared_ptr<Decompressor> decompressor,
+void CheckStreamingRoundtrip(const std::shared_ptr<Compressor>& compressor,
+                             const std::shared_ptr<Decompressor>& decompressor,
                              const std::vector<uint8_t>& data) {
   std::default_random_engine engine(42);
   std::uniform_int_distribution<int> buf_size_distribution(10, 40);

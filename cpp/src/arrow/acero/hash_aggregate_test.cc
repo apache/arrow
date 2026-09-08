@@ -227,7 +227,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 }
 
 Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
-                                const std::shared_ptr<Schema> output_schema,
+                                const std::shared_ptr<Schema>& output_schema,
                                 size_t num_aggregates, size_t num_keys, bool naive) {
   ArrayVector out_arrays(num_aggregates + num_keys);
   for (size_t i = 0; i < out_arrays.size(); ++i) {

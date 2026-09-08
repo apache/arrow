@@ -123,13 +123,13 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indices_shape,
-      const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data);
+      const std::vector<int64_t>& indices_strides, const std::shared_ptr<Buffer>& indices_data);
 
   /// \brief Make SparseCOOIndex from raw properties
   static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indices_shape,
-      const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data,
+      const std::vector<int64_t>& indices_strides, const std::shared_ptr<Buffer>& indices_data,
       bool is_canonical);
 
   /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
@@ -139,7 +139,7 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   /// use the raw properties constructor.
   static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-      int64_t non_zero_length, std::shared_ptr<Buffer> indices_data);
+      int64_t non_zero_length, const std::shared_ptr<Buffer>& indices_data);
 
   /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
   ///
@@ -147,7 +147,7 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   /// use the raw properties constructor.
   static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-      int64_t non_zero_length, std::shared_ptr<Buffer> indices_data, bool is_canonical);
+      int64_t non_zero_length, const std::shared_ptr<Buffer>& indices_data, bool is_canonical);
 
   /// \brief Construct SparseCOOIndex from column-major NumericTensor
   explicit SparseCOOIndex(const std::shared_ptr<Tensor>& coords, bool is_canonical);
@@ -231,7 +231,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
-      std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
+      const std::shared_ptr<Buffer>& indptr_data, const std::shared_ptr<Buffer>& indices_data) {
     ARROW_RETURN_NOT_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
                                                indices_shape,
                                                SparseIndexType::kTypeName));
@@ -244,7 +244,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
   static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
-      std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
+      const std::shared_ptr<Buffer>& indptr_data, const std::shared_ptr<Buffer>& indices_data) {
     return Make(indices_type, indices_type, indptr_shape, indices_shape, indptr_data,
                 indices_data);
   }
@@ -254,8 +254,8 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
   static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-      int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
-      std::shared_ptr<Buffer> indices_data) {
+      int64_t non_zero_length, const std::shared_ptr<Buffer>& indptr_data,
+      const std::shared_ptr<Buffer>& indices_data) {
     ARROW_ASSIGN_OR_RAISE(auto indptr_length,
                           ComputeSparseCSXIndptrLength(COMPRESSED_AXIS, shape));
     std::vector<int64_t> indptr_shape({indptr_length});
@@ -268,8 +268,8 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
   /// data
   static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-      int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
-      std::shared_ptr<Buffer> indices_data) {
+      int64_t non_zero_length, const std::shared_ptr<Buffer>& indptr_data,
+      const std::shared_ptr<Buffer>& indices_data) {
     return Make(indices_type, indices_type, shape, non_zero_length, indptr_data,
                 indices_data);
   }

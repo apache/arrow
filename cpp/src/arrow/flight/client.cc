@@ -126,7 +126,7 @@ arrow::Result<std::shared_ptr<Table>> FlightStreamReader::ToTable(
 class IpcMessageReader : public ipc::MessageReader {
  public:
   IpcMessageReader(std::shared_ptr<internal::ClientDataStream> stream,
-                   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader,
+                   const std::shared_ptr<internal::PeekableFlightDataReader>& peekable_reader,
                    std::shared_ptr<MemoryManager> memory_manager,
                    std::shared_ptr<Buffer>* app_metadata)
       : stream_(std::move(stream)),

@@ -39,7 +39,7 @@ TEST(TestUnionArray, TestSliceEquals) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeUnion(&batch));
 
-  auto CheckUnion = [](std::shared_ptr<Array> array) {
+  auto CheckUnion = [](const std::shared_ptr<Array>& array) {
     const int64_t size = array->length();
     std::shared_ptr<Array> slice, slice2;
     slice = array->Slice(2);

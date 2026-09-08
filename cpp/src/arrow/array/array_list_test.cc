@@ -262,7 +262,7 @@ class TestListArray : public ::testing::Test {
  private:
   Result<std::shared_ptr<Array>> FromArrays(const Array& offsets, const Array& sizes,
                                             const Array& values,
-                                            std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+                                            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                                             int64_t null_count = kUnknownNullCount) {
     if constexpr (kTypeClassIsListView) {
       return ArrayType::FromArrays(offsets, sizes, values, pool_, null_bitmap,

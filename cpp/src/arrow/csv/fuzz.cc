@@ -58,7 +58,7 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
 
   // TODO should we also test non-inferring table read?
 
-  auto read_table_serial = [=](std::shared_ptr<InputStream> input) mutable -> Status {
+  auto read_table_serial = [=](const std::shared_ptr<InputStream>& input) mutable -> Status {
     read_options.use_threads = false;
     ARROW_ASSIGN_OR_RAISE(auto table_reader,
                           TableReader::Make(io_context, input, read_options,
@@ -67,7 +67,7 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
     return table->ValidateFull();
   };
 
-  auto read_table_threaded = [=](std::shared_ptr<InputStream> input) mutable -> Status {
+  auto read_table_threaded = [=](const std::shared_ptr<InputStream>& input) mutable -> Status {
     read_options.use_threads = true;
     ARROW_ASSIGN_OR_RAISE(auto table_reader,
                           TableReader::Make(io_context, input, read_options,
@@ -76,7 +76,7 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
     return table->ValidateFull();
   };
 
-  auto read_streaming = [=](std::shared_ptr<InputStream> input) mutable -> Status {
+  auto read_streaming = [=](const std::shared_ptr<InputStream>& input) mutable -> Status {
     read_options.use_threads = true;
     ARROW_ASSIGN_OR_RAISE(
         auto reader, StreamingReader::Make(io_context, input, read_options, parse_options,
@@ -85,7 +85,7 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
     return table->ValidateFull();
   };
 
-  auto count_rows = [=](std::shared_ptr<InputStream> input) mutable -> Status {
+  auto count_rows = [=](const std::shared_ptr<InputStream>& input) mutable -> Status {
     read_options.use_threads = true;
     parse_options.newlines_in_values = false;
     auto fut = CountRowsAsync(io_context, input, GetCpuThreadPool(), read_options,
@@ -94,7 +94,7 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
   };
 
   auto count_rows_allow_newlines =
-      [=](std::shared_ptr<InputStream> input) mutable -> Status {
+      [=](const std::shared_ptr<InputStream>& input) mutable -> Status {
     read_options.use_threads = true;
     parse_options.newlines_in_values = true;
     auto fut = CountRowsAsync(io_context, input, GetCpuThreadPool(), read_options,

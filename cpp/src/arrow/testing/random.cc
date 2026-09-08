@@ -427,7 +427,7 @@ struct SmallDecimalGenerator {
 
 }  // namespace
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal32(std::shared_ptr<DataType> type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal32(const std::shared_ptr<DataType>& type,
                                                        int64_t size,
                                                        double null_probability,
                                                        int64_t alignment,
@@ -436,7 +436,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Decimal32(std::shared_ptr<DataType>
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal64(std::shared_ptr<DataType> type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal64(const std::shared_ptr<DataType>& type,
                                                        int64_t size,
                                                        double null_probability,
                                                        int64_t alignment,
@@ -445,7 +445,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Decimal64(std::shared_ptr<DataType>
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal128(std::shared_ptr<DataType> type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal128(const std::shared_ptr<DataType>& type,
                                                         int64_t size,
                                                         double null_probability,
                                                         int64_t alignment,
@@ -454,7 +454,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Decimal128(std::shared_ptr<DataType
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal256(std::shared_ptr<DataType> type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal256(const std::shared_ptr<DataType>& type,
                                                         int64_t size,
                                                         double null_probability,
                                                         int64_t alignment,

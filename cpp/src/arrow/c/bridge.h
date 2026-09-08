@@ -126,7 +126,7 @@ Result<std::shared_ptr<Schema>> ImportSchema(struct ArrowSchema* schema);
 /// \return Imported array object
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array,
-                                           std::shared_ptr<DataType> type);
+                                           const std::shared_ptr<DataType>& type);
 
 /// \brief Import C++ array and its type from the C data interface.
 ///
@@ -236,7 +236,7 @@ Result<std::shared_ptr<MemoryManager>> DefaultDeviceMemoryMapper(
 /// \return Imported array object
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportDeviceArray(
-    struct ArrowDeviceArray* array, std::shared_ptr<DataType> type,
+    struct ArrowDeviceArray* array, const std::shared_ptr<DataType>& type,
     const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// \brief EXPERIMENTAL: Import C++ device array and its type from the C data interface.
@@ -480,7 +480,7 @@ Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
 /// \return Future that will resolve once the generator is exhausted or an error occurs
 ARROW_EXPORT
 Future<> ExportAsyncRecordBatchReader(
-    std::shared_ptr<Schema> schema,
+    const std::shared_ptr<Schema>& schema,
     AsyncGenerator<std::shared_ptr<RecordBatch>> generator,
     DeviceAllocationType device_type, struct ArrowAsyncDeviceStreamHandler* handler);
 

@@ -310,7 +310,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Decimal32(std::shared_ptr<DataType> type, int64_t size,
+  std::shared_ptr<Array> Decimal32(const std::shared_ptr<DataType>& type, int64_t size,
                                    double null_probability = 0,
                                    int64_t alignment = kDefaultBufferAlignment,
                                    MemoryPool* memory_pool = default_memory_pool());
@@ -325,7 +325,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Decimal64(std::shared_ptr<DataType> type, int64_t size,
+  std::shared_ptr<Array> Decimal64(const std::shared_ptr<DataType>& type, int64_t size,
                                    double null_probability = 0,
                                    int64_t alignment = kDefaultBufferAlignment,
                                    MemoryPool* memory_pool = default_memory_pool());
@@ -340,7 +340,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Decimal128(std::shared_ptr<DataType> type, int64_t size,
+  std::shared_ptr<Array> Decimal128(const std::shared_ptr<DataType>& type, int64_t size,
                                     double null_probability = 0,
                                     int64_t alignment = kDefaultBufferAlignment,
                                     MemoryPool* memory_pool = default_memory_pool());
@@ -355,7 +355,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Decimal256(std::shared_ptr<DataType> type, int64_t size,
+  std::shared_ptr<Array> Decimal256(const std::shared_ptr<DataType>& type, int64_t size,
                                     double null_probability = 0,
                                     int64_t alignment = kDefaultBufferAlignment,
                                     MemoryPool* memory_pool = default_memory_pool());

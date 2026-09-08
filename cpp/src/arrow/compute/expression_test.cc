@@ -177,7 +177,7 @@ TEST(ExpressionUtils, StripOrderPreservingCasts) {
 }
 
 TEST(ExpressionUtils, MakeExecBatch) {
-  auto Expect = [](std::shared_ptr<RecordBatch> partial_batch) {
+  auto Expect = [](const std::shared_ptr<RecordBatch>& partial_batch) {
     SCOPED_TRACE(partial_batch->ToString());
     ASSERT_OK_AND_ASSIGN(auto batch, MakeExecBatch(*kBoringSchema, partial_batch));
 
@@ -696,9 +696,9 @@ TEST(Expression, BindWithDecimalArithmeticOps) {
 
 TEST(Expression, BindWithDecimalDivision) {
   auto expect_decimal_division_type = [](std::string name,
-                                         std::shared_ptr<DataType> dividend,
-                                         std::shared_ptr<DataType> divisor,
-                                         std::shared_ptr<DataType> expected) {
+                                         const std::shared_ptr<DataType>& dividend,
+                                         const std::shared_ptr<DataType>& divisor,
+                                         const std::shared_ptr<DataType>& expected) {
     auto schema = arrow::schema({field("dividend", dividend), field("divisor", divisor)});
     auto expr = call(name, {field_ref("dividend"), field_ref("divisor")});
     ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*schema));
@@ -1920,7 +1920,7 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
 }
 
 TEST(Expression, SimplifyIsIn) {
-  auto is_in = [](Expression field, std::shared_ptr<DataType> value_set_type,
+  auto is_in = [](Expression field, const std::shared_ptr<DataType>& value_set_type,
                   std::string json_array,
                   SetLookupOptions::NullMatchingBehavior null_matching_behavior) {
     SetLookupOptions options{ArrayFromJSON(value_set_type, json_array),
