@@ -21,7 +21,7 @@ Thanks for opening a pull request!
 
 **This pull request has been automatically closed because you currently have ${OPEN_COUNT} open pull requests, which is more than the limit of ${PR_LIMIT}.**
 
-To keep the review queue manageable, Apache Arrow limits contributors without write access to ${PR_LIMIT} concurrently open pull requests. This helps make sure each pull request gets the attention it needs and that work in progress does not go stale.
+Due to the increase in pull requests opened by AI bots, and in order to keep the review queue manageable, Apache Arrow limits contributors without write access to at most ${PR_LIMIT} concurrently open pull requests. This helps make sure each pull request gets the attention it needs and that work in progress does not go stale.
 
 Once one of [your other open pull requests](https://github.com/apache/arrow/pulls/${USERNAME}) has been merged or closed, you are welcome to reopen this one.
 
