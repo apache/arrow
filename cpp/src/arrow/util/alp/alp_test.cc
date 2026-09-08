@@ -991,7 +991,7 @@ TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
     TypeParam base_value = static_cast<TypeParam>(1000.0);
 
     for (size_t i = 0; i < input.size(); ++i) {
-      input[i] = base_value + static_cast<TypeParam>(i % (1 << bit_range)) *
+      input[i] = base_value + static_cast<TypeParam>(i % (size_t{1} << bit_range)) *
                                   static_cast<TypeParam>(0.01);
     }
 
