@@ -187,6 +187,11 @@ namespace {
       col_start > column_metadata->dictionary_page_offset()) {
     col_start = column_metadata->dictionary_page_offset();
   }
+  if (column_metadata->has_symbol_table_page() &&
+      column_metadata->symbol_table_page_offset() > 0 &&
+      (col_start <= 0 || col_start > column_metadata->symbol_table_page_offset())) {
+    col_start = column_metadata->symbol_table_page_offset();
+  }
 
   int64_t col_length = column_metadata->total_compressed_size();
   int64_t col_end;
@@ -282,7 +287,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       throw ParquetException("Encrypted files cannot contain more than 32767 columns");
     }
 
-    CryptoContext ctx{col->has_dictionary_page(),
+    CryptoContext ctx{col->has_dictionary_page() || col->has_symbol_table_page(),
                       static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
                       std::move(meta_decryptor_factory),
                       std::move(data_decryptor_factory)};

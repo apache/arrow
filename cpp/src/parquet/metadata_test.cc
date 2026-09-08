@@ -51,10 +51,10 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   col1_builder->SetStatistics(stats_int);
   stats_float.set_is_signed(true);
   col2_builder->SetStatistics(stats_float);
-  col1_builder->Finish(nrows / 2, 4, 0, 10, 512, 600, true, false, dict_encoding_stats,
-                       data_encoding_stats);
-  col2_builder->Finish(nrows / 2, 24, 0, 30, 512, 600, true, false, dict_encoding_stats,
-                       data_encoding_stats);
+  col1_builder->Finish(nrows / 2, 4, 0, 10, 0, 0, 512, 600, true, false,
+                       dict_encoding_stats, data_encoding_stats);
+  col2_builder->Finish(nrows / 2, 24, 0, 30, 0, 0, 512, 600, true, false,
+                       dict_encoding_stats, data_encoding_stats);
 
   rg1_builder->set_num_rows(nrows / 2);
   rg1_builder->Finish(1024);
@@ -69,8 +69,8 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   col1_builder->Finish(nrows / 2, /*dictionary_page_offset=*/0, 0, 10, 512, 600,
                        /*has_dictionary=*/false, false, dict_encoding_stats,
                        data_encoding_stats);
-  col2_builder->Finish(nrows / 2, 16, 0, 26, 512, 600, true, false, dict_encoding_stats,
-                       data_encoding_stats);
+  col2_builder->Finish(nrows / 2, 16, 0, 26, 0, 0, 512, 600, true, false,
+                       dict_encoding_stats, data_encoding_stats);
 
   rg2_builder->set_num_rows(nrows / 2);
   rg2_builder->Finish(1024);

@@ -150,6 +150,10 @@ endif()
 #
 # Library config
 
+set(PARQUET_FSST_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/arrow/vendored/fsst")
+set(PARQUET_FSST_SRCS "${PARQUET_FSST_SOURCE_DIR}/libfsst.cpp"
+                      "${PARQUET_FSST_SOURCE_DIR}/fsst_avx512.cpp")
+
 set(PARQUET_SRCS
     arrow/fuzz_encoding_internal.cc
     arrow/fuzz_internal.cc
@@ -174,6 +178,8 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
+    fsst_internal.cc
+    ${PARQUET_FSST_SRCS}
     geospatial/statistics.cc
     geospatial/util_internal.cc
     geospatial/util_json_internal.cc
@@ -192,6 +198,21 @@ set(PARQUET_SRCS
     stream_reader.cc
     stream_writer.cc
     types.cc)
+
+set_source_files_properties(${PARQUET_FSST_SRCS}
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+set_property(SOURCE ${PARQUET_FSST_SRCS}
+             APPEND
+             PROPERTY COMPILE_OPTIONS
+                      "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wno-error=shorten-64-to-32;-Wno-shorten-64-to-32>"
+                      "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error=missing-declarations;-Wno-missing-declarations>"
+                      "$<$<CXX_COMPILER_ID:MSVC>:/wd4244>")
+if(ARROW_HAVE_RUNTIME_AVX512)
+  separate_arguments(PARQUET_FSST_AVX512_FLAGS NATIVE_COMMAND "${ARROW_AVX512_FLAG}")
+  set_property(SOURCE "${PARQUET_FSST_SOURCE_DIR}/fsst_avx512.cpp"
+               APPEND
+               PROPERTY COMPILE_OPTIONS ${PARQUET_FSST_AVX512_FLAGS})
+endif()
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.

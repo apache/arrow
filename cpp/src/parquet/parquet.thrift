@@ -637,6 +637,12 @@ enum Encoding {
       Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
   BYTE_STREAM_SPLIT = 9;
+
+  /** Adaptive Lossless floating-Point encoding. Reserved by the Parquet format. */
+  ALP = 10;
+
+  /** Fast Static Symbol Table encoding for BYTE_ARRAY values. */
+  FSST = 11;
 }
 
 /**
@@ -664,6 +670,12 @@ enum PageType {
   INDEX_PAGE = 1;
   DICTIONARY_PAGE = 2;
   DATA_PAGE_V2 = 3;
+  SYMBOL_TABLE_PAGE = 4;
+}
+
+/** The representation used by a symbol table page. */
+enum SymbolTableType {
+  FSST = 0;
 }
 
 /**
@@ -808,6 +820,15 @@ struct BloomFilterHeader {
   4: required BloomFilterCompression compression;
 }
 
+/** Header for a shared symbol table page. */
+struct SymbolTablePageHeader {
+  /** The representation of the symbol table and its encoded values. */
+  1: required SymbolTableType type;
+
+  /** Whether the page body is compressed with the column chunk codec. */
+  2: required bool is_compressed;
+}
+
 struct PageHeader {
   /** the type of the page: indicates which of the *_header fields is set **/
   1: required PageType type
@@ -842,6 +863,7 @@ struct PageHeader {
   6: optional IndexPageHeader index_page_header;
   7: optional DictionaryPageHeader dictionary_page_header;
   8: optional DataPageHeaderV2 data_page_header_v2;
+  9: optional SymbolTablePageHeader symbol_table_page_header;
 }
 
 /**
@@ -951,6 +973,12 @@ struct ColumnMetaData {
 
   /** Optional statistics specific for Geometry and Geography logical types */
   17: optional GeospatialStatistics geospatial_statistics;
+
+  /** Byte offset from the beginning of the file to the symbol table page. */
+  18: optional i64 symbol_table_page_offset;
+
+  /** Serialized symbol table page length, including its page header. */
+  19: optional i32 symbol_table_page_length;
 }
 
 struct EncryptionWithFooterKey {

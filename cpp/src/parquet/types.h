@@ -539,8 +539,10 @@ struct Encoding {
     DELTA_BYTE_ARRAY = 7,
     RLE_DICTIONARY = 8,
     BYTE_STREAM_SPLIT = 9,
+    ALP = 10,
+    FSST = 11,
     // Should always be last element (except UNKNOWN)
-    UNDEFINED = 10,
+    UNDEFINED = 12,
     UNKNOWN = 999
   };
 };
@@ -590,9 +592,24 @@ struct PageType {
     INDEX_PAGE,
     DICTIONARY_PAGE,
     DATA_PAGE_V2,
+    SYMBOL_TABLE_PAGE,
     // Should always be last element
     UNDEFINED
   };
+};
+
+// Mirrors parquet::SymbolTableType
+struct SymbolTableType {
+  enum type {
+    FSST = 0,
+    // Should always be last element
+    UNDEFINED = 1
+  };
+};
+
+// Values stored in the one-byte FSST data page header.
+struct FsstOffsetEncoding {
+  enum type { PLAIN = 0, DELTA_BINARY_PACKED = 1, UNDEFINED = 2 };
 };
 
 bool PageCanUseChecksum(PageType::type pageType);

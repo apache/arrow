@@ -503,6 +503,11 @@ def test_column_encoding():
                                       'c': "DELTA_BYTE_ARRAY",
                                       'd': "DELTA_BYTE_ARRAY"})
 
+    # Check "FSST" for variable-length byte columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'c': "FSST"})
+
     # Check "RLE" for boolean columns.
     _check_roundtrip(mixed_table, expected=mixed_table,
                      use_dictionary=False,
@@ -527,6 +532,12 @@ def test_column_encoding():
                          column_encoding={'a': "DELTA_BINARY_PACKED",
                                           'b': "PLAIN",
                                           'c': "PLAIN"})
+
+    # FSST only supports variable-length byte columns.
+    with pytest.raises(OSError, match="FSST encoder only supports BYTE_ARRAY"):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'b': "FSST"})
 
     # Try to pass "RLE_DICTIONARY".
     # This should throw an error as dictionary encoding is already used by

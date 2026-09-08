@@ -363,6 +363,135 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
                ParquetException);
 }
 
+TEST_F(TestPrimitiveReader, FsstPhysicalValueCountMustMatchDefinitionLevels) {
+  max_def_level_ = 1;
+  max_rep_level_ = 0;
+  NodePtr type = schema::ByteArray("a", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+  // An empty FSST8 table is valid and encodes every input byte as an escape.
+  pages_.push_back(std::make_shared<SymbolTablePage>(
+      Buffer::FromVector(std::vector<uint8_t>(9, 0)), SymbolTableType::FSST,
+      /*is_compressed=*/false));
+
+  // The page has two logical values but only one is defined.  Its FSST header
+  // incorrectly claims two physical values ("a" and "b").
+  const std::vector<uint8_t> fsst_data = {
+      0,                    // PLAIN offsets
+      2,    0,   0,    0,   // physical value count
+      8,    0,   0,    0,   // offset section size
+      2,    0,   0,    0,   // first end offset
+      4,    0,   0,    0,   // second end offset
+      0xFF, 'a', 0xFF, 'b'  // escaped values
+  };
+  pages_.push_back(MakeDataPage<ByteArrayType>(
+      &descr, /*values=*/{}, /*num_vals=*/2, Encoding::FSST, fsst_data.data(),
+      static_cast<int>(fsst_data.size()), /*def_levels=*/{1, 0}, max_def_level_,
+      /*rep_levels=*/{}, max_rep_level_));
+
+  InitReader(&descr);
+  auto* reader = static_cast<ByteArrayReader*>(reader_.get());
+  std::vector<int16_t> def_levels(2);
+  std::vector<ByteArray> values(1);
+  int64_t values_read = 0;
+  EXPECT_THROW(reader->ReadBatch(2, def_levels.data(), /*rep_levels=*/nullptr,
+                                 values.data(), &values_read),
+               ParquetException);
+}
+
+TEST_F(TestPrimitiveReader, SkipWholeFsstPage) {
+  max_def_level_ = 1;
+  max_rep_level_ = 0;
+  NodePtr type = schema::ByteArray("a", Repetition::OPTIONAL);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+  pages_.push_back(std::make_shared<SymbolTablePage>(
+      Buffer::FromVector(std::vector<uint8_t>(9, 0)), SymbolTableType::FSST,
+      /*is_compressed=*/false));
+  const std::vector<uint8_t> fsst_data = {
+      0,               // PLAIN offsets
+      1,    0,  0, 0,  // physical value count
+      4,    0,  0, 0,  // offset section size
+      2,    0,  0, 0,  // end offset
+      0xFF, 'a'        // escaped value
+  };
+  pages_.push_back(MakeDataPage<ByteArrayType>(
+      &descr, /*values=*/{}, /*num_vals=*/2, Encoding::FSST, fsst_data.data(),
+      static_cast<int>(fsst_data.size()), /*def_levels=*/{1, 0}, max_def_level_,
+      /*rep_levels=*/{}, max_rep_level_));
+
+  InitReader(&descr);
+  auto* reader = static_cast<ByteArrayReader*>(reader_.get());
+  ASSERT_EQ(reader->Skip(2), 2);
+  ASSERT_FALSE(reader->HasNext());
+}
+
+TEST_F(TestPrimitiveReader, DictionaryAndFsstPagesCanCoexist) {
+  max_def_level_ = 0;
+  max_rep_level_ = 0;
+  NodePtr type = schema::ByteArray("a", Repetition::REQUIRED);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+  for (const bool dictionary_first : {true, false}) {
+    pages_.clear();
+    reader_.reset();
+
+    const std::string dictionary_storage = "dict";
+    const std::vector<ByteArray> dictionary_values = {
+        ByteArray(dictionary_storage),
+    };
+    DictionaryPageBuilder<ByteArrayType> dictionary_builder(&descr);
+    const auto dictionary_indices = dictionary_builder.AppendValues(dictionary_values);
+    const auto dictionary_page = std::make_shared<DictionaryPage>(
+        dictionary_builder.WriteDict(), dictionary_builder.num_values(), Encoding::PLAIN);
+    const auto symbol_table_page = std::make_shared<SymbolTablePage>(
+        Buffer::FromVector(std::vector<uint8_t>(9, 0)), SymbolTableType::FSST,
+        /*is_compressed=*/false);
+
+    if (dictionary_first) {
+      pages_.push_back(dictionary_page);
+      pages_.push_back(symbol_table_page);
+    } else {
+      pages_.push_back(symbol_table_page);
+      pages_.push_back(dictionary_page);
+    }
+
+    pages_.push_back(MakeDataPage<ByteArrayType>(
+        &descr, /*values=*/{}, /*num_vals=*/1, Encoding::RLE_DICTIONARY,
+        dictionary_indices->data(), static_cast<int>(dictionary_indices->size()),
+        /*def_levels=*/{}, max_def_level_, /*rep_levels=*/{}, max_rep_level_));
+
+    const std::vector<uint8_t> fsst_data = {
+        0,                                          // PLAIN offsets
+        1,    0,   0,    0,                         // physical value count
+        4,    0,   0,    0,                         // offset section size
+        8,    0,   0,    0,                         // end offset
+        0xFF, 'f', 0xFF, 's', 0xFF, 's', 0xFF, 't'  // escaped value
+    };
+    pages_.push_back(MakeDataPage<ByteArrayType>(
+        &descr, /*values=*/{}, /*num_vals=*/1, Encoding::FSST, fsst_data.data(),
+        static_cast<int>(fsst_data.size()), /*def_levels=*/{}, max_def_level_,
+        /*rep_levels=*/{}, max_rep_level_));
+
+    InitReader(&descr);
+    auto* reader = static_cast<ByteArrayReader*>(reader_.get());
+    std::vector<ByteArray> actual(2);
+    int64_t values_read = 0;
+    ASSERT_EQ(reader->ReadBatch(2, /*def_levels=*/nullptr, /*rep_levels=*/nullptr,
+                                actual.data(), &values_read),
+              1);
+    ASSERT_EQ(values_read, 1);
+    EXPECT_EQ(static_cast<std::string_view>(actual[0]), "dict");
+
+    ASSERT_EQ(reader->ReadBatch(1, /*def_levels=*/nullptr, /*rep_levels=*/nullptr,
+                                actual.data() + 1, &values_read),
+              1);
+    ASSERT_EQ(values_read, 1);
+    EXPECT_EQ(static_cast<std::string_view>(actual[1]), "fsst");
+    EXPECT_FALSE(reader->HasNext());
+  }
+}
+
 // GH-41321: When max_def_level > 0 or max_rep_level > 0, and
 // Page has more or less levels than the `num_values` in
 // PageHeader. We should detect and throw exception.

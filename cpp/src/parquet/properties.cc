@@ -103,6 +103,16 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
       this->encoding(col_path, col_props.encoding());
     }
 
+    if (col_props.fsst_offset_encoding() !=
+        default_column_properties_.fsst_offset_encoding()) {
+      this->fsst_offset_encoding(col_path, col_props.fsst_offset_encoding());
+    }
+
+    if (col_props.fsst_training_data_pages() !=
+        default_column_properties_.fsst_training_data_pages()) {
+      this->fsst_training_data_pages(col_path, col_props.fsst_training_data_pages());
+    }
+
     if (col_props.bloom_filter_options().has_value()) {
       this->enable_bloom_filter(col_path, col_props.bloom_filter_options().value());
     }

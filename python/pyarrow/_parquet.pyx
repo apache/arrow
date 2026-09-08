@@ -607,7 +607,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         Encodings used for column (tuple of str).
 
         One of 'PLAIN', 'BIT_PACKED', 'RLE', 'BYTE_STREAM_SPLIT', 'DELTA_BINARY_PACKED',
-        'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'.
+        'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY', 'ALP', 'FSST'.
         """
         return tuple(map(encoding_name_from_enum, self.metadata.encodings()))
 
@@ -623,6 +623,25 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             return self.metadata.dictionary_page_offset()
         else:
             return None
+
+    @property
+    def has_symbol_table_page(self):
+        """Whether a shared FSST symbol table is present (bool)."""
+        return bool(self.metadata.has_symbol_table_page())
+
+    @property
+    def symbol_table_page_offset(self):
+        """Offset of the symbol table page, or None when absent (int)."""
+        if self.has_symbol_table_page:
+            return self.metadata.symbol_table_page_offset()
+        return None
+
+    @property
+    def symbol_table_page_length(self):
+        """Serialized symbol table page length, or None when absent (int)."""
+        if self.has_symbol_table_page:
+            return self.metadata.symbol_table_page_length()
+        return None
 
     @property
     def data_page_offset(self):
@@ -1509,6 +1528,8 @@ cdef encoding_name_from_enum(ParquetEncoding encoding_):
         ParquetEncoding_DELTA_BYTE_ARRAY: 'DELTA_BYTE_ARRAY',
         ParquetEncoding_RLE_DICTIONARY: 'RLE_DICTIONARY',
         ParquetEncoding_BYTE_STREAM_SPLIT: 'BYTE_STREAM_SPLIT',
+        ParquetEncoding_ALP: 'ALP',
+        ParquetEncoding_FSST: 'FSST',
     }.get(encoding_, 'UNKNOWN')
 
 
@@ -1521,6 +1542,7 @@ cdef encoding_enum_from_name(str encoding_name):
         'DELTA_BINARY_PACKED': ParquetEncoding_DELTA_BINARY_PACKED,
         'DELTA_LENGTH_BYTE_ARRAY': ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY,
         'DELTA_BYTE_ARRAY': ParquetEncoding_DELTA_BYTE_ARRAY,
+        'FSST': ParquetEncoding_FSST,
         'RLE_DICTIONARY': 'dict',
         'PLAIN_DICTIONARY': 'dict',
     }.get(encoding_name, None)
