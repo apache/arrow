@@ -199,14 +199,14 @@ class ARROW_EXPORT Buffer {
     return std::shared_ptr<BufferType>{std::move(owner), buffer};
   }
 
-  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// \brief Construct an mutable buffer that takes ownership of the contents
   /// of an std::string (without copying it).
   ///
   /// \param[in] data a string to own
   /// \return a new Buffer instance
   static std::shared_ptr<Buffer> FromString(std::string data);
 
-  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// \brief Construct an mutable buffer that takes ownership of the contents
   /// of an std::vector (without copying it). Only vectors of TrivialType objects
   /// (integers, floating point numbers, ...) can be wrapped by this function.
   ///
