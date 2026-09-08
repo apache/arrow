@@ -110,7 +110,8 @@ class AlpCompressionTest : public ::testing::Test {
 
     // Compress
     AlpEncodingParameters preset{};  // Default preset
-    auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+    auto encoded = compressor.CompressVector(input.data(),
+                                             static_cast<int32_t>(input.size()), preset);
 
     // Decompress
     std::vector<T> output(input.size());
@@ -241,7 +242,8 @@ TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
 
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
@@ -332,7 +334,8 @@ class AlpEdgeCaseTest : public ::testing::Test {
   void TestCompressDecompress(const std::vector<T>& input) {
     AlpCompression<T> compressor;
     AlpEncodingParameters preset{};
-    auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+    auto encoded = compressor.CompressVector(input.data(),
+                                             static_cast<int32_t>(input.size()), preset);
 
     std::vector<T> output(input.size());
     compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
@@ -586,7 +589,8 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.5);
   }
 
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   // Store
   std::vector<uint8_t> buffer(encoded.GetStoredSize());
@@ -620,7 +624,8 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
                             : static_cast<TypeParam>(i) * static_cast<TypeParam>(0.25);
   }
 
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
   ASSERT_GT(encoded.alp_info().num_exceptions(), 0);
 
   const size_t stored_size = static_cast<size_t>(encoded.GetStoredSize());
@@ -677,7 +682,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
     }
   }
 
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   // Verify we actually have exceptions
   EXPECT_GT(encoded.alp_info().num_exceptions(), 0)
@@ -733,7 +739,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
       std::numeric_limits<TypeParam>::infinity(),  // Exception
   };
 
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   // Verify we have exceptions
   EXPECT_GE(encoded.alp_info().num_exceptions(), 2)
@@ -799,7 +806,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
     }
   }
 
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
   EXPECT_GT(encoded.alp_info().num_exceptions(), 0);
 
   // Allocate buffer with extra byte, then use offset to create misaligned start
@@ -964,7 +972,8 @@ TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
 
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   // bit_width should be 0 for constant values
   EXPECT_EQ(encoded.for_info().bit_width(), 0);
@@ -988,7 +997,8 @@ TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
 
     AlpCompression<TypeParam> compressor;
     AlpEncodingParameters preset{};
-    auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+    auto encoded = compressor.CompressVector(input.data(),
+                                             static_cast<int32_t>(input.size()), preset);
 
     std::vector<TypeParam> output(input.size());
     compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
@@ -1007,7 +1017,8 @@ TYPED_TEST(AlpEdgeCaseTest, LargeBitWidths) {
 
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
