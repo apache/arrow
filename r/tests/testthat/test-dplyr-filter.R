@@ -547,3 +547,20 @@ test_that("More complex select/filter_out", {
     tbl
   )
 })
+
+test_that("filter() and filter_out() with across() warn about deprecation", {
+  # the warning is rate-limited to once per session by default
+  withr::local_options(rlib_warning_verbosity = "verbose")
+  tab <- arrow_table(tbl)
+
+  expect_warning(
+    tab |> filter(across(c(int, dbl), ~ .x > 2)) |> collect(),
+    "Using `across\\(\\)` in `filter\\(\\)` is deprecated",
+    class = "lifecycle_warning_deprecated"
+  )
+  expect_warning(
+    tab |> filter_out(across(c(int, dbl), ~ .x > 2)) |> collect(),
+    "Using `across\\(\\)` in `filter_out\\(\\)` is deprecated",
+    class = "lifecycle_warning_deprecated"
+  )
+})
