@@ -294,6 +294,7 @@ else
     -Dsimdjson_SOURCE="${simdjson_SOURCE:-}" \
     -DSnappy_SOURCE="${Snappy_SOURCE:-}" \
     -DThrift_SOURCE="${Thrift_SOURCE:-}" \
+    -Duriparser_SOURCE="${uriparser_SOURCE:-}" \
     -Dutf8proc_SOURCE="${utf8proc_SOURCE:-}" \
     -Dzstd_SOURCE="${zstd_SOURCE:-}" \
     -Dxsimd_SOURCE="${xsimd_SOURCE:-}" \

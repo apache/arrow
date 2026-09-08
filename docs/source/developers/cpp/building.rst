@@ -507,6 +507,7 @@ The build system supports a number of third-party dependencies
   * ``RapidJSON``: for data serialization
   * ``Snappy``: for data compression
   * ``Thrift``: Apache Thrift, for data serialization
+  * ``uriparser``: for URI parsing, used by core Arrow
   * ``utf8proc``: for compute kernels
   * ``ZLIB``: for data compression
   * ``zstd``: for data compression
