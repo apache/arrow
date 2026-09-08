@@ -581,11 +581,10 @@ in Arrow columns.
      * - ``inline``
        - ``Binary``, ``LargeBinary``, or ``BinaryView``
 
-  The fields may be in any order and must be accessed by name, not by position.
-  Field names are case sensitive and must not be renamed. Each field may occur
-  at most once and may be omitted from the ``Struct`` when it is not used. The
-  ``Struct`` must not contain fields other than those listed above; additional
-  metadata about a file should be stored adjacent to the extension type.
+  The fields may be in any order and must be accessed by case-sensitive name,
+  not by position. Each field may occur at most once and may be omitted from
+  the ``Struct`` when it is not used. The ``Struct`` must not contain fields
+  other than those listed above.
 
 * Extension type parameters:
 
@@ -750,17 +749,25 @@ arrays and are serialized like any other arrays.
 Validation
 ----------
 
-* A value must set either ``inline`` or ``uri``. A value that sets neither does
-  not resolve, even if ``offset`` or ``size`` is set.
+* A value must resolve to some referenced data. It resolves only if ``inline``
+  or ``uri`` is set; if neither is set, the value does not resolve and is
+  invalid, even if ``offset`` or ``size`` is set.
 
-* ``offset`` may only be set together with ``uri``.
+* ``offset`` may only be set together with ``uri``. A value that sets
+  ``offset`` without ``uri`` does not resolve and is invalid.
 
-* ``size`` must be set whenever ``offset`` is set.
+* ``size`` must be set whenever ``offset`` is set. A value that sets ``offset``
+  without ``size`` is invalid.
 
 * If ``inline`` and a locator are both set, producers are expected to write the
   same bytes to both sources. Readers are not required to verify this and may
   return the bytes from either source. Producers may treat ``inline`` and the
   locator fields as mutually exclusive.
+
+* Field names within the storage ``Struct`` must not be renamed.
+
+* Additional metadata about the file, such as a modification timestamp, must
+  be stored adjacent to the extension type, not inside its storage ``Struct``.
 
 * An invalid file reference may be returned as a null file reference by a
   reader.
