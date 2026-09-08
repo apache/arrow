@@ -17,9 +17,11 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <string_view>
+#include <type_traits>
 
 #include "arrow/csv/options.h"
 #include "arrow/util/simd.h"

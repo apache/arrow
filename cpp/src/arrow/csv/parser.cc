@@ -18,10 +18,8 @@
 #include "arrow/csv/parser.h"
 
 #include <algorithm>
-#include <concepts>
 #include <cstdio>
 #include <limits>
-#include <type_traits>
 #include <utility>
 
 #include "arrow/csv/lexing_internal.h"
@@ -62,7 +60,7 @@ Status MismatchingColumns(const InvalidRow& row) {
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
 
 template <bool IgnoreExtraColumns>
-constexpr bool ShouldWrite(bool ignoring_extra_field) {
+constexpr bool ShouldWrite([[maybe_unused]] bool ignoring_extra_field) {
   if constexpr (IgnoreExtraColumns) {
     return !ignoring_extra_field;
   }
