@@ -55,8 +55,8 @@ class TestRecordBatch < Test::Unit::TestCase
         assert_equal(ArrowFormat::UInt32Array,
                      record_batch.find_column("count").class)
         assert_equal([
-                       {"visible" => true, "count" => 1},
-                       {"visible" => nil,  "count" => nil},
+                       {"visible" => true,  "count" => 1},
+                       {"visible" => nil,   "count" => nil},
                        {"visible" => false, "count" => 3},
                      ],
                      record_batch.records.collect(&:to_h))
@@ -71,8 +71,8 @@ class TestRecordBatch < Test::Unit::TestCase
           },
         )
         assert_equal([
-                       {"visible" => true, "count" => 1},
-                       {"visible" => nil,  "count" => 2},
+                       {"visible" => true,  "count" => 1},
+                       {"visible" => nil,   "count" => 2},
                        {"visible" => false, "count" => nil},
                      ],
                      record_batch.records.collect(&:to_h))

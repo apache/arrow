@@ -163,6 +163,11 @@ module ArrowFormat
         columns = fields.zip(raw_columns).collect do |field, values|
           field.type.build_array(values || [])
         end
+        all_n_rows = columns.collect(&:size)
+        if all_n_rows.uniq.size != 1
+          message = "inconsistent the number of rows: #{all_n_rows.join(", ")}"
+          raise ArgumentError, message
+        end
       else
         raw_columns = fields.collect { [] }
         data.each_with_index do |record, nth_record|
@@ -174,11 +179,11 @@ module ArrowFormat
               raw_columns[field_index] << value if field_index
             end
           else
+            if record.size > raw_columns.size
+              message = "row #{nth_record} has more values than schema fields"
+              raise ArgumentError, message
+            end
             record.each_with_index do |value, field_index|
-              if field_index >= raw_columns.size
-                message = "row #{nth_record} has more values than schema fields"
-                raise ArgumentError, message
-              end
               raw_columns[field_index] << value
             end
           end
@@ -191,11 +196,6 @@ module ArrowFormat
         end
       end
       n_rows = columns.first&.size || 0
-      all_n_rows = columns.collect(&:size)
-      if data.is_a?(Hash) && all_n_rows.uniq.size != 1
-        message = "inconsistent the number of rows: #{all_n_rows.join(", ")}"
-        raise ArgumentError, message
-      end
       [schema, n_rows, columns]
     end
 
