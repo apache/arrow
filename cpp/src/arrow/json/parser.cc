@@ -750,37 +750,48 @@ class HandlerBase : public BlockParser {
       return Status::OK();
     }
 
-    simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
-                                        json->size());
+    auto parse = [&](const auto& input) -> Status {
+      ARROW_ASSIGN_OR_RAISE(auto stream, arrow::internal::ResolveSimdjsonResult(
+                                             parser_.iterate_many(input),
+                                             "Failed to create JSON document stream"));
 
-    ARROW_ASSIGN_OR_RAISE(auto stream, arrow::internal::ResolveSimdjsonResult(
-                                           parser_.iterate_many(padded_json),
-                                           "Failed to create JSON document stream"));
+      for (auto document_result : stream) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto document,
+            arrow::internal::ResolveSimdjsonResult(
+                document_result, "Failed to iterate JSON document stream"));
 
-    for (auto document_result : stream) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto document, arrow::internal::ResolveSimdjsonResult(
-                             document_result, "Failed to iterate JSON document stream"));
+        if (num_rows_ == std::numeric_limits<int32_t>::max()) {
+          return Status::Invalid("Row count overflowed int32_t");
+        }
 
-      if (num_rows_ == std::numeric_limits<int32_t>::max()) {
-        return Status::Invalid("Row count overflowed int32_t");
+        ARROW_ASSIGN_OR_RAISE(
+            auto value,
+            arrow::internal::ResolveSimdjsonResult(
+                document.get_value(), "JSON parse error: Failed to get JSON value"));
+
+        RETURN_NOT_OK(ParseValue(handler, value));
+
+        ++num_rows_;
       }
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto value,
-          arrow::internal::ResolveSimdjsonResult(
-              document.get_value(), "JSON parse error: Failed to get JSON value"));
+      if (stream.truncated_bytes() != 0) {
+        return ParseError("The document is empty");
+      }
 
-      RETURN_NOT_OK(ParseValue(handler, value));
+      return Status::OK();
+    };
 
-      ++num_rows_;
+    if (json->capacity() - json->size() >=
+        static_cast<int64_t>(simdjson::SIMDJSON_PADDING)) {
+      const auto padded_json = simdjson::padded_string_view(
+          reinterpret_cast<const char*>(json->data()), json->size(), json->capacity());
+      return parse(padded_json);
     }
 
-    if (stream.truncated_bytes() != 0) {
-      return ParseError("The document is empty");
-    }
-
-    return Status::OK();
+    simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
+                                        json->size());
+    return parse(padded_json);
   }
 
   template <Kind::type kind>
