@@ -119,6 +119,9 @@ class ARROW_EXPORT AlpCodec {
 
   /// \brief Decode floating point values
   ///
+  /// `TargetType` is the type the values are written as. It may be wider than
+  /// `T` but never narrower.
+  ///
   /// \param[in] num_elements number of elements the caller expects, which is
   ///            also the capacity of `output` in elements. The ALP header
   ///            embedded in `input` carries its own count, and decoding fails
@@ -130,8 +133,6 @@ class ARROW_EXPORT AlpCodec {
   ///             The caller is responsible for ensuring this is big enough
   ///             to hold num_elements values.
   /// \return Status::OK on success, or an error if the compressed data is malformed
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static Status Decode(int32_t num_elements, const uint8_t* input, int64_t input_size,
                        TargetType* output);
@@ -188,11 +189,12 @@ class ARROW_EXPORT AlpCodec {
     /// Not const: the reader keeps the scratch one vector needed and reuses it
     /// for the next, so decoding a run of vectors does not allocate per vector.
     ///
+    /// `TargetType` is the type the values are written as. It may be wider than
+    /// `T` but never narrower.
+    ///
     /// \param[in] vector_index index of the vector, in `[0, num_vectors())`
     /// \param[out] output room for `VectorLength(vector_index)` values
     /// \return Status::OK on success, or an error if the vector is malformed
-    /// \tparam TargetType the type that is used to store the output.
-    ///         May not be a narrowing conversion from T.
     template <typename TargetType>
     Status DecodeVector(int32_t vector_index, TargetType* output);
 
