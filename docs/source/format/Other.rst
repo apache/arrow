@@ -19,6 +19,7 @@ Other Data Structures
 =====================
 
 .. deprecated::
+
    The IPC features described hereafter are deprecated, as they don't compose
    well with other Arrow concepts such as the :ref:`Columnar format <format_columnar>`.
 
@@ -34,7 +35,8 @@ Tensor (Multi-dimensional Array)
 --------------------------------
 
 .. warning::
-   This message type is mostly unsupported by Arrow implementations.
+   This message type is :ref:`mostly unsupported <status-ipc-format>`
+   by existing Arrow implementations.
    The recommended way to pass tensors over Arrow IPC is using RecordBatch
    columns with the :ref:`fixed_shape_tensor_extension` type.
 
@@ -54,7 +56,8 @@ Sparse Tensor
 -------------
 
 .. warning::
-   This message type is mostly unsupported by Arrow implementations.
+   This message type is :ref:`mostly unsupported <status-ipc-format>`
+   by existing Arrow implementations.
    It currently doesn't have a recommended replacement. If this use case
    is important to you, feel free to discuss it on the
    `development mailing-list <https://arrow.apache.org/community/>`_.
