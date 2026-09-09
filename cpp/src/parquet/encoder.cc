@@ -37,7 +37,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/fastlanes/lane_delta_wrapper_internal.h"
+#include "arrow/util/fastlanes/transposed_delta_wrapper_internal.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
@@ -1871,13 +1871,16 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 // ----------------------------------------------------------------------
 // Lane-parallel delta encoder
 
-// Deltas a value against the one 32 positions back rather than the one
-// immediately before it, so the decoder advances 32 independent chains with one
-// vector add per row instead of walking a single chain of dependent adds. INT32
-// only: the kernel packs 32-bit lanes.
+// Splits a page into 32 independent difference chains, one per lane, so the
+// decoder advances all 32 with one vector add per row instead of walking the
+// single chain of dependent adds DELTA_BINARY_PACKED stores. A lane holds a
+// contiguous run of 32 values, so the differences stored are the ones the format
+// already stores, and the 32 entry points that arrangement needs are themselves
+// delta-coded. INT32 only: the kernel packs 32-bit lanes.
 class LaneDeltaEncoder : public EncoderImpl, virtual public TypedEncoder<Int32Type> {
  public:
   using T = int32_t;
+  using Wrapper = ::arrow::util::fastlanes::TransposedDeltaWrapper<T>;
   using TypedEncoder<Int32Type>::Put;
 
   LaneDeltaEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
@@ -1887,14 +1890,13 @@ class LaneDeltaEncoder : public EncoderImpl, virtual public TypedEncoder<Int32Ty
     // An all-null optional page carries no values and is still written, so it
     // has to encode to a bare value count rather than to zero bytes.
     const int32_t num_values = static_cast<int32_t>(values_.size());
-    const int64_t max_size =
-        ::arrow::util::fastlanes::LaneDeltaWrapper<T>::GetMaxCompressedSize(num_values);
+    const int64_t max_size = Wrapper::GetMaxCompressedSize(num_values);
     PARQUET_ASSIGN_OR_THROW(auto buffer,
                             ::arrow::AllocateResizableBuffer(max_size, pool_));
 
     int64_t comp_size = max_size;
-    PARQUET_THROW_NOT_OK(::arrow::util::fastlanes::LaneDeltaWrapper<T>::Encode(
-        values_.data(), num_values, buffer->mutable_data(), &comp_size));
+    PARQUET_THROW_NOT_OK(
+        Wrapper::Encode(values_.data(), num_values, buffer->mutable_data(), &comp_size));
 
     PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
     values_.clear();
