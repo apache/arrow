@@ -1473,7 +1473,7 @@ cdef class WriteOptions(_Weakrefable):
     delimiter : 1-character string, optional (default ",")
         The character delimiting individual cells in the CSV data.
     eol : str, optional (default "\\n")
-        The end of line character to use for ending rows
+        The end of line character to use for ending rows.
     null_string : str, optional (default "")
         The string to write for null values. Quotes are not allowed in this string.
     quoting_style : str, optional (default "needed")
@@ -1549,7 +1549,7 @@ cdef class WriteOptions(_Weakrefable):
     @property
     def eol(self):
         """
-        The end of line character to use for ending rows
+        The end of line character to use for ending rows.
         """
         return frombytes(deref(self.options).eol)
 
