@@ -23,6 +23,7 @@
 #include <functional>
 #include <limits>
 #include <span>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -2110,6 +2111,52 @@ TYPED_TEST(TestDeltaBitPackEncoding, MiniblockBitWidthRuns) {
     for (const T frame : {T{0}, static_cast<T>(-5)}) {
       ARROW_SCOPED_TRACE("case = ", c.name, ", frame = ", static_cast<int64_t>(frame));
       this->CheckRoundtripWithValues(make_values(c.widths, frame, c.trailing_values));
+    }
+  }
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, PrefixSumVectorAndTail) {
+  // A decoder may accumulate the running total several deltas at a time, finishing
+  // whatever does not fill a whole group one delta at a time and carrying the total
+  // from each group into the next. Walk every residual bit width, and at each one
+  // enough lengths to leave every remainder such a group can leave, so each width is
+  // decoded through the grouped path, through the remainder, and across the hand-off
+  // between them.
+  //
+  // Deltas alternate between the frame and the widest value the width can hold above
+  // it. That pins the stored width, keeps a non-zero frame in play -- whose running
+  // multiple grows with the index, so a decoder that folds it in per group has to get
+  // that multiple right -- and wraps the running total repeatedly, which is where a
+  // grouped total and a value-at-a-time one part company if any term is signed.
+  using T = typename TypeParam::c_type;
+  using UT = std::make_unsigned_t<T>;
+  constexpr int kBits = static_cast<int>(sizeof(T) * 8);
+
+  auto make_values = [](int width, T frame, int num_deltas) {
+    std::vector<T> values;
+    values.reserve(num_deltas + 1);
+    const UT spread = width == kBits ? ~UT{0} : static_cast<UT>((UT{1} << width) - 1);
+    // Two deltas in every three sit at the frame, so the frame is the smallest delta
+    // in every miniblock and the stored residuals are 0 and `spread`.
+    UT current = 0;
+    values.push_back(static_cast<T>(current));
+    for (int i = 0; i < num_deltas; ++i) {
+      current = static_cast<UT>(current + static_cast<UT>(frame) +
+                                (i % 3 == 0 ? spread : UT{0}));
+      values.push_back(static_cast<T>(current));
+    }
+    return values;
+  };
+
+  for (int width = 0; width <= kBits; ++width) {
+    for (const T frame : {T{0}, static_cast<T>(-5), T{7}}) {
+      // 16 through 23 leaves every remainder for any group size up to eight; 201 runs
+      // long enough to cross miniblock and block boundaries with a remainder left.
+      for (const int num_deltas : {16, 17, 18, 19, 20, 21, 22, 23, 201}) {
+        ARROW_SCOPED_TRACE("width = ", width, ", frame = ", static_cast<int64_t>(frame),
+                           ", num_deltas = ", num_deltas);
+        this->CheckRoundtripWithValues(make_values(width, frame, num_deltas));
+      }
     }
   }
 }

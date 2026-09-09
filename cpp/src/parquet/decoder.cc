@@ -30,6 +30,8 @@
 #include <utility>
 #include <vector>
 
+#include <xsimd/xsimd.hpp>
+
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
@@ -1434,6 +1436,76 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
 // ----------------------------------------------------------------------
 // DELTA_BINARY_PACKED decoder
 
+namespace {
+
+// One doubling step of an inclusive scan per power of two, unrolled at compile time.
+// Each step shifts the vector up by kShift lanes, filling with zero, and adds it to
+// itself, so after the last step lane k holds the sum of lanes 0 through k. That is
+// log2(lanes) additions in place of one per lane, and more importantly it replaces a
+// dependency chain as long as the run with one as long as the number of vectors.
+template <std::size_t kShift, typename Batch>
+Batch InclusiveScanSteps(Batch v) {
+  if constexpr (kShift < Batch::size) {
+    v += xsimd::slide_left<kShift * sizeof(typename Batch::value_type)>(v);
+    return InclusiveScanSteps<kShift * 2>(v);
+  } else {
+    return v;
+  }
+}
+
+// Turns a run of deltas in place into the values they encode: on return element k
+// holds `last + (k + 1) * min_delta + sum of deltas 0..k`. Every term is unsigned,
+// so wrapping is well defined and matches what a value-at-a-time loop gives.
+//
+// The frame is added before the scan, which makes its running multiple fall out of
+// the scan itself, and the previous vector's last value is carried in after.
+template <typename T>
+std::make_unsigned_t<T> PrefixSumDeltas(T* values, int num_values,
+                                        std::make_unsigned_t<T> min_delta,
+                                        std::make_unsigned_t<T> last) {
+  using UT = std::make_unsigned_t<T>;
+  using Batch = xsimd::batch<UT>;
+  constexpr int kLanes = static_cast<int>(Batch::size);
+
+  int i = 0;
+  // A vector scan only pays off once a register holds enough values to beat the
+  // chain of additions it replaces. At two lanes it loses: one doubling step plus
+  // carrying the running value across vectors costs more than the two additions it
+  // saves. Four is the narrowest width measured to win, so that is the threshold;
+  // where a register holds fewer, this loop is dropped and the one below does all
+  // the work.
+  if constexpr (kLanes >= 4) {
+    // Broadcasts the last lane, which carries the running value into the next
+    // vector without a round trip through a general-purpose register. Reading the
+    // lane out into one instead costs several times what the scan saves.
+    struct LastLane {
+      static constexpr unsigned get(unsigned /*index*/, unsigned size) {
+        return size - 1;
+      }
+    };
+    const auto last_lane =
+        xsimd::make_batch_constant<UT, LastLane, xsimd::default_arch>();
+    const Batch min_delta_v(min_delta);
+    Batch carry(last);
+    for (; i + kLanes <= num_values; i += kLanes) {
+      // The output buffer's element type is signed. The arithmetic is the same
+      // either way, but has to be spelled unsigned for the overflow to be defined.
+      Batch v = xsimd::bitwise_cast<UT>(xsimd::batch<T>::load_unaligned(values + i));
+      v = InclusiveScanSteps<1>(v + min_delta_v) + carry;
+      xsimd::bitwise_cast<T>(v).store_unaligned(values + i);
+      carry = xsimd::swizzle(v, last_lane);
+    }
+    last = carry.get(0);
+  }
+  for (; i < num_values; ++i) {
+    last += min_delta + static_cast<UT>(values[i]);
+    values[i] = static_cast<T>(last);
+  }
+  return last;
+}
+
+}  // namespace
+
 template <typename DType>
 class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
  public:
@@ -1699,13 +1771,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
             values_decode) {
           ParquetException::EofException();
         }
-        for (int j = 0; j < values_decode; ++j) {
-          // Addition between min_delta, packed int and last_value should be treated as
-          // unsigned addition. Overflow is as expected.
-          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                          static_cast<UT>(last_value_);
-          last_value_ = buffer[i + j];
-        }
+        last_value_ = static_cast<T>(PrefixSumDeltas(buffer + i, values_decode,
+                                                     static_cast<UT>(min_delta_),
+                                                     static_cast<UT>(last_value_)));
       }
       // A coalesced call drained the miniblocks it folded in, so advance the block's
       // cursor past them: the last miniblock of the run becomes the current one,
