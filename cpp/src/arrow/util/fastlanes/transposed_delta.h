@@ -136,13 +136,21 @@ inline void UnpackScalar32(const uint8_t* in, uint32_t w, uint32_t* out) {
     return;
   }
   const uint32_t mask = w == 32 ? ~uint32_t{0} : ((uint32_t{1} << w) - 1);
-  // Branchless: one unaligned 64-bit load per value covers any w <= 32 at any
-  // bit offset. The last load reads up to 7 bytes beyond the base stream, which
-  // TransposedMaxEncodedSize leaves slack for.
+  // One unaligned 64-bit load per value covers any w <= 32 at any bit offset,
+  // and the load for the last value or two reaches past the stream. That is off
+  // the end of the page when the last block of a page needs no payload words,
+  // so the stream is staged first: it is at most 128 bytes, one copy per 1024
+  // values, and it buys a loop with no bounds test and no short loads. Bytes
+  // above the stream never reach the output -- every value's bits lie inside
+  // it, and the mask keeps only those.
+  const size_t stream = (kLanes * w + 7) / 8;
+  alignas(8) uint8_t staged[kLanes * sizeof(uint32_t) + sizeof(uint64_t)];
+  std::memcpy(staged, in, stream);
+  std::memset(staged + stream, 0, sizeof(uint64_t));
   for (size_t i = 0; i < kLanes; ++i) {
     const size_t bit = i * w;
     uint64_t word;
-    std::memcpy(&word, in + (bit >> 3), sizeof(word));
+    std::memcpy(&word, staged + (bit >> 3), sizeof(word));
     out[i] = static_cast<uint32_t>(word >> (bit & 7)) & mask;
   }
 }
