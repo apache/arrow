@@ -128,15 +128,16 @@ struct Winsorize {
     DCHECK_EQ(out->buffers.size(), data.buffers.size());
     out->null_count = data.null_count.load();
     out->length = data.length;
-    // The output is zero-offset, so a sliced input's validity bitmap cannot be shared as is:
-    // it would be read from bit 0 instead of from `data.offset`. Copy the slice's bits out.
-    if (data.buffers[0]) {
+    // A zero-offset input can share its validity bitmap, because the output is read from
+    // bit 0 as well. A sliced input cannot: sharing would read the bitmap from bit 0
+    // instead of from `data.offset`, so copy the slice's bits out.
+    if (data.buffers[0] && data.offset != 0) {
       ARROW_ASSIGN_OR_RAISE(
           out->buffers[0], arrow::internal::CopyBitmap(ctx->memory_pool(),
                                                        data.buffers[0]->data(), data.offset,
                                                        data.length));
     } else {
-      out->buffers[0] = nullptr;
+      out->buffers[0] = data.buffers[0];
     }
     ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(out->length * sizeof(CType)));
     // Avoid leaving uninitialized memory under null entries
