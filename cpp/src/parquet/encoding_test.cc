@@ -2316,6 +2316,59 @@ TYPED_TEST(TestLaneDeltaEncoding, WideDeltas) {
   ASSERT_EQ(values, decoded);
 }
 
+TYPED_TEST(TestLaneDeltaEncoding, PageEndsOnEntryPoints) {
+  using c_type = typename TypeParam::c_type;
+  // A block whose values all advance by the same amount packs to width zero and
+  // so contributes nothing after its entry points. When such a block ends a page
+  // whose length is an exact multiple of the block size, those entry points are
+  // the last bytes of the page, and a decoder that reads them a machine word at
+  // a time reads past the page unless it stops short. Two strides are needed to
+  // get there: the entry points only need a width of their own if the step into
+  // a block differs from the steps inside it.
+  for (const int num_values : {2048, 3072}) {
+    std::vector<c_type> values(num_values);
+    for (int i = 0; i < num_values; ++i) {
+      values[i] = i < 1024 ? static_cast<c_type>(i * 5)
+                           : static_cast<c_type>(1023 * 5 + (i - 1023) * 3);
+    }
+    auto encoder =
+        MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                    /*use_dictionary=*/false, this->descr_.get());
+    encoder->Put(values.data(), num_values);
+    auto buffer = encoder->FlushValues();
+
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+    decoder->SetData(num_values, buffer->data(), static_cast<int>(buffer->size()));
+    std::vector<c_type> decoded(num_values);
+    ASSERT_EQ(num_values, decoder->Decode(decoded.data(), num_values));
+    ASSERT_EQ(values, decoded);
+  }
+}
+
+TYPED_TEST(TestLaneDeltaEncoding, EntryPointsFarApart) {
+  using c_type = typename TypeParam::c_type;
+  // The 32 entry points a block needs are delta-coded against each other and
+  // against the previous block's last one. Values that jump by half the type's
+  // range make those differences as wide as they can be, over several blocks.
+  constexpr int kNumValues = 4096;
+  std::vector<c_type> values(kNumValues);
+  const c_type step = std::numeric_limits<c_type>::max() / 2;
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = static_cast<c_type>((i % 2 == 0) ? 0 : step);
+  }
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::LANE_DELTA,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  encoder->Put(values.data(), kNumValues);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+  std::vector<c_type> decoded(kNumValues);
+  ASSERT_EQ(kNumValues, decoder->Decode(decoded.data(), kNumValues));
+  ASSERT_EQ(values, decoded);
+}
+
 TYPED_TEST(TestLaneDeltaEncoding, DecoderReusedAcrossPages) {
   using c_type = typename TypeParam::c_type;
   auto encoder =
@@ -2456,12 +2509,25 @@ TYPED_TEST(TestLaneDeltaEncoding, RejectsCorruptPages) {
         ParquetException);
   }
 
-  // A block claiming a width no 32-bit lane can hold. The width bytes sit right
-  // after the lane seeds.
+  // A block claiming a payload width no 32-bit lane can hold. One width byte per
+  // block opens the payload, so block zero's follows the value count.
   {
     std::vector<uint8_t> corrupt(page->data(), page->data() + page->size());
-    constexpr int kWidthsOffset = 4 + 32 * static_cast<int>(sizeof(uint32_t));
+    constexpr int kWidthsOffset = 4;
     corrupt[kWidthsOffset] = 33;
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
+    decoder->SetData(kNumValues, corrupt.data(), static_cast<int>(corrupt.size()));
+    EXPECT_THROW(decoder->Decode(decoded.data(), kNumValues), ParquetException);
+  }
+
+  // A block claiming an entry-point width no 32-bit lane can hold. That width
+  // lives inside the block rather than in the header, so reaching it means
+  // walking past the two blocks' widths, rounded up to a 4-byte boundary, and
+  // their two minimums.
+  {
+    std::vector<uint8_t> corrupt(page->data(), page->data() + page->size());
+    constexpr int kBasesOffset = 4 + 4 + 2 * static_cast<int>(sizeof(int32_t));
+    corrupt[kBasesOffset] = 33;
     auto decoder = MakeTypedDecoder<TypeParam>(Encoding::LANE_DELTA, this->descr_.get());
     decoder->SetData(kNumValues, corrupt.data(), static_cast<int>(corrupt.size()));
     EXPECT_THROW(decoder->Decode(decoded.data(), kNumValues), ParquetException);

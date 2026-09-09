@@ -42,7 +42,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/fastlanes/lane_delta_wrapper_internal.h"
+#include "arrow/util/fastlanes/transposed_delta_wrapper_internal.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pfor/pfor_wrapper_internal.h"
@@ -2546,7 +2546,8 @@ class PforDecoder : public TypedDecoderImpl<DType> {
 
 // The mirror of the lane-parallel delta encoder. Its reconstruction advances 32
 // independent chains with one vector add per row, in place of the single chain
-// of dependent adds that DELTA_BINARY_PACKED walks. INT32 only.
+// of dependent adds that DELTA_BINARY_PACKED walks, and returns file order in
+// the same pass. INT32 only.
 //
 // Partial reads take the same route as PFOR's: the kernel keeps no resumption
 // state, so a caller reading a page in batches decodes the whole page into
@@ -2555,7 +2556,7 @@ class LaneDeltaDecoder : public TypedDecoderImpl<Int32Type> {
  public:
   using Base = TypedDecoderImpl<Int32Type>;
   using T = int32_t;
-  using Wrapper = ::arrow::util::fastlanes::LaneDeltaWrapper<T>;
+  using Wrapper = ::arrow::util::fastlanes::TransposedDeltaWrapper<T>;
 
   explicit LaneDeltaDecoder(const ColumnDescriptor* descr,
                             MemoryPool* pool = ::arrow::default_memory_pool())

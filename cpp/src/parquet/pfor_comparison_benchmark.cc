@@ -1767,15 +1767,17 @@ static void BM_LaneDeltaDecode(benchmark::State& state, Gen32 gen) {
 // Lane-parallel delta through the decoder interface
 // ============================================================================
 //
-// BM_LaneDeltaDecode above measures the kernel: it is handed a payload and told
+// BM_TposeFusedDecode below measures the kernel: it is handed a payload and told
 // how many values it holds. These two arms go through the encoder and decoder
-// the library registers for the encoding, so they pay for page framing, for
-// SetData, and for reading the value count out of the page. That makes them
-// comparable with BM_DeltaBitPackEncode / BM_DeltaBitPackDecode, which is the
-// pair libparquet ships, and it is the comparison a margin should be quoted
-// over -- decoder against decoder rather than kernel against decoder.
+// the library registers for the encoding, which is the same layout, base coding
+// and repair that arm uses, so they pay for page framing, for SetData, and for
+// reading the value count out of the page. That makes them comparable with
+// BM_DeltaBitPackEncode / BM_DeltaBitPackDecode, which is the pair libparquet
+// ships, and it is the comparison a margin should be quoted over -- decoder
+// against decoder rather than kernel against decoder. Dividing one by the other
+// prices the framing.
 
-static void BM_LaneDeltaApiDecode(benchmark::State& state, Gen32 gen) {
+static void BM_TposeApiDecode(benchmark::State& state, Gen32 gen) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
   const int64_t uncompressed_size = num_values * sizeof(int32_t);
@@ -1805,7 +1807,7 @@ static void BM_LaneDeltaApiDecode(benchmark::State& state, Gen32 gen) {
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
 
-static void BM_LaneDeltaApiEncode(benchmark::State& state, Gen32 gen) {
+static void BM_TposeApiEncode(benchmark::State& state, Gen32 gen) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
   const int64_t uncompressed_size = num_values * sizeof(int32_t);
@@ -1948,8 +1950,8 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
   BENCHMARK_CAPTURE(BM_DbpGeom1024x8, Name, &GenFunc)->Apply(CustomArgs);          \
   BENCHMARK_CAPTURE(BM_DbpGeom1024x1, Name, &GenFunc)->Apply(CustomArgs);          \
   BENCHMARK_CAPTURE(BM_LaneDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);        \
-  BENCHMARK_CAPTURE(BM_LaneDeltaApiDecode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_LaneDeltaApiEncode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_TposeApiDecode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_TposeApiEncode, Name, &GenFunc)->Apply(CustomArgs);         \
   BENCHMARK_CAPTURE(BM_TposeRawDecode, Name, &GenFunc)->Apply(CustomArgs);         \
   BENCHMARK_CAPTURE(BM_TposePackedDecode, Name, &GenFunc)->Apply(CustomArgs);      \
   BENCHMARK_CAPTURE(BM_TposeFusedDecode, Name, &GenFunc)->Apply(CustomArgs);       \
