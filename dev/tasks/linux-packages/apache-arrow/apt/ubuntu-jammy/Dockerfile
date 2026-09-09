@@ -63,6 +63,7 @@ RUN \
     libxxhash-dev \
     libzstd-dev \
     llvm-dev \
+    locales-all \
     lsb-release \
     meson \
     mold \
