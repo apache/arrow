@@ -128,6 +128,10 @@ struct Winsorize {
     DCHECK_EQ(out->buffers.size(), data.buffers.size());
     out->null_count = data.null_count.load();
     out->length = data.length;
+    // ExecChunked seeds the output from the input chunk, so it can arrive carrying that
+    // chunk's offset. The buffers below are built for this slice alone and are read from
+    // bit and element zero, so the output owns no offset of its own.
+    out->offset = 0;
     // A zero-offset input can share its validity bitmap, because the output is read from
     // bit 0 as well. A sliced input cannot: sharing would read the bitmap from bit 0
     // instead of from `data.offset`, so copy the slice's bits out.
