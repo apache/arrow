@@ -113,6 +113,11 @@ jobs:
               -e BUILD_WARNING_LEVEL=PRODUCTION
             runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
             title: AMD64 Ubuntu Large Memory Tests
+          - image: ubuntu-cpp-bundled-offline
+            runs-on: ubuntu-latest
+            envs:
+              - UBUNTU=24.04
+            title: AMD64 Ubuntu offline bundled build
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
