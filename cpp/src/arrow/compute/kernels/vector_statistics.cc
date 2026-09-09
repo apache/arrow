@@ -133,9 +133,9 @@ struct Winsorize {
     // instead of from `data.offset`, so copy the slice's bits out.
     if (data.buffers[0] && data.offset != 0) {
       ARROW_ASSIGN_OR_RAISE(
-          out->buffers[0], arrow::internal::CopyBitmap(ctx->memory_pool(),
-                                                       data.buffers[0]->data(), data.offset,
-                                                       data.length));
+          out->buffers[0],
+          arrow::internal::CopyBitmap(ctx->memory_pool(), data.buffers[0]->data(),
+                                      data.offset, data.length));
     } else {
       out->buffers[0] = data.buffers[0];
     }
