@@ -16,4 +16,4 @@
 # under the License.
 
 clang
-llvmdev<23
+llvmdev

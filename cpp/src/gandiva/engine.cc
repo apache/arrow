@@ -131,6 +131,8 @@ template <typename T>
 arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
                                const std::string& error_context) {
   if (!expected) {
+    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+    // (ARROW-5148)
     return Status::CodeGenError(error_context, llvm::toString(expected.takeError()));
   }
   return std::move(expected.get());
@@ -207,7 +209,12 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
     ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
-#  if LLVM_VERSION_MAJOR >= 21
+#  if LLVM_VERSION_MAJOR >= 23
+    jit_builder.setObjectLinkingLayerCreator(
+        [](llvm::orc::ExecutionSession& ES, llvm::jitlink::JITLinkMemoryManager&) {
+          return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+        });
+#  elif LLVM_VERSION_MAJOR >= 21
     jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
       return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
     });
@@ -261,13 +268,8 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   return jit;
 }
 
-arrow::Status VerifyAndLinkModule(
-    llvm::Module& dest_module,
-    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto src_ir_module,
-      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
-
+arrow::Status VerifyAndLinkModule(llvm::Module& dest_module,
+                                  std::unique_ptr<llvm::Module> src_ir_module) {
   src_ir_module->setDataLayout(dest_module.getDataLayout());
 
   std::string error_info;
@@ -280,6 +282,14 @@ arrow::Status VerifyAndLinkModule(
                   Status::CodeGenError("failed to link IR Modules"));
 
   return Status::OK();
+}
+
+void RemoveBuildTargetAttributes(llvm::Module& module) {
+  for (auto& function : module.functions()) {
+    function.removeFnAttr("target-cpu");
+    function.removeFnAttr("target-features");
+    function.removeFnAttr("tune-cpu");
+  }
 }
 
 }  // namespace
@@ -422,10 +432,15 @@ Status Engine::LoadPreCompiledIR() {
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
-  // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
-  // (ARROW-5148)
-  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(
+      auto src_ir_module,
+      AsArrowResult(module_or_error, "Failed to verify and link module: "));
+
+  // Built-in bitcode is JIT-compiled on the runtime host. Do not retain the target
+  // selected by Clang when the bitcode was built.
+  RemoveBuildTargetAttributes(*src_ir_module);
+
+  return VerifyAndLinkModule(*module_, std::move(src_ir_module));
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
@@ -439,7 +454,10 @@ Status Engine::LoadExternalPreCompiledIR() {
   for (const auto& buffer : buffers) {
     auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
     auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
-    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto src_ir_module,
+        AsArrowResult(module_or_error, "Failed to verify and link module: "));
+    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(src_ir_module)));
   }
 
   return Status::OK();

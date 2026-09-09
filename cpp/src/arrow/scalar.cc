@@ -1191,13 +1191,13 @@ constexpr int64_t kMillisecondsInDay = 86400000;
 
 // date to date
 template <typename To>
-enable_if_t<std::is_same<To, Date64Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date64Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const Date32Scalar& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<Date64Scalar>(from.value * kMillisecondsInDay,
                                         std::move(to_type));
 }
 template <typename To>
-enable_if_t<std::is_same<To, Date32Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date32Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const Date64Scalar& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<Date32Scalar>(
       static_cast<int32_t>(from.value / kMillisecondsInDay), std::move(to_type));
@@ -1205,7 +1205,7 @@ CastImpl(const Date64Scalar& from, std::shared_ptr<DataType> to_type) {
 
 // timestamp to date
 template <typename To>
-enable_if_t<std::is_same<To, Date64Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date64Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
   ARROW_ASSIGN_OR_RAISE(
       auto millis,
@@ -1214,7 +1214,7 @@ CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
                                         std::move(to_type));
 }
 template <typename To>
-enable_if_t<std::is_same<To, Date32Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date32Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
   ARROW_ASSIGN_OR_RAISE(
       auto millis,
@@ -1225,7 +1225,7 @@ CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
 
 // date to timestamp
 template <typename To, typename From>
-enable_if_timestamp<Result<std::shared_ptr<To>>> CastImpl(
+enable_if_timestamp<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const DateScalar<From>& from, std::shared_ptr<DataType> to_type) {
   using ToScalar = typename TypeTraits<To>::ScalarType;
   int64_t millis = from.value;

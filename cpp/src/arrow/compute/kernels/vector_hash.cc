@@ -136,7 +136,7 @@ class ValueCountsAction final : ActionBase {
   }
 
   template <class Index>
-  void ObserveNullNotFound(Index index) {
+  [[maybe_unused]] void ObserveNullNotFound(Index index) {
     ARROW_LOG(FATAL) << "ObserveNullNotFound without err_status should not be called";
   }
 
