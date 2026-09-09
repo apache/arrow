@@ -18,9 +18,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cctype>
+#include <clocale>
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <string>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -3044,6 +3047,51 @@ TEST(TestStringOps, TestSoundex) {
   auto out2 = soundex_utf8(ctx_ptr, "Smythe", 6, true, &validity, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
   EXPECT_EQ(validity, true);
+}
+
+TEST(TestStringOps, TestSoundexNonAsciiNoOverread) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  bool validity = false;
+  const char* out;
+
+  // ASCII input is unaffected by the fix.
+  out = soundex_utf8(ctx_ptr, "Robert", 6, true, &validity, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "R163");
+
+  // The mappings table has 26 entries (A-Z). Under a non-C locale isalpha
+  // accepts bytes 0x80-0xFF and toupper leaves them past 'Z', which the old
+  // code used to index the table out of bounds. Find such a byte if the
+  // platform provides a locale for it, then confirm it is now treated as a
+  // separator instead of over-reading.
+  const char* candidates[] = {"en_US.UTF-8", "en_US.ISO8859-1", "C.UTF-8",
+                              "de_DE.ISO8859-1", ""};
+  std::string saved = setlocale(LC_CTYPE, nullptr);
+  int trigger = -1;
+  for (const char* loc : candidates) {
+    if (setlocale(LC_CTYPE, loc) == nullptr) {
+      continue;
+    }
+    for (int b = 0x80; b < 0x100; ++b) {
+      if (isalpha(b) && (toupper(b) - 'A' < 0 || toupper(b) - 'A' > 25)) {
+        trigger = b;
+        break;
+      }
+    }
+    if (trigger >= 0) {
+      break;
+    }
+  }
+
+  if (trigger >= 0) {
+    char buf[] = {'R', 'o', 'b', static_cast<char>(trigger), 'e', 'r', 't'};
+    out = soundex_utf8(ctx_ptr, buf, static_cast<int32_t>(sizeof(buf)), true, &validity,
+                       &out_len);
+    EXPECT_EQ(std::string(out, out_len), "R163");
+    EXPECT_EQ(validity, true);
+  }
+  setlocale(LC_CTYPE, saved.c_str());
 }
 
 TEST(TestStringOps, TestInstr) {
