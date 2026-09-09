@@ -1,0 +1,6 @@
+[Apache Arrow Flight SQL ODBC Driver]
+Description=Apache Arrow Flight SQL ODBC Driver 25.0.1
+Driver=@DRIVER_PATH@
+Setup=@DRIVER_PATH@
+Threading=2
+UsageCount=1
