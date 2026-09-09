@@ -121,6 +121,13 @@ add_arrow_compute_test(vector_sort_test
                        arrow_compute_kernels_testing
                        arrow_compute_testing)
 
+add_arrow_compute_test(vector_search_sorted_test
+                       SOURCES
+                       vector_search_sorted_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
+
 add_arrow_compute_test(vector_selection_test
                        SOURCES
                        vector_selection_test.cc
@@ -141,6 +148,7 @@ add_arrow_compute_benchmark(vector_sort_benchmark)
 add_arrow_compute_benchmark(vector_partition_benchmark)
 add_arrow_compute_benchmark(vector_topk_benchmark)
 add_arrow_compute_benchmark(vector_replace_benchmark)
+add_arrow_compute_benchmark(vector_search_sorted_benchmark)
 add_arrow_compute_benchmark(vector_selection_benchmark)
 
 # ----------------------------------------------------------------------
