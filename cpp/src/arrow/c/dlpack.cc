@@ -328,10 +328,9 @@ class CppDLTensor {
   /// Number of element in this tensor's buffer.
   ///
   /// Possibly more elements than represented in the tensor for non-contiguous tensors.
+  ///
+  /// A zero dimensional tensor is a scalar, it holds a single element.
   Result<int64_t> ComputeNumElements() const {
-    if (ndim() == 0) {
-      return 0;
-    }
     const auto strides = this->strides();
     const auto shape = this->shape();
     if (strides.size() > 0) {
@@ -339,7 +338,7 @@ class CppDLTensor {
       return internal::ComputeTensorSize(shape, strides, 1);
     }
     // DLPack <1.3 my set strides == nullptr for row major
-    return std::reduce(shape.begin(), shape.end(), 1, std::multiplies{});
+    return std::reduce(shape.begin(), shape.end(), int64_t{1}, std::multiplies{});
   }
 
   /// Number of bytes needed to store this tensor data.

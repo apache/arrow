@@ -619,6 +619,21 @@ TYPED_TEST(TestImportTensor, Strided) {
   ASSERT_EQ(6, tensor->template Value<FloatType>({1, 1}));
 }
 
+TYPED_TEST(TestImportTensor, ZeroDimensionIsScalar) {
+  auto* managed = Produce({
+      .shape = {},
+      .data = ToBytes(std::vector<float>{42}),
+  });
+  managed->dl_tensor.shape = nullptr;
+  managed->dl_tensor.strides = nullptr;
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::ImportAndValidate(managed));
+  ASSERT_THAT(tensor->shape(), ::testing::IsEmpty());
+  ASSERT_EQ(1, tensor->size());
+  ASSERT_EQ(sizeof(float), tensor->data()->size());
+  ASSERT_EQ(42, tensor->template Value<FloatType>({}));
+}
+
 TYPED_TEST(TestImportTensor, NullStrides) {
   // DLPack < 1.3 uses null strides to mean row major
   auto* managed = Produce({
