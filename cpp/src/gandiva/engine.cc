@@ -443,6 +443,9 @@ Status Engine::LoadPreCompiledIR() {
 
   // Built-in bitcode is JIT-compiled on the runtime host. Do not retain the target
   // selected by Clang when the bitcode was built.
+  // LLVM 23 checks target-feature compatibility even for alwaysinline functions and
+  // prevents inlining on a mismatch. See the LLVM 23 release notes:
+  // https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html#changes-to-the-llvm-ir
   RemoveBuildTargetAttributes(*src_ir_module);
 
   return VerifyAndLinkModule(*module_, std::move(src_ir_module));
