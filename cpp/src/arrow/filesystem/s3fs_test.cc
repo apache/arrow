@@ -49,6 +49,11 @@
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
 #include <aws/s3/model/PutObjectRequest.h>
+// AWS_S3_API on an inline definition in this header expands to
+// __declspec(dllimport), which GCC rejects and MSVC merely warns about.
+#ifndef __MINGW32__
+#  include <aws/s3/model/PutBucketPolicyRequest.h>
+#endif
 #include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -1240,6 +1245,55 @@ TEST_F(TestS3FS, CreateDir) {
                  FileType::Directory);
 }
 
+// PutBucketPolicyRequest.h is not included on MinGW.
+#ifndef __MINGW32__
+TEST_F(TestS3FS, CreateDirPrefixScopedCredentials) {
+  // Grant anonymous access to the "allowed/" prefix only.  HeadBucket needs a
+  // bucket-wide grant, so it is denied for these credentials.
+  const std::string policy = R"({
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": {"AWS": ["*"]},
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": ["arn:aws:s3:::bucket/allowed", "arn:aws:s3:::bucket/allowed/*"]
+    }, {
+      "Effect": "Allow",
+      "Principal": {"AWS": ["*"]},
+      "Action": ["s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::bucket"],
+      "Condition": {"StringLike": {"s3:prefix": ["allowed/*"]}}
+    }]
+  })";
+  {
+    Aws::S3::Model::PutBucketPolicyRequest req;
+    req.SetBucket(ToAwsString("bucket"));
+    req.SetBody(std::make_shared<std::stringstream>(policy));
+    ASSERT_OK(OutcomeToStatus("PutBucketPolicy", client_->PutBucketPolicy(req)));
+  }
+
+  S3Options options;
+  options.ConfigureAnonymousCredentials();
+  options.scheme = minio_->scheme();
+  options.endpoint_override = minio_->connect_string();
+  options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  if (enable_tls_) {
+    options.tls_ca_file_path = minio_->ca_file_path();
+  }
+  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
+
+  // The bucket itself is not readable...
+  ASSERT_RAISES(IOError, fs->GetFileInfo("bucket"));
+  // ...but a directory below the granted prefix can still be created.
+  ASSERT_OK(fs->CreateDir("bucket/allowed/newdir", /*recursive=*/true));
+  AssertObjectContents(client_.get(), "bucket", "allowed/", "");
+  AssertObjectContents(client_.get(), "bucket", "allowed/newdir/", "");
+
+  // Outside of the granted prefix the write itself is denied
+  ASSERT_RAISES(IOError, fs->CreateDir("bucket/denied/newdir", /*recursive=*/true));
+}
+#endif
+
 TEST_F(TestS3FS, DeleteFile) {
   // Bucket
   ASSERT_RAISES(IOError, fs_->DeleteFile("bucket"));
@@ -1721,6 +1775,10 @@ TEST_F(TestS3FS, NoCreateDeleteBucket) {
   ASSERT_RAISES(IOError, maybe_create_dir);
   ASSERT_THAT(maybe_create_dir.message(),
               ::testing::HasSubstr("Bucket 'test-no-create' not found"));
+
+  // Creating a directory inside a nonexistent bucket fails when writing the
+  // directory entry, since the bucket is not probed beforehand
+  ASSERT_RAISES(IOError, fs_->CreateDir("test-no-create/newdir", /*recursive=*/true));
 
   auto maybe_delete_dir = fs_->DeleteDir("test-no-delete");
   ASSERT_RAISES(IOError, maybe_delete_dir);
