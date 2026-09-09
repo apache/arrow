@@ -114,6 +114,21 @@ TEST_F(TestWinsorize, SlicedInput) {
                  ArrayFromJSON(float64(), "[3.0, 3.0, 44.0, 55.0, 55.0]"));
 }
 
+TEST_F(TestWinsorize, SlicedChunkedInput) {
+  // ExecChunked seeds each output from the input chunk, so a sliced chunk carries a
+  // non-zero offset into ClipValues. The output buffers cover the slice alone.
+  options_.lower_limit = 0.0;
+  options_.upper_limit = 1.0;
+  auto parent = ArrayFromJSON(float64(), "[1.1, 2.2, null, 4.4, null, 6.6, 7.7, 8.8]");
+  auto chunked = std::make_shared<ChunkedArray>(
+      ArrayVector{parent->Slice(2, 3), parent->Slice(5, 3)});
+  auto expected = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(float64(), "[null, 4.4, null]"),
+      ArrayFromJSON(float64(), "[6.6, 7.7, 8.8]"),
+  });
+  CheckWinsorize(chunked, expected);
+}
+
 TEST_F(TestWinsorize, Integral) {
   for (auto type : IntTypes()) {
     options_.lower_limit = 0.25;
