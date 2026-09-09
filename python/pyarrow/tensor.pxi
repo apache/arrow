@@ -840,6 +840,9 @@ shape: {self.shape}"""
         if not isinstance(obj, (scipy.sparse.csr_array, scipy.sparse.csr_matrix)):
             raise TypeError(
                 f"Expected scipy.sparse.csr_array or scipy.sparse.csr_matrix, got {type(obj)}")
+        if obj.ndim != 2:
+            raise ValueError("Expected 2-dimensional sparse input for "
+                             "SparseCSRMatrix")
 
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -1111,6 +1114,9 @@ shape: {self.shape}"""
         if not isinstance(obj, (scipy.sparse.csc_array, scipy.sparse.csc_matrix)):
             raise TypeError(
                 f"Expected scipy.sparse.csc_array or scipy.sparse.csc_matrix, got {type(obj)}")
+        if obj.ndim != 2:
+            raise ValueError("Expected 2-dimensional sparse input for "
+                             "SparseCSCMatrix")
 
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape

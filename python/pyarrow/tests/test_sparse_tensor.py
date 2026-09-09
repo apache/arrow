@@ -26,10 +26,13 @@ except ImportError:
 import pyarrow as pa
 
 try:
-    from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix
+    from scipy.sparse import (
+        csr_array, coo_array, csr_matrix, csc_matrix, coo_matrix
+    )
 except ImportError:
     coo_matrix = None
     csr_matrix = None
+    csc_matrix = None
     csr_array = None
     coo_array = None
 
@@ -252,6 +255,24 @@ def test_sparse_csr_matrix_from_dense(dtype_str, arrow_type):
     assert np.array_equal(data, result_data)
     assert np.array_equal(indptr, result_indptr)
     assert np.array_equal(indices, result_indices)
+
+
+@pytest.mark.skipif(not csr_matrix, reason="requires scipy")
+@pytest.mark.parametrize('pa_class,sc_class', [
+    pytest.param(pa.SparseCSRMatrix, csr_matrix, id='CSR'),
+    pytest.param(pa.SparseCSCMatrix, csc_matrix, id='CSC'),
+])
+def test_sparse_csx_matrix_from_1d(pa_class, sc_class):
+    array = np.array([1, 0, 2, 0, 0, 3, 0, 4], dtype=np.int64)
+
+    # csr_matrix/csc_matrix normalize 1D input to (1, n)
+    scipy_matrix = sc_class(array)
+
+    # Test from 1D scipy matrix
+    sparse_tensor = pa_class.from_scipy(scipy_matrix)
+    assert np.array_equal(
+        sparse_tensor.to_tensor().to_numpy(), scipy_matrix.toarray()
+    )
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
