@@ -232,6 +232,12 @@ check_csv_file_format_args <- function(args, partitioning = NULL) {
     args$read_options <- list(col_names = args$col_names)
   }
 
+  if (!is.null(args$convert_options) && !is.null(args$timestamp_parsers)) {
+    rlang::warn(c(
+      "`timestamp_parsers` is ignored when `convert_options` is supplied.",
+      i = "Pass it via `csv_convert_options(timestamp_parsers = ...)` instead."
+    ))
+  }
   if (is.null(args$convert_options)) {
     options$convert_options <- do.call(csv_file_format_convert_opts, c(args, list(read_options = options$read_options)))
   } else if (is.list(args$convert_options)) {

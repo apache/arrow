@@ -628,17 +628,22 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   expect_equal(ds$x, c(NA, 1L, NA, NA, 2L, NA, 3L))
 
   # timestamp_parsers
-  skip("GH-33708: timestamp_parsers don't appear to be working properly")
-
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
+  writeLines(c("time", "16/01/2023 19:47"), dst_file)
 
-  df <- data.frame(time = "2023-01-16 19:47:57")
-  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+  ds <- open_csv_dataset(dst_dir, timestamp_parsers = "%d/%m/%Y %H:%M") |> collect()
+  expect_equal(ds$time, as.POSIXct("2023-01-16 19:47:00", tz = "UTC"), ignore_attr = "tzone")
 
-  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) |> collect()
-
-  expect_equal(ds$time, "16-01-2023")
+  # timestamp_parsers is ignored, with a warning, when convert_options is supplied
+  expect_warning(
+    open_csv_dataset(
+      dst_dir,
+      convert_options = csv_convert_options(),
+      timestamp_parsers = "%d/%m/%Y %H:%M"
+    ),
+    "`timestamp_parsers` is ignored"
+  )
 })
 
 test_that("CSVReadOptions printing", {

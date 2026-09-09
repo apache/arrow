@@ -760,3 +760,45 @@ test_that("altrep columns can roundtrip to table", {
   # we should still be able to turn this into a table
   expect_equal(tbl, as_tibble(arrow_table(new_df)))
 })
+
+test_that("timestamp_parsers during type inference", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  writeLines(c("time", "16/01/2023 19:47"), tf)
+  expected <- as.POSIXct("2023-01-16 19:47:00", tz = "UTC")
+
+  # A matching parser is used during type inference
+  df <- read_csv_arrow(tf, timestamp_parsers = "%d/%m/%Y %H:%M")
+  expect_equal(df$time, expected, ignore_attr = "tzone")
+
+  # A non-matching parser falls through to string, without error
+  df <- read_csv_arrow(tf, timestamp_parsers = "%m-%d-%y")
+  expect_type(df$time, "character")
+
+  # Supplying parsers replaces the ISO-8601 default...
+  writeLines(c("time", "16/01/2023 19:47", "2023-01-17 08:00:00"), tf)
+  df <- read_csv_arrow(tf, timestamp_parsers = "%d/%m/%Y %H:%M")
+  expect_type(df$time, "character")
+
+  # ...unless TimestampParser$create() is included as a fallback
+  df <- read_csv_arrow(
+    tf,
+    timestamp_parsers = list("%d/%m/%Y %H:%M", TimestampParser$create())
+  )
+  expect_equal(
+    df$time,
+    as.POSIXct(c("2023-01-16 19:47:00", "2023-01-17 08:00:00"), tz = "UTC"),
+    ignore_attr = "tzone"
+  )
+
+  # timestamp_parsers is ignored, with a warning, when convert_options is supplied
+  expect_warning(
+    df <- read_csv_arrow(
+      tf,
+      convert_options = csv_convert_options(),
+      timestamp_parsers = "%d/%m/%Y %H:%M"
+    ),
+    "`timestamp_parsers` is ignored"
+  )
+  expect_type(df$time, "character")
+})
