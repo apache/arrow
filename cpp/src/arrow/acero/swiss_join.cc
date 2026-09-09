@@ -1226,6 +1226,7 @@ Status SwissTableForJoinBuild::ProcessPartition(
   // Insert new keys into hash table associated with the current partition
   // and map existing keys to integer ids.
   //
+  ARROW_DCHECK(num_rows_new >= 0);
   prtn_state.key_ids.resize(num_rows_before + num_rows_new);
   SwissTableWithKeys::Input input(&key_batch, num_rows_new, row_ids, temp_stack,
                                   &locals.temp_column_arrays, &locals.temp_group_ids);
