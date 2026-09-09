@@ -131,6 +131,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   // column metadata
   Type::type type() const;
   int64_t num_values() const;
+  bool is_path_in_schema_set() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   bool is_geo_stats_set() const;
