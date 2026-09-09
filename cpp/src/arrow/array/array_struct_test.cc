@@ -285,6 +285,88 @@ TEST(StructArray, Flatten) {
   }
 }
 
+TEST(StructArray, FlattenSparseUnion) {
+  auto type_ids = ArrayFromJSON(int8(), "[2, 7, 2, 7, 2]");
+  auto ints = ArrayFromJSON(int64(), "[10, 20, 30, 40, 50]");
+  auto strs = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d", "e"])");
+  ASSERT_OK_AND_ASSIGN(
+      auto union_array,
+      SparseUnionArray::Make(*type_ids, {ints, strs}, {"ints", "strs"}, {2, 7}));
+
+  std::shared_ptr<Buffer> all_valid;
+  BitmapFromVector<bool>({true, true, true, true, true}, &all_valid);
+  auto struct_type = struct_({field("union", union_array->type())});
+  auto struct_array = std::make_shared<StructArray>(struct_type, union_array->length(),
+                                                    ArrayVector{union_array}, all_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto flattened, struct_array->GetFlattenedField(0));
+  ASSERT_OK(flattened->ValidateFull());
+  ASSERT_EQ(flattened->data()->buffers[0], nullptr);
+  AssertArraysEqual(*union_array, *flattened, /*verbose=*/true);
+
+  std::shared_ptr<Buffer> validity;
+  BitmapFromVector<bool>({true, true, false, true, true}, &validity);
+  struct_array = std::make_shared<StructArray>(struct_type, union_array->length(),
+                                               ArrayVector{union_array}, validity);
+  auto sliced = std::static_pointer_cast<StructArray>(struct_array->Slice(1, 3));
+
+  ASSERT_OK_AND_ASSIGN(flattened, sliced->GetFlattenedField(0));
+  ASSERT_OK(flattened->ValidateFull());
+  const auto& flattened_union = checked_cast<const SparseUnionArray&>(*flattened);
+  ASSERT_EQ(flattened_union.data()->buffers[0], nullptr);
+  EXPECT_EQ(flattened_union.type_code(0), 7);
+  EXPECT_EQ(flattened_union.type_code(1), 2);
+  EXPECT_EQ(flattened_union.type_code(2), 7);
+  AssertArraysEqual(*ArrayFromJSON(int64(), "[20, null, 40]"), *flattened_union.field(0),
+                    /*verbose=*/true);
+  AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["b", null, "d"])"),
+                    *flattened_union.field(1), /*verbose=*/true);
+}
+
+TEST(StructArray, FlattenDenseUnionWithSharedOffsets) {
+  auto type_ids = ArrayFromJSON(int8(), "[7, 2, 2, 2, 7, 7]");
+  auto value_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 0, 1, 2]");
+  auto ints = ArrayFromJSON(int64(), "[10]");
+  auto strs = ArrayFromJSON(utf8(), R"(["pad", "a", "b"])");
+  ASSERT_OK_AND_ASSIGN(auto union_array,
+                       DenseUnionArray::Make(*type_ids, *value_offsets, {ints, strs},
+                                             {"ints", "strs"}, {2, 7}));
+
+  std::shared_ptr<Buffer> validity;
+  BitmapFromVector<bool>({true, true, false, true, true, false}, &validity);
+  auto struct_type = struct_({field("union", union_array->type())});
+  auto struct_array = std::make_shared<StructArray>(struct_type, union_array->length(),
+                                                    ArrayVector{union_array}, validity);
+  auto sliced = std::static_pointer_cast<StructArray>(struct_array->Slice(1, 5));
+
+  ASSERT_OK_AND_ASSIGN(auto flattened, sliced->GetFlattenedField(0));
+  ASSERT_OK(flattened->ValidateFull());
+  const auto& flattened_union = checked_cast<const DenseUnionArray&>(*flattened);
+  ASSERT_EQ(flattened_union.data()->buffers[0], nullptr);
+  for (int64_t i = 0; i < flattened_union.length(); ++i) {
+    EXPECT_EQ(flattened_union.type_code(i),
+              checked_cast<const DenseUnionArray&>(*union_array).type_code(i + 1));
+  }
+
+  auto flattened_ints = flattened_union.field(0);
+  EXPECT_FALSE(flattened_ints->IsNull(flattened_union.value_offset(0)));
+  EXPECT_TRUE(flattened_ints->IsNull(flattened_union.value_offset(1)));
+  EXPECT_FALSE(flattened_ints->IsNull(flattened_union.value_offset(2)));
+  EXPECT_EQ(checked_cast<const Int64Array&>(*flattened_ints)
+                .Value(flattened_union.value_offset(0)),
+            10);
+  EXPECT_EQ(checked_cast<const Int64Array&>(*flattened_ints)
+                .Value(flattened_union.value_offset(2)),
+            10);
+
+  auto flattened_strs = flattened_union.field(1);
+  EXPECT_FALSE(flattened_strs->IsNull(flattened_union.value_offset(3)));
+  EXPECT_TRUE(flattened_strs->IsNull(flattened_union.value_offset(4)));
+  EXPECT_EQ(checked_cast<const StringArray&>(*flattened_strs)
+                .GetString(flattened_union.value_offset(3)),
+            "a");
+}
+
 /// ARROW-7740: Flattening a slice shouldn't affect the parent array.
 TEST(StructArray, FlattenOfSlice) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
