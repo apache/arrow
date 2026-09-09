@@ -68,7 +68,7 @@ parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
     const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  // FIXME: Can't mutate pool after ReaderProperties construction.
+  // FIXME (GH-51264): Can't mutate pool after ReaderProperties construction.
   parquet::ReaderProperties properties(pool);
   if (parquet_scan_options->reader_properties->is_buffered_stream_enabled()) {
     properties.enable_buffered_stream();
