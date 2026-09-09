@@ -162,6 +162,7 @@ class PARQUET_EXPORT LogicalType {
       GEOMETRY,
       GEOGRAPHY,
       VARIANT,
+      FILE,
       NONE  // Not a real logical type; should always be last element
     };
   };
@@ -230,6 +231,7 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> Float16();
   static std::shared_ptr<const LogicalType> Variant(
       int8_t specVersion = kVariantSpecVersion);
+  static std::shared_ptr<const LogicalType> File();
 
   static std::shared_ptr<const LogicalType> Geometry(std::string crs = "");
 
@@ -293,6 +295,7 @@ class PARQUET_EXPORT LogicalType {
   bool is_geometry() const;
   bool is_geography() const;
   bool is_variant() const;
+  bool is_file() const;
   bool is_none() const;
   /// \brief Return true if this logical type is of a known type.
   bool is_valid() const;
@@ -507,6 +510,15 @@ class PARQUET_EXPORT VariantLogicalType : public LogicalType {
 
  private:
   VariantLogicalType() = default;
+};
+
+/// \brief Allowed for group nodes only.
+class PARQUET_EXPORT FileLogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make();
+
+ private:
+  FileLogicalType() = default;
 };
 
 /// \brief Allowed for any physical type.

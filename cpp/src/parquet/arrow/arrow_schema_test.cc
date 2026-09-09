@@ -17,6 +17,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "gmock/gmock-matchers.h"
@@ -33,6 +34,7 @@
 
 #include "arrow/array.h"
 #include "arrow/extension/json.h"
+#include "arrow/extension/parquet_file.h"
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/ipc/writer.h"
@@ -1061,6 +1063,52 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
   }
 }
 
+TEST_F(TestConvertParquetSchema, ParquetFile) {
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "uri", Repetition::OPTIONAL, LogicalType::String(), ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make("offset", Repetition::OPTIONAL,
+                                               LogicalType::None(), ParquetType::INT64));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "inline", Repetition::OPTIONAL, LogicalType::None(), ParquetType::BYTE_ARRAY));
+  auto file =
+      GroupNode::Make("file", Repetition::OPTIONAL, parquet_fields, LogicalType::File());
+
+  auto storage = ::arrow::struct_({::arrow::field("uri", ::arrow::utf8()),
+                                   ::arrow::field("offset", ::arrow::int64()),
+                                   ::arrow::field("inline", ::arrow::binary())});
+  auto file_extension = ::arrow::extension::file(storage);
+
+  std::shared_ptr<::arrow::KeyValueMetadata> metadata;
+  auto stored_schema = ::arrow::schema({::arrow::field("file", file_extension)});
+  ASSERT_OK(ArrowSchemaToParquetMetadata(stored_schema, metadata));
+
+  auto check_file_schema =
+      [&]<bool RegisterExtension>(
+          bool enable_extensions, const std::shared_ptr<const KeyValueMetadata>& metadata,
+          const std::shared_ptr<::arrow::DataType>& expected_type, bool check_metadata) {
+        std::optional<::arrow::ExtensionTypeGuard> guard;
+        if constexpr (RegisterExtension) {
+          guard.emplace(::arrow::DataTypeVector{file_extension});
+        }
+
+        ArrowReaderProperties props;
+        props.set_arrow_extensions_enabled(enable_extensions);
+        ASSERT_OK(ConvertSchema({file}, metadata, props));
+        CheckFlatSchema(::arrow::schema({::arrow::field("file", expected_type)}),
+                        check_metadata);
+      };  // NOLINT(readability/braces)
+
+  check_file_schema.operator()<true>(true, std::shared_ptr<const KeyValueMetadata>{},
+                                     file_extension, true);
+  check_file_schema.operator()<true>(false, std::shared_ptr<const KeyValueMetadata>{},
+                                     storage, true);
+  check_file_schema.operator()<false>(true, std::shared_ptr<const KeyValueMetadata>{},
+                                      storage, true);
+  check_file_schema.operator()<true>(false, metadata, file_extension, true);
+  check_file_schema.operator()<false>(true, metadata, storage, false);
+}
+
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowJsonExtension) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
@@ -1836,6 +1884,29 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   ASSERT_OK(ConvertSchema(arrow_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetFile) {
+  auto storage = ::arrow::struct_({::arrow::field("inline", ::arrow::binary()),
+                                   ::arrow::field("uri", ::arrow::utf8()),
+                                   ::arrow::field("size", ::arrow::int64())});
+  auto file_type = ::arrow::extension::file(storage);
+  auto arrow_fields = ::arrow::FieldVector{::arrow::field("file", file_type)};
+
+  auto expected = GroupNode::Make(
+      "file", Repetition::OPTIONAL,
+      {PrimitiveNode::Make("inline", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("uri", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY,
+                           ConvertedType::UTF8),
+       PrimitiveNode::Make("size", Repetition::OPTIONAL, ParquetType::INT64)},
+      LogicalType::File());
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+  ASSERT_EQ(result_schema_->group_node()->field_count(), 1);
+  ASSERT_TRUE(result_schema_->group_node()->field(0)->Equals(expected.get()));
+
+  ASSERT_OK(ConvertSchema({::arrow::field("file", storage)}));
+  ASSERT_FALSE(result_schema_->group_node()->field(0)->logical_type()->is_file());
 }
 
 TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
