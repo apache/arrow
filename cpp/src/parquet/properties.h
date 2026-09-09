@@ -70,7 +70,7 @@ constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
 // Maximum schema nesting depth. This default value is conservatively small as
 // some systems may not set a very large stack size.
-constexpr int32_t kSchemaDepthLimit = 100;
+constexpr int32_t kDefaultSchemaDepthLimit = 100;
 
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
@@ -159,7 +159,7 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
-  int32_t schema_depth_limit_ = kSchemaDepthLimit;
+  int32_t schema_depth_limit_ = kDefaultSchemaDepthLimit;
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.

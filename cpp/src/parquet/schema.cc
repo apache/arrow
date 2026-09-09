@@ -564,6 +564,7 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
   // consistently set by implementations
 
   size_t pos = 0;
+  size_t num_reserved = 0;
 
   std::function<std::unique_ptr<Node>(int depth)> NextNode = [&](int depth) {
     if (pos == elements.size()) {
@@ -587,7 +588,14 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
         throw ParquetException(ss.str());
       }
       if (element.num_children < 0) {
-        throw ParquetException("Invalid Parquet schema: negative number of children");
+        throw ParquetException("Malformed Parquet schema: negative number of children");
+      }
+      // Guard against excessive pre-reservation by an invalid schema.
+      // For example, a sequence of group nodes advertising N, N-1, etc. children
+      // could lead to quadratic preallocation.
+      num_reserved += static_cast<size_t>(element.num_children);
+      if (num_reserved > elements.size()) {
+        throw ParquetException("Malformed Parquet schema: not enough elements");
       }
       NodeVector fields(element.num_children);
       for (int i = 0; i < element.num_children; ++i) {
