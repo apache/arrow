@@ -110,7 +110,8 @@ TEST_F(TestWinsorize, SlicedInput) {
   options_.lower_limit = 0.25;
   options_.upper_limit = 0.75;
   auto dense = ArrayFromJSON(float64(), "[1.0, 2.0, 3.0, 44.0, 55.0, 66.0, 77.0]");
-  CheckWinsorize(dense->Slice(1, 5), ArrayFromJSON(float64(), "[3.0, 3.0, 44.0, 55.0, 55.0]"));
+  CheckWinsorize(dense->Slice(1, 5),
+                 ArrayFromJSON(float64(), "[3.0, 3.0, 44.0, 55.0, 55.0]"));
 }
 
 TEST_F(TestWinsorize, Integral) {
