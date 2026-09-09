@@ -1863,7 +1863,7 @@ constexpr int kDefaultBackgroundQRestart = 16;
 ///
 /// This generator will queue up to max_q blocks
 template <typename T>
-static Result<AsyncGenerator<T>> MakeBackgroundGenerator(
+Result<AsyncGenerator<T>> MakeBackgroundGenerator(
     Iterator<T> iterator, internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart) {
   if (max_q < q_restart) {
@@ -1887,7 +1887,7 @@ static Result<AsyncGenerator<T>> MakeBackgroundGenerator(
 ///
 /// This generator does not queue
 template <typename T>
-static Result<AsyncGenerator<T>> MakeBlockingGenerator(
+Result<AsyncGenerator<T>> MakeBlockingGenerator(
     std::shared_ptr<Iterator<T>> iterator) {
   return [it = std::move(iterator)]() mutable -> Future<T> {
     return Future<T>::MakeFinished(it->Next());
@@ -1895,7 +1895,7 @@ static Result<AsyncGenerator<T>> MakeBlockingGenerator(
 }
 
 template <typename T>
-static Result<AsyncGenerator<T>> MakeBlockingGenerator(Iterator<T> iterator) {
+Result<AsyncGenerator<T>> MakeBlockingGenerator(Iterator<T> iterator) {
   return MakeBlockingGenerator(std::make_shared<Iterator<T>>(std::move(iterator)));
 }
 

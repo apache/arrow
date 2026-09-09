@@ -179,6 +179,7 @@ set(ARROW_DOC_DIR "${CMAKE_INSTALL_DOCDIR}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "23.1"
     "22.1"
     "21.1"
     "20.1"
