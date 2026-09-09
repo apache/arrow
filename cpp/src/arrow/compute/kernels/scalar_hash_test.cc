@@ -264,6 +264,31 @@ TEST_F(TestScalarHash, NullProducesNull) {
   ASSERT_NE(buf2[1], buf2[2]);
 }
 
+// The kernel only ever sees arrays: for a unary function a scalar argument makes the
+// span all-scalar, which the executor promotes to length-1 ArraySpans before calling
+// Exec (PromoteExecSpanScalars, "since the kernel implementations do not handle the all
+// scalar case"). The result comes back as a scalar, matching the input's shape.
+TEST_F(TestScalarHash, ScalarInput) {
+  auto arr = ArrayFromJSON(int32(), R"([null, 0, 1])");
+  for (const std::string func : {"hash32", "hash64"}) {
+    ARROW_SCOPED_TRACE("func: ", func);
+    ASSERT_OK_AND_ASSIGN(Datum array_result, CallFunction(func, {arr}));
+    auto hashes = array_result.make_array();
+    for (int64_t i = 0; i < arr->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto element, arr->GetScalar(i));
+      ASSERT_OK_AND_ASSIGN(Datum scalar_result, CallFunction(func, {element}));
+      ASSERT_TRUE(scalar_result.is_scalar()) << "row " << i;
+      // A scalar argument must hash exactly as that row of the equivalent array does.
+      ASSERT_OK_AND_ASSIGN(auto expected, hashes->GetScalar(i));
+      AssertScalarsEqual(*expected, *scalar_result.scalar(), /*verbose=*/true);
+    }
+  }
+  // A null scalar still produces a null, as the null row of an array does.
+  ASSERT_OK_AND_ASSIGN(Datum null_result,
+                       CallFunction("hash32", {MakeNullScalar(int32())}));
+  ASSERT_FALSE(null_result.scalar()->is_valid);
+}
+
 // HashIntImp (used for any fixed-width type whose byte width is a power of 2 up to 8:
 // ints, floats, dates, times, timestamps, durations) doesn't special-case an
 // all-zero-bits key, so a legitimately valid "zero" value hashes to a raw 0 -- same as
