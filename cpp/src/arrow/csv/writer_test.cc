@@ -63,7 +63,8 @@ WriteOptions DefaultTestOptions(bool include_header = false,
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
                                 const std::string& eol = "\n", char delimiter = ',',
                                 int batch_size = 5,
-                                QuotingStyle quoting_header = QuotingStyle::Needed) {
+                                QuotingStyle quoting_header = QuotingStyle::Needed,
+                                EscapeStyle escape_style = EscapeStyle::Double) {
   WriteOptions options;
   options.batch_size = batch_size;
   options.include_header = include_header;
@@ -72,6 +73,7 @@ WriteOptions DefaultTestOptions(bool include_header = false,
   options.eol = eol;
   options.quoting_style = quoting_style;
   options.delimiter = delimiter;
+  options.escape_style = escape_style;
   return options;
 }
 
@@ -82,6 +84,21 @@ std::string UtilGetExpectedWithEOL(const std::string& eol) {
          R"(,,,,,,,)" + eol +                     // line 4
          R"(546,"",517,,,,,)" + eol +             // line 5
          R"(124,"a""""b""",,,,,,)" + eol +        // line 6
+         R"(,,,1970-01-01,,,,"jklm")" + eol +     // line 7
+         R"(,,,,1970-01-02,,,)" + eol +           // line 8
+         R"(,,,,,2004-02-29 01:02:03,,)" + eol +  // line 9
+         R"(,,,,,,3600,)" + eol +                 // line 10
+         R"(,"NA",,,,,,)" + eol;                  // line 11
+}
+
+// Expected output using EscapeStyle::Backslash (quotes escaped by a preceding backslash).
+std::string UtilGetExpectedWithEOLBackslash(const std::string& eol) {
+  return std::string("1,,-1,,,,,") + eol +        // line 1
+         R"(1,"abc\"efg",2324,,,,,)" + eol +      // line 2
+         R"(,"abcd",5467,,,,,"efghi")" + eol +    // line 3
+         R"(,,,,,,,)" + eol +                     // line 4
+         R"(546,"",517,,,,,)" + eol +             // line 5
+         R"(124,"a\"\"b\"",,,,,,)" + eol +        // line 6
          R"(,,,1970-01-01,,,,"jklm")" + eol +     // line 7
          R"(,,,,1970-01-02,,,)" + eol +           // line 8
          R"(,,,,,2004-02-29 01:02:03,,)" + eol +  // line 9
@@ -306,6 +323,29 @@ std::vector<WriterTestParams> GenerateTestCases() {
                           /*delimiter=*/',', /*batch_size=*/5,
                           /*quoting_header=*/QuotingStyle::None),
        "", expected_status_no_quotes_with_structural_in_header("b\"")},
+      // EscapeStyle::Backslash: quotes escaped by a preceding backslash.
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/',',
+                          /*batch_size=*/5, /*quoting_header=*/QuotingStyle::Needed,
+                          /*escape_style=*/EscapeStyle::Backslash),
+       UtilGetExpectedWithEOLBackslash("\n")},
+      // EscapeStyle::Backslash with header (field name "b\"" escaped as "b\\\"").
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/',',
+                          /*batch_size=*/5, /*quoting_header=*/QuotingStyle::Needed,
+                          /*escape_style=*/EscapeStyle::Backslash),
+       R"("a","b\"","c ","d","e","f","g","h")"
+           "\n" +
+           UtilGetExpectedWithEOLBackslash("\n")},
+      // EscapeStyle::None: quotes are not escaped.
+      {schema({field("a", utf8())}), R"([{"a": "x\"y"}])",
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/',',
+                          /*batch_size=*/5, /*quoting_header=*/QuotingStyle::Needed,
+                          /*escape_style=*/EscapeStyle::None),
+       R"("x"y")" "\n"},
   };
 }
 
