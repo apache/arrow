@@ -114,4 +114,23 @@ std::string FunctionSignature::ToString() const {
   return s.str();
 }
 
+std::string FunctionSignature::CallShape() const {
+  std::stringstream s;
+  s << AsciiToLower(base_name_) << "(";
+  for (uint32_t i = 0; i < param_types_.size(); i++) {
+    if (i > 0) {
+      s << ", ";
+    }
+    const auto& p = param_types_[i];
+    if (p->id() == arrow::Type::DECIMAL) {
+      // Precision/scale aren't part of signature identity (see operator==).
+      s << "decimal" << (p->byte_width() * 8);
+    } else {
+      s << p->ToString();
+    }
+  }
+  s << ")";
+  return s.str();
+}
+
 }  // namespace gandiva
