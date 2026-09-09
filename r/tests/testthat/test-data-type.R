@@ -163,6 +163,17 @@ test_that("utf8 type works as expected", {
   expect_equal(x$fields(), list())
 })
 
+test_that("string_view type works as expected", {
+  x <- string_view()
+  expect_equal(x$id, Type$STRING_VIEW)
+  expect_equal(x$name, "utf8_view")
+  expect_equal(x$ToString(), "string_view")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+})
+
 test_that("date types work as expected", {
   x <- date32()
   expect_equal(x$id, Type$DATE32)
@@ -556,9 +567,11 @@ test_that("DataType$code()", {
 
   expect_code_roundtrip(boolean())
   expect_code_roundtrip(utf8())
+  expect_code_roundtrip(string_view())
   expect_code_roundtrip(large_utf8())
 
   expect_code_roundtrip(binary())
+  expect_code_roundtrip(binary_view())
   expect_code_roundtrip(large_binary())
   expect_code_roundtrip(fixed_size_binary(byte_width = 91))
 
@@ -626,4 +639,15 @@ test_that("as_data_type() works for Schema", {
     as_data_type(schema(col1 = int32(), col2 = string())),
     struct(col1 = int32(), col2 = string())
   )
+})
+
+test_that("binary_view type works as expected", {
+  x <- binary_view()
+  expect_equal(x$id, Type$BINARY_VIEW)
+  expect_equal(x$name, "binary_view")
+  expect_equal(x$ToString(), "binary_view")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
 })

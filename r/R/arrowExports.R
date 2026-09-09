@@ -900,6 +900,10 @@ Utf8__initialize <- function() {
   .Call(`_arrow_Utf8__initialize`)
 }
 
+Utf8View__initialize <- function() {
+  .Call(`_arrow_Utf8View__initialize`)
+}
+
 LargeUtf8__initialize <- function() {
   .Call(`_arrow_LargeUtf8__initialize`)
 }
@@ -910,6 +914,10 @@ Binary__initialize <- function() {
 
 LargeBinary__initialize <- function() {
   .Call(`_arrow_LargeBinary__initialize`)
+}
+
+BinaryView__initialize <- function() {
+  .Call(`_arrow_BinaryView__initialize`)
 }
 
 Date32__initialize <- function() {
