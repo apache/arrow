@@ -1466,3 +1466,224 @@ test_that("uint64 inside list columns always converts to double (GH-50339)", {
   expect_type(result[[1]], "double")
   expect_type(result[[2]], "double")
 })
+
+test_that("list of dictionary: ptype and elements share the dictionary's levels (GH-50514)", {
+  arr <- arrow_array(
+    list(factor(c("a", "b"), levels = c("a", "b", "c")), factor("c", levels = c("a", "b", "c"))),
+    type = list_of(dictionary(int8(), utf8()))
+  )
+  result <- as.vector(arr)
+
+  ptype <- attr(result, "ptype")
+  expect_s3_class(ptype, "factor")
+  expect_identical(levels(ptype), c("a", "b", "c"))
+  expect_identical(levels(result[[1]]), c("a", "b", "c"))
+  expect_identical(levels(result[[2]]), c("a", "b", "c"))
+  expect_identical(result[[1]], factor(c("a", "b"), levels = c("a", "b", "c")))
+})
+
+test_that("list<struct<dictionary>> unifies factor levels across chunks (GH-50514)", {
+  batch1 <- record_batch(
+    id = 1:2,
+    resources = list(
+      data.frame(type = factor(c("river", "lake"))),
+      data.frame(type = factor("river"))
+    )
+  )
+  batch2 <- record_batch(
+    id = 3L,
+    resources = list(data.frame(type = factor(c("sea", "lake"))))
+  )
+  # Each batch carries its own dictionary for resources$type
+  dict1 <- batch1$resources$values()$GetFieldByName("type")$dictionary()
+  dict2 <- batch2$resources$values()$GetFieldByName("type")$dictionary()
+  expect_false(dict1$Equals(dict2))
+
+  buf <- write_to_raw(Table$create(batch1, batch2), format = "stream")
+  df <- as.data.frame(read_ipc_stream(buf))
+
+  ptype_levels <- levels(attr(df$resources, "ptype")$type)
+  expect_identical(sort(ptype_levels), c("lake", "river", "sea"))
+  expect_identical(
+    lapply(df$resources, function(element) levels(element$type)),
+    rep(list(ptype_levels), 3)
+  )
+  expect_identical(as.character(df$resources[[3]]$type), c("sea", "lake"))
+
+  # tidyr::unnest() combines the elements via vctrs using the list's ptype
+  unnested <- vctrs::vec_rbind(!!!df$resources, .ptype = attr(df$resources, "ptype"))
+  expect_s3_class(unnested$type, "factor")
+  expect_identical(
+    as.character(unnested$type),
+    c("river", "lake", "river", "sea", "lake")
+  )
+})
+
+test_that("list of ordered dictionary keeps ordered class across chunks (GH-50514)", {
+  arr1 <- arrow_array(list(factor("lo", levels = c("lo", "hi"), ordered = TRUE)))
+  arr2 <- arrow_array(list(factor("hi", levels = c("hi", "max"), ordered = TRUE)))
+  result <- as.vector(chunked_array(arr1, arr2))
+
+  expect_s3_class(attr(result, "ptype"), "ordered")
+  expect_s3_class(result[[1]], "ordered")
+  expect_identical(levels(result[[1]]), levels(result[[2]]))
+  expect_identical(as.character(result[[1]]), "lo")
+  expect_identical(as.character(result[[2]]), "hi")
+})
+
+test_that("large_list, fixed_size_list and map of dictionary unify levels across chunks (GH-50514)", {
+  f1 <- list(factor(c("a", "b")))
+  f2 <- list(factor(c("c", "b")))
+
+  large <- chunked_array(
+    arrow_array(f1, type = large_list_of(dictionary())),
+    arrow_array(f2, type = large_list_of(dictionary()))
+  )
+  result <- as.vector(large)
+  expect_identical(levels(result[[1]]), levels(result[[2]]))
+  expect_identical(levels(attr(result, "ptype")), levels(result[[1]]))
+  expect_identical(as.character(result[[2]]), c("c", "b"))
+
+  fixed <- chunked_array(
+    arrow_array(f1, type = fixed_size_list_of(dictionary(), 2L)),
+    arrow_array(f2, type = fixed_size_list_of(dictionary(), 2L))
+  )
+  result <- as.vector(fixed)
+  expect_identical(levels(result[[1]]), levels(result[[2]]))
+  expect_identical(levels(attr(result, "ptype")), levels(result[[1]]))
+  expect_identical(as.character(result[[2]]), c("c", "b"))
+
+  map_type <- map_of(utf8(), dictionary())
+  m1 <- arrow_array(list(data.frame(key = "k", value = factor("a"))), type = map_type)
+  m2 <- arrow_array(list(data.frame(key = "k", value = factor("b"))), type = map_type)
+  result <- as.vector(chunked_array(m1, m2))
+  expect_identical(levels(result[[1]]$value), levels(result[[2]]$value))
+  expect_identical(levels(attr(result, "ptype")$value), levels(result[[1]]$value))
+  expect_identical(as.character(result[[2]]$value), "b")
+})
+
+test_that("int64 inside list columns converts to one type for the whole column (GH-50514)", {
+  small <- arrow_array(list(bit64::as.integer64(1:2)), type = list_of(int64()))
+  big <- arrow_array(list(bit64::as.integer64(2)^40), type = list_of(int64()))
+
+  # all values fit: integer, including the ptype
+  result <- as.vector(small)
+  expect_type(result[[1]], "integer")
+  expect_type(attr(result, "ptype"), "integer")
+
+  # one element doesn't fit: integer64 everywhere, including the ptype
+  result <- as.vector(chunked_array(small, big))
+  expect_s3_class(result[[1]], "integer64")
+  expect_s3_class(result[[2]], "integer64")
+  expect_s3_class(attr(result, "ptype"), "integer64")
+  expect_identical(result[[1]], bit64::as.integer64(1:2))
+
+  # and the option is respected inside lists
+  withr::with_options(list(arrow.int64_downcast = FALSE), {
+    result <- as.vector(small)
+    expect_s3_class(result[[1]], "integer64")
+    expect_s3_class(attr(result, "ptype"), "integer64")
+  })
+})
+
+test_that("uint32 inside list columns converts to one type for the whole column (GH-50514)", {
+  small <- arrow_array(list(1:2), type = list_of(uint32()))
+  big <- arrow_array(list(.Machine$integer.max + 1), type = list_of(uint32()))
+
+  result <- as.vector(small)
+  expect_type(result[[1]], "integer")
+  expect_type(attr(result, "ptype"), "integer")
+
+  result <- as.vector(chunked_array(small, big))
+  expect_type(result[[1]], "double")
+  expect_type(result[[2]], "double")
+  expect_type(attr(result, "ptype"), "double")
+  expect_identical(result[[2]], .Machine$integer.max + 1)
+})
+
+test_that("nested lists unify inner element types across chunks (GH-50514)", {
+  # list<list<dictionary>>
+  a <- arrow_array(list(list(factor("a"))), type = list_of(list_of(dictionary())))
+  b <- arrow_array(list(list(factor("b"))), type = list_of(list_of(dictionary())))
+  result <- as.vector(chunked_array(a, b))
+  expect_identical(levels(result[[1]][[1]]), levels(result[[2]][[1]]))
+  expect_identical(levels(attr(attr(result, "ptype"), "ptype")), levels(result[[1]][[1]]))
+  expect_identical(as.character(result[[2]][[1]]), "b")
+
+  # list<struct<list<int64>>>
+  type <- list_of(struct(a = list_of(int64())))
+  a <- arrow_array(list(data.frame(a = I(list(bit64::as.integer64(1))))), type = type)
+  b <- arrow_array(list(data.frame(a = I(list(bit64::as.integer64(2)^40)))), type = type)
+  result <- as.vector(chunked_array(a, b))
+  expect_s3_class(result[[1]]$a[[1]], "integer64")
+  expect_s3_class(result[[2]]$a[[1]], "integer64")
+  expect_s3_class(attr(attr(result, "ptype")$a, "ptype"), "integer64")
+})
+
+test_that("empty and all-null list of dictionary columns still convert (GH-50514)", {
+  type <- list_of(dictionary())
+
+  empty <- as.vector(arrow_array(list(), type = type))
+  expect_length(empty, 0)
+  expect_s3_class(attr(empty, "ptype"), "factor")
+
+  nulls <- as.vector(arrow_array(list(NULL, NULL), type = type))
+  expect_identical(nulls[[1]], NULL)
+  expect_s3_class(attr(nulls, "ptype"), "factor")
+
+  one_empty_chunk <- ChunkedArray$create(type = type)
+  result <- as.vector(one_empty_chunk)
+  expect_length(result, 0)
+  expect_s3_class(attr(result, "ptype"), "factor")
+
+  zero_chunks <- one_empty_chunk$Filter(ChunkedArray$create(type = bool()))
+  expect_equal(zero_chunks$num_chunks, 0)
+  result <- as.vector(zero_chunks)
+  expect_length(result, 0)
+  expect_s3_class(attr(result, "ptype"), "factor")
+})
+
+test_that("string list elements are still altrep vectors (GH-50514)", {
+  skip_if_not(getOption("arrow.use_altrep", TRUE))
+  result <- as.vector(arrow_array(list(c("a", "b"), "c")))
+  expect_true(is_arrow_altrep(result[[1]]))
+  expect_identical(result[[1]], c("a", "b"))
+})
+
+test_that("list of extension type still converts (GH-50514)", {
+  vctr <- vctrs::new_vctr(1:3, class = "custom_vctr")
+  # list<extension> can't be built directly from R, but can be cast to
+  arr <- arrow_array(list(1:3, 1L))$cast(list_of(vctrs_extension_type(vctr)))
+  expect_r6_class(arr$type$value_type, "ExtensionType")
+
+  result <- as.vector(arr)
+  expect_identical(result[[1]], vctr)
+  expect_identical(result[[2]], vctr[1])
+  expect_identical(attr(result, "ptype"), vctr[0])
+})
+
+test_that("only the logical values of a sliced list array take part in conversion decisions (GH-50514)", {
+  arr <- arrow_array(
+    list(bit64::as.integer64(2)^40, bit64::as.integer64(1:2)),
+    type = list_of(int64())
+  )
+  # the whole array needs integer64
+  expect_s3_class(as.vector(arr)[[2]], "integer64")
+
+  # but a slice that leaves out the large value doesn't
+  sliced <- as.vector(arr$Slice(1))
+  expect_type(sliced[[1]], "integer")
+  expect_type(attr(sliced, "ptype"), "integer")
+})
+
+test_that("list of struct with an extension type column converts (GH-50514)", {
+  vctr <- vctrs::new_vctr(1:3, class = "custom_vctr")
+  arr <- arrow_array(list(data.frame(x = 1:3), data.frame(x = 1L)))$cast(
+    list_of(struct(x = vctrs_extension_type(vctr)))
+  )
+
+  result <- as.vector(arr)
+  expect_identical(result[[1]]$x, vctr)
+  expect_identical(result[[2]]$x, vctr[1])
+  expect_identical(attr(result, "ptype")$x, vctr[0])
+})

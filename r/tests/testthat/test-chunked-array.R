@@ -561,3 +561,18 @@ test_that("float16 values roundtrip to R correctly", {
   expect_as_vector(a$chunk(1), x[5:7])
   expect_as_vector(a$Slice(1), x[-1])
 })
+
+test_that("Converting a chunked array of lists unifies nested factors (GH-50514)", {
+  a <- chunked_array(
+    list(factor(c("a", "b"))),
+    list(factor("c")),
+    list(factor("d"), factor("a"))
+  )
+  expect_r6_class(a$type$value_type, "DictionaryType")
+
+  result <- as.vector(a)
+  unified <- c("a", "b", "c", "d")
+  expect_identical(levels(attr(result, "ptype")), unified)
+  expect_identical(lapply(result, levels), rep(list(unified), 4))
+  expect_identical(lapply(result, as.character), list(c("a", "b"), "c", "d", "a"))
+})

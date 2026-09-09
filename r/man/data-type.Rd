@@ -178,7 +178,9 @@ signed integer) types may contain values that exceed the range of R's
 \code{integer} type (32-bit signed integer). When they do, \code{uint32} is converted
 to \code{double} ("numeric") and \code{int64} is converted to \code{bit64::integer64}. For
 \code{int64} types, this conversion can be disabled (so that \code{int64} always yields
-a \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
+a \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}. For values nested inside a list type, this decision is made once
+for all values in the column, so every element of the list uses the same R
+type.
 
 \code{decimal128()} creates a \code{Decimal128Type}. Arrow decimals are fixed-point
 decimal numbers encoded as a scalar integer. The \code{precision} is the number of

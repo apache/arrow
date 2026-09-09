@@ -165,7 +165,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
     // Check attr(x, "ptype") for an appropriate R prototype
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
     if (!Rf_isNull(ptype)) {
-      arrow::list(InferArrowType(ptype));
+      return arrow::list(InferArrowType(ptype));
     }
 
     // If unspecified, iterate through the vector until we get a non-null result
