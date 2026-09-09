@@ -126,6 +126,7 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
     DCHECK_GE(stop, 0);
     DCHECK_LE(stop, size);
     for (int64_t index = start; index < stop; ++index) {
+      DCHECK_GE(index - shift, 0);
       keys_[index - shift] = std::move(keys_[index]);
       values_[index - shift] = std::move(values_[index]);
     }
