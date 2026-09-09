@@ -17,7 +17,7 @@
 
 name: Enhancement Request
 description: Request an enhancement to the project
-labels: ["Type: enhancement"]
+type: Feature
 assignees: []
 body:
   - type: markdown
