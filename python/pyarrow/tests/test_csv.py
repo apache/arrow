@@ -2138,6 +2138,7 @@ def test_write_quoting_header():
         assert buf.getvalue() == res
         buf.seek(0)
 
+
 def test_write_eol():
     t = pa.Table.from_arrays([[1, 2, 3], ["a", "b", "c"]], ["c1", "c2"])
     buf = io.BytesIO()
