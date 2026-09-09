@@ -348,6 +348,21 @@ values afterwards using the ``assume_timezone`` compute function.
 |                   |     2021-01-01T00:00:00Z     |                   |
 +-------------------+------------------------------+-------------------+
 
+Date and time parsing
+---------------------
+
+Columns explicitly typed as date32, date64, time32 or time64 are parsed
+from the ISO-8601 formats (e.g. ``2021-01-01`` and ``01:23:45``,
+respectively).  If a value fails to parse as such, the user-defined parsers
+in :member:`ConvertOptions::timestamp_parsers` are then tried in order.
+A timestamp produced by such a parser is floored to the day boundary for
+dates, and reduced to the time of day for times, like casting a timestamp
+to a date or time type.  For example, with the parser ``"%m/%d/%Y %H:%M"``,
+the value ``03/15/2020 14:30`` in a date32 column yields ``2020-03-15``.
+
+Type inference of date and time columns always uses the ISO-8601 formats
+only, regardless of :member:`ConvertOptions::timestamp_parsers`.
+
 Nulls
 -----
 
