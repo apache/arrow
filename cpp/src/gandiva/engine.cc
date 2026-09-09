@@ -200,29 +200,34 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
 }
 
 #ifdef JIT_LINK_SUPPORTED
+#  if LLVM_VERSION_MAJOR < 23
 Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryManager() {
   auto maybe_mem_manager = llvm::jitlink::InProcessMemoryManager::Create();
   return AsArrowResult(maybe_mem_manager, "Could not create memory manager: ");
 }
+#  endif
 
 Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
-    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
 #  if LLVM_VERSION_MAJOR >= 23
     jit_builder.setObjectLinkingLayerCreator(
-        [](llvm::orc::ExecutionSession& ES, llvm::jitlink::JITLinkMemoryManager&) {
-          return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+        [](llvm::orc::ExecutionSession& ES,
+           llvm::jitlink::JITLinkMemoryManager& memory_manager) {
+          return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, memory_manager);
         });
-#  elif LLVM_VERSION_MAJOR >= 21
+#  else
+    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+#    if LLVM_VERSION_MAJOR >= 21
     jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
       return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
     });
-#  else
+#    else
     jit_builder.setObjectLinkingLayerCreator(
         [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
           return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
         });
+#    endif
 #  endif
   }
   return Status::OK();

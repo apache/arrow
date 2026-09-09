@@ -535,8 +535,8 @@ static inline std::enable_if_t<is_optional_v<T>, Result<T>> GenericFromScalar(
 }
 
 template <typename T>
-enable_if_same<typename CTypeTraits<T>::ArrowType, ListType, Result<T>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+enable_if_same<typename CTypeTraits<T>::ArrowType, ListType, Result<T>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
   using ValueType = typename T::value_type;
   if (value->type->id() != Type::LIST) {
     return Status::Invalid("Expected type LIST but got ", value->type->ToString());

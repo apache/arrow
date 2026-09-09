@@ -1887,8 +1887,7 @@ Result<AsyncGenerator<T>> MakeBackgroundGenerator(
 ///
 /// This generator does not queue
 template <typename T>
-Result<AsyncGenerator<T>> MakeBlockingGenerator(
-    std::shared_ptr<Iterator<T>> iterator) {
+Result<AsyncGenerator<T>> MakeBlockingGenerator(std::shared_ptr<Iterator<T>> iterator) {
   return [it = std::move(iterator)]() mutable -> Future<T> {
     return Future<T>::MakeFinished(it->Next());
   };
