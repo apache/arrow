@@ -508,8 +508,10 @@ static void OptimizeModuleWithNewPassManager(llvm::Module& module,
     function_pm.addPass(llvm::GVNPass());
     function_pm.addPass(llvm::NewGVNPass());
     function_pm.addPass(llvm::SimplifyCFGPass());
-    function_pm.addPass(llvm::LoopVectorizePass());
-    function_pm.addPass(llvm::SLPVectorizerPass());
+    // GH-51245 probe: do the gandiva-injected vectorizers cause the LLVM 23
+    // to_date miscompile?
+    // function_pm.addPass(llvm::LoopVectorizePass());
+    // function_pm.addPass(llvm::SLPVectorizerPass());
     module_pm.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(function_pm)));
 
     module_pm.addPass(llvm::GlobalOptPass());
