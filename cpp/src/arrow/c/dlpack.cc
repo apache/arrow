@@ -19,6 +19,7 @@
 
 #include <array>
 #include <memory>
+#include <numeric>
 #include <type_traits>
 #include <vector>
 
@@ -290,10 +291,7 @@ class CppDLTensor {
       return Status::Invalid(
           "Invalid DLPack tensor: shape must be non-null when ndim != 0");
     }
-    if (ARROW_PREDICT_FALSE(out.tensor().ndim != 0 && out.tensor().strides == nullptr)) {
-      return Status::Invalid(
-          "Invalid DLPack tensor: strides must be non-null when ndim != 0");
-    }
+    // Null strides are handled as row major
     return out;
   }
 
@@ -313,8 +311,12 @@ class CppDLTensor {
     return {tensor().shape, static_cast<std::size_t>(ndim())};
   }
 
+  /// Strides or empty span for old DLPack row-major convention.
   std::span<const int64_t> strides() const {
-    return {tensor().strides, static_cast<std::size_t>(ndim())};
+    if (auto strides = tensor().strides; strides != nullptr) {
+      return {strides, static_cast<std::size_t>(ndim())};
+    }
+    return {};
   }
 
   bool flag_is_set(uint8_t bits) const { return (ptr_->flags & bits) == bits; }
@@ -322,6 +324,34 @@ class CppDLTensor {
   bool is_readonly() const { return flag_is_set(DLPACK_FLAG_BITMASK_READ_ONLY); }
 
   int32_t byte_width() const { return tensor().dtype.bits / 8; }
+
+  /// Number of element in this tensor's buffer.
+  ///
+  /// Possibly more elements than represented in the tensor for non-contiguous tensors.
+  Result<int64_t> ComputeNumElements() const {
+    if (ndim() == 0) {
+      return 0;
+    }
+    const auto strides = this->strides();
+    const auto shape = this->shape();
+    if (strides.size() > 0) {
+      // DLPack strides are in number of elements, so is the size we compute from them.
+      return internal::ComputeTensorSize(shape, strides, 1);
+    }
+    // DLPack <1.3 my set strides == nullptr for row major
+    return std::reduce(shape.begin(), shape.end(), 1, std::multiplies{});
+  }
+
+  /// Number of bytes needed to store this tensor data.
+  Result<int64_t> ComputeNumBytes() const {
+    ARROW_ASSIGN_OR_RAISE(const auto nelements, ComputeNumElements());
+    int64_t nbytes = 0;
+    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
+            nelements, static_cast<int64_t>(byte_width()), &nbytes))) {
+      return Status::Invalid("Overflow computing DLPack tensor size in bytes.");
+    }
+    return nbytes;
+  }
 
  private:
   struct Deleter {
@@ -414,14 +444,8 @@ Result<std::vector<int64_t>> StridesInBytes(std::span<const int64_t> strides,
 }
 
 Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl) {
-  // DLPack strides are in number of elements, so is the size we compute from them.
-  ARROW_ASSIGN_OR_RAISE(const auto nelements,
-                        internal::ComputeTensorSize(dl.shape(), dl.strides(), 1));
-  int64_t nbytes = 0;
-  if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
-          nelements, static_cast<int64_t>(dl.byte_width()), &nbytes))) {
-    return Status::Invalid("Overflow computing DLPack tensor size in bytes.");
-  }
+  ARROW_ASSIGN_OR_RAISE(const int64_t nbytes, dl.ComputeNumBytes());
+
   // DLPack mandates a null data pointer when the tensor holds no element, so there is
   // neither anything to share nor to copy.
   uint8_t* data =
@@ -458,7 +482,8 @@ Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* un
         "DLPack support is implemented only for buffers on CPU device.");
   }
 
-  if (dl.ndim() != 1 || dl.strides().front() != 1) {
+  const auto strides = dl.strides();
+  if (dl.ndim() != 1 || (!strides.empty() && strides.front() != 1)) {
     return Status::Invalid(
         "Only contiguous one dimensional tensor can be imported as arrays."
         " Try importing to Tensor first.");
@@ -482,11 +507,19 @@ Result<std::shared_ptr<Tensor>> ImportTensorVersioned(
 
   ARROW_ASSIGN_OR_RAISE(auto type, DataTypeFromDLPack(dl.tensor().dtype));
   auto shape = std::vector<int64_t>(dl.shape().begin(), dl.shape().end());
-  auto strides = std::vector<int64_t>(dl.strides().begin(), dl.strides().end());
+  const auto strides = dl.strides();
+
   ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl)));
   const auto byte_width = type->byte_width();
-  ARROW_ASSIGN_OR_RAISE(auto strides_bytes, StridesInBytes(strides, byte_width));
 
+  // In older DLPack null strides means row major, same as in Arrow.
+  if (strides.empty()) {
+    return Tensor::Make(std::move(type), std::move(buffer), std::move(shape));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto strides_bytes,
+      StridesInBytes(std::vector<int64_t>(strides.begin(), strides.end()), byte_width));
   return Tensor::Make(std::move(type), std::move(buffer), std::move(shape),
                       std::move(strides_bytes));
 }

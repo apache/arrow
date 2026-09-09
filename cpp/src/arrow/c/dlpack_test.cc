@@ -619,6 +619,20 @@ TYPED_TEST(TestImportTensor, Strided) {
   ASSERT_EQ(6, tensor->template Value<FloatType>({1, 1}));
 }
 
+TYPED_TEST(TestImportTensor, NullStrides) {
+  // DLPack < 1.3 uses null strides to mean row major
+  auto* managed = Produce({
+      .shape = {2, 3},
+      .data = ToBytes(std::vector<float>{1, 2, 3, 4, 5, 6}),
+  });
+  managed->dl_tensor.strides = nullptr;
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, TypeParam::ImportAndValidate(managed));
+  ASSERT_THAT(tensor->shape(), ::testing::ElementsAre(2, 3));
+  ASSERT_TRUE(tensor->is_row_major());
+  ASSERT_EQ(6, tensor->template Value<FloatType>({1, 2}));
+}
+
 TYPED_TEST(TestImportTensor, NegativeStrides) {
   auto foreign = ForeignTensor{
       .shape = {2, 2},
