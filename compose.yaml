@@ -514,7 +514,6 @@ services:
       ARROW_OFFLINE: ON
       # Apache ORC always uses external orc-format.
       ARROW_ORC: OFF
-      CMAKE_GENERATOR: "Unix Makefiles"
     volumes: *ubuntu-volumes
     command: *cpp-command
 

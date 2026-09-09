@@ -117,7 +117,7 @@ jobs:
             runs-on: ubuntu-latest
             envs:
               - UBUNTU=24.04
-            title: AMD64 Ubuntu offline bundled build
+            title: AMD64 Ubuntu Bundled Offline
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
