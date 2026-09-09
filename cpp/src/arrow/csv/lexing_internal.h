@@ -37,6 +37,7 @@ class SpecializedOptions {
   static constexpr bool escaping = Escaping;
 };
 
+/// Convert runtime boolean options into template arguments for a callable.
 template <bool... CompiledBools, typename Fn, typename... Rest>
 decltype(auto) DispatchBool(Fn&& fn, Rest... rest)
   requires requires {
@@ -45,8 +46,11 @@ decltype(auto) DispatchBool(Fn&& fn, Rest... rest)
   }
 {
   if constexpr (sizeof...(Rest) == 0) {
+    // All runtime booleans have been appended to the compile-time pack.
     return std::forward<Fn>(fn).template operator()<CompiledBools...>();
   } else {
+    // Split off the next runtime boolean, append its value to the compile-time pack,
+    // and recursively dispatch the remaining booleans.
     return [&](bool head, auto... tail) -> decltype(auto) {
       if (head) {
         return DispatchBool<CompiledBools..., true>(std::forward<Fn>(fn), tail...);

@@ -311,6 +311,26 @@ TEST(BlockParser, IgnoreExtraColumns) {
   AssertColumnsEq(final_parser, {{"a"}, {"b"}});
 }
 
+TEST(BlockParser, PadAndIgnore) {
+  auto options = ParseOptions::Defaults();
+  options.pad_short_rows = true;
+  options.ignore_extra_columns = true;
+
+  BlockParser parser(options, /*num_cols=*/2);
+  AssertParseFinal(parser, "a,b,c\nd");
+  AssertColumnEq(parser, 0, {"a", "d"});
+  std::vector<std::string> values;
+  std::vector<bool> missing;
+  ASSERT_OK(parser.VisitColumn(
+      1, [&](const uint8_t* data, uint32_t size, bool, bool is_missing) -> Status {
+        values.emplace_back(reinterpret_cast<const char*>(data), size);
+        missing.push_back(is_missing);
+        return Status::OK();
+      }));
+  ASSERT_EQ(values, std::vector<std::string>({"b", ""}));
+  ASSERT_EQ(missing, std::vector<bool>({false, true}));
+}
+
 TEST(BlockParser, EmptyHeader) {
   // Cannot infer number of columns
   uint32_t out_size;
