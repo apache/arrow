@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -47,6 +48,9 @@ class GANDIVA_EXPORT FunctionRegistry {
 
   /// Lookup a pre-compiled function by its signature.
   const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
+
+  /// Return whether a function is part of Gandiva's built-in registry.
+  bool IsBuiltIn(const NativeFunction& function) const;
 
   /// \brief register a set of functions into the function registry from a given bitcode
   /// file
@@ -85,11 +89,12 @@ class GANDIVA_EXPORT FunctionRegistry {
  private:
   std::vector<NativeFunction> pc_registry_;
   SignatureMap pc_registry_map_;
+  std::unordered_set<const NativeFunction*> built_in_functions_;
   std::vector<std::shared_ptr<arrow::Buffer>> bitcode_memory_buffers_;
   std::vector<std::pair<NativeFunction, void*>> c_functions_;
   FunctionHolderMakerRegistry holder_maker_registry_;
 
-  Status Add(NativeFunction func);
+  Status Add(NativeFunction func, bool is_built_in = false);
 };
 
 /// \brief get the default function registry

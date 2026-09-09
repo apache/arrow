@@ -21,6 +21,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "gandiva/arrow.h"
@@ -42,11 +43,7 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
       : registry_(registry), annotator_(annotator), nested_if_else_(false) {}
 
   Status Decompose(const Node& root, ValueValidityPairPtr* out) {
-    auto status = root.Accept(*this);
-    if (status.ok()) {
-      *out = std::move(result_);
-    }
-    return status;
+    return DecomposeNode(root, out);
   }
 
  private:
@@ -74,6 +71,10 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
 
   template <typename ctype>
   Status VisitInGeneric(const InExpressionNode<ctype>& node);
+
+  Status DecomposeNode(const Node& node, ValueValidityPairPtr* out);
+
+  bool CanReuseDecomposition(const Node& node);
 
   // Optimize a function node, if possible.
   const FunctionNode TryOptimize(const FunctionNode& node);
@@ -125,6 +126,8 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
   Annotator& annotator_;
   std::stack<std::unique_ptr<IfStackEntry>> if_entries_stack_;
   ValueValidityPairPtr result_;
+  std::unordered_map<const Node*, ValueValidityPairPtr> decomposed_cache_;
+  std::unordered_map<const Node*, bool> reusable_node_cache_;
   bool nested_if_else_;
 };
 
