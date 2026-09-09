@@ -36,6 +36,8 @@ namespace internal {
 ///////////////////////////////////////////////////////////////////////
 // Helper tracking memory statistics
 
+#ifdef ENABLE_MEMORY_POOL_STATS
+
 /// \brief Memory pool statistics
 ///
 /// 64-byte aligned so that all atomic values are on the same cache line.
@@ -99,6 +101,22 @@ class alignas(64) MemoryPoolStats {
     bytes_allocated_.fetch_sub(size, std::memory_order_acq_rel);
   }
 };
+#else
+/// @brief Memory pool statistics
+///
+/// Currently, doesn't track any stats.
+/// To enable, pass -DENABLE_MEMORY_POOL_STATS=ON during generation.
+class alignas(64) MemoryPoolStats {
+ public:
+  int64_t max_memory() const { return 0; }
+  int64_t bytes_allocated() const { return 0; }
+  int64_t total_bytes_allocated() const { return 0; }
+  int64_t num_allocations() const { return 0; }
+  inline void DidAllocateBytes(int64_t size) { (void)0; }
+  inline void DidReallocateBytes(int64_t old_size, int64_t new_size) { (void)0; }
+  inline void DidFreeBytes(int64_t size) { (void)0; }
+};
+#endif
 
 }  // namespace internal
 
