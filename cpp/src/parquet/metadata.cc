@@ -778,9 +778,12 @@ class FileMetaData::FileMetaDataImpl {
  public:
   FileMetaDataImpl() = default;
 
-  explicit FileMetaDataImpl(
-      const void* metadata, int64_t metadata_len, ReaderProperties properties,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
+  explicit FileMetaDataImpl(ReaderProperties properties)
+      : properties_(std::move(properties)) {}
+
+  FileMetaDataImpl(const void* metadata, int64_t metadata_len,
+                   ReaderProperties properties,
+                   std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : properties_(std::move(properties)), file_decryptor_(std::move(file_decryptor)) {
     metadata_ = std::make_unique<format::FileMetaData>();
 
@@ -1022,8 +1025,8 @@ class FileMetaData::FileMetaDataImpl {
     if (metadata_->schema.empty()) {
       throw ParquetException("Empty file schema (no root)");
     }
-    schema_.Init(schema::Unflatten(&metadata_->schema[0],
-                                   static_cast<int>(metadata_->schema.size())));
+    schema_.Init(schema::Unflatten(metadata_->schema,
+                                   /*max_depth=*/properties_.schema_depth_limit()));
   }
 
   void InitColumnOrders() {
@@ -1073,6 +1076,9 @@ FileMetaData::FileMetaData(const void* metadata, int64_t metadata_len,
                            std::shared_ptr<InternalFileDecryptor> file_decryptor)
     : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
                                  std::move(file_decryptor))) {}
+
+FileMetaData::FileMetaData(ReaderProperties properties)
+    : impl_(new FileMetaDataImpl(std::move(properties))) {}
 
 FileMetaData::FileMetaData() : impl_(new FileMetaDataImpl()) {}
 
@@ -2147,10 +2153,15 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       }
     }
 
-    ToParquet(static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
-              &metadata_->schema);
-    auto file_meta_data = std::unique_ptr<FileMetaData>(new FileMetaData());
+    SchemaToThrift(static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
+                   &metadata_->schema);
+    ReaderProperties properties;
+    // Disable schema nesting depth for schema restruction in InitSchema below.
+    properties.set_schema_depth_limit(std::numeric_limits<int32_t>::max());
+    auto file_meta_data =
+        std::unique_ptr<FileMetaData>(new FileMetaData(std::move(properties)));
     file_meta_data->impl_->metadata_ = std::move(metadata_);
+    // XXX Why are we reconstructing the schema from the flattened Thrift structures?
     file_meta_data->impl_->InitSchema();
     file_meta_data->impl_->InitKeyValueMetadata();
     return file_meta_data;

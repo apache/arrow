@@ -258,6 +258,10 @@ class ParquetFile:
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
+    schema_depth_limit : int, default None
+        If not None, override the maximum nesting depth of the Parquet file schema.
+        This guards against recursion overflow on invalid schemas.
+        The default limit should be sufficient for most Parquet files.
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
@@ -316,7 +320,8 @@ class ParquetFile:
                  memory_map=False, buffer_size=0, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None, filesystem=None,
+                 thrift_container_size_limit=None, schema_depth_limit=None,
+                 filesystem=None,
                  page_checksum_verification=False, arrow_extensions_enabled=True):
 
         self._close_source = getattr(source, 'closed', True)
@@ -337,6 +342,7 @@ class ParquetFile:
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
         )
@@ -1372,6 +1378,10 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+schema_depth_limit : int, default None
+    If not None, override the maximum nesting depth of the Parquet file schema.
+    This guards against recursion overflow on invalid schemas.
+    The default limit should be sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
@@ -1390,7 +1400,7 @@ Examples
                  ignore_prefixes=None,
                  pre_buffer=True, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None,
+                 thrift_container_size_limit=None, schema_depth_limit=None,
                  page_checksum_verification=False,
                  arrow_extensions_enabled=True):
         import pyarrow.dataset as ds
@@ -1401,6 +1411,7 @@ Examples
             "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit,
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
+            "schema_depth_limit": schema_depth_limit,
             "page_checksum_verification": page_checksum_verification,
             "arrow_extensions_enabled": arrow_extensions_enabled,
             "binary_type": binary_type,
@@ -1788,6 +1799,10 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+schema_depth_limit : int, default None
+    If not None, override the maximum nesting depth of the Parquet file schema.
+    This guards against recursion overflow on invalid schemas.
+    The default limit should be sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
@@ -1888,7 +1903,7 @@ def read_table(source, *, columns=None, use_threads=True,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
-               thrift_container_size_limit=None,
+               thrift_container_size_limit=None, schema_depth_limit=None,
                page_checksum_verification=False,
                arrow_extensions_enabled=True):
 
@@ -1910,6 +1925,7 @@ def read_table(source, *, columns=None, use_threads=True,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
         )
@@ -1958,6 +1974,7 @@ def read_table(source, *, columns=None, use_threads=True,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
         )
 
