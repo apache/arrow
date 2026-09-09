@@ -137,14 +137,25 @@ fi
 
 if [ "${PHASE_BUILD_MSI}" -gt 0 ]; then
   echo "[4/8] Triggering odbc_release_step in package_odbc.yml workflow..."
-  gh workflow run package_odbc.yml \
+  workflow_url=$(gh workflow run package_odbc.yml \
     --repo "${GITHUB_REPOSITORY}" \
     --ref "${tag}" \
-    --field odbc_release_step=true
+    --field odbc_release_step=true)
+  echo "${workflow_url}"
+  # Extract run ID from `gh workflow run` output. The output is structured like,
+  # https://github.com/apache/arrow/actions/runs/28679576610 and we just need
+  # the id.
+  run_id=$(echo "${workflow_url}" | grep -Eo 'actions/runs/[0-9]+' | grep -Eo '[0-9]+$' || true)
+  if [ -z "${run_id}" ]; then
+    echo "Failed to extract run ID from the above output. This is probably a" \
+      "bug. If the workflow was started, you can watch it manually and" \
+      "move onto the PHASE_SIGN_MSI step once it's done."
+    exit 1
+  fi
 
   echo "[5/8] Waiting for workflow to complete. This can take a very long time..."
   REPOSITORY="${GITHUB_REPOSITORY}" \
-    "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${tag}" package_odbc.yml
+    "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${tag}" package_odbc.yml "${run_id}"
 fi
 
 if [ "${PHASE_SIGN_MSI}" -gt 0 ]; then
