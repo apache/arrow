@@ -482,7 +482,7 @@ struct UnboxScalar<Decimal256Type> {
 template <typename T, typename VisitFunc, typename NullFunc>
   requires std::is_void_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>>
 void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                                   NullFunc&& null_func) {
+                            NullFunc&& null_func) {
   VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -495,7 +495,7 @@ template <typename T, typename VisitFunc, typename NullFunc>
   requires std::is_same_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>,
                           Status>
 Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                                     NullFunc&& null_func) {
+                              NullFunc&& null_func) {
   return VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -508,7 +508,7 @@ Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
 
 template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
 void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
-                                      VisitFunc&& valid_func, NullFunc&& null_func) {
+                               VisitFunc&& valid_func, NullFunc&& null_func) {
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
 

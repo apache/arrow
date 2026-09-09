@@ -426,7 +426,7 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
 
 template <typename VisitNotNull, typename VisitNull>
 Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t length,
-                             VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+                      VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
   int64_t position = 0;
   while (position < length) {
@@ -454,7 +454,7 @@ Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t length,
 
 template <typename VisitNotNull, typename VisitNull>
 void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
-                               VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+                        VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
   int64_t position = 0;
   while (position < length) {
@@ -481,9 +481,9 @@ void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
 
 template <typename VisitNotNull, typename VisitNull>
 Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
-                                const uint8_t* right_bitmap, int64_t right_offset,
-                                int64_t length, VisitNotNull&& visit_not_null,
-                                VisitNull&& visit_null) {
+                         const uint8_t* right_bitmap, int64_t right_offset,
+                         int64_t length, VisitNotNull&& visit_not_null,
+                         VisitNull&& visit_null) {
   if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
     // At most one bitmap is present
     if (left_bitmap == NULLPTR) {
@@ -525,9 +525,9 @@ Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
 
 template <typename VisitNotNull, typename VisitNull>
 void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offset,
-                                  const uint8_t* right_bitmap, int64_t right_offset,
-                                  int64_t length, VisitNotNull&& visit_not_null,
-                                  VisitNull&& visit_null) {
+                           const uint8_t* right_bitmap, int64_t right_offset,
+                           int64_t length, VisitNotNull&& visit_not_null,
+                           VisitNull&& visit_null) {
   if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
     // At most one bitmap is present
     if (left_bitmap == NULLPTR) {
