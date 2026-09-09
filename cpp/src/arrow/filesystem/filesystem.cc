@@ -278,7 +278,7 @@ Result<std::string> FileSystem::MakeUri(std::string path) const {
 namespace {
 
 Status ValidateSubPath(std::string_view s) {
-  if (internal::IsLikelyUri(s)) {
+  if (IsLikelyUri(s)) {
     return Status::Invalid("Expected a filesystem path, got a URI: '", s, "'");
   }
   return Status::OK();

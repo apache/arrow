@@ -59,7 +59,7 @@ struct GcsPath {
   std::string object;
 
   static Result<GcsPath> FromString(const std::string& s) {
-    if (internal::IsLikelyUri(s)) {
+    if (IsLikelyUri(s)) {
       return Status::Invalid(
           "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
     }
