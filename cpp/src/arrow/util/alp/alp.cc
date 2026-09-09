@@ -56,6 +56,9 @@ namespace {
 // On a little-endian host both helpers below are a plain memcpy.
 template <typename T>
 void StoreLittleEndianArray(const T* values, int64_t num_values, uint8_t* output) {
+  // Zero elements is a no-op, but an empty container's data() may be null and
+  // passing null to memcpy is undefined even for a zero length.
+  if (num_values == 0) return;
   if constexpr (ARROW_LITTLE_ENDIAN == 1) {
     std::memcpy(output, values, static_cast<size_t>(num_values) * sizeof(T));
   } else {
@@ -67,6 +70,9 @@ void StoreLittleEndianArray(const T* values, int64_t num_values, uint8_t* output
 
 template <typename T>
 void LoadLittleEndianArray(const uint8_t* input, int64_t num_values, T* values) {
+  // Zero elements is a no-op, but an empty container's data() may be null and
+  // passing null to memcpy is undefined even for a zero length.
+  if (num_values == 0) return;
   if constexpr (ARROW_LITTLE_ENDIAN == 1) {
     std::memcpy(values, input, static_cast<size_t>(num_values) * sizeof(T));
   } else {
@@ -211,8 +217,11 @@ void AlpEncodedVector<T>::StoreDataOnly(std::span<uint8_t> output_buffer) const 
   const int64_t bit_packed_size =
       bit_util::BytesForBits(int64_t{num_elements_} * for_info_.bit_width());
 
-  // Store all successfully compressed values first.
-  std::memcpy(output_buffer.data() + offset, packed_values_.data(), bit_packed_size);
+  // Store all successfully compressed values first. A bit_width of zero packs to no
+  // bytes, and packed_values_.data() is then null, which memcpy may not be handed.
+  if (bit_packed_size > 0) {
+    std::memcpy(output_buffer.data() + offset, packed_values_.data(), bit_packed_size);
+  }
   offset += bit_packed_size;
 
   // Store exception positions.
@@ -327,8 +336,10 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
   // TODO(GH-48701): resize() zero-initializes before memcpy overwrites. Consider
   // using uninitialized storage if this shows up in decode-path profiling.
   result.mutable_packed_values().resize(bit_packed_size);
-  std::memcpy(result.mutable_packed_values().data(), input_buffer.data() + input_offset,
-              bit_packed_size);
+  if (bit_packed_size > 0) {
+    std::memcpy(result.mutable_packed_values().data(), input_buffer.data() + input_offset,
+                bit_packed_size);
+  }
   input_offset += bit_packed_size;
 
   result.mutable_exception_positions().resize(alp_info.num_exceptions());
@@ -948,7 +959,7 @@ void AlpCompression<T>::BitUnpackIntegers(std::span<const uint8_t> packed_intege
         .bit_width = for_info.bit_width(),
     };
     arrow::internal::unpack(packed_integers.data(), output, opts);
-  } else {
+  } else if (num_elements > 0) {
     std::memset(output, 0, num_elements * sizeof(ExactType));
   }
 }
