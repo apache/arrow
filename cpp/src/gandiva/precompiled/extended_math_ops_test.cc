@@ -203,6 +203,18 @@ TEST(TestExtendedMathOps, TestRound) {
   EXPECT_EQ(round_int64_int32(-23453462343, -4), -23453460000);
   EXPECT_EQ(round_int64_int32(-23453462343, -5), -23453500000);
   EXPECT_EQ(round_int64_int32(345353425343, -12), 0);
+
+  // The last in-range precision still rounds; one past it returns 0. These guard
+  // against an off-by-one in the range check at both overloads' boundary.
+  EXPECT_EQ(round_int32_int32(1234567890, -9), 1000000000);
+  EXPECT_EQ(round_int32_int32(1234567890, -10), 0);
+  EXPECT_EQ(round_int64_int32(1234567890123456789, -18), 1000000000000000000);
+  EXPECT_EQ(round_int64_int32(1234567890123456789, -19), 0);
+
+  // The most negative precision must be rejected by the range check rather than
+  // negated into an out-of-range table index.
+  EXPECT_EQ(round_int32_int32(1234, std::numeric_limits<int32_t>::min()), 0);
+  EXPECT_EQ(round_int64_int32(345353425343, std::numeric_limits<int32_t>::min()), 0);
 }
 
 TEST(TestExtendedMathOps, TestTruncate) {
