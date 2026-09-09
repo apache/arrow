@@ -2125,13 +2125,6 @@ TYPED_TEST(TestFillNullBinary, FillBackwardChunkedArray) {
                            R"(["qup"])", R"(["qup", "mnz"])"}));
 }
 
-// Regression test for GH-45086: FillNullForwardChunked/FillNullBackwardChunked
-// size each output chunk's data buffer as `type->byte_width() * chunk->length()`.
-// For BooleanType, byte_width() returns 0 (it is bit-packed, not byte-addressable),
-// so the buffer was allocated with 0 bytes while the chunk's declared length stayed
-// the same, and filling the chunk wrote past the end of the (near-)empty buffer.
-// The corruption/crash only reliably manifests once a chunk is large enough to
-// write past the buffer's small built-in padding, hence the large pad length here.
 TEST_F(TestFillNullBoolean, FillNullSlicedArray) {
   auto input =
       this->array("[true, false, null, true, true, false, null, true]")->Slice(3, 5);
@@ -2142,6 +2135,13 @@ TEST_F(TestFillNullBoolean, FillNullSlicedArray) {
                             this->array("[true, true, false, true, true]"));
 }
 
+// Regression test for GH-45086: FillNullForwardChunked/FillNullBackwardChunked
+// size each output chunk's data buffer as `type->byte_width() * chunk->length()`.
+// For BooleanType, byte_width() returns 0 (it is bit-packed, not byte-addressable),
+// so the buffer was allocated with 0 bytes while the chunk's declared length stayed
+// the same, and filling the chunk wrote past the end of the (near-)empty buffer.
+// The corruption/crash only reliably manifests once a chunk is large enough to
+// write past the buffer's small built-in padding, hence the large pad length here.
 TEST_F(TestFillNullBoolean, FillNullForwardChunkedArray) {
   constexpr int64_t kPadLength = 4096;
   ASSERT_OK_AND_ASSIGN(auto null_pad, MakeArrayOfNull(boolean(), kPadLength));
