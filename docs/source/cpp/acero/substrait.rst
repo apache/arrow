@@ -227,6 +227,11 @@ Functions
   * Acero does not support the SATURATE option for overflow
   * Acero does not support kernels that take more than two arguments
     for the functions ``and``, ``or``, ``xor``
+  * The functions ``starts_with``, ``ends_with``, and ``contains`` map onto Acero
+    kernels that take the substring as a function option.  The second argument
+    must therefore be a non-null string literal.  The ``case_sensitivity`` option
+    supports ``CASE_SENSITIVE`` and ``CASE_INSENSITIVE`` but not
+    ``CASE_INSENSITIVE_ASCII``
 
 * Substrait has not yet clearly identified the form that URIs should take for
   standard functions.  Acero will look for the URIs to the ``main`` GitHub branch.
