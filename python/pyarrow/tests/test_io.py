@@ -1024,6 +1024,13 @@ def test_nativefile_write_memoryview():
     assert buf.to_pybytes() == data * 3
 
 
+@pytest.mark.parametrize("dst_buf", [b"a", memoryview(b"a")])
+def test_native_file_readinto_rejects_readonly_buffer(dst_buf):
+    with pa.BufferReader(b"x") as f:
+        with pytest.raises(TypeError, match="writable buffer"):
+            f.readinto(dst_buf)
+
+
 # ----------------------------------------------------------------------
 # Mock output stream
 
