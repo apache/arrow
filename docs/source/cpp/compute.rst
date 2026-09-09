@@ -1285,9 +1285,10 @@ Containment tests
 Hash Functions
 ~~~~~~~~~~~~~~
 
-Not to be confused with the "group by" functions, hash functions produce an array of hash
-values corresponding to the length of the input. Currently, these functions take a single
-array as input.
+Not to be confused with the "group by" functions, hash functions produce one hash value
+per row of the input. They take a single argument, and the result has the same length and
+shape as it: scalar in, scalar out; array in, array out; chunked array in, chunked array
+out.
 
 +---------------+-------+-------------+-------------+---------------+-------+
 | Function name | Arity | Input types | Output type | Options class | Notes |

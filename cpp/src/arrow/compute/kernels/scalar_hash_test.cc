@@ -20,6 +20,7 @@
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
@@ -287,6 +288,22 @@ TEST_F(TestScalarHash, ScalarInput) {
   ASSERT_OK_AND_ASSIGN(Datum null_result,
                        CallFunction("hash32", {MakeNullScalar(int32())}));
   ASSERT_FALSE(null_result.scalar()->is_valid);
+}
+
+// A chunked argument comes back chunked, hashing each row as the equivalent flat array
+// does -- chunk boundaries are not part of a row's identity.
+TEST_F(TestScalarHash, ChunkedArrayInput) {
+  auto chunked = ChunkedArrayFromJSON(int32(), {R"([null, 0])", R"([])", R"([1, 2])"});
+  ASSERT_OK_AND_ASSIGN(auto flat, Concatenate(chunked->chunks()));
+  for (const std::string func : {"hash32", "hash64"}) {
+    ARROW_SCOPED_TRACE("func: ", func);
+    ASSERT_OK_AND_ASSIGN(Datum chunked_result, CallFunction(func, {chunked}));
+    ASSERT_TRUE(chunked_result.is_arraylike());
+    ASSERT_OK_AND_ASSIGN(Datum flat_result, CallFunction(func, {flat}));
+    ASSERT_OK_AND_ASSIGN(auto combined,
+                         Concatenate(chunked_result.chunked_array()->chunks()));
+    AssertArraysEqual(*flat_result.make_array(), *combined, /*verbose=*/true);
+  }
 }
 
 // HashIntImp (used for any fixed-width type whose byte width is a power of 2 up to 8:
