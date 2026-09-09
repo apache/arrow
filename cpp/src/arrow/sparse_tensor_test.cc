@@ -1698,4 +1698,27 @@ TEST(TestSparseCSFMatrixForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCSFTensor::Make(dense_tensor, uint64()));
 }
 
+TEST(TestSparseCSFIndex, Make) {
+  std::vector<int64_t> axis_order = {0, 1, 2};
+  std::vector<int64_t> indices_shapes = {5, 5, 5};
+  std::vector<std::shared_ptr<Buffer>> indptr_data(2);
+  std::vector<std::shared_ptr<Buffer>> indices_data(3);
+
+  // Invalid indices_shapes size
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int32(), int32(), {5}, axis_order,
+                                              indptr_data, indices_data));
+
+  // Empty axis order
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int32(), int32(), indices_shapes, {},
+                                              indptr_data, indices_data));
+
+  // Invalid indptr_data size
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int32(), int32(), indices_shapes,
+                                              axis_order, {}, indices_data));
+
+  // Invalid indices_data size
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int32(), int32(), indices_shapes,
+                                              axis_order, indptr_data, {}));
+}
+
 }  // namespace arrow
