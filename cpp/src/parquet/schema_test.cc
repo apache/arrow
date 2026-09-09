@@ -1417,6 +1417,12 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
   for (const InapplicableType& t : inapplicable_types) {
     ASSERT_FALSE(logical_type->is_applicable(t.physical_type, t.physical_length));
   }
+
+  // TIMESTAMP is applicable to INT64 and FLBA(12).
+  logical_type = LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS);
+  ASSERT_TRUE(logical_type->is_applicable(Type::INT64));
+  ASSERT_TRUE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 12));
+  ASSERT_FALSE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 8));
 }
 
 TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {

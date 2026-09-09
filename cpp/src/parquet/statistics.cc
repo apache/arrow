@@ -29,6 +29,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
@@ -41,10 +42,12 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::bit_util::FromLittleEndian;
 using arrow::internal::checked_cast;
 using arrow::util::Float16;
 using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
+using arrow::util::SafeLoadAs;
 
 namespace parquet {
 namespace {
@@ -459,6 +462,58 @@ struct RebindLogical {
 
 template <>
 struct RebindLogical<Float16LogicalType> {
+  using DType = FLBAType;
+  using c_type = DType::c_type;
+};
+
+// Tag type for FLBA(12) timestamps.
+struct Flba12TimestampType {};
+
+// Max / min representable signed 96-bit two's-complement, little-endian.
+constexpr uint8_t kFlba12SignedMax[12] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
+constexpr uint8_t kFlba12SignedMin[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
+
+template <>
+struct CompareHelper<Flba12TimestampType, /*is_signed=*/true> {
+  using T = FLBA;
+
+  // Seed for the running minimum is the maximum value; for the maximum, the minimum
+  // value.
+  static T DefaultMin() { return T{kFlba12SignedMax}; }
+  static T DefaultMax() { return T{kFlba12SignedMin}; }
+
+  static T Coalesce(T val, T fallback) { return val.ptr == nullptr ? fallback : val; }
+
+  // FLBA(12) TIMESTAMP is a signed 96-bit little-endian value. Compare the
+  // most-significant 32 bits signed, then the low 64 bits unsigned.
+  static inline bool Compare(int /*type_length*/, const T& a, const T& b) {
+    const int32_t a_hi =
+        SafeCopy<int32_t>(FromLittleEndian(SafeLoadAs<uint32_t>(a.ptr + 8)));
+    const int32_t b_hi =
+        SafeCopy<int32_t>(FromLittleEndian(SafeLoadAs<uint32_t>(b.ptr + 8)));
+    if (a_hi != b_hi) return a_hi < b_hi;
+    const uint64_t a_lo = FromLittleEndian(SafeLoadAs<uint64_t>(a.ptr));
+    const uint64_t b_lo = FromLittleEndian(SafeLoadAs<uint64_t>(b.ptr));
+    return a_lo < b_lo;
+  }
+
+  static T Min(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? a : b;
+  }
+
+  static T Max(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? b : a;
+  }
+};
+
+template <>
+struct RebindLogical<Flba12TimestampType> {
   using DType = FLBAType;
   using c_type = DType::c_type;
 };
@@ -1012,6 +1067,10 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
       case Type::FIXED_LEN_BYTE_ARRAY:
         if (logical_type == LogicalType::Type::FLOAT16) {
           return std::make_shared<TypedComparatorImpl<true, Float16LogicalType>>(
+              type_length);
+        }
+        if (logical_type == LogicalType::Type::TIMESTAMP) {
+          return std::make_shared<TypedComparatorImpl<true, Flba12TimestampType>>(
               type_length);
         }
         return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
