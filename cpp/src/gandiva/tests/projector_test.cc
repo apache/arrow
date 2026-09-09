@@ -2091,7 +2091,11 @@ TEST_F(TestProjector, TestCastVarbinaryFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(3));
 }
 
-TEST_F(TestProjector, TestToDate) {
+// GH-51245: the body is shared so the same projection can be run under
+// different Configurations, to tell an LLVM 23 optimizer/codegen regression
+// apart from a plain to_date bug.
+static void CheckToDate(const std::shared_ptr<Configuration>& config,
+                        arrow::MemoryPool* pool) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field_node = std::make_shared<FieldNode>(field0);
@@ -2110,7 +2114,7 @@ TEST_F(TestProjector, TestToDate) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {expr}, config, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -2125,11 +2129,72 @@ TEST_F(TestProjector, TestToDate) {
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in_batch, pool, &outputs);
   EXPECT_TRUE(status.ok());
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestToDate) { CheckToDate(TestConfiguration(), pool_); }
+
+// If this passes while TestToDate fails, the regression is in the O3 pipeline
+// rather than in the base IR that LLVMGenerator emits.
+TEST_F(TestProjector, TestToDateNoOptimize) {
+  CheckToDate(ConfigurationBuilder().build(/*optimize=*/false), pool_);
+}
+
+// If this passes while TestToDate fails, the regression is host-CPU specific
+// (CI detects znver3 and enables AVX2/AVX512), i.e. most likely vectorization.
+TEST_F(TestProjector, TestToDateNoHostCpu) {
+  auto config = ConfigurationBuilder().build();
+  config->target_host_cpu(false);
+  CheckToDate(config, pool_);
+}
+
+// Does the wrong result follow the value or the row index? Both inputs are
+// 10 chars in the same format, so nothing distinguishes them except position.
+TEST_F(TestProjector, TestToDateRowOrder) {
+  auto field0 = field("f0", arrow::utf8());
+  auto field_node = std::make_shared<FieldNode>(field0);
+  auto schema = arrow::schema({field0});
+  auto field_result = field("res", arrow::date64());
+
+  auto pattern_node = std::make_shared<LiteralNode>(
+      arrow::utf8(), LiteralHolder(std::string("YYYY-MM-DD")), false);
+  auto fn_node = TreeExprBuilder::MakeFunction("to_date", {field_node, pattern_node},
+                                               arrow::date64());
+  auto expr = TreeExprBuilder::MakeExpression(fn_node, field_result);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  // A single record holding only the value that comes back null in the 3-row
+  // batch. Failing here means row 0 is mishandled regardless of batch size.
+  {
+    auto array0 = MakeArrowArrayUtf8({"1986-12-01"}, {true});
+    auto exp = MakeArrowArrayDate64({533779200000}, {true});
+    auto in_batch = arrow::RecordBatch::Make(schema, 1, {array0});
+
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+  }
+
+  // The original batch with the two valid dates swapped. If the null moves to
+  // 2012-12-01 the bug tracks the row index; if it stays on 1986-12-01 it
+  // tracks the value and the parser is back in scope.
+  {
+    auto array0 =
+        MakeArrowArrayUtf8({"2012-12-01", "1986-12-01", "invalid"}, {true, true, false});
+    auto exp =
+        MakeArrowArrayDate64({1354320000000, 533779200000, 0}, {true, true, false});
+    auto in_batch = arrow::RecordBatch::Make(schema, 3, {array0});
+
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+  }
 }
 
 // ARROW-11617
