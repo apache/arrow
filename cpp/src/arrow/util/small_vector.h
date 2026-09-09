@@ -238,7 +238,6 @@ class StaticVectorImpl {
 
   StaticVectorImpl& operator=(StaticVectorImpl&& other) noexcept {
     if (ARROW_PREDICT_TRUE(&other != this)) {
-      // TODO move_assign?
       storage_.destroy();
       storage_.move_construct(std::move(other.storage_));
     }
