@@ -1220,19 +1220,19 @@ class CSVRowCounter : public ReaderMixin,
 // Factory functions
 
 Result<std::shared_ptr<TableReader>> TableReader::Make(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    io::IOContext io_context, const std::shared_ptr<io::InputStream>& input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
-  return MakeTableReader(io_context.pool(), io_context, std::move(input), read_options,
+  return MakeTableReader(io_context.pool(), io_context, input, read_options,
                          parse_options, convert_options);
 }
 
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    io::IOContext io_context, const std::shared_ptr<io::InputStream>& input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
   auto cpu_executor = arrow::internal::GetCpuThreadPool();
-  auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
+  auto reader_fut = MakeStreamingReader(io_context, input, cpu_executor,
                                         read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
   ARROW_ASSIGN_OR_RAISE(auto reader, reader_result);
@@ -1240,10 +1240,10 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 }
 
 Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    io::IOContext io_context, const std::shared_ptr<io::InputStream>& input,
     Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
-  return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,
+  return MakeStreamingReader(io_context, input, cpu_executor, read_options,
                              parse_options, convert_options);
 }
 

@@ -370,11 +370,11 @@ class StreamingReaderImpl : public StreamingReader {
   }
 
   static Future<std::shared_ptr<StreamingReaderImpl>> MakeAsync(
-      std::shared_ptr<DecodeContext> context, std::shared_ptr<io::InputStream> stream,
+      const std::shared_ptr<DecodeContext>& context, const std::shared_ptr<io::InputStream>& stream,
       io::IOContext io_context, Executor* cpu_executor, const ReadOptions& read_options) {
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_it,
-        io::MakeInputStreamIterator(std::move(stream), read_options.block_size));
+        io::MakeInputStreamIterator(stream, read_options.block_size));
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_gen,
         MakeBackgroundGenerator(std::move(buffer_it), io_context.executor()));
@@ -438,7 +438,7 @@ class StreamingReaderImpl : public StreamingReader {
     }
 
     return FirstBlock(decoding_gen)
-        .Then([source = std::move(decoding_gen), context = std::move(context),
+        .Then([source = std::move(decoding_gen), context = context,
                max_readahead](const DecodedBlock& block) {
           return std::make_shared<StreamingReaderImpl>(block, std::move(source), context,
                                                        max_readahead);
