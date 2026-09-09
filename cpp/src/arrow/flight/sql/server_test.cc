@@ -598,6 +598,17 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
+TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUnsetIsUpdate) {
+  ActionCreatePreparedStatementResult result;
+  result.prepared_statement_handle = "test_handle";
+  ASSERT_FALSE(result.is_update.has_value());
+
+  ASSERT_OK_AND_ASSIGN(auto packed, PackActionResult(result));
+  flight_sql_pb::ActionCreatePreparedStatementResult pb_result;
+  ASSERT_TRUE(pb_result.ParseFromString(packed.body->ToString()));
+  ASSERT_FALSE(pb_result.has_is_update());
+}
+
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   FlightCallOptions options = {};
   TableRef table_ref = {std::nullopt, std::nullopt, "int%"};
