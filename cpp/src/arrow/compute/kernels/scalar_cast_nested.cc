@@ -384,17 +384,48 @@ struct CastStruct {
         const auto& in_field = in_type.field(in_field_index);
         const auto& in_values = (in_array.child_data[in_field_index].ToArrayData()->Slice(
             in_array.offset, in_array.length));
+
         if (in_field->nullable() && !out_field->nullable() &&
             in_values->GetNullCount() > 0) {
-          return Status::Invalid(
-              "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
-              " has nulls. Can't cast to non-nullable field '", out_field->name(),
-              "' of type ", out_field_type->ToString());
+          // A child null is only observable if the parent element is valid: nulls
+          // sitting under a null parent are masked and don't violate the
+          // non-nullable output field.
+          //
+          // GetNullCount() only counts physical nulls, so a child without a
+          // validity bitmap reports 0 here (unions and run-end encoded arrays
+          // included) and never reaches this branch -- except NullType, which is
+          // all-null by construction and has no bitmap to intersect against the
+          // parent's, so it is always rejected.
+          const uint8_t* parent_bitmap = in_array.buffers[0].data;
+          const uint8_t* child_bitmap =
+              in_values->buffers[0] ? in_values->buffers[0]->data() : nullptr;
+
+          const bool has_unmasked_nulls =
+              parent_bitmap == nullptr || child_bitmap == nullptr ||
+              arrow::internal::CountAndNotSetBits(parent_bitmap, in_array.offset,
+                                                  child_bitmap, in_values->offset,
+                                                  in_array.length) > 0;
+          if (has_unmasked_nulls) {
+            return Status::Invalid(
+                "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
+                " has nulls. Can't cast to non-nullable field '", out_field->name(),
+                "' of type ", out_field_type->ToString());
+          }
         }
         ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(in_values, out_field_type, options,
                                                       ctx->exec_context()));
         DCHECK(cast_values.is_array());
-        out_array->child_data.push_back(cast_values.array());
+        auto cast_array_data = cast_values.array();
+        if (!out_field->nullable() && cast_array_data->buffers[0] != nullptr) {
+          // The child may still carry nulls that were only masked by the parent's
+          // validity bitmap (see the check above). Strip them so a non-nullable
+          // field never exposes a validity buffer -- otherwise extracting this
+          // field on its own (e.g. via struct_field/flatten) would surface nulls
+          // in a field whose type claims none are possible.
+          cast_array_data->buffers[0] = nullptr;
+          cast_array_data->null_count = 0;
+        }
+        out_array->child_data.push_back(std::move(cast_array_data));
       }
     }
 
