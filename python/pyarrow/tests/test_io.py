@@ -217,13 +217,6 @@ def test_python_file_readinto():
         assert len(dst_buf) == length
 
 
-@pytest.mark.parametrize("dst_buf", [b"a", memoryview(b"a")])
-def test_native_file_readinto_rejects_readonly_buffer(dst_buf):
-    with pa.BufferReader(b"x") as f:
-        with pytest.raises(TypeError, match="writable buffer"):
-            f.readinto(dst_buf)
-
-
 def test_python_file_read_buffer():
     length = 10
     data = b'0123456798'
@@ -1029,6 +1022,13 @@ def test_nativefile_write_memoryview():
     buf = f.getvalue()
 
     assert buf.to_pybytes() == data * 3
+
+
+@pytest.mark.parametrize("dst_buf", [b"a", memoryview(b"a")])
+def test_native_file_readinto_rejects_readonly_buffer(dst_buf):
+    with pa.BufferReader(b"x") as f:
+        with pytest.raises(TypeError, match="writable buffer"):
+            f.readinto(dst_buf)
 
 
 # ----------------------------------------------------------------------
