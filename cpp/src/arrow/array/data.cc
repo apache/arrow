@@ -781,23 +781,28 @@ struct ViewDataImpl {
     if (input_exhausted) {
       return;
     }
-    while (true) {
-      // Skip exhausted layout (might be empty layout)
-      while (in_buffer_idx >= in_layouts[in_layout_idx].buffers.size()) {
-        in_buffer_idx = 0;
-        ++in_layout_idx;
-        if (in_layout_idx >= in_layouts.size()) {
-          input_exhausted = true;
-          return;
-        }
+    // Skip exhausted layout (might be empty layout)
+    while (in_buffer_idx >= in_layouts[in_layout_idx].buffers.size()) {
+      in_buffer_idx = 0;
+      ++in_layout_idx;
+      if (in_layout_idx >= in_layouts.size()) {
+        input_exhausted = true;
+        return;
       }
+    }
+  }
+
+  void SkipInputAlwaysNullBuffers() {
+    AdjustInputPointer();
+    while (!input_exhausted) {
       const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
       if (in_spec.kind != DataTypeLayout::ALWAYS_NULL) {
         return;
       }
       // Skip always-null input buffers
-      // (e.g. buffer 0 of a null type or buffer 2 of a sparse union)
+      // (e.g. buffer 0 of a null, union, or run-end encoded type)
       ++in_buffer_idx;
+      AdjustInputPointer();
     }
   }
 
@@ -809,6 +814,7 @@ struct ViewDataImpl {
   }
 
   Status CheckInputExhausted() {
+    SkipInputAlwaysNullBuffers();
     if (!input_exhausted) {
       return InvalidView("too many buffers for view type");
     }
@@ -829,18 +835,32 @@ struct ViewDataImpl {
     const auto& out_type = out_field->type();
     const auto out_layout = out_type->layout();
 
-    AdjustInputPointer();
+    // No type has a purely empty layout
+    DCHECK_GT(out_layout.buffers.size(), 0);
+
     int64_t out_length = in_data_length;
     int64_t out_offset = 0;
     int64_t out_null_count;
+
+    AdjustInputPointer();
+    // Preserve metadata only when matching an input NullType with an output NullType.
+    if (out_type->id() == Type::NA && !input_exhausted &&
+        in_data[in_layout_idx]->type->id() == Type::NA) {
+      DCHECK_EQ(in_layouts[in_layout_idx].buffers[in_buffer_idx].kind,
+                DataTypeLayout::ALWAYS_NULL);
+      const auto& in_data_item = in_data[in_layout_idx];
+      out_length = in_data_item->length;
+      out_offset = in_data_item->offset;
+      ++in_buffer_idx;
+      AdjustInputPointer();
+    } else {
+      SkipInputAlwaysNullBuffers();
+    }
 
     std::shared_ptr<ArrayData> dictionary;
     if (out_type->id() == Type::DICTIONARY) {
       ARROW_ASSIGN_OR_RAISE(dictionary, GetDictionaryView(*out_type));
     }
-
-    // No type has a purely empty layout
-    DCHECK_GT(out_layout.buffers.size(), 0);
 
     std::vector<std::shared_ptr<Buffer>> out_buffers;
 
@@ -880,6 +900,7 @@ struct ViewDataImpl {
       }
 
       // If input buffer is null bitmap, try to ignore it
+      SkipInputAlwaysNullBuffers();
       while (in_buffer_idx == 0) {
         RETURN_NOT_OK(CheckInputAvailable());
         if (in_data[in_layout_idx]->GetNullCount() != 0) {
@@ -887,6 +908,7 @@ struct ViewDataImpl {
         }
         ++in_buffer_idx;
         AdjustInputPointer();
+        SkipInputAlwaysNullBuffers();
       }
 
       RETURN_NOT_OK(CheckInputAvailable());
