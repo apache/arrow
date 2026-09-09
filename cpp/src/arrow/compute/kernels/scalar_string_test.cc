@@ -1260,6 +1260,25 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
                      &options);
   }
 
+  // Hangul composes algorithmically in utf8proc, not through the composition table.
+  // decomposed: U+1112(HANGUL CHOSEONG HIEUH) + U+1161(HANGUL JUNGSEONG A) +
+  //             U+11AB(HANGUL JONGSEONG NIEUN)
+  // composed: U+D55C(HANGUL SYLLABLE HAN)
+  json_composed = "[\"\xed\x95\x9c\"]";
+  json_decomposed = "[\"\xe1\x84\x92\xe1\x85\xa1\xe1\x86\xab\"]";
+  for (const auto& options : compose_options) {
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_composed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_composed,
+                     &options);
+  }
+  for (const auto& options : decompose_options) {
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_decomposed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_decomposed,
+                     &options);
+  }
+
   // canonical: U+00B2(Superscript Two)
   // compatibility: "2"
   const char* json_canonical = "[\"01\xc2\xb2!\"]";
