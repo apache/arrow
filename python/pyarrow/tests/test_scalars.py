@@ -193,6 +193,15 @@ def test_hashing_struct_scalar():
     assert hash1 == hash2
 
 
+def test_hashing_fixed_size_list_scalar():
+    # GH-35830
+    inner = pa.list_(pa.int32(), 2)
+    outer = pa.list_(inner, 3)
+    g = pa.array([[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]], type=outer)
+    h = pa.array([[[7, 8], [9, 10], [11, 12]]], type=outer)
+    assert hash(g[1]) == hash(h[0])
+
+
 @pytest.mark.timezone_data
 def test_timestamp_scalar():
     a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
