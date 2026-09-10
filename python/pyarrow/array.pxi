@@ -1619,11 +1619,13 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        offset : int, default 0
+        offset : int or pyarrow.Scalar, default 0
             Offset from start of array to slice.
-        length : int, default None
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of Array starting from
             offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------

@@ -870,11 +870,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        offset : int, default 0
-            Offset from start of array to slice
-        length : int, default None
+        offset : int or pyarrow.Scalar, default 0
+            Offset from start of array to slice.
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of batch starting from
-            offset)
+            offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -3134,11 +3136,13 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        offset : int, default 0
-            Offset from start of record batch to slice
-        length : int, default None
+        offset : int or pyarrow.Scalar, default 0
+            Offset from start of record batch to slice.
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of batch starting from
-            offset)
+            offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -4250,11 +4254,13 @@ cdef class Table(_Tabular):
 
         Parameters
         ----------
-        offset : int, default 0
+        offset : int or pyarrow.Scalar, default 0
             Offset from start of table to slice.
-        length : int, default None
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of table starting from
             offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
