@@ -2366,23 +2366,6 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
   int Decode(uint8_t* buffer, int max_values) override {
     return this->DecodeDense(buffer, max_values);
   }
-
-  // Same internal decode as above, but copy the bytes contiguously into the
-  // caller's buffer instead of materializing per-value pointers.
-  int Decode(uint8_t* buffer, int max_values) override {
-    std::vector<ByteArray> decode_byte_array(max_values);
-    const int decoded_values_size = GetInternal(decode_byte_array.data(), max_values);
-    const uint32_t type_length = static_cast<uint32_t>(this->type_length_);
-
-    for (int i = 0; i < decoded_values_size; i++) {
-      if (ARROW_PREDICT_FALSE(decode_byte_array[i].len != type_length)) {
-        throw ParquetException("Fixed length byte array length mismatch");
-      }
-      memcpy(buffer + static_cast<int64_t>(i) * type_length, decode_byte_array[i].ptr,
-             type_length);
-    }
-    return decoded_values_size;
-  }
 };
 
 // ----------------------------------------------------------------------
