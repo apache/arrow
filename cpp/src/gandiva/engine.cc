@@ -649,6 +649,8 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   auto* function = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
                                           name, module());
+  // TODO: Other native function mappings may require target-specific ABI attributes
+  // that cannot be inferred from their LLVM types alone.
   AddNativeBoolZExtAttrs(*function);
   AddAbsoluteSymbol(*lljit_, name, func);
 }

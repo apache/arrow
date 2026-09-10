@@ -35,6 +35,13 @@ namespace gandiva {
 namespace {
 
 void CopyZExtAttrs(const llvm::Function& function, llvm::CallBase& call) {
+  // https://llvm.org/docs/LangRef.html#parameter-attributes
+  // "ABI attributes must be specified both at the function declaration/definition and
+  // call-site, otherwise the behavior may be undefined. ABI attributes cannot be safely
+  // dropped."
+  //
+  // TODO: Copy other ABI attributes as well. This currently copies only `zeroext`,
+  // which is required for Gandiva's native bool parameters and results.
   if (function.hasRetAttribute(llvm::Attribute::ZExt)) {
     call.addRetAttr(llvm::Attribute::ZExt);
   }
