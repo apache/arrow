@@ -3647,9 +3647,11 @@ TEST(Cast, ListToListOptionsPassthru) {
 }
 
 TEST(Cast, ListViewToList) {
-  // 1. Contiguous ListView
-  auto contiguous_src = ArrayFromJSON(list_view(int16()), "[[10, 20], [30], [40, 50]]");
-  auto contiguous_expected = ArrayFromJSON(list(int16()), "[[10, 20], [30], [40, 50]]");
+  // 1. Contiguous ListView (with nulls)
+  auto contiguous_src =
+      ArrayFromJSON(list_view(int16()), "[[10, 20], null, [30], [40, 50]]");
+  auto contiguous_expected =
+      ArrayFromJSON(list(int16()), "[[10, 20], null, [30], [40, 50]]");
   CheckCast(contiguous_src, contiguous_expected);
 
   // Assert zero-copy for contiguous values
@@ -3658,6 +3660,7 @@ TEST(Cast, ListViewToList) {
   auto res_list = std::dynamic_pointer_cast<ListArray>(cast_result.make_array());
   ASSERT_EQ(res_list->values()->data()->buffers[1]->address(),
             src_lv->values()->data()->buffers[1]->address());
+  ASSERT_OK(res_list->ValidateFull());
 
   // 2. Gapped/Non-contiguous ListView
   auto values = ArrayFromJSON(int16(), "[10, 20, 999, 30, 40, 50]");
@@ -3677,11 +3680,11 @@ TEST(Cast, ListViewToList) {
   auto overlapping_expected = ArrayFromJSON(list(int16()), "[[10, 20], [20, 999]]");
   CheckCast(overlapping_src, overlapping_expected);
 
-  // 4. Large ListView to List and vice versa
+  // 4. Large ListView to List and vice versa (with nulls)
   auto large_contiguous_src =
-      ArrayFromJSON(large_list_view(int16()), "[[10, 20], [30], [40, 50]]");
+      ArrayFromJSON(large_list_view(int16()), "[[10, 20], null, [30], [40, 50]]");
   auto large_contiguous_expected =
-      ArrayFromJSON(large_list(int16()), "[[10, 20], [30], [40, 50]]");
+      ArrayFromJSON(large_list(int16()), "[[10, 20], null, [30], [40, 50]]");
   CheckCast(large_contiguous_src, large_contiguous_expected);
   CheckCast(contiguous_src, large_contiguous_expected);
   CheckCast(large_contiguous_src, contiguous_expected);
@@ -3721,6 +3724,14 @@ TEST(Cast, ListViewToList) {
   auto null_val_src_masked = MaskArrayWithNullsAt(null_val_src, {1});
   auto null_val_expected = ArrayFromJSON(list(int16()), "[[10], null]");
   CheckCast(null_val_src_masked, null_val_expected);
+
+  // 9. Zero-length ListView input
+  auto empty_src = ArrayFromJSON(list_view(int16()), "[]");
+  auto empty_expected = ArrayFromJSON(list(int16()), "[]");
+  CheckCast(empty_src, empty_expected);
+  auto large_empty_src = ArrayFromJSON(large_list_view(int32()), "[]");
+  auto large_empty_expected = ArrayFromJSON(large_list(int32()), "[]");
+  CheckCast(large_empty_src, large_empty_expected);
 }
 
 static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_types,

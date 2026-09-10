@@ -142,8 +142,9 @@ void AddListCast(CastFunction* func) {
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
 
+// (Large)ListView<T> -> (Large)List<U>
 template <typename SrcType, typename DestType>
-struct CastListView {
+struct CastListViewToVarList {
   using src_offset_type = typename SrcType::offset_type;
   using dest_offset_type = typename DestType::offset_type;
 
@@ -173,19 +174,7 @@ struct CastListView {
     const ArraySpan& in_array = batch[0].array;
     ArrayData* out_array = out->array_data().get();
 
-    if (in_array.length == 0) {
-      out_array->buffers[0] = nullptr;
-      ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
-                            ctx->Allocate(sizeof(dest_offset_type)));
-      auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
-      dest_offsets[0] = 0;
-      std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(values->Slice(0, 0), child_type,
-                                                    options, ctx->exec_context()));
-      DCHECK(cast_values.is_array());
-      out_array->child_data.push_back(cast_values.array());
-      return Status::OK();
-    }
+    DCHECK_NE(in_array.length, 0);
 
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
                           GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
@@ -195,19 +184,21 @@ struct CastListView {
     const auto* offsets = in_array.GetValues<src_offset_type>(1);
     const auto* sizes = in_array.GetValues<src_offset_type>(2);
 
+    // Allocate destination offsets buffer (shared by both paths)
+    ARROW_ASSIGN_OR_RAISE(
+        out_array->buffers[1],
+        ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
+    auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
+
     if (IsContiguous(in_array)) {
       // Zero-copy fast-path: shift offsets and slice child values
-      ARROW_ASSIGN_OR_RAISE(
-          out_array->buffers[1],
-          ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
-      auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
-
       src_offset_type start_offset = offsets[0];
-      src_offset_type end_offset =
-          offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
+      src_offset_type abs_end_offset =
+          offsets[in_array.length - 1] + sizes[in_array.length - 1];
 
       if constexpr (is_downcast) {
-        if (end_offset > std::numeric_limits<dest_offset_type>::max()) {
+        src_offset_type range = abs_end_offset - start_offset;
+        if (range > std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("Array of type ", in_array.type->ToString(),
                                  " too large to convert to ",
                                  out_array->type->ToString());
@@ -217,25 +208,19 @@ struct CastListView {
       for (int64_t i = 0; i < in_array.length; ++i) {
         dest_offsets[i] = static_cast<dest_offset_type>(offsets[i] - start_offset);
       }
-      dest_offsets[in_array.length] = static_cast<dest_offset_type>(end_offset);
+      dest_offsets[in_array.length] =
+          static_cast<dest_offset_type>(abs_end_offset - start_offset);
 
-      values = values->Slice(start_offset, dest_offsets[in_array.length]);
+      values = values->Slice(start_offset, abs_end_offset - start_offset);
     } else {
       // Non-contiguous path: compute new offsets, flatten/concatenate values
-      ARROW_ASSIGN_OR_RAISE(
-          out_array->buffers[1],
-          ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
-      auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
-
       src_offset_type current_offset = 0;
       dest_offsets[0] = 0;
       for (int64_t i = 0; i < in_array.length; ++i) {
-        if (in_array.IsNull(i)) {
-          dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
-        } else {
+        if (!in_array.IsNull(i)) {
           current_offset += sizes[i];
-          dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
         }
+        dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
       }
 
       if constexpr (is_downcast) {
@@ -267,12 +252,15 @@ struct CastListView {
 template <typename SrcType, typename DestType>
 void AddListViewCast(CastFunction* func) {
   ScalarKernel kernel;
-  kernel.exec = CastListView<SrcType, DestType>::Exec;
+  kernel.exec = CastListViewToVarList<SrcType, DestType>::Exec;
   kernel.signature =
       KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
+
+
+
 
 template <typename DestType>
 struct CastFixedToVarList {
