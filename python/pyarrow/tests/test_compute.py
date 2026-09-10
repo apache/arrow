@@ -25,7 +25,6 @@ import math
 import os
 import pytest
 import random
-import subprocess
 import sys
 import textwrap
 
@@ -247,23 +246,10 @@ def test_list_functions():
     assert "add" in pc.list_functions()
 
 
-@pytest.mark.processes
 def test_call_tabular_function_rejects_invalid_registry():
-    code = """if 1:
-    import pyarrow.compute as pc
-
-    try:
+    with pytest.raises(TypeError,
+                       match="func_registry must be a FunctionRegistry"):
         pc.call_tabular_function("", None, 1)
-    except TypeError as exc:
-        assert str(exc) == "func_registry must be a FunctionRegistry"
-    else:
-        raise AssertionError("expected TypeError")
-    """
-    res = subprocess.run([sys.executable, "-c", code],
-                         universal_newlines=True, stderr=subprocess.PIPE)
-    if res.returncode != 0:
-        print(res.stderr, file=sys.stderr)
-        res.check_returncode()
 
 
 def _check_get_function(name, expected_func_cls, expected_ker_cls,
