@@ -136,6 +136,34 @@ def test_basics_np_required(pickle_module):
     assert wr() is None
 
 
+@pytest.mark.parametrize(('value', 'ty'), [
+    (-(2 ** 31), pa.date32()),
+    (2 ** 31 - 1, pa.date32()),
+    (-(2 ** 63), pa.date64()),
+    (2 ** 63 - 1, pa.date64()),
+])
+def test_date_scalar_repr_outside_python_range(value, ty):
+    scalar = pa.scalar(value, type=ty)
+    out_of_range = f'<value out of range: {value}>'
+
+    assert str(scalar) == out_of_range
+    assert repr(scalar) == (
+        f'<pyarrow.{scalar.__class__.__name__}: {out_of_range}>'
+    )
+
+
+@pytest.mark.parametrize('ty', [pa.date32(), pa.date64()])
+def test_date_scalar_repr_in_python_range(ty):
+    scalar = pa.scalar(datetime.date(2020, 2, 29), type=ty)
+
+    assert str(scalar) == '2020-02-29'
+    assert repr(scalar) == (
+        '<pyarrow.{}: datetime.date(2020, 2, 29)>'.format(
+            scalar.__class__.__name__
+        )
+    )
+
+
 def test_invalid_scalar():
     s = pc.cast(pa.scalar(b"\xff"), pa.string(), safe=False)
     s.validate()
