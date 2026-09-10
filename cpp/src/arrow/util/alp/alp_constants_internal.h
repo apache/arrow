@@ -223,9 +223,15 @@ struct AlpTypedConstants<float> {
 
   static constexpr uint8_t kMaxExponent = 10;
 
-  /// Largest float value that can be safely converted to int32.
-  static constexpr float kEncodingUpperLimit = 2147483520.0f;
-  static constexpr float kEncodingLowerLimit = -2147483520.0f;
+  /// Bounds on the values the fast-rounding step accepts.
+  ///
+  /// The bound is one ulp below the largest float under 2^31 rather than that
+  /// value itself. Rounding a value can move it up by one ulp, so admitting the
+  /// largest one would let the round trip produce exactly 2^31, which int32 has
+  /// no room for. One ulp of headroom is both necessary and sufficient: the
+  /// round trip never moves a value further than that.
+  static constexpr float kEncodingUpperLimit = 2147483392.0f;  // 2^31 - 2^8
+  static constexpr float kEncodingLowerLimit = -2147483392.0f;
 
   /// \brief Get exponent multiplier
   ///
@@ -260,9 +266,12 @@ class AlpTypedConstants<double> {
 
   static constexpr uint8_t kMaxExponent = 18;  // 10^18 is the maximum int64
 
-  /// Largest double value that can be safely converted to int64.
-  static constexpr double kEncodingUpperLimit = 9223372036854774784.0;
-  static constexpr double kEncodingLowerLimit = -9223372036854774784.0;
+  /// Bounds on the values the fast-rounding step accepts.
+  ///
+  /// The bound is one ulp below the largest double under 2^63 rather than that
+  /// value itself, for the reason given on the float bounds above.
+  static constexpr double kEncodingUpperLimit = 9223372036854773760.0;  // 2^63 - 2^11
+  static constexpr double kEncodingLowerLimit = -9223372036854773760.0;
 
   /// \brief Get exponent multiplier
   ///
