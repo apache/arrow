@@ -41,8 +41,10 @@ class TestArrowFileReader < Test::Unit::TestCase
                else
                  Arrow::FileInputStream.new(@file.path)
                end
+      reader = nil
       begin
-        Parquet::ArrowFileReader.open(source, properties) do |reader|
+        Parquet::ArrowFileReader.open(source, properties) do |opened_reader|
+          reader = opened_reader
           properties.disable_buffered_stream
           properties.buffer_size = 0
           assert_equal([
@@ -52,6 +54,8 @@ class TestArrowFileReader < Test::Unit::TestCase
                        reader.each_row_group.to_a)
         end
       ensure
+        # Release the memory-mapped path before Tempfile removes it on Windows.
+        reader&.unref
         source.close if source_type == :stream
       end
     end
