@@ -1093,7 +1093,15 @@ module ArrowFormat
 
   class FixedSizeListArray < Array
     attr_reader :child
-    def initialize(type, size, validity_buffer, child)
+    def initialize(type, *args)
+      if args.size == 1
+        args = build_data(type, args.first)
+      elsif args.size != 3
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size + 1}, expected 2 or 4)"
+      end
+
+      size, validity_buffer, child = args
       super(type, size, validity_buffer)
       @child = child
     end
@@ -1112,6 +1120,36 @@ module ArrowFormat
     end
 
     private
+    def build_data(type, data)
+      n = 0
+      validity_buffer_builder = nil
+
+      child_values = []
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+          child_values.concat([nil] * type.size)
+        else
+          unless value.size == type.size
+            message = "list size must be #{type.size}: #{value.inspect}"
+            raise ArgumentError, message
+          end
+          child_values.concat(value)
+        end
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+      child = type.child.type.build_array(child_values)
+
+      [
+        n,
+        validity_buffer,
+        child,
+      ]
+    end
+
     def slice!(offset, size)
       super
       @child = @child.slice(@type.size * @offset,
