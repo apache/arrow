@@ -26,8 +26,14 @@
 
 @PACKAGE_INIT@
 
+set(ARROW_S3_SYSTEM_DEPENDENCIES "@ARROW_S3_SYSTEM_DEPENDENCIES@")
+
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow CONFIG)
+
+if(ARROW_BUILD_STATIC)
+  arrow_find_dependencies("${ARROW_S3_SYSTEM_DEPENDENCIES}")
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowS3Targets.cmake")
 

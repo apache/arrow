@@ -4244,6 +4244,10 @@ if(ARROW_S3)
   endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowS3
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-s3
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
