@@ -31,7 +31,7 @@ DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
 DSN_NAME="Apache Arrow Flight SQL ODBC DSN"
 
 if ! touch "$SYSTEM_ODBC_FILE"; then
-  echo "ERROR: Cannot access or create $SYSTEM_ODBC_FILE" >&2
+  echo ERROR: Cannot access or create $SYSTEM_ODBC_FILE >&2
   exit 1
 fi
 
