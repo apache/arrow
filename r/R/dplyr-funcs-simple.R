@@ -188,6 +188,13 @@ common_type <- function(exprs) {
 }
 
 cast_or_parse <- function(x, type) {
+  # A null scalar (e.g. a bare `NA`, which is logical) carries no data, so
+  # skip the value cast and just create a null of the target type. This
+  # avoids unsupported casts like bool -> date32 (GH-38358).
+  if (!x$is_valid) {
+    return(Scalar$create(NULL)$cast(type))
+  }
+
   to_type_id <- type$id
   if (to_type_id %in% c(Type[["DECIMAL32"]], Type[["DECIMAL64"]], Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
     # TODO: determine the minimum size of decimal (or integer) required to
