@@ -144,7 +144,8 @@ class TestArrayBuilder < Test::Unit::TestCase
 
   def test_date
     values = [Date.new(2026, 7, 17)]
-    assert_equal(ArrowFormat::Date32Array.new(values),
-                 ArrowFormat::Array.build(values))
+    array = ArrowFormat::Array.build(values)
+    assert_equal(ArrowFormat::Date32Array, array.class)
+    assert_equal([20651], array.to_a)
   end
 end
