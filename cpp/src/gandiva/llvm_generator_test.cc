@@ -66,6 +66,41 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   }
 }
 
+TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
+  ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
+
+  // Check that native bool declarations carry the ABI attributes.
+  auto* function = generator->module()->getFunction("gdv_fn_in_expr_lookup_int32");
+  ASSERT_NE(function, nullptr);
+  EXPECT_TRUE(function->hasRetAttribute(llvm::Attribute::ZExt));
+  EXPECT_TRUE(function->hasParamAttribute(2, llvm::Attribute::ZExt));
+
+  auto* types = generator->types();
+  auto* prototype = llvm::FunctionType::get(types->void_type(), /*is_var_arg=*/false);
+  auto* caller = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
+                                        "bool_call_attrs", generator->module());
+  auto* entry = llvm::BasicBlock::Create(*generator->context(), "entry", caller);
+  generator->ir_builder()->SetInsertPoint(entry);
+
+  // Check that AddFunctionCall copies the attributes to the call site.
+  auto* call = llvm::cast<llvm::CallInst>(generator->AddFunctionCall(
+      "gdv_fn_in_expr_lookup_int32", types->i1_type(),
+      {types->i64_constant(0), types->i32_constant(0), types->true_constant()}));
+  EXPECT_TRUE(call->getAttributes().hasRetAttr(llvm::Attribute::ZExt));
+  EXPECT_TRUE(call->getAttributes().hasParamAttr(2, llvm::Attribute::ZExt));
+
+  // Check that ordinary LLVM i1 functions do not receive the attributes.
+  auto* i1_prototype =
+      llvm::FunctionType::get(types->i1_type(), {types->i1_type()}, false);
+  llvm::Function::Create(i1_prototype, llvm::GlobalValue::ExternalLinkage, "plain_i1",
+                         generator->module());
+  auto* i1_call = llvm::cast<llvm::CallInst>(
+      generator->AddFunctionCall("plain_i1", types->i1_type(), {types->true_constant()}));
+  generator->ir_builder()->CreateRetVoid();
+  EXPECT_FALSE(i1_call->getAttributes().hasRetAttr(llvm::Attribute::ZExt));
+  EXPECT_FALSE(i1_call->getAttributes().hasParamAttr(0, llvm::Attribute::ZExt));
+}
+
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   ASSERT_OK_AND_ASSIGN(auto generator,

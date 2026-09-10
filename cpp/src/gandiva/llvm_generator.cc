@@ -32,6 +32,22 @@
 
 namespace gandiva {
 
+namespace {
+
+void CopyZExtAttrs(const llvm::Function& function, llvm::CallBase& call) {
+  if (function.hasRetAttribute(llvm::Attribute::ZExt)) {
+    call.addRetAttr(llvm::Attribute::ZExt);
+  }
+
+  for (unsigned i = 0; i < function.arg_size(); ++i) {
+    if (function.hasParamAttribute(i, llvm::Attribute::ZExt)) {
+      call.addParamAttr(i, llvm::Attribute::ZExt);
+    }
+  }
+}
+
+}  // namespace
+
 #define ADD_TRACE(...)     \
   if (enable_ir_traces_) { \
     AddTrace(__VA_ARGS__); \
@@ -543,16 +559,17 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
   }
 
   // build a call to the llvm function.
-  llvm::Value* value;
+  llvm::CallInst* call;
   if (ret_type->isVoidTy()) {
     // void functions can't have a name for the call.
-    value = ir_builder()->CreateCall(fn, args);
+    call = ir_builder()->CreateCall(fn, args);
   } else {
-    value = ir_builder()->CreateCall(fn, args, full_name);
-    DCHECK(value->getType() == ret_type);
+    call = ir_builder()->CreateCall(fn, args, full_name);
+    DCHECK(call->getType() == ret_type);
   }
+  CopyZExtAttrs(*fn, *call);
 
-  return value;
+  return call;
 }
 
 std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* value,
