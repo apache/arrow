@@ -1260,7 +1260,6 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
                      &options);
   }
 
-  // Hangul composes algorithmically in utf8proc, not through the composition table.
   // decomposed: U+1112(HANGUL CHOSEONG HIEUH) + U+1161(HANGUL JUNGSEONG A) +
   //             U+11AB(HANGUL JONGSEONG NIEUN)
   // composed: U+D55C(HANGUL SYLLABLE HAN)
@@ -1276,6 +1275,21 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
     this->CheckUnary("utf8_normalize", json_composed, this->type(), json_decomposed,
                      &options);
     this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_decomposed,
+                     &options);
+  }
+
+  // singleton: U+212B(ANGSTROM SIGN) decomposes to U+0041(LATIN CAPITAL LETTER A) +
+  //            U+030A(COMBINING RING ABOVE), which composes to U+00C5(LATIN CAPITAL
+  //            LETTER A WITH RING ABOVE), so the composed form differs from the input
+  const char* json_singleton = "[\"\xe2\x84\xab\"]";
+  json_composed = "[\"\xc3\x85\"]";
+  json_decomposed = "[\"A\xcc\x8a\"]";
+  for (const auto& options : compose_options) {
+    this->CheckUnary("utf8_normalize", json_singleton, this->type(), json_composed,
+                     &options);
+  }
+  for (const auto& options : decompose_options) {
+    this->CheckUnary("utf8_normalize", json_singleton, this->type(), json_decomposed,
                      &options);
   }
 
