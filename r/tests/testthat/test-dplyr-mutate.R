@@ -775,3 +775,18 @@ test_that("across() does not select grouping variables within transmute()", {
     "Column `chr` doesn't exist"
   )
 })
+
+test_that("mutate() with a variable that shares a name with a function binding", {
+  # GH-39688: `day` is also a function binding. The user's variable should be
+  # found when used as a value, and the binding when used as a function.
+  day <- 1L
+  compare_dplyr_binding(
+    .input |>
+      mutate(
+        x = int + day,
+        y = lubridate::day(date) + day
+      ) |>
+      collect(),
+    tibble::tibble(int = 1:3, date = as.Date("2024-01-18") + 0:2)
+  )
+})

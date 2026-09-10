@@ -547,3 +547,15 @@ test_that("More complex select/filter_out", {
     tbl
   )
 })
+
+test_that("filter() with a variable that shares a name with a function binding", {
+  # GH-39688: `date` and `day` are also function bindings
+  date <- "d"
+  day <- 5L
+  compare_dplyr_binding(
+    .input |>
+      filter(chr == date, int <= day) |>
+      collect(),
+    tbl
+  )
+})
