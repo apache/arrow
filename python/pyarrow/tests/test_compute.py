@@ -241,6 +241,12 @@ def test_option_class_equality(request):
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
+@pytest.mark.parametrize("value", [None, 1, [], b""])
+def test_function_options_deserialize_rejects_non_buffers(value):
+    with pytest.raises(TypeError):
+        pc.FunctionOptions.deserialize(value)
+
+
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()
