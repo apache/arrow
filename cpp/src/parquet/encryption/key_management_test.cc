@@ -441,4 +441,54 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   }
 }
 
+TEST_F(TestEncryptionKeyManagement, KmsConnectionConfigReadFromFile) {
+  this->SetupCryptoFactory(true);
+
+  constexpr bool internal_key_material = true;
+  constexpr bool double_wrapping = true;
+  constexpr int encryption_no = 0;
+
+  std::string file_name = "kms-config-test-file.parquet.encrypted";
+  std::string file_path = temp_dir_->path().ToString() + file_name;
+
+  auto encryption_config =
+      GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
+
+  KmsConnectionConfig write_config;
+  write_config.kms_instance_id = "123";
+  write_config.kms_instance_url = "https://example.com/kms";
+
+  auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
+      write_config, encryption_config);
+  encryptor_.EncryptFile(file_path, file_encryption_properties);
+
+  for (const auto& enable_kms_config_read : {false, true}) {
+    // Create a fresh crypto factory and client factory for each read
+    // to avoid re-using cached clients.
+    CryptoFactory read_crypto_factory;
+    auto kms_client_factory = std::make_shared<TestOnlyInMemoryKmsClientFactory>(true, key_list_);
+    read_crypto_factory.RegisterKmsClientFactory(kms_client_factory);
+
+    auto decryption_config = DecryptionConfiguration();
+    decryption_config.read_kms_config_from_files = enable_kms_config_read;
+
+    KmsConnectionConfig read_config;
+
+    auto file_decryption_properties = read_crypto_factory.GetFileDecryptionProperties(
+        read_config, decryption_config);
+
+    decryptor_.DecryptFile(file_path, file_decryption_properties);
+
+    ASSERT_EQ(kms_client_factory->CreationRequests().size(), 1);
+    const auto& request = kms_client_factory->CreationRequests()[0];
+    if (enable_kms_config_read) {
+      EXPECT_EQ(request.kms_instance_id, "123");
+      EXPECT_EQ(request.kms_instance_url, "https://example.com/kms");
+    } else {
+      EXPECT_EQ(request.kms_instance_id, "DEFAULT");
+      EXPECT_EQ(request.kms_instance_url, "DEFAULT");
+    }
+  }
+}
+
 }  // namespace parquet::encryption::test

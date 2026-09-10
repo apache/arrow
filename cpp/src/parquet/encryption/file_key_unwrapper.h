@@ -70,6 +70,10 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   /// Get the data key along with the master key id from key material
   KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
 
+  /// Enable reading KMS connection information from Parquet key material when
+  /// it is not already set.
+  void EnableReadingKmsConfigFromFiles();
+
  private:
   FileKeyUnwrapper(std::shared_ptr<KeyToolkit> key_toolkit_owner, KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
@@ -91,6 +95,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
   const std::string file_path_;
   std::shared_ptr<::arrow::fs::FileSystem> file_system_;
+  bool read_kms_config_from_files_ = false;
 };
 
 }  // namespace parquet::encryption

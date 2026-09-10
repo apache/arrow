@@ -21,6 +21,7 @@
 
 #include "arrow/util/base64.h"
 #include "parquet/encryption/file_key_unwrapper.h"
+
 #include "parquet/encryption/key_metadata.h"
 
 using ::arrow::util::SecureString;
@@ -133,25 +134,39 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
   return KeyWithMasterId(std::move(data_key), master_key_id);
 }
 
+void FileKeyUnwrapper::EnableReadingKmsConfigFromFiles() {
+  read_kms_config_from_files_ = true;
+}
+
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
     const KeyMaterial& key_material) {
   std::string& kms_instance_id = kms_connection_config_.kms_instance_id;
   if (kms_instance_id.empty()) {
-    kms_instance_id = key_material.kms_instance_id();
-    if (kms_instance_id.empty()) {
-      throw ParquetException(
-          "KMS instance ID is missing both in both kms connection configuration and file "
-          "key material");
+    if (read_kms_config_from_files_) {
+      kms_instance_id = key_material.kms_instance_id();
+      if (kms_instance_id.empty()) {
+        throw ParquetException(
+            "KMS instance ID is missing both in both kms connection configuration and "
+            "file "
+            "key material");
+      }
+    } else {
+      kms_instance_id = KmsClient::kKmsInstanceIdDefault;
     }
   }
 
   std::string& kms_instance_url = kms_connection_config_.kms_instance_url;
   if (kms_instance_url.empty()) {
-    kms_instance_url = key_material.kms_instance_url();
-    if (kms_instance_url.empty()) {
-      throw ParquetException(
-          "KMS instance ID is missing both in both kms connection configuration and file "
-          "key material");
+    if (read_kms_config_from_files_) {
+      kms_instance_url = key_material.kms_instance_url();
+      if (kms_instance_url.empty()) {
+        throw ParquetException(
+            "KMS instance ID is missing both in both kms connection configuration and "
+            "file "
+            "key material");
+      }
+    } else {
+      kms_instance_url = KmsClient::kKmsInstanceUrlDefault;
     }
   }
 

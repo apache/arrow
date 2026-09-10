@@ -47,7 +47,7 @@ void KeyToolkit::RotateMasterKeys(
     const KmsConnectionConfig& kms_connection_config,
     const std::string& parquet_file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
-    double cache_lifetime_seconds) {
+    double cache_lifetime_seconds, bool read_kms_config_from_files) {
   // If process wrote files with double-wrapped keys, clean KEK cache (since master keys
   // are changing). Only once for each key rotation cycle; not for every file.
   const auto now = internal::CurrentTimePoint();
@@ -65,6 +65,9 @@ void KeyToolkit::RotateMasterKeys(
   // Unwrapper for decrypting encrypted keys
   FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config, cache_lifetime_seconds,
                                       key_material_store);
+  if (read_kms_config_from_files) {
+    file_key_unwrapper.EnableReadingKmsConfigFromFiles();
+  }
 
   // Create a temporary store to hold new key material during rotation,
   // and wrapper that will write material to this store when getting key metadata.

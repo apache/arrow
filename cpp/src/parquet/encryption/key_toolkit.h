@@ -77,7 +77,8 @@ class PARQUET_EXPORT KeyToolkit {
   void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
                         const std::string& parquet_file_path,
                         const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
-                        bool double_wrapping, double cache_lifetime_seconds);
+                        bool double_wrapping, double cache_lifetime_seconds,
+                        bool read_kms_config_from_files);
 
  private:
   TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> kms_client_cache_;

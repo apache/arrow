@@ -90,12 +90,22 @@ class TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
 
   std::shared_ptr<KmsClient> CreateKmsClient(
       const KmsConnectionConfig& kms_connection_config) {
+    create_requests_.push_back(kms_connection_config);
     if (wrap_locally_) {
       return std::make_shared<TestOnlyLocalWrapInMemoryKms>(kms_connection_config);
     } else {
       return std::make_shared<TestOnlyInServerWrapKms>();
     }
   }
+
+  /// Get the `KmsConnectionConfig` values that have been used to
+  /// create clients with this factory.
+  const std::vector<KmsConnectionConfig>& CreationRequests() {
+      return create_requests_;
+  }
+
+private:
+    std::vector<KmsConnectionConfig> create_requests_;
 };
 
 }  // namespace parquet::encryption
