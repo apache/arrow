@@ -539,6 +539,10 @@ class AlpInlines {
   }
 
   /// \brief Round a float to the nearest integer using the magic-number technique
+  ///
+  /// The caller must have screened n against the encoding bounds. Those bounds
+  /// keep one ulp in reserve so that the rounding below cannot carry n past the
+  /// largest value the integer type holds.
   static inline SignedExactType FastRound(T n) {
     if (n >= 0) {
       n = n + Constants::kMagicNumber - Constants::kMagicNumber;
