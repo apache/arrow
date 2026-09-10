@@ -564,3 +564,15 @@ test_that("filter() and filter_out() with across() warn about deprecation", {
     class = "lifecycle_warning_deprecated"
   )
 })
+
+test_that("filter() with a variable that shares a name with a function binding", {
+  # GH-39688: `date` and `day` are also function bindings
+  date <- "d"
+  day <- 5L
+  compare_dplyr_binding(
+    .input |>
+      filter(chr == date, int <= day) |>
+      collect(),
+    tbl
+  )
+})
