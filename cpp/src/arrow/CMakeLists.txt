@@ -1053,6 +1053,10 @@ if(ARROW_FILESYSTEM)
       set(ARROW_S3_PC_REQUIRES "")
     endif()
     list(APPEND ARROW_S3_LIB_SRCS filesystem/s3fs_module.cc filesystem/s3fs.cc)
+    set(ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+    if(AWSSDK_SOURCE STREQUAL "SYSTEM")
+      list(APPEND ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS ${AWSSDK_LINK_LIBRARIES})
+    endif()
     add_arrow_lib(arrow_s3
                   CMAKE_PACKAGE_NAME
                   ArrowS3
@@ -1065,10 +1069,12 @@ if(ARROW_FILESYSTEM)
                   SHARED_PRIVATE_LINK_LIBS
                   ${AWSSDK_LINK_LIBRARIES}
                   SHARED_INSTALL_INTERFACE_LIBS
-                  ${ARROW_S3_SHARED_INSTALL_INTERFACE_LIBS}
+                  Arrow::arrow_shared
                   STATIC_LINK_LIBS
                   arrow_static
                   ${AWSSDK_LINK_LIBRARIES}
+                  STATIC_INSTALL_INTERFACE_LIBS
+                  ${ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS}
                   OUTPUTS
                   ARROW_S3_LIBRARIES)
     foreach(LIB_TARGET ${ARROW_S3_LIBRARIES})
