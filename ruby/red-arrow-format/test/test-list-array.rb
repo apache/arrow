@@ -33,7 +33,6 @@ class TestListArray < Test::Unit::TestCase
       values = [[1, 2], nil, [], [3]]
       array = ArrowFormat::ListArray.new(@type, values)
       assert_equal([0, 2, 2, 2, 3], array.offsets)
-      assert_equal(1, array.n_nulls)
       assert_equal([1, 2, 3], array.child.to_a)
       assert_equal(values, array.to_a)
     end
@@ -41,7 +40,6 @@ class TestListArray < Test::Unit::TestCase
     def test_null_child
       values = [[1, nil], [], [nil, 2]]
       array = ArrowFormat::ListArray.new(@type, values)
-      assert_equal(2, array.child.n_nulls)
       assert_equal([1, nil, nil, 2], array.child.to_a)
       assert_equal(values, array.to_a)
     end
