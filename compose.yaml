@@ -57,7 +57,7 @@ x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
   CCACHE_COMPRESSLEVEL: 6
-  CCACHE_MAXSIZE: 1G
+  CCACHE_MAXSIZE: 1.5G
   CCACHE_DIR: /ccache
   # Some builds (such as PyArrow) copy their source files in a temporary directory,
   # avoid hashing the current directory to make ccache useful on those builds.
