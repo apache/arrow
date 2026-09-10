@@ -48,7 +48,7 @@ main() {
   mkdir -p "${DESTDIR}"
 
   # Load `DEPENDENCIES` variable.
-  source ${SOURCE_DIR}/versions.txt
+  source "${SOURCE_DIR}/versions.txt"
 
   echo "# Environment variables for offline Arrow build"
   for ((i = 0; i < ${#DEPENDENCIES[@]}; i++)); do
