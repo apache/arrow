@@ -337,7 +337,7 @@ class CppDLTensor {
       // DLPack strides are in number of elements, so is the size we compute from them.
       return internal::ComputeTensorSize(shape, strides, 1);
     }
-    // DLPack <1.3 my set strides == nullptr for row major
+    // DLPack <1.3 may set strides == nullptr for row major
     return std::reduce(shape.begin(), shape.end(), int64_t{1}, std::multiplies{});
   }
 
