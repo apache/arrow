@@ -144,7 +144,11 @@ table DictionaryBatch {
 ///
 /// Arrow implementations do not need to implement all of the message types,
 /// which may include experimental metadata types. For maximum compatibility,
-/// it is best to send data using RecordBatch
+/// it is best to send data using RecordBatch.
+///
+/// Tensor and SparseTensor are DEPRECATED. The recommended way to pass dense
+/// tensors over Arrow IPC is a RecordBatch field with the `arrow.fixed_shape_tensor`
+/// canonical type. Sparse tensors currently do not have a recommended replacement.
 union MessageHeader {
   Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor
 }
