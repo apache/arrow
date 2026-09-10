@@ -4335,6 +4335,11 @@ if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
+  if(AZURE_SDK_VENDORED AND NOT WIN32)
+    find_curl()
+    find_package(LibXml2 REQUIRED)
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
