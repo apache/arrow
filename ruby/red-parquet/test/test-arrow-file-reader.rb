@@ -29,6 +29,34 @@ class TestArrowFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case(".open with properties") do
+    data("path" => :path, "stream" => :stream)
+    test("row groups") do |source_type|
+      properties = Parquet::ReaderProperties.new
+      properties.buffer_size = 4096
+      properties.enable_buffered_stream
+      assert_true(properties.buffered_stream_enabled?)
+      source = if source_type == :path
+                 @file.path
+               else
+                 Arrow::FileInputStream.new(@file.path)
+               end
+      begin
+        Parquet::ArrowFileReader.open(source, properties) do |reader|
+          properties.disable_buffered_stream
+          properties.buffer_size = 0
+          assert_equal([
+                         Arrow::Table.new(@schema, [[true]]),
+                         Arrow::Table.new(@schema, [[false]])
+                       ],
+                       reader.each_row_group.to_a)
+        end
+      ensure
+        source.close if source_type == :stream
+      end
+    end
+  end
+
   sub_test_case("#each_row_group") do
     test("block") do
       Arrow::FileInputStream.open(@file.path) do |input|
