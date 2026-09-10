@@ -661,6 +661,7 @@ test_that("strings returned by ALTREP Elt() survive garbage collection", {
   # handed out reachable (GH-51198). Reproducer adapted from
   # https://gist.github.com/traversc/a5204821451198d457edc38cceda9d90
   withr::local_options(list(arrow.use_altrep = TRUE))
+  skip_on_cran()
 
   # Build the string inside Arrow so that this R session never holds a CHARSXP
   # with these contents: the only one is the one Elt() creates. It is large so
