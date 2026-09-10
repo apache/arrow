@@ -465,9 +465,9 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_CURRENT_CATALOG: {
       std::string catalog;
       if (is_unicode) {
-        SetAttributeUTF8(value, string_length, catalog);
-      } else {
         SetAttributeSQLWCHAR(value, string_length, catalog);
+      } else {
+        SetAttributeUTF8(value, string_length, catalog);
       }
       if (!spi_connection_->SetAttribute(Connection::CURRENT_CATALOG, catalog)) {
         throw DriverException("Option value changed.", "01S02");

@@ -410,4 +410,23 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrPacketSizeValid) {
 #endif
 }
 
+// A multi-character catalog set through the wide entry point must round-trip
+// intact.
+TYPED_TEST(ConnectionAttributeTest, TestSQLSetGetConnectAttrCurrentCatalogWide) {
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(catalog, L"my_catalog");
+
+  ASSERT_EQ(SQL_SUCCESS, SQLSetConnectAttr(this->conn, SQL_ATTR_CURRENT_CATALOG, catalog,
+                                           catalog_len * GetSqlWCharSize()));
+
+  SQLWCHAR out_str[kOdbcBufferSize];
+  SQLINTEGER out_str_len;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_CURRENT_CATALOG, out_str,
+                                           kOdbcBufferSize, &out_str_len));
+  // SQLGetConnectAttr returns the length in bytes; convert to characters.
+  out_str_len /= GetSqlWCharSize();
+  std::string out_catalog =
+      ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
+  EXPECT_EQ("my_catalog", out_catalog);
+}
+
 }  // namespace arrow::flight::sql::odbc
