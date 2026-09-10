@@ -29,6 +29,7 @@
 #include <arrow/util/bitmap_writer.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
+#include <arrow/util/float16.h>
 #include <arrow/util/logging.h>
 
 #include "./r_task_group.h"
@@ -390,12 +391,12 @@ struct RConvert {
     return static_cast<float>(from);
   }
 
-  // ---- convert to half float: not implemented
+  // ---- convert to half float
   template <typename Type, typename From>
   static enable_if_t<std::is_same<Type, const HalfFloatType>::value,
                      Result<typename Type::c_type>>
   Convert(Type*, From from) {
-    return Status::Invalid("Cannot convert to Half Float");
+    return arrow::util::Float16(static_cast<double>(from)).bits();
   }
 };
 

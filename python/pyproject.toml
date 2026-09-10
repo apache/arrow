@@ -20,8 +20,9 @@ requires = [
     "scikit-build-core >= 1.0",
     "cython >= 3.1",
     # Needed for build-time stub docstring extraction
-    "libcst>=1.8.6",
-    "numpy>=1.25",
+    "libcst>=1.9.0; python_version >= '3.15'",
+    "libcst>=1.8.6; python_version < '3.15'",
+    "numpy>=2.0",
     "setuptools_scm[toml]>=8",
 ]
 build-backend = "scikit_build_core.build"
@@ -42,6 +43,7 @@ classifiers  = [
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Programming Language :: Python :: Free Threading :: 2 - Beta',
 ]
 maintainers = [

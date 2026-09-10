@@ -397,14 +397,18 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntervals,
     &MakeUuid,
     &MakeComplex128,
-    &MakeDictExtension};
+    &MakeDictExtension,
+    &MakeDenseUnionExtension,
+    &MakeSparseUnionExtension};
 
 static int g_file_number = 0;
 
 class ExtensionTypesMixin {
  public:
   // Register the extension types required to ensure roundtripping
-  ExtensionTypesMixin() : ext_guard_({uuid(), dict_extension_type(), complex128()}) {}
+  ExtensionTypesMixin()
+      : ext_guard_({uuid(), dict_extension_type(), complex128(),
+                    dense_union_extension_type(), sparse_union_extension_type()}) {}
 
  protected:
   ExtensionTypeGuard ext_guard_;

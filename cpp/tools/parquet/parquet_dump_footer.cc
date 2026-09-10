@@ -57,7 +57,7 @@ int DoIt(std::string in, bool scrub, bool debug, std::string out) {
     std::cerr << "Not a Parquet file: " << in << "\n";
     return 4;
   }
-  uint32_t metadata_len = ReadLE32(data + tail_len - 8);
+  int64_t metadata_len = ReadLE32(data + tail_len - 8);
   if (tail_len >= metadata_len + 8) {
     // The footer is entirely in the initial read. Trim to size.
     tail = tail.substr(tail_len - (metadata_len + 8));
@@ -72,7 +72,7 @@ int DoIt(std::string in, bool scrub, bool debug, std::string out) {
     data = tail.data();
     file->ReadAt(file_len - tail_len, tail_len, data).ValueOrDie();
   }
-  auto md = FileMetaData::Make(tail.data(), &metadata_len);
+  auto md = FileMetaData::Make(tail.data(), metadata_len);
   std::string ser = md->SerializeUnencrypted(scrub, debug);
   if (!debug) {
     AppendLE32(static_cast<uint32_t>(ser.size()), &ser);

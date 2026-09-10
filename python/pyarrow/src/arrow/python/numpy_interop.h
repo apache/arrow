@@ -19,16 +19,14 @@
 
 #include "arrow/python/platform.h"  // IWYU pragma: export
 
+// Require the NumPy 2.0 C API and hide deprecated APIs.
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+
 #include <numpy/numpyconfig.h>  // IWYU pragma: export
 
-// Don't use the deprecated Numpy functions
-#ifdef NPY_1_7_API_VERSION
-#  define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#else
-#  define NPY_ARRAY_NOTSWAPPED NPY_NOTSWAPPED
-#  define NPY_ARRAY_ALIGNED NPY_ALIGNED
-#  define NPY_ARRAY_WRITEABLE NPY_WRITEABLE
-#  define NPY_ARRAY_UPDATEIFCOPY NPY_UPDATEIFCOPY
+#if NPY_ABI_VERSION < 0x02000000
+#  error "PyArrow requires NumPy 2.0 or newer"
 #endif
 
 // This is required to be able to access the NumPy C API properly in C++ files
@@ -67,20 +65,13 @@
 #  define NPY_INT32_IS_INT 0
 #endif
 
-// Backported NumPy 2 API (can be removed if numpy 2 is required)
-#if NPY_ABI_VERSION < 0x02000000
-#  define PyDataType_ELSIZE(descr) ((descr)->elsize)
-#  define PyDataType_C_METADATA(descr) ((descr)->c_metadata)
-#  define PyDataType_FIELDS(descr) ((descr)->fields)
-#endif
-
 namespace arrow {
 namespace py {
 
 inline int import_numpy() {
 #ifdef NUMPY_IMPORT_ARRAY
-  import_array1(-1);
-  import_umath1(-1);
+  if (PyArray_ImportNumPyAPI() < 0) return -1;
+  if (PyUFunc_ImportUFuncAPI() < 0) return -1;
 #endif
 
   return 0;

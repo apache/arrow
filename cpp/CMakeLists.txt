@@ -263,6 +263,9 @@ if(ARROW_USE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
 
+  # XXX This does not detect if ccache is enabled externally, for example
+  # by adding `/usr/lib/ccache` to PATH in which case `cc` resolves to
+  # `/usr/lib/ccache/cc`. Such double-wrapping of ccache is suboptimal.
   find_program(CCACHE_FOUND ccache)
 
   if(CCACHE_FOUND)

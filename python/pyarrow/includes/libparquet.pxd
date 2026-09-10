@@ -431,6 +431,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void set_thrift_container_size_limit(int32_t size)
         int32_t thrift_container_size_limit() const
 
+        void set_schema_depth_limit(int32_t limit)
+        int32_t schema_depth_limit() const
+
         void file_decryption_properties(shared_ptr[CFileDecryptionProperties]
                                         decryption)
         shared_ptr[CFileDecryptionProperties] file_decryption_properties() \

@@ -119,15 +119,13 @@ TEST(Metadata, TestBuildAccess) {
   auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
   std::string f_accessor_serialized_metadata = f_accessor->SerializeToString();
-  uint32_t expected_len = static_cast<uint32_t>(f_accessor_serialized_metadata.length());
+  const auto expected_len = static_cast<int64_t>(f_accessor_serialized_metadata.length());
 
-  // decoded_len is an in-out parameter
-  uint32_t decoded_len = expected_len;
   auto f_accessor_copy =
-      FileMetaData::Make(f_accessor_serialized_metadata.data(), &decoded_len);
+      FileMetaData::Make(f_accessor_serialized_metadata.data(), expected_len);
 
   // Check that all of the serialized data is consumed
-  ASSERT_EQ(expected_len, decoded_len);
+  ASSERT_EQ(expected_len, f_accessor_copy->size());
 
   // Run this block twice, one for f_accessor, one for f_accessor_copy.
   // To make sure SerializedMetadata was deserialized correctly.
@@ -284,14 +282,11 @@ std::string EncodeInt32(int32_t value) {
 constexpr int32_t kLegacyMin = 100, kLegacyMax = 200;
 
 std::string SerializeMetadata(const format::FileMetaData& thrift_metadata) {
-  std::string out;
-  ThriftSerializer{}.SerializeToString(&thrift_metadata, &out);
-  return out;
+  return std::string(ThriftSerializer{}.SerializeToString(&thrift_metadata));
 }
 
-std::shared_ptr<FileMetaData> ParseMetadata(std::string serialized_metadata) {
-  uint32_t decoded_len = static_cast<uint32_t>(serialized_metadata.size());
-  return FileMetaData::Make(serialized_metadata.data(), &decoded_len);
+std::shared_ptr<FileMetaData> ParseMetadata(std::string_view serialized_metadata) {
+  return FileMetaData::Make(serialized_metadata.data(), serialized_metadata.size());
 }
 
 format::FileMetaData SingleInt32MetadataWithStats() {

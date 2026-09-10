@@ -142,7 +142,7 @@ if needs_json
     dataset_tests += {
         'file_json': {
             'sources': ['file_json_test.cc'],
-            'dependencies': [rapidjson_dep],
+            'dependencies': [simdjson_dep],
         },
     }
 endif
@@ -172,7 +172,7 @@ foreach key, value : dataset_tests
     exc = executable(
         test_name,
         sources: value['sources'],
-        dependencies: [arrow_dataset_test_dep, val.get('dependencies', [])],
+        dependencies: [arrow_dataset_test_dep, value.get('dependencies', [])],
     )
     test(test_name, exc)
 endforeach

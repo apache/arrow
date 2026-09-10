@@ -20,12 +20,9 @@ click
 
 # bot, crossbow
 jinja2
-jira
 pygit2
 pygithub
 ruamel.yaml
-setuptools_scm
-toolz
 
 # benchmark
 pandas

@@ -19,14 +19,12 @@
 
 #include <sstream>
 
-#include "arrow/json/json_writer_internal.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/error/en.h>
+#include <simdjson.h>
 
-using ::arrow::json::JsonWriter;
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 
@@ -65,34 +63,13 @@ std::string OpaqueType::Serialize() const {
 
 Result<std::shared_ptr<DataType>> OpaqueType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
-  rapidjson::Document document;
-  const auto& parsed = document.Parse(serialized_data.data(), serialized_data.length());
-  if (parsed.HasParseError()) {
-    return Status::Invalid("Invalid serialized JSON data for OpaqueType: ",
-                           rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
-                           serialized_data);
-  } else if (!document.IsObject()) {
-    return Status::Invalid("Invalid serialized JSON data for OpaqueType: not an object");
-  }
-  if (!document.HasMember("type_name")) {
-    return Status::Invalid(
-        "Invalid serialized JSON data for OpaqueType: missing type_name");
-  } else if (!document.HasMember("vendor_name")) {
-    return Status::Invalid(
-        "Invalid serialized JSON data for OpaqueType: missing vendor_name");
-  }
+  internal::JsonObjectParser parser;
+  RETURN_NOT_OK(parser.Parse(serialized_data));
 
-  const auto& type_name = document["type_name"];
-  const auto& vendor_name = document["vendor_name"];
-  if (!type_name.IsString()) {
-    return Status::Invalid(
-        "Invalid serialized JSON data for OpaqueType: type_name is not a string");
-  } else if (!vendor_name.IsString()) {
-    return Status::Invalid(
-        "Invalid serialized JSON data for OpaqueType: vendor_name is not a string");
-  }
+  ARROW_ASSIGN_OR_RAISE(auto type_name, parser.GetString("type_name"));
+  ARROW_ASSIGN_OR_RAISE(auto vendor_name, parser.GetString("vendor_name"));
 
-  return opaque(std::move(storage_type), type_name.GetString(), vendor_name.GetString());
+  return opaque(std::move(storage_type), std::move(type_name), std::move(vendor_name));
 }
 
 std::shared_ptr<Array> OpaqueType::MakeArray(std::shared_ptr<ArrayData> data) const {

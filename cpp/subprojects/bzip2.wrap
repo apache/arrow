@@ -20,11 +20,12 @@ directory = bzip2-1.0.8
 source_url = https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
 source_filename = bzip2-1.0.8.tar.gz
 source_hash = ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
-patch_filename = bzip2_1.0.8-1_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/bzip2_1.0.8-1/get_patch
-patch_hash = a8d591e1fbb989cc0c285be25a8c850915b786f2ec74c992df84723532af724b
-source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/bzip2_1.0.8-1/bzip2-1.0.8.tar.gz
-wrapdb_version = 1.0.8-1
+source_fallback_url = https://wrapdb.mesonbuild.com/v2/bzip2_1.0.8-2/get_source/bzip2-1.0.8.tar.gz
+patch_filename = bzip2_1.0.8-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/bzip2_1.0.8-2/get_patch
+patch_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/bzip2_1.0.8-2/bzip2_1.0.8-2_patch.zip
+patch_hash = 60dbfc47880a78d9c8946f0dc689a771ddf503f6da904dabef1332904dcef561
+wrapdb_version = 1.0.8-2
 
 [provide]
 dependency_names = bzip2

@@ -50,18 +50,6 @@ struct is_future : std::false_type {};
 template <typename T>
 struct is_future<Future<T>> : std::true_type {};
 
-template <typename Signature, typename Enable = void>
-struct result_of;
-
-template <typename Fn, typename... A>
-struct result_of<Fn(A...),
-                 internal::void_t<decltype(std::declval<Fn>()(std::declval<A>()...))>> {
-  using type = decltype(std::declval<Fn>()(std::declval<A>()...));
-};
-
-template <typename Signature>
-using result_of_t = typename result_of<Signature>::type;
-
 // Helper to find the synchronous counterpart for a Future
 template <typename T>
 struct SyncType {
@@ -75,12 +63,15 @@ struct SyncType<internal::Empty> {
 
 template <typename Fn>
 using first_arg_is_status =
-    std::is_same<typename std::decay<internal::call_traits::argument_type<0, Fn>>::type,
-                 Status>;
+    std::is_same<std::decay_t<internal::call_traits::argument_type<0, Fn>>, Status>;
 
-template <typename Fn, typename Then, typename Else,
-          typename Count = internal::call_traits::argument_count<Fn>>
-using if_has_no_args = typename std::conditional<Count::value == 0, Then, Else>::type;
+template <typename Fn, typename Then, typename Else>
+using if_has_no_args = std::conditional_t<std::is_invocable_v<Fn>, Then, Else>;
+
+template <typename OnSuccess, typename T>
+using continuation_result_t =
+    typename if_has_no_args<OnSuccess, std::invoke_result<OnSuccess>,
+                            std::invoke_result<OnSuccess, const T&>>::type;
 
 /// Creates a callback that can be added to a future to mark a `dest` future finished
 template <typename Source, typename Dest, bool SourceEmpty = Source::is_empty,
@@ -121,12 +112,9 @@ struct ContinueFuture {
   template <typename Return>
   using ForReturn = typename ForReturnImpl<Return>::type;
 
-  template <typename Signature>
-  using ForSignature = ForReturn<result_of_t<Signature>>;
-
   // If the callback returns void then we return Future<> that always finishes OK.
   template <typename ContinueFunc, typename... Args,
-            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename ContinueResult = std::invoke_result_t<ContinueFunc, Args...>,
             typename NextFuture = ForReturn<ContinueResult>>
   typename std::enable_if<std::is_void<ContinueResult>::value>::type operator()(
       NextFuture next, ContinueFunc&& f, Args&&... a) const {
@@ -141,7 +129,7 @@ struct ContinueFuture {
   /// If the callback returns Status and we return Future<> then also send the callback
   /// result as-is to the destination future.
   template <typename ContinueFunc, typename... Args,
-            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename ContinueResult = std::invoke_result_t<ContinueFunc, Args...>,
             typename NextFuture = ForReturn<ContinueResult>>
   typename std::enable_if<
       !std::is_void<ContinueResult>::value && !is_future<ContinueResult>::value &&
@@ -158,7 +146,7 @@ struct ContinueFuture {
   /// OnSuccess callback is void/Status (e.g. you would get this calling the one-arg
   /// version of Then with an OnSuccess callback that returns void)
   template <typename ContinueFunc, typename... Args,
-            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename ContinueResult = std::invoke_result_t<ContinueFunc, Args...>,
             typename NextFuture = ForReturn<ContinueResult>>
   typename std::enable_if<!std::is_void<ContinueResult>::value &&
                           !is_future<ContinueResult>::value && NextFuture::is_empty &&
@@ -171,7 +159,7 @@ struct ContinueFuture {
   /// future and add a callback to the future given to us by the user that forwards the
   /// result to the future we just created
   template <typename ContinueFunc, typename... Args,
-            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename ContinueResult = std::invoke_result_t<ContinueFunc, Args...>,
             typename NextFuture = ForReturn<ContinueResult>>
   typename std::enable_if<is_future<ContinueResult>::value>::type operator()(
       NextFuture next, ContinueFunc&& f, Args&&... a) const {
@@ -507,7 +495,7 @@ class [[nodiscard]] Future {
   /// Returns true if a callback was actually added and false if the callback failed
   /// to add because the future was marked complete.
   template <typename CallbackFactory,
-            typename OnComplete = detail::result_of_t<CallbackFactory()>,
+            typename OnComplete = std::invoke_result_t<CallbackFactory>,
             typename Callback = WrapOnComplete<OnComplete>>
   bool TryAddCallback(CallbackFactory callback_factory,
                       CallbackOptions opts = CallbackOptions::Defaults()) const {
@@ -516,16 +504,15 @@ class [[nodiscard]] Future {
 
   template <typename OnSuccess, typename OnFailure>
   struct ThenOnComplete {
-    static constexpr bool has_no_args =
-        internal::call_traits::argument_count<OnSuccess>::value == 0;
+    static constexpr bool has_no_args = std::is_invocable_v<OnSuccess>;
 
-    using ContinuedFuture = detail::ContinueFuture::ForSignature<
-        detail::if_has_no_args<OnSuccess, OnSuccess && (), OnSuccess && (const T&)>>;
+    using ContinuedFuture =
+        detail::ContinueFuture::ForReturn<detail::continuation_result_t<OnSuccess, T>>;
 
-    static_assert(
-        std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
-                     ContinuedFuture>::value,
-        "OnSuccess and OnFailure must continue with the same future type");
+    static_assert(std::is_same<detail::ContinueFuture::ForReturn<
+                                   std::invoke_result_t<OnFailure, const Status&>>,
+                               ContinuedFuture>::value,
+                  "OnSuccess and OnFailure must continue with the same future type");
 
     struct DummyOnSuccess {
       void operator()(const T&);
@@ -558,8 +545,8 @@ class [[nodiscard]] Future {
 
   template <typename OnSuccess>
   struct PassthruOnFailure {
-    using ContinuedFuture = detail::ContinueFuture::ForSignature<
-        detail::if_has_no_args<OnSuccess, OnSuccess && (), OnSuccess && (const T&)>>;
+    using ContinuedFuture =
+        detail::ContinueFuture::ForReturn<detail::continuation_result_t<OnSuccess, T>>;
 
     Result<typename ContinuedFuture::ValueType> operator()(const Status& s) { return s; }
   };
@@ -803,7 +790,7 @@ using ControlFlow = std::optional<T>;
 /// \return A future which will complete when a Future returned by iterate completes with
 /// a Break
 template <typename Iterate,
-          typename Control = typename detail::result_of_t<Iterate()>::ValueType,
+          typename Control = typename std::invoke_result_t<Iterate>::ValueType,
           typename BreakValueType = typename Control::value_type>
 Future<BreakValueType> Loop(Iterate iterate) {
   struct Callback {

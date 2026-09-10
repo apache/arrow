@@ -309,8 +309,7 @@ std::shared_ptr<FileMetaData> ConstructFakeMetaData(
   auto sink = CreateOutputStream();
   ThriftSerializer{}.Serialize(&metadata, sink.get());
   auto buffer = sink->Finish().MoveValueUnsafe();
-  uint32_t len = static_cast<uint32_t>(buffer->size());
-  return FileMetaData::Make(buffer->data(), &len);
+  return FileMetaData::Make(buffer->data(), buffer->size());
 }
 
 /// Validates that 'DeterminePageIndexRangesInRowGroup()' selects the expected file

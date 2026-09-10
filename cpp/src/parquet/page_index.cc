@@ -966,13 +966,13 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 
 std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                                const void* serialized_index,
-                                               uint32_t index_len,
+                                               int64_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::ColumnIndex column_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  &index_len, &column_index, decryptor);
+                                  index_len, &column_index, decryptor);
   if (ARROW_PREDICT_FALSE(LoadEnumSafe(&column_index.boundary_order) ==
                           BoundaryOrder::UNDEFINED)) {
     // Guard against UB when moving column_index
@@ -1011,13 +1011,13 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
 }
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
-                                               uint32_t index_len,
+                                               int64_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::OffsetIndex offset_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  &index_len, &offset_index, decryptor);
+                                  index_len, &offset_index, decryptor);
   return std::make_unique<OffsetIndexImpl>(offset_index);
 }
 

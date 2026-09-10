@@ -68,6 +68,10 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
+// Maximum schema nesting depth. This default value is conservatively small as
+// some systems may not set a very large stack size.
+constexpr int32_t kDefaultSchemaDepthLimit = 100;
+
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 
@@ -121,6 +125,15 @@ class PARQUET_EXPORT ReaderProperties {
     thrift_container_size_limit_ = size;
   }
 
+  /// \brief Return the schema nesting depth limit.
+  ///
+  /// This limit helps prevent denial of service through excessive recursion
+  /// (stack overflow) when reconstructing the Parquet schema from the file metadata.
+  /// The default value is conservative enough for most use cases.
+  int32_t schema_depth_limit() const { return schema_depth_limit_; }
+  /// Set the schema nesting depth limit.
+  void set_schema_depth_limit(int32_t size) { schema_depth_limit_ = size; }
+
   /// Set the decryption properties.
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
@@ -146,6 +159,7 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
+  int32_t schema_depth_limit_ = kDefaultSchemaDepthLimit;
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.

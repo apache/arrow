@@ -23,7 +23,7 @@ clang_format.sh
 ^.*\.Rhistory$
 ^extra-tests
 STYLE.md
-^.lintr
+^jarl\.toml$
 ^.styler_excludes.R
 ^cheatsheet$
 ^revdep$

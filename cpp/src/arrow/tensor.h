@@ -27,6 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -108,6 +109,12 @@ class ARROW_EXPORT Tensor {
         internal::ValidateTensorParameters(type, data, shape, strides, dim_names));
     return std::make_shared<Tensor>(type, data, shape, strides, dim_names);
   }
+
+  /// \brief Attempt to create a Tensor from an Array.
+  ///
+  /// \see Array::ToTensor
+  static Result<std::shared_ptr<Tensor>> FromArray(const std::shared_ptr<Array>& array,
+                                                   bool allow_nulls = false);
 
   virtual ~Tensor() = default;
 

@@ -29,6 +29,7 @@ fi
 
 : ${BUMP_DEFAULT:=1}
 : ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH:=${BUMP_DEFAULT}}
+: ${BUMP_CHANGELOG:=${BUMP_DEFAULT}}
 : ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
 : ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
 : ${BUMP_LINUX_PACKAGES:=${BUMP_DEFAULT}}
@@ -68,6 +69,13 @@ if [ ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH} -gt 0 ]; then
   git fetch --all --prune --tags --force -j"$n_jobs"
   git checkout ${DEFAULT_BRANCH}
   git rebase upstream/${DEFAULT_BRANCH}
+fi
+
+if [ ${BUMP_CHANGELOG} -gt 0 ]; then
+  echo "Updating CHANGELOG.md for ${version}"
+  archery release --src "${ARROW_DIR}" changelog add "${version}"
+  git add "${ARROW_DIR}/CHANGELOG.md"
+  git commit -m "MINOR: [Release] Update CHANGELOG.md for ${version}"
 fi
 
 if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then

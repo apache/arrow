@@ -23,8 +23,6 @@ FROM --platform=linux/${arch} ${repo}:${arch_short}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
-ARG python=3.11
-
 # install the required conda packages into the test environment
 # use `mold` to work around issues with GNU `ld` (GH-47015).
 COPY ci/conda_env_cpp.txt \
@@ -37,7 +35,6 @@ RUN mamba install -q -y \
         doxygen \
         libnuma \
         mold \
-        python=${python} \
         valgrind && \
     mamba clean --all --yes
 

@@ -241,6 +241,12 @@ def test_option_class_equality(request):
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
+@pytest.mark.parametrize("value", [None, 1, [], b""])
+def test_function_options_deserialize_rejects_non_buffers(value):
+    with pytest.raises(TypeError):
+        pc.FunctionOptions.deserialize(value)
+
+
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()
@@ -3623,6 +3629,28 @@ def test_cumulative_max(start, skip_nulls):
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):
             pc.cumulative_max([1, 2, 3], start=strt)
+
+
+@pytest.mark.numpy
+def test_cumulative_max_min_negative_default_start():
+    # GH-51194: the implicit start for cumulative_max was initialized with
+    # std::numeric_limits<T>::min(), which is the smallest positive value for
+    # floating-point types, so non-positive values never replaced the start
+    values = [-2.5, 2.5]
+    arr = pa.array(values, type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, 2.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5]
+
+    arr = pa.chunked_array([[-2.5, -1.5], [-3.5, -0.5]])
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, -1.5, -1.5, -0.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5, -3.5, -3.5]
+
+    # The default start must compare lower (higher for min) than every value
+    # of the type, including infinities
+    arr = pa.array([-np.inf, -2.5], type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-np.inf, -2.5]
+    arr = pa.array([np.inf, 2.5], type=pa.float64())
+    assert pc.cumulative_min(arr).to_pylist() == [np.inf, 2.5]
 
 
 @pytest.mark.numpy

@@ -34,7 +34,6 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-from pyarrow.vendored.version import Version
 import pyarrow.compute as pc
 
 
@@ -3800,21 +3799,12 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0.0.dev0"):
-        # copy keyword is not strict and not passed down to __array__
-        result = np.array(arr, copy=False)
-        np.testing.assert_array_equal(result, expected)
+    with pytest.raises(ValueError, match="Unable to avoid a copy"):
+        np.array(arr, copy=False)
 
-        result = np.array(arr, dtype="float64", copy=False)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
-        with pytest.raises(ValueError, match="Unable to avoid a copy"):
-            np.array(arr, copy=False)
-
-        arr = pa.array([1, 2, 3])
-        with pytest.raises(ValueError):
-            np.array(arr, dtype="float64", copy=False)
+    arr = pa.array([1, 2, 3])
+    with pytest.raises(ValueError):
+        np.array(arr, dtype="float64", copy=False)
 
     # copy=True -> not yet passed by numpy, so we have to call this directly to test
     arr = pa.array([1, 2, 3])
@@ -4436,7 +4426,7 @@ def test_non_cpu_array():
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)
-    validity = np.array([True, False, True, False], dtype=np.bool_)
+    validity = np.array([True, False, True, False], dtype=np.bool)
     cuda_data_buf = ctx.buffer_from_data(data)
     cuda_validity_buf = ctx.buffer_from_data(validity)
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])

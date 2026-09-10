@@ -280,6 +280,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const shared_ptr[CArrayStatistics]& statistics() const
 
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool allow_nulls) const
+
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
         const shared_ptr[CDataType]& type, int64_t length, CMemoryPool* pool)
@@ -1468,12 +1470,22 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
     ctypedef struct DLManagedTensor:
         void (*deleter)(DLManagedTensor*)
 
+    ctypedef struct DLManagedTensorVersioned:
+        void (*deleter)(DLManagedTensorVersioned*)
+
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
     CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
     CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
         const shared_ptr[CTensor]& tensor)
+
+    CResult[DLManagedTensorVersioned*] \
+        ExportArrayVersionedToDLPack" arrow::dlpack::ExportArrayVersioned"(
+            const shared_ptr[CArray]& arr, c_bool copy)
+    CResult[DLManagedTensorVersioned*] \
+        ExportTensorVersionedToDLPack" arrow::dlpack::ExportTensorVersioned"(
+            const shared_ptr[CTensor]& tensor, c_bool copy)
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
     CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
@@ -2171,6 +2183,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char delimiter
         CQuotingStyle quoting_style
         CQuotingStyle quoting_header
+        c_string eol
+        c_string null_string
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -3077,10 +3091,6 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
-
-    cdef cppclass CFixedShapeTensorArray \
-            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
-        const CResult[shared_ptr[CTensor]] ToTensor() const
 
 
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:

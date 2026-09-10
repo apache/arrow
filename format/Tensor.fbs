@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// EXPERIMENTAL: Metadata for n-dimensional arrays, aka "tensors" or
+/// DEPRECATED: Metadata for n-dimensional arrays, aka "tensors" or
 /// "ndarrays". Arrow implementations in general are not required to implement
 /// this type
 
@@ -35,6 +35,8 @@ table TensorDim {
   name: string;
 }
 
+/// DEPRECATED: The recommended way to pass tensors over Arrow IPC is
+/// using columns with the `arrow.fixed_shape_tensor` canonical type.
 table Tensor {
   /// The type of data contained in a value cell. Currently only fixed-width
   /// value types are supported, no strings or nested types

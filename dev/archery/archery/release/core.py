@@ -136,6 +136,11 @@ class IssueTracker:
         issues = self.github_repo.get_issues(
             milestone=self._milestone_from_semver(version),
             state="all")
+        # This is only for testing. We can limit the number of issues
+        # to be processed for faster testing.
+        max_issues = os.environ.get("ARCHERY_MAX_PROJECT_ISSUES")
+        if max_issues is not None:
+            issues = issues[:int(max_issues)]
         return list(map(Issue.from_github, issues))
 
     def issue(self, key):

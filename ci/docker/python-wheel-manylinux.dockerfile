@@ -50,6 +50,10 @@ ARG ccache=4.13.6
 COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
+# Install sccache
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 # Install bison (> 3.7 required for building thrift)
 ARG bison=3.7.6
 COPY ci/scripts/install_bison.sh arrow/ci/scripts/
