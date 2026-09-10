@@ -216,7 +216,7 @@ TEST_F(ParquetPforEncodingTest, InterleavedBitPackingLayout) {
 
   auto build = [](bool interleaved) {
     auto builder = WriterProperties::Builder();
-    builder.disable_dictionary()->encoding(Encoding::PFOR);
+    builder.disable_dictionary()->enable_pfor_encoding()->encoding(Encoding::PFOR);
     if (interleaved) {
       builder.enable_pfor_interleaved_bit_packing();
     }
@@ -249,11 +249,15 @@ TEST_F(ParquetPforEncodingTest, InterleavedRequestIgnoredForInt64) {
 
   auto with_flag = WriterProperties::Builder()
                        .disable_dictionary()
+                       ->enable_pfor_encoding()
                        ->encoding(Encoding::PFOR)
                        ->enable_pfor_interleaved_bit_packing()
                        ->build();
-  auto without_flag =
-      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::PFOR)->build();
+  auto without_flag = WriterProperties::Builder()
+                           .disable_dictionary()
+                           ->enable_pfor_encoding()
+                           ->encoding(Encoding::PFOR)
+                           ->build();
 
   std::shared_ptr<Table> flagged_result, plain_result;
   std::shared_ptr<Buffer> flagged_file, plain_file;
