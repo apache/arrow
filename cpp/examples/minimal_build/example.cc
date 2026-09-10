@@ -16,6 +16,9 @@
 // under the License.
 
 #include <arrow/csv/api.h>
+#ifdef ARROW_EXAMPLE_S3
+#  include <arrow/filesystem/s3fs.h>
+#endif
 #include <arrow/io/api.h>
 #include <arrow/ipc/api.h>
 #include <arrow/pretty_print.h>
@@ -53,6 +56,12 @@ Status RunMain(int argc, char** argv) {
                         arrow::ipc::MakeFileWriter(output_file, table->schema()));
   ARROW_RETURN_NOT_OK(batch_writer->WriteTable(*table));
   ARROW_RETURN_NOT_OK(batch_writer->Close());
+
+#ifdef ARROW_EXAMPLE_S3
+  std::cerr << "* Verify S3 initializes and finalizes" << std::endl;
+  ARROW_RETURN_NOT_OK(arrow::fs::EnsureS3Initialized());
+  ARROW_RETURN_NOT_OK(arrow::fs::EnsureS3Finalized());
+#endif
 
   return Status::OK();
 }
