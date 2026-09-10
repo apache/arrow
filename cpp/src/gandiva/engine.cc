@@ -113,6 +113,7 @@
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/exported_funcs_registry.h"
+#include "gandiva/llvm_util_internal.h"
 
 namespace gandiva {
 
@@ -183,26 +184,6 @@ void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
   auto error = lljit.getMainJITDylib().define(
       llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
   llvm::cantFail(std::move(error));
-}
-
-void AddNativeBoolZExtAttrs(llvm::Function& function) {
-  // Gandiva uses i1 parameters and results in native C++ mappings only for bool.
-  const auto* function_type = function.getFunctionType();
-  if (function_type->getReturnType()->isIntegerTy(1)) {
-    // A native bool result must be zero-extended by the callee before it crosses
-    // the ABI boundary. This matches Clang's lowering of C++ bool.
-    function.addRetAttr(llvm::Attribute::ZExt);
-  }
-
-  for (unsigned i = 0; i < function_type->getNumParams(); ++i) {
-    if (function_type->getParamType(i)->isIntegerTy(1)) {
-      // The caller must pass a native bool as 0 or 1.
-      // LLVM 23 can replace `icmp ne (and X, 1), 0` with `trunc X to i1`; i1 only defines
-      // bit 0, so this ABI attribute is required to normalize the value at the call.
-      // https://github.com/llvm/llvm-project/pull/178977
-      function.addParamAttr(i, llvm::Attribute::ZExt);
-    }
-  }
 }
 
 // add current process symbol to dylib
@@ -651,7 +632,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
                                           name, module());
   // TODO: Other native function mappings may require target-specific ABI attributes
   // that cannot be inferred from their LLVM types alone.
-  AddNativeBoolZExtAttrs(*function);
+  internal::AddNativeBoolZExtAttrs(*function);
   AddAbsoluteSymbol(*lljit_, name, func);
 }
 

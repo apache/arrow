@@ -23,6 +23,7 @@
 #include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/decimal_type_util.h"
+#include "gandiva/llvm_util_internal.h"
 
 // Algorithms adapted from Apache Impala
 
@@ -424,9 +425,15 @@ Status DecimalIR::BuildCompare(const std::string& function_name,
 llvm::Value* DecimalIR::CallDecimalFunction(const std::string& function_name,
                                             llvm::Type* return_type,
                                             const std::vector<llvm::Value*>& params) {
+  auto create_call = [&](const std::vector<llvm::Value*>& args) {
+    auto* call = ir_builder()->CreateCall(module()->getFunction(function_name), args);
+    internal::CopyZExtAttrs(*call->getCalledFunction(), *call);
+    return call;
+  };
+
   if (kDecimalIRBuilderFunctions.count(function_name) != 0) {
     // this is fn built with the irbuilder.
-    return ir_builder()->CreateCall(module()->getFunction(function_name), params);
+    return create_call(params);
   }
 
   // ppre-compiler fn : disassemble i128 to two i64s and re-assemble.
@@ -454,7 +461,7 @@ llvm::Value* DecimalIR::CallDecimalFunction(const std::string& function_name,
     dis_assembled_args.push_back(out_low_ptr);
 
     // Make call to pre-compiled IR function.
-    ir_builder()->CreateCall(module()->getFunction(function_name), dis_assembled_args);
+    create_call(dis_assembled_args);
 
     auto out_high = ir_builder()->CreateLoad(i64, out_high_ptr);
     auto out_low = ir_builder()->CreateLoad(i64, out_low_ptr);
@@ -463,8 +470,7 @@ llvm::Value* DecimalIR::CallDecimalFunction(const std::string& function_name,
     DCHECK_NE(return_type, types()->void_type());
 
     // Make call to pre-compiled IR function.
-    result = ir_builder()->CreateCall(module()->getFunction(function_name),
-                                      dis_assembled_args);
+    result = create_call(dis_assembled_args);
   }
   return result;
 }

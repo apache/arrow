@@ -28,32 +28,10 @@
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
 #include "gandiva/llvm_types.h"
+#include "gandiva/llvm_util_internal.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
-
-namespace {
-
-void CopyZExtAttrs(const llvm::Function& function, llvm::CallBase& call) {
-  // https://llvm.org/docs/LangRef.html#parameter-attributes
-  // "ABI attributes must be specified both at the function declaration/definition and
-  // call-site, otherwise the behavior may be undefined. ABI attributes cannot be safely
-  // dropped."
-  //
-  // TODO: Copy other ABI attributes as well. This currently copies only `zeroext`,
-  // which is required for Gandiva's native bool parameters and results.
-  if (function.hasRetAttribute(llvm::Attribute::ZExt)) {
-    call.addRetAttr(llvm::Attribute::ZExt);
-  }
-
-  for (unsigned i = 0; i < function.arg_size(); ++i) {
-    if (function.hasParamAttribute(i, llvm::Attribute::ZExt)) {
-      call.addParamAttr(i, llvm::Attribute::ZExt);
-    }
-  }
-}
-
-}  // namespace
 
 #define ADD_TRACE(...)     \
   if (enable_ir_traces_) { \
@@ -574,7 +552,7 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
     call = ir_builder()->CreateCall(fn, args, full_name);
     DCHECK(call->getType() == ret_type);
   }
-  CopyZExtAttrs(*fn, *call);
+  internal::CopyZExtAttrs(*fn, *call);
 
   return call;
 }
