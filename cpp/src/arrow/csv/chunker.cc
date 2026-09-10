@@ -184,10 +184,10 @@ class Lexer {
     if constexpr (SpecializedOptions::quoting) {
       if constexpr (SpecializedOptions::multi_delimiter) {
         if (ARROW_PREDICT_FALSE(delimiter_matcher_.Consume(c))) {
-          goto FieldEnd;
+          goto FieldStart;
         }
       } else if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
-        goto FieldEnd;
+        goto FieldStart;
       }
     }
     goto InField;
@@ -251,10 +251,6 @@ class Lexer {
       // End of single-quoting
       goto InField;
     }
-
-  FieldEnd:
-    // At the end of a field
-    goto FieldStart;
 
   LineEnd:
     state_ = FIELD_START;
