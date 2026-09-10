@@ -288,6 +288,7 @@ TEST_P(WriterPropertiesTest, RoundTripThroughBuilder) {
             properties->file_encryption_properties());
   ASSERT_EQ(round_tripped->max_rows_per_page(), properties->max_rows_per_page());
   ASSERT_EQ(round_tripped->max_row_group_length(), properties->max_row_group_length());
+  ASSERT_EQ(round_tripped->max_row_group_size(), properties->max_row_group_size());
   ASSERT_EQ(round_tripped->memory_pool(), properties->memory_pool());
   ASSERT_EQ(round_tripped->page_checksum_enabled(), properties->page_checksum_enabled());
   ASSERT_EQ(round_tripped->size_statistics_level(), properties->size_statistics_level());
@@ -352,6 +353,7 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     builder.dictionary_pagesize_limit(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT - 1);
     builder.write_batch_size(DEFAULT_WRITE_BATCH_SIZE - 1);
     builder.max_row_group_length(DEFAULT_MAX_ROW_GROUP_LENGTH - 1);
+    builder.max_row_group_size(DEFAULT_MAX_ROW_GROUP_SIZE - 1);
     builder.data_pagesize(kDefaultDataPageSize - 1);
     builder.max_rows_per_page(kDefaultMaxRowsPerPage - 1);
     builder.data_page_version(ParquetDataPageVersion::V2);
