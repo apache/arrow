@@ -19,6 +19,10 @@
 
 # arrow 25.0.1.9000
 
+## Minor improvements and fixes
+
+- Fixed a use-after-free crash when base R held an element of an unmaterialized ALTREP character vector across an allocation. Strings accessed element-wise are now kept alive for the lifetime of the vector, so element-wise passes over ALTREP character columns may use more memory than before (#51198).
+
 # arrow 25.0.1
 
 ## Minor improvements and fixes
