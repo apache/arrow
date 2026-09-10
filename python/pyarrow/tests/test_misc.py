@@ -276,8 +276,9 @@ def test_extension_type_constructor_errors(klass):
 def test_public_callables_reject_none_without_crashing():
     # GH-51293: a typed Cython parameter that is not declared "not None"
     # lets None reach code that dereferences it, killing the interpreter
-    # instead of raising. Passing None to any public callable must produce
-    # a Python exception, never a fatal signal.
+    # instead of raising. Some public APIs accept None legitimately, so the
+    # invariant asserted here is only that none of them terminate the
+    # interpreter.
     code = """if 1:
         import importlib, inspect
         mods = ["pyarrow", "pyarrow.compute", "pyarrow.dataset",
@@ -308,9 +309,9 @@ def test_public_callables_reject_none_without_crashing():
         print("DONE", flush=True)
         """
     res = subprocess.run([sys.executable, "-c", code],
-                         capture_output=True, text=True)
+                         capture_output=True, text=True, timeout=300)
     lines = res.stdout.splitlines()
-    if not lines or lines[-1] != "DONE":
+    if res.returncode != 0 or not lines or lines[-1] != "DONE":
         culprit = lines[-1] if lines else "<no output>"
         raise AssertionError(
             f"passing None to {culprit} terminated the interpreter "
@@ -375,9 +376,9 @@ def test_public_methods_reject_none_without_crashing():
         print("DONE", flush=True)
         """
     res = subprocess.run([sys.executable, "-c", code],
-                         capture_output=True, text=True)
+                         capture_output=True, text=True, timeout=300)
     lines = res.stdout.splitlines()
-    if not lines or lines[-1] != "DONE":
+    if res.returncode != 0 or not lines or lines[-1] != "DONE":
         culprit = lines[-1] if lines else "<no output>"
         raise AssertionError(
             f"passing None to {culprit} terminated the interpreter "
