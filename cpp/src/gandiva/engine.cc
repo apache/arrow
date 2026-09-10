@@ -185,6 +185,26 @@ void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
   llvm::cantFail(std::move(error));
 }
 
+void AddNativeBoolZExtAttrs(llvm::Function& function) {
+  // Gandiva uses i1 parameters and results in native C++ mappings only for bool.
+  const auto* function_type = function.getFunctionType();
+  if (function_type->getReturnType()->isIntegerTy(1)) {
+    // A native bool result must be zero-extended by the callee before it crosses
+    // the ABI boundary. This matches Clang's lowering of C++ bool.
+    function.addRetAttr(llvm::Attribute::ZExt);
+  }
+
+  for (unsigned i = 0; i < function_type->getNumParams(); ++i) {
+    if (function_type->getParamType(i)->isIntegerTy(1)) {
+      // The caller must pass a native bool as 0 or 1.
+      // LLVM 23 can replace `icmp ne (and X, 1), 0` with `trunc X to i1`; i1 only defines
+      // bit 0, so this ABI attribute is required to normalize the value at the call.
+      // https://github.com/llvm/llvm-project/pull/178977
+      function.addParamAttr(i, llvm::Attribute::ZExt);
+    }
+  }
+}
+
 // add current process symbol to dylib
 // LLVM >= 18 does this automatically
 void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
@@ -627,7 +647,9 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
   const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
-  llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
+  auto* function = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
+                                          name, module());
+  AddNativeBoolZExtAttrs(*function);
   AddAbsoluteSymbol(*lljit_, name, func);
 }
 
