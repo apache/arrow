@@ -27,7 +27,6 @@ import os
 import pathlib
 import pytest
 import random
-import subprocess
 import sys
 import tempfile
 import weakref
@@ -1218,21 +1217,8 @@ def test_memory_map_resize(tmpdir):
 
 
 def test_memory_map_resize_uninitialized():
-    code = """if 1:
-    import pyarrow as pa
-
-    try:
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
         pa.MemoryMappedFile().resize(0)
-    except ValueError as exc:
-        assert str(exc) == "I/O operation on closed file"
-    else:
-        raise AssertionError("expected ValueError")
-    """
-    res = subprocess.run([sys.executable, "-c", code],
-                         universal_newlines=True, stderr=subprocess.PIPE)
-    if res.returncode != 0:
-        print(res.stderr, file=sys.stderr)
-        res.check_returncode()
 
 
 def test_memory_zero_length(tmpdir):
