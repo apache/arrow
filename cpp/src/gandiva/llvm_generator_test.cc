@@ -23,10 +23,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "gandiva/configuration.h"
+#include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/llvm_util_internal.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
@@ -72,7 +74,7 @@ TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
   // Check that native bool declarations carry the ABI attributes.
   auto* function = generator->module()->getFunction("gdv_fn_in_expr_lookup_int32");
   ASSERT_NE(function, nullptr);
-  EXPECT_TRUE(function->hasRetAttribute(llvm::Attribute::ZExt));
+  EXPECT_TRUE(internal::HasRetAttr(function->getAttributes(), llvm::Attribute::ZExt));
   EXPECT_TRUE(function->hasParamAttribute(2, llvm::Attribute::ZExt));
 
   auto* types = generator->types();
@@ -86,8 +88,17 @@ TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
   auto* call = llvm::cast<llvm::CallInst>(generator->AddFunctionCall(
       "gdv_fn_in_expr_lookup_int32", types->i1_type(),
       {types->i64_constant(0), types->i32_constant(0), types->true_constant()}));
-  EXPECT_TRUE(call->getAttributes().hasRetAttr(llvm::Attribute::ZExt));
+  EXPECT_TRUE(internal::HasRetAttr(call->getAttributes(), llvm::Attribute::ZExt));
   EXPECT_TRUE(call->getAttributes().hasParamAttr(2, llvm::Attribute::ZExt));
+
+  // Check that the decimal call path copies the attributes after splitting i128.
+  DecimalIR decimal_ir(generator->engine_.get());
+  auto* decimal_call = llvm::cast<llvm::CallInst>(decimal_ir.CallDecimalFunction(
+      "gdv_fn_in_expr_lookup_decimal", types->i1_type(),
+      {types->i64_constant(0), types->i128_constant(0), types->i32_constant(38),
+       types->i32_constant(5), types->true_constant()}));
+  EXPECT_TRUE(internal::HasRetAttr(decimal_call->getAttributes(), llvm::Attribute::ZExt));
+  EXPECT_TRUE(decimal_call->getAttributes().hasParamAttr(5, llvm::Attribute::ZExt));
 
   // Check that ordinary LLVM i1 functions do not receive the attributes.
   auto* i1_prototype =
@@ -97,7 +108,7 @@ TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
   auto* i1_call = llvm::cast<llvm::CallInst>(
       generator->AddFunctionCall("plain_i1", types->i1_type(), {types->true_constant()}));
   generator->ir_builder()->CreateRetVoid();
-  EXPECT_FALSE(i1_call->getAttributes().hasRetAttr(llvm::Attribute::ZExt));
+  EXPECT_FALSE(internal::HasRetAttr(i1_call->getAttributes(), llvm::Attribute::ZExt));
   EXPECT_FALSE(i1_call->getAttributes().hasParamAttr(0, llvm::Attribute::ZExt));
 }
 
