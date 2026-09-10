@@ -23,13 +23,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "gandiva/configuration.h"
-#include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/llvm_util_internal.h"
 #include "gandiva/tests/test_util.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 
@@ -91,15 +91,6 @@ TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
   EXPECT_TRUE(internal::HasRetAttr(call->getAttributes(), llvm::Attribute::ZExt));
   EXPECT_TRUE(call->getAttributes().hasParamAttr(2, llvm::Attribute::ZExt));
 
-  // Check that the decimal call path copies the attributes after splitting i128.
-  DecimalIR decimal_ir(generator->engine_.get());
-  auto* decimal_call = llvm::cast<llvm::CallInst>(decimal_ir.CallDecimalFunction(
-      "gdv_fn_in_expr_lookup_decimal", types->i1_type(),
-      {types->i64_constant(0), types->i128_constant(0), types->i32_constant(38),
-       types->i32_constant(5), types->true_constant()}));
-  EXPECT_TRUE(internal::HasRetAttr(decimal_call->getAttributes(), llvm::Attribute::ZExt));
-  EXPECT_TRUE(decimal_call->getAttributes().hasParamAttr(5, llvm::Attribute::ZExt));
-
   // Check that ordinary LLVM i1 functions do not receive the attributes.
   auto* i1_prototype =
       llvm::FunctionType::get(types->i1_type(), {types->i1_type()}, false);
@@ -110,6 +101,26 @@ TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
   generator->ir_builder()->CreateRetVoid();
   EXPECT_FALSE(internal::HasRetAttr(i1_call->getAttributes(), llvm::Attribute::ZExt));
   EXPECT_FALSE(i1_call->getAttributes().hasParamAttr(0, llvm::Attribute::ZExt));
+}
+
+TEST_F(TestLLVMGenerator, TestDecimalCallAttrs) {
+  ASSERT_OK_AND_ASSIGN(auto generator,
+                       LLVMGenerator::Make(TestConfigWithIrDumping(), false));
+
+  // Check that the call emitted through DecimalIR has zeroext on the result and the
+  // native bool argument after its i128 argument is split.
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 5;
+  auto field = arrow::field("decimal", arrow::decimal128(precision, scale));
+  auto field_node = TreeExprBuilder::MakeField(field);
+  std::unordered_set<DecimalScalar128> constants{DecimalScalar128("6", precision, scale)};
+  auto in_node = TreeExprBuilder::MakeInExpressionDecimal(field_node, constants);
+  auto condition = TreeExprBuilder::MakeCondition(in_node);
+  ASSERT_OK(generator->Build({condition}));
+
+  EXPECT_THAT(generator->ir(),
+              testing::ContainsRegex(
+                  R"(call zeroext i1 @gdv_fn_in_expr_lookup_decimal\(.*, i1 zeroext)"));
 }
 
 TEST_F(TestLLVMGenerator, TestAdd) {
