@@ -202,7 +202,7 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
 
 #ifdef JIT_LINK_SUPPORTED
 #  if LLVM_VERSION_MAJOR < 23
-Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryManager() {
+Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemoryManager() {
   auto maybe_mem_manager = llvm::jitlink::InProcessMemoryManager::Create();
   return AsArrowResult(maybe_mem_manager, "Could not create memory manager: ");
 }
@@ -218,7 +218,7 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
           return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, memory_manager);
         });
 #  else
-    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemoryManager());
 #    if LLVM_VERSION_MAJOR >= 21
     jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
       return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
