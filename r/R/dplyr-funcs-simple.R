@@ -190,8 +190,9 @@ common_type <- function(exprs) {
 cast_or_parse <- function(x, type) {
   # A null scalar (e.g. a bare `NA`, which is logical) carries no data, so
   # skip the value cast and just create a null of the target type. This
-  # avoids unsupported casts like bool -> date32 (GH-38358).
-  if (!x$is_valid) {
+  # avoids unsupported casts like bool -> date32 (GH-38358). Only Scalars
+  # have `is_valid`; Arrays (e.g. from the `%in%` binding) take the normal path.
+  if (inherits(x, "Scalar") && !x$is_valid) {
     return(Scalar$create(NULL)$cast(type))
   }
 
