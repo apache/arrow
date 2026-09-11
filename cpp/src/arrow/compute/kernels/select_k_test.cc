@@ -415,6 +415,21 @@ TYPED_TEST(TestSelectKWithChunkedArrayTyped, RandomValuesWithSlices) {
   }
 }
 
+TEST_F(TestSelectKWithChunkedArray, EmptyChunkedArray) {
+  auto chunked_array = std::make_shared<ChunkedArray>(ArrayVector{}, uint8());
+  ASSERT_EQ(chunked_array->num_chunks(), 0);
+  ASSERT_EQ(chunked_array->length(), 0);
+
+  for (const auto& options :
+       {SelectKOptions::TopKDefault(3), SelectKOptions::BottomKDefault(3),
+        SelectKOptions::TopKDefault(0)}) {
+    ASSERT_OK_AND_ASSIGN(auto indices, SelectKUnstable(Datum(*chunked_array), options));
+    ASSERT_NE(indices, nullptr);
+    ValidateOutput(*indices);
+    ASSERT_EQ(indices->length(), 0);
+  }
+}
+
 TEST_F(TestSelectKWithChunkedArray, PartialSelectKNull) {
   auto chunked_array = std::vector<std::string>{
       "[null, 1]",
@@ -1102,6 +1117,25 @@ struct TestSelectKWithTable : public ::testing::Test {
     return Status::OK();
   }
 };
+
+TEST_F(TestSelectKWithTable, EmptyTable) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  std::vector<std::string> input = {R"([])"};
+  auto table = TableFromJSON(schema, input);
+  ASSERT_EQ(table->num_rows(), 0);
+
+  for (const auto& options :
+       {SelectKOptions::TopKDefault(3, {"a"}), SelectKOptions::BottomKDefault(3, {"a"}),
+        SelectKOptions::TopKDefault(0, {"a"})}) {
+    ASSERT_OK_AND_ASSIGN(auto indices, SelectKUnstable(Datum(*table), options));
+    ASSERT_NE(indices, nullptr);
+    ValidateOutput(*indices);
+    ASSERT_EQ(indices->length(), 0);
+  }
+}
 
 TEST_F(TestSelectKWithTable, TopKOneColumnKey) {
   auto schema = ::arrow::schema({
