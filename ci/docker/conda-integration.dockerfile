@@ -34,7 +34,7 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
         numpy \
         compilers \
-        "go[build=cgo_*]" \
+        go-cgo \
         maven=${maven} \
         nodejs=${node} \
         yarn=${yarn} \
