@@ -46,6 +46,7 @@
 #ifndef NDEBUG
 #  include "arrow/compute/function_internal.h"
 #endif
+#include "arrow/acero/backpressure.h"
 #include "arrow/acero/time_series_util.h"
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/light_array_internal.h"
@@ -457,21 +458,6 @@ class KeyHasher {
   LightContext ctx_;
   std::vector<KeyColumnArray> column_arrays_;
   arrow::util::TempVectorStack stack_;
-};
-
-class BackpressureController : public BackpressureControl {
- public:
-  BackpressureController(ExecNode* node, ExecNode* output,
-                         std::atomic<int32_t>& backpressure_counter)
-      : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
-
-  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
-  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
-
- private:
-  ExecNode* node_;
-  ExecNode* output_;
-  std::atomic<int32_t>& backpressure_counter_;
 };
 
 class InputState : public util::SerialSequencingQueue::Processor {
