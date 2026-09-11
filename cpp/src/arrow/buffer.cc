@@ -148,22 +148,13 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
   return MemoryManager::CopyBuffer(source, to);
 }
 
-class StlStringBuffer : public Buffer {
- public:
-  explicit StlStringBuffer(std::string data) : input_(std::move(data)) {
-    if (!input_.empty()) {
-      data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
-      size_ = static_cast<int64_t>(input_.size());
-      capacity_ = size_;
-    }
+std::shared_ptr<Buffer> Buffer::FromString(std::string data) {
+  if (data.empty()) {
+    return std::shared_ptr<Buffer>{new Buffer()};
   }
 
- private:
-  std::string input_;
-};
-
-std::shared_ptr<Buffer> Buffer::FromString(std::string data) {
-  return std::make_shared<StlStringBuffer>(std::move(data));
+  auto size_in_bytes = static_cast<int64_t>(data.size());
+  return TakeOwnership(std::move(data), size_in_bytes);
 }
 
 std::shared_ptr<Buffer> SliceMutableBuffer(std::shared_ptr<Buffer> buffer,

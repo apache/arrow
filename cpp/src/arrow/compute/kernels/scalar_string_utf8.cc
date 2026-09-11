@@ -547,6 +547,16 @@ struct Utf8NormalizeBase {
     if (res < 0) {
       return Status::Invalid("Cannot normalize utf8 string: ", utf8proc_errmsg(res));
     }
+    if (decompose_options_ & UTF8PROC_COMPOSE) {
+      // utf8proc_decompose() only decomposes; the canonical composition step for
+      // NFC and NFKC is done in-place by utf8proc_normalize_utf32().
+      res = utf8proc_normalize_utf32(
+          reinterpret_cast<utf8proc_int32_t*>(codepoints_.data()), res,
+          decompose_options_);
+      if (res < 0) {
+        return Status::Invalid("Cannot normalize utf8 string: ", utf8proc_errmsg(res));
+      }
+    }
     return res;
   }
 

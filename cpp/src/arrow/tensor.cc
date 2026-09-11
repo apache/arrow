@@ -109,13 +109,40 @@ Status ComputeColumnMajorStrides(const FixedWidthType& type,
   return Status::OK();
 }
 
-}  // namespace internal
+Result<int64_t> ComputeTensorSize(std::span<const int64_t> shape,
+                                  std::span<const int64_t> strides, int64_t elem_size) {
+  // Check the largest offset can be computed without overflow
+  const size_t ndim = shape.size();
+  int64_t largest_offset = elem_size;
+  for (size_t i = 0; i < ndim; ++i) {
+    if (shape[i] == 0) continue;
+    if (strides[i] < 0) {
+      // TODO(mrkn): Support negative strides for sharing views
+      return Status::Invalid("negative strides not supported");
+    }
+
+    int64_t dim_offset = 0;
+    if (!internal::MultiplyWithOverflow(shape[i] - 1, strides[i], &dim_offset)) {
+      if (!internal::AddWithOverflow(largest_offset, dim_offset, &largest_offset)) {
+        continue;
+      }
+    }
+
+    return Status::Invalid(
+        "offsets computed from shape and strides would not fit in 64-bit integer");
+  }
+
+  // A dimension with no element means empty for which the preceding does not apply.
+  if (std::find(shape.begin(), shape.end(), 0) != shape.end()) {
+    return 0;
+  }
+  return largest_offset;
+}
 
 namespace {
-
-inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
-                                    const std::vector<int64_t>& shape,
-                                    const std::vector<int64_t>& strides) {
+bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
+                             const std::vector<int64_t>& shape,
+                             const std::vector<int64_t>& strides) {
   std::vector<int64_t> c_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
   if (internal::ComputeRowMajorStrides(fw_type, shape, &c_strides).ok()) {
@@ -125,9 +152,9 @@ inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
   }
 }
 
-inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
-                                       const std::vector<int64_t>& shape,
-                                       const std::vector<int64_t>& strides) {
+bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
+                                const std::vector<int64_t>& shape,
+                                const std::vector<int64_t>& strides) {
   std::vector<int64_t> f_strides;
   const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
   if (internal::ComputeColumnMajorStrides(fw_type, shape, &f_strides).ok()) {
@@ -137,9 +164,9 @@ inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
   }
 }
 
-inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
-                                  const std::shared_ptr<Buffer>& data,
-                                  const std::vector<int64_t>& shape) {
+Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
+                           const std::shared_ptr<Buffer>& data,
+                           const std::vector<int64_t>& shape) {
   if (!type) {
     return Status::Invalid("Null type is supplied");
   }
@@ -193,8 +220,8 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   }
   return Status::OK();
 }
-
 }  // namespace
+}  // namespace internal
 
 namespace internal {
 
@@ -532,11 +559,11 @@ bool Tensor::is_contiguous() const {
 }
 
 bool Tensor::is_row_major() const {
-  return IsTensorStridesRowMajor(type_, shape_, strides_);
+  return internal::IsTensorStridesRowMajor(type_, shape_, strides_);
 }
 
 bool Tensor::is_column_major() const {
-  return IsTensorStridesColumnMajor(type_, shape_, strides_);
+  return internal::IsTensorStridesColumnMajor(type_, shape_, strides_);
 }
 
 Type::type Tensor::type_id() const { return type_->id(); }
