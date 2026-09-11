@@ -143,7 +143,7 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
     kms_instance_id = key_material.kms_instance_id();
     if (kms_instance_id.empty()) {
       throw ParquetException(
-          "KMS instance ID is missing both in both kms connection configuration and file "
+          "KMS instance ID is missing in both the KMS connection configuration and file "
           "key material");
     }
   }
