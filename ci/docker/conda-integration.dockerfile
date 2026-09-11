@@ -43,14 +43,6 @@ RUN mamba install -q -y \
         zstd && \
     mamba clean --yes --all --force-pkgs-dirs
 
-RUN echo "========== !!! CHECK GO/CGO !!! ==========" && \
-    conda list | grep -E '^go[[:space:]-]' && \
-    echo "go path: $(which go)" && \
-    go version && \
-    echo "CGO_ENABLED=$(go env CGO_ENABLED)" && \
-    echo "CC=$(go env CC)" && \
-    echo "========== !!! CHECK END !!! =========="
-
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
