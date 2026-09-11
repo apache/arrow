@@ -81,6 +81,8 @@ class PARQUET_EXPORT ReaderProperties {
       : pool_(pool) {}
 
   MemoryPool* memory_pool() const { return pool_; }
+  /// Set the memory pool.
+  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
                                               int64_t start, int64_t num_bytes);

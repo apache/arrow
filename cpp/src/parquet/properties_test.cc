@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
@@ -42,6 +43,22 @@ TEST(TestReaderProperties, Basics) {
   ASSERT_EQ(props.footer_read_size(), kDefaultFooterReadSize);
   ASSERT_FALSE(props.is_buffered_stream_enabled());
   ASSERT_FALSE(props.page_checksum_verification());
+}
+
+TEST(TestReaderProperties, SetMemoryPool) {
+  ReaderProperties props;
+  ASSERT_EQ(props.memory_pool(), ::arrow::default_memory_pool());
+
+  ::arrow::ProxyMemoryPool custom_pool(::arrow::default_memory_pool());
+  props.set_memory_pool(&custom_pool);
+  ASSERT_EQ(props.memory_pool(), &custom_pool);
+
+  ReaderProperties copied_props = props;
+  ASSERT_EQ(copied_props.memory_pool(), &custom_pool);
+
+  copied_props.set_memory_pool(::arrow::default_memory_pool());
+  ASSERT_EQ(copied_props.memory_pool(), ::arrow::default_memory_pool());
+  ASSERT_EQ(props.memory_pool(), &custom_pool);
 }
 
 TEST(TestWriterProperties, Basics) {
