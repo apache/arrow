@@ -1123,6 +1123,19 @@ cdef PandasOptions _convert_pandas_options(dict options):
     return result
 
 
+def _compute_binary_op(func_name, left, right):
+    """
+    Helper for arithmetic/bitwise dunder methods.
+
+    Only use for ops that can't raise ArrowTypeError as it
+    subclasses TypeError, so will get swallowed.
+    """
+    try:
+        return _pc().call_function(func_name, [left, right])
+    except TypeError:
+        return NotImplemented
+
+
 cdef class Array(_PandasConvertible):
     """
     The base class for all Arrow arrays.

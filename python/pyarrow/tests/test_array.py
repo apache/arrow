@@ -4613,6 +4613,8 @@ def test_dictionary_uint64_index_to_pandas():
     result = arr.to_pandas()
     assert list(result.cat.categories) == ["a", "b"]
     assert result.cat.codes.tolist() == [0, 1, -1, 0]
+
+
 @pytest.mark.parametrize("op", [
     operator.add,
     operator.sub,
@@ -4625,7 +4627,7 @@ def test_dictionary_uint64_index_to_pandas():
     operator.lshift,
     operator.rshift,
 ])
-def test_dunders_return_notimplemented_for_unknown_types(op):
+def test_arithmetic_dunders_unknown_types(op):
     # GH-49826
     class MyObj:
         def __radd__(self, other):
@@ -4635,3 +4637,12 @@ def test_dunders_return_notimplemented_for_unknown_types(op):
         __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
 
     assert op(pa.array([1, 2, 3]), MyObj()) == "reflected"
+
+    with pytest.raises(TypeError, match="unsupported operand type"):
+        op(pa.array([1, 2, 3]), object())
+
+
+def test_arithmetic_dunder_raises_arrow_invalid():
+    # GH-49826
+    with pytest.raises(pa.ArrowInvalid, match="divide by zero"):
+        pa.array([1, 2, 3]) / pa.scalar(0)

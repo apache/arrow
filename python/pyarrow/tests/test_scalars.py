@@ -1066,7 +1066,7 @@ def test_dunders_checked_overflow():
     operator.lshift,
     operator.rshift,
 ])
-def test_dunders_return_notimplemented_for_unknown_types(op):
+def test_arithmetic_dunders_unknown_types(op):
     # GH-49826
     class MyObj:
         def __radd__(self, other):
@@ -1076,3 +1076,12 @@ def test_dunders_return_notimplemented_for_unknown_types(op):
         __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
 
     assert op(pa.scalar(5), MyObj()) == "reflected"
+
+    with pytest.raises(TypeError, match="unsupported operand type"):
+        op(pa.scalar(1), object())
+
+
+def test_arithmetic_dunder_raises_arrow_invalid():
+    # GH-49826
+    with pytest.raises(pa.ArrowInvalid, match="divide by zero"):
+        pa.scalar(1) / pa.scalar(0)
