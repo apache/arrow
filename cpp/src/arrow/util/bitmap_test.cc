@@ -18,6 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <cstring>
+#include <ranges>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
@@ -39,7 +40,12 @@ namespace arrow::internal {
 using ::testing::ElementsAreArray;
 
 void PrintTo(const BitRun& run, std::ostream* os) { *os << run.ToString(); }
+void PrintTo(const PositionedBitRun& run, std::ostream* os) { *os << run.ToString(); }
 void PrintTo(const SetBitRun& run, std::ostream* os) { *os << run.ToString(); }
+
+static_assert(std::ranges::input_range<BitRunRange>);
+static_assert(std::ranges::input_range<SetBitRunRange>);
+static_assert(std::ranges::input_range<TwoSetBitRunRange>);
 
 namespace {
 
@@ -605,6 +611,156 @@ TEST_F(TestSetBitRunReader, VisitTwoBitRunsNoOverlap) {
                             }));
   ASSERT_THAT(positions, ElementsAreArray({0}));
   ASSERT_THAT(runs, ElementsAreArray({BitRun{8, false}}));
+}
+
+TEST_F(TestSetBitRunReader, IterateBitRuns) {
+  auto bitmap = BitmapFromString("01101101");
+  const auto range = IterateBitRuns(bitmap->data(), /*offset=*/1, /*length=*/6);
+
+  std::vector<PositionedBitRun> runs;
+  for (const auto run : range) {
+    runs.push_back(run);
+  }
+  ASSERT_THAT(runs, ElementsAreArray(std::vector<PositionedBitRun>{
+                        {0, 2, true}, {2, 1, false}, {3, 2, true}, {5, 1, false}}));
+
+  std::vector<PositionedBitRun> null_bitmap_runs;
+  for (const auto run : IterateBitRuns(nullptr, /*offset=*/12, /*length=*/6)) {
+    null_bitmap_runs.push_back(run);
+  }
+  ASSERT_THAT(null_bitmap_runs,
+              ElementsAreArray(std::vector<PositionedBitRun>{{0, 6, true}}));
+
+  std::vector<PositionedBitRun> empty_runs;
+  for (const auto run : IterateBitRuns(nullptr, /*offset=*/0, /*length=*/0)) {
+    empty_runs.push_back(run);
+  }
+  EXPECT_TRUE(empty_runs.empty());
+
+  int run_count = 0;
+  for (const auto run : range) {
+    EXPECT_EQ(run.position, 0);
+    ++run_count;
+    break;
+  }
+  EXPECT_EQ(run_count, 1);
+
+  auto iterator = range.begin();
+  const auto first_run = *iterator++;
+  EXPECT_EQ(first_run.position, 0);
+  EXPECT_EQ(first_run.length, 2);
+  EXPECT_TRUE(first_run.set);
+  EXPECT_TRUE(iterator != range.end());
+  EXPECT_TRUE(range.end() != iterator);
+
+  const auto copy = iterator;
+  auto assigned = range.begin();
+  assigned = copy;
+  ++iterator;
+  EXPECT_EQ(copy->position, 2);
+  EXPECT_EQ(assigned->position, 2);
+}
+
+TEST_F(TestSetBitRunReader, IterateSetBitRuns) {
+  auto bitmap = BitmapFromString("01101101");
+  const auto range = IterateSetBitRuns(bitmap->data(), /*offset=*/1, /*length=*/6);
+
+  std::vector<SetBitRun> runs;
+  for (const auto run : range) {
+    runs.push_back(run);
+  }
+  ASSERT_THAT(runs, ElementsAreArray(std::vector<SetBitRun>{{0, 2}, {3, 2}}));
+
+  std::vector<SetBitRun> null_bitmap_runs;
+  for (const auto run : IterateSetBitRuns(nullptr, /*offset=*/12, /*length=*/6)) {
+    null_bitmap_runs.push_back(run);
+  }
+  ASSERT_THAT(null_bitmap_runs, ElementsAreArray(std::vector<SetBitRun>{{0, 6}}));
+
+  std::vector<SetBitRun> empty_runs;
+  for (const auto run : IterateSetBitRuns(nullptr, /*offset=*/0, /*length=*/0)) {
+    empty_runs.push_back(run);
+  }
+  EXPECT_TRUE(empty_runs.empty());
+
+  auto iterator = range.begin();
+  const auto first_run = *iterator++;
+  EXPECT_EQ(first_run.position, 0);
+  EXPECT_EQ(first_run.length, 2);
+  EXPECT_TRUE(iterator != range.end());
+  EXPECT_TRUE(range.end() != iterator);
+
+  const auto copy = iterator;
+  auto assigned = range.begin();
+  assigned = copy;
+  ++iterator;
+  EXPECT_EQ(copy->position, 3);
+  EXPECT_EQ(assigned->position, 3);
+}
+
+TEST_F(TestSetBitRunReader, IterateTwoSetBitRuns) {
+  auto left = BitmapFromString("11110000 11111100");
+  auto right = BitmapFromString("11001100 00111111");
+  const auto range = IterateTwoSetBitRuns(left->data(), /*left_offset=*/1, right->data(),
+                                          /*right_offset=*/2,
+                                          /*length=*/12);
+
+  std::vector<SetBitRun> runs;
+  for (const auto run : range) {
+    runs.push_back(run);
+  }
+  ASSERT_THAT(runs, ElementsAreArray(std::vector<SetBitRun>{{2, 1}, {8, 4}}));
+
+  std::vector<SetBitRun> one_null_bitmap_runs;
+  for (const auto run : IterateTwoSetBitRuns(nullptr, /*left_offset=*/0, right->data(),
+                                             /*right_offset=*/2, /*length=*/12)) {
+    one_null_bitmap_runs.push_back(run);
+  }
+  ASSERT_THAT(one_null_bitmap_runs,
+              ElementsAreArray(std::vector<SetBitRun>{{2, 2}, {8, 4}}));
+
+  std::vector<SetBitRun> other_null_bitmap_runs;
+  for (const auto run : IterateTwoSetBitRuns(left->data(), /*left_offset=*/1, nullptr,
+                                             /*right_offset=*/0, /*length=*/12)) {
+    other_null_bitmap_runs.push_back(run);
+  }
+  ASSERT_THAT(other_null_bitmap_runs,
+              ElementsAreArray(std::vector<SetBitRun>{{0, 3}, {7, 5}}));
+
+  std::vector<SetBitRun> null_bitmap_runs;
+  for (const auto run : IterateTwoSetBitRuns(nullptr, /*left_offset=*/0, nullptr,
+                                             /*right_offset=*/0, /*length=*/12)) {
+    null_bitmap_runs.push_back(run);
+  }
+  ASSERT_THAT(null_bitmap_runs, ElementsAreArray(std::vector<SetBitRun>{{0, 12}}));
+
+  auto iterator = range.begin();
+  const auto first_run = *iterator++;
+  EXPECT_EQ(first_run.position, 2);
+  EXPECT_EQ(first_run.length, 1);
+  EXPECT_TRUE(iterator != range.end());
+  EXPECT_TRUE(range.end() != iterator);
+
+  const auto copy = iterator;
+  auto assigned = range.begin();
+  assigned = copy;
+  ++iterator;
+  EXPECT_EQ(copy->position, 8);
+  EXPECT_EQ(assigned->position, 8);
+
+  constexpr int64_t kLongRunLength = 5000;
+  ASSERT_OK_AND_ASSIGN(auto long_left, AllocateEmptyBitmap(kLongRunLength));
+  ASSERT_OK_AND_ASSIGN(auto long_right, AllocateEmptyBitmap(kLongRunLength));
+  bit_util::SetBitsTo(long_left->mutable_data(), 0, kLongRunLength, true);
+  bit_util::SetBitsTo(long_right->mutable_data(), 0, kLongRunLength, true);
+
+  std::vector<SetBitRun> long_runs;
+  for (const auto run :
+       IterateTwoSetBitRuns(long_left->data(), /*left_offset=*/0, long_right->data(),
+                            /*right_offset=*/0, kLongRunLength)) {
+    long_runs.push_back(run);
+  }
+  ASSERT_THAT(long_runs, ElementsAreArray(std::vector<SetBitRun>{{0, kLongRunLength}}));
 }
 
 // Tests for BitRunReader.
