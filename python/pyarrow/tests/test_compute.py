@@ -138,7 +138,8 @@ def test_exported_option_classes():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
+    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0",
+    "ignore:Specifying null_placement in RankOptions is deprecated"
 )
 def test_option_class_equality(request):
     options = [
@@ -3880,6 +3881,9 @@ def test_random():
      ("first", [3, 1, 4, 6, 5, 7, 2]),
      ("dense", [2, 1, 3, 4, 3, 4, 1])]
 )
+@pytest.mark.filterwarnings(
+    "ignore:Specifying null_placement in RankOptions is deprecated"
+)
 def test_rank_options_tiebreaker(tiebreaker, expected_values):
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
     rank_options = pc.RankOptions(sort_keys="ascending",
@@ -3890,6 +3894,9 @@ def test_rank_options_tiebreaker(tiebreaker, expected_values):
     assert result.equals(expected)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Specifying null_placement in RankOptions is deprecated"
+)
 def test_rank_options():
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
     expected = pa.array([3, 1, 4, 6, 5, 7, 2], type=pa.uint64())
@@ -3923,6 +3930,9 @@ def test_rank_options():
                        tiebreaker="NonExisting")
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Specifying null_placement in RankOptions is deprecated"
+)
 def test_rank_quantile_options():
     arr = pa.array([None, 1, None, 2, None])
     expected = pa.array([0.7, 0.1, 0.7, 0.3, 0.7], type=pa.float64())
@@ -3953,6 +3963,9 @@ def test_rank_quantile_options():
         pc.rank_quantile(arr, sort_keys="XXX")
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Specifying null_placement in RankOptions is deprecated"
+)
 def test_rank_normal_options():
     arr = pa.array([None, 1, None, 2, None])
 
