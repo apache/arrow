@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -159,6 +160,30 @@ template <typename ArrowType, typename Hasher>
 struct FastHashScalar {
   using c_type = typename ArrowType::c_type;
 
+  // HashMultiColumn narrows its row count to a uint32, so a longer column would wrap and
+  // leave the tail of `out` unwritten. Arrays that long are reachable here because the
+  // executor does not split spans by default, and a list's values child can outrun its
+  // parent besides. Row hashes are independent, so feeding it uint32-sized chunks gives
+  // the same answer as one oversized call would.
+  static constexpr int64_t kMaxHashRows = std::numeric_limits<uint32_t>::max();
+
+  static void HashMultiColumnChunked(const std::vector<KeyColumnArray>& columns,
+                                     LightContext* hash_ctx, c_type* out) {
+    int64_t length = columns[0].length();
+    if (length <= kMaxHashRows) {
+      Hasher::HashMultiColumn(columns, hash_ctx, out);
+      return;
+    }
+    std::vector<KeyColumnArray> chunk(columns.size());
+    for (int64_t offset = 0; offset < length; offset += kMaxHashRows) {
+      int64_t chunk_length = std::min(kMaxHashRows, length - offset);
+      for (size_t i = 0; i < columns.size(); i++) {
+        chunk[i] = columns[i].Slice(offset, chunk_length);
+      }
+      Hasher::HashMultiColumn(chunk, hash_ctx, out + offset);
+    }
+  }
+
   // Hashes the [offset, offset + length) slice of `child` into hash values plus real
   // validity, always based at offset 0 whatever `child`'s own offset (callers read the
   // buffers row-0-based). Only a null row's validity bit is meaningful, not its hash
@@ -232,7 +257,7 @@ struct FastHashScalar {
         columns[i] = column.Slice(child.offset + array.offset, array.length);
       }
     }
-    Hasher::HashMultiColumn(columns, hash_ctx, out);
+    HashMultiColumnChunked(columns, hash_ctx, out);
     return Status::OK();
   }
 
@@ -350,7 +375,7 @@ struct FastHashScalar {
     } else if (!NeedsRecursiveHash(*array.type)) {
       ARROW_ASSIGN_OR_RAISE(auto column, ToColumnArray(array));
       std::vector<KeyColumnArray> columns{column.Slice(array.offset, array.length)};
-      Hasher::HashMultiColumn(columns, hash_ctx, out);
+      HashMultiColumnChunked(columns, hash_ctx, out);
       // A plain column's own validity is the whole story, and HashMultiColumn has
       // already folded it into the hash values via ToColumnArray's buffer.
       WriteOwnValidity(array, out_validity);
