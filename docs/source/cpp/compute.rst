@@ -1237,7 +1237,13 @@ Containment tests
 | index_in              | Unary | Boolean, Null, Numeric, Temporal, | Int32          | :struct:`SetLookupOptions`      | \(4)  |
 |                       |       | Binary- and String-like           |                |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+| index_in_binary       | Binary| Boolean, Null, Numeric, Temporal, | Int32          |                                 | \(4)  |
+|                       |       | Binary- and String-like           |                |                                 |       |
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | is_in                 | Unary | Boolean, Null, Numeric, Temporal, | Boolean        | :struct:`SetLookupOptions`      | \(5)  |
+|                       |       | Binary- and String-like           |                |                                 |       |
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+| is_in_binary          | Binary| Boolean, Null, Numeric, Temporal, | Boolean        |                                 | \(5)  |
 |                       |       | Binary- and String-like           |                |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | match_like            | Unary | Binary- or String-like            | Boolean        | :struct:`MatchSubstringOptions` | \(6)  |
@@ -1262,12 +1268,15 @@ Containment tests
   string, otherwise -1. Output type is Int32 for Binary/String, Int64
   for LargeBinary/LargeString.
 
-* \(4) Output is the index of the corresponding input element in
-  :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
-  output is null.
+* \(4) Output is the index of the corresponding input element in the
+  value set, if found there. The value set is provided as the second input to
+  ``index_in_binary`` or as :member:`SetLookupOptions::value_set` to
+  ``index_in``. Otherwise, output is null.
 
 * \(5) Output is true iff the corresponding input element is equal to one
-  of the elements in :member:`SetLookupOptions::value_set`.
+  of the elements in the value set. The value set is provided as the second
+  input to ``is_in_binary`` or as :member:`SetLookupOptions::value_set` to
+  ``is_in``.
 
 * \(6) Output is true iff the SQL-style LIKE pattern
   :member:`MatchSubstringOptions::pattern` fully matches the
