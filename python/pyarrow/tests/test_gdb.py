@@ -408,6 +408,9 @@ def test_types_stack(gdb_arrow):
     check_stack_repr(gdb_arrow, "fixed_size_list_type",
                      "arrow::fixed_size_list(arrow::float64(), 3)")
     check_stack_repr(
+        gdb_arrow, "run_end_encoded_type",
+        "arrow::run_end_encoded(arrow::int32(), arrow::utf8())")
+    check_stack_repr(
         gdb_arrow, "map_type_unsorted",
         "arrow::map(arrow::utf8(), arrow::binary(), keys_sorted=false)")
     check_stack_repr(
@@ -468,6 +471,9 @@ def test_types_heap(gdb_arrow):
                     "arrow::large_list(arrow::large_utf8())")
     check_heap_repr(gdb_arrow, "heap_fixed_size_list_type",
                     "arrow::fixed_size_list(arrow::float64(), 3)")
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_type",
+        "arrow::run_end_encoded(arrow::int32(), arrow::utf8())")
     check_heap_repr(
         gdb_arrow, "heap_map_type",
         "arrow::map(arrow::utf8(), arrow::binary(), keys_sorted=false)")
@@ -744,6 +750,14 @@ def test_scalars_stack(gdb_arrow):
         gdb_arrow, "fixed_size_list_scalar_null",
         ('arrow::FixedSizeListScalar of type '
          'arrow::fixed_size_list(arrow::int32(), 3), null value'))
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_scalar",
+        ('arrow::RunEndEncodedScalar of value '
+         'arrow::StringScalar of size 3, value "foo"'))
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_scalar_null",
+        ('arrow::RunEndEncodedScalar of type '
+         'arrow::run_end_encoded(arrow::int32(), arrow::utf8()), null value'))
 
     check_stack_repr(
         gdb_arrow, "struct_scalar",
@@ -810,6 +824,10 @@ def test_scalars_heap(gdb_arrow):
         gdb_arrow, "heap_map_scalar_null",
         ('arrow::MapScalar of type arrow::map(arrow::utf8(), arrow::int32(), '
          'keys_sorted=false), null value'))
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_scalar",
+        ('arrow::RunEndEncodedScalar of value '
+         'arrow::StringScalar of size 3, value "foo"'))
 
 
 def test_array_data(gdb_arrow):
@@ -828,6 +846,11 @@ def test_arrays_stack(gdb_arrow):
         gdb_arrow, "list_array",
         ("arrow::ListArray of type arrow::list(arrow::int64()), "
          "length 3, offset 0, null count 1"))
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_array",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 5, offset 0, null count 0"))
 
 
 def test_arrays_heap(gdb_arrow):
@@ -1081,6 +1104,16 @@ def test_arrays_heap(gdb_arrow):
         gdb_arrow, "heap_list_array",
         ("arrow::ListArray of type arrow::list(arrow::int64()), "
          "length 3, offset 0, null count 1"))
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_array",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 5, offset 0, null count 0"))
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_array_sliced",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 3, offset 1, null count 0"))
 
 
 def test_schema(gdb_arrow):
