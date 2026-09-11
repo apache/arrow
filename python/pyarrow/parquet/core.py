@@ -806,10 +806,6 @@ data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
-max_rows_per_page : int, default None
-    Maximum number of rows per page within a column chunk.
-    If None, use the default of 20000.
-    Smaller values reduce memory usage during reads but increase metadata overhead.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems.
@@ -924,6 +920,42 @@ store_decimal_as_integer : bool, default False
     - fixed_len_byte_array: for precision > 18.
 
     As a consequence, decimal columns stored in integer types are more compact.
+write_time_adjusted_to_utc : bool, default False
+    Set the value of isAdjustedTOUTC when writing a TIME column.
+    If True, this tells the Parquet reader that the TIME columns
+    are expressed in reference to midnight in the UTC timezone.
+    If False (the default), the TIME columns are assumed to be expressed
+    in reference to midnight in an unknown, presumably local, timezone.
+max_rows_per_page : int, default None
+    Maximum number of rows per page within a column chunk.
+    If None, use the default of 20000.
+    Smaller values reduce memory usage during reads but increase metadata overhead.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 use_content_defined_chunking : bool or dict, default False
     Optimize parquet files for content addressable storage (CAS) systems by writing
     data pages according to content-defined chunk boundaries. This allows for more
@@ -958,39 +990,6 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
-
-write_time_adjusted_to_utc : bool, default False
-    Set the value of isAdjustedTOUTC when writing a TIME column.
-    If True, this tells the Parquet reader that the TIME columns
-    are expressed in reference to midnight in the UTC timezone.
-    If False (the default), the TIME columns are assumed to be expressed
-    in reference to midnight in an unknown, presumably local, timezone.
-bloom_filter_options : dict, default None
-    Create Bloom filters for the columns specified by the provided `dict`.
-
-    Bloom filters can be configured with two parameters: number of distinct values
-    (NDV), and false-positive probability (FPP).
-
-    Bloom filters are most effective for high-cardinality columns. A good default
-    is to set NDV equal to the number of rows. Lower values reduce disk usage but
-    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
-    increases disk and memory usage.
-
-    Lower FPP values require more disk and memory space. For a fixed NDV, the
-    space requirement grows roughly proportional to log(1/FPP). Recommended
-    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
-    the bitset may exceed the size of the actual data. Set NDV appropriately
-    to minimize space usage.
-
-    The keys of the `dict` are column paths. For each path, the value can be either:
-
-    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
-      integer. If the 'ndv' key is not present, the default value of `1048576` will be
-      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
-      is not present, the default value of `0.05` will be used.
-    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
-      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
-      equivalent to passing an empty dict.
 """
 
 _parquet_writer_example_doc = """\
@@ -1089,6 +1088,7 @@ Examples
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
                  max_rows_per_page=None,
+                 use_content_defined_chunking=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1144,6 +1144,7 @@ Examples
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             max_rows_per_page=max_rows_per_page,
+            use_content_defined_chunking=use_content_defined_chunking,
             **options)
         self.is_open = True
 
@@ -2034,6 +2035,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
                 bloom_filter_options=None,
+                use_content_defined_chunking=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2068,6 +2070,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
                 bloom_filter_options=bloom_filter_options,
+                use_content_defined_chunking=use_content_defined_chunking,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
