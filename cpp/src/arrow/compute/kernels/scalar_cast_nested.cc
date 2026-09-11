@@ -186,9 +186,8 @@ struct CastListViewToVarList {
     const auto* sizes = in_array.GetValues<src_offset_type>(2);
 
     // Allocate destination offsets buffer (shared by both paths)
-    ARROW_ASSIGN_OR_RAISE(
-        out_array->buffers[1],
-        ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[1], ctx->Allocate(sizeof(dest_offset_type) *
+                                                               (in_array.length + 1)));
     auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
 
     if (IsContiguous(in_array)) {
@@ -214,7 +213,8 @@ struct CastListViewToVarList {
 
       values = values->Slice(start_offset, abs_end_offset - start_offset);
     } else {
-      // Non-contiguous path: compute new offsets using SetBitRunReader for bitmap traversal
+      // Non-contiguous path: compute new offsets using SetBitRunReader for bitmap
+      // traversal
       src_offset_type current_offset = 0;
       dest_offsets[0] = 0;
       const uint8_t* validity = in_array.buffers[0].data;
