@@ -544,3 +544,92 @@ def test_writer_props_max_rows_per_page_file_size(tempdir):
 
     # A smaller maximum rows parameter should produce a larger file
     assert file_infos[0].size > file_infos[1].size
+
+
+def _threaded_write_sample_table():
+    # Several chunks per row group, plus nested and dictionary columns, so
+    # the parallel path is exercised with more than one batch per row group
+    # and with columns that have more than one Parquet leaf.
+    n = 1000
+    pieces = []
+    for start in range(0, n, 300):
+        stop = min(start + 300, n)
+        pieces.append(pa.record_batch({
+            'i': pa.array(range(start, stop), pa.int64()),
+            's': pa.array([str(x) if x % 7 else None for x in range(start, stop)]),
+            'l': pa.array([[x, x + 1] if x % 5 else None for x in range(start, stop)],
+                          pa.list_(pa.int32())),
+            'st': pa.array([{'a': x, 'b': float(x)} for x in range(start, stop)],
+                           pa.struct([('a', pa.int16()), ('b', pa.float64())])),
+            'd': pa.array([str(x % 3) for x in range(start, stop)]).dictionary_encode(),
+        }))
+    return pa.Table.from_batches(pieces)
+
+
+def _row_group_lengths(path):
+    metadata = pq.read_metadata(path)
+    return [metadata.row_group(i).num_rows for i in range(metadata.num_row_groups)]
+
+
+@pytest.mark.parametrize('row_group_size', [None, 1000, 256, 7])
+def test_parquet_writer_use_threads(tempdir, row_group_size):
+    table = _threaded_write_sample_table()
+    serial = tempdir / 'serial.parquet'
+    threaded = tempdir / 'threaded.parquet'
+    for path, use_threads in ((serial, False), (threaded, True)):
+        with pq.ParquetWriter(path, table.schema, use_threads=use_threads) as writer:
+            writer.write_table(table, row_group_size=row_group_size)
+            # A second call starts new row groups, as it does today.
+            writer.write_batch(table.slice(0, 10).to_batches()[0])
+
+    assert _row_group_lengths(threaded) == _row_group_lengths(serial)
+    threaded_table = pq.read_table(threaded)
+    threaded_table.validate(full=True)
+    assert threaded_table.equals(pq.read_table(serial))
+    assert threaded_table.schema.equals(table.schema)
+
+    # Statistics are produced on the parallel path too.
+    serial_meta = pq.read_metadata(serial)
+    threaded_meta = pq.read_metadata(threaded)
+    for rg in range(serial_meta.num_row_groups):
+        for col in range(serial_meta.num_columns):
+            expected = serial_meta.row_group(rg).column(col).statistics
+            actual = threaded_meta.row_group(rg).column(col).statistics
+            assert (actual is None) == (expected is None)
+            if expected is not None:
+                assert actual.equals(expected)
+
+
+def test_parquet_writer_use_threads_row_group_latching(tempdir):
+    # Both paths cap row_group_size at 64Mi rows and default it to the
+    # smaller of the table size and 1Mi rows.
+    default_size = 1024 * 1024
+    table = pa.table({'x': pa.array(range(default_size + 100), pa.int32())})
+    path = tempdir / 'test.parquet'
+    pq.write_table(table, path, use_threads=True)
+    assert _row_group_lengths(path) == [default_size, 100]
+    pq.write_table(table, path, use_threads=True, row_group_size=64 * 1024 * 1024 * 2)
+    assert _row_group_lengths(path) == [default_size + 100]
+    assert pq.read_table(path).equals(table)
+
+
+def test_parquet_writer_use_threads_empty_table(tempdir):
+    table = pa.table({'x': pa.array([], pa.int32())})
+    for use_threads in (False, True):
+        path = tempdir / f'empty_{use_threads}.parquet'
+        pq.write_table(table, path, use_threads=use_threads)
+        assert _row_group_lengths(path) == [0]
+        assert pq.read_table(path).equals(table)
+
+
+def test_parquet_writer_use_threads_schema_mismatch(tempdir):
+    schema = pa.schema([('x', pa.int32())])
+    other = pa.table({'x': pa.array([1], pa.int64())})
+    with pq.ParquetWriter(tempdir / 'test.parquet', schema, use_threads=True) as writer:
+        with pytest.raises(ValueError, match='schema does not match'):
+            writer.write_table(other)
+        # The Cython writer checks the schema itself on the parallel path
+        # (WriteTable does it in C++ on the serial one).
+        with pytest.raises((ValueError, pa.ArrowInvalid),
+                           match='schema does not match'):
+            writer.writer.write_table(other)
