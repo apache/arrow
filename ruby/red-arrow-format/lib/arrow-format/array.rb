@@ -16,6 +16,7 @@
 # under the License.
 
 require "bigdecimal"
+require "date"
 
 require_relative "array-builder"
 require_relative "bitmap"
@@ -489,11 +490,12 @@ module ArrowFormat
     end
 
     private
+    UNIX_EPOCH = Date.new(1970, 1, 1).jd
     def pack_value(value, template, type)
       if value.nil?
         [0].pack(template)
       elsif value.is_a?(Date)
-        [value.day].pack(template)
+        [value.jd - UNIX_EPOCH].pack(template)
       else
         [value].pack(template)
       end
