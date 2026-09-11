@@ -113,6 +113,7 @@
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/exported_funcs_registry.h"
+#include "gandiva/llvm_util_internal.h"
 
 namespace gandiva {
 
@@ -131,6 +132,8 @@ template <typename T>
 arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
                                const std::string& error_context) {
   if (!expected) {
+    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+    // (ARROW-5148)
     return Status::CodeGenError(error_context, llvm::toString(expected.takeError()));
   }
   return std::move(expected.get());
@@ -198,24 +201,34 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
 }
 
 #ifdef JIT_LINK_SUPPORTED
-Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryManager() {
+#  if LLVM_VERSION_MAJOR < 23
+Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemoryManager() {
   auto maybe_mem_manager = llvm::jitlink::InProcessMemoryManager::Create();
   return AsArrowResult(maybe_mem_manager, "Could not create memory manager: ");
 }
+#  endif
 
 Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
-    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
-#  if LLVM_VERSION_MAJOR >= 21
+#  if LLVM_VERSION_MAJOR >= 23
+    jit_builder.setObjectLinkingLayerCreator(
+        [](llvm::orc::ExecutionSession& ES,
+           llvm::jitlink::JITLinkMemoryManager& memory_manager) {
+          return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, memory_manager);
+        });
+#  else
+    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemoryManager());
+#    if LLVM_VERSION_MAJOR >= 21
     jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
       return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
     });
-#  else
+#    else
     jit_builder.setObjectLinkingLayerCreator(
         [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
           return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
         });
+#    endif
 #  endif
   }
   return Status::OK();
@@ -261,13 +274,8 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   return jit;
 }
 
-arrow::Status VerifyAndLinkModule(
-    llvm::Module& dest_module,
-    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto src_ir_module,
-      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
-
+arrow::Status VerifyAndLinkModule(llvm::Module& dest_module,
+                                  std::unique_ptr<llvm::Module> src_ir_module) {
   src_ir_module->setDataLayout(dest_module.getDataLayout());
 
   std::string error_info;
@@ -280,6 +288,14 @@ arrow::Status VerifyAndLinkModule(
                   Status::CodeGenError("failed to link IR Modules"));
 
   return Status::OK();
+}
+
+void RemoveBuildTargetAttributes(llvm::Module& module) {
+  for (auto& function : module.functions()) {
+    function.removeFnAttr("target-cpu");
+    function.removeFnAttr("target-features");
+    function.removeFnAttr("tune-cpu");
+  }
 }
 
 }  // namespace
@@ -422,10 +438,18 @@ Status Engine::LoadPreCompiledIR() {
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
-  // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
-  // (ARROW-5148)
-  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(
+      auto src_ir_module,
+      AsArrowResult(module_or_error, "Failed to verify and link module: "));
+
+  // Built-in bitcode is JIT-compiled on the runtime host. Do not retain the target
+  // selected by Clang when the bitcode was built.
+  // LLVM 23 checks target-feature compatibility even for alwaysinline functions and
+  // prevents inlining on a mismatch. See the LLVM 23 release notes:
+  // https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html#changes-to-the-llvm-ir
+  RemoveBuildTargetAttributes(*src_ir_module);
+
+  return VerifyAndLinkModule(*module_, std::move(src_ir_module));
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
@@ -439,7 +463,10 @@ Status Engine::LoadExternalPreCompiledIR() {
   for (const auto& buffer : buffers) {
     auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
     auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
-    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto src_ir_module,
+        AsArrowResult(module_or_error, "Failed to verify and link module: "));
+    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(src_ir_module)));
   }
 
   return Status::OK();
@@ -601,7 +628,11 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
   const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
-  llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
+  auto* function = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
+                                          name, module());
+  // TODO: Other native function mappings may require target-specific ABI attributes
+  // that cannot be inferred from their LLVM types alone.
+  internal::AddNativeBoolZExtAttrs(*function);
   AddAbsoluteSymbol(*lljit_, name, func);
 }
 

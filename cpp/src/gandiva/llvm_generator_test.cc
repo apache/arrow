@@ -27,7 +27,9 @@
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/llvm_util_internal.h"
 #include "gandiva/tests/test_util.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 
@@ -64,6 +66,61 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   for (auto& iter : *registry_) {
     EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
+}
+
+TEST_F(TestLLVMGenerator, TestBoolCallAttrs) {
+  ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
+
+  // Check that native bool declarations carry the ABI attributes.
+  auto* function = generator->module()->getFunction("gdv_fn_in_expr_lookup_int32");
+  ASSERT_NE(function, nullptr);
+  EXPECT_TRUE(internal::HasRetAttr(function->getAttributes(), llvm::Attribute::ZExt));
+  EXPECT_TRUE(function->hasParamAttribute(2, llvm::Attribute::ZExt));
+
+  auto* types = generator->types();
+  auto* prototype = llvm::FunctionType::get(types->void_type(), /*is_var_arg=*/false);
+  auto* caller = llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage,
+                                        "bool_call_attrs", generator->module());
+  auto* entry = llvm::BasicBlock::Create(*generator->context(), "entry", caller);
+  generator->ir_builder()->SetInsertPoint(entry);
+
+  // Check that AddFunctionCall copies the attributes to the call site.
+  auto* call = llvm::cast<llvm::CallInst>(generator->AddFunctionCall(
+      "gdv_fn_in_expr_lookup_int32", types->i1_type(),
+      {types->i64_constant(0), types->i32_constant(0), types->true_constant()}));
+  EXPECT_TRUE(internal::HasRetAttr(call->getAttributes(), llvm::Attribute::ZExt));
+  EXPECT_TRUE(call->getAttributes().hasParamAttr(2, llvm::Attribute::ZExt));
+
+  // Check that ordinary LLVM i1 functions do not receive the attributes.
+  auto* i1_prototype =
+      llvm::FunctionType::get(types->i1_type(), {types->i1_type()}, false);
+  llvm::Function::Create(i1_prototype, llvm::GlobalValue::ExternalLinkage, "plain_i1",
+                         generator->module());
+  auto* i1_call = llvm::cast<llvm::CallInst>(
+      generator->AddFunctionCall("plain_i1", types->i1_type(), {types->true_constant()}));
+  generator->ir_builder()->CreateRetVoid();
+  EXPECT_FALSE(internal::HasRetAttr(i1_call->getAttributes(), llvm::Attribute::ZExt));
+  EXPECT_FALSE(i1_call->getAttributes().hasParamAttr(0, llvm::Attribute::ZExt));
+}
+
+TEST_F(TestLLVMGenerator, TestDecimalCallAttrs) {
+  ASSERT_OK_AND_ASSIGN(auto generator,
+                       LLVMGenerator::Make(TestConfigWithIrDumping(), false));
+
+  // Check that the call emitted through DecimalIR has zeroext on the result and the
+  // native bool argument after its i128 argument is split.
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 5;
+  auto field = arrow::field("decimal", arrow::decimal128(precision, scale));
+  auto field_node = TreeExprBuilder::MakeField(field);
+  std::unordered_set<DecimalScalar128> constants{DecimalScalar128("6", precision, scale)};
+  auto in_node = TreeExprBuilder::MakeInExpressionDecimal(field_node, constants);
+  auto condition = TreeExprBuilder::MakeCondition(in_node);
+  ASSERT_OK(generator->Build({condition}));
+
+  EXPECT_THAT(generator->ir(),
+              testing::ContainsRegex(
+                  R"(call zeroext i1 @gdv_fn_in_expr_lookup_decimal\(.*, i1 zeroext)"));
 }
 
 TEST_F(TestLLVMGenerator, TestAdd) {

@@ -28,6 +28,7 @@
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
 #include "gandiva/llvm_types.h"
+#include "gandiva/llvm_util_internal.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -543,16 +544,17 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
   }
 
   // build a call to the llvm function.
-  llvm::Value* value;
+  llvm::CallInst* call;
   if (ret_type->isVoidTy()) {
     // void functions can't have a name for the call.
-    value = ir_builder()->CreateCall(fn, args);
+    call = ir_builder()->CreateCall(fn, args);
   } else {
-    value = ir_builder()->CreateCall(fn, args, full_name);
-    DCHECK(value->getType() == ret_type);
+    call = ir_builder()->CreateCall(fn, args, full_name);
+    DCHECK(call->getType() == ret_type);
   }
+  internal::CopyZExtAttrs(*fn, *call);
 
-  return value;
+  return call;
 }
 
 std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* value,

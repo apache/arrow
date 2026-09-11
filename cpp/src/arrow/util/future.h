@@ -702,7 +702,7 @@ class WeakFuture {
 /// If a Result<Future> holds an error instead of a Future, construct a finished Future
 /// holding that error.
 template <typename T>
-static Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
+Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
   if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
     return Future<T>::MakeFinished(std::move(maybe_future).status());
   }

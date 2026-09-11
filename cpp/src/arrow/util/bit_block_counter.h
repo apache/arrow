@@ -425,8 +425,8 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
 // Functional-style bit block visitors.
 
 template <typename VisitNotNull, typename VisitNull>
-static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t length,
-                             VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t length,
+                      VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
   int64_t position = 0;
   while (position < length) {
@@ -453,8 +453,8 @@ static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t leng
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
-                               VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
+                        VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
   int64_t position = 0;
   while (position < length) {
@@ -480,10 +480,10 @@ static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t le
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
-                                const uint8_t* right_bitmap, int64_t right_offset,
-                                int64_t length, VisitNotNull&& visit_not_null,
-                                VisitNull&& visit_null) {
+Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
+                         const uint8_t* right_bitmap, int64_t right_offset,
+                         int64_t length, VisitNotNull&& visit_not_null,
+                         VisitNull&& visit_null) {
   if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
     // At most one bitmap is present
     if (left_bitmap == NULLPTR) {
@@ -524,10 +524,10 @@ static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offset,
-                                  const uint8_t* right_bitmap, int64_t right_offset,
-                                  int64_t length, VisitNotNull&& visit_not_null,
-                                  VisitNull&& visit_null) {
+void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offset,
+                           const uint8_t* right_bitmap, int64_t right_offset,
+                           int64_t length, VisitNotNull&& visit_not_null,
+                           VisitNull&& visit_null) {
   if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
     // At most one bitmap is present
     if (left_bitmap == NULLPTR) {

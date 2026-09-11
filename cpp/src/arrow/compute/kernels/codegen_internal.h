@@ -481,8 +481,8 @@ struct UnboxScalar<Decimal256Type> {
 
 template <typename T, typename VisitFunc, typename NullFunc>
   requires std::is_void_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>>
-static void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                                   NullFunc&& null_func) {
+void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                            NullFunc&& null_func) {
   VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -494,8 +494,8 @@ static void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
 template <typename T, typename VisitFunc, typename NullFunc>
   requires std::is_same_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>,
                           Status>
-static Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                                     NullFunc&& null_func) {
+Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                              NullFunc&& null_func) {
   return VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -507,8 +507,8 @@ static Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_fun
 // Like VisitArrayValuesInline, but for binary functions.
 
 template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
-static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
-                                      VisitFunc&& valid_func, NullFunc&& null_func) {
+void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
+                               VisitFunc&& valid_func, NullFunc&& null_func) {
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
 
@@ -584,7 +584,7 @@ namespace applicator {
 // static Status Call(KernelContext*, const Scalar& arg0, const ArraySpan& arg1,
 //                    ExecResult* out)
 template <typename Operator>
-static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (batch.length == 0) return Status::OK();
 
   if (batch[0].is_array()) {
