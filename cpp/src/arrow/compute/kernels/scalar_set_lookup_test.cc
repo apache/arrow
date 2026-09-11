@@ -169,10 +169,13 @@ TEST_F(TestIsInKernel, CallBinary) {
   auto value_set = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
   ASSERT_RAISES(Invalid, CallFunction("is_in", {input, value_set}));
 
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("is_in_meta_binary", {input, value_set}));
   auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
                                             "true, false, true, false]"));
-  AssertArraysEqual(*expected, *out.make_array());
+  for (const std::string& function_name : {"is_in_binary", "is_in_meta_binary"}) {
+    SCOPED_TRACE(function_name);
+    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(function_name, {input, value_set}));
+    AssertArraysEqual(*expected, *out.make_array());
+  }
 }
 
 TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
@@ -1127,11 +1130,13 @@ TEST_F(TestIndexInKernel, CallBinary) {
   auto value_set = ArrayFromJSON(int8(), "[2, 3, 5, 7]");
   ASSERT_RAISES(Invalid, CallFunction("index_in", {input, value_set}));
 
-  ASSERT_OK_AND_ASSIGN(Datum out,
-                       CallFunction("index_in_meta_binary", {input, value_set}));
   auto expected = ArrayFromJSON(int32(), ("[null, null, 0, 1, null, 2, null, 3, null,"
                                           " null, null]"));
-  AssertArraysEqual(*expected, *out.make_array());
+  for (const std::string& function_name : {"index_in_binary", "index_in_meta_binary"}) {
+    SCOPED_TRACE(function_name);
+    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(function_name, {input, value_set}));
+    AssertArraysEqual(*expected, *out.make_array());
+  }
 }
 
 template <typename Type>
