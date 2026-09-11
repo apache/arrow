@@ -35,18 +35,18 @@ git clone \
     --branch "v${version}" \
     --depth 1 \
     https://github.com//google/double-conversion.git
-rm *.cc *.h
+rm ./*.cc ./*.h
 for f in double-conversion/double-conversion/*{.h,.cc}; do
   mv "${f}" ./
 done
 rm -rf double-conversion
-sed -i.bak -E -e "s/v[0-9.]+/v${version}/g" *.md
+sed -i.bak -E -e "s/v[0-9.]+/v${version}/g" ./*.md
 sed -i.bak -E \
     -e '/^namespace double_conversion \{/ i\
 namespace arrow_vendored {' \
     -e '/^}  \/\/ namespace double_conversion/ a\
 }  // namespace arrow_vendored' \
-    *.{h,cc}
+    ./*.{h,cc}
 rm *.bak
 
 popd

@@ -287,7 +287,7 @@ repos:
           ?^cpp/build-support/.*\.sh$|
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
-          ?^cpp/src/arrow/flight/.*\.sh$|
+          ?^cpp/src/.*\.sh$|
           ?^cpp/thirdparty/download_dependencies\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-flightsqlodbc-upload\.sh$|
