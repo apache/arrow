@@ -29,6 +29,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
@@ -213,14 +214,37 @@ struct CastListViewToVarList {
 
       values = values->Slice(start_offset, abs_end_offset - start_offset);
     } else {
-      // Non-contiguous path: compute new offsets, flatten/concatenate values
+      // Non-contiguous path: compute new offsets using SetBitRunReader for bitmap traversal
       src_offset_type current_offset = 0;
       dest_offsets[0] = 0;
-      for (int64_t i = 0; i < in_array.length; ++i) {
-        if (!in_array.IsNull(i)) {
+      const uint8_t* validity = in_array.buffers[0].data;
+
+      if (validity == nullptr) {
+        for (int64_t i = 0; i < in_array.length; ++i) {
           current_offset += sizes[i];
+          dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
         }
-        dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
+      } else {
+        arrow::internal::SetBitRunReader reader(validity, in_array.offset,
+                                                in_array.length);
+        int64_t last_idx = 0;
+        while (true) {
+          const auto run = reader.NextRun();
+          if (run.length == 0) {
+            break;
+          }
+          for (int64_t i = last_idx; i < run.position; ++i) {
+            dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
+          }
+          for (int64_t i = run.position; i < run.position + run.length; ++i) {
+            current_offset += sizes[i];
+            dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
+          }
+          last_idx = run.position + run.length;
+        }
+        for (int64_t i = last_idx; i < in_array.length; ++i) {
+          dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
+        }
       }
 
       if constexpr (is_downcast) {
