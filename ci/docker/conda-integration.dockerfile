@@ -35,6 +35,7 @@ RUN mamba install -q -y \
         numpy \
         compilers \
         go \
+        go-cgo \
         maven=${maven} \
         nodejs=${node} \
         yarn=${yarn} \
