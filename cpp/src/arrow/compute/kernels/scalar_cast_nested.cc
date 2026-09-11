@@ -259,9 +259,6 @@ void AddListViewCast(CastFunction* func) {
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
 
-
-
-
 template <typename DestType>
 struct CastFixedToVarList {
   using dest_offset_type = typename DestType::offset_type;
