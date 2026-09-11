@@ -17,6 +17,24 @@
 
 @echo on
 
+@REM Detect architecture if not set
+if "%arch%"=="" set arch=x64
+
+@REM Set Architecture-specific paths
+if "%arch%"=="ARM64" (
+    set ARROW_SRC=%GITHUB_WORKSPACE%\arrow
+    set ARROW_TEST_DATA=%GITHUB_WORKSPACE%\arrow\testing\data
+    set PARQUET_TEST_DATA=%GITHUB_WORKSPACE%\arrow\cpp\submodules\parquet-testing\data
+    set WHEEL_PATH=%GITHUB_WORKSPACE%\arrow\python\repaired_wheels
+    set VALIDATION_SCRIPT=%GITHUB_WORKSPACE%\arrow\ci\scripts\python_wheel_validate_contents.py
+) else (
+    set ARROW_SRC=C:\arrow
+    set ARROW_TEST_DATA=C:\arrow\testing\data
+    set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
+    set WHEEL_PATH=C:\arrow\python\repaired_wheels
+    set VALIDATION_SCRIPT=C:\arrow\ci\scripts\python_wheel_validate_contents.py
+)
+
 set PYARROW_TEST_ACERO=ON
 set PYARROW_TEST_AZURE=ON
 set PYARROW_TEST_CYTHON=ON
@@ -33,14 +51,11 @@ set PYARROW_TEST_SUBSTRAIT=ON
 set PYARROW_TEST_S3=ON
 set PYARROW_TEST_TENSORFLOW=ON
 
-set ARROW_TEST_DATA=C:\arrow\testing\data
-set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
-
 @REM List installed Pythons
 py -0p
 
 @REM Install the built wheels
-%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow || exit /B 1
+%PYTHON_CMD% -m pip install --no-index --find-links=%WHEEL_PATH% pyarrow || exit /B 1
 
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
@@ -58,7 +73,7 @@ py -0p
 %PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
 
 @REM Validate wheel contents
-%PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
+%PYTHON_CMD% %VALIDATION_SCRIPT% --path %WHEEL_PATH% || exit /B 1
 
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
