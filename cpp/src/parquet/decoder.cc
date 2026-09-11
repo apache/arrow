@@ -1650,6 +1650,33 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
     values_remaining_current_mini_block_ = values_per_mini_block_;
   }
 
+  // The miniblocks of a block are packed back to back with no padding between them,
+  // so a run of miniblocks that share a bit width is bit-identical to a single
+  // longer run at that width, and can be unpacked in one call. Returns how many
+  // whole miniblocks following the current one may be folded into it, given how many
+  // more values the caller has room for.
+  //
+  // A miniblock joins the run only when its bit width equals delta_bit_width_, which
+  // InitMiniBlock has already validated. Coalescing therefore never depends on a
+  // width that has not been checked, including the non-conformant widths InitBlock
+  // tolerates for extraneous miniblocks.
+  uint32_t CoalescibleMiniBlocks(uint32_t values_available) const {
+    // Folding in a whole miniblock first requires room for the current one in full.
+    if (values_available < values_remaining_current_mini_block_) {
+      return 0;
+    }
+    const uint8_t* bit_widths = delta_bit_widths_->data();
+    uint32_t values_needed = values_remaining_current_mini_block_;
+    uint32_t count = 0;
+    while (mini_block_idx_ + count + 1 < mini_blocks_per_block_ &&
+           bit_widths[mini_block_idx_ + count + 1] == delta_bit_width_ &&
+           values_available - values_needed >= values_per_mini_block_) {
+      values_needed += values_per_mini_block_;
+      ++count;
+    }
+    return count;
+  }
+
   int GetInternal(T* buffer, int max_values) {
     max_values = static_cast<int>(std::min<int64_t>(max_values, total_values_remaining_));
     if (max_values == 0) {
@@ -1691,8 +1718,22 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
         }
       }
 
-      int values_decode = std::min(values_remaining_current_mini_block_,
-                                   static_cast<uint32_t>(max_values - i));
+      const uint32_t values_available = static_cast<uint32_t>(max_values - i);
+      const uint32_t values_this_mini_block =
+          std::min(values_remaining_current_mini_block_, values_available);
+      // The default geometry is 32 values per miniblock, and a call that small is
+      // mostly per-call setup for the unpacker; folding a run of four into one call
+      // asks it for 128 values instead. A zero bit width decodes without asking the
+      // unpacker at all, so there is no call to fold and nothing to gain.
+      const uint32_t mini_blocks_coalesced =
+          delta_bit_width_ == 0 ? 0 : CoalescibleMiniBlocks(values_available);
+      // A miniblock is only folded in when there is room for the current one in
+      // full, so a non-empty run means this call drains the current miniblock along
+      // with every miniblock folded into it. The accounting below relies on that.
+      DCHECK(mini_blocks_coalesced == 0 ||
+             values_this_mini_block == values_remaining_current_mini_block_);
+      const int values_decode = static_cast<int>(
+          values_this_mini_block + mini_blocks_coalesced * values_per_mini_block_);
       if (delta_bit_width_ == 0) {
         // Fast path that avoids a back-to-back dependency between two consecutive
         // computations: we know all deltas decode to zero. We actually don't
@@ -1715,7 +1756,11 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
           last_value_ = buffer[i + j];
         }
       }
-      values_remaining_current_mini_block_ -= values_decode;
+      // A coalesced call drained the miniblocks it folded in, so advance the block's
+      // cursor past them: the last miniblock of the run becomes the current one,
+      // with nothing left in it.
+      mini_block_idx_ += mini_blocks_coalesced;
+      values_remaining_current_mini_block_ -= values_this_mini_block;
       i += values_decode;
     }
     total_values_remaining_ -= max_values;
