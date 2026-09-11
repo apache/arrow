@@ -494,13 +494,19 @@ class HashableMatcher : public TypeMatcher {
 const FunctionDoc hash32_doc{
     "Construct a hash for every element of the input argument",
     ("This function is not suitable for cryptographic purposes.\n"
-     "Hash results are 32-bit. A null input row produces a null in the output."),
+     "Hash results are 32-bit. A null input row produces a null in the output;\n"
+     "within a struct, a null field makes that whole row null, while within a list\n"
+     "or map a null element does not. Hash values are not guaranteed to be stable\n"
+     "across different versions of the library."),
     {"hash_input"}};
 
 const FunctionDoc hash64_doc{
     "Construct a hash for every element of the input argument",
     ("This function is not suitable for cryptographic purposes.\n"
-     "Hash results are 64-bit. A null input row produces a null in the output."),
+     "Hash results are 64-bit. A null input row produces a null in the output;\n"
+     "within a struct, a null field makes that whole row null, while within a list\n"
+     "or map a null element does not. Hash values are not guaranteed to be stable\n"
+     "across different versions of the library."),
     {"hash_input"}};
 
 }  // namespace
