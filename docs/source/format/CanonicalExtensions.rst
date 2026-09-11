@@ -546,6 +546,262 @@ Primitive Type Mappings
 | UUID extension type  | UUID                   |
 +----------------------+------------------------+
 
+.. _parquet_file_extension:
+
+Parquet File
+============
+
+File represents a reference to a range of bytes stored inline or in an external
+file. It is intended for use cases such as file inventories, manifests, and
+references to unstructured data such as images or audio files in object
+storage. This extension type preserves the semantics of the
+`Parquet FILE logical type <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#file>`__
+in Arrow columns.
+
+* Extension name: ``arrow.parquet.file``.
+
+* The storage type of this extension is a ``Struct`` containing at least one of
+  the following nullable fields:
+
+  .. list-table::
+     :header-rows: 1
+
+     * - Field
+       - Type
+     * - ``uri``
+       - ``String``, ``LargeString``, or ``StringView``
+     * - ``offset``
+       - ``Int64``
+     * - ``size``
+       - ``Int64``
+     * - ``content_type``
+       - ``String``, ``LargeString``, or ``StringView``
+     * - ``checksum``
+       - ``String``, ``LargeString``, or ``StringView``
+     * - ``inline``
+       - ``Binary``, ``LargeBinary``, or ``BinaryView``
+
+  The fields may be in any order and must be accessed by case-sensitive name,
+  not by position. Each field may occur at most once and may be omitted from
+  the ``Struct`` when it is not used. The ``Struct`` must not contain fields
+  other than those listed above.
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Extension metadata is an empty string.
+
+Field semantics
+---------------
+
+A field is *set* for a value when it is present in the storage ``Struct`` and
+non-null. An empty string is considered not set when interpreting the value,
+although implementations are not required to convert empty strings to nulls.
+
+``uri``
+~~~~~~~
+
+A URI-reference as defined by RFC 3986, for example
+``s3://bucket/file.jpg``. It may be absolute or relative. No additional
+encoding, such as URI encoding, is applied to the user-provided string. A URI
+is always an external reference, even when it identifies the file containing
+the Arrow data.
+
+``offset``
+~~~~~~~~~~
+
+A byte offset indicating the start of the byte range within the referenced
+data. If not set, readers must treat the value as 0. If set and non-zero,
+readers must seek to this offset to retrieve the referenced data. ``offset``
+may only be set together with ``uri``. ``offset`` must not be ``< 0``.
+
+``size``
+~~~~~~~~
+
+``size`` is the byte length of the referenced data. It must be non-negative;
+zero denotes empty referenced data. It must be set whenever ``offset`` is set.
+It may be omitted only for a whole-file external reference, in which case the
+range extends to the end of the file.
+
+``content_type``
+~~~~~~~~~~~~~~~~
+
+``content_type`` is the media type (MIME type), as defined by RFC 2046, of the
+resolved bytes, for example ``image/png``. When it is not set, the type may be
+assumed to be ``application/octet-stream``.
+
+``checksum``
+~~~~~~~~~~~~
+
+``checksum`` is a self-describing integrity token of the form
+``<algorithm>:<digest>``. Readers should ignore unknown algorithms. The
+recognized algorithms and digest encodings are:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Algorithm
+     - Encoding
+     - Description
+   * - ``ETAG``
+     - opaque
+     - The object-store eTag, used only for equality comparison and not
+       otherwise interpreted.
+   * - ``MD5``
+     - lowercase hexadecimal
+     - RFC 1321 digest represented by 32 hexadecimal characters.
+   * - ``CRC32``
+     - lowercase hexadecimal
+     - RFC 2083 checksum represented by 8 hexadecimal characters.
+   * - ``CRC32C``
+     - lowercase hexadecimal
+     - RFC 3385 checksum represented by 8 hexadecimal characters.
+   * - ``SHA-256``
+     - lowercase hexadecimal
+     - RFC 6234 digest represented by 64 hexadecimal characters.
+
+A lowercase hexadecimal digest contains two characters per byte and no
+separators, for example ``MD5:d41d8cd98f00b204e9800998ecf8427e``. An opaque
+digest is the token supplied verbatim by the object store. A checksum applies
+to the resolved bytes, except that ``ETAG`` applies to the whole file
+referenced by ``uri``.
+
+``inline``
+~~~~~~~~~~
+
+``inline`` contains the referenced bytes in the value. If locator fields are
+also set, they record where those bytes came from. A reader may resolve the
+value from ``inline`` or the locator, whichever is suitable.
+
+Resolution
+----------
+
+A value resolves to bytes based on which locator fields are set:
+
+.. list-table::
+   :header-rows: 1
+
+   * - ``inline``
+     - ``uri``
+     - ``offset``
+     - ``size``
+     - Resolves to
+   * - set
+     - optional
+     - optional
+     - optional
+     - The inline bytes or a valid locator.
+   * - not set
+     - set
+     - not set
+     - not set
+     - The whole external file at ``uri``.
+   * - not set
+     - set
+     - set
+     - not set
+     - Invalid.
+   * - not set
+     - set
+     - not set
+     - set
+     - The external byte range ``[0, size)``.
+   * - not set
+     - set
+     - set
+     - set
+     - The external byte range ``[offset, offset + size)``.
+   * - not set
+     - not set
+     - set
+     - not set
+     - Invalid.
+   * - not set
+     - not set
+     - not set
+     - set
+     - Invalid.
+   * - not set
+     - not set
+     - set
+     - set
+     - Invalid.
+   * - not set
+     - not set
+     - not set
+     - not set
+     - Invalid; the value does not reference any data.
+
+When ``inline`` is set, the locator fields may all be unset. Otherwise, the
+fields set alongside ``inline`` must form a valid locator on their own. In
+particular, ``offset`` requires both ``uri`` and ``size``, and external locator
+fields require ``uri``.
+
+The ``offset`` and ``size`` fields apply only to data referenced by ``uri``;
+there is no form that addresses a byte range in the file containing the Arrow
+data. The extension type does not apply compression or encryption to the
+referenced bytes. Its storage fields, including ``inline``, are ordinary Arrow
+arrays and are serialized like any other arrays.
+
+Validation
+----------
+
+* A value must resolve to some referenced data. It resolves only if ``inline``
+  or ``uri`` is set; if neither is set, the value does not resolve and is
+  invalid, even if ``offset`` or ``size`` is set.
+
+* ``offset`` may only be set together with ``uri``. A value that sets
+  ``offset`` without ``uri`` does not resolve and is invalid.
+
+* ``size`` must be set whenever ``offset`` is set. A value that sets ``offset``
+  without ``size`` is invalid.
+
+* If ``inline`` and a locator are both set, producers are expected to write the
+  same bytes to both sources. Readers are not required to verify this and may
+  return the bytes from either source. Producers may treat ``inline`` and the
+  locator fields as mutually exclusive.
+
+* Field names within the storage ``Struct`` must not be renamed.
+
+* Additional metadata about the file, such as a modification timestamp, must
+  be stored adjacent to the extension type, not inside its storage ``Struct``.
+
+* An invalid file reference may be returned as a null file reference by a
+  reader.
+
+Examples
+--------
+
+A storage type containing all defined fields is::
+
+  Struct<
+    uri: String,
+    offset: Int64,
+    size: Int64,
+    content_type: String,
+    checksum: String,
+    inline: Binary
+  >
+
+All six child fields in this example are nullable. An inline-only storage type
+may contain only the fields it uses::
+
+  Struct<
+    inline: Binary,
+    content_type: String
+  >
+
+Similarly, a whole-file external reference may use::
+
+  Struct<
+    uri: String,
+    content_type: String,
+    checksum: String
+  >
+
 .. _timestamp_with_offset_extension:
 
 Timestamp With Offset
