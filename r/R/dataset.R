@@ -57,6 +57,11 @@
 #' you could provide a Schema to specify that "month" should be `int8()`
 #' instead of the `int32()` it will be parsed as by default.
 #'
+#' If a partition value contains meaningful leading zeros, specify its type
+#' explicitly. Otherwise, type inference may interpret a value such as `001`
+#' as the integer `1`. See the examples below for a runnable Hive-partitioned
+#' dataset whose `product_id` values include leading zeros.
+#'
 #' If your file paths do not appear to be Hive-style, or if you pass
 #' `hive_style = FALSE`, the `partitioning` argument will be used to create
 #' Directory partitioning. A character vector of names is required to create
@@ -171,6 +176,16 @@
 #'
 #' # If you want to specify the data types for your fields, you can pass in a Schema
 #' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
+#'
+#' # If a partition value contains meaningful leading zeros, specify its type
+#' # explicitly so values such as "001" remain strings instead of becoming 1.
+#' products <- data.frame(x = 1:3, product_id = c("001", "002", "010"))
+#' tf4 <- tempfile()
+#' write_dataset(products, tf4, partitioning = "product_id")
+#' ds <- open_dataset(
+#'   tf4,
+#'   partitioning = hive_partition(product_id = string())
+#' )
 open_dataset <- function(
   sources,
   schema = NULL,
