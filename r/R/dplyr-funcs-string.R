@@ -372,13 +372,11 @@ register_bindings_string_regex <- function() {
       # replace_substring[_regex] kernels don't support this, so rewrite it as
       # if_else(<pattern matches>, NA, x). GH-33432
       if (is.na(replacement)) {
-        is_match <- Expression$create(
-          ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
-          x,
-          options = list(
-            pattern = format_string_pattern(pattern, ignore.case, fixed),
-            ignore_case = FALSE
-          )
+        is_match <- create_string_match_expr(
+          ifelse(fixed, "match_substring", "match_substring_regex"),
+          string = x,
+          pattern = pattern,
+          ignore_case = ignore.case
         )
         return(Expression$create(
           "if_else",

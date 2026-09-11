@@ -438,7 +438,8 @@ test_that("str_replace/sub with an NA replacement match base/stringr (GH-33432)"
         regex = str_replace(x, "o", NA_character_),
         regex_all = str_replace_all(x, "o", NA_character_),
         fixed = str_replace_all(x, fixed("o"), NA_character_),
-        ci = str_replace_all(x, regex("O", ignore_case = TRUE), NA_character_)
+        ci = str_replace_all(x, regex("O", ignore_case = TRUE), NA_character_),
+        fixed_ci = str_replace_all(x, fixed("O", ignore_case = TRUE), NA_character_)
       ) |>
       collect(),
     df
