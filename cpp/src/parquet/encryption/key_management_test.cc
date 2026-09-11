@@ -216,7 +216,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
   // and return the KMS connection configurations used to create clients
   // during key rotation.
   std::vector<KmsConnectionConfig> RotateKeysWithKmsConfig(
-      const KmsConnectionConfig& rotation_config, const bool read_kms_config_from_files) {
+      const KmsConnectionConfig& rotation_config, const bool read_kms_url) {
     const auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
     this->SetupCryptoFactory(false);
 
@@ -231,8 +231,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
     crypto_factory->RotateMasterKeys(rotation_config, file_path, file_system,
                                      /*double_wrapping=*/true,
-                                     kDefaultCacheLifetimeSeconds,
-                                     read_kms_config_from_files);
+                                     kDefaultCacheLifetimeSeconds, read_kms_url);
     TestOnlyInServerWrapKms::FinishKeyRotation();
 
     std::vector<KmsConnectionConfig> creation_requests =
@@ -510,7 +509,7 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   }
 }
 
-TEST_F(TestEncryptionKeyManagement, KmsConnectionConfigReadFromFile) {
+TEST_F(TestEncryptionKeyManagement, ReadKmsUrlFromFile) {
   this->SetupCryptoFactory(true);
 
   constexpr bool internal_key_material = true;
@@ -531,7 +530,7 @@ TEST_F(TestEncryptionKeyManagement, KmsConnectionConfigReadFromFile) {
       crypto_factory_.GetFileEncryptionProperties(write_config, encryption_config);
   encryptor_.EncryptFile(file_path, file_encryption_properties);
 
-  for (const auto& enable_kms_config_read : {false, true}) {
+  for (const auto& enable_kms_url_read : {false, true}) {
     // Create a fresh crypto factory and client factory for each read
     // to avoid re-using cached clients.
     CryptoFactory read_crypto_factory;
@@ -540,7 +539,7 @@ TEST_F(TestEncryptionKeyManagement, KmsConnectionConfigReadFromFile) {
     read_crypto_factory.RegisterKmsClientFactory(kms_client_factory);
 
     auto decryption_config = DecryptionConfiguration();
-    decryption_config.read_kms_config_from_files = enable_kms_config_read;
+    decryption_config.read_kms_url = enable_kms_url_read;
 
     KmsConnectionConfig read_config;
 
@@ -551,21 +550,19 @@ TEST_F(TestEncryptionKeyManagement, KmsConnectionConfigReadFromFile) {
 
     ASSERT_EQ(kms_client_factory->CreationRequests().size(), 1);
     const auto& request = kms_client_factory->CreationRequests()[0];
-    if (enable_kms_config_read) {
-      EXPECT_EQ(request.kms_instance_id, "123");
+    EXPECT_EQ(request.kms_instance_id, "123");
+    if (enable_kms_url_read) {
       EXPECT_EQ(request.kms_instance_url, "https://example.com/kms");
     } else {
-      EXPECT_EQ(request.kms_instance_id, "DEFAULT");
       EXPECT_EQ(request.kms_instance_url, "DEFAULT");
     }
   }
 }
 
-TEST_F(TestEncryptionKeyManagement, ReadKmsConfigFromFileDuringKeyRotation) {
+TEST_F(TestEncryptionKeyManagement, ReadKmsUrlFromFileDuringKeyRotation) {
   // Use an empty config for rotation
   const KmsConnectionConfig rotation_config;
-  const auto requests =
-      RotateKeysWithKmsConfig(rotation_config, /*read_kms_config_from_files=*/true);
+  const auto requests = RotateKeysWithKmsConfig(rotation_config, /*read_kms_url=*/true);
 
   ASSERT_EQ(requests.size(), 2);
   // The first KMS creation request is for wrapping new keys.
@@ -578,20 +575,19 @@ TEST_F(TestEncryptionKeyManagement, ReadKmsConfigFromFileDuringKeyRotation) {
   EXPECT_EQ(requests[1].kms_instance_url, "https://example.com/kms");
 }
 
-TEST_F(TestEncryptionKeyManagement, KeyRotationWithoutReadingKmsConfigFromFile) {
+TEST_F(TestEncryptionKeyManagement, KeyRotationWithoutReadingKmsUrl) {
   // Use an empty config for rotation
   const KmsConnectionConfig rotation_config;
-  const auto requests =
-      RotateKeysWithKmsConfig(rotation_config, /*read_kms_config_from_files=*/false);
+  const auto requests = RotateKeysWithKmsConfig(rotation_config, /*read_kms_url=*/false);
 
   ASSERT_EQ(requests.size(), 2);
   // The first KMS creation request is for wrapping new keys.
   // This uses the empty config provided.
   EXPECT_EQ(requests[0].kms_instance_id, "");
   EXPECT_EQ(requests[0].kms_instance_url, "");
-  // When unwrapping the existing keys, the config from the key material is
-  // ignored and defaults are provided.
-  EXPECT_EQ(requests[1].kms_instance_id, KmsClient::kKmsInstanceIdDefault);
+  // When unwrapping the existing keys, the URL in the key material is
+  // ignored and the default used.
+  EXPECT_EQ(requests[1].kms_instance_id, "123");
   EXPECT_EQ(requests[1].kms_instance_url, KmsClient::kKmsInstanceUrlDefault);
 }
 
@@ -599,13 +595,12 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationUsesProvidedKmsConfig) {
   KmsConnectionConfig rotation_config;
   rotation_config.kms_instance_id = "456";
   rotation_config.kms_instance_url = "https://example.com/kms2";
-  const auto requests =
-      RotateKeysWithKmsConfig(rotation_config, /*read_kms_config_from_files=*/true);
+  const auto requests = RotateKeysWithKmsConfig(rotation_config, /*read_kms_url=*/true);
 
   ASSERT_EQ(requests.size(), 1);
   // Wrap and unwrap both use the same configuration.
   // The instance id and url in the existing key material is ignored even though
-  // read_kms_config_from_files is enabled. The provided config takes precedence.
+  // read_kms_url is enabled. The provided config takes precedence.
   EXPECT_EQ(requests[0].kms_instance_id, "456");
   EXPECT_EQ(requests[0].kms_instance_url, "https://example.com/kms2");
 }

@@ -92,11 +92,11 @@ struct PARQUET_EXPORT DecryptionConfiguration {
   /// The default is 600 (10 minutes).
   double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
 
-  /// Whether the KMS connection properties (URL and instance ID) should be read from
-  /// Parquet key material if they are not configured in the KmsConnectionConfig.
-  /// This should only be enabled when the KMS implementation validates the connection
-  /// properties it receives, to ensure a KMS access token isn't sent to a malicious URL.
-  bool read_kms_config_from_files = false;
+  /// Whether the KMS instance URL should be read from Parquet key material if it is
+  /// not configured in the KmsConnectionConfig.
+  /// This should only be enabled when the KMS implementation validates the URL it
+  /// receives, to ensure a KMS access token isn't sent to a malicious URL.
+  bool read_kms_url = false;
 };
 
 /// This is a core class, that translates the parameters of high level encryption (like
@@ -142,16 +142,16 @@ class PARQUET_EXPORT CryptoFactory {
   /// This relies on the KMS supporting versioning, such that the old master key is
   /// used when unwrapping a key, and the latest version is used when wrapping a key.
   ///
-  /// If read_kms_config_from_files is true, the KMS URL and instance ID are read from
-  /// the key material being rotated if they are not provided in the KmsConnectionConfig.
-  /// This should only be enabled when the KMS implementation validates the connection
-  /// properties it receives, to ensure a KMS access token isn't sent to a malicious URL.
+  /// If read_kms_url is true, the KMS instance URL is read from the key material being
+  /// rotated if it is not provided in the KmsConnectionConfig. This should only be
+  /// enabled when the KMS implementation validates the URL it receives, to ensure a KMS
+  /// access token isn't sent to a malicious URL.
   void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
                         const std::string& parquet_file_path,
                         const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
                         bool double_wrapping = kDefaultDoubleWrapping,
                         double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds,
-                        bool read_kms_config_from_files = false);
+                        bool read_kms_url = false);
 
  private:
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(

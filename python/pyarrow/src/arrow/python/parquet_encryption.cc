@@ -100,10 +100,10 @@ arrow::Status PyCryptoFactory::SafeRotateMasterKeys(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
     const std::string& parquet_file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& filesystem, bool double_wrapping,
-    double cache_lifetime_seconds, bool read_kms_config_from_files) {
-  PARQUET_CATCH_NOT_OK(this->RotateMasterKeys(
-      kms_connection_config, parquet_file_path, filesystem, double_wrapping,
-      cache_lifetime_seconds, read_kms_config_from_files));
+    double cache_lifetime_seconds, bool read_kms_url) {
+  PARQUET_CATCH_NOT_OK(this->RotateMasterKeys(kms_connection_config, parquet_file_path,
+                                              filesystem, double_wrapping,
+                                              cache_lifetime_seconds, read_kms_url));
   return arrow::Status::OK();
 }
 

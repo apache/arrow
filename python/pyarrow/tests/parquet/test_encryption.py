@@ -467,19 +467,19 @@ def test_encrypted_parquet_encryption_configuration():
 def test_encrypted_parquet_decryption_configuration():
     default_config = pe.DecryptionConfiguration()
     assert timedelta(minutes=10.0) == default_config.cache_lifetime
-    assert default_config.read_kms_config_from_files is False
+    assert default_config.read_kms_url is False
 
     decryption_config = pe.DecryptionConfiguration(
         cache_lifetime=timedelta(minutes=5.0),
-        read_kms_config_from_files=True)
+        read_kms_url=True)
     assert timedelta(minutes=5.0) == decryption_config.cache_lifetime
-    assert decryption_config.read_kms_config_from_files is True
+    assert decryption_config.read_kms_url is True
 
     decryption_config_1 = pe.DecryptionConfiguration()
     decryption_config_1.cache_lifetime = timedelta(minutes=5.0)
-    decryption_config_1.read_kms_config_from_files = True
+    decryption_config_1.read_kms_url = True
     assert timedelta(minutes=5.0) == decryption_config_1.cache_lifetime
-    assert decryption_config_1.read_kms_config_from_files is True
+    assert decryption_config_1.read_kms_url is True
 
 
 def test_encrypted_parquet_kms_configuration():
@@ -671,9 +671,9 @@ def recording_kms_factory(created_configs, client_class=InMemoryKmsClient):
     return kms_factory
 
 
-@pytest.mark.parametrize("read_kms_config_from_files", [False, True])
-def test_read_kms_config_from_file(
-        tempdir, data_table, basic_encryption_config, read_kms_config_from_files):
+@pytest.mark.parametrize("read_kms_url", [False, True])
+def test_read_kms_url_from_file(
+        tempdir, data_table, basic_encryption_config, read_kms_url):
     """Read a file written with KMS connection properties configured, using a
     KmsConnectionConfig that doesn't specify them"""
     path = tempdir / PARQUET_NAME
@@ -697,23 +697,23 @@ def test_read_kms_config_from_file(
     read_crypto_factory = pe.CryptoFactory(
         recording_kms_factory(created_configs))
     decryption_config = pe.DecryptionConfiguration(
-        read_kms_config_from_files=read_kms_config_from_files)
+        read_kms_url=read_kms_url)
     result_table = read_encrypted_parquet(
         path, decryption_config, read_config, read_crypto_factory)
     assert data_table.equals(result_table)
 
-    if read_kms_config_from_files:
-        # The connection properties are read from the file key material
+    if read_kms_url:
+        # The URL is read from the file key material
         assert created_configs == [(KMS_INSTANCE_ID, KMS_INSTANCE_URL)]
     else:
-        # The connection properties in the key material are ignored
-        # and defaults provided instead.
-        assert created_configs == [("DEFAULT", "DEFAULT")]
+        # The URL in the key material is ignored and the default provided
+        # instead.
+        assert created_configs == [(KMS_INSTANCE_ID, "DEFAULT")]
 
 
-@pytest.mark.parametrize("read_kms_config_from_files", [False, True])
-def test_key_rotation_reads_kms_config_from_file(reusable_tempdir, data_table,
-                                                 read_kms_config_from_files):
+@pytest.mark.parametrize("read_kms_url", [False, True])
+def test_key_rotation_reads_kms_url_from_file(reusable_tempdir, data_table,
+                                              read_kms_url):
     """Rotate the keys of a file written with KMS connection properties
     configured, using a KmsConnectionConfig that doesn't specify them"""
     path = reusable_tempdir / PARQUET_NAME
@@ -737,15 +737,15 @@ def test_key_rotation_reads_kms_config_from_file(reusable_tempdir, data_table,
     rotation_crypto_factory = pe.CryptoFactory(
         recording_kms_factory(created_configs, MockVersioningKmsClient))
     rotation_crypto_factory.rotate_master_keys(
-        rotation_config, path, read_kms_config_from_files=read_kms_config_from_files)
+        rotation_config, path, read_kms_url=read_kms_url)
 
-    if read_kms_config_from_files:
+    if read_kms_url:
         # The empty config provided is used to wrap new keys,
         # and the config from the file was used to unwrap the original keys.
         assert created_configs == [("", ""), (KMS_INSTANCE_ID, KMS_INSTANCE_URL)]
     else:
-        # Default values used when reading
-        assert created_configs == [("", ""), ("DEFAULT", "DEFAULT")]
+        # The default URL is used when unwrapping the original keys.
+        assert created_configs == [("", ""), (KMS_INSTANCE_ID, "DEFAULT")]
 
     # New key material always uses the provided KMS connection configuration
     rotated_keys = read_external_keys_to_dict(path)

@@ -86,7 +86,7 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
             " parquet::encryption::DecryptionConfiguration":
         CDecryptionConfiguration() except +
         double cache_lifetime_seconds
-        c_bool read_kms_config_from_files
+        c_bool read_kms_url
 
     cdef cppclass CCryptoFactory" parquet::encryption::CryptoFactory":
         void RegisterKmsClientFactory(
@@ -108,7 +108,7 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
                               const shared_ptr[CFileSystem] file_system,
                               c_bool double_wrapping,
                               double cache_lifetime_seconds,
-                              c_bool read_kms_config_from_files)
+                              c_bool read_kms_url)
 
 cdef extern from "parquet/encryption/file_key_material_store.h" \
         namespace "parquet::encryption" nogil:
@@ -187,4 +187,4 @@ cdef extern from "arrow/python/parquet_encryption.h" \
                                      const shared_ptr[CFileSystem] filesystem,
                                      c_bool double_wrapping,
                                      double cache_lifetime_seconds,
-                                     c_bool read_kms_config_from_files)
+                                     c_bool read_kms_url)
