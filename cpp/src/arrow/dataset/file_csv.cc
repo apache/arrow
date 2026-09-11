@@ -373,6 +373,7 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
       checked_cast<const CsvFileFormat&>(format).parse_options;
 
   return parse_options.delimiter == other_parse_options.delimiter &&
+         parse_options.delimiter_string == other_parse_options.delimiter_string &&
          parse_options.quoting == other_parse_options.quoting &&
          parse_options.quote_char == other_parse_options.quote_char &&
          parse_options.double_quote == other_parse_options.double_quote &&
@@ -498,6 +499,10 @@ Result<std::shared_ptr<FileWriter>> CsvFileFormat::MakeWriter(
     fs::FileLocator destination_locator) const {
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options.");
+  }
+  if (!parse_options.delimiter_string.empty()) {
+    return Status::NotImplemented(
+        "Writing CSV files with delimiter_string is not supported");
   }
   auto csv_options = checked_pointer_cast<CsvFileWriteOptions>(options);
   ARROW_ASSIGN_OR_RAISE(
