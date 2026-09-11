@@ -85,7 +85,7 @@ def create_encryption_config(footer_key=FOOTER_KEY_NAME, column_keys=COLUMN_KEYS
 
 
 def create_decryption_config():
-    return pe.DecryptionConfiguration(cache_lifetime=300)
+    return pe.DecryptionConfiguration(cache_lifetime=timedelta(seconds=300))
 
 
 def create_kms_connection_config(keys=KEYS):

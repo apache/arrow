@@ -59,7 +59,7 @@ kms_connection_config = pe.KmsConnectionConfig(
     }
 )
 
-decryption_config = pe.DecryptionConfiguration(cache_lifetime=300)
+decryption_config = pe.DecryptionConfiguration(cache_lifetime=timedelta(300))
 
 
 def kms_factory(kms_connection_configuration):
