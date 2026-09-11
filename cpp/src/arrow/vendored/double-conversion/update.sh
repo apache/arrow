@@ -47,6 +47,6 @@ namespace arrow_vendored {' \
     -e '/^}  \/\/ namespace double_conversion/ a\
 }  // namespace arrow_vendored' \
     ./*.{h,cc}
-rm *.bak
+rm ./*.bak
 
 popd
