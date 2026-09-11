@@ -137,7 +137,7 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
       const std::string& parquet_file_path,
       const std::shared_ptr<::arrow::fs::FileSystem>& filesystem, bool double_wrapping,
-      double cache_lifetime_seconds);
+      double cache_lifetime_seconds, bool read_kms_config_from_files);
 };
 
 }  // namespace encryption

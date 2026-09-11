@@ -198,8 +198,13 @@ cdef class DecryptionConfiguration(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, *, cache_lifetime=None):
+    def __init__(self, *, cache_lifetime=None,
+                 read_kms_config_from_files=None):
         self.configuration.reset(new CDecryptionConfiguration())
+        if cache_lifetime is not None:
+            self.cache_lifetime = cache_lifetime
+        if read_kms_config_from_files is not None:
+            self.read_kms_config_from_files = read_kms_config_from_files
 
     @property
     def cache_lifetime(self):
@@ -211,6 +216,21 @@ cdef class DecryptionConfiguration(_Weakrefable):
     @cache_lifetime.setter
     def cache_lifetime(self, value):
         self.configuration.get().cache_lifetime_seconds = value.total_seconds()
+
+    @property
+    def read_kms_config_from_files(self):
+        """Whether the KMS connection properties (instance ID and instance URL)
+        may be read from Parquet key material when they are not configured in
+        the KmsConnectionConfig.
+
+        This should only be enabled when the KMS implementation validates the
+        connection properties it receives, to ensure a KMS access token isn't
+        sent to a malicious URL."""
+        return self.configuration.get().read_kms_config_from_files
+
+    @read_kms_config_from_files.setter
+    def read_kms_config_from_files(self, value):
+        self.configuration.get().read_kms_config_from_files = value
 
     cdef inline shared_ptr[CDecryptionConfiguration] unwrap(self) nogil:
         return self.configuration
@@ -538,7 +558,8 @@ cdef class CryptoFactory(_Weakrefable):
             parquet_file_path,
             FileSystem filesystem=None,
             double_wrapping=True,
-            cache_lifetime_seconds=600):
+            cache_lifetime_seconds=600,
+            read_kms_config_from_files=False):
         """ Rotates master encryption keys for a Parquet file that uses
         external key material.
 
@@ -563,6 +584,16 @@ cdef class CryptoFactory(_Weakrefable):
         cache_lifetime_seconds : int or float, default 600
             During key rotation, KMS Client and Key Encryption Keys will be
             cached for this duration.
+
+        read_kms_config_from_files : bool, default False
+            Whether the KMS connection properties (instance ID and  URL)
+            may be read from the key material of the file being rotated,
+            when they are not configured in kms_connection_config. This should
+            only be enabled when the KMS implementation validates the
+            connection properties it receives, to ensure a KMS access token
+            isn't sent to a malicious URL. This only affects reading the
+            existing key material, the key material written by key rotation
+            always uses the properties from kms_connection_config.
         """
         cdef:
             c_string c_parquet_file_path
@@ -580,7 +611,8 @@ cdef class CryptoFactory(_Weakrefable):
             c_parquet_file_path,
             c_filesystem,
             double_wrapping,
-            cache_lifetime_seconds)
+            cache_lifetime_seconds,
+            read_kms_config_from_files)
 
         check_status(status)
 
