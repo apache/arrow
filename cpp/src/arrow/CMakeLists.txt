@@ -518,8 +518,15 @@ set(ARROW_VENDORED_SRCS
     vendored/double-conversion/string-to-double.cc
     vendored/double-conversion/strtod.cc
     vendored/musl/strptime.c)
-if(APPLE)
+if(APPLE AND NOT ARROW_USE_STD_CHRONO)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
+endif()
+if(ARROW_USE_STD_CHRONO)
+  # GH-51267: standard-backend binaries use C++20 std::chrono and do not bundle
+  # the vendored datetime implementation. The remaining direct users of
+  # arrow/vendored/datetime.h (formatting, parsing, pretty printing) only rely
+  # on its header-only calendar types.
+  list(REMOVE_ITEM ARROW_VENDORED_SRCS vendored/datetime.cpp)
 endif()
 set_source_files_properties(vendored/datetime.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION
                                                              ON)
