@@ -406,6 +406,21 @@ string(REPLACE "${CMAKE_BINARY_DIR}" "<CMAKE_BINARY_DIR>" REDACTED_CXX_FLAGS
 cmake_path(GET PROJECT_SOURCE_DIR PARENT_PATH ARROW_PROJECT_SOURCE_DIR)
 string(REPLACE "${ARROW_PROJECT_SOURCE_DIR}" "<ARROW_PROJECT_SOURCE_DIR>"
                REDACTED_CXX_FLAGS ${REDACTED_CXX_FLAGS})
+# GH-51267: emit the resolved datetime backend, but keep the macro undefined
+# when the option is unset (Arrow as a subproject with ARROW_DEFINE_OPTIONS=OFF)
+# so chrono_internal.h's platform fallback still decides there — #cmakedefine01
+# would emit 0 and flip those builds from the std::chrono default to the
+# vendored fallback. An explicit OFF must stay 0 so the fallback cannot
+# re-enable std::chrono against the user's choice.
+if(DEFINED ARROW_USE_STD_CHRONO)
+  if(ARROW_USE_STD_CHRONO)
+    set(ARROW_USE_STD_CHRONO_DEFINITION "#define ARROW_USE_STD_CHRONO 1")
+  else()
+    set(ARROW_USE_STD_CHRONO_DEFINITION "#define ARROW_USE_STD_CHRONO 0")
+  endif()
+else()
+  set(ARROW_USE_STD_CHRONO_DEFINITION "/* #undef ARROW_USE_STD_CHRONO */")
+endif()
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
@@ -552,11 +567,14 @@ set(ARROW_VENDORED_SRCS
 if(APPLE AND NOT ARROW_USE_STD_CHRONO)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
-if(ARROW_USE_STD_CHRONO)
+if(ARROW_USE_STD_CHRONO AND NOT ARROW_GANDIVA)
   # GH-51267: standard-backend binaries use C++20 std::chrono and do not bundle
   # the vendored datetime implementation. The remaining direct users of
   # arrow/vendored/datetime.h (formatting, parsing, pretty printing) only rely
-  # on its header-only calendar types.
+  # on its header-only calendar types — except Gandiva, whose cast_time.cc and
+  # gdv_function_stubs.cc call the timezone functions defined in
+  # vendored/datetime.cpp and link arrow_shared/arrow_static, so the TU is
+  # kept whenever Gandiva is built.
   list(REMOVE_ITEM ARROW_VENDORED_SRCS vendored/datetime.cpp)
 endif()
 set_source_files_properties(vendored/datetime.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION

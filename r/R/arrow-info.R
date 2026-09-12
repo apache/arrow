@@ -59,7 +59,8 @@ arrow_info <- function() {
     ),
     runtime_info = list(
       simd_level = runtimeinfo[1],
-      detected_simd_level = runtimeinfo[2]
+      detected_simd_level = runtimeinfo[2],
+      using_os_timezone_db = runtimeinfo[3] == "true"
     ),
     build_info = list(
       cpp_version = buildinfo[1],
