@@ -545,6 +545,14 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
   }
 }
 
+TEST_F(TestReplaceBoolean, ReplaceWithMaskSlicedInput) {
+  auto input =
+      this->array("[true, false, null, true, true, false, null, true]")->Slice(3, 5);
+
+  this->Assert(ReplaceWithMask, input, this->mask("[true, false, false, false, false]"),
+               this->array("[false]"), this->array("[false, true, false, null, true]"));
+}
+
 // Regression test: ReplaceMaskChunked (the ChunkedArray path of replace_with_mask)
 // sized each output chunk's data buffer via byte_width(), which is 0 for boolean
 // (bit-packed), the same GH-45086 buffer-overflow pattern fixed elsewhere in this
@@ -2115,6 +2123,16 @@ TYPED_TEST(TestFillNullBinary, FillBackwardChunkedArray) {
                            R"(["qup"])", R"(["qup", "mnz"])"}),
       this->chunked_array({R"(["tre", "tre", "tre"])", R"(["qup", "qup", "qup"])",
                            R"(["qup"])", R"(["qup", "mnz"])"}));
+}
+
+TEST_F(TestFillNullBoolean, FillNullSlicedArray) {
+  auto input =
+      this->array("[true, false, null, true, true, false, null, true]")->Slice(3, 5);
+
+  this->AssertFillNullArray(FillNullForward, input,
+                            this->array("[true, true, false, false, true]"));
+  this->AssertFillNullArray(FillNullBackward, input,
+                            this->array("[true, true, false, true, true]"));
 }
 
 // Regression test for GH-45086: FillNullForwardChunked/FillNullBackwardChunked
