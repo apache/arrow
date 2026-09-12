@@ -52,6 +52,7 @@
     "snappy",
     "sqlite3",
     "thrift",
+    "uriparser",
     "utf8proc",
     "xsimd",
     "zlib",
