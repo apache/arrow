@@ -81,6 +81,11 @@ data in the array to change its type.
 \item \verb{$View(type)}: Construct a zero-copy view of this array with the given type.
 \item \verb{$Validate()} : Perform any validation checks to determine obvious inconsistencies
 within the array's internal data. This can be an expensive check, potentially \code{O(length)}
+\item \verb{$export_to_c(array_ptr, schema_ptr)}: Fill an \code{ArrowArray} and an \code{ArrowSchema} struct
+from this array for the Arrow C Data Interface; the pointers come from
+\code{\link[=allocate_arrow_array]{allocate_arrow_array()}} and \code{\link[=allocate_arrow_schema]{allocate_arrow_schema()}}.
+\item \code{Array$import_from_c(array_ptr, schema_ptr)}: Build an \code{Array} from structs
+another library filled (a class method, not an instance method).
 }
 }
 
