@@ -59,3 +59,28 @@ test_that("try_arrow_dplyr/abandon_ship adds the right message about collect()",
     expect_snapshot(tester(ds, i), error = TRUE)
   }
 })
+
+test_that("dplyr verbs error clearly on empty column names", {
+  # GH-40303
+  tbl <- example_data
+  names(tbl)[1] <- ""
+
+  # dplyr also refuses these ("Can't transform a data frame with `NA` or
+  # `""` names."), but our wording differs since the input isn't a data frame
+  tab <- arrow_table(tbl)
+  msg <- "Can't transform data with empty"
+  expect_error(tab |> mutate(z = dbl + 1), msg)
+  expect_error(tab |> filter(dbl > 4), msg)
+  expect_error(tab |> arrange(dbl), msg)
+  expect_error(tab |> group_by(dbl), msg)
+
+  # select() and rename() still work as an escape hatch, as in dplyr
+  compare_dplyr_binding(
+    .input |> select(-1) |> mutate(z = dbl + 1) |> collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input |> rename(int = 1) |> mutate(z = dbl + 1) |> collect(),
+    tbl
+  )
+})
