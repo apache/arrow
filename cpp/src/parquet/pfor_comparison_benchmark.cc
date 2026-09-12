@@ -40,6 +40,7 @@
 
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
+#include "arrow/util/fastlanes/interleaved_pfor.h"
 #include "arrow/util/fastlanes/lane_delta.h"
 #include "arrow/util/fastlanes/transposed_delta.h"
 #include "arrow/util/compression.h"
@@ -1890,6 +1891,53 @@ static void BM_TposeRawNoRepairDecode(benchmark::State& state, Gen32 gen) {
   TposeDecodeImpl<TransposedBaseCoding::kRaw, TransposedRepair::kNone>(state, gen);
 }
 
+// ============================================================================
+// Interleaved-layout PFOR (no delta chain to break)
+// ============================================================================
+//
+// BM_PforDecode is Arrow's shipped sequential decoder -- the layout the
+// format specifies today. These two swap only the bit-unpack kernel for the
+// FastLanes container, keeping the same per-block frame-of-reference and the
+// same real dataset columns, so the margin against BM_PforDecode isolates
+// the layout question on data instead of on synthetic per-width residuals.
+// The second arm adds the paper's lane assignment and the gather needed to
+// undo it, which fastlanes_kernels_internal.h's header comment argues plain
+// PFOR has nothing to buy with -- this prices that argument on real columns.
+
+using ::arrow::util::fastlanes::InterleavedPforOrder;
+
+template <InterleavedPforOrder kOrder>
+static void InterleavedPforDecodeImpl(benchmark::State& state, Gen32 gen) {
+  namespace fl = ::arrow::util::fastlanes;
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+
+  std::vector<uint8_t> buf(fl::InterleavedPforMaxEncodedSize(num_values));
+  const size_t comp_size =
+      fl::InterleavedPforEncode<kOrder>(values.data(), num_values, buf.data());
+  ARROW_CHECK_GT(comp_size, 0);
+
+  std::vector<int32_t> decoded(num_values);
+  fl::InterleavedPforDecode<kOrder>(buf.data(), num_values, decoded.data());
+  ARROW_CHECK(decoded == values) << "interleaved pfor round trip failed";
+
+  for (auto _ : state) {
+    fl::InterleavedPforDecode<kOrder>(buf.data(), num_values, decoded.data());
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+static void BM_InterleavedPforDecode(benchmark::State& state, Gen32 gen) {
+  InterleavedPforDecodeImpl<InterleavedPforOrder::kFileOrder>(state, gen);
+}
+static void BM_InterleavedPforFlOrderDecode(benchmark::State& state, Gen32 gen) {
+  InterleavedPforDecodeImpl<InterleavedPforOrder::kFlOrder>(state, gen);
+}
+
 static void BM_LaneDeltaEncode(benchmark::State& state, Gen32 gen) {
   namespace fl = ::arrow::util::fastlanes;
   const int64_t num_values = state.range(0);
@@ -1949,6 +1997,9 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
   BENCHMARK_CAPTURE(BM_DbpGeom1024x32, Name, &GenFunc)->Apply(CustomArgs);         \
   BENCHMARK_CAPTURE(BM_DbpGeom1024x8, Name, &GenFunc)->Apply(CustomArgs);          \
   BENCHMARK_CAPTURE(BM_DbpGeom1024x1, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_InterleavedPforDecode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_InterleavedPforFlOrderDecode, Name, &GenFunc)             \
+      ->Apply(CustomArgs);                                                      \
   BENCHMARK_CAPTURE(BM_LaneDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);        \
   BENCHMARK_CAPTURE(BM_TposeApiDecode, Name, &GenFunc)->Apply(CustomArgs);         \
   BENCHMARK_CAPTURE(BM_TposeApiEncode, Name, &GenFunc)->Apply(CustomArgs);         \

@@ -67,15 +67,19 @@ HOST="$(hostname -s 2>/dev/null || echo unknown-host)"
 TARBALL="x86_register_width_sweep_${HOST}_${STAMP}.tar.gz"
 
 REPS=7
-# Only the arms this question is about: Implementation B's sequential PFOR
-# decode (BM_PforDecode/BM_Pfor64Decode) against its transposed/interleaved
-# decode arms (TposeApiDecode/TposeFusedDecode/TposeRawDecode) and the
-# separate lane-parallel delta arm (LaneDeltaDecode), across every
-# registered column -- typical columns and the delta-shaped ones alike, so
-# delta-mode-relevant columns are covered by column choice, not a separate
-# flag. Encode arms and the other codecs (DBP/zstd/lz4/RLE/BSS) are outside
-# this question and are left out to keep the run and the output short.
-FILTER='BM_(Pfor(64)?Decode|TposeApiDecode|TposeFusedDecode|TposeRawDecode|LaneDeltaDecode)/'
+# Only the arms this question is about, across every registered column --
+# typical columns and the delta-shaped ones alike, so delta-mode-relevant
+# columns are covered by column choice, not a separate flag:
+#   - BM_Pfor(64)?Decode           sequential layout, Arrow's shipped decoder
+#   - BM_InterleavedPforDecode     interleaved layout, plain PFOR, file order
+#   - BM_InterleavedPforFlOrderDecode  interleaved layout, plain PFOR, the
+#                                  paper's lane assignment (prices the gather
+#                                  it forces; PFOR has no chain for it to help)
+#   - BM_TposeApiDecode / TposeFusedDecode / TposeRawDecode / LaneDeltaDecode
+#                                  interleaved layout applied to a delta chain
+# Encode arms and the other codecs (DBP/zstd/lz4/RLE/BSS) are outside this
+# question and are left out to keep the run and the output short.
+FILTER='BM_(Pfor(64)?Decode|InterleavedPforDecode|InterleavedPforFlOrderDecode|TposeApiDecode|TposeFusedDecode|TposeRawDecode|LaneDeltaDecode)/'
 
 echo "== machine identification ==" | tee "${OUTDIR}/machine.txt"
 {
