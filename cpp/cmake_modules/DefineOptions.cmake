@@ -197,7 +197,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
 
   define_option_string(ARROW_USE_STD_CHRONO
-                       "Use C++20 std::chrono instead of the vendored datetime library;\\
+                       "Use C++20 std::chrono instead of the vendored datetime library;\
 AUTO keeps the current platform default (GH-51267)"
                        "AUTO"
                        "AUTO"
