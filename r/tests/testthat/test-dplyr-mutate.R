@@ -775,3 +775,14 @@ test_that("across() does not select grouping variables within transmute()", {
     "Column `chr` doesn't exist"
   )
 })
+
+test_that("mutate() with aggregations after arrange() (GH-45373)", {
+  compare_dplyr_binding(
+    .input |>
+      select(int, chr) |>
+      arrange(int) |>
+      mutate(avg_int = mean(int)) |>
+      collect(),
+    tbl
+  )
+})

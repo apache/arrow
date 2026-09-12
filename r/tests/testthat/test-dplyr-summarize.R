@@ -1345,4 +1345,13 @@ test_that("summarize() after arrange() (GH-45373)", {
       collect(),
     tbl
   )
+  compare_dplyr_binding(
+    .input |>
+      arrange(dbl) |>
+      group_by(some_grouping) |>
+      summarize(total = sum(int, na.rm = TRUE)) |>
+      arrange(some_grouping) |>
+      collect(),
+    tbl
+  )
 })
