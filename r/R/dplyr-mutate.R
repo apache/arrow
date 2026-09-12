@@ -75,6 +75,8 @@ mutate.arrow_dplyr_query <- function(
       # Make a copy of .data, do the aggregations on it, and then left_join on
       # the group_by variables.
       agg_query <- as_adq(.data)
+      agg_query$arrange_vars <- list()
+      agg_query$arrange_desc <- logical()
       # These may be computed by .by, make sure they're set
       agg_query$group_by_vars <- grv
       agg_query$aggregations <- mask$.aggregations
