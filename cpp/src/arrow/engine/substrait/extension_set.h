@@ -72,6 +72,7 @@ constexpr const char* kSubstraitAggregateGenericFunctionsUri =
 /// and any options are ignored.
 constexpr const char* kArrowSimpleExtensionFunctionsUri =
     "urn:arrow:substrait_simple_extension_function";
+constexpr const char* kSubstraitUnknownFunctionsUri = "extension:io.substrait:unknown";
 
 struct ARROW_ENGINE_EXPORT Id {
   std::string_view uri, name;

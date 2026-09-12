@@ -248,7 +248,17 @@ Result<BoundExpressions> DeserializeExpressions(
     const ConversionOptions& conversion_options, ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto extended_expression,
                         ParseFromBuffer<substrait::ExtendedExpression>(buf));
-  return FromProto(extended_expression, ext_set_out, conversion_options, registry);
+  return FromProto(extended_expression, /*input_schema_override=*/NULLPTR, ext_set_out,
+                   conversion_options, registry);
+}
+
+Result<BoundExpressions> DeserializeExpressions(
+    const Buffer& buf, const Schema& input_schema, const ExtensionIdRegistry* registry,
+    const ConversionOptions& conversion_options, ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto extended_expression,
+                        ParseFromBuffer<substrait::ExtendedExpression>(buf));
+  return FromProto(extended_expression, &input_schema, ext_set_out, conversion_options,
+                   registry);
 }
 
 namespace {

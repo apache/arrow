@@ -131,9 +131,11 @@ Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
 
   if (!keys.empty()) {
     substrait::AggregateRel::Grouping* grouping = agg->add_groupings();
+    uint32_t grouping_ref = 0;
     for (int key : keys) {
-      substrait::Expression* key_expr = grouping->add_grouping_expressions();
+      substrait::Expression* key_expr = agg->add_grouping_expressions();
       CreateDirectReference(key, key_expr);
+      grouping->add_expression_references(grouping_ref++);
     }
   }
 

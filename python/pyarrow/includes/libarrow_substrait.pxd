@@ -82,6 +82,9 @@ cdef extern from "arrow/engine/substrait/serde.h" namespace "arrow::engine" nogi
     CResult[CBoundExpressions] DeserializeExpressions(
         const CBuffer& serialized_expressions)
 
+    CResult[CBoundExpressions] DeserializeExpressions(
+        const CBuffer& serialized_expressions, const CSchema& schema)
+
     CResult[shared_ptr[CBuffer]] SerializeSchema(
         const CSchema &schema, CExtensionSet* extension_set,
         const CConversionOptions& conversion_options)

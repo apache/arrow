@@ -74,9 +74,6 @@ namespace engine {
 
 namespace {
 
-constexpr int64_t kMicrosPerSecond = 1000000;
-constexpr int64_t kMicrosPerMilli = 1000;
-
 Id NormalizeFunctionName(Id id) {
   // Substrait plans encode the types into the function name so it might look like
   // add:opt_i32_i32.  We don't care about  the :opt_i32_i32 so we just trim it
@@ -121,9 +118,19 @@ Status DecodeOption(const substrait::FunctionOption& opt, SubstraitCall* call) {
 Result<SubstraitCall> DecodeScalarFunction(
     Id id, const substrait::Expression::ScalarFunction& scalar_fn,
     const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
-  ARROW_ASSIGN_OR_RAISE(auto output_type_and_nullable,
-                        FromProto(scalar_fn.output_type(), ext_set, conversion_options));
-  SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
+  std::shared_ptr<DataType> output_type;
+  bool output_nullable = true;
+  if (scalar_fn.output_type().kind_case() == substrait::Type::kUnknown) {
+    output_nullable = scalar_fn.output_type().unknown().nullability() !=
+                      substrait::Type::NULLABILITY_REQUIRED;
+  } else {
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_type_and_nullable,
+        FromProto(scalar_fn.output_type(), ext_set, conversion_options));
+    output_type = std::move(output_type_and_nullable.first);
+    output_nullable = output_type_and_nullable.second;
+  }
+  SubstraitCall call(id, std::move(output_type), output_nullable);
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
     ARROW_RETURN_NOT_OK(
         DecodeArg(scalar_fn.arguments(i), i, &call, ext_set, conversion_options));
@@ -296,6 +303,20 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return FromProto(ref, ext_set, conversion_options, std::move(out));
     }
 
+    case substrait::Expression::kNamedExpression: {
+      const auto& named_expr = expr.named_expression();
+      if (named_expr.names_size() == 0) {
+        return Status::Invalid(
+            "substrait::Expression::NamedExpression had no name components");
+      }
+      std::vector<FieldRef> refs;
+      refs.reserve(named_expr.names_size());
+      for (const auto& name : named_expr.names()) {
+        refs.emplace_back(std::string(name));
+      }
+      return compute::field_ref(FieldRef(std::move(refs)));
+    }
+
     case substrait::Expression::kIfThen: {
       const auto& if_then = expr.if_then();
       if (!if_then.has_else_()) break;
@@ -360,7 +381,8 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       function_id = NormalizeFunctionName(function_id);
       ExtensionIdRegistry::SubstraitCallToArrow function_converter;
 
-      if (function_id.uri.empty() || function_id.uri[0] == '/') {
+      if (function_id.uri.empty() || function_id.uri[0] == '/' ||
+          function_id.uri == kSubstraitUnknownFunctionsUri) {
         // Currently the Substrait project has not aligned on a standard URI and often
         // seems to use /.  In that case we fall back to name-only matching.
         ARROW_ASSIGN_OR_RAISE(
@@ -528,29 +550,34 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
     case substrait::Expression::Literal::kBinary:
       return Datum(BinaryScalar(lit.binary()));
 
-      ARROW_SUPPRESS_DEPRECATION_WARNING
-    case substrait::Expression::Literal::kTimestamp:
-      return Datum(
-          TimestampScalar(static_cast<int64_t>(lit.timestamp()), TimeUnit::MICRO));
-
-    case substrait::Expression::Literal::kTimestampTz:
-      return Datum(TimestampScalar(static_cast<int64_t>(lit.timestamp_tz()),
-                                   TimeUnit::MICRO, TimestampTzTimezoneString()));
-      ARROW_UNSUPPRESS_DEPRECATION_WARNING
     case substrait::Expression::Literal::kPrecisionTimestamp: {
-      // https://github.com/substrait-io/substrait/issues/611
-      // TODO(GH-40741) don't break, return precision timestamp
-      break;
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> type,
+                            precision_timestamp(lit.precision_timestamp().precision()));
+      return Datum(TimestampScalar(lit.precision_timestamp().value(), std::move(type)));
     }
     case substrait::Expression::Literal::kPrecisionTimestampTz: {
-      // https://github.com/substrait-io/substrait/issues/611
-      // TODO(GH-40741) don't break, return precision timestamp
-      break;
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<DataType> type,
+          precision_timestamp_tz(lit.precision_timestamp_tz().precision()));
+      return Datum(
+          TimestampScalar(lit.precision_timestamp_tz().value(), std::move(type)));
     }
     case substrait::Expression::Literal::kDate:
       return Datum(Date32Scalar(lit.date()));
-    case substrait::Expression::Literal::kTime:
-      return Datum(Time64Scalar(lit.time(), TimeUnit::MICRO));
+    case substrait::Expression::Literal::kPrecisionTime: {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> type,
+                            precision_time(lit.precision_time().precision()));
+      switch (type->id()) {
+        case Type::TIME32:
+          return Datum(
+              Time32Scalar(static_cast<int32_t>(lit.precision_time().value()), type));
+        case Type::TIME64:
+          return Datum(Time64Scalar(lit.precision_time().value(), type));
+        default:
+          return Status::Invalid("Unexpected Arrow type for Substrait precision_time: ",
+                                 type->ToString());
+      }
+    }
 
     case substrait::Expression::Literal::kIntervalYearToMonth:
     case substrait::Expression::Literal::kIntervalDayToSecond: {
@@ -887,59 +914,67 @@ struct ScalarToProtoImpl {
     return EncodeUserDefined(*s.type, value);
   }
 
-  Status Visit(const TimestampScalar& s) {
+  template <typename Sub>
+  Status VisitTimestamp(const TimestampScalar& s, void (Lit::*set_allocated_sub)(Sub*)) {
     const auto& t = checked_cast<const TimestampType&>(*s.type);
-
-    uint64_t micros;
+    auto timestamp = std::make_unique<Sub>();
+    timestamp->set_value(s.value);
     switch (t.unit()) {
       case TimeUnit::SECOND:
-        micros = s.value * kMicrosPerSecond;
+        timestamp->set_precision(0);
         break;
       case TimeUnit::MILLI:
-        micros = s.value * kMicrosPerMilli;
+        timestamp->set_precision(3);
         break;
       case TimeUnit::MICRO:
-        micros = s.value;
+        timestamp->set_precision(6);
         break;
       case TimeUnit::NANO:
-        // TODO(GH-40741): can support nanos when
-        // https://github.com/substrait-io/substrait/issues/611 is resolved
-        return NotImplemented(s);
+        timestamp->set_precision(9);
+        break;
       default:
         return NotImplemented(s);
     }
-
-    // Remove these and use precision timestamp once
-    // https://github.com/substrait-io/substrait/issues/611 is resolved
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-
-    if (t.timezone() == "") {
-      lit_->set_timestamp(micros);
-    } else {
-      // Some loss of info here, Substrait doesn't store timezone
-      // in field data
-      lit_->set_timestamp_tz(micros);
-    }
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-
+    (lit_->*set_allocated_sub)(timestamp.release());
     return Status::OK();
   }
 
-  // Need to support parameterized UDTs
-  Status Visit(const Time32Scalar& s) {
-    google::protobuf::Int32Value value;
-    value.set_value(s.value);
-    return EncodeUserDefined(*s.type, value);
-  }
-  Status Visit(const Time64Scalar& s) {
-    if (checked_cast<const Time64Type&>(*s.type).unit() == TimeUnit::MICRO) {
-      return Primitive(&Lit::set_time, s);
-    } else {
-      google::protobuf::Int64Value value;
-      value.set_value(s.value);
-      return EncodeUserDefined(*s.type, value);
+  Status Visit(const TimestampScalar& s) {
+    const auto& t = checked_cast<const TimestampType&>(*s.type);
+    if (t.timezone().empty()) {
+      return VisitTimestamp(s, &Lit::set_allocated_precision_timestamp);
     }
+    return VisitTimestamp(s, &Lit::set_allocated_precision_timestamp_tz);
   }
+
+  // Need to support parameterized UDTs
+  template <typename ScalarType, typename ValueType = typename ScalarType::ValueType>
+  Status VisitTime(const ScalarType& s) {
+    const auto& t = checked_cast<const typename ScalarType::TypeClass&>(*s.type);
+    auto time = std::make_unique<Lit::PrecisionTime>();
+    time->set_value(static_cast<int64_t>(s.value));
+    switch (t.unit()) {
+      case TimeUnit::SECOND:
+        time->set_precision(0);
+        break;
+      case TimeUnit::MILLI:
+        time->set_precision(3);
+        break;
+      case TimeUnit::MICRO:
+        time->set_precision(6);
+        break;
+      case TimeUnit::NANO:
+        time->set_precision(9);
+        break;
+      default:
+        return NotImplemented(s);
+    }
+    lit_->set_allocated_precision_time(time.release());
+    return Status::OK();
+  }
+
+  Status Visit(const Time32Scalar& s) { return VisitTime(s); }
+  Status Visit(const Time64Scalar& s) { return VisitTime(s); }
 
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
