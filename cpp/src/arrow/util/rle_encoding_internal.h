@@ -341,6 +341,19 @@ class RleRunDecoder {
     return to_read;
   }
 
+  /// Decode a batch of values and count the number of occurrences of a value.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were decoded.
+  RleCountUpToResult GetBatchAndCount(value_type* out,
+                                      const RleCountUpToParams<value_type>& p) {
+    const auto read = GetBatch(out, p.batch_size, p.value_bit_width);
+    return {
+        .matching_count = read * (p.value == value_),
+        .processed_count = read,
+    };
+  }
+
  private:
   value_type value_ = {};
   rle_size_t remaining_count_ = 0;
@@ -443,6 +456,22 @@ class BitPackedRunDecoder {
     return opts.batch_size;
   }
 
+  /// Decode a batch of values and count the number of occurrences of a value.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were decoded.
+  RleCountUpToResult GetBatchAndCount(value_type* out,
+                                      const RleCountUpToParams<value_type>& p) {
+    const auto read = GetBatch(out, p.batch_size, p.value_bit_width);
+    const auto matching_count =
+        static_cast<rle_size_t>(std::count(out, out + read, p.value));
+
+    return {
+      .matching_count = matching_count,
+      .processed_count = read,
+    };
+  }
+
  private:
   /// The pointer to the beginning of the run
   const uint8_t* data_ = nullptr;
@@ -515,6 +544,14 @@ class RleBitPackedDecoder {
   /// May write fewer elements to the output than requested if there are not enough values
   /// left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size);
+
+  /// Decode a batch of values and count the number of occurrences of a value.
+  ///
+  /// May decode fewer elements than requested if there are not enough values left
+  /// or if an error occurred.
+  /// @return The matching value count and number of elements that were decoded.
+  RleCountUpToResult GetBatchAndCount(value_type* out, value_type value,
+                                      rle_size_t batch_size);
 
   /// Like GetBatch but add spacing for null entries.
   ///
@@ -642,6 +679,21 @@ class BitPackedDecoder : private BitPackedRunDecoder<T> {
   /// Get a batch of values return the number of decoded elements.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
     return Base::GetBatch(out, batch_size, value_bit_width_);
+  }
+
+  /// Decode a batch of values and count the number of occurrences of a value.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were decoded.
+  RleCountUpToResult GetBatchAndCount(value_type* out, value_type value,
+                                      rle_size_t batch_size) {
+    return Base::GetBatchAndCount(
+        out,
+        {
+          .value = value,
+          .batch_size = batch_size,
+          .value_bit_width = value_bit_width_,
+        });
   }
 
  private:
@@ -1003,6 +1055,35 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
         return read;
       },
       batch_size);
+}
+
+template <typename T>
+RleCountUpToResult RleBitPackedDecoder<T>::GetBatchAndCount(
+    value_type* out, value_type value, rle_size_t batch_size) {
+  rle_size_t matching_count = 0;
+
+  const rle_size_t processed_count = ProcessValues(
+      [&out, value, this, &matching_count](auto& decoder,
+                                           rle_size_t run_batch_size) {
+        const auto result = decoder.GetBatchAndCount(
+            out,
+            {
+                .value = value,
+                .batch_size = run_batch_size,
+                .value_bit_width = value_bit_width_,
+            });
+
+        out += result.processed_count;
+        matching_count += result.matching_count;
+
+        return result.processed_count;
+      },
+      batch_size);
+
+  return {
+      .matching_count = matching_count,
+      .processed_count = processed_count,
+  };
 }
 
 namespace internal {
