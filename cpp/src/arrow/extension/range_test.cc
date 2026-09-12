@@ -186,10 +186,11 @@ TEST(RangeType, DeserializeInvalidMetadata) {
 
   // Truly malformed JSON fails.
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Missing a name for object member"),
+                                  testing::HasSubstr("Invalid serialized JSON data"),
                                   type->Deserialize(type->storage_type(), "{"));
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("not an object"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid serialized JSON data"),
                                   type->Deserialize(type->storage_type(), "[]"));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -424,9 +425,10 @@ TEST(RangeIncType, DeserializeInvalidMetadata) {
       checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Missing a name for object member"),
+                                  testing::HasSubstr("Invalid serialized JSON data"),
                                   type->Deserialize(type->storage_type(), "{"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("not an object"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid serialized JSON data"),
                                   type->Deserialize(type->storage_type(), "[]"));
 }
 

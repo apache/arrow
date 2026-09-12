@@ -20,12 +20,12 @@
 #include <sstream>
 #include <string_view>
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/error/en.h>
-#include <rapidjson/writer.h>
+#include <simdjson.h>
+
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 
@@ -96,19 +96,16 @@ bool RangeType::ExtensionEquals(const ExtensionType& other) const {
 }
 
 std::string RangeType::Serialize() const {
-  rapidjson::Document document;
-  document.SetObject();
-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  JsonWriter writer;
 
-  auto closed_str = ClosedToString(closed_);
-  rapidjson::Value closed_value(
-      closed_str.data(), static_cast<rapidjson::SizeType>(closed_str.size()), allocator);
-  document.AddMember(rapidjson::Value("closed", allocator), closed_value, allocator);
+  writer.StartObject();
+  writer.StringField("closed", ClosedToString(closed_));
+  writer.EndObject();
 
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  document.Accept(writer);
-  return buffer.GetString();
+  Result<std::string_view> json = writer.GetString();
+  // can only fail in OutOfMemory scenarios
+  ARROW_CHECK_OK(json.status());
+  return std::string(*json);
 }
 
 Result<std::shared_ptr<DataType>> RangeType::Deserialize(
@@ -150,28 +147,21 @@ Result<std::shared_ptr<DataType>> RangeType::Deserialize(
         "RangeType metadata must be a JSON object with a required \"closed\" key, "
         "got an empty string");
   }
-  rapidjson::Document document;
-  const auto& parsed = document.Parse(serialized_data.data(), serialized_data.length());
-  if (parsed.HasParseError()) {
-    return Status::Invalid("Invalid serialized JSON data for RangeType: ",
-                           rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
-                           serialized_data);
-  }
-  if (!document.IsObject()) {
-    return Status::Invalid("Invalid serialized JSON data for RangeType: not an object");
-  }
-  if (!document.HasMember("closed")) {
+  simdjson::dom::parser parser;
+  ARROW_ASSIGN_OR_RAISE(auto object, internal::ParseJsonObject(parser, serialized_data));
+
+  ARROW_ASSIGN_OR_RAISE(auto closed_value,
+                        internal::GetOptionalJsonField(object, "closed"));
+  if (!closed_value.has_value()) {
     return Status::Invalid("RangeType metadata is missing the required \"closed\" key: ",
                            serialized_data);
   }
-  const auto& closed_val = document["closed"];
-  if (!closed_val.IsString()) {
+  std::string_view closed_str;
+  if (closed_value->get_string().get(closed_str) != simdjson::SUCCESS) {
     return Status::Invalid(
         "Invalid serialized JSON data for RangeType: \"closed\" is not a string");
   }
-  ARROW_ASSIGN_OR_RAISE(RangeClosed closed,
-                        ClosedFromString(std::string_view(closed_val.GetString(),
-                                                          closed_val.GetStringLength())));
+  ARROW_ASSIGN_OR_RAISE(RangeClosed closed, ClosedFromString(closed_str));
 
   return std::make_shared<RangeType>(std::move(storage_type), closed);
 }
@@ -306,17 +296,8 @@ Result<std::shared_ptr<DataType>> RangeIncType::Deserialize(
   // the storage fields. Accept an empty string or any JSON object (ignoring
   // unknown keys for forward compatibility).
   if (!serialized_data.empty()) {
-    rapidjson::Document document;
-    const auto& parsed = document.Parse(serialized_data.data(), serialized_data.length());
-    if (parsed.HasParseError()) {
-      return Status::Invalid("Invalid serialized JSON data for RangeIncType: ",
-                             rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
-                             serialized_data);
-    }
-    if (!document.IsObject()) {
-      return Status::Invalid(
-          "Invalid serialized JSON data for RangeIncType: not an object");
-    }
+    simdjson::dom::parser parser;
+    RETURN_NOT_OK(internal::ParseJsonObject(parser, serialized_data).status());
   }
 
   return std::make_shared<RangeIncType>(std::move(storage_type));
