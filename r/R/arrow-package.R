@@ -180,6 +180,13 @@ s3_finalizer <- new.env(parent = emptyenv())
 
 configure_tzdb <- function() {
   if (requireNamespace("tzdb", quietly = TRUE)) {
+    if (runtime_info()[[3]] == "true") {
+      # GH-51267: builds reading the OS timezone database (C++20 std::chrono,
+      # or the vendored library built against the OS tzdata) cannot use a
+      # downloaded database, and their timezones already work — skip the
+      # vendored path instead of surfacing a false startup failure.
+      return(invisible())
+    }
     tryCatch(
       {
         tzdb::tzdb_initialize()
