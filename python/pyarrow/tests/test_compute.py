@@ -172,10 +172,9 @@ def test_option_class_equality(request):
         pc.PivotWiderOptions(["height"], unexpected_key_behavior="raise"),
         pc.QuantileOptions(),
         pc.RandomOptions(),
-        pc.RankOptions(sort_keys="ascending",
-                       null_placement="at_end", tiebreaker="max"),
-        pc.RankQuantileOptions(sort_keys="ascending",
-                               null_placement="at_end"),
+        pc.RankOptions(sort_keys=[("", "ascending", "at_end")],
+                       tiebreaker="max"),
+        pc.RankQuantileOptions(sort_keys=[("", "ascending", "at_end")]),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -3882,8 +3881,7 @@ def test_random():
 )
 def test_rank_options_tiebreaker(tiebreaker, expected_values):
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
-    rank_options = pc.RankOptions(sort_keys="ascending",
-                                  null_placement="at_end",
+    rank_options = pc.RankOptions(sort_keys=[("", "ascending", "at_end")],
                                   tiebreaker=tiebreaker)
     result = pc.rank(arr, options=rank_options)
     expected = pa.array(expected_values, type=pa.uint64())
@@ -3908,7 +3906,7 @@ def test_rank_options():
     )
     assert result.equals(expected)
 
-    result = pc.rank(arr, null_placement="at_start")
+    result = pc.rank(arr, sort_keys=[("", "ascending", "at_start")])
     expected_at_start = pa.array([5, 3, 6, 1, 7, 2, 4], type=pa.uint64())
     assert result.equals(expected_at_start)
 
@@ -3918,8 +3916,7 @@ def test_rank_options():
 
     with pytest.raises(ValueError,
                        match=r'"NonExisting" is not a valid tiebreaker'):
-        pc.RankOptions(sort_keys="descending",
-                       null_placement="at_end",
+        pc.RankOptions(sort_keys=[("", "descending", "at_end")],
                        tiebreaker="NonExisting")
 
 
@@ -3941,7 +3938,7 @@ def test_rank_quantile_options():
     )
     assert result.equals(expected)
 
-    result = pc.rank_quantile(arr, null_placement="at_start")
+    result = pc.rank_quantile(arr, sort_keys=[("", "ascending", "at_start")])
     expected_at_start = pa.array([0.3, 0.7, 0.3, 0.9, 0.3], type=pa.float64())
     assert result.equals(expected_at_start)
 
@@ -3961,7 +3958,7 @@ def test_rank_normal_options():
          -0.5244005127080409, 0.5244005127080407])
     result = pc.rank_normal(arr)
     assert result.to_pylist() == expected
-    result = pc.rank_normal(arr, null_placement="at_end", sort_keys="ascending")
+    result = pc.rank_normal(arr, sort_keys=[("", "ascending", "at_end")])
     assert result.to_pylist() == expected
     result = pc.rank_normal(arr, options=pc.RankQuantileOptions())
     assert result.to_pylist() == expected
@@ -3969,11 +3966,12 @@ def test_rank_normal_options():
     expected = pytest.approx(
         [-0.5244005127080409, 1.2815515655446004, -0.5244005127080409,
          0.5244005127080407, -0.5244005127080409])
-    result = pc.rank_normal(arr, null_placement="at_start", sort_keys="descending")
+    result = pc.rank_normal(arr, sort_keys=[("", "descending", "at_start")])
     assert result.to_pylist() == expected
     result = pc.rank_normal(arr,
-                            options=pc.RankQuantileOptions(null_placement="at_start",
-                                                           sort_keys="descending"))
+                            options=pc.RankQuantileOptions(
+                                sort_keys=[("", "descending", "at_start")])
+                            )
     assert result.to_pylist() == expected
 
 
