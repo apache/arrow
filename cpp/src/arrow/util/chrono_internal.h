@@ -32,7 +32,18 @@
 #include <string>
 #include <string_view>
 
-// Feature detection for C++20 chrono timezone support
+#include "arrow/util/config.h"
+
+// Backend selection (GH-51267).
+//
+// The CMake (ARROW_USE_STD_CHRONO) and Meson (use_std_chrono) options probe the
+// toolchain for working C++20 chrono timezone support and record the result in
+// arrow/util/config.h. Builds that do not set ARROW_USE_STD_CHRONO keep the
+// historical default below: std::chrono on Windows toolchains advertising
+// __cpp_lib_chrono >= 201907L, and the vendored Howard Hinnant date library
+// elsewhere.
+//
+// Feature detection for C++20 chrono timezone support:
 // https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L
 //
 // On Windows with MSVC: std::chrono uses Windows' internal timezone database,
@@ -41,24 +52,20 @@
 // On Windows with MinGW/GCC: libstdc++ reads tzdata files via TZDIR env var.
 // Set TZDIR=/usr/share/zoneinfo to use the system tzdata.
 //
-// On non-Windows: GCC libstdc++ has a bug where DST state is incorrectly reset when
-// a timezone transitions between rule sets (e.g., Australia/Broken_Hill around
-// 2000-02-29). Until this is fixed, we use the vendored date.h library.
+// On non-Windows: GCC libstdc++ had a bug where DST state is incorrectly reset
+// when a timezone transitions between rule sets (e.g., Australia/Broken_Hill
+// around 2000-02-29); those toolchains keep using the vendored date.h library
+// until the minimum-toolchain prerequisites in GH-51267 are met.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-
-// Use std::chrono on Windows when C++20 chrono timezone support is available.
-// The __cpp_lib_chrono >= 201907L feature test macro indicates full support:
-// - MSVC: Uses Windows' internal timezone database (no IANA tzdata needed)
-// - GCC/libstdc++: Requires TZDIR environment variable to locate tzdata
-// - Clang/libc++: Does not define 201907L (no timezone support), so falls back
 //
-// On non-Windows, we use the vendored date library due to a GCC libstdc++ bug
-// where DST state is incorrectly reset during timezone rule transitions.
-// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  define ARROW_USE_STD_CHRONO 1
-#else
-#  define ARROW_USE_STD_CHRONO 0
+// On Windows with Clang/libc++: __cpp_lib_chrono < 201907L (no timezone
+// support), so the vendored library is used.
+#ifndef ARROW_USE_STD_CHRONO
+#  if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+#    define ARROW_USE_STD_CHRONO 1
+#  else
+#    define ARROW_USE_STD_CHRONO 0
+#  endif
 #endif
 
 #if ARROW_USE_STD_CHRONO

@@ -31,7 +31,11 @@ std::vector<std::string> build_info() {
 // [[arrow::export]]
 std::vector<std::string> runtime_info() {
   auto info = arrow::GetRuntimeInfo();
-  return {info.simd_level, info.detected_simd_level};
+  // The third element reports whether Arrow reads the OS timezone database
+  // (C++20 std::chrono backend, or the vendored library built against the
+  // OS tzdata); R's startup skips the tzdb package path in that case.
+  return {info.simd_level, info.detected_simd_level,
+          info.using_os_timezone_db ? "true" : "false"};
 }
 
 // [[arrow::export]]

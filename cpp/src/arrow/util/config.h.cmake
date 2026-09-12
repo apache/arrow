@@ -54,6 +54,7 @@
 #cmakedefine ARROW_HDFS
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_GLOG
+@ARROW_USE_STD_CHRONO_DEFINITION@
 #cmakedefine ARROW_USE_NATIVE_INT128
 #cmakedefine ARROW_WITH_BROTLI
 #cmakedefine ARROW_WITH_BZ2

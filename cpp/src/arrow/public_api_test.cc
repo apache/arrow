@@ -19,6 +19,7 @@
 #include <string>
 
 #include "arrow/config.h"
+#include "arrow/util/config.h"
 
 // Include various "api.h" entrypoints and check they don't leak internal symbols
 
@@ -125,7 +126,9 @@ TEST(Misc, BuildInfo) {
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 ARROW_SUPPRESS_DEPRECATION_WARNING
 TEST(Misc, SetTimezoneConfig) {
-#ifndef _WIN32
+#if defined(ARROW_USE_STD_CHRONO) && ARROW_USE_STD_CHRONO
+  GTEST_SKIP() << "std::chrono builds use the OS timezone database (GH-51267)";
+#elif !defined(_WIN32)
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
 #elif !defined(ARROW_FILESYSTEM)
   GTEST_SKIP() << "Need filesystem support to test timezone config.";
