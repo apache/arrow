@@ -71,6 +71,15 @@ REPS=7
 # typical columns and the delta-shaped ones alike, so delta-mode-relevant
 # columns are covered by column choice, not a separate flag:
 #   - BM_Pfor(64)?Decode           sequential layout, Arrow's shipped decoder
+#                                  with its default options, so the planner may
+#                                  pick a delta representation per vector
+#   - BM_PforPlainSeqDecode / BM_PforPlainInterleavedDecode
+#                                  the same production encoder with delta
+#                                  declined on both sides, so the ratio between
+#                                  these two is the layout on its own. This is
+#                                  the pair to quote for the layout question;
+#                                  BM_PforDecode against an interleaved arm mixes
+#                                  the layout with the prefix sum delta forces.
 #   - BM_InterleavedPforDecode     interleaved layout, plain PFOR, file order
 #   - BM_InterleavedPforFlOrderDecode  interleaved layout, plain PFOR, the
 #                                  paper's lane assignment (prices the gather
@@ -79,7 +88,7 @@ REPS=7
 #                                  interleaved layout applied to a delta chain
 # Encode arms and the other codecs (DBP/zstd/lz4/RLE/BSS) are outside this
 # question and are left out to keep the run and the output short.
-FILTER='BM_(Pfor(64)?Decode|InterleavedPforDecode|InterleavedPforFlOrderDecode|TposeApiDecode|TposeFusedDecode|TposeRawDecode|LaneDeltaDecode)/'
+FILTER='BM_(Pfor(64)?Decode|PforPlainSeqDecode|PforPlainInterleavedDecode|InterleavedPforDecode|InterleavedPforFlOrderDecode|TposeApiDecode|TposeFusedDecode|TposeRawDecode|LaneDeltaDecode)/'
 
 echo "== machine identification ==" | tee "${OUTDIR}/machine.txt"
 {

@@ -773,7 +773,8 @@ static void BM_Pfor64Encode(benchmark::State& state, Gen64 gen) {
 }
 
 template <typename T>
-static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
+static void PforDecodeImpl(benchmark::State& state, GenT<T> gen,
+                           ::arrow::util::pfor::PforEncodeOptions options = {}) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
   const int64_t uncompressed_size = num_values * sizeof(T);
@@ -784,7 +785,8 @@ static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
   ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
-      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size));
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size,
+      options));
 
   std::vector<T> decoded(num_values);
   for (auto _ : state) {
@@ -804,6 +806,27 @@ static void BM_PforDecode(benchmark::State& state, Gen32 gen) {
 }
 static void BM_Pfor64Decode(benchmark::State& state, Gen64 gen) {
   PforDecodeImpl<int64_t>(state, gen);
+}
+
+// The two arms below hold the delta decision fixed so that the bit-packed
+// layout is the only thing separating them. BM_PforDecode above is the shipping
+// default, which lets the planner difference a vector whenever its cost model
+// prefers that; on a sorted or correlated column it does, and the decode then
+// also pays a serial prefix sum. A ratio taken against a layout arm that never
+// deltas therefore measures two decisions at once, not the layout. These two
+// decline delta on both sides, so the ratio between them is a layout result,
+// and it is valid on every column rather than only the ones the planner leaves
+// alone.
+static void BM_PforPlainSeqDecode(benchmark::State& state, Gen32 gen) {
+  PforDecodeImpl<int32_t>(
+      state, gen,
+      {/*delta_enabled=*/false, ::arrow::util::pfor::PackingMode::kForBitPack});
+}
+static void BM_PforPlainInterleavedDecode(benchmark::State& state, Gen32 gen) {
+  PforDecodeImpl<int32_t>(
+      state, gen,
+      {/*delta_enabled=*/false,
+       ::arrow::util::pfor::PackingMode::kForBitPackInterleaved});
 }
 
 // ============================================================================
@@ -1982,6 +2005,9 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 #define REGISTER_DATASET(Name, GenFunc)                                            \
   BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);             \
   BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_PforPlainSeqDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PforPlainInterleavedDecode, Name, &GenFunc)                 \
+      ->Apply(CustomArgs);                                                         \
   BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_DbpAbFull, Name, &GenFunc)->Apply(CustomArgs);              \
