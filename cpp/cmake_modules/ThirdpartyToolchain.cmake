@@ -4244,6 +4244,10 @@ if(ARROW_S3)
   endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowS3
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-s3
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
@@ -4255,15 +4259,15 @@ if(ARROW_S3)
   if(ARROW_BUILD_STATIC)
     if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
-        string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
     else()
       if(UNIX)
-        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+        string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " libcurl")
       endif()
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " openssl")
       if(APPLE)
-        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " -framework Security")
       endif()
     endif()
   endif()

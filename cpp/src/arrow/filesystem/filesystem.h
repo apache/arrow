@@ -560,6 +560,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 /// will fail with an error.
 ///
 /// The user is responsible for synchronization of calls to this function.
+ARROW_EXPORT
 void EnsureFinalized();
 
 /// \defgroup filesystem-factories Functions for creating FileSystem instances
