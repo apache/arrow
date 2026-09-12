@@ -15,35 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-canonical_extension_tests = [
-    'bool8_test.cc',
-    'json_test.cc',
-    'parquet_variant_test.cc',
-    'uuid_test.cc',
-]
-
-if needs_json
-    canonical_extension_tests += [
-        'tensor_extension_array_test.cc',
-        'opaque_test.cc',
-    ]
-endif
-
 exc = executable(
-    'arrow-canonical-extensions-test',
-    sources: canonical_extension_tests,
-    dependencies: [arrow_test_dep],
+    'parquet-variant-test',
+    sources: [
+        'builder_test.cc',
+        'decoding_test.cc',
+        'parquet_testing_test.cc',
+        'shred_test.cc',
+        'test_util_internal.cc',
+        'type_test.cc',
+        'unshred_test.cc',
+        'validate_test.cc',
+    ],
+    dependencies: parquet_test_dep,
 )
-test('arrow-canonical-extensions-test', exc)
+test('parquet-variant-test', exc)
 
 install_headers(
     [
-        'bool8.h',
-        'fixed_shape_tensor.h',
-        'json.h',
-        'opaque.h',
-        'parquet_variant.h',
-        'uuid.h',
-        'variable_shape_tensor.h',
+        'builder.h',
+        'decoding.h',
+        'format.h',
+        'shred.h',
+        'unshred.h',
+        'validate.h',
     ],
+    subdir: 'parquet/variant',
 )
