@@ -346,7 +346,6 @@ class TestHadoopFileSystemGeneric : public ::testing::Test,
   bool allow_write_file_over_dir() const override { return true; }
   bool allow_move_dir_over_non_empty_dir() const override { return true; }
   bool have_implicit_directories() const override { return true; }
-  bool allow_append_to_new_file() const override { return false; }
 
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override {
     // Since the HDFS contents are kept persistently between test runs,
