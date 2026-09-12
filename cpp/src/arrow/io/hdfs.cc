@@ -529,7 +529,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
                       int16_t replication, int64_t default_block_size,
                       std::shared_ptr<HdfsOutputStream>* file) {
     int flags = O_WRONLY;
-    // FileSystem::append (unlike a POSIX O_CREAT|O_APPEND open) requires
+    // Hadoop's FileSystem::append (unlike a POSIX O_CREAT|O_APPEND open) requires
     // the target file to already exist, so only request append semantics if the
     // file is actually there.
     if (append && Exists(path)) flags |= O_APPEND;
