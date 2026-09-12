@@ -25,6 +25,33 @@
 
 #include <parquet/file_reader.h>
 
+namespace {
+  GParquetArrowFileReader *
+  open_reader_with_properties(std::shared_ptr<arrow::io::RandomAccessFile> source,
+                              GParquetReaderProperties *properties,
+                              GError **error,
+                              const char *tag)
+  {
+    auto parquet_properties = properties ? gparquet_reader_properties_get_raw(properties)
+                                         : parquet::default_reader_properties();
+    parquet::arrow::FileReaderBuilder builder;
+    if (!garrow::check(error, builder.Open(source, parquet_properties), tag)) {
+      return NULL;
+    }
+    if (parquet_properties.is_buffered_stream_enabled()) {
+      // Read-ahead would bypass the buffered stream by caching whole column chunks.
+      auto arrow_properties = parquet::default_arrow_reader_properties();
+      arrow_properties.set_pre_buffer(false);
+      builder.properties(arrow_properties);
+    }
+    auto result = builder.Build();
+    if (!garrow::check(error, result, tag)) {
+      return NULL;
+    }
+    return gparquet_arrow_file_reader_new_raw(result->release());
+  }
+} // namespace
+
 G_BEGIN_DECLS
 
 /**
@@ -32,13 +59,145 @@ G_BEGIN_DECLS
  * @short_description: Arrow file reader class
  * @include: parquet-glib/parquet-glib.h
  *
+ * #GParquetReaderProperties is a class for configuring Parquet reads.
+ *
  * #GParquetArrowFileReader is a class for reading Apache Parquet data
  * from file and returns them as Apache Arrow data.
  */
 
+typedef struct GParquetReaderPropertiesPrivate_
+{
+  parquet::ReaderProperties properties;
+} GParquetReaderPropertiesPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GParquetReaderProperties,
+                           gparquet_reader_properties,
+                           G_TYPE_OBJECT)
+
+#define GPARQUET_READER_PROPERTIES_GET_PRIVATE(object)                                   \
+  static_cast<GParquetReaderPropertiesPrivate *>(                                        \
+    gparquet_reader_properties_get_instance_private(GPARQUET_READER_PROPERTIES(object)))
+
+static void
+gparquet_reader_properties_finalize(GObject *object)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(object);
+  priv->properties.~ReaderProperties();
+  G_OBJECT_CLASS(gparquet_reader_properties_parent_class)->finalize(object);
+}
+
+static void
+gparquet_reader_properties_init(GParquetReaderProperties *object)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(object);
+  new (&priv->properties) parquet::ReaderProperties(parquet::default_reader_properties());
+}
+
+static void
+gparquet_reader_properties_class_init(GParquetReaderPropertiesClass *klass)
+{
+  G_OBJECT_CLASS(klass)->finalize = gparquet_reader_properties_finalize;
+}
+
+/**
+ * gparquet_reader_properties_new:
+ *
+ * Returns: A newly created #GParquetReaderProperties.
+ *
+ * Since: 26.0.0
+ */
+GParquetReaderProperties *
+gparquet_reader_properties_new(void)
+{
+  return GPARQUET_READER_PROPERTIES(g_object_new(GPARQUET_TYPE_READER_PROPERTIES, NULL));
+}
+
+/**
+ * gparquet_reader_properties_enable_buffered_stream:
+ * @properties: A #GParquetReaderProperties.
+ *
+ * Enable buffered stream reading. Readers constructed with these properties
+ * disable read-ahead of whole column chunks to use buffered streams instead.
+ * This does not impose a limit on the memory used by decoded data.
+ *
+ * Since: 26.0.0
+ */
+void
+gparquet_reader_properties_enable_buffered_stream(GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  priv->properties.enable_buffered_stream();
+}
+
+/**
+ * gparquet_reader_properties_disable_buffered_stream:
+ * @properties: A #GParquetReaderProperties.
+ *
+ * Disable buffered stream reading. This is the default.
+ *
+ * Since: 26.0.0
+ */
+void
+gparquet_reader_properties_disable_buffered_stream(GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  priv->properties.disable_buffered_stream();
+}
+
+/**
+ * gparquet_reader_properties_is_buffered_stream_enabled:
+ * @properties: A #GParquetReaderProperties.
+ *
+ * Returns: %TRUE if buffered stream reading is enabled, %FALSE otherwise.
+ *
+ * Since: 26.0.0
+ */
+gboolean
+gparquet_reader_properties_is_buffered_stream_enabled(
+  GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  return priv->properties.is_buffered_stream_enabled();
+}
+
+/**
+ * gparquet_reader_properties_set_buffer_size:
+ * @properties: A #GParquetReaderProperties.
+ * @buffer_size: The buffer size in bytes. This must be positive when buffering is
+ * enabled.
+ *
+ * Set the buffered stream size. This does not enable buffered stream reading.
+ * Reads required for a data page may exceed this size.
+ *
+ * Since: 26.0.0
+ */
+void
+gparquet_reader_properties_set_buffer_size(GParquetReaderProperties *properties,
+                                           gint64 buffer_size)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  priv->properties.set_buffer_size(buffer_size);
+}
+
+/**
+ * gparquet_reader_properties_get_buffer_size:
+ * @properties: A #GParquetReaderProperties.
+ *
+ * Returns: The buffered stream size in bytes.
+ *
+ * Since: 26.0.0
+ */
+gint64
+gparquet_reader_properties_get_buffer_size(GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  return priv->properties.buffer_size();
+}
+
 typedef struct GParquetArrowFileReaderPrivate_
 {
   parquet::arrow::FileReader *arrow_file_reader;
+  GArrowSeekableInputStream *source;
 } GParquetArrowFileReaderPrivate;
 
 enum {
@@ -53,6 +212,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetArrowFileReader,
 #define GPARQUET_ARROW_FILE_READER_GET_PRIVATE(obj)                                      \
   static_cast<GParquetArrowFileReaderPrivate *>(                                         \
     gparquet_arrow_file_reader_get_instance_private(GPARQUET_ARROW_FILE_READER(obj)))
+
+static void
+gparquet_arrow_file_reader_dispose(GObject *object)
+{
+  auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(object);
+  g_clear_object(&priv->source);
+  G_OBJECT_CLASS(gparquet_arrow_file_reader_parent_class)->dispose(object);
+}
 
 static void
 gparquet_arrow_file_reader_finalize(GObject *object)
@@ -108,6 +275,7 @@ gparquet_arrow_file_reader_class_init(GParquetArrowFileReaderClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose = gparquet_arrow_file_reader_dispose;
   gobject_class->finalize = gparquet_arrow_file_reader_finalize;
   gobject_class->set_property = gparquet_arrow_file_reader_set_property;
   gobject_class->get_property = gparquet_arrow_file_reader_get_property;
@@ -179,6 +347,63 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * gparquet_arrow_file_reader_new_arrow_with_properties:
+ * @source: Arrow source to be read.
+ * @properties: (nullable): Reader properties or %NULL for the defaults.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * The reader copies @properties at construction. Later changes to @properties
+ * do not affect the reader. The native source is retained by the reader.
+ *
+ * Returns: (nullable): A newly created #GParquetArrowFileReader.
+ *
+ * Since: 26.0.0
+ */
+GParquetArrowFileReader *
+gparquet_arrow_file_reader_new_arrow_with_properties(GArrowSeekableInputStream *source,
+                                                     GParquetReaderProperties *properties,
+                                                     GError **error)
+{
+  auto reader = open_reader_with_properties(
+    garrow_seekable_input_stream_get_raw(source),
+    properties,
+    error,
+    "[parquet][arrow][file-reader][new-arrow-with-properties]");
+  if (reader) {
+    auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(reader);
+    priv->source = GARROW_SEEKABLE_INPUT_STREAM(g_object_ref(source));
+  }
+  return reader;
+}
+
+/**
+ * gparquet_arrow_file_reader_new_path_with_properties:
+ * @path: Path to be read.
+ * @properties: (nullable): Reader properties or %NULL for the defaults.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * The reader copies @properties at construction. Later changes to @properties
+ * do not affect the reader. The file is memory mapped, as with
+ * gparquet_arrow_file_reader_new_path().
+ *
+ * Returns: (nullable): A newly created #GParquetArrowFileReader.
+ *
+ * Since: 26.0.0
+ */
+GParquetArrowFileReader *
+gparquet_arrow_file_reader_new_path_with_properties(const gchar *path,
+                                                    GParquetReaderProperties *properties,
+                                                    GError **error)
+{
+  const char *tag = "[parquet][arrow][file-reader][new-path-with-properties]";
+  auto source = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
+  if (!garrow::check(error, source, tag)) {
+    return NULL;
+  }
+  return open_reader_with_properties(*source, properties, error, tag);
 }
 
 /**
@@ -425,4 +650,11 @@ gparquet_arrow_file_reader_get_raw(GParquetArrowFileReader *arrow_file_reader)
 {
   auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(arrow_file_reader);
   return priv->arrow_file_reader;
+}
+
+parquet::ReaderProperties
+gparquet_reader_properties_get_raw(GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  return priv->properties;
 }
