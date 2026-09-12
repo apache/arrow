@@ -1336,3 +1336,13 @@ test_that(".by argument", {
     "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })
+
+test_that("summarize() after arrange() (GH-45373)", {
+  compare_dplyr_binding(
+    .input |>
+      arrange(int) |>
+      summarize(min_int = min(int, na.rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+})
