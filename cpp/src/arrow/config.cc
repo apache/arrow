@@ -25,7 +25,7 @@
 // GH-51267: only the vendored datetime backend bundles the vendored timezone
 // implementation; std::chrono builds use the OS timezone database instead.
 #if !defined(ARROW_USE_STD_CHRONO) || !ARROW_USE_STD_CHRONO
-#include "arrow/vendored/datetime.h"
+#  include "arrow/vendored/datetime.h"
 #endif
 
 namespace arrow {
@@ -89,11 +89,11 @@ RuntimeInfo GetRuntimeInfo() {
   info.timezone_db_path = std::optional<std::string>();
 #else
   info.using_os_timezone_db = USE_OS_TZDB;
-#if !USE_OS_TZDB
+#  if !USE_OS_TZDB
   info.timezone_db_path = timezone_db_path;
-#else
+#  else
   info.timezone_db_path = std::optional<std::string>();
-#endif
+#  endif
 #endif
   return info;
 }

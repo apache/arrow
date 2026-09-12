@@ -131,10 +131,8 @@ have_std_chrono = cpp_compiler.links(
 std_chrono_opt = get_option('use_std_chrono')
 if std_chrono_opt.enabled()
     if not have_std_chrono
-        error(
-            'use_std_chrono=enabled requires working C++20 chrono timezone '
-            + 'support, which the current toolchain does not provide',
-        )
+        error('use_std_chrono=enabled requires working C++20 chrono timezone '
+            + 'support, which the current toolchain does not provide')
     endif
     needs_std_chrono = true
 elif std_chrono_opt.disabled()
