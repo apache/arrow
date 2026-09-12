@@ -4249,6 +4249,9 @@ def test_expression_construction():
     with pytest.raises(TypeError):
         field.isin(1)
 
+    with pytest.raises(TypeError, match="Argument 'other' has incorrect type"):
+        field.equals(None)
+
     with pytest.raises(pa.ArrowInvalid):
         field != object()
 
