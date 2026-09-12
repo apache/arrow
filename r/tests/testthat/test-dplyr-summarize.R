@@ -1354,4 +1354,13 @@ test_that("summarize() after arrange() (GH-45373)", {
       collect(),
     tbl
   )
+  # A row limit between arrange() and summarize() still uses the sorted rows
+  compare_dplyr_binding(
+    .input |>
+      arrange(int) |>
+      head(3) |>
+      summarize(max_int = max(int, na.rm = TRUE)) |>
+      collect(),
+    tbl
+  )
 })
