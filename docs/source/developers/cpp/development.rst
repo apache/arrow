@@ -74,6 +74,24 @@ corresponding executable from the command line, e.g.::
 Code Style, Linting, and CI
 ===========================
 
+Development Tool Requirements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following tools and versions are required for C++ development:
+
+* **clang-format** version 14.0.6 or later for code formatting
+* **pre-commit** version 2.17.0 or later (Ubuntu 22.04 ships with this version)
+* **Ubuntu** 22.04 LTS or later for Linux development (Ubuntu 22.04 is supported until June 2027)
+
+These tools are used in our continuous integration pipeline to ensure code quality
+and consistency. To set up pre-commit hooks locally, install the ``pre-commit``
+Python package and run::
+
+   $ pip install pre-commit
+   $ pre-commit install
+
+This will automatically run formatting and linting checks before each commit.
+
 This project follows `Google's C++ Style Guide
 <https://google.github.io/styleguide/cppguide.html>`_ with these exceptions:
 
