@@ -114,6 +114,38 @@ needs_zlib = get_option('zlib').enabled()
 needs_zstd = get_option('zstd').enabled()
 needs_utilities = get_option('utilities').enabled()
 
+# GH-51267: resolve the datetime backend (C++20 std::chrono vs the vendored
+# datetime fallback) with toolchain feature detection. This mirrors the
+# ARROW_USE_STD_CHRONO CMake option.
+std_chrono_probe_src = '''
+#include <chrono>
+#if !defined(__cpp_lib_chrono) || __cpp_lib_chrono < 201907L
+#error "C++20 chrono timezone support (__cpp_lib_chrono >= 201907L) is unavailable"
+#endif
+int main() { return 0; }
+'''
+have_std_chrono = cpp_compiler.links(
+    std_chrono_probe_src,
+    name: 'C++20 chrono timezone support',
+)
+std_chrono_opt = get_option('use_std_chrono')
+if std_chrono_opt.enabled()
+    if not have_std_chrono
+        error(
+            'use_std_chrono=enabled requires working C++20 chrono timezone '
+            + 'support, which the current toolchain does not provide',
+        )
+    endif
+    needs_std_chrono = true
+elif std_chrono_opt.disabled()
+    needs_std_chrono = false
+else
+    # auto: keep the historical platform default (std::chrono on Windows
+    # toolchains with timezone support, vendored fallback elsewhere) until the
+    # minimum-toolchain prerequisites in GH-51267 are met.
+    needs_std_chrono = host_machine.system() == 'windows' and have_std_chrono
+endif
+
 if needs_flight or needs_substrait
     protobuf_dep = dependency('protobuf')
     protoc = find_program('protoc')

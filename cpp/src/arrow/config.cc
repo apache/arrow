@@ -22,7 +22,11 @@
 #include "arrow/util/config.h"
 #include "arrow/util/config_internal.h"
 #include "arrow/util/cpu_info.h"
+// GH-51267: only the vendored datetime backend bundles the vendored timezone
+// implementation; std::chrono builds use the OS timezone database instead.
+#if !defined(ARROW_USE_STD_CHRONO) || !ARROW_USE_STD_CHRONO
 #include "arrow/vendored/datetime.h"
+#endif
 
 namespace arrow {
 
@@ -64,7 +68,9 @@ std::string MakeSimdLevelString(QueryFlagFunction&& query_flag) {
   }
 }
 
+#if !defined(ARROW_USE_STD_CHRONO) || !ARROW_USE_STD_CHRONO
 std::optional<std::string> timezone_db_path;
+#endif  // ARROW_USE_STD_CHRONO
 
 };  // namespace
 
@@ -77,11 +83,17 @@ RuntimeInfo GetRuntimeInfo() {
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsSupported(flags); });
   info.detected_simd_level =
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsDetected(flags); });
+#if defined(ARROW_USE_STD_CHRONO) && ARROW_USE_STD_CHRONO
+  // GH-51267: std::chrono builds always use the OS timezone database.
+  info.using_os_timezone_db = true;
+  info.timezone_db_path = std::optional<std::string>();
+#else
   info.using_os_timezone_db = USE_OS_TZDB;
 #if !USE_OS_TZDB
   info.timezone_db_path = timezone_db_path;
 #else
   info.timezone_db_path = std::optional<std::string>();
+#endif
 #endif
   return info;
 }
@@ -91,7 +103,11 @@ RuntimeInfo GetRuntimeInfo() {
 Status Initialize(const GlobalOptions& options) noexcept {
   ARROW_SUPPRESS_DEPRECATION_WARNING
   if (options.timezone_db_path.has_value()) {
-#if !USE_OS_TZDB
+#if defined(ARROW_USE_STD_CHRONO) && ARROW_USE_STD_CHRONO
+    return Status::Invalid(
+        "Arrow was built with C++20 std::chrono and uses the OS timezone database, "
+        "so a downloaded database cannot be provided at runtime.");
+#elif !USE_OS_TZDB
     try {
       arrow_vendored::date::set_install(options.timezone_db_path.value());
       arrow_vendored::date::reload_tzdb();
@@ -103,7 +119,7 @@ Status Initialize(const GlobalOptions& options) noexcept {
     return Status::Invalid(
         "Arrow was set to use OS timezone database at compile time, "
         "so a downloaded database cannot be provided at runtime.");
-#endif  // !USE_OS_TZDB
+#endif  // ARROW_USE_STD_CHRONO / USE_OS_TZDB
   }
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
   return Status::OK();
