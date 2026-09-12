@@ -37,9 +37,7 @@ endif
 # GH-51267: standard-backend builds (use_std_chrono) use C++20 std::chrono and
 # do not bundle the vendored datetime implementation. All other builds keep it
 # as a fallback.
-arrow_vendored_sources = [
-    'vendored/base64.cpp',
-]
+arrow_vendored_sources = ['vendored/base64.cpp']
 if not needs_std_chrono
     arrow_vendored_sources += 'vendored/datetime.cpp'
 endif
@@ -149,9 +147,7 @@ arrow_components = {
         'dependencies': [dl_dep],
     },
     'memory_pool': {'sources': ['memory_pool.cc']},
-    'vendored': {
-        'sources': arrow_vendored_sources,
-    },
+    'vendored': {'sources': arrow_vendored_sources},
     'arrow_base': {
         'sources': [
             'builder.cc',
