@@ -1336,3 +1336,31 @@ test_that(".by argument", {
     "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })
+
+test_that("summarize() after arrange() (GH-45373)", {
+  compare_dplyr_binding(
+    .input |>
+      arrange(int) |>
+      summarize(min_int = min(int, na.rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input |>
+      arrange(dbl) |>
+      group_by(some_grouping) |>
+      summarize(total = sum(int, na.rm = TRUE)) |>
+      arrange(some_grouping) |>
+      collect(),
+    tbl
+  )
+  # A row limit between arrange() and summarize() still uses the sorted rows
+  compare_dplyr_binding(
+    .input |>
+      arrange(int) |>
+      head(3) |>
+      summarize(max_int = max(int, na.rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+})
