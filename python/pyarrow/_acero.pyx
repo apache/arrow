@@ -594,6 +594,8 @@ cdef class Declaration(_Weakrefable):
             CDeclaration c_decl
 
         for decl in decls:
+            if not isinstance(decl, Declaration):
+                raise TypeError("Expected a Declaration")
             c_decls.push_back((<Declaration> decl).unwrap())
 
         c_decl = CDeclaration.Sequence(c_decls)
