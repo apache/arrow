@@ -17,9 +17,10 @@
   under the License.
 -->
 
-The files in this directory are vendored from uriparser git tag "uriparser-0.9.3".
+The files in this directory are vendored from uriparser git tag "uriparser-1.0.2".
 
 Include paths fixed using:
+
 ```
-sed -E -i 's:include <uriparser/(.*).h>:include "\1.h":g' src/arrow/vendored/uriparser/*
+sed -E -i 's:include "(.*).h":include "\1.h":g' src/arrow/vendored/uriparser/*
 ```
