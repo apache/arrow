@@ -252,6 +252,25 @@ def test_call_tabular_function_rejects_invalid_registry():
         pc.call_tabular_function("", None, 1)
 
 
+@pytest.mark.parametrize("register_function", [
+    pc.register_scalar_function,
+    pc.register_vector_function,
+    pc.register_aggregate_function,
+    pc.register_tabular_function,
+])
+def test_register_function_rejects_invalid_registry(register_function):
+    with pytest.raises(TypeError,
+                       match="func_registry must be a FunctionRegistry"):
+        register_function(
+            func=lambda context: None,
+            function_name="invalid_registry",
+            function_doc={"summary": "", "description": ""},
+            in_types={},
+            out_type=pa.struct([]),
+            func_registry=1,
+        )
+
+
 def _check_get_function(name, expected_func_cls, expected_ker_cls,
                         min_num_kernels=1):
     func = pc.get_function(name)

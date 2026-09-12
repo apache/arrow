@@ -3482,6 +3482,8 @@ def _register_user_defined_function(register_func, func, function_name, function
 
     if func_registry is None:
         c_func_registry = NULL
+    elif not isinstance(func_registry, FunctionRegistry):
+        raise TypeError("func_registry must be a FunctionRegistry")
     else:
         c_func_registry = (<FunctionRegistry>func_registry).registry
 
