@@ -330,3 +330,18 @@ test_that("if_all() and if_any() are supported", {
     example_data
   )
 })
+
+test_that("if_any() and if_all() keep their name and leave other quosures alone", {
+  # GH-34860
+  expect_across_equal(
+    quos(new_var = if_any(c(dbl, dbl2), ~ .x > 4)),
+    quos(new_var = dbl > 4 | dbl2 > 4),
+    example_data
+  )
+
+  expect_across_equal(
+    quos(int_plus = int + 1L, new_var = if_all(c(dbl, dbl2), ~ .x > 4)),
+    quos(int_plus = int + 1L, new_var = dbl > 4 & dbl2 > 4),
+    example_data
+  )
+})

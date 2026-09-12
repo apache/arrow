@@ -59,17 +59,17 @@ expand_across <- function(.data, quos_in, exclude_cols = NULL) {
 
       new_quos <- quosures_from_setup(setup, quo_env)
 
+      # if_any()/if_all() collapse the expanded quosures into a single
+      # expression, keeping whatever name the user gave the call
+      if (is_call(quo_expr, c("if_any", "if_all"))) {
+        op <- if (is_call(quo_expr, "if_any")) "|" else "&"
+        combined <- reduce(new_quos, combine_if, op = op, envir = quo_env)
+        new_quos <- set_names(list(combined), names(quo_in))
+      }
+
       quos_out <- append(quos_out, new_quos)
     } else {
       quos_out <- append(quos_out, quo_in)
-    }
-
-    if (is_call(quo_expr, "if_any")) {
-      quos_out <- append(list(), purrr::reduce(quos_out, combine_if, op = "|", envir = quo_get_env(quos_out[[1]])))
-    }
-
-    if (is_call(quo_expr, "if_all")) {
-      quos_out <- append(list(), purrr::reduce(quos_out, combine_if, op = "&", envir = quo_get_env(quos_out[[1]])))
     }
   }
 
