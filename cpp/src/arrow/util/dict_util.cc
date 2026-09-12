@@ -54,8 +54,15 @@ int64_t LogicalNullCount(const ArraySpan& span) {
 }  // namespace
 
 int64_t LogicalNullCount(const ArraySpan& span) {
-  if (span.dictionary().GetNullCount() == 0 || span.length == 0) {
+  const auto& dictionary_span = span.dictionary();
+  if (dictionary_span.GetNullCount() == 0 || span.length == 0) {
     return span.GetNullCount();
+  }
+  if (!dictionary_span.HasValidityBitmap()) {
+    // The dictionary has nulls but no validity bitmap to inspect, which means all
+    // of its values are null (a null-typed dictionary). Every index, valid or not,
+    // is then logically null.
+    return span.length;
   }
 
   const auto& dict_array_type = internal::checked_cast<const DictionaryType&>(*span.type);

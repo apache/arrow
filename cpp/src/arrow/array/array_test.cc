@@ -179,6 +179,12 @@ TEST_F(TestArray, TestNullCount) {
                              true, true);
     CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
                              1, 3, true, true);
+
+    // a null-typed dictionary is all-null and has no validity bitmap
+    dict_type = dictionary(index_type, null());
+    CheckDictionaryNullCount(dict_type, "[null]", "[]", 0, 0, false, true);
+    CheckDictionaryNullCount(dict_type, "[null]", "[0, 0]", 0, 2, false, true);
+    CheckDictionaryNullCount(dict_type, "[null]", "[0, 0, null]", 1, 3, true, true);
   }
 }
 
@@ -200,6 +206,16 @@ TEST_F(TestArray, TestSlicePreservesAllNullCount) {
   ASSERT_EQ(dict_arr->ComputeLogicalNullCount(), 8);
   ASSERT_EQ(dict_arr->Slice(2, 8)->null_count(), 0);
   ASSERT_EQ(dict_arr->Slice(2, 8)->ComputeLogicalNullCount(), 6);
+
+  // A null-typed dictionary has no validity bitmap, so the logical null count of a
+  // slice comes from the slice's own length rather than from a per-index scan.
+  std::shared_ptr<arrow::Array> null_dict_arr =
+      DictArrayFromJSON(dictionary(int64(), null()), /*indices=*/"[0, null, 0, 0, 0]",
+                        /*dictionary=*/"[null]");
+  ASSERT_EQ(null_dict_arr->null_count(), 1);
+  ASSERT_EQ(null_dict_arr->ComputeLogicalNullCount(), 5);
+  ASSERT_EQ(null_dict_arr->Slice(2, 3)->null_count(), 0);
+  ASSERT_EQ(null_dict_arr->Slice(2, 3)->ComputeLogicalNullCount(), 3);
 }
 
 TEST_F(TestArray, TestLength) {
