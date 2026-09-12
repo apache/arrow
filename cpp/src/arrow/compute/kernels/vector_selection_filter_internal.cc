@@ -919,6 +919,11 @@ Status SparseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResu
   return FilterWithTakeExec(SparseUnionTakeExec, ctx, batch, out);
 }
 
+Status VarBinaryViewFilterExec(KernelContext* ctx, const ExecSpan& batch,
+                               ExecResult* out) {
+  return FilterWithTakeExec(VarBinaryViewTakeExec, ctx, batch, out);
+}
+
 // ----------------------------------------------------------------------
 // Implement Filter metafunction
 
@@ -1094,6 +1099,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), plain_filter, PrimitiveFilterExec},
       {InputType(match::BinaryLike()), plain_filter, BinaryFilterExec},
       {InputType(match::LargeBinaryLike()), plain_filter, BinaryFilterExec},
+      {InputType(Type::BINARY_VIEW), plain_filter, VarBinaryViewFilterExec},
+      {InputType(Type::STRING_VIEW), plain_filter, VarBinaryViewFilterExec},
       {InputType(null()), plain_filter, NullFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), plain_filter, PrimitiveFilterExec},
       {InputType(Type::DECIMAL32), plain_filter, PrimitiveFilterExec},
@@ -1116,6 +1123,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), ree_filter, PrimitiveFilterExec},
       {InputType(match::BinaryLike()), ree_filter, BinaryFilterExec},
       {InputType(match::LargeBinaryLike()), ree_filter, BinaryFilterExec},
+      {InputType(Type::BINARY_VIEW), ree_filter, VarBinaryViewFilterExec},
+      {InputType(Type::STRING_VIEW), ree_filter, VarBinaryViewFilterExec},
       {InputType(null()), ree_filter, NullFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), ree_filter, PrimitiveFilterExec},
       {InputType(Type::DECIMAL32), ree_filter, PrimitiveFilterExec},

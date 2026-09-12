@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
@@ -750,6 +751,46 @@ TEST(Scatter, Binary) {
       int64_t max_index = 3;
       auto expected = "[null, null, null, null]";
       TestScatter(value_type, values, indices, max_index, expected);
+    }
+  }
+}
+
+TEST(Scatter, BinaryView) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    {
+      auto values = R"(["a", "b", "long-value-over-inline-limit", "d"])";
+      auto indices = "[2, 0, 3, 1]";
+      int64_t max_index = 3;
+      auto expected = R"(["b", "d", "a", "long-value-over-inline-limit"])";
+      TestScatter(value_type, values, indices, max_index, expected);
+    }
+    {
+      auto values = R"(["a", "b", "c"])";
+      auto indices = "[2, null, 0]";
+      int64_t max_index = 4;
+      auto expected = R"(["c", null, "a", null, null])";
+      TestScatter(value_type, values, indices, max_index, expected);
+    }
+    {
+      auto values = R"(["first", "second"])";
+      auto indices = "[0, 0]";
+      int64_t max_index = 0;
+      auto expected = R"(["second"])";
+      TestScatter(value_type, values, indices, max_index, expected);
+    }
+    {
+      auto dict_values = ArrayFromJSON(
+          value_type, R"(["alpha", "long-value-over-inline-limit", "omega"])");
+      auto dict_type = dictionary(int8(), value_type);
+      ASSERT_OK_AND_ASSIGN(
+          auto values, DictionaryArray::FromArrays(
+                           dict_type, ArrayFromJSON(int8(), "[0, 1, 2]"), dict_values));
+      ASSERT_OK_AND_ASSIGN(
+          auto expected, DictionaryArray::FromArrays(
+                             dict_type, ArrayFromJSON(int8(), "[1, 2, 0]"), dict_values));
+      AssertScatterAAA(values, ArrayFromJSON(int32(), "[2, 0, 1]"), /*max_index=*/2,
+                       expected);
     }
   }
 }
