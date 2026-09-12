@@ -252,6 +252,15 @@ abandon_ship <- function(err, env) {
 arrow_mask <- function(.data) {
   f_env <- new_environment(.cache$functions)
 
+  # Empty column names can't be bound into an environment (GH-40303).
+  # Like dplyr, refuse to transform such data rather than repairing names.
+  if (!all(nzchar(names(.data$selected_columns)))) {
+    abort(c(
+      "Can't transform data with empty (`\"\"`) column names.",
+      i = "Rename or drop the unnamed columns first, e.g. with `rename()` or `select()`."
+    ))
+  }
+
   # Assign the schema to the expressions
   schema <- .data$.data$schema
   walk(.data$selected_columns, ~ (.$schema <- schema))
