@@ -62,9 +62,15 @@ conf_data.set('ARROW_USE_GLOG', false)
 # Meson options always resolve (there is no unset state), so the resolved
 # decision is emitted directly and chrono_internal.h's fallback is bypassed.
 if needs_std_chrono
-  conf_data.set('ARROW_USE_STD_CHRONO_DEFINITION', '#define ARROW_USE_STD_CHRONO 1')
+    conf_data.set(
+        'ARROW_USE_STD_CHRONO_DEFINITION',
+        '#define ARROW_USE_STD_CHRONO 1',
+    )
 else
-  conf_data.set('ARROW_USE_STD_CHRONO_DEFINITION', '#define ARROW_USE_STD_CHRONO 0')
+    conf_data.set(
+        'ARROW_USE_STD_CHRONO_DEFINITION',
+        '#define ARROW_USE_STD_CHRONO 0',
+    )
 endif
 
 has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
