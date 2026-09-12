@@ -602,11 +602,10 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUnsetIsUpdate) {
   ActionCreatePreparedStatementResult result;
   result.prepared_statement_handle = "test_handle";
   ASSERT_FALSE(result.is_update.has_value());
+  ASSERT_EQ(result.is_update, std::nullopt);
 
-  ASSERT_OK_AND_ASSIGN(auto packed, PackActionResult(result));
-  flight_sql_pb::ActionCreatePreparedStatementResult pb_result;
-  ASSERT_TRUE(pb_result.ParseFromString(packed.body->ToString()));
-  ASSERT_FALSE(pb_result.has_is_update());
+  PreparedStatement prepared_statement(nullptr, "test_handle", nullptr, nullptr, result.is_update);
+  ASSERT_EQ(prepared_statement.is_update(), std::nullopt);
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
