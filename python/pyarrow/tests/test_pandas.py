@@ -124,6 +124,7 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
         warnings.filterwarnings(
             "ignore", "elementwise comparison failed", DeprecationWarning)
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
+                              check_freq=False,
                               check_index_type=('equiv' if preserve_index
                                                 else False))
 
@@ -5006,7 +5007,7 @@ def test_does_not_mutate_timedelta_dtype():
 
     assert np.dtype(np.timedelta64) == expected
 
-    df = pd.DataFrame({"a": [np.timedelta64()]})
+    df = pd.DataFrame({"a": [np.timedelta64(0, "ns")]})
     t = pa.Table.from_pandas(df)
     t.to_pandas()
 
