@@ -75,24 +75,31 @@ inline int64_t PaddedLength(int64_t nbytes) {
   return ((nbytes + alignment - 1) / alignment) * alignment;
 }
 
-Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* data,
-                             int64_t bit_offset, const int64_t length,
-                             int64_t* bytes_written) {
+Status WritePaddedBitmap(io::OutputStream* stream, const uint8_t* data,
+                         int64_t bit_offset, const int64_t bit_length,
+                         int64_t* bytes_written) {
   data = data + bit_offset / 8;
-  uint8_t bit_shift = static_cast<uint8_t>(bit_offset % 8);
-  if (bit_offset == 0) {
+  const uint8_t bit_shift = static_cast<uint8_t>(bit_offset % 8);
+  const int64_t length = bit_util::BytesForBits(bit_length);
+  if (bit_shift == 0) {
     RETURN_NOT_OK(stream->Write(data, length));
   } else {
     constexpr int64_t buffersize = 256;
     uint8_t buffer[buffersize];
     const uint8_t lshift = static_cast<uint8_t>(8 - bit_shift);
+    const uint8_t* data_end =
+        data + bit_util::BytesForBits(bit_shift + bit_length);
     const uint8_t* buffer_end = buffer + buffersize;
     uint8_t* buffer_it = buffer;
 
-    for (const uint8_t* end = data + length; data != end;) {
+    for (int64_t i = 0; i < length; ++i) {
       uint8_t r = static_cast<uint8_t>(*data++ >> bit_shift);
-      uint8_t l = static_cast<uint8_t>(*data << lshift);
+      uint8_t l =
+          data == data_end ? 0 : static_cast<uint8_t>(*data << lshift);
       uint8_t value = l | r;
+      if (i == length - 1 && bit_length % 8 != 0) {
+        value &= bit_util::LeastSignificantBitMask<uint8_t>(bit_length % 8);
+      }
       *buffer_it++ = value;
       if (buffer_it == buffer_end) {
         RETURN_NOT_OK(stream->Write(buffer, buffersize));
@@ -114,7 +121,13 @@ Status WritePaddedWithOffset(io::OutputStream* stream, const uint8_t* data,
 
 Status WritePadded(io::OutputStream* stream, const uint8_t* data, int64_t length,
                    int64_t* bytes_written) {
-  return WritePaddedWithOffset(stream, data, /*bit_offset=*/0, length, bytes_written);
+  RETURN_NOT_OK(stream->Write(data, length));
+  int64_t remainder = PaddedLength(length) - length;
+  if (remainder != 0) {
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder));
+  }
+  *bytes_written = length + remainder;
+  return Status::OK();
 }
 
 struct ColumnType {
@@ -526,13 +539,25 @@ struct ArrayWriterV1 {
   io::OutputStream* dst;
   ArrayMetadata* meta;
 
-  Status WriteBuffer(const uint8_t* buffer, int64_t length, int64_t bit_offset) {
+  Status WriteBuffer(const uint8_t* buffer, int64_t length) {
+    int64_t bytes_written = 0;
+    if (buffer) {
+      RETURN_NOT_OK(WritePadded(dst, buffer, length, &bytes_written));
+    } else {
+      RETURN_NOT_OK(WritePaddedBlank(dst, length, &bytes_written));
+    }
+    meta->total_bytes += bytes_written;
+    return Status::OK();
+  }
+
+  Status WriteBitmap(const uint8_t* buffer, int64_t bit_length, int64_t bit_offset) {
     int64_t bytes_written = 0;
     if (buffer) {
       RETURN_NOT_OK(
-          WritePaddedWithOffset(dst, buffer, bit_offset, length, &bytes_written));
+          WritePaddedBitmap(dst, buffer, bit_offset, bit_length, &bytes_written));
     } else {
-      RETURN_NOT_OK(WritePaddedBlank(dst, length, &bytes_written));
+      RETURN_NOT_OK(
+          WritePaddedBlank(dst, bit_util::BytesForBits(bit_length), &bytes_written));
     }
     meta->total_bytes += bytes_written;
     return Status::OK();
@@ -561,12 +586,14 @@ struct ArrayWriterV1 {
     const auto& fw_type = checked_cast<const FixedWidthType&>(*values.type());
 
     if (prim_values.values()) {
+      if constexpr (is_boolean_type<T>::value) {
+        return WriteBitmap(prim_values.values()->data(), values.length(),
+                           prim_values.offset());
+      }
       const uint8_t* buffer =
           prim_values.values()->data() + (prim_values.offset() * fw_type.bit_width() / 8);
-      int64_t bit_offset = (prim_values.offset() * fw_type.bit_width()) % 8;
-      return WriteBuffer(buffer,
-                         bit_util::BytesForBits(values.length() * fw_type.bit_width()),
-                         bit_offset);
+      return WriteBuffer(
+          buffer, bit_util::BytesForBits(values.length() * fw_type.bit_width()));
     } else {
       return Status::OK();
     }
@@ -588,14 +615,13 @@ struct ArrayWriterV1 {
       values_bytes = offsets_data[values.length()];
     }
     RETURN_NOT_OK(WriteBuffer(reinterpret_cast<const uint8_t*>(offsets_data),
-                              sizeof(offset_type) * (values.length() + 1),
-                              /*bit_offset=*/0));
+                              sizeof(offset_type) * (values.length() + 1)));
 
     const uint8_t* values_buffer = nullptr;
     if (ty_values.value_data()) {
       values_buffer = ty_values.value_data()->data();
     }
-    return WriteBuffer(values_buffer, values_bytes, /*bit_offset=*/0);
+    return WriteBuffer(values_buffer, values_bytes);
   }
 
   Status Write() {
@@ -612,9 +638,8 @@ struct ArrayWriterV1 {
 
     // Write the null bitmask
     if (values.null_count() > 0) {
-      RETURN_NOT_OK(WriteBuffer(values.null_bitmap_data(),
-                                bit_util::BytesForBits(values.length()),
-                                values.offset()));
+      RETURN_NOT_OK(
+          WriteBitmap(values.null_bitmap_data(), values.length(), values.offset()));
     }
     // Write data buffer(s)
     return VisitTypeInline(*values.type(), this);
