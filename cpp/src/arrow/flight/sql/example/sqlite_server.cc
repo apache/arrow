@@ -479,8 +479,9 @@ class SQLiteFlightSqlServer::Impl {
     }
 
     std::shared_ptr<Schema> parameter_schema = arrow::schema(parameter_fields);
+    const bool is_update = sqlite3_stmt_readonly(stmt) == 0;
     return ActionCreatePreparedStatementResult{
-        std::move(dataset_schema), std::move(parameter_schema), std::move(handle)};
+        std::move(dataset_schema), std::move(parameter_schema), std::move(handle), is_update};
   }
 
   Status ClosePreparedStatement(const ServerCallContext& context,
