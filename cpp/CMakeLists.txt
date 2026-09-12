@@ -346,6 +346,10 @@ endif()
 
 include(SetupCxxFlags)
 
+# GH-51267: resolve the datetime backend (C++20 std::chrono vs the vendored
+# datetime fallback) with toolchain feature detection.
+include(CheckStdChrono)
+
 if(${CMAKE_CXX_FLAGS_DEBUG} MATCHES "-Og")
   # GH-47475: xxhash fails inlining when -Og is used.
   # See: https://github.com/Cyan4973/xxHash/issues/943
