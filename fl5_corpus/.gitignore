@@ -1,0 +1,4 @@
+# build products, not sources
+fl5_corpus
+seq_granularity
+*.o
