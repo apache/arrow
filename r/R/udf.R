@@ -164,20 +164,19 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
   # rather than silently ignoring them (GH-37761)
   if (!fun_formals_have_dots) {
     fun_arg_names <- names(formals(fun))[-1]
-    # positions where a named field doesn't match the argument in that position
-    mismatched <- lapply(in_type, function(sig) {
-      nms <- names(sig)
-      same <- nms == fun_arg_names[seq_along(nms)]
-      same[is.na(same)] <- FALSE
-      which(nzchar(nms) & !same)
-    })
-    first_bad <- which(lengths(mismatched) > 0)[1]
-    if (!is.na(first_bad)) {
-      pos <- mismatched[[first_bad]]
+    in_type_names <- lapply(in_type, names)
+    mismatch <- vapply(
+      in_type_names,
+      function(nms) {
+        isTRUE(any(nzchar(nms) & nms != fun_arg_names[seq_along(nms)]))
+      },
+      logical(1)
+    )
+    if (any(mismatch)) {
       abort(c(
         "Names in `in_type` must match the argument names of `fun` (after `context`)",
-        x = paste0("`in_type` names: ", oxford_paste(names(in_type[[first_bad]])[pos])),
-        x = paste0("`fun` argument names: ", oxford_paste(fun_arg_names[pos]))
+        x = paste0("`in_type` names: ", oxford_paste(unlist(in_type_names))),
+        x = paste0("`fun` argument names: ", oxford_paste(fun_arg_names))
       ))
     }
   }
