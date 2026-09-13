@@ -2088,28 +2088,28 @@ cdef class Bool8Type(BaseExtensionType):
         return Bool8Scalar
 
 
-cdef class RangeType(BaseExtensionType):
+cdef class FixedClosednessRangeType(BaseExtensionType):
     """
-    Concrete class for range extension type.
+    Concrete class for fixed closedness range extension type.
 
-    Range represents a bounded set (a mathematical interval) over an orderable
-    Arrow value type. The underlying storage is a Struct with two fields
-    "lower" and "upper" of the value type, each optionally nullable; when a
-    bound field is nullable, a null value denotes an unbounded (infinite) side.
-    The "closed" parameter controls which finite bounds are inclusive.
+    A fixed closedness range represents a bounded set (a mathematical interval)
+    over an orderable Arrow value type. The underlying storage is a Struct with
+    two fields "lower" and "upper" of the value type, each optionally nullable;
+    when a bound field is nullable, a null value denotes an unbounded (infinite)
+    side. The "closed" parameter controls which finite bounds are inclusive.
 
     Examples
     --------
-    Create an instance of range extension type:
+    Create an instance of fixed closedness range extension type:
 
     >>> import pyarrow as pa
-    >>> pa.range_(pa.int32(), "both")
-    RangeType(extension<arrow.range[value_type=int32, closed=both]>)
+    >>> pa.fixed_closedness_range(pa.int32(), "both")
+    FixedClosednessRangeType(extension<arrow.fixed_closedness_range[value_type=int32, closed=both]>)
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         BaseExtensionType.init(self, type)
-        self.range_ext_type = <const CRangeType*> type.get()
+        self.range_ext_type = <const CFixedClosednessRangeType*> type.get()
 
     @property
     def value_type(self):
@@ -2135,22 +2135,23 @@ cdef class RangeType(BaseExtensionType):
             return "neither"
 
     def __arrow_ext_class__(self):
-        return RangeArray
+        return FixedClosednessRangeArray
 
     def __reduce__(self):
-        return range_, (self.value_type, self.closed)
+        return fixed_closedness_range, (self.value_type, self.closed)
 
     def __arrow_ext_scalar_class__(self):
-        return RangeScalar
+        return FixedClosednessRangeScalar
 
 
-cdef class RangeIncType(BaseExtensionType):
+cdef class VariableClosednessRangeType(BaseExtensionType):
     """
-    Concrete class for range_inc extension type.
+    Concrete class for variable closedness range extension type.
 
-    Like :class:`RangeType`, this represents a bounded set (a mathematical
-    interval) over an orderable Arrow value type, but the inclusivity of each
-    bound is stored *per value* rather than as a single type-level parameter.
+    Like :class:`FixedClosednessRangeType`, this represents a bounded set (a
+    mathematical interval) over an orderable Arrow value type, but the
+    inclusivity of each bound is stored *per value* rather than as a single
+    type-level parameter.
     The underlying storage is a Struct with four fields: "lower" and "upper"
     (the value type, each optionally nullable to denote an unbounded endpoint)
     and non-nullable boolean "lower_inc" and "upper_inc" recording whether each
@@ -2160,32 +2161,32 @@ cdef class RangeIncType(BaseExtensionType):
 
     Examples
     --------
-    Create an instance of range_inc extension type:
+    Create an instance of variable closedness range extension type:
 
     >>> import pyarrow as pa
-    >>> pa.range_inc(pa.float64())
-    RangeIncType(extension<arrow.range_inc[value_type=double]>)
+    >>> pa.variable_closedness_range(pa.float64())
+    VariableClosednessRangeType(extension<arrow.variable_closedness_range[value_type=double]>)
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
         BaseExtensionType.init(self, type)
-        self.range_inc_ext_type = <const CRangeIncType*> type.get()
+        self.range_ext_type = <const CVariableClosednessRangeType*> type.get()
 
     @property
     def value_type(self):
         """
         The Arrow value type of the "lower" and "upper" bounds.
         """
-        return pyarrow_wrap_data_type(self.range_inc_ext_type.value_type())
+        return pyarrow_wrap_data_type(self.range_ext_type.value_type())
 
     def __arrow_ext_class__(self):
-        return RangeIncArray
+        return VariableClosednessRangeArray
 
     def __reduce__(self):
-        return range_inc, (self.value_type,)
+        return variable_closedness_range, (self.value_type,)
 
     def __arrow_ext_scalar_class__(self):
-        return RangeIncScalar
+        return VariableClosednessRangeScalar
 
 
 cdef class OpaqueType(BaseExtensionType):
@@ -5803,9 +5804,10 @@ def bool8():
     return out
 
 
-def range_(DataType value_type not None, str closed="left", allow_unbounded=True):
+def fixed_closedness_range(DataType value_type not None, str closed="left",
+                           allow_unbounded=True):
     """
-    Create instance of range extension type.
+    Create instance of fixed closedness range extension type.
 
     Parameters
     ----------
@@ -5822,12 +5824,12 @@ def range_(DataType value_type not None, str closed="left", allow_unbounded=True
 
     Examples
     --------
-    Create an instance of a range extension type:
+    Create an instance of a fixed closedness range extension type:
 
     >>> import pyarrow as pa
-    >>> type = pa.range_(pa.int32(), "both")
+    >>> type = pa.fixed_closedness_range(pa.int32(), "both")
     >>> type
-    RangeType(extension<arrow.range[value_type=int32, closed=both]>)
+    FixedClosednessRangeType(extension<arrow.fixed_closedness_range[value_type=int32, closed=both]>)
 
     Inspect the data type:
 
@@ -5838,7 +5840,7 @@ def range_(DataType value_type not None, str closed="left", allow_unbounded=True
     >>> type.storage_type
     StructType(struct<lower: int32, upper: int32>)
 
-    Create a range array:
+    Create a fixed closedness range array:
 
     >>> storage = pa.array(
     ...     [{"lower": 1, "upper": 5}, {"lower": None, "upper": 10}],
@@ -5846,11 +5848,11 @@ def range_(DataType value_type not None, str closed="left", allow_unbounded=True
     ... )
     >>> arr = pa.ExtensionArray.from_storage(type, storage)
     >>> arr.type
-    RangeType(extension<arrow.range[value_type=int32, closed=both]>)
+    FixedClosednessRangeType(extension<arrow.fixed_closedness_range[value_type=int32, closed=both]>)
 
     Returns
     -------
-    type : RangeType
+    type : FixedClosednessRangeType
     """
 
     cdef CRangeClosed c_closed
@@ -5864,26 +5866,29 @@ def range_(DataType value_type not None, str closed="left", allow_unbounded=True
         c_closed = CRangeClosed.Neither
     else:
         raise ValueError(
-            f"Invalid value for range \"closed\" parameter: {closed!r}. "
-            "Expected one of: 'left', 'right', 'both', 'neither'.")
+            f"Invalid value for fixed_closedness_range \"closed\" parameter: "
+            f"{closed!r}. Expected one of: 'left', 'right', 'both', 'neither'.")
 
     cdef:
         shared_ptr[CDataType] c_type = GetResultValue(
-            CRangeType.Make(value_type.sp_type, c_closed, allow_unbounded))
-        RangeType out = RangeType.__new__(RangeType)
+            CFixedClosednessRangeType.Make(
+                value_type.sp_type, c_closed, allow_unbounded))
+        FixedClosednessRangeType out = FixedClosednessRangeType.__new__(
+            FixedClosednessRangeType)
     out.init(c_type)
     return out
 
 
-def range_inc(DataType value_type not None, allow_unbounded=True):
+def variable_closedness_range(DataType value_type not None, allow_unbounded=True):
     """
-    Create instance of range_inc extension type.
+    Create instance of variable closedness range extension type.
 
-    Unlike :func:`range_`, the inclusivity of each bound is stored per value
-    (in boolean "lower_inc"/"upper_inc" storage fields) rather than as a single
-    type-level "closed" parameter, so there is no "closed" argument. This is
-    required for continuous ranges (e.g. PostgreSQL's ``numrange``, ``tsrange``,
-    ``tstzrange``) that cannot be canonicalized to a uniform closedness.
+    Unlike :func:`fixed_closedness_range`, the inclusivity of each bound is
+    stored per value (in boolean "lower_inc"/"upper_inc" storage fields) rather
+    than as a single type-level "closed" parameter, so there is no "closed"
+    argument. This is required for continuous ranges (e.g. PostgreSQL's
+    ``numrange``, ``tsrange``, ``tstzrange``) that cannot be canonicalized to a
+    uniform closedness.
 
     Parameters
     ----------
@@ -5898,12 +5903,12 @@ def range_inc(DataType value_type not None, allow_unbounded=True):
 
     Examples
     --------
-    Create an instance of a range_inc extension type:
+    Create an instance of a variable closedness range extension type:
 
     >>> import pyarrow as pa
-    >>> type = pa.range_inc(pa.float64())
+    >>> type = pa.variable_closedness_range(pa.float64())
     >>> type
-    RangeIncType(extension<arrow.range_inc[value_type=double]>)
+    VariableClosednessRangeType(extension<arrow.variable_closedness_range[value_type=double]>)
 
     Inspect the data type:
 
@@ -5912,7 +5917,7 @@ def range_inc(DataType value_type not None, allow_unbounded=True):
     >>> type.storage_type
     StructType(struct<lower: double, upper: double, lower_inc: bool not null, upper_inc: bool not null>)
 
-    Create a range_inc array:
+    Create a variable closedness range array:
 
     >>> storage = pa.array(
     ...     [{"lower": 1.0, "upper": 5.0, "lower_inc": True, "upper_inc": False}],
@@ -5920,17 +5925,18 @@ def range_inc(DataType value_type not None, allow_unbounded=True):
     ... )
     >>> arr = pa.ExtensionArray.from_storage(type, storage)
     >>> arr.type
-    RangeIncType(extension<arrow.range_inc[value_type=double]>)
+    VariableClosednessRangeType(extension<arrow.variable_closedness_range[value_type=double]>)
 
     Returns
     -------
-    type : RangeIncType
+    type : VariableClosednessRangeType
     """
 
     cdef:
         shared_ptr[CDataType] c_type = GetResultValue(
-            CRangeIncType.Make(value_type.sp_type, allow_unbounded))
-        RangeIncType out = RangeIncType.__new__(RangeIncType)
+            CVariableClosednessRangeType.Make(value_type.sp_type, allow_unbounded))
+        VariableClosednessRangeType out = VariableClosednessRangeType.__new__(
+            VariableClosednessRangeType)
     out.init(c_type)
     return out
 

@@ -36,47 +36,47 @@ using internal::checked_pointer_cast;
 // ---------------------------------------------------------------------------
 // Helpers
 
-static std::shared_ptr<extension::RangeType> RangeInt32Right() {
-  return checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), extension::RangeClosed::Right));
+static std::shared_ptr<extension::FixedClosednessRangeType> RangeInt32Right() {
+  return checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Right));
 }
 
-static std::shared_ptr<extension::RangeType> RangeInt32Both() {
-  return checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), extension::RangeClosed::Both));
+static std::shared_ptr<extension::FixedClosednessRangeType> RangeInt32Both() {
+  return checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Both));
 }
 
-static std::shared_ptr<extension::RangeType> RangeInt64Left() {
-  return checked_pointer_cast<extension::RangeType>(
-      extension::range(int64(), extension::RangeClosed::Left));
+static std::shared_ptr<extension::FixedClosednessRangeType> RangeInt64Left() {
+  return checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int64(), extension::RangeClosed::Left));
 }
 
 // ---------------------------------------------------------------------------
 // Basics
 
-TEST(RangeType, Basics) {
+TEST(FixedClosednessRangeType, Basics) {
   auto type = RangeInt32Right();
-  ASSERT_EQ("arrow.range", type->extension_name());
+  ASSERT_EQ("arrow.fixed_closedness_range", type->extension_name());
   ASSERT_EQ(*int32(), *type->value_type());
   ASSERT_EQ(extension::RangeClosed::Right, type->closed());
   ASSERT_EQ(*type, *type);
   ASSERT_NE(*arrow::null(), *type);
   ASSERT_THAT(type->Serialize(), ::testing::Not(::testing::IsEmpty()));
   ASSERT_EQ(R"({"closed":"right"})", type->Serialize());
-  ASSERT_EQ("extension<arrow.range[value_type=int32, closed=right]>",
+  ASSERT_EQ("extension<arrow.fixed_closedness_range[value_type=int32, closed=right]>",
             type->ToString(false));
 }
 
-TEST(RangeType, AllClosedValues) {
+TEST(FixedClosednessRangeType, AllClosedValues) {
   using C = extension::RangeClosed;
-  auto left =
-      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Left));
-  auto right =
-      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Right));
-  auto both =
-      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Both));
-  auto neither =
-      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Neither));
+  auto left = checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), C::Left));
+  auto right = checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), C::Right));
+  auto both = checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), C::Both));
+  auto neither = checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), C::Neither));
 
   ASSERT_EQ(R"({"closed":"left"})", left->Serialize());
   ASSERT_EQ(R"({"closed":"right"})", right->Serialize());
@@ -87,7 +87,7 @@ TEST(RangeType, AllClosedValues) {
 // ---------------------------------------------------------------------------
 // Equals
 
-TEST(RangeType, Equals) {
+TEST(FixedClosednessRangeType, Equals) {
   auto type_i32_right = RangeInt32Right();
   auto type_i32_both = RangeInt32Both();
   auto type_i64_left = RangeInt64Left();
@@ -113,7 +113,7 @@ TEST(RangeType, Equals) {
 // ---------------------------------------------------------------------------
 // CreateFromArray
 
-TEST(RangeType, CreateFromArray) {
+TEST(FixedClosednessRangeType, CreateFromArray) {
   auto type = RangeInt32Right();
   // Build a StructArray that matches the storage type.
   auto storage_type = type->storage_type();
@@ -134,7 +134,7 @@ namespace {
 
 void CheckRangeDeserialize(const std::string& serialized,
                            const std::shared_ptr<DataType>& expected) {
-  auto type = checked_pointer_cast<extension::RangeType>(expected);
+  auto type = checked_pointer_cast<extension::FixedClosednessRangeType>(expected);
   ASSERT_OK_AND_ASSIGN(auto deserialized,
                        type->Deserialize(type->storage_type(), serialized));
   ASSERT_EQ(*expected, *deserialized);
@@ -142,29 +142,32 @@ void CheckRangeDeserialize(const std::string& serialized,
 
 }  // namespace
 
-TEST(RangeType, Deserialize) {
+TEST(FixedClosednessRangeType, Deserialize) {
   // Normal JSON
-  ASSERT_NO_FATAL_FAILURE(
-      CheckRangeDeserialize(R"({"closed": "right"})",
-                            extension::range(int32(), extension::RangeClosed::Right)));
   ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
-      R"({"closed": "left"})", extension::range(int32(), extension::RangeClosed::Left)));
+      R"({"closed": "right"})",
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Right)));
   ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
-      R"({"closed": "both"})", extension::range(int32(), extension::RangeClosed::Both)));
-  ASSERT_NO_FATAL_FAILURE(
-      CheckRangeDeserialize(R"({"closed": "neither"})",
-                            extension::range(int32(), extension::RangeClosed::Neither)));
+      R"({"closed": "left"})",
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Left)));
+  ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
+      R"({"closed": "both"})",
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Both)));
+  ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
+      R"({"closed": "neither"})",
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Neither)));
 
   // Extra fields are tolerated (forward-compatibility).
-  ASSERT_NO_FATAL_FAILURE(
-      CheckRangeDeserialize(R"({"closed": "right", "extra": 42})",
-                            extension::range(int32(), extension::RangeClosed::Right)));
+  ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
+      R"({"closed": "right", "extra": 42})",
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Right)));
 }
 
-TEST(RangeType, DefaultClosedIsLeft) {
+TEST(FixedClosednessRangeType, DefaultClosedIsLeft) {
   // The C++ convenience default is left-closed; the wire format still always
   // carries an explicit "closed".
-  auto type = checked_pointer_cast<extension::RangeType>(extension::range(int32()));
+  auto type = checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32()));
   ASSERT_EQ(extension::RangeClosed::Left, type->closed());
   ASSERT_EQ(R"({"closed":"left"})", type->Serialize());
 }
@@ -172,7 +175,7 @@ TEST(RangeType, DefaultClosedIsLeft) {
 // ---------------------------------------------------------------------------
 // Deserialize - invalid cases
 
-TEST(RangeType, DeserializeInvalidMetadata) {
+TEST(FixedClosednessRangeType, DeserializeInvalidMetadata) {
   auto type = RangeInt32Right();
 
   // "closed" is required on the wire: empty metadata is invalid.
@@ -198,11 +201,11 @@ TEST(RangeType, DeserializeInvalidMetadata) {
       type->Deserialize(type->storage_type(), R"({"closed": 42})"));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Invalid value for RangeType"),
+      Invalid, testing::HasSubstr("Invalid value for FixedClosednessRangeType"),
       type->Deserialize(type->storage_type(), R"({"closed": "unknown"})"));
 }
 
-TEST(RangeType, DeserializeInvalidStorage) {
+TEST(FixedClosednessRangeType, DeserializeInvalidStorage) {
   auto type = RangeInt32Right();
   auto wrong_storage_not_struct = int32();
 
@@ -243,7 +246,7 @@ TEST(RangeType, DeserializeInvalidStorage) {
 // Bound nullability is only needed to represent an unbounded (infinite)
 // endpoint; non-nullable bounds describe a finite-only range and are accepted.
 
-TEST(RangeType, NonNullableBounds) {
+TEST(FixedClosednessRangeType, NonNullableBounds) {
   auto type = RangeInt32Right();
 
   // Both bounds non-nullable: accepted (a finite-only range).
@@ -252,7 +255,8 @@ TEST(RangeType, NonNullableBounds) {
   ASSERT_OK_AND_ASSIGN(auto from_non_nullable,
                        type->Deserialize(both_non_nullable, R"({"closed":"right"})"));
   ASSERT_EQ(*int32(),
-            *checked_pointer_cast<extension::RangeType>(from_non_nullable)->value_type());
+            *checked_pointer_cast<extension::FixedClosednessRangeType>(from_non_nullable)
+                 ->value_type());
 
   // Asymmetric: lower nullable (may be -inf), upper non-nullable (always finite).
   auto asymmetric = struct_({field("lower", int32(), /*nullable=*/true),
@@ -260,11 +264,13 @@ TEST(RangeType, NonNullableBounds) {
   ASSERT_OK_AND_ASSIGN(auto from_asymmetric,
                        type->Deserialize(asymmetric, R"({"closed":"left"})"));
   ASSERT_EQ(extension::RangeClosed::Left,
-            checked_pointer_cast<extension::RangeType>(from_asymmetric)->closed());
+            checked_pointer_cast<extension::FixedClosednessRangeType>(from_asymmetric)
+                ->closed());
 
   // The factory can build non-nullable bounds via allow_unbounded=false.
-  auto finite = checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), extension::RangeClosed::Both, /*allow_unbounded=*/false));
+  auto finite = checked_pointer_cast<extension::FixedClosednessRangeType>(
+      extension::fixed_closedness_range(int32(), extension::RangeClosed::Both,
+                                        /*allow_unbounded=*/false));
   const auto& finite_storage =
       internal::checked_cast<const StructType&>(*finite->storage_type());
   ASSERT_FALSE(finite_storage.field(0)->nullable());
@@ -274,13 +280,15 @@ TEST(RangeType, NonNullableBounds) {
 // ---------------------------------------------------------------------------
 // Metadata (Serialize/Deserialize) round-trip
 
-TEST(RangeType, MetadataRoundTrip) {
+TEST(FixedClosednessRangeType, MetadataRoundTrip) {
   using C = extension::RangeClosed;
-  for (const auto& type :
-       {extension::range(int32(), C::Left), extension::range(int32(), C::Right),
-        extension::range(int32(), C::Both), extension::range(int32(), C::Neither),
-        extension::range(int64(), C::Right), extension::range(date32(), C::Both)}) {
-    auto rt = checked_pointer_cast<extension::RangeType>(type);
+  for (const auto& type : {extension::fixed_closedness_range(int32(), C::Left),
+                           extension::fixed_closedness_range(int32(), C::Right),
+                           extension::fixed_closedness_range(int32(), C::Both),
+                           extension::fixed_closedness_range(int32(), C::Neither),
+                           extension::fixed_closedness_range(int64(), C::Right),
+                           extension::fixed_closedness_range(date32(), C::Both)}) {
+    auto rt = checked_pointer_cast<extension::FixedClosednessRangeType>(type);
     std::string serialized = rt->Serialize();
     ASSERT_OK_AND_ASSIGN(auto deserialized,
                          rt->Deserialize(rt->storage_type(), serialized));
@@ -291,7 +299,7 @@ TEST(RangeType, MetadataRoundTrip) {
 // ---------------------------------------------------------------------------
 // IPC (BatchRoundTrip) -- registration round-trip
 
-TEST(RangeType, BatchRoundTrip) {
+TEST(FixedClosednessRangeType, BatchRoundTrip) {
   auto type = RangeInt32Right();
   auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
   auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
@@ -319,13 +327,13 @@ TEST(RangeType, BatchRoundTrip) {
 }
 
 // ===========================================================================
-// RangeIncType -- per-value bound inclusivity
+// VariableClosednessRangeType -- per-value bound inclusivity
 // ===========================================================================
 
 namespace {
 
-std::shared_ptr<DataType> IncStorage(const std::shared_ptr<DataType>& value_type,
-                                     bool nullable_bounds = true) {
+std::shared_ptr<DataType> VariableClosednessStorage(
+    const std::shared_ptr<DataType>& value_type, bool nullable_bounds = true) {
   return struct_({field("lower", value_type, nullable_bounds),
                   field("upper", value_type, nullable_bounds),
                   field("lower_inc", boolean(), /*nullable=*/false),
@@ -337,16 +345,17 @@ std::shared_ptr<DataType> IncStorage(const std::shared_ptr<DataType>& value_type
 // ---------------------------------------------------------------------------
 // Basics
 
-TEST(RangeIncType, Basics) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
-  ASSERT_EQ("arrow.range_inc", type->extension_name());
+TEST(VariableClosednessRangeType, Basics) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
+  ASSERT_EQ("arrow.variable_closedness_range", type->extension_name());
   ASSERT_EQ(*int32(), *type->value_type());
   ASSERT_EQ(*type, *type);
   ASSERT_NE(*arrow::null(), *type);
   // No type-level parameters: metadata is the empty JSON object.
   ASSERT_EQ("{}", type->Serialize());
-  ASSERT_EQ("extension<arrow.range_inc[value_type=int32]>", type->ToString(false));
+  ASSERT_EQ("extension<arrow.variable_closedness_range[value_type=int32]>",
+            type->ToString(false));
   // Storage carries the two non-nullable boolean inclusivity fields.
   const auto& storage = internal::checked_cast<const StructType&>(*type->storage_type());
   ASSERT_EQ(4, storage.num_fields());
@@ -360,13 +369,15 @@ TEST(RangeIncType, Basics) {
 // ---------------------------------------------------------------------------
 // Equals
 
-TEST(RangeIncType, Equals) {
-  auto i32 = checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
-  auto i32b =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
-  auto i64 = checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int64()));
-  auto i32_finite = checked_pointer_cast<extension::RangeIncType>(
-      extension::range_inc(int32(), /*allow_unbounded=*/false));
+TEST(VariableClosednessRangeType, Equals) {
+  auto i32 = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
+  auto i32b = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
+  auto i64 = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int64()));
+  auto i32_finite = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32(), /*allow_unbounded=*/false));
 
   // Same object / same parameters.
   ASSERT_EQ(*i32, *i32);
@@ -378,17 +389,17 @@ TEST(RangeIncType, Equals) {
   // Different bound nullability is part of storage, hence a different type.
   ASSERT_NE(*i32, *i32_finite);
 
-  // Not equal to non-range types, including a plain arrow.range.
+  // Not equal to non-range types, including a plain arrow.fixed_closedness_range.
   ASSERT_NE(*i32, *arrow::int32());
-  ASSERT_NE(*i32, *extension::range(int32()));
+  ASSERT_NE(*i32, *extension::fixed_closedness_range(int32()));
 }
 
 // ---------------------------------------------------------------------------
 // CreateFromArray
 
-TEST(RangeIncType, CreateFromArray) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+TEST(VariableClosednessRangeType, CreateFromArray) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
   auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
   auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
   auto lower_inc = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -404,9 +415,9 @@ TEST(RangeIncType, CreateFromArray) {
 // ---------------------------------------------------------------------------
 // Deserialize - valid cases (metadata carries no parameters)
 
-TEST(RangeIncType, DeserializeMetadata) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+TEST(VariableClosednessRangeType, DeserializeMetadata) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
 
   // Empty string, empty object, and extra keys are all accepted.
   for (const auto& serialized :
@@ -420,9 +431,9 @@ TEST(RangeIncType, DeserializeMetadata) {
 // ---------------------------------------------------------------------------
 // Deserialize - invalid cases
 
-TEST(RangeIncType, DeserializeInvalidMetadata) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+TEST(VariableClosednessRangeType, DeserializeInvalidMetadata) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   testing::HasSubstr("Invalid serialized JSON data"),
@@ -432,9 +443,9 @@ TEST(RangeIncType, DeserializeInvalidMetadata) {
                                   type->Deserialize(type->storage_type(), "[]"));
 }
 
-TEST(RangeIncType, DeserializeInvalidStorage) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+TEST(VariableClosednessRangeType, DeserializeInvalidStorage) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
 
   // Not a struct.
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("must be a Struct"),
@@ -478,21 +489,22 @@ TEST(RangeIncType, DeserializeInvalidStorage) {
 // ---------------------------------------------------------------------------
 // Non-nullable bounds
 
-TEST(RangeIncType, NonNullableBounds) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+TEST(VariableClosednessRangeType, NonNullableBounds) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
 
   // Both bounds non-nullable: accepted (a finite-only range).
   ASSERT_OK_AND_ASSIGN(
       auto from_non_nullable,
-      type->Deserialize(IncStorage(int32(), /*nullable_bounds=*/false), "{}"));
-  ASSERT_EQ(
-      *int32(),
-      *checked_pointer_cast<extension::RangeIncType>(from_non_nullable)->value_type());
+      type->Deserialize(VariableClosednessStorage(int32(), /*nullable_bounds=*/false),
+                        "{}"));
+  ASSERT_EQ(*int32(), *checked_pointer_cast<extension::VariableClosednessRangeType>(
+                           from_non_nullable)
+                           ->value_type());
 
   // The factory can build non-nullable bounds via allow_unbounded=false.
-  auto finite = checked_pointer_cast<extension::RangeIncType>(
-      extension::range_inc(int32(), /*allow_unbounded=*/false));
+  auto finite = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32(), /*allow_unbounded=*/false));
   const auto& finite_storage =
       internal::checked_cast<const StructType&>(*finite->storage_type());
   ASSERT_FALSE(finite_storage.field(0)->nullable());
@@ -505,11 +517,12 @@ TEST(RangeIncType, NonNullableBounds) {
 // ---------------------------------------------------------------------------
 // Metadata round-trip
 
-TEST(RangeIncType, MetadataRoundTrip) {
-  for (const auto& type :
-       {extension::range_inc(int32()), extension::range_inc(int64()),
-        extension::range_inc(date32()), extension::range_inc(int32(), false)}) {
-    auto rt = checked_pointer_cast<extension::RangeIncType>(type);
+TEST(VariableClosednessRangeType, MetadataRoundTrip) {
+  for (const auto& type : {extension::variable_closedness_range(int32()),
+                           extension::variable_closedness_range(int64()),
+                           extension::variable_closedness_range(date32()),
+                           extension::variable_closedness_range(int32(), false)}) {
+    auto rt = checked_pointer_cast<extension::VariableClosednessRangeType>(type);
     std::string serialized = rt->Serialize();
     ASSERT_OK_AND_ASSIGN(auto deserialized,
                          rt->Deserialize(rt->storage_type(), serialized));
@@ -520,9 +533,9 @@ TEST(RangeIncType, MetadataRoundTrip) {
 // ---------------------------------------------------------------------------
 // IPC (BatchRoundTrip) -- registration round-trip
 
-TEST(RangeIncType, BatchRoundTrip) {
-  auto type =
-      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+TEST(VariableClosednessRangeType, BatchRoundTrip) {
+  auto type = checked_pointer_cast<extension::VariableClosednessRangeType>(
+      extension::variable_closedness_range(int32()));
   auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
   auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
   auto lower_inc = ArrayFromJSON(boolean(), "[true, false, true]");

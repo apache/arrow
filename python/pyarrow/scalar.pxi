@@ -1641,14 +1641,14 @@ cdef class Bool8Scalar(ExtensionScalar):
         return None if py_val is None else py_val != 0
 
 
-cdef class RangeScalar(ExtensionScalar):
+cdef class FixedClosednessRangeScalar(ExtensionScalar):
     """
-    Concrete class for range extension scalar.
+    Concrete class for fixed closedness range extension scalar.
     """
 
-cdef class RangeIncScalar(ExtensionScalar):
+cdef class VariableClosednessRangeScalar(ExtensionScalar):
     """
-    Concrete class for range_inc extension scalar.
+    Concrete class for variable closedness range extension scalar.
     """
 
 cdef dict _scalar_classes = {

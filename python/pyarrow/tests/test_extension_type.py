@@ -2086,28 +2086,28 @@ def test_opaque_type(pickle_module, storage_type, storage):
     (pa.int64(), [{"lower": None, "upper": None}, {"lower": 2, "upper": 8}]),
     (pa.float64(), [{"lower": 0.0, "upper": 1.5}, None]),
 ])
-def test_range_type(pickle_module, closed, value_type, bounds):
-    range_type = pa.range_(value_type, closed)
-    assert range_type.extension_name == "arrow.range"
+def test_fixed_closedness_range_type(pickle_module, closed, value_type, bounds):
+    range_type = pa.fixed_closedness_range(value_type, closed)
+    assert range_type.extension_name == "arrow.fixed_closedness_range"
     assert range_type.value_type == value_type
     assert range_type.closed == closed
     assert range_type.storage_type == pa.struct([
         pa.field("lower", value_type, nullable=True),
         pa.field("upper", value_type, nullable=True),
     ])
-    assert "arrow.range" in str(range_type)
+    assert "arrow.fixed_closedness_range" in str(range_type)
 
     # the closed parameter defaults to "left"
-    assert pa.range_(value_type).closed == "left"
+    assert pa.fixed_closedness_range(value_type).closed == "left"
 
     assert range_type == range_type
-    assert range_type == pa.range_(value_type, closed)
+    assert range_type == pa.fixed_closedness_range(value_type, closed)
     assert range_type != value_type
     # different closed parameter -> not equal
     other_closed = "right" if closed != "right" else "left"
-    assert range_type != pa.range_(value_type, other_closed)
+    assert range_type != pa.fixed_closedness_range(value_type, other_closed)
     # different value type -> not equal
-    assert range_type != pa.range_(pa.decimal128(12, 3), closed)
+    assert range_type != pa.fixed_closedness_range(pa.decimal128(12, 3), closed)
 
     # Pickle roundtrip
     result = pickle_module.loads(pickle_module.dumps(range_type))
@@ -2125,7 +2125,7 @@ def test_range_type(pickle_module, closed, value_type, bounds):
     buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
     batch = ipc_read_batch(buf)
 
-    assert batch.column(0).type.extension_name == "arrow.range"
+    assert batch.column(0).type.extension_name == "arrow.fixed_closedness_range"
     assert batch.column(0).type.closed == closed
     assert isinstance(batch.column(0), range_arr_class)
     assert batch.column(0) == arr
@@ -2139,21 +2139,21 @@ def test_range_type(pickle_module, closed, value_type, bounds):
     assert inner == storage
 
 
-def test_range_type_invalid_closed():
-    with pytest.raises(ValueError, match="Invalid value for range"):
-        pa.range_(pa.int32(), "invalid")
-    with pytest.raises(ValueError, match="Invalid value for range"):
-        pa.range_(pa.int32(), "")
+def test_fixed_closedness_range_type_invalid_closed():
+    with pytest.raises(ValueError, match="Invalid value for fixed_closedness_range"):
+        pa.fixed_closedness_range(pa.int32(), "invalid")
+    with pytest.raises(ValueError, match="Invalid value for fixed_closedness_range"):
+        pa.fixed_closedness_range(pa.int32(), "")
 
 
-def test_range_type_allow_unbounded():
+def test_fixed_closedness_range_type_allow_unbounded():
     # Default: bounds are nullable (can represent an unbounded / infinite side).
-    nullable = pa.range_(pa.int32(), "both")
+    nullable = pa.fixed_closedness_range(pa.int32(), "both")
     assert nullable.storage_type.field("lower").nullable
     assert nullable.storage_type.field("upper").nullable
 
     # allow_unbounded=False: a finite-only range with non-nullable bounds.
-    finite = pa.range_(pa.int32(), "both", allow_unbounded=False)
+    finite = pa.fixed_closedness_range(pa.int32(), "both", allow_unbounded=False)
     assert not finite.storage_type.field("lower").nullable
     assert not finite.storage_type.field("upper").nullable
     assert finite.value_type == pa.int32()
@@ -2178,9 +2178,9 @@ def test_range_type_allow_unbounded():
         None,
     ]),
 ])
-def test_range_inc_type(pickle_module, value_type, rows):
-    range_type = pa.range_inc(value_type)
-    assert range_type.extension_name == "arrow.range_inc"
+def test_variable_closedness_range_type(pickle_module, value_type, rows):
+    range_type = pa.variable_closedness_range(value_type)
+    assert range_type.extension_name == "arrow.variable_closedness_range"
     assert range_type.value_type == value_type
     # Storage carries the two bounds plus per-value, non-nullable inclusivity flags.
     assert range_type.storage_type == pa.struct([
@@ -2189,17 +2189,17 @@ def test_range_inc_type(pickle_module, value_type, rows):
         pa.field("lower_inc", pa.bool_(), nullable=False),
         pa.field("upper_inc", pa.bool_(), nullable=False),
     ])
-    assert "arrow.range_inc" in str(range_type)
+    assert "arrow.variable_closedness_range" in str(range_type)
     # No type-level closed parameter.
     assert not hasattr(range_type, "closed")
 
     assert range_type == range_type
-    assert range_type == pa.range_inc(value_type)
+    assert range_type == pa.variable_closedness_range(value_type)
     assert range_type != value_type
     # different value type -> not equal
-    assert range_type != pa.range_inc(pa.decimal128(12, 3))
-    # distinct from a plain arrow.range over the same value type
-    assert range_type != pa.range_(value_type)
+    assert range_type != pa.variable_closedness_range(pa.decimal128(12, 3))
+    # distinct from arrow.fixed_closedness_range over the same value type
+    assert range_type != pa.fixed_closedness_range(value_type)
 
     # Pickle roundtrip
     result = pickle_module.loads(pickle_module.dumps(range_type))
@@ -2216,7 +2216,7 @@ def test_range_inc_type(pickle_module, value_type, rows):
     buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
     batch = ipc_read_batch(buf)
 
-    assert batch.column(0).type.extension_name == "arrow.range_inc"
+    assert batch.column(0).type.extension_name == "arrow.variable_closedness_range"
     assert batch.column(0).type.value_type == value_type
     assert isinstance(batch.column(0), range_arr_class)
     assert batch.column(0) == arr
@@ -2230,9 +2230,9 @@ def test_range_inc_type(pickle_module, value_type, rows):
     assert inner == storage
 
 
-def test_range_inc_type_allow_unbounded():
+def test_variable_closedness_range_type_allow_unbounded():
     # Default: bounds are nullable (can represent an unbounded / infinite side).
-    nullable = pa.range_inc(pa.int32())
+    nullable = pa.variable_closedness_range(pa.int32())
     assert nullable.storage_type.field("lower").nullable
     assert nullable.storage_type.field("upper").nullable
     # The inclusivity flags are always non-nullable.
@@ -2240,7 +2240,7 @@ def test_range_inc_type_allow_unbounded():
     assert not nullable.storage_type.field("upper_inc").nullable
 
     # allow_unbounded=False: a finite-only range with non-nullable bounds.
-    finite = pa.range_inc(pa.int32(), allow_unbounded=False)
+    finite = pa.variable_closedness_range(pa.int32(), allow_unbounded=False)
     assert not finite.storage_type.field("lower").nullable
     assert not finite.storage_type.field("upper").nullable
     # The flags stay non-nullable regardless of allow_unbounded.
@@ -2251,7 +2251,8 @@ def test_range_inc_type_allow_unbounded():
     # Distinct types: storage nullability differs.
     assert finite != nullable
 
-    # A non-nullable-bounds range_inc round-trips through its storage.
+    # A variable closedness range with non-nullable bounds round-trips through
+    # its storage.
     storage = pa.array(
         [{"lower": 1, "upper": 5, "lower_inc": True, "upper_inc": False}],
         finite.storage_type,

@@ -155,10 +155,10 @@ static void CreateGlobalRegistry() {
                                                    extension::uuid()};
 
 #ifdef ARROW_JSON
+  ext_types.push_back(extension::fixed_closedness_range(int32()));
   ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
   ext_types.push_back(extension::opaque(null(), "", ""));
-  ext_types.push_back(extension::range(int32()));
-  ext_types.push_back(extension::range_inc(int32()));
+  ext_types.push_back(extension::variable_closedness_range(int32()));
   ext_types.push_back(extension::variable_shape_tensor(int64(), 0));
 #endif
 

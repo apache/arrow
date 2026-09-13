@@ -42,11 +42,11 @@ Extension Type classes
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::extension::RangeType
+.. doxygenclass:: arrow::extension::FixedClosednessRangeType
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::extension::RangeIncType
+.. doxygenclass:: arrow::extension::VariableClosednessRangeType
    :project: arrow_cpp
    :members:
 
@@ -69,20 +69,20 @@ Extension Array classes
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::extension::RangeArray
+.. doxygenclass:: arrow::extension::FixedClosednessRangeArray
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::extension::RangeIncArray
+.. doxygenclass:: arrow::extension::VariableClosednessRangeArray
    :project: arrow_cpp
    :members:
 
 Extension functions
 ===================
 
-.. doxygenfunction:: arrow::extension::range
+.. doxygenfunction:: arrow::extension::fixed_closedness_range
    :project: arrow_cpp
 
-.. doxygenfunction:: arrow::extension::range_inc
+.. doxygenfunction:: arrow::extension::variable_closedness_range
    :project: arrow_cpp
 
