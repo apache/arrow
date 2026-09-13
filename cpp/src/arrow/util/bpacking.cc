@@ -38,7 +38,11 @@ struct UnpackDynamicFunction {
         ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_sve256<Uint>)  //
         ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_sse4_2<Uint>)  //
         ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_avx2<Uint>)      //
-        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_avx512<Uint>)  //
+        // Cap bit-unpack dispatch at 256 bits. The generated AVX-512 kernels
+        // assemble vectors from scalar loads and use out-of-line calls, making
+        // them slower than the AVX2 path. Re-enable this target when its kernels
+        // use vector loads directly.
+        // ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_avx512<Uint>)  //
     };
   }
 };
@@ -55,7 +59,8 @@ struct UnpackBiasDynamicFunction {
         ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_bias_sve256<Uint>)  //
         ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_bias_sse4_2<Uint>)  //
         ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_bias_avx2<Uint>)      //
-        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_bias_avx512<Uint>)  //
+        // Capped at 256 bits for the reason given in UnpackDynamicFunction above.
+        // ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_bias_avx512<Uint>)  //
     };
   }
 };
