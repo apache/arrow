@@ -87,6 +87,48 @@ TEST_F(TestWinsorize, FloatingPoint) {
   }
 }
 
+TEST_F(TestWinsorize, SlicedInput) {
+  // GH-51224: the output is zero-offset, so a sliced input's validity bitmap must be
+  // copied from the slice rather than shared, otherwise it is read from bit 0.
+  for (auto type : FloatingPointTypes()) {
+    options_.lower_limit = 0.0;
+    options_.upper_limit = 1.0;
+    // The parent's leading nulls sit at different positions than the slice's, so sharing
+    // the bitmap would move the nulls.
+    auto parent = ArrayFromJSON(type, "[1.1, 2.2, null, 4.4, null, 6.6, 7.7, 8.8]");
+    auto expected = ArrayFromJSON(type, "[null, 4.4, null, 6.6, 7.7]");
+    CheckWinsorize(parent->Slice(2, 5), expected);
+  }
+  for (auto type : IntTypes()) {
+    options_.lower_limit = 0.0;
+    options_.upper_limit = 1.0;
+    auto parent = ArrayFromJSON(type, "[1, 2, null, 4, null, 6, 7, 8]");
+    auto expected = ArrayFromJSON(type, "[null, 4, null, 6, 7]");
+    CheckWinsorize(parent->Slice(2, 5), expected);
+  }
+  // A slice of an array with no nulls at all keeps the null-free fast path.
+  options_.lower_limit = 0.25;
+  options_.upper_limit = 0.75;
+  auto dense = ArrayFromJSON(float64(), "[1.0, 2.0, 3.0, 44.0, 55.0, 66.0, 77.0]");
+  CheckWinsorize(dense->Slice(1, 5),
+                 ArrayFromJSON(float64(), "[3.0, 3.0, 44.0, 55.0, 55.0]"));
+}
+
+TEST_F(TestWinsorize, SlicedChunkedInput) {
+  // ExecChunked seeds each output from the input chunk, so a sliced chunk carries a
+  // non-zero offset into ClipValues. The output buffers cover the slice alone.
+  options_.lower_limit = 0.0;
+  options_.upper_limit = 1.0;
+  auto parent = ArrayFromJSON(float64(), "[1.1, 2.2, null, 4.4, null, 6.6, 7.7, 8.8]");
+  auto chunked = std::make_shared<ChunkedArray>(
+      ArrayVector{parent->Slice(2, 3), parent->Slice(5, 3)});
+  auto expected = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(float64(), "[null, 4.4, null]"),
+      ArrayFromJSON(float64(), "[6.6, 7.7, 8.8]"),
+  });
+  CheckWinsorize(chunked, expected);
+}
+
 TEST_F(TestWinsorize, Integral) {
   for (auto type : IntTypes()) {
     options_.lower_limit = 0.25;
