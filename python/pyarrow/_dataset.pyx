@@ -1121,7 +1121,8 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, fragments, Schema schema, FileFormat format,
+    def __init__(self, fragments, Schema schema not None,
+                 FileFormat format not None,
                  FileSystem filesystem=None, root_partition=None):
         cdef:
             FileFragment fragment=None
@@ -1138,6 +1139,8 @@ cdef class FileSystemDataset(Dataset):
             )
 
         for fragment in fragments:
+            if fragment is None:
+                raise TypeError("Fragment must not be None")
             c_fragments.push_back(
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
