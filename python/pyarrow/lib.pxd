@@ -203,6 +203,14 @@ cdef class Bool8Type(BaseExtensionType):
     cdef:
         const CBool8Type* bool8_ext_type
 
+cdef class FixedClosednessRangeType(BaseExtensionType):
+    cdef:
+        const CFixedClosednessRangeType* range_ext_type
+
+cdef class VariableClosednessRangeType(BaseExtensionType):
+    cdef:
+        const CVariableClosednessRangeType* range_ext_type
+
 cdef class OpaqueType(BaseExtensionType):
     cdef:
         const COpaqueType* opaque_ext_type
