@@ -38,7 +38,21 @@ struct UnpackDynamicFunction {
         ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_sve256<Uint>)  //
         ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_sse4_2<Uint>)  //
         ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_avx2<Uint>)      //
-        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_avx512<Uint>)  //
+        // Cap the bit-unpack dispatch at 256 bits. The 512-bit target is the one
+        // still driven by the legacy generated kernels in
+        // bpacking_simd512_generated_internal.h, which build their SIMD input
+        // register from an initializer list of scalar loads (one vmovd + one
+        // vpinsrd per element) and are not force-inlined, so each step is an
+        // out-of-line call. Measured on Granite Rapids over 102400 values, that
+        // makes it 6.26x slower than the AVX2 target (geomean widths 1..31: 6.54
+        // vs 40.97 GiB/s) and 0.67x of the *scalar* kernel. Since
+        // ARROW_RUNTIME_SIMD_LEVEL defaults to MAX, every AVX-512 machine was
+        // preferring it. Re-enable once the 512-bit kernels issue real vector
+        // loads -- naively pointing this TU at the Kernel<> machinery used by
+        // bpacking_simd_{128,256}.cc is NOT the fix: it measures 1.17 GiB/s,
+        // 5.6x worse again, because most widths land on is_oversized() ->
+        // NoOpKernel and fall through to the naive path.
+        // ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_avx512<Uint>)  //
     };
   }
 };
@@ -55,7 +69,8 @@ struct UnpackBiasDynamicFunction {
         ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_bias_sve256<Uint>)  //
         ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_bias_sse4_2<Uint>)  //
         ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_bias_avx2<Uint>)      //
-        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_bias_avx512<Uint>)  //
+        // Capped at 256 bits for the reason given in UnpackDynamicFunction above.
+        // ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_bias_avx512<Uint>)  //
     };
   }
 };
