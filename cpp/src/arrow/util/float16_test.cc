@@ -372,5 +372,69 @@ TEST(Float16Test, FromBytes) {
   ASSERT_EQ(Float16::FromBigEndian(bytes.data()), Float16::FromBits(0x1cd0));
 }
 
+TEST(Float16Test, NumericLimits) {
+  using F16 = std::numeric_limits<Float16>;
+  using F32 = std::numeric_limits<float>;
+
+  // Boolean traits - should match standard float
+  ASSERT_EQ(F16::is_specialized, F32::is_specialized);
+  ASSERT_EQ(F16::is_signed, F32::is_signed);
+  ASSERT_EQ(F16::is_integer, F32::is_integer);
+  ASSERT_EQ(F16::is_exact, F32::is_exact);
+  ASSERT_EQ(F16::has_infinity, F32::has_infinity);
+  ASSERT_EQ(F16::has_quiet_NaN, F32::has_quiet_NaN);
+  ASSERT_EQ(F16::has_signaling_NaN, F32::has_signaling_NaN);
+  ASSERT_EQ(F16::has_denorm, F32::has_denorm);
+  ASSERT_EQ(F16::has_denorm_loss, F32::has_denorm_loss);
+  ASSERT_EQ(F16::is_iec559, F32::is_iec559);
+  ASSERT_EQ(F16::is_bounded, F32::is_bounded);
+  ASSERT_EQ(F16::is_modulo, F32::is_modulo);
+  ASSERT_EQ(F16::radix, F32::radix);
+
+  // Check if IEEE 754 is implemented correctly.
+  // Precision and exponent range
+  ASSERT_EQ(F16::digits, 11);
+  ASSERT_EQ(F16::digits10, 3);
+  ASSERT_EQ(F16::max_digits10, 5);
+  ASSERT_EQ(F16::min_exponent, -13);
+  ASSERT_EQ(F16::max_exponent, 16);
+  ASSERT_EQ(F16::min_exponent10, -4);
+  ASSERT_EQ(F16::max_exponent10, 4);
+
+  // Special values
+  ASSERT_FLOAT_EQ(F16::max().ToFloat(), 65504.0f);           // Largest finite value
+  ASSERT_EQ(F16::lowest(), -F16::max());                     // Most negative = -max
+  ASSERT_FLOAT_EQ(F16::epsilon().ToFloat(), 0.0009765625f);  // 2^-10
+  ASSERT_FLOAT_EQ(F16::round_error().ToFloat(), 0.5f);       // Round-to-nearest
+  ASSERT_TRUE(F16::infinity().is_infinity());
+  ASSERT_FALSE(F16::infinity().signbit());
+  ASSERT_TRUE((-F16::infinity()).is_infinity());
+  ASSERT_TRUE((-F16::infinity()).signbit());
+  ASSERT_TRUE(F16::quiet_NaN().is_nan());
+  ASSERT_TRUE(F16::signaling_NaN().is_nan());
+
+  // min() is smallest positive normal, denorm_min() is smallest subnormal
+  ASSERT_TRUE(F16::min().is_finite());
+  ASSERT_FALSE(F16::min().signbit());
+  ASSERT_TRUE(F16::denorm_min().is_finite());
+  ASSERT_FALSE(F16::denorm_min().signbit());
+
+  // Verify special values semantics
+  ASSERT_TRUE(F16::infinity().is_infinity());
+  ASSERT_TRUE((-F16::infinity()).is_infinity());
+  ASSERT_TRUE(F16::min() > Float16::FromBits(0));
+  ASSERT_TRUE(F16::denorm_min() > Float16::FromBits(0));
+  ASSERT_TRUE(F16::denorm_min() < F16::min());
+
+  // Verify epsilon: 1 + epsilon != 1
+  auto one = Float16(1.0f);
+  auto one_plus_epsilon = Float16(one.ToFloat() + F16::epsilon().ToFloat());
+  ASSERT_NE(one, one_plus_epsilon);
+
+  // Verify round_error is 0.5
+  ASSERT_FLOAT_EQ(F16::round_error().ToFloat(), 0.5f);
+  ASSERT_FLOAT_EQ(F32::round_error(), 0.5f);
+}
+
 }  // namespace
 }  // namespace arrow::util
