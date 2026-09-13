@@ -30,8 +30,6 @@
 # by arrow/util/chrono_internal.h and to decide whether the vendored datetime
 # implementation is built.
 
-include(CheckCXXSourceCompiles)
-
 # When Arrow is consumed as a CMake subproject, ARROW_USE_STD_CHRONO is not
 # defined; skip detection and let arrow/util/chrono_internal.h fall back to its
 # default backend selection (vendored datetime fallback).
@@ -51,14 +49,20 @@ int main() { return 0; }
 ")
 
   function(_arrow_check_std_chrono_support out_var)
-    # check_cxx_source_compiles() compiles with the toolchain default standard,
-    # so force C++20 explicitly for this probe.
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-      set(CMAKE_REQUIRED_FLAGS "/std:c++20")
-    else()
-      set(CMAKE_REQUIRED_FLAGS "-std=c++20")
+    # Arrow pins the project-wide standard to C++20 (SetupCxxFlags), so
+    # try_compile already compiles the probe with /std:c++20.  Passing the
+    # switch a second time through CMAKE_REQUIRED_FLAGS made the probe fail
+    # spuriously under CMake 4 + MSVC, which silently downgraded Windows
+    # AUTO builds to the vendored backend whose tzdb lookups then fail at
+    # runtime.  The compiler output is surfaced on failure so a probe
+    # regression is diagnosable from CI directly.
+    try_compile(${out_var}
+                SOURCE_FROM_VAR "arrow_std_chrono_probe.cxx"
+                _ARROW_STD_CHRONO_TEST_SOURCE
+                OUTPUT_VARIABLE _chrono_probe_output)
+    if(NOT ${out_var})
+      message(STATUS "C++20 chrono probe failed with:\n${_chrono_probe_output}")
     endif()
-    check_cxx_source_compiles("${_ARROW_STD_CHRONO_TEST_SOURCE}" ${out_var})
   endfunction()
 
   if("${ARROW_USE_STD_CHRONO}" STREQUAL "AUTO")
