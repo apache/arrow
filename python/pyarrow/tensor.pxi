@@ -615,7 +615,7 @@ shape: {self.shape}"""
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
     @staticmethod
-    def from_tensor(obj):
+    def from_tensor(Tensor obj not None):
         """
         Convert arrow::Tensor to arrow::SparseCOOTensor.
 
@@ -913,7 +913,7 @@ shape: {self.shape}"""
         return pyarrow_wrap_sparse_csr_matrix(csparse_tensor)
 
     @staticmethod
-    def from_tensor(obj):
+    def from_tensor(Tensor obj not None):
         """
         Convert arrow::Tensor to arrow::SparseCSRMatrix.
 
@@ -1184,7 +1184,7 @@ shape: {self.shape}"""
         return pyarrow_wrap_sparse_csc_matrix(csparse_tensor)
 
     @staticmethod
-    def from_tensor(obj):
+    def from_tensor(Tensor obj not None):
         """
         Convert arrow::Tensor to arrow::SparseCSCMatrix
 
@@ -1457,7 +1457,7 @@ shape: {self.shape}"""
         return pyarrow_wrap_sparse_csf_tensor(csparse_tensor)
 
     @staticmethod
-    def from_tensor(obj):
+    def from_tensor(Tensor obj not None):
         """
         Convert arrow::Tensor to arrow::SparseCSFTensor
 
