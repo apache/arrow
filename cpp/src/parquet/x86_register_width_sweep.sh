@@ -3,25 +3,33 @@
 # One-shot benchmark sweep for the register-width question on x86.
 #
 # WHAT THIS ANSWERS
-#   Does the sequential-vs-transposed PFOR decode ratio widen as the SIMD
-#   register gets wider (128 -> 256 -> 512 bits), the way it does on the ARM
-#   machine this project has on hand? We don't have x86 hardware here, so
-#   this script is meant to be handed to someone who does (Kosta), run once,
-#   and the resulting tarball sent back.
+#   Does the sequential-vs-interleaved PFOR decode ratio widen as the SIMD
+#   register gets wider? We don't have x86 hardware here, so this script is
+#   meant to be handed to someone who does, run once, and the resulting
+#   tarball sent back.
+#
+#   The sweep is 128 vs 256 bits only. 512 is deliberately not a data point:
+#   the AVX-512 bit-unpack kernels build their input register from a list of
+#   scalar loads, measuring 6.26x slower than the AVX2 ones and 0.67x of the
+#   scalar kernel, so dispatch is capped at 256 bits in bpacking.cc. A
+#   512-bit leg would therefore resolve back to the AVX2 kernel and print a
+#   duplicate of the 256-bit column while reading as a third measurement,
+#   which is worse than not running it. Restore the leg only once those
+#   kernels issue real vector loads.
 #
 # HOW IT GETS ALL THREE REGISTER WIDTHS FROM ONE BUILD
 #   Arrow picks its bit-unpacking kernel at *runtime* via CPUID, and caps
 #   that choice with the ARROW_USER_SIMD_LEVEL env var (see
 #   cpp/src/arrow/util/cpu_info.cc). A single native build with the default
-#   ARROW_RUNTIME_SIMD_LEVEL=MAX compiles the SSE4_2, AVX2, and AVX512
-#   dispatch candidates all into the same binary; this script just re-runs
-#   that one binary three times, once per env var setting, so the compiler,
+#   ARROW_RUNTIME_SIMD_LEVEL=MAX compiles the SSE4_2 and AVX2 dispatch
+#   candidates into the same binary; this script just re-runs that one binary
+#   once per env var setting, so the compiler,
 #   the flags, the machine, and the binary are held fixed and only the
 #   register width the dispatcher is allowed to pick changes.
 #
 # WHY REPETITIONS ARE FIXED ACROSS ALL THREE WIDTHS
-#   An earlier x86 data point compared a 3-repetition median at 256-bit
-#   against a single run at 512-bit -- a methodology mismatch that could
+#   An earlier x86 data point compared a 3-repetition median at one width
+#   against a single run at another -- a methodology mismatch that could
 #   inflate or deflate either side. This script runs the identical
 #   --benchmark_repetitions at every width, so that variable is removed.
 #
@@ -34,7 +42,7 @@
 #     -DARROW_BUILD_TESTS=OFF
 #   cmake --build build-x86-sweep --target parquet-pfor-comparison-benchmark -j
 #
-#   Do NOT pass -DARROW_SIMD_LEVEL=AVX512 -- that changes the compile
+#   Do NOT pass -DARROW_SIMD_LEVEL=<anything> -- that changes the compile
 #   baseline for the *whole* binary and would no longer match how the ARM
 #   numbers in this report were built (a default Release build). Leave
 #   ARROW_SIMD_LEVEL and ARROW_RUNTIME_SIMD_LEVEL at their defaults; MAX
@@ -46,7 +54,7 @@
 # OUTPUT
 #   x86_register_width_sweep_<hostname>_<date>.tar.gz in the current
 #   directory, containing:
-#     - combined_results.json   (all three register widths, one file)
+#     - combined_results.json   (both register widths, one file)
 #     - machine.txt             (lscpu, cpuinfo flags, governor, arrow commit)
 #     - results_<LEVEL>.json    (the raw per-level benchmark output, kept
 #                                 alongside the combined file for the record)
@@ -121,14 +129,14 @@ if command -v taskset >/dev/null 2>&1; then
   RUNNER=(taskset -c 2)
 fi
 
+# 128 and 256 bits. No AVX512 entry on purpose -- see the header.
 declare -A LEVEL_SUPPORTED=(
   [SSE4_2]=sse4_2
   [AVX2]=avx2
-  [AVX512]=avx512f
 )
 
 RESULT_FILES=()
-for LEVEL in SSE4_2 AVX2 AVX512; do
+for LEVEL in SSE4_2 AVX2; do
   NEEDED_FLAG="${LEVEL_SUPPORTED[${LEVEL}]}"
   if [[ -n "${CPU_FLAGS}" ]] && ! have_flag "${NEEDED_FLAG}"; then
     echo "skipping ${LEVEL}: cpu does not report ${NEEDED_FLAG}" | tee -a "${OUTDIR}/machine.txt"
