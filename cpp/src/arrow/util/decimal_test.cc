@@ -230,6 +230,14 @@ TEST(Decimal32Test, TestIntMinFitsPrecision) {
   ASSERT_FALSE(d.FitsInPrecision(9));
 }
 
+TEST(Decimal32Test, FromStringLimits) {
+  AssertDecimalFromString("-2147483648", Decimal32(INT32_MIN), 10, 0);
+  ASSERT_RAISES(Invalid, Decimal32::FromString("-2147483649"));
+  int32_t precision, scale;
+  ASSERT_RAISES(Invalid,
+                Decimal32::FromString("-2147483649", nullptr, &precision, &scale));
+}
+
 TEST(Decimal64Test, TestIntMinNegate) {
   Decimal64 d(INT64_MIN);
   auto neg = d.Negate();
@@ -239,6 +247,14 @@ TEST(Decimal64Test, TestIntMinNegate) {
 TEST(Decimal64Test, TestIntMinFitsPrecision) {
   Decimal64 d(INT64_MIN);
   ASSERT_FALSE(d.FitsInPrecision(18));
+}
+
+TEST(Decimal64Test, FromStringLimits) {
+  AssertDecimalFromString("-9223372036854775808", Decimal64(INT64_MIN), 19, 0);
+  ASSERT_RAISES(Invalid, Decimal64::FromString("-9223372036854775809"));
+  int32_t precision, scale;
+  ASSERT_RAISES(Invalid, Decimal64::FromString("-9223372036854775809", nullptr,
+                                               &precision, &scale));
 }
 
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
@@ -435,15 +451,25 @@ TEST(Decimal128Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
-  // XXX conversion overflows are currently not detected
+  // XXX conversion overflows after parsing are currently not detected
   //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
   //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
   //   ASSERT_RAISES(Invalid,
   //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
   //   ASSERT_RAISES(Invalid,
   //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("999999999999999999999999999999999999999"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString(
+                             "1.55555555555555555555555555555555555555555555555555"));
+  AssertDecimalFromString("-170141183460469231731687303715884105728",
+                          Decimal128FromLE({0, uint64_t{1} << 63}), 39, 0);
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("170141183460469231731687303715884105728"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("-170141183460469231731687303715884105729"));
+  int32_t precision, scale;
+  ASSERT_RAISES(
+      Invalid, Decimal128::FromString("-170141183460469231731687303715884105729", nullptr,
+                                      &precision, &scale));
 
   // No exponent, many fractional digits
   AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
@@ -541,7 +567,8 @@ TEST(Decimal256Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
   ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
 
-  // XXX conversion overflows are currently not detected
+  // XXX precision limits and conversion overflows after parsing are currently not
+  // detected
   //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
   //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
   //   ASSERT_RAISES(Invalid,
@@ -550,6 +577,20 @@ TEST(Decimal256Test, FromStringLimits) {
   //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
   //   ASSERT_RAISES(Invalid,
   //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString(std::string(78, '9')));
+  AssertDecimalFromString(
+      "-57896044618658097711785492504343953926634992332820282019728792003956564819968",
+      Decimal256FromLE({0, 0, 0, uint64_t{1} << 63}), 77, 0);
+  ASSERT_RAISES(Invalid, Decimal256::FromString("5789604461865809771178549250434395392663"
+                                                "4992332820282019728792003956564819968"));
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("-5789604461865809771178549250434395392663"
+                                       "4992332820282019728792003956564819969"));
+  int32_t precision, scale;
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("-5789604461865809771178549250434395392663"
+                                       "4992332820282019728792003956564819969",
+                                       nullptr, &precision, &scale));
 
   // No exponent, many fractional digits
   AssertDecimalFromString(
