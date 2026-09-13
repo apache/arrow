@@ -255,3 +255,66 @@ function_doc_additions["first_last"] = """
     pyarrow.compute.first
     pyarrow.compute.last
     """
+
+function_doc_additions["any"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([False, True, True])
+    >>> pc.any(arr1)
+    <pyarrow.BooleanScalar: True>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([False, None, False])
+    >>> pc.any(arr2)
+    <pyarrow.BooleanScalar: False>
+    >>> pc.any(arr2, skip_nulls=False)
+    <pyarrow.BooleanScalar: None>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([], type=pa.bool_())
+    >>> pc.any(arr3)
+    <pyarrow.BooleanScalar: None>
+    >>> pc.any(arr3, options=pc.ScalarAggregateOptions(min_count=0))
+    <pyarrow.BooleanScalar: False>
+
+    See Also
+    --------
+    pyarrow.compute.all
+    """
+
+function_doc_additions["all"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([True, True, True])
+    >>> pc.all(arr1)
+    <pyarrow.BooleanScalar: True>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([True, None, True])
+    >>> pc.all(arr2)
+    <pyarrow.BooleanScalar: True>
+    >>> pc.all(arr2, skip_nulls=False)
+    <pyarrow.BooleanScalar: None>
+    >>> arr3 = pa.array([False, True])
+    >>> pc.all(arr3)
+    <pyarrow.BooleanScalar: False>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr4 = pa.array([], type=pa.bool_())
+    >>> pc.all(arr4)
+    <pyarrow.BooleanScalar: None>
+    >>> pc.all(arr4, options=pc.ScalarAggregateOptions(min_count=0))
+    <pyarrow.BooleanScalar: True>
+
+    See Also
+    --------
+    pyarrow.compute.any
+    """
