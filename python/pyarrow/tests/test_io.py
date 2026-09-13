@@ -1223,6 +1223,11 @@ def test_memory_map_resize(tmpdir):
         assert f.read() == bytes(arr[:SIZE])
 
 
+def test_memory_map_resize_uninitialized():
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        pa.MemoryMappedFile().resize(0)
+
+
 def test_memory_zero_length(tmpdir):
     path = os.path.join(str(tmpdir), guid())
     f = open(path, 'wb')
