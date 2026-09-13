@@ -323,3 +323,58 @@ test_that("head() on exec plan containing user-defined functions", {
 
   expect_equal(nrow(result), 11)
 })
+
+test_that("arrow_scalar_function() checks in_type names against fun arguments", {
+  # named schema with a different name than the argument
+  expect_snapshot_error(
+    arrow_scalar_function(
+      function(context, x, y) x,
+      schema(blah = int64(), aj = int64()),
+      int32()
+    )
+  )
+
+  # named field with a different name than the argument
+  expect_error(
+    arrow_scalar_function(
+      function(context, x) x,
+      field("blah", int64()),
+      int32()
+    ),
+    "must match the argument names"
+  )
+
+  # partial mismatch across multiple arguments
+  expect_error(
+    arrow_scalar_function(
+      function(context, x, y) x,
+      schema(x = int32(), b = int32()),
+      int32()
+    ),
+    "must match the argument names"
+  )
+
+  # mismatch in a later kernel when registering several at once
+  expect_error(
+    arrow_scalar_function(
+      function(context, x) x,
+      list(schema(x = int32()), schema(y = int32())),
+      int32()
+    ),
+    "must match the argument names"
+  )
+
+  # matching names, unnamed types, and `...` are all still accepted
+  expect_s3_class(
+    arrow_scalar_function(function(context, x) x, schema(x = int32()), int32()),
+    "arrow_scalar_function"
+  )
+  expect_s3_class(
+    arrow_scalar_function(function(context, anything) anything, int32(), int32()),
+    "arrow_scalar_function"
+  )
+  expect_s3_class(
+    arrow_scalar_function(function(...) NULL, schema(blah = int32()), int32()),
+    "arrow_scalar_function"
+  )
+})

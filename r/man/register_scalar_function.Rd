@@ -23,7 +23,9 @@ constructed with the expected output type via \code{\link[=as_arrow_array]{as_ar
 for functions with more than one argument. This signature will be used
 to determine if this function is appropriate for a given set of arguments.
 If this function is appropriate for more than one signature, pass a
-\code{list()} of the above.}
+\code{list()} of the above. Arguments are passed to \code{fun} by position, so if
+the schema (or field) is named, the names must match the argument names
+of \code{fun} (after \code{context}).}
 
 \item{out_type}{A \link{DataType} of the output type or a function accepting
 a single argument (\code{types}), which is a \code{list()} of \link{DataType}s. If a
