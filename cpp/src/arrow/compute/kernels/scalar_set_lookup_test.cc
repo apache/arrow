@@ -171,7 +171,7 @@ TEST_F(TestIsInKernel, CallBinary) {
 
   auto expected = ArrayFromJSON(boolean(), ("[false, false, true, true, false,"
                                             "true, false, true, false]"));
-  for (const std::string& function_name : {"is_in_binary", "is_in_meta_binary"}) {
+  for (const auto& function_name : {"is_in_binary", "is_in_meta_binary"}) {
     SCOPED_TRACE(function_name);
     ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(function_name, {input, value_set}));
     AssertArraysEqual(*expected, *out.make_array());
@@ -1132,7 +1132,7 @@ TEST_F(TestIndexInKernel, CallBinary) {
 
   auto expected = ArrayFromJSON(int32(), ("[null, null, 0, 1, null, 2, null, 3, null,"
                                           " null, null]"));
-  for (const std::string& function_name : {"index_in_binary", "index_in_meta_binary"}) {
+  for (const auto& function_name : {"index_in_binary", "index_in_meta_binary"}) {
     SCOPED_TRACE(function_name);
     ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(function_name, {input, value_set}));
     AssertArraysEqual(*expected, *out.make_array());
