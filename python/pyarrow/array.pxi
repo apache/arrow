@@ -5314,16 +5314,16 @@ cdef class Bool8Array(ExtensionArray):
         return Bool8Array.from_storage(storage_arr)
 
 
-cdef class RangeArray(ExtensionArray):
+cdef class FixedClosednessRangeArray(ExtensionArray):
     """
-    Concrete class for range extension arrays.
+    Concrete class for fixed closedness range extension arrays.
 
     Examples
     --------
-    Define the extension type for a range array
+    Define the extension type for a fixed closedness range array
 
     >>> import pyarrow as pa
-    >>> range_type = pa.range_(pa.int32(), "both")
+    >>> range_type = pa.fixed_closedness_range(pa.int32(), "both")
 
     Create an extension array
 
@@ -5332,30 +5332,30 @@ cdef class RangeArray(ExtensionArray):
     ...     range_type.storage_type,
     ... )
     >>> arr = pa.ExtensionArray.from_storage(range_type, storage)
-    >>> isinstance(arr, pa.RangeArray)
+    >>> isinstance(arr, pa.FixedClosednessRangeArray)
     True
     """
 
 
-cdef class RangeIncArray(ExtensionArray):
+cdef class VariableClosednessRangeArray(ExtensionArray):
     """
-    Concrete class for range_inc extension arrays.
+    Concrete class for variable closedness range extension arrays.
 
     Examples
     --------
-    Define the extension type for a range_inc array
+    Define the extension type for a variable closedness range array
 
     >>> import pyarrow as pa
-    >>> range_inc_type = pa.range_inc(pa.float64())
+    >>> range_type = pa.variable_closedness_range(pa.float64())
 
     Create an extension array
 
     >>> storage = pa.array(
     ...     [{"lower": 1.0, "upper": 5.0, "lower_inc": True, "upper_inc": False}],
-    ...     range_inc_type.storage_type,
+    ...     range_type.storage_type,
     ... )
-    >>> arr = pa.ExtensionArray.from_storage(range_inc_type, storage)
-    >>> isinstance(arr, pa.RangeIncArray)
+    >>> arr = pa.ExtensionArray.from_storage(range_type, storage)
+    >>> isinstance(arr, pa.VariableClosednessRangeArray)
     True
     """
 

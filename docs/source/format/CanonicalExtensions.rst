@@ -573,14 +573,15 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
    It is also *permissible* for the ``offset_minutes`` field to be dictionary-encoded or run-end-encoded.
 
-.. _range_extension:
+.. _fixed_closedness_range_extension:
 
-Range
-=====
+Fixed closedness range
+======================
 
-Range represents a bounded set (mathematical interval) defined by a lower and
-an upper bound over an orderable Arrow type T.  It is the Arrow equivalent of
-PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
+Fixed closedness range represents a bounded set (mathematical interval)
+defined by a lower and an upper bound over an orderable Arrow type T.  Its
+closedness is a type parameter shared by all values.  It is the Arrow
+equivalent of PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 
 .. note::
 
@@ -588,13 +589,14 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
    Arrow already has an ``Interval`` type (``INTERVAL_MONTHS``,
    ``INTERVAL_DAY_TIME``, ``INTERVAL_MONTH_DAY_NANO``) that represents a
    *duration* -- a signed difference between two points in time.  The
-   ``arrow.range`` extension type is an entirely different concept: it
-   represents a *bounded set* with explicit lower and upper endpoints,
-   analogous to a closed or open interval in mathematics.  The naming
-   follows database convention: SQL uses ``INTERVAL`` for durations and
-   ``RANGE`` (or ``PERIOD``) for bounded sets.
+   ``arrow.fixed_closedness_range`` and ``arrow.variable_closedness_range``
+   extension types are an entirely different concept: they represent a
+   *bounded set* with explicit lower and upper endpoints, analogous to a
+   closed or open interval in mathematics.  The naming follows database
+   convention: SQL uses ``INTERVAL`` for durations and ``RANGE`` (or
+   ``PERIOD``) for bounded sets.
 
-* Extension name: ``arrow.range``.
+* Extension name: ``arrow.fixed_closedness_range``.
 
 * The storage type of the extension is a ``Struct`` with exactly **two fields,
   in order**:
@@ -661,31 +663,34 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 
 .. _range types: https://www.postgresql.org/docs/current/rangetypes.html
 
-.. _range_inc_extension:
+.. _variable_closedness_range_extension:
 
-Range Inc
-=========
+Variable closedness range
+=========================
 
-Range Inc represents a bounded set (mathematical interval) over an orderable
-Arrow type T whose bound inclusivity is recorded **per value** rather than as a
-single type-level parameter.  It is the companion of the :ref:`Range
-<range_extension>` extension type for ranges that cannot be canonicalized to a
-uniform closedness.
+Variable closedness range represents a bounded set (mathematical interval)
+over an orderable Arrow type T whose bound inclusivity is recorded **per
+value** rather than as a single type-level parameter.  It is the companion of
+the :ref:`fixed closedness range <fixed_closedness_range_extension>` extension
+type for ranges that cannot be canonicalized to a uniform closedness.
 
 .. note::
 
-   **When to use** ``arrow.range`` **vs.** ``arrow.range_inc``.
+   **When to use** ``arrow.fixed_closedness_range`` **vs.**
+   ``arrow.variable_closedness_range``.
    Discrete ranges (e.g. PostgreSQL's ``int4range``, ``int8range``,
    ``daterange``) canonicalize to a single closedness (left-closed), so they
-   are best represented by :ref:`arrow.range <range_extension>`, which stores
-   the closedness once in the type metadata.  Continuous ranges (e.g.
-   PostgreSQL's ``numrange``, ``tsrange``, ``tstzrange``) **cannot** be
+   are best represented by
+   :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`,
+   which stores the closedness once in the type metadata.  Continuous ranges
+   (e.g. PostgreSQL's ``numrange``, ``tsrange``, ``tstzrange``) **cannot** be
    canonicalized: two values may share the same endpoints yet differ in
-   whether those endpoints are included.  ``arrow.range_inc`` stores the
-   inclusivity of each bound alongside the bound itself, mirroring PostgreSQL's
-   internal range representation, and is the appropriate choice for that case.
+   whether those endpoints are included.  ``arrow.variable_closedness_range``
+   stores the inclusivity of each bound alongside the bound itself, mirroring
+   PostgreSQL's internal range representation, and is the appropriate choice
+   for that case.
 
-* Extension name: ``arrow.range_inc``.
+* Extension name: ``arrow.variable_closedness_range``.
 
 * The storage type of the extension is a ``Struct`` with exactly **four fields,
   in order**:
@@ -707,18 +712,21 @@ uniform closedness.
   storage struct; the subtype is **not** duplicated in the extension metadata.
 
   Each of ``lower`` and ``upper`` **may** be nullable, independently of the
-  other, exactly as in :ref:`arrow.range <range_extension>`: nullability is
-  only needed to represent an unbounded side.  A null bound is **always treated
-  as exclusive**, regardless of its ``lower_inc`` / ``upper_inc`` flag; positive
-  and negative infinity can never be included.  The ``lower_inc`` and
+  other, exactly as in
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`:
+  nullability is only needed to represent an unbounded side.  A null bound is
+  **always treated as exclusive**, regardless of its ``lower_inc`` /
+  ``upper_inc`` flag; positive and negative infinity can never be included.
+  The ``lower_inc`` and
   ``upper_inc`` fields are **always non-nullable**.  The outer struct's validity
   bit marks a null/absent range (a missing range, distinct from an empty range).
 
 * Extension type parameters:
 
-  This type has **no** type-level parameters.  Unlike :ref:`arrow.range
-  <range_extension>`, inclusivity is not fixed by the type; it is carried per
-  value in the ``lower_inc`` and ``upper_inc`` fields.
+  This type has **no** type-level parameters.  Unlike
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`,
+  inclusivity is not fixed by the type; it is carried per value in the
+  ``lower_inc`` and ``upper_inc`` fields.
 
   For a given value, the range contains every x permitted by its finite bounds
   and per-value flags: with both flags ``true`` every x such that

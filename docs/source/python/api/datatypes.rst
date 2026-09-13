@@ -73,8 +73,8 @@ These should be used to create Arrow data types and schemas.
    sparse_union
    opaque
    bool8
-   range_
-   range_inc
+   fixed_closedness_range
+   variable_closedness_range
    uuid
    json_
    field
@@ -148,8 +148,8 @@ implemented by PyArrow.
    JsonType
    UuidType
    Bool8Type
-   RangeType
-   RangeIncType
+   FixedClosednessRangeType
+   VariableClosednessRangeType
 
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types

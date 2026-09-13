@@ -3142,7 +3142,8 @@ cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
         Both
         Neither
 
-    cdef cppclass CRangeType" arrow::extension::RangeType"(CExtensionType):
+    cdef cppclass CFixedClosednessRangeType \
+            " arrow::extension::FixedClosednessRangeType"(CExtensionType):
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType] value_type,
@@ -3152,10 +3153,12 @@ cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
         CRangeClosed closed()
         shared_ptr[CDataType] value_type()
 
-    cdef cppclass CRangeArray" arrow::extension::RangeArray"(CExtensionArray):
+    cdef cppclass CFixedClosednessRangeArray \
+            " arrow::extension::FixedClosednessRangeArray"(CExtensionArray):
         pass
 
-    cdef cppclass CRangeIncType" arrow::extension::RangeIncType"(CExtensionType):
+    cdef cppclass CVariableClosednessRangeType \
+            " arrow::extension::VariableClosednessRangeType"(CExtensionType):
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType] value_type,
@@ -3163,7 +3166,8 @@ cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
 
         shared_ptr[CDataType] value_type()
 
-    cdef cppclass CRangeIncArray" arrow::extension::RangeIncArray"(CExtensionArray):
+    cdef cppclass CVariableClosednessRangeArray \
+            " arrow::extension::VariableClosednessRangeArray"(CExtensionArray):
         pass
 
 

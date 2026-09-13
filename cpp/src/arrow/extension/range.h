@@ -22,7 +22,7 @@
 
 namespace arrow::extension {
 
-/// \brief Which bound(s) of an arrow.range interval are inclusive.
+/// \brief Which bound(s) of an arrow.fixed_closedness_range interval are inclusive.
 ///
 /// Null (infinite) bounds are always exclusive regardless of this value.
 enum class RangeClosed {
@@ -36,8 +36,8 @@ enum class RangeClosed {
   Neither,
 };
 
-/// \brief RangeType represents a bounded set (mathematical interval) over an
-/// orderable Arrow type T.
+/// \brief FixedClosednessRangeType represents a bounded set (mathematical interval) over
+/// an orderable Arrow type T.
 ///
 /// Storage is a Struct with exactly two fields "lower" and "upper" of the same
 /// orderable type T. Each field may independently be nullable or not: a nullable
@@ -50,17 +50,18 @@ enum class RangeClosed {
 ///
 /// The "closed" parameter controls which finite bounds are inclusive.
 /// Null (infinite) bounds are always treated as exclusive.
-class ARROW_EXPORT RangeType : public ExtensionType {
+class ARROW_EXPORT FixedClosednessRangeType : public ExtensionType {
  public:
-  /// \brief Construct a RangeType.
+  /// \brief Construct a FixedClosednessRangeType.
   ///
   /// \param[in] storage_type A two-field Struct type with nullable fields
   ///   "lower" and "upper" of the same orderable Arrow type T.
   /// \param[in] closed Which bound(s) are inclusive.
-  explicit RangeType(std::shared_ptr<DataType> storage_type, RangeClosed closed)
+  explicit FixedClosednessRangeType(std::shared_ptr<DataType> storage_type,
+                                    RangeClosed closed)
       : ExtensionType(std::move(storage_type)), closed_(closed) {}
 
-  std::string extension_name() const override { return "arrow.range"; }
+  std::string extension_name() const override { return "arrow.fixed_closedness_range"; }
   std::string ToString(bool show_metadata = false) const override;
   bool ExtensionEquals(const ExtensionType& other) const override;
   std::string Serialize() const override;
@@ -68,7 +69,7 @@ class ARROW_EXPORT RangeType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const override;
 
-  /// \brief Create a RangeArray from ArrayData.
+  /// \brief Create a FixedClosednessRangeArray from ArrayData.
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
   /// \brief Factory function.
@@ -94,26 +95,27 @@ class ARROW_EXPORT RangeType : public ExtensionType {
   RangeClosed closed_;
 };
 
-/// \brief Array class for arrow.range extension arrays.
-class ARROW_EXPORT RangeArray : public ExtensionArray {
+/// \brief Array class for arrow.fixed_closedness_range extension arrays.
+class ARROW_EXPORT FixedClosednessRangeArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-/// \brief Create a RangeType with the given value subtype and closed parameter.
+/// \brief Create a FixedClosednessRangeType with the given value subtype and closed
+/// parameter.
 ///
-/// This is a convenience wrapper around RangeType::Make that aborts on error.
-/// For recoverable error handling prefer RangeType::Make.
-ARROW_EXPORT std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type,
-                                             RangeClosed closed = RangeClosed::Left,
-                                             bool allow_unbounded = true);
+/// This is a convenience wrapper around FixedClosednessRangeType::Make that aborts on
+/// error. For recoverable error handling prefer FixedClosednessRangeType::Make.
+ARROW_EXPORT std::shared_ptr<DataType> fixed_closedness_range(
+    std::shared_ptr<DataType> value_type, RangeClosed closed = RangeClosed::Left,
+    bool allow_unbounded = true);
 
-/// \brief RangeIncType represents a bounded set (mathematical interval) over an
-/// orderable Arrow type T whose bound inclusivity is stored **per value**.
+/// \brief VariableClosednessRangeType represents a bounded set (mathematical interval)
+/// over an orderable Arrow type T whose bound inclusivity is stored **per value**.
 ///
-/// Unlike RangeType, which carries a single type-level "closed" parameter, this
-/// type records the inclusivity of each row's bounds in two boolean storage
-/// fields. This is required for continuous ranges (e.g. PostgreSQL's
+/// Unlike FixedClosednessRangeType, which carries a single type-level "closed" parameter,
+/// this type records the inclusivity of each row's bounds in two boolean storage fields.
+/// This is required for continuous ranges (e.g. PostgreSQL's
 /// ``numrange``, ``tsrange``, ``tstzrange``) which cannot be canonicalized to a
 /// uniform closedness. It mirrors PostgreSQL's internal range representation.
 ///
@@ -131,17 +133,19 @@ ARROW_EXPORT std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_typ
 ///
 /// There is no type-level "closed" parameter, so the extension metadata carries
 /// no parameters (serialized as the empty JSON object ``{}``).
-class ARROW_EXPORT RangeIncType : public ExtensionType {
+class ARROW_EXPORT VariableClosednessRangeType : public ExtensionType {
  public:
-  /// \brief Construct a RangeIncType.
+  /// \brief Construct a VariableClosednessRangeType.
   ///
   /// \param[in] storage_type A four-field Struct type with fields "lower",
   ///   "upper" (same orderable type T) and non-nullable boolean "lower_inc",
   ///   "upper_inc".
-  explicit RangeIncType(std::shared_ptr<DataType> storage_type)
+  explicit VariableClosednessRangeType(std::shared_ptr<DataType> storage_type)
       : ExtensionType(std::move(storage_type)) {}
 
-  std::string extension_name() const override { return "arrow.range_inc"; }
+  std::string extension_name() const override {
+    return "arrow.variable_closedness_range";
+  }
   std::string ToString(bool show_metadata = false) const override;
   bool ExtensionEquals(const ExtensionType& other) const override;
   std::string Serialize() const override;
@@ -149,7 +153,7 @@ class ARROW_EXPORT RangeIncType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const override;
 
-  /// \brief Create a RangeIncArray from ArrayData.
+  /// \brief Create a VariableClosednessRangeArray from ArrayData.
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
   /// \brief Factory function.
@@ -168,17 +172,17 @@ class ARROW_EXPORT RangeIncType : public ExtensionType {
   std::shared_ptr<DataType> value_type() const;
 };
 
-/// \brief Array class for arrow.range_inc extension arrays.
-class ARROW_EXPORT RangeIncArray : public ExtensionArray {
+/// \brief Array class for arrow.variable_closedness_range extension arrays.
+class ARROW_EXPORT VariableClosednessRangeArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-/// \brief Create a RangeIncType with the given value subtype.
+/// \brief Create a VariableClosednessRangeType with the given value subtype.
 ///
-/// This is a convenience wrapper around RangeIncType::Make that aborts on error.
-/// For recoverable error handling prefer RangeIncType::Make.
-ARROW_EXPORT std::shared_ptr<DataType> range_inc(std::shared_ptr<DataType> value_type,
-                                                 bool allow_unbounded = true);
+/// This is a convenience wrapper around VariableClosednessRangeType::Make that aborts on
+/// error. For recoverable error handling prefer VariableClosednessRangeType::Make.
+ARROW_EXPORT std::shared_ptr<DataType> variable_closedness_range(
+    std::shared_ptr<DataType> value_type, bool allow_unbounded = true);
 
 }  // namespace arrow::extension
