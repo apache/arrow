@@ -638,6 +638,14 @@ cdef class RecordBatchReader(_Weakrefable):
         SharedPtrNoGIL[CRecordBatchReader] reader
 
 
+cdef class AsyncRecordBatchReader(_Weakrefable):
+    cdef:
+        SharedPtrNoGIL[CAsyncRecordBatchGenerator] generator
+        Schema _schema
+
+    cdef _read_next(self, call)
+
+
 cdef class CacheOptions(_Weakrefable):
     cdef:
         CCacheOptions wrapped
