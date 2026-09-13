@@ -79,19 +79,66 @@
 #define ARROW_TRANSPOSED_DELTA_NEON 1
 #endif
 
+#if defined(__AVX2__)
+#include <immintrin.h>
+#define ARROW_TRANSPOSED_DELTA_AVX2 1
+#endif
+
 #include "arrow/util/fastlanes/fastlanes_kernels_internal.h"
 
 namespace arrow {
 namespace util {
 namespace fastlanes {
 
+#ifdef ARROW_TRANSPOSED_DELTA_AVX2
+namespace internal {
+
+// One 8-lane slice of one row, unpacked in registers. `row` is a template
+// parameter because the word index, the shift amounts and the straddle test all
+// have to be compile-time constants -- _mm256_srli_epi32 takes an immediate.
+template <uint32_t w, bool kHasBias, uint32_t row>
+ARROW_FORCE_INLINE __m256i FlUnpackRowSlice(const uint32_t* ARROW_RESTRICT packed,
+                                            size_t lb, __m256i vmask, __m256i vbias) {
+  constexpr uint32_t kT = 32;
+  constexpr uint32_t kStartBit = row * w;
+  constexpr uint32_t kWord = kStartBit / kT;
+  constexpr uint32_t kShift = kStartBit % kT;
+  constexpr uint32_t kEndWord = (kStartBit + w - 1) / kT;
+
+  __m256i v = _mm256_loadu_si256(
+      reinterpret_cast<const __m256i*>(packed + kWord * kLanes + lb));
+  if constexpr (kShift != 0) {
+    v = _mm256_srli_epi32(v, kShift);
+  }
+  if constexpr (kWord != kEndWord) {
+    // A value that straddles two words has to start partway into the first, so
+    // kShift is nonzero here and the left shift below is never by 32.
+    const __m256i hi = _mm256_loadu_si256(
+        reinterpret_cast<const __m256i*>(packed + kEndWord * kLanes + lb));
+    v = _mm256_or_si256(v, _mm256_slli_epi32(hi, kT - kShift));
+  }
+  if constexpr (w != 32) {
+    v = _mm256_and_si256(v, vmask);
+  }
+  if constexpr (kHasBias) {
+    v = _mm256_add_epi32(v, vbias);
+  }
+  return v;
+}
+
+}  // namespace internal
+#endif
+
 enum class TransposedBaseCoding { kRaw, kPacked };
 
 // How a decoder gets back to file order. kNone is not a conforming decoder and
-// exists only to price the other two. kSeparate walks the block twice, once for
-// the prefix sums and once to permute; kFused does both in one pass, which is
+// exists only to price the others. kSeparate walks the block twice, once for the
+// prefix sums and once to permute; kFused does both in one pass, which is
 // available because a lane's chain does not depend on any other lane.
-enum class TransposedRepair { kNone, kSeparate, kFused };
+// kFusedUnpack goes one step further and folds the bit-unpack in as well, so no
+// 4 KB scratch block is written or read at all. Where no fused-unpack kernel
+// exists it degrades to kFused rather than silently to kSeparate.
+enum class TransposedRepair { kNone, kSeparate, kFused, kFusedUnpack };
 
 // The output slot that container slot (row, lane) belongs to, and its inverse.
 // Not used on the hot path -- the decoder transposes in blocks instead.
@@ -186,6 +233,11 @@ inline size_t TransposedMaxEncodedSize(size_t n) {
 #define TPOSE_UNPACK_CASE(W)               \
   case W:                                  \
     UnpackBlock<W, true>(src, grid, bias); \
+    break;
+
+#define TPOSE_FUSED_UNPACK_CASE(W)                                                 \
+  case W:                                                                          \
+    UnpackPrefixSumAndTransposeAvx2<W>(src, bases, bias, out + b * kBlockSize);     \
     break;
 
 #define TPOSE_WIDTH_CASES(M)                                                          \
@@ -352,10 +404,86 @@ inline void Transpose32x32Neon(const uint32_t* ARROW_RESTRICT grid,
 }
 #endif
 
+#ifdef ARROW_TRANSPOSED_DELTA_AVX2
+// Sixteen 8x8 transposes, each done entirely in registers: eight 32-byte loads
+// down a column of the grid, an unpack ladder, eight 32-byte stores across a row
+// of the output. A permutation is the one thing in this file the autovectorizer
+// cannot do -- it is not a lane-wise operation, and GCC lowers the scalar
+// version below to 1024 four-byte loads at a 128-byte stride plus 1024 scalar
+// stores. This issues 128 loads and 128 stores instead, so the block costs
+// shuffle throughput rather than memory-op throughput. 256-bit and not 512-bit
+// on purpose: a 16x16 register block needs vpermi2d ladders to cross the extra
+// lane boundary, and on this microarchitecture 512-bit buys nothing for the
+// unpack either (INTEL_RESULTS.md section 1).
+inline void Transpose32x32Avx2(const uint32_t* ARROW_RESTRICT grid,
+                               int32_t* ARROW_RESTRICT out) {
+  for (size_t rb = 0; rb < kRowsPerBlock; rb += 8) {
+    for (size_t lb = 0; lb < kLanes; lb += 8) {
+      const uint32_t* src = grid + rb * kLanes + lb;
+      const __m256i r0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src));
+      const __m256i r1 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 1 * kLanes));
+      const __m256i r2 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 2 * kLanes));
+      const __m256i r3 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 3 * kLanes));
+      const __m256i r4 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 4 * kLanes));
+      const __m256i r5 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 5 * kLanes));
+      const __m256i r6 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 6 * kLanes));
+      const __m256i r7 =
+          _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 7 * kLanes));
+
+      // Interleave 32-bit, then 64-bit, then swap the 128-bit halves. Each step
+      // halves the distance between elements that must end up adjacent.
+      const __m256i t0 = _mm256_unpacklo_epi32(r0, r1);
+      const __m256i t1 = _mm256_unpackhi_epi32(r0, r1);
+      const __m256i t2 = _mm256_unpacklo_epi32(r2, r3);
+      const __m256i t3 = _mm256_unpackhi_epi32(r2, r3);
+      const __m256i t4 = _mm256_unpacklo_epi32(r4, r5);
+      const __m256i t5 = _mm256_unpackhi_epi32(r4, r5);
+      const __m256i t6 = _mm256_unpacklo_epi32(r6, r7);
+      const __m256i t7 = _mm256_unpackhi_epi32(r6, r7);
+
+      const __m256i u0 = _mm256_unpacklo_epi64(t0, t2);
+      const __m256i u1 = _mm256_unpackhi_epi64(t0, t2);
+      const __m256i u2 = _mm256_unpacklo_epi64(t1, t3);
+      const __m256i u3 = _mm256_unpackhi_epi64(t1, t3);
+      const __m256i u4 = _mm256_unpacklo_epi64(t4, t6);
+      const __m256i u5 = _mm256_unpackhi_epi64(t4, t6);
+      const __m256i u6 = _mm256_unpacklo_epi64(t5, t7);
+      const __m256i u7 = _mm256_unpackhi_epi64(t5, t7);
+
+      int32_t* dst = out + lb * kRowsPerBlock + rb;
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 0 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u0, u4, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 1 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u1, u5, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 2 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u2, u6, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 3 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u3, u7, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 4 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u0, u4, 0x31));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 5 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u1, u5, 0x31));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 6 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u2, u6, 0x31));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 7 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u3, u7, 0x31));
+    }
+  }
+}
+#endif
+
 inline void Transpose32x32(const uint32_t* ARROW_RESTRICT grid,
                            int32_t* ARROW_RESTRICT out) {
 #ifdef ARROW_TRANSPOSED_DELTA_NEON
   Transpose32x32Neon(grid, out);
+#elif defined(ARROW_TRANSPOSED_DELTA_AVX2)
+  Transpose32x32Avx2(grid, out);
 #else
   Transpose32x32Scalar(grid, out);
 #endif
@@ -365,7 +493,7 @@ inline void Transpose32x32(const uint32_t* ARROW_RESTRICT grid,
 // The 32 prefix sums and the permutation in one pass. Four lanes' chains run in
 // one register, so four rows of results can be transposed and stored while they
 // are still in registers, sparing the block a second 4 KB round trip.
-inline void PrefixSumAndTranspose(const uint32_t* ARROW_RESTRICT grid,
+inline void PrefixSumAndTransposeNeon(const uint32_t* ARROW_RESTRICT grid,
                                   const uint32_t* ARROW_RESTRICT bases,
                                   int32_t* ARROW_RESTRICT out) {
   for (size_t lane = 0; lane < kLanes; lane += 4) {
@@ -389,6 +517,207 @@ inline void PrefixSumAndTranspose(const uint32_t* ARROW_RESTRICT grid,
       vst1q_u32(dst, vcombine_u32(vget_high_u32(a.val[1]), vget_high_u32(c.val[1])));
     }
   }
+}
+#endif
+
+#ifdef ARROW_TRANSPOSED_DELTA_AVX2
+// The 32 prefix sums and the permutation in one pass, the x86 counterpart of the
+// NEON kernel above. Without it TransposedRepair::kFused was a silent alias for
+// kSeparate on every x86 target -- the #ifdef above guarded both the kernel and
+// its call site -- so the block paid three traversals of the 4 KB grid (the
+// unpack's write, the prefix sum's read-modify-write, then the transpose's read)
+// where NEON paid two.
+//
+// The loop nest is the transpose's, with the blocking order swapped: lane block
+// outer, row block inner, so one accumulator register carries eight lanes'
+// running sums down all 32 rows and never spills. Each 8x8 register block is
+// eight loads, eight adds along the chain, the same unpack ladder
+// Transpose32x32Avx2 uses, and eight 32-byte stores across a row of the output.
+// The adds are the only addition to the transpose's instruction stream, and they
+// sit on the load-to-shuffle path rather than after it.
+//
+// The eight chains within a register are independent, so the dependency height
+// per block is 32 vpaddd, not 1024 as the wire format's serial chain would be.
+inline void PrefixSumAndTransposeAvx2(const uint32_t* ARROW_RESTRICT grid,
+                                      const uint32_t* ARROW_RESTRICT bases,
+                                      int32_t* ARROW_RESTRICT out) {
+  for (size_t lb = 0; lb < kLanes; lb += 8) {
+    // Lanes lb..lb+7 of the value that precedes each lane's run.
+    __m256i acc = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bases + lb));
+    for (size_t rb = 0; rb < kRowsPerBlock; rb += 8) {
+      const uint32_t* src = grid + rb * kLanes + lb;
+      const __m256i r0 = _mm256_add_epi32(
+          acc, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src)));
+      const __m256i r1 = _mm256_add_epi32(
+          r0, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 1 * kLanes)));
+      const __m256i r2 = _mm256_add_epi32(
+          r1, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 2 * kLanes)));
+      const __m256i r3 = _mm256_add_epi32(
+          r2, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 3 * kLanes)));
+      const __m256i r4 = _mm256_add_epi32(
+          r3, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 4 * kLanes)));
+      const __m256i r5 = _mm256_add_epi32(
+          r4, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 5 * kLanes)));
+      const __m256i r6 = _mm256_add_epi32(
+          r5, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 6 * kLanes)));
+      const __m256i r7 = _mm256_add_epi32(
+          r6, _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src + 7 * kLanes)));
+      acc = r7;
+
+      const __m256i t0 = _mm256_unpacklo_epi32(r0, r1);
+      const __m256i t1 = _mm256_unpackhi_epi32(r0, r1);
+      const __m256i t2 = _mm256_unpacklo_epi32(r2, r3);
+      const __m256i t3 = _mm256_unpackhi_epi32(r2, r3);
+      const __m256i t4 = _mm256_unpacklo_epi32(r4, r5);
+      const __m256i t5 = _mm256_unpackhi_epi32(r4, r5);
+      const __m256i t6 = _mm256_unpacklo_epi32(r6, r7);
+      const __m256i t7 = _mm256_unpackhi_epi32(r6, r7);
+
+      const __m256i u0 = _mm256_unpacklo_epi64(t0, t2);
+      const __m256i u1 = _mm256_unpackhi_epi64(t0, t2);
+      const __m256i u2 = _mm256_unpacklo_epi64(t1, t3);
+      const __m256i u3 = _mm256_unpackhi_epi64(t1, t3);
+      const __m256i u4 = _mm256_unpacklo_epi64(t4, t6);
+      const __m256i u5 = _mm256_unpackhi_epi64(t4, t6);
+      const __m256i u6 = _mm256_unpacklo_epi64(t5, t7);
+      const __m256i u7 = _mm256_unpackhi_epi64(t5, t7);
+
+      int32_t* dst = out + lb * kRowsPerBlock + rb;
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 0 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u0, u4, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 1 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u1, u5, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 2 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u2, u6, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 3 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u3, u7, 0x20));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 4 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u0, u4, 0x31));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 5 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u1, u5, 0x31));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 6 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u2, u6, 0x31));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 7 * kRowsPerBlock),
+                          _mm256_permute2x128_si256(u3, u7, 0x31));
+    }
+  }
+}
+#endif
+
+#ifdef ARROW_TRANSPOSED_DELTA_AVX2
+// ---------------------------------------------------------------------------
+// The same pass again, minus the grid.
+//
+// PrefixSumAndTransposeAvx2 above still reads its input from a 4 KB scratch
+// block that a separate UnpackBlock call just wrote: 128 stores followed by 128
+// loads per block, for values that were in registers moments earlier. That is
+// the identical defect the frame-mode kernel had before
+// UnpackBlockFlToFileOrder folded the transpose into the unpack, where removing
+// it was worth 1.48x at an L2-resident working set.
+//
+// The fix is the same shape: r0..r7 come from internal::FlUnpackRowSlice instead
+// of from memory, so each packed word is read once and each output value written
+// once, and the block never exists. Nothing else changes -- the accumulator
+// still carries eight lanes' running sums down all 32 rows in one register, and
+// the ladder is still the one Transpose32x32Avx2 uses.
+//
+// kHasBias is true here rather than folded into the accumulator: the wire format
+// stores min-subtracted deltas, so every one of the 32 values in a lane's chain
+// owes the block minimum, not just the first.
+template <uint32_t w, uint32_t rb>
+ARROW_FORCE_INLINE __m256i UnpackPrefixSumTransposeTile(
+    const uint32_t* ARROW_RESTRICT packed, size_t lb, __m256i vmask, __m256i vbias,
+    __m256i acc, int32_t* ARROW_RESTRICT out) {
+  const __m256i r0 =
+      _mm256_add_epi32(acc, internal::FlUnpackRowSlice<w, true, rb + 0>(packed, lb, vmask, vbias));
+  const __m256i r1 =
+      _mm256_add_epi32(r0, internal::FlUnpackRowSlice<w, true, rb + 1>(packed, lb, vmask, vbias));
+  const __m256i r2 =
+      _mm256_add_epi32(r1, internal::FlUnpackRowSlice<w, true, rb + 2>(packed, lb, vmask, vbias));
+  const __m256i r3 =
+      _mm256_add_epi32(r2, internal::FlUnpackRowSlice<w, true, rb + 3>(packed, lb, vmask, vbias));
+  const __m256i r4 =
+      _mm256_add_epi32(r3, internal::FlUnpackRowSlice<w, true, rb + 4>(packed, lb, vmask, vbias));
+  const __m256i r5 =
+      _mm256_add_epi32(r4, internal::FlUnpackRowSlice<w, true, rb + 5>(packed, lb, vmask, vbias));
+  const __m256i r6 =
+      _mm256_add_epi32(r5, internal::FlUnpackRowSlice<w, true, rb + 6>(packed, lb, vmask, vbias));
+  const __m256i r7 =
+      _mm256_add_epi32(r6, internal::FlUnpackRowSlice<w, true, rb + 7>(packed, lb, vmask, vbias));
+
+  const __m256i t0 = _mm256_unpacklo_epi32(r0, r1);
+  const __m256i t1 = _mm256_unpackhi_epi32(r0, r1);
+  const __m256i t2 = _mm256_unpacklo_epi32(r2, r3);
+  const __m256i t3 = _mm256_unpackhi_epi32(r2, r3);
+  const __m256i t4 = _mm256_unpacklo_epi32(r4, r5);
+  const __m256i t5 = _mm256_unpackhi_epi32(r4, r5);
+  const __m256i t6 = _mm256_unpacklo_epi32(r6, r7);
+  const __m256i t7 = _mm256_unpackhi_epi32(r6, r7);
+
+  const __m256i u0 = _mm256_unpacklo_epi64(t0, t2);
+  const __m256i u1 = _mm256_unpackhi_epi64(t0, t2);
+  const __m256i u2 = _mm256_unpacklo_epi64(t1, t3);
+  const __m256i u3 = _mm256_unpackhi_epi64(t1, t3);
+  const __m256i u4 = _mm256_unpacklo_epi64(t4, t6);
+  const __m256i u5 = _mm256_unpackhi_epi64(t4, t6);
+  const __m256i u6 = _mm256_unpacklo_epi64(t5, t7);
+  const __m256i u7 = _mm256_unpackhi_epi64(t5, t7);
+
+  int32_t* dst = out + lb * kRowsPerBlock + rb;
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 0 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u0, u4, 0x20));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 1 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u1, u5, 0x20));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 2 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u2, u6, 0x20));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 3 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u3, u7, 0x20));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 4 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u0, u4, 0x31));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 5 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u1, u5, 0x31));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 6 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u2, u6, 0x31));
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst + 7 * kRowsPerBlock),
+                      _mm256_permute2x128_si256(u3, u7, 0x31));
+  return r7;
+}
+
+// Unpack, prefix sum and permute one 1024-value block without materializing it.
+// lb outer for the same reason as the kernel above: a fixed lb writes the
+// contiguous 1 KB run out[lb * 32, lb * 32 + 256).
+template <uint32_t w>
+inline void UnpackPrefixSumAndTransposeAvx2(const uint32_t* ARROW_RESTRICT packed,
+                                            const uint32_t* ARROW_RESTRICT bases,
+                                            uint32_t bias,
+                                            int32_t* ARROW_RESTRICT out) {
+  constexpr uint32_t kMask = (w == 32) ? 0xFFFFFFFFu : ((1u << w) - 1);
+  const __m256i vmask = _mm256_set1_epi32(static_cast<int>(kMask));
+  const __m256i vbias = _mm256_set1_epi32(static_cast<int>(bias));
+  for (size_t lb = 0; lb < kLanes; lb += 8) {
+    __m256i acc = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bases + lb));
+    acc = UnpackPrefixSumTransposeTile<w, 0>(packed, lb, vmask, vbias, acc, out);
+    acc = UnpackPrefixSumTransposeTile<w, 8>(packed, lb, vmask, vbias, acc, out);
+    acc = UnpackPrefixSumTransposeTile<w, 16>(packed, lb, vmask, vbias, acc, out);
+    acc = UnpackPrefixSumTransposeTile<w, 24>(packed, lb, vmask, vbias, acc, out);
+  }
+}
+#define ARROW_TRANSPOSED_DELTA_FUSED_UNPACK 1
+#endif  // ARROW_TRANSPOSED_DELTA_AVX2
+
+#if defined(ARROW_TRANSPOSED_DELTA_NEON) || defined(ARROW_TRANSPOSED_DELTA_AVX2)
+// Defined only when a fused kernel actually exists, so the decode below selects
+// kFused on capability rather than on architecture. A target with neither still
+// falls back to kSeparate, but now visibly.
+#define ARROW_TRANSPOSED_DELTA_FUSED_REPAIR 1
+inline void PrefixSumAndTranspose(const uint32_t* ARROW_RESTRICT grid,
+                                  const uint32_t* ARROW_RESTRICT bases,
+                                  int32_t* ARROW_RESTRICT out) {
+#ifdef ARROW_TRANSPOSED_DELTA_NEON
+  PrefixSumAndTransposeNeon(grid, bases, out);
+#else
+  PrefixSumAndTransposeAvx2(grid, bases, out);
+#endif
 }
 #endif
 
@@ -435,6 +764,17 @@ inline void TransposedDeltaDecode(const uint8_t* in, size_t n, int32_t* out) {
     } else {
       cur += (4 - (static_cast<size_t>(cur - in) & 3)) & 3;
       const uint32_t* src = reinterpret_cast<const uint32_t*>(cur);
+#ifdef ARROW_TRANSPOSED_DELTA_FUSED_UNPACK
+      if constexpr (kRepair == TransposedRepair::kFusedUnpack) {
+        switch (w) {
+          TPOSE_WIDTH_CASES(TPOSE_FUSED_UNPACK_CASE)
+          default:
+            break;
+        }
+        cur += w * kLanes * sizeof(uint32_t);
+        continue;
+      }
+#endif
       switch (w) {
         TPOSE_WIDTH_CASES(TPOSE_UNPACK_CASE)
         default:
@@ -443,8 +783,11 @@ inline void TransposedDeltaDecode(const uint8_t* in, size_t n, int32_t* out) {
       cur += w * kLanes * sizeof(uint32_t);
     }
 
-#ifdef ARROW_TRANSPOSED_DELTA_NEON
-    if constexpr (kRepair == TransposedRepair::kFused) {
+    // w == 0 falls through to here even under kFusedUnpack: the block is a
+    // constant delta, so there is no bit-unpack to fuse anything into.
+#ifdef ARROW_TRANSPOSED_DELTA_FUSED_REPAIR
+    if constexpr (kRepair == TransposedRepair::kFused ||
+                  kRepair == TransposedRepair::kFusedUnpack) {
       PrefixSumAndTranspose(grid, bases, out + b * kBlockSize);
       continue;
     }
@@ -477,6 +820,7 @@ inline void TransposedDeltaDecode(const uint8_t* in, size_t n, int32_t* out) {
 
 #undef TPOSE_PACK_CASE
 #undef TPOSE_UNPACK_CASE
+#undef TPOSE_FUSED_UNPACK_CASE
 #undef TPOSE_WIDTH_CASES
 
 }  // namespace fastlanes
