@@ -86,8 +86,21 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
     arrow::util::Float16 half_val =
         arrow::util::Float16::FromDouble(PyFloat_AsDouble(obj));
     return half_val.bits();
-  } else if (has_numpy() && PyArray_IsScalar(obj, Half)) {
-    return PyArrayScalar_VAL(obj, Half);
+  } else if (has_numpy()) {
+    // The numpy C-API scalar accessors (PyArray_IsScalar / PyArrayScalar_VAL,
+    // and the `Half` scalar type) are full-C-API and hidden under
+    // Py_LIMITED_API. np.float16 supports the Python float protocol, so route
+    // through __float__ -- stable-API and version-agnostic.
+    OwnedRef pyfloat(PyObject_CallMethod(obj, "__float__", NULL));
+    RETURN_IF_PYERROR();
+    if (pyfloat.obj() == nullptr) {
+      return Status::TypeError(
+          "conversion to float16 expects a `float` or `np.float16` object, got ",
+          internal::PyObject_StdStringTypeName(obj));
+    }
+    arrow::util::Float16 half_val =
+        arrow::util::Float16::FromDouble(PyFloat_AsDouble(pyfloat.obj()));
+    return half_val.bits();
   } else {
     return Status::TypeError("conversion to float16 expects a `float` or ",
                              "`np.float16` object, got ",
@@ -400,8 +413,12 @@ Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* kwargs) {
   if (PyDict_SetItemString(kwargs, "bytes", py_bytes.obj()) < 0) {
     RETURN_IF_PYERROR();
   }
-  PyObject* empty_args = Py_GetConstantBorrowed(Py_CONSTANT_EMPTY_TUPLE);
-  PyObject* result = PyObject_Call(uuid_class, empty_args, kwargs);
+  // Py_GetConstantBorrowed(Py_CONSTANT_EMPTY_TUPLE) is a full-C-API (3.12+)
+  // function, unavailable in the cp311-abi3 build. A fresh empty tuple is
+  // equivalent here and owned by this statement.
+  OwnedRef empty_args(PyTuple_New(0));
+  RETURN_IF_PYERROR();
+  PyObject* result = PyObject_Call(uuid_class, empty_args.obj(), kwargs);
   RETURN_IF_PYERROR();
   return result;
 }

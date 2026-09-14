@@ -158,7 +158,8 @@ class NumPyNullsConverter {
 int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   int64_t null_count = 0;
 
-  if (!PyArray_Check(mask)) return -1;
+  // numpy types are opaque under Py_LIMITED_API; reinterpret for the Python C-API.
+  if (!PyArray_Check(reinterpret_cast<PyObject*>(mask))) return -1;
 
   Ndarray1DIndexer<uint8_t> mask_values(mask);
   for (int i = 0; i < length; ++i) {
@@ -828,9 +829,11 @@ Status NumPyConverter::Visit(const StructType& type) {
     }
 
     for (auto field : type.fields()) {
-      PyObject* tup;
-      PyDict_GetItemStringRef(PyDataType_FIELDS(dtype_), field->name().c_str(), &tup);
-      RETURN_IF_PYERROR();
+      // PyDict_GetItemStringRef is full-C-API (3.13+); PyDict_GetItemString is the
+      // stable-API equivalent (returns NULL for a missing key, no exception).
+      PyObject* borrowed =
+          PyDict_GetItemString(PyDataType_FIELDS(dtype_), field->name().c_str());
+      PyObject* tup = borrowed ? (Py_INCREF(borrowed), borrowed) : nullptr;
       OwnedRef tupref(tup);
       if (tup == NULL) {
         return Status::Invalid("Missing field '", field->name(), "' in struct array");
@@ -838,12 +841,13 @@ Status NumPyConverter::Visit(const StructType& type) {
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GetItem(tup, 0));
       RETURN_IF_PYERROR();
-      ARROW_DCHECK(PyObject_TypeCheck(sub_dtype, &PyArrayDescr_Type));
+      ARROW_DCHECK(PyObject_TypeCheck(reinterpret_cast<PyObject*>(sub_dtype),
+                                      &PyArrayDescr_Type));
       PyObject* offset_obj = PyTuple_GetItem(tup, 1);
       RETURN_IF_PYERROR();
       int offset = static_cast<int>(PyLong_AsLong(offset_obj));
       RETURN_IF_PYERROR();
-      Py_INCREF(sub_dtype); /* PyArray_GetField() steals ref */
+      Py_INCREF(reinterpret_cast<PyObject*>(sub_dtype)); /* steals ref */
       PyObject* sub_array = PyArray_GetField(arr_, sub_dtype, offset);
       RETURN_IF_PYERROR();
       sub_arrays.emplace_back(sub_array);

@@ -295,8 +295,7 @@ class PyValue {
   static Result<int32_t> Convert(const Date32Type*, const O&, I obj) {
     int32_t value;
     if (PyDate_Check(obj)) {
-      auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      value = static_cast<int32_t>(internal::PyDate_to_days(pydate));
+      value = static_cast<int32_t>(internal::PyDate_to_days(obj));
     } else {
       RETURN_NOT_OK(
           internal::CIntFromPython(obj, &value, "Integer too large for date32"));
@@ -307,14 +306,12 @@ class PyValue {
   static Result<int64_t> Convert(const Date64Type*, const O&, I obj) {
     int64_t value;
     if (PyDateTime_Check(obj)) {
-      auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      value = internal::PyDateTime_to_ms(pydate);
+      value = internal::PyDateTime_to_ms(obj);
       // Truncate any intraday milliseconds
       // TODO: introduce an option for this
       value -= value % 86400000LL;
     } else if (PyDate_Check(obj)) {
-      auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      value = internal::PyDate_to_ms(pydate);
+      value = internal::PyDate_to_ms(obj);
     } else {
       RETURN_NOT_OK(
           internal::CIntFromPython(obj, &value, "Integer too large for date64"));
@@ -368,7 +365,7 @@ class PyValue {
       } else {
         ARROW_ASSIGN_OR_RAISE(offset, internal::PyDateTime_utcoffset_s(obj));
       }
-      auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
+      PyObject* dt = obj;
       switch (type->unit()) {
         case TimeUnit::SECOND:
           value = internal::PyDateTime_to_s(dt) - offset;
@@ -459,7 +456,7 @@ class PyValue {
   static Result<int64_t> Convert(const DurationType* type, const O&, I obj) {
     int64_t value;
     if (PyDelta_Check(obj)) {
-      auto dt = reinterpret_cast<PyDateTime_Delta*>(obj);
+      PyObject* dt = obj;
       switch (type->unit()) {
         case TimeUnit::SECOND:
           value = internal::PyDelta_to_s(dt);
@@ -1162,12 +1159,14 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status AppendDict(PyObject* dict, PyObject* field_names) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* name = PyList_GetItemRef(field_names, i);
+      // PyList_GetItemRef is a full-C-API (3.13+) function; PyList_GetItem is
+      // the stable-API equivalent, but returns a borrowed reference.
+      PyObject* name = PyList_GetItem(field_names, i);
       RETURN_IF_PYERROR();
       OwnedRef nameref(name);
-      PyObject* value;
-      PyDict_GetItemRef(dict, name, &value);
-      RETURN_IF_PYERROR();
+      // PyDict_GetItemRef is full-C-API (3.13+); PyDict_GetItemWithError is the
+      // stable-API equivalent (returns NULL for a missing key without raising).
+      PyObject* value = PyDict_GetItemWithError(dict, name);
       OwnedRef valueref(value);
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
@@ -1198,7 +1197,9 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
 
       // validate that the key and the field name are equal
-      PyObject* name = PyList_GetItemRef(field_names, i);
+      // PyList_GetItemRef is full-C-API (3.13+); PyList_GetItem is stable and
+      // returns a borrowed reference.
+      PyObject* name = PyList_GetItem(field_names, i);
       RETURN_IF_PYERROR();
       OwnedRef nameref(name);
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
