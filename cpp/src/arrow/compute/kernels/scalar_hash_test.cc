@@ -752,6 +752,67 @@ TEST_F(TestScalarHash, EmptyAndZeroLengthChildrenHashWithoutCrashing) {
   }
 }
 
+// A binary-like input with no bytes at all leaves ToColumnArray's var_length_buffer
+// null, and that pointer reaches Hashing{32,64}::HashVarLen. Every row of such a column
+// is necessarily zero-length, so no byte of it may be read.
+TEST_F(TestScalarHash, NullValuesBufferHashesWithoutCrashing) {
+  for (auto ty : {utf8(), binary(), large_utf8(), large_binary()}) {
+    // Flat, and nested where the empty column is a child rather than the top level.
+    std::vector<std::pair<std::shared_ptr<DataType>, std::vector<std::string>>> cases = {
+        {ty, {R"([])", R"([null, null])", R"(["", ""])", R"([null, ""])"}},
+        {list(ty), {R"([])", R"([[], []])", R"([[null], [""]])"}},
+        {struct_({field("f0", ty)}), {R"([])", R"([{"f0": null}, {"f0": ""}])"}},
+        {map(ty, ty), {R"([])", R"([[["", ""]]])"}},
+    };
+    for (const auto& c : cases) {
+      for (const auto& json : c.second) {
+        for (const std::string func : {"hash32", "hash64"}) {
+          ARROW_SCOPED_TRACE("type: ", c.first->ToString(), " json: ", json,
+                             " func: ", func);
+          auto arr = ArrayFromJSON(c.first, json);
+          ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+          auto hashes = result.make_array();
+          ASSERT_EQ(hashes->length(), arr->length());
+          ASSERT_OK(hashes->ValidateFull());
+          // Hashing is deterministic, including over these degenerate buffers.
+          ASSERT_OK_AND_ASSIGN(Datum again, CallFunction(func, {arr}));
+          AssertArraysEqual(*hashes, *again.make_array());
+          if (c.first->id() == ty->id()) {
+            // Flat: a null row stays null, an empty row is a present value. (A nested
+            // row's validity also folds in its children's -- covered elsewhere.)
+            for (int64_t i = 0; i < arr->length(); i++) {
+              ASSERT_EQ(hashes->IsNull(i), arr->IsNull(i)) << "row " << i;
+            }
+          }
+        }
+      }
+    }
+
+    // A null binary scalar is the one shape that really does hand HashVarLen a null
+    // values pointer: ArraySpan::FillFromScalar leaves buffers[2].data unset when the
+    // scalar is invalid. It must still hash as the array's null row does.
+    auto arr = ArrayFromJSON(ty, R"([null, "", "abc"])");
+    for (const std::string func : {"hash32", "hash64"}) {
+      ARROW_SCOPED_TRACE("type: ", ty->ToString(), " func: ", func);
+      ASSERT_OK_AND_ASSIGN(Datum array_result, CallFunction(func, {arr}));
+      auto hashes = array_result.make_array();
+      for (int64_t i = 0; i < arr->length(); i++) {
+        ASSERT_OK_AND_ASSIGN(auto element, arr->GetScalar(i));
+        ASSERT_OK_AND_ASSIGN(Datum scalar_result, CallFunction(func, {element}));
+        ASSERT_TRUE(scalar_result.is_scalar()) << "row " << i;
+        ASSERT_OK_AND_ASSIGN(auto expected, hashes->GetScalar(i));
+        AssertScalarsEqual(*expected, *scalar_result.scalar(), /*verbose=*/true);
+      }
+      ASSERT_OK_AND_ASSIGN(Datum null_result, CallFunction(func, {MakeNullScalar(ty)}));
+      ASSERT_FALSE(null_result.scalar()->is_valid);
+      // An empty (but valid) value is a present value, not a null.
+      ASSERT_OK_AND_ASSIGN(auto empty, arr->GetScalar(1));
+      ASSERT_OK_AND_ASSIGN(Datum empty_result, CallFunction(func, {empty}));
+      ASSERT_TRUE(empty_result.scalar()->is_valid);
+    }
+  }
+}
+
 TEST_F(TestScalarHash, ListStructElementWithNullFieldIsANullElement) {
   auto arr = ArrayFromJSON(list(struct_({field("f0", int32()), field("f1", int32())})),
                            R"([[{"f0": 1, "f1": null}], [{"f0": 2, "f1": null}], [null],
