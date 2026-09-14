@@ -1106,7 +1106,9 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     if (!PyTuple_Check(tuple)) {
       return internal::InvalidType(tuple, "was expecting a tuple");
     }
-    if (PyTuple_GET_SIZE(tuple) != num_fields_) {
+    const Py_ssize_t tuple_size = PyTuple_Size(tuple);
+    RETURN_IF_PYERROR();
+    if (tuple_size != num_fields_) {
       return Status::Invalid("Tuple size must be equal to number of struct fields");
     }
     for (int i = 0; i < num_fields_; i++) {
@@ -1249,7 +1251,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     // unknown size, exhaust iterator
     *seq = PySequence_List(obj);
     RETURN_IF_PYERROR();
-    *size = static_cast<int64_t>(PyList_GET_SIZE(*seq));
+    *size = static_cast<int64_t>(PyList_Size(*seq));
   } else {
     // size is known but iterator could be infinite
     Py_ssize_t i, n = *size;
