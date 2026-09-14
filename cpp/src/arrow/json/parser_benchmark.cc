@@ -156,8 +156,6 @@ static void ChunkJSONPrettyPrintedMultipleBlocks(
   auto json = GenerateTestData(options.explicit_schema, num_rows, /*pretty=*/true);
   BenchmarkJSONChunkingMultipleBlocks(state, std::make_shared<Buffer>(json), options,
                                       /*block_size=*/json.length() / 8);
-  // BenchmarkJSONChunkingMultipleBlocks(state, std::make_shared<Buffer>(json), options,
-  //                                     /*block_size=*/100);
 }
 
 static void ChunkJSONLineDelimited(

@@ -60,8 +60,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
     ARROW_ASSIGN_OR_RAISE(auto input, GetPaddedStringView(partial, block));
-    ARROW_ASSIGN_OR_RAISE(auto consumed_length,
-                          ConsumeWholeObject(input, /*until_end=*/false));
+    ARROW_ASSIGN_OR_RAISE(auto consumed_length, FindDocument(input, /*find_last=*/false));
 
     DCHECK_NE(consumed_length, std::string_view::npos);
     if (consumed_length == 0) {
@@ -79,8 +78,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
 
   Status FindLast(std::string_view block, int64_t* out_pos) override {
     ARROW_ASSIGN_OR_RAISE(auto input, GetPaddedStringView(block));
-    ARROW_ASSIGN_OR_RAISE(auto consumed_length,
-                          ConsumeWholeObject(input, /*until_end=*/true));
+    ARROW_ASSIGN_OR_RAISE(auto consumed_length, FindDocument(input, /*find_last=*/true));
 
     if (consumed_length == 0) {
       *out_pos = kNoDelimiterFound;
@@ -123,10 +121,10 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     return view;
   }
 
-  // Consume the first or last JSON object (depending on `until_end`)
+  // Find the first or last JSON object (depending on `find_last`)
   // and return the consumed JSON byte length, or 0 if no valid document
   // can be parsed.
-  Result<size_t> ConsumeWholeObject(simdjson::padded_string_view input, bool until_end) {
+  Result<size_t> FindDocument(simdjson::padded_string_view input, bool find_last) {
     simdjson::ondemand::document_stream stream;
     // XXX Should be pass a specific batch_size?
     // The default value used by simdjson is 1MB, probably enough for most purposes.
@@ -138,7 +136,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     }
 
     int64_t consumed_length = 0;
-    if (!until_end) {
+    if (!find_last) {
       // Parsing the first document only.
       if (!ConsumeDocument(it).ok()) {
         // Could be either a partial document or invalid JSON, we'll let
