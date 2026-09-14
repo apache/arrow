@@ -228,4 +228,16 @@ rm -rf dist/temp-fix-wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with ${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION} ==="
 auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
+
+# Perf gate (Python layer only): time the pyarrow benchmarks against the
+# built wheel and compare with the committed reference (2x ceiling — a
+# regression tripwire across machines). Free-threaded wheels are exempt.
+# See python/scripts/perf_gate.py.
+if [[ "${PYTHON_ABI_TAG}" != *t ]]; then
+    echo "=== (${PYTHON_VERSION}) Running Python-layer perf gate ==="
+    pip install --quiet numpy pandas pytest
+    pip install --quiet --force-reinstall repaired_wheels/pyarrow-*.whl
+    python /arrow/python/scripts/perf_gate.py --gate
+fi
+
 popd
