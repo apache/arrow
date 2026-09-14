@@ -88,7 +88,11 @@ cdef extern from "arrow/python/platform.h":
 
 cdef extern from "<Python.h>":
     void Py_XDECREF(PyObject* o)
-    Py_ssize_t Py_REFCNT(PyObject* o)
+
+# Cython's generated refcount macros call Py_REFCNT(); redirect those calls to
+# the raw field on interpreters older than the 3.14 stable-ABI symbol.
+cdef extern from "arrow/python/limited_api_compat.h":
+    pass
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
