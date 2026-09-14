@@ -87,7 +87,7 @@ sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/", "pyarrow-stu
 wheel.packages = ["pyarrow"]
 wheel.install-dir = "pyarrow"
 # cp311-abi3 tag for non-freethreading wheels:
-# build with env SKBUILD_WHEEL__PY_API=cp311 (scikit-build-core setting override);
+# build with env SKBUILD_WHEEL_PY_API=cp311 (scikit-build-core setting override);
 # leave unset for per-version tags.
 # TODO(GH-32609): Remove this when stubfiles are complete
 # Withhold the PEP 561 marker until the type stubs are complete. The .pyi files

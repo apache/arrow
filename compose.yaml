@@ -1192,8 +1192,8 @@ services:
     environment:
       <<: [*common, *ccache, *sccache]
       # cp311-abi3 wheels: tag the wheel cp311-abi3 via scikit-build-core
-      # (build interpreter stays ${PYTHON}, e.g. 3.12); empty = default tag.
-      SKBUILD_WHEEL__PY_API: ${SKBUILD_WHEEL__PY_API:-}
+      # (build interpreter stays ${PYTHON}, e.g. 3.14); empty = default tag.
+      SKBUILD_WHEEL_PY_API: ${SKBUILD_WHEEL_PY_API:-}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
@@ -1220,8 +1220,8 @@ services:
     environment:
       <<: [*common, *ccache, *sccache]
       # cp311-abi3 wheels: tag the wheel cp311-abi3 via scikit-build-core
-      # (build interpreter stays ${PYTHON}, e.g. 3.12); empty = default tag.
-      SKBUILD_WHEEL__PY_API: ${SKBUILD_WHEEL__PY_API:-}
+      # (build interpreter stays ${PYTHON}, e.g. 3.14); empty = default tag.
+      SKBUILD_WHEEL_PY_API: ${SKBUILD_WHEEL_PY_API:-}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-musllinux-1-2-ccache:/ccache:delegated

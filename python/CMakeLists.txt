@@ -527,10 +527,16 @@ else()
   target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
-# cp311-abi3 build: restrict the Python C-API to the stable ABI (Python >= 3.11)
-# so a single wheel covers all non-freethreading CPython 3.11-3.15. Make it
-# PUBLIC so the sub-targets that link arrow_python (parquet_encryption, flight)
-# inherit the same limited-API view of the C headers.
+# Restrict the Python C-API to the stable ABI (Python >= 3.11) so a single
+# cp311-abi3 wheel covers all non-freethreading CPython 3.11-3.15. This is
+# required (not optional) for the Python layer: scalar.pxi/types.pxi/io.pxi
+# rely on the cdef classes being heap types (PyType_Spec) under the limited
+# API to assign ABC mixin methods (e.g. KeyValueMetadata.get = Mapping.get);
+# full-API builds compile but fail at import. Make it PUBLIC so the
+# sub-targets that link arrow_python (parquet_encryption, flight) inherit
+# the same limited-API view of the C headers. Note: the vendored
+# pythoncapi_compat.h shims for < 3.13 reference CPython internals, so
+# wheel builds must use >= 3.13 dev headers (build on Python 3.14+).
 target_compile_definitions(arrow_python PUBLIC Py_LIMITED_API=0x030B0000)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
 if(CMAKE_CONFIGURATION_TYPES)
