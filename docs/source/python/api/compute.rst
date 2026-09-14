@@ -560,6 +560,15 @@ Statistical Functions
 
    winsorize
 
+Hash Functions
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   hash32
+   hash64
+
 Structural Transforms
 ---------------------
 

@@ -424,8 +424,7 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.one_of(st.none(), value)
     values = st.lists(value, min_size=size, max_size=size)
 
-    actual_values = draw(values)
-    return pa.array(actual_values, type=ty)
+    return pa.array(draw(values), type=ty)
 
 
 @st.composite

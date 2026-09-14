@@ -490,16 +490,25 @@ class HashableMatcher : public TypeMatcher {
     // unsupported storage/value type is rejected here, not with a raw TypeError deep
     // inside HashArray/ToColumnArray/Cast.
     const DataType* physical_type = &type;
+    bool through_dictionary = false;
     while (true) {
       if (physical_type->id() == Type::EXTENSION) {
         physical_type =
             checked_cast<const ExtensionType&>(*physical_type).storage_type().get();
       } else if (physical_type->id() == Type::DICTIONARY) {
+        through_dictionary = true;
         physical_type =
             checked_cast<const DictionaryType&>(*physical_type).value_type().get();
       } else {
         break;
       }
+    }
+    // HashArray decodes a dictionary with Cast, which has no kernel producing a nested
+    // type, so dictionary<values=list<int32>> would pass dispatch here and then fail
+    // with a cast_list error. A dictionary *inside* a nested type is fine: it is
+    // decoded one level down, on its own non-nested value type.
+    if (through_dictionary && is_nested(physical_type->id())) {
+      return false;
     }
     if (is_union(*physical_type) || is_binary_view_like(*physical_type) ||
         is_list_view(*physical_type) || physical_type->id() == Type::RUN_END_ENCODED) {
@@ -534,7 +543,7 @@ const FunctionDoc hash32_doc{
      "within a struct, a null field makes that whole row null, while within a list\n"
      "or map a null element does not. Hash values are not guaranteed to be stable\n"
      "across different versions of the library."),
-    {"hash_input"}};
+    {"values"}};
 
 const FunctionDoc hash64_doc{
     "Construct a hash for every element of the input argument",
@@ -543,7 +552,7 @@ const FunctionDoc hash64_doc{
      "within a struct, a null field makes that whole row null, while within a list\n"
      "or map a null element does not. Hash values are not guaranteed to be stable\n"
      "across different versions of the library."),
-    {"hash_input"}};
+    {"values"}};
 
 }  // namespace
 

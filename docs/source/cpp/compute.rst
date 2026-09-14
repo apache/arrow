@@ -1282,7 +1282,7 @@ Containment tests
 * \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
-Hash Functions
+Hash functions
 ~~~~~~~~~~~~~~
 
 Not to be confused with the "group by" functions, hash functions produce one hash value
@@ -1298,11 +1298,12 @@ out.
 | hash64        | Unary | Any         | UInt64      |               | \(1)  |
 +---------------+-------+-------------+-------------+---------------+-------+
 
-* \(1) The implementation doesn't guarantee hash stability across different versions of
-       the library. Union, view-encoded and run-end encoded types are not supported
-       yet. A null input value produces a null output value. For a struct, a field that
-       is null makes the whole struct row's output null; for a list or map, by contrast,
-       a null element does not, since only the row's own validity matters there.
+* \(1) These functions are not suitable for cryptographic purposes. The implementation
+       doesn't guarantee hash stability across different versions of the library.
+       Union, view-encoded and run-end encoded types are not supported yet. A null
+       input value produces a null output value. For a struct, a field that is null
+       makes the whole struct row's output null; for a list or map, by contrast, a
+       null element does not, since only the row's own validity matters there.
 
 Categorizations
 ~~~~~~~~~~~~~~~

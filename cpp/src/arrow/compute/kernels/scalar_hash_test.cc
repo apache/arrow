@@ -1755,6 +1755,54 @@ TEST_F(TestScalarHash, UnsupportedNestedChildType) {
   }
 }
 
+// HashArray decodes a dictionary with Cast, which has no kernel producing a nested
+// type, so these passed dispatch on the unwrapped value type and only failed later with
+// a cast_list/cast_struct error. Both are NotImplemented, so assert the message too:
+// the point is that dispatch rejects them, rather than a cast internal leaking out.
+TEST_F(TestScalarHash, UnsupportedNestedDictionaryValueType) {
+  auto types = {dictionary(int32(), list(int32())),
+                dictionary(int32(), large_list(int32())),
+                dictionary(int32(), fixed_size_list(int32(), 2)),
+                dictionary(int32(), struct_({field("a", int32())})),
+                dictionary(int32(), map(utf8(), int32()))};
+  for (const auto& type : types) {
+    ARROW_SCOPED_TRACE("type: ", type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(type, 2));
+    for (const std::string func : {"hash32", "hash64"}) {
+      EXPECT_THAT(CallFunction(func, {arr}),
+                  Raises(StatusCode::NotImplemented,
+                         testing::HasSubstr("has no kernel matching input types")));
+    }
+  }
+  // A dictionary nested *inside* one of these stays supported: it is decoded one level
+  // down, on its own non-nested value type.
+  for (const auto& type : {list(dictionary(int32(), utf8())),
+                           struct_({field("a", dictionary(int32(), int64()))})}) {
+    ARROW_SCOPED_TRACE("supported type: ", type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayOfNull(type, 2));
+    ASSERT_OK(CallFunction("hash32", {arr}));
+    ASSERT_OK(CallFunction("hash64", {arr}));
+  }
+}
+
+// The public Hash32/Hash64 wrappers are thin CallFunction shims; nothing else in the
+// tree calls them, so a typo in either function name would otherwise ship unnoticed.
+TEST_F(TestScalarHash, PublicApiWrappers) {
+  auto arr = ArrayFromJSON(int32(), R"([null, 0, 1, 2])");
+  ASSERT_OK_AND_ASSIGN(Datum expected32, CallFunction("hash32", {arr}));
+  ASSERT_OK_AND_ASSIGN(Datum actual32, Hash32(arr));
+  AssertDatumsEqual(expected32, actual32);
+
+  ASSERT_OK_AND_ASSIGN(Datum expected64, CallFunction("hash64", {arr}));
+  ASSERT_OK_AND_ASSIGN(Datum actual64, Hash64(arr));
+  AssertDatumsEqual(expected64, actual64);
+
+  // The Datum contract holds through the wrappers too.
+  ASSERT_OK_AND_ASSIGN(auto element, arr->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(Datum scalar_result, Hash64(element));
+  ASSERT_TRUE(scalar_result.is_scalar());
+}
+
 // HashableMatcher only saw the top-level EXTENSION type id, so an extension wrapping
 // an unsupported storage type (e.g. binary_view) passed dispatch and only failed
 // later with a raw TypeError from ToColumnArray instead of a clean NotImplemented.
