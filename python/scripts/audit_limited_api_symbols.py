@@ -7,7 +7,12 @@ miss: such a symbol would break the wheel on the oldest supported
 interpreter.
 
 Usage:
-  audit_limited_api_symbols.py <libpython3.11.so> <extension.so|pyd> [...]
+  audit_limited_api_symbols.py <libpython3.11.so|python3.11> <extension.so|pyd> [...]
+
+The reference may be a shared libpython or the CPython 3.11 interpreter
+binary itself: newer manylinux base images ship CPython without a shared
+libpython, but the binary's dynamic symbol table exports the same Py*
+symbols.
 """
 import re
 import subprocess
