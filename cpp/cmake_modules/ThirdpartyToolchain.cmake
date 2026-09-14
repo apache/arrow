@@ -3800,9 +3800,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   # avoid conflict.
   find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
-  if(ARROW_BUILD_STATIC
-     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
-     AND UNIX)
+  if(ARROW_BUILD_STATIC AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
     string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
   endif()
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
