@@ -490,9 +490,15 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
   const OwnedRef indptr_seq_ref(PySequence_Fast(indptr_ao, "indptr"));
   RETURN_IF_PYERROR();
+  // PySequence_Fast() returns exact tuples unchanged on CPython >= 3.13.15 /
+  // 3.14 (older versions always return a list) — dispatch on the type.
+  const bool indptr_is_list = PyList_Check(indptr_seq_ref.obj());
   for (int i = 0; i < ndim - 1; ++i) {
-    const OwnedRef item_ref(PyList_GetItem(indptr_seq_ref.obj(), i));
-    PyObject* item = item_ref.obj();
+    // Item access returns a borrowed reference; indptr_seq_ref owns the
+    // container for the duration of this call. Wrapping the item in OwnedRef
+    // would underflow its refcount.
+    PyObject* item = indptr_is_list ? PyList_GetItem(indptr_seq_ref.obj(), i)
+                                    : PyTuple_GetItem(indptr_seq_ref.obj(), i);
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indptr");
     }
@@ -502,9 +508,12 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
   const OwnedRef indices_seq_ref(PySequence_Fast(indices_ao, "indices"));
   RETURN_IF_PYERROR();
+  const bool indices_is_list = PyList_Check(indices_seq_ref.obj());
   for (int i = 0; i < ndim; ++i) {
-    const OwnedRef item_ref(PyList_GetItem(indices_seq_ref.obj(), i));
-    PyObject* item = item_ref.obj();
+    // Borrowed reference; indices_seq_ref owns the container for the
+    // duration of this call (see the indptr loop above).
+    PyObject* item = indices_is_list ? PyList_GetItem(indices_seq_ref.obj(), i)
+                                     : PyTuple_GetItem(indices_seq_ref.obj(), i);
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indices");
     }

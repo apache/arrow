@@ -72,13 +72,24 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
 #else
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
 #endif
-      // Fast item access via the limited-API PySequence_Fast + PyList_GetItem
+      // Fast item access via the limited-API PySequence_Fast + list/tuple
+      // item access. Note: PySequence_Fast() returns exact lists and tuples
+      // unchanged (Py_NewRef) on CPython >= 3.13.15 / 3.14, while older
+      // versions always return a list — dispatch on the result type.
       const OwnedRef seq_ref(PySequence_Fast(obj, "index sequence"));
       RETURN_IF_PYERROR();
-      const Py_ssize_t size = PyList_Size(seq_ref.obj());
+      const bool is_list = PyList_Check(seq_ref.obj());
+      const Py_ssize_t size =
+          is_list ? PyList_Size(seq_ref.obj()) : PyTuple_Size(seq_ref.obj());
       for (Py_ssize_t i = offset; keep_going && i < size; ++i) {
-        const OwnedRef item_ref(PyList_GetItem(seq_ref.obj(), i));
-        RETURN_NOT_OK(func(item_ref.obj(), static_cast<int64_t>(i), &keep_going));
+        // Item access returns a borrowed reference; seq_ref owns the
+        // container (and thus the items) for the whole loop. Do NOT wrap the
+        // item in OwnedRef (that would underflow its refcount and
+        // use-after-free it).
+        PyObject* item =
+            is_list ? PyList_GetItem(seq_ref.obj(), i)
+                    : PyTuple_GetItem(seq_ref.obj(), i);
+        RETURN_NOT_OK(func(item, static_cast<int64_t>(i), &keep_going));
       }
     } else {
       // Regular sequence: avoid making a potentially large copy

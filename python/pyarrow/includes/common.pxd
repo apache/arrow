@@ -31,8 +31,15 @@ from libcpp.unordered_map cimport unordered_map
 from libcpp.unordered_set cimport unordered_set
 
 from cpython cimport PyObject
-from cpython.datetime cimport PyDateTime_DateTime
 cimport cpython
+
+# NOTE: do NOT `cimport cpython.datetime` here. This file is included in nearly
+# every pyarrow Cython module (incl. the core lib.pyx), and Cython's
+# cpython/datetime.pxd emits struct-field accessors (PyDateTime_*_GET_*,
+# PyDateTime_IMPORT) that are unavailable under Py_LIMITED_API, so cimporting it
+# in limited-API (abi3) mode fails to compile. Datetimes cross the FFI as opaque
+# `object`/PyObject* and are read on the C++ side via the stable PyDatetimeField()
+# helper (see arrow/python/datetime.h).
 
 
 cdef extern from "<string_view>" namespace "std" nogil:

@@ -425,8 +425,14 @@ struct PyBytesView {
       ref.reset(PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C'));
       RETURN_IF_PYERROR();
       Py_buffer buffer;
-      if (PyObject_GetBuffer(ref.obj(), &buffer, PyBUF_READ) < 0) {
-        return Status::Invalid("failed to obtain buffer from memoryview");
+      // Two CPython >= 3.13 limited-API constraints:
+      // - The compat stub of PyObject_GetBuffer traps bare PyBUF_READ /
+      //   PyBUF_WRITE (raises SystemError), so the flags must carry extra bits.
+      // - memoryview's getbuffer rejects any flag set without PyBUF_STRIDES
+      //   when the view has a format ("cannot cast to unsigned bytes").
+      // PyBUF_READ | PyBUF_STRIDES satisfies both.
+      if (PyObject_GetBuffer(ref.obj(), &buffer, PyBUF_READ | PyBUF_STRIDES) < 0) {
+        RETURN_IF_PYERROR();
       }
       // Release the buffer export now; the data stays valid because `ref`
       // (the memoryview, which owns the underlying buffer) remains alive.
@@ -489,6 +495,28 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
                                                 const char* argspec, ArgTypes... args) {
   return PyObject_CallMethod(obj, const_cast<char*>(method_name),
                              const_cast<char*>(argspec), args...);
+}
+
+// bytes is immutable: there is NO stable-API in-place resize (bytes has no
+// public resize, and bytes' buffer-protocol bf_resize is NULL), so shrinking a
+// freshly-allocated max-size bytes buffer down to the actual number of bytes
+// read requires the private _PyBytes_Resize. It is not in the 3.11
+// stable_abi.toml but IS exported by libpython at every target version
+// (verified 3.11-3.15) and is only ever called here on a bytes object this
+// code just created with refcount 1 (the documented safe usage). The
+// limited-API <Python.h> omits the prototype, and Cython cannot emit one for a
+// symbol declared in an extern-from-"Python.h" block (it trusts the real
+// header). We therefore declare the symbol ourselves and expose a thin wrapper
+// for the Cython side to call.
+// => allowlisted in the symbol audit (false-positive path).
+extern "C" {
+#if defined(Py_LIMITED_API)
+int _PyBytes_Resize(PyObject** bytes, Py_ssize_t newsize);
+#endif
+}
+
+static inline int cpp_PyBytes_Resize(PyObject** bytes, Py_ssize_t newsize) {
+  return _PyBytes_Resize(bytes, newsize);
 }
 
 }  // namespace py

@@ -2277,7 +2277,7 @@ def unregister_extension_type(type_name):
     check_status(UnregisterPyExtensionType(c_type_name))
 
 
-cdef class KeyValueMetadata(_Metadata, Mapping):
+cdef class KeyValueMetadata(_Metadata):
     """
     KeyValueMetadata
 
@@ -2438,6 +2438,13 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
             if key not in result:
                 result[key] = self.metadata.value(i)
         return result
+
+
+# ABC membership at the Python layer (see the note above the ListScalar
+# registration in scalar.pxi): the Mapping mixin method this class did not
+# define itself, plus a virtual-subclass registration.
+KeyValueMetadata.get = Mapping.get
+Mapping.register(KeyValueMetadata)
 
 
 cpdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):

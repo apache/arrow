@@ -1161,13 +1161,15 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     for (int i = 0; i < num_fields_; i++) {
       // PyList_GetItemRef is a full-C-API (3.13+) function; PyList_GetItem is
       // the stable-API equivalent, but returns a borrowed reference.
-      PyObject* name = PyList_GetItem(field_names, i);
+      PyObject* name = PyList_GetItem(field_names, i);  // borrowed
       RETURN_IF_PYERROR();
-      OwnedRef nameref(name);
       // PyDict_GetItemRef is full-C-API (3.13+); PyDict_GetItemWithError is the
       // stable-API equivalent (returns NULL for a missing key without raising).
-      PyObject* value = PyDict_GetItemWithError(dict, name);
-      OwnedRef valueref(value);
+      PyObject* value = PyDict_GetItemWithError(dict, name);  // borrowed
+      // Both pointers are borrowed and live for the scope of this loop
+      // iteration; do NOT wrap them in OwnedRef (that would underflow the
+      // refcount of the field-name list items / dict values and
+      // use-after-free them).
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
     return Status::OK();
@@ -1199,9 +1201,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       // validate that the key and the field name are equal
       // PyList_GetItemRef is full-C-API (3.13+); PyList_GetItem is stable and
       // returns a borrowed reference.
-      PyObject* name = PyList_GetItem(field_names, i);
+      PyObject* name = PyList_GetItem(field_names, i);  // borrowed
       RETURN_IF_PYERROR();
-      OwnedRef nameref(name);
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
 

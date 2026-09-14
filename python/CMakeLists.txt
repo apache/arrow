@@ -932,10 +932,6 @@ if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
 
-# cp311-abi3 build: generate limited-API (stable ABI) code from Cython so the
-# generated C++ only references the stable C-API (Cython >= 3.0 supports this).
-set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--limited-api")
-
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 # GH-40236: make generated C++ code easier to compile by disabling an
