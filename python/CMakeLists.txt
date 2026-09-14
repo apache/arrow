@@ -527,6 +527,11 @@ else()
   target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
+# cp311-abi3 build: restrict the Python C-API to the stable ABI (Python >= 3.11)
+# so a single wheel covers all non-freethreading CPython 3.11-3.15. Make it
+# PUBLIC so the sub-targets that link arrow_python (parquet_encryption, flight)
+# inherit the same limited-API view of the C headers.
+target_compile_definitions(arrow_python PUBLIC Py_LIMITED_API=0x030B0000)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
 if(CMAKE_CONFIGURATION_TYPES)
   target_compile_definitions(arrow_python PRIVATE PYARROW_BUILD_TYPE="$<CONFIG>")
@@ -926,6 +931,10 @@ endif()
 if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
+
+# cp311-abi3 build: generate limited-API (stable ABI) code from Cython so the
+# generated C++ only references the stable C-API (Cython >= 3.0 supports this).
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--limited-api")
 
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
