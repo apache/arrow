@@ -206,6 +206,19 @@ for filename in pyarrow/*.so pyarrow/*.so.*; do
     echo "Stripping debug symbols from: $filename";
     strip --strip-debug "$filename"
 done
+# Audit limited-API symbols: every Py* symbol the extensions import must be
+# exported by CPython 3.11. Free-threaded wheels (cp314t/cp315t) are exempt
+# because they target the free-threaded stable ABI.
+if [[ "${PYTHON_ABI_TAG}" != *t ]]; then
+    PY311=$(ls /opt/python/cp311-cp311/lib/libpython3.11.so* 2>/dev/null | head -1)
+    if [[ -z "${PY311}" ]]; then
+        echo "ERROR: no libpython3.11 found in /opt/python for the symbol audit"
+        exit 1
+    fi
+    echo "=== (${PYTHON_VERSION}) Auditing limited-API symbols against ${PY311} ==="
+    python /arrow/python/scripts/audit_limited_api_symbols.py \
+        "${PY311}" pyarrow/*.so pyarrow/*.so.*
+fi
 # Zip wheel again after stripping symbols
 zip -r "$wheel_name" .
 mv "$wheel_name" ..
