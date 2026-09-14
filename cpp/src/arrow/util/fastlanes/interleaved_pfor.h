@@ -36,8 +36,28 @@
 //
 // Both orders are otherwise identical: same per-block FOR, same bit width
 // choice, same container. Comparing their decode cost against BM_PforDecode
-// (Arrow's shipped sequential decoder) on the same real dataset columns is
-// what isolates the layout question from the value-ordering question.
+// (Arrow's shipped sequential decoder) on the same columns is what isolates the
+// layout question from the value-ordering question.
+//
+// A caveat on what "the same columns" means, because an earlier version of this
+// comment overstated it: the corpus in fl5_corpus/ is SYNTHETIC. Its columns are
+// generators shaped after distributions seen in ClickBench, TPC-DS, TPC-H and
+// the NYC taxi set -- they are not records loaded from those datasets, and the
+// only file the harness opens is the CSV it writes. Bit-unpacking throughput is
+// data-independent at a fixed width, so that substitution is harmless for the
+// timing arms. It is NOT harmless for any claim about how wide a column packs,
+// since the generator's autocorrelation is chosen rather than observed.
+//
+// A second caveat, on register width. UnpackBlock in
+// fastlanes_kernels_internal.h contains no intrinsics: it is portable C++ that
+// the compiler auto-vectorizes, so its register width is whatever the
+// translation unit's compile-time flags permit. It has NO runtime SIMD dispatch,
+// which means ARROW_USER_SIMD_LEVEL does not reach it and ARROW_SIMD_LEVEL
+// (default: SSE4_2 on x86) decides it. On a default build this kernel compiles
+// to XMM while the sequential comparand dispatches to a hand-written AVX2 body
+// at runtime, so a layout comparison from a default build is measuring register
+// width and not layout. Build with -DARROW_SIMD_LEVEL=AVX2 or better before
+// comparing, or give these kernels real dispatch.
 //
 // Wire layout for n values (n a multiple of 1024; any tail is stored raw):
 //
