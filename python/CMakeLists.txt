@@ -953,6 +953,13 @@ foreach(module ${CYTHON_EXTENSIONS})
 
   cython_add_module(${module_name} ${module_name}_pyx ${module_name}_output ${module_SRC})
 
+  # cp311-abi3: name modules with the standard abi3 suffix so one wheel serves
+  # every non-freethreading interpreter (importlib resolves '.abi3.so' on all).
+  # Python's EXTENSION_SUFFIXES includes '.abi3.so' on POSIX; Windows keeps .pyd.
+  if(NOT WIN32)
+    set_target_properties(${module_name} PROPERTIES SUFFIX ".abi3.so")
+  endif()
+
   if(directories)
     string(REPLACE ";" "/" module_output_directory ${directories})
     set_target_properties(${module_name} PROPERTIES LIBRARY_OUTPUT_DIRECTORY
