@@ -138,10 +138,12 @@ tasks:
 
   ########################### Python Wheels ############################
 
-{# Non-freethreading wheels: single build (Python 3.12) tagged cp311-abi3
-     via SKBUILD_WHEEL__PY_API; freethreading wheels stay per-version.
+{# Non-freethreading wheels: single build tagged cp311-abi3 via
+     SKBUILD_WHEEL_PY_API; freethreading wheels stay per-version.
+     The abi3 build must run on Python 3.14: the limited-API build (see
+     python/CMakeLists.txt) requires >= 3.13 dev headers.
      Row: (python_version, python_abi_tag, skbuild_wheel_py_api, wheel_tag) #}
-{% for python_version, python_abi_tag, skbuild_wheel_py_api, wheel_tag in [("3.12", "cp312", "cp311", "cp311-abi3"),
+{% for python_version, python_abi_tag, skbuild_wheel_py_api, wheel_tag in [("3.14", "cp314", "cp311", "cp311-abi3"),
                                                                           ("3.14", "cp314t", "", "cp314-cp314t"),
                                                                           ("3.15", "cp315t", "", "cp315-cp315t")] %}
 

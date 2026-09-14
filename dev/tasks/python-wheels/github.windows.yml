@@ -28,8 +28,8 @@ jobs:
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"
       # cp311-abi3 wheels: set to cp311 to tag the wheel cp311-abi3 (the build
-      # interpreter stays python_version, e.g. 3.12); empty = default tag.
-      SKBUILD_WHEEL__PY_API: "{{ skbuild_wheel_py_api | default('') }}"
+      # interpreter stays python_version, e.g. 3.14); empty = default tag.
+      SKBUILD_WHEEL_PY_API: "{{ skbuild_wheel_py_api | default('') }}"
       # this is a private repository at the moment (mostly because of licensing
       # consideration of windows images with visual studio), but anyone can
       # recreate the image by manually building it via:
