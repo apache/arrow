@@ -22,6 +22,15 @@ Please remove this line and the above text before creating your pull request.
 
 ### Was AI used for this PR?
 
-In accordance to the [AI generation guidelines](https://arrow.apache.org/docs/dev/developers/overview.html#ai-generated-code), please disclose whether and how generative AI was used in this PR.
+In accordance to the [AI generation guidelines](https://arrow.apache.org/docs/dev/developers/overview.html#ai-generated-code), please disclose below whether and how AI was used in this PR.
 
-Please remember that all AI-generated changes, including PR descriptions, must have been carefully reviewed by the (human) submitter.
+**PR code and description written by:**
+
+- [ ] Human
+- [ ] AI
+
+**Reviewed before submission by:**
+
+- [ ] Human
+- [ ] AI
+- [ ] Not reviewed
