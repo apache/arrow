@@ -18,7 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <tuple>
 #include <type_traits>
 
 #include "arrow/result.h"
@@ -34,28 +33,6 @@ struct Empty {
     }
     return s;
   }
-};
-
-/// Helper struct for examining lambdas and other callables.
-/// TODO(ARROW-12655) support function pointers
-struct call_traits {
- public:
-  template <std::size_t I, typename F, typename R, typename... A>
-  static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
-      R (F::*)(A...));
-
-  template <std::size_t I, typename F, typename R, typename... A>
-  static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
-      R (F::*)(A...) const);
-
-  template <std::size_t I, typename F, typename R, typename... A>
-  static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
-      R (F::*)(A...) &&);
-
-  /// If F is not overloaded, the argument types of its call operator can be
-  /// extracted via call_traits::argument_type<Index, F>
-  template <std::size_t I, typename F>
-  using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
 };
 
 /// A type erased callable object which may only be invoked once.
