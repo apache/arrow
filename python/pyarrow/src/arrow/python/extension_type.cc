@@ -164,20 +164,18 @@ PyObject* PyExtensionType::GetInstance() const {
     PyErr_SetString(PyExc_TypeError, "Not an instance");
     return nullptr;
   }
-  ARROW_DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
-  PyObject* inst = NULL;
-  int result = PyWeakref_GetRef(type_instance_.obj(), &inst);
-  if (result == 1) {
+  // PyWeakref_GetRef is a full-C-API (3.12+) function, unavailable in the
+  // cp311-abi3 build. PyWeakref_GetObject is the stable-API equivalent: it
+  // returns the referent as a new strong reference, or Py_None if dead (and
+  // raises for a non-weakref, so no separate type check is needed).
+  PyObject* inst = PyWeakref_GetObject(type_instance_.obj());
+  if (inst != Py_None) {
     // Alive: inst is a new strong reference
     return inst;
-  } else if (result == 0) {
-    // Weakref is dead, must reconstruct from serialized form
-    // XXX cache again?
-    return DeserializeExtInstance(type_class_.obj(), storage_type_, serialized_);
-  } else {
-    // -1 = exception
-    return nullptr;
   }
+  // Weakref is dead, must reconstruct from serialized form
+  // XXX cache again?
+  return DeserializeExtInstance(type_class_.obj(), storage_type_, serialized_);
 }
 
 Status PyExtensionType::SetInstance(PyObject* inst) const {

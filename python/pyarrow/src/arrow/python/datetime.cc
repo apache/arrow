@@ -319,9 +319,12 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
   return Status::OK();
 }
 
-int64_t PyDate_to_days(PyDateTime_Date* pydate) {
-  return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
-                            PyDateTime_GET_DAY(pydate));
+int64_t PyDate_to_days(PyObject* pydate) {
+  // datetime struct-field accessors (PyDateTime_GET_YEAR etc.) are hidden under
+  // Py_LIMITED_API, so read the calendar fields through the stable attribute API.
+  return get_days_from_date(PyDatetimeField(pydate, "year"),
+                            PyDatetimeField(pydate, "month"),
+                            PyDatetimeField(pydate, "day"));
 }
 
 Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
@@ -330,8 +333,7 @@ Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
   OwnedRef pyoffset(PyObject_CallMethod(obj, "utcoffset", NULL));
   RETURN_IF_PYERROR();
   if (pyoffset.obj() != nullptr && pyoffset.obj() != Py_None) {
-    auto delta = reinterpret_cast<PyDateTime_Delta*>(pyoffset.obj());
-    return internal::PyDelta_to_s(delta);
+    return internal::PyDelta_to_s(pyoffset.obj());
   } else {
     return 0;
   }
@@ -347,10 +349,9 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
         "Object returned by tzinfo.utcoffset(None) is not an instance of "
         "datetime.timedelta");
   }
-  auto pydelta = reinterpret_cast<PyDateTime_Delta*>(pydelta_object.obj());
 
   // retrieve the offset as seconds
-  auto total_seconds = internal::PyDelta_to_s(pydelta);
+  auto total_seconds = internal::PyDelta_to_s(pydelta_object.obj());
 
   // determine whether the offset is positive or negative
   auto sign = (total_seconds < 0) ? "-" : "+";
