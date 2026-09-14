@@ -30,11 +30,10 @@ prefix=$2
 declare -A archs
 archs=([x86_64]=amd64
        [arm64]=arm64
-       [aarch64]=arm64
-       [s390x]=s390x)
+       [aarch64]=arm64)
 
 arch=$(uname -m)
-if [ -z "${archs[$arch]}" ]; then
+if [ -z "${archs[$arch]:-}" ]; then
   echo "Unsupported architecture: ${arch}"
   exit 0
 fi
