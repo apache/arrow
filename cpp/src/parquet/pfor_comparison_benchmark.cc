@@ -2073,13 +2073,48 @@ static void BM_TposePackedEncode(benchmark::State& state, Gen32 gen) {
 
 static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 
+// The four layout-comparison arms sweep the working set; everything else stays
+// at the single 102400 point so the suite does not get five times longer for no
+// gain. The four that sweep are the ones a layout verdict is read from:
+//
+//   BM_PforPlainSeqDecode              continuous layout, delta declined
+//                                        -- THE BASELINE
+//   BM_InterleavedPforDecode           interleaved grid, file order out
+//                                        -- CONTROL, not shippable
+//   BM_InterleavedPforFlOrderRawDecode FL_ORDER grid, permutation not charged
+//                                        -- CONTROL, not shippable
+//   BM_InterleavedPforFlOrderDecode    FL_ORDER grid -> file order, fused
+//                                        -- THE CANDIDATE
+//
+// All four must sweep together or the comparison is unreadable. Measured at one
+// working-set size the two controls and the candidate cannot be separated: the
+// grid's advantage is a compute effect that only exists while the working set is
+// small enough that stores are not the limit, so a single mid-size point shows a
+// grid that looks barely better than continuous and hides both the size of the
+// win and the size of the permutation tax that cancels it.
+//
+// The ladder is sized against a real cache hierarchy and against what a decoder
+// actually holds. Unpacking expands packed bytes by 32/W, so a ~300 KB integer
+// column chunk decodes to 300 KB at W=32 and 2.4 MB at W=4: the realistic span
+// is ~300 KB to ~2.4 MB, which 102400 alone (400 KiB) sits at the bottom of. On
+// a machine with 2 MiB of L2 per core and 480 MiB of shared L3 the decay in the
+// layout advantage begins inside L2, well before any memory boundary, so points
+// either side of the L2 capacity are the ones that carry information.
+static void LayoutArgs(benchmark::internal::Benchmark* b) {
+  b->Arg(4096)        //  16 KiB out -- L1-resident
+      ->Arg(102400)   // 400 KiB out -- the historical point; low end of realistic
+      ->Arg(393216)   // 1.5 MiB out -- still inside a 2 MiB L2; top of realistic
+      ->Arg(1048576)  //   4 MiB out -- spilled L2
+      ->Arg(8388608); //  32 MiB out -- L3-resident on a 480 MiB L3, NOT DRAM
+}
+
 // Macro to register all algorithms for a given dataset
 #define REGISTER_DATASET(Name, GenFunc)                                            \
   BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);             \
   BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);             \
-  BENCHMARK_CAPTURE(BM_PforPlainSeqDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PforPlainSeqDecode, Name, &GenFunc)->Apply(LayoutArgs);     \
   BENCHMARK_CAPTURE(BM_PforPlainInterleavedDecode, Name, &GenFunc)                 \
-      ->Apply(CustomArgs);                                                         \
+      ->Apply(LayoutArgs);                                                         \
   BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_DbpAbFull, Name, &GenFunc)->Apply(CustomArgs);              \
@@ -2095,11 +2130,11 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
   BENCHMARK_CAPTURE(BM_DbpGeom1024x32, Name, &GenFunc)->Apply(CustomArgs);         \
   BENCHMARK_CAPTURE(BM_DbpGeom1024x8, Name, &GenFunc)->Apply(CustomArgs);          \
   BENCHMARK_CAPTURE(BM_DbpGeom1024x1, Name, &GenFunc)->Apply(CustomArgs);          \
-  BENCHMARK_CAPTURE(BM_InterleavedPforDecode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_InterleavedPforFlOrderRawDecode, Name, &GenFunc)          \
-      ->Apply(CustomArgs);                                                       \
-  BENCHMARK_CAPTURE(BM_InterleavedPforFlOrderDecode, Name, &GenFunc)             \
-      ->Apply(CustomArgs);                                                      \
+  BENCHMARK_CAPTURE(BM_InterleavedPforDecode, Name, &GenFunc)->Apply(LayoutArgs);  \
+  BENCHMARK_CAPTURE(BM_InterleavedPforFlOrderRawDecode, Name, &GenFunc)            \
+      ->Apply(LayoutArgs);                                                         \
+  BENCHMARK_CAPTURE(BM_InterleavedPforFlOrderDecode, Name, &GenFunc)               \
+      ->Apply(LayoutArgs);                                                         \
   BENCHMARK_CAPTURE(BM_LaneDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);        \
   BENCHMARK_CAPTURE(BM_TposeApiDecode, Name, &GenFunc)->Apply(CustomArgs);         \
   BENCHMARK_CAPTURE(BM_TposeApiEncode, Name, &GenFunc)->Apply(CustomArgs);         \
