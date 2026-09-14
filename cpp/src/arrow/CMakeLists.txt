@@ -97,22 +97,6 @@ if(ARROW_USE_GLOG)
   endif()
 endif()
 
-if(ARROW_S3)
-  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    list(APPEND
-         ARROW_STATIC_INSTALL_INTERFACE_LIBS
-         aws-cpp-sdk-identity-management
-         aws-cpp-sdk-sts
-         aws-cpp-sdk-cognito-identity
-         aws-cpp-sdk-s3
-         aws-cpp-sdk-core)
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    if(UNIX)
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-    endif()
-  endif()
-endif()
-
 if(ARROW_WITH_OPENTELEMETRY)
   if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENTELEMETRY_LIBS})
@@ -1056,6 +1040,10 @@ if(ARROW_FILESYSTEM)
     set(ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
     if(AWSSDK_SOURCE STREQUAL "SYSTEM")
       list(APPEND ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS ${AWSSDK_LINK_LIBRARIES})
+    elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
+      if(UNIX)
+        list(APPEND ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+      endif()
     endif()
     add_arrow_lib(arrow_s3
                   CMAKE_PACKAGE_NAME
