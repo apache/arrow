@@ -813,6 +813,67 @@ TEST_F(TestScalarHash, NullValuesBufferHashesWithoutCrashing) {
   }
 }
 
+// A null list-like scalar may carry no child array: ArraySpan::FillFromScalar stands in
+// a zero-length one. FIXED_SIZE_LIST takes its element range from list_size rather than
+// from offsets, so that range must still be clamped to what the child actually holds.
+TEST_F(TestScalarHash, NullFixedSizeListScalarWithoutChild) {
+  for (auto value_ty : {int32(), int64(), utf8(), fixed_size_binary(3)}) {
+    for (int32_t list_size : {0, 1, 8, 33}) {
+      auto ty = fixed_size_list(value_ty, list_size);
+      // Explicitly null-valued: BaseListScalar and FixedSizeListScalar both guard their
+      // invariant checks on `if (this->value)`, so this is a legal scalar.
+      std::shared_ptr<Array> no_child;
+      auto scalar = std::make_shared<FixedSizeListScalar>(no_child, ty,
+                                                          /*is_valid=*/false);
+      ASSERT_EQ(scalar->value, nullptr);
+      for (const std::string func : {"hash32", "hash64"}) {
+        ARROW_SCOPED_TRACE("type: ", ty->ToString(), " func: ", func);
+        ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {scalar}));
+        ASSERT_TRUE(result.is_scalar());
+        ASSERT_FALSE(result.scalar()->is_valid);
+        // It must agree with the null row of an equivalent array, whose child is
+        // present and correctly sized.
+        auto arr = ArrayFromJSON(ty, R"([null])");
+        ASSERT_OK_AND_ASSIGN(Datum array_result, CallFunction(func, {arr}));
+        ASSERT_OK_AND_ASSIGN(auto expected, array_result.make_array()->GetScalar(0));
+        AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true);
+      }
+    }
+  }
+
+  // The other list-likes take their range from offsets, which a null scalar fills with
+  // {0, 0}, so their range is already empty -- assert that rather than leave it to luck.
+  std::shared_ptr<Array> none;
+  std::vector<std::pair<std::string, std::shared_ptr<Scalar>>> siblings = {
+      {"list", std::make_shared<ListScalar>(none, list(int32()), /*is_valid=*/false)},
+      {"large_list", std::make_shared<LargeListScalar>(none, large_list(int32()), false)},
+      {"map", std::make_shared<MapScalar>(none, map(utf8(), int32()), false)},
+      {"list_of_fsl",
+       std::make_shared<ListScalar>(none, list(fixed_size_list(int32(), 8)), false)},
+  };
+  for (const auto& sibling : siblings) {
+    for (const std::string func : {"hash32", "hash64"}) {
+      ARROW_SCOPED_TRACE("sibling: ", sibling.first, " func: ", func);
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {sibling.second}));
+      ASSERT_TRUE(result.is_scalar());
+      ASSERT_FALSE(result.scalar()->is_valid);
+    }
+  }
+
+  // Nested inside another value, where the missing child is one level down.
+  auto ty = fixed_size_list(int32(), 8);
+  std::shared_ptr<Array> no_child;
+  auto inner = std::make_shared<FixedSizeListScalar>(no_child, ty, /*is_valid=*/false);
+  ASSERT_OK_AND_ASSIGN(auto outer, StructScalar::Make({inner}, {std::string("f0")}));
+  for (const std::string func : {"hash32", "hash64"}) {
+    ARROW_SCOPED_TRACE("nested func: ", func);
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {outer}));
+    ASSERT_TRUE(result.is_scalar());
+    // A null field makes the struct row null, as everywhere else in this kernel.
+    ASSERT_FALSE(result.scalar()->is_valid);
+  }
+}
+
 TEST_F(TestScalarHash, ListStructElementWithNullFieldIsANullElement) {
   auto arr = ArrayFromJSON(list(struct_({field("f0", int32()), field("f1", int32())})),
                            R"([[{"f0": 1, "f1": null}], [{"f0": 2, "f1": null}], [null],

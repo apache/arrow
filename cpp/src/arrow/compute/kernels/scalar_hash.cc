@@ -285,6 +285,13 @@ struct FastHashScalar {
 
     // By reference: ArraySpan owns a child_data vector, so copying one heap-allocates.
     const ArraySpan& values = array.child_data[0];
+    // A null list-like scalar may carry no child at all -- ArraySpan::FillFromScalar
+    // substitutes a zero-length one, since "when the scalar is null, scalar.value can
+    // also be null". FIXED_SIZE_LIST derives its range from list_size rather than from
+    // offsets, so that range can name elements the child doesn't have. Such a row is
+    // null and its hash discarded, so clamp instead of reading past the child.
+    rel_end = std::min(rel_end, values.length);
+    rel_start = std::min(rel_start, rel_end);
     // Element k of the result is original values row (values.offset + rel_start + k).
     ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                           HashChild(values, values.offset + rel_start,
@@ -310,10 +317,14 @@ struct FastHashScalar {
       }
     } else {
       // rel_start is array.offset * list_size, so row i starts at i * list_size.
+      // Clamped for the same reason: with a stand-in zero-length child there are fewer
+      // element hashes than list_size implies. Never binds for a real array, whose child
+      // always spans list_size * (offset + length).
+      const int64_t available = rel_end - rel_start;
       for (int64_t i = 0; i < array.length; i++) {
-        int64_t start = i * list_size;
+        int64_t start = std::min(i * list_size, available);
         out[i] = CombineRange<c_type, Hasher>(value_hash_data, values_validity, start,
-                                              start + list_size);
+                                              std::min(start + list_size, available));
       }
     }
     // A list/map row's validity is its own only -- what's inside it (even a null
