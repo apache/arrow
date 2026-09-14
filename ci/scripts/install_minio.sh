@@ -62,9 +62,16 @@ if [ "${version}" != "latest" ]; then
   exit 1
 fi
 
+# The binaries are no longer available from https://dl.min.io (HTTP 410),
+# so they are fetched from the GitHub releases instead. See GH-47908.
 # Use specific versions for minio server and client to avoid CI failures on new releases.
-minio_version="minio.RELEASE.2025-01-20T14-49-07Z"
-mc_version="mc.RELEASE.2024-09-16T17-43-14Z"
+minio_version="RELEASE.2025-01-20T14-49-07Z"
+mc_version="RELEASE.2024-09-16T17-43-14Z"
+
+exe_suffix=""
+if [ "${platform}" = "windows" ]; then
+  exe_suffix=".exe"
+fi
 
 download()
 {
@@ -80,13 +87,13 @@ download()
 }
 
 if [[ ! -x ${prefix}/bin/minio ]]; then
-  url="https://dl.min.io/server/minio/release/${platform}-${arch}/archive/${minio_version}"
+  url="https://github.com/minio/minio/releases/download/${minio_version}/minio.${platform}-${arch}.${minio_version}${exe_suffix}"
   echo "Fetching ${url}..."
   download "${prefix}/bin/minio" "${url}"
   chmod +x "${prefix}/bin/minio"
 fi
 if [[ ! -x ${prefix}/bin/mc ]]; then
-  url="https://dl.min.io/client/mc/release/${platform}-${arch}/archive/${mc_version}"
+  url="https://github.com/minio/mc/releases/download/${mc_version}/mc.${platform}-${arch}.${mc_version}${exe_suffix}"
   echo "Fetching ${url}..."
   download "${prefix}/bin/mc" "${url}"
   chmod +x "${prefix}/bin/mc"
