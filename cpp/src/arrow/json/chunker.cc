@@ -77,7 +77,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   }
 
   Status FindLast(std::string_view block, int64_t* out_pos) override {
-    ARROW_ASSIGN_OR_RAISE(auto input, GetPaddedStringView(block));
+    ARROW_ASSIGN_OR_RAISE(auto input, GetPaddedStringView(/*partial=*/"", block));
     ARROW_ASSIGN_OR_RAISE(auto consumed_length, FindDocument(input, /*find_last=*/true));
 
     if (consumed_length == 0) {
@@ -101,7 +101,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   std::shared_ptr<ResizableBuffer> buffer_;
 
   Result<simdjson::padded_string_view> GetPaddedStringView(std::string_view partial,
-                                                           std::string_view block = {}) {
+                                                           std::string_view block) {
     const auto data_size = partial.size() + block.size();
     const auto required_size = data_size + simdjson::SIMDJSON_PADDING;
     if (!buffer_) {
