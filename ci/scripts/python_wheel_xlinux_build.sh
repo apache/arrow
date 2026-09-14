@@ -212,6 +212,13 @@ done
 if [[ "${PYTHON_ABI_TAG}" != *t ]]; then
     PY311=$(ls /opt/python/cp311-cp311/lib/libpython3.11.so* 2>/dev/null | head -1)
     if [[ -z "${PY311}" ]]; then
+        # Newer manylinux/musllinux base images ship CPython without a
+        # libpython*.so; the interpreter binary exports the same Py* symbol
+        # set through its dynamic symbol table (what readelf --dyn-syms
+        # reads either way).
+        PY311=/opt/python/cp311-cp311/bin/python3.11
+    fi
+    if [[ ! -f "${PY311}" ]]; then
         echo "ERROR: no libpython3.11 found in /opt/python for the symbol audit"
         exit 1
     fi
