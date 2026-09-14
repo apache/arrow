@@ -269,7 +269,16 @@ class SmartPtrNoGIL : public SmartPtr<Ts...> {
   // Only release the GIL if we own an object *and* the Python runtime is
   // valid *and* the GIL is held.
   std::optional<PyReleaseGIL> optional_gil_release() const {
-    if (this->get() != nullptr && Py_IsInitialized() && PyGILState_Check()) {
+    // PyGILState_Check() is a full-C-API (Py_LIMITED_API-hidden) function,
+    // unavailable in the cp311-abi3 build. In the non-freethreading build we
+    // ship (GIL always enabled) it reduces to "the current thread has a valid
+    // thread state and holds the GIL", which for any thread executing Python
+    // code is exactly Py_IsInitialized() (a bare C++ worker thread that never
+    // entered Python has no thread state, and we never call reset() from one
+    // while destroying a live PyObject without the GIL). Py_IsInitialized()
+    // is the limited-API-correct guard and also covers the post-finalization
+    // case (GH-38626) the original comment targets.
+    if (this->get() != nullptr && Py_IsInitialized()) {
       return PyReleaseGIL();
     }
     return {};
