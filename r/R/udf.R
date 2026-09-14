@@ -31,7 +31,9 @@
 #'   for functions with more than one argument. This signature will be used
 #'   to determine if this function is appropriate for a given set of arguments.
 #'   If this function is appropriate for more than one signature, pass a
-#'   `list()` of the above.
+#'   `list()` of the above. Arguments are passed to `fun` by position, so if
+#'   the schema (or field) is named, the names must match the argument names
+#'   of `fun` (after `context`).
 #' @param out_type A [DataType] of the output type or a function accepting
 #'   a single argument (`types`), which is a `list()` of [DataType]s. If a
 #'   function it must return a [DataType].
@@ -155,6 +157,28 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
         length(formals(fun))
       )
     )
+  }
+
+  # Arguments are passed to fun by position, so if the user named the
+  # fields in in_type, make sure those names line up with fun's arguments
+  # rather than silently ignoring them (GH-37761)
+  if (!fun_formals_have_dots) {
+    fun_arg_names <- names(formals(fun))[-1]
+    in_type_names <- lapply(in_type, names)
+    mismatch <- vapply(
+      in_type_names,
+      function(nms) {
+        isTRUE(any(nzchar(nms) & nms != fun_arg_names[seq_along(nms)]))
+      },
+      logical(1)
+    )
+    if (any(mismatch)) {
+      abort(c(
+        "Names in `in_type` must match the argument names of `fun` (after `context`)",
+        x = paste0("`in_type` names: ", oxford_paste(unlist(in_type_names))),
+        x = paste0("`fun` argument names: ", oxford_paste(fun_arg_names))
+      ))
+    }
   }
 
   structure(
