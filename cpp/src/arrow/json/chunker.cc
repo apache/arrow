@@ -17,6 +17,7 @@
 
 #include "arrow/json/chunker.h"
 
+#include <cstring>
 #include <string_view>
 #include <utility>
 
@@ -54,9 +55,11 @@ Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
 // and uses actual JSON parsing to delimit them.
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
+  explicit ParsingBoundaryFinder(MemoryPool* pool) : pool_(pool) {}
+
   Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
-    auto input = GetPaddedStringView(partial, block);
+    ARROW_ASSIGN_OR_RAISE(auto input, GetPaddedStringView(partial, block));
     ARROW_ASSIGN_OR_RAISE(auto consumed_length,
                           ConsumeWholeObject(input, /*until_end=*/false));
 
@@ -75,7 +78,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   }
 
   Status FindLast(std::string_view block, int64_t* out_pos) override {
-    auto input = GetPaddedStringView(block);
+    ARROW_ASSIGN_OR_RAISE(auto input, GetPaddedStringView(block));
     ARROW_ASSIGN_OR_RAISE(auto consumed_length,
                           ConsumeWholeObject(input, /*until_end=*/true));
 
@@ -93,21 +96,29 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   }
 
  private:
+  MemoryPool* pool_;
   simdjson::ondemand::parser parser_;
   // A persistent buffer to keep padded contents for simdjson.
   // This should be more efficient than allocating a new padded_string everytime.
-  std::string buffer_;
+  std::shared_ptr<ResizableBuffer> buffer_;
 
-  simdjson::padded_string_view GetPaddedStringView(std::string_view partial,
-                                                   std::string_view block = {}) {
-    // Adjust buffer size without copying old contents.
-    buffer_.clear();
-    buffer_.reserve(partial.size() + block.size() + simdjson::SIMDJSON_PADDING);
-    buffer_.append(partial);
-    buffer_.append(block);
-    // XXX Hopefully this upholds for all std::string implementations
-    DCHECK_GE(buffer_.capacity() - buffer_.size(), simdjson::SIMDJSON_PADDING);
-    auto view = simdjson::padded_string_view(buffer_);
+  Result<simdjson::padded_string_view> GetPaddedStringView(std::string_view partial,
+                                                           std::string_view block = {}) {
+    const auto data_size = partial.size() + block.size();
+    const auto required_size = data_size + simdjson::SIMDJSON_PADDING;
+    if (!buffer_) {
+      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(
+                                         /*size=*/0, pool_));
+    }
+    // Ensure the buffer has enough space for this data + padding
+    if (buffer_->capacity() < static_cast<int64_t>(required_size)) {
+      RETURN_NOT_OK(buffer_->Reserve(static_cast<int64_t>(required_size * 3 / 2)));
+    }
+    auto data = buffer_->mutable_data();
+    std::memcpy(data, partial.data(), partial.size());
+    std::memcpy(data + partial.size(), block.data(), block.size());
+    auto view = simdjson::padded_string_view(data, /*len=*/data_size,
+                                             /*capacity=*/buffer_->capacity());
     DCHECK(view.has_sufficient_padding());
     return view;
   }
@@ -167,10 +178,10 @@ class ParsingBoundaryFinder : public BoundaryFinder {
 
 }  // namespace
 
-std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options, MemoryPool* pool) {
   std::shared_ptr<BoundaryFinder> delimiter;
   if (options.newlines_in_values) {
-    delimiter = std::make_shared<ParsingBoundaryFinder>();
+    delimiter = std::make_shared<ParsingBoundaryFinder>(pool);
   } else {
     delimiter = MakeNewlineBoundaryFinder();
   }

@@ -101,6 +101,38 @@ static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const 
   state.counters["json_size"] = static_cast<double>(json->size());
 }
 
+static void BenchmarkJSONChunkingMultipleBlocks(
+    benchmark::State& state,  // NOLINT non-const reference
+    const std::shared_ptr<Buffer>& json, ParseOptions options, int64_t block_size) {
+  auto chunker = MakeChunker(options);
+
+  for (auto _ : state) {
+    std::shared_ptr<Buffer> partial;
+    int64_t offset = 0;
+    while (offset < json->size()) {
+      const auto slice_size = std::min(block_size, json->size() - offset);
+      auto block = SliceBuffer(json, offset, slice_size);
+      offset += slice_size;
+      if (offset == json->size()) {
+        // Final block
+        ABORT_NOT_OK(chunker->ProcessFinal(partial, block, &block, &partial));
+        ABORT_NOT_OK(chunker->Process(partial, &block, &partial));
+      } else if (partial) {
+        // Continuation block
+        ABORT_NOT_OK(chunker->ProcessWithPartial(partial, block, &block, &partial));
+        ABORT_NOT_OK(chunker->Process(partial, &block, &partial));
+      } else {
+        // First block
+        ABORT_NOT_OK(chunker->Process(block, &block, &partial));
+      }
+    }
+  }
+
+  state.SetBytesProcessed(state.iterations() * json->size());
+  state.counters["json_size"] = static_cast<double>(json->size());
+  state.counters["block_size"] = static_cast<double>(block_size);
+}
+
 static void ChunkJSONPrettyPrinted(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
@@ -111,6 +143,21 @@ static void ChunkJSONPrettyPrinted(
 
   auto json = GenerateTestData(options.explicit_schema, num_rows, /*pretty=*/true);
   BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
+}
+
+static void ChunkJSONPrettyPrintedMultipleBlocks(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int32_t num_rows = 5000;
+
+  auto options = ParseOptions::Defaults();
+  options.newlines_in_values = true;
+  options.explicit_schema = schema(TestFields());
+
+  auto json = GenerateTestData(options.explicit_schema, num_rows, /*pretty=*/true);
+  BenchmarkJSONChunkingMultipleBlocks(state, std::make_shared<Buffer>(json), options,
+                                      /*block_size=*/json.length() / 8);
+  // BenchmarkJSONChunkingMultipleBlocks(state, std::make_shared<Buffer>(json), options,
+  //                                     /*block_size=*/100);
 }
 
 static void ChunkJSONLineDelimited(
@@ -223,6 +270,7 @@ static void ParseJSONFields(benchmark::State& state) {  // NOLINT non-const refe
 }
 
 BENCHMARK(ChunkJSONPrettyPrinted);
+BENCHMARK(ChunkJSONPrettyPrintedMultipleBlocks);
 BENCHMARK(ChunkJSONLineDelimited);
 BENCHMARK(ParseJSONBlockWithSchema);
 
