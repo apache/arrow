@@ -23,6 +23,10 @@ arrow_eval <- function(expr, mask) {
   # but it wouldn't have worked anyway!)
   # Note this is *not* true UDFs.
   add_user_functions_to_mask(expr, mask)
+  # Likewise, look for R variables referenced in expr that share a name with a
+  # function binding (like `date` or `day`) and add them to the mask, so that
+  # the user's variable is found rather than the binding, as dplyr would do.
+  add_user_variables_to_mask(expr, mask)
 
   # This yields an Expression as long as the `exprs` are implemented in Arrow.
   # Otherwise, it raises a classed error, either:
@@ -125,6 +129,30 @@ add_user_functions_to_mask <- function(expr, mask) {
   }
   # Don't need to return anything because we assigned into environments,
   # which pass by reference
+  invisible()
+}
+
+add_user_variables_to_mask <- function(expr, mask) {
+  # The function bindings environment sits between the columns and the user's
+  # environment in the mask, so a symbol like `date` in `filter(Date == date)`
+  # would resolve to the `date()` binding rather than the user's variable.
+  # dplyr would find the variable, so bind it into the mask so we do too.
+  if (is_quosure(expr)) {
+    function_env <- parent.env(parent.env(mask))
+    quo_env <- quo_get_env(expr)
+    # all.vars() returns symbols that aren't in function position
+    vars_in_expr <- all.vars(quo_get_expr(expr))
+    columns <- names(mask$.data)
+    shadowed <- setdiff(intersect(vars_in_expr, ls(function_env, all.names = TRUE)), columns)
+    for (var_name in shadowed) {
+      user_var <- get0(var_name, quo_env)
+      # Functions from the user's environment (like lubridate::day) shouldn't
+      # take precedence over the bindings
+      if (!is.null(user_var) && !is.function(user_var)) {
+        mask[[var_name]] <- user_var
+      }
+    }
+  }
   invisible()
 }
 
