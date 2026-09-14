@@ -165,12 +165,14 @@ PyObject* PyExtensionType::GetInstance() const {
     return nullptr;
   }
   // PyWeakref_GetRef is a full-C-API (3.12+) function, unavailable in the
-  // cp311-abi3 build. PyWeakref_GetObject is the stable-API equivalent: it
-  // returns the referent as a new strong reference, or Py_None if dead (and
-  // raises for a non-weakref, so no separate type check is needed).
+  // cp311-abi3 build. PyWeakref_GetObject is the stable-API equivalent:
+  // alive -> the referent as a BORROWED reference (no INCREF); dead ->
+  // Py_None. (Verified against CPython 3.13/3.14 source: the stable header
+  // contract matches the full API — Py_None, not NULL, on death.)
   PyObject* inst = PyWeakref_GetObject(type_instance_.obj());
-  if (inst != Py_None) {
-    // Alive: inst is a new strong reference
+  if (inst != nullptr && inst != Py_None) {
+    // Alive: promote the borrowed reference to a new strong reference
+    Py_INCREF(inst);
     return inst;
   }
   // Weakref is dead, must reconstruct from serialized form

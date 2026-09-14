@@ -45,6 +45,13 @@ cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
 
+cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
+    # In-place shrink of a bytes object (the only way to fit a max-size read
+    # buffer to the actual bytes read). Wraps the private _PyBytes_Resize on the
+    # C++ side, which handles the limited-API prototype there. See the note in
+    # arrow/python/common.h for the allowlist rationale.
+    int cpp_PyBytes_Resize(PyObject** bytes, Py_ssize_t newsize) except -1
+
 
 def io_thread_count():
     """
@@ -408,7 +415,7 @@ cdef class NativeFile(_Weakrefable):
             bytes_read = GetResultValue(handle.get().Read(c_nbytes, buf))
 
         if bytes_read < c_nbytes:
-            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+            cpp_PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
 
@@ -482,7 +489,7 @@ cdef class NativeFile(_Weakrefable):
                                         ReadAt(c_offset, c_nbytes, buf))
 
         if bytes_read < c_nbytes:
-            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+            cpp_PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
 
@@ -2650,7 +2657,7 @@ cdef class Codec(_Weakrefable):
             )
 
         if asbytes:
-            cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
+            cpp_PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
             return PyObject_to_object(pyobj)
         else:
             out_buf.resize(output_length)
