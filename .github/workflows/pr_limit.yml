@@ -16,7 +16,7 @@
 # under the License.
 
 # Limits the number of concurrently open pull requests a contributor
-# without write access can have. This mirrors GitHub's native
+# without repository access can have. This mirrors GitHub's native
 # "pull request creation cap" setting, which requires admin rights and
 # so can only be configured for ASF repositories via .asf.yaml. Once
 # https://github.com/apache/infrastructure-asfyaml/pull/111 is merged,
@@ -40,7 +40,7 @@ permissions:
   pull-requests: write
   issues: write
 env:
-  # Maximum number of open pull requests per contributor without write
+  # Maximum number of open pull requests per contributor without repository
   # access. A pull request that takes the contributor over this limit is
   # closed with an explanatory comment.
   PR_LIMIT: 3
