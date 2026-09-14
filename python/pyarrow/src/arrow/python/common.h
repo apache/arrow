@@ -410,11 +410,20 @@ struct PyBytesView {
       ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
-      PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      // C-contiguous view of the memoryview's data. May be a fresh copy, so
+      // hold it via `ref` for the lifetime of this view (fixes a use-after-free
+      // for non-contiguous memoryviews). Uses only the stable C-API.
+      ref.reset(PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C'));
       RETURN_IF_PYERROR();
-      Py_buffer* buffer = PyMemoryView_GET_BUFFER(ref);
-      bytes = reinterpret_cast<const char*>(buffer->buf);
-      size = buffer->len;
+      Py_buffer buffer;
+      if (PyObject_GetBuffer(ref.obj(), &buffer, PyBUF_READ) < 0) {
+        return Status::Invalid("failed to obtain buffer from memoryview");
+      }
+      // Release the buffer export now; the data stays valid because `ref`
+      // (the memoryview, which owns the underlying buffer) remains alive.
+      bytes = reinterpret_cast<const char*>(buffer.buf);
+      size = buffer.len;
+      PyBuffer_Release(&buffer);
       is_utf8 = false;
     } else {
       return Status::TypeError("Expected bytes, got a '",
