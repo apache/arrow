@@ -268,6 +268,38 @@ TEST(BlockParser, Basics) {
   }
 }
 
+TEST(BlockParser, MultiDelimiter) {
+  auto options = ParseOptions::Defaults();
+  options.delimiter_string = "||";
+
+  BlockParser parser(options);
+  AssertParseFinal(parser,
+                   Views({"name||message||score\n", "alice||\"hello||world\"||42"}));
+  AssertColumnsEq(parser,
+                  {{"name", "alice"}, {"message", "hello||world"}, {"score", "42"}},
+                  {{false, false}, {false, true}, {false, false}});
+}
+
+TEST(BlockParser, DelimiterPrefix) {
+  auto options = ParseOptions::Defaults();
+  options.delimiter_string = "||";
+
+  BlockParser parser(options, /*num_cols=*/2);
+  AssertParsePartial(parser, "a||b|", 0);
+  AssertParseFinal(parser, "a||b|");
+  AssertColumnsEq(parser, {{"a"}, {"b|"}});
+}
+
+TEST(BlockParser, SingleCharacterDelimiterString) {
+  auto options = ParseOptions::Defaults();
+  options.delimiter = ',';
+  options.delimiter_string = "|";
+
+  BlockParser parser(options);
+  AssertParseFinal(parser, "a|b\n");
+  AssertColumnsEq(parser, {{"a"}, {"b"}});
+}
+
 TEST(BlockParser, PadShortRows) {
   auto options = ParseOptions::Defaults();
   options.pad_short_rows = true;
