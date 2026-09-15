@@ -151,24 +151,6 @@ struct CastListViewToVarList {
 
   static constexpr bool is_downcast = sizeof(src_offset_type) > sizeof(dest_offset_type);
 
-  static bool IsContiguous(const ArraySpan& in_array) {
-    const auto* offsets = in_array.GetValues<src_offset_type>(1);
-    const auto* sizes = in_array.GetValues<src_offset_type>(2);
-    for (int64_t i = 0; i < in_array.length - 1; ++i) {
-      if (in_array.IsNull(i) && sizes[i] != 0) {
-        return false;
-      }
-      if (offsets[i] + sizes[i] != offsets[i + 1]) {
-        return false;
-      }
-    }
-    if (in_array.length > 0 && in_array.IsNull(in_array.length - 1) &&
-        sizes[in_array.length - 1] != 0) {
-      return false;
-    }
-    return true;
-  }
-
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
@@ -185,19 +167,34 @@ struct CastListViewToVarList {
     const auto* offsets = in_array.GetValues<src_offset_type>(1);
     const auto* sizes = in_array.GetValues<src_offset_type>(2);
 
-    // Allocate destination offsets buffer (shared by both paths)
+    // Allocate destination offsets buffer
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[1], ctx->Allocate(sizeof(dest_offset_type) *
                                                                (in_array.length + 1)));
     auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
 
-    if (IsContiguous(in_array)) {
-      // Zero-copy fast-path: shift offsets and slice child values
-      src_offset_type start_offset = offsets[0];
-      src_offset_type abs_end_offset =
-          offsets[in_array.length - 1] + sizes[in_array.length - 1];
+    // Single-pass: compute contiguous destination offsets and verify contiguity
+    src_offset_type start_offset = offsets[0];
+    bool is_contiguous = true;
 
+    for (int64_t i = 0; i < in_array.length; ++i) {
+      dest_offsets[i] = static_cast<dest_offset_type>(offsets[i] - start_offset);
+      if (in_array.IsNull(i)) {
+        if (sizes[i] != 0) {
+          is_contiguous = false;
+        }
+      } else if (i < in_array.length - 1 && offsets[i] + sizes[i] != offsets[i + 1]) {
+        is_contiguous = false;
+      }
+    }
+    src_offset_type abs_end_offset =
+        offsets[in_array.length - 1] + sizes[in_array.length - 1];
+    dest_offsets[in_array.length] =
+        static_cast<dest_offset_type>(abs_end_offset - start_offset);
+
+    if (is_contiguous) {
+      // Zero-copy fast-path: dest_offsets are already computed, slice child values
+      src_offset_type range = abs_end_offset - start_offset;
       if constexpr (is_downcast) {
-        src_offset_type range = abs_end_offset - start_offset;
         if (range > std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("Array of type ", in_array.type->ToString(),
                                  " too large to convert to ",
@@ -205,16 +202,9 @@ struct CastListViewToVarList {
         }
       }
 
-      for (int64_t i = 0; i < in_array.length; ++i) {
-        dest_offsets[i] = static_cast<dest_offset_type>(offsets[i] - start_offset);
-      }
-      dest_offsets[in_array.length] =
-          static_cast<dest_offset_type>(abs_end_offset - start_offset);
-
-      values = values->Slice(start_offset, abs_end_offset - start_offset);
+      values = values->Slice(start_offset, range);
     } else {
-      // Non-contiguous path: compute new offsets using SetBitRunReader for bitmap
-      // traversal
+      // Non-contiguous path: recompute offsets using SetBitRunReader, flatten values
       src_offset_type current_offset = 0;
       dest_offsets[0] = 0;
       const uint8_t* validity = in_array.buffers[0].data;
