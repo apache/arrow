@@ -44,6 +44,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/io_util.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
@@ -131,6 +132,13 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
 
   void SetUp() override {
     auto path = test::get_data_file("alp_extended.zstd.parquet");
+    // The fixture arrived in parquet-testing after the submodule revision this
+    // tree pins, so skip rather than fail until the pin moves forward.
+    ASSERT_OK_AND_ASSIGN(auto platform_path,
+                         ::arrow::internal::PlatformFilename::FromString(path));
+    if (!::arrow::internal::FileExists(platform_path).ValueOr(false)) {
+      GTEST_SKIP() << "parquet-testing is missing " << path;
+    }
     auto reader = ParquetFileReader::OpenFile(path, /*memory_map=*/false);
     metadata_ = reader->metadata();
     ASSERT_OK_AND_ASSIGN(
