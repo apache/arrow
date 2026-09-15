@@ -36,8 +36,7 @@ TEST(ODBCDescriptorTest, SetGetNameWideRoundTrips) {
   ODBCDescriptor desc(diagnostics, nullptr, nullptr, /*is_app_descriptor=*/true,
                       /*is_writable=*/true, /*is_2x_connection=*/false);
 
-  SQLSMALLINT count = 1;
-  desc.SetHeaderField(SQL_DESC_COUNT, reinterpret_cast<SQLPOINTER>(&count), 0);
+  desc.SetHeaderField(SQL_DESC_COUNT, reinterpret_cast<SQLPOINTER>(1), 0);
 
   std::vector<uint8_t> wide;
   Utf8ToWcs("my_column", &wide);
