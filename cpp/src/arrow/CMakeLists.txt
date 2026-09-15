@@ -424,6 +424,7 @@ set(ARROW_SRCS
     extension_type.cc
     extension/bool8.cc
     extension/json.cc
+    extension/parquet_file.cc
     extension/parquet_variant.cc
     extension/uuid.cc
     pretty_print.cc
