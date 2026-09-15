@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -31,6 +32,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/cast.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -1900,6 +1902,74 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
         /*null_probability*/ 0.1,
         /*half_range*/ half_range));
   }
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, SingleValueSkipsMiniblockAllocation) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 2^25 values per block, 2^20 miniblocks, 1 value, and first value 0.
+  const std::vector<uint8_t> encoded = {0x80, 0x80, 0x80, 0x10, 0x80,
+                                        0x80, 0x40, 0x01, 0x00};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  T decoded = 1;
+
+  decoder->SetData(1, encoded.data(), static_cast<int>(encoded.size()));
+  ASSERT_EQ(decoder->Decode(&decoded, 1), 1);
+  EXPECT_EQ(decoded, 0);
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, RejectsMiniblockWidthsLargerThanInput) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 2^25 values per block, 2^20 miniblocks, 2 values, and first value 0,
+  // followed by min delta 0 and no miniblock bit widths.
+  const std::vector<uint8_t> encoded = {0x80, 0x80, 0x80, 0x10, 0x80,
+                                        0x80, 0x40, 0x02, 0x00, 0x00};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  std::vector<T> decoded(2);
+
+  EXPECT_THROW_THAT(
+      [&] {
+        decoder->SetData(2, encoded.data(), static_cast<int>(encoded.size()));
+        decoder->Decode(decoded.data(), static_cast<int>(decoded.size()));
+      },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr(
+              "the number of miniblocks per block (1048576) is larger than the "
+              "number of bytes available for miniblock bit widths (0)")));
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, RejectsMiniblockWidthsWithoutMinDelta) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 128 values per block, 1 miniblock, 2 values, and first value 0,
+  // followed by only one byte for the min delta and miniblock bit width.
+  const std::vector<uint8_t> encoded = {0x80, 0x01, 0x01, 0x02, 0x00, 0x00};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  std::vector<T> decoded(2);
+
+  EXPECT_THROW_THAT(
+      [&] {
+        decoder->SetData(2, encoded.data(), static_cast<int>(encoded.size()));
+        decoder->Decode(decoded.data(), static_cast<int>(decoded.size()));
+      },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr(
+              "the number of miniblocks per block (1) is larger than the number "
+              "of bytes available for miniblock bit widths (0)")));
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
 }
 
 TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
