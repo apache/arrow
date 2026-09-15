@@ -23,6 +23,8 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -465,6 +467,386 @@ inline uint64_t BaseSetBitRunReader<true>::ConsumeBits(uint64_t word, int32_t nu
 
 using SetBitRunReader = BaseSetBitRunReader</*Reverse=*/false>;
 using ReverseSetBitRunReader = BaseSetBitRunReader</*Reverse=*/true>;
+
+struct PositionedBitRun {
+  int64_t position;
+  int64_t length;
+  bool set;
+
+  std::string ToString() const {
+    return std::string("{pos=") + std::to_string(position) +
+           ", len=" + std::to_string(length) + ", set=" + std::to_string(set) + "}";
+  }
+};
+
+inline bool operator==(const PositionedBitRun& lhs, const PositionedBitRun& rhs) {
+  return lhs.position == rhs.position && lhs.length == rhs.length && lhs.set == rhs.set;
+}
+
+inline bool operator!=(const PositionedBitRun& lhs, const PositionedBitRun& rhs) {
+  return lhs.position != rhs.position || lhs.length != rhs.length || lhs.set != rhs.set;
+}
+
+/// \brief An input iterator over all contiguous bit runs in a bitmap range.
+class BitRunIterator {
+ public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = PositionedBitRun;
+  using difference_type = int64_t;
+  using pointer = const value_type*;
+  using reference = const value_type&;
+
+  BitRunIterator(const uint8_t* bitmap, int64_t offset, int64_t length)
+      : all_set_(bitmap == NULLPTR), at_end_(length == 0) {
+    if (at_end_) {
+      return;
+    }
+    if (all_set_) {
+      current_ = {0, length, true};
+      return;
+    }
+    reader_.emplace(bitmap, offset, length);
+    Advance();
+  }
+
+  reference operator*() const { return current_; }
+  pointer operator->() const { return &current_; }
+
+  BitRunIterator& operator++() {
+    if (!at_end_) {
+      if (all_set_) {
+        at_end_ = true;
+      } else {
+        Advance();
+      }
+    }
+    return *this;
+  }
+
+  BitRunIterator operator++(int) {
+    BitRunIterator copy = *this;
+    ++(*this);
+    return copy;
+  }
+
+  bool operator==(std::default_sentinel_t) const { return at_end_; }
+  bool operator!=(std::default_sentinel_t) const { return !at_end_; }
+  friend bool operator==(std::default_sentinel_t, const BitRunIterator& iterator) {
+    return iterator.at_end_;
+  }
+  friend bool operator!=(std::default_sentinel_t, const BitRunIterator& iterator) {
+    return !iterator.at_end_;
+  }
+
+ private:
+  void Advance() {
+    const auto run = reader_->NextRun();
+    if (run.length == 0) {
+      at_end_ = true;
+      return;
+    }
+    current_ = {position_, run.length, run.set};
+    position_ += run.length;
+  }
+
+  std::optional<BitRunReader> reader_;
+  PositionedBitRun current_;
+  int64_t position_ = 0;
+  bool all_set_ = false;
+  bool at_end_ = false;
+};
+
+/// \brief A range over all contiguous bit runs in a bitmap range.
+class BitRunRange {
+ public:
+  BitRunRange(const uint8_t* bitmap, int64_t offset, int64_t length)
+      : bitmap_(bitmap), offset_(offset), length_(length) {}
+
+  BitRunIterator begin() const { return BitRunIterator(bitmap_, offset_, length_); }
+  std::default_sentinel_t end() const { return {}; }
+
+ private:
+  const uint8_t* bitmap_;
+  int64_t offset_;
+  int64_t length_;
+};
+
+inline BitRunRange IterateBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length) {
+  return {bitmap, offset, length};
+}
+
+/// \brief An input iterator over contiguous set-bit runs in a bitmap range.
+class SetBitRunIterator {
+ public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = SetBitRun;
+  using difference_type = int64_t;
+  using pointer = const value_type*;
+  using reference = const value_type&;
+
+  SetBitRunIterator(const uint8_t* bitmap, int64_t offset, int64_t length)
+      : all_set_(bitmap == NULLPTR), at_end_(length == 0) {
+    if (at_end_) {
+      return;
+    }
+    if (all_set_) {
+      current_ = {0, length};
+      return;
+    }
+    reader_.emplace(bitmap, offset, length);
+    Advance();
+  }
+
+  SetBitRunIterator(const SetBitRunIterator&) = default;
+
+  SetBitRunIterator& operator=(const SetBitRunIterator& other) {
+    if (this != &other) {
+      reader_.reset();
+      if (other.reader_) {
+        reader_.emplace(*other.reader_);
+      }
+      current_ = other.current_;
+      all_set_ = other.all_set_;
+      at_end_ = other.at_end_;
+    }
+    return *this;
+  }
+
+  reference operator*() const { return current_; }
+  pointer operator->() const { return &current_; }
+
+  SetBitRunIterator& operator++() {
+    if (!at_end_) {
+      if (all_set_) {
+        at_end_ = true;
+      } else {
+        Advance();
+      }
+    }
+    return *this;
+  }
+
+  SetBitRunIterator operator++(int) {
+    SetBitRunIterator copy = *this;
+    ++(*this);
+    return copy;
+  }
+
+  bool operator==(std::default_sentinel_t) const { return at_end_; }
+  bool operator!=(std::default_sentinel_t) const { return !at_end_; }
+  friend bool operator==(std::default_sentinel_t, const SetBitRunIterator& iterator) {
+    return iterator.at_end_;
+  }
+  friend bool operator!=(std::default_sentinel_t, const SetBitRunIterator& iterator) {
+    return !iterator.at_end_;
+  }
+
+ private:
+  void Advance() {
+    current_ = reader_->NextRun();
+    at_end_ = current_.AtEnd();
+  }
+
+  std::optional<SetBitRunReader> reader_;
+  SetBitRun current_{};
+  bool all_set_ = false;
+  bool at_end_ = false;
+};
+
+/// \brief A range over contiguous set-bit runs in a bitmap range.
+class SetBitRunRange {
+ public:
+  SetBitRunRange(const uint8_t* bitmap, int64_t offset, int64_t length)
+      : bitmap_(bitmap), offset_(offset), length_(length) {}
+
+  SetBitRunIterator begin() const { return SetBitRunIterator(bitmap_, offset_, length_); }
+  std::default_sentinel_t end() const { return {}; }
+
+ private:
+  const uint8_t* bitmap_;
+  int64_t offset_;
+  int64_t length_;
+};
+
+inline SetBitRunRange IterateSetBitRuns(const uint8_t* bitmap, int64_t offset,
+                                        int64_t length) {
+  return {bitmap, offset, length};
+}
+
+/// \brief An input iterator over set-bit runs in the intersection of two bitmap ranges.
+class TwoSetBitRunIterator {
+ public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = SetBitRun;
+  using difference_type = int64_t;
+  using pointer = const value_type*;
+  using reference = const value_type&;
+
+  TwoSetBitRunIterator(const uint8_t* left_bitmap, int64_t left_offset,
+                       const uint8_t* right_bitmap, int64_t right_offset, int64_t length)
+      : at_end_(length == 0) {
+    if (at_end_) {
+      return;
+    }
+    if (left_bitmap == NULLPTR && right_bitmap == NULLPTR) {
+      mode_ = Mode::kAllSet;
+      current_ = {0, length};
+      return;
+    }
+    if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
+      mode_ = Mode::kSingleBitmap;
+      if (left_bitmap == NULLPTR) {
+        single_reader_.emplace(right_bitmap, right_offset, length);
+      } else {
+        single_reader_.emplace(left_bitmap, left_offset, length);
+      }
+      AdvanceSingleBitmap();
+      return;
+    }
+
+    left_reader_.emplace(left_bitmap, left_offset, length);
+    right_reader_.emplace(right_bitmap, right_offset, length);
+    left_run_ = left_reader_->NextRun();
+    right_run_ = right_reader_->NextRun();
+    AdvanceTwoBitmaps();
+  }
+
+  TwoSetBitRunIterator(const TwoSetBitRunIterator&) = default;
+
+  TwoSetBitRunIterator& operator=(const TwoSetBitRunIterator& other) {
+    if (this != &other) {
+      CopyReader(&left_reader_, other.left_reader_);
+      CopyReader(&right_reader_, other.right_reader_);
+      CopyReader(&single_reader_, other.single_reader_);
+      left_run_ = other.left_run_;
+      right_run_ = other.right_run_;
+      current_ = other.current_;
+      mode_ = other.mode_;
+      at_end_ = other.at_end_;
+    }
+    return *this;
+  }
+
+  reference operator*() const { return current_; }
+  pointer operator->() const { return &current_; }
+
+  TwoSetBitRunIterator& operator++() {
+    if (!at_end_) {
+      switch (mode_) {
+        case Mode::kAllSet:
+          at_end_ = true;
+          break;
+        case Mode::kSingleBitmap:
+          AdvanceSingleBitmap();
+          break;
+        case Mode::kTwoBitmaps:
+          AdvanceTwoBitmaps();
+          break;
+      }
+    }
+    return *this;
+  }
+
+  TwoSetBitRunIterator operator++(int) {
+    TwoSetBitRunIterator copy = *this;
+    ++(*this);
+    return copy;
+  }
+
+  bool operator==(std::default_sentinel_t) const { return at_end_; }
+  bool operator!=(std::default_sentinel_t) const { return !at_end_; }
+  friend bool operator==(std::default_sentinel_t, const TwoSetBitRunIterator& iterator) {
+    return iterator.at_end_;
+  }
+  friend bool operator!=(std::default_sentinel_t, const TwoSetBitRunIterator& iterator) {
+    return !iterator.at_end_;
+  }
+
+ private:
+  enum class Mode { kAllSet, kSingleBitmap, kTwoBitmaps };
+
+  static void CopyReader(std::optional<SetBitRunReader>* destination,
+                         const std::optional<SetBitRunReader>& source) {
+    destination->reset();
+    if (source) {
+      destination->emplace(*source);
+    }
+  }
+
+  void AdvanceSingleBitmap() {
+    current_ = single_reader_->NextRun();
+    at_end_ = current_.AtEnd();
+  }
+
+  void AdvanceTwoBitmaps() {
+    while (!left_run_.AtEnd() && !right_run_.AtEnd()) {
+      const int64_t left_end = left_run_.position + left_run_.length;
+      const int64_t right_end = right_run_.position + right_run_.length;
+      const int64_t start = std::max(left_run_.position, right_run_.position);
+      const int64_t end = std::min(left_end, right_end);
+
+      if (start < end) {
+        current_ = {start, end - start};
+        if (left_end <= right_end) {
+          left_run_ = left_reader_->NextRun();
+        }
+        if (right_end <= left_end) {
+          right_run_ = right_reader_->NextRun();
+        }
+        return;
+      }
+
+      if (left_end <= right_end) {
+        left_run_ = left_reader_->NextRun();
+      }
+      if (right_end <= left_end) {
+        right_run_ = right_reader_->NextRun();
+      }
+    }
+    at_end_ = true;
+  }
+
+  std::optional<SetBitRunReader> left_reader_;
+  std::optional<SetBitRunReader> right_reader_;
+  std::optional<SetBitRunReader> single_reader_;
+  SetBitRun left_run_{};
+  SetBitRun right_run_{};
+  SetBitRun current_{};
+  Mode mode_ = Mode::kTwoBitmaps;
+  bool at_end_ = false;
+};
+
+/// \brief A range over set-bit runs in the intersection of two bitmap ranges.
+class TwoSetBitRunRange {
+ public:
+  TwoSetBitRunRange(const uint8_t* left_bitmap, int64_t left_offset,
+                    const uint8_t* right_bitmap, int64_t right_offset, int64_t length)
+      : left_bitmap_(left_bitmap),
+        left_offset_(left_offset),
+        right_bitmap_(right_bitmap),
+        right_offset_(right_offset),
+        length_(length) {}
+
+  TwoSetBitRunIterator begin() const {
+    return TwoSetBitRunIterator(left_bitmap_, left_offset_, right_bitmap_, right_offset_,
+                                length_);
+  }
+  std::default_sentinel_t end() const { return {}; }
+
+ private:
+  const uint8_t* left_bitmap_;
+  int64_t left_offset_;
+  const uint8_t* right_bitmap_;
+  int64_t right_offset_;
+  int64_t length_;
+};
+
+inline TwoSetBitRunRange IterateTwoSetBitRuns(const uint8_t* left_bitmap,
+                                              int64_t left_offset,
+                                              const uint8_t* right_bitmap,
+                                              int64_t right_offset, int64_t length) {
+  return {left_bitmap, left_offset, right_bitmap, right_offset, length};
+}
 
 // Functional-style bit run visitors.
 
