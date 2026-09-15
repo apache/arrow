@@ -1981,10 +1981,27 @@ TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
+
+  // SQLMoreResults closes the current cursor when there is no next result.
+  ASSERT_EQ(SQL_ERROR, SQLCloseCursor(this->stmt));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
 
 TYPED_TEST(StatementTest, TestSQLMoreResultsWithoutQuery) {
   ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
+}
+
+TYPED_TEST(StatementTest, TestSQLFetchWithoutCursor) {
+  ASSERT_EQ(SQL_ERROR, SQLFetch(this->stmt));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+}
+
+TYPED_TEST(StatementTest, TestSQLGetDataWithoutCursor) {
+  SQLINTEGER value;
+  SQLLEN indicator;
+  ASSERT_EQ(SQL_ERROR,
+            SQLGetData(this->stmt, 1, SQL_C_LONG, &value, sizeof(value), &indicator));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
