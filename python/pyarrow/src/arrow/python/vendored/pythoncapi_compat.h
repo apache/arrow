@@ -141,6 +141,11 @@ static inline void _Py_SET_SIZE(PyVarObject *ob, Py_ssize_t size)
 #endif
 
 
+// The PyFrame* / PyThreadState_GetFrame* shims reference PyFrameObject, which
+// is only defined when frameobject.h is included -- not under Py_LIMITED_API.
+// Guard the whole frame block so a limited-API (abi3) build compiles. (Local
+// arrow patch; the pyarrow sources never call the PyFrame* API.)
+#ifndef Py_LIMITED_API
 // bpo-40421 added PyFrame_GetCode() to Python 3.9.0b1
 #if PY_VERSION_HEX < 0x030900B1 || defined(PYPY_VERSION)
 static inline PyCodeObject* PyFrame_GetCode(PyFrameObject *frame)
@@ -283,6 +288,7 @@ PyFrame_GetVarString(PyFrameObject *frame, const char *name)
     return value;
 }
 #endif
+#endif  // !Py_LIMITED_API
 
 
 // bpo-39947 added PyThreadState_GetInterpreter() to Python 3.9.0a5
@@ -296,6 +302,7 @@ PyThreadState_GetInterpreter(PyThreadState *tstate)
 #endif
 
 
+#ifndef Py_LIMITED_API
 // bpo-40429 added PyThreadState_GetFrame() to Python 3.9.0b1
 #if PY_VERSION_HEX < 0x030900B1 && !defined(PYPY_VERSION)
 static inline PyFrameObject* PyThreadState_GetFrame(PyThreadState *tstate)
@@ -314,6 +321,7 @@ _PyThreadState_GetFrameBorrow(PyThreadState *tstate)
     return frame;
 }
 #endif
+#endif  // !Py_LIMITED_API
 
 
 // bpo-39947 added PyInterpreterState_Get() to Python 3.9.0a5
