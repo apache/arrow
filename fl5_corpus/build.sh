@@ -32,7 +32,7 @@ case "$(uname -m)" in
 esac
 
 set -x
-for SRC in fl5_corpus seq_granularity; do
+for SRC in fl5_corpus fl5_delta_corpus seq_granularity; do
   ${CXX:-g++} -std=c++20 -O3 $ARCH_FLAGS -DNDEBUG \
     -I"$ARROW/cpp/src" -I"$ARROW_BUILD/src" -I"$ARROW/cpp/build-support" -I"$XSIMD" \
     "$SRC.cpp" -o "$SRC" \
