@@ -282,7 +282,14 @@ Status TestRestorePyErrorBasics() {
 
 Status TestPyBufferInvalidInputObject() {
   std::shared_ptr<Buffer> res;
-  PyObject* input = Py_None;
+  // Use a non-immortal heap object: for immortal objects (e.g. Py_None),
+  // CPython >= 3.14 deliberately applies pre-3.14-style Py_INCREF (saturating
+  // low-32-bit bump) while skipping the matching Py_DECREF, so a balanced
+  // incref/decref pair drifts Py_REFCNT by +1 per pair and the raw field
+  // value encodes immortal flags. A fresh list keeps the refcount assertion
+  // meaningful on all interpreters.
+  OwnedRef list_ref(PyList_New(0));
+  PyObject* input = list_ref.obj();
   auto old_refcnt = Py_REFCNT(input);
   {
     Status st = PyBuffer::FromPyObject(input).status();
