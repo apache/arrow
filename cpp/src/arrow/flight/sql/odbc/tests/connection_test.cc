@@ -562,12 +562,29 @@ TYPED_TEST(ConnectionTest, TestSQLSetStmtAttrDescriptor) {
             SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
   EXPECT_EQ(internal_ard, value);
 
-  // Free explicitly allocated APD and ARD descriptor handles
+  // Assign replacement descriptors after the reset. Freeing the old descriptors must
+  // not revert these replacements, which proves the reset detached the old handles.
+  SQLHDESC replacement_apd, replacement_ard;
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &replacement_apd));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &replacement_ard));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, replacement_apd, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, replacement_ard, 0));
+
   ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, apd_descriptor));
-
   ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, ard_descriptor));
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
+                                        sizeof(value), 0));
+  EXPECT_EQ(replacement_apd, value);
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
+  EXPECT_EQ(replacement_ard, value);
 
-  // Verify APD and ARD descriptors has been reverted to implicit descriptors
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, replacement_apd));
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, replacement_ard));
+
+  // Freeing the active explicit descriptors restores the implicit descriptors.
   value = nullptr;
 
   EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
