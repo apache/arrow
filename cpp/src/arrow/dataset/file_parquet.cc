@@ -68,46 +68,25 @@ parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
     const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  // FIXME (GH-51264): Can't mutate pool after ReaderProperties construction.
-  parquet::ReaderProperties properties(pool);
-  if (parquet_scan_options->reader_properties->is_buffered_stream_enabled()) {
-    properties.enable_buffered_stream();
-  } else {
-    properties.disable_buffered_stream();
-  }
-  properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
-  properties.set_footer_read_size(
-      parquet_scan_options->reader_properties->footer_read_size());
-
-  auto file_decryption_prop =
-      parquet_scan_options->reader_properties->file_decryption_properties();
+  parquet::ReaderProperties properties = *parquet_scan_options->reader_properties;
+  properties.set_memory_pool(pool);
+  properties.disable_read_dense_for_nullable();
 
 #ifdef PARQUET_REQUIRE_ENCRYPTION
   auto parquet_decrypt_config = parquet_scan_options->parquet_decryption_config;
 
   if (parquet_decrypt_config != nullptr) {
-    file_decryption_prop =
+    auto file_decryption_prop =
         parquet_decrypt_config->crypto_factory->GetFileDecryptionProperties(
             *parquet_decrypt_config->kms_connection_config,
             *parquet_decrypt_config->decryption_config, path, filesystem);
+    properties.file_decryption_properties(file_decryption_prop);
   }
 #else
   if (parquet_scan_options->parquet_decryption_config != nullptr) {
     parquet::ParquetException::NYI("Encryption is not supported in this build.");
   }
 #endif
-
-  properties.file_decryption_properties(file_decryption_prop);
-
-  properties.set_thrift_string_size_limit(
-      parquet_scan_options->reader_properties->thrift_string_size_limit());
-  properties.set_thrift_container_size_limit(
-      parquet_scan_options->reader_properties->thrift_container_size_limit());
-  properties.set_schema_depth_limit(
-      parquet_scan_options->reader_properties->schema_depth_limit());
-
-  properties.set_page_checksum_verification(
-      parquet_scan_options->reader_properties->page_checksum_verification());
 
   return properties;
 }
