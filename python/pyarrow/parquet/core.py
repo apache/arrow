@@ -201,115 +201,143 @@ _filters_to_expression = _deprecate_api(
     filters_to_expression, "10.0.0", DeprecationWarning)
 
 
+_read_docstring_common = """\
+read_dictionary : list, default None
+    List of names or column paths (for nested types) to read directly
+    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
+    a flat column as dictionary-encoded pass the column name. For
+    nested types, you must pass the full column "path", which could be
+    something like level1.level2.list.item. Refer to the Parquet
+    file's schema to obtain the paths.
+binary_type : pyarrow.DataType, default None
+    If given, Parquet binary columns will be read as this datatype.
+    This setting is ignored if a serialized Arrow schema is found in
+    the Parquet metadata.
+list_type : subclass of pyarrow.DataType, default None
+    If given, non-MAP repeated columns will be read as an instance of
+    this datatype (either pyarrow.ListType or pyarrow.LargeListType).
+    This setting is ignored if a serialized Arrow schema is found in
+    the Parquet metadata.
+memory_map : bool, default False
+    If the source is a file path, use a memory map to read file, which can
+    improve performance in some environments.
+buffer_size : int, default 0
+    If positive, perform read buffering when deserializing individual
+    column chunks. Otherwise IO calls are unbuffered.
+pre_buffer : bool, default True
+    Coalesce and issue file reads in parallel to improve performance on
+    high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
+    background I/O thread pool. If using a filesystem layer that itself
+    performs readahead (e.g. fsspec's S3FS), disable readahead for best
+    results. Set to False if you want to prioritize minimal memory usage
+    over maximum speed.
+coerce_int96_timestamp_unit : str, default None
+    Cast timestamps that are stored in INT96 format to a particular resolution
+    (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
+    timestamps will be inferred as timestamps in nanoseconds.
+decryption_properties : FileDecryptionProperties or None, default None
+    File decryption properties for Parquet Modular Encryption.
+thrift_string_size_limit : int, default None
+    If not None, override the maximum total string size allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+thrift_container_size_limit : int, default None
+    If not None, override the maximum total size of containers allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+page_checksum_verification : bool, default False
+    If True, verify the page checksum for each page read from the file.
+arrow_extensions_enabled : bool, default True
+    If True, read Parquet logical types as Arrow extension types where possible,
+    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+    the canonical `arrow.uuid` extension type)."""
+
+
+_read_docstring_dataset = """\
+partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+default "hive"
+    The partitioning scheme for a partitioned dataset. The default of "hive"
+    assumes directory names with key=value pairs like "/year=2009/month=11".
+    In addition, a scheme like "/2009/11" is also supported, in which case
+    you need to specify the field names or a full schema. See the
+    ``pyarrow.dataset.partitioning()`` function for more details.
+ignore_prefixes : list, optional
+    Files matching any of these prefixes will be ignored by the
+    discovery process.
+    This is matched to the basename of a path.
+    By default this is ['.', '_'].
+    Note that discovery happens only if a directory is passed as source."""
+
+
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
 
 
+_parquet_file_example = """\
+Generate an example PyArrow Table and write it to Parquet file:
+
+>>> import pyarrow as pa
+>>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+...                              "Brittle stars", "Centipede"]})
+
+>>> import pyarrow.parquet as pq
+>>> pq.write_table(table, 'example.parquet')
+
+Create a ``ParquetFile`` object from the Parquet file:
+
+>>> parquet_file = pq.ParquetFile('example.parquet')
+
+Read the data:
+
+>>> parquet_file.read()
+pyarrow.Table
+n_legs: int64
+animal: string
+----
+n_legs: [[2,2,4,4,5,100]]
+animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
+
+Create a ParquetFile object with "animal" column as DictionaryArray:
+
+>>> parquet_file = pq.ParquetFile('example.parquet',
+...                               read_dictionary=["animal"])
+>>> parquet_file.read()
+pyarrow.Table
+n_legs: int64
+animal: dictionary<values=string, indices=int32, ordered=0>
+----
+n_legs: [[2,2,4,4,5,100]]
+animal: [  -- dictionary:
+["Flamingo","Parrot",...,"Brittle stars","Centipede"]  -- indices:
+[0,1,2,3,4,5]]
+"""
+
+
 class ParquetFile:
-    """
-    Reader interface for a single Parquet file.
+    __doc__ = f"""
+Reader interface for a single Parquet file.
 
-    Parameters
-    ----------
-    source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
-        Readable source. For passing bytes or buffer-like file containing a
-        Parquet file, use pyarrow.BufferReader.
-    metadata : FileMetaData, default None
-        Use existing metadata object, rather than reading from file.
-    common_metadata : FileMetaData, default None
-        Will be used in reads for pandas schema metadata if not found in the
-        main file's metadata, no other uses at the moment.
-    read_dictionary : list
-        List of column names to read directly as DictionaryArray.
-    binary_type : pyarrow.DataType, default None
-        If given, Parquet binary columns will be read as this datatype.
-        This setting is ignored if a serialized Arrow schema is found in
-        the Parquet metadata.
-    list_type : subclass of pyarrow.DataType, default None
-        If given, non-MAP repeated columns will be read as an instance of
-        this datatype (either pyarrow.ListType or pyarrow.LargeListType).
-        This setting is ignored if a serialized Arrow schema is found in
-        the Parquet metadata.
-    memory_map : bool, default False
-        If the source is a file path, use a memory map to read file, which can
-        improve performance in some environments.
-    buffer_size : int, default 0
-        If positive, perform read buffering when deserializing individual
-        column chunks. Otherwise IO calls are unbuffered.
-    pre_buffer : bool, default True
-        Coalesce and issue file reads in parallel to improve performance on
-        high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
-        background I/O thread pool. If using a filesystem layer that itself
-        performs readahead (e.g. fsspec's S3FS), disable readahead for best
-        results. Set to False if you want to prioritize minimal memory usage
-        over maximum speed.
-    coerce_int96_timestamp_unit : str, default None
-        Cast timestamps that are stored in INT96 format to a particular
-        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-        and therefore INT96 timestamps will be inferred as timestamps
-        in nanoseconds.
-    decryption_properties : FileDecryptionProperties, default None
-        File decryption properties for Parquet Modular Encryption.
-    thrift_string_size_limit : int, default None
-        If not None, override the maximum total string size allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    thrift_container_size_limit : int, default None
-        If not None, override the maximum total size of containers allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    filesystem : FileSystem, default None
-        If nothing passed, will be inferred based on path.
-        Path will try to be found in the local on-disk filesystem otherwise
-        it will be parsed as an URI to determine the filesystem.
-    page_checksum_verification : bool, default False
-        If True, verify the checksum for each page read from the file.
-    arrow_extensions_enabled : bool, default True
-        If True, read Parquet logical types as Arrow extension types where
-        possible (e.g., read JSON as the canonical `arrow.json` extension type
-        or UUID as the canonical `arrow.uuid` extension type).
+Parameters
+----------
+source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
+    Readable source. For passing bytes or buffer-like file containing a
+    Parquet file, use pyarrow.BufferReader.
+metadata : FileMetaData, default None
+    Use existing metadata object, rather than reading from file.
+common_metadata : FileMetaData, default None
+    Will be used in reads for pandas schema metadata if not found in the
+    main file's metadata, no other uses at the moment.
+filesystem : FileSystem, default None
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
+{_read_docstring_common}
 
-    Examples
-    --------
-
-    Generate an example PyArrow Table and write it to Parquet file:
-
-    >>> import pyarrow as pa
-    >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                              "Brittle stars", "Centipede"]})
-
-    >>> import pyarrow.parquet as pq
-    >>> pq.write_table(table, 'example.parquet')
-
-    Create a ``ParquetFile`` object from the Parquet file:
-
-    >>> parquet_file = pq.ParquetFile('example.parquet')
-
-    Read the data:
-
-    >>> parquet_file.read()
-    pyarrow.Table
-    n_legs: int64
-    animal: string
-    ----
-    n_legs: [[2,2,4,4,5,100]]
-    animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
-
-    Create a ParquetFile object with "animal" column as DictionaryArray:
-
-    >>> parquet_file = pq.ParquetFile('example.parquet',
-    ...                               read_dictionary=["animal"])
-    >>> parquet_file.read()
-    pyarrow.Table
-    n_legs: int64
-    animal: dictionary<values=string, indices=int32, ordered=0>
-    ----
-    n_legs: [[2,2,4,4,5,100]]
-    animal: [  -- dictionary:
-    ["Flamingo","Parrot",...,"Brittle stars","Centipede"]  -- indices:
-    [0,1,2,3,4,5]]
-    """
+Examples
+--------
+{_parquet_file_example}
+"""
 
     def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, binary_type=None, list_type=None,
@@ -1249,38 +1277,6 @@ def _get_pandas_index_columns(keyvalues):
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
-_read_docstring_common = """\
-read_dictionary : list, default None
-    List of names or column paths (for nested types) to read directly
-    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
-    a flat column as dictionary-encoded pass the column name. For
-    nested types, you must pass the full column "path", which could be
-    something like level1.level2.list.item. Refer to the Parquet
-    file's schema to obtain the paths.
-binary_type : pyarrow.DataType, default None
-    If given, Parquet binary columns will be read as this datatype.
-    This setting is ignored if a serialized Arrow schema is found in
-    the Parquet metadata.
-list_type : subclass of pyarrow.DataType, default None
-    If given, non-MAP repeated columns will be read as an instance of
-    this datatype (either pyarrow.ListType or pyarrow.LargeListType).
-    This setting is ignored if a serialized Arrow schema is found in
-    the Parquet metadata.
-memory_map : bool, default False
-    If the source is a file path, use a memory map to read file, which can
-    improve performance in some environments.
-buffer_size : int, default 0
-    If positive, perform read buffering when deserializing individual
-    column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str, \
-default "hive"
-    The partitioning scheme for a partitioned dataset. The default of "hive"
-    assumes directory names with key=value pairs like "/year=2009/month=11".
-    In addition, a scheme like "/2009/11" is also supported, in which case
-    you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
-
-
 _parquet_dataset_example = """\
 Generate an example PyArrow Table and write it to a partitioned dataset:
 
@@ -1343,41 +1339,7 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
 
     {_DNF_filter_doc}
 {_read_docstring_common}
-ignore_prefixes : list, optional
-    Files matching any of these prefixes will be ignored by the
-    discovery process.
-    This is matched to the basename of a path.
-    By default this is ['.', '_'].
-    Note that discovery happens only if a directory is passed as source.
-pre_buffer : bool, default True
-    Coalesce and issue file reads in parallel to improve performance on
-    high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
-    background I/O thread pool. If using a filesystem layer that itself
-    performs readahead (e.g. fsspec's S3FS), disable readahead for best
-    results. Set to False if you want to prioritize minimal memory usage
-    over maximum speed.
-coerce_int96_timestamp_unit : str, default None
-    Cast timestamps that are stored in INT96 format to a particular resolution
-    (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
-    timestamps will be inferred as timestamps in nanoseconds.
-decryption_properties : FileDecryptionProperties or None
-    File-level decryption properties.
-    The decryption properties can be created using
-    ``CryptoFactory.file_decryption_properties()``.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-page_checksum_verification : bool, default False
-    If True, verify the page checksum for each page read from the file.
-arrow_extensions_enabled : bool, default True
-    If True, read Parquet logical types as Arrow extension types where possible,
-    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-    the canonical `arrow.uuid` extension type).
+{_read_docstring_dataset}
 
 Examples
 --------
@@ -1726,8 +1688,8 @@ Examples
         return self._dataset.partitioning
 
 
-_read_table_docstring = """
-{0}
+_read_table_docstring = f"""
+{{0}}
 
 Parameters
 ----------
@@ -1747,7 +1709,7 @@ use_threads : bool, default True
 schema : Schema, optional
     Optionally provide the Schema for the parquet dataset, in which case it
     will not be inferred from the source.
-{1}
+{{1}}
 filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
@@ -1758,48 +1720,14 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     exploited to avoid loading files at all if they contain no matching rows.
     Within-file level filtering and different partitioning schemes are supported.
 
-    {3}
-ignore_prefixes : list, optional
-    Files matching any of these prefixes will be ignored by the
-    discovery process.
-    This is matched to the basename of a path.
-    By default this is ['.', '_'].
-    Note that discovery happens only if a directory is passed as source.
-pre_buffer : bool, default True
-    Coalesce and issue file reads in parallel to improve performance on
-    high-latency filesystems (e.g. S3). If True, Arrow will use a
-    background I/O thread pool. If using a filesystem layer that itself
-    performs readahead (e.g. fsspec's S3FS), disable readahead for best
-    results.
-coerce_int96_timestamp_unit : str, default None
-    Cast timestamps that are stored in INT96 format to a particular
-    resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-    and therefore INT96 timestamps will be inferred as timestamps
-    in nanoseconds.
-decryption_properties : FileDecryptionProperties or None
-    File-level decryption properties.
-    The decryption properties can be created using
-    ``CryptoFactory.file_decryption_properties()``.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-page_checksum_verification : bool, default False
-    If True, verify the checksum for each page read from the file.
-arrow_extensions_enabled : bool, default True
-    If True, read Parquet logical types as Arrow extension types where possible,
-    (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-    the canonical `arrow.uuid` extension type).
+    {{3}}
+{_read_docstring_dataset}
 
 Returns
 -------
-{2}
+{{2}}
 
-{4}
+{{4}}
 """
 
 _read_table_example = """\
