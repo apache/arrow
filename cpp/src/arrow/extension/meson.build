@@ -21,6 +21,7 @@ if needs_json
     canonical_extension_tests += [
         'tensor_extension_array_test.cc',
         'opaque_test.cc',
+        'range_test.cc',
     ]
 endif
 
@@ -38,6 +39,7 @@ install_headers(
         'json.h',
         'opaque.h',
         'parquet_variant.h',
+        'range.h',
         'uuid.h',
         'variable_shape_tensor.h',
     ],
