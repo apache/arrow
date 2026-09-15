@@ -876,7 +876,8 @@ Status FlbaTimestampToInt64(const uint8_t* bytes, bool clamp_on_overflow, int64_
   return Status::OK();
 }
 
-Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(LogicalType::TimeUnit::unit unit) {
+Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(
+    LogicalType::TimeUnit::unit unit) {
   switch (unit) {
     case LogicalType::TimeUnit::MILLIS:
       return ::arrow::TimeUnit::MILLI;
