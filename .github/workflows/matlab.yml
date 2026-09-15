@@ -74,7 +74,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/**') }}
+          key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/CMakeLists.txt', 'matlab/src/**', 'matlab/test/**', 'matlab/tools/**') }}
           restore-keys: matlab-ccache-ubuntu-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
@@ -123,7 +123,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
+          key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/CMakeLists.txt', 'matlab/src/**', 'matlab/test/**', 'matlab/tools/**') }}
           restore-keys: matlab-ccache-macos-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
@@ -165,7 +165,7 @@ jobs:
         with:
           path: |
             ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-windows-${{ hashFiles('cpp/**', 'matlab/**') }}
+          key: matlab-ccache-windows-${{ hashFiles('cpp/**', 'matlab/CMakeLists.txt', 'matlab/src/**', 'matlab/test/**', 'matlab/tools/**') }}
           restore-keys: matlab-ccache-windows-
       - name: Build MATLAB Interface
         shell: cmd
@@ -181,3 +181,10 @@ jobs:
         with:
           select-by-folder: matlab/test
           strict: true
+      - name: Clean up compiler processes and build directory
+        if: always()
+        shell: cmd
+        run: |
+          taskkill /F /IM mspdbsrv.exe /IM vctip.exe 2>nul || exit 0
+          if exist matlab\build rmdir /s /q matlab\build 2>nul || exit 0
+
