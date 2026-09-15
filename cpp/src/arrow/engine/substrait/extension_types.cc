@@ -114,6 +114,21 @@ std::shared_ptr<DataType> interval_year() { return IntervalYearType::Make({}); }
 
 std::shared_ptr<DataType> interval_day() { return IntervalDayType::Make({}); }
 
+Result<std::shared_ptr<DataType>> precision_time(int precision) {
+  switch (precision) {
+    case 0:
+      return time32(TimeUnit::SECOND);
+    case 3:
+      return time32(TimeUnit::MILLI);
+    case 6:
+      return time64(TimeUnit::MICRO);
+    case 9:
+      return time64(TimeUnit::NANO);
+    default:
+      return Status::NotImplemented("Unrecognized time precision (", precision, ")");
+  }
+}
+
 Result<std::shared_ptr<DataType>> precision_timestamp(int precision) {
   switch (precision) {
     case 0:
