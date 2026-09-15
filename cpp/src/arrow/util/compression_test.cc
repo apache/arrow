@@ -105,7 +105,7 @@ void CheckCodecRoundtrip(std::unique_ptr<Codec>& c1, std::unique_ptr<Codec>& c2,
   }
 }
 
-// Check the streaming compressor against one-shot decompression
+// Check the streaming compressor against a streaming decompressor
 
 void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
   std::shared_ptr<Compressor> compressor;
@@ -136,85 +136,148 @@ void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
     }
     // Once every two iterations, do a flush
     if (do_flush) {
-      Compressor::FlushResult result;
+      Compressor::FlushResult flush_result;
       do {
         output_len = compressed.size() - compressed_size;
         output = compressed.data() + compressed_size;
-        ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
-        ASSERT_LE(result.bytes_written, output_len);
-        compressed_size += result.bytes_written;
-        if (result.should_retry) {
+        ASSERT_OK_AND_ASSIGN(flush_result, compressor->Flush(output_len, output));
+        ASSERT_LE(flush_result.bytes_written, output_len);
+        compressed_size += flush_result.bytes_written;
+        if (flush_result.should_retry) {
           compressed.resize(compressed.capacity() * 2);
         }
-      } while (result.should_retry);
+      } while (flush_result.should_retry);
     }
     do_flush = !do_flush;
   }
 
   // End the compressed stream
-  Compressor::EndResult result;
+  Compressor::EndResult end_result;
   do {
     int64_t output_len = compressed.size() - compressed_size;
     uint8_t* output = compressed.data() + compressed_size;
-    ASSERT_OK_AND_ASSIGN(result, compressor->End(output_len, output));
-    ASSERT_LE(result.bytes_written, output_len);
-    compressed_size += result.bytes_written;
-    if (result.should_retry) {
+    ASSERT_OK_AND_ASSIGN(end_result, compressor->End(output_len, output));
+    ASSERT_LE(end_result.bytes_written, output_len);
+    compressed_size += end_result.bytes_written;
+    if (end_result.should_retry) {
       compressed.resize(compressed.capacity() * 2);
     }
-  } while (result.should_retry);
+  } while (end_result.should_retry);
 
-  // Check decompressing the compressed data
-  std::vector<uint8_t> decompressed(data.size());
-  ASSERT_OK(codec->Decompress(compressed_size, compressed.data(), decompressed.size(),
-                              decompressed.data()));
-
-  ASSERT_EQ(data, decompressed);
-}
-
-// Check the streaming decompressor against one-shot compression
-
-void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) {
-  // Create compressed data
-  int64_t max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
-  std::vector<uint8_t> compressed(max_compressed_len);
-  int64_t compressed_size;
-  ASSERT_OK_AND_ASSIGN(
-      compressed_size,
-      codec->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
-  compressed.resize(compressed_size);
-
-  // Run streaming decompression
+  // Check decompressing the compressed data using a streaming decompressor.
   std::shared_ptr<Decompressor> decompressor;
   ASSERT_OK_AND_ASSIGN(decompressor, codec->MakeDecompressor());
 
-  std::vector<uint8_t> decompressed;
+  // Ensure a non-zero output buffer even when the uncompressed size is 0.
+  std::vector<uint8_t> decompressed(std::max<size_t>(1, data.size()));
   int64_t decompressed_size = 0;
-  const uint8_t* input = compressed.data();
-  int64_t remaining = compressed.size();
+  const uint8_t* comp_input = compressed.data();
+  int64_t comp_remaining = compressed_size;
 
-  decompressed.resize(10);
   while (!decompressor->IsFinished()) {
-    // Feed a small amount each time
-    int64_t input_len = std::min(remaining, static_cast<int64_t>(23));
+    const bool at_eof = (comp_remaining == 0);
+    const int64_t input_len =
+        at_eof ? 0 : std::min(comp_remaining, static_cast<int64_t>(23));
+    const uint8_t* input = at_eof ? nullptr : comp_input;
     int64_t output_len = decompressed.size() - decompressed_size;
     uint8_t* output = decompressed.data() + decompressed_size;
     ASSERT_OK_AND_ASSIGN(auto result,
                          decompressor->Decompress(input_len, input, output_len, output));
     ASSERT_LE(result.bytes_read, input_len);
     ASSERT_LE(result.bytes_written, output_len);
-    ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                result.bytes_read > 0)
+    ASSERT_TRUE(decompressor->IsFinished() || result.need_more_output ||
+                result.bytes_written > 0 || result.bytes_read > 0)
         << "Decompression not progressing anymore";
     if (result.need_more_output) {
       decompressed.resize(decompressed.capacity() * 2);
     }
     decompressed_size += result.bytes_written;
+    comp_input += result.bytes_read;
+    comp_remaining -= result.bytes_read;
+  }
+
+  ASSERT_TRUE(decompressor->IsFinished());
+  ASSERT_EQ(comp_remaining, 0);
+
+  decompressed.resize(decompressed_size);
+  ASSERT_EQ(data, decompressed);
+}
+
+// Check the streaming decompressor against a streaming compressor
+
+void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) {
+  // Create compressed data using the streaming compressor
+  std::shared_ptr<Compressor> compressor;
+  ASSERT_OK_AND_ASSIGN(compressor, codec->MakeCompressor());
+
+  std::vector<uint8_t> compressed(1);
+  int64_t compressed_size = 0;
+  const uint8_t* input = data.data();
+  int64_t remaining = data.size();
+
+  while (remaining > 0) {
+    int64_t input_len = std::min(remaining, static_cast<int64_t>(1111));
+    int64_t output_len = compressed.size() - compressed_size;
+    uint8_t* output = compressed.data() + compressed_size;
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         compressor->Compress(input_len, input, output_len, output));
+    ASSERT_LE(result.bytes_read, input_len);
+    ASSERT_LE(result.bytes_written, output_len);
+    compressed_size += result.bytes_written;
     input += result.bytes_read;
     remaining -= result.bytes_read;
+    if (result.bytes_read == 0) {
+      compressed.resize(compressed.capacity() * 2);
+    }
+  }
+
+  // End the compressed stream
+  Compressor::EndResult end_result;
+  do {
+    int64_t output_len = compressed.size() - compressed_size;
+    uint8_t* output = compressed.data() + compressed_size;
+    ASSERT_OK_AND_ASSIGN(end_result, compressor->End(output_len, output));
+    ASSERT_LE(end_result.bytes_written, output_len);
+    compressed_size += end_result.bytes_written;
+    if (end_result.should_retry) {
+      compressed.resize(compressed.capacity() * 2);
+    }
+  } while (end_result.should_retry);
+
+  compressed.resize(compressed_size);
+
+  // Run streaming decompression
+  std::shared_ptr<Decompressor> decompressor;
+  ASSERT_OK_AND_ASSIGN(decompressor, codec->MakeDecompressor());
+
+  std::vector<uint8_t> decompressed(10);
+  int64_t decompressed_size = 0;
+  const uint8_t* comp_input = compressed.data();
+  int64_t comp_remaining = compressed.size();
+
+  while (!decompressor->IsFinished()) {
+    const bool at_eof = (comp_remaining == 0);
+    const int64_t input_len =
+        at_eof ? 0 : std::min(comp_remaining, static_cast<int64_t>(23));
+    const uint8_t* input = at_eof ? nullptr : comp_input;
+    int64_t output_len = decompressed.size() - decompressed_size;
+    uint8_t* output = decompressed.data() + decompressed_size;
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         decompressor->Decompress(input_len, input, output_len, output));
+    ASSERT_LE(result.bytes_read, input_len);
+    ASSERT_LE(result.bytes_written, output_len);
+    ASSERT_TRUE(decompressor->IsFinished() || result.need_more_output ||
+                result.bytes_written > 0 || result.bytes_read > 0)
+        << "Decompression not progressing anymore";
+    if (result.need_more_output) {
+      decompressed.resize(decompressed.capacity() * 2);
+    }
+    decompressed_size += result.bytes_written;
+    comp_input += result.bytes_read;
+    comp_remaining -= result.bytes_read;
   }
   ASSERT_TRUE(decompressor->IsFinished());
-  ASSERT_EQ(remaining, 0);
+  ASSERT_EQ(comp_remaining, 0);
 
   // Check the decompressed data
   decompressed.resize(decompressed_size);
@@ -281,16 +344,18 @@ void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
     int64_t remaining = compressed.size();
 
     while (!decompressor->IsFinished()) {
+      const bool at_eof = (remaining == 0);
       // Feed a varying amount each time
-      int64_t input_len = std::min(remaining, make_buf_size());
+      int64_t input_len = at_eof ? 0 : std::min(remaining, make_buf_size());
+      const uint8_t* in_ptr = at_eof ? nullptr : input;
       int64_t output_len = decompressed.size() - decompressed_size;
       uint8_t* output = decompressed.data() + decompressed_size;
       ASSERT_OK_AND_ASSIGN(
-          auto result, decompressor->Decompress(input_len, input, output_len, output));
+          auto result, decompressor->Decompress(input_len, in_ptr, output_len, output));
       ASSERT_LE(result.bytes_read, input_len);
       ASSERT_LE(result.bytes_written, output_len);
-      ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                  result.bytes_read > 0)
+      ASSERT_TRUE(decompressor->IsFinished() || result.need_more_output ||
+                  result.bytes_written > 0 || result.bytes_read > 0)
           << "Decompression not progressing anymore";
       if (result.need_more_output) {
         decompressed.resize(decompressed.capacity() * 2);
@@ -695,9 +760,6 @@ TEST_P(CodecTest, OutputBufferIsSmall) {
 }
 
 TEST_P(CodecTest, StreamingCompressor) {
-  if (GetCompression() == Compression::SNAPPY) {
-    GTEST_SKIP() << "snappy doesn't support streaming compression";
-  }
   if (GetCompression() == Compression::BZ2) {
     GTEST_SKIP() << "Z2 doesn't support one-shot decompression";
   }
@@ -719,9 +781,6 @@ TEST_P(CodecTest, StreamingCompressor) {
 }
 
 TEST_P(CodecTest, StreamingDecompressor) {
-  if (GetCompression() == Compression::SNAPPY) {
-    GTEST_SKIP() << "snappy doesn't support streaming decompression.";
-  }
   if (GetCompression() == Compression::BZ2) {
     GTEST_SKIP() << "Z2 doesn't support one-shot compression";
   }
@@ -743,9 +802,6 @@ TEST_P(CodecTest, StreamingDecompressor) {
 }
 
 TEST_P(CodecTest, StreamingRoundtrip) {
-  if (GetCompression() == Compression::SNAPPY) {
-    GTEST_SKIP() << "snappy doesn't support streaming decompression";
-  }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
     GTEST_SKIP() << "LZ4 raw format doesn't support streaming compression.";
@@ -764,9 +820,6 @@ TEST_P(CodecTest, StreamingRoundtrip) {
 }
 
 TEST_P(CodecTest, StreamingDecompressorReuse) {
-  if (GetCompression() == Compression::SNAPPY) {
-    GTEST_SKIP() << "snappy doesn't support streaming decompression";
-  }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
     GTEST_SKIP() << "LZ4 raw format doesn't support streaming decompression.";
@@ -789,9 +842,6 @@ TEST_P(CodecTest, StreamingDecompressorReuse) {
 
 TEST_P(CodecTest, StreamingMultiFlush) {
   // Regression test for ARROW-11937
-  if (GetCompression() == Compression::SNAPPY) {
-    GTEST_SKIP() << "snappy doesn't support streaming decompression";
-  }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
     GTEST_SKIP() << "LZ4 raw format doesn't support streaming decompression.";
