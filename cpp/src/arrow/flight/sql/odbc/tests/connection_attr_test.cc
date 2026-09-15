@@ -427,6 +427,12 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetGetConnectAttrCurrentCatalogWide) 
   std::string out_catalog =
       ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
   EXPECT_EQ("my_catalog", out_catalog);
+
+  // Connections are shared across test suites, so restore the default catalog.
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(empty_catalog, L"");
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLSetConnectAttr(this->conn, SQL_ATTR_CURRENT_CATALOG, empty_catalog,
+                              empty_catalog_len * GetSqlWCharSize()));
 }
 
 }  // namespace arrow::flight::sql::odbc
