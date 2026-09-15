@@ -95,8 +95,10 @@ function configure_binaries() {
   # S3, GCS, and re2 support only for Rtools40 (i.e. R >= 4.0)
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
-    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_R_WITH_GCS" # -DARROW_R_WITH_AZURE
-    PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
+    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_S3_STATIC -DARROW_R_WITH_GCS" # -DARROW_R_WITH_AZURE
+    # Order is important. arrow_s3 depends on arrow, so insert it into the -l list
+    # before -larrow but after -L search paths.
+    PKG_LIBS="${PKG_LIBS/ -larrow_dataset/ -larrow_s3 -larrow_dataset} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
   else
     # It seems that order matters
     PKG_LIBS="${PKG_LIBS} -lws2_32"
@@ -187,6 +189,10 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_S3; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_S3"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-s3"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_s3 $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_s3 is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
     fi
     # if arrow_built_with ARROW_AZURE; then
     #   PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_AZURE"
@@ -291,6 +297,7 @@ function configure_dev() {
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-s3"
   fi
 
   if [ $(cmake_option ARROW_GCS) -eq 1 ]; then
