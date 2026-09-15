@@ -25,6 +25,10 @@
 
 #include <absl/time/time.h>  // NOLINT
 
+#include "arrow/io/interfaces.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/util/thread_pool.h"
+
 #include "arrow/filesystem/path_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
@@ -314,7 +318,7 @@ std::int64_t Depth(std::string_view path) {
 // client library will upload this buffer with zero copies if possible.
 auto constexpr kUploadBufferSize = 256 * 1024;
 
-google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
+google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o, const io::IOContext* io_context) {
   auto options = google::cloud::Options{};
   std::string scheme = o.scheme;
   if (scheme.empty()) scheme = "https";
@@ -342,6 +346,15 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   if (o.project_id.has_value()) {
     options.set<gcs::ProjectIdOption>(*o.project_id);
   }
+  
+  if (io_context && io_context->executor()) {
+    options.set<gcs::ConnectionPoolSizeOption>(
+        std::max(io_context->executor()->GetCapacity(), 4));
+  } else {
+    options.set<gcs::ConnectionPoolSizeOption>(
+        std::max(::arrow::io::GetIOThreadPoolCapacity(), 4));
+  }
+  
   return options;
 }
 
