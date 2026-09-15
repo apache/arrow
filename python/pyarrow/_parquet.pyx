@@ -755,7 +755,8 @@ cdef class SortingColumn:
         self.nulls_first = nulls_first
 
     @classmethod
-    def from_ordering(cls, Schema schema, sort_keys, null_placement='at_end'):
+    def from_ordering(cls, Schema schema not None, sort_keys,
+                      null_placement='at_end'):
         """
         Create a tuple of SortingColumn objects from the same arguments as
         :class:`pyarrow.compute.SortOptions`.
@@ -816,7 +817,7 @@ cdef class SortingColumn:
         return tuple(sorting_columns)
 
     @staticmethod
-    def to_ordering(Schema schema, sorting_columns):
+    def to_ordering(Schema schema not None, sorting_columns):
         """
         Convert a tuple of SortingColumn objects to the same format as
         :class:`pyarrow.compute.SortOptions`.

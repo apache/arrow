@@ -725,6 +725,9 @@ def test_array_from_buffers():
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
 
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.Array.from_buffers(type=None, length=0, buffers=[])
+
 
 def test_string_binary_from_buffers():
     array = pa.array(["a", None, "b", "c"])
@@ -759,6 +762,20 @@ def test_string_binary_from_buffers():
         len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
     assert copied.to_pylist() == ["b", "c"]
     assert copied.null_count == 0
+
+
+@pytest.mark.parametrize("array_type", [pa.StringArray, pa.LargeStringArray])
+def test_string_from_buffers_null_buffers(array_type):
+    empty = array_type.from_buffers(
+        length=0, value_offsets=None, data=pa.py_buffer(b""))
+    assert empty.to_pylist() == []
+
+    with pytest.raises(pa.ArrowInvalid, match="Value data buffer is null"):
+        array_type.from_buffers(length=0, value_offsets=None, data=None)
+
+    with pytest.raises(pa.ArrowInvalid, match="Non-empty array but offsets are null"):
+        array_type.from_buffers(
+            length=1, value_offsets=None, data=pa.py_buffer(b"x"))
 
 
 def test_string_view_from_buffers():
@@ -808,6 +825,10 @@ def test_list_from_buffers(list_type_factory):
         # too many children
         pa.Array.from_buffers(ty, 4, buffers[:ty.num_buffers],
                               children=[child, child])
+
+    with pytest.raises(TypeError, match="Array child must not be None"):
+        pa.Array.from_buffers(
+            type=ty, length=4, buffers=buffers[:ty.num_buffers], children=[None])
 
 
 def test_struct_from_buffers():
@@ -927,6 +948,13 @@ def test_dictionary_from_buffers(offset):
                                         a.indices.buffers(), a.dictionary,
                                         offset=offset)
     assert a[offset:] == b
+
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            None, len(a), a.indices.buffers(), a.dictionary)
+    with pytest.raises(TypeError, match="Argument 'dictionary' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            a.type, len(a), a.indices.buffers(), None)
 
 
 @pytest.mark.numpy
@@ -4138,6 +4166,9 @@ def test_run_end_encoded_from_buffers():
     with pytest.raises(ValueError):
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
+
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.RunEndEncodedArray.from_buffers(type=None, length=0, buffers=[])
 
 
 @pytest.mark.numpy
