@@ -335,6 +335,7 @@ jobs:
           reprotest \
             --build-command \
               "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+            --diffoscope-arg "--exclude-directory-metadata=yes --progress" \
             --vary=-fileordering \
             "${PWD}" \
             "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
