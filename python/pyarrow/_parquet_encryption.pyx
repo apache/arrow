@@ -215,7 +215,13 @@ cdef class DecryptionConfiguration(_Weakrefable):
 
     @cache_lifetime.setter
     def cache_lifetime(self, value):
-        self.configuration.get().cache_lifetime_seconds = value.total_seconds()
+        try:
+            # Expect a timedelta value
+            seconds = value.total_seconds()
+        except AttributeError:
+            # Also accept a number of seconds
+            seconds = float(value)
+        self.configuration.get().cache_lifetime_seconds = seconds
 
     @property
     def read_kms_url(self):

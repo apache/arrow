@@ -21,7 +21,6 @@
 
 #include "arrow/util/base64.h"
 #include "parquet/encryption/file_key_unwrapper.h"
-
 #include "parquet/encryption/key_metadata.h"
 
 using ::arrow::util::SecureString;

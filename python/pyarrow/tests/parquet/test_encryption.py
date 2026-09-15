@@ -465,21 +465,28 @@ def test_encrypted_parquet_encryption_configuration():
 
 
 def test_encrypted_parquet_decryption_configuration():
+    # Test defaults
     default_config = pe.DecryptionConfiguration()
     assert timedelta(minutes=10.0) == default_config.cache_lifetime
     assert default_config.read_kms_url is False
 
+    # Test init parameters
     decryption_config = pe.DecryptionConfiguration(
         cache_lifetime=timedelta(minutes=5.0),
         read_kms_url=True)
     assert timedelta(minutes=5.0) == decryption_config.cache_lifetime
     assert decryption_config.read_kms_url is True
 
+    # Test setters
     decryption_config_1 = pe.DecryptionConfiguration()
     decryption_config_1.cache_lifetime = timedelta(minutes=5.0)
     decryption_config_1.read_kms_url = True
     assert timedelta(minutes=5.0) == decryption_config_1.cache_lifetime
     assert decryption_config_1.read_kms_url is True
+
+    # Can pass integer number of seconds as cache lifetime
+    decryption_config_2 = pe.DecryptionConfiguration(cache_lifetime=300)
+    assert timedelta(minutes=5.0) == decryption_config_2.cache_lifetime
 
 
 def test_encrypted_parquet_kms_configuration():
