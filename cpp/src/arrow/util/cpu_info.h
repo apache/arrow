@@ -57,6 +57,12 @@ class ARROW_EXPORT CpuInfo {
   static constexpr int64_t SVE256 = (1LL << 34);
   static constexpr int64_t SVE512 = (1LL << 35);
 
+  /// RISC-V features
+  static constexpr int64_t RVV = (1LL << 37);
+  static constexpr int64_t RVV128 = (1LL << 38);
+  static constexpr int64_t RVV256 = (1LL << 39);
+  static constexpr int64_t RVV512 = (1LL << 40);
+
   /// Cache enums for L1 (data), L2 and L3
   enum class CacheLevel { L1 = 0, L2, L3, Last = L3 };
 

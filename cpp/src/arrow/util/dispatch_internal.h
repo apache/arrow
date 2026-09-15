@@ -38,6 +38,7 @@ enum class DispatchLevel : int {
   SVE128,
   SVE256,
   SVE512,
+  RVV,
   MAX
 };
 
@@ -221,6 +222,16 @@ constexpr DynamicDispatchTarget<Func> BestDispatchTarget(
 #  define ARROW_DISPATCH_TARGET_SVE512(func)
 #endif
 
+#if defined(ARROW_HAVE_RVV) || defined(ARROW_HAVE_RUNTIME_RVV)
+#  define ARROW_DISPATCH_TARGET_RVV(func)      \
+    ::arrow::internal::DynamicDispatchTarget{  \
+        ::arrow::internal::DispatchLevel::RVV, \
+        (func),                                \
+    },
+#else
+#  define ARROW_DISPATCH_TARGET_RVV(func)
+#endif
+
 /// A concept to specify how dynamic dispatch should be handled.
 ///
 /// A requirement is that the list of available targets must be compile time
@@ -352,6 +363,8 @@ class DynamicDispatch {
         return cpu_info->IsSupported(CpuInfo::SVE256);
       case DispatchLevel::SVE512:
         return cpu_info->IsSupported(CpuInfo::SVE512);
+      case DispatchLevel::RVV:
+        return cpu_info->IsSupported(CpuInfo::RVV);
       default:
         return false;
     }
