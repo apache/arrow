@@ -68,6 +68,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
+    uriparser
     utf8proc
     xsimd
     ZLIB
@@ -220,6 +221,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
+    build_uriparser()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -807,6 +810,14 @@ else()
   set(THRIFT_SOURCE_URL
       "https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
       "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_URIPARSER_URL})
+  set(ARROW_URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
+else()
+  set_urls(ARROW_URIPARSER_SOURCE_URL
+           "https://github.com/uriparser/uriparser/releases/download/uriparser-${ARROW_URIPARSER_BUILD_VERSION}/uriparser-${ARROW_URIPARSER_BUILD_VERSION}.tar.bz2"
   )
 endif()
 
@@ -3255,6 +3266,65 @@ if(ARROW_WITH_BZ2)
     endif()
   endif()
 endif()
+
+# ----------------------------------------------------------------------
+# uriparser library
+
+macro(build_uriparser)
+  message(STATUS "Building uriparser from source")
+  set(URIPARSER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/uriparser_ep-install")
+  if(MSVC)
+    set(URIPARSER_STATIC_LIB "${URIPARSER_PREFIX}/lib/uriparser.lib")
+  else()
+    set(URIPARSER_STATIC_LIB
+        "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  endif()
+
+  set(URIPARSER_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_SHARED_LIBS=OFF
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${URIPARSER_PREFIX}"
+      -DURIPARSER_BUILD_DOCS=OFF
+      -DURIPARSER_BUILD_TESTS=OFF
+      -DURIPARSER_BUILD_TOOLS=OFF
+      # Arrow only uses the char (not wchar_t) flavor of the API.
+      -DURIPARSER_BUILD_WCHAR_T=OFF)
+
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    list(APPEND URIPARSER_CMAKE_ARGS -DURIPARSER_MSVC_STATIC_CRT=ON)
+  endif()
+
+  externalproject_add(uriparser_ep
+                      ${EP_COMMON_OPTIONS}
+                      CMAKE_ARGS ${URIPARSER_CMAKE_ARGS}
+                      INSTALL_DIR ${URIPARSER_PREFIX}
+                      URL ${ARROW_URIPARSER_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_URIPARSER_BUILD_SHA256_CHECKSUM}"
+                      BUILD_BYPRODUCTS "${URIPARSER_STATIC_LIB}")
+
+  file(MAKE_DIRECTORY "${URIPARSER_PREFIX}/include")
+  add_library(uriparser::uriparser STATIC IMPORTED)
+  set_target_properties(uriparser::uriparser
+                        PROPERTIES IMPORTED_LOCATION "${URIPARSER_STATIC_LIB}"
+                                   INTERFACE_COMPILE_DEFINITIONS "URI_STATIC_BUILD")
+  target_include_directories(uriparser::uriparser BEFORE
+                             INTERFACE "${URIPARSER_PREFIX}/include")
+
+  add_dependencies(uriparser::uriparser uriparser_ep)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS uriparser::uriparser)
+endmacro()
+
+# uriparser is mandatory: arrow::util::Uri is part of core Arrow.
+resolve_dependency(uriparser
+                   HAVE_ALT
+                   TRUE
+                   REQUIRED_VERSION
+                   "1.0.2"
+                   PC_PACKAGE_NAMES
+                   liburiparser)
 
 macro(build_utf8proc)
   message(STATUS "Building utf8proc from source")
