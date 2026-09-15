@@ -630,7 +630,7 @@ cdef class FunctionOptions(_Weakrefable):
         return pyarrow_wrap_buffer(c_buf)
 
     @staticmethod
-    def deserialize(buf):
+    def deserialize(Buffer buf not None):
         """
         Deserialize options for a function.
 

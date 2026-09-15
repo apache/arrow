@@ -71,6 +71,15 @@ bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
                                const std::vector<int64_t>& shape,
                                const std::vector<int64_t>& strides);
 
+/// Compute the size needed to store the tensor with the given strides and shape.
+///
+/// If the strides are in number of element, pass `elem_size=1` to compute the buffer size
+/// in the number of elements. If the strides are in bytes, pass the element size in byte
+/// to `elem_size` and get the result in bytes.
+ARROW_EXPORT
+Result<int64_t> ComputeTensorSize(std::span<const int64_t> shape,
+                                  std::span<const int64_t> strides, int64_t elem_size);
+
 ARROW_EXPORT
 Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::shared_ptr<Buffer>& data,

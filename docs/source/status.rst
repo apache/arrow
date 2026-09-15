@@ -147,6 +147,8 @@ Notes:
    :ref:`format_canonical_extensions` specification.
 
 
+.. _status-ipc-format:
+
 IPC Format
 ==========
 

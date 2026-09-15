@@ -241,6 +241,12 @@ def test_option_class_equality(request):
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
+@pytest.mark.parametrize("value", [None, 1, [], b""])
+def test_function_options_deserialize_rejects_non_buffers(value):
+    with pytest.raises(TypeError):
+        pc.FunctionOptions.deserialize(value)
+
+
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()
@@ -3825,6 +3831,15 @@ def test_utf8_normalize():
     assert pc.utf8_normalize(arr, form="NFKC") == pa.array(["0123"])
     assert pc.utf8_normalize(arr, "NFD") == arr
     assert pc.utf8_normalize(arr, "NFKD") == pa.array(["0123"])
+    # GH-51225: composing forms must compose, not only decompose
+    composed = pa.array(["\u00e9", "\ud55c", None])
+    decomposed = pa.array(["e\u0301", "\u1112\u1161\u11ab", None])
+    for form in ("NFC", "NFKC"):
+        assert pc.utf8_normalize(decomposed, form=form) == composed
+        assert pc.utf8_normalize(composed, form=form) == composed
+    for form in ("NFD", "NFKD"):
+        assert pc.utf8_normalize(composed, form=form) == decomposed
+        assert pc.utf8_normalize(decomposed, form=form) == decomposed
     with pytest.raises(
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
