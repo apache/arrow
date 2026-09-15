@@ -690,6 +690,15 @@ class RecordReaderPrimitiveTypeTest
                                                   /*read_dictionary=*/false, GetParam());
   }
 
+  // Whether the record reader for this column exposes definition and repetition
+  // levels. The flat optional reader decodes definition levels straight into the
+  // validity bitmap of the records it produces, so it never materializes levels and
+  // reports none: `def_levels()` is null and both level counters stay at zero.
+  bool exposes_levels() const {
+    return !(descr_->max_definition_level() == 1 && descr_->max_repetition_level() == 0 &&
+             descr_->schema_node()->is_optional());
+  }
+
   void CheckReadValues(std::vector<int32_t> expected_values,
                        std::vector<int16_t> expected_defs,
                        std::vector<int16_t> expected_reps) {
@@ -703,7 +712,7 @@ class RecordReaderPrimitiveTypeTest
       }
     }
 
-    if (!descr_->schema_node()->is_required()) {
+    if (exposes_levels() && !descr_->schema_node()->is_required()) {
       std::vector<int16_t> read_defs(
           record_reader_->def_levels(),
           record_reader_->def_levels() + record_reader_->levels_position());
@@ -722,8 +731,10 @@ class RecordReaderPrimitiveTypeTest
                   int64_t levels_position) {
     ASSERT_EQ(record_reader_->values_written(), values_written);
     ASSERT_EQ(record_reader_->null_count(), null_count);
-    ASSERT_EQ(record_reader_->levels_written(), levels_written);
-    ASSERT_EQ(record_reader_->levels_position(), levels_position);
+    if (exposes_levels()) {
+      ASSERT_EQ(record_reader_->levels_written(), levels_written);
+      ASSERT_EQ(record_reader_->levels_position(), levels_position);
+    }
   }
 
  protected:
@@ -1673,6 +1684,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   internal::LevelInfo level_info;
   // Define these boolean variables for improving readability below.
   bool repeated = false, required = false;
+  const bool flat_optional = GetParam() == Repetition::OPTIONAL;
   if (GetParam() == Repetition::REQUIRED) {
     level_info.def_level = 0;
     level_info.rep_level = 0;
@@ -1823,7 +1835,9 @@ TEST_P(RecordReaderStressTest, StressTest) {
       }
     }
 
-    if (!required) {
+    // The flat optional reader decodes definition levels straight into the validity
+    // bitmap of the records it produces, so it never materializes levels to check.
+    if (!required && !flat_optional) {
       std::vector<int16_t> read_def_levels(
           record_reader->def_levels(),
           record_reader->def_levels() + record_reader->levels_position());
