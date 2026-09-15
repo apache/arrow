@@ -291,6 +291,10 @@ arrow::Status VerifyAndLinkModule(llvm::Module& dest_module,
 }
 
 void RemoveBuildTargetAttributes(llvm::Module& module) {
+  // Precompiled bitcode is JIT-compiled on the runtime host, so do not retain the
+  // target selected when the bitcode was built. LLVM 23 checks target-feature
+  // compatibility even for alwaysinline functions and prevents inlining on a mismatch.
+  // See https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html#changes-to-the-llvm-ir.
   for (auto& function : module.functions()) {
     function.removeFnAttr("target-cpu");
     function.removeFnAttr("target-features");
@@ -441,14 +445,7 @@ Status Engine::LoadPreCompiledIR() {
   ARROW_ASSIGN_OR_RAISE(
       auto src_ir_module,
       AsArrowResult(module_or_error, "Failed to verify and link module: "));
-
-  // Built-in bitcode is JIT-compiled on the runtime host. Do not retain the target
-  // selected by Clang when the bitcode was built.
-  // LLVM 23 checks target-feature compatibility even for alwaysinline functions and
-  // prevents inlining on a mismatch. See the LLVM 23 release notes:
-  // https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html#changes-to-the-llvm-ir
   RemoveBuildTargetAttributes(*src_ir_module);
-
   return VerifyAndLinkModule(*module_, std::move(src_ir_module));
 }
 
@@ -466,6 +463,7 @@ Status Engine::LoadExternalPreCompiledIR() {
     ARROW_ASSIGN_OR_RAISE(
         auto src_ir_module,
         AsArrowResult(module_or_error, "Failed to verify and link module: "));
+    RemoveBuildTargetAttributes(*src_ir_module);
     ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(src_ir_module)));
   }
 

@@ -1004,6 +1004,18 @@ TEST(TestDateScalars, CastTo) {
       TimestampScalar(2 * kMillisecondsInDay + 3, timestamp(TimeUnit::MILLI))
           .CastTo(date32()));
   EXPECT_EQ(*date32_from_timestamp, Date32Scalar(2));
+
+  // 1969-12-31T12:00:00Z -- floor to the previous day instead of truncating to zero.
+  constexpr int64_t kHalfDay = kMillisecondsInDay / 2;
+  ASSERT_OK_AND_ASSIGN(
+      auto negative_date64_from_timestamp,
+      TimestampScalar(-kHalfDay, timestamp(TimeUnit::MILLI)).CastTo(date64()));
+  EXPECT_EQ(*negative_date64_from_timestamp, Date64Scalar(-kMillisecondsInDay));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto negative_date32_from_timestamp,
+      TimestampScalar(-kHalfDay, timestamp(TimeUnit::MILLI)).CastTo(date32()));
+  EXPECT_EQ(*negative_date32_from_timestamp, Date32Scalar(-1));
 }
 
 TEST(TestTimeScalars, Basics) {
