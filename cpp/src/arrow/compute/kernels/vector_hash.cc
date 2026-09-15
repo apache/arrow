@@ -550,6 +550,7 @@ KernelInit GetHashInit(Type::type type_id) {
       return HashInit<RegularHashKernel<UInt8Type, Action>>;
     case Type::INT16:
     case Type::UINT16:
+    case Type::HALF_FLOAT:
       return HashInit<RegularHashKernel<UInt16Type, Action>>;
     case Type::INT32:
     case Type::UINT32:
@@ -699,6 +700,13 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
     base.signature = KernelSignature::Make({ty}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
+
+  // float16() is not part of PrimitiveTypes() (FloatingPointTypes() only covers
+  // float32 and float64; see GH-43017), so it must be registered explicitly. Like
+  // float32 and float64, it is hashed by its raw bit pattern (via UInt16Type).
+  base.init = GetHashInit<Action>(Type::HALF_FLOAT);
+  base.signature = KernelSignature::Make({float16()}, out_ty);
+  DCHECK_OK(func->AddKernel(base));
 
   // Parametric types that we want matching to be dependent only on type id
   auto parametric_types = {Type::TIME32, Type::TIME64, Type::TIMESTAMP, Type::DURATION,
