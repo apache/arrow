@@ -24,8 +24,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <cmath>
 #include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <functional>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <type_traits>
