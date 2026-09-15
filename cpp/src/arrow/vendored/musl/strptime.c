@@ -17,12 +17,29 @@
 
 #undef HAVE_LANGINFO
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(ARROW_TEST_FALLBACK_LANGINFO)
 #define HAVE_LANGINFO 1
 #endif
 
 #ifdef HAVE_LANGINFO
 #include <langinfo.h>
+#else
+// C-locale replacement for nl_langinfo(), restricted to the items used below.
+// The constants follow the glibc/musl layout that the symbolic_range loop
+// relies on: full names directly follow the abbreviated ones.
+enum { ABDAY_1 = 0, DAY_1 = 7, ABMON_1 = 14, MON_1 = 26, AM_STR = 38, PM_STR = 39,
+	D_T_FMT = 40, D_FMT = 41, T_FMT = 42, T_FMT_AMPM = 43 };
+static const char *arrow_c_langinfo[] = {
+	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
+	"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+	"January", "February", "March", "April", "May", "June",
+	"July", "August", "September", "October", "November", "December",
+	"AM", "PM",
+	"%a %b %e %T %Y", "%m/%d/%y", "%H:%M:%S", "%I:%M:%S %p"};
+#define nl_langinfo(x) arrow_c_langinfo[x]
+#define HAVE_LANGINFO 1
 #endif
 
 #define strptime arrow_strptime
