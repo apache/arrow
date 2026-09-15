@@ -193,6 +193,14 @@ REPS=7
 #                                  transpose, so it is the only arm here that
 #                                  satisfies the positional contract and the
 #                                  only one whose number is a verdict.
+#                                  All three interleaved arms above carry no
+#                                  exception handling at all: no patch list on
+#                                  the wire, no patch pass in the decoder. Read
+#                                  them against each other and never against a
+#                                  production arm -- the quotient would charge
+#                                  one side for patching the other never does.
+#                                  They answer the ordering question, not the
+#                                  layout one, which is the pair above.
 #   - BM_TposeApiDecode / TposeFusedDecode / TposeRawDecode / LaneDeltaDecode
 #                                  interleaved layout applied to a delta chain
 # Encode arms and the other codecs (DBP/zstd/lz4/RLE/BSS) are outside this

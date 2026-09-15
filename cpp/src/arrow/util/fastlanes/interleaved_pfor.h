@@ -35,9 +35,23 @@
 //               it -- see fastlanes_kernels_internal.h's header comment.
 //
 // Both orders are otherwise identical: same per-block FOR, same bit width
-// choice, same container. Comparing their decode cost against BM_PforDecode
-// (Arrow's shipped sequential decoder) on the same columns is what isolates the
-// layout question from the value-ordering question.
+// choice, same container. That makes the difference between them the value
+// ordering and nothing else, which is the one question this file answers.
+//
+// THIS CODE HAS NO EXCEPTION HANDLING. There is no patch list on the wire and
+// no patch pass in the decoder, because a bit width wide enough for the block's
+// largest residual is always chosen. Arrow's production PFOR does carry
+// exceptions and does patch them, so a ratio taken between anything here and a
+// production arm charges one side for work the other never does, and the
+// difference is not the layout. Compare kFileOrder against kFlOrder/kFlOrderRaw
+// here; for sequential against interleaved, use the two production arms that
+// differ only in PackingMode. bench_arms.sh states the rule and groups the
+// benchmark arms by it.
+//
+// The container also appears in production as PackingMode::kForBitPackInterleaved,
+// which is what a Parquet reader would use. This file is not that code and does
+// not share its wire format: the production format has no lane-assignment mode,
+// so the ordering question has nowhere else to be asked.
 //
 // A caveat on what "the same columns" means, because an earlier version of this
 // comment overstated it: the corpus in fl5_corpus/ is SYNTHETIC. Its columns are

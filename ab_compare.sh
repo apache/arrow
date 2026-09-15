@@ -26,22 +26,32 @@
 #   constant. Report the cross-process spread, because the within-process stddev
 #   is 0.2-1% here and hides both confounds completely.
 #
+#   The arms come from bench_arms.sh, which also states which of them may be
+#   divided by which. This script used to name the production decoder against an
+#   exception-free standalone one and call the ratio a layout result.
+#
 # USAGE
 #   ./ab_compare.sh <binA>:<cap> <binB>:<cap> [...]      # binaries under bin/
 #   ROUNDS=3 REPS=3 CORE=2 ./ab_compare.sh bench_O2_256:AVX2 fix_O2_256:AVX2
+#   ARM_SETS='ARMS_LAYOUT ARMS_DEST' ./ab_compare.sh bench_O2_256:AVX2
 #
 set -uo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+. ./bench_arms.sh
+
 BIN_DIR=${BIN_DIR:-$HOME/Projects/pfor_x86_handoff/width_matrix_v2/bin}
 OUT=${OUT:-/tmp/ab}
 ROUNDS=${ROUNDS:-3}
 REPS=${REPS:-3}
 CORE=${CORE:-2}
 
-# Changing this column set changes the numbers -- see confound (2). Keep it
-# fixed across anything you intend to compare.
-COLS=${COLS:-'TpcdsSoldDateSk|TpcdsStoreSk|TpcdsItemSk|TpcdsQuantity|EventDate|ClientIP|CounterID|SortedKeys|MonotoneRowId|RandomWalk'}
-ARMS='BM_(PforDecode|InterleavedPforDecode|InterleavedPforFlOrderDecode)'
-FILTER="$ARMS/($COLS)/"
+# Which arm groups to time. Several in one process is fine and preferred, since
+# arms timed together share the machine state; dividing across groups is not --
+# see bench_arms.sh.
+ARM_SETS=${ARM_SETS:-'ARMS_LAYOUT ARMS_ORDER'}
+SETS=()
+for NAME in $ARM_SETS; do SETS+=("${!NAME}"); done
+FILTER=$(bench_filter "${SETS[@]}")
 
 [ $# -ge 1 ] || { sed -n '2,40p' "$0"; exit 1; }
 

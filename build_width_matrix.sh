@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 #
-# Register-width x optimizer matrix, CORRECTED.
+# Register-width x optimizer matrix.
 #
-# WHY v2 EXISTS -- the bug in v1
-#   v1 assumed CMAKE_BUILD_TYPE=Release means -O2, which is true for upstream
+# WHAT THIS FIXES
+#   An earlier version of this sweep, now deleted, assumed
+#   CMAKE_BUILD_TYPE=Release means -O2, which is true for upstream
 #   Arrow but NOT on this branch. cpp/cmake_modules/SetupCxxFlags.cmake:637
 #   carries a local override:
 #       "keep -O3 from CMake's default Release flags for the pfor benchmark"
-#   so Release keeps CMake's default -O3 -DNDEBUG. v1 passed an explicit -O3
+#   so Release keeps CMake's default -O3 -DNDEBUG. It passed an explicit -O3
 #   only for its "-O3" points and let the "-O2" points default -- which also
-#   came out -O3. Proof, from v1's own artifacts:
+#   came out -O3. Proof, from its own artifacts:
 #       verify_O2_AVX2.txt   sha256 22ae7451045ce1f5...
 #       verify_O3_AVX2.txt   sha256 22ae7451045ce1f5...   <- same binary
 #       verify_O2_AVX512.txt sha256 440bf51c5ec1f62c...
 #       verify_O3_AVX512.txt sha256 440bf51c5ec1f62c...   <- same binary
 #   and configure_O2_AVX2.log: "CMAKE_CXX_FLAGS_RELEASE: -O3 -DNDEBUG
-#   -ftree-vectorize". So v1's "-O3 is a non-factor (1.01x/0.97x)" was a binary
+#   -ftree-vectorize". So its "-O3 is a non-factor (1.01x/0.97x)" was a binary
 #   compared against itself -- it measures the shared-VM noise floor (+-3%),
-#   not the optimizer. Only v1's 512-bit pair differed for real.
+#   not the optimizer. Only its 512-bit pair differed for real.
 #
-#   Consequence for the headline: v1's width scaling 30.32/35.41/38.22 mixed
+#   Consequence for the headline: that width scaling of 30.32/35.41/38.22 mixed
 #   levels -- 128 and 256 were -O3 builds, 512 was the one genuine -O2 build.
 #   Not a clean axis. This script fixes it by ALWAYS setting the optimizer
 #   explicitly, never inheriting it.
@@ -31,37 +32,51 @@
 #   - -mprefer-vector-width is set explicitly at every point. Arrow's
 #     ARROW_SIMD_LEVEL=AVX512 uses -march=skylake-avx512, and GCC defaults that
 #     target to -mprefer-vector-width=256, so a nominally-512 build emits zero
-#     zmm unless asked. v1 hit exactly this (ymm 221908, zmm 0).
+#     zmm unless asked. The earlier sweep hit exactly this (ymm 221908, zmm 0),
+#     and a separate driver existed only to add the flag back. That driver is
+#     gone: the flag is set at every point here.
 #   - Width is verified INSIDE the kernel function, not across the whole binary.
 #     Whole-binary counts are dominated by Arrow's own explicit-vector code and
 #     say nothing about what the autovectorizer did to the FastLanes kernel.
 #   - Each binary is preserved under $OUT/bin/ so timing can be replayed later
 #     without rebuilding, and so builds and timing runs never overlap.
 #
-# BUILD ONLY. Timing is time_width_matrix_v2.sh, run when the box is quiet --
-# these numbers are from a shared virtualized container and a concurrent build
-# on another core will move them.
+# NO 512-BIT LEG
+#   Arrow's bit-unpack dispatch is capped at 256 bits, because the AVX-512
+#   kernels assemble their input register from scalar loads and measure 0.67x of
+#   the scalar kernel. Asking for the 512-bit level therefore hands the
+#   sequential arm the 256-bit kernel back while the interleaved kernel really
+#   does widen, so such a point compares two widths on one side and one on the
+#   other. It comes back when a 512-bit unpack kernel exists that beats the
+#   256-bit one.
+#
+# BUILD ONLY. Time the binaries with ab_compare.sh, which alternates the
+# variants inside one batch -- these numbers come from a shared virtualized
+# container and a point timed minutes after its neighbour is not comparable to
+# it.
 #
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 export PATH="$HOME/.local/bin:$PATH"   # cmake must be <4; 3.31.10 lives here
 
 BUILD=build-x86-sweep                  # reused so bundled deps are not rebuilt
+# Output directory keeps its name so the binaries and verification logs already
+# on the x86 box are not orphaned.
 OUT="$HOME/Projects/pfor_x86_handoff/width_matrix_v2"
 mkdir -p "$OUT/bin"
 
 # The autovectorized FastLanes kernel under test. Order 0 = plain interleaved,
-# Order 1 = FL_ORDER. Order 0 is the one the width claim is about.
+# Order 1 = the paper's lane assignment. Order 0 is the one the width claim is
+# about. This kernel has no exception handling, so its timings belong to the
+# order group in bench_arms.sh and never against a production arm.
 KERNEL='arrow::util::fastlanes::InterleavedPforDecode<(arrow::util::fastlanes::InterleavedPforOrder)0>'
 
 # name | ARROW_SIMD_LEVEL | optimizer | prefer-vector-width
 POINTS=(
   "O2_128:SSE4_2:-O2:128"
   "O2_256:AVX2:-O2:256"
-  "O2_512:AVX512:-O2:512"
   "O3_128:SSE4_2:-O3:128"
   "O3_256:AVX2:-O3:256"
-  "O3_512:AVX512:-O3:512"
 )
 
 for P in "${POINTS[@]}"; do
@@ -143,8 +158,6 @@ for P in "${POINTS[@]}"; do
 
   # A width that did not materialize is reported, never silently averaged in.
   case "$PVW" in
-    512) grep -qE '^    zmm: [1-9]' "$OUT/verify_$NAME.txt" \
-           || echo "!! WARNING $NAME: no zmm IN KERNEL -- this is NOT a 512-bit point" ;;
     256) grep -qE '^    ymm: [1-9]' "$OUT/verify_$NAME.txt" \
            || echo "!! WARNING $NAME: no ymm IN KERNEL -- this is NOT a 256-bit point" ;;
   esac
@@ -155,7 +168,10 @@ echo "=== builds complete. binaries in $OUT/bin/ ==="
 sha256sum "$OUT"/bin/* 2>/dev/null
 echo
 echo "Distinct binaries (if two points share a sha256, they are the SAME build"
-echo "and any difference between their timings is noise -- this is the v1 bug):"
+echo "and any difference between their timings is noise):"
 sha256sum "$OUT"/bin/* 2>/dev/null | awk '{print $1}' | sort -u | wc -l
 echo
-echo "Now run: ./time_width_matrix_v2.sh   (when the box is quiet)"
+echo "Now time them, when the box is quiet:"
+echo "  BIN_DIR=$OUT/bin ./ab_compare.sh \\"
+echo "    bench_O2_128:SSE4_2 bench_O2_256:AVX2 \\"
+echo "    bench_O3_128:SSE4_2 bench_O3_256:AVX2"

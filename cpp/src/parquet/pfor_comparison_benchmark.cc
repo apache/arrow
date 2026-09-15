@@ -2017,6 +2017,15 @@ static void InterleavedPforDecodeImpl(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+// The three arms below answer the value-ordering question and only that one.
+// They run arrow/util/fastlanes/interleaved_pfor.h, which has no exception
+// handling: no patch list on the wire, no patch pass in the decoder. Dividing
+// one of them by a production arm therefore charges the production side for work
+// these never do, and the quotient is not the layout. The layout question has
+// its own pair above -- BM_PforPlainSeqDecode and BM_PforPlainInterleavedDecode,
+// same production encoder and decoder, differing only in PackingMode.
+// BM_InterleavedPforDecode is the file-order control the other two are read
+// against; it is not a second interleaved-layout arm.
 static void BM_InterleavedPforDecode(benchmark::State& state, Gen32 gen) {
   InterleavedPforDecodeImpl<InterleavedPforOrder::kFileOrder>(state, gen);
 }
