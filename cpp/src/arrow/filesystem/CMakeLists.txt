@@ -138,6 +138,8 @@ if(ARROW_S3)
                    filesystem
                    DEFINITIONS
                    ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_s3_shared
                    EXTRA_LINK_LIBS
                    Boost::filesystem)
   endif()
