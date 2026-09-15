@@ -36,6 +36,7 @@
 
 #ifdef __linux__
 #  include <fstream>
+#  include <sys/auxv.h>
 #endif
 
 #ifdef __APPLE__
@@ -97,6 +98,24 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor) {
   *hardware_flags |= (sve && sve_size == 16) ? CpuInfo::SVE128 : 0;
   *hardware_flags |= (sve && sve_size == 32) ? CpuInfo::SVE256 : 0;
   *hardware_flags |= (sve && sve_size == 64) ? CpuInfo::SVE512 : 0;
+
+#if defined(__riscv) && __riscv_xlen == 64
+#  ifndef COMPAT_HWCAP_ISA_V
+#    define COMPAT_HWCAP_ISA_V (1UL << ('V' - 'A'))
+#  endif
+  bool rvv = false;
+#ifdef __linux__
+  rvv = (getauxval(AT_HWCAP) & COMPAT_HWCAP_ISA_V) != 0;
+#endif
+  *hardware_flags |= rvv ? CpuInfo::RVV : 0;
+  if (rvv) {
+    unsigned long vlenb = 0;
+    __asm__ volatile("csrr %0, vlenb" : "=r"(vlenb));
+    *hardware_flags |= (vlenb == 16) ? CpuInfo::RVV128 : 0;
+    *hardware_flags |= (vlenb == 32) ? CpuInfo::RVV256 : 0;
+    *hardware_flags |= (vlenb == 64) ? CpuInfo::RVV512 : 0;
+  }
+#endif  // __riscv && __riscv_xlen == 64
 
   // x86 only
   switch (cpu.known_manufacturer()) {
