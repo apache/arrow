@@ -37,7 +37,8 @@ namespace py {
 
 static Status UnwrapError(PyObject* obj, const char* expected_type) {
   return Status::TypeError("Could not unwrap ", expected_type,
-                           " from Python object of type '", Py_TYPE(obj)->tp_name, "'");
+                           " from Python object of type '",
+                           internal::PyObject_StdStringTypeName(obj), "'");
 }
 
 int import_pyarrow() {
