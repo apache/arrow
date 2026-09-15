@@ -1707,13 +1707,19 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
             values_decode) {
           ParquetException::EofException();
         }
+        // Hold the running value and the frame in locals. Both are members of the
+        // same type as the output, so a store to `buffer` may alias them and the
+        // compiler must otherwise reload min_delta_ and spill last_value_ on every
+        // value, which costs two extra memory operations per value.
+        UT last = static_cast<UT>(last_value_);
+        const UT min_delta = static_cast<UT>(min_delta_);
         for (int j = 0; j < values_decode; ++j) {
           // Addition between min_delta, packed int and last_value should be treated as
           // unsigned addition. Overflow is as expected.
-          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                          static_cast<UT>(last_value_);
-          last_value_ = buffer[i + j];
+          last += min_delta + static_cast<UT>(buffer[i + j]);
+          buffer[i + j] = last;
         }
+        last_value_ = static_cast<T>(last);
       }
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
