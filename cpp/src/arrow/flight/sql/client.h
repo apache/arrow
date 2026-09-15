@@ -440,9 +440,11 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   /// \param[in] handle                Handle for this prepared statement.
   /// \param[in] dataset_schema        Schema of the resulting dataset.
   /// \param[in] parameter_schema      Schema of the parameters (if any).
+  /// \param[in] is_update             Whether this is an update query (or nullopt if unknown).
   PreparedStatement(FlightSqlClient* client, std::string handle,
                     std::shared_ptr<Schema> dataset_schema,
-                    std::shared_ptr<Schema> parameter_schema);
+                    std::shared_ptr<Schema> parameter_schema,
+                    std::optional<bool> is_update = std::nullopt);
 
   /// \brief Default destructor for the PreparedStatement class.
   /// The destructor will call the Close method from the class in order,
@@ -472,6 +474,9 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   /// \return The ResultSet schema from the query.
   const std::shared_ptr<Schema>& dataset_schema() const;
 
+  /// \brief Check if the prepared statement represents an update query (or nullopt if unknown).
+  std::optional<bool> is_update() const;
+
   /// \brief Set a RecordBatch that contains the parameters that will be bound.
   Status SetParameters(std::shared_ptr<RecordBatch> parameter_binding);
 
@@ -499,6 +504,7 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   std::shared_ptr<Schema> parameter_schema_;
   std::shared_ptr<RecordBatchReader> parameter_binding_;
   bool is_closed_;
+  std::optional<bool> is_update_;
 };
 
 /// \brief A handle for a server-side savepoint.
