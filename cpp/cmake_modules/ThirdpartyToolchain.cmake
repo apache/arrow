@@ -2833,6 +2833,7 @@ function(build_simdjson)
                        URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
+  set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
 
   fetchcontent_makeavailable(simdjson)
 
