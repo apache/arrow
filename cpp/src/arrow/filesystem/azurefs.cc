@@ -500,7 +500,7 @@ struct AzureLocation {
     // container = testcontainer
     // path = testdir/testfile.txt
     // path_parts = [testdir, testfile.txt]
-    if (internal::IsLikelyUri(string)) {
+    if (IsLikelyUri(string)) {
       return Status::Invalid(
           "Expected an Azure object location of the form 'container/path...',"
           " got a URI: '",

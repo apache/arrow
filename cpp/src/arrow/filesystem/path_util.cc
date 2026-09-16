@@ -337,6 +337,8 @@ bool IsEmptyPath(std::string_view v) {
   return true;
 }
 
+}  // namespace internal
+
 bool IsLikelyUri(std::string_view v) {
   if (v.empty() || v[0] == '/') {
     return false;
@@ -356,6 +358,8 @@ bool IsLikelyUri(std::string_view v) {
   }
   return ::arrow::util::IsValidUriScheme(v.substr(0, pos));
 }
+
+namespace internal {
 
 struct Globber::Impl {
   std::regex pattern_;
