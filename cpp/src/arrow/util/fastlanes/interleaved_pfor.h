@@ -16,61 +16,40 @@
 // under the License.
 
 // ---------------------------------------------------------------------------
-// Plain (non-delta) PFOR through the FastLanes container, in two orders:
+// Plain (non-delta) PFOR through the FastLanes container, in two value orders:
+// input order, and the paper's lane assignment. Everything else is held equal
+// -- same per-block frame of reference, same bit width choice, same container
+// -- so the difference between them is the ordering and nothing else, which is
+// the one question this file answers. lane_delta.h and transposed_delta.h ask
+// that question of a delta chain; plain PFOR has no chain for the ordering to
+// help, so what is priced here is the permutation FL_ORDER forces. See
+// InterleavedPforOrder below for the three variants.
 //
-//   kFileOrder  per-block frame-of-reference subtract, then bit-pack with the
-//               interleaved container in input order. This is Building Block
-//               1 alone -- lane_delta.h and transposed_delta.h are Building
-//               Block 1 applied to a delta chain; this file applies it to
-//               plain PFOR, which has no chain to break. Decode returns
-//               values in file order with no permutation, matching the note
-//               in fastlanes_kernels_internal.h.
-//
-//   kFlOrder    the same, but the residuals are placed with the paper's lane
-//               assignment (reused from transposed_delta.h's Transpose32x32:
-//               lane l holds the contiguous run [32l, 32l+32)) before
-//               packing, and gathered back to file order after unpacking.
-//               PFOR has no chain for this ordering to help, so this arm
-//               exists to price the gather it forces rather than to recommend
-//               it -- see fastlanes_kernels_internal.h's header comment.
-//
-// Both orders are otherwise identical: same per-block FOR, same bit width
-// choice, same container. That makes the difference between them the value
-// ordering and nothing else, which is the one question this file answers.
-//
-// THIS CODE HAS NO EXCEPTION HANDLING. There is no patch list on the wire and
-// no patch pass in the decoder, because a bit width wide enough for the block's
-// largest residual is always chosen. Arrow's production PFOR does carry
+// There is no exception handling here: no patch list on the wire and no patch
+// pass in the decoder, because a bit width wide enough for the block's largest
+// residual is always chosen. Arrow's production PFOR does carry
 // exceptions and does patch them, so a ratio taken between anything here and a
-// production arm charges one side for work the other never does, and the
+// production decoder charges one side for work the other never does, and the
 // difference is not the layout. Compare kFileOrder against kFlOrder/kFlOrderRaw
-// here; for sequential against interleaved, use the two production arms that
+// here; for sequential against interleaved, use the two production paths that
 // differ only in PackingMode.
 //
-// The container also appears in production as PackingMode::kForBitPackInterleaved,
-// which is what a Parquet reader would use. This file is not that code and does
-// not share its wire format: the production format has no lane-assignment mode,
-// so the ordering question has nowhere else to be asked.
+// The container also appears in production as
+// PackingMode::kForBitPackInterleaved, which is what a Parquet reader would
+// use. This file is not that code and does not share its wire format: the
+// production format has no lane-assignment mode, so the ordering question has
+// nowhere else to be asked.
 //
-// A caveat on what "the same columns" means, because an earlier version of this
-// comment overstated it: the benchmark corpus is SYNTHETIC. Its columns are
-// generators shaped after distributions seen in ClickBench, TPC-DS, TPC-H and
-// the NYC taxi set -- they are not records loaded from those datasets, and the
-// only file the harness opens is the CSV it writes. Bit-unpacking throughput is
-// data-independent at a fixed width, so that substitution is harmless for the
-// timing arms. It is NOT harmless for any claim about how wide a column packs,
-// since the generator's autocorrelation is chosen rather than observed.
-//
-// A second caveat, on register width. UnpackBlock in
-// fastlanes_kernels_internal.h contains no intrinsics: it is portable C++ that
-// the compiler auto-vectorizes, so its register width is whatever the
-// translation unit's compile-time flags permit. It has NO runtime SIMD dispatch,
-// which means ARROW_USER_SIMD_LEVEL does not reach it and ARROW_SIMD_LEVEL
-// (default: SSE4_2 on x86) decides it. On a default build this kernel compiles
-// to XMM while the sequential comparand dispatches to a hand-written AVX2 body
-// at runtime, so a layout comparison from a default build is measuring register
-// width and not layout. Build with -DARROW_SIMD_LEVEL=AVX2 or better before
-// comparing, or give these kernels real dispatch.
+// On register width: UnpackBlock in fastlanes_kernels_internal.h contains no
+// intrinsics, so its register width and its optimization level are whatever the
+// translation unit that compiled it was given. The production path in
+// pfor/pfor.cc picks its instruction set at runtime; the code here deliberately
+// does not, instantiating the template into the benchmark's own translation
+// unit so that every measurement is built at one known set of flags. The cost
+// is that it answers to ARROW_SIMD_LEVEL rather than ARROW_USER_SIMD_LEVEL, and
+// that a default x86 build (SSE4_2) runs it in XMM registers. Build with
+// -DARROW_SIMD_LEVEL=AVX2 or better before comparing against a dispatched
+// decoder, and state the level with the figure.
 //
 // Wire layout for n values (n a multiple of 1024; any tail is stored raw):
 //

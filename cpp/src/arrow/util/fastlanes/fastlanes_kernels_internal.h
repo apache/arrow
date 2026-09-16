@@ -47,10 +47,19 @@
 // successive rows of one lane here, successive values of the stream in
 // arrow::internal::unpack -- not in how the bits of a value are laid out. That
 // is why the shift and the straddle depend on the row and never on the lane,
-// and so why all 32 lanes do identical work.
+// and so why all 32 lanes do identical work. The payload is byte-identical in
+// size to the sequential layout for a full block: 128 * w bytes.
 //
-// The payload is byte-identical in size to the sequential layout for a full
-// block: 1024 * w bits either way, or 128 * w bytes.
+// Both kernels take an Arch type parameter their bodies never mention, so that
+// this one source compiled at two different instruction sets yields two
+// distinct symbols. Without it, PackBlock<16> compiled with NEON flags and
+// PackBlock<16> compiled with SVE flags share a mangled name, the linker keeps
+// one definition, and every caller silently gets whichever copy it kept --
+// undoing the per-instruction-set translation units of
+// interleaved_dispatch_internal.h with no diagnostic.
+// arrow::internal::bpacking carries the parameter for the same reason. A caller
+// that compiles exactly one copy of these kernels leaves it at its default and
+// is unaffected.
 
 #pragma once
 
@@ -74,7 +83,7 @@ static_assert(kLanes * kRowsPerBlock == kBlockSize,
 // ---------------------------------------------------------------------------
 // Pack: 1024 u32 inputs, in input order -> w*32 u32 packed words.
 // ---------------------------------------------------------------------------
-template <uint32_t w>
+template <uint32_t w, typename Arch = void>
 inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRICT out) {
   static_assert(w >= 1 && w <= 32);
   constexpr uint32_t kMask = (w == 32) ? 0xFFFFFFFFu : ((1u << w) - 1);
@@ -117,16 +126,15 @@ inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRIC
 // Unpack: w*32 packed u32 words -> 1024 u32 outputs in input order.
 //
 // With kHasBias, `bias` is added to every value before it is stored, so a
-// frame-of-reference decoder does not need a second pass over the output to
-// add it. That pass is not cheap: measured against the unpack it follows, it
-// costs 1.47x-2.40x, and a pass that only copies costs the same as one that
-// adds, so what is paid for is the traversal rather than the arithmetic. The
-// add is modular in uint32_t, matching the encoder's subtraction.
-//
-// kHasBias is a template parameter rather than a runtime argument so that the
-// no-bias instantiations carry no test in their inner loop.
+// frame-of-reference decoder does not need a second pass over the output to add
+// it. That pass costs 1.47x-2.40x of the unpack it follows, and a pass that
+// only copies costs the same as one that adds, so what is paid for is the
+// traversal rather than the arithmetic. The add is modular in uint32_t,
+// matching the encoder's subtraction. kHasBias is a template parameter rather
+// than a runtime argument so the no-bias instantiations carry no test in their
+// inner loop.
 // ---------------------------------------------------------------------------
-template <uint32_t w, bool kHasBias = false>
+template <uint32_t w, bool kHasBias = false, typename Arch = void>
 inline void UnpackBlock(const uint32_t* ARROW_RESTRICT packed,
                         uint32_t* ARROW_RESTRICT out, uint32_t bias = 0) {
   static_assert(w >= 1 && w <= 32);
