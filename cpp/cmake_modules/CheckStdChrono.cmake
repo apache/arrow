@@ -59,10 +59,13 @@ int main() {
   // feature-test macro (e.g. GCC 12 advertises __cpp_lib_chrono but has
   // no <format>). The probe only compiles and links, it never runs, so
   // referencing locate_zone here needs no timezone database on the host.
+  // NOTE: make_format_args takes its arguments by reference, so the
+  // time point must be bound to a local first, not passed as a temporary.
   const std::chrono::time_zone* tz = std::chrono::locate_zone(\"UTC\");
   std::ostringstream os;
+  const auto now = std::chrono::system_clock::now();
   std::vformat_to(std::ostreambuf_iterator<char>(os), \"{:%Y}\",
-                  std::make_format_args(std::chrono::system_clock::now()));
+                  std::make_format_args(now));
   return tz == nullptr;
 }
 ")

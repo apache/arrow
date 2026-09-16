@@ -134,10 +134,13 @@ int main() {
     // arrow/util/chrono_internal.h (GH-51267) needs working timezone lookup
     // and <format>; the toolchain must provide both, not just the chrono
     // feature-test macro. The probe only compiles and links, it never runs.
+    // NOTE: make_format_args takes its arguments by reference, so the
+    // time point must be bound to a local first, not passed as a temporary.
     const std::chrono::time_zone* tz = std::chrono::locate_zone("UTC");
     std::ostringstream os;
+    const auto now = std::chrono::system_clock::now();
     std::vformat_to(std::ostreambuf_iterator<char>(os), "{:%Y}",
-                    std::make_format_args(std::chrono::system_clock::now()));
+                    std::make_format_args(now));
     return tz == nullptr;
 }
 '''
