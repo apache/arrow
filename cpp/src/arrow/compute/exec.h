@@ -131,8 +131,6 @@ class ARROW_EXPORT ExecContext {
 /// implementations. This is especially relevant for aggregations but also
 /// applies to scalar operations.
 ///
-/// We are not yet using this so this is mostly a placeholder for now.
-///
 /// [1]: http://cidrdb.org/cidr2005/papers/P19.pdf
 class ARROW_EXPORT SelectionVector {
  public:
@@ -140,15 +138,51 @@ class ARROW_EXPORT SelectionVector {
 
   explicit SelectionVector(const Array& arr);
 
-  /// \brief Create SelectionVector from boolean mask
-  static Result<std::shared_ptr<SelectionVector>> FromMask(const BooleanArray& arr);
-
+  std::shared_ptr<ArrayData> data() const { return data_; }
   const int32_t* indices() const { return indices_; }
-  int32_t length() const;
+  int64_t length() const;
+
+  Status Validate(int64_t values_length = -1) const;
 
  private:
   std::shared_ptr<ArrayData> data_;
   const int32_t* indices_;
+};
+
+/// \brief A span of a SelectionVector's indices. Can represent a slice of the
+/// underlying indices.
+///
+/// Note that as an indirection of indices to the data in an ExecBatch, when sliced
+/// along with the batch, the indices themselves need to be back-shifted to be relative to
+/// the batch slice (ExecSpan). For example, consider an ExecBatch of 10 rows with a
+/// SelectionVector [0, 1, 9] is to be executed per-8-rows. The first slice of the batch
+/// will have row 0 to row 7 of the original batch with selection slice [0, 1]. The second
+/// slice of the batch will have row 8 and row 9 of the original batch however they are
+/// referred to as row 0 and row 1 by the kernel. Therefore the second selection slice
+/// should be [9 - 8] = [1]. This is done by setting index_back_shift to 8 for the second
+/// selection slice.
+class ARROW_EXPORT SelectionVectorSpan {
+ public:
+  explicit SelectionVectorSpan(const int32_t* indices = NULLPTR, int64_t length = 0,
+                               int64_t offset = 0, int32_t index_back_shift = 0)
+      : indices_(indices),
+        length_(length),
+        offset_(offset),
+        index_back_shift_(index_back_shift) {}
+
+  void SetSlice(int64_t offset, int64_t length, int32_t index_back_shift = 0);
+
+  int32_t operator[](int64_t i) const {
+    return indices_[i + offset_] - index_back_shift_;
+  }
+
+  int64_t length() const { return length_; }
+
+ private:
+  const int32_t* indices_;
+  int64_t length_;
+  int64_t offset_;
+  int32_t index_back_shift_;
 };
 
 /// An index to represent that a batch does not belong to an ordered stream
@@ -173,8 +207,11 @@ constexpr int64_t kUnsequencedIndex = -1;
 
 struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
-  ExecBatch(std::vector<Datum> values, int64_t length)
-      : values(std::move(values)), length(length) {}
+  ExecBatch(std::vector<Datum> values, int64_t length,
+            std::shared_ptr<SelectionVector> selection_vector = NULLPTR)
+      : values(std::move(values)),
+        length(length),
+        selection_vector(std::move(selection_vector)) {}
 
   explicit ExecBatch(const RecordBatch& batch);
 
@@ -196,13 +233,6 @@ struct ARROW_EXPORT ExecBatch {
   /// exec function for processing.
   std::vector<Datum> values;
 
-  /// A deferred filter represented as an array of indices into the values.
-  ///
-  /// For example, the filter [true, true, false, true] would be represented as
-  /// the selection vector [0, 1, 3]. When the selection vector is set,
-  /// ExecBatch::length is equal to the length of this array.
-  std::shared_ptr<SelectionVector> selection_vector;
-
   /// A predicate Expression guaranteed to evaluate to true for all rows in this batch.
   Expression guarantee = literal(true);
 
@@ -217,6 +247,13 @@ struct ARROW_EXPORT ExecBatch {
   /// If the array values are of length 0 then the length is 0 regardless of
   /// whether any values are Scalar.
   int64_t length = 0;
+
+  /// A deferred filter represented as an array of indices into the values.
+  ///
+  /// For example, the filter [true, true, false, true] would be represented as
+  /// the selection vector [0, 1, 3]. When the selection vector is set,
+  /// ExecBatch::length is equal to the length of this array.
+  std::shared_ptr<SelectionVector> selection_vector;
 
   /// \brief index of this batch in a sorted stream of batches
   ///
