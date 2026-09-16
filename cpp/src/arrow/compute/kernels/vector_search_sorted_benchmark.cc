@@ -18,16 +18,19 @@
 #include "benchmark/benchmark.h"
 
 #include <algorithm>
+#include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
-#include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -36,147 +39,159 @@ namespace arrow {
 namespace compute {
 
 constexpr auto kSeed = 0x5EA4C42;
-constexpr int64_t kNeedleToValueRatio = 4;
-constexpr int64_t kValuesRunLength = 16;
-constexpr int64_t kNeedlesRunLength = 8;
 constexpr int32_t kStringMinLength = 8;
-constexpr int32_t kStringMaxLength = 24;
+constexpr int32_t kStringMaxLength = 20;
 
-void SetSearchSortedQuickArgs(benchmark::internal::Benchmark* bench) {
-  bench->Unit(benchmark::kMicrosecond);
-  for (const auto size : std::vector<int64_t>{kL1Size, kL2Size}) {
-    bench->Arg(size);
+struct DenseBenchmarkArgs {
+  int64_t logical_length_;
+  double null_probability_;
+  SearchSortedOptions::Side side_;
+
+  explicit DenseBenchmarkArgs(const benchmark::State& state)
+      : logical_length_(state.range(0)), null_probability_(state.range(1) / 100.0) {
+    side_ = std::array{SearchSortedOptions::Left, SearchSortedOptions::Right}.at(
+        state.range(2));
   }
-}
 
-int64_t Int64LengthFromBytes(int64_t size_bytes) {
-  return std::max<int64_t>(1, size_bytes / static_cast<int64_t>(sizeof(int64_t)));
-}
-
-int64_t NeedleLengthFromBytes(int64_t size_bytes) {
-  return std::max<int64_t>(1, Int64LengthFromBytes(size_bytes) / kNeedleToValueRatio);
-}
-
-int64_t StringLengthFromBytes(int64_t size_bytes) {
-  const int64_t average_length = (kStringMinLength + kStringMaxLength) / 2;
-  return std::max<int64_t>(1, size_bytes / average_length);
-}
-
-std::shared_ptr<Int64Array> BuildSortedInt64Values(int64_t size_bytes) {
-  random::RandomArrayGenerator rand(kSeed);
-  const auto length = Int64LengthFromBytes(size_bytes);
-  const auto max_value = std::max<int64_t>(length / 8, 1);
-
-  auto values =
-      std::static_pointer_cast<Int64Array>(rand.Int64(length, 0, max_value, 0.0));
-  std::vector<int64_t> data(values->raw_values(),
-                            values->raw_values() + values->length());
-  std::ranges::sort(data);
-
-  Int64Builder builder;
-  ABORT_NOT_OK(builder.AppendValues(data));
-  return std::static_pointer_cast<Int64Array>(builder.Finish().ValueOrDie());
-}
-
-std::shared_ptr<Int64Array> BuildInt64Needles(int64_t size_bytes) {
-  random::RandomArrayGenerator rand(kSeed + 1);
-  const auto length = NeedleLengthFromBytes(size_bytes);
-  const auto max_value = std::max<int64_t>(Int64LengthFromBytes(size_bytes) / 8, 1);
-  return std::static_pointer_cast<Int64Array>(rand.Int64(length, 0, max_value, 0.0));
-}
-
-std::shared_ptr<StringArray> BuildSortedStringValues(int64_t size_bytes) {
-  random::RandomArrayGenerator rand(kSeed + 2);
-  const auto length = StringLengthFromBytes(size_bytes);
-  auto values = std::static_pointer_cast<StringArray>(
-      rand.String(length, kStringMinLength, kStringMaxLength, 0.0));
-
-  std::vector<std::string> data;
-  data.reserve(static_cast<size_t>(values->length()));
-  for (int64_t index = 0; index < values->length(); ++index) {
-    data.push_back(values->GetString(index));
-  }
-  std::ranges::sort(data);
-
-  StringBuilder builder;
-  ABORT_NOT_OK(builder.AppendValues(data));
-  return std::static_pointer_cast<StringArray>(builder.Finish().ValueOrDie());
-}
-
-std::shared_ptr<StringArray> BuildStringNeedles(int64_t size_bytes) {
-  random::RandomArrayGenerator rand(kSeed + 3);
-  const auto length = std::max<int64_t>(1, StringLengthFromBytes(size_bytes) / 4);
-  return std::static_pointer_cast<StringArray>(
-      rand.String(length, kStringMinLength, kStringMaxLength, 0.0));
-}
-
-std::shared_ptr<Int64Array> BuildRunHeavyInt64Values(int64_t logical_length,
-                                                     int64_t run_length) {
-  Int64Builder builder;
-  ABORT_NOT_OK(builder.Reserve(logical_length));
-  for (int64_t index = 0; index < logical_length; ++index) {
-    builder.UnsafeAppend(index / run_length);
-  }
-  return std::static_pointer_cast<Int64Array>(builder.Finish().ValueOrDie());
-}
-
-std::shared_ptr<Int64Array> BuildRunHeavyInt64NeedlesWithNullRuns(int64_t logical_length,
-                                                                  int64_t run_length) {
-  std::vector<int64_t> data(static_cast<size_t>(logical_length), 0);
-  std::vector<bool> is_valid(static_cast<size_t>(logical_length), true);
-
-  for (int64_t index = 0; index < logical_length; ++index) {
-    const int64_t run_index = index / run_length;
-    if (run_index % 4 == 0) {
-      is_valid[static_cast<size_t>(index)] = false;
-      continue;
+  static void SetArgs(benchmark::internal::Benchmark* bench) {
+    bench->Unit(benchmark::kMicrosecond);
+    bench->ArgNames({"length", "null_probability", "side"});
+    for (const auto size : std::vector<int64_t>{kL1Size, kL2Size}) {
+      for (const double null_probability : {0.0, 0.5, 0.9}) {
+        for (const bool right_side : {false, true}) {
+          bench->Args(
+              {size / 4, static_cast<int64_t>(null_probability * 100), right_side});
+        }
+      }
     }
-    data[static_cast<size_t>(index)] = run_index / 2;
+  };
+};
+
+struct DenseBenchmarkBase {
+  double null_probability_;
+  random::RandomArrayGenerator rand_;
+
+  explicit DenseBenchmarkBase(const DenseBenchmarkArgs& args)
+      : null_probability_(args.null_probability_), rand_(kSeed) {}
+};
+
+struct Int64Benchmark : public DenseBenchmarkBase {
+  using DenseBenchmarkBase::DenseBenchmarkBase;
+
+  std::shared_ptr<Array> BuildSortedValues(int64_t length) {
+    auto values = std::static_pointer_cast<Int64Array>(RandomArray(length));
+    std::vector<int64_t> data(values->raw_values(),
+                              values->raw_values() + values->length());
+    std::ranges::sort(data);
+
+    Int64Builder builder;
+    ABORT_NOT_OK(builder.AppendValues(data));
+    return builder.Finish().ValueOrDie();
   }
 
-  Int64Builder builder;
-  ABORT_NOT_OK(builder.AppendValues(data, is_valid));
-  return std::static_pointer_cast<Int64Array>(builder.Finish().ValueOrDie());
-}
+  std::shared_ptr<Array> BuildNeedles(int64_t length) {
+    // NOTE it's not required to have the same number of needles as values;
+    // it just makes the benchmarks simpler.
+    return RandomArray(length);
+  }
 
-std::shared_ptr<Int64Array> BuildInt64NeedlesWithNullRuns(int64_t size_bytes,
-                                                          int64_t run_length) {
-  return BuildRunHeavyInt64NeedlesWithNullRuns(NeedleLengthFromBytes(size_bytes),
-                                               run_length);
-}
+ protected:
+  std::shared_ptr<Array> RandomArray(int64_t length) {
+    return rand_.Int64(length, 0, /*max=*/length * 4, null_probability_);
+  }
+};
 
-std::shared_ptr<Array> BuildRunEndEncodedInt64Values(int64_t size_bytes,
-                                                     int64_t run_length) {
-  auto values = BuildRunHeavyInt64Values(Int64LengthFromBytes(size_bytes), run_length);
-  return RunEndEncode(Datum(values), RunEndEncodeOptions{int32()})
-      .ValueOrDie()
-      .make_array();
-}
+struct StringBenchmark : public DenseBenchmarkBase {
+  using DenseBenchmarkBase::DenseBenchmarkBase;
 
-std::shared_ptr<Array> BuildRunEndEncodedInt64Needles(int64_t size_bytes,
-                                                      int64_t run_length) {
-  auto needles = BuildRunHeavyInt64Values(NeedleLengthFromBytes(size_bytes), run_length);
-  return RunEndEncode(Datum(needles), RunEndEncodeOptions{int32()})
-      .ValueOrDie()
-      .make_array();
-}
+  std::shared_ptr<Array> BuildSortedValues(int64_t length) {
+    auto values = std::static_pointer_cast<StringArray>(
+        rand_.String(length, kStringMinLength, kStringMaxLength, null_probability_));
 
-std::shared_ptr<Array> BuildRunEndEncodedInt64NeedlesWithNullRuns(int64_t size_bytes,
-                                                                  int64_t run_length) {
-  auto needles = BuildRunHeavyInt64NeedlesWithNullRuns(NeedleLengthFromBytes(size_bytes),
-                                                       run_length);
-  return RunEndEncode(Datum(needles), RunEndEncodeOptions{int32()})
-      .ValueOrDie()
-      .make_array();
-}
+    std::vector<std::string_view> data;
+    data.reserve(static_cast<size_t>(values->length()));
+    for (int64_t index = 0; index < values->length(); ++index) {
+      data.push_back(values->GetView(index));
+    }
+    std::ranges::sort(data);
+
+    StringBuilder builder;
+    ABORT_NOT_OK(builder.Reserve(values->length()));
+    ABORT_NOT_OK(builder.ReserveData(values->total_values_length()));
+    for (const auto view : data) {
+      builder.UnsafeAppend(view);
+    }
+    return std::static_pointer_cast<StringArray>(builder.Finish().ValueOrDie());
+  }
+
+  std::shared_ptr<Array> BuildNeedles(int64_t length) {
+    return rand_.String(length, kStringMinLength, kStringMaxLength, null_probability_);
+  }
+};
+
+template <typename DenseBenchmark, bool kREENeedles>
+  requires std::derived_from<DenseBenchmark, DenseBenchmarkBase>
+struct REEBenchmark {
+  static constexpr int64_t kAverageRunLength = 50;
+  int64_t logical_length_;
+  int64_t physical_length_;
+  DenseBenchmark dense_benchmark_;
+
+  explicit REEBenchmark(const DenseBenchmarkArgs& args) : dense_benchmark_(args) {}
+
+  std::shared_ptr<Array> BuildSortedValues(int64_t logical_length) {
+    return Encode(dense_benchmark_.BuildSortedValues(logical_length / kAverageRunLength),
+                  logical_length);
+  }
+
+  std::shared_ptr<Array> BuildNeedles(int64_t logical_length) {
+    if constexpr (kREENeedles) {
+      return Encode(dense_benchmark_.BuildNeedles(logical_length / kAverageRunLength),
+                    logical_length);
+    } else {
+      return dense_benchmark_.BuildNeedles(logical_length);
+    }
+  }
+
+ protected:
+  std::shared_ptr<Array> Encode(std::shared_ptr<Array> values, int64_t logical_length) {
+    return dense_benchmark_.rand_.RunEndEncoded(values, logical_length);
+  }
+};
+
+template <typename DenseBenchmark>
+using REEValuesDenseNeedlesBenchmark =
+    REEBenchmark<DenseBenchmark, /*kREENeedles=*/false>;
+
+template <typename DenseBenchmark>
+using REEValuesREENeedlesBenchmark = REEBenchmark<DenseBenchmark, /*kREENeedles=*/true>;
+
+struct NoOpChunker {
+  Datum operator()(std::shared_ptr<Array> array) { return array; }
+};
+
+struct StaticChunker {
+  static constexpr int kNumChunks = 8;
+
+  Datum operator()(std::shared_ptr<Array> array) {
+    ArrayVector chunks;
+    int64_t chunk_start = 0;
+    for (int64_t i = 0; i < kNumChunks; ++i) {
+      int64_t chunk_end = ceil(static_cast<double>(i + 1) / kNumChunks * array->length());
+      chunks.push_back(
+          array->SliceSafe(chunk_start, chunk_end - chunk_start).ValueOrDie());
+      chunk_start = chunk_end;
+    }
+    ARROW_CHECK_EQ(chunk_start, array->length());
+    auto chunked_array = ChunkedArray::Make(std::move(chunks)).ValueOrDie();
+    ARROW_CHECK_EQ(chunked_array->length(), array->length());
+    return chunked_array;
+  }
+};
 
 void SetBenchmarkCounters(benchmark::State& state, const Datum& values,
-                          const Datum& needles) {
-  const auto values_length = values.length();
+                          const Datum& needles, SearchSortedOptions::Side side) {
   const auto needles_length = needles.length();
-  state.counters["values_length"] = static_cast<double>(values_length);
-  state.counters["values_null_percentage"] = values.null_count() * 100.0 / values_length;
-  state.counters["needles_length"] = static_cast<double>(needles_length);
   state.SetItemsProcessed(state.iterations() * needles_length);
 }
 
@@ -188,98 +203,72 @@ void RunSearchSortedBenchmark(benchmark::State& state, const Datum& values,
     ABORT_NOT_OK(result.status());
     benchmark::DoNotOptimize(result.ValueUnsafe());
   }
-  SetBenchmarkCounters(state, values, needles);
+  SetBenchmarkCounters(state, values, needles, side);
 }
 
-static void BM_SearchSortedInt64ArrayNeedles(benchmark::State& state,
-                                             SearchSortedOptions::Side side) {
-  const Datum values(BuildSortedInt64Values(state.range(0)));
-  const Datum needles(BuildInt64Needles(state.range(0)));
-  RunSearchSortedBenchmark(state, values, needles, side);
+template <typename Benchmark, typename Chunker>
+void RunSearchSortedBenchmark(benchmark::State& state, DenseBenchmarkArgs args,
+                              Benchmark benchmark, SearchSortedOptions::Side side) {
+  Chunker chunker;
+  RunSearchSortedBenchmark(state,
+                           chunker(benchmark.BuildSortedValues(args.logical_length_)),
+                           chunker(benchmark.BuildNeedles(args.logical_length_)), side);
 }
 
-static void BM_SearchSortedInt64ScalarNeedle(benchmark::State& state,
-                                             SearchSortedOptions::Side side) {
-  const auto values_array = BuildSortedInt64Values(state.range(0));
-  const auto scalar_index = values_array->length() / 2;
-  const Datum values(values_array);
-  const Datum needles(std::make_shared<Int64Scalar>(values_array->Value(scalar_index)));
-  RunSearchSortedBenchmark(state, values, needles, side);
+template <typename Benchmark, typename Chunker>
+void RunSearchSortedBenchmark(benchmark::State& state, DenseBenchmarkArgs args) {
+  RunSearchSortedBenchmark<Benchmark, Chunker>(state, args, Benchmark(args), args.side_);
 }
 
-static void BM_SearchSortedRunEndEncodedValues(benchmark::State& state,
-                                               SearchSortedOptions::Side side) {
-  const Datum values(BuildRunEndEncodedInt64Values(state.range(0), kValuesRunLength));
-  const Datum needles(BuildInt64Needles(state.range(0)));
-  RunSearchSortedBenchmark(state, values, needles, side);
+static void SearchSortedDenseInt64Array(benchmark::State& state) {
+  RunSearchSortedBenchmark<Int64Benchmark, NoOpChunker>(state, DenseBenchmarkArgs(state));
 }
 
-static void BM_SearchSortedRunEndEncodedValuesAndNeedles(benchmark::State& state,
-                                                         SearchSortedOptions::Side side) {
-  const Datum values(BuildRunEndEncodedInt64Values(state.range(0), kValuesRunLength));
-  const Datum needles(BuildRunEndEncodedInt64Needles(state.range(0), kNeedlesRunLength));
-  RunSearchSortedBenchmark(state, values, needles, side);
+static void SearchSortedDenseStringArray(benchmark::State& state) {
+  RunSearchSortedBenchmark<StringBenchmark, NoOpChunker>(state,
+                                                         DenseBenchmarkArgs(state));
 }
 
-static void BM_SearchSortedInt64NeedlesWithNullRuns(benchmark::State& state,
-                                                    SearchSortedOptions::Side side) {
-  const Datum values(BuildSortedInt64Values(state.range(0)));
-  const Datum needles(BuildInt64NeedlesWithNullRuns(state.range(0), kNeedlesRunLength));
-  RunSearchSortedBenchmark(state, values, needles, side);
+static void SearchSortedDenseInt64ChunkedArray(benchmark::State& state) {
+  RunSearchSortedBenchmark<Int64Benchmark, StaticChunker>(state,
+                                                          DenseBenchmarkArgs(state));
 }
 
-static void BM_SearchSortedRunEndEncodedNeedlesWithNullRuns(
-    benchmark::State& state, SearchSortedOptions::Side side) {
-  const Datum values(BuildRunEndEncodedInt64Values(state.range(0), kValuesRunLength));
-  const Datum needles(
-      BuildRunEndEncodedInt64NeedlesWithNullRuns(state.range(0), kNeedlesRunLength));
-  RunSearchSortedBenchmark(state, values, needles, side);
+static void SearchSortedDenseStringChunkedArray(benchmark::State& state) {
+  RunSearchSortedBenchmark<StringBenchmark, StaticChunker>(state,
+                                                           DenseBenchmarkArgs(state));
 }
 
-static void BM_SearchSortedStringArrayNeedles(benchmark::State& state,
-                                              SearchSortedOptions::Side side) {
-  const Datum values(BuildSortedStringValues(state.range(0)));
-  const Datum needles(BuildStringNeedles(state.range(0)));
-  RunSearchSortedBenchmark(state, values, needles, side);
+static void SearchSortedREEInt64Array(benchmark::State& state) {
+  RunSearchSortedBenchmark<REEValuesDenseNeedlesBenchmark<Int64Benchmark>, NoOpChunker>(
+      state, DenseBenchmarkArgs(state));
 }
 
-// Primitive-array and REE cases are the main baselines for the kernel TODOs around
-// SIMD batched search, vectorized REE writeback, and future parallel needle traversal.
+static void SearchSortedREEInt64ChunkedArray(benchmark::State& state) {
+  RunSearchSortedBenchmark<REEValuesDenseNeedlesBenchmark<Int64Benchmark>, StaticChunker>(
+      state, DenseBenchmarkArgs(state));
+}
 
-BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedles, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedles, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64ScalarNeedle, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64ScalarNeedle, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValues, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValues, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedles, left,
-                  SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedles, right,
-                  SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRuns, left,
-                  SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRuns, right,
-                  SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRuns, left,
-                  SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRuns, right,
-                  SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
+static void SearchSortedREEInt64ArrayREENeedles(benchmark::State& state) {
+  RunSearchSortedBenchmark<REEValuesREENeedlesBenchmark<Int64Benchmark>, NoOpChunker>(
+      state, DenseBenchmarkArgs(state));
+}
+
+static void SearchSortedREEInt64ChunkedArrayREENeedles(benchmark::State& state) {
+  RunSearchSortedBenchmark<REEValuesREENeedlesBenchmark<Int64Benchmark>, StaticChunker>(
+      state, DenseBenchmarkArgs(state));
+}
+
+BENCHMARK(SearchSortedDenseInt64Array)->Apply(DenseBenchmarkArgs::SetArgs);
+BENCHMARK(SearchSortedDenseStringArray)->Apply(DenseBenchmarkArgs::SetArgs);
+BENCHMARK(SearchSortedDenseInt64ChunkedArray)->Apply(DenseBenchmarkArgs::SetArgs);
+BENCHMARK(SearchSortedDenseStringChunkedArray)->Apply(DenseBenchmarkArgs::SetArgs);
+
+BENCHMARK(SearchSortedREEInt64Array)->Apply(DenseBenchmarkArgs::SetArgs);
+BENCHMARK(SearchSortedREEInt64ChunkedArray)->Apply(DenseBenchmarkArgs::SetArgs);
+
+BENCHMARK(SearchSortedREEInt64ArrayREENeedles)->Apply(DenseBenchmarkArgs::SetArgs);
+BENCHMARK(SearchSortedREEInt64ChunkedArrayREENeedles)->Apply(DenseBenchmarkArgs::SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
