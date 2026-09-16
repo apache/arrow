@@ -1359,7 +1359,7 @@ test_that("summarize() after arrange() (GH-45373)", {
     .input |>
       arrange(desc(int)) |>
       head(3) |>
-      summarize(max_int = max(int, na.rm = TRUE)) |>
+      summarize(min_int = min(int, na.rm = TRUE)) |>
       collect(),
     tbl
   )

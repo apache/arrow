@@ -791,7 +791,7 @@ test_that("mutate() with aggregations after arrange() (GH-45373)", {
       select(int, chr) |>
       arrange(desc(int)) |>
       head(3) |>
-      mutate(max_int = max(int, na.rm = TRUE)) |>
+      mutate(min_int = min(int, na.rm = TRUE)) |>
       collect(),
     tbl
   )
