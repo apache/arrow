@@ -2835,8 +2835,8 @@ function(build_simdjson)
   prepare_fetchcontent()
 
   # simdjson enables precompiled headers unconditionally.
-  # Recompiling simdjson.cpp against it produces differing
-  # artifacts. Disable precompiled headers to avoid this.
+  # Recompiling simdjson.cpp against it produces differing artifacts
+  # Disable precompiled headers to avoid reproducible build failures.
   set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
 
   fetchcontent_makeavailable(simdjson)
