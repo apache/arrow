@@ -19,6 +19,13 @@
 
 # arrow 25.0.1.9000
 
+## Minor improvements and fixes
+
+- `allocate_arrow_schema()`, `delete_arrow_schema()`, `allocate_arrow_array()`,
+  `delete_arrow_array()`, `allocate_arrow_array_stream()` and `delete_arrow_array_stream()`
+  are now exported and documented, so a package can use `$export_to_c()` and
+  `$import_from_c()` without reaching into the namespace (#39793).
+
 # arrow 25.0.1
 
 ## Minor improvements and fixes
