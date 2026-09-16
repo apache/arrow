@@ -2702,6 +2702,13 @@ TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
 }
 
 TYPED_TEST(TestBinaryKernels, SliceBytesPosPos) {
+  SliceOptions options_default_stop{/*start=*/1};
+  const std::string long_input(300, 'x');
+  this->CheckUnary(
+      "binary_slice", this->template MakeArray<std::string>({"abcdef", long_input}),
+      this->template MakeArray<std::string>({"bcdef", std::string(299, 'x')}),
+      &options_default_stop);
+
   SliceOptions options{2, 4};
   this->CheckUnary(
       "binary_slice",
