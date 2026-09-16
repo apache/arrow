@@ -108,11 +108,16 @@ TEST(TransitiveDependencies, WindowsHeadersExposed) {
 #endif
 }
 
+}  // namespace arrow
+
 // GH-51267: included after the InternalDependencies checks above so the
-// vendored datetime headers pulled in on non-std builds don't trip them.
+// vendored datetime headers pulled in on non-std builds don't trip them,
+// and outside namespace arrow so the header's own namespaces resolve.
 // chrono_internal.h owns the ARROW_USE_STD_CHRONO fallback, so the skip below
 // stays consistent with the real backend on subproject builds too.
 #include "arrow/util/chrono_internal.h"
+
+namespace arrow {
 
 TEST(Misc, BuildInfo) {
   const auto& info = GetBuildInfo();
