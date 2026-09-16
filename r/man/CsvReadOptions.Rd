@@ -88,18 +88,20 @@ CSV file that should be actually read and converted (in the vector's order).
 columns named in it but not found in the data be included as a column of
 type \code{null()}? The default (\code{FALSE}) means that the reader will instead
 raise an error.
-\item \code{timestamp_parsers} User-defined timestamp parsers. If more than one
-parser is specified, the CSV conversion logic will try parsing values
-starting from the beginning of this vector. Possible values are
-(a) \code{NULL}, the default, which uses the ISO-8601 parser;
+\item \code{timestamp_parsers} User-defined timestamp parsers, tried in order when
+inferring column types and when converting timestamp columns. Possible
+values are (a) \code{NULL}, the default, which uses the ISO-8601 parser;
 (b) a character vector of \link[base:strptime]{strptime} parse strings; or
-(c) a list of \link{TimestampParser} objects.
+(c) a list of \link{TimestampParser} objects and/or parse strings. Supplying
+parsers replaces the default ISO-8601 parser; see \code{\link[=read_delim_arrow]{read_delim_arrow()}}
+for details.
 \item \code{decimal_point} Character to use for decimal point in floating point numbers. Default: "."
 }
 
 \code{TimestampParser$create()} takes an optional \code{format} string argument.
 See \code{\link[base:strptime]{strptime()}} for example syntax.
-The default is to use an ISO-8601 format parser.
+The default is to use an ISO-8601 format parser, which is useful as a
+fallback at the end of a list of \code{timestamp_parsers}.
 
 The \code{CsvWriteOptions$create()} factory method takes the following arguments:
 \itemize{
