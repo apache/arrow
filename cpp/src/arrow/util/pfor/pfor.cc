@@ -31,13 +31,14 @@
 #include <cstring>
 #include <limits>
 #include <span>
-#include <utility>
 
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/fastlanes/fastlanes_kernels_internal.h"
+#include "arrow/util/fastlanes/interleaved_dispatch_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
@@ -90,34 +91,46 @@ static_assert(PforConstants::kPforVectorSize ==
 // reached when InterleavedApplies<T>() holds, so the width is in [1, 32] and
 // the block is a full 1024 values.
 //
-// A table of function pointers rather than a switch over 32 cases, because the
-// table keeps each width's body out of line. Folding all 32 into one dispatch
-// function is not free: doing exactly that to Arrow's NEON unpacker cost
-// between 1.2x and 2.1x, the compiler having lost the register allocation it
-// finds for a body it compiles on its own. One indirect call per 1024 values
-// is not measurable against that.
-using InterleavedPackFn = void (*)(const uint32_t*, uint32_t*);
-using InterleavedUnpackFn = void (*)(const uint32_t*, uint32_t*, uint32_t);
+// The kernels contain no intrinsics: they are portable C++ whose register width
+// is fixed by the flags of the translation unit that compiled them. So the
+// choice of instruction set is a choice of translation unit, made here at
+// runtime the same way every other Arrow SIMD kernel makes it. Each leg named
+// below is one compilation of the same kernel source at one instruction set;
+// interleaved_dispatch_internal.h says which legs exist and why, and
+// interleaved_kernel_table_internal.h holds the per-width table each one builds.
+//
+// Without this the kernels had no dispatch at all, and ARROW_SIMD_LEVEL alone
+// decided their width -- which on a default x86 build is SSE4_2, so the
+// interleaved kernel ran in XMM registers while the sequential unpacker it is
+// compared against dispatched to AVX2 at runtime.
+struct InterleavedPackDynamicFunction {
+  using FunctionType = decltype(&fastlanes::InterleavedPackBlockBaseline);
 
-// Index by bit width: entry w handles width w, and entry 0 is never called
-// because a vector of width 0 is constant and never reaches a kernel.
-template <size_t... W>
-constexpr std::array<InterleavedPackFn, 33> MakePackTable(std::index_sequence<W...>) {
-  return {nullptr, &fastlanes::PackBlock<W + 1>...};
-}
+  static constexpr auto targets() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&fastlanes::InterleavedPackBlockBaseline)  //
+        ARROW_DISPATCH_TARGET_SVE128(&fastlanes::InterleavedPackBlockSve128)  //
+        ARROW_DISPATCH_TARGET_AVX2(&fastlanes::InterleavedPackBlockAvx2)      //
+    };
+  }
+};
 
-template <bool kHasBias, size_t... W>
-constexpr std::array<InterleavedUnpackFn, 33> MakeUnpackTable(std::index_sequence<W...>) {
-  return {nullptr, &fastlanes::UnpackBlock<W + 1, kHasBias>...};
-}
+struct InterleavedUnpackDynamicFunction {
+  using FunctionType = decltype(&fastlanes::InterleavedUnpackBlockBaseline);
 
-constexpr auto kPackTable = MakePackTable(std::make_index_sequence<32>{});
-constexpr auto kUnpackTable = MakeUnpackTable<false>(std::make_index_sequence<32>{});
-constexpr auto kUnpackBiasTable = MakeUnpackTable<true>(std::make_index_sequence<32>{});
+  static constexpr auto targets() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&fastlanes::InterleavedUnpackBlockBaseline)  //
+        ARROW_DISPATCH_TARGET_SVE128(&fastlanes::InterleavedUnpackBlockSve128)  //
+        ARROW_DISPATCH_TARGET_AVX2(&fastlanes::InterleavedUnpackBlockAvx2)      //
+    };
+  }
+};
 
 inline void InterleavedPackBlock(uint8_t bit_width, const uint32_t* in, uint32_t* out) {
   ARROW_DCHECK(bit_width >= 1 && bit_width <= 32);
-  kPackTable[bit_width](in, out);
+  static const arrow::internal::DynamicDispatch<InterleavedPackDynamicFunction> dispatch;
+  return dispatch(bit_width, in, out);
 }
 
 // The frame of reference is folded into the kernel's own store, so a non-zero
@@ -125,11 +138,9 @@ inline void InterleavedPackBlock(uint8_t bit_width, const uint32_t* in, uint32_t
 inline void InterleavedUnpackBlock(uint8_t bit_width, const uint32_t* packed,
                                    uint32_t* out, uint32_t bias) {
   ARROW_DCHECK(bit_width >= 1 && bit_width <= 32);
-  if (bias == 0) {
-    kUnpackTable[bit_width](packed, out, 0);
-  } else {
-    kUnpackBiasTable[bit_width](packed, out, bias);
-  }
+  static const arrow::internal::DynamicDispatch<InterleavedUnpackDynamicFunction>
+      dispatch;
+  return dispatch(bit_width, packed, out, bias);
 }
 
 }  // namespace

@@ -64,14 +64,17 @@
 //
 // A second caveat, on register width. UnpackBlock in
 // fastlanes_kernels_internal.h contains no intrinsics: it is portable C++ that
-// the compiler auto-vectorizes, so its register width is whatever the
-// translation unit's compile-time flags permit. It has NO runtime SIMD dispatch,
-// which means ARROW_USER_SIMD_LEVEL does not reach it and ARROW_SIMD_LEVEL
-// (default: SSE4_2 on x86) decides it. On a default build this kernel compiles
-// to XMM while the sequential comparand dispatches to a hand-written AVX2 body
-// at runtime, so a layout comparison from a default build is measuring register
-// width and not layout. Build with -DARROW_SIMD_LEVEL=AVX2 or better before
-// comparing, or give these kernels real dispatch.
+// the compiler auto-vectorizes, so its register width and its optimization level
+// are whatever the translation unit that compiled it was given. The production
+// path in pfor/pfor.cc now picks its instruction set at runtime, the same way
+// Arrow's sequential unpacker does; the arms in THIS file still do not, and that
+// is deliberate. They instantiate the template into the benchmark's own
+// translation unit so that every arm is built at one known set of flags, which is
+// what lets a ratio taken here be about layout rather than about codegen. The
+// cost is that these arms answer to ARROW_SIMD_LEVEL and not to
+// ARROW_USER_SIMD_LEVEL, and that on a default x86 build (SSE4_2) they run in XMM
+// registers. Before comparing anything here against a dispatched arm, build with
+// -DARROW_SIMD_LEVEL=AVX2 or better, and state the level with the figure.
 //
 // Wire layout for n values (n a multiple of 1024; any tail is stored raw):
 //

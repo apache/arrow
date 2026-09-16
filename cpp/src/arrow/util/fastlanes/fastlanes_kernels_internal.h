@@ -61,6 +61,21 @@
 //
 // The payload is byte-identical in size to the sequential layout for a full
 // block: 1024 * w bits either way, or 128 * w bytes.
+//
+// The unused Arch parameter
+// -------------------------
+// Both kernels take a type parameter their bodies never mention. It exists so
+// that this one source, compiled at two different instruction sets, yields two
+// distinct symbols. Without it PackBlock<16> compiled with NEON flags and
+// PackBlock<16> compiled with SVE flags share a mangled name, the linker keeps
+// one definition of the pair, and every caller silently gets whichever copy it
+// kept. That would quietly undo the per-instruction-set translation units that
+// interleaved_dispatch_internal.h builds its dispatch tables in, and it would do
+// so with no diagnostic. arrow::internal::bpacking has the same property for the
+// same reason, from the Arch parameter its Kernel<> already carries. A caller
+// that compiles exactly one copy of these kernels -- which is every caller
+// outside those translation units -- leaves the parameter at its default and is
+// unaffected.
 
 #pragma once
 
@@ -84,7 +99,9 @@ static_assert(kLanes * kRowsPerBlock == kBlockSize,
 // ---------------------------------------------------------------------------
 // Pack: 1024 u32 inputs, in input order -> w*32 u32 packed words.
 // ---------------------------------------------------------------------------
-template <uint32_t w>
+// Arch is unused in the body and only discriminates the symbol; see the header
+// comment above for why it has to be there.
+template <uint32_t w, typename Arch = void>
 inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRICT out) {
   static_assert(w >= 1 && w <= 32);
   constexpr uint32_t kMask = (w == 32) ? 0xFFFFFFFFu : ((1u << w) - 1);
@@ -134,9 +151,10 @@ inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRIC
 // add is modular in uint32_t, matching the encoder's subtraction.
 //
 // kHasBias is a template parameter rather than a runtime argument so that the
-// no-bias instantiations carry no test in their inner loop.
+// no-bias instantiations carry no test in their inner loop. Arch is unused in
+// the body and only discriminates the symbol; see the header comment above.
 // ---------------------------------------------------------------------------
-template <uint32_t w, bool kHasBias = false>
+template <uint32_t w, bool kHasBias = false, typename Arch = void>
 inline void UnpackBlock(const uint32_t* ARROW_RESTRICT packed,
                         uint32_t* ARROW_RESTRICT out, uint32_t bias = 0) {
   static_assert(w >= 1 && w <= 32);
