@@ -160,6 +160,51 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_min=*/"z",
             /*expected_max=*/"z"}));
 
+TEST(StatisticsTest, FixedWidthLeafUnderListStructNullCount) {
+  // Null counts for fixed-width leaves under list<struct<...>>
+  // must include null and empty list entries from the repeated ancestor.
+  auto schema = ::arrow::schema({::arrow::field(
+      "col", ::arrow::list(::arrow::struct_(
+                    {::arrow::field("s", ::arrow::utf8()),
+                     ::arrow::field("i32", ::arrow::int32())})))});
+
+  auto table = ::arrow::Table::Make(
+      schema,
+      {::arrow::ArrayFromJSON(
+          ::arrow::list(::arrow::struct_(
+              {::arrow::field("s", ::arrow::utf8()),
+               ::arrow::field("i32", ::arrow::int32())})),
+          R"([[{"s":"a","i32":1}],null,[],[{"s":null,"i32":null},{"s":"b","i32":2}]])")});
+
+  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+  auto out_stream =
+      std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<FileWriter> writer,
+      FileWriter::Open(*schema, default_memory_pool(), out_stream,
+                       default_writer_properties(),
+                       default_arrow_writer_properties()));
+  ASSERT_OK(writer->WriteTable(*table));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK(out_stream->Close());
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+  auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
+  auto metadata = parquet_reader->metadata();
+  auto row_group = metadata->RowGroup(0);
+
+  ASSERT_EQ(row_group->num_columns(), 2);
+
+  auto int32_stats = row_group->ColumnChunk(1)->statistics();
+  ASSERT_NE(int32_stats, nullptr);
+
+  // Fixed-width leaves must include nulls from repeated ancestors
+  // (e.g. null or empty lists) in the column statistics.
+  EXPECT_EQ(int32_stats->null_count(), 3);
+  EXPECT_EQ(int32_stats->num_values(), 2);
+}
+
 TEST(StatisticsTest, TruncateOnlyHalfMinMax) {
   // GH-43382: Tests when we only have min or max, the `HasMinMax` should be false.
   std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
