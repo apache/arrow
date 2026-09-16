@@ -25,11 +25,11 @@ In accordance to the [AI generation guidelines](https://arrow.apache.org/docs/de
 
 **PR code and description written by:**
 
-- [ ] Human
-- [ ] AI
+ [ ] Human
+ [ ] AI
 
 **Reviewed before submission by:**
 
-- [ ] Human
-- [ ] AI
-- [ ] Not reviewed
+ [ ] Human
+ [ ] AI
+ [ ] Not reviewed
