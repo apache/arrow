@@ -789,7 +789,7 @@ test_that("mutate() with aggregations after arrange() (GH-45373)", {
   compare_dplyr_binding(
     .input |>
       select(int, chr) |>
-      arrange(int) |>
+      arrange(desc(int)) |>
       head(3) |>
       mutate(max_int = max(int, na.rm = TRUE)) |>
       collect(),
