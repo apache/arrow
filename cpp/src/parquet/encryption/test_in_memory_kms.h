@@ -100,12 +100,10 @@ class TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
 
   /// Get the `KmsConnectionConfig` values that have been used to
   /// create clients with this factory.
-  const std::vector<KmsConnectionConfig>& CreationRequests() {
-      return create_requests_;
-  }
+  const std::vector<KmsConnectionConfig>& CreationRequests() { return create_requests_; }
 
-private:
-    std::vector<KmsConnectionConfig> create_requests_;
+ private:
+  std::vector<KmsConnectionConfig> create_requests_;
 };
 
 }  // namespace parquet::encryption
