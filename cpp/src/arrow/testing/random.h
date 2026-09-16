@@ -560,7 +560,12 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \return a generated Array
   std::shared_ptr<Array> RunEndEncoded(std::shared_ptr<DataType> value_type,
                                        int64_t logical_size,
-                                       double null_probability = 0.0);
+                                       double null_probability = 0.0,
+                                       int64_t average_run_length = 50);
+
+  // TODO docstring
+  std::shared_ptr<Array> RunEndEncoded(const std::shared_ptr<Array>& values,
+                                       int64_t logical_size);
 
   /// \brief Generate a random SparseUnionArray
   ///

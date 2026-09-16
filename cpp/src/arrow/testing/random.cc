@@ -966,23 +966,34 @@ std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& k
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::RunEndEncoded(
-    std::shared_ptr<DataType> value_type, int64_t logical_size, double null_probability) {
+    std::shared_ptr<DataType> value_type, int64_t logical_size, double null_probability,
+    int64_t average_run_length) {
+  std::shared_ptr<Array> values =
+      ArrayOf(std::move(value_type), logical_size / average_run_length, null_probability);
+  return RunEndEncoded(values, logical_size);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::RunEndEncoded(
+    const std::shared_ptr<Array>& values, int64_t logical_size) {
   Int32Builder run_ends_builder;
   pcg32 rng(seed());
 
-  DCHECK_LE(logical_size, std::numeric_limits<int32_t>::max());
+  ARROW_CHECK_LE(logical_size, std::numeric_limits<int32_t>::max());
+  ARROW_CHECK_GE(logical_size, values->length());
 
-  std::uniform_int_distribution<int64_t> distribution(1, 100);
+  std::uniform_real_distribution<double> distribution(0.0, 1.0);
+
   int64_t current_end = 0;
-  while (current_end < logical_size) {
-    current_end += distribution(rng);
-    current_end = std::min(current_end, logical_size);
+  for (int64_t i = 0; i < values->length(); ++i) {
+    auto remaining_logical_size = logical_size - current_end;
+    auto remaining_physical_size = values->length() - i;
+    current_end += static_cast<int64_t>(
+        ceil(static_cast<double>(remaining_logical_size) / remaining_physical_size));
     ARROW_CHECK_OK(run_ends_builder.Append(static_cast<int32_t>(current_end)));
   }
+  ARROW_CHECK_EQ(current_end, logical_size);
 
   std::shared_ptr<Array> run_ends = *run_ends_builder.Finish();
-  std::shared_ptr<Array> values =
-      ArrayOf(std::move(value_type), run_ends->length(), null_probability);
 
   return RunEndEncodedArray::Make(logical_size, run_ends, values).ValueOrDie();
 }
