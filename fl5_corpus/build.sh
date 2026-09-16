@@ -1,7 +1,11 @@
 #!/bin/bash
-# Builds fl5_corpus (the 5-arm corpus harness) and seq_granularity (the per-block
-# call-overhead probe that calibrates the sequential arm). Works on x86-64 and
-# aarch64; the only difference is -march.
+# Builds every harness in this directory that is present: fl5_corpus (the 5-arm
+# corpus harness), seq_granularity (the per-block call-overhead probe that
+# calibrates the sequential arm), and fl5_delta_corpus (the delta ladder) when
+# that source is there. Sources that are absent are skipped with a note rather
+# than failing the build, so a checkout that carries only some of them still
+# produces working binaries. Works on x86-64 and aarch64; the only difference
+# is -march.
 #
 #   ARROW=/path/to/arrow           source checkout (has cpp/src)
 #   ARROW_BUILD=/path/to/build     configured+built Arrow (has src/arrow/util/config.h
@@ -31,10 +35,21 @@ case "$(uname -m)" in
   *)       ARCH_FLAGS=${ARCH_FLAGS:-""} ;;
 esac
 
-set -x
+built=0
+skipped=""
 for SRC in fl5_corpus fl5_delta_corpus seq_granularity; do
-  ${CXX:-g++} -std=c++20 -O3 $ARCH_FLAGS -DNDEBUG \
-    -I"$ARROW/cpp/src" -I"$ARROW_BUILD/src" -I"$ARROW/cpp/build-support" -I"$XSIMD" \
-    "$SRC.cpp" -o "$SRC" \
-    -L"$LIBDIR" -larrow -Wl,-rpath,"$LIBDIR"
+  if [ ! -f "$HERE/$SRC.cpp" ]; then
+    skipped="$skipped $SRC"
+    continue
+  fi
+  ( set -x
+    ${CXX:-g++} -std=c++20 -O3 $ARCH_FLAGS -DNDEBUG \
+      -I"$ARROW/cpp/src" -I"$ARROW_BUILD/src" -I"$ARROW/cpp/build-support" -I"$XSIMD" \
+      "$HERE/$SRC.cpp" -o "$HERE/$SRC" \
+      -L"$LIBDIR" -larrow -Wl,-rpath,"$LIBDIR" )
+  built=$((built + 1))
 done
+
+[ -n "$skipped" ] && echo "build.sh: source not present, skipped:$skipped" >&2
+[ "$built" -gt 0 ] || { echo "build.sh: no harness sources found in $HERE" >&2; exit 1; }
+echo "build.sh: built $built harness(es) in $HERE"
