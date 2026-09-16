@@ -179,14 +179,14 @@ s3_finalizer <- new.env(parent = emptyenv())
 }
 
 configure_tzdb <- function() {
+  if (runtime_info()[[3]] == "true") {
+    # GH-51267: builds reading the OS timezone database (C++20 std::chrono,
+    # or the vendored library built against the OS tzdata) already have
+    # working timezones — skip configuration entirely instead of warning
+    # that timezones will not be available when the tzdb package is missing.
+    return(invisible())
+  }
   if (requireNamespace("tzdb", quietly = TRUE)) {
-    if (runtime_info()[[3]] == "true") {
-      # GH-51267: builds reading the OS timezone database (C++20 std::chrono,
-      # or the vendored library built against the OS tzdata) cannot use a
-      # downloaded database, and their timezones already work — skip the
-      # vendored path instead of surfacing a false startup failure.
-      return(invisible())
-    }
     tryCatch(
       {
         tzdb::tzdb_initialize()

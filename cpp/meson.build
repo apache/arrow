@@ -119,10 +119,27 @@ needs_utilities = get_option('utilities').enabled()
 # ARROW_USE_STD_CHRONO CMake option.
 std_chrono_probe_src = '''
 #include <chrono>
+#include <format>
+#include <iterator>
+#include <ostream>
+#include <sstream>
+#include <string>
 #if !defined(__cpp_lib_chrono) || __cpp_lib_chrono < 201907L
 #error "C++20 chrono timezone support (__cpp_lib_chrono >= 201907L) is unavailable"
 #endif
-int main() { return 0; }
+#if !defined(__cpp_lib_format)
+#error "C++20 formatting support (__cpp_lib_format) is unavailable"
+#endif
+int main() {
+    // arrow/util/chrono_internal.h (GH-51267) needs working timezone lookup
+    // and <format>; the toolchain must provide both, not just the chrono
+    // feature-test macro. The probe only compiles and links, it never runs.
+    const std::chrono::time_zone* tz = std::chrono::locate_zone("UTC");
+    std::ostringstream os;
+    std::vformat_to(std::ostreambuf_iterator<char>(os), "{:%Y}",
+                    std::make_format_args(std::chrono::system_clock::now()));
+    return tz == nullptr;
+}
 '''
 have_std_chrono = cpp_compiler.links(
     std_chrono_probe_src,
@@ -131,7 +148,7 @@ have_std_chrono = cpp_compiler.links(
 std_chrono_opt = get_option('use_std_chrono')
 if std_chrono_opt.enabled()
     if not have_std_chrono
-        error('use_std_chrono=enabled requires working C++20 chrono timezone '
+        error('use_std_chrono=enabled requires working C++20 chrono timezone and formatting '
             + 'support, which the current toolchain does not provide')
     endif
     needs_std_chrono = true

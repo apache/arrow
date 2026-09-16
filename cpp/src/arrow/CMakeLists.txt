@@ -421,6 +421,16 @@ if(DEFINED ARROW_USE_STD_CHRONO)
 else()
   set(ARROW_USE_STD_CHRONO_DEFINITION "/* #undef ARROW_USE_STD_CHRONO */")
 endif()
+# GH-51267: record whether the vendored datetime implementation is linked, so
+# config.cc knows whether a runtime timezone database path can be honored.
+# It stays bundled for Gandiva builds even with the std::chrono backend
+# (Gandiva calls its timezone functions directly), and whenever the option
+# is unset (subproject with ARROW_DEFINE_OPTIONS=OFF keeps datetime.cpp).
+if(ARROW_USE_STD_CHRONO AND NOT ARROW_GANDIVA)
+  set(ARROW_HAVE_VENDORED_DATETIME 0)
+else()
+  set(ARROW_HAVE_VENDORED_DATETIME 1)
+endif()
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
