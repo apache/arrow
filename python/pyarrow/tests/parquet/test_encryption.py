@@ -501,13 +501,12 @@ def test_encrypted_parquet_kms_configuration():
     validate_kms_connection_config(kms_connection_config_1)
 
 
-@pytest.mark.xfail(reason="Plaintext footer - reading plaintext column subset"
-                   " reads encrypted columns too")
 def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
         tempdir, data_table):
-    """Write an encrypted parquet, with plaintext footer
-    and with single wrapping,
-    verify it's encrypted, and then read plaintext columns."""
+    """
+    Write an encrypted parquet, with plaintext footer and with single wrapping,
+    verify it's encrypted, and then read plaintext columns.
+    """
     path = tempdir / PARQUET_NAME
 
     # Encrypt the footer with the footer key,
@@ -536,10 +535,11 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
     write_encrypted_parquet(path, data_table, encryption_config,
                             kms_connection_config, crypto_factory)
 
-    # # Read without decryption properties only the plaintext column
-    # result = pq.ParquetFile(path)
-    # result_table = result.read(columns='c', use_threads=False)
-    # assert table.num_rows == result_table.num_rows
+    # Read without decryption properties only the plaintext column
+    result = pq.ParquetFile(path)
+    result_table = result.read(columns='c', use_threads=False)
+    assert data_table.num_rows == result_table.num_rows
+    assert data_table.select(['c']).equals(result_table)
 
 
 def test_encrypted_parquet_write_read_external(tempdir, data_table,

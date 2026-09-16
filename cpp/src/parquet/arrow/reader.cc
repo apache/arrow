@@ -1379,11 +1379,18 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  auto read_column = [row_groups, self, this](size_t i,
-                                              std::shared_ptr<ColumnReaderImpl> reader)
+  // `readers` only holds the requested columns, so its index `i` is a position within
+  // the selection, not the column's actual index in the row group. Map back to the
+  // real column index (as GetFieldReaders does internally) before calling ReadColumn,
+  // which indexes RowGroupMetaData::ColumnChunk() by the latter.
+  ARROW_ASSIGN_OR_RAISE(std::vector<int> field_indices,
+                        manifest_.GetFieldIndices(column_indices));
+
+  auto read_column = [row_groups, field_indices, self, this](
+                         size_t i, std::shared_ptr<ColumnReaderImpl> reader)
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     std::shared_ptr<::arrow::ChunkedArray> column;
-    RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
+    RETURN_NOT_OK(ReadColumn(field_indices[i], row_groups, reader.get(), &column));
     return column;
   };
   auto make_table = [result_schema, row_groups, self,
