@@ -61,6 +61,7 @@ test_that("try_arrow_dplyr/abandon_ship adds the right message about collect()",
 })
 
 test_that("dplyr verbs error clearly on empty column names", {
+  skip_if_not_available("acero")
   # GH-40303
   tbl <- example_data
   names(tbl)[1] <- ""
