@@ -551,6 +551,7 @@ set(ARROW_UTIL_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/dict_util.cc
+    util/fastlanes/interleaved_pfor_baseline.cc
     util/fixed_width_internal.cc
     util/float16.cc
     util/formatting.cc
@@ -592,6 +593,28 @@ append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
 append_runtime_sve128_src(ARROW_UTIL_SRCS util/bpacking_simd_128_alt.cc)
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
+
+# One source compiled once per instruction set, the way bpacking_simd_256.cc is
+# registered for both AVX2 and SVE256 above: the file forks on the platform
+# macros, and only one of them is ever defined on a given target.
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/fastlanes/interleaved_pfor_simd.cc)
+append_runtime_sve128_src(ARROW_UTIL_SRCS util/fastlanes/interleaved_pfor_simd.cc)
+
+# The interleaved kernels are portable C++ with no intrinsics, so what they
+# compile to is decided by the optimizer, not by the source. At width 16 gcc 11.5
+# emits 289 instructions and no vector operations at -O2, 322 with 81 vector
+# operations at Release's -O2 -ftree-vectorize, and 849 with 513 at -O3; the
+# published throughput figures for this layout were all taken at the last of
+# those. APPEND rather than a plain set, because the two calls above have already
+# put the instruction-set flags in this property. Release only -- Debug and the
+# sanitizer builds want their own level, and MSVC spells this differently.
+if(NOT MSVC)
+  set_property(SOURCE util/fastlanes/interleaved_pfor_baseline.cc
+                      util/fastlanes/interleaved_pfor_simd.cc
+               APPEND
+               PROPERTY COMPILE_OPTIONS
+                        "$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:-O3>")
+endif()
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)
