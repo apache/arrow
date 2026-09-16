@@ -73,6 +73,11 @@ else
     )
 endif
 
+# GH-51267: Meson never builds Gandiva (needs_gandiva is always false above),
+# so the vendored datetime implementation is present exactly when the
+# standard backend is off. This mirrors ARROW_HAVE_VENDORED_DATETIME in CMake.
+conf_data.set('ARROW_HAVE_VENDORED_DATETIME', not needs_std_chrono)
+
 has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
 conf_data.set('ARROW_USE_NATIVE_INT128', has_int128)
 

@@ -42,10 +42,29 @@ if(DEFINED ARROW_USE_STD_CHRONO)
   set(_ARROW_STD_CHRONO_TEST_SOURCE
       "
 #include <chrono>
+#include <format>
+#include <iterator>
+#include <ostream>
+#include <sstream>
+#include <string>
 #if !defined(__cpp_lib_chrono) || __cpp_lib_chrono < 201907L
 #  error \"C++20 chrono timezone support (__cpp_lib_chrono >= 201907L) is unavailable\"
 #endif
-int main() { return 0; }
+#if !defined(__cpp_lib_format)
+#  error \"C++20 formatting support (__cpp_lib_format) is unavailable\"
+#endif
+int main() {
+  // arrow/util/chrono_internal.h (GH-51267) needs working timezone lookup
+  // and <format>; the toolchain must provide both, not just the chrono
+  // feature-test macro (e.g. GCC 12 advertises __cpp_lib_chrono but has
+  // no <format>). The probe only compiles and links, it never runs, so
+  // referencing locate_zone here needs no timezone database on the host.
+  const std::chrono::time_zone* tz = std::chrono::locate_zone(\"UTC\");
+  std::ostringstream os;
+  std::vformat_to(std::ostreambuf_iterator<char>(os), \"{:%Y}\",
+                  std::make_format_args(std::chrono::system_clock::now()));
+  return tz == nullptr;
+}
 ")
 
   function(_arrow_check_std_chrono_support out_var)
@@ -56,9 +75,8 @@ int main() { return 0; }
     # AUTO builds to the vendored backend whose tzdb lookups then fail at
     # runtime.  The compiler output is surfaced on failure so a probe
     # regression is diagnosable from CI directly.
-    try_compile(${out_var}
-                SOURCE_FROM_VAR "arrow_std_chrono_probe.cxx"
-                _ARROW_STD_CHRONO_TEST_SOURCE
+    try_compile(${out_var} SOURCE_FROM_VAR
+                "arrow_std_chrono_probe.cxx" _ARROW_STD_CHRONO_TEST_SOURCE
                 OUTPUT_VARIABLE _chrono_probe_output)
     if(NOT ${out_var})
       message(STATUS "C++20 chrono probe failed with:\n${_chrono_probe_output}")
@@ -85,7 +103,8 @@ int main() { return 0; }
     _arrow_check_std_chrono_support(ARROW_HAVE_STD_CHRONO)
     if(NOT ARROW_HAVE_STD_CHRONO)
       message(FATAL_ERROR "ARROW_USE_STD_CHRONO=ON requires working C++20 chrono "
-                          "timezone support (__cpp_lib_chrono >= 201907L), which "
+                          "timezone and formatting support (__cpp_lib_chrono >= 201907L "
+                          "and __cpp_lib_format), which "
                           "the current toolchain does not provide")
     endif()
   endif()
