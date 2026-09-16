@@ -72,117 +72,6 @@ const FunctionDoc search_sorted_doc(
      "array. Null needles emit nulls in the output."),
     {"values", "needles"}, "SearchSortedOptions");
 
-// This file implements search_sorted as a normalization pipeline around one
-// typed binary-search core.
-//
-// The searched values are first validated, unwrapped to their logical type,
-// and adapted to a uniform accessor interface. Plain arrays and chunked arrays
-// expose logical element access directly. Run-end encoded (REE) arrays expose a
-// search domain over physical runs while still translating insertion positions
-// back to logical indices. The typed accessors are intentionally thin: shared
-// offset, length, run-resolution, and logical-index bookkeeping lives in
-// non-templated helpers so that the binary search is specialized by physical
-// value type without cloning the surrounding normalization logic.
-//
-// Values null handling is normalized before any search happens. Nulls are only
-// accepted when clustered entirely at the start or entirely at the end of the
-// sorted values. The implementation computes the contiguous non-null logical
-// window once and then searches only within that window. For REE values this
-// requires logical null counting, because nullness lives in the values child
-// rather than in a top-level validity bitmap.
-//
-// Needles are normalized before accessor dispatch where possible. Null scalar
-// needles return a null scalar result immediately. Non-null scalar needles are
-// materialized as length-1 arrays so the main implementation only needs one
-// array-oriented emit path. REE needles are handled separately: the kernel
-// searches each physical REE value once, rebuilds a temporary REE UInt64
-// result with the same logical run ends, and then run-end decodes it back to
-// the dense public output shape. Plain array needles are visited element by
-// element through one callback interface that propagates logical nulls.
-//
-// The actual comparison/search step is shared across all normalized inputs.
-// After dispatching to the logical/physical Arrow representation, the kernel
-// runs a lower-bound or upper-bound binary search depending on
-// `SearchSortedOptions::side`, then maps the found position back to the caller-
-// visible logical insertion index.
-//
-// Output materialization is centralized in a UInt64 builder with an optional
-// validity bitmap. Non-null-only needles only build the values buffer, while
-// nullable needles also emit the null bitmap. Logical null detection uses
-// `ComputeLogicalNullCount()` so plain arrays, chunked arrays, and REE inputs
-// all participate in the same output-nullability decision.
-//
-// High-level flow:
-//
-//   values datum
-//       |
-//       +--> ValidateSortedValuesInput
-//       |
-//       +--> LogicalType / FindNonNullValuesRange
-//       |
-//       +--> VisitValuesAccessor
-//             |
-//             +--> PlainArrayAccessor
-//             |
-//             +--> RunEndEncodedValuesAccessor
-//             |
-//             +--> ChunkedArrayAccessor
-//             |
-//             `--> ChunkedRunEndEncodedValuesAccessor
-//
-//   needles datum
-//       |
-//       +--> ValidateNeedleInput
-//       |
-//       +--> scalar null
-//       |     `--> return null scalar
-//       |
-//       +--> scalar value
-//       |     `--> MakeArrayFromScalar(length=1)
-//       |
-//       +--> REE needles
-//       |     +--> search physical runs once
-//       |     +--> rebuild temporary REE uint64 result
-//       |     `--> RunEndDecode back to dense output
-//       |
-//       `--> DatumHasNulls / VisitNeedleRuns
-//             |
-//             +--> plain array    -> one logical element per slot
-//             |
-//             `--> chunked input  -> recurse chunk by chunk
-//
-//   normalized values accessor + normalized needle runs
-//       |
-//       `--> FindInsertionPoint<T>
-//             |
-//             +--> side = left  -> lower_bound semantics
-//             |
-//             `--> side = right -> upper_bound semantics
-//
-//   result materialization
-//       |
-//       +--> no needle nulls
-//       |     `--> InsertionIndexBuilder<false>
-//       |           `--> fill uint64 buffer directly
-//       |
-//       `--> nullable needles
-//             `--> InsertionIndexBuilder<true>
-//                   +--> AppendNulls for null runs
-//                   `--> bulk fill repeated indices and validity bits
-//
-// A rough map of the file:
-//
-//   [validation + type helpers]
-//           |
-//   [value accessors]
-//           |
-//   [needle visitors]
-//           |
-//   [typed search + output helpers]
-//           |
-//   [meta-function dispatch]
-//
-
 #define VISIT_SEARCH_SORTED_PHYSICAL_TYPES(VISIT) \
   VISIT(BooleanType)                              \
   VISIT(Int8Type)                                 \
@@ -846,39 +735,37 @@ class InsertionIndexBuilder {
 
   /// Append a null output slot for a null needle.
   Status AppendNull() {
-    DCHECK_LE(length_ + 1, expected_length_);
     DCHECK(nullable_);
     indices_builder_.UnsafeAppend(uint64_t{0});
     null_bitmap_builder_.UnsafeAppend(false);
     ++null_count_;
-    ++length_;
     return Status::OK();
   }
 
   /// Append one computed insertion index for a non-null needle.
   Status AppendValue(uint64_t insertion_index) {
-    DCHECK_LE(length_ + 1, expected_length_);
     indices_builder_.UnsafeAppend(insertion_index);
     if (nullable_) {
       null_bitmap_builder_.UnsafeAppend(true);
     }
-    ++length_;
     return Status::OK();
   }
 
   /// Finish building the output UInt64 array, attaching the null bitmap only
   /// when nullable output was requested.
   Result<std::shared_ptr<Array>> Finish() && {
-    DCHECK_EQ(length_, expected_length_);
+    DCHECK_EQ(indices_builder_.length(), expected_length_);
     ARROW_ASSIGN_OR_RAISE(auto indices, indices_builder_.Finish());
 
     std::shared_ptr<Buffer> null_bitmap;
     if (nullable_) {
+      DCHECK_EQ(null_bitmap_builder_.length(), expected_length_);
       ARROW_ASSIGN_OR_RAISE(null_bitmap, null_bitmap_builder_.Finish());
     }
 
-    return MakeArray(ArrayData::Make(
-        uint64(), length_, {std::move(null_bitmap), std::move(indices)}, null_count_));
+    return MakeArray(ArrayData::Make(uint64(), expected_length_,
+                                     {std::move(null_bitmap), std::move(indices)},
+                                     null_count_));
   }
 
  private:
@@ -886,7 +773,6 @@ class InsertionIndexBuilder {
   TypedBufferBuilder<bool> null_bitmap_builder_;
   bool nullable_;
   int64_t expected_length_ = 0;
-  int64_t length_ = 0;
   int64_t null_count_ = 0;
 };
 
