@@ -177,7 +177,7 @@ struct ZonedLocalizer {
 #if ARROW_USE_STD_CHRONO
 namespace detail {
 
-// Argument positions passed to std::vformat_to by StrftimeFormatter below.
+// Argument positions passed to std::vformat_to by TimestampFormatter below.
 enum class FormatArgument : char {
   ZonedTime = '0',
   TimeOfDay = '1',
@@ -295,58 +295,21 @@ inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix)
 }  // namespace detail
 #endif
 
-// Prepare Arrow's strftime syntax once and reuse it for values with the same
-// precision. The timezone belongs to each value, not to this formatter.
-template <typename Duration>
-class StrftimeFormatter {
- public:
-  explicit StrftimeFormatter(const std::string& format) {
-#if ARROW_USE_STD_CHRONO
-    using Precision = typename chrono::zoned_time<Duration>::duration;
-    format_ = detail::ToChronoFormat(
-        format.c_str(), std::ratio_equal_v<typename Precision::period, std::micro>);
-#else
-    format_ = format;
-#endif
-  }
-
-  // Literal braces and unsupported directives remain literal; %Q/%q use local
-  // time of day rather than elapsed time since the epoch.
-  template <typename TimeZonePtr>
-  std::ostream& Format(std::ostream& os,
-                       const chrono::zoned_time<Duration, TimeZonePtr>& value) const {
-#if ARROW_USE_STD_CHRONO
-    const auto local_time = value.get_local_time();
-    const auto local_day = std::chrono::floor<std::chrono::days>(local_time);
-    const auto time_of_day = local_time - local_day;
-    const auto time_of_day_count = time_of_day.count();
-
-    const std::ostream::sentry sentry(os);
-    if (sentry) {
-      const auto end =
-          std::vformat_to(std::ostreambuf_iterator<char>(os), os.getloc(), format_,
-                          std::make_format_args(value, time_of_day, time_of_day_count));
-      if (end.failed()) os.setstate(std::ios::badbit);
-    }
-    return os;
-#else
-    return arrow_vendored::date::to_stream(os, format_.c_str(), value);
-#endif
-  }
-
- private:
-  std::string format_;
-};
-
 template <typename Duration>
 struct TimestampFormatter {
-  const StrftimeFormatter<Duration> formatter;
+  std::string format;
   const ArrowTimeZone tz;
   std::ostringstream bufstream;
 
   explicit TimestampFormatter(const std::string& format, const ArrowTimeZone time_zone,
                               const std::locale& locale)
-      : formatter(format), tz(time_zone) {
+      : format(format), tz(time_zone) {
+#if ARROW_USE_STD_CHRONO
+    // Translate strftime syntax once, not for every timestamp.
+    using Precision = typename chrono::zoned_time<Duration>::duration;
+    this->format = detail::ToChronoFormat(
+        format.c_str(), std::ratio_equal_v<typename Precision::period, std::micro>);
+#endif
     bufstream.imbue(locale);
     // Propagate errors as C++ exceptions (to get an actual error message)
     bufstream.exceptions(std::ios::failbit | std::ios::badbit);
@@ -357,7 +320,22 @@ struct TimestampFormatter {
     const auto timepoint = sys_time<Duration>(Duration{arg});
     auto format_zoned_time = [&](auto&& zt) {
       try {
-        formatter.Format(bufstream, zt);
+#if ARROW_USE_STD_CHRONO
+        // %Q/%q refer to local time of day rather than elapsed time since the epoch.
+        const auto local_time = zt.get_local_time();
+        const auto local_day = std::chrono::floor<std::chrono::days>(local_time);
+        const auto time_of_day = local_time - local_day;
+        const auto time_of_day_count = time_of_day.count();
+        const std::ostream::sentry sentry(bufstream);
+        if (sentry) {
+          const auto end = std::vformat_to(
+              std::ostreambuf_iterator<char>(bufstream), bufstream.getloc(), format,
+              std::make_format_args(zt, time_of_day, time_of_day_count));
+          if (end.failed()) bufstream.setstate(std::ios::badbit);
+        }
+#else
+        arrow_vendored::date::to_stream(bufstream, format.c_str(), zt);
+#endif
         return Status::OK();
       } catch (const std::runtime_error& ex) {
         bufstream.clear();

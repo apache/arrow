@@ -125,7 +125,7 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 inline const time_zone* current_zone() { return std::chrono::current_zone(); }
 
 // Format durations and unzoned time points using internal format strings shared
-// by both backends. User-supplied strftime syntax uses StrftimeFormatter in
+// by both backends. User-supplied strftime syntax uses TimestampFormatter in
 // arrow/compute/kernels/temporal_internal.h.
 // Keep each format in one replacement field to avoid repeating duration signs.
 template <typename Temporal>
