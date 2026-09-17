@@ -549,10 +549,10 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
                                 kms_connection_config, crypto_factory)
 
         # Read the plaintext column without decryption properties
-        result = pq.ParquetFile(path)
-        result_table = result.read(columns='c', use_threads=False)
-        assert table.num_rows == result_table.num_rows
-        assert table.select(['c']).equals(result_table)
+        with pq.ParquetFile(path) as result:
+            result_table = result.read(columns='c', use_threads=False)
+            assert table.num_rows == result_table.num_rows
+            assert table.select(['c']).equals(result_table)
 
 
 def test_encrypted_parquet_write_read_external(tempdir, data_table,
