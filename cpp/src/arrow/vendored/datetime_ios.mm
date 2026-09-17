@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Evaluate automatic backend selection only when the build has not selected one.
-#ifndef ARROW_USE_STD_CHRONO
-#  include "arrow/util/chrono_config_internal.h"
-#endif
+#include "arrow/util/chrono_config_internal.h"
 
 #if !ARROW_USE_STD_CHRONO
 #  include "datetime/ios.mm"

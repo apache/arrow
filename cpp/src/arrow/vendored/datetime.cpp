@@ -21,6 +21,5 @@
 // Standard-library builds must not compile a second timezone implementation.
 #if !ARROW_USE_STD_CHRONO
 #  include "datetime/visibility.h"
-
 #  include "datetime/tz.cpp"
 #endif
