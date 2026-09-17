@@ -488,14 +488,17 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
+  const OwnedRef indptr_seq_ref(PySequence_Fast(indptr_ao, "indptr"));
+  RETURN_IF_PYERROR();
+  // PySequence_Fast() returns exact tuples unchanged on CPython >= 3.13.15 /
+  // 3.14 (older versions always return a list) — dispatch on the type.
+  const bool indptr_is_list = PyList_Check(indptr_seq_ref.obj());
   for (int i = 0; i < ndim - 1; ++i) {
-#ifdef Py_GIL_DISABLED
-    PyObject* item = PySequence_ITEM(indptr_ao, i);
-    RETURN_IF_PYERROR();
-    OwnedRef item_ref(item);
-#else
-    PyObject* item = PySequence_Fast_GET_ITEM(indptr_ao, i);
-#endif
+    // Item access returns a borrowed reference; indptr_seq_ref owns the
+    // container for the duration of this call. Wrapping the item in OwnedRef
+    // would underflow its refcount.
+    PyObject* item = indptr_is_list ? PyList_GetItem(indptr_seq_ref.obj(), i)
+                                    : PyTuple_GetItem(indptr_seq_ref.obj(), i);
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indptr");
     }
@@ -503,14 +506,14 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
     ARROW_CHECK_EQ(indptr[i]->type_id(), Type::INT64);  // Should be ensured by caller
   }
 
+  const OwnedRef indices_seq_ref(PySequence_Fast(indices_ao, "indices"));
+  RETURN_IF_PYERROR();
+  const bool indices_is_list = PyList_Check(indices_seq_ref.obj());
   for (int i = 0; i < ndim; ++i) {
-#ifdef Py_GIL_DISABLED
-    PyObject* item = PySequence_ITEM(indices_ao, i);
-    RETURN_IF_PYERROR();
-    OwnedRef item_ref(item);
-#else
-    PyObject* item = PySequence_Fast_GET_ITEM(indices_ao, i);
-#endif
+    // Borrowed reference; indices_seq_ref owns the container for the
+    // duration of this call (see the indptr loop above).
+    PyObject* item = indices_is_list ? PyList_GetItem(indices_seq_ref.obj(), i)
+                                     : PyTuple_GetItem(indices_seq_ref.obj(), i);
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indices");
     }
