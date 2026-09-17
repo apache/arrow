@@ -126,8 +126,8 @@ NullGeometry DetectNullGeometry(const Array& array) {
   }
   if (array.type_id() == Type::RUN_END_ENCODED) {
     const auto& ree_array = checked_cast<const RunEndEncodedArray&>(array);
-    auto range =
-        ree_util::FindPhysicalRange(*array.data(), array.offset(), array.length());
+    auto range = ::arrow::ree_util::FindPhysicalRange(*array.data(), array.offset(),
+                                                      array.length());
     return DetectNullGeometry(*ree_array.values()->Slice(range.first, range.second));
   }
   bool null_at_start = array.IsNull(0);
@@ -288,7 +288,7 @@ class RunEndEncodedValuesAccessorBase {
   explicit RunEndEncodedValuesAccessorBase(RunEndEncodedArray array)
       : array_(std::move(array)),
         array_span_(*array_.data()),
-        run_ends_span_(ree_util::RunEndsArray(array_span_)),
+        run_ends_span_(::arrow::ree_util::RunEndsArray(array_span_)),
         physical_range_(::arrow::ree_util::FindPhysicalRange(array_span_, array_.offset(),
                                                              array_.length())) {
     values_ = array_.values()->Slice(physical_range_.first, physical_range_.second);
