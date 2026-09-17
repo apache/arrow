@@ -272,9 +272,7 @@ class FileReaderImpl : public FileReader {
                     std::shared_ptr<ChunkedArray>* out) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     // NextBatch()'s size is a number of records (rows), not leaf values, so use the
-    // row group's own row count directly rather than some column's num_values() (which
-    // (a) requires picking a column, a prior source of index-confusion bugs, and
-    // (b) over-counts for repeated schema nodes, counting elements rather than rows).
+    // row group's own row count directly rather than some column's num_values().
     int64_t records_to_read = 0;
     for (auto row_group : row_groups) {
       records_to_read += reader_->metadata()->RowGroup(row_group)->num_rows();
