@@ -291,7 +291,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int port() const
         const c_string& user() const
         const c_string& kerb_ticket() const
-        unordered_map[c_string, c_string] extra_conf() const
+        const unordered_map[c_string, c_string]&extra_conf() const
 
     cdef cppclass CHadoopFileSystem "arrow::fs::HadoopFileSystem"(CFileSystem):
         @staticmethod

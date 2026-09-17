@@ -46,7 +46,6 @@ function use_libhdfs_dir() {
 export ARROW_HDFS_TEST_LIBHDFS_REQUIRE=ON
 pushd "${build_dir}"
 
-debug/arrow-io-hdfs-test
 debug/arrow-hdfs-test
 
 use_libhdfs_dir

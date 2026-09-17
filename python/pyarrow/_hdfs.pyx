@@ -155,6 +155,7 @@ replication=1)``
 
     def __reduce__(self):
         cdef CHdfsOptions opts = self.hdfs.options()
+        cdef unordered_map[c_string, c_string] c_extra_conf = opts.extra_conf()
         return (
             HadoopFileSystem._reconstruct, (dict(
                 host=frombytes(opts.host()),
@@ -165,6 +166,6 @@ replication=1)``
                 default_block_size=opts.default_block_size,
                 kerb_ticket=frombytes(opts.kerb_ticket()),
                 extra_conf={frombytes(k): frombytes(v)
-                            for k, v in opts.extra_conf()},
+                            for k, v in c_extra_conf},
             ),)
         )
