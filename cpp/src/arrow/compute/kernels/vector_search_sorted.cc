@@ -288,6 +288,7 @@ class RunEndEncodedValuesAccessorBase {
   explicit RunEndEncodedValuesAccessorBase(RunEndEncodedArray array)
       : array_(std::move(array)),
         array_span_(*array_.data()),
+        run_ends_span_(ree_util::RunEndsArray(array_span_)),
         physical_range_(::arrow::ree_util::FindPhysicalRange(array_span_, array_.offset(),
                                                              array_.length())) {
     values_ = array_.values()->Slice(physical_range_.first, physical_range_.second);
@@ -301,6 +302,7 @@ class RunEndEncodedValuesAccessorBase {
   RunEndEncodedArray array_;
   std::shared_ptr<Array> values_;
   ArraySpan array_span_;
+  ArraySpan run_ends_span_;
   std::pair<int64_t, int64_t> physical_range_;
 };
 
@@ -335,8 +337,8 @@ class RunEndEncodedValuesAccessor : public RunEndEncodedValuesAccessorBase {
     } else if (physical_index == physical_range_.second) {
       return array_.length();
     } else {
-      auto run_end = GetRunEndValue(::arrow::ree_util::RunEndsArray(array_span_),
-                                    physical_index + physical_range_.first - 1);
+      auto run_end =
+          GetRunEndValue(run_ends_span_, physical_index + physical_range_.first - 1);
       DCHECK_GE(run_end, array_.offset());
       DCHECK_LE(run_end, array_.offset() + array_.length());
       return run_end - array_.offset();

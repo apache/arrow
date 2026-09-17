@@ -683,6 +683,13 @@ TEST(RandomRunEndEncoded, Basics) {
       }
     }
   }
+  // Small-sized REE arrays should be generated adequately
+  for (const int64_t logical_length : {0, 1, 10, 55}) {
+    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), logical_length,
+                             /*null_probability=*/0.2);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), logical_length);
+  }
 }
 
 template <typename T>
