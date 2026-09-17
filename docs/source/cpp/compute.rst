@@ -883,6 +883,9 @@ contents.  An empty string element emits false in the output.  For ASCII
 variants of the functions (prefixed ``ascii_``), a string element with non-ASCII
 characters emits false in the output.
 
+In addition to String-like input, all predicates in this section also accept
+``StringView`` (``utf8_view``) input.
+
 The first set of functions operates on a character-per-character basis,
 and emit true in the output if the input contains only characters of a
 given class:
@@ -1012,6 +1015,7 @@ String transforms
 
 * \(3) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary/String, Int64 for LargeBinary/LargeString.
+  ``BinaryView`` and ``StringView`` input is also accepted, with Int32 output.
 
 * \(4) Repeat the input binary string a given number of times.
 
@@ -1040,6 +1044,7 @@ String transforms
 
 * \(10) Output is the number of characters (not bytes) of each input element.
   Output type is Int32 for String, Int64 for LargeString.
+  ``StringView`` (``utf8_view``) input is also accepted, with Int32 output.
 
 * \(11) Each UTF8-encoded code unit is written in reverse order to the output.
   If the input is not valid UTF8, then the output is undefined (but the size of output
@@ -1220,6 +1225,12 @@ in reverse order.
 
 Containment tests
 ~~~~~~~~~~~~~~~~~
+
+The substring/pattern kernels (``count_substring``, ``count_substring_regex``,
+``ends_with``, ``find_substring``, ``find_substring_regex``, ``match_like``,
+``match_substring``, ``match_substring_regex``, and ``starts_with``) also accept
+``BinaryView`` and ``StringView`` input, with the same output types as for the
+corresponding non-view Binary/String types.
 
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
