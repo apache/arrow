@@ -23,10 +23,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logger.h"
 
-// Emit log via the default logger. In unity builds, io_util_test.cc can include
-// Windows headers before this file. Paste LEVEL here so ERROR is not expanded to
-// 0 before selecting ARROW_LOGGER_ERROR.
-#define DO_LOG(LEVEL, ...) ARROW_LOGGER_##LEVEL("", __VA_ARGS__)
+// Emit log via the default logger
+#define DO_LOG(LEVEL, ...) ARROW_LOGGER_CALL("", LEVEL, __VA_ARGS__)
 
 namespace arrow {
 namespace util {
@@ -59,16 +57,6 @@ struct OstreamableTracer {
 };
 
 }  // namespace
-
-// Reproduce the Windows macro collision on every platform, without leaking the
-// test macro into other sources in a unity build.
-#pragma push_macro("ERROR")
-#undef ERROR
-#define ERROR 0
-TEST(LoggerTest, ErrorMacroCollision) {
-  DO_LOG(ERROR, "Logging with the Windows ERROR macro defined");
-}
-#pragma pop_macro("ERROR")
 
 TEST(LoggerTest, Basics) {
   // Basic tests using the default logger

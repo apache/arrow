@@ -2005,39 +2005,30 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
                    &options_earliest);
 }
 
-TEST(StrftimeFormatterTest, ReuseFormatter) {
-  namespace chrono = arrow::internal::chrono;
-  using std::chrono::microseconds;
+TEST(TimestampFormatterTest, ReuseFormatter) {
   const arrow::internal::OffsetZone zone{std::chrono::minutes{60}};
-  const internal::StrftimeFormatter<microseconds> formatter{"{%F %T} %Q %q %J"};
+  internal::TimestampFormatter<std::chrono::microseconds> formatter{
+      "{%F %T} %Q %q %J", zone, std::locale::classic()};
   for (const auto& [count, expected] :
        {std::pair{1, "{1970-01-01 01:00:00.000001} 3600000001 \xC2\xB5s %J"},
         std::pair{-1, "{1970-01-01 00:59:59.999999} 3599999999 \xC2\xB5s %J"}}) {
-    std::ostringstream out;
-    out.imbue(std::locale::classic());
-    const chrono::zoned_time<microseconds, arrow::internal::OffsetZone> value{
-        zone, chrono::sys_time<microseconds>{microseconds{count}}};
-    formatter.Format(out, value);
-    EXPECT_EQ(out.str(), expected);
+    ASSERT_OK_AND_ASSIGN(auto result, formatter(count));
+    EXPECT_EQ(result, expected);
   }
 }
 
-TEST(StrftimeFormatterTest, StreamState) {
-  namespace chrono = arrow::internal::chrono;
-  using std::chrono::seconds;
-  const internal::StrftimeFormatter<seconds> formatter{"%F %T"};
-  const chrono::zoned_time<seconds, arrow::internal::OffsetZone> value{
-      arrow::internal::OffsetZone{std::chrono::minutes{0}},
-      chrono::sys_time<seconds>{seconds{0}}};
-  std::ostringstream out;
-  out.imbue(std::locale::classic());
+TEST(TimestampFormatterTest, StreamState) {
+  internal::TimestampFormatter<std::chrono::seconds> formatter{
+      "%F %T", arrow::internal::OffsetZone{std::chrono::minutes{0}},
+      std::locale::classic()};
+  auto& out = formatter.bufstream;
   out << std::hex << std::showbase;
   out.precision(3);
   out.width(30);
   out.fill('*');
   const auto flags = out.flags();
-  EXPECT_EQ(&formatter.Format(out, value), &out);
-  EXPECT_EQ(out.str(), "1970-01-01 00:00:00");
+  ASSERT_OK_AND_ASSIGN(auto result, formatter(0));
+  EXPECT_EQ(result, "1970-01-01 00:00:00");
   EXPECT_EQ(out.flags(), flags);
   EXPECT_EQ(out.precision(), 3);
   EXPECT_EQ(out.width(), 30);
@@ -2046,9 +2037,13 @@ TEST(StrftimeFormatterTest, StreamState) {
   // A streambuf with no put area rejects every write.
   class FailingBuffer : public std::streambuf {
   } buffer;
-  std::ostream failing(&buffer);
-  failing.exceptions(std::ios::badbit | std::ios::failbit);
-  EXPECT_THROW(formatter.Format(failing, value), std::ios_base::failure);
+  auto& stream = static_cast<std::ostream&>(out);
+  auto* original = stream.rdbuf(&buffer);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Failed formatting timestamp"), formatter(0));
+  stream.rdbuf(original);
+  ASSERT_OK_AND_ASSIGN(result, formatter(0));
+  EXPECT_EQ(result, "1970-01-01 00:00:00");
 }
 
 TEST_F(ScalarTemporalTest, StrftimeFormatSyntax) {
