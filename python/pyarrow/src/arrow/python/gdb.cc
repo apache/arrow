@@ -222,6 +222,9 @@ void TestSession() {
   FixedSizeListType fixed_size_list_type(float64(), 3);
   auto heap_fixed_size_list_type = fixed_size_list(float64(), 3);
 
+  RunEndEncodedType run_end_encoded_type(int32(), utf8());
+  auto heap_run_end_encoded_type = run_end_encoded(int32(), utf8());
+
   DictionaryType dict_type_unordered(int16(), utf8());
   DictionaryType dict_type_ordered(int16(), utf8(), /*ordered=*/true);
   auto heap_dict_type = dictionary(int16(), utf8());
@@ -389,6 +392,14 @@ void TestSession() {
   FixedSizeListScalar fixed_size_list_scalar_null{
       list_value_array, fixed_size_list(int32(), 3), /*is_valid=*/false};
 
+  auto run_end_encoded_scalar_type = run_end_encoded(int32(), utf8());
+  RunEndEncodedScalar run_end_encoded_scalar{MakeScalar("foo"),
+                                             run_end_encoded_scalar_type};
+  RunEndEncodedScalar run_end_encoded_scalar_null{run_end_encoded_scalar_type};
+  std::shared_ptr<Scalar> heap_run_end_encoded_scalar =
+      std::make_shared<RunEndEncodedScalar>(MakeScalar("foo"),
+                                            run_end_encoded_scalar_type);
+
   auto struct_scalar_type = struct_({field("ints", int32()), field("strs", utf8())});
   StructScalar struct_scalar{
       ScalarVector{MakeScalar(int32_t(42)), MakeScalar("some text")}, struct_scalar_type};
@@ -447,6 +458,14 @@ void TestSession() {
 
   auto heap_list_array = SliceArrayFromJSON(list(int64()), "[[1, 2], null, []]");
   ListArray list_array{heap_list_array->data()};
+
+  // Encodes ["foo", "foo", null, null, null].
+  auto run_end_encoded_run_ends = SliceArrayFromJSON(int32(), "[2, 5]");
+  auto run_end_encoded_values = SliceArrayFromJSON(utf8(), R"(["foo", null])");
+  std::shared_ptr<Array> heap_run_end_encoded_array = *RunEndEncodedArray::Make(
+      /*logical_length=*/5, run_end_encoded_run_ends, run_end_encoded_values);
+  RunEndEncodedArray run_end_encoded_array{heap_run_end_encoded_array->data()};
+  auto heap_run_end_encoded_array_sliced = heap_run_end_encoded_array->Slice(1, 3);
 
   const char* json_double_array = "[-1.5, null]";
   auto heap_double_array = SliceArrayFromJSON(float64(), json_double_array);
