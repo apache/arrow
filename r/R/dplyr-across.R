@@ -62,7 +62,7 @@ expand_across <- function(.data, quos_in, exclude_cols = NULL) {
       # if_any()/if_all() collapse the expanded quosures into a single
       # expression, keeping whatever name the user gave the call
       if (is_call(quo_expr, c("if_any", "if_all"))) {
-        op <- if (is_call(quo_expr, "if_any")) "|" else "&"
+        op <- switch(call_name(quo_expr), if_any = "|", if_all = "&")
         combined <- reduce(new_quos, combine_if, op = op, envir = quo_env)
         new_quos <- set_names(list(combined), names(quo_in))
       }
