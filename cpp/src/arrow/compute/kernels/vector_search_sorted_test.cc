@@ -612,10 +612,28 @@ TEST(SearchSorted, SlicedRunEndEncodedValues) {
   ASSERT_OK_AND_ASSIGN(auto ree_values,
                        REEFromJSON(values_type, "[10, 10, 20, 20, 20, 40, 40, 90]"));
   auto sliced = ree_values->Slice(1, 5);
-  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 90]");
+  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 80, 90, 100]");
+  CheckSearchSorted(Datum(sliced), Datum(needles), "[0, 0, 1, 4, 4, 5, 5, 5]",
+                    "[0, 1, 4, 4, 5, 5, 5, 5]");
 
-  CheckSearchSorted(Datum(sliced), Datum(needles), "[0, 0, 1, 4, 4, 5]",
-                    "[0, 1, 4, 4, 5, 5]");
+  sliced = ree_values->Slice(3, 4);
+  CheckSearchSorted(Datum(sliced), Datum(needles), "[0, 0, 0, 2, 2, 4, 4, 4]",
+                    "[0, 0, 2, 2, 4, 4, 4, 4]");
+}
+
+TEST(SearchSorted, SlicedRunEndEncodedValuesWithLeadingNulls) {
+  auto values_type = run_end_encoded(int32(), int32());
+  ASSERT_OK_AND_ASSIGN(
+      auto ree_values,
+      REEFromJSON(values_type, "[null, null, 10, 20, 20, 20, 40, 40, 90]"));
+  auto sliced = ree_values->Slice(1, 5);
+  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 50]");
+  CheckSearchSorted(Datum(sliced), Datum(needles), "[1, 1, 2, 5, 5, 5]",
+                    "[1, 2, 5, 5, 5, 5]");
+
+  sliced = ree_values->Slice(3, 4);
+  CheckSearchSorted(Datum(sliced), Datum(needles), "[0, 0, 0, 3, 3, 4]",
+                    "[0, 0, 3, 3, 4, 4]");
 }
 
 TEST_P(SearchSortedSupportedTypesTest, ArraySmoke) {
