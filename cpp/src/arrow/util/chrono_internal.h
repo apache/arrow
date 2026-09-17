@@ -38,10 +38,7 @@
 #if ARROW_USE_STD_CHRONO
 // Use C++20 standard library chrono
 #  include <format>
-#  include <iterator>
 #  include <locale>
-#  include <ostream>
-#  include <ratio>
 #else
 // Use vendored Howard Hinnant date library
 #  include "arrow/vendored/datetime.h"
@@ -127,163 +124,9 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 
 inline const time_zone* current_zone() { return std::chrono::current_zone(); }
 
-namespace detail {
-
-// Argument positions passed to std::vformat_to by to_stream below.
-enum class FormatArgument : char {
-  ZonedTime = '0',
-  TimeOfDay = '1',
-  TimeOfDayCount = '2',
-};
-
-inline void AppendEscapedLiteral(std::string* out, char value) {
-  out->push_back(value);
-  if (value == '{' || value == '}') {
-    out->push_back(value);
-  }
-}
-
-// These are the directives accepted by Arrow's existing strftime syntax. Treat
-// all others as literals to preserve compatibility.
-inline bool IsSupportedStrftimeSpecifier(char modifier, char specifier) {
-  const auto contains = [specifier](std::string_view candidates) {
-    return candidates.find(specifier) != std::string_view::npos;
-  };
-  if (modifier == '\0') {
-    return contains("aAbBhcCxdeDFgGHIjmMprRSTuUVWwXyYzZ");
-  }
-  if (modifier == 'E') {
-    return contains("cCxXyYz");
-  }
-  if (modifier == 'O') {
-    return contains("deHImMSuUVwWyz");
-  }
-  return false;
-}
-
-inline void AppendChronoField(std::string* out, FormatArgument argument, char specifier,
-                              char modifier = '\0') {
-  *out += {'{', static_cast<char>(argument), ':', 'L', '%'};
-  if (modifier != '\0') out->push_back(modifier);
-  *out += {specifier, '}'};
-}
-
-inline void AppendLocalizedField(std::string* out, FormatArgument argument) {
-  *out += {'{', static_cast<char>(argument), ':', 'L', '}'};
-}
-
-inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix) {
-  std::string out;
-  while (*fmt != '\0') {
-    if (*fmt != '%') {
-      AppendEscapedLiteral(&out, *fmt++);
-      continue;
-    }
-
-    ++fmt;
-    if (*fmt == '\0') {
-      AppendEscapedLiteral(&out, '%');
-      break;
-    }
-
-    char modifier = '\0';
-    if (*fmt == 'E' || *fmt == 'O') {
-      modifier = *fmt++;
-      if (*fmt == '\0') {
-        AppendEscapedLiteral(&out, '%');
-        AppendEscapedLiteral(&out, modifier);
-        break;
-      }
-    }
-    const char specifier = *fmt++;
-
-    if (modifier == '\0') {
-      switch (specifier) {
-        case '%':
-          AppendEscapedLiteral(&out, '%');
-          continue;
-        case 'n':
-          AppendEscapedLiteral(&out, '\n');
-          continue;
-        case 't':
-          AppendEscapedLiteral(&out, '\t');
-          continue;
-        case 'Q':
-          // Formatting a duration's %Q does not consistently apply the numeric locale.
-          AppendLocalizedField(&out, FormatArgument::TimeOfDayCount);
-          continue;
-        case 'q':
-          if (use_microseconds_suffix) {
-            // Some standard libraries use "us"; Arrow uses the micro sign.
-            out += "\xC2\xB5s";
-          } else {
-            AppendChronoField(&out, FormatArgument::TimeOfDay, specifier);
-          }
-          continue;
-        default:
-          break;
-      }
-    }
-
-#  if defined(__GLIBCXX__)
-    if (modifier == 'O' && specifier == 'V') {
-      // libstdc++ does not yet accept %OV; use its equivalent base representation.
-      AppendChronoField(&out, FormatArgument::ZonedTime, specifier);
-      continue;
-    }
-#  endif
-
-    if (IsSupportedStrftimeSpecifier(modifier, specifier)) {
-      AppendChronoField(&out, FormatArgument::ZonedTime, specifier, modifier);
-    } else {
-      AppendEscapedLiteral(&out, '%');
-      if (modifier != '\0') AppendEscapedLiteral(&out, modifier);
-      AppendEscapedLiteral(&out, specifier);
-    }
-  }
-  return out;
-}
-
-}  // namespace detail
-
-// Prepare once and reuse for a sequence of zoned times with the same precision.
-template <typename Duration>
-class ZonedFormat {
- public:
-  explicit ZonedFormat(const std::string& format)
-      : value_(detail::ToChronoFormat(
-            format.c_str(), std::ratio_equal_v<typename Precision::period, std::micro>)) {
-  }
-
-  const std::string& value() const { return value_; }
-
- private:
-  using Precision = typename zoned_time<Duration>::duration;
-  std::string value_;
-};
-
-// Literal braces and unsupported directives remain literal; %Q/%q use local time
-// of day rather than elapsed time since the epoch.
-template <typename Duration, typename TimeZonePtr>
-std::ostream& to_stream(std::ostream& os, const ZonedFormat<Duration>& format,
-                        const std::chrono::zoned_time<Duration, TimeZonePtr>& zt) {
-  const auto local_time = zt.get_local_time();
-  const auto local_day = std::chrono::floor<std::chrono::days>(local_time);
-  const auto time_of_day = local_time - local_day;
-  const auto time_of_day_count = time_of_day.count();
-
-  const std::ostream::sentry sentry(os);
-  if (sentry) {
-    const auto end =
-        std::vformat_to(std::ostreambuf_iterator<char>(os), os.getloc(), format.value(),
-                        std::make_format_args(zt, time_of_day, time_of_day_count));
-    if (end.failed()) os.setstate(std::ios::badbit);
-  }
-  return os;
-}
-
 // Format durations and unzoned time points using internal format strings shared
-// by both backends. User-supplied strftime syntax uses ZonedFormat and to_stream.
+// by both backends. User-supplied strftime syntax uses StrftimeFormatter in
+// arrow/compute/kernels/temporal_internal.h.
 // Keep each format in one replacement field to avoid repeating duration signs.
 template <typename Temporal>
 std::string format(const char* fmt, const Temporal& value) {
@@ -377,23 +220,6 @@ using vendored::set_install;
 
 // Formatting support
 using vendored::format;
-
-template <typename Duration>
-class ZonedFormat {
- public:
-  explicit ZonedFormat(const std::string& format) : value_(format) {}
-
-  const std::string& value() const { return value_; }
-
- private:
-  std::string value_;
-};
-
-template <typename Duration, typename TimeZonePtr>
-std::ostream& to_stream(std::ostream& os, const ZonedFormat<Duration>& format,
-                        const vendored::zoned_time<Duration, TimeZonePtr>& zt) {
-  return vendored::to_stream(os, format.value().c_str(), zt);
-}
 
 inline constexpr vendored::month jan = vendored::jan;
 inline constexpr vendored::month dec = vendored::dec;
