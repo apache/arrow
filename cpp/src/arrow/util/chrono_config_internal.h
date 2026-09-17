@@ -19,22 +19,21 @@
 
 #include <chrono>
 
-// Share backend selection with the vendored implementation without including its
-// headers. datetime.h undefines macros needed when compiling the implementation.
+// Prefer std::chrono when the standard library provides the C++20 timezone APIs.
+// Builds may explicitly set ARROW_USE_STD_CHRONO to 0 (vendored date.h) or 1
+// (std::chrono) to override automatic selection.
+//
+// Share this selection between chrono_internal.h and the vendored timezone sources
+// datetime/tz.cpp and datetime/ios.mm. Do not include arrow/vendored/datetime.h here:
+// it undefines NOEXCEPT, which is needed to compile datetime/tz.cpp.
 //
 // On Windows, MSVC's standard library uses the system timezone database, while
-// libstdc++ reads tzdata files (using TZDIR). Libraries without the C++20 timezone
-// APIs, including older libc++, still require the vendored date library.
+// libstdc++ reads tzdata files (using TZDIR).
 //
-// Use the standard backend by default. Builds may explicitly define
-// ARROW_USE_STD_CHRONO to 0 or 1 when they need to select a backend.
-//
-// Automatically disable the default for libraries without the C++20 timezone APIs.
-// On non-Windows, older libstdc++ versions also need the fallback because of
+// Select the vendored date backend when the C++20 timezone APIs are unavailable.
+// On non-Windows, also select it for older libstdc++ versions because of
 // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110 (fully fixed in GCC 16.2).
-// Check library macros, not __GNUC__, so Clang using libstdc++ agrees with GCC.
 // The datestamp distinguishes 16.2 (2026-08-07) from 16.1 and early snapshots.
-// Keep the existing Windows backend selection unchanged.
 #ifndef ARROW_USE_STD_CHRONO
 #  define ARROW_USE_STD_CHRONO 1
 #  if !defined(__cpp_lib_chrono) || __cpp_lib_chrono < 201907L
