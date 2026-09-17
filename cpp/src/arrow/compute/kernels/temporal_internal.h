@@ -323,19 +323,24 @@ inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix)
 
 template <typename Duration>
 struct TimestampFormatter {
-  std::string format;
+  static std::string PrepareFormat(const std::string& format) {
+#if ARROW_USE_STD_CHRONO
+    // Translate strftime syntax once, not for every timestamp.
+    using Precision = typename chrono::zoned_time<Duration>::duration;
+    return detail::ToChronoFormat(
+        format.c_str(), std::ratio_equal_v<typename Precision::period, std::micro>);
+#else
+    return format;
+#endif
+  }
+
+  const std::string format;
   const ArrowTimeZone tz;
   std::ostringstream bufstream;
 
   explicit TimestampFormatter(const std::string& format, const ArrowTimeZone time_zone,
                               const std::locale& locale)
-      : format(format), tz(time_zone) {
-#if ARROW_USE_STD_CHRONO
-    // Translate strftime syntax once, not for every timestamp.
-    using Precision = typename chrono::zoned_time<Duration>::duration;
-    this->format = detail::ToChronoFormat(
-        format.c_str(), std::ratio_equal_v<typename Precision::period, std::micro>);
-#endif
+      : format(PrepareFormat(format)), tz(time_zone) {
     bufstream.imbue(locale);
     // Propagate errors as C++ exceptions (to get an actual error message)
     bufstream.exceptions(std::ios::failbit | std::ios::badbit);
