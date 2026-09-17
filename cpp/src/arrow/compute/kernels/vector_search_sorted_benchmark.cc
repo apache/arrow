@@ -177,7 +177,8 @@ struct StaticChunker {
     ArrayVector chunks;
     int64_t chunk_start = 0;
     for (int64_t i = 0; i < kNumChunks; ++i) {
-      int64_t chunk_end = ceil(static_cast<double>(i + 1) / kNumChunks * array->length());
+      const int64_t chunk_end = static_cast<int64_t>(
+          ceil(static_cast<double>(i + 1) / kNumChunks * array->length()));
       chunks.push_back(
           array->SliceSafe(chunk_start, chunk_end - chunk_start).ValueOrDie());
       chunk_start = chunk_end;
