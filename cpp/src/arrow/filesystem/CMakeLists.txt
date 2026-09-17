@@ -120,7 +120,6 @@ if(ARROW_S3)
                         s3_test_util.cc
                         STATIC_LINK_LIBS
                         ${ARROW_S3_TEST_EXTRA_LINK_LIBS}
-                        ${AWSSDK_LINK_LIBRARIES}
                         ${ARROW_BENCHMARK_LINK_LIBS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
