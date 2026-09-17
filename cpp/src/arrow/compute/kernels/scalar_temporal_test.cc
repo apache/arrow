@@ -2005,6 +2005,22 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
                    &options_earliest);
 }
 
+#if ARROW_USE_STD_CHRONO
+TEST(TimestampFormatterTest, CoalesceChronoFields) {
+  using internal::detail::ToChronoFormat;
+  EXPECT_EQ(ToChronoFormat(StrftimeOptions::kDefaultFormat, false),
+            "{0:L%Y-%m-%dT%H:%M:%S}");
+  EXPECT_EQ(ToChronoFormat("%Y%m%d %H%M%S %Ez %Z", false), "{0:L%Y%m%d %H%M%S %Ez %Z}");
+  EXPECT_EQ(ToChronoFormat("%Y%n%t%m", false), "{0:L%Y\n\t%m}");
+  EXPECT_EQ(ToChronoFormat("%Y{%m}%d", false), "{0:L%Y}{{{0:L%m}}}{0:L%d}");
+  EXPECT_EQ(ToChronoFormat("%Y%%%m%J%d%E", false), "{0:L%Y}%{0:L%m}%J{0:L%d}%E");
+  EXPECT_EQ(ToChronoFormat("%Y %Q %m %q %d", false),
+            "{0:L%Y }{2:L} {0:L%m }{1:L%q} {0:L%d}");
+  EXPECT_EQ(ToChronoFormat("%Y %Q %m %q %d", true),
+            "{0:L%Y }{2:L} {0:L%m }\xC2\xB5s {0:L%d}");
+}
+#endif
+
 TEST(TimestampFormatterTest, ReuseFormatter) {
   const arrow::internal::OffsetZone zone{std::chrono::minutes{60}};
   internal::TimestampFormatter<std::chrono::microseconds> formatter{
@@ -2054,6 +2070,10 @@ TEST_F(ScalarTemporalTest, StrftimeFormatSyntax) {
         std::pair{"literal {%Y}", R"(["literal {1970}", null])"},
         std::pair{"unmatched }%Y{", R"(["unmatched }1970{", null])"},
         std::pair{"%Y}", R"(["1970}", null])"},
+        std::pair{"%Y{%m}%d", R"(["1970{01}01", null])"},
+        std::pair{"%Y%%%m%J%d%E", R"(["1970%01%J01%E", null])"},
+        std::pair{"%Y%n%t%m", R"(["1970\n\t01", null])"},
+        std::pair{"%Y %Q %m %q %d", R"(["1970 123 01 ms 01", null])"},
         std::pair{"%Q %q %J %z %Z", R"(["123 ms %J +0000 UTC", null])"},
         std::pair{"%% %n%t %Ez %Oz %OV %EJ end%",
                   R"(["% \n\t +00:00 +00:00 01 %EJ end%", null])"}}) {
@@ -2062,10 +2082,15 @@ TEST_F(ScalarTemporalTest, StrftimeFormatSyntax) {
     CheckScalarUnary("strftime", type, input, utf8(), expected, &options);
   }
 
-  const auto options = StrftimeOptions("%Q %q");
-  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "UTC"),
-                   R"(["1970-01-01T00:00:00.000001", null])", utf8(),
-                   R"(["1 \u00b5s", null])", &options);
+  for (const auto& [format, expected] :
+       {std::pair{"%Q %q", R"(["1 \u00b5s", null])"},
+        std::pair{"%Y %Q %m %q %d", R"(["1970 1 01 \u00b5s 01", null])"}}) {
+    SCOPED_TRACE(format);
+    const auto options = StrftimeOptions(format);
+    CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "UTC"),
+                     R"(["1970-01-01T00:00:00.000001", null])", utf8(), expected,
+                     &options);
+  }
 }
 
 TEST_F(ScalarTemporalTest, StrftimeOffsetTimezone) {
