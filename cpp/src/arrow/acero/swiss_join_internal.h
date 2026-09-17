@@ -611,7 +611,7 @@ class SwissTableForJoinBuild {
 
   // One per batch.
   //
-  // Informations like hashes and partitions of each batch gathered in the partition phase
+  // Information like hashes and partitions of each batch gathered in the partition phase
   // and used in the build phase.
   //
   struct BatchState {
