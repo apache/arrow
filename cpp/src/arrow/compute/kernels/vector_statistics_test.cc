@@ -27,6 +27,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 
 namespace arrow::compute {
@@ -58,7 +59,7 @@ class TestWinsorize : public ::testing::Test {
 };
 
 TEST_F(TestWinsorize, FloatingPoint) {
-  for (auto type : FloatingPointTypes()) {
+  for (auto type : all_floating_point_types_without_float16()) {
     options_.lower_limit = 0.25;
     options_.upper_limit = 0.75;
     CheckWinsorize(type, "[]", "[]");
