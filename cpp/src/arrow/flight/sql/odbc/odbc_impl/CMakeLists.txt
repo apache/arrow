@@ -189,6 +189,7 @@ add_arrow_test(odbc_spi_impl_test
                json_converter_test.cc
                record_batch_transformer_test.cc
                util_test.cc
+               odbc_descriptor_test.cc
                EXTRA_LINK_LIBS
                arrow_odbc_spi_impl
                ${ODBC_SPI_IMPL_TEST_LINK_LIBS})
