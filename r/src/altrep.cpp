@@ -857,12 +857,76 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     std::string_view view_;
   };
 
-  // Get a single string as a CHARSXP SEXP
-  static SEXP Elt(SEXP alt, R_xlen_t i) {
-    if (Base::IsMaterialized(alt)) {
-      return STRING_ELT(Representation(alt), i);
+  // Strings created by Elt() must stay reachable for as long as the altrep
+  // vector does: base R may hold the CHARSXP returned by STRING_ELT() across
+  // a later allocation, and a CHARSXP that nothing references is collected
+  // (GH-51198). Until the vector is materialized they are kept in fixed-size
+  // STRSXP blocks hanging off a VECSXP stored in the protected slot of the
+  // data1 external pointer. Blocks are allocated on first touch, so sparse
+  // access costs one block rather than a full-length vector. Within a block,
+  // R_BlankString marks a slot that has not been converted yet: the empty
+  // string is a permanent singleton, so converting it again is harmless.
+  static constexpr R_xlen_t kCacheBlockShift = 10;
+  static constexpr R_xlen_t kCacheBlockSize = R_xlen_t(1) << kCacheBlockShift;
+  static constexpr R_xlen_t kCacheBlockMask = kCacheBlockSize - 1;
+
+  // The cache block holding element i, allocating it (and the list of
+  // blocks) on first use. Only valid while the vector is not materialized.
+  static SEXP CacheBlock(SEXP alt, R_xlen_t i) {
+    SEXP data1 = R_altrep_data1(alt);
+    R_xlen_t length = GetChunkedArray(alt)->length();
+
+    SEXP blocks = R_ExternalPtrProtected(data1);
+    if (Rf_isNull(blocks)) {
+      R_xlen_t n_blocks = (length + kCacheBlockMask) >> kCacheBlockShift;
+      blocks = PROTECT(Rf_allocVector(VECSXP, n_blocks));
+      R_SetExternalPtrProtected(data1, blocks);
+      UNPROTECT(1);
     }
 
+    R_xlen_t b = i >> kCacheBlockShift;
+    SEXP block = VECTOR_ELT(blocks, b);
+    if (Rf_isNull(block)) {
+      R_xlen_t block_length = std::min(kCacheBlockSize, length - (b << kCacheBlockShift));
+      block = PROTECT(Rf_allocVector(STRSXP, block_length));
+      SET_VECTOR_ELT(blocks, b, block);
+      UNPROTECT(1);
+    }
+
+    return block;
+  }
+
+  // Copy every string already produced by Elt() into `data2`, so that
+  // materializing does not convert them a second time and so that CHARSXPs
+  // handed out earlier stay reachable once the cache is dropped.
+  static void CopyCacheInto(SEXP alt, SEXP data2) {
+    SEXP blocks = R_ExternalPtrProtected(R_altrep_data1(alt));
+    if (Rf_isNull(blocks)) {
+      return;
+    }
+
+    R_xlen_t n_blocks = Rf_xlength(blocks);
+    for (R_xlen_t b = 0; b < n_blocks; b++) {
+      SEXP block = VECTOR_ELT(blocks, b);
+      if (Rf_isNull(block)) {
+        continue;
+      }
+
+      R_xlen_t offset = b << kCacheBlockShift;
+      R_xlen_t block_length = Rf_xlength(block);
+      for (R_xlen_t j = 0; j < block_length; j++) {
+        SEXP s = STRING_ELT(block, j);
+        if (s != R_BlankString) {
+          SET_STRING_ELT(data2, offset + j, s);
+        }
+      }
+    }
+  }
+
+  // Convert the i'th string of the (not materialized) vector to a CHARSXP.
+  // The result is not reachable from anywhere: the caller must anchor it
+  // before doing anything that can allocate.
+  static SEXP ConvertElt(SEXP alt, R_xlen_t i) {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
@@ -870,7 +934,6 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
         altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
-    SEXP s = NA_STRING;
     RStringViewer& r_string_viewer = string_viewer();
     r_string_viewer.SetArray(array);
     // Note: we don't check GetBoolOption("arrow.skip_nul", false) here
@@ -878,8 +941,27 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     // an altrep string; however, there is a chance that this value could
     // be out of date by the time a value in the vector is accessed.
     r_string_viewer.reset_null_was_stripped();
-    s = r_string_viewer.Convert(j);
-    if (r_string_viewer.nul_was_stripped()) {
+    return r_string_viewer.Convert(j);
+  }
+
+  // Get a single string as a CHARSXP SEXP
+  static SEXP Elt(SEXP alt, R_xlen_t i) {
+    if (Base::IsMaterialized(alt)) {
+      return STRING_ELT(Representation(alt), i);
+    }
+
+    SEXP block = CacheBlock(alt, i);
+    R_xlen_t j = i & kCacheBlockMask;
+    SEXP s = STRING_ELT(block, j);
+    if (s != R_BlankString) {
+      return s;
+    }
+
+    s = PROTECT(ConvertElt(alt, i));
+    SET_STRING_ELT(block, j, s);
+    UNPROTECT(1);  // s: now reachable through the cache
+
+    if (string_viewer().nul_was_stripped()) {
       Rf_warning("Stripping '\\0' (nul) from character vector");
     }
 
@@ -899,6 +981,11 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     SEXP data2 = PROTECT(Rf_allocVector(STRSXP, chunked_array->length()));
     MARK_NOT_MUTABLE(data2);
 
+    // Reuse what Elt() has already converted, then fill in the rest. The
+    // cache is dropped together with data1 below, so the CHARSXPs it holds
+    // must be in data2 by then.
+    CopyCacheInto(alt, data2);
+
     R_xlen_t i = 0;
     RStringViewer& r_string_viewer = string_viewer();
     r_string_viewer.reset_null_was_stripped();
@@ -908,7 +995,9 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
       auto ni = array->length();
       for (R_xlen_t j = 0; j < ni; j++, i++) {
-        SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
+        if (STRING_ELT(data2, i) == R_BlankString) {
+          SET_STRING_ELT(data2, i, r_string_viewer.Convert(j));
+        }
       }
     }
 
