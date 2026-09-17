@@ -78,6 +78,13 @@ int main() {
     # AUTO builds to the vendored backend whose tzdb lookups then fail at
     # runtime.  The compiler output is surfaced on failure so a probe
     # regression is diagnosable from CI directly.
+    # SetupCxxFlags accumulates /EHsc in CXX_COMMON_FLAGS, which is not yet
+    # applied to CMAKE_CXX_FLAGS here. Without exception unwinding, MSVC's
+    # <chrono> emits C4530 and /WX turns it into a false-negative probe.
+    # Keep the adjustment local to this function and its try_compile.
+    if(MSVC)
+      string(APPEND CMAKE_CXX_FLAGS " /EHsc")
+    endif()
     try_compile(${out_var} SOURCE_FROM_VAR
                 "arrow_std_chrono_probe.cxx" _ARROW_STD_CHRONO_TEST_SOURCE
                 OUTPUT_VARIABLE _chrono_probe_output)
