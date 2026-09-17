@@ -693,15 +693,17 @@ class HandlerBase : public BlockParser {
   Status RawNumber(std::string_view value) {
     if (builder_.kind == Kind::kNumberOrString) {
       return AppendScalar<Kind::kNumberOrString>(builder_, value);
+    } else {
+      return AppendScalar<Kind::kNumber>(builder_, value);
     }
-    return AppendScalar<Kind::kNumber>(builder_, value);
   }
 
   Status String(std::string_view value) {
     if (builder_.kind == Kind::kNumberOrString) {
       return AppendScalar<Kind::kNumberOrString>(builder_, value);
+    } else {
+      return AppendScalar<Kind::kString>(builder_, value);
     }
-    return AppendScalar<Kind::kString>(builder_, value);
   }
 
   /// \brief Set up builders using an expected Schema
@@ -829,8 +831,12 @@ class HandlerBase : public BlockParser {
                                          value.type(), "Failed to determine JSON type"));
 
     switch (type) {
-      case sj::json_type::null:
+      case sj::json_type::null: {
+        ARROW_ASSIGN_OR_RAISE([[maybe_unused]] auto is_null,
+                              arrow::internal::ResolveSimdjsonResult(
+                                  value.is_null(), "Failed to validate JSON null"));
         return Null();
+      }
 
       case sj::json_type::boolean: {
         RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kBoolean>());
