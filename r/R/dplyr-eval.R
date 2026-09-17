@@ -136,7 +136,7 @@ add_user_variables_to_mask <- function(expr, mask) {
   # The function bindings environment sits between the columns and the user's
   # environment in the mask, so a symbol like `date` in `filter(Date == date)`
   # would resolve to the `date()` binding rather than the user's variable.
-  # dplyr would find the variable, so bind it into the mask so we do too.
+  # dplyr would find the variable, so we bind it into the mask to match.
   if (is_quosure(expr)) {
     function_env <- parent.env(parent.env(mask))
     quo_env <- quo_get_env(expr)
