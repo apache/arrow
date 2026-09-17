@@ -296,6 +296,8 @@ In addition, we use the following labels to indicate priority:
   superset of issues marked "Critical Fix", as it also contains certain fixes
   to issues causing errors and crashes.
 
+.. _collaborators:
+
 Collaborators
 =============
 
