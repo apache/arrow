@@ -4638,7 +4638,9 @@ def test_arithmetic_dunders_unknown_types(op):
 
     assert op(pa.array([1, 2, 3]), MyObj()) == "reflected"
 
-    with pytest.raises(TypeError, match="unsupported operand type"):
+    # If NotImplemented is returned for both sides of the operation
+    # Python will fallback to a TypeError
+    with pytest.raises(TypeError, match="unsupported operand type\\(s\\)"):
         op(pa.array([1, 2, 3]), object())
 
 
