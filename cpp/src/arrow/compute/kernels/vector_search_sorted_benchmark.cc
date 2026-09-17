@@ -64,7 +64,7 @@ struct DenseBenchmarkArgs {
         }
       }
     }
-  };
+  }
 };
 
 struct DenseBenchmarkBase {
