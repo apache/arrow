@@ -26,13 +26,13 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 
@@ -128,21 +128,9 @@ struct Winsorize {
     DCHECK_EQ(out->buffers.size(), data.buffers.size());
     out->null_count = data.null_count.load();
     out->length = data.length;
-    // ExecChunked seeds the output from the input chunk, so it can arrive carrying that
-    // chunk's offset. The buffers below are built for this slice alone and are read from
-    // bit and element zero, so the output owns no offset of its own.
     out->offset = 0;
-    // A zero-offset input can share its validity bitmap, because the output is read from
-    // bit 0 as well. A sliced input cannot: sharing would read the bitmap from bit 0
-    // instead of from `data.offset`, so copy the slice's bits out.
-    if (data.buffers[0] && data.offset != 0) {
-      ARROW_ASSIGN_OR_RAISE(
-          out->buffers[0],
-          arrow::internal::CopyBitmap(ctx->memory_pool(), data.buffers[0]->data(),
-                                      data.offset, data.length));
-    } else {
-      out->buffers[0] = data.buffers[0];
-    }
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0],
+                          GetOrCopyNullBitmapBuffer(data, ctx->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(out->length * sizeof(CType)));
     // Avoid leaving uninitialized memory under null entries
     std::memset(out->buffers[1]->mutable_data(), 0, out->length * sizeof(CType));
