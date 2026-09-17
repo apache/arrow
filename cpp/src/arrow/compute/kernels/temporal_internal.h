@@ -222,15 +222,38 @@ inline void AppendLocalizedField(std::string* out, FormatArgument argument) {
 
 inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix) {
   std::string out;
+  bool zoned_field_open = false;
+  const auto close_zoned_field = [&] {
+    if (zoned_field_open) {
+      out.push_back('}');
+      zoned_field_open = false;
+    }
+  };
+  const auto append_literal = [&](char value) {
+    // Braces and literal percent signs must stay outside chrono replacement fields.
+    if (value == '{' || value == '}' || value == '%') close_zoned_field();
+    AppendEscapedLiteral(&out, value);
+  };
+  const auto append_zoned_directive = [&](char specifier, char modifier = '\0') {
+    // Keep compatible directives and intervening literals in one field to avoid
+    // repeating timezone lookup and calendar decomposition for every directive.
+    if (!zoned_field_open) {
+      out += {'{', static_cast<char>(FormatArgument::ZonedTime), ':', 'L'};
+      zoned_field_open = true;
+    }
+    out.push_back('%');
+    if (modifier != '\0') out.push_back(modifier);
+    out.push_back(specifier);
+  };
   while (*fmt != '\0') {
     if (*fmt != '%') {
-      AppendEscapedLiteral(&out, *fmt++);
+      append_literal(*fmt++);
       continue;
     }
 
     ++fmt;
     if (*fmt == '\0') {
-      AppendEscapedLiteral(&out, '%');
+      append_literal('%');
       break;
     }
 
@@ -238,8 +261,8 @@ inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix)
     if (*fmt == 'E' || *fmt == 'O') {
       modifier = *fmt++;
       if (*fmt == '\0') {
-        AppendEscapedLiteral(&out, '%');
-        AppendEscapedLiteral(&out, modifier);
+        append_literal('%');
+        append_literal(modifier);
         break;
       }
     }
@@ -248,19 +271,21 @@ inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix)
     if (modifier == '\0') {
       switch (specifier) {
         case '%':
-          AppendEscapedLiteral(&out, '%');
+          append_literal('%');
           continue;
         case 'n':
-          AppendEscapedLiteral(&out, '\n');
+          append_literal('\n');
           continue;
         case 't':
-          AppendEscapedLiteral(&out, '\t');
+          append_literal('\t');
           continue;
         case 'Q':
           // Formatting a duration's %Q does not consistently apply the numeric locale.
+          close_zoned_field();
           AppendLocalizedField(&out, FormatArgument::TimeOfDayCount);
           continue;
         case 'q':
+          close_zoned_field();
           if (use_microseconds_suffix) {
             // Some standard libraries use "us"; Arrow uses the micro sign.
             out += "\xC2\xB5s";
@@ -276,19 +301,20 @@ inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix)
 #  if defined(__GLIBCXX__)
     if (modifier == 'O' && specifier == 'V') {
       // libstdc++ does not yet accept %OV; use its equivalent base representation.
-      AppendChronoField(&out, FormatArgument::ZonedTime, specifier);
+      append_zoned_directive(specifier);
       continue;
     }
 #  endif
 
     if (IsSupportedStrftimeSpecifier(modifier, specifier)) {
-      AppendChronoField(&out, FormatArgument::ZonedTime, specifier, modifier);
+      append_zoned_directive(specifier, modifier);
     } else {
-      AppendEscapedLiteral(&out, '%');
-      if (modifier != '\0') AppendEscapedLiteral(&out, modifier);
-      AppendEscapedLiteral(&out, specifier);
+      append_literal('%');
+      if (modifier != '\0') append_literal(modifier);
+      append_literal(specifier);
     }
   }
+  close_zoned_field();
   return out;
 }
 
