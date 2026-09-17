@@ -8,3 +8,9 @@
     x `in_type` names: "blah" and "aj"
     x `fun` argument names: "x" and "y"
 
+---
+
+    Names in `in_type` must match the argument names of `fun` (after `context`)
+    x `in_type` names: "y"
+    x `fun` argument names: "x"
+

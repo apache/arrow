@@ -354,14 +354,14 @@ test_that("arrow_scalar_function() checks in_type names against fun arguments", 
     "must match the argument names"
   )
 
-  # mismatch in a later kernel when registering several at once
-  expect_error(
+  # mismatch in a later kernel when registering several at once: only the
+  # offending kernel's names are reported
+  expect_snapshot_error(
     arrow_scalar_function(
       function(context, x) x,
       list(schema(x = int32()), schema(y = int32())),
       int32()
-    ),
-    "must match the argument names"
+    )
   )
 
   # matching names, unnamed types, and `...` are all still accepted
@@ -375,6 +375,27 @@ test_that("arrow_scalar_function() checks in_type names against fun arguments", 
   )
   expect_s3_class(
     arrow_scalar_function(function(...) NULL, schema(blah = int32()), int32()),
+    "arrow_scalar_function"
+  )
+})
+
+test_that("arrow_scalar_function() checks names of explicit arguments before `...`", {
+  expect_error(
+    arrow_scalar_function(
+      function(context, x, ...) x,
+      schema(blah = int32()),
+      int32()
+    ),
+    "must match the argument names"
+  )
+
+  # fields beyond the explicit arguments go into `...` and can be named anything
+  expect_s3_class(
+    arrow_scalar_function(
+      function(context, x, ...) x,
+      schema(x = int32(), blah = int32()),
+      int32()
+    ),
     "arrow_scalar_function"
   )
 })

@@ -25,7 +25,8 @@ to determine if this function is appropriate for a given set of arguments.
 If this function is appropriate for more than one signature, pass a
 \code{list()} of the above. Arguments are passed to \code{fun} by position, so if
 the schema (or field) is named, the names must match the argument names
-of \code{fun} (after \code{context}).}
+of \code{fun} (after \code{context}). Fields that would be passed to \code{...} in \code{fun}
+can be named anything.}
 
 \item{out_type}{A \link{DataType} of the output type or a function accepting
 a single argument (\code{types}), which is a \code{list()} of \link{DataType}s. If a
