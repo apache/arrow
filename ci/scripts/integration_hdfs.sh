@@ -50,7 +50,6 @@ debug/arrow-io-hdfs-test
 debug/arrow-hdfs-test
 
 use_libhdfs_dir
-debug/arrow-io-hdfs-test
 debug/arrow-hdfs-test
 use_hadoop_home
 
