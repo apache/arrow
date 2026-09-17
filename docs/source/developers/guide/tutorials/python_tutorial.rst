@@ -89,9 +89,10 @@ With a GitHub account created we will navigate to the
 `GitHub issue dashboard <https://github.com/apache/arrow/issues>`_
 and click on the **New issue** button.
 
-We should make sure to assign ourselves to the issue to let others
-know we are working on it. You can do that with adding a comment
-``take`` to the issue created.
+We should make sure to let others know we are working on the issue.
+You can do that by adding a comment to the issue created saying you
+would like to work on it, and a committer or collaborator will assign
+it to you.
 
 .. seealso::
 
