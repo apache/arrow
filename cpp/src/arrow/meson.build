@@ -34,6 +34,40 @@ else
     simdjson_dep = disabler()
 endif
 
+# GH-51267: standard-backend builds (use_std_chrono) use C++20 std::chrono and
+# do not bundle the vendored datetime implementation. All other builds keep it
+# as a fallback.
+arrow_vendored_sources = ['vendored/base64.cpp']
+if not needs_std_chrono
+    arrow_vendored_sources += 'vendored/datetime.cpp'
+endif
+arrow_vendored_sources += [
+    'vendored/double-conversion/bignum-dtoa.cc',
+    'vendored/double-conversion/bignum.cc',
+    'vendored/double-conversion/cached-powers.cc',
+    'vendored/double-conversion/double-to-string.cc',
+    'vendored/double-conversion/fast-dtoa.cc',
+    'vendored/double-conversion/fixed-dtoa.cc',
+    'vendored/double-conversion/string-to-double.cc',
+    'vendored/double-conversion/strtod.cc',
+    'vendored/musl/strptime.c',
+    'vendored/uriparser/UriCommon.c',
+    'vendored/uriparser/UriCompare.c',
+    'vendored/uriparser/UriEscape.c',
+    'vendored/uriparser/UriFile.c',
+    'vendored/uriparser/UriIp4.c',
+    'vendored/uriparser/UriIp4Base.c',
+    'vendored/uriparser/UriMemory.c',
+    'vendored/uriparser/UriNormalize.c',
+    'vendored/uriparser/UriNormalizeBase.c',
+    'vendored/uriparser/UriParse.c',
+    'vendored/uriparser/UriParseBase.c',
+    'vendored/uriparser/UriQuery.c',
+    'vendored/uriparser/UriRecompose.c',
+    'vendored/uriparser/UriResolve.c',
+    'vendored/uriparser/UriShorten.c',
+]
+
 arrow_components = {
     'arrow_array': {
         'sources': [
@@ -113,36 +147,7 @@ arrow_components = {
         'dependencies': [dl_dep],
     },
     'memory_pool': {'sources': ['memory_pool.cc']},
-    'vendored': {
-        'sources': [
-            'vendored/base64.cpp',
-            'vendored/datetime.cpp',
-            'vendored/double-conversion/bignum-dtoa.cc',
-            'vendored/double-conversion/bignum.cc',
-            'vendored/double-conversion/cached-powers.cc',
-            'vendored/double-conversion/double-to-string.cc',
-            'vendored/double-conversion/fast-dtoa.cc',
-            'vendored/double-conversion/fixed-dtoa.cc',
-            'vendored/double-conversion/string-to-double.cc',
-            'vendored/double-conversion/strtod.cc',
-            'vendored/musl/strptime.c',
-            'vendored/uriparser/UriCommon.c',
-            'vendored/uriparser/UriCompare.c',
-            'vendored/uriparser/UriEscape.c',
-            'vendored/uriparser/UriFile.c',
-            'vendored/uriparser/UriIp4.c',
-            'vendored/uriparser/UriIp4Base.c',
-            'vendored/uriparser/UriMemory.c',
-            'vendored/uriparser/UriNormalize.c',
-            'vendored/uriparser/UriNormalizeBase.c',
-            'vendored/uriparser/UriParse.c',
-            'vendored/uriparser/UriParseBase.c',
-            'vendored/uriparser/UriQuery.c',
-            'vendored/uriparser/UriRecompose.c',
-            'vendored/uriparser/UriResolve.c',
-            'vendored/uriparser/UriShorten.c',
-        ],
-    },
+    'vendored': {'sources': arrow_vendored_sources},
     'arrow_base': {
         'sources': [
             'builder.cc',

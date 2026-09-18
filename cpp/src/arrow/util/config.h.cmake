@@ -54,6 +54,11 @@
 #cmakedefine ARROW_HDFS
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_GLOG
+@ARROW_USE_STD_CHRONO_DEFINITION@
+// GH-51267: whether the vendored datetime implementation is linked (it still
+// is for Gandiva builds even with the std::chrono backend). config.cc uses
+// this to decide whether a runtime timezone database path can be honored.
+#cmakedefine01 ARROW_HAVE_VENDORED_DATETIME
 #cmakedefine ARROW_USE_NATIVE_INT128
 #cmakedefine ARROW_WITH_BROTLI
 #cmakedefine ARROW_WITH_BZ2
