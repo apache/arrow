@@ -27,7 +27,7 @@
 namespace arrow::extension {
 
 /// \brief The extension name for the File extension type.
-inline constexpr std::string_view kFileExtensionName = "parquet.file.experimental.v1";
+inline constexpr std::string_view kFileExtensionName = "arrow.parquet.file";
 
 class ARROW_EXPORT FileArray : public ExtensionArray {
  public:
