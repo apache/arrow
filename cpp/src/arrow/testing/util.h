@@ -143,6 +143,10 @@ ARROW_TESTING_EXPORT std::string GetListenAddress(const std::string& host);
 ARROW_TESTING_EXPORT
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types();
 
+/// Get a list of floating point types supported by tests that don't support float16.
+ARROW_TESTING_EXPORT
+const std::vector<std::shared_ptr<DataType>>& all_floating_point_types_without_float16();
+
 // Get a list of supported hardware flags from the given candidates.
 // The result will always contain 0, meaning no optional CPU feature enabled at all.
 ARROW_TESTING_EXPORT
