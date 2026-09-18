@@ -23,6 +23,41 @@
 
 G_BEGIN_DECLS
 
+#define GPARQUET_TYPE_READER_PROPERTIES (gparquet_reader_properties_get_type())
+GPARQUET_AVAILABLE_IN_26_0
+G_DECLARE_DERIVABLE_TYPE(GParquetReaderProperties,
+                         gparquet_reader_properties,
+                         GPARQUET,
+                         READER_PROPERTIES,
+                         GObject)
+struct _GParquetReaderPropertiesClass
+{
+  GObjectClass parent_class;
+};
+
+GPARQUET_AVAILABLE_IN_26_0
+GParquetReaderProperties *
+gparquet_reader_properties_new(void);
+
+GPARQUET_AVAILABLE_IN_26_0
+void
+gparquet_reader_properties_enable_buffered_stream(GParquetReaderProperties *properties);
+GPARQUET_AVAILABLE_IN_26_0
+void
+gparquet_reader_properties_disable_buffered_stream(GParquetReaderProperties *properties);
+GPARQUET_AVAILABLE_IN_26_0
+gboolean
+gparquet_reader_properties_is_buffered_stream_enabled(
+  GParquetReaderProperties *properties);
+
+GPARQUET_AVAILABLE_IN_26_0
+void
+gparquet_reader_properties_set_buffer_size(GParquetReaderProperties *properties,
+                                           gint64 buffer_size);
+GPARQUET_AVAILABLE_IN_26_0
+gint64
+gparquet_reader_properties_get_buffer_size(GParquetReaderProperties *properties);
+
 #define GPARQUET_TYPE_ARROW_FILE_READER (gparquet_arrow_file_reader_get_type())
 GPARQUET_AVAILABLE_IN_0_11
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileReader,
@@ -42,6 +77,18 @@ gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError *
 GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_path(const gchar *path, GError **error);
+
+GPARQUET_AVAILABLE_IN_26_0
+GParquetArrowFileReader *
+gparquet_arrow_file_reader_new_arrow_with_properties(GArrowSeekableInputStream *source,
+                                                     GParquetReaderProperties *properties,
+                                                     GError **error);
+
+GPARQUET_AVAILABLE_IN_26_0
+GParquetArrowFileReader *
+gparquet_arrow_file_reader_new_path_with_properties(const gchar *path,
+                                                    GParquetReaderProperties *properties,
+                                                    GError **error);
 
 GPARQUET_AVAILABLE_IN_23_0
 void
