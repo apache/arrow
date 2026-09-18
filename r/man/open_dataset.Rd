@@ -177,9 +177,10 @@ This is useful, for example, when you have opened a subdirectory of a
 partitioned dataset directly (so the partition columns above that directory
 are not inferred) and want to recover the partition values from the path.
 \code{add_filename()} can only be used inside a query on a \code{FileSystemDataset}
-(such as one returned by \code{open_dataset()}), and you cannot \code{filter()} on the
-resulting column until you have called \code{compute()} or \code{collect()}. See
-\code{\link[=add_filename]{add_filename()}} for details.
+(such as one returned by \code{open_dataset()}). Extracting a partition value
+from the path with \code{sub()} works directly, but using the column in
+\code{filter()}, or in some functions such as \code{substr()} or \code{\%in\%}, requires
+calling \code{compute()} or \code{collect()} first. See \code{\link[=add_filename]{add_filename()}} for details.
 }
 
 \examples{

@@ -17,9 +17,11 @@ valid when querying on a \code{FileSystemDataset}, such as one created by
 of the file each row was read from.
 }
 \details{
-The filename column can be used in later \code{mutate()}, \code{select()}, \code{arrange()}
-and \code{group_by()} steps of the same query, but it cannot be used in a
-\code{filter()} until you have called \code{\link[dplyr:compute]{compute()}} or
+The filename column can be used in later \code{select()}, \code{arrange()} and
+\code{group_by()} steps of the same query, and in simple \code{mutate()} expressions
+such as \code{nchar()} or \code{sub()}. However, it cannot be used in a \code{filter()}, or with
+functions that need to know the column's type (such as \code{substr()} or
+\code{\%in\%}), until you have called \code{\link[dplyr:compute]{compute()}} or
 \code{\link[dplyr:collect]{collect()}}. It must also be added before any
 aggregation or join. See Examples.
 }
@@ -29,17 +31,20 @@ open_dataset("nyc-taxi") |>
   mutate(file = add_filename()) |>
   collect()
 
-# The new column can be used in a later mutate() in the same query
-open_dataset("nyc-taxi") |>
+# Simple expressions on the new column work in a later mutate(), for
+# example to recover a partition value from the path
+open_dataset("nyc-taxi/year=2015") |>
   mutate(file = add_filename()) |>
-  mutate(filename_length = nchar(file)) |>
+  mutate(year_from_path = sub(".*year=([0-9]{4}).*", "\\\\1", file)) |>
   collect()
 
-# To filter() on the new column, call compute() or collect() first
+# To filter() on the new column, or use functions such as substr() that
+# need to know its type, call compute() or collect() first
 open_dataset("nyc-taxi") |>
   mutate(file = add_filename()) |>
   compute() |>
   filter(endsWith(file, "part-0.parquet")) |>
+  mutate(file_start = substr(file, 1, 10)) |>
   collect()
 }
 
