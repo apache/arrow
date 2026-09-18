@@ -308,6 +308,26 @@ in order to declare the types of the virtual columns that define the partitions.
 This would be useful, in the NYC taxi data example, if you wanted to keep
 `month` as a string instead of an integer.
 
+### Record which file each row came from
+
+Partitioning only recovers information encoded in directory names. If you need
+the full path of the file each row was read from, use `add_filename()` inside a
+query on the Dataset:
+
+```r
+ds |>
+  mutate(file = add_filename()) |>
+  collect()
+```
+
+This is handy when you have opened a single partition directory directly (for
+example, `open_dataset("nyc-taxi/year=2015")`), since in that case the partition
+columns above that directory (here, `year`) are not inferred and you may want to
+recover them from the path, for example with `sub()`. Note that using the new
+column in `filter()`, or in some functions such as `substr()` or `%in%`,
+requires calling `compute()` or `collect()` first; see `?add_filename` for
+details.
+
 ### Work with multiple data sources
 
 Another feature of Datasets is that they can be composed of multiple data sources.
