@@ -161,6 +161,26 @@ column types, as described above. If neither are provided, no partitioning
 information will be taken from the file paths.
 }
 
+\section{Adding the source filename as a column}{
+
+
+Partitioning only recovers information encoded in directory names. If you
+need to know which file each row came from, call \code{\link[=add_filename]{add_filename()}} inside a
+\code{dplyr} query on the dataset:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{open_dataset("nyc-taxi") |>
+  mutate(file = add_filename()) |>
+  collect()
+}\if{html}{\out{</div>}}
+
+This is useful, for example, when you have opened a subdirectory of a
+partitioned dataset directly (so the partition columns are not inferred) and
+want to recover the partition values from the path. \code{add_filename()} can only
+be used inside a query on a \code{Dataset}, and the resulting column cannot be
+referenced by later steps of the same query until you call \code{compute()} or
+\code{collect()}. See \code{\link[=add_filename]{add_filename()}} for details.
+}
+
 \examples{
 \dontshow{if (arrow_with_dataset() & arrow_with_parquet()) withAutoprint(\{ # examplesIf}
 # Set up directory for examples
@@ -210,5 +230,5 @@ open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 }
 \seealso{
 \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
-datasets article}
+datasets article}, \code{\link[=add_filename]{add_filename()}}
 }
