@@ -270,3 +270,118 @@ def test_extension_type_constructor_errors(klass):
     msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
     with pytest.raises(TypeError, match=msg):
         klass()
+
+
+@pytest.mark.processes
+def test_public_callables_reject_none_without_crashing():
+    # GH-51293: a typed Cython parameter that is not declared "not None"
+    # lets None reach code that dereferences it, killing the interpreter
+    # instead of raising. Some public APIs accept None legitimately, so the
+    # invariant asserted here is only that none of them terminate the
+    # interpreter.
+    code = """if 1:
+        import importlib, inspect
+        mods = ["pyarrow", "pyarrow.compute", "pyarrow.dataset",
+                "pyarrow.parquet", "pyarrow.fs", "pyarrow.ipc",
+                "pyarrow.csv", "pyarrow.json", "pyarrow.feather"]
+        names = []
+        for mn in mods:
+            try:
+                m = importlib.import_module(mn)
+            except Exception:
+                continue
+            for n in dir(m):
+                if n.startswith("_"):
+                    continue
+                try:
+                    obj = getattr(m, n)
+                except Exception:
+                    continue
+                if callable(obj) and not inspect.isclass(obj):
+                    names.append((mn, n))
+        names.sort()
+        for mn, n in names:
+            print("%s.%s" % (mn, n), flush=True)
+            try:
+                getattr(importlib.import_module(mn), n)(None)
+            except BaseException:
+                pass
+        print("DONE", flush=True)
+        """
+    res = subprocess.run([sys.executable, "-c", code],
+                         capture_output=True, text=True, timeout=300)
+    lines = res.stdout.splitlines()
+    if res.returncode != 0 or not lines or lines[-1] != "DONE":
+        culprit = lines[-1] if lines else "<no output>"
+        raise AssertionError(
+            f"passing None to {culprit} terminated the interpreter "
+            f"(returncode {res.returncode}); declare its typed parameter "
+            f"'not None'"
+        )
+
+
+@pytest.mark.processes
+def test_public_methods_reject_none_without_crashing():
+    # Same contract as the function sweep above, applied to methods reached
+    # from a live object. Expression.equals crashed this way before GH-51293.
+    code = """if 1:
+        import inspect
+        import pyarrow as pa
+        import pyarrow.dataset as ds
+
+        tbl = pa.table({"a": [1, 2], "b": ["x", "y"]})
+        instances = [
+            ("Table", tbl),
+            ("RecordBatch", tbl.to_batches()[0]),
+            ("Array", pa.array([1, 2, 3])),
+            ("ChunkedArray", tbl.column("a")),
+            ("Schema", tbl.schema),
+            ("Field", tbl.schema.field(0)),
+            ("DataType", pa.int64()),
+            ("Scalar", pa.scalar(1)),
+            ("Dataset", ds.dataset(tbl)),
+            ("Expression", ds.field("a")),
+            ("Buffer", pa.py_buffer(b"abc")),
+        ]
+        targets = []
+        for label, obj in instances:
+            for name in dir(obj):
+                if name.startswith("_"):
+                    continue
+                try:
+                    attr = getattr(obj, name)
+                except BaseException:
+                    continue
+                if not callable(attr):
+                    continue
+                try:
+                    sig = inspect.signature(attr)
+                except BaseException:
+                    continue
+                required = [
+                    p for p in sig.parameters.values()
+                    if p.default is inspect._empty
+                    and p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+                ]
+                if len(required) == 1:
+                    targets.append((label, name))
+        targets.sort()
+        lookup = dict(instances)
+        for label, name in targets:
+            print("%s.%s" % (label, name), flush=True)
+            try:
+                getattr(lookup[label], name)(None)
+            except BaseException:
+                pass
+        print("DONE", flush=True)
+        """
+    res = subprocess.run([sys.executable, "-c", code],
+                         capture_output=True, text=True, timeout=300)
+    lines = res.stdout.splitlines()
+    if res.returncode != 0 or not lines or lines[-1] != "DONE":
+        culprit = lines[-1] if lines else "<no output>"
+        raise AssertionError(
+            f"passing None to {culprit} terminated the interpreter "
+            f"(returncode {res.returncode}); declare its typed parameter "
+            f"'not None'"
+        )

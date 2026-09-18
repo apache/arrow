@@ -4052,7 +4052,7 @@ cdef class Scanner(_Weakrefable):
         return reader
 
 
-def get_partition_keys(Expression partition_expression):
+def get_partition_keys(Expression partition_expression not None):
     """
     Extract partition keys (equality constraints between a field and a scalar)
     from an expression as a dict mapping the field's name to its value.
