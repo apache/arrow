@@ -102,7 +102,7 @@ glimpse.ArrowTabular <- function(x, width = getOption("pillar.width", getOption(
 glimpse.Dataset <- glimpse.ArrowTabular
 
 glimpse.arrow_dplyr_query <- function(x, width = getOption("pillar.width", getOption("width")), ...) {
-  if (any(map_lgl(all_sources(x), ~ inherits(., "RecordBatchReader")))) {
+  if (query_has_reader(x)) {
     msg <- paste(
       "Cannot glimpse() data from a RecordBatchReader because it can only be",
       "read one time. Call `compute()` to evaluate the query first."
