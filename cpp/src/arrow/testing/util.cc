@@ -141,6 +141,8 @@ std::optional<std::string> GetTestTimezoneDatabaseRoot() {
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 ARROW_SUPPRESS_DEPRECATION_WARNING
 Status InitTestTimezoneDatabase() {
+  if (GetRuntimeInfo().using_os_timezone_db) return Status::OK();
+
   auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
   // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
   if (!maybe_tzdata.has_value()) return Status::OK();

@@ -19,11 +19,22 @@
 
 #include <chrono>
 #include <cstdint>
+#include <locale>
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <string_view>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/util/date_internal.h"
 #include "arrow/util/value_parsing.h"
+
+#if ARROW_USE_STD_CHRONO
+#  include <format>
+#  include <iterator>
+#  include <ratio>
+#endif
 
 namespace arrow::compute::internal {
 
@@ -163,15 +174,173 @@ struct ZonedLocalizer {
   local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
 };
 
+#if ARROW_USE_STD_CHRONO
+namespace detail {
+
+// Argument positions passed to std::vformat_to by TimestampFormatter below.
+enum class FormatArgument : char {
+  ZonedTime = '0',
+  TimeOfDay = '1',
+  TimeOfDayCount = '2',
+};
+
+inline void AppendEscapedLiteral(std::string* out, char value) {
+  out->push_back(value);
+  if (value == '{' || value == '}') {
+    out->push_back(value);
+  }
+}
+
+// These are the directives accepted by Arrow's existing strftime syntax. Treat
+// all others as literals to preserve compatibility.
+inline bool IsSupportedStrftimeSpecifier(char modifier, char specifier) {
+  const auto contains = [specifier](std::string_view candidates) {
+    return candidates.find(specifier) != std::string_view::npos;
+  };
+  if (modifier == '\0') {
+    return contains("aAbBhcCxdeDFgGHIjmMprRSTuUVWwXyYzZ");
+  }
+  if (modifier == 'E') {
+    return contains("cCxXyYz");
+  }
+  if (modifier == 'O') {
+    return contains("deHImMSuUVwWyz");
+  }
+  return false;
+}
+
+inline void AppendChronoField(std::string* out, FormatArgument argument, char specifier,
+                              char modifier = '\0') {
+  *out += {'{', static_cast<char>(argument), ':', 'L', '%'};
+  if (modifier != '\0') out->push_back(modifier);
+  *out += {specifier, '}'};
+}
+
+inline void AppendLocalizedField(std::string* out, FormatArgument argument) {
+  *out += {'{', static_cast<char>(argument), ':', 'L', '}'};
+}
+
+inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix) {
+  std::string out;
+  bool zoned_field_open = false;
+  const auto close_zoned_field = [&] {
+    if (zoned_field_open) {
+      out.push_back('}');
+      zoned_field_open = false;
+    }
+  };
+  const auto append_literal = [&](char value) {
+    // Braces and literal percent signs must stay outside chrono replacement fields.
+    if (value == '{' || value == '}' || value == '%') close_zoned_field();
+    AppendEscapedLiteral(&out, value);
+  };
+  const auto append_zoned_directive = [&](char specifier, char modifier = '\0') {
+    // Keep compatible directives and intervening literals in one field to avoid
+    // repeating timezone lookup and calendar decomposition for every directive.
+    if (!zoned_field_open) {
+      out += {'{', static_cast<char>(FormatArgument::ZonedTime), ':', 'L'};
+      zoned_field_open = true;
+    }
+    out.push_back('%');
+    if (modifier != '\0') out.push_back(modifier);
+    out.push_back(specifier);
+  };
+  while (*fmt != '\0') {
+    if (*fmt != '%') {
+      append_literal(*fmt++);
+      continue;
+    }
+
+    ++fmt;
+    if (*fmt == '\0') {
+      append_literal('%');
+      break;
+    }
+
+    char modifier = '\0';
+    if (*fmt == 'E' || *fmt == 'O') {
+      modifier = *fmt++;
+      if (*fmt == '\0') {
+        append_literal('%');
+        append_literal(modifier);
+        break;
+      }
+    }
+    const char specifier = *fmt++;
+
+    if (modifier == '\0') {
+      switch (specifier) {
+        case '%':
+          append_literal('%');
+          continue;
+        case 'n':
+          append_literal('\n');
+          continue;
+        case 't':
+          append_literal('\t');
+          continue;
+        case 'Q':
+          // Formatting a duration's %Q does not consistently apply the numeric locale.
+          close_zoned_field();
+          AppendLocalizedField(&out, FormatArgument::TimeOfDayCount);
+          continue;
+        case 'q':
+          close_zoned_field();
+          if (use_microseconds_suffix) {
+            // Some standard libraries use "us"; Arrow uses the micro sign.
+            out += "\xC2\xB5s";
+          } else {
+            AppendChronoField(&out, FormatArgument::TimeOfDay, specifier);
+          }
+          continue;
+        default:
+          break;
+      }
+    }
+
+#  if defined(__GLIBCXX__)
+    if (modifier == 'O' && specifier == 'V') {
+      // libstdc++ does not yet accept %OV; use its equivalent base representation.
+      append_zoned_directive(specifier);
+      continue;
+    }
+#  endif
+
+    if (IsSupportedStrftimeSpecifier(modifier, specifier)) {
+      append_zoned_directive(specifier, modifier);
+    } else {
+      append_literal('%');
+      if (modifier != '\0') append_literal(modifier);
+      append_literal(specifier);
+    }
+  }
+  close_zoned_field();
+  return out;
+}
+
+}  // namespace detail
+#endif
+
 template <typename Duration>
 struct TimestampFormatter {
+  static std::string PrepareFormat(const std::string& format) {
+#if ARROW_USE_STD_CHRONO
+    // Translate strftime syntax once, not for every timestamp.
+    using Precision = typename chrono::zoned_time<Duration>::duration;
+    return detail::ToChronoFormat(
+        format.c_str(), std::ratio_equal_v<typename Precision::period, std::micro>);
+#else
+    return format;
+#endif
+  }
+
   const std::string format;
   const ArrowTimeZone tz;
   std::ostringstream bufstream;
 
   explicit TimestampFormatter(const std::string& format, const ArrowTimeZone time_zone,
                               const std::locale& locale)
-      : format(format), tz(time_zone) {
+      : format(PrepareFormat(format)), tz(time_zone) {
     bufstream.imbue(locale);
     // Propagate errors as C++ exceptions (to get an actual error message)
     bufstream.exceptions(std::ios::failbit | std::ios::badbit);
@@ -182,7 +351,22 @@ struct TimestampFormatter {
     const auto timepoint = sys_time<Duration>(Duration{arg});
     auto format_zoned_time = [&](auto&& zt) {
       try {
-        chrono::to_stream(bufstream, format.c_str(), zt);
+#if ARROW_USE_STD_CHRONO
+        // %Q/%q refer to local time of day rather than elapsed time since the epoch.
+        const auto local_time = zt.get_local_time();
+        const auto local_day = std::chrono::floor<std::chrono::days>(local_time);
+        const auto time_of_day = local_time - local_day;
+        const auto time_of_day_count = time_of_day.count();
+        const std::ostream::sentry sentry(bufstream);
+        if (sentry) {
+          const auto end = std::vformat_to(
+              std::ostreambuf_iterator<char>(bufstream), bufstream.getloc(), format,
+              std::make_format_args(zt, time_of_day, time_of_day_count));
+          if (end.failed()) bufstream.setstate(std::ios::badbit);
+        }
+#else
+        arrow_vendored::date::to_stream(bufstream, format.c_str(), zt);
+#endif
         return Status::OK();
       } catch (const std::runtime_error& ex) {
         bufstream.clear();
