@@ -21,8 +21,11 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
 
+#include "arrow/compute/api_vector.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 
@@ -101,6 +104,34 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
+// Maps `is_null` over the dictionary values and then through the indices, so that
+// both NaN and null dictionary entries are reported, whatever the index type.
+static Status SetNullBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
+                                        const NullOptions& options, uint8_t* out_bitmap,
+                                        int64_t out_offset) {
+  if (arr.length == 0) {
+    return Status::OK();
+  }
+  const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
+  ARROW_ASSIGN_OR_RAISE(Datum dict_is_null,
+                        CallFunction("is_null", {arr.dictionary().ToArrayData()},
+                                     &options, ctx->exec_context()));
+
+  auto indices = ArrayData::Make(dict_type.index_type(), arr.length,
+                                 {arr.GetBuffer(0), arr.GetBuffer(1)}, arr.GetNullCount(),
+                                 arr.offset);
+  ARROW_ASSIGN_OR_RAISE(Datum taken,
+                        Take(dict_is_null, Datum(std::move(indices)),
+                             TakeOptions::BoundsCheck(), ctx->exec_context()));
+
+  // Slots with a null index are already set from the input validity bitmap, so the
+  // values bitmap can be OR'ed in without masking the nulls out of it first.
+  const ArrayData& result = *taken.array();
+  ::arrow::internal::BitmapOr(out_bitmap, out_offset, result.buffers[1]->data(),
+                              result.offset, arr.length, out_offset, out_bitmap);
+  return Status::OK();
+}
+
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
   ArraySpan* out_span = out->array_span_mutable();
@@ -135,6 +166,12 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       default:
         return Status::NotImplemented("NaN detection not implemented for type ",
                                       arr.type->ToString());
+    }
+  } else if (arr.type->id() == Type::DICTIONARY && options.nan_is_null) {
+    const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
+    if (is_floating(dict_type.value_type()->id())) {
+      RETURN_NOT_OK(
+          SetNullBitsFromDictionary(ctx, arr, options, out_bitmap, out_span->offset));
     }
   }
   return Status::OK();
