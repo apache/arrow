@@ -1752,7 +1752,8 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
   static constexpr size_t kNumRoundTrips = 3;
-  const std::vector<int> kReadBatchSizes = {1, 11};
+  // 100 spans several miniblocks but still ends inside one.
+  const std::vector<int> kReadBatchSizes = {1, 11, 100};
 
   void InitBoundData(int nvalues, int repeats, c_type half_range) {
     num_values_ = nvalues * repeats;
@@ -2032,6 +2033,72 @@ TYPED_TEST(TestDeltaBitPackEncoding, ZeroDeltaBitWidth) {
     int_values.push_back((i * 5) % 7);
   }
   this->CheckRoundtripWithValues(int_values);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, MiniblockBitWidthRuns) {
+  // A decoder may unpack a run of miniblocks sharing a bit width in one call. Cover
+  // the width patterns that decide where such a run starts and stops.
+  using T = typename TypeParam::c_type;
+
+  // Same values as in DeltaBitPackEncoder
+  constexpr int kValuesPerBlock =
+      std::is_same_v<int32_t, typename TypeParam::c_type> ? 128 : 256;
+  constexpr int kMiniBlocksPerBlock = 4;
+  constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
+
+  // Gives miniblock i the bit width widths[i]: alternating deltas of `frame` and
+  // `frame + 2^(w-1)` make w the smallest width holding the residual, and `frame` the
+  // smallest delta, so it is the frame the encoder stores.
+  auto make_values = [](const std::vector<int>& widths, T frame, int trailing_values) {
+    std::vector<T> values;
+    values.reserve(widths.size() * kValuesPerMiniBlock + trailing_values + 1);
+    // The first value travels in the header and contributes no delta.
+    T current = 0;
+    values.push_back(current);
+    for (const int width : widths) {
+      const T spread = width == 0 ? T{0} : static_cast<T>(T{1} << (width - 1));
+      for (int i = 0; i < kValuesPerMiniBlock; ++i) {
+        current = static_cast<T>(current + frame + (i % 2 == 0 ? T{0} : spread));
+        values.push_back(current);
+      }
+    }
+    // A tail shorter than a miniblock makes a run stop at the end of the values.
+    for (int i = 0; i < trailing_values; ++i) {
+      current = static_cast<T>(current + frame);
+      values.push_back(current);
+    }
+    return values;
+  };
+
+  struct Case {
+    const char* name;
+    std::vector<int> widths;
+    int trailing_values;
+  };
+  const std::vector<Case> cases = {
+      // One run covering every miniblock of the block.
+      {"uniform widths", {4, 4, 4, 4}, 0},
+      // No two neighbours share a width, so no run forms.
+      {"no repeated width", {1, 8, 3, 16}, 0},
+      // Runs that end partway through the block.
+      {"two runs of two", {1, 1, 8, 8}, 0},
+      {"run then a change", {4, 4, 4, 16}, 0},
+      // Zero-width miniblocks beside a run.
+      {"zero widths first", {0, 0, 3, 3}, 0},
+      {"zero widths last", {3, 3, 0, 0}, 0},
+      {"zero width inside a run", {3, 0, 3, 3}, 0},
+      // Widths match across a block boundary, where a run must still stop.
+      {"across a block boundary", {4, 4, 4, 4, 4, 4, 4, 4}, 0},
+      // A final block that ends in the middle of a miniblock.
+      {"partial last block", {4, 4, 4, 4}, 5},
+  };
+
+  for (const auto& c : cases) {
+    for (const T frame : {T{0}, static_cast<T>(-5)}) {
+      ARROW_SCOPED_TRACE("case = ", c.name, ", frame = ", static_cast<int64_t>(frame));
+      this->CheckRoundtripWithValues(make_values(c.widths, frame, c.trailing_values));
+    }
+  }
 }
 
 // ----------------------------------------------------------------------
