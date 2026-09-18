@@ -268,7 +268,7 @@ match_arrow <- function(x, table, ...) {
   if (!inherits(table, c("Array", "ChunkedArray"))) {
     table <- Array$create(table)
   }
-  call_function("index_in_meta_binary", x, table)
+  call_function("index_in_binary", x, table)
 }
 
 #' @rdname match_arrow
@@ -281,7 +281,7 @@ is_in <- function(x, table, ...) {
   if (!inherits(table, c("Array", "DictionaryArray", "ChunkedArray"))) {
     table <- Array$create(table)
   }
-  call_function("is_in_meta_binary", x, table)
+  call_function("is_in_binary", x, table)
 }
 
 #' `table` for Arrow objects

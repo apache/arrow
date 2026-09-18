@@ -320,10 +320,14 @@ def test_pickle_global_functions(pickle_module):
 
 def test_function_attributes():
     # Sanity check attributes of registered functions
+    aliases = {
+        "index_in_meta_binary": "index_in_binary",
+        "is_in_meta_binary": "is_in_binary",
+    }
     for name in pc.list_functions():
         func = pc.get_function(name)
         assert isinstance(func, pc.Function)
-        assert func.name == name
+        assert func.name == aliases.get(name, name)
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
@@ -3340,6 +3344,19 @@ def test_is_in():
     assert result.to_pylist() == [True, False, False, True, False, True]
 
 
+@pytest.mark.parametrize("function_name", [
+    "is_in_binary",
+    "is_in_meta_binary",
+])
+def test_is_in_binary(function_name):
+    values = pa.array([1, 2, None, 3])
+    value_set = pa.array([1, 3, None])
+
+    result = getattr(pc, function_name)(values, value_set)
+
+    assert result.to_pylist() == [True, False, True, True]
+
+
 def test_index_in():
     arr = pa.array([1, 2, None, 1, 2, 3])
 
@@ -3359,6 +3376,19 @@ def test_index_in():
     # Positional value_set
     result = pc.index_in(arr, pa.array([1, 3]), skip_nulls=True)
     assert result.to_pylist() == [0, None, None, 0, None, 1]
+
+
+@pytest.mark.parametrize("function_name", [
+    "index_in_binary",
+    "index_in_meta_binary",
+])
+def test_index_in_binary(function_name):
+    values = pa.array([1, 2, None, 3])
+    value_set = pa.array([1, 3, None])
+
+    result = getattr(pc, function_name)(values, value_set)
+
+    assert result.to_pylist() == [0, None, 2, 1]
 
 
 def test_quantile():
