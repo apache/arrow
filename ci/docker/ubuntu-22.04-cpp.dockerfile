@@ -229,4 +229,5 @@ ENV absl_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PYTHON=python3 \
     simdjson_SOURCE=BUNDLED \
-    xsimd_SOURCE=BUNDLED
+    xsimd_SOURCE=BUNDLED \
+    nlohmann_json_SOURCE=BUNDLED
