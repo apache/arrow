@@ -1,4 +1,4 @@
 # build products, not sources
-fl5_corpus
+layout_benchmark
 seq_granularity
 *.o

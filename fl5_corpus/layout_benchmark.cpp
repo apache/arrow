@@ -1,4 +1,4 @@
-// fl5_corpus -- five bit-unpacking arms, 43 real-shaped columns, three working sets.
+// layout_benchmark -- five bit-unpacking arms, 43 real-shaped columns, six working sets.
 //
 // This measures BIT-UNPACKING ONLY. Frame-of-reference addition is present in
 // every arm (it is one broadcast add fused into the unpack, and all five decode
@@ -252,7 +252,7 @@ static const Dataset kDatasets[] = {
 #undef DS
 static constexpr size_t kNumDatasets = sizeof(kDatasets) / sizeof(kDatasets[0]);
 
-int main(int argc, char** argv) {
+int main() {
   // The ladder is built around the unit a Parquet reader actually decodes: one
   // data page, which defaults to 1 MiB of ENCODED bytes and is therefore always
   // small. A 32-MiB decode call does not occur in any reader, so growing `n` to
@@ -280,18 +280,20 @@ int main(int argc, char** argv) {
       {"batch48m", 256 * kBlk, 0, 48ull << 20},   // same page, destination past L3
   };
 
-  const char* only = (argc > 1) ? argv[1] : nullptr;
-  const char* csv_path = (argc > 2) ? argv[2] : nullptr;
-  FILE* csv = csv_path ? fopen(csv_path, "w") : nullptr;
+  // No arguments: every dataset, every working-set point, one fixed CSV beside
+  // the text output, so two runs from two machines are directly comparable.
+  FILE* csv = fopen("layout_benchmark.csv", "w");
   if (csv)
     fprintf(csv,
             "dataset,point,n,avg_bit_width,cr,src_mib,dst_mib,seq_scal,seq_simd,"
             "intlv,fl_unpk,fl_tpos,pure_st\n");
 
-  printf("# fl5_corpus -- bit-unpacking only, no delta anywhere\n");
-  printf("# five decode arms plus a store ceiling, best-of-%d\n", kReps);
-  printf("# pure_st writes the same bytes to the same place with no unpacking,\n"
-         "# so it is the ceiling the other five are read against.\n");
+  printf("# layout_benchmark -- bit-unpacking only, no delta anywhere\n");
+  printf("# five decode arms plus a store-only reference, best-of-%d\n", kReps);
+  printf("# pure_st writes the same bytes to the same place with no unpacking.\n"
+         "# It is NOT a ceiling: it is regularly slower than the decode arms that\n"
+         "# write the same bytes, and it moves 2.07x between gcc and clang on\n"
+         "# fixed hardware, so it bounds its own codegen and nothing else.\n");
 #ifdef ARROW_FASTLANES_FUSED_FL_UNPACK
   printf("# fl_tpos: FUSED in-register transpose (UnpackBlockFlToFileOrder)\n");
 #else
@@ -314,9 +316,6 @@ int main(int argc, char** argv) {
   std::vector<Row> rows;
   for (size_t d = 0; d < kNumDatasets; ++d) {
     const Dataset& ds = kDatasets[d];
-    if (only && *only && strcmp(only, "all") != 0 && strstr(ds.name, only) == nullptr)
-      continue;
-
     for (const Point& pt : kPoints) {
       const size_t n = pt.n;
       const std::vector<int32_t> values = ds.gen(static_cast<int64_t>(n));
@@ -419,15 +418,21 @@ int main(int argc, char** argv) {
         fl::InterleavedPforDecode<InterleavedPforOrder::kFlOrder>(
             fb_base + (it % src_copies) * fb_stride, n, slot_out(it));
       };
-      // Speed of light. Writes the same n int32s to the same rotating destination
-      // slice with no unpacking whatsoever, so it is the ceiling every other arm
-      // is measured against. It reads nothing from the packed source, which is
-      // exactly why it is a ceiling and not a sixth decoder: at the scan points
-      // the other arms are also paying for a cold source stream this arm never
-      // touches. `bias + t` varies per element on purpose -- a constant store
-      // would let the compiler call memset, which may pick rep-stos or a
-      // non-temporal path, and non-temporal stores measured 0.85x of ordinary
-      // ones here. The loop is one add per vector of stores, negligible against
+      // Store-only reference, and NOT a store ceiling -- do not read it as one.
+      // It writes the same n int32s to the same rotating destination slice with
+      // no unpacking whatsoever, but it is regularly slower than the decode arms
+      // doing strictly more work: 14.4 GiB/s here against 31-35 for the
+      // interleaved arm, and 2.8-2.9x below it on one external amd64 run. The
+      // proof that this is codegen and not the store path is that the same loop
+      // reads 14.4 GiB/s built with gcc and 29.9 with clang on this machine, flat
+      // across L1-to-DRAM in both, while a real store-only sweep varies several
+      // fold with residency. Treat it as a floor on how well a trivial store loop
+      // gets compiled. It also reads nothing from the packed source, so at the
+      // scan points the other arms are additionally paying for a cold source
+      // stream this arm never touches. `bias + t` varies per element on purpose
+      // -- a constant store would let the compiler call memset, which may pick
+      // rep-stos or a non-temporal path, and non-temporal stores measured 0.85x
+      // of ordinary ones here. The loop is one add per vector of stores, negligible against
       // the store stream itself.
       auto a_pure_st = [&](size_t it) {
         uint32_t* dst = reinterpret_cast<uint32_t*>(slot_out(it));
@@ -444,13 +449,13 @@ int main(int argc, char** argv) {
       // --- correctness before speed -----------------------------------------
       // Four of the five decode arms must reproduce `values` exactly. fl_unpk
       // returns FL order on purpose, so it is checked against the FL_ORDER
-      // permutation of `values` instead. pure_st is a store ceiling, not a
+      // permutation of `values` instead. pure_st is a store-only reference, not a
       // decoder, and is exempt.
       for (int a = 0; a < kArms; ++a) {
         memset(out, 0xCD, n * sizeof(int32_t));
         arms[a](0);
         if (a == 3) continue;  // fl_unpk: order-agnostic, checked below
-        if (a == 5) continue;  // pure_st: a ceiling, not a decoder -- writes no
+        if (a == 5) continue;  // pure_st: store-only, not a decoder -- writes no
                                //          meaningful values by construction
         if (memcmp(out, values.data(), n * sizeof(int32_t)) != 0) {
           size_t bad = 0;
