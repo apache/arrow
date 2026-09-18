@@ -1177,6 +1177,15 @@ cdef class StructScalar(Scalar, Mapping):
         return str(self._as_py_tuple())
 
 
+cdef inline _check_maps_as_pydicts(maps_as_pydicts):
+    if maps_as_pydicts not in (None, "lossy", "strict"):
+        raise ValueError(
+            "Invalid value for 'maps_as_pydicts': "
+            + "valid values are 'lossy', 'strict' or `None` (default). "
+            + f"Received {maps_as_pydicts!r}."
+        )
+
+
 cdef class MapScalar(ListScalar, Mapping):
     """
     Concrete class for map scalars.
@@ -1234,12 +1243,7 @@ cdef class MapScalar(ListScalar, Mapping):
             The last seen value of a duplicate key will be in the Python dictionary.
             If 'strict', this instead results in an exception being raised when detected.
         """
-        if maps_as_pydicts not in (None, "lossy", "strict"):
-            raise ValueError(
-                "Invalid value for 'maps_as_pydicts': "
-                + "valid values are 'lossy', 'strict' or `None` (default). "
-                + f"Received {maps_as_pydicts!r}."
-            )
+        _check_maps_as_pydicts(maps_as_pydicts)
         if not self.is_valid:
             return None
         if not maps_as_pydicts:
