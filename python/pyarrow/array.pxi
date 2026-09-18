@@ -1333,8 +1333,8 @@ cdef class Array(_PandasConvertible):
             (_reduce_array_data(self.sp_array.get().data().get()),)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
-                     children=None):
+    def from_buffers(DataType type not None, length, buffers, null_count=-1,
+                     offset=0, children=None):
         """
         Construct an Array from a sequence of buffers.
 
@@ -1390,6 +1390,8 @@ cdef class Array(_PandasConvertible):
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))
 
         for child in children:
+            if child is None:
+                raise TypeError("Array child must not be None")
             c_child_data.push_back(child.ap.data())
 
         array_data = CArrayData.MakeWithChildren(type.sp_type, length,
@@ -4346,8 +4348,9 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
-    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
-                     int64_t null_count=-1, int64_t offset=0):
+    def from_buffers(DataType type not None, int64_t length, buffers,
+                     Array dictionary not None, int64_t null_count=-1,
+                     int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
 
@@ -4763,8 +4766,8 @@ cdef class RunEndEncodedArray(Array):
                                                run_ends, values, 0)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
-                     children=None):
+    def from_buffers(DataType type not None, length, buffers, null_count=-1,
+                     offset=0, children=None):
         """
         Construct a RunEndEncodedArray from all the parameters that make up an
         Array.
