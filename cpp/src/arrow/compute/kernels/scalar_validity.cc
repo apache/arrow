@@ -117,9 +117,9 @@ static Status SetNullBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr
                         CallFunction("is_null", {arr.dictionary().ToArrayData()},
                                      &options, ctx->exec_context()));
 
-  std::shared_ptr<ArrayData> indices = arr.ToArrayData();
-  indices->type = dict_type.index_type();
-  indices->dictionary = nullptr;
+  auto indices = ArrayData::Make(dict_type.index_type(), arr.length,
+                                 {arr.GetBuffer(0), arr.GetBuffer(1)}, arr.GetNullCount(),
+                                 arr.offset);
   ARROW_ASSIGN_OR_RAISE(Datum taken,
                         Take(dict_is_null, Datum(std::move(indices)),
                              TakeOptions::BoundsCheck(), ctx->exec_context()));
