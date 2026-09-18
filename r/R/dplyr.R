@@ -187,7 +187,8 @@ dim.arrow_dplyr_query <- function(x) {
     # Don't evaluate just for nrow
     rows <- NA_integer_
   } else if (isTRUE(x$filtered_rows)) {
-    rows <- x$.data$num_rows
+    # A RecordBatchReader has no num_rows
+    rows <- x$.data$num_rows %||% NA_integer_
   } else if (query_on_dataset(x)) {
     # TODO: do this with an ExecPlan instead of Scanner (after ARROW-12311)?
     # See also https://github.com/apache/arrow/pull/12533/files#r818129459

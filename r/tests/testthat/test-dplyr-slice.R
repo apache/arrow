@@ -91,8 +91,6 @@ test_that("slice_min/max, ungrouped", {
 })
 
 test_that("slice_sample, ungrouped", {
-  skip_if_not(CanRunWithCapturedR())
-
   tab <- arrow_table(tbl)
   expect_error(
     tab |> slice_sample(replace = TRUE),
@@ -115,23 +113,20 @@ test_that("slice_sample, ungrouped", {
   }
   expect_equal(sampled_prop, 2)
 
-  # Test that slice_sample(n) returns n rows
-  # With a larger dataset, we would be more confident to get exactly n
-  # but with this dataset, we should at least not get >n rows
+  # Test that slice_sample(n) returns exactly n rows
   sampled_n <- tab |>
     slice_sample(n = 2) |>
     collect() |>
     nrow()
-  expect_lte(sampled_n, 2)
+  expect_equal(sampled_n, 2)
 
-  # Test with dataset, which matters for the UDF HACK
   skip_if_not_available("dataset")
   sampled_n <- tab |>
     InMemoryDataset$create() |>
     slice_sample(n = 2) |>
     collect() |>
     nrow()
-  expect_lte(sampled_n, 2)
+  expect_equal(sampled_n, 2)
 })
 
 test_that("slice_* not supported with groups", {
@@ -210,11 +205,13 @@ test_that("n <-> prop conversion when nrow is not known", {
     "Slicing with `prop` when"
   )
 
-  expect_error(
+  # slice_sample(n) doesn't need to know nrow up front
+  expect_equal(
     joined |>
-      slice_sample(n = 5),
-    "slice_sample() with `n` when",
-    fixed = TRUE
+      slice_sample(n = 5) |>
+      collect() |>
+      nrow(),
+    5
   )
 })
 
@@ -226,4 +223,86 @@ test_that("slice_sample with prop = 1 returns all data", {
     collect()
   expect_equal(nrow(result), nrow(tbl))
   expect_setequal(result$int, tbl$int)
+})
+
+test_that("slice_sample(n) on a partitioned parquet dataset returns n rows", {
+  # GH-38638: the filter used to be folded against parquet row-group statistics,
+  # so whole row groups were dropped and the result was usually empty
+  skip_if_not_available("dataset")
+  skip_if_not_available("parquet")
+  ds_dir <- make_temp_dir()
+  write_dataset(group_by(mtcars, cyl), ds_dir)
+  ds <- open_dataset(ds_dir)
+  for (i in 1:20) {
+    expect_equal(nrow(collect(slice_sample(ds, n = 3))), 3)
+  }
+})
+
+test_that("slice_sample(n) draws from the whole table, without duplicates", {
+  # GH-38638: sampling used to take the first n rows that passed a random filter,
+  # so rows near the start of the data were almost always the ones returned
+  tab <- arrow_table(x = 1:1000)
+  picked <- integer(0)
+  for (i in 1:20) {
+    draw <- collect(slice_sample(tab, n = 5))$x
+    expect_length(draw, 5)
+    expect_false(anyDuplicated(draw) > 0)
+    picked <- c(picked, draw)
+  }
+  # With a uniform sample, P(all 100 picks <= 500) is 2^-100
+  expect_gt(max(picked), 500)
+})
+
+test_that("slice_sample edge cases for n", {
+  tab <- arrow_table(tbl)
+  # n larger than nrow returns everything
+  expect_equal(
+    tab |> slice_sample(n = 100) |> collect() |> nrow(),
+    nrow(tbl)
+  )
+  expect_equal(
+    tab |> slice_sample(n = 0) |> collect() |> nrow(),
+    0
+  )
+  # dplyr default is n = 1
+  expect_equal(
+    tab |> slice_sample() |> collect() |> nrow(),
+    1
+  )
+  # nrow is unknown for a RecordBatchReader, so there is no pre-filtering.
+  # Use a table with many more columns than rows to catch nrow() reporting
+  # ncol(): pre-filtering at 203 / 1000 would leave far fewer than 40 rows.
+  wide <- arrow_table(as.data.frame(matrix(1, nrow = 50, ncol = 1000)))
+  expect_equal(
+    wide |> as_record_batch_reader() |> slice_sample(n = 40) |> collect() |> nrow(),
+    40
+  )
+})
+
+test_that("slice_sample(prop) on a partitioned parquet dataset", {
+  skip_if_not_available("dataset")
+  skip_if_not_available("parquet")
+  ds_dir <- make_temp_dir()
+  write_dataset(group_by(mtcars, cyl), ds_dir)
+  ds <- open_dataset(ds_dir)
+  row_counts <- vapply(1:30, function(i) nrow(collect(slice_sample(ds, prop = 0.5))), 1)
+  # Binomial(32, 0.5) has mean 16 and sd 2.8; the mean of 30 draws has sd 0.5
+  expect_gt(mean(row_counts), 12)
+  expect_lt(mean(row_counts), 20)
+})
+
+test_that("slice_sample input validation", {
+  tab <- arrow_table(tbl)
+  for (bad_n in list("a", -1, c(1, 2), NA_real_)) {
+    expect_error(
+      slice_sample(tab, n = !!bad_n),
+      "`n` must be a single non-negative numeric value",
+      fixed = TRUE
+    )
+  }
+  expect_error(
+    slice_sample(tab, n = 2, prop = 0.5),
+    "Must supply exactly one of `n` and `prop`",
+    fixed = TRUE
+  )
 })

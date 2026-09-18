@@ -761,3 +761,11 @@ test_that("nested field ref error handling", {
     "No match"
   )
 })
+
+test_that("dim() on a query over a RecordBatchReader has NA rows", {
+  q <- tbl |>
+    arrow_table() |>
+    as_record_batch_reader() |>
+    as_adq()
+  expect_identical(dim(q), c(NA_integer_, ncol(tbl)))
+})

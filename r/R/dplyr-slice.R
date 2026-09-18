@@ -77,7 +77,6 @@ slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, by = NULL
 }
 slice_max.Dataset <- slice_max.ArrowTabular <- slice_max.RecordBatchReader <- slice_max.arrow_dplyr_query
 
-#' @importFrom stats runif
 slice_sample.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL, weight_by = NULL, replace = FALSE) {
   check_not_grouped(.data, {{ by }})
   if (replace) {
@@ -90,42 +89,44 @@ slice_sample.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL, weigh
   }
   check_dots_empty()
 
-  # If we want n rows sampled, we have to convert n to prop, oversample some
-  # just to make sure we get enough, then head(n)
-  sampling_n <- missing(prop)
-  if (sampling_n) {
-    prop <- min(n_to_prop(.data, n) + 0.05, 1)
+  if (missing(n) && missing(prop)) {
+    # dplyr's default
+    n <- 1
+  } else if (!missing(n) && !missing(prop)) {
+    validation_error("Must supply exactly one of `n` and `prop`")
   }
-  validate_prop(prop)
+  .data <- as_adq(.data)
 
-  if (prop < 1) {
-    .data <- as_adq(.data)
-    # TODO(ARROW-17974): use Expression$create("random") instead of UDF hack
-    # HACK: use a UDF to generate random. It needs an input column because
-    # nullary functions don't work, and that column has to be typed. We've
-    # chosen boolean() type because it's compact and can always be created:
-    # pick any column and do is.na, that will be boolean.
-    if (is.null(.cache$functions[["_random_along"]])) {
-      register_scalar_function(
-        "_random_along",
-        function(context, x) {
-          Array$create(runif(length(x)))
-        },
-        in_type = schema(x = boolean()),
-        out_type = float64(),
-        auto_convert = FALSE
-      )
+  if (missing(n)) {
+    # Sampling a proportion: keep each row independently with probability prop.
+    # This streams, but the number of rows returned is only approximately
+    # prop * nrow(.data).
+    validate_prop(prop)
+    if (prop < 1) {
+      .data <- set_filters(.data, Expression$create("random") < prop)
     }
-    # TODO: get an actual FieldRef because the first col could be derived
-    ref <- Expression$create("is_null", .data$selected_columns[[1]])
-    expr <- Expression$create("_random_along", ref) < prop
-    .data <- set_filters(.data, expr)
-  }
-  if (sampling_n) {
-    .data <- head(.data, n)
+    return(.data)
   }
 
-  .data
+  # Sampling n rows: sort by a random number and take the first n.
+  # Sorting requires all of the data in memory, so when we know how many rows
+  # there are, first filter down to a random subset that is almost certainly
+  # bigger than n. The number of rows that pass the filter is Binomial with
+  # standard deviation <= sqrt(oversample) <= sqrt(n) + 10, so the margin of
+  # 10 * sqrt(n) + 100 rows is at least 10 standard deviations. Each row passes
+  # the filter independently, so a uniform sample of the rows that pass is also
+  # a uniform sample of the whole.
+  validate_n(n)
+  nrows <- nrow(.data)
+  oversample <- n + 10 * sqrt(n) + 100
+  if (!is.na(nrows) && oversample < nrows) {
+    .data <- set_filters(.data, Expression$create("random") < oversample / nrows)
+  }
+  # This sort key isn't in selected_columns so it gets projected away after
+  # sorting, see ensure_arrange_vars()
+  .data$arrange_vars <- c(list(..random = Expression$create("random")), .data$arrange_vars)
+  .data$arrange_desc <- c(FALSE, .data$arrange_desc)
+  head(.data, n)
 }
 slice_sample.Dataset <- slice_sample.ArrowTabular <- slice_sample.RecordBatchReader <- slice_sample.arrow_dplyr_query
 
@@ -139,20 +140,17 @@ prop_to_n <- function(.data, prop) {
   nrows * prop
 }
 
+validate_n <- function(n) {
+  if (!is.numeric(n) || length(n) != 1 || is.na(n) || n < 0) {
+    validation_error("`n` must be a single non-negative numeric value")
+  }
+}
+
 validate_prop <- function(prop) {
   if (!is.numeric(prop) || length(prop) != 1 || is.na(prop) || prop < 0 || prop > 1) {
     validation_error("`prop` must be a single numeric value between 0 and 1")
   }
 }
-
-n_to_prop <- function(.data, n) {
-  nrows <- nrow(.data)
-  if (is.na(nrows)) {
-    arrow_not_supported("slice_sample() with `n` when the query has joins or aggregations")
-  }
-  n / nrows
-}
-
 
 check_not_grouped <- function(.data, by) {
   by <- enquo(by)
