@@ -1,0 +1,109 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[workspace]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64"]
+preview = ["pixi-build"]
+
+[environments]
+test    = ["test"]
+
+[feature.test]
+platforms = ["linux-64"]
+
+[feature.test.activation.env]
+ARROW_TEST_DATA = "/arrow/testing/data"
+PARQUET_TEST_DATA = "/arrow/cpp/submodules/parquet-testing/data"
+# GH-39973: debug memory pool conflicts with ASAN
+ARROW_DEBUG_MEMORY_POOL = "none"
+ASAN_OPTIONS = "detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1:use_sigaltstack=0"
+UBSAN_OPTIONS = "print_stacktrace=1"
+
+[feature.test.dependencies]
+hypothesis = "*"
+pyarrow = { path = "." }
+pytest = "*"
+pytest-timeout = "*"
+
+[feature.test.tasks]
+test = "pytest -r s --pyargs pyarrow --timeout=180"
+
+[package]
+name = "pyarrow"
+version = "25.0.0a0"
+authors = ["Apache Arrow"]
+
+[package.build]
+source.path = "../../../../python"
+
+[package.build.backend]
+name = "pixi-build-python"
+version = "*"
+
+[package.build.config]
+compilers = ["c", "cxx"]
+extra-args = [
+    "-Ccmake.build-type=Debug",
+    "-Ccmake.define.ARROW_USE_ASAN=ON",
+    "-Ccmake.define.ARROW_USE_UBSAN=ON",
+]
+env = {
+    PYARROW_BUNDLE_ARROW_CPP = "0",
+    CMAKE_GENERATOR = "Ninja",
+    ARROW_HOME = "$PREFIX",
+    ASAN_OPTIONS = "detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1:use_sigaltstack=0"
+}
+
+[package.host-dependencies]
+# Sanitizer-instrumented Arrow C++ (sibling pixi package).
+arrow-cpp = { path = "../cpp" }
+cmake = "*"
+cython = ">=3.0"
+gcc_linux-64 = "*"
+git = "*"
+gxx_linux-64 = "*"
+ninja = "*"
+pip = "*"
+pkg-config = "*"
+scikit-build-core = "*"
+setuptools-scm = "*"
+sysroot_linux-64 = "*"
+zlib = "*"
+# Instrumented CPython built from source (v3.15.0a6).
+# commit hash must match numpy's pixi-packages/asan pinned commit,
+# so pixi-build doesn't build cpython twice with different versions.
+python.git = "https://github.com/python/cpython"
+python.subdirectory = "Tools/pixi-packages/asan"
+python.rev = "15b216f30d0445469ec31bc7509fcc55a216ef7c"
+# Instrumented NumPy built from source.
+numpy.git = "https://github.com/numpy/numpy"
+numpy.subdirectory = "pixi-packages/asan"
+numpy.rev = "0419105da9cd0a15a4e02bc22019c2b65272c68a"
+
+[package.run-dependencies]
+arrow-cpp = { path = "../cpp" }
+# The following are necessary to run the Python test suite,
+# which otherwise won't be run with the instrumented Python and NumPy.
+# Important to use the same revisions as in host-dependencies to avoid
+# mismatches between build and test environments.
+python.git = "https://github.com/python/cpython"
+python.subdirectory = "Tools/pixi-packages/asan"
+python.rev = "15b216f30d0445469ec31bc7509fcc55a216ef7c"
+numpy.git = "https://github.com/numpy/numpy"
+numpy.subdirectory = "pixi-packages/asan"
+numpy.rev = "0419105da9cd0a15a4e02bc22019c2b65272c68a"
