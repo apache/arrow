@@ -25,7 +25,7 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/vendored/uriparser/Uri.h"
+#include <uriparser/Uri.h>
 
 namespace arrow::util {
 
