@@ -725,6 +725,8 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
     return std::numeric_limits<FixedSizeListType::offset_type>::max() - 1;
   }
 
+  void UnsafeAppend();
+
  protected:
   std::shared_ptr<Field> value_field_;
   const int32_t list_size_;
