@@ -4347,7 +4347,7 @@ endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
   if(NOT WIN32)
-    find_curl()
+    find_curl(ARROW)
   endif()
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
