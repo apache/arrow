@@ -41,6 +41,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -1263,6 +1264,82 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   std::shared_ptr<::arrow::Array> result;
   ASSERT_OK(acc.builder->Finish(&result));
   ::arrow::AssertArraysEqual(*values, *result);
+}
+
+TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidInput) {
+  auto dictionary = ::arrow::ArrayFromJSON(::arrow::binary(), R"(["a", "bb", "ccc"])");
+  auto owned_encoder =
+      MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true);
+  auto* encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
+  ASSERT_NE(encoder, nullptr);
+  ASSERT_NO_THROW(encoder->PutDictionary(*dictionary));
+
+  auto dictionary_buffer =
+      AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
+  encoder->WriteDict(dictionary_buffer->mutable_data());
+
+  auto dictionary_decoder =
+      MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, /*descr=*/nullptr);
+  dictionary_decoder->SetData(encoder->num_entries(), dictionary_buffer->data(),
+                              static_cast<int>(dictionary_buffer->size()));
+
+  auto decoder = MakeDictDecoder<ByteArrayType>();
+  decoder->SetDict(dictionary_decoder.get());
+
+  auto ExpectDecodeFailure = [&](const uint8_t* data, int size) {
+    decoder->SetData(/*num_values=*/1, data, size);
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    ASSERT_THROW(
+        decoder->DecodeArrow(/*num_values=*/1, /*null_count=*/0,
+                             /*valid_bits=*/nullptr, /*valid_bits_offset=*/0, &acc),
+        ParquetException);
+  };
+
+  constexpr int kBitWidth = 2;
+  std::vector<uint8_t> invalid_index_data(
+      1 + ::arrow::util::RleBitPackedEncoder::MaxBufferSize(kBitWidth, /*num_values=*/1) +
+      ::arrow::util::RleBitPackedEncoder::MinBufferSize(kBitWidth));
+  invalid_index_data[0] = kBitWidth;
+  ::arrow::util::RleBitPackedEncoder index_encoder(
+      invalid_index_data.data() + 1, static_cast<int>(invalid_index_data.size() - 1),
+      kBitWidth);
+  ASSERT_TRUE(index_encoder.Put(/*value=*/3));
+  const int invalid_index_size = 1 + index_encoder.Flush();
+  ExpectDecodeFailure(invalid_index_data.data(), invalid_index_size);
+
+  const uint8_t truncated_index_data[] = {kBitWidth};
+  ExpectDecodeFailure(truncated_index_data, sizeof(truncated_index_data));
+
+  auto valid_indices = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 1])");
+  ASSERT_NO_THROW(encoder->PutIndices(*valid_indices));
+  auto valid_index_data = encoder->FlushValues();
+
+  auto ExpectValidityBitmapFailure = [&](const char* case_name, int num_values,
+                                         int null_count, uint8_t valid_bits) {
+    SCOPED_TRACE(case_name);
+    for (const auto& type : {::arrow::binary(), ::arrow::utf8(), ::arrow::large_binary(),
+                             ::arrow::large_utf8()}) {
+      SCOPED_TRACE(type->ToString());
+      decoder->SetData(num_values, valid_index_data->data(),
+                       static_cast<int>(valid_index_data->size()));
+      typename EncodingTraits<ByteArrayType>::Accumulator acc;
+      ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(type));
+      ASSERT_THROW(decoder->DecodeArrow(num_values, null_count, &valid_bits,
+                                        /*valid_bits_offset=*/0, &acc),
+                   ParquetException);
+    }
+  };
+
+  // More non-null slots than promised by null_count must not read past the
+  // predecoded indices buffer.
+  ExpectValidityBitmapFailure("more non-null slots", /*num_values=*/2,
+                              /*null_count=*/1,
+                              /*valid_bits=*/0b00000011);
+  // Fewer non-null slots must not silently leave predecoded indices unconsumed.
+  ExpectValidityBitmapFailure("fewer non-null slots", /*num_values=*/3,
+                              /*null_count=*/1,
+                              /*valid_bits=*/0b00000001);
 }
 
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
