@@ -3800,7 +3800,9 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   # avoid conflict.
   find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
-  if(ARROW_BUILD_STATIC AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+  if(ARROW_BUILD_STATIC
+     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
+     AND NOT ARROW_PC_REQUIRES_PRIVATE MATCHES "libcurl")
     string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
   endif()
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
@@ -4356,7 +4358,10 @@ if(ARROW_WITH_AZURE_SDK)
     find_package(LibXml2 REQUIRED)
     list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
     if(ARROW_BUILD_STATIC)
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl libxml-2.0")
+      if(NOT ARROW_PC_REQUIRES_PRIVATE MATCHES "libcurl")
+        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+      endif()
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libxml-2.0")
     endif()
   endif()
 endif()
