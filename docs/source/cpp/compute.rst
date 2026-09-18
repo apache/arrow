@@ -1926,6 +1926,10 @@ Structural transforms
 | map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(5)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(6)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------|
+| run_end_decode      | Unary      | Run-end encoded                     | Values array     |                              |        |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| run_end_encode      | Unary      | Array-like                          | Run-end encoded  | :struct:`RunEndEncodeOptions`| \(7)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
@@ -1955,6 +1959,7 @@ Structural transforms
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:
   float64>>``:
+* \(7) Encodes an array-like input as a run-end encoded array.
 
   * An empty sequence of indices yields the original value unchanged.
   * The index ``0`` yields an array of type ``int32`` whose validity
