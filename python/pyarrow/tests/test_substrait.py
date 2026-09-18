@@ -1100,6 +1100,12 @@ def test_serializing_schema():
     returned = pa.substrait.deserialize_expressions(arrow_substrait_schema.expression)
     assert returned.schema == expected_schema
 
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pa.substrait.serialize_schema(0)
+
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pa.substrait.serialize_expressions([], [], 0)
+
 
 def test_bound_expression_from_Message():
     class FakeMessage:

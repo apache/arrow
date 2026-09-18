@@ -240,6 +240,9 @@ def test_option_class_equality(request):
     assert repr(pc.ArraySortOptions()) == \
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
+    with pytest.raises(TypeError, match="Argument 'value' has incorrect type"):
+        pc.IndexOptions(0)
+
 
 @pytest.mark.parametrize("value", [None, 1, [], b""])
 def test_function_options_deserialize_rejects_non_buffers(value):
