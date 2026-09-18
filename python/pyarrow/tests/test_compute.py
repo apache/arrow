@@ -2645,8 +2645,8 @@ def _check_datetime_components(timestamps, timezone=None):
     year = ts.dt.year.astype("int64")
     month = ts.dt.month.astype("int64")
     day = ts.dt.day.astype("int64")
-    dayofweek = ts.dt.dayofweek.astype("int64")
-    dayofyear = ts.dt.dayofyear.astype("int64")
+    dayofweek = ts.dt.day_of_week.astype("int64")
+    dayofyear = ts.dt.day_of_year.astype("int64")
     quarter = ts.dt.quarter.astype("int64")
     hour = ts.dt.hour.astype("int64")
     minute = ts.dt.minute.astype("int64")
@@ -2969,7 +2969,7 @@ def test_round_temporal(unit):
     if sys.platform == "win32":
         timestamps = timestamps[:3] + timestamps[5:]
 
-    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
+    ts = pd.Series([pd.Timestamp(x) for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",

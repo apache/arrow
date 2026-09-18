@@ -270,10 +270,11 @@ def immutable_tensor():
 @pytest.mark.parametrize('max_version', [None, (0, 8)])
 def test_dlpack_legacy_capsule_immutable_tensor(max_version):
     tensor = immutable_tensor()
-    with pytest.raises(NotImplementedError,
-                       match="Legacy DLPack support is not implemented "
-                             "for immutable tensors"):
-        tensor.__dlpack__(max_version=max_version)
+    with pytest.warns(DeprecationWarning, match="unversioned DLPack capsule"):
+        with pytest.raises(NotImplementedError,
+                           match="Legacy DLPack support is not implemented "
+                                 "for immutable tensors"):
+            tensor.__dlpack__(max_version=max_version)
 
 
 @check_bytes_allocated
@@ -307,7 +308,7 @@ def test_dlpack_versioned_capsule(obj, max_version, copy):
 @check_bytes_allocated
 @pytest.mark.parametrize('obj', dlpack_objects())
 def test_dlpack_versioned_roundtrip(obj):
-    expected = np.from_dlpack(DLPackForwarder(obj, max_version=None))
+    expected = np.from_dlpack(DLPackForwarder(obj, max_version=(1, 0)))
     for copy in [None, False, True]:
         result = np.from_dlpack(
             DLPackForwarder(obj, max_version=(1, 0), copy=copy))
@@ -335,24 +336,24 @@ def test_dlpack_not_supported():
     arr = pa.array([1, None, 3])
     with pytest.raises(TypeError, match="Can only use DLPack "
                        "on arrays with no nulls."):
-        np.from_dlpack(arr)
+        np.from_dlpack(DLPackForwarder(arr, max_version=(1, 0)))
 
     arr = pa.array(
         [[0, 1], [3, 4]],
         type=pa.list_(pa.int32())
     )
     with pytest.raises(TypeError, match="DataType is not compatible with DLPack spec"):
-        np.from_dlpack(arr)
+        np.from_dlpack(DLPackForwarder(arr, max_version=(1, 0)))
 
     arr = pa.array([])
     with pytest.raises(TypeError, match="DataType is not compatible with DLPack spec"):
-        np.from_dlpack(arr)
+        np.from_dlpack(DLPackForwarder(arr, max_version=(1, 0)))
 
     # DLPack doesn't support bit-packed boolean values
     arr = pa.array([True, False, True])
     with pytest.raises(TypeError, match="Bit-packed boolean data type "
                        "not supported by DLPack."):
-        np.from_dlpack(arr)
+        np.from_dlpack(DLPackForwarder(arr, max_version=(1, 0)))
 
 
 def test_dlpack_cuda_not_supported():
