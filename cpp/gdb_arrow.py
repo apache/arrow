@@ -1063,6 +1063,8 @@ type_reprs = {
     'FixedSizeBinaryType': 'fixed_size_binary',
     'ListType': 'list',
     'LargeListType': 'large_list',
+    'ListViewType': 'list_view',
+    'LargeListViewType': 'large_list_view',
     'FixedSizeListType': 'fixed_size_list',
     'MapType': 'map',
     'StructType': 'struct_',
@@ -2083,6 +2085,8 @@ type_traits_by_id = {
 
     Type.LIST: DataTypeTraits(BaseListTypeClass, 'ListType'),
     Type.LARGE_LIST: DataTypeTraits(BaseListTypeClass, 'LargeListType'),
+    Type.LIST_VIEW: DataTypeTraits(BaseListTypeClass, 'ListViewType'),
+    Type.LARGE_LIST_VIEW: DataTypeTraits(BaseListTypeClass, 'LargeListViewType'),
     Type.FIXED_SIZE_LIST: DataTypeTraits(FixedSizeListTypeClass,
                                          'FixedSizeListType'),
     Type.MAP: DataTypeTraits(MapTypeClass, 'MapType'),
