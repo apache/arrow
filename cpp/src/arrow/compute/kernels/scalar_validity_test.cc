@@ -173,6 +173,32 @@ TEST(TestValidityKernels, IsNullDictionaryNanIsNull) {
                    &nan_is_null_options);
 }
 
+TEST(TestValidityKernels, IsNullDictionaryNullValues) {
+  NullOptions default_options;
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(int32(), float64());
+  auto arr = DictArrayFromJSON(dict_ty, "[0, 1, 2, null]", "[1.5, null, NaN]");
+
+  // A null dictionary value is only reported through the nan_is_null path, which is
+  // where the dictionary is inspected at all.
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, false, false, true]"),
+                   &default_options);
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, true, true]"),
+                   &nan_is_null_options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullUnsignedIndices) {
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(uint8(), float32());
+  auto arr = DictArrayFromJSON(dict_ty, "[2, 0, 1]", "[1.5, NaN, 2.5]");
+
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, false, true]"),
+                   &nan_is_null_options);
+}
+
 TEST(TestValidityKernels, IsNullDictionaryNanIsNullHalfFloat) {
   NullOptions nan_is_null_options(/*nan_is_null=*/true);
 

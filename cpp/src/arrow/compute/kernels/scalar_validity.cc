@@ -21,6 +21,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -103,62 +104,32 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
-template <typename IndexType, typename ValueType>
-static void SetNanBitsDictionary(const ArraySpan& arr, const ArraySpan& dict_span,
-                                 uint8_t* out_bitmap, int64_t out_offset) {
-  const IndexType* indices = arr.GetValues<IndexType>(1);
-  const ValueType* dict_values = dict_span.GetValues<ValueType>(1);
-  for (int64_t i = 0; i < arr.length; ++i) {
-    if (arr.IsNull(i)) {
-      continue;
-    }
-    auto dict_index = indices[i];
-    bool is_nan;
-    if constexpr (std::is_same_v<ValueType, uint16_t>) {
-      is_nan = Float16::FromBits(dict_values[dict_index]).is_nan();
-    } else {
-      is_nan = std::isnan(dict_values[dict_index]);
-    }
-    if (is_nan) {
-      bit_util::SetBit(out_bitmap, i + out_offset);
-    }
+// Maps `is_null` over the dictionary values and then through the indices, so that
+// both NaN and null dictionary entries are reported, whatever the index type.
+static Status SetNullBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
+                                        const NullOptions& options, uint8_t* out_bitmap,
+                                        int64_t out_offset) {
+  if (arr.length == 0) {
+    return Status::OK();
   }
-}
-
-template <typename ValueType>
-static void DispatchIndexType(const ArraySpan& arr, const ArraySpan& dict_span,
-                              uint8_t* out_bitmap, int64_t out_offset) {
   const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
-  switch (dict_type.index_type()->id()) {
-    case Type::INT8:
-      SetNanBitsDictionary<int8_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::INT16:
-      SetNanBitsDictionary<int16_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::INT32:
-      SetNanBitsDictionary<int32_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::INT64:
-      SetNanBitsDictionary<int64_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::UINT8:
-      SetNanBitsDictionary<uint8_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::UINT16:
-      SetNanBitsDictionary<uint16_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::UINT32:
-      SetNanBitsDictionary<uint32_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    case Type::UINT64:
-      SetNanBitsDictionary<uint64_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
-      break;
-    default:
-      DCHECK(false) << "unreachable: unsupported dictionary index type "
-                    << dict_type.index_type()->ToString();
-      break;
-  }
+  ARROW_ASSIGN_OR_RAISE(Datum dict_is_null,
+                        CallFunction("is_null", {arr.dictionary().ToArrayData()},
+                                     &options, ctx->exec_context()));
+
+  std::shared_ptr<ArrayData> indices = arr.ToArrayData();
+  indices->type = dict_type.index_type();
+  indices->dictionary = nullptr;
+  ARROW_ASSIGN_OR_RAISE(Datum taken,
+                        Take(dict_is_null, Datum(std::move(indices)),
+                             TakeOptions::BoundsCheck(), ctx->exec_context()));
+
+  // Slots with a null index are already set from the input validity bitmap, so the
+  // values bitmap can be OR'ed in without masking the nulls out of it first.
+  const ArrayData& result = *taken.array();
+  ::arrow::internal::BitmapOr(out_bitmap, out_offset, result.buffers[1]->data(),
+                              result.offset, arr.length, out_offset, out_bitmap);
+  return Status::OK();
 }
 
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -199,20 +170,8 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   } else if (arr.type->id() == Type::DICTIONARY && options.nan_is_null) {
     const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
     if (is_floating(dict_type.value_type()->id())) {
-      const ArraySpan& dict_span = arr.dictionary();
-      switch (dict_type.value_type()->id()) {
-        case Type::FLOAT:
-          DispatchIndexType<float>(arr, dict_span, out_bitmap, out_span->offset);
-          break;
-        case Type::DOUBLE:
-          DispatchIndexType<double>(arr, dict_span, out_bitmap, out_span->offset);
-          break;
-        case Type::HALF_FLOAT:
-          DispatchIndexType<uint16_t>(arr, dict_span, out_bitmap, out_span->offset);
-          break;
-        default:
-          break;
-      }
+      RETURN_NOT_OK(
+          SetNullBitsFromDictionary(ctx, arr, options, out_bitmap, out_span->offset));
     }
   }
   return Status::OK();
