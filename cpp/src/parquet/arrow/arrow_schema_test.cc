@@ -1279,16 +1279,13 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaGeoArrowExtensions) {
       props.set_arrow_extensions_enabled(true);
       props.set_binary_type(binary_type->id());
       auto arrow_schema = ::arrow::schema(
-          {::arrow::field(
-               "geometry",
-               test::geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})",
-                                  binary_type),
-               true),
+          {::arrow::field("geometry",
+                          test::geoarrow_wkb(R"({"crs": "OGC:CRS84"})", binary_type),
+                          true),
            ::arrow::field(
                "geography",
-               test::geoarrow_wkb(
-                   R"({"crs": "OGC:CRS84", "crs_type": "authority_code", "edges": "spherical"})",
-                   binary_type),
+               test::geoarrow_wkb(R"({"crs": "OGC:CRS84", "edges": "spherical"})",
+                                  binary_type),
                true)});
       std::shared_ptr<KeyValueMetadata> metadata{};
       ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
@@ -1582,10 +1579,9 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
                                                ParquetType::BYTE_ARRAY));
 
   // There are several ways that longitude/latitude could be specified when coming from
-  // GeoArrow, which allows null, missing, arbitrary strings (e.g., Authority:Code), and
-  // PROJJSON.
+  // GeoArrow, which allows arbitrary strings (e.g., Authority:Code) and PROJJSON.
   std::vector<std::string> geoarrow_lonlat = {
-      "null", R"("OGC:CRS84")", R"("EPSG:4326")",
+      R"("OGC:CRS84")", R"("EPSG:4326")",
       // Purely the parts of the PROJJSON that we inspect to check the lon/lat case
       R"({"id": {"authority": "OGC", "code": "CRS84"}})",
       R"({"id": {"authority": "EPSG", "code": "4326"}})",
@@ -1605,6 +1601,23 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
     ASSERT_OK(ConvertSchema(arrow_fields));
     ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
   }
+}
+
+TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsUnknown) {
+  ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
+
+  std::vector<std::shared_ptr<Field>> arrow_fields = {
+      ::arrow::field("geometry", test::geoarrow_wkb(R"({"crs": null})"), true),
+      ::arrow::field("geography", test::geoarrow_wkb(R"({"edges": "spherical"})"), true)};
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+
+  std::vector<NodePtr> parquet_fields = {
+      PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
+                          LogicalType::Geometry("srid:0"), ParquetType::BYTE_ARRAY),
+      PrimitiveNode::Make("geography", Repetition::OPTIONAL,
+                          LogicalType::Geography("srid:0"), ParquetType::BYTE_ARRAY)};
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
 TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
