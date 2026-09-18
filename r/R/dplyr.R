@@ -351,6 +351,12 @@ query_on_dataset <- function(x) {
   any(map_lgl(all_sources(x), ~ inherits(., c("Dataset", "RecordBatchReader"))))
 }
 
+# A RecordBatchReader can only be read once, so evaluating a query on one
+# consumes it
+query_has_reader <- function(x) {
+  any(map_lgl(all_sources(x), ~ inherits(., "RecordBatchReader")))
+}
+
 source_data <- function(x) {
   if (!inherits(x, "arrow_dplyr_query")) {
     x

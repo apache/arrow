@@ -242,15 +242,11 @@ test_that("slice_sample(n) draws from the whole table, without duplicates", {
   # GH-38638: sampling used to take the first n rows that passed a random filter,
   # so rows near the start of the data were almost always the ones returned
   tab <- arrow_table(x = 1:1000)
-  picked <- integer(0)
-  for (i in 1:20) {
-    draw <- collect(slice_sample(tab, n = 5))$x
-    expect_length(draw, 5)
-    expect_false(anyDuplicated(draw) > 0)
-    picked <- c(picked, draw)
-  }
+  draws <- lapply(1:20, function(i) collect(slice_sample(tab, n = 5))$x)
+  expect_true(all(lengths(draws) == 5))
+  expect_false(any(vapply(draws, anyDuplicated, 0L) > 0))
   # With a uniform sample, P(all 100 picks <= 500) is 2^-100
-  expect_gt(max(picked), 500)
+  expect_gt(max(unlist(draws)), 500)
 })
 
 test_that("slice_sample edge cases for n", {
@@ -305,4 +301,32 @@ test_that("slice_sample input validation", {
     "Must supply exactly one of `n` and `prop`",
     fixed = TRUE
   )
+})
+
+test_that("slice_sample(n) on a filtered RecordBatchReader", {
+  # Counting rows to size the pre-filter would consume the reader
+  result <- arrow_table(x = 1:100) |>
+    as_record_batch_reader() |>
+    filter(x > 10) |>
+    slice_sample(n = 3) |>
+    collect()
+  expect_equal(nrow(result), 3)
+  expect_true(all(result$x > 10))
+})
+
+test_that("slice_sample(n) with a column named ..random", {
+  tab <- arrow_table(..random = 100:1, y = 1:100)
+  picked <- unlist(lapply(1:20, function(i) collect(slice_sample(tab, n = 5))$y))
+  # If we had sorted by the user's column, y would always be 100:96
+  expect_lt(min(picked), 50)
+  expect_named(collect(slice_sample(tab, n = 5)), c("..random", "y"))
+
+  # An existing sort key that is no longer selected becomes a temp column too
+  result <- tab |>
+    arrange(..random) |>
+    select(y) |>
+    slice_sample(n = 5) |>
+    collect()
+  expect_named(result, "y")
+  expect_equal(nrow(result), 5)
 })

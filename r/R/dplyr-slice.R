@@ -117,14 +117,24 @@ slice_sample.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL, weigh
   # the filter independently, so a uniform sample of the rows that pass is also
   # a uniform sample of the whole.
   validate_n(n)
-  nrows <- nrow(.data)
+  if (query_has_reader(.data)) {
+    # Counting rows would consume the reader
+    nrows <- NA_integer_
+  } else {
+    # For a filtered query this evaluates the filter, which is an extra pass
+    # over the data, but that's cheaper than sorting all of it
+    nrows <- nrow(.data)
+  }
   oversample <- n + 10 * sqrt(n) + 100
   if (!is.na(nrows) && oversample < nrows) {
     .data <- set_filters(.data, Expression$create("random") < oversample / nrows)
   }
   # This sort key isn't in selected_columns so it gets projected away after
-  # sorting, see ensure_arrange_vars()
-  .data$arrange_vars <- c(list(..random = Expression$create("random")), .data$arrange_vars)
+  # sorting, see ensure_arrange_vars(). Its name must not clash with a selected
+  # column or with an existing sort key that will also be a temp column.
+  existing <- c(names(.data), names(.data$arrange_vars))
+  key <- make.unique(c(existing, "..random"))[length(existing) + 1]
+  .data$arrange_vars <- c(set_names(list(Expression$create("random")), key), .data$arrange_vars)
   .data$arrange_desc <- c(FALSE, .data$arrange_desc)
   head(.data, n)
 }
