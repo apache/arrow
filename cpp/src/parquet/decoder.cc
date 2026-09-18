@@ -30,6 +30,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#  include <xsimd/xsimd.hpp>
+#endif
+
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
@@ -1434,6 +1438,71 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
 // ----------------------------------------------------------------------
 // DELTA_BINARY_PACKED decoder
 
+namespace {
+
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+// One step of an inclusive scan, recursed at compile time over powers of two. Each step
+// adds the vector to a copy of itself slid up by kShift lanes, zero-filling the lanes
+// it vacates, so after the last step lane k holds the sum of lanes 0 through k.
+template <std::size_t kShift, typename Batch>
+Batch InclusiveScanSteps(Batch v) {
+  if constexpr (kShift < Batch::size) {
+    v += xsimd::slide_left<kShift * sizeof(typename Batch::value_type)>(v);
+    return InclusiveScanSteps<kShift * 2>(v);
+  } else {
+    return v;
+  }
+}
+#endif
+
+// Turns a run of deltas into the values they encode, in place: on return element k holds
+// `last + (k + 1) * min_delta + sum of deltas 0..k`, and the return value is the last
+// element. Every term is unsigned, so the wrapping matches the loop this replaces.
+template <typename T>
+std::make_unsigned_t<T> PrefixSumDeltas(T* values, int num_values,
+                                        std::make_unsigned_t<T> min_delta,
+                                        std::make_unsigned_t<T> last) {
+  using UT = std::make_unsigned_t<T>;
+  int i = 0;
+
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+  using Batch = xsimd::batch<UT>;
+  constexpr int kLanes = static_cast<int>(Batch::size);
+  // At two lanes the scan loses to the additions it replaces, so it is compiled only
+  // where a register holds four or more values; narrower ones use the loop below.
+  if constexpr (kLanes >= 4) {
+    // Broadcast pattern for the last lane, which carries the running value into the
+    // next vector without a round trip through a general-purpose register.
+    struct LastLane {
+      static constexpr unsigned get(unsigned /*index*/, unsigned size) {
+        return size - 1;
+      }
+    };
+    const auto last_lane =
+        xsimd::make_batch_constant<UT, LastLane, xsimd::default_arch>();
+    const Batch min_delta_v(min_delta);
+    Batch carry(last);
+    for (; i + kLanes <= num_values; i += kLanes) {
+      // Adding the frame before the scan turns its running multiple into a term the
+      // scan produces, rather than a multiply per lane.
+      Batch v = xsimd::bitwise_cast<UT>(xsimd::batch<T>::load_unaligned(values + i));
+      v = InclusiveScanSteps<1>(v + min_delta_v) + carry;
+      xsimd::bitwise_cast<T>(v).store_unaligned(values + i);
+      carry = xsimd::swizzle(v, last_lane);
+    }
+    last = carry.get(0);
+  }
+#endif
+
+  for (; i < num_values; ++i) {
+    last += min_delta + static_cast<UT>(values[i]);
+    values[i] = static_cast<T>(last);
+  }
+  return last;
+}
+
+}  // namespace
+
 template <typename DType>
 class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
  public:
@@ -1692,17 +1761,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
             values_decode) {
           ParquetException::EofException();
         }
-        // Held in locals because a store to `buffer` may alias these members, which
-        // would force a reload of each per value.
-        UT last = static_cast<UT>(last_value_);
-        const UT min_delta = static_cast<UT>(min_delta_);
-        for (int j = 0; j < values_decode; ++j) {
-          // Addition between min_delta, packed int and last_value should be treated as
-          // unsigned addition. Overflow is as expected.
-          last += min_delta + static_cast<UT>(buffer[i + j]);
-          buffer[i + j] = last;
-        }
-        last_value_ = static_cast<T>(last);
+        last_value_ = static_cast<T>(PrefixSumDeltas(buffer + i, values_decode,
+                                                     static_cast<UT>(min_delta_),
+                                                     static_cast<UT>(last_value_)));
       }
       // The last miniblock of a coalesced run becomes the current one, fully drained.
       mini_block_idx_ += mini_blocks_coalesced;
