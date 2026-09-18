@@ -37,6 +37,9 @@ documentation and source code for these libraries.
    * - .NET
      - `.NET Docs <https://arrow.apache.org/dotnet/>`_ :fa:`external-link-alt`
      - `.NET Source <https://github.com/apache/arrow-dotnet>`_
+   * - C
+     - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_ :fa:`external-link-alt`
+     - `nanoarrow Source <http://github.com/apache/arrow-nanoarrow>`_
    * - C++
      - :doc:`C++ Docs<cpp/index>`
      - `C++ Source <https://github.com/apache/arrow/tree/main/cpp>`_
@@ -74,16 +77,29 @@ documentation and source code for these libraries.
      - `Swift Docs <https://arrow.apache.org/swift/>`_ :fa:`external-link-alt`
      - `Swift Source <https://github.com/apache/arrow-swift>`_
 
-In addition to the libraries listed above, the Arrow project hosts the
-**nanoarrow** subproject which provides a set of lightweight libraries
-designed to help produce and consume Arrow data.
+Third-party Implementations
+===========================
+
+There are also a number of third-party open source implementations of Apache Arrow.
 
 .. list-table::
-   :header-rows: 0
+   :header-rows: 1
 
-   * - nanoarrow
-     - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_ :fa:`external-link-alt`
-     - `nanoarrow Source <http://github.com/apache/arrow-nanoarrow>`_
+   * - Language/project
+     - Docs
+     - Source
+   * - C++20/Sparrow
+     - `Sparrow Docs <https://man-group.github.io/sparrow/>`_ :fa:`external-link-alt`
+     - `Sparrow Source <https://github.com/man-group/sparrow>`_
+   * - JavaScript/Flechette
+     - `Flechette Docs <https://idl.uw.edu/flechette/>`_ :fa:`external-link-alt`
+     - `Flechette Source <https://github.com/uwdata/flechette>`_
+   * - Python/arro3
+     - `arro3 Docs <https://kylebarron.dev/arro3/latest/>`_ :fa:`external-link-alt`
+     - `arro3 Source <https://github.com/kylebarron/arro3>`_
+   * - Rust/narrow
+     - `narrow Docs <https://mbrobbel.github.io/narrow/narrow/>`_ :fa:`external-link-alt`
+     - `narrow Source <https://github.com/mbrobbel/narrow>`_
 
 Implementation Status
 =====================
