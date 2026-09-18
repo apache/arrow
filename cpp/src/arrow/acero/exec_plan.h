@@ -193,9 +193,10 @@ class ARROW_ACERO_EXPORT ExecNode {
   /// new ordering based on the hash keys).
   ///
   /// Some nodes will require an ordering.  For example, a fetch node or an
-  /// asof join node will only function if the input data is ordered (for fetch
-  /// it is enough to be implicitly ordered.  For an asof join the ordering must
-  /// be explicit and compatible with the on key.)
+  /// asof join node will only function if the input data is ordered.  For fetch,
+  /// implicit ordering is sufficient.  An asof join accepts implicit ordering after
+  /// validating the on key at runtime; explicit ordering must be compatible with the
+  /// on key.
   ///
   /// Nodes that maintain ordering should be careful to avoid introducing gaps
   /// in the batch index.  This may require emitting empty batches in order to

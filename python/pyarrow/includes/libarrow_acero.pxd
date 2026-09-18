@@ -83,8 +83,15 @@ cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
         CFieldRef on_key
         vector[CFieldRef] by_key
 
+    cdef struct CAsofJoinToleranceRange "arrow::acero::AsofJoinNodeOptions::ToleranceRange":
+        int64_t lower
+        int64_t upper
+
     cdef cppclass CAsofJoinNodeOptions "arrow::acero::AsofJoinNodeOptions"(CExecNodeOptions):
         CAsofJoinNodeOptions(vector[CAsofJoinKeys] keys, int64_t tolerance)
+        CAsofJoinNodeOptions(vector[CAsofJoinKeys] keys,
+                             CAsofJoinToleranceRange tolerance,
+                             c_bool prefer_earlier_on_tie)
 
 
 cdef extern from "arrow/acero/exec_plan.h" namespace "arrow::acero" nogil:

@@ -924,7 +924,8 @@ cdef class Dataset(_Weakrefable):
             output_type=InMemoryDataset
         )
 
-    def join_asof(self, right_dataset, on, by, tolerance, right_on=None, right_by=None):
+    def join_asof(self, right_dataset, on, by, tolerance, right_on=None, right_by=None,
+                  prefer_earlier_on_tie=True):
         """
         Perform an asof join between this dataset and another one.
 
@@ -946,22 +947,21 @@ cdef class Dataset(_Weakrefable):
             The column from current dataset that should be used as the "on" key
             of the join operation left side.
 
-            An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if ``right.on - left.on`` is in the range
-            ``[min(0, tolerance), max(0, tolerance)]``.
+            An inexact match is used on the "on" key. A row is eligible when
+            ``right.on - left.on`` is in the configured tolerance range.
 
             The input table must be sorted by the "on" key. Must be a single
             field of a common type.
 
-            Currently, the "on" key must be an integer, date, or timestamp type.
+            Currently, the "on" key must be an integer, date, time, or timestamp type.
         by : str or list[str]
             The columns from current dataset that should be used as the keys
             of the join operation left side. The join operation is then done
             only for the matches in these columns.
-        tolerance : int
+        tolerance : int or 2-tuple of int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with a left row if ``right.on - left.on`` is in the range
-            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
+            eligible when ``right.on - left.on`` is in the configured inclusive
+            range. A scalar ``tolerance`` preserves the directional behavior:
 
             - negative, in which case a past-as-of-join occurs
               (match iff ``tolerance <= right.on - left.on <= 0``);
@@ -969,6 +969,10 @@ cdef class Dataset(_Weakrefable):
               (match iff ``0 <= right.on - left.on <= tolerance``);
             - or zero, in which case an exact-as-of-join occurs
               (match iff ``right.on == left.on``).
+
+            A 2-tuple gives the lower and upper bounds directly. For example,
+            ``(-10, -1)`` performs a backward join that excludes exact matches,
+            while ``(-5, 10)`` searches on both sides.
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -979,6 +983,9 @@ cdef class Dataset(_Weakrefable):
             The columns from the right_dataset that should be used as by keys
             on the join operation right side.
             When ``None`` use the same key names as the left dataset.
+        prefer_earlier_on_tie : bool, default True
+            If two eligible rows are equally close, choose the row with the smaller
+            "on" value when true and the larger "on" value when false.
 
         Returns
         -------
@@ -990,7 +997,8 @@ cdef class Dataset(_Weakrefable):
             right_by = by
         return _pac()._perform_join_asof(self, on, by,
                                          right_dataset, right_on, right_by,
-                                         tolerance, output_type=InMemoryDataset)
+                                         tolerance, prefer_earlier_on_tie,
+                                         output_type=InMemoryDataset)
 
 
 cdef class InMemoryDataset(Dataset):

@@ -687,7 +687,10 @@ class ARROW_ACERO_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 /// Note, this API is experimental and will change in the future
 ///
 /// This node takes one left table and any number of right tables, and asof joins them
-/// together. Batches produced by each input must be ordered by the "on" key.
+/// together. Batches produced by each input must have a meaningful ordering, and
+/// non-null "on" values must be ordered ascending. Explicit input ordering must have the
+/// "on" key as its leading ascending sort key and follows that key's null placement.
+/// Null placement is ignored for implicitly ordered input.
 /// This node will output one row for each row in the left table.
 class ARROW_ACERO_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
@@ -699,23 +702,42 @@ class ARROW_ACERO_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   struct Keys {
     /// \brief "on" key for the join.
     ///
-    /// The input table must be sorted by the "on" key. Must be a single field of a common
-    /// type. An inexact match is used on the "on" key, i.e. a row is considered a
-    /// match if and only if `right.on - left.on` is in the range
-    /// `[min(0, tolerance), max(0, tolerance)]`.
-    /// Currently, the "on" key must be of an integer, date, or timestamp type.
+    /// Non-null values must be sorted ascending. For explicitly ordered input, this must
+    /// be the leading ascending sort key and its declared null placement must be obeyed.
+    /// Null placement is ignored for implicitly ordered input.
+    /// Must be a single field of a common type. An inexact match is used on the "on" key,
+    /// i.e. a row is eligible if and only if `right.on - left.on` is in the configured
+    /// tolerance range.
+    /// Currently, the "on" key must be of an integer, date, time, or timestamp type.
     FieldRef on_key;
     /// \brief "by" key for the join.
     ///
     /// Each input table must have each field of the "by" key.  Exact equality is used for
     /// each field of the "by" key.
-    /// Currently, each field of the "by" key must be of an integer, date, timestamp, or
-    /// base-binary type.
+    /// Currently, each field of the "by" key must be of a boolean, integer, date, time,
+    /// timestamp, string, binary, fixed-size binary, or decimal type. Dictionary-encoded
+    /// fields are not supported.
     std::vector<FieldRef> by_key;
   };
 
+  /// \brief Inclusive tolerance range for inexact "on" key matching.
+  ///
+  /// A right row is eligible when `right.on - left.on` is in `[lower, upper]`.
+  struct ToleranceRange {
+    int64_t lower;
+    int64_t upper;
+  };
+
   AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance)
-      : input_keys(std::move(input_keys)), tolerance(tolerance) {}
+      : AsofJoinNodeOptions(std::move(input_keys),
+                            ToleranceRange{tolerance < 0 ? tolerance : 0,
+                                           tolerance > 0 ? tolerance : 0}) {}
+
+  AsofJoinNodeOptions(std::vector<Keys> input_keys, ToleranceRange tolerance,
+                      bool prefer_earlier_on_tie = true)
+      : input_keys(std::move(input_keys)),
+        tolerance(std::move(tolerance)),
+        prefer_earlier_on_tie(prefer_earlier_on_tie) {}
 
   /// \brief AsofJoin keys per input table. At least two keys must be given. The first key
   /// corresponds to a left table and all other keys correspond to right tables for the
@@ -723,18 +745,16 @@ class ARROW_ACERO_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   ///
   /// \see `Keys` for details.
   std::vector<Keys> input_keys;
-  /// \brief Tolerance for inexact "on" key matching. A right row is considered a match
-  /// with a left row if `right.on - left.on` is in the range
-  /// `[min(0, tolerance), max(0, tolerance)]`. `tolerance` may be:
-  /// - negative, in which case a past-as-of-join occurs (match iff
-  ///   `tolerance <= right.on - left.on <= 0`);
-  /// - or positive, in which case a future-as-of-join occurs (match iff
-  ///   `0 <= right.on - left.on <= tolerance`);
-  /// - or zero, in which case an exact-as-of-join occurs (match iff
-  ///   `right.on == left.on`).
+  /// \brief Tolerance range for inexact "on" key matching.
   ///
-  /// The tolerance is interpreted in the same units as the "on" key.
-  int64_t tolerance;
+  /// The bounds are interpreted in the same units as the "on" key. `lower` must not be
+  /// greater than `upper`.
+  ToleranceRange tolerance;
+  /// \brief Which side to prefer when eligible rows are equally close.
+  ///
+  /// If two rows on opposite sides of the left row are equally close, choose the row
+  /// with the smaller "on" value when true and the larger "on" value when false.
+  bool prefer_earlier_on_tie;
 };
 
 /// \brief a node which select top_k/bottom_k rows passed through it
