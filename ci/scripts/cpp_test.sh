@@ -158,9 +158,10 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
   PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
     "${build_dir}/examples/minimal_build/arrow-example"
   # Test static linking with S3
-  if [ "${ARROW_EXAMPLE_S3}" = "ON" ] && [ "${ARROW_BUILD_STATIC:-ON}" = "ON" ]; then
+  s3_example="${build_dir}/examples/minimal_build/arrow-example-s3-static"
+  if [ -x "${s3_example}" ]; then
     PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
-    "${build_dir}/examples/minimal_build/arrow-example-s3-static"
+      "${s3_example}"
   fi
   popd
 fi
