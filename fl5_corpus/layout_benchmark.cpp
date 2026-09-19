@@ -145,13 +145,13 @@ static SeqPayload EncodeSequential(const std::vector<int32_t>& v) {
 // all three input payloads and all output slices -- is carved out of it at a
 // 4096-byte-aligned offset.
 //
-// The earlier version shared only the output buffer and let each input be its
-// own std::vector. That left input-address-mod-4096 free to vary between
-// decoders and, worse, to vary with working set, because the allocator returns
-// differently-placed blocks as the request grows. It produced a ratio that
-// swung from 1.36x to 0.47x between two adjacent bit widths (11 vs 12) on
-// datasets of identical shape, at the largest point and nowhere else -- an
-// address artifact reported as a memory-hierarchy result.
+// Input-address-mod-4096 has to be pinned too, not just the output's. Left to a
+// std::vector per input it varies between decoders and, worse, varies with
+// working set, because the allocator returns differently-placed blocks as the
+// request grows. Unpinned, it moved the ratio from 1.36x to 0.47x between two
+// adjacent bit widths (11 vs 12) on datasets of identical shape, at the largest
+// point and nowhere else -- an address artifact that reads as a memory-hierarchy
+// result.
 static uint8_t* Arena(size_t bytes) {
   static uint8_t* buf = nullptr;
   static size_t cap = 0;
@@ -263,9 +263,8 @@ int main() {
   // and never revisits one, so every page's input is cold however small the page
   // is. So this ladder holds the decode call at page scale and grows the stream
   // instead, by rotating over `src_copies` distinct copies of the payload. It
-  // also names both footprints on every line, because labelling a row by its
-  // output size while the input moves too is how the previous ladder produced a
-  // number nobody could attribute.
+  // also names both footprints on every line: a row labelled by its output size
+  // alone is unattributable when the input moves too.
   struct Point {
     const char* name;
     size_t n;           // values per decode call -- the page-scale decode unit
@@ -572,7 +571,9 @@ int main() {
   constexpr double kCtlCol = 1.05;    // a column ties if within this
   constexpr double kCtlGeo = 1.015;   // the control geomean must be within this
   constexpr double kCtlDrift = 1.02;  // clean-column ratio may differ by this
-  printf("\nvalidity: fl_unpk/intlv is a timing control and must be 1.00x\n");
+  printf(
+      "\nvalidity: fl_unpk/intlv is a timing control and has to tie at 1.00x,\n"
+      "  within the tolerances the legend below names\n");
   printf("  %-9s %8s %8s %8s %9s %9s %7s  %s\n", "point", "ctl gm", "worst",
          "tie/n", "int/sd", "clean", "drift", "quotable");
   int quotable = 0, seen = 0;

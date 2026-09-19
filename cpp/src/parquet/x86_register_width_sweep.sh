@@ -110,7 +110,7 @@ ORDER=()
 for pair in "$@"; do
   if [[ "${pair}" != *=* ]]; then
     echo "error: expected LEVEL=/path/to/binary, got '${pair}'" >&2
-    echo "(the old single-binary form is gone on purpose -- see the header)" >&2
+    echo "(each level needs its own binary -- see the header)" >&2
     exit 1
   fi
   LEVEL="${pair%%=*}"

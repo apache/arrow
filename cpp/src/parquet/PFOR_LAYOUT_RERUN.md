@@ -124,8 +124,8 @@ nm -C build-x86-AVX2/release/parquet-pfor-comparison-benchmark \
   | grep -c UnpackBlockFlToFileOrder
 ```
 
-- **non-zero** → the fused candidate kernel is in the binary. Good.
-- **zero** → `ARROW_SIMD_LEVEL` did not take. Do not run it; the candidate will
+- **non-zero** -> the fused candidate kernel is in the binary. Good.
+- **zero** -> `ARROW_SIMD_LEVEL` did not take. Do not run it; the candidate will
   silently measure the scratch fallback again.
 
 The sweep script also emits a per-binary `objdump` register census into

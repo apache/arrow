@@ -141,6 +141,9 @@ for P in "${POINTS[@]}"; do
   cat "$OUT/verify_$NAME.txt"
 
   # A width that did not materialize is reported, never silently averaged in.
+  # Only the 256-bit points can miss: they are built at AVX2, where the compiler
+  # may still choose xmm. The 128-bit points are built at SSE4_2, where __AVX2__
+  # is undefined and ymm cannot be emitted at all.
   case "$PVW" in
     256) grep -qE '^    ymm: [1-9]' "$OUT/verify_$NAME.txt" \
            || echo "!! WARNING $NAME: no ymm IN KERNEL -- this is NOT a 256-bit point" ;;

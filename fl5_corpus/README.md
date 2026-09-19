@@ -69,4 +69,8 @@ Each point names both its input and output footprint, because the decode call is
 held at page scale (a Parquet data page is ~1 MiB of encoded bytes, so a 32-MiB
 decode call occurs in no reader) while the *stream* is what grows past cache.
 
-Checked in alongside for comparison: `fl5_corpus_x86.{txt,csv}`.
+Checked in alongside: `fl5_corpus_x86.{txt,csv}`, recorded on x86 by an earlier
+version of this harness. Its three points are labelled L1/L2/DRAM by output size
+alone and it carries no store-only reference, so its rows do not correspond to the
+six points above. Read it for the x86 `fl_tpos` kernel and for the ratios within a
+row, not as a working-set comparison against this ladder.
