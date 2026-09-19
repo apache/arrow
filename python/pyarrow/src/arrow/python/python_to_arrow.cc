@@ -255,7 +255,7 @@ class PyValue {
   static Result<double> Convert(const DoubleType*, const O&, I obj) {
     double value;
     if (PyFloat_Check(obj)) {
-      value = PyFloat_AS_DOUBLE(obj);
+      value = PyFloat_AsDouble(obj);
     } else if (internal::PyFloatScalar_Check(obj)) {
       // Other kinds of float-y things
       value = PyFloat_AsDouble(obj);
@@ -295,8 +295,7 @@ class PyValue {
   static Result<int32_t> Convert(const Date32Type*, const O&, I obj) {
     int32_t value;
     if (PyDate_Check(obj)) {
-      auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      value = static_cast<int32_t>(internal::PyDate_to_days(pydate));
+      value = static_cast<int32_t>(internal::PyDate_to_days(obj));
     } else {
       RETURN_NOT_OK(
           internal::CIntFromPython(obj, &value, "Integer too large for date32"));
@@ -307,14 +306,12 @@ class PyValue {
   static Result<int64_t> Convert(const Date64Type*, const O&, I obj) {
     int64_t value;
     if (PyDateTime_Check(obj)) {
-      auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      value = internal::PyDateTime_to_ms(pydate);
+      value = internal::PyDateTime_to_ms(obj);
       // Truncate any intraday milliseconds
       // TODO: introduce an option for this
       value -= value % 86400000LL;
     } else if (PyDate_Check(obj)) {
-      auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      value = internal::PyDate_to_ms(pydate);
+      value = internal::PyDate_to_ms(obj);
     } else {
       RETURN_NOT_OK(
           internal::CIntFromPython(obj, &value, "Integer too large for date64"));
@@ -368,7 +365,7 @@ class PyValue {
       } else {
         ARROW_ASSIGN_OR_RAISE(offset, internal::PyDateTime_utcoffset_s(obj));
       }
-      auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
+      PyObject* dt = obj;
       switch (type->unit()) {
         case TimeUnit::SECOND:
           value = internal::PyDateTime_to_s(dt) - offset;
@@ -445,12 +442,11 @@ class PyValue {
       return output;
     }
     if (PyTuple_Check(obj) && PyTuple_Size(obj) == 3) {
-      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 0), &output.months,
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GetItem(obj, 0), &output.months,
                                              "Months (tuple item #0) too large"));
-      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 1), &output.days,
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GetItem(obj, 1), &output.days,
                                              "Days (tuple item #1) too large"));
-      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 2),
-                                             &output.nanoseconds,
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GetItem(obj, 2), &output.nanoseconds,
                                              "Nanoseconds (tuple item #2) too large"));
       return output;
     }
@@ -460,7 +456,7 @@ class PyValue {
   static Result<int64_t> Convert(const DurationType* type, const O&, I obj) {
     int64_t value;
     if (PyDelta_Check(obj)) {
-      auto dt = reinterpret_cast<PyDateTime_Delta*>(obj);
+      PyObject* dt = obj;
       switch (type->unit()) {
         case TimeUnit::SECOND:
           value = internal::PyDelta_to_s(dt);
@@ -1050,8 +1046,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       PyObject* unicode =
           PyUnicode_FromStringAndSize(field_name.c_str(), field_name.size());
       RETURN_IF_PYERROR();
-      PyList_SET_ITEM(bytes_field_names_.obj(), i, bytes);
-      PyList_SET_ITEM(unicode_field_names_.obj(), i, unicode);
+      PyList_SetItem(bytes_field_names_.obj(), i, bytes);
+      PyList_SetItem(unicode_field_names_.obj(), i, unicode);
     }
     return Status::OK();
   }
@@ -1107,11 +1103,13 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     if (!PyTuple_Check(tuple)) {
       return internal::InvalidType(tuple, "was expecting a tuple");
     }
-    if (PyTuple_GET_SIZE(tuple) != num_fields_) {
+    const Py_ssize_t tuple_size = PyTuple_Size(tuple);
+    RETURN_IF_PYERROR();
+    if (tuple_size != num_fields_) {
       return Status::Invalid("Tuple size must be equal to number of struct fields");
     }
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* value = PyTuple_GET_ITEM(tuple, i);
+      PyObject* value = PyTuple_GetItem(tuple, i);
       RETURN_NOT_OK(this->children_[i]->Append(value));
     }
     return Status::OK();
@@ -1161,13 +1159,17 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status AppendDict(PyObject* dict, PyObject* field_names) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* name = PyList_GetItemRef(field_names, i);
+      // PyList_GetItemRef is a full-C-API (3.13+) function; PyList_GetItem is
+      // the stable-API equivalent, but returns a borrowed reference.
+      PyObject* name = PyList_GetItem(field_names, i);  // borrowed
       RETURN_IF_PYERROR();
-      OwnedRef nameref(name);
-      PyObject* value;
-      PyDict_GetItemRef(dict, name, &value);
-      RETURN_IF_PYERROR();
-      OwnedRef valueref(value);
+      // PyDict_GetItemRef is full-C-API (3.13+); PyDict_GetItemWithError is the
+      // stable-API equivalent (returns NULL for a missing key without raising).
+      PyObject* value = PyDict_GetItemWithError(dict, name);  // borrowed
+      // Both pointers are borrowed and live for the scope of this loop
+      // iteration; do NOT wrap them in OwnedRef (that would underflow the
+      // refcount of the field-name list items / dict values and
+      // use-after-free them).
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
     return Status::OK();
@@ -1197,9 +1199,10 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
 
       // validate that the key and the field name are equal
-      PyObject* name = PyList_GetItemRef(field_names, i);
+      // PyList_GetItemRef is full-C-API (3.13+); PyList_GetItem is stable and
+      // returns a borrowed reference.
+      PyObject* name = PyList_GetItem(field_names, i);  // borrowed
       RETURN_IF_PYERROR();
-      OwnedRef nameref(name);
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
 
@@ -1250,7 +1253,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     // unknown size, exhaust iterator
     *seq = PySequence_List(obj);
     RETURN_IF_PYERROR();
-    *size = static_cast<int64_t>(PyList_GET_SIZE(*seq));
+    *size = static_cast<int64_t>(PyList_Size(*seq));
   } else {
     // size is known but iterator could be infinite
     Py_ssize_t i, n = *size;
@@ -1267,7 +1270,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
         RETURN_IF_PYERROR();
         break;
       }
-      PyList_SET_ITEM(lst, i, item);
+      PyList_SetItem(lst, i, item);
     }
     // Shrink list if len(iterator) < size
     if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
