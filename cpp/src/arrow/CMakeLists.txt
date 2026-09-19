@@ -457,19 +457,11 @@ arrow_add_object_library(ARROW_IO
                          io/caching.cc
                          io/compressed.cc
                          io/file.cc
-                         io/hdfs.cc
-                         io/hdfs_internal.cc
                          io/interfaces.cc
                          io/memory.cc
                          io/slow.cc
                          io/stdio.cc
                          io/transform.cc)
-foreach(ARROW_IO_TARGET ${ARROW_IO_TARGETS})
-  target_link_libraries(${ARROW_IO_TARGET} PRIVATE arrow::hadoop)
-  if(NOT MSVC)
-    target_link_libraries(${ARROW_IO_TARGET} PRIVATE ${CMAKE_DL_LIBS})
-  endif()
-endforeach()
 
 set(ARROW_MEMORY_POOL_SRCS memory_pool.cc)
 if(ARROW_JEMALLOC)
@@ -1006,7 +998,7 @@ if(ARROW_FILESYSTEM)
     endif()
   endif()
   if(ARROW_HDFS)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
+    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc filesystem/hdfs_internal.cc)
   endif()
 
   arrow_add_object_library(ARROW_FILESYSTEM ${ARROW_FILESYSTEM_SRCS})
@@ -1024,6 +1016,9 @@ if(ARROW_FILESYSTEM)
   if(ARROW_HDFS)
     foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
       target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE arrow::hadoop)
+      if(NOT MSVC)
+        target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE ${CMAKE_DL_LIBS})
+      endif()
     endforeach()
   endif()
   if(ARROW_S3)
