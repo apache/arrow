@@ -3040,7 +3040,7 @@ TYPED_TEST(TestAlpEncoding, SpacedRoundTrip) {
 }
 
 TYPED_TEST(TestAlpEncoding, LargeDataset) {
-  // Test with large dataset (multiple pages worth)
+  // Enough values to span more than one page
   ASSERT_NO_FATAL_FAILURE(this->Execute(100000, 1));
 }
 
@@ -3050,8 +3050,8 @@ TYPED_TEST(TestAlpEncoding, RandomData) {
 
   // Spread the magnitude so values land on both sides of the ALP encodable
   // window (`int64(v * 10^e * 10^-f)` overflows for large magnitudes and
-  // falls through to the exception path). The previous ±1000 range stayed
-  // entirely in encodable territory and never exercised the fallback.
+  // falls through to the exception path). A range that stays entirely inside
+  // the window never reaches the fallback.
   std::shared_ptr<::arrow::Array> arr;
   if constexpr (std::is_same_v<c_type, float>) {
     arr = rag.Float32(10000, -1e30f, 1e30f);

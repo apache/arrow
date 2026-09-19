@@ -398,12 +398,11 @@ TYPED_TEST(AlpEdgeCaseTest, JustUnderVectorSize) {
 }
 
 TYPED_TEST(AlpEdgeCaseTest, JustOverVectorSize) {
-  // Test kAlpVectorSize + 1 elements (1025) - requires multiple vectors
+  // One element past a vector, so the input spans two vectors
   std::vector<TypeParam> input(AlpConstants::kAlpVectorSize + 1);
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
-  // For multi-vector, we need to process in chunks
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
 
@@ -645,13 +644,11 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
 // ----------------------------------------------------------------------
 // AlpEncodedVectorView Tests - Alignment Safety
 
-// This test exercises AlpEncodedVectorView::LoadView which was previously
-// vulnerable to undefined behavior from misaligned memory access (ubsan error).
-// The old code used reinterpret_cast to create spans pointing directly into
-// the buffer for exception_positions (uint16_t*) and exceptions (T*), which
-// could violate alignment requirements when bit_packed_size was odd.
-//
-// The fix copies these into aligned std::vector storage.
+// AlpEncodedVectorView::LoadView cannot hand out spans that point straight into
+// the buffer for exception_positions (uint16_t) and exceptions (T): both sit at
+// offsets that depend on bit_packed_size, so an odd size leaves them misaligned
+// and reading through them is undefined behavior that ubsan reports. The view
+// copies both into aligned std::vector storage instead.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
@@ -683,7 +680,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   std::vector<uint8_t> buffer(encoded.GetStoredSize());
   encoded.Store({buffer.data(), buffer.size()});
 
-  // Load using zero-copy view - this was where the ubsan error occurred
+  // Load through the view, which is where the alignment constraint applies
   ASSERT_OK_AND_ASSIGN(auto view, AlpEncodedVectorView<TypeParam>::LoadView(
                                       {buffer.data(), buffer.size()},
                                       static_cast<uint16_t>(input.size())));
@@ -695,8 +692,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   EXPECT_EQ(view.exception_positions().size(), encoded.alp_info().num_exceptions());
   EXPECT_EQ(view.exceptions().size(), encoded.alp_info().num_exceptions());
 
-  // Decompress using the view - this exercises PatchExceptions with the
-  // std::vector members (previously spans that could be misaligned)
+  // Decompress through the view, exercising PatchExceptions against its aligned
+  // std::vector members
   std::vector<TypeParam> output(input.size());
   std::vector<typename AlpCompression<TypeParam>::ExactType> unpacked(input.size());
   compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data(),
