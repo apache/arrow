@@ -45,7 +45,7 @@
 namespace arrow::util::pfor {
 namespace {
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Data Generators
 
 using Int32Gen = std::vector<int32_t> (*)(int64_t);
@@ -151,7 +151,7 @@ std::vector<T> GenTpcdsQuantity(int64_t n) {
   return v;
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Benchmark Core
 
 template <typename T>
@@ -209,7 +209,7 @@ void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
   state.SetItemsProcessed(state.iterations() * num_values);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Non-template wrappers to avoid comma-in-macro issues with BENCHMARK_CAPTURE
 
 void BM_PforEncodeInt32(benchmark::State& state, Int32Gen gen) {
@@ -225,7 +225,7 @@ void BM_PforDecodeInt64(benchmark::State& state, Int64Gen gen) {
   BM_PforDecodeImpl<int64_t>(state, gen);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Benchmark sizes: 1K, 10K, 100K, 1M
 
 static void CustomArgs(benchmark::internal::Benchmark* b) {
@@ -234,7 +234,7 @@ static void CustomArgs(benchmark::internal::Benchmark* b) {
   }
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // INT32 Encode
 
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, Constant, &GenConstant<int32_t>)->Apply(CustomArgs);
@@ -277,7 +277,7 @@ BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsItemSk, &GenTpcdsItemSk<int32_t>)
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsQuantity, &GenTpcdsQuantity<int32_t>)
     ->Apply(CustomArgs);
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // INT64 Encode
 
 BENCHMARK_CAPTURE(BM_PforEncodeInt64, Constant, &GenConstant<int64_t>)->Apply(CustomArgs);

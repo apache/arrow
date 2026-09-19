@@ -33,7 +33,7 @@
 
 namespace arrow::util::pfor {
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Test fixture
 //
 // PFOR is instantiated for int32_t and int64_t, and the two differ in the
@@ -141,7 +141,7 @@ void StoreLE32(uint8_t* dest, uint32_t value) {
 
 }  // namespace
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Constants Tests
 
 TEST(PforConstantsTest, VectorSizeIsPowerOfTwo) {
@@ -154,7 +154,7 @@ TEST(PforConstantsTest, VectorInfoSizes) {
   EXPECT_EQ(PforTypeTraits<int64_t>::kVectorInfoSize, 11);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // BitsRequired Tests
 
 TYPED_TEST(PforTest, BitsRequired) {
@@ -171,7 +171,7 @@ TYPED_TEST(PforTest, BitsRequired) {
             PforTypeTraits<T>::kMaxBitWidth);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // VectorInfo Serialization Tests
 
 TYPED_TEST(PforTest, VectorInfoRoundTrip) {
@@ -238,7 +238,7 @@ TYPED_TEST(PforTest, VectorInfoRejectsUndersizedBuffer) {
   ASSERT_RAISES(Invalid, PforVectorInfo<T>::Load(buf));
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Cost Model Tests
 
 TYPED_TEST(PforTest, CostModelAllIdentical) {
@@ -276,7 +276,7 @@ TYPED_TEST(PforTest, CostModelNoOutliers) {
   EXPECT_LE(result.bit_width, 8);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Vector Encode/Decode Round-Trip Tests
 
 TYPED_TEST(PforTest, VectorSimpleSequence) {
@@ -333,7 +333,7 @@ TYPED_TEST(PforTest, VectorSingleElement) {
   this->RoundTripVector(std::vector<T>{42});
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Page-Level Wrapper Tests
 
 TYPED_TEST(PforTest, PageSmall) { this->RoundTripPage({10, 20, 30, 40, 50}); }
@@ -402,7 +402,7 @@ TYPED_TEST(PforTest, PageZeroMinWithExceptions) {
   this->RoundTripPage(values);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Encode Argument Validation
 
 TYPED_TEST(PforTest, EncodeZeroValuesWritesABareHeader) {
@@ -455,7 +455,7 @@ TYPED_TEST(PforTest, EncodeRejectsUnrepresentableVectorSize) {
                                       compressed.data(), &comp_size));
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Compression Ratio Test
 
 TYPED_TEST(PforTest, ClusteredDataCompresses) {
@@ -471,7 +471,7 @@ TYPED_TEST(PforTest, ClusteredDataCompresses) {
   EXPECT_LT(comp_size, static_cast<int64_t>(plain_size / 2));
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Corrupt Page Tests
 //
 // A PFOR page can come from anywhere, so Decode has to reject a header that
@@ -664,7 +664,7 @@ TYPED_TEST(PforTest, CorruptExceptionDataTruncated) {
                                       5, decoded.data()));
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Output sizing
 
 TYPED_TEST(PforTest, MaxCompressedSizeRejectsInvalidArguments) {

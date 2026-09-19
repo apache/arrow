@@ -51,9 +51,8 @@ using ::arrow::util::Codec;
 namespace parquet {
 namespace {
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — ClickBench-inspired
-// ============================================================================
 
 // Generator pointer type, parameterized on the column value type.
 template <typename T>
@@ -205,9 +204,8 @@ std::vector<int32_t> GenUserAgent(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — TPC-DS (4 most queried columns from store_sales)
-// ============================================================================
 
 std::vector<int32_t> GenTpcdsSoldDateSk(int64_t n) {
   std::vector<int32_t> v(n);
@@ -375,12 +373,11 @@ std::vector<int32_t> GenTaxiFareCents(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — int64 / BIGINT columns (values that require 8 bytes,
 // i.e. exceed the int32 range). Covers the common 64-bit analytic cases:
 // nanosecond timestamps, large surrogate keys, scaled-decimal money, monotone
 // IDs, and wide counters.
-// ============================================================================
 
 // Nanosecond epoch timestamp (Parquet TIMESTAMP(NANOS)): 2024-01-01 base plus
 // up to ~1 day of jitter. Min ~1.70e18 -> very large frame of reference; raw
@@ -440,9 +437,8 @@ std::vector<int64_t> GenByteCount(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Helpers
-// ============================================================================
 
 template <typename T>
 static int32_t ComputeBitWidth(const std::vector<T>& values) {
@@ -467,9 +463,8 @@ static std::shared_ptr<ColumnDescriptor> MakeDescriptor() {
                                             /*max_rep_level=*/0);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // PFOR Encode/Decode
-// ============================================================================
 
 template <typename T>
 static void PforEncodeImpl(benchmark::State& state, GenT<T> gen) {
@@ -541,9 +536,8 @@ static void BM_Pfor64Decode(benchmark::State& state, Gen64 gen) {
   PforDecodeImpl<int64_t>(state, gen);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // DeltaBitPack Encode/Decode
-// ============================================================================
 
 template <typename T>
 static void DeltaBitPackEncodeImpl(benchmark::State& state, GenT<T> gen) {
@@ -611,9 +605,8 @@ static void BM_DeltaBitPack64Decode(benchmark::State& state, Gen64 gen) {
   DeltaBitPackDecodeImpl<int64_t>(state, gen);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Plain + ZSTD Encode/Decode
-// ============================================================================
 
 template <typename T>
 static void PlainCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
@@ -682,9 +675,8 @@ static void BM_PlainZstd64Decode(benchmark::State& state, Gen64 gen) {
   PlainCodecDecodeImpl<int64_t>(state, gen, Compression::ZSTD);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Plain + LZ4 Encode/Decode
-// ============================================================================
 
 static void BM_PlainLz4Encode(benchmark::State& state, Gen32 gen) {
   PlainCodecEncodeImpl<int32_t>(state, gen, Compression::LZ4_FRAME);
@@ -699,9 +691,8 @@ static void BM_PlainLz464Decode(benchmark::State& state, Gen64 gen) {
   PlainCodecDecodeImpl<int64_t>(state, gen, Compression::LZ4_FRAME);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // RleBitPackHybrid Encode/Decode
-// ============================================================================
 
 template <typename T>
 static void RleBitPackEncodeImpl(benchmark::State& state, GenT<T> gen) {
@@ -817,9 +808,8 @@ static void BM_RleBitPack64Decode(benchmark::State& state, Gen64 gen) {
   RleBitPackDecodeImpl<int64_t>(state, gen);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // ByteStreamSplit + Codec (ZSTD or LZ4)
-// ============================================================================
 
 template <typename T>
 static void BssCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
@@ -928,9 +918,8 @@ static void BM_BssLz464Decode(benchmark::State& state, Gen64 gen) {
   BssCodecDecodeImpl<int64_t>(state, gen, Compression::LZ4_FRAME);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Benchmark Registration
-// ============================================================================
 
 static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 
