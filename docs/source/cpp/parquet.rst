@@ -407,12 +407,18 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
+| ALP                      | ✓        | ✓        | \(3)    |
++--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,
   and boolean values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.4 or greater is selected in :func:`WriterProperties::version`.
+
+* \(3) Only supported for FLOAT and DOUBLE values. ALP is a Preview feature in the
+  Parquet format, so on the write path it must be enabled explicitly with
+  ``enable_alp_encoding`` in addition to being selected as the column's encoding.
 
 Types
 -----
