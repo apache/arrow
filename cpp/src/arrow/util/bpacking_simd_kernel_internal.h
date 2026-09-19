@@ -667,8 +667,8 @@ struct MediumKernel {
       const xsimd::batch_bool<uint_type, arch_type> bools = vals != 0;
       bools.store_unaligned(out + kOutOffset);
     } else if constexpr (kHasBias) {
-      // The whole point: the bias lands before the store, so there is no second
-      // pass over the output to add it.
+      // The bias is added before the store, so the output needs no second
+      // pass to add it.
       (vals + bias).store_unaligned(out + kOutOffset);
     } else {
       vals.store_unaligned(out + kOutOffset);

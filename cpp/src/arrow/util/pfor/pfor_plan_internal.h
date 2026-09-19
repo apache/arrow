@@ -261,8 +261,8 @@ FrameChoice<T> ChooseFrameAndWidth(const T* values, int32_t num_elements,
 
   // Already at width 0, with a handful of patches carrying the rest. Nothing a
   // frame can do about it. Note this is not the same as having no exceptions:
-  // the whole point of a frame above the minimum is to trade a narrower width
-  // for a few patches, so an exception-free choice is where the search starts,
+  // a frame above the minimum exists to trade a narrower width for a few
+  // patches, so an exception-free choice is where the search starts,
   // not a reason to skip it. The sawtooth is the example -- its differences pack
   // at width 12 with no exceptions, or at width 0 with five, and only the second
   // is worth having.

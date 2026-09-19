@@ -91,9 +91,8 @@ void AssertAllColumnsUse(const std::shared_ptr<Buffer>& file, Encoding::type enc
   }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // PFOR encoding file-level integration tests
-// ============================================================================
 
 class ParquetPforEncodingTest : public ::testing::Test {
  public:
