@@ -47,9 +47,9 @@ provides several utilities:
 * :class:`arrow::TableBatchReader`: read a table in a batch at a time, with each
   batch being a zero-copy slice.
 
-The following example shows how to implement conversion between ``rapidjson::Document``
+The following example shows how to implement conversion between JSON rows
 and Arrow objects. You can read the full code example at
-https://github.com/apache/arrow/blob/main/cpp/examples/arrow/rapidjson_row_converter.cc
+https://github.com/apache/arrow/blob/main/cpp/examples/arrow/simdjson_row_converter.cc
 
 Writing conversions to Arrow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -63,7 +63,7 @@ check the first N rows to infer a schema if there is none already available.
 
 At the top level, we define a function ``ConvertToRecordBatch``:
 
-.. literalinclude:: ../../../../cpp/examples/arrow/rapidjson_row_converter.cc
+.. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
    :start-at: arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
    :end-at: }  // ConvertToRecordBatch
@@ -72,28 +72,20 @@ At the top level, we define a function ``ConvertToRecordBatch``:
 
 First we use :class:`arrow::RecordBatchBuilder`, which conveniently creates builders
 for each field in the schema. Then we iterate over the fields of the schema, get
-the builder, and call ``Convert()`` on our ``JsonValueConverter`` (to be discussed
-next). At the end, we call ``batch->ValidateFull()``, which checks the integrity
+the builder, and append the corresponding JSON value using ``AppendJsonValue``.
+At the end, we call ``batch->ValidateFull()``, which checks the integrity
 of our arrays to make sure the conversion was performed correctly, which is useful
 for debugging new conversion implementations.
 
-One level down, the ``JsonValueConverter`` is responsible for appending row values
-for the provided field to a provided array builder. In order to specialize logic
-for each data type, it implements ``Visit`` methods and calls :func:`arrow::VisitTypeInline`.
-(See more about type visitors in :ref:`cpp-visitor-pattern`.)
+The ``AppendJsonValue`` function is responsible for appending a JSON value
+to an Arrow array builder according to its Arrow data type. It handles the
+types used by the example schema and recursively processes nested structs and
+lists.
 
-At the end of that class is the private method ``FieldValues()``, which returns
-an iterator of the column values for the current field across the rows. In
-row-based structures that are flat (such as a vector of values) this may be
-trivial to implement. But if the schema is nested, as in the case of JSON documents,
-a special iterator is needed to navigate the levels of nesting. See the
-`full example <https://github.com/apache/arrow/blob/main/cpp/examples/arrow/rapidjson_row_converter.cc>`_
-for the implementation details of ``DocValuesIterator``.
-
-.. literalinclude:: ../../../../cpp/examples/arrow/rapidjson_row_converter.cc
+.. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: class JsonValueConverter
-   :end-at: };  // JsonValueConverter
+   :start-at: arrow::Status AppendJsonValue
+   :end-at: }  // AppendJsonValue
    :linenos:
    :lineno-match:
 
@@ -104,7 +96,7 @@ To convert into rows *from* Arrow record batches, we'll process the table in
 smaller batches, visiting each field of the batch and filling the output rows
 column-by-column.
 
-At the top-level, we define ``ArrowToDocumentConverter`` that provides the API
+At the top-level, we define ``ArrowToJsonConverter`` that provides the API
 for converting Arrow batches and tables to rows. In many cases, it's more optimal
 to perform conversions to rows in smaller batches, rather than doing the entire
 table at once. So we define one ``ConvertToVector`` method to convert a single
@@ -113,10 +105,10 @@ to iterate over slices of a table. This returns Arrow's iterator type
 (:class:`arrow::Iterator`) so rows could then be processed either one-at-a-time
 or be collected into a container.
 
-.. literalinclude:: ../../../../cpp/examples/arrow/rapidjson_row_converter.cc
+.. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: class ArrowToDocumentConverter
-   :end-at: };  // ArrowToDocumentConverter
+   :start-at: class ArrowToJsonConverter
+   :end-at: };  // ArrowToJsonConverter
    :linenos:
    :lineno-match:
 
@@ -126,7 +118,7 @@ write a template method for array types that have primitive C equivalents
 (booleans, integers, and floats) using ``arrow::enable_if_primitive_ctype``.
 See :ref:`type-traits` for other type predicates.
 
-.. literalinclude:: ../../../../cpp/examples/arrow/rapidjson_row_converter.cc
+.. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
    :start-at: class RowBatchBuilder
    :end-at: };  // RowBatchBuilder
