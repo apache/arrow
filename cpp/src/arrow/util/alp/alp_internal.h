@@ -34,8 +34,6 @@ namespace arrow::util::alp {
 // ----------------------------------------------------------------------
 // ALP Overview
 //
-// IMPORTANT: For abstract interfaces or examples how to use ALP, consult
-// alp_codec_internal.h.
 // This file implements adaptive lossless floating-point compression for
 // decimals (ALP) (https://dl.acm.org/doi/10.1145/3626717). ALP converts each
 // float into a decimal where it can, using an exponent and factor chosen per
@@ -44,90 +42,19 @@ namespace arrow::util::alp {
 // A value the conversion cannot round-trip becomes an exception. ALP stores
 // exceptions separately and patches them back into the vector after decoding.
 //
-// ==========================================================================
-//                    ALP COMPRESSION/DECOMPRESSION PIPELINE
-// ==========================================================================
+// For the interfaces callers use, and examples of using them, see
+// alp_codec_internal.h.
 //
-// COMPRESSION FLOW:
-// -----------------
+// Compression runs in five steps. A sampling pass over the dataset tries the
+// exponent/factor combinations and keeps the best few as a preset. Each vector
+// then picks its combination from that preset, converts its values, and records
+// any that do not round-trip as exceptions. The converted integers are reduced
+// by their minimum (the frame of reference), packed into as many bits as the
+// largest of them needs, and written out. Decoding reverses those steps and
+// patches the exceptions back in last.
 //
-//   Input: float/double array
-//        |
-//        v
-//   +------------------------------------------------------------------+
-//   | 1. SAMPLING & PRESET GENERATION                                  |
-//   |    * Sample vectors from dataset                                 |
-//   |    * Try all exponent/factor combinations (e, f)                 |
-//   |    * Select best k combinations for preset                       |
-//   +------------------------------------+-----------------------------+
-//                                        | preset.combinations
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 2. PER-VECTOR COMPRESSION                                        |
-//   |    a) Find best (e,f) from preset for this vector                |
-//   |    b) Encode: encoded[i] = int64(value[i] * 10^e * 10^-f)        |
-//   |    c) Verify: if decode(encoded[i]) != value[i] -> exception     |
-//   |    d) Replace exceptions with placeholder value                  |
-//   +------------------------------------+-----------------------------+
-//                                        | encoded integers + exceptions
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 3. FRAME OF REFERENCE (FOR)                                      |
-//   |    * Find min value in encoded integers                          |
-//   |    * Subtract min from all values: delta[i] = encoded[i] - min   |
-//   +------------------------------------+-----------------------------+
-//                                        | delta values (smaller range)
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 4. BIT PACKING                                                   |
-//   |    * Calculate bit_width = std::bit_width(max_delta), i.e. the   |
-//   |      number of bits needed to hold max_delta                     |
-//   |    * Pack each value into bit_width bits                         |
-//   |    * Result: tightly packed binary data                          |
-//   +------------------------------------+-----------------------------+
-//                                        | packed bytes
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 5. SERIALIZATION (offset-based interleaved layout)              |
-//   |    [Header][Offsets...][Vector₀][Vector₁]...                    |
-//   |    where each Vector = [AlpInfo|ForInfo|Data]                   |
-//   +------------------------------------------------------------------+
-//
-//
-// DECOMPRESSION FLOW:
-// -------------------
-//
-//   Serialized bytes -> AlpEncodedVector::Load()
-//        |
-//        v
-//   +------------------------------------------------------------------+
-//   | 1. BIT UNPACKING                                                 |
-//   |    * Extract bit_width from metadata                             |
-//   |    * Unpack each value from bit_width bits -> delta values       |
-//   +------------------------------------+-----------------------------+
-//                                        | delta values
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 2. REVERSE FRAME OF REFERENCE (unFOR)                            |
-//   |    * Add back min: encoded[i] = delta[i] + frame_of_reference    |
-//   +------------------------------------+-----------------------------+
-//                                        | encoded integers
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 3. DECODE                                                        |
-//   |    * Apply inverse formula: value[i] = encoded[i] * 10^-e * 10^f |
-//   +------------------------------------+-----------------------------+
-//                                        | decoded floats (with placeholders)
-//                                        v
-//   +------------------------------------------------------------------+
-//   | 4. PATCH EXCEPTIONS                                              |
-//   |    * Replace values at exception_positions[] with exceptions[]   |
-//   +------------------------------------+-----------------------------+
-//                                        |
-//                                        v
-//   Output: Original float/double array (lossless!)
-//
-// ==========================================================================
+// The page and vector layouts are described where they are read and written, in
+// alp_codec.cc.
 
 // ----------------------------------------------------------------------
 // AlpExponentAndFactor
@@ -175,7 +102,7 @@ struct AlpExponentAndFactor {
 class ARROW_EXPORT AlpEncodedVectorInfo {
  private:
   // Members are declared before the public kStoredSize below so its
-  // initializer can use `sizeof(exponent_) + …`. Static data member
+  // initializer can use `sizeof(exponent_) + ...`. Static data member
   // initializers are evaluated in declaration order rather than in
   // complete-class context, so the members must be visible first.
   uint8_t exponent_ = 0;
@@ -360,21 +287,8 @@ class ARROW_EXPORT AlpEncodedForVectorInfo {
 ///   |     (original floats) |  sizeof(T)           |  double)    |
 ///   +------------------------------------------------------------+
 ///
-/// Page-level layout (offset-based interleaved for O(1) random access):
-///
-///   +------------------------------------------------------------+
-///   |  Page Layout                                               |
-///   +------------------------------------------------------------+
-///   |  [Header (7B)]                                             |
-///   |  [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]   ← Vector offsets  |
-///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]        ← Concatenated     |
-///   +------------------------------------------------------------+
-///   where each Vector = [AlpInfo | ForInfo | Data]
-///
-/// The offset-based layout enables:
-/// - O(1) random access to any vector via offset lookup
-/// - Better locality for single-vector decompression
-/// - Parallel decompression without coordination
+/// The page that holds these vectors stores an offset table in front of them;
+/// alp_codec.cc documents that layout where it is written.
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
 ///   - AlpInfo:            4 bytes (fixed)
