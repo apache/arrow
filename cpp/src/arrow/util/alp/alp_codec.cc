@@ -75,18 +75,16 @@ enum class AlpMode : uint8_t { kAlp = 0 };
 ///   |    3    |  num_elements       |  4 bytes (int32)  |
 ///   +---------------------------------------------------+
 ///
-/// Page-level layout (offset-based interleaved for O(1) random access):
+/// Page layout. The vector offsets are stored up front, so reading one vector
+/// costs an offset lookup and a jump rather than a walk over the vectors before
+/// it, and vectors can be decoded independently of each other:
 ///
-///   +-------------------------------------------------------------------+
-///   |  [AlpHeader (7B)]                                                 |
-///   |  [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]       ← Vector offsets     |
-///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]            ← Concatenated       |
-///   +-------------------------------------------------------------------+
+///   +--------------------------------------------------------------+
+///   | [AlpHeader (7B)]                                             |
+///   | [Offset 0 | Offset 1 | ... | Offset n-1]   one per vector    |
+///   | [Vector 0][Vector 1]...[Vector n-1]        concatenated      |
+///   +--------------------------------------------------------------+
 ///   where each Vector = [AlpInfo | ForInfo | Data]
-///
-/// This layout enables O(1) random access to any vector by:
-/// 1. Reading the offset for target vector (direct lookup)
-/// 2. Jumping to that offset to read metadata + data together
 struct AlpHeader {
   /// Compression mode (currently only kAlp is supported).
   uint8_t compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
@@ -367,17 +365,12 @@ template <typename T>
 typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
     const T* input, int64_t element_count, const AlpEncodingParameters& preset,
     int32_t vector_size, uint8_t* output, int64_t output_size) {
-  // OFFSET-BASED LAYOUT
-  // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
-  // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
-  // [AlpInfo₁ | ForInfo₁ | Data₁]             ← Vector 1
-  // ...
-  // [AlpInfoₙ₋₁ | ForInfoₙ₋₁ | Dataₙ₋₁]       ← Vector n-1
-  //
-  // Benefits:
-  // - O(1) random access to any vector (no cumulative offset computation)
-  // - Better locality for single-vector access (metadata + data together)
-  // - Enables parallel decompression without coordination
+  // Writes the offset table first, then each vector's metadata and data
+  // together:
+  //   [Offset 0 | Offset 1 | ... | Offset n-1]   4 bytes each
+  //   [AlpInfo 0 | ForInfo 0 | Data 0]
+  //   [AlpInfo 1 | ForInfo 1 | Data 1]
+  //   ...
 
   // Phase 1: Compress all vectors and collect them
   std::vector<AlpEncodedVector<T>> encoded_vectors;
@@ -454,10 +447,10 @@ template <typename T>
 Result<typename AlpCodec<T>::VectorReader> AlpCodec<T>::VectorReader::Open(
     const uint8_t* input, int64_t input_size) {
   // OFFSET-BASED LAYOUT:
-  // [Header]                                  ← 7 bytes
-  // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
-  // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
-  // [AlpInfo₁ | ForInfo₁ | Data₁]             ← Vector 1
+  // [Header]                                  <- 7 bytes
+  // [Offset0 | Offset1 | ... | Offsetn-1]    <- Byte offsets to each vector (4B each)
+  // [AlpInfo0 | ForInfo0 | Data0]             <- Vector 0 (interleaved)
+  // [AlpInfo1 | ForInfo1 | Data1]             <- Vector 1
   // ...
   //
   // Offsets are relative to the first byte after the header. Keeping a vector's

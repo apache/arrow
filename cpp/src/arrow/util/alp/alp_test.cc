@@ -38,9 +38,8 @@
 
 namespace arrow::util::alp {
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Test helpers
-// ============================================================================
 
 // Compares two floating-point ranges by bit pattern, not by operator==.
 // ALP is a lossless codec, so its tests must verify bit-exact recovery:
@@ -72,9 +71,8 @@ template <typename T>
   return ::testing::AssertionSuccess();
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // ALP Constants Tests
-// ============================================================================
 
 TEST(AlpConstantsTest, SamplerConstants) {
   EXPECT_GT(AlpConstants::kSamplerVectorSize, 0);
@@ -82,9 +80,8 @@ TEST(AlpConstantsTest, SamplerConstants) {
   EXPECT_GT(AlpConstants::kSamplerSamplesPerVector, 0);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // AlpIntegerEncoding Tests
-// ============================================================================
 
 TEST(AlpIntegerEncodingTest, GetIntegerEncodingMetadataSize) {
   // Verify helper returns correct sizes for kForBitPack
@@ -98,9 +95,8 @@ TEST(AlpIntegerEncodingTest, GetIntegerEncodingMetadataSize) {
   EXPECT_EQ(GetIntegerEncodingMetadataSize<double>(AlpIntegerEncoding::kForBitPack), 9);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // ALP Compression Tests
-// ============================================================================
 
 template <typename T>
 class AlpCompressionTest : public ::testing::Test {
@@ -193,9 +189,8 @@ TYPED_TEST(AlpCompressionTest, VerySmallValues) {
   this->TestCompressDecompress(input);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Integration Tests
-// ============================================================================
 
 // Cover both float and double so we don't drift apart between the two
 // instantiations, and exercise a wide range plus a few extreme values so the
@@ -253,9 +248,8 @@ TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // AlpEncodedVectorInfo Serialization Tests
-// ============================================================================
 
 TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   // Test AlpEncodedVectorInfo (4 bytes)
@@ -326,9 +320,8 @@ TEST(AlpEncodedForVectorInfoTest, Size) {
   EXPECT_EQ(AlpEncodedForVectorInfo<double>::GetStoredSize(), 9);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Edge Case Tests
-// ============================================================================
 
 template <typename T>
 class AlpEdgeCaseTest : public ::testing::Test {
@@ -435,9 +428,8 @@ TYPED_TEST(AlpEdgeCaseTest, JustOverVectorSize) {
       output2, std::vector<TypeParam>{input[AlpConstants::kAlpVectorSize]}));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Special Values Tests
-// ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, SpecialValues) {
   // Test NaN, Inf, -Inf, -0.0
@@ -479,9 +471,8 @@ TYPED_TEST(AlpEdgeCaseTest, AllInfinity) {
   this->TestCompressDecompress(input);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Compression Characteristics Tests
-// ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, ConstantValues) {
   // All same values - should compress very well (bitWidth = 0)
@@ -505,9 +496,8 @@ TYPED_TEST(AlpEdgeCaseTest, MixedCompressibleAndExceptions) {
   this->TestCompressDecompress(input);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Boundary Value Tests
-// ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, MaxMinValues) {
   std::vector<TypeParam> input = {std::numeric_limits<TypeParam>::max(),
@@ -572,9 +562,8 @@ TYPED_TEST(AlpEdgeCaseTest, AlternatingSignValues) {
   this->TestCompressDecompress(input);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // AlpEncodedVector Store/Load Tests
-// ============================================================================
 
 template <typename T>
 class AlpEncodedVectorTest : public ::testing::Test {};
@@ -653,9 +642,8 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // AlpEncodedVectorView Tests - Alignment Safety
-// ============================================================================
 
 // This test exercises AlpEncodedVectorView::LoadView which was previously
 // vulnerable to undefined behavior from misaligned memory access (ubsan error).
@@ -839,9 +827,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
   }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // AlpCodec Tests
-// ============================================================================
 
 template <typename T>
 class AlpCodecTest : public ::testing::Test {
@@ -963,9 +950,8 @@ TYPED_TEST(AlpCodecTest, WideningDecode) {
   }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Bit-Width Edge Cases Tests
-// ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
   // All identical values should result in bit_width=0
@@ -1028,9 +1014,8 @@ TYPED_TEST(AlpEdgeCaseTest, LargeBitWidths) {
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Large Dataset Tests
-// ============================================================================
 
 TYPED_TEST(AlpCodecTest, VeryLargeDataset) {
   // Test with 1 million elements
@@ -1153,9 +1138,8 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   EXPECT_TRUE(IsBitwiseEqual(output2, batch2));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Preset/Sampling Tests
-// ============================================================================
 
 template <typename T>
 class AlpSamplerTest : public ::testing::Test {};
@@ -1223,9 +1207,8 @@ TYPED_TEST(AlpSamplerTest, EmptySample) {
   EXPECT_GE(preset.combinations.size(), 0);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Empty Input Tests (via AlpCompression directly)
-// ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, EmptyInputViaCompression) {
   // Test compressing zero elements via AlpCompression directly
@@ -1273,9 +1256,8 @@ TYPED_TEST(AlpCodecTest, EmptyInput) {
   // No crash = success
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Corrupted Data Handling Tests
-// ============================================================================
 
 // Decode returns Status for invalid/corrupted compressed data.
 
@@ -1426,9 +1408,8 @@ TEST(AlpRobustnessTest, ElementCountAboveInt32Max) {
   ASSERT_NOT_OK(AlpCodec<double>::Encode(&one_value, -1, &output_byte, &output_size));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Determinism/Consistency Tests
-// ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, CompressionDeterminism) {
   // Same input should always produce identical compressed output
@@ -1491,9 +1472,8 @@ TYPED_TEST(AlpEdgeCaseTest, DecompressionDeterminism) {
   EXPECT_TRUE(IsBitwiseEqual(output1, input));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Configurable vector_size Tests
-// ============================================================================
 
 TYPED_TEST(AlpCodecTest, RoundTripAtMultipleVectorSizes) {
   const std::vector<int32_t> vector_sizes = {64, 512, 1024, 2048, 4096};
@@ -1629,7 +1609,7 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeExceedsMax) {
                                                      1 << 16, buffer.data(), &comp_size));
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Spec boundary tests
 //
 // These pin the wire-format limits stated in the Parquet ALP specification
@@ -1638,7 +1618,6 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeExceedsMax) {
 // interesting corner is a full 2^15 vector in which every value is an
 // exception: `num_exceptions` is then 32768, which is representable as
 // uint16 but not as int16.
-// ============================================================================
 
 // A vector at the maximum size whose every value is an exception produces
 // num_exceptions == 32768. Stored as a signed 16-bit integer that wraps to

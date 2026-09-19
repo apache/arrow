@@ -294,9 +294,8 @@ TEST_F(TestArrowReadAlpEncoding, ReferenceColumnsCoverCornerCases) {
 
 #endif  // ARROW_WITH_ZSTD
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // ALP Encoding File-Level Integration Tests
-// ============================================================================
 
 class ParquetAlpEncodingTest : public ::testing::Test {
  public:
