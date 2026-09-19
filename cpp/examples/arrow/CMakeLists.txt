@@ -17,9 +17,8 @@
 
 add_arrow_example(row_wise_conversion_example)
 
-if(ARROW_WITH_RAPIDJSON)
-  add_arrow_example(rapidjson_row_converter EXTRA_LINK_LIBS RapidJSON)
-  add_arrow_example(from_json_string_example EXTRA_LINK_LIBS RapidJSON)
+if(ARROW_JSON)
+  add_arrow_example(simdjson_row_converter EXTRA_LINK_LIBS arrow::simdjson)
 endif()
 
 if(ARROW_ACERO)
