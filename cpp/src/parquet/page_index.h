@@ -24,6 +24,7 @@
 #include "parquet/types.h"
 
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace parquet {
@@ -72,6 +73,12 @@ class PARQUET_EXPORT ColumnIndex {
   /// `has_null_counts` should be called first to determine if this information is
   /// available.
   virtual const std::vector<int64_t>& null_counts() const = 0;
+
+  /// \brief The number of NaN values in each data page, if available.
+  ///
+  /// `std::nullopt` means the field is not set. When present, the span contains
+  /// one value per data page.
+  virtual std::optional<std::span<const int64_t>> nan_counts() const = 0;
 
   /// \brief A vector of page indices for non-null pages.
   virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
