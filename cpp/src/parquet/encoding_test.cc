@@ -2112,6 +2112,8 @@ TYPED_TEST(TestDeltaBitPackEncoding, PrefixSumVectorAndTail) {
   using T = typename TypeParam::c_type;
   using UT = std::make_unsigned_t<T>;
   constexpr int kBits = static_cast<int>(sizeof(T) * 8);
+  // Same value as in DeltaBitPackEncoder
+  constexpr int kValuesPerBlock = std::is_same_v<int32_t, T> ? 128 : 256;
 
   auto make_values = [](int width, T frame, int num_deltas) {
     std::vector<T> values;
@@ -2130,9 +2132,10 @@ TYPED_TEST(TestDeltaBitPackEncoding, PrefixSumVectorAndTail) {
 
   for (int width = 0; width <= kBits; ++width) {
     for (const T frame : {T{0}, static_cast<T>(-5), T{7}}) {
-      // 16-23 leaves every remainder for group sizes up to eight; 201 crosses a block
-      // boundary with a remainder left.
-      for (const int num_deltas : {16, 17, 18, 19, 20, 21, 22, 23, 201}) {
+      // 16-23 leaves every remainder for group sizes up to eight. The last length
+      // crosses a block boundary with a remainder left, at either block size.
+      for (const int num_deltas :
+           {16, 17, 18, 19, 20, 21, 22, 23, kValuesPerBlock + 73}) {
         ARROW_SCOPED_TRACE("width = ", width, ", frame = ", static_cast<int64_t>(frame),
                            ", num_deltas = ", num_deltas);
         this->CheckRoundtripWithValues(make_values(width, frame, num_deltas));
