@@ -156,9 +156,10 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     return column_index_.null_counts;
   }
 
-  bool has_nan_counts() const override { return column_index_.__isset.nan_counts; }
-
-  const std::vector<int64_t>& nan_counts() const override {
+  std::optional<std::span<const int64_t>> nan_counts() const override {
+    if (!column_index_.__isset.nan_counts) {
+      return std::nullopt;
+    }
     return column_index_.nan_counts;
   }
 

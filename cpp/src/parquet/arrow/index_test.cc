@@ -106,8 +106,8 @@ struct ColumnIndexObject {
     if (column_index->has_null_counts()) {
       null_counts = column_index->null_counts();
     }
-    if (column_index->has_nan_counts()) {
-      nan_counts = column_index->nan_counts();
+    if (auto counts = column_index->nan_counts()) {
+      nan_counts.assign(counts->begin(), counts->end());
     }
   }
 
@@ -391,25 +391,23 @@ TEST_F(ParquetPageIndexRoundTripTest, MultiplePages) {
                             /*null_counts=*/{0, 0, 1, 2}, /*nan_counts=*/{}}));
 }
 
-TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
+class FloatingPointPageIndexRoundTripTest
+    : public ParquetPageIndexRoundTripTest,
+      public ::testing::WithParamInterface<ColumnOrder::type> {};
+
+TEST_P(FloatingPointPageIndexRoundTripTest, DoubleWithNaNs) {
   auto writer_properties = WriterProperties::Builder()
                                .enable_write_page_index()
                                ->max_row_group_length(3) /* 3 rows per row group */
                                ->build();
   auto arrow_writer_properties =
-      ArrowWriterProperties::Builder()
-          .floating_point_column_order(ColumnOrder::TYPE_DEFINED_ORDER)
-          ->build();
+      ArrowWriterProperties::Builder().floating_point_column_order(GetParam())->build();
 
   // Create table to write with NaNs.
   auto vectors = std::vector<std::shared_ptr<Array>>(4);
-  // NaN will be ignored in min/max stats.
   ::arrow::ArrayFromVector<::arrow::DoubleType>({1.0, NAN, 0.1}, &vectors[0]);
-  // Lower bound will use -0.0.
   ::arrow::ArrayFromVector<::arrow::DoubleType>({+0.0, NAN, +0.0}, &vectors[1]);
-  // Upper bound will use -0.0.
   ::arrow::ArrayFromVector<::arrow::DoubleType>({-0.0, NAN, -0.0}, &vectors[2]);
-  // Pages with all NaNs will not build column index.
   ::arrow::ArrayFromVector<::arrow::DoubleType>({NAN, NAN, NAN}, &vectors[3]);
   ASSERT_OK_AND_ASSIGN(auto chunked_array,
                        arrow::ChunkedArray::Make(vectors, ::arrow::float64()));
@@ -420,6 +418,18 @@ TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
 
   ReadPageIndexes(/*expect_num_row_groups=*/4, /*expect_num_pages=*/1);
 
+  const bool type_defined = GetParam() == ColumnOrder::TYPE_DEFINED_ORDER;
+  const auto min_positive_zero_page = encode_double(type_defined ? -0.0 : +0.0);
+  const auto max_negative_zero_page = encode_double(type_defined ? +0.0 : -0.0);
+  const auto all_nan_page = type_defined
+                                ? ColumnIndexObject{}
+                                : ColumnIndexObject{/*null_pages=*/{false},
+                                                    /*min_values=*/{encode_double(NAN)},
+                                                    /*max_values=*/{encode_double(NAN)},
+                                                    BoundaryOrder::Ascending,
+                                                    /*null_counts=*/{0},
+                                                    /*nan_counts=*/{3}};
+
   EXPECT_THAT(
       column_indexes_,
       ::testing::ElementsAre(
@@ -428,18 +438,24 @@ TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
                             /*max_values=*/{encode_double(1.0)}, BoundaryOrder::Ascending,
                             /*null_counts=*/{0}, /*nan_counts=*/{1}},
           ColumnIndexObject{/*null_pages=*/{false},
-                            /*min_values=*/{encode_double(-0.0)},
+                            /*min_values=*/{min_positive_zero_page},
                             /*max_values=*/{encode_double(+0.0)},
                             BoundaryOrder::Ascending,
                             /*null_counts=*/{0}, /*nan_counts=*/{1}},
           ColumnIndexObject{/*null_pages=*/{false},
                             /*min_values=*/{encode_double(-0.0)},
-                            /*max_values=*/{encode_double(+0.0)},
+                            /*max_values=*/{max_negative_zero_page},
                             BoundaryOrder::Ascending,
                             /*null_counts=*/{0}, /*nan_counts=*/{1}},
-          ColumnIndexObject{
-              /* Page with only NaN values does not have column index built */}));
+          all_nan_page));
 }
+
+INSTANTIATE_TEST_SUITE_P(FloatingPointOrders, FloatingPointPageIndexRoundTripTest,
+                         ::testing::Values(ColumnOrder::TYPE_DEFINED_ORDER,
+                                           ColumnOrder::IEEE_754_TOTAL_ORDER),
+                         [](const ::testing::TestParamInfo<ColumnOrder::type>& info) {
+                           return ColumnOrderToString(info.param);
+                         });
 
 TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
   auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
@@ -720,7 +736,7 @@ TEST(ParquetPageIndex, FloatingPointOrdersInterop) {
     SCOPED_TRACE(::testing::Message() << "column=" << column);
     auto statistics = row_group->ColumnChunk(column)->statistics();
     ASSERT_NE(nullptr, statistics);
-    ASSERT_EQ(std::make_optional<int64_t>(kNaNCount), statistics->nan_count());
+    ASSERT_EQ(kNaNCount, statistics->nan_count());
     if (column % 2 != 0) {
       ASSERT_FALSE(statistics->HasMinMax());
       ASSERT_EQ(nullptr, row_group_index->GetColumnIndex(column));
@@ -729,8 +745,10 @@ TEST(ParquetPageIndex, FloatingPointOrdersInterop) {
     ASSERT_TRUE(statistics->HasMinMax());
     auto column_index = row_group_index->GetColumnIndex(column);
     ASSERT_NE(nullptr, column_index);
-    ASSERT_TRUE(column_index->has_nan_counts());
-    EXPECT_THAT(column_index->nan_counts(), ::testing::ElementsAre(kNaNCount));
+    auto nan_counts = column_index->nan_counts();
+    ASSERT_TRUE(nan_counts.has_value());
+    ASSERT_EQ(1U, nan_counts->size());
+    EXPECT_EQ(kNaNCount, (*nan_counts)[0]);
 
     std::shared_ptr<::arrow::Scalar> min;
     std::shared_ptr<::arrow::Scalar> max;

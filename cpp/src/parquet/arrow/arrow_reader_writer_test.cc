@@ -3699,13 +3699,15 @@ TEST(TestArrowReadWrite, FloatingDictionaryBits) {
   ASSERT_EQ(ColumnOrder::IEEE_754_TOTAL_ORDER,
             metadata->schema()->Column(0)->column_order().get_order());
   auto statistics = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
-  ASSERT_EQ(std::make_optional<int64_t>(3), statistics->nan_count());
+  ASSERT_EQ(3, statistics->nan_count());
 
   auto column_index =
       parquet_reader->GetPageIndexReader()->RowGroup(0)->GetColumnIndex(0);
   ASSERT_NE(nullptr, column_index);
-  ASSERT_TRUE(column_index->has_nan_counts());
-  EXPECT_THAT(column_index->nan_counts(), ::testing::ElementsAre(3));
+  auto nan_counts = column_index->nan_counts();
+  ASSERT_TRUE(nan_counts.has_value());
+  ASSERT_EQ(1U, nan_counts->size());
+  EXPECT_EQ(3, (*nan_counts)[0]);
 
   std::unique_ptr<FileReader> arrow_reader;
   FileReaderBuilder builder;

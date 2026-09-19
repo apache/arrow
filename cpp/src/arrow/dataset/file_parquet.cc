@@ -354,7 +354,6 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
-  bool may_have_null = !statistics.HasNullCount() || statistics.null_count() != 0;
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0) {
     // If there are no non-null values, column `field_ref` in the fragment
@@ -364,6 +363,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
   }
 
   auto with_null = [&](compute::Expression expression) {
+    bool may_have_null = !statistics.HasNullCount() || statistics.null_count() != 0;
     if (may_have_null) {
       return compute::or_(std::move(expression), is_null(field_expr));
     }
@@ -373,6 +373,13 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 
   const bool is_floating_point = is_floating(field.type()->id());
   const auto nan_count = statistics.nan_count();
+  auto with_nan = [&](compute::Expression expression) {
+    bool may_have_nan = is_floating_point && (!nan_count.has_value() || *nan_count != 0);
+    if (may_have_nan) {
+      return compute::or_(std::move(expression), is_nan_expression());
+    }
+    return expression;
+  };
   const bool all_nan =
       is_floating_point && nan_count.has_value() && *nan_count == statistics.num_values();
   if (all_nan) {
@@ -401,11 +408,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 
     if (min->Equals(*max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
-
-      if (is_floating_point && (!nan_count.has_value() || *nan_count != 0)) {
-        single_value = compute::or_(std::move(single_value), is_nan_expression());
-      }
-      return with_null(std::move(single_value));
+      return with_null(with_nan(std::move(single_value)));
     }
 
     auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
@@ -428,10 +431,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     }
-    if (is_floating_point && (!nan_count.has_value() || *nan_count != 0)) {
-      in_range = compute::or_(std::move(in_range), is_nan_expression());
-    }
-    return with_null(std::move(in_range));
+    return with_null(with_nan(std::move(in_range)));
   }
   return std::nullopt;
 }

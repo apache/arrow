@@ -544,7 +544,8 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   for (const auto& column_index : column_indexes) {
     ASSERT_EQ(boundary_order, column_index->boundary_order());
     ASSERT_EQ(has_null_counts, column_index->has_null_counts());
-    ASSERT_EQ(has_nan_counts, column_index->has_nan_counts());
+    auto nan_counts = column_index->nan_counts();
+    ASSERT_EQ(has_nan_counts, nan_counts.has_value());
     const size_t num_pages = column_index->null_pages().size();
     if (build_size_stats) {
       ASSERT_EQ(num_pages * (max_repetition_level + 1),
@@ -561,7 +562,7 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
       }
       if (has_nan_counts) {
-        ASSERT_EQ(*page_stats[i].nan_count, column_index->nan_counts()[i]);
+        ASSERT_EQ(*page_stats[i].nan_count, (*nan_counts)[i]);
       }
       if (build_size_stats) {
         ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(

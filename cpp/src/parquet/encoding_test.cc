@@ -472,6 +472,7 @@ template <typename DType, typename UInt>
 void TestFloatingDictionaryBits(std::span<const UInt> bits,
                                 std::span<const UInt> expected_bits) {
   using T = typename DType::c_type;
+  // Construct floating-point values without changing the supplied bit patterns.
   std::vector<T> values(bits.size());
   std::transform(bits.begin(), bits.end(), values.begin(),
                  [](UInt value) { return ::arrow::util::SafeCopy<T>(value); });
@@ -482,9 +483,11 @@ void TestFloatingDictionaryBits(std::span<const UInt> bits,
   auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, /*use_dictionary=*/true);
   auto dictionary = dynamic_cast<DictEncoder<DType>*>(encoder.get());
   ASSERT_NE(nullptr, dictionary);
+  // Build the dictionary through the regular Put() path.
   encoder->Put(values.data(), static_cast<int>(values.size()));
   ASSERT_EQ(expected_bits.size(), static_cast<size_t>(dictionary->num_entries()));
 
+  // Verify the encoded dictionary against the expected bit patterns.
   auto buffer = AllocateBuffer(default_memory_pool(), dictionary->dict_encoded_size());
   dictionary->WriteDict(buffer->mutable_data());
   const UInt* encoded = reinterpret_cast<const UInt*>(buffer->data());
@@ -492,6 +495,8 @@ void TestFloatingDictionaryBits(std::span<const UInt> bits,
     EXPECT_EQ(expected_bits[value_index], encoded[value_index]);
   }
 
+  // Verify that PutDictionary() preserves NaN representations and signed zeros
+  // bit-for-bit.
   using ArrowType = std::conditional_t<std::is_same_v<DType, FloatType>,
                                        ::arrow::FloatType, ::arrow::DoubleType>;
   typename ::arrow::TypeTraits<ArrowType>::BuilderType builder;

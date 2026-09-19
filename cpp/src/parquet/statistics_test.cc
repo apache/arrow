@@ -19,11 +19,15 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/array.h"
@@ -1295,7 +1299,7 @@ static std::string EncodeValue(const FLBA& val, int length = sizeof(uint16_t)) {
 
 template <typename Stats, typename Array, typename T = typename Array::value_type>
 void AssertMinMaxAre(Stats stats, const Array& values, T expected_min, T expected_max) {
-  stats->Update(values.data(), values.size(), 0);
+  stats->Update(values, 0);
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->EncodeMin(), EncodeValue(expected_min));
   EXPECT_EQ(stats->EncodeMax(), EncodeValue(expected_max));
@@ -1320,7 +1324,7 @@ void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitm
 
 template <typename Stats, typename Array>
 void AssertUnsetMinMax(Stats stats, const Array& values) {
-  stats->Update(values.data(), values.size(), 0);
+  stats->Update(values, 0);
   ASSERT_FALSE(stats->HasMinMax());
   ASSERT_FALSE(stats->is_min_value_exact().has_value());
   ASSERT_FALSE(stats->is_max_value_exact().has_value());
@@ -1402,64 +1406,154 @@ void CheckExtrema() {
 TEST(TestStatistic, Int32Extrema) { CheckExtrema<Int32Type>(); }
 TEST(TestStatistic, Int64Extrema) { CheckExtrema<Int64Type>(); }
 
-template <typename T>
-class TestFloatStatistics : public ::testing::Test {
+template <typename DType>
+class FloatValueFactory {
  public:
-  using ParquetType = typename RebindLogical<T>::ParquetType;
+  using ParquetType = typename RebindLogical<DType>::ParquetType;
   using c_type = typename ParquetType::c_type;
 
-  void Init();
+  template <typename T>
+  c_type MakeValue(T value) {
+    if constexpr (std::is_same_v<DType, Float16LogicalType>) {
+      auto f16 = Float16::FromFloat(static_cast<float>(value));
+      auto& bytes = storage_.emplace_back();
+      f16.ToLittleEndian(bytes.data());
+      return FLBA{bytes.data()};
+    } else {
+      return static_cast<c_type>(value);
+    }
+  }
+
+  FLBA FromBits(uint16_t bits)
+    requires(std::same_as<DType, Float16LogicalType>)
+  {
+    auto f16 = Float16::FromBits(bits);
+    auto& bytes = storage_.emplace_back();
+    f16.ToLittleEndian(bytes.data());
+    return FLBA{bytes.data()};
+  }
+
+  c_type PosZero() { return MakeValue(0.0); }
+  c_type NegZero() { return MakeValue(-0.0); }
+  c_type PosInf() { return MakeValue(std::numeric_limits<double>::infinity()); }
+  c_type NegInf() { return MakeValue(-std::numeric_limits<double>::infinity()); }
+  c_type NaN() { return MakeValue(std::numeric_limits<double>::quiet_NaN()); }
+
+  static bool Signbit(c_type value) {
+    if constexpr (std::is_same_v<DType, Float16LogicalType>) {
+      return Float16::FromLittleEndian(value.ptr).signbit();
+    } else {
+      return std::signbit(value);
+    }
+  }
+
+  static bool IsNaN(c_type value) {
+    if constexpr (std::is_same_v<DType, Float16LogicalType>) {
+      return Float16::FromLittleEndian(value.ptr).is_nan();
+    } else {
+      return std::isnan(value);
+    }
+  }
+
+ private:
+  // FLBA values point into this storage. deque keeps element addresses stable when
+  // values are appended.
+  std::deque<std::array<uint8_t, 2>> storage_;
+};
+
+template <typename T, ColumnOrder::type Order>
+struct FloatStatisticsTestParam {
+  using DType = T;
+  static constexpr ColumnOrder::type order = Order;
+};
+
+template <typename Param>
+class TestFloatStatistics : public ::testing::Test {
+ public:
+  using DType = typename Param::DType;
+  using ParquetType = typename RebindLogical<DType>::ParquetType;
+  using c_type = typename ParquetType::c_type;
+  static constexpr ColumnOrder::type order = Param::order;
+  static_assert(order == ColumnOrder::TYPE_DEFINED_ORDER ||
+                order == ColumnOrder::IEEE_754_TOTAL_ORDER);
+
   void SetUp() override {
-    this->Init();
+    positive_zero_ = factory_.PosZero();
+    negative_zero_ = factory_.NegZero();
     ASSERT_NE(EncodeValue(negative_zero_), EncodeValue(positive_zero_));
   }
 
-  bool signbit(c_type val);
-  void CheckEq(const c_type& l, const c_type& r);
-  NodePtr MakeNode(const std::string& name, Repetition::type rep);
+  void CheckEq(c_type left, c_type right) {
+    if constexpr (std::is_same_v<DType, Float16LogicalType>) {
+      ASSERT_EQ(Float16::FromLittleEndian(left.ptr),
+                Float16::FromLittleEndian(right.ptr));
+    } else {
+      ASSERT_EQ(left, right);
+    }
+  }
+  static NodePtr MakeNode(const std::string& name, Repetition::type rep);
 
   template <typename Stats, typename Values>
-  void CheckMinMaxZeroesSign(Stats stats, const Values& values) {
-    stats->Update(values.data(), values.size(), /*null_count=*/0);
+  void CheckMinMaxZeroesSign(Stats stats, const Values& values, c_type expected_min,
+                             c_type expected_max) {
+    stats->Update(values, /*null_count=*/0);
     ASSERT_TRUE(stats->HasMinMax());
 
-    this->CheckEq(stats->min(), positive_zero_);
-    ASSERT_TRUE(this->signbit(stats->min()));
-    ASSERT_EQ(stats->EncodeMin(), EncodeValue(negative_zero_));
+    this->CheckEq(stats->min(), expected_min);
+    ASSERT_EQ(factory_.Signbit(stats->min()), factory_.Signbit(expected_min));
+    ASSERT_EQ(stats->EncodeMin(), EncodeValue(expected_min));
 
-    this->CheckEq(stats->max(), positive_zero_);
-    ASSERT_FALSE(this->signbit(stats->max()));
-    ASSERT_EQ(stats->EncodeMax(), EncodeValue(positive_zero_));
+    this->CheckEq(stats->max(), expected_max);
+    ASSERT_EQ(factory_.Signbit(stats->max()), factory_.Signbit(expected_max));
+    ASSERT_EQ(stats->EncodeMax(), EncodeValue(expected_max));
+  }
+
+  template <typename Stats, typename Values>
+  void AssertAllNaNMinMax(Stats stats, const Values& values) {
+    stats->Update(values, /*null_count=*/0);
+    ASSERT_TRUE(stats->HasMinMax());
+    ASSERT_TRUE(factory_.IsNaN(stats->min()));
+    ASSERT_TRUE(factory_.IsNaN(stats->max()));
+    ASSERT_EQ(stats->is_min_value_exact(), true);
+    ASSERT_EQ(stats->is_max_value_exact(), true);
+  }
+
+  template <typename Stats, typename Values>
+  void AssertAllNaNMinMax(Stats stats, const Values& values,
+                          const uint8_t* valid_bitmap) {
+    auto n_values = values.size();
+    auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
+    auto non_null_count = n_values - null_count;
+    stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
+                        non_null_count, null_count);
+    ASSERT_TRUE(stats->HasMinMax());
+    ASSERT_TRUE(factory_.IsNaN(stats->min()));
+    ASSERT_TRUE(factory_.IsNaN(stats->max()));
+    ASSERT_EQ(stats->is_min_value_exact(), true);
+    ASSERT_EQ(stats->is_max_value_exact(), true);
   }
 
   // ARROW-5562: Ensure that -0.0f and 0.0f values are properly handled like in
   // parquet-mr
   void TestNegativeZeroes() {
-    NodePtr node = this->MakeNode("f", Repetition::OPTIONAL);
+    NodePtr node = MakeNode("f", Repetition::OPTIONAL);
     ColumnDescriptor descr(node, 1, 1);
-
-    {
-      std::array<c_type, 2> values{negative_zero_, positive_zero_};
+    auto check = [&](const std::array<c_type, 2>& values, c_type expected_min,
+                     c_type expected_max) {
       auto stats = MakeStatistics<ParquetType>(&descr);
-      CheckMinMaxZeroesSign(stats, values);
-    }
+      CheckMinMaxZeroesSign(stats, values, expected_min, expected_max);
+    };
 
-    {
-      std::array<c_type, 2> values{positive_zero_, negative_zero_};
-      auto stats = MakeStatistics<ParquetType>(&descr);
-      CheckMinMaxZeroesSign(stats, values);
-    }
-
-    {
-      std::array<c_type, 2> values{negative_zero_, negative_zero_};
-      auto stats = MakeStatistics<ParquetType>(&descr);
-      CheckMinMaxZeroesSign(stats, values);
-    }
-
-    {
-      std::array<c_type, 2> values{positive_zero_, positive_zero_};
-      auto stats = MakeStatistics<ParquetType>(&descr);
-      CheckMinMaxZeroesSign(stats, values);
+    check({negative_zero_, positive_zero_}, negative_zero_, positive_zero_);
+    check({positive_zero_, negative_zero_}, negative_zero_, positive_zero_);
+    if constexpr (order == ColumnOrder::TYPE_DEFINED_ORDER) {
+      // Type-defined order normalizes min to -0 and max to +0.
+      check({negative_zero_, negative_zero_}, negative_zero_, positive_zero_);
+      check({positive_zero_, positive_zero_}, negative_zero_, positive_zero_);
+    } else {
+      // IEEE total order preserves signed zeros.
+      check({negative_zero_, negative_zero_}, negative_zero_, negative_zero_);
+      check({positive_zero_, positive_zero_}, positive_zero_, positive_zero_);
     }
   }
 
@@ -1469,27 +1563,33 @@ class TestFloatStatistics : public ::testing::Test {
                  const Values& other_nans, c_type min, c_type max, uint8_t valid_bitmap,
                  uint8_t valid_bitmap_no_nans) {
     auto some_nan_stats = MakeStatistics<ParquetType>(descr);
-    // Ingesting only nans should not yield valid min max
-    AssertUnsetMinMax(some_nan_stats, all_nans);
-    ASSERT_EQ(std::make_optional(static_cast<int64_t>(all_nans.size())),
-              some_nan_stats->nan_count());
+    if constexpr (order == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      // Ingesting only NaNs yields NaN min/max bounds under total order.
+      AssertAllNaNMinMax(some_nan_stats, all_nans);
+    } else {
+      // Ingesting only NaNs does not yield valid min/max under type-defined order.
+      AssertUnsetMinMax(some_nan_stats, all_nans);
+    }
+    ASSERT_EQ(static_cast<int64_t>(all_nans.size()), some_nan_stats->nan_count());
     // Ingesting a mix of NaNs and non-NaNs should yield a valid min max.
     AssertMinMaxAre(some_nan_stats, some_nans, min, max);
-    ASSERT_EQ(std::make_optional(static_cast<int64_t>(all_nans.size() + 3)),
-              some_nan_stats->nan_count());
+    ASSERT_EQ(static_cast<int64_t>(all_nans.size() + 3), some_nan_stats->nan_count());
     // Ingesting only nans after a valid min/max, should have no effect
     AssertMinMaxAre(some_nan_stats, all_nans, min, max);
-    ASSERT_EQ(std::make_optional(static_cast<int64_t>(all_nans.size() * 2 + 3)),
-              some_nan_stats->nan_count());
+    ASSERT_EQ(static_cast<int64_t>(all_nans.size() * 2 + 3), some_nan_stats->nan_count());
 
     some_nan_stats = MakeStatistics<ParquetType>(descr);
-    AssertUnsetMinMax(some_nan_stats, all_nans, &valid_bitmap);
-    ASSERT_EQ(std::make_optional<int64_t>(7), some_nan_stats->nan_count());
+    if constexpr (order == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      AssertAllNaNMinMax(some_nan_stats, all_nans, &valid_bitmap);
+    } else {
+      AssertUnsetMinMax(some_nan_stats, all_nans, &valid_bitmap);
+    }
+    ASSERT_EQ(std::popcount(valid_bitmap), some_nan_stats->nan_count());
     // NaNs should not pollute min max when excluded via null bitmap.
     AssertMinMaxAre(some_nan_stats, some_nans, &valid_bitmap_no_nans, min, max);
     // Ingesting NaNs with a null bitmap should not change the result.
     AssertMinMaxAre(some_nan_stats, some_nans, &valid_bitmap, min, max);
-    ASSERT_EQ(std::make_optional<int64_t>(9), some_nan_stats->nan_count());
+    ASSERT_EQ(std::popcount(valid_bitmap) + 2, some_nan_stats->nan_count());
 
     // An array that doesn't start with NaN
     auto other_stats = MakeStatistics<ParquetType>(descr);
@@ -1518,79 +1618,56 @@ class TestFloatStatistics : public ::testing::Test {
   void TestInfinities();
 
  protected:
-  std::vector<uint8_t> data_buf_;
+  FloatValueFactory<DType> factory_;
   c_type positive_zero_;
   c_type negative_zero_;
 };
 
-template <typename T>
-void TestFloatStatistics<T>::Init() {
-  positive_zero_ = c_type{};
-  negative_zero_ = -positive_zero_;
-}
-template <>
-void TestFloatStatistics<Float16LogicalType>::Init() {
-  data_buf_.resize(4);
-  (+Float16(0)).ToLittleEndian(&data_buf_[0]);
-  positive_zero_ = FLBA{&data_buf_[0]};
-  (-Float16(0)).ToLittleEndian(&data_buf_[2]);
-  negative_zero_ = FLBA{&data_buf_[2]};
-}
-
-template <typename T>
-NodePtr TestFloatStatistics<T>::MakeNode(const std::string& name, Repetition::type rep) {
-  auto node = PrimitiveNode::Make(name, rep, ParquetType::type_num);
-  std::static_pointer_cast<PrimitiveNode>(node)->SetColumnOrder(
-      ColumnOrder::type_defined_);
-  return node;
-}
-template <>
-NodePtr TestFloatStatistics<Float16LogicalType>::MakeNode(const std::string& name,
-                                                          Repetition::type rep) {
-  auto node = PrimitiveNode::Make(name, rep, LogicalType::Float16(),
-                                  Type::FIXED_LEN_BYTE_ARRAY, 2);
-  std::static_pointer_cast<PrimitiveNode>(node)->SetColumnOrder(
-      ColumnOrder::type_defined_);
+template <typename Param>
+NodePtr TestFloatStatistics<Param>::MakeNode(const std::string& name,
+                                             Repetition::type rep) {
+  NodePtr node;
+  if constexpr (std::is_same_v<DType, Float16LogicalType>) {
+    node = PrimitiveNode::Make(name, rep, LogicalType::Float16(),
+                               Type::FIXED_LEN_BYTE_ARRAY, 2);
+  } else {
+    node = PrimitiveNode::Make(name, rep, ParquetType::type_num);
+  }
+  std::static_pointer_cast<PrimitiveNode>(node)->SetColumnOrder(ColumnOrder(order));
   return node;
 }
 
-template <typename T>
-void TestFloatStatistics<T>::CheckEq(const c_type& l, const c_type& r) {
-  ASSERT_EQ(l, r);
-}
-template <>
-void TestFloatStatistics<Float16LogicalType>::CheckEq(const c_type& a, const c_type& b) {
-  auto l = Float16::FromLittleEndian(a.ptr);
-  auto r = Float16::FromLittleEndian(b.ptr);
-  ASSERT_EQ(l, r);
-}
-
-template <typename T>
-bool TestFloatStatistics<T>::signbit(c_type val) {
-  return std::signbit(val);
-}
-template <>
-bool TestFloatStatistics<Float16LogicalType>::signbit(c_type val) {
-  return Float16::FromLittleEndian(val.ptr).signbit();
-}
-
-template <typename T>
-void TestFloatStatistics<T>::TestNaNs() {
+template <typename Param>
+void TestFloatStatistics<Param>::TestNaNs() {
   constexpr int kNumValues = 8;
   NodePtr node = this->MakeNode("f", Repetition::OPTIONAL);
   ColumnDescriptor descr(node, 1, 1);
 
-  constexpr c_type nan = std::numeric_limits<c_type>::quiet_NaN();
-  constexpr c_type min = -4.0f;
-  constexpr c_type max = 3.0f;
+  const c_type nan = factory_.NaN();
+  const c_type min = factory_.MakeValue(-4.0);
+  const c_type max = factory_.MakeValue(3.0);
 
   std::array<c_type, kNumValues> all_nans{nan, nan, nan, nan, nan, nan, nan, nan};
-  std::array<c_type, kNumValues> some_nans{nan, max, -3.0f, -1.0f, nan, 2.0f, min, nan};
-  std::array<c_type, kNumValues> other_nans{1.5f, max, -3.0f, -1.0f, nan, 2.0f, min, nan};
+  std::array<c_type, kNumValues> some_nans{nan,
+                                           max,
+                                           factory_.MakeValue(-3.0),
+                                           factory_.MakeValue(-1.0),
+                                           nan,
+                                           factory_.MakeValue(2.0),
+                                           min,
+                                           nan};
+  std::array<c_type, kNumValues> other_nans{factory_.MakeValue(1.5),
+                                            max,
+                                            factory_.MakeValue(-3.0),
+                                            factory_.MakeValue(-1.0),
+                                            nan,
+                                            factory_.MakeValue(2.0),
+                                            min,
+                                            nan};
 
-  uint8_t valid_bitmap = 0x7F;  // 0b01111111
+  uint8_t valid_bitmap = 0b0111'1111;
   // NaNs excluded
-  uint8_t valid_bitmap_no_nans = 0x6E;  // 0b01101110
+  uint8_t valid_bitmap_no_nans = 0b0110'1110;
 
   this->CheckNaNs(&descr, all_nans, some_nans, other_nans, min, max, valid_bitmap,
                   valid_bitmap_no_nans);
@@ -1600,96 +1677,20 @@ void TestFloatStatistics<T>::TestNaNs() {
 // rather than the largest finite value (a finite seed is never displaced by an
 // infinity of the same sign). A NaN interspersed in such a column must be
 // ignored without corrupting the infinite min/max.
-template <typename T>
-void TestFloatStatistics<T>::TestInfinities() {
-  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+template <typename Param>
+void TestFloatStatistics<Param>::TestInfinities() {
+  NodePtr node = MakeNode("f", Repetition::REQUIRED);
   ColumnDescriptor descr(node, 0, 0);
 
-  constexpr c_type inf = std::numeric_limits<c_type>::infinity();
-  constexpr c_type nan = std::numeric_limits<c_type>::quiet_NaN();
-  std::vector<c_type> all_pos_inf{inf, inf, inf};
-  std::vector<c_type> all_neg_inf{-inf, -inf, -inf};
-  std::vector<c_type> mixed_inf{inf, -inf};
-  std::vector<c_type> pos_inf_with_nan{inf, nan, inf};
-  std::vector<c_type> neg_inf_with_nan{-inf, nan, -inf};
+  const c_type pinf = factory_.PosInf();
+  const c_type ninf = factory_.NegInf();
+  const c_type fnan = factory_.NaN();
 
-  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, inf, inf);
-  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, -inf, -inf);
-  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, -inf, inf);
-  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, inf, inf);
-  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, -inf, -inf);
-}
-
-struct BufferedFloat16 {
-  explicit BufferedFloat16(Float16 f16) : f16(f16) {
-    this->f16.ToLittleEndian(bytes_.data());
-  }
-  explicit BufferedFloat16(float f) : BufferedFloat16(Float16::FromFloat(f)) {}
-  const uint8_t* bytes() const { return bytes_.data(); }
-
-  Float16 f16;
-  std::array<uint8_t, 2> bytes_;
-};
-
-template <>
-void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
-  constexpr int kNumValues = 8;
-
-  NodePtr node = this->MakeNode("f", Repetition::OPTIONAL);
-  ColumnDescriptor descr(node, 1, 1);
-
-  using F16 = BufferedFloat16;
-  const auto nan_f16 = F16(std::numeric_limits<Float16>::quiet_NaN());
-  const auto min_f16 = F16(-4.0f);
-  const auto max_f16 = F16(+3.0f);
-
-  const auto min = FLBA{min_f16.bytes()};
-  const auto max = FLBA{max_f16.bytes()};
-
-  std::array<F16, kNumValues> all_nans_f16 = {nan_f16, nan_f16, nan_f16, nan_f16,
-                                              nan_f16, nan_f16, nan_f16, nan_f16};
-  std::array<F16, kNumValues> some_nans_f16 = {
-      nan_f16, max_f16, F16(-3.0f), F16(-1.0f), nan_f16, F16(+2.0f), min_f16, nan_f16};
-  std::array<F16, kNumValues> other_nans_f16 = some_nans_f16;
-  other_nans_f16[0] = F16(+1.5f);  // +1.5
-
-  auto prepare_values = [](const auto& values) -> std::vector<FLBA> {
-    std::vector<FLBA> out(values.size());
-    std::transform(values.begin(), values.end(), out.begin(),
-                   [](const F16& f16) { return FLBA{f16.bytes()}; });
-    return out;
-  };
-
-  auto all_nans = prepare_values(all_nans_f16);
-  auto some_nans = prepare_values(some_nans_f16);
-  auto other_nans = prepare_values(other_nans_f16);
-
-  uint8_t valid_bitmap = 0x7F;  // 0b01111111
-  // NaNs excluded
-  uint8_t valid_bitmap_no_nans = 0x6E;  // 0b01101110
-
-  this->CheckNaNs(&descr, all_nans, some_nans, other_nans, min, max, valid_bitmap,
-                  valid_bitmap_no_nans);
-}
-
-template <>
-void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
-  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
-  ColumnDescriptor descr(node, 0, 0);
-
-  using F16 = BufferedFloat16;
-  const auto pos_inf = F16(std::numeric_limits<Float16>::infinity());
-  const auto neg_inf = F16(-std::numeric_limits<Float16>::infinity());
-  const auto nan = F16(std::numeric_limits<Float16>::quiet_NaN());
-  const auto pinf = FLBA{pos_inf.bytes()};
-  const auto ninf = FLBA{neg_inf.bytes()};
-  const auto fnan = FLBA{nan.bytes()};
-
-  std::vector<FLBA> all_pos_inf{pinf, pinf, pinf};
-  std::vector<FLBA> all_neg_inf{ninf, ninf, ninf};
-  std::vector<FLBA> mixed_inf{pinf, ninf};
-  std::vector<FLBA> pos_inf_with_nan{pinf, fnan, pinf};
-  std::vector<FLBA> neg_inf_with_nan{ninf, fnan, ninf};
+  std::vector<c_type> all_pos_inf{pinf, pinf, pinf};
+  std::vector<c_type> all_neg_inf{ninf, ninf, ninf};
+  std::vector<c_type> mixed_inf{pinf, ninf};
+  std::vector<c_type> pos_inf_with_nan{pinf, fnan, pinf};
+  std::vector<c_type> neg_inf_with_nan{ninf, fnan, ninf};
 
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, pinf, pinf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, ninf, ninf);
@@ -1698,20 +1699,38 @@ void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, ninf, ninf);
 }
 
-using FloatingPointTypes = ::testing::Types<FloatType, DoubleType, Float16LogicalType>;
+using FloatingPointTypes = ::testing::Types<
+    FloatStatisticsTestParam<FloatType, ColumnOrder::TYPE_DEFINED_ORDER>,
+    FloatStatisticsTestParam<DoubleType, ColumnOrder::TYPE_DEFINED_ORDER>,
+    FloatStatisticsTestParam<Float16LogicalType, ColumnOrder::TYPE_DEFINED_ORDER>,
+    FloatStatisticsTestParam<FloatType, ColumnOrder::IEEE_754_TOTAL_ORDER>,
+    FloatStatisticsTestParam<DoubleType, ColumnOrder::IEEE_754_TOTAL_ORDER>,
+    FloatStatisticsTestParam<Float16LogicalType, ColumnOrder::IEEE_754_TOTAL_ORDER>>;
 
-TYPED_TEST_SUITE(TestFloatStatistics, FloatingPointTypes);
+struct FloatStatisticsTestNames {
+  template <typename Param>
+  static std::string GetName(int) {
+    using DType = typename Param::DType;
+    const auto type_name = [] {
+      if constexpr (std::is_same_v<DType, Float16LogicalType>) {
+        return LogicalType::Float16()->ToString();
+      } else {
+        return TypeToString(RebindLogical<DType>::ParquetType::type_num);
+      }
+    }();
+    return type_name + "_" + ColumnOrderToString(Param::order);
+  }
+};
+TYPED_TEST_SUITE(TestFloatStatistics, FloatingPointTypes, FloatStatisticsTestNames);
 
 TYPED_TEST(TestFloatStatistics, NegativeZeros) { this->TestNegativeZeroes(); }
 TYPED_TEST(TestFloatStatistics, NaNs) { this->TestNaNs(); }
 TYPED_TEST(TestFloatStatistics, Infinities) { this->TestInfinities(); }
 
 template <typename DType, typename UInt>
-void TestNativeTotalOrder(UInt negative_nan_bits, UInt positive_nan_bits) {
+void TestFloatNativeTotalOrder(UInt negative_nan_bits, UInt positive_nan_bits) {
   using T = typename DType::c_type;
-  auto node = schema::PrimitiveNode::Make("f", Repetition::REQUIRED, DType::type_num);
-  std::static_pointer_cast<schema::PrimitiveNode>(node)->SetColumnOrder(
-      ColumnOrder::ieee_754_total_order_);
+  auto node = PrimitiveNode::Make("f", Repetition::REQUIRED, DType::type_num);
   ColumnDescriptor descr(node, 0, 0);
 
   const T negative_nan = SafeCopy<T>(negative_nan_bits);
@@ -1719,62 +1738,60 @@ void TestNativeTotalOrder(UInt negative_nan_bits, UInt positive_nan_bits) {
   const T positive_zero = T{0};
   std::array<T, 3> mixed{negative_nan, positive_zero, positive_nan};
   auto stats = MakeStatistics<DType>(&descr);
-  stats->Update(mixed.data(), mixed.size(), 0);
-  ASSERT_EQ(std::make_optional<int64_t>(2), stats->nan_count());
+  stats->Update(mixed, 0);
+  ASSERT_EQ(2, stats->nan_count());
   ASSERT_TRUE(stats->HasMinMax());
   ASSERT_FALSE(std::signbit(stats->min()));
   ASSERT_FALSE(std::signbit(stats->max()));
 
   std::array<T, 2> all_nan{positive_nan, negative_nan};
   stats->Reset();
-  stats->Update(all_nan.data(), all_nan.size(), 0);
-  ASSERT_EQ(std::make_optional<int64_t>(2), stats->nan_count());
+  stats->Update(all_nan, 0);
+  ASSERT_EQ(2, stats->nan_count());
   ASSERT_EQ(negative_nan_bits, SafeCopy<UInt>(stats->min()));
   ASSERT_EQ(positive_nan_bits, SafeCopy<UInt>(stats->max()));
 
   auto same = MakeStatistics<DType>(&descr);
-  same->Update(all_nan.data(), all_nan.size(), 0);
+  same->Update(all_nan, 0);
   ASSERT_TRUE(stats->Equals(*same));
 
   auto numeric = MakeStatistics<DType>(&descr);
   std::array<T, 1> values{T{1}};
-  numeric->Update(values.data(), values.size(), 0);
+  numeric->Update(values, 0);
   stats->Merge(*numeric);
-  ASSERT_EQ(std::make_optional<int64_t>(2), stats->nan_count());
+  ASSERT_EQ(2, stats->nan_count());
   ASSERT_EQ(T{1}, stats->min());
   ASSERT_EQ(T{1}, stats->max());
 }
 
 TEST(TestFloatStatistics, TotalOrder) {
   // -qNaN(payload=1), +qNaN(payload=1).
-  TestNativeTotalOrder<FloatType>(uint32_t{0xffc00001}, uint32_t{0x7fc00001});
+  TestFloatNativeTotalOrder<FloatType>(uint32_t{0xffc00001}, uint32_t{0x7fc00001});
   // -qNaN(payload=1), +qNaN(payload=1).
-  TestNativeTotalOrder<DoubleType>(uint64_t{0xfff8000000000001},
-                                   uint64_t{0x7ff8000000000001});
+  TestFloatNativeTotalOrder<DoubleType>(uint64_t{0xfff8000000000001},
+                                        uint64_t{0x7ff8000000000001});
 }
 
 TEST(TestFloatStatistics, TotalOrderFloat16) {
   // -qNaN(payload=1), +qNaN(payload=1).
-  BufferedFloat16 negative_nan(Float16::FromBits(0xfe01));
-  BufferedFloat16 positive_nan(Float16::FromBits(0x7e01));
-  BufferedFloat16 positive_zero(Float16::zero());
-  std::array<FLBA, 3> values{FLBA{negative_nan.bytes()}, FLBA{positive_zero.bytes()},
-                             FLBA{positive_nan.bytes()}};
-  auto node = schema::PrimitiveNode::Make(
-      "f", Repetition::REQUIRED, LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2);
-  std::static_pointer_cast<schema::PrimitiveNode>(node)->SetColumnOrder(
-      ColumnOrder::ieee_754_total_order_);
+  FloatValueFactory<Float16LogicalType> factory;
+  const auto negative_nan = factory.FromBits(0xfe01);
+  const auto positive_nan = factory.FromBits(0x7e01);
+  const auto positive_zero = factory.FromBits(0x0000);
+  std::array<FLBA, 3> values{negative_nan, positive_zero, positive_nan};
+  auto node = PrimitiveNode::Make("f", Repetition::REQUIRED, LogicalType::Float16(),
+                                  Type::FIXED_LEN_BYTE_ARRAY, 2);
   ColumnDescriptor descr(node, 0, 0);
   auto stats = MakeStatistics<FLBAType>(&descr);
-  stats->Update(values.data(), values.size(), 0);
-  ASSERT_EQ(std::make_optional<int64_t>(2), stats->nan_count());
+  stats->Update(values, 0);
+  ASSERT_EQ(2, stats->nan_count());
   // 0x0000 is Float16 +0.
   ASSERT_EQ(Float16::FromBits(0x0000), Float16::FromLittleEndian(stats->min().ptr));
   ASSERT_EQ(Float16::FromBits(0x0000), Float16::FromLittleEndian(stats->max().ptr));
 
-  std::array<FLBA, 2> all_nan{FLBA{positive_nan.bytes()}, FLBA{negative_nan.bytes()}};
+  std::array<FLBA, 2> all_nan{positive_nan, negative_nan};
   stats->Reset();
-  stats->Update(all_nan.data(), all_nan.size(), 0);
+  stats->Update(all_nan, 0);
   ASSERT_EQ(0xfe01, Float16::FromLittleEndian(stats->min().ptr).bits());
   ASSERT_EQ(0x7e01, Float16::FromLittleEndian(stats->max().ptr).bits());
 }

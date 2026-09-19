@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -183,7 +184,8 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 
   bool is_set() const {
-    return has_min || has_max || has_null_count || has_distinct_count || nan_count;
+    return has_min || has_max || has_null_count || has_distinct_count ||
+           nan_count.has_value();
   }
 
   bool is_signed() const { return is_signed_; }
@@ -383,6 +385,11 @@ class TypedStatistics : public Statistics {
 
   /// \brief Batch statistics update
   virtual void Update(const T* values, int64_t num_values, int64_t null_count) = 0;
+
+  /// \brief Batch statistics update from a contiguous range
+  virtual void Update(std::span<const T> values, int64_t null_count) {
+    Update(values.data(), static_cast<int64_t>(values.size()), null_count);
+  }
 
   /// \brief Batch statistics update with supplied validity bitmap
   /// \param[in] values pointer to column values
