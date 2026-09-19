@@ -675,9 +675,10 @@ static auto MakeDeltaBitPackingInputNarrow(size_t length) {
   return numbers;
 }
 
-// Non-decreasing values, the shape this encoding is usually chosen for. The deltas come
-// from the same 1000-wide range as Narrow, so the two inputs differ in the order of the
-// values and not in the width a delta is packed into.
+// Non-decreasing values, the shape this encoding is usually chosen for. The deltas are
+// drawn from the same 1000-wide range as Narrow, but sorting leaves none of them
+// negative, so the frame no longer has to absorb a -1000 floor: every miniblock here
+// packs into 10 bits where Narrow needs 11.
 template <typename DType>
 static auto MakeDeltaBitPackingInputNarrowSorted(size_t length) {
   using T = typename DType::c_type;
