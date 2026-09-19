@@ -966,24 +966,42 @@ std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& k
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::RunEndEncoded(
-    std::shared_ptr<DataType> value_type, int64_t logical_size, double null_probability) {
-  Int32Builder run_ends_builder;
-  pcg32 rng(seed());
+    std::shared_ptr<DataType> value_type, int64_t logical_size, double null_probability,
+    int64_t average_run_length) {
+  const auto physical_size = std::max<int64_t>(1, logical_size / average_run_length);
+  std::shared_ptr<Array> values =
+      ArrayOf(std::move(value_type), physical_size, null_probability);
+  return RunEndEncoded(values, logical_size);
+}
 
-  DCHECK_LE(logical_size, std::numeric_limits<int32_t>::max());
-
-  std::uniform_int_distribution<int64_t> distribution(1, 100);
-  int64_t current_end = 0;
-  while (current_end < logical_size) {
-    current_end += distribution(rng);
-    current_end = std::min(current_end, logical_size);
-    ARROW_CHECK_OK(run_ends_builder.Append(static_cast<int32_t>(current_end)));
+std::shared_ptr<Array> RandomArrayGenerator::RunEndEncoded(
+    const std::shared_ptr<Array>& values, int64_t logical_size) {
+  if (logical_size == 0) {
+    return MakeEmptyArray(run_end_encoded(int32(), values->type())).ValueOrDie();
   }
 
-  std::shared_ptr<Array> run_ends = *run_ends_builder.Finish();
-  std::shared_ptr<Array> values =
-      ArrayOf(std::move(value_type), run_ends->length(), null_probability);
+  ARROW_CHECK_GT(values->length(), 0);
+  ARROW_CHECK_LE(logical_size, std::numeric_limits<int32_t>::max());
+  ARROW_CHECK_GE(logical_size, values->length());
 
+  int64_t current_end = 0;
+  Int32Builder run_ends_builder;
+  ARROW_CHECK_OK(run_ends_builder.Reserve(values->length()));
+
+  // Ideally, we would generate random run-ends, but we need to make both unique
+  // and monotonic, so we use the same (approximate) run length instead.
+  for (int64_t i = 0; i < values->length(); ++i) {
+    auto remaining_logical_size = logical_size - current_end;
+    auto remaining_physical_size = values->length() - i;
+    // Runs must never be empty.
+    auto run_length = static_cast<int64_t>(
+        ceil(static_cast<double>(remaining_logical_size) / remaining_physical_size));
+    current_end += run_length;
+    run_ends_builder.UnsafeAppend(static_cast<int32_t>(current_end));
+  }
+  DCHECK_LE(current_end, logical_size);
+
+  std::shared_ptr<Array> run_ends = *run_ends_builder.Finish();
   return RunEndEncodedArray::Make(logical_size, run_ends, values).ValueOrDie();
 }
 

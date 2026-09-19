@@ -91,7 +91,7 @@ LargeStringArray::LargeStringArray(int64_t length,
 Status LargeStringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
 BinaryViewArray::BinaryViewArray(std::shared_ptr<ArrayData> data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::BINARY_VIEW);
+  ARROW_CHECK(is_binary_view_like(data->type->id()));
   SetData(std::move(data));
 }
 
