@@ -173,9 +173,8 @@ inline std::vector<int32_t> GenUserAgent(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — TPC-DS (4 most queried columns from store_sales)
-// ============================================================================
 
 inline std::vector<int32_t> GenTpcdsSoldDateSk(int64_t n) {
   std::vector<int32_t> v(n);
@@ -343,12 +342,11 @@ inline std::vector<int32_t> GenTaxiFareCents(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — int64 / BIGINT columns (values that require 8 bytes,
 // i.e. exceed the int32 range). Covers the common 64-bit analytic cases:
 // nanosecond timestamps, large surrogate keys, scaled-decimal money, monotone
 // IDs, and wide counters.
-// ============================================================================
 
 // Nanosecond epoch timestamp (Parquet TIMESTAMP(NANOS)): 2024-01-01 base plus
 // up to ~1 day of jitter. Min ~1.70e18 -> very large frame of reference; raw
@@ -385,7 +383,7 @@ inline std::vector<int64_t> GenPriceMicros(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — sorted and near-sorted
 //
 // The generators above draw independently around a base, which is the case
@@ -396,7 +394,6 @@ inline std::vector<int64_t> GenPriceMicros(int64_t n) {
 // one. These cover the shapes that occur in practice: a clustered timestamp
 // column, a sorted key with duplicates, an exact counter, and a column that
 // is sorted apart from a few late arrivals.
-// ============================================================================
 
 // Event timestamps in seconds, arriving a few seconds apart. The common case
 // for a table clustered or sorted on time.
@@ -471,9 +468,8 @@ inline std::vector<int64_t> GenByteCount(int64_t n) {
   return v;
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Data Generators — structure between neighbouring values
-// ============================================================================
 
 // The generators above are all either unordered or perfectly regular, so none
 // of them separates an encoding that differences neighbouring values from one
