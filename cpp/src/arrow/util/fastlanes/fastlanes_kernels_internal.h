@@ -23,27 +23,17 @@
 // lets the compiler auto-vectorize one source body to 4-wide NEON, 8-wide
 // AVX2 or 16-wide AVX-512 without a per-ISA variant.
 //
-// What this file is not
-// ---------------------
-// FastLanes couples two independent ideas, and only the first is here.
+// FastLanes couples two independent ideas, and only the container is here. The
+// other is the FL_ORDER permutation (the 8x16 -> 16x8 within-sub-block
+// transpose plus the 04261537 sub-block reorder), which exists to give a
+// sequential codec -- DELTA, RLE -- one independent chain per lane, and to let
+// one packed buffer be read at several lane widths. PFOR has no sequential
+// dependency to break, and Parquet's decoder contract is positional, so
+// FL_ORDER would have to be undone by a gather before any value could be handed
+// back. It is deliberately absent: this layout returns values in input order,
+// so nothing has to be permuted on the way out and exception positions stay
+// meaningful without translation.
 //
-//   1. The interleaved container, below. It exists so that the values a
-//      register loads together are the values the unpacker needs together.
-//      This is what makes the layout fast, and it is layout-only: the values
-//      keep their input positions.
-//
-//   2. The FL_ORDER permutation (the 8x16 -> 16x8 within-sub-block transpose
-//      plus the 04261537 sub-block reorder). That exists to give a *sequential*
-//      codec -- DELTA, RLE -- one independent chain per lane, and to let one
-//      packed buffer be read at several lane widths. PFOR has no sequential
-//      dependency to break, and Parquet's decoder contract is positional, so
-//      FL_ORDER would have to be undone by a gather before any value could be
-//      handed back. It is deliberately absent: this layout returns values in
-//      input order, so nothing has to be permuted on the way out and exception
-//      positions stay meaningful without translation.
-//
-// The layout
-// ----------
 // Within a 1024-value block (32 lanes x 32 rows for uint32_t), the packed
 // buffer holds w u32 rows of 32 u32 words, where w is the bit width. Row r,
 // lane l contributes to packed[word * 32 + l] at bit shift (r*w) % 32, where
@@ -57,25 +47,19 @@
 // successive rows of one lane here, successive values of the stream in
 // arrow::internal::unpack -- not in how the bits of a value are laid out. That
 // is why the shift and the straddle depend on the row and never on the lane,
-// and so why all 32 lanes do identical work.
+// and so why all 32 lanes do identical work. The payload is byte-identical in
+// size to the sequential layout for a full block: 128 * w bytes.
 //
-// The payload is byte-identical in size to the sequential layout for a full
-// block: 1024 * w bits either way, or 128 * w bytes.
-//
-// The unused Arch parameter
-// -------------------------
-// Both kernels take a type parameter their bodies never mention. It exists so
-// that this one source, compiled at two different instruction sets, yields two
-// distinct symbols. Without it PackBlock<16> compiled with NEON flags and
+// Both kernels take an Arch type parameter their bodies never mention, so that
+// this one source compiled at two different instruction sets yields two
+// distinct symbols. Without it, PackBlock<16> compiled with NEON flags and
 // PackBlock<16> compiled with SVE flags share a mangled name, the linker keeps
-// one definition of the pair, and every caller silently gets whichever copy it
-// kept. That would quietly undo the per-instruction-set translation units that
-// interleaved_dispatch_internal.h builds its dispatch tables in, and it would do
-// so with no diagnostic. arrow::internal::bpacking has the same property for the
-// same reason, from the Arch parameter its Kernel<> already carries. A caller
-// that compiles exactly one copy of these kernels -- which is every caller
-// outside those translation units -- leaves the parameter at its default and is
-// unaffected.
+// one definition, and every caller silently gets whichever copy it kept --
+// undoing the per-instruction-set translation units of
+// interleaved_dispatch_internal.h with no diagnostic.
+// arrow::internal::bpacking carries the parameter for the same reason. A caller
+// that compiles exactly one copy of these kernels leaves it at its default and
+// is unaffected.
 
 #pragma once
 
@@ -99,8 +83,6 @@ static_assert(kLanes * kRowsPerBlock == kBlockSize,
 // ---------------------------------------------------------------------------
 // Pack: 1024 u32 inputs, in input order -> w*32 u32 packed words.
 // ---------------------------------------------------------------------------
-// Arch is unused in the body and only discriminates the symbol; see the header
-// comment above for why it has to be there.
 template <uint32_t w, typename Arch = void>
 inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRICT out) {
   static_assert(w >= 1 && w <= 32);
@@ -144,15 +126,13 @@ inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRIC
 // Unpack: w*32 packed u32 words -> 1024 u32 outputs in input order.
 //
 // With kHasBias, `bias` is added to every value before it is stored, so a
-// frame-of-reference decoder does not need a second pass over the output to
-// add it. That pass is not cheap: measured against the unpack it follows, it
-// costs 1.47x-2.40x, and a pass that only copies costs the same as one that
-// adds, so what is paid for is the traversal rather than the arithmetic. The
-// add is modular in uint32_t, matching the encoder's subtraction.
-//
-// kHasBias is a template parameter rather than a runtime argument so that the
-// no-bias instantiations carry no test in their inner loop. Arch is unused in
-// the body and only discriminates the symbol; see the header comment above.
+// frame-of-reference decoder does not need a second pass over the output to add
+// it. That pass costs 1.47x-2.40x of the unpack it follows, and a pass that
+// only copies costs the same as one that adds, so what is paid for is the
+// traversal rather than the arithmetic. The add is modular in uint32_t,
+// matching the encoder's subtraction. kHasBias is a template parameter rather
+// than a runtime argument so the no-bias instantiations carry no test in their
+// inner loop.
 // ---------------------------------------------------------------------------
 template <uint32_t w, bool kHasBias = false, typename Arch = void>
 inline void UnpackBlock(const uint32_t* ARROW_RESTRICT packed,

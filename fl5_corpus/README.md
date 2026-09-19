@@ -1,8 +1,8 @@
-# layout_benchmark — five bit-unpacking layout arms
+# layout_benchmark — five bit-unpacking decoders, one store-only reference
 
 One binary, no arguments. It decodes 43 generated integer columns at six
-working-set sizes with five layout arms plus a store-only reference, and writes
-a human table to stdout and `layout_benchmark.csv` to the current directory.
+working-set sizes with five decoders plus a store-only reference, and writes a
+human table to stdout and `layout_benchmark.csv` to the current directory.
 
 Portable to x86-64 and aarch64; `build.sh` picks `-march` from `uname -m`.
 
@@ -34,9 +34,9 @@ Pin it to one core, keep the machine otherwise idle, and give it a few minutes.
 Hand back `layout_benchmark.txt`, `layout_benchmark.csv`, `layout_benchmark.err`
 and the exit status; the CSV is what generates the tables.
 
-## The arms
+## What it runs
 
-| arm | layout | order written |
+| name | layout | order written |
 |---|---|---|
 | `seq_scal` | continuous LSB-first, scalar | file |
 | `seq_simd` | continuous LSB-first, vectorized | file |
@@ -46,19 +46,23 @@ and the exit status; the CSV is what generates the tables.
 | `pure_st` | no unpacking, writes the same bytes | file |
 
 `intlv` and `fl_unpk` run the same kernel over grids that differ only in how
-encode filled them, so their speeds must agree. That is the self-check: it should
-read 1.00x, and the binary exits non-zero if it does not. A clean exit is
-therefore meaningful — please report it.
+encode filled them, so their speeds should agree. The `unpk/int` column prints
+that ratio on every line, and a validity table at the end turns it into a
+per-working-set-size decision: the control has to tie in aggregate, four columns
+in five have to tie on their own, and dropping the ones that do not must leave
+`intlv/seq_simd` where it was. Points that fail are named, so read that table
+before quoting any figure. The binary exits non-zero only if no point passes, so
+report the exit status too.
 
-Two things the output says about itself, worth reading before comparing runs:
+Two things about the output to know before comparing runs:
 
 - The header prints which `fl_tpos` implementation was compiled in. The fused
   FL_ORDER-to-file-order kernel is x86-only today; on aarch64 you get the
   `UNFUSED fallback` banner, and any aarch64 `fl_tpos` figure is a lower bound
   that must not be compared against an x86 one as though the same kernel ran.
-  `intlv` and `fl_unpk` are fully portable and carry no such caveat.
+  `intlv` and `fl_unpk` are portable and carry no such caveat.
 - `pure_st` is a store-only reference and not a ceiling. It is regularly slower
-  than decode arms writing the same bytes, and it moves 2.07x between gcc and
+  than the decoders writing the same bytes, and it moves 2.07x between gcc and
   clang on fixed hardware, so it bounds its own codegen and nothing else.
 
 Each point names both its input and output footprint, because the decode call is

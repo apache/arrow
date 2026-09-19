@@ -1,12 +1,11 @@
 # PFOR layout re-run: build and run instructions
 
-The first run of this sweep could not answer the layout question, for two
-reasons that are both fixed in this branch. Neither was your fault; both were
-defects in what you were handed.
+The first run of this sweep could not answer the layout question. Two defects in
+what you were handed caused that; both are fixed in this branch.
 
 ## What was wrong, and why the numbers came out the way they did
 
-**1. The candidate arm was never compiled.** The fused FL_ORDER-to-file-order
+**1. The candidate kernel was never compiled.** The fused FL_ORDER-to-file-order
 transpose — `UnpackBlockFlToFileOrder` in
 `arrow/util/fastlanes/interleaved_pfor.h` — is hand-written `__m256i`
 intrinsics behind this gate chain:
@@ -24,50 +23,47 @@ decoder takes a different path entirely: it materialises a 4 KiB
 it back in file order. That is 128 extra vector stores plus 128 extra vector
 loads per 1024-value block that the fused kernel does entirely in registers.
 
-So the arm you measured at ~0.55x was the scratch fallback, not the candidate.
-Reproduced here: at your footprint the fallback costs 2.35x and the fused
-kernel costs 1.08x. Your 0.551 sits squarely in the fallback regime.
+So the ~0.55x you measured came from the scratch fallback rather than from the
+fused kernel. Reproduced here: at your footprint the fallback costs 2.35x and
+the fused kernel 1.08x, so your 0.551 sits in the fallback regime.
 
-`-DARROW_SIMD_LEVEL=AVX2` is what fixes it. Verified in
+`-DARROW_SIMD_LEVEL=AVX2` fixes it. Verified in
 `cmake_modules/SetupCxxFlags.cmake:505-511`: that level appends
 `-march=haswell -mavx2` to `CXX_COMMON_FLAGS` for the whole build, which is what
-defines `__AVX2__` and switches the fused kernel on. It is not optional and it
-is not a tuning flag — without it the candidate arm is absent from the binary.
+defines `__AVX2__` and switches the fused kernel on. Without it the fused kernel
+is not in the binary at all, so treat the flag as required rather than as tuning.
 
 The same flag independently un-handicaps the *grid unpack*, which is a separate
 issue with the same cause: `fastlanes::UnpackBlock` contains zero intrinsics and
 has no dispatch table (`MakeUnpackTable` in `util/pfor/pfor.cc` is indexed by bit
 width 1..32, with no CPU-feature dimension), so its register width is frozen at
-compile time and `ARROW_USER_SIMD_LEVEL` cannot reach it. Meanwhile the
-sequential arm it is being compared against *does* dispatch at runtime, all the
-way to AVX2. A default build therefore races a 256-bit sequential kernel against
-a 128-bit grid kernel and reports the ratio as a layout result.
+compile time and `ARROW_USER_SIMD_LEVEL` cannot reach it. The sequential decoder
+it is compared against *does* dispatch at runtime, all the way to AVX2. A
+default build therefore races a 256-bit sequential kernel against a 128-bit grid
+kernel and reports the ratio as a layout result.
 
-**2. One control arm was missing, and one working-set size is not enough.**
-Details in the next section — this is the part that changes what the run can
-conclude, not just how fast the arms are.
+**2. One control was missing, and one working-set size is not enough.** The next
+section covers both. These bear on what the run can conclude at all, not only on
+the speeds it reports.
 
-## The four arms, and why all four are required
+## The four benchmarks, and why all four are required
 
-| arm | benchmark | what it is |
+| name | benchmark | what it is |
 |---|---|---|
 | `seq` | `BM_PforPlainSeqDecode` | continuous layout, delta declined — **the baseline** |
 | `intlv` | `BM_InterleavedPforDecode` | grid filled in file order — **control, unshippable** |
 | `fl_unpk` | `BM_InterleavedPforFlOrderRawDecode` | grid filled the paper's way, handed back unpermuted — **control, violates Parquet's positional contract** |
-| `fl_tpos` | `BM_InterleavedPforFlOrderDecode` | same grid, permuted back to file order by the fused transpose — **the candidate, and the only arm whose ratio is a verdict** |
+| `fl_tpos` | `BM_InterleavedPforFlOrderDecode` | same grid, permuted back to file order by the fused transpose — **the candidate, and the only ratio that answers the question** |
 
-`fl_unpk` was absent from the first run, and it is the arm that makes the result
-readable. A flat `fl_tpos/seq` has two completely different explanations —
-"the grid's bit-unpacking is no cheaper" and "the grid's bit-unpacking is much
-cheaper but the permutation spends the entire win" — and they are
-indistinguishable from the candidate's number alone. They point at different
-fixes, so the difference matters.
+`fl_unpk` was missing from the first run, and without it a flat `fl_tpos/seq` is
+ambiguous: it can mean the grid's bit-unpacking is no cheaper, or that it is much
+cheaper and the permutation spends the whole win. Those two want different fixes,
+and the candidate's number alone cannot tell them apart.
 
-Measured here at 16 KiB, that is exactly what separates: the grid wins 1.75x and
-the permutation charges 1.77x. Same size, opposite signs. You cannot see either
-of those numbers without `fl_unpk`.
+At 16 KiB here the two separate: the grid wins 1.75x and the permutation costs
+1.77x. Neither of those is visible without `fl_unpk`.
 
-The four arms now also sweep five working-set sizes (`LayoutArgs` in
+The comparison now also sweeps five working-set sizes (`LayoutArgs` in
 `pfor_comparison_benchmark.cc`) instead of the single 400 KiB point:
 
 | values | decoded output | why this point |
@@ -78,9 +74,19 @@ The four arms now also sweep five working-set sizes (`LayoutArgs` in
 | 1048576 | 4 MiB | spilled L2 |
 | 8388608 | 32 MiB | L3-resident, deliberately not DRAM |
 
-The grid's advantage is a compute effect, so it converts to time only while
-stores are not the limit. It is 1.76x at 16 KiB and gone by 1.5 MiB. A single
-mid-size point can show neither the size of the win nor the size of the tax.
+The grid's advantage is a compute effect, so whether it converts to time depends
+on whether stores are the limit at a given footprint. Here it measures 1.76x at
+16 KiB and much less at the larger points, but do not read that fall-off as a
+residency result yet, and do not treat it as something your run is expected to
+reproduce. This harness shares one process-wide output buffer but still lets
+each benchmark allocate its own encoded input, so input-address-mod-4096 varies
+between benchmarks and with footprint (the allocator places larger requests
+differently). A later harness on this branch that also carves inputs out of a
+shared arena — `fl5_corpus/layout_benchmark.cpp` — traced a 1.36x-to-0.47x swing
+between two adjacent bit widths, at its largest footprint only, to exactly that.
+What the five points buy is the shape across footprints; whether the shape is
+real is part of what is being asked, and a single mid-size point cannot show it
+either way.
 
 ## Build
 
@@ -104,14 +110,14 @@ for LEVEL in AVX2 SSE4_2; do
 done
 ```
 
-The `SSE4_2` leg is not a throwaway: it is the control that shows how much of
-the result is register width rather than layout, and it is also what a
-default-configured Arrow actually ships today. Expect the candidate to collapse
-in it. That collapse is a finding, not a failed run.
+Please run the `SSE4_2` leg too. It is the control that shows how much of the
+result is register width rather than layout, and it is also what a
+default-configured Arrow ships today. Expect the candidate to collapse in it;
+that reading is wanted, so send it either way.
 
 ## Verify the binary before spending time running it
 
-This is the check whose absence cost the first run. It takes one second.
+One second, and it is what catches a build where the flag did not take.
 
 ```bash
 nm -C build-x86-AVX2/release/parquet-pfor-comparison-benchmark \
@@ -119,12 +125,12 @@ nm -C build-x86-AVX2/release/parquet-pfor-comparison-benchmark \
 ```
 
 - **non-zero** → the fused candidate kernel is in the binary. Good.
-- **zero** → `ARROW_SIMD_LEVEL` did not take. Do not run it; the candidate arm
-  will silently measure the scratch fallback again.
+- **zero** → `ARROW_SIMD_LEVEL` did not take. Do not run it; the candidate will
+  silently measure the scratch fallback again.
 
 The sweep script also emits a per-binary `objdump` register census into
-`machine.txt`, so the width ends up evidenced in the tarball rather than
-asserted. For reference, what a correct AVX2 build looks like here:
+`machine.txt`, so the tarball carries the register width as data. For reference,
+what a correct AVX2 build looks like here:
 
 ```
 InterleavedPforDecode:        ymm=2543  zmm=0
@@ -132,8 +138,8 @@ UnpackBlockFlToFileOrder<12>: ymm=2311        <- present at all = fused kernel e
 ```
 
 `UnpackBlockFlToFileOrder` is `__m256i` by hand, so it stays `ymm` even in a
-512-bit build. That asymmetry is why a 512 leg is not a like-for-like widening
-and is not part of the headline.
+512-bit build. A 512 leg would therefore widen the sequential kernel and not the
+candidate, which is why it is not part of the headline.
 
 ## Run
 
@@ -145,29 +151,29 @@ and is not part of the headline.
 
 Send back the single `x86_register_width_sweep_<host>_<date>.tar.gz` it writes.
 
-This run is longer than the first — the four layout arms now cover five sizes
-each. The extra points are the answer, not overhead.
+This run is longer than the first: the four layout benchmarks now cover five
+footprints each.
 
 If your CPU has a mobile/boost power profile, the largest footprints are the
 ones most likely to drift thermally. `machine.txt` records the governor, and the
-per-column tables print the worst per-arm CV alongside every ratio, so drift is
-visible rather than baked in.
+per-column tables print the worst CV alongside every ratio, so drift shows up in
+the table instead of disappearing into it.
 
-## Read your own results before sending them
+## Read the results before sending them
 
 ```bash
 tar xzf x86_register_width_sweep_*.tar.gz
 python3 cpp/src/parquet/pfor_layout_tables.py combined_results.json
 ```
 
-That prints, per build width: the four arms across all five footprints and all
-43 columns, the geomean over columns, and two self-checks. It fails loudly if an
-arm or the ladder is missing, so it will tell you immediately if the build did
-not take.
+That prints, per build width: the four benchmarks across all five footprints and
+all 43 columns, the geomean over columns, and two self-checks. It fails loudly
+if a benchmark or the ladder is missing, so it will tell you immediately if the
+build did not take.
 
 Two things worth checking in the output yourself:
 
-- **`fl_unpk/intlv` must be ~1.000** at every footprint. Those two arms run the
+- **`fl_unpk/intlv` must be ~1.000** at every footprint. Those two run the
   identical `PackBlock`/`UnpackBlock` pair over the same number of wire bytes
   against a grid that was merely *filled* differently at encode time. If they
   disagree by more than a few percent, something is wrong with the run and the
@@ -179,10 +185,12 @@ Two things worth checking in the output yourself:
 
 ## What is being asked of the data
 
-Not "is FastLanes faster". Specifically: **at what working-set size, if any,
-does `fl_tpos/seq` exceed 1.0 on your silicon, and how does the `fl_unpk` win
-compare to the `tax` that collects it?** The claim under test on this branch is
-that the grid's unpacking is genuinely much cheaper in L1, that the positional
-permutation costs about the same as the win, and that both vanish once stores
-are the limit — which would mean the layout does not pay for Parquet as
-specified. A second machine either reproduces that shape or breaks it.
+**At what working-set size, if any, does `fl_tpos/seq` exceed 1.0 on your
+silicon, and how does the `fl_unpk` win compare to the `tax` that collects
+it?** The claim under test on
+this branch is that the grid's unpacking is genuinely much cheaper in L1, and
+that the positional permutation costs about as much as the win — which would
+mean the layout does not pay for Parquet as specified. Whether either effect
+survives at larger footprints is the least settled part of that, for the
+allocation reason above, so your machine is most useful as a second reading of
+the footprint shape.

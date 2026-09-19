@@ -15,16 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Portable sequential bit-pack/unpack, arm 1 of the three-arm kernel sweep.
+// Portable sequential bit-pack/unpack for the kernel sweep: plain scalar
+// bit-packing, where value i's word/shift/straddle depend on i alone, with no
+// lane structure and no vectorization hint. This is the baseline that the
+// interleaved container and Arrow's dispatched unpacker are both compared
+// against.
 //
-// Plain scalar bit-packing: value i's word/shift/straddle depend on i alone,
-// with no lane structure and no vectorization hint. This is the baseline
-// that the interleaved container (arm 2) and Arrow's dispatched unpacker
-// (arm 3) are both compared against.
-//
-// Compiled once, at a fixed level, into its own object file. The driver
-// links this .o unchanged into both the -O2 and -O3 builds, so this arm's
-// machine code never varies between rows of the sweep.
+// Compiled once, at a fixed level, into its own object file, which the driver
+// links unchanged into both the -O2 and -O3 builds.
 #include "seq_unpack.h"
 
 #include <cstring>

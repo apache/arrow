@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Turn a register-width sweep tarball into the four-arm layout tables.
+"""Turn a register-width sweep tarball into the layout tables.
 
 Reads the combined_results.json produced by x86_register_width_sweep.sh and
 prints, per build register width, the comparison the layout decision actually
-rests on: one baseline and three grid arms, across every working-set size and
+rests on: one baseline and three grid variants, across every working-set size and
 every column, plus the geomean over columns.
 
     python3 pfor_layout_tables.py combined_results.json [--stat median]
 
-The four arms, and why all four are needed:
+The four benchmarks, and why all four are needed:
 
     seq       BM_PforPlainSeqDecode               continuous layout, delta
                                                   declined.  THE BASELINE.
@@ -24,7 +24,7 @@ The four arms, and why all four are needed:
                                                   file order by the fused
                                                   in-register transpose.
                                                   THE CANDIDATE, and the only
-                                                  arm whose ratio is a verdict.
+                                                  ratio that answers it.
 
 Read the columns in this order.  fl_unpk/seq is what the layout wins.  The tax
 column, fl_unpk/fl_tpos, is what the positional contract charges to collect it.
@@ -41,13 +41,13 @@ import math
 import re
 import sys
 
-ARMS = [
+BENCHES = [
     ("seq", "BM_PforPlainSeqDecode"),
     ("intlv", "BM_InterleavedPforDecode"),
     ("fl_unpk", "BM_InterleavedPforFlOrderRawDecode"),
     ("fl_tpos", "BM_InterleavedPforFlOrderDecode"),
 ]
-ARM_FOR = {bench: arm for arm, bench in ARMS}
+NAME_FOR = {bench: name for name, bench in BENCHES}
 
 # Decoded output bytes = 4 * num_values.  Labels are what the ladder was chosen
 # against, not what any particular machine has; a run on a different cache
@@ -82,7 +82,7 @@ def main():
     with open(args.json_path) as f:
         data = json.load(f)
 
-    # (level, arm, dataset, nvalues) -> GiB/s ; and the CV alongside, because a
+    # (level, name, dataset, nvalues) -> GiB/s ; and the CV alongside, because a
     # ratio built out of two noisy cells is not evidence.
     gbps = {}
     cv = {}
@@ -91,11 +91,11 @@ def main():
         if not m:
             continue
         bench, dataset, n, _ = m.groups()
-        arm = ARM_FOR.get(bench)
-        if arm is None:
+        name = NAME_FOR.get(bench)
+        if name is None:
             continue
         level = b.get("build_simd_level", b.get("simd_level", "?"))
-        key = (level, arm, dataset, int(n))
+        key = (level, name, dataset, int(n))
         agg = b.get("aggregate_name")
         if agg == args.stat:
             bps = b.get("bytes_per_second")
@@ -106,26 +106,26 @@ def main():
 
     if not gbps:
         sys.exit(
-            "no layout-arm records found. If this tarball predates the "
-            "footprint ladder it has only the 102400 point, and the arm\n"
+            "no layout benchmark records found. If this tarball predates the "
+            "footprint ladder it has only the 102400 point, and\n"
             "BM_InterleavedPforFlOrderRawDecode will be missing entirely -- "
             "that run cannot produce these tables."
         )
 
-    # A missing arm is the single most likely thing to be wrong with a returned
+    # A missing benchmark is the single most likely thing to be wrong with a returned
     # tarball, and it is silent: every ratio involving it just prints nan. Say
     # so once, loudly, at the top.
     present = {k[1] for k in gbps}
-    missing = [arm for arm, _ in ARMS if arm not in present]
+    missing = [name for name, _ in BENCHES if name not in present]
     if missing:
-        bench_for = dict(ARMS)
+        bench_for = dict(BENCHES)
         print("!" * 104)
-        print("INCOMPLETE RUN -- missing arm(s): " + ", ".join(missing))
-        for arm in missing:
-            print(f"    {arm:<9} ({bench_for[arm]})")
+        print("INCOMPLETE RUN -- missing: " + ", ".join(missing))
+        for name in missing:
+            print(f"    {name:<9} ({bench_for[name]})")
         print()
-        print("  Every ratio involving a missing arm below is nan. If fl_unpk is")
-        print("  the missing one, this tarball predates the control arm and cannot")
+        print("  Every ratio involving a missing one below is nan. If fl_unpk is")
+        print("  the missing one, this tarball predates that control and cannot")
         print("  separate 'the grid is no cheaper' from 'the grid is much cheaper")
         print("  and the permutation spends the win' -- rebuild and re-run.")
         print("!" * 104)
@@ -136,8 +136,8 @@ def main():
         print("!" * 104)
         print(f"SINGLE WORKING-SET SIZE ONLY ({sorted(sizes_seen)[0]} values). This")
         print("  tarball predates the footprint ladder. The grid's advantage is a")
-        print("  compute effect that only survives while stores are not the limit,")
-        print("  so one size cannot show it -- rebuild and re-run.")
+        print("  compute effect, and whether it survives at a given footprint is")
+        print("  what the ladder is for -- rebuild and re-run.")
         print("!" * 104)
         print()
 
@@ -155,9 +155,9 @@ def main():
         print("=" * 104)
         if level == "AVX512":
             print(
-                "  NOTE: not like-for-like. The sequential arm is capped at "
+                "  NOTE: not like-for-like. The sequential decoder is capped at "
                 "AVX2 in bpacking.cc, so this\n"
-                "  column widens the grid arms only -- except the candidate, "
+                "  column widens the grid benchmarks only -- except the candidate, "
                 "pinned at 256 by its own __m256i."
             )
         print(
@@ -167,8 +167,8 @@ def main():
         print("  tax = fl_unpk/fl_tpos = what the positional contract charges")
         print()
 
-        def cell(arm, ds, n):
-            return gbps.get((level, arm, ds, n))
+        def cell(name, ds, n):
+            return gbps.get((level, name, ds, n))
 
         hdr = (
             f"{'footprint':<10} | {'seq':>8} {'intlv':>8} {'fl_unpk':>8} "
@@ -183,10 +183,10 @@ def main():
         gm = {}
         for n in sizes:
             g = {}
-            for arm, _ in ARMS:
-                vals = [cell(arm, ds, n) for ds in datasets]
+            for name, _ in BENCHES:
+                vals = [cell(name, ds, n) for ds in datasets]
                 vals = [v for v in vals if v]
-                g[arm] = geomean(vals) if vals else float("nan")
+                g[name] = geomean(vals) if vals else float("nan")
             gm[n] = g
             print(
                 f"{FOOTPRINT.get(n, str(n)):<10} | {g['seq']:>8.1f} "
@@ -208,14 +208,14 @@ def main():
             )
             print("-" * 104)
             for ds in datasets:
-                v = {arm: cell(arm, ds, n) for arm, _ in ARMS}
+                v = {name: cell(name, ds, n) for name, _ in BENCHES}
                 if not v["seq"]:
                     continue
-                # Missing arms print as nan rather than dropping the row: a row
+                # A missing one prints as nan rather than dropping the row: a row
                 # that vanishes looks like a column that was not run.
                 v = {a: (x if x else float("nan")) for a, x in v.items()}
                 worst = max(
-                    (cv.get((level, arm, ds, n), 0.0) for arm, _ in ARMS),
+                    (cv.get((level, name, ds, n), 0.0) for name, _ in BENCHES),
                     default=0.0,
                 )
                 print(

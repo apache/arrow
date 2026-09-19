@@ -1,10 +1,10 @@
-// Does calling unpack_bias once per 1024-value block handicap the sequential arm?
+// Does calling unpack_bias once per 1024-value block handicap the sequential decoder?
 //
 // fl5_corpus calls it per block, because with real data every block picks its own
 // width and its own frame-of-reference minimum, so a page decoder has no choice.
 // But Arrow's own pfor.cc measures faster than that, and if the difference is
 // per-call overhead rather than the layout, then fl5's sequential column is unfair
-// and its headline ratio is inflated. Three arms, same bytes, same width:
+// and its headline ratio is inflated. Three decoders, same bytes, same width:
 //
 //   per_block   one unpack_bias call per 1024 values, runtime width  (= fl5)
 //   whole_buf   one unpack_bias call for the entire buffer, runtime width

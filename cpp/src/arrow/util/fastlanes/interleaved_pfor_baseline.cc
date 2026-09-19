@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// The baseline leg of the interleaved kernel dispatch: this translation unit
+// The baseline leg of the interleaved kernel dispatch. This translation unit
 // carries no instruction-set flags of its own, so it compiles at whatever the
-// build's own flags name. It is the fallback DynamicDispatch resolves to when no
-// vector leg is available, and it is the only leg that always exists.
+// build's flags name; DynamicDispatch falls back to it when no vector leg is
+// available.
 
 #include "arrow/util/fastlanes/interleaved_dispatch_internal.h"
 #include "arrow/util/fastlanes/interleaved_kernel_table_internal.h"

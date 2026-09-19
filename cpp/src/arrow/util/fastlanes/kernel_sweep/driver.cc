@@ -15,21 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Three-arm kernel sweep: portable sequential unpack (arm 1, this TU) vs.
-// the in-tree interleaved kernel (arm 2, this TU) vs. Arrow's dispatched
-// unpacker (arm 3, prebuilt in libarrow, called through its real header).
+// Kernel sweep: portable sequential unpack (seq_unpack.o) vs. the in-tree
+// interleaved kernel (this TU) vs. Arrow's dispatched unpacker (prebuilt in
+// libarrow, called through its real header). Reports instructions per value
+// and IPC from hardware counters.
 //
-// Arm 1's object code (seq_unpack.o) and arm 3's object code (libarrow.so)
-// are both fixed ahead of time and linked in unchanged. Only this TU, and
-// so only arm 2, recompiles when the driver is rebuilt at a different
-// optimization level -- matching how the sweep isolates what changes
-// between its -O2 and -O3 rows.
+// seq_unpack.o and libarrow.so are both fixed ahead of time and linked in
+// unchanged, so only the interleaved kernel recompiles when the driver is
+// rebuilt at a different optimization level. That is how the sweep isolates
+// what changes between its -O2 and -O3 rows.
 //
 // Not wired into the CMake build: perf_event_open is Linux-only and needs
 // a container/host that allows self-process hardware counters (this one
-// rejects perf_event_attr.exclude_idle=1 with EOPNOTSUPP but otherwise
-// allows PERF_TYPE_HARDWARE; if counters come back unavailable elsewhere,
-// that flag is the first thing to check). Build and run from a shared
+// rejects perf_event_attr.exclude_idle=1 with EOPNOTSUPP but otherwise allows
+// PERF_TYPE_HARDWARE; if counters come back unavailable elsewhere, check that
+// flag first). Build and run from a shared
 // Arrow build directory <build> with libarrow already built there:
 //
 //   g++ -std=c++20 -O2 -DNDEBUG -march=armv8-a -ftree-vectorize \
@@ -46,8 +46,8 @@
 //       seq_unpack_o2.o -L <build>/release -larrow \
 //       -Wl,-rpath,<build>/release -o driver_o3
 //
-// seq_unpack_o2.o and libarrow stay fixed across both links; only this TU
-// (arm 2) is recompiled at each level.
+// seq_unpack_o2.o and libarrow stay fixed across both links; only this TU is
+// recompiled at each level.
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -119,7 +119,7 @@ static void run(PerfCounters* perf) {
                                        arrow::internal::UnpackOptions{N, static_cast<int>(w), 0, -1});
   };
 
-  // Correctness gates: each arm reproduces the input, and all three agree.
+  // Correctness gates: each decoder reproduces the input, and all three agree.
   unpack_seq_call();
   unpack_int_call();
   unpack_arrow_call();

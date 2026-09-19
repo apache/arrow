@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Portable sequential (non-interleaved) bit-pack/unpack reference, arm 1 of
-// the three-arm kernel sweep. Compiled once into seq_unpack.o at a fixed
-// optimization level and linked unchanged into every driver build, so this
-// arm's machine code never varies between the -O2 and -O3 rows.
+// Portable sequential (non-interleaved) bit-pack/unpack reference for the
+// kernel sweep. Compiled once into seq_unpack.o at a fixed optimization level
+// and linked unchanged into every driver build, so its machine code never
+// varies between the -O2 and -O3 rows.
 #pragma once
 #include <cstdint>
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds layout_benchmark, the five-arm bit-unpacking layout harness. Works on
+# Builds layout_benchmark, the bit-unpacking layout harness. Works on
 # x86-64 and aarch64; the only difference is -march.
 #
 #   ARROW=/path/to/arrow           source checkout (has cpp/src)

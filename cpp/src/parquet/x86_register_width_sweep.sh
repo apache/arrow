@@ -2,73 +2,63 @@
 #
 # One-shot benchmark sweep for the register-width question on x86.
 #
-# WHAT THIS ANSWERS
-#   Does the sequential-vs-interleaved PFOR decode ratio widen as the SIMD
-#   register gets wider? We don't have x86 hardware here, so this script is
-#   meant to be handed to someone who does, run once, and the resulting
-#   tarball sent back.
+# The question: does the sequential-vs-interleaved PFOR decode ratio widen as
+# the SIMD register gets wider? We have no x86 hardware here, so this script is
+# meant to be handed to someone who does, run once, and the tarball sent back.
 #
-# READ THIS FIRST -- THE PREVIOUS REVISION OF THIS SCRIPT WAS WRONG
-#   It claimed the sweep could get every register width out of ONE build by
-#   re-running it under ARROW_USER_SIMD_LEVEL, and told the runner to leave
-#   ARROW_SIMD_LEVEL at its default. That is invalid, and it silently
-#   handicapped the interleaved side of the very comparison this script exists
-#   to make. Kosta caught it on the first run. The mechanism:
+# Register width has to be set per build, at compile time, and the script takes
+# one binary per level. Setting it per run with ARROW_USER_SIMD_LEVEL out of a
+# single build does not work, and handicaps the interleaved side of the
+# comparison this script exists to make:
 #
-#     - The SEQUENTIAL arm (bpacking.cc, unpack_bias) has real runtime
-#       dispatch: hand-written per-target translation units selected by CPUID
-#       and capped by ARROW_USER_SIMD_LEVEL. It responds to the env var.
+#   - The sequential decoder (bpacking.cc, unpack_bias) has real runtime
+#     dispatch: hand-written per-target translation units selected by CPUID and
+#     capped by ARROW_USER_SIMD_LEVEL. It responds to the env var.
 #
-#     - The INTERLEAVED / FL_ORDER arms go through
-#       fastlanes::UnpackBlock in fastlanes_kernels_internal.h, which contains
-#       ZERO intrinsics -- it is portable C++ that the compiler
-#       auto-vectorizes. It has no target attribute and no dispatch table
-#       (see MakeUnpackTable in util/pfor/pfor.cc: the table is indexed by BIT
-#       WIDTH, 1..32, with no CPU-feature dimension at all). So its register
-#       width is fixed at compile time by the TU's flags -- i.e. by
-#       ARROW_SIMD_LEVEL, which defaults to SSE4_2 on x86 -- and
-#       ARROW_USER_SIMD_LEVEL cannot reach it.
+#   - The interleaved and FL_ORDER decoders go through fastlanes::UnpackBlock in
+#     fastlanes_kernels_internal.h, which has no intrinsics -- it is portable
+#     C++ that the compiler auto-vectorizes -- no target attribute, and no
+#     dispatch table (MakeUnpackTable in util/pfor/pfor.cc is indexed by bit
+#     width 1..32, with no CPU-feature dimension). Its register width is fixed
+#     at compile time by the translation unit'"'"'s flags, that is by
+#     ARROW_SIMD_LEVEL, which defaults to SSE4_2 on x86, and
+#     ARROW_USER_SIMD_LEVEL cannot reach it.
 #
-#   Net effect of the old instructions: the AVX2 leg compared a hand-written
-#   AVX2 sequential kernel against a 128-bit interleaved kernel and presented
-#   the ratio as a layout result. It was partly a register-width result.
+# Out of one default build, the AVX2 leg would therefore compare a hand-written
+# AVX2 sequential kernel against a 128-bit interleaved kernel and report the
+# ratio as a layout result. ARROW_USER_SIMD_LEVEL is still pinned below, but
+# only to hold the sequential decoder at the same width as the interleaved one
+# rather than letting it run ahead to its CPUID maximum.
 #
-#   Hence this revision. Register width is now set per BUILD, at compile time,
-#   and the script takes one binary per level. ARROW_USER_SIMD_LEVEL is still
-#   pinned, but only to hold the sequential arm at the same width as the
-#   interleaved one rather than letting it run ahead to its CPUID maximum.
+# That the flag is what moves the width was checked on Granite Rapids by
+# objdump of one source at three flag settings (InterleavedPforDecode, w=12):
+#     -march=haswell        -mprefer-vector-width=256   ymm, no zmm
+#     -march=sapphirerapids -mprefer-vector-width=256   ymm, no zmm
+#     -march=sapphirerapids -mprefer-vector-width=512   1409 zmm, no ymm
 #
-#   Verified on Granite Rapids by objdump of the same source at three flag
-#   settings (InterleavedPforDecode, width 12):
-#       -march=haswell      -mprefer-vector-width=256   ymm, no zmm
-#       -march=sapphirerapids -mprefer-vector-width=256  ymm, no zmm
-#       -march=sapphirerapids -mprefer-vector-width=512  1409 zmm, no ymm
-#   Same source, three widths, no code change. That is the knob.
-#
-# ONE ARM CANNOT BE WIDENED AT ALL, AND IT IS THE CANDIDATE ARM
+# One kernel cannot be widened at all, and it is the candidate.
 #   UnpackBlockFlToFileOrder in util/fastlanes/interleaved_pfor.h -- the fused
-#   FL_ORDER-to-file-order transpose, which is the only variant that satisfies
-#   Parquet's positional contract -- IS hand-written intrinsics, and they are
-#   __m256i. It compiles to an identical 2324 ymm / 0 zmm body whether or not
-#   the TU is allowed 512-bit registers. So a 512-bit leg widens the CONTROL
-#   arms (plain interleaved, FL_ORDER-raw) and leaves the CANDIDATE arm at 256
-#   regardless. Read any 512 column with that asymmetry in mind; it is not a
-#   like-for-like widening of both sides.
+#   FL_ORDER-to-file-order transpose, the only variant that satisfies Parquet'"'"'s
+#   positional contract -- is hand-written intrinsics, and they are __m256i. It
+#   compiles to an identical 2324 ymm / 0 zmm body whether or not the
+#   translation unit is allowed 512-bit registers. A 512-bit leg therefore
+#   widens the two controls (plain interleaved, FL_ORDER-raw) and leaves the
+#   candidate at 256. Read any 512 column with that asymmetry in mind; it is not
+#   a like-for-like widening of both sides.
 #
-# WHY 512 IS OPTIONAL AND SEPARATELY LABELLED
+# Why 512 is optional and labelled separately.
 #   On the sequential side, 512 is not a data point at all:
 #   bpacking_simd_avx512.cc is still driven by the legacy generated kernels,
 #   which build their input register from a list of scalar loads. Measured at
-#   0.16x of the AVX2 kernel and 0.67x of the SCALAR one, so dispatch is capped
-#   at 256 bits in bpacking.cc and a 512 request resolves back to AVX2.
-#   Do not read a 512 sequential column as a 512-bit sequential kernel; it is
-#   the AVX2 one. The interleaved side has no such defect -- its 512 column is
-#   genuine zmm -- which is exactly why the two must not be compared at "512".
-#   AVX2 is the level at which both sides are honest, so AVX2 is the headline.
+#   0.16x of the AVX2 kernel and 0.67x of the scalar one, so dispatch is capped
+#   at 256 bits in bpacking.cc and a 512 request resolves back to AVX2. Do not
+#   read a 512 sequential column as a 512-bit sequential kernel; it is the AVX2
+#   one. The interleaved side has no such defect -- its 512 column is genuine
+#   zmm -- which is why the two must not be compared at "512". AVX2 is the level
+#   at which both sides are honest, so AVX2 is the headline.
 #
-# PREREQUISITE -- ONE BUILD PER REGISTER WIDTH
-#   The AVX2 build is the one that matters; do that one first, and stop there
-#   if you only have time for one.
+# Prerequisite: one build per register width. The AVX2 build is the one that
+# matters; do that one first, and stop there if you only have time for one.
 #
 #     for LEVEL in AVX2 SSE4_2; do
 #       cmake -S cpp -B build-x86-$LEVEL \
@@ -81,25 +71,24 @@
 #       cmake --build build-x86-$LEVEL --target parquet-pfor-comparison-benchmark -j
 #     done
 #
-#   -DARROW_SIMD_LEVEL is REQUIRED and is the whole point. Its default
-#   (SSE4_2) is what produced the handicapped first run. Note that this does
-#   change the compile baseline for the whole binary, so these numbers are not
-#   directly comparable to a default-Release ARM run; that is a real cost and
-#   is the correct trade, because the alternative is comparing two layouts at
-#   two different register widths and calling it a layout result.
+#   -DARROW_SIMD_LEVEL is required, not tuning: its default (SSE4_2) is what
+#   leaves the interleaved kernel in XMM registers. It does change the compile
+#   baseline for the whole binary, so these numbers are not directly comparable
+#   to a default-Release build. That is a real cost, and the correct trade,
+#   because the alternative is comparing two layouts at two different register
+#   widths and calling it a layout result.
 #
-# USAGE
+# Usage
 #   ./x86_register_width_sweep.sh AVX2=/path/to/build-x86-AVX2/release/parquet-pfor-comparison-benchmark \
 #                                 [SSE4_2=/path/to/build-x86-SSE4_2/release/...]
 #
 #   Levels may be given in any order and any subset. One LEVEL=PATH pair per
 #   build. A single AVX2 pair is a complete, valid run.
 #
-# OUTPUT
-#   x86_register_width_sweep_<hostname>_<date>.tar.gz in the current
-#   directory, containing:
+# Output
+#   x86_register_width_sweep_<hostname>_<date>.tar.gz in the current directory:
 #     - combined_results.json   (all register widths, one file, each record
-#                                 tagged with the level it was BUILT at)
+#                                 tagged with the level it was built at)
 #     - machine.txt             (lscpu, cpuinfo flags, governor, arrow commit,
 #                                 plus an objdump register census per binary so
 #                                 the width is evidenced rather than asserted)
@@ -152,14 +141,14 @@ HOST="$(hostname -s 2>/dev/null || echo unknown-host)"
 TARBALL="x86_register_width_sweep_${HOST}_${STAMP}.tar.gz"
 
 REPS=7
-# The four layout arms now sweep five working-set sizes (16 KiB / 400 KiB /
+# The four layout benchmarks now sweep five working-set sizes (16 KiB / 400 KiB /
 # 1.5 MiB / 4 MiB / 32 MiB of decoded output) instead of the single 400 KiB
 # point the first run used -- see LayoutArgs in pfor_comparison_benchmark.cc.
-# The grid's advantage is a compute effect that only survives while stores are
-# not the limit, so one mid-size point cannot show either its size or the size
-# of the permutation tax. Expect this run to take longer than the first for
-# that reason; the extra points are the answer, not overhead.
-# Only the arms this question is about, across every registered column --
+# The grid's advantage is a compute effect, and whether it converts to time at a
+# given footprint is part of what is being asked, so one mid-size point cannot
+# show either its size or the size of the permutation tax. Expect this run to
+# take longer than the first for that reason.
+# Only the benchmarks this question is about, across every registered column --
 # typical columns and the delta-shaped ones alike, so delta-mode-relevant
 # columns are covered by column choice, not a separate flag:
 #   - BM_Pfor(64)?Decode           sequential layout, Arrow's shipped decoder
@@ -170,40 +159,39 @@ REPS=7
 #                                  declined on both sides, so the ratio between
 #                                  these two is the layout on its own. This is
 #                                  the pair to quote for the layout question;
-#                                  BM_PforDecode against an interleaved arm mixes
+#                                  BM_PforDecode against an interleaved one mixes
 #                                  the layout with the prefix sum delta forces.
 #   - BM_InterleavedPforDecode     interleaved layout, plain PFOR, file order.
-#                                  A CONTROL: no encoder can ship this, because
+#                                  A control: no encoder can ship this, because
 #                                  filling the grid in file order is what the
 #                                  paper's lane assignment exists to avoid. It
 #                                  is here to price the grid's bit-unpacking on
 #                                  its own.
 #   - BM_InterleavedPforFlOrderRawDecode  the same grid filled the paper's way
-#                                  and handed back WITHOUT the permutation that
+#                                  and handed back without the permutation that
 #                                  Parquet's positional contract requires. Also
-#                                  a CONTROL, and the one that was missing from
-#                                  the first run. Without it the two competing
+#                                  a control. Without it the two competing
 #                                  explanations for a flat result cannot be
 #                                  separated: "the grid's unpacking is no
 #                                  cheaper" and "the grid's unpacking is much
 #                                  cheaper but the permutation eats all of it"
 #                                  look identical in the candidate's number.
-#   - BM_InterleavedPforFlOrderDecode  THE CANDIDATE. Same grid, permuted back
+#   - BM_InterleavedPforFlOrderDecode  the candidate. Same grid, permuted back
 #                                  to file order by the fused in-register
-#                                  transpose, so it is the only arm here that
+#                                  transpose, so it is the only one here that
 #                                  satisfies the positional contract and the
-#                                  only one whose number is a verdict.
-#                                  All three interleaved arms above carry no
+#                                  only one that answers the question.
+#                                  All three interleaved benchmarks above carry no
 #                                  exception handling at all: no patch list on
 #                                  the wire, no patch pass in the decoder. Read
 #                                  them against each other and never against a
-#                                  production arm -- the quotient would charge
+#                                  production benchmark -- the quotient would charge
 #                                  one side for patching the other never does.
 #                                  They answer the ordering question, not the
 #                                  layout one, which is the pair above.
 #   - BM_TposeApiDecode / TposeFusedDecode / TposeRawDecode / LaneDeltaDecode
 #                                  interleaved layout applied to a delta chain
-# Encode arms and the other codecs (DBP/zstd/lz4/RLE/BSS) are outside this
+# Encode benchmarks and the other codecs (DBP/zstd/lz4/RLE/BSS) are outside this
 # question and are left out to keep the run and the output short.
 FILTER='BM_(Pfor(64)?Decode|PforPlainSeqDecode|PforPlainInterleavedDecode|InterleavedPforDecode|InterleavedPforFlOrderRawDecode|InterleavedPforFlOrderDecode|TposeApiDecode|TposeFusedDecode|TposeRawDecode|LaneDeltaDecode)/'
 
@@ -233,7 +221,7 @@ echo "== machine identification ==" | tee "${OUTDIR}/machine.txt"
   echo
   echo "--- objdump register census per binary (interleaved kernel) ---"
   echo "    a build whose interleaved kernel shows only xmm was NOT built with"
-  echo "    -DARROW_SIMD_LEVEL set, and its interleaved arms are handicapped."
+  echo "    -DARROW_SIMD_LEVEL set, and its interleaved kernels are handicapped."
   for LEVEL in "${ORDER[@]}"; do
     BIN="${BIN_FOR[${LEVEL}]}"
     echo
@@ -256,7 +244,7 @@ echo "== machine identification ==" | tee "${OUTDIR}/machine.txt"
         "$(grep -co ymm "${OUTDIR}/.dis" || true)" \
         "$(grep -co xmm "${OUTDIR}/.dis" || true)"
     fi
-    # The candidate arm, which is pinned at 256 by its own __m256i intrinsics.
+    # The candidate kernel, pinned at 256 by its own __m256i intrinsics.
     TADDR="$(nm -C "${BIN}" 2>/dev/null \
       | grep -F 'UnpackBlockFlToFileOrder<12u' | head -1 | awk '{print $1}')" || true
     if [[ -n "${TADDR:-}" ]]; then
@@ -298,12 +286,13 @@ for LEVEL in "${ORDER[@]}"; do
   echo
   echo "== running the ${LEVEL} BUILD (ARROW_USER_SIMD_LEVEL pinned to ${LEVEL}) =="
   if [[ "${LEVEL}" == AVX512 ]]; then
-    echo "   note: the sequential arm resolves back to AVX2 here (capped in"
-    echo "   bpacking.cc); the interleaved arm is genuine zmm. Not like-for-like."
+    echo "   note: the sequential decoder resolves back to AVX2 here (capped"
+    echo "   in bpacking.cc); the interleaved one is genuine zmm. Not"
+    echo "   like-for-like."
   fi
-  # Pinning the env var holds the SEQUENTIAL arm at the same width the binary
-  # was compiled for, instead of letting CPUID take it to the machine maximum
-  # while the interleaved arm stays at its compile-time width.
+  # Pinning the env var holds the sequential decoder at the same width the
+  # binary was compiled for, instead of letting CPUID take it to the machine
+  # maximum while the interleaved one stays at its compile-time width.
   ARROW_USER_SIMD_LEVEL="${LEVEL}" "${RUNNER[@]}" "${BIN}" \
     --benchmark_filter="${FILTER}" \
     --benchmark_repetitions="${REPS}" \
@@ -330,7 +319,7 @@ for pair in sys.argv[2:]:
         data = json.load(f)
     for bench in data.get("benchmarks", []):
         bench = dict(bench)
-        # The level the binary was COMPILED at -- this is what sets the
+        # The level the binary was compiled at -- this is what sets the
         # interleaved kernel's register width. Named to avoid the old
         # implication that one build was re-dispatched at runtime.
         bench["build_simd_level"] = level

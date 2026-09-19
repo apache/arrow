@@ -318,7 +318,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
     // tail of every such vector decodes scalar: passing the real bound is worth
     // a median 1.13x on whole-page decode across a 29-column corpus, and 1.9x
     // on the columns that pack to 3 bits, where the one refused step strands 32
-    // of the 1024 values. It is worth nothing at the widths whose window equals
+    // of the 1024 values. It gains nothing at the widths whose window equals
     // what a step consumes -- 1, 2, 4, 8, 16 and 31 -- which strand none.
     //
     // `data` runs from this vector to the end of the page, so every byte after

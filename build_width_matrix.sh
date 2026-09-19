@@ -2,7 +2,7 @@
 #
 # Register-width x optimizer matrix.
 #
-# WHAT THIS FIXES
+# What this fixes
 #   An earlier version of this sweep, now deleted, assumed
 #   CMAKE_BUILD_TYPE=Release means -O2, which is true for upstream
 #   Arrow but NOT on this branch. cpp/cmake_modules/SetupCxxFlags.cmake:637
@@ -22,10 +22,10 @@
 #
 #   Consequence for the headline: that width scaling of 30.32/35.41/38.22 mixed
 #   levels -- 128 and 256 were -O3 builds, 512 was the one genuine -O2 build.
-#   Not a clean axis. This script fixes it by ALWAYS setting the optimizer
+#   Not a clean axis. This script fixes it by always setting the optimizer
 #   explicitly, never inheriting it.
 #
-# ALSO FIXED
+# Also fixed
 #   - CMAKE_CXX_FLAGS_RELEASE is a CACHE variable, so a value set at one point
 #     persists into the next configure of the same build dir. v2 passes it every
 #     time, so no point can inherit a neighbour's flags.
@@ -35,7 +35,7 @@
 #     zmm unless asked. The earlier sweep hit exactly this (ymm 221908, zmm 0),
 #     and a separate driver existed only to add the flag back. That driver is
 #     gone: the flag is set at every point here.
-#   - Width is verified INSIDE the kernel function, not across the whole binary.
+#   - Width is verified inside the kernel function, not across the whole binary.
 #     Whole-binary counts are dominated by Arrow's own explicit-vector code and
 #     say nothing about what the autovectorizer did to the FastLanes kernel.
 #   - Each binary is preserved under $OUT/bin/ so timing can be replayed later
@@ -45,12 +45,12 @@
 #   Arrow's bit-unpack dispatch is capped at 256 bits, because the AVX-512
 #   kernels assemble their input register from scalar loads and measure 0.67x of
 #   the scalar kernel. Asking for the 512-bit level therefore hands the
-#   sequential arm the 256-bit kernel back while the interleaved kernel really
+#   sequential decoder the 256-bit kernel back while the interleaved kernel really
 #   does widen, so such a point compares two widths on one side and one on the
 #   other. It comes back when a 512-bit unpack kernel exists that beats the
 #   256-bit one.
 #
-# BUILD ONLY. Time the binaries with ab_compare.sh, which alternates the
+# Build only. Time the binaries with ab_compare.sh, which alternates the
 # variants inside one batch -- these numbers come from a shared virtualized
 # container and a point timed minutes after its neighbour is not comparable to
 # it.
@@ -68,7 +68,7 @@ mkdir -p "$OUT/bin"
 # The autovectorized FastLanes kernel under test. Order 0 = plain interleaved,
 # Order 1 = the paper's lane assignment. Order 0 is the one the width claim is
 # about. This kernel has no exception handling, so its timings belong to the
-# order group in bench_arms.sh and never against a production arm.
+# order group in bench_groups.sh and never against a production decoder.
 KERNEL='arrow::util::fastlanes::InterleavedPforDecode<(arrow::util::fastlanes::InterleavedPforOrder)0>'
 
 # name | ARROW_SIMD_LEVEL | optimizer | prefer-vector-width
@@ -108,7 +108,7 @@ for P in "${POINTS[@]}"; do
   BIN="$OUT/bin/bench_$NAME"
   cp "$SRC" "$BIN"
 
-  # ---- verify the width the autovectorizer gave THIS kernel ----------------
+  # ---- verify the width the autovectorizer gave this kernel ----------------
   # Disassemble only the kernel's address range: from its symbol to the next.
   ADDR=$(nm -C "$BIN" | grep -F "$KERNEL" | awk '{print $1}' | head -1)
   {

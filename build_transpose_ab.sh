@@ -8,7 +8,7 @@
 # scalar stores per block, because only NEON had a hand-written path. Isolated,
 # the permutation goes 28.67 -> 73.56 GiB/s (2.57x).
 #
-# Only the kFlOrder arm calls the transpose, so BM_InterleavedPforDecode (file
+# Only the kFlOrder decoder calls the transpose, so BM_InterleavedPforDecode (file
 # order) and BM_PforDecode are controls this change cannot reach. If either
 # moves by more than the cross-process spread, the comparison is contaminated --
 # see INTEL_RESULTS.md section 10.
@@ -19,7 +19,7 @@
 # Transpose32x32 is also its own inverse on a square grid, so encode and decode
 # share the path and a broken permutation cannot cancel itself out.
 #
-# BUILD ONLY. Time with ab_compare.sh.
+# Build only. Time with ab_compare.sh.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 export PATH="$HOME/.local/bin:$PATH"   # cmake must be <4

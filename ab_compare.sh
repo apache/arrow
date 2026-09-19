@@ -2,42 +2,42 @@
 #
 # A/B comparison protocol for pfor_comparison_benchmark.
 #
-# WHY THIS EXISTS
+# Why this exists
 #   This benchmark has two deterministic confounds, both larger than most
-#   effects being measured. Neither is noise; neither shrinks with more
+#   effects being measured. Neither is noise, and neither shrinks with more
 #   repetitions. See INTEL_RESULTS.md section 10.
 #
 #   (1) ARROW_USER_SIMD_LEVEL caps Arrow's runtime dispatch (bpacking.cc:29-45).
 #       It reaches BM_PforDecode only -- the FastLanes kernel has no dispatch.
-#       Capping to AVX2 makes Arrow's sequential decoder 3.21x FASTER than
+#       Capping to AVX2 makes Arrow's sequential decoder 3.21x faster than
 #       leaving it uncapped on Granite Rapids, because the AVX-512 family takes
 #       a second pass for the frame bias where the xsimd kernels fold it in.
-#       unset == MAX == AVX512, so the DEFAULT selects the slow path.
+#       unset means the maximum, i.e. AVX512, so the default selects the slow path.
 #
-#   (2) The interleaved arm reads either ~36 or ~48 GiB/s (1.33x) at identical
+#   (2) The interleaved decoder reads either ~36 or ~48 GiB/s (1.33x) at identical
 #       binary, cap, filter and reps. It is stable to 1.00-1.03x across
 #       consecutive processes but flips between batches minutes apart, and it
 #       also moves with how many columns the filter admits (more columns ->
 #       more corpora allocated before the hot buffer). fl_order is immune.
 #
-# THE PROTOCOL
-#   Run every variant ALTERNATING inside one batch, several processes each, with
+# The protocol
+#   Run every variant alternating inside one batch, several processes each, with
 #   the cap pinned. Ratios are then taken within a batch, where confound (2) is
 #   constant. Report the cross-process spread, because the within-process stddev
 #   is 0.2-1% here and hides both confounds completely.
 #
-#   The arms come from bench_arms.sh, which also states which of them may be
-#   divided by which. This script used to name the production decoder against an
+#   The benchmarks and their groups come from bench_groups.sh, which states
+#   which of them may be divided by which. This script used to name the production decoder against an
 #   exception-free standalone one and call the ratio a layout result.
 #
-# USAGE
+# Usage
 #   ./ab_compare.sh <binA>:<cap> <binB>:<cap> [...]      # binaries under bin/
 #   ROUNDS=3 REPS=3 CORE=2 ./ab_compare.sh bench_O2_256:AVX2 fix_O2_256:AVX2
-#   ARM_SETS='ARMS_LAYOUT ARMS_DEST' ./ab_compare.sh bench_O2_256:AVX2
+#   GROUPS='GROUP_LAYOUT GROUP_DEST' ./ab_compare.sh bench_O2_256:AVX2
 #
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-. ./bench_arms.sh
+. ./bench_groups.sh
 
 BIN_DIR=${BIN_DIR:-$HOME/Projects/pfor_x86_handoff/width_matrix_v2/bin}
 OUT=${OUT:-/tmp/ab}
@@ -45,12 +45,12 @@ ROUNDS=${ROUNDS:-3}
 REPS=${REPS:-3}
 CORE=${CORE:-2}
 
-# Which arm groups to time. Several in one process is fine and preferred, since
-# arms timed together share the machine state; dividing across groups is not --
-# see bench_arms.sh.
-ARM_SETS=${ARM_SETS:-'ARMS_LAYOUT ARMS_ORDER'}
+# Which groups to time. Several in one process is fine and preferred, since
+# benchmarks timed together share the machine state; dividing across groups is
+# not -- see bench_groups.sh.
+GROUPS=${GROUPS:-'GROUP_LAYOUT GROUP_ORDER'}
 SETS=()
-for NAME in $ARM_SETS; do SETS+=("${!NAME}"); done
+for NAME in $GROUPS; do SETS+=("${!NAME}"); done
 FILTER=$(bench_filter "${SETS[@]}")
 
 [ $# -ge 1 ] || { sed -n '2,40p' "$0"; exit 1; }

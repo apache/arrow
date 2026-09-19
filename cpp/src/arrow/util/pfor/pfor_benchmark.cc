@@ -56,7 +56,7 @@
 namespace arrow::util::pfor {
 namespace {
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Data Generators
 
 using Int32Gen = std::vector<int32_t> (*)(int64_t);
@@ -319,7 +319,7 @@ std::vector<T> GenBimodal(int64_t n) {
   return v;
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Benchmark Core
 
 template <typename T>
@@ -379,7 +379,7 @@ void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
   state.SetItemsProcessed(state.iterations() * num_values);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Non-template wrappers to avoid comma-in-macro issues with BENCHMARK_CAPTURE
 
 void BM_PforEncodeInt32(benchmark::State& state, Int32Gen gen) {
@@ -388,7 +388,7 @@ void BM_PforEncodeInt32(benchmark::State& state, Int32Gen gen) {
 void BM_PforDecodeInt32(benchmark::State& state, Int32Gen gen) {
   BM_PforDecodeImpl<int32_t>(state, gen);
 }
-// The lane-interleaved layout, for a paired comparison against the two arms
+// The lane-interleaved layout, for a paired comparison against the two decoders
 // above. Only 32-bit values reach it, so there is no int64 counterpart.
 void BM_PforEncodeInt32Interleaved(benchmark::State& state, Int32Gen gen) {
   BM_PforEncodeImpl<int32_t>(state, gen, PackingMode::kForBitPackInterleaved);
@@ -403,7 +403,7 @@ void BM_PforDecodeInt64(benchmark::State& state, Int64Gen gen) {
   BM_PforDecodeImpl<int64_t>(state, gen);
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // Benchmark sizes: one vector, 10K, a default page (max_rows_per_page), 100K, 1M
 
 static void CustomArgs(benchmark::internal::Benchmark* b) {
@@ -412,7 +412,7 @@ static void CustomArgs(benchmark::internal::Benchmark* b) {
   }
 }
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // INT32 Encode
 
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, Constant, &GenConstant<int32_t>)->Apply(CustomArgs);
@@ -493,7 +493,7 @@ BENCHMARK_CAPTURE(BM_PforDecodeInt32, LowSentinel, &GenLowSentinel<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, Bimodal, &GenBimodal<int32_t>)->Apply(CustomArgs);
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // INT64 Encode
 
 BENCHMARK_CAPTURE(BM_PforEncodeInt64, Constant, &GenConstant<int64_t>)->Apply(CustomArgs);
@@ -562,11 +562,11 @@ BENCHMARK_CAPTURE(BM_PforDecodeInt64, LowSentinel, &GenLowSentinel<int64_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt64, Bimodal, &GenBimodal<int64_t>)->Apply(CustomArgs);
 
-// ======================================================================
+// ----------------------------------------------------------------------
 // INT32 with the lane-interleaved bit-packing layout
 //
 // Every size here is a multiple of the 1024-value vector, so each vector is
-// packed interleaved rather than sequentially. Compare each arm against the
+// packed interleaved rather than sequentially. Compare each decoder against the
 // same distribution above: CompRatio% should match to the byte, because the
 // two layouts write the same number of bits.
 
