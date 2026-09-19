@@ -24,7 +24,7 @@
 // depends on anything but the standard library, so a harness that wants the
 // corpus does not have to pull in Parquet.
 //
-// The columns are SYNTHETIC. Each generator is shaped after a distribution seen
+// The columns are synthetic. Each generator is shaped after a distribution seen
 // in ClickBench, TPC-DS, TPC-H or the NYC taxi set; none of them loads a record
 // from those datasets. Bit-unpacking throughput is data-independent at a fixed
 // width, so that substitution is harmless for a timing figure. It is not

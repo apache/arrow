@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wait for a quiet box, then run the AVX2-transpose A/B in ONE batch.
+# Wait for a quiet box, then run the AVX2-transpose A/B in one batch.
 # Four variants alternating so all of them see the same placement mode
 # (INTEL_RESULTS.md section 10b); cap pinned to AVX2 so the sequential control is
 # on Arrow's good kernel and not its AVX-512 pathology (section 10a).

@@ -1,47 +1,31 @@
 #!/usr/bin/env bash
 #
-# Register-width x optimizer matrix.
+# Register-width x optimizer matrix: one benchmark binary per point, each
+# preserved under $OUT/bin/ so timing can be replayed without rebuilding and so
+# builds and timing runs never overlap.
 #
-# What this fixes
-#   An earlier version of this sweep, now deleted, assumed
-#   CMAKE_BUILD_TYPE=Release means -O2, which is true for upstream
-#   Arrow but NOT on this branch. cpp/cmake_modules/SetupCxxFlags.cmake:637
-#   carries a local override:
-#       "keep -O3 from CMake's default Release flags for the pfor benchmark"
-#   so Release keeps CMake's default -O3 -DNDEBUG. It passed an explicit -O3
-#   only for its "-O3" points and let the "-O2" points default -- which also
-#   came out -O3. Proof, from its own artifacts:
-#       verify_O2_AVX2.txt   sha256 22ae7451045ce1f5...
-#       verify_O3_AVX2.txt   sha256 22ae7451045ce1f5...   <- same binary
-#       verify_O2_AVX512.txt sha256 440bf51c5ec1f62c...
-#       verify_O3_AVX512.txt sha256 440bf51c5ec1f62c...   <- same binary
-#   and configure_O2_AVX2.log: "CMAKE_CXX_FLAGS_RELEASE: -O3 -DNDEBUG
-#   -ftree-vectorize". So its "-O3 is a non-factor (1.01x/0.97x)" was a binary
-#   compared against itself -- it measures the shared-VM noise floor (+-3%),
-#   not the optimizer. Only its 512-bit pair differed for real.
+# The optimizer level is set explicitly at every point and never inherited.
+# CMAKE_BUILD_TYPE=Release does not mean -O2 here: cpp/cmake_modules/
+# SetupCxxFlags.cmake:637 carries a local override that keeps CMake's default
+# -O3 -DNDEBUG for the pfor benchmark, so a point that lets Release supply its
+# own flags comes out -O3 whatever it was meant to be. Width scaling read off a
+# run that inherited its level mixes levels across the points and is not a width
+# axis.
 #
-#   Consequence for the headline: that width scaling of 30.32/35.41/38.22 mixed
-#   levels -- 128 and 256 were -O3 builds, 512 was the one genuine -O2 build.
-#   Not a clean axis. This script fixes it by always setting the optimizer
-#   explicitly, never inheriting it.
+# CMAKE_CXX_FLAGS_RELEASE is a CACHE variable, so a value set at one point
+# persists into the next configure of the same build dir. It is passed at every
+# point here, so no point can inherit a neighbour's flags.
 #
-# Also fixed
-#   - CMAKE_CXX_FLAGS_RELEASE is a CACHE variable, so a value set at one point
-#     persists into the next configure of the same build dir. v2 passes it every
-#     time, so no point can inherit a neighbour's flags.
-#   - -mprefer-vector-width is set explicitly at every point. Arrow's
-#     ARROW_SIMD_LEVEL=AVX512 uses -march=skylake-avx512, and GCC defaults that
-#     target to -mprefer-vector-width=256, so a nominally-512 build emits zero
-#     zmm unless asked. The earlier sweep hit exactly this (ymm 221908, zmm 0),
-#     and a separate driver existed only to add the flag back. That driver is
-#     gone: the flag is set at every point here.
-#   - Width is verified inside the kernel function, not across the whole binary.
-#     Whole-binary counts are dominated by Arrow's own explicit-vector code and
-#     say nothing about what the autovectorizer did to the FastLanes kernel.
-#   - Each binary is preserved under $OUT/bin/ so timing can be replayed later
-#     without rebuilding, and so builds and timing runs never overlap.
+# -mprefer-vector-width is set at every point too. Arrow's
+# ARROW_SIMD_LEVEL=AVX512 uses -march=skylake-avx512, and GCC defaults that
+# target to -mprefer-vector-width=256, so a nominally-512 build emits zero zmm
+# unless asked for.
 #
-# NO 512-BIT LEG
+# Width is verified inside the kernel function, not across the whole binary.
+# Whole-binary counts are dominated by Arrow's own explicit-vector code and say
+# nothing about what the autovectorizer did to the FastLanes kernel.
+#
+# No 512-bit leg
 #   Arrow's bit-unpack dispatch is capped at 256 bits, because the AVX-512
 #   kernels assemble their input register from scalar loads and measure 0.67x of
 #   the scalar kernel. Asking for the 512-bit level therefore hands the
@@ -117,7 +101,7 @@ for P in "${POINTS[@]}"; do
     echo "kernel: $KERNEL"
     echo "kernel addr: 0x$ADDR"
     if [ -n "$ADDR" ]; then
-      # Boundaries come from objdump's OWN '<addr> <symbol>:' labels, not from
+      # Boundaries come from objdump's own '<addr> <symbol>:' labels, not from
       # sorting nm addresses. The nm approach silently produced an empty range
       # for O2_256 -- kernel_O2_256.asm came out 0 bytes and the point then
       # reported "zmm: 0 ymm: 0", which reads as a failed vectorization rather
