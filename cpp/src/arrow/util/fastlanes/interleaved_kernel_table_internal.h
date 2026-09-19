@@ -16,10 +16,9 @@
 // under the License.
 
 // The per-width dispatch tables, and the body each per-instruction-set
-// translation unit wraps under its own name.
-//
-// Included only by those translation units, never by a caller: it is the file
-// whose contents are meant to be compiled more than once, at different flags.
+// translation unit wraps under its own name. Included only by those translation
+// units, never by a caller: these contents are meant to be compiled more than
+// once, at different flags.
 
 #pragma once
 
@@ -38,15 +37,14 @@ namespace arrow {
 namespace util {
 namespace fastlanes {
 
-// A table of function pointers rather than a switch over 32 cases, because the
-// table keeps each width's body out of line. Folding all 32 into one dispatch
-// function is not free: doing exactly that to Arrow's NEON unpacker cost between
-// 1.2x and 2.1x, the compiler having lost the register allocation it finds for a
-// body it compiles on its own. Two indirect calls per 1024 values -- one to pick
-// the leg, one to pick the width -- are not measurable against that.
+// A table of function pointers rather than a switch over 32 cases, to keep each
+// width's body out of line. Folding all 32 into one dispatch function cost
+// between 1.2x and 2.1x when tried on Arrow's NEON unpacker, the compiler
+// having lost the register allocation it finds for a body it compiles on its
+// own; two indirect calls per 1024 values do not measure against that.
 //
-// Index by bit width: entry w handles width w, and entry 0 is never called
-// because a vector of width 0 is constant and never reaches a kernel.
+// Entry w handles width w. Entry 0 is never called: a vector of width 0 is
+// constant and never reaches a kernel.
 template <typename Arch, size_t... W>
 constexpr std::array<InterleavedPackFn, 33> MakePackTable(std::index_sequence<W...>) {
   return {nullptr, &PackBlock<W + 1, Arch>...};
@@ -57,13 +55,13 @@ constexpr std::array<InterleavedUnpackFn, 33> MakeUnpackTable(std::index_sequenc
   return {nullptr, &UnpackBlock<W + 1, kHasBias, Arch>...};
 }
 
-// Arch defaults to the architecture xsimd derives from the including translation
-// unit's own flags, so each leg instantiates a distinct specialization of these
-// two templates and of every kernel their tables point at. That is what stops
-// the linker from merging two legs into one; xsimd is used for the type and
-// nothing else. Verified to differ: xsimd::neon64 at the aarch64 baseline
-// against xsimd::detail::sve<128> under -march=armv8-a+sve
-// -msve-vector-bits=128.
+// Arch defaults to the architecture xsimd derives from the including
+// translation unit's own flags, so each leg instantiates a distinct
+// specialization of these templates and of every kernel their tables point at,
+// which is what stops the linker from merging two legs into one. xsimd is used
+// for the type and nothing else. The types were checked to differ:
+// xsimd::neon64 at the aarch64 baseline against xsimd::detail::sve<128> under
+// -march=armv8-a+sve -msve-vector-bits=128.
 template <typename Arch = xsimd::default_arch>
 void PackLeg(uint8_t bit_width, const uint32_t* in, uint32_t* out) {
   static constexpr auto kTable = MakePackTable<Arch>(std::make_index_sequence<32>{});
@@ -72,9 +70,9 @@ void PackLeg(uint8_t bit_width, const uint32_t* in, uint32_t* out) {
 }
 
 // The frame of reference is folded into the kernel's own store, so a non-zero
-// frame costs no second pass over the output. Which of the two tables is used is
-// decided here rather than inside the kernel so that the no-bias instantiations
-// carry no test in their inner loop.
+// frame costs no second pass over the output. The table choice is made here
+// rather than inside the kernel so the no-bias instantiations carry no test in
+// their inner loop.
 template <typename Arch = xsimd::default_arch>
 void UnpackLeg(uint8_t bit_width, const uint32_t* packed, uint32_t* out, uint32_t bias) {
   static constexpr auto kUnpack =

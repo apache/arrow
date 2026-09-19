@@ -502,9 +502,8 @@ TEST_F(ParquetPforEncodingTest, DeltaModeCanBeTurnedOffPerColumn) {
       << " bytes with the mode on, " << without_delta << " with it off";
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------
 // Lane-parallel delta encoding file-level integration tests
-// ============================================================================
 
 // INT32 only, so a table mixing types leaves its other columns on their
 // defaults rather than failing the write.

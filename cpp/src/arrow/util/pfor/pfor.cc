@@ -328,7 +328,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
       // The interleaved kernel writes values in input order, so it writes into
       // `values` directly for the same reason the two sequential paths below do:
       // T and UnsignedT are the same width, so the unsigned bits the kernel
-      // stores ARE the signed values. It also takes the frame of reference as a
+      // stores are the signed values. It also takes the frame of reference as a
       // bias, so a non-zero frame costs no extra traversal -- there is no
       // separate FOR==0 fast path to write here. Exceptions are patched in
       // step 4, at the positions the encoder recorded, which need no

@@ -15,16 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// A vector leg of the interleaved kernel dispatch. This one source is compiled
-// once per instruction set the build can target, with that set's flags applied
-// per-file by CMake, and names its entry points after the set it was compiled
-// for. Which set that is comes from the flags themselves rather than from
-// anything written here, so the two cannot disagree: the same condition that
-// picks the names below is the condition CMake tests before adding the file.
-//
-// Only one of these branches is ever live in a given build, which is why one
-// file can serve both. util/bpacking_simd_256.cc is registered twice the same
-// way, for the same reason.
+// A vector leg of the interleaved kernel dispatch, compiled once per
+// instruction set the build can target with that set's flags applied per-file
+// by CMake. The names below are selected by the same condition CMake tests
+// before adding the file, so only one branch is ever live in a given build.
+// util/bpacking_simd_256.cc is registered twice the same way.
 
 #if defined(ARROW_HAVE_RUNTIME_SVE128)
 #  define ILV_PACK_PLATFORM InterleavedPackBlockSve128

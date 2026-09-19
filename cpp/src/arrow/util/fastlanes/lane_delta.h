@@ -31,7 +31,7 @@
 //                 step from one block's last row to the next block's first row
 //                 is also +32 -- the lane seeds are written once per column.
 //
-// The kFlOrder arm this file once carried used Arrow's fromTransposed32, which
+// The kFlOrder path this file once carried used Arrow's fromTransposed32, which
 // is not the FastLanes order and has since been deleted from the tree. The
 // paper's own lane assignment lives in transposed_delta.h.
 //
