@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_binary.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
@@ -135,6 +136,65 @@ void TestStraddling(TableReaderFactory reader_factory) {
   internal::GetCpuThreadPool()->WaitForIdle();
 }
 
+void TestStraddlingCRLF(TableReaderFactory reader_factory) {
+  // GH-51368: when a CRLF sequence straddles a block boundary, the '\n' must be
+  // skipped only if the '\r' was a line separator.  If the '\r' is the contents
+  // of an unfinished quoted field, the '\n' is genuine field contents.
+  ParseOptions options = ParseOptions::Defaults();
+  options.newlines_in_values = true;
+
+  constexpr int32_t kBlockSize = 1024;
+  {
+    // '\r' inside a quoted field as the last byte of the first block
+    std::string csv = "x,y\n\"";
+    csv += std::string(kBlockSize - csv.size() - 2, 'z');
+    csv += "A\r\nB\",c\n1,plain\n";
+    ASSERT_EQ('\r', csv[static_cast<size_t>(kBlockSize) - 1]);
+    ASSERT_EQ('\n', csv[kBlockSize]);
+
+    auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(csv));
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         reader_factory(input, options, /*block_size=*/kBlockSize));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+
+    ASSERT_EQ(2, table->num_rows());
+    const auto& col0 =
+        internal::checked_cast<const StringArray&>(*table->column(0)->chunk(0));
+    ASSERT_EQ(std::string(kBlockSize - 7, 'z') + "A\r\nB", col0.GetString(0));
+    ASSERT_EQ("1", col0.GetString(1));
+  }
+  {
+    // '\r' as a line separator as the last byte of the first block
+    std::string csv = "x,y\na," + std::string(kBlockSize - 7, 'q') + "\r\n3,4\n";
+    ASSERT_EQ('\r', csv[static_cast<size_t>(kBlockSize) - 1]);
+    ASSERT_EQ('\n', csv[kBlockSize]);
+
+    auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(csv));
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         reader_factory(input, options, /*block_size=*/kBlockSize));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+
+    ASSERT_EQ(2, table->num_rows());
+    const auto& col0 =
+        internal::checked_cast<const StringArray&>(*table->column(0)->chunk(0));
+    ASSERT_EQ("a", col0.GetString(0));
+    ASSERT_EQ("3", col0.GetString(1));
+  }
+  {
+    // Header row ending with '\r' as the last byte of the first block
+    std::string csv = "x," + std::string(kBlockSize - 3, 'h') + "\r\na,b\n";
+    ASSERT_EQ('\r', csv[static_cast<size_t>(kBlockSize) - 1]);
+    ASSERT_EQ('\n', csv[kBlockSize]);
+
+    auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(csv));
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         reader_factory(input, options, /*block_size=*/kBlockSize));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+
+    ASSERT_EQ(1, table->num_rows());
+  }
+}
+
 void StressTableReader(TableReaderFactory reader_factory) {
 #ifdef ARROW_VALGRIND
   const int NTASKS = 10;
@@ -239,7 +299,7 @@ void TestInvalidRowsSkipped(TableReaderFactory reader_factory, bool async) {
   auto input = std::make_shared<io::BufferReader>(table_buffer);
   ASSERT_OK_AND_ASSIGN(auto reader,
                        reader_factory(input, std::move(opts), /*block_size=*/{}));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
   ASSERT_EQ(NROWS - NINVALID, table->num_rows());
   ASSERT_EQ(NINVALID, num_invalid_rows);
 }
@@ -258,6 +318,7 @@ TableReaderFactory MakeSerialFactory() {
 TEST(SerialReaderTests, Empty) { TestEmptyTable(MakeSerialFactory()); }
 TEST(SerialReaderTests, HeaderOnly) { TestHeaderOnly(MakeSerialFactory()); }
 TEST(SerialReaderTests, Straddling) { TestStraddling(MakeSerialFactory()); }
+TEST(SerialReaderTests, StraddlingCRLF) { TestStraddlingCRLF(MakeSerialFactory()); }
 TEST(SerialReaderTests, Stress) { StressTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, StressInvalid) { StressInvalidTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, NestedParallelism) {
@@ -297,6 +358,10 @@ TEST(AsyncReaderTests, HeaderOnly) {
 TEST(AsyncReaderTests, Straddling) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
   TestStraddling(table_factory);
+}
+TEST(AsyncReaderTests, StraddlingCRLF) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestStraddlingCRLF(table_factory);
 }
 TEST(AsyncReaderTests, Stress) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
@@ -348,6 +413,9 @@ TEST(StreamingReaderTests, HeaderOnly) {
   TestHeaderOnlyStreaming(table_factory);
 }
 TEST(StreamingReaderTests, Straddling) { TestStraddling(MakeStreamingFactory()); }
+TEST(StreamingReaderTests, StraddlingCRLF) {
+  TestStraddlingCRLF(MakeStreamingFactory());
+}
 TEST(StreamingReaderTests, Stress) { StressTableReader(MakeStreamingFactory()); }
 TEST(StreamingReaderTests, StressInvalid) {
   StressInvalidTableReader(MakeStreamingFactory());
@@ -550,7 +618,7 @@ TEST(ReaderTests, DefaultColumnTypePartialDefault) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        TableReader::Make(io::default_io_context(), input, read_options,
                                          parse_options, convert_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
 
   auto expected_schema = schema({field("id", int64()), field("name", utf8()),
                                  field("value", utf8()), field("date", utf8())});
@@ -579,7 +647,7 @@ TEST(ReaderTests, DefaultColumnTypeForcesTypedColumns) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        TableReader::Make(io::default_io_context(), input, read_options,
                                          parse_options, convert_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
 
   auto expected_schema =
       schema({field("id", utf8()), field("amount", utf8()), field("code", utf8())});
@@ -606,7 +674,7 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        TableReader::Make(io::default_io_context(), input, read_options,
                                          parse_options, convert_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
 
   auto expected_schema =
       schema({field("f0", utf8()), field("f1", utf8()), field("f2", utf8())});
@@ -635,7 +703,7 @@ TEST(ReaderTests, ShortRows) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        TableReader::Make(io::default_io_context(), input, read_options,
                                          parse_options, convert_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
 
   auto expected_schema =
       schema({field("a", utf8()), field("b", utf8()), field("c", utf8())});
@@ -655,7 +723,7 @@ TEST(ReaderTests, IgnoreExtraColumns) {
   ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(io::default_io_context(), input,
                                                       ReadOptions::Defaults(),
                                                       parse_options, convert_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
 
   auto expected_schema = schema({field("a", int64()), field("b", int64())});
   auto expected_table = TableFromJSON(expected_schema, {R"([
@@ -677,7 +745,7 @@ TEST(ReaderTests, ShortRowsTypedConverters) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        TableReader::Make(io::default_io_context(), input, read_options,
                                          parse_options, convert_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
   ASSERT_TRUE(table->column(0)->chunk(0)->Equals(*ArrayFromJSON(int64(), "[1, 2]")));
   const auto& dict_array =
       internal::checked_cast<const DictionaryArray&>(*table->column(1)->chunk(0));
