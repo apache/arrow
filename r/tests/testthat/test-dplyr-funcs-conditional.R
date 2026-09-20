@@ -876,3 +876,26 @@ test_that("recode_values()", {
     class = "arrow_not_supported"
   )
 })
+
+test_that("if_else with logical NA and a date/timestamp column", {
+  # GH-38358: a bare `NA` is logical and can't be cast to date32, so
+  # if_else(bool, bool, date32) had no matching kernel
+  date_tbl <- tibble::tibble(
+    date = as.Date(c("2013-01-01", "2013-01-02", "2033-01-03", "2013-01-04")),
+    ts = as.POSIXct(
+      c("2013-01-01 01:00:00", "2013-01-02 02:00:00", "2033-01-03 03:00:00", "2013-01-04 04:00:00"),
+      tz = "UTC"
+    )
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      mutate(
+        date2 = if_else(date > as.Date("2014-01-01"), NA, date),
+        date3 = if_else(date > as.Date("2014-01-01"), date, NA),
+        ts2 = if_else(ts > as.POSIXct("2014-01-01", tz = "UTC"), NA, ts)
+      ) |>
+      collect(),
+    date_tbl
+  )
+})
