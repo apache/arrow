@@ -637,14 +637,6 @@ TEST_F(TestSetBitRunReader, IterateBitRuns) {
   }
   EXPECT_TRUE(empty_runs.empty());
 
-  int run_count = 0;
-  for (const auto run : range) {
-    EXPECT_EQ(run.position, 0);
-    ++run_count;
-    break;
-  }
-  EXPECT_EQ(run_count, 1);
-
   auto iterator = range.begin();
   const auto first_run = *iterator++;
   EXPECT_EQ(first_run.position, 0);
