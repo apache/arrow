@@ -193,7 +193,7 @@ Result<std::shared_ptr<RecordBatch>> ConvertToRecordBatch(
 
   ARROW_RETURN_NOT_OK(batch->ValidateFull());
   return batch;
-}
+}  // ConvertToRecordBatch
 
 // Write an Arrow value as JSON according to its Arrow type.
 // This example only handles the types used by the example schema; extend this
@@ -277,7 +277,7 @@ Status WriteJsonValue(const Array& array, int64_t index,
       return Status::NotImplemented("Cannot convert Arrow array of type ",
                                     type->ToString(), " to JSON");
   }
-}
+}  // WriteJsonValue
 
 // Convert a single row of an Arrow record batch into a JSON object.
 Result<std::string> ConvertRowToJson(const RecordBatch& batch, int64_t row) {
@@ -335,7 +335,7 @@ class ArrowToJsonConverter {
 
     return MakeFlattenIterator(std::move(nested_iter));
   }
-};
+};  // ArrowToJsonConverter
 
 Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   //(Doc section: Convert to Arrow)

@@ -65,7 +65,7 @@ At the top level, we define a function ``ConvertToRecordBatch``:
 
 .. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
+   :start-at: Result<std::shared_ptr<RecordBatch>> ConvertToRecordBatch(
    :end-at: }  // ConvertToRecordBatch
    :linenos:
    :lineno-match:
@@ -84,7 +84,7 @@ lists.
 
 .. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: arrow::Status AppendJsonValue
+   :start-at: Status AppendJsonValue
    :end-at: }  // AppendJsonValue
    :linenos:
    :lineno-match:
@@ -112,15 +112,14 @@ or be collected into a container.
    :linenos:
    :lineno-match:
 
-One level down, the output rows are filled in by ``RowBatchBuilder``.
-The ``RowBatchBuilder`` implements ``Visit()`` methods, but to save on code we
-write a template method for array types that have primitive C equivalents
-(booleans, integers, and floats) using ``arrow::enable_if_primitive_ctype``.
-See :ref:`type-traits` for other type predicates.
+One level down, the ``WriteJsonValue`` function is responsible for writing
+an Arrow value as JSON according to its Arrow data type. It handles the
+types used by the example schema and recursively processes nested structs
+and lists.
 
 .. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: class RowBatchBuilder
-   :end-at: };  // RowBatchBuilder
+   :start-at: Status WriteJsonValue
+   :end-at: }  // WriteJsonValue
    :linenos:
    :lineno-match:
