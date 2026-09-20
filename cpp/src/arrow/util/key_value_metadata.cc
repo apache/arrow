@@ -112,6 +112,9 @@ Status KeyValueMetadata::Delete(int64_t index) {
 }
 
 Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
+  if (indices.size() == 1) {
+    return Delete(indices[0]);
+  }
   std::sort(indices.begin(), indices.end());
   const int64_t size = static_cast<int64_t>(keys_.size());
   indices.push_back(size);
@@ -133,6 +136,11 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
     }
 
     for (int64_t index = start; index < stop; ++index) {
+      if (ARROW_PREDICT_TRUE(index < shift)) {
+        return Status::IndexError("KeyValueMetadata::DeleteMany: duplicate index ", index,
+                                  " in indices to delete");
+      }
+
       keys_[index - shift] = std::move(keys_[index]);
       values_[index - shift] = std::move(values_[index]);
     }
