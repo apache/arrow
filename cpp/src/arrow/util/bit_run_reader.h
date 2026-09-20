@@ -437,7 +437,7 @@ class BaseSetBitRunReader {
   inline uint64_t ConsumeBits(uint64_t word, int32_t num_bits);
 
   const uint8_t* bitmap_;
-  const int64_t length_;
+  int64_t length_;
   int64_t remaining_;
   uint64_t current_word_;
   int32_t current_num_bits_;
@@ -477,15 +477,9 @@ struct PositionedBitRun {
     return std::string("{pos=") + std::to_string(position) +
            ", len=" + std::to_string(length) + ", set=" + std::to_string(set) + "}";
   }
+
+  bool operator==(const PositionedBitRun&) const = default;
 };
-
-inline bool operator==(const PositionedBitRun& lhs, const PositionedBitRun& rhs) {
-  return lhs.position == rhs.position && lhs.length == rhs.length && lhs.set == rhs.set;
-}
-
-inline bool operator!=(const PositionedBitRun& lhs, const PositionedBitRun& rhs) {
-  return lhs.position != rhs.position || lhs.length != rhs.length || lhs.set != rhs.set;
-}
 
 /// \brief An input iterator over all contiguous bit runs in a bitmap range.
 class BitRunIterator {
@@ -529,13 +523,8 @@ class BitRunIterator {
     return copy;
   }
 
-  bool operator==(std::default_sentinel_t) const { return at_end_; }
-  bool operator!=(std::default_sentinel_t) const { return !at_end_; }
-  friend bool operator==(std::default_sentinel_t, const BitRunIterator& iterator) {
+  friend bool operator==(const BitRunIterator& iterator, std::default_sentinel_t) {
     return iterator.at_end_;
-  }
-  friend bool operator!=(std::default_sentinel_t, const BitRunIterator& iterator) {
-    return !iterator.at_end_;
   }
 
  private:
@@ -597,21 +586,6 @@ class SetBitRunIterator {
     Advance();
   }
 
-  SetBitRunIterator(const SetBitRunIterator&) = default;
-
-  SetBitRunIterator& operator=(const SetBitRunIterator& other) {
-    if (this != &other) {
-      reader_.reset();
-      if (other.reader_) {
-        reader_.emplace(*other.reader_);
-      }
-      current_ = other.current_;
-      all_set_ = other.all_set_;
-      at_end_ = other.at_end_;
-    }
-    return *this;
-  }
-
   reference operator*() const { return current_; }
   pointer operator->() const { return &current_; }
 
@@ -632,13 +606,8 @@ class SetBitRunIterator {
     return copy;
   }
 
-  bool operator==(std::default_sentinel_t) const { return at_end_; }
-  bool operator!=(std::default_sentinel_t) const { return !at_end_; }
-  friend bool operator==(std::default_sentinel_t, const SetBitRunIterator& iterator) {
+  friend bool operator==(const SetBitRunIterator& iterator, std::default_sentinel_t) {
     return iterator.at_end_;
-  }
-  friend bool operator!=(std::default_sentinel_t, const SetBitRunIterator& iterator) {
-    return !iterator.at_end_;
   }
 
  private:
@@ -711,22 +680,6 @@ class TwoSetBitRunIterator {
     AdvanceTwoBitmaps();
   }
 
-  TwoSetBitRunIterator(const TwoSetBitRunIterator&) = default;
-
-  TwoSetBitRunIterator& operator=(const TwoSetBitRunIterator& other) {
-    if (this != &other) {
-      CopyReader(&left_reader_, other.left_reader_);
-      CopyReader(&right_reader_, other.right_reader_);
-      CopyReader(&single_reader_, other.single_reader_);
-      left_run_ = other.left_run_;
-      right_run_ = other.right_run_;
-      current_ = other.current_;
-      mode_ = other.mode_;
-      at_end_ = other.at_end_;
-    }
-    return *this;
-  }
-
   reference operator*() const { return current_; }
   pointer operator->() const { return &current_; }
 
@@ -753,25 +706,12 @@ class TwoSetBitRunIterator {
     return copy;
   }
 
-  bool operator==(std::default_sentinel_t) const { return at_end_; }
-  bool operator!=(std::default_sentinel_t) const { return !at_end_; }
-  friend bool operator==(std::default_sentinel_t, const TwoSetBitRunIterator& iterator) {
+  friend bool operator==(const TwoSetBitRunIterator& iterator, std::default_sentinel_t) {
     return iterator.at_end_;
-  }
-  friend bool operator!=(std::default_sentinel_t, const TwoSetBitRunIterator& iterator) {
-    return !iterator.at_end_;
   }
 
  private:
   enum class Mode { kAllSet, kSingleBitmap, kTwoBitmaps };
-
-  static void CopyReader(std::optional<SetBitRunReader>* destination,
-                         const std::optional<SetBitRunReader>& source) {
-    destination->reset();
-    if (source) {
-      destination->emplace(*source);
-    }
-  }
 
   void AdvanceSingleBitmap() {
     current_ = single_reader_->NextRun();
