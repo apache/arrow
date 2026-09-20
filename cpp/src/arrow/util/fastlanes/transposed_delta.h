@@ -129,6 +129,45 @@ ARROW_FORCE_INLINE __m256i FlUnpackRowSlice(const uint32_t* ARROW_RESTRICT packe
 }  // namespace internal
 #endif
 
+#ifdef ARROW_TRANSPOSED_DELTA_NEON
+namespace internal {
+
+// One 4-lane slice of one row, unpacked in registers: the NEON counterpart of
+// FlUnpackRowSlice above, and the same reason for `row` being a template
+// parameter -- vshrq_n_u32 takes an immediate, so the word index, the shift
+// amounts and the straddle test all have to be compile-time constants.
+template <uint32_t w, bool kHasBias, uint32_t row>
+ARROW_FORCE_INLINE uint32x4_t FlUnpackRowSliceNeon(const uint32_t* ARROW_RESTRICT packed,
+                                                   size_t lb, uint32x4_t vmask,
+                                                   uint32x4_t vbias) {
+  constexpr uint32_t kT = 32;
+  constexpr uint32_t kStartBit = row * w;
+  constexpr uint32_t kWord = kStartBit / kT;
+  constexpr uint32_t kShift = kStartBit % kT;
+  constexpr uint32_t kEndWord = (kStartBit + w - 1) / kT;
+
+  uint32x4_t v = vld1q_u32(packed + kWord * kLanes + lb);
+  if constexpr (kShift != 0) {
+    v = vshrq_n_u32(v, kShift);
+  }
+  if constexpr (kWord != kEndWord) {
+    // A value that straddles two words has to start partway into the first, so
+    // kShift is nonzero here and the left shift below is never by 32.
+    const uint32x4_t hi = vld1q_u32(packed + kEndWord * kLanes + lb);
+    v = vorrq_u32(v, vshlq_n_u32(hi, kT - kShift));
+  }
+  if constexpr (w != 32) {
+    v = vandq_u32(v, vmask);
+  }
+  if constexpr (kHasBias) {
+    v = vaddq_u32(v, vbias);
+  }
+  return v;
+}
+
+}  // namespace internal
+#endif
+
 enum class TransposedBaseCoding { kRaw, kPacked };
 
 // How a decoder gets back to file order. kNone is not a conforming decoder and

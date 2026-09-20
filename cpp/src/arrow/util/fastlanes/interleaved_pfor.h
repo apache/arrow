@@ -250,6 +250,74 @@ inline void UnpackBlockFlToFileOrder(const uint32_t* ARROW_RESTRICT packed,
 
 #endif  // ARROW_TRANSPOSED_DELTA_AVX2
 
+#if !defined(ARROW_FASTLANES_FUSED_FL_UNPACK) && defined(ARROW_TRANSPOSED_DELTA_NEON)
+
+namespace internal {
+
+// One 4x4 tile, the NEON counterpart of FlUnpackTile: unpack four rows' worth of
+// a 4-lane slice, transpose in registers, store across four output rows. The
+// ladder is the one Transpose32x32Neon uses; only the source of r0..r3 differs.
+// Four-wide rather than eight-wide because that is the register width, which
+// costs four times as many tiles per block but the same number of loads and
+// stores -- a 16-byte store of four output values either way.
+template <uint32_t w, bool kHasBias, uint32_t rb>
+ARROW_FORCE_INLINE void FlUnpackTileNeon(const uint32_t* ARROW_RESTRICT packed,
+                                         int32_t* ARROW_RESTRICT out, size_t lb,
+                                         uint32x4_t vmask, uint32x4_t vbias) {
+  const uint32x4_t r0 =
+      FlUnpackRowSliceNeon<w, kHasBias, rb + 0>(packed, lb, vmask, vbias);
+  const uint32x4_t r1 =
+      FlUnpackRowSliceNeon<w, kHasBias, rb + 1>(packed, lb, vmask, vbias);
+  const uint32x4_t r2 =
+      FlUnpackRowSliceNeon<w, kHasBias, rb + 2>(packed, lb, vmask, vbias);
+  const uint32x4_t r3 =
+      FlUnpackRowSliceNeon<w, kHasBias, rb + 3>(packed, lb, vmask, vbias);
+
+  const uint32x4x2_t a = vtrnq_u32(r0, r1);
+  const uint32x4x2_t c = vtrnq_u32(r2, r3);
+
+  uint32_t* dst = reinterpret_cast<uint32_t*>(out) + lb * kRowsPerBlock + rb;
+  vst1q_u32(dst, vcombine_u32(vget_low_u32(a.val[0]), vget_low_u32(c.val[0])));
+  dst += kRowsPerBlock;
+  vst1q_u32(dst, vcombine_u32(vget_low_u32(a.val[1]), vget_low_u32(c.val[1])));
+  dst += kRowsPerBlock;
+  vst1q_u32(dst, vcombine_u32(vget_high_u32(a.val[0]), vget_high_u32(c.val[0])));
+  dst += kRowsPerBlock;
+  vst1q_u32(dst, vcombine_u32(vget_high_u32(a.val[1]), vget_high_u32(c.val[1])));
+}
+
+}  // namespace internal
+
+#define ARROW_FASTLANES_FUSED_FL_UNPACK 1
+
+// Unpacks a block that was packed in FL_ORDER and writes it in file order,
+// adding `bias` on the way through. Equivalent to UnpackBlock<w, true> into a
+// scratch grid followed by Transpose32x32, without the grid.
+template <uint32_t w, bool kHasBias>
+inline void UnpackBlockFlToFileOrder(const uint32_t* ARROW_RESTRICT packed,
+                                     int32_t* ARROW_RESTRICT out, uint32_t bias = 0) {
+  static_assert(w >= 1 && w <= 32);
+  constexpr uint32_t kMask = (w == 32) ? 0xFFFFFFFFu : ((1u << w) - 1);
+  const uint32x4_t vmask = vdupq_n_u32(kMask);
+  const uint32x4_t vbias = vdupq_n_u32(bias);
+
+  // lb outer for the same reason as the x86 kernel: a fixed lb writes one
+  // contiguous 512-byte run of the output, where rb outer would stride 128 bytes
+  // across the whole 4 KiB block.
+  for (size_t lb = 0; lb < kLanes; lb += 4) {
+    internal::FlUnpackTileNeon<w, kHasBias, 0>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 4>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 8>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 12>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 16>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 20>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 24>(packed, out, lb, vmask, vbias);
+    internal::FlUnpackTileNeon<w, kHasBias, 28>(packed, out, lb, vmask, vbias);
+  }
+}
+
+#endif  // NEON fused FL_ORDER unpack
+
 // Returns bytes written, or 0 if some block's span exceeds 32 bits (it never
 // does for plain int32 values: max - min fits in 32 bits unconditionally).
 template <InterleavedPforOrder kOrder>
