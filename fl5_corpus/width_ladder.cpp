@@ -14,9 +14,11 @@
 // arena so output-address-mod-4096 cannot move a ratio. Varied: w.
 //
 // Output width is a second axis and is NOT varied here -- everything writes
-// int32, because that is what Parquet's INT32 physical type obliges a reader to
-// produce. The 8- and 16-bit-output question needs a narrower container and a
-// different set of kernels; it is measured separately.
+// int32, which is what the C++ reader materialises today, not something the
+// format requires: an INT(8) or INT(16) column is stored as INT32 with an
+// annotation, and the logical-type rules let a reader produce the narrower
+// in-memory type. That axis needs a narrower container and a different set of
+// kernels, and output_width_matrix.cpp measures it.
 //
 //   seq_scal  Parquet's continuous LSB-first stream, Arrow's generated scalar
 //             unpacker.
