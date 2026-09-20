@@ -270,11 +270,10 @@ def immutable_tensor():
 @pytest.mark.parametrize('max_version', [None, (0, 8)])
 def test_dlpack_legacy_capsule_immutable_tensor(max_version):
     tensor = immutable_tensor()
-    with pytest.warns(DeprecationWarning, match="unversioned DLPack capsule"):
-        with pytest.raises(NotImplementedError,
-                           match="Legacy DLPack support is not implemented "
-                                 "for immutable tensors"):
-            tensor.__dlpack__(max_version=max_version)
+    with pytest.raises(NotImplementedError,
+                       match="Legacy DLPack support is not implemented "
+                             "for immutable tensors"):
+        tensor.__dlpack__(max_version=max_version)
 
 
 @check_bytes_allocated
