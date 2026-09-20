@@ -870,6 +870,22 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(nleaves, descr_.num_columns());
 }
 
+TEST_F(TestSchemaDescriptor, ColumnIndexDuplicatePath) {
+  NodePtr first = Int32("duplicate", Repetition::REQUIRED);
+  NodePtr second = Int64("duplicate", Repetition::OPTIONAL);
+  NodePtr schema = GroupNode::Make("schema", Repetition::REQUIRED, {first, second});
+
+  descr_.Init(schema);
+
+  ASSERT_EQ(2, descr_.num_columns());
+  ASSERT_EQ("duplicate", descr_.Column(0)->path()->ToDotString());
+  ASSERT_EQ("duplicate", descr_.Column(1)->path()->ToDotString());
+
+  // Duplicate paths are disambiguated by node identity.
+  ASSERT_EQ(0, descr_.ColumnIndex(*first));
+  ASSERT_EQ(1, descr_.ColumnIndex(*second));
+}
+
 TEST_F(TestSchemaDescriptor, HasRepeatedFields) {
   NodeVector fields;
   NodePtr schema;

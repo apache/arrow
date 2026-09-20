@@ -823,8 +823,9 @@ void SchemaDescriptor::Init(NodePtr schema) {
   group_node_ = static_cast<const GroupNode*>(schema_.get());
   leaves_.clear();
 
+  std::string path;
   for (int i = 0; i < group_node_->field_count(); ++i) {
-    BuildTree(group_node_->field(i), 0, 0, group_node_->field(i));
+    BuildTree(group_node_->field(i), 0, 0, group_node_->field(i), path);
   }
 }
 
@@ -853,7 +854,14 @@ bool SchemaDescriptor::Equals(const SchemaDescriptor& other,
 }
 
 void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
-                                 int16_t max_rep_level, const NodePtr& base) {
+                                 int16_t max_rep_level, const NodePtr& base,
+                                 std::string& path) {
+  const size_t path_size = path.size();
+  if (!path.empty()) {
+    path.push_back('.');
+  }
+  path.append(node->name());
+
   if (node->is_optional()) {
     ++max_def_level;
   } else if (node->is_repeated()) {
@@ -867,7 +875,7 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
   if (node->is_group()) {
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
     for (int i = 0; i < group->field_count(); ++i) {
-      BuildTree(group->field(i), max_def_level, max_rep_level, base);
+      BuildTree(group->field(i), max_def_level, max_rep_level, base, path);
     }
   } else {
     node_to_leaf_index_[static_cast<const PrimitiveNode*>(node.get())] =
@@ -876,9 +884,10 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
     // Primitive node, append to leaves
     leaves_.push_back(ColumnDescriptor(node, max_def_level, max_rep_level, this));
     leaf_to_base_.emplace(static_cast<int>(leaves_.size()) - 1, base);
-    leaf_to_idx_.emplace(node->path()->ToDotString(),
-                         static_cast<int>(leaves_.size()) - 1);
+    leaf_to_idx_.emplace(path, static_cast<int>(leaves_.size()) - 1);
   }
+
+  path.resize(path_size);
 }
 
 int SchemaDescriptor::GetColumnIndex(const PrimitiveNode& node) const {

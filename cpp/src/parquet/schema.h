@@ -485,7 +485,7 @@ class PARQUET_EXPORT SchemaDescriptor {
   const schema::GroupNode* group_node_;
 
   void BuildTree(const schema::NodePtr& node, int16_t max_def_level,
-                 int16_t max_rep_level, const schema::NodePtr& base);
+                 int16_t max_rep_level, const schema::NodePtr& base, std::string& path);
 
   // Result of leaf node / tree analysis
   std::vector<ColumnDescriptor> leaves_;
