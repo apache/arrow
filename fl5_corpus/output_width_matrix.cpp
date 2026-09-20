@@ -46,6 +46,11 @@
 // Every arm is checked against the reference values before anything is timed.
 // The working set is L1-resident at every output width so this is kernel cost.
 //
+// The same rows are printed twice, in values per cycle and in GiB/s of output,
+// because the two units disagree on purpose: a store-limited kernel holds GiB/s
+// roughly flat while its values per cycle doubles with every halving of the
+// output element. Reading one unit alone hides which of the two is happening.
+//
 // Build with build.sh (./build.sh output_width_matrix); OPT selects the level.
 
 #include <algorithm>
@@ -315,31 +320,65 @@ static Cell Run() {
   return c;
 }
 
-static void Print(unsigned w, unsigned ob, const Cell& c) {
-  printf("%3u %7u ", w, ob);
+// One measured row. Values per cycle and GiB/s of output come from the same
+// timing: the first divides by the measured clock, the second by wall time, and
+// they answer different questions. Values per cycle says how much decoding work
+// a core retires; GiB/s says how many bytes it has to write to do it. A layout
+// that is limited by its store port holds GiB/s roughly constant while values
+// per cycle doubles with every halving of the output element, which is exactly
+// what separates the two layouts here, so both belong in the table.
+struct Row {
+  unsigned w, ob;
+  Cell c;
+};
+static std::vector<Row> g_rows;
+static void Measure(unsigned w, unsigned ob, const Cell& c) {
+  g_rows.push_back({w, ob, c});
+}
+
+// Same row, either unit. kGibs converts with the output element width.
+static void PrintRow(const Row& r, bool kGibs) {
+  const double scale =
+      kGibs ? g_ghz * 1e9 * (r.ob / 8.0) / (1024.0 * 1024 * 1024) : 1.0;
+  printf("%3u %7u ", r.w, r.ob);
   for (int a = 0; a < 5; ++a) {
-    if (c.valcyc[a] == 0.0) {
+    if (r.c.valcyc[a] == 0.0) {
       printf("%9s", (a == 4) ? "-" : "FAIL");
     } else {
-      printf("%9.2f", c.valcyc[a]);
+      printf("%9.2f", r.c.valcyc[a] * scale);
     }
   }
-  const double simd = c.valcyc[1], intlv = c.valcyc[2];
+  // Ratios are unit-free within a row and are printed once, in both tables, so
+  // either table can be read on its own.
+  const double simd = r.c.valcyc[1], intlv = r.c.valcyc[2];
   printf("   ");
   if (simd > 0 && intlv > 0) {
     printf("%8.2fx", intlv / simd);
   } else {
     printf("%9s", "-");
   }
-  if (c.valcyc[0] > 0 && intlv > 0) {
-    printf("%8.2fx", intlv / c.valcyc[0]);
+  if (r.c.valcyc[0] > 0 && intlv > 0) {
+    printf("%8.2fx", intlv / r.c.valcyc[0]);
   } else {
     printf("%9s", "-");
   }
-  if (c.valcyc[3] > 0 && intlv > 0) {
-    printf("%8.2fx", c.valcyc[3] / intlv);
+  if (r.c.valcyc[3] > 0 && intlv > 0) {
+    printf("%8.2fx", r.c.valcyc[3] / intlv);
   } else {
     printf("%9s", "-");
+  }
+  printf("\n");
+}
+
+// Blank line between output-element groups, the way the rows were entered.
+static void PrintTable(const char* unit, bool kGibs) {
+  printf("%s, higher is better. unpk/int is the timing control and must read "
+         "1.00x.\n\n", unit);
+  printf("%3s %7s %9s %9s %9s %9s %9s   %9s %9s %9s\n", "w", "out_b", "seq_scal",
+         "seq_simd", "intlv", "fl_unpk", "fl_tpos", "int/simd", "int/scal", "unpk/int");
+  for (size_t i = 0; i < g_rows.size(); ++i) {
+    if (i && g_rows[i].ob != g_rows[i - 1].ob) printf("\n");
+    PrintRow(g_rows[i], kGibs);
   }
   printf("\n");
 }
@@ -351,32 +390,28 @@ int main() {
     return 1;
   }
   printf("output_width_matrix -- bit unpacking only, no frame, no exceptions\n");
-  printf("Core clock measured at %.2f GHz. %zu values per pass, L1-resident.\n", g_ghz,
+  printf("Core clock measured at %.2f GHz. %zu values per pass, L1-resident.\n\n", g_ghz,
          kN);
-  printf("Values per cycle, higher is better. unpk/int is the timing control and must "
-         "read 1.00x.\n\n");
-  printf("%3s %7s %9s %9s %9s %9s %9s   %9s %9s %9s\n", "w", "out_b", "seq_scal",
-         "seq_simd", "intlv", "fl_unpk", "fl_tpos", "int/simd", "int/scal", "unpk/int");
+  Measure(1, 8, Run<uint8_t, 1>());
+  Measure(2, 8, Run<uint8_t, 2>());
+  Measure(3, 8, Run<uint8_t, 3>());
+  Measure(5, 8, Run<uint8_t, 5>());
+  Measure(7, 8, Run<uint8_t, 7>());
+  Measure(1, 16, Run<uint16_t, 1>());
+  Measure(2, 16, Run<uint16_t, 2>());
+  Measure(3, 16, Run<uint16_t, 3>());
+  Measure(9, 16, Run<uint16_t, 9>());
+  Measure(10, 16, Run<uint16_t, 10>());
+  Measure(11, 16, Run<uint16_t, 11>());
+  Measure(1, 32, Run<uint32_t, 1>());
+  Measure(2, 32, Run<uint32_t, 2>());
+  Measure(3, 32, Run<uint32_t, 3>());
+  Measure(9, 32, Run<uint32_t, 9>());
+  Measure(10, 32, Run<uint32_t, 10>());
+  Measure(11, 32, Run<uint32_t, 11>());
+  Measure(19, 32, Run<uint32_t, 19>());
 
-  Print(1, 8, Run<uint8_t, 1>());
-  Print(2, 8, Run<uint8_t, 2>());
-  Print(3, 8, Run<uint8_t, 3>());
-  Print(5, 8, Run<uint8_t, 5>());
-  Print(7, 8, Run<uint8_t, 7>());
-  printf("\n");
-  Print(1, 16, Run<uint16_t, 1>());
-  Print(2, 16, Run<uint16_t, 2>());
-  Print(3, 16, Run<uint16_t, 3>());
-  Print(9, 16, Run<uint16_t, 9>());
-  Print(10, 16, Run<uint16_t, 10>());
-  Print(11, 16, Run<uint16_t, 11>());
-  printf("\n");
-  Print(1, 32, Run<uint32_t, 1>());
-  Print(2, 32, Run<uint32_t, 2>());
-  Print(3, 32, Run<uint32_t, 3>());
-  Print(9, 32, Run<uint32_t, 9>());
-  Print(10, 32, Run<uint32_t, 10>());
-  Print(11, 32, Run<uint32_t, 11>());
-  Print(19, 32, Run<uint32_t, 19>());
+  PrintTable("Values per cycle", /*kGibs=*/false);
+  PrintTable("GiB/s of output", /*kGibs=*/true);
   return 0;
 }

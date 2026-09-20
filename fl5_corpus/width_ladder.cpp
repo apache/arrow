@@ -172,6 +172,34 @@ static uint8_t* Arena(size_t bytes) {
 }
 static constexpr size_t RoundUpPage(size_t n) { return (n + 4095) & ~size_t(4095); }
 
+// A dependent chain of single-cycle adds, so elapsed time over iteration count
+// is the core clock. Measured rather than assumed, because the values-per-cycle
+// column scales linearly with it.
+static double g_ghz = 0.0;
+static double MeasureGhz() {
+#if defined(__aarch64__) || defined(__x86_64__)
+  const uint64_t kIter = 40000000ull;
+  uint64_t x = 1;
+  auto t0 = Clock::now();
+  for (uint64_t i = 0; i < kIter; ++i) {
+#if defined(__aarch64__)
+    asm volatile("add %0, %0, #1\n\tadd %0, %0, #1\n\tadd %0, %0, #1\n\tadd %0, %0, #1\n\t"
+                 "add %0, %0, #1\n\tadd %0, %0, #1\n\tadd %0, %0, #1\n\tadd %0, %0, #1"
+                 : "+r"(x));
+#else
+    asm volatile("addq $1, %0\n\taddq $1, %0\n\taddq $1, %0\n\taddq $1, %0\n\t"
+                 "addq $1, %0\n\taddq $1, %0\n\taddq $1, %0\n\taddq $1, %0"
+                 : "+r"(x));
+#endif
+  }
+  const double s = std::chrono::duration<double>(Clock::now() - t0).count();
+  if (x == 0) abort();  // keep the chain live
+  return static_cast<double>(kIter) * 8 / s / 1e9;
+#else
+  return 0.0;
+#endif
+}
+
 template <bool kScalar>
 static void DecodeSeq(const SeqPayload& p, const uint8_t* base, size_t n, int32_t* out) {
   arrow::internal::UnpackOptions o;
@@ -203,12 +231,25 @@ static void DecodeSeq(const SeqPayload& p, const uint8_t* base, size_t n, int32_
 }
 
 int main() {
+  g_ghz = MeasureGhz();
+  if (g_ghz <= 0.1) {
+    fprintf(stderr, "could not measure the core clock on this target\n");
+    return 1;
+  }
   printf("width_ladder -- bit width as the only variable, 32-bit output, %zu KiB out\n",
          kN * sizeof(int32_t) / 1024);
-  printf("Throughput is output GiB/s. fl_unpk/intlv is the timing control and must "
-         "read 1.00x.\n\n");
-  printf("%3s %6s %8s %8s %8s %8s %8s   %8s %8s %8s %8s\n", "w", "srcKiB", "seq_scal",
-         "seq_simd", "intlv", "fl_unpk", "fl_tpos", "int/scal", "int/simd", "tpos/simd",
+  printf("Core clock measured at %.2f GHz.\n", g_ghz);
+  // Two units from one timing, because they answer different questions: GiB/s is
+  // what the store path has to carry, values per cycle is how much decoding work
+  // the core retires for it. Output width is fixed at 32 bits here, so the two
+  // are a constant factor apart and the ratios are the same in either -- which is
+  // exactly what stops being true when output width varies, and is why
+  // output_width_matrix.cpp reports both across that axis too.
+  printf("Left block is output GiB/s, right block is values per cycle. "
+         "fl_unpk/intlv is the\ntiming control and must read 1.00x.\n\n");
+  printf("%3s %6s %8s %8s %8s %8s %8s   %7s %7s %7s %7s %7s   %8s %8s %8s %8s\n", "w",
+         "srcKiB", "seq_scal", "seq_simd", "intlv", "fl_unpk", "fl_tpos", "scal/c",
+         "simd/c", "intlv/c", "unpk/c", "tpos/c", "int/scal", "int/simd", "tpos/simd",
          "unpk/int");
 
   int failures = 0;
@@ -299,8 +340,12 @@ int main() {
       gibs[a] = best;
     }
 
-    printf("%3u %6zu %8.1f %8.1f %8.1f %8.1f %8.1f   %7.2fx %7.2fx %8.2fx %7.2fx\n", w,
-           (w * kN / 8) / 1024, gibs[0], gibs[1], gibs[2], gibs[3], gibs[4],
+    // GiB/s over (bytes per value x clock) is values per cycle.
+    const double vpc = (1024.0 * 1024 * 1024) / (sizeof(int32_t) * g_ghz * 1e9);
+    printf("%3u %6zu %8.1f %8.1f %8.1f %8.1f %8.1f   %7.2f %7.2f %7.2f %7.2f %7.2f   "
+           "%8.2fx %8.2fx %8.2fx %8.2fx\n",
+           w, (w * kN / 8) / 1024, gibs[0], gibs[1], gibs[2], gibs[3], gibs[4],
+           gibs[0] * vpc, gibs[1] * vpc, gibs[2] * vpc, gibs[3] * vpc, gibs[4] * vpc,
            gibs[2] / gibs[0], gibs[2] / gibs[1], gibs[4] / gibs[1], gibs[3] / gibs[2]);
     fflush(stdout);
   }
