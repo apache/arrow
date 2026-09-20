@@ -1,0 +1,52 @@
+corpus_output_width -- 43 columns, right-sized output element vs 32-bit
+Core clock measured at 2.79 GHz. 131072 values per decode, L2-resident, frame applied.
+Left block is values per cycle, right block GiB/s of output. narrow: the narrowest
+element that holds every value of the column.
+
+column                   out_b avg_w     scal    simd   intlv  scalGiB simdGiB intlvGiB   int/simd int/simd32 narrowgain
+ClientIP                    32  32.0     3.83    3.70    5.55     39.9    38.5    57.7      1.50x    1.50x    1.00x
+UrlRegionID                 16  10.0     0.88    4.56    5.66      4.6    23.7    29.4      1.24x    1.26x    1.68x
+CounterID                   32  12.0     0.71    2.58    3.38      7.4    26.9    35.2      1.31x    1.31x    1.00x
+EventDate                   16   3.0     1.27    5.17    6.90      6.6    26.9    35.9      1.34x    1.20x    1.90x
+EventTime                   32  17.0     1.02    2.66    2.90     10.6    27.6    30.1      1.09x    1.09x    1.00x
+GoodEvent                    8   1.0     1.43    9.24   15.18      3.7    24.0    39.5      1.64x    1.27x    3.91x
+HID                         32  32.0     3.78    3.66    5.64     39.4    38.1    58.7      1.54x    1.54x    1.00x
+HitColor                     8   3.0     1.21    5.79   13.62      3.1    15.1    35.4      2.35x    1.21x    3.74x
+IPNetworkID                 16  14.0     0.90    3.21    5.48      4.7    16.7    28.5      1.71x    1.09x    1.82x
+JavaEnable                   8   1.0     1.43    9.24   15.52      3.7    24.0    40.4      1.68x    1.26x    4.00x
+OS                           8   5.0     1.28    6.02   11.98      3.3    15.7    31.2      1.99x    1.25x    3.41x
+Resolution                  16  11.0     1.17    3.20    5.63      6.1    16.7    29.3      1.76x    1.12x    1.83x
+TrafficSourceID              8   4.0     0.85    9.37   21.56      2.2    24.4    56.1      2.30x    1.35x    5.33x
+UserAgent                    8   7.0     1.22    5.90   11.06      3.2    15.3    28.8      1.88x    1.15x    3.26x
+TpcdsSoldDateSk             32  11.0     1.22    2.73    3.07     12.6    28.4    32.0      1.12x    1.12x    1.00x
+TpcdsStoreSk                16  10.0     0.88    4.56    6.03      4.6    23.7    31.4      1.32x    1.31x    1.79x
+TpcdsItemSk                 32  17.0     1.02    2.66    2.94     10.6    27.7    30.6      1.11x    1.11x    1.00x
+TpcdsQuantity                8   7.0     1.22    5.91   11.10      3.2    15.4    28.9      1.88x    1.15x    3.27x
+TpcdsCustomerSk             32  21.0     1.02    2.62    2.62     10.6    27.2    27.3      1.00x    1.00x    1.00x
+TpcdsExtSalesPrice          32  15.7     0.98    2.75    4.03     10.2    28.6    41.9      1.47x    1.47x    1.00x
+TpcdsNetProfit              32  19.0     1.09    2.62    2.92     11.3    27.3    30.4      1.11x    1.11x    1.00x
+TpcdsDYear                  16   3.0     1.27    4.93    6.90      6.6    25.7    35.9      1.40x    1.21x    1.89x
+TpchLQuantity                8   6.0     0.88    6.04   12.84      2.3    15.7    33.4      2.12x    1.17x    3.70x
+TpchLExtendedPrice          32  24.0     0.86    2.10    3.12      9.0    21.8    32.4      1.49x    1.49x    1.00x
+TpchLDiscount                8   4.0     0.85    9.38   21.53      2.2    24.4    56.0      2.30x    1.35x    5.33x
+TpchLShipDate               16  12.0     0.95    4.72    6.31      4.9    24.5    32.8      1.34x    1.29x    1.85x
+TaxiPickupUnixTime          32  22.0     0.97    2.44    2.76     10.1    25.4    28.8      1.13x    1.13x    1.00x
+TaxiTripDistanceX100        16  11.0     1.16    3.24    5.63      6.0    16.8    29.3      1.74x    1.13x    1.83x
+TaxiFareCents               16  13.2     1.13    3.17    5.31      5.9    16.5    27.7      1.68x    1.07x    1.84x
+SortedUnixTime              32  12.0     0.71    2.63    3.08      7.4    27.4    32.0      1.17x    1.17x    1.00x
+SortedKeyDups               32   9.5     1.25    2.54    3.35     13.0    26.4    34.8      1.32x    1.32x    1.00x
+MonotoneRowId               32  10.0     1.23    2.58    3.37     12.8    26.8    35.1      1.31x    1.31x    1.00x
+NearSortedUnixTime          32  13.0     1.22    2.73    2.86     12.7    28.4    29.7      1.05x    1.05x    1.00x
+TrendJitter                 32  12.0     0.71    2.65    3.40      7.4    27.6    35.4      1.28x    1.28x    1.00x
+Sawtooth                    16  12.0     0.95    4.72    6.31      4.9    24.5    32.8      1.34x    1.17x    2.05x
+MeasurementSeries           32  16.5     0.97    2.69    3.67     10.1    28.0    38.2      1.36x    1.36x    1.00x
+SortedKeys                  32   9.2     1.07    2.67    3.36     11.1    27.7    35.0      1.26x    1.26x    1.00x
+SensorDropouts              32  21.0     1.02    2.62    2.78     10.6    27.2    28.9      1.06x    1.06x    1.00x
+IdsWithGaps                 32  19.3     0.93    2.26    2.88      9.7    23.5    30.0      1.28x    1.28x    1.00x
+RandomWalk                  32  10.0     1.23    2.54    3.34     12.8    26.4    34.8      1.32x    1.32x    1.00x
+EventMillis                 32  12.0     0.71    2.63    3.40      7.4    27.3    35.4      1.30x    1.30x    1.00x
+LowSentinel                 32  18.0     0.76    2.44    2.73      8.0    25.4    28.4      1.12x    1.12x    1.00x
+Bimodal                     32  20.0     0.80    1.94    3.07      8.3    20.2    31.9      1.58x    1.58x    1.00x
+
+geomean interleaved over shipped vectorized: 1.434x at right-sized output, 1.232x at 32-bit
+geomean narrowing gain: interleaved 1.536x, shipped vectorized 1.320x

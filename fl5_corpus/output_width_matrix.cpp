@@ -403,6 +403,7 @@ int main() {
   Measure(9, 16, Run<uint16_t, 9>());
   Measure(10, 16, Run<uint16_t, 10>());
   Measure(11, 16, Run<uint16_t, 11>());
+  Measure(13, 16, Run<uint16_t, 13>());
   Measure(1, 32, Run<uint32_t, 1>());
   Measure(2, 32, Run<uint32_t, 2>());
   Measure(3, 32, Run<uint32_t, 3>());
@@ -410,6 +411,8 @@ int main() {
   Measure(10, 32, Run<uint32_t, 10>());
   Measure(11, 32, Run<uint32_t, 11>());
   Measure(19, 32, Run<uint32_t, 19>());
+  Measure(20, 32, Run<uint32_t, 20>());
+  Measure(24, 32, Run<uint32_t, 24>());
 
   PrintTable("Values per cycle", /*kGibs=*/false);
   PrintTable("GiB/s of output", /*kGibs=*/true);

@@ -1,4 +1,29 @@
-# build products, not sources
+# Build products, not sources. build.sh names its output after the source, or
+# after OUT=, so every harness and probe binary lands in this directory beside
+# its .cpp and has to be named here.
+corpus_output_width
+corpus_output_width_tv
+dc_o3
+dc_tv
+fl5_clang_o2
+fl5_corpus
+fl5_corpus_clang
+fl5_delta_corpus
+fl5_gcc_o2tv
 layout_benchmark
+layout_benchmark_tv
+lb_o3
+lb_tv
+output_width_matrix
+output_width_matrix_tv
+probe_align
+probe_bytes
+probe_order
 seq_granularity
+width_ladder
+width_ladder_tv
+width_probe
 *.o
+
+# Stderr from a run. The .txt beside it holds the result worth keeping.
+*.err
