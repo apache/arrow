@@ -57,6 +57,7 @@
 
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/fastlanes/fastlanes_kernels_internal.h"
+#include "arrow/util/macros.h"
 #include "perf_counters.h"
 #include "seq_unpack.h"
 
@@ -89,6 +90,21 @@ static Sample measure(PerfCounters* perf, Fn&& fn) {
   return {instr_per_value[kReps / 2], ipc[kReps / 2]};
 }
 
+// The interleaved arm has to be called out of line, because the other two are
+// and the sweep only means anything if all three are measured the same way:
+// arm 1 reaches its body through kSeqUnpack's function-pointer table, arm 3
+// crosses into libarrow.so. Inlined instead, sixteen fully-unrolled block
+// bodies land in one function, gcc abandons vectorizing them, and the arm
+// reports 6.6-7.5 instructions per value at every level -- a property of this
+// driver, not of the kernel. Out of line it reports 2.14 at -O2
+// -ftree-vectorize and 1.07 at -O3.
+template <uint32_t w>
+ARROW_NOINLINE void UnpackInterleavedBlocks(const uint32_t* packed, uint32_t* out) {
+  for (int b = 0; b < kBlocks; ++b) {
+    fl::UnpackBlock<w>(packed + static_cast<size_t>(b) * w * fl::kLanes, out + b * 1024);
+  }
+}
+
 template <uint32_t w>
 static void run(PerfCounters* perf) {
   std::mt19937 rng(w * 2654435761u);
@@ -108,10 +124,7 @@ static void run(PerfCounters* perf) {
 
   auto unpack_seq_call = [&] { kSeqUnpack[w](pk_seq.data(), out_seq.data(), N); };
   auto unpack_int_call = [&] {
-    for (int b = 0; b < kBlocks; ++b) {
-      fl::UnpackBlock<w>(pk_int.data() + static_cast<size_t>(b) * w * fl::kLanes,
-                          out_int.data() + b * 1024);
-    }
+    UnpackInterleavedBlocks<w>(pk_int.data(), out_int.data());
   };
   auto unpack_arrow_call = [&] {
     arrow::internal::unpack<uint32_t>(reinterpret_cast<const uint8_t*>(pk_seq.data()),
