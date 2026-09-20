@@ -16,10 +16,12 @@ lb_o3
 lb_tv
 output_width_matrix
 output_width_matrix_tv
+owm_res
 probe_align
 probe_bytes
 probe_order
 seq_granularity
+store_counters
 width_ladder
 width_ladder_tv
 width_probe

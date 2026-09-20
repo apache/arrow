@@ -1,0 +1,7 @@
+store_counters -- 20-bit values into 32-bit output, 8388608 values, 32 MiB out, 20 MiB in
+Per 1024 values. A dash is an event this core does not implement.
+
+                  cyc       insts     ld_spec     st_spec    stall_be      l1d_wr  l1d_rfl_wr     l1d_rfl     l1d_acc      l2d_wr  l2d_rfl_wr     l2d_rfl      bus_wr
+seq_simd        482.0      2917.0       274.0           -           -       267.0         2.2           -           -       104.0           -           -           -
+intlv          1070.0      1090.0       153.0           -           -       229.0        48.3           -           -       104.0           -           -           -
+intlv_b         348.1      1240.0       308.0           -           -       224.0         0.0           -           -       104.0           -           -           -
