@@ -1465,6 +1465,9 @@ std::make_unsigned_t<T> PrefixSumDeltas(T* values, int num_values,
   using UT = std::make_unsigned_t<T>;
   int i = 0;
 
+// slide_left shifts towards the high-order lane, so the scan below is only correct on
+// a little-endian lane order; the two architectures guarded on here are both
+// little-endian.
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
   using Batch = xsimd::batch<UT>;
   constexpr int kLanes = static_cast<int>(Batch::size);

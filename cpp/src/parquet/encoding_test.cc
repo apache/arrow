@@ -1753,6 +1753,10 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
   static constexpr size_t kNumRoundTrips = 3;
+  // Same values as in DeltaBitPackEncoder
+  static constexpr int kValuesPerBlock = std::is_same_v<int32_t, c_type> ? 128 : 256;
+  static constexpr int kMiniBlocksPerBlock = 4;
+  static constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
   // 100 spans several miniblocks but still ends inside one.
   const std::vector<int> kReadBatchSizes = {1, 11, 100};
 
@@ -1909,11 +1913,9 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
   // bitwidths are actually padding bytes that may take non-conformant values
   // according to the Parquet spec.
 
-  // Same values as in DeltaBitPackEncoder
-  constexpr int kValuesPerBlock =
-      std::is_same_v<int32_t, typename TypeParam::c_type> ? 128 : 256;
-  constexpr int kMiniBlocksPerBlock = 4;
-  constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
+  constexpr int kValuesPerBlock = TestFixture::kValuesPerBlock;
+  constexpr int kMiniBlocksPerBlock = TestFixture::kMiniBlocksPerBlock;
+  constexpr int kValuesPerMiniBlock = TestFixture::kValuesPerMiniBlock;
 
   // num_values must be kept small enough for kHeaderLength below
   for (const int num_values : {2, 62, 63, 64, 65, 95, 96, 97, 127}) {
@@ -2041,11 +2043,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, MiniblockBitWidthRuns) {
   // the width patterns that decide where such a run starts and stops.
   using T = typename TypeParam::c_type;
 
-  // Same values as in DeltaBitPackEncoder
-  constexpr int kValuesPerBlock =
-      std::is_same_v<int32_t, typename TypeParam::c_type> ? 128 : 256;
-  constexpr int kMiniBlocksPerBlock = 4;
-  constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
+  constexpr int kValuesPerMiniBlock = TestFixture::kValuesPerMiniBlock;
 
   // Gives miniblock i the bit width widths[i]: alternating deltas of `frame` and
   // `frame + 2^(w-1)` make w the smallest width holding the residual, and `frame` the
@@ -2112,8 +2110,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, PrefixSumVectorAndTail) {
   using T = typename TypeParam::c_type;
   using UT = std::make_unsigned_t<T>;
   constexpr int kBits = static_cast<int>(sizeof(T) * 8);
-  // Same value as in DeltaBitPackEncoder
-  constexpr int kValuesPerBlock = std::is_same_v<int32_t, T> ? 128 : 256;
+  constexpr int kValuesPerBlock = TestFixture::kValuesPerBlock;
 
   auto make_values = [](int width, T frame, int num_deltas) {
     std::vector<T> values;
