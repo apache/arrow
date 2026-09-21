@@ -580,15 +580,18 @@ Fixed closedness range
 
 Fixed closedness range represents a bounded set (mathematical interval)
 defined by a lower and an upper bound over an orderable Arrow type T.  Its
-closedness is a type parameter shared by all values.  It is the Arrow
-equivalent of PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
+closedness is a type parameter shared by all values.  It matches PostgreSQL's
+discrete `range types`_ (such as ``int4range`` and ``daterange``) and SQL:2011
+``PERIOD`` types.  Ranges whose closedness differs per value use
+:ref:`variable closedness range <variable_closedness_range_extension>`
+instead.
 
 .. note::
 
    **Disambiguation from Arrow's calendar** ``Interval`` **type.**
    Arrow already has an ``Interval`` type (``INTERVAL_MONTHS``,
    ``INTERVAL_DAY_TIME``, ``INTERVAL_MONTH_DAY_NANO``) that represents a
-   *duration* -- a signed difference between two points in time.  The
+   *duration*: a signed difference between two points in time.  The
    ``arrow.fixed_closedness_range`` and ``arrow.variable_closedness_range``
    extension types are an entirely different concept: they represent a
    *bounded set* with explicit lower and upper endpoints, analogous to a
@@ -630,16 +633,26 @@ equivalent of PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
   * **closed** = which finite bound(s) are inclusive.  Allowed values
     (following pandas interval vocabulary):
 
-    * ``"left"``    -- lower bound inclusive, upper bound exclusive: ``[lower, upper)``
-    * ``"right"``   -- lower bound exclusive, upper bound inclusive: ``(lower, upper]``
-    * ``"both"``    -- both bounds inclusive: ``[lower, upper]``
-    * ``"neither"`` -- both bounds exclusive: ``(lower, upper)``
+    * ``"left"``: ``[lower, upper)``, the lower bound is inclusive and the
+      upper bound is exclusive.
+    * ``"right"``: ``(lower, upper]``, the lower bound is exclusive and the
+      upper bound is inclusive.
+    * ``"both"``: ``[lower, upper]``, both bounds are inclusive.
+    * ``"neither"``: ``(lower, upper)``, both bounds are exclusive.
 
   A range thus contains every value x permitted by its finite bounds and
   ``closed`` setting: with ``closed="both"`` every x such that
   ``lower <= x <= upper``, with ``closed="neither"`` every x such that
   ``lower < x < upper``.  A range is *empty* when ``lower > upper``, or when
   ``lower == upper`` and at least one bound is exclusive.
+
+  For example, with ``closed="left"`` and T = ``Int32`` (both bounds
+  nullable):
+
+  * ``{lower: 1, upper: 5}`` is ``[1, 5)`` and contains 1, 2, 3 and 4.
+  * ``{lower: null, upper: 5}`` is ``(-inf, 5)``.
+  * ``{lower: 3, upper: 3}`` is empty.
+  * A null struct value is a missing range.
 
 * Description of the serialization:
 
@@ -656,10 +669,10 @@ equivalent of PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 
   Examples:
 
-  - ``{"closed": "right"}``  -- half-open interval, right-closed
-  - ``{"closed": "left"}``   -- half-open interval, left-closed
-  - ``{"closed": "both"}``   -- closed interval
-  - ``{"closed": "neither"}``-- open interval
+  - ``{"closed": "right"}``: half-open interval, right-closed
+  - ``{"closed": "left"}``: half-open interval, left-closed
+  - ``{"closed": "both"}``: closed interval
+  - ``{"closed": "neither"}``: open interval
 
 .. _range types: https://www.postgresql.org/docs/current/rangetypes.html
 
@@ -701,10 +714,10 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   * ``upper``: the upper bound, type **T**, *optionally nullable*.
     When the field is nullable, a null value means the range is unbounded above
     (positive infinity).
-  * ``lower_inc``: a **non-nullable** ``boolean`` -- ``true`` when the lower
-    bound is inclusive for that value, ``false`` when it is exclusive.
-  * ``upper_inc``: a **non-nullable** ``boolean`` -- ``true`` when the upper
-    bound is inclusive for that value, ``false`` when it is exclusive.
+  * ``lower_inc``: a **non-nullable** ``boolean`` that is ``true`` when the
+    lower bound is inclusive for that value and ``false`` when it is exclusive.
+  * ``upper_inc``: a **non-nullable** ``boolean`` that is ``true`` when the
+    upper bound is inclusive for that value and ``false`` when it is exclusive.
 
   **T** (the *subtype* or *value type*) may be any orderable Arrow type:
   integer, floating-point, decimal, date, time, or timestamp types.  The
@@ -717,9 +730,10 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   nullability is only needed to represent an unbounded side.  A null bound is
   **always treated as exclusive**, regardless of its ``lower_inc`` /
   ``upper_inc`` flag; positive and negative infinity can never be included.
-  The ``lower_inc`` and
-  ``upper_inc`` fields are **always non-nullable**.  The outer struct's validity
-  bit marks a null/absent range (a missing range, distinct from an empty range).
+  Producers should set the flag of a null bound to ``false``, as PostgreSQL
+  does.  The ``lower_inc`` and ``upper_inc`` fields are **always
+  non-nullable**.  The outer struct's validity bit marks a null/absent range
+  (a missing range, distinct from an empty range).
 
 * Extension type parameters:
 
@@ -734,6 +748,21 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   ``lower < x < upper``.  A value is *empty* when ``lower > upper``, or when
   ``lower == upper`` and at least one of ``lower_inc`` / ``upper_inc`` is
   ``false``.
+
+  Each ``closed`` value of
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`
+  corresponds to one pair of flags: ``"left"`` is
+  ``lower_inc=true, upper_inc=false``, ``"right"`` is the reverse, ``"both"``
+  sets both flags to ``true``, and ``"neither"`` sets both to ``false``.
+
+  For example, with T = ``Float64`` (both bounds nullable), one array can hold:
+
+  * ``{lower: 1.0, upper: 5.0, lower_inc: true, upper_inc: true}``, which is
+    ``[1.0, 5.0]``.
+  * ``{lower: 1.0, upper: 5.0, lower_inc: false, upper_inc: false}``, which
+    is ``(1.0, 5.0)``.
+  * ``{lower: 1.0, upper: null, lower_inc: true, upper_inc: false}``, which
+    is ``[1.0, +inf)``.
 
 * Description of the serialization:
 
