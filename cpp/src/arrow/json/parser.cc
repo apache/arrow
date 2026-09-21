@@ -748,7 +748,7 @@ class ParseImpl : public BlockParser {
 
     const std::string_view input(reinterpret_cast<const char*>(json->data()),
                                  json->size());
-    
+
     const int64_t input_size = input.size();
     if (internal::ConsumeJsonWhitespace(input, /*trailing=*/false) == input_size) {
       return Status::OK();
@@ -886,8 +886,7 @@ class ParseImpl : public BlockParser {
 
     StartNested();
 
-    auto list_builder = Cast<kind>(builder_);
-    builder_ = list_builder->value_builder();
+    builder_ = Cast<kind>(builder_)->value_builder();
 
     ARROW_ASSIGN_OR_RAISE(auto array, arrow::internal::ResolveSimdjsonResult(
                                           value.get_array(), "Failed to get JSON array"));
@@ -905,6 +904,7 @@ class ParseImpl : public BlockParser {
 
     EndNested();
 
+    auto list_builder = Cast<Kind::kArray>(builder_);
     DCHECK_LE(size, std::numeric_limits<int32_t>::max());
     return list_builder->Append(static_cast<int32_t>(size));
   }
