@@ -268,8 +268,6 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-void FixedSizeListBuilder::UnsafeAppend() { UnsafeAppendToBitmap(true); }
-
 // ----------------------------------------------------------------------
 // Struct
 
