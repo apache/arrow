@@ -136,7 +136,7 @@ class RawArrayBuilder;
 
 /// \brief packed pointer to a RawArrayBuilder
 ///
-/// RawArrayBuilders are stored in HandlerBase,
+/// RawArrayBuilders are stored in ParseImpl,
 /// which allows storage of their indices (uint32_t) instead of a full pointer.
 /// BuilderPtr is also tagged with the json kind and nullable properties
 /// so those can be accessed before dereferencing the builder.
@@ -650,28 +650,47 @@ class RawBuilderSet {
       arenas_;
 };
 
-/// Three implementations are provided for BlockParser, one for each
-/// UnexpectedFieldBehavior. However most of the logic is identical in each
-/// case, so the majority of the implementation is in this base class
-class HandlerBase : public BlockParser {
+/// Parser implementation for BlockParser.
+class ParseImpl : public BlockParser {
  public:
-  explicit HandlerBase(MemoryPool* pool)
+  explicit ParseImpl(MemoryPool* pool, UnexpectedFieldBehavior unexpected_field_behavior)
       : BlockParser(pool),
+        unexpected_field_behavior_(unexpected_field_behavior),
         builder_set_(pool),
         field_index_(-1),
         scalar_values_builder_(pool) {}
 
-  /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
   enable_if_t<kind != Kind::kNull, RawArrayBuilder<kind>*> Cast(BuilderPtr builder) {
     return builder_set_.Cast<kind>(builder);
   }
 
-  /// Accessor for a stored error Status
   Status Error() { return status_; }
 
   Status Null() {
     return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
+  }
+
+  Status HandleUnexpectedField(std::string_view key, sj::value value) {
+    switch (unexpected_field_behavior_) {
+      case UnexpectedFieldBehavior::Error:
+        return ParseError("unexpected field");
+
+      case UnexpectedFieldBehavior::Ignore:
+        return Status::OK();
+
+      case UnexpectedFieldBehavior::InferType: {
+        auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
+        auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);
+
+        builder_ = BuilderPtr(Kind::kNull, leading_nulls, true);
+        field_index_ = struct_builder->AddField(key, builder_);
+
+        return ParseValue(value);
+      }
+    }
+
+    return Status::OK();
   }
 
   Status Bool(bool value) {
@@ -698,7 +717,6 @@ class HandlerBase : public BlockParser {
     }
   }
 
-  /// \brief Set up builders using an expected Schema
   Status Initialize(const std::shared_ptr<Schema>& s) {
     auto type = struct_({});
     if (s) {
@@ -707,13 +725,14 @@ class HandlerBase : public BlockParser {
     return builder_set_.MakeBuilder(*type, 0, &builder_);
   }
 
+  Status Parse(const std::shared_ptr<Buffer>& json) override { return DoParse(json); }
+
   Status Finish(std::shared_ptr<Array>* parsed) override {
     std::shared_ptr<Array> scalar_values;
     RETURN_NOT_OK(scalar_values_builder_.Finish(&scalar_values));
     return builder_set_.Finish(scalar_values, builder_, parsed);
   }
 
-  /// \brief Emit path of current field for debugging purposes
   std::string Path() {
     std::string path;
     for (size_t i = 0; i < builder_stack_.size(); ++i) {
@@ -733,8 +752,7 @@ class HandlerBase : public BlockParser {
   }
 
  protected:
-  template <typename Handler>
-  Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
+  Status DoParse(const std::shared_ptr<Buffer>& json) {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
 
     const std::string_view input(reinterpret_cast<const char*>(json->data()),
@@ -764,7 +782,7 @@ class HandlerBase : public BlockParser {
             arrow::internal::ResolveSimdjsonResult(
                 document.get_value(), "JSON parse error: Failed to get JSON value"));
 
-        RETURN_NOT_OK(ParseValue(handler, value));
+        RETURN_NOT_OK(ParseValue(value));
 
         ++num_rows_;
       }
@@ -817,8 +835,7 @@ class HandlerBase : public BlockParser {
     return Status::OK();
   }
 
-  template <typename Handler>
-  Status ParseValue(Handler& handler, sj::value value) {
+  Status ParseValue(sj::value value) {
     ARROW_ASSIGN_OR_RAISE(auto type, arrow::internal::ResolveSimdjsonResult(
                                          value.type(), "Failed to determine JSON type"));
 
@@ -831,7 +848,7 @@ class HandlerBase : public BlockParser {
       }
 
       case sj::json_type::boolean: {
-        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kBoolean>());
+        RETURN_NOT_OK(MaybePromoteFromNull<Kind::kBoolean>());
 
         ARROW_ASSIGN_OR_RAISE(auto boolean,
                               arrow::internal::ResolveSimdjsonResult(
@@ -840,7 +857,7 @@ class HandlerBase : public BlockParser {
       }
 
       case sj::json_type::string: {
-        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kString>());
+        RETURN_NOT_OK(MaybePromoteFromNull<Kind::kString>());
 
         ARROW_ASSIGN_OR_RAISE(auto string,
                               arrow::internal::ResolveSimdjsonResult(
@@ -849,7 +866,7 @@ class HandlerBase : public BlockParser {
       }
 
       case sj::json_type::number: {
-        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kNumber>());
+        RETURN_NOT_OK(MaybePromoteFromNull<Kind::kNumber>());
         auto raw_number = value.raw_json_token();
         raw_number.remove_suffix(
             internal::ConsumeJsonWhitespace(raw_number, /*trailing=*/true));
@@ -857,21 +874,28 @@ class HandlerBase : public BlockParser {
       }
 
       case sj::json_type::array:
-        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kArray>());
-        return ParseArray(handler, value);
+        RETURN_NOT_OK(MaybePromoteFromNull<Kind::kArray>());
+        return ParseArray(value);
 
       case sj::json_type::object:
-        RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kObject>());
-        return ParseObject(handler, value);
+        RETURN_NOT_OK(MaybePromoteFromNull<Kind::kObject>());
+        return ParseObject(value);
 
       default:
         return ParseError("Invalid value");
     }
   }
 
-  template <typename Handler>
-  Status ParseArray(Handler& handler, sj::value value) {
-    RETURN_NOT_OK(StartArrayImpl());
+  Status ParseArray(sj::value value) {
+    constexpr auto kind = Kind::kArray;
+    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
+      return IllegallyChangedTo(kind);
+    }
+
+    StartNested();
+
+    auto list_builder = Cast<kind>(builder_);
+    builder_ = list_builder->value_builder();
 
     ARROW_ASSIGN_OR_RAISE(auto array, arrow::internal::ResolveSimdjsonResult(
                                           value.get_array(), "Failed to get JSON array"));
@@ -883,16 +907,26 @@ class HandlerBase : public BlockParser {
                             arrow::internal::ResolveSimdjsonResult(
                                 element_result, "Failed to iterate JSON array"));
 
-      RETURN_NOT_OK(ParseValue(handler, element));
+      RETURN_NOT_OK(ParseValue(element));
       ++size;
     }
 
-    return EndArrayImpl(size);
+    EndNested();
+
+    DCHECK_LE(size, std::numeric_limits<int32_t>::max());
+    return list_builder->Append(static_cast<int32_t>(size));
   }
 
-  template <typename Handler>
-  Status ParseObject(Handler& handler, sj::value value) {
-    RETURN_NOT_OK(StartObjectImpl());
+  Status ParseObject(sj::value value) {
+    constexpr auto kind = Kind::kObject;
+    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
+      return IllegallyChangedTo(kind);
+    }
+
+    auto struct_builder = Cast<kind>(builder_);
+    absent_fields_stack_.Push(struct_builder->num_fields(), true);
+    StartNested();
+    RETURN_NOT_OK(struct_builder->Append());
 
     ARROW_ASSIGN_OR_RAISE(
         auto object, arrow::internal::ResolveSimdjsonResult(value.get_object(),
@@ -908,32 +942,43 @@ class HandlerBase : public BlockParser {
                             arrow::internal::ResolveSimdjsonResult(
                                 field.unescaped_key(), "Failed to get JSON object key"));
 
-      auto field_value = field.value();
-
-      RETURN_NOT_OK(ParseObjectField(handler, key, field_value));
+      RETURN_NOT_OK(ParseObjectField(key, field.value()));
     }
 
-    return EndObjectImpl();
+    auto parent = builder_stack_.back();
+    auto expected_count = absent_fields_stack_.TopSize();
+
+    for (int i = 0; i < expected_count; ++i) {
+      if (!absent_fields_stack_[i]) {
+        continue;
+      }
+
+      auto field_builder = Cast<Kind::kObject>(parent)->field_builder(i);
+      if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
+        return ParseError("a required field was absent");
+      }
+
+      RETURN_NOT_OK(builder_set_.AppendNull(parent, i, field_builder));
+    }
+
+    absent_fields_stack_.Pop();
+    EndNested();
+    return Status::OK();
   }
 
-  template <typename Handler>
-  Status ParseObjectField(Handler& handler, std::string_view key, sj::value value) {
+  Status ParseObjectField(std::string_view key, sj::value value) {
     bool duplicate_keys = false;
 
     if (SetFieldBuilder(key, &duplicate_keys)) {
-      return ParseValue(handler, value);
+      return ParseValue(value);
     }
 
     if (duplicate_keys) {
       return status_;
     }
 
-    return handler.HandleUnexpectedField(key, value);
+    return HandleUnexpectedField(key, value);
   }
-
-  /// \defgroup handlerbase-append-methods append non-nested values
-  ///
-  /// @{
 
   template <Kind::type kind>
   Status AppendScalar(BuilderPtr builder, std::string_view scalar) {
@@ -948,23 +993,6 @@ class HandlerBase : public BlockParser {
     return Status::OK();
   }
 
-  /// @}
-
-  Status StartObjectImpl() {
-    constexpr auto kind = Kind::kObject;
-    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
-      return IllegallyChangedTo(kind);
-    }
-    auto struct_builder = Cast<kind>(builder_);
-    absent_fields_stack_.Push(struct_builder->num_fields(), true);
-    StartNested();
-    return struct_builder->Append();
-  }
-
-  /// \brief helper for Key() functions
-  ///
-  /// sets the field builder with name key, or returns false if
-  /// there is no field with that name
   bool SetFieldBuilder(std::string_view key, bool* duplicate_keys) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(key);
@@ -974,8 +1002,6 @@ class HandlerBase : public BlockParser {
     if (field_index_ < absent_fields_stack_.TopSize()) {
       *duplicate_keys = !absent_fields_stack_[field_index_];
     } else {
-      // When field_index is beyond the range of absent_fields_stack_ we have a duplicated
-      // field that wasn't declared in schema or previous records.
       *duplicate_keys = true;
     }
     if (*duplicate_keys) {
@@ -987,56 +1013,12 @@ class HandlerBase : public BlockParser {
     return true;
   }
 
-  Status EndObjectImpl() {
-    auto parent = builder_stack_.back();
-
-    auto expected_count = absent_fields_stack_.TopSize();
-    for (int i = 0; i < expected_count; ++i) {
-      if (!absent_fields_stack_[i]) {
-        continue;
-      }
-      auto field_builder = Cast<Kind::kObject>(parent)->field_builder(i);
-      if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
-        return ParseError("a required field was absent");
-      }
-      RETURN_NOT_OK(builder_set_.AppendNull(parent, i, field_builder));
-    }
-    absent_fields_stack_.Pop();
-    EndNested();
-    return Status::OK();
-  }
-
-  Status StartArrayImpl() {
-    constexpr auto kind = Kind::kArray;
-    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
-      return IllegallyChangedTo(kind);
-    }
-    StartNested();
-    // append to the list builder in EndArrayImpl
-    builder_ = Cast<kind>(builder_)->value_builder();
-    return Status::OK();
-  }
-
-  Status EndArrayImpl(size_t size) {
-    EndNested();
-    // append to list_builder here
-    auto list_builder = Cast<Kind::kArray>(builder_);
-    DCHECK_LE(size, std::numeric_limits<int32_t>::max());
-    return list_builder->Append(static_cast<int32_t>(size));
-  }
-
-  /// helper method for StartArray and StartObject
-  /// adds the current builder to a stack so its
-  /// children can be visited and parsed.
   void StartNested() {
     field_index_stack_.push_back(field_index_);
     field_index_ = -1;
     builder_stack_.push_back(builder_);
   }
 
-  /// helper method for EndArray and EndObject
-  /// replaces the current builder with its parent
-  /// so parsing of the parent can continue
   void EndNested() {
     field_index_ = field_index_stack_.back();
     field_index_stack_.pop_back();
@@ -1049,7 +1031,6 @@ class HandlerBase : public BlockParser {
                       " to ", Kind::Name(illegally_changed_to), " in row ", num_rows_);
   }
 
-  /// Reserve storage for scalars, these can occupy almost all of the JSON buffer
   Status ReserveScalarStorage(int64_t size) override {
     auto available_storage = scalar_values_builder_.value_data_capacity() -
                              scalar_values_builder_.value_data_length();
@@ -1059,69 +1040,16 @@ class HandlerBase : public BlockParser {
     return scalar_values_builder_.ReserveData(size - available_storage);
   }
 
+  UnexpectedFieldBehavior unexpected_field_behavior_;
   Status status_;
   RawBuilderSet builder_set_;
   BuilderPtr builder_;
-  // top of this stack is the parent of builder_
   std::vector<BuilderPtr> builder_stack_;
-  // top of this stack refers to the fields of the highest *StructBuilder*
-  // in builder_stack_ (list builders don't have absent fields)
   BitsetStack absent_fields_stack_;
-  // index of builder_ within its parent
   int field_index_;
-  // top of this stack == field_index_
   std::vector<int> field_index_stack_;
   StringBuilder scalar_values_builder_;
   sj::parser parser_;
-};
-
-template <UnexpectedFieldBehavior>
-class Handler;
-
-template <>
-class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
- public:
-  using HandlerBase::HandlerBase;
-
-  Status Parse(const std::shared_ptr<Buffer>& json) override {
-    return DoParse(*this, json);
-  }
-
-  Status HandleUnexpectedField(std::string_view, sj::value) {
-    return ParseError("unexpected field");
-  }
-};
-
-template <>
-class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
- public:
-  using HandlerBase::HandlerBase;
-
-  Status Parse(const std::shared_ptr<Buffer>& json) override {
-    return DoParse(*this, json);
-  }
-
-  Status HandleUnexpectedField(std::string_view, sj::value) { return Status::OK(); }
-};
-
-template <>
-class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
- public:
-  using HandlerBase::HandlerBase;
-
-  Status Parse(const std::shared_ptr<Buffer>& json) override {
-    return DoParse(*this, json);
-  }
-
-  Status HandleUnexpectedField(std::string_view key, sj::value value) {
-    auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
-    auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);
-
-    builder_ = BuilderPtr(Kind::kNull, leading_nulls, true);
-    field_index_ = struct_builder->AddField(key, builder_);
-
-    return ParseValue(*this, value);
-  }
 };
 
 Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
@@ -1129,20 +1057,10 @@ Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
   DCHECK(options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
          options.explicit_schema != nullptr);
 
-  switch (options.unexpected_field_behavior) {
-    case UnexpectedFieldBehavior::Ignore: {
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool);
-      break;
-    }
-    case UnexpectedFieldBehavior::Error: {
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool);
-      break;
-    }
-    case UnexpectedFieldBehavior::InferType:
-      *out = std::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool);
-      break;
-  }
-  return static_cast<HandlerBase&>(**out).Initialize(options.explicit_schema);
+  auto parser = std::make_unique<ParseImpl>(pool, options.unexpected_field_behavior);
+  RETURN_NOT_OK(parser->Initialize(options.explicit_schema));
+  *out = std::move(parser);
+  return Status::OK();
 }
 
 Status BlockParser::Make(const ParseOptions& options, std::unique_ptr<BlockParser>* out) {
