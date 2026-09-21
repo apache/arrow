@@ -253,13 +253,28 @@ TEST(ReadColumnTracing, FullNestedSchema) {
   AssertColumnAttributes(spans[2], 2, "last", "INT64");
 }
 
-TEST(ReadColumnTracing, DirectNestedLeafRead) {
-  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(NestedTable()));
+TEST(ReadColumnTracing, DirectFileTopLevelFieldRead) {
+  auto table = NestedTable();
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(table));
 
   kSpanStorage->Clear();
   std::shared_ptr<::arrow::ChunkedArray> result;
-  ASSERT_OK(reader->RowGroup(0)->Column(2)->Read(&result));
-  ASSERT_EQ(result->length(), 2);
+  ASSERT_OK(reader->ReadColumn(2, &result));
+  ASSERT_TRUE(result->Equals(table->column(2)));
+
+  auto spans = kSpanStorage->ReadColumnSpans();
+  ASSERT_EQ(spans.size(), 1);
+  AssertColumnAttributes(spans[0], 2, "last", "INT64");
+}
+
+TEST(ReadColumnTracing, DirectRowGroupTopLevelFieldRead) {
+  auto table = NestedTable();
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(table));
+
+  kSpanStorage->Clear();
+  std::shared_ptr<::arrow::ChunkedArray> result;
+  ASSERT_OK(reader->RowGroup(0)->Column(1)->Read(&result));
+  ASSERT_TRUE(result->Equals(table->column(1)));
 
   auto spans = kSpanStorage->ReadColumnSpans();
   ASSERT_EQ(spans.size(), 1);

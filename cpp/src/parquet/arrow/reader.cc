@@ -233,7 +233,8 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReaders(const std::vector<int>& column_indices,
                          const std::vector<int>& row_groups,
                          std::vector<std::shared_ptr<ColumnReaderImpl>>* out,
-                         std::shared_ptr<::arrow::Schema>* out_schema) {
+                         std::shared_ptr<::arrow::Schema>* out_schema,
+                         std::vector<int>* out_field_indices) {
     // We only need to read schema fields which have columns indicated
     // in the indices vector
     ARROW_ASSIGN_OR_RAISE(std::vector<int> field_indices,
@@ -253,6 +254,7 @@ class FileReaderImpl : public FileReader {
     }
 
     *out_schema = ::arrow::schema(std::move(out_fields), manifest_.schema_metadata);
+    *out_field_indices = std::move(field_indices);
     return Status::OK();
   }
 
@@ -298,17 +300,16 @@ class FileReaderImpl : public FileReader {
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  Status ReadColumn(int column_index, const std::vector<int>& row_groups,
+  Status ReadColumn(int field_index, const std::vector<int>& row_groups,
                     std::shared_ptr<ChunkedArray>* out) {
     std::unique_ptr<ColumnReader> flat_column_reader;
     RETURN_NOT_OK(
-        GetColumn(column_index, SomeRowGroupsFactory(row_groups), &flat_column_reader));
-    ARROW_ASSIGN_OR_RAISE(auto field_indices, manifest_.GetFieldIndices({column_index}));
-    return ReadColumn(field_indices.front(), row_groups, flat_column_reader.get(), out);
+        GetColumn(field_index, SomeRowGroupsFactory(row_groups), &flat_column_reader));
+    return ReadColumn(field_index, row_groups, flat_column_reader.get(), out);
   }
 
-  Status ReadColumn(int column_index, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadColumn(column_index, Iota(reader_->metadata()->num_row_groups()), out);
+  Status ReadColumn(int field_index, std::shared_ptr<ChunkedArray>* out) override {
+    return ReadColumn(field_index, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Result<std::shared_ptr<Table>> ReadTable() override {
@@ -1121,7 +1122,9 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
 
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> batch_schema;
-  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &batch_schema));
+  std::vector<int> field_indices;
+  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &batch_schema,
+                                &field_indices));
 
   if (readers.empty()) {
     // Just generate all batches right now; they're cheap since they have no columns.
@@ -1381,8 +1384,9 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // in a sync context too so use `this` over `self`
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
-  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
-  ARROW_ASSIGN_OR_RAISE(auto field_indices, manifest_.GetFieldIndices(column_indices));
+  std::vector<int> field_indices;
+  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema,
+                                &field_indices));
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
