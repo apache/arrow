@@ -79,11 +79,7 @@
 #' This is useful, for example, when you have opened a subdirectory of a
 #' partitioned dataset directly (so the partition columns above that directory
 #' are not inferred) and want to recover the partition values from the path.
-#' `add_filename()` can only be used inside a query on a `FileSystemDataset`
-#' (such as one returned by `open_dataset()`). Extracting a partition value
-#' from the path with `sub()` works directly, but using the column in
-#' `filter()`, or in some functions such as `substr()` or `%in%`, requires
-#' calling `compute()` or `collect()` first. See [add_filename()] for details.
+#' See [add_filename()] for details and limitations.
 #'
 #' @param sources One of:
 #'   * a string path or URI to a directory containing data files
