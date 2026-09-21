@@ -586,8 +586,7 @@ Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
 int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing) {
   if (!trailing) {
     const auto pos = view.find_first_not_of(" \t\r\n");
-    return static_cast<int64_t>(
-        pos == std::string_view::npos ? view.size() : pos);
+    return static_cast<int64_t>(pos == std::string_view::npos ? view.size() : pos);
   }
 
   int64_t count = 0;
