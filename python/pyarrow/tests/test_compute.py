@@ -1944,6 +1944,18 @@ def test_arithmetic_multiply():
     assert result.equals(expected)
 
 
+def test_arithmetic_remainder_modulo():
+    left = pa.array([7, -7, 7, -7, None])
+    right = pa.array([3, 3, -3, -3, 3])
+    expected_remainder = [1, -1, 1, -1, None]
+    expected_modulo = [1, 2, -2, -1, None]
+
+    assert pc.remainder(left, right).to_pylist() == expected_remainder
+    assert pc.remainder_checked(left, right).to_pylist() == expected_remainder
+    assert pc.modulo(left, right).to_pylist() == expected_modulo
+    assert pc.modulo_checked(left, right).to_pylist() == expected_modulo
+
+
 @pytest.mark.parametrize("ty", ["round", "round_to_multiple"])
 def test_round_to_integer(ty):
     if ty == "round":

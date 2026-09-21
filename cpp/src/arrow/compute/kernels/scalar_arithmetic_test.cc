@@ -1022,7 +1022,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Remainder) {
   this->AssertBinop(Remainder, "[Inf]", "[Inf]", "[NaN]");
 }
 
-// ============== MOD (Floored) Tests ==============
+// ============== MODULO (Floored) Tests ==============
 
 TYPED_TEST(TestBinaryArithmeticIntegral, Modulo) {
   for (auto check_overflow : {false, true}) {
@@ -1047,7 +1047,7 @@ TYPED_TEST(TestBinaryArithmeticSigned, Modulo) {
   this->AssertBinop(Modulo, "[-7]", "[3]", "[2]");
   this->AssertBinop(Modulo, "[7]", "[-3]", "[-2]");
   this->AssertBinop(Modulo, "[-7]", "[-3]", "[-1]");
-  // Edge case: -1 mod positive
+  // Negative dividend and positive divisor
   this->AssertBinop(Modulo, "[-1]", "[3]", "[2]");
 }
 

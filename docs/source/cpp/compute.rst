@@ -576,16 +576,18 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
   result is ``+Inf`` even if the other argument is NaN.
 
 * \(4) Computes the floored modulo, where the result has the same sign as the
-  divisor.  This is equivalent to Python's ``%`` operator.  Integer and decimal
-  division by zero returns an error, while floating-point division by zero
-  returns NaN.  Decimal arguments are promoted to a common scale ``s``; the
-  result then has ``scale = s`` and ``precision = max(p1, p2)``.
+  divisor.  This is equivalent to Python's ``%`` operator.  Division by zero
+  returns an error for integer and decimal inputs.  For floating-point inputs
+  it returns ``NaN`` in ``modulo`` and an error in ``modulo_checked``.  Decimal
+  arguments are promoted to a common scale ``s``; the result then has
+  ``scale = s`` and ``precision = max(p1, p2)``.
 
 * \(5) Computes the truncated remainder, where the result has the same sign as
-  the dividend.  This is equivalent to C/C++'s ``%`` operator.  Integer and
-  decimal division by zero returns an error, while floating-point division by
-  zero returns NaN.  Decimal arguments are promoted to a common scale ``s``;
-  the result then has ``scale = s`` and ``precision = max(p1, p2)``.
+  the dividend.  This is equivalent to C/C++'s ``%`` operator.  Division by
+  zero returns an error for integer and decimal inputs.  For floating-point
+  inputs it returns ``NaN`` in ``remainder`` and an error in
+  ``remainder_checked``.  Decimal arguments are promoted to a common scale
+  ``s``; the result then has ``scale = s`` and ``precision = max(p1, p2)``.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~

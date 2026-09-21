@@ -469,171 +469,79 @@ struct FloatingDivideChecked {
   // TODO: Add decimal
 };
 
-// Remainder (truncated): result has same sign as dividend (C/C++ semantics)
-struct Remainder {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
-    return std::fmod(left, right);
-  }
+enum class RemainderMode { kTruncated, kFloored };
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    T result;
-    if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
-      if (right == 0) {
-        *st = Status::Invalid("divide by zero");
-      } else {
-        // INT_MIN % -1 overflow case, result is 0
-        result = 0;
+// Truncated: sign follows the dividend (C/C++ '%').
+// Floored: sign follows the divisor (Python '%').
+template <RemainderMode Mode, typename T>
+T FinishRemainder(T rem, T divisor) {
+  if constexpr (Mode == RemainderMode::kTruncated) {
+    return rem;
+  } else {
+    if constexpr (std::is_floating_point_v<T>) {
+      if (rem == 0) {
+        // Zero takes the sign of the divisor
+        return std::copysign(rem, divisor);
       }
     }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    if (right == Arg1()) {
-      *st = Status::Invalid("divide by zero");
-      return T();
-    }
-    return left % right;
-  }
-};
-
-struct RemainderChecked {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (ARROW_PREDICT_FALSE(right == 0)) {
-      *st = Status::Invalid("divide by zero");
-      return 0;
-    }
-    return std::fmod(left, right);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result;
-    if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
-      if (right == 0) {
-        *st = Status::Invalid("divide by zero");
-      } else {
-        *st = Status::Invalid("overflow");
+    if constexpr (!std::is_unsigned_v<T>) {
+      const T zero{};
+      if ((rem > zero && divisor < zero) || (rem < zero && divisor > zero)) {
+        rem += divisor;
       }
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
-                                         Status* st) {
-    return Remainder::Call<T>(ctx, left, right, st);
-  }
-};
-
-// Helper: Convert truncated remainder to floored modulo for signed types.
-// Floored modulo has the same sign as the divisor (Python semantics).
-template <typename T>
-T AdjustRemainderToFloored(T rem, T right) {
-  if constexpr (std::is_signed_v<T>) {
-    if ((rem > 0 && right < 0) || (rem < 0 && right > 0)) {
-      rem += right;
-    }
-  }
-  return rem;
-}
-
-// Modulo (floored): result has same sign as divisor (Python semantics)
-struct Modulo {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
-    T rem = std::fmod(left, right);
-    if (rem == 0) {
-      // Preserve the sign based on divisor for zero results
-      return std::copysign(rem, right);
-    }
-    return AdjustRemainderToFloored(rem, right);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    T result;
-    if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
-      if (right == 0) {
-        *st = Status::Invalid("divide by zero");
-      } else {
-        // INT_MIN % -1 overflow case, result is 0
-        result = 0;
-      }
-      return result;
-    }
-    return AdjustRemainderToFloored(result, right);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    static const T kZero{};
-    if (right == kZero) {
-      *st = Status::Invalid("divide by zero");
-      return T();
-    }
-    T rem = left % right;
-    // Convert truncated to floored: adjust if signs differ
-    if ((rem > kZero && right < kZero) || (rem < kZero && right > kZero)) {
-      rem = rem + right;
     }
     return rem;
   }
-};
+}
 
-struct ModuloChecked {
+template <RemainderMode Mode, bool Checked>
+struct RemainderImpl {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (ARROW_PREDICT_FALSE(right == 0)) {
-      *st = Status::Invalid("divide by zero");
-      return 0;
+    static_assert(std::is_same_v<T, Arg0> && std::is_same_v<T, Arg1>);
+    if constexpr (Checked) {
+      if (ARROW_PREDICT_FALSE(right == 0)) {
+        *st = Status::Invalid("divide by zero");
+        return T{};
+      }
     }
-    T rem = std::fmod(left, right);
-    if (rem == 0) {
-      // Preserve the sign based on divisor for zero results
-      return std::copysign(rem, right);
-    }
-    return AdjustRemainderToFloored(rem, right);
+    return FinishRemainder<Mode, T>(std::fmod(left, right), right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result;
+    static_assert(std::is_same_v<T, Arg0> && std::is_same_v<T, Arg1>);
+    T result{};
     if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
       if (right == 0) {
         *st = Status::Invalid("divide by zero");
-      } else {
+      } else if constexpr (Checked) {
         *st = Status::Invalid("overflow");
       }
-      return result;
+      // INT_MIN % -1 is 0 when unchecked
+      return T{};
     }
-    return AdjustRemainderToFloored(result, right);
+    return FinishRemainder<Mode, T>(result, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
-    return Modulo::Call<T>(ctx, left, right, st);
+    static_assert(std::is_same_v<T, Arg0> && std::is_same_v<T, Arg1>);
+    if (ARROW_PREDICT_FALSE(right == T{})) {
+      *st = Status::Invalid("divide by zero");
+      return T{};
+    }
+    return FinishRemainder<Mode, T>(left % right, right);
   }
 };
+
+using Remainder = RemainderImpl<RemainderMode::kTruncated, /*Checked=*/false>;
+using RemainderChecked = RemainderImpl<RemainderMode::kTruncated, /*Checked=*/true>;
+using Modulo = RemainderImpl<RemainderMode::kFloored, /*Checked=*/false>;
+using ModuloChecked = RemainderImpl<RemainderMode::kFloored, /*Checked=*/true>;
 
 struct Negate {
   template <typename T, typename Arg>
