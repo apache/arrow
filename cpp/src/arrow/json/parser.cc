@@ -668,7 +668,7 @@ class ParseImpl : public BlockParser {
         return ParseError("unexpected field");
 
       case UnexpectedFieldBehavior::Ignore:
-        return Status::OK();
+        return internal::ConsumeJsonValue(value);
 
       case UnexpectedFieldBehavior::InferType: {
         auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
@@ -860,6 +860,8 @@ class ParseImpl : public BlockParser {
       case sj::json_type::number: {
         RETURN_NOT_OK(MaybePromoteFromNull<Kind::kNumber>());
         auto raw_number = value.raw_json_token();
+        RETURN_NOT_OK(arrow::internal::ResolveSimdjsonResult(
+            value.get_number(), "Failed to parse JSON number"));
         raw_number.remove_suffix(
             internal::ConsumeJsonWhitespace(raw_number, /*trailing=*/true));
         return RawNumber(raw_number);

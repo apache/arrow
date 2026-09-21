@@ -321,5 +321,15 @@ TEST(BlockParser, AdHoc) {
        R"([{"c":true, "d": "1991-02-03"}, {"c":false, "d":"2019-04-01"}])"});
 }
 
+TEST(BlockParserWithSchema, ValidateIgnoredFields) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema = schema({field("known", int64())});
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
+
+  std::shared_ptr<Array> parsed;
+  ASSERT_RAISES(Invalid,
+                ParseFromString(options, R"({"known": 1, "ignored": [1,]})", &parsed));
+}
+
 }  // namespace json
 }  // namespace arrow
