@@ -89,8 +89,8 @@ There are also a number of third-party open source implementations of Apache Arr
      - Docs
      - Source
    * - C++20/Sparrow
-     - `Sparrow Docs <https://man-group.github.io/sparrow/>`_ :fa:`external-link-alt`
-     - `Sparrow Source <https://github.com/man-group/sparrow>`_
+     - `Sparrow Docs <https://sparrow-org.github.io/sparrow/>`_ :fa:`external-link-alt`
+     - `Sparrow Source <https://github.com/sparrow-org/sparrow>`_ and `Sparrow org <https://github.com/sparrow-org>`_
    * - JavaScript/Flechette
      - `Flechette Docs <https://idl.uw.edu/flechette/>`_ :fa:`external-link-alt`
      - `Flechette Source <https://github.com/uwdata/flechette>`_
