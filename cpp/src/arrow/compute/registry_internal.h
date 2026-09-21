@@ -50,6 +50,7 @@ void RegisterVectorHash(FunctionRegistry* registry);
 void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorRank(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);
+void RegisterVectorSearchSorted(FunctionRegistry* registry);
 void RegisterVectorSelectK(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
