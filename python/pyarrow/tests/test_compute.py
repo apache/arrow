@@ -2972,7 +2972,7 @@ def test_round_temporal(unit):
     if sys.platform == "win32":
         timestamps = timestamps[:3] + timestamps[5:]
 
-    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
+    ts = pd.Series([pd.Timestamp(x).as_unit("ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
