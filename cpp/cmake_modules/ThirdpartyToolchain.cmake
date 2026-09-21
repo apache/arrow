@@ -3264,59 +3264,44 @@ endif()
 # ----------------------------------------------------------------------
 # uriparser library
 
-macro(build_uriparser)
+function(build_uriparser)
+  list(APPEND CMAKE_MESSAGE_INDENT "uriparser: ")
   message(STATUS "Building uriparser from source")
-  set(URIPARSER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/uriparser_ep-install")
-  if(MSVC)
-    set(URIPARSER_STATIC_LIB "${URIPARSER_PREFIX}/lib/uriparser.lib")
-  else()
-    set(URIPARSER_STATIC_LIB
-        "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  endif()
 
-  set(URIPARSER_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DBUILD_SHARED_LIBS=OFF
-      -DCMAKE_INSTALL_LIBDIR=lib
-      "-DCMAKE_INSTALL_PREFIX=${URIPARSER_PREFIX}"
-      -DURIPARSER_BUILD_DOCS=OFF
-      -DURIPARSER_BUILD_TESTS=OFF
-      -DURIPARSER_BUILD_TOOLS=OFF
-      # Arrow only uses the char (not wchar_t) flavor of the API.
-      -DURIPARSER_BUILD_WCHAR_T=OFF)
+  fetchcontent_declare(uriparser
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${ARROW_URIPARSER_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_URIPARSER_BUILD_SHA256_CHECKSUM}")
 
+  prepare_fetchcontent()
+
+  set(URIPARSER_BUILD_DOCS OFF)
+  set(URIPARSER_BUILD_TESTS OFF)
+  set(URIPARSER_BUILD_TOOLS OFF)
+  # Arrow only uses the char (not wchar_t) flavor of the API.
+  set(URIPARSER_BUILD_WCHAR_T OFF)
+  # Don't install uriparser into Arrow's install prefix.
+  set(URIPARSER_ENABLE_INSTALL OFF)
   if(MSVC AND ARROW_USE_STATIC_CRT)
-    list(APPEND URIPARSER_CMAKE_ARGS -DURIPARSER_MSVC_STATIC_CRT=ON)
+    set(URIPARSER_MSVC_STATIC_CRT ON)
   endif()
 
-  externalproject_add(uriparser_ep
-                      ${EP_COMMON_OPTIONS}
-                      CMAKE_ARGS ${URIPARSER_CMAKE_ARGS}
-                      INSTALL_DIR ${URIPARSER_PREFIX}
-                      URL ${ARROW_URIPARSER_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_URIPARSER_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${URIPARSER_STATIC_LIB}")
+  fetchcontent_makeavailable(uriparser)
 
-  file(MAKE_DIRECTORY "${URIPARSER_PREFIX}/include")
-  add_library(uriparser::uriparser STATIC IMPORTED)
-  set_target_properties(uriparser::uriparser
-                        PROPERTIES IMPORTED_LOCATION "${URIPARSER_STATIC_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS "URI_STATIC_BUILD")
-  target_include_directories(uriparser::uriparser BEFORE
-                             INTERFACE "${URIPARSER_PREFIX}/include")
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS uriparser)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 
-  add_dependencies(uriparser::uriparser uriparser_ep)
-
-  list(PREPEND ARROW_BUNDLED_STATIC_LIBS uriparser::uriparser)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # uriparser is mandatory: arrow::util::Uri is part of core Arrow.
 resolve_dependency(uriparser
                    HAVE_ALT
                    TRUE
                    REQUIRED_VERSION
-                   "1.0.2"
+                   "0.9.6"
                    PC_PACKAGE_NAMES
                    liburiparser)
 
