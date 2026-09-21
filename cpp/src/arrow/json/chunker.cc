@@ -150,7 +150,8 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     if (consumed_length > 0) {
       // If we found at least one document, also consume its trailing whitespace
       // to avoid stray bytes at the end of the stream.
-      consumed_length += internal::ConsumeJsonWhitespace(input.substr(consumed_length), /*trailing=*/false);
+      consumed_length += internal::ConsumeJsonWhitespace(input.substr(consumed_length),
+                                                         /*trailing=*/false);
     }
     return consumed_length;
   }
