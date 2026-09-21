@@ -138,7 +138,8 @@ def test_exported_option_classes():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
+    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0",
+    "ignore:null_placement in RankOptions is deprecated as of 25.0.0"
 )
 def test_option_class_equality(request):
     options = [

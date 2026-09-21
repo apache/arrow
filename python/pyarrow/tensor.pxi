@@ -399,13 +399,13 @@ strides: {self.strides}"""
                 raise BufferError(
                     f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
                 )
+            legacy_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
             # Note: from March 2025 onwards, it's okay to raise BufferError here.
             # Still we keep the V0 version as the V1 was only added in August 2026.
             warnings.warn(
                 "Exporting an unversioned DLPack capsule is deprecated, "
                 "pass max_version=(1, 0) or higher.",
                 DeprecationWarning, stacklevel=2)
-            legacy_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
             return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
         # Currently no major version other than legacy 0 and current 1.3
