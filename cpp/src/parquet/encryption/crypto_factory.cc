@@ -178,6 +178,10 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
       key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
       file_path, file_system);
 
+  if (decryption_config.read_kms_url) {
+    key_retriever->EnableReadingKmsUrl();
+  }
+
   return FileDecryptionProperties::Builder()
       .key_retriever(std::move(key_retriever))
       ->plaintext_files_allowed()
@@ -188,9 +192,9 @@ void CryptoFactory::RotateMasterKeys(
     const KmsConnectionConfig& kms_connection_config,
     const std::string& parquet_file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
-    double cache_lifetime_seconds) {
+    double cache_lifetime_seconds, bool read_kms_url) {
   key_toolkit_->RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
-                                 double_wrapping, cache_lifetime_seconds);
+                                 double_wrapping, cache_lifetime_seconds, read_kms_url);
 }
 
 }  // namespace parquet::encryption
