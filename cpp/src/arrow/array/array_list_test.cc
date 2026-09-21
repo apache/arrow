@@ -1600,14 +1600,15 @@ class TestFixedSizeListArray : public ::testing::Test {
   std::shared_ptr<FixedSizeListArray> result_;
 };
 
-TEST_F(TestFixedSizeListArray, TestAppend) {
-  ASSERT_OK(builder_->Append());
-  ASSERT_OK(builder_->Append());
+// TEST_F(TestFixedSizeListArray, TestUnsafeAppend) {
+//   ASSERT_OK(builder_->Reserve(2));
+//   builder_->UnsafeAppend();
+//   builder_->UnsafeAppend();
 
-  Done();
+//   Done();
 
-  ASSERT_EQ(result_->length(), 2);
-}
+//   ASSERT_EQ(result_->length(), 2);
+// }
 
 TEST_F(TestFixedSizeListArray, Equality) {
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
@@ -1722,6 +1723,30 @@ TEST_F(TestFixedSizeListArray, TestBasics) {
       continue;
     }
     ASSERT_OK(builder_->Append());
+    for (int j = 0; j < list_size(); ++j) {
+      ASSERT_OK(vb->Append(values[pos++]));
+    }
+  }
+
+  Done();
+  ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
+}
+
+TEST_F(TestFixedSizeListArray, TestBasicsWithUnsafeAppend) {
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+
+  int pos = 0;
+  ASSERT_OK(builder_->Reserve(values.size() / list_size()));
+  for (size_t i = 0; i < values.size() / list_size(); ++i) {
+    if (is_valid[i] == 0) {
+      ASSERT_OK(builder_->AppendNull());
+      pos += list_size();
+      continue;
+    }
+    builder_->UnsafeAppend();
     for (int j = 0; j < list_size(); ++j) {
       ASSERT_OK(vb->Append(values[pos++]));
     }
