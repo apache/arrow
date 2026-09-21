@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -148,6 +149,12 @@ struct SearchSortedSmokeCase {
   std::string needles_json;
   std::string expected_left_json;
   std::string expected_right_json;
+
+  // Define a custom print since the default Googletest print trips Valgrind
+  friend std::ostream& operator<<(std::ostream& os, const SearchSortedSmokeCase& param) {
+    os << "SearchSortedSmokeCase{\"" << param.name << "\"}";
+    return os;
+  }
 };
 
 std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
