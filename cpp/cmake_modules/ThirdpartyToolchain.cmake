@@ -2833,6 +2833,9 @@ function(build_simdjson)
                        URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
+
+  # Keep simdjson's threading configuration consistent with Arrow's,
+  # which is required for Emscripten where Arrow threading is disabled.
   set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
 
   fetchcontent_makeavailable(simdjson)
