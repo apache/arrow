@@ -645,10 +645,7 @@ endif()
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 
 foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
-  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE uriparser::uriparser)
-endforeach()
-foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
-  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
+  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE uriparser::uriparser ${ARROW_XSIMD})
 endforeach()
 
 if(ARROW_WITH_SIMDJSON)

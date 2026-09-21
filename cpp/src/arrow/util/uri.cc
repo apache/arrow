@@ -23,9 +23,10 @@
 #include <string_view>
 #include <vector>
 
+#include <uriparser/Uri.h>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
-#include <uriparser/Uri.h>
 
 namespace arrow::util {
 
