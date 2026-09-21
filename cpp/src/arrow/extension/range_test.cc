@@ -287,7 +287,8 @@ TEST(FixedClosednessRangeType, MetadataRoundTrip) {
                            extension::fixed_closedness_range(int32(), C::Both),
                            extension::fixed_closedness_range(int32(), C::Neither),
                            extension::fixed_closedness_range(int64(), C::Right),
-                           extension::fixed_closedness_range(date32(), C::Both)}) {
+                           extension::fixed_closedness_range(date32(), C::Both),
+                           extension::fixed_closedness_range(utf8(), C::Left)}) {
     auto rt = checked_pointer_cast<extension::FixedClosednessRangeType>(type);
     std::string serialized = rt->Serialize();
     ASSERT_OK_AND_ASSIGN(auto deserialized,
@@ -521,6 +522,7 @@ TEST(VariableClosednessRangeType, MetadataRoundTrip) {
   for (const auto& type : {extension::variable_closedness_range(int32()),
                            extension::variable_closedness_range(int64()),
                            extension::variable_closedness_range(date32()),
+                           extension::variable_closedness_range(utf8()),
                            extension::variable_closedness_range(int32(), false)}) {
     auto rt = checked_pointer_cast<extension::VariableClosednessRangeType>(type);
     std::string serialized = rt->Serialize();

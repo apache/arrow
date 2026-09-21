@@ -611,17 +611,20 @@ instead.
     When the field is nullable, a null value means the range is unbounded above
     (positive infinity).
 
-  **T** (the *subtype* or *value type*) may be any orderable Arrow type:
-  integer, floating-point, decimal, date, time, or timestamp types.  Both
-  fields share the same type T.  The subtype is read directly from the
-  storage struct and is **not** duplicated in the extension metadata.
+  **T** (the *subtype* or *value type*) may be any orderable Arrow type, for
+  example an integer, floating-point, decimal, date, time, timestamp,
+  duration, string or binary type.  Bounds are compared with the order of T.
+  This specification defines only the storage layout, not the order of any
+  type.  Both fields share the same type T.  The subtype is read directly from
+  the storage struct and is **not** duplicated in the extension metadata.
 
   Each of ``lower`` and ``upper`` **may** be nullable, independently of the
   other.  Nullability is **only** needed to represent an unbounded side: a
   nullable bound may hold null to mean an infinite endpoint, while a
-  non-nullable bound is always finite.  A null bound is **always treated as
-  exclusive**, regardless of the value of the ``closed`` parameter; positive and
-  negative infinity can never be included in a closed bound.  A null ``lower``
+  non-nullable bound always holds a value.  A null bound is **always treated as
+  exclusive**, regardless of the value of the ``closed`` parameter, so an
+  unbounded side is never included.  Only null means unbounded: every non-null
+  value is an ordinary bound, and ``closed`` applies to it.  A null ``lower``
   means the range extends to negative infinity, a null ``upper`` means it
   extends to positive infinity, and a range whose ``lower`` and ``upper`` are
   both null (and both nullable) is the universal range ``(-inf, +inf)``.  The
@@ -630,7 +633,7 @@ instead.
 
 * Extension type parameters:
 
-  * **closed** = which finite bound(s) are inclusive.  Allowed values
+  * **closed** = which non-null bound(s) are inclusive.  Allowed values
     (following pandas interval vocabulary):
 
     * ``"left"``: ``[lower, upper)``, the lower bound is inclusive and the
@@ -640,11 +643,13 @@ instead.
     * ``"both"``: ``[lower, upper]``, both bounds are inclusive.
     * ``"neither"``: ``(lower, upper)``, both bounds are exclusive.
 
-  A range thus contains every value x permitted by its finite bounds and
+  A range thus contains every value x permitted by its non-null bounds and
   ``closed`` setting: with ``closed="both"`` every x such that
   ``lower <= x <= upper``, with ``closed="neither"`` every x such that
   ``lower < x < upper``.  A range is *empty* when ``lower > upper``, or when
-  ``lower == upper`` and at least one bound is exclusive.
+  ``lower == upper`` and at least one bound is exclusive.  All empty values
+  denote the same empty set, and no canonical encoding is required: a
+  PostgreSQL ``empty`` range, for example, may be written as any empty value.
 
   For example, with ``closed="left"`` and T = ``Int32`` (both bounds
   nullable):
@@ -719,8 +724,10 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   * ``upper_inc``: a **non-nullable** ``boolean`` that is ``true`` when the
     upper bound is inclusive for that value and ``false`` when it is exclusive.
 
-  **T** (the *subtype* or *value type*) may be any orderable Arrow type:
-  integer, floating-point, decimal, date, time, or timestamp types.  The
+  **T** (the *subtype* or *value type*) follows the same rules as in
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`: it
+  may be any orderable Arrow type, and bounds are compared with the order of
+  T.  The
   ``lower`` and ``upper`` fields share the same type T, read directly from the
   storage struct; the subtype is **not** duplicated in the extension metadata.
 
@@ -729,11 +736,13 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`:
   nullability is only needed to represent an unbounded side.  A null bound is
   **always treated as exclusive**, regardless of its ``lower_inc`` /
-  ``upper_inc`` flag; positive and negative infinity can never be included.
-  Producers should set the flag of a null bound to ``false``, as PostgreSQL
-  does.  The ``lower_inc`` and ``upper_inc`` fields are **always
-  non-nullable**.  The outer struct's validity bit marks a null/absent range
-  (a missing range, distinct from an empty range).
+  ``upper_inc`` flag, so an unbounded side is never included.  Only null means
+  unbounded: every non-null value is an ordinary bound, and its flag applies
+  to it.  Producers should set the flag of a
+  null bound to ``false``, as PostgreSQL does.  The ``lower_inc`` and
+  ``upper_inc`` fields are **always non-nullable**.  The outer struct's
+  validity bit marks a null/absent range (a missing range, distinct from an
+  empty range).
 
 * Extension type parameters:
 
@@ -742,12 +751,15 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   inclusivity is not fixed by the type; it is carried per value in the
   ``lower_inc`` and ``upper_inc`` fields.
 
-  For a given value, the range contains every x permitted by its finite bounds
+  For a given value, the range contains every x permitted by its non-null bounds
   and per-value flags: with both flags ``true`` every x such that
   ``lower <= x <= upper``, with both flags ``false`` every x such that
   ``lower < x < upper``.  A value is *empty* when ``lower > upper``, or when
   ``lower == upper`` and at least one of ``lower_inc`` / ``upper_inc`` is
-  ``false``.
+  ``false``.  As in
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`, all
+  empty values denote the same empty set, and no canonical encoding is
+  required.
 
   Each ``closed`` value of
   :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`

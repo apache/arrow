@@ -2085,6 +2085,7 @@ def test_opaque_type(pickle_module, storage_type, storage):
     (pa.int32(), [{"lower": 1, "upper": 5}, {"lower": None, "upper": 10}]),
     (pa.int64(), [{"lower": None, "upper": None}, {"lower": 2, "upper": 8}]),
     (pa.float64(), [{"lower": 0.0, "upper": 1.5}, None]),
+    (pa.string(), [{"lower": "a", "upper": "m"}, {"lower": "m", "upper": None}]),
 ])
 def test_fixed_closedness_range_type(pickle_module, closed, value_type, bounds):
     range_type = pa.fixed_closedness_range(value_type, closed)
@@ -2176,6 +2177,10 @@ def test_fixed_closedness_range_type_allow_unbounded():
     (pa.float64(), [
         {"lower": 0.0, "upper": 1.5, "lower_inc": True, "upper_inc": True},
         None,
+    ]),
+    (pa.string(), [
+        {"lower": "a", "upper": "m", "lower_inc": True, "upper_inc": False},
+        {"lower": "m", "upper": None, "lower_inc": True, "upper_inc": False},
     ]),
 ])
 def test_variable_closedness_range_type(pickle_module, value_type, rows):
