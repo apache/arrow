@@ -325,7 +325,17 @@ class RecordBatchSerializer {
     using offset_type = typename ArrayType::offset_type;
 
     if (array.length() == 0) {
-      *value_offsets = array.value_offsets();
+      if (array.value_offsets() == nullptr || array.value_offsets()->size() == 0) {
+        *value_offsets = array.value_offsets();
+        return Status::OK();
+      }
+      // An offsets buffer for an array of length N contains N + 1 elements, so a
+      // 0-length slice of a non-empty array only needs a single zero offset. Use a
+      // non-owning view over static zero bytes to avoid both a heap allocation and
+      // retaining the full unsliced parent buffer.
+      static constexpr uint64_t kZeroOffset = 0;
+      *value_offsets = std::make_shared<Buffer>(
+          reinterpret_cast<const uint8_t*>(&kZeroOffset), sizeof(offset_type));
       return Status::OK();
     }
 
