@@ -359,8 +359,11 @@ TEST(SearchSorted, ChunkedValues) {
       ArrayFromJSON(int32(), "[10, 30, 50]"),
   });
   auto needles = ArrayFromJSON(int32(), "[10, 20, 60]");
-
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 3, 5]", "[3, 3, 5]");
+
+  // Zero chunks
+  values = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, 0]", "[0, 0, 0]");
 }
 
 TEST(SearchSorted, ChunkedNeedles) {
@@ -369,9 +372,12 @@ TEST(SearchSorted, ChunkedNeedles) {
       ArrayFromJSON(int32(), "[null, 0, 1]"),
       ArrayFromJSON(int32(), "[4, null, 9]"),
   });
-
   CheckSearchSorted(Datum(values), Datum(needles), "[null, 0, 0, 3, null, 5]",
                     "[null, 0, 2, 3, null, 5]");
+
+  // Zero chunks
+  needles = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  CheckSearchSorted(Datum(values), Datum(needles), "[]", "[]");
 }
 
 TEST(SearchSorted, ChunkedValuesChunkedNeedles) {

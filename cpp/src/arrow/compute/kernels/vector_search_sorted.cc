@@ -768,6 +768,9 @@ class SearchSortedMetaFunction : public MetaFunction {
   Result<Datum> ExecuteChunkedNeedles(const Datum& values, const ChunkedArray& needles,
                                       const SearchSortedOptions& options,
                                       ExecContext* ctx) const {
+    if (needles.num_chunks() == 0) {
+      return MakeEmptyArray(uint64(), ctx->memory_pool()).As<Datum>();
+    }
     ArrayVector result_chunks;
     result_chunks.reserve(static_cast<size_t>(needles.num_chunks()));
     for (const auto& chunk : needles.chunks()) {
