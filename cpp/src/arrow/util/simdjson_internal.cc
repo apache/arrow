@@ -581,4 +581,24 @@ Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
   return ConsumeJsonValue(value);
 }
 
+// XXX We could try to SIMD-accelerate this routine but it's called only
+// once per chunk and also will presumably examine a minimal amount of bytes.
+int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing) {
+  if (!trailing) {
+    const auto pos = view.find_first_not_of(" \t\r\n");
+    return static_cast<int64_t>(
+        pos == std::string_view::npos ? view.size() : pos);
+  }
+
+  int64_t count = 0;
+  while (count < static_cast<int64_t>(view.size())) {
+    const auto c = view[view.size() - count - 1];
+    if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
+      break;
+    }
+    ++count;
+  }
+  return count;
+}
+
 }  // namespace arrow::internal

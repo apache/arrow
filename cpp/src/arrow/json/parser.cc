@@ -52,14 +52,6 @@ static Status ParseError(T&&... t) {
   return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
 }
 
-static std::string_view TrimTrailingWhitespace(std::string_view value) {
-  while (!value.empty() && (value.back() == ' ' || value.back() == '\t' ||
-                            value.back() == '\n' || value.back() == '\r')) {
-    value.remove_suffix(1);
-  }
-  return value;
-}
-
 static bool IsWhitespaceOnly(std::string_view value) {
   for (const auto c : value) {
     if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
@@ -858,7 +850,10 @@ class HandlerBase : public BlockParser {
 
       case sj::json_type::number: {
         RETURN_NOT_OK(handler.template MaybePromoteFromNull<Kind::kNumber>());
-        return RawNumber(TrimTrailingWhitespace(value.raw_json_token()));
+        auto raw_number = value.raw_json_token();
+        raw_number.remove_suffix(
+            internal::ConsumeJsonWhitespace(raw_number, /*trailing=*/true));
+        return RawNumber(raw_number);
       }
 
       case sj::json_type::array:

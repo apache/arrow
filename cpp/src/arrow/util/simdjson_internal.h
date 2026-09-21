@@ -350,4 +350,6 @@ ARROW_EXPORT Status ConsumeJsonValue(simdjson::ondemand::value value);
 ARROW_EXPORT Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
                                          simdjson::padded_string& json);
 
+ARROW_EXPORT int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing);                                    
+
 }  // namespace arrow::internal
