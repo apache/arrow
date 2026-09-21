@@ -36,7 +36,6 @@ case "${target}" in
     packages+=("${MINGW_PACKAGE_PREFIX}-gflags")
     packages+=("${MINGW_PACKAGE_PREFIX}-grpc")
     packages+=("${MINGW_PACKAGE_PREFIX}-gtest")
-    packages+=("${MINGW_PACKAGE_PREFIX}-uriparser")
     packages+=("${MINGW_PACKAGE_PREFIX}-libutf8proc")
     packages+=("${MINGW_PACKAGE_PREFIX}-libxml2")
     packages+=("${MINGW_PACKAGE_PREFIX}-llvm")
@@ -50,8 +49,8 @@ case "${target}" in
     packages+=("${MINGW_PACKAGE_PREFIX}-snappy")
     packages+=("${MINGW_PACKAGE_PREFIX}-sqlite3")
     packages+=("${MINGW_PACKAGE_PREFIX}-thrift")
-    packages+=("${MINGW_PACKAGE_PREFIX}-xsimd")
     packages+=("${MINGW_PACKAGE_PREFIX}-uriparser")
+    packages+=("${MINGW_PACKAGE_PREFIX}-xsimd")
     packages+=("${MINGW_PACKAGE_PREFIX}-zstd")
     packages+=("patch")
 
