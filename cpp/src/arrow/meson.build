@@ -226,7 +226,7 @@ arrow_util_srcs = [
 uriparser_dep = dependency(
     'liburiparser',
     'uriparser',
-    version: '>=1.0.2',
+    version: '>=0.9.6',
     allow_fallback: false,
     required: false,
 )
