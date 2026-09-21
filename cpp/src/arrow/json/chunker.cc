@@ -32,16 +32,6 @@ namespace arrow {
 namespace json {
 namespace {
 
-// XXX We could try to SIMD-accelerate this routine but it's called only
-// once per chunk and also will presumably examine a minimal amount of bytes.
-int64_t ConsumeWhitespace(std::string_view view) {
-  const auto ws_count = view.find_first_not_of(" \t\r\n");
-  if (ws_count == std::string_view::npos) {
-    return view.size();
-  }
-  return static_cast<int64_t>(ws_count);
-}
-
 Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
   ARROW_ASSIGN_OR_RAISE(
       auto document, internal::ResolveSimdjsonResult(*it, "Failed to get JSON document"));
@@ -160,7 +150,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     if (consumed_length > 0) {
       // If we found at least one document, also consume its trailing whitespace
       // to avoid stray bytes at the end of the stream.
-      consumed_length += ConsumeWhitespace(input.substr(consumed_length));
+      consumed_length += internal::ConsumeJsonWhitespace(input.substr(consumed_length), /*trailing=*/false);
     }
     return consumed_length;
   }
