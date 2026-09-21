@@ -3693,8 +3693,26 @@ TEST(TestCoalesce, DispatchBest) {
   CheckDispatchBest("coalesce", {int32(), decimal128(3, 2)},
                     {decimal128(12, 2), decimal128(12, 2)});
   CheckDispatchBest("coalesce", {float32(), decimal128(3, 2)}, {float64(), float64()});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal128(4, 2)},
+                    {decimal128(4, 2), decimal128(4, 2)});
+  CheckDispatchBest("coalesce", {decimal128(4, 2), decimal128(3, 2)},
+                    {decimal128(4, 2), decimal128(4, 2)});
+  CheckDispatchBest("coalesce", {decimal128(4, 1), decimal128(3, 2)},
+                    {decimal128(5, 2), decimal128(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal128(4, 1)},
+                    {decimal128(5, 2), decimal128(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal128(4, 3)},
+                    {decimal128(4, 3), decimal128(4, 3)});
+  CheckDispatchBest("coalesce", {decimal128(4, 3), decimal128(3, 2)},
+                    {decimal128(4, 3), decimal128(4, 3)});
   CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(3, 2)},
                     {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {decimal256(3, 2), decimal128(3, 2)},
+                    {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {decimal256(4, 1), decimal128(3, 2)},
+                    {decimal256(5, 2), decimal256(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(4, 1)},
+                    {decimal256(5, 2), decimal256(5, 2)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), date32()},
                     {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
@@ -3708,6 +3726,21 @@ TEST(TestCoalesce, DispatchBest) {
   CheckDispatchBest("coalesce",
                     {dictionary(int8(), binary()), dictionary(int16(), large_utf8())},
                     {large_binary(), large_binary()});
+}
+
+TEST(TestCoalesce, DispatchExact) {
+  CheckDispatchExact("coalesce", {decimal128(3, 2), decimal128(3, 2)});
+  CheckDispatchExact("coalesce", {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal128(4, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(4, 2), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(4, 1), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal128(4, 1)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal128(4, 3)});
+  CheckDispatchExactFails("coalesce", {decimal128(4, 3), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal256(3, 2), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal256(4, 1), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(4, 1)});
 }
 
 template <typename Type>

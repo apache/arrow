@@ -21,6 +21,8 @@
 
 permissions:
   packages: write
+  # For OIDC token for sccache
+  id-token: write
 
 jobs:
   build:
@@ -65,6 +67,7 @@ jobs:
           fi
           echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
 
+      {{ macros.github_configure_aws_credentials()|indent }}
       - name: Build wheel
         shell: bash
         env:

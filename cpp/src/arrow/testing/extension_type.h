@@ -267,6 +267,12 @@ ARROW_TESTING_EXPORT
 std::shared_ptr<Array> ExampleComplex128();
 
 ARROW_TESTING_EXPORT
+std::shared_ptr<Array> ExampleDenseUnionExtension();
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> ExampleSparseUnionExtension();
+
+ARROW_TESTING_EXPORT
 std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
                                       const std::shared_ptr<Array>& imag);
 

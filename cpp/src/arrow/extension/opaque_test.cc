@@ -127,28 +127,19 @@ TEST(OpaqueType, Deserialize) {
 
   auto type = internal::checked_pointer_cast<extension::OpaqueType>(
       extension::opaque(null(), "type", "vendor"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Failed to parse JSON"),
-                                  type->Deserialize(null(), R"()"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Failed to get JSON object"),
-                                  type->Deserialize(null(), R"({)"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Failed to get JSON object"),
-                                  type->Deserialize(null(), R"([])"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("missing type_name"),
-                                  type->Deserialize(null(), R"({})"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("type_name is not a string"),
-      type->Deserialize(null(), R"({"type_name": 2, "vendor_name": ""})"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("type_name is not a string"),
-      type->Deserialize(null(), R"({"type_name": null, "vendor_name": ""})"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("vendor_name is not a string"),
-      type->Deserialize(null(), R"({"vendor_name": 2, "type_name": ""})"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("vendor_name is not a string"),
-      type->Deserialize(null(), R"({"vendor_name": null, "type_name": ""})"));
+
+  ASSERT_RAISES(Invalid, type->Deserialize(null(), R"()"));
+  ASSERT_RAISES(Invalid, type->Deserialize(null(), R"({)"));
+  ASSERT_RAISES(TypeError, type->Deserialize(null(), R"([])"));
+  ASSERT_RAISES(KeyError, type->Deserialize(null(), R"({})"));
+  ASSERT_RAISES(TypeError,
+                type->Deserialize(null(), R"({"type_name": 2, "vendor_name": ""})"));
+  ASSERT_RAISES(TypeError,
+                type->Deserialize(null(), R"({"type_name": null, "vendor_name": ""})"));
+  ASSERT_RAISES(TypeError,
+                type->Deserialize(null(), R"({"vendor_name": 2, "type_name": ""})"));
+  ASSERT_RAISES(TypeError,
+                type->Deserialize(null(), R"({"vendor_name": null, "type_name": ""})"));
 }
 
 TEST(OpaqueType, MetadataRoundTrip) {

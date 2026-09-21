@@ -938,6 +938,70 @@ TEST(Expression, BindWithImplicitCastsForCaseWhenOnDecimal) {
                 /*bound_out=*/nullptr, *exciting_schema);
 }
 
+TEST(Expression, BindWithImplicitCastsForCoalesceOnDecimal) {
+  auto exciting_schema = schema(
+      {field("dec128_3_2", decimal128(3, 2)), field("dec128_4_1", decimal128(4, 1)),
+       field("dec128_4_2", decimal128(4, 2)), field("dec128_4_3", decimal128(4, 3)),
+       field("dec256_3_2", decimal256(3, 2)), field("dec256_4_1", decimal256(4, 1))});
+
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_2")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(4, 2)),
+                                  field_ref("dec128_4_2")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_4_2"), field_ref("dec128_3_2")}),
+                call("coalesce", {field_ref("dec128_4_2"),
+                                  cast(field_ref("dec128_3_2"), decimal128(4, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_4_1"), field_ref("dec128_3_2")}),
+                call("coalesce", {cast(field_ref("dec128_4_1"), decimal128(5, 2)),
+                                  cast(field_ref("dec128_3_2"), decimal128(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_1")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(5, 2)),
+                                  cast(field_ref("dec128_4_1"), decimal128(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_3")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(4, 3)),
+                                  field_ref("dec128_4_3")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_4_3"), field_ref("dec128_3_2")}),
+                call("coalesce", {field_ref("dec128_4_3"),
+                                  cast(field_ref("dec128_3_2"), decimal128(4, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec256_3_2")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal256(3, 2)),
+                                  field_ref("dec256_3_2")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec256_3_2"), field_ref("dec128_3_2")}),
+                call("coalesce", {field_ref("dec256_3_2"),
+                                  cast(field_ref("dec128_3_2"), decimal256(3, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec256_4_1"), field_ref("dec128_3_2")}),
+                call("coalesce", {cast(field_ref("dec256_4_1"), decimal256(5, 2)),
+                                  cast(field_ref("dec128_3_2"), decimal256(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec256_4_1")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal256(5, 2)),
+                                  cast(field_ref("dec256_4_1"), decimal256(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+}
+
+TEST(Expression, ExecuteCoalesceOnMixedDecimalTypes) {
+  ASSERT_OK_AND_ASSIGN(
+      auto input, StructArray::Make(
+                      ArrayVector{ArrayFromJSON(decimal128(3, 2), R"(["1.23", null])"),
+                                  ArrayFromJSON(decimal128(4, 3), R"([null, "2.345"])")},
+                      std::vector<std::string>{"left", "right"}));
+  Schema input_schema(input->type()->fields());
+  auto expr = call("coalesce", {field_ref("left"), field_ref("right")});
+
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(input_schema));
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       ExecuteScalarExpression(expr, input_schema, Datum(input)));
+
+  AssertDatumsEqual(actual, ArrayFromJSON(decimal128(4, 3), R"(["1.230", "2.345"])"));
+}
+
 TEST(Expression, BindNestedCall) {
   auto expr = add(field_ref("a"),
                   call("subtract", {call("multiply", {field_ref("b"), field_ref("c")}),

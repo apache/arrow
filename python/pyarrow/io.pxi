@@ -548,6 +548,8 @@ cdef class NativeFile(_Weakrefable):
         handle = self.get_input_stream()
 
         py_buf = py_buffer(b)
+        if not py_buf.buffer.get().is_mutable():
+            raise TypeError("readinto() argument must be a writable buffer")
         buf_len = py_buf.size
         buf = py_buf.buffer.get().mutable_data()
 
@@ -1101,6 +1103,7 @@ cdef class MemoryMappedFile(NativeFile):
         ----------
         new_size : new size in bytes
         """
+        self._assert_open()
         check_status(self.handle.get().Resize(new_size))
 
     def fileno(self):

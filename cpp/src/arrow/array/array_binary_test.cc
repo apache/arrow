@@ -946,6 +946,29 @@ TEST_F(TestChunkedBinaryBuilder, LargeElementCount) {
   }
 }
 
+TEST(TestBinaryBuilder, LARGE_MEMORY_TEST(AppendOverflow)) {
+  const std::string value(static_cast<size_t>(1) << 31, 'x');
+
+  BinaryBuilder builder;
+  ASSERT_RAISES(CapacityError, builder.Append(std::string_view(value)));
+  ASSERT_OK(builder.Append("x"));
+  ASSERT_RAISES(CapacityError, builder.ExtendCurrent(std::string_view(value)));
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(1, array->length());
+}
+
+TEST_F(TestChunkedBinaryBuilder, LARGE_MEMORY_TEST(AppendOverflow)) {
+  Init(100);
+  const std::string value(static_cast<size_t>(1) << 31, 'x');
+
+  ASSERT_RAISES(CapacityError, builder_->Append(std::string_view(value)));
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+  ASSERT_EQ(1, chunks.size());
+  ASSERT_EQ(0, chunks[0]->length());
+}
+
 TEST(TestChunkedStringBuilder, BasicOperation) {
   const int chunksize = 100;
   internal::ChunkedStringBuilder builder(chunksize);

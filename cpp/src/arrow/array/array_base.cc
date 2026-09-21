@@ -323,6 +323,20 @@ Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
   return MakeArray(new_data);
 }
 
+Result<std::shared_ptr<Tensor>> Array::ToTensor(bool allow_nulls) const {
+  if (!allow_nulls && null_count() > 0) {
+    return Status::Invalid(
+        "Array contains nulls, explicitly pass `allow_nulls=true` to leave them "
+        "undefined.");
+  }
+
+  return ToTensorWithNulls();
+}
+
+Result<std::shared_ptr<Tensor>> Array::ToTensorWithNulls() const {
+  return Status::TypeError("ToTensor is not implemented for Array type ", type()->name());
+}
+
 // ----------------------------------------------------------------------
 // NullArray
 

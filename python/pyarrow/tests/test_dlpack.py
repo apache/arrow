@@ -29,6 +29,13 @@ pytestmark = pytest.mark.numpy
 np = pytest.importorskip("numpy")
 
 
+def requires_numpy_version(min_version):
+    return pytest.mark.skipif(
+        Version(np.__version__) < Version(min_version),
+        reason=f"Test requires numpy {min_version} or later",
+    )
+
+
 def PyCapsule_IsValid(capsule, name):
     return ctypes.pythonapi.PyCapsule_IsValid(ctypes.py_object(capsule), name) == 1
 
@@ -135,6 +142,100 @@ def test_tensor_dlpack(np_type):
     check_dlpack_export(t, expected)
 
 
+def multidim_arrays():
+    np_arr = np.arange(12, dtype=np.int32).reshape(3, 2, 2)
+    values = pa.array(np_arr.ravel(), type=pa.int32())
+    nested_list = pa.FixedSizeListArray.from_arrays(
+        pa.FixedSizeListArray.from_arrays(values, 2), 2)
+    return [
+        pytest.param(nested_list, np_arr, id="nested_fixed_size_list"),
+        pytest.param(
+            pa.FixedShapeTensorArray.from_numpy_ndarray(np_arr),
+            np_arr,
+            id="fixed_shape_tensor",
+        ),
+    ]
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize(('arr', 'expected'), multidim_arrays())
+def test_array_to_tensor_dlpack(arr, expected):
+    tensor = arr.to_tensor()
+    # A Tensor sharing an Array buffer is immutable, so it can only be exported
+    # through the versioned DLPack protocol.
+    assert not tensor.is_mutable
+    result = np.from_dlpack(DLPackForwarder(tensor, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+    assert tensor.__dlpack_device__() == (1, 0)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_fixed_shape_tensor_array_dlpack_permuted():
+    # A non-trivial permutation makes to_tensor() produce a non-row-major
+    # tensor: each row-major [3, 2] block is exposed as a logical [2, 3] cell.
+    storage = pa.FixedSizeListArray.from_arrays(
+        pa.array(range(24), type=pa.int32()), 6)
+    arr = pa.ExtensionArray.from_storage(
+        pa.fixed_shape_tensor(pa.int32(), [3, 2], permutation=[1, 0]), storage)
+
+    tensor = arr.to_tensor()
+    assert tensor.shape == (4, 2, 3)
+    assert not tensor.is_contiguous
+
+    # expected[i, j, k] == i * 6 + k * 2 + j (numpy is only the DLPack consumer)
+    expected = np.arange(24, dtype=np.int32).reshape(4, 3, 2).transpose(0, 2, 1)
+    result = np.from_dlpack(DLPackForwarder(arr, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+    assert arr.__dlpack_device__() == (1, 0)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_fixed_shape_tensor_scalar_dlpack():
+    np_arr = np.arange(12, dtype=np.int32).reshape(3, 2, 2)
+    arr = pa.FixedShapeTensorArray.from_numpy_ndarray(np_arr)
+
+    scalar = arr[1]
+    assert isinstance(scalar, pa.FixedShapeTensorScalar)
+    # __dlpack_device__ reads the storage array's device, without building a Tensor.
+    assert scalar.__dlpack_device__() == (1, 0)
+
+    result = np.from_dlpack(DLPackForwarder(scalar, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, np_arr[1], strict=True)
+
+
+def multidim_arrays_with_nulls():
+    np_arr = np.arange(6, dtype=np.int32).reshape(3, 2)
+    # Masked entries keep defined values in the child array, so the tensor
+    # contents stay fully predictable.
+    nested_list = pa.FixedSizeListArray.from_arrays(
+        pa.array(np_arr.ravel(), type=pa.int32()), 2,
+        mask=pa.array([False, True, False]))
+    return [
+        pytest.param(nested_list, np_arr, id="fixed_size_list"),
+        pytest.param(
+            pa.ExtensionArray.from_storage(
+                pa.fixed_shape_tensor(pa.int32(), [2]), nested_list),
+            np_arr,
+            id="fixed_shape_tensor",
+        ),
+    ]
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize(('arr', 'expected'), multidim_arrays_with_nulls())
+def test_array_to_tensor_dlpack_nulls(arr, expected):
+    with pytest.raises(pa.ArrowInvalid, match="Array contains nulls"):
+        arr.to_tensor()
+
+    tensor = arr.to_tensor(allow_nulls=True)
+    result = np.from_dlpack(DLPackForwarder(tensor, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+
 def dlpack_objects():
     arr = pa.array([1, 2, 3], type=pa.int32())
     return [
@@ -202,12 +303,10 @@ def test_dlpack_versioned_capsule(obj, max_version, copy):
     assert PyCapsule_IsValid(capsule, b"dltensor_versioned") is True
 
 
+@requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize('obj', dlpack_objects())
 def test_dlpack_versioned_roundtrip(obj):
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
-
     expected = np.from_dlpack(DLPackForwarder(obj, max_version=None))
     for copy in [None, False, True]:
         result = np.from_dlpack(
@@ -215,12 +314,10 @@ def test_dlpack_versioned_roundtrip(obj):
         np.testing.assert_array_equal(result, expected, strict=True)
 
 
+@requires_numpy_version("2.2.5")
 @check_bytes_allocated
 def test_dlpack_copy_is_writeable():
     # NumPy did not set the writeable flag on DLPack imports before 2.2.5.
-    if Version(np.__version__) < Version("2.2.5"):
-        pytest.skip("Writable DLPack imports require numpy 2.2.5 or later")
-
     arr = pa.array([1, 2, 3], type=pa.int32())
 
     # Arrow arrays are immutable, so a shared export is read-only
@@ -277,3 +374,133 @@ def test_dlpack_cuda_not_supported():
     with pytest.raises(NotImplementedError, match="DLPack support is implemented "
                        "only for buffers on CPU device."):
         carr.__dlpack_device__()
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize('np_type',
+                         [np.uint8, np.uint16, np.uint32, np.uint64,
+                          np.int8, np.int16, np.int32, np.int64,
+                          np.float16, np.float32, np.float64])
+def test_tensor_from_dlpack(np_type):
+    def make_array():
+        base = np.arange(24, dtype=np_type).reshape((4, 6))
+        array = base[::2, 1::2]
+        assert not array.flags['C_CONTIGUOUS']
+        return array
+
+    # Non-contiguous, strided slice: DLPack carries explicit strides, so this
+    # should not need a copy on export.
+    tensor = pa.Tensor.from_dlpack(make_array())
+    assert isinstance(tensor, pa.Tensor)
+    gc.collect()  # Attempts to free input array memory
+    np.testing.assert_array_equal(tensor.to_numpy(), make_array(), strict=True)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize('np_type',
+                         [np.uint8, np.uint16, np.uint32, np.uint64,
+                          np.int8, np.int16, np.int32, np.int64,
+                          np.float16, np.float32, np.float64])
+def test_array_from_dlpack(np_type):
+    expected = np.array([1, 2, 3, 4, 5], dtype=np_type)
+    arr = pa.Array.from_dlpack(expected)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.Array)
+    np.testing.assert_array_equal(arr.to_numpy(), expected, strict=True)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize('np_type',
+                         [np.uint8, np.uint16, np.uint32, np.uint64,
+                          np.int8, np.int16, np.int32, np.int64,
+                          np.float16, np.float32, np.float64])
+def test_fixed_shape_tensor_array_from_dlpack(np_type):
+    source = np.arange(12, dtype=np_type).reshape((3, 2, 2))
+    arr = pa.FixedShapeTensorArray.from_dlpack(source)
+    arr.validate(full=True)
+    assert arr.type == pa.fixed_shape_tensor(pa.from_numpy_dtype(np_type), [2, 2])
+    assert arr.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+
+    # Zero-copy import: mutating the source is visible through the array.
+    source[0, 0, 0] = 100
+    assert arr.to_pylist()[0] == [100, 1, 2, 3]
+
+    copied = pa.FixedShapeTensorArray.from_dlpack(source, copy=True)
+    source[0, 0, 0] = 0
+    assert copied.to_pylist()[0] == [100, 1, 2, 3]
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+@pytest.mark.parametrize('np_type', [np.uint8, np.int32, np.float64])
+def test_fixed_shape_tensor_array_from_dlpack_transposed(np_type):
+    source = np.arange(12, dtype=np_type).reshape((3, 2, 2)).transpose(0, 2, 1)
+    arr = pa.FixedShapeTensorArray.from_dlpack(source)
+    arr.validate(full=True)
+    assert arr.type == pa.fixed_shape_tensor(
+        pa.from_numpy_dtype(np_type), [2, 2], permutation=[1, 0])
+    np.testing.assert_array_equal(arr.to_numpy_ndarray(), source)
+
+    # Zero-copy import: mutating the source is visible through the array.
+    source[0, 0, 0] = 100
+    np.testing.assert_array_equal(arr.to_numpy_ndarray(), source)
+
+    copied = pa.FixedShapeTensorArray.from_dlpack(source, copy=True)
+    expected = source.copy()
+    source[0, 0, 0] = 0
+    np.testing.assert_array_equal(copied.to_numpy_ndarray(), expected)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_fixed_shape_tensor_array_from_dlpack_not_first_major():
+    # The outermost dimension indexes the tensor elements, so it must remain
+    # the major one.
+    source = np.arange(12, dtype=np.int32).reshape((3, 2, 2)).transpose(1, 0, 2)
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Only first-major tensors can be zero-copy"):
+        pa.FixedShapeTensorArray.from_dlpack(source)
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_from_dlpack_zero_copy():
+    expected = np.array([1, 2, 3], dtype=np.int64)
+    tensor = pa.Tensor.from_dlpack(expected)
+    result = tensor.to_numpy()
+    # Zero-copy import: mutating the source is visible through the tensor.
+    expected[0] = 100
+    assert result[0] == 100
+    # Same for mutating the result
+    result[1] = 42
+    assert expected[1] == 42
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_from_dlpack_explicit_copy():
+    expected = np.array([1, 2, 3], dtype=np.int64)
+    tensor = pa.Tensor.from_dlpack(expected, copy=True)
+    result = tensor.to_numpy()
+    expected[0] = 100
+    # The data was copied, so mutating the source is not visible.
+    assert result[0] == 1
+
+
+def test_from_dlpack_no_dlpack_method():
+    with pytest.raises(AttributeError):
+        pa.Tensor.from_dlpack(object())
+
+
+@requires_numpy_version("2.1.0")
+@check_bytes_allocated
+def test_array_from_dlpack_multi_dim_not_supported():
+    expected = np.arange(6, dtype=np.int32).reshape((2, 3))
+    with pytest.raises(
+        pa.ArrowInvalid,
+        match="Only contiguous one dimensional tensor can be imported as arrays",
+    ):
+        pa.Array.from_dlpack(expected)

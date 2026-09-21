@@ -15,27 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:bookworm
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
+libdir=@ARROW_PKG_CONFIG_LIBDIR@
 
-RUN \
-  echo "debconf debconf/frontend select Noninteractive" | \
-    debconf-set-selections
-
-RUN \
-  echo 'APT::Install-Recommends "false";' > \
-    /etc/apt/apt.conf.d/disable-install-recommends
-
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    build-essential \
-    debhelper \
-    devscripts \
-    fakeroot \
-    gnupg \
-    libfaketime \
-    lsb-release && \
-  apt clean
+Name: Apache Arrow S3
+Description: Apache Arrow's S3 filesystem implementation.
+Version: @ARROW_VERSION@
+Requires: arrow@ARROW_S3_PC_REQUIRES@
+Requires.private:@ARROW_S3_PC_REQUIRES_PRIVATE@
+Libs: -L${libdir} -larrow_s3@ARROW_S3_PC_LIBS@
+Libs.private:@ARROW_S3_PC_LIBS_PRIVATE@
+Cflags:@ARROW_S3_PC_CFLAGS@
+Cflags.private:@ARROW_S3_PC_CFLAGS_PRIVATE@

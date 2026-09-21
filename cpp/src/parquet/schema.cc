@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -544,11 +545,15 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
 // ----------------------------------------------------------------------
 // Schema converters
 
-std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int length) {
+std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
+                                int max_depth) {
+  if (elements.empty()) {
+    throw ParquetException("Empty Parquet schema (no root)");
+  }
   if (elements[0].num_children == 0) {
-    if (length == 1) {
+    if (elements.size() == 1) {
       // Degenerate case of Parquet file with no columns
-      return GroupNode::FromParquet(elements, {});
+      return GroupNode::FromParquet(&elements[0], {});
     } else {
       throw ParquetException(
           "Parquet schema had multiple nodes but root had no children");
@@ -558,11 +563,12 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
   // We don't check that the root node is repeated since this is not
   // consistently set by implementations
 
-  int pos = 0;
+  size_t pos = 0;
+  size_t num_reserved = 0;
 
-  std::function<std::unique_ptr<Node>()> NextNode = [&]() {
-    if (pos == length) {
-      throw ParquetException("Malformed schema: not enough elements");
+  std::function<std::unique_ptr<Node>(int depth)> NextNode = [&](int depth) {
+    if (pos == elements.size()) {
+      throw ParquetException("Malformed Parquet schema: not enough elements");
     }
     const SchemaElement& element = elements[pos++];
     const void* opaque_element = static_cast<const void*>(&element);
@@ -572,22 +578,42 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
       return PrimitiveNode::FromParquet(opaque_element);
     } else {
       // Group node (may have 0 children, but cannot have a type)
-      NodeVector fields;
+      // Protect against denial-of-service through stack exhaustion when parsing
+      // deeply nested schemas.
+      if (depth >= max_depth) {
+        std::stringstream ss;
+        ss << "Parquet schema too deeply nested, consider increasing schema depth limit "
+              "(current limit is "
+           << max_depth << ")";
+        throw ParquetException(ss.str());
+      }
+      if (element.num_children < 0) {
+        throw ParquetException("Malformed Parquet schema: negative number of children");
+      }
+      // Guard against excessive pre-reservation by an invalid schema.
+      // For example, a sequence of group nodes advertising N, N-1, etc. children
+      // could lead to quadratic preallocation.
+      num_reserved += static_cast<size_t>(element.num_children);
+      if (num_reserved > elements.size()) {
+        throw ParquetException("Malformed Parquet schema: not enough elements");
+      }
+      NodeVector fields(element.num_children);
       for (int i = 0; i < element.num_children; ++i) {
-        std::unique_ptr<Node> field = NextNode();
-        fields.push_back(NodePtr(field.release()));
+        fields[i] = NextNode(depth + 1);
       }
       return GroupNode::FromParquet(opaque_element, std::move(fields));
     }
   };
-  return NextNode();
+  auto root = NextNode(/*depth=*/1);
+  if (pos != elements.size()) {
+    throw ParquetException("Malformed Parquet schema: too many elements");
+  }
+  return root;
 }
 
-std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& schema) {
-  if (schema.empty()) {
-    throw ParquetException("Empty file schema (no root)");
-  }
-  std::unique_ptr<Node> root = Unflatten(&schema[0], static_cast<int>(schema.size()));
+std::shared_ptr<SchemaDescriptor> SchemaFromThrift(std::span<const SchemaElement> schema,
+                                                   int max_depth) {
+  std::unique_ptr<Node> root = Unflatten(schema, max_depth);
   std::shared_ptr<SchemaDescriptor> descr = std::make_shared<SchemaDescriptor>();
   descr->Init(std::shared_ptr<GroupNode>(static_cast<GroupNode*>(root.release())));
   return descr;
@@ -615,7 +641,7 @@ class SchemaVisitor : public Node::ConstVisitor {
   std::vector<format::SchemaElement>* elements_;
 };
 
-void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out) {
+void SchemaToThrift(const GroupNode* schema, std::vector<format::SchemaElement>* out) {
   SchemaVisitor visitor(out);
   schema->VisitConst(&visitor);
 }
@@ -716,8 +742,7 @@ struct SchemaPrinter : public Node::ConstVisitor {
 
   void Visit(const GroupNode* node) {
     PrintRepLevel(node->repetition(), stream_);
-    stream_ << " group "
-            << "field_id=" << node->field_id() << " " << node->name();
+    stream_ << " group " << "field_id=" << node->field_id() << " " << node->name();
     auto lt = node->converted_type();
     const auto& la = node->logical_type();
     if (la && la->is_valid() && !la->is_none()) {

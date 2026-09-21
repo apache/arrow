@@ -973,6 +973,51 @@ TEST(TestDateScalars, MakeScalar) {
                     Date64Scalar(-188171LL * 24 * 60 * 60 * 1000));
 }
 
+TEST(TestDateScalars, CastTo) {
+  constexpr int64_t kMillisecondsInDay = 86400000;
+
+  ASSERT_OK_AND_ASSIGN(auto casted_date64, Date32Scalar(2).CastTo(date64()));
+  EXPECT_EQ(*casted_date64, Date64Scalar(2 * kMillisecondsInDay));
+
+  ASSERT_OK_AND_ASSIGN(auto casted_date32,
+                       Date64Scalar(2 * kMillisecondsInDay).CastTo(date32()));
+  EXPECT_EQ(*casted_date32, Date32Scalar(2));
+
+  const auto timestamp_type = timestamp(TimeUnit::SECOND);
+
+  ASSERT_OK_AND_ASSIGN(auto timestamp_from_date32,
+                       Date32Scalar(2).CastTo(timestamp_type));
+  EXPECT_EQ(*timestamp_from_date32, TimestampScalar(2 * 24 * 60 * 60, timestamp_type));
+
+  ASSERT_OK_AND_ASSIGN(auto timestamp_from_date64,
+                       Date64Scalar(2 * kMillisecondsInDay).CastTo(timestamp_type));
+  EXPECT_EQ(*timestamp_from_date64, TimestampScalar(2 * 24 * 60 * 60, timestamp_type));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto date64_from_timestamp,
+      TimestampScalar(2 * kMillisecondsInDay + 3, timestamp(TimeUnit::MILLI))
+          .CastTo(date64()));
+  EXPECT_EQ(*date64_from_timestamp, Date64Scalar(2 * kMillisecondsInDay));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto date32_from_timestamp,
+      TimestampScalar(2 * kMillisecondsInDay + 3, timestamp(TimeUnit::MILLI))
+          .CastTo(date32()));
+  EXPECT_EQ(*date32_from_timestamp, Date32Scalar(2));
+
+  // 1969-12-31T12:00:00Z -- floor to the previous day instead of truncating to zero.
+  constexpr int64_t kHalfDay = kMillisecondsInDay / 2;
+  ASSERT_OK_AND_ASSIGN(
+      auto negative_date64_from_timestamp,
+      TimestampScalar(-kHalfDay, timestamp(TimeUnit::MILLI)).CastTo(date64()));
+  EXPECT_EQ(*negative_date64_from_timestamp, Date64Scalar(-kMillisecondsInDay));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto negative_date32_from_timestamp,
+      TimestampScalar(-kHalfDay, timestamp(TimeUnit::MILLI)).CastTo(date32()));
+  EXPECT_EQ(*negative_date32_from_timestamp, Date32Scalar(-1));
+}
+
 TEST(TestTimeScalars, Basics) {
   auto type1 = time32(TimeUnit::MILLI);
   auto type2 = time32(TimeUnit::SECOND);

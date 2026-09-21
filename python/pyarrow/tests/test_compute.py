@@ -241,6 +241,12 @@ def test_option_class_equality(request):
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
+@pytest.mark.parametrize("value", [None, 1, [], b""])
+def test_function_options_deserialize_rejects_non_buffers(value):
+    with pytest.raises(TypeError):
+        pc.FunctionOptions.deserialize(value)
+
+
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()
@@ -3273,6 +3279,96 @@ def test_array_sort_indices():
         pc.array_sort_indices(arr, order="nonscending")
 
 
+def test_search_sorted():
+    values = pa.array([1, 1, 3, 5, 8])
+    needles = pa.array([0, 1, 3, 4, 5, 8, 9])
+
+    expected_left = pa.array([0, 0, 2, 3, 3, 4, 5], type=pa.uint64())
+    expected_right = pa.array([0, 2, 3, 3, 4, 5, 5], type=pa.uint64())
+
+    assert pc.search_sorted(values, needles).equals(expected_left)
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, "right").equals(expected_right)
+    assert pc.search_sorted(
+        values, needles, options=pc.SearchSortedOptions(side="right")
+    ).equals(expected_right)
+
+    assert pc.search_sorted(values, pa.scalar(5, type=pa.int64())).as_py() == 3
+    assert pc.search_sorted(
+        values, pa.scalar(5, type=pa.int64()), side="right"
+    ).as_py() == 4
+
+
+def test_search_sorted_null_values():
+    needles = pa.array([50, 200, 250, 400], type=pa.int64())
+
+    values = pa.array([None, 200, 300, 300], type=pa.int64())
+    expected_left = pa.array([1, 1, 2, 4], type=pa.uint64())
+    expected_right = pa.array([1, 2, 2, 4], type=pa.uint64())
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, side="right").equals(expected_right)
+
+    values = pa.array([200, 300, 300, None, None], type=pa.int64())
+    expected_left = pa.array([0, 0, 1, 3], type=pa.uint64())
+    expected_right = pa.array([0, 1, 1, 3], type=pa.uint64())
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, side="right").equals(expected_right)
+
+
+def test_search_sorted_null_needles_emit_null():
+    values = pa.array([None, 200, 300, 300], type=pa.int64())
+    needles = pa.array([None, 50, 200, None, 400], type=pa.int64())
+
+    expected_left = pa.array([None, 1, 1, None, 4], type=pa.uint64())
+    expected_right = pa.array([None, 1, 2, None, 4], type=pa.uint64())
+
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, side="right").equals(expected_right)
+
+    scalar_result = pc.search_sorted(values, pa.scalar(None, type=pa.int64()))
+    assert scalar_result.as_py() is None
+
+
+def test_search_sorted_run_end_encoded():
+    run_ends = pa.array([2, 3, 4, 5], type=pa.int16())
+    encoded_values = pa.array([1, 3, 5, 8], type=pa.int64())
+    values = pa.RunEndEncodedArray.from_arrays(run_ends, encoded_values)
+    needles = pa.array([0, 1, 3, 4, 5, 8, 9], type=pa.int64())
+
+    expected_left = pa.array([0, 0, 2, 3, 3, 4, 5], type=pa.uint64())
+    assert pc.search_sorted(values, needles).equals(expected_left)
+
+    ree_needles = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 4, 6], type=pa.int16()),
+        pa.array([1, 4, 9], type=pa.int64())
+    )
+    expected_right = pa.array([2, 2, 3, 3, 5, 5], type=pa.uint64())
+    assert pc.search_sorted(values, ree_needles, side="right").equals(
+        expected_right
+    )
+
+
+def test_search_sorted_run_end_encoded_nulls():
+    values = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 3, 5], type=pa.int16()),
+        pa.array([None, 2, 4], type=pa.int64())
+    )
+    needles = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 3, 5, 6], type=pa.int16()),
+        pa.array([None, 1, 4, None], type=pa.int64())
+    )
+
+    expected = pa.array([None, None, 2, 3, 3, None], type=pa.uint64())
+    assert pc.search_sorted(values, needles, side="left").equals(expected)
+
+
+def test_search_sorted_errors():
+    values = pa.array([1, 1, 3, 5, 8])
+
+    with pytest.raises(ValueError, match='"middle" is not a valid search sorted side'):
+        pc.search_sorted(values, pa.array([1]), side="middle")
+
+
 def test_sort_indices_array():
     arr = pa.array([1, 2, None, 0])
     result = pc.sort_indices(arr)
@@ -3638,6 +3734,28 @@ def test_cumulative_max(start, skip_nulls):
 
 
 @pytest.mark.numpy
+def test_cumulative_max_min_negative_default_start():
+    # GH-51194: the implicit start for cumulative_max was initialized with
+    # std::numeric_limits<T>::min(), which is the smallest positive value for
+    # floating-point types, so non-positive values never replaced the start
+    values = [-2.5, 2.5]
+    arr = pa.array(values, type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, 2.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5]
+
+    arr = pa.chunked_array([[-2.5, -1.5], [-3.5, -0.5]])
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, -1.5, -1.5, -0.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5, -3.5, -3.5]
+
+    # The default start must compare lower (higher for min) than every value
+    # of the type, including infinities
+    arr = pa.array([-np.inf, -2.5], type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-np.inf, -2.5]
+    arr = pa.array([np.inf, 2.5], type=pa.float64())
+    assert pc.cumulative_min(arr).to_pylist() == [np.inf, 2.5]
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_min(start, skip_nulls):
@@ -3815,6 +3933,15 @@ def test_utf8_normalize():
     assert pc.utf8_normalize(arr, form="NFKC") == pa.array(["0123"])
     assert pc.utf8_normalize(arr, "NFD") == arr
     assert pc.utf8_normalize(arr, "NFKD") == pa.array(["0123"])
+    # GH-51225: composing forms must compose, not only decompose
+    composed = pa.array(["\u00e9", "\ud55c", None])
+    decomposed = pa.array(["e\u0301", "\u1112\u1161\u11ab", None])
+    for form in ("NFC", "NFKC"):
+        assert pc.utf8_normalize(decomposed, form=form) == composed
+        assert pc.utf8_normalize(composed, form=form) == composed
+    for form in ("NFD", "NFKD"):
+        assert pc.utf8_normalize(composed, form=form) == decomposed
+        assert pc.utf8_normalize(decomposed, form=form) == decomposed
     with pytest.raises(
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):

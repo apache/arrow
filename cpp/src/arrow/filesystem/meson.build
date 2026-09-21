@@ -26,6 +26,7 @@ install_headers(
         'localfs.h',
         'mockfs.h',
         'path_util.h',
+        's3_visibility.h',
         's3fs.h',
         's3_test_util.h',
         'test_util.h',

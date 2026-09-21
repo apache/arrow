@@ -265,7 +265,7 @@ def is_run_end_encoded(t):
     return t.id == lib.Type_RUN_END_ENCODED
 
 
-@doc(is_null, datatype="date, time, timestamp or duration")
+@doc(is_null, datatype="date, time, timestamp, duration or interval")
 def is_temporal(t):
     return t.id in _TEMPORAL_TYPES
 

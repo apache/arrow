@@ -200,7 +200,7 @@ stripe_size : int, default 64 * 1024 * 1024
 compression : string, default 'uncompressed'
     The compression codec.
     Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ4', 'ZSTD'}
-    Note that LZ0 is currently not supported.
+    Note that LZO is currently not supported.
 compression_block_size : int, default 64 * 1024
     Size of each compression block in bytes.
 compression_strategy : string, default 'speed'

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdlib>
@@ -29,6 +30,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
+#include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
@@ -417,8 +419,8 @@ class TestSchemaConverter : public ::testing::Test {
  public:
   void setUp() { name_ = "parquet_schema"; }
 
-  void Convert(const parquet::format::SchemaElement* elements, int length) {
-    node_ = Unflatten(elements, length);
+  void Convert(std::span<const parquet::format::SchemaElement> elements) {
+    node_ = Unflatten(elements, max_depth_);
     ASSERT_TRUE(node_->is_group());
     group_ = static_cast<const GroupNode*>(node_.get());
   }
@@ -427,6 +429,7 @@ class TestSchemaConverter : public ::testing::Test {
   std::string name_;
   const GroupNode* group_;
   std::unique_ptr<Node> node_;
+  int max_depth_ = 10;
 };
 
 bool check_for_parent_consistency(const GroupNode* node) {
@@ -464,7 +467,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elements.push_back(elt);
   elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL, Type::INT64, 4));
 
-  ASSERT_NO_FATAL_FAILURE(Convert(&elements[0], static_cast<int>(elements.size())));
+  ASSERT_NO_FATAL_FAILURE(Convert(elements));
 
   // Construct the expected schema
   NodeVector fields;
@@ -492,7 +495,7 @@ TEST_F(TestSchemaConverter, ZeroColumns) {
   // ARROW-3843
   SchemaElement elements[1];
   elements[0] = NewGroup("schema", FieldRepetitionType::REPEATED, 0, 0);
-  ASSERT_NO_THROW(Convert(elements, 1));
+  ASSERT_NO_THROW(Convert(elements));
 }
 
 TEST_F(TestSchemaConverter, InvalidRoot) {
@@ -504,7 +507,7 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   SchemaElement elements[2];
   elements[0] =
       NewPrimitive("not-a-group", FieldRepetitionType::REQUIRED, Type::INT32, 0);
-  ASSERT_THROW(Convert(elements, 2), ParquetException);
+  ASSERT_THROW(Convert(elements), ParquetException);
 
   // While the Parquet spec indicates that the root group should have REPEATED
   // repetition type, some implementations may return REQUIRED or OPTIONAL
@@ -512,10 +515,10 @@ TEST_F(TestSchemaConverter, InvalidRoot) {
   // practicality matter.
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::REQUIRED, 1, 0);
   elements[1] = NewPrimitive("a", FieldRepetitionType::REQUIRED, Type::INT32, 1);
-  ASSERT_NO_FATAL_FAILURE(Convert(elements, 2));
+  ASSERT_NO_FATAL_FAILURE(Convert(elements));
 
   elements[0] = NewGroup("not-repeated", FieldRepetitionType::OPTIONAL, 1, 0);
-  ASSERT_NO_FATAL_FAILURE(Convert(elements, 2));
+  ASSERT_NO_FATAL_FAILURE(Convert(elements));
 }
 
 TEST_F(TestSchemaConverter, NotEnoughChildren) {
@@ -523,7 +526,49 @@ TEST_F(TestSchemaConverter, NotEnoughChildren) {
   SchemaElement elt;
   std::vector<SchemaElement> elements;
   elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, 2, 0));
-  ASSERT_THROW(Convert(&elements[0], 1), ParquetException);
+  EXPECT_THAT([&] { Convert(elements); },
+              ::testing::ThrowsMessage<ParquetException>(
+                  ::testing::HasSubstr("not enough elements")));
+}
+
+TEST_F(TestSchemaConverter, TooManyElements) {
+  SchemaElement elt;
+  std::vector<SchemaElement> elements;
+  elements.push_back(NewGroup(name_, FieldRepetitionType::REPEATED, /*num_children=*/2));
+  elements.push_back(NewPrimitive("int1", FieldRepetitionType::REQUIRED, Type::INT32));
+  elements.push_back(NewPrimitive("int2", FieldRepetitionType::REQUIRED, Type::INT32));
+  // Unexpected supplementary node
+  elements.push_back(NewPrimitive("int3", FieldRepetitionType::REQUIRED, Type::INT32));
+  EXPECT_THAT([&] { Convert(elements); }, ::testing::ThrowsMessage<ParquetException>(
+                                              ::testing::HasSubstr("too many elements")));
+}
+
+TEST_F(TestSchemaConverter, MaxDepth) {
+  this->max_depth_ = 5;
+
+  std::vector<SchemaElement> wide_schema;
+  std::vector<SchemaElement> deep_schema;
+
+  // Max depth doesn't limit breadth of schema
+  wide_schema.push_back(NewGroup("root", FieldRepetitionType::REQUIRED,
+                                 /*num_children=*/this->max_depth_ + 1));
+  for (int i = 0; i < this->max_depth_ + 1; ++i) {
+    wide_schema.push_back(NewPrimitive("int" + std::to_string(i),
+                                       FieldRepetitionType::REQUIRED, Type::INT32));
+  }
+  ASSERT_NO_FATAL_FAILURE(Convert(wide_schema));
+
+  // Max depth prevents excessive recursion
+  for (int i = 0; i < this->max_depth_; ++i) {
+    deep_schema.push_back(NewGroup("group" + std::to_string(i),
+                                   FieldRepetitionType::REQUIRED, /*num_children=*/1));
+  }
+  deep_schema.push_back(NewPrimitive("int", FieldRepetitionType::REQUIRED, Type::INT32));
+  EXPECT_THAT([&] { Convert(deep_schema); },
+              ::testing::ThrowsMessage<ParquetException>(
+                  ::testing::HasSubstr("Parquet schema too deeply nested")));
+  ++this->max_depth_;
+  ASSERT_NO_FATAL_FAILURE(Convert(deep_schema));
 }
 
 // ----------------------------------------------------------------------
@@ -533,7 +578,7 @@ class TestSchemaFlatten : public ::testing::Test {
  public:
   void setUp() { name_ = "parquet_schema"; }
 
-  void Flatten(const GroupNode* schema) { ToParquet(schema, &elements_); }
+  void Flatten(const GroupNode* schema) { SchemaToThrift(schema, &elements_); }
 
  protected:
   std::string name_;
@@ -2286,7 +2331,7 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
                                        timestamp_node, int_node, decimal_node},
                                       ListLogicalType::Make());
   std::vector<format::SchemaElement> list_elements;
-  ToParquet(reinterpret_cast<GroupNode*>(list_node.get()), &list_elements);
+  SchemaToThrift(reinterpret_cast<GroupNode*>(list_node.get()), &list_elements);
   ASSERT_EQ(list_elements[0].name, "list");
   ASSERT_TRUE(list_elements[0].__isset.converted_type);
   ASSERT_TRUE(list_elements[0].__isset.logicalType);
@@ -2303,7 +2348,7 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
   NodePtr map_node =
       GroupNode::Make("map", Repetition::REQUIRED, {}, MapLogicalType::Make());
   std::vector<format::SchemaElement> map_elements;
-  ToParquet(reinterpret_cast<GroupNode*>(map_node.get()), &map_elements);
+  SchemaToThrift(reinterpret_cast<GroupNode*>(map_node.get()), &map_elements);
   ASSERT_EQ(map_elements[0].name, "map");
   ASSERT_TRUE(map_elements[0].__isset.converted_type);
   ASSERT_TRUE(map_elements[0].__isset.logicalType);
@@ -2401,7 +2446,7 @@ TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
 
   // Verify thrift serialization
   std::vector<format::SchemaElement> elements;
-  ToParquet(reinterpret_cast<GroupNode*>(variant_node.get()), &elements);
+  SchemaToThrift(reinterpret_cast<GroupNode*>(variant_node.get()), &elements);
 
   // Verify that logicalType is set and is VARIANT
   ASSERT_EQ(elements[0].name, "variant");

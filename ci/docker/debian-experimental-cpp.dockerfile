@@ -143,6 +143,5 @@ ENV ARROW_ACERO=ON \
     CXX=g++${gcc:+-${gcc}} \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
     xsimd_SOURCE=BUNDLED

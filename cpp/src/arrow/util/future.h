@@ -61,10 +61,6 @@ struct SyncType<internal::Empty> {
   using type = Status;
 };
 
-template <typename Fn>
-using first_arg_is_status =
-    std::is_same<std::decay_t<internal::call_traits::argument_type<0, Fn>>, Status>;
-
 template <typename Fn, typename Then, typename Else>
 using if_has_no_args = std::conditional_t<std::is_invocable_v<Fn>, Then, Else>;
 
@@ -446,10 +442,12 @@ class [[nodiscard]] Future {
     };
   };
 
+  // conditional whether OnComplete is invokable with Status _and not with Result_
   template <typename OnComplete>
   using WrapOnComplete = typename std::conditional<
-      detail::first_arg_is_status<OnComplete>::value, WrapStatusyOnComplete,
-      WrapResultOnComplete>::type::template Callback<OnComplete>;
+      std::is_invocable_v<OnComplete, const Status&> &&
+          !std::is_invocable_v<OnComplete, const Result<ValueType>&>,
+      WrapStatusyOnComplete, WrapResultOnComplete>::type::template Callback<OnComplete>;
 
   /// \brief Consumer API: Register a callback to run when this future completes
   ///
@@ -514,15 +512,8 @@ class [[nodiscard]] Future {
                                ContinuedFuture>::value,
                   "OnSuccess and OnFailure must continue with the same future type");
 
-    struct DummyOnSuccess {
-      void operator()(const T&);
-    };
-    using OnSuccessArg = typename std::decay<internal::call_traits::argument_type<
-        0, detail::if_has_no_args<OnSuccess, DummyOnSuccess, OnSuccess>>>::type;
-
-    static_assert(
-        !std::is_same<OnSuccessArg, typename EnsureResult<OnSuccessArg>::type>::value,
-        "OnSuccess' argument should not be a Result");
+    static_assert(!std::is_invocable_v<OnSuccess, const Result<T>&>,
+                  "OnSuccess' argument should not be a Result");
 
     void operator()(const Result<T>& result) && {
       detail::ContinueFuture continue_future;
@@ -702,7 +693,7 @@ class WeakFuture {
 /// If a Result<Future> holds an error instead of a Future, construct a finished Future
 /// holding that error.
 template <typename T>
-static Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
+Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
   if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
     return Future<T>::MakeFinished(std::move(maybe_future).status());
   }

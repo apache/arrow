@@ -16,6 +16,7 @@
 # under the License.
 
 require "bigdecimal"
+require "date"
 
 require_relative "array-builder"
 require_relative "bitmap"
@@ -489,11 +490,12 @@ module ArrowFormat
     end
 
     private
+    UNIX_EPOCH = Date.new(1970, 1, 1).jd
     def pack_value(value, template, type)
       if value.nil?
         [0].pack(template)
       elsif value.is_a?(Date)
-        [value.day].pack(template)
+        [value.jd - UNIX_EPOCH].pack(template)
       else
         [value].pack(template)
       end
@@ -1037,6 +1039,53 @@ module ArrowFormat
   end
 
   class ListArray < VariableSizeListArray
+    include BufferAlignable
+
+    def initialize(type, *args)
+      if args.size == 1
+        args = build_data(type, args.first)
+      elsif args.size != 4
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size + 1}, expected 2 or 5)"
+      end
+
+      super(type, *args)
+    end
+
+    private
+    def build_data(type, data)
+      n = 0
+      validity_buffer_builder = nil
+
+      child_values = []
+      offsets = [0]
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+        else
+          child_values.concat(value)
+        end
+        offsets << child_values.size
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+
+      offsets_data = offsets.pack("#{type.offset_pack_template}*")
+      pad!(offsets_data, buffer_padding_size(offsets_data))
+      offsets_data.freeze
+      offsets_buffer = IO::Buffer.for(offsets_data)
+
+      child = type.child.type.build_array(child_values)
+
+      [
+        n,
+        validity_buffer,
+        offsets_buffer,
+        child,
+      ]
+    end
   end
 
   class LargeListArray < VariableSizeListArray

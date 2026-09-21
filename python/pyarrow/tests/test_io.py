@@ -1024,6 +1024,13 @@ def test_nativefile_write_memoryview():
     assert buf.to_pybytes() == data * 3
 
 
+@pytest.mark.parametrize("dst_buf", [b"a", memoryview(b"a")])
+def test_native_file_readinto_rejects_readonly_buffer(dst_buf):
+    with pa.BufferReader(b"x") as f:
+        with pytest.raises(TypeError, match="writable buffer"):
+            f.readinto(dst_buf)
+
+
 # ----------------------------------------------------------------------
 # Mock output stream
 
@@ -1214,6 +1221,11 @@ def test_memory_map_resize(tmpdir):
 
     with open(path, 'rb') as f:
         assert f.read() == bytes(arr[:SIZE])
+
+
+def test_memory_map_resize_uninitialized():
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        pa.MemoryMappedFile().resize(0)
 
 
 def test_memory_zero_length(tmpdir):

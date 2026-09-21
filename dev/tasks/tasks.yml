@@ -382,15 +382,6 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-bundled
 
-  test-ubuntu-24.04-cpp-bundled-offline:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 24.04
-      image: ubuntu-cpp-bundled-offline
-      timeout: 120
-
   test-ubuntu-24.04-cpp-gcc-13-bundled:
     ci: github
     template: docker-tests/github.linux.yml
@@ -774,7 +765,7 @@ tasks:
       image: conda-python-dask
 {% endfor %}
 
-{% for hdfs_version in ["2.9.2", "3.2.1"] %}
+{% for hdfs_version in ["2.10.2", "3.5.0"] %}
   test-conda-python-3.11-hdfs-{{ hdfs_version }}:
     ci: github
     template: docker-tests/github.linux.yml

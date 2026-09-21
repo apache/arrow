@@ -934,6 +934,28 @@ def test_thrift_size_limits(tempdir):
     assert got == table
 
 
+def test_schema_depth_limit(tempdir):
+    path = tempdir / 'nested_schema.parquet'
+
+    # A 10-level nested list. The Parquet schema nesting depth will be 22:
+    # - two levels of nesting for each Arrow list
+    # - one level for the list leaf
+    # - one level for the schema root
+    array = pa.array([[[[[[[[[[[42]]]]]]]]]]])
+    table = pa.table([array], names=['nested_list'])
+    pq.write_table(table, path)
+
+    with pytest.raises(
+            OSError,
+            match="Parquet schema too deeply nested"):
+        pq.read_table(path, schema_depth_limit=21)
+
+    got = pq.read_table(path, schema_depth_limit=22)
+    assert got == table
+    got = pq.read_table(path)
+    assert got == table
+
+
 def test_page_checksum_verification_write_table(tempdir):
     """Check that checksum verification works for datasets created with
     pq.write_table()"""

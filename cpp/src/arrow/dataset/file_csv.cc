@@ -164,11 +164,12 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
   int32_t max_num_rows = read_options.skip_rows + 1;
   std::optional<csv::ParseOptions> inspection_parse_options;
   const auto* parser_options = &parse_options;
-  if (parse_options.pad_short_rows) {
-    // Do not pad short rows while determining column names, since padding cannot
-    // synthesize missing names. Copy the parse options only when needed.
+  if (parse_options.pad_short_rows || parse_options.ignore_extra_columns) {
+    // Do not adjust row widths while determining column names: padding cannot
+    // synthesize missing names, and ignoring extra columns may discard columns.
     inspection_parse_options.emplace(parse_options);
     inspection_parse_options->pad_short_rows = false;
+    inspection_parse_options->ignore_extra_columns = false;
     parser_options = &*inspection_parse_options;
   }
   csv::BlockParser parser(pool, *parser_options, /*num_cols=*/-1, /*first_row=*/1,
@@ -379,7 +380,8 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
          parse_options.escape_char == other_parse_options.escape_char &&
          parse_options.newlines_in_values == other_parse_options.newlines_in_values &&
          parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines &&
-         parse_options.pad_short_rows == other_parse_options.pad_short_rows;
+         parse_options.pad_short_rows == other_parse_options.pad_short_rows &&
+         parse_options.ignore_extra_columns == other_parse_options.ignore_extra_columns;
 }
 
 Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {

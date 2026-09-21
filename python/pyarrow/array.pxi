@@ -15,7 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+from cpython.pycapsule cimport (
+    PyCapsule_CheckExact,
+    PyCapsule_GetPointer,
+    PyCapsule_New,
+    PyCapsule_SetName,
+)
 
 from collections.abc import Sequence
 import os
@@ -1836,6 +1841,34 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
+    def to_tensor(self, *, allow_nulls=False):
+        """
+        Convert this array to a pyarrow.Tensor.
+
+        This is supported when the data can reasonably be understood as a
+        multi-dimensional numeric tensor, such as numeric arrays (1D), nested
+        fixed size list arrays, and fixed shape tensor arrays.
+        The resulting tensor has a row major layout with the array elements
+        as the first dimension. The conversion is zero-copy.
+
+        Parameters
+        ----------
+        allow_nulls : bool, default `False`
+            When true, nulls are ignored, leaving the output tensor with
+            unspecified values where this array has null entries.
+            When false, nulls are rejected.
+
+        Returns
+        -------
+        pyarrow.Tensor
+        """
+        cdef:
+            shared_ptr[CTensor] ctensor
+            c_bool c_allow_nulls = allow_nulls
+        with nogil:
+            ctensor = GetResultValue(self.ap.ToTensor(c_allow_nulls))
+        return pyarrow_wrap_tensor(ctensor)
+
     def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
@@ -2241,7 +2274,55 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(array)
 
-    def __dlpack__(self, stream=None, max_version=None, dl_device=None, copy=None):
+    @staticmethod
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct an Array from an object implementing the DLPack protocol.
+        Only 1-dimensional contiguous tensors are accepted as input.
+        For multi-dimensional tensors, use `Tensor.from_dlpack` or
+        `FixedShapeTensorArray.from_dlpack`.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting Array should reside, in the
+            format returned by :meth:`Array.__dlpack_device__`. When None,
+            the output Array occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        Array
+            An Array housing the data from the input object, potentially
+            as a copy or view.
+        """
+        version = (DLPACK_VERSION.major, DLPACK_VERSION.minor)
+        pycapsule = x.__dlpack__(max_version=version, dl_device=device, copy=copy)
+        if not PyCapsule_CheckExact(pycapsule):
+            raise TypeError("DLPack producer did not return a PyCapsule")
+        cdef DLManagedTensorVersioned* ptr = <DLManagedTensorVersioned*>PyCapsule_GetPointer(
+            pycapsule, "dltensor_versioned")
+        if ptr == NULL:
+            raise ValueError(
+                'DLPack producer did not produce a "dltensor_versioned" PyCapsule')
+        # Mark the capsule as consumed so its destructor does not also invoke the deleter.
+        # ImportArrayVersionedFromDLPack will take ownership even if it errors (calling
+        # the deleter in that case).
+        PyCapsule_SetName(pycapsule, "used_dltensor_versioned")
+        with nogil:
+            # Copy handled on producer side
+            result = ImportArrayVersionedFromDLPack(ptr)
+        carray = GetResultValue(result)
+        return pyarrow_wrap_array(carray)
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
         """
         Export a primitive array as a DLPack capsule.
 
@@ -4815,15 +4896,12 @@ cdef class ExtensionArray(Array):
         -------
         ext_array : ExtensionArray
         """
-        cdef:
-            shared_ptr[CExtensionArray] ext_array
-
         if storage.type != typ.storage_type:
             raise TypeError(f"Incompatible storage type {storage.type} "
                             f"for extension type {typ}")
 
-        ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
-        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        cdef Array result = pyarrow_wrap_array(
+            typ.ext_type.WrapArray(typ.sp_type, storage.sp_array))
         result.validate()
         return result
 
@@ -4944,30 +5022,31 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         return self.to_tensor().to_numpy()
 
-    def to_tensor(self):
+    @staticmethod
+    def from_tensor(Tensor tensor not None):
         """
-        Convert fixed shape tensor extension array to a pyarrow.Tensor.
+        Convert a pyarrow.Tensor to a fixed shape tensor extension array.
 
-        The resulting Tensor will have (ndim + 1) dimensions.
-        The size of the first dimension will be the length of the fixed shape tensor array
-        and the rest of the dimensions will match the permuted shape of the fixed
-        shape tensor.
+        The first dimension of the tensor becomes the length of the fixed shape
+        tensor array and the remaining dimensions the shape of the individual
+        tensors. If the tensor provides strides, they are used to determine the
+        dimension permutation, otherwise row-major layout is assumed.
 
-        The conversion is zero-copy.
+        Parameters
+        ----------
+        tensor : pyarrow.Tensor
 
         Returns
         -------
-        pyarrow.Tensor
-            Tensor representing tensors in the fixed shape tensor array concatenated
-            along the first dimension.
+        FixedShapeTensorArray
         """
+        cdef shared_ptr[CFixedShapeTensorArray] c_array
 
-        cdef:
-            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
-            CResult[shared_ptr[CTensor]] ctensor
         with nogil:
-            ctensor = ext_array.ToTensor()
-        return pyarrow_wrap_tensor(GetResultValue(ctensor))
+            c_array = GetResultValue(
+                CFixedShapeTensorArray.FromTensor(tensor.sp_tensor))
+
+        return pyarrow_wrap_array(<shared_ptr[CArray]> c_array)
 
     @staticmethod
     def from_numpy_ndarray(obj, dim_names=None):
@@ -5043,6 +5122,55 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                                dim_names=dim_names,
                                permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
+        )
+
+    @staticmethod
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct a FixedShapeTensorArray from an object implementing the DLPack
+        protocol.
+
+        The outermost dimension of the input becomes the length of the tensor
+        array, and the remaining dimensions the shape of the individual tensors.
+        The outermost dimension must have the largest stride.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting array should reside, in the
+            format returned by :meth:`Array.__dlpack_device__`. When None,
+            the output array occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        FixedShapeTensorArray
+            An array housing the data from the input object, potentially
+            as a copy or view.
+
+        """
+        return FixedShapeTensorArray.from_tensor(
+            Tensor.from_dlpack(x, device=device, copy=copy))
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
+        """
+        Export a tensor array as a DLPack capsule.
+
+        The element positions in the array become the first dimension of the
+        resulting tensor (equal to ``len(self)``).
+
+        See :meth:`Tensor.__dlpack__` for the parameter semantics.
+        """
+        return self.to_tensor().__dlpack__(
+            stream=stream, max_version=max_version,
+            dl_device=dl_device, copy=copy,
         )
 
 

@@ -118,16 +118,24 @@
 #' `TRUE`, blank rows will not be represented at all. If `FALSE`, they will be
 #' filled with missings.
 #' @param skip Number of lines to skip before reading data.
-#' @param timestamp_parsers User-defined timestamp parsers. If more than one
-#' parser is specified, the CSV conversion logic will try parsing values
-#' starting from the beginning of this vector. Possible values are:
+#' @param timestamp_parsers User-defined timestamp parsers, tried in order
+#' when inferring column types and when converting columns of type
+#' [timestamp()]. Possible values are:
 #'  - `NULL`: the default, which uses the ISO-8601 parser
 #'  - a character vector of [strptime][base::strptime()] parse strings
-#'  - a list of [TimestampParser] objects
+#'  - a list of [TimestampParser] objects and/or parse strings
+#'
+#' Supplying parsers replaces the default ISO-8601 parser rather than adding
+#' to it. If none of the parsers match a value during type inference, the
+#' column is read as a string without error; to get an error instead, specify
+#' the column as a timestamp in `col_types`. These parsers are not used for
+#' date columns.
 #' @param parse_options see [CSV parsing options][csv_parse_options()].
 #' If given, this overrides any
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
-#' @param convert_options see [CSV conversion options][csv_convert_options()]
+#' @param convert_options see [CSV conversion options][csv_convert_options()].
+#' If given, this overrides any conversion options provided in other arguments
+#' (e.g. `na`, `col_types`, `timestamp_parsers`, etc.).
 #' @param read_options see [CSV reading options][csv_read_options()]
 #' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
@@ -160,6 +168,16 @@
 #'   tf,
 #'   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
 #' )
+#'
+#' # Parse non-ISO timestamps with `timestamp_parsers`. Supplying parsers
+#' # replaces the default ISO-8601 parser, so include `TimestampParser$create()`
+#' # to keep it as a fallback:
+#' write.csv(
+#'   data.frame(x = c("16/01/2023 19:47", "2023-01-17 08:00:00")),
+#'   file = tf,
+#'   row.names = FALSE
+#' )
+#' read_csv_arrow(tf, timestamp_parsers = list("%d/%m/%Y %H:%M", TimestampParser$create()))
 #'
 #' # Read directly from strings with `I()`
 #' read_csv_arrow(I("x,y\n1,2\n3,4"))
@@ -200,6 +218,12 @@ read_delim_arrow <- function(
   }
   if (is.null(read_options)) {
     read_options <- readr_to_csv_read_options(skip, col_names)
+  }
+  if (!is.null(convert_options) && !is.null(timestamp_parsers)) {
+    rlang::warn(c(
+      "`timestamp_parsers` is ignored when `convert_options` is supplied.",
+      i = "Pass it via `csv_convert_options(timestamp_parsers = ...)` instead."
+    ))
   }
   if (is.null(convert_options)) {
     convert_options <- readr_to_csv_convert_options(
@@ -535,17 +559,19 @@ csv_read_options <- function(
 #'    columns named in it but not found in the data be included as a column of
 #'    type `null()`? The default (`FALSE`) means that the reader will instead
 #'    raise an error.
-#' - `timestamp_parsers` User-defined timestamp parsers. If more than one
-#'    parser is specified, the CSV conversion logic will try parsing values
-#'    starting from the beginning of this vector. Possible values are
-#'    (a) `NULL`, the default, which uses the ISO-8601 parser;
+#' - `timestamp_parsers` User-defined timestamp parsers, tried in order when
+#'    inferring column types and when converting timestamp columns. Possible
+#'    values are (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
-#'    (c) a list of [TimestampParser] objects.
+#'    (c) a list of [TimestampParser] objects and/or parse strings. Supplying
+#'    parsers replaces the default ISO-8601 parser; see [read_delim_arrow()]
+#'    for details.
 #' - `decimal_point` Character to use for decimal point in floating point numbers. Default: "."
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
-#' The default is to use an ISO-8601 format parser.
+#' The default is to use an ISO-8601 format parser, which is useful as a
+#' fallback at the end of a list of `timestamp_parsers`.
 #'
 #' The `CsvWriteOptions$create()` factory method takes the following arguments:
 #' - `include_header` Whether to write an initial header line with column names
@@ -801,13 +827,8 @@ TimestampParser$create <- function(format = NULL) {
 #'    columns named in it but not found in the data be included as a column of
 #'    type `null()`? The default (`FALSE`) means that the reader will instead
 #'    raise an error.
-#' @param timestamp_parsers User-defined timestamp parsers. If more than one
-#'    parser is specified, the CSV conversion logic will try parsing values
-#'    starting from the beginning of this vector. Possible values are
-#'    (a) `NULL`, the default, which uses the ISO-8601 parser;
-#'    (b) a character vector of [strptime][base::strptime()] parse strings; or
-#'    (c) a list of [TimestampParser] objects.
 #' @param decimal_point Character to use for decimal point in floating point numbers.
+#' @inheritParams read_delim_arrow
 #'
 #' @examplesIf arrow_with_dataset()
 #' tf <- tempfile()

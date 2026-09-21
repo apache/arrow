@@ -30,8 +30,8 @@ versions=([3.11]=3.11.9
           [3.13]=3.13.14
           [3.14]=3.14.7
           [3.14t]=3.14.7
-          [3.15]=3.15.0rc1
-          [3.15t]=3.15.0rc1
+          [3.15]=3.15.0rc2
+          [3.15t]=3.15.0rc2
           )
 
 if [ "$#" -ne 2 ]; then
@@ -50,7 +50,7 @@ if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
     # Match python.org directory by truncating any pre-release suffix: 
-    # 3.15.0rc1 is https://www.python.org/ftp/python/3.15.0/python-3.15.0rc1-macos11.pkg
+    # 3.15.0rc2 is https://www.python.org/ftp/python/3.15.0/python-3.15.0rc2-macos11.pkg
     release_version="${full_version%%[abrc]*}"
     fname="python-${full_version}-macos11.pkg"
     wget "https://www.python.org/ftp/python/${release_version}/${fname}"

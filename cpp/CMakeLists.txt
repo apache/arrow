@@ -179,6 +179,7 @@ set(ARROW_DOC_DIR "${CMAKE_INSTALL_DOCDIR}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "23.1"
     "22.1"
     "21.1"
     "20.1"
@@ -263,6 +264,9 @@ if(ARROW_USE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
 
+  # XXX This does not detect if ccache is enabled externally, for example
+  # by adding `/usr/lib/ccache` to PATH in which case `cc` resolves to
+  # `/usr/lib/ccache/cc`. Such double-wrapping of ccache is suboptimal.
   find_program(CCACHE_FOUND ccache)
 
   if(CCACHE_FOUND)
@@ -479,6 +483,15 @@ if(ARROW_BUILD_STATIC)
   string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_SQL_STATIC")
 endif()
 set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-s3.pc.
+set(ARROW_S3_PC_CFLAGS "")
+set(ARROW_S3_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_S3_PC_CFLAGS_PRIVATE " -DARROW_S3_STATIC")
+endif()
+set(ARROW_S3_PC_LIBS_PRIVATE "")
+set(ARROW_S3_PC_REQUIRES_PRIVATE "")
 
 # For arrow-substrait.pc.
 set(ARROW_SUBSTRAIT_PC_CFLAGS "")
