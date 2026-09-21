@@ -1002,15 +1002,7 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // ----------------------------------------------------------------------
 // ALP encoder (Adaptive Lossless floating-Point)
 
-// TODO(GH-48701): encode incrementally. `Put` buffers the raw input and
-// `FlushValues` runs the whole pipeline over it, so working memory scales with
-// the page.
-//
-// TODO(GH-48701): fall back to PLAIN where ALP does not pay off. On the ALP
-// paper's datasets msg_sp encodes to 113% of plain and three more columns land
-// within 8% of break-even. ColumnWriterImpl already has
-// FallbackToPlainEncoding(); what is missing is a ratio estimate, which the
-// sampler computes but does not expose.
+// TODO(GH-48701): encode incrementally and sample once per column chunk.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
@@ -1018,38 +1010,42 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using ArrowType = typename EncodingTraits<DType>::ArrowType;
   using TypedEncoder<DType>::Put;
 
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "ALP only supports float and double types");
+
   explicit AlpEncoder(const ColumnDescriptor* descr,
                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool} {
-    static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
-                  "ALP only supports float and double types");
-  }
+      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool} {}
 
-  // TODO(GH-48701): estimate the encoded size. This is the buffered input size, which
-  // over-reports for a column ALP compresses and under-reports for one it does
-  // not; the sampler could supply a ratio estimate instead.
+  // TODO(GH-48701): use a ratio estimate instead of reporting the raw buffer size
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
 
   std::shared_ptr<Buffer> FlushValues() override {
-    // An all-null optional page adds no values but is still written, so an empty
-    // sink has to encode to a header-only page rather than to zero bytes, which
-    // the reader would reject.
+    // TODO(GH-48701): allow configuring the vector size.
+    constexpr auto kVectorSize =
+        ::arrow::util::alp::AlpFormatConstants::kDefaultVectorSize;
+
+    // An all-null optional page still has to produce a header-only page.
     const int64_t num_elements = sink_.length() / static_cast<int64_t>(sizeof(T));
     PARQUET_ASSIGN_OR_THROW(
-        int64_t comp_size,
+        int64_t max_comp_size,
         ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(num_elements, kVectorSize));
 
-    PARQUET_ASSIGN_OR_THROW(auto compressed_buffer, ::arrow::AllocateResizableBuffer(
-                                                        comp_size, this->memory_pool()));
+    PARQUET_ASSIGN_OR_THROW(
+        std::shared_ptr<ResizableBuffer> compressed_buffer,
+        ::arrow::AllocateResizableBuffer(max_comp_size, this->memory_pool()));
 
-    PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Encode(
-        reinterpret_cast<const T*>(sink_.data()), num_elements, kVectorSize,
-        compressed_buffer->mutable_data(), &comp_size));
+    PARQUET_ASSIGN_OR_THROW(
+        const int64_t compressed_size,
+        ::arrow::util::alp::AlpCodec<T>::Encode(
+            {reinterpret_cast<const T*>(sink_.data()), static_cast<size_t>(num_elements)},
+            kVectorSize,
+            {compressed_buffer->mutable_data(), static_cast<size_t>(max_comp_size)}));
 
-    PARQUET_THROW_NOT_OK(compressed_buffer->Resize(comp_size));
+    PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compressed_size));
     sink_.Reset();
 
-    return std::shared_ptr<Buffer>(std::move(compressed_buffer));
+    return compressed_buffer;
   }
 
   void Put(const T* buffer, int num_values) override {
@@ -1085,10 +1081,6 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   }
 
  private:
-  // The vector size the page header records. It is fixed rather than configurable:
-  // a reader takes it from the header, so nothing depends on it being settable here.
-  static constexpr int32_t kVectorSize = ::arrow::util::alp::AlpConstants::kAlpVectorSize;
-
   ::arrow::BufferBuilder sink_;
 };
 

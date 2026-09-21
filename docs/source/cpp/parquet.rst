@@ -417,8 +417,7 @@ Encodings
   2.4 or greater is selected in :func:`WriterProperties::version`.
 
 * \(3) Only supported for FLOAT and DOUBLE values. ALP is a Preview feature in the
-  Parquet format, so on the write path it must be enabled explicitly with
-  ``enable_alp_encoding`` in addition to being selected as the column's encoding.
+  Parquet format, so other readers may not support it.
 
 Types
 -----

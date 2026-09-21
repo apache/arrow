@@ -24,6 +24,8 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -2453,16 +2455,24 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
  public:
   using Base = TypedDecoderImpl<DType>;
   using T = typename DType::c_type;
+  using VectorReader = ::arrow::util::alp::AlpVectorReader<T>;
+  using PooledVector = ::arrow::util::alp::AlpVector<T>;
+
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "ALP only supports float and double types");
 
   explicit AlpDecoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-      : Base(descr, Encoding::ALP), pool_(pool) {
-    static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
-                  "ALP only supports float and double types");
-  }
+      : Base(descr, Encoding::ALP),
+        pool_(pool),
+        cached_vector_(::arrow::util::alp::AlpAllocator<T>(pool)) {}
 
   void SetData(int num_values, const uint8_t* data, int len) final {
+    if (num_values < 0 || len < 0) {
+      throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
+                             " len=" + std::to_string(len));
+    }
     Base::SetData(num_values, data, len);
-    if (num_values > 0 && len <= 0) {
+    if (num_values > 0 && len == 0) {
       throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
                              " but len=" + std::to_string(len));
     }
@@ -2471,40 +2481,42 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // how many, so take the count from there.
     if (len > 0) {
       PARQUET_ASSIGN_OR_THROW(
-          reader_, ::arrow::util::alp::AlpCodec<T>::VectorReader::Open(data, len));
-      total_values_ = reader_.num_elements();
-      if (total_values_ > num_values) {
-        throw ParquetException("ALP page declares " + std::to_string(total_values_) +
+          reader_, VectorReader::Open({data, static_cast<size_t>(len)}, pool_));
+      const int32_t num_encoded_values = reader_->num_elements();
+      if (num_encoded_values > num_values) {
+        throw ParquetException("ALP page declares " + std::to_string(num_encoded_values) +
                                " values but the page header allows at most " +
                                std::to_string(num_values));
       }
+      this->num_values_ = num_encoded_values;
     } else {
-      reader_ = {};
-      total_values_ = 0;
+      reader_.reset();
+      this->num_values_ = 0;
     }
-    this->num_values_ = total_values_;
-    page_levels_ = num_values;
-    null_levels_ = 0;
+    levels_remaining_ = num_values;
+    cached_vector_index_ = -1;
   }
 
   int Decode(T* buffer, int max_values) override {
+    if (ARROW_PREDICT_FALSE(max_values < 0)) {
+      throw ParquetException("ALP Decode: max_values must be non-negative");
+    }
     max_values = std::min(max_values, this->num_values_);
     if (max_values == 0) {
       return 0;
     }
-    DecodeInto(buffer, max_values);
+    DecodeInternal(buffer, max_values);
     this->num_values_ -= max_values;
+    levels_remaining_ -= max_values;
     CheckPageConsumed();
     return max_values;
   }
 
   int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
                    int64_t valid_bits_offset) override {
-    // Count the nulls before decoding, so that the check `Decode` makes on the way
-    // out already knows how many of this batch's levels carried no value.
-    null_levels_ += null_count;
     const int num_decoded =
         Base::DecodeSpaced(buffer, num_values, null_count, valid_bits, valid_bits_offset);
+    levels_remaining_ -= null_count;
     CheckPageConsumed();
     return num_decoded;
   }
@@ -2519,14 +2531,12 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
           std::to_string(this->num_values_) +
           ", Requested: " + std::to_string(values_to_decode));
     }
-    null_levels_ += null_count;
-
     PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
     // 1. Land the values in the builder's storage packed to the right, so step 2
     //    can expand them in place into their final positions.
     T* decode_out = builder->GetMutableValue(builder->length() + null_count);
-    DecodeInto(decode_out, values_to_decode);
+    DecodeInternal(decode_out, values_to_decode);
 
     // 2. Expand the values into their final positions.
     if (null_count == 0) {
@@ -2540,6 +2550,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
       builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
     }
     this->num_values_ -= values_to_decode;
+    levels_remaining_ -= num_values;
     CheckPageConsumed();
     return values_to_decode;
   }
@@ -2551,78 +2562,57 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   }
 
  private:
-  /// \brief Decode the next `count` values into `out`
-  ///
-  /// Only the vectors holding those values are decoded. A vector that is entered
-  /// at its first value and read to its end goes straight to `out`; any other is
-  /// decoded into one vector of scratch, from which the requested part is copied.
-  void DecodeInto(T* out, int count) {
-    const int32_t vector_size = reader_.vector_size();
-    int32_t index = total_values_ - this->num_values_;
+  // Decode only vectors intersecting the range. Full vectors go straight to
+  // `out`; partial vectors are decoded into reusable scratch.
+  void CheckPageConsumed() const {
+    ARROW_DCHECK_GE(levels_remaining_, 0) << "ALP decoder consumed too many levels";
+    if (ARROW_PREDICT_FALSE(levels_remaining_ <= 0 && this->num_values_ > 0)) {
+      throw ParquetException("ALP page has " + std::to_string(this->num_values_) +
+                             " unconsumed values after all levels were read");
+    }
+  }
+
+  void DecodeInternal(T* out, int count) {
+    const int32_t vector_size = reader_->vector_size();
+    int32_t processed_values = reader_->num_elements() - this->num_values_;
     int32_t remaining = count;
     while (remaining > 0) {
-      const int32_t vector_index = index / vector_size;
-      const int32_t position = index % vector_size;
-      const int32_t vector_length = reader_.VectorLength(vector_index);
+      const int32_t vector_index = processed_values / vector_size;
+      const int32_t position = processed_values % vector_size;
+      PARQUET_ASSIGN_OR_THROW(const int32_t vector_length,
+                              reader_->VectorLength(vector_index));
       const int32_t take = std::min(remaining, vector_length - position);
       if (take == vector_length) {
-        PARQUET_THROW_NOT_OK(reader_.DecodeVector(vector_index, out));
+        PARQUET_THROW_NOT_OK(reader_->Decode(
+            vector_index, std::span<T>(out, static_cast<size_t>(vector_length))));
       } else {
-        T* scratch = VectorScratch();
-        PARQUET_THROW_NOT_OK(reader_.DecodeVector(vector_index, scratch));
-        std::memcpy(out, scratch + position, take * sizeof(T));
+        if (cached_vector_index_ != vector_index) {
+          const size_t cached_size = static_cast<size_t>(vector_length);
+          if (cached_vector_.size() < cached_size) {
+            cached_vector_.resize(cached_size);
+          }
+          PARQUET_THROW_NOT_OK(reader_->Decode(
+              vector_index, std::span<T>(cached_vector_.data(), cached_size)));
+          cached_vector_index_ = vector_index;
+        }
+        std::memcpy(out, cached_vector_.data() + position, take * sizeof(T));
       }
       out += take;
-      index += take;
+      processed_values += take;
       remaining -= take;
     }
   }
 
-  /// \brief Fail if the page's levels are spent while its payload is not
-  ///
-  /// `SetData` can only check the header's value count against the page's level
-  /// count, which an optional page satisfies with room to spare. A page that
-  /// over-declares its values would therefore decode the values the definition
-  /// levels ask for and leave the rest unread, reporting no error. Once the levels
-  /// are accounted for, anything left in the payload means the two disagree.
-  void CheckPageConsumed() const {
-    const int64_t levels_used =
-        static_cast<int64_t>(total_values_ - this->num_values_) + null_levels_;
-    if (ARROW_PREDICT_FALSE(levels_used >= page_levels_ && this->num_values_ > 0)) {
-      throw ParquetException("ALP page declares " + std::to_string(total_values_) +
-                             " values but its " + std::to_string(page_levels_) +
-                             " definition levels account for only " +
-                             std::to_string(total_values_ - this->num_values_));
-    }
-  }
-
-  /// \brief Room for one decoded vector, allocated on first use
-  T* VectorScratch() {
-    if (scratch_ == nullptr) {
-      PARQUET_ASSIGN_OR_THROW(scratch_, ::arrow::AllocateResizableBuffer(0, pool_));
-    }
-    const int64_t bytes = static_cast<int64_t>(reader_.vector_size()) * sizeof(T);
-    if (scratch_->size() < bytes) {
-      PARQUET_THROW_NOT_OK(scratch_->Resize(bytes, /*shrink_to_fit=*/false));
-    }
-    return scratch_->mutable_data_as<T>();
-  }
-
+  // Pool used to construct reader_ and cached_vector_.
   ::arrow::MemoryPool* pool_;
-  /// Reads the page's header and offset chain once, then decodes any vector of
-  /// it on its own.
-  typename ::arrow::util::alp::AlpCodec<T>::VectorReader reader_;
-  /// Values the page's ALP header declares. The inherited `num_values_` counts
-  /// down from this as values are served and is the only record of progress, so
-  /// the next value sits at index `total_values_ - num_values_`.
-  int32_t total_values_ = 0;
-  /// Room for one vector, used when a batch starts or ends inside one.
-  std::shared_ptr<::arrow::ResizableBuffer> scratch_;
-  /// Definition levels the page carries, which is the count `SetData` is given.
-  int32_t page_levels_ = 0;
-  /// Levels of this page seen so far that carried no value. Together with the
-  /// values already served this says how much of the page is accounted for.
-  int64_t null_levels_ = 0;
+  // Set when the page has ALP payload; header and offsets are parsed once.
+  std::optional<VectorReader> reader_;
+  // Cached decoded vector for partial reads.
+  PooledVector cached_vector_;
+  // Index of the vector cached in cached_vector_, or -1.
+  int32_t cached_vector_index_{-1};
+  // Definition/repetition levels not yet accounted for in the current page.
+  int64_t levels_remaining_{0};
 };
 
 }  // namespace

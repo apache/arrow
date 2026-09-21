@@ -247,7 +247,6 @@ exc = executable(
 test('arrow-utility-test', exc)
 
 util_tests = {
-    'arrow-alp-test': {'sources': ['alp/alp_test.cc']},
     'arrow-async-utility-test': {
         'sources': [
             'async_generator_test.cc',
@@ -275,6 +274,7 @@ util_tests = {
             'thread_pool_test.cc',
         ],
     },
+    'arrow-encoding-utility-test': {'sources': ['alp/alp_test.cc']},
     'arrow-crc32-test': {'sources': ['crc32_test.cc']},
 }
 

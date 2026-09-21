@@ -21,9 +21,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -44,7 +44,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
-#include "arrow/util/io_util.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
@@ -64,10 +63,28 @@ namespace parquet {
 namespace arrow {
 namespace {
 
-// Write `table` with `writer_props` and read it straight back.
+// Assert that every row group of `column_index` recorded ALP, so a round trip
+// cannot pass by silently falling back to another encoding.
+void AssertAlpEncodingUsed(const std::shared_ptr<FileMetaData>& metadata,
+                           int column_index) {
+  ASSERT_GE(column_index, 0);
+  for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
+    // Keep the owners alive: encodings() hands back a reference into the column
+    // chunk metadata.
+    const auto row_group = metadata->RowGroup(rg);
+    const auto column_chunk = row_group->ColumnChunk(column_index);
+    ASSERT_THAT(column_chunk->encodings(), ::testing::Contains(Encoding::ALP))
+        << "column " << column_index << " row group " << rg
+        << " was not written with ALP";
+  }
+}
+
+// Write `table` with `writer_props` and read it straight back. Optionally hands
+// back the file metadata.
 void WriteAndReadBack(const std::shared_ptr<Table>& table, int64_t row_group_size,
                       std::shared_ptr<Table>* out,
-                      const std::shared_ptr<WriterProperties>& writer_properties) {
+                      const std::shared_ptr<WriterProperties>& writer_properties,
+                      std::shared_ptr<FileMetaData>* metadata = nullptr) {
   auto sink = CreateOutputStream();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, writer_properties));
@@ -77,31 +94,24 @@ void WriteAndReadBack(const std::shared_ptr<Table>& table, int64_t row_group_siz
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.Build(&reader));
+  if (metadata != nullptr) {
+    *metadata = reader->parquet_reader()->metadata();
+  }
   ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
 }
+
+}  // namespace
 
 // The PLAIN reference columns of alp_extended.zstd.parquet are zstd-compressed,
 // so the whole fixture needs zstd support.
 #ifdef ARROW_WITH_ZSTD
 
-// ALP encoding conformance tests, run against `alp_extended.zstd.parquet`, which
-// apache/parquet-testing publishes for exactly this purpose.
-//
-// All eight columns of `alp_extended.zstd.parquet` hold the same 9032 values.
-// `float_plain` and `double_plain` are PLAIN-encoded references, so a correctly
-// decoded ALP column is bit-identical to its reference and the test needs no
-// hardcoded expected values. The three ALP columns per type use vector sizes
-// 1024, 4096 and 32, which forces a reader to honour `log_vector_size` from the
-// page header instead of assuming the default.
-//
-// The value distribution deliberately covers the corner cases: three distinct
-// NaN bit patterns, +/-Inf, -0.0, subnormals, a full-mantissa value that cannot
-// round-trip as a decimal, large magnitudes, vectors that are entirely
-// exceptions, a constant vector (bit_width 0), and nulls. See `data/README.md`
-// in apache/parquet-testing for the full table.
-//
-// Comparison is on bit patterns rather than values, so that NaN payloads are
-// checked (NaN != NaN under ==) and -0.0 is not accepted in place of 0.0.
+// Conformance tests against `alp_extended.zstd.parquet` from parquet-testing.
+// The `*_plain` columns are PLAIN-encoded references of the same 9032 values, so
+// each ALP column is compared against its reference bit for bit and no values are
+// hardcoded. The three ALP columns per type use vector sizes 1024, 4096 and 32,
+// so a reader has to take the size from the page header, and the values cover NaN
+// payloads, infinities, -0.0, subnormals and nulls (see `data/README.md`).
 class TestArrowReadAlpEncoding : public ::testing::Test {
  public:
   static constexpr int64_t kNumRows = 9032;
@@ -114,31 +124,11 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
   static FloatBits<T> ToBits(T value) {
     static_assert(sizeof(T) == 4 || sizeof(T) == 8,
                   "only 32- and 64-bit floating point values are covered here");
-    FloatBits<T> bits;
-    std::memcpy(&bits, &value, sizeof(value));
-    return bits;
+    return std::bit_cast<FloatBits<T>>(value);
   }
-
-  // The corner cases a reference column is expected to carry. NaNs are collected
-  // as bit patterns rather than counted, because the payload has to survive the
-  // round trip, not just the fact that the value is a NaN.
-  struct CornerCaseCounts {
-    std::set<uint64_t> distinct_nans;
-    int64_t infinities = 0;
-    int64_t negative_zeros = 0;
-    int64_t subnormals = 0;
-    int64_t nulls = 0;
-  };
 
   void SetUp() override {
     auto path = test::get_data_file("alp_extended.zstd.parquet");
-    // The fixture arrived in parquet-testing after the submodule revision this
-    // tree pins, so skip rather than fail until the pin moves forward.
-    ASSERT_OK_AND_ASSIGN(auto platform_path,
-                         ::arrow::internal::PlatformFilename::FromString(path));
-    if (!::arrow::internal::FileExists(platform_path).ValueOr(false)) {
-      GTEST_SKIP() << "parquet-testing is missing " << path;
-    }
     auto reader = ParquetFileReader::OpenFile(path, /*memory_map=*/false);
     metadata_ = reader->metadata();
     ASSERT_OK_AND_ASSIGN(
@@ -198,54 +188,48 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
     }
   }
 
-  // Tally the corner cases present in a column.
+  // The reference column has to carry the corner cases the ALP columns are
+  // compared against; a regenerated fixture without them would make every test
+  // above pass while checking nothing. NaNs are collected as bit patterns, which
+  // is also what the round-trip comparison checks.
   template <typename ArrowType>
-  CornerCaseCounts CountCornerCases(const std::string& name) {
+  void AssertReferenceHasCornerCases(const std::string& name) {
     using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
-    CornerCaseCounts counts;
     const auto column = table_->GetColumnByName(name);
-    EXPECT_NE(column, nullptr) << "no column named " << name;
-    if (column == nullptr) return counts;
+    ASSERT_NE(column, nullptr) << "no column named " << name;
 
+    std::set<uint64_t> distinct_nans;
+    int64_t infinities = 0;
+    int64_t negative_zeros = 0;
+    int64_t subnormals = 0;
+    int64_t nulls = 0;
     for (const auto& chunk : column->chunks()) {
       const auto& values = checked_cast<const ArrayType&>(*chunk);
       for (int64_t i = 0; i < values.length(); ++i) {
         if (values.IsNull(i)) {
-          ++counts.nulls;
+          ++nulls;
           continue;
         }
         const auto value = values.Value(i);
-        if (std::isnan(value)) counts.distinct_nans.insert(ToBits(value));
-        if (std::isinf(value)) ++counts.infinities;
-        if (value == 0 && std::signbit(value)) ++counts.negative_zeros;
-        if (std::fpclassify(value) == FP_SUBNORMAL) ++counts.subnormals;
+        if (std::isnan(value)) distinct_nans.insert(ToBits(value));
+        if (std::isinf(value)) ++infinities;
+        if (value == 0 && std::signbit(value)) ++negative_zeros;
+        if (std::fpclassify(value) == FP_SUBNORMAL) ++subnormals;
       }
     }
-    return counts;
+
+    EXPECT_EQ(distinct_nans.size(), 3u) << "expected three distinct NaN bit patterns";
+    EXPECT_EQ(infinities, 2) << "expected +Inf and -Inf";
+    EXPECT_EQ(negative_zeros, 1);
+    EXPECT_EQ(subnormals, 1);
+    EXPECT_EQ(nulls, 8);
   }
 
-  static void AssertCornerCases(const CornerCaseCounts& counts) {
-    EXPECT_EQ(counts.distinct_nans.size(), 3u)
-        << "expected three distinct NaN bit patterns";
-    EXPECT_EQ(counts.infinities, 2) << "expected +Inf and -Inf";
-    EXPECT_EQ(counts.negative_zeros, 1);
-    EXPECT_EQ(counts.subnormals, 1);
-    EXPECT_EQ(counts.nulls, 8);
-  }
-
-  // Every row group must record ALP for this column.
   void AssertColumnUsesAlp(const std::string& name) {
     const int column_index = metadata_->schema()->ColumnIndex(name);
     ASSERT_GE(column_index, 0) << "no column named " << name;
-    for (int rg = 0; rg < metadata_->num_row_groups(); ++rg) {
-      // Keep the owners alive: encodings() hands back a reference into the
-      // column chunk metadata.
-      const auto row_group = metadata_->RowGroup(rg);
-      const auto column_chunk = row_group->ColumnChunk(column_index);
-      ASSERT_THAT(column_chunk->encodings(), ::testing::Contains(Encoding::ALP))
-          << name << " row group " << rg << " was not written with ALP";
-    }
+    ASSERT_NO_FATAL_FAILURE(AssertAlpEncodingUsed(metadata_, column_index));
   }
 
  protected:
@@ -284,11 +268,11 @@ TEST_F(TestArrowReadAlpEncoding, DoubleVectorSize32) {
 TEST_F(TestArrowReadAlpEncoding, ReferenceColumnsCoverCornerCases) {
   {
     SCOPED_TRACE("double_plain");
-    AssertCornerCases(CountCornerCases<::arrow::DoubleType>("double_plain"));
+    AssertReferenceHasCornerCases<::arrow::DoubleType>("double_plain");
   }
   {
     SCOPED_TRACE("float_plain");
-    AssertCornerCases(CountCornerCases<::arrow::FloatType>("float_plain"));
+    AssertReferenceHasCornerCases<::arrow::FloatType>("float_plain");
   }
 }
 
@@ -299,35 +283,57 @@ TEST_F(TestArrowReadAlpEncoding, ReferenceColumnsCoverCornerCases) {
 
 class ParquetAlpEncodingTest : public ::testing::Test {
  public:
-  void SetUp() override {}
-
-  void TestAlpRoundTrip(const std::shared_ptr<Table>& table) {
-    // Create writer properties with ALP encoding for float/double columns
+  // Round-trip `table` through a file whose only value column is ALP-encoded, and
+  // check the encoding really was used. A non-positive `row_group_size` writes one
+  // row group.
+  void TestAlpRoundTrip(const std::shared_ptr<Table>& table, int64_t row_group_size = 0,
+                        std::shared_ptr<Table>* result = nullptr) {
     auto writer_props = WriterProperties::Builder()
                             .disable_dictionary()
-                            ->enable_alp_encoding()
                             ->encoding(Encoding::ALP)
                             ->build();
+    if (row_group_size <= 0) {
+      row_group_size = table->num_rows();
+    }
 
-    std::shared_ptr<Table> result;
-    WriteAndReadBack(table, table->num_rows(), &result, writer_props);
+    std::shared_ptr<Table> round_tripped;
+    std::shared_ptr<FileMetaData> metadata;
+    WriteAndReadBack(table, row_group_size, &round_tripped, writer_props, &metadata);
+    ASSERT_NO_FATAL_FAILURE(AssertAlpEncodingUsed(metadata, /*column_index=*/0));
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *round_tripped));
 
-    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+    if (result != nullptr) {
+      *result = std::move(round_tripped);
+    }
   }
 
-  void TestAlpWithCompression(const std::shared_ptr<Table>& table,
-                              Compression::type compression) {
-    auto writer_props = WriterProperties::Builder()
-                            .disable_dictionary()
-                            ->enable_alp_encoding()
-                            ->encoding(Encoding::ALP)
-                            ->compression(compression)
-                            ->build();
+  // Round-trip a single-column table holding `values`.
+  template <typename ArrowType>
+  void TestValuesRoundTrip(const std::vector<typename ArrowType::c_type>& values,
+                           int64_t row_group_size = 0,
+                           std::shared_ptr<Table>* result = nullptr) {
+    std::shared_ptr<::arrow::Array> array;
+    ::arrow::ArrayFromVector<ArrowType>(values, &array);
+    TestAlpRoundTrip(SingleColumnTable<ArrowType>(array), row_group_size, result);
+  }
 
-    std::shared_ptr<Table> result;
-    WriteAndReadBack(table, table->num_rows(), &result, writer_props);
+  // Round-trip a single-column table of random values.
+  template <typename ArrowType>
+  void TestRandomRoundTrip(int64_t num_values, typename ArrowType::c_type min,
+                           typename ArrowType::c_type max, int64_t row_group_size = 0,
+                           int32_t seed = 42) {
+    ::arrow::random::RandomArrayGenerator rag(seed);
+    TestAlpRoundTrip(
+        SingleColumnTable<ArrowType>(rag.Numeric<ArrowType>(num_values, min, max)),
+        row_group_size);
+  }
 
-    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+  template <typename ArrowType>
+  static std::shared_ptr<Table> SingleColumnTable(
+      const std::shared_ptr<::arrow::Array>& array) {
+    auto schema = ::arrow::schema(
+        {::arrow::field("values", ::arrow::TypeTraits<ArrowType>::type_singleton())});
+    return Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
   }
 };
 
@@ -357,209 +363,96 @@ TEST_F(ParquetAlpEncodingTest, MixedTypesWithFloatDouble) {
                                           [3, 3.5, 3.375, "c"],
                                           [4, 4.5, 4.500, "d"],
                                           [5, 5.5, 5.625, "e"]])"});
-  // Use ALP encoding only for float/double columns, default for others
   auto writer_props = WriterProperties::Builder()
                           .disable_dictionary()
-                          ->enable_alp_encoding("value_f")
-                          ->enable_alp_encoding("value_d")
                           ->encoding("value_f", Encoding::ALP)
                           ->encoding("value_d", Encoding::ALP)
                           ->build();
 
   std::shared_ptr<Table> result;
-  WriteAndReadBack(table, table->num_rows(), &result, writer_props);
+  std::shared_ptr<FileMetaData> metadata;
+  WriteAndReadBack(table, table->num_rows(), &result, writer_props, &metadata);
 
+  // Only the float and double columns asked for ALP.
+  ASSERT_NO_FATAL_FAILURE(AssertAlpEncodingUsed(metadata, /*column_index=*/1));
+  ASSERT_NO_FATAL_FAILURE(AssertAlpEncodingUsed(metadata, /*column_index=*/2));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
 TEST_F(ParquetAlpEncodingTest, LargeFloatDataset) {
-  ::arrow::random::RandomArrayGenerator rag(42);
-  auto float_array = rag.Float32(10000, -1000.0f, 1000.0f);
-
-  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float32())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(float_array)});
-
-  TestAlpRoundTrip(table);
+  TestRandomRoundTrip<::arrow::FloatType>(/*num_values=*/10000, -1000.0f, 1000.0f);
 }
 
 TEST_F(ParquetAlpEncodingTest, LargeDoubleDataset) {
-  ::arrow::random::RandomArrayGenerator rag(42);
-  auto double_array = rag.Float64(10000, -1000.0, 1000.0);
+  TestRandomRoundTrip<::arrow::DoubleType>(/*num_values=*/10000, -1000.0, 1000.0);
+}
 
-  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
-
-  TestAlpRoundTrip(table);
+TEST_F(ParquetAlpEncodingTest, MultipleRowGroups) {
+  // A small row group size splits the data across several row groups.
+  TestRandomRoundTrip<::arrow::DoubleType>(/*num_values=*/5000, -100.0, 100.0,
+                                           /*row_group_size=*/1000, /*seed=*/123);
 }
 
 TEST_F(ParquetAlpEncodingTest, DecimalLikeValues) {
-  // Test values that ALP compresses well (2 decimal places)
   std::vector<double> values(1000);
   for (size_t i = 0; i < values.size(); ++i) {
     values[i] = 100.0 + static_cast<double>(i) * 0.01;
   }
-
-  std::shared_ptr<::arrow::Array> array;
-  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
-
-  auto schema = ::arrow::schema({::arrow::field("decimals", ::arrow::float64())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
-
-  TestAlpRoundTrip(table);
+  TestValuesRoundTrip<::arrow::DoubleType>(values);
 }
 
 TEST_F(ParquetAlpEncodingTest, SpecialFloatValues) {
-  // Test with NaN, Inf, -Inf, -0.0
-  auto schema = ::arrow::schema({::arrow::field("specials", ::arrow::float64())});
-
-  // TableFromJSON doesn't support Infinity/NaN literals, so we create the array manually
-  std::vector<double> values = {1.0,
-                                std::numeric_limits<double>::infinity(),
-                                -std::numeric_limits<double>::infinity(),
-                                std::numeric_limits<double>::quiet_NaN(),
-                                0.0,
-                                -0.0,
-                                2.5,
-                                3.5};
-
-  std::shared_ptr<::arrow::Array> array;
-  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
-
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
-  TestAlpRoundTrip(table);
+  // TableFromJSON cannot express infinities or NaN.
+  const std::vector<double> values = {1.0,
+                                      std::numeric_limits<double>::infinity(),
+                                      -std::numeric_limits<double>::infinity(),
+                                      std::numeric_limits<double>::quiet_NaN(),
+                                      0.0,
+                                      -0.0,
+                                      2.5,
+                                      3.5};
+  TestValuesRoundTrip<::arrow::DoubleType>(values);
 }
 
-TEST_F(ParquetAlpEncodingTest, FloatWithNulls) {
-  // Test with null values
+TEST_F(ParquetAlpEncodingTest, DoubleWithNulls) {
   auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
   auto table = ::arrow::TableFromJSON(
       schema, {R"([[1.5], [null], [3.5], [null], [5.5], [6.5], [null], [8.5]])"});
-
   TestAlpRoundTrip(table);
 }
 
-TEST_F(ParquetAlpEncodingTest, MultipleRowGroups) {
-  ::arrow::random::RandomArrayGenerator rag(123);
-  auto double_array = rag.Float64(5000, -100.0, 100.0);
-
-  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
-
-  // Write with small row group size to create multiple row groups
-  auto writer_props = WriterProperties::Builder()
-                          .disable_dictionary()
-                          ->enable_alp_encoding()
-                          ->encoding(Encoding::ALP)
-                          ->build();
-
-  std::shared_ptr<Table> result;
-  WriteAndReadBack(table, /*row_group_size=*/1000, &result, writer_props);
-
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
-}
-
-#ifdef ARROW_WITH_ZSTD
-TEST_F(ParquetAlpEncodingTest, AlpWithZstdCompression) {
-  ::arrow::random::RandomArrayGenerator rag(42);
-  auto double_array = rag.Float64(5000, -1000.0, 1000.0);
-
-  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
-
-  TestAlpWithCompression(table, Compression::ZSTD);
-}
-#endif
-
-#ifdef ARROW_WITH_SNAPPY
-TEST_F(ParquetAlpEncodingTest, AlpWithSnappyCompression) {
-  ::arrow::random::RandomArrayGenerator rag(42);
-  auto float_array = rag.Float32(5000, -1000.0f, 1000.0f);
-
-  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float32())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(float_array)});
-
-  TestAlpWithCompression(table, Compression::SNAPPY);
-}
-#endif
-
-TEST_F(ParquetAlpEncodingTest, VerifyAlpEncodingUsed) {
-  // Verify that ALP encoding is actually being used
-  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
-
-  std::vector<double> values(1000);
-  for (size_t i = 0; i < values.size(); ++i) {
-    values[i] = static_cast<double>(i) * 0.123;
-  }
-
-  std::shared_ptr<::arrow::Array> array;
-  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
-
-  auto writer_props = WriterProperties::Builder()
-                          .disable_dictionary()
-                          ->enable_alp_encoding()
-                          ->encoding(Encoding::ALP)
-                          ->build();
-
-  auto sink = CreateOutputStream();
-  ASSERT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink, table->num_rows(),
-                       writer_props));
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-
-  // Read back and verify encoding in metadata
-  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  auto metadata = reader->metadata();
-
-  ASSERT_EQ(metadata->num_row_groups(), 1);
-  auto row_group = metadata->RowGroup(0);
-  ASSERT_EQ(row_group->num_columns(), 1);
-
-  auto column_chunk = row_group->ColumnChunk(0);
-  auto encodings = column_chunk->encodings();
-
-  // Verify ALP is one of the encodings used
-  bool has_alp = false;
-  for (auto encoding : encodings) {
-    if (encoding == Encoding::ALP) {
-      has_alp = true;
-      break;
-    }
-  }
-  EXPECT_TRUE(has_alp) << "ALP encoding not found in column encodings";
-}
-
 // Values whose decimal-scaled form sits at or beyond the bounds of the target
-// integer type (int32 for FLOAT, int64 for DOUBLE) cannot be ALP-encoded and
-// must travel as exceptions. Encodings.md lists this as an exception
-// condition; these tests pin that the file round-trips them exactly.
+// integer type (int32 for FLOAT, int64 for DOUBLE) cannot be ALP-encoded and must
+// travel as exceptions; Encodings.md lists this as an exception condition. A small
+// decimal travels alongside them, so the vector still picks a scaling exponent
+// instead of degenerating to all exceptions.
 TEST_F(ParquetAlpEncodingTest, DoubleAtEncodedIntegerBounds) {
   constexpr int64_t kIntMax = std::numeric_limits<int64_t>::max();
   constexpr int64_t kIntMin = std::numeric_limits<int64_t>::lowest();
 
-  std::vector<double> values = {
-      0.0, 1.0, -1.0, static_cast<double>(kIntMax), static_cast<double>(kIntMin),
+  const std::vector<double> values = {
+      0.0,
+      1.0,
+      -1.0,
+      static_cast<double>(kIntMax),
+      static_cast<double>(kIntMin),
       std::nextafter(static_cast<double>(kIntMax),
                      std::numeric_limits<double>::infinity()),
       std::nextafter(static_cast<double>(kIntMin),
                      -std::numeric_limits<double>::infinity()),
-      std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
-      // A small decimal alongside them, so the vector still picks a scaling
-      // exponent rather than degenerating to all-exceptions.
-      1.25, 2.5, 3.75};
-
-  std::shared_ptr<::arrow::Array> array;
-  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
-
-  auto schema = ::arrow::schema({::arrow::field("bounds", ::arrow::float64())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
-  TestAlpRoundTrip(table);
+      std::numeric_limits<double>::max(),
+      std::numeric_limits<double>::lowest(),
+      1.25,
+      2.5,
+      3.75};
+  TestValuesRoundTrip<::arrow::DoubleType>(values);
 }
 
 TEST_F(ParquetAlpEncodingTest, FloatAtEncodedIntegerBounds) {
   constexpr int32_t kIntMax = std::numeric_limits<int32_t>::max();
   constexpr int32_t kIntMin = std::numeric_limits<int32_t>::lowest();
 
-  std::vector<float> values = {
+  const std::vector<float> values = {
       0.0f,
       1.0f,
       -1.0f,
@@ -573,57 +466,36 @@ TEST_F(ParquetAlpEncodingTest, FloatAtEncodedIntegerBounds) {
       1.25f,
       2.5f,
       3.75f};
-
-  std::shared_ptr<::arrow::Array> array;
-  ::arrow::ArrayFromVector<::arrow::FloatType>(values, &array);
-
-  auto schema = ::arrow::schema({::arrow::field("bounds", ::arrow::float32())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
-  TestAlpRoundTrip(table);
+  TestValuesRoundTrip<::arrow::FloatType>(values);
 }
 
-// A column in which every value is an exception: no exponent/factor pair
-// encodes anything, so each vector carries num_elements exceptions and the
-// page is larger than PLAIN. The data must still round-trip bit-exactly.
-// (The 32768-exception boundary, where the count no longer fits in a signed
-// 16-bit integer, is covered by arrow/util/alp/alp_test.cc; the writer uses
-// the default 1024-element vector size.)
+// Every value is an exception: no exponent/factor pair encodes anything, so each
+// vector carries num_elements exceptions and the page is larger than PLAIN. (The
+// 32768-exception count boundary is covered in arrow/util/alp/alp_test.cc; the
+// writer here uses 1024-element vectors.)
 TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
-  // NaN is never equal to itself, so no exponent/factor pair can encode it and
-  // every value takes the exception path.
-  std::vector<double> values(70000, std::numeric_limits<double>::quiet_NaN());
-
-  std::shared_ptr<::arrow::Array> array;
-  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
-
-  auto schema = ::arrow::schema({::arrow::field("all_exceptions", ::arrow::float64())});
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
-
-  auto writer_props = WriterProperties::Builder()
-                          .disable_dictionary()
-                          ->enable_alp_encoding()
-                          ->encoding(Encoding::ALP)
-                          ->build();
+  // NaN never round-trips, so every value takes the exception path.
+  const std::vector<double> values(70000, std::numeric_limits<double>::quiet_NaN());
 
   std::shared_ptr<Table> result;
-  WriteAndReadBack(table, table->num_rows(), &result, writer_props);
+  TestValuesRoundTrip<::arrow::DoubleType>(values, /*row_group_size=*/0, &result);
 
-  // AssertTablesEqual compares NaN by value, so check the bits directly.
-  ASSERT_EQ(result->num_rows(), table->num_rows());
-  auto chunked = result->column(0);
+  // Array equality treats NaN as equal, so compare the payloads instead.
+  const uint64_t expected_bits = std::bit_cast<uint64_t>(values[0]);
+  ASSERT_EQ(result->num_rows(), static_cast<int64_t>(values.size()));
   int64_t seen = 0;
-  for (const auto& chunk : chunked->chunks()) {
+  for (const auto& chunk : result->column(0)->chunks()) {
     const auto& doubles =
         ::arrow::internal::checked_cast<const ::arrow::DoubleArray&>(*chunk);
     for (int64_t i = 0; i < doubles.length(); ++i) {
       ASSERT_FALSE(doubles.IsNull(i));
-      ASSERT_TRUE(std::isnan(doubles.Value(i))) << "row " << seen;
+      ASSERT_EQ(std::bit_cast<uint64_t>(doubles.Value(i)), expected_bits)
+          << "row " << seen;
       ++seen;
     }
   }
-  ASSERT_EQ(seen, table->num_rows());
+  ASSERT_EQ(seen, static_cast<int64_t>(values.size()));
 }
 
-}  // namespace
 }  // namespace arrow
 }  // namespace parquet

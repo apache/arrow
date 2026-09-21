@@ -111,7 +111,9 @@ add_arrow_test(bit-utility-test
                rle_encoding_test.cc
                test_common.cc)
 
-add_arrow_test(alp-test SOURCES alp/alp_test.cc)
+add_arrow_test(encoding-utility-test
+               SOURCES
+               alp/alp_test.cc)
 
 add_arrow_test(crc32-test
                SOURCES

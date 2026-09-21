@@ -15,144 +15,93 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Constants and type traits for ALP (Adaptive Lossless floating-Point) compression.
-// Spec: https://github.com/apache/parquet-format/blob/master/Encodings.md#alp
+// ALP constants and type parameters.
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 
 #include "arrow/util/logging.h"
 
 namespace arrow::util::alp {
 
-// ----------------------------------------------------------------------
-// AlpConstants
+template <typename T>
+concept AlpFloatingType = std::same_as<T, float> || std::same_as<T, double>;
 
-/// \brief Constants for Adaptive Lossless floating-Point (ALP) compression
-/// See: https://github.com/apache/parquet-format/blob/master/Encodings.md#alp
-class AlpConstants {
- public:
-  /// Default number of elements compressed together as a unit.
-  /// The format supports arbitrary power-of-2 sizes via log_vector_size in the
-  /// page header (up to 2^kMaxLogVectorSize).
-  static constexpr int64_t kAlpVectorSize = 1024;
+// Wire-format constants
 
-  /// Minimum supported log_vector_size value, i.e. a vector size of 8.
-  /// Mandated by the format spec (Encodings.md, "Must be in the inclusive
-  /// range [3, 15]").
+/// Compression mode stored in the page header.
+enum class AlpMode : uint8_t { kAlp = 0 };
+
+/// Integer encoding applied to decimal-encoded values.
+enum class AlpIntegerEncoding : uint8_t { kForBitPack = 0 };
+
+struct AlpFormatConstants {
+  /// Recommended default vector size.
+  static constexpr int32_t kDefaultVectorSize = 1024;
+
+  /// Minimum log2(vector size), corresponding to 8 elements.
   static constexpr uint8_t kMinLogVectorSize = 3;
 
-  /// Maximum supported log_vector_size value. Capped at 15 because per-vector
-  /// element counts are stored as uint16_t (max 65535), and 2^16 = 65536
-  /// would overflow. The cap allows vector sizes up to 32768.
+  /// Maximum log2(vector size), corresponding to 32768 elements.
   static constexpr uint8_t kMaxLogVectorSize = 15;
 
-  /// Sampling constants below are from the ALP paper (Afroozeh et al.,
-  /// "ALP: Adaptive Lossless floating-Point Compression", SIGMOD 2023).
-
-  /// Number of elements to use when determining sampling parameters.
-  static constexpr int64_t kSamplerVectorSize = 4096;
-
-  /// Total number of elements in a rowgroup for sampling purposes.
-  /// 122880 = kSamplerVectorSize * 30 rowgroup vectors.
-  static constexpr int64_t kSamplerRowgroupSize = 122880;
-
-  /// Number of samples to collect per vector during the sampling phase.
-  /// 256 = kSamplerVectorSize / 16. Note that AlpSampler caps its lookup
-  /// window at kAlpVectorSize rather than kSamplerVectorSize, so the stride
-  /// actually used is kAlpVectorSize / 256, i.e. every 4th element of the
-  /// first 1024.
-  static constexpr int64_t kSamplerSamplesPerVector = 256;
-
-  /// Nominal number of sample vectors to collect per rowgroup. AlpSampler
-  /// derives its vector-skip interval from this by integer division, which
-  /// truncates, so the count actually collected can be higher: with these
-  /// defaults the interval is 3 and 10 of a rowgroup's 30 vectors are sampled.
-  static constexpr int64_t kSamplerSampleVectorsPerRowgroup = 8;
-
-  /// Type used to store vector data offsets (supports pages up to 4GB)
+  /// Offset type for the vector-offset table.
   using OffsetType = uint32_t;
 
-  /// Type used to store exception positions within a compressed vector.
-  /// Unsigned to match the format spec, which types exception positions as
-  /// uint16 (Encodings.md, "ExceptionPositions").
+  /// Exception position type.
   using PositionType = uint16_t;
+};
 
-  /// Threshold for early exit during sampling when compression quality is poor.
-  /// Used in FindBestExponentAndFactor to stop early if this many consecutive
-  /// combinations compress no better than the current best. Any improvement
-  /// resets the count.
-  static constexpr uint8_t kSamplingEarlyExitThreshold = 4;
+static_assert(sizeof(AlpFormatConstants::OffsetType) == 4);
+static_assert(sizeof(AlpFormatConstants::PositionType) == 2);
 
-  /// Maximum number of exponent-factor combinations to try during compression.
-  /// Must be > kSamplingEarlyExitThreshold for the early-exit logic in
-  /// FindBestExponentAndFactor to be reachable. These are intentionally
-  /// independent constants: kMaxCombinations bounds preset storage size, while
-  /// kSamplingEarlyExitThreshold bounds wasted CPU during per-vector selection.
+// Sampling and parameter-search tuning
+
+struct AlpSamplingOptions {
+  /// Input elements per sampling chunk.
+  static constexpr int64_t kChunkSize = 4096;
+
+  /// Elements per sampling interval.
+  static constexpr int64_t kIntervalSize = 122880;
+
+  /// Samples collected per chunk.
+  static constexpr int64_t kSamplesPerChunk = 256;
+
+  /// Chunks sampled per interval.
+  static constexpr int64_t kSampleChunksPerInterval = 8;
+
+  /// Consecutive non-improving combinations before an early exit.
+  static constexpr uint8_t kEarlyExitThreshold = 4;
+
+  /// Maximum exponent-factor combinations retained in a preset.
   static constexpr uint8_t kMaxCombinations = 5;
-  static_assert(kMaxCombinations > kSamplingEarlyExitThreshold,
-                "kMaxCombinations must exceed kSamplingEarlyExitThreshold for "
-                "early-exit to be reachable");
 
-  /// Loop unroll factor for tight loops in ALP compression/decompression.
-  /// ALP has multiple tight loops that profit from unrolling. Changing this
-  /// factor affects performance, so benchmark before changing it.
-  static constexpr int64_t kLoopUnrolls = 4;
+  static_assert(kMaxCombinations > kEarlyExitThreshold,
+                "early exit requires at least one additional candidate");
+};
 
-  /// \brief Get power of ten as uint64_t
-  ///
-  /// \param[in] power the exponent (must be <= 19)
-  /// \return 10^power as uint64_t
-  static uint64_t PowerOfTenUB8(const uint8_t power) {
-    ARROW_DCHECK(power <= 19) << "power_out_of_range: " << static_cast<int>(power);
-    static constexpr uint64_t kTable[20] = {1,
-                                            10,
-                                            100,
-                                            1'000,
-                                            10'000,
-                                            100'000,
-                                            1'000'000,
-                                            10'000'000,
-                                            100'000'000,
-                                            1'000'000'000,
-                                            10'000'000'000,
-                                            100'000'000'000,
-                                            1'000'000'000'000,
-                                            10'000'000'000'000,
-                                            100'000'000'000'000,
-                                            1'000'000'000'000'000,
-                                            10'000'000'000'000'000,
-                                            100'000'000'000'000'000,
-                                            1'000'000'000'000'000'000,
-                                            10'000'000'000'000'000'000ULL};
+// Power-of-ten constants
 
-    return kTable[power];
-  }
-
-  /// \brief Get power of ten as float
-  ///
-  /// \param[in] power the exponent (must be in range [-10, 10])
-  /// \return 10^power as float
-  static float PowerOfTenFloat(int8_t power) {
+/// Correctly rounded powers of ten used by ALP.
+struct AlpPowerOfTen {
+  /// Returns 10^power as float for power in [-10, 10].
+  static float Float(int8_t power) {
     ARROW_DCHECK(power >= -10 && power <= 10)
-        << "power_out_of_range: " << static_cast<int>(power);
+        << "power out of range: " << static_cast<int>(power);
     static constexpr float kTable[21] = {
         0.0000000001F, 0.000000001F,  0.00000001F,   0.0000001F, 0.000001F,  0.00001F,
         0.0001F,       0.001F,        0.01F,         0.1F,       1.0F,       10.0F,
         100.0F,        1000.0F,       10000.0F,      100000.0F,  1000000.0F, 10000000.0F,
         100000000.0F,  1000000000.0F, 10000000000.0F};
-
     return kTable[power + 10];
   }
 
-  /// \brief Get power of ten as double
-  ///
-  /// \param[in] power the exponent (must be in range [-20, 20])
-  /// \return 10^power as double
-  static double PowerOfTenDouble(const int8_t power) {
+  /// Returns 10^power as double for power in [-20, 20].
+  static double Double(int8_t power) {
     ARROW_DCHECK(power >= -20 && power <= 20)
-        << "power_out_of_range: " << static_cast<int>(power);
+        << "power out of range: " << static_cast<int>(power);
     static constexpr double kTable[41] = {
         0.00000000000000000001,
         0.0000000000000000001,
@@ -198,100 +147,70 @@ class AlpConstants {
     };
     return kTable[power + 20];
   }
-
-  /// \brief Get factor as int64_t
-  ///
-  /// \param[in] power the exponent
-  /// \return 10^power as int64_t
-  static int64_t GetFactor(const int8_t power) { return PowerOfTenUB8(power); }
 };
 
-// ----------------------------------------------------------------------
-// AlpTypedConstants
+// Type-specific constants
 
-/// \brief Type-specific constants for ALP compression
-/// \tparam FloatingPointType the floating point type (float or double)
 template <typename FloatingPointType>
 struct AlpTypedConstants {};
 
-/// \brief Type-specific constants for float
 template <>
 struct AlpTypedConstants<float> {
-  /// Magic number used for fast rounding of floats to nearest integer:
-  /// rounded(n) = static_cast<int32_t>(n + kMagicNumber - kMagicNumber).
+  /// Added and subtracted by FastRound() in float precision to round to the
+  /// nearest integer.
   static constexpr float kMagicNumber = 12582912.0f;  // 2^22 + 2^23
 
   static constexpr uint8_t kMaxExponent = 10;
 
-  /// Bounds on the values the fast-rounding step accepts.
-  ///
-  /// The bound is one ulp below the largest float under 2^31 rather than that
-  /// value itself. Rounding a value can move it up by one ulp, so admitting the
-  /// largest one would let the round trip produce exactly 2^31, which int32 has
-  /// no room for. One ulp of headroom is both necessary and sufficient: the
-  /// round trip never moves a value further than that.
+  // One float ULP (unit in the last place) inside the int32_t range.
+  // FastRound() may move a value by one ULP, so this headroom prevents an
+  // out-of-range conversion.
   static constexpr float kEncodingUpperLimit = 2147483392.0f;  // 2^31 - 2^8
   static constexpr float kEncodingLowerLimit = -2147483392.0f;
 
-  /// \brief Get exponent multiplier
-  ///
-  /// \param[in] power the exponent
-  /// \return 10^power as float
-  static float GetExponent(const uint8_t power) {
-    return AlpConstants::PowerOfTenFloat(power);
+  /// Returns 10^power.
+  static float GetExponent(uint8_t power) {
+    return AlpPowerOfTen::Float(static_cast<int8_t>(power));
   }
 
-  /// \brief Get factor multiplier
-  ///
-  /// \param[in] power the factor
-  /// \return 10^(-power) as float
-  static float GetFactor(const uint8_t power) {
-    // This double cast is necessary since subtraction on int8_t does not
-    // necessarily yield an int8_t.
-    return AlpConstants::PowerOfTenFloat(
-        static_cast<int8_t>(-static_cast<int8_t>(power)));
+  /// Returns 10^(-power).
+  static float GetFactor(uint8_t power) {
+    return AlpPowerOfTen::Float(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 
-  using FloatingToExact = uint32_t;
-  using FloatingToSignedExact = int32_t;
+  using EncodedUnsigned = uint32_t;
+  using EncodedSigned = int32_t;
 };
 
-/// \brief Type-specific constants for double
 template <>
-class AlpTypedConstants<double> {
- public:
-  /// Magic number used for fast rounding of doubles to nearest integer:
-  /// rounded(n) = static_cast<int64_t>(n + kMagicNumber - kMagicNumber).
+struct AlpTypedConstants<double> {
+  /// Added and subtracted by FastRound() in double precision to round to the
+  /// nearest integer.
   static constexpr double kMagicNumber = 6755399441055744.0;  // 2^51 + 2^52
 
-  static constexpr uint8_t kMaxExponent = 18;  // 10^18 is the maximum int64
+  static constexpr uint8_t kMaxExponent = 18;
 
-  /// Bounds on the values the fast-rounding step accepts.
-  ///
-  /// The bound is one ulp below the largest double under 2^63 rather than that
-  /// value itself, for the reason given on the float bounds above.
+  // One double ULP (unit in the last place) inside the int64_t range.
+  // FastRound() may move a value by one ULP, so this headroom prevents an
+  // out-of-range conversion.
   static constexpr double kEncodingUpperLimit = 9223372036854773760.0;  // 2^63 - 2^11
   static constexpr double kEncodingLowerLimit = -9223372036854773760.0;
 
-  /// \brief Get exponent multiplier
-  ///
-  /// \param[in] power the exponent
-  /// \return 10^power as double
-  static double GetExponent(const uint8_t power) {
-    return AlpConstants::PowerOfTenDouble(power);
+  /// Returns 10^power.
+  static double GetExponent(uint8_t power) {
+    return AlpPowerOfTen::Double(static_cast<int8_t>(power));
   }
 
-  /// \brief Get factor multiplier
-  ///
-  /// \param[in] power the factor
-  /// \return 10^(-power) as double
-  static double GetFactor(const uint8_t power) {
-    return AlpConstants::PowerOfTenDouble(
-        static_cast<int8_t>(-static_cast<int8_t>(power)));
+  /// Returns 10^(-power).
+  static double GetFactor(uint8_t power) {
+    return AlpPowerOfTen::Double(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 
-  using FloatingToExact = uint64_t;
-  using FloatingToSignedExact = int64_t;
+  using EncodedUnsigned = uint64_t;
+  using EncodedSigned = int64_t;
 };
+
+static_assert(AlpTypedConstants<double>::kMaxExponent <= 18,
+              "ALP's int64 factor constants support exponents up to 18");
 
 }  // namespace arrow::util::alp

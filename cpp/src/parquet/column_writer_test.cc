@@ -122,10 +122,6 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
     } else {
       wp_builder.disable_dictionary();
-      if (column_properties.encoding() == Encoding::ALP) {
-        // ALP is opt-in because it is a Preview feature in the format.
-        wp_builder.enable_alp_encoding();
-      }
       wp_builder.encoding(column_properties.encoding());
     }
     if (enable_checksum) {
@@ -2528,27 +2524,9 @@ TEST_F(TestDoubleValuesWriter, RequiredAlpEncoding) {
   this->TestRequiredWithEncoding(Encoding::ALP);
 }
 
-TEST_F(TestFloatValuesWriter, AlpWithStats) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, true,
-                                 LARGE_SIZE);
-}
-
-TEST_F(TestDoubleValuesWriter, AlpWithStats) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, true,
-                                 LARGE_SIZE);
-}
-
+// ALP pages still go through a codec and carry statistics; ZSTD is what the
+// interop fixture uses.
 #ifdef ARROW_WITH_ZSTD
-TEST_F(TestFloatValuesWriter, AlpWithZstdCompression) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, false,
-                                 LARGE_SIZE);
-}
-
-TEST_F(TestDoubleValuesWriter, AlpWithZstdCompression) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, false,
-                                 LARGE_SIZE);
-}
-
 TEST_F(TestFloatValuesWriter, AlpWithZstdCompressionAndStats) {
   this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, true,
                                  LARGE_SIZE);
@@ -2559,43 +2537,6 @@ TEST_F(TestDoubleValuesWriter, AlpWithZstdCompressionAndStats) {
                                  LARGE_SIZE);
 }
 #endif
-
-#ifdef ARROW_WITH_SNAPPY
-TEST_F(TestFloatValuesWriter, AlpWithSnappyCompression) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::SNAPPY, false, false,
-                                 LARGE_SIZE);
-}
-
-TEST_F(TestDoubleValuesWriter, AlpWithSnappyCompression) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::SNAPPY, false, false,
-                                 LARGE_SIZE);
-}
-#endif
-
-#ifdef ARROW_WITH_LZ4
-TEST_F(TestFloatValuesWriter, AlpWithLz4Compression) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::LZ4, false, false,
-                                 LARGE_SIZE);
-}
-
-TEST_F(TestDoubleValuesWriter, AlpWithLz4Compression) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::LZ4, false, false,
-                                 LARGE_SIZE);
-}
-#endif
-
-// Test ALP with page checksum verification
-TEST_F(TestFloatValuesWriter, AlpWithPageChecksum) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, false,
-                                 LARGE_SIZE, Codec::UseDefaultCompressionLevel(),
-                                 /*enable_checksum=*/true);
-}
-
-TEST_F(TestDoubleValuesWriter, AlpWithPageChecksum) {
-  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, false,
-                                 LARGE_SIZE, Codec::UseDefaultCompressionLevel(),
-                                 /*enable_checksum=*/true);
-}
 
 // ALP on an optional column with DataPageV2 pages
 TEST_F(TestFloatValuesWriter, AlpOptionalDataPageV2) {

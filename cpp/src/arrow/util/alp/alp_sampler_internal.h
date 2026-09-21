@@ -19,98 +19,46 @@
 
 #pragma once
 
-#include <optional>
 #include <span>
 #include <vector>
 
-#include "arrow/util/alp/alp_internal.h"
+#include "arrow/util/alp/alp_compression_internal.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow::util::alp {
 
-// ----------------------------------------------------------------------
-// AlpSampler
-
-/// \class AlpSampler
-/// \brief Collects samples from data to be compressed with ALP
+/// Collects samples and builds an ALP encoding preset.
 ///
-/// Usage: Call AddSample() or AddSampleVector() multiple times to collect
-/// samples, then call Finalize() to retrieve the resulting preset.
-///
-/// \tparam T the floating point type (float or double) to sample
-template <typename T>
+/// Input is split into fixed-size chunks. Each sampled chunk contributes one
+/// strided sample. Call AddSample() one or more times, then MakePreset().
+template <AlpFloatingType T>
 class ARROW_EXPORT AlpSampler {
  public:
-  /// \brief Helper struct containing the preset for ALP compression
-  struct AlpSamplerResult {
-    AlpEncodingParameters alp_parameters;
-  };
+  AlpSampler() = default;
 
-  /// \brief Add a sample of arbitrary size
-  ///
-  /// The sample is internally separated into vectors on which AddSampleVector()
-  /// is called.
-  ///
-  /// \param[in] input the input data to sample from
+  /// Adds input values to the sample set.
   void AddSample(std::span<const T> input);
 
-  /// \brief Add a single vector as a sample
+  /// Builds a preset from the collected samples.
   ///
-  /// \param[in] input the input vector to add.
-  ///            Size should be <= AlpConstants::kSamplerVectorSize, which is
-  ///            how AddSample() chunks its input. Only the first
-  ///            AlpConstants::kAlpVectorSize elements are ever examined.
-  void AddSampleVector(std::span<const T> input);
-
-  /// \brief Finalize sampling and generate the encoding preset
-  ///
-  /// \return an AlpSamplerResult containing the generated encoding preset
-  AlpSamplerResult Finalize();
+  /// Does not consume or clear the samples, so it may be called repeatedly.
+  AlpEncodingPreset MakePreset() const;
 
  private:
-  /// Interval between sampled vectors, counted in vectors
-  static constexpr int64_t kRowgroupSampleJump =
-      (AlpConstants::kSamplerRowgroupSize /
-       AlpConstants::kSamplerSampleVectorsPerRowgroup) /
-      AlpConstants::kSamplerVectorSize;
+  /// Adds one sampling chunk. Only the first
+  /// AlpFormatConstants::kDefaultVectorSize elements are examined.
+  void AddSampleChunk(std::span<const T> input);
 
-  /// \brief Helper struct to encapsulate settings used for sampling
-  struct AlpSamplingParameters {
-    int64_t num_lookup_value;
-    int64_t num_sampled_increments;
-    int64_t num_sampled_values;
-  };
-
-  /// \brief Calculate sampling parameters for the current vector
-  ///
-  /// \param[in] num_current_vector_values number of values in current vector
-  /// \return the sampling parameters to use
-  AlpSamplingParameters GetAlpSamplingParameters(int64_t num_current_vector_values);
-
-  /// \brief Check if the current vector must be ignored for sampling
-  ///
-  /// \param[in] vectors_count the total number of vectors processed so far
-  /// \param[in] vectors_sampled_count the number of vectors sampled so far
-  /// \param[in] num_current_vector_values number of values in current vector
-  /// \return true if the current vector should be skipped, false otherwise
-  bool MustSkipSamplingFromCurrentVector(int64_t vectors_count,
-                                         int64_t vectors_sampled_count,
-                                         int64_t num_current_vector_values);
-
-  /// Count of vectors that have been sampled
-  int64_t vectors_sampled_count_ = 0;
-  /// Total count of values processed
-  int64_t total_values_count_ = 0;
-  /// Total count of vectors processed
-  int64_t vectors_count_ = 0;
-  /// Number of samples stored
-  int64_t sample_stored_ = 0;
-  /// Strided samples, one entry per sampled vector. Accumulates over the
-  /// sampler's whole lifetime; nothing clears it between rowgroups.
-  std::vector<std::vector<T>> rowgroup_sample_;
-
-  /// The unstrided lookup window of each sampled vector
-  std::vector<std::vector<T>> complete_vectors_sampled_;
+  /// Number of chunks that have contributed a sample.
+  int64_t chunks_sampled_{0};
+  /// Number of chunks processed.
+  int64_t chunks_processed_{0};
+  /// Number of values processed.
+  int64_t values_processed_{0};
+  /// Number of values retained in chunk_samples_.
+  int64_t sampled_values_count_{0};
+  /// One strided sample per sampled chunk. MakePreset() only reads these.
+  std::vector<std::vector<T>> chunk_samples_;
 };
 
 }  // namespace arrow::util::alp
