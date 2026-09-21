@@ -256,5 +256,7 @@ Issue assignment
 ++++++++++++++++
 
 Assignment signals commitment to work on an issue, and contributors should
-self-assign issues when that work starts. Anyone can now self-assign issues
-by commenting ``take``.
+be assigned to issues when that work starts. If you would like to work on an
+issue, leave a comment saying so and a committer or collaborator will assign
+it to you. See :ref:`collaborators` for how to get the ability to assign
+issues yourself.

@@ -501,45 +501,58 @@ def test_encrypted_parquet_kms_configuration():
     validate_kms_connection_config(kms_connection_config_1)
 
 
-@pytest.mark.xfail(reason="Plaintext footer - reading plaintext column subset"
-                   " reads encrypted columns too")
 def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
         tempdir, data_table):
-    """Write an encrypted parquet, with plaintext footer
-    and with single wrapping,
-    verify it's encrypted, and then read plaintext columns."""
+    """
+    Write an encrypted parquet, with plaintext footer and with single wrapping,
+    verify it's encrypted, and then read plaintext columns. Runs once with a
+    flat schema and once where the encrypted column `b` is itself a nested
+    (struct) field.
+    """
     path = tempdir / PARQUET_NAME
 
-    # Encrypt the footer with the footer key,
-    # encrypt column `a` and column `b` with another key,
-    # keep `c` plaintext
-    encryption_config = pe.EncryptionConfiguration(
-        footer_key=FOOTER_KEY_NAME,
-        column_keys={
-            COL_KEY_NAME: ["a", "b"],
-        },
-        plaintext_footer=True,
-        double_wrapping=False)
+    for nested in [False, True]:
+        if nested:
+            table = pa.Table.from_pydict({
+                'a': pa.array([1, 2, 3]),
+                'b': pa.array(
+                    [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}, {'x': 5, 'y': 6}],
+                    type=pa.struct([('x', pa.int32()), ('y', pa.int32())])),
+                'c': pa.array(['x', 'y', 'z'])
+            })
+        else:
+            table = data_table
 
-    kms_connection_config = pe.KmsConnectionConfig(
-        custom_kms_conf={
-            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
-            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
-        }
-    )
+        # Encrypt the footer with the footer key,
+        # encrypt column `a` and column `b` with another key, keep `c` plaintext
+        encryption_config = pe.EncryptionConfiguration(
+            footer_key=FOOTER_KEY_NAME,
+            column_keys={
+                COL_KEY_NAME: ["a", "b"],
+            },
+            plaintext_footer=True,
+            double_wrapping=False)
 
-    def kms_factory(kms_connection_configuration):
-        return InMemoryKmsClient(kms_connection_configuration)
+        kms_connection_config = pe.KmsConnectionConfig(
+            custom_kms_conf={
+                FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+                COL_KEY_NAME: COL_KEY.decode("UTF-8"),
+            }
+        )
 
-    crypto_factory = pe.CryptoFactory(kms_factory)
-    # Write with encryption properties
-    write_encrypted_parquet(path, data_table, encryption_config,
-                            kms_connection_config, crypto_factory)
+        def kms_factory(kms_connection_configuration):
+            return InMemoryKmsClient(kms_connection_configuration)
 
-    # # Read without decryption properties only the plaintext column
-    # result = pq.ParquetFile(path)
-    # result_table = result.read(columns='c', use_threads=False)
-    # assert table.num_rows == result_table.num_rows
+        crypto_factory = pe.CryptoFactory(kms_factory)
+        # Write with encryption properties
+        write_encrypted_parquet(path, table, encryption_config,
+                                kms_connection_config, crypto_factory)
+
+        # Read the plaintext column without decryption properties
+        with pq.ParquetFile(path) as result:
+            result_table = result.read(columns='c', use_threads=False)
+            assert table.num_rows == result_table.num_rows
+            assert table.select(['c']).equals(result_table)
 
 
 def test_encrypted_parquet_write_read_external(tempdir, data_table,

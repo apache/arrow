@@ -1103,6 +1103,7 @@ cdef class MemoryMappedFile(NativeFile):
         ----------
         new_size : new size in bytes
         """
+        self._assert_open()
         check_status(self.handle.get().Resize(new_size))
 
     def fileno(self):

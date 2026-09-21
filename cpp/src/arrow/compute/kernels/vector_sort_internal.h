@@ -31,6 +31,8 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/math_internal.h"
 
 namespace arrow::compute::internal {
 
@@ -77,19 +79,24 @@ struct StablePartitioner {
 
 template <typename TypeClass>
 constexpr bool has_null_like_values() {
-  return is_physical_floating(TypeClass::type_id);
+  return is_floating(TypeClass::type_id);
+}
+
+template <typename TypeClass, typename Value>
+bool is_null_like(Value value) {
+  return ::arrow::internal::IsNan(value);
 }
 
 // Compare two values, taking NaNs into account
 
 template <typename Type, typename Value>
 int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
-                      NullPlacement null_placement) {
+                      NullPlacement null_placement, int on_equality_result = 0) {
   if constexpr (has_null_like_values<Type>()) {
-    const bool is_nan_left = std::isnan(left);
-    const bool is_nan_right = std::isnan(right);
+    const bool is_nan_left = is_null_like<Type>(left);
+    const bool is_nan_right = is_null_like<Type>(right);
     if (is_nan_left && is_nan_right) {
-      return 0;
+      return on_equality_result;
     } else if (is_nan_left) {
       return null_placement == NullPlacement::AtStart ? -1 : 1;
     } else if (is_nan_right) {
@@ -98,7 +105,7 @@ int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
   }
   int compared;
   if (left == right) {
-    compared = 0;
+    compared = on_equality_result;
   } else if (left > right) {
     compared = 1;
   } else {
@@ -252,17 +259,22 @@ struct NanPartition {
 template <typename ArrayType, typename Partitioner>
 NanPartition PartitionNans(std::span<uint64_t> indices, const ArrayType& values,
                            int64_t offset, NullPlacement null_placement) {
-  if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
+  using TypeClass = typename ArrayType::TypeClass;
+  if constexpr (has_null_like_values<TypeClass>()) {
     Partitioner partitioner;
     if (null_placement == NullPlacement::AtStart) {
       auto non_null_like_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
-        return std::isnan(values.GetView(static_cast<int64_t>(ind) - offset));
+        const auto value = GetViewType<TypeClass>::LogicalValue(
+            values.GetView(static_cast<int64_t>(ind) - offset));
+        return is_null_like<TypeClass>(value);
       });
       return NanPartition{.non_null_like_range = non_null_like_tail,
                           .nan_range = {indices.data(), non_null_like_tail.data()}};
     } else {
       auto nan_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
-        return !std::isnan(values.GetView(static_cast<int64_t>(ind) - offset));
+        const auto value = GetViewType<TypeClass>::LogicalValue(
+            values.GetView(static_cast<int64_t>(ind) - offset));
+        return !is_null_like<TypeClass>(value);
       });
       return NanPartition{.non_null_like_range = {indices.data(), nan_tail.data()},
                           .nan_range = nan_tail};
