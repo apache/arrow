@@ -1030,5 +1030,21 @@ TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
   AssertBatchSequenceEquals(expected.batches, batches);
 }
 
+TEST(ReaderTest, FailOnMalformedNumbers) {
+  auto read_options = ReadOptions::Defaults();
+  auto parse_options = ParseOptions::Defaults();
+  read_options.use_threads = false;
+
+  const std::vector<std::string> malformed = {
+      R"({"a": 01})",
+      R"({"a": 1.})",
+  };
+
+  for (const auto& json : malformed) {
+    auto result = ReadToTable(json, read_options, parse_options);
+    EXPECT_TRUE(result.status().IsInvalid()) << result.status().ToString();
+  }
+}
+
 }  // namespace json
 }  // namespace arrow
