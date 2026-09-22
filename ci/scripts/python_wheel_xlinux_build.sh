@@ -213,13 +213,17 @@ popd
 
 rm -rf dist/temp-fix-wheel
 
-echo "=== (${PYTHON_VERSION}) Building pyarrow-s3 wheel ==="
-# CMake pulls libarrow_s3 from /tmp/arrow-dist via CMAKE_PREFIX_PATH.
-python -m build --wheel --no-isolation --outdir dist pyarrow-s3
+if [ "${ARROW_S3}" == "ON" ]; then
+  echo "=== (${PYTHON_VERSION}) Building pyarrow-s3 wheel ==="
+  # CMake pulls libarrow_s3 from /tmp/arrow-dist via CMAKE_PREFIX_PATH.
+  python -m build --wheel --no-isolation --outdir dist pyarrow-s3
+fi
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with ${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION} ==="
 # libarrow ships in pyarrow and libarrow_s3 in pyarrow-s3: neither wheel
 # may graft the other's library.
 auditwheel repair --exclude 'libarrow_s3.so.*' dist/pyarrow-*.whl -w repaired_wheels
-auditwheel repair --exclude 'libarrow.so.*' dist/pyarrow_s3-*.whl -w repaired_wheels
+if [ "${ARROW_S3}" == "ON" ]; then
+  auditwheel repair --exclude 'libarrow.so.*' dist/pyarrow_s3-*.whl -w repaired_wheels
+fi
 popd
