@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/compute/api.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/table.h"
@@ -161,48 +162,90 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_max=*/"z"}));
 
 TEST(StatisticsTest, FixedWidthLeafUnderListStructNullCount) {
-  // Null counts for fixed-width leaves under list<struct<...>>
-  // must include null and empty list entries from the repeated ancestor.
-  auto schema = ::arrow::schema({::arrow::field(
-      "col", ::arrow::list(::arrow::struct_(
-                    {::arrow::field("s", ::arrow::utf8()),
-                     ::arrow::field("i32", ::arrow::int32())})))});
+  // Null counts for leaves under list<struct<...>> must include null and empty
+  // list entries from the repeated ancestor.
+  for (const auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    for (const bool use_dictionary : {false, true}) {
+      SCOPED_TRACE(::testing::Message()
+                   << "data_page_version=" << static_cast<int>(data_page_version)
+                   << ", use_dictionary=" << use_dictionary);
 
-  auto table = ::arrow::Table::Make(
-      schema,
-      {::arrow::ArrayFromJSON(
-          ::arrow::list(::arrow::struct_(
-              {::arrow::field("s", ::arrow::utf8()),
-               ::arrow::field("i32", ::arrow::int32())})),
-          R"([[{"s":"a","i32":1}],null,[],[{"s":null,"i32":null},{"s":"b","i32":2}]])")});
+      auto string_type =
+          use_dictionary ? ::arrow::dictionary(::arrow::int32(), ::arrow::utf8())
+                         : ::arrow::utf8();
+      auto list_type = ::arrow::list(::arrow::struct_(
+          {::arrow::field("s", string_type),
+           ::arrow::field("i32", ::arrow::int32())}));
+      auto schema = ::arrow::schema({::arrow::field("col", list_type)});
 
-  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
-  auto out_stream =
-      std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+      auto table = Table::Make(
+          schema, {ArrayFromJSON(
+                      list_type,
+                      R"([[{"s":"a","i32":1}],null,[],[{"s":null,"i32":null},{"s":"b","i32":2}]])")});
 
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<FileWriter> writer,
-      FileWriter::Open(*schema, default_memory_pool(), out_stream,
-                       default_writer_properties(),
-                       default_arrow_writer_properties()));
-  ASSERT_OK(writer->WriteTable(*table));
-  ASSERT_OK(writer->Close());
-  ASSERT_OK(out_stream->Close());
+      WriterProperties::Builder properties_builder;
+      properties_builder.data_page_version(data_page_version);
+      if (use_dictionary) {
+        properties_builder.enable_dictionary();
+      }
 
-  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
-  auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
-  auto metadata = parquet_reader->metadata();
-  auto row_group = metadata->RowGroup(0);
+      std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+      auto out_stream =
+          std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
 
-  ASSERT_EQ(row_group->num_columns(), 2);
+      ASSERT_OK_AND_ASSIGN(
+          std::unique_ptr<FileWriter> writer,
+          FileWriter::Open(*schema, default_memory_pool(), out_stream,
+                           properties_builder.build(),
+                           default_arrow_writer_properties()));
+      ASSERT_OK(writer->WriteTable(*table));
+      ASSERT_OK(writer->Close());
+      ASSERT_OK(out_stream->Close());
 
-  auto int32_stats = row_group->ColumnChunk(1)->statistics();
-  ASSERT_NE(int32_stats, nullptr);
+      auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+      auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
+      auto metadata = parquet_reader->metadata();
+      auto row_group = metadata->RowGroup(0);
 
-  // Fixed-width leaves must include nulls from repeated ancestors
-  // (e.g. null or empty lists) in the column statistics.
-  EXPECT_EQ(int32_stats->null_count(), 3);
-  EXPECT_EQ(int32_stats->num_values(), 2);
+      ASSERT_EQ(row_group->num_columns(), 2);
+
+      for (int i = 0; i < 2; ++i) {
+        auto stats = row_group->ColumnChunk(i)->statistics();
+        ASSERT_NE(stats, nullptr);
+        EXPECT_EQ(stats->null_count(), 3);
+        EXPECT_EQ(stats->num_values(), 2);
+      }
+
+      ASSERT_OK_AND_ASSIGN(
+          auto file_reader,
+          FileReader::Make(default_memory_pool(), std::move(parquet_reader),
+                           default_arrow_reader_properties()));
+
+      ASSERT_OK_AND_ASSIGN(auto read_table, file_reader->ReadTable());
+
+      if (use_dictionary) {
+        auto plain_list_type = ::arrow::list(::arrow::struct_(
+            {::arrow::field("s", ::arrow::utf8()),
+             ::arrow::field("i32", ::arrow::int32())}));
+
+        ASSERT_OK_AND_ASSIGN(
+            auto read_array,
+            ::arrow::compute::Cast(read_table->column(0)->chunk(0),
+                                   plain_list_type));
+
+        auto expected_array = table->column(0)->chunk(0);
+
+        ASSERT_OK_AND_ASSIGN(
+            auto expected_plain,
+            ::arrow::compute::Cast(expected_array, plain_list_type));
+
+        ASSERT_TRUE(read_array.Equals(expected_plain));
+      } else {
+        ASSERT_TRUE(read_table->Equals(*table));
+      }
+    }
+  }
 }
 
 TEST(StatisticsTest, TruncateOnlyHalfMinMax) {

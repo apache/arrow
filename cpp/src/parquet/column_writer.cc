@@ -1394,22 +1394,22 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
                                  &batch_num_values, &batch_num_spaced_values,
                                  &null_count);
-      const int64_t total_null_count = batch_size - batch_num_values;
+      const int64_t parquet_null_count = batch_size - batch_num_values;
 
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
-                          /*num_levels=*/batch_size, total_null_count);
+                          /*num_levels=*/batch_size, parquet_null_count);
       } else {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
                           valid_bits_offset + value_offset, /*num_levels=*/batch_size,
-                          total_null_count);
+                          parquet_null_count);
       }
       CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values,
-                                   total_null_count, check_page);
+                                   parquet_null_count, check_page);
       value_offset += batch_num_spaced_values;
 
       // Dictionary size checked separately from data page size since we
@@ -2040,7 +2040,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     // had so we need to recompute it from def levels.
     MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
                                &batch_num_values, &batch_num_spaced_values, &null_count);
-    const int64_t total_null_count = batch_size - batch_num_values;
+    const int64_t parquet_null_count = batch_size - batch_num_values;
     WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
@@ -2054,7 +2054,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
-    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, total_null_count,
+    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, parquet_null_count,
                                  check_page);
     value_offset += batch_num_spaced_values;
   };
