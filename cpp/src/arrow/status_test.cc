@@ -28,7 +28,7 @@
 
 namespace arrow {
 
-// Keep this function on top of file to minimize line number churn.
+// Keep at top of the file to make line number in asserted error message stable.
 template <typename StatusLike>
 Status ReturnNotOk(StatusLike&& status_like, int recursion = 0) {
   RETURN_NOT_OK(status_like);
