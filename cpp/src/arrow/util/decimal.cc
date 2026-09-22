@@ -912,11 +912,9 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
                               little_endian_array.size(), dec.sign == '-')) {
     return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
   }
-  if (out != nullptr) {
-    *out = Decimal(bit_util::little_endian::ToNative(little_endian_array));
-    if (dec.sign == '-') {
-      out->Negate();
-    }
+  Decimal parsed_value(bit_util::little_endian::ToNative(little_endian_array));
+  if (dec.sign == '-') {
+    parsed_value.Negate();
   }
 
   if (parsed_scale < 0) {
@@ -925,13 +923,19 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
     if (-parsed_scale > Decimal::kMaxScale) {
       return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }
-    if (out != nullptr) {
-      *out *= Decimal::GetScaleMultiplier(-parsed_scale);
+    const auto& multiplier = Decimal::GetScaleMultiplier(-parsed_scale);
+    if (parsed_value > Decimal::GetMaxSentinel() / multiplier ||
+        parsed_value < Decimal::GetMinSentinel() / multiplier) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }
+    parsed_value *= multiplier;
     parsed_precision -= parsed_scale;
     parsed_scale = 0;
   }
 
+  if (out != nullptr) {
+    *out = parsed_value;
+  }
   if (precision != nullptr) {
     *precision = parsed_precision;
   }
@@ -983,11 +987,9 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
                   static_cast<uint64_t>(dec.sign == '-')) {
     return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
   }
-  if (out != nullptr) {
-    *out = DecimalClass(value);
-    if (dec.sign == '-') {
-      out->Negate();
-    }
+  DecimalClass parsed_value(value);
+  if (dec.sign == '-') {
+    parsed_value.Negate();
   }
 
   if (parsed_scale < 0) {
@@ -996,13 +998,20 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     if (-parsed_scale > DecimalClass::kMaxScale) {
       return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }
-    if (out != nullptr) {
-      *out *= DecimalClass::GetScaleMultiplier(-parsed_scale);
+    typename DecimalClass::ValueType scaled_value;
+    if (internal::MultiplyWithOverflow(
+            parsed_value.value(), DecimalClass::GetScaleMultiplier(-parsed_scale).value(),
+            &scaled_value)) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }
+    parsed_value = DecimalClass(scaled_value);
     parsed_precision -= parsed_scale;
     parsed_scale = 0;
   }
 
+  if (out != nullptr) {
+    *out = parsed_value;
+  }
   if (precision != nullptr) {
     *precision = parsed_precision;
   }
