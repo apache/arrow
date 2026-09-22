@@ -581,23 +581,18 @@ Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
   return ConsumeJsonValue(value);
 }
 
-// XXX We could try to SIMD-accelerate this routine but it's called only
-// once per chunk and also will presumably examine a minimal amount of bytes.
+/// Returns the number of leading whitespace characters when trailing is false,
+/// or the number of trailing whitespace characters when trailing is true.
+// XXX We could try to SIMD-accelerate this routine.
 int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing) {
   if (!trailing) {
     const auto pos = view.find_first_not_of(" \t\r\n");
     return static_cast<int64_t>(pos == std::string_view::npos ? view.size() : pos);
   }
 
-  int64_t count = 0;
-  while (count < static_cast<int64_t>(view.size())) {
-    const auto c = view[view.size() - count - 1];
-    if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
-      break;
-    }
-    ++count;
-  }
-  return count;
+  const auto pos = view.find_last_not_of(" \t\r\n");
+  return static_cast<int64_t>(pos == std::string_view::npos ? view.size()
+                                                            : view.size() - pos - 1);
 }
 
 }  // namespace arrow::internal

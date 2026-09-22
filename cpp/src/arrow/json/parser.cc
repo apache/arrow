@@ -651,12 +651,11 @@ class ParseImpl : public BlockParser {
         field_index_(-1),
         scalar_values_builder_(pool) {}
 
+  /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
   enable_if_t<kind != Kind::kNull, RawArrayBuilder<kind>*> Cast(BuilderPtr builder) {
     return builder_set_.Cast<kind>(builder);
   }
-
-  Status Error() { return status_; }
 
   Status Null() {
     return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
@@ -671,10 +670,12 @@ class ParseImpl : public BlockParser {
         return internal::ConsumeJsonValue(value);
 
       case UnexpectedFieldBehavior::InferType: {
+        // If an unexpected field is encountered, add a NullBuilder with leading nulls.
+        // The next value parsed will promote this field to its inferred type.
         auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
         auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);
 
-        builder_ = BuilderPtr(Kind::kNull, leading_nulls, true);
+        builder_ = BuilderPtr(Kind::kNull, leading_nulls, /*nullable=*/true);
         field_index_ = struct_builder->AddField(key, builder_);
 
         return ParseValue(value);
@@ -708,6 +709,7 @@ class ParseImpl : public BlockParser {
     }
   }
 
+  /// \brief Set up builders using an expected Schema
   Status Initialize(const std::shared_ptr<Schema>& s) {
     auto type = struct_({});
     if (s) {
@@ -716,14 +718,13 @@ class ParseImpl : public BlockParser {
     return builder_set_.MakeBuilder(*type, 0, &builder_);
   }
 
-  Status Parse(const std::shared_ptr<Buffer>& json) override { return DoParse(json); }
-
   Status Finish(std::shared_ptr<Array>* parsed) override {
     std::shared_ptr<Array> scalar_values;
     RETURN_NOT_OK(scalar_values_builder_.Finish(&scalar_values));
     return builder_set_.Finish(scalar_values, builder_, parsed);
   }
 
+  /// \brief Emit path of current field for debugging purposes
   std::string Path() {
     std::string path;
     for (size_t i = 0; i < builder_stack_.size(); ++i) {
@@ -743,7 +744,7 @@ class ParseImpl : public BlockParser {
   }
 
  protected:
-  Status DoParse(const std::shared_ptr<Buffer>& json) {
+  Status Parse(const std::shared_ptr<Buffer>& json) override {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
 
     const std::string_view input(reinterpret_cast<const char*>(json->data()),
@@ -793,6 +794,7 @@ class ParseImpl : public BlockParser {
       return parse(padded_json);
     }
 
+    // padded_string makes a copy of the input buffer.
     simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
                                         json->size());
     return parse(padded_json);
@@ -875,9 +877,10 @@ class ParseImpl : public BlockParser {
         RETURN_NOT_OK(MaybePromoteFromNull<Kind::kObject>());
         return ParseObject(value);
 
-      default:
+      case sj::json_type::unknown:
         return ParseError("Invalid value");
     }
+    return Status::OK();
   }
 
   Status ParseArray(sj::value value) {
@@ -893,7 +896,7 @@ class ParseImpl : public BlockParser {
     ARROW_ASSIGN_OR_RAISE(auto array, arrow::internal::ResolveSimdjsonResult(
                                           value.get_array(), "Failed to get JSON array"));
 
-    size_t size = 0;
+    int64_t size = 0;
 
     for (auto element_result : array) {
       ARROW_ASSIGN_OR_RAISE(auto element,
@@ -940,21 +943,18 @@ class ParseImpl : public BlockParser {
     }
 
     auto parent = builder_stack_.back();
-    auto expected_count = absent_fields_stack_.TopSize();
 
+    auto expected_count = absent_fields_stack_.TopSize();
     for (int i = 0; i < expected_count; ++i) {
       if (!absent_fields_stack_[i]) {
         continue;
       }
-
       auto field_builder = Cast<Kind::kObject>(parent)->field_builder(i);
       if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
         return ParseError("a required field was absent");
       }
-
       RETURN_NOT_OK(builder_set_.AppendNull(parent, i, field_builder));
     }
-
     absent_fields_stack_.Pop();
     EndNested();
     return Status::OK();
@@ -987,6 +987,10 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
+  /// \brief helper for parsing object fields.
+  ///
+  /// Sets the field builder with the given name, or returns false if
+  /// there is no such field or the field was already specified.
   bool SetFieldBuilder(std::string_view key, bool* duplicate_keys) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(key);
@@ -996,6 +1000,8 @@ class ParseImpl : public BlockParser {
     if (field_index_ < absent_fields_stack_.TopSize()) {
       *duplicate_keys = !absent_fields_stack_[field_index_];
     } else {
+      // When field_index is beyond the range of absent_fields_stack_ we have a duplicated
+      // field that wasn't declared in schema or previous records.
       *duplicate_keys = true;
     }
     if (*duplicate_keys) {
@@ -1007,12 +1013,18 @@ class ParseImpl : public BlockParser {
     return true;
   }
 
+  /// helper method for ParseArray and ParseObject
+  /// adds the current builder to a stack so its
+  /// children can be visited and parsed.
   void StartNested() {
     field_index_stack_.push_back(field_index_);
     field_index_ = -1;
     builder_stack_.push_back(builder_);
   }
 
+  /// helper method for EndArray and EndObject
+  /// replaces the current builder with its parent
+  /// so parsing of the parent can continue
   void EndNested() {
     field_index_ = field_index_stack_.back();
     field_index_stack_.pop_back();
@@ -1025,6 +1037,7 @@ class ParseImpl : public BlockParser {
                       " to ", Kind::Name(illegally_changed_to), " in row ", num_rows_);
   }
 
+  /// Reserve storage for scalars, these can occupy almost all of the JSON buffer
   Status ReserveScalarStorage(int64_t size) override {
     auto available_storage = scalar_values_builder_.value_data_capacity() -
                              scalar_values_builder_.value_data_length();
@@ -1038,9 +1051,14 @@ class ParseImpl : public BlockParser {
   Status status_;
   RawBuilderSet builder_set_;
   BuilderPtr builder_;
+  // top of this stack is the parent of builder_
   std::vector<BuilderPtr> builder_stack_;
+  // top of this stack refers to the fields of the highest *StructBuilder*
+  // in builder_stack_ (list builders don't have absent fields)
   BitsetStack absent_fields_stack_;
+  // index of builder_ within its parent
   int field_index_;
+  // top of this stack == field_index_
   std::vector<int> field_index_stack_;
   StringBuilder scalar_values_builder_;
   sj::parser parser_;

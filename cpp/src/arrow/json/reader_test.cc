@@ -1033,16 +1033,21 @@ TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
 TEST(ReaderTest, FailOnMalformedNumbers) {
   auto read_options = ReadOptions::Defaults();
   auto parse_options = ParseOptions::Defaults();
-  read_options.use_threads = false;
 
   const std::vector<std::string> malformed = {
       R"({"a": 01})",
       R"({"a": 1.})",
   };
 
-  for (const auto& json : malformed) {
-    auto result = ReadToTable(json, read_options, parse_options);
-    EXPECT_TRUE(result.status().IsInvalid()) << result.status().ToString();
+  // Malformed numbers should be rejected regardless of whether parsing is threaded.
+  for (const bool use_threads : {false, true}) {
+    read_options.use_threads = use_threads;
+
+    for (const auto& json : malformed) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::StartsWith("Invalid: Failed to parse JSON number"),
+          ReadToTable(json, read_options, parse_options));
+    }
   }
 }
 

@@ -327,6 +327,7 @@ TEST(BlockParserWithSchema, ValidateIgnoredFields) {
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
 
   std::shared_ptr<Array> parsed;
+  // Ignored fields should still be validated for malformed JSON.
   ASSERT_RAISES(Invalid,
                 ParseFromString(options, R"({"known": 1, "ignored": [1,]})", &parsed));
 }
