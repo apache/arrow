@@ -680,9 +680,12 @@ def test_external_key_material_rotation(
     assert data_table.equals(table_read_after_rotation)
 
 
-def recording_kms_factory(created_configs, client_class=InMemoryKmsClient):
+def recording_kms_factory(created_configs, client_class=None):
     """Create a KMS client factory that appends the KMS instance ID and URL of
     each connection configuration it is given to created_configs"""
+    if client_class is None:
+        client_class = InMemoryKmsClient
+
     def kms_factory(kms_connection_configuration):
         created_configs.append(
             (kms_connection_configuration.kms_instance_id,
