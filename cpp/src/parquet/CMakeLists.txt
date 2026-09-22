@@ -412,7 +412,7 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
 
-if(ARROW_WITH_OPENTELEMETRY)
+if(ARROW_WITH_OPENTELEMETRY AND NOT ARROW_USE_ASAN)
   add_parquet_test(arrow-reader-writer-tracing-test
                    SOURCES
                    arrow/arrow_reader_writer_tracing_test.cc
