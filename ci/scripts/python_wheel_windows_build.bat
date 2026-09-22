@@ -151,8 +151,25 @@ pushd C:\arrow\python
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
+@REM arrow_s3.dll ships in the separate pyarrow-s3 wheel.
 %PYTHON_CMD% -m delvewheel repair -vv ^
-    --ignore-existing --with-mangle ^
+    --ignore-existing --with-mangle --exclude arrow_s3.dll ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
+
+if not "%ARROW_S3%"=="ON" goto :skip_pyarrow_s3
+
+@REM Build pyarrow-s3: CMake pulls arrow_s3.dll from C:\arrow-dist via
+@REM CMAKE_PREFIX_PATH.
+%PYTHON_CMD% -m build --wheel --no-isolation --outdir dist-s3 pyarrow-s3 || exit /B 1
+
+for /f %%i in ('dir dist-s3\pyarrow_s3-*.whl /B') do (set S3_WHEEL_NAME=%cd%\dist-s3\%%i) || exit /B 1
+echo "pyarrow-s3 wheel name: %S3_WHEEL_NAME%"
+
+@REM arrow.dll ships in the pyarrow wheel.
+%PYTHON_CMD% -m delvewheel repair -vv ^
+    --ignore-existing --with-mangle --exclude arrow.dll ^
+    -w repaired_wheels %S3_WHEEL_NAME% || exit /B 1
+
+:skip_pyarrow_s3
 
 popd

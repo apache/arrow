@@ -27,7 +27,9 @@ find_package(ArrowS3 REQUIRED)
 # (Linux) or install name (macOS).
 get_filename_component(ARROW_S3_LIB_REAL ${ARROW_S3_SHARED_LIB} REALPATH)
 get_filename_component(ARROW_S3_LIB_NAME ${ARROW_S3_SHARED_LIB} NAME_WE)
-if(APPLE)
+if(MSVC)
+  set(ARROW_S3_LIB_INSTALLED_NAME ${ARROW_S3_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+elseif(APPLE)
   set(ARROW_S3_LIB_INSTALLED_NAME
       ${ARROW_S3_LIB_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX})
 else()
@@ -37,3 +39,10 @@ endif()
 install(FILES ${ARROW_S3_LIB_REAL}
         DESTINATION pyarrow_s3
         RENAME ${ARROW_S3_LIB_INSTALLED_NAME})
+if(MSVC)
+  # The import library, previously bundled in the pyarrow wheel, for C++
+  # extensions that link against Arrow S3.
+  install(FILES ${ARROW_S3_IMPORT_LIB}
+          DESTINATION pyarrow_s3
+          RENAME ${ARROW_S3_LIB_NAME}.lib)
+endif()

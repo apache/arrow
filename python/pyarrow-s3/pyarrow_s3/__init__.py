@@ -25,7 +25,9 @@ import sys
 # loader resolves libarrow_s3's dependency on it by SONAME.
 import pyarrow  # noqa: F401
 
-if sys.platform == "darwin":
+if sys.platform == "win32":
+    _pattern = "arrow_s3.dll"
+elif sys.platform == "darwin":
     _pattern = "libarrow_s3.*.dylib"
 else:
     _pattern = "libarrow_s3.so.*"
