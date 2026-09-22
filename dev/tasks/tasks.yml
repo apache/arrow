@@ -295,28 +295,6 @@ tasks:
 
   ######################## macOS verification ################################
 
-  {% for target in ["cpp", "integration", "python"] %}
-  verify-rc-source-{{ target }}-macos-conda-amd64:
-    ci: github
-    template: verify-rc/github.macos.yml
-    params:
-      target: {{ target }}
-      use_conda: True
-      github_runner: "macos-26-intel"
-  {% endfor %}
-
-  {% for target in ["cpp",
-                    "integration",
-                    "python",
-                    "ruby"] %}
-  verify-rc-source-{{ target }}-macos-amd64:
-    ci: github
-    template: verify-rc/github.macos.yml
-    params:
-      target: {{ target }}
-      github_runner: "macos-26-intel"
-  {% endfor %}
-
   {% for target in ["cpp",
                     "integration",
                     "python",
