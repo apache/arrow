@@ -18,14 +18,20 @@
 import ctypes
 import glob
 import os
+import sys
 
 # libarrow_s3 depends on libarrow, which ships in the pyarrow wheel.
 # Importing pyarrow first loads libarrow into the process, so the dynamic
 # loader resolves libarrow_s3's dependency on it by SONAME.
 import pyarrow  # noqa: F401
 
+if sys.platform == "darwin":
+    _pattern = "libarrow_s3.*.dylib"
+else:
+    _pattern = "libarrow_s3.so.*"
+
 # Keep a reference so the library stays loaded for the process lifetime.
 _libarrow_s3 = ctypes.CDLL(
-    glob.glob(os.path.join(os.path.dirname(__file__), "libarrow_s3.so.*"))[0],
+    glob.glob(os.path.join(os.path.dirname(__file__), _pattern))[0],
     mode=ctypes.RTLD_GLOBAL,
 )

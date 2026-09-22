@@ -22,10 +22,18 @@ project(pyarrow_s3 LANGUAGES CXX)
 
 find_package(ArrowS3 REQUIRED)
 
-# Ship only the SONAME file, named the same way bundle_arrow_lib names it in
-# python/CMakeLists.txt, so pyarrow's _s3fs resolves it by SONAME.
+# Ship only the versioned library, named the same way bundle_arrow_lib names
+# it in python/CMakeLists.txt, so pyarrow's _s3fs resolves it by its SONAME
+# (Linux) or install name (macOS).
 get_filename_component(ARROW_S3_LIB_REAL ${ARROW_S3_SHARED_LIB} REALPATH)
 get_filename_component(ARROW_S3_LIB_NAME ${ARROW_S3_SHARED_LIB} NAME_WE)
+if(APPLE)
+  set(ARROW_S3_LIB_INSTALLED_NAME
+      ${ARROW_S3_LIB_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX})
+else()
+  set(ARROW_S3_LIB_INSTALLED_NAME
+      ${ARROW_S3_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_SO_VERSION})
+endif()
 install(FILES ${ARROW_S3_LIB_REAL}
         DESTINATION pyarrow_s3
-        RENAME ${ARROW_S3_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_SO_VERSION})
+        RENAME ${ARROW_S3_LIB_INSTALLED_NAME})
