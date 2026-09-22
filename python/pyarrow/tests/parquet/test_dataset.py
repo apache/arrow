@@ -1312,6 +1312,32 @@ def test_parquet_write_to_dataset_exposed_keywords(tempdir):
     assert paths_written_set == expected_paths
 
 
+def test_write_table_options_in_make_write_options():
+    import pyarrow.dataset as ds
+
+    not_writer_args = {"table", "where", "row_group_size", "filesystem", "flavor"}
+    options = {
+        name: parameter.default
+        for name, parameter in inspect.signature(pq.write_table).parameters.items()
+        if name not in not_writer_args
+        and parameter.kind != inspect.Parameter.VAR_KEYWORD
+    }
+    ds.ParquetFileFormat().make_write_options(**options)
+
+
+def test_write_to_dataset_options(tempdir):
+    table = pa.table({"a": [1, 2, 3],
+                      "t": pa.array([1, 2, 3], pa.time32("ms"))})
+    pq.write_to_dataset(table, tempdir, store_schema=False,
+                        write_time_adjusted_to_utc=True,
+                        bloom_filter_options={"a": True},
+                        )
+    metadata = pq.read_metadata(next(tempdir.glob("*.parquet")))
+    assert b'ARROW:schema' not in (metadata.metadata or {})
+    assert 'isAdjustedToUTC=true' in str(metadata.schema.column(1).logical_type)
+    assert metadata.row_group(0).column(0).bloom_filter_offset is not None
+
+
 @pytest.mark.parametrize("write_dataset_kwarg", (
     ("create_dir", True),
     ("create_dir", False),
