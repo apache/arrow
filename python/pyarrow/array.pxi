@@ -2370,13 +2370,13 @@ cdef class Array(_PandasConvertible):
                 raise BufferError(
                     f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
                 )
-            legacy_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
             # Note: from March 2025 onwards, it's okay to raise BufferError here.
             # Still we keep the V0 version as the V1 was only added in August 2026.
             warnings.warn(
                 "Exporting an unversioned DLPack capsule is deprecated, "
                 "pass max_version=(1, 0) or higher.",
                 DeprecationWarning, stacklevel=2)
+            legacy_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
             return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
         # Currently no major version other than legacy 0 and current 1.3
