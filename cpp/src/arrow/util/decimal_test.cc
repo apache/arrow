@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <tuple>
@@ -66,6 +67,10 @@ void AssertDecimalFromString(const std::string& s, const DecimalType& expected,
   int32_t precision, scale;
   ASSERT_OK(DecimalType::FromString(s, &d, &precision, &scale));
   EXPECT_EQ(expected, d);
+  EXPECT_EQ(expected_precision, precision);
+  EXPECT_EQ(expected_scale, scale);
+  precision = scale = -1;
+  ASSERT_OK(DecimalType::FromString(s, nullptr, &precision, &scale));
   EXPECT_EQ(expected_precision, precision);
   EXPECT_EQ(expected_scale, scale);
 }
@@ -161,6 +166,54 @@ class DecimalFromStringTest : public ::testing::Test {
   void TestWithExponentAndNullptrScale() {
     const DecimalType expected_value(123);
     ASSERT_OK_AND_EQ(expected_value, DecimalType::FromString("1.23E-8"));
+  }
+
+  void TestPositiveExponentOverflow() {
+    const std::string exponent = "e" + std::to_string(DecimalType::kMaxScale);
+    for (const std::string& s :
+         {"99" + exponent, "-99" + exponent, "9.9" + exponent, "-9.9" + exponent}) {
+      ARROW_SCOPED_TRACE("s = '", s, "'");
+      ASSERT_RAISES(Invalid, DecimalType::FromString(s));
+      int32_t precision, scale;
+      ASSERT_RAISES(Invalid, DecimalType::FromString(s, nullptr, &precision, &scale));
+    }
+    AssertDecimalFromString("0" + exponent, DecimalType(0), DecimalType::kMaxScale, 0);
+    AssertDecimalFromString("-0" + exponent, DecimalType(0), DecimalType::kMaxScale, 0);
+  }
+
+  void TestPositiveExponentLimits() {
+    const DecimalType maximum = [] {
+      if constexpr (DecimalType::kBitWidth <= 64) {
+        return DecimalType(std::numeric_limits<typename DecimalType::ValueType>::max());
+      } else {
+        return DecimalType(DecimalType::GetMaxSentinel());
+      }
+    }();
+    DecimalType minimum = maximum;
+    minimum.Negate();
+    minimum -= DecimalType(1);
+    for (const DecimalType& limit : {maximum, minimum}) {
+      const int32_t sign_size = limit.IsNegative() ? 1 : 0;
+      const std::string limit_string = limit.ToIntegerString();
+      AssertDecimalFromString(limit_string + "e0", limit,
+                              static_cast<int32_t>(limit_string.size()) - sign_size, 0);
+      for (int32_t exponent = 1; exponent <= DecimalType::kMaxScale; ++exponent) {
+        const auto multiplier = DecimalType::GetScaleMultiplier(exponent);
+        const DecimalType coefficient(limit / multiplier);
+        const std::string digits = coefficient.ToIntegerString();
+        const std::string suffix = "e" + std::to_string(exponent);
+        AssertDecimalFromString(
+            digits + suffix, DecimalType(coefficient * multiplier),
+            static_cast<int32_t>(digits.size()) - sign_size + exponent, 0);
+        const DecimalType overflow(coefficient +
+                                   DecimalType(limit.IsNegative() ? -1 : 1));
+        const std::string s = overflow.ToIntegerString() + suffix;
+        ARROW_SCOPED_TRACE("s = '", s, "'");
+        ASSERT_RAISES(Invalid, DecimalType::FromString(s));
+        int32_t precision, scale;
+        ASSERT_RAISES(Invalid, DecimalType::FromString(s, nullptr, &precision, &scale));
+      }
+    }
   }
 
   void TestSmallValues() {
@@ -285,6 +338,14 @@ TYPED_TEST(DecimalFromStringTest, NoDecimalPointExponent) {
 
 TYPED_TEST(DecimalFromStringTest, WithExponentAndNullptrScale) {
   this->TestWithExponentAndNullptrScale();
+}
+
+TYPED_TEST(DecimalFromStringTest, PositiveExponentOverflow) {
+  this->TestPositiveExponentOverflow();
+}
+
+TYPED_TEST(DecimalFromStringTest, PositiveExponentLimits) {
+  this->TestPositiveExponentLimits();
 }
 
 TYPED_TEST(DecimalFromStringTest, SmallValues) { this->TestSmallValues(); }
@@ -451,13 +512,6 @@ TEST(Decimal128Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
-  // XXX conversion overflows after parsing are currently not detected
-  //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
-  //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
   ASSERT_RAISES(Invalid, Decimal128::FromString(
                              "1.55555555555555555555555555555555555555555555555555"));
   AssertDecimalFromString("-170141183460469231731687303715884105728",
@@ -567,16 +621,6 @@ TEST(Decimal256Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
   ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
 
-  // XXX precision limits and conversion overflows after parsing are currently not
-  // detected
-  //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
-  //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
   ASSERT_RAISES(Invalid, Decimal256::FromString(std::string(78, '9')));
   AssertDecimalFromString(
       "-57896044618658097711785492504343953926634992332820282019728792003956564819968",
