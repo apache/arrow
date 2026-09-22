@@ -620,6 +620,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             "coerce_timestamps",
             "allow_truncated_timestamps",
             "use_compliant_nested_type",
+            "store_schema",
+            "write_time_adjusted_to_utc",
         }
 
         setters = set()
@@ -661,6 +663,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             sorting_columns=self._properties["sorting_columns"],
             store_decimal_as_integer=self._properties["store_decimal_as_integer"],
             use_content_defined_chunking=self._properties["use_content_defined_chunking"],
+            bloom_filter_options=self._properties["bloom_filter_options"],
         )
 
     def _set_arrow_properties(self):
@@ -677,7 +680,9 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             writer_engine_version="V2",
             use_compliant_nested_type=(
                 self._properties["use_compliant_nested_type"]
-            )
+            ),
+            store_schema=self._properties["store_schema"],
+            write_time_adjusted_to_utc=self._properties["write_time_adjusted_to_utc"],
         )
 
     def _set_encryption_config(self):
@@ -706,6 +711,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
             use_compliant_nested_type=True,
+            store_schema=True,
             encryption_properties=None,
             write_batch_size=None,
             dictionary_pagesize_limit=None,
@@ -715,6 +721,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             sorting_columns=None,
             store_decimal_as_integer=False,
             use_content_defined_chunking=False,
+            write_time_adjusted_to_utc=False,
+            bloom_filter_options=None,
         )
 
         self._set_properties()
