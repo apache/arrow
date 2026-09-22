@@ -565,6 +565,8 @@ cdef class Declaration(_Weakrefable):
 
         if inputs is not None:
             for ipt in inputs:
+                if not isinstance(ipt, Declaration):
+                    raise TypeError("Expected a Declaration")
                 c_inputs.push_back(
                     CDeclaration.Input((<Declaration>ipt).unwrap())
                 )
