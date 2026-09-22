@@ -138,8 +138,7 @@ def test_exported_option_classes():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0",
-    "ignore:Specifying null_placement in RankOptions"
+    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
 )
 def test_option_class_equality(request):
     options = [
@@ -2945,9 +2944,6 @@ def _check_temporal_rounding(ts, values, unit):
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
-@pytest.mark.filterwarnings(
-    "ignore:Specifying null_placement in RankOptions"
-)
 def test_round_temporal(unit):
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
@@ -3966,9 +3962,6 @@ def test_random():
         pc.random(100, initializer=[])
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Specifying null_placement in RankOptions"
-)
 @pytest.mark.parametrize(
     "tiebreaker,expected_values",
     [("min", [3, 1, 4, 6, 4, 6, 1]),
@@ -3985,9 +3978,6 @@ def test_rank_options_tiebreaker(tiebreaker, expected_values):
     assert result.equals(expected)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Specifying null_placement in RankOptions"
-)
 def test_rank_options():
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
     expected = pa.array([3, 1, 4, 6, 5, 7, 2], type=pa.uint64())
@@ -4020,9 +4010,6 @@ def test_rank_options():
                        tiebreaker="NonExisting")
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Specifying null_placement in RankOptions"
-)
 def test_rank_quantile_options():
     arr = pa.array([None, 1, None, 2, None])
     expected = pa.array([0.7, 0.1, 0.7, 0.3, 0.7], type=pa.float64())
@@ -4053,9 +4040,6 @@ def test_rank_quantile_options():
         pc.rank_quantile(arr, sort_keys="XXX")
 
 
-@pytest.mark.filterwarnings(
-    "ignore:Specifying null_placement in RankOptions"
-)
 def test_rank_normal_options():
     arr = pa.array([None, 1, None, 2, None])
 
