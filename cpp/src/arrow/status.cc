@@ -130,7 +130,7 @@ std::string Status::ToStringWithoutContextLines() const {
       break;
     }
     // Check for the pattern ":\d+ " (colon followed by one or more digits and a space)
-    // to identify context lines in the format "filename:line  expr"
+    // to identify context lines in the format "filename:line expr"
     auto colon_position = message.find(":", last_new_line_position);
     if (colon_position == std::string::npos) {
       break;

@@ -30,7 +30,7 @@ namespace arrow {
 
 // Keep at top of the file to make line number in asserted error message stable.
 template <typename StatusLike>
-Status ReturnNotOk(StatusLike&& status_like, int recursion = 0) {
+Status ReturnNotOk(StatusLike&& status_like) {
   RETURN_NOT_OK(status_like);
   return Status::OK();
 }
