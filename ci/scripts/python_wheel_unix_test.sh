@@ -78,7 +78,8 @@ import pyarrow.parquet
     python -c "import pyarrow._gcsfs"
   fi
   if [ "${PYARROW_TEST_S3}" == "ON" ]; then
-    python -c "import pyarrow._s3fs"
+    # S3 ships in the separate pyarrow-s3 wheel; Load via pyarrow.fs.
+    python -c "import pyarrow.fs; pyarrow.fs.S3FileSystem"
   fi
   if [ "${PYARROW_TEST_FLIGHT}" == "ON" ]; then
     python -c "import pyarrow.flight"
