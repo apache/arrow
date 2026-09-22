@@ -154,7 +154,7 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static_assert(std::is_same_v<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
+  static_assert(std::same_as<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
 
   // Instead of defining a custom memo table for StringView we reuse BinaryType's,
   // then convert to views when we copy data out of the memo table.

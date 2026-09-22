@@ -295,7 +295,7 @@ Status AppendUnionBatchInternal(const liborc::Type* type,
       RETURN_NOT_OK(AppendBatch(child_type, child_batch, start, /*length=*/1,
                                 builder->child_builder(child_id).get()));
 
-      if constexpr (std::is_same_v<UnionBuilderType, SparseUnionBuilder>) {
+      if constexpr (std::same_as<UnionBuilderType, SparseUnionBuilder>) {
         // Append null value to other child builders for sparse union type.
         for (int8_t field_id = 0; field_id < union_type->num_fields(); field_id++) {
           if (field_id != child_id) {
@@ -844,10 +844,10 @@ Status WriteUnionBatch(const Array& array, int64_t orc_offset,
     int64_t child_array_orc_offset = batch->offsets[running_orc_offset];
     int64_t child_array_arrow_offset;
 
-    if constexpr (std::is_same_v<UnionArrayType, DenseUnionArray>) {
+    if constexpr (std::same_as<UnionArrayType, DenseUnionArray>) {
       child_array_arrow_offset = union_array->value_offset(running_arrow_offset);
     } else {
-      static_assert(std::is_same_v<UnionArrayType, SparseUnionArray>);
+      static_assert(std::same_as<UnionArrayType, SparseUnionArray>);
       child_array_arrow_offset = running_arrow_offset;
     }
     child_batch->resize(child_array_orc_offset + 1);

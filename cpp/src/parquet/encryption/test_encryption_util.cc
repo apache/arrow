@@ -336,7 +336,7 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   if constexpr (std::is_floating_point_v<typename DType::c_type>) {
     ASSERT_EQ(read_col_data.rows(), expected_column_data.rows());
     for (int i = 0; i < read_col_data.rows(); ++i) {
-      if constexpr (std::is_same_v<float, typename DType::c_type>) {
+      if constexpr (std::same_as<float, typename DType::c_type>) {
         EXPECT_FLOAT_EQ(expected_column_data.values[i], read_col_data.values[i]);
       } else {
         EXPECT_DOUBLE_EQ(expected_column_data.values[i], read_col_data.values[i]);
@@ -547,7 +547,7 @@ void AssertColumnIndex(const std::shared_ptr<ColumnIndex>& column_index,
       std::dynamic_pointer_cast<TypedColumnIndex<DType>>(column_index);
   ASSERT_NE(typed_column_index, nullptr);
   ASSERT_EQ(typed_column_index->null_counts(), expected_null_counts);
-  if constexpr (std::is_same_v<FLBAType, DType>) {
+  if constexpr (std::same_as<FLBAType, DType>) {
     ASSERT_EQ(typed_column_index->min_values().size(), expected_min_values.size());
     ASSERT_EQ(typed_column_index->max_values().size(), expected_max_values.size());
     for (size_t i = 0; i < expected_min_values.size(); ++i) {

@@ -149,9 +149,9 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
   /// \brief Convert to a floating-point number (scaled)
   template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
   T ToReal(int32_t scale) const {
-    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+    static_assert(std::same_as<T, float> || std::same_as<T, double>,
                   "Unexpected floating-point type");
-    if constexpr (std::is_same_v<T, float>) {
+    if constexpr (std::same_as<T, float>) {
       return ToFloat(scale);
     } else {
       return ToDouble(scale);
@@ -255,9 +255,9 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
   /// \brief Convert to a floating-point number (scaled)
   template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
   T ToReal(int32_t scale) const {
-    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+    static_assert(std::same_as<T, float> || std::same_as<T, double>,
                   "Unexpected floating-point type");
-    if constexpr (std::is_same_v<T, float>) {
+    if constexpr (std::same_as<T, float>) {
       return ToFloat(scale);
     } else {
       return ToDouble(scale);
@@ -383,9 +383,9 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Convert to a floating-point number (scaled)
   template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
   T ToReal(int32_t scale) const {
-    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+    static_assert(std::same_as<T, float> || std::same_as<T, double>,
                   "Unexpected floating-point type");
-    if constexpr (std::is_same_v<T, float>) {
+    if constexpr (std::same_as<T, float>) {
       return ToFloat(scale);
     } else {
       return ToDouble(scale);
@@ -484,9 +484,9 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \brief Convert to a floating-point number (scaled)
   template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
   T ToReal(int32_t scale) const {
-    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+    static_assert(std::same_as<T, float> || std::same_as<T, double>,
                   "Unexpected floating-point type");
-    if constexpr (std::is_same_v<T, float>) {
+    if constexpr (std::same_as<T, float>) {
       return ToFloat(scale);
     } else {
       return ToDouble(scale);

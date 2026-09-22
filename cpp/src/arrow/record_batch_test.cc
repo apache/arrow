@@ -1933,7 +1933,7 @@ class TestRecordBatchMakeStatisticsArrayBinary : public ::testing::Test {
   }
 
   std::shared_ptr<::arrow::DataType> type() {
-    if constexpr (std::is_same_v<DataType, FixedSizeBinaryType>) {
+    if constexpr (std::same_as<DataType, FixedSizeBinaryType>) {
       return fixed_size_binary(1);
     } else {
       return TypeTraits<DataType>::type_singleton();

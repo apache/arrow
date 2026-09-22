@@ -328,7 +328,7 @@ Result<T> GetJsonField(simdjson::ondemand::object& object, std::string_view key)
     if (field_key == key) {
       auto value = field.value();
 
-      if constexpr (std::is_same_v<T, simdjson::ondemand::value>) {
+      if constexpr (std::same_as<T, simdjson::ondemand::value>) {
         return value;
       } else {
         return GetJsonAs<T>(value);

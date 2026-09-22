@@ -180,7 +180,7 @@ struct TemporalComponentExtractRound
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const RoundTemporalOptions& options = RoundTemporalState::Get(ctx);
 
-    if constexpr (std::is_same_v<InType, DurationType>) {
+    if constexpr (std::same_as<InType, DurationType>) {
       if (options.calendar_based_origin) {
         return Status::Invalid(
             "calendar_based_origin is not supported for duration inputs");

@@ -249,7 +249,7 @@ struct ListSlice {
     RETURN_NOT_OK(MakeBuilder(pool, output_type, &builder));
     auto* list_builder = checked_cast<BuilderType*>(builder.get());
     RETURN_NOT_OK(list_builder->Resize(batch[0].array.length));
-    if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
+    if constexpr (std::same_as<InListType, FixedSizeListType>) {
       RETURN_NOT_OK(BuildArrayFromFixedSizeListType(opts.start, opts.step, opts.stop,
                                                     batch, list_builder));
     } else {
@@ -267,8 +267,8 @@ struct ListSlice {
                                                 std::optional<int64_t> stop,
                                                 const ExecSpan& batch,
                                                 BuilderType* out_list_builder) {
-    static_assert(std::is_same_v<InListType, FixedSizeListType>);
-    constexpr bool kIsFixedSizeOutput = std::is_same_v<BuilderType, FixedSizeListBuilder>;
+    static_assert(std::same_as<InListType, FixedSizeListType>);
+    constexpr bool kIsFixedSizeOutput = std::same_as<BuilderType, FixedSizeListBuilder>;
     const auto& fsl_type = checked_cast<const FixedSizeListType&>(*batch[0].type());
     const ArraySpan& list_array = batch[0].array;
     const ArraySpan& values_array = list_array.child_data[0];
@@ -315,7 +315,7 @@ struct ListSlice {
                                                  const ExecSpan& batch,
                                                  BuilderType* out_list_builder) {
     constexpr bool kIsListViewInput = is_list_view(InListType::type_id);
-    constexpr bool kIsFixedSizeOutput = std::is_same_v<BuilderType, FixedSizeListBuilder>;
+    constexpr bool kIsFixedSizeOutput = std::same_as<BuilderType, FixedSizeListBuilder>;
     const ArraySpan& list_array = batch[0].array;
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();

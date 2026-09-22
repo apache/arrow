@@ -111,7 +111,7 @@ std::shared_ptr<ColumnDescriptor> MakeSchema(Repetition::type repetition) {
 
 template <typename ParquetType>
 int64_t BytesForItems(int64_t num_items) {
-  static_assert(!std::is_same_v<ParquetType, FLBAType>,
+  static_assert(!std::same_as<ParquetType, FLBAType>,
                 "BytesForItems unsupported for FLBAType");
   return num_items * sizeof(typename ParquetType::c_type);
 }

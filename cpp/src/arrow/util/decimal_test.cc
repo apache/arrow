@@ -1022,7 +1022,7 @@ class TestDecimalFromRealDouble : public ::testing::Test {
                             "9999999987.0000000000000000000000000000"},
     };
     std::vector<FromDoubleTestParam> type_dependent_values;
-    if (std::is_same_v<T, Decimal128>) {
+    if (std::same_as<T, Decimal128>) {
       // clang-format off
       type_dependent_values = {
         // 1 - 2**-52
@@ -1034,7 +1034,7 @@ class TestDecimalFromRealDouble : public ::testing::Test {
         FromDoubleTestParam{0.9999999999999998, 16, 16, "0.9999999999999998"},
       };
       // clang-format on
-    } else if (std::is_same_v<T, Decimal256>) {
+    } else if (std::same_as<T, Decimal256>) {
       // clang-format off
       type_dependent_values = {
         // 1 - 2**-52
@@ -1494,7 +1494,7 @@ TYPED_TEST(TestBasicDecimalFunctionality, Multiply) {
           << " x: " << x << " y: " << y;
 
       // for Decimal128
-      if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+      if constexpr (std::same_as<TypeParam, Decimal128>) {
         // Test by multiplying with an additional 32 bit factor, then additional
         // factor of 2^30 to test results in the range of -2^123 to 2^123 without
         // overflow.
@@ -1509,7 +1509,7 @@ TYPED_TEST(TestBasicDecimalFunctionality, Multiply) {
   }
 
   // Test edge cases for Decimal128
-  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+  if constexpr (std::same_as<TypeParam, Decimal128>) {
     for (auto x :
          std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
       for (auto y :
@@ -1547,7 +1547,7 @@ TYPED_TEST(TestBasicDecimalFunctionality, Divide) {
   }
 
   // Edge cases for Decimal128
-  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+  if constexpr (std::same_as<TypeParam, Decimal128>) {
     for (auto x :
          std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
       for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
@@ -1569,9 +1569,9 @@ TYPED_TEST(TestBasicDecimalFunctionality, Rescale) {
   ASSERT_RAISES(Invalid, TypeParam(555555).Rescale(6, 1));
 
   using OrigScaleType =
-      std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int8Type, Int16Type>;
+      std::conditional_t<std::same_as<TypeParam, Decimal32>, Int8Type, Int16Type>;
   using ValueType =
-      std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int16Type, Int32Type>;
+      std::conditional_t<std::same_as<TypeParam, Decimal32>, Int16Type, Int32Type>;
 
   // Test some random numbers.
   for (auto original_scale : GetRandomNumbers<OrigScaleType>(16)) {
@@ -1624,7 +1624,7 @@ TYPED_TEST(TestBasicDecimalFunctionality, Mod) {
   }
 
   // Edge cases for Decimal128
-  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+  if constexpr (std::same_as<TypeParam, Decimal128>) {
     // Test some edge cases
     for (auto x :
          std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {

@@ -81,15 +81,15 @@ TEST(Zip, TupleTypes) {
            Enumerate<int>)) {     // 6. Enumerate
                                   //    (const lvalue range dereferencing to non ref)
     static_assert(
-        std::is_same_v<decltype(tuple),
-                       std::tuple<char&,               // 1. mutable lvalue ref binding
-                                  const std::string&,  // 2. const lvalue ref binding
-                                  float&,              // 3. mutable lvalue ref binding
-                                  std::vector<bool>::reference,  // 4. by-value non ref
-                                                                 // binding (thanks STL)
-                                  int  // 5. by-value non ref binding
-                                       //    (that's fine they're just ints)
-                                  >>);
+        std::same_as<decltype(tuple),
+                     std::tuple<char&,               // 1. mutable lvalue ref binding
+                                const std::string&,  // 2. const lvalue ref binding
+                                float&,              // 3. mutable lvalue ref binding
+                                std::vector<bool>::reference,  // 4. by-value non ref
+                                                               // binding (thanks STL)
+                                int  // 5. by-value non ref binding
+                                     //    (that's fine they're just ints)
+                                >>);
   }
 
   static size_t max_count;
@@ -120,7 +120,7 @@ TEST(Zip, TupleTypes) {
       // Putting a const reference to range into Zip results in no copies and the
       // corresponding tuple element will also be a const reference
       EXPECT_EQ(count, 3);
-      static_assert(std::is_same_v<decltype(e), const Counted&>);
+      static_assert(std::same_as<decltype(e), const Counted&>);
     }
     EXPECT_EQ(count, 3);
   }
@@ -134,7 +134,7 @@ TEST(Zip, TupleTypes) {
       // Putting a mutable reference to range into Zip results in no copies and the
       // corresponding tuple element will also be a mutable reference
       EXPECT_EQ(count, 3);
-      static_assert(std::is_same_v<decltype(e), Counted&>);
+      static_assert(std::same_as<decltype(e), Counted&>);
     }
     EXPECT_EQ(count, 3);
   }
@@ -147,7 +147,7 @@ TEST(Zip, TupleTypes) {
       // alive as a mutable vector so that we can move out of it if we might reuse the
       // elements:
       EXPECT_EQ(count, 3);
-      static_assert(std::is_same_v<decltype(e), Counted&>);
+      static_assert(std::same_as<decltype(e), Counted&>);
     }
     EXPECT_EQ(count, 0);
   }
@@ -156,8 +156,8 @@ TEST(Zip, TupleTypes) {
     std::vector<bool> v{false, false, false, false};
     for (auto [i, e] : Zip(Enumerate<int>, v)) {
       // Testing with a range whose references aren't actually references
-      static_assert(std::is_same_v<decltype(e), decltype(v)::reference>);
-      static_assert(std::is_same_v<decltype(e), decltype(v[0])>);
+      static_assert(std::same_as<decltype(e), decltype(v)::reference>);
+      static_assert(std::same_as<decltype(e), decltype(v[0])>);
       static_assert(!std::is_reference_v<decltype(e)>);
       e = (i % 2 == 0);
     }
@@ -180,7 +180,7 @@ TEST(Zip, Enumerate) {
   std::vector<std::string> vec(3);
 
   for (auto [i, s] : Zip(Enumerate<>, vec)) {
-    static_assert(std::is_same_v<decltype(s), std::string&>);
+    static_assert(std::same_as<decltype(s), std::string&>);
     s = std::to_string(i + 7);
   }
 

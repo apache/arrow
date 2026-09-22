@@ -192,12 +192,12 @@ struct PhysicalIndexFinder {
   /// \param i the logical index into the REE array
   /// \return the physical index into the values array
   int64_t FindPhysicalIndex(int64_t i) {
-    if constexpr (std::is_same_v<RunEndCType, int16_t>) {
+    if constexpr (std::same_as<RunEndCType, int16_t>) {
       return FindPhysicalIndexImpl16(*this, i);
-    } else if constexpr (std::is_same_v<RunEndCType, int32_t>) {
+    } else if constexpr (std::same_as<RunEndCType, int32_t>) {
       return FindPhysicalIndexImpl32(*this, i);
     } else {
-      static_assert(std::is_same_v<RunEndCType, int64_t>, "Unsupported RunEndCType.");
+      static_assert(std::same_as<RunEndCType, int64_t>, "Unsupported RunEndCType.");
       return FindPhysicalIndexImpl64(*this, i);
     }
   }

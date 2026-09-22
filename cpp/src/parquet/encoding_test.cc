@@ -274,7 +274,7 @@ class TestEncodingBase : public ::testing::Test {
 
   void InitUnencodedByteArrayDataBytes() {
     // Calculate expected unencoded bytes based on type
-    if constexpr (std::is_same_v<Type, ByteArrayType>) {
+    if constexpr (std::same_as<Type, ByteArrayType>) {
       unencoded_byte_array_data_bytes_ = 0;
       for (int i = 0; i < num_values_; i++) {
         unencoded_byte_array_data_bytes_ += draws_[i].len;
@@ -322,7 +322,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
-    if constexpr (std::is_same_v<Type, ByteArrayType>) {
+    if constexpr (std::same_as<Type, ByteArrayType>) {
       ASSERT_EQ(encoder->ReportUnencodedDataBytes(),
                 this->unencoded_byte_array_data_bytes_);
     }
@@ -411,7 +411,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
         AllocateBuffer(default_memory_pool(), dict_traits->dict_encoded_size());
     dict_traits->WriteDict(dict_buffer_->mutable_data());
     std::shared_ptr<Buffer> indices = encoder->FlushValues();
-    if constexpr (std::is_same_v<Type, ByteArrayType>) {
+    if constexpr (std::same_as<Type, ByteArrayType>) {
       ASSERT_EQ(encoder->ReportUnencodedDataBytes(),
                 this->unencoded_byte_array_data_bytes_);
     }
@@ -955,11 +955,11 @@ class EncodingAdHocTyped : public ::testing::Test {
   }
 
   void ByteStreamSplit(int seed) {
-    if constexpr (!std::is_same_v<ParquetType, FloatType> &&
-                  !std::is_same_v<ParquetType, DoubleType> &&
-                  !std::is_same_v<ParquetType, Int32Type> &&
-                  !std::is_same_v<ParquetType, Int64Type> &&
-                  !std::is_same_v<ParquetType, FLBAType>) {
+    if constexpr (!std::same_as<ParquetType, FloatType> &&
+                  !std::same_as<ParquetType, DoubleType> &&
+                  !std::same_as<ParquetType, Int32Type> &&
+                  !std::same_as<ParquetType, Int64Type> &&
+                  !std::same_as<ParquetType, FLBAType>) {
       return;
     }
     auto values = GetValues(seed);
@@ -1509,7 +1509,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
                    std::span<const U> expected_decoded_data,
                    const ColumnDescriptor* descr = nullptr) {
     static_assert(sizeof(U) == sizeof(c_type));
-    static_assert(std::is_same_v<U, FLBA> == std::is_same_v<c_type, FLBA>);
+    static_assert(std::same_as<U, FLBA> == std::same_as<c_type, FLBA>);
 
     std::unique_ptr<TypedDecoder<Type>> decoder =
         MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT, descr);
@@ -1521,7 +1521,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
         decoder->Decode(reinterpret_cast<c_type*>(decoded_data.data()), num_elements);
     ASSERT_EQ(num_elements, num_decoded_elements);
     // Compare to expected values
-    if constexpr (std::is_same_v<c_type, FLBA>) {
+    if constexpr (std::same_as<c_type, FLBA>) {
       auto type_length = descr->type_length();
       for (int i = 0; i < num_elements; ++i) {
         ASSERT_TRUE(std::ranges::equal(
@@ -1541,7 +1541,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
                    std::span<const uint8_t> expected_encoded_data,
                    const ColumnDescriptor* descr = nullptr) {
     static_assert(sizeof(U) == sizeof(c_type));
-    static_assert(std::is_same_v<U, FLBA> == std::is_same_v<c_type, FLBA>);
+    static_assert(std::same_as<U, FLBA> == std::same_as<c_type, FLBA>);
 
     std::unique_ptr<TypedEncoder<Type>> encoder = MakeTypedEncoder<Type>(
         Encoding::BYTE_STREAM_SPLIT, /*use_dictionary=*/false, descr);
@@ -1556,8 +1556,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   }
 
   int physical_byte_width() const {
-    return std::is_same_v<c_type, FLBA> ? descr_->type_length()
-                                        : static_cast<int>(sizeof(c_type));
+    return std::same_as<c_type, FLBA> ? descr_->type_length()
+                                      : static_cast<int>(sizeof(c_type));
   }
 };
 
@@ -1580,7 +1580,7 @@ std::shared_ptr<ColumnDescriptor> FLBAColumnDescriptor(int type_length) {
 
 template <typename Type>
 void TestByteStreamSplitEncoding<Type>::CheckDecode() {
-  if constexpr (std::is_same_v<c_type, FLBA>) {
+  if constexpr (std::same_as<c_type, FLBA>) {
     // FIXED_LEN_BYTE_ARRAY
     // - type_length = 3
     {
@@ -1623,7 +1623,7 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
 
 template <typename Type>
 void TestByteStreamSplitEncoding<Type>::CheckEncode() {
-  if constexpr (std::is_same_v<c_type, FLBA>) {
+  if constexpr (std::same_as<c_type, FLBA>) {
     // FIXED_LEN_BYTE_ARRAY
     // - type_length = 3
     {
@@ -1909,7 +1909,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
 
   // Same values as in DeltaBitPackEncoder
   constexpr int kValuesPerBlock =
-      std::is_same_v<int32_t, typename TypeParam::c_type> ? 128 : 256;
+      std::same_as<int32_t, typename TypeParam::c_type> ? 128 : 256;
   constexpr int kMiniBlocksPerBlock = 4;
   constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
 
@@ -2116,7 +2116,7 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
 
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
-    if constexpr (std::is_same_v<Type, ByteArrayType>) {
+    if constexpr (std::same_as<Type, ByteArrayType>) {
       ASSERT_EQ(encoder->ReportUnencodedDataBytes(),
                 this->unencoded_byte_array_data_bytes_);
     }
@@ -2444,13 +2444,13 @@ class TestDeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
  public:
   void MakeEncoderDecoder(const ::arrow::DataType& type) {
     schema::NodePtr node;
-    if constexpr (std::is_same_v<Type, FLBAType>) {
+    if constexpr (std::same_as<Type, FLBAType>) {
       node = schema::PrimitiveNode::Make(
           "name", Repetition::OPTIONAL, ::parquet::Type::FIXED_LEN_BYTE_ARRAY,
           ConvertedType::NONE,
           checked_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width());
     } else {
-      static_assert(std::is_same_v<Type, ByteArrayType>);
+      static_assert(std::same_as<Type, ByteArrayType>);
       node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
                                          ::parquet::Type::BYTE_ARRAY);
     }

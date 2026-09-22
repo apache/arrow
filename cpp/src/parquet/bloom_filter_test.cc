@@ -410,7 +410,7 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
   std::vector<uint64_t> hashes;
   for (const Type& value : test_data) {
     uint64_t hash = 0;
-    if constexpr (std::is_same_v<Type, FLBA>) {
+    if constexpr (std::same_as<Type, FLBA>) {
       hash = filter.Hash(&value, kGenerateDataFLBALength);
     } else {
       hash = filter.Hash(&value);
@@ -419,7 +419,7 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
   }
 
   std::vector<uint64_t> batch_hashes(test_data.size());
-  if constexpr (std::is_same_v<Type, FLBA>) {
+  if constexpr (std::same_as<Type, FLBA>) {
     batch_insert_filter.Hashes(test_data.data(), kGenerateDataFLBALength,
                                static_cast<int>(test_data.size()), batch_hashes.data());
   } else {

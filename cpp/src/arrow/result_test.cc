@@ -642,18 +642,18 @@ TEST(ResultTest, MapFunctionToStatus) {
   const Result<MoveOnlyDataType> const_result(MoveOnlyDataType{kIntElement});
   auto const_mapped =
       const_result.Map([](const MoveOnlyDataType& m) -> Status { return Status::OK(); });
-  static_assert(std::is_same_v<decltype(const_mapped), Status>);
+  static_assert(std::same_as<decltype(const_mapped), Status>);
   EXPECT_TRUE(const_mapped.ok());
 
   auto move_mapped = Result<MoveOnlyDataType>(MoveOnlyDataType{kIntElement})
                          .Map([](MoveOnlyDataType m) -> Status { return Status::OK(); });
-  static_assert(std::is_same_v<decltype(move_mapped), Status>);
+  static_assert(std::same_as<decltype(move_mapped), Status>);
   EXPECT_TRUE(move_mapped.ok());
 
   const Result<MoveOnlyDataType> error_result(error);
   auto error_mapped =
       error_result.Map([](const MoveOnlyDataType& m) -> Status { return Status::OK(); });
-  static_assert(std::is_same_v<decltype(error_mapped), Status>);
+  static_assert(std::same_as<decltype(error_mapped), Status>);
   EXPECT_FALSE(error_mapped.ok());
   EXPECT_EQ(error_mapped, error);
 }

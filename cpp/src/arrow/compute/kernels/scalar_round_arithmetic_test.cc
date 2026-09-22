@@ -1165,7 +1165,7 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
 
   // Test different rounding mode
   // skip int8 because of its small range
-  if constexpr (!std::is_same_v<TypeParam, Int8Type>) {
+  if constexpr (!std::same_as<TypeParam, Int8Type>) {
     std::string values("[0, 1, -13, -50, 115, -150, -176, 200, 250]");
     this->SetRoundNdigits(-2);
     std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
@@ -1193,14 +1193,14 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
   this->AssertUnaryOpRaises(Round, "[1]", "out of range");
 
   // Overflow is also treated as error
-  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+  if constexpr (std::same_as<TypeParam, Int8Type>) {
     this->SetRoundNdigits(-1);
     this->SetRoundMode(RoundMode::DOWN);
     this->AssertUnaryOpRaises(Round, "[-127]", "overflow");
   }
 
   // A larger than double int64 should be correctly handled
-  if constexpr (std::is_same_v<TypeParam, Int64Type>) {
+  if constexpr (std::same_as<TypeParam, Int64Type>) {
     this->SetRoundNdigits(-2);
     this->SetRoundMode(RoundMode::UP);
     auto values = "[1152921504606846976]";  // 2 ^ 60
@@ -1235,7 +1235,7 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
 
   // Test different rounding mode
   // skip uint8 because of its small range
-  if constexpr (!std::is_same_v<TypeParam, UInt8Type>) {
+  if constexpr (!std::same_as<TypeParam, UInt8Type>) {
     std::string values("[0, 1, 13, 50, 115, 150, 176, 200, 250]");
     this->SetRoundNdigits(-2);
     std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
@@ -1263,14 +1263,14 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
   this->AssertUnaryOpRaises(Round, "[1]", "out of range");
 
   // Overflow is also treated as error
-  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+  if constexpr (std::same_as<TypeParam, UInt8Type>) {
     this->SetRoundNdigits(-1);
     this->SetRoundMode(RoundMode::UP);
     this->AssertUnaryOpRaises(Round, "[255]", "overflow");
   }
 
   // A larger than double uint64 should be correctly handled
-  if constexpr (std::is_same_v<TypeParam, Int64Type>) {
+  if constexpr (std::same_as<TypeParam, Int64Type>) {
     this->SetRoundNdigits(-2);
     this->SetRoundMode(RoundMode::UP);
     auto values = "[1152921504606846976]";  // 2 ^ 60
@@ -1373,13 +1373,13 @@ TYPED_TEST(TestBinaryRoundSigned, Round) {
   }
 
   // An overly large ndigits would cause an error
-  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+  if constexpr (std::same_as<TypeParam, Int8Type>) {
     this->SetRoundMode(RoundMode::UP);
     this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
   }
 
   // Overflow is also treated as error
-  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+  if constexpr (std::same_as<TypeParam, Int8Type>) {
     this->SetRoundMode(RoundMode::DOWN);
     this->AssertBinaryOpRaises(RoundBinary, "[-127]", "[-1]", "overflow");
   }
@@ -1432,13 +1432,13 @@ TYPED_TEST(TestBinaryRoundUnsigned, Round) {
   }
 
   // An overly large ndigits would cause an error
-  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+  if constexpr (std::same_as<TypeParam, UInt8Type>) {
     this->SetRoundMode(RoundMode::UP);
     this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
   }
 
   // Overflow is also treated as error
-  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+  if constexpr (std::same_as<TypeParam, UInt8Type>) {
     this->SetRoundMode(RoundMode::UP);
     this->AssertBinaryOpRaises(RoundBinary, "[255]", "[-1]", "overflow");
   }
@@ -1544,7 +1544,7 @@ TYPED_TEST(TestUnaryRoundToMultipleSigned, RoundToMultiple) {
                         ArrayFromJSON(this->type_singleton(), pair.second));
   }
 
-  if constexpr (std::is_same_v<TypeParam, Int32Type>) {
+  if constexpr (std::same_as<TypeParam, Int32Type>) {
     // Test overflow handling
     this->SetRoundMultiple(10);
     auto input = "[-2147483645]";
@@ -1621,7 +1621,7 @@ TYPED_TEST(TestUnaryRoundToMultipleUnsigned, RoundToMultiple) {
                         ArrayFromJSON(this->type_singleton(), pair.second));
   }
 
-  if constexpr (std::is_same_v<TypeParam, UInt32Type>) {
+  if constexpr (std::same_as<TypeParam, UInt32Type>) {
     // Test overflow handling
     this->SetRoundMultiple(10);
     auto input = "[4294967295]";

@@ -43,7 +43,7 @@ struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
   template <typename ValidFunc, typename NullFunc>
   static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
                             NullFunc&& null_func) {
-    if constexpr (std::is_same_v<T, BooleanType>) {
+    if constexpr (std::same_as<T, BooleanType>) {
       int64_t offset = arr.offset;
       const uint8_t* data = arr.buffers[1].data;
       return VisitBitBlocks(
@@ -61,7 +61,7 @@ struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
   template <typename ValidFunc, typename NullFunc>
   static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
                         NullFunc&& null_func) {
-    if constexpr (std::is_same_v<T, BooleanType>) {
+    if constexpr (std::same_as<T, BooleanType>) {
       int64_t offset = arr.offset;
       const uint8_t* data = arr.buffers[1].data;
       VisitBitBlocksVoid(
@@ -227,7 +227,7 @@ struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
 }  // namespace internal
 
 template <typename T, typename ValidFunc, typename NullFunc>
-  requires std::is_same_v<
+  requires std::same_as<
       std::invoke_result_t<ValidFunc,
                            typename internal::ArraySpanInlineVisitor<T>::c_type>,
       Status>
@@ -280,7 +280,7 @@ struct ArraySpanVisitor {
 // The `NullFunc` should have the same return type as `ValidFunc`.
 
 template <typename ValidFunc, typename NullFunc>
-  requires std::is_same_v<std::invoke_result_t<ValidFunc>, Status>
+  requires std::same_as<std::invoke_result_t<ValidFunc>, Status>
 Status VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
                              int64_t num_values, int64_t null_count,
                              ValidFunc&& valid_func, NullFunc&& null_func) {

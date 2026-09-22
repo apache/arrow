@@ -176,7 +176,7 @@ void VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
 }
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
-  requires std::is_same_v<
+  requires std::same_as<
       std::invoke_result_t<ConsumeValue, uint32_t, typename GetViewType<Type>::T>, Status>
 Status VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                           ConsumeNull&& null_func) {

@@ -146,7 +146,7 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::
 
 template <typename Scalar, uint64_t AlgNum>
 struct ScalarHelper<Scalar, AlgNum,
-                    enable_if_t<std::is_same_v<Scalar, ::arrow::util::Float16>>>
+                    enable_if_t<std::same_as<Scalar, ::arrow::util::Float16>>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for Float16
 

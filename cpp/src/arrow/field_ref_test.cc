@@ -48,13 +48,13 @@ struct FieldPathTestCase {
 
     template <typename T>
     const auto& OutputAs() const {
-      if constexpr (std::is_same_v<T, Field>) {
+      if constexpr (std::same_as<T, Field>) {
         return field;
-      } else if constexpr (std::is_same_v<T, Array>) {
+      } else if constexpr (std::same_as<T, Array>) {
         return array;
-      } else if constexpr (std::is_same_v<T, ArrayData>) {
+      } else if constexpr (std::same_as<T, ArrayData>) {
         return array->data();
-      } else if constexpr (std::is_same_v<T, ChunkedArray>) {
+      } else if constexpr (std::same_as<T, ChunkedArray>) {
         return chunked_array;
       }
     }
@@ -79,19 +79,19 @@ struct FieldPathTestCase {
 
   template <typename T>
   const auto& InputAs() const {
-    if constexpr (std::is_same_v<T, Schema>) {
+    if constexpr (std::same_as<T, Schema>) {
       return schema;
-    } else if constexpr (std::is_same_v<T, DataType>) {
+    } else if constexpr (std::same_as<T, DataType>) {
       return type;
-    } else if constexpr (std::is_same_v<T, Array>) {
+    } else if constexpr (std::same_as<T, Array>) {
       return array;
-    } else if constexpr (std::is_same_v<T, ArrayData>) {
+    } else if constexpr (std::same_as<T, ArrayData>) {
       return array->data();
-    } else if constexpr (std::is_same_v<T, RecordBatch>) {
+    } else if constexpr (std::same_as<T, RecordBatch>) {
       return record_batch;
-    } else if constexpr (std::is_same_v<T, ChunkedArray>) {
+    } else if constexpr (std::same_as<T, ChunkedArray>) {
       return chunked_array;
-    } else if constexpr (std::is_same_v<T, Table>) {
+    } else if constexpr (std::same_as<T, Table>) {
       return table;
     }
   }
@@ -246,7 +246,7 @@ class FieldPathTestFixture : public ::testing::Test {
     // they're reused to create the input Table (which has a distinct chunking per
     // column). However, if the input was the ChunkedArray, the returned outputs should
     // always have the same num_chunks as the input.
-    if constexpr (std::is_same_v<I, ChunkedArray>) {
+    if constexpr (std::same_as<I, ChunkedArray>) {
       EXPECT_EQ(case_->chunked_array->num_chunks(), actual->num_chunks());
     } else {
       EXPECT_EQ(expected->num_chunks(), actual->num_chunks());
@@ -287,7 +287,7 @@ class TestFieldPath : public FieldPathTestFixture {
     using O = OutputType<I>;
     auto result = DoGet<Flattened>(*case_->InputAs<I>(), FieldPath({1, 1, 2}));
     std::string substr = "index out of range. indices=[ 1 1 >2< ] ";
-    if constexpr (std::is_same_v<O, Field>) {
+    if constexpr (std::same_as<O, Field>) {
       substr += "fields: { a: float, a: bool, }";
     } else {
       substr += "column types: { float, bool, }";

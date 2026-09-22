@@ -276,7 +276,7 @@ template <typename T, typename R = T>
 using enable_if_not_floating_value = enable_if_t<!std::is_floating_point<T>::value, R>;
 
 template <typename T, typename R = T>
-using enable_if_half_float_value = enable_if_t<std::is_same_v<T, Float16>, R>;
+using enable_if_half_float_value = enable_if_t<std::same_as<T, Float16>, R>;
 
 template <typename T, typename R = T>
 using enable_if_decimal_value =
@@ -492,8 +492,8 @@ void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
 }
 
 template <typename T, typename VisitFunc, typename NullFunc>
-  requires std::is_same_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>,
-                          Status>
+  requires std::same_as<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>,
+                        Status>
 Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
                               NullFunc&& null_func) {
   return VisitArraySpanInline<T>(
@@ -622,7 +622,7 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
 
 template <typename Type>
 struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
-  using T = std::conditional_t<std::is_same_v<Type, HalfFloatType>, Float16,
+  using T = std::conditional_t<std::same_as<Type, HalfFloatType>, Float16,
                                typename TypeTraits<Type>::ScalarType::ValueType>;
 
   template <typename Generator>

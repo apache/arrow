@@ -88,7 +88,7 @@ T GetResultValue(Result<T> result) {
 /// \return A new Python reference, or NULL if an exception occurred
 template <typename T, typename PyWrapper = PyObject* (*)(T)>
 PyObject* WrapResult(Result<T> result, PyWrapper&& py_wrapper) {
-  static_assert(std::is_same_v<PyObject*, decltype(py_wrapper(std::declval<T>()))>,
+  static_assert(std::same_as<PyObject*, decltype(py_wrapper(std::declval<T>()))>,
                 "PyWrapper argument to WrapResult should return a PyObject* "
                 "when called with a T*");
   Status st = result.status();

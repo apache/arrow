@@ -389,7 +389,7 @@ void TestDecimalFormatter() {
       continue;
     }
 
-    if constexpr (std::is_same_v<T, Decimal32Type>) {
+    if constexpr (std::same_as<T, Decimal32Type>) {
       if (data.test_value > 999999999 || data.test_value < -999999999) {
         continue;
       }

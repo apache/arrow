@@ -171,7 +171,7 @@ template <typename DigitType>
 class ARROW_EXPORT SmallBasicDecimal {
  public:
   static_assert(
-      std::is_same_v<DigitType, int32_t> || std::is_same_v<DigitType, int64_t>,
+      std::same_as<DigitType, int32_t> || std::same_as<DigitType, int64_t>,
       "for bitwidths larger than 64 bits use BasicDecimal128 and BasicDecimal256");
 
   static constexpr int kMaxPrecision = std::numeric_limits<DigitType>::digits10;

@@ -91,7 +91,7 @@ template <typename T>
 class TestBaseArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
-  using CType = std::conditional_t<std::is_same_v<T, HalfFloatType>, Float16,
+  using CType = std::conditional_t<std::same_as<T, HalfFloatType>, Float16,
                                    typename ArrowType::c_type>;
 
   static std::shared_ptr<DataType> type_singleton() {
@@ -104,14 +104,14 @@ class TestBaseArithmetic : public ::testing::Test {
 
   template <typename V>
   std::shared_ptr<Scalar> MakeScalar(V value) {
-    if constexpr (std::is_same_v<T, HalfFloatType>) {
+    if constexpr (std::same_as<T, HalfFloatType>) {
       return std::make_shared<HalfFloatScalar>(Float16(value).bits());
     } else {
       return *arrow::MakeScalar(type_singleton(), value);
     }
   }
 
-  static constexpr bool is_half_float() { return std::is_same_v<T, HalfFloatType>; }
+  static constexpr bool is_half_float() { return std::same_as<T, HalfFloatType>; }
 };
 
 // This has to be a macro, the test wouldn't be skipped from a helper function
@@ -122,7 +122,7 @@ class TestBaseArithmetic : public ::testing::Test {
 
 template <typename T, typename R = void>
 using enable_if_numeric_value =
-    std::enable_if_t<std::is_arithmetic_v<T> || std::is_same_v<T, Float16>, R>;
+    std::enable_if_t<std::is_arithmetic_v<T> || std::same_as<T, Float16>, R>;
 
 template <typename T, typename OptionsType>
 class TestBaseUnaryArithmetic : public TestBaseArithmetic<T> {

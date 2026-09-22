@@ -55,7 +55,7 @@ void CheckWithinUlp(Float x, Float y, int n_ulp) {
   for (int exp : {1, -1, 10, -10}) {
     Float x_scaled(0);
     Float y_scaled(0);
-    if constexpr (std::is_same_v<Float, Float16>) {
+    if constexpr (std::same_as<Float, Float16>) {
       x_scaled = Float16(std::ldexp(x.ToFloat(), exp));
       y_scaled = Float16(std::ldexp(y.ToFloat(), exp));
     } else {
@@ -83,7 +83,7 @@ void CheckNotWithinUlp(Float x, Float y, int n_ulp) {
   for (int exp : {1, -1, 10, -10}) {
     Float x_scaled(0);
     Float y_scaled(0);
-    if constexpr (std::is_same_v<Float, Float16>) {
+    if constexpr (std::same_as<Float, Float16>) {
       x_scaled = Float16(std::ldexp(x.ToFloat(), exp));
       y_scaled = Float16(std::ldexp(y.ToFloat(), exp));
     } else {

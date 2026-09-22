@@ -1621,7 +1621,7 @@ struct NestedSelectorUtil {
 
   template <typename T>
   static const DataType* GetType(const T& input) {
-    if constexpr (std::is_same_v<T, ArrayData>) {
+    if constexpr (std::same_as<T, ArrayData>) {
       return input.type.get();
     } else {
       return input.type().get();
@@ -1658,7 +1658,7 @@ class NestedSelector {
       const DataType* type = Util::GetType(*parent);
       // We avoid this check for schema fields since it's inconsequential (plus there are
       // tests elsewhere that rely on it not happening)
-      if constexpr (!std::is_same_v<T, Field>) {
+      if constexpr (!std::same_as<T, Field>) {
         if (ARROW_PREDICT_FALSE(type->id() != Type::STRUCT)) {
           return Util::NonStructError();
         }
@@ -1681,7 +1681,7 @@ class NestedSelector {
   }
 
   template <typename OStream, typename U = T>
-  std::enable_if_t<std::is_same_v<U, Field>> Summarize(OStream* os) const {
+  std::enable_if_t<std::same_as<U, Field>> Summarize(OStream* os) const {
     const FieldVector* fields = get_children();
     if (!fields && get_parent()) {
       fields = &get_parent()->type()->fields();
@@ -1696,7 +1696,7 @@ class NestedSelector {
   }
 
   template <typename OStream, typename U = T>
-  std::enable_if_t<!std::is_same_v<U, Field>> Summarize(OStream* os) const {
+  std::enable_if_t<!std::same_as<U, Field>> Summarize(OStream* os) const {
     *os << "column types: { ";
     if (auto children = get_children()) {
       for (const auto& child : *children) {

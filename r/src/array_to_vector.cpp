@@ -259,7 +259,7 @@ class Converter_Double : public Converter {
     }
     auto p_data = REAL(data) + start;
     auto ingest_one = [&](R_xlen_t i) {
-      if constexpr (std::is_same_v<Type, HalfFloatType>) {
+      if constexpr (std::same_as<Type, HalfFloatType>) {
         p_data[i] = arrow::util::Float16::FromBits(p_values[i]).ToDouble();
       } else {
         p_data[i] = static_cast<value_type>(p_values[i]);

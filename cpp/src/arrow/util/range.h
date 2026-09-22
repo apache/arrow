@@ -164,8 +164,8 @@ LazyRange<Generator> MakeLazyRange(Generator&& gen, int64_t length) {
 /// const std::vector<SomeTable>& tables = ...
 /// std::function<std::vector<std::string>()> GetNames = ...
 /// for (auto [table, name] : Zip(tables, GetNames())) {
-///   static_assert(std::is_same_v<decltype(table), const SomeTable&>);
-///   static_assert(std::is_same_v<decltype(name), std::string&>);
+///   static_assert(std::same_as<decltype(table), const SomeTable&>);
+///   static_assert(std::same_as<decltype(name), std::string&>);
 ///   // temporaries (like this vector of strings) are kept alive for the
 ///   // duration of a loop and are safely movable).
 ///   RegisterTableWithName(std::move(name), &table);

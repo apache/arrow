@@ -194,12 +194,12 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
       SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
 
       // copy the data from the array, through Get_region
-      if constexpr (std::is_same_v<c_type, double>) {
+      if constexpr (std::same_as<c_type, double>) {
         Get_region(alt, 0, size, REAL(copy));
-      } else if constexpr (std::is_same_v<c_type, int>) {
+      } else if constexpr (std::same_as<c_type, int>) {
         Get_region(alt, 0, size, INTEGER(copy));
       } else {
-        static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+        static_assert(std::same_as<c_type, double> || std::same_as<c_type, int>,
                       "ALTREP not implemented for this c_type");
       }
 
@@ -250,12 +250,12 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     }
 
     // Otherwise we have to materialize and hand the pointer to data2
-    if constexpr (std::is_same_v<c_type, double>) {
+    if constexpr (std::same_as<c_type, double>) {
       return REAL(Materialize(alt));
-    } else if constexpr (std::is_same_v<c_type, int>) {
+    } else if constexpr (std::same_as<c_type, int>) {
       return INTEGER(Materialize(alt));
     } else {
-      static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+      static_assert(std::same_as<c_type, double> || std::same_as<c_type, int>,
                     "ALTREP not implemented for this c_type");
     }
   }
@@ -263,12 +263,12 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
   // The value at position i
   static c_type Elt(SEXP alt, R_xlen_t i) {
     if (IsMaterialized(alt)) {
-      if constexpr (std::is_same_v<c_type, double>) {
+      if constexpr (std::same_as<c_type, double>) {
         return REAL(Representation(alt))[i];
-      } else if constexpr (std::is_same_v<c_type, int>) {
+      } else if constexpr (std::same_as<c_type, int>) {
         return INTEGER(Representation(alt))[i];
       } else {
-        static_assert(std::is_same_v<c_type, double> || std::is_same_v<c_type, int>,
+        static_assert(std::same_as<c_type, double> || std::same_as<c_type, int>,
                       "ALTREP not implemented for this c_type");
       }
     }

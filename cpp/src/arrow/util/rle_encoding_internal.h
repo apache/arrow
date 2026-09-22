@@ -287,7 +287,7 @@ class RleRunDecoder {
 
   void Reset(const RunType& run, rle_size_t value_bit_width) noexcept {
     remaining_count_ = run.values_count();
-    if constexpr (std::is_same_v<value_type, bool>) {
+    if constexpr (std::same_as<value_type, bool>) {
       // ARROW-18031:  just check the LSB of the next byte and move on.
       // If we memcpy + FromLittleEndian, we have potential undefined behavior
       // if the bool value isn't 0 or 1.
@@ -432,7 +432,7 @@ class BitPackedRunDecoder {
         /* .max_read_bytes= */ static_cast<int>(max_read_bytes_ - bytes_fully_read),
     };
 
-    if constexpr (std::is_same_v<T, bool>) {
+    if constexpr (std::same_as<T, bool>) {
       ::arrow::internal::unpack(unread_data, out, opts);
 
     } else {

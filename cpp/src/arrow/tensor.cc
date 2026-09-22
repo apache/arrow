@@ -264,7 +264,7 @@ struct ConvertArrayToTensorVisitor {
       auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
 
       if (in_data.null_count == 0) {
-        if constexpr (std::is_same_v<In, Out>) {
+        if constexpr (std::same_as<In, Out>) {
           memcpy(out_values, in_values.data(), in_values.size_bytes());
           out_values += in_values.size();
         } else {
@@ -274,7 +274,7 @@ struct ConvertArrayToTensorVisitor {
         }
       } else {
         for (int64_t i = 0; i < in_data.length; ++i) {
-          if constexpr (T::type_id == Type::HALF_FLOAT && std::is_same_v<Out, uint16_t>) {
+          if constexpr (T::type_id == Type::HALF_FLOAT && std::same_as<Out, uint16_t>) {
             *out_values++ = in_data.IsNull(i)
                                 ? std::numeric_limits<util::Float16>::quiet_NaN().bits()
                                 : static_cast<Out>(in_values[i]);
@@ -312,7 +312,7 @@ struct ConvertArrayToTensorRowMajorVisitor {
         }
       } else {
         for (int64_t i = 0; i < in_data.length; ++i) {
-          if constexpr (T::type_id == Type::HALF_FLOAT && std::is_same_v<Out, uint16_t>) {
+          if constexpr (T::type_id == Type::HALF_FLOAT && std::same_as<Out, uint16_t>) {
             out_values[base + i * num_cols] =
                 in_data.IsNull(i) ? std::numeric_limits<util::Float16>::quiet_NaN().bits()
                                   : static_cast<Out>(in_values[i]);
@@ -338,7 +338,7 @@ inline void ConvertColumnsToTensor(const Container& container, uint8_t* out,
   const int num_columns = container.num_columns();
 
   for (int col_idx = 0; col_idx < num_columns; ++col_idx) {
-    if constexpr (std::is_same_v<Container, Table>) {
+    if constexpr (std::same_as<Container, Table>) {
       int64_t chunk_idx = 0;
 
       for (const auto& chunk : container.columns()[col_idx]->chunks()) {
@@ -352,7 +352,7 @@ inline void ConvertColumnsToTensor(const Container& container, uint8_t* out,
           DCHECK_OK(VisitTypeInline(*chunk->type(), &visitor));
         }
       }
-    } else if constexpr (std::is_same_v<Container, RecordBatch>) {
+    } else if constexpr (std::same_as<Container, RecordBatch>) {
       const auto& array_data = container.column_data()[col_idx];
 
       if (row_major) {
@@ -379,9 +379,9 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
   // if null_to_nan conversion is set to false
   for (int i = 0; i < container.num_columns(); ++i) {
     int64_t null_count = 0;
-    if constexpr (std::is_same_v<Container, Table>) {
+    if constexpr (std::same_as<Container, Table>) {
       null_count = container.column(i)->null_count();
-    } else if constexpr (std::is_same_v<Container, RecordBatch>) {
+    } else if constexpr (std::same_as<Container, RecordBatch>) {
       null_count = container.column_data(i)->GetNullCount();
     }
     if (null_count > 0 && !null_to_nan) {

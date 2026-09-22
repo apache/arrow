@@ -64,11 +64,11 @@ static void BM_ComputeHash(::benchmark::State& state) {
     uint64_t total = 0;
     for (const auto& value : values) {
       uint64_t hash = 0;
-      if constexpr (std::is_same_v<DType, FLBAType>) {
+      if constexpr (std::same_as<DType, FLBAType>) {
         hash = filter->Hash(&value, kDataStringLength);
-      } else if constexpr (std::is_same_v<DType, Int96Type>) {
+      } else if constexpr (std::same_as<DType, Int96Type>) {
         hash = filter->Hash(&value);
-      } else if constexpr (std::is_same_v<DType, ByteArrayType>) {
+      } else if constexpr (std::same_as<DType, ByteArrayType>) {
         hash = filter->Hash(&value);
       } else {
         hash = filter->Hash(value);
@@ -90,7 +90,7 @@ static void BM_BatchComputeHash(::benchmark::State& state) {
   auto filter = CreateBloomFilter(kNumBloomFilterInserts);
   std::vector<uint64_t> hashes(kNumBloomFilterInserts);
   for (auto _ : state) {
-    if constexpr (std::is_same_v<DType, FLBAType>) {
+    if constexpr (std::same_as<DType, FLBAType>) {
       filter->Hashes(values.data(), kDataStringLength, static_cast<int>(values.size()),
                      hashes.data());
     } else {

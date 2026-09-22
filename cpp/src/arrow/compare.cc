@@ -1540,7 +1540,7 @@ bool ArrayStatisticsOptionalValueEquals(const std::optional<Type>& left,
                                         const EqualOptions& options) {
   if (!left.has_value() || !right.has_value()) {
     return left.has_value() == right.has_value();
-  } else if constexpr (std::is_same_v<Type, double>) {
+  } else if constexpr (std::same_as<Type, double>) {
     return DoubleEquals(left.value(), right.value(), options);
   } else if (left->index() != right->index()) {
     return false;
@@ -1551,7 +1551,7 @@ bool ArrayStatisticsOptionalValueEquals(const std::optional<Type>& left,
       if constexpr (std::conjunction_v<std::is_same<type_1, double>,
                                        std::is_same<type_2, double>>) {
         return DoubleEquals(v1, v2, options);
-      } else if constexpr (std::is_same_v<type_1, type_2>) {
+      } else if constexpr (std::same_as<type_1, type_2>) {
         return v1 == v2;
       }
       Unreachable("The types are different.");

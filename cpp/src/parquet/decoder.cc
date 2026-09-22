@@ -234,9 +234,9 @@ auto DispatchArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc,
                                int64_t length,
                                std::optional<int64_t> estimated_data_length,
                                Function&& func, Args&&... args) {
-  static_assert(std::is_same_v<DType, ByteArrayType> || std::is_same_v<DType, FLBAType>,
+  static_assert(std::same_as<DType, ByteArrayType> || std::same_as<DType, FLBAType>,
                 "unsupported DType");
-  if constexpr (std::is_same_v<DType, ByteArrayType>) {
+  if constexpr (std::same_as<DType, ByteArrayType>) {
     switch (acc->builder->type()->id()) {
       case ::arrow::Type::BINARY:
       case ::arrow::Type::STRING: {
@@ -309,14 +309,14 @@ class TypedDecoderImpl : public DecoderImpl, virtual public TypedDecoder<DType> 
  protected:
   TypedDecoderImpl(const ColumnDescriptor* descr, Encoding::type encoding)
       : DecoderImpl(descr, encoding) {
-    if constexpr (std::is_same_v<DType, FLBAType>) {
+    if constexpr (std::same_as<DType, FLBAType>) {
       if (descr_ == nullptr) {
         throw ParquetException(
             "Must pass a ColumnDescriptor when creating a Decoder for "
             "FIXED_LEN_BYTE_ARRAY");
       }
       type_length_ = descr_->type_length();
-    } else if constexpr (std::is_same_v<DType, ByteArrayType>) {
+    } else if constexpr (std::same_as<DType, ByteArrayType>) {
       type_length_ = -1;
     } else {
       type_length_ = sizeof(T);
@@ -2178,7 +2178,7 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
       last_value_in_previous_page_ = last_value_;
     }
 
-    if constexpr (std::is_same_v<DType, FLBAType>) {
+    if constexpr (std::same_as<DType, FLBAType>) {
       // Checks all values
       for (int i = 0; i < max_values; i++) {
         if (buffer[i].len != static_cast<uint32_t>(this->type_length_)) {

@@ -63,7 +63,7 @@ Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct IsFiniteOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    if constexpr (std::is_same_v<InType, Float16>) {
+    if constexpr (std::same_as<InType, Float16>) {
       return value.is_finite();
     } else {
       return std::isfinite(value);
@@ -74,7 +74,7 @@ struct IsFiniteOperator {
 struct IsInfOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    if constexpr (std::is_same_v<InType, Float16>) {
+    if constexpr (std::same_as<InType, Float16>) {
       return value.is_infinity();
     } else {
       return std::isinf(value);
@@ -89,7 +89,7 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   const T* data = arr.GetValues<T>(1);
   for (int64_t i = 0; i < arr.length; ++i) {
     bool is_nan(false);
-    if constexpr (std::is_same_v<T, uint16_t>) {
+    if constexpr (std::same_as<T, uint16_t>) {
       is_nan = Float16::FromBits(data[i]).is_nan();
     } else {
       is_nan = std::isnan(data[i]);
@@ -143,7 +143,7 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct IsNanOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    if constexpr (std::is_same_v<InType, Float16>) {
+    if constexpr (std::same_as<InType, Float16>) {
       return value.is_nan();
     } else {
       return std::isnan(value);

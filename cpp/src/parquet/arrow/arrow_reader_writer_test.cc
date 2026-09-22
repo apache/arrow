@@ -3354,7 +3354,7 @@ void CheckListViewRoundTrip(
   using ViewArrayType = typename ::arrow::TypeTraits<ViewType>::ArrayType;
   using OffsetArrowType = typename ::arrow::TypeTraits<ViewType>::OffsetType;
   using FallbackArrayType =
-      std::conditional_t<std::is_same_v<ViewType, ::arrow::ListViewType>,
+      std::conditional_t<std::same_as<ViewType, ::arrow::ListViewType>,
                          ::arrow::ListArray, ::arrow::LargeListArray>;
 
   auto values = ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5]");

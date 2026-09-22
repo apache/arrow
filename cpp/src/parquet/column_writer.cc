@@ -1825,7 +1825,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   // Update the unencoded data bytes for ByteArray only per the specification.
   void UpdateUnencodedDataBytes() const {
-    if constexpr (std::is_same_v<T, ByteArray>) {
+    if constexpr (std::same_as<T, ByteArray>) {
       if (page_size_statistics_ != nullptr) {
         page_size_statistics_->IncrementUnencodedByteArrayDataBytes(
             current_encoder_->ReportUnencodedDataBytes());
@@ -2215,7 +2215,7 @@ struct SerializeFunctor<
   value_type TransferValue(const uint8_t* in) const {
     using DecimalValue = typename ::arrow::TypeTraits<ArrowType>::CType;
     DecimalValue decimal_value(in);
-    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+    if constexpr (std::same_as<ArrowType, ::arrow::Decimal256Type>) {
       // Decimal256 does not provide ToInteger, but we are sure it fits in the target
       // integer type.
       return static_cast<value_type>(decimal_value.low_bits());
@@ -2622,7 +2622,7 @@ struct SerializeFunctor<
 
   FixedLenByteArray FixDecimalEndianness(const uint8_t* in, int64_t offset) {
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal32Type>) {
+    if constexpr (std::same_as<ArrowType, ::arrow::Decimal32Type>) {
       const auto* u32_in = reinterpret_cast<const uint32_t*>(in);
       auto p = reinterpret_cast<uint32_t*>(scratch);
       *p++ = ::arrow::bit_util::ToBigEndian(u32_in[0]);
@@ -2630,12 +2630,12 @@ struct SerializeFunctor<
     } else {
       const auto* u64_in = reinterpret_cast<const uint64_t*>(in);
       auto p = reinterpret_cast<uint64_t*>(scratch);
-      if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal64Type>) {
+      if constexpr (std::same_as<ArrowType, ::arrow::Decimal64Type>) {
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
-      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal128Type>) {
+      } else if constexpr (std::same_as<ArrowType, ::arrow::Decimal128Type>) {
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
-      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+      } else if constexpr (std::same_as<ArrowType, ::arrow::Decimal256Type>) {
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);

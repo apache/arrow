@@ -32,7 +32,7 @@ namespace {
 
 template <typename Float>
 bool WithinUlpGeneric(Float left, Float right, int32_t n_ulps) {
-  if constexpr (std::is_same_v<Float, util::Float16>) {
+  if constexpr (std::same_as<Float, util::Float16>) {
     if (left.is_nan() || right.is_nan()) {
       return left.is_nan() == right.is_nan();
     }

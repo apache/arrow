@@ -2466,7 +2466,7 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
 
   // Verify values are found by bloom filter
   for (auto& value : this->values_) {
-    if constexpr (std::is_same_v<TypeParam, FLBAType>) {
+    if constexpr (std::same_as<TypeParam, FLBAType>) {
       EXPECT_TRUE(this->bloom_filter_->FindHash(
           this->bloom_filter_->Hash(&value, this->descr_->type_length())));
     } else {
