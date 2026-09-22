@@ -16,9 +16,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <iostream>
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
-#  include <sstream>
-#endif
+#include <sstream>
 
 #include "arrow/util/logging.h"
 
@@ -126,7 +124,6 @@ std::string Status::ToString() const {
 
 std::string Status::ToStringWithoutContextLines() const {
   auto message = ToString();
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
   while (true) {
     auto last_new_line_position = message.rfind("\n");
     if (last_new_line_position == std::string::npos) {
@@ -155,7 +152,6 @@ std::string Status::ToStringWithoutContextLines() const {
     }
     message = message.substr(0, last_new_line_position);
   }
-#endif
   return message;
 }
 
@@ -186,17 +182,15 @@ void Status::Warn(const std::string& message) const {
   ARROW_LOG(WARNING) << message << ": " << ToString();
 }
 
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
 void Status::AddContextLine(const char* filename, int line, const char* expr) {
   ARROW_CHECK(!ok()) << "Cannot add context line to ok status";
   std::stringstream ss;
-  ss << "\n" << filename << ":" << line << "  " << expr;
+  ss << "\n" << filename << ":" << line << " " << expr;
   if (state_->is_constant) {
     // We can't add context lines to a StatusConstant's state, so copy it now
     state_ = new State{code(), /*is_constant=*/false, message(), detail()};
   }
   state_->msg += ss.str();
 }
-#endif
 
 }  // namespace arrow
