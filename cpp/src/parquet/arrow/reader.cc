@@ -291,8 +291,8 @@ class FileReaderImpl : public FileReader {
     }
     ::arrow::util::tracing::Span span;
     START_SPAN(span, "parquet::arrow::read_column",
-               {{"parquet.arrow.columnindex", field_index},
-                {"parquet.arrow.columnname", column_name},
+               {{"parquet.arrow.fieldindex", field_index},
+                {"parquet.arrow.fieldname", field_name},
                 {"parquet.arrow.physicaltype", phys_type},
                 {"parquet.arrow.records_to_read", records_to_read}});
 #endif
