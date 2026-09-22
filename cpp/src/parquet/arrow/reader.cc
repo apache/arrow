@@ -281,7 +281,7 @@ class FileReaderImpl : public FileReader {
     }
 #ifdef ARROW_WITH_OPENTELEMETRY
     const auto& schema_field = manifest_.schema_fields[field_index];
-    const std::string& column_name = schema_field.field->name();
+    const std::string& field_name = schema_field.field->name();
     std::string phys_type;
     if (schema_field.is_leaf()) {
       phys_type = TypeToString(reader_->metadata()
