@@ -145,6 +145,17 @@ To run ty (note: currently only partially configured):
    $ cd arrow/python
    $ ty check
 
+**pyrefly**
+
+To run pyrefly:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ pyrefly check
+
+The pyrefly configuration is in the ``[tool.pyrefly]`` section of ``pyproject.toml``.
+
 Maintaining Type Stubs
 -----------------------
 
