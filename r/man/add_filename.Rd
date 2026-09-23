@@ -21,7 +21,7 @@ The filename column can be used in later \code{select()}, \code{arrange()} and
 \code{group_by()} steps of the same query. However, it can't be used in
 \code{filter()}, and some functions (such as \code{substr()}) are not supported on it.
 In these cases, call \code{\link[dplyr:compute]{compute()}} or
-\code{\link[dplyr:collect]{collect()}} first. \code{add_filename()} must also be
+\code{\link[dplyr:collect]{collect()}} first. \code{\link[=add_filename]{add_filename()}} must also be
 called before any aggregation or join. See Examples.
 }
 \examples{

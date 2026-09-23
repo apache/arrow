@@ -26,7 +26,7 @@
 #' `group_by()` steps of the same query. However, it can't be used in
 #' `filter()`, and some functions (such as `substr()`) are not supported on it.
 #' In these cases, call \code{\link[dplyr:compute]{compute()}} or
-#' \code{\link[dplyr:collect]{collect()}} first. `add_filename()` must also be
+#' \code{\link[dplyr:collect]{collect()}} first. [add_filename()] must also be
 #' called before any aggregation or join. See Examples.
 #'
 #' @return A `FieldRef` \code{\link{Expression}} that refers to the filename

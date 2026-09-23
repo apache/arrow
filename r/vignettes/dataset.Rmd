@@ -323,7 +323,7 @@ ds |>
 This is handy when you have opened a single partition directory directly (for
 example, `open_dataset("nyc-taxi/year=2015")`), since in that case the partition
 columns above that directory (here, `year`) are not inferred and you may want to
-recover them from the path. See `?add_filename` for details and limitations.
+recover them from the path. See `add_filename()` for details and limitations.
 
 ### Work with multiple data sources
 
