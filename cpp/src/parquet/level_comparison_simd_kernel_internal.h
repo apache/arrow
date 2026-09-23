@@ -14,25 +14,43 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #pragma once
+
+#include <xsimd/xsimd.hpp>
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 
-#include "parquet/platform.h"
+#include "parquet/level_comparison.h"
 
 namespace parquet::internal {
 
-/// Builds a  bitmap where each set bit indicates the corresponding level is greater
-/// than rhs.
-uint64_t PARQUET_EXPORT GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
-                                          int16_t rhs);
+template <typename Arch>
+MinMax FindMinMaxSimd(const int16_t* levels, int64_t num_levels) {
+  using batch = xsimd::batch<int16_t, Arch>;
+  constexpr int64_t kLanes = static_cast<int64_t>(batch::size);
 
-struct MinMax {
-  int16_t min;
-  int16_t max;
-};
+  MinMax out{std::numeric_limits<int16_t>::max(), std::numeric_limits<int16_t>::min()};
 
-MinMax PARQUET_EXPORT FindMinMax(const int16_t* levels, int64_t num_levels);
+  int64_t i = 0;
+  if (num_levels >= kLanes) {
+    batch vmin(out.min);
+    batch vmax(out.max);
+    for (; i + kLanes <= num_levels; i += kLanes) {
+      const auto v = batch::load_unaligned(levels + i);
+      vmin = xsimd::min(vmin, v);
+      vmax = xsimd::max(vmax, v);
+    }
+    out.min = xsimd::reduce_min(vmin);
+    out.max = xsimd::reduce_max(vmax);
+  }
+  for (; i < num_levels; ++i) {
+    out.min = std::min(levels[i], out.min);
+    out.max = std::max(levels[i], out.max);
+  }
+  return out;
+}
 
 }  // namespace parquet::internal
