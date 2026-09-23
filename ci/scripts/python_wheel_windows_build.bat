@@ -167,7 +167,7 @@ echo "pyarrow-s3 wheel name: %S3_WHEEL_NAME%"
 
 @REM arrow.dll ships in the pyarrow wheel.
 %PYTHON_CMD% -m delvewheel repair -vv ^
-    --ignore-existing --with-mangle --exclude arrow.dll ^
+    --ignore-existing --analyze-existing --with-mangle --exclude arrow.dll ^
     -w repaired_wheels %S3_WHEEL_NAME% || exit /B 1
 
 :skip_pyarrow_s3
