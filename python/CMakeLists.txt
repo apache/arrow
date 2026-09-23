@@ -119,10 +119,11 @@ if(UNIX)
   # loaded properly
   if(APPLE)
     set(CMAKE_INSTALL_NAME_DIR "@rpath")
-    set(CMAKE_INSTALL_RPATH "@loader_path/")
+    set(PYARROW_RPATH_ORIGIN "@loader_path")
   else()
-    set(CMAKE_INSTALL_RPATH "\$ORIGIN")
+    set(PYARROW_RPATH_ORIGIN "\$ORIGIN")
   endif()
+  set(CMAKE_INSTALL_RPATH "${PYARROW_RPATH_ORIGIN}/")
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -1050,6 +1051,15 @@ endif()
 
 if(PYARROW_BUILD_S3)
   target_link_libraries(_s3fs PRIVATE ${S3_LINK_LIBS})
+  if(PYARROW_BUNDLE_ARROW_CPP AND UNIX)
+    # libarrow_s3 ships in the sibling pyarrow-s3 wheel, so it is not in any
+    # directory this extension already searches. Preloading it from
+    # pyarrow_s3/__init__.py is not enough: musl's loader does not match a
+    # DT_NEEDED entry against a library that was opened by an explicit path.
+    set_property(TARGET _s3fs
+                 APPEND
+                 PROPERTY INSTALL_RPATH "${PYARROW_RPATH_ORIGIN}/../pyarrow_s3")
+  endif()
 endif()
 
 #
