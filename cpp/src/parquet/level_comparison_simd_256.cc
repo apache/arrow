@@ -15,18 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/level_comparison_avx2_internal.h"
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#  define FIND_MIN_MAX_PLATFORM FindMinMaxAvx2
+#  define ARCH_PLATFORM xsimd::avx2
+#endif
 
-#define PARQUET_IMPL_NAMESPACE avx2
-#include "parquet/level_comparison_inc.h"
-#undef PARQUET_IMPL_NAMESPACE
+#if !defined(FIND_MIN_MAX_PLATFORM)
+#  error "This file must be compiled with a known SIMD micro architecture"
+#endif
 
-namespace parquet {
-namespace internal {
+#include "parquet/level_comparison_simd_internal.h"
+#include "parquet/level_comparison_simd_kernel_internal.h"
 
-uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs) {
-  return avx2::GreaterThanBitmapImpl(levels, num_levels, rhs);
+namespace parquet::internal {
+
+MinMax FIND_MIN_MAX_PLATFORM(const int16_t* levels, int64_t num_levels) {
+  return FindMinMaxSimd<ARCH_PLATFORM>(levels, num_levels);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal
+
+#undef ARCH_PLATFORM
+#undef FIND_MIN_MAX_PLATFORM
