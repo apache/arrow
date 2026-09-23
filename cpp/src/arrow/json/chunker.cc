@@ -120,19 +120,32 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     // XXX Should be pass a specific batch_size?
     // The default value used by simdjson is 1MB, probably enough for most purposes.
     RETURN_NOT_OK(ToStatus(parser_.iterate_many(input).get(stream)));
+    auto it = stream.begin();
+    if (it == stream.end()) {
+      // Empty input (only whitespace?)
+      return 0;
+    }
 
     int64_t consumed_length = 0;
-    for (auto it = stream.begin(); it != stream.end(); ++it) {
+    if (!find_last) {
+      // Delimiting the first document only.
       if (it.error()) {
         // Could be either a partial document or invalid JSON, we'll let
         // followup chunker or parser calls decide.
-        break;
+        return 0;
       }
       // current_index() is the start of the current document;
       // source() is the complete source span of the current document.
       consumed_length = it.current_index() + it.source().size();
-      if (!find_last) {
-        break;
+    } else {
+      while (it != stream.end()) {
+        if (it.error()) {
+          // Could be either a partial document or invalid JSON, we'll let
+          // followup chunker or parser calls decide.
+          break;
+        }
+        consumed_length = it.current_index() + it.source().size();
+        ++it;
       }
     }
     if (consumed_length > 0) {
