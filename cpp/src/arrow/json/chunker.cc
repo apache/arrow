@@ -42,17 +42,8 @@ int64_t ConsumeWhitespace(std::string_view view) {
   return static_cast<int64_t>(ws_count);
 }
 
-Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto document, internal::ResolveSimdjsonResult(*it, "Failed to get JSON document"));
-  ARROW_ASSIGN_OR_RAISE(
-      auto value,
-      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value"));
-  return internal::ConsumeJsonValue(value);
-}
-
 // A BoundaryFinder implementation that assumes JSON objects can contain raw newlines,
-// and uses actual JSON parsing to delimit them.
+// and uses the structural indexes computed by simdjson to delimit them.
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
   explicit ParsingBoundaryFinder(MemoryPool* pool) : pool_(pool) {}
@@ -122,39 +113,26 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   }
 
   // Find the first or last JSON object (depending on `find_last`)
-  // and return the consumed JSON byte length, or 0 if no valid document
-  // can be parsed.
+  // and return the consumed JSON byte length, or 0 if no complete document
+  // can be found.
   Result<size_t> FindDocument(simdjson::padded_string_view input, bool find_last) {
     simdjson::ondemand::document_stream stream;
     // XXX Should be pass a specific batch_size?
     // The default value used by simdjson is 1MB, probably enough for most purposes.
     RETURN_NOT_OK(ToStatus(parser_.iterate_many(input).get(stream)));
-    auto it = stream.begin();
-    if (it == stream.end()) {
-      // Empty input (only whitespace?)
-      return 0;
-    }
 
     int64_t consumed_length = 0;
-    if (!find_last) {
-      // Parsing the first document only.
-      if (!ConsumeDocument(it).ok()) {
+    for (auto it = stream.begin(); it != stream.end(); ++it) {
+      if (it.error()) {
         // Could be either a partial document or invalid JSON, we'll let
         // followup chunker or parser calls decide.
-        return 0;
+        break;
       }
       // current_index() is the start of the current document;
       // source() is the complete source span of the current document.
       consumed_length = it.current_index() + it.source().size();
-    } else {
-      while (it != stream.end()) {
-        if (!ConsumeDocument(it).ok()) {
-          // Could be either a partial document or invalid JSON, we'll let
-          // followup chunker or parser calls decide.
-          break;
-        }
-        consumed_length = it.current_index() + it.source().size();
-        ++it;
+      if (!find_last) {
+        break;
       }
     }
     if (consumed_length > 0) {
