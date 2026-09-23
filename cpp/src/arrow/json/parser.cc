@@ -781,7 +781,7 @@ class ParseImpl : public BlockParser {
       }
 
       if (stream.truncated_bytes() != 0) {
-        return ParseError("The document is empty");
+        return ParseError("JSON document was truncated");
       }
 
       return Status::OK();
@@ -794,7 +794,8 @@ class ParseImpl : public BlockParser {
       return parse(padded_json);
     }
 
-    // padded_string makes a copy of the input buffer.
+    // TODO(GH-51463): Investigate allocating input buffers with enough capacity
+    // for SIMDJSON padding to avoid copying in this case.
     simdjson::padded_string padded_json(reinterpret_cast<const char*>(json->data()),
                                         json->size());
     return parse(padded_json);
@@ -878,7 +879,7 @@ class ParseImpl : public BlockParser {
         return ParseObject(value);
 
       case sj::json_type::unknown:
-        return ParseError("Invalid value");
+        return ParseError("Invalid JSON value");
     }
     return Status::OK();
   }
@@ -961,14 +962,10 @@ class ParseImpl : public BlockParser {
   }
 
   Status ParseObjectField(std::string_view key, sj::value value) {
-    bool duplicate_keys = false;
+    ARROW_ASSIGN_OR_RAISE(auto found, SetFieldBuilder(key));
 
-    if (SetFieldBuilder(key, &duplicate_keys)) {
+    if (found) {
       return ParseValue(value);
-    }
-
-    if (duplicate_keys) {
-      return status_;
     }
 
     return HandleUnexpectedField(key, value);
@@ -991,22 +988,22 @@ class ParseImpl : public BlockParser {
   ///
   /// Sets the field builder with the given name, or returns false if
   /// there is no such field or the field was already specified.
-  bool SetFieldBuilder(std::string_view key, bool* duplicate_keys) {
+  Result<bool> SetFieldBuilder(std::string_view key) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(key);
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
       return false;
     }
+    bool duplicate_keys;
     if (field_index_ < absent_fields_stack_.TopSize()) {
-      *duplicate_keys = !absent_fields_stack_[field_index_];
+      duplicate_keys = !absent_fields_stack_[field_index_];
     } else {
       // When field_index is beyond the range of absent_fields_stack_ we have a duplicated
       // field that wasn't declared in schema or previous records.
-      *duplicate_keys = true;
+      duplicate_keys = true;
     }
-    if (*duplicate_keys) {
-      status_ = ParseError("Column(", Path(), ") was specified twice in row ", num_rows_);
-      return false;
+    if (duplicate_keys) {
+      return ParseError("Column(", Path(), ") was specified twice in row ", num_rows_);
     }
     builder_ = parent->field_builder(field_index_);
     absent_fields_stack_[field_index_] = false;
@@ -1048,7 +1045,6 @@ class ParseImpl : public BlockParser {
   }
 
   UnexpectedFieldBehavior unexpected_field_behavior_;
-  Status status_;
   RawBuilderSet builder_set_;
   BuilderPtr builder_;
   // top of this stack is the parent of builder_

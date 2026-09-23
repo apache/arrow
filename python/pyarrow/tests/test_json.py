@@ -452,7 +452,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
         read_options = ReadOptions()
         read_options.block_size = 16
         with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error: Invalid value.*"):
+                           match="JSON parse error: Invalid JSON value.*"):
             self.open_bytes(bad_first_block, read_options=read_options)
 
     def test_bad_middle_parse_after_empty(self):
@@ -460,7 +460,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
         read_options = ReadOptions()
         read_options.block_size = 16
         with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error: Invalid value.*"):
+                           match="JSON parse error: Invalid JSON value.*"):
             self.open_bytes(bad_first_block, read_options=read_options)
 
     def test_bad_middle_parse(self):

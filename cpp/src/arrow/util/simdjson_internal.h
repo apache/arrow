@@ -266,7 +266,7 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
     }
 
     case simdjson::ondemand::json_type::unknown:
-      return Status::Invalid("Unknown JSON type");
+      return Status::Invalid("Invalid JSON value");
   }
 
   return Status::Invalid("Unreachable");
