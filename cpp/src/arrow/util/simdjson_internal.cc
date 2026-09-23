@@ -581,7 +581,7 @@ Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
   return ConsumeJsonValue(value);
 }
 
-/// Returns the number of leading whitespace characters when trailing is false,
+/// Returns the position of the first non-whitespace character when trailing is false,
 /// or the number of trailing whitespace characters when trailing is true.
 // XXX We could try to SIMD-accelerate this routine.
 int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing) {

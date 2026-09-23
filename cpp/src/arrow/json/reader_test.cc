@@ -696,10 +696,10 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
 
   read_options_.block_size = 16;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid value"),
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid JSON value"),
       MakeReader(bad_first_block));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid value"),
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid JSON value"),
       MakeReader(bad_first_block_after_empty));
 
   std::shared_ptr<RecordBatch> batch;
@@ -1039,7 +1039,7 @@ TEST(ReaderTest, FailOnMalformedNumbers) {
       R"({"a": 1.})",
   };
 
-  // Malformed numbers should be rejected regardless of whether parsing is threaded.
+  // Malformed numbers should be rejected
   for (const bool use_threads : {false, true}) {
     read_options.use_threads = use_threads;
 
