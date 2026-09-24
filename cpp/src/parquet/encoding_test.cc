@@ -1972,6 +1972,31 @@ TYPED_TEST(TestDeltaBitPackEncoding, RejectsMiniblockWidthsWithoutMinDelta) {
   EXPECT_EQ(pool.total_bytes_allocated(), 0);
 }
 
+TYPED_TEST(TestDeltaBitPackEncoding, RejectsTruncatedMultiByteMinDeltaWithoutAllocating) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 128 values per block, 1 miniblock, 2 values, and first value 0,
+  // followed by a two-byte min delta and no miniblock bit-width byte.
+  const std::vector<uint8_t> encoded = {0x80, 0x01, 0x01, 0x02, 0x00, 0x80, 0x01};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  std::vector<T> decoded(2);
+
+  EXPECT_THROW_THAT(
+      [&] {
+        decoder->SetData(2, encoded.data(), static_cast<int>(encoded.size()));
+        decoder->Decode(decoded.data(), static_cast<int>(decoded.size()));
+      },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr(
+              "the number of miniblocks per block (1) is larger than the number "
+              "of bytes available for miniblock bit widths (0)")));
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
+}
+
 TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
   // GH-14923: depending on the number of encoded values, some of the miniblock
   // bitwidths are actually padding bytes that may take non-conformant values

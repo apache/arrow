@@ -1611,14 +1611,17 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
     total_values_remaining_ = total_value_count_;
     if (total_value_count_ > 1) {
+      // Read min delta before allocating because it can consume more than one byte.
+      if (!decoder_->GetZigZagVlqInt(&min_delta_)) {
+        ParquetException::EofException("InitBlock EOF");
+      }
       const int64_t bytes_left = decoder_->bytes_left();
-      const int64_t bit_width_bytes_left = std::max<int64_t>(0, bytes_left - 1);
-      if (static_cast<int64_t>(mini_blocks_per_block_) > bit_width_bytes_left) {
+      if (static_cast<int64_t>(mini_blocks_per_block_) > bytes_left) {
         throw ParquetException(
             "the number of miniblocks per block (" +
             std::to_string(mini_blocks_per_block_) +
             ") is larger than the number of bytes available for miniblock bit widths (" +
-            std::to_string(bit_width_bytes_left) + ")");
+            std::to_string(bytes_left) + ")");
       }
       if (delta_bit_widths_ == nullptr) {
         delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
@@ -1634,8 +1637,10 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   void InitBlock() {
     DCHECK_GT(total_values_remaining_, 0) << "InitBlock called at EOF";
 
-    if (!decoder_->GetZigZagVlqInt(&min_delta_))
-      ParquetException::EofException("InitBlock EOF");
+    if (first_block_initialized_) {
+      if (!decoder_->GetZigZagVlqInt(&min_delta_))
+        ParquetException::EofException("InitBlock EOF");
+    }
 
     // read the bitwidth of each miniblock
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
