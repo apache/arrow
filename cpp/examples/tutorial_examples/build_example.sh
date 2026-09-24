@@ -21,7 +21,7 @@ set -ex
 mkdir -p "$EXAMPLE_BUILD_DIR"
 pushd "$EXAMPLE_BUILD_DIR"
 
-cmake /io $EXAMPLE_CMAKE_OPTIONS
+cmake /io "$EXAMPLE_CMAKE_OPTIONS"
 make
 
 popd
