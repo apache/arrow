@@ -80,15 +80,15 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error);
 
 GPARQUET_AVAILABLE_IN_26_0
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_arrow_with_properties(GArrowSeekableInputStream *source,
-                                                     GParquetReaderProperties *properties,
-                                                     GError **error);
+gparquet_arrow_file_reader_new_arrow_full(GArrowSeekableInputStream *source,
+                                          GParquetReaderProperties *properties,
+                                          GError **error);
 
 GPARQUET_AVAILABLE_IN_26_0
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_path_with_properties(const gchar *path,
-                                                    GParquetReaderProperties *properties,
-                                                    GError **error);
+gparquet_arrow_file_reader_new_path_full(const gchar *path,
+                                         GParquetReaderProperties *properties,
+                                         GError **error);
 
 GPARQUET_AVAILABLE_IN_23_0
 void

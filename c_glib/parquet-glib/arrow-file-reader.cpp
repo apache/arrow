@@ -28,6 +28,7 @@
 namespace {
   GParquetArrowFileReader *
   open_reader_with_properties(std::shared_ptr<arrow::io::RandomAccessFile> source,
+                              GArrowSeekableInputStream *source_object,
                               GParquetReaderProperties *properties,
                               GError **error,
                               const char *tag)
@@ -48,7 +49,12 @@ namespace {
     if (!garrow::check(error, result, tag)) {
       return NULL;
     }
-    return gparquet_arrow_file_reader_new_raw(result->release());
+    return GPARQUET_ARROW_FILE_READER(g_object_new(GPARQUET_TYPE_ARROW_FILE_READER,
+                                                   "arrow-file-reader",
+                                                   result->release(),
+                                                   "source",
+                                                   source_object,
+                                                   NULL));
   }
 } // namespace
 
@@ -202,7 +208,8 @@ typedef struct GParquetArrowFileReaderPrivate_
 
 enum {
   PROP_0,
-  PROP_ARROW_FILE_READER
+  PROP_ARROW_FILE_READER,
+  PROP_SOURCE
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetArrowFileReader,
@@ -240,6 +247,9 @@ gparquet_arrow_file_reader_set_property(GObject *object,
   auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_SOURCE:
+    priv->source = GARROW_SEEKABLE_INPUT_STREAM(g_value_dup_object(value));
+    break;
   case PROP_ARROW_FILE_READER:
     priv->arrow_file_reader =
       static_cast<parquet::arrow::FileReader *>(g_value_get_pointer(value));
@@ -256,7 +266,12 @@ gparquet_arrow_file_reader_get_property(GObject *object,
                                         GValue *value,
                                         GParamSpec *pspec)
 {
+  auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(object);
+
   switch (prop_id) {
+  case PROP_SOURCE:
+    g_value_set_object(value, priv->source);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -286,6 +301,21 @@ gparquet_arrow_file_reader_class_init(GParquetArrowFileReaderClass *klass)
     "The raw parquet::arrow::FileReader *",
     static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARROW_FILE_READER, spec);
+
+  /**
+   * GParquetArrowFileReader:source:
+   *
+   * The source stream for this reader.
+   *
+   * Since: 26.0.0
+   */
+  spec = g_param_spec_object(
+    "source",
+    "Source",
+    "The source stream for this reader",
+    GARROW_TYPE_SEEKABLE_INPUT_STREAM,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SOURCE, spec);
 }
 
 /**
@@ -350,7 +380,7 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
 }
 
 /**
- * gparquet_arrow_file_reader_new_arrow_with_properties:
+ * gparquet_arrow_file_reader_new_arrow_full:
  * @source: Arrow source to be read.
  * @properties: (nullable): Reader properties or %NULL for the defaults.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -363,24 +393,19 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
  * Since: 26.0.0
  */
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_arrow_with_properties(GArrowSeekableInputStream *source,
-                                                     GParquetReaderProperties *properties,
-                                                     GError **error)
+gparquet_arrow_file_reader_new_arrow_full(GArrowSeekableInputStream *source,
+                                          GParquetReaderProperties *properties,
+                                          GError **error)
 {
-  auto reader = open_reader_with_properties(
-    garrow_seekable_input_stream_get_raw(source),
-    properties,
-    error,
-    "[parquet][arrow][file-reader][new-arrow-with-properties]");
-  if (reader) {
-    auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(reader);
-    priv->source = GARROW_SEEKABLE_INPUT_STREAM(g_object_ref(source));
-  }
-  return reader;
+  return open_reader_with_properties(garrow_seekable_input_stream_get_raw(source),
+                                     source,
+                                     properties,
+                                     error,
+                                     "[parquet][arrow][file-reader][new-arrow-full]");
 }
 
 /**
- * gparquet_arrow_file_reader_new_path_with_properties:
+ * gparquet_arrow_file_reader_new_path_full:
  * @path: Path to be read.
  * @properties: (nullable): Reader properties or %NULL for the defaults.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -394,16 +419,16 @@ gparquet_arrow_file_reader_new_arrow_with_properties(GArrowSeekableInputStream *
  * Since: 26.0.0
  */
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_path_with_properties(const gchar *path,
-                                                    GParquetReaderProperties *properties,
-                                                    GError **error)
+gparquet_arrow_file_reader_new_path_full(const gchar *path,
+                                         GParquetReaderProperties *properties,
+                                         GError **error)
 {
-  const char *tag = "[parquet][arrow][file-reader][new-path-with-properties]";
+  const char *tag = "[parquet][arrow][file-reader][new-path-full]";
   auto source = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
   if (!garrow::check(error, source, tag)) {
     return NULL;
   }
-  return open_reader_with_properties(*source, properties, error, tag);
+  return open_reader_with_properties(*source, nullptr, properties, error, tag);
 }
 
 /**

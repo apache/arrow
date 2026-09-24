@@ -52,15 +52,41 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
                end
       reader = Parquet::ArrowFileReader.new(source, properties)
       begin
-        # The reader owns a copy of the properties and the native source.
-        properties.disable_buffered_stream
-        properties.buffer_size = 0
-        properties.unref
-        source.unref if source_type == :stream
         assert_equal(@table, reader.read_table)
         assert_equal(build_table("a" => @a_array.slice(1, 1),
                                  "b" => @b_array.slice(1, 1)),
                      reader.read_row_group(1))
+      ensure
+        reader.close
+        reader.unref
+        source.unref if source_type == :stream
+      end
+    end
+
+    test("copies properties") do
+      properties = Parquet::ReaderProperties.new
+      properties.enable_buffered_stream
+      properties.buffer_size = 4096
+      reader = Parquet::ArrowFileReader.new(@file.path, properties)
+      begin
+        properties.disable_buffered_stream
+        properties.buffer_size = 0
+        properties.unref
+        assert_equal(@table, reader.read_table)
+      ensure
+        reader.close
+        reader.unref
+      end
+    end
+
+    test("retains source") do
+      properties = Parquet::ReaderProperties.new
+      source = Arrow::FileInputStream.new(@file.path)
+      reader = Parquet::ArrowFileReader.new(source, properties)
+      begin
+        assert_equal(source, reader.source)
+        source.unref
+        assert_equal(@table, reader.read_table)
       ensure
         reader.close
         reader.unref
@@ -84,10 +110,10 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
       end
     end
 
-    test("missing path") do
+    test("nonexistent path") do
       properties = Parquet::ReaderProperties.new
       assert_raise(Arrow::Error::Io) do
-        Parquet::ArrowFileReader.new("#{@file.path}.missing", properties)
+        Parquet::ArrowFileReader.new("#{@file.path}.nonexistent", properties)
       end
     end
 
