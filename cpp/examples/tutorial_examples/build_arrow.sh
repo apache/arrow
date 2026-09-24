@@ -20,8 +20,8 @@ set -ex
 
 NPROC=$(nproc)
 
-mkdir -p $ARROW_BUILD_DIR
-pushd $ARROW_BUILD_DIR
+mkdir -p "$ARROW_BUILD_DIR"
+pushd "$ARROW_BUILD_DIR"
 
 # Enable the CSV reader as it's used by the example third-party build
 cmake /arrow/cpp \
@@ -30,9 +30,9 @@ cmake /arrow/cpp \
     -DARROW_FILESYSTEM=ON \
     -DARROW_PARQUET=ON \
     -DARROW_MIMALLOC=OFF \
-    $ARROW_CMAKE_OPTIONS
+    "$ARROW_CMAKE_OPTIONS"
 
-make -j$NPROC
+make -j"$NPROC"
 make install
 
 popd
