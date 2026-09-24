@@ -196,6 +196,12 @@ uses only system-installed dependencies (when set to `SYSTEM`) or checks
 system-installed dependencies first and only installs dependencies which aren't
 already present (when set to `AUTO`, the default).
 
+Snappy is an exception: by default it is always linked statically, so a system
+that only provides a shared `libsnappy` will use the bundled copy (or fail to
+configure when `ARROW_DEPENDENCY_SOURCE=SYSTEM`). Set `ARROW_SNAPPY_USE_SHARED=ON`
+to link against the system's shared snappy library instead; that library must then
+be present at runtime.
+
 These dependencies vary by platform; however, if you wish to install these
 yourself prior to libarrow installation, we recommend that you take a look at
 the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/main/ci/docker)
