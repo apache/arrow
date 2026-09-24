@@ -1394,10 +1394,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
                                  &batch_num_values, &batch_num_spaced_values,
                                  &null_count);
-      const int64_t parquet_null_count = batch_size - batch_num_values;
 
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
+      const int64_t parquet_null_count = batch_size - batch_num_values;
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
@@ -1751,7 +1751,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     internal::DefLevelsToBitmap(def_levels, batch_size, level_info_, &io);
     *out_values_to_write = io.values_read - io.null_count;
     *out_spaced_values_to_write = io.values_read;
-    // io.null_count excludes nulls from repeated ancestors.
     *null_count = io.null_count;
   }
 
@@ -2040,7 +2039,6 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     // had so we need to recompute it from def levels.
     MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
                                &batch_num_values, &batch_num_spaced_values, &null_count);
-    const int64_t parquet_null_count = batch_size - batch_num_values;
     WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
@@ -2054,6 +2052,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
+    const int64_t parquet_null_count = batch_size - batch_num_values;
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, parquet_null_count,
                                  check_page);
     value_offset += batch_num_spaced_values;

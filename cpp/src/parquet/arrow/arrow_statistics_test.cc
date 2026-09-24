@@ -18,9 +18,9 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
-#include "arrow/compute/api.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
+#include "arrow/compute/api.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
@@ -171,34 +171,35 @@ TEST(StatisticsTest, FixedWidthLeafUnderListStructNullCount) {
                    << "data_page_version=" << static_cast<int>(data_page_version)
                    << ", use_dictionary=" << use_dictionary);
 
-      auto string_type =
-          use_dictionary ? ::arrow::dictionary(::arrow::int32(), ::arrow::utf8())
-                         : ::arrow::utf8();
+      auto string_type = use_dictionary
+                             ? ::arrow::dictionary(::arrow::int32(), ::arrow::utf8())
+                             : ::arrow::utf8();
       auto list_type = ::arrow::list(::arrow::struct_(
-          {::arrow::field("s", string_type),
-           ::arrow::field("i32", ::arrow::int32())}));
+          {::arrow::field("s", string_type), ::arrow::field("i32", ::arrow::int32())}));
       auto schema = ::arrow::schema({::arrow::field("col", list_type)});
-
-      auto table = Table::Make(
-          schema, {ArrayFromJSON(
-                      list_type,
-                      R"([[{"s":"a","i32":1}],null,[],[{"s":null,"i32":null},{"s":"b","i32":2}]])")});
+      auto table = ::arrow::TableFromJSON(schema, {R"([
+        [[{"s":"a","i32":1}]],
+        [null],
+        [[]],
+        [[{"s":null,"i32":null},{"s":"b","i32":2}]]
+      ])"});
 
       WriterProperties::Builder properties_builder;
       properties_builder.data_page_version(data_page_version);
       if (use_dictionary) {
         properties_builder.enable_dictionary();
+      } else {
+        properties_builder.disable_dictionary();
       }
 
       std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
       auto out_stream =
           std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
 
-      ASSERT_OK_AND_ASSIGN(
-          std::unique_ptr<FileWriter> writer,
-          FileWriter::Open(*schema, default_memory_pool(), out_stream,
-                           properties_builder.build(),
-                           default_arrow_writer_properties()));
+      ASSERT_OK_AND_ASSIGN(std::unique_ptr<FileWriter> writer,
+                           FileWriter::Open(*schema, default_memory_pool(), out_stream,
+                                            properties_builder.build(),
+                                            default_arrow_writer_properties()));
       ASSERT_OK(writer->WriteTable(*table));
       ASSERT_OK(writer->Close());
       ASSERT_OK(out_stream->Close());
@@ -215,6 +216,22 @@ TEST(StatisticsTest, FixedWidthLeafUnderListStructNullCount) {
         ASSERT_NE(stats, nullptr);
         EXPECT_EQ(stats->null_count(), 3);
         EXPECT_EQ(stats->num_values(), 2);
+
+        if (data_page_version == ParquetDataPageVersion::V2) {
+          auto page_reader = parquet_reader->RowGroup(0)->GetColumnPageReader(i);
+          if (use_dictionary) {
+            auto dictionary_page = page_reader->NextPage();
+            ASSERT_NE(dictionary_page, nullptr);
+            ASSERT_EQ(dictionary_page->type(), PageType::DICTIONARY_PAGE);
+          }
+          auto page = page_reader->NextPage();
+          ASSERT_NE(page, nullptr);
+          ASSERT_EQ(page->type(), PageType::DATA_PAGE_V2);
+          auto data_page = std::static_pointer_cast<DataPageV2>(page);
+          EXPECT_EQ(data_page->num_values(), 5);
+          EXPECT_EQ(data_page->num_nulls(), 3);
+          EXPECT_EQ(page_reader->NextPage(), nullptr);
+        }
       }
 
       ASSERT_OK_AND_ASSIGN(
@@ -225,20 +242,18 @@ TEST(StatisticsTest, FixedWidthLeafUnderListStructNullCount) {
       ASSERT_OK_AND_ASSIGN(auto read_table, file_reader->ReadTable());
 
       if (use_dictionary) {
-        auto plain_list_type = ::arrow::list(::arrow::struct_(
-            {::arrow::field("s", ::arrow::utf8()),
-             ::arrow::field("i32", ::arrow::int32())}));
+        auto plain_list_type =
+            ::arrow::list(::arrow::struct_({::arrow::field("s", ::arrow::utf8()),
+                                            ::arrow::field("i32", ::arrow::int32())}));
 
         ASSERT_OK_AND_ASSIGN(
             auto read_array,
-            ::arrow::compute::Cast(read_table->column(0)->chunk(0),
-                                   plain_list_type));
+            ::arrow::compute::Cast(read_table->column(0)->chunk(0), plain_list_type));
 
         auto expected_array = table->column(0)->chunk(0);
 
-        ASSERT_OK_AND_ASSIGN(
-            auto expected_plain,
-            ::arrow::compute::Cast(expected_array, plain_list_type));
+        ASSERT_OK_AND_ASSIGN(auto expected_plain,
+                             ::arrow::compute::Cast(expected_array, plain_list_type));
 
         ASSERT_TRUE(read_array.Equals(expected_plain));
       } else {
