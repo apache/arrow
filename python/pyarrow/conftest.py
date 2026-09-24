@@ -17,12 +17,23 @@
 
 import pytest
 
+import ctypes
 import os
 import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 from pyarrow.lib import is_threading_enabled
 import sys
+
+
+def _is_asan_build():
+    if sys.platform == "win32":
+        return False
+    try:
+        ctypes.CDLL(None).__asan_init
+        return True
+    except (OSError, AttributeError):
+        return False
 
 
 groups = [
@@ -42,6 +53,7 @@ groups = [
     'large_memory',
     'lz4',
     'memory_leak',
+    'noasan',
     'nopandas',
     'nonumpy',
     'numpy',
@@ -78,6 +90,7 @@ defaults = {
     'large_memory': False,
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
+    'noasan': not _is_asan_build(),
     'nopandas': False,
     'nonumpy': False,
     'numpy': False,
