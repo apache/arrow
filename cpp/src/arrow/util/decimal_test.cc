@@ -182,13 +182,12 @@ class DecimalFromStringTest : public ::testing::Test {
   }
 
   void TestPositiveExponentLimits() {
-    const DecimalType maximum = [] {
-      if constexpr (DecimalType::kBitWidth <= 64) {
-        return DecimalType(std::numeric_limits<typename DecimalType::ValueType>::max());
-      } else {
-        return DecimalType(DecimalType::GetMaxSentinel());
-      }
-    }();
+    DecimalType maximum;
+    if constexpr (DecimalType::kBitWidth <= 64) {
+      maximum = DecimalType(std::numeric_limits<typename DecimalType::ValueType>::max());
+    } else {
+      maximum = DecimalType(DecimalType::GetMaxSentinel());
+    }
     DecimalType minimum = maximum;
     minimum.Negate();
     minimum -= DecimalType(1);
