@@ -801,14 +801,6 @@ static inline bool ShiftAndAddWithOverflow(std::string_view input, uint64_t out[
 
 namespace {
 
-struct DecimalComponents {
-  std::string_view whole_digits;
-  std::string_view fractional_digits;
-  int32_t exponent = 0;
-  char sign = 0;
-  bool has_exponent = false;
-};
-
 inline bool IsSign(char c) { return c == '-' || c == '+'; }
 
 inline bool IsDot(char c) { return c == '.'; }
@@ -829,7 +821,10 @@ inline size_t ParseDigitsRun(const char* s, size_t start, size_t size,
   return pos;
 }
 
-bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) {
+}  // namespace
+
+bool internal::ParseDecimalComponents(const char* s, size_t size,
+                                      DecimalComponents* out) {
   size_t pos = 0;
 
   if (size == 0) {
@@ -871,6 +866,8 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
   return pos == size;
 }
 
+namespace {
+
 template <typename Decimal>
 Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out,
                          int32_t* precision, int32_t* scale) {
@@ -878,8 +875,8 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
     return Status::Invalid("Empty string cannot be converted to ", type_name);
   }
 
-  DecimalComponents dec;
-  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
+  internal::DecimalComponents dec;
+  if (!internal::ParseDecimalComponents(s.data(), s.size(), &dec)) {
     return Status::Invalid("The string '", s, "' is not a valid ", type_name, " number");
   }
 
@@ -953,8 +950,8 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     return Status::Invalid("Empty string cannot be converted to ", type_name);
   }
 
-  DecimalComponents dec;
-  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
+  internal::DecimalComponents dec;
+  if (!internal::ParseDecimalComponents(s.data(), s.size(), &dec)) {
     return Status::Invalid("The string '", s, "' is not a valid ", type_name, " number");
   }
 

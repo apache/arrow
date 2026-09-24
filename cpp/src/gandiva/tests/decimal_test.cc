@@ -1083,18 +1083,60 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
   // Create a row-batch with some sample data
   int num_records = 5;
 
-  // invalid input
-  auto invalid_in = MakeArrowArrayUtf8({"a10.5134", "-0.0", "-0.1", "10.516", "-1000"},
-                                       {true, false, true, true, true});
+  for (const std::string& invalid :
+       std::vector<std::string>{"a10.5134", "1." + std::string(100, '5') + "x",
+                                "1." + std::string(100, '5') + "e2147483648"}) {
+    SCOPED_TRACE(invalid);
+    auto invalid_in = MakeArrowArrayUtf8({invalid, "-0.0", "-0.1", "10.516", "-1000"},
+                                         {true, false, true, true, true});
+    auto in_batch = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
+    arrow::ArrayVector outputs;
+    status = projector->Evaluate(*in_batch, pool_, &outputs);
+    EXPECT_FALSE(status.ok()) << status.message();
+    EXPECT_NE(status.message().find("not a valid decimal128 number"), std::string::npos);
+  }
+}
 
-  // prepare input record batch
-  auto in_batch_1 = arrow::RecordBatch::Make(schema, num_records, {invalid_in});
+TEST_F(TestDecimal, TestCastDecimalVarCharLongInputs) {
+  struct TestCase {
+    std::string input;
+    int32_t precision;
+    int32_t scale;
+    std::string expected;
+  };
+  for (const auto& test_case : std::vector<TestCase>{
+           {"1." + std::string(50, '5'), 38, 37, "1." + std::string(36, '5') + "6"},
+           {"-1." + std::string(50, '5'), 38, 37, "-1." + std::string(36, '5') + "6"},
+           {"1." + std::string(100, '1'), 38, 37, "1." + std::string(37, '1')},
+           {"15." + std::string(50, '5') + "e-1", 38, 37,
+            "1." + std::string(36, '5') + "6"},
+           {"0." + std::string(37, '0') + "5" + std::string(70, '0'), 38, 37,
+            "0." + std::string(36, '0') + "1"},
+           {"0." + std::string(100, '0') + "5", 38, 37, "0"},
+           {"9." + std::string(80, '9'), 4, 2, "10.00"},
+           {"-9." + std::string(80, '9'), 4, 2, "-10.00"},
+           {"99." + std::string(80, '9'), 4, 2, "0.00"},
+           {"0001." + std::string(80, '0'), 4, 2, "1.00"},
+           {"1." + std::string(100, '0') + "e+2", 6, 2, "100.00"},
+           {"1234" + std::string(100, '0') + "e-102", 4, 2, "12.34"}}) {
+    SCOPED_TRACE(test_case.input);
+    auto decimal_type = arrow::decimal128(test_case.precision, test_case.scale);
+    auto field_str = field("in_str", utf8());
+    auto schema = arrow::schema({field_str});
+    auto expr = TreeExprBuilder::MakeExpression("castDECIMAL", {field_str},
+                                                field("out", decimal_type));
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
 
-  // Evaluate expression
-  arrow::ArrayVector outputs_1;
-  status = projector->Evaluate(*in_batch_1, pool_, &outputs_1);
-  EXPECT_FALSE(status.ok()) << status.message();
-  EXPECT_NE(status.message().find("not a valid decimal128 number"), std::string::npos);
+    auto input = MakeArrowArrayUtf8({test_case.input, ""}, {true, false});
+    auto batch = arrow::RecordBatch::Make(schema, input->length(), {input});
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+    auto expected = MakeArrowArrayDecimal(
+        decimal_type, MakeDecimalVector({test_case.expected, "0"}, test_case.scale),
+        {true, false});
+    EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+  }
 }
 
 TEST_F(TestDecimal, TestVarCharDecimalNestedCast) {
