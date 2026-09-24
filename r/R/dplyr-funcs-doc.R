@@ -66,7 +66,7 @@
 #' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
-#' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
+#' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `prop` returns approximately that proportion of rows; results are not affected by `set.seed()`
 #' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise"` not supported
 #' * [`tally()`][dplyr::tally()]
