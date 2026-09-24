@@ -114,6 +114,18 @@ TEST_F(TestWinsorize, SlicedChunkedInput) {
   CheckWinsorize(chunked, expected);
 }
 
+TEST_F(TestWinsorize, SlicedInputWithoutQuantiles) {
+  for (const auto* json_input :
+       {"[1, 2, null, null, null, 3]", "[1, 2, NaN, null, NaN, 3]",
+        "[1, 2, NaN, NaN, NaN, 3]"}) {
+    auto parent = ArrayFromJSON(float64(), json_input);
+    auto sliced = parent->Slice(2, 3);
+    CheckWinsorize(sliced, sliced);
+    auto chunked = std::make_shared<ChunkedArray>(ArrayVector{sliced});
+    CheckWinsorize(chunked, chunked);
+  }
+}
+
 TEST_F(TestWinsorize, Integral) {
   for (auto type : IntTypes()) {
     options_.lower_limit = 0.25;

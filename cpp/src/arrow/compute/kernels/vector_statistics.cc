@@ -72,6 +72,7 @@ struct Winsorize {
       // Only nulls and NaNs => return input as-is
       out_data->null_count = data->null_count.load();
       out_data->length = data->length;
+      out_data->offset = data->offset;
       out_data->buffers = data->buffers;
       return Status::OK();
     }
