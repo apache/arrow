@@ -2624,6 +2624,63 @@ def test_array_from_numpy_datetime(dtype, type):
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize(("dtype", "type"), [
+    ("datetime64[D]", None),
+    ("datetime64[D]", pa.date32()),
+    ("datetime64[D]", pa.date64()),
+    ("datetime64[s]", None),
+    ("datetime64[ms]", None),
+    ("datetime64[us]", None),
+    ("datetime64[ns]", None),
+    ("datetime64[s]", pa.timestamp("ms")),
+    ("datetime64[ms]", pa.timestamp("s")),
+    ("timedelta64[s]", None),
+    ("timedelta64[ms]", None),
+    ("timedelta64[us]", None),
+    ("timedelta64[ns]", None),
+    ("timedelta64[s]", pa.duration("ms")),
+])
+@pytest.mark.parametrize("stride", [1, 2, -1])
+@pytest.mark.parametrize("masked", [False, True])
+def test_array_from_numpy_temporal_unit_multiplier(
+    dtype: str, type: pa.DataType | None, stride: int, masked: bool
+) -> None:
+    values = np.array([0, 100, -100, None, 12300],
+                      dtype=dtype.replace("[", "[10"))[::stride]
+    values.setflags(write=False)
+    mask = np.isnat(values) | (values.view("int64") == 100) if masked else None
+    expected = pa.array(values.astype(dtype), type=type, mask=mask)
+
+    result = pa.array(values, type=type, mask=mask)
+
+    assert result.equals(expected)
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize("kind", ["datetime64", "timedelta64"])
+@pytest.mark.parametrize("limit", ["min", "max"])
+def test_array_from_numpy_temporal_unit_multiplier_overflow(
+    kind: str, limit: str
+) -> None:
+    value: int = getattr(np.iinfo("int64"), limit) // 10 + (limit == "max")
+    values = np.array([value, None], dtype=f"{kind}[10s]")
+    with pytest.raises(pa.ArrowInvalid, match="overflow"):
+        pa.array(values)
+
+    wrapped_value: int = (value * 10 + 2**63) % 2**64 - 2**63
+    expected = pa.array([wrapped_value, None], type=pa.from_numpy_dtype(f"{kind}[s]"))
+    assert pa.array(values, safe=False).equals(expected)
+    assert pa.array(values, mask=np.array([True, True])).null_count == 2
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize("dtype", ["datetime64[10s]", "timedelta64[10s]"])
+def test_array_from_numpy_temporal_unit_multiplier_empty(dtype: str) -> None:
+    result = pa.array(np.array([], dtype=dtype))
+    assert result.equals(pa.array([], type=pa.from_numpy_dtype(dtype)))
+
+
+@pytest.mark.numpy
 def test_array_from_different_numpy_datetime_units_raises():
     data = [
         None,

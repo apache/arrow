@@ -41,6 +41,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
@@ -464,6 +465,31 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
   } else {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
+  }
+
+  if (dtype_->type_num == NPY_DATETIME || dtype_->type_num == NPY_TIMEDELTA) {
+    auto metadata =
+        reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(dtype_));
+    const int64_t multiplier = metadata->meta.num;
+    if (multiplier != 1) {
+      ARROW_ASSIGN_OR_RAISE(auto scaled,
+                            AllocateBuffer(sizeof(int64_t) * length_, pool_));
+      auto in_values = reinterpret_cast<const int64_t*>((*data)->data());
+      auto out_values = reinterpret_cast<int64_t*>(scaled->mutable_data());
+      for (int64_t i = 0; i < length_; ++i) {
+        if (null_bitmap_ && !bit_util::GetBit(null_bitmap_->data(), i)) {
+          out_values[i] = 0;
+        } else if (cast_options_.allow_time_overflow) {
+          out_values[i] =
+              static_cast<uint64_t>(in_values[i]) * static_cast<uint64_t>(multiplier);
+        } else if (::arrow::internal::MultiplyWithOverflow(in_values[i], multiplier,
+                                                           &out_values[i])) {
+          return Status::Invalid("NumPy temporal value ", in_values[i],
+                                 " would overflow when scaling by ", multiplier);
+        }
+      }
+      *data = std::move(scaled);
+    }
   }
 
   return Status::OK();
