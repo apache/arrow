@@ -27,6 +27,7 @@ except ImportError:
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
+from pyarrow.tests.test_pandas import _fully_loaded_dataframe_example
 
 
 def test_schema_constructor_errors():
@@ -717,6 +718,14 @@ def test_schema_from_pandas():
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected
+
+
+@pytest.mark.pandas
+def test_schema_from_pandas_all_types():
+    df = _fully_loaded_dataframe_example()
+    schema = pa.Schema.from_pandas(df)
+    expected = pa.Table.from_pandas(df).schema
+    assert schema == expected
 
 
 def test_schema_sizeof():
