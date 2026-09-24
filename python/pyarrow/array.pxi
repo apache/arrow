@@ -5393,16 +5393,16 @@ cdef object get_array_class_from_type(
         return _array_classes[data_type.id()]
 
 
-cdef object get_values(object obj, bint* is_series):
+cdef object get_values(object obj, bint* is_pandas_object):
     if pandas_api.is_series(obj) or pandas_api.is_index(obj):
         result = pandas_api.get_values(obj)
-        is_series[0] = True
+        is_pandas_object[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
-        is_series[0] = False
+        is_pandas_object[0] = False
     else:
-        result = pandas_api.series(obj, copy=False).values
-        is_series[0] = False
+        result = pandas_api.get_values(pandas_api.series(obj, copy=False))
+        is_pandas_object[0] = False
 
     return result
 

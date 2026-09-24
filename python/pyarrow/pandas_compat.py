@@ -578,7 +578,7 @@ def dataframe_to_types(df, preserve_index, columns=None):
     types = []
     # If pandas knows type, skip conversion
     for c in columns_to_convert:
-        values = c.values
+        values = _pandas_api.get_values(c)
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         elif _pandas_api.is_extension_array_dtype(values):

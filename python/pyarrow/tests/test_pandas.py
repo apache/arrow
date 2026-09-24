@@ -3334,19 +3334,27 @@ def _fully_loaded_dataframe_example():
 
     c1 = pd.date_range('2000-01-01', periods=10)
     data = {
-        0: c1,
-        1: c1.tz_localize('utc'),
-        2: c1.tz_localize('US/Eastern'),
-        3: c1[::2].tz_localize('utc').repeat(2).astype('category'),
-        4: ['foo', 'bar'] * 5,
-        5: pd.Series(['foo', 'bar'] * 5).astype('category').values,
-        6: [True, False] * 5,
-        7: np.random.randn(10),
-        8: np.random.randint(0, 100, size=10),
-        9: pd.period_range('2013', periods=10, freq='M'),
-        10: pd.interval_range(start=1, freq=1, periods=10),
+        "col0": c1,
+        "col1": c1.tz_localize('utc'),
+        "col2": c1.tz_localize('US/Eastern'),
+        "col3": c1[::2].tz_localize('utc').repeat(2).astype('category'),
+        "col4": ['foo', 'bar'] * 5,
+        "col5": pd.Series(['foo', 'bar'] * 5).astype('category').values,
+        "col6": [True, False] * 5,
+        "col7": np.random.randn(10),
+        "col8": np.random.randint(0, 100, size=10),
+        "col9": pd.period_range('2013', periods=10, freq='M'),
+        "col10": pd.interval_range(start=1, freq=1, periods=10),
     }
     return pd.DataFrame(data, index=index)
+
+
+def test_roundtrip_fully_loaded_dataframe_example():
+    df = _fully_loaded_dataframe_example()
+    expected = df.copy()
+    expected["col3"] = df["col3"].cat.rename_categories(
+        df["col3"].cat.categories.tz_convert(None))
+    _check_pandas_roundtrip(df, preserve_index=None, expected=expected)
 
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
@@ -5327,3 +5335,28 @@ def test_json_unserializable_pd_df_attrs():
     pd_metadata = json.loads(df_table.schema.metadata[b"pandas"])
 
     assert not pd_metadata["attributes"]
+
+
+def test_pandas_array_likes_with_extension_arrays():
+    # https://github.com/apache/arrow/issues/51302
+    dtidx = pd.date_range("2025-01-01", periods=10)
+
+    arrays = [
+        (dtidx.array.tz_localize("UTC"), None),
+        (dtidx.array.tz_localize("Europe/Paris"), None),
+        (dtidx.array.tz_localize("Europe/Paris").as_unit("s"), None),
+        (pd.period_range('2013', periods=10, freq='M'), None),
+        (pd.interval_range(start=1, freq=1, periods=10), None),
+        (pd.array([1, 2, 3], dtype="Int32"), np.array([1, 2, 3], dtype="int32")),
+        (pd.array([1.1, 2.2, None], dtype="Float64"),
+         np.array([1.1, 2.2, np.nan], dtype="float64")),
+        (pd.array([True, False, True], dtype="boolean"),
+         np.array([True, False, True], dtype="bool")),
+        (pd.array(["a", "b", None], dtype="string"),
+         np.array(["a", "b", None], dtype="object")),
+    ]
+
+    for arr in arrays:
+        for box in [pd.array, pd.Index, pd.Series]:
+            _check_array_roundtrip(box(arr[0]), expected=pd.Series(
+                arr[1]) if arr[1] is not None else None)
