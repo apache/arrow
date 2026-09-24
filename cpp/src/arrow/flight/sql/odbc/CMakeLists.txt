@@ -92,6 +92,8 @@ else()
 endif()
 
 add_arrow_lib(arrow_flight_sql_odbc
+              BUILD_SHARED
+              ON
               CMAKE_PACKAGE_NAME
               ArrowFlightSqlOdbc
               PKG_CONFIG_NAME
