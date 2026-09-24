@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sstream>
+#include <utility>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
@@ -1083,9 +1084,18 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
   // Create a row-batch with some sample data
   int num_records = 5;
 
-  for (const std::string& invalid :
-       std::vector<std::string>{"a10.5134", "1." + std::string(100, '5') + "x",
-                                "1." + std::string(100, '5') + "e2147483648"}) {
+  const std::string invalid_number = "not a valid decimal128 number";
+  const std::string out_of_range = "cannot be represented as decimal128";
+  for (const auto& [invalid, expected_error] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"a10.5134", invalid_number},
+           {"1." + std::string(100, '5') + "x", invalid_number},
+           {"1." + std::string(100, '5') + "e2147483648", invalid_number},
+           {"1e2147483647", out_of_range},
+           {"1e-2147483648", out_of_range},
+           {"1.0e-2147483647", out_of_range},
+           {"99e38", out_of_range},
+           {std::string(50, '9'), out_of_range}}) {
     SCOPED_TRACE(invalid);
     auto invalid_in = MakeArrowArrayUtf8({invalid, "-0.0", "-0.1", "10.516", "-1000"},
                                          {true, false, true, true, true});
@@ -1093,7 +1103,7 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
     arrow::ArrayVector outputs;
     status = projector->Evaluate(*in_batch, pool_, &outputs);
     EXPECT_FALSE(status.ok()) << status.message();
-    EXPECT_NE(status.message().find("not a valid decimal128 number"), std::string::npos);
+    EXPECT_NE(status.message().find(expected_error), std::string::npos);
   }
 }
 
