@@ -5002,15 +5002,15 @@ def test_threaded_pandas_import():
 
 
 def test_does_not_mutate_timedelta_dtype():
-    expected = np.dtype('m8')
+    expected = np.dtype('<m8[s]')
 
-    assert np.dtype(np.timedelta64) == expected
+    assert np.dtype(np.timedelta64(0, "s")) == expected
 
     df = pd.DataFrame({"a": [np.timedelta64(0, "s")]})
     t = pa.Table.from_pandas(df)
     t.to_pandas()
 
-    assert np.dtype(np.timedelta64) == expected
+    assert np.dtype(np.timedelta64(0, "s")) == expected
 
 
 def test_does_not_mutate_timedelta_nested():
