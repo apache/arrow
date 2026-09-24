@@ -99,8 +99,8 @@ def _alltypes_example(size=100):
 
 def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
-                            check_dtype=True, schema=None,
-                            preserve_index=False,
+                            check_dtype=True, check_freq=False,
+                            schema=None,preserve_index=False,
                             as_batch=False):
     klass = pa.RecordBatch if as_batch else pa.Table
     table = klass.from_pandas(df, schema=schema,
@@ -125,7 +125,8 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
             "ignore", "elementwise comparison failed", DeprecationWarning)
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                               check_index_type=('equiv' if preserve_index
-                                                else False))
+                                                else False),
+                              check_freq=check_freq)
 
 
 def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
