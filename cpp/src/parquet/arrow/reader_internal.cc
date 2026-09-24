@@ -1041,6 +1041,7 @@ Status TransferColumnData(RecordReader* reader,
             TransferInt96(reader, pool, value_field, &result, timestamp_type.unit()));
       } else if (descr->physical_type() == ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
         // Validate that the provided Arrow timestamp unit matches the Parquet unit.
+        DCHECK(descr->logical_type()->is_timestamp());
         const auto& ts_logical =
             checked_cast<const TimestampLogicalType&>(*descr->logical_type());
         ARROW_ASSIGN_OR_RAISE(auto expected_unit,
