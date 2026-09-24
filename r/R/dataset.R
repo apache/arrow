@@ -64,6 +64,23 @@
 #' column types, as described above. If neither are provided, no partitioning
 #' information will be taken from the file paths.
 #'
+#' @section Adding the source filename as a column:
+#'
+#' Partitioning only recovers information encoded in directory names. If you
+#' need to know which file each row came from, call [add_filename()] inside a
+#' `dplyr` query on the dataset:
+#'
+#' ```r
+#' open_dataset("nyc-taxi") |>
+#'   mutate(file = add_filename()) |>
+#'   collect()
+#' ```
+#'
+#' This is useful, for example, when you have opened a subdirectory of a
+#' partitioned dataset directly (so the partition columns above that directory
+#' are not inferred) and want to recover the partition values from the path.
+#' See [add_filename()] for details and limitations.
+#'
 #' @param sources One of:
 #'   * a string path or URI to a directory containing data files
 #'   * a [FileSystem] that references a directory containing data files
@@ -125,7 +142,7 @@
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
 #' @seealso \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
-#' datasets article}
+#' datasets article}, [add_filename()]
 #' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
