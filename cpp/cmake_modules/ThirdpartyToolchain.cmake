@@ -2837,6 +2837,9 @@ function(build_simdjson)
 
   prepare_fetchcontent()
 
+  # Keep simdjson's threading configuration consistent with Arrow's,
+  # which is required for Emscripten where Arrow threading is disabled.
+  set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
   # simdjson enables precompiled headers unconditionally.
   # Recompiling simdjson.cpp against it produces differing artifacts
   # Disable precompiled headers to avoid reproducible build failures.

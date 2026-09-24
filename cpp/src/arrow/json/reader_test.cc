@@ -696,10 +696,10 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
 
   read_options_.block_size = 16;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid value"),
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid JSON value"),
       MakeReader(bad_first_block));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid value"),
+      Invalid, ::testing::StartsWith("Invalid: JSON parse error: Invalid JSON value"),
       MakeReader(bad_first_block_after_empty));
 
   std::shared_ptr<RecordBatch> batch;
@@ -711,11 +711,9 @@ TEST_P(StreamingReaderTest, PropagateParsingErrors) {
   EXPECT_EQ(reader->bytes_processed(), 13);
   ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, R"([{"n":10000}])"), *batch);
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::StartsWith(
-          "Invalid: JSON parse error: Missing a comma or '}' after an object member"),
-      reader->ReadNext(&batch));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::StartsWith("Invalid: JSON parse error"),
+                                  reader->ReadNext(&batch));
   EXPECT_EQ(reader->bytes_processed(), 13);
   AssertReadEnd(reader);
   EXPECT_EQ(reader->bytes_processed(), 13);
@@ -1030,6 +1028,27 @@ TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
   ASSERT_OK_AND_ASSIGN(auto generator, MakeGenerator(expected.json, kIoLatency));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(generator));
   AssertBatchSequenceEquals(expected.batches, batches);
+}
+
+TEST(ReaderTest, FailOnMalformedNumbers) {
+  auto read_options = ReadOptions::Defaults();
+  auto parse_options = ParseOptions::Defaults();
+
+  const std::vector<std::string> malformed = {
+      R"({"a": 01})",
+      R"({"a": 1.})",
+  };
+
+  // Malformed numbers should be rejected
+  for (const bool use_threads : {false, true}) {
+    read_options.use_threads = use_threads;
+
+    for (const auto& json : malformed) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::StartsWith("Invalid: Failed to parse JSON number"),
+          ReadToTable(json, read_options, parse_options));
+    }
+  }
 }
 
 }  // namespace json
