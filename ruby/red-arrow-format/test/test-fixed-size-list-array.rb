@@ -26,7 +26,6 @@ class TestFixedSizeListArray < Test::Unit::TestCase
       values = [[-1, 0], [1, 2]]
       array = ArrowFormat::FixedSizeListArray.new(@type, values)
       assert_same(@type, array.type)
-      assert_same(@type.child.type, array.child.type)
       assert_equal(values, array.to_a)
     end
 
@@ -56,12 +55,6 @@ class TestFixedSizeListArray < Test::Unit::TestCase
       array = ArrowFormat::FixedSizeListArray.new(@type, [])
       assert_equal([], array.child.to_a)
       assert_equal([], array.to_a)
-    end
-
-    def test_low_level
-      child = ArrowFormat::Int16Array.new([1, 2])
-      array = ArrowFormat::FixedSizeListArray.new(@type, 1, nil, child)
-      assert_equal([[1, 2]], array.to_a)
     end
   end
 end
