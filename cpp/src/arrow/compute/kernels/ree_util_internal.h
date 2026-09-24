@@ -76,7 +76,7 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
     if constexpr (in_has_validity_buffer) {
       valid = bit_util::GetBit(input_validity_, read_offset);
     }
-    if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+    if constexpr (std::same_as<ArrowType, BooleanType>) {
       *out = bit_util::GetBit(input_values_, read_offset);
     } else {
       *out = (reinterpret_cast<const ValueRepr*>(input_values_))[read_offset];
@@ -88,7 +88,7 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
   /// - i and j are valid indices into the values buffer
   /// - the values in i and j are valid
   bool CompareValuesAt(int64_t i, int64_t j) const {
-    if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+    if constexpr (std::same_as<ArrowType, BooleanType>) {
       return bit_util::GetBit(input_values_, i) == bit_util::GetBit(input_values_, j);
     } else {
       return (reinterpret_cast<const ValueRepr*>(input_values_))[i] ==
@@ -111,7 +111,7 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
       bit_util::SetBitTo(output_validity_, write_offset, valid);
     }
     if (valid) {
-      if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+      if constexpr (std::same_as<ArrowType, BooleanType>) {
         bit_util::SetBitTo(output_values_, write_offset, value);
       } else {
         (reinterpret_cast<ValueRepr*>(output_values_))[write_offset] = value;
@@ -125,7 +125,7 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
       bit_util::SetBitsTo(output_validity_, write_offset, run_length, valid);
     }
     if (valid) {
-      if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+      if constexpr (std::same_as<ArrowType, BooleanType>) {
         bit_util::SetBitsTo(reinterpret_cast<uint8_t*>(output_values_), write_offset,
                             run_length, value);
       } else {

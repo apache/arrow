@@ -158,7 +158,7 @@ template <typename ValueType>
 void AssertColumnValuesEqual(const ColumnDescriptor* descr,
                              const std::vector<ValueType>& left_values,
                              const std::vector<ValueType>& right_values) {
-  if constexpr (std::is_same_v<ValueType, FLBA>) {
+  if constexpr (std::same_as<ValueType, FLBA>) {
     // operator== for FLBA in test_util.h is unusable (it hard-codes length to 12)
     const auto length = descr->type_length();
     for (const auto& [left, right] : Zip(left_values, right_values)) {

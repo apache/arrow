@@ -157,8 +157,8 @@ void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) 
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>
-::arrow::enable_if_t<std::is_same_v<ArrowType, DecimalWithPrecisionAndScale<
-                                                   typename ArrowType::type, precision>>,
+::arrow::enable_if_t<std::same_as<ArrowType, DecimalWithPrecisionAndScale<
+                                                 typename ArrowType::type, precision>>,
                      Status>
 NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   constexpr int32_t kDecimalPrecision = precision;
@@ -326,8 +326,8 @@ template <typename ArrowType>
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>
-::arrow::enable_if_t<std::is_same_v<ArrowType, DecimalWithPrecisionAndScale<
-                                                   typename ArrowType::type, precision>>,
+::arrow::enable_if_t<std::same_as<ArrowType, DecimalWithPrecisionAndScale<
+                                                 typename ArrowType::type, precision>>,
                      Status>
 NullableArray(size_t size, size_t num_nulls, uint32_t seed,
               std::shared_ptr<::arrow::Array>* out) {

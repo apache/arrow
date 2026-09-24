@@ -127,13 +127,13 @@ void TestReadTypedColumnIndex(const std::string& file_name, int column_id,
     }
     // min/max values are only meaningful for non-null pages.
     if (!null_pages.at(i)) {
-      if constexpr (std::is_same_v<T, double>) {
+      if constexpr (std::same_as<T, double>) {
         ASSERT_DOUBLE_EQ(min_values.at(i), typed_column_index->min_values().at(page_id));
         ASSERT_DOUBLE_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
-      } else if constexpr (std::is_same_v<T, float>) {
+      } else if constexpr (std::same_as<T, float>) {
         ASSERT_FLOAT_EQ(min_values.at(i), typed_column_index->min_values().at(page_id));
         ASSERT_FLOAT_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
-      } else if constexpr (std::is_same_v<T, FLBA>) {
+      } else if constexpr (std::same_as<T, FLBA>) {
         auto len = descr->type_length();
         ASSERT_EQ(0, ::memcmp(min_values.at(i).ptr,
                               typed_column_index->min_values().at(page_id).ptr, len));

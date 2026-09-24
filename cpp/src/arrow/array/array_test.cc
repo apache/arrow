@@ -2494,10 +2494,10 @@ void CheckFloatApproxEqualsWithUlpDistance() {
   if constexpr (is_half_float_type<TYPE>::value) {
     a.push_back(Float16(1.00097656));
     b.push_back(Float16(0.999511719f));
-  } else if constexpr (std::is_same_v<TYPE, DoubleType>) {
+  } else if constexpr (std::same_as<TYPE, DoubleType>) {
     a.push_back(CType(0.9999999999999999));
     b.push_back(CType(1.0000000000000002));
-  } else if constexpr (std::is_same_v<TYPE, FloatType>) {
+  } else if constexpr (std::same_as<TYPE, FloatType>) {
     a.push_back(CType(1.0000001f));
     b.push_back(CType(0.99999994f));
   }

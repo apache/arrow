@@ -729,7 +729,7 @@ template <>
 struct Identity<Add> {
   template <typename Value>
   static constexpr Value value() {
-    if constexpr (std::is_same_v<Float16, Value>) {
+    if constexpr (std::same_as<Float16, Value>) {
       return Float16::zero();
     } else {
       return 0;
@@ -744,7 +744,7 @@ template <>
 struct Identity<Multiply> {
   template <typename Value>
   static constexpr Value value() {
-    if constexpr (std::is_same_v<Float16, Value>) {
+    if constexpr (std::same_as<Float16, Value>) {
       return Float16::one();
     } else {
       return 1;
@@ -762,7 +762,7 @@ struct Identity<Max> {
     // Note that `min()` returns the smallest positive value for
     // floating-point types, and `lowest()` doesn't satisfy the identity
     // property for -inf inputs, so use -infinity for those types.
-    if constexpr (std::is_floating_point_v<Value> || std::is_same_v<Float16, Value>) {
+    if constexpr (std::is_floating_point_v<Value> || std::same_as<Float16, Value>) {
       return -std::numeric_limits<Value>::infinity();
     } else {
       return std::numeric_limits<Value>::lowest();
@@ -775,7 +775,7 @@ struct Identity<Min> {
   template <typename Value>
   static constexpr Value value() {
     // Mirror of Identity<Max>: use +infinity for floating-point types.
-    if constexpr (std::is_floating_point_v<Value> || std::is_same_v<Float16, Value>) {
+    if constexpr (std::is_floating_point_v<Value> || std::same_as<Float16, Value>) {
       return std::numeric_limits<Value>::infinity();
     } else {
       return std::numeric_limits<Value>::max();

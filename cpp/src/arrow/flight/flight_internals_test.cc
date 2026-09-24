@@ -69,8 +69,8 @@ void TestRoundtrip(const std::vector<FlightType>& values,
 
     ASSERT_OK_AND_ASSIGN(std::string serialized, values[i].SerializeToString());
     ASSERT_OK_AND_ASSIGN(auto deserialized, FlightType::Deserialize(serialized));
-    if constexpr (std::is_same_v<FlightType, FlightInfo> ||
-                  std::is_same_v<FlightType, PollInfo>) {
+    if constexpr (std::same_as<FlightType, FlightInfo> ||
+                  std::same_as<FlightType, PollInfo>) {
       ARROW_SCOPED_TRACE("Deserialized = ", deserialized->ToString());
       EXPECT_EQ(values[i], *deserialized);
     } else {
@@ -83,11 +83,11 @@ void TestRoundtrip(const std::vector<FlightType>& values,
     PbType pb_value;
     ASSERT_OK(internal::ToProto(values[i], &pb_value));
 
-    if constexpr (std::is_same_v<FlightType, FlightInfo>) {
+    if constexpr (std::same_as<FlightType, FlightInfo>) {
       FlightInfo::Data info_data;
       ASSERT_OK(internal::FromProto(pb_value, &info_data));
       EXPECT_EQ(values[i], FlightInfo{std::move(info_data)});
-    } else if constexpr (std::is_same_v<FlightType, SchemaResult>) {
+    } else if constexpr (std::same_as<FlightType, SchemaResult>) {
       SchemaResult value;
       ASSERT_OK(internal::FromProto(pb_value, &value));
       EXPECT_EQ(values[i], value);

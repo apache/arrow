@@ -53,7 +53,7 @@ TEST(ArrayData, GetSpanRespectsOffset) {
                               /*offset=*/1);
   auto span = data->GetSpan<uint16_t>(1, 3);
 
-  const bool is_const_pointer = std::is_same_v<decltype(span)::pointer, const uint16_t*>;
+  const bool is_const_pointer = std::same_as<decltype(span)::pointer, const uint16_t*>;
   ASSERT_TRUE(is_const_pointer);
 
   EXPECT_EQ(span.size(), 3);
@@ -73,7 +73,7 @@ TEST(ArrayData, GetMutableSpanRespectsOffset) {
       ArrayData::Make(uint16(), /*length=*/3, buffers, /*null_count=*/0, /*offset=*/1);
   auto span = data->GetMutableSpan<uint16_t>(1, 3);
 
-  const bool is_mut_pointer = std::is_same_v<decltype(span)::pointer, uint16_t*>;
+  const bool is_mut_pointer = std::same_as<decltype(span)::pointer, uint16_t*>;
   ASSERT_TRUE(is_mut_pointer);
 
   EXPECT_EQ(span.size(), 3);

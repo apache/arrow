@@ -689,7 +689,7 @@ class PARQUET_NO_EXPORT ListViewReader : public ListReader<IndexType> {
   ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
       std::shared_ptr<ArrayData> data) final {
     static_assert(::arrow::internal::IsOneOf<IndexType, int32_t, int64_t>::value);
-    constexpr auto expected_type_id = std::is_same_v<IndexType, int32_t>
+    constexpr auto expected_type_id = std::same_as<IndexType, int32_t>
                                           ? ::arrow::Type::LIST_VIEW
                                           : ::arrow::Type::LARGE_LIST_VIEW;
     DCHECK_EQ(this->field()->type()->id(), expected_type_id);

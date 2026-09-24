@@ -47,7 +47,7 @@ void TypedBloomFilterWriter<ParquetType>::Update(const T* values, int64_t num_va
   std::array<uint64_t, kHashBatchSize> hashes;
   for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
     auto batch_size = static_cast<int>(std::min(kHashBatchSize, num_values - i));
-    if constexpr (std::is_same_v<ParquetType, FLBAType>) {
+    if constexpr (std::same_as<ParquetType, FLBAType>) {
       bloom_filter_->Hashes(values + i, descr_->type_length(), batch_size, hashes.data());
     } else {
       bloom_filter_->Hashes(values + i, batch_size, hashes.data());
@@ -72,7 +72,7 @@ void TypedBloomFilterWriter<ParquetType>::UpdateSpaced(const T* values,
       valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
         for (int64_t i = 0; i < length; i += kHashBatchSize) {
           auto batch_size = static_cast<int>(std::min(kHashBatchSize, length - i));
-          if constexpr (std::is_same_v<ParquetType, FLBAType>) {
+          if constexpr (std::same_as<ParquetType, FLBAType>) {
             bloom_filter_->Hashes(values + i + position, descr_->type_length(),
                                   batch_size, hashes.data());
           } else {

@@ -66,7 +66,7 @@ inline constexpr bool is_std_array_v<std::array<T, N>> = true;
 template <typename Arr, typename FunctionType>
 concept DynamicDispatchTargets =
     detail::is_std_array_v<Arr> &&
-    std::is_same_v<typename Arr::value_type, DynamicDispatchTarget<FunctionType>>;
+    std::same_as<typename Arr::value_type, DynamicDispatchTarget<FunctionType>>;
 
 /// Return whether a given dispatch level is static.
 ///

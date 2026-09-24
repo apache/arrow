@@ -851,7 +851,7 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     IndexLocations locations;
 
     const auto num_columns = static_cast<size_t>(schema_->num_columns());
-    constexpr int8_t module_type = std::is_same_v<Builder, ColumnIndexBuilder>
+    constexpr int8_t module_type = std::same_as<Builder, ColumnIndexBuilder>
                                        ? encryption::kColumnIndex
                                        : encryption::kOffsetIndex;
 

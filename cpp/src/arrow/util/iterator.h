@@ -520,7 +520,7 @@ struct FilterIterator {
 template <typename Fn, typename From,
           typename Ret = typename std::invoke_result_t<Fn&, From>::ValueType,
           typename To = std::tuple_element_t<0, Ret>>
-  requires std::is_same_v<std::tuple_element_t<1, Ret>, FilterIterator::Action>
+  requires std::same_as<std::tuple_element_t<1, Ret>, FilterIterator::Action>
 Iterator<To> MakeFilterIterator(Fn filter, Iterator<From> it) {
   return Iterator<To>(
       FilterIterator::Impl<Fn, From, To>(std::move(filter), std::move(it)));

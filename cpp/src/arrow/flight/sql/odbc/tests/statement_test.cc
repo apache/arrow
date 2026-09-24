@@ -1058,9 +1058,9 @@ TYPED_TEST(StatementTest, DISABLED_TestSQLExecDirectFloatTruncation) {
   // Test is disabled until float truncation is supported.
   // GH-46985: return warning message instead of error on float truncation case
   std::wstring wsql;
-  if constexpr (std::is_same_v<TypeParam, StatementMockTest>) {
+  if constexpr (std::same_as<TypeParam, StatementMockTest>) {
     wsql = L"SELECT CAST(1.234 AS REAL) AS float_val";
-  } else if constexpr (std::is_same_v<TypeParam, StatementRemoteTest>) {
+  } else if constexpr (std::same_as<TypeParam, StatementRemoteTest>) {
     wsql = L"SELECT CAST(1.234 AS FLOAT) AS float_val";
   }
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());

@@ -313,7 +313,7 @@ template <typename UnpackedUint, int kPackedBitSize, typename Arch>
 struct KernelTraits {
   using unpacked_type = UnpackedUint;
   /// The integer type to work with, `unpacked_type` or an appropriate type for bool.
-  using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
+  using uint_type = std::conditional_t<std::same_as<unpacked_type, bool>,
                                        SizedUint<sizeof(bool)>, unpacked_type>;
   using arch_type = Arch;
   using simd_batch = xsimd::batch<uint_type, arch_type>;
@@ -661,7 +661,7 @@ struct MediumKernel {
     // can use the fallback on these platforms.
     const auto shifted = right_shift_by_excess(words, kRightShifts);
     const auto vals = shifted & kMask;
-    if constexpr (std::is_same_v<unpacked_type, bool>) {
+    if constexpr (std::same_as<unpacked_type, bool>) {
       const xsimd::batch_bool<uint_type, arch_type> bools = vals != 0;
       bools.store_unaligned(out + kOutOffset);
     } else {

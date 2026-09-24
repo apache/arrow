@@ -55,7 +55,7 @@ std::vector<Uint> GenerateRandomValuesForPacking(int num_values, int bit_width) 
     return out;
   }
 
-  if constexpr (std::is_same_v<Uint, bool>) {
+  if constexpr (std::same_as<Uint, bool>) {
     random_is_valid(num_values, 0.5, &out, kSeed);
   } else {
     const uint64_t max = bit_util::LeastSignificantBitMask<uint64_t, true>(bit_width);
@@ -68,7 +68,7 @@ std::vector<Uint> GenerateRandomValuesForPacking(int num_values, int bit_width) 
 template <typename Int>
 std::vector<Int> UnpackValues(const uint8_t* packed, const UnpackOptions& opts,
                               UnpackFunc<Int> unpack) {
-  if constexpr (std::is_same_v<Int, bool>) {
+  if constexpr (std::same_as<Int, bool>) {
     // Using dynamic array to avoid std::vector<bool>
     auto buffer = std::make_unique<Int[]>(opts.batch_size);
     unpack(packed, buffer.get(), opts);
@@ -149,7 +149,7 @@ class TestUnpack : public ::testing::Test {
 
     // Generate bit_width ones
     Int expected_value = 0;
-    if constexpr (std::is_same_v<Int, bool>) {
+    if constexpr (std::same_as<Int, bool>) {
       expected_value = static_cast<bool>(opts.bit_width);
     } else {
       for (int i = 0; i < opts.bit_width; ++i) {
@@ -196,7 +196,7 @@ class TestUnpack : public ::testing::Test {
     for (int num_values_base : {64, 128, 2048}) {
       SCOPED_TRACE(::testing::Message() << "Testing num_values=" << num_values_base);
 
-      constexpr int kMaxBitWidth = std::is_same_v<Int, bool> ? 1 : 8 * sizeof(Int);
+      constexpr int kMaxBitWidth = std::same_as<Int, bool> ? 1 : 8 * sizeof(Int);
 
       // Given how many edge cases there are in unpacking integers, it is best to test all
       // bit widths.
@@ -260,11 +260,11 @@ using UnpackTypes = ::testing::Types<bool, uint8_t, uint16_t, uint32_t, uint64_t
 struct UnpackTypeNames {
   template <typename T>
   static std::string GetName(int) {
-    if constexpr (std::is_same_v<T, bool>) return "bool";
-    if constexpr (std::is_same_v<T, uint8_t>) return "uint8_t";
-    if constexpr (std::is_same_v<T, uint16_t>) return "uint16_t";
-    if constexpr (std::is_same_v<T, uint32_t>) return "uint32_t";
-    if constexpr (std::is_same_v<T, uint64_t>) return "uint64_t";
+    if constexpr (std::same_as<T, bool>) return "bool";
+    if constexpr (std::same_as<T, uint8_t>) return "uint8_t";
+    if constexpr (std::same_as<T, uint16_t>) return "uint16_t";
+    if constexpr (std::same_as<T, uint32_t>) return "uint32_t";
+    if constexpr (std::same_as<T, uint64_t>) return "uint64_t";
   }
 };
 

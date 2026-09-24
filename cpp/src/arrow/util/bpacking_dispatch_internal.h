@@ -253,7 +253,7 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
 
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
 static void unpack_jump(const uint8_t* in, UnpackedUint* out, const UnpackOptions& opt) {
-  if constexpr (std::is_same_v<UnpackedUint, bool>) {
+  if constexpr (std::same_as<UnpackedUint, bool>) {
     switch (opt.bit_width) {
       case 0:
         return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,

@@ -121,7 +121,7 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
   ctx->tensor.dl_tensor.byte_offset = 0;
   // Strides must be non-null when ndim > 0
   ctx->tensor.dl_tensor.strides = ctx->strides.data();
-  if constexpr (std::is_same_v<DT, DLManagedTensorVersioned>) {
+  if constexpr (std::same_as<DT, DLManagedTensorVersioned>) {
     ctx->tensor.version = kVersion;
     ctx->tensor.flags = p.flags;
   }

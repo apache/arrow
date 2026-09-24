@@ -47,8 +47,8 @@ struct UTF8DataValidator {
 
   template <typename T>
   Status Visit(const T&) {
-    if constexpr (std::is_same_v<T, StringType> || std::is_same_v<T, LargeStringType> ||
-                  std::is_same_v<T, StringViewType>) {
+    if constexpr (std::same_as<T, StringType> || std::same_as<T, LargeStringType> ||
+                  std::same_as<T, StringViewType>) {
       util::InitializeUTF8();
 
       int64_t i = 0;

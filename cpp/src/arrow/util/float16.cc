@@ -43,7 +43,7 @@ namespace {
 
 template <typename T>
 struct BinaryConverter {
-  static_assert(std::is_same_v<T, uint32_t> || std::is_same_v<T, uint64_t>);
+  static_assert(std::same_as<T, uint32_t> || std::same_as<T, uint64_t>);
 
   static constexpr int kNumBits = sizeof(T) * 8;
   static constexpr int kMantNumBits = (kNumBits == 32) ? 23 : 52;

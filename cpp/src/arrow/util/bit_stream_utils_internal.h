@@ -281,7 +281,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
       .max_read_bytes = max_bytes_ - byte_offset_,
   };
 
-  if constexpr (std::is_same_v<T, bool>) {
+  if constexpr (std::same_as<T, bool>) {
     ::arrow::internal::unpack(buffer_ + byte_offset_, v, opts);
 
   } else {
@@ -307,7 +307,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
 
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
-  if constexpr (std::is_same_v<T, bool>) {
+  if constexpr (std::same_as<T, bool>) {
     // ARROW-18031: if we're trying to get an aligned bool, just check
     // the LSB of the next byte and move on. If we memcpy + FromLittleEndian
     // as usual, we have potential undefined behavior for bools if the value

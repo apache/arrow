@@ -93,7 +93,7 @@ struct GeneratorFactory<Float16, DistributionType> {
 
 template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
-  static constexpr bool kIsHalfFloat = std::is_same_v<ValueType, Float16>;
+  static constexpr bool kIsHalfFloat = std::same_as<ValueType, Float16>;
   using PhysicalType = std::conditional_t<kIsHalfFloat, HalfFloatType::c_type, ValueType>;
   using FactoryType = GeneratorFactory<ValueType, DistributionType>;
 
@@ -408,7 +408,7 @@ struct SmallDecimalGenerator {
   std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
                                          int64_t alignment, MemoryPool* memory_pool) {
     static constexpr int32_t kMaxDigitsInInteger =
-        std::is_same_v<DecimalType, Decimal32Type> ? 9 : 18;
+        std::same_as<DecimalType, Decimal32Type> ? 9 : 18;
     static_assert(
         kMaxDigitsInInteger >= DecimalType::kByteWidth,
         "inconsistent decimal metadata: kMaxPrecision doesn't match kByteWidth");

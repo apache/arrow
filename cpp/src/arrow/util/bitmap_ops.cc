@@ -237,7 +237,7 @@ void MapBitmapUnary(const uint8_t* data, int64_t offset, int64_t length,
     const uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
     uint8_t last_data;
 
-    if constexpr (std::is_same_v<std::decay_t<Op>, Identity>) {
+    if constexpr (std::same_as<std::decay_t<Op>, Identity>) {
       std::memcpy(dest, data, static_cast<size_t>(num_bytes - 1));
       last_data = data[num_bytes - 1];
     } else {

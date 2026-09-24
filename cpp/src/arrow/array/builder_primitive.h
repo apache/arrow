@@ -473,9 +473,9 @@ class ARROW_EXPORT HalfFloatBuilder : public NumericBuilder<HalfFloatType> {
   /// @tparam T arrow::util::Float16 or value_type (uint16_t)
   template <typename T = BaseClass::value_type>
   T GetValue(int64_t index) const {
-    static_assert(std::is_same_v<T, BaseClass::value_type> ||
-                  std::is_same_v<T, arrow::util::Float16>);
-    if constexpr (std::is_same_v<T, BaseClass::value_type>) {
+    static_assert(std::same_as<T, BaseClass::value_type> ||
+                  std::same_as<T, arrow::util::Float16>);
+    if constexpr (std::same_as<T, BaseClass::value_type>) {
       return BaseClass::GetValue(index);
     } else {
       return Float16::FromBits(BaseClass::GetValue(index));

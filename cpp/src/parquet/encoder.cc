@@ -551,7 +551,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
         });
 
     // Track unencoded bytes based on dictionary value type
-    if constexpr (std::is_same_v<DType, ByteArrayType>) {
+    if constexpr (std::same_as<DType, ByteArrayType>) {
       // For ByteArray, need to look up actual lengths from dictionary
       for (size_t idx =
                buffer_position - static_cast<size_t>(data.length() - data.null_count());
@@ -1041,7 +1041,7 @@ class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DTyp
   // If these constants are changed, then the corresponding values in
   // TestDeltaBitPackEncoding (in `encoding_test.cc`) should be updated too.
   static constexpr uint32_t kValuesPerBlock =
-      std::is_same_v<int32_t, typename DType::c_type> ? 128 : 256;
+      std::same_as<int32_t, typename DType::c_type> ? 128 : 256;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
 
  public:

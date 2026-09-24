@@ -274,7 +274,7 @@ struct MeanImpl<ArrowType, SimdLevel,
         (this->count < options.min_count)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
-      static_assert(std::is_same_v<decltype(this->sum), double>,
+      static_assert(std::same_as<decltype(this->sum), double>,
                     "SumCType must be double for numeric inputs");
       const double mean = this->sum / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
