@@ -1091,9 +1091,10 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
            {"a10.5134", invalid_number},
            {"1." + std::string(100, '5') + "x", invalid_number},
            {"1." + std::string(100, '5') + "e2147483648", invalid_number},
+           {std::string(40, '9'), out_of_range},
+           {std::string(40, '9') + ".1", out_of_range},
+           {"1e39", out_of_range},
            {"1e2147483647", out_of_range},
-           {"1e-2147483648", out_of_range},
-           {"1.0e-2147483647", out_of_range},
            {"99e38", out_of_range},
            {std::string(50, '9'), out_of_range}}) {
     SCOPED_TRACE(invalid);
@@ -1123,6 +1124,9 @@ TEST_F(TestDecimal, TestCastDecimalVarCharLongInputs) {
            {"0." + std::string(37, '0') + "5" + std::string(70, '0'), 38, 37,
             "0." + std::string(36, '0') + "1"},
            {"0." + std::string(100, '0') + "5", 38, 37, "0"},
+           {"1e-30", 38, 0, "0"},
+           {"1e-2147483648", 38, 0, "0"},
+           {"1.0e-2147483647", 38, 0, "0"},
            {"9." + std::string(80, '9'), 4, 2, "10.00"},
            {"-9." + std::string(80, '9'), 4, 2, "-10.00"},
            {"99." + std::string(80, '9'), 4, 2, "0.00"},
