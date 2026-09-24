@@ -43,7 +43,7 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     ../../../../engine/substrait/protobuf_test_util.cc)
 
 # GH-49651 Link ODBC tests statically on Linux and dynamically on macOS.
-if(APPLE OR (WIN32 AND ARROW_TEST_LINKAGE STREQUAL "shared"))
+if(APPLE OR (WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "shared"))
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
                                            ${ARROW_TEST_SHARED_LINK_LIBS})
 else()
@@ -66,8 +66,7 @@ if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
        ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
        arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS}
-       ${ARROW_TEST_STATIC_LINK_LIBS})
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
 elseif(WIN32)
   # Dynamic Windows tests
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
