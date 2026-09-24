@@ -23,10 +23,12 @@
 #include <cstdio>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/decimal_internal.h"
 #include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -204,11 +206,51 @@ CRC_FUNCTION(utf8)
 CRC_FUNCTION(binary)
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
-                               int32_t* precision_from_str, int32_t* scale_from_str,
-                               int64_t* dec_high_from_str, uint64_t* dec_low_from_str) {
+                               int32_t out_scale, int32_t* precision_from_str,
+                               int32_t* scale_from_str, int64_t* dec_high_from_str,
+                               uint64_t* dec_low_from_str) {
   arrow::Decimal128 dec;
-  auto status = arrow::Decimal128::FromString(std::string(in, in_length), &dec,
-                                              precision_from_str, scale_from_str);
+  const std::string_view input(in, in_length);
+  auto status =
+      arrow::Decimal128::FromString(input, &dec, precision_from_str, scale_from_str);
+  if (!status.ok() ||
+      static_cast<int64_t>(*scale_from_str) - out_scale > arrow::Decimal128::kMaxScale) {
+    arrow::internal::DecimalComponents components;
+    if (arrow::internal::ParseDecimalComponents(input.data(), input.size(),
+                                                &components)) {
+      std::string digits(components.whole_digits);
+      digits.append(components.fractional_digits);
+      digits.erase(0, digits.find_first_not_of('0'));
+      const int64_t num_digits =
+          static_cast<int64_t>(digits.size()) + out_scale -
+          static_cast<int64_t>(components.fractional_digits.size()) + components.exponent;
+      bool round_up = false;
+      if (num_digits < 0 || num_digits > arrow::Decimal128::kMaxPrecision) {
+        digits = "0";
+      } else {
+        round_up = num_digits < static_cast<int64_t>(digits.size()) &&
+                   digits[static_cast<size_t>(num_digits)] >= '5';
+        digits.resize(static_cast<size_t>(num_digits), '0');
+        if (digits.empty()) {
+          digits = "0";
+        }
+      }
+      status =
+          arrow::Decimal128::FromString(digits, &dec, precision_from_str, scale_from_str);
+      if (status.ok()) {
+        if (round_up) {
+          dec += arrow::Decimal128(1);
+          if (dec == arrow::Decimal128::GetScaleMultiplier(*precision_from_str)) {
+            ++(*precision_from_str);
+          }
+        }
+        if (components.sign == '-') {
+          dec.Negate();
+        }
+        *scale_from_str = out_scale;
+      }
+    }
+  }
   if (!status.ok()) {
     gdv_fn_context_set_error_msg(context, status.message().data());
     return -1;
@@ -948,6 +990,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i64_type(),      // context
       types->i8_ptr_type(),   // const char* in
       types->i32_type(),      // int32_t in_length
+      types->i32_type(),      // int32_t out_scale
       types->i32_ptr_type(),  // int32_t* precision_from_str
       types->i32_ptr_type(),  // int32_t* scale_from_str
       types->i64_ptr_type(),  // int64_t* dec_high_from_str
