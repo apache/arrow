@@ -58,6 +58,14 @@ GPARQUET_AVAILABLE_IN_26_0
 gint64
 gparquet_reader_properties_get_buffer_size(GParquetReaderProperties *properties);
 
+GPARQUET_AVAILABLE_IN_26_0
+void
+gparquet_reader_properties_set_pre_buffer(GParquetReaderProperties *properties,
+                                          gboolean pre_buffer);
+GPARQUET_AVAILABLE_IN_26_0
+gboolean
+gparquet_reader_properties_get_pre_buffer(GParquetReaderProperties *properties);
+
 #define GPARQUET_TYPE_ARROW_FILE_READER (gparquet_arrow_file_reader_get_type())
 GPARQUET_AVAILABLE_IN_0_11
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileReader,

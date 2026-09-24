@@ -23,10 +23,23 @@ class TestParquetReaderProperties < Test::Unit::TestCase
 
   def test_buffered_stream
     assert_false(@properties.buffered_stream_enabled?)
+    assert_true(@properties.pre_buffer?)
     @properties.enable_buffered_stream
+    assert_true(@properties.pre_buffer?)
     assert_true(@properties.buffered_stream_enabled?)
+    @properties.pre_buffer = false
     @properties.disable_buffered_stream
+    assert_false(@properties.pre_buffer?)
     assert_false(@properties.buffered_stream_enabled?)
+  end
+
+  def test_pre_buffer
+    assert_true(@properties.pre_buffer?)
+    @properties.pre_buffer = false
+    assert_false(@properties.pre_buffer?)
+    assert_false(@properties.buffered_stream_enabled?)
+    @properties.pre_buffer = true
+    assert_true(@properties.pre_buffer?)
   end
 
   def test_buffer_size

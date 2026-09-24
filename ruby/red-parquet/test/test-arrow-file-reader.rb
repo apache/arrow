@@ -35,6 +35,7 @@ class TestArrowFileReader < Test::Unit::TestCase
       properties = Parquet::ReaderProperties.new
       properties.buffer_size = 4096
       properties.enable_buffered_stream
+      properties.pre_buffer = false
       assert_true(properties.buffered_stream_enabled?)
       source = if source_type == :path
                  @file.path
@@ -45,6 +46,7 @@ class TestArrowFileReader < Test::Unit::TestCase
       begin
         Parquet::ArrowFileReader.open(source, properties) do |opened_reader|
           reader = opened_reader
+          properties.pre_buffer = true
           properties.disable_buffered_stream
           properties.buffer_size = 0
           assert_equal([

@@ -27,11 +27,11 @@
 
 namespace {
   GParquetArrowFileReader *
-  open_reader_with_properties(std::shared_ptr<arrow::io::RandomAccessFile> source,
-                              GArrowSeekableInputStream *source_object,
-                              GParquetReaderProperties *properties,
-                              GError **error,
-                              const char *tag)
+  open_reader(std::shared_ptr<arrow::io::RandomAccessFile> source,
+              GArrowSeekableInputStream *source_object,
+              GParquetReaderProperties *properties,
+              GError **error,
+              const char *tag)
   {
     auto parquet_properties = properties ? gparquet_reader_properties_get_raw(properties)
                                          : parquet::default_reader_properties();
@@ -39,22 +39,14 @@ namespace {
     if (!garrow::check(error, builder.Open(source, parquet_properties), tag)) {
       return NULL;
     }
-    if (parquet_properties.is_buffered_stream_enabled()) {
-      // Read-ahead would bypass the buffered stream by caching whole column chunks.
-      auto arrow_properties = parquet::default_arrow_reader_properties();
-      arrow_properties.set_pre_buffer(false);
-      builder.properties(arrow_properties);
+    if (properties) {
+      builder.properties(gparquet_reader_properties_get_arrow_raw(properties));
     }
     auto result = builder.Build();
     if (!garrow::check(error, result, tag)) {
       return NULL;
     }
-    return GPARQUET_ARROW_FILE_READER(g_object_new(GPARQUET_TYPE_ARROW_FILE_READER,
-                                                   "arrow-file-reader",
-                                                   result->release(),
-                                                   "source",
-                                                   source_object,
-                                                   NULL));
+    return gparquet_arrow_file_reader_new_raw(result->release(), source_object);
   }
 } // namespace
 
@@ -74,6 +66,7 @@ G_BEGIN_DECLS
 typedef struct GParquetReaderPropertiesPrivate_
 {
   parquet::ReaderProperties properties;
+  parquet::ArrowReaderProperties arrow_properties;
 } GParquetReaderPropertiesPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetReaderProperties,
@@ -88,6 +81,7 @@ static void
 gparquet_reader_properties_finalize(GObject *object)
 {
   auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(object);
+  priv->arrow_properties.~ArrowReaderProperties();
   priv->properties.~ReaderProperties();
   G_OBJECT_CLASS(gparquet_reader_properties_parent_class)->finalize(object);
 }
@@ -97,6 +91,8 @@ gparquet_reader_properties_init(GParquetReaderProperties *object)
 {
   auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(object);
   new (&priv->properties) parquet::ReaderProperties(parquet::default_reader_properties());
+  new (&priv->arrow_properties)
+    parquet::ArrowReaderProperties(parquet::default_arrow_reader_properties());
 }
 
 static void
@@ -122,8 +118,8 @@ gparquet_reader_properties_new(void)
  * gparquet_reader_properties_enable_buffered_stream:
  * @properties: A #GParquetReaderProperties.
  *
- * Enable buffered stream reading. Readers constructed with these properties
- * disable read-ahead of whole column chunks to use buffered streams instead.
+ * Enable buffered stream reading. To avoid pre-buffering whole column chunks,
+ * also call gparquet_reader_properties_set_pre_buffer() with %FALSE.
  * This does not impose a limit on the memory used by decoded data.
  *
  * Since: 26.0.0
@@ -198,6 +194,41 @@ gparquet_reader_properties_get_buffer_size(GParquetReaderProperties *properties)
 {
   auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
   return priv->properties.buffer_size();
+}
+
+/**
+ * gparquet_reader_properties_set_pre_buffer:
+ * @properties: A #GParquetReaderProperties.
+ * @pre_buffer: Whether to pre-buffer column chunks.
+ *
+ * Set whether to pre-buffer column chunks to coalesce reads. This is enabled
+ * by default to improve performance on high-latency filesystems. Set this to
+ * %FALSE to use buffered streams without pre-buffering whole column chunks.
+ * This does not enable or disable buffered stream reading.
+ *
+ * Since: 26.0.0
+ */
+void
+gparquet_reader_properties_set_pre_buffer(GParquetReaderProperties *properties,
+                                          gboolean pre_buffer)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  priv->arrow_properties.set_pre_buffer(pre_buffer);
+}
+
+/**
+ * gparquet_reader_properties_get_pre_buffer:
+ * @properties: A #GParquetReaderProperties.
+ *
+ * Returns: %TRUE if pre-buffering is enabled, %FALSE otherwise.
+ *
+ * Since: 26.0.0
+ */
+gboolean
+gparquet_reader_properties_get_pre_buffer(GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  return priv->arrow_properties.pre_buffer();
 }
 
 typedef struct GParquetArrowFileReaderPrivate_
@@ -330,18 +361,11 @@ gparquet_arrow_file_reader_class_init(GParquetArrowFileReaderClass *klass)
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError **error)
 {
-  auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(source);
-  auto arrow_memory_pool = arrow::default_memory_pool();
-  auto parquet_arrow_file_reader_result =
-    parquet::arrow::OpenFile(arrow_random_access_file, arrow_memory_pool);
-  if (garrow::check(error,
-                    parquet_arrow_file_reader_result,
-                    "[parquet][arrow][file-reader][new-arrow]")) {
-    return gparquet_arrow_file_reader_new_raw(
-      parquet_arrow_file_reader_result->release());
-  } else {
-    return NULL;
-  }
+  return open_reader(garrow_seekable_input_stream_get_raw(source),
+                     source,
+                     nullptr,
+                     error,
+                     "[parquet][arrow][file-reader][new-arrow]");
 }
 
 /**
@@ -397,11 +421,11 @@ gparquet_arrow_file_reader_new_arrow_full(GArrowSeekableInputStream *source,
                                           GParquetReaderProperties *properties,
                                           GError **error)
 {
-  return open_reader_with_properties(garrow_seekable_input_stream_get_raw(source),
-                                     source,
-                                     properties,
-                                     error,
-                                     "[parquet][arrow][file-reader][new-arrow-full]");
+  return open_reader(garrow_seekable_input_stream_get_raw(source),
+                     source,
+                     properties,
+                     error,
+                     "[parquet][arrow][file-reader][new-arrow-full]");
 }
 
 /**
@@ -428,7 +452,7 @@ gparquet_arrow_file_reader_new_path_full(const gchar *path,
   if (!garrow::check(error, source, tag)) {
     return NULL;
   }
-  return open_reader_with_properties(*source, nullptr, properties, error, tag);
+  return open_reader(*source, nullptr, properties, error, tag);
 }
 
 /**
@@ -662,10 +686,19 @@ G_END_DECLS
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_raw(parquet::arrow::FileReader *parquet_arrow_file_reader)
 {
+  return gparquet_arrow_file_reader_new_raw(parquet_arrow_file_reader, nullptr);
+}
+
+GParquetArrowFileReader *
+gparquet_arrow_file_reader_new_raw(parquet::arrow::FileReader *parquet_arrow_file_reader,
+                                   GArrowSeekableInputStream *source)
+{
   auto arrow_file_reader =
     GPARQUET_ARROW_FILE_READER(g_object_new(GPARQUET_TYPE_ARROW_FILE_READER,
                                             "arrow-file-reader",
                                             parquet_arrow_file_reader,
+                                            "source",
+                                            source,
                                             NULL));
   return arrow_file_reader;
 }
@@ -682,4 +715,11 @@ gparquet_reader_properties_get_raw(GParquetReaderProperties *properties)
 {
   auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
   return priv->properties;
+}
+
+parquet::ArrowReaderProperties
+gparquet_reader_properties_get_arrow_raw(GParquetReaderProperties *properties)
+{
+  auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
+  return priv->arrow_properties;
 }

@@ -44,6 +44,7 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
     test("read") do |source_type|
       properties = Parquet::ReaderProperties.new
       properties.enable_buffered_stream
+      properties.pre_buffer = false
       properties.buffer_size = 4096
       source = if source_type == :path
                  @file.path
@@ -66,9 +67,11 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
     test("copies properties") do
       properties = Parquet::ReaderProperties.new
       properties.enable_buffered_stream
+      properties.pre_buffer = false
       properties.buffer_size = 4096
       reader = Parquet::ArrowFileReader.new(@file.path, properties)
       begin
+        properties.pre_buffer = true
         properties.disable_buffered_stream
         properties.buffer_size = 0
         properties.unref
