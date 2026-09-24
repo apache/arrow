@@ -95,7 +95,8 @@ def identity(v):
 
 
 def has_null_bitmap(type_id):
-    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION)
+    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION,
+                           Type.RUN_END_ENCODED)
 
 
 @lru_cache()
@@ -1069,6 +1070,7 @@ type_reprs = {
     'SparseUnionType': 'sparse_union',
     'DenseUnionType': 'dense_union',
     'DictionaryType': 'dictionary',
+    'RunEndEncodedType': 'run_end_encoded',
     }
 
 
@@ -1168,6 +1170,20 @@ class ListTypePrinter(TypePrinter):
             return f"{self._format_type()}<uninitialized or corrupt>"
         else:
             return f"{self._format_type()}({child})"
+
+
+class RunEndEncodedTypePrinter(TypePrinter):
+    """
+    Pretty-printer for run-end encoded types.
+    """
+
+    def to_string(self):
+        fields = self.fields
+        if len(fields) != 2:
+            return f"{self._format_type()}<uninitialized or corrupt>"
+        run_end_type = fields[0].type
+        value_type = fields[1].type
+        return f"{self._format_type()}({run_end_type}, {value_type})"
 
 
 class FixedSizeListTypePrinter(ListTypePrinter):
@@ -1999,6 +2015,12 @@ class FixedSizeListTypeClass(DataTypeClass):
     scalar_printer = BaseListScalarPrinter
 
 
+class RunEndEncodedTypeClass(DataTypeClass):
+    is_parametric = True
+    type_printer = RunEndEncodedTypePrinter
+    scalar_printer = BaseListScalarPrinter
+
+
 class MapTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = MapTypePrinter
@@ -2085,6 +2107,8 @@ type_traits_by_id = {
     Type.LARGE_LIST: DataTypeTraits(BaseListTypeClass, 'LargeListType'),
     Type.FIXED_SIZE_LIST: DataTypeTraits(FixedSizeListTypeClass,
                                          'FixedSizeListType'),
+    Type.RUN_END_ENCODED: DataTypeTraits(RunEndEncodedTypeClass,
+                                         'RunEndEncodedType'),
     Type.MAP: DataTypeTraits(MapTypeClass, 'MapType'),
 
     Type.STRUCT: DataTypeTraits(StructTypeClass, 'StructType'),
