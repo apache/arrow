@@ -30,6 +30,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal_internal.h"
 #include "arrow/util/double_conversion_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"
@@ -216,14 +217,18 @@ int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_lengt
   if (!status.ok() ||
       static_cast<int64_t>(*scale_from_str) - out_scale > arrow::Decimal128::kMaxScale) {
     arrow::internal::DecimalComponents components;
+    int32_t input_scale = 0;
     if (arrow::internal::ParseDecimalComponents(input.data(), input.size(),
-                                                &components)) {
+                                                &components) &&
+        !arrow::internal::SubtractWithOverflow(
+            static_cast<int32_t>(components.fractional_digits.size()),
+            components.exponent, &input_scale) &&
+        input_scale > out_scale) {
       std::string digits(components.whole_digits);
       digits.append(components.fractional_digits);
       digits.erase(0, digits.find_first_not_of('0'));
       const int64_t num_digits =
-          static_cast<int64_t>(digits.size()) + out_scale -
-          static_cast<int64_t>(components.fractional_digits.size()) + components.exponent;
+          static_cast<int64_t>(digits.size()) + out_scale - input_scale;
       if (num_digits > arrow::Decimal128::kMaxPrecision) {
         gdv_fn_context_set_error_msg(context, status.message().data());
         return -1;
