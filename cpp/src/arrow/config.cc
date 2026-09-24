@@ -19,14 +19,15 @@
 
 #include <cstdint>
 
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/config_internal.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 
 using internal::CpuInfo;
+namespace chrono = internal::chrono;
 
 namespace {
 
@@ -77,8 +78,8 @@ RuntimeInfo GetRuntimeInfo() {
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsSupported(flags); });
   info.detected_simd_level =
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsDetected(flags); });
-  info.using_os_timezone_db = USE_OS_TZDB;
-#if !USE_OS_TZDB
+  info.using_os_timezone_db = ARROW_CHRONO_USE_OS_TZDB;
+#if !ARROW_CHRONO_USE_OS_TZDB
   info.timezone_db_path = timezone_db_path;
 #else
   info.timezone_db_path = std::optional<std::string>();
@@ -91,10 +92,10 @@ RuntimeInfo GetRuntimeInfo() {
 Status Initialize(const GlobalOptions& options) noexcept {
   ARROW_SUPPRESS_DEPRECATION_WARNING
   if (options.timezone_db_path.has_value()) {
-#if !USE_OS_TZDB
+#if !ARROW_CHRONO_USE_OS_TZDB
     try {
-      arrow_vendored::date::set_install(options.timezone_db_path.value());
-      arrow_vendored::date::reload_tzdb();
+      chrono::set_install(options.timezone_db_path.value());
+      chrono::reload_tzdb();
     } catch (const std::runtime_error& e) {
       return Status::IOError(e.what());
     }
@@ -103,7 +104,7 @@ Status Initialize(const GlobalOptions& options) noexcept {
     return Status::Invalid(
         "Arrow was set to use OS timezone database at compile time, "
         "so a downloaded database cannot be provided at runtime.");
-#endif  // !USE_OS_TZDB
+#endif  // !ARROW_CHRONO_USE_OS_TZDB
   }
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
   return Status::OK();

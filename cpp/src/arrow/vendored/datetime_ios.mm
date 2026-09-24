@@ -17,9 +17,6 @@
 
 #include "arrow/util/chrono_config_internal.h"
 
-// Keep backend selection identical to the callers, including in Gandiva tests.
-// Standard-library builds must not compile a second timezone implementation.
 #if !ARROW_USE_STD_CHRONO
-#  include "datetime/visibility.h"
-#  include "datetime/tz.cpp"
+#  include "datetime/ios.mm"
 #endif
