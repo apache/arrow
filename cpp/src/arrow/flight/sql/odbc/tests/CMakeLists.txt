@@ -42,39 +42,35 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     # GH-46889: move protobuf_test_util to a more common location
     ../../../../engine/substrait/protobuf_test_util.cc)
 
-# GH-49651 Link ODBC tests statically on Linux and dynamically on macOS.
-if(APPLE OR (WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "shared"))
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
-                                           ${ARROW_TEST_SHARED_LINK_LIBS})
-else()
-  # GH-49651 Link ODBC tests statically on Linux to fix segfault
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
-                                           ${ARROW_TEST_STATIC_LINK_LIBS})
-endif()
-
-# On macOS, link `ODBCINST` first to ensure iodbc take precedence over unixodbc
+# On macOS, link `ODBCINST` first to ensure iodbc takes precedence over unixodbc.
 set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBRARIES})
 
-# On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
-# On Windows with static Arrow, use STATIC_LINK_LIBS to avoid mixing static/shared.
-# On Unix/macOS, tests link libraries statically.
-set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
-set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
-if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  # Static Windows tests
-  list(APPEND
-       ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
-       arrow_odbc_spi_impl
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+# STATIC_LINK_LIBS replaces add_arrow_test's default Arrow test libraries, while
+# EXTRA_LINK_LIBS supplements them.
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "shared")
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE EXTRA_LINK_LIBS)
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_odbc_spi_impl
+                                           ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
 elseif(WIN32)
-  # Dynamic Windows tests
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
+      arrow_odbc_spi_impl ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} arrow_flight_sql_odbc_static
+      ${ARROW_TEST_STATIC_LINK_LIBS})
+elseif(APPLE)
+  # GH-49651: Link the ODBC driver dynamically on macOS.
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
+      ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} arrow_flight_sql_odbc_shared
+      ${ARROW_TEST_SHARED_LINK_LIBS})
 else()
-  # Unix/macOS
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+  # GH-49651: Link the ODBC driver statically on Linux to avoid a segfault.
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
+      ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
+      arrow_flight_sql_odbc_static
+      ${ARROW_TEST_STATIC_LINK_LIBS}
+      arrow_odbc_spi_impl
+      ${ARROW_PROTOBUF_LIBPROTOBUF})
 endif()
 
 add_arrow_test(flight_sql_odbc_test
@@ -83,10 +79,8 @@ add_arrow_test(flight_sql_odbc_test
                ${ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS}
                DEFINITIONS
                UNICODE
-               EXTRA_LINK_LIBS
-               ${ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS}
-               STATIC_LINK_LIBS
-               ${ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS})
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE}
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
 
 find_package(ODBC REQUIRED)
 target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)
