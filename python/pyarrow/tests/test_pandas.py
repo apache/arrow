@@ -3355,6 +3355,8 @@ def test_roundtrip_fully_loaded_dataframe_example():
     expected["col3"] = df["col3"].cat.rename_categories(
         df["col3"].cat.categories.tz_convert(None))
     _check_pandas_roundtrip(df, preserve_index=None, expected=expected)
+    _check_pandas_roundtrip(df, preserve_index=None,
+                            expected=expected, use_threads=True)
 
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
