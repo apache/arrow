@@ -1248,7 +1248,7 @@ cdef class FileMetaData(_Weakrefable):
 cdef class ParquetSchema(_Weakrefable):
     """A Parquet schema."""
 
-    def __cinit__(self, FileMetaData container):
+    def __cinit__(self, FileMetaData container not None):
         self.parent = container
         self.schema = container._metadata.schema()
 
@@ -1337,7 +1337,7 @@ cdef class ColumnSchema(_Weakrefable):
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self, ParquetSchema schema, int index):
+    def __cinit__(self, ParquetSchema schema not None, int index):
         self.parent = schema
         self.index = index  # for pickling support
         self.descr = schema.schema.Column(index)

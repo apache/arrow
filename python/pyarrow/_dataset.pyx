@@ -4239,5 +4239,5 @@ class ScanNodeOptions(_ScanNodeOptions):
         Preserve implicit ordering of data.
     """
 
-    def __init__(self, Dataset dataset, **kwargs):
+    def __init__(self, Dataset dataset not None, **kwargs):
         self._set_options(dataset, kwargs)
