@@ -156,6 +156,9 @@ void TestStraddlingCRLF(TableReaderFactory reader_factory) {
     ASSERT_OK_AND_ASSIGN(auto reader,
                          reader_factory(input, options, /*block_size=*/kBlockSize));
     ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+    // Blocks without any complete row still produce (empty) chunks, so the
+    // column may hold more than one chunk.
+    ASSERT_OK_AND_ASSIGN(table, table->CombineChunks());
 
     ASSERT_EQ(2, table->num_rows());
     const auto& col0 =
@@ -173,6 +176,7 @@ void TestStraddlingCRLF(TableReaderFactory reader_factory) {
     ASSERT_OK_AND_ASSIGN(auto reader,
                          reader_factory(input, options, /*block_size=*/kBlockSize));
     ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+    ASSERT_OK_AND_ASSIGN(table, table->CombineChunks());
 
     ASSERT_EQ(2, table->num_rows());
     const auto& col0 =
