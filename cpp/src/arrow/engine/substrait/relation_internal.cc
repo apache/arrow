@@ -691,11 +691,17 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         case substrait::JoinRel::JOIN_TYPE_RIGHT:
           join_type = acero::JoinType::RIGHT_OUTER;
           break;
-        case substrait::JoinRel::JOIN_TYPE_SEMI:
+        case substrait::JoinRel::JOIN_TYPE_LEFT_SEMI:
           join_type = acero::JoinType::LEFT_SEMI;
           break;
-        case substrait::JoinRel::JOIN_TYPE_ANTI:
+        case substrait::JoinRel::JOIN_TYPE_RIGHT_SEMI:
+          join_type = acero::JoinType::RIGHT_SEMI;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_LEFT_ANTI:
           join_type = acero::JoinType::LEFT_ANTI;
+          break;
+        case substrait::JoinRel::JOIN_TYPE_RIGHT_ANTI:
+          join_type = acero::JoinType::RIGHT_ANTI;
           break;
         default:
           return Status::Invalid("Unsupported join type");
@@ -855,12 +861,17 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       std::vector<FieldRef> keys;
       if (aggregate.groupings_size() > 0) {
         const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
-        int grouping_expr_size = group.grouping_expressions_size();
+        int grouping_expr_size = group.expression_references_size();
         keys.reserve(grouping_expr_size);
         for (int exp_id = 0; exp_id < grouping_expr_size; exp_id++) {
-          ARROW_ASSIGN_OR_RAISE(
-              compute::Expression expr,
-              FromProto(group.grouping_expressions(exp_id), ext_set, conversion_options));
+          uint32_t ref = group.expression_references(exp_id);
+          if (ref >= static_cast<uint32_t>(aggregate.grouping_expressions_size())) {
+            return Status::Invalid("Aggregate grouping expression reference ", ref,
+                                   " was out of range");
+          }
+          ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                                FromProto(aggregate.grouping_expressions(ref), ext_set,
+                                          conversion_options));
           const FieldRef* field_ref = expr.field_ref();
           if (field_ref) {
             keys.emplace_back(std::move(*field_ref));
