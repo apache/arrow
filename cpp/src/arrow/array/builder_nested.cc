@@ -200,7 +200,7 @@ void FixedSizeListBuilder::Reset() {
 
 Status FixedSizeListBuilder::Append() {
   RETURN_NOT_OK(Reserve(1));
-  UnsafeAppendToBitmap(true);
+  UnsafeAppend();
   return Status::OK();
 }
 
