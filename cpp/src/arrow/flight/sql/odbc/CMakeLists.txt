@@ -117,16 +117,6 @@ add_arrow_lib(arrow_flight_sql_odbc
               SHARED_PRIVATE_LINK_LIBS
               ${ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS})
 
-# NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
-# ../../CMakeLists.txt.
-if(WIN32
-   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
-   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
-    target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
-  endforeach()
-endif()
-
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)
 endforeach()
