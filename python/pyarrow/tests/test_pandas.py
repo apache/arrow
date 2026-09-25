@@ -100,7 +100,7 @@ def _alltypes_example(size=100):
 def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
                             check_dtype=True, check_freq=False,
-                            schema=None,preserve_index=False,
+                            schema=None, preserve_index=False,
                             as_batch=False):
     klass = pa.RecordBatch if as_batch else pa.Table
     table = klass.from_pandas(df, schema=schema,
