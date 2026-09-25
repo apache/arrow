@@ -1315,6 +1315,8 @@ def test_parquet_write_to_dataset_exposed_keywords(tempdir):
 def test_write_table_options_in_make_write_options():
     import pyarrow.dataset as ds
 
+    # Test write_table options are in sync with the dataset writer.
+    # Any option not in ParquetFileWriteOptions raises TypeError in make_write_options
     not_writer_args = {"table", "where", "row_group_size", "filesystem", "flavor"}
     options = {
         name: parameter.default
