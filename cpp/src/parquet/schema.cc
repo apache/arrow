@@ -51,29 +51,6 @@ void CheckColumnBounds(int column_index, size_t max_columns) {
   }
 }
 
-std::string ColumnPathFromParquet(const SchemaElement* schema,
-                                  const SchemaElement* element) {
-  if (schema == nullptr) return element->name;
-
-  std::vector<std::pair<const SchemaElement*, int>> parents = {
-      {schema, schema->num_children}};
-  for (const auto* node = schema + 1; node < element; ++node) {
-    --parents.back().second;
-    if (node->num_children > 0) parents.emplace_back(node, node->num_children);
-    while (!parents.empty() && parents.back().second == 0) {
-      parents.pop_back();
-    }
-  }
-
-  std::string path;
-  for (size_t i = 1; i < parents.size(); ++i) {
-    path += parents[i].first->name;
-    path += '.';
-  }
-  path += element->name;
-  return path;
-}
-
 }  // namespace
 
 namespace schema {
@@ -465,12 +442,17 @@ std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element,
   return std::unique_ptr<Node>(group_node.release());
 }
 
+struct SchemaPath {
+  const SchemaPath* parent;
+  const std::string& name;
+};
+
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
   return FromParquet(opaque_element, nullptr);
 }
 
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
-                                                 const void* opaque_schema) {
+                                                 const SchemaPath* parent_path) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
 
@@ -488,13 +470,16 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
     // type annotation.
     if (logical_type &&
         !logical_type->is_applicable(physical_type, element->type_length)) {
+      std::vector<std::string> path{element->name};
+      for (auto* parent = parent_path; parent && parent->parent;
+           parent = parent->parent) {
+        path.push_back(parent->name);
+      }
+      std::reverse(path.begin(), path.end());
       ARROW_LOG(WARNING) << "Dropping unsupported logical type "
                          << logical_type->ToString() << " on physical type "
                          << TypeToString(physical_type) << " for column '"
-                         << ColumnPathFromParquet(
-                                static_cast<const format::SchemaElement*>(opaque_schema),
-                                element)
-                         << "'";
+                         << ColumnPath(std::move(path)).ToDotString() << "'";
       logical_type = UndefinedLogicalType::Make();
     }
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
@@ -608,7 +593,8 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
   size_t pos = 0;
   size_t num_reserved = 0;
 
-  std::function<std::unique_ptr<Node>(int depth)> NextNode = [&](int depth) {
+  std::function<std::unique_ptr<Node>(int, const SchemaPath*)> NextNode;
+  NextNode = [&](int depth, const SchemaPath* parent_path) {
     if (pos == elements.size()) {
       throw ParquetException("Malformed Parquet schema: not enough elements");
     }
@@ -617,7 +603,7 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
 
     if (element.num_children == 0 && element.__isset.type) {
       // Leaf (primitive) node: always has a type
-      return PrimitiveNode::FromParquet(opaque_element, elements);
+      return PrimitiveNode::FromParquet(opaque_element, parent_path);
     } else {
       // Group node (may have 0 children, but cannot have a type)
       // Protect against denial-of-service through stack exhaustion when parsing
@@ -640,13 +626,14 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
         throw ParquetException("Malformed Parquet schema: not enough elements");
       }
       NodeVector fields(element.num_children);
+      const SchemaPath path{parent_path, element.name};
       for (int i = 0; i < element.num_children; ++i) {
-        fields[i] = NextNode(depth + 1);
+        fields[i] = NextNode(depth + 1, &path);
       }
       return GroupNode::FromParquet(opaque_element, std::move(fields));
     }
   };
-  auto root = NextNode(/*depth=*/1);
+  auto root = NextNode(/*depth=*/1, nullptr);
   if (pos != elements.size()) {
     throw ParquetException("Malformed Parquet schema: too many elements");
   }

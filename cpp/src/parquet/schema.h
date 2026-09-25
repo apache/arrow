@@ -39,6 +39,7 @@ class SchemaDescriptor;
 namespace schema {
 
 class Node;
+struct SchemaPath;
 
 // List encodings: using the terminology from Impala to define different styles
 // of representing logical lists (a.k.a. ARRAY types) in Parquet schemas. Since
@@ -199,9 +200,8 @@ using NodeVector = std::vector<NodePtr>;
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
   static std::unique_ptr<Node> FromParquet(const void* opaque_element);
-  // opaque_schema is the flattened schema containing opaque_element, or nullptr.
   static std::unique_ptr<Node> FromParquet(const void* opaque_element,
-                                           const void* opaque_schema);
+                                           const SchemaPath* parent_path);
 
   // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
