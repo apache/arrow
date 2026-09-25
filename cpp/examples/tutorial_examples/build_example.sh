@@ -21,7 +21,11 @@ set -ex
 mkdir -p "$EXAMPLE_BUILD_DIR"
 pushd "$EXAMPLE_BUILD_DIR"
 
-cmake /io "$EXAMPLE_CMAKE_OPTIONS"
+# Convert the space-separated CMake options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a EXAMPLE_CMAKE_OPTIONS_ARRAY <<< "$EXAMPLE_CMAKE_OPTIONS"
+
+cmake /io "$EXAMPLE_CMAKE_OPTIONS_ARRAY[@]"
 make
 
 popd
