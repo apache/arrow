@@ -593,46 +593,48 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
   size_t pos = 0;
   size_t num_reserved = 0;
 
-  std::function<std::unique_ptr<Node>(int, const SchemaPath*)> NextNode;
-  NextNode = [&](int depth, const SchemaPath* parent_path) {
-    if (pos == elements.size()) {
-      throw ParquetException("Malformed Parquet schema: not enough elements");
-    }
-    const SchemaElement& element = elements[pos++];
-    const void* opaque_element = static_cast<const void*>(&element);
+  std::function<std::unique_ptr<Node>(int, const SchemaPath*)> NextNode =
+      [&](int depth, const SchemaPath* parent_path) {
+        if (pos == elements.size()) {
+          throw ParquetException("Malformed Parquet schema: not enough elements");
+        }
+        const SchemaElement& element = elements[pos++];
+        const void* opaque_element = static_cast<const void*>(&element);
 
-    if (element.num_children == 0 && element.__isset.type) {
-      // Leaf (primitive) node: always has a type
-      return PrimitiveNode::FromParquet(opaque_element, parent_path);
-    } else {
-      // Group node (may have 0 children, but cannot have a type)
-      // Protect against denial-of-service through stack exhaustion when parsing
-      // deeply nested schemas.
-      if (depth >= max_depth) {
-        std::stringstream ss;
-        ss << "Parquet schema too deeply nested, consider increasing schema depth limit "
-              "(current limit is "
-           << max_depth << ")";
-        throw ParquetException(ss.str());
-      }
-      if (element.num_children < 0) {
-        throw ParquetException("Malformed Parquet schema: negative number of children");
-      }
-      // Guard against excessive pre-reservation by an invalid schema.
-      // For example, a sequence of group nodes advertising N, N-1, etc. children
-      // could lead to quadratic preallocation.
-      num_reserved += static_cast<size_t>(element.num_children);
-      if (num_reserved > elements.size()) {
-        throw ParquetException("Malformed Parquet schema: not enough elements");
-      }
-      NodeVector fields(element.num_children);
-      const SchemaPath path{parent_path, element.name};
-      for (int i = 0; i < element.num_children; ++i) {
-        fields[i] = NextNode(depth + 1, &path);
-      }
-      return GroupNode::FromParquet(opaque_element, std::move(fields));
-    }
-  };
+        if (element.num_children == 0 && element.__isset.type) {
+          // Leaf (primitive) node: always has a type
+          return PrimitiveNode::FromParquet(opaque_element, parent_path);
+        } else {
+          // Group node (may have 0 children, but cannot have a type)
+          // Protect against denial-of-service through stack exhaustion when parsing
+          // deeply nested schemas.
+          if (depth >= max_depth) {
+            std::stringstream ss;
+            ss << "Parquet schema too deeply nested, consider increasing schema depth "
+                  "limit "
+                  "(current limit is "
+               << max_depth << ")";
+            throw ParquetException(ss.str());
+          }
+          if (element.num_children < 0) {
+            throw ParquetException(
+                "Malformed Parquet schema: negative number of children");
+          }
+          // Guard against excessive pre-reservation by an invalid schema.
+          // For example, a sequence of group nodes advertising N, N-1, etc. children
+          // could lead to quadratic preallocation.
+          num_reserved += static_cast<size_t>(element.num_children);
+          if (num_reserved > elements.size()) {
+            throw ParquetException("Malformed Parquet schema: not enough elements");
+          }
+          NodeVector fields(element.num_children);
+          const SchemaPath path{parent_path, element.name};
+          for (int i = 0; i < element.num_children; ++i) {
+            fields[i] = NextNode(depth + 1, &path);
+          }
+          return GroupNode::FromParquet(opaque_element, std::move(fields));
+        }
+      };
   auto root = NextNode(/*depth=*/1, nullptr);
   if (pos != elements.size()) {
     throw ParquetException("Malformed Parquet schema: too many elements");
