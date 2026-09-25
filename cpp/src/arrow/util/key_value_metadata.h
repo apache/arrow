@@ -50,6 +50,12 @@ class ARROW_EXPORT KeyValueMetadata {
   // Note that deleting may invalidate known indices
   Status Delete(std::string_view key);
   Status Delete(int64_t index);
+
+  /// \brief Delete metadata entries at specified index in keys and values array
+  /// \param indices Vector of distinct indices identifying the entries to
+  ///        remove from the metadata.
+  /// \return Status indicating success or failure.
+
   Status DeleteMany(std::vector<int64_t> indices);
   Status Set(std::string key, std::string value);
 
