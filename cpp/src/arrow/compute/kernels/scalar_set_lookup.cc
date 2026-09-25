@@ -579,7 +579,7 @@ const FunctionDoc is_in_doc{
     "SetLookupOptions",
     /*options_required=*/true};
 
-const FunctionDoc is_in_meta_doc{
+const FunctionDoc is_in_binary_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in `value_set`,\n"
      "false otherwise."),
@@ -596,38 +596,38 @@ const FunctionDoc index_in_doc{
     "SetLookupOptions",
     /*options_required=*/true};
 
-const FunctionDoc index_in_meta_doc{
+const FunctionDoc index_in_binary_doc{
     "Return index of each element in a set of values",
     ("For each element in `values`, return its index in the `value_set`,\n"
      "or null if it is not found there."),
     {"values", "value_set"}};
 
 // Enables calling is_in with CallFunction as though it were binary.
-class IsInMetaBinary : public MetaFunction {
+class IsInBinary : public MetaFunction {
  public:
-  IsInMetaBinary() : MetaFunction("is_in_meta_binary", Arity::Binary(), is_in_meta_doc) {}
+  IsInBinary() : MetaFunction("is_in_binary", Arity::Binary(), is_in_binary_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     if (options != nullptr) {
-      return Status::Invalid("Unexpected options for 'is_in_meta_binary' function");
+      return Status::Invalid("Unexpected options for 'is_in_binary' function");
     }
     return IsIn(args[0], args[1], ctx);
   }
 };
 
 // Enables calling index_in with CallFunction as though it were binary.
-class IndexInMetaBinary : public MetaFunction {
+class IndexInBinary : public MetaFunction {
  public:
-  IndexInMetaBinary()
-      : MetaFunction("index_in_meta_binary", Arity::Binary(), index_in_meta_doc) {}
+  IndexInBinary()
+      : MetaFunction("index_in_binary", Arity::Binary(), index_in_binary_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     if (options != nullptr) {
-      return Status::Invalid("Unexpected options for 'index_in_meta_binary' function");
+      return Status::Invalid("Unexpected options for 'index_in_binary' function");
     }
     return IndexIn(args[0], args[1], ctx);
   }
@@ -659,7 +659,8 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     DCHECK_OK(is_in->AddKernel(isin_base));
     DCHECK_OK(registry->AddFunction(is_in));
 
-    DCHECK_OK(registry->AddFunction(std::make_shared<IsInMetaBinary>()));
+    DCHECK_OK(registry->AddFunction(std::make_shared<IsInBinary>()));
+    DCHECK_OK(registry->AddAlias("is_in_meta_binary", "is_in_binary"));
   }
 
   // IndexIn writes its int32 output into preallocated memory
@@ -677,7 +678,8 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     DCHECK_OK(index_in->AddKernel(index_in_base));
     DCHECK_OK(registry->AddFunction(index_in));
 
-    DCHECK_OK(registry->AddFunction(std::make_shared<IndexInMetaBinary>()));
+    DCHECK_OK(registry->AddFunction(std::make_shared<IndexInBinary>()));
+    DCHECK_OK(registry->AddAlias("index_in_meta_binary", "index_in_binary"));
   }
 }
 
