@@ -2377,12 +2377,15 @@ cdef class Array(_PandasConvertible):
                 )
             # Note: from March 2025 onwards, it's okay to raise BufferError here.
             # Still we keep the V0 version as the V1 was only added in August 2026.
+            legacy_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
+            # Wrap the exported tensor in its capsule before warning so that a
+            # warning escalated to an error cannot leak the tensor.
+            capsule = PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
             warnings.warn(
                 "Exporting an unversioned DLPack capsule is deprecated, "
                 "pass max_version=(1, 0) or higher.",
                 DeprecationWarning, stacklevel=2)
-            legacy_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
-            return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
+            return capsule
 
         # Currently no major version other than legacy 0 and current 1.3
         dlm_tensor = GetResultValue(
