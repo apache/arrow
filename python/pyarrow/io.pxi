@@ -45,6 +45,13 @@ cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
 
+cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
+    # In-place shrink of a bytes object (the only way to fit a max-size read
+    # buffer to the actual bytes read). Wraps the private _PyBytes_Resize on the
+    # C++ side, which handles the limited-API prototype there. See the note in
+    # arrow/python/common.h for the allowlist rationale.
+    int cpp_PyBytes_Resize(PyObject** bytes, Py_ssize_t newsize) except -1
+
 
 def have_libhdfs():
     """
@@ -415,12 +422,12 @@ cdef class NativeFile(_Weakrefable):
         # Allocate empty write space
         obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
-        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AsString(<object> obj)
         with nogil:
             bytes_read = GetResultValue(handle.get().Read(c_nbytes, buf))
 
         if bytes_read < c_nbytes:
-            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+            cpp_PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
 
@@ -488,13 +495,13 @@ cdef class NativeFile(_Weakrefable):
         # Allocate empty write space
         obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
-        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AsString(<object> obj)
         with nogil:
             bytes_read = GetResultValue(handle.get().
                                         ReadAt(c_offset, c_nbytes, buf))
 
         if bytes_read < c_nbytes:
-            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+            cpp_PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
 
@@ -1615,7 +1622,7 @@ cdef class Buffer(_Weakrefable):
         if buffer.buf == NULL:
             # ARROW-16048: Ensure we don't export a NULL address.
             assert buffer.len == 0
-            buffer.buf = cp.PyBytes_AS_STRING(b"")
+            buffer.buf = cp.PyBytes_AsString(b"")
         buffer.format = 'b'
         buffer.internal = NULL
         buffer.itemsize = 1
@@ -2644,7 +2651,7 @@ cdef class Codec(_Weakrefable):
 
         if asbytes:
             pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
-            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
+            output_buffer = <uint8_t*> cp.PyBytes_AsString(<object> pyobj)
         else:
             out_buf = allocate_buffer(
                 max_output_size, memory_pool=memory_pool, resizable=True
@@ -2662,7 +2669,7 @@ cdef class Codec(_Weakrefable):
             )
 
         if asbytes:
-            cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
+            cpp_PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
             return PyObject_to_object(pyobj)
         else:
             out_buf.resize(output_length)
@@ -2706,7 +2713,7 @@ cdef class Codec(_Weakrefable):
 
         if asbytes:
             pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
-            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
+            output_buffer = <uint8_t*> cp.PyBytes_AsString(pybuf)
         else:
             out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
             output_buffer = out_buf.buffer.get().mutable_data()
