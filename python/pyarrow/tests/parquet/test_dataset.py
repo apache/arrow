@@ -1330,8 +1330,7 @@ def test_write_to_dataset_options(tempdir):
                       "t": pa.array([1, 2, 3], pa.time32("ms"))})
     pq.write_to_dataset(table, tempdir, store_schema=False,
                         write_time_adjusted_to_utc=True,
-                        bloom_filter_options={"a": True},
-                        )
+                        bloom_filter_options={"a": True})
     metadata = pq.read_metadata(next(tempdir.glob("*.parquet")))
     assert b'ARROW:schema' not in (metadata.metadata or {})
     assert 'isAdjustedToUTC=true' in str(metadata.schema.column(1).logical_type)
