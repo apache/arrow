@@ -240,7 +240,8 @@ def multisourcefs(request):
 
     # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
-    for part, chunk in df_b.groupby([pd.DatetimeIndex(df_b.date).day_of_week, df_b.color]):
+    for part, chunk in df_b.groupby([pd.DatetimeIndex(df_b.date).day_of_week,
+                                     df_b.color]):
         folder = f'schema/{part[0]}/{part[1]}'
         path = f'{folder}/chunk.parquet'
         mockfs.create_dir(folder)
