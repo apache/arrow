@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <chrono>
 
+#include "arrow/python/common.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
@@ -38,7 +39,79 @@
 #  include "datetime.h"
 #else
 #  define PyDateTimeAPI ::arrow::py::internal::datetime_api
-#endif
+
+// Under Py_LIMITED_API (the cp311-abi3 build) CPython's <datetime.h> is
+// entirely absent (it lives behind #ifndef Py_LIMITED_API), so neither the
+// PyDateTime_CAPI struct nor the PyDate_Check / PyDate_FromDate macros are
+// provided. The datetime C-API is still exposed at runtime through the
+// "datetime.datetime_CAPI" capsule (which InitDatetime() imports and stores in
+// datetime_api); the struct layout is a documented, stable part of that
+// capsule contract. Define the struct and the check/constructor macros we use
+// so the same code compiles in the limited-API build. The layout must stay in
+// sync with CPython's Modules/_datetimemodule.c datetime_capsule.
+#  ifdef Py_LIMITED_API
+#    ifndef DATETIME_H
+#      define DATETIME_H
+#    endif
+#    ifndef PyDateTime_CAPSULE_NAME
+#      define PyDateTime_CAPSULE_NAME "datetime.datetime_CAPI"
+#    endif
+typedef struct {
+  /* type objects */
+  PyTypeObject* DateType;
+  PyTypeObject* DateTimeType;
+  PyTypeObject* TimeType;
+  PyTypeObject* DeltaType;
+  PyTypeObject* TZInfoType;
+
+  /* singletons */
+  PyObject* TimeZone_UTC;
+
+  /* constructors */
+  PyObject* (*Date_FromDate)(int, int, int, PyTypeObject*);
+  PyObject* (*DateTime_FromDateAndTime)(int, int, int, int, int, int, int,
+                                        PyObject*, PyTypeObject*);
+  PyObject* (*Time_FromTime)(int, int, int, int, PyObject*, PyTypeObject*);
+  PyObject* (*Delta_FromDelta)(int, int, int, int, PyTypeObject*);
+  PyObject* (*TimeZone_FromTimeZone)(PyObject* offset, PyObject* name);
+
+  /* constructors for the DB API */
+  PyObject* (*DateTime_FromTimestamp)(PyObject*, PyObject*, PyObject*);
+  PyObject* (*Date_FromTimestamp)(PyObject*, PyObject*);
+
+  /* PEP 495 constructors */
+  PyObject* (*DateTime_FromDateAndTimeAndFold)(int, int, int, int, int, int,
+                                               int, PyObject*, int,
+                                               PyTypeObject*);
+  PyObject* (*Time_FromTimeAndFold)(int, int, int, int, PyObject*, int,
+                                    PyTypeObject*);
+} PyDateTime_CAPI;
+
+#    define PyDate_Check(op) PyObject_TypeCheck(op, PyDateTimeAPI->DateType)
+#    define PyDate_CheckExact(op) Py_IS_TYPE(op, PyDateTimeAPI->DateType)
+#    define PyDateTime_Check(op) PyObject_TypeCheck(op, PyDateTimeAPI->DateTimeType)
+#    define PyDateTime_CheckExact(op) Py_IS_TYPE(op, PyDateTimeAPI->DateTimeType)
+#    define PyTime_Check(op) PyObject_TypeCheck(op, PyDateTimeAPI->TimeType)
+#    define PyTime_CheckExact(op) Py_IS_TYPE(op, PyDateTimeAPI->TimeType)
+#    define PyDelta_Check(op) PyObject_TypeCheck(op, PyDateTimeAPI->DeltaType)
+#    define PyDelta_CheckExact(op) Py_IS_TYPE(op, PyDateTimeAPI->DeltaType)
+#    define PyTZInfo_Check(op) PyObject_TypeCheck(op, PyDateTimeAPI->TZInfoType)
+#    define PyTZInfo_CheckExact(op) Py_IS_TYPE(op, PyDateTimeAPI->TZInfoType)
+#    define PyDateTime_TimeZone_UTC PyDateTimeAPI->TimeZone_UTC
+#    define PyDate_FromDate(year, month, day) \
+      PyDateTimeAPI->Date_FromDate(year, month, day, PyDateTimeAPI->DateType)
+#    define PyDateTime_FromDateAndTime(year, month, day, hour, min, sec, usec) \
+      PyDateTimeAPI->DateTime_FromDateAndTime(year, month, day, hour, min, sec, \
+                                              usec, Py_None, \
+                                              PyDateTimeAPI->DateTimeType)
+#    define PyTime_FromTime(hour, minute, second, usecond) \
+      PyDateTimeAPI->Time_FromTime(hour, minute, second, usecond, Py_None, \
+                                   PyDateTimeAPI->TimeType)
+#    define PyDelta_FromDSU(days, seconds, useconds) \
+      PyDateTimeAPI->Delta_FromDelta(days, seconds, useconds, 1, \
+                                     PyDateTimeAPI->DeltaType)
+#  endif  // Py_LIMITED_API
+#endif  // !PYPY_VERSION
 
 namespace arrow {
 using internal::AddWithOverflow;
@@ -57,12 +130,31 @@ void InitDatetime();
 ARROW_PYTHON_EXPORT
 PyObject* NewMonthDayNanoTupleType();
 
+// Reads an integer field ("year", "hour", "days", ...) off a Python
+// date/time/datetime/timedelta object through the stable C-API. The fast
+// datetime struct-field accessors (PyDateTime_TIME_GET_HOUR etc.) are hidden
+// under Py_LIMITED_API (abi3), so attribute access is the portable path.
+// Callers pass a type-checked object, so the field is guaranteed present and
+// integral; a failure is a genuine invariant violation.
+ARROW_PYTHON_EXPORT
+inline int64_t PyDatetimeField(PyObject* obj, const char* name) {
+  OwnedRef field(PyObject_GetAttrString(obj, name));
+  if (ARROW_PREDICT_FALSE(field.obj() == nullptr)) {
+    Py_FatalError("arrow: failed to read datetime field");
+  }
+  long long v = PyLong_AsLongLong(field.obj());
+  if (ARROW_PREDICT_FALSE(v == -1 && PyErr_Occurred())) {
+    Py_FatalError("arrow: datetime field is not an integer");
+  }
+  return v;
+}
+
 ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_us(PyObject* pytime) {
-  return (PyDateTime_TIME_GET_HOUR(pytime) * 3600000000LL +
-          PyDateTime_TIME_GET_MINUTE(pytime) * 60000000LL +
-          PyDateTime_TIME_GET_SECOND(pytime) * 1000000LL +
-          PyDateTime_TIME_GET_MICROSECOND(pytime));
+  return (PyDatetimeField(pytime, "hour") * 3600000000LL +
+          PyDatetimeField(pytime, "minute") * 60000000LL +
+          PyDatetimeField(pytime, "second") * 1000000LL +
+          PyDatetimeField(pytime, "microsecond"));
 }
 
 ARROW_PYTHON_EXPORT
@@ -89,45 +181,42 @@ using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 ARROW_PYTHON_EXPORT
-int64_t PyDate_to_days(PyDateTime_Date* pydate);
+int64_t PyDate_to_days(PyObject* pydate);
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDate_to_s(PyDateTime_Date* pydate) {
-  return PyDate_to_days(pydate) * 86400LL;
-}
+inline int64_t PyDate_to_s(PyObject* pydate) { return PyDate_to_days(pydate) * 86400LL; }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
+inline int64_t PyDate_to_ms(PyObject* pydate) {
   return PyDate_to_days(pydate) * 86400000LL;
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
-  return (PyDate_to_s(reinterpret_cast<PyDateTime_Date*>(pydatetime)) +
-          PyDateTime_DATE_GET_HOUR(pydatetime) * 3600LL +
-          PyDateTime_DATE_GET_MINUTE(pydatetime) * 60LL +
-          PyDateTime_DATE_GET_SECOND(pydatetime));
+inline int64_t PyDateTime_to_s(PyObject* pydatetime) {
+  return (PyDate_to_s(pydatetime) + PyDatetimeField(pydatetime, "hour") * 3600LL +
+          PyDatetimeField(pydatetime, "minute") * 60LL +
+          PyDatetimeField(pydatetime, "second"));
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
+inline int64_t PyDateTime_to_ms(PyObject* pydatetime) {
   return (PyDateTime_to_s(pydatetime) * 1000LL +
-          PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000);
+          PyDatetimeField(pydatetime, "microsecond") / 1000);
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
+inline int64_t PyDateTime_to_us(PyObject* pydatetime) {
   return (PyDateTime_to_s(pydatetime) * 1000000LL +
-          PyDateTime_DATE_GET_MICROSECOND(pydatetime));
+          PyDatetimeField(pydatetime, "microsecond"));
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
+inline int64_t PyDateTime_to_ns(PyObject* pydatetime) {
   return PyDateTime_to_us(pydatetime) * 1000LL;
 }
 
 ARROW_PYTHON_EXPORT
-inline TimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime) {
+inline TimePoint PyDateTime_to_TimePoint(PyObject* pydatetime) {
   return TimePoint(TimePoint::duration(PyDateTime_to_ns(pydatetime)));
 }
 
@@ -145,31 +234,31 @@ inline TimePoint TimePoint_from_ns(int64_t val) {
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
-  return (PyDateTime_DELTA_GET_DAYS(pytimedelta) * 86400LL +
-          PyDateTime_DELTA_GET_SECONDS(pytimedelta));
+inline int64_t PyDelta_to_s(PyObject* pytimedelta) {
+  return (PyDatetimeField(pytimedelta, "days") * 86400LL +
+          PyDatetimeField(pytimedelta, "seconds"));
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDelta_to_ms(PyDateTime_Delta* pytimedelta) {
+inline int64_t PyDelta_to_ms(PyObject* pytimedelta) {
   return (PyDelta_to_s(pytimedelta) * 1000LL +
-          PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta) / 1000);
+          PyDatetimeField(pytimedelta, "microseconds") / 1000);
 }
 
 ARROW_PYTHON_EXPORT
-inline Result<int64_t> PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
+inline Result<int64_t> PyDelta_to_us(PyObject* pytimedelta) {
   int64_t result = PyDelta_to_s(pytimedelta);
   if (MultiplyWithOverflow(result, 1000000LL, &result)) {
     return Status::Invalid("Timedelta too large to fit in 64-bit integer");
   }
-  if (AddWithOverflow(result, PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta), &result)) {
+  if (AddWithOverflow(result, PyDatetimeField(pytimedelta, "microseconds"), &result)) {
     return Status::Invalid("Timedelta too large to fit in 64-bit integer");
   }
   return result;
 }
 
 ARROW_PYTHON_EXPORT
-inline Result<int64_t> PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
+inline Result<int64_t> PyDelta_to_ns(PyObject* pytimedelta) {
   ARROW_ASSIGN_OR_RAISE(int64_t result, PyDelta_to_us(pytimedelta));
   if (MultiplyWithOverflow(result, 1000LL, &result)) {
     return Status::Invalid("Timedelta too large to fit in 64-bit integer");

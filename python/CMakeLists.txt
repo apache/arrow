@@ -386,7 +386,6 @@ configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
 
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
-    ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
     ${PYARROW_CPP_SOURCE_DIR}/config.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
@@ -528,6 +527,17 @@ else()
   target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
+# Restrict the Python C-API to the stable ABI (Python >= 3.11) so a single
+# cp311-abi3 wheel covers all non-freethreading CPython 3.11-3.15. This is
+# required (not optional) for the Python layer: scalar.pxi/types.pxi/io.pxi
+# rely on the cdef classes being heap types (PyType_Spec) under the limited
+# API to assign ABC mixin methods (e.g. KeyValueMetadata.get = Mapping.get);
+# full-API builds compile but fail at import. Make it PUBLIC so the
+# sub-targets that link arrow_python (parquet_encryption, flight) inherit
+# the same limited-API view of the C headers. Note: the vendored
+# pythoncapi_compat.h shims for < 3.13 reference CPython internals, so
+# wheel builds must use >= 3.13 dev headers (build on Python 3.14+).
+target_compile_definitions(arrow_python PUBLIC Py_LIMITED_API=0x030B0000)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
 if(CMAKE_CONFIGURATION_TYPES)
   target_compile_definitions(arrow_python PRIVATE PYARROW_BUILD_TYPE="$<CONFIG>")
@@ -960,6 +970,13 @@ foreach(module ${CYTHON_EXTENSIONS})
   set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX TRUE)
 
   cython_add_module(${module_name} ${module_name}_pyx ${module_name}_output ${module_SRC})
+
+  # cp311-abi3: name modules with the standard abi3 suffix so one wheel serves
+  # every non-freethreading interpreter (importlib resolves '.abi3.so' on all).
+  # Python's EXTENSION_SUFFIXES includes '.abi3.so' on POSIX; Windows keeps .pyd.
+  if(NOT WIN32)
+    set_target_properties(${module_name} PROPERTIES SUFFIX ".abi3.so")
+  endif()
 
   if(directories)
     string(REPLACE ";" "/" module_output_directory ${directories})

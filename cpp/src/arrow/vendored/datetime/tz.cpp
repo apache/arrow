@@ -501,6 +501,16 @@ discover_tz_dir()
     CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
     CONSTDATA auto tz_dir_buildroot = "/usr/share/zoneinfo/uclibc";
 
+    // Honor the standard TZDB environment variable (same as upstream date),
+    // e.g. TZDB=$(python -m site)/pip tzdata zoneinfo directory, for hosts
+    // whose system zoneinfo is partial (posix-only).
+    if(const char* env_dir = std::getenv("TZDB"))
+    {
+        std::string dir(env_dir);
+        if(!dir.empty() && stat(dir.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode))
+            return dir;
+    }
+
     // Check special path which is valid for buildroot with uclibc builds
     if(stat(tz_dir_buildroot, &sb) == 0 && S_ISDIR(sb.st_mode))
         return tz_dir_buildroot;
