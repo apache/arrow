@@ -44,5 +44,7 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
 fi
 
 pushd "${python_build_dir}"
+# For LLVM 23 llvm-strip to not remove required dylink.0
+export SKBUILD_INSTALL_STRIP=false
 pyodide build
 popd
