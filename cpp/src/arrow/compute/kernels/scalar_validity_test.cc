@@ -238,8 +238,7 @@ TEST(TestValidityKernels, IsNullDictionaryNullValues) {
 
   // A null dictionary value is reported regardless of nan_is_null: index 1 points at
   // a null dictionary entry, so it is a logical null even with default options.
-  CheckScalarUnary("is_null", arr,
-                   ArrayFromJSON(boolean(), "[false, true, false, true]"),
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, false, true]"),
                    &default_options);
   CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, true, true]"),
                    &nan_is_null_options);
@@ -253,6 +252,35 @@ TEST(TestValidityKernels, IsNullDictionaryNanIsNullUnsignedIndices) {
 
   CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, false, true]"),
                    &nan_is_null_options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullBounds) {
+  NullOptions options(/*nan_is_null=*/true);
+  auto dict_ty = dictionary(int32(), float64());
+  auto values = ArrayFromJSON(float64(), "[1.5, null, NaN]");
+  for (const auto* indices_json :
+       {"[0, -1]", "[0, 3]", "[0, -2147483648]", "[0, 2147483647]"}) {
+    SCOPED_TRACE(indices_json);
+    auto indices = ArrayFromJSON(int32(), indices_json);
+    auto arr = std::make_shared<DictionaryArray>(dict_ty, indices, values);
+    ASSERT_RAISES(IndexError, IsNull(arr, options));
+  }
+
+  auto empty = DictArrayFromJSON(dict_ty, "[]", "[]");
+  CheckScalarUnary("is_null", empty, ArrayFromJSON(boolean(), "[]"), &options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullSkipsNullIndex) {
+  NullOptions options(/*nan_is_null=*/true);
+  auto dict_ty = dictionary(int32(), float64());
+  auto indices = ArrayFromJSON(int32(), "[0, null, 1]");
+  // The physical value in a null slot must not be dereferenced.
+  reinterpret_cast<int32_t*>(indices->data()->buffers[1]->mutable_data())[1] = -1;
+  auto values = ArrayFromJSON(float64(), "[1.5, NaN]");
+  auto arr = std::make_shared<DictionaryArray>(dict_ty, indices, values);
+  ASSERT_OK(arr->ValidateFull());
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, true]"),
+                   &options);
 }
 
 TEST(TestValidityKernels, IsNullDictionaryNanIsNullHalfFloat) {

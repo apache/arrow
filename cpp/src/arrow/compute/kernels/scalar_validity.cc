@@ -83,20 +83,22 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
-// Maps `is_null` over the dictionary values and then through the indices, so that
-// NaN dictionary entries are reported too, whatever the index type. Null dictionary
-// entries and null indices are already covered by dict_util::SetLogicalNullBits, so
-// this only needs to OR the NaN bits in on top of that.
+// Maps `is_null` over dictionary values and then through checked indices, so
+// both NaN and null dictionary entries are reported, whatever the index type.
 static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
                                        uint8_t* out_bitmap, int64_t out_offset) {
   if (arr.length == 0) {
     return Status::OK();
   }
+  if (arr.GetNullCount() > 0) {
+    InvertBitmap(arr.buffers[0].data, arr.offset, arr.length, out_bitmap, out_offset);
+  } else {
+    bit_util::SetBitsTo(out_bitmap, out_offset, arr.length, false);
+  }
   NullOptions nan_is_null_options(/*nan_is_null=*/true);
-  ARROW_ASSIGN_OR_RAISE(
-      Datum dict_is_null,
-      CallFunction("is_null", {arr.dictionary().ToArrayData()}, &nan_is_null_options,
-                  ctx->exec_context()));
+  ARROW_ASSIGN_OR_RAISE(Datum dict_is_null,
+                        CallFunction("is_null", {arr.dictionary().ToArrayData()},
+                                     &nan_is_null_options, ctx->exec_context()));
 
   const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
   auto indices = ArrayData::Make(dict_type.index_type(), arr.length,
@@ -106,8 +108,8 @@ static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
                         Take(dict_is_null, Datum(std::move(indices)),
                              TakeOptions::BoundsCheck(), ctx->exec_context()));
 
-  // Null and non-NaN slots are already set from dict_util::SetLogicalNullBits above,
-  // so the values bitmap can be OR'ed in without masking anything out of it first.
+  // Null index slots are already set from the input validity bitmap, so the
+  // values bitmap can be OR'ed in without masking null slots out first.
   const ArrayData& result = *taken.array();
   ::arrow::internal::BitmapOr(out_bitmap, out_offset, result.buffers[1]->data(),
                               result.offset, arr.length, out_offset, out_bitmap);
@@ -132,11 +134,11 @@ Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span, uint8_t* ou
     // TODO: propagate `nan_is_null`
     ree_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
   } else if (t == Type::DICTIONARY) {
-    dict_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
     const auto& dict_type = checked_cast<const DictionaryType&>(*span.type);
     if (nan_is_null && is_floating(dict_type.value_type()->id())) {
-      RETURN_NOT_OK(SetNanBitsFromDictionary(ctx, span, out_bitmap, out_offset));
+      return SetNanBitsFromDictionary(ctx, span, out_bitmap, out_offset);
     }
+    dict_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
   } else {
     // Input is a type for which logical and physical nulls are the same, so we can
     // use GetNullCount() and the validity bitmap
