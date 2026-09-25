@@ -883,5 +883,7 @@ ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
+ARROW_EXPORT BasicDecimal256 operator%(const BasicDecimal256& left,
+                                       const BasicDecimal256& right);
 
 }  // namespace arrow
