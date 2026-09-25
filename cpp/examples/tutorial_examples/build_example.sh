@@ -25,7 +25,7 @@ pushd "$EXAMPLE_BUILD_DIR"
 # This avoids ShellCheck SC2086 and preserves argument boundaries.
 read -r -a EXAMPLE_CMAKE_OPTIONS_ARRAY <<< "$EXAMPLE_CMAKE_OPTIONS"
 
-cmake /io "$EXAMPLE_CMAKE_OPTIONS_ARRAY[@]"
+cmake /io "${EXAMPLE_CMAKE_OPTIONS_ARRAY[@]}"
 make
 
 popd
