@@ -876,6 +876,27 @@ TEST(TimestampParser, StrptimeParser) {
   }
 }
 
+TEST(TimestampParser, StrptimeParserCalendarDateValidation) {
+  std::string format = "%Y-%m-%d";
+  auto parser = TimestampParser::MakeStrptime(format);
+
+  for (const std::string& value : {"1999-02-30", "1999-02-29", "1900-02-29",
+                                   "2024-04-31"}) {
+    SCOPED_TRACE(value);
+    int64_t converted;
+    ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &converted));
+  }
+
+  for (const std::string& value : {"2000-02-29", "2024-04-30"}) {
+    SCOPED_TRACE(value);
+    int64_t converted, expected;
+    ASSERT_TRUE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &converted));
+    ASSERT_TRUE(ParseTimestampISO8601(value.c_str(), value.size(), TimeUnit::SECOND,
+                                      &expected));
+    ASSERT_EQ(expected, converted);
+  }
+}
+
 TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
