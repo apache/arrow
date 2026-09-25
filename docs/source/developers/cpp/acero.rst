@@ -181,10 +181,10 @@ If any external resources are used then cleanup should happen as part of this ca
 Examples
 ^^^^^^^^
 
-* The ``asofjoin`` node has a dedicated processing thread the communicates with the main Acero threads
-  using a queue.  When ``StopProducing`` is called the node inserts a poison pill into the queue.  This
-  tells the processing thread to stop immediately.  Once the processing thread stops it marks its external
-  task (described below) as completed which allows the plan to finish.
+* The ``asofjoin`` node uses tracked lane tasks to process its inputs.  When
+  ``StopProducing`` is called, the node marks its coordinator and lanes as stopped and
+  stops its inputs.  Tasks that were already scheduled observe the terminal state and
+  return without publishing more output.
 * The ``fetch`` node, in ``InputReceived``, may decide that it has all the data it needs.  It can then call
   ``StopProducing`` on its input.
 
@@ -403,10 +403,9 @@ source nodes will usually schedule tasks during the call to StartProducing.  Pip
 when they have accumulated all the data they need.  Once all tasks in a plan are finished then the plan is considered
 done.
 
-Some nodes use external threads.  These threads must be registered as external tasks using the BeginExternalTask method.
-For example, the asof join node uses a dedicated processing thread to achieve serial execution.  This dedicated thread
-is registered as an external task.  External tasks should be avoided where possible because they require careful
-handling to avoid deadlock in error situations.
+Some nodes use external threads.  These threads must be registered as external tasks
+using the BeginExternalTask method.  External tasks should be avoided where possible
+because they require careful handling to avoid deadlock in error situations.
 
 Ordered Execution
 =================
@@ -536,8 +535,9 @@ If you need to run something in parallel then you should use thread tasks and no
  * This makes it possible to run without threads (sometimes users are doing their own threading and
    sometimes we need to run in thread-restricted environments like emscripten)
 
-Note: we do not always follow this advice currently.  There is a dedicated process thread in the asof join
-node.  Dedicated threads are "ok" for experimental use but we'd like to migrate away from them.
+The ``asofjoin`` node follows this model by sequencing each input and scheduling tracked
+lane tasks.  The same implementation therefore runs on either a serial executor or a
+thread pool without owning a dedicated thread.
 
 Don't Block on CPU Threads
 --------------------------
