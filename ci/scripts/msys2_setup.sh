@@ -49,8 +49,8 @@ case "${target}" in
     packages+=("${MINGW_PACKAGE_PREFIX}-snappy")
     packages+=("${MINGW_PACKAGE_PREFIX}-sqlite3")
     packages+=("${MINGW_PACKAGE_PREFIX}-thrift")
-    packages+=("${MINGW_PACKAGE_PREFIX}-xsimd")
     packages+=("${MINGW_PACKAGE_PREFIX}-uriparser")
+    packages+=("${MINGW_PACKAGE_PREFIX}-xsimd")
     packages+=("${MINGW_PACKAGE_PREFIX}-zstd")
     packages+=("patch")
 
