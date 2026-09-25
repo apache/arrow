@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <limits>
 #include <utility>
 
@@ -58,6 +59,22 @@ Status MismatchingColumns(const InvalidRow& row) {
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
+
+enum class DelimiterMatch { NoMatch, Match, Incomplete };
+
+DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
+                              const char* data_end, bool is_final) {
+  DCHECK(!delimiter.empty());
+  const auto available = static_cast<size_t>(data_end - data);
+  const auto compared = std::min(available, delimiter.size());
+  if (std::memcmp(data, delimiter.data(), compared) != 0) {
+    return DelimiterMatch::NoMatch;
+  }
+  if (available < delimiter.size()) {
+    return is_final ? DelimiterMatch::NoMatch : DelimiterMatch::Incomplete;
+  }
+  return DelimiterMatch::Match;
+}
 
 template <bool IgnoreExtraColumns>
 constexpr bool ShouldWrite([[maybe_unused]] bool ignoring_extra_field) {
@@ -341,16 +358,31 @@ class BlockParserImpl {
 
   FieldStart:
     // At the start of a field
-    if (*data == options_.delimiter) {
-      // Empty cells are very common in some files, shortcut them
-      StartField(false /* quoted */);
-      FinishField();
-      ++data;
-      ++num_cols;
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
-        goto AbortLine;
+    {
+      size_t delimiter_len = 0;
+      if constexpr (SpecializedOptions::multi_delimiter) {
+        const auto delimiter = internal::GetDelimiter(options_);
+        const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
+        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Incomplete)) {
+          goto AbortLine;
+        }
+        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Match)) {
+          delimiter_len = delimiter.size();
+        }
+      } else if (*data == options_.delimiter) {
+        delimiter_len = 1;
       }
-      goto FieldStart;
+      if (ARROW_PREDICT_FALSE(delimiter_len > 0)) {
+        // Empty cells are very common in some files, shortcut them
+        StartField(false /* quoted */);
+        FinishField();
+        data += delimiter_len;
+        ++num_cols;
+        if (ARROW_PREDICT_FALSE(data == data_end)) {
+          goto AbortLine;
+        }
+        goto FieldStart;
+      }
     }
 
     // Quoting is only recognized at start of field
@@ -382,8 +414,9 @@ class BlockParserImpl {
       }
     }
 
-    c = *data++;
+    c = *data;
     if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+      ++data;
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         goto AbortLine;
       }
@@ -393,9 +426,21 @@ class BlockParserImpl {
       }
       goto InField;
     }
-    if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
+    if constexpr (SpecializedOptions::multi_delimiter) {
+      const auto delimiter = internal::GetDelimiter(options_);
+      const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
+      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Incomplete)) {
+        goto AbortLine;
+      }
+      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Match)) {
+        data += delimiter.size();
+        goto FieldEnd;
+      }
+    } else if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
+      ++data;
       goto FieldEnd;
     }
+    ++data;
     if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
       if (c == '\r') {
         // In the middle of a newline separator?
@@ -727,12 +772,14 @@ class BlockParserImpl {
   Status Parse(const std::vector<std::string_view>& data, bool is_final,
                uint32_t* out_size) {
     return internal::DispatchBool(
-        [&]<bool Quoting, bool Escaping, bool IgnoreExtraColumns>() {
-          using SpecializedOptions = internal::SpecializedOptions<Quoting, Escaping>;
+        [&]<bool Quoting, bool Escaping, bool IgnoreExtraColumns, bool MultiDelimiter>() {
+          using SpecializedOptions =
+              internal::SpecializedOptions<Quoting, Escaping, MultiDelimiter>;
           return ParseSpecialized<SpecializedOptions, IgnoreExtraColumns>(data, is_final,
                                                                           out_size);
         },
-        options_.quoting, options_.escaping, options_.ignore_extra_columns);
+        options_.quoting, options_.escaping, options_.ignore_extra_columns,
+        !options_.delimiter_string.empty());
   }
 
  protected:
