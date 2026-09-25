@@ -264,8 +264,10 @@ Status DoNonZero(const std::vector<ArraySpan>& arrays, int64_t total_length,
   UInt64Builder builder;
   RETURN_NOT_OK(builder.Reserve(total_length));
 
-  NonZeroVisitor visitor(&builder, arrays);
-  RETURN_NOT_OK(VisitTypeInline(*arrays[0].type, &visitor));
+  if (!arrays.empty()) {
+    NonZeroVisitor visitor(&builder, arrays);
+    RETURN_NOT_OK(VisitTypeInline(*arrays[0].type, &visitor));
+  }
   return builder.FinishInternal(out);
 }
 
