@@ -3430,7 +3430,7 @@ void InitStaticData() {
   Extend(g_signed_int_types, &g_int_types);
 
   // Floating point types
-  g_floating_types = {float32(), float64()};
+  g_floating_types = {float16(), float32(), float64()};
 
   // Numeric types
   Extend(g_int_types, &g_numeric_types);
