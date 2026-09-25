@@ -3330,6 +3330,53 @@ TEST(PreBuffering, MixedAccess) {
   ASSERT_EQ(2, stats.num_record_batches);
 }
 
+TEST(TestRecordBatchPayload, ZeroLengthArrayValueOffsets) {
+  auto schema = arrow::schema({field("str", utf8())});
+  const auto options = IpcWriteOptions::Defaults();
+
+  // Zero-length array with null offsets buffer
+  {
+    auto array_data = ArrayData::Make(utf8(), /*length=*/0,
+                                      /*buffers=*/{nullptr, nullptr, nullptr});
+    auto batch =
+        RecordBatch::Make(schema, /*num_rows=*/0, {MakeArray(std::move(array_data))});
+    IpcPayload payload;
+    ASSERT_OK(GetRecordBatchPayload(*batch, options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 3);
+    ASSERT_EQ(payload.body_buffers[1], nullptr);
+  }
+
+  // Zero-length array with empty offsets buffer
+  {
+    auto empty_buf = Buffer::FromString("");
+    auto array_data = ArrayData::Make(utf8(), /*length=*/0,
+                                      /*buffers=*/{nullptr, empty_buf, empty_buf});
+    auto batch =
+        RecordBatch::Make(schema, /*num_rows=*/0, {MakeArray(std::move(array_data))});
+    IpcPayload payload;
+    ASSERT_OK(GetRecordBatchPayload(*batch, options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 3);
+    ASSERT_NE(payload.body_buffers[1], nullptr);
+    ASSERT_EQ(payload.body_buffers[1]->size(), 0);
+  }
+
+  // Zero-length slice of a non-empty array should not retain the parent offsets
+  {
+    auto full_array = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef"])");
+    ASSERT_GT(full_array->data()->buffers[1]->size(),
+              static_cast<int64_t>(sizeof(int32_t)));
+
+    auto empty_slice = full_array->Slice(3, 0);
+    auto batch = RecordBatch::Make(schema, /*num_rows=*/0, {empty_slice});
+    IpcPayload payload;
+    ASSERT_OK(GetRecordBatchPayload(*batch, options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 3);
+    ASSERT_NE(payload.body_buffers[1], nullptr);
+    ASSERT_EQ(payload.body_buffers[1]->size(), sizeof(int32_t));
+    ASSERT_EQ(payload.body_buffers[1]->data_as<int32_t>()[0], 0);
+  }
+}
+
 }  // namespace test
 }  // namespace ipc
 }  // namespace arrow
