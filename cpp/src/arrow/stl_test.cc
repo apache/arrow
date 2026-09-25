@@ -558,6 +558,20 @@ TEST(allocator, MemoryTracking) {
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
+TEST(allocator, AllocationSizeOverflow) {
+  allocator<uint64_t> alloc;
+  const size_t first_overflow = std::numeric_limits<size_t>::max() / sizeof(uint64_t) + 1;
+  for (const size_t n : {first_overflow, first_overflow + 1}) {
+    SCOPED_TRACE(n);
+    EXPECT_THROW(
+        {
+          auto* data = alloc.allocate(n);
+          alloc.deallocate(data, n);
+        },
+        std::bad_alloc);
+  }
+}
+
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(ARROW_JEMALLOC))
 
 TEST(allocator, TestOOM) {
