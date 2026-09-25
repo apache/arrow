@@ -21,8 +21,11 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
 
+#include "arrow/compute/api_vector.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/dict_util_internal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
@@ -80,10 +83,41 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
+// Maps `is_null` over the dictionary values and then through the indices, so that
+// NaN dictionary entries are reported too, whatever the index type. Null dictionary
+// entries and null indices are already covered by dict_util::SetLogicalNullBits, so
+// this only needs to OR the NaN bits in on top of that.
+static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
+                                       uint8_t* out_bitmap, int64_t out_offset) {
+  if (arr.length == 0) {
+    return Status::OK();
+  }
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+  ARROW_ASSIGN_OR_RAISE(
+      Datum dict_is_null,
+      CallFunction("is_null", {arr.dictionary().ToArrayData()}, &nan_is_null_options,
+                  ctx->exec_context()));
+
+  const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
+  auto indices = ArrayData::Make(dict_type.index_type(), arr.length,
+                                 {arr.GetBuffer(0), arr.GetBuffer(1)}, arr.GetNullCount(),
+                                 arr.offset);
+  ARROW_ASSIGN_OR_RAISE(Datum taken,
+                        Take(dict_is_null, Datum(std::move(indices)),
+                             TakeOptions::BoundsCheck(), ctx->exec_context()));
+
+  // Null and non-NaN slots are already set from dict_util::SetLogicalNullBits above,
+  // so the values bitmap can be OR'ed in without masking anything out of it first.
+  const ArrayData& result = *taken.array();
+  ::arrow::internal::BitmapOr(out_bitmap, out_offset, result.buffers[1]->data(),
+                              result.offset, arr.length, out_offset, out_bitmap);
+  return Status::OK();
+}
+
 // `nan_is_null` can only be true for the is_null kernel since the is_valid and
 // true_unless_null kernels currently do not take `NullOptions`
-Status SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
-                          bool set_on_null, bool nan_is_null) {
+Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span, uint8_t* out_bitmap,
+                          int64_t out_offset, bool set_on_null, bool nan_is_null) {
   const Type::type t = span.type->id();
   if (t == Type::NA) {
     // Input is all nulls, so all output bits are the same.
@@ -98,8 +132,11 @@ Status SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t ou
     // TODO: propagate `nan_is_null`
     ree_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
   } else if (t == Type::DICTIONARY) {
-    // TODO: propagate `nan_is_null`
     dict_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
+    const auto& dict_type = checked_cast<const DictionaryType&>(*span.type);
+    if (nan_is_null && is_floating(dict_type.value_type()->id())) {
+      RETURN_NOT_OK(SetNanBitsFromDictionary(ctx, span, out_bitmap, out_offset));
+    }
   } else {
     // Input is a type for which logical and physical nulls are the same, so we can
     // use GetNullCount() and the validity bitmap
@@ -141,13 +178,15 @@ Status SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t ou
 
 Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   ArraySpan* out_span = out->array_span_mutable();
-  return SetLogicalNullBits(batch[0].array, out_span->buffers[1].data, out_span->offset,
+  return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[1].data,
+                            out_span->offset,
                             /*set_on_null=*/false, /*nan_is_null=*/false);
 }
 
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   ArraySpan* out_span = out->array_span_mutable();
-  return SetLogicalNullBits(batch[0].array, out_span->buffers[1].data, out_span->offset,
+  return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[1].data,
+                            out_span->offset,
                             /*set_on_null=*/true,
                             /*nan_is_null=*/NanOptionsState::Get(ctx).nan_is_null);
 }
@@ -265,7 +304,8 @@ Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   // NullHandling::INTERSECTION and change the validity checks in exec.cc so that
   // they correctly handle logical nulls, but that would invove significant changes
   // in exec.cc which might have more side effects
-  return SetLogicalNullBits(batch[0].array, out_span->buffers[0].data, out_span->offset,
+  return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[0].data,
+                            out_span->offset,
                             /*set_on_null=*/false, /*nan_is_null=*/false);
 }
 
