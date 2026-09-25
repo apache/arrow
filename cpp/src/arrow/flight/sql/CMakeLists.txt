@@ -99,6 +99,10 @@ if(MSVC)
 endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)
+  if(MSVC)
+    # Suppress warnings caused by Protobuf (dll-interface)
+    target_compile_options(${LIB_TARGET} PRIVATE "/wd4275")
+  endif()
 endforeach()
 
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
@@ -177,6 +181,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                                                        ARROW_FLIGHT_SQL_STATIC)
     endforeach()
   endif()
+
 endif()
 
 if(ARROW_FLIGHT_SQL_ODBC)
