@@ -92,7 +92,35 @@ Status FunctionRegistry::Add(NativeFunction func) {
   pc_registry_.emplace_back(std::move(func));
   const auto& last_func = pc_registry_.back();
   for (const auto& func_signature : last_func.signatures()) {
-    pc_registry_map_.emplace(&func_signature, &last_func);
+    auto [it, inserted] = pc_registry_map_.emplace(&func_signature, &last_func);
+    if (!inserted) {
+      ARROW_LOG(ERROR) << "Duplicate function signature registered: "
+                       << func_signature.ToString()
+                       << " (existing pc_name=" << it->second->pc_name()
+                       << ", new pc_name=" << last_func.pc_name()
+                       << "); the new registration will be ignored on lookup.";
+      continue;
+    }
+    // Also flag the weaker collision where name+params match but the return type
+    // differs — these are technically distinct entries in the signature map, but
+    // they create ambiguity at the SQL surface (e.g. `day(timestamp)` resolving
+    // to either extractDay → int64 or truncateDay → timestamp).
+    auto shape_key = func_signature.CallShape();
+    auto shape_it = call_shape_map_.find(shape_key);
+    if (shape_it != call_shape_map_.end()) {
+      auto pc_it = pc_registry_map_.find(shape_it->second);
+      std::string existing_pc_name =
+          pc_it != pc_registry_map_.end() ? pc_it->second->pc_name() : "<unknown>";
+      ARROW_LOG(ERROR) << "Function alias collision: " << func_signature.ToString()
+                       << " has the same name and parameter types as "
+                       << shape_it->second->ToString()
+                       << " (existing pc_name=" << existing_pc_name
+                       << ", new pc_name=" << last_func.pc_name()
+                       << "); callers of this function will get different results "
+                          "depending on the inferred return type.";
+    } else {
+      call_shape_map_.emplace(std::move(shape_key), &func_signature);
+    }
   }
   return arrow::Status::OK();
 }
