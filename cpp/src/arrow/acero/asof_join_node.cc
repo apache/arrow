@@ -509,18 +509,7 @@ class InputState : public util::SerialSequencingQueue::Processor {
       KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
       std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
-      const std::vector<col_index_t>& key_col_index) {
-    constexpr size_t low_threshold = 4, high_threshold = 8;
-    std::unique_ptr<BackpressureControl> backpressure_control =
-        std::make_unique<BackpressureController>(
-            /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
-    ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(low_threshold, high_threshold,
-                                                    std::move(backpressure_control)));
-    return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                        key_hasher, asof_node, std::move(handler), schema,
-                                        time_col_index, key_col_index);
-  }
+      const std::vector<col_index_t>& key_col_index);
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
@@ -1573,6 +1562,24 @@ class AsofJoinNode : public ExecNode {
   // In-progress batches produced
   int batches_produced_ = 0;
 };
+
+Result<std::unique_ptr<InputState>> InputState::Make(
+    size_t index, TolType tolerance, bool must_hash, bool may_rehash,
+    KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
+    std::atomic<int32_t>& backpressure_counter,
+    const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
+    const std::vector<col_index_t>& key_col_index) {
+  constexpr size_t low_threshold = 4, high_threshold = 8;
+  std::unique_ptr<BackpressureControl> backpressure_control =
+      std::make_unique<BackpressureController>(
+          /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
+  ARROW_ASSIGN_OR_RAISE(auto handler,
+                        BackpressureHandler::Make(low_threshold, high_threshold,
+                                                  std::move(backpressure_control)));
+  return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash, key_hasher,
+                                      asof_node, std::move(handler), schema,
+                                      time_col_index, key_col_index);
+}
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
