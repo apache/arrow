@@ -23,6 +23,7 @@ from cpython.pycapsule cimport (
 )
 
 from collections.abc import Sequence
+import operator
 import os
 import warnings
 from cython import sizeof
@@ -1623,11 +1624,13 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        offset : int, default 0
+        offset : int or pyarrow.Scalar, default 0
             Offset from start of array to slice.
-        length : int, default None
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of Array starting from
             offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -1636,6 +1639,7 @@ cdef class Array(_PandasConvertible):
         """
         cdef shared_ptr[CArray] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -1643,6 +1647,7 @@ cdef class Array(_PandasConvertible):
         if length is None:
             result = self.ap.Slice(offset)
         else:
+            length = operator.index(length)
             if length < 0:
                 raise ValueError('Length must be non-negative')
             result = self.ap.Slice(offset, length)

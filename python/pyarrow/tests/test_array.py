@@ -563,6 +563,63 @@ def test_array_slice():
                 assert res.to_numpy().tolist() == expected
 
 
+@pytest.mark.parametrize("scalar_type", [
+    pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+    pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64(),
+])
+def test_array_slice_integer_scalars(scalar_type):
+    arr = pa.array(range(10))
+    offsets = pa.array([2, 4], type=scalar_type)
+
+    result = arr.slice(offsets[0], offsets[1])
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.numpy
+def test_array_slice_numpy_integer_scalars():
+    arr = pa.array(range(10))
+
+    result = arr.slice(np.int64(2), np.int64(4))
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.parametrize("scalar", [
+    pa.scalar(2.0),
+    pa.scalar(True),
+    pa.scalar(None, type=pa.int64()),
+])
+@pytest.mark.parametrize("args", [
+    lambda scalar: (scalar,),
+    lambda scalar: (0, scalar),
+])
+def test_array_slice_invalid_scalars(scalar, args):
+    arr = pa.array(range(10))
+
+    with pytest.raises(TypeError):
+        arr.slice(*args(scalar))
+
+
+def test_array_slice_negative_integer_scalars():
+    arr = pa.array(range(10))
+    negative = pa.scalar(-1, type=pa.int64())
+
+    with pytest.raises(IndexError):
+        arr.slice(negative)
+    with pytest.raises(ValueError):
+        arr.slice(0, negative)
+
+
+def test_array_slice_uint64_scalar_overflow():
+    arr = pa.array(range(10))
+    overflow = pa.scalar(2 ** 63, type=pa.uint64())
+
+    assert arr.slice(overflow).equals(arr.slice(len(arr)))
+    with pytest.raises(OverflowError):
+        arr.slice(0, overflow)
+
+
 def test_array_slice_negative_step():
     # ARROW-2714
     values = list(range(20))
