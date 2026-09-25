@@ -35,6 +35,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 @pytest.mark.processes
@@ -2736,6 +2737,8 @@ def test_array_from_list_of_timestamps(unit):
 
 @pytest.mark.numpy
 def test_array_from_timestamp_with_generic_unit():
+    if Version(np.__version__) >= Version("2.5.0"):
+        pytest.skip("generic units of timedelta64 deprecated")
     n = np.datetime64('NaT')
     x = np.datetime64('2017-01-01 01:01:01.111111111')
     y = np.datetime64('2018-11-22 12:24:48.111111111')
@@ -2777,11 +2780,13 @@ def test_array_from_numpy_timedelta(dtype, type):
 @pytest.mark.numpy
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
-    td = np.timedelta64(1)
+    if Version(np.__version__) < Version("2.5.0"):
+        # Generic units of timedelta64 deprecated in NumPy 2.5
+        td = np.timedelta64(1)
 
-    for data in [[td], np.array([td])]:
-        with pytest.raises(NotImplementedError):
-            pa.array(data)
+        for data in [[td], np.array([td])]:
+            with pytest.raises(NotImplementedError):
+                pa.array(data)
 
     # unsupported unit
     td = np.timedelta64(1, 'M')
