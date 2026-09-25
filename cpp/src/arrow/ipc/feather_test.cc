@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
 #include <functional>
 #include <memory>
 #include <string>
@@ -321,6 +322,30 @@ TEST_P(TestFeather, SliceBooleanRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeBooleanBatchSized(600, &batch));
   CheckSlices(batch);
+}
+
+TEST_P(TestFeather, ExactSizeSlicedBooleanBuffer) {
+  if (GetParam().version != kFeatherV1Version) {
+    GTEST_SKIP() << "This test targets the Feather V1 bitmap writer";
+  }
+
+  // The second byte is outside the declared buffer.  It must not be read into
+  // the unused bits of the serialized one-bit slice.
+  std::array<uint8_t, 2> storage = {0x02, 0x01};
+  auto values = std::make_shared<Buffer>(storage.data(), 1);
+  auto data =
+      ArrayData::Make(boolean(), 1, {nullptr, values}, /*null_count=*/0, /*offset=*/1);
+  auto array = MakeArray(data);
+  auto table = Table::Make(schema({field("flag", boolean())}),
+                           {std::make_shared<ChunkedArray>(array)});
+
+  DoWrite(*table);
+  ASSERT_GT(output_->size(), 8);
+  ASSERT_EQ(output_->data()[8], 0x01);
+
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(&result));
+  AssertTablesEqual(*table, *result);
 }
 
 TEST_P(TestFeather, SliceListRoundTrip) {
