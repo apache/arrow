@@ -51,6 +51,29 @@ void CheckColumnBounds(int column_index, size_t max_columns) {
   }
 }
 
+std::string ColumnPathFromParquet(const SchemaElement* schema,
+                                  const SchemaElement* element) {
+  if (schema == nullptr) return element->name;
+
+  std::vector<std::pair<const SchemaElement*, int>> parents = {
+      {schema, schema->num_children}};
+  for (const auto* node = schema + 1; node < element; ++node) {
+    --parents.back().second;
+    if (node->num_children > 0) parents.emplace_back(node, node->num_children);
+    while (!parents.empty() && parents.back().second == 0) {
+      parents.pop_back();
+    }
+  }
+
+  std::string path;
+  for (size_t i = 1; i < parents.size(); ++i) {
+    path += parents[i].first->name;
+    path += '.';
+  }
+  path += element->name;
+  return path;
+}
+
 }  // namespace
 
 namespace schema {
@@ -443,6 +466,11 @@ std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element,
 }
 
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
+  return FromParquet(opaque_element, nullptr);
+}
+
+std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
+                                                 const void* opaque_schema) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
 
@@ -463,7 +491,10 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
       ARROW_LOG(WARNING) << "Dropping unsupported logical type "
                          << logical_type->ToString() << " on physical type "
                          << TypeToString(physical_type) << " for column '"
-                         << element->name << "'";
+                         << ColumnPathFromParquet(
+                                static_cast<const format::SchemaElement*>(opaque_schema),
+                                element)
+                         << "'";
       logical_type = UndefinedLogicalType::Make();
     }
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
@@ -586,7 +617,7 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
 
     if (element.num_children == 0 && element.__isset.type) {
       // Leaf (primitive) node: always has a type
-      return PrimitiveNode::FromParquet(opaque_element);
+      return PrimitiveNode::FromParquet(opaque_element, elements);
     } else {
       // Group node (may have 0 children, but cannot have a type)
       // Protect against denial-of-service through stack exhaustion when parsing

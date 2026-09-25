@@ -36,6 +36,10 @@ namespace parquet {
 
 class SchemaDescriptor;
 
+namespace format {
+class SchemaElement;
+}
+
 namespace schema {
 
 class Node;
@@ -237,6 +241,13 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   void VisitConst(ConstVisitor* visitor) const override;
 
  private:
+  PARQUET_EXPORT friend std::unique_ptr<Node> Unflatten(
+      const format::SchemaElement* elements, int length);
+
+  // opaque_schema is the flattened schema containing opaque_element, or nullptr.
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element,
+                                           const void* opaque_schema);
+
   PrimitiveNode(const std::string& name, Repetition::type repetition, Type::type type,
                 ConvertedType::type converted_type = ConvertedType::NONE, int length = -1,
                 int precision = -1, int scale = -1, int field_id = -1);
