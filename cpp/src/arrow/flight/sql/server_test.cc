@@ -598,14 +598,57 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUpdate) {
   ASSERT_OK_AND_EQ(5, ExecuteCountQuery("SELECT COUNT(*) FROM intTable"));
 }
 
-TEST_F(TestFlightSqlServer, TestCommandPreparedStatementUnsetIsUpdate) {
-  ActionCreatePreparedStatementResult result;
-  result.prepared_statement_handle = "test_handle";
-  ASSERT_FALSE(result.is_update.has_value());
-  ASSERT_EQ(result.is_update, std::nullopt);
+class DummyFlightSqlServer : public FlightSqlServerBase {
+ public:
+  arrow::Result<ActionCreatePreparedStatementResult> CreatePreparedStatement(
+      const ServerCallContext& context,
+      const ActionCreatePreparedStatementRequest& request) override {
+    ActionCreatePreparedStatementResult result;
+    result.dataset_schema = arrow::schema({});
+    result.parameter_schema = arrow::schema({});
+    result.prepared_statement_handle = "dummy_handle";
+    result.is_update = std::nullopt;
+    return result;
+  }
+  
+  Status ClosePreparedStatement(
+      const ServerCallContext& context,
+      const ActionClosePreparedStatementRequest& request) override {
+    return Status::OK();
+  }
+};
 
-  PreparedStatement prepared_statement(nullptr, "test_handle", nullptr, nullptr, result.is_update);
-  ASSERT_EQ(prepared_statement.is_update(), std::nullopt);
+class TestFlightSqlLegacyServer : public ::testing::Test {
+ public:
+  std::unique_ptr<FlightSqlClient> sql_client;
+
+ protected:
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
+    arrow::flight::FlightServerOptions options(location);
+    server = std::make_shared<DummyFlightSqlServer>();
+    ASSERT_OK(server->Init(options));
+
+    ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", server->port()));
+    ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+
+    sql_client = std::make_unique<FlightSqlClient>(std::move(client));
+  }
+
+  void TearDown() override {
+    ASSERT_OK(sql_client->Close());
+    sql_client.reset();
+    ASSERT_OK(server->Shutdown());
+  }
+
+ private:
+  std::shared_ptr<DummyFlightSqlServer> server;
+};
+
+TEST_F(TestFlightSqlLegacyServer, TestCommandPreparedStatementUnsetIsUpdate) {
+  ASSERT_OK_AND_ASSIGN(auto prepared_statement,
+                       sql_client->Prepare({}, "SELECT * FROM intTable"));
+  ASSERT_EQ(prepared_statement->is_update(), std::nullopt);
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
