@@ -208,6 +208,91 @@ TEST(TestValidityKernels, IsNullSetsZeroNullCount) {
   ASSERT_EQ(out.array()->null_count, 0);
 }
 
+TEST(TestValidityKernels, IsNullDictionaryNanIsNull) {
+  NullOptions default_options;
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(int32(), float64());
+  auto arr = DictArrayFromJSON(dict_ty, "[0, 1, 2, null, 1]", "[1.5, NaN, -0.0]");
+
+  // Without nan_is_null, dictionary-encoded NaNs are not treated as null.
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, false, false, true, false]"));
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, false, false, true, false]"),
+                   &default_options);
+
+  // With nan_is_null, the dictionary entry backing index 1 is NaN, so every
+  // slot referencing it is null; the pre-existing null index stays null.
+  CheckScalarUnary("is_null", arr,
+                   ArrayFromJSON(boolean(), "[false, true, false, true, true]"),
+                   &nan_is_null_options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNullValues) {
+  NullOptions default_options;
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(int32(), float64());
+  auto arr = DictArrayFromJSON(dict_ty, "[0, 1, 2, null]", "[1.5, null, NaN]");
+
+  // A null dictionary value is reported regardless of nan_is_null: index 1 points at
+  // a null dictionary entry, so it is a logical null even with default options.
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, false, true]"),
+                   &default_options);
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, true, true]"),
+                   &nan_is_null_options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullUnsignedIndices) {
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(uint8(), float32());
+  auto arr = DictArrayFromJSON(dict_ty, "[2, 0, 1]", "[1.5, NaN, 2.5]");
+
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, false, true]"),
+                   &nan_is_null_options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullBounds) {
+  NullOptions options(/*nan_is_null=*/true);
+  auto dict_ty = dictionary(int32(), float64());
+  auto values = ArrayFromJSON(float64(), "[1.5, null, NaN]");
+  for (const auto* indices_json :
+       {"[0, -1]", "[0, 3]", "[0, -2147483648]", "[0, 2147483647]"}) {
+    SCOPED_TRACE(indices_json);
+    auto indices = ArrayFromJSON(int32(), indices_json);
+    auto arr = std::make_shared<DictionaryArray>(dict_ty, indices, values);
+    ASSERT_RAISES(IndexError, IsNull(arr, options));
+  }
+
+  auto empty = DictArrayFromJSON(dict_ty, "[]", "[]");
+  CheckScalarUnary("is_null", empty, ArrayFromJSON(boolean(), "[]"), &options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullSkipsNullIndex) {
+  NullOptions options(/*nan_is_null=*/true);
+  auto dict_ty = dictionary(int32(), float64());
+  auto indices = ArrayFromJSON(int32(), "[0, null, 1]");
+  // The physical value in a null slot must not be dereferenced.
+  reinterpret_cast<int32_t*>(indices->data()->buffers[1]->mutable_data())[1] = -1;
+  auto values = ArrayFromJSON(float64(), "[1.5, NaN]");
+  auto arr = std::make_shared<DictionaryArray>(dict_ty, indices, values);
+  ASSERT_OK(arr->ValidateFull());
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true, true]"),
+                   &options);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNullHalfFloat) {
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  auto dict_ty = dictionary(int8(), float16());
+  auto arr = DictArrayFromJSON(dict_ty, "[0, 1]", "[1.5, NaN]");
+
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[false, true]"),
+                   &nan_is_null_options);
+}
+
 template <typename ArrowType>
 class TestFloatingPointValidityKernels : public TestValidityKernels<ArrowType> {
  public:
