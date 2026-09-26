@@ -15,57 +15,474 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/array/validate.h"
+#include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/extension/parquet_variant.h"
-#include "arrow/ipc/test_common.h"
+#include "arrow/extension/uuid.h"
+#include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
+#include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "parquet/arrow/reader.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
+#include "parquet/variant/array_internal.h"
+#include "parquet/variant/builder.h"
+#include "parquet/variant/shred.h"
+#include "parquet/variant/test_util_internal.h"
+#include "parquet/variant/unshred.h"
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace parquet::arrow {
 
+using ::arrow::Array;
 using ::arrow::binary;
+using ::arrow::field;
 using ::arrow::struct_;
+using ::arrow::StructArray;
+using ::arrow::extension::VariantArray;
+using variant::internal::AssertUnshreddedValue;
+using variant::internal::BinaryArrayFromValues;
+using variant::internal::EmptyVariantMetadata;
+using variant::internal::Int8Variant;
+using variant::internal::MakeInt64FieldGroup;
+using variant::internal::RoundTripVariantArray;
+using variant::internal::VariantTable;
+using variant::internal::WriteVariantRecordBatch;
+using variant::internal::WriteVariantTable;
 
-TEST(TestVariantExtensionType, StorageTypeValidation) {
-  auto variant1 = ::arrow::extension::variant(
-      struct_({field("metadata", binary(), /*nullable=*/false),
-               field("value", binary(), /*nullable=*/false)}));
-  auto variant2 = ::arrow::extension::variant(
-      struct_({field("metadata", binary(), /*nullable=*/false),
-               field("value", binary(), /*nullable=*/false)}));
+namespace {
 
-  ASSERT_TRUE(variant1->Equals(variant2));
+std::shared_ptr<::arrow::DataType> ExpectedShreddedStorageType(
+    const std::shared_ptr<::arrow::DataType>& binary_type,
+    std::string_view list_element_name) {
+  auto primitive_group_type =
+      struct_({field("value", binary_type), field("typed_value", ::arrow::int64())});
+  auto list_type = ::arrow::list(
+      field(std::string(list_element_name), primitive_group_type, /*nullable=*/false));
+  auto list_group_type =
+      struct_({field("value", binary_type), field("typed_value", list_type)});
+  auto typed_type = struct_({field("count", primitive_group_type, false),
+                             field("items", list_group_type, false)});
+  return struct_({field("metadata", binary_type, false), field("value", binary_type),
+                  field("typed_value", typed_type)});
+}
 
-  // Metadata and value fields can be provided in either order
-  auto variantFieldsFlipped =
-      std::dynamic_pointer_cast<::arrow::extension::VariantExtensionType>(
-          ::arrow::extension::variant(
-              struct_({field("value", binary(), /*nullable=*/false),
-                       field("metadata", binary(), /*nullable=*/false)})));
+}  // namespace
 
-  ASSERT_EQ("metadata", variantFieldsFlipped->metadata()->name());
-  ASSERT_EQ("value", variantFieldsFlipped->value()->name());
+TEST(TestVariantExtensionType, WriterValidatesUnshreddedVariantBytes) {
+  auto encoded = Int8Variant(42);
 
-  auto missing_value = struct_({field("metadata", binary(), /*nullable=*/false)});
-  auto missing_metadata = struct_({field("value", binary(), /*nullable=*/false)});
-  auto bad_value_type = struct_({field("metadata", binary(), /*nullable=*/false),
-                                 field("value", ::arrow::int32(), /*nullable=*/false)});
-  auto extra_field = struct_({field("metadata", binary(), /*nullable=*/false),
-                              field("value", binary(), /*nullable=*/false),
-                              field("extra", binary(), /*nullable=*/false)});
-  auto nullable_metadata = struct_(
-      {field("metadata", binary()), field("value", binary(), /*nullable=*/false)});
-  auto nullable_value = struct_(
-      {field("metadata", binary(), /*nullable=*/false), field("value", binary())});
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+  auto metadata_array = BinaryArrayFromValues({std::string_view{*encoded.metadata}});
+  auto value_array = BinaryArrayFromValues({std::string_view{*encoded.value}});
+  auto table =
+      VariantTable(variant_type, {metadata_array, value_array}, storage_type->fields());
+  ASSERT_OK(WriteVariantTable(table));
 
-  for (const auto& storage_type : {missing_value, missing_metadata, bad_value_type,
-                                   extra_field, nullable_metadata, nullable_value}) {
-    ASSERT_RAISES_WITH_MESSAGE(
-        Invalid,
-        "Invalid: Invalid storage type for VariantExtensionType: " +
-            storage_type->ToString(),
-        ::arrow::extension::VariantExtensionType::Make(storage_type));
+  auto invalid_value = BinaryArrayFromValues({std::string_view("\xff", 1)});
+  auto invalid_table =
+      VariantTable(variant_type, {metadata_array, invalid_value}, storage_type->fields());
+  ASSERT_RAISES(Invalid, WriteVariantTable(invalid_table));
+
+  auto no_validation =
+      ArrowWriterProperties::Builder().set_variant_validation_enabled(false)->build();
+  ASSERT_OK(WriteVariantTable(invalid_table, default_writer_properties(), no_validation));
+}
+
+TEST(TestVariantExtensionType, WriteRecordBatchValidatesVariantBytes) {
+  auto metadata = EmptyVariantMetadata();
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+
+  auto metadata_array = BinaryArrayFromValues({std::string_view{*metadata}});
+  auto invalid_value = BinaryArrayFromValues({std::string_view("\xff", 1)});
+  auto table =
+      VariantTable(variant_type, {metadata_array, invalid_value}, storage_type->fields());
+
+  ASSERT_RAISES(Invalid, WriteVariantRecordBatch(table));
+
+  auto no_validation =
+      ArrowWriterProperties::Builder().set_variant_validation_enabled(false)->build();
+  ASSERT_OK(WriteVariantRecordBatch(table, no_validation));
+}
+
+TEST(TestVariantExtensionType, WriteRecordBatchValidatesBatch) {
+  auto encoded = Int8Variant(42);
+
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+  auto metadata_array = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["not binary"])");
+  auto value_array = BinaryArrayFromValues({std::string_view{*encoded.value}});
+  ASSERT_OK_AND_ASSIGN(
+      auto storage,
+      ::arrow::StructArray::Make({metadata_array, value_array}, storage_type->fields()));
+  auto variant_array = ::arrow::ExtensionType::WrapArray(variant_type, storage);
+  auto schema = ::arrow::schema({field("variant", variant_type)});
+  auto batch = ::arrow::RecordBatch::Make(schema, 1, {variant_array});
+
+  ASSERT_OK_AND_ASSIGN(auto sink, ::arrow::io::BufferOutputStream::Create(1024));
+  ASSERT_OK_AND_ASSIGN(
+      auto writer,
+      FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink,
+                       default_writer_properties(), default_arrow_writer_properties()));
+
+  const auto status = writer->WriteRecordBatch(*batch);
+  ASSERT_TRUE(status.IsInvalid()) << status;
+  ASSERT_NE(std::string::npos, status.ToStringWithoutContextLines().find(
+                                   "Struct child array #0 does not match type field"))
+      << status;
+}
+
+TEST(TestVariantExtensionType, WriterValidatesBinaryViewVariantBytes) {
+  auto encoded = Int8Variant(42);
+
+  auto storage_type =
+      struct_({field("metadata", ::arrow::binary_view(), /*nullable=*/false),
+               field("value", ::arrow::binary_view(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+  std::shared_ptr<::arrow::Array> metadata_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryViewType, std::string_view>(
+      {std::string_view{*encoded.metadata}}, &metadata_array);
+  std::shared_ptr<::arrow::Array> value_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryViewType, std::string_view>(
+      {std::string_view{*encoded.value}}, &value_array);
+  auto table =
+      VariantTable(variant_type, {metadata_array, value_array}, storage_type->fields());
+  ASSERT_OK(WriteVariantTable(table));
+}
+
+TEST(TestVariantExtensionType, WriterSkipsNullParents) {
+  auto metadata = EmptyVariantMetadata();
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+  auto metadata_array = BinaryArrayFromValues({std::string_view{*metadata}});
+  auto invalid_value = BinaryArrayFromValues({std::string_view("\xff", 1)});
+  PARQUET_ASSIGN_OR_THROW(auto storage,
+                          ::arrow::StructArray::Make({metadata_array, invalid_value},
+                                                     storage_type->fields()));
+  auto variant_array = ::arrow::ExtensionType::WrapArray(variant_type, storage);
+
+  auto parent_type = struct_({field("child", variant_type)});
+  PARQUET_ASSIGN_OR_THROW(
+      auto parent_array,
+      ::arrow::StructArray::Make({variant_array}, parent_type->fields(),
+                                 ::arrow::Buffer::FromString(std::string("\0", 1))));
+  auto parent_table = ::arrow::Table::Make(
+      ::arrow::schema({field("parent", parent_type)}), {parent_array});
+  ASSERT_OK(WriteVariantTable(parent_table));
+
+  auto map_type = ::arrow::map(::arrow::utf8(), field("item", variant_type));
+  ASSERT_OK_AND_ASSIGN(auto map_array,
+                       ::arrow::MapArray::FromArrays(
+                           map_type, ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 1]"),
+                           ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["hidden"])"),
+                           variant_array, ::arrow::default_memory_pool(),
+                           ::arrow::Buffer::FromString(std::string("\0", 1))));
+  auto map_table = ::arrow::Table::Make(::arrow::schema({field("variant_map", map_type)}),
+                                        {map_array});
+  ASSERT_OK(WriteVariantTable(map_table));
+}
+
+TEST(TestVariantExtensionType, WriterValidatesShreddedPrimitiveConflicts) {
+  auto encoded = Int8Variant(42);
+
+  auto storage_type =
+      struct_({field("metadata", binary(), /*nullable=*/false), field("value", binary()),
+               field("typed_value", ::arrow::int64())});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+
+  auto metadata_array = BinaryArrayFromValues(
+      {std::string_view{*encoded.metadata}, std::string_view{*encoded.metadata}});
+  auto value_array =
+      BinaryArrayFromValues({std::nullopt, std::string_view{*encoded.value}});
+  auto typed_array = ::arrow::ArrayFromJSON(::arrow::int64(), "[34, 100]");
+  auto table = VariantTable(variant_type, {metadata_array, value_array, typed_array},
+                            storage_type->fields());
+  ASSERT_RAISES(Invalid, WriteVariantTable(table));
+
+  auto empty_value = BinaryArrayFromValues({std::string_view{}, std::nullopt});
+  auto empty_table = VariantTable(
+      variant_type, {metadata_array, empty_value, typed_array}, storage_type->fields());
+  ASSERT_RAISES(Invalid, WriteVariantTable(empty_table));
+
+  auto valid_values =
+      BinaryArrayFromValues({std::nullopt, std::string_view{*encoded.value}});
+  auto valid_typed = ::arrow::ArrayFromJSON(::arrow::int64(), "[34, null]");
+  auto valid_table = VariantTable(
+      variant_type, {metadata_array, valid_values, valid_typed}, storage_type->fields());
+  ASSERT_OK(WriteVariantTable(valid_table));
+}
+
+TEST(TestVariantExtensionType, WriterRejectsShreddedWithoutValue) {
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("typed_value", ::arrow::int64())});
+  ASSERT_RAISES(Invalid, ::arrow::extension::VariantExtensionType::Make(storage_type));
+}
+
+TEST(TestVariantExtensionType, ReadsDictionaryEncodedMetadata) {
+  auto encoded = Int8Variant(42);
+
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+  auto metadata_array = BinaryArrayFromValues(
+      {std::string_view{*encoded.metadata}, std::string_view{*encoded.metadata}});
+  auto value_array = BinaryArrayFromValues(
+      {std::string_view{*encoded.value}, std::string_view{*encoded.value}});
+  auto table =
+      VariantTable(variant_type, {metadata_array, value_array}, storage_type->fields());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto buffer,
+      WriteVariantTable(table, WriterProperties::Builder().enable_dictionary()->build()));
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  ::arrow::ExtensionTypeGuard guard(::arrow::extension::variant(storage_type));
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(buffer_reader));
+  builder.properties(reader_properties);
+  ASSERT_OK_AND_ASSIGN(auto reader, builder.Build());
+
+  ASSERT_TRUE(reader->parquet_reader()
+                  ->metadata()
+                  ->RowGroup(0)
+                  ->ColumnChunk(0)
+                  ->has_dictionary_page());
+
+  ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable());
+  ASSERT_OK(read_table->ValidateFull());
+
+  auto field = read_table->schema()->GetFieldByName("variant");
+  ASSERT_NE(nullptr, field);
+  auto read_variant_type =
+      std::dynamic_pointer_cast<::arrow::extension::VariantExtensionType>(field->type());
+  ASSERT_NE(nullptr, read_variant_type);
+  ASSERT_EQ(::arrow::Type::BINARY, read_variant_type->metadata()->type()->id());
+
+  ASSERT_NE(nullptr, read_table->GetColumnByName(field->name()));
+}
+
+TEST(TestVariantExtensionType, ReadsWithDictionaryOption) {
+  auto encoded = Int8Variant(42);
+
+  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+  auto metadata_array = BinaryArrayFromValues(
+      {std::string_view{*encoded.metadata}, std::string_view{*encoded.metadata}});
+  auto value_array = BinaryArrayFromValues(
+      {std::string_view{*encoded.value}, std::string_view{*encoded.value}});
+  auto table =
+      VariantTable(variant_type, {metadata_array, value_array}, storage_type->fields());
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, WriteVariantTable(table));
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  reader_properties.set_read_dictionary(0, true);
+  reader_properties.set_read_dictionary(1, true);
+  ::arrow::ExtensionTypeGuard guard(::arrow::extension::variant(storage_type));
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(buffer_reader));
+  builder.properties(reader_properties);
+  ASSERT_OK_AND_ASSIGN(auto reader, builder.Build());
+
+  ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable());
+  ASSERT_OK(read_table->ValidateFull());
+
+  auto field = read_table->schema()->GetFieldByName("variant");
+  ASSERT_NE(nullptr, field);
+  auto read_variant_type =
+      std::dynamic_pointer_cast<::arrow::extension::VariantExtensionType>(field->type());
+  ASSERT_NE(nullptr, read_variant_type);
+  ASSERT_EQ(::arrow::Type::BINARY, read_variant_type->metadata()->type()->id());
+  ASSERT_EQ(::arrow::Type::BINARY, read_variant_type->value()->type()->id());
+
+  ASSERT_NE(nullptr, read_table->GetColumnByName(field->name()));
+}
+
+TEST(TestVariantExtensionType, WriterWritesUuid) {
+  auto metadata = EmptyVariantMetadata();
+  auto storage_type =
+      struct_({field("metadata", binary(), /*nullable=*/false), field("value", binary()),
+               field("typed_value", ::arrow::extension::uuid())});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+
+  auto metadata_array = BinaryArrayFromValues({std::string_view{*metadata}});
+  auto value_array = BinaryArrayFromValues({std::nullopt});
+  auto typed_array = ::arrow::ExtensionType::WrapArray(
+      ::arrow::extension::uuid(),
+      ::arrow::ArrayFromJSON(::arrow::fixed_size_binary(16), R"(["0123456789abcdef"])"));
+  auto table = VariantTable(variant_type, {metadata_array, value_array, typed_array},
+                            storage_type->fields());
+  ASSERT_OK(WriteVariantTable(table));
+}
+
+TEST(TestVariantExtensionType, WriterValidatesShreddedObjectConflicts) {
+  variant::VariantBuilder object_builder;
+  auto object = object_builder.StartObject();
+  object.AppendShortString("event_type", "login");
+  object.Finish();
+  auto encoded = object_builder.Finish();
+
+  auto field_group_type =
+      struct_({field("value", binary()), field("typed_value", ::arrow::utf8())});
+  auto typed_value_type =
+      struct_({field("event_type", field_group_type, /*nullable=*/false)});
+  auto storage_type =
+      struct_({field("metadata", binary(), /*nullable=*/false), field("value", binary()),
+               field("typed_value", typed_value_type)});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+
+  auto metadata_array = BinaryArrayFromValues({std::string_view{*encoded.metadata}});
+  auto value_array = BinaryArrayFromValues({std::string_view{*encoded.value}});
+  ASSERT_OK_AND_ASSIGN(auto event_type_group,
+                       ::arrow::StructArray::Make(
+                           {BinaryArrayFromValues({std::nullopt}),
+                            ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["login"])")},
+                           field_group_type->fields()));
+  ASSERT_OK_AND_ASSIGN(
+      auto typed_array,
+      ::arrow::StructArray::Make({event_type_group}, typed_value_type->fields()));
+
+  auto table = VariantTable(variant_type, {metadata_array, value_array, typed_array},
+                            storage_type->fields());
+  ASSERT_RAISES(Invalid, WriteVariantTable(table));
+
+  auto valid_value_array = BinaryArrayFromValues({std::nullopt});
+  auto valid_table =
+      VariantTable(variant_type, {metadata_array, valid_value_array, typed_array},
+                   storage_type->fields());
+  ASSERT_OK(WriteVariantTable(valid_table));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto missing_event_type_group,
+      ::arrow::StructArray::Make({BinaryArrayFromValues({std::nullopt}),
+                                  ::arrow::ArrayFromJSON(::arrow::utf8(), "[null]")},
+                                 field_group_type->fields()));
+  ASSERT_OK_AND_ASSIGN(
+      auto missing_typed_array,
+      ::arrow::StructArray::Make({missing_event_type_group}, typed_value_type->fields()));
+  auto missing_table =
+      VariantTable(variant_type, {metadata_array, valid_value_array, missing_typed_array},
+                   storage_type->fields());
+  ASSERT_OK(WriteVariantTable(missing_table));
+}
+
+TEST(TestVariantExtensionType, WriterRoundTripsManualShreddedVariant) {
+  variant::VariantBuilder expected_builder;
+  auto expected_object = expected_builder.StartObject();
+  expected_object.AppendInt64("count", 2);
+  auto expected_items = expected_object.StartList("items");
+  expected_items.AppendInt64(1);
+  expected_items.AppendInt64(2);
+  expected_items.Finish();
+  expected_object.Finish();
+  auto expected = expected_builder.Finish();
+
+  auto count_group = MakeInt64FieldGroup({std::nullopt}, "[2]");
+  auto item_group = MakeInt64FieldGroup({std::nullopt, std::nullopt}, "[1, 2]");
+  auto primitive_group_type = count_group->type();
+  auto list_type = ::arrow::list(field("element", primitive_group_type,
+                                       /*nullable=*/false));
+  ASSERT_OK_AND_ASSIGN(
+      auto items,
+      ::arrow::ListArray::FromArrays(
+          list_type, *::arrow::ArrayFromJSON(::arrow::int32(), "[0, 2]"), *item_group));
+  auto list_group_type =
+      struct_({field("value", binary()), field("typed_value", list_type)});
+  ASSERT_OK_AND_ASSIGN(auto items_group,
+                       StructArray::Make({BinaryArrayFromValues({std::nullopt}), items},
+                                         list_group_type->fields()));
+
+  auto typed_type = struct_({field("count", primitive_group_type, false),
+                             field("items", list_group_type, false)});
+  ASSERT_OK_AND_ASSIGN(
+      auto typed, StructArray::Make({count_group, items_group}, typed_type->fields()));
+  auto storage_type =
+      struct_({field("metadata", binary(), false), field("value", binary()),
+               field("typed_value", typed_type)});
+  auto input = variant::MakeVariantArrayFromChildren(
+      storage_type, {BinaryArrayFromValues({std::string_view{*expected.metadata}}),
+                     BinaryArrayFromValues({std::nullopt}), typed});
+
+  ASSERT_OK_AND_ASSIGN(auto actual, RoundTripVariantArray(input));
+  ASSERT_TRUE(actual->is_shredded());
+  auto expected_storage_type =
+      ExpectedShreddedStorageType(binary(), /*list_element_name=*/"element");
+  ASSERT_TRUE(actual->storage()->type()->Equals(expected_storage_type))
+      << "Expected: " << expected_storage_type->ToString()
+      << "\nActual: " << actual->storage()->type()->ToString();
+  ASSERT_TRUE(::arrow::extension::VariantExtensionType::IsSupportedStorageType(
+      actual->storage()->type()));
+  AssertUnshreddedValue(*actual, 0, expected);
+}
+
+TEST(TestVariantExtensionType, WriterRoundTripsShredVariantArray) {
+  variant::VariantArrayBuilder input_builder;
+  input_builder.AppendNull();
+  auto object = input_builder.StartObject();
+  object.AppendInt64("count", 2);
+  auto items = object.StartList("items");
+  items.AppendInt64(1);
+  items.AppendString("residual");
+  items.Finish();
+  object.AppendBoolean("extra", true);
+  object.Finish();
+
+  variant::VariantBuilder list_builder;
+  list_builder.AddFieldName("count");
+  list_builder.AddFieldName("items");
+  auto list = list_builder.StartList();
+  list.AppendInt64(3);
+  list.Finish();
+  input_builder.AppendEncoded(list_builder.Finish());
+  auto input = input_builder.Finish();
+
+  auto target = struct_({field("count", ::arrow::int64()),
+                         field("items", ::arrow::list(::arrow::int64()))});
+  auto shredded = variant::ShredVariantArray(*input, target);
+  auto expected_shredded_storage_type =
+      ExpectedShreddedStorageType(::arrow::binary_view(), /*list_element_name=*/"item");
+  ASSERT_TRUE(shredded->storage()->type()->Equals(expected_shredded_storage_type))
+      << "Expected: " << expected_shredded_storage_type->ToString()
+      << "\nActual: " << shredded->storage()->type()->ToString();
+  ASSERT_TRUE(shredded->is_shredded());
+
+  ASSERT_OK_AND_ASSIGN(auto actual, RoundTripVariantArray(shredded));
+  ASSERT_EQ(input->length(), actual->length());
+  auto expected_read_storage_type =
+      ExpectedShreddedStorageType(binary(), /*list_element_name=*/"element");
+  ASSERT_TRUE(actual->storage()->type()->Equals(expected_read_storage_type))
+      << "Expected: " << expected_read_storage_type->ToString()
+      << "\nActual: " << actual->storage()->type()->ToString();
+  ASSERT_TRUE(actual->is_shredded());
+
+  auto unshredded = variant::UnshredVariantArray(*actual);
+  ASSERT_FALSE(unshredded->is_shredded());
+  for (int64_t row = 0; row < actual->length(); ++row) {
+    ASSERT_EQ(input->IsNull(row), unshredded->IsNull(row));
+    if (!input->IsNull(row)) {
+      ASSERT_EQ(variant::internal::BinaryFieldView(*input->metadata(), row),
+                variant::internal::BinaryFieldView(*unshredded->metadata(), row));
+      ASSERT_EQ(variant::internal::BinaryFieldView(*input->value(), row),
+                variant::internal::BinaryFieldView(*unshredded->value(), row));
+    }
   }
 }
 
