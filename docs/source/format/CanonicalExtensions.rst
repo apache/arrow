@@ -617,6 +617,216 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
    It is also *permissible* for the ``offset_minutes`` field to be dictionary-encoded or run-end-encoded.
 
+.. _fixed_closedness_range_extension:
+
+Fixed closedness range
+======================
+
+Fixed closedness range represents a bounded set (mathematical interval)
+defined by a lower and an upper bound over an orderable Arrow type T.  Its
+closedness is a type parameter shared by all values.  It matches PostgreSQL's
+discrete `range types`_ (such as ``int4range`` and ``daterange``) and SQL:2011
+``PERIOD`` types.  Ranges whose closedness differs per value use
+:ref:`variable closedness range <variable_closedness_range_extension>`
+instead.
+
+.. note::
+
+   **Disambiguation from Arrow's calendar** ``Interval`` **type.**
+   Arrow already has an ``Interval`` type (``INTERVAL_MONTHS``,
+   ``INTERVAL_DAY_TIME``, ``INTERVAL_MONTH_DAY_NANO``) that represents a
+   *duration*: a signed difference between two points in time.  The
+   ``arrow.fixed_closedness_range`` and ``arrow.variable_closedness_range``
+   extension types are an entirely different concept: they represent a
+   *bounded set* with explicit lower and upper endpoints, analogous to a
+   closed or open interval in mathematics.  The naming follows database
+   convention: SQL uses ``INTERVAL`` for durations and ``RANGE`` (or
+   ``PERIOD``) for bounded sets.
+
+* Extension name: ``arrow.fixed_closedness_range``.
+
+* The storage type of the extension is a ``Struct`` with exactly **two fields,
+  in order**:
+
+  * ``lower``: the lower bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded below
+    (negative infinity).
+  * ``upper``: the upper bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded above
+    (positive infinity).
+
+  **T** (the *subtype* or *value type*) may be any orderable Arrow type, for
+  example an integer, floating-point, decimal, date, time, timestamp,
+  duration, string or binary type.  Bounds are compared with the order of T.
+  This specification defines only the storage layout, not the order of any
+  type.  Both fields share the same type T.  The subtype is read directly from
+  the storage struct and is **not** duplicated in the extension metadata.
+
+  Each of ``lower`` and ``upper`` **may** be nullable, independently of the
+  other.  Nullability is **only** needed to represent an unbounded side: a
+  nullable bound may hold null to mean an infinite endpoint, while a
+  non-nullable bound always holds a value.  A null bound is **always treated as
+  exclusive**, regardless of the value of the ``closed`` parameter, so an
+  unbounded side is never included.  Only null means unbounded: every non-null
+  value is an ordinary bound, and ``closed`` applies to it.  A null ``lower``
+  means the range extends to negative infinity, a null ``upper`` means it
+  extends to positive infinity, and a range whose ``lower`` and ``upper`` are
+  both null (and both nullable) is the universal range ``(-inf, +inf)``.  The
+  outer struct's validity bit marks a null/absent range (a missing range,
+  distinct from an empty range).
+
+* Extension type parameters:
+
+  * **closed** = which non-null bound(s) are inclusive.  Allowed values
+    (following pandas interval vocabulary):
+
+    * ``"left"``: ``[lower, upper)``, the lower bound is inclusive and the
+      upper bound is exclusive.
+    * ``"right"``: ``(lower, upper]``, the lower bound is exclusive and the
+      upper bound is inclusive.
+    * ``"both"``: ``[lower, upper]``, both bounds are inclusive.
+    * ``"neither"``: ``(lower, upper)``, both bounds are exclusive.
+
+  A range thus contains every value x permitted by its non-null bounds and
+  ``closed`` setting: with ``closed="both"`` every x such that
+  ``lower <= x <= upper``, with ``closed="neither"`` every x such that
+  ``lower < x < upper``.  A range is *empty* when ``lower > upper``, or when
+  ``lower == upper`` and at least one bound is exclusive.  All empty values
+  denote the same empty set, and no canonical encoding is required: a
+  PostgreSQL ``empty`` range, for example, may be written as any empty value.
+
+  For example, with ``closed="left"`` and T = ``Int32`` (both bounds
+  nullable):
+
+  * ``{lower: 1, upper: 5}`` is ``[1, 5)`` and contains 1, 2, 3 and 4.
+  * ``{lower: null, upper: 5}`` is ``(-inf, 5)``.
+  * ``{lower: 3, upper: 3}`` is empty.
+  * A null struct value is a missing range.
+
+* Description of the serialization:
+
+  The extension metadata **must** be a valid JSON object containing the
+  **required** key:
+
+  * ``"closed"`` (string, **required**): one of ``"left"``, ``"right"``,
+    ``"both"``, or ``"neither"``.
+
+  The closedness is **not** defaulted on the wire: an empty metadata string,
+  or a JSON object without a ``"closed"`` key, is invalid.  This keeps the
+  serialized form unambiguous for consumers.  Additional keys in the JSON
+  object should be ignored to allow forward-compatible extensions.
+
+  Examples:
+
+  - ``{"closed": "right"}``: half-open interval, right-closed
+  - ``{"closed": "left"}``: half-open interval, left-closed
+  - ``{"closed": "both"}``: closed interval
+  - ``{"closed": "neither"}``: open interval
+
+.. _range types: https://www.postgresql.org/docs/current/rangetypes.html
+
+.. _variable_closedness_range_extension:
+
+Variable closedness range
+=========================
+
+Variable closedness range represents a bounded set (mathematical interval)
+over an orderable Arrow type T whose bound inclusivity is recorded **per
+value** rather than as a single type-level parameter.  It is the companion of
+the :ref:`fixed closedness range <fixed_closedness_range_extension>` extension
+type for ranges that cannot be canonicalized to a uniform closedness.
+
+.. note::
+
+   **When to use** ``arrow.fixed_closedness_range`` **vs.**
+   ``arrow.variable_closedness_range``.
+   Discrete ranges (e.g. PostgreSQL's ``int4range``, ``int8range``,
+   ``daterange``) canonicalize to a single closedness (left-closed), so they
+   are best represented by
+   :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`,
+   which stores the closedness once in the type metadata.  Continuous ranges
+   (e.g. PostgreSQL's ``numrange``, ``tsrange``, ``tstzrange``) **cannot** be
+   canonicalized: two values may share the same endpoints yet differ in
+   whether those endpoints are included.  ``arrow.variable_closedness_range``
+   stores the inclusivity of each bound alongside the bound itself, mirroring
+   PostgreSQL's internal range representation, and is the appropriate choice
+   for that case.
+
+* Extension name: ``arrow.variable_closedness_range``.
+
+* The storage type of the extension is a ``Struct`` with exactly **four fields,
+  in order**:
+
+  * ``lower``: the lower bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded below
+    (negative infinity).
+  * ``upper``: the upper bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded above
+    (positive infinity).
+  * ``lower_inc``: a **non-nullable** ``boolean`` that is ``true`` when the
+    lower bound is inclusive for that value and ``false`` when it is exclusive.
+  * ``upper_inc``: a **non-nullable** ``boolean`` that is ``true`` when the
+    upper bound is inclusive for that value and ``false`` when it is exclusive.
+
+  **T** (the *subtype* or *value type*) follows the same rules as in
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`: it
+  may be any orderable Arrow type, and bounds are compared with the order of
+  T.  The
+  ``lower`` and ``upper`` fields share the same type T, read directly from the
+  storage struct; the subtype is **not** duplicated in the extension metadata.
+
+  Each of ``lower`` and ``upper`` **may** be nullable, independently of the
+  other, exactly as in
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`:
+  nullability is only needed to represent an unbounded side.  A null bound is
+  **always treated as exclusive**, regardless of its ``lower_inc`` /
+  ``upper_inc`` flag, so an unbounded side is never included.  Only null means
+  unbounded: every non-null value is an ordinary bound, and its flag applies
+  to it.  Producers should set the flag of a
+  null bound to ``false``, as PostgreSQL does.  The ``lower_inc`` and
+  ``upper_inc`` fields are **always non-nullable**.  The outer struct's
+  validity bit marks a null/absent range (a missing range, distinct from an
+  empty range).
+
+* Extension type parameters:
+
+  This type has **no** type-level parameters.  Unlike
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`,
+  inclusivity is not fixed by the type; it is carried per value in the
+  ``lower_inc`` and ``upper_inc`` fields.
+
+  For a given value, the range contains every x permitted by its non-null bounds
+  and per-value flags: with both flags ``true`` every x such that
+  ``lower <= x <= upper``, with both flags ``false`` every x such that
+  ``lower < x < upper``.  A value is *empty* when ``lower > upper``, or when
+  ``lower == upper`` and at least one of ``lower_inc`` / ``upper_inc`` is
+  ``false``.  As in
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`, all
+  empty values denote the same empty set, and no canonical encoding is
+  required.
+
+  Each ``closed`` value of
+  :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`
+  corresponds to one pair of flags: ``"left"`` is
+  ``lower_inc=true, upper_inc=false``, ``"right"`` is the reverse, ``"both"``
+  sets both flags to ``true``, and ``"neither"`` sets both to ``false``.
+
+  For example, with T = ``Float64`` (both bounds nullable), one array can hold:
+
+  * ``{lower: 1.0, upper: 5.0, lower_inc: true, upper_inc: true}``, which is
+    ``[1.0, 5.0]``.
+  * ``{lower: 1.0, upper: 5.0, lower_inc: false, upper_inc: false}``, which
+    is ``(1.0, 5.0)``.
+  * ``{lower: 1.0, upper: null, lower_inc: true, upper_inc: false}``, which
+    is ``[1.0, +inf)``.
+
+* Description of the serialization:
+
+  Because inclusivity is stored per value, the type carries no parameters and
+  the extension metadata is an **empty JSON object** ``{}``.  For
+  forward-compatibility, an empty metadata string is also accepted on read, and
+  any additional keys in the JSON object should be ignored.
+
 Community Extension Types
 =========================
 
