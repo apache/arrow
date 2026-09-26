@@ -791,6 +791,70 @@ TEST_P(MergedGeneratorTestFixture, DeepOuterGeneratorStackOverflow) {
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
 
+// GH-51495: when an inner or outer subscription fails while no caller is waiting, the
+// error must be visible to the next pull as soon as the generator is in its errored
+// state.  Previously the error was stored only after the internal mutex had been
+// released, so a pull landing in between got a plain end-of-stream and the error was
+// lost.  The test hook runs exactly in that window, which makes these tests
+// deterministic.
+class MergedGeneratorErrorHookTest : public ::testing::Test {
+ protected:
+  void TearDown() override {
+    MergedGenerator<TestInt>::error_signaled_hook_for_testing = nullptr;
+  }
+
+  // Pull from `merged` once, from inside the hook
+  void PullFromErrorHook(AsyncGenerator<TestInt>* merged, Future<TestInt>* pulled) {
+    MergedGenerator<TestInt>::error_signaled_hook_for_testing = [merged, pulled]() {
+      if (!pulled->is_valid()) {
+        *pulled = (*merged)();
+      }
+    };
+  }
+};
+
+TEST_F(MergedGeneratorErrorHookTest, InnerErrorNotLostToConcurrentPull) {
+  auto failing = Future<TestInt>::Make();
+  AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
+  std::vector<AsyncGenerator<TestInt>> subs = {MakeVectorGenerator<TestInt>({TestInt(1)}),
+                                               failing_sub};
+  auto merged = MakeMergedGenerator(MakeVectorGenerator(std::move(subs)), 1);
+  // Delivers 1 and then subscribes to failing_sub, whose first item is pending.  Now
+  // there is one outstanding request and nobody waiting.
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), merged());
+
+  Future<TestInt> pulled;
+  PullFromErrorHook(&merged, &pulled);
+  failing.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_TRUE(pulled.is_valid());
+  ASSERT_FINISHES_AND_RAISES(Invalid, pulled);
+  AssertGeneratorExhausted(merged);
+}
+
+TEST_F(MergedGeneratorErrorHookTest, OuterErrorNotLostToConcurrentPull) {
+  auto failing = Future<AsyncGenerator<TestInt>>::Make();
+  int num_pulls = 0;
+  AsyncGenerator<AsyncGenerator<TestInt>> source =
+      [&]() -> Future<AsyncGenerator<TestInt>> {
+    if (num_pulls++ == 0) {
+      return Future<AsyncGenerator<TestInt>>::MakeFinished(
+          MakeVectorGenerator<TestInt>({TestInt(1)}));
+    }
+    return failing;
+  };
+  auto merged = MakeMergedGenerator(std::move(source), 1);
+  // Delivers 1 and then pulls the next subscription from the source, which is pending.
+  // Now there is one outstanding request and nobody waiting.
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), merged());
+
+  Future<TestInt> pulled;
+  PullFromErrorHook(&merged, &pulled);
+  failing.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_TRUE(pulled.is_valid());
+  ASSERT_FINISHES_AND_RAISES(Invalid, pulled);
+  AssertGeneratorExhausted(merged);
+}
+
 class AutoStartingGeneratorTestFixture : public GeneratorTestFixture {};
 
 TEST_P(AutoStartingGeneratorTestFixture, Basic) {
