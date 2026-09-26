@@ -26,6 +26,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
@@ -71,6 +72,7 @@ struct Winsorize {
       // Only nulls and NaNs => return input as-is
       out_data->null_count = data->null_count.load();
       out_data->length = data->length;
+      out_data->offset = data->offset;
       out_data->buffers = data->buffers;
       return Status::OK();
     }
@@ -127,7 +129,9 @@ struct Winsorize {
     DCHECK_EQ(out->buffers.size(), data.buffers.size());
     out->null_count = data.null_count.load();
     out->length = data.length;
-    out->buffers[0] = data.buffers[0];
+    out->offset = 0;
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0],
+                          GetOrCopyNullBitmapBuffer(data, ctx->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(out->length * sizeof(CType)));
     // Avoid leaving uninitialized memory under null entries
     std::memset(out->buffers[1]->mutable_data(), 0, out->length * sizeof(CType));
