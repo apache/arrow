@@ -3160,6 +3160,10 @@ cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
                                             CRangeClosed closed,
                                             c_bool allow_unbounded)
 
+        CResult[shared_ptr[CDataType]] Deserialize(
+            shared_ptr[CDataType] storage_type,
+            const c_string& serialized_data) const
+
         CRangeClosed closed()
         shared_ptr[CDataType] value_type()
 
@@ -3173,6 +3177,10 @@ cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType] value_type,
                                             c_bool allow_unbounded)
+
+        CResult[shared_ptr[CDataType]] Deserialize(
+            shared_ptr[CDataType] storage_type,
+            const c_string& serialized_data) const
 
         shared_ptr[CDataType] value_type()
 

@@ -2138,7 +2138,10 @@ cdef class FixedClosednessRangeType(BaseExtensionType):
         return FixedClosednessRangeArray
 
     def __reduce__(self):
-        return fixed_closedness_range, (self.value_type, self.closed)
+        # Rebuild from the storage type, which keeps the nullability of each
+        # bound; the value type and closed alone cannot express that.
+        return _fixed_closedness_range_from_storage, (self.storage_type,
+                                                      self.closed)
 
     def __arrow_ext_scalar_class__(self):
         return FixedClosednessRangeScalar
@@ -2183,7 +2186,9 @@ cdef class VariableClosednessRangeType(BaseExtensionType):
         return VariableClosednessRangeArray
 
     def __reduce__(self):
-        return variable_closedness_range, (self.value_type,)
+        # Rebuild from the storage type, which keeps the nullability of each
+        # bound; the value type alone cannot express that.
+        return _variable_closedness_range_from_storage, (self.storage_type,)
 
     def __arrow_ext_scalar_class__(self):
         return VariableClosednessRangeScalar
@@ -5939,6 +5944,36 @@ def variable_closedness_range(DataType value_type not None, allow_unbounded=True
             VariableClosednessRangeType)
     out.init(c_type)
     return out
+
+
+def _fixed_closedness_range_from_storage(DataType storage_type not None,
+                                         str closed not None):
+    """
+    Rebuild a fixed closedness range type from its storage type.
+
+    Used for pickling. The storage type is validated like extension type
+    metadata read from IPC.
+    """
+    cdef:
+        FixedClosednessRangeType prototype = fixed_closedness_range(int32())
+        c_string c_metadata = tobytes(f'{{"closed": "{closed}"}}')
+        shared_ptr[CDataType] c_type = GetResultValue(
+            prototype.range_ext_type.Deserialize(storage_type.sp_type, c_metadata))
+    return pyarrow_wrap_data_type(c_type)
+
+
+def _variable_closedness_range_from_storage(DataType storage_type not None):
+    """
+    Rebuild a variable closedness range type from its storage type.
+
+    Used for pickling. The storage type is validated like extension type
+    metadata read from IPC.
+    """
+    cdef:
+        VariableClosednessRangeType prototype = variable_closedness_range(int32())
+        shared_ptr[CDataType] c_type = GetResultValue(
+            prototype.range_ext_type.Deserialize(storage_type.sp_type, b"{}"))
+    return pyarrow_wrap_data_type(c_type)
 
 
 def opaque(DataType storage_type, str type_name not None, str vendor_name not None):

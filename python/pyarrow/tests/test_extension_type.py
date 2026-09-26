@@ -2147,7 +2147,7 @@ def test_fixed_closedness_range_type_invalid_closed():
         pa.fixed_closedness_range(pa.int32(), "")
 
 
-def test_fixed_closedness_range_type_allow_unbounded():
+def test_fixed_closedness_range_type_allow_unbounded(pickle_module):
     # Default: bounds are nullable (can represent an unbounded / infinite side).
     nullable = pa.fixed_closedness_range(pa.int32(), "both")
     assert nullable.storage_type.field("lower").nullable
@@ -2163,10 +2163,26 @@ def test_fixed_closedness_range_type_allow_unbounded():
     # Distinct types: storage nullability differs.
     assert finite != nullable
 
+    # Pickling keeps the storage nullability.
+    assert pickle_module.loads(pickle_module.dumps(finite)) == finite
+
     # A non-nullable-bounds range round-trips through its storage.
     storage = pa.array([{"lower": 1, "upper": 5}], finite.storage_type)
     arr = pa.ExtensionArray.from_storage(finite, storage)
     assert arr.type == finite
+
+
+def test_fixed_closedness_range_type_from_storage(pickle_module):
+    # C++ accepts one nullable and one non-nullable bound; pickling keeps it.
+    storage = pa.struct([pa.field("lower", pa.int32(), nullable=True),
+                         pa.field("upper", pa.int32(), nullable=False)])
+    range_type = pa.lib._fixed_closedness_range_from_storage(storage, "right")
+    assert range_type.storage_type == storage
+    assert range_type.closed == "right"
+    assert pickle_module.loads(pickle_module.dumps(range_type)) == range_type
+
+    with pytest.raises(pa.ArrowInvalid, match="must be a Struct"):
+        pa.lib._fixed_closedness_range_from_storage(pa.int32(), "left")
 
 
 @pytest.mark.parametrize("value_type,rows", [
@@ -2235,7 +2251,7 @@ def test_variable_closedness_range_type(pickle_module, value_type, rows):
     assert inner == storage
 
 
-def test_variable_closedness_range_type_allow_unbounded():
+def test_variable_closedness_range_type_allow_unbounded(pickle_module):
     # Default: bounds are nullable (can represent an unbounded / infinite side).
     nullable = pa.variable_closedness_range(pa.int32())
     assert nullable.storage_type.field("lower").nullable
@@ -2256,6 +2272,9 @@ def test_variable_closedness_range_type_allow_unbounded():
     # Distinct types: storage nullability differs.
     assert finite != nullable
 
+    # Pickling keeps the storage nullability.
+    assert pickle_module.loads(pickle_module.dumps(finite)) == finite
+
     # A variable closedness range with non-nullable bounds round-trips through
     # its storage.
     storage = pa.array(
@@ -2264,6 +2283,20 @@ def test_variable_closedness_range_type_allow_unbounded():
     )
     arr = pa.ExtensionArray.from_storage(finite, storage)
     assert arr.type == finite
+
+
+def test_variable_closedness_range_type_from_storage(pickle_module):
+    # C++ accepts one nullable and one non-nullable bound; pickling keeps it.
+    storage = pa.struct([pa.field("lower", pa.float64(), nullable=False),
+                         pa.field("upper", pa.float64(), nullable=True),
+                         pa.field("lower_inc", pa.bool_(), nullable=False),
+                         pa.field("upper_inc", pa.bool_(), nullable=False)])
+    range_type = pa.lib._variable_closedness_range_from_storage(storage)
+    assert range_type.storage_type == storage
+    assert pickle_module.loads(pickle_module.dumps(range_type)) == range_type
+
+    with pytest.raises(pa.ArrowInvalid, match="must be a Struct"):
+        pa.lib._variable_closedness_range_from_storage(pa.int32())
 
 
 def test_bool8_type(pickle_module):
