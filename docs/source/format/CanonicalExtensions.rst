@@ -690,10 +690,11 @@ instead.
   A range thus contains every value x permitted by its non-null bounds and
   ``closed`` setting: with ``closed="both"`` every x such that
   ``lower <= x <= upper``, with ``closed="neither"`` every x such that
-  ``lower < x < upper``.  A range is *empty* when ``lower > upper``, or when
-  ``lower == upper`` and at least one bound is exclusive.  All empty values
-  denote the same empty set, and no canonical encoding is required: a
-  PostgreSQL ``empty`` range, for example, may be written as any empty value.
+  ``lower < x < upper``.  A range with two non-null bounds is *empty* when
+  ``lower > upper``, or when ``lower == upper`` and at least one bound is
+  exclusive.  All empty values denote the same empty set, and no canonical
+  encoding is required: a PostgreSQL ``empty`` range, for example, may be
+  written as any empty value.
 
   For example, with ``closed="left"`` and T = ``Int32`` (both bounds
   nullable):
@@ -798,9 +799,9 @@ type for ranges that cannot be canonicalized to a uniform closedness.
   For a given value, the range contains every x permitted by its non-null bounds
   and per-value flags: with both flags ``true`` every x such that
   ``lower <= x <= upper``, with both flags ``false`` every x such that
-  ``lower < x < upper``.  A value is *empty* when ``lower > upper``, or when
-  ``lower == upper`` and at least one of ``lower_inc`` / ``upper_inc`` is
-  ``false``.  As in
+  ``lower < x < upper``.  A value with two non-null bounds is *empty* when
+  ``lower > upper``, or when ``lower == upper`` and at least one of
+  ``lower_inc`` / ``upper_inc`` is ``false``.  As in
   :ref:`arrow.fixed_closedness_range <fixed_closedness_range_extension>`, all
   empty values denote the same empty set, and no canonical encoding is
   required.
