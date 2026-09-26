@@ -498,6 +498,9 @@ ARROW_UNSUPPRESS_DEPRECATION_WARNING
 arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult result) {
   pb::sql::ActionCreatePreparedStatementResult pb_result;
   pb_result.set_prepared_statement_handle(std::move(result.prepared_statement_handle));
+  if (result.is_update.has_value()) {
+    pb_result.set_is_update(result.is_update.value());
+  }
   if (result.dataset_schema != nullptr) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> serialized,
                           ipc::SerializeSchema(*result.dataset_schema));
