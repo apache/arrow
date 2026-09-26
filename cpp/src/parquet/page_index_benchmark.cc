@@ -81,7 +81,7 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
     values.resize(values_per_page);
     GenerateBenchmarkData(values_per_page, /*seed=*/0, values.data(), &heap,
                           kDataStringLength);
-    stats->Update(values.data(), values_per_page, /*null_count=*/0);
+    stats->Update(values, /*null_count=*/0);
     builder->AddPage(stats->Encode(), /*size_stats=*/{});
   }
 
