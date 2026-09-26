@@ -3800,6 +3800,11 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   # avoid conflict.
   find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
+  if(ARROW_BUILD_STATIC
+     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
+     AND NOT ARROW_PC_REQUIRES_PRIVATE MATCHES "libcurl")
+    string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+  endif()
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
@@ -4343,9 +4348,22 @@ function(build_azure_sdk)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
+  if(NOT WIN32)
+    find_curl(ARROW)
+  endif()
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
+  if(AZURE_SDK_VENDORED AND NOT WIN32)
+    find_package(LibXml2 REQUIRED)
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+    if(ARROW_BUILD_STATIC)
+      if(NOT ARROW_PC_REQUIRES_PRIVATE MATCHES "libcurl")
+        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+      endif()
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libxml-2.0")
+    endif()
+  endif()
 endif()
 
 # ----------------------------------------------------------------------

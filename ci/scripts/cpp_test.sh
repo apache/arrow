@@ -143,15 +143,26 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
     # Search vcpkg before <prefix>/lib/cmake.
     CMAKE_PREFIX_PATH="${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET};${CMAKE_PREFIX_PATH}"
   fi
+  ARROW_EXAMPLE_S3="${ARROW_S3:-OFF}"
+  if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
+    ARROW_EXAMPLE_S3=OFF
+  fi
   cmake \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
+    -DARROW_EXAMPLE_S3="${ARROW_EXAMPLE_S3}" \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
   cmake --build "${build_dir}/examples/minimal_build"
   pushd "${source_dir}/examples/minimal_build"
   # PATH= is for Windows.
   PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
     "${build_dir}/examples/minimal_build/arrow-example"
+  # Test static linking with S3
+  s3_example="${build_dir}/examples/minimal_build/arrow-example-s3-static"
+  if [ -x "${s3_example}" ]; then
+    PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
+      "${s3_example}"
+  fi
   popd
 fi
 

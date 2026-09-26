@@ -278,6 +278,7 @@ Requires:	curl-devel
 Requires:	json-devel
 %endif
 Requires:	libzstd-devel
+Requires:	libxml2-devel
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
 %if %{have_orc}
