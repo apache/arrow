@@ -491,6 +491,29 @@ TEST_F(TestSchemaConverter, NestedExample) {
   ASSERT_TRUE(check_for_parent_consistency(group_));
 }
 
+TEST_F(TestSchemaConverter, IncompatibleNestedLogicalType) {
+  std::vector<SchemaElement> elements = {
+      NewGroup("schema", FieldRepetitionType::REQUIRED, 1),
+      NewGroup("outer", FieldRepetitionType::OPTIONAL, 1),
+      NewGroup("inner", FieldRepetitionType::OPTIONAL, 1),
+      NewPrimitive("int32_uuid", FieldRepetitionType::OPTIONAL, Type::INT32)};
+  format::LogicalType logical_type;
+  logical_type.__set_UUID(format::UUIDType{});
+  elements.back().__set_logicalType(logical_type);
+
+  ::testing::internal::CaptureStderr();
+  EXPECT_NO_THROW(Convert(elements));
+  const auto warning = ::testing::internal::GetCapturedStderr();
+  ASSERT_THAT(warning, ::testing::HasSubstr("for column 'outer.inner.int32_uuid'"));
+
+  SchemaDescriptor descr;
+  descr.Init(std::move(node_));
+  const auto* column = descr.Column(0);
+  ASSERT_EQ(column->physical_type(), Type::INT32);
+  ASSERT_FALSE(column->logical_type()->is_valid());
+  ASSERT_FALSE(column->can_use_min_max());
+}
+
 TEST_F(TestSchemaConverter, ZeroColumns) {
   // ARROW-3843
   SchemaElement elements[1];
