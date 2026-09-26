@@ -1056,6 +1056,15 @@ class MergedGenerator {
                            int max_subscriptions)
       : state_(std::make_shared<State>(std::move(source), max_subscriptions)) {}
 
+  /// \brief Test-only hook, not part of the public API
+  ///
+  /// If set, it is called without holding the internal mutex, right after an error from
+  /// an inner or outer subscription has put the generator in its errored state, and
+  /// before that error is handed to a caller that was already waiting for it.  This lets
+  /// tests pull from the generator at that exact point.  Only set it while no
+  /// MergedGenerator<T> is in use.
+  static inline std::function<void()> error_signaled_hook_for_testing;
+
   Future<T> operator()() {
     // A caller has requested a future
     Future<T> waiting_future;
@@ -1203,20 +1212,27 @@ class MergedGenerator {
       }
     }
 
-    // This is called outside the mutex but it is only ever called
-    // once and Future<>::AddCallback is thread-safe
-    void MarkFinalError(const Status& err, Future<T> maybe_sink) {
-      if (maybe_sink.is_valid()) {
-        // Someone is waiting for this error so lets mark it complete when
-        // all the work is done
-        all_finished.AddCallback([maybe_sink, err](const Status& status) mutable {
-          maybe_sink.MarkFinished(err);
-        });
+    // Must be called with the mutex held, when the first error arrives.
+    void SetFinalErrorUnlocked(const util::Mutex::Guard& guard, const Status& err,
+                               Future<T>* sink, bool* should_deliver_to_sink) {
+      if (sink->is_valid()) {
+        // Someone is waiting for this error, it will be delivered to them (outside
+        // the lock) once all outstanding work is done
+        *should_deliver_to_sink = true;
       } else {
         // No one is waiting for this error right now so it will be delivered
-        // next.
+        // next.  This must happen under the lock: a concurrent caller that sees
+        // `broken` must also see the error, or it would get a plain end of stream
+        // and the error would be silently dropped (GH-51495).
         final_error = err;
       }
+    }
+
+    // This is called outside the mutex but it is only ever called
+    // once and Future<>::AddCallback is thread-safe
+    void DeliverFinalError(const Status& err, Future<T> sink) {
+      all_finished.AddCallback(
+          [sink, err](const Status& status) mutable { sink.MarkFinished(err); });
     }
 
     bool IsCompleteUnlocked(const util::Mutex::Guard& guard) {
@@ -1266,9 +1282,15 @@ class MergedGenerator {
     int num_running_subscriptions;
     // If an error arrives, and the caller hasn't asked for that item, we store the error
     // here.  It is analagous to delivered_jobs but for errors instead of finished
-    // results.
+    // results.  Guarded by `mutex`.
     Status final_error;
   };
+
+  static void RunErrorSignaledHookForTesting() {
+    if (error_signaled_hook_for_testing) {
+      error_signaled_hook_for_testing();
+    }
+  }
 
   struct InnerCallback {
     InnerCallback(std::shared_ptr<State> state, std::size_t index, bool recursive = false)
@@ -1290,6 +1312,7 @@ class MergedGenerator {
         bool was_broken = false;
         bool should_mark_gen_complete = false;
         bool should_mark_final_error = false;
+        bool signaled_error = false;
         {
           auto guard = state->mutex.Lock();
           if (state->broken) {
@@ -1311,8 +1334,10 @@ class MergedGenerator {
 
             // If this is the first error then we transition the state to a broken state
             if (!maybe_next->ok()) {
-              should_mark_final_error = true;
+              signaled_error = true;
               state->SignalErrorUnlocked(guard);
+              state->SetFinalErrorUnlocked(guard, maybe_next->status(), &sink,
+                                           &should_mark_final_error);
             }
           }
 
@@ -1338,8 +1363,11 @@ class MergedGenerator {
 
         // Now we have given up the lock and we can take all the actions we decided we
         // need to take.
+        if (signaled_error) {
+          RunErrorSignaledHookForTesting();
+        }
         if (should_mark_final_error) {
-          state->MarkFinalError(maybe_next->status(), std::move(sink));
+          state->DeliverFinalError(maybe_next->status(), std::move(sink));
         }
 
         if (should_mark_gen_complete) {
@@ -1392,6 +1420,7 @@ class MergedGenerator {
         bool should_continue = false;
         bool should_mark_gen_complete = false;
         bool should_deliver_error = false;
+        bool signaled_error = false;
         bool source_exhausted = maybe_next.ok() && IsIterationEnd(*maybe_next);
         Future<T> error_sink;
         {
@@ -1399,13 +1428,15 @@ class MergedGenerator {
           if (!maybe_next.ok() || source_exhausted || state->broken) {
             // If here then we will not pull any more from the outer source
             if (!state->broken && !maybe_next.ok()) {
+              signaled_error = true;
               state->SignalErrorUnlocked(guard);
               // If here then we are the first error so we need to deliver it
-              should_deliver_error = true;
               if (!state->waiting_jobs.empty()) {
                 error_sink = std::move(*state->waiting_jobs.front());
                 state->waiting_jobs.pop_front();
               }
+              state->SetFinalErrorUnlocked(guard, maybe_next.status(), &error_sink,
+                                           &should_deliver_error);
             }
             if (source_exhausted) {
               state->source_exhausted = true;
@@ -1419,8 +1450,11 @@ class MergedGenerator {
             should_continue = true;
           }
         }
+        if (signaled_error) {
+          RunErrorSignaledHookForTesting();
+        }
         if (should_deliver_error) {
-          state->MarkFinalError(maybe_next.status(), std::move(error_sink));
+          state->DeliverFinalError(maybe_next.status(), std::move(error_sink));
         }
         if (should_mark_gen_complete) {
           state->MarkFinishedAndPurge();
