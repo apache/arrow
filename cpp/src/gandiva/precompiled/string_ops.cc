@@ -3125,9 +3125,14 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
-    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
+    unsigned char ch = static_cast<unsigned char>(in[i]);
+    if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
       // Retain the first letter
-      ret[0] = toupper(static_cast<unsigned char>(in[i]));
+      if (ch >= 'a') {
+        ret[0] = static_cast<char>(ch - 'a' + 'A');
+      } else {
+        ret[0] = static_cast<char>(ch);
+      }
       start_idx = i + 1;
       break;
     }
@@ -3143,12 +3148,17 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   soundex[0] = '\0';
   // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
-    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
-      c = toupper(static_cast<unsigned char>(in[i])) - 65;
-      if (mappings[c] != soundex[si - 1]) {
-        soundex[si] = mappings[c];
-        si++;
-      }
+    unsigned char ch = static_cast<unsigned char>(in[i]);
+    if (ch >= 'A' && ch <= 'Z') {
+      c = ch - 'A';
+    } else if (ch >= 'a' && ch <= 'z') {
+      c = ch - 'a';
+    } else {
+      continue;
+    }
+    if (mappings[c] != soundex[si - 1]) {
+      soundex[si] = mappings[c];
+      si++;
     }
   }
 
