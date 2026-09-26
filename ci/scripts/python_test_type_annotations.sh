@@ -29,10 +29,11 @@ fi
 pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
 
 # Install type checkers
-pip install mypy pyright ty
+pip install mypy pyrefly pyright ty
 
 # Run type checkers
 cd "${pyarrow_dir}"
 mypy
 pyright --stats
 ty check --verbose --output-format concise
+pyrefly check --summarize-errors
