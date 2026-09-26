@@ -5955,7 +5955,8 @@ def _fixed_closedness_range_from_storage(DataType storage_type not None,
     metadata read from IPC.
     """
     cdef:
-        FixedClosednessRangeType prototype = fixed_closedness_range(int32())
+        # Passing closed here validates it before it goes into the JSON.
+        FixedClosednessRangeType prototype = fixed_closedness_range(int32(), closed)
         c_string c_metadata = tobytes(f'{{"closed": "{closed}"}}')
         shared_ptr[CDataType] c_type = GetResultValue(
             prototype.range_ext_type.Deserialize(storage_type.sp_type, c_metadata))
