@@ -472,6 +472,40 @@ TEST(Date32Conversion, Errors) {
   AssertConversionError(date32(), {"2020-13-01\n"}, {0});
 }
 
+TEST(Date32Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+  const auto type = date32();
+
+  // Test a single parser
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d/%m/%y")};
+  AssertConversion<Date32Type, int32_t>(type, {"15/10/15,18/06/90\n"}, {{16723}, {7473}},
+                                        options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Date32Type, int32_t>(type, {"2020-03-15,15/10/15\n"},
+                                        {{18336}, {16723}}, options);
+
+  // Test multiple parsers, with a pre-epoch value
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%d-%m-%Y"));
+  AssertConversion<Date32Type, int32_t>(type, {"15/10/15,08-05-1945\n"},
+                                        {{16723}, {-9004}}, options);
+
+  // Test month names, parsed case-insensitively
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
+  AssertConversion<Date32Type, int32_t>(type, {"15-OCT-15,18-Jun-90\n"},
+                                        {{16723}, {7473}}, options);
+
+  // Parsed timestamps are floored to the day boundary, also before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %H:%M")};
+  AssertConversion<Date32Type, int32_t>(type, {"03/15/2020 14:30,05/08/1945 14:30\n"},
+                                        {{18336}, {-9004}}, options);
+
+  // Test errors
+  AssertConversionError(type, {"24-12-2020\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
+  AssertConversionError(type, {"01/02/1970 +0000\n"}, {0}, options);
+}
+
 TEST(Date64Conversion, Basics) {
   AssertConversion<Date64Type, int64_t>(date64(), {"1945-05-08\n", "2020-03-15\n"},
                                         {{-777945600000LL, 1584230400000LL}});
@@ -485,6 +519,38 @@ TEST(Date64Conversion, Nulls) {
 TEST(Date64Conversion, Errors) {
   AssertConversionError(date64(), {"1945-06-31\n"}, {0});
   AssertConversionError(date64(), {"2020-13-01\n"}, {0});
+}
+
+TEST(Date64Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+  const auto type = date64();
+
+  // Test a single parser
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d/%m/%y")};
+  AssertConversion<Date64Type, int64_t>(type, {"15/10/15,18/06/90\n"},
+                                        {{1444867200000LL}, {645667200000LL}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Date64Type, int64_t>(type, {"2020-03-15,15/10/15\n"},
+                                        {{1584230400000LL}, {1444867200000LL}}, options);
+
+  // Test multiple parsers, with a pre-epoch value
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%d-%m-%Y"));
+  AssertConversion<Date64Type, int64_t>(type, {"15/10/15,08-05-1945\n"},
+                                        {{1444867200000LL}, {-777945600000LL}}, options);
+
+  // Test month names, parsed case-insensitively
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
+  AssertConversion<Date64Type, int64_t>(type, {"15-OCT-15,18-Jun-90\n"},
+                                        {{1444867200000LL}, {645667200000LL}}, options);
+
+  // Parsed timestamps are floored to the day boundary, also before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %H:%M")};
+  AssertConversion<Date64Type, int64_t>(type, {"03/15/2020 14:30,05/08/1945 14:30\n"},
+                                        {{1584230400000LL}, {-777945600000LL}}, options);
+
+  // Test errors
+  AssertConversionError(type, {"24-12-2020\n"}, {0}, options);
 }
 
 TEST(Time32Conversion, Seconds) {
@@ -513,6 +579,30 @@ TEST(Time32Conversion, Millis) {
   AssertConversionError(type, {"23:59:60\n"}, {0});
 }
 
+TEST(Time32Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+
+  // Test a single parser, with non-zero-padded hours
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"7:55:00,12:01:02\n"},
+                                        {{28500}, {43262}}, options);
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::MILLI), {"7:55:00\n"},
+                                        {{28500000}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"07:55:00,7:55:00\n"},
+                                        {{28500}, {28500}}, options);
+
+  // The time of day is extracted from parsed timestamps, also before the epoch
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%Y-%m-%d %H:%M"));
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND),
+                                        {"2020-03-15 07:55,1945-05-08 07:55\n"},
+                                        {{28500}, {28500}}, options);
+
+  // Test errors
+  AssertConversionError(time32(TimeUnit::SECOND), {"24:00:00\n"}, {0}, options);
+}
+
 TEST(Time64Conversion, Micros) {
   const auto type = time64(TimeUnit::MICRO);
 
@@ -537,6 +627,24 @@ TEST(Time64Conversion, Nanos) {
 
   AssertConversionError(type, {"24:00\n"}, {0});
   AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+
+  // Test a single parser, with non-zero-padded hours
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::MICRO), {"7:55:00\n"},
+                                        {{28500000000LL}}, options);
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO), {"7:55:00\n"},
+                                        {{28500000000000LL}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::MICRO), {"07:55:00.123456\n"},
+                                        {{28500123456LL}}, options);
+
+  // Test errors
+  AssertConversionError(time64(TimeUnit::MICRO), {"24:00:00\n"}, {0}, options);
 }
 
 TEST(TimestampConversion, Basics) {
