@@ -233,7 +233,8 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReaders(const std::vector<int>& column_indices,
                          const std::vector<int>& row_groups,
                          std::vector<std::shared_ptr<ColumnReaderImpl>>* out,
-                         std::shared_ptr<::arrow::Schema>* out_schema) {
+                         std::shared_ptr<::arrow::Schema>* out_schema,
+                         std::vector<int>* out_field_indices) {
     // We only need to read schema fields which have columns indicated
     // in the indices vector
     ARROW_ASSIGN_OR_RAISE(std::vector<int> field_indices,
@@ -253,6 +254,7 @@ class FileReaderImpl : public FileReader {
     }
 
     *out_schema = ::arrow::schema(std::move(out_fields), manifest_.schema_metadata);
+    *out_field_indices = std::move(field_indices);
     return Status::OK();
   }
 
@@ -268,8 +270,8 @@ class FileReaderImpl : public FileReader {
                              reader_->metadata()->key_value_metadata(), out);
   }
 
-  Status ReadColumn(int i, const std::vector<int>& row_groups, ColumnReader* reader,
-                    std::shared_ptr<ChunkedArray>* out) {
+  Status ReadColumn(int field_index, const std::vector<int>& row_groups,
+                    ColumnReader* reader, std::shared_ptr<ChunkedArray>* out) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     // NextBatch()'s size is a number of records (rows), not leaf values, so use the
     // row group's own row count directly rather than some column's num_values().
@@ -278,13 +280,19 @@ class FileReaderImpl : public FileReader {
       records_to_read += reader_->metadata()->RowGroup(row_group)->num_rows();
     }
 #ifdef ARROW_WITH_OPENTELEMETRY
-    std::string column_name = reader_->metadata()->schema()->Column(i)->name();
-    std::string phys_type =
-        TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
+    const auto& schema_field = manifest_.schema_fields[field_index];
+    const std::string& field_name = schema_field.field->name();
+    std::string phys_type;
+    if (schema_field.is_leaf()) {
+      phys_type = TypeToString(reader_->metadata()
+                                   ->schema()
+                                   ->Column(schema_field.column_index)
+                                   ->physical_type());
+    }
     ::arrow::util::tracing::Span span;
     START_SPAN(span, "parquet::arrow::read_column",
-               {{"parquet.arrow.columnindex", i},
-                {"parquet.arrow.columnname", column_name},
+               {{"parquet.arrow.columnindex", field_index},
+                {"parquet.arrow.columnname", field_name},
                 {"parquet.arrow.physicaltype", phys_type},
                 {"parquet.arrow.records_to_read", records_to_read}});
 #endif
@@ -292,15 +300,16 @@ class FileReaderImpl : public FileReader {
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  Status ReadColumn(int i, const std::vector<int>& row_groups,
+  Status ReadColumn(int field_index, const std::vector<int>& row_groups,
                     std::shared_ptr<ChunkedArray>* out) {
     std::unique_ptr<ColumnReader> flat_column_reader;
-    RETURN_NOT_OK(GetColumn(i, SomeRowGroupsFactory(row_groups), &flat_column_reader));
-    return ReadColumn(i, row_groups, flat_column_reader.get(), out);
+    RETURN_NOT_OK(
+        GetColumn(field_index, SomeRowGroupsFactory(row_groups), &flat_column_reader));
+    return ReadColumn(field_index, row_groups, flat_column_reader.get(), out);
   }
 
-  Status ReadColumn(int i, std::shared_ptr<ChunkedArray>* out) override {
-    return ReadColumn(i, Iota(reader_->metadata()->num_row_groups()), out);
+  Status ReadColumn(int field_index, std::shared_ptr<ChunkedArray>* out) override {
+    return ReadColumn(field_index, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
   Result<std::shared_ptr<Table>> ReadTable() override {
@@ -1113,7 +1122,9 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
 
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> batch_schema;
-  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &batch_schema));
+  std::vector<int> field_indices;
+  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &batch_schema,
+                                &field_indices));
 
   if (readers.empty()) {
     // Just generate all batches right now; they're cheap since they have no columns.
@@ -1373,15 +1384,18 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // in a sync context too so use `this` over `self`
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
-  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
+  std::vector<int> field_indices;
+  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema,
+                                &field_indices));
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  auto read_column = [row_groups, self, this](size_t i,
-                                              std::shared_ptr<ColumnReaderImpl> reader)
+  auto read_column = [field_indices, row_groups, self, this](
+                         size_t reader_index, std::shared_ptr<ColumnReaderImpl> reader)
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     std::shared_ptr<::arrow::ChunkedArray> column;
-    RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
+    RETURN_NOT_OK(
+        ReadColumn(field_indices[reader_index], row_groups, reader.get(), &column));
     return column;
   };
   auto make_table = [result_schema, row_groups, self,
