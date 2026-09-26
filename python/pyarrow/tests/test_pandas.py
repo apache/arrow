@@ -4566,6 +4566,37 @@ def test_to_pandas_extension_dtypes_mapping_complex_type():
     pd.testing.assert_frame_equal(df0, df1)
 
 
+def test_to_pandas_extension_dtypes_mapping_complex_type_no_types_mapper():
+    # GH-39914: without an explicit types_mapper, the pandas metadata
+    # embedded by from_pandas() stores a 'numpy_type' string like
+    # "list<item: string>[pyarrow]" for complex/nested ArrowDtype columns.
+    # pandas_dtype() cannot parse that string back, so to_pandas() (and, by
+    # extension, pd.read_parquet() without dtype_backend="pyarrow") used to
+    # raise a TypeError instead of falling back to the schema's actual field
+    # type. See pandas-dev/pandas#53011.
+    list_type = pd.ArrowDtype(pa.list_(pa.string()))
+    df0 = pd.DataFrame({
+        "a": pd.Series([["x"], ["x", "y"]], dtype=list_type),
+    })
+
+    table = pa.Table.from_pandas(df0)
+    df1 = table.to_pandas()
+    pd.testing.assert_frame_equal(df0, df1)
+
+    struct_type = pd.ArrowDtype(
+        pa.struct([pa.field("bar", pa.bool_()), pa.field("baz", pa.float32())])
+    )
+    df2 = pd.DataFrame({
+        "a": pd.Series(
+            [{"bar": True, "baz": 1.0}, {"bar": False, "baz": None}],
+            dtype=struct_type,
+        ),
+    })
+    table2 = pa.Table.from_pandas(df2)
+    df3 = table2.to_pandas()
+    pd.testing.assert_frame_equal(df2, df3)
+
+
 def test_array_to_pandas():
     for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
                 pd.interval_range(1, 4).array]:
