@@ -89,7 +89,10 @@ struct ConversionSchema {
   std::vector<Column> columns;
 };
 
-// An iterator of Buffers that makes sure there is no straddling CRLF sequence.
+// An iterator of Buffers that strips a leading UTF-8 BOM (if present).
+// Straddling CRLF sequences cannot be resolved at this stage: a '\r' ending a
+// buffer may either be a line separator or the contents of an unfinished
+// quoted field, and only the block readers further downstream know which.
 class CSVBufferIterator {
  public:
   static Iterator<std::shared_ptr<Buffer>> Make(
@@ -120,12 +123,6 @@ class CSVBufferIterator {
       first_buffer_ = false;
     }
 
-    if (trailing_cr_ && buf->data()[offset] == '\n') {
-      // Skip '\r\n' line separator that started at the end of previous buffer
-      ++offset;
-    }
-
-    trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
     buf = SliceBuffer(std::move(buf), offset);
     if (buf->size() == 0) {
       // EOF
@@ -137,8 +134,6 @@ class CSVBufferIterator {
 
  protected:
   bool first_buffer_ = true;
-  // Whether there was a trailing CR at the end of last received buffer
-  bool trailing_cr_ = false;
 };
 
 struct CSVBlock {
@@ -170,19 +165,40 @@ namespace {
 // iterator APIs (e.g. Visit)) even though an empty optional is never used in this code.
 class BlockReader {
  public:
+  // `prev_ended_cr` should be true if the raw bytes delivered just before
+  // `first_buffer` ended with a '\r' (for instance the first block ends right
+  // after a header line separated by CRLF).  It is only meaningful when
+  // `first_buffer` is empty, since otherwise the pending '\r' is carried in
+  // `first_buffer` itself.
   BlockReader(std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
-              int64_t skip_rows)
+              int64_t skip_rows, bool prev_ended_cr = false)
       : chunker_(std::move(chunker)),
         partial_(std::make_shared<Buffer>("")),
         buffer_(std::move(first_buffer)),
-        skip_rows_(skip_rows) {}
+        skip_rows_(skip_rows),
+        trailing_cr_(prev_ended_cr && buffer_->size() == 0) {}
+
+  // If the previous buffer ended with a '\r' that was consumed as a line
+  // separator, a '\n' at the start of `buffer` merely completes that separator
+  // and must be skipped so that it doesn't produce a spurious row.  When the
+  // '\r' sits inside an unfinished quoted field instead, it is carried over in
+  // `partial_` (which is then non-empty) and the '\n' is genuine field contents.
+  static std::shared_ptr<Buffer> SkipStraddlingCRLF(std::shared_ptr<Buffer> buffer,
+                                                    bool trailing_cr) {
+    if (trailing_cr && buffer->size() != 0 && buffer->data()[0] == '\n') {
+      // Skip '\r\n' line separator that started at the end of previous buffer
+      return SliceBuffer(std::move(buffer), 1);
+    }
+    return buffer;
+  }
 
  protected:
   std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<Buffer> partial_, buffer_;
   int64_t skip_rows_;
   int64_t block_index_ = 0;
-  // Whether there was a trailing CR at the end of last received buffer
+  // Whether the last buffer ended with a '\r' that was fully consumed
+  // (i.e. as a line separator rather than unfinished field contents)
   bool trailing_cr_ = false;
 };
 
@@ -195,9 +211,10 @@ class SerialBlockReader : public BlockReader {
 
   static Iterator<CSVBlock> MakeIterator(
       Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
-      std::shared_ptr<Buffer> first_buffer, int64_t skip_rows) {
-    auto block_reader =
-        std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer, skip_rows);
+      std::shared_ptr<Buffer> first_buffer, int64_t skip_rows,
+      bool prev_ended_cr = false) {
+    auto block_reader = std::make_shared<SerialBlockReader>(
+        std::move(chunker), first_buffer, skip_rows, prev_ended_cr);
     // Wrap shared pointer in callable
     Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
         [block_reader](std::shared_ptr<Buffer> buf) {
@@ -209,9 +226,9 @@ class SerialBlockReader : public BlockReader {
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
-      int64_t skip_rows) {
-    auto block_reader =
-        std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer, skip_rows);
+      int64_t skip_rows, bool prev_ended_cr = false) {
+    auto block_reader = std::make_shared<SerialBlockReader>(
+        std::move(chunker), first_buffer, skip_rows, prev_ended_cr);
     // Wrap shared pointer in callable
     Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
         [block_reader](std::shared_ptr<Buffer> next) {
@@ -228,6 +245,13 @@ class SerialBlockReader : public BlockReader {
     bool is_final = (next_buffer == nullptr);
     int64_t bytes_skipped = 0;
 
+    // An empty buffer can't resolve a straddling CRLF, so don't let it
+    // overwrite the current trailing_cr_ state.
+    const bool has_bytes = buffer_->size() != 0;
+    buffer_ = SkipStraddlingCRLF(std::move(buffer_), trailing_cr_);
+    const bool ends_with_cr =
+        buffer_->size() != 0 && buffer_->data()[buffer_->size() - 1] == '\r';
+
     if (skip_rows_) {
       bytes_skipped += partial_->size();
       auto orig_size = buffer_->size();
@@ -237,6 +261,9 @@ class SerialBlockReader : public BlockReader {
       auto empty = std::make_shared<Buffer>(nullptr, 0);
       if (skip_rows_) {
         // Still have rows beyond this buffer to skip return empty block
+        if (has_bytes) {
+          trailing_cr_ = ends_with_cr && buffer_->size() == 0;
+        }
         partial_ = std::move(buffer_);
         buffer_ = next_buffer;
         return TransformYield<CSVBlock>(CSVBlock{empty, empty, empty, block_index_++,
@@ -258,14 +285,17 @@ class SerialBlockReader : public BlockReader {
     }
     int64_t bytes_before_buffer = partial_->size() + completion->size();
 
-    auto consume_bytes = [this, bytes_before_buffer,
-                          next_buffer](int64_t nbytes) -> Status {
+    auto consume_bytes = [this, bytes_before_buffer, next_buffer, has_bytes,
+                          ends_with_cr](int64_t nbytes) -> Status {
       DCHECK_GE(nbytes, 0);
       int64_t offset = nbytes - bytes_before_buffer;
       // All data before the buffer should have been consumed.
       // This is checked in Parse() and BlockParsingOperator::operator().
       DCHECK_GE(offset, 0);
       partial_ = SliceBuffer(buffer_, offset);
+      if (has_bytes) {
+        trailing_cr_ = ends_with_cr && partial_->size() == 0;
+      }
       buffer_ = next_buffer;
       return Status::OK();
     };
@@ -284,9 +314,9 @@ class ThreadedBlockReader : public BlockReader {
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
-      int64_t skip_rows) {
-    auto block_reader = std::make_shared<ThreadedBlockReader>(std::move(chunker),
-                                                              first_buffer, skip_rows);
+      int64_t skip_rows, bool prev_ended_cr = false) {
+    auto block_reader = std::make_shared<ThreadedBlockReader>(
+        std::move(chunker), first_buffer, skip_rows, prev_ended_cr);
     // Wrap shared pointer in callable
     Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
         [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
@@ -305,6 +335,13 @@ class ThreadedBlockReader : public BlockReader {
     auto current_buffer = std::move(buffer_);
     int64_t bytes_skipped = 0;
 
+    // An empty buffer can't resolve a straddling CRLF, so don't let it
+    // overwrite the current trailing_cr_ state.
+    const bool has_bytes = current_buffer->size() != 0;
+    current_buffer = SkipStraddlingCRLF(std::move(current_buffer), trailing_cr_);
+    const bool ends_with_cr = current_buffer->size() != 0 &&
+                              current_buffer->data()[current_buffer->size() - 1] == '\r';
+
     if (skip_rows_) {
       auto orig_size = current_buffer->size();
       bytes_skipped = current_partial->size();
@@ -313,6 +350,9 @@ class ThreadedBlockReader : public BlockReader {
       bytes_skipped += orig_size - current_buffer->size();
       current_partial = std::make_shared<Buffer>(nullptr, 0);
       if (skip_rows_) {
+        if (has_bytes) {
+          trailing_cr_ = ends_with_cr && current_buffer->size() == 0;
+        }
         partial_ = std::move(current_buffer);
         buffer_ = std::move(next_buffer);
         return TransformYield<CSVBlock>(CSVBlock{current_partial,
@@ -341,6 +381,9 @@ class ThreadedBlockReader : public BlockReader {
       // Get a complete CSV block inside `partial + block`, and keep
       // the rest for the next iteration.
       RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
+      if (has_bytes) {
+        trailing_cr_ = ends_with_cr && next_partial->size() == 0;
+      }
     }
 
     partial_ = std::move(next_partial);
@@ -890,6 +933,9 @@ class StreamingReaderImpl : public ReaderMixin,
       return Status::Invalid("Empty CSV file");
     }
 
+    const bool first_ended_with_cr =
+        first_buffer->size() != 0 &&
+        first_buffer->data()[first_buffer->size() - 1] == '\r';
     std::shared_ptr<Buffer> after_header;
     ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
                           ProcessHeader(first_buffer, &after_header));
@@ -901,7 +947,7 @@ class StreamingReaderImpl : public ReaderMixin,
 
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
-        read_options_.skip_rows_after_names);
+        read_options_.skip_rows_after_names, first_ended_with_cr);
     auto parsed_block_gen = MakeMappedGenerator(std::move(block_gen), *parsing_operator_);
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
@@ -992,12 +1038,15 @@ class SerialTableReader : public BaseTableReader {
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
+    const bool first_ended_with_cr =
+        first_buffer->size() != 0 &&
+        first_buffer->data()[first_buffer->size() - 1] == '\r';
     RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
     RETURN_NOT_OK(MakeColumnBuilders());
 
     auto block_iterator = SerialBlockReader::MakeIterator(
         std::move(buffer_iterator_), MakeChunker(parse_options_), std::move(first_buffer),
-        read_options_.skip_rows_after_names);
+        read_options_.skip_rows_after_names, first_ended_with_cr);
     while (true) {
       RETURN_NOT_OK(io_context_.stop_token().Poll());
 
@@ -1064,7 +1113,7 @@ class AsyncThreadedTableReader
     return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer>& first_buffer) {
       auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
           self->buffer_generator_, MakeChunker(self->parse_options_), first_buffer,
-          self->read_options_.skip_rows_after_names);
+          self->read_options_.skip_rows_after_names, self->first_buffer_ended_cr_);
 
       std::function<Status(CSVBlock)> block_visitor =
           [self](CSVBlock maybe_block) -> Status {
@@ -1103,6 +1152,9 @@ class AsyncThreadedTableReader
           if (first_buffer == nullptr) {
             return Status::Invalid("Empty CSV file");
           }
+          self->first_buffer_ended_cr_ =
+              first_buffer->size() != 0 &&
+              first_buffer->data()[first_buffer->size() - 1] == '\r';
           std::shared_ptr<Buffer> first_buffer_processed;
           RETURN_NOT_OK(self->ProcessHeader(first_buffer, &first_buffer_processed));
           RETURN_NOT_OK(self->MakeColumnBuilders());
@@ -1112,6 +1164,7 @@ class AsyncThreadedTableReader
 
   Executor* cpu_executor_;
   AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
+  bool first_buffer_ended_cr_ = false;
 };
 
 Result<std::shared_ptr<TableReader>> MakeTableReader(
@@ -1185,10 +1238,13 @@ class CSVRowCounter : public ReaderMixin,
           if (!first_buffer) {
             return Status::Invalid("Empty CSV file");
           }
+          const bool first_ended_with_cr =
+              first_buffer->size() != 0 &&
+              first_buffer->data()[first_buffer->size() - 1] == '\r';
           RETURN_NOT_OK(self->ProcessHeader(first_buffer, &first_buffer));
           self->block_generator_ = SerialBlockReader::MakeAsyncIterator(
               buffer_generator, MakeChunker(self->parse_options_),
-              std::move(first_buffer), 0);
+              std::move(first_buffer), 0, first_ended_with_cr);
           return Status::OK();
         });
   }
