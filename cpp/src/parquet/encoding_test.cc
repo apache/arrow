@@ -462,8 +462,31 @@ TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(2500, 2));
 }
 
-TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
-  ASSERT_THROW(MakeDictDecoder<BooleanType>(nullptr), ParquetException);
+// Decode a dictionary encoded boolean page and ensure decoding works.
+TEST(TestDictionaryEncoding, DictDecodesBoolean) {
+  const uint8_t dict_bytes[] = {0x02};
+  auto dict_plain_decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+  dict_plain_decoder->SetData(2, dict_bytes, 1);
+
+  auto decoder = MakeDictDecoder<BooleanType>();
+  decoder->SetDict(dict_plain_decoder.get());
+
+  const uint8_t indices[] = {0x01, 0x03, 0x35};
+  decoder->SetData(8, indices, sizeof(indices));
+
+  bool out_bool[8] = {};
+  ASSERT_EQ(8, decoder->Decode(out_bool, 8));
+  const bool expected[8] = {true, false, true, false, true, true, false, false};
+  for (int i = 0; i < 8; ++i) {
+    EXPECT_EQ(expected[i], out_bool[i]) << " at index " << i;
+  }
+
+  decoder->SetData(8, indices, sizeof(indices));
+  uint8_t out_packed = 0;
+  auto* bool_dec = dynamic_cast<BooleanDecoder*>(decoder.get());
+  ASSERT_NE(bool_dec, nullptr);
+  ASSERT_EQ(8, bool_dec->Decode(&out_packed, 8));
+  EXPECT_EQ(0x35, out_packed);
 }
 
 // ----------------------------------------------------------------------
