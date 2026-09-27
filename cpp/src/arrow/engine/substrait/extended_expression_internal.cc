@@ -43,6 +43,93 @@ Status AddExtensionSetToExtendedExpression(const ExtensionSet& ext_set,
   return AddExtensionSetToMessage(ext_set, expr);
 }
 
+bool TypeContainsUnknown(const substrait::Type& type) {
+  switch (type.kind_case()) {
+    case substrait::Type::kUnknown:
+      return true;
+    case substrait::Type::kStruct:
+      for (const auto& child_type : type.struct_().types()) {
+        if (TypeContainsUnknown(child_type)) {
+          return true;
+        }
+      }
+      return false;
+    case substrait::Type::kList:
+      return type.list().has_type() && TypeContainsUnknown(type.list().type());
+    case substrait::Type::kMap:
+      return (type.map().has_key() && TypeContainsUnknown(type.map().key())) ||
+             (type.map().has_value() && TypeContainsUnknown(type.map().value()));
+    default:
+      return false;
+  }
+}
+
+bool NamedStructContainsUnknownTypes(const substrait::NamedStruct& named_struct) {
+  if (!named_struct.has_struct_()) {
+    return false;
+  }
+  for (const auto& type : named_struct.struct_().types()) {
+    if (TypeContainsUnknown(type)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void CollectDepthFirstFieldNames(const FieldVector& fields,
+                                 std::vector<std::string_view>* names) {
+  for (const auto& field : fields) {
+    names->push_back(field->name());
+    if (field->type()->id() == Type::STRUCT) {
+      CollectDepthFirstFieldNames(field->type()->fields(), names);
+    }
+  }
+}
+
+Status ValidateSchemaNames(const substrait::NamedStruct& named_struct,
+                           const Schema& schema) {
+  std::vector<std::string_view> schema_names;
+  CollectDepthFirstFieldNames(schema.fields(), &schema_names);
+  if (schema_names.size() != static_cast<size_t>(named_struct.names_size())) {
+    return Status::Invalid(
+        "The supplied Arrow schema did not match the ExtendedExpression base_schema. "
+        "Expected ",
+        named_struct.names_size(), " depth-first field names but got ",
+        schema_names.size());
+  }
+  for (int i = 0; i < named_struct.names_size(); ++i) {
+    if (schema_names[static_cast<size_t>(i)] != named_struct.names(i)) {
+      return Status::Invalid(
+          "The supplied Arrow schema did not match the ExtendedExpression "
+          "base_schema. Expected field name ",
+          named_struct.names(i), " at depth-first position ", i, " but got ",
+          schema_names[static_cast<size_t>(i)]);
+    }
+  }
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Schema>> ResolveInputSchema(
+    const substrait::NamedStruct& base_schema, const Schema* input_schema_override,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
+  if (input_schema_override == NULLPTR) {
+    return FromProto(base_schema, ext_set, conversion_options);
+  }
+
+  if (NamedStructContainsUnknownTypes(base_schema)) {
+    ARROW_RETURN_NOT_OK(ValidateSchemaNames(base_schema, *input_schema_override));
+    return std::make_shared<Schema>(*input_schema_override);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto decoded_schema,
+                        FromProto(base_schema, ext_set, conversion_options));
+  if (!decoded_schema->Equals(*input_schema_override, /*check_metadata=*/false)) {
+    return Status::Invalid(
+        "The supplied Arrow schema did not match the ExtendedExpression base_schema");
+  }
+  return std::make_shared<Schema>(*input_schema_override);
+}
+
 Status VisitNestedFields(const DataType& type,
                          std::function<Status(const Field&)> visitor) {
   if (!is_nested(type.id())) {
@@ -149,6 +236,7 @@ Result<std::unique_ptr<substrait::ExpressionReference>> CreateExpressionReferenc
 }  // namespace
 
 Result<BoundExpressions> FromProto(const substrait::ExtendedExpression& expression,
+                                   const Schema* input_schema_override,
                                    ExtensionSet* ext_set_out,
                                    const ConversionOptions& conversion_options,
                                    const ExtensionIdRegistry* registry) {
@@ -162,8 +250,10 @@ Result<BoundExpressions> FromProto(const substrait::ExtendedExpression& expressi
       ExtensionSet ext_set,
       GetExtensionSetFromExtendedExpression(expression, conversion_options, registry));
 
-  ARROW_ASSIGN_OR_RAISE(bound_expressions.schema,
-                        FromProto(expression.base_schema(), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(
+      bound_expressions.schema,
+      ResolveInputSchema(expression.base_schema(), input_schema_override, ext_set,
+                         conversion_options));
 
   bound_expressions.named_expressions.reserve(expression.referred_expr_size());
 

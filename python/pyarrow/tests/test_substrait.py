@@ -22,6 +22,7 @@ import pytest
 
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.dataset as ds
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 
@@ -34,6 +35,21 @@ except ImportError:
 # Ignore these with pytest ... -m 'not substrait'
 pytestmark = pytest.mark.substrait
 
+UNBOUND_NAMED_ADD = (
+    b'\x12\x1b\x1a\x19\x10\x01\x1a\x13add:unknown_unknown \x01\x1a$'
+    b'\n\x1d\x1a\x1b\x08\x01\x1a\x03\xba\x02\x00"\x08\x1a\x06\x92\x01'
+    b'\x03\n\x01a"\x08\x1a\x06\x92\x01\x03\n\x01b\x1a\x03sum"\x14\n\x01a'
+    b'\n\x01b\x12\x0c\n\x03\xba\x02\x00\n\x03\xba\x02\x00\x18\x02:\x0b*'
+    b'\tsubstraitB"\x08\x01\x12\x1eextension:io.substrait:unknown'
+)
+UNBOUND_NAMED_GT_ONE = (
+    b'\x12\x16\x1a\x14\x10\x01\x1a\x0egt:unknown_i32 \x01\x1a%'
+    b'\n\x1b\x1a\x19\x08\x01\x1a\x03\xba\x02\x00"\x08\x1a\x06\x92\x01\x03'
+    b'\n\x01a"\x06\x1a\x04\n\x02(\x01\x1a\x06filter"\x0c\n\x01a\x12\x07'
+    b'\n\x03\xba\x02\x00\x18\x02:\x0b*\tsubstraitB"\x08\x01\x12\x1e'
+    b'extension:io.substrait:unknown'
+)
+
 
 def mock_udf_context(batch_length=10):
     from pyarrow._compute import _get_udf_context
@@ -45,6 +61,25 @@ def _write_dummy_data_to_disk(tmpdir, file_name, table):
     with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
         writer.write_table(table)
     return path
+
+
+def _project_sum(expr, schema):
+    table = pa.table({
+        "a": pa.array([1, 2], type=pa.int32()),
+        "b": pa.array([10, 20], type=pa.int32()),
+    }, schema=schema)
+    return ds.dataset(table).scanner(columns={"sum": expr}).to_table()
+
+
+def _scan_with_projection_and_filter(projection, filter_expr, schema):
+    table = pa.table({
+        "a": pa.array([1, 2, 3], type=pa.int32()),
+        "b": pa.array([10, 20, 30], type=pa.int32()),
+    }, schema=schema)
+    return ds.dataset(table).scanner(
+        columns=projection,
+        filter=filter_expr,
+    ).to_table()
 
 
 @pytest.mark.parametrize("use_threads", [True, False])
@@ -1055,6 +1090,82 @@ def test_serializing_with_compute():
     buf = pa.substrait.serialize_expressions([expr], ["weirdname"], schema)
     expr2 = pc.Expression.from_substrait(buf)
     assert str(expr2) == str(expr_norm)
+
+
+def test_deserializing_unbound_expressions_with_schema():
+    schema = pa.schema([
+        pa.field("a", pa.int32()),
+        pa.field("b", pa.int32())
+    ])
+
+    returned = pa.substrait.deserialize_expressions(
+        UNBOUND_NAMED_ADD, schema=schema)
+    assert returned.schema == schema
+    assert list(returned.expressions) == ["sum"]
+    assert _project_sum(returned.expressions["sum"], schema) == pa.table({
+        "sum": pa.array([11, 22], type=pa.int32())
+    })
+
+
+def test_deserializing_unbound_expressions_without_schema():
+    with pytest.raises(ArrowInvalid, match="unknown"):
+        pa.substrait.deserialize_expressions(UNBOUND_NAMED_ADD)
+
+
+def test_deserializing_unbound_expressions_schema_mismatch():
+    schema = pa.schema([
+        pa.field("a", pa.int32()),
+        pa.field("c", pa.int32())
+    ])
+
+    with pytest.raises(ArrowInvalid, match="base_schema"):
+        pa.substrait.deserialize_expressions(UNBOUND_NAMED_ADD, schema=schema)
+
+
+def test_compute_from_substrait_with_schema():
+    schema = pa.schema([
+        pa.field("a", pa.int32()),
+        pa.field("b", pa.int32())
+    ])
+
+    expr = pc.Expression.from_substrait(UNBOUND_NAMED_ADD, schema=schema)
+    assert _project_sum(expr, schema) == pa.table({
+        "sum": pa.array([11, 22], type=pa.int32())
+    })
+
+
+def test_compute_filter_from_substrait_with_schema():
+    schema = pa.schema([
+        pa.field("a", pa.int32())
+    ])
+
+    expr = pc.Expression.from_substrait(UNBOUND_NAMED_GT_ONE, schema=schema)
+    table = pa.table({
+        "a": pa.array([1, 2, 3], type=pa.int32())
+    }, schema=schema)
+    assert ds.dataset(table).scanner(filter=expr).to_table() == pa.table({
+        "a": pa.array([2, 3], type=pa.int32())
+    })
+
+
+def test_scanner_from_unbound_substrait_projection_and_filter():
+    projection_schema = pa.schema([
+        pa.field("a", pa.int32()),
+        pa.field("b", pa.int32())
+    ])
+    filter_schema = pa.schema([
+        pa.field("a", pa.int32())
+    ])
+
+    projection = pa.substrait.deserialize_expressions(
+        UNBOUND_NAMED_ADD, schema=projection_schema)
+    filter_expr = pc.Expression.from_substrait(
+        UNBOUND_NAMED_GT_ONE, schema=filter_schema)
+
+    assert _scan_with_projection_and_filter(
+        projection, filter_expr, projection_schema) == pa.table({
+            "sum": pa.array([22, 33], type=pa.int32())
+        })
 
 
 def test_serializing_udfs():
