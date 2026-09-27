@@ -64,6 +64,10 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override;
 
+  Type::type type_id() const override {
+    return mode_ == UnionMode::SPARSE ? Type::SPARSE_UNION : Type::DENSE_UNION;
+  }
+
   int64_t length() const override { return types_builder_.length(); }
 
  protected:

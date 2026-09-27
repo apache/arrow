@@ -70,6 +70,8 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override { return null(); }
 
+  Type::type type_id() const override { return Type::NA; }
+
   Status Finish(std::shared_ptr<NullArray>* out) { return FinishTyped(out); }
 };
 
@@ -347,6 +349,8 @@ class NumericBuilder
   }
 
   std::shared_ptr<DataType> type() const override { return type_; }
+
+  Type::type type_id() const override { return TypeClass::type_id; }
 
  protected:
   std::shared_ptr<DataType> type_;
@@ -681,6 +685,8 @@ class ARROW_EXPORT BooleanBuilder
   Status Resize(int64_t capacity) override;
 
   std::shared_ptr<DataType> type() const override { return boolean(); }
+
+  Type::type type_id() const override { return Type::BOOL; }
 
  protected:
   TypedBufferBuilder<bool> data_builder_;

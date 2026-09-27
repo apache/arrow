@@ -94,6 +94,12 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
+  Type::type type_id() const final {
+    // This could be more optimal, but it requires minor modifications
+    // to AdaptiveIntBuilder and AdaptiveUIntBuilder.
+    return type()->id();
+  }
+
   void Reset() override;
   Status Resize(int64_t capacity) override;
 

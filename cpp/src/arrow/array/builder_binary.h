@@ -391,6 +391,8 @@ class BaseBinaryBuilder
     return std::numeric_limits<offset_type>::max() - 1;
   }
 
+  Type::type type_id() const override { return TypeClass::type_id; }
+
  protected:
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
@@ -711,6 +713,8 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override { return binary_view(); }
 
+  Type::type type_id() const override { return Type::BINARY_VIEW; }
+
  protected:
   TypedBufferBuilder<BinaryViewType::c_type> data_builder_;
 
@@ -723,6 +727,7 @@ class ARROW_EXPORT StringViewBuilder : public BinaryViewBuilder {
  public:
   using BinaryViewBuilder::BinaryViewBuilder;
   std::shared_ptr<DataType> type() const override { return utf8_view(); }
+  Type::type type_id() const override { return Type::STRING_VIEW; }
 };
 
 // ----------------------------------------------------------------------
@@ -899,6 +904,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   std::shared_ptr<DataType> type() const override {
     return fixed_size_binary(byte_width_);
   }
+
+  Type::type type_id() const override { return Type::FIXED_SIZE_BINARY; }
 
  protected:
   int32_t byte_width_;

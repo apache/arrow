@@ -168,6 +168,8 @@ class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override { return builder_->type(); }
 
+  Type::type type_id() const override { return builder_->type_id(); }
+
  private:
   std::unique_ptr<ArrayBuilder> builder_;
   Type::type type_id_;

@@ -147,6 +147,8 @@ class RunCompressorBuilder : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override { return inner_builder_->type(); }
 
+  Type::type type_id() const override { return inner_builder_->type_id(); }
+
   bool has_open_run() const { return current_run_length_ > 0; }
   int64_t open_run_length() const { return current_run_length_; }
 
@@ -257,6 +259,8 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
   Status FinishCurrentRun();
 
   std::shared_ptr<DataType> type() const override;
+
+  Type::type type_id() const override { return Type::RUN_END_ENCODED; }
 
  private:
   /// \brief Update physical capacity and logical length

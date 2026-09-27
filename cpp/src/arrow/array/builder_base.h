@@ -206,6 +206,12 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Return the type of the built Array
   virtual std::shared_ptr<DataType> type() const = 0;
 
+  /// \brief Return the type ID of the built Array.
+  ///
+  /// Use this method when only the type ID is needed, instead of calling
+  /// type()->id(), to avoid unnecessary allocation and deallocation.
+  virtual Type::type type_id() const = 0;
+
  protected:
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);

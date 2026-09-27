@@ -515,6 +515,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         ordered_);
   }
 
+  Type::type type_id() const override { return Type::DICTIONARY; }
+
  protected:
   template <typename c_type>
   Status AppendArraySliceImpl(const typename TypeTraits<T>::ArrayType& dict,
@@ -713,6 +715,8 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
         MaybeUnsignedIndexType(indices_builder_.type(), use_unsigned_index_), null(),
         ordered_);
   }
+
+  Type::type type_id() const override { return Type::DICTIONARY; }
 
  protected:
   BuilderType indices_builder_;

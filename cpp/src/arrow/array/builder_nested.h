@@ -225,6 +225,8 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
     return std::make_shared<TYPE>(value_field_->WithType(value_builder_->type()));
   }
 
+  Type::type type_id() const override { return TypeClass::type_id; }
+
  private:
   static constexpr const char* type_name() {
     if constexpr (is_list_view(TYPE::type_id)) {
@@ -617,6 +619,8 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
         keys_sorted_);
   }
 
+  Type::type type_id() const override { return Type::MAP; }
+
   Status ValidateOverflow(int64_t new_elements) {
     return list_builder_->ValidateOverflow(new_elements);
   }
@@ -719,6 +723,8 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   std::shared_ptr<DataType> type() const override {
     return fixed_size_list(value_field_->WithType(value_builder_->type()), list_size_);
   }
+
+  Type::type type_id() const override { return Type::FIXED_SIZE_LIST; }
 
   // Cannot make this a static attribute because of linking issues
   static constexpr int64_t maximum_elements() {
@@ -826,6 +832,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   int num_fields() const { return static_cast<int>(children_.size()); }
 
   std::shared_ptr<DataType> type() const override;
+
+  Type::type type_id() const override { return Type::STRUCT; }
 
  private:
   std::shared_ptr<DataType> type_;

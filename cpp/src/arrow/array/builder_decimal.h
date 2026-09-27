@@ -60,6 +60,8 @@ class ARROW_EXPORT Decimal32Builder : public FixedSizeBinaryBuilder {
 
   std::shared_ptr<DataType> type() const override { return decimal_type_; }
 
+  Type::type type_id() const override { return Type::DECIMAL32; }
+
  protected:
   std::shared_ptr<Decimal32Type> decimal_type_;
 };
@@ -91,6 +93,8 @@ class ARROW_EXPORT Decimal64Builder : public FixedSizeBinaryBuilder {
 
   std::shared_ptr<DataType> type() const override { return decimal_type_; }
 
+  Type::type type_id() const override { return Type::DECIMAL64; }
+
  protected:
   std::shared_ptr<Decimal64Type> decimal_type_;
 };
@@ -121,6 +125,8 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   Status Finish(std::shared_ptr<Decimal128Array>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override { return decimal_type_; }
+
+  Type::type type_id() const override { return Type::DECIMAL128; }
 
  protected:
   std::shared_ptr<Decimal128Type> decimal_type_;
