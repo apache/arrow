@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from bisect import bisect_right
 from collections import namedtuple
 from collections.abc import Sequence
 import datetime
@@ -627,11 +628,12 @@ class Buffer:
         """
         Return a view over the bytes of this buffer.
         """
-        if self.size > 0:
-            if length is None:
-                length = self.size
+        if length is None:
+            length = self.size - offset
+        # Sliced arrays may share buffers, so only read the requested range.
+        if length > 0:
             mem = gdb.selected_inferior().read_memory(
-                self.val['data_'] + offset, self.size)
+                self.val['data_'] + offset, length)
         else:
             mem = memoryview(b"")
         # Read individual bytes as unsigned integers rather than
@@ -770,7 +772,8 @@ class Bitmap(Sequence):
     def from_buffer(cls, buf, offset, length):
         assert isinstance(buf, Buffer)
         byte_offset, bit_offset = divmod(offset, 8)
-        byte_length = math.ceil(length + offset / 8) - byte_offset
+        # E.g. offset=3, length=6 selects bits 3..8 and needs 2 bytes.
+        byte_length = math.ceil((bit_offset + length) / 8)
         return cls(buf.bytes_view(byte_offset, byte_length),
                    bit_offset, length)
 
@@ -1481,6 +1484,18 @@ class BaseListScalarPrinter(ScalarPrinter):
         return f"{self._format_type()} of value {value}"
 
 
+class RunEndEncodedScalarPrinter(ScalarPrinter):
+    """
+    Pretty-printer for arrow::RunEndEncodedScalar.
+    """
+
+    def to_string(self):
+        if not self.is_valid:
+            return self._format_null()
+        value = deref(self.val['value'])
+        return f"{self._format_type()} of value {value}"
+
+
 class StructScalarPrinter(ScalarPrinter):
     """
     Pretty-printer for arrow::StructScalar.
@@ -1847,6 +1862,40 @@ class BinaryArrayDataPrinter(ArrayDataPrinter):
                 yield self._null_child(i)
 
 
+class RunEndEncodedArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for run-end encoded arrays.
+    """
+
+    def __init__(self, name, val):
+        if self.length == 0:
+            return
+        child_data = StdVector(self.val['child_data'])
+        self._run_ends_printer = ArrayDataPrinter(
+            "arrow::ArrayData", deref(child_data[0]))
+        self._values_printer = ArrayDataPrinter(
+            "arrow::ArrayData", deref(child_data[1]))
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        run_ends = self._run_ends_printer._unpacked_buffer_values(
+            1, self._run_ends_printer.type_id)
+        values = iter(self._values_printer.children() or ())
+        physical_index, value = 0, None
+        for i in range(self.length):
+            target = bisect_right(run_ends, self.offset + i)
+            while physical_index <= target:
+                value = next(values, None)
+                if value is None:
+                    return
+                physical_index += 1
+            yield self._valid_child(i, value[1])
+
+
 class ArrayPrinter:
     """
     Pretty-printer for arrow::Array and subclasses.
@@ -2018,7 +2067,8 @@ class FixedSizeListTypeClass(DataTypeClass):
 class RunEndEncodedTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = RunEndEncodedTypePrinter
-    scalar_printer = BaseListScalarPrinter
+    scalar_printer = RunEndEncodedScalarPrinter
+    array_data_printer = RunEndEncodedArrayDataPrinter
 
 
 class MapTypeClass(DataTypeClass):
@@ -2107,8 +2157,6 @@ type_traits_by_id = {
     Type.LARGE_LIST: DataTypeTraits(BaseListTypeClass, 'LargeListType'),
     Type.FIXED_SIZE_LIST: DataTypeTraits(FixedSizeListTypeClass,
                                          'FixedSizeListType'),
-    Type.RUN_END_ENCODED: DataTypeTraits(RunEndEncodedTypeClass,
-                                         'RunEndEncodedType'),
     Type.MAP: DataTypeTraits(MapTypeClass, 'MapType'),
 
     Type.STRUCT: DataTypeTraits(StructTypeClass, 'StructType'),
@@ -2117,6 +2165,8 @@ type_traits_by_id = {
 
     Type.DICTIONARY: DataTypeTraits(DictionaryTypeClass, 'DictionaryType'),
     Type.EXTENSION: DataTypeTraits(ExtensionTypeClass, 'ExtensionType'),
+    Type.RUN_END_ENCODED: DataTypeTraits(RunEndEncodedTypeClass,
+                                         'RunEndEncodedType'),
 }
 
 

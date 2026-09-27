@@ -850,7 +850,9 @@ def test_arrays_stack(gdb_arrow):
         gdb_arrow, "run_end_encoded_array",
         ("arrow::RunEndEncodedArray of type "
          "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
-         "length 5, offset 0, null count 0"))
+         "length 5, offset 0, null count 0 = "
+         "{[0] = \"foo\", [1] = \"foo\", [2] = null, "
+         "[3] = null, [4] = null}"))
 
 
 def test_arrays_heap(gdb_arrow):
@@ -1108,12 +1110,27 @@ def test_arrays_heap(gdb_arrow):
         gdb_arrow, "heap_run_end_encoded_array",
         ("arrow::RunEndEncodedArray of type "
          "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
-         "length 5, offset 0, null count 0"))
+         "length 5, offset 0, null count 0 = "
+         "{[0] = \"foo\", [1] = \"foo\", [2] = null, "
+         "[3] = null, [4] = null}"))
     check_heap_repr(
         gdb_arrow, "heap_run_end_encoded_array_sliced",
         ("arrow::RunEndEncodedArray of type "
          "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
-         "length 3, offset 1, null count 0"))
+         "length 3, offset 1, null count 0 = "
+         "{[0] = \"foo\", [1] = null, [2] = null}"))
+    check_heap_repr(
+        gdb_arrow, "heap_ree_sliced",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 3, offset 1, null count 0 = "
+         "{[0] = \"foo\", [1] = null, [2] = null}"))
+    check_heap_repr(
+        gdb_arrow, "heap_ree_int64",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int64(), arrow::int32()), "
+         "length 3, offset 0, null count 0 = "
+         "{[0] = 42, [1] = null, [2] = null}"))
 
 
 def test_schema(gdb_arrow):

@@ -467,6 +467,16 @@ void TestSession() {
   RunEndEncodedArray run_end_encoded_array{heap_run_end_encoded_array->data()};
   auto heap_run_end_encoded_array_sliced = heap_run_end_encoded_array->Slice(1, 3);
 
+  // Sliced children
+  std::shared_ptr<Array> heap_ree_sliced = *RunEndEncodedArray::Make(
+      /*logical_length=*/3, SliceArrayFromJSON(int32(), "[1, 2, 5, 0]", 1, 2),
+      SliceArrayFromJSON(utf8(), R"(["bar", "baz", "foo", null, "qux"])", 2, 2),
+      /*logical_offset=*/1);
+
+  std::shared_ptr<Array> heap_ree_int64 = *RunEndEncodedArray::Make(
+      /*logical_length=*/3, SliceArrayFromJSON(int64(), "[1, 3]"),
+      SliceArrayFromJSON(int32(), "[42, null]"));
+
   const char* json_double_array = "[-1.5, null]";
   auto heap_double_array = SliceArrayFromJSON(float64(), json_double_array);
 
