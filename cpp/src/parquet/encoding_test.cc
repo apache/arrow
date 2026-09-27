@@ -3110,4 +3110,20 @@ TYPED_TEST(TestAlpEncoding, BoundaryValues) {
   this->CheckRoundtripWithValues(data);
 }
 
+TEST(AlpEncodeDecode, InvalidDataTypes) {
+  ASSERT_THROW(MakeTypedEncoder<Int32Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<Int64Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<Int96Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<BooleanType>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<ByteArrayType>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedEncoder<FLBAType>(Encoding::ALP), ParquetException);
+
+  ASSERT_THROW(MakeTypedDecoder<Int32Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<Int64Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<Int96Type>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<BooleanType>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<ByteArrayType>(Encoding::ALP), ParquetException);
+  ASSERT_THROW(MakeTypedDecoder<FLBAType>(Encoding::ALP), ParquetException);
+}
+
 }  // namespace parquet::test

@@ -1003,6 +1003,11 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // ALP encoder (Adaptive Lossless floating-Point)
 
 // TODO(GH-48701): encode incrementally and sample once per column chunk.
+//
+// TODO(GH-48701): fall back to PLAIN where ALP does not pay off. msg_sp in the
+// ALP paper's datasets encodes to 113% of plain. FallbackToPlainEncoding() acts
+// only on dictionary-index encodings, and the sampled estimate is a minimum over
+// vectors rather than a whole-column ratio, so both pieces are missing.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
