@@ -29,7 +29,6 @@
 #include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -38,7 +37,6 @@
 
 namespace arrow {
 
-using internal::checked_cast;
 using internal::checked_pointer_cast;
 namespace engine {
 namespace {
@@ -997,20 +995,14 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeMatchSubstringMapping(
     ARROW_ASSIGN_OR_RAISE(compute::Expression input, call.GetValueArg(0));
     ARROW_ASSIGN_OR_RAISE(compute::Expression substring, call.GetValueArg(1));
     const Datum* pattern = substring.literal();
-    if (pattern == nullptr || !pattern->is_scalar()) {
-      return Status::NotImplemented(
-          "The Arrow ", function_name,
-          " kernel requires the substring argument to be a literal");
-    }
-    const std::shared_ptr<Scalar>& pattern_scalar = pattern->scalar();
-    if (!pattern_scalar->is_valid || (!is_base_binary_like(pattern_scalar->type->id()) &&
-                                      !is_binary_view_like(pattern_scalar->type->id()))) {
+    if (pattern == nullptr || !pattern->is_scalar() ||
+        pattern->type()->id() != Type::STRING || !pattern->scalar()->is_valid) {
       return Status::NotImplemented(
           "The Arrow ", function_name,
           " kernel requires the substring argument to be a non-null string literal");
     }
     auto options = std::make_shared<compute::MatchSubstringOptions>(
-        std::string(checked_cast<const BaseBinaryScalar&>(*pattern_scalar).view()),
+        std::string(pattern->scalar_as<StringScalar>().view()),
         /*ignore_case=*/case_sensitivity == CaseSensitivity::kCaseInsensitive);
     return compute::call(function_name, {std::move(input)}, std::move(options));
   };
@@ -1019,11 +1011,6 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeMatchSubstringMapping(
 ExtensionIdRegistry::ArrowToSubstraitCall EncodeMatchSubstring(Id substrait_fn_id) {
   return
       [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
-        if (call.arguments.size() != 1) {
-          return Status::Invalid("Expected the call to ", call.function_name,
-                                 " to have exactly one argument but it had ",
-                                 call.arguments.size());
-        }
         if (call.options == nullptr) {
           return Status::Invalid("The call to ", call.function_name,
                                  " is missing its MatchSubstringOptions");

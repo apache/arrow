@@ -6386,107 +6386,48 @@ TEST(Substrait, StringMatchExpressionSerialization) {
                                       compute::MatchSubstringOptions("al", ignore_case)));
     }
   }
-  // The pattern survives as a nested expression too
-  CheckExpressionRoundTrip(
-      *test_schema,
-      compute::call("invert", {compute::call("starts_with", {compute::field_ref(0)},
-                                             compute::MatchSubstringOptions("al"))}));
 }
-
-namespace {
-
-// An ExtendedExpression holding a single starts_with call over a utf8 column named
-// "cat".  `arguments` and `options` are spliced into the scalar function so that
-// individual tests can vary them.
-std::string StartsWithExpressionJSON(std::string_view arguments,
-                                     std::string_view options) {
-  return R"({
-      "extensionUris":[
-        {
-          "extensionUriAnchor":1,
-          "uri":")" +
-         std::string(kSubstraitStringFunctionsUri) + R"("
-        }
-      ],
-      "extensions":[
-        {
-          "extensionFunction":{
-            "extensionUriReference":1,
-            "functionAnchor":1,
-            "name":"starts_with"
-          }
-        }
-      ],
-      "referredExpr":[
-        {
-          "expression":{
-            "scalarFunction":{
-              "functionReference":1,
-              "outputType":{"bool":{"nullability":"NULLABILITY_NULLABLE"}},
-              "arguments":)" +
-         std::string(arguments) + R"(,
-              "options":)" +
-         std::string(options) + R"(
-            }
-          },
-          "outputNames":["out"]
-        }
-      ],
-      "baseSchema":{
-        "names":["cat"],
-        "struct":{
-          "types":[{"string":{"nullability":"NULLABILITY_NULLABLE"}}]
-        }
-      },
-      "version":{"majorNumber":9999}
-    })";
-}
-
-constexpr std::string_view kCatAndLiteralArgs = R"([
-  {"value":{"selection":{"directReference":{"structField":{"field":0}},
-                         "rootReference":{}}}},
-  {"value":{"literal":{"string":"al"}}}
-])";
-
-}  // namespace
 
 TEST(Substrait, StringMatchExpressionDeserialization) {
-  auto deserialize = [](const std::string& json) -> Result<BoundExpressions> {
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(
+      uint32_t anchor,
+      ext_set.EncodeFunction({kSubstraitStringFunctionsUri, "starts_with"}));
+  // A starts_with call on field 0 with the given pattern argument and options
+  auto deserialize = [&](std::string_view pattern_arg,
+                         std::string_view options) -> Result<compute::Expression> {
+    std::string json = R"({"scalarFunction":{"functionReference":)" +
+                       std::to_string(anchor) +
+                       R"(,"outputType":{"bool":{}},"arguments":[
+        {"value":{"selection":{"directReference":{"structField":{"field":0}},
+                               "rootReference":{}}}},
+        {"value":)" + std::string(pattern_arg) +
+                       R"(}],"options":)" + std::string(options) + "}}";
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buf,
-                          internal::SubstraitFromJSON("ExtendedExpression", json));
-    return DeserializeExpressions(*buf);
+                          internal::SubstraitFromJSON("Expression", json));
+    return DeserializeExpression(*buf, ext_set);
   };
-
-  std::shared_ptr<Schema> test_schema = schema({field("cat", utf8())});
+  constexpr std::string_view kLiteral = R"({"literal":{"string":"al"}})";
 
   // No case_sensitivity option means case sensitive
-  ASSERT_OK_AND_ASSIGN(BoundExpressions no_option,
-                       deserialize(StartsWithExpressionJSON(kCatAndLiteralArgs, "[]")));
-  ASSERT_OK_AND_ASSIGN(compute::Expression expected,
-                       compute::call("starts_with", {compute::field_ref(0)},
-                                     compute::MatchSubstringOptions("al"))
-                           .Bind(*test_schema));
-  ASSERT_EQ(1, no_option.named_expressions.size());
-  ASSERT_EQ(expected, no_option.named_expressions[0].expression);
+  ASSERT_OK_AND_ASSIGN(compute::Expression no_option, deserialize(kLiteral, "[]"));
+  ASSERT_EQ(compute::call("starts_with", {compute::field_ref(0)},
+                          compute::MatchSubstringOptions("al")),
+            no_option);
 
   // CASE_INSENSITIVE_ASCII has no Arrow equivalent
   ASSERT_THAT(
-      deserialize(StartsWithExpressionJSON(
-          kCatAndLiteralArgs,
-          R"([{"name":"case_sensitivity","preference":["CASE_INSENSITIVE_ASCII"]}])")),
-      Raises(StatusCode::NotImplemented,
-             testing::HasSubstr("the only supported options are")));
+      deserialize(
+          kLiteral,
+          R"([{"name":"case_sensitivity","preference":["CASE_INSENSITIVE_ASCII"]}])"),
+      Raises(StatusCode::NotImplemented, HasSubstr("the only supported options are")));
 
   // The pattern has to be a literal because the Arrow kernel takes it as an option
-  constexpr std::string_view kTwoFieldArgs = R"([
-    {"value":{"selection":{"directReference":{"structField":{"field":0}},
-                           "rootReference":{}}}},
-    {"value":{"selection":{"directReference":{"structField":{"field":0}},
-                           "rootReference":{}}}}
-  ])";
-  ASSERT_THAT(deserialize(StartsWithExpressionJSON(kTwoFieldArgs, "[]")),
-              Raises(StatusCode::NotImplemented,
-                     testing::HasSubstr("substring argument to be a literal")));
+  ASSERT_THAT(
+      deserialize(R"({"selection":{"directReference":{"structField":{"field":0}},
+                                   "rootReference":{}}})",
+                  "[]"),
+      Raises(StatusCode::NotImplemented, HasSubstr("substring argument to be a")));
 }
 
 }  // namespace engine

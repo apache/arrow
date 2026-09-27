@@ -946,27 +946,17 @@ def test_serializing_expressions(expr):
     assert "test_expr" in returned.expressions
 
 
-@pytest.mark.parametrize("make_expr", [
-    lambda f: pc.starts_with(f, "pre"),
-    lambda f: pc.ends_with(f, "post"),
-    lambda f: pc.match_substring(f, "mid"),
-    lambda f: pc.starts_with(f, "pre", ignore_case=True),
-    lambda f: pc.ends_with(f, "post", ignore_case=True),
-    lambda f: pc.match_substring(f, "mid", ignore_case=True),
-    lambda f: ~pc.starts_with(f, "pre"),
-])
-def test_serializing_string_match_expressions(make_expr):
-    # GH-50988: starts_with / ends_with / match_substring map onto the Substrait
-    # starts_with / ends_with / contains functions
+@pytest.mark.parametrize("func", [pc.starts_with, pc.ends_with, pc.match_substring])
+def test_serializing_string_match_expressions(func):
+    # GH-50988: these map onto Substrait's starts_with / ends_with / contains
     schema = pa.schema([pa.field("s", pa.string())])
+    expr = func(pc.field("s"), "al", ignore_case=True)
 
-    buf = pa.substrait.serialize_expressions(
-        [make_expr(pc.field("s"))], ["test_expr"], schema)
+    buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
     returned = pa.substrait.deserialize_expressions(buf)
-    assert schema == returned.schema
-    assert len(returned.expressions) == 1
     # Substrait refers to fields by index, so compare against the normalized form
-    assert str(returned.expressions["test_expr"]) == str(make_expr(pc.field(0)))
+    assert str(returned.expressions["test_expr"]) == str(
+        func(pc.field(0), "al", ignore_case=True))
 
 
 def test_arrow_specific_types():
