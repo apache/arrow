@@ -33,14 +33,14 @@ namespace {
               GError **error,
               const char *tag)
   {
-    auto parquet_properties = properties ? gparquet_reader_properties_get_raw(properties)
+    auto parquet_properties = properties ? *gparquet_reader_properties_get_raw(properties)
                                          : parquet::default_reader_properties();
     parquet::arrow::FileReaderBuilder builder;
     if (!garrow::check(error, builder.Open(source, parquet_properties), tag)) {
       return NULL;
     }
     if (properties) {
-      builder.properties(gparquet_reader_properties_get_arrow_raw(properties));
+      builder.properties(*gparquet_reader_properties_get_arrow_raw(properties));
     }
     auto result = builder.Build();
     if (!garrow::check(error, result, tag)) {
@@ -380,27 +380,12 @@ gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError *
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
 {
-  auto arrow_memory_mapped_file =
-    arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
-  if (!garrow::check(error,
-                     arrow_memory_mapped_file,
-                     "[parquet][arrow][file-reader][new-path]")) {
+  const char *tag = "[parquet][arrow][file-reader][new-path]";
+  auto source = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
+  if (!garrow::check(error, source, tag)) {
     return NULL;
   }
-
-  std::shared_ptr<arrow::io::RandomAccessFile> arrow_random_access_file =
-    arrow_memory_mapped_file.ValueOrDie();
-  auto arrow_memory_pool = arrow::default_memory_pool();
-  auto parquet_arrow_file_reader_result =
-    parquet::arrow::OpenFile(arrow_random_access_file, arrow_memory_pool);
-  if (garrow::check(error,
-                    parquet_arrow_file_reader_result,
-                    "[parquet][arrow][file-reader][new-path]")) {
-    return gparquet_arrow_file_reader_new_raw(
-      parquet_arrow_file_reader_result->release());
-  } else {
-    return NULL;
-  }
+  return open_reader(*source, nullptr, nullptr, error, tag);
 }
 
 /**
@@ -684,12 +669,6 @@ gparquet_arrow_file_reader_get_metadata(GParquetArrowFileReader *reader)
 G_END_DECLS
 
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_raw(parquet::arrow::FileReader *parquet_arrow_file_reader)
-{
-  return gparquet_arrow_file_reader_new_raw(parquet_arrow_file_reader, nullptr);
-}
-
-GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_raw(parquet::arrow::FileReader *parquet_arrow_file_reader,
                                    GArrowSeekableInputStream *source)
 {
@@ -710,16 +689,16 @@ gparquet_arrow_file_reader_get_raw(GParquetArrowFileReader *arrow_file_reader)
   return priv->arrow_file_reader;
 }
 
-parquet::ReaderProperties
+parquet::ReaderProperties *
 gparquet_reader_properties_get_raw(GParquetReaderProperties *properties)
 {
   auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
-  return priv->properties;
+  return &(priv->properties);
 }
 
-parquet::ArrowReaderProperties
+parquet::ArrowReaderProperties *
 gparquet_reader_properties_get_arrow_raw(GParquetReaderProperties *properties)
 {
   auto priv = GPARQUET_READER_PROPERTIES_GET_PRIVATE(properties);
-  return priv->arrow_properties;
+  return &(priv->arrow_properties);
 }
