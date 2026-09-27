@@ -566,6 +566,21 @@ def test_scanner_options(dataset):
 
 
 @pytest.mark.parquet
+@pytest.mark.parametrize("use_threads", [False, True])
+@pytest.mark.parametrize("num_fragments", [0, 3])
+def test_scanner_no_fragment_readahead(tmp_path, use_threads, num_fragments):
+    schema = pa.schema([("value", pa.int64())])
+    for i in range(num_fragments):
+        pq.write_table(pa.table({"value": [i]}, schema=schema),
+                       tmp_path / f"{i}.parquet")
+    dataset = ds.dataset(tmp_path, format="parquet", schema=schema)
+    result = dataset.scanner(fragment_readahead=0,
+                             use_threads=use_threads).to_table()
+    expected = pa.table({"value": list(range(num_fragments))}, schema=schema)
+    assert result.equals(expected)
+
+
+@pytest.mark.parquet
 def test_scanner(dataset, dataset_reader):
     scanner = dataset_reader.scanner(
         dataset, memory_pool=pa.default_memory_pool())

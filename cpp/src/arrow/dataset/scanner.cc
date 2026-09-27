@@ -1039,8 +1039,9 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
       merged_batch_gen = MakeConcatenatedGenerator(std::move(batch_gen_gen));
     }
   } else {
-    merged_batch_gen =
-        MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
+    // Disabling readahead still requires one active fragment.
+    merged_batch_gen = MakeMergedGenerator(std::move(batch_gen_gen),
+                                           std::max(1, scan_options->fragment_readahead));
   }
 
   AsyncGenerator<EnumeratedRecordBatch> batch_gen;
