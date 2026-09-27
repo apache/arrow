@@ -57,7 +57,17 @@ struct AlpExponentAndFactor {
   }
 };
 
-/// ALP metadata for one encoded vector: exponent, factor, and num_exceptions.
+/// ALP metadata for one encoded vector:
+///
+///   +---------------------------------------------------+
+///   | AlpInfo (4 bytes)                                 |
+///   +--------+--------------------+---------------------+
+///   | Offset | Field              | Size                |
+///   +--------+--------------------+---------------------+
+///   |      0 | exponent           | 1 byte (uint8)      |
+///   |      1 | factor             | 1 byte (uint8)      |
+///   |      2 | num_exceptions     | 2 bytes (uint16)    |
+///   +--------+--------------------+---------------------+
 class ARROW_EXPORT AlpInfo {
  public:
   AlpInfo() = default;
@@ -98,6 +108,26 @@ class ARROW_EXPORT AlpInfo {
 ///
 /// frame_of_reference is stored unsigned for wrapping arithmetic; the wire
 /// interpretation is int32_t for float and int64_t for double.
+///
+/// Serialized layouts:
+///
+///   +---------------------------------------------------+
+///   | AlpForInfo<float> (5 bytes)                       |
+///   +--------+--------------------+---------------------+
+///   | Offset | Field              | Size                |
+///   +--------+--------------------+---------------------+
+///   |      0 | frame_of_reference | 4 bytes (uint32)    |
+///   |      4 | bit_width          | 1 byte (uint8)      |
+///   +--------+--------------------+---------------------+
+///
+///   +---------------------------------------------------+
+///   | AlpForInfo<double> (9 bytes)                      |
+///   +--------+--------------------+---------------------+
+///   | Offset | Field              | Size                |
+///   +--------+--------------------+---------------------+
+///   |      0 | frame_of_reference | 8 bytes (uint64)    |
+///   |      8 | bit_width          | 1 byte (uint8)      |
+///   +--------+--------------------+---------------------+
 template <typename T>
 class ARROW_EXPORT AlpForInfo {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
@@ -147,9 +177,17 @@ class ARROW_EXPORT AlpForInfo {
   uint8_t bit_width_{0};
 };
 
-/// An owned, serialized ALP vector.
+/// An owned, serialized ALP vector:
 ///
-/// Layout: [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues].
+///   +---------------------------------------------------------------------+
+///   | Section              | Size                                         |
+///   +----------------------+----------------------------------------------+
+///   | AlpInfo              | 4 bytes                                      |
+///   | AlpForInfo           | 5 bytes (float) or 9 bytes (double)          |
+///   | packed values        | ceil(num_elements * bit_width / 8)           |
+///   | exception positions  | num_exceptions * 2 bytes (uint16)            |
+///   | exception values     | num_exceptions * sizeof(T)                   |
+///   +----------------------+----------------------------------------------+
 template <typename T>
 class ARROW_EXPORT AlpEncodedVector {
  public:
