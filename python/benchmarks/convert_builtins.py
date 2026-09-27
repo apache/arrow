@@ -20,10 +20,6 @@ import pyarrow as pa
 from . import common
 
 
-# TODO:
-# - test dates and times
-
-
 class ConvertPyListToArray(object):
     """
     Benchmark pa.array(list of values, type=...)
@@ -32,7 +28,8 @@ class ConvertPyListToArray(object):
     types = ('int32', 'uint32', 'int64', 'uint64',
              'float32', 'float64', 'bool', 'decimal',
              'binary', 'binary10', 'ascii', 'unicode',
-             'int64 list', 'struct', 'struct from tuples')
+             'int64 list', 'struct', 'struct from tuples',
+             'date32', 'timestamp', 'time64', 'duration')
 
     param_names = ['type']
     params = [types]
@@ -51,7 +48,8 @@ class InferPyListToArray(object):
     """
     size = 10 ** 5
     types = ('int64', 'float64', 'bool', 'decimal', 'binary', 'ascii',
-             'unicode', 'int64 list', 'struct')
+             'unicode', 'int64 list', 'struct',
+             'date32', 'timestamp', 'time64', 'duration')
 
     param_names = ['type']
     params = [types]
@@ -73,7 +71,8 @@ class ConvertArrayToPyList(object):
     types = ('int32', 'uint32', 'int64', 'uint64',
              'float32', 'float64', 'bool', 'decimal',
              'binary', 'binary10', 'ascii', 'unicode',
-             'int64 list', 'struct')
+             'int64 list', 'struct',
+             'date32', 'timestamp', 'time64', 'duration')
 
     param_names = ['type']
     params = [types]
