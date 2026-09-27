@@ -40,6 +40,17 @@ namespace arrow::util::alp {
 namespace {
 
 // Page-level ALP header.
+//
+//   +---------------------------------------------------+
+//   | ALP header (7 bytes)                              |
+//   +--------+--------------------+---------------------+
+//   | Offset | Field              | Size                |
+//   +--------+--------------------+---------------------+
+//   |      0 | compression_mode   | 1 byte (uint8)      |
+//   |      1 | integer_encoding   | 1 byte (uint8)      |
+//   |      2 | log_vector_size    | 1 byte (uint8)      |
+//   |      3 | num_elements       | 4 bytes (int32)     |
+//   +--------+--------------------+---------------------+
 struct AlpHeader {
   uint8_t compression_mode{static_cast<uint8_t>(AlpMode::kAlp)};
   uint8_t integer_encoding{static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack)};
@@ -277,8 +288,20 @@ Result<int64_t> AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
 template <AlpFloatingType T>
 Result<AlpVectorReader<T>> AlpVectorReader<T>::Open(std::span<const uint8_t> input,
                                                     MemoryPool* pool) {
-  // Offsets are relative to the first byte after the header. Validate the whole
-  // chain once here so Decode can jump directly to any vector later.
+  // Page layout:
+  //
+  //   +--------------------------------------------------------------+
+  //   | ALP header (7 bytes)                                         |
+  //   | Offset 0 | Offset 1 | ... | Offset n-1     (4 bytes each)    |
+  //   | AlpInfo 0 | AlpForInfo 0 | Data 0                            |
+  //   | AlpInfo 1 | AlpForInfo 1 | Data 1                            |
+  //   | ...                                                          |
+  //   +--------------------------------------------------------------+
+  //
+  // Each offset is relative to the first byte after the header. Keeping a
+  // vector's metadata beside its data permits independent, constant-time access.
+  // Validate the whole offset chain once here so Decode can jump directly to any
+  // vector later.
   ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input));
   if (input.size() > static_cast<size_t>(std::numeric_limits<int64_t>::max())) {
     return Status::Invalid("ALP compressed buffer is too large: ", input.size());
