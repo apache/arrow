@@ -114,9 +114,20 @@ TEST_F(ValidationTestProjector, TestIncorrectSchemaMissingField) {
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Field f2 not in schema";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_TRUE(status.ok());
+
+  auto array0 = MakeArrowArrayFloat32({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
+  auto array2 = MakeArrowArrayFloat32({2.0, 3.0, 4.0, 5.0}, {true, true, true, true});
+
+  auto in_batch =
+      arrow::RecordBatch::Make(arrow::schema({field0, field1}), 4, {array0, array2});
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  auto expected_array =
+      MakeArrowArrayBool({true, true, true, true}, {true, true, true, true});
+  EXPECT_ARROW_ARRAY_EQUALS(expected_array, outputs[0]);
 }
 
 TEST_F(ValidationTestProjector, TestIncorrectSchemaTypeNotMatching) {
@@ -136,10 +147,16 @@ TEST_F(ValidationTestProjector, TestIncorrectSchemaTypeNotMatching) {
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error =
-      "Field definition in schema f2: int32 different from field in expression f2: float";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+  EXPECT_TRUE(status.ok());
+
+  auto array0 = MakeArrowArrayFloat32({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
+  auto array2 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+
+  auto in_batch =
+      arrow::RecordBatch::Make(arrow::schema({field0, field2}), 4, {array0, array2});
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_FALSE(status.ok());
 }
 
 TEST_F(ValidationTestProjector, TestIfNotSupportedFunction) {

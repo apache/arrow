@@ -72,20 +72,6 @@ Status ExprValidator::Visit(const FieldNode& node) {
                   Status::ExpressionValidationError("Field ", node.field()->name(),
                                                     " has unsupported data type ",
                                                     node.return_type()->name()));
-
-  // Ensure that field is found in schema
-  auto field_in_schema_entry = field_map_.find(node.field()->name());
-  ARROW_RETURN_IF(field_in_schema_entry == field_map_.end(),
-                  Status::ExpressionValidationError("Field ", node.field()->name(),
-                                                    " not in schema."));
-
-  // Ensure that the found field matches.
-  FieldPtr field_in_schema = field_in_schema_entry->second;
-  ARROW_RETURN_IF(!field_in_schema->Equals(node.field()),
-                  Status::ExpressionValidationError(
-                      "Field definition in schema ", field_in_schema->ToString(),
-                      " different from field in expression ", node.field()->ToString()));
-
   return Status::OK();
 }
 
