@@ -849,6 +849,28 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// escape syntax is supported.
     SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576,
 
+    /// Retrieves the supported row-limit and offset grammars as an int32
+    /// bitmask. Valid grammars are described under
+    /// `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
+    SQL_SUPPORTED_LIMIT_OFFSET = 577,
+
+    /// Retrieves the supported syntaxes for explicit null ordering in
+    /// ORDER BY as an int32 bitmask. Distinct from SQL_NULL_ORDERING (507),
+    /// which reports the server's default null ordering rather than which
+    /// explicit syntax parses. Valid syntaxes are described under
+    /// `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
+    SQL_SUPPORTED_NULLS_ORDERING = 578,
+
+    /// Retrieves the supported literal syntaxes for boolean values as an
+    /// int32 bitmask. Valid syntaxes are described under
+    /// `arrow.flight.protocol.sql.SqlBooleanLiteralSyntax`.
+    SQL_SUPPORTED_BOOLEAN_LITERAL = 579,
+
+    /// Retrieves the supported literal syntaxes for date, time, and
+    /// timestamp values as an int32 bitmask. Valid syntaxes are described
+    /// under `arrow.flight.protocol.sql.SqlDatetimeLiteralSyntax`.
+    SQL_SUPPORTED_DATETIME_LITERAL = 580,
+
     /// @}
   };
 
@@ -899,6 +921,41 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     SQL_CONVERT_TINYINT = 17,
     SQL_CONVERT_VARBINARY = 18,
     SQL_CONVERT_VARCHAR = 19,
+  };
+
+  /// Grammar for combined row limiting and offset. Variants differ in their
+  /// offset behavior: LIMIT accepts optional OFFSET, FETCH requires a
+  /// preceding OFFSET clause, TOP is limit-only.
+  enum SqlLimitOffsetSyntax {
+    /// LIMIT n [OFFSET m]  (PostgreSQL, MySQL, SQLite, DuckDB, Snowflake, ...)
+    SQL_LIMIT_OFFSET_LIMIT = 0,
+    /// OFFSET m ROWS FETCH NEXT n ROWS ONLY  (SQL Server, Oracle, ANSI)
+    SQL_LIMIT_OFFSET_FETCH = 1,
+    /// SELECT TOP n ...  (SQL Server, Sybase, Snowflake). Limit-only; does
+    /// not compose with offset.
+    SQL_LIMIT_OFFSET_TOP = 2,
+  };
+
+  /// Syntax accepted for explicit null ordering in ORDER BY.
+  enum SqlNullsOrderingSyntax {
+    /// ORDER BY col [ASC|DESC] NULLS FIRST|LAST
+    SQL_NULLS_ORDERING_FIRST_LAST = 0,
+  };
+
+  /// Accepted literal syntax for boolean values.
+  enum SqlBooleanLiteralSyntax {
+    /// TRUE / FALSE keywords.
+    SQL_BOOLEAN_LITERAL_TRUE_FALSE = 0,
+    /// Integer 1 / 0.
+    SQL_BOOLEAN_LITERAL_INT_ONE_ZERO = 1,
+  };
+
+  /// Accepted literal syntax for date, time, and timestamp values.
+  enum SqlDatetimeLiteralSyntax {
+    /// DATE '2026-01-01', TIME '12:00:00', TIMESTAMP '2026-01-01 12:00:00'.
+    SQL_DATETIME_LITERAL_ANSI_KEYWORD = 0,
+    /// Bare quoted string, e.g. '2026-01-01' or '2026-01-01 12:00:00'.
+    SQL_DATETIME_LITERAL_BARE_STRING = 1,
   };
 };
 
