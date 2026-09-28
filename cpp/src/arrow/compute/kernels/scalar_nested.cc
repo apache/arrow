@@ -652,37 +652,42 @@ std::pair<int64_t, int64_t> GetListValuesRange(const ArraySpan& list) {
   }
 }
 
+// Whether any of the `length` match bits from `offset` is set and valid
+bool AnyMatch(const ArraySpan& match, int64_t offset, int64_t length) {
+  // Empty list views may point outside of the compared values
+  if (length == 0) {
+    return false;
+  }
+  const uint8_t* validity = match.MayHaveNulls() ? match.buffers[0].data : nullptr;
+  arrow::internal::OptionalBinaryBitBlockCounter counter(match.buffers[1].data,
+                                                         match.offset + offset, validity,
+                                                         match.offset + offset, length);
+  for (int64_t position = 0; position < length;) {
+    const auto block = counter.NextAndBlock();
+    if (block.popcount > 0) {
+      return true;
+    }
+    position += block.length;
+  }
+  return false;
+}
+
 // Emit whether each valid list has a match in the range of `match` returned by
 // `get_match_range(i)`. Null matches never count.
 template <typename GetMatchRange>
-Status EmitListMatches(KernelContext* ctx, const ArraySpan& list, const Datum& match,
-                       ArraySpan* out_arr, GetMatchRange&& get_match_range) {
-  const ArrayData& match_data = *match.array();
-  std::shared_ptr<Buffer> matches = match_data.buffers[1];
-  int64_t matches_offset = match_data.offset;
-  if (match_data.MayHaveNulls()) {
-    ARROW_ASSIGN_OR_RAISE(
-        matches, arrow::internal::BitmapAnd(
-                     ctx->memory_pool(), matches->data(), match_data.offset,
-                     match_data.buffers[0]->data(), match_data.offset, match_data.length,
-                     /*out_offset=*/0));
-    matches_offset = 0;
-  }
-
+void EmitListMatches(const ArraySpan& list, const ArraySpan& match, ArraySpan* out_arr,
+                     GetMatchRange&& get_match_range) {
   int64_t i = 0;
   arrow::internal::GenerateBitsUnrolled(
       out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
         bool found = false;
         if (list.IsValid(i)) {
-          // Empty list views may point outside of the compared values
           const auto [start, length] = get_match_range(i);
-          found = length > 0 && arrow::internal::CountSetBits(
-                                    matches->data(), matches_offset + start, length) > 0;
+          found = AnyMatch(match, start, length);
         }
         ++i;
         return found;
       });
-  return Status::OK();
 }
 
 // Search a single `value` in the referenced child values with one vectorized
@@ -693,10 +698,11 @@ Status ListContainsScalar(KernelContext* ctx, const ArraySpan& list,
   const auto [values_start, values_length] = GetListValuesRange<Type>(list);
   auto values = list.child_data[0].ToArrayData()->Slice(values_start, values_length);
   ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, std::move(values), value));
-  return EmitListMatches(ctx, list, match, out_arr, [&](int64_t i) {
+  EmitListMatches(list, ArraySpan(*match.array()), out_arr, [&](int64_t i) {
     const auto [start, length] = GetListRange<Type>(list, i);
     return std::make_pair(start - values_start, length);
   });
+  return Status::OK();
 }
 
 // Gather the child values of each valid list next to copies of its value, compare
@@ -731,11 +737,12 @@ Status ListContainsArray(KernelContext* ctx, const ArraySpan& list,
 
   // Lists are gathered in order, so each list's range follows the previous one
   int64_t match_start = 0;
-  return EmitListMatches(ctx, list, match, out_arr, [&](int64_t i) {
+  EmitListMatches(list, ArraySpan(*match.array()), out_arr, [&](int64_t i) {
     const int64_t length = GetListRange<Type>(list, i).second;
     match_start += length;
     return std::make_pair(match_start - length, length);
   });
+  return Status::OK();
 }
 
 template <typename Type>

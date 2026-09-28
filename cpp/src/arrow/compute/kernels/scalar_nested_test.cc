@@ -160,6 +160,27 @@ TEST(TestScalarNested, ListContains) {
       ArrayFromJSON(boolean(), "[false]"));
 }
 
+TEST(TestScalarNested, ListContainsLongLists) {
+  // Matches and nulls beyond the first bitmap words, at unaligned offsets
+  std::string values = "[";
+  for (int i = 0; i < 300; ++i) {
+    values += i == 0 ? "" : ", ";
+    values += i == 100 ? "null" : i == 290 ? "7" : "1";
+  }
+  values += "]";
+  ASSERT_OK_AND_ASSIGN(auto input,
+                       ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 3, 150, 300]"),
+                                             *ArrayFromJSON(int32(), values)));
+  CheckScalar("list_contains", {input, ScalarFromJSON(int32(), "7")},
+              ArrayFromJSON(boolean(), "[false, false, true]"));
+  CheckScalar("list_contains", {input, ScalarFromJSON(int32(), "null")},
+              ArrayFromJSON(boolean(), "[false, true, false]"));
+  CheckScalar("list_contains", {input, ArrayFromJSON(int32(), "[7, 7, null]")},
+              ArrayFromJSON(boolean(), "[false, false, false]"));
+  CheckScalar("list_contains", {input, ArrayFromJSON(int32(), "[1, null, 7]")},
+              ArrayFromJSON(boolean(), "[true, true, true]"));
+}
+
 TEST(TestScalarNested, ListContainsNull) {
   // A null value matches lists holding a null
   auto input = ArrayFromJSON(
