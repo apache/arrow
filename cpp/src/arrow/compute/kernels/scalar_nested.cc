@@ -17,7 +17,9 @@
 
 // Vector kernels involving nested types
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
@@ -630,7 +632,19 @@ std::pair<int64_t, int64_t> GetListValuesRange(const ArraySpan& list) {
     return {list.offset * width, list.length * width};
   } else if constexpr (is_list_view_type<Type>::value) {
     // List views may reference child values in any order
-    return {0, list.child_data[0].length};
+    int64_t start = std::numeric_limits<int64_t>::max();
+    int64_t end = 0;
+    for (int64_t i = 0; i < list.length; ++i) {
+      const auto [view_start, view_length] = GetListRange<Type>(list, i);
+      if (view_length > 0 && list.IsValid(i)) {
+        start = std::min(start, view_start);
+        end = std::max(end, view_start + view_length);
+      }
+    }
+    if (start >= end) {
+      return {0, 0};
+    }
+    return {start, end - start};
   } else {
     using offset_type = typename Type::offset_type;
     const offset_type* offsets = list.GetValues<offset_type>(1);
@@ -660,9 +674,10 @@ Status EmitListMatches(KernelContext* ctx, const ArraySpan& list, const Datum& m
       out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
         bool found = false;
         if (list.IsValid(i)) {
+          // Empty list views may point outside of the compared values
           const auto [start, length] = get_match_range(i);
-          found = arrow::internal::CountSetBits(matches->data(), matches_offset + start,
-                                                length) > 0;
+          found = length > 0 && arrow::internal::CountSetBits(
+                                    matches->data(), matches_offset + start, length) > 0;
         }
         ++i;
         return found;

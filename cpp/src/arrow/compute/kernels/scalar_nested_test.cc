@@ -284,6 +284,13 @@ TEST(TestScalarNested, ListContainsListViewOutOfOrder) {
               ArrayFromJSON(boolean(), "[true, false, true, false, false]"));
   CheckScalar("list_contains", {input, ScalarFromJSON(int32(), "1")},
               ArrayFromJSON(boolean(), "[false, true, false, false, false]"));
+  // Only the child values referenced by the (sliced) views are compared
+  CheckScalar("list_contains", {input->Slice(2), ScalarFromJSON(int32(), "3")},
+              ArrayFromJSON(boolean(), "[true, false, false]"));
+  CheckScalar("list_contains", {input->Slice(3), ScalarFromJSON(int32(), "1")},
+              ArrayFromJSON(boolean(), "[false, false]"));
+  CheckScalar("list_contains", {input->Slice(4), ScalarFromJSON(int32(), "1")},
+              ArrayFromJSON(boolean(), "[false]"));
 }
 
 TEST(TestScalarNested, ListContainsArrayOfValues) {
