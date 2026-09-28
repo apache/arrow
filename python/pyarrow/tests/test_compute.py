@@ -3899,6 +3899,38 @@ def test_list_element():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize("list_type", [
+    pa.list_(pa.int64()), pa.large_list(pa.int64()),
+    pa.list_view(pa.int64()), pa.large_list_view(pa.int64()),
+])
+def test_list_contains(list_type):
+    lists = pa.array([[1, 2, None], [3], [], None], list_type)
+    assert pc.list_contains(lists, 2).to_pylist() == [True, False, False, None]
+    assert pc.list_contains(lists, 2.0).to_pylist() == [True, False, False, None]
+    assert pc.list_contains(lists, 4).to_pylist() == [False, False, False, None]
+    # A null value matches null list values
+    assert pc.list_contains(lists, None).to_pylist() == [True, False, False, None]
+
+
+def test_list_contains_nan():
+    lists = pa.array([[1.5, None], [float("nan")], []])
+    result = pc.list_contains(lists, float("nan"))
+    assert result.to_pylist() == [False, True, False]
+
+
+def test_list_contains_fixed_size_list():
+    lists = pa.array([["a", "b"], ["c", None], None], pa.list_(pa.string(), 2))
+    assert pc.list_contains(lists, "c").to_pylist() == [False, True, None]
+
+
+def test_list_contains_invalid():
+    lists = pa.array([[1, 2], [3]])
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pc.list_contains(lists, "a")
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pc.list_contains(lists, pa.array([1, 2]))
+
+
 def test_count_distinct():
     samples = [datetime.datetime(year=y, month=1, day=1) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
