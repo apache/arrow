@@ -104,7 +104,6 @@ class GatedIpcBufferReader : public io::BufferReader {
 };
 
 TEST_F(TestIpcFileFormat, ReopeningReaderDoesNotWaitForIO) {
-  using namespace std::chrono_literals;
   const int original_capacity = GetCpuThreadPoolCapacity();
   ASSERT_OK(SetCpuThreadPoolCapacity(1));
   auto schema_ = schema({field("f64", float64())});
@@ -131,19 +130,25 @@ TEST_F(TestIpcFileFormat, ReopeningReaderDoesNotWaitForIO) {
 
   // The second open has reached an outstanding IO operation.  The scan setup must
   // be able to return without waiting for that operation to finish.
-  auto started = read_started.wait_for(5s);
-  auto returned = scan_result.wait_for(1s);
-  std::promise<void> pool_progress;
-  auto progress = pool_progress.get_future();
-  ASSERT_OK(::arrow::internal::GetCpuThreadPool()->Spawn(
-      [&pool_progress] { pool_progress.set_value(); }));
-  auto progressed = progress.wait_for(1s);
+  auto started = read_started.wait_for(std::chrono::seconds(5));
+  auto returned = scan_result.wait_for(std::chrono::seconds(1));
+  auto pool_progress = std::make_shared<std::promise<void>>();
+  auto progress = pool_progress->get_future();
+  auto spawn_status = ::arrow::internal::GetCpuThreadPool()->Spawn(
+      [pool_progress] { pool_progress->set_value(); });
+  auto progressed = spawn_status.ok() ? progress.wait_for(std::chrono::seconds(1))
+                                      : std::future_status::timeout;
   delayed_reader->Release();
   scan_thread.join();
 
   // All callbacks have been unblocked before restoring the shared executor.
-  ASSERT_EQ(progress.wait_for(5s), std::future_status::ready);
-  ASSERT_OK(SetCpuThreadPoolCapacity(original_capacity));
+  auto eventually_progressed = spawn_status.ok()
+                                   ? progress.wait_for(std::chrono::seconds(5))
+                                   : std::future_status::timeout;
+  auto restore_status = SetCpuThreadPoolCapacity(original_capacity);
+  ASSERT_OK(spawn_status);
+  ASSERT_EQ(eventually_progressed, std::future_status::ready);
+  ASSERT_OK(restore_status);
 
   ASSERT_EQ(started, std::future_status::ready);
   ASSERT_EQ(returned, std::future_status::ready)
