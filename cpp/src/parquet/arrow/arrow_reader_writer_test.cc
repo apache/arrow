@@ -2166,6 +2166,123 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
                                 allow_truncation_to_micros));
 }
 
+TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
+  auto node =
+      PrimitiveNode::Make("ts", Repetition::REQUIRED,
+                          LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+                          ParquetType::FIXED_LEN_BYTE_ARRAY, /*length=*/12);
+  auto file_schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {node}));
+
+  // Little-endian 96-bit values: 1,000,000 and -1,000,000 (both fit int64),
+  // 2^64 (overflows INT64_MAX), and -2^64 (underflows INT64_MIN).
+  uint8_t pos_in_range[12] = {0x40, 0x42, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  uint8_t neg_in_range[12] = {0xc0, 0xbd, 0xf0, 0xff, 0xff, 0xff,
+                              0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  uint8_t overflow[12] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0};
+  uint8_t neg_overflow[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff};
+  FLBA values[4] = {FLBA(pos_in_range), FLBA(neg_in_range), FLBA(overflow),
+                    FLBA(neg_overflow)};
+
+  auto sink = CreateOutputStream();
+  auto writer = ParquetFileWriter::Open(sink, file_schema);
+  RowGroupWriter* rg_writer = writer->AppendRowGroup();
+  auto* col_writer = dynamic_cast<TypedColumnWriter<FLBAType>*>(rg_writer->NextColumn());
+  ASSERT_NE(col_writer, nullptr);
+  col_writer->WriteBatch(4, nullptr, nullptr, values);
+  col_writer->Close();
+  rg_writer->Close();
+  writer->Close();
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto read_table =
+      [&buffer](ArrowReaderProperties props) -> Result<std::shared_ptr<Table>> {
+    FileReaderBuilder builder;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    std::unique_ptr<FileReader> reader;
+    RETURN_NOT_OK(builder.properties(props)->Build(&reader));
+    return reader->ReadTable();
+  };
+
+  // Convert, error on overflow (default): the out-of-range rows fail the read.
+  {
+    ArrowReaderProperties props;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("does not fit in a 64-bit Arrow timestamp"),
+        read_table(props));
+  }
+
+  // Conversion disabled: raw, lossless FixedSizeBinary(12).
+  {
+    ArrowReaderProperties props;
+    props.set_convert_flba_timestamps(false);
+    ASSERT_OK_AND_ASSIGN(auto table, read_table(props));
+    ASSERT_OK(table->ValidateFull());
+    ASSERT_EQ(::arrow::Type::FIXED_SIZE_BINARY, table->schema()->field(0)->type()->id());
+    const auto& raw =
+        checked_cast<const ::arrow::FixedSizeBinaryArray&>(*table->column(0)->chunk(0));
+    for (int64_t i = 0; i < raw.length(); ++i) {
+      ASSERT_EQ(std::string_view(reinterpret_cast<const char*>(values[i].ptr), 12),
+                raw.GetView(i));
+    }
+  }
+
+  // Convert, clamp on overflow: in-range value is exact; positive overflow clamps
+  // to INT64_MAX and negative overflow clamps to INT64_MIN.
+  {
+    ArrowReaderProperties props;
+    props.set_flba_timestamp_clamp_on_overflow(true);
+    ASSERT_OK_AND_ASSIGN(auto table, read_table(props));
+    ASSERT_OK(table->ValidateFull());
+    ASSERT_EQ(*::arrow::timestamp(TimeUnit::MICRO, "UTC"),
+              *table->schema()->field(0)->type());
+    auto ts =
+        std::static_pointer_cast<::arrow::TimestampArray>(table->column(0)->chunk(0));
+    ASSERT_EQ(4, ts->length());
+    ASSERT_EQ(1000000, ts->Value(0));
+    ASSERT_EQ(-1000000, ts->Value(1));
+    ASSERT_EQ(INT64_MAX, ts->Value(2));
+    ASSERT_EQ(INT64_MIN, ts->Value(3));
+  }
+}
+
+TEST(TestArrowReadWrite, FlbaTimestampIntegration) {
+  ArrowReaderProperties props;
+  props.set_flba_timestamp_clamp_on_overflow(true);
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      FileReader::Make(::arrow::default_memory_pool(),
+                       ParquetFileReader::OpenFile(
+                           test::get_data_file("flba12_timestamp.parquet"), false),
+                       props));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ReadTable());
+  ASSERT_OK(actual->ValidateFull());
+
+  auto expected_schema = ::arrow::schema({
+      ::arrow::field("timestamp_millis", ::arrow::timestamp(TimeUnit::MILLI, "UTC")),
+      ::arrow::field("timestamp_micros", ::arrow::timestamp(TimeUnit::MICRO, "UTC")),
+      ::arrow::field("timestamp_nanos", ::arrow::timestamp(TimeUnit::NANO, "UTC")),
+  });
+  std::shared_ptr<Array> expected_millis;
+  ::arrow::ArrayFromVector<::arrow::TimestampType, int64_t>(
+      expected_schema->field(0)->type(),
+      {0, 1000, -1000, 9223372036000, 253402300799000, -62135596800000},
+      &expected_millis);
+  std::shared_ptr<Array> expected_micros;
+  ::arrow::ArrayFromVector<::arrow::TimestampType, int64_t>(
+      expected_schema->field(1)->type(),
+      {0, 1000000, -1000000, 9223372036000000, 253402300799000000, -62135596800000000},
+      &expected_micros);
+  std::shared_ptr<Array> expected_nanos;
+  ::arrow::ArrayFromVector<::arrow::TimestampType, int64_t>(
+      expected_schema->field(2)->type(),
+      {0, 1000000000, -1000000000, 9223372036000000000, INT64_MAX, INT64_MIN},
+      &expected_nanos);
+  auto expected =
+      Table::Make(expected_schema, {expected_millis, expected_micros, expected_nanos});
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *actual));
+}
+
 TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
   using ::arrow::ArrayFromVector;
   using ::arrow::field;
