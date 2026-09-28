@@ -79,7 +79,7 @@ Parquet package as well and link its target:
    target_link_libraries(my_example PRIVATE Arrow::arrow_shared
                                             Parquet::parquet_shared)
 
-Use ``Parquet::parquet_static`` instead if you are linking the static libraries.
+Use ``Arrow::arrow_static`` and ``Parquet::parquet_static`` instead when linking the static libraries.
 
 The same applies to other Arrow components: each one is a separate package with
 its own target, as described in `Other available packages`_ below. For example,
