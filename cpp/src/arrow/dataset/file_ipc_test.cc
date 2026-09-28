@@ -17,7 +17,11 @@
 
 #include "arrow/dataset/file_ipc.h"
 
+#include <atomic>
+#include <chrono>
+#include <future>
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -34,6 +38,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -61,6 +66,93 @@ class IpcFormatHelper {
 };
 
 class TestIpcFileFormat : public FileFormatFixtureMixin<IpcFormatHelper> {};
+
+class GatedIpcBufferReader : public io::BufferReader {
+ public:
+  explicit GatedIpcBufferReader(std::shared_ptr<Buffer> buffer)
+      : io::BufferReader(std::move(buffer)),
+        pending_(Future<std::shared_ptr<Buffer>>::Make()) {}
+
+  Future<std::shared_ptr<Buffer>> ReadAsync(const io::IOContext& context,
+                                            int64_t position, int64_t nbytes,
+                                            bool allow_short_read) override {
+    if (!started_.exchange(true)) {
+      position_ = position;
+      nbytes_ = nbytes;
+      allow_short_read_ = allow_short_read;
+      started_promise_.set_value();
+      return pending_;
+    }
+    return io::BufferReader::ReadAsync(context, position, nbytes, allow_short_read);
+  }
+
+  std::future<void> Started() { return started_promise_.get_future(); }
+
+  void Release() {
+    pending_.MarkFinished(io::BufferReader::ReadAsync(io::IOContext(), position_, nbytes_,
+                                                      allow_short_read_)
+                              .result());
+  }
+
+ private:
+  std::atomic<bool> started_{false};
+  std::promise<void> started_promise_;
+  Future<std::shared_ptr<Buffer>> pending_;
+  int64_t position_ = 0;
+  int64_t nbytes_ = 0;
+  bool allow_short_read_ = false;
+};
+
+TEST_F(TestIpcFileFormat, ReopeningReaderDoesNotWaitForIO) {
+  using namespace std::chrono_literals;
+  const int original_capacity = GetCpuThreadPoolCapacity();
+  ASSERT_OK(SetCpuThreadPoolCapacity(1));
+  auto schema_ = schema({field("f64", float64())});
+  auto reader = GetRecordBatchReader(schema_);
+  auto buffer = GetFileSource(reader.get())->buffer();
+  auto delayed_reader = std::make_shared<GatedIpcBufferReader>(buffer);
+  auto read_started = delayed_reader->Started();
+  std::atomic<int> opens{0};
+  FileSource source(
+      [&]() -> Result<std::shared_ptr<io::RandomAccessFile>> {
+        if (opens.fetch_add(1) == 0) {
+          return std::make_shared<io::BufferReader>(buffer);
+        }
+        return delayed_reader;
+      },
+      buffer->size());
+  SetSchema(schema_->fields());
+  auto fragment = MakeFragment(source);
+
+  std::promise<Result<RecordBatchGenerator>> scan_promise;
+  auto scan_result = scan_promise.get_future();
+  std::thread scan_thread(
+      [&] { scan_promise.set_value(fragment->ScanBatchesAsync(opts_)); });
+
+  // The second open has reached an outstanding IO operation.  The scan setup must
+  // be able to return without waiting for that operation to finish.
+  auto started = read_started.wait_for(5s);
+  auto returned = scan_result.wait_for(1s);
+  std::promise<void> pool_progress;
+  auto progress = pool_progress.get_future();
+  ASSERT_OK(::arrow::internal::GetCpuThreadPool()->Spawn(
+      [&pool_progress] { pool_progress.set_value(); }));
+  auto progressed = progress.wait_for(1s);
+  delayed_reader->Release();
+  scan_thread.join();
+
+  // All callbacks have been unblocked before restoring the shared executor.
+  ASSERT_EQ(progress.wait_for(5s), std::future_status::ready);
+  ASSERT_OK(SetCpuThreadPoolCapacity(original_capacity));
+
+  ASSERT_EQ(started, std::future_status::ready);
+  ASSERT_EQ(returned, std::future_status::ready)
+      << "IPC scan setup blocked waiting for the second reader's IO";
+  ASSERT_EQ(progressed, std::future_status::ready)
+      << "IPC reader reopening blocked the only CPU worker waiting for IO";
+  ASSERT_OK_AND_ASSIGN(auto batches, scan_result.get());
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(batches)));
+}
 
 TEST_F(TestIpcFileFormat, WriteRecordBatchReader) { TestWrite(); }
 
