@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/delimiting.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -29,7 +30,8 @@ namespace json {
 struct ParseOptions;
 
 ARROW_EXPORT
-std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options,
+                                     MemoryPool* pool = default_memory_pool());
 
 }  // namespace json
 }  // namespace arrow

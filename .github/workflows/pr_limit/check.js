@@ -17,10 +17,10 @@
 
 const fs = require("fs");
 
-const WRITE_PERMISSIONS = new Set(["write", "maintain", "admin"]);
+const HAS_ACCESS = new Set(["triage", "write", "maintain", "admin"]);
 
 /**
- * Returns whether the user has write access to the repository.
+ * Returns whether the user has repository access.
  *
  * Note that `author_association` is not a reliable signal for this:
  * ASF members show up as MEMBER regardless of their permission on this
@@ -30,14 +30,14 @@ const WRITE_PERMISSIONS = new Set(["write", "maintain", "admin"]);
  * @param {Object} context
  * @param {String} username
  */
-async function hasWriteAccess(github, context, username) {
+async function hasAccess(github, context, username) {
   try {
     const {data} = await github.rest.repos.getCollaboratorPermissionLevel({
       owner: context.repo.owner,
       repo: context.repo.repo,
       username: username
     });
-    return WRITE_PERMISSIONS.has(data.permission);
+    return HAS_ACCESS.has(data.role_name);
   } catch (error) {
     if (error.status === 404) {
       return false;
@@ -106,16 +106,16 @@ module.exports = async ({github, context, core}) => {
     return;
   }
 
-  if (await hasWriteAccess(github, context, user.login)) {
-    core.info(`Skipping: ${user.login} has write access.`);
+  if (await hasAccess(github, context, user.login)) {
+    core.info(`Skipping: ${user.login} has repository access.`);
     return;
   }
 
-  // A committer reopening a previously closed pull request is a deliberate
-  // decision to accept it, so don't close it again.
+  // A user with repository access reopening a previously closed pull request
+  // is a deliberate decision to accept it, so don't close it again.
   const sender = context.payload.sender;
-  if (sender.login !== user.login && await hasWriteAccess(github, context, sender.login)) {
-    core.info(`Skipping: ${context.payload.action} by ${sender.login}, who has write access.`);
+  if (sender.login !== user.login && await hasAccess(github, context, sender.login)) {
+    core.info(`Skipping: ${context.payload.action} by ${sender.login}, who has repository access.`);
     return;
   }
 

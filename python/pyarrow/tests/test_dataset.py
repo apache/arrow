@@ -5936,6 +5936,19 @@ def test_checksum_write_dataset_read_dataset_to_table(tempdir):
         ).to_table()
 
 
+@pytest.mark.parquet
+@pytest.mark.parametrize("cdc", [
+    True,
+    {"min_chunk_size": 32 * 1024, "max_chunk_size": 64 * 1024},
+])
+def test_write_dataset_content_defined_chunking(tempdir, cdc):
+    expected_table = pa.table({'a': [1, 2, 3]})
+    fmt = ds.ParquetFileFormat()
+    opts = fmt.make_write_options(use_content_defined_chunking=cdc)
+    ds.write_dataset(expected_table, tempdir, format=fmt, file_options=opts)
+    assert ds.dataset(tempdir, format=fmt).to_table().equals(expected_table)
+
+
 def test_make_write_options_error():
     # GH-39440: calling make_write_options as a static class method
     msg_1 = ("make_write_options() should be called on an "

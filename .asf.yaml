@@ -38,7 +38,6 @@ github:
     - hiroyuki-sato
     - HyukjinKwon
     - Reranko05
-    - tadeja
 
   copilot_code_review:
     enabled: true

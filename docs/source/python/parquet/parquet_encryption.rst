@@ -232,6 +232,11 @@ file decryption properties) is optional and it includes the following options:
 
 * ``cache_lifetime``, the lifetime of cached entities (key encryption keys, local
   wrapping keys, KMS client objects) represented as a ``datetime.timedelta``.
+* ``read_kms_url``, whether the KMS instance URL may be read from the key material
+  of the file being read, when it is not set in the ``KmsConnectionConfig``. This
+  defaults to ``False``, and should only be enabled when the KMS implementation
+  validates the URL it receives, to ensure a KMS access token isn't sent to a
+  malicious URL.
 
 External key material and key rotation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -250,6 +255,11 @@ key material file, without changing the Parquet file itself:
    >>> crypto_factory.rotate_master_keys(  # doctest: +SKIP
    ...     kms_connection_config, parquet_file_path="table.parquet",
    ... )
+
+``rotate_master_keys`` also accepts ``read_kms_url``, which behaves like the
+``DecryptionConfiguration`` option of the same name when the existing key material is
+read. The key material written by key rotation always uses the connection properties
+from the ``KmsConnectionConfig`` that is passed in.
 
 Direct Key Encryption (without KMS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

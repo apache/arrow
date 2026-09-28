@@ -21,6 +21,7 @@
 #include <cmath>
 #include <initializer_list>
 
+#include "arrow/util/float16.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -74,5 +75,9 @@ constexpr T ReversePow2(T x) {
 static_assert(ReversePow2(8) == 3);
 static_assert(ReversePow2(4) == 2);
 static_assert(ReversePow2(2) == 1);
+
+inline bool IsNan(float v) { return std::isnan(v); }
+inline bool IsNan(double v) { return std::isnan(v); }
+inline bool IsNan(::arrow::util::Float16 v) { return v.is_nan(); }
 
 }  // namespace arrow::internal

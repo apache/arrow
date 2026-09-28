@@ -83,6 +83,7 @@ enum class AuthorityHandlingBehavior {
 /// \param supported_schemes the set of URI schemes that should be accepted
 /// \param accept_local_paths if true, allow an absolute path
 /// \return the path portion of the URI
+ARROW_EXPORT
 Result<std::string> PathFromUriHelper(const std::string& uri_string,
                                       std::vector<std::string> supported_schemes,
                                       bool accept_local_paths,
@@ -95,6 +96,7 @@ ARROW_EXPORT
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
                                  const std::string& glob);
 
+ARROW_EXPORT
 extern FileSystemGlobalOptions global_options;
 
 /// \brief Unregister filesystem factories

@@ -34,7 +34,7 @@ jobs:
       - name: Install ninja-build
         run: sudo apt-get update && sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@f9e43010f1ae678f7cfa0542fe2a4f60f7d1ad8d # v3.1.0
         with:
           release: R2025b
       {{ macros.github_configure_aws_credentials()|indent }}
@@ -77,7 +77,7 @@ jobs:
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@f9e43010f1ae678f7cfa0542fe2a4f60f7d1ad8d # v3.1.0
         with:
           release: R2025b
       {{ macros.github_configure_aws_credentials()|indent }}
@@ -104,7 +104,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@f9e43010f1ae678f7cfa0542fe2a4f60f7d1ad8d # v3.1.0
         with:
           release: R2025b
       - name: Install sccache
@@ -152,7 +152,7 @@ jobs:
           cp arrow/LICENSE.txt arrow/matlab/install/arrow_matlab/LICENSE.txt
           cp arrow/NOTICE.txt arrow/matlab/install/arrow_matlab/NOTICE.txt
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v2
+        uses: matlab-actions/setup-matlab@f9e43010f1ae678f7cfa0542fe2a4f60f7d1ad8d # v3.1.0
         with:
           release: R2025b
       - name: Run commands
@@ -161,7 +161,7 @@ jobs:
           ARROW_MATLAB_TOOLBOX_FOLDER: arrow/matlab/install/arrow_matlab
           ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts/matlab-dist
           ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_no_dev_version }}
-        uses: matlab-actions/run-command@v2
+        uses: matlab-actions/run-command@bfa857648f4895aa98a446fe41c85e0788421ed5 # v3.3.0
         with:
           command: packageMatlabInterface
       {{ macros.github_upload_releases(["artifacts/matlab-dist/*.mltbx"])|indent }}
