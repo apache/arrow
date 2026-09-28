@@ -162,6 +162,7 @@ def _is_primitive(Type type):
 
 
 def _is_nested(data_type):
+    # This is simply a redirect, the official API is in pyarrow.types.
     return is_nested(data_type.id)
 
 
