@@ -144,9 +144,6 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
     CMAKE_PREFIX_PATH="${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET};${CMAKE_PREFIX_PATH}"
   fi
   ARROW_EXAMPLE_S3_STATIC_CHECK="${ARROW_S3:-OFF}"
-  if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
-    ARROW_EXAMPLE_S3_STATIC_CHECK=OFF
-  fi
   cmake \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
