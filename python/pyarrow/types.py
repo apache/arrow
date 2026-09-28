@@ -45,7 +45,8 @@ _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
                  lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
-                 lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
+                 lib.Type_STRUCT, lib.Type_MAP,
+                 lib.Type_RUN_END_ENCODED} | _UNION_TYPES
 
 
 class TypesEnum(IntEnum):
@@ -264,7 +265,7 @@ def is_run_end_encoded(t):
     return t.id == lib.Type_RUN_END_ENCODED
 
 
-@doc(is_null, datatype="date, time, timestamp or duration")
+@doc(is_null, datatype="date, time, timestamp, duration or interval")
 def is_temporal(t):
     return t.id in _TEMPORAL_TYPES
 

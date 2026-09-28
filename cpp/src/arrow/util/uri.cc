@@ -338,8 +338,13 @@ Result<std::string> UriFromAbsolutePath(std::string_view path) {
   // uriWindowsFilenameToUriStringA basically only fails if a null pointer is given.
   ARROW_CHECK_EQ(r, 0) << "uriWindowsFilenameToUriStringA unexpectedly failed";
 #else
-  out.resize(7 + 3 * path.length() + 1);
-  int r = uriUnixFilenameToUriStringA(path.data(), out.data());
+  // uriUnixFilenameToUriStringA scans its argument as a NUL-terminated C string,
+  // but a std::string_view is not required to be NUL-terminated. Copy into a
+  // std::string first (as the Windows branch above already does) so the routine
+  // cannot read past the end of the view.
+  std::string fixed_path(path);
+  out.resize(7 + 3 * fixed_path.length() + 1);
+  int r = uriUnixFilenameToUriStringA(fixed_path.data(), out.data());
   // same as above (uriWindowsFilenameToUriStringA)
   ARROW_CHECK_EQ(r, 0) << "uriUnixFilenameToUriStringA unexpectedly failed";
 #endif

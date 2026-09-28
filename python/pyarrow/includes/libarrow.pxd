@@ -280,6 +280,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const shared_ptr[CArrayStatistics]& statistics() const
 
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool allow_nulls) const
+
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
         const shared_ptr[CDataType]& type, int64_t length, CMemoryPool* pool)
@@ -1458,6 +1460,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef struct DLPackVersion:
+        uint32_t major
+        uint32_t minor
+
     ctypedef enum DLDeviceType:
         kDLCPU = 1
 
@@ -1468,15 +1474,34 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
     ctypedef struct DLManagedTensor:
         void (*deleter)(DLManagedTensor*)
 
+    ctypedef struct DLManagedTensorVersioned:
+        void (*deleter)(DLManagedTensorVersioned*)
+
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    const DLPackVersion DLPACK_VERSION" arrow::dlpack::kVersion"
+
     CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
     CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
         const shared_ptr[CTensor]& tensor)
 
+    CResult[DLManagedTensorVersioned*] \
+        ExportArrayVersionedToDLPack" arrow::dlpack::ExportArrayVersioned"(
+            const shared_ptr[CArray]& arr, c_bool copy)
+    CResult[DLManagedTensorVersioned*] \
+        ExportTensorVersionedToDLPack" arrow::dlpack::ExportTensorVersioned"(
+            const shared_ptr[CTensor]& tensor, c_bool copy)
+
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
     CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
+
+    CResult[shared_ptr[CArray]] \
+        ImportArrayVersionedFromDLPack" arrow::dlpack::ImportArrayVersioned"(
+            DLManagedTensorVersioned* raw)
+    CResult[shared_ptr[CTensor]] \
+        ImportTensorVersionedFromDLPack" arrow::dlpack::ImportTensorVersioned"(
+            DLManagedTensorVersioned* raw)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
@@ -2171,6 +2196,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char delimiter
         CQuotingStyle quoting_style
         CQuotingStyle quoting_header
+        c_string eol
+        c_string null_string
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -2804,6 +2831,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOrder order
         CNullPlacement null_placement
 
+    cdef enum CSearchSortedSide \
+            "arrow::compute::SearchSortedOptions::Side":
+        CSearchSortedSide_Left "arrow::compute::SearchSortedOptions::Left"
+        CSearchSortedSide_Right "arrow::compute::SearchSortedOptions::Right"
+
+    cdef cppclass CSearchSortedOptions \
+            "arrow::compute::SearchSortedOptions"(CFunctionOptions):
+        CSearchSortedOptions(CSearchSortedSide side)
+        CSearchSortedSide side
+
     cdef cppclass CSortKey" arrow::compute::SortKey":
         CSortKey(CFieldRef target, CSortOrder order)
         CSortKey(CFieldRef target, CSortOrder order, CNullPlacement null_placement)
@@ -3080,7 +3117,10 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
 
     cdef cppclass CFixedShapeTensorArray \
             " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
-        const CResult[shared_ptr[CTensor]] ToTensor() const
+
+        @staticmethod
+        CResult[shared_ptr[CFixedShapeTensorArray]] FromTensor(
+            const shared_ptr[CTensor]& tensor)
 
 
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:

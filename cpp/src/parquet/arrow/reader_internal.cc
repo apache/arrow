@@ -18,9 +18,9 @@
 #include "parquet/arrow/reader_internal.h"
 
 #include <algorithm>
-#include <climits>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -46,6 +46,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/visit_data_inline.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -725,9 +726,7 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
         return Status::Invalid("Invalid BYTE_ARRAY length for ", type->ToString());
       }
 
-      auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
-      out_ptr_view[0] = 0;
-      out_ptr_view[1] = 0;
+      std::memset(out_ptr, 0, type_length);
 
       // only convert rows that are not null if there are nulls, or
       // all rows, if there are not
@@ -855,6 +854,68 @@ Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
+// Decode a little-endian 96-bit FLBA(12) TIMESTAMP value into a 64-bit Arrow timestamp.
+// Values that do not fit in the int64 range either error or clamp to the minimum or
+// maximum int64 value, depending on clamp_on_overflow.
+inline Result<int64_t> FlbaTimestampToInt64(const uint8_t* bytes,
+                                            bool clamp_on_overflow) {
+  const uint64_t low = bit_util::FromLittleEndian(SafeLoadAs<uint64_t>(bytes));
+  const uint32_t high = bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(bytes + 8));
+  const int32_t high_signed = static_cast<int32_t>(high);
+  const int64_t low_signed = static_cast<int64_t>(low);
+  const int32_t sign_extension = (low_signed < 0) ? -1 : 0;
+  // Fits in int64 iff the high part is a pure sign-extension of the low part.
+  if (ARROW_PREDICT_FALSE(high_signed != sign_extension)) {
+    if (!clamp_on_overflow) {
+      return Status::Invalid(
+          "FLBA(12) TIMESTAMP value does not fit in a 64-bit Arrow timestamp");
+    }
+    return high_signed < 0 ? std::numeric_limits<int64_t>::min()
+                           : std::numeric_limits<int64_t>::max();
+  }
+  return low_signed;
+}
+
+// Read a TIMESTAMP-annotated FLBA(12) column as a 64-bit Arrow timestamp.
+Result<Datum> TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
+                                    const std::shared_ptr<Field>& field,
+                                    bool clamp_on_overflow) {
+  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
+  DCHECK(binary_reader);
+  ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
+
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    const auto& values = checked_cast<const ::arrow::FixedSizeBinaryArray&>(*chunks[i]);
+    const int64_t length = values.length();
+    ARROW_ASSIGN_OR_RAISE(auto data,
+                          ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
+    auto out_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
+
+    int64_t j = 0;
+    RETURN_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
+        ::arrow::ArraySpan(*values.data()),
+        [&](std::string_view v) {
+          ARROW_ASSIGN_OR_RAISE(
+              out_ptr[j++],
+              FlbaTimestampToInt64(reinterpret_cast<const uint8_t*>(v.data()),
+                                   clamp_on_overflow));
+          return Status::OK();
+        },
+        [&]() {
+          out_ptr[j++] = 0;
+          return ::arrow::Status::OK();
+        }));
+
+    chunks[i] = std::make_shared<::arrow::TimestampArray>(
+        field->type(), length, std::move(data), values.null_bitmap(),
+        values.null_count());
+  }
+  if (!field->nullable()) {
+    ReconstructChunksWithoutNulls(&chunks);
+  }
+  return Datum(std::make_shared<ChunkedArray>(std::move(chunks), field->type()));
+}
+
 }  // namespace
 
 #define TRANSFER_INT32(ENUM, ArrowType)                                            \
@@ -966,6 +1027,18 @@ Status TransferColumnData(RecordReader* reader,
       if (descr->physical_type() == ::parquet::Type::INT96) {
         RETURN_NOT_OK(
             TransferInt96(reader, pool, value_field, &result, timestamp_type.unit()));
+      } else if (descr->physical_type() == ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
+        // Validate that the provided Arrow timestamp unit matches the Parquet unit.
+        DCHECK(descr->logical_type()->is_timestamp());
+        const auto& ts_logical =
+            checked_cast<const TimestampLogicalType&>(*descr->logical_type());
+        ARROW_ASSIGN_OR_RAISE(auto expected_unit,
+                              ArrowTimeUnitFromParquet(ts_logical.time_unit()));
+        DCHECK_EQ(timestamp_type.unit(), expected_unit);
+        ARROW_ASSIGN_OR_RAISE(
+            result, TransferFlbaTimestamp(
+                        reader, pool, value_field,
+                        ctx->reader_properties->flba_timestamp_clamp_on_overflow()));
       } else {
         switch (timestamp_type.unit()) {
           case ::arrow::TimeUnit::MILLI:

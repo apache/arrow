@@ -393,9 +393,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   [[noreturn]] void Abort() const;
   [[noreturn]] void Abort(const std::string& message) const;
 
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
   void AddContextLine(const char* filename, int line, const char* expr);
-#endif
 
  private:
   struct State {

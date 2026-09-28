@@ -24,12 +24,12 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -717,9 +717,12 @@ class LogicalType::Impl {
   }
 
   virtual std::string ToJSON() const {
-    std::stringstream json;
-    json << R"({"Type": ")" << ToString() << R"("})";
-    return json.str();
+    ::arrow::internal::JsonWriter writer;
+    writer.StartObject();
+    writer.StringField("Type", ToString());
+    writer.EndObject();
+    PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+    return std::string(json);
   }
 
   virtual format::LogicalType ToThrift() const {
@@ -1171,10 +1174,14 @@ std::string LogicalType::Impl::Decimal::ToString() const {
 }
 
 std::string LogicalType::Impl::Decimal::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Decimal", "precision": )" << precision_ << R"(, "scale": )"
-       << scale_ << "}";
-  return json.str();
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Decimal");
+  writer.IntField("precision", precision_);
+  writer.IntField("scale", scale_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Decimal::ToThrift() const {
@@ -1316,10 +1323,14 @@ std::string LogicalType::Impl::Time::ToString() const {
 }
 
 std::string LogicalType::Impl::Time::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Time", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
-       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"("})";
-  return json.str();
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Time");
+  writer.BoolField("isAdjustedToUTC", adjusted_);
+  writer.StringField("timeUnit", time_unit_string(unit_));
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Time::ToThrift() const {
@@ -1376,10 +1387,12 @@ LogicalType::TimeUnit::unit TimeLogicalType::time_unit() const {
 }
 
 class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
-                                           public LogicalType::Impl::SimpleApplicable {
+                                           public LogicalType::Impl::Applicable {
  public:
   friend class TimestampLogicalType;
 
+  bool is_applicable(parquet::Type::type primitive_type,
+                     int32_t primitive_length = -1) const override;
   bool is_serialized() const override;
   bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
@@ -1400,7 +1413,6 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
   Timestamp(bool adjusted, LogicalType::TimeUnit::unit unit, bool is_from_converted_type,
             bool force_set_converted_type)
       : LogicalType::Impl(LogicalType::Type::TIMESTAMP, SortOrder::SIGNED),
-        LogicalType::Impl::SimpleApplicable(parquet::Type::INT64),
         adjusted_(adjusted),
         unit_(unit),
         is_from_converted_type_(is_from_converted_type),
@@ -1410,6 +1422,13 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
   bool is_from_converted_type_ = false;
   bool force_set_converted_type_ = false;
 };
+
+bool LogicalType::Impl::Timestamp::is_applicable(parquet::Type::type primitive_type,
+                                                 int32_t primitive_length) const {
+  return primitive_type == parquet::Type::INT64 ||
+         (primitive_type == parquet::Type::FIXED_LEN_BYTE_ARRAY &&
+          primitive_length == 12);
+}
 
 bool LogicalType::Impl::Timestamp::is_serialized() const {
   return !is_from_converted_type_;
@@ -1463,12 +1482,16 @@ std::string LogicalType::Impl::Timestamp::ToString() const {
 }
 
 std::string LogicalType::Impl::Timestamp::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Timestamp", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
-       << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"(")"
-       << R"(, "is_from_converted_type": )" << is_from_converted_type_
-       << R"(, "force_set_converted_type": )" << force_set_converted_type_ << R"(})";
-  return json.str();
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Timestamp");
+  writer.BoolField("isAdjustedToUTC", adjusted_);
+  writer.StringField("timeUnit", time_unit_string(unit_));
+  writer.BoolField("is_from_converted_type", is_from_converted_type_);
+  writer.BoolField("force_set_converted_type", force_set_converted_type_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Timestamp::ToThrift() const {
@@ -1653,10 +1676,14 @@ std::string LogicalType::Impl::Int::ToString() const {
 }
 
 std::string LogicalType::Impl::Int::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Int", "bitWidth": )" << width_ << R"(, "isSigned": )"
-       << std::boolalpha << signed_ << "}";
-  return json.str();
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Int");
+  writer.IntField("bitWidth", width_);
+  writer.BoolField("isSigned", signed_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Int::ToThrift() const {
@@ -1778,16 +1805,6 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 
 GENERATE_MAKE(Float16)
 
-namespace {
-void WriteCrsKeyAndValue(const std::string_view crs, std::ostream& json) {
-  // There is no restriction on the crs value here, and it may contain quotes
-  // or backslashes that would result in invalid JSON if unescaped.
-  ::arrow::json::JsonWriter writer;
-  writer.String(crs);
-  json << R"(, "crs": )" << writer.GetString().ValueUnsafe();
-}
-}  // namespace
-
 class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
                                           public LogicalType::Impl::SimpleApplicable {
  public:
@@ -1816,15 +1833,15 @@ std::string LogicalType::Impl::Geometry::ToString() const {
 }
 
 std::string LogicalType::Impl::Geometry::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Geometry")";
-
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Geometry");
   if (!crs_.empty()) {
-    WriteCrsKeyAndValue(crs_, json);
+    writer.StringField("crs", crs_);
   }
-
-  json << "}";
-  return json.str();
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
@@ -1907,19 +1924,18 @@ std::string LogicalType::Impl::Geography::ToString() const {
 }
 
 std::string LogicalType::Impl::Geography::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Geography")";
-
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Geography");
   if (!crs_.empty()) {
-    WriteCrsKeyAndValue(crs_, json);
+    writer.StringField("crs", crs_);
   }
-
   if (algorithm_ != LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
-    json << R"(, "algorithm": ")" << algorithm_name() << R"(")";
+    writer.StringField("algorithm", algorithm_name());
   }
-
-  json << "}";
-  return json.str();
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Geography::ToThrift() const {
@@ -2000,11 +2016,13 @@ std::string LogicalType::Impl::Variant::ToString() const {
 }
 
 std::string LogicalType::Impl::Variant::ToJSON() const {
-  std::stringstream json;
-  json << R"({"Type": "Variant", "SpecVersion": )" << static_cast<int>(spec_version_)
-       << "}";
-
-  return json.str();
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "Variant");
+  writer.IntField("SpecVersion", static_cast<int>(spec_version_));
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 format::LogicalType LogicalType::Impl::Variant::ToThrift() const {

@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/python/numpy_interop.h"
@@ -95,6 +96,10 @@ bool PyFloat_IsNaN(PyObject* obj);
 // \brief Check whether obj is a uuid.UUID instance
 ARROW_PYTHON_EXPORT
 bool IsPyUuid(PyObject* obj);
+
+// \brief Construct a uuid.UUID from 16 raw bytes
+ARROW_PYTHON_EXPORT
+Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* kwargs);
 
 inline bool IsPyBinary(PyObject* obj) {
   return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);

@@ -660,6 +660,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_checksum=self._properties["write_page_checksum"],
             sorting_columns=self._properties["sorting_columns"],
             store_decimal_as_integer=self._properties["store_decimal_as_integer"],
+            use_content_defined_chunking=self._properties["use_content_defined_chunking"],
         )
 
     def _set_arrow_properties(self):
@@ -713,6 +714,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_checksum=False,
             sorting_columns=None,
             store_decimal_as_integer=False,
+            use_content_defined_chunking=False,
         )
 
         self._set_properties()
@@ -758,6 +760,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
+    schema_depth_limit : int, default None
+        If not None, override the maximum nesting depth of the Parquet file schema.
+        This guards against recursion overflow on invalid schemas.
+        The default limit should be sufficient for most Parquet files.
     decryption_config : pyarrow.dataset.ParquetDecryptionConfig, default None
         If not None, use the provided ParquetDecryptionConfig to decrypt the
         Parquet file.
@@ -781,6 +787,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  cache_options=None,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
+                 schema_depth_limit=None,
                  decryption_config=None,
                  decryption_properties=None,
                  bint page_checksum_verification=False,
@@ -798,6 +805,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_string_size_limit = thrift_string_size_limit
         if thrift_container_size_limit is not None:
             self.thrift_container_size_limit = thrift_container_size_limit
+        if schema_depth_limit is not None:
+            self.schema_depth_limit = schema_depth_limit
         if decryption_config is not None:
             self.parquet_decryption_config = decryption_config
         if decryption_properties is not None:
@@ -875,6 +884,16 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.reader_properties().set_thrift_container_size_limit(size)
 
     @property
+    def schema_depth_limit(self):
+        return self.reader_properties().schema_depth_limit()
+
+    @schema_depth_limit.setter
+    def schema_depth_limit(self, limit):
+        if limit <= 0:
+            raise ValueError("limit must be larger than zero")
+        self.reader_properties().set_schema_depth_limit(limit)
+
+    @property
     def decryption_properties(self):
         if not parquet_encryption_enabled:
             raise NotImplementedError(
@@ -941,11 +960,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer, self.cache_options,
             self.thrift_string_size_limit, self.thrift_container_size_limit,
-            self.page_checksum_verification, self.arrow_extensions_enabled)
+            self.schema_depth_limit, self.page_checksum_verification,
+            self.arrow_extensions_enabled)
         other_attrs = (
             other.use_buffered_stream, other.buffer_size, other.pre_buffer, other.cache_options,
-            other.thrift_string_size_limit,
-            other.thrift_container_size_limit, other.page_checksum_verification,
+            other.thrift_string_size_limit, other.thrift_container_size_limit,
+            other.schema_depth_limit, other.page_checksum_verification,
             other.arrow_extensions_enabled)
         return attrs == other_attrs
 
@@ -963,6 +983,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             cache_options=self.cache_options,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
+            schema_depth_limit=self.schema_depth_limit,
             page_checksum_verification=self.page_checksum_verification,
             arrow_extensions_enabled=self.arrow_extensions_enabled
         )

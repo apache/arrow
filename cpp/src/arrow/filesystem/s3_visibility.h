@@ -17,38 +17,33 @@
 
 #pragma once
 
-#include <memory>
-#include <string_view>
-#include <unordered_map>
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#include "arrow/result.h"
-#include "arrow/util/visibility.h"
+#  ifdef ARROW_S3_STATIC
+#    define ARROW_S3_EXPORT
+#  elif defined(ARROW_S3_EXPORTING)
+#    define ARROW_S3_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_S3_EXPORT __declspec(dllimport)
+#  endif
 
-namespace arrow {
-namespace json {
-namespace internal {
+#  define ARROW_S3_NO_EXPORT
 
-/// This class is a helper to parse a json object from a string.
-/// It uses rapidjson::Document in implementation.
-class ARROW_EXPORT ObjectParser {
- public:
-  ObjectParser();
-  ~ObjectParser();
+#  if defined(_MSC_VER)
+#    pragma warning(pop)
+#  endif
 
-  Status Parse(std::string_view json);
-
-  Result<std::string> GetString(const char* key) const;
-
-  Result<bool> GetBool(const char* key) const;
-
-  // Get all members of the object as a map from string keys to string values
-  Result<std::unordered_map<std::string, std::string>> GetStringMap() const;
-
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
-};
-
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+#else  // Not Windows
+#  ifndef ARROW_S3_EXPORT
+#    define ARROW_S3_EXPORT __attribute__((visibility("default")))
+#  endif
+#  ifndef ARROW_S3_NO_EXPORT
+#    define ARROW_S3_NO_EXPORT __attribute__((visibility("hidden")))
+#  endif
+#endif

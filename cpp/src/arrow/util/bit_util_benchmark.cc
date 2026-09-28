@@ -172,7 +172,7 @@ static void BenchmarkBitmapVisitBitsetAnd(benchmark::State& state) {
 static void BenchmarkBitmapVisitUInt8And(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
-    internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint8_t, 2> uint8s) {
+    internal::Bitmap::VisitWords<uint8_t>(bitmaps, [&](std::array<uint8_t, 2> uint8s) {
       reinterpret_cast<uint8_t*>(out->mutable_data())[i++] = uint8s[0] & uint8s[1];
     });
   });

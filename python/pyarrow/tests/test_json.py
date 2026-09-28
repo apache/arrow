@@ -43,17 +43,24 @@ def generate_col_names():
             yield first + second
 
 
-def make_random_json(num_cols=2, num_rows=10, linesep='\r\n'):
-    arr = np.random.RandomState(42).randint(0, 1000, size=(num_cols, num_rows))
+def make_random_json(num_cols=2, num_rows=10, linesep='\r\n',
+                     *, extra_whitespace=False):
+    rnd = np.random.RandomState(42)
+    arr = rnd.randint(0, 1000, size=(num_cols, num_rows))
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     lines = []
+    max_line_len = 0
     for row in arr.T:
         json_obj = OrderedDict([(k, int(v)) for (k, v) in zip(col_names, row)])
-        lines.append(json.dumps(json_obj))
+        line = json.dumps(json_obj)
+        if extra_whitespace:
+            line += ' ' * rnd.randint(0, 5)
+        lines.append(line)
+        max_line_len = max(max_line_len, len(line))
     data = linesep.join(lines).encode()
     columns = [pa.array(col, type=pa.int64()) for col in arr]
     expected = pa.Table.from_arrays(columns, col_names)
-    return data, expected
+    return data, max_line_len, expected
 
 
 def check_options_class_pickling(cls, pickler, **attr_values):
@@ -150,8 +157,7 @@ class BaseTestJSON(abc.ABC):
             for newlines_in_values in [False, True]:
                 parse_options.newlines_in_values = newlines_in_values
                 read_options.block_size = 4
-                with pytest.raises(ValueError,
-                                   match="try to increase block size"):
+                with pytest.raises(ValueError, match="try to increase block size"):
                     self.read_bytes(data, read_options=read_options,
                                     parse_options=parse_options)
 
@@ -295,39 +301,48 @@ class BaseTestJSON(abc.ABC):
 
     @pytest.mark.numpy
     def test_small_random_json(self):
-        data, expected = make_random_json(num_cols=2, num_rows=10)
-        table = self.read_bytes(data)
-        assert table.schema == expected.schema
-        assert table.equals(expected)
-        assert table.to_pydict() == expected.to_pydict()
+        for extra_whitespace in (False, True):
+            data, _, expected = make_random_json(num_cols=2, num_rows=10,
+                                                 extra_whitespace=extra_whitespace)
+            table = self.read_bytes(data)
+            assert table.schema == expected.schema
+            assert table.equals(expected)
+            assert table.to_pydict() == expected.to_pydict()
 
     @pytest.mark.numpy
     def test_load_large_json(self):
-        data, expected = make_random_json(num_cols=2, num_rows=100100)
-        # set block size is 10MB
-        read_options = ReadOptions(block_size=1024*1024*10)
-        table = self.read_bytes(data, read_options=read_options)
-        assert table.num_rows == 100100
-        assert expected.num_rows == 100100
+        for extra_whitespace in (False, True):
+            data, _, expected = make_random_json(num_cols=2, num_rows=100100,
+                                                 extra_whitespace=extra_whitespace)
+            # set block size is 10MB
+            read_options = ReadOptions(block_size=1024*1024*10)
+            table = self.read_bytes(data, read_options=read_options)
+            assert table.num_rows == 100100
+            assert expected.num_rows == 100100
 
     @pytest.mark.numpy
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
-        data_base, expected = make_random_json(num_cols=2, num_rows=100)
-        read_options = ReadOptions()
-        parse_options = ParseOptions()
+        for extra_whitespace in (False, True):
+            data_base, max_line_len, expected = make_random_json(
+                num_cols=2, num_rows=100,
+                extra_whitespace=extra_whitespace)
+            block_sizes = [max_line_len, max_line_len + 4, max_line_len + 15]
 
-        for data in [data_base, data_base.rstrip(b'\r\n')]:
-            for newlines_in_values in [False, True]:
-                parse_options.newlines_in_values = newlines_in_values
-                for block_size in [22, 23, 37]:
-                    read_options.block_size = block_size
-                    table = self.read_bytes(data, read_options=read_options,
-                                            parse_options=parse_options)
-                    assert table.schema == expected.schema
-                    if not table.equals(expected):
-                        # Better error output
-                        assert table.to_pydict() == expected.to_pydict()
+            read_options = ReadOptions()
+            parse_options = ParseOptions()
+
+            for data in [data_base, data_base.rstrip(b'\r\n')]:
+                for newlines_in_values in [False, True]:
+                    parse_options.newlines_in_values = newlines_in_values
+                    for block_size in block_sizes:
+                        read_options.block_size = block_size
+                        table = self.read_bytes(data, read_options=read_options,
+                                                parse_options=parse_options)
+                        assert table.schema == expected.schema
+                        if not table.equals(expected):
+                            # Better error output
+                            assert table.to_pydict() == expected.to_pydict()
 
 
 class BaseTestJSONRead(BaseTestJSON):
@@ -529,8 +544,9 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
             'n': [1]
         }
 
-        with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error *"):
+        # The first read may succeed depending on chunking and readahead.
+        with pytest.raises(pa.ArrowInvalid, match="JSON parse error"):
+            assert reader.read_next_batch().to_pydict() == {'n': [None]}
             reader.read_next_batch()
 
         with pytest.raises(StopIteration):

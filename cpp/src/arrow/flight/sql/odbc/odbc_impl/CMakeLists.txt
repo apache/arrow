@@ -134,7 +134,10 @@ if(WIN32)
   find_package(ODBC REQUIRED)
   target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
   target_link_libraries(arrow_odbc_spi_impl
-                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
+                        PUBLIC arrow_flight_sql_shared
+                               arrow_compute_shared
+                               Boost::locale
+                               arrow::simdjson
                                ${ODBCINST})
 else()
   # Unix
@@ -144,7 +147,7 @@ else()
                                arrow_compute_static
                                Boost::locale
                                Boost::headers
-                               RapidJSON)
+                               arrow::simdjson)
 
   if(NOT APPLE)
     # Explicitly link to unix-odbc on Linux

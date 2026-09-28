@@ -137,7 +137,6 @@ ENV ARROW_ACERO=ON \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
     simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED
