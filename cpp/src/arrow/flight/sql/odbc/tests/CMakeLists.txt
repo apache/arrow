@@ -85,5 +85,13 @@ add_arrow_test(flight_sql_odbc_test
 find_package(ODBC REQUIRED)
 target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)
 
+if(WIN32)
+  # GH-49538: Dynamically pass the filename of the driver DLL so PinDriverModule
+  # in odbc_test_suite.cc can hold a handle to it.
+  target_compile_definitions(arrow-flight-sql-odbc-test
+                             PRIVATE "ARROW_FLIGHT_SQL_ODBC_DLL_FILE_NAME=L\"$<TARGET_FILE_NAME:arrow_flight_sql_odbc_shared>\""
+  )
+endif()
+
 # Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
 set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)
