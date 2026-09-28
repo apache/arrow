@@ -47,7 +47,7 @@ Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(
     case LogicalType::TimeUnit::NANOS:
       return ::arrow::TimeUnit::NANO;
     default:
-      return Status::Invalid("Unrecognized Parquet time unit");
+      return Status::TypeError("Unrecognized Parquet time unit");
   }
 }
 

@@ -877,9 +877,9 @@ inline Result<int64_t> FlbaTimestampToInt64(const uint8_t* bytes,
 }
 
 // Read a TIMESTAMP-annotated FLBA(12) column as a 64-bit Arrow timestamp.
-Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
-                             const std::shared_ptr<Field>& field, Datum* out,
-                             bool clamp_on_overflow) {
+Result<Datum> TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
+                                    const std::shared_ptr<Field>& field,
+                                    bool clamp_on_overflow) {
   auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
@@ -913,8 +913,7 @@ Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
   if (!field->nullable()) {
     ReconstructChunksWithoutNulls(&chunks);
   }
-  *out = std::make_shared<ChunkedArray>(std::move(chunks), field->type());
-  return Status::OK();
+  return Datum(std::make_shared<ChunkedArray>(std::move(chunks), field->type()));
 }
 
 }  // namespace
@@ -1035,15 +1034,11 @@ Status TransferColumnData(RecordReader* reader,
             checked_cast<const TimestampLogicalType&>(*descr->logical_type());
         ARROW_ASSIGN_OR_RAISE(auto expected_unit,
                               ArrowTimeUnitFromParquet(ts_logical.time_unit()));
-        if (timestamp_type.unit() != expected_unit) {
-          return Status::Invalid(
-              "Arrow timestamp unit ", timestamp_type.unit(),
-              " does not match Parquet FLBA(12) TIMESTAMP logical type ",
-              ts_logical.ToString());
-        }
-        RETURN_NOT_OK(TransferFlbaTimestamp(
-            reader, pool, value_field, &result,
-            ctx->reader_properties->flba_timestamp_clamp_on_overflow()));
+        DCHECK_EQ(timestamp_type.unit(), expected_unit);
+        ARROW_ASSIGN_OR_RAISE(
+            result, TransferFlbaTimestamp(
+                        reader, pool, value_field,
+                        ctx->reader_properties->flba_timestamp_clamp_on_overflow()));
       } else {
         switch (timestamp_type.unit()) {
           case ::arrow::TimeUnit::MILLI:
