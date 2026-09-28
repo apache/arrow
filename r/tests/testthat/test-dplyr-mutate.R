@@ -827,3 +827,18 @@ test_that("mutate() keeps the name given to if_any() and if_all()", {
     example_data
   )
 })
+
+test_that("mutate() with a variable that shares a name with a function binding", {
+  # GH-39688: `abs` is also a function binding. The user's variable should be
+  # found when used as a value, and the binding when used as a function.
+  abs <- 1L
+  compare_dplyr_binding(
+    .input |>
+      mutate(
+        x = int + abs,
+        y = abs(int) + abs
+      ) |>
+      collect(),
+    tibble::tibble(int = -1:1)
+  )
+})

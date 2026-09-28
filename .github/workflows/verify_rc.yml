@@ -201,8 +201,8 @@ jobs:
       fail-fast: false
       matrix:
         runs-on:
-          - macos-15-intel
-          - macos-14
+          - macos-26-intel
+          - macos-26
     env:
       RC: ${{ needs.target.outputs.rc }}
       TEST_WHEELS: "1"
