@@ -417,7 +417,8 @@ Encodings
   2.4 or greater is selected in :func:`WriterProperties::version`.
 
 * \(3) Only supported for FLOAT and DOUBLE values. ALP is a Preview feature in the
-  Parquet format, so other readers may not support it.
+  Parquet format, so other readers may not support it. It is never selected
+  automatically: a column uses ALP only where ``encoding()`` names it.
 
 Types
 -----
