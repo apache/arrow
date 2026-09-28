@@ -115,12 +115,16 @@ jobs:
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-windows-${{ inputs.arch }}
+      - name: Find Visual Studio
+        shell: bash
+        run: |
+          vs_path=$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)
+          echo "VS_INSTALL_PATH=${vs_path}" >> "${GITHUB_ENV}"
       - name: Build
         shell: cmd
         env:
           VCVARS_ARCH: ${{ inputs.arch }}
         run: |
-          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VS_INSTALL_PATH=%%i"
           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" %VCVARS_ARCH% || exit /b 1
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Save ccache
@@ -136,7 +140,6 @@ jobs:
           VCVARS_ARCH: ${{ inputs.arch }}
           MSYS2_LOCATION: ${{ steps.setup-msys2.outputs.msys2-location }}
         run: |
-          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VS_INSTALL_PATH=%%i"
           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" %VCVARS_ARCH% || exit /b 1
           # For ORC
           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
