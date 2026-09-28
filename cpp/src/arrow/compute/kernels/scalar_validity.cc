@@ -83,7 +83,7 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
-// Maps `is_null` over dictionary values and then through checked indices, so
+// Maps `is_null` over dictionary values and then through the indices, so
 // both NaN and null dictionary entries are reported, whatever the index type.
 static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
                                        uint8_t* out_bitmap, int64_t out_offset) {
@@ -106,7 +106,7 @@ static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
                                  arr.offset);
   ARROW_ASSIGN_OR_RAISE(Datum taken,
                         Take(dict_is_null, Datum(std::move(indices)),
-                             TakeOptions::BoundsCheck(), ctx->exec_context()));
+                             TakeOptions::NoBoundsCheck(), ctx->exec_context()));
 
   // Null index slots are already set from the input validity bitmap, so the
   // values bitmap can be OR'ed in without masking null slots out first.
