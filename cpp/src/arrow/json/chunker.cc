@@ -32,16 +32,6 @@ namespace arrow {
 namespace json {
 namespace {
 
-// XXX We could try to SIMD-accelerate this routine but it's called only
-// once per chunk and also will presumably examine a minimal amount of bytes.
-int64_t ConsumeWhitespace(std::string_view view) {
-  const auto ws_count = view.find_first_not_of(" \t\r\n");
-  if (ws_count == std::string_view::npos) {
-    return view.size();
-  }
-  return static_cast<int64_t>(ws_count);
-}
-
 // A BoundaryFinder implementation that assumes JSON objects can contain raw newlines,
 // and uses the structural indexes computed by simdjson to delimit them.
 class ParsingBoundaryFinder : public BoundaryFinder {
