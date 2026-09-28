@@ -550,11 +550,24 @@ bool IsNaN(const Scalar& value) {
   }
 }
 
+// Null values are matched without "equal", but must be comparable all the same
+Status CheckNullValueType(KernelContext* ctx, const DataType& values_type,
+                          const DataType& value_type) {
+  if (value_type.id() == Type::NA || value_type.Equals(values_type)) {
+    return Status::OK();
+  }
+  ARROW_ASSIGN_OR_RAISE(auto equal,
+                        ctx->exec_context()->func_registry()->GetFunction("equal"));
+  std::vector<TypeHolder> types{&values_type, &value_type};
+  return equal->DispatchBest(&types).status();
+}
+
 // Like "is_in", and unlike "equal", a null value matches null values and a NaN
 // value matches NaN values.
 Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> values,
                               const std::shared_ptr<Scalar>& value) {
   if (!value->is_valid) {
+    RETURN_NOT_OK(CheckNullValueType(ctx, *values->type, *value->type));
     return CallFunction("is_null", {std::move(values)}, ctx->exec_context());
   }
   if (is_floating(values->type->id()) && IsNaN(*value)) {
@@ -569,6 +582,7 @@ Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> val
                               std::shared_ptr<ArrayData> value) {
   ExecContext* exec_ctx = ctx->exec_context();
   if (value->GetNullCount() == value->length) {
+    RETURN_NOT_OK(CheckNullValueType(ctx, *values->type, *value->type));
     return CallFunction("is_null", {std::move(values)}, exec_ctx);
   }
   ARROW_ASSIGN_OR_RAISE(Datum match, CallFunction("equal", {values, value}, exec_ctx));

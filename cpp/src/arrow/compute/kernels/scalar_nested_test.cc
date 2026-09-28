@@ -168,6 +168,8 @@ TEST(TestScalarNested, ListContainsNull) {
               ArrayFromJSON(boolean(), "[true, true, false, false, true, false, null]"));
   CheckScalar("list_contains", {input, MakeNullScalar(null())},
               ArrayFromJSON(boolean(), "[true, true, false, false, true, false, null]"));
+  CheckScalar("list_contains", {input, ScalarFromJSON(int64(), "null")},
+              ArrayFromJSON(boolean(), "[true, true, false, false, true, false, null]"));
   CheckScalar("list_contains",
               {ArrayFromJSON(list(int32()), "[[]]"), ScalarFromJSON(int32(), "null")},
               ArrayFromJSON(boolean(), "[false]"));
@@ -335,6 +337,12 @@ TEST(TestScalarNested, ListContainsInvalid) {
               Raises(StatusCode::NotImplemented));
   EXPECT_THAT(CallFunction("list_contains", {input, ScalarFromJSON(boolean(), "true")}),
               Raises(StatusCode::NotImplemented));
+  // Null values must be comparable too
+  EXPECT_THAT(CallFunction("list_contains", {input, ScalarFromJSON(utf8(), "null")}),
+              Raises(StatusCode::NotImplemented));
+  EXPECT_THAT(
+      CallFunction("list_contains", {input, ArrayFromJSON(utf8(), "[null, null]")}),
+      Raises(StatusCode::NotImplemented));
 }
 
 using VarLenListLikeTypeFactory =
