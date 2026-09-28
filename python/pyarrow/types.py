@@ -253,7 +253,7 @@ def is_union(t):
 
 @doc(is_null, datatype="nested type")
 def is_nested(t):
-    return lib._is_nested(t)
+    return lib._is_nested(t.id)
 
 
 @doc(is_null, datatype="run-end encoded")
