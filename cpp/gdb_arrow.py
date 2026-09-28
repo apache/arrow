@@ -1885,15 +1885,26 @@ class RunEndEncodedArrayDataPrinter(ArrayDataPrinter):
         run_ends = self._run_ends_printer._unpacked_buffer_values(
             1, self._run_ends_printer.type_id)
         values = iter(self._values_printer.children() or ())
-        physical_index, value = 0, None
-        for i in range(self.length):
-            target = bisect_right(run_ends, self.offset + i)
-            while physical_index <= target:
+        run_index = bisect_right(run_ends, self.offset)
+        # Advance to the value for the run containing the logical offset.
+        for _ in range(run_index + 1):
+            value = next(values, None)
+            if value is None:
+                return
+
+        logical_index = self.offset
+        logical_end = self.offset + self.length
+        # Expand each run into the logical elements visible in this slice.
+        while logical_index < logical_end:
+            run_end = run_ends[run_index]
+            for i in range(logical_index, min(run_end, logical_end)):
+                yield self._valid_child(i - self.offset, value[1])
+            logical_index = run_end
+            run_index += 1
+            if logical_index < logical_end:
                 value = next(values, None)
                 if value is None:
                     return
-                physical_index += 1
-            yield self._valid_child(i, value[1])
 
 
 class ArrayPrinter:
