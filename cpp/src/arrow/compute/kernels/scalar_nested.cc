@@ -20,6 +20,7 @@
 #include <cmath>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
@@ -538,17 +539,6 @@ const FunctionDoc list_element_doc(
      "is emitted. Null values emit a null in the output."),
     {"lists", "index"});
 
-Result<std::shared_ptr<Scalar>> GetListContainsValue(const ExecValue& value) {
-  if (value.is_scalar()) {
-    return value.scalar->GetSharedPtr();
-  }
-  if (value.array.length != 1) {
-    return Status::NotImplemented(
-        "list_contains not yet implemented for arrays of values");
-  }
-  return value.array.ToArray()->GetScalar(0);
-}
-
 bool IsNaN(const Scalar& value) {
   switch (value.type->id()) {
     case Type::FLOAT:
@@ -573,13 +563,162 @@ Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> val
   return CallFunction("equal", {std::move(values), value}, ctx->exec_context());
 }
 
-// Search `value` in the child values [values_start, values_start + values_length)
-// with a single vectorized comparison, then check each list's range in the resulting
-// bitmap. `get_range(i)` returns the (child offset, length) pair of list i.
-template <typename GetRange>
-Status ListContainsExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
-                        int64_t values_start, int64_t values_length,
-                        GetRange&& get_range) {
+// Element-wise version of the above, matching each of `values` with the value at the
+// same index.
+Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> values,
+                              std::shared_ptr<ArrayData> value) {
+  ExecContext* exec_ctx = ctx->exec_context();
+  if (value->GetNullCount() == value->length) {
+    return CallFunction("is_null", {std::move(values)}, exec_ctx);
+  }
+  ARROW_ASSIGN_OR_RAISE(Datum match, CallFunction("equal", {values, value}, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(Datum values_null, CallFunction("is_null", {values}, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(Datum value_null, CallFunction("is_null", {value}, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(Datum both_null,
+                        CallFunction("and", {values_null, value_null}, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(match, CallFunction("or_kleene", {match, both_null}, exec_ctx));
+  if (is_floating(values->type->id()) && is_floating(value->type->id())) {
+    ARROW_ASSIGN_OR_RAISE(Datum values_nan, CallFunction("is_nan", {values}, exec_ctx));
+    ARROW_ASSIGN_OR_RAISE(Datum value_nan, CallFunction("is_nan", {value}, exec_ctx));
+    ARROW_ASSIGN_OR_RAISE(Datum both_nan,
+                          CallFunction("and_kleene", {values_nan, value_nan}, exec_ctx));
+    ARROW_ASSIGN_OR_RAISE(match, CallFunction("or_kleene", {match, both_nan}, exec_ctx));
+  }
+  return match;
+}
+
+// Returns the (child offset, length) pair of list i
+template <typename Type>
+std::pair<int64_t, int64_t> GetListRange(const ArraySpan& list, int64_t i) {
+  if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+    const int64_t width = checked_cast<const FixedSizeListType&>(*list.type).list_size();
+    return {(list.offset + i) * width, width};
+  } else {
+    using offset_type = typename Type::offset_type;
+    const offset_type* offsets = list.GetValues<offset_type>(1);
+    if constexpr (is_list_view_type<Type>::value) {
+      return {offsets[i], list.GetValues<offset_type>(2)[i]};
+    } else {
+      return {offsets[i], offsets[i + 1] - offsets[i]};
+    }
+  }
+}
+
+// Returns the (child offset, length) pair of the child values referenced by the lists
+template <typename Type>
+std::pair<int64_t, int64_t> GetListValuesRange(const ArraySpan& list) {
+  if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+    const int64_t width = checked_cast<const FixedSizeListType&>(*list.type).list_size();
+    return {list.offset * width, list.length * width};
+  } else if constexpr (is_list_view_type<Type>::value) {
+    // List views may reference child values in any order
+    return {0, list.child_data[0].length};
+  } else {
+    using offset_type = typename Type::offset_type;
+    const offset_type* offsets = list.GetValues<offset_type>(1);
+    return {offsets[0], offsets[list.length] - offsets[0]};
+  }
+}
+
+// Emit whether each valid list has a match in the range of `match` returned by
+// `get_match_range(i)`. Null matches never count.
+template <typename GetMatchRange>
+Status EmitListMatches(KernelContext* ctx, const ArraySpan& list, const Datum& match,
+                       ArraySpan* out_arr, GetMatchRange&& get_match_range) {
+  const ArrayData& match_data = *match.array();
+  std::shared_ptr<Buffer> matches = match_data.buffers[1];
+  int64_t matches_offset = match_data.offset;
+  if (match_data.MayHaveNulls()) {
+    ARROW_ASSIGN_OR_RAISE(
+        matches, arrow::internal::BitmapAnd(
+                     ctx->memory_pool(), matches->data(), match_data.offset,
+                     match_data.buffers[0]->data(), match_data.offset, match_data.length,
+                     /*out_offset=*/0));
+    matches_offset = 0;
+  }
+
+  int64_t i = 0;
+  arrow::internal::GenerateBitsUnrolled(
+      out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
+        bool found = false;
+        if (list.IsValid(i)) {
+          const auto [start, length] = get_match_range(i);
+          found = arrow::internal::CountSetBits(matches->data(), matches_offset + start,
+                                                length) > 0;
+        }
+        ++i;
+        return found;
+      });
+  return Status::OK();
+}
+
+// Search a single `value` in the referenced child values with one vectorized
+// comparison, then check each list's range in the resulting bitmap.
+template <typename Type>
+Status ListContainsScalar(KernelContext* ctx, const ArraySpan& list,
+                          const std::shared_ptr<Scalar>& value, ArraySpan* out_arr) {
+  const auto [values_start, values_length] = GetListValuesRange<Type>(list);
+  auto values = list.child_data[0].ToArrayData()->Slice(values_start, values_length);
+  ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, std::move(values), value));
+  return EmitListMatches(ctx, list, match, out_arr, [&](int64_t i) {
+    const auto [start, length] = GetListRange<Type>(list, i);
+    return std::make_pair(start - values_start, length);
+  });
+}
+
+// Gather the child values of each valid list next to copies of its value, compare
+// them element-wise, then check each list's range in the resulting bitmap.
+template <typename Type>
+Status ListContainsArray(KernelContext* ctx, const ArraySpan& list,
+                         const ArraySpan& value, ArraySpan* out_arr) {
+  Int64Builder values_indices(ctx->memory_pool());
+  Int64Builder value_indices(ctx->memory_pool());
+  for (int64_t i = 0; i < list.length; ++i) {
+    if (list.IsValid(i)) {
+      const auto [start, length] = GetListRange<Type>(list, i);
+      RETURN_NOT_OK(values_indices.Reserve(length));
+      RETURN_NOT_OK(value_indices.Reserve(length));
+      for (int64_t j = start; j < start + length; ++j) {
+        values_indices.UnsafeAppend(j);
+        value_indices.UnsafeAppend(i);
+      }
+    }
+  }
+  ARROW_ASSIGN_OR_RAISE(auto values_taken, values_indices.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto value_taken, value_indices.Finish());
+  ExecContext* exec_ctx = ctx->exec_context();
+  ARROW_ASSIGN_OR_RAISE(
+      Datum values,
+      CallFunction("take", {list.child_data[0].ToArrayData(), values_taken}, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(
+      Datum repeated_value,
+      CallFunction("take", {value.ToArrayData(), value_taken}, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(Datum match,
+                        ListValuesMatch(ctx, values.array(), repeated_value.array()));
+
+  // Lists are gathered in order, so each list's range follows the previous one
+  int64_t match_start = 0;
+  return EmitListMatches(ctx, list, match, out_arr, [&](int64_t i) {
+    const int64_t length = GetListRange<Type>(list, i).second;
+    match_start += length;
+    return std::make_pair(match_start - length, length);
+  });
+}
+
+template <typename Type>
+Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  if (batch.length == 0) {
+    return Status::OK();
+  }
+  if (batch[0].is_scalar()) {
+    // A scalar list is only paired with an array of values here, so broadcast it
+    ARROW_ASSIGN_OR_RAISE(auto lists, MakeArrayFromScalar(*batch[0].scalar, batch.length,
+                                                          ctx->memory_pool()));
+    ExecSpan array_batch = batch;
+    array_batch.values[0].SetArray(*lists->data());
+    return ListContains<Type>(ctx, array_batch, out);
+  }
+
   const ArraySpan& list = batch[0].array;
   ArraySpan* out_arr = out->array_span_mutable();
 
@@ -592,66 +731,16 @@ Status ListContainsExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   }
   out_arr->null_count = list.null_count;
 
-  ARROW_ASSIGN_OR_RAISE(auto value, GetListContainsValue(batch[1]));
-  auto values = list.child_data[0].ToArrayData()->Slice(values_start, values_length);
-  ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, std::move(values), value));
-  const ArrayData& match_data = *match.array();
-  // Null comparison results never match
-  std::shared_ptr<Buffer> matches = match_data.buffers[1];
-  int64_t matches_offset = match_data.offset;
-  if (match_data.MayHaveNulls()) {
-    ARROW_ASSIGN_OR_RAISE(
-        matches, arrow::internal::BitmapAnd(
-                     ctx->memory_pool(), matches->data(), match_data.offset,
-                     match_data.buffers[0]->data(), match_data.offset, match_data.length,
-                     /*out_offset=*/0));
-    matches_offset = 0;
+  const ExecValue& value = batch[1];
+  if (value.is_scalar()) {
+    return ListContainsScalar<Type>(ctx, list, value.scalar->GetSharedPtr(), out_arr);
   }
-  matches_offset -= values_start;
-
-  int64_t i = 0;
-  arrow::internal::GenerateBitsUnrolled(
-      out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
-        bool found = false;
-        if (list.IsValid(i)) {
-          const auto [start, length] = get_range(i);
-          found = arrow::internal::CountSetBits(matches->data(), matches_offset + start,
-                                                length) > 0;
-        }
-        ++i;
-        return found;
-      });
-  return Status::OK();
-}
-
-template <typename Type>
-Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  using offset_type = typename Type::offset_type;
-  using Range = std::pair<int64_t, int64_t>;
-  const ArraySpan& list = batch[0].array;
-  if (list.length == 0) {
-    return Status::OK();
+  if (value.array.length == 1) {
+    // Also covers scalar inputs, which are promoted to arrays
+    ARROW_ASSIGN_OR_RAISE(auto single_value, value.array.ToArray()->GetScalar(0));
+    return ListContainsScalar<Type>(ctx, list, single_value, out_arr);
   }
-  const offset_type* offsets = list.GetValues<offset_type>(1);
-  if constexpr (is_list_view_type<Type>::value) {
-    // List views may reference child values in any order
-    const offset_type* sizes = list.GetValues<offset_type>(2);
-    return ListContainsExec(ctx, batch, out, 0, list.child_data[0].length,
-                            [&](int64_t i) { return Range(offsets[i], sizes[i]); });
-  } else {
-    return ListContainsExec(
-        ctx, batch, out, offsets[0], offsets[list.length] - offsets[0],
-        [&](int64_t i) { return Range(offsets[i], offsets[i + 1] - offsets[i]); });
-  }
-}
-
-Status FixedSizeListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const int64_t width =
-      checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
-  const ArraySpan& list = batch[0].array;
-  return ListContainsExec(
-      ctx, batch, out, list.offset * width, list.length * width,
-      [&](int64_t i) { return std::make_pair((list.offset + i) * width, width); });
+  return ListContainsArray<Type>(ctx, list, value.array, out_arr);
 }
 
 void AddListContainsKernels(ScalarFunction* func) {
@@ -665,17 +754,17 @@ void AddListContainsKernels(ScalarFunction* func) {
   add_kernel(Type::LARGE_LIST, ListContains<LargeListType>);
   add_kernel(Type::LIST_VIEW, ListContains<ListViewType>);
   add_kernel(Type::LARGE_LIST_VIEW, ListContains<LargeListViewType>);
-  add_kernel(Type::FIXED_SIZE_LIST, FixedSizeListContains);
+  add_kernel(Type::FIXED_SIZE_LIST, ListContains<FixedSizeListType>);
 }
 
 const FunctionDoc list_contains_doc(
     "Check whether lists contain a given value",
-    ("`lists` must have a list-like type and `value` must be a scalar\n"
-     "comparable with the list value type.\n"
+    ("`lists` must have a list-like type and `value` must be comparable\n"
+     "with the list value type.\n"
      "For each list in `lists`, true is emitted if any of its values is equal\n"
-     "to `value`, false otherwise. A null `value` matches null list values,\n"
-     "and a NaN `value` matches NaN list values; otherwise null list values\n"
-     "never match. Null lists emit a null in the output."),
+     "to the corresponding `value`, false otherwise. A null `value` matches\n"
+     "null list values, and a NaN `value` matches NaN list values; otherwise\n"
+     "null list values never match. Null lists emit a null in the output."),
     {"lists", "value"});
 
 struct StructFieldFunctor {

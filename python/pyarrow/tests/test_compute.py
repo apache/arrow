@@ -3923,12 +3923,19 @@ def test_list_contains_fixed_size_list():
     assert pc.list_contains(lists, "c").to_pylist() == [False, True, None]
 
 
+def test_list_contains_array():
+    lists = pa.array([[1, 2], [3, None], [4], None])
+    values = pa.array([2, None, 5, 1])
+    result = pc.list_contains(lists, values)
+    assert result.to_pylist() == [True, True, False, None]
+
+
 def test_list_contains_invalid():
     lists = pa.array([[1, 2], [3]])
     with pytest.raises(pa.ArrowNotImplementedError):
         pc.list_contains(lists, "a")
     with pytest.raises(pa.ArrowNotImplementedError):
-        pc.list_contains(lists, pa.array([1, 2]))
+        pc.list_contains(lists, pa.array(["a", "b"]))
 
 
 def test_count_distinct():

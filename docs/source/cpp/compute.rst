@@ -1985,8 +1985,9 @@ Structural transforms
   * The indices ``2`` and ``7`` are invalid.
 
 * \(7) Output is true for each list containing a value equal to the second
-  argument, which must be a scalar. Unlike ``equal``, a null second argument
-  matches null list values and a NaN second argument matches NaN list values;
+  argument. If the second argument is an array, each list is searched for the
+  value at the same index. Unlike ``equal``, a null second argument matches
+  null list values and a NaN second argument matches NaN list values;
   otherwise null list values never match. Null lists emit a null in the output.
 
 .. _cpp-compute-vector-replace-functions:

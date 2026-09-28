@@ -275,10 +275,62 @@ TEST(TestScalarNested, ListContainsListViewOutOfOrder) {
               ArrayFromJSON(boolean(), "[false, true, false, false, false]"));
 }
 
+TEST(TestScalarNested, ListContainsArrayOfValues) {
+  // Each list is searched for the value at the same index
+  for (auto list_type : {list(int32()), large_list(int32()), list_view(int32()),
+                         large_list_view(int32())}) {
+    auto input =
+        ArrayFromJSON(list_type, "[[1, 2], [3, null], [], null, [4, 5], [null], [6]]");
+    CheckScalar("list_contains",
+                {input, ArrayFromJSON(int32(), "[2, null, 1, 3, 4, null, 7]")},
+                ArrayFromJSON(boolean(), "[true, true, false, null, true, true, false]"));
+  }
+  CheckScalar("list_contains",
+              {ArrayFromJSON(fixed_size_list(int32(), 2),
+                             "[[1, 2], [3, null], null, [4, 5], [null, 6]]"),
+               ArrayFromJSON(int32(), "[2, null, 1, 5, 7]")},
+              ArrayFromJSON(boolean(), "[true, true, null, true, false]"));
+
+  CheckScalar("list_contains",
+              {ArrayFromJSON(list(int64()), "[[1, 2], [3], [4]]"),
+               ArrayFromJSON(float64(), "[2.0, 3.5, 4.0]")},
+              ArrayFromJSON(boolean(), "[true, false, true]"));
+  CheckScalar("list_contains",
+              {ArrayFromJSON(list(float64()), "[[1.5, NaN], [NaN], [1.5], [null]]"),
+               ArrayFromJSON(float64(), "[NaN, 1.5, NaN, NaN]")},
+              ArrayFromJSON(boolean(), "[true, false, false, false]"));
+  CheckScalar("list_contains",
+              {ArrayFromJSON(list(int32()), "[[1, null], [2], []]"),
+               ArrayFromJSON(null(), "[null, null, null]")},
+              ArrayFromJSON(boolean(), "[true, false, false]"));
+
+  // Views: [3, 4], [1, 2], [2, 3], [4], []
+  ASSERT_OK_AND_ASSIGN(
+      auto input, ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0, 1, 3, 0]"),
+                                            *ArrayFromJSON(int32(), "[2, 2, 2, 1, 0]"),
+                                            *ArrayFromJSON(int32(), "[1, 2, 3, 4]")));
+  CheckScalar("list_contains", {input, ArrayFromJSON(int32(), "[3, 1, 1, 4, 1]")},
+              ArrayFromJSON(boolean(), "[true, true, false, true, false]"));
+
+  // A scalar list is searched for each value
+  CheckScalar("list_contains",
+              {ScalarFromJSON(list(int32()), "[1, null]"),
+               ArrayFromJSON(int32(), "[1, 2, null]")},
+              ArrayFromJSON(boolean(), "[true, false, true]"));
+  CheckScalar("list_contains",
+              {ScalarFromJSON(fixed_size_list(int32(), 2), "[1, 2]"),
+               ArrayFromJSON(int32(), "[2, 3]")},
+              ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalar("list_contains",
+              {ScalarFromJSON(list(int32()), "null"), ArrayFromJSON(int32(), "[1, 2]")},
+              ArrayFromJSON(boolean(), "[null, null]"));
+}
+
 TEST(TestScalarNested, ListContainsInvalid) {
   auto input = ArrayFromJSON(list(int32()), "[[1, 2], [3]]");
-  EXPECT_THAT(CallFunction("list_contains", {input, ArrayFromJSON(int32(), "[1, 3]")}),
-              Raises(StatusCode::NotImplemented));
+  EXPECT_THAT(
+      CallFunction("list_contains", {input, ArrayFromJSON(utf8(), R"(["a", "b"])")}),
+      Raises(StatusCode::NotImplemented));
   EXPECT_THAT(CallFunction("list_contains", {input, ScalarFromJSON(utf8(), R"("a")")}),
               Raises(StatusCode::NotImplemented));
   EXPECT_THAT(CallFunction("list_contains", {input, ScalarFromJSON(boolean(), "true")}),
