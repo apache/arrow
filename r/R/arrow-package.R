@@ -102,7 +102,8 @@ supported_dplyr_methods <- list(
   slice_sample = c(
     "slicing within groups not supported;",
     "`replace = TRUE` and the `weight_by` argument not supported;",
-    "`n` only supported on queries where `nrow()` is knowable without evaluating"
+    "`prop` returns approximately that proportion of rows;",
+    "results are not affected by `set.seed()`"
   ),
   glimpse = NULL,
   show_query = NULL,
