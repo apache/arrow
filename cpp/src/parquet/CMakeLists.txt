@@ -412,12 +412,18 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
 
-if(ARROW_WITH_OPENTELEMETRY AND NOT ARROW_USE_ASAN)
-  add_parquet_test(arrow-reader-writer-tracing-test
-                   SOURCES
-                   arrow/arrow_reader_writer_tracing_test.cc
-                   EXTRA_LINK_LIBS
-                   ${ARROW_OPENTELEMETRY_LIBS})
+if(ARROW_WITH_OPENTELEMETRY)
+  add_parquet_test(arrow-reader-writer-tracing-test SOURCES
+                   arrow/arrow_reader_writer_tracing_test.cc)
+  # Only add include directories and compile definitions for OpenTelemetry.
+  # Opentelemetry is already linked into libarrow. Linking it again duplicates
+  # globals and causes a double free at exit failing ASAN and TSAN.
+  target_include_directories(parquet-arrow-reader-writer-tracing-test SYSTEM
+                             PRIVATE $<TARGET_PROPERTY:opentelemetry-cpp::trace,INTERFACE_INCLUDE_DIRECTORIES>
+  )
+  target_compile_definitions(parquet-arrow-reader-writer-tracing-test
+                             PRIVATE $<TARGET_PROPERTY:opentelemetry-cpp::trace,INTERFACE_COMPILE_DEFINITIONS>
+  )
 endif()
 
 add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
