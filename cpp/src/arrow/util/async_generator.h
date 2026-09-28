@@ -1056,15 +1056,6 @@ class MergedGenerator {
                            int max_subscriptions)
       : state_(std::make_shared<State>(std::move(source), max_subscriptions)) {}
 
-  /// \brief Test-only hook, not part of the public API
-  ///
-  /// If set, it is called without holding the internal mutex, right after an error from
-  /// an inner or outer subscription has put the generator in its errored state, and
-  /// before that error is handed to a caller that was already waiting for it.  This lets
-  /// tests pull from the generator at that exact point.  Only set it while no
-  /// MergedGenerator<T> is in use.
-  static inline std::function<void()> error_signaled_hook_for_testing;
-
   Future<T> operator()() {
     // A caller has requested a future
     Future<T> waiting_future;
@@ -1158,6 +1149,14 @@ class MergedGenerator {
   }
 
  private:
+  friend class MergedGeneratorErrorHookTest;
+
+  // Test-only hook.  If set, it is called right after an error from an inner or outer
+  // subscription has put the generator in its errored state and the mutex has been
+  // released, so tests can pull from the generator at that exact point.  Only set it
+  // while no MergedGenerator<T> is in use.
+  static inline std::function<void()> error_signaled_hook_for_testing;
+
   struct DeliveredJob {
     explicit DeliveredJob(AsyncGenerator<T> deliverer_, Result<T> value_,
                           std::size_t index_)
@@ -1212,13 +1211,20 @@ class MergedGenerator {
       }
     }
 
-    // Must be called with the mutex held, when the first error arrives.
+    // Must be called with the mutex held, when the first error arrives, in the same
+    // locked section that sets `broken`.
     void SetFinalErrorUnlocked(const util::Mutex::Guard& guard, const Status& err,
-                               Future<T>* sink, bool* should_deliver_to_sink) {
-      if (sink->is_valid()) {
-        // Someone is waiting for this error, it will be delivered to them (outside
-        // the lock) once all outstanding work is done
-        *should_deliver_to_sink = true;
+                               Future<T> sink) {
+      if (sink.is_valid()) {
+        // Someone is waiting for this error, it will be delivered to them once all
+        // outstanding work is done.  The callback must be registered under the lock:
+        // a concurrent caller that sees `broken` registers its terminal continuation
+        // on `all_finished` too, and callbacks run in registration order, so this one
+        // must come first or the terminal item would overtake the error.
+        // The request that failed is still outstanding, so `all_finished` cannot be
+        // finished yet and the callback does not run here, under the lock.
+        all_finished.AddCallback(
+            [sink, err](const Status& status) mutable { sink.MarkFinished(err); });
       } else {
         // No one is waiting for this error right now so it will be delivered
         // next.  This must happen under the lock: a concurrent caller that sees
@@ -1226,13 +1232,6 @@ class MergedGenerator {
         // and the error would be silently dropped (GH-51495).
         final_error = err;
       }
-    }
-
-    // This is called outside the mutex but it is only ever called
-    // once and Future<>::AddCallback is thread-safe
-    void DeliverFinalError(const Status& err, Future<T> sink) {
-      all_finished.AddCallback(
-          [sink, err](const Status& status) mutable { sink.MarkFinished(err); });
     }
 
     bool IsCompleteUnlocked(const util::Mutex::Guard& guard) {
@@ -1311,7 +1310,6 @@ class MergedGenerator {
         bool pull_next_sub = false;
         bool was_broken = false;
         bool should_mark_gen_complete = false;
-        bool should_mark_final_error = false;
         bool signaled_error = false;
         {
           auto guard = state->mutex.Lock();
@@ -1336,8 +1334,7 @@ class MergedGenerator {
             if (!maybe_next->ok()) {
               signaled_error = true;
               state->SignalErrorUnlocked(guard);
-              state->SetFinalErrorUnlocked(guard, maybe_next->status(), &sink,
-                                           &should_mark_final_error);
+              state->SetFinalErrorUnlocked(guard, maybe_next->status(), std::move(sink));
             }
           }
 
@@ -1366,10 +1363,6 @@ class MergedGenerator {
         if (signaled_error) {
           RunErrorSignaledHookForTesting();
         }
-        if (should_mark_final_error) {
-          state->DeliverFinalError(maybe_next->status(), std::move(sink));
-        }
-
         if (should_mark_gen_complete) {
           state->MarkFinishedAndPurge();
         }
@@ -1419,7 +1412,6 @@ class MergedGenerator {
         // We have been given a new inner subscription
         bool should_continue = false;
         bool should_mark_gen_complete = false;
-        bool should_deliver_error = false;
         bool signaled_error = false;
         bool source_exhausted = maybe_next.ok() && IsIterationEnd(*maybe_next);
         Future<T> error_sink;
@@ -1435,8 +1427,8 @@ class MergedGenerator {
                 error_sink = std::move(*state->waiting_jobs.front());
                 state->waiting_jobs.pop_front();
               }
-              state->SetFinalErrorUnlocked(guard, maybe_next.status(), &error_sink,
-                                           &should_deliver_error);
+              state->SetFinalErrorUnlocked(guard, maybe_next.status(),
+                                           std::move(error_sink));
             }
             if (source_exhausted) {
               state->source_exhausted = true;
@@ -1452,9 +1444,6 @@ class MergedGenerator {
         }
         if (signaled_error) {
           RunErrorSignaledHookForTesting();
-        }
-        if (should_deliver_error) {
-          state->DeliverFinalError(maybe_next.status(), std::move(error_sink));
         }
         if (should_mark_gen_complete) {
           state->MarkFinishedAndPurge();
