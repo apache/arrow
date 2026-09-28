@@ -569,6 +569,7 @@ Structural Transforms
    fill_null
    fill_null_backward
    fill_null_forward
+   list_contains
    list_element
    list_flatten
    list_parent_indices

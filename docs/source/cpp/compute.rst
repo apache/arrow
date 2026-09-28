@@ -1924,6 +1924,8 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
 +=====================+============+=====================================+==================+==============================+========+
+| list_contains       | Binary     | List-like (Arg 0), Any (Arg 1)      | Boolean          |                              | \(7)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
@@ -1981,6 +1983,11 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
+
+* \(7) Output is true for each list containing a value equal to the second
+  argument, which must be a scalar. Unlike ``equal``, a null second argument
+  matches null list values and a NaN second argument matches NaN list values;
+  otherwise null list values never match. Null lists emit a null in the output.
 
 .. _cpp-compute-vector-replace-functions:
 
