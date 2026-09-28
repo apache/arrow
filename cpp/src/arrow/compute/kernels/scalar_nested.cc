@@ -30,6 +30,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
@@ -541,6 +542,9 @@ const FunctionDoc list_element_doc(
 
 bool IsNaN(const Scalar& value) {
   switch (value.type->id()) {
+    case Type::HALF_FLOAT:
+      return util::Float16::FromBits(checked_cast<const HalfFloatScalar&>(value).value)
+          .is_nan();
     case Type::FLOAT:
       return std::isnan(checked_cast<const FloatScalar&>(value).value);
     case Type::DOUBLE:

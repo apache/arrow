@@ -203,6 +203,15 @@ TEST(TestScalarNested, ListContainsNaN) {
       "list_contains",
       {ArrayFromJSON(list(int64()), "[[1], []]"), ScalarFromJSON(float64(), "NaN")},
       ArrayFromJSON(boolean(), "[false, false]"));
+
+  auto input =
+      ArrayFromJSON(list(float16()), "[[1.5, null], [NaN], [1.5, NaN], [], null]");
+  CheckScalar("list_contains", {input, ScalarFromJSON(float16(), "NaN")},
+              ArrayFromJSON(boolean(), "[false, true, true, false, null]"));
+  CheckScalar("list_contains",
+              {ArrayFromJSON(list(float32()), "[[1.5], [NaN]]"),
+               ScalarFromJSON(float16(), "NaN")},
+              ArrayFromJSON(boolean(), "[false, true]"));
 }
 
 TEST(TestScalarNested, ListContainsValueTypes) {
