@@ -57,6 +57,7 @@ if(ARROW_EXAMPLE_S3_STATIC_CHECK AND TARGET Arrow::arrow_static)
     message(FATAL_ERROR "ArrowS3::arrow_s3_static not found")
   endif()
   add_executable(arrow-example-s3-static example.cc)
-  target_compile_definitions(arrow-example-s3-static PRIVATE ARROW_EXAMPLE_S3_STATIC_CHECK)
+  target_compile_definitions(arrow-example-s3-static
+                             PRIVATE ARROW_EXAMPLE_S3_STATIC_CHECK)
   target_link_libraries(arrow-example-s3-static PRIVATE ArrowS3::arrow_s3_static)
 endif()
