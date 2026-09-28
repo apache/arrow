@@ -38,6 +38,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/util/bit_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pfor/pfor_wrapper_internal.h"
@@ -62,6 +63,13 @@ template <typename T>
 using GenT = std::vector<T> (*)(int64_t);
 using Gen32 = GenT<int32_t>;
 using Gen64 = GenT<int64_t>;
+
+// Payload used when a PFOR vector is placed in delta mode. Both layouts are
+// independently restarted at every 1024-value PFOR vector boundary.
+enum class PforDeltaLayout {
+  kPatchedDelta,
+  kDeltaBinaryPacked,
+};
 
 // Map the C++ value type to its Parquet physical type + descriptor type.
 template <typename T>
@@ -662,7 +670,8 @@ static std::shared_ptr<ColumnDescriptor> MakeDescriptor() {
 // PFOR Encode/Decode
 
 template <typename T>
-static void PforEncodeImpl(benchmark::State& state, GenT<T> gen) {
+static void PforEncodeImpl(benchmark::State& state, GenT<T> gen,
+                           const ::arrow::util::pfor::PforEncodeOptions& options = {}) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
   const int64_t uncompressed_size = num_values * sizeof(T);
@@ -675,12 +684,14 @@ static void PforEncodeImpl(benchmark::State& state, GenT<T> gen) {
   // Compute comp_size once for the counter
   int64_t comp_size = max_size;
   ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
-      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size));
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size,
+      options));
 
   for (auto _ : state) {
     int64_t sz = max_size;
     ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
-        values.data(), static_cast<int32_t>(num_values), compressed.data(), &sz));
+        values.data(), static_cast<int32_t>(num_values), compressed.data(), &sz,
+        options));
     benchmark::DoNotOptimize(sz);
     benchmark::ClobberMemory();
   }
@@ -696,9 +707,16 @@ static void BM_PforEncode(benchmark::State& state, Gen32 gen) {
 static void BM_Pfor64Encode(benchmark::State& state, Gen64 gen) {
   PforEncodeImpl<int64_t>(state, gen);
 }
+static void BM_PforRawEncode(benchmark::State& state, Gen32 gen) {
+  PforEncodeImpl<int32_t>(state, gen, {.delta_enabled = false, .force_delta = false});
+}
+static void BM_PforRaw64Encode(benchmark::State& state, Gen64 gen) {
+  PforEncodeImpl<int64_t>(state, gen, {.delta_enabled = false, .force_delta = false});
+}
 
 template <typename T>
-static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
+static void PforDecodeImpl(benchmark::State& state, GenT<T> gen,
+                           const ::arrow::util::pfor::PforEncodeOptions& options = {}) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
   const int64_t uncompressed_size = num_values * sizeof(T);
@@ -709,7 +727,8 @@ static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
   ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
-      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size));
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size,
+      options));
 
   std::vector<T> decoded(num_values);
   for (auto _ : state) {
@@ -729,6 +748,134 @@ static void BM_PforDecode(benchmark::State& state, Gen32 gen) {
 }
 static void BM_Pfor64Decode(benchmark::State& state, Gen64 gen) {
   PforDecodeImpl<int64_t>(state, gen);
+}
+
+// ----------------------------------------------------------------------
+// PFOR-DBPDelta Encode/Decode
+
+// Model the alternative wire layout directly: the outer PFOR page keeps its
+// seven-byte header and one four-byte offset per vector, while each vector body
+// is an independently decodable DELTA_BINARY_PACKED stream. Consequently DBP's
+// first value and block header restart at every PFOR vector boundary.
+template <typename T>
+static int64_t PforDbpOuterBytes(int64_t num_values) {
+  constexpr int64_t kVectorSize = ::arrow::util::pfor::PforConstants::kPforVectorSize;
+  const int64_t num_vectors = ::arrow::bit_util::CeilDiv(num_values, kVectorSize);
+  return ::arrow::util::pfor::PforConstants::kHeaderSize +
+         num_vectors * sizeof(::arrow::util::pfor::PforConstants::OffsetType);
+}
+
+template <typename T>
+static void PforDbpDeltaEncodeImpl(benchmark::State& state, GenT<T> gen) {
+  using PType = typename PqTraits<T>::PType;
+  constexpr int64_t kVectorSize = ::arrow::util::pfor::PforConstants::kPforVectorSize;
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(T);
+  auto encoder = MakeTypedEncoder<PType>(Encoding::DELTA_BINARY_PACKED);
+
+  int64_t comp_size = PforDbpOuterBytes<T>(num_values);
+  for (int64_t start = 0; start < num_values; start += kVectorSize) {
+    const int count = static_cast<int>(std::min(kVectorSize, num_values - start));
+    encoder->Put(values.data() + start, count);
+    comp_size += encoder->FlushValues()->size();
+  }
+
+  for (auto _ : state) {
+    int64_t encoded_bytes = PforDbpOuterBytes<T>(num_values);
+    for (int64_t start = 0; start < num_values; start += kVectorSize) {
+      const int count = static_cast<int>(std::min(kVectorSize, num_values - start));
+      encoder->Put(values.data() + start, count);
+      encoded_bytes += encoder->FlushValues()->size();
+    }
+    benchmark::DoNotOptimize(encoded_bytes);
+  }
+
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
+template <typename T>
+static void PforDbpDeltaDecodeImpl(benchmark::State& state, GenT<T> gen) {
+  using PType = typename PqTraits<T>::PType;
+  constexpr int64_t kVectorSize = ::arrow::util::pfor::PforConstants::kPforVectorSize;
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(T);
+
+  auto encoder = MakeTypedEncoder<PType>(Encoding::DELTA_BINARY_PACKED);
+  std::vector<std::shared_ptr<Buffer>> vectors;
+  int64_t comp_size = PforDbpOuterBytes<T>(num_values);
+  for (int64_t start = 0; start < num_values; start += kVectorSize) {
+    const int count = static_cast<int>(std::min(kVectorSize, num_values - start));
+    encoder->Put(values.data() + start, count);
+    vectors.push_back(encoder->FlushValues());
+    comp_size += vectors.back()->size();
+  }
+
+  auto decoder = MakeTypedDecoder<PType>(Encoding::DELTA_BINARY_PACKED);
+  std::vector<T> decoded(num_values);
+  for (auto _ : state) {
+    int64_t start = 0;
+    for (const auto& vector : vectors) {
+      const int count = static_cast<int>(std::min(kVectorSize, num_values - start));
+      decoder->SetData(count, vector->data(), static_cast<int>(vector->size()));
+      ARROW_CHECK_EQ(decoder->Decode(decoded.data() + start, count), count);
+      start += count;
+    }
+    benchmark::ClobberMemory();
+  }
+
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
+template <PforDeltaLayout Layout, typename T>
+static void PforDeltaLayoutEncodeImpl(benchmark::State& state, GenT<T> gen) {
+  if constexpr (Layout == PforDeltaLayout::kPatchedDelta) {
+    PforEncodeImpl<T>(state, gen, {.delta_enabled = true, .force_delta = true});
+  } else {
+    PforDbpDeltaEncodeImpl<T>(state, gen);
+  }
+}
+
+template <PforDeltaLayout Layout, typename T>
+static void PforDeltaLayoutDecodeImpl(benchmark::State& state, GenT<T> gen) {
+  if constexpr (Layout == PforDeltaLayout::kPatchedDelta) {
+    PforDecodeImpl<T>(state, gen, {.delta_enabled = true, .force_delta = true});
+  } else {
+    PforDbpDeltaDecodeImpl<T>(state, gen);
+  }
+}
+
+static void BM_PforPatchedDeltaEncode(benchmark::State& state, Gen32 gen) {
+  PforDeltaLayoutEncodeImpl<PforDeltaLayout::kPatchedDelta, int32_t>(state, gen);
+}
+static void BM_PforPatchedDelta64Encode(benchmark::State& state, Gen64 gen) {
+  PforDeltaLayoutEncodeImpl<PforDeltaLayout::kPatchedDelta, int64_t>(state, gen);
+}
+static void BM_PforPatchedDeltaDecode(benchmark::State& state, Gen32 gen) {
+  PforDeltaLayoutDecodeImpl<PforDeltaLayout::kPatchedDelta, int32_t>(state, gen);
+}
+static void BM_PforPatchedDelta64Decode(benchmark::State& state, Gen64 gen) {
+  PforDeltaLayoutDecodeImpl<PforDeltaLayout::kPatchedDelta, int64_t>(state, gen);
+}
+
+static void BM_PforDbpDeltaEncode(benchmark::State& state, Gen32 gen) {
+  PforDeltaLayoutEncodeImpl<PforDeltaLayout::kDeltaBinaryPacked, int32_t>(state, gen);
+}
+static void BM_PforDbpDelta64Encode(benchmark::State& state, Gen64 gen) {
+  PforDeltaLayoutEncodeImpl<PforDeltaLayout::kDeltaBinaryPacked, int64_t>(state, gen);
+}
+static void BM_PforDbpDeltaDecode(benchmark::State& state, Gen32 gen) {
+  PforDeltaLayoutDecodeImpl<PforDeltaLayout::kDeltaBinaryPacked, int32_t>(state, gen);
+}
+static void BM_PforDbpDelta64Decode(benchmark::State& state, Gen64 gen) {
+  PforDeltaLayoutDecodeImpl<PforDeltaLayout::kDeltaBinaryPacked, int64_t>(state, gen);
 }
 
 // ----------------------------------------------------------------------
@@ -1136,38 +1283,48 @@ static void BM_BssLz464Decode(benchmark::State& state, Gen64 gen) {
 static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 
 // Macro to register all algorithms for a given dataset
-#define REGISTER_DATASET(Name, GenFunc)                                        \
-  BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_PlainLz4Decode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_RleBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_RleBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_BssZstdEncode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);       \
+#define REGISTER_DATASET(Name, GenFunc)                                            \
+  BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_PforRawEncode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_PforPatchedDeltaEncode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PforPatchedDeltaDecode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PforDbpDeltaEncode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PforDbpDeltaDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_PlainLz4Decode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_RleBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_RleBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_BssZstdEncode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);           \
   BENCHMARK_CAPTURE(BM_BssLz4Decode, Name, &GenFunc)->Apply(CustomArgs);
 
 // Same as REGISTER_DATASET but for int64 (BIGINT) columns; benchmark names get
 // the "64" codec suffix (e.g. BM_Pfor64Encode) to distinguish them.
-#define REGISTER_DATASET64(Name, GenFunc)                                        \
-  BENCHMARK_CAPTURE(BM_Pfor64Encode, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_Pfor64Decode, Name, &GenFunc)->Apply(CustomArgs);         \
-  BENCHMARK_CAPTURE(BM_DeltaBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_DeltaBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs); \
-  BENCHMARK_CAPTURE(BM_PlainZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_PlainLz464Encode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_PlainLz464Decode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_RleBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_RleBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_BssZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_BssZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_BssLz464Encode, Name, &GenFunc)->Apply(CustomArgs);       \
+#define REGISTER_DATASET64(Name, GenFunc)                                            \
+  BENCHMARK_CAPTURE(BM_Pfor64Encode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_Pfor64Decode, Name, &GenFunc)->Apply(CustomArgs);             \
+  BENCHMARK_CAPTURE(BM_PforRaw64Encode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_PforPatchedDelta64Encode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PforPatchedDelta64Decode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PforDbpDelta64Encode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PforDbpDelta64Decode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_DeltaBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_DeltaBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PlainZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_PlainZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_PlainLz464Encode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_PlainLz464Decode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_RleBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_RleBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_BssZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_BssZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_BssLz464Encode, Name, &GenFunc)->Apply(CustomArgs);           \
   BENCHMARK_CAPTURE(BM_BssLz464Decode, Name, &GenFunc)->Apply(CustomArgs);
 
 // ClickBench datasets

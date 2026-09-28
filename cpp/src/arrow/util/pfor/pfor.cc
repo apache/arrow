@@ -99,8 +99,8 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
     scratch = heap_scratch.data();
   }
 
-  const PforVectorPlan<T> plan =
-      ChooseVectorPlan<T>(values, num_elements, scratch, options.delta_enabled);
+  const PforVectorPlan<T> plan = ChooseVectorPlan<T>(
+      values, num_elements, scratch, options.delta_enabled, options.force_delta);
   const T* source = plan.delta ? scratch : values;
 
   PforEncodedVector<T> result;
