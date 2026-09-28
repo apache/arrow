@@ -16,7 +16,7 @@
 // under the License.
 
 #include <arrow/csv/api.h>
-#ifdef ARROW_EXAMPLE_S3
+#ifdef ARROW_EXAMPLE_S3_STATIC_CHECK
 #  include <arrow/filesystem/s3fs.h>
 #endif
 #include <arrow/io/api.h>
@@ -57,7 +57,7 @@ Status RunMain(int argc, char** argv) {
   ARROW_RETURN_NOT_OK(batch_writer->WriteTable(*table));
   ARROW_RETURN_NOT_OK(batch_writer->Close());
 
-#ifdef ARROW_EXAMPLE_S3
+#ifdef ARROW_EXAMPLE_S3_STATIC_CHECK
   std::cerr << "* Verify S3 initializes and finalizes" << std::endl;
   ARROW_RETURN_NOT_OK(arrow::fs::EnsureS3Initialized());
   ARROW_RETURN_NOT_OK(arrow::fs::EnsureS3Finalized());
