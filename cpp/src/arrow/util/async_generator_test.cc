@@ -18,12 +18,15 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <random>
+#include <string>
 #include <thread>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "arrow/io/slow.h"
 #include "arrow/testing/async_test_util.h"
@@ -790,6 +793,352 @@ TEST_P(MergedGeneratorTestFixture, DeepOuterGeneratorStackOverflow) {
 
 INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
+
+// GH-51495: when an inner or outer subscription fails while no caller is waiting, the
+// error must be visible to the next pull as soon as the generator is in its errored
+// state.  Previously the error was stored only after the internal mutex had been
+// released, so a pull landing in between got a plain end-of-stream and the error was
+// lost.  The test hook runs exactly in that window, which makes these tests
+// deterministic.
+class MergedGeneratorErrorHookTest : public ::testing::Test {
+ protected:
+  void TearDown() override {
+    MergedGenerator<TestInt>::error_signaled_hook_for_testing = nullptr;
+  }
+
+  // Pull from `merged` once, from inside the hook
+  void PullFromErrorHook(AsyncGenerator<TestInt>* merged, Future<TestInt>* pulled) {
+    MergedGenerator<TestInt>::error_signaled_hook_for_testing = [merged, pulled]() {
+      if (!pulled->is_valid()) {
+        *pulled = (*merged)();
+      }
+    };
+  }
+
+  // Fails a pending item by calling `fail` on another thread, and pulls again while
+  // `gen` is completing `*earlier`: `earlier`'s internal mutex is held meanwhile, so
+  // completing it blocks, and the later pull is made once `gen` has started completing
+  // its remaining futures.  If `pull_earlier_in_hook`, `*earlier` is pulled from the
+  // error hook, i.e. it is the caller that claims an error nobody was waiting for.
+  // Returns true if the later pull completed while `*earlier` was still pending.
+  bool LaterPullCompletesFirst(const MergedGenerator<TestInt>& gen,
+                               AsyncGenerator<TestInt>* merged, Future<TestInt>* earlier,
+                               std::function<void()> fail, bool pull_earlier_in_hook,
+                               Future<TestInt>* later) {
+    std::atomic<bool> signaled{false};
+    std::atomic<bool> holding{false};
+    MergedGenerator<TestInt>::error_signaled_hook_for_testing = [&]() {
+      if (pull_earlier_in_hook) {
+        *earlier = (*merged)();
+      }
+      signaled = true;
+      while (!holding) {
+        std::this_thread::yield();
+      }
+    };
+    std::thread failer(std::move(fail));
+    while (!signaled) {
+      std::this_thread::yield();
+    }
+    bool later_completed_first = false;
+    bool held = earlier->TryAddCallback([&]() {
+      holding = true;
+      // Relies on TryAddCallback running this factory under `earlier`'s internal mutex
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+      while (!IsFinishing(gen)) {
+        if (std::chrono::steady_clock::now() > deadline) {
+          ADD_FAILURE() << "generator never started completing its futures";
+          break;
+        }
+        std::this_thread::yield();
+      }
+      *later = (*merged)();
+      later_completed_first = later->is_finished();
+      return [](const Result<TestInt>&) {};
+    });
+    if (!held) {
+      holding = true;
+    }
+    failer.join();
+    EXPECT_TRUE(held) << "earlier future completed before the later pull";
+    return later_completed_first;
+  }
+
+  static bool IsFinishing(const MergedGenerator<TestInt>& gen) {
+    auto guard = gen.state_->mutex.Lock();
+    return gen.state_->finishing;
+  }
+
+  // Like PullFromErrorHook, but also records "terminal" in `order` when the pulled
+  // future completes
+  void PullFromErrorHookAndRecord(AsyncGenerator<TestInt>* merged,
+                                  Future<TestInt>* pulled,
+                                  std::vector<std::string>* order) {
+    MergedGenerator<TestInt>::error_signaled_hook_for_testing = [=]() {
+      if (!pulled->is_valid()) {
+        *pulled = (*merged)();
+        pulled->AddCallback(
+            [order](const Result<TestInt>&) { order->push_back("terminal"); });
+      }
+    };
+  }
+};
+
+TEST_F(MergedGeneratorErrorHookTest, InnerErrorNotLostToConcurrentPull) {
+  auto failing = Future<TestInt>::Make();
+  AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
+  std::vector<AsyncGenerator<TestInt>> subs = {MakeVectorGenerator<TestInt>({TestInt(1)}),
+                                               failing_sub};
+  auto merged = MakeMergedGenerator(MakeVectorGenerator(std::move(subs)), 1);
+  // Delivers 1 and then subscribes to failing_sub, whose first item is pending.  Now
+  // there is one outstanding request and nobody waiting.
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), merged());
+
+  Future<TestInt> pulled;
+  PullFromErrorHook(&merged, &pulled);
+  failing.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_TRUE(pulled.is_valid());
+  ASSERT_FINISHES_AND_RAISES(Invalid, pulled);
+  AssertGeneratorExhausted(merged);
+}
+
+TEST_F(MergedGeneratorErrorHookTest, OuterErrorNotLostToConcurrentPull) {
+  auto failing = Future<AsyncGenerator<TestInt>>::Make();
+  int num_pulls = 0;
+  AsyncGenerator<AsyncGenerator<TestInt>> source =
+      [&]() -> Future<AsyncGenerator<TestInt>> {
+    if (num_pulls++ == 0) {
+      return Future<AsyncGenerator<TestInt>>::MakeFinished(
+          MakeVectorGenerator<TestInt>({TestInt(1)}));
+    }
+    return failing;
+  };
+  auto merged = MakeMergedGenerator(std::move(source), 1);
+  // Delivers 1 and then pulls the next subscription from the source, which is pending.
+  // Now there is one outstanding request and nobody waiting.
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), merged());
+
+  Future<TestInt> pulled;
+  PullFromErrorHook(&merged, &pulled);
+  failing.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_TRUE(pulled.is_valid());
+  ASSERT_FINISHES_AND_RAISES(Invalid, pulled);
+  AssertGeneratorExhausted(merged);
+}
+
+// When a caller is already waiting for the item that fails, it must receive the error
+// before any later pull receives its end-of-stream: the error callback has to be
+// registered in the same locked transition that marks the generator errored, or a
+// pull landing in between registers its terminal continuation first and overtakes it.
+TEST_F(MergedGeneratorErrorHookTest, InnerErrorToWaiterNotOvertakenByLaterPull) {
+  auto failing = Future<TestInt>::Make();
+  AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
+  std::vector<AsyncGenerator<TestInt>> subs = {failing_sub};
+  auto merged = MakeMergedGenerator(MakeVectorGenerator(std::move(subs)), 1);
+  std::vector<std::string> order;
+  // Subscribes to failing_sub, whose first item is pending, so this caller waits
+  Future<TestInt> waiting = merged();
+  waiting.AddCallback([&order](const Result<TestInt>&) { order.push_back("error"); });
+
+  Future<TestInt> pulled;
+  PullFromErrorHookAndRecord(&merged, &pulled, &order);
+  failing.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_TRUE(pulled.is_valid());
+  ASSERT_FINISHES_AND_RAISES(Invalid, waiting);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto terminal, pulled);
+  ASSERT_TRUE(IsIterationEnd(terminal));
+  ASSERT_EQ(order, (std::vector<std::string>{"error", "terminal"}));
+}
+
+TEST_F(MergedGeneratorErrorHookTest, OuterErrorToWaiterNotOvertakenByLaterPull) {
+  auto failing = Future<AsyncGenerator<TestInt>>::Make();
+  AsyncGenerator<AsyncGenerator<TestInt>> source = [failing]() { return failing; };
+  auto merged = MakeMergedGenerator(std::move(source), 1);
+  std::vector<std::string> order;
+  // Pulls the first subscription from the source, which is pending, so this caller
+  // waits
+  Future<TestInt> waiting = merged();
+  waiting.AddCallback([&order](const Result<TestInt>&) { order.push_back("error"); });
+
+  Future<TestInt> pulled;
+  PullFromErrorHookAndRecord(&merged, &pulled, &order);
+  failing.MarkFinished(Status::Invalid("XYZ"));
+  ASSERT_TRUE(pulled.is_valid());
+  ASSERT_FINISHES_AND_RAISES(Invalid, waiting);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto terminal, pulled);
+  ASSERT_TRUE(IsIterationEnd(terminal));
+  ASSERT_EQ(order, (std::vector<std::string>{"error", "terminal"}));
+}
+
+// Callbacks on a Future do not run in a guaranteed order: one added while the future is
+// being marked finished may run immediately.  So a terminal item must not merely be
+// registered after the error, it must not be able to complete before the future that
+// receives the error has completed, even when it is requested while the generator is
+// already completing.
+TEST_F(MergedGeneratorErrorHookTest, InnerErrorToWaiterNotOvertakenDuringCompletion) {
+  auto failing = Future<TestInt>::Make();
+  AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
+  std::vector<AsyncGenerator<TestInt>> subs = {failing_sub};
+  MergedGenerator<TestInt> gen(MakeVectorGenerator(std::move(subs)), 1);
+  AsyncGenerator<TestInt> merged = gen;
+  Future<TestInt> waiting = merged();
+
+  Future<TestInt> later;
+  ASSERT_FALSE(LaterPullCompletesFirst(
+      gen, &merged, &waiting,
+      [failing]() mutable { failing.MarkFinished(Status::Invalid("XYZ")); },
+      /*pull_earlier_in_hook=*/false, &later));
+  ASSERT_FINISHES_AND_RAISES(Invalid, waiting);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto terminal, later);
+  ASSERT_TRUE(IsIterationEnd(terminal));
+}
+
+TEST_F(MergedGeneratorErrorHookTest, OuterErrorToWaiterNotOvertakenDuringCompletion) {
+  auto failing = Future<AsyncGenerator<TestInt>>::Make();
+  AsyncGenerator<AsyncGenerator<TestInt>> source = [failing]() { return failing; };
+  MergedGenerator<TestInt> gen(std::move(source), 1);
+  AsyncGenerator<TestInt> merged = gen;
+  Future<TestInt> waiting = merged();
+
+  Future<TestInt> later;
+  ASSERT_FALSE(LaterPullCompletesFirst(
+      gen, &merged, &waiting,
+      [failing]() mutable { failing.MarkFinished(Status::Invalid("XYZ")); },
+      /*pull_earlier_in_hook=*/false, &later));
+  ASSERT_FINISHES_AND_RAISES(Invalid, waiting);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto terminal, later);
+  ASSERT_TRUE(IsIterationEnd(terminal));
+}
+
+TEST_F(MergedGeneratorErrorHookTest, ClaimedErrorNotOvertakenDuringCompletion) {
+  auto failing = Future<TestInt>::Make();
+  AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
+  std::vector<AsyncGenerator<TestInt>> subs = {MakeVectorGenerator<TestInt>({TestInt(1)}),
+                                               failing_sub};
+  MergedGenerator<TestInt> gen(MakeVectorGenerator(std::move(subs)), 1);
+  AsyncGenerator<TestInt> merged = gen;
+  // Delivers 1 and then subscribes to failing_sub, whose first item is pending.  Now
+  // there is one outstanding request and nobody waiting, so the error goes to the
+  // next pull, made from the hook.
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), merged());
+
+  Future<TestInt> claimed;
+  Future<TestInt> later;
+  ASSERT_FALSE(LaterPullCompletesFirst(
+      gen, &merged, &claimed,
+      [failing]() mutable { failing.MarkFinished(Status::Invalid("XYZ")); },
+      /*pull_earlier_in_hook=*/true, &later));
+  ASSERT_FINISHES_AND_RAISES(Invalid, claimed);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto terminal, later);
+  ASSERT_TRUE(IsIterationEnd(terminal));
+}
+
+// A caller that asks from the callbacks of the last pending future gets its terminal item
+// at once, so it may block on it.
+TEST(MergedGeneratorTest, PullFromLastFutureCallbackCompletesAtOnce) {
+  for (bool fail : {false, true}) {
+    ARROW_SCOPED_TRACE("fail = ", fail);
+    auto pending = Future<TestInt>::Make();
+    AsyncGenerator<TestInt> sub = [pending]() { return pending; };
+    std::vector<AsyncGenerator<TestInt>> subs = {sub};
+    auto merged = MakeMergedGenerator(MakeVectorGenerator(std::move(subs)), 1);
+    Future<TestInt> waiting = merged();
+    Future<TestInt> pulled;
+    waiting.AddCallback([&](const Result<TestInt>&) { pulled = merged(); });
+    if (fail) {
+      pending.MarkFinished(Status::Invalid("XYZ"));
+      ASSERT_FINISHES_AND_RAISES(Invalid, waiting);
+    } else {
+      pending.MarkFinished(IterationEnd<TestInt>());
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto end, waiting);
+      ASSERT_TRUE(IsIterationEnd(end));
+    }
+    ASSERT_TRUE(pulled.is_valid());
+    ASSERT_TRUE(pulled.is_finished());
+    ASSERT_OK_AND_ASSIGN(auto terminal, pulled.result());
+    ASSERT_TRUE(IsIterationEnd(terminal));
+  }
+}
+
+// Stress test of the AsyncGenerator contract with inner items and errors arriving on
+// other threads: a terminal item (an error or the end of the stream) must not complete
+// while any future returned before it is still pending, and an error must never be
+// lost.
+TEST(MergedGeneratorStressTest, TerminalNeverOvertakesEarlierFutures) {
+  constexpr int kIterations = 300;
+  constexpr int kNumSubs = 6;
+  constexpr int kItemsPerSub = 4;
+  constexpr int kNumPulls = kNumSubs * kItemsPerSub + 8;
+  auto pool = internal::GetCpuThreadPool();
+  for (int iter = 0; iter < kIterations; iter++) {
+    const bool outer_fails = iter % 3 == 0;
+    std::vector<AsyncGenerator<TestInt>> subs;
+    for (int i = 0; i < kNumSubs; i++) {
+      auto sub = NewBackgroundAsyncVectorIt({1, 2, 3, 4}, /*sleep=*/false);
+      if (!outer_fails && i == iter % kNumSubs) {
+        sub = MakeTransferredGenerator(util::FailAt(std::move(sub), iter % kItemsPerSub),
+                                       pool);
+      }
+      subs.push_back(std::move(sub));
+    }
+    AsyncGenerator<AsyncGenerator<TestInt>> source = MakeVectorGenerator(std::move(subs));
+    if (outer_fails) {
+      source =
+          MakeTransferredGenerator(util::FailAt(std::move(source), 1 + iter % 4), pool);
+    }
+    auto merged = MakeMergedGenerator(std::move(source), 3);
+
+    // Shared with the callbacks, which may still be running after the futures are
+    // marked finished
+    struct Shared {
+      std::mutex mutex;
+      std::vector<Future<TestInt>> futures;
+      int overtaken = 0;
+      int callbacks_run = 0;
+    };
+    auto shared = std::make_shared<Shared>();
+    for (int i = 0; i < kNumPulls; i++) {
+      Future<TestInt> fut = merged();
+      {
+        std::lock_guard<std::mutex> lock(shared->mutex);
+        shared->futures.push_back(fut);
+      }
+      fut.AddCallback([shared, i](const Result<TestInt>& result) {
+        std::lock_guard<std::mutex> lock(shared->mutex);
+        shared->callbacks_run++;
+        if (result.ok() && !IsIterationEnd(*result)) {
+          return;
+        }
+        for (int j = 0; j < i; j++) {
+          if (!shared->futures[j].is_finished()) {
+            shared->overtaken++;
+          }
+        }
+      });
+    }
+    std::vector<Future<TestInt>> futures;
+    {
+      std::lock_guard<std::mutex> lock(shared->mutex);
+      futures = shared->futures;
+    }
+    int num_errors = 0;
+    for (const auto& fut : futures) {
+      ASSERT_TRUE(fut.Wait(kDefaultAssertFinishesWaitSeconds));
+      if (!fut.status().ok()) {
+        ASSERT_TRUE(fut.status().IsInvalid()) << fut.status();
+        num_errors++;
+      }
+    }
+    BusyWait(kDefaultAssertFinishesWaitSeconds, [&]() {
+      std::lock_guard<std::mutex> lock(shared->mutex);
+      return shared->callbacks_run == kNumPulls;
+    });
+    std::lock_guard<std::mutex> lock(shared->mutex);
+    ASSERT_EQ(shared->callbacks_run, kNumPulls) << "iteration " << iter;
+    ASSERT_EQ(shared->overtaken, 0) << "iteration " << iter;
+    ASSERT_EQ(num_errors, 1) << "iteration " << iter;
+  }
+}
 
 class AutoStartingGeneratorTestFixture : public GeneratorTestFixture {};
 
