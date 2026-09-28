@@ -34,7 +34,7 @@ class PARQUET_EXPORT ColumnIndex {
   /// \brief Create a ColumnIndex from a serialized thrift message.
   static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
                                            const void* serialized_index,
-                                           uint32_t index_len,
+                                           int64_t index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor = NULLPTR);
 
@@ -132,7 +132,7 @@ class PARQUET_EXPORT OffsetIndex {
  public:
   /// \brief Create a OffsetIndex from a serialized thrift message.
   static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
-                                           uint32_t index_len,
+                                           int64_t index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor = NULLPTR);
 

@@ -19,7 +19,19 @@
 
 # arrow 25.0.1.9000
 
+## Minor improvements and fixes
+
+- Factor levels inside list columns are now unified across the whole column
+  when converting to R, so data read in multiple batches (e.g. via
+  `read_ipc_stream()` or `open_dataset()`) produces valid factors that can be
+  unnested. Similarly, `int64` and `uint32` values inside list columns are
+  converted to a single R type across the column (#50514).
+
 # arrow 25.0.1
+
+## Minor improvements and fixes
+
+- Improved mimalloc memory allocator configuration on macOS (#50428).
 
 # arrow 25.0.0
 

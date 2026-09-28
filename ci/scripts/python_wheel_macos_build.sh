@@ -48,9 +48,15 @@ else
   exit 1
 fi
 
+wheel_build_binary_flag="--only-binary=:all:"
+if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 15) else 1)"; then
+  # TODO: 3.15 workaround due to pyyaml (via libcst). Remove once pyyaml ships 3.15 wheels.
+  wheel_build_binary_flag=""
+fi
+
 pip install \
   --force-reinstall \
-  --only-binary=:all: \
+  ${wheel_build_binary_flag} \
   --upgrade \
   -r "${source_dir}/python/requirements-wheel-build.txt"
 pip install "delocate>=0.10.3"

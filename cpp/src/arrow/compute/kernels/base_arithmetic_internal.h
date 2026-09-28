@@ -759,7 +759,14 @@ template <>
 struct Identity<Max> {
   template <typename Value>
   static constexpr Value value() {
-    return std::numeric_limits<Value>::min();
+    // Note that `min()` returns the smallest positive value for
+    // floating-point types, and `lowest()` doesn't satisfy the identity
+    // property for -inf inputs, so use -infinity for those types.
+    if constexpr (std::is_floating_point_v<Value> || std::is_same_v<Float16, Value>) {
+      return -std::numeric_limits<Value>::infinity();
+    } else {
+      return std::numeric_limits<Value>::lowest();
+    }
   }
 };
 
@@ -767,7 +774,12 @@ template <>
 struct Identity<Min> {
   template <typename Value>
   static constexpr Value value() {
-    return std::numeric_limits<Value>::max();
+    // Mirror of Identity<Max>: use +infinity for floating-point types.
+    if constexpr (std::is_floating_point_v<Value> || std::is_same_v<Float16, Value>) {
+      return std::numeric_limits<Value>::infinity();
+    } else {
+      return std::numeric_limits<Value>::max();
+    }
   }
 };
 

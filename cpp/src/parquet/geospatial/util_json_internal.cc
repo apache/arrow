@@ -20,7 +20,6 @@
 #include <string>
 
 #include "arrow/extension_type.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/simdjson_internal.h"
 #include "arrow/util/string.h"
@@ -185,7 +184,7 @@ namespace {
 }
 
 ::arrow::Result<std::string> EscapeJsonString(std::string_view value) {
-  ::arrow::json::JsonWriter writer;
+  ::arrow::internal::JsonWriter writer;
   writer.String(value);
 
   ARROW_ASSIGN_OR_RAISE(auto escaped, writer.GetString());

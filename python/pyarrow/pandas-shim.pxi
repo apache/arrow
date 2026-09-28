@@ -35,10 +35,8 @@ cdef class _PandasAPIShim(object):
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array, _extension_dtype
-        object _array_like_types, _is_extension_array_dtype, _lock
-        bint has_sparse
-        bint _pd024
-        bint _is_ge_v21, _is_ge_v23, _is_ge_v3, _is_ge_v3_strict
+        object _array_like_types, _lock
+        bint _is_ge_v23, _is_ge_v3, _is_ge_v3_strict
 
     def __init__(self):
         self._lock = Lock()
@@ -62,23 +60,22 @@ cdef class _PandasAPIShim(object):
         self._version = pd.__version__
         self._loose_version = Version(pd.__version__)
 
-        if self._loose_version < Version('2.0.3'):
+        if self._loose_version < Version('2.2.2'):
             self._have_pandas = False
             if raise_:
                 raise ImportError(
-                    f"pyarrow requires pandas 2.0.3 or above, pandas {self._version} is "
+                    f"pyarrow requires pandas 2.2.2 or above, pandas {self._version} is "
                     "installed"
                 )
             else:
                 warnings.warn(
-                    f"pyarrow requires pandas 2.0.3 or above, pandas {self._version} is "
+                    f"pyarrow requires pandas 2.2.2 or above, pandas {self._version} is "
                     "installed. Therefore, pandas-specific integration is not "
                     "used.",
                     stacklevel=2
                 )
                 return
 
-        self._is_ge_v21 = self._loose_version >= Version('2.1.0')
         self._is_ge_v23 = self._loose_version >= Version('2.3.0.dev0')
         self._is_ge_v3 = self._loose_version >= Version('3.0.0.dev0')
         self._is_ge_v3_strict = self._loose_version >= Version('3.0.0')
@@ -93,12 +90,9 @@ cdef class _PandasAPIShim(object):
             self._series, self._index, self._categorical_type,
             self._extension_array)
         self._extension_dtype = pd.api.extensions.ExtensionDtype
-        self._is_extension_array_dtype = (
-            pd.api.types.is_extension_array_dtype)
         self._types_api = pd.api.types
         self._datetimetz_type = pd.api.types.DatetimeTZDtype
         self._have_pandas = True
-        self.has_sparse = False
 
     cdef inline _check_import(self, bint raise_=True):
         if not self._tried_importing_pandas:
@@ -142,17 +136,11 @@ cdef class _PandasAPIShim(object):
 
     cpdef infer_dtype(self, obj):
         self._check_import()
-        try:
-            return self._types_api.infer_dtype(obj, skipna=False)
-        except AttributeError:
-            return self._pd.lib.infer_dtype(obj)
+        return self._types_api.infer_dtype(obj, skipna=False)
 
     cpdef pandas_dtype(self, dtype):
         self._check_import()
-        try:
-            return self._types_api.pandas_dtype(dtype)
-        except AttributeError:
-            return None
+        return self._types_api.pandas_dtype(dtype)
 
     @property
     def loose_version(self):
@@ -163,10 +151,6 @@ cdef class _PandasAPIShim(object):
     def version(self):
         self._check_import()
         return self._version
-
-    def is_ge_v21(self):
-        self._check_import()
-        return self._is_ge_v21
 
     def is_ge_v23(self):
         self._check_import()
@@ -183,12 +167,7 @@ cdef class _PandasAPIShim(object):
     def uses_string_dtype(self):
         if self.is_ge_v3_strict():
             return True
-        try:
-            if self.is_ge_v23() and self.pd.options.future.infer_string:
-                return True
-        except:
-            pass
-        return False
+        return self.is_ge_v23() and self.pd.options.future.infer_string
 
     @property
     def categorical_type(self):
@@ -223,10 +202,7 @@ cdef class _PandasAPIShim(object):
 
     cpdef is_extension_array_dtype(self, obj):
         self._check_import()
-        if self._is_extension_array_dtype:
-            return self._is_extension_array_dtype(obj)
-        else:
-            return False
+        return self._types_api.is_extension_array_dtype(obj)
 
     cpdef is_sparse(self, obj):
         if self._have_pandas_internal():
@@ -264,14 +240,6 @@ cdef class _PandasAPIShim(object):
                                   self.pd.api.types.PeriodDtype)):
             return obj.array
         return obj.values
-
-    def get_rangeindex_attribute(self, level, name):
-        # public start/stop/step attributes added in pandas 0.25.0
-        self._check_import()
-        if hasattr(level, name):
-            return getattr(level, name)
-        return getattr(level, '_' + name)
-
 
 cdef _PandasAPIShim pandas_api = _PandasAPIShim()
 _pandas_api = pandas_api

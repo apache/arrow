@@ -168,7 +168,6 @@ There are several kinds of :class:`~pyarrow.NativeFile` options available:
   Buffer at the end
 * :class:`~pyarrow.FixedSizeBufferWriter`, for writing data into an already
   allocated Buffer
-* :class:`~pyarrow.HdfsFile`, for reading and writing data to the Hadoop Filesystem
 * :class:`~pyarrow.PythonFile`, for interfacing with Python file objects in C++
 * :class:`~pyarrow.CompressedInputStream` and
   :class:`~pyarrow.CompressedOutputStream`, for on-the-fly compression or

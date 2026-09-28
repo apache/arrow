@@ -91,6 +91,7 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
+  FRIEND_TEST(TestLLVMGenerator, TestBoolCallAttrs);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
   friend class TestLLVMGenerator;
 

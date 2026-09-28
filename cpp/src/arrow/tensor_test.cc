@@ -235,7 +235,7 @@ TEST(TestTensor, MakeFailureCases) {
   ASSERT_RAISES(Invalid, Tensor::Make(nullptr, data, shape));
 
   // invalid type
-  ASSERT_RAISES(Invalid, Tensor::Make(binary(), data, shape));
+  ASSERT_RAISES(TypeError, Tensor::Make(binary(), data, shape));
 
   // null data
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), nullptr, shape));

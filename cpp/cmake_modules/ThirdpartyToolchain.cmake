@@ -383,7 +383,6 @@ if(ARROW_WITH_OPENTELEMETRY)
 endif()
 
 if(ARROW_PARQUET)
-  set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
@@ -411,11 +410,11 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
+if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
-if(ARROW_JSON)
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_SIMDJSON ON)
 endif()
 
@@ -1236,6 +1235,12 @@ endif()
 # https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
 # 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.92.0"
+    "1.92"
+    "1.91.0"
+    "1.91"
+    "1.90.0"
+    "1.90"
     "1.89.0"
     "1.89"
     "1.88.0"
@@ -1404,10 +1409,13 @@ endif()
 # ----------------------------------------------------------------------
 # cURL
 
-macro(find_curl)
+macro(find_curl ARROW_CURL_PACKAGE_PREFIX)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
+  endif()
+  # CURL might be needed for Arrow (GCS, OpenTelemetry) or ArrowS3
+  if(NOT "CURL" IN_LIST ${ARROW_CURL_PACKAGE_PREFIX}_SYSTEM_DEPENDENCIES)
+    list(APPEND ${ARROW_CURL_PACKAGE_PREFIX}_SYSTEM_DEPENDENCIES CURL)
   endif()
 endmacro()
 
@@ -2829,6 +2837,11 @@ function(build_simdjson)
 
   prepare_fetchcontent()
 
+  # simdjson enables precompiled headers unconditionally.
+  # Recompiling simdjson.cpp against it produces differing artifacts
+  # Disable precompiled headers to avoid reproducible build failures.
+  set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+
   fetchcontent_makeavailable(simdjson)
 
   target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
@@ -2853,7 +2866,7 @@ function(build_simdjson)
 endfunction()
 
 if(ARROW_WITH_SIMDJSON)
-  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.0.0")
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.3.0")
   resolve_dependency(simdjson
                      FORCE_ANY_NEWER_VERSION
                      TRUE
@@ -3646,7 +3659,7 @@ if(ARROW_WITH_OPENTELEMETRY)
 
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
-  find_curl()
+  find_curl(ARROW)
   resolve_dependency(opentelemetry-cpp
                      COMPONENTS
                      exporters_ostream
@@ -3785,7 +3798,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
 
   # curl is required on all platforms. We always use system curl to
   # avoid conflict.
-  find_curl()
+  find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4234,11 +4247,14 @@ endfunction()
 
 if(ARROW_S3)
   if(NOT WIN32)
-    # This is for adding system curl dependency.
-    find_curl()
+    find_curl(ARROW_S3)
   endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowS3
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-s3
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
@@ -4250,15 +4266,15 @@ if(ARROW_S3)
   if(ARROW_BUILD_STATIC)
     if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
-        string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
     else()
       if(UNIX)
-        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+        string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " libcurl")
       endif()
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " openssl")
       if(APPLE)
-        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " -framework Security")
       endif()
     endif()
   endif()

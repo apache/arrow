@@ -222,6 +222,12 @@ utility_test_srcs = [
     'value_parsing_test.cc',
 ]
 
+utility_test_deps = [arrow_test_dep_no_main]
+if needs_simdjson
+    utility_test_srcs += ['simdjson_internal_test.cc']
+    utility_test_deps += [simdjson_dep]
+endif
+
 if host_machine.system() == 'windows'
     # This manifest enables long file paths on Windows 10+
     # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
@@ -235,7 +241,7 @@ endif
 exc = executable(
     'arrow-utility-test',
     sources: utility_test_srcs,
-    dependencies: arrow_test_dep_no_main,
+    dependencies: utility_test_deps,
     implicit_include_directories: false,
 )
 test('arrow-utility-test', exc)

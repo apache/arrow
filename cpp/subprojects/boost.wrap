@@ -16,10 +16,10 @@
 # under the License.
 
 [wrap-file]
-source_url = https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz
-source_filename = boost-1.87.0-cmake.tar.gz
-source_hash = 78fbf579e3caf0f47517d3fb4d9301852c3154bfecdc5eeebd9b2b0292366f5b
-directory = boost-1.87.0
+source_url = https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-cmake.tar.gz
+source_filename = boost-1.92.0-cmake.tar.gz
+source_hash = f51707c27359a0df0cac1beada86de31bb5eed5e8285592dadec384df99c2984
+directory = boost-1.92.0
 method = cmake
 
 [provide]

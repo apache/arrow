@@ -725,9 +725,7 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
         return Status::Invalid("Invalid BYTE_ARRAY length for ", type->ToString());
       }
 
-      auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
-      out_ptr_view[0] = 0;
-      out_ptr_view[1] = 0;
+      std::memset(out_ptr, 0, type_length);
 
       // only convert rows that are not null if there are nulls, or
       // all rows, if there are not

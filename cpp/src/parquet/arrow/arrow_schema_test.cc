@@ -1902,8 +1902,10 @@ class TestConvertRoundTrip : public ::testing::Test {
         ::parquet::default_writer_properties();
     RETURN_NOT_OK(ToParquetSchema(arrow_schema_.get(), *properties.get(),
                                   *arrow_properties, &parquet_schema_));
-    ::parquet::schema::ToParquet(parquet_schema_->group_node(), &parquet_format_schema_);
-    auto parquet_schema = ::parquet::schema::FromParquet(parquet_format_schema_);
+    ::parquet::schema::SchemaToThrift(parquet_schema_->group_node(),
+                                      &parquet_format_schema_);
+    auto parquet_schema =
+        ::parquet::schema::SchemaFromThrift(parquet_format_schema_, /*max_depth=*/100);
     return FromParquetSchema(parquet_schema.get(), &result_schema_);
   }
 

@@ -27,7 +27,6 @@ import pytest
 import pyarrow as pa
 from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.util import guid
-from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -430,22 +429,20 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 @pytest.mark.pandas
 def test_backwards_compatible_column_metadata_handling(datadir):
-    if Version("2.2.0") <= Version(pd.__version__):
-        # TODO: regression in pandas
-        # https://github.com/pandas-dev/pandas/issues/56775
-        pytest.skip("Regression in pandas 2.2.0")
+    dates = pd.date_range(
+        "2017-01-01", periods=3, tz='Europe/Brussels'
+    ).as_unit("ns")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
-         'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
+         'c': dates})
     expected.index = pd.MultiIndex.from_arrays(
-        [['a', 'b', 'c'],
-         pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')],
+        [['a', 'b', 'c'], dates],
         names=['index', None])
 
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
     table = _read_table(path)
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected)
+    tm.assert_frame_equal(result, expected, check_freq=False)
 
     table = _read_table(
         path, columns=['a'])

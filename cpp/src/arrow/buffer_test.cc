@@ -586,7 +586,7 @@ TEST(TestBuffer, FromStringRvalue) {
     AssertIsCPUBuffer(*buffer);
   }
 
-  ASSERT_FALSE(buffer->is_mutable());
+  ASSERT_TRUE(buffer->is_mutable());
 
   ASSERT_EQ(0, memcmp(buffer->data(), expected.c_str(), expected.size()));
   ASSERT_EQ(static_cast<int64_t>(expected.size()), buffer->size());

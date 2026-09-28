@@ -34,7 +34,6 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-from pyarrow.vendored.version import Version
 import pyarrow.compute as pc
 
 
@@ -562,6 +561,63 @@ def test_array_slice():
             assert res.to_pylist() == expected
             if np is not None:
                 assert res.to_numpy().tolist() == expected
+
+
+@pytest.mark.parametrize("scalar_type", [
+    pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+    pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64(),
+])
+def test_array_slice_integer_scalars(scalar_type):
+    arr = pa.array(range(10))
+    offsets = pa.array([2, 4], type=scalar_type)
+
+    result = arr.slice(offsets[0], offsets[1])
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.numpy
+def test_array_slice_numpy_integer_scalars():
+    arr = pa.array(range(10))
+
+    result = arr.slice(np.int64(2), np.int64(4))
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.parametrize("scalar", [
+    pa.scalar(2.0),
+    pa.scalar(True),
+    pa.scalar(None, type=pa.int64()),
+])
+@pytest.mark.parametrize("args", [
+    lambda scalar: (scalar,),
+    lambda scalar: (0, scalar),
+])
+def test_array_slice_invalid_scalars(scalar, args):
+    arr = pa.array(range(10))
+
+    with pytest.raises(TypeError):
+        arr.slice(*args(scalar))
+
+
+def test_array_slice_negative_integer_scalars():
+    arr = pa.array(range(10))
+    negative = pa.scalar(-1, type=pa.int64())
+
+    with pytest.raises(IndexError):
+        arr.slice(negative)
+    with pytest.raises(ValueError):
+        arr.slice(0, negative)
+
+
+def test_array_slice_uint64_scalar_overflow():
+    arr = pa.array(range(10))
+    overflow = pa.scalar(2 ** 63, type=pa.uint64())
+
+    assert arr.slice(overflow).equals(arr.slice(len(arr)))
+    with pytest.raises(OverflowError):
+        arr.slice(0, overflow)
 
 
 def test_array_slice_negative_step():
@@ -3800,21 +3856,12 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0.0.dev0"):
-        # copy keyword is not strict and not passed down to __array__
-        result = np.array(arr, copy=False)
-        np.testing.assert_array_equal(result, expected)
+    with pytest.raises(ValueError, match="Unable to avoid a copy"):
+        np.array(arr, copy=False)
 
-        result = np.array(arr, dtype="float64", copy=False)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
-        with pytest.raises(ValueError, match="Unable to avoid a copy"):
-            np.array(arr, copy=False)
-
-        arr = pa.array([1, 2, 3])
-        with pytest.raises(ValueError):
-            np.array(arr, dtype="float64", copy=False)
+    arr = pa.array([1, 2, 3])
+    with pytest.raises(ValueError):
+        np.array(arr, dtype="float64", copy=False)
 
     # copy=True -> not yet passed by numpy, so we have to call this directly to test
     arr = pa.array([1, 2, 3])
@@ -4436,7 +4483,7 @@ def test_non_cpu_array():
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)
-    validity = np.array([True, False, True, False], dtype=np.bool_)
+    validity = np.array([True, False, True, False], dtype=np.bool)
     cuda_data_buf = ctx.buffer_from_data(data)
     cuda_validity_buf = ctx.buffer_from_data(validity)
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
