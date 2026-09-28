@@ -229,6 +229,12 @@ TEST(TestValidityKernels, IsNullDictionaryNanIsNull) {
                      ArrayFromJSON(boolean(), "[false, true, false, true, true, true]"),
                      &nan_is_null_options);
 
+    auto no_null_indices =
+        DictArrayFromJSON(dict_ty, "[3, 1, 0, 2]", "[1.5, NaN, -0.0, null]");
+    CheckScalarUnary("is_null", no_null_indices,
+                     ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                     &nan_is_null_options);
+
     auto empty = DictArrayFromJSON(dict_ty, "[]", "[]");
     CheckScalarUnary("is_null", empty, ArrayFromJSON(boolean(), "[]"),
                      &nan_is_null_options);

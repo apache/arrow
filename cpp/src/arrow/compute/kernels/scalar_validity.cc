@@ -90,11 +90,6 @@ static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
   if (arr.length == 0) {
     return Status::OK();
   }
-  if (arr.GetNullCount() > 0) {
-    InvertBitmap(arr.buffers[0].data, arr.offset, arr.length, out_bitmap, out_offset);
-  } else {
-    bit_util::SetBitsTo(out_bitmap, out_offset, arr.length, false);
-  }
   NullOptions nan_is_null_options(/*nan_is_null=*/true);
   ARROW_ASSIGN_OR_RAISE(Datum dict_is_null,
                         CallFunction("is_null", {arr.dictionary().ToArrayData()},
@@ -108,11 +103,15 @@ static Status SetNanBitsFromDictionary(KernelContext* ctx, const ArraySpan& arr,
                         Take(dict_is_null, Datum(std::move(indices)),
                              TakeOptions::NoBoundsCheck(), ctx->exec_context()));
 
-  // Null index slots are already set from the input validity bitmap, so the
-  // values bitmap can be OR'ed in without masking null slots out first.
   const ArrayData& result = *taken.array();
-  ::arrow::internal::BitmapOr(out_bitmap, out_offset, result.buffers[1]->data(),
-                              result.offset, arr.length, out_offset, out_bitmap);
+  if (arr.GetNullCount() > 0) {
+    ::arrow::internal::BitmapOrNot(result.buffers[1]->data(), result.offset,
+                                   arr.buffers[0].data, arr.offset, arr.length,
+                                   out_offset, out_bitmap);
+  } else {
+    CopyBitmap(result.buffers[1]->data(), result.offset, arr.length, out_bitmap,
+               out_offset);
+  }
   return Status::OK();
 }
 
