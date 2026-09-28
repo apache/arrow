@@ -6386,6 +6386,25 @@ TEST(Substrait, StringMatchExpressionSerialization) {
                                       compute::MatchSubstringOptions("al", ignore_case)));
     }
   }
+
+  // Substrait only accepts string input and UTF-8 patterns
+  auto serialize = [](const std::shared_ptr<DataType>& type,
+                      std::string pattern) -> Result<std::shared_ptr<Buffer>> {
+    Schema schema({field("s", type)});
+    ExtensionSet ext_set;
+    ARROW_ASSIGN_OR_RAISE(
+        compute::Expression bound,
+        compute::call("starts_with", {compute::field_ref(0)},
+                      compute::MatchSubstringOptions(std::move(pattern)))
+            .Bind(schema));
+    return SerializeExpression(bound, &ext_set);
+  };
+  ASSERT_THAT(serialize(binary(), "al"),
+              Raises(StatusCode::NotImplemented, HasSubstr("on string input")));
+  ASSERT_THAT(serialize(large_utf8(), "al"),
+              Raises(StatusCode::NotImplemented, HasSubstr("on string input")));
+  ASSERT_THAT(serialize(utf8(), "\xff"),
+              Raises(StatusCode::NotImplemented, HasSubstr("valid UTF-8 pattern")));
 }
 
 TEST(Substrait, StringMatchExpressionDeserialization) {

@@ -231,7 +231,8 @@ Functions
     kernels that take the substring as a function option.  The second argument
     must therefore be a non-null string literal.  The ``case_sensitivity`` option
     supports ``CASE_SENSITIVE`` and ``CASE_INSENSITIVE`` but not
-    ``CASE_INSENSITIVE_ASCII``
+    ``CASE_INSENSITIVE_ASCII``.  Only calls on ``string`` input with a valid
+    UTF-8 pattern can be serialized to Substrait
 
 * Substrait has not yet clearly identified the form that URIs should take for
   standard functions.  Acero will look for the URIs to the ``main`` GitHub branch.

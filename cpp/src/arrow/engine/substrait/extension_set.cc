@@ -34,6 +34,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 
@@ -1015,8 +1016,22 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeMatchSubstring(Id substrait_fn_i
           return Status::Invalid("The call to ", call.function_name,
                                  " is missing its MatchSubstringOptions");
         }
+        // Substrait's starts_with / ends_with / contains only accept strings while
+        // the Arrow kernels also accept binary-like input and non-UTF-8 patterns
+        const DataType* input_type = call.arguments[0].type();
+        if (input_type == nullptr || input_type->id() != Type::STRING) {
+          return Status::NotImplemented(
+              "Substrait only supports ", substrait_fn_id.name,
+              " on string input but the input to ", call.function_name, " is ",
+              input_type == nullptr ? "unbound" : input_type->ToString());
+        }
         auto match_options =
             checked_pointer_cast<compute::MatchSubstringOptions>(call.options);
+        util::InitializeUTF8();
+        if (!util::ValidateUTF8(match_options->pattern)) {
+          return Status::NotImplemented("Substrait only supports ", substrait_fn_id.name,
+                                        " with a valid UTF-8 pattern");
+        }
         // nullable=true errs on the side of caution
         SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
                                      /*nullable=*/true);
