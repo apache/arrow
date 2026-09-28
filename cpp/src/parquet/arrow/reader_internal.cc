@@ -18,9 +18,9 @@
 #include "parquet/arrow/reader_internal.h"
 
 #include <algorithm>
-#include <climits>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -855,39 +855,25 @@ Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
 }
 
 // Decode a little-endian 96-bit FLBA(12) TIMESTAMP value into a 64-bit Arrow timestamp.
-// Values that do not fit in the int64 range either error or clamp to INT64_MIN/INT64_MAX,
-// depending on clamp_on_overflow.
-Status FlbaTimestampToInt64(const uint8_t* bytes, bool clamp_on_overflow, int64_t* out) {
+// Values that do not fit in the int64 range either error or clamp to the minimum or
+// maximum int64 value, depending on clamp_on_overflow.
+inline Result<int64_t> FlbaTimestampToInt64(const uint8_t* bytes,
+                                            bool clamp_on_overflow) {
   const uint64_t low = bit_util::FromLittleEndian(SafeLoadAs<uint64_t>(bytes));
   const uint32_t high = bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(bytes + 8));
   const int32_t high_signed = static_cast<int32_t>(high);
   const int64_t low_signed = static_cast<int64_t>(low);
   const int32_t sign_extension = (low_signed < 0) ? -1 : 0;
   // Fits in int64 iff the high part is a pure sign-extension of the low part.
-  if (high_signed != sign_extension) {
+  if (ARROW_PREDICT_FALSE(high_signed != sign_extension)) {
     if (!clamp_on_overflow) {
       return Status::Invalid(
           "FLBA(12) TIMESTAMP value does not fit in a 64-bit Arrow timestamp");
     }
-    *out = high_signed < 0 ? INT64_MIN : INT64_MAX;
-  } else {
-    *out = low_signed;
+    return high_signed < 0 ? std::numeric_limits<int64_t>::min()
+                           : std::numeric_limits<int64_t>::max();
   }
-  return Status::OK();
-}
-
-Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(
-    LogicalType::TimeUnit::unit unit) {
-  switch (unit) {
-    case LogicalType::TimeUnit::MILLIS:
-      return ::arrow::TimeUnit::MILLI;
-    case LogicalType::TimeUnit::MICROS:
-      return ::arrow::TimeUnit::MICRO;
-    case LogicalType::TimeUnit::NANOS:
-      return ::arrow::TimeUnit::NANO;
-    default:
-      return Status::Invalid("Unrecognized Parquet TIMESTAMP time unit");
-  }
+  return low_signed;
 }
 
 // Read a TIMESTAMP-annotated FLBA(12) column as a 64-bit Arrow timestamp.
@@ -909,8 +895,11 @@ Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
     RETURN_NOT_OK(::arrow::VisitArraySpanInline<::arrow::FixedSizeBinaryType>(
         ::arrow::ArraySpan(*values.data()),
         [&](std::string_view v) {
-          return FlbaTimestampToInt64(reinterpret_cast<const uint8_t*>(v.data()),
-                                      clamp_on_overflow, &out_ptr[j++]);
+          ARROW_ASSIGN_OR_RAISE(
+              out_ptr[j++],
+              FlbaTimestampToInt64(reinterpret_cast<const uint8_t*>(v.data()),
+                                   clamp_on_overflow));
+          return Status::OK();
         },
         [&]() {
           out_ptr[j++] = 0;

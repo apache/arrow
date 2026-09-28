@@ -37,6 +37,20 @@ using ::arrow::Result;
 using ::arrow::Status;
 using ::arrow::internal::checked_cast;
 
+Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(
+    LogicalType::TimeUnit::unit unit) {
+  switch (unit) {
+    case LogicalType::TimeUnit::MILLIS:
+      return ::arrow::TimeUnit::MILLI;
+    case LogicalType::TimeUnit::MICROS:
+      return ::arrow::TimeUnit::MICRO;
+    case LogicalType::TimeUnit::NANOS:
+      return ::arrow::TimeUnit::NANO;
+    default:
+      return Status::Invalid("Unrecognized Parquet time unit");
+  }
+}
+
 namespace {
 
 Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type,
@@ -105,20 +119,9 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   const auto& timestamp = checked_cast<const TimestampLogicalType&>(logical_type);
   const bool utc_normalized = timestamp.is_adjusted_to_utc();
   static const char* utc_timezone = "UTC";
-  switch (timestamp.time_unit()) {
-    case LogicalType::TimeUnit::MILLIS:
-      return (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::MILLI, utc_timezone)
-                             : ::arrow::timestamp(::arrow::TimeUnit::MILLI));
-    case LogicalType::TimeUnit::MICROS:
-      return (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::MICRO, utc_timezone)
-                             : ::arrow::timestamp(::arrow::TimeUnit::MICRO));
-    case LogicalType::TimeUnit::NANOS:
-      return (utc_normalized ? ::arrow::timestamp(::arrow::TimeUnit::NANO, utc_timezone)
-                             : ::arrow::timestamp(::arrow::TimeUnit::NANO));
-    default:
-      return Status::TypeError("Unrecognized time unit in timestamp logical_type: ",
-                               logical_type.ToString());
-  }
+  ARROW_ASSIGN_OR_RAISE(auto unit, ArrowTimeUnitFromParquet(timestamp.time_unit()));
+  return utc_normalized ? ::arrow::timestamp(unit, utc_timezone)
+                        : ::arrow::timestamp(unit);
 }
 
 Result<std::shared_ptr<ArrowType>> FromByteArray(

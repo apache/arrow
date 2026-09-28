@@ -2195,30 +2195,36 @@ TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
   writer->Close();
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
-  auto read_table = [&buffer](ArrowReaderProperties props,
-                              std::shared_ptr<Table>* out) -> ::arrow::Status {
+  auto read_table =
+      [&buffer](ArrowReaderProperties props) -> Result<std::shared_ptr<Table>> {
     FileReaderBuilder builder;
     RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
     std::unique_ptr<FileReader> reader;
     RETURN_NOT_OK(builder.properties(props)->Build(&reader));
-    ARROW_ASSIGN_OR_RAISE(*out, reader->ReadTable());
-    return ::arrow::Status::OK();
+    return reader->ReadTable();
   };
 
   // Convert, error on overflow (default): the out-of-range rows fail the read.
   {
     ArrowReaderProperties props;
-    std::shared_ptr<Table> table;
-    ASSERT_RAISES(Invalid, read_table(props, &table));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("does not fit in a 64-bit Arrow timestamp"),
+        read_table(props));
   }
 
   // Conversion disabled: raw, lossless FixedSizeBinary(12).
   {
     ArrowReaderProperties props;
     props.set_convert_flba_timestamps(false);
-    std::shared_ptr<Table> table;
-    ASSERT_OK(read_table(props, &table));
+    ASSERT_OK_AND_ASSIGN(auto table, read_table(props));
+    ASSERT_OK(table->ValidateFull());
     ASSERT_EQ(::arrow::Type::FIXED_SIZE_BINARY, table->schema()->field(0)->type()->id());
+    const auto& raw =
+        checked_cast<const ::arrow::FixedSizeBinaryArray&>(*table->column(0)->chunk(0));
+    for (int64_t i = 0; i < raw.length(); ++i) {
+      ASSERT_EQ(std::string_view(reinterpret_cast<const char*>(values[i].ptr), 12),
+                raw.GetView(i));
+    }
   }
 
   // Convert, clamp on overflow: in-range value is exact; positive overflow clamps
@@ -2226,8 +2232,8 @@ TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
   {
     ArrowReaderProperties props;
     props.set_flba_timestamp_clamp_on_overflow(true);
-    std::shared_ptr<Table> table;
-    ASSERT_OK(read_table(props, &table));
+    ASSERT_OK_AND_ASSIGN(auto table, read_table(props));
+    ASSERT_OK(table->ValidateFull());
     ASSERT_EQ(*::arrow::timestamp(TimeUnit::MICRO, "UTC"),
               *table->schema()->field(0)->type());
     auto ts =
@@ -2238,6 +2244,34 @@ TEST(TestArrowReadWrite, FlbaTimestampConversionValues) {
     ASSERT_EQ(INT64_MAX, ts->Value(2));
     ASSERT_EQ(INT64_MIN, ts->Value(3));
   }
+}
+
+TEST(TestArrowReadWrite, FlbaTimestampIntegration) {
+  ArrowReaderProperties props;
+  props.set_flba_timestamp_clamp_on_overflow(true);
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      FileReader::Make(::arrow::default_memory_pool(),
+                       ParquetFileReader::OpenFile(
+                           test::get_data_file("flba12_timestamp.parquet"), false),
+                       props));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ReadTable());
+  ASSERT_OK(actual->ValidateFull());
+
+  auto expected_schema = ::arrow::schema({
+      ::arrow::field("timestamp_millis", ::arrow::timestamp(TimeUnit::MILLI, "UTC")),
+      ::arrow::field("timestamp_micros", ::arrow::timestamp(TimeUnit::MICRO, "UTC")),
+      ::arrow::field("timestamp_nanos", ::arrow::timestamp(TimeUnit::NANO, "UTC")),
+  });
+  auto expected = ::arrow::TableFromJSON(expected_schema, {R"([
+      [0, 0, 0],
+      [1000, 1000000, 1000000000],
+      [-1000, -1000000, -1000000000],
+      [9223372036000, 9223372036000000, 9223372036000000000],
+      [253402300799000, 253402300799000000, 9223372036854775807],
+      [-62135596800000, -62135596800000000, -9223372036854775808]
+  ])"});
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *actual));
 }
 
 TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
