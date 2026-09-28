@@ -2263,14 +2263,23 @@ TEST(TestArrowReadWrite, FlbaTimestampIntegration) {
       ::arrow::field("timestamp_micros", ::arrow::timestamp(TimeUnit::MICRO, "UTC")),
       ::arrow::field("timestamp_nanos", ::arrow::timestamp(TimeUnit::NANO, "UTC")),
   });
-  auto expected = ::arrow::TableFromJSON(expected_schema, {R"([
-      [0, 0, 0],
-      [1000, 1000000, 1000000000],
-      [-1000, -1000000, -1000000000],
-      [9223372036000, 9223372036000000, 9223372036000000000],
-      [253402300799000, 253402300799000000, 9223372036854775807],
-      [-62135596800000, -62135596800000000, -9223372036854775808]
-  ])"});
+  std::shared_ptr<Array> expected_millis;
+  ::arrow::ArrayFromVector<::arrow::TimestampType, int64_t>(
+      expected_schema->field(0)->type(),
+      {0, 1000, -1000, 9223372036000, 253402300799000, -62135596800000},
+      &expected_millis);
+  std::shared_ptr<Array> expected_micros;
+  ::arrow::ArrayFromVector<::arrow::TimestampType, int64_t>(
+      expected_schema->field(1)->type(),
+      {0, 1000000, -1000000, 9223372036000000, 253402300799000000, -62135596800000000},
+      &expected_micros);
+  std::shared_ptr<Array> expected_nanos;
+  ::arrow::ArrayFromVector<::arrow::TimestampType, int64_t>(
+      expected_schema->field(2)->type(),
+      {0, 1000000000, -1000000000, 9223372036000000000, INT64_MAX, INT64_MIN},
+      &expected_nanos);
+  auto expected =
+      Table::Make(expected_schema, {expected_millis, expected_micros, expected_nanos});
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *actual));
 }
 
