@@ -499,13 +499,15 @@ int64_t EstimateDeltaCostBits(const T* values, int32_t num_elements) {
 ///             holds the differences if the plan chose the delta mode, and is
 ///             clobbered either way
 /// \param[in] delta_enabled whether the delta mode may be chosen at all
+/// \param[in] force_delta choose delta regardless of its estimated or exact cost
 ///
 /// Both transforms are costed with the same model and the cheaper one wins, so
 /// the mode is a per-vector decision. It has to be: differencing loses 6-19% on
 /// every unclustered draw, and a column is rarely all one shape.
 template <typename T>
 PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
-                                   T* delta_scratch, bool delta_enabled) {
+                                   T* delta_scratch, bool delta_enabled,
+                                   bool force_delta = false) {
   const FrameChoice<T> raw = ChooseFrameAndWidth<T>(values, num_elements);
 
   PforVectorPlan<T> plan;
@@ -517,7 +519,9 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
 
   // One element has no difference to take, and a vector already packing at
   // width 0 cannot be improved on.
-  if (!delta_enabled || num_elements < 2 || raw.bit_width == 0) return plan;
+  if (!delta_enabled || (!force_delta && (num_elements < 2 || raw.bit_width == 0))) {
+    return plan;
+  }
 
   // A delta vector carries its own first value, so it starts one full-width
   // value behind whatever its differences pack to.
@@ -529,8 +533,8 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
   // them. The estimate is deliberately loose, so it declines only where the two
   // modes are more than a sampling error apart -- which is where the choice
   // matters least.
-  if (EstimateDeltaCostBits<T>(values, num_elements) + start_value_bits >=
-      plan.cost_bits) {
+  if (!force_delta && EstimateDeltaCostBits<T>(values, num_elements) + start_value_bits >=
+                          plan.cost_bits) {
     return plan;
   }
 
@@ -541,7 +545,7 @@ PforVectorPlan<T> ChooseVectorPlan(const T* values, int32_t num_elements,
       ChooseFrameAndWidth<T>(delta_scratch, num_elements, delta_bounds);
 
   const int64_t delta_cost = delta.cost_bits + start_value_bits;
-  if (delta_cost < plan.cost_bits) {
+  if (force_delta || delta_cost < plan.cost_bits) {
     plan.delta = true;
     plan.frame_of_reference = delta.frame_of_reference;
     plan.start_value = values[0];

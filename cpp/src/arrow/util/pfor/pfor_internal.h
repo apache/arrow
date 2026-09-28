@@ -218,6 +218,9 @@ class PforEncodedVector {
 struct PforEncodeOptions {
   /// Let the planner difference a vector when its cost model prefers that.
   bool delta_enabled = true;
+  /// Require the delta representation even when the raw representation is cheaper.
+  /// Off by default; set it only to exercise or measure the delta path directly.
+  bool force_delta = false;
 };
 
 /// \brief PFOR compression and decompression algorithms
