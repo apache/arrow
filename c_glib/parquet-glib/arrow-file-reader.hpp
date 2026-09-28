@@ -24,6 +24,11 @@
 #include <parquet-glib/arrow-file-reader.h>
 
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_raw(parquet::arrow::FileReader *parquet_arrow_file_reader);
+gparquet_arrow_file_reader_new_raw(parquet::arrow::FileReader *parquet_arrow_file_reader,
+                                   GArrowSeekableInputStream *source = nullptr);
 parquet::arrow::FileReader *
 gparquet_arrow_file_reader_get_raw(GParquetArrowFileReader *arrow_file_reader);
+parquet::ReaderProperties *
+gparquet_reader_properties_get_raw(GParquetReaderProperties *properties);
+parquet::ArrowReaderProperties *
+gparquet_reader_properties_get_arrow_raw(GParquetReaderProperties *properties);

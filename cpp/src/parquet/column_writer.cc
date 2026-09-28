@@ -1397,18 +1397,19 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
+      const int64_t parquet_null_count = batch_size - batch_num_values;
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
-                          /*num_levels=*/batch_size, null_count);
+                          /*num_levels=*/batch_size, parquet_null_count);
       } else {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
                           valid_bits_offset + value_offset, /*num_levels=*/batch_size,
-                          null_count);
+                          parquet_null_count);
       }
-      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values, null_count,
-                                   check_page);
+      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values,
+                                   parquet_null_count, check_page);
       value_offset += batch_num_spaced_values;
 
       // Dictionary size checked separately from data page size since we
@@ -2051,7 +2052,9 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
-    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, null_count, check_page);
+    const int64_t parquet_null_count = batch_size - batch_num_values;
+    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, parquet_null_count,
+                                 check_page);
     value_offset += batch_num_spaced_values;
   };
 

@@ -743,16 +743,9 @@ TEST_P(StreamingReaderTest, PropagateErrorsNonLinewiseChunker) {
   read_options_.block_size = 10;
   parse_options_.newlines_in_values = true;
 
-  ASSERT_OK_AND_ASSIGN(reader, MakeReader(bad_first_block));
-  AssertReadNext(reader, &batch);
-  EXPECT_EQ(reader->bytes_processed(), 7);
-  ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(test_schema, "[{\"i\":0}]"), *batch);
-
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::StartsWith("Invalid: JSON parse error"),
-                                  reader->ReadNext(&batch));
-  EXPECT_EQ(reader->bytes_processed(), 7);
-  AssertReadEnd(reader);
+                                  MakeReader(bad_first_block));
 
   ASSERT_OK_AND_ASSIGN(reader, MakeReader(bad_middle_blocks));
   AssertReadNext(reader, &batch);

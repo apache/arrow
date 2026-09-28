@@ -178,7 +178,7 @@ tasks:
       python_version: "{{ python_version }}"
       python_abi_tag: "{{ abi_tag }}"
       macos_deployment_target: "12.0"
-      runs_on: "macos-15-intel"
+      runs_on: "macos-26-intel"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_x86_64.whl
@@ -192,7 +192,7 @@ tasks:
       python_version: "{{ python_version }}"
       python_abi_tag: "{{ abi_tag }}"
       macos_deployment_target: "12.0"
-      runs_on: "macos-14"
+      runs_on: "macos-26"
       vcpkg_arch: "arm64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_arm64.whl
@@ -295,28 +295,6 @@ tasks:
 
   ######################## macOS verification ################################
 
-  {% for target in ["cpp", "integration", "python"] %}
-  verify-rc-source-{{ target }}-macos-conda-amd64:
-    ci: github
-    template: verify-rc/github.macos.yml
-    params:
-      target: {{ target }}
-      use_conda: True
-      github_runner: "macos-15-intel"
-  {% endfor %}
-
-  {% for target in ["cpp",
-                    "integration",
-                    "python",
-                    "ruby"] %}
-  verify-rc-source-{{ target }}-macos-amd64:
-    ci: github
-    template: verify-rc/github.macos.yml
-    params:
-      target: {{ target }}
-      github_runner: "macos-15-intel"
-  {% endfor %}
-
   {% for target in ["cpp",
                     "integration",
                     "python",
@@ -330,7 +308,7 @@ tasks:
         ARROW_GANDIVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      github_runner: "macos-14"
+      github_runner: "macos-26"
   {% endfor %}
 
   ######################## Windows verification ##############################
