@@ -17,9 +17,7 @@
 
 // Vector kernels involving nested types
 
-#include <algorithm>
 #include <cmath>
-#include <limits>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
@@ -568,28 +566,21 @@ Status CheckNullValueType(KernelContext* ctx, const DataType& values_type,
   return equal->DispatchBest(&types).status();
 }
 
-// Like "is_in", and unlike "equal", a null value matches null values and a NaN
-// value matches NaN values.
-Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> values,
-                              const std::shared_ptr<Scalar>& value) {
-  if (!value->is_valid) {
-    RETURN_NOT_OK(CheckNullValueType(ctx, *values->type, *value->type));
-    return CallFunction("is_null", {std::move(values)}, ctx->exec_context());
-  }
-  if (is_floating(values->type->id()) && IsNaN(*value)) {
-    return CallFunction("is_nan", {std::move(values)}, ctx->exec_context());
-  }
-  return CallFunction("equal", {std::move(values), value}, ctx->exec_context());
-}
-
-// Element-wise version of the above, matching each of `values` with the value at the
-// same index.
-Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> values,
-                              std::shared_ptr<ArrayData> value) {
+// Match `values` with a scalar `value`, or element-wise with an array of them. Like
+// "is_in", and unlike "equal", a null value matches null values and a NaN value
+// matches NaN values.
+Result<Datum> ListValuesMatch(KernelContext* ctx, const Datum& values,
+                              const Datum& value) {
   ExecContext* exec_ctx = ctx->exec_context();
-  if (value->GetNullCount() == value->length) {
-    RETURN_NOT_OK(CheckNullValueType(ctx, *values->type, *value->type));
-    return CallFunction("is_null", {std::move(values)}, exec_ctx);
+  if (value.null_count() == value.length()) {
+    RETURN_NOT_OK(CheckNullValueType(ctx, *values.type(), *value.type()));
+    return CallFunction("is_null", {values}, exec_ctx);
+  }
+  if (value.is_scalar()) {
+    if (is_floating(values.type()->id()) && IsNaN(*value.scalar())) {
+      return CallFunction("is_nan", {values}, exec_ctx);
+    }
+    return CallFunction("equal", {values, value}, exec_ctx);
   }
   ARROW_ASSIGN_OR_RAISE(Datum match, CallFunction("equal", {values, value}, exec_ctx));
   ARROW_ASSIGN_OR_RAISE(Datum values_null, CallFunction("is_null", {values}, exec_ctx));
@@ -597,7 +588,7 @@ Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> val
   ARROW_ASSIGN_OR_RAISE(Datum both_null,
                         CallFunction("and", {values_null, value_null}, exec_ctx));
   ARROW_ASSIGN_OR_RAISE(match, CallFunction("or_kleene", {match, both_null}, exec_ctx));
-  if (is_floating(values->type->id()) && is_floating(value->type->id())) {
+  if (is_floating(values.type()->id()) && is_floating(value.type()->id())) {
     ARROW_ASSIGN_OR_RAISE(Datum values_nan, CallFunction("is_nan", {values}, exec_ctx));
     ARROW_ASSIGN_OR_RAISE(Datum value_nan, CallFunction("is_nan", {value}, exec_ctx));
     ARROW_ASSIGN_OR_RAISE(Datum both_nan,
@@ -607,57 +598,41 @@ Result<Datum> ListValuesMatch(KernelContext* ctx, std::shared_ptr<ArrayData> val
   return match;
 }
 
-// Returns the (child offset, length) pair of list i
+// Returns the number of child values of list i, with none for null list views
 template <typename Type>
-std::pair<int64_t, int64_t> GetListRange(const ArraySpan& list, int64_t i) {
+int64_t GetListLength(const ArraySpan& list, int64_t i) {
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-    const int64_t width = checked_cast<const FixedSizeListType&>(*list.type).list_size();
-    return {(list.offset + i) * width, width};
+    return checked_cast<const FixedSizeListType&>(*list.type).list_size();
+  } else if constexpr (is_list_view_type<Type>::value) {
+    return list.IsValid(i) ? list.GetValues<typename Type::offset_type>(2)[i] : 0;
   } else {
-    using offset_type = typename Type::offset_type;
-    const offset_type* offsets = list.GetValues<offset_type>(1);
-    if constexpr (is_list_view_type<Type>::value) {
-      return {offsets[i], list.GetValues<offset_type>(2)[i]};
-    } else {
-      return {offsets[i], offsets[i + 1] - offsets[i]};
-    }
+    const auto* offsets = list.GetValues<typename Type::offset_type>(1);
+    return offsets[i + 1] - offsets[i];
   }
 }
 
-// Returns the (child offset, length) pair of the child values referenced by the lists
+// Returns the child values of all lists, one list after the other
 template <typename Type>
-std::pair<int64_t, int64_t> GetListValuesRange(const ArraySpan& list) {
+Result<std::shared_ptr<ArrayData>> GetListValues(KernelContext* ctx,
+                                                 const ArraySpan& list) {
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-    const int64_t width = checked_cast<const FixedSizeListType&>(*list.type).list_size();
-    return {list.offset * width, list.length * width};
+    const int64_t width = GetListLength<Type>(list, 0);
+    return list.child_data[0].ToArrayData()->Slice(list.offset * width,
+                                                   list.length * width);
   } else if constexpr (is_list_view_type<Type>::value) {
     // List views may reference child values in any order
-    int64_t start = std::numeric_limits<int64_t>::max();
-    int64_t end = 0;
-    for (int64_t i = 0; i < list.length; ++i) {
-      const auto [view_start, view_length] = GetListRange<Type>(list, i);
-      if (view_length > 0 && list.IsValid(i)) {
-        start = std::min(start, view_start);
-        end = std::max(end, view_start + view_length);
-      }
-    }
-    if (start >= end) {
-      return {0, 0};
-    }
-    return {start, end - start};
+    typename TypeTraits<Type>::ArrayType list_view(list.ToArrayData());
+    ARROW_ASSIGN_OR_RAISE(auto values, list_view.Flatten(ctx->memory_pool()));
+    return values->data();
   } else {
-    using offset_type = typename Type::offset_type;
-    const offset_type* offsets = list.GetValues<offset_type>(1);
-    return {offsets[0], offsets[list.length] - offsets[0]};
+    const auto* offsets = list.GetValues<typename Type::offset_type>(1);
+    return list.child_data[0].ToArrayData()->Slice(offsets[0],
+                                                   offsets[list.length] - offsets[0]);
   }
 }
 
 // Whether any of the `length` match bits from `offset` is set and valid
 bool AnyMatch(const ArraySpan& match, int64_t offset, int64_t length) {
-  // Empty list views may point outside of the compared values
-  if (length == 0) {
-    return false;
-  }
   const uint8_t* validity = match.MayHaveNulls() ? match.buffers[0].data : nullptr;
   arrow::internal::OptionalBinaryBitBlockCounter counter(match.buffers[1].data,
                                                          match.offset + offset, validity,
@@ -672,79 +647,24 @@ bool AnyMatch(const ArraySpan& match, int64_t offset, int64_t length) {
   return false;
 }
 
-// Emit whether each valid list has a match in the range of `match` returned by
-// `get_match_range(i)`. Null matches never count.
-template <typename GetMatchRange>
-void EmitListMatches(const ArraySpan& list, const ArraySpan& match, ArraySpan* out_arr,
-                     GetMatchRange&& get_match_range) {
-  int64_t i = 0;
-  arrow::internal::GenerateBitsUnrolled(
-      out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
-        bool found = false;
-        if (list.IsValid(i)) {
-          const auto [start, length] = get_match_range(i);
-          found = AnyMatch(match, start, length);
-        }
-        ++i;
-        return found;
-      });
-}
-
-// Search a single `value` in the referenced child values with one vectorized
-// comparison, then check each list's range in the resulting bitmap.
+// Repeat the value of each list for each of its child values
 template <typename Type>
-Status ListContainsScalar(KernelContext* ctx, const ArraySpan& list,
-                          const std::shared_ptr<Scalar>& value, ArraySpan* out_arr) {
-  const auto [values_start, values_length] = GetListValuesRange<Type>(list);
-  auto values = list.child_data[0].ToArrayData()->Slice(values_start, values_length);
-  ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, std::move(values), value));
-  EmitListMatches(list, ArraySpan(*match.array()), out_arr, [&](int64_t i) {
-    const auto [start, length] = GetListRange<Type>(list, i);
-    return std::make_pair(start - values_start, length);
-  });
-  return Status::OK();
-}
-
-// Gather the child values of each valid list next to copies of its value, compare
-// them element-wise, then check each list's range in the resulting bitmap.
-template <typename Type>
-Status ListContainsArray(KernelContext* ctx, const ArraySpan& list,
-                         const ArraySpan& value, ArraySpan* out_arr) {
-  Int64Builder values_indices(ctx->memory_pool());
-  Int64Builder value_indices(ctx->memory_pool());
+Result<Datum> RepeatListValues(KernelContext* ctx, const ArraySpan& list,
+                               int64_t values_length, const ArraySpan& value) {
+  Int64Builder indices(ctx->memory_pool());
+  RETURN_NOT_OK(indices.Reserve(values_length));
   for (int64_t i = 0; i < list.length; ++i) {
-    if (list.IsValid(i)) {
-      const auto [start, length] = GetListRange<Type>(list, i);
-      RETURN_NOT_OK(values_indices.Reserve(length));
-      RETURN_NOT_OK(value_indices.Reserve(length));
-      for (int64_t j = start; j < start + length; ++j) {
-        values_indices.UnsafeAppend(j);
-        value_indices.UnsafeAppend(i);
-      }
+    const int64_t length = GetListLength<Type>(list, i);
+    for (int64_t j = 0; j < length; ++j) {
+      indices.UnsafeAppend(i);
     }
   }
-  ARROW_ASSIGN_OR_RAISE(auto values_taken, values_indices.Finish());
-  ARROW_ASSIGN_OR_RAISE(auto value_taken, value_indices.Finish());
-  ExecContext* exec_ctx = ctx->exec_context();
-  ARROW_ASSIGN_OR_RAISE(
-      Datum values,
-      CallFunction("take", {list.child_data[0].ToArrayData(), values_taken}, exec_ctx));
-  ARROW_ASSIGN_OR_RAISE(
-      Datum repeated_value,
-      CallFunction("take", {value.ToArrayData(), value_taken}, exec_ctx));
-  ARROW_ASSIGN_OR_RAISE(Datum match,
-                        ListValuesMatch(ctx, values.array(), repeated_value.array()));
-
-  // Lists are gathered in order, so each list's range follows the previous one
-  int64_t match_start = 0;
-  EmitListMatches(list, ArraySpan(*match.array()), out_arr, [&](int64_t i) {
-    const int64_t length = GetListRange<Type>(list, i).second;
-    match_start += length;
-    return std::make_pair(match_start - length, length);
-  });
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto repeat_indices, indices.Finish());
+  return CallFunction("take", {value.ToArrayData(), repeat_indices}, ctx->exec_context());
 }
 
+// Match the child values of all lists with a single vectorized comparison, then check
+// each list's range in the resulting bitmap.
 template <typename Type>
 Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (batch.length == 0) {
@@ -771,16 +691,31 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   out_arr->null_count = list.null_count;
 
-  const ExecValue& value = batch[1];
-  if (value.is_scalar()) {
-    return ListContainsScalar<Type>(ctx, list, value.scalar->GetSharedPtr(), out_arr);
-  }
-  if (value.array.length == 1) {
+  ARROW_ASSIGN_OR_RAISE(auto values, GetListValues<Type>(ctx, list));
+  Datum value;
+  if (batch[1].is_scalar()) {
+    value = batch[1].scalar->GetSharedPtr();
+  } else if (batch[1].array.length == 1) {
     // Also covers scalar inputs, which are promoted to arrays
-    ARROW_ASSIGN_OR_RAISE(auto single_value, value.array.ToArray()->GetScalar(0));
-    return ListContainsScalar<Type>(ctx, list, single_value, out_arr);
+    ARROW_ASSIGN_OR_RAISE(value, batch[1].array.ToArray()->GetScalar(0));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(
+        value, RepeatListValues<Type>(ctx, list, values->length, batch[1].array));
   }
-  return ListContainsArray<Type>(ctx, list, value.array, out_arr);
+  ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, values, value));
+
+  const ArraySpan match_span(*match.array());
+  int64_t start = 0;
+  int64_t i = 0;
+  arrow::internal::GenerateBitsUnrolled(
+      out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
+        const int64_t length = GetListLength<Type>(list, i);
+        const bool found = list.IsValid(i) && AnyMatch(match_span, start, length);
+        start += length;
+        ++i;
+        return found;
+      });
+  return Status::OK();
 }
 
 void AddListContainsKernels(ScalarFunction* func) {
