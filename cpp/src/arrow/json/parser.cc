@@ -962,37 +962,10 @@ class ParseImpl : public BlockParser {
   }
 
   Status ParseObjectField(std::string_view key, sj::value value) {
-    ARROW_ASSIGN_OR_RAISE(auto found, SetFieldBuilder(key));
-
-    if (found) {
-      return ParseValue(value);
-    }
-
-    return HandleUnexpectedField(key, value);
-  }
-
-  template <Kind::type kind>
-  Status AppendScalar(BuilderPtr builder, std::string_view scalar) {
-    if (ARROW_PREDICT_FALSE(builder.kind != kind)) {
-      return IllegallyChangedTo(kind);
-    }
-    auto index = static_cast<int32_t>(scalar_values_builder_.length());
-    auto value_length = static_cast<int32_t>(scalar.size());
-    RETURN_NOT_OK(Cast<kind>(builder)->Append(index, value_length));
-    RETURN_NOT_OK(scalar_values_builder_.Reserve(1));
-    scalar_values_builder_.UnsafeAppend(scalar);
-    return Status::OK();
-  }
-
-  /// \brief helper for parsing object fields.
-  ///
-  /// Sets the field builder with the given name, or returns false if
-  /// there is no such field or the field was already specified.
-  Result<bool> SetFieldBuilder(std::string_view key) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(key);
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
-      return false;
+      return HandleUnexpectedField(key, value);
     }
     bool duplicate_keys;
     if (field_index_ < absent_fields_stack_.TopSize()) {
@@ -1007,7 +980,20 @@ class ParseImpl : public BlockParser {
     }
     builder_ = parent->field_builder(field_index_);
     absent_fields_stack_[field_index_] = false;
-    return true;
+    return ParseValue(value);
+  }
+
+  template <Kind::type kind>
+  Status AppendScalar(BuilderPtr builder, std::string_view scalar) {
+    if (ARROW_PREDICT_FALSE(builder.kind != kind)) {
+      return IllegallyChangedTo(kind);
+    }
+    auto index = static_cast<int32_t>(scalar_values_builder_.length());
+    auto value_length = static_cast<int32_t>(scalar.size());
+    RETURN_NOT_OK(Cast<kind>(builder)->Append(index, value_length));
+    RETURN_NOT_OK(scalar_values_builder_.Reserve(1));
+    scalar_values_builder_.UnsafeAppend(scalar);
+    return Status::OK();
   }
 
   /// helper method for ParseArray and ParseObject
