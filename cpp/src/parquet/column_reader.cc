@@ -41,7 +41,6 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_bitmap_internal.h"
 #include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
