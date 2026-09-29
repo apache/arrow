@@ -418,10 +418,15 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
 
+      - name: Find Visual Studio
+        shell: pwsh
+        run: |
+          "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
+
       - name: CMake
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake ^
             -S cpp ^
             -B cpp.build ^
@@ -432,13 +437,13 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake --build cpp.build
 
       - name: Install
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake --install cpp.build
 
       - name: Test
@@ -448,7 +453,7 @@ jobs:
           ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
           PARQUET_TEST_DATA: ${{ github.workspace }}\cpp\submodules\parquet-testing\data
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
 
           set exclude_tests=arrow-acero-asof-join-node-test
@@ -465,7 +470,7 @@ jobs:
       - name: Build example
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
 
           cmake ^
             -S cpp/examples/minimal_build ^
@@ -732,7 +737,7 @@ jobs:
         shell: cmd
         run: |
           set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           # Convert VCPKG Windows path to MSYS path
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
