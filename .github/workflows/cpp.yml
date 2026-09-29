@@ -348,7 +348,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # Quick test with bundled
+      # MSYS2 update to simdjson 5.x breaks parquet-reader-test
       simdjson_SOURCE: BUNDLED
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
