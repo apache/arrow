@@ -426,8 +426,8 @@ Result<int64_t> AlpVectorReader<T>::VectorSizeInBytes(int32_t vector_index) cons
 
 template <AlpFloatingType T>
 template <typename TargetType>
-  requires AlpDecodeTarget<T, TargetType>
 Status AlpVectorReader<T>::Decode(int32_t vector_index, std::span<TargetType> output) {
+  static_assert(AlpDecodeTarget<T, TargetType>);
   ARROW_ASSIGN_OR_RAISE(const VectorLayout layout, LoadVectorLayout(vector_index));
   if (output.size() != static_cast<size_t>(layout.num_elements)) {
     return Status::Invalid("ALP output size does not match vector length: ",

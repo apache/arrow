@@ -74,7 +74,6 @@ class ARROW_EXPORT AlpCompression {
   /// `outputs` and `integer_scratch` must each hold at least
   /// `encoded_view.num_elements()` elements.
   template <typename TargetType>
-    requires AlpDecodeTarget<T, TargetType>
   static void Decompress(const AlpEncodedVectorView<T>& encoded_view,
                          std::span<TargetType> outputs,
                          std::span<EncodedUnsigned> integer_scratch);
