@@ -16,9 +16,11 @@
 // under the License.
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "arrow/array/array_nested.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/data.h"
 #include "arrow/type.h"
@@ -190,7 +192,77 @@ int64_t SumOfListViewSizes(const ArraySpan& input) {
   return sum;
 }
 
+/// \param list_view A LIST_VIEW or LARGE_LIST_VIEW array
+template <typename DestListType, typename SrcListViewType>
+Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_view,
+                                                        MemoryPool* pool) {
+  using src_offset_type = typename SrcListViewType::offset_type;
+  using ListBuilderType = typename TypeTraits<DestListType>::BuilderType;
+
+  const auto& list_view_type = checked_cast<const SrcListViewType&>(*list_view.type);
+  const auto& value_type = list_view_type.value_type();
+  // The value type is carried over, so that callers may cast the child.
+  auto list_type = std::make_shared<DestListType>(value_type);
+
+  ARROW_ASSIGN_OR_RAISE(auto sum_of_sizes, SumOfLogicalListSizes(list_view));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
+                        MakeBuilder(value_type, pool));
+  RETURN_NOT_OK(value_builder->Reserve(sum_of_sizes));
+  auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
+  RETURN_NOT_OK(list_builder->Reserve(list_view.length));
+
+  // The bitmap is bit-packed, so it must be read with the element offset
+  // applied as a bit offset, not as the byte offset GetValues() would apply.
+  const uint8_t* validity = list_view.buffers[0].data;
+  const auto* offsets = list_view.GetValues<src_offset_type>(1);
+  const auto* sizes = list_view.GetValues<src_offset_type>(2);
+  const ArraySpan values{list_view.child_data[0]};
+  for (int64_t i = 0; i < list_view.length; ++i) {
+    const bool is_valid = !validity || bit_util::GetBit(validity, list_view.offset + i);
+    // A null view contributes no values, whatever size it declares.
+    const int64_t size = is_valid ? sizes[i] : 0;
+    RETURN_NOT_OK(list_builder->Append(is_valid, size));
+    RETURN_NOT_OK(value_builder->AppendArraySlice(values, offsets[i], size));
+  }
+
+  std::shared_ptr<ArrayData> list_data;
+  RETURN_NOT_OK(list_builder->FinishInternal(&list_data));
+  return list_data;
+}
+
 }  // namespace
+
+Result<std::shared_ptr<ArrayData>> ListFromListView(const ArraySpan& input,
+                                                    Type::type dest_type_id,
+                                                    MemoryPool* pool) {
+  switch (input.type->id()) {
+    case Type::LIST_VIEW:
+      switch (dest_type_id) {
+        case Type::LIST:
+          return ListFromListViewImpl<ListType, ListViewType>(input, pool);
+        case Type::LARGE_LIST:
+          return ListFromListViewImpl<LargeListType, ListViewType>(input, pool);
+        default:
+          break;
+      }
+      break;
+    case Type::LARGE_LIST_VIEW:
+      switch (dest_type_id) {
+        case Type::LIST:
+          return ListFromListViewImpl<ListType, LargeListViewType>(input, pool);
+        case Type::LARGE_LIST:
+          return ListFromListViewImpl<LargeListType, LargeListViewType>(input, pool);
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+  return Status::TypeError("ListFromListView: expected a list-view array and a ",
+                           arrow::internal::ToString(dest_type_id),
+                           " destination type, got ", input.type->ToString());
+}
 
 Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(const ArraySpan& input) {
   switch (input.type->id()) {
