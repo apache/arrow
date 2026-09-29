@@ -23,6 +23,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/rle_bitmap_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
@@ -182,7 +183,7 @@ struct PageLevelToBitmapDecoder
  ***************/
 
 /// Throws if the decoder could not provide as many levels as the page header announces.
-void CheckValidLevelCount(bool valid) {
+inline void CheckValidLevelCount(bool valid) {
   if (ARROW_PREDICT_FALSE(!valid)) {
     throw ParquetException(
         "Number of decoded rep / def levels do not match num_values in page header");
@@ -308,6 +309,6 @@ auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(bool value,
       .matching_count = result.matching_count,
       .processed_count = result.processed_count,
   };
-};
+}
 
 }  // namespace parquet
