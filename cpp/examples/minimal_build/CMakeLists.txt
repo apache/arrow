@@ -51,7 +51,8 @@ else()
 endif()
 
 option(ARROW_EXAMPLE_S3_STATIC_CHECK "Verify S3 and static linking" OFF)
-if(ARROW_EXAMPLE_S3_STATIC_CHECK AND TARGET Arrow::arrow_static)
+# Check only when Arrow got built with S3 by ArrowOptions.cmake via find_package
+if(ARROW_EXAMPLE_S3_STATIC_CHECK AND ARROW_S3 AND TARGET Arrow::arrow_static)
   find_package(ArrowS3 REQUIRED)
   if(NOT TARGET ArrowS3::arrow_s3_static)
     message(FATAL_ERROR "ArrowS3::arrow_s3_static not found")
