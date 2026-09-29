@@ -540,10 +540,10 @@ void AlpCompression<T>::PatchExceptions(
 
 template <AlpFloatingType T>
 template <typename TargetType>
-  requires AlpDecodeTarget<T, TargetType>
 void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
                                    std::span<TargetType> outputs,
                                    std::span<EncodedUnsigned> integer_scratch) {
+  static_assert(AlpDecodeTarget<T, TargetType>);
   const AlpInfo& alp_info = encoded_view.alp_info();
   const AlpForInfo<T>& for_info = encoded_view.for_info();
   const size_t num_elements = static_cast<size_t>(encoded_view.num_elements());

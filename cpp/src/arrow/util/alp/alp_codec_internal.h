@@ -76,7 +76,6 @@ class ARROW_EXPORT AlpVectorReader {
   /// `output` must contain exactly `VectorLength(vector_index)` elements.
   /// `TargetType` may be wider than `T`, but not narrower.
   template <typename TargetType>
-    requires AlpDecodeTarget<T, TargetType>
   Status Decode(int32_t vector_index, std::span<TargetType> output);
 
  private:
