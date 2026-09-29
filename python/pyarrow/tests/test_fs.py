@@ -1181,6 +1181,29 @@ def test_s3_output_stream_abort_after_part_upload(s3fs):
     assert fs.get_file_info(p).type == FileType.NotFound
 
 
+@pytest.mark.s3
+def test_s3_output_stream_failed_abort(s3_server):
+    from pyarrow.fs import S3FileSystem
+    # The limited user isn't allowed to abort multipart uploads
+    _configure_s3_limited_user(s3_server, _minio_limited_policy,
+                               'test_fs_abort_user', 'abort123')
+    host, port, _, _ = s3_server['connection']
+    fs = S3FileSystem(
+        access_key='test_fs_abort_user',
+        secret_key='abort123',
+        endpoint_override=f'{host}:{port}',
+        scheme='http'
+    )
+    p = 'existing-bucket/failed-abort'
+    with fs.open_output_stream(p) as f:
+        f.write(b'some data')
+        with pytest.raises(OSError, match="AbortMultipartUpload"):
+            f.abort()
+        assert f.closed
+
+    assert fs.get_file_info(p).type == FileType.NotFound
+
+
 def test_localfs_options():
     # LocalFileSystem instantiation
     LocalFileSystem(use_mmap=False)
