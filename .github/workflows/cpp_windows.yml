@@ -116,10 +116,9 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-windows-${{ inputs.arch }}
       - name: Find Visual Studio
-        shell: bash
+        shell: pwsh
         run: |
-          vs_path=$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)
-          echo "VS_INSTALL_PATH=${vs_path}" >> "${GITHUB_ENV}"
+          "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
       - name: Build
         shell: cmd
         env:
