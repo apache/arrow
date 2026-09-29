@@ -1160,7 +1160,7 @@ def test_open_output_stream_abort(fs, pathfn, compression, buffer_size):
         f.abort()
         assert f.closed
 
-    # Other filesystems may keep the written data, so only these are checked
+    # Note that only S3 discards the written data on abort for now
     if fs.type_name == 's3':
         assert fs.get_file_info(p).type == FileType.NotFound
     elif 'mock' in fs.type_name:
@@ -1201,7 +1201,6 @@ def test_s3_output_stream_failed_abort(s3_server):
             f.abort()
     assert f.closed
 
-    # Neither closing nor destroying the stream completes the upload
     del f
     assert fs.get_file_info(p).type == FileType.NotFound
 
