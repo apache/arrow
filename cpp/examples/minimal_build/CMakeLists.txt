@@ -61,4 +61,7 @@ if(ARROW_EXAMPLE_S3_STATIC_CHECK AND ARROW_S3 AND TARGET Arrow::arrow_static)
   target_compile_definitions(arrow-example-s3-static
                              PRIVATE ARROW_EXAMPLE_S3_STATIC_CHECK)
   target_link_libraries(arrow-example-s3-static PRIVATE ArrowS3::arrow_s3_static)
+elseif(ARROW_EXAMPLE_S3_STATIC_CHECK)
+  message(STATUS "Skipping arrow-example-s3-static: "
+                 "requires ARROW_S3 and Arrow::arrow_static")
 endif()
