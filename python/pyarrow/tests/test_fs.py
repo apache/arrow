@@ -1143,9 +1143,19 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert got_metadata == {}
 
 
-def test_open_output_stream_abort(fs, pathfn):
+@pytest.mark.gzip
+@pytest.mark.parametrize(
+    ('compression', 'buffer_size'),
+    [
+        (None, None),
+        (None, 64),
+        ('gzip', None),
+        ('gzip', 256),
+    ]
+)
+def test_open_output_stream_abort(fs, pathfn, compression, buffer_size):
     p = pathfn('open-output-stream-abort')
-    with fs.open_output_stream(p) as f:
+    with fs.open_output_stream(p, compression, buffer_size) as f:
         f.write(b'some data')
         f.abort()
         assert f.closed
@@ -1156,6 +1166,19 @@ def test_open_output_stream_abort(fs, pathfn):
     elif 'mock' in fs.type_name:
         with fs.open_input_stream(p) as f:
             assert f.read().startswith(b'MockFSOutputStream aborted')
+
+
+@pytest.mark.s3
+def test_s3_output_stream_abort_after_part_upload(s3fs):
+    fs, pathfn = s3fs['fs'], s3fs['pathfn']
+    p = pathfn('abort-after-part-upload')
+    with fs.open_output_stream(p) as f:
+        # Flushing a full 10 MiB part waits for its upload to complete
+        f.write(b'x' * 10 * 1024 * 1024)
+        f.flush()
+        f.abort()
+
+    assert fs.get_file_info(p).type == FileType.NotFound
 
 
 def test_localfs_options():
