@@ -148,7 +148,7 @@ class PageLevelDecoder {
   ///
   /// The count is limited to at most the next `batch_size` items.
   /// @return The matching value count and number of elements that were processed.
-  CountUpToResult CountUpTo(bool value, int32_t batch_size);
+  CountUpToResult CountUpTo(int16_t value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
   int16_t max_level() const { return max_level_; }
@@ -299,7 +299,7 @@ int32_t PageLevelDecoder<BitDec, RleDec>::Skip(int32_t batch_size) {
 }
 
 template <typename BitDec, typename RleDec>
-auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(bool value,
+auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(int16_t value,
                                                  int32_t batch_size) -> CountUpToResult {
   const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const auto result =

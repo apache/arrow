@@ -2604,7 +2604,8 @@ int64_t FlatOptionalTypedRecordReader<DT>::ReadRecords(int64_t num_records) {
     const int32_t batch_size =
         narrow_min(num_records - records_read, this->available_values_current_page());
     if (read_dense_for_nullable()) {
-      const auto result = this->def_levels_decoder_.CountUpTo(true, batch_size);
+      const auto result = this->def_levels_decoder_.CountUpTo(1, batch_size);
+      CheckValidLevelCount(result.processed_count == batch_size);
       value_sink_.ReadValuesDense(*this->current_decoder_.get(), result.matching_count);
       records_read += result.processed_count;
       this->MarkValuesAsConsumed(result.processed_count);
