@@ -1195,12 +1195,14 @@ def test_s3_output_stream_failed_abort(s3_server):
         scheme='http'
     )
     p = 'existing-bucket/failed-abort'
-    with fs.open_output_stream(p) as f:
-        f.write(b'some data')
-        with pytest.raises(OSError, match="AbortMultipartUpload"):
+    with pytest.raises(OSError, match="AbortMultipartUpload"):
+        with fs.open_output_stream(p) as f:
+            f.write(b'some data')
             f.abort()
-        assert f.closed
+    assert f.closed
 
+    # Neither closing nor destroying the stream completes the upload
+    del f
     assert fs.get_file_info(p).type == FileType.NotFound
 
 
