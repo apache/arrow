@@ -348,6 +348,8 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      # Quick test with bundled
+      simdjson_SOURCE: BUNDLED
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
