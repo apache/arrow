@@ -46,7 +46,12 @@ int64_t ConsumeWhitespace(std::string_view view) {
 // and uses the structural indexes computed by simdjson to delimit them.
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
-  explicit ParsingBoundaryFinder(MemoryPool* pool) : pool_(pool) {}
+  explicit ParsingBoundaryFinder(MemoryPool* pool) : pool_(pool) {
+    // A simdjson document stream may start a thread to index the next batch in the
+    // background. We do not want to do this eagerly as we might not need to parse
+    // the next block
+    parser_.threaded = false;
+  }
 
   Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
