@@ -1143,6 +1143,21 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert got_metadata == {}
 
 
+def test_open_output_stream_abort(fs, pathfn):
+    p = pathfn('open-output-stream-abort')
+    with fs.open_output_stream(p) as f:
+        f.write(b'some data')
+        f.abort()
+        assert f.closed
+
+    # Other filesystems may keep the written data, so only these are checked
+    if fs.type_name == 's3':
+        assert fs.get_file_info(p).type == FileType.NotFound
+    elif 'mock' in fs.type_name:
+        with fs.open_input_stream(p) as f:
+            assert f.read().startswith(b'MockFSOutputStream aborted')
+
+
 def test_localfs_options():
     # LocalFileSystem instantiation
     LocalFileSystem(use_mmap=False)

@@ -1633,6 +1633,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass FileInterface:
         CStatus Close()
+        CStatus Abort()
         CResult[int64_t] Tell()
         FileMode mode()
         c_bool closed()

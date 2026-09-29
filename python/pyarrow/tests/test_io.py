@@ -989,6 +989,16 @@ def test_inmemory_write_after_closed():
         f.write(b'not ok')
 
 
+def test_inmemory_write_after_abort():
+    f = pa.BufferOutputStream()
+    f.write(b'ok')
+    f.abort()
+    assert f.closed
+
+    with pytest.raises(ValueError):
+        f.write(b'not ok')
+
+
 def test_buffer_protocol_ref_counting():
     def make_buffer(bytes_obj):
         return bytearray(pa.py_buffer(bytes_obj))
