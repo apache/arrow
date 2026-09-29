@@ -1088,6 +1088,7 @@ Examples
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
                  max_rows_per_page=None,
+                 bloom_filter_options=None,
                  use_content_defined_chunking=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
@@ -1144,6 +1145,7 @@ Examples
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             max_rows_per_page=max_rows_per_page,
+            bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
             **options)
         self.is_open = True
