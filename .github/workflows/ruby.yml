@@ -158,6 +158,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      OPENSSL_ROOT_DIR: /opt/homebrew/opt/openssl@3
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
@@ -184,6 +185,11 @@ jobs:
           for ruby_package_gemfile in ruby/*/Gemfile; do \
             bundle install --gemfile ${ruby_package_gemfile}
           done
+      - name: OpenSSL check
+        run: |
+          brew uses --installed openssl@4
+          brew deps --installed --tree
+          env
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
