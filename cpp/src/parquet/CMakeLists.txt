@@ -413,11 +413,20 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/variant_test.cc)
 
 if(ARROW_WITH_OPENTELEMETRY)
+  if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
+    # System OpenTelemetry is not bundled with libarrow.
+    # We need to link against it explicitly otherwise we get missing symbols.
+    set(EXTRA_TEST_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  else()
+    # Bundled OpenTelemetry is statically linked into libarrow; linking it
+    # again duplicates globals and causes a double free at exit.
+    set(EXTRA_TEST_LINK_LIBS opentelemetry-cpp::sdk)
+  endif()
   add_parquet_test(arrow-reader-writer-tracing-test
                    SOURCES
                    arrow/arrow_reader_writer_tracing_test.cc
                    EXTRA_LINK_LIBS
-                   opentelemetry-cpp::sdk)
+                   ${EXTRA_TEST_LINK_LIBS})
 endif()
 
 add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
