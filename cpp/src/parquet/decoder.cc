@@ -1070,6 +1070,12 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
+  // Values are addressed by int32 offsets, so >2GB wraps the offset below and the
+  // memcpy loop writes out of bounds.
+  if (ARROW_PREDICT_FALSE(total_size > std::numeric_limits<int32_t>::max())) {
+    throw ParquetException(
+        "BYTE_ARRAY dictionary has more than 2GB of data, which is not supported");
+  }
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
   PARQUET_THROW_NOT_OK(byte_array_offsets_->Resize(
@@ -1100,7 +1106,9 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
   uint8_t* bytes_data = byte_array_data_->mutable_data();
-  for (int32_t i = 0, offset = 0; i < dictionary_length_; ++i, offset += fixed_len) {
+  // offset is 64-bit: total_size can exceed 2GB and a 32-bit accumulator would wrap
+  // and make the memcpy below write out of bounds.
+  for (int64_t i = 0, offset = 0; i < dictionary_length_; ++i, offset += fixed_len) {
     memcpy(bytes_data + offset, dict_values[i].ptr, fixed_len);
     dict_values[i].ptr = bytes_data + offset;
   }
