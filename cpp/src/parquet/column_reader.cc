@@ -51,7 +51,7 @@
 #include "parquet/exception.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
-#include "parquet/level_decoder.h"
+#include "parquet/level_decoder_internal.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
@@ -83,16 +83,6 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
     ParquetException::EofException("Decoded values " + std::to_string(number_decoded) +
                                    " does not match expected " +
                                    std::to_string(expected));
-  }
-}
-
-constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
-    "Number of decoded rep / def levels do not match num_values in page header";
-
-/// Throws if the decoder could not provide as many levels as the page header announces.
-inline void CheckLevelsDecoded(int64_t number_decoded, int64_t expected) {
-  if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
-    throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
   }
 }
 
@@ -1020,7 +1010,7 @@ class LevelSinkBuffer : public DataSinkBuffer<int16_t> {
     const auto decoded = Base::ReadFromCallback(
         [&, this]() { return decoder.Decode(Base::write_start(), batch_size); },
         batch_size);
-    CheckLevelsDecoded(decoded, batch_size);
+    CheckValidLevelCount(decoded == batch_size);
   }
 
  private:
@@ -1127,7 +1117,7 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
           return decoded;
         },
         batch_size);
-    CheckLevelsDecoded(decoded, batch_size);
+    CheckValidLevelCount(decoded == batch_size);
 
     return null_count;
   }
@@ -1627,9 +1617,7 @@ class TypedColumnReaderImpl
     // If the field is required and non-repeated, there are no definition levels
     if (this->max_def_level() > 0 && def_levels != nullptr) {
       *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
-      if (ARROW_PREDICT_FALSE(*num_def_levels != batch_size)) {
-        throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
-      }
+      CheckValidLevelCount(*num_def_levels == batch_size);
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
       ARROW_DCHECK_LE(*num_def_levels, std::numeric_limits<int32_t>::max());
@@ -1646,9 +1634,7 @@ class TypedColumnReaderImpl
     // Not present for non-repeated fields
     if (this->max_rep_level() > 0 && rep_levels != nullptr) {
       int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
-      if (batch_size != num_rep_levels) {
-        throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
-      }
+      CheckValidLevelCount(num_rep_levels == batch_size);
     }
   }
 };
@@ -1725,9 +1711,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size_64,
   // Should not return more values than available in the current data page,
   // since currently, ReadLevelsInCurrentPage would only consume levels from current
   // data page.
-  if (ARROW_PREDICT_FALSE(num_def_levels > this->available_values_current_page())) {
-    throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
-  }
+  CheckValidLevelCount(num_def_levels <= this->available_values_current_page());
   if (non_null_values_to_read != 0) {
     *values_read = this->current_decoder_->Decode(values, non_null_values_to_read);
   } else {

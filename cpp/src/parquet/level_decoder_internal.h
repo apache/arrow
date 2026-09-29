@@ -97,6 +97,14 @@ class PageLevelDecoder {
   int16_t max_level_ = 0;
 };
 
+/// Throws if the decoder could not provide as many levels as the page header announces.
+void CheckValidLevelCount(bool valid) {
+  if (ARROW_PREDICT_FALSE(!valid)) {
+    throw ParquetException(
+        "Number of decoded rep / def levels do not match num_values in page header");
+  }
+}
+
 /****************************************
  *  Implementation of PageLevelDecoder  *
  ****************************************/
