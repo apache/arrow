@@ -1420,6 +1420,27 @@ macro(find_curl ARROW_CURL_PACKAGE_PREFIX)
 endmacro()
 
 # ----------------------------------------------------------------------
+# pkg-config
+
+# SDK libraries (on macOS) may be available without .pc files
+macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(${PC_PREFIX}
+                      ${PC_PACKAGE}
+                      NO_CMAKE_PATH
+                      NO_CMAKE_ENVIRONMENT_PATH
+                      QUIET)
+  endif()
+  if(PkgConfig_FOUND AND ${PC_PREFIX}_FOUND)
+    string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
+  else()
+    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} in arrow.pc")
+    string(APPEND ARROW_PC_LIBS_PRIVATE " ${FALLBACK}")
+  endif()
+endmacro()
+
+# ----------------------------------------------------------------------
 # Snappy
 
 macro(build_snappy)
@@ -3800,11 +3821,6 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   # avoid conflict.
   find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
-  if(ARROW_BUILD_STATIC
-     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
-     AND NOT ARROW_PC_REQUIRES_PRIVATE MATCHES "libcurl")
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-  endif()
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
@@ -4355,12 +4371,20 @@ if(ARROW_WITH_AZURE_SDK)
     find_curl(ARROW)
     find_package(LibXml2 REQUIRED)
     list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
-    if(ARROW_BUILD_STATIC)
-      if(NOT ARROW_PC_REQUIRES_PRIVATE MATCHES "libcurl")
-        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-      endif()
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libxml-2.0")
-    endif()
+  endif()
+endif()
+
+if(ARROW_BUILD_STATIC)
+  if((ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+     OR (ARROW_AZURE
+         AND AZURE_SDK_VENDORED
+         AND NOT WIN32))
+    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl")
+  endif()
+  if(ARROW_AZURE
+     AND AZURE_SDK_VENDORED
+     AND NOT WIN32)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2")
   endif()
 endif()
 
