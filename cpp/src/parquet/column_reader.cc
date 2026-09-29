@@ -42,14 +42,12 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_bitmap_internal.h"
-#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
-#include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 #include "parquet/level_decoder_internal.h"
 #include "parquet/properties.h"
@@ -86,18 +84,6 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
   }
 }
 
-void CheckMinMax(const int16_t* data, int32_t size, int16_t max_level) {
-  if (size > 0) {
-    internal::MinMax min_max = internal::FindMinMax(data, size);
-    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level)) {
-      std::stringstream ss;
-      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
-         << " out of range.  Max Level: " << max_level;
-      throw ParquetException(ss.str());
-    }
-  }
-}
-
 /// True if a T can hold a U.
 template <typename T, typename U>
 inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
@@ -131,91 +117,14 @@ concept can_cout = requires(std::ostream& os, const T& value) {
   os << value;
 };  // NOLINT(readability/braces)
 
-/*********************
- *  NewLevelDecoder  *
- *********************/
-
-struct NewLevelBitDecoder : ::arrow::util::BitPackedDecoder<int16_t> {
-  using Base = BitPackedDecoder<int16_t>;
-
-  NewLevelBitDecoder(const uint8_t* data, int32_t data_size, const auto& params)
-      : Base(data, data_size,
-             /* value_bit_width= */ bit_util::Log2(params.max_level + 1),
-             params.value_count) {}
-
-  int32_t GetBatch(int16_t* out, int32_t batch_size, int16_t max_level) {
-    const int32_t num_decoded = Base::GetBatch(out, batch_size);
-    CheckMinMax(out, num_decoded, max_level);
-    return num_decoded;
-  }
-};
-
-struct NewLevelRleDecoder : ::arrow::util::RleBitPackedDecoder<int16_t> {
-  using Base = RleBitPackedDecoder<int16_t>;
-
-  NewLevelRleDecoder(const uint8_t* data, int32_t data_size, const auto& params)
-      : Base(data, data_size,
-             /* value_bit_width= */ bit_util::Log2(params.max_level + 1)) {}
-
-  int32_t GetBatch(int16_t* out, int32_t batch_size, int16_t max_level) {
-    const int32_t num_decoded = Base::GetBatch(out, batch_size);
-    CheckMinMax(out, num_decoded, max_level);
-    return num_decoded;
-  }
-};
-
-/// Flat replacement for Legacy `LevelDecoder`.
-using NewLevelDecoder = PageLevelDecoder<NewLevelBitDecoder, NewLevelRleDecoder>;
-
-/**************************
- *  LevelToBitmapDecoder  *
- **************************/
-
-struct LevelToBitmapBitDecoder : ::arrow::util::BitPackedToBitmapDecoder {
-  using Base = BitPackedToBitmapDecoder;
-
-  LevelToBitmapBitDecoder(const uint8_t* data, int32_t data_size, const auto& params)
-      : Base(data, data_size, params.value_count) {
-    ARROW_DCHECK_EQ(params.max_level, 1);
-  }
-
-  template <typename Out>
-  int32_t GetBatch(Out&& out, int32_t batch_size, int16_t /* max_level */) {
-    return Base::GetBatch(out, batch_size);
-  }
-};
-
-struct LevelToBitmapRleDecoder : ::arrow::util::RleBitPackedToBitmapDecoder {
-  using Base = RleBitPackedToBitmapDecoder;
-
-  LevelToBitmapRleDecoder(const uint8_t* data, int32_t data_size, const auto& params)
-      : Base(data, data_size) {
-    ARROW_DCHECK_EQ(params.max_level, 1);
-  }
-
-  template <typename Out>
-  int32_t GetBatch(Out&& out, int32_t batch_size, int16_t /* max_level */) {
-    return Base::GetBatch(out, batch_size);
-  }
-};
-
-/// Decoder for definition levels that writes directly into a validity bitmap.
-///
-/// This is the bitmap counterpart of ``LevelDecoder``, specialized for levels
-/// encoded on a single bit (a max level of 1), such as the definition levels of a
-/// flat, nullable column. Rather than decoding into an ``int16_t`` array and
-/// re-encoding into an Arrow validity bitmap, it decodes straight into the bitmap.
-///
-/// @see PageLevelDecoder
-struct LevelToBitmapDecoder
-    : PageLevelDecoder<LevelToBitmapBitDecoder, LevelToBitmapRleDecoder> {
-  LevelToBitmapDecoder() : PageLevelDecoder(/* max_level= */ 1) {}
-};
 }  // namespace
 
 /******************
  *  LevelDecoder  *
  ******************/
+
+// Replacement for legacy LevelDecoder
+using NewLevelDecoder = PageLevelDecoder<>;
 
 struct LevelDecoder::Impl {
   NewLevelDecoder decoder_{};
@@ -1098,7 +1007,7 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
   /// definition levels are already a validity bitmap.
   ///
   /// @return the number of null values written.
-  int32_t ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
+  int32_t ReadFromDecoder(PageLevelToBitmapDecoder& decoder, int32_t batch_size) {
     int32_t null_count = 0;
 
     const auto decoded = Base::ReadFromCallback(
@@ -2574,7 +2483,7 @@ void RequiredTypedRecordReader<DT, VS, kDic>::DebugPrintState() {
 template <typename DT>
 struct FlatOptionalTypedRecordReaderTraits {
   using DType = DT;
-  using DefLevelDecoder = LevelToBitmapDecoder;
+  using DefLevelDecoder = PageLevelToBitmapDecoder;
   using RepLevelDecoder = NewLevelDecoder;
 };
 
@@ -2594,7 +2503,7 @@ class FlatOptionalTypedRecordReader
 
   FlatOptionalTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                                 bool read_dense_for_nullable, ValueSink value_sink)
-      : Base(descr, pool, LevelToBitmapDecoder(), NewLevelDecoder(0)),
+      : Base(descr, pool, PageLevelToBitmapDecoder(), NewLevelDecoder(0)),
         value_sink_(std::move(value_sink)) {
     ARROW_DCHECK_EQ(descr->max_definition_level(), 1);
     ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);

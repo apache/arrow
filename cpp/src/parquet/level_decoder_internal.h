@@ -18,16 +18,81 @@
 #pragma once
 
 #include <cstdint>
+#include <sstream>
 #include <variant>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/rle_bitmap_internal.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/exception.h"
+#include "parquet/level_comparison.h"
 #include "parquet/types.h"
 
 namespace parquet {
+
+/*******************************
+ *  PageLevelDecoder Adapters  *
+ *******************************/
+
+/// BitPackedDecoder adapter for PageLevelDecoder.
+struct LevelBitPackedDecoder : ::arrow::util::BitPackedDecoder<int16_t> {
+  using Base = BitPackedDecoder<int16_t>;
+
+  LevelBitPackedDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+      : Base(data, data_size,
+             /* value_bit_width= */ ::arrow::bit_util::Log2(params.max_level + 1),
+             params.value_count) {}
+
+  int32_t GetBatch(int16_t* out, int32_t batch_size, int16_t max_level);
+};
+
+/// RleBitPackedDecoder adapter for PageLevelDecoder.
+struct LevelRleBitPackedDecoder : ::arrow::util::RleBitPackedDecoder<int16_t> {
+  using Base = RleBitPackedDecoder<int16_t>;
+
+  LevelRleBitPackedDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+      : Base(data, data_size,
+             /* value_bit_width= */ ::arrow::bit_util::Log2(params.max_level + 1)) {}
+
+  int32_t GetBatch(int16_t* out, int32_t batch_size, int16_t max_level);
+};
+
+/**************************************
+ *  PageLevelDecoder Bitmap Adapters  *
+ **************************************/
+
+struct LevelToBitmapBitPackedDecoder : ::arrow::util::BitPackedToBitmapDecoder {
+  using Base = BitPackedToBitmapDecoder;
+
+  LevelToBitmapBitPackedDecoder(const uint8_t* data, int32_t data_size,
+                                const auto& params)
+      : Base(data, data_size, params.value_count) {
+    ARROW_DCHECK_EQ(params.max_level, 1);
+  }
+
+  template <typename Out>
+  int32_t GetBatch(Out&& out, int32_t batch_size, int16_t /* max_level */) {
+    return Base::GetBatch(out, batch_size);
+  }
+};
+
+struct LevelToBitmapRleBitPackedDecoder : ::arrow::util::RleBitPackedToBitmapDecoder {
+  using Base = RleBitPackedToBitmapDecoder;
+
+  LevelToBitmapRleBitPackedDecoder(const uint8_t* data, int32_t data_size,
+                                   const auto& params)
+      : Base(data, data_size) {
+    ARROW_DCHECK_EQ(params.max_level, 1);
+  }
+
+  template <typename Out>
+  int32_t GetBatch(Out&& out, int32_t batch_size, int16_t /* max_level */) {
+    return Base::GetBatch(out, batch_size);
+  }
+};
 
 /**********************
  *  PageLevelDecoder  *
@@ -42,7 +107,8 @@ namespace parquet {
 /// The number of levels is guaranteed to fit into an `int32_t` by the specification.
 ///
 /// @see https://research.google.com/pubs/archive/36632.pdf
-template <typename BitDecoder, typename RleDecoder>
+template <typename BitDecoder = LevelBitPackedDecoder,
+          typename RleDecoder = LevelRleBitPackedDecoder>
 class PageLevelDecoder {
  public:
   struct DataParams {
@@ -97,12 +163,60 @@ class PageLevelDecoder {
   int16_t max_level_ = 0;
 };
 
+/// Decoder for definition levels that writes directly into a validity bitmap.
+///
+/// This is the bitmap counterpart of the default ``PageLevelDecoder``,
+/// specialized for levels encoded on a single bit (a max level of 1),
+/// such as the definition levels of a flat, nullable column.
+/// Rather than decoding into an ``int16_t`` array and re-encoding into
+/// an Arrow validity bitmap, it decodes straight into the bitmap.
+///
+/// @see PageLevelDecoder
+struct PageLevelToBitmapDecoder
+    : PageLevelDecoder<LevelToBitmapBitPackedDecoder, LevelToBitmapRleBitPackedDecoder> {
+  PageLevelToBitmapDecoder() : PageLevelDecoder(/* max_level= */ 1) {}
+};
+
+/***************
+ *  Utilities  *
+ ***************/
+
 /// Throws if the decoder could not provide as many levels as the page header announces.
 void CheckValidLevelCount(bool valid) {
   if (ARROW_PREDICT_FALSE(!valid)) {
     throw ParquetException(
         "Number of decoded rep / def levels do not match num_values in page header");
   }
+}
+
+inline void CheckLevelMinMax(const int16_t* data, int32_t size, int16_t max_level) {
+  if (size > 0) {
+    internal::MinMax min_max = internal::FindMinMax(data, size);
+    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level)) {
+      std::stringstream ss;
+      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
+         << " out of range.  Max Level: " << max_level;
+      throw ParquetException(ss.str());
+    }
+  }
+}
+
+/*************************************************
+ *  Implementation of PageLevelDecoder Adapters  *
+ *************************************************/
+
+inline int32_t LevelBitPackedDecoder::GetBatch(int16_t* out, int32_t batch_size,
+                                               int16_t max_level) {
+  const int32_t num_decoded = Base::GetBatch(out, batch_size);
+  CheckLevelMinMax(out, num_decoded, max_level);
+  return num_decoded;
+}
+
+inline int32_t LevelRleBitPackedDecoder::GetBatch(int16_t* out, int32_t batch_size,
+                                                  int16_t max_level) {
+  const int32_t num_decoded = Base::GetBatch(out, batch_size);
+  CheckLevelMinMax(out, num_decoded, max_level);
+  return num_decoded;
 }
 
 /****************************************
@@ -195,4 +309,5 @@ auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(bool value,
       .processed_count = result.processed_count,
   };
 };
+
 }  // namespace parquet
