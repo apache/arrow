@@ -228,6 +228,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      OPENSSL_ROOT_DIR: /opt/homebrew/opt/openssl@
     steps:
       - name: CPU Info
         run: |
@@ -246,6 +247,11 @@ jobs:
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
+      - name: OpenSSL check
+        run: |
+          brew uses --installed openssl@4
+          brew deps --installed --tree
+          env
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
