@@ -28,6 +28,19 @@ import operator
 
 import pyarrow as pa
 
+_READER_COMMON_DOCS = """    thrift_string_size_limit : int, default None
+        If not None, override the maximum total string size allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    thrift_container_size_limit : int, default None
+        If not None, override the maximum total size of containers allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    schema_depth_limit : int, default None
+        If not None, override the maximum nesting depth of the Parquet file schema.
+        This guards against recursion overflow on invalid schemas.
+        The default limit should be sufficient for most Parquet files."""
+
 try:
     import pyarrow._parquet as _parquet
 except ImportError as exc:
@@ -206,7 +219,7 @@ _filters_to_expression = _deprecate_api(
 
 
 class ParquetFile:
-    """
+    f"""
     Reader interface for a single Parquet file.
 
     Parameters
@@ -250,18 +263,7 @@ class ParquetFile:
         in nanoseconds.
     decryption_properties : FileDecryptionProperties, default None
         File decryption properties for Parquet Modular Encryption.
-    thrift_string_size_limit : int, default None
-        If not None, override the maximum total string size allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    thrift_container_size_limit : int, default None
-        If not None, override the maximum total size of containers allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    schema_depth_limit : int, default None
-        If not None, override the maximum nesting depth of the Parquet file schema.
-        This guards against recursion overflow on invalid schemas.
-        The default limit should be sufficient for most Parquet files.
+    {_READER_COMMON_DOCS}
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
@@ -1372,18 +1374,7 @@ decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
     ``CryptoFactory.file_decryption_properties()``.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-schema_depth_limit : int, default None
-    If not None, override the maximum nesting depth of the Parquet file schema.
-    This guards against recursion overflow on invalid schemas.
-    The default limit should be sufficient for most Parquet files.
+{_READER_COMMON_DOCS}
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
@@ -1736,10 +1727,10 @@ Examples
         """
         The partitioning of the Dataset source, if discovered.
         """
-        return self._dataset.partitioning
+        return self._dataset.partitioning 
 
 
-_read_table_docstring = """
+_read_table_docstring = f"""
 {0}
 
 Parameters
@@ -1793,18 +1784,7 @@ decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
     ``CryptoFactory.file_decryption_properties()``.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-schema_depth_limit : int, default None
-    If not None, override the maximum nesting depth of the Parquet file schema.
-    This guards against recursion overflow on invalid schemas.
-    The default limit should be sufficient for most Parquet files.
+{_READER_COMMON_DOCS}
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
