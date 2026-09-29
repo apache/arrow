@@ -1380,7 +1380,7 @@ struct ObjectMetadataSetter {
   static std::unordered_map<std::string, Setter> GetSetters() {
     return {{"ACL", CannedACLSetter()},
             {"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
-            {"Content-Encoding", ContentEncodingSetter()},
+            {"Content-Encoding", StringSetter(&ObjectRequest::SetContentEncoding)},
             {"Content-Type", ContentTypeSetter()},
             {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
             {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
@@ -1417,13 +1417,6 @@ struct ObjectMetadataSetter {
   static Setter ContentTypeSetter() {
     return [](const std::string& str, ObjectRequest* req) {
       req->SetContentType(str);
-      return Status::OK();
-    };
-  }
-
-  static Setter ContentEncodingSetter() {
-    return [](const std::string& str, ObjectRequest* req) {
-      req->SetContentEncoding(str);
       return Status::OK();
     };
   }
