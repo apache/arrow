@@ -1748,8 +1748,7 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::OK();
     }
 
-    // Close the stream even if aborting fails, so that a later Close() doesn't
-    // complete the upload.
+    // Close even if the abort request fails
     auto holder = std::move(holder_);
     current_part_.reset();
     closed_ = true;
