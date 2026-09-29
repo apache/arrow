@@ -117,10 +117,10 @@ class ARROW_EXPORT AlpVectorReader {
 
 // Member templates need explicit export instantiations.
 extern template ARROW_TEMPLATE_EXPORT Status
-AlpVectorReader<float>::Decode(int32_t, std::span<float>);
+    AlpVectorReader<float>::Decode<float>(int32_t, std::span<float>);
 extern template ARROW_TEMPLATE_EXPORT Status
-AlpVectorReader<float>::Decode(int32_t, std::span<double>);
+    AlpVectorReader<float>::Decode<double>(int32_t, std::span<double>);
 extern template ARROW_TEMPLATE_EXPORT Status
-AlpVectorReader<double>::Decode(int32_t, std::span<double>);
+    AlpVectorReader<double>::Decode<double>(int32_t, std::span<double>);
 
 }  // namespace arrow::util::alp

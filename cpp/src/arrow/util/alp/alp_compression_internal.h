@@ -122,13 +122,13 @@ class ARROW_EXPORT AlpCompression {
 // the shared library's export table. The definitions are in the implementation
 // file. Wider output than T is allowed, narrower is not, which is why float ->
 // float, float -> double and double -> double are the only three.
-extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::Decompress(
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::Decompress<float>(
     const AlpEncodedVectorView<float>&, std::span<float>,
     std::span<AlpCompression<float>::EncodedUnsigned>);
-extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::Decompress(
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::Decompress<double>(
     const AlpEncodedVectorView<float>&, std::span<double>,
     std::span<AlpCompression<float>::EncodedUnsigned>);
-extern template ARROW_TEMPLATE_EXPORT void AlpCompression<double>::Decompress(
+extern template ARROW_TEMPLATE_EXPORT void AlpCompression<double>::Decompress<double>(
     const AlpEncodedVectorView<double>&, std::span<double>,
     std::span<AlpCompression<double>::EncodedUnsigned>);
 

@@ -561,7 +561,6 @@ void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
   // Fused unFOR + decode loop: undo FOR in unsigned arithmetic, reinterpret the
   // result as signed encoded integers, then apply the normative decimal decode.
   const EncodedUnsigned frame_of_ref = for_info.frame_of_reference();
-  ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
   for (size_t i = 0; i < output.size(); ++i) {
     const EncodedUnsigned unfored_value = scratch[i] + frame_of_ref;
     const EncodedSigned signed_value = util::SafeCopy<EncodedSigned>(unfored_value);
@@ -577,13 +576,13 @@ void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
 
 // Template instantiations
 
-template void AlpCompression<float>::Decompress<double>(
+template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::Decompress<double>(
     const AlpEncodedVectorView<float>& encoded_view, std::span<double> outputs,
     std::span<AlpCompression<float>::EncodedUnsigned> integer_scratch);
-template void AlpCompression<float>::Decompress<float>(
+template ARROW_TEMPLATE_EXPORT void AlpCompression<float>::Decompress<float>(
     const AlpEncodedVectorView<float>& encoded_view, std::span<float> outputs,
     std::span<AlpCompression<float>::EncodedUnsigned> integer_scratch);
-template void AlpCompression<double>::Decompress<double>(
+template ARROW_TEMPLATE_EXPORT void AlpCompression<double>::Decompress<double>(
     const AlpEncodedVectorView<double>& encoded_view, std::span<double> outputs,
     std::span<AlpCompression<double>::EncodedUnsigned> integer_scratch);
 
