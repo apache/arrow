@@ -19,11 +19,12 @@
 // *same* expression cache key.
 //
 // Before the fix, Make() read the shared object cache once to decide `is_cached`, then
-// SetLLVMObjectCache() performed a second, independent read of the same key. A thread that
-// saw a miss on the first read and a hit on the second one would both pre-load the cached
-// object (defining e.g. "expr_0_0" in its JITDylib) *and* add its own freshly compiled IR
-// module defining the same symbol, so LLVM ORC's duplicate-symbol detection fired and
-// Make() returned "Failed to add IR module to LLJIT: Duplicate definition of symbol".
+// SetLLVMObjectCache() performed a second, independent read of the same key. A thread
+// that saw a miss on the first read and a hit on the second one would both pre-load the
+// cached object (defining e.g. "expr_0_0" in its JITDylib) *and* add its own freshly
+// compiled IR module defining the same symbol, so LLVM ORC's duplicate-symbol detection
+// fired and Make() returned "Failed to add IR module to LLJIT: Duplicate definition of
+// symbol".
 //
 // Note that this surfaces as a returned Status rather than a crash, so every Make() below
 // must be asserted on -- that is precisely what the pre-existing Java-side repro
