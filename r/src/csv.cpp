@@ -68,6 +68,8 @@ std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
   res->escape_char = cpp11::as_cpp<char>(options["escape_char"]);
   res->newlines_in_values = cpp11::as_cpp<bool>(options["newlines_in_values"]);
   res->ignore_empty_lines = cpp11::as_cpp<bool>(options["ignore_empty_lines"]);
+  res->pad_short_rows = cpp11::as_cpp<bool>(options["pad_short_rows"]);
+  res->ignore_extra_columns = cpp11::as_cpp<bool>(options["ignore_extra_columns"]);
   return res;
 }
 
