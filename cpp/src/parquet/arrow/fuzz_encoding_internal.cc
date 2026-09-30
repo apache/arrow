@@ -18,7 +18,6 @@
 #include "parquet/arrow/fuzz_encoding_internal.h"
 
 #include <string.h>
-#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -90,16 +89,6 @@ ARROW_PACKED_END
 
 static_assert(sizeof(PackedEncodingHeader) == kPackedEncodingHeaderSize);
 
-template <typename EnumType, typename IntType>
-  requires std::unsigned_integral<IntType>
-Result<EnumType> ToEnum(IntType v) {
-  if (v < EnumType::UNDEFINED) {
-    return static_cast<EnumType>(v);
-  }
-  return Status::Invalid("Invalid enum value ", static_cast<uint64_t>(v), " for ",
-                         typeid(v).name());
-}
-
 }  // namespace
 
 FuzzEncodingHeader::FuzzEncodingHeader(Encoding::type source_encoding,
@@ -150,17 +139,14 @@ std::string FuzzEncodingHeader::Serialize() const {
       ph.type_id >= static_cast<uint8_t>(Type::UNDEFINED)) {
     return invalid_payload();
   }
-  ARROW_ASSIGN_OR_RAISE(auto source_encoding,
-                        ToEnum<Encoding::type>(ph.source_encoding_id));
-  ARROW_ASSIGN_OR_RAISE(auto roundtrip_encoding,
-                        ToEnum<Encoding::type>(ph.roundtrip_encoding_id));
-  ARROW_ASSIGN_OR_RAISE(auto type, ToEnum<Type::type>(ph.type_id));
-  if (!IsEncodingSupported(type, source_encoding) ||
-      !IsEncodingSupported(type, roundtrip_encoding)) {
-    return Status::Invalid("Unsupported encoding for type");
-  }
-  FuzzEncodingHeader header(source_encoding, roundtrip_encoding, type, ph.type_length,
+  FuzzEncodingHeader header(static_cast<Encoding::type>(ph.source_encoding_id),
+                            static_cast<Encoding::type>(ph.roundtrip_encoding_id),
+                            static_cast<Type::type>(ph.type_id), ph.type_length,
                             ph.num_values);
+  if (!IsEncodingSupported(header.type, header.source_encoding) ||
+      !IsEncodingSupported(header.type, header.roundtrip_encoding)) {
+    return invalid_payload();
+  }
   if ((header.type == Type::FIXED_LEN_BYTE_ARRAY) ? (header.type_length <= 0)
                                                   : (header.type_length != -1)) {
     return invalid_payload();
