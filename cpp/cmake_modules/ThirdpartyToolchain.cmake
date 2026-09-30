@@ -3722,6 +3722,10 @@ function(build_google_cloud_cpp_storage)
   # remove this workaround and google-cloud-cpp-openssl4-compatibility.patch.
   # https://github.com/googleapis/google-cloud-cpp/issues/16510
   if(PATCH)
+    if(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+      list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND COMMAND)
+    endif()
+
     list(APPEND
          GOOGLE_CLOUD_CPP_PATCH_COMMAND
          ${PATCH}
