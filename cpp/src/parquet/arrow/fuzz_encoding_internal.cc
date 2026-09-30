@@ -18,13 +18,16 @@
 #include "parquet/arrow/fuzz_encoding_internal.h"
 
 #include <string.h>
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
 #include <new>
+#include <optional>
 #include <sstream>
 #include <string_view>
+#include <typeinfo>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -52,6 +55,7 @@ using ::arrow::MemoryPool;
 using ::arrow::Result;
 using ::arrow::Status;
 using ::arrow::TypedBufferBuilder;
+using ::arrow::internal::FuzzStatus;
 using ::parquet::arrow::FileReader;
 
 ColumnDescriptor MakeColumnDescriptor(Type::type type, int type_length) {
@@ -85,6 +89,16 @@ ARROW_PACKED_START(struct, PackedEncodingHeader) {
 ARROW_PACKED_END
 
 static_assert(sizeof(PackedEncodingHeader) == kPackedEncodingHeaderSize);
+
+template <typename EnumType, typename IntType>
+  requires std::unsigned_integral<IntType>
+Result<EnumType> ToEnum(IntType v) {
+  if (v < EnumType::UNDEFINED) {
+    return static_cast<EnumType>(v);
+  }
+  return Status::Invalid("Invalid enum value ", static_cast<uint64_t>(v), " for ",
+                         typeid(v).name());
+}
 
 }  // namespace
 
@@ -136,9 +150,16 @@ std::string FuzzEncodingHeader::Serialize() const {
       ph.type_id >= static_cast<uint8_t>(Type::UNDEFINED)) {
     return invalid_payload();
   }
-  FuzzEncodingHeader header(static_cast<Encoding::type>(ph.source_encoding_id),
-                            static_cast<Encoding::type>(ph.roundtrip_encoding_id),
-                            static_cast<Type::type>(ph.type_id), ph.type_length,
+  ARROW_ASSIGN_OR_RAISE(auto source_encoding,
+                        ToEnum<Encoding::type>(ph.source_encoding_id));
+  ARROW_ASSIGN_OR_RAISE(auto roundtrip_encoding,
+                        ToEnum<Encoding::type>(ph.roundtrip_encoding_id));
+  ARROW_ASSIGN_OR_RAISE(auto type, ToEnum<Type::type>(ph.type_id));
+  if (!IsEncodingSupported(type, source_encoding) ||
+      !IsEncodingSupported(type, roundtrip_encoding)) {
+    return Status::Invalid("Unsupported encoding for type");
+  }
+  FuzzEncodingHeader header(source_encoding, roundtrip_encoding, type, ph.type_length,
                             ph.num_values);
   if ((header.type == Type::FIXED_LEN_BYTE_ARRAY) ? (header.type_length <= 0)
                                                   : (header.type_length != -1)) {
@@ -492,13 +513,17 @@ struct TypedFuzzEncoding {
 
 }  // namespace
 
-Status FuzzEncoding(const uint8_t* data, int64_t size) {
+FuzzStatus FuzzEncoding(const uint8_t* data, int64_t size) {
   constexpr auto kInt32Max = std::numeric_limits<int32_t>::max();
 
-  ARROW_ASSIGN_OR_RAISE(const auto parse_result,
-                        FuzzEncodingHeader::Parse(std::span(data, size)));
-  const auto header = parse_result.first;
-  const auto encoded_data = parse_result.second;
+  auto maybe_parse_result = FuzzEncodingHeader::Parse(std::span(data, size));
+  if (!maybe_parse_result.ok()) {
+    // If the fuzz encoding header is invalid, we won't save this input
+    // in the corpus, because it didn't exercise anything interesting.
+    return ::arrow::internal::SkipFuzzInput(maybe_parse_result.status());
+  }
+  const auto header = maybe_parse_result->first;
+  const auto encoded_data = maybe_parse_result->second;
   if (encoded_data.size() > static_cast<size_t>(kInt32Max)) {
     // Unlikely but who knows?
     return Status::Invalid("Fuzz payload too large");

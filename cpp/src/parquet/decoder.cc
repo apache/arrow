@@ -2557,27 +2557,50 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 
 }  // namespace detail
 
-std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
+namespace {
+
+// Discriminant allows definition of distinct functions for different initializers.
+template <auto Discriminant, typename T>
+const std::vector<T>& ConstVectorRef(std::initializer_list<T> init) {
+  static const auto vec = std::vector<T>(std::move(init));
+  return vec;
+}
+
+const std::vector<Encoding::type>& SupportedEncodingsRef(Type::type physical_type) {
   switch (physical_type) {
     case Type::BOOLEAN:
-      return {Encoding::PLAIN, Encoding::RLE};
+      return ConstVectorRef<Type::BOOLEAN>({Encoding::PLAIN, Encoding::RLE});
     case Type::INT32:
     case Type::INT64:
-      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
-              Encoding::BYTE_STREAM_SPLIT};
+      return ConstVectorRef<Type::INT32>(
+          {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED, Encoding::BYTE_STREAM_SPLIT});
     case Type::INT96:
-      return {Encoding::PLAIN};
+      return ConstVectorRef<Type::INT96>({Encoding::PLAIN});
     case Type::FLOAT:
     case Type::DOUBLE:
-      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+      return ConstVectorRef<Type::FLOAT>({Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT});
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
+      return ConstVectorRef<Type::FIXED_LEN_BYTE_ARRAY>(
+          {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY});
     case Type::BYTE_ARRAY:
-      return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
-              Encoding::DELTA_BYTE_ARRAY};
+      return ConstVectorRef<Type::BYTE_ARRAY>({Encoding::PLAIN,
+                                               Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                               Encoding::DELTA_BYTE_ARRAY});
     default:
       throw ParquetException("Invalid physical type");
   }
+}
+
+}  // namespace
+
+const std::vector<Encoding::type>& SupportedEncodings(Type::type physical_type) {
+  return SupportedEncodingsRef(physical_type);
+}
+
+bool IsEncodingSupported(Type::type physical_type, Encoding::type encoding) {
+  const auto& supported_encodings = SupportedEncodingsRef(physical_type);
+  return std::find(supported_encodings.begin(), supported_encodings.end(), encoding) !=
+         supported_encodings.end();
 }
 
 }  // namespace parquet
