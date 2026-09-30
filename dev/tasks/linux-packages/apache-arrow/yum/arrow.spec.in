@@ -277,6 +277,7 @@ Requires:	curl-devel
 %if %{use_gcs} && !%{use_bundled_nlohmann_json}
 Requires:	json-devel
 %endif
+Requires:	libxml2-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
