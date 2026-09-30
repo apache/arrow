@@ -158,7 +158,9 @@ s3_finalizer <- new.env(parent = emptyenv())
     # Use the tzdata package to configure the tzdata database on non-MSVC (i.e.
     # MinGW) systems. This fix was put in specifically for Winbuilder (See
     # GH-49866) but is needed for all non-MSVC systems. This code assumes the
-    # tzdata package is in Suggests.
+    # tzdata package is in Suggests. It has no effect when Arrow C++ uses the
+    # C++ standard library's timezone database (std::chrono), which does not
+    # accept a database path.
     if (!identical(build_info()[[2]], "MSVC")) {
       configure_tzdb()
     }
