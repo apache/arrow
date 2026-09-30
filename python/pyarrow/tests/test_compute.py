@@ -2669,9 +2669,7 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.is_leap_year(tsa).equals(pa.array(ts.dt.is_leap_year))
     assert pc.month(tsa).equals(pa.array(month))
     assert pc.day(tsa).equals(pa.array(day))
-
     assert pc.day_of_week(tsa).equals(pa.array(dayofweek))
-
     assert pc.day_of_year(tsa).equals(pa.array(dayofyear))
     assert pc.iso_year(tsa).equals(pa.array(iso_year))
     assert pc.iso_week(tsa).equals(pa.array(iso_week))
