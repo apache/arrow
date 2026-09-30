@@ -42,7 +42,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:inner_join]{inner_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:left_join]{left_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:mutate]{mutate()}}
-\item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow \link{ChunkedArray} in a future release. Provide \code{as_vector = TRUE/FALSE} to control this behavior, or set \code{options(arrow.pull_as_vector)} globally.
+\item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default. Provide \code{as_vector = FALSE} to return an Arrow \link{ChunkedArray} instead, or set \code{options(arrow.pull_as_vector = FALSE)} globally.
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}
 \item \code{\link[dplyr:rename_with]{rename_with()}}
