@@ -1,0 +1,13 @@
+diff --git a/google/cloud/internal/openssl/parse_service_account_p12_file.cc b/google/cloud/internal/openssl/parse_service_account_p12_file.cc
+index bb0462dcf0..9dfb59750b 100644
+--- a/google/cloud/internal/openssl/parse_service_account_p12_file.cc
++++ b/google/cloud/internal/openssl/parse_service_account_p12_file.cc
+@@ -85,7 +85,7 @@ StatusOr<ServiceAccountCredentialsInfo> ParseServiceAccountP12File(
+   }
+ 
+   // This is automatically deleted by `cert`.
+-  X509_NAME* name = X509_get_subject_name(cert.get());
++  auto* name = X509_get_subject_name(cert.get());
+ 
+   std::string service_account_id = [&name]() -> std::string {
+     auto openssl_free = [](void* addr) { OPENSSL_free(addr); };

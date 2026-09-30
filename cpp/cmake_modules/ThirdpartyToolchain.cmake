@@ -3715,6 +3715,21 @@ function(build_google_cloud_cpp_storage)
          ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
   endif()
 
+  # google-cloud-cpp, which depends on OpenSSL,
+  # does not yet support OpenSSL 4.x.
+  #
+  # TODO: Once google-cloud-cpp supports,
+  # remove this part and /google-cloud-cpp-openssl4-compatibility.patch file
+  # https://github.com/googleapis/google-cloud-cpp/issues/16510
+  if(PATCH)
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-openssl4-compatibility.patch)
+  endif()
+
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
                        PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
