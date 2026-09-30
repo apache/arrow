@@ -29,8 +29,9 @@
   in favour of `format = "ipc"`, and extra arguments passed via `...` to
   `read_ipc_stream()` and `write_ipc_stream()` are deprecated and ignored
   (#49237).
-- `register_scalar_function()` now checks that the names in `in_type` match
-  the arguments of `fun`, instead of silently ignoring them (#37761).
+- `register_scalar_function()` now errors if the names in `in_type` do not
+  match the argument names of `fun`, instead of silently ignoring them
+  (#37761).
 
 ## New features
 
