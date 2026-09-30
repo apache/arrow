@@ -300,7 +300,8 @@ inline std::string ToChronoFormat(const char* fmt, bool use_microseconds_suffix)
 
 #  if defined(__GLIBCXX__)
     if (modifier == 'O' && specifier == 'V') {
-      // libstdc++ does not yet accept %OV; use its equivalent base representation.
+      // libstdc++ does not yet accept %OV; fall back to %V, losing any
+      // locale-specific alternative digits.
       append_zoned_directive(specifier);
       continue;
     }
