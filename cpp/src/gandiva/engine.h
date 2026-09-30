@@ -74,8 +74,12 @@ class GANDIVA_EXPORT Engine {
   /// Optimise and compile the module.
   Status FinalizeModule();
 
-  /// Set LLVM ObjectCache.
-  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  /// Pre-load the LLJIT with an already-compiled object for the current module, if
+  /// one was found by the caller's own cache lookup. Takes the lookup result directly
+  /// rather than re-querying the cache, so this can never disagree with the \p cached
+  /// flag passed to \p Make -- avoiding the load being based on a newer cache state
+  /// than the one that decided whether Make() would still build (and load) fresh IR.
+  Status SetLLVMObjectCache(const std::shared_ptr<llvm::MemoryBuffer>& prev_cached_obj);
 
   /// Get the compiled function corresponding to the irfunction.
   Result<void*> CompiledFunction(const std::string& function);

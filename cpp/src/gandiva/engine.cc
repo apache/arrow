@@ -304,9 +304,14 @@ void RemoveBuildTargetAttributes(llvm::Module& module) {
 
 }  // namespace
 
-Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  auto cached_buffer = object_cache.getObject(nullptr);
-  if (cached_buffer) {
+Status Engine::SetLLVMObjectCache(
+    const std::shared_ptr<llvm::MemoryBuffer>& prev_cached_obj) {
+  if (prev_cached_obj) {
+    // Copy rather than hand over the cache's own buffer -- addObjectFile takes
+    // ownership and may free it, but the shared cache map holds a reference to the
+    // same object too.
+    auto cached_buffer = prev_cached_obj->getMemBufferCopy(
+        prev_cached_obj->getBuffer(), prev_cached_obj->getBufferIdentifier());
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
     if (error) {
       return Status::CodeGenError("Failed to add cached object file to LLJIT: ",
