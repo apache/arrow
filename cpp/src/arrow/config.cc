@@ -19,10 +19,20 @@
 
 #include <cstdint>
 
+// GH-51267: chrono_internal.h owns the ARROW_USE_STD_CHRONO fallback used when
+// the macro is undefined (subproject with ARROW_DEFINE_OPTIONS=OFF); including
+// it here keeps config.cc's backend checks consistent with the header instead
+// of drifting to the vendored backend on Windows-std builds.
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/config_internal.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/vendored/datetime.h"
+// GH-51267: only builds bundling the vendored datetime implementation carry
+// its timezone code; std::chrono builds use the OS timezone database instead,
+// except Gandiva builds which still call the vendored functions directly.
+#if ARROW_HAVE_VENDORED_DATETIME
+#  include "arrow/vendored/datetime.h"
+#endif
 
 namespace arrow {
 
@@ -64,7 +74,9 @@ std::string MakeSimdLevelString(QueryFlagFunction&& query_flag) {
   }
 }
 
+#if ARROW_HAVE_VENDORED_DATETIME
 std::optional<std::string> timezone_db_path;
+#endif  // ARROW_HAVE_VENDORED_DATETIME
 
 };  // namespace
 
@@ -77,11 +89,17 @@ RuntimeInfo GetRuntimeInfo() {
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsSupported(flags); });
   info.detected_simd_level =
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsDetected(flags); });
-  info.using_os_timezone_db = USE_OS_TZDB;
-#if !USE_OS_TZDB
-  info.timezone_db_path = timezone_db_path;
-#else
+#if ARROW_USE_STD_CHRONO
+  // GH-51267: std::chrono builds always use the OS timezone database.
+  info.using_os_timezone_db = true;
   info.timezone_db_path = std::optional<std::string>();
+#else
+  info.using_os_timezone_db = USE_OS_TZDB;
+#  if !USE_OS_TZDB
+  info.timezone_db_path = timezone_db_path;
+#  else
+  info.timezone_db_path = std::optional<std::string>();
+#  endif
 #endif
   return info;
 }
@@ -91,7 +109,8 @@ RuntimeInfo GetRuntimeInfo() {
 Status Initialize(const GlobalOptions& options) noexcept {
   ARROW_SUPPRESS_DEPRECATION_WARNING
   if (options.timezone_db_path.has_value()) {
-#if !USE_OS_TZDB
+#if ARROW_HAVE_VENDORED_DATETIME
+#  if !USE_OS_TZDB
     try {
       arrow_vendored::date::set_install(options.timezone_db_path.value());
       arrow_vendored::date::reload_tzdb();
@@ -99,11 +118,19 @@ Status Initialize(const GlobalOptions& options) noexcept {
       return Status::IOError(e.what());
     }
     timezone_db_path = options.timezone_db_path.value();
-#else
+#  else
     return Status::Invalid(
         "Arrow was set to use OS timezone database at compile time, "
         "so a downloaded database cannot be provided at runtime.");
-#endif  // !USE_OS_TZDB
+#  endif
+#else
+    // GH-51267: pure std::chrono builds bundle no vendored timezone code
+    // (Gandiva builds still do; they take the branch above), so a downloaded
+    // database cannot be provided at runtime.
+    return Status::Invalid(
+        "Arrow was built with C++20 std::chrono and uses the OS timezone database, "
+        "so a downloaded database cannot be provided at runtime.");
+#endif  // ARROW_HAVE_VENDORED_DATETIME
   }
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
   return Status::OK();

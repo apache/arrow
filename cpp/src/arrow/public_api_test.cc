@@ -19,6 +19,7 @@
 #include <string>
 
 #include "arrow/config.h"
+#include "arrow/util/config.h"
 
 // Include various "api.h" entrypoints and check they don't leak internal symbols
 
@@ -107,6 +108,17 @@ TEST(TransitiveDependencies, WindowsHeadersExposed) {
 #endif
 }
 
+}  // namespace arrow
+
+// GH-51267: included after the InternalDependencies checks above so the
+// vendored datetime headers pulled in on non-std builds don't trip them,
+// and outside namespace arrow so the header's own namespaces resolve.
+// chrono_internal.h owns the ARROW_USE_STD_CHRONO fallback, so the skip below
+// stays consistent with the real backend on subproject builds too.
+#include "arrow/util/chrono_internal.h"
+
+namespace arrow {
+
 TEST(Misc, BuildInfo) {
   const auto& info = GetBuildInfo();
   // The runtime version (GetBuildInfo) should have the same major number as the
@@ -125,7 +137,9 @@ TEST(Misc, BuildInfo) {
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 ARROW_SUPPRESS_DEPRECATION_WARNING
 TEST(Misc, SetTimezoneConfig) {
-#ifndef _WIN32
+#if ARROW_USE_STD_CHRONO
+  GTEST_SKIP() << "std::chrono builds use the OS timezone database (GH-51267)";
+#elif !defined(_WIN32)
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
 #elif !defined(ARROW_FILESYSTEM)
   GTEST_SKIP() << "Need filesystem support to test timezone config.";

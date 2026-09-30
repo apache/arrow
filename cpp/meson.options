@@ -140,6 +140,14 @@ option(
     description: 'Build the Arrow googletest unit tests',
 )
 option(
+    'use_std_chrono',
+    type: 'feature',
+    value: 'auto',
+    description: '''
+Use C++20 std::chrono instead of the vendored datetime library;
+auto keeps the current platform default (GH-51267)''',
+)
+option(
     'utf8proc',
     type: 'feature',
     description: '''
