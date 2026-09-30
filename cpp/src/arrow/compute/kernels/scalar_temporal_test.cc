@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <sstream>
 #include <tuple>
 
@@ -2031,6 +2032,32 @@ TEST(TimestampFormatterTest, ReuseFormatter) {
     ASSERT_OK_AND_ASSIGN(auto result, formatter(count));
     EXPECT_EQ(result, expected);
   }
+}
+
+TEST(TimestampFormatterTest, NanosecondRangeLimits) {
+  const arrow::internal::OffsetZone zone{std::chrono::minutes{0}};
+  internal::TimestampFormatter<std::chrono::nanoseconds> formatter{
+      "%F %T %Q %q", zone, std::locale::classic()};
+  for (const auto& [count, expected] :
+       {std::pair{std::numeric_limits<int64_t>::min() + 1000000000,
+                  "1677-09-21 00:12:44.145224192 764145224192 ns"},
+        std::pair{int64_t{-86400000000000}, "1969-12-31 00:00:00.000000000 0 ns"},
+        std::pair{int64_t{-1}, "1969-12-31 23:59:59.999999999 86399999999999 ns"},
+        std::pair{int64_t{0}, "1970-01-01 00:00:00.000000000 0 ns"},
+        std::pair{int64_t{1}, "1970-01-01 00:00:00.000000001 1 ns"},
+        std::pair{std::numeric_limits<int64_t>::max(),
+                  "2262-04-11 23:47:16.854775807 85636854775807 ns"}}) {
+    SCOPED_TRACE(count);
+    ASSERT_OK_AND_ASSIGN(auto result, formatter(count));
+    EXPECT_EQ(result, expected);
+  }
+
+  // Formatting calendar fields at the exact lower bound can overflow within
+  // standard-library formatters. Test the time-of-day directives independently.
+  internal::TimestampFormatter<std::chrono::nanoseconds> count_formatter{
+      "%Q %q", zone, std::locale::classic()};
+  ASSERT_OK_AND_ASSIGN(auto result, count_formatter(std::numeric_limits<int64_t>::min()));
+  EXPECT_EQ(result, "763145224192 ns");
 }
 
 TEST(TimestampFormatterTest, StreamState) {

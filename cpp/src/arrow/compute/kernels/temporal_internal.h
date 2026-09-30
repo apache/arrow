@@ -354,8 +354,13 @@ struct TimestampFormatter {
 #if ARROW_USE_STD_CHRONO
         // %Q/%q refer to local time of day rather than elapsed time since the epoch.
         const auto local_time = zt.get_local_time();
-        const auto local_day = std::chrono::floor<std::chrono::days>(local_time);
-        const auto time_of_day = local_time - local_day;
+        // Truncate toward zero, as in StringFormatter<TimestampType>, so midnight
+        // remains representable even near the lower bound of nanosecond timestamps.
+        const auto local_day =
+            std::chrono::time_point_cast<std::chrono::days>(local_time);
+        const auto time_of_day = local_day <= local_time
+                                     ? local_time - local_day
+                                     : std::chrono::days{1} - (local_day - local_time);
         const auto time_of_day_count = time_of_day.count();
         const std::ostream::sentry sentry(bufstream);
         if (sentry) {
