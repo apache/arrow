@@ -184,13 +184,6 @@ jobs:
           for ruby_package_gemfile in ruby/*/Gemfile; do \
             bundle install --gemfile ${ruby_package_gemfile}
           done
-      - name: OpenSSL check
-        run: |
-          brew info openssl@4
-          brew --prefix openssl@4
-          brew --prefix openssl@3
-          brew unlink openssl@4
-          brew link openssl@3
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
