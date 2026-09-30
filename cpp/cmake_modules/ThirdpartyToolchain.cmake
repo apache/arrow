@@ -4405,6 +4405,38 @@ if(ARROW_BUILD_STATIC)
      AND NOT WIN32)
     arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2")
   endif()
+  if(ARROW_GCS
+     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
+     AND absl_SOURCE STREQUAL "SYSTEM")
+    # Bundled google-cloud-cpp needs system Abseil for static linking.
+    # Abseil .pc files include indirect link dependencies that base -labsl_* flags omit
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+      foreach(ARROW_GCS_ABSL_PC_PACKAGE
+              absl_base
+              absl_cord
+              absl_crc32c
+              absl_memory
+              absl_optional
+              absl_span
+              absl_str_format
+              absl_strings
+              absl_time
+              absl_variant)
+        pkg_check_modules(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC
+                          ${ARROW_GCS_ABSL_PC_PACKAGE}
+                          NO_CMAKE_PATH
+                          NO_CMAKE_ENVIRONMENT_PATH
+                          QUIET)
+        if(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC_FOUND)
+          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
+        else()
+          message(STATUS "No .pc for ${ARROW_GCS_ABSL_PC_PACKAGE}; "
+                         "static pkg-config metadata may be incomplete. Consider CMake")
+        endif()
+      endforeach()
+    endif()
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
