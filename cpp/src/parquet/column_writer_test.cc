@@ -538,7 +538,7 @@ void TestPrimitiveWriter<ByteArrayType>::ReadColumnFully(Compression::type compr
     uint8_t* data_ptr = data.data();
     for (int64_t i = 0; i < values_read_recently; i++) {
       const ByteArray& value = this->values_out_ptr_[i + values_read_];
-      memcpy(data_ptr, value.ptr, value.len);
+      SafeMemcpy(data_ptr, value.ptr, value.len);
       this->values_out_[i + values_read_].ptr = data_ptr;
       data_ptr += value.len;
     }
