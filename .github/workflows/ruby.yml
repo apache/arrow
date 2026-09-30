@@ -184,11 +184,15 @@ jobs:
           for ruby_package_gemfile in ruby/*/Gemfile; do \
             bundle install --gemfile ${ruby_package_gemfile}
           done
-      - name: OpenSSL check
+      # Homebrew on macOS now provides OpenSSL 4.x.
+      # However, google-cloud-cpp, which depends on OpenSSL,
+      # does not yet support OpenSSL 4.x.
+      # Therefore, explicitly prefer OpenSSL 3.x here.
+      #
+      # TODO: Once google-cloud-cpp supports OpenSSL 4.x, remove this part
+      # https://github.com/googleapis/google-cloud-cpp/issues/16510
+      - name: Link OpenSSL 3.x
         run: |
-          brew info openssl@4
-          brew --prefix openssl@4
-          brew --prefix openssl@3
           brew unlink openssl@4
           brew link openssl@3
       - name: Setup ccache
