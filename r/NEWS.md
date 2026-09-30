@@ -29,14 +29,15 @@
   in favour of `format = "ipc"`, and extra arguments passed via `...` to
   `read_ipc_stream()` and `write_ipc_stream()` are deprecated and ignored
   (#49237).
+- `register_scalar_function()` now checks that the names in `in_type` match
+  the arguments of `fun`, instead of silently ignoring them (#37761).
 
 ## New features
 
 - New `AzureFileSystem` class and `az_container()` helper for working with
-  Azure Blob Storage, analogous to `S3FileSystem` and `s3_bucket()`. Azure
-  support is enabled by default when building from source on Linux and macOS,
-  provided the required system libraries are available; see
-  `vignette("install", package = "arrow")` (@marberts, #32123).
+  Azure Blob Storage, analogous to `S3FileSystem` and `s3_bucket()`. See
+  `vignette("install", package = "arrow")` for how to enable Azure support
+  when building from source (@marberts, #32123).
 
 ## Minor improvements and fixes
 
