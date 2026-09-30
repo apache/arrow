@@ -151,7 +151,9 @@ partition columns, do that using \code{select()} or \code{rename()} after openin
 dataset.). If you provide a \code{Schema} and the names match what is detected,
 it will use the types defined by the Schema. In the example file path above,
 you could provide a Schema to specify that "month" should be \code{int8()}
-instead of the \code{int32()} it will be parsed as by default.
+instead of the \code{int32()} it will be parsed as by default. This is also
+useful for keeping leading zeros, so that a value such as \code{001} isn't
+parsed as the integer \code{1}.
 
 If your file paths do not appear to be Hive-style, or if you pass
 \code{hive_style = FALSE}, the \code{partitioning} argument will be used to create
@@ -206,6 +208,13 @@ open_dataset(tf3, partitioning = c("Month", "Day"))
 
 # If you want to specify the data types for your fields, you can pass in a Schema
 open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
+
+# Specifying the type also keeps leading zeros, so "001" stays a string
+# instead of becoming the integer 1
+products <- data.frame(x = 1:3, product_id = c("001", "002", "010"))
+tf4 <- tempfile()
+write_dataset(products, tf4, partitioning = "product_id")
+open_dataset(tf4, partitioning = schema(product_id = string()))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
