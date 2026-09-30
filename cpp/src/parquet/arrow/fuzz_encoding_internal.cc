@@ -520,7 +520,7 @@ FuzzStatus FuzzEncoding(const uint8_t* data, int64_t size) {
   if (!maybe_parse_result.ok()) {
     // If the fuzz encoding header is invalid, we won't save this input
     // in the corpus, because it didn't exercise anything interesting.
-    return ::arrow::internal::SkipFuzzInput(maybe_parse_result.status());
+    return ::arrow::internal::SkipFuzzInput{maybe_parse_result.status()};
   }
   const auto header = maybe_parse_result->first;
   const auto encoded_data = maybe_parse_result->second;
