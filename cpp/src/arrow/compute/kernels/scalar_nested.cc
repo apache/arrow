@@ -33,6 +33,7 @@
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {
@@ -598,16 +599,20 @@ Result<Datum> ListValuesMatch(KernelContext* ctx, const Datum& values,
   return match;
 }
 
-// Returns the number of child values of list i, with none for null list views
+// Returns a function giving the number of child values of list i, with none for null
+// list views
 template <typename Type>
-int64_t GetListLength(const ArraySpan& list, int64_t i) {
+auto GetListLengths(const ArraySpan& list) {
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-    return checked_cast<const FixedSizeListType&>(*list.type).list_size();
+    const int64_t width = checked_cast<const FixedSizeListType&>(*list.type).list_size();
+    return [width](int64_t) { return width; };
   } else if constexpr (is_list_view_type<Type>::value) {
-    return list.IsValid(i) ? list.GetValues<typename Type::offset_type>(2)[i] : 0;
+    const auto* sizes = list.GetValues<typename Type::offset_type>(2);
+    return
+        [&list, sizes](int64_t i) -> int64_t { return list.IsValid(i) ? sizes[i] : 0; };
   } else {
     const auto* offsets = list.GetValues<typename Type::offset_type>(1);
-    return offsets[i + 1] - offsets[i];
+    return [offsets](int64_t i) -> int64_t { return offsets[i + 1] - offsets[i]; };
   }
 }
 
@@ -616,7 +621,7 @@ template <typename Type>
 Result<std::shared_ptr<ArrayData>> GetListValues(KernelContext* ctx,
                                                  const ArraySpan& list) {
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-    const int64_t width = GetListLength<Type>(list, 0);
+    const int64_t width = GetListLengths<Type>(list)(0);
     return list.child_data[0].ToArrayData()->Slice(list.offset * width,
                                                    list.length * width);
   } else if constexpr (is_list_view_type<Type>::value) {
@@ -631,14 +636,21 @@ Result<std::shared_ptr<ArrayData>> GetListValues(KernelContext* ctx,
   }
 }
 
-// Whether any of the `length` match bits from `offset` is set and valid
-bool AnyMatch(const ArraySpan& match, int64_t offset, int64_t length) {
-  const uint8_t* validity = match.MayHaveNulls() ? match.buffers[0].data : nullptr;
-  arrow::internal::OptionalBinaryBitBlockCounter counter(match.buffers[1].data,
-                                                         match.offset + offset, validity,
-                                                         match.offset + offset, length);
+// Whether any of the `length` bits from `offset` is set in `bits`, a bitmap of `size`
+// bytes
+bool AnySet(const uint8_t* bits, int64_t size, int64_t offset, int64_t length) {
+  const int64_t byte_offset = offset / 8;
+  const int64_t bit_offset = offset % 8;
+  if (bit_offset + length <= 64 && byte_offset + 8 <= size) {
+    // Short ranges fit in a single word
+    const uint64_t word =
+        bit_util::FromLittleEndian(util::SafeLoadAs<uint64_t>(bits + byte_offset));
+    const uint64_t mask = length == 64 ? ~uint64_t{0} : (uint64_t{1} << length) - 1;
+    return ((word >> bit_offset) & mask) != 0;
+  }
+  arrow::internal::BitBlockCounter counter(bits, offset, length);
   for (int64_t position = 0; position < length;) {
-    const auto block = counter.NextAndBlock();
+    const auto block = counter.NextWord();
     if (block.popcount > 0) {
       return true;
     }
@@ -651,10 +663,11 @@ bool AnyMatch(const ArraySpan& match, int64_t offset, int64_t length) {
 template <typename Type>
 Result<Datum> RepeatListValues(KernelContext* ctx, const ArraySpan& list,
                                int64_t values_length, const ArraySpan& value) {
+  const auto list_length = GetListLengths<Type>(list);
   Int64Builder indices(ctx->memory_pool());
   RETURN_NOT_OK(indices.Reserve(values_length));
   for (int64_t i = 0; i < list.length; ++i) {
-    const int64_t length = GetListLength<Type>(list, i);
+    const int64_t length = list_length(i);
     for (int64_t j = 0; j < length; ++j) {
       indices.UnsafeAppend(i);
     }
@@ -704,15 +717,28 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, values, value));
 
-  const ArraySpan match_span(*match.array());
-  int64_t start = 0;
+  // Null matches never count
+  const ArrayData& match_data = *match.array();
+  std::shared_ptr<Buffer> matches = match_data.buffers[1];
+  int64_t matches_offset = match_data.offset;
+  if (match_data.MayHaveNulls()) {
+    ARROW_ASSIGN_OR_RAISE(
+        matches, arrow::internal::BitmapAnd(
+                     ctx->memory_pool(), matches->data(), match_data.offset,
+                     match_data.buffers[0]->data(), match_data.offset, match_data.length,
+                     /*out_offset=*/0));
+    matches_offset = 0;
+  }
+
+  // The output bits of null lists don't matter, so they are not special-cased
+  const auto list_length = GetListLengths<Type>(list);
+  int64_t start = matches_offset;
   int64_t i = 0;
   arrow::internal::GenerateBitsUnrolled(
       out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
-        const int64_t length = GetListLength<Type>(list, i);
-        const bool found = list.IsValid(i) && AnyMatch(match_span, start, length);
+        const int64_t length = list_length(i++);
+        const bool found = AnySet(matches->data(), matches->size(), start, length);
         start += length;
-        ++i;
         return found;
       });
   return Status::OK();

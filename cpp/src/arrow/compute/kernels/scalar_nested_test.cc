@@ -177,6 +177,28 @@ TEST(TestScalarNested, ListContainsLongLists) {
   CheckListContains(input, ArrayFromJSON(int32(), "[1, null, 7]"), "[true, true, true]");
 }
 
+TEST(TestScalarNested, ListContainsManyShortLists) {
+  // Short lists at every bit alignment, with null lists and null values
+  std::string lists = "[";
+  std::string contains_5 = "[";
+  std::string contains_null = "[";
+  for (int i = 0; i < 200; ++i) {
+    const std::string sep = i == 0 ? "" : ", ";
+    const bool is_null = i % 11 == 0;
+    lists += sep + (is_null      ? "null"
+                    : i % 7 == 0 ? "[5, 1]"
+                    : i % 3 == 0 ? "[null, 2, 3]"
+                                 : "[1]");
+    contains_5 += sep + (is_null ? "null" : i % 7 == 0 ? "true" : "false");
+    contains_null += sep + (is_null                    ? "null"
+                            : i % 7 != 0 && i % 3 == 0 ? "true"
+                                                       : "false");
+  }
+  auto input = ArrayFromJSON(list(int32()), lists + "]");
+  CheckListContains(input, ScalarFromJSON(int32(), "5"), contains_5 + "]");
+  CheckListContains(input, ScalarFromJSON(int32(), "null"), contains_null + "]");
+}
+
 TEST(TestScalarNested, ListContainsNull) {
   // A null value matches lists holding a null
   auto input = ArrayFromJSON(
