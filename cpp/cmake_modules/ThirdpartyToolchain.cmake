@@ -3718,8 +3718,8 @@ function(build_google_cloud_cpp_storage)
   # google-cloud-cpp, which depends on OpenSSL,
   # does not yet support OpenSSL 4.x.
   #
-  # TODO: Once google-cloud-cpp supports,
-  # remove this part and /google-cloud-cpp-openssl4-compatibility.patch file
+  # TODO: Once google-cloud-cpp supports OpenSSL 4.x,
+  # remove this workaround and google-cloud-cpp-openssl4-compatibility.patch.
   # https://github.com/googleapis/google-cloud-cpp/issues/16510
   if(PATCH)
     list(APPEND
