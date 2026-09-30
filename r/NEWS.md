@@ -60,8 +60,6 @@
   `pull()` will keep returning an R vector by default; use
   `as_vector = FALSE` or `options(arrow.pull_as_vector = FALSE)` to get a
   `ChunkedArray` (#51655).
-- `register_scalar_function()` now checks that the names in `in_type` match
-  the arguments of `fun`, instead of silently ignoring them (#37761).
 - `str_replace()` with an `NA` replacement now returns `NA` for matched
   elements, matching stringr (@Gosling-dude, #33432).
 - `summarise()` after `arrange()` now works (#45373).
