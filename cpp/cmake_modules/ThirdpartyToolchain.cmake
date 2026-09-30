@@ -4409,7 +4409,7 @@ if(ARROW_BUILD_STATIC)
      AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
      AND absl_SOURCE STREQUAL "SYSTEM")
     # Bundled google-cloud-cpp needs system Abseil for static linking.
-    # Abseil .pc files include indirect link dependencies that base -labsl_* flags omit
+    # Abseil .pc files include indirect link dependencies that -labsl_* flags omit
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
       foreach(ARROW_GCS_ABSL_PC_PACKAGE
@@ -4435,6 +4435,9 @@ if(ARROW_BUILD_STATIC)
                          "static pkg-config metadata may be incomplete. Consider CMake")
         endif()
       endforeach()
+    else()
+      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow.pc"
+      )
     endif()
   endif()
 endif()
