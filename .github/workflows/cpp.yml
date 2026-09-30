@@ -228,7 +228,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      OPENSSL_ROOT_DIR: /opt/homebrew/opt/openssl@3
+      OPENSSL_ROOT_DIR: /opt/homebrew/opt/openssl@
     steps:
       - name: CPU Info
         run: |
