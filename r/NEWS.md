@@ -19,6 +19,11 @@
 
 # arrow 25.0.1.9000
 
+## Breaking changes
+
+- The `.data.frame` argument to `map_batches()`, deprecated since 9.0.0, has
+  been removed. Call `collect()` on the result to get a data frame (#51655).
+
 ## Minor improvements and fixes
 
 - Factor levels inside list columns are now unified across the whole column
@@ -26,6 +31,11 @@
   `read_ipc_stream()` or `open_dataset()`) produces valid factors that can be
   unnested. Similarly, `int64` and `uint32` values inside list columns are
   converted to a single R type across the column (#50514).
+- `pull()` on Arrow data no longer warns about a future change of default.
+  The planned switch to returning a `ChunkedArray` has been dropped, so
+  `pull()` will keep returning an R vector by default; use
+  `as_vector = FALSE` or `options(arrow.pull_as_vector = FALSE)` to get a
+  `ChunkedArray` (#51655).
 
 # arrow 25.0.1
 

@@ -55,7 +55,7 @@
 #' * [`inner_join()`][dplyr::inner_join()]: the `copy` argument is ignored
 #' * [`left_join()`][dplyr::left_join()]: the `copy` argument is ignored
 #' * [`mutate()`][dplyr::mutate()]
-#' * [`pull()`][dplyr::pull()]: the `name` argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow [ChunkedArray] in a future release. Provide `as_vector = TRUE/FALSE` to control this behavior, or set `options(arrow.pull_as_vector)` globally.
+#' * [`pull()`][dplyr::pull()]: the `name` argument is not supported; returns an R vector by default. Provide `as_vector = FALSE` to return an Arrow [ChunkedArray] instead, or set `options(arrow.pull_as_vector = FALSE)` globally.
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
 #' * [`rename_with()`][dplyr::rename_with()]
