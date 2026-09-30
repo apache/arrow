@@ -19,10 +19,8 @@
 
 #include "arrow/util/chrono_internal.h"
 
-namespace chrono = arrow::internal::chrono;
-
 bool is_leap_year(int yy);
-bool did_days_overflow(chrono::year_month_day ymd);
+bool did_days_overflow(arrow::internal::chrono::year_month_day ymd);
 int last_possible_day_in_month(int month, int year);
 
 // A point of time measured in millis since epoch.
@@ -39,16 +37,19 @@ class EpochTimePoint {
   int TmMon() const { return static_cast<unsigned int>(YearMonthDay().month()) - 1; }
 
   int TmYday() const {
-    auto to_days = chrono::floor<chrono::days>(tp_);
-    auto first_day_in_year = chrono::sys_days{YearMonthDay().year() / chrono::jan / 1};
+    auto to_days = arrow::internal::chrono::floor<arrow::internal::chrono::days>(tp_);
+    auto first_day_in_year = arrow::internal::chrono::sys_days{
+        YearMonthDay().year() / arrow::internal::chrono::jan / 1};
     return (to_days - first_day_in_year).count();
   }
 
   int TmMday() const { return static_cast<unsigned int>(YearMonthDay().day()); }
 
   int TmWday() const {
-    auto to_days = chrono::floor<chrono::days>(tp_);
-    return (chrono::weekday{to_days} - chrono::Sunday).count();
+    auto to_days = arrow::internal::chrono::floor<arrow::internal::chrono::days>(tp_);
+    return (arrow::internal::chrono::weekday{to_days} -  // NOLINT
+            arrow::internal::chrono::Sunday)
+        .count();
   }
 
   int TmHour() const { return static_cast<int>(TimeOfDay().hours().count()); }
@@ -61,18 +62,19 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddYears(int num_years) const {
-    auto ymd = YearMonthDay() + chrono::years(num_years);
-    return EpochTimePoint((chrono::sys_days{ymd} +  // NOLINT
+    auto ymd = YearMonthDay() + arrow::internal::chrono::years(num_years);
+    return EpochTimePoint((arrow::internal::chrono::sys_days{ymd} +  // NOLINT
                            TimeOfDay().to_duration())
                               .time_since_epoch());
   }
 
   EpochTimePoint AddMonths(int num_months) const {
-    auto ymd = YearMonthDay() + chrono::months(num_months);
+    auto ymd = YearMonthDay() + arrow::internal::chrono::months(num_months);
 
-    EpochTimePoint tp = EpochTimePoint((chrono::sys_days{ymd} +  // NOLINT
-                                        TimeOfDay().to_duration())
-                                           .time_since_epoch());
+    EpochTimePoint tp =
+        EpochTimePoint((arrow::internal::chrono::sys_days{ymd} +  // NOLINT
+                        TimeOfDay().to_duration())
+                           .time_since_epoch());
 
     if (did_days_overflow(ymd)) {
       int days_to_offset =
@@ -85,8 +87,8 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch = chrono::sys_days{YearMonthDay()} +  // NOLINT
-                            chrono::days(num_days);
+    auto days_since_epoch = arrow::internal::chrono::sys_days{YearMonthDay()} +  // NOLINT
+                            arrow::internal::chrono::days(num_days);
     return EpochTimePoint(
         (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
   }
@@ -99,14 +101,17 @@ class EpochTimePoint {
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
-  chrono::hh_mm_ss<std::chrono::milliseconds> TimeOfDay() const {
-    auto millis_since_midnight = tp_ - chrono::floor<chrono::days>(tp_);
-    return chrono::hh_mm_ss<std::chrono::milliseconds>{millis_since_midnight};
+  arrow::internal::chrono::hh_mm_ss<std::chrono::milliseconds> TimeOfDay() const {
+    auto millis_since_midnight =
+        tp_ - arrow::internal::chrono::floor<arrow::internal::chrono::days>(tp_);
+    return arrow::internal::chrono::hh_mm_ss<std::chrono::milliseconds>{
+        millis_since_midnight};
   }
 
  private:
-  chrono::year_month_day YearMonthDay() const {
-    return chrono::year_month_day{chrono::floor<chrono::days>(tp_)};  // NOLINT
+  arrow::internal::chrono::year_month_day YearMonthDay() const {
+    return arrow::internal::chrono::year_month_day{
+        arrow::internal::chrono::floor<arrow::internal::chrono::days>(tp_)};  // NOLINT
   }
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> tp_;

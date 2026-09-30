@@ -34,6 +34,17 @@
 // On non-Windows, also select it for older libstdc++ versions because of
 // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110 (fully fixed in GCC 16.2).
 // The datestamp distinguishes 16.2 (2026-08-07) from 16.1 and early snapshots.
+// The fix lives in the libstdc++ shared library, so this header check assumes the
+// runtime libstdc++ is at least as new as the one Arrow was compiled against.
+// MinGW intentionally keeps using std::chrono with older libstdc++ versions,
+// matching previous releases.
+//
+// This header is installed because public headers (formatting.h, value_parsing.h)
+// include chrono_internal.h. The selection is then evaluated with the consumer's
+// toolchain, which may differ from Arrow's, so installed headers must only use the
+// header-only calendar APIs and never the timezone database functions.
+// Likewise, standard-library builds do not compile the vendored timezone sources,
+// so libarrow does not export arrow_vendored::date timezone functions.
 #ifndef ARROW_USE_STD_CHRONO
 #  define ARROW_USE_STD_CHRONO 1
 #  if !defined(__cpp_lib_chrono) || __cpp_lib_chrono < 201907L

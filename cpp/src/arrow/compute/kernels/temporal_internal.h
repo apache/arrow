@@ -363,6 +363,8 @@ struct TimestampFormatter {
               std::ostreambuf_iterator<char>(bufstream), bufstream.getloc(), format,
               std::make_format_args(zt, time_of_day, time_of_day_count));
           if (end.failed()) bufstream.setstate(std::ios::badbit);
+        } else {
+          bufstream.setstate(std::ios::badbit);
         }
 #else
         arrow_vendored::date::to_stream(bufstream, format.c_str(), zt);

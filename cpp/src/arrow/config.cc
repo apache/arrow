@@ -102,8 +102,9 @@ Status Initialize(const GlobalOptions& options) noexcept {
     timezone_db_path = options.timezone_db_path.value();
 #else
     return Status::Invalid(
-        "Arrow was set to use OS timezone database at compile time, "
-        "so a downloaded database cannot be provided at runtime.");
+        "Arrow was set to use OS timezone database at compile time "
+        "(OS or the C++ standard library), so a downloaded database "
+        "cannot be provided at runtime.");
 #endif  // !ARROW_CHRONO_USE_OS_TZDB
   }
   ARROW_UNSUPPRESS_DEPRECATION_WARNING

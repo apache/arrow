@@ -19,6 +19,8 @@
 
 #include <string>
 
+namespace chrono = arrow::internal::chrono;
+
 extern "C" {
 
 #define __STDC_FORMAT_MACROS

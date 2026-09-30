@@ -17,6 +17,8 @@
 
 #include "./epoch_time_point.h"
 
+namespace chrono = arrow::internal::chrono;
+
 // The first row is for non-leap years
 static int days_in_a_month[2][12] = {{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
                                      {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}};
