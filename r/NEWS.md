@@ -34,14 +34,14 @@
 
 - New `AzureFileSystem` class and `az_container()` helper for working with
   Azure Blob Storage, analogous to `S3FileSystem` and `s3_bucket()`. Azure
-  support is enabled by default when building from source if libxml2 is
-  available, except on Windows (@marberts, #32123).
+  support is enabled by default when building from source on Linux and macOS,
+  provided the required system libraries are available; see
+  `vignette("install", package = "arrow")` (@marberts, #32123).
 
 ## Minor improvements and fixes
 
 - Variables with the same name as a function, such as `date`, can now be used
   in dplyr verbs (#39688).
-- R API requests made from parallel code are now thread-safe (#50239).
 - Reading Parquet files with `float16` columns now returns the correct values
   (#50378).
 - `if_else()` now works when one branch is a bare `NA` and the other is a date
