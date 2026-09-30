@@ -23,11 +23,12 @@ if(APPLE AND NOT OPENSSL_ROOT_DIR)
   find_program(BREW brew)
   if(BREW)
     # Homebrew on macOS now provides OpenSSL 4.x.
-    # However, google-cloud-cpp, which depends on OpenSSL, does not yet support OpenSSL 4.x.
+    # However, google-cloud-cpp, which depends on OpenSSL,
+    # does not yet support OpenSSL 4.x.
     # Therefore, explicitly prefer OpenSSL 3.x here.
     #
     # TODO: Once google-cloud-cpp supports OpenSSL 4.x, add `""` before `"3"`.
-    # https://github.com/apache/arrow/issues/51634
+    # https://github.com/googleapis/google-cloud-cpp/issues/16510
     foreach(BREW_OPENSSL_VERSION "3" "3.0" "1.1")
       set(BREW_OPENSSL_PACKAGE "openssl")
       if(BREW_OPENSSL_VERSION)
