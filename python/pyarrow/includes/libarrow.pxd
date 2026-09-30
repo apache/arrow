@@ -204,6 +204,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     c_bool is_primitive(Type type)
     c_bool is_numeric(Type type)
+    c_bool is_nested(Type type)
 
     cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
         optional[CArrayStatisticsCountType] null_count

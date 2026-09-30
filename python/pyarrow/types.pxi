@@ -161,6 +161,11 @@ def _is_primitive(Type type):
     return is_primitive(type)
 
 
+def _is_nested(Type type):
+    # This is simply a redirect, the official API is in pyarrow.types.
+    return is_nested(type)
+
+
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
     cdef dict pandas_type_map = _get_pandas_type_map()
