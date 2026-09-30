@@ -53,9 +53,10 @@ if(uriparser_PC_FOUND)
   set(uriparserAlt_VERSION "${uriparser_PC_VERSION}")
 endif()
 
-find_package_handle_standard_args(uriparserAlt
-                                  REQUIRED_VARS uriparser_PC_FOUND
-                                  VERSION_VAR uriparserAlt_VERSION)
+find_package_handle_standard_args(
+  uriparserAlt
+  REQUIRED_VARS uriparser_PC_FOUND
+  VERSION_VAR uriparserAlt_VERSION)
 
 if(uriparserAlt_FOUND AND NOT TARGET uriparser::uriparser)
   add_library(uriparser::uriparser ALIAS PkgConfig::uriparser_PC)
