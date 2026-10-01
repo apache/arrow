@@ -820,7 +820,8 @@ class DataSinkBuffer : private ValueSinkCursor {
   }
 
   void ResetValues() {
-    if (!is_void()) {
+    // Resizing a never allocated buffer would make a zero-size allocation
+    if (!is_void() && values_count() > 0) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
       ValueSinkCursor::reset();
     }
@@ -2661,9 +2662,10 @@ class ArrayValuesSink : private ValueSinkCursor {
 
   void ReserveValues(int64_t extra_values) {
     fit_capacity_for_extra(extra_values);
-    // The chunked accumulator is not an ArrayBuilder and cannot be reserved.
     if constexpr (requires { builder_.Reserve(extra_values); }) {
       PARQUET_THROW_NOT_OK(builder_.Reserve(extra_values));
+    } else {
+      PARQUET_THROW_NOT_OK(builder_.builder->Reserve(extra_values));
     }
   }
 
