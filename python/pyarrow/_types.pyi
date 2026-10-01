@@ -20,7 +20,7 @@ class DataType(_Weakrefable):
     DataType(int64)
     """
     def __init__(self): ...
-    def field(self, i) -> Field:
+    def field(self, i: int) -> Field:
         """
         Parameters
         ----------
@@ -31,9 +31,9 @@ class DataType(_Weakrefable):
         pyarrow.Field
         """
     @property
-    def id(self): ...
+    def id(self) -> int: ...
     @property
-    def bit_width(self):
+    def bit_width(self) -> int:
         """
         Bit width for fixed width type.
 
@@ -46,7 +46,7 @@ class DataType(_Weakrefable):
         64
         """
     @property
-    def byte_width(self):
+    def byte_width(self) -> int:
         """
         Byte width for fixed width type.
 
@@ -59,7 +59,7 @@ class DataType(_Weakrefable):
         8
         """
     @property
-    def num_fields(self):
+    def num_fields(self) -> int:
         """
         The number of child fields.
 
@@ -79,7 +79,7 @@ class DataType(_Weakrefable):
         2
         """
     @property
-    def num_buffers(self):
+    def num_buffers(self) -> int:
         """
         Number of data buffers required to construct Array type
         excluding children.
@@ -93,7 +93,7 @@ class DataType(_Weakrefable):
         3
         """
     @property
-    def has_variadic_buffers(self):
+    def has_variadic_buffers(self) -> bool:
         """
         If True, the number of expected buffers is only
         lower-bounded by num_buffers.
@@ -111,7 +111,7 @@ class DataType(_Weakrefable):
     def __reduce__(self): ...
     def __repr__(self): ...
     def __eq__(self, other): ...
-    def equals(self, other, *, check_metadata=False):
+    def equals(self, other: DataType | str, *, check_metadata: bool=False):
         """
         Return true if type is equivalent to passed value.
 
