@@ -273,6 +273,48 @@ BENCHMARK(BM_WriteBinaryColumn)
     ->Args({50, kInfiniteUniqueValues})
     ->Args({99, kInfiniteUniqueValues});
 
+// Writes int32 columns with content-defined chunking into a single row group, with
+// use_threads the columns are chunked by different threads in parallel
+static void BM_WriteContentDefinedChunking(::benchmark::State& state) {
+  const auto num_columns = static_cast<int>(state.range(0));
+  const bool use_threads = state.range(1) != 0;
+  constexpr int64_t kNumRows = 1024 * 1024;
+
+  ::arrow::random::RandomArrayGenerator generator(/*seed=*/500);
+  ::arrow::FieldVector fields;
+  ::arrow::ArrayVector columns;
+  for (int i = 0; i < num_columns; i++) {
+    fields.push_back(::arrow::field("column" + std::to_string(i), ::arrow::int32(),
+                                    /*nullable=*/false));
+    columns.push_back(generator.Int32(kNumRows, /*min=*/0, /*max=*/1 << 30));
+  }
+  auto schema = ::arrow::schema(fields);
+  auto batch = ::arrow::RecordBatch::Make(schema, kNumRows, columns);
+  auto properties = WriterProperties::Builder()
+                        .enable_content_defined_chunking()
+                        ->disable_dictionary()
+                        ->build();
+  auto arrow_properties =
+      ArrowWriterProperties::Builder().set_use_threads(use_threads)->build();
+
+  for (auto _ : state) {
+    auto output = CreateOutputStream();
+    auto writer = arrow::FileWriter::Open(*schema, ::arrow::default_memory_pool(), output,
+                                          properties, arrow_properties);
+    EXIT_NOT_OK(writer.status());
+    EXIT_NOT_OK((*writer)->WriteRecordBatch(*batch));
+    EXIT_NOT_OK((*writer)->Close());
+  }
+  state.SetBytesProcessed(state.iterations() * num_columns * kNumRows *
+                          static_cast<int64_t>(sizeof(int32_t)));
+}
+
+BENCHMARK(BM_WriteContentDefinedChunking)
+    ->ArgNames({"columns", "use_threads"})
+    ->Args({16, 0})
+    ->Args({16, 1})
+    ->UseRealTime();
+
 template <typename T>
 struct Examples {
   static constexpr std::array<T, 2> values() { return {127, 128}; }
