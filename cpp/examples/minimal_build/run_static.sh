@@ -88,13 +88,17 @@ echo "== Building example project using Arrow C++ library"
 echo "=="
 echo
 
+read -ra ARROW_BUILD_FLAGS <<< "$(
+  PKG_CONFIG_PATH="$ARROW_BUILD_DIR/lib/pkgconfig" \
+    pkg-config --cflags --libs --static arrow
+)"
+
 rm -rf "$EXAMPLE_BUILD_DIR"
 mkdir -p "$EXAMPLE_BUILD_DIR"
 ${CXX:-c++} -std=c++20 \
   -o "${EXAMPLE_BUILD_DIR}/arrow-example" \
   "${EXAMPLE_DIR}/example.cc" \
-  "$(PKG_CONFIG_PATH=$ARROW_BUILD_DIR/lib/pkgconfig \
-     pkg-config --cflags --libs --static arrow)"
+  "${ARROW_BUILD_FLAGS[@]}"
 
 popd
 
