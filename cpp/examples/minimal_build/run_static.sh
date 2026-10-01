@@ -107,4 +107,4 @@ echo
 
 pushd "$EXAMPLE_DIR"
 
-${EXAMPLE_BUILD_DIR}/arrow-example
+"${EXAMPLE_BUILD_DIR}/arrow-example"
