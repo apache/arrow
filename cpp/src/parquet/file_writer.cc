@@ -27,6 +27,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "parquet/bloom_filter_writer.h"
+#include "parquet/chunker_internal.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -93,12 +94,13 @@ inline void ThrowRowsMisMatchError(int col, int64_t prev, int64_t curr) {
 // RowGroupWriter::Contents implementation for the Parquet file specification
 class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
-  RowGroupSerializer(std::shared_ptr<ArrowOutputStream> sink,
-                     RowGroupMetaDataBuilder* metadata, int16_t row_group_ordinal,
-                     const WriterProperties* properties, bool buffered_row_group = false,
-                     InternalFileEncryptor* file_encryptor = nullptr,
-                     PageIndexBuilder* page_index_builder = nullptr,
-                     BloomFilterBuilder* bloom_filter_builder = nullptr)
+  RowGroupSerializer(
+      std::shared_ptr<ArrowOutputStream> sink, RowGroupMetaDataBuilder* metadata,
+      int16_t row_group_ordinal, const WriterProperties* properties,
+      bool buffered_row_group, InternalFileEncryptor* file_encryptor,
+      PageIndexBuilder* page_index_builder, BloomFilterBuilder* bloom_filter_builder,
+      const std::vector<internal::LevelInfo>& level_infos,
+      std::vector<internal::ContentDefinedChunker>& content_defined_chunkers)
       : sink_(std::move(sink)),
         metadata_(metadata),
         properties_(properties),
@@ -111,7 +113,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         buffered_row_group_(buffered_row_group),
         file_encryptor_(file_encryptor),
         page_index_builder_(page_index_builder),
-        bloom_filter_builder_(bloom_filter_builder) {
+        bloom_filter_builder_(bloom_filter_builder),
+        level_infos_(level_infos),
+        content_defined_chunkers_(content_defined_chunkers) {
     if (buffered_row_group) {
       InitColumns();
     } else {
@@ -139,6 +143,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     // Throws an error if more columns are being written
     auto col_meta = metadata_->NextColumnChunk();
+    // Keep the ordinal in step with the metadata even if closing the previous column
+    // writer throws
+    const int32_t column_ordinal = next_column_index_++;
 
     if (column_writers_[0]) {
       total_bytes_written_ += column_writers_[0]->Close();
@@ -146,7 +153,6 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
           column_writers_[0]->total_compressed_bytes_written();
     }
 
-    const int32_t column_ordinal = next_column_index_++;
     column_writers_[0] = CreateColumnWriterForColumn(col_meta, column_ordinal);
     return column_writers_[0].get();
   }
@@ -255,6 +261,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   InternalFileEncryptor* file_encryptor_;
   PageIndexBuilder* page_index_builder_;
   BloomFilterBuilder* bloom_filter_builder_;
+  const std::vector<internal::LevelInfo>& level_infos_;
+  std::vector<internal::ContentDefinedChunker>& content_defined_chunkers_;
 
   void CheckRowsWritten() const {
     // verify when only one column is written at a time
@@ -308,6 +316,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     if (bloom_filter_builder_) {
       bloom_filter = bloom_filter_builder_->CreateBloomFilter(column_ordinal);
     }
+    internal::ContentDefinedChunker* content_defined_chunker = nullptr;
+    if (properties_->content_defined_chunking_enabled()) {
+      content_defined_chunker = &content_defined_chunkers_[column_ordinal];
+    }
     const CodecOptions* codec_options = column_properties.codec_options()
                                             ? column_properties.codec_options().get()
                                             : nullptr;
@@ -321,7 +333,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
         buffered_row_group_, meta_encryptor, data_encryptor,
         properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
-    return ColumnWriter::Make(col_meta, std::move(pager), properties_, bloom_filter);
+    return ColumnWriter::Make(col_meta, std::move(pager), properties_, bloom_filter,
+                              level_infos_[column_ordinal], content_defined_chunker);
   }
 
   // If buffered_row_group_ is false, only column_writers_[0] is used as current writer.
@@ -415,7 +428,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
         sink_, rg_metadata, row_group_ordinal, properties_.get(), buffered_row_group,
-        file_encryptor_.get(), page_index_builder_.get(), bloom_filter_builder_.get()));
+        file_encryptor_.get(), page_index_builder_.get(), bloom_filter_builder_.get(),
+        level_infos_, content_defined_chunkers_));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
@@ -457,6 +471,13 @@ class FileSerializer : public ParquetFileWriter::Contents {
       StartFile();
     } else {
       throw ParquetException("Appending to file not implemented.");
+    }
+    for (int i = 0; i < num_columns(); i++) {
+      level_infos_.push_back(internal::LevelInfo::ComputeLevelInfo(schema_.Column(i)));
+      if (properties_->content_defined_chunking_enabled()) {
+        content_defined_chunkers_.push_back(internal::ContentDefinedChunker::Make(
+            level_infos_[i], properties_->content_defined_chunking_options()));
+      }
     }
   }
 
@@ -524,6 +545,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<PageIndexBuilder> page_index_builder_;
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
   std::unique_ptr<BloomFilterBuilder> bloom_filter_builder_;
+  std::vector<internal::LevelInfo> level_infos_;
+  std::vector<internal::ContentDefinedChunker> content_defined_chunkers_;
 
   void StartFile() {
     auto file_encryption_properties = properties_->file_encryption_properties();
