@@ -51,6 +51,7 @@ class ApacheArrow < Formula
   depends_on "re2"
   depends_on "snappy"
   depends_on "thrift"
+  depends_on "uriparser"
   depends_on "utf8proc"
   depends_on "zstd"
 

@@ -63,6 +63,7 @@ RUN dnf update -y && \
         simdjson-devel \
         snappy-devel \
         thrift-devel \
+        uriparser-devel \
         utf8proc-devel \
         wget \
         which \
