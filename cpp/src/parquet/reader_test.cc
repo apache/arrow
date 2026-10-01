@@ -1125,9 +1125,11 @@ class TestJSONWithLocalFile : public ::testing::Test {
 
 TEST_F(TestJSONWithLocalFile, JSONOutputWithStatistics) {
   // simdjson 5.0 changed the format of fractured_json
-  std::string json_output;
-  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR >= 5) {
-    json_output = R"###({
+  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR < 5) {
+    GTEST_SKIP() << "Test requires simdjson >= 5";
+  }
+
+  std::string json_output = R"###({
     "FileName": "nested_lists.snappy.parquet",
     "Version": "1.0",
     "CreatedBy": "parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)",
@@ -1182,69 +1184,6 @@ TEST_F(TestJSONWithLocalFile, JSONOutputWithStatistics) {
     ]
 }
 )###";
-  } else {
-    json_output = R"###({
-    "FileName": "nested_lists.snappy.parquet",
-    "Version": "1.0",
-    "CreatedBy": "parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)",
-    "TotalRows": "3",
-    "NumberOfRowGroups": "1",
-    "NumberOfRealColumns": "2",
-    "NumberOfColumns": "2",
-    "Columns": [
-        {
-            "Id": "0",
-            "Name": "a.list.element.list.element.list.element",
-            "PhysicalType": "BYTE_ARRAY",
-            "ConvertedType": "UTF8",
-            "LogicalType": { "Type": "String" }
-        },
-        {
-            "Id": "1",
-            "Name": "b",
-            "PhysicalType": "INT32",
-            "ConvertedType": "NONE",
-            "LogicalType": { "Type": "None" }
-        }
-    ],
-    "RowGroups": [
-        {
-            "Id": "0",
-            "TotalBytes": "155",
-            "TotalCompressedBytes": "0",
-            "Rows": "3",
-            "ColumnChunks": [
-                {
-                    "Id": "0",
-                    "Values": "18",
-                    "StatsSet": "False",
-                    "Compression": "SNAPPY",
-                    "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY",
-                    "UncompressedSize": "103",
-                    "CompressedSize": "104"
-                },
-                {
-                    "Id": "1",
-                    "Values": "3",
-                    "StatsSet": "True",
-                    "Stats": {
-                        "NumNulls": "0",
-                        "Max": "1",
-                        "Min": "1",
-                        "IsMaxValueExact": "unknown",
-                        "IsMinValueExact": "unknown"
-                    },
-                    "Compression": "SNAPPY",
-                    "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY",
-                    "UncompressedSize": "52",
-                    "CompressedSize": "56"
-                }
-            ]
-        }
-    ]
-}
-)###";
-  }
 
   std::string json_content = ReadFromLocalFile("nested_lists.snappy.parquet");
   ASSERT_EQ(json_output, json_content);
@@ -1252,9 +1191,11 @@ TEST_F(TestJSONWithLocalFile, JSONOutputWithStatistics) {
 
 TEST_F(TestJSONWithLocalFile, JSONOutput) {
   // simdjson 5.0 changed the format of fractured_json
-  std::string json_output;
-  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR >= 5) {
-    json_output = R"###({
+  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR < 5) {
+    GTEST_SKIP() << "Test requires simdjson >= 5";
+  }
+
+  std::string json_output = R"###({
     "FileName": "alltypes_plain.parquet",
     "Version": "1.0",
     "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
@@ -1446,52 +1387,6 @@ TEST_F(TestJSONWithLocalFile, JSONOutput) {
     ]
 }
 )###";
-  } else {
-    json_output = R"###({
-    "FileName": "alltypes_plain.parquet",
-    "Version": "1.0",
-    "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
-    "TotalRows": "8",
-    "NumberOfRowGroups": "1",
-    "NumberOfRealColumns": "11",
-    "NumberOfColumns": "11",
-    "Columns": [
-        { "ConvertedType": "NONE", "Id": "0" , "LogicalType": { "Type": "None" }, "Name": "id"             , "PhysicalType": "INT32" },
-        { "ConvertedType": "NONE", "Id": "1" , "LogicalType": { "Type": "None" }, "Name": "bool_col"       , "PhysicalType": "BOOLEAN" },
-        { "ConvertedType": "NONE", "Id": "2" , "LogicalType": { "Type": "None" }, "Name": "tinyint_col"    , "PhysicalType": "INT32" },
-        { "ConvertedType": "NONE", "Id": "3" , "LogicalType": { "Type": "None" }, "Name": "smallint_col"   , "PhysicalType": "INT32" },
-        { "ConvertedType": "NONE", "Id": "4" , "LogicalType": { "Type": "None" }, "Name": "int_col"        , "PhysicalType": "INT32" },
-        { "ConvertedType": "NONE", "Id": "5" , "LogicalType": { "Type": "None" }, "Name": "bigint_col"     , "PhysicalType": "INT64" },
-        { "ConvertedType": "NONE", "Id": "6" , "LogicalType": { "Type": "None" }, "Name": "float_col"      , "PhysicalType": "FLOAT" },
-        { "ConvertedType": "NONE", "Id": "7" , "LogicalType": { "Type": "None" }, "Name": "double_col"     , "PhysicalType": "DOUBLE" },
-        { "ConvertedType": "NONE", "Id": "8" , "LogicalType": { "Type": "None" }, "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY" },
-        { "ConvertedType": "NONE", "Id": "9" , "LogicalType": { "Type": "None" }, "Name": "string_col"     , "PhysicalType": "BYTE_ARRAY" },
-        { "ConvertedType": "NONE", "Id": "10", "LogicalType": { "Type": "None" }, "Name": "timestamp_col"  , "PhysicalType": "INT96" }
-    ],
-    "RowGroups": [
-        {
-            "Id": "0",
-            "TotalBytes": "671",
-            "TotalCompressedBytes": "0",
-            "Rows": "8",
-            "ColumnChunks": [
-                { "CompressedSize": "73" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "0" , "StatsSet": "False", "UncompressedSize": "73" , "Values": "8" },
-                { "CompressedSize": "24" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "1" , "StatsSet": "False", "UncompressedSize": "24" , "Values": "8" },
-                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "2" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
-                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "3" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
-                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "4" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
-                { "CompressedSize": "55" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "5" , "StatsSet": "False", "UncompressedSize": "55" , "Values": "8" },
-                { "CompressedSize": "47" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "6" , "StatsSet": "False", "UncompressedSize": "47" , "Values": "8" },
-                { "CompressedSize": "55" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "7" , "StatsSet": "False", "UncompressedSize": "55" , "Values": "8" },
-                { "CompressedSize": "88" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "8" , "StatsSet": "False", "UncompressedSize": "88" , "Values": "8" },
-                { "CompressedSize": "49" , "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "9" , "StatsSet": "False", "UncompressedSize": "49" , "Values": "8" },
-                { "CompressedSize": "139", "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "Id": "10", "StatsSet": "False", "UncompressedSize": "139", "Values": "8" }
-            ]
-        }
-    ]
-}
-)###";
-  }
 
   std::string json_content = ReadFromLocalFile("alltypes_plain.parquet");
   ASSERT_EQ(json_output, json_content);
@@ -1500,12 +1395,14 @@ TEST_F(TestJSONWithLocalFile, JSONOutput) {
 TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
   // min-max stats for FLBA contains non-utf8 output, so we don't check
   // the whole json output.
+  // simdjson 5.0 changed the format of fractured_json
+  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR < 5) {
+    GTEST_SKIP() << "Test requires simdjson >= 5";
+  }
+
   std::string json_content = ReadFromLocalFile("fixed_length_byte_array.parquet");
 
-  // simdjson 5.0 changed the format of fractured_json
-  std::string json_contains;
-  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR >= 5) {
-    json_contains = R"###({
+  std::string json_contains = R"###({
     "FileName": "fixed_length_byte_array.parquet",
     "Version": "1.0",
     "CreatedBy": "parquet-mr version 1.13.0-SNAPSHOT (build d057b39d93014fe40f5067ee4a33621e65c91552)",
@@ -1522,44 +1419,23 @@ TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
             "LogicalType": {"Type": "None"}
         }
     ],)###";
-  } else {
-    json_contains = R"###({
-    "FileName": "fixed_length_byte_array.parquet",
-    "Version": "1.0",
-    "CreatedBy": "parquet-mr version 1.13.0-SNAPSHOT (build d057b39d93014fe40f5067ee4a33621e65c91552)",
-    "TotalRows": "1000",
-    "NumberOfRowGroups": "1",
-    "NumberOfRealColumns": "1",
-    "NumberOfColumns": "1",
-    "Columns": [
-        {
-            "Id": "0",
-            "Name": "flba_field",
-            "PhysicalType": "FIXED_LEN_BYTE_ARRAY(4)",
-            "ConvertedType": "NONE",
-            "LogicalType": { "Type": "None" }
-        }
-    ],)###";
-  }
 
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
 
 TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
+  // simdjson 5.0 changed the format of fractured_json
+  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR < 5) {
+    GTEST_SKIP() << "Test requires simdjson >= 5";
+  }
+
   std::string json_content = ReadFromLocalFile("sort_columns.parquet");
 
-  // simdjson 5.0 changed the format of fractured_json
-  std::string json_contains;
-  if constexpr (simdjson::SIMDJSON_VERSION_MAJOR >= 5) {
-    json_contains = R"###("SortColumns": [
+  std::string json_contains = R"###("SortColumns": [
                 {"column_idx": 0, "descending": 1, "nulls_first": 1},
                 {"column_idx": 1, "descending": 0, "nulls_first": 0}
             ],)###";
-  } else {
-    json_contains = R"###("SortColumns": [
-                { "column_idx": 0, "descending": 1, "nulls_first": 1 }, { "column_idx": 1, "descending": 0, "nulls_first": 0 }
-            ],)###";
-  }
+
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
 
