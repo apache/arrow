@@ -38,6 +38,21 @@ if(ARROW_GCS)
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
   elseif(google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+    if(absl_SOURCE STREQUAL "SYSTEM")
+      # Bundled google-cloud-cpp with system Abseil needs these for static consumers.
+      list(APPEND
+           ARROW_STATIC_INSTALL_INTERFACE_LIBS
+           absl::base
+           absl::cord
+           absl::crc32c
+           absl::memory
+           absl::optional
+           absl::span
+           absl::str_format
+           absl::strings
+           absl::time
+           absl::variant)
+    endif()
   endif()
 endif()
 
