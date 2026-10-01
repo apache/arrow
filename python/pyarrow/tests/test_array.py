@@ -21,6 +21,7 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
+import operator
 import pytest
 import struct
 import subprocess
@@ -561,6 +562,63 @@ def test_array_slice():
             assert res.to_pylist() == expected
             if np is not None:
                 assert res.to_numpy().tolist() == expected
+
+
+@pytest.mark.parametrize("scalar_type", [
+    pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+    pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64(),
+])
+def test_array_slice_integer_scalars(scalar_type):
+    arr = pa.array(range(10))
+    offsets = pa.array([2, 4], type=scalar_type)
+
+    result = arr.slice(offsets[0], offsets[1])
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.numpy
+def test_array_slice_numpy_integer_scalars():
+    arr = pa.array(range(10))
+
+    result = arr.slice(np.int64(2), np.int64(4))
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.parametrize("scalar", [
+    pa.scalar(2.0),
+    pa.scalar(True),
+    pa.scalar(None, type=pa.int64()),
+])
+@pytest.mark.parametrize("args", [
+    lambda scalar: (scalar,),
+    lambda scalar: (0, scalar),
+])
+def test_array_slice_invalid_scalars(scalar, args):
+    arr = pa.array(range(10))
+
+    with pytest.raises(TypeError):
+        arr.slice(*args(scalar))
+
+
+def test_array_slice_negative_integer_scalars():
+    arr = pa.array(range(10))
+    negative = pa.scalar(-1, type=pa.int64())
+
+    with pytest.raises(IndexError):
+        arr.slice(negative)
+    with pytest.raises(ValueError):
+        arr.slice(0, negative)
+
+
+def test_array_slice_uint64_scalar_overflow():
+    arr = pa.array(range(10))
+    overflow = pa.scalar(2 ** 63, type=pa.uint64())
+
+    assert arr.slice(overflow).equals(arr.slice(len(arr)))
+    with pytest.raises(OverflowError):
+        arr.slice(0, overflow)
 
 
 def test_array_slice_negative_step():
@@ -4691,3 +4749,38 @@ def test_dictionary_uint64_index_to_pandas():
     result = arr.to_pandas()
     assert list(result.cat.categories) == ["a", "b"]
     assert result.cat.codes.tolist() == [0, 1, -1, 0]
+
+
+@pytest.mark.parametrize("op", [
+    operator.add,
+    operator.sub,
+    operator.mul,
+    operator.truediv,
+    operator.pow,
+    operator.and_,
+    operator.or_,
+    operator.xor,
+    operator.lshift,
+    operator.rshift,
+])
+def test_arithmetic_dunders_unknown_types(op):
+    # GH-49826
+    class MyObj:
+        def __radd__(self, other):
+            return "reflected"
+
+        __rsub__ = __rmul__ = __rtruediv__ = __rpow__ = __radd__
+        __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
+
+    assert op(pa.array([1, 2, 3]), MyObj()) == "reflected"
+
+    # If NotImplemented is returned for both sides of the operation
+    # Python will fallback to a TypeError
+    with pytest.raises(TypeError, match="unsupported operand type\\(s\\)"):
+        op(pa.array([1, 2, 3]), object())
+
+
+def test_arithmetic_dunder_raises_arrow_invalid():
+    # GH-49826
+    with pytest.raises(pa.ArrowInvalid, match="divide by zero"):
+        pa.array([1, 2, 3]) / pa.scalar(0)

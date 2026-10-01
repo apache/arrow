@@ -68,6 +68,10 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
+// Maximum schema nesting depth. This default value is conservatively small as
+// some systems may not set a very large stack size.
+constexpr int32_t kDefaultSchemaDepthLimit = 100;
+
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 
@@ -77,6 +81,8 @@ class PARQUET_EXPORT ReaderProperties {
       : pool_(pool) {}
 
   MemoryPool* memory_pool() const { return pool_; }
+  /// Set the memory pool.
+  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
                                               int64_t start, int64_t num_bytes);
@@ -121,6 +127,15 @@ class PARQUET_EXPORT ReaderProperties {
     thrift_container_size_limit_ = size;
   }
 
+  /// \brief Return the schema nesting depth limit.
+  ///
+  /// This limit helps prevent denial of service through excessive recursion
+  /// (stack overflow) when reconstructing the Parquet schema from the file metadata.
+  /// The default value is conservative enough for most use cases.
+  int32_t schema_depth_limit() const { return schema_depth_limit_; }
+  /// Set the schema nesting depth limit.
+  void set_schema_depth_limit(int32_t size) { schema_depth_limit_ = size; }
+
   /// Set the decryption properties.
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
@@ -146,6 +161,7 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
+  int32_t schema_depth_limit_ = kDefaultSchemaDepthLimit;
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.
@@ -1157,7 +1173,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
         list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false),
-        smallest_decimal_enabled_(false) {}
+        smallest_decimal_enabled_(false),
+        convert_flba_timestamps_(true),
+        flba_timestamp_clamp_on_overflow_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1295,6 +1313,29 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// this setting will be ignored.
   bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
 
+  /// \brief Set whether to infer Arrow timestamps from Parquet FLBA types.
+  ///
+  /// When enabled, Parquet FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
+  /// Values that do not fit in 64 bit timestamps are handled per
+  /// flba_timestamp_clamp_on_overflow(). When disabled, Parquet FLBA(12) TIMESTAMP
+  /// columns are read as FixedSizeBinary(12).
+  void set_convert_flba_timestamps(bool convert) { convert_flba_timestamps_ = convert; }
+  /// \brief Whether FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
+  bool convert_flba_timestamps() const { return convert_flba_timestamps_; }
+
+  /// \brief Set how out-of-range values are handled when convert_flba_timestamps() is
+  /// enabled.
+  ///
+  /// When true, Parquet FLBA(12) TIMESTAMP values that do not fit in 64 bit timestamps
+  /// are clamped to min/max INT64. When false, such values raise an error.
+  void set_flba_timestamp_clamp_on_overflow(bool clamp) {
+    flba_timestamp_clamp_on_overflow_ = clamp;
+  }
+  /// \brief Whether out-of-range FLBA(12) timestamps clamp (true) or error (false).
+  bool flba_timestamp_clamp_on_overflow() const {
+    return flba_timestamp_clamp_on_overflow_;
+  }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1308,6 +1349,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
   bool smallest_decimal_enabled_;
+  bool convert_flba_timestamps_;
+  bool flba_timestamp_clamp_on_overflow_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

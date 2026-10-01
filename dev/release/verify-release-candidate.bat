@@ -84,8 +84,9 @@ set PATH=%INSTALL_DIR%\bin;%PATH%
 mkdir !ARROW_SOURCE!\cpp\build
 pushd !ARROW_SOURCE!\cpp\build
 
-@rem This is the path for Visual Studio Community 2017
-call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+@REM Setup MSVC environment. Find the Visual Studio Path first.
+for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VS_INSTALL_PATH=%%i"
+call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /B 1
 
 @rem NOTE(wesm): not using Ninja for now to be able to more easily control the
 @rem generator used
@@ -116,7 +117,7 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_PREFIX_PATH=%CONDA_PREFIX%\Library ^
       -DCMAKE_UNITY_BUILD=ON ^
       -DPARQUET_REQUIRE_ENCRYPTION=ON ^
-      ..  || exit /B
+      ..  || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1
 

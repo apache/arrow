@@ -172,7 +172,10 @@ class UnmaterializedCompositeTable {
       builder.UnsafeAppendNull();
       return Status::OK();
     }
-    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
+
+    const int64_t bit_offset = source->offset + static_cast<int64_t>(row);
+    builder.UnsafeAppend(
+        bit_util::GetBit(source->template GetValues<uint8_t>(1, 0), bit_offset));
     return Status::OK();
   }
 

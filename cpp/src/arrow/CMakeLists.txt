@@ -36,6 +36,33 @@ set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 if(ARROW_GCS)
   if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
+  elseif(google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+    if(absl_SOURCE STREQUAL "SYSTEM")
+      # Bundled google-cloud-cpp with system Abseil needs these for static consumers.
+      list(APPEND
+           ARROW_STATIC_INSTALL_INTERFACE_LIBS
+           absl::base
+           absl::cord
+           absl::crc32c
+           absl::memory
+           absl::optional
+           absl::span
+           absl::str_format
+           absl::strings
+           absl::time
+           absl::variant)
+    endif()
+  endif()
+endif()
+
+if(ARROW_AZURE)
+  if(Azure_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${AZURE_SDK_LINK_LIBRARIES})
+  elseif(Azure_SOURCE STREQUAL "BUNDLED")
+    if(NOT WIN32)
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl LibXml2::LibXml2)
+    endif()
   endif()
 endif()
 
@@ -97,27 +124,15 @@ if(ARROW_USE_GLOG)
   endif()
 endif()
 
-if(ARROW_S3)
-  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    list(APPEND
-         ARROW_STATIC_INSTALL_INTERFACE_LIBS
-         aws-cpp-sdk-identity-management
-         aws-cpp-sdk-sts
-         aws-cpp-sdk-cognito-identity
-         aws-cpp-sdk-s3
-         aws-cpp-sdk-core)
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    if(UNIX)
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-    endif()
-  endif()
-endif()
-
 if(ARROW_WITH_OPENTELEMETRY)
   if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENTELEMETRY_LIBS})
   endif()
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+endif()
+
+if(uriparser_SOURCE STREQUAL "SYSTEM")
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
 endif()
 
 if(ARROW_WITH_UTF8PROC)
@@ -473,19 +488,11 @@ arrow_add_object_library(ARROW_IO
                          io/caching.cc
                          io/compressed.cc
                          io/file.cc
-                         io/hdfs.cc
-                         io/hdfs_internal.cc
                          io/interfaces.cc
                          io/memory.cc
                          io/slow.cc
                          io/stdio.cc
                          io/transform.cc)
-foreach(ARROW_IO_TARGET ${ARROW_IO_TARGETS})
-  target_link_libraries(${ARROW_IO_TARGET} PRIVATE arrow::hadoop)
-  if(NOT MSVC)
-    target_link_libraries(${ARROW_IO_TARGET} PRIVATE ${CMAKE_DL_LIBS})
-  endif()
-endforeach()
 
 set(ARROW_MEMORY_POOL_SRCS memory_pool.cc)
 if(ARROW_JEMALLOC)
@@ -533,32 +540,13 @@ set(ARROW_VENDORED_SRCS
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/string-to-double.cc
     vendored/double-conversion/strtod.cc
-    vendored/musl/strptime.c
-    vendored/uriparser/UriCommon.c
-    vendored/uriparser/UriCompare.c
-    vendored/uriparser/UriEscape.c
-    vendored/uriparser/UriFile.c
-    vendored/uriparser/UriIp4.c
-    vendored/uriparser/UriIp4Base.c
-    vendored/uriparser/UriMemory.c
-    vendored/uriparser/UriNormalize.c
-    vendored/uriparser/UriNormalizeBase.c
-    vendored/uriparser/UriParse.c
-    vendored/uriparser/UriParseBase.c
-    vendored/uriparser/UriQuery.c
-    vendored/uriparser/UriRecompose.c
-    vendored/uriparser/UriResolve.c
-    vendored/uriparser/UriShorten.c)
+    vendored/musl/strptime.c)
 if(APPLE)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
 set_source_files_properties(vendored/datetime.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION
                                                              ON)
 arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
-# Disable DLL exports in vendored uriparser library
-foreach(ARROW_VENDORED_TARGET ${ARROW_VENDORED_TARGETS})
-  target_compile_definitions(${ARROW_VENDORED_TARGET} PRIVATE URI_STATIC_BUILD)
-endforeach()
 
 set(ARROW_UTIL_SRCS
     util/align_util.cc
@@ -659,12 +647,8 @@ endif()
 
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 
-# Disable DLL exports in vendored uriparser library
 foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
-  target_compile_definitions(${ARROW_UTIL_TARGET} PRIVATE URI_STATIC_BUILD)
-endforeach()
-foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
-  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
+  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE uriparser::uriparser ${ARROW_XSIMD})
 endforeach()
 
 if(ARROW_WITH_SIMDJSON)
@@ -741,8 +725,8 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
-set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers arrow::simdjson)
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers arrow::simdjson arrow_static
                                    ${ARROW_GTEST_GTEST})
 if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::Boost::process)
@@ -887,6 +871,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_run_end_encode.cc
+       compute/kernels/vector_search_sorted.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc
@@ -983,6 +968,12 @@ if(ARROW_WITH_OPENTELEMETRY)
   endforeach()
 endif()
 
+if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+  set(ARROW_VERSION_SCRIPT_FLAGS
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
+  set(ARROW_SHARED_LINK_FLAGS ${ARROW_VERSION_SCRIPT_FLAGS})
+endif()
+
 if(ARROW_FILESYSTEM)
   set(ARROW_FILESYSTEM_SRCS
       filesystem/filesystem.cc
@@ -1016,12 +1007,7 @@ if(ARROW_FILESYSTEM)
     endif()
   endif()
   if(ARROW_HDFS)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
-  endif()
-  if(ARROW_S3)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/s3fs.cc)
-    set_source_files_properties(filesystem/s3fs.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION
-                                                              ON)
+    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc filesystem/hdfs_internal.cc)
   endif()
 
   arrow_add_object_library(ARROW_FILESYSTEM ${ARROW_FILESYSTEM_SRCS})
@@ -1039,24 +1025,67 @@ if(ARROW_FILESYSTEM)
   if(ARROW_HDFS)
     foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
       target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE arrow::hadoop)
+      if(NOT MSVC)
+        target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE ${CMAKE_DL_LIBS})
+      endif()
     endforeach()
   endif()
   if(ARROW_S3)
-    foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
-      target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE ${AWSSDK_LINK_LIBRARIES})
-    endforeach()
-
-    if(ARROW_S3_MODULE)
-      if(NOT ARROW_BUILD_SHARED)
-        message(FATAL_ERROR "ARROW_S3_MODULE without shared libarrow (-DARROW_BUILD_SHARED=ON) is not supported"
-        )
-      endif()
-
-      add_library(arrow_s3fs MODULE filesystem/s3fs_module.cc filesystem/s3fs.cc)
-      target_link_libraries(arrow_s3fs PRIVATE ${AWSSDK_LINK_LIBRARIES} arrow_shared)
-      set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
-                                  PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    # If libarrow_s3.a is only built, "pkg-config --cflags --libs
+    # arrow-s3" outputs build flags for static linking not shared
+    # linking. ARROW_S3_PC_* except ARROW_S3_PC_*_PRIVATE are for the
+    # static linking case.
+    if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+      string(APPEND ARROW_S3_PC_CFLAGS "${ARROW_S3_PC_CFLAGS_PRIVATE}")
+      set(ARROW_S3_PC_CFLAGS_PRIVATE "")
+      set(ARROW_S3_PC_LIBS "${ARROW_S3_PC_LIBS_PRIVATE}")
+      set(ARROW_S3_PC_LIBS_PRIVATE "")
+      set(ARROW_S3_PC_REQUIRES "${ARROW_S3_PC_REQUIRES_PRIVATE}")
+      set(ARROW_S3_PC_REQUIRES_PRIVATE "")
+    else()
+      set(ARROW_S3_PC_LIBS "")
+      set(ARROW_S3_PC_REQUIRES "")
     endif()
+    list(APPEND ARROW_S3_LIB_SRCS filesystem/s3fs_module.cc filesystem/s3fs.cc)
+    set(ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+    if(AWSSDK_SOURCE STREQUAL "SYSTEM")
+      list(APPEND ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS ${AWSSDK_LINK_LIBRARIES})
+    elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
+      if(UNIX)
+        list(APPEND ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+      endif()
+    endif()
+    add_arrow_lib(arrow_s3
+                  CMAKE_PACKAGE_NAME
+                  ArrowS3
+                  PKG_CONFIG_NAME
+                  arrow-s3
+                  SOURCES
+                  ${ARROW_S3_LIB_SRCS}
+                  SHARED_LINK_LIBS
+                  arrow_shared
+                  SHARED_PRIVATE_LINK_LIBS
+                  ${AWSSDK_LINK_LIBRARIES}
+                  SHARED_INSTALL_INTERFACE_LIBS
+                  Arrow::arrow_shared
+                  STATIC_LINK_LIBS
+                  arrow_static
+                  ${AWSSDK_LINK_LIBRARIES}
+                  STATIC_INSTALL_INTERFACE_LIBS
+                  ${ARROW_S3_STATIC_INSTALL_INTERFACE_LIBS}
+                  SHARED_LINK_FLAGS
+                  ${ARROW_VERSION_SCRIPT_FLAGS}
+                  OUTPUTS
+                  ARROW_S3_LIBRARIES)
+    foreach(LIB_TARGET ${ARROW_S3_LIBRARIES})
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_S3_EXPORTING)
+    endforeach()
+    if(ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(arrow_s3_static PUBLIC ARROW_S3_STATIC)
+    endif()
+
+    set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
+                                PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
   list(APPEND ARROW_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})
@@ -1120,12 +1149,6 @@ if(ARROW_ORC)
 else()
   set(ARROW_ORC_TARGET_SHARED)
   set(ARROW_ORC_TARGET_STATIC)
-endif()
-
-if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
-  set(ARROW_VERSION_SCRIPT_FLAGS
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
-  set(ARROW_SHARED_LINK_FLAGS ${ARROW_VERSION_SCRIPT_FLAGS})
 endif()
 
 if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)

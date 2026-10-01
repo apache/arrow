@@ -48,6 +48,12 @@ class Converter {
   // Allocate a vector of the right R type for this converter
   virtual SEXP Allocate(R_xlen_t n) const = 0;
 
+  // Allocate a vector of the right R type for a slice of the data this converter
+  // was built for, i.e. never as an altrep vector shadowing the whole chunked array.
+  // Only converters whose Allocate() may hand out altrep vectors (e.g. Converter_Struct)
+  // need to override this.
+  virtual SEXP AllocateSlice(R_xlen_t n) const { return Allocate(n); }
+
   // data[ start:(start + n) ] = NA
   virtual Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const = 0;
 
@@ -93,6 +99,34 @@ class Converter {
       i++;
     }
 
+    UNPROTECT(1);
+    return out;
+  }
+
+  // Convert a slice of the data this converter was built for (e.g. one element of a
+  // list array) to a standalone R vector, reusing the decisions this converter made
+  // over all chunks (factor levels, integer vs double, ...).
+  //
+  // chunk_index is the index of the chunk that `slice` was taken from, so that
+  // per-chunk state (e.g. dictionary transposition) is applied correctly.
+  virtual SEXP ConvertSlice(const std::shared_ptr<Array>& slice,
+                            size_t chunk_index) const {
+    // Dictionary slices must go through this converter so that they get the
+    // unified levels; other types can shadow the slice with altrep as before
+    if (slice->type_id() != Type::DICTIONARY) {
+      SEXP alt = altrep::MakeAltrepVector(std::make_shared<ChunkedArray>(slice));
+      if (!Rf_isNull(alt)) {
+        return alt;
+      }
+    }
+
+    R_xlen_t n = slice->length();
+    SEXP out = PROTECT(AllocateSlice(n));
+    if (slice->null_count() == n) {
+      StopIfNotOk(Ingest_all_nulls(out, 0, n));
+    } else {
+      StopIfNotOk(Ingest_some_nulls(out, slice, 0, n, chunk_index));
+    }
     UNPROTECT(1);
     return out;
   }
@@ -761,24 +795,36 @@ class Converter_Struct : public Converter {
   SEXP Allocate(R_xlen_t n) const {
     // allocate a data frame column to host each array
     // If possible, a column is dealt with directly with altrep
-    auto type =
-        checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
-    auto out =
-        arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
-          SEXP out = converter->MaybeAltrep();
-          if (Rf_isNull(out)) {
-            out = converter->Allocate(n);
-          }
-          return out;
-        });
-    auto colnames = arrow::r::to_r_strings(
-        type->fields(),
-        [](const std::shared_ptr<Field>& field) { return field->name(); });
-    out.attr(symbols::row_names) = arrow::r::short_row_names(static_cast<int>(n));
-    out.attr(R_NamesSymbol) = colnames;
-    out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+    return AllocateDataFrame(n, [n](const std::shared_ptr<Converter>& converter) {
+      SEXP out = converter->MaybeAltrep();
+      if (Rf_isNull(out)) {
+        out = converter->Allocate(n);
+      }
+      return out;
+    });
+  }
 
-    return out;
+  SEXP AllocateSlice(R_xlen_t n) const {
+    // altrep would shadow the whole chunked array rather than the slice
+    return AllocateDataFrame(n, [n](const std::shared_ptr<Converter>& converter) {
+      return converter->AllocateSlice(n);
+    });
+  }
+
+  // Convert each child of the slice through its own converter, rather than
+  // allocating then ingesting: that lets children that can only convert whole
+  // arrays (extension types) work, and children that can be altrep be altrep
+  SEXP ConvertSlice(const std::shared_ptr<Array>& slice, size_t chunk_index) const {
+    const auto& struct_array = checked_cast<const arrow::StructArray&>(*slice);
+    // Flatten() deals with merging of nulls
+    auto arrays = ValueOrStop(struct_array.Flatten(gc_memory_pool()));
+    int nf = static_cast<int>(converters.size());
+
+    cpp11::writable::list out(nf);
+    for (int i = 0; i < nf; i++) {
+      out[i] = converters[i]->ConvertSlice(arrays[i], chunk_index);
+    }
+    return FinishDataFrame(out, slice->length());
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
@@ -824,6 +870,27 @@ class Converter_Struct : public Converter {
 
  private:
   std::vector<std::shared_ptr<Converter>> converters;
+
+  template <typename AllocateColumn>
+  SEXP AllocateDataFrame(R_xlen_t n, AllocateColumn&& allocate_column) const {
+    auto out =
+        arrow::r::to_r_list(converters, std::forward<AllocateColumn>(allocate_column));
+    return FinishDataFrame(out, n);
+  }
+
+  // set the names, row names and class of a list of columns
+  SEXP FinishDataFrame(cpp11::writable::list& out, R_xlen_t n) const {
+    auto type =
+        checked_cast<const arrow::StructType*>(this->chunked_array_->type().get());
+    auto colnames = arrow::r::to_r_strings(
+        type->fields(),
+        [](const std::shared_ptr<Field>& field) { return field->name(); });
+    out.attr(symbols::row_names) = arrow::r::short_row_names(static_cast<int>(n));
+    out.attr(R_NamesSymbol) = colnames;
+    out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+
+    return out;
+  }
 };
 
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms) / 1000; }
@@ -1021,15 +1088,36 @@ class Converter_Decimal : public Converter {
   }
 };
 
+// Build a converter for the values of all chunks of a list-like chunked array, so
+// that decisions such as factor levels or whether integers fit are made once for
+// the whole column rather than once per list element (GH-50514, GH-50339)
+template <typename ListArrayType>
+std::shared_ptr<Converter> MakeListValuesConverter(
+    const std::shared_ptr<ChunkedArray>& chunked_array,
+    const std::shared_ptr<arrow::DataType>& value_type) {
+  ArrayVector values;
+  values.reserve(chunked_array->num_chunks());
+  for (const auto& chunk : chunked_array->chunks()) {
+    // Flatten() rather than values() so that only the values that are logically
+    // part of the list (respecting the offset of a sliced array and null lists)
+    // take part in the decisions
+    values.push_back(ValueOrStop(
+        checked_cast<const ListArrayType&>(*chunk).Flatten(gc_memory_pool())));
+  }
+  return Converter::Make(std::make_shared<ChunkedArray>(std::move(values), value_type));
+}
+
 template <typename ListArrayType>
 class Converter_List : public Converter {
  private:
-  std::shared_ptr<arrow::DataType> value_type_;
+  std::shared_ptr<Converter> values_converter_;
 
  public:
   explicit Converter_List(const std::shared_ptr<ChunkedArray>& chunked_array,
                           const std::shared_ptr<arrow::DataType>& value_type)
-      : Converter(chunked_array), value_type_(value_type) {}
+      : Converter(chunked_array),
+        values_converter_(
+            MakeListValuesConverter<ListArrayType>(chunked_array, value_type)) {}
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
@@ -1042,10 +1130,8 @@ class Converter_List : public Converter {
       res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_large_list;
     }
 
-    std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
-
-    // convert to an R object to store as the list' ptype
-    res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);
+    // an empty R object of the type of the elements, stored as the list's ptype
+    res.attr(arrow::r::symbols::ptype) = values_converter_->AllocateSlice(0);
 
     return res;
   }
@@ -1058,11 +1144,11 @@ class Converter_List : public Converter {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto list_array = checked_cast<const ListArrayType*>(array.get());
-    auto values_array = list_array->values();
 
     auto ingest_one = [&](R_xlen_t i) {
       auto slice = list_array->value_slice(i);
-      SET_VECTOR_ELT(data, i + start, Converter::Convert(slice));
+      SET_VECTOR_ELT(data, i + start,
+                     values_converter_->ConvertSlice(slice, chunk_index));
       return Status::OK();
     };
 
@@ -1074,24 +1160,25 @@ class Converter_List : public Converter {
 
 class Converter_FixedSizeList : public Converter {
  private:
-  std::shared_ptr<arrow::DataType> value_type_;
+  std::shared_ptr<Converter> values_converter_;
   int list_size_;
 
  public:
   explicit Converter_FixedSizeList(const std::shared_ptr<ChunkedArray>& chunked_array,
                                    const std::shared_ptr<arrow::DataType>& value_type,
                                    int list_size)
-      : Converter(chunked_array), value_type_(value_type), list_size_(list_size) {}
+      : Converter(chunked_array),
+        values_converter_(
+            MakeListValuesConverter<FixedSizeListArray>(chunked_array, value_type)),
+        list_size_(list_size) {}
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
     Rf_classgets(res, arrow::r::data::classes_arrow_fixed_size_list);
     res.attr(arrow::r::symbols::list_size) = Rf_ScalarInteger(list_size_);
 
-    std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
-
-    // convert to an R object to store as the list' ptype
-    res.attr(arrow::r::symbols::ptype) = Converter::Convert(array);
+    // an empty R object of the type of the elements, stored as the list's ptype
+    res.attr(arrow::r::symbols::ptype) = values_converter_->AllocateSlice(0);
 
     return res;
   }
@@ -1104,11 +1191,11 @@ class Converter_FixedSizeList : public Converter {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     const auto& fixed_size_list_array = checked_cast<const FixedSizeListArray&>(*array);
-    auto values_array = fixed_size_list_array.values();
 
     auto ingest_one = [&](R_xlen_t i) {
       auto slice = fixed_size_list_array.value_slice(i);
-      SET_VECTOR_ELT(data, i + start, Converter::Convert(slice));
+      SET_VECTOR_ELT(data, i + start,
+                     values_converter_->ConvertSlice(slice, chunk_index));
       return Status::OK();
     };
     return IngestSome(array, n, ingest_one);
@@ -1196,6 +1283,20 @@ class Converter_Extension : public Converter {
     }
 
     return extension_type->Convert(chunked_array_);
+  }
+
+  // The conversion happens in Allocate() over the whole chunked array, so a slice
+  // can't reuse it: convert an empty slice / the slice itself on its own instead.
+  // Non-empty slices always go through ConvertSlice() below.
+  SEXP AllocateSlice(R_xlen_t n) const {
+    if (n != 0) {
+      cpp11::stop("Cannot allocate a non-empty slice of an extension array");
+    }
+    return Converter::Convert(chunked_array_->Slice(0, 0), false);
+  }
+
+  SEXP ConvertSlice(const std::shared_ptr<Array>& slice, size_t chunk_index) const {
+    return Converter::Convert(slice);
   }
 
   // At this point we have already done the conversion

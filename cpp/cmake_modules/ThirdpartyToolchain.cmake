@@ -68,6 +68,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
+    uriparser
     utf8proc
     xsimd
     ZLIB
@@ -220,6 +221,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
+    build_uriparser()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -810,6 +813,14 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_URIPARSER_URL})
+  set(ARROW_URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
+else()
+  set_urls(ARROW_URIPARSER_SOURCE_URL
+           "https://github.com/uriparser/uriparser/releases/download/uriparser-${ARROW_URIPARSER_BUILD_VERSION}/uriparser-${ARROW_URIPARSER_BUILD_VERSION}.tar.bz2"
+  )
+endif()
+
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
   set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_URL}")
 else()
@@ -1235,6 +1246,12 @@ endif()
 # https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
 # 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.92.0"
+    "1.92"
+    "1.91.0"
+    "1.91"
+    "1.90.0"
+    "1.90"
     "1.89.0"
     "1.89"
     "1.88.0"
@@ -1403,10 +1420,34 @@ endif()
 # ----------------------------------------------------------------------
 # cURL
 
-macro(find_curl)
+macro(find_curl ARROW_CURL_PACKAGE_PREFIX)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
+  endif()
+  # CURL might be needed for Arrow (GCS, OpenTelemetry) or ArrowS3
+  if(NOT "CURL" IN_LIST ${ARROW_CURL_PACKAGE_PREFIX}_SYSTEM_DEPENDENCIES)
+    list(APPEND ${ARROW_CURL_PACKAGE_PREFIX}_SYSTEM_DEPENDENCIES CURL)
+  endif()
+endmacro()
+
+# ----------------------------------------------------------------------
+# pkg-config
+
+# SDK libraries (on macOS) may be available without .pc files
+macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(${PC_PREFIX}
+                      ${PC_PACKAGE}
+                      NO_CMAKE_PATH
+                      NO_CMAKE_ENVIRONMENT_PATH
+                      QUIET)
+  endif()
+  if(PkgConfig_FOUND AND ${PC_PREFIX}_FOUND)
+    string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
+  else()
+    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} in arrow.pc")
+    string(APPEND ARROW_PC_LIBS_PRIVATE " ${FALLBACK}")
   endif()
 endmacro()
 
@@ -2828,6 +2869,11 @@ function(build_simdjson)
 
   prepare_fetchcontent()
 
+  # simdjson enables precompiled headers unconditionally.
+  # Recompiling simdjson.cpp against it produces differing artifacts
+  # Disable precompiled headers to avoid reproducible build failures.
+  set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+
   fetchcontent_makeavailable(simdjson)
 
   target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
@@ -3250,6 +3296,50 @@ if(ARROW_WITH_BZ2)
   endif()
 endif()
 
+# ----------------------------------------------------------------------
+# uriparser library
+
+function(build_uriparser)
+  list(APPEND CMAKE_MESSAGE_INDENT "uriparser: ")
+  message(STATUS "Building uriparser from source")
+
+  fetchcontent_declare(uriparser
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${ARROW_URIPARSER_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_URIPARSER_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  set(URIPARSER_BUILD_DOCS OFF)
+  set(URIPARSER_BUILD_TESTS OFF)
+  set(URIPARSER_BUILD_TOOLS OFF)
+  # Arrow only uses the char (not wchar_t) flavor of the API.
+  set(URIPARSER_BUILD_WCHAR_T OFF)
+  # Don't install uriparser into Arrow's install prefix.
+  set(URIPARSER_ENABLE_INSTALL OFF)
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    set(URIPARSER_MSVC_STATIC_CRT ON)
+  endif()
+
+  fetchcontent_makeavailable(uriparser)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS uriparser)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# uriparser is mandatory: arrow::util::Uri is part of core Arrow.
+resolve_dependency(uriparser
+                   HAVE_ALT
+                   TRUE
+                   REQUIRED_VERSION
+                   "0.9.6"
+                   PC_PACKAGE_NAMES
+                   liburiparser)
+
 macro(build_utf8proc)
   message(STATUS "Building utf8proc from source")
   set(UTF8PROC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/utf8proc_ep-install")
@@ -3645,7 +3735,7 @@ if(ARROW_WITH_OPENTELEMETRY)
 
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
-  find_curl()
+  find_curl(ARROW)
   resolve_dependency(opentelemetry-cpp
                      COMPONENTS
                      exporters_ostream
@@ -3699,6 +3789,25 @@ function(build_google_cloud_cpp_storage)
          -p1
          -i
          ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
+  endif()
+
+  # google-cloud-cpp, which depends on OpenSSL,
+  # does not yet support OpenSSL 4.x.
+  #
+  # TODO: Once google-cloud-cpp supports OpenSSL 4.x,
+  # remove this workaround and google-cloud-cpp-openssl4-compatibility.patch.
+  # https://github.com/googleapis/google-cloud-cpp/issues/16510
+  if(PATCH)
+    if(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+      list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND COMMAND)
+    endif()
+
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-openssl4-compatibility.patch)
   endif()
 
   fetchcontent_declare(google_cloud_cpp
@@ -3784,7 +3893,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
 
   # curl is required on all platforms. We always use system curl to
   # avoid conflict.
-  find_curl()
+  find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4233,11 +4342,14 @@ endfunction()
 
 if(ARROW_S3)
   if(NOT WIN32)
-    # This is for adding system curl dependency.
-    find_curl()
+    find_curl(ARROW_S3)
   endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowS3
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-s3
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
@@ -4249,15 +4361,15 @@ if(ARROW_S3)
   if(ARROW_BUILD_STATIC)
     if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
-        string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
     else()
       if(UNIX)
-        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+        string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " libcurl")
       endif()
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " openssl")
       if(APPLE)
-        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " -framework Security")
       endif()
     endif()
   endif()
@@ -4329,6 +4441,60 @@ if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
+  if(AZURE_SDK_VENDORED AND NOT WIN32)
+    find_curl(ARROW)
+    find_package(LibXml2 REQUIRED)
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+  endif()
+endif()
+
+if(ARROW_BUILD_STATIC)
+  if((ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+     OR (ARROW_AZURE
+         AND AZURE_SDK_VENDORED
+         AND NOT WIN32))
+    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl")
+  endif()
+  if(ARROW_AZURE
+     AND AZURE_SDK_VENDORED
+     AND NOT WIN32)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2")
+  endif()
+  if(ARROW_GCS
+     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
+     AND absl_SOURCE STREQUAL "SYSTEM")
+    # Bundled google-cloud-cpp needs system Abseil for static linking.
+    # Abseil .pc files include indirect link dependencies that -labsl_* flags omit
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+      foreach(ARROW_GCS_ABSL_PC_PACKAGE
+              absl_base
+              absl_cord
+              absl_crc32c
+              absl_memory
+              absl_optional
+              absl_span
+              absl_str_format
+              absl_strings
+              absl_time
+              absl_variant)
+        pkg_check_modules(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC
+                          ${ARROW_GCS_ABSL_PC_PACKAGE}
+                          NO_CMAKE_PATH
+                          NO_CMAKE_ENVIRONMENT_PATH
+                          QUIET)
+        if(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC_FOUND)
+          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
+        else()
+          message(STATUS "No .pc for ${ARROW_GCS_ABSL_PC_PACKAGE}; "
+                         "static pkg-config metadata may be incomplete. Consider CMake")
+        endif()
+      endforeach()
+    else()
+      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow.pc"
+      )
+    endif()
+  endif()
 endif()
 
 # ----------------------------------------------------------------------

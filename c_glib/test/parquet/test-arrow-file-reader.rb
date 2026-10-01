@@ -39,6 +39,60 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case(".new(properties)") do
+    data("path" => :path, "stream" => :stream)
+    test("read") do |source_type|
+      properties = Parquet::ReaderProperties.new
+      properties.enable_buffered_stream
+      properties.pre_buffer = false
+      properties.buffer_size = 4096
+      source = if source_type == :path
+                 @file.path
+               else
+                 Arrow::FileInputStream.new(@file.path)
+               end
+      reader = Parquet::ArrowFileReader.new(source, properties)
+      begin
+        assert_equal(@table, reader.read_table)
+        assert_equal(build_table("a" => @a_array.slice(1, 1),
+                                 "b" => @b_array.slice(1, 1)),
+                     reader.read_row_group(1))
+      ensure
+        reader.close
+        reader.unref
+        source.unref if source_type == :stream
+      end
+    end
+
+    test("nonexistent path") do
+      properties = Parquet::ReaderProperties.new
+      assert_raise(Arrow::Error::Io) do
+        Parquet::ArrowFileReader.new("#{@file.path}.nonexistent", properties)
+      end
+    end
+
+    data("path" => :path, "stream" => :stream)
+    test("invalid file") do |source_type|
+      Tempfile.create("invalid-parquet") do |file|
+        file.write("not a parquet file")
+        file.flush
+        source = if source_type == :path
+                   file.path
+                 else
+                   Arrow::FileInputStream.new(file.path)
+                 end
+        properties = Parquet::ReaderProperties.new
+        begin
+          assert_raise(Arrow::Error::Invalid) do
+            Parquet::ArrowFileReader.new(source, properties)
+          end
+        ensure
+          source.unref if source_type == :stream
+        end
+      end
+    end
+  end
+
   def test_schema
     assert_equal(<<-SCHEMA.chomp, @reader.schema.to_s)
 a: string

@@ -1,4 +1,7812 @@
 
+# Apache Arrow 25.0.1 (2026-08-07 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-50383](https://github.com/apache/arrow/issues/50383) - [Release] Remove deprecated -f flag on conda create environment (#50384)
+* [GH-50578](https://github.com/apache/arrow/issues/50578) - [C++][FlightRPC][ODBC] Always return SQL_NO_DATA from GetMoreResults (#50700)
+* [GH-50600](https://github.com/apache/arrow/issues/50600) - [Release] Pin Python version in Conda verification
+* [GH-50605](https://github.com/apache/arrow/issues/50605) - [Python][Parquet] Silent wrong values decoding a double column on aarch64 SVE (pyarrow 25.0.0)
+* [GH-50808](https://github.com/apache/arrow/issues/50808) - [Python] Narrow Feather deprecation to V1 format (#50685)
+
+
+## New Features and Improvements
+
+* [GH-50326](https://github.com/apache/arrow/issues/50326) - [Python] Convert arrays to Python objects without per-element Scalars in to_pylist (#50327)
+* [GH-50428](https://github.com/apache/arrow/issues/50428) - [C++] Better mimalloc configuration on macOS (#50549)
+* [GH-50471](https://github.com/apache/arrow/issues/50471) - [C++][Python] SIGSEGV in bundled mimalloc mi\_thread\_init when libarrow is first loaded on a non-main thread that exits (mimalloc 3.3.x, pyarrow 25.0.0)
+* [GH-50503](https://github.com/apache/arrow/issues/50503) - [Parquet] Remove SVE128 unpack (#50611)
+
+# Apache Arrow 25.0.0 (2026-07-07 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-17081](https://github.com/apache/arrow/issues/17081) - [C++] arrow::stl::TupleRangeFromTable docs incorrect (#50095)
+* [GH-20403](https://github.com/apache/arrow/issues/20403) - [Doc] pyarrow.Array.diff Examples is wrongly rendered (#50096)
+* [GH-32994](https://github.com/apache/arrow/issues/32994) - [Dev][Archery] Fix multi-arch Docker configuration (#50125)
+* [GH-36503](https://github.com/apache/arrow/issues/36503) - [C++] Make DictionaryArray::dictionary() thread-safe (#48905)
+* [GH-38558](https://github.com/apache/arrow/issues/38558) - [C++] Add support for null sort option per sort key (#46926)
+* [GH-39603](https://github.com/apache/arrow/issues/39603) - [R] Error: Cannot convert Dictionary Array of type dictionary<values=large_string, indices=uint32, ordered=0> to R (#49710)
+* [GH-39754](https://github.com/apache/arrow/issues/39754) - [R] Docs are not clear on expected behaviour of date parsing functions (e.g. dmy()) on Windows vs. Linux/MacOS (#49708)
+* [GH-39784](https://github.com/apache/arrow/issues/39784) - [C++][Gandiva] Fix decimal in_expr crash with cached object code (#49951)
+* [GH-40410](https://github.com/apache/arrow/issues/40410) - [C++] Skip only s3fs-tests and s3fs-module-tests that require MinIO if MinIO is not available (#50215)
+* [GH-40640](https://github.com/apache/arrow/issues/40640) - [R] to_arrow() loses group_by() (#49713)
+* [GH-40742](https://github.com/apache/arrow/issues/40742) - [R] fix max_rows_per_group must be a positive number (#49709)
+* [GH-40886](https://github.com/apache/arrow/issues/40886) - [R] Cryptic error when creating Arrow array from POSIXct with invalid time zones (#49714)
+* [GH-43574](https://github.com/apache/arrow/issues/43574) - [Python][Parquet] do not add partition columns from file path when reading single file (#49853)
+* [GH-45193](https://github.com/apache/arrow/issues/45193) - [C++][Compute] Treat NaNs and nulls as distinct values in rank tie-breaking (#49304)
+* [GH-46179](https://github.com/apache/arrow/issues/46179) - [Python] Bump index level once if pandas df already contains __index_level_i__ column (#46884)
+* [GH-47100](https://github.com/apache/arrow/issues/47100) - [Docs] Correct the Statistics schema specification (#50092)
+* [GH-47252](https://github.com/apache/arrow/issues/47252) - [C++][Compute] Fix sort_indices for temporal types in arrow::Table (#50270)
+* [GH-47447](https://github.com/apache/arrow/issues/47447) - [C++] Fix replace_with_mask for null type arrays (#49950)
+* [GH-47481](https://github.com/apache/arrow/issues/47481) - [C++][Acero] record_batch_reader_source specify Ordering::Implicit to support `select * limit k` (#47482)
+* [GH-47642](https://github.com/apache/arrow/issues/47642) - [C++] Catch exceptions from initial_task in AsyncTaskScheduler (#49860)
+* [GH-47657](https://github.com/apache/arrow/issues/47657) - [C++][Parquet] Check for integer overflow when coercing timestamps (#49615)
+* [GH-48094](https://github.com/apache/arrow/issues/48094) - [C++] Restrict SecureString capacity tail check to Linux (#49906)
+* [GH-48254](https://github.com/apache/arrow/issues/48254) - [Python][Parquet] Support extension types in read_schema (#48255)
+* [GH-48712](https://github.com/apache/arrow/issues/48712) - [R] "Invalid metadata$r" warning (#49608)
+* [GH-48801](https://github.com/apache/arrow/issues/48801) - [C++] Set CMAKE_POLICY_VERSION_MINIMUM for RapidJSON (#49993)
+* [GH-48926](https://github.com/apache/arrow/issues/48926) - [C++] Upgrade Abseil/Protobuf/GRPC/Google-Cloud-CPP bundled versions (#48964)
+* [GH-49272](https://github.com/apache/arrow/issues/49272) - [C++][CI] Fix intermittent segfault in arrow-json-test with MinGW (#49462)
+* [GH-49327](https://github.com/apache/arrow/issues/49327) - [Python][Packaging] Use ARROW_SIMD_LEVEL=NEON for macOS arm64 (#50181)
+* [GH-49433](https://github.com/apache/arrow/issues/49433) - [C++] Buffer ARROW_LOG output to prevent thread interleaving (#49663)
+* [GH-49465](https://github.com/apache/arrow/issues/49465) - [CI][C++] Fix Abseil hang in arrow-flight-test on ODBC Windows (#50085)
+* [GH-49522](https://github.com/apache/arrow/issues/49522) - [CI] Update chrome_version for emscripten job to latest stable (v148) (#49523)
+* [GH-49614](https://github.com/apache/arrow/issues/49614) - [C++] Report an error instead of silent truncation in base64_decode on invalid input (#49660)
+* [GH-49689](https://github.com/apache/arrow/issues/49689) - [R][C++] Parquets do not support list-columns of ordered factors (ordered dictionaries) (#49937)
+* [GH-49719](https://github.com/apache/arrow/issues/49719) - [C++] Rename vendored date header guards (#49778)
+* [GH-49740](https://github.com/apache/arrow/issues/49740) - [C++][Python] Fix casts to view types leaving null variadic buffers (#50166)
+* [GH-49743](https://github.com/apache/arrow/issues/49743) - [Release] Split the vote thread preparation into its own shell script (#49770)
+* [GH-49745](https://github.com/apache/arrow/issues/49745) - [Docs][Python] Fix doctests failure in substrait.rst (#49754)
+* [GH-49752](https://github.com/apache/arrow/issues/49752) - [C++][Gandiva] Fix potential buffer overrun in Gandiva SSL function (#49780)
+* [GH-49753](https://github.com/apache/arrow/issues/49753) - [C++][Gandiva] Fix overflow in string functions (#49813)
+* [GH-49757](https://github.com/apache/arrow/issues/49757) - [Release][CI] export SSL_CERT_FILE to bypass incompatibility with OpenSSL on RHEL-8 (#49769)
+* [GH-49759](https://github.com/apache/arrow/issues/49759) - [C++][Integration] Harden BinaryView JSON parsing with runtime validation (#49758)
+* [GH-49764](https://github.com/apache/arrow/issues/49764) - [C++][Python] Avoid building bundled Abseil outside resolve_dependency (#49936)
+* [GH-49767](https://github.com/apache/arrow/issues/49767) - [CI][C++] Disable mold on Ubuntu 24.04 to work around mold#1247 (#50033)
+* [GH-49803](https://github.com/apache/arrow/issues/49803) - [C++][CI] Avoid aborting when fuzz-mutated IPC file has less batches (#49804)
+* [GH-49823](https://github.com/apache/arrow/issues/49823) - [CI] Add missing contents: read permission to Package Linux workflow (#49825)
+* [GH-49831](https://github.com/apache/arrow/issues/49831) - [Python] Withhold annotations from Python wheel until they are complete (#50168)
+* [GH-49834](https://github.com/apache/arrow/issues/49834) - [C++] Avoid building re2 unit tests (#50152)
+* [GH-49837](https://github.com/apache/arrow/issues/49837) - [C++][Parquet] Avoid unbounded temporary std::vector in DELTA_(LENGTH_)BYTE_ARRAY decoder (#49838)
+* [GH-49846](https://github.com/apache/arrow/issues/49846) - [CI][Python] fix test-conda-python-3.11-hypothesis (#49847)
+* [GH-49861](https://github.com/apache/arrow/issues/49861) - [R] Missing R libarrow binary for linux-arm64 (#49893)
+* [GH-49866](https://github.com/apache/arrow/issues/49866) - [R][Release] Restore using tzdb on Windows for tzdata (#49867)
+* [GH-49872](https://github.com/apache/arrow/issues/49872) - [C++] Remove deprecated std::is_trivial (#49871)
+* [GH-49875](https://github.com/apache/arrow/issues/49875) - [Python] Fix timezone dropped when converting tz-aware Categorical to Arrow array (#49878)
+* [GH-49888](https://github.com/apache/arrow/issues/49888) - [C++][Compute] Fix count for run-end encoded arrays with nulls (#49908)
+* [GH-49896](https://github.com/apache/arrow/issues/49896) - [C++] Reject short buffer reads in IPC reader (#49897)
+* [GH-49905](https://github.com/apache/arrow/issues/49905) - [Archery] Fix archery benchmark diff with pandas 3 (#49912)
+* [GH-49917](https://github.com/apache/arrow/issues/49917) - [Python] Remove Py_XDECREF to avoid Use-After-Free on `PyList_SetItem` in `SparseCSFTensorToNdarray` (#49916)
+* [GH-49923](https://github.com/apache/arrow/issues/49923) - [Parquet][Python] Inconsistent default values for Parquet pre_buffer (#49924)
+* [GH-49927](https://github.com/apache/arrow/issues/49927) - [Python][Parquet] Expose bloom_filter_offset and bloom_filter_length to Python in column chunk metadata (#49926)
+* [GH-49930](https://github.com/apache/arrow/issues/49930) - [CI][C++] Pin MinGW MSYS2 packages to unblock CI (#49931)
+* [GH-49933](https://github.com/apache/arrow/issues/49933) - [Python] Fix test_table_column_subset_metadata to set freq on correct object (#49944)
+* [GH-49942](https://github.com/apache/arrow/issues/49942) - [Python] Protect PyBuffer and NumPyBuffer destructors against interpreter finalization (#49943)
+* [GH-49948](https://github.com/apache/arrow/issues/49948) - [CI][C++] Revert PR 49931 (Pin MinGW MSYS2 packages) but keep bumped minIO version (#49945)
+* [GH-49956](https://github.com/apache/arrow/issues/49956) - [GLib] Add fallback data type for unknown extension data type (#49969)
+* [GH-49966](https://github.com/apache/arrow/issues/49966) - [C++] Detect different endianness between IPC file and stream in IPC file fuzzer (#49968)
+* [GH-49974](https://github.com/apache/arrow/issues/49974) - [C++][CMake] Add missing result variable initialization for `validate_apple_libtool()` (#49975)
+* [GH-49991](https://github.com/apache/arrow/issues/49991) - [C++][FlightRPC] Fix unity build ordering issue (#49990)
+* [GH-49994](https://github.com/apache/arrow/issues/49994) - [CI] Remove `brew uninstall pkg-config` workarounds (#49997)
+* [GH-49998](https://github.com/apache/arrow/issues/49998) - [CI][Python] Pin to an older release of miniforge to fix mamba hang (#49999)
+* [GH-50000](https://github.com/apache/arrow/issues/50000) - [C++][FlightRPC] Use grpcpp/grpcpp.h not grpcpp/version_info.h for old gRPC (#50001)
+* [GH-50009](https://github.com/apache/arrow/issues/50009) - [R] FinalizeS3 segfaults for stale connection (#50081)
+* [GH-50010](https://github.com/apache/arrow/issues/50010) - [C++][Parquet] Fix undefined behavior in TypedColumnWriterImpl::UpdateLevelHistogram (#50011)
+* [GH-50012](https://github.com/apache/arrow/issues/50012) - [Python] Fix list_ storage crashes when values exceed int32 offsets (#50016)
+* [GH-50017](https://github.com/apache/arrow/issues/50017) - [CI][Release] Remove deprecated -f (force) flag from conda create on Windows verification job (#50018)
+* [GH-50037](https://github.com/apache/arrow/issues/50037) - [Python] test_table_uses_memory_pool flaky on macOS 14 job (#50045)
+* [GH-50041](https://github.com/apache/arrow/issues/50041) - [CI][Python] Make test_string_to_tzinfo_pytz_fallback more robust for platforms supporting lower case tz names (#50042)
+* [GH-50043](https://github.com/apache/arrow/issues/50043) - [C++][Python] Fix hash_any/hash_all on sliced boolean arrays (#50094)
+* [GH-50051](https://github.com/apache/arrow/issues/50051) - [C++][Parquet] Avoid size overflow in WKBBuffer::ReadCoords (#50036)
+* [GH-50065](https://github.com/apache/arrow/issues/50065) - [Packaging][CI][C++] Drop unused libboost-system-dev (#50066)
+* [GH-50090](https://github.com/apache/arrow/issues/50090) - [Packaging] Avoid building CUDA for Debian forky due to missing nvidia-cuda-toolkit (#50279)
+* [GH-50098](https://github.com/apache/arrow/issues/50098) - [C++][Parquet] Enable filesystem support when building Parquet utilities (#50099)
+* [GH-50103](https://github.com/apache/arrow/issues/50103) - [C++] Missing iosfwd include in cpp/src/arrow/util/string_util.h (#50101)
+* [GH-50105](https://github.com/apache/arrow/issues/50105) - [C++][Python] Fix sliced sparse union null checks (#50108)
+* [GH-50109](https://github.com/apache/arrow/issues/50109) - [C++][Gandiva] Fix incorrect error messages (#50110)
+* [GH-50113](https://github.com/apache/arrow/issues/50113) - [C++][Python] Fix `count` for sliced union arrays (#50114)
+* [GH-50129](https://github.com/apache/arrow/issues/50129) - [C++][Parquet] Enable `ARROW_JSON` automatically with `PARQUET_REQUIRE_ENCRYPTION` (#50130)
+* [GH-50133](https://github.com/apache/arrow/issues/50133) - [CI] Make extra labels entirely manual on PRs (#50256)
+* [GH-50149](https://github.com/apache/arrow/issues/50149) - [C++][Parquet] Avoid process abort when encoding fuzzer encounters OOM (#50150)
+* [GH-50156](https://github.com/apache/arrow/issues/50156) - [C++][Parquet] Ignore min/max for unknown column order (#50157)
+* [GH-50163](https://github.com/apache/arrow/issues/50163) - [R] Bug: Partial matching on $metadata$r causes errors with schema metadata keys starting with "r" (#50178)
+* [GH-50171](https://github.com/apache/arrow/issues/50171) - [CI][R] Build libarrow is failing for Linux arm64  (#50179)
+* [GH-50173](https://github.com/apache/arrow/issues/50173) - [C++][Gandiva] Install tzdata-legacy to fix failing TestTime.TestCastTimestampWithTZ from gandiva/precompiled/time_test.cc (#50211)
+* [GH-50174](https://github.com/apache/arrow/issues/50174) - [CI][Python] Fix debug Python job (#50207)
+* [GH-50176](https://github.com/apache/arrow/issues/50176) - [Python] Explicitly pass exc_type=ImportError to importorskip pyarrow.* (#50177)
+* [GH-50204](https://github.com/apache/arrow/issues/50204) - [C++] Fix S3FileSystem::MakeUri dropping the bucket on Windows MinGW (#50205)
+* [GH-50210](https://github.com/apache/arrow/issues/50210) - [C++][Gandiva] Replace precompiled std::string to fix _Unwind_Resume JIT failure on JNI builds (#50214)
+* [GH-50212](https://github.com/apache/arrow/issues/50212) - [C++][Parquet] Add PrintTo to fix failure in parquet-internals-test on test-conda-cpp-valgrind (#50213)
+* [GH-50218](https://github.com/apache/arrow/issues/50218) - [C++][FlightRPC] Add missing sudo to fix ODBC Linux job (#50307)
+* [GH-50227](https://github.com/apache/arrow/issues/50227) - [Docs][Python][Parquet] Update parquet default version text in parquet.rst (#50228)
+* [GH-50240](https://github.com/apache/arrow/issues/50240) - [C++] Make IPC message decoding stricter (#50235)
+* [GH-50242](https://github.com/apache/arrow/issues/50242) - [CI][Release] Fix flaky dylib load failure in macOS verify-rc build (#50243)
+* [GH-50253](https://github.com/apache/arrow/issues/50253) - [CI] Manually install aws-sdk-cpp with brew in order to avoid lock (#50254)
+* [GH-50257](https://github.com/apache/arrow/issues/50257) - [CI][Docs] Fix doxygen failing due to double backticks (#50259)
+* [GH-50277](https://github.com/apache/arrow/issues/50277) - [CI][Python] Avoid using generators for test parametrization on newer Pytest (#50278)
+* [GH-50291](https://github.com/apache/arrow/issues/50291) - [Python][Packaging] Stop using nightly build dependencies for building free-threaded wheels (#50315)
+* [GH-50293](https://github.com/apache/arrow/issues/50293) - [CI] Run check-labels for all triggers to avoid cancelling further steps and add tag to set_enabled (#50340)
+* [GH-50294](https://github.com/apache/arrow/issues/50294) - [C++][R] Missing typename in ulp_distance.cc breaks clang-15 builds (#50296)
+* [GH-50295](https://github.com/apache/arrow/issues/50295) - [C++][R] #include <ranges> in vector_select_k.cc breaks macOS CRAN and wasm builds (#50297)
+* [GH-50300](https://github.com/apache/arrow/issues/50300) - [C++][CI] Update include to generated/Message_generated.h so Meson is able to find  (#50301)
+* [GH-50318](https://github.com/apache/arrow/issues/50318) - [R][CI] Install missing libpng-dev for test-r-linux-as-cran (#50328)
+* [GH-50330](https://github.com/apache/arrow/issues/50330) - [C++][R][Parquet] Add missing typename in RleBitPackedDecoderGetRunDecode (#50332)
+* [GH-50336](https://github.com/apache/arrow/issues/50336) - [Release][Archery] Fix archery GitHub integration for release scripts (#50337)
+
+
+## New Features and Improvements
+
+* [GH-14796](https://github.com/apache/arrow/issues/14796) - [Dev][COMPONENT] " to issue title automatically (#49892)
+* [GH-19667](https://github.com/apache/arrow/issues/19667) - [C++][Gandiva] Use arrow::Result<std::string> for RegexUtil::SqlLikePatternToPcre (#49879)
+* [GH-22232](https://github.com/apache/arrow/issues/22232) - [C++][Python] Introduce optional default_column_type parameter (#47663)
+* [GH-31318](https://github.com/apache/arrow/issues/31318) - [Python] Add fixed-offset timezones to Hypothesis test strategy (#49844)
+* [GH-32381](https://github.com/apache/arrow/issues/32381) - [C++] Improve error handling for hash table merges (#49512)
+* [GH-33241](https://github.com/apache/arrow/issues/33241) - [Archery] Replace github3 with pygithub (#48886)
+* [GH-33390](https://github.com/apache/arrow/issues/33390) - [R] Field-level metadata (#49631)
+* [GH-33420](https://github.com/apache/arrow/issues/33420) - [R] Improve error message when providing a mix of readr and Arrow options (#50048)
+* [GH-38849](https://github.com/apache/arrow/issues/38849) - [C++][Parquet] Add support for list view and large list view (#50160)
+* [GH-40062](https://github.com/apache/arrow/issues/40062) - [C++][Python] Conversion of Table to Arrow Tensor (#41870)
+* [GH-45187](https://github.com/apache/arrow/issues/45187) - [Ruby] Ensure initializing all rb_memory_view_t members (#50234)
+* [GH-45331](https://github.com/apache/arrow/issues/45331) - [C++] Use xsimd for CPU feature detection (#49940)
+* [GH-45819](https://github.com/apache/arrow/issues/45819) - [C++] Add OptionalBitmapAnd utility (#49848)
+* [GH-46178](https://github.com/apache/arrow/issues/46178) - [R] source_node alignment warning (#50120)
+* [GH-46369](https://github.com/apache/arrow/issues/46369) - [C++] Add key-value pairs to the FileSystemFactory interface and to S3Options (#50044)
+* [GH-46914](https://github.com/apache/arrow/issues/46914) - [C++][FlightSQL] Remove boost/algorithm/string.h dependency (#50241)
+* [GH-46956](https://github.com/apache/arrow/issues/46956) - [Docs][CI] Enable version switcher in local and PR preview build (#46957)
+* [GH-47435](https://github.com/apache/arrow/issues/47435) - [Python][Parquet] Add direct key encryption/decryption API (#49667)
+* [GH-47769](https://github.com/apache/arrow/issues/47769) - [C++] SVE dynamic dispatch (#49756)
+* [GH-47876](https://github.com/apache/arrow/issues/47876) - [C++][FlightRPC] ODBC: macOS `.PKG` installer for Intel and ARM (#49766)
+* [GH-48028](https://github.com/apache/arrow/issues/48028) - [Python][Packaging] Update quay.io base manylinux and musllinux images for Python wheels and remove cp313t (#50082)
+* [GH-48068](https://github.com/apache/arrow/issues/48068) - [C++][FlightRPC] Linux ODBC: Configure Dremio instance to allow remote testing (#49695)
+* [GH-48294](https://github.com/apache/arrow/issues/48294) - [Ruby] Add RecordBatch#merge (#50175)
+* [GH-48408](https://github.com/apache/arrow/issues/48408) - [C++] Enable ULP-based float comparison (#49290)
+* [GH-49232](https://github.com/apache/arrow/issues/49232) - [Python] deprecate feather python (#49590)
+* [GH-49275](https://github.com/apache/arrow/issues/49275) - [Doc] Update docs to specify disclosure of AI on mailing list messages (#49277)
+* [GH-49497](https://github.com/apache/arrow/issues/49497) - [FlightRPC] Add is_update field to ActionCreatePreparedStatementResult (#49498)
+* [GH-49534](https://github.com/apache/arrow/issues/49534) - [R] Implement dplyr recode_values(), replace_values(), and replace_when() (#49536)
+* [GH-49537](https://github.com/apache/arrow/issues/49537) - [C++][FlightRPC] Windows CI to Support ODBC DLL & MSI Signing (#49603)
+* [GH-49552](https://github.com/apache/arrow/issues/49552) - [C++][FlightRPC][ODBC] Enable ODBC test build on Linux (#49668)
+* [GH-49644](https://github.com/apache/arrow/issues/49644) - [Python] Support converting list of multi-dimensional arrays to FixedShapeTensor (#50203)
+* [GH-49651](https://github.com/apache/arrow/issues/49651) - [C++][FlightRPC] Fix ODBC Linux test segmentation fault (#49688)
+* [GH-49675](https://github.com/apache/arrow/issues/49675) - [Docs] Make "stale issues" more visible to potential contributors and document stale issue policy (#49703)
+* [GH-49684](https://github.com/apache/arrow/issues/49684) - [MATLAB] Introduce deprecation warnings for "legacy" Feather V1 functions `featherread` and `featherwrite` (#49705)
+* [GH-49686](https://github.com/apache/arrow/issues/49686) - [C++][FlightRPC][ODBC][Release] Create signing script for Windows FlightSQL ODBC build (#49788)
+* [GH-49700](https://github.com/apache/arrow/issues/49700) - [R][CI][Dev] Use air precommit hook (#49701)
+* [GH-49720](https://github.com/apache/arrow/issues/49720) - [C++] Optimize base64_decode validation using lookup table (#49748)
+* [GH-49723](https://github.com/apache/arrow/issues/49723) - [C++][FlightRPC][ODBC] Update ODBC Documentation (#49851)
+* [GH-49725](https://github.com/apache/arrow/issues/49725) - [CI] Use environment variables instead of template expressions in workflow run blocks (#49733)
+* [GH-49728](https://github.com/apache/arrow/issues/49728) - [CI] Set persist-credentials: false in checkout actions (#49734)
+* [GH-49729](https://github.com/apache/arrow/issues/49729) - [CI] Scope workflow permissions and secret inheritance (#49773)
+* [GH-49737](https://github.com/apache/arrow/issues/49737) - [R][CI] Disable Rhub GCC 12 and GCC 13 with LTO jobs - images no longer match CRAN (#49739)
+* [GH-49738](https://github.com/apache/arrow/issues/49738) - [R][CI] Re-enable GCC+LTO job once rhub has a GCC 15 image (#49795)
+* [GH-49751](https://github.com/apache/arrow/issues/49751) - [Python] Add raw fd support to pa.OSFile (#49750)
+* [GH-49772](https://github.com/apache/arrow/issues/49772) - [C++] Bump bundled mimalloc version (#49801)
+* [GH-49776](https://github.com/apache/arrow/issues/49776) - [CI][C++] Install libc6-dbg in apt-based Linux C++ images (#50034)
+* [GH-49783](https://github.com/apache/arrow/issues/49783) - [C++][FlightRPC][ODBC] Reuse connections across test suite (#49784)
+* [GH-49785](https://github.com/apache/arrow/issues/49785) - [C++][FlightRPC][ODBC] Get ODBC tests passing on Linux (#49786)
+* [GH-49789](https://github.com/apache/arrow/issues/49789) - [C++] Use `CMAKE_INSTALL_DOCDIR` instead of static `share/doc/${PROJECT_NAME}` (#49790)
+* [GH-49793](https://github.com/apache/arrow/issues/49793) - [R] Update NEWS.md for 24.0.0 (#49794)
+* [GH-49805](https://github.com/apache/arrow/issues/49805) - [C++][Parquet] Avoid unbounded temporary allocation in DeltaBitPackDecoder::DecodeArrow (#49806)
+* [GH-49807](https://github.com/apache/arrow/issues/49807) - [CI] Remove obsolete test-ubuntu-22.04-cpp-20 job (#49827)
+* [GH-49835](https://github.com/apache/arrow/issues/49835) - [C++] A constexpr dynamic dispatch with static dispatch when possible (#49840)
+* [GH-49890](https://github.com/apache/arrow/issues/49890) - [Dev] Group files under component comment headers in `.github/CODEOWNERS` (#49891)
+* [GH-49898](https://github.com/apache/arrow/issues/49898) - [C++][CI] Use mold in more builds (#49899)
+* [GH-49901](https://github.com/apache/arrow/issues/49901) - [R] Bump minimum supported R version to 4.2 now that 4.6 is out (#49929)
+* [GH-49913](https://github.com/apache/arrow/issues/49913) - [Archery] Add preserve-dir and improve directory layout (#50056)
+* [GH-49918](https://github.com/apache/arrow/issues/49918) - [C++][Parquet] Catch std::vector allocation errors in encoding fuzzer (#49919)
+* [GH-49921](https://github.com/apache/arrow/issues/49921) - [C++] Bump xsimd to 14.2.0 (#49922)
+* [GH-49938](https://github.com/apache/arrow/issues/49938) - [C++] Bump bundled c-ares to 1.34.6 (#49939)
+* [GH-49946](https://github.com/apache/arrow/issues/49946) - [Format] Better document equivalence between IPC file and streams (#49947)
+* [GH-49952](https://github.com/apache/arrow/issues/49952) - [C++][Gandiva] Use timegm in date_time_test utilities (#49953)
+* [GH-49959](https://github.com/apache/arrow/issues/49959) - [C++][Parquet] Avoid unbounded temp alloc in BYTE_STREAM_SPLIT decoder (#49960)
+* [GH-49967](https://github.com/apache/arrow/issues/49967) - [Python][CI] Raise oldest NumPy wheel-test requirement to a patched release (#49965)
+* [GH-49981](https://github.com/apache/arrow/issues/49981) - [R][Packaging] Support building R package under r-universe/r-wasm (#49982)
+* [GH-49988](https://github.com/apache/arrow/issues/49988) - [CI][Packaging] Enable reproducible builds on host for APT based Linux packages (#48148)
+* [GH-50005](https://github.com/apache/arrow/issues/50005) - [C++] Use FetchContent for RapidJSON (#50006)
+* [GH-50007](https://github.com/apache/arrow/issues/50007) - [C++][Parquet] Add bloom filter folding to automatically size SBBF filters (#50008)
+* [GH-50014](https://github.com/apache/arrow/issues/50014) - [R] Replace imported symbol from bit64 (#50015)
+* [GH-50022](https://github.com/apache/arrow/issues/50022) - [Dev] Enable auto GitHub Copilot review (#50023)
+* [GH-50026](https://github.com/apache/arrow/issues/50026) - [C++][Parquet] SIMD-accelerate SBBF probe via branchless autovec (#50030)
+* [GH-50046](https://github.com/apache/arrow/issues/50046) - [CI][C++] Improve caching with apache/infrastructure-actions/stash and more general cache keys (#50047)
+* [GH-50052](https://github.com/apache/arrow/issues/50052) - [CI][C++] Bump vcpkg to newest version (#50053)
+* [GH-50054](https://github.com/apache/arrow/issues/50054) - [C++][IPC] Validate indices buffer size in ReadSparseCOOIndex (#50055)
+* [GH-50057](https://github.com/apache/arrow/issues/50057) - [C++] Avoid signed overflow in Decimal FromString exponent (#50058)
+* [GH-50063](https://github.com/apache/arrow/issues/50063) - [C++] Validate buffer size for row-major tensors (#50064)
+* [GH-50072](https://github.com/apache/arrow/issues/50072) - [Python] Add tests for replace_with_mask kernel (#50102)
+* [GH-50075](https://github.com/apache/arrow/issues/50075) - [C++][Gandiva] fix buffer overrun in to_hex int32/int64 (#50076)
+* [GH-50077](https://github.com/apache/arrow/issues/50077) - [C++][IPC] Avoid int64 overflow in ReadSparseCSXIndex (#50038)
+* [GH-50078](https://github.com/apache/arrow/issues/50078) - [C++][ORC] Avoid signed overflow when converting timestamps (#50035)
+* [GH-50083](https://github.com/apache/arrow/issues/50083) - [C++] Access mimalloc through dynamically-resolved symbols (#41128)
+* [GH-50111](https://github.com/apache/arrow/issues/50111) - [C++][Gandiva] Improve function error messages (#50112)
+* [GH-50115](https://github.com/apache/arrow/issues/50115) - [Dev] Adjust GitHub Copilot configuration for preliminary reviews (#50117)
+* [GH-50139](https://github.com/apache/arrow/issues/50139) - [Dev][Gandiva] Add Gandiva code owners (#50144)
+* [GH-50161](https://github.com/apache/arrow/issues/50161) - [C++][IPC] Validate CSF sparse index buffer counts (#50070)
+* [GH-50162](https://github.com/apache/arrow/issues/50162) - [C++][Parquet] Avoid int32 overflow in BitPackedRunDecoder::GetBatch offset (#50089)
+* [GH-50170](https://github.com/apache/arrow/issues/50170) - [CI][Packaging][Linux] Fix cache (#50185)
+* [GH-50172](https://github.com/apache/arrow/issues/50172) - [Doc][Format] Clarify that variadic buffers can also be null (#50255)
+* [GH-50182](https://github.com/apache/arrow/issues/50182) - [C++][Parquet] Fix truncated min/max statistics for all-infinity floating-point columns (#50183)
+* [GH-50184](https://github.com/apache/arrow/issues/50184) - [C++][Parquet] Avoid reading past truncated statistics values in FormatStatValue (#50025)
+* [GH-50189](https://github.com/apache/arrow/issues/50189) - [C++][CI] Remove Ceph install step (#50190)
+* [GH-50191](https://github.com/apache/arrow/issues/50191) - [CI][Python] Switch caching to apache/infrastructure-actions/stash (#50192)
+* [GH-50197](https://github.com/apache/arrow/issues/50197) - [C++][Python] Add "hypot" compute kernel (#50198)
+* [GH-50200](https://github.com/apache/arrow/issues/50200) - [Packaging][Debian] Drop support for bookworm (#50201)
+* [GH-50208](https://github.com/apache/arrow/issues/50208) - [CI][C++][Python] Disable ccache `hash_dir` (#50209)
+* [GH-50216](https://github.com/apache/arrow/issues/50216) - [C++][Parquet] Add RleBitPackedToBitmapDecoder (#50217)
+* [GH-50219](https://github.com/apache/arrow/issues/50219) - [R] Fix duckdb test for dbplyr 2.6.0 (#50220)
+* [GH-50225](https://github.com/apache/arrow/issues/50225) - [Ruby] Move merge implementation to ColumnContainable (#50226)
+* [GH-50231](https://github.com/apache/arrow/issues/50231) - [C++] Handle unset Substrait extension mapping type (#50263)
+* [GH-50236](https://github.com/apache/arrow/issues/50236) - Remove obsolete OpenSUSE 15.5 workarounds (#50258)
+* [GH-50237](https://github.com/apache/arrow/issues/50237) - [C++] Migrate arrow/ipc/metadata_internal.h to Result<T> (#50245)
+* [GH-50260](https://github.com/apache/arrow/issues/50260) - [C++] Add ComputeLogicalNullCount to ChunkedArray (#50261)
+* [GH-50265](https://github.com/apache/arrow/issues/50265) - [C++][Parquet] Update parquet.thrift to sync with 2.13.0 (#50266)
+* [GH-50267](https://github.com/apache/arrow/issues/50267) - [C++][Parquet] Upgrade thrift compiler from 0.21.0 to 0.23.0 (#50268)
+* [GH-50275](https://github.com/apache/arrow/issues/50275) - [C++][CSV] avoid int32 overflow in block parser value counts (#50074)
+* [GH-50283](https://github.com/apache/arrow/issues/50283) - [CI][Ruby] Switch caching to apache/infrastructure-actions/stash (#50284)
+* [GH-50292](https://github.com/apache/arrow/issues/50292) - [C++][Parquet] Avoid int64 overflow in CheckReadRangeOrThrow (#50060)
+* [GH-50304](https://github.com/apache/arrow/issues/50304) - [C++][IPC] Reject negative sparse tensor shape and non-zero length (#50305)
+
+# Apache Arrow 24.0.0 (2026-04-07 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-35806](https://github.com/apache/arrow/issues/35806) - [R] Improve error message for null type inference with sparse CSV data (#49338)
+* [GH-35806](https://github.com/apache/arrow/issues/35806) - [R] Improve error message for null type inference with sparse CSV data
+* [GH-36889](https://github.com/apache/arrow/issues/36889) - [C++][Python] Fix duplicate CSV header when first batch is empty (#48718)
+* [GH-40053](https://github.com/apache/arrow/issues/40053) - [Python] Preserve dict key order when inferring struct type (#48813)
+* [GH-41624](https://github.com/apache/arrow/issues/41624) - [C++] Add missing system Boost dependency to bundled Apache Thrift (#49346)
+* [GH-41990](https://github.com/apache/arrow/issues/41990) - [C++] Fix AzureFileSystem compilation on Windows (#48971)
+* [GH-47279](https://github.com/apache/arrow/issues/47279) - [C++] Implement GetByteRangesArray for view types (#47418)
+* [GH-47692](https://github.com/apache/arrow/issues/47692) - [CI][Python] Do not fallback to return 404 if wheel is found on emscripten jobs (#49007)
+* [GH-48159](https://github.com/apache/arrow/issues/48159) - [C++][Gandiva] Projector make is significantly slower after move to OrcJIT (#49063)
+* [GH-48241](https://github.com/apache/arrow/issues/48241) - [Python] Scalar inferencing doesn't infer UUID (#48727)
+* [GH-48470](https://github.com/apache/arrow/issues/48470) - [Python] Construct UuidArray from list of UuidScalars (#48746)
+* [GH-48594](https://github.com/apache/arrow/issues/48594) - [C++][FlightRPC] Fix ODBC CI Long Build Time Issue (#48595)
+* [GH-48691](https://github.com/apache/arrow/issues/48691) - [C++][Parquet] Write serializer may crash if the value buffer is empty (#48692)
+* [GH-48766](https://github.com/apache/arrow/issues/48766) - [CI][Packaging] Delete conan related packaging jobs and CI (#49647)
+* [GH-48832](https://github.com/apache/arrow/issues/48832) - [R] Fix crash with zero-length POSIXct tzone attribute (#49619)
+* [GH-48853](https://github.com/apache/arrow/issues/48853) - [Release] Fix bytes to string comparison in download_rc_binaries.py (#48896)
+* [GH-48862](https://github.com/apache/arrow/issues/48862) - [C++][Integration] Build arrow_c_data_integration library regardless of ARROW_TEST value (#49236)
+* [GH-48866](https://github.com/apache/arrow/issues/48866) - [C++][Gandiva] Truncate subseconds beyond milliseconds in `castTIMESTAMP_utf8` and `castTIME_utf8` (#48867)
+* [GH-48877](https://github.com/apache/arrow/issues/48877) - [C++][Parquet] Fix writer not to throw for bloom filter on disabled bool column (#48878)
+* [GH-48884](https://github.com/apache/arrow/issues/48884) - [Dev][Release] Remove non-published draft release candidates when publishing official release to GitHub (#48887)
+* [GH-48890](https://github.com/apache/arrow/issues/48890) - [CI][Packaging][APT] Remove needless packages in downgrade tests (#48892)
+* [GH-48912](https://github.com/apache/arrow/issues/48912) - [R] Configure C++20 in conda R on continuous benchmarking (#48974)
+* [GH-48932](https://github.com/apache/arrow/issues/48932) - [C++][Packaging][FlightRPC] Fix `rsync` build error ODBC Nightly Package (#48933)
+* [GH-48947](https://github.com/apache/arrow/issues/48947) - [CI][Python] Install pymanager.msi instead of pymanager.msix to fix docker rebuild on Windows wheels (#48948)
+* [GH-48978](https://github.com/apache/arrow/issues/48978) - [Python] test failures on pandas 3.0 for fastparquet and for zoneinfo w/o pytz (#48979)
+* [GH-48985](https://github.com/apache/arrow/issues/48985) - [GLib][Ruby] Fix GC problems in node options and expressions (#48989)
+* [GH-49034](https://github.com/apache/arrow/issues/49034) - [C++][Gandiva] Fix binary_string to not trigger error for null strings (#49035)
+* [GH-49043](https://github.com/apache/arrow/issues/49043) - [C++][FS][Azure] Avoid bugs caused by empty first page(s) followed by non-empty subsequent page(s) (#49049)
+* [GH-49078](https://github.com/apache/arrow/issues/49078) - [FS][Azure] Fix lossy pickling of `SubTreeFileSystem(base_path, AzureFileSystem(...))` (#49140)
+* [GH-49081](https://github.com/apache/arrow/issues/49081) - [C++][Parquet][FOLLOWUP] Correct variant's extension name (#49211)
+* [GH-49081](https://github.com/apache/arrow/issues/49081) - [C++][Parquet] Correct variant's extension name (#49082)
+* [GH-49083](https://github.com/apache/arrow/issues/49083) - [CI][Python] Remove dask-contrib/dask-expr from the nightly dask test builds (#49126)
+* [GH-49084](https://github.com/apache/arrow/issues/49084) - [CI][Dev] Wait for odbc-nightly before executing CPP extra report job (#49085)
+* [GH-49087](https://github.com/apache/arrow/issues/49087) - [CI][Packaging][Gandiva] Add support for LLVM 15 or earlier again (#49091)
+* [GH-49100](https://github.com/apache/arrow/issues/49100) - [Docs] Broken link to Swift page in implementations.rst (#49101)
+* [GH-49104](https://github.com/apache/arrow/issues/49104) - [C++] Fix Segfault in SparseCSFIndex::Equals with mismatched dimensions (#49105)
+* [GH-49108](https://github.com/apache/arrow/issues/49108) - [Python] SparseCOOTensor.__repr__ missing f-string prefix (#49109)
+* [GH-49114](https://github.com/apache/arrow/issues/49114) - [C++][Parquet] Fix converting schema failure with deep nested two-level encoding list structure (#49125)
+* [GH-49115](https://github.com/apache/arrow/issues/49115) - [CI][Packaging][Python] Update vcpkg baseline for our wheels (#49116)
+* [GH-49150](https://github.com/apache/arrow/issues/49150) - [Doc][CI][Python] Doctests failing on rst files due to pandas 3+ (#49088)
+* [GH-49176](https://github.com/apache/arrow/issues/49176) - [C++] CRAN build fail on missing std::floating_point concept (#49221)
+* [GH-49184](https://github.com/apache/arrow/issues/49184) - [CI] AMD64 macOS 15-intel Python 3 consistently times out (#49189)
+* [GH-49187](https://github.com/apache/arrow/issues/49187) - [Doc] Fix versions.json for Arrow 1.0 (#49224)
+* [GH-49190](https://github.com/apache/arrow/issues/49190) - [C++][CI] Fix `unknown job 'odbc' error` in C++ Extra Workflow (#49192)
+* [GH-49217](https://github.com/apache/arrow/issues/49217) - [C++][Parquet] Fix map type to preserve key-value metadata (#49218)
+* [GH-49229](https://github.com/apache/arrow/issues/49229) - [C++] Fix abort when reading IPC file with a union validity bitmap and pre-buffering enabled (#49230)
+* [GH-49233](https://github.com/apache/arrow/issues/49233) - [CI][Python] Update anaconda-client to 1.14.1 to support latest setuptools release (#49264)
+* [GH-49234](https://github.com/apache/arrow/issues/49234) - [CI][Python] Nightly sdist job fails due to missing update_stub_docstrings.py file (#49235)
+* [GH-49263](https://github.com/apache/arrow/issues/49263) - [Python][CI] Install rust compiler for libcst only on Debian 32 bits (#49265)
+* [GH-49268](https://github.com/apache/arrow/issues/49268) - [C++][FlightRPC] Fix ODBC tests for MacOS (#49267)
+* [GH-49287](https://github.com/apache/arrow/issues/49287) - [C++][R] Clean up any other C++20 partial compatibility issues (#49223)
+* [GH-49299](https://github.com/apache/arrow/issues/49299) - [C++][Parquet] Integer overflow in Parquet dict decoding (#49300)
+* [GH-49307](https://github.com/apache/arrow/issues/49307) - [Benchmarks] Revert rig-based R installation in benchmark hooks (#49308)
+* [GH-49310](https://github.com/apache/arrow/issues/49310) - [C++][Compute] Fix segmentation fault in pyarrow.compute.if_else (#49375)
+* [GH-49366](https://github.com/apache/arrow/issues/49366) - [CI][C++] Use system LLVM to use libstdc++ in gcc-toolset (#49367)
+* [GH-49369](https://github.com/apache/arrow/issues/49369) - [C++][R] Deal with validating libtool again (#49370)
+* [GH-49371](https://github.com/apache/arrow/issues/49371) - [C++] Work around bit_width not being available on MacOS's partially compatible C++20 build (#49405)
+* [GH-49392](https://github.com/apache/arrow/issues/49392) - [C++][Compute] Fix fixed-width gather byte offset overflow in list filtering (#49602)
+* [GH-49410](https://github.com/apache/arrow/issues/49410) - [C++] Fix if_else null-scalar fast paths for sliced BaseBinary arrays (#49443)
+* [GH-49415](https://github.com/apache/arrow/issues/49415) - [C++] Don't change map type key/item/value field names (#49416)
+* [GH-49424](https://github.com/apache/arrow/issues/49424) - [C++] Use std::bit_width instead of missing std::log2p1 on emscripten clang (#49425)
+* [GH-49426](https://github.com/apache/arrow/issues/49426) - [Python] Do not build pyarrow-stubs on emscripten builds (#49427)
+* [GH-49435](https://github.com/apache/arrow/issues/49435) - [CI][C++] Fix macOS build with Homebrew protobuf v34 (#49491)
+* [GH-49448](https://github.com/apache/arrow/issues/49448) - [C++][CI] Detect mismatching schema in differential IPC fuzzing (#49451)
+* [GH-49449](https://github.com/apache/arrow/issues/49449) - [C++] Backport xsimd neon fix (#49450)
+* [GH-49454](https://github.com/apache/arrow/issues/49454) - [C++][Gandiva] Fix castVARCHAR_timestamp for pre-epoch timestamps (#49455)
+* [GH-49456](https://github.com/apache/arrow/issues/49456) - [C++] Use static key/item/value field names for map type again (#49457)
+* [GH-49458](https://github.com/apache/arrow/issues/49458) - [CI][C++] Fix Meson build referencing non-existent fixed_shape_tensor_test.cc (#49468)
+* [GH-49470](https://github.com/apache/arrow/issues/49470) - [C++][Gandiva] Fix crashes in substring_index and truncate with extreme integer values (#49471)
+* [GH-49473](https://github.com/apache/arrow/issues/49473) - [Python] Fix get_include and get_library_dirs to work with both editable and non-editable builds (#49476)
+* [GH-49477](https://github.com/apache/arrow/issues/49477) - [C++][Parquet] Fix multiplication overflow in PLAIN BYTE_ARRAY decoder (#49478)
+* [GH-49486](https://github.com/apache/arrow/issues/49486) - [CI][C++] Fix Meson build missing tensor extension sources (#49487)
+* [GH-49493](https://github.com/apache/arrow/issues/49493) - [C++][Python] Add OpenTelemetry to our CMakePresets when bulding python-maximal (#49494)
+* [GH-49499](https://github.com/apache/arrow/issues/49499) - [C++] Improve arrow vcpkg port integration (#49543)
+* [GH-49506](https://github.com/apache/arrow/issues/49506) - [CI][Python] Doctest fails when pyarrow._cuda absent (#49507)
+* [GH-49518](https://github.com/apache/arrow/issues/49518) - [CI] Do not override HOME to empty on build_conda.sh for minimal_build (#49519)
+* [GH-49521](https://github.com/apache/arrow/issues/49521) - [CI][Packaging] Try removing KEY that seems bad from downloaded KEYS file (#49525)
+* [GH-49529](https://github.com/apache/arrow/issues/49529) - [R] CI job shows NOTE due to "non-API call" Rf_findVarInFrame (#49530)
+* [GH-49531](https://github.com/apache/arrow/issues/49531) - [CI][Packaging][Python] Ignore cleanup errors trying to remove loaded DLLs from temp dir (#49532)
+* [GH-49539](https://github.com/apache/arrow/issues/49539) - [C++][Parquet] Fix argument count check in parquet_scan (#49540)
+* [GH-49541](https://github.com/apache/arrow/issues/49541) - [C++] `ARROW_FLIGHT_SQL=ON` and `ARROW_BUILD_EXAMPLES=ON` need gflags (#49542)
+* [GH-49563](https://github.com/apache/arrow/issues/49563) - [C++][CMake] Remove clang/infer tools detection (#49575)
+* [GH-49565](https://github.com/apache/arrow/issues/49565) - [Python] Copy CKmsConnectionConfig instead of trying to move the const received one (#49567)
+* [GH-49566](https://github.com/apache/arrow/issues/49566) - [Python] Skip header files when installing compiled Cython files and other Python release verification fixes (#49571)
+* [GH-49569](https://github.com/apache/arrow/issues/49569) - [CI][Python][C++] Add check targetting Apple clang on deciding whether to use std::bit_width or std::log2p1 (#49570)
+* [GH-49579](https://github.com/apache/arrow/issues/49579) - [C++] Fix xsimd 14.1.0 build failure (#49580)
+* [GH-49586](https://github.com/apache/arrow/issues/49586) - [C++][CI] StructToStructSubset test failure with libc++ 22.1.1 (#49682)
+* [GH-49596](https://github.com/apache/arrow/issues/49596) - [CI][Dev] Pin PyGithub to < 2.9 to fix broken archery (#49597)
+* [GH-49601](https://github.com/apache/arrow/issues/49601) - [C++] Update bundled AWS SDK C++ for C23 (#49604)
+* [GH-49609](https://github.com/apache/arrow/issues/49609) - [CI][R] AMD64 Windows R release fails with IOError: Bucket 'ursa-labs-r-test' not found (#49610)
+* [GH-49611](https://github.com/apache/arrow/issues/49611) - [MATLAB] MATLAB workflow failing due to action permission error (#49650)
+* [GH-49617](https://github.com/apache/arrow/issues/49617) - [C++][CI] Validate all batches in IPC file fuzzer (#49618)
+* [GH-49622](https://github.com/apache/arrow/issues/49622) - [R][CI] Some R CI jobs seem unable to access some S3 files on arrow-datasets bucket (#49625)
+* [GH-49623](https://github.com/apache/arrow/issues/49623) - [CI][Python] Install built wheel on Windows verification and test in isolation (#49624)
+* [GH-49626](https://github.com/apache/arrow/issues/49626) - [C++][Parquet] Fix encoding fuzzing failure (#49627)
+* [GH-49634](https://github.com/apache/arrow/issues/49634) - [Ruby][Integration] Follow dictionary array API change (#49635)
+* [GH-49638](https://github.com/apache/arrow/issues/49638) - [CI][Packaging][Python] Pin setuptools < 80 to build oldest pandas to test on musllinux (#49639)
+* [GH-49649](https://github.com/apache/arrow/issues/49649) - [R] R non-API calls reported on CRAN (#49653)
+* [GH-49661](https://github.com/apache/arrow/issues/49661) - [CI][C++] Suppress deprecated warnings with gRPC 1.80.0 (#49662)
+* [GH-49676](https://github.com/apache/arrow/issues/49676) - [Python][Packaging] Fix gRPC docker image layer being too big for hcsshim on Windows (#49678)
+* [GH-49697](https://github.com/apache/arrow/issues/49697) - [C++][CI] Check IPC file body bounds are in sync with decoder outcome (#49698)
+* [GH-49716](https://github.com/apache/arrow/issues/49716) - [C++] FixedShapeTensorType::Deserialize should strictly validate serialized metadata (#49718)
+
+
+## New Features and Improvements
+
+* [GH-28859](https://github.com/apache/arrow/issues/28859) - [Doc][Python] Use only code-block directive and set up doctest for the python user guide (#48619)
+* [GH-32007](https://github.com/apache/arrow/issues/32007) - [Python] Support arithmetic on arrays and scalars (#48085)
+* [GH-33450](https://github.com/apache/arrow/issues/33450) - [C++] Remove GlobalForkSafeMutex (#49033)
+* [GH-34785](https://github.com/apache/arrow/issues/34785) - [Doc][Parquet] Update doc for bloom filter support (#48860)
+* [GH-34785](https://github.com/apache/arrow/issues/34785) - [C++][Parquet] Add bloom filter write support (#37400)
+* [GH-35437](https://github.com/apache/arrow/issues/35437) - [C++] Remove obsolete TODO about DictionaryArray const& return types (#48956)
+* [GH-36193](https://github.com/apache/arrow/issues/36193) - [R] arm64 binaries for R  (#48574)
+* [GH-36411](https://github.com/apache/arrow/issues/36411) - [Python] Use scikit-build-core as build backend for PyArrow and get rid of setup.py (#49259)
+* [GH-38007](https://github.com/apache/arrow/issues/38007) - [C++] Add VariableShapeTensor implementation (#38008)
+* [GH-38184](https://github.com/apache/arrow/issues/38184) - [C++] Add systematic tests for Builder::AppendArraySlice (#49132)
+* [GH-39600](https://github.com/apache/arrow/issues/39600) - [R] Add trademark attribution to pkgdown site footer (#49332)
+* [GH-41863](https://github.com/apache/arrow/issues/41863) - [Python][Parquet] Support lz4_raw as a compression name alias (#49135)
+* [GH-43352](https://github.com/apache/arrow/issues/43352) - [Docs][Python] Add all tensor classes documentation (#49147)
+* [GH-44655](https://github.com/apache/arrow/issues/44655) - [C++][Python] Enable building AzureFileSystem in PyArrow wheels on Windows (#49170)
+* [GH-44817](https://github.com/apache/arrow/issues/44817) - [CI] Comment new repo url on issues of moved components (#44818)
+* [GH-44926](https://github.com/apache/arrow/issues/44926) - [R] Remove usage of cpp11's cpp11/altrep.hpp and HAS_ALTREP (#48902)
+* [GH-46008](https://github.com/apache/arrow/issues/46008) - [Python][Benchmarking] Remove unused asv benchmarking files (#49047)
+* [GH-46531](https://github.com/apache/arrow/issues/46531) - [C++] Add type_singleton utility function and tests. (#47922)
+* [GH-46600](https://github.com/apache/arrow/issues/46600) - [C++][CI] Add job with ARROW_LARGE_MEMORY_TESTS enabled (#49490)
+* [GH-47167](https://github.com/apache/arrow/issues/47167) - [C++][Dev] Update clang-format dependency (#47168)
+* [GH-47389](https://github.com/apache/arrow/issues/47389) - [Python] CSV and JSON options lack a nice repr/str (#47397)
+* [GH-48119](https://github.com/apache/arrow/issues/48119) - [C++][ODBC] Move class definitions to type_fwd.h  (#48596)
+* [GH-48145](https://github.com/apache/arrow/issues/48145) - [R] Update to testthat 3.3.0 and use its expect_r6_class() (#49333)
+* [GH-48277](https://github.com/apache/arrow/issues/48277) - [C++][Parquet] unpack with shuffle algorithm (#47994)
+* [GH-48334](https://github.com/apache/arrow/issues/48334) - [C++][Parquet] Support reading encrypted bloom filters (#49334)
+* [GH-48394](https://github.com/apache/arrow/issues/48394) - [C++][Parquet] Add arrow::Result version of parquet::arrow::FileReader::ReadTable() (#48939)
+* [GH-48397](https://github.com/apache/arrow/issues/48397) - [R] Update docs on how to get our libarrow builds (#48995)
+* [GH-48467](https://github.com/apache/arrow/issues/48467) - [C++][Parquet] Add BufferedStats API to RowGroupWriter (#49527)
+* [GH-48560](https://github.com/apache/arrow/issues/48560) - [C++][Parquet] When fuzzing, treat Table validation error as hard error (#48863)
+* [GH-48575](https://github.com/apache/arrow/issues/48575) - [C++][FlightRPC] Standalone ODBC macOS CI (#48577)
+* [GH-48576](https://github.com/apache/arrow/issues/48576) - [C++][FlightRPC] ODBC: add Mac setup script (#48578)
+* [GH-48586](https://github.com/apache/arrow/issues/48586) - [Python][CI] Upload artifact to python-sdist job (#49008)
+* [GH-48588](https://github.com/apache/arrow/issues/48588) - [C++] Migrate to stdlib span (#49492)
+* [GH-48591](https://github.com/apache/arrow/issues/48591) - [C++] Remove some bit utils from bit_utils.h and replace them with C++ 20 built in functions (#49298)
+* [GH-48593](https://github.com/apache/arrow/issues/48593) - [C++] C++20: use standard calendar / timezone APIs (#48601)
+* [GH-48664](https://github.com/apache/arrow/issues/48664) - [R] Implement support for keepNA = FALSE in base::nchar() (#48665)
+* [GH-48673](https://github.com/apache/arrow/issues/48673) - [C++] Fix ToStringWithoutContextLines to check for :\d+ pattern before removing lines (#48674)
+* [GH-48721](https://github.com/apache/arrow/issues/48721) - [C++] Add test for file creation with UTF-8 filenames (#48722)
+* [GH-48759](https://github.com/apache/arrow/issues/48759) - [Python] Remove skip condition for pandas/issues/50127 (#48760)
+* [GH-48764](https://github.com/apache/arrow/issues/48764) - [C++] Update xsimd (#48765)
+* [GH-48799](https://github.com/apache/arrow/issues/48799) - [C++] Improve SharedExclusiveChecker error messages  (#48800)
+* [GH-48820](https://github.com/apache/arrow/issues/48820) - [Ruby] Add support for writing null array (#48821)
+* [GH-48834](https://github.com/apache/arrow/issues/48834) - [C++][FlightRPC][Doc] Add instructions to run ODBC tests in `README` (#48835)
+* [GH-48846](https://github.com/apache/arrow/issues/48846) - [C++] Read message metadata and body in one go in IPC file reader (#48975)
+* [GH-48848](https://github.com/apache/arrow/issues/48848) - [Dev] Remove obsolete Java, Go, and Swift entries from .gitignore (#48849)
+* [GH-48864](https://github.com/apache/arrow/issues/48864) - [C++] Support customizing more Zstd parameters (#48865)
+* [GH-48868](https://github.com/apache/arrow/issues/48868) - [Doc] Document security model for the Arrow formats (#48870)
+* [GH-48869](https://github.com/apache/arrow/issues/48869) - [Doc] Add runs-on and AWS to Continuous Integration Sponsors on README (#48881)
+* [GH-48872](https://github.com/apache/arrow/issues/48872) - [C++][FlightRPC][CI][Packaging] Upload ODBC to Nightly Release (#48873)
+* [GH-48888](https://github.com/apache/arrow/issues/48888) - [Ruby] Add support for writing boolean array (#48889)
+* [GH-48897](https://github.com/apache/arrow/issues/48897) - [C++] Benchmark and optimize CountSetBits (#48898)
+* [GH-48904](https://github.com/apache/arrow/issues/48904) - [C++][FlightRPC][CI][Packaging] Upload ODBC installer into GitHub release as RC (#48934)
+* [GH-48910](https://github.com/apache/arrow/issues/48910) - [Ruby] Add support for writing int8/uint8 arrays (#48911)
+* [GH-48916](https://github.com/apache/arrow/issues/48916) - [Ruby] Add support for writing binary array (#48917)
+* [GH-48921](https://github.com/apache/arrow/issues/48921) - [C++] Bump mimalloc to 3.2.7 (#48826)
+* [GH-48922](https://github.com/apache/arrow/issues/48922) - [C++] Support Status-returning callables in Result::Map (#49127)
+* [GH-48928](https://github.com/apache/arrow/issues/48928) - [R] Update NEWS for 23.0.0 release (#48930)
+* [GH-48935](https://github.com/apache/arrow/issues/48935) - [Ruby] Add support for writing int16/32/64 and uint16/32/64 arrays
+* [GH-48937](https://github.com/apache/arrow/issues/48937) - [Ruby] Add support for writing UTF-8 array (#48938)
+* [GH-48941](https://github.com/apache/arrow/issues/48941) - [C++] Generate proper UTF-8 strings in JSON test utilities (#48943)
+* [GH-48942](https://github.com/apache/arrow/issues/48942) - [Ruby] Add support for writing float32/64 arrays (#48944)
+* [GH-48945](https://github.com/apache/arrow/issues/48945) - [Ruby] Add support for writing large binary array (#48946)
+* [GH-48949](https://github.com/apache/arrow/issues/48949) - [C++][Parquet] Add Result versions for parquet::arrow::FileReader::ReadRowGroup(s) (#48982)
+* [GH-48951](https://github.com/apache/arrow/issues/48951) - [Docs] Add documentation relating to AI tooling (#48952)
+* [GH-48954](https://github.com/apache/arrow/issues/48954) - [C++] Add test for null-type dictionary sorting and clarify XXX comment (#48955)
+* [GH-48980](https://github.com/apache/arrow/issues/48980) - [C++] Use COMPILE_OPTIONS instead of deprecated COMPILE_FLAGS (#48981)
+* [GH-48990](https://github.com/apache/arrow/issues/48990) - [Ruby] Add support for writing date arrays (#48991)
+* [GH-48992](https://github.com/apache/arrow/issues/48992) - [Ruby] Add support for writing large UTF-8 array (#48993)
+* [GH-48998](https://github.com/apache/arrow/issues/48998) - [R] Add note to docs on validating IPC streams  (#48999)
+* [GH-49002](https://github.com/apache/arrow/issues/49002) - [Python] Fix array.to_pandas string type conversion for arrays with None (#49247)
+* [GH-49004](https://github.com/apache/arrow/issues/49004) - [C++][FlightRPC] Run ODBC tests in workflow using `cpp_test.sh` (#49005)
+* [GH-49027](https://github.com/apache/arrow/issues/49027) - [Ruby] Add support for writing time arrays (#49028)
+* [GH-49029](https://github.com/apache/arrow/issues/49029) - [Doc] Run sphinx-build in parallel (#49026)
+* [GH-49030](https://github.com/apache/arrow/issues/49030) - [Ruby] Add support for writing fixed size binary array (#49031)
+* [GH-49037](https://github.com/apache/arrow/issues/49037) - [Benchmarking] Install R from non-conda source for benchmarking  (#49038)
+* [GH-49042](https://github.com/apache/arrow/issues/49042) - [C++] Remove mimalloc patch (#49041)
+* [GH-49053](https://github.com/apache/arrow/issues/49053) - [Ruby] Add support for writing timestamp array (#49054)
+* [GH-49055](https://github.com/apache/arrow/issues/49055) - [Ruby] Add support for writing decimal128/256 arrays (#49056)
+* [GH-49065](https://github.com/apache/arrow/issues/49065) - [C++] Remove unnecessary copies of shared_ptr in Type::BOOL and Type::NA at GrouperImpl (#49066)
+* [GH-49067](https://github.com/apache/arrow/issues/49067) - [R] Disable GCS on macos (#49068)
+* [GH-49069](https://github.com/apache/arrow/issues/49069) - [C++] Share Trie instances across CSV value decoders (#49070)
+* [GH-49071](https://github.com/apache/arrow/issues/49071) - [Ruby] Add support for writing list and large list arrays (#49072)
+* [GH-49074](https://github.com/apache/arrow/issues/49074) - [Ruby] Add support for writing interval arrays (#49075)
+* [GH-49076](https://github.com/apache/arrow/issues/49076) - [CI] Update vcpkg baseline to newer version (#49062)
+* [GH-49092](https://github.com/apache/arrow/issues/49092) - [C++][FlightRPC][CI] Nightly Packaging: Add `dev-yyyy-mm-dd` to ODBC MSI name (#49151)
+* [GH-49093](https://github.com/apache/arrow/issues/49093) - [Ruby] Add support for writing duration array (#49094)
+* [GH-49096](https://github.com/apache/arrow/issues/49096) - [Ruby] Add support for writing struct array (#49097)
+* [GH-49098](https://github.com/apache/arrow/issues/49098) - [Packaging][deb] Add missing libarrow-cuda-glib-doc (#49099)
+* [GH-49102](https://github.com/apache/arrow/issues/49102) - [CI] Add type checking infrastructure and CI workflow for type annotations (#48618)
+* [GH-49117](https://github.com/apache/arrow/issues/49117) - [Ruby] Add support for writing union arrays (#49118)
+* [GH-49119](https://github.com/apache/arrow/issues/49119) - [Ruby] Add support for writing map array (#49120)
+* [GH-49144](https://github.com/apache/arrow/issues/49144) - [R][CI] Get rid of unused CentOS CI job (#49239)
+* [GH-49146](https://github.com/apache/arrow/issues/49146) - [C++] Add option to disable atfork handlers (#49148)
+* [GH-49164](https://github.com/apache/arrow/issues/49164) - [C++] Avoid invalid if() args in cmake when arrow is a subproject (#49165)
+* [GH-49169](https://github.com/apache/arrow/issues/49169) - [C++] Add ApplicationId to AzureFileSystem for SDK calls (#49301)
+* [GH-49174](https://github.com/apache/arrow/issues/49174) - [Ruby] Add support for writing dictionary array
+* [GH-49186](https://github.com/apache/arrow/issues/49186) - [R] Support dplyr::filter_out() in Arrow dplyr backend (#49256)
+* [GH-49208](https://github.com/apache/arrow/issues/49208) - [Ruby] Add support for writing dictionary delta message (#49209)
+* [GH-49219](https://github.com/apache/arrow/issues/49219) - [C++][FlightRPC] Enable static ODBC build on macOS (#49220)
+* [GH-49225](https://github.com/apache/arrow/issues/49225) - [Ruby] Add support for writing dictionary delta for primitive dictionary (#49226)
+* [GH-49227](https://github.com/apache/arrow/issues/49227) - [Python] Deprecate `pyarrow.gandiva` (#49637)
+* [GH-49248](https://github.com/apache/arrow/issues/49248) - [Release] Include checksum in vote email (#49249)
+* [GH-49250](https://github.com/apache/arrow/issues/49250) - [C++][FlightRPC] ODBC: SQLError for macOS (#49251)
+* [GH-49252](https://github.com/apache/arrow/issues/49252) - [GLib] Deprecate Feather features (#49673)
+* [GH-49266](https://github.com/apache/arrow/issues/49266) - [C++][Parquet] Optimize delta bit-packed decoding when bit-width = 0 (#49296)
+* [GH-49269](https://github.com/apache/arrow/issues/49269) - [Python][Docs] Add code examples for compute function first/last/first_last (#49270)
+* [GH-49274](https://github.com/apache/arrow/issues/49274) - [Doc][C++] Document security model for Arrow C++ (#49489)
+* [GH-49278](https://github.com/apache/arrow/issues/49278) - [Python][Doc] Add from_numpy examples for sparse tensor constructors (#49279)
+* [GH-49283](https://github.com/apache/arrow/issues/49283) - [C++][FlightRPC] Add separate release & debug workflows for MacOS ODBC (#49284)
+* [GH-49292](https://github.com/apache/arrow/issues/49292) - [C++] Add support for armv8 or later (#49337)
+* [GH-49293](https://github.com/apache/arrow/issues/49293) - [Packaging][deb] Update `debian/watch` for version 5 (#49294)
+* [GH-49295](https://github.com/apache/arrow/issues/49295) - [Python] Remove "mimalloc" from `mandatory_backends` (#49645)
+* [GH-49311](https://github.com/apache/arrow/issues/49311) - [C++][CI] Use differential fuzzing on IPC file fuzzer (#49312)
+* [GH-49314](https://github.com/apache/arrow/issues/49314) - [CI][Packaging][deb] Add support for minor/patch release in `dev/release/verify-apt.sh` (#49344)
+* [GH-49316](https://github.com/apache/arrow/issues/49316) - [Ruby] Add support for auto dependency install for red-arrow on macOS (#49317)
+* [GH-49318](https://github.com/apache/arrow/issues/49318) - [Ruby] Ensure using extpp 0.1.2 or later (#49319)
+* [GH-49323](https://github.com/apache/arrow/issues/49323) - [R] Update NEWS.md for 23.0.1 (#49324)
+* [GH-49325](https://github.com/apache/arrow/issues/49325) - [C++] Check if YMM register saving is OS enabled (#49326)
+* [GH-49330](https://github.com/apache/arrow/issues/49330) - [R] Update docs to reflect removal of OpenSSL 1.0 and 1.1 support (#49331)
+* [GH-49340](https://github.com/apache/arrow/issues/49340) - [R] Preserve row order in `write_dataset()` (#49343)
+* [GH-49341](https://github.com/apache/arrow/issues/49341) - [Packaging] Add support for Ubuntu 26.04 (#49345)
+* [GH-49349](https://github.com/apache/arrow/issues/49349) - [Doc][Python] Simplify doctests in tables.pxi and types.pxi (#49350)
+* [GH-49356](https://github.com/apache/arrow/issues/49356) - [C++] Remove deprecated APIs from v13.0.0 and v18.0.0 (#49171)
+* [GH-49364](https://github.com/apache/arrow/issues/49364) - [Ruby] Simplify reader tests (#49365)
+* [GH-49376](https://github.com/apache/arrow/issues/49376) - [Python][Parquet] Add ability to write Bloom filters from pyarrow (#49377)
+* [GH-49382](https://github.com/apache/arrow/issues/49382) - [Python] Enable OpenTelemetry on PyArrow wheels (#49383)
+* [GH-49389](https://github.com/apache/arrow/issues/49389) - [Ruby] Add support for custom metadata in field and schema (#49390)
+* [GH-49393](https://github.com/apache/arrow/issues/49393) - [C++][FlightRPC][DOC] Add limitations to ODBC ReadMe Doc (#49394)
+* [GH-49400](https://github.com/apache/arrow/issues/49400) - [Ruby] Add `Arrow::FixedSizeList#values` and `#raw_records` (#49401)
+* [GH-49406](https://github.com/apache/arrow/issues/49406) - [Ruby] Add support for fixed size list array (#49407)
+* [GH-49408](https://github.com/apache/arrow/issues/49408) - [C++][Parquet] Add public virtual destructor to `parquet::Page` (#49409)
+* [GH-49417](https://github.com/apache/arrow/issues/49417) - [GLib] Add `garrow_map_data_type_is_keys_sorted()` (#49418)
+* [GH-49420](https://github.com/apache/arrow/issues/49420) - [C++][Gandiva] Fix castVARCHAR memory allocation and len<=0 handling (#49421)
+* [GH-49422](https://github.com/apache/arrow/issues/49422) - [CI][Integration][Ruby] Add the Ruby implementation (#49423)
+* [GH-49428](https://github.com/apache/arrow/issues/49428) - [C++][Gandiva] Add support for LLVM 22.1.0 (#49429)
+* [GH-49434](https://github.com/apache/arrow/issues/49434) - [C++][CI] Add golden integration files to IPC file fuzz corpus (#49440)
+* [GH-49438](https://github.com/apache/arrow/issues/49438) - [C++][Gandiva] Optimize LPAD/RPAD functions (#49439)
+* [GH-49444](https://github.com/apache/arrow/issues/49444) - [C++][FlightRPC][ODBC] Disable DSN default values on MacOS (#49402)
+* [GH-49452](https://github.com/apache/arrow/issues/49452) - [Python] Reintroduce docstring injection for stubfiles (#49453)
+* [GH-49459](https://github.com/apache/arrow/issues/49459) - [R][CI] Use RHEL-9 binaries on Amazon Linux 2023 builds (#49460)
+* [GH-49463](https://github.com/apache/arrow/issues/49463) - [C++][FlightRPC] Add Ubuntu ODBC Support (#49564)
+* [GH-49503](https://github.com/apache/arrow/issues/49503) - [Docs][Python] Documenting .pxi doctests are tested via lib.pyx (#49515)
+* [GH-49509](https://github.com/apache/arrow/issues/49509) - [Docs][Python][C++] Minimize warnings and docutils errors for Sphinx build html (#49510)
+* [GH-49526](https://github.com/apache/arrow/issues/49526) - [CI] Update Maven version from 3.8.7 to 3.9.9 (#49488)
+* [GH-49533](https://github.com/apache/arrow/issues/49533) - [R] Implement dplyr's when_any() and when_all() helpers (#49535)
+* [GH-49544](https://github.com/apache/arrow/issues/49544) - [Ruby] Add benchmark for readers (#49545)
+* [GH-49546](https://github.com/apache/arrow/issues/49546) - [Docs][Python] Fix documented editable build commands where verbose flags order was wrong (#49547)
+* [GH-49548](https://github.com/apache/arrow/issues/49548) - [C++][FlightRPC] Decouple Flight Serialize/Deserialize from gRPC transport (#49549)
+* [GH-49561](https://github.com/apache/arrow/issues/49561) - [C++][FlightRPC][ODBC] Use SQLWCHAR array for wide string literals in test suite (#49562)
+* [GH-49572](https://github.com/apache/arrow/issues/49572) - [Python][Docs] Remove editable section and consolidate the information (#49573)
+* [GH-49576](https://github.com/apache/arrow/issues/49576) - [Ruby] Add support for custom metadata in Footer (#49577)
+* [GH-49578](https://github.com/apache/arrow/issues/49578) - [CI][R] gcc sanitizer failure (#49581)
+* [GH-49593](https://github.com/apache/arrow/issues/49593) - [R][CI] Add libuv-dev to CI jobs due to update to fs package (#49594)
+* [GH-49620](https://github.com/apache/arrow/issues/49620) - [Ruby] Add support for custom metadata in Message (#49621)
+* [GH-49628](https://github.com/apache/arrow/issues/49628) - [Python][Interchange protocol] Suppress warnings for pandas 4.0.0 and update docs (#49630)
+* [GH-49632](https://github.com/apache/arrow/issues/49632) - [C++][R] Remove deprecated old MinGW CMake fixes for AWS (#49633)
+* [GH-49654](https://github.com/apache/arrow/issues/49654) - [R][CI] Add check for non-API calls onto existing r-devel job (#49655)
+* [GH-49656](https://github.com/apache/arrow/issues/49656) - [Ruby] Add benchmark for writers (#49657)
+* [GH-49671](https://github.com/apache/arrow/issues/49671) - [CI][Docs] Don't run jobs for push by Dependabot (#49672)
+
+# Apache Arrow 23.0.1 (2026-02-08 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-48160](https://github.com/apache/arrow/issues/48160) - [C++][Gandiva] Pass CPU attributes to LLVM (#48161)
+* [GH-48311](https://github.com/apache/arrow/issues/48311) - [C++] Fix OOB memory access in buffered IO (#48322)
+* [GH-48637](https://github.com/apache/arrow/issues/48637) - [C++][FlightRPC] ODBC: Disable `absl` deadlock detection (#48747)
+* [GH-48856](https://github.com/apache/arrow/issues/48856) - [Release] Update copyright NOTICE year to 2026 (#48857)
+* [GH-48858](https://github.com/apache/arrow/issues/48858) - [C++][Parquet] Avoid re-serializing footer for signature verification (#48859)
+* [GH-48861](https://github.com/apache/arrow/issues/48861) - [CI] Fix wrong `smtplib.SMTP.send_message` usage (#48876)
+* [GH-48880](https://github.com/apache/arrow/issues/48880) - [Ruby] Fix a bug that Arrow::ExecutePlan nodes may be GC-ed (#48919)
+* [GH-48885](https://github.com/apache/arrow/issues/48885) - [C++] Add missing curl dependency of `Arrow::arrow_static` CMake target (#48891)
+* [GH-48894](https://github.com/apache/arrow/issues/48894) - [Python][C++] Use base Azure::Core::RequestFailedException instead of final Azure::Storage::StorageException and set minimum nodejs on conda env to 16 for Azurite to work (#48895)
+* [GH-48900](https://github.com/apache/arrow/issues/48900) - [C++] Avoid memory blowup with excessive variadic buffer count in IPC (#48901)
+* [GH-48961](https://github.com/apache/arrow/issues/48961) - [Docs][Python] Doctest fails on pandas 3.0
+* [GH-48965](https://github.com/apache/arrow/issues/48965) - [Python][C++] Compare unique_ptr for CFlightResult or CFlightInfo to nullptr instead of NULL (#48968)
+* [GH-48966](https://github.com/apache/arrow/issues/48966) - [C++] Fix cookie duplication in the Flight SQL ODBC driver and the Flight Client (#48967)
+* [GH-48983](https://github.com/apache/arrow/issues/48983) - [Packaging][Python] Build wheel from sdist using build and add check to validate LICENSE.txt and NOTICE.txt are part of the wheel contents (#48988)
+* [GH-49003](https://github.com/apache/arrow/issues/49003) - [C++] Don't consider `out_of_range` an error in float parsing (#49095)
+* [GH-49044](https://github.com/apache/arrow/issues/49044) - [CI][Python] Fix test_download_tzdata_on_windows by adding required user-agent on urllib request (#49052)
+* [GH-49059](https://github.com/apache/arrow/issues/49059) - [C++] Fix issues found by OSS-Fuzz in IPC reader (#49060)
+* [GH-49137](https://github.com/apache/arrow/issues/49137) - [CI][Release] macOS conda source verification jobs fail to build Arrow C++
+* [GH-49138](https://github.com/apache/arrow/issues/49138) - [Packaging][Python] Remove nightly cython install from manylinux wheel dockerfile (#49139)
+* [GH-49156](https://github.com/apache/arrow/issues/49156) - [Python] Require GIL for string comparison (#49161)
+* [GH-49159](https://github.com/apache/arrow/issues/49159) - [C++][Gandiva] Detect overflow in repeat() (#49160)
+
+
+## New Features and Improvements
+
+* [GH-48623](https://github.com/apache/arrow/issues/48623) - [CI][Archery][Dev] Add missing headers to email reports (#48624)
+* [GH-48817](https://github.com/apache/arrow/issues/48817) - [R][C++] Bump C++20 in R build infrastructure (#48819)
+* [GH-48844](https://github.com/apache/arrow/issues/48844) - [C++] Check IPC Message body length consistency in IPC file (#48845)
+* [GH-48924](https://github.com/apache/arrow/issues/48924) - [C++][CI] Fix pre-buffering issues in IPC file reader (#48925)
+* [GH-48973](https://github.com/apache/arrow/issues/48973) - [R][C++] Fix RE2 compilation errors under C++20 (#48976)
+* [GH-49024](https://github.com/apache/arrow/issues/49024) - [CI] Update Debian version in `.env` (#49032)
+
+# Apache Arrow 23.0.0 (2026-01-12 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-33473](https://github.com/apache/arrow/issues/33473) - [Python] Fix KeyError on Pandas roundtrip with RangeIndex in MultiIndex (#39983)
+* [GH-35957](https://github.com/apache/arrow/issues/35957) - [C++][Compute] Graceful error for decimal binary arithmetic and comparison instead of firing confusing assertion (#48639)
+* [GH-41246](https://github.com/apache/arrow/issues/41246) - [C++][Python] Simplify nested field encryption configuration (#45462)
+* [GH-42173](https://github.com/apache/arrow/issues/42173) - [R][C++] Writing partitioned dataset on S3 fails if ListBucket is not allowed for the user (#47599)
+* [GH-43660](https://github.com/apache/arrow/issues/43660) - [C++][Compute] Avoid ZeroCopyCastExec when casting Binary offset -> Binary offset types (#48171)
+* [GH-44318](https://github.com/apache/arrow/issues/44318) - [C++][Python] Fix RecordBatch::FromStructArray for sliced arrays with offset = 0 (#47843)
+* [GH-45260](https://github.com/apache/arrow/issues/45260) - [R][Docs] Improve documentation on GCS support
+* [GH-45867](https://github.com/apache/arrow/issues/45867) - [Python] Fix `SetuptoolsDeprecationWarning` (#47141)
+* [GH-46063](https://github.com/apache/arrow/issues/46063) - [C++][Compute] Fix the issue that MinMax kernel emits -inf/inf for all-NaN input (#48459)
+* [GH-46584](https://github.com/apache/arrow/issues/46584) - [C++][FlightRPC] Iterate over endpoints in ODBC driver (#47991)
+* [GH-47000](https://github.com/apache/arrow/issues/47000) - [R] concat_tables on a record_batch causes segfault (#47885)
+* [GH-47022](https://github.com/apache/arrow/issues/47022) - [Python] Support unsigned dictionary indices in pandas conversion (#48451)
+* [GH-47099](https://github.com/apache/arrow/issues/47099) - [C++][Parquet] Add missing `pragma warning(pop)` to `parquet/platform.h` (#47114)
+* [GH-47371](https://github.com/apache/arrow/issues/47371) - , GH-48281: [Python][CI] Fix Numba-CUDA interop (#48284)
+* [GH-47559](https://github.com/apache/arrow/issues/47559) - [Python] Fix missing argument in pyarrow fs (#47497)
+* [GH-47564](https://github.com/apache/arrow/issues/47564) - [C++] Update expected L2 CPU cache range to 32KiB-64MiB (#47563)
+* [GH-47664](https://github.com/apache/arrow/issues/47664) - [C++][Parquet] add num_rows_ before each call to RowGroupWriter::Close in FileSerializer (#47665)
+* [GH-47734](https://github.com/apache/arrow/issues/47734) - [Python] Fix hypothesis timedelta bounds for duration/interval types (#48460)
+* [GH-47751](https://github.com/apache/arrow/issues/47751) - [CI] Fix check for job to ignore on reporting (#47755)
+* [GH-47778](https://github.com/apache/arrow/issues/47778) - [CI][Python] Remove ORC alias timezone for US/Pacific on test_orc.py::test_timezone_absent (#47956)
+* [GH-47781](https://github.com/apache/arrow/issues/47781) - [C++] Cleaned up type-limit warning in sink_node.cc (#47782)
+* [GH-47807](https://github.com/apache/arrow/issues/47807) - [C++][Compute] Fix the issue that null count is not updated when setting slice on an array span (#47808)
+* [GH-47812](https://github.com/apache/arrow/issues/47812) - [R][CI] Fix lint for new version of styler (#47813)
+* [GH-47821](https://github.com/apache/arrow/issues/47821) - [CI][Release][R] Fix test repository path in release (#47929)
+* [GH-47823](https://github.com/apache/arrow/issues/47823) - [Python] Use PyWeakref_GetRef instead of PyWeakref_GET_OBJECT (Python 3.15) (#48027)
+* [GH-47825](https://github.com/apache/arrow/issues/47825) - [C++] Fix the issue that bitmap ops overriding partial leading byte (#47912)
+* [GH-47830](https://github.com/apache/arrow/issues/47830) - [Release] Run RC verification source testing step in a subshell (#47831)
+* [GH-47836](https://github.com/apache/arrow/issues/47836) - [C++] Fix Meson configuration after bpacking changes (#47837)
+* [GH-47840](https://github.com/apache/arrow/issues/47840) - [CI][C++] Check whether the CSV module/thread sanitizer is enabled or not before building example (#47841)
+* [GH-47844](https://github.com/apache/arrow/issues/47844) - [CI] Fix unconditionally running extra workflows reporting when there are jobs failing (#47917)
+* [GH-47859](https://github.com/apache/arrow/issues/47859) - [C++] Fix creating union types without type_codes for fields.size() == 128 (#47815)
+* [GH-47861](https://github.com/apache/arrow/issues/47861) - [Python] reduce memory usage when using to_pandas() with many extension arrays columns (#47860)
+* [GH-47883](https://github.com/apache/arrow/issues/47883) - [CI] Add openssl gem explicitly to fix ceriticate validation error on test (#47884)
+* [GH-47909](https://github.com/apache/arrow/issues/47909) - [C++] Fix MSVC ARM64 build (#47910)
+* [GH-47914](https://github.com/apache/arrow/issues/47914) - [C++] Fix system Apache ORC/Google logging used detection (#47915)
+* [GH-47918](https://github.com/apache/arrow/issues/47918) - [Format] Clarify that empty compressed buffers can omit the length header (#48541)
+* [GH-47919](https://github.com/apache/arrow/issues/47919) - [C++] Update Meson config for C Data Interface changes (#47920)
+* [GH-47921](https://github.com/apache/arrow/issues/47921) - [C++] Implement substrait option in Meson (#48016)
+* [GH-47923](https://github.com/apache/arrow/issues/47923) - [CI] Use macos-15-intel instead of macos-13 for macOS x86 runner (#47690)
+* [GH-47924](https://github.com/apache/arrow/issues/47924) - [C++] Fix issues in CSV reader with invalid inputs (#47925)
+* [GH-47927](https://github.com/apache/arrow/issues/47927) - [Release] Fix APT repository metadata generation with new repository (#47928)
+* [GH-47932](https://github.com/apache/arrow/issues/47932) - [Release][Python] PyPI rejects our source distribution due to missing LICENSE.txt
+* [GH-47933](https://github.com/apache/arrow/issues/47933) - [Release][R] Don't upload *.sha512.{asc,sha512} (#47982)
+* [GH-47941](https://github.com/apache/arrow/issues/47941) - [R] Fix codegen.R error from dplyr pipe to base pipe change (#47985)
+* [GH-47942](https://github.com/apache/arrow/issues/47942) - [R] CRAN 22.0.0 R package release fails on Winbuilder due to "non-API call to R: 'Rf_lazy_duplicate'" (#47943)
+* [GH-47945](https://github.com/apache/arrow/issues/47945) - [C++] Add support for Boost 1.89.0 and require Boost 1.69 or later (#47947)
+* [GH-47948](https://github.com/apache/arrow/issues/47948) - [CI][Packaging][Deb] Add missing directory existent check (#47949)
+* [GH-47953](https://github.com/apache/arrow/issues/47953) - [C++] Remove Windows inclusion from `int_util_overflow.h` (#47950)
+* [GH-47955](https://github.com/apache/arrow/issues/47955) - [C++][Parquet] Support reading INT-encoded Decimal stats as Arrow scalar (#48001)
+* [GH-47961](https://github.com/apache/arrow/issues/47961) - [C++] Fix Meson's Boost process version detection (#48017)
+* [GH-47964](https://github.com/apache/arrow/issues/47964) - [Docs] Add dcleblanc/SafeInt to the LICENSE.txt file (#47965)
+* [GH-47966](https://github.com/apache/arrow/issues/47966) - [Python] PyArrow v22.0 assumes Pandas DataFrame attrs are serializable (#47977)
+* [GH-47967](https://github.com/apache/arrow/issues/47967) - [C++] Update Meson Configuration with SafeInt Changes (#47968)
+* [GH-47970](https://github.com/apache/arrow/issues/47970) - [CI][C++] Fix a bug that JNI jobs runs nothing (#47972)
+* [GH-47973](https://github.com/apache/arrow/issues/47973) - [C++][Parquet] Fix invalid Parquet files written when dictionary encoded pages are large (#47998)
+* [GH-47981](https://github.com/apache/arrow/issues/47981) - [C++][Parquet] Add compatibility with non-compliant RLE stream (#47992)
+* [GH-47983](https://github.com/apache/arrow/issues/47983) - [CI][R] R nightly upload workflow failing for a few weeks (#47984)
+* [GH-48004](https://github.com/apache/arrow/issues/48004) - [C++][Parquet] Fix hang in ColumnReader benchmark (#48005)
+* [GH-48010](https://github.com/apache/arrow/issues/48010) - [C++] Update bundled RE2 from 2022-06-01 to 2023-03-01 (#48011)
+* [GH-48029](https://github.com/apache/arrow/issues/48029) - [R][CI] R nightly upload workflow failing in pruning step (#48030)
+* [GH-48044](https://github.com/apache/arrow/issues/48044) - [Packaging][RPM][Parquet] Don't install `parquet-glib.pc` by `parquet-devel` (#48045)
+* [GH-48046](https://github.com/apache/arrow/issues/48046) - [Docs][C++] Clarify "Exporting Tracing Information" section in OTel docs (#48047)
+* [GH-48057](https://github.com/apache/arrow/issues/48057) - [R] Slow reading performance caused by apply_arrow_r_metadata() looping through all columns, including NULL ones (#48104)
+* [GH-48062](https://github.com/apache/arrow/issues/48062) - [C++] Fix null pointer dereference in MakeExecBatch (#48063)
+* [GH-48064](https://github.com/apache/arrow/issues/48064) - [C++] Set ARROW_BUILD_STATIC=ON when features-flight are enabled on CMake presets (#48065)
+* [GH-48076](https://github.com/apache/arrow/issues/48076) - [C++][Flight] fix GeneratorStream for Tables (#48082)
+* [GH-48079](https://github.com/apache/arrow/issues/48079) - [CI] Fix a typo in util_free_space.sh (#48088)
+* [GH-48095](https://github.com/apache/arrow/issues/48095) - [Python][Docs] Add missing {pyarrow,compute} functions to API docs (#48117)
+* [GH-48098](https://github.com/apache/arrow/issues/48098) - [R] Fix nightly libarrow binary uploads (#48100)
+* [GH-48107](https://github.com/apache/arrow/issues/48107) - [CI] Update testing submodule (#48114)
+* [GH-48115](https://github.com/apache/arrow/issues/48115) - [C++] Better align Meson configuration and config.h (#48116)
+* [GH-48125](https://github.com/apache/arrow/issues/48125) - [C++] Remove gnu11 standard from the Meson configuration (#48126)
+* [GH-48127](https://github.com/apache/arrow/issues/48127) - [R] stringr argument deprecation - add binding for stringr::str_ilike() and remove ignore_case argument for stringr::str_like() (#48262)
+* [GH-48129](https://github.com/apache/arrow/issues/48129) - [CI] Stale issues bot only looks at 30 issues at a time (#48130)
+* [GH-48134](https://github.com/apache/arrow/issues/48134) - [C++] Make StructArray::field() thread-safe (#48128)
+* [GH-48142](https://github.com/apache/arrow/issues/48142) - [CI] Disallow scheduled GitHub Actions run on forked repos (#48143)
+* [GH-48146](https://github.com/apache/arrow/issues/48146) - [C++][Parquet] Fix undefined behavior with invalid column/offset index (#48147)
+* [GH-48162](https://github.com/apache/arrow/issues/48162) - [CI] Stale issues bot hit secondary rate limit and did not complete  (#48165)
+* [GH-48168](https://github.com/apache/arrow/issues/48168) - [C++][Parquet] Fix setting column-specific options when writing an encrypted Dataset (#48170)
+* [GH-48234](https://github.com/apache/arrow/issues/48234) - [C++][Parquet] Fix overly strict check for BIT_PACKED levels byte size (#48235)
+* [GH-48238](https://github.com/apache/arrow/issues/48238) - [C++] Actually write IPC schema endianness, not host endianness (#48239)
+* [GH-48246](https://github.com/apache/arrow/issues/48246) - [C++][Parquet] Fix pre-1970 INT96 timestamps roundtrip (#48247)
+* [GH-48263](https://github.com/apache/arrow/issues/48263) - [CI] Stale issues workflow doesn't go through enough issues (#48264)
+* [GH-48268](https://github.com/apache/arrow/issues/48268) - [C++][Acero] Enhance the type checking for hash join residual filter (#48272)
+* [GH-48280](https://github.com/apache/arrow/issues/48280) - [CI] PYTHON_PATCH_VERSION docker warnings (#48282)
+* [GH-48283](https://github.com/apache/arrow/issues/48283) - [R][CI] Failures on R Lint on main (#48286)
+* [GH-48308](https://github.com/apache/arrow/issues/48308) - [C++][Parquet] Fix potential crash when reading invalid Parquet data (#48309)
+* [GH-48314](https://github.com/apache/arrow/issues/48314) - [Python] Compat with pandas 3.0 changed default datetime unit (#48319)
+* [GH-48340](https://github.com/apache/arrow/issues/48340) - [R] respected `MAKEFLAGS` (#48341)
+* [GH-48376](https://github.com/apache/arrow/issues/48376) - [C++] Update GoogleTest from 1.16.0 to 1.17.0 (#48377)
+* [GH-48416](https://github.com/apache/arrow/issues/48416) - [Packaging][CI] Use custom orc_for_bundling when using FetchContent to avoid ar issues with + symbol on path (#48430)
+* [GH-48417](https://github.com/apache/arrow/issues/48417) - [Packaging][CI] Skip downgrade testing for Debian testing (#48427)
+* [GH-48432](https://github.com/apache/arrow/issues/48432) - [CI][Ruby] Don't run Red Arrow Format tests with Ruby 3.1 (#48434)
+* [GH-48478](https://github.com/apache/arrow/issues/48478) - [Ruby] Fix Ruby list inference for nested non-negative integer arrays (#48584)
+* [GH-48481](https://github.com/apache/arrow/issues/48481) - [Ruby] Correctly infer types for nested integer arrays (#48699)
+* [GH-48540](https://github.com/apache/arrow/issues/48540) - [Python][C++][CI] test\_s3\_options crash on macOS
+* [GH-48566](https://github.com/apache/arrow/issues/48566) - [C++][CI] Fix compilation on Valgrind job (#48567)
+* [GH-48570](https://github.com/apache/arrow/issues/48570) - [C++] Add Missing Fuzz Sources to Meson configuration (#48571)
+* [GH-48608](https://github.com/apache/arrow/issues/48608) - [Python] Fix interpolate actual values in Message.__repr__ f-string (#48656)
+* [GH-48610](https://github.com/apache/arrow/issues/48610) - [Ruby] Add FixedSizeListArray glue (#48609)
+* [GH-48625](https://github.com/apache/arrow/issues/48625) - [Python] Add temporal unit checking in NumPyDtypeUnifier (#48626)
+* [GH-48641](https://github.com/apache/arrow/issues/48641) - [CI] Multiple nightly R builds failing due to ssache errors
+* [GH-48725](https://github.com/apache/arrow/issues/48725) - [C++] Fix bundled Protobuf doesn't exist in libarrow_bundled_dependencies (#48726)
+* [GH-48735](https://github.com/apache/arrow/issues/48735) - [CI][Python] Fix macOS wheel builds by forcing setuptools upgrade in venv (#48739)
+* [GH-48736](https://github.com/apache/arrow/issues/48736) - [CI][Python] Restore AlmaLinux 8 support of `dev/release/setup-rhel-rebuilds.sh` for wheel verification (#48748)
+* [GH-48741](https://github.com/apache/arrow/issues/48741) - [C++] Fix deadlock in CSV AsyncThreadedTableReader destructor (#48742)
+* [GH-48750](https://github.com/apache/arrow/issues/48750) - [CI][Documentation] Disable Unity build for OpenTelemetry (#48751)
+* [GH-48776](https://github.com/apache/arrow/issues/48776) - [CI][Ruby][Windows] Ensure removing temporary files (#48777)
+* [GH-48780](https://github.com/apache/arrow/issues/48780) - [CI] Add missing permissions for reusable workflow calls (#48778)
+* [GH-48782](https://github.com/apache/arrow/issues/48782) - [Docs][CI] Skip Markdown files with doxygen and trigger Docs job on PR when files are modified (#48786)
+* [GH-48784](https://github.com/apache/arrow/issues/48784) - [GLib] Make (system) Parquet C++ is optional (#48785)
+* [GH-48787](https://github.com/apache/arrow/issues/48787) - [C++] Disable `-Werror` for s2n-tls (#48791)
+* [GH-48806](https://github.com/apache/arrow/issues/48806) - [CI][Packaging] ubuntu-noble-arm64 has failes for several days due to network failure (403  Forbidden [IP: 91.189.92.19 80])
+* [GH-48807](https://github.com/apache/arrow/issues/48807) - [CI] Clean up space on GitHub runner to fix manylinux wheel failure (#48790)
+* [GH-48809](https://github.com/apache/arrow/issues/48809) - [CI] Fix homebrew-cpp with Mac by using formula-based dependency resolution (#48824)
+* [GH-48811](https://github.com/apache/arrow/issues/48811) - [C++][FlightRPC] ODBC: Add missing `arrow::` to fix build (#48810)
+* [GH-48827](https://github.com/apache/arrow/issues/48827) - [CI][Python] Add required xz dependency to emscripten dockerfile (#48828)
+* [GH-48838](https://github.com/apache/arrow/issues/48838) - [Release] Use gh cli to download sources for Linux packages and publish draft release before verification (#48839)
+* [GH-48841](https://github.com/apache/arrow/issues/48841) - [Release][Package] Add GH_TOKEN to rake build step on Linux Packaging jobs (#48842)
+
+
+## New Features and Improvements
+
+* [GH-23970](https://github.com/apache/arrow/issues/23970) - [GLib] Add support for duration (#48564)
+* [GH-24157](https://github.com/apache/arrow/issues/24157) - [C++] Add tests for DayTimeIntervalBuilder (#48709)
+* [GH-31869](https://github.com/apache/arrow/issues/31869) - [Python][Parquet] Implement external key material features in Python (#48009)
+* [GH-40735](https://github.com/apache/arrow/issues/40735) - [Packaging][CentOS] Drop support for CentOS 7 (#48550)
+* [GH-41364](https://github.com/apache/arrow/issues/41364) - [GLib][Ruby] Allow passing thread pool to ExecutePlan (#48462)
+* [GH-44810](https://github.com/apache/arrow/issues/44810) - [C++][Parquet] Add arrow::Result version of parquet::arrow::FileReader::Make() (#48285)
+* [GH-45449](https://github.com/apache/arrow/issues/45449) - [R][CI] Remove OpenSSL 1.x builds (#48297)
+* [GH-45484](https://github.com/apache/arrow/issues/45484) - [C++] Drop support for the gold linker (#47780)
+* [GH-45885](https://github.com/apache/arrow/issues/45885) - [C++] Require C++20 (#48414)
+* [GH-46004](https://github.com/apache/arrow/issues/46004) - [C++][FlightRPC] Enable ODBC Build In C++ Workflows (#47689)
+* [GH-46096](https://github.com/apache/arrow/issues/46096) - [C++][FlightRPC] Environment and Connection Handle Allocation (#47759)
+* [GH-46098](https://github.com/apache/arrow/issues/46098) - [C++][FlightRPC] ODBC Environment Attribute Implementation (#47760)
+* [GH-46147](https://github.com/apache/arrow/issues/46147) - [C++] Implement GCS support in Meson (#47568)
+* [GH-46411](https://github.com/apache/arrow/issues/46411) - [C++] Implemented dataset option in Meson (#47669)
+* [GH-46465](https://github.com/apache/arrow/issues/46465) - [C++][FlightRPC] Refactor ODBC namespaces and file structure (#47703)
+* [GH-46574](https://github.com/apache/arrow/issues/46574) - [C++][FlightRPC] ODBC Driver Connectivity support (#47971)
+* [GH-46575](https://github.com/apache/arrow/issues/46575) - [C++][FlightRPC] Add Diagnostic tests (#47764)
+* [GH-46575](https://github.com/apache/arrow/issues/46575) - [C++][FlightRPC] ODBC Diagnostics Report (#47763)
+* [GH-46592](https://github.com/apache/arrow/issues/46592) - [CI][Dev][R] Add Air to pre-commit (#47423)
+* [GH-46825](https://github.com/apache/arrow/issues/46825) - [R] Use smallest_decimal() from C++ instead of working out which decimal type to instantiate in R (#47906)
+* [GH-46903](https://github.com/apache/arrow/issues/46903) - [CI] Automatically flag stale issues (#46904)
+* [GH-47030](https://github.com/apache/arrow/issues/47030) - [C++][Parquet] Add setting to limit the number of rows written per page (#47090)
+* [GH-47103](https://github.com/apache/arrow/issues/47103) - [Statistics][C++] Implement Statistics specification attribute ARROW:null_count:approximate  (#47969)
+* [GH-47105](https://github.com/apache/arrow/issues/47105) - [Statistics][C++] Implement Statistics specification attribute ARROW:row_count:approximate  (#48266)
+* [GH-47196](https://github.com/apache/arrow/issues/47196) - [CI][C++] Add Windows ARM64 build (#47811)
+* [GH-47437](https://github.com/apache/arrow/issues/47437) - [CI][Python] Update win wheels and free-threaded build for Python 3.14
+* [GH-47441](https://github.com/apache/arrow/issues/47441) - [Python][Parquet] Allow passing write_time_adjusted_to_utc to Python's ParquetWriter (#47745)
+* [GH-47572](https://github.com/apache/arrow/issues/47572) - [C++][Parquet] Uniform unpack interface (#47573)
+* [GH-47635](https://github.com/apache/arrow/issues/47635) - [CI][Integration] Add new gold files (#47729)
+* [GH-47640](https://github.com/apache/arrow/issues/47640) - [CI] Remove needless ci/docker/ubuntu-22.04-csharp.dockerfile (#48298)
+* [GH-47643](https://github.com/apache/arrow/issues/47643) - [Python][Packaging] Enable CMAKE_INTERPROCEDURAL_OPTIMIZATION for wheels (#47733)
+* [GH-47677](https://github.com/apache/arrow/issues/47677) - [C++][GPU] Allow building with CUDA 13 (#48259)
+* [GH-47697](https://github.com/apache/arrow/issues/47697) - [C++][FlightRPC] Add ODBC API placeholders (#47725)
+* [GH-47706](https://github.com/apache/arrow/issues/47706) - [C++][FlightRPC] ODBC SQLFreeStmt implementation (#48033)
+* [GH-47707](https://github.com/apache/arrow/issues/47707) - [C++][FlightRPC] Add tests for descriptor handle allocation (#48053)
+* [GH-47708](https://github.com/apache/arrow/issues/47708) - [C++][FlightRPC] Connection Attribute Support for ODBC (#47772)
+* [GH-47710](https://github.com/apache/arrow/issues/47710) - [C++][FlightRPC] Statement attribute Support in ODBC (#47773)
+* [GH-47711](https://github.com/apache/arrow/issues/47711) - [C++][FlightRPC] Enable ODBC query execution (#48032)
+* [GH-47713](https://github.com/apache/arrow/issues/47713) - [C++][FlightRPC] ODBC SQLMoreResults implementation (#48035)
+* [GH-47713](https://github.com/apache/arrow/issues/47713) - [C++][FlightRPC] ODBC return number of result columns (#48036)
+* [GH-47713](https://github.com/apache/arrow/issues/47713) - [C++][FlightRPC] ODBC return number of affected rows (#48037)
+* [GH-47713](https://github.com/apache/arrow/issues/47713) - [C++][FlightRPC] ODBC Basic Data Retrieval  (#48034)
+* [GH-47714](https://github.com/apache/arrow/issues/47714) - [C++][FlightRPC] ODBC extended fetch (#48040)
+* [GH-47715](https://github.com/apache/arrow/issues/47715) - [C++][FlightRPC] ODBC scroll fetch implementation (#48041)
+* [GH-47716](https://github.com/apache/arrow/issues/47716) - [C++][FlightRPC] ODBC bind column implementation (#48042)
+* [GH-47717](https://github.com/apache/arrow/issues/47717) - [C++][FlightRPC] ODBC close cursor (#48043)
+* [GH-47719](https://github.com/apache/arrow/issues/47719) - [C++][FlightRPC] Extract SQLTables Implementation (#48021)
+* [GH-47720](https://github.com/apache/arrow/issues/47720) - [C++][FlightRPC] ODBC Columns Metadata (#48049)
+* [GH-47721](https://github.com/apache/arrow/issues/47721) - [C++][FlightRPC] Followup to remove unncessary std::move to resolve compliation flakiness (#48687)
+* [GH-47721](https://github.com/apache/arrow/issues/47721) - [C++][FlightRPC] Return ODBC Column Attribute from result set (#48050)
+* [GH-47722](https://github.com/apache/arrow/issues/47722) - [C++][FlightRPC] ODBC Data Type Information (#48051)
+* [GH-47723](https://github.com/apache/arrow/issues/47723) - [C++][FlightRPC] ODBC SQLNativeSQL implementation (#48020)
+* [GH-47724](https://github.com/apache/arrow/issues/47724) - [C++][FlightRPC] ODBC: implement SQLDescribeCol (#48052)
+* [GH-47726](https://github.com/apache/arrow/issues/47726) - [C++][FlightRPC] ODBC Unicode Support (#47771)
+* [GH-47728](https://github.com/apache/arrow/issues/47728) - [Python] Check the source argument in parquet.read_table (#48008)
+* [GH-47747](https://github.com/apache/arrow/issues/47747) - [C++] Bump Apache ORC to 2.2.1 (#47744)
+* [GH-47753](https://github.com/apache/arrow/issues/47753) - [C++][Parquet] Build Thrift with OpenSSL disabled (#47754)
+* [GH-47756](https://github.com/apache/arrow/issues/47756) - [C++][CI] Fuzz CSV reader (#47757)
+* [GH-47767](https://github.com/apache/arrow/issues/47767) - [CI] Add date to extra CI report email subject (#47777)
+* [GH-47784](https://github.com/apache/arrow/issues/47784) - [C++] Patch vendored pcg library to enable msvc arm64 intrinsics (#47779)
+* [GH-47786](https://github.com/apache/arrow/issues/47786) - [C++][FlightRPC] Establish ODBC tests (#47788)
+* [GH-47787](https://github.com/apache/arrow/issues/47787) - [C++][FlightRPC] ODBC `msi` Windows installer (#48054)
+* [GH-47789](https://github.com/apache/arrow/issues/47789) - [C++][FlightRPC] SQLGetFunctions Tests (#48031)
+* [GH-47797](https://github.com/apache/arrow/issues/47797) - [CI][Python] Update Python installs for free-threaded wheel tasks (#47993)
+* [GH-47800](https://github.com/apache/arrow/issues/47800) - [C++][CI] Fuzz more CSV reader types (#48398)
+* [GH-47806](https://github.com/apache/arrow/issues/47806) - [CI] Rename deprecated docker-compose.yml to preferred compose.yaml file (#47954)
+* [GH-47833](https://github.com/apache/arrow/issues/47833) - [C++] Add utf8proc option to Meson configuration (#47834)
+* [GH-47881](https://github.com/apache/arrow/issues/47881) - [C++] Update fast_float version to 8.1.0 (#47882)
+* [GH-47887](https://github.com/apache/arrow/issues/47887) - [C++][Integration] Enable extension types with C Data Interface tests (#47888)
+* [GH-47891](https://github.com/apache/arrow/issues/47891) - [C++][Parquet] Generate a separate fuzz seed file for each column (#47892)
+* [GH-47895](https://github.com/apache/arrow/issues/47895) - [C++][Parquet] Add prolog and epilog in unpack (#47896)
+* [GH-47905](https://github.com/apache/arrow/issues/47905) - [C++][Parquet] MakeColumnStats should use user-provided memory pool (#47894)
+* [GH-47926](https://github.com/apache/arrow/issues/47926) - [C++] Adopt alternative safe arithmetic library (#47958)
+* [GH-47936](https://github.com/apache/arrow/issues/47936) - [R] docgen.R requires installed package instead of current working code (#47940)
+* [GH-47939](https://github.com/apache/arrow/issues/47939) - [R] Update CRAN packaging checklist to update checksums and have make build call make clean (#47944)
+* [GH-47974](https://github.com/apache/arrow/issues/47974) - [Docs] Remove stray documentation from Java and JS (#48006)
+* [GH-47975](https://github.com/apache/arrow/issues/47975) - [Docs][Python] Remove experimental warning on PyCapsule documentation (#47976)
+* [GH-47978](https://github.com/apache/arrow/issues/47978) - [C++][Parquet][CI] Add more compression codecs to fuzzing seed corpus (#47979)
+* [GH-48000](https://github.com/apache/arrow/issues/48000) - [CI][Release] Publish RC GitHub Release as draft to allow immutable releases (#48059)
+* [GH-48013](https://github.com/apache/arrow/issues/48013) - [R] Add CI job for musl (Alpine Linux) to replicate CRAN checks (#48014)
+* [GH-48025](https://github.com/apache/arrow/issues/48025) - [C++][GLib] Replace instances where build path is being added to built artifacts (#48026)
+* [GH-48055](https://github.com/apache/arrow/issues/48055) - [C++][FlightRPC] Allow spaces while parsing Table Type in ODBC (#48056)
+* [GH-48074](https://github.com/apache/arrow/issues/48074) - [C++] Use FetchContent for bundled Abseil (#48075)
+* [GH-48084](https://github.com/apache/arrow/issues/48084) - [C++][FlightRPC] Replace boost::optional with std::optional (#48323)
+* [GH-48089](https://github.com/apache/arrow/issues/48089) - [C++][Parquet] Read statistics and other metadata when fuzzing (#48090)
+* [GH-48091](https://github.com/apache/arrow/issues/48091) - [C++] Use FetchContent for bundled c-ares (#48092)
+* [GH-48096](https://github.com/apache/arrow/issues/48096) - [Python][Parquet] Expose new WriterProperties::max_rows_per_page to Python bindings (#48101)
+* [GH-48102](https://github.com/apache/arrow/issues/48102) - [Python] Remove deprecated Array.format method (#48324)
+* [GH-48105](https://github.com/apache/arrow/issues/48105) - [C++][Parquet][IPC] Cap allocated memory when fuzzing (#48108)
+* [GH-48112](https://github.com/apache/arrow/issues/48112) - [C++][Parquet] Use more accurate data length estimate when decoding PLAIN BYTE_ARRAY data (#48113)
+* [GH-48123](https://github.com/apache/arrow/issues/48123) - [C++][Float16] Reimplement arrow::WithinUlp and Enable it for float16 (#48224)
+* [GH-48139](https://github.com/apache/arrow/issues/48139) - [C++] Allow compilation for QNX versions up to 8 (#48140)
+* [GH-48152](https://github.com/apache/arrow/issues/48152) - [CI][MATLAB] Bump MATLAB release to R2025b in the MATLAB GitHub Actions Workflow (#48153)
+* [GH-48154](https://github.com/apache/arrow/issues/48154) - [MATAB][Packaging] Update MATLAB crossbow workflow to build against MATLAB `R2025b` (#48155)
+* [GH-48163](https://github.com/apache/arrow/issues/48163) - [CI][Docs] Update preview docs task S3 secret to use (#48164)
+* [GH-48167](https://github.com/apache/arrow/issues/48167) - [Python][C++][Compute] Add python bindings for scatter, inverse_permutation (#48267)
+* [GH-48174](https://github.com/apache/arrow/issues/48174) - [CI][Dev] Fix shellcheck errors in ci/scripts/util_download_apache.sh (#48175)
+* [GH-48176](https://github.com/apache/arrow/issues/48176) - [C++][Parquet] Fix arrow-ipc-message-internal-test failure (#48166)
+* [GH-48178](https://github.com/apache/arrow/issues/48178) - [C++] Use FetchContent for bundled RE2 (#48179)
+* [GH-48181](https://github.com/apache/arrow/issues/48181) - [C++] Use FetchContent for bundled Protobuf (#48183)
+* [GH-48186](https://github.com/apache/arrow/issues/48186) - [CI][Dev] Remove ci/scripts/util_wait_for_it.sh (#48189)
+* [GH-48218](https://github.com/apache/arrow/issues/48218) - [C++][Parquet] Fix Util & Level Conversion logic on big-endian (#48219)
+* [GH-48245](https://github.com/apache/arrow/issues/48245) - [C++][Parquet] Simplify GetVlqInt (#48237)
+* [GH-48248](https://github.com/apache/arrow/issues/48248) - [C++] Use FetchContent for bundled gRPC (#48250)
+* [GH-48251](https://github.com/apache/arrow/issues/48251) - [C++][CI] Add CSV fuzzing seed corpus generator (#48252)
+* [GH-48256](https://github.com/apache/arrow/issues/48256) - [Packaging][Linux] Use `closer.lua?action=download` URL (#48257)
+* [GH-48260](https://github.com/apache/arrow/issues/48260) - [C++][Python][R] Move S3 bucket references to new bucket as Voltron Data ones will be removed soon (#48261)
+* [GH-48275](https://github.com/apache/arrow/issues/48275) - [C++][Dev] Allow choosing verbosity when fuzzing (#48276)
+* [GH-48287](https://github.com/apache/arrow/issues/48287) - [Ruby] Add minimum pure Ruby Apache Arrow reader implementation (#48288)
+* [GH-48292](https://github.com/apache/arrow/issues/48292) - [Ruby] Add `Arrow::Column#to_arrow{,_array,_chunked_array}` (#48293)
+* [GH-48295](https://github.com/apache/arrow/issues/48295) - [Ruby] Add support for reading Int8 array (#48296)
+* [GH-48303](https://github.com/apache/arrow/issues/48303) - [CI] Remove needless `setup-dotnet` from `.github/workflows/dev.yml` (#48304)
+* [GH-48306](https://github.com/apache/arrow/issues/48306) - [Ruby] Add support for reading binary array (#48307)
+* [GH-48312](https://github.com/apache/arrow/issues/48312) - [C++][FlightRPC] Standalone ODBC MSVC CI (#48313)
+* [GH-48315](https://github.com/apache/arrow/issues/48315) - [C++] Use FetchContent for bundled CRC32C (#48318)
+* [GH-48316](https://github.com/apache/arrow/issues/48316) - [C++] Use FetchContent for bundled nlohmann-json (#48320)
+* [GH-48317](https://github.com/apache/arrow/issues/48317) - [C++] Use FetchContent for bundled google-cloud-cpp  (#48333)
+* [GH-48326](https://github.com/apache/arrow/issues/48326) - [CI] Stop specifying hash for `actions/*` GitHub Actions (#48327)
+* [GH-48328](https://github.com/apache/arrow/issues/48328) - [Ruby] Add support for reading UTF-8 array (#48329)
+* [GH-48330](https://github.com/apache/arrow/issues/48330) - [Ruby] Add support for reading null array (#48331)
+* [GH-48335](https://github.com/apache/arrow/issues/48335) - [C++][Parquet] Fuzz encrypted files (#48336)
+* [GH-48337](https://github.com/apache/arrow/issues/48337) - [C++][Parquet] Improve column encryption API (#48338)
+* [GH-48339](https://github.com/apache/arrow/issues/48339) - [C++] Enhance functions in util/ubsan.h to support types without a default constructor (#48429)
+* [GH-48342](https://github.com/apache/arrow/issues/48342) - [R] Turn off gcs by default, also if it is on, bundle. (#48343)
+* [GH-48346](https://github.com/apache/arrow/issues/48346) - [Ruby] Add support for reading boolean array (#48348)
+* [GH-48347](https://github.com/apache/arrow/issues/48347) - [Ruby] Add support for reading list array (#48351)
+* [GH-48355](https://github.com/apache/arrow/issues/48355) - [Python] Remove obsolete snprintf workaround for Python 3.9 (#48354)
+* [GH-48358](https://github.com/apache/arrow/issues/48358) - [Ruby] Add support for reading float32 array (#48359)
+* [GH-48360](https://github.com/apache/arrow/issues/48360) - [Ruby] Add support for reading large binary array (#48361)
+* [GH-48362](https://github.com/apache/arrow/issues/48362) - [GLib][Ruby] Add FixedSizeListArray (#48369)
+* [GH-48363](https://github.com/apache/arrow/issues/48363) - [GLib][Ruby] Add AssumeTimezoneOptions (#48370)
+* [GH-48364](https://github.com/apache/arrow/issues/48364) - [GLib][Ruby] Add CumulativeOptions (#48371)
+* [GH-48365](https://github.com/apache/arrow/issues/48365) - [GLib][Ruby] Add DayOfWeekOptions (#48372)
+* [GH-48366](https://github.com/apache/arrow/issues/48366) - [GLib][Ruby] Add DictionaryEncodeOptions (#48373)
+* [GH-48367](https://github.com/apache/arrow/issues/48367) - [GLib][Ruby] Add ElementWiseAggregateOptions (#48374)
+* [GH-48368](https://github.com/apache/arrow/issues/48368) - [GLib][Ruby] Add ExtractRegexOptions (#48375)
+* [GH-48380](https://github.com/apache/arrow/issues/48380) - [Ruby] Add support for reading float64 array (#48381)
+* [GH-48382](https://github.com/apache/arrow/issues/48382) - [Ruby] Add support for reading struct array (#48383)
+* [GH-48384](https://github.com/apache/arrow/issues/48384) - [C++][Docs][Parquet] Fix broken link for parquet-format spec (#48385)
+* [GH-48386](https://github.com/apache/arrow/issues/48386) - [Ruby][Dev] Enable Layout/TrailingEmptyLines: final_newline cop (#48392)
+* [GH-48388](https://github.com/apache/arrow/issues/48388) - [Ruby] Add support for reading map array (#48389)
+* [GH-48395](https://github.com/apache/arrow/issues/48395) - [C++][Dev] Update fuzzing CMake preset (#48396)
+* [GH-48400](https://github.com/apache/arrow/issues/48400) - [Python] Convert an old todo to a proper ticket in `test_copy_files_directory` (#48401)
+* [GH-48402](https://github.com/apache/arrow/issues/48402) - [Python] Enable the relative path in test_write_dataset (#48403)
+* [GH-48404](https://github.com/apache/arrow/issues/48404) - [Python] Add tests to to_table(filter=...) to reject a boolean expr (#48405)
+* [GH-48406](https://github.com/apache/arrow/issues/48406) - [Python] Negative test for struct_field no-argument (ARROW-14853) (#48407)
+* [GH-48410](https://github.com/apache/arrow/issues/48410) - [Ruby] Add support for reading large list array (#48411)
+* [GH-48412](https://github.com/apache/arrow/issues/48412) - [Ruby] Add support for reading date32 array (#48413)
+* [GH-48419](https://github.com/apache/arrow/issues/48419) - [Python] Fix test_parquet_file_too_small to catch only ArrowInvalid (#48420)
+* [GH-48421](https://github.com/apache/arrow/issues/48421) - [Python] Enable test_orc_scan_options with batch_size (#48422)
+* [GH-48423](https://github.com/apache/arrow/issues/48423) - [Ruby] Add support for reading date64 array (#48424)
+* [GH-48425](https://github.com/apache/arrow/issues/48425) - [Ruby] Add support for reading dense union array (#48426)
+* [GH-48435](https://github.com/apache/arrow/issues/48435) - [Ruby] Add support for reading sparse union array (#48439)
+* [GH-48437](https://github.com/apache/arrow/issues/48437) - [Ruby] Add tests for large list array (#48438)
+* [GH-48440](https://github.com/apache/arrow/issues/48440) - [Ruby] Add support for reading time32 array (#48441)
+* [GH-48442](https://github.com/apache/arrow/issues/48442) - [Python] Remove workaround that excluded struct types from `chunked_arrays` (#48443)
+* [GH-48444](https://github.com/apache/arrow/issues/48444) - [Python] Remove todo of implementing requested_schema in test_roundtrip_reader_capsule (#48445)
+* [GH-48446](https://github.com/apache/arrow/issues/48446) - [Python] Remove todo of schema=name mismatch in `record_batches` (#48447)
+* [GH-48452](https://github.com/apache/arrow/issues/48452) - [Python] Add tests for Date32 and Date64 array creation with masks (#48453)
+* [GH-48461](https://github.com/apache/arrow/issues/48461) - [R][CI] Migrate Azure pipelines to GitHub actions (#48585)
+* [GH-48463](https://github.com/apache/arrow/issues/48463) - [Python] Improve error message in CheckTypeExact arrow_to_pandas.cc (#48464)
+* [GH-48471](https://github.com/apache/arrow/issues/48471) - [Ruby] Add support for reading Int16 and UInt16 arrays (#48472)
+* [GH-48475](https://github.com/apache/arrow/issues/48475) - [Ruby] Add support for reading Int32 and UInt32 arrays (#48476)
+* [GH-48479](https://github.com/apache/arrow/issues/48479) - [Ruby] Add support for reading Int64 and UInt64 arrays (#48480)
+* [GH-48482](https://github.com/apache/arrow/issues/48482) - [GLib][Ruby] Add GArrowExtractRegexSpanOptions (#48483)
+* [GH-48484](https://github.com/apache/arrow/issues/48484) - [GLib][Ruby] Add GArrowJoinOptions (#48485)
+* [GH-48486](https://github.com/apache/arrow/issues/48486) - [GLib][Ruby] Add GArrowListFlattenOptions (#48487)
+* [GH-48488](https://github.com/apache/arrow/issues/48488) - [GLib][Ruby] Add GArrowListSliceOptions (#48489)
+* [GH-48490](https://github.com/apache/arrow/issues/48490) - [GLib][Ruby] Add GArrowMakeStructOptions (#48491)
+* [GH-48492](https://github.com/apache/arrow/issues/48492) - [GLib][Ruby] Add MapLookupOptions (#48513)
+* [GH-48493](https://github.com/apache/arrow/issues/48493) - [GLib][Ruby] Add ModeOptions (#48514)
+* [GH-48494](https://github.com/apache/arrow/issues/48494) - [GLib][Ruby] Add NullOptions (#48515)
+* [GH-48495](https://github.com/apache/arrow/issues/48495) - [GLib][Ruby] Add PadOptions (#48516)
+* [GH-48496](https://github.com/apache/arrow/issues/48496) - [GLib][Ruby] Add PairwiseOptions (#48517)
+* [GH-48497](https://github.com/apache/arrow/issues/48497) - [GLib][Ruby] Add PartitionNthOptions (#48518)
+* [GH-48498](https://github.com/apache/arrow/issues/48498) - [GLib][Ruby] Add PivotWiderOptions (#48519)
+* [GH-48499](https://github.com/apache/arrow/issues/48499) - [GLib][Ruby] Add RankQuantileOptions (#48520)
+* [GH-48500](https://github.com/apache/arrow/issues/48500) - [GLib][Ruby] Add ReplaceSliceOptions (#48521)
+* [GH-48501](https://github.com/apache/arrow/issues/48501) - [GLib][Ruby] Add ReplaceSubstringOptions (#48522)
+* [GH-48502](https://github.com/apache/arrow/issues/48502) - [GLib][Ruby] Add RoundBinaryOptions (#48523)
+* [GH-48503](https://github.com/apache/arrow/issues/48503) - [GLib][Ruby] Add RoundTemporalOptions (#48524)
+* [GH-48504](https://github.com/apache/arrow/issues/48504) - [GLib][Ruby] Add SelectKOptions (#48525)
+* [GH-48505](https://github.com/apache/arrow/issues/48505) - [GLib][Ruby] Add SkewOptions (#48526)
+* [GH-48506](https://github.com/apache/arrow/issues/48506) - [GLib][Ruby] Add SliceOptions (#48527)
+* [GH-48507](https://github.com/apache/arrow/issues/48507) - [GLib][Ruby] Add SplitOptions (#48528)
+* [GH-48508](https://github.com/apache/arrow/issues/48508) - [GLib][Ruby] Add TDigestOptions (#48529)
+* [GH-48509](https://github.com/apache/arrow/issues/48509) - [GLib][Ruby] Add TrimOptions (#48530)
+* [GH-48510](https://github.com/apache/arrow/issues/48510) - [GLib][Ruby] Add WeekOptions (#48531)
+* [GH-48511](https://github.com/apache/arrow/issues/48511) - [GLib][Ruby] Add WinsorizeOptions (#48532)
+* [GH-48512](https://github.com/apache/arrow/issues/48512) - [GLib][Ruby] Add ZeroFillOptions (#48533)
+* [GH-48535](https://github.com/apache/arrow/issues/48535) - [Ruby] Add support for reading time64 array (#48536)
+* [GH-48537](https://github.com/apache/arrow/issues/48537) - [Ruby] Add support for reading fixed size binary array (#48538)
+* [GH-48545](https://github.com/apache/arrow/issues/48545) - [C++][Parquet][CI] Add more encodings to fuzzing seed corpus (#48546)
+* [GH-48551](https://github.com/apache/arrow/issues/48551) - [Ruby] Add support for reading large UTF-8 array (#48552)
+* [GH-48553](https://github.com/apache/arrow/issues/48553) - [Ruby] Add support for reading timestamp array (#48554)
+* [GH-48555](https://github.com/apache/arrow/issues/48555) - [C++] Use FetchContent for bundled opentelemetry (#48556)
+* [GH-48557](https://github.com/apache/arrow/issues/48557) - [C++][Parquet][CI] Also encrypt nested columns in fuzz seed corpus (#48558)
+* [GH-48572](https://github.com/apache/arrow/issues/48572) - [CI] Remove centos-7-cpp dockerfile and reference from compose (#48573)
+* [GH-48579](https://github.com/apache/arrow/issues/48579) - [Ruby] Add support for reading duration array (#48580)
+* [GH-48582](https://github.com/apache/arrow/issues/48582) - [CI][GPU][C++][Python] Add new CUDA jobs using the new self-hosted runners (#48583)
+* [GH-48592](https://github.com/apache/arrow/issues/48592) - [C++] Use starts_with/ends_with methods (#48614)
+* [GH-48602](https://github.com/apache/arrow/issues/48602) - [Ruby] Add support for reading interval arrays (#48603)
+* [GH-48606](https://github.com/apache/arrow/issues/48606) - [CI][GLib] Increase NuGet timeout for vcpkg cache (#48638)
+* [GH-48612](https://github.com/apache/arrow/issues/48612) - [Ruby] Add support for reading streaming format (#48613)
+* [GH-48616](https://github.com/apache/arrow/issues/48616) - [GLib] Use `Arrow-${MAJOR}.${MINOR}.typelib` not `Arrow-1.0.typelib` (#48617)
+* [GH-48631](https://github.com/apache/arrow/issues/48631) - [R] Non-API calls: 'ATTRIB', 'SET_ATTRIB' (#48634)
+* [GH-48632](https://github.com/apache/arrow/issues/48632) - [R] Add NEWS.md entry for 22.0.0.1 (#48633)
+* [GH-48642](https://github.com/apache/arrow/issues/48642) - [Ruby] Add support for reading decimal128 array (#48643)
+* [GH-48654](https://github.com/apache/arrow/issues/48654) - [Python] Test timestamp from int without pandas dependency (#48655)
+* [GH-48667](https://github.com/apache/arrow/issues/48667) - [Python] Remove unused imports from `python/pyarrow/__init__.py` (#48640)
+* [GH-48668](https://github.com/apache/arrow/issues/48668) - [Python][Docs] Add python examples for compute functions `min/max/min_max` (#48648)
+* [GH-48675](https://github.com/apache/arrow/issues/48675) - [C++][FlightRPC] Document StatementAttributeId enum values in ODBC SPI (#48676)
+* [GH-48680](https://github.com/apache/arrow/issues/48680) - [GLib][Ruby] Add CSVWriter (#48681)
+* [GH-48684](https://github.com/apache/arrow/issues/48684) - [C++] Update MakeListArray to use ListArray::FromArrays instead of constructor (#48685)
+* [GH-48690](https://github.com/apache/arrow/issues/48690) - [R] Make "Can read Parquet files from a URL" less flaky (#48693)
+* [GH-48703](https://github.com/apache/arrow/issues/48703) - [Ruby] Add support for reading decimal256 array (#48704)
+* [GH-48705](https://github.com/apache/arrow/issues/48705) - [Ruby] Add support for reading dictionary array (#48706)
+* [GH-48707](https://github.com/apache/arrow/issues/48707) - [C++][FlightRPC] Use IRD precision/scale defaults with ARD override in SQLGetData (#48708)
+* [GH-48752](https://github.com/apache/arrow/issues/48752) - [Ruby] Skip ChunkedArray test on Windows due to flakiness (#48779)
+* [GH-48755](https://github.com/apache/arrow/issues/48755) - [MATLAB] Rename getArrayProxyIDs to getProxyIDs (#48756)
+* [GH-48757](https://github.com/apache/arrow/issues/48757) - [CI] Update arrow/.github /CODEOWNERS (#48758)
+* [GH-48770](https://github.com/apache/arrow/issues/48770) - [CI] Add missing permissions declaration to workflows (#48771)
+
+# Apache Arrow 22.0.0 (2025-10-20)
+
+## Bug Fixes
+
+* [GH-26727](https://github.com/apache/arrow/issues/26727) - [C++][Flight] Use ipc::RecordBatchWriter with custom IpcPayloadWriter for TransportMessageWriter (DoExchange) (#47410)
+* [GH-31603](https://github.com/apache/arrow/issues/31603) - [C++] Wrap Parquet encryption keys in SecureString (#46017)
+* [GH-40911](https://github.com/apache/arrow/issues/40911) - [C++][Compute] Fix the decimal division kernel dispatching (#47445)
+* [GH-41011](https://github.com/apache/arrow/issues/41011) - [C++][Compute] Fix the issue that comparison function could not handle decimal arguments with different scales (#47459)
+* [GH-41110](https://github.com/apache/arrow/issues/41110) - [C#] Handle empty stream in ArrowStreamReaderImplementation (#47098)
+* [GH-41336](https://github.com/apache/arrow/issues/41336) - [C++][Compute] Fix case_when kernel dispatch for decimals with different precisions and scales (#47479)
+* [GH-42971](https://github.com/apache/arrow/issues/42971) - [C++] Parquet stream writer: Allow writing BYTE_ARRAY with converted type NONE (#44739)
+* [GH-43355](https://github.com/apache/arrow/issues/43355) - [C++] Don't require `__once_proxy` in `symbols.map` (#47354)
+* [GH-46629](https://github.com/apache/arrow/issues/46629) - [Python] Add options to DatasetFactory.inspect (#46961)
+* [GH-46690](https://github.com/apache/arrow/issues/46690) - [GLib][CI] Use Meson 1.8.4 or later (#47425)
+* [GH-46739](https://github.com/apache/arrow/issues/46739) - [C++] Fix Float16 signed zero/NaN equality comparisons (#46973)
+* [GH-46897](https://github.com/apache/arrow/issues/46897) - [Docs][C++][Python] Fix asof join documentation (#46898)
+* [GH-46928](https://github.com/apache/arrow/issues/46928) - [C++] Retry on EINTR while opening file in FileOpenReadable (#47629)
+* [GH-46942](https://github.com/apache/arrow/issues/46942) - [Docs] Replace the directive versionadded with note (#46997)
+* [GH-46946](https://github.com/apache/arrow/issues/46946) - [Python] PyArrow fails compiling without CSV enabled
+* [GH-47009](https://github.com/apache/arrow/issues/47009) - [C#] ExportedAllocationOwner should use 64-bit integer to track total allocated memory. (#47011)
+* [GH-47016](https://github.com/apache/arrow/issues/47016) - [C++][FlightSQL] Fix negative timestamps to date types (#47017)
+* [GH-47027](https://github.com/apache/arrow/issues/47027) - [C++][Parquet] Fix repeated column pages not being written when reaching page size limit (#47032)
+* [GH-47029](https://github.com/apache/arrow/issues/47029) - [Archery][Integration] Fix generation of run-end-encoded data (#47653)
+* [GH-47039](https://github.com/apache/arrow/issues/47039) - [C++] Bump RapidJSON dependency in Meson configuration (#47041)
+* [GH-47051](https://github.com/apache/arrow/issues/47051) - [Python][Release] verify-rc-source-windows Python tests are failing due to MSVC compiler bug
+* [GH-47052](https://github.com/apache/arrow/issues/47052) - [CI][C++] Use Alpine Linux 3.22 instead of 3.18 (#47148)
+* [GH-47096](https://github.com/apache/arrow/issues/47096) - [CI][R] Drop support for R 4.0 (#47285)
+* [GH-47101](https://github.com/apache/arrow/issues/47101) - [Statistics][C++] Implement Statistics specification attribute ARROW:distinct_count:approximate (#47183)
+* [GH-47124](https://github.com/apache/arrow/issues/47124) - [C++][Dataset] Fix DatasetWriter deadlock on concurrent WriteRecordBatch (#47129)
+* [GH-47128](https://github.com/apache/arrow/issues/47128) - [Python] Numba-CUDA interop with NVIDIA bindings (#47150)
+* [GH-47130](https://github.com/apache/arrow/issues/47130) - [Packaging][deb] Fix upgrade from 20.0.0-1 (#47343)
+* [GH-47131](https://github.com/apache/arrow/issues/47131) - [C#] Fix day off by 1 in Date64Array (#47132)
+* [GH-47143](https://github.com/apache/arrow/issues/47143) - [Dev] Ignore `apache-arrow.tar.gz` (#47145)
+* [GH-47162](https://github.com/apache/arrow/issues/47162) - [Dev][Release][GLib] Fix indent in generate-version-header.py (#47163)
+* [GH-47165](https://github.com/apache/arrow/issues/47165) - [Python] Update s3 test with new non-existent bucket (#47166)
+* [GH-47175](https://github.com/apache/arrow/issues/47175) - [C++] Require xsimd 13.0.0 or later (#47221)
+* [GH-47179](https://github.com/apache/arrow/issues/47179) - [Python] Revert FileSystem.from_uri to be a staticmethod again (#47178)
+* [GH-47203](https://github.com/apache/arrow/issues/47203) - [C++] Restore CMAKE_DEBUG_POSTFIX in building bundled Apache Thrift (#47209)
+* [GH-47213](https://github.com/apache/arrow/issues/47213) - [R] Require CMake 3.26 or later (#47217)
+* [GH-47229](https://github.com/apache/arrow/issues/47229) - [C++][Arm] Force mimalloc to generate armv8.0 binary (#47766)
+* [GH-47234](https://github.com/apache/arrow/issues/47234) - [C++][Python] Add test for fill_null regression on Windows (#47249)
+* [GH-47241](https://github.com/apache/arrow/issues/47241) - [C++][Parquet] Fix VariantExtensionType conversion (#47242)
+* [GH-47243](https://github.com/apache/arrow/issues/47243) - [C++] Initialize arrow::compute in execution_plan_documentation_examples (#47227)
+* [GH-47256](https://github.com/apache/arrow/issues/47256) - [Python] Do not use cffi in free-threaded 3.13 builds (#47313)
+* [GH-47257](https://github.com/apache/arrow/issues/47257) - [R] Fix truncation of time variables to work with numeric subseconds time with hms bindings (#47278)
+* [GH-47265](https://github.com/apache/arrow/issues/47265) - [Ruby] Fix wrong `Time` object detection (#47267)
+* [GH-47268](https://github.com/apache/arrow/issues/47268) - [C++][Compute] Fix discarded bad status for call binding (#47284)
+* [GH-47277](https://github.com/apache/arrow/issues/47277) - [C++] r-binary-packages nightly failures due to incompatibility with old compiler (#47299)
+* [GH-47283](https://github.com/apache/arrow/issues/47283) - [C++] Fix flight visibility issue in Meson configuration (#47298)
+* [GH-47287](https://github.com/apache/arrow/issues/47287) - [C++][Compute] Add constraint for kernel signature matching and use it for binary decimal arithmetic kernels (#47297)
+* [GH-47301](https://github.com/apache/arrow/issues/47301) - [Python] Fix FileFragment.open() seg fault behavior for file-like objects (#47302)
+* [GH-47303](https://github.com/apache/arrow/issues/47303) - [C++] Don't install arrow-compute.pc twice (#47304)
+* [GH-47323](https://github.com/apache/arrow/issues/47323) - [R][CI] test-r-rhub-debian-gcc-release-custom-ccache nightly job fails due to update in Debian  (#47611)
+* [GH-47332](https://github.com/apache/arrow/issues/47332) - [C++][Compute] Fix the issue that the arguments of function call become invalid before wrapping results (#47333)
+* [GH-47356](https://github.com/apache/arrow/issues/47356) - [R] NEWS file states version 20.0.0.1 but release package number on CRAN is 20.0.0.2 (#47421)
+* [GH-47367](https://github.com/apache/arrow/issues/47367) - [Packaging][Python] Patch vcpkg to show logs and install newer Windows SDK for vs_buildtools (#47484)
+* [GH-47373](https://github.com/apache/arrow/issues/47373) - [C++] Raise for invalid decimal precision input from the C Data Interface (#47414)
+* [GH-47380](https://github.com/apache/arrow/issues/47380) - [Python] Apply maps_as_pydicts to Nested MapScalar Values (#47454)
+* [GH-47399](https://github.com/apache/arrow/issues/47399) - [C++] Update bundled Apache ORC to 2.2.0 with Protobuf patch (#47408)
+* [GH-47431](https://github.com/apache/arrow/issues/47431) - [C++] Improve Meson configuration for WrapDB distribution (#47541)
+* [GH-47434](https://github.com/apache/arrow/issues/47434) - [C++] Fix issue preventing running of tests on Windows (#47455)
+* [GH-47440](https://github.com/apache/arrow/issues/47440) - [C++] Accept gflags::gflags as system gflags CMake target (#47468)
+* [GH-47446](https://github.com/apache/arrow/issues/47446) - [C++] Update Meson configuration with compute swizzle change (#47448)
+* [GH-47451](https://github.com/apache/arrow/issues/47451) - [Python][CI] Install tzdata-legacy in newer python-wheel-manylinux-test images (#47452)
+* [GH-47453](https://github.com/apache/arrow/issues/47453) - [Packaging][CI] Token expired to upload nightly wheels
+* [GH-47485](https://github.com/apache/arrow/issues/47485) - [C++][CI] Work around Valgrind failure on Azure tests (#47496)
+* [GH-47486](https://github.com/apache/arrow/issues/47486) - [Dev][R] Define default R_UPDATE_CLANG (#47487)
+* [GH-47491](https://github.com/apache/arrow/issues/47491) - [C++] Don't set include directories to found targets (#47492)
+* [GH-47506](https://github.com/apache/arrow/issues/47506) - [CI][Packaging] Fix Amazon Linux 2023 packages verification (#47507)
+* [GH-47534](https://github.com/apache/arrow/issues/47534) - [C++] Detect conda-installed packages in Meson CI (#47535)
+* [GH-47537](https://github.com/apache/arrow/issues/47537) - [C++] Use pkgconfig name for benchmark in Meson (#47538)
+* [GH-47539](https://github.com/apache/arrow/issues/47539) - [C++] Detect Snappy and bzip2 in Meson CI (#47540)
+* [GH-47554](https://github.com/apache/arrow/issues/47554) - [C++] Fix Meson Parquet symbol visibility issues (#47556)
+* [GH-47560](https://github.com/apache/arrow/issues/47560) - [C++] Fix host handling for default HDFS URI (#47458)
+* [GH-47570](https://github.com/apache/arrow/issues/47570) - [CI] Don't notify nightly "CI: Extra" result from forks (#47571)
+* [GH-47590](https://github.com/apache/arrow/issues/47590) - [C++] Use W functions explicitly for Windows UNICODE compatibility (#47593)
+* [GH-47591](https://github.com/apache/arrow/issues/47591) - [C++] Fix passing zlib compression level (#47594)
+* [GH-47596](https://github.com/apache/arrow/issues/47596) - [C++][Parquet] Fix printing of large Decimal statistics (#47619)
+* [GH-47602](https://github.com/apache/arrow/issues/47602) - [Python] Make Schema hashable even when it has metadata (#47601)
+* [GH-47614](https://github.com/apache/arrow/issues/47614) - [CI] Upgrade vcpkg on our CI (#47627)
+* [GH-47620](https://github.com/apache/arrow/issues/47620) - [CI][C++] Use Ubuntu 24.04 for ASAN UBSAN job (#47623)
+* [GH-47625](https://github.com/apache/arrow/issues/47625) - [Python] Free-threaded musllinux and manylinux wheels started failing with cffi 2.0.0 (#47626)
+* [GH-47655](https://github.com/apache/arrow/issues/47655) - [C++][Parquet][CI] Fix failure to generate seed corpus (#47656)
+* [GH-47659](https://github.com/apache/arrow/issues/47659) - [C++] Fix Arrow Flight Testing's unresolved external symbol error  (#47660)
+* [GH-47673](https://github.com/apache/arrow/issues/47673) - [CI][Integration] Fix Go build failure (#47674)
+* [GH-47682](https://github.com/apache/arrow/issues/47682) - [R] `install_pyarrow(nightly = TRUE)` installs old pyarrow (#47699)
+* [GH-47695](https://github.com/apache/arrow/issues/47695) - [CI][Release] Link arrow-io hdfs_test to c++fs on compilers where std:::filesystem is not default present (#47701)
+* [GH-47740](https://github.com/apache/arrow/issues/47740) - [C++][Parquet] Fix undefined behavior when reading invalid Parquet data (#47741)
+* [GH-47742](https://github.com/apache/arrow/issues/47742) - [C++][CI] Silence Valgrind leak on protobuf initialization (#47743)
+* [GH-47748](https://github.com/apache/arrow/issues/47748) - [C++][Dataset] Fix link error on macOS (#47749)
+* [GH-47795](https://github.com/apache/arrow/issues/47795) - [Archery] Add support for custom Docker registry (#47796)
+* [GH-47803](https://github.com/apache/arrow/issues/47803) - [C++][Parquet] Fix read out of bounds on invalid RLE data (#47804)
+* [GH-47809](https://github.com/apache/arrow/issues/47809) - [CI][Release] Fix Windows verification job trying to install patch from conda (#47810)
+* [GH-47819](https://github.com/apache/arrow/issues/47819) - [CI][Packaging][Release] Avoid triggering Linux packages on release branch push (#47826)
+* [GH-47838](https://github.com/apache/arrow/issues/47838) - [C++][Parquet] Set Variant specification version to 1 to align with the variant spec (#47835)
+
+
+## New Features and Improvements
+
+* [GH-20125](https://github.com/apache/arrow/issues/20125) - [Docs][Python] Restructure developers/python.rst (#47334)
+* [GH-30036](https://github.com/apache/arrow/issues/30036) - [C++] Timezone-aware kernels should handle offset strings (e.g. "+04:30") (#12865)
+* [GH-38211](https://github.com/apache/arrow/issues/38211) - [MATLAB] Add support for creating an empty `arrow.tabular.RecordBatch` by calling `arrow.recordBatch` with no input arguments (#47060)
+* [GH-38213](https://github.com/apache/arrow/issues/38213) - [MATLAB] Create a superclass for tabular type MATLAB tests (i.e. for `Table` and `RecordBatch`) (#47107)
+* [GH-38422](https://github.com/apache/arrow/issues/38422) - [MATLAB] Add `NumNulls` property to `arrow.array.Array` class (#47116)
+* [GH-38532](https://github.com/apache/arrow/issues/38532) - [MATLAB] Add a `validate` method to all `arrow.array.Array` classes (#47059)
+* [GH-38572](https://github.com/apache/arrow/issues/38572) - [Docs][MATLAB] Update `arrow/matlab/README.md` with the latest change. (#47109)
+* [GH-39875](https://github.com/apache/arrow/issues/39875) - [C++] Why arrow decimal divide precision and scale is not correct?
+* [GH-41108](https://github.com/apache/arrow/issues/41108) - [Docs] Remove Sphinx pin (#47326)
+* [GH-41239](https://github.com/apache/arrow/issues/41239) - [C++] Support to write csv header without quotes (#47524)
+* [GH-41476](https://github.com/apache/arrow/issues/41476) - [Python][C++] Impossible to specify `is_adjusted_to_utc` for `Time` type when writing to Parquet (#47316)
+* [GH-42137](https://github.com/apache/arrow/issues/42137) - [CI][Python] Add Python Windows GitHub Action and remove AppVeyor (#47567)
+* [GH-43662](https://github.com/apache/arrow/issues/43662) - [R] Add binding to stringr::str_replace_na() (#47521)
+* [GH-43694](https://github.com/apache/arrow/issues/43694) - [C++] Add `Executor *` Option to `arrow::dataset::ScanOptions` (#43698)
+* [GH-43904](https://github.com/apache/arrow/issues/43904) - [CI][Python] Stop uploading nightly wheels to gemfury (#47470)
+* [GH-44345](https://github.com/apache/arrow/issues/44345) - [C++][Parquet] Add Decimal32/64 support to Parquet (#47427)
+* [GH-44800](https://github.com/apache/arrow/issues/44800) - [C#] Implement Flight SQL Client (#44783)
+* [GH-45055](https://github.com/apache/arrow/issues/45055) - [C++][Flight] Update Flight Server RecordBatchStreamImpl to reuse ipc::RecordBatchWriter with custom IpcPayloadWriter instead of manually generating FlightPayload (#47115)
+* [GH-45056](https://github.com/apache/arrow/issues/45056) - [C++][Flight] Fully support dictionary replacement in Flight
+* [GH-45382](https://github.com/apache/arrow/issues/45382) - [Python] Add support for pandas DataFrame.attrs (#47147)
+* [GH-45639](https://github.com/apache/arrow/issues/45639) - [C++][Statistics] Add support for ARROW:average_byte_width:{exac,approximate} (#46385)
+* [GH-45860](https://github.com/apache/arrow/issues/45860) - [C++] Respect CPU affinity in cpu_count and ThreadPool default capacity (#47152)
+* [GH-45921](https://github.com/apache/arrow/issues/45921) - [Release][R] Use GitHub Release not apache.jfrog.io (#45964)
+* [GH-46137](https://github.com/apache/arrow/issues/46137) - [C++] Replace grpc-cpp conda package with libgrpc (#47606)
+* [GH-46272](https://github.com/apache/arrow/issues/46272) - [C++] Build Arrow libraries with `-Wmissing-definitions` on gcc (#47042)
+* [GH-46374](https://github.com/apache/arrow/issues/46374) - [Python][Doc] Improve docs to specify that source argument on parquet.read_table can also be a list of strings (#47142)
+* [GH-46410](https://github.com/apache/arrow/issues/46410) - [C++] Add parquet options to Meson configuration (#46647)
+* [GH-46669](https://github.com/apache/arrow/issues/46669) - [CI][Archery] Automate Zulip and email notifications for Extra CI (#47546)
+* [GH-46728](https://github.com/apache/arrow/issues/46728) - [Python] Skip test_gdb.py tests if PyArrow wasn't built debug (#46755)
+* [GH-46835](https://github.com/apache/arrow/issues/46835) - [C++] Add more configuration options to arrow::EqualOptions (#47204)
+* [GH-46860](https://github.com/apache/arrow/issues/46860) - [C++] Making HalfFloatBuilder accept Float16 as well as uint16_t (#46981)
+* [GH-46905](https://github.com/apache/arrow/issues/46905) - [C++][Parquet] Expose Statistics.is_{min/max}_value_exact and default set to true if min/max are set (#46992)
+* [GH-46908](https://github.com/apache/arrow/issues/46908) - [Docs][Format] Add variant extension type docs (#47456)
+* [GH-46937](https://github.com/apache/arrow/issues/46937) - [C++] Enable arrow::EqualOptions for arrow::Table (#47164)
+* [GH-46938](https://github.com/apache/arrow/issues/46938) - [C++] Enhance arrow::ChunkedArray::Equals to support floating-point comparison when values share the same memory (#47044)
+* [GH-46939](https://github.com/apache/arrow/issues/46939) - [C++] Add support for shared memory comparison in arrow::RecordBatch  (#47149)
+* [GH-46962](https://github.com/apache/arrow/issues/46962) - [C++][Parquet] Generic xsimd function and dynamic dispatch for Byte Stream Split (#46963)
+* [GH-46971](https://github.com/apache/arrow/issues/46971) - [C++][Parquet] Use temporary buffers when decrypting Parquet data pages (#46972)
+* [GH-46982](https://github.com/apache/arrow/issues/46982) - [C++] Remove Boost dependency from hdfs_test (#47200)
+* [GH-47005](https://github.com/apache/arrow/issues/47005) - [C++] Disable exporting CMake packages (#47006)
+* [GH-47012](https://github.com/apache/arrow/issues/47012) - [C++][Parquet] Reserve values correctly when reading BYTE_ARRAY and FLBA (#47013)
+* [GH-47040](https://github.com/apache/arrow/issues/47040) - [C++] Refine reset of Span to be reusable (#47004)
+* [GH-47045](https://github.com/apache/arrow/issues/47045) - [CI][C++] Use Fedora 42 instead of 39 (#47046)
+* [GH-47047](https://github.com/apache/arrow/issues/47047) - [CI][C++] Use Google Cloud Storage Testbench v0.55.0 (#47048)
+* [GH-47058](https://github.com/apache/arrow/issues/47058) - [Release] Update Release Management Guide to reflect status in preparation for Arrow 22 (#47474)
+* [GH-47075](https://github.com/apache/arrow/issues/47075) - [Release][Dev] Use GH_TOKEN as GitHub token environment variable (#47181)
+* [GH-47084](https://github.com/apache/arrow/issues/47084) - [Release] Stop using https://dist.apache.org/repos/dist/dev/arrow/KEYS (#47182)
+* [GH-47088](https://github.com/apache/arrow/issues/47088) - [CI][Dev] Fix shellcheck errors in the ci/scripts/integration_arrow.sh (#47089)
+* [GH-47102](https://github.com/apache/arrow/issues/47102) - [Statistics][C++] Implement Statistics specification attribute ARROW:max_byte_width:{exact,approximate} Component: C++  (#47463)
+* [GH-47106](https://github.com/apache/arrow/issues/47106) - [R] Update R package to use R 4.1+ native forward pipe syntax (#47622)
+* [GH-47112](https://github.com/apache/arrow/issues/47112) - [Parquet][C++] Rle BitPacked parser (#47294)
+* [GH-47120](https://github.com/apache/arrow/issues/47120) - [R] Update NEWS for 21.0.0 (#47121)
+* [GH-47123](https://github.com/apache/arrow/issues/47123) - [Python] Add Enums to PyArrow Types  (#47139)
+* [GH-47125](https://github.com/apache/arrow/issues/47125) - [CI][Dev] Fix shellcheck errors in the ci/scripts/integration_hdfs.sh (#47126)
+* [GH-47137](https://github.com/apache/arrow/issues/47137) - [Python][dependency-groups] ` (#47176)
+* [GH-47153](https://github.com/apache/arrow/issues/47153) - [Docs][C++] Update cmake target table in build_system.rst with newly added targets (#47154)
+* [GH-47157](https://github.com/apache/arrow/issues/47157) - [Docs] Improve presentation of Other available packages section in build_system.rst (#47411)
+* [GH-47172](https://github.com/apache/arrow/issues/47172) - [Python] Add a utility function to create Arrow table instead of pandas df (#47199)
+* [GH-47184](https://github.com/apache/arrow/issues/47184) - [Parquet][C++] Avoid multiplication overflow in FixedSizeBinaryBuilder::Reserve (#47185)
+* [GH-47191](https://github.com/apache/arrow/issues/47191) - [R] Turn GCS back on by default on MacOS source builds (#47192)
+* [GH-47193](https://github.com/apache/arrow/issues/47193) - [R] Update R Makefile to exclude flight odbc from cpp sync  (#47194)
+* [GH-47205](https://github.com/apache/arrow/issues/47205) - [C++] Suppress GNU variadic macro warnings (#47286)
+* [GH-47208](https://github.com/apache/arrow/issues/47208) - [C++][CI] Add a CI job for C++23 (#47261)
+* [GH-47208](https://github.com/apache/arrow/issues/47208) - [C++] Update bundled s2n-tls to 1.5.23 (#47220)
+* [GH-47211](https://github.com/apache/arrow/issues/47211) - [CI][R] Disable non-system memory allocators when on linux-devel (#47212)
+* [GH-47218](https://github.com/apache/arrow/issues/47218) - [C++] Update bundled s2n-tls
+* [GH-47222](https://github.com/apache/arrow/issues/47222) - [CI][C++] Add a CI job that uses the same build options for JNI on macOS (#47305)
+* [GH-47223](https://github.com/apache/arrow/issues/47223) - [Release] Use "upstream" as apache/arrow{,-site} remote name (#47224)
+* [GH-47225](https://github.com/apache/arrow/issues/47225) - [C++] Remove Skyhook (#47262)
+* [GH-47232](https://github.com/apache/arrow/issues/47232) - [Ruby] Suppress warnings in test with Ruby 3.5 (#47233)
+* [GH-47244](https://github.com/apache/arrow/issues/47244) - [CI][Dev] Fix shellcheck errors in the ci/scripts/msys2_setup.sh (#47245)
+* [GH-47258](https://github.com/apache/arrow/issues/47258) - [Release] Set `date:` for apache/arrow-site's `_release/${VERSION}.md` (#47260)
+* [GH-47263](https://github.com/apache/arrow/issues/47263) - [MATLAB] Add `NumNulls` property to `arrow.array.ChunkedArray` class (#47264)
+* [GH-47289](https://github.com/apache/arrow/issues/47289) - [CI][Dev] Fix shellcheck errors in the ci/scripts/python_build_emscripten.sh (#47290)
+* [GH-47291](https://github.com/apache/arrow/issues/47291) - [C++] Update bundled aws-c-common to 0.12.4 (#47292)
+* [GH-47306](https://github.com/apache/arrow/issues/47306) - [CI][Dev] Fix shellcheck errors in the ci/scripts/python_build.sh (#47307)
+* [GH-47312](https://github.com/apache/arrow/issues/47312) - [Packaging] Add support for Debian forky (#47342)
+* [GH-47317](https://github.com/apache/arrow/issues/47317) - [C++][C++23][Gandiva] Use pointer for Cache test (#47318)
+* [GH-47319](https://github.com/apache/arrow/issues/47319) - [CI] Fix actions/checkout hash version comments (#47320)
+* [GH-47321](https://github.com/apache/arrow/issues/47321) - [CI][Dev] Fix shellcheck errors in the ci/scripts/python_sdist_test.sh (#47322)
+* [GH-47338](https://github.com/apache/arrow/issues/47338) - [C++][Python] Remove deprecated string-based Parquet encryption methods (#47339)
+* [GH-47349](https://github.com/apache/arrow/issues/47349) - [C++] Include request ID in AWS S3 Error (#47351)
+* [GH-47358](https://github.com/apache/arrow/issues/47358) - [Python] IPC and Flight options representation (#47461)
+* [GH-47370](https://github.com/apache/arrow/issues/47370) - [Python] Require Cython 3.1 (#47396)
+* [GH-47375](https://github.com/apache/arrow/issues/47375) - [C++][Compute] Move scatter function into compute core (#47378)
+* [GH-47384](https://github.com/apache/arrow/issues/47384) - [C++][Acero] Isolate BackpressureHandler from ExecNode (#47386)
+* [GH-47395](https://github.com/apache/arrow/issues/47395) - [R] Update fedora-clang to install latest clang version to match CRAN setup (#47206)
+* [GH-47401](https://github.com/apache/arrow/issues/47401) - [C++] Remove needless Snappy patch (#47407)
+* [GH-47404](https://github.com/apache/arrow/issues/47404) - [Ruby] Remove needless `require "extpp/setup"` (#47405)
+* [GH-47412](https://github.com/apache/arrow/issues/47412) - [C++] Use inlineshidden visibility in Meson configuration (#47413)
+* [GH-47422](https://github.com/apache/arrow/issues/47422) - [Python][C++][Flight] Expose ipc::ReadStats in Flight MetadataRecordBatchReader (#47432)
+* [GH-47438](https://github.com/apache/arrow/issues/47438) - [Python][Packaging] Set up wheel building for Python 3.14 (#47616)
+* [GH-47443](https://github.com/apache/arrow/issues/47443) - [Python][Packaging] Drop Python 3.9 support (#47478)
+* [GH-47449](https://github.com/apache/arrow/issues/47449) - [C++][Parquet] Do not drop all Statistics if SortOrder is UNKNOWN (#47466)
+* [GH-47469](https://github.com/apache/arrow/issues/47469) - [C++][Gandiva] Add support for LLVM 21.1.0 (#47473)
+* [GH-47483](https://github.com/apache/arrow/issues/47483) - [C++] Bump vendored xxhash to 0.8.3 (#47476)
+* [GH-47500](https://github.com/apache/arrow/issues/47500) - [C++] Add QualifierAlignment to clang-format options (#47501)
+* [GH-47505](https://github.com/apache/arrow/issues/47505) - [CI][C#][Integration] Use apache/arrow-dotnet (#47508)
+* [GH-47509](https://github.com/apache/arrow/issues/47509) - [CI][Packaging][Linux] Enable Docker build cache (#47510)
+* [GH-47512](https://github.com/apache/arrow/issues/47512) - [C++] Bump meson-fmt in pre-commit to 1.9.0 (#47513)
+* [GH-47514](https://github.com/apache/arrow/issues/47514) - [C++][Parquet] Add unpack tests and benchmarks (#47515)
+* [GH-47516](https://github.com/apache/arrow/issues/47516) - [C++][FlightRPC] Initial ODBC driver framework (#47517)
+* [GH-47518](https://github.com/apache/arrow/issues/47518) - [C++][FlightRPC] Replace `spdlogs` with Arrow's Internal Logging (#47645)
+* [GH-47523](https://github.com/apache/arrow/issues/47523) - [C#] Remove csharp/ (#47547)
+* [GH-47543](https://github.com/apache/arrow/issues/47543) - [C++] Search for system install of Azure libraries with Meson (#47544)
+* [GH-47552](https://github.com/apache/arrow/issues/47552) - [C++] Fix creating wrong object by `FixedShapeTensorType::MakeArray()` (#47533)
+* [GH-47575](https://github.com/apache/arrow/issues/47575) - [Python] add quoting_header option to pyarrow WriterOptions (#47610)
+* [GH-47582](https://github.com/apache/arrow/issues/47582) - [CI][Packaging] Move linux-packaging tasks to apache/arrow repository (#47600)
+* [GH-47584](https://github.com/apache/arrow/issues/47584) - [C++][CI] Remove "large memory" mark from TestListArray::TestOverflowCheck (#47585)
+* [GH-47588](https://github.com/apache/arrow/issues/47588) - [C++] Bump mimalloc version to 3.1.5 (#47589)
+* [GH-47597](https://github.com/apache/arrow/issues/47597) - [C++][Parquet] Fuzz more data types (#47621)
+* [GH-47632](https://github.com/apache/arrow/issues/47632) - [CI][C++] Add a CI job for JNI on Linux (#47746)
+* [GH-47633](https://github.com/apache/arrow/issues/47633) - [Dev][Integration] Write all files with `--write_generated_json` (#47634)
+* [GH-47639](https://github.com/apache/arrow/issues/47639) - [Benchmarking] Clean up conbench config (#47638)
+* [GH-47646](https://github.com/apache/arrow/issues/47646) - [C++][FlightRPC] Follow Naming Convention (#47658)
+* [GH-47648](https://github.com/apache/arrow/issues/47648) - [Archery][Integration] More granularity in JSON test cases (#47649)
+* [GH-47650](https://github.com/apache/arrow/issues/47650) - [Archery][Integration] Add option to generate gold files (#47651)
+* [GH-47679](https://github.com/apache/arrow/issues/47679) - [C++] Register arrow compute calls in ODBC (#47680)
+* [GH-47704](https://github.com/apache/arrow/issues/47704) - [R] Update paths in nightly libarrow upload job (#47727)
+* [GH-47705](https://github.com/apache/arrow/issues/47705) - [R][CI] Migrate rhub debian-gcc-release to equivalent supported image (#47730)
+* [GH-47738](https://github.com/apache/arrow/issues/47738) - [R] Update NEWS.md for 22.0.0 (#47739)
+
+# Apache Arrow 21.0.0 (2025-07-01 07:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-32276](https://github.com/apache/arrow/issues/32276) - [C++][FlightRPC] Add option to align RecordBatch buffers given to IPC reader (#44279)
+* [GH-35166](https://github.com/apache/arrow/issues/35166) - [C++][Compute] Increase precision of decimals in sum aggregates (#44184)
+* [GH-39811](https://github.com/apache/arrow/issues/39811) - [R] better documentation for col_types argument in open_delim_dataset (#45719)
+* [GH-40756](https://github.com/apache/arrow/issues/40756) - [C++] Remove dead Boost urls (#46452)
+* [GH-43132](https://github.com/apache/arrow/issues/43132) - [CI] Fix pre-commit Rat check (#46541)
+* [GH-44366](https://github.com/apache/arrow/issues/44366) - [Python][Acero] RecordBatch.filter on expression raises error if result set is empty (#46057)
+* [GH-44502](https://github.com/apache/arrow/issues/44502) - [R] Negative fractional dates must be converted to integers by floor, not trunc (#46873)
+* [GH-44910](https://github.com/apache/arrow/issues/44910) - [Swift] Fix IPC stream reader and writer impl (#45029)
+* [GH-45292](https://github.com/apache/arrow/issues/45292) - [Python] test_dtypes hypotesis test fails sporadically (#46029)
+* [GH-45532](https://github.com/apache/arrow/issues/45532) - [C++] `RunEndEncodedBuilder` should clear dimensions after a `Finish()` call (#45533)
+* [GH-45534](https://github.com/apache/arrow/issues/45534) - [C++] Test: `RunEndEncodeTableColumns` should update REE columns' schema types (#45535)
+* [GH-45608](https://github.com/apache/arrow/issues/45608) - [C++][Flight] Fix compilation for clang (#46264)
+* [GH-45716](https://github.com/apache/arrow/issues/45716) - [R][CI] Refactor skip_on_python_older_than to not initialize reticulate (#46079)
+* [GH-45735](https://github.com/apache/arrow/issues/45735) - [C++] Broken tests for extract_regex compute funcion (#45900)
+* [GH-45853](https://github.com/apache/arrow/issues/45853) - [C++][Dev] Fix Meson compilation issues in Docker builds (#45858)
+* [GH-46011](https://github.com/apache/arrow/issues/46011) - [C++] Hide DCHECK family from public headers (#46015)
+* [GH-46025](https://github.com/apache/arrow/issues/46025) - [C++] Use ARROW_CUDA_EXPORT instead of ARROW_EXPORT for libarrow_cuda (#46030)
+* [GH-46052](https://github.com/apache/arrow/issues/46052) - [C++][Benchmarking] Don't build grouper benchmark without ARROW_COMPUTE=ON (#46053)
+* [GH-46065](https://github.com/apache/arrow/issues/46065) - [Release] Don't use `--verify-tag` for `gh release upload` in `02-source.sh` (#46066)
+* [GH-46068](https://github.com/apache/arrow/issues/46068) - [Release] Remove needless `docs:rc` task from 05-binary-upload.sh (#46069)
+* [GH-46070](https://github.com/apache/arrow/issues/46070) - [C++] Remove duplicate storage_type in JsonExtension (#46071)
+* [GH-46080](https://github.com/apache/arrow/issues/46080) - [Python][Docs] Provide guidance for tzdata related issues if installing with pip (#46591)
+* [GH-46084](https://github.com/apache/arrow/issues/46084) - [C++] Always use ARROW_VCPKG to detect vcpkg mode (#46467)
+* [GH-46090](https://github.com/apache/arrow/issues/46090) - [C++] Set default IPC option to enabled in Meson (#46114)
+* [GH-46094](https://github.com/apache/arrow/issues/46094) - [C++][Docs] Add note to RleDecoder::Get's doc comment (#46874)
+* [GH-46121](https://github.com/apache/arrow/issues/46121) - [Python] Add missing `column_index` argument to `ArrowReaderProperties::read_dictionary`'s Cython binding (#46122)
+* [GH-46127](https://github.com/apache/arrow/issues/46127) - [CI][Release] Make 02-source.sh test passable on fork (#46143)
+* [GH-46146](https://github.com/apache/arrow/issues/46146) - [C++] Merge metadata in SchemaBuidler::AddMetadata (#46654)
+* [GH-46149](https://github.com/apache/arrow/issues/46149) - [C++] Opening dataset fails with sshfs-3.7.3 due to F_RDADVISE error (#46346)
+* [GH-46157](https://github.com/apache/arrow/issues/46157) - [C++] Move test utility RunEndEncodeTableColumns that uses REE to test_util_internal on acero instead of common gtest_util (#46161)
+* [GH-46174](https://github.com/apache/arrow/issues/46174) - [Python] Failing tests in python minimal builds (#46175)
+* [GH-46192](https://github.com/apache/arrow/issues/46192) - [C++] Add `substrait` dep to third party download script (#46191)
+* [GH-46197](https://github.com/apache/arrow/issues/46197) - [C++] Tests use legacy timezones (#46201)
+* [GH-46214](https://github.com/apache/arrow/issues/46214) - [C++] Improve S3 client initialization (#46723)
+* [GH-46224](https://github.com/apache/arrow/issues/46224) - [C++][Acero] Fix the hang in asof join (#46300)
+* [GH-46231](https://github.com/apache/arrow/issues/46231) - [C++][CMake] Fix `arrow_bundled_dependencies` to be externally accessible by FetchContent (#46232)
+* [GH-46233](https://github.com/apache/arrow/issues/46233) - [C++] Fix missing nested braces in QueuedTask initialization (#46234)
+* [GH-46236](https://github.com/apache/arrow/issues/46236) - [Release][Packaging] Fix `dev/release/post-03-binary.sh` errors (#46237)
+* [GH-46238](https://github.com/apache/arrow/issues/46238) - [Release][Python] Use array to avoid empty argument in `dev/release/post-11-python.sh` (#46239)
+* [GH-46240](https://github.com/apache/arrow/issues/46240) - [Release][Packaging] Fix a bug that existing APT repositories' metadata are lost (#46287)
+* [GH-46242](https://github.com/apache/arrow/issues/46242) - [Release] Don't show gpg signature when getting release time (#46243)
+* [GH-46259](https://github.com/apache/arrow/issues/46259) - [CI] Remove deprecated flag from mamba info (#46260)
+* [GH-46262](https://github.com/apache/arrow/issues/46262) - [CI][Ruby] Don't update GCC of MSYS2 (#46278)
+* [GH-46268](https://github.com/apache/arrow/issues/46268) - [C++] Improve ArrayData docstrings (#46271)
+* [GH-46270](https://github.com/apache/arrow/issues/46270) - [C++][Parquet] Clarify GeoStatistics docstring (#46649)
+* [GH-46284](https://github.com/apache/arrow/issues/46284) - [Release][Packaging] Add missing APT metadata for .ddeb (#46288)
+* [GH-46296](https://github.com/apache/arrow/issues/46296) - [Swift] Add support for reading struct (#46302)
+* [GH-46299](https://github.com/apache/arrow/issues/46299) - [C++][Compute] Don't use `static inline const` for default options (#46303)
+* [GH-46304](https://github.com/apache/arrow/issues/46304) - [Release][Packaging] Use optimized debug build for .deb (#46392)
+* [GH-46306](https://github.com/apache/arrow/issues/46306) - [C++][Parquet] Should use LoadEnumSafe for geo enum (#46307)
+* [GH-46314](https://github.com/apache/arrow/issues/46314) - [C++][Parquet] Fix valgrind error when collecting parameterized tests for MakeWKBPoint (#46320)
+* [GH-46326](https://github.com/apache/arrow/issues/46326) - [C++][Parquet] Fix stack overflow in rapidjson value comparison to integer (#46327)
+* [GH-46333](https://github.com/apache/arrow/issues/46333) - [CI] Always pass `--yes` to `mamba clean` (#46341)
+* [GH-46333](https://github.com/apache/arrow/issues/46333) - [CI] Explicitly pass `--yes` to `mamba clean` (#46334)
+* [GH-46343](https://github.com/apache/arrow/issues/46343) - [CI][Python] Remove workaround for gdb packaging issue (#46848)
+* [GH-46343](https://github.com/apache/arrow/issues/46343) - [CI] Avoid installing gdb 16.3 on python 3.10 jobs to fix CI (#46511)
+* [GH-46344](https://github.com/apache/arrow/issues/46344) - [CI][Python] Skip doctest for s3.get_file_info to avoid bucket restrictions (#46345)
+* [GH-46351](https://github.com/apache/arrow/issues/46351) - [Archery][Docs] Fix the cli argument parsing bug in docker subcommand (#46352)
+* [GH-46355](https://github.com/apache/arrow/issues/46355) - [Python] Fix table.to_struct_array with an empty table (#46357)
+* [GH-46359](https://github.com/apache/arrow/issues/46359) - [C++][Thirdparty] Bump Apache ORC to 2.1.2 (#46360)
+* [GH-46362](https://github.com/apache/arrow/issues/46362) - [CGLib][Packaging] Use -fPIE explicitly for g-ir-scanner (#46366)
+* [GH-46363](https://github.com/apache/arrow/issues/46363) - [CI][Packaging] Use mono from community repository on Alpine instead of from testing (#46364)
+* [GH-46394](https://github.com/apache/arrow/issues/46394) - [C++][R] gcc-UBSAN errors on CRAN  (#46397)
+* [GH-46395](https://github.com/apache/arrow/issues/46395) - [C++][Statistics] Use EqualOptions for min and max in arrow::ArrayStatistics::Equals() (#46422)
+* [GH-46407](https://github.com/apache/arrow/issues/46407) - [C++] Fix IPC serialization of sliced list arrays (#46408)
+* [GH-46414](https://github.com/apache/arrow/issues/46414) - [C++] Fix GCS filesystem getFileInfo method (#46416)
+* [GH-46417](https://github.com/apache/arrow/issues/46417) - [C++][Parquet] Fix UB in LoadEnumSafe for EdgeInterpolationAlgorithm (#46418)
+* [GH-46419](https://github.com/apache/arrow/issues/46419) - [C++] Remove duplicate declaration and sync arg names on acero test_util_internal functions (#45400)
+* [GH-46420](https://github.com/apache/arrow/issues/46420) - [C++][Dataset] Fix DatasetWriter deadlock on writting batch greater than max_rows_queued (#46139)
+* [GH-46424](https://github.com/apache/arrow/issues/46424) - [C++][Parquet] Fix erroneous unit test skip (#46425)
+* [GH-46435](https://github.com/apache/arrow/issues/46435) - [Parquet][C++] Fix uninitialized value in writer test (#46533)
+* [GH-46442](https://github.com/apache/arrow/issues/46442) - [R] hms::as_hms tests fail on some of our crossbow builds (#46443)
+* [GH-46456](https://github.com/apache/arrow/issues/46456) - [GLib] Add missing `since:` tag (#46457)
+* [GH-46478](https://github.com/apache/arrow/issues/46478) - [C++] Implement recent JSON changes into Meson configuration (#46479)
+* [GH-46481](https://github.com/apache/arrow/issues/46481) - [C++][Python] Allow nullable schema in FlightInfo (#46489)
+* [GH-46512](https://github.com/apache/arrow/issues/46512) - [CI][C++] Install the llvm package explicitly on MSYS2 (#46525)
+* [GH-46516](https://github.com/apache/arrow/issues/46516) - [CI][Python] Force Cython>3.1.1 for docs builds (#46770)
+* [GH-46523](https://github.com/apache/arrow/issues/46523) - [GLib] Fix compiler warning: use gsize instead of int (#46524)
+* [GH-46538](https://github.com/apache/arrow/issues/46538) - [CI][Packaging][AlmaLinux8] Ensure pip3 (#46539)
+* [GH-46564](https://github.com/apache/arrow/issues/46564) - [C++] Export ARROW_VCPKG in ArrowConfig.cmake (#46565)
+* [GH-46576](https://github.com/apache/arrow/issues/46576) - [C++] Suppress `codecvt_utf8` deprecation warning (#46622)
+* [GH-46589](https://github.com/apache/arrow/issues/46589) - [C++] Fix utf8_is_digit to support full Unicode digit range (#46590)
+* [GH-46593](https://github.com/apache/arrow/issues/46593) - [CI][Integration] Disable nested log grouping (#46594)
+* [GH-46598](https://github.com/apache/arrow/issues/46598) - [Dev] Use language name for alias (#46602)
+* [GH-46599](https://github.com/apache/arrow/issues/46599) - [C++][Doc][Parquet] Update supported types documentation (#46620)
+* [GH-46605](https://github.com/apache/arrow/issues/46605) - [CI][Release][C#] Update download URL for dotnet on verification script (#46612)
+* [GH-46606](https://github.com/apache/arrow/issues/46606) - [Python] Do not require numpy when normalizing slice (#46732)
+* [GH-46609](https://github.com/apache/arrow/issues/46609) - [Release][CI] Use System GTest for macos verification (#46823)
+* [GH-46610](https://github.com/apache/arrow/issues/46610) - [CI][Release] Use Python 3.12 on AlmaLinux 8 (#46621)
+* [GH-46611](https://github.com/apache/arrow/issues/46611) - [Python][C++] Allow building float16 arrays without numpy (#46618)
+* [GH-46623](https://github.com/apache/arrow/issues/46623) - [C++][Compute] Fix the failure of large memory test in arrow-compute-row-test (#46635)
+* [GH-46636](https://github.com/apache/arrow/issues/46636) - [R] Fix evaluation of external objects not in global environment in `case_when()` (#46667)
+* [GH-46659](https://github.com/apache/arrow/issues/46659) - [C++] Fix export of extension arrays with binary view/string view storage (#46660)
+* [GH-46673](https://github.com/apache/arrow/issues/46673) - [CI][R][Docs] Accept empty INSTALL_ARGS again (#46682)
+* [GH-46674](https://github.com/apache/arrow/issues/46674) - [C++] Construct Array from ExtensionType Scalar (#46675)
+* [GH-46684](https://github.com/apache/arrow/issues/46684) - [C++] Fix Meson configuration issue on Windows (#46685)
+* [GH-46688](https://github.com/apache/arrow/issues/46688) - [Ruby] Fix a typo (#46689)
+* [GH-46691](https://github.com/apache/arrow/issues/46691) - [CI][Packaging] Update platform tag on generated wheel name to match newest auditwheel naming (#46705)
+* [GH-46693](https://github.com/apache/arrow/issues/46693) - [CI] Update GitHub hosted runner from deprecated windows-2019 to windows-2022 (#46694)
+* [GH-46704](https://github.com/apache/arrow/issues/46704) - [C++] Fix OSS-Fuzz build failure (#46706)
+* [GH-46708](https://github.com/apache/arrow/issues/46708) - [C++][Gandiva] Added zero return values for castDECIMAL_utf8 (#46709)
+* [GH-46710](https://github.com/apache/arrow/issues/46710) - [C++] Fix ownership and lifetime issues in Dataset Writer (#46711)
+* [GH-46717](https://github.com/apache/arrow/issues/46717) - [R][Docs] Add missing "internal" keywords for internal function (#46722)
+* [GH-46724](https://github.com/apache/arrow/issues/46724) - [C++][Parquet] OSSFuzz: Prevent from Bad-cast in handling statistics (#46725)
+* [GH-46729](https://github.com/apache/arrow/issues/46729) - [Python] Allow constructing InMemoryDataset from RecordBatchReader (#46731)
+* [GH-46736](https://github.com/apache/arrow/issues/46736) - [CI] Disable Parquet in conan-minimum (#46744)
+* [GH-46761](https://github.com/apache/arrow/issues/46761) - [C++] Add executable detection on FreeBSD (#46759)
+* [GH-46764](https://github.com/apache/arrow/issues/46764) - [C++][Gandiva] Fix wrong `.bc` depends (#46765)
+* [GH-46777](https://github.com/apache/arrow/issues/46777) - [C++] Use SimplifyIsIn only when the value_set of the expression is lower than a threshold (#46859)
+* [GH-46782](https://github.com/apache/arrow/issues/46782) - [Docs] Link to same version of docs from Implementations page
+* [GH-46805](https://github.com/apache/arrow/issues/46805) - [CI][Dev] Fix caching for R hooks in lint job (#46812)
+* [GH-46809](https://github.com/apache/arrow/issues/46809) - [CI][Packaging] Stop trying to add headers from arrow/compu… (#46810)
+* [GH-46811](https://github.com/apache/arrow/issues/46811) - [C++][Python] Fix crash on FileReaderImpl::GetRecordBatchReader (#46931)
+* [GH-46816](https://github.com/apache/arrow/issues/46816) - [Docs] Fix links to Swift docs and source (#46817)
+* [GH-46827](https://github.com/apache/arrow/issues/46827) - [C++] Update Meson Configuration for compute shared lib (#46839)
+* [GH-46831](https://github.com/apache/arrow/issues/46831) - [C++][R] Remove some pending references to CMake < 3.25 (docs + minor CMake references) (#46834)
+* [GH-46841](https://github.com/apache/arrow/issues/46841) - [C++][Gandiva] Fix date trunc edge case (#46842)
+* [GH-46863](https://github.com/apache/arrow/issues/46863) - [CI][C++] Suppress a false positive UBSAN error in AWS SDK for C++ (#46870)
+* [GH-46871](https://github.com/apache/arrow/issues/46871) - [C++][Parquet] Restore implementation of 3 arrow::FileReader::GetRecordBatchReader() functions (#46868)
+* [GH-46879](https://github.com/apache/arrow/issues/46879) - [CI][Packaging][Linux] Don't check example build with old CMake (#46880)
+* [GH-46888](https://github.com/apache/arrow/issues/46888) - [C++] Remove override of default buildtype in Meson config (#46919)
+* [GH-46915](https://github.com/apache/arrow/issues/46915) - [C++][Compute] Initialize Compute kernels on benchmarks that require extra kernels (#46922)
+* [GH-46916](https://github.com/apache/arrow/issues/46916) - [R] Test for negative fractional dates fails on older R versions due to change in base R as.Date() (#46917)
+* [GH-46920](https://github.com/apache/arrow/issues/46920) - [FlightRPC] Fix Flight SQL ColumnMetadata retrieval (#46921)
+* [GH-46934](https://github.com/apache/arrow/issues/46934) - [C++][Parquet] Trying to fix ub in AttachStatistics (#46940)
+* [GH-46947](https://github.com/apache/arrow/issues/46947) - [R][Packaging] Add src/arrow/flight/sql/odbc to source excludes (#46948)
+* [GH-46964](https://github.com/apache/arrow/issues/46964) - [CI][Packaging][Conan] Ensure using upper case for config suffix (#46967)
+* [GH-46986](https://github.com/apache/arrow/issues/46986) - [CI][C++] Fix a build error with C++20 (#46987)
+* [GH-46988](https://github.com/apache/arrow/issues/46988) - [C++][Parquet] Fix FLBA DecodeArrow multiply overflow (#46991)
+* [GH-46989](https://github.com/apache/arrow/issues/46989) - [CI][R] Use Ubuntu 20.04 instead of OpenSUSE for R 4.1 (#46990)
+* [GH-46995](https://github.com/apache/arrow/issues/46995) - [CI][R][C++] Use system memory allocator in sanitizer jobs (#47007)
+* [GH-46998](https://github.com/apache/arrow/issues/46998) - [C++] Fix mockfs.cc compiling error with C++23 (#46999)
+* [GH-47015](https://github.com/apache/arrow/issues/47015) - [CI][C++] Use mold on conda-cpp to work around issues with GNU ld (#47028)
+* [GH-47033](https://github.com/apache/arrow/issues/47033) - [C++][Compute] Never use custom gtest main with MSVC (#47049)
+* [GH-47037](https://github.com/apache/arrow/issues/47037) - [CI][C++] Fix Fedora 39 CI jobs (#47038)
+* [GH-47061](https://github.com/apache/arrow/issues/47061) - [Release] Fix wrong variable name for signing (#47062)
+* [GH-47063](https://github.com/apache/arrow/issues/47063) - [Release] Define missing RELEASE_TARBALL (#47064)
+* [GH-47065](https://github.com/apache/arrow/issues/47065) - [Release] Fix timeout key in verify_rc.yml (#47066)
+* [GH-47067](https://github.com/apache/arrow/issues/47067) - [Release] Fix wrong GitHub Actions context in verify_rc.yml (#47068)
+* [GH-47069](https://github.com/apache/arrow/issues/47069) - [Release] Add missing "needs: target" (#47070)
+* [GH-47071](https://github.com/apache/arrow/issues/47071) - [Release] Dereference all hard links in source archive (#47072)
+* [GH-47074](https://github.com/apache/arrow/issues/47074) - [Release] Use reproducible mtime for csharp/ in source archive (#47076)
+* [GH-47078](https://github.com/apache/arrow/issues/47078) - [Release] Ensure using cloned apache/arrow for reproducible check (#47079)
+
+
+## New Features and Improvements
+
+* [GH-25025](https://github.com/apache/arrow/issues/25025) - [C++] Move non core compute kernels into separate shared library (#46261)
+* [GH-26818](https://github.com/apache/arrow/issues/26818) - [C++][Python] Preserve order when writing dataset multi-threaded (#44470)
+* [GH-35419](https://github.com/apache/arrow/issues/35419) - [GLib] Add GArrowFixedShapeTensorDataType (#46305)
+* [GH-35644](https://github.com/apache/arrow/issues/35644) - [MATLAB] Add tests verifying `arrow.array.<Type>Array.fromMATLAB()` throws an exception if given an array with the wrong type.  (#47020)
+* [GH-36753](https://github.com/apache/arrow/issues/36753) - [C++] Properly pretty-print and diff HalfFloatArrays (#46857)
+* [GH-37027](https://github.com/apache/arrow/issues/37027) - [C++] Add float16 kernels to if-else and vector-replace functions (#46446)
+* [GH-37561](https://github.com/apache/arrow/issues/37561) - [Ruby] Add empty chunked array tests for Arrow::Table#each_raw_records (#46862)
+* [GH-37577](https://github.com/apache/arrow/issues/37577) - [MATLAB] Create a superclass for `DateType`-related MATLAB tests (#46923)
+* [GH-37677](https://github.com/apache/arrow/issues/37677) - [C++][FlightRPC] Allow FlightInfo.schema to be nullable
+* [GH-37891](https://github.com/apache/arrow/issues/37891) - [C++][Parquet] Refine several classes in Parquet encryption (#46202)
+* [GH-37891](https://github.com/apache/arrow/issues/37891) - [C++] Followup Buffer change to use sptr move (#46027)
+* [GH-38214](https://github.com/apache/arrow/issues/38214) - [MATLAB] Add a common `arrow.tabular.Tabular` MATLAB interface (#47014)
+* [GH-38369](https://github.com/apache/arrow/issues/38369) - [MATLAB] Create utility functions for simplifying management of `Proxy` instances for `Array`s (#46907)
+* [GH-38903](https://github.com/apache/arrow/issues/38903) - [R][Docs] Improve documentation of col_types (#46145)
+* [GH-38914](https://github.com/apache/arrow/issues/38914) - [Python] Add EncryptionConfiguration.uniform_encryption (#46347)
+* [GH-39294](https://github.com/apache/arrow/issues/39294) - [C++][Python] DLPack on Tensor class (#42118)
+* [GH-39759](https://github.com/apache/arrow/issues/39759) - [Docs] Update pydata-sphinx-theme to 0.16.1 (#46943)
+* [GH-40278](https://github.com/apache/arrow/issues/40278) - [C++] Support casting string to duration in CSV converter (#46035)
+* [GH-40343](https://github.com/apache/arrow/issues/40343) - [C++] Move S3FileSystem to the registry (#41559)
+* [GH-40754](https://github.com/apache/arrow/issues/40754) - [Python] Expose tls_ca_file_path to S3FileSystem (#45881)
+* [GH-41496](https://github.com/apache/arrow/issues/41496) - [Python][Azure][Docs] Turn on azure on debian-docs (#46892)
+* [GH-41672](https://github.com/apache/arrow/issues/41672) - [Python][Doc] Clarify docstring of FixedSizeListArray.values that it ignores the offset (#46144)
+* [GH-41973](https://github.com/apache/arrow/issues/41973) - Expose new S3 option check_directory_existence_before_creation - manual rebase (#46619)
+* [GH-42012](https://github.com/apache/arrow/issues/42012) - [Python] Add Schema with_field or set_field method (#46348)
+* [GH-43041](https://github.com/apache/arrow/issues/43041) - [C++][Python] Read/write Parquet BYTE_ARRAY as Large/View types directly (#46532)
+* [GH-43170](https://github.com/apache/arrow/issues/43170) - [Swift] Add StructArray support to ArrowWriter (#43439)
+* [GH-43623](https://github.com/apache/arrow/issues/43623) - [R] remove libarrow backwards compatibility enforcement (#46491)
+* [GH-43807](https://github.com/apache/arrow/issues/43807) - [C++][Python] Add UUID extension type conversion support to/from Parquet (#45866)
+* [GH-43891](https://github.com/apache/arrow/issues/43891) - [C++][Parquet] Faster reading of FIXED_LEN_BYTE_ARRAY data (#46886)
+* [GH-44208](https://github.com/apache/arrow/issues/44208) - [R] Adding test to ensure bit64's new semantic works with arrow (#46651)
+* [GH-44435](https://github.com/apache/arrow/issues/44435) - [GLib] Add distinct count support to GArrowArrayStatistics (#46894)
+* [GH-44500](https://github.com/apache/arrow/issues/44500) - [Python][Parquet] Map Parquet logical types to Arrow extension types by default (#46772)
+* [GH-44900](https://github.com/apache/arrow/issues/44900) - [Python] Support explicit `fsspec+{protocol}` and `hf://` filesystem URIs (#45089)
+* [GH-44953](https://github.com/apache/arrow/issues/44953) - [R] Add R bindings for new compute functions (#44971)
+* [GH-45028](https://github.com/apache/arrow/issues/45028) - [C++][Compute] Allow cast to reorder struct fields (#45246)
+* [GH-45083](https://github.com/apache/arrow/issues/45083) - [C++] Add HalfFloat kernels for is_nan, is_inf, is_finite, negate, negate_checked, sign (#46866)
+* [GH-45195](https://github.com/apache/arrow/issues/45195) - [C++] Update bundled AWS SDK for C++ to 1.11.587 (#45306)
+* [GH-45229](https://github.com/apache/arrow/issues/45229) - [Python] Migrate from scipy.spmatrix to scipy.sparray (#46423)
+* [GH-45229](https://github.com/apache/arrow/issues/45229) - [Python] skip scipy.sparse roundtrip tests for float16 (#46413)
+* [GH-45290](https://github.com/apache/arrow/issues/45290) - [Docs][Release] Change show_version_warning_banner substitution (#46883)
+* [GH-45522](https://github.com/apache/arrow/issues/45522) - [Parquet][C++] Parquet GEOMETRY and GEOGRAPHY logical type implementations (#45459)
+* [GH-45531](https://github.com/apache/arrow/issues/45531) - [Python] Add the `dim_names` argument to `from_numpy_ndarray` (#46170)
+* [GH-45619](https://github.com/apache/arrow/issues/45619) - [Python] Use f-string instead of string.format (#45629)
+* [GH-45643](https://github.com/apache/arrow/issues/45643) - [R] Implement hms functions to create and manipulate time of day variables (#46206)
+* [GH-45653](https://github.com/apache/arrow/issues/45653) - [Python] Scalar subclasses should implement Python protocols (#45818)
+* [GH-45664](https://github.com/apache/arrow/issues/45664) - [C++] Allow LargeString,LargeBinary,FixedSizeBinary,StringView and BinaryView for RecordBatch::MakeStatisticsArray() (#46031)
+* [GH-45713](https://github.com/apache/arrow/issues/45713) - [GLib] Add garrow_chunked_array_(import|export)() (#46876)
+* [GH-45750](https://github.com/apache/arrow/issues/45750) - [C++][Python][Parquet] Implement Content-Defined Chunking for the Parquet writer (#45360)
+* [GH-45794](https://github.com/apache/arrow/issues/45794) - [C++] Add array directory to Meson configuration (#45795)
+* [GH-45796](https://github.com/apache/arrow/issues/45796) - [C++] Add integration directory to Meson configuration (#45797)
+* [GH-45798](https://github.com/apache/arrow/issues/45798) - [C++] Add extension directory to Meson (#45799)
+* [GH-45800](https://github.com/apache/arrow/issues/45800) - [C++] Implement util configuration in Meson (#45824)
+* [GH-45829](https://github.com/apache/arrow/issues/45829) - [C++] Add compute directory to Meson configuration (#45830)
+* [GH-45833](https://github.com/apache/arrow/issues/45833) - [C++] Add JSON directory to Meson configuration (#45834)
+* [GH-45865](https://github.com/apache/arrow/issues/45865) - [C++] Create dedicated benchmark dependency in Meson (#45909)
+* [GH-45908](https://github.com/apache/arrow/issues/45908) - [C++][Docs] Rename and expose basic {Array,...}FromJSON helpers as public APIs (#46180)
+* [GH-45957](https://github.com/apache/arrow/issues/45957) - [C++][Python] Expose `allow_delayed_open` on S3FileSystem (#46078)
+* [GH-45978](https://github.com/apache/arrow/issues/45978) - [C++] Bump bundled mimalloc version (#45979)
+* [GH-45991](https://github.com/apache/arrow/issues/45991) - [C++] Bump bundled nlohmann_json to v3.12.0 (#46112)
+* [GH-45992](https://github.com/apache/arrow/issues/45992) - [C++] Bump bundled utf8proc version to 2.10.0 (#46032)
+* [GH-46019](https://github.com/apache/arrow/issues/46019) - [Python] Raise TypeError on feather read_table if columns is not a Sequence (#46038)
+* [GH-46054](https://github.com/apache/arrow/issues/46054) - [Python][Packaging] Re-enable pandas on Windows free-threaded wheel (#46109)
+* [GH-46058](https://github.com/apache/arrow/issues/46058) - [Python] Run Python in AppVeyor outside of source directory (#46059)
+* [GH-46087](https://github.com/apache/arrow/issues/46087) - [FlightSQL] Allow returning column remarks in FlightSQL's CommandGetTables (#46110)
+* [GH-46091](https://github.com/apache/arrow/issues/46091) - [C++] Use feature options in Meson configuration (#46204)
+* [GH-46092](https://github.com/apache/arrow/issues/46092) - [C++] Add filesystem related options to Meson (#46101)
+* [GH-46104](https://github.com/apache/arrow/issues/46104) - GH-45937: [C++][Parquet] Logical type definition for variant
+* [GH-46115](https://github.com/apache/arrow/issues/46115) - [C++] Implement compression libraries in Meson (#46358)
+* [GH-46116](https://github.com/apache/arrow/issues/46116) - [C++] Implement IPC directory in Meson (#46117)
+* [GH-46118](https://github.com/apache/arrow/issues/46118) - [C++] Add tensor directory to Meson (#46119)
+* [GH-46130](https://github.com/apache/arrow/issues/46130) - [Python] Remove `use_legacy_format` in favour of setting `IpcWriteOptions` (#46131)
+* [GH-46132](https://github.com/apache/arrow/issues/46132) - [C++][Parquet] Remove deprecated parquet APIs from 19.0.0 (#46133)
+* [GH-46141](https://github.com/apache/arrow/issues/46141) - [C++] Add flight directory to Meson configuration (#46142)
+* [GH-46153](https://github.com/apache/arrow/issues/46153) - [C++] Implement acero directory in Meson (#46154)
+* [GH-46155](https://github.com/apache/arrow/issues/46155) - [C++] Implement Tensorflow directory in Meson (#46156)
+* [GH-46163](https://github.com/apache/arrow/issues/46163) - [C++] Add vendored directory to Meson (#46164)
+* [GH-46189](https://github.com/apache/arrow/issues/46189) - [C#] Use pooled buffers in ArrowStreamWriter (#46190)
+* [GH-46196](https://github.com/apache/arrow/issues/46196) - [C++] Remove ARROW_USE_PRECOMPILED_HEADERS and related logic (#46200)
+* [GH-46198](https://github.com/apache/arrow/issues/46198) - [Python] Remove deprecated PyExtensionType (#46199)
+* [GH-46207](https://github.com/apache/arrow/issues/46207) - [C++] Rename arrow::util::StringBuilder and move to internal namespace (#46813)
+* [GH-46209](https://github.com/apache/arrow/issues/46209) - [Documentation][C++][Compute] Add cpp developer documentation for row table (#46210)
+* [GH-46215](https://github.com/apache/arrow/issues/46215) - [C++][Docs] Add README for Meson subprojects directory (#46216)
+* [GH-46217](https://github.com/apache/arrow/issues/46217) - [C++][Parquet] Update the timestamp of parquet::encryption::TwoLevelCacheWithExpiration correctly (#46283)
+* [GH-46219](https://github.com/apache/arrow/issues/46219) - [C++][Parquet] Remove PARQUET_MINIMAL_DEPENDENCY option (#46274)
+* [GH-46222](https://github.com/apache/arrow/issues/46222) - [Python] Allow to specify footer metadata when opening IPC file for writing (#46354)
+* [GH-46241](https://github.com/apache/arrow/issues/46241) - [Release][Packaging] Add support for regenerating metadata of APT repositories (#46277)
+* [GH-46245](https://github.com/apache/arrow/issues/46245) - [Swift] Upgrade `FlatBuffers` to v25.2.10 (#46246)
+* [GH-46250](https://github.com/apache/arrow/issues/46250) - [Swift] Update `swift-tools-version` to 5.10 (#46252)
+* [GH-46285](https://github.com/apache/arrow/issues/46285) - [C++] Add support for Decimal32/64 and HalfFloat to run_end_encode/run_end_decode (#46286)
+* [GH-46289](https://github.com/apache/arrow/issues/46289) - [Release][Packaging] Verify APT/Yum repositories keeps working for old versions (#46292)
+* [GH-46290](https://github.com/apache/arrow/issues/46290) - [Swift] Upgrade `grpc-swift` to `1.25.0` and `swift-protobuf` to `1.29.0` (#46291)
+* [GH-46318](https://github.com/apache/arrow/issues/46318) - [Docs][C++] Add Extension Array/Type documents (#46319)
+* [GH-46321](https://github.com/apache/arrow/issues/46321) - [C++][Doc] Better explain ArrayData IsValid and GetNullCount (#46332)
+* [GH-46336](https://github.com/apache/arrow/issues/46336) - [Release][Packaging] Add support for Reproducible Builds for source archive (#46342)
+* [GH-46338](https://github.com/apache/arrow/issues/46338) - [C++] Add compile step for Meson in cpp_build.sh (#46339)
+* [GH-46349](https://github.com/apache/arrow/issues/46349) - [Python] Move parquet definitions to pyarrow/includes/libparquet.pxd (#46437)
+* [GH-46367](https://github.com/apache/arrow/issues/46367) - [C++] Prevent Meson from using git info if built as subproject (#46368)
+* [GH-46373](https://github.com/apache/arrow/issues/46373) - [Python] Exercise fallback case on tests for parquet.read_table in case dataset is not available (#46550)
+* [GH-46376](https://github.com/apache/arrow/issues/46376) - [Docs] Replace Xitter link with BlueSky link (#46402)
+* [GH-46378](https://github.com/apache/arrow/issues/46378) - [Docs] Remove references to autotune from the docs (#46379)
+* [GH-46380](https://github.com/apache/arrow/issues/46380) - [GLib] Add GArrowFixedShapeDataType#shape (#46381)
+* [GH-46386](https://github.com/apache/arrow/issues/46386) - [C++] Ensure using our CMake packages not Find*.cmake (#46387)
+* [GH-46388](https://github.com/apache/arrow/issues/46388) - [C++] Check `Snappy::snappy{,-static}` in `FindSnappyAlt.cmake` (#46389)
+* [GH-46396](https://github.com/apache/arrow/issues/46396) - [C++][Documentation][Statistics] Revise the documentation to clarify that arrow::ArrayStatistics is ignored during arrow::Array comparisons (#46470)
+* [GH-46398](https://github.com/apache/arrow/issues/46398) - [GLib] Add GArrowFixedShapeTensorDataType#n_dimensions (#46399)
+* [GH-46400](https://github.com/apache/arrow/issues/46400) - [GLib] Add GArrowFixedShapeDataType#permutation (#46401)
+* [GH-46403](https://github.com/apache/arrow/issues/46403) - [C++] Add support for limiting element size when printing data (#46536)
+* [GH-46433](https://github.com/apache/arrow/issues/46433) - [GLib] Add GArrowFixedShapeDataType#dim_names (#46434)
+* [GH-46439](https://github.com/apache/arrow/issues/46439) - [C++] Use result pattern for all FromJSONString Helpers (#46696)
+* [GH-46439](https://github.com/apache/arrow/issues/46439) - [C++] Rename internal Converter class in from_string.cc (#46697)
+* [GH-46439](https://github.com/apache/arrow/issues/46439) - [C++] Remove unneeded namespace prefix in test_util_internal.h (#46695)
+* [GH-46444](https://github.com/apache/arrow/issues/46444) - [Documentation][C++][Acero] Move internal Swiss table doc into public C++ developer doc (#46445)
+* [GH-46450](https://github.com/apache/arrow/issues/46450) - [GLib] Add GArrowFixedShapeDataType#strides (#46451)
+* [GH-46459](https://github.com/apache/arrow/issues/46459) - [C++] Make some arrow/util headers internal (#46721)
+* [GH-46462](https://github.com/apache/arrow/issues/46462) - [C++][Parquet] Expose currently thrown EncodedStatistics when checking is_stats_set (#46463)
+* [GH-46473](https://github.com/apache/arrow/issues/46473) - [C++][Docs] Fix typos in decimal comments (#46474)
+* [GH-46475](https://github.com/apache/arrow/issues/46475) - [Documentation][C++][Compute] Consolidate Acero developer docs (#46476)
+* [GH-46477](https://github.com/apache/arrow/issues/46477) - [C++] Use vendored flatbuffers in Meson configuration (#46484)
+* [GH-46482](https://github.com/apache/arrow/issues/46482) - [CI][Dev] Add shellcheck files without change (#46483)
+* [GH-46487](https://github.com/apache/arrow/issues/46487) - [C++] Refactor lz4 from ExternalProject to FetchContent (#46390)
+* [GH-46490](https://github.com/apache/arrow/issues/46490) - [CI][Dev] Add shellcheck ci/scripts/install_ccache.sh (#46492)
+* [GH-46494](https://github.com/apache/arrow/issues/46494) - [CI][Dev] Add shellcheck files without change (#46495)
+* [GH-46496](https://github.com/apache/arrow/issues/46496) - [CI][Dev] Fix shellcheck SC2086 errors in ci/scripts directory (#46497)
+* [GH-46499](https://github.com/apache/arrow/issues/46499) - [CI][Crossbow][C++] Use apache/arrow for Meson (#46501)
+* [GH-46500](https://github.com/apache/arrow/issues/46500) - [CI][Java] Remove CI scripts for Java (#46502)
+* [GH-46508](https://github.com/apache/arrow/issues/46508) - [C++] Upgrade OpenTelemetry cpp to avoid build error on recent Clang (#46509)
+* [GH-46520](https://github.com/apache/arrow/issues/46520) - [Docs] Fix variety of warnings and errors in the docs build (#46521)
+* [GH-46522](https://github.com/apache/arrow/issues/46522) - [C++][FlightRPC] Add Arrow Flight SQL ODBC driver (#40939)
+* [GH-46526](https://github.com/apache/arrow/issues/46526) - [CI][Dev] Fix shellcheck SC2086 and SC2223 errors ci/scripts directory (#46527)
+* [GH-46528](https://github.com/apache/arrow/issues/46528) - [CI][Dev] Remove "archery lint" (#46686)
+* [GH-46529](https://github.com/apache/arrow/issues/46529) - [C++] Convert static inline type trait functions to constexpr (#46559)
+* [GH-46537](https://github.com/apache/arrow/issues/46537) - [Docs][C++] Add RunEndEncodedArray, FlatArray, and PrimitiveArray API Docs (#46540)
+* [GH-46544](https://github.com/apache/arrow/issues/46544) - [CI][Dev][Python] Use pre-commit for autopep8 (#46552)
+* [GH-46545](https://github.com/apache/arrow/issues/46545) - [CI][Dev][Python] Update pre-commit for cython-lint (#46580)
+* [GH-46546](https://github.com/apache/arrow/issues/46546) - [CI][Dev][Python] Use pre-commit for numpydoc (#46595)
+* [GH-46547](https://github.com/apache/arrow/issues/46547) - [CI][Dev][R] Use pre-commit for lintr (#46581)
+* [GH-46548](https://github.com/apache/arrow/issues/46548) - [CI][Dev][R] Use pre-commit for cpplint (#46549)
+* [GH-46551](https://github.com/apache/arrow/issues/46551) - [C++] Use `std::string_view` for type schema API (#46553)
+* [GH-46556](https://github.com/apache/arrow/issues/46556) - [GLib] Add GArrowUUIDDataType (#46558)
+* [GH-46569](https://github.com/apache/arrow/issues/46569) - [CI][Integration] Use apache/arrow-js for JS (#46570)
+* [GH-46572](https://github.com/apache/arrow/issues/46572) - [Python] expose filter option to python for join (#46566)
+* [GH-46585](https://github.com/apache/arrow/issues/46585) - [JS][Dev] Remove dependabot configuration for JS (#46586)
+* [GH-46587](https://github.com/apache/arrow/issues/46587) - [CI][JS] Remove JS related test CI (#46588)
+* [GH-46603](https://github.com/apache/arrow/issues/46603) - [JS][Release] Remove JavaScript related release code (#46604)
+* [GH-46613](https://github.com/apache/arrow/issues/46613) - [GLib] Add GArrowBaseListDataType (#46615)
+* [GH-46632](https://github.com/apache/arrow/issues/46632) - [R][Docs] Add docs for arrow::one (#46648)
+* [GH-46633](https://github.com/apache/arrow/issues/46633) - [Docs][C++][Python] Update CombineChunks documentation to specify that binary columns can be combined into multiple chunks (#46638)
+* [GH-46642](https://github.com/apache/arrow/issues/46642) - [Format] Add footnote clarifying REE layout has O(log n) random access (#46643)
+* [GH-46645](https://github.com/apache/arrow/issues/46645) - [CI][Dev][R] Use pre-commit for styler (#46664)
+* [GH-46652](https://github.com/apache/arrow/issues/46652) - [Python][Docs] Update language for row_group_size parameter (#46653)
+* [GH-46656](https://github.com/apache/arrow/issues/46656) - [CI][Dev] Fix shellcheck SC2034 and SC2086 errors in ci/scripts directory (#46657)
+* [GH-46662](https://github.com/apache/arrow/issues/46662) - [CI][Dev] Fix shellcheck SC2148 errors in ci/scripts directory (#46663)
+* [GH-46665](https://github.com/apache/arrow/issues/46665) - [CI][Crossbow][C++] Use apache/arrow for Alpine Linux (#46666)
+* [GH-46676](https://github.com/apache/arrow/issues/46676) - [C++][Python][Parquet] Allow reading Parquet LIST data as LargeList directly (#46678)
+* [GH-46679](https://github.com/apache/arrow/issues/46679) - [C++][Meson] Use WrapDB entry for gflags instead of CMake wrapper (#46680)
+* [GH-46683](https://github.com/apache/arrow/issues/46683) - [C++][Python] Add utf8_zero_fill compute function for sign-aware zero padding (#46815)
+* [GH-46699](https://github.com/apache/arrow/issues/46699) - [CI][Dev] fix shellcheck errors in the ci/scripts/cpp_test.sh (#46700)
+* [GH-46702](https://github.com/apache/arrow/issues/46702) - [JS] Remove js/ (#46703)
+* [GH-46714](https://github.com/apache/arrow/issues/46714) - [C++] Use hidden symbol visibility in Meson configuration (#46715)
+* [GH-46719](https://github.com/apache/arrow/issues/46719) - [R] Add 32 and 64 bit Decimal types  (#46720)
+* [GH-46726](https://github.com/apache/arrow/issues/46726) - [CI][Dev] fix shellcheck errors in the ci/scripts/conan_build.sh (#46727)
+* [GH-46740](https://github.com/apache/arrow/issues/46740) - [C++] Update bundled Thrift
+* [GH-46745](https://github.com/apache/arrow/issues/46745) - [C++] Update bundled Boost to 1.88.0 and Apache Thrift to 0.22.0 (#46912)
+* [GH-46746](https://github.com/apache/arrow/issues/46746) - [C++] Assume AWS SDK >= 1.11.0 (#46742)
+* [GH-46748](https://github.com/apache/arrow/issues/46748) - [C++] Initial port on AIX (#46749)
+* [GH-46757](https://github.com/apache/arrow/issues/46757) - [CI][Packaging][Conan] Synchronize upstream conan (#46758)
+* [GH-46763](https://github.com/apache/arrow/issues/46763) - [CI][Dev] fix shellcheck errors in the ci/scripts/ccache_setup.sh (#46766)
+* [GH-46767](https://github.com/apache/arrow/issues/46767) - [C++] Enable EqualOptions::use_atol_ for arrow::Array, arrow::Scalar, arrow::RecordBatch, and arrow::ChuckedArray (#46779)
+* [GH-46771](https://github.com/apache/arrow/issues/46771) - [Python][C++] Implement pa.arange function to generate array sequences (#46778)
+* [GH-46773](https://github.com/apache/arrow/issues/46773) - [GLib] Add GArrowFixedSizeListDataType (#46774)
+* [GH-46775](https://github.com/apache/arrow/issues/46775) - [Docs] Fix navigation issues (#46784)
+* [GH-46785](https://github.com/apache/arrow/issues/46785) - [CI][Dev][C++] Suppress needless outputs of cpplint with pre-commit (#46786)
+* [GH-46787](https://github.com/apache/arrow/issues/46787) - [CI][Integration] Use Node.js 20 (#46790)
+* [GH-46788](https://github.com/apache/arrow/issues/46788) - [C++][Parquet] Enable SIMD for byte stream split with 2 streams (#46789)
+* [GH-46791](https://github.com/apache/arrow/issues/46791) - [C++] Add `Status::OrElse`, `IntoStatus<T>` and `ToStatus` (#46792)
+* [GH-46794](https://github.com/apache/arrow/issues/46794) - [CI][Dev] Fix shellcheck errors in the ci/scripts/csharp_test.sh (#46795)
+* [GH-46798](https://github.com/apache/arrow/issues/46798) - [CI][Dev] Add support for pre-commit 2.17.0 (#46799)
+* [GH-46801](https://github.com/apache/arrow/issues/46801) - [Dev] Remove some leftovers for Java, Go, JS and Swift on some config files (#46802)
+* [GH-46803](https://github.com/apache/arrow/issues/46803) - [Swift] Remove swift implementation from apache/arrow after migration to new repository (#46804)
+* [GH-46806](https://github.com/apache/arrow/issues/46806) - [Ci][Dev][Swift] Remove Swift related settings (#46807)
+* [GH-46820](https://github.com/apache/arrow/issues/46820) - [CI][Integration] Use Node.js 20 by default (#46821)
+* [GH-46833](https://github.com/apache/arrow/issues/46833) - [Python] Expose ConfigureManagedIdentityCredential and ConfigureClientSecretCredential to AzureFileSystem on PyArrow (#46837)
+* [GH-46843](https://github.com/apache/arrow/issues/46843) - [C++] Don't use unity build for bundled AWS SDK for C++ (#46845)
+* [GH-46846](https://github.com/apache/arrow/issues/46846) - [CI][Dev] Fix shellcheck errors in the ci/scripts/install_dask.sh (#46847)
+* [GH-46854](https://github.com/apache/arrow/issues/46854) - [CI][MATLAB][Packaging] Add support for MATLAB `R2025a` in CI and crossbow packaging workflows (#46855)
+* [GH-46864](https://github.com/apache/arrow/issues/46864) - [C++] Add half-float test for `ArrayFromJSONString` (#46865)
+* [GH-46869](https://github.com/apache/arrow/issues/46869) - [C++][Parquet] Deprecate `arrow::Status parquet::arrow::FileReadeder::GetRecordBatchReader()` (#46932)
+* [GH-46877](https://github.com/apache/arrow/issues/46877) - [MATLAB] Add `arrow.tabular.Table.fromRecordBatches` static method (#46885)
+* [GH-46881](https://github.com/apache/arrow/issues/46881) - [CI][Dev] Fix shellcheck errors in the ci/scripts/install_gcs_testbench.sh (#46882)
+* [GH-46895](https://github.com/apache/arrow/issues/46895) - [CI][Dev] Fix shellcheck errors in the ci/scripts/install_minio.sh (#46896)
+* [GH-46899](https://github.com/apache/arrow/issues/46899) - [CI][Dev] Fix shellcheck errors in the ci/scripts/install_numba.sh (#46900)
+* [GH-46909](https://github.com/apache/arrow/issues/46909) - [CI][Dev] Fix shellcheck errors in the ci/scripts/install_sccache.sh (#46910)
+* [GH-46911](https://github.com/apache/arrow/issues/46911) - [Packaging] Add support for AlmaLinux 10 (#46933)
+* [GH-46952](https://github.com/apache/arrow/issues/46952) - [Packaging] Drop support for CentOS Stream 8 (#46953)
+* [GH-46959](https://github.com/apache/arrow/issues/46959) - [Python][Packaging] Drop support for manylinux2014 (#46965)
+* [GH-46968](https://github.com/apache/arrow/issues/46968) - [CI][Packaging] Synchronize conan files for 20.0.0 (#46966)
+* [GH-46974](https://github.com/apache/arrow/issues/46974) - [Integration][Archery] Add support for ARROW_JS_ROOT (#46975)
+* [GH-47025](https://github.com/apache/arrow/issues/47025) - [C++][Docs] Increase minimum gcc for building from 7.1 to 9 (#47026)
+
+# Apache Arrow 20.0.0 (2025-04-01 07:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-30302](https://github.com/apache/arrow/issues/30302) - [C++][Parquet] Preserve the bitwidth of integer dictionary indices on round-trip to Parquet (#45685)
+* [GH-31992](https://github.com/apache/arrow/issues/31992) - [C++][Parquet] Handling the special case when DataPageV2 values buffer is empty (#45252)
+* [GH-36628](https://github.com/apache/arrow/issues/36628) - [Python][Parquet] Fail when instantiating internal Parquet metadata classes (#45549)
+* [GH-37630](https://github.com/apache/arrow/issues/37630) - [C++][Python][Dataset] Allow disabling fragment metadata caching (#45330)
+* [GH-39023](https://github.com/apache/arrow/issues/39023) - [C++][CMake] Add missing launcher path conversion for ExternalPackage (#45349)
+* [GH-41166](https://github.com/apache/arrow/issues/41166) - [CI][Packaging] Remove unmaintained conda-recipes (#45944)
+* [GH-43057](https://github.com/apache/arrow/issues/43057) - [C++] Thread-safe AesEncryptor / AesDecryptor (#44990)
+* [GH-44188](https://github.com/apache/arrow/issues/44188) - [Python] Fix pandas roundtrip with bytes column names (#44171)
+* [GH-44363](https://github.com/apache/arrow/issues/44363) - [C#] Handle Flight data with zero batches (#45315)
+* [GH-45048](https://github.com/apache/arrow/issues/45048) - [C++][Parquet] Deprecate unused `chunk_size` parameter in `parquet::arrow::FileWriter::NewRowGroup()` (#45088)
+* [GH-45129](https://github.com/apache/arrow/issues/45129) - [Python][C++] Fix usage of deprecated C++ functionality on pyarrow (#45189)
+* [GH-45132](https://github.com/apache/arrow/issues/45132) - [C++][Gandiva] Update LLVM to 18.1 (#45114)
+* [GH-45155](https://github.com/apache/arrow/issues/45155) - [Python][CI] Fix path for scientific nightly windows wheel upload (#45222)
+* [GH-45159](https://github.com/apache/arrow/issues/45159) - [CI][Integration] Remove substrait consumer-testing integration job (#45463)
+* [GH-45169](https://github.com/apache/arrow/issues/45169) - [Python] Adapt to modified pytest ignore collect hook api (#45170)
+* [GH-45185](https://github.com/apache/arrow/issues/45185) - [C++][Parquet] Raise an error for invalid repetition levels when delimiting records (#45186)
+* [GH-45254](https://github.com/apache/arrow/issues/45254) - [C++][Acero] Fix the row offset truncation in row table merge (#45255)
+* [GH-45266](https://github.com/apache/arrow/issues/45266) - [C++][Acero] Fix the running tasks count of Scheduler when get error tasks in multi-threads (#45268)
+* [GH-45270](https://github.com/apache/arrow/issues/45270) - [C++][CI] Disable mimalloc on Valgrind builds (#45271)
+* [GH-45293](https://github.com/apache/arrow/issues/45293) - [CI] Install patch command to base conda.dockerfile required in case of bundled ORC (#45294)
+* [GH-45301](https://github.com/apache/arrow/issues/45301) - [C++] Change PrimitiveArray ctor to protected (#45444)
+* [GH-45334](https://github.com/apache/arrow/issues/45334) - [C++][Acero] Fix swiss join overflow issues in row offset calculation for fixed length and null masks (#45336)
+* [GH-45347](https://github.com/apache/arrow/issues/45347) - [Packaging][Linux] Use cpp/CMakeLists.txt instead of java/pom.xml to detect version (#45348)
+* [GH-45354](https://github.com/apache/arrow/issues/45354) - [GLib] Fix garrow_record_batch_validate() definied location (#45355)
+* [GH-45362](https://github.com/apache/arrow/issues/45362) - [C++] Fix identity cast for time and list scalar (#45370)
+* [GH-45371](https://github.com/apache/arrow/issues/45371) - [C++] Fix data race in `SimpleRecordBatch::columns` (#45372)
+* [GH-45377](https://github.com/apache/arrow/issues/45377) - [CI][R] Ensure install R on ubuntu-24.04 runner for R nightly build jobs (#45464)
+* [GH-45378](https://github.com/apache/arrow/issues/45378) - [CI][R] Increase timeout of test-ubuntu-r-sanitizer job (#45379)
+* [GH-45380](https://github.com/apache/arrow/issues/45380) - [Python] Expose RankQuantileOptions to Python (#45392)
+* [GH-45381](https://github.com/apache/arrow/issues/45381) - [CI][Packaging][Conan] Use the latest supported image (#45387)
+* [GH-45390](https://github.com/apache/arrow/issues/45390) - [GLib] Use hyphen-separated words for error tag (#45391)
+* [GH-45393](https://github.com/apache/arrow/issues/45393) - [C++][Compute] Fix wrong decoding for 32-bit column in row table (#45473)
+* [GH-45396](https://github.com/apache/arrow/issues/45396) - [C++] Use Boost with ARROW_FUZZING (#45397)
+* [GH-45423](https://github.com/apache/arrow/issues/45423) - [C++] Don't require Boost library with ARROW_TESTING=ON/ARROW_BUILD_SHARED=OFF (#45424)
+* [GH-45436](https://github.com/apache/arrow/issues/45436) - [Docs][Packaging][Linux] Update how to build .deb/.rpm (#45481)
+* [GH-45455](https://github.com/apache/arrow/issues/45455) - [GLib] Fix returns positive memory-pool utilization (#45456)
+* [GH-45497](https://github.com/apache/arrow/issues/45497) - [C++][CSV] Avoid buffer overflow when a line has too many columns (#45498)
+* [GH-45499](https://github.com/apache/arrow/issues/45499) - [CI] Bump actions/cache version on GHA (#45500)
+* [GH-45510](https://github.com/apache/arrow/issues/45510) - [CI][C++] Fix LLVM APT repository preparation on Debian (#45511)
+* [GH-45512](https://github.com/apache/arrow/issues/45512) - [C++] Clean up undefined symbols in libarrow without IPC (#45513)
+* [GH-45514](https://github.com/apache/arrow/issues/45514) - [CI][C++][Docs] Set CUDAToolkit_ROOT explicitly in debian-docs (#45520)
+* [GH-45521](https://github.com/apache/arrow/issues/45521) - [CI][Dev][R] Install required cyclocomp package to be used with R lintr (#45524)
+* [GH-45530](https://github.com/apache/arrow/issues/45530) - [Python][Packaging] Add pyarrow.libs dir to get_library_dirs (#45766)
+* [GH-45536](https://github.com/apache/arrow/issues/45536) - [Dev][R] Update code to match new linters on lintr=3.2.0 (#45556)
+* [GH-45537](https://github.com/apache/arrow/issues/45537) - [CI][C++] Add missing includes (iwyu) to file_skyhook.cc (#45538)
+* [GH-45541](https://github.com/apache/arrow/issues/45541) - [Doc][C++] Render ASCII art as-is (#45542)
+* [GH-45543](https://github.com/apache/arrow/issues/45543) - [Release][C#] Remove NuGet references in script (#45544)
+* [GH-45545](https://github.com/apache/arrow/issues/45545) - [C++][Parquet] Add missing includes (#45554)
+* [GH-45560](https://github.com/apache/arrow/issues/45560) - [Docs] Fix Statistics schema's "column" examples (#45561)
+* [GH-45564](https://github.com/apache/arrow/issues/45564) - [C++][Acero] Add size validation for names and expressions vectors in ProjectNode (#45565)
+* [GH-45568](https://github.com/apache/arrow/issues/45568) - [C++][Parquet][CMake] Enable zlib automatically when Thrift is needed (#45569)
+* [GH-45578](https://github.com/apache/arrow/issues/45578) - [C++] Use max not min in MakeStatisticsArrayMaxApproximate test (#45579)
+* [GH-45582](https://github.com/apache/arrow/issues/45582) - [Python] Preserve decimal32/64/256 metadata in Schema.metadata (#45583)
+* [GH-45587](https://github.com/apache/arrow/issues/45587) - [C++][Docs] Fix the statistics schema link in `arrow::RecordBatch::MakeStatisticsArray()`'s docstring (#45588)
+* [GH-45614](https://github.com/apache/arrow/issues/45614) - [C++] Use Boost's CMake packages instead of FindBoost.cmake in CMake (#45623)
+* [GH-45628](https://github.com/apache/arrow/issues/45628) - [C++] Ensure specifying Boost include directory for bundled Thrift (#45637)
+* [GH-45656](https://github.com/apache/arrow/issues/45656) - [C#] Fix failing MacOS builds (#45734)
+* [GH-45659](https://github.com/apache/arrow/issues/45659) - [GLib][Ruby] Fix Ruby lint violation(add space after comma) (#45660)
+* [GH-45669](https://github.com/apache/arrow/issues/45669) - [C++][Parquet] Add missing `ParquetFileReader::GetReadRanges()` definition (#45684)
+* [GH-45693](https://github.com/apache/arrow/issues/45693) - [C++][Gandiva] Fix aes_encrypt/decrypt algorithm selection (#45695)
+* [GH-45700](https://github.com/apache/arrow/issues/45700) - [C++][Compute] Added nullptr check in Equals method to handle null impl_ pointers (#45701)
+* [GH-45714](https://github.com/apache/arrow/issues/45714) - [CI][R] Don't run tests that use reticulate on CRAN (#46026)
+* [GH-45718](https://github.com/apache/arrow/issues/45718) - [R][CI] Fix compilation error on opensuse155 (#45874)
+* [GH-45724](https://github.com/apache/arrow/issues/45724) - [Docs] Fix docs image name from ubuntu-docs to debian-docs (#45726)
+* [GH-45733](https://github.com/apache/arrow/issues/45733) - [C++][Python] Add biased/unbiased toggle to skew and kurtosis functions (#45762)
+* [GH-45739](https://github.com/apache/arrow/issues/45739) - [C++][Python] Fix crash when calling hash_pivot_wider without options (#45740)
+* [GH-45758](https://github.com/apache/arrow/issues/45758) - [Python] Add AzureFileSystem documentation (#45759)
+* [GH-45782](https://github.com/apache/arrow/issues/45782) - [GLib] Check only the first line for validation error (#45783)
+* [GH-45787](https://github.com/apache/arrow/issues/45787) - [Integration][CI] Remove pin for Rust 1.77 on conda integration tests (#45790)
+* [GH-45788](https://github.com/apache/arrow/issues/45788) - [C++][Acero] Fix data race in aggregate node (#45789)
+* [GH-45850](https://github.com/apache/arrow/issues/45850) - Fix r-devel note about symbols in .a libs (#45870)
+* [GH-45862](https://github.com/apache/arrow/issues/45862) - [JS] Fix FixedSizeListBuilder behavior for null slots (#45889)
+* [GH-45868](https://github.com/apache/arrow/issues/45868) - [C++][CI] Fix test for ambiguous initialization on C++ 20 (#45871)
+* [GH-45879](https://github.com/apache/arrow/issues/45879) - [CI][Release][Ruby] Omit Flight related tests on x86_64 macOS (#45898)
+* [GH-45905](https://github.com/apache/arrow/issues/45905) - [C++][Acero] Enlarge the timeout in ConcurrentQueue test to reduce sporadical failures (#45923)
+* [GH-45915](https://github.com/apache/arrow/issues/45915) - [JS] Ensure UnionBuilder yields chunks with correct length (#45916)
+* [GH-45924](https://github.com/apache/arrow/issues/45924) - [CI] Update chrome_version for emscripten job to latest stable (v134) (#45925)
+* [GH-45926](https://github.com/apache/arrow/issues/45926) - [Python] Use pytest.approx for float values on unbiased skew and kurtosis tests (#45929)
+* [GH-45930](https://github.com/apache/arrow/issues/45930) - [C++] Don't use ICU C++ API in Azure SDK C++ (#45952)
+* [GH-45939](https://github.com/apache/arrow/issues/45939) - [C++][Benchmarking] Fix compilation failures (#45942)
+* [GH-45959](https://github.com/apache/arrow/issues/45959) - [C++][CMake] Fix Protobuf dependency in Arrow::arrow_static (#45960)
+* [GH-45967](https://github.com/apache/arrow/issues/45967) - [Benchmarking][CI] Benchmarking has stopped working due to failing to build
+* [GH-45980](https://github.com/apache/arrow/issues/45980) - [C++] Bump Bundled Snappy version to 1.2.2 (#45981)
+* [GH-45994](https://github.com/apache/arrow/issues/45994) - [CI][GLib] Fix vcpkg configuration for Windows job (#46006)
+* [GH-45995](https://github.com/apache/arrow/issues/45995) - [Benchmarking][CI] Benchmarking buildkite runs fail to build PyArrow
+* [GH-45999](https://github.com/apache/arrow/issues/45999) - [C++][Gandiva] Fix crashes on LLVM 20.1.1 (#46000)
+* [GH-46022](https://github.com/apache/arrow/issues/46022) - [C++] Fix build error with g++ 7.5.0 (#46028)
+* [GH-46023](https://github.com/apache/arrow/issues/46023) - [CI][MATLAB] libmexclass doesn't work with CMake 4.0.0 (#46033)
+* [GH-46041](https://github.com/apache/arrow/issues/46041) - [Python][Packaging] Temporary remove pandas from being installed on free-threaded Windows wheel tests (#46042)
+* [GH-46050](https://github.com/apache/arrow/issues/46050) - [R] Add windows to set of paths in Makevars.in (#46055)
+* [GH-46067](https://github.com/apache/arrow/issues/46067) - [CI][C++] Remove system Flatbuffers from macOS (#46105)
+* [GH-46072](https://github.com/apache/arrow/issues/46072) - [Release] Disable sync in 05-binary-upload.sh (#46074)
+* [GH-46075](https://github.com/apache/arrow/issues/46075) - [Release][CI] Fix binary verification (#46076)
+* [GH-46077](https://github.com/apache/arrow/issues/46077) - [CI][C++] Disable -Werror on macos-13 (#46106)
+* [GH-46081](https://github.com/apache/arrow/issues/46081) - [Release] Don't generate needless `uploaded-files.txt` for Maven repository (#46082)
+* [GH-46083](https://github.com/apache/arrow/issues/46083) - [Release][Packages] Use Artifactory for APT/Yum repositories again (#46108)
+* [GH-46111](https://github.com/apache/arrow/issues/46111) - [C++][CI] Fix boost 1.88 on MinGW (#46113)
+* [GH-46123](https://github.com/apache/arrow/issues/46123) - [C++] Undefined behavior in `compare_internal.cc` and `light_array_internal.cc` (#46124)
+* [GH-46134](https://github.com/apache/arrow/issues/46134) - [CI][C++] Explicit conversion of possible `absl::string_view` on protobuf  methods to `std::string` (#46136)
+* [GH-46159](https://github.com/apache/arrow/issues/46159) - [CI][C++] Stop using possibly missing boost/process/v2.hpp on boost 1.88 and use individual includes (#46160)
+* [GH-46167](https://github.com/apache/arrow/issues/46167) - [R][CI] Update Artifacts for R 4.5 in task.yml (#46168)
+* [GH-46169](https://github.com/apache/arrow/issues/46169) - [CI][R] Update R version to 4.5 due to 4.4 not being on APT repositories anymore (#46171)
+* [GH-46195](https://github.com/apache/arrow/issues/46195) - [Release][C++] verify-rc-source-cpp-macos-amd64 failed to build googlemock
+
+
+## New Features and Improvements
+
+* [GH-14932](https://github.com/apache/arrow/issues/14932) - [Python] Add python bindings for JSON streaming reader (#45084)
+* [GH-18036](https://github.com/apache/arrow/issues/18036) - [Packaging] Build Python wheel for musllinux (#45470)
+* [GH-26648](https://github.com/apache/arrow/issues/26648) - [C++] Optimize union equality comparison (#45384)
+* [GH-33592](https://github.com/apache/arrow/issues/33592) - [C++] support casting nullable fields to non-nullable if there are no null values (#43782)
+* [GH-35289](https://github.com/apache/arrow/issues/35289) - [Python] Support large variable width types in numpy conversion (#36701)
+* [GH-36412](https://github.com/apache/arrow/issues/36412) - [Python][CI] Fix deprecation warnings in the pandas nightly build
+* [GH-37563](https://github.com/apache/arrow/issues/37563) - [Ruby] Unify tests about basic arrays for `raw_records` and `each_raw_record` (#45861)
+* [GH-38694](https://github.com/apache/arrow/issues/38694) - [Release][C#] Release Apache.Arrow.Flight.Sql (#45309)
+* [GH-39010](https://github.com/apache/arrow/issues/39010) - [Python] Introduce `maps_as_pydicts` parameter for `to_pylist`, `to_pydict`, `as_py` (#45471)
+* [GH-40760](https://github.com/apache/arrow/issues/40760) - [Release] Use repository.apache.org (#45903)
+* [GH-41002](https://github.com/apache/arrow/issues/41002) - [Python] Remove pins for pytest-cython and conda-docs pytest (#45240)
+* [GH-41764](https://github.com/apache/arrow/issues/41764) - [Parquet][C++] Support future logical types in the Parquet reader (#41765)
+* [GH-41816](https://github.com/apache/arrow/issues/41816) - [C++] Add Minimal Meson Build of libarrow (#45441)
+* [GH-41985](https://github.com/apache/arrow/issues/41985) - [Python][Docs] Clarify docstring of pyarrow.compute.scalar() (#45668)
+* [GH-43118](https://github.com/apache/arrow/issues/43118) - [JS] Add interval for unit MONTH_DAY_NANO (#43117) (#45712)
+* [GH-43135](https://github.com/apache/arrow/issues/43135) - [R] Change the binary type mapping to `blob::blob` (#45595)
+* [GH-43296](https://github.com/apache/arrow/issues/43296) - [C++][FlightRPC] Remove Flight UCX transport (#43297)
+* [GH-43573](https://github.com/apache/arrow/issues/43573) - [C++] Copy bitmap when casting from string-view to offset string and binary types (#44822)
+* [GH-43587](https://github.com/apache/arrow/issues/43587) - [Python] Remove no longer used serialize/deserialize PyArrow C++ code (#45743)
+* [GH-43876](https://github.com/apache/arrow/issues/43876) - [Swift] Use apache/arrow-go (#45781)
+* [GH-44042](https://github.com/apache/arrow/issues/44042) - [C++][Parquet] Limit num-of row-groups when building parquet for encrypted file (# 44043)
+* [GH-44393](https://github.com/apache/arrow/issues/44393) - [C++][Compute] Vector selection functions `inverse_permutation` and `scatter` (#44394)
+* [GH-44421](https://github.com/apache/arrow/issues/44421) - [Python] Add configuration for building & testing free-threaded wheels on Windows (#44804)
+* [GH-44615](https://github.com/apache/arrow/issues/44615) - [C++][Compute] Add extract_regex_span function (#45577)
+* [GH-44629](https://github.com/apache/arrow/issues/44629) - [C++][Acero] Use `implicit_ordering` for `asof_join` rather than `require_sequenced_output` (#44616)
+* [GH-44757](https://github.com/apache/arrow/issues/44757) - [GLib] Add garrow_array_validate() (#45328)
+* [GH-44758](https://github.com/apache/arrow/issues/44758) - [GLib] Add garrow_array_validate_full() (#45342)
+* [GH-44759](https://github.com/apache/arrow/issues/44759) - [GLib] Add garrow_record_batch_validate() (#45353)
+* [GH-44760](https://github.com/apache/arrow/issues/44760) - [GLib] Add garrow_record_batch_validate_full() (#45386)
+* [GH-44761](https://github.com/apache/arrow/issues/44761) - [GLib] Add garrow_table_validate() (#45414)
+* [GH-44762](https://github.com/apache/arrow/issues/44762) - [GLib] Add garrow_table_validate_full() (#45468)
+* [GH-44790](https://github.com/apache/arrow/issues/44790) - [Python] Remove use_legacy_dataset from code base (#45742)
+* [GH-44905](https://github.com/apache/arrow/issues/44905) - [Dev] Remove unused file with only header (#45526)
+* [GH-44924](https://github.com/apache/arrow/issues/44924) - [R] Remove usage of cpp11's HAS_UNWIND_PROTECT (#45261)
+* [GH-44950](https://github.com/apache/arrow/issues/44950) - [C++] Bump minimum CMake version to 3.25 (#44989)
+* [GH-45045](https://github.com/apache/arrow/issues/45045) - [C++][Parquet] Add a benchmark for size_statistics_level (#45085)
+* [GH-45156](https://github.com/apache/arrow/issues/45156) - [Python][Packaging] Refactor Python Windows wheel images to use newer base image (#45442)
+* [GH-45190](https://github.com/apache/arrow/issues/45190) - [C++][Compute] Add rank_quantile function (#45259)
+* [GH-45196](https://github.com/apache/arrow/issues/45196) - [C++][Acero] Small refinement to hash join (#45197)
+* [GH-45204](https://github.com/apache/arrow/issues/45204) - [Integration][Archery] Remove skips for nanoarrow IPC compression ZSTD/uncompressible golden files (#45205)
+* [GH-45206](https://github.com/apache/arrow/issues/45206) - [C++][CMake] Add sanitizer presets (#45207)
+* [GH-45209](https://github.com/apache/arrow/issues/45209) - [C++][CMake] Fix the issue that allocator not disabled for sanitizer cmake presets (#45210)
+* [GH-45215](https://github.com/apache/arrow/issues/45215) - [C++][Acero] Export SequencingQueue and SerialSequencingQueue (#45221)
+* [GH-45216](https://github.com/apache/arrow/issues/45216) - [C++][Compute] Refactor Rank implementation (#45217)
+* [GH-45219](https://github.com/apache/arrow/issues/45219) - [C++][Examples] Update examples to disable mimalloc (#45220)
+* [GH-45225](https://github.com/apache/arrow/issues/45225) - [C++] Upgrade ORC to 2.1.0 (#45226)
+* [GH-45227](https://github.com/apache/arrow/issues/45227) - [C++][Parquet] Enable Size Stats and Page Index by default (#45249)
+* [GH-45237](https://github.com/apache/arrow/issues/45237) - [Python] Raise minimum supported cython to >=3 (#45238)
+* [GH-45263](https://github.com/apache/arrow/issues/45263) - [MATLAB] Add ability to construct `RecordBatchStreamReader` from `uint8` array (#45274)
+* [GH-45269](https://github.com/apache/arrow/issues/45269) - [C++][Compute] Add "pivot_wider" and "hash_pivot_wider" functions (#45562)
+* [GH-45278](https://github.com/apache/arrow/issues/45278) - [Python][Packaging] Updated delvewheel install command and updated flags used with delvewheel repair (#45323)
+* [GH-45279](https://github.com/apache/arrow/issues/45279) - [C++][Compute] Move all Grouper tests to grouper_test.cc (#45280)
+* [GH-45282](https://github.com/apache/arrow/issues/45282) - [Python][Parquet] Remove unused readonly properties of ParquetWriter (#45281)
+* [GH-45288](https://github.com/apache/arrow/issues/45288) - [Python][Packaging][Docs] Update documentation for PyArrow nightly wheels (#45289)
+* [GH-45307](https://github.com/apache/arrow/issues/45307) - [CI] Use GitHub hosted arm runner (#45308)
+* [GH-45344](https://github.com/apache/arrow/issues/45344) - [C++][Testing] Generic `StepGenerator` (#45345)
+* [GH-45356](https://github.com/apache/arrow/issues/45356) - [CI][R] Update MACOSX_DEPLOYMENT_TARGET to 11.6 (#45363)
+* [GH-45358](https://github.com/apache/arrow/issues/45358) - [C++][Python] Add MemoryPool method to print statistics (#45359)
+* [GH-45361](https://github.com/apache/arrow/issues/45361) - [CI][C++] Curate `ci/vcpkg/vcpkg.json` (#45081)
+* [GH-45366](https://github.com/apache/arrow/issues/45366) - [C++][Parquet] Set is_compressed to false when data page v2 is not compressed (#45367)
+* [GH-45388](https://github.com/apache/arrow/issues/45388) - [CI][MATLAB] Can we use Ubuntu 22.04 or 24.04 for Ubuntu CI (#45395)
+* [GH-45389](https://github.com/apache/arrow/issues/45389) - [CI][R] Use Ubuntu 22.04 for test-r-versions (#45475)
+* [GH-45398](https://github.com/apache/arrow/issues/45398) - [CI][Dev][Ruby] Add Ruby lint (#45417)
+* [GH-45402](https://github.com/apache/arrow/issues/45402) - [CI][Dev][Ruby] Reformat codes before apply lint (#45403)
+* [GH-45416](https://github.com/apache/arrow/issues/45416) - [CI][C++][Homebrew] Backport the latest formula changes (#45460)
+* [GH-45433](https://github.com/apache/arrow/issues/45433) - [Python] Remove Cython workarounds (#45437)
+* [GH-45447](https://github.com/apache/arrow/issues/45447) - [CI][GLib] Use `meson format` for Meson configuration files (#45448)
+* [GH-45451](https://github.com/apache/arrow/issues/45451) - [C#] Integration with Grpc.Net.ClientFactory (#45458)
+* [GH-45457](https://github.com/apache/arrow/issues/45457) - [Python] Add `pyarrow.ArrayStatistics` (#45550)
+* [GH-45476](https://github.com/apache/arrow/issues/45476) - [Packaging][Linux] Drop support for Ubuntu 20.04 (#45477)
+* [GH-45478](https://github.com/apache/arrow/issues/45478) - [CI][C++] Drop support for Ubuntu 20.04 (#45519)
+* [GH-45479](https://github.com/apache/arrow/issues/45479) - [CI][Release] Use Ubuntu 24.04 instead of 20.04 (#45480)
+* [GH-45482](https://github.com/apache/arrow/issues/45482) - [CI][Python] Don't use Ubuntu 20.04 for wheel test (#45483)
+* [GH-45485](https://github.com/apache/arrow/issues/45485) - [Dev] Simplify pull request template (#45599)
+* [GH-45486](https://github.com/apache/arrow/issues/45486) - [GLib] Add `GArrowArrayStatistics` (#45490)
+* [GH-45491](https://github.com/apache/arrow/issues/45491) - [GLib] Require Meson 0.61.2 or later (#45492)
+* [GH-45505](https://github.com/apache/arrow/issues/45505) - [CI][R] Use Ubuntu 22.04 instead of 20.04 as much as possible for nightly jobs (#45507)
+* [GH-45506](https://github.com/apache/arrow/issues/45506) - [C++][Acero] More overflow-safe Swiss table (#45515)
+* [GH-45508](https://github.com/apache/arrow/issues/45508) - [CI][R] Remove Ubuntu version from sanitizer jobs (#45509)
+* [GH-45517](https://github.com/apache/arrow/issues/45517) - [GLib] garrow_data_type_new_raw() returns GARROW_TYPE_STRING_VIEW_DATA_TYPE (#45518)
+* [GH-45528](https://github.com/apache/arrow/issues/45528) - [GLib] garrow_data_type_new_raw() returns GARROW_TYPE_BINARY_VIEW_DATA_TYPE (#45529)
+* [GH-45548](https://github.com/apache/arrow/issues/45548) - [Release][Dev][Packaging] Omit APT/Yum repositories check on local in the RC verification script (#45738)
+* [GH-45551](https://github.com/apache/arrow/issues/45551) - [C++][Acero] Release temp states of Swiss join building hash table to reduce memory consumption (#45552)
+* [GH-45563](https://github.com/apache/arrow/issues/45563) - [C++][Compute] Split up hash_aggregate.cc (#45725)
+* [GH-45566](https://github.com/apache/arrow/issues/45566) - [C++][Parquet][CMake] Remove a workaround for Windows in FindThriftAlt.cmake (#45567)
+* [GH-45570](https://github.com/apache/arrow/issues/45570) - [Python] Allow Decimal32/64Array.to_pandas (#45571)
+* [GH-45572](https://github.com/apache/arrow/issues/45572) - [C++][Compute] Add rank_normal function (#45573)
+* [GH-45584](https://github.com/apache/arrow/issues/45584) - [C++][Thirdparty] Bump zstd to v1.5.7 (#45585)
+* [GH-45589](https://github.com/apache/arrow/issues/45589) - [C++] Enable singular test in Meson configuration (#45596)
+* [GH-45591](https://github.com/apache/arrow/issues/45591) - [C++][Acero] Refine hash join benchmark and remove openmp from the project (#45593)
+* [GH-45605](https://github.com/apache/arrow/issues/45605) - [R][C++] Fix identifier ... preceded by whitespace warnings (#45606)
+* [GH-45611](https://github.com/apache/arrow/issues/45611) - [C++][Acero] Improve Swiss join build performance by partitioning batches ahead to reduce contention (#45612)
+* [GH-45620](https://github.com/apache/arrow/issues/45620) - [CI][C++] Use Visual Studio 2022 not 2019 (#45621)
+* [GH-45626](https://github.com/apache/arrow/issues/45626) - [CI][Docs] Remove Java related configurations from `ci/docker/linux-apt-docs.dockerfile` (#45627)
+* [GH-45631](https://github.com/apache/arrow/issues/45631) - [CI] Remove unused `java-jni-manylinux-201x.dockerfile` (#45632)
+* [GH-45649](https://github.com/apache/arrow/issues/45649) - [GLib] Add GArrowBinaryViewArray (#45650)
+* [GH-45652](https://github.com/apache/arrow/issues/45652) - [C++][Acero] Unify ConcurrentQueue and BackpressureConcurrentQueue API (#45421)
+* [GH-45661](https://github.com/apache/arrow/issues/45661) - [GLib][Ruby][Dev] Add Ruby lint rule (add space after comma) (#45662)
+* [GH-45665](https://github.com/apache/arrow/issues/45665) - [Docs] Add kapa AI bot to the docs  (#45667)
+* [GH-45670](https://github.com/apache/arrow/issues/45670) - [Release][Archery] Crossbow bot accepts `--prefix` (#45671)
+* [GH-45675](https://github.com/apache/arrow/issues/45675) - [Release] Run binary RC verification jobs in apache/arrow (#45699)
+* [GH-45676](https://github.com/apache/arrow/issues/45676) - [C++][Python][Compute] Add skew and kurtosis functions (#45677)
+* [GH-45680](https://github.com/apache/arrow/issues/45680) - [C++][Python] Remove deprecated functions in 20.0
+* [GH-45689](https://github.com/apache/arrow/issues/45689) - [C++][Thirdparty] Bump Apache ORC to 2.1.1 (#45600)
+* [GH-45691](https://github.com/apache/arrow/issues/45691) - [R][Packaging] Update R packaging checklist with latest process (#45692)
+* [GH-45694](https://github.com/apache/arrow/issues/45694) - [C++] Bump vendored flatbuffers to 24.3.6 (#45687)
+* [GH-45696](https://github.com/apache/arrow/issues/45696) - [C++][Gandiva] Accept LLVM 20.1 (#45697)
+* [GH-45705](https://github.com/apache/arrow/issues/45705) - [Python] Add support for SAS token in AzureFileSystem (#45706)
+* [GH-45708](https://github.com/apache/arrow/issues/45708) - [Release] Re-run binary verification jobs after we upload binaries (#45736)
+* [GH-45710](https://github.com/apache/arrow/issues/45710) - [GLib] Add GArrowStringViewArray (#45711)
+* [GH-45732](https://github.com/apache/arrow/issues/45732) - [C++][Compute] Accept more pivot key types (#45945)
+* [GH-45744](https://github.com/apache/arrow/issues/45744) - [C++] Remove deprecated GetNextSegment (#45745)
+* [GH-45746](https://github.com/apache/arrow/issues/45746) - [C++] Remove deprecated functions in 20.0 (C++ subset) (#45748)
+* [GH-45752](https://github.com/apache/arrow/issues/45752) - [C#] Update FlightInfo.cs with missing fields (#45753)
+* [GH-45755](https://github.com/apache/arrow/issues/45755) - [C++][Python][Compute] Add winsorize function (#45763)
+* [GH-45769](https://github.com/apache/arrow/issues/45769) - [C#][flight] add FlightInfo ByteString serialization (#45770)
+* [GH-45771](https://github.com/apache/arrow/issues/45771) - [C++] Add tests to top level Meson configuration (#45773)
+* [GH-45772](https://github.com/apache/arrow/issues/45772) - [C++] Export Arrow as dependency from Meson configuration (#45774)
+* [GH-45775](https://github.com/apache/arrow/issues/45775) - [C++] Use dict.get() in Meson configuration (#45776)
+* [GH-45779](https://github.com/apache/arrow/issues/45779) - [C++] Add testing directory to Meson configuration (#45780)
+* [GH-45784](https://github.com/apache/arrow/issues/45784) - [C++] Unpin LLVM and OpenSSL in Brewfile (#45785)
+* [GH-45792](https://github.com/apache/arrow/issues/45792) - [C++] Add benchmarks to Meson configuration (#45793)
+* [GH-45813](https://github.com/apache/arrow/issues/45813) - [Docs] Enable discussions (#45811)
+* [GH-45816](https://github.com/apache/arrow/issues/45816) - [C++] Make `VisitType()` fallback branch unreachable (#45815)
+* [GH-45820](https://github.com/apache/arrow/issues/45820) - [C++] Add optional out_offset for Buffer-returning CopyBitmap function (#45852)
+* [GH-45821](https://github.com/apache/arrow/issues/45821) - [C++][Compute] Grouper improvements (#45822)
+* [GH-45825](https://github.com/apache/arrow/issues/45825) - [C++] Add c directory to Meson configuration (#45826)
+* [GH-45827](https://github.com/apache/arrow/issues/45827) - [C++] Add io directory to Meson configuration (#45828)
+* [GH-45831](https://github.com/apache/arrow/issues/45831) - [C++] Add CSV directory to Meson configuration (#45832)
+* [GH-45848](https://github.com/apache/arrow/issues/45848) - [C++][Python][R] Remove deprecated PARQUET_2_0 (#45849)
+* [GH-45877](https://github.com/apache/arrow/issues/45877) - [C++][Acero] Cleanup 64-bit temp states of Swiss join by using 32-bit (#45878)
+* [GH-45883](https://github.com/apache/arrow/issues/45883) - [Docs] Update GitHub Issue Template for GitHub Discussions (#45884)
+* [GH-45890](https://github.com/apache/arrow/issues/45890) - [Ruby] Unify test for dense union array in raw_records and each_raw_record (#45904)
+* [GH-45891](https://github.com/apache/arrow/issues/45891) - [Ruby] Unify test for dictionary array in raw_records and each_raw_record (#45927)
+* [GH-45892](https://github.com/apache/arrow/issues/45892) - [Ruby] Unify test for list array in raw_records and each_raw_record (#45940)
+* [GH-45893](https://github.com/apache/arrow/issues/45893) - [Ruby] Unify test for map array in raw_records and each_raw_record (#45955)
+* [GH-45894](https://github.com/apache/arrow/issues/45894) - [Ruby] Unify test for multiple columns in raw_records and each_raw_record (#45965)
+* [GH-45895](https://github.com/apache/arrow/issues/45895) - [Ruby] Unify test for sparse union array in raw_records and each_raw_record (#45970)
+* [GH-45896](https://github.com/apache/arrow/issues/45896) - [Ruby] Unify test for struct array in raw_records and each_raw_record (#45974)
+* [GH-45897](https://github.com/apache/arrow/issues/45897) - [Ruby] Unify test for table in raw_records and each_raw_record (#45977)
+* [GH-45906](https://github.com/apache/arrow/issues/45906) - [Docs] Document GitHub Discussions in Developer's Guide (#45907)
+* [GH-45917](https://github.com/apache/arrow/issues/45917) - [C++][Acero] Add flush taskgroup to enable parallelization (#45918)
+* [GH-45920](https://github.com/apache/arrow/issues/45920) - [Release][Python] Upload sdist and wheels to GitHub Releases not apache.jfrog.io (#45962)
+* [GH-45922](https://github.com/apache/arrow/issues/45922) - [C++][Flight] Remove deprecated Authenticate and StartCall (#45932)
+* [GH-45949](https://github.com/apache/arrow/issues/45949) - [R] Fix CRAN warnings for 19.0.1 about compiled code (#45951)
+* [GH-45953](https://github.com/apache/arrow/issues/45953) - [C++] Use lock to fix atomic bug in ReadaheadGenerator (#45954)
+* [GH-45961](https://github.com/apache/arrow/issues/45961) - [Release][Docs] Upload generated docs to GitHub Releases not apache.jfrog.io (#45963)
+* [GH-45975](https://github.com/apache/arrow/issues/45975) - [Ruby] Add support for rubygems-requirements-system (#45976)
+* [GH-45986](https://github.com/apache/arrow/issues/45986) - [C++] Update bundled GoogleTest (#45996)
+* [GH-45987](https://github.com/apache/arrow/issues/45987) - [C++] Set CMAKE_POLICY_VERSION_MINIMUM=3.5 for bundled dependencies (#45997)
+* [GH-46051](https://github.com/apache/arrow/issues/46051) - [R] Backport NEWS.md changes from 19.0.1.1 (#46056)
+
+# Apache Arrow 19.0.1 (2025-01-30 08:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-44513](https://github.com/apache/arrow/issues/44513) - [C++][Python] Pyarrow.Table.join() breaks on large tables v.18.0.0.dev486
+* [GH-45180](https://github.com/apache/arrow/issues/45180) - [C++][Fuzzing] Fix bug discovered by fuzzing
+* [GH-45230](https://github.com/apache/arrow/issues/45230) - [Docs] Add LinkedIn social link and fix top nav scaling problems
+* [GH-45283](https://github.com/apache/arrow/issues/45283) - [Python][C++][Parquet] "OSError: Repetition level histogram size mismatch" when reading parquet file in pyarrow since 19.0.0
+* [GH-45295](https://github.com/apache/arrow/issues/45295) - [Python][CI] test\_download\_tzdata\_on\_windows fails on Windows wheels due to CERTIFICATE\_VERIFY\_FAILED
+* [GH-45296](https://github.com/apache/arrow/issues/45296) - [Python] to\_pandas() fails when pandas option 'future.infer\_string' is True
+* [GH-45339](https://github.com/apache/arrow/issues/45339) - [Parquet][C++] Reading parquet with an empty list of row group indices fails
+* [GH-45357](https://github.com/apache/arrow/issues/45357) - [C++] Disable failing arrow-flight-test when misusing the library
+* [GH-45427](https://github.com/apache/arrow/issues/45427) - [Python] Fix version comparison in pandas compat for pandas 2.3 dev version
+
+
+## New Features and Improvements
+
+* [GH-45201](https://github.com/apache/arrow/issues/45201) - [C++][Parquet] Improve performance of writing size statistics
+* [GH-45304](https://github.com/apache/arrow/issues/45304) - [C++] Compatibility with newer aws sdk
+* [GH-45305](https://github.com/apache/arrow/issues/45305) - [Python] Compatibility with boto 1.36
+
+# Apache Arrow 19.0.0 (2025-01-07)
+
+## New Features and Improvements
+
+* [GH-23995](https://github.com/apache/arrow/issues/23995) - [C#] Make PrimitiveArrayBuilder constructor public (#44596)
+* [GH-27919](https://github.com/apache/arrow/issues/27919) - [CI][C++] Add a nightly job to test offline build (#44721)
+* [GH-32206](https://github.com/apache/arrow/issues/32206) - [C++] GcsFileSystem::Make should return Result (#44503)
+* [GH-35589](https://github.com/apache/arrow/issues/35589) - [Ruby] Add support or JRuby (#44346)
+* [GH-36412](https://github.com/apache/arrow/issues/36412) - [Python][CI] Fix deprecation warnings in the pandas nightly build
+* [GH-36954](https://github.com/apache/arrow/issues/36954) - [Python] Add more FlightInfo / FlightEndpoint attributes (#43537)
+* [GH-38837](https://github.com/apache/arrow/issues/38837) - [Format] Add the specification for statistics schema (#45058)
+* [GH-39212](https://github.com/apache/arrow/issues/39212) - [Release] Retry download binary subprocess in case of OpenSSL error (#39213)
+* [GH-40592](https://github.com/apache/arrow/issues/40592) - [C++][Parquet] Implement SizeStatistics (#40594)
+* [GH-40713](https://github.com/apache/arrow/issues/40713) - [Docs] Trim down ADBC page (#44313)
+* [GH-41141](https://github.com/apache/arrow/issues/41141) - [C++] Reduce string inlining in Substrait serde (#45174)
+* [GH-41706](https://github.com/apache/arrow/issues/41706) - [C++][Acero] Enhance asof_join to work in multi-threaded execution by sequencing input (#44083)
+* [GH-43080](https://github.com/apache/arrow/issues/43080) - [CI][Dev] Enable shellcheck (#44724)
+* [GH-43410](https://github.com/apache/arrow/issues/43410) - [Python] Support Arrow PyCapsule stream objects in write_dataset (#43771)
+* [GH-43535](https://github.com/apache/arrow/issues/43535) - [C++] Support the AWS S3 SSE-C encryption (#43601)
+* [GH-43547](https://github.com/apache/arrow/issues/43547) - [R][CI] Add recheck workflow for checking reverse dependencies on GHA (#43784)
+* [GH-43570](https://github.com/apache/arrow/issues/43570) - [CI][Dev][Docs] Update references to "docker-compose" with "docker compose" (#43575)
+* [GH-43598](https://github.com/apache/arrow/issues/43598) - [C++][Parquet] Parquet Metadata Printer supports print sort-columns (#43599)
+* [GH-43631](https://github.com/apache/arrow/issues/43631) - [C++] Add C++ implementation of Async C Data Interface (#44495)
+* [GH-43631](https://github.com/apache/arrow/issues/43631) - [C][Format] Add ArrowAsyncDeviceStreamHandler interface (#43632)
+* [GH-43683](https://github.com/apache/arrow/issues/43683) - [Python] Support pandas future default string dtype
+* [GH-43693](https://github.com/apache/arrow/issues/43693) - [C++][Acero] Support AVX2 swiss join decoding (#43832)
+* [GH-43808](https://github.com/apache/arrow/issues/43808) - [C++] skip `-0117` in StrptimeZoneOffset for old glibc (#44621)
+* [GH-43951](https://github.com/apache/arrow/issues/43951) - [CI][Python] Use GitHub Packages for vcpkg cache (#44644)
+* [GH-44010](https://github.com/apache/arrow/issues/44010) - [C++] Add `arrow::RecordBatch::MakeStatisticsArray()` (#44252)
+* [GH-44018](https://github.com/apache/arrow/issues/44018) - [R] Treat builds on R-universe as like `NOT_CRAN=true` (#44476)
+* [GH-44065](https://github.com/apache/arrow/issues/44065) - [Java] Implement C Data Interface for RunEndEncodedVector (#44241)
+* [GH-44066](https://github.com/apache/arrow/issues/44066) - [Python] Add Python wrapper for JsonExtensionType (#44070)
+* [GH-44084](https://github.com/apache/arrow/issues/44084) - [C++] Improve merge step in chunked sorting (#44217)
+* [GH-44101](https://github.com/apache/arrow/issues/44101) - [C++][Parquet] Tools: Debug Print for Json should be valid JSON (#44532)
+* [GH-44223](https://github.com/apache/arrow/issues/44223) - [Dev] Use "Gandiva" instead of "C++ - Gandiva" label (#44722)
+* [GH-44308](https://github.com/apache/arrow/issues/44308) - [C++][FS][Azure] Implement SAS token authentication (#45021)
+* [GH-44364](https://github.com/apache/arrow/issues/44364) - [C++] Don't export template class (#44365)
+* [GH-44392](https://github.com/apache/arrow/issues/44392) - [GLib] Add GArrowDecimal32DataType (#44580)
+* [GH-44404](https://github.com/apache/arrow/issues/44404) - [CI] Stop running CI "push" jobs for Dependabot (#44405)
+* [GH-44416](https://github.com/apache/arrow/issues/44416) - [C++][Docs] Update the URL to C++ Development in README.md (#44427)
+* [GH-44444](https://github.com/apache/arrow/issues/44444) - [Java][CI] Add Java implementation of Flight do_exchange integration test (#44445)
+* [GH-44464](https://github.com/apache/arrow/issues/44464) - [C++] Added rvalue-reference-qualified overload for arrow::Result::status() returning value instead of reference (#44477)
+* [GH-44474](https://github.com/apache/arrow/issues/44474) - [Website][Docs] Improve project description in more places (#44522)
+* [GH-44474](https://github.com/apache/arrow/issues/44474) - [Website] Improve project description (#44492)
+* [GH-44480](https://github.com/apache/arrow/issues/44480) - [Release][Packaging] Use `--platform` explicitly for `docker run` (#44481)
+* [GH-44491](https://github.com/apache/arrow/issues/44491) - [C++] StatusConstant- cheaply copied const Status (#44493)
+* [GH-44518](https://github.com/apache/arrow/issues/44518) - [R] Update NEWS for 18.0.0 (#44520)
+* [GH-44528](https://github.com/apache/arrow/issues/44528) - [Dev] Introduce a new feature: specific language reformatting (#44529)
+* [GH-44555](https://github.com/apache/arrow/issues/44555) - [C++][Compute] Allow casting struct to bigger nullable struct (#44587)
+* [GH-44556](https://github.com/apache/arrow/issues/44556) - [Release][MSYS2] Update python-pyarrow too (#44557)
+* [GH-44558](https://github.com/apache/arrow/issues/44558) - [Release][Website] Remove needless "Apache Arrow ${VERSION}" section (#44559)
+* [GH-44569](https://github.com/apache/arrow/issues/44569) - [GLib] Add GArrowDecimal64DataType (#44571)
+* [GH-44575](https://github.com/apache/arrow/issues/44575) - [C#] Replace LINQ expression with for loop (#44576)
+* [GH-44578](https://github.com/apache/arrow/issues/44578) - [Release][Packaging] Verify wheel version (#44593)
+* [GH-44579](https://github.com/apache/arrow/issues/44579) - [C++] Use array type to compute min/max statistics Arrow type (#45094)
+* [GH-44581](https://github.com/apache/arrow/issues/44581) - [C++] Minor: ArrayData ctor can assign null_count directly (#44582)
+* [GH-44588](https://github.com/apache/arrow/issues/44588) - [GLib] Add GArrowDecimal64 Class (#44591)
+* [GH-44589](https://github.com/apache/arrow/issues/44589) - [GLib] Add GArrowDecimal32 class (#44597)
+* [GH-44590](https://github.com/apache/arrow/issues/44590) - [C++] Add `const` and `&` to `arrow::Array::statistics()` return type (#44592)
+* [GH-44603](https://github.com/apache/arrow/issues/44603) - [GLib] Add GArrowDecimal64Array and GArrowDecimal64ArrayBuilder (#44605)
+* [GH-44604](https://github.com/apache/arrow/issues/44604) - [GLib] Add Decimal32Array (#44617)
+* [GH-44614](https://github.com/apache/arrow/issues/44614) - [Python][C++] Add version suffix to libarrow_python* libraries (#44702)
+* [GH-44618](https://github.com/apache/arrow/issues/44618) - [GLib] Add GArrowDecimal64Scalar (#44620)
+* [GH-44619](https://github.com/apache/arrow/issues/44619) - [GLib] Add GArrowDecimal32Scalar (#44628)
+* [GH-44648](https://github.com/apache/arrow/issues/44648) - [CI] Remove autotune and rebase from commentbot (#44649)
+* [GH-44656](https://github.com/apache/arrow/issues/44656) - [GLib] Add GArrowBinaryViewDataType (#44659)
+* [GH-44667](https://github.com/apache/arrow/issues/44667) - [Archery] Suppress pull/push progress logs (#44669)
+* [GH-44686](https://github.com/apache/arrow/issues/44686) - [GLib] Add GArrowStringViewDataType (#44687)
+* [GH-44690](https://github.com/apache/arrow/issues/44690) - [C++] NumericBuilder::AppendValues append vector prevent from ub (#44794)
+* [GH-44700](https://github.com/apache/arrow/issues/44700) - [C++][Parquet] Remove obsolete parquet_constants generated files from old thrift (#44772)
+* [GH-44703](https://github.com/apache/arrow/issues/44703) - [CI][MATLAB][Packaging] Update MATLAB CI and `crossbow` packaging workflows to build against MATLAB `R2024b` (#44704)
+* [GH-44705](https://github.com/apache/arrow/issues/44705) - [MATLAB][PACKAGING] Update the crossbow MATLAB workflow to use `macOS 13` instead of `macOS 12` (#44858)
+* [GH-44710](https://github.com/apache/arrow/issues/44710) - [Docs][C++] Add `arrow::ArrayStatistics` to API doc (#44764)
+* [GH-44713](https://github.com/apache/arrow/issues/44713) - [Python] Add support for Decimal32 and Decimal64 types (#44882)
+* [GH-44744](https://github.com/apache/arrow/issues/44744) - [C++] Upgrade ORC to 2.0.3 (#44745)
+* [GH-44749](https://github.com/apache/arrow/issues/44749) - [CI][Dev] Apply ShellCheck lint to ci/scripts/c_glib_test.sh (#44750)
+* [GH-44770](https://github.com/apache/arrow/issues/44770) - [Java] Update minor protobuf version to avoid CVE-2024-7254 (#44775)
+* [GH-44784](https://github.com/apache/arrow/issues/44784) - [C++][Parquet] Add `arrow::Result` version of `parquet::arrow::OpenFile()` (#44785)
+* [GH-44788](https://github.com/apache/arrow/issues/44788) - [C++] Fix a couple of maybe-uninitialized warnings (#44789)
+* [GH-44795](https://github.com/apache/arrow/issues/44795) - [C++] Use arrow::util::span on arrow::util::bitmap_builders_utilities instead of std::vector (#44796)
+* [GH-44805](https://github.com/apache/arrow/issues/44805) - [Dev] Add `.editorconfig` file (#44870)
+* [GH-44808](https://github.com/apache/arrow/issues/44808) - [C++][Parquet] Add `arrow::Result` version of `parquet::arrow::FileReader::GetRecordBatchReader()` (#44809)
+* [GH-44811](https://github.com/apache/arrow/issues/44811) - [C++] minor optimize cancel and thread pool (#44812)
+* [GH-44815](https://github.com/apache/arrow/issues/44815) - [C++][Parquet] Add an example to dump statistics read as `arrow::ArrayStatistics` (#44816)
+* [GH-44828](https://github.com/apache/arrow/issues/44828) - [Java][Release] Remove Java from release scripts (#44854)
+* [GH-44829](https://github.com/apache/arrow/issues/44829) - [Java][CI] Remove Java related test CI except integration test (#44946)
+* [GH-44830](https://github.com/apache/arrow/issues/44830) - [Java][CI] Disable Java Dependabot (#44832)
+* [GH-44831](https://github.com/apache/arrow/issues/44831) - [CI] Build Java for integration tests from arrow-java (#44932)
+* [GH-44843](https://github.com/apache/arrow/issues/44843) - [CI][Doc] Remove building Java documentation from this repository (#45000)
+* [GH-44878](https://github.com/apache/arrow/issues/44878) - [Archery] Only suppress Docker progress logs when running on CI (#44865)
+* [GH-44903](https://github.com/apache/arrow/issues/44903) - [C++] Add the Expm1(exponent) scalar arithmetic function (#44904)
+* [GH-44915](https://github.com/apache/arrow/issues/44915) - [C++] Add WithinUlp testing functions (#44906)
+* [GH-44922](https://github.com/apache/arrow/issues/44922) - [MATLAB] Add IPC `RecordBatchStreamFileWriter` MATLAB class (#44925)
+* [GH-44923](https://github.com/apache/arrow/issues/44923) - [MATLAB] Add IPC `RecordBatchStreamReader` MATLAB class (#45068)
+* [GH-44934](https://github.com/apache/arrow/issues/44934) - [Dev] Remove JIRA remnants (#44936)
+* [GH-44948](https://github.com/apache/arrow/issues/44948) - [Dev][Archery] Remove JIRA remnants from Archery (#45091)
+* [GH-44952](https://github.com/apache/arrow/issues/44952) - [C++][Python] Add Hyperbolic Trig functions (#44630)
+* [GH-44962](https://github.com/apache/arrow/issues/44962) - [Python] Clean-up name / field_name handling in pandas compat (#44963)
+* [GH-44976](https://github.com/apache/arrow/issues/44976) - [C++] Enable mimalloc by default, disable jemalloc by default and more (#44951)
+* [GH-44982](https://github.com/apache/arrow/issues/44982) - [C++] Add support for building system OpenTelemetry (#44983)
+* [GH-44994](https://github.com/apache/arrow/issues/44994) - [C++][CMake] Use librt only for Linux (#44984)
+* [GH-45005](https://github.com/apache/arrow/issues/45005) - [C++] Support for fixed-size list in conversion of range tuple (#45008)
+* [GH-45015](https://github.com/apache/arrow/issues/45015) - [C++][Parquet] Allow configuring the default footer read size (#45016)
+* [GH-45047](https://github.com/apache/arrow/issues/45047) - [CI][Python][Packaging] Test 3.12 wheels on Ubuntu 24.04 (#45042)
+* [GH-45050](https://github.com/apache/arrow/issues/45050) - [CI][Dev] Apply ShellCheck lint to c_glib/test/run-test.sh (#45052)
+* [GH-45075](https://github.com/apache/arrow/issues/45075) - [C++] Remove result_internal.h (#45066)
+* [GH-45076](https://github.com/apache/arrow/issues/45076) - [CI][Packaging][Python] Simplify dev/tasks/python-wheels/github.linux.yml (#45077)
+* [GH-45079](https://github.com/apache/arrow/issues/45079) - [FlightRPC][C++] Deprecate InitializeFlightUcx before removing UCX (#45080)
+* [GH-45092](https://github.com/apache/arrow/issues/45092) - [C++][Parquet] Add GetReadRanges function to FileReader (#45093)
+* [GH-45096](https://github.com/apache/arrow/issues/45096) - [C++] Apply a cstdint patch to bundled Thrift for GCC 15 (#45097)
+* [GH-45135](https://github.com/apache/arrow/issues/45135) - [C++] Remove useless "hash table ready" states in swiss join (#45136)
+* [GH-45137](https://github.com/apache/arrow/issues/45137) - [CI][C++] Add a GCC 15 job (#45138)
+* [GH-45140](https://github.com/apache/arrow/issues/45140) - [Dev][Release] Review release management guide and release scripts
+* [GH-45142](https://github.com/apache/arrow/issues/45142) - [C++] Ensure using `cpp/cmake_modules/*.cmake` (#45143)
+* [GH-45164](https://github.com/apache/arrow/issues/45164) - [CI][Integration] Remove "java_" prefix from Java build scripts (#45165)
+* [GH-45166](https://github.com/apache/arrow/issues/45166) - [CI][C++] Upgrade Alpine Linux to 3.18 from 3.16 (#45168)
+* [GH-45175](https://github.com/apache/arrow/issues/45175) - [Python] Honor the strings_to_categorical keyword in to_pandas for string view type (#45176)
+* [GH-45178](https://github.com/apache/arrow/issues/45178) - [CI] Remove clcache related codes (#45182)
+
+
+## Bug Fixes
+
+* [GH-15233](https://github.com/apache/arrow/issues/15233) - [C++] Fix CopyFiles when destination is a FileSystem with background_writes (#44897)
+* [GH-39914](https://github.com/apache/arrow/issues/39914) - [pyarrow] Reorder to_pandas extension dtype mapping (#44720)
+* [GH-40633](https://github.com/apache/arrow/issues/40633) - [C++][Python] Fix ORC crash when file contains unknown timezone (#45051)
+* [GH-41326](https://github.com/apache/arrow/issues/41326) - [Python] Converting month\_day\_nano\_interal to numpy crashes
+* [GH-41536](https://github.com/apache/arrow/issues/41536) - [C++] Replace std::aligned_storage that is deprecated in C++23 (#45019)
+* [GH-41667](https://github.com/apache/arrow/issues/41667) - [C++][Parquet] Refuse writing non-nullable column that contains nulls (#44921)
+* [GH-43124](https://github.com/apache/arrow/issues/43124) - [C++] Initialize offset vector head as 0 after memory allocated in grouper.cc (#43123)
+* [GH-43949](https://github.com/apache/arrow/issues/43949) - [C++] io::BufferedInput: Fix invalid state after SetBufferSize (#44387)
+* [GH-43994](https://github.com/apache/arrow/issues/43994) - [C++][Parquet] Fix schema conversion from two-level encoding nested list (#43995)
+* [GH-44344](https://github.com/apache/arrow/issues/44344) - [Java] fix VectorSchemaRoot.getTransferPair for NullVector (#44631)
+* [GH-44368](https://github.com/apache/arrow/issues/44368) - [C++] Use "lib" for generating bundled dependencies even with "clang-cl" (#44391)
+* [GH-44372](https://github.com/apache/arrow/issues/44372) - [C++] Fix unaligned load/store implementation for clang-18 (#44468)
+* [GH-44384](https://github.com/apache/arrow/issues/44384) - [C++] Use CMAKE_LIBTOOL on macOS (#44385)
+* [GH-44396](https://github.com/apache/arrow/issues/44396) - [CI][C++] Use setup-python on hosted runner (#44411)
+* [GH-44412](https://github.com/apache/arrow/issues/44412) - [CI][R] Use Ubuntu 22.04 not 24.04 for Arrow C++ 15.0.2 deb packages (#44413)
+* [GH-44428](https://github.com/apache/arrow/issues/44428) - [CI][C#] Use setup-python to use "pip install" (#44429)
+* [GH-44430](https://github.com/apache/arrow/issues/44430) - [CI][Swfit] Use setup-python to use "pip install" (#44431)
+* [GH-44432](https://github.com/apache/arrow/issues/44432) - [Swift] Use flatbuffers v24.3.7 (#44433)
+* [GH-44441](https://github.com/apache/arrow/issues/44441) - [Release] Add missing `--repo apache/arrow` in `02-source.sh` (#44442)
+* [GH-44455](https://github.com/apache/arrow/issues/44455) - [C++] Update vendored date to 3.0.3 (#44482)
+* [GH-44465](https://github.com/apache/arrow/issues/44465) - [GLib][C++] Meson searches libraries with specific versions. (#44475)
+* [GH-44478](https://github.com/apache/arrow/issues/44478) - [GLib] Prevent Arrow::ExtensionType.new (#44498)
+* [GH-44479](https://github.com/apache/arrow/issues/44479) - [CI][Archery] Add missing Flight integration targets (#44691)
+* [GH-44483](https://github.com/apache/arrow/issues/44483) - [GLib] Don't check invalid decimal precision message in test (#44484)
+* [GH-44526](https://github.com/apache/arrow/issues/44526) - [C++][Acero] Fix crash when thread in asof_join is not running (#44584)
+* [GH-44541](https://github.com/apache/arrow/issues/44541) - [C++] NumericArray<T> should not use ctor from parent directly (#44542)
+* [GH-44563](https://github.com/apache/arrow/issues/44563) - [C++] `FunctionOptions::{Serialize,Deserialize}()` return an error without `ARROW_IPC` (#45171)
+* [GH-44564](https://github.com/apache/arrow/issues/44564) - [Java][FlightSQL] Fix native libraries relocation (#44565)
+* [GH-44570](https://github.com/apache/arrow/issues/44570) - [Release][R][Docs] Update `r/pkgdown/assets/versions.html` (#44572)
+* [GH-44574](https://github.com/apache/arrow/issues/44574) - [Release] Ensure using the release tag to build binaries (#44577)
+* [GH-44585](https://github.com/apache/arrow/issues/44585) - [JS][Release] Skip bin dir in npm-release.sh (#44861)
+* [GH-44601](https://github.com/apache/arrow/issues/44601) - [GLib] Fix the wrong GARROW_AVAILABLE_IN declaration (#44602)
+* [GH-44624](https://github.com/apache/arrow/issues/44624) - [CI][JS] Increase "AMD64 macOS 13 NodeJS 18" timeout (#44625)
+* [GH-44626](https://github.com/apache/arrow/issues/44626) - [Java] fix SplitAndTransfer throws for empty MapVector (#44627)
+* [GH-44651](https://github.com/apache/arrow/issues/44651) - [Python] Allow from_buffers to work with StringView on Python (#44701)
+* [GH-44657](https://github.com/apache/arrow/issues/44657) - [CI][Dev] Add write permission to the crossbow comment bot (#44658)
+* [GH-44668](https://github.com/apache/arrow/issues/44668) - [Docs] Fix ColumnChunkMetaData offset documentation in pyarrow (#44670)
+* [GH-44677](https://github.com/apache/arrow/issues/44677) - [C++][Acero] Enhance partition sort example (#44678)
+* [GH-44679](https://github.com/apache/arrow/issues/44679) - [C++][Python] Fix Flight Timestamp precision, revert workaround from #43537 (#44681)
+* [GH-44695](https://github.com/apache/arrow/issues/44695) - [C++] Add S3 option to ignore SIGPIPE signals (#44735)
+* [GH-44706](https://github.com/apache/arrow/issues/44706) - [Release][Archery][Packaging] Add "so_version" variable (#44707)
+* [GH-44711](https://github.com/apache/arrow/issues/44711) - [Docs][Python] Add missing canonical extension types to PyArrow arrays and datatypes docs (#44880)
+* [GH-44714](https://github.com/apache/arrow/issues/44714) - [C++] Keep field metadata for keys and values when importing a map type via the C data interface (#44715)
+* [GH-44716](https://github.com/apache/arrow/issues/44716) - [Dev][Integration] Add numpy to archery integration deps (#44717)
+* [GH-44726](https://github.com/apache/arrow/issues/44726) - [CI] Update substrait consumer call to use updated producer and consumer parameters (#44727)
+* [GH-44728](https://github.com/apache/arrow/issues/44728) - [Python] Trigger manual Garbage collection before checking allocated bytes for dlpack tests (#44793)
+* [GH-44734](https://github.com/apache/arrow/issues/44734) - [C++][CI] Fix arrow-c-bridge-test timeout with threading disabled (#44737)
+* [GH-44742](https://github.com/apache/arrow/issues/44742) - [Ruby] Fix a bug that empty struct list value can't be built (#44763)
+* [GH-44754](https://github.com/apache/arrow/issues/44754) - [C++] Use lowercased `windows.h` to enable cross-platform builds (#44755)
+* [GH-44767](https://github.com/apache/arrow/issues/44767) - [C++] Fix Float16.To{Little,Big}Endian on big endian machines (#44768)
+* [GH-44769](https://github.com/apache/arrow/issues/44769) - [C++][Parquet] Fix read/write of metadata length footer on big-endian systems (#44787)
+* [GH-44773](https://github.com/apache/arrow/issues/44773) - [Dev][Doc] Remove obsolete Read the docs configuration (#44774)
+* [GH-44797](https://github.com/apache/arrow/issues/44797) - [CI] Update pkg-config to pkgconf on Homebrew (#44798)
+* [GH-44802](https://github.com/apache/arrow/issues/44802) - [C++][CI] Migrate to `arrow::Result` based `parquet::arrow::OpenFile() API` in example tutorials (#44807)
+* [GH-44820](https://github.com/apache/arrow/issues/44820) - [CI] Uninstall pkg-config entirely on macOS jobs (#44821)
+* [GH-44844](https://github.com/apache/arrow/issues/44844) - [CI] Uninstall pkg-config entirely on verification and java-jars macOS jobs (#44845)
+* [GH-44846](https://github.com/apache/arrow/issues/44846) - [C++] Fix thread-unsafe access in ConcurrentQueue::UnsyncFront (#44849)
+* [GH-44855](https://github.com/apache/arrow/issues/44855) - [Python][Packaging] Use delvewheel to repair Windows wheels (#35323)
+* [GH-44885](https://github.com/apache/arrow/issues/44885) - [Dev][Release] Update test condition in utils-prepare.sh (#44862)
+* [GH-44887](https://github.com/apache/arrow/issues/44887) - [Dev][Release] post-10-docs.sh doesn't work correctly for patch releases
+* [GH-44898](https://github.com/apache/arrow/issues/44898) - [C++] Fix compilation error on GCC 8 (#44899)
+* [GH-44911](https://github.com/apache/arrow/issues/44911) - [C#] Choose port numbers dynamically for ArrowStreamWriterTests (#44912)
+* [GH-44918](https://github.com/apache/arrow/issues/44918) - [Ruby] Fix a bug that empty list is ignored in builder (#44933)
+* [GH-44954](https://github.com/apache/arrow/issues/44954) - [C++][CI] Silence protobuf-generated deprecations (#44955)
+* [GH-44968](https://github.com/apache/arrow/issues/44968) - [CI][Dev] Remove nonexistent `getJiraInfo` reference (#44972)
+* [GH-44974](https://github.com/apache/arrow/issues/44974) - [Dev] Fix minor issue handling (#44975)
+* [GH-44980](https://github.com/apache/arrow/issues/44980) - [CI] Remove retrieval of Arrow version from Java on Spark integration and update test structure for PySpark (#44981)
+* [GH-44985](https://github.com/apache/arrow/issues/44985) - [C++] Use recommended downloads URLs for ORC and Thrift (#44977)
+* [GH-44991](https://github.com/apache/arrow/issues/44991) - [CI][Python] Fix and modernize AppVeyor build (#44999)
+* [GH-45003](https://github.com/apache/arrow/issues/45003) - [Python][Docs] Update docstrings for metadata methods on Field and Schema classes (#45004)
+* [GH-45006](https://github.com/apache/arrow/issues/45006) - [CI][Python] Fix test_memory failures (#45007)
+* [GH-45027](https://github.com/apache/arrow/issues/45027) - [C++] Include path in the documentation is wrong (#45031)
+* [GH-45034](https://github.com/apache/arrow/issues/45034) - [C++] Remove Parquet requirement from Arrow Acero and from Arrow Dataset when not necessary (#45035)
+* [GH-45039](https://github.com/apache/arrow/issues/45039) - [CI][Packaging][Python] Fix Docker push step for free-threaded wheel builds (#45040)
+* [GH-45041](https://github.com/apache/arrow/issues/45041) - [Packaging][Python] Use ORC from vcpkg instead of bundled on Linux and macOS (#45046)
+* [GH-45053](https://github.com/apache/arrow/issues/45053) - [C++] Add support for Boost 1.87.0 (#45057)
+* [GH-45059](https://github.com/apache/arrow/issues/45059) - [C++][CI] Fix test-build-cpp-fuzz failures (#45060)
+* [GH-45069](https://github.com/apache/arrow/issues/45069) - [R][CI] Fix r-binary-packages crossbow job (#45070)
+* [GH-45071](https://github.com/apache/arrow/issues/45071) - [Packaging][Docs] Fix NumPy v2 include directory for Emscripten, and update Pyodide-related documentation (#45072)
+* [GH-45073](https://github.com/apache/arrow/issues/45073) - [C++][Parquet] Fix generation of repetition levels for encryption test data (#45074)
+* [GH-45099](https://github.com/apache/arrow/issues/45099) - [C++] Avoid static const variable in the status.h (#45100)
+* [GH-45118](https://github.com/apache/arrow/issues/45118) - [Packaging] Use armored keyring for APT repository (#45131)
+* [GH-45119](https://github.com/apache/arrow/issues/45119) - [Ruby] Use #size for Arrow::Column#size backend (#45133)
+* [GH-45151](https://github.com/apache/arrow/issues/45151) - [C++][Parquet] Fix Null-dereference READ in parquet::arrow::ListToSchemaField (#45152)
+* [GH-45157](https://github.com/apache/arrow/issues/45157) - [CI][Packaging] Remove explicit pins of gemfury version in dev/tasks/macros.jinja (#45158)
+* [GH-45183](https://github.com/apache/arrow/issues/45183) - [C++][Release] Add llvm-dev back to setup-ubuntu.sh (#45184)
+
+# Apache Arrow 18.1.0 (2024-11-13)
+
+## Bug Fixes
+
+* [GH-44360](https://github.com/apache/arrow/issues/44360) - [C\#] Flight DoExchange server is incompatible with C++/PyArrow client
+* [GH-44389](https://github.com/apache/arrow/issues/44389) - [Java][Integration][Release] verify-rc-source-integration-linux-conda-latest-amd64 fails with MemoryError
+* [GH-44448](https://github.com/apache/arrow/issues/44448) - [C++] cross-compilation issues with 18.0.0rc0: inclusion of \`<nmmintrin.h\>\` resp. mis-detection of \`grpc\_cpp\_plugin\`
+* [GH-44453](https://github.com/apache/arrow/issues/44453) - [Release] \`07-matlab-upload.sh\` misses shebang
+* [GH-44459](https://github.com/apache/arrow/issues/44459) - [Release][Packaging] Wheel content script does not work with local wheel verification
+* [GH-44461](https://github.com/apache/arrow/issues/44461) - [Packaging][Release][Python] The Windows wheel verification is failing due to missing PARQUET\_TEST\_DATA env variable
+* [GH-44506](https://github.com/apache/arrow/issues/44506) - [Docs][C++] Fix documentation directive for ChunkLocation
+* [GH-44606](https://github.com/apache/arrow/issues/44606) - [C++] Error when building Arrow v18.0.0 against non-LTS absl, abseil-cpp
+* [GH-44607](https://github.com/apache/arrow/issues/44607) - [C++] Thrift mirrors are outdated
+* [GH-44674](https://github.com/apache/arrow/issues/44674) - [R] R CMD check failure with dev testthat
+
+
+## New Features and Improvements
+
+* [GH-34535](https://github.com/apache/arrow/issues/34535) - [C++] Request to move ChunkResolver to public API
+* [GH-44353](https://github.com/apache/arrow/issues/44353) - [Java] Exceptions when building MapVector with map values
+* [GH-44361](https://github.com/apache/arrow/issues/44361) - [C\#][Integration] Set up integration testing of C\# Flight
+* [GH-44449](https://github.com/apache/arrow/issues/44449) - [Release] Retry on 503 HTTP response in binary upload
+* [GH-44451](https://github.com/apache/arrow/issues/44451) - [Release] Add support for retry on HTTP error in Java artifacts upload
+
+# Apache Arrow 18.0.0 (2024-10-16)
+
+## Bug Fixes
+
+* [GH-36295](https://github.com/apache/arrow/issues/36295) - [C++] data corruption when using \`group\_by\` and \`aggregate\` on large data sets
+* [GH-39789](https://github.com/apache/arrow/issues/39789) - [Go][Parquet] Close current row group when finished writing unbuffered batch (#43326)
+* [GH-40557](https://github.com/apache/arrow/issues/40557) - [C++] Use `PutObject` request for S3 in OutputStream when only uploading small data (#41564)
+* [GH-41396](https://github.com/apache/arrow/issues/41396) - [Ruby] Add workaround for re2.pc on Ubuntu 20.04 (#43721)
+* [GH-41481](https://github.com/apache/arrow/issues/41481) - [CI] Update how extra environment variables are specified for the integration test docker job (#42009)
+* [GH-41696](https://github.com/apache/arrow/issues/41696) - [Python][Packaging] Bump MACOSX_DEPLOYMENT_TARGET to 12 instead of 11 (#43137)
+* [GH-41891](https://github.com/apache/arrow/issues/41891) - [C++] Clean up implicit fallthrough warnings (#41892)
+* [GH-41993](https://github.com/apache/arrow/issues/41993) - [Go] IPC writer shift voffsets when offsets array does not start from zero (#43176)
+* [GH-42240](https://github.com/apache/arrow/issues/42240) - [R] Fix crash in ParquetFileWriter$WriteTable and add WriteBatch (#42241)
+* [GH-43046](https://github.com/apache/arrow/issues/43046) - [C++] Fix avx2 gather rows more than 2^31 issue in `CompareColumnsToRows` (#43065)
+* [GH-43130](https://github.com/apache/arrow/issues/43130) - [C++][ArrowFlight] Crash due to UCS thread mode (#43120)
+* [GH-43150](https://github.com/apache/arrow/issues/43150) - [Docs] Correct documentation of pyarrow.compute.microsecond (#43151)
+* [GH-43152](https://github.com/apache/arrow/issues/43152) - [Release] Require "digest/sha1" explicitly for thread safety (#43154)
+* [GH-43153](https://github.com/apache/arrow/issues/43153) - [R] pull on a grouped query returns the wrong column (#43172)
+* [GH-43163](https://github.com/apache/arrow/issues/43163) - [R] Fix bindings in Math group generics (#43162)
+* [GH-43167](https://github.com/apache/arrow/issues/43167) - [C++] Add workaround for missing Boost dependency of Thrift (#43328)
+* [GH-43175](https://github.com/apache/arrow/issues/43175) - [C++] Skip not Emscripten ready tests in CSV tests (#43724)
+* [GH-43183](https://github.com/apache/arrow/issues/43183) - [C++] Add `date{32,64}` to `date{32,64}` cast (#43192)
+* [GH-43186](https://github.com/apache/arrow/issues/43186) - [Go] Use auto-aligned atomic int64 for pqarrow pathbuilders (#43206)
+* [GH-43194](https://github.com/apache/arrow/issues/43194) - [R] R_existsVarInFrame isn't available earlier than R 4.2 (#43243)
+* [GH-43202](https://github.com/apache/arrow/issues/43202) - [C++][Compute] Detect and explicit error for offset overflow in row table (#43226)
+* [GH-43211](https://github.com/apache/arrow/issues/43211) - [C++] Fix decimal benchmarks to avoid out-of-bounds accesses (#43212)
+* [GH-43217](https://github.com/apache/arrow/issues/43217) - [Java] Remove flight-core shaded jars (#43224)
+* [GH-43218](https://github.com/apache/arrow/issues/43218) - [C++] Resolve Abseil like any other dependency in the build system (#43219)
+* [GH-43221](https://github.com/apache/arrow/issues/43221) - [C++][Parquet] Refactor parquet::encryption::AesEncryptor to use unique_ptr (#43222)
+* [GH-43228](https://github.com/apache/arrow/issues/43228) - [C++] Fix Abseil compile error on GCC 13 (#43157)
+* [GH-43232](https://github.com/apache/arrow/issues/43232) - [Release][Packaging][Python] Add tzdata as conda env requirement to avoid ORC failure (#43233)
+* [GH-43245](https://github.com/apache/arrow/issues/43245) - [Packaging][deb] Add missing libabsl-dev dependency (#43246)
+* [GH-43267](https://github.com/apache/arrow/issues/43267) - [C#] Correctly import sliced arrays through the C Data interface (#44117)
+* [GH-43270](https://github.com/apache/arrow/issues/43270) - [Release] Fix input variables on post-01-tag.sh (#43271)
+* [GH-43276](https://github.com/apache/arrow/issues/43276) - [Go][Parquet] Make DeltaBitPacking Encoders/Decoders Generic (#43279)
+* [GH-43282](https://github.com/apache/arrow/issues/43282) - [Release][Docs][Packaging] Upload correct docs job when uploading binaries (#43283)
+* [GH-43284](https://github.com/apache/arrow/issues/43284) - [Release] Fix version detection timing for bump deb package names on post-12-bump-versions.sh script (#43294)
+* [GH-43293](https://github.com/apache/arrow/issues/43293) - [Docs] Update code block for Installing Java Modules (#43295)
+* [GH-43299](https://github.com/apache/arrow/issues/43299) - [Release][Packaging] Only include pyarrow folder  when finding packages on setuptools (#43325)
+* [GH-43314](https://github.com/apache/arrow/issues/43314) - [CI][Java] Delete arrow-maven-plugins from release script (#43313)
+* [GH-43320](https://github.com/apache/arrow/issues/43320) - [Java] fix for SchemaChangeRuntimeException transferring empty FixedSizeListVector (#43321)
+* [GH-43331](https://github.com/apache/arrow/issues/43331) - [C++] Add missing serde methods to Location (#43332)
+* [GH-43346](https://github.com/apache/arrow/issues/43346) - [Docs][Format] Update broken links (#43347)
+* [GH-43349](https://github.com/apache/arrow/issues/43349) - [R] Fix altrep string columns from readr (#43351)
+* [GH-43357](https://github.com/apache/arrow/issues/43357) - [R] Fix some lints (#43338)
+* [GH-43359](https://github.com/apache/arrow/issues/43359) - [Go][Parquet] ReadRowGroups panics with canceled context (#43360)
+* [GH-43377](https://github.com/apache/arrow/issues/43377) - [Java][CI] Java-Jars CI is Failing with a linking error on macOS (#43385)
+* [GH-43378](https://github.com/apache/arrow/issues/43378) - [Java][CI] Don't configure multithreading when building javadocs (#43674)
+* [GH-43382](https://github.com/apache/arrow/issues/43382) - [C++][Parquet] min-max Statistics doesn't work well when one of min-max is truncated (#43383)
+* [GH-43388](https://github.com/apache/arrow/issues/43388) - [Python] Give precedence to pycapsule interface in pa.schema(..) (#43486)
+* [GH-43393](https://github.com/apache/arrow/issues/43393) - [C++][Parquet] parquet-dump-footer: Remove redundant link and fix --debug processing (#43375)
+* [GH-43394](https://github.com/apache/arrow/issues/43394) - [Java][Benchmarking] Fix Java benchmarks for Java 17+ (#43395)
+* [GH-43400](https://github.com/apache/arrow/issues/43400) - [C++] Ensure using bundled GoogleTest when we use bundled GoogleTest (#43465)
+* [GH-43412](https://github.com/apache/arrow/issues/43412) - [Java][Benchmarking] Use JDK_JAVA_OPTIONS for JVM arguments (#43411)
+* [GH-43414](https://github.com/apache/arrow/issues/43414) - [C++][Compute] Fix invalid memory access when resizing var-length buffer in row table (#43415)
+* [GH-43429](https://github.com/apache/arrow/issues/43429) - [C++][FlightRPC] Fix Flight UCX build issues (#43430)
+* [GH-43432](https://github.com/apache/arrow/issues/43432) - [Java][Packaging] Clean up java-jars job (#43431)
+* [GH-43440](https://github.com/apache/arrow/issues/43440) - [R] Unable to filter a factor column with %in% (#43446)
+* [GH-43447](https://github.com/apache/arrow/issues/43447) - [C++] FIlter out zero length buffers on gRPC transport (#43448)
+* [GH-43449](https://github.com/apache/arrow/issues/43449) - [CI][Conan] Don't push used images (#43470)
+* [GH-43463](https://github.com/apache/arrow/issues/43463) - [C++][Gandiva] Always use gdv_function_stubs.h in context_helper.cc (#43464)
+* [GH-43467](https://github.com/apache/arrow/issues/43467) - [C++] Add support for the official LZ4 CMake package (#43468)
+* [GH-43487](https://github.com/apache/arrow/issues/43487) - [Python] Sanitize Python reference handling in UDF implementation (#43557)
+* [GH-43502](https://github.com/apache/arrow/issues/43502) - [Java] Fix Java JNI / AMD64 manylinux2014 Java JNI test not test dataset module (#43503)
+* [GH-43506](https://github.com/apache/arrow/issues/43506) - [Java] Fix TestFragmentScanOptions result not match (#43639)
+* [GH-43554](https://github.com/apache/arrow/issues/43554) - [Go] Handle excluded fields (#43555)
+* [GH-43577](https://github.com/apache/arrow/issues/43577) - [Java] getBuffers method needs correction on clear flag usage (#43583)
+* [GH-43588](https://github.com/apache/arrow/issues/43588) - [Python] Allow tuple for rename columns (#43609)
+* [GH-43618](https://github.com/apache/arrow/issues/43618) - [Packaging][Python] Fix vcpkg version detection in macOS wheel build jobs (#43615)
+* [GH-43627](https://github.com/apache/arrow/issues/43627) - [R] Fix summarize() performance regression (pushdown) (#43649)
+* [GH-43635](https://github.com/apache/arrow/issues/43635) - [R][CI] Don't install Quarto (#43636)
+* [GH-43665](https://github.com/apache/arrow/issues/43665) - [R] Remove references to bindings vignette (#43889)
+* [GH-43667](https://github.com/apache/arrow/issues/43667) - [Java] Keeping Flight default header size consistent between server and client  (#43697)
+* [GH-43707](https://github.com/apache/arrow/issues/43707) - [Python] Fix compilation on Cython<3 (#43765)
+* [GH-43717](https://github.com/apache/arrow/issues/43717) - [Java][FlightSQL] Add all ActionTypes to FlightSqlUtils.FLIGHT_SQL_ACTIONS (#43718)
+* [GH-43735](https://github.com/apache/arrow/issues/43735) - [R] AWS SDK fails to build on one of CRAN's M1 builders (#43736)
+* [GH-43743](https://github.com/apache/arrow/issues/43743) - [CI][Docs] Ensure creating build directory (#43744)
+* [GH-43748](https://github.com/apache/arrow/issues/43748) - [R] Handle package_version in safe_r_metadata (#43895)
+* [GH-43785](https://github.com/apache/arrow/issues/43785) - [Python][CI] Correct PARQUET_TEST_DATA path in wheel tests (#43786)
+* [GH-43787](https://github.com/apache/arrow/issues/43787) - [C++] Register the new Opaque extension type by default (#43788)
+* [GH-43815](https://github.com/apache/arrow/issues/43815) - [CI][Packaging][Python] Avoid uploading wheel to gemfury if version already exists (#43816)
+* [GH-43837](https://github.com/apache/arrow/issues/43837) - [Go][IPC] Consolidate StreamWriter and FileWriter, ensuring that EOS indicator is written in file (#43890)
+* [GH-43860](https://github.com/apache/arrow/issues/43860) - [Go][Parquet] Handle the error correctly (#43861)
+* [GH-43868](https://github.com/apache/arrow/issues/43868) - [CI][Python] Skip test that requires PARQUET_TEST_DATA env on emscripten (#43906)
+* [GH-43869](https://github.com/apache/arrow/issues/43869) - [Java][CI] Flight related failure in the AMD64 Windows Server 2022 Java JDK 11 CI (#43850)
+* [GH-43870](https://github.com/apache/arrow/issues/43870) - [C++][Acero] Fix typos in join benchmark (#43871)
+* [GH-43877](https://github.com/apache/arrow/issues/43877) - [Ruby] Add support for 0 decimal value (#43882)
+* [GH-43885](https://github.com/apache/arrow/issues/43885) - [C++][CI] Catch potential integer overflow in PoolBuffer (#43886)
+* [GH-43933](https://github.com/apache/arrow/issues/43933) - [CI] Remove docker-compose warnings (#43934)
+* [GH-43952](https://github.com/apache/arrow/issues/43952) - [CI] Bump actions/{upload|download}-artifact from 3 to latest v4 in /.github/workflows (#43940)
+* [GH-43960](https://github.com/apache/arrow/issues/43960) - [R] fix `str_sub` binding to properly handle negative `end` values (#44141)
+* [GH-43966](https://github.com/apache/arrow/issues/43966) - [Java] Check for nullabilities when comparing StructVector (#43968)
+* [GH-44046](https://github.com/apache/arrow/issues/44046) - [Python] Fix threading issues with borrowed refs and pandas (#44047)
+* [GH-44050](https://github.com/apache/arrow/issues/44050) - [CI][Integration] Execute integration test again (#44051)
+* [GH-44069](https://github.com/apache/arrow/issues/44069) - [Docs][R] Add note to to_arrow() docs about collect/compute (#44094)
+* [GH-44071](https://github.com/apache/arrow/issues/44071) - [C++] Leak S3 structures if finalization happens too late (#44090)
+* [GH-44076](https://github.com/apache/arrow/issues/44076) - [CI] Remove verify-rc-binaries-wheel-macos-11 which is now deprecated (#44077)
+* [GH-44081](https://github.com/apache/arrow/issues/44081) - [C++][Parquet] Fix reported metrics in parquet-arrow-reader-writer-benchmark (#44082)
+* [GH-44088](https://github.com/apache/arrow/issues/44088) - [Java] Fix copyFrom in BaseVariableWidthViewVector (#44078)
+* [GH-44096](https://github.com/apache/arrow/issues/44096) - [C++] Don't use Boost.Process with Emscripten (#44097)
+* [GH-44098](https://github.com/apache/arrow/issues/44098) - [C++] Add home made _mm256_set_m128i for compilers who are missing it (#44116)
+* [GH-44122](https://github.com/apache/arrow/issues/44122) - [R] Don't use the new pipe yet (#44123)
+* [GH-44127](https://github.com/apache/arrow/issues/44127) - [CI][R] Fix util_enable_core_dumps.sh path (#44128)
+* [GH-44153](https://github.com/apache/arrow/issues/44153) - [GLib][FlightRPC] Fix closure annotation (#44154)
+* [GH-44214](https://github.com/apache/arrow/issues/44214) - [C++] JsonExtensionType equality check ignores storage type (#44215)
+* [GH-44218](https://github.com/apache/arrow/issues/44218) - [Benchmarking][Python] Avoid uwsgi install failure on macOS (#44221)
+* [GH-44234](https://github.com/apache/arrow/issues/44234) - [CI][C++][AppVeyor] Use conda instead of Mamba (#44235)
+* [GH-44253](https://github.com/apache/arrow/issues/44253) - [CI][Release][Python] Do not verify Python on Ubuntu 20.04 (#44254)
+* [GH-44256](https://github.com/apache/arrow/issues/44256) - [C++][FS][Azure] Fix edgecase where GetFileInfo incorrectly returns NotFound on flat namespace and Azurite (#44302)
+* [GH-44268](https://github.com/apache/arrow/issues/44268) - [Release][Ruby][CI] Pin version of glib used in verification script (#44270)
+* [GH-44269](https://github.com/apache/arrow/issues/44269) - [C++][FS][Azure] Catch missing exceptions on HNS support check (#44274)
+* [GH-44277](https://github.com/apache/arrow/issues/44277) - [CI] Use Miniforge instead of Mambaforge (#44278)
+* [GH-44297](https://github.com/apache/arrow/issues/44297) - [Integration][CI] Skip nanoarrow IPC integration tests for compressed/dictionary-encoded files (#44298)
+* [GH-44300](https://github.com/apache/arrow/issues/44300) - [Integration][Archery] Don't import unused testers (#44301)
+* [GH-44303](https://github.com/apache/arrow/issues/44303) - [C++][FS][Azure] Fix minor hierarchical namespace bugs (#44307)
+* [GH-44334](https://github.com/apache/arrow/issues/44334) - [C++] Fix S3 error handling in `ObjectOutputStream` (#44335)
+* [GH-44337](https://github.com/apache/arrow/issues/44337) - [CI][GLib] Fix a flaky StreamDecoder and Buffer test (#44341)
+* [GH-44342](https://github.com/apache/arrow/issues/44342) - [C++] Disable jemalloc by default on ARM (#44380)
+* [GH-44358](https://github.com/apache/arrow/issues/44358) - [Packaging][Debian] Add workaround for CUDA include path (#44359)
+* [GH-44369](https://github.com/apache/arrow/issues/44369) - [CI][Python] Remove ds requirement from test collection on test_dataset.py (#44370)
+* [GH-44373](https://github.com/apache/arrow/issues/44373) - [Packaging][Java] Fix brew link to Python 3.13 on macOS (#44374)
+* [GH-44381](https://github.com/apache/arrow/issues/44381) - [Ruby][Release] Pin not only glib but also python on verification jobs (#44382)
+* [GH-44386](https://github.com/apache/arrow/issues/44386) - [Integration][Release] Pin Python 3.12 for Integration verification when using Conda (#44388)
+* [GH-44422](https://github.com/apache/arrow/issues/44422) - [Packaging][Release][Linux] Upload artifacts before test (#44425)
+
+
+## New Features and Improvements
+
+* [GH-15058](https://github.com/apache/arrow/issues/15058) - [C++][Python] Native support for UUID (#37298)
+* [GH-17682](https://github.com/apache/arrow/issues/17682) - [C++][Python] Bool8 Extension Type Implementation (#43488)
+* [GH-17682](https://github.com/apache/arrow/issues/17682) - [Go] Bool8 Extension Type Implementation (#43323)
+* [GH-17682](https://github.com/apache/arrow/issues/17682) - [Format] Add Bool8 Canonical Extension Type (#43234)
+* [GH-25118](https://github.com/apache/arrow/issues/25118) - [Python] Make NumPy an optional runtime dependency   (#41904)
+* [GH-28866](https://github.com/apache/arrow/issues/28866) - [Java] Java Dataset API ScanOptions expansion (#41646)
+* [GH-30058](https://github.com/apache/arrow/issues/30058) - [Python] Add StructType attribute to access all its fields (#43481)
+* [GH-30863](https://github.com/apache/arrow/issues/30863) - [JS] Use a singleton StructRow proxy handler (#44289)
+* [GH-32538](https://github.com/apache/arrow/issues/32538) - [C++][Parquet] Add JSON canonical extension type (#13901)
+* [GH-34529](https://github.com/apache/arrow/issues/34529) - [C++][Compute] Replace explicit checking with DCHECK for invariants in row segmenter (#44236)
+* [GH-37756](https://github.com/apache/arrow/issues/37756) - [Format][Docs] Document IPC Compression (#43950)
+* [GH-38041](https://github.com/apache/arrow/issues/38041) - [C++][CI] Improve IPC fuzzing seed corpus (#43621)
+* [GH-38051](https://github.com/apache/arrow/issues/38051) - [Java] Remove Java 8 support (#43139)
+* [GH-38183](https://github.com/apache/arrow/issues/38183) - [CI][Python] Use pipx to install GCS testbench (#43852)
+* [GH-38255](https://github.com/apache/arrow/issues/38255) - [Java] Implement Flight SQL Bulk Ingestion (#43551)
+* [GH-38847](https://github.com/apache/arrow/issues/38847) - [Documentation][C++] Explicitly note that compute is optional (#43629)
+* [GH-39638](https://github.com/apache/arrow/issues/39638) - [Docs][R] Add r-universe instructions (#44033)
+* [GH-39982](https://github.com/apache/arrow/issues/39982) - [Java] Add RunEndEncodedVector (#43888)
+* [GH-40036](https://github.com/apache/arrow/issues/40036) - [C++] Azure file system write buffering & async writes (#43096)
+* [GH-40154](https://github.com/apache/arrow/issues/40154) - [C++][Parquet] Separate encoders and decoder (#43972)
+* [GH-40216](https://github.com/apache/arrow/issues/40216) - [Python][CI][Packaging] Don't upload sdist to scientific-python nightly channel (only wheels) (#43943)
+* [GH-40216](https://github.com/apache/arrow/issues/40216) - [Python][CI][Packaging] Upload nightly wheels to main label of scientific-python-nightly-wheels channel (#43932)
+* [GH-40216](https://github.com/apache/arrow/issues/40216) - [CI][Packaging][Python] Upload pyarrow nightly wheels to scientific python channel on Anaconda (#43862)
+* [GH-40493](https://github.com/apache/arrow/issues/40493) - [GLib][Ruby] Add GArrowStreamDecoder (#44170)
+* [GH-40570](https://github.com/apache/arrow/issues/40570) - [CI] Default environment to Ubuntu 22.04 instead of 20.04 (#44151)
+* [GH-40860](https://github.com/apache/arrow/issues/40860) - [GLib][Parquet] Add `gparquet_arrow_file_writer_write_record_batch()` (#44001)
+* [GH-40936](https://github.com/apache/arrow/issues/40936) - [Java] Implement Holder-based functions in \`ViewVarBinaryVector\`
+* [GH-40937](https://github.com/apache/arrow/issues/40937) - [Java] Implement Holder-based functions for ViewVarCharVector & ViewVarBinaryVector (#44187)
+* [GH-41056](https://github.com/apache/arrow/issues/41056) - [GLib][FlightRPC] Add gaflight_client_do_put() and related APIs (#43813)
+* [GH-41272](https://github.com/apache/arrow/issues/41272) - [Java] LargeListViewVector Implementation (#43516)
+* [GH-41291](https://github.com/apache/arrow/issues/41291) - [Java] LargeListViewVector Implementation transferPair implementation (#43637)
+* [GH-41347](https://github.com/apache/arrow/issues/41347) - [FlightRPC][C#] Allow hosting flight server in pre-Kestrel .net versions (#41348)
+* [GH-41569](https://github.com/apache/arrow/issues/41569) - [Java] ListViewVector Implementation for UnionListViewReader (#43077)
+* [GH-41579](https://github.com/apache/arrow/issues/41579) - [C++][Python][Parquet] Support reading/writing key-value metadata from/to ColumnChunkMetaData (#41580)
+* [GH-41584](https://github.com/apache/arrow/issues/41584) - [Java] ListView Implementation for C Data Interface (#43686)
+* [GH-41585](https://github.com/apache/arrow/issues/41585) - [Java] LargeListView Implementation for C Data Interface
+* [GH-41623](https://github.com/apache/arrow/issues/41623) - [Docs] Remove the warning for `arrow::dataset` (#43148)
+* [GH-41640](https://github.com/apache/arrow/issues/41640) - [Go] Implement BYTE_STREAM_SPLIT Parquet Encoding (#43066)
+* [GH-41665](https://github.com/apache/arrow/issues/41665) - [Python] Ensure (Chunked)Array/RecordBatch/Table methods don't crash with non-CPU data
+* [GH-41673](https://github.com/apache/arrow/issues/41673) - [Format][Docs] Add arrow format introductory page (#41593)
+* [GH-41909](https://github.com/apache/arrow/issues/41909) - [C++] Add arrow::ArrayStatistics (#43273)
+* [GH-41922](https://github.com/apache/arrow/issues/41922) - [CI][C++] Update Minio version (#44225)
+* [GH-41951](https://github.com/apache/arrow/issues/41951) - [Java] Add @FormatMethod annotations (#43376)
+* [GH-42014](https://github.com/apache/arrow/issues/42014) - [Python] Let StructArray.from_array accept a type in addition to names or fields (#43047)
+* [GH-42085](https://github.com/apache/arrow/issues/42085) - [Python] Test FlightStreamReader iterator (#42086)
+* [GH-42102](https://github.com/apache/arrow/issues/42102) - [C++][Parquet] Add binary that extracts a footer from a parquet file (#42174)
+* [GH-42222](https://github.com/apache/arrow/issues/42222) - [Python] Add bindings for CopyTo on RecordBatch and Array classes (#42223)
+* [GH-42247](https://github.com/apache/arrow/issues/42247) - [C++] Support casting to and from utf8_view/binary_view (#43302)
+* [GH-43044](https://github.com/apache/arrow/issues/43044) - [R] So-called non-API entry points (#43173)
+* [GH-43069](https://github.com/apache/arrow/issues/43069) - [Python] Use Py_IsFinalizing from pythoncapi_compat.h (#43767)
+* [GH-43075](https://github.com/apache/arrow/issues/43075) - [CI][Crossbow][Docker] Set timeout for docker-tests (#43078)
+* [GH-43092](https://github.com/apache/arrow/issues/43092) - [Swift] Update ArrowData for Nested Types (allow children) (#43086)
+* [GH-43095](https://github.com/apache/arrow/issues/43095) - [C++] Update bundled vendor/datetime to support for building with libc++ and C++20 (#43094)
+* [GH-43097](https://github.com/apache/arrow/issues/43097) - [C++] Implement `PathFromUri` support for Azure file system (#43098)
+* [GH-43114](https://github.com/apache/arrow/issues/43114) - [Archery][Dev] Support setuptools-scm >= 8.0.0 (#43156)
+* [GH-43129](https://github.com/apache/arrow/issues/43129) - [C++][Compute] Fix the unnecessary allocation of extra bytes when encoding row table (#43125)
+* [GH-43141](https://github.com/apache/arrow/issues/43141) - [C++][Parquet] Replace use of int with int32_t in the internal Parquet encryption APIs (#43413)
+* [GH-43142](https://github.com/apache/arrow/issues/43142) - [C++][Parquet] Refactor Encryptor API to use arrow::util::span instead of raw pointers (#43195)
+* [GH-43143](https://github.com/apache/arrow/issues/43143) - [C++][Parquet] Default initialize some parquet metadata variables (#43144)
+* [GH-43160](https://github.com/apache/arrow/issues/43160) - [Swift] Add Struct Array (#43161)
+* [GH-43164](https://github.com/apache/arrow/issues/43164) - [C++] Fix CMake link order for AWS SDK (#43230)
+* [GH-43168](https://github.com/apache/arrow/issues/43168) - [Swift] Add buffer and array builders for Struct type (#43171)
+* [GH-43169](https://github.com/apache/arrow/issues/43169) - [Swift] Add StructArray to ArrowReader (#43335)
+* [GH-43185](https://github.com/apache/arrow/issues/43185) - [C++] Suggest a cast when Concatenate fails due to offsets overflow (#43190)
+* [GH-43187](https://github.com/apache/arrow/issues/43187) - [C++] Support basic is_in predicate simplification (#43761)
+* [GH-43197](https://github.com/apache/arrow/issues/43197) - [C++][AzureFS] Ignore password field in URI (#44220)
+* [GH-43209](https://github.com/apache/arrow/issues/43209) - [C++] Add lint for DCHECK in public headers (#43248)
+* [GH-43229](https://github.com/apache/arrow/issues/43229) - [Java] Update Maven project info (#43231)
+* [GH-43238](https://github.com/apache/arrow/issues/43238) - [C++][FlightRPC] Reduce repetition in flight/types.cc in serde functions (#43237)
+* [GH-43249](https://github.com/apache/arrow/issues/43249) - [C++][Parquet] remove useless template parameter of `DeltaLengthByteArrayEncoder` (#43250)
+* [GH-43254](https://github.com/apache/arrow/issues/43254) - [C++] Always prefer mimalloc to jemalloc (#40875)
+* [GH-43258](https://github.com/apache/arrow/issues/43258) - [C++][Flight] Use a Base CRTP type for the types used in RPC calls (#43255)
+* [GH-43266](https://github.com/apache/arrow/issues/43266) - [C#] Add LargeBinary, LargeString and LargeList array types (#43269)
+* [GH-43291](https://github.com/apache/arrow/issues/43291) - [C++] Expand the 'take' function tests to cover more chunked-array cases (#43292)
+* [GH-43301](https://github.com/apache/arrow/issues/43301) - [C++][Parquet] Enhance the comment for ColumnReader/Decoder (#44003)
+* [GH-43319](https://github.com/apache/arrow/issues/43319) - [R][Docs] Update packaging checklist (#43345)
+* [GH-43329](https://github.com/apache/arrow/issues/43329) - [C++] Order classes in flight/types.h according to Flight.proto (#43330)
+* [GH-43380](https://github.com/apache/arrow/issues/43380) - [Java] Add support for cross jdk version testing (#43381)
+* [GH-43391](https://github.com/apache/arrow/issues/43391) - [Python] Add bindings for memory manager and device to Context class (#43392)
+* [GH-43396](https://github.com/apache/arrow/issues/43396) - [Java] Remove/replace jsr305 (#43397)
+* [GH-43418](https://github.com/apache/arrow/issues/43418) - [CI] Add wheels and java-jars to vcpkg group for tasks (#43419)
+* [GH-43425](https://github.com/apache/arrow/issues/43425) - [Java] Upgrade JNI to version 10 (#43424)
+* [GH-43427](https://github.com/apache/arrow/issues/43427) - [C++][Parquet] Deprecate ColumnChunk::file_offset field and no longer write Metadata at end of Chunk (#43428)
+* [GH-43437](https://github.com/apache/arrow/issues/43437) - [Java] Update protobuf from 3.25.1 to 3.25.4 (#43436)
+* [GH-43443](https://github.com/apache/arrow/issues/43443) - [Go][IPC] Infer schema from first record if not specified (#43484)
+* [GH-43444](https://github.com/apache/arrow/issues/43444) - [C++] Add benchmark for binary view builder (#43445)
+* [GH-43450](https://github.com/apache/arrow/issues/43450) - [CI] Temporarily turn off conda jobs that are failing  (#43451)
+* [GH-43453](https://github.com/apache/arrow/issues/43453) - [Format] Add Opaque canonical extension type (#43457)
+* [GH-43454](https://github.com/apache/arrow/issues/43454) - [C++][Python] Add Opaque canonical extension type (#43458)
+* [GH-43455](https://github.com/apache/arrow/issues/43455) - [Go] Add Opaque canonical extension type (#43459)
+* [GH-43456](https://github.com/apache/arrow/issues/43456) - [Java] Add Opaque canonical extension type (#43460)
+* [GH-43469](https://github.com/apache/arrow/issues/43469) - [Java] Change the default CompressionCodec.Factory to leverage compression support transparently (#43471)
+* [GH-43479](https://github.com/apache/arrow/issues/43479) - [Java] Change visibility of MemoryUtil.UNSAFE (#43480)
+* [GH-43483](https://github.com/apache/arrow/issues/43483) - [Java][C++] Support more CsvFragmentScanOptions in JNI call (#43482)
+* [GH-43492](https://github.com/apache/arrow/issues/43492) - [C++] Thirdparty: Bump lz4 to 1.10.0 (#43493)
+* [GH-43495](https://github.com/apache/arrow/issues/43495) - [C++][Compute] Widen the row offset of the row table to 64-bit (#43389)
+* [GH-43500](https://github.com/apache/arrow/issues/43500) - [R][CI] Bump dev docs CI job from ubuntu 20.04 (#43501)
+* [GH-43507](https://github.com/apache/arrow/issues/43507) - [C++] Use ViewOrCopyTo instead of CopyTo when pretty printing non-CPU data (#43508)
+* [GH-43509](https://github.com/apache/arrow/issues/43509) - [R] Add link to ?acero from ?list_compute_functions (#44210)
+* [GH-43512](https://github.com/apache/arrow/issues/43512) - [Java] ListViewVector Visitor-based component Integration (#43513)
+* [GH-43514](https://github.com/apache/arrow/issues/43514) - [Python] Deprecate passing build flags to setup.py (#43515)
+* [GH-43518](https://github.com/apache/arrow/issues/43518) - [Python][Packaging][CI] Drop Python 3.8 support (#43970)
+* [GH-43519](https://github.com/apache/arrow/issues/43519) - [Python][CI] Add Python 3.13 conda test build (#44192)
+* [GH-43519](https://github.com/apache/arrow/issues/43519) - [Python][CI][Packaging] Use released versions to build and test wheels on Python 3.13 (#44193)
+* [GH-43519](https://github.com/apache/arrow/issues/43519) - [Python] Set up wheel building for Python 3.13 (#43539)
+* [GH-43532](https://github.com/apache/arrow/issues/43532) - [Python] Remove usage of deprecated pkg_resources in setup.py (#43602)
+* [GH-43536](https://github.com/apache/arrow/issues/43536) - [Python][CI] Add a Crossbow job with the free-threaded build (#43671)
+* [GH-43536](https://github.com/apache/arrow/issues/43536) - [Python] Do not use borrowed references APIs (#43540)
+* [GH-43536](https://github.com/apache/arrow/issues/43536) - [Python] Declare support for free-threading in Cython (#43606)
+* [GH-43543](https://github.com/apache/arrow/issues/43543) - [FlightRPC][C++] Reduce the number of references to protobuf::Any (#43544)
+* [GH-43548](https://github.com/apache/arrow/issues/43548) - [R][CI] Use grep -F to simplify matching or rchk output (#43477)
+* [GH-43559](https://github.com/apache/arrow/issues/43559) - [Python][CI] Add a Crossbow job with a debug CPython interpreter (#43565)
+* [GH-43578](https://github.com/apache/arrow/issues/43578) - [C++] Simplify arrow::ArrayStatistics::ValueType (#43581)
+* [GH-43591](https://github.com/apache/arrow/issues/43591) - [C++][GLib] Don't install arrow-cuda.pc/arrow-cuda-glib.pc on Windows (#43593)
+* [GH-43592](https://github.com/apache/arrow/issues/43592) - [C++] Remove redundant default constructor/deconstructor in arrow::ArrayStatistics (#43579)
+* [GH-43594](https://github.com/apache/arrow/issues/43594) - [C++] Remove std::optional from arrow::ArrayStatistics::is_{min,max}_exact (#43595)
+* [GH-43608](https://github.com/apache/arrow/issues/43608) - [CI][Archery] Prefer `docker compose` over `docker-compose` (#43586)
+* [GH-43633](https://github.com/apache/arrow/issues/43633) - [R] Add tests for packages that might be tricky to roundtrip data to Tables + Parquet files (#43634)
+* [GH-43638](https://github.com/apache/arrow/issues/43638) - [Java] LargeListViewVector RangeEqualVisitor and TypeEqualVisitor integration (#43642)
+* [GH-43643](https://github.com/apache/arrow/issues/43643) - [Java] LargeListViewVector IPC Integration (#43681)
+* [GH-43669](https://github.com/apache/arrow/issues/43669) - [Docs][Dev] Document archery --debug flag in section about docker (#43935)
+* [GH-43672](https://github.com/apache/arrow/issues/43672) - [C#] Schema should be optional on FlightInfo (#43673)
+* [GH-43677](https://github.com/apache/arrow/issues/43677) - [C++][FlightRPC] Move the FlightTestServer to its own .cc and .h files (#43678)
+* [GH-43680](https://github.com/apache/arrow/issues/43680) - [Integration] Unskip nanoarrow in IPC integration tests (#43715)
+* [GH-43684](https://github.com/apache/arrow/issues/43684) - [Python][Dataset] Python / Cython interface to C++ arrow::dataset::Partitioning::Format (#43740)
+* [GH-43687](https://github.com/apache/arrow/issues/43687) - [C++] Compute: fix register kernel SimdLevel for AddMinMax512AggKernels (#43704)
+* [GH-43688](https://github.com/apache/arrow/issues/43688) - [C++] Prevent Snappy from disabling RTTI when bundled (#43706)
+* [GH-43690](https://github.com/apache/arrow/issues/43690) - [Python][CI] Simplify python/requirements-wheel-test.txt file (#43691)
+* [GH-43702](https://github.com/apache/arrow/issues/43702) - [C++][FS][Azure] Use the latest Azurite and update the bundled Azure SDK for C++ to azure-identity_1.9.0 (#43723)
+* [GH-43703](https://github.com/apache/arrow/issues/43703) - [C++][Parquet][CI] Parquet: Introducing more bad_data for testing (#43708)
+* [GH-43712](https://github.com/apache/arrow/issues/43712) - [C++][Parquet] Dataset: Handle num-nulls in Parquet correctly when !HasNullCount() (#43726)
+* [GH-43719](https://github.com/apache/arrow/issues/43719) - [C++] Clarify the way SIMD-enabled agg kernels come from the same code in different compilation units (#43720)
+* [GH-43727](https://github.com/apache/arrow/issues/43727) - [Python] RecordBatch fails gracefully on non-cpu devices (#43729)
+* [GH-43728](https://github.com/apache/arrow/issues/43728) - [Python] ChunkedArray fails gracefully on non-cpu devices (#43795)
+* [GH-43732](https://github.com/apache/arrow/issues/43732) - [Go] Require Go 1.22 or above (#43864)
+* [GH-43733](https://github.com/apache/arrow/issues/43733) - [C++] Fix Scalar boolean handling in row encoder (#43734)
+* [GH-43738](https://github.com/apache/arrow/issues/43738) - [GLib] Add `GArrowAzureFileSytem` (#43739)
+* [GH-43746](https://github.com/apache/arrow/issues/43746) - [C++] Add support for Boost 1.86 (#43766)
+* [GH-43758](https://github.com/apache/arrow/issues/43758) - [C++] Compute: More comment in RowEncoder (#43763)
+* [GH-43759](https://github.com/apache/arrow/issues/43759) - [C++] Acero: Minor code enhancement for Join (#43760)
+* [GH-43764](https://github.com/apache/arrow/issues/43764) - [Go][FlightSQL] Add NewPreparedStatement function (#43781)
+* [GH-43768](https://github.com/apache/arrow/issues/43768) - [C++] Fix the case when boolean_{any|all} meets constant input with length in Acero (#43799)
+* [GH-43776](https://github.com/apache/arrow/issues/43776) - [C++] Add chunked Take benchmarks with a small selection factor (#43772)
+* [GH-43790](https://github.com/apache/arrow/issues/43790) - [Go][Parquet] Add support for LZ4_RAW compression codec (#43835)
+* [GH-43796](https://github.com/apache/arrow/issues/43796) - [C++] Indent preprocessor directives (#43798)
+* [GH-43797](https://github.com/apache/arrow/issues/43797) - [C++] Attach `arrow::ArrayStatistics` to `arrow::ArrayData` (#43801)
+* [GH-43802](https://github.com/apache/arrow/issues/43802) - [GLib] Add `GAFlightRecordBatchWriter` (#43803)
+* [GH-43805](https://github.com/apache/arrow/issues/43805) - [C++] Enable filesystem automatically when one of ARROW_{AZURE,GCS,HDFS,S3}=ON is specified (#43806)
+* [GH-43809](https://github.com/apache/arrow/issues/43809) - [Docs] Update extension type examples to not use UUID (#44120)
+* [GH-43814](https://github.com/apache/arrow/issues/43814) - [GLib][FlightRPC] Add `GAFlightServerClass::do_put` (#43999)
+* [GH-43840](https://github.com/apache/arrow/issues/43840) - [CI] Add cuda group to tasks.yml and minor updates for new cuda runner image (#43841)
+* [GH-43846](https://github.com/apache/arrow/issues/43846) - [Python][Packaging] Remove numpy dependency from pyarrow packaging (#44148)
+* [GH-43854](https://github.com/apache/arrow/issues/43854) - [C++] Expose the set of device types where a ChunkedArray is allocated (#43853)
+* [GH-43872](https://github.com/apache/arrow/issues/43872) - [Go][CI] Disable Dependabot for Go (#44102)
+* [GH-43873](https://github.com/apache/arrow/issues/43873) - [Go][CI] Remove Go related test CI (#44143)
+* [GH-43874](https://github.com/apache/arrow/issues/43874) - [CI][Integration][Go] Use apache/arrow-go (#44142)
+* [GH-43875](https://github.com/apache/arrow/issues/43875) - [Go][CI] Remove Go related lint configurations (#44144)
+* [GH-43878](https://github.com/apache/arrow/issues/43878) - [Go][Release] Remove Go related codes from our release scripts (#44172)
+* [GH-43879](https://github.com/apache/arrow/issues/43879) - [Go] Remove go related code (#44293)
+* [GH-43883](https://github.com/apache/arrow/issues/43883) - [CI] Remove Python version guard when installing GCS testbench (#43884)
+* [GH-43894](https://github.com/apache/arrow/issues/43894) - [R] format_aggregation() should print options too (#43896)
+* [GH-43902](https://github.com/apache/arrow/issues/43902) - [Java] Support for Long memory addresses (#43903)
+* [GH-43907](https://github.com/apache/arrow/issues/43907) - [C#][FlightRPC] Add Grpc Call Options support on Flight Client (#43910)
+* [GH-43927](https://github.com/apache/arrow/issues/43927) - [C++] Make ChunkResolver::ResolveMany output a list of ChunkLocations (#43928)
+* [GH-43944](https://github.com/apache/arrow/issues/43944) - [C++][Parquet] Add support for arrow::ArrayStatistics: non zero-copy int based types (#43945)
+* [GH-43946](https://github.com/apache/arrow/issues/43946) - [C++][Parquet] Guard against use of cleared decryptor/encryptor (#43947)
+* [GH-43953](https://github.com/apache/arrow/issues/43953) - [C++] Add tests based on random data and benchmarks to ChunkResolver::ResolveMany (#43954)
+* [GH-43962](https://github.com/apache/arrow/issues/43962) - [Java] Consider warnings as errors for Adapter Module (#43963)
+* [GH-43964](https://github.com/apache/arrow/issues/43964) - [Python] Build macOS and manylinux wheels for free-threading (#43965)
+* [GH-43967](https://github.com/apache/arrow/issues/43967) - [C++] Enhance error message for URI parsing (#43938)
+* [GH-43969](https://github.com/apache/arrow/issues/43969) - [CI][Dev] Prune .dockerignore (#43971)
+* [GH-43973](https://github.com/apache/arrow/issues/43973) - [Python] Table fails gracefully on non-cpu devices (#43974)
+* [GH-43979](https://github.com/apache/arrow/issues/43979) - [CI][C++][Dev] Add cpplint to pre-commit (#43982)
+* [GH-43983](https://github.com/apache/arrow/issues/43983) - [C++][Parquet] Add support for arrow::ArrayStatistics: zero-copy types (#43984)
+* [GH-43986](https://github.com/apache/arrow/issues/43986) - [C++][Acero] Some code cleanup to `Grouper` (#43988)
+* [GH-43992](https://github.com/apache/arrow/issues/43992) - [C++] Add missing std::move() in array_nested.cc (#43993)
+* [GH-43996](https://github.com/apache/arrow/issues/43996) - [Java] Mark new allocated ArrowSchema as released (#43997)
+* [GH-43998](https://github.com/apache/arrow/issues/43998) - [C++][Docs] Add missing install command in building docs (#44000)
+* [GH-44006](https://github.com/apache/arrow/issues/44006) - [GLib][Parquet] Add `gparquet_arrow_file_writer_new_row_group()` (#44039)
+* [GH-44007](https://github.com/apache/arrow/issues/44007) - [GLib][Parquet] Add `gparquet_arrow_file_writer_new_buffered_row_group()` (#44100)
+* [GH-44008](https://github.com/apache/arrow/issues/44008) - [C++][Parquet] Add support for arrow::ArrayStatistics: boolean (#44009)
+* [GH-44011](https://github.com/apache/arrow/issues/44011) - [Java] Consider warnings as errors for C Module (#44012)
+* [GH-44013](https://github.com/apache/arrow/issues/44013) - [Java] Consider warnings as errors for Dataset Module (#44014)
+* [GH-44016](https://github.com/apache/arrow/issues/44016) - [Java] Consider warnings as errors for Format Module (#44017)
+* [GH-44034](https://github.com/apache/arrow/issues/44034) - [Go][Format][FlightRPC] Update go_package in Flight.proto and FlightSql.proto (#44035)
+* [GH-44036](https://github.com/apache/arrow/issues/44036) - [C++] IPC: ipc reader/writer code enhancement (#44019)
+* [GH-44044](https://github.com/apache/arrow/issues/44044) - [Java] Consider warnings as errors for Vector Module (#44045)
+* [GH-44052](https://github.com/apache/arrow/issues/44052) - [C++][Compute] Reduce the complexity of row segmenter (#44053)
+* [GH-44058](https://github.com/apache/arrow/issues/44058) - [CI][Integration] Group logs on GitHub Actions (#44060)
+* [GH-44062](https://github.com/apache/arrow/issues/44062) - [Dev][Archery][Integration] Reduce needless test matrix (#44099)
+* [GH-44063](https://github.com/apache/arrow/issues/44063) - [Python] Deprecate the no longer used serialize/deserialize Pyarrow C++ functions (#44064)
+* [GH-44072](https://github.com/apache/arrow/issues/44072) - [C++][Parquet] Add Float16 reading benchmarks (#44073)
+* [GH-44079](https://github.com/apache/arrow/issues/44079) - [C++][Parquet] Remove deprecated APIs (#44080)
+* [GH-44085](https://github.com/apache/arrow/issues/44085) - [CI][R] Update Ubuntu version for R force test (#44087)
+* [GH-44095](https://github.com/apache/arrow/issues/44095) - [CI][Python] Enable S3 testing on Windows wheel builds (#44093)
+* [GH-44111](https://github.com/apache/arrow/issues/44111) - [CI][Python] Enable S3 tests on macOS CI (#44129)
+* [GH-44149](https://github.com/apache/arrow/issues/44149) - [Packaging][CI] Remove references to deprecated Ubuntu bionic (#44150)
+* [GH-44155](https://github.com/apache/arrow/issues/44155) - [Archery][Integration] Rename "language" to "implementation" (#44156)
+* [GH-44158](https://github.com/apache/arrow/issues/44158) - [Archery][Integration] Add more explanation how --target-implementations works (#44177)
+* [GH-44167](https://github.com/apache/arrow/issues/44167) - [C++][Acero] Add more row segmenter tests (#44166)
+* [GH-44178](https://github.com/apache/arrow/issues/44178) - [GLib][FlightRPC] Add GAFlightCallOptions:timeout (#44181)
+* [GH-44186](https://github.com/apache/arrow/issues/44186) - [C++][Parquet] Fix typo in parquet/column_writer.cc (#40856)
+* [GH-44194](https://github.com/apache/arrow/issues/44194) - [C++] Avoid repeated ArrayData::offset lookups (#44190)
+* [GH-44206](https://github.com/apache/arrow/issues/44206) - [CI][macOS] Drop support for macOS 12 (#44212)
+* [GH-44222](https://github.com/apache/arrow/issues/44222) - [C++][Gandiva] Accept LLVM 19.1 (#44233)
+* [GH-44229](https://github.com/apache/arrow/issues/44229) - [Docs] Add PyArrow to JAX example to the docs (#44230)
+* [GH-44237](https://github.com/apache/arrow/issues/44237) - [C#] Use stack allocated buffer when serializing decimal values (#44238)
+* [GH-44249](https://github.com/apache/arrow/issues/44249) - [C++] Unify simd header includings (#44250)
+* [GH-44271](https://github.com/apache/arrow/issues/44271) - [C#] Add support for Decimal32 and Decimal64 (#44272)
+* [GH-44273](https://github.com/apache/arrow/issues/44273) - [C++][Decimal] Use 0E+1 not 0.E+1 for broader compatibility (#44275)
+* [GH-44290](https://github.com/apache/arrow/issues/44290) - [Java][Flight] Add ActionType description getter (#44291)
+* [GH-44314](https://github.com/apache/arrow/issues/44314) - [Packaging][Python] Use macOS 12 as deployment target to have macOS 12 pyarrow wheels (#44315)
+* [GH-44347](https://github.com/apache/arrow/issues/44347) - [Packaging][C++] Enable Azure file system for deb/rpm (#44348)
+* [GH-44355](https://github.com/apache/arrow/issues/44355) - [Packaging][Python] Disable interactive deb configuration in wheel-manylinux-*-cp313t-* (#44362)
+* [GH-44415](https://github.com/apache/arrow/issues/44415) - [Release][Ruby] Remove pins from glib section of release verification script (#44407)
+
+# Apache Arrow 17.0.0 (2024-07-01 07:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-15053](https://github.com/apache/arrow/issues/15053) - [C++] Add option to string 'center' kernel to control left/right alignment on odd number of padding (#41449)
+* [GH-30866](https://github.com/apache/arrow/issues/30866) - [Java] fix SplitAndTransfer throws for (0,0) if vector empty (#41066)
+* [GH-34484](https://github.com/apache/arrow/issues/34484) - [Substrait] add an option to disable augmented fields (#41583)
+* [GH-37669](https://github.com/apache/arrow/issues/37669) - [C++][Python] Fix casting to extension type with fixed size list storage type (#42219)
+* [GH-38553](https://github.com/apache/arrow/issues/38553) - [C++] Replace null_count with MayHaveNulls in ListArrayFromArray and MapArray (#41957)
+* [GH-38575](https://github.com/apache/arrow/issues/38575) - [Python] Include metadata when creating pa.schema from PyCapsule (#41538)
+* [GH-38770](https://github.com/apache/arrow/issues/38770) - [C++][Python] RecordBatch.filter() segfaults if passed a ChunkedArray (#40971)
+* [GH-39129](https://github.com/apache/arrow/issues/39129) - [Python] pa.array: add check for byte-swapped numpy arrays inside python objects (#41549)
+* [GH-39489](https://github.com/apache/arrow/issues/39489) - [C++][Parquet] Timestamp conversion from Parquet to Arrow does not follow compatibility guidelines for convertedType
+* [GH-39645](https://github.com/apache/arrow/issues/39645) - [Python] Fix read_table for encrypted parquet (#39438)
+* [GH-40270](https://github.com/apache/arrow/issues/40270) - [C++] Use LargeStringArray for casting when writing tables to CSV (#40271)
+* [GH-40560](https://github.com/apache/arrow/issues/40560) - [Python] RunEndEncodedArray.from_arrays: bugfix for Array arguments (#40560) (#41093)
+* [GH-40750](https://github.com/apache/arrow/issues/40750) - [C++][Python] Map child Array constructed from keys and items shouldn't have offset (#40871)
+* [GH-40913](https://github.com/apache/arrow/issues/40913) - [C++] Fix compile warning with 'implicitly-defined constructor does not initialize' in encoding_benchmark (#41060)
+* [GH-40997](https://github.com/apache/arrow/issues/40997) - [C++] Get null_bit_id according to are_cols_in_encoding_order in NullUpdateColumnToRow_avx2 (#40998)
+* [GH-41112](https://github.com/apache/arrow/issues/41112) - [C++] Clean up unused parameter warnings (#41111)
+* [GH-41149](https://github.com/apache/arrow/issues/41149) - [C++][Acero] Fix asof join race (#41614)
+* [GH-41164](https://github.com/apache/arrow/issues/41164) - [C#] Fix concatenation of sliced arrays (#41245)
+* [GH-41190](https://github.com/apache/arrow/issues/41190) - [C++] support for single threaded joins (#41125)
+* [GH-41192](https://github.com/apache/arrow/issues/41192) - [C++] Fix hashjoin benchmark failed at make utf8's random batches (#41195)
+* [GH-41198](https://github.com/apache/arrow/issues/41198) - [C#] Fix concatenation of union arrays (#41226)
+* [GH-41199](https://github.com/apache/arrow/issues/41199) - [C#] Fix accessing values of a sliced decimal array (#41200)
+* [GH-41258](https://github.com/apache/arrow/issues/41258) - [C#][Integration] Fix comparison of sliced validity buffers with non-zero offsets (#41259)
+* [GH-41263](https://github.com/apache/arrow/issues/41263) - [C#][Integration] Ensure offset is considered in all branches of the bitmap comparison (#41264)
+* [GH-41282](https://github.com/apache/arrow/issues/41282) - [Dev] Always prompt next major version on merge script if it exists (#41305)
+* [GH-41306](https://github.com/apache/arrow/issues/41306) - [C++] Check to avoid copying when NullBitmapBuffer is Null (#41452)
+* [GH-41317](https://github.com/apache/arrow/issues/41317) - [C++] Fix crash on invalid Parquet file (#41366)
+* [GH-41319](https://github.com/apache/arrow/issues/41319) - [Python] \`test\_numpy\_array\_protocol\` test failures with numpy 2.0.0rc1
+* [GH-41321](https://github.com/apache/arrow/issues/41321) - [C++][Parquet] More strict Parquet level checking (#41346)
+* [GH-41329](https://github.com/apache/arrow/issues/41329) - [C++][Gandiva] Fix gandiva cache size env var (#41330)
+* [GH-41340](https://github.com/apache/arrow/issues/41340) - [C++][CMake][Windows] Remove needless .dll suffix from link libraries (#41341)
+* [GH-41343](https://github.com/apache/arrow/issues/41343) - [C++][CMake] Remove unused ARROW_NO_DEPRECATED_API (#41345)
+* [GH-41356](https://github.com/apache/arrow/issues/41356) - [Release][Docs] Update post release documentation task to remove the warnings banner for stable version (#41377)
+* [GH-41367](https://github.com/apache/arrow/issues/41367) - [C++][maybe_unused] with Arrow macro (#41359)
+* [GH-41371](https://github.com/apache/arrow/issues/41371) - [CI][Release] Use the latest Ruby on macOS (#41379)
+* [GH-41390](https://github.com/apache/arrow/issues/41390) - [CI] Use setup-python GitHub action on csharp macOS job (#41392)
+* [GH-41397](https://github.com/apache/arrow/issues/41397) - [C#] Downgrade macOS test runner to avoid infrastructure bug (#41934)
+* [GH-41418](https://github.com/apache/arrow/issues/41418) - [C++][Large] ListView and Map nested types for scalar_if_else's kernel functions (#41419)
+* [GH-41426](https://github.com/apache/arrow/issues/41426) - [R][CI] Install  CRAN style openssl on gh runners. (#41629)
+* [GH-41433](https://github.com/apache/arrow/issues/41433) - [C++][Gandiva] Fix ascii_utf8 function to return same result on x86 and Arm (#41434)
+* [GH-41464](https://github.com/apache/arrow/issues/41464) - [Python] Fix StructArray.sort() for by=None (#41495)
+* [GH-41467](https://github.com/apache/arrow/issues/41467) - [CI][Release] Don't push conda-verify-rc image (#41468)
+* [GH-41470](https://github.com/apache/arrow/issues/41470) - [C++] Reuse deduplication logic for direct registration (#41466)
+* [GH-41471](https://github.com/apache/arrow/issues/41471) - [Java] Fix performance uber-jar (#41473)
+* [GH-41475](https://github.com/apache/arrow/issues/41475) - [Python] Build with Python 3.13 (#42034)
+* [GH-41478](https://github.com/apache/arrow/issues/41478) - [C++] Clean up more redundant move warnings (#41487)
+* [GH-41491](https://github.com/apache/arrow/issues/41491) - [Python] remove special methods related to buffers in python <2.6 (#41492)
+* [GH-41502](https://github.com/apache/arrow/issues/41502) - [Python] Fix reading column index with decimal values (#41503)
+* [GH-41529](https://github.com/apache/arrow/issues/41529) - [C++][Compute] Remove redundant logic for ArrayData as ExecResults in ExecScalarCaseWhen (#41380)
+* [GH-41534](https://github.com/apache/arrow/issues/41534) - [Go] Fix mem leak importing 0 length C Array (#41535)
+* [GH-41541](https://github.com/apache/arrow/issues/41541) - [Go][Parquet] More fixes for writer performance regression (#42003)
+* [GH-41541](https://github.com/apache/arrow/issues/41541) - [Go][Parquet] Fix writer performance regression (#41638)
+* [GH-41571](https://github.com/apache/arrow/issues/41571) - [Java] Revert GH-41307 (#41309) (#41628)
+* [GH-41573](https://github.com/apache/arrow/issues/41573) - [Java] VectorSchemaRoot uses inefficient stream to copy fieldVectors (#41574)
+* [GH-41581](https://github.com/apache/arrow/issues/41581) - [C++][CMake] correctly use Protobuf_PROTOC_EXECUTABLE (#41582)
+* [GH-41587](https://github.com/apache/arrow/issues/41587) - [Docs][Python] Remove duplicate contents (#41588)
+* [GH-41602](https://github.com/apache/arrow/issues/41602) - [C#] Resolve build warnings (#41645)
+* [GH-41617](https://github.com/apache/arrow/issues/41617) - [C++][CMake] Fix ARROW_USE_BOOST detect condition (#41622)
+* [GH-41630](https://github.com/apache/arrow/issues/41630) - [Benchmarking] Fix out-of-source build in benchmarks (#41631)
+* [GH-41648](https://github.com/apache/arrow/issues/41648) - [Java] Memory Leak about splitAndTransfer (#41898)
+* [GH-41660](https://github.com/apache/arrow/issues/41660) - [CI][Java] Restore devtoolset relatead GANDIVA_CXX_FLAGS (#41661)
+* [GH-41679](https://github.com/apache/arrow/issues/41679) - [Release][Packaging][deb] Update package name in 01-preparesh too (#41859)
+* [GH-41684](https://github.com/apache/arrow/issues/41684) - [C++][Python] Add optional null_bitmap to MapArray::FromArrays (#41757)
+* [GH-41686](https://github.com/apache/arrow/issues/41686) - [Java] Nullability of struct child vectors not preserved in TransferPair (#41785)
+* [GH-41688](https://github.com/apache/arrow/issues/41688) - [Dev] Include all relevant CMakeLists.txt files in cmake-format precommit hook (#41689)
+* [GH-41697](https://github.com/apache/arrow/issues/41697) - [Go][Parquet] Release BufferWriter when BufferedPageWriter is closed (#41698)
+* [GH-41699](https://github.com/apache/arrow/issues/41699) - [Python][Parquet] Implement to_dict method on SortingColumn (#41704)
+* [GH-41711](https://github.com/apache/arrow/issues/41711) - [C++] macros.h: Fix ARROW_FORCE_INLINE for MSVC (#41712)
+* [GH-41717](https://github.com/apache/arrow/issues/41717) - [Java][Vector] fix issue with ByteBuffer rewind in MessageSerializer (#41718)
+* [GH-41720](https://github.com/apache/arrow/issues/41720) - [C++][Acero] Remove an useless parameter for QueryContext::Init called in hash_join_benchmark  (#41716)
+* [GH-41725](https://github.com/apache/arrow/issues/41725) - [Python] CMake: ignore Parquet encryption option if Parquet itself is not enabled (fix Java integration build) (#41776)
+* [GH-41735](https://github.com/apache/arrow/issues/41735) - [CI][Archery] Update archery to be compatible with pygit2 1.15 API change (#41739)
+* [GH-41738](https://github.com/apache/arrow/issues/41738) - [C++] Fix the issue that temp vector stack may be under sized (#41746)
+* [GH-41741](https://github.com/apache/arrow/issues/41741) - [C++] Check that extension metadata key is present before attempting to delete it (#41763)
+* [GH-41758](https://github.com/apache/arrow/issues/41758) - [Python] Disallow direct pa.RecordBatchReader() construction to avoid segfaults (#41773)
+* [GH-41771](https://github.com/apache/arrow/issues/41771) - [C++] Iterator releases its resource immediately when it reads all values (#41824)
+* [GH-41780](https://github.com/apache/arrow/issues/41780) - [C++][Flight][Benchmark] Ensure waiting server ready (#41793)
+* [GH-41784](https://github.com/apache/arrow/issues/41784) - [Packaging][RPM] Use SO version for -libs package name (#41838)
+* [GH-41787](https://github.com/apache/arrow/issues/41787) - Update fmpp-maven-plugin output directory (#41788)
+* [GH-41791](https://github.com/apache/arrow/issues/41791) - [CI][Conda] Update azure.linux.yml task, replace CondaEnvironment@1 with Bash@3 (#41883)
+* [GH-41813](https://github.com/apache/arrow/issues/41813) - [C++] Fix avx2 gather offset larger than 2GB in `CompareColumnsToRows` (#42188)
+* [GH-41829](https://github.com/apache/arrow/issues/41829) - [R] Update relative URLs in README to absolute paths to prevent CRAN check failures  (#41830)
+* [GH-41836](https://github.com/apache/arrow/issues/41836) - [Java] Fix an undefined symbol error when ARROW_S3=OFF (#41837)
+* [GH-41862](https://github.com/apache/arrow/issues/41862) - [C++][S3] Fix potential deadlock when closing output stream (#41876)
+* [GH-41884](https://github.com/apache/arrow/issues/41884) - [Python] Fix RecordBatchReader.cast to support casting to equal schema for all types (#42098)
+* [GH-41902](https://github.com/apache/arrow/issues/41902) - [Java] Variadic Buffer Counts Incorrect (#41930)
+* [GH-41903](https://github.com/apache/arrow/issues/41903) - [CI][GLib] Use the latest Ruby to use OpenSSL 3 (#42001)
+* [GH-41920](https://github.com/apache/arrow/issues/41920) - [CI][JS] Add missing build directory argument (#41921)
+* [GH-41924](https://github.com/apache/arrow/issues/41924) - [Python] Fix tests when using NumPy 2.0 on Windows (#42099)
+* [GH-41964](https://github.com/apache/arrow/issues/41964) - [CI][C++] Clear cache for mamba on AppVeyor (#41977)
+* [GH-42005](https://github.com/apache/arrow/issues/42005) - [Java][Integration][CI] Fix ARROW_BUILD_ROOT Path to find pom.xml (#42008)
+* [GH-42006](https://github.com/apache/arrow/issues/42006) - [CI][Python] Use pip install -e instead of setup.py build_ext --inplace for installing pyarrow on verification script (#42007)
+* [GH-42015](https://github.com/apache/arrow/issues/42015) - [MATLAB] Executing `tfeather.m` test class causes MATLAB to crash on `windows-2022` after MSVC update from 14.39.33519 to 14.40.33807 (#42123)
+* [GH-42017](https://github.com/apache/arrow/issues/42017) - [CI][Python][C++] Fix utf8proc detection for wheel on Windows (#42022)
+* [GH-42039](https://github.com/apache/arrow/issues/42039) - [Docs][Go] Fix broken link (#42040)
+* [GH-42041](https://github.com/apache/arrow/issues/42041) - [Swift] Fix nullable type decoder issue (#42043)
+* [GH-42065](https://github.com/apache/arrow/issues/42065) - [C++] Support list-views on list_slice (#42067)
+* [GH-42104](https://github.com/apache/arrow/issues/42104) - [C++] Fix an OTel test failure and remove needless logs (#42122)
+* [GH-42107](https://github.com/apache/arrow/issues/42107) - [C++][FS][Azure] Ensure setting BlobSasBuilder::Protocol (#42108)
+* [GH-42116](https://github.com/apache/arrow/issues/42116) - [C++] Support list-view typed arrays in array_take and array_filter (#42117)
+* [GH-42130](https://github.com/apache/arrow/issues/42130) - [GLib] Fix building gir files with MSVC (#42131)
+* [GH-42136](https://github.com/apache/arrow/issues/42136) - [CI][Go][Java][JS] Use AMD64-based macOS explicitly (#42175)
+* [GH-42139](https://github.com/apache/arrow/issues/42139) - [C++] Fix some potential uninitialized variable warnings (#42207)
+* [GH-42140](https://github.com/apache/arrow/issues/42140) - [C++] Avoid invalid accesses in parquet-encoding-benchmark (#42141)
+* [GH-42149](https://github.com/apache/arrow/issues/42149) - [C++] Use FetchContent for bundled ORC (#43011)
+* [GH-42170](https://github.com/apache/arrow/issues/42170) - [Python][CI] Update expected output for numpy 2.0.0 (#42172)
+* [GH-42197](https://github.com/apache/arrow/issues/42197) - [CI][Packaging][Java] Ensure updating "python@*" formulae on macOS (#42202)
+* [GH-42198](https://github.com/apache/arrow/issues/42198) - [C++] Fix GetRecordBatchPayload crashes for device data (#42199)
+* [GH-42208](https://github.com/apache/arrow/issues/42208) - [Java] Fix the Test in flight-sql-jdbc-driver Module (#42217)
+* [GH-42213](https://github.com/apache/arrow/issues/42213) - [Swift] Use "--warnings-as-errors" only on CI (#42214)
+* [GH-42220](https://github.com/apache/arrow/issues/42220) - [R] handle vctrs_rcrd extension type in metadata cleaning (#42226)
+* [GH-42224](https://github.com/apache/arrow/issues/42224) - [Java] Fix Typo in TestAceroSubstraitConsumer Test Method (#42225)
+* [GH-42232](https://github.com/apache/arrow/issues/42232) - [C++] Use non-stale c-ares download URL (#42250)
+* [GH-42234](https://github.com/apache/arrow/issues/42234) - [CI][R] Disable libarrow binary use on valgrind tests  (#42249)
+* [GH-43048](https://github.com/apache/arrow/issues/43048) - [JAVA] Fix IndexOutOfBoundsException message by reporting index correctly (#43049)
+* [GH-43058](https://github.com/apache/arrow/issues/43058) - [C#] Revert upgrade of Xunit from 2.8.0 to 2.8.1 (#43074)
+* [GH-43059](https://github.com/apache/arrow/issues/43059) - [CI][Gandiva] Disable Python Gandiva tests on AlmaLinux 8 (#43093)
+* [GH-43062](https://github.com/apache/arrow/issues/43062) - [Go] Use calloc instead of malloc (#43052)
+* [GH-43070](https://github.com/apache/arrow/issues/43070) - [C++][Parquet] Check for valid ciphertext length to prevent segfault (#43071)
+* [GH-43116](https://github.com/apache/arrow/issues/43116) - [C++][Compute] Mark KeyCompare.CompareColumnsToRowsLarge as large memory test (#43128)
+* [GH-43119](https://github.com/apache/arrow/issues/43119) - [CI][Packaging] Update manylinux 2014 CentOS repos that have been deprecated (#43121)
+* [GH-43122](https://github.com/apache/arrow/issues/43122) - [CI][Packaging][RPM][CentOS] Use vault.centos.org for SCL (#43127)
+* [GH-43134](https://github.com/apache/arrow/issues/43134) - [C++] Upgrade bundled google-cloud-cpp to 2.22.0 (#43136)
+* [GH-43158](https://github.com/apache/arrow/issues/43158) - [Packaging] Use bundled nlohmann/json on AlmaLinux 8/CentOS Stream 8 (#43159)
+* [GH-43199](https://github.com/apache/arrow/issues/43199) - [CI][Packaging] dev/release/utils-create-release-tarball.sh should not include the release candidate number in the name of the tarball's top-level directory.  (#43200)
+* [GH-43204](https://github.com/apache/arrow/issues/43204) - [CI][Packaging] Apply vcpkg patch to fix Thrift version (#43208)
+
+
+## New Features and Improvements
+
+* [GH-29537](https://github.com/apache/arrow/issues/29537) - [R] Support mutate/summarize with implicit join (#41350)
+* [GH-33484](https://github.com/apache/arrow/issues/33484) - [C++][Compute] Implement `Grouper::Reset` (#41352)
+* [GH-35804](https://github.com/apache/arrow/issues/35804) - [CI][Packaging][Conan] Synchronize upstream conan (#39729)
+* [GH-35888](https://github.com/apache/arrow/issues/35888) - [Java] Add FlightStatusCode.RESOURCE_EXHAUSTED (#41508)
+* [GH-37333](https://github.com/apache/arrow/issues/37333) - [Python] Replace pandas.util.testing.rands with vendored version (#42089)
+* [GH-37720](https://github.com/apache/arrow/issues/37720) - [Go][FlightSQL] Add prepared statement handle to DoPut result  (#40311)
+* [GH-37728](https://github.com/apache/arrow/issues/37728) - [Java] Add methods to get an Iterable for a ValueVector (#41895)
+* [GH-37929](https://github.com/apache/arrow/issues/37929) - [Python] begin moving static settings to pyproject.toml (#41041)
+* [GH-37938](https://github.com/apache/arrow/issues/37938) - [Swift] Add initial C data interface implementation (#41342)
+* [GH-38255](https://github.com/apache/arrow/issues/38255) - [Go][C++] Implement Flight SQL Bulk Ingestion (#38385)
+* [GH-38325](https://github.com/apache/arrow/issues/38325) - [Python] Implement PyCapsule interface for Device data in PyArrow (#40717)
+* [GH-38325](https://github.com/apache/arrow/issues/38325) - [Python] Expand the Arrow PyCapsule Interface with C Device Data support (#40708)
+* [GH-38692](https://github.com/apache/arrow/issues/38692) - [C#] Implement ICollection<T?> on scalar arrays (#41539)
+* [GH-39204](https://github.com/apache/arrow/issues/39204) - [Format][FlightRPC][Docs] Stabilize Flight SQL (#41657)
+* [GH-39220](https://github.com/apache/arrow/issues/39220) - [Python] Let RecordBatch.filter accept a boolean expression in addition to mask array (#43043)
+* [GH-39301](https://github.com/apache/arrow/issues/39301) - [Archery][CI][Integration] Add nanoarrow to archery + integration setup (#39302)
+* [GH-39344](https://github.com/apache/arrow/issues/39344) - [C++][FS][Azure] Support azure cli auth (#41976)
+* [GH-39345](https://github.com/apache/arrow/issues/39345) - [C++][FS][Azure] Add support for environment credential (#41715)
+* [GH-39649](https://github.com/apache/arrow/issues/39649) - [Java][CI] Fix or suppress spurious errorprone warnings stage 2 (#39777)
+* [GH-39722](https://github.com/apache/arrow/issues/39722) - [JS] Clean up packaging (#39723)
+* [GH-39798](https://github.com/apache/arrow/issues/39798) - [C++] Optimize Take for fixed-size types including nested fixed-size lists (#41297)
+* [GH-39858](https://github.com/apache/arrow/issues/39858) - [C++][Device] Add Copy/View slice functions to a CPU pointer (#41477)
+* [GH-39898](https://github.com/apache/arrow/issues/39898) - [C++] Add support for OpenTelemetry logging (#39905)
+* [GH-39990](https://github.com/apache/arrow/issues/39990) - [Docs][CI] Add sphinx-lint for docs linting (#40022)
+* [GH-40078](https://github.com/apache/arrow/issues/40078) - [C++] Import/Export ArrowDeviceArrayStream (#40807)
+* [GH-40339](https://github.com/apache/arrow/issues/40339) - [Java] StringView Initial Implementation (#40340)
+* [GH-40342](https://github.com/apache/arrow/issues/40342) - [Python] Fix pickling of LocalFileSystem for cython 2 (#41459)
+* [GH-40342](https://github.com/apache/arrow/issues/40342) - [C++] move LocalFileSystem to the registry (#40356)
+* [GH-40361](https://github.com/apache/arrow/issues/40361) - [C++] Make flatbuffers serialization more deterministic (#40392)
+* [GH-40384](https://github.com/apache/arrow/issues/40384) - [Python] Expand the C Device Interface bindings to support import on CUDA device (#40385)
+* [GH-40494](https://github.com/apache/arrow/issues/40494) - [Go] add support for protobuf messages (#40496)
+* [GH-40644](https://github.com/apache/arrow/issues/40644) - [Python] Allow passing a mapping of column names to `rename_columns` (#40645)
+* [GH-40734](https://github.com/apache/arrow/issues/40734) - [Packaging][Debian] Drop support for Debian bullseye (#41394)
+* [GH-40749](https://github.com/apache/arrow/issues/40749) - [Python][Packaging] Strip unnecessary symbols when building wheels (#42028)
+* [GH-40819](https://github.com/apache/arrow/issues/40819) - [Java] Adding Spotless to Algorithm module (#41825)
+* [GH-40820](https://github.com/apache/arrow/issues/40820) - [Java] Adding Spotless to Adapter module (#42048)
+* [GH-40822](https://github.com/apache/arrow/issues/40822) - [Java] Adding Spotless to C module (#42059)
+* [GH-40823](https://github.com/apache/arrow/issues/40823) - [Java] Adding Spotless to Compression module (#42060)
+* [GH-40824](https://github.com/apache/arrow/issues/40824) - [Java] Adding Spotless to Dataset module (#42062)
+* [GH-40825](https://github.com/apache/arrow/issues/40825) - [Java] Adding Spotless to Flight module  (#42063)
+* [GH-40826](https://github.com/apache/arrow/issues/40826) - [Java] Adding Spotless to Format module
+* [GH-40827](https://github.com/apache/arrow/issues/40827) - [Java] Adding Spotless to Gandiva module (#42055)
+* [GH-40828](https://github.com/apache/arrow/issues/40828) - [Java] Format arrow-maven-plugins modules (#42054)
+* [GH-40829](https://github.com/apache/arrow/issues/40829) - [Java] Adding Spotless to Memory modules (#42056)
+* [GH-40830](https://github.com/apache/arrow/issues/40830) - [Java] Adding Spotless to Performance module (#42057)
+* [GH-40831](https://github.com/apache/arrow/issues/40831) - [Java] Adding Spotless to Tools module (#42058)
+* [GH-40832](https://github.com/apache/arrow/issues/40832) - [Java] Adding Spotless to Vector module (#42061)
+* [GH-40930](https://github.com/apache/arrow/issues/40930) - [Java] Implement a function to retrieve reference buffers in StringView (#41796)
+* [GH-40932](https://github.com/apache/arrow/issues/40932) - [Java] Implement TransferPair functionality for StringView (#41861)
+* [GH-40933](https://github.com/apache/arrow/issues/40933) - [Java] Enhance the copyFrom* functionality in StringView (#41752)
+* [GH-40942](https://github.com/apache/arrow/issues/40942) - [Java] Implement C Data Interface for StringView (#41967)
+* [GH-40943](https://github.com/apache/arrow/issues/40943) - [Java] Implement RangeEqualsVisitor for StringView (#41636)
+* [GH-40944](https://github.com/apache/arrow/issues/40944) - [Java] Implement TypeEqualsVisitor for StringView (#41606)
+* [GH-40968](https://github.com/apache/arrow/issues/40968) - [C++][Gandiva] add  RE2::Options set_dot_nl(true) for Like function (#40970)
+* [GH-41020](https://github.com/apache/arrow/issues/41020) - [C++] Introduce portable compiler assumptions (#41021)
+* [GH-41035](https://github.com/apache/arrow/issues/41035) - [C++] Add a grouper benchmark for preventing performance regression (#41036)
+* [GH-41055](https://github.com/apache/arrow/issues/41055) - [C++] Support flatten for combining nested list related types (#41092)
+* [GH-41085](https://github.com/apache/arrow/issues/41085) - [CI][Java] Add Spark integration tests to "java" group in Crossbow tasks (#41086)
+* [GH-41089](https://github.com/apache/arrow/issues/41089) - [C++] Clean up remaining tasks related to half float casts (#41084)
+* [GH-41095](https://github.com/apache/arrow/issues/41095) - [C++][FS][Azure] Add support for CopyFile with hierarchical namespace support (#41276)
+* [GH-41102](https://github.com/apache/arrow/issues/41102) - [Packaging][Release] Create unique git tags for release candidates (e.g. apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}) (#41131)
+* [GH-41105](https://github.com/apache/arrow/issues/41105) - [Python][Docs] Update PyArrow installation docs for conda package split (#41135)
+* [GH-41114](https://github.com/apache/arrow/issues/41114) - [C++] Add is_validity_defined_by_bitmap() predicate (#41115)
+* [GH-41116](https://github.com/apache/arrow/issues/41116) - [C++] IO: enhance boundary checking in CompressedInputStream (#41117)
+* [GH-41126](https://github.com/apache/arrow/issues/41126) - [Python] Basic bindings for Device and MemoryManager classes (#41685)
+* [GH-41134](https://github.com/apache/arrow/issues/41134) - [GLib] Support building arrow-glib with MSVC (#41599)
+* [GH-41159](https://github.com/apache/arrow/issues/41159) - [Go][Parquet] Improvement Parquet BitWriter WriteVlqInt Performance  (#41160)
+* [GH-41173](https://github.com/apache/arrow/issues/41173) - [Java] Add spotless configuration for Maven pom.xml files (#41174)
+* [GH-41183](https://github.com/apache/arrow/issues/41183) - [C++][Python] Expose recursive flatten for lists on list_flatten kernel function and pyarrow bindings (#41295)
+* [GH-41186](https://github.com/apache/arrow/issues/41186) - [C++][Parquet][Doc] Denote PARQUET:field_id in parquet.rst (#41187)
+* [GH-41203](https://github.com/apache/arrow/issues/41203) - [Python][Packaging] Ensure to build with released numpy 2.0 (instead of RC) in the wheel building workflows (#42194)
+* [GH-41240](https://github.com/apache/arrow/issues/41240) - [Release][Packaging] Use Debian bookworm for uploading binaries (#41241)
+* [GH-41243](https://github.com/apache/arrow/issues/41243) - [Release][Packaging] Avoid needless download by "archery crossbow download-artifacts" (#41244)
+* [GH-41256](https://github.com/apache/arrow/issues/41256) - [Format][Docs] Add a canonical extension type specification for JSON (#41257)
+* [GH-41262](https://github.com/apache/arrow/issues/41262) - [Java][FlightSQL] Implement stateless prepared statements (#41237)
+* [GH-41287](https://github.com/apache/arrow/issues/41287) - [Java] ListViewVector Implementation (#41285)
+* [GH-41298](https://github.com/apache/arrow/issues/41298) - [Format][Docs] Add a canonical extension type specification for UUID (#41299)
+* [GH-41301](https://github.com/apache/arrow/issues/41301) - [C++] Extract the kernel loops used for PrimitiveTakeExec and generalize to any fixed-width type (#41373)
+* [GH-41307](https://github.com/apache/arrow/issues/41307) - [Java] Use org.apache:apache parent pom version 31 (#41772)
+* [GH-41307](https://github.com/apache/arrow/issues/41307) - [Java] Use org.apache:apache parent pom version 31 (#41309)
+* [GH-41314](https://github.com/apache/arrow/issues/41314) - [CI][Python] Add a job on ARM64 macOS (#41313)
+* [GH-41316](https://github.com/apache/arrow/issues/41316) - [CI][Python] Reduce CI time on macOS (#41378)
+* [GH-41323](https://github.com/apache/arrow/issues/41323) - [R] Redo how summarize() evaluates expressions (#41223)
+* [GH-41327](https://github.com/apache/arrow/issues/41327) - [Ruby] Show type name in Arrow::Table#to_s (#41328)
+* [GH-41334](https://github.com/apache/arrow/issues/41334) - [C++][Acero] Use per-node basis temp vector stack to mitigate overflow (#41335)
+* [GH-41349](https://github.com/apache/arrow/issues/41349) - [C#] Optimize DecimalUtility.GetBytes(SqlDecimal) on .NET 7+ (#42150)
+* [GH-41358](https://github.com/apache/arrow/issues/41358) - [R] Support join "na_matches" argument (#41372)
+* [GH-41361](https://github.com/apache/arrow/issues/41361) - [C++][Parquet] Optimize DelimitRecords by batch execution when max_rep_level > 1 (#41362)
+* [GH-41375](https://github.com/apache/arrow/issues/41375) - [C#] Move to .NET 8.0 (#41376)
+* [GH-41385](https://github.com/apache/arrow/issues/41385) - [CI][MATLAB][Packaging] Add support for MATLAB `R2024a` in CI and crossbow packaging workflows (#41504)
+* [GH-41389](https://github.com/apache/arrow/issues/41389) - [Python] Expose byte_width and bit_width of ExtensionType in terms of the storage type (#41413)
+* [GH-41400](https://github.com/apache/arrow/issues/41400) - [MATLAB] Bump `libmexclass` version to commit `ca3cea6` (#41436)
+* [GH-41410](https://github.com/apache/arrow/issues/41410) - [C++][FS][Azure][Docs] Add AzureFileSystem to Filesystems API reference (#41411)
+* [GH-41420](https://github.com/apache/arrow/issues/41420) - [R] Update NEWS.md for 16.1.0 (#41422)
+* [GH-41427](https://github.com/apache/arrow/issues/41427) - [Go] Fix stateless prepared statements (#41428)
+* [GH-41430](https://github.com/apache/arrow/issues/41430) - [Docs] Use sphinxcontrib-mermaid instead of generating images from .mmd (#41455)
+* [GH-41435](https://github.com/apache/arrow/issues/41435) - [CI][MATLAB] Add job to build and test MATLAB Interface on `macos-14` (#41592)
+* [GH-41450](https://github.com/apache/arrow/issues/41450) - [R][CI] rhub/container follow ons (#41451)
+* [GH-41460](https://github.com/apache/arrow/issues/41460) - [C++] Use ASAN to poison temp vector stack memory (#41695)
+* [GH-41480](https://github.com/apache/arrow/issues/41480) - [Python] Update Python development guide about components being enabled by default based on Arrow C++ (#41705)
+* [GH-41480](https://github.com/apache/arrow/issues/41480) - [Python] Building PyArrow: enable/disable python components by default based on availability in Arrow C++ (#41494)
+* [GH-41493](https://github.com/apache/arrow/issues/41493) - [C++][S3] Add a new option to check existence before CreateDir (#41822)
+* [GH-41507](https://github.com/apache/arrow/issues/41507) - [MATLAB][CI] Pass `strict: true` to `matlab-actions/run-tests@v2`  (#41530)
+* [GH-41527](https://github.com/apache/arrow/issues/41527) - [CI][Dev] Remove unncessary requirements for six (#43087)
+* [GH-41531](https://github.com/apache/arrow/issues/41531) - [MATLAB][Packaging] Bump `matlab-actions/setup-matlab` and `matlab-actions/run-command` from `v1` to `v2` in the `crossbow` job (#41532)
+* [GH-41540](https://github.com/apache/arrow/issues/41540) - [R] Simplify arrow_eval() logic and bindings environments (#41537)
+* [GH-41545](https://github.com/apache/arrow/issues/41545) - [C++][Parquet] Fix DeltaLengthByteArrayEncoder::EstimatedDataEncodedSize (#41546)
+* [GH-41547](https://github.com/apache/arrow/issues/41547) - [C++] Thirdparty: Upgrade xsimd to 13.0.0 (#41548)
+* [GH-41558](https://github.com/apache/arrow/issues/41558) - [C++] Improve fixed_width_test_util.h  (#41575)
+* [GH-41560](https://github.com/apache/arrow/issues/41560) - [C++] ChunkResolver: Implement ResolveMany and add unit tests (#41561)
+* [GH-41590](https://github.com/apache/arrow/issues/41590) - [Java] Improve BaseRepeatedValueVector function on isEmpty and isNull operations (#41601)
+* [GH-41596](https://github.com/apache/arrow/issues/41596) - [C++] fixed_width_internal.h: Simplify docstring and support bit-sized types (BOOL) (#41597)
+* [GH-41608](https://github.com/apache/arrow/issues/41608) - [C++][Python] Extends the add_key_value to parquet::arrow and PyArrow (#41633)
+* [GH-41611](https://github.com/apache/arrow/issues/41611) - [Docs][CI] Enable most sphinx-lint rules for documentation (#41612)
+* [GH-41620](https://github.com/apache/arrow/issues/41620) - [Docs] Document merge.conf usage (#41621)
+* [GH-41626](https://github.com/apache/arrow/issues/41626) - [R][CI] Update OpenSUSE to 15.5 from 15.3 (#41627)
+* [GH-41652](https://github.com/apache/arrow/issues/41652) - [C++][CMake][Windows] Don't build needless object libraries (#41658)
+* [GH-41653](https://github.com/apache/arrow/issues/41653) - [MATLAB] Add new `arrow.c.Array` MATLAB class which wraps a C Data Interface format `ArrowArray` C struct  (#41655)
+* [GH-41654](https://github.com/apache/arrow/issues/41654) - [MATLAB] Add new `arrow.c.Schema` MATLAB class which wraps a C Data Interface format `ArrowSchema` C struct (#41674)
+* [GH-41656](https://github.com/apache/arrow/issues/41656) - [MATLAB] Add C Data Interface format import/export functionality for `arrow.array.Array` (#41737)
+* [GH-41662](https://github.com/apache/arrow/issues/41662) - [Python] Ensure Buffer methods don't crash with non-CPU data (#41889)
+* [GH-41664](https://github.com/apache/arrow/issues/41664) - [C++][Python] PrettyPrint non-cpu data by copying to default CPU device (#42010)
+* [GH-41675](https://github.com/apache/arrow/issues/41675) - [Packaging][MATLAB] Add crossbow job to package MATLAB interface on macos-14 (#41677)
+* [GH-41681](https://github.com/apache/arrow/issues/41681) - [GLib] Generate separate version macros for each GLib library (#41721)
+* [GH-41691](https://github.com/apache/arrow/issues/41691) - [Doc] Remove notion of "logical type" (#41958)
+* [GH-41702](https://github.com/apache/arrow/issues/41702) - [C++][Parquet] Thrift: generate template method to accelerate reading thrift (#41703)
+* [GH-41726](https://github.com/apache/arrow/issues/41726) - [C++][Parquet] Minor: moving EncodedStats by default rather than copying (#41727)
+* [GH-41730](https://github.com/apache/arrow/issues/41730) - [Java] Adding variadicBufferCounts to RecordBatch (#41732)
+* [GH-41748](https://github.com/apache/arrow/issues/41748) - [Python][Parquet] Update BYTE_STREAM_SPLIT description in write_table() docstring (#41759)
+* [GH-41749](https://github.com/apache/arrow/issues/41749) - [GLib] Allow getting a RecordBatchReader from a Dataset or Scanner (#41750)
+* [GH-41755](https://github.com/apache/arrow/issues/41755) - [C++][ORC] Ensure setting detected ORC version (#41767)
+* [GH-41760](https://github.com/apache/arrow/issues/41760) - [C++][Parquet] Add file metadata read/write benchmark (#41761)
+* [GH-41770](https://github.com/apache/arrow/issues/41770) - [CI][GLib] Remove temporary files explicitly (#41807)
+* [GH-41783](https://github.com/apache/arrow/issues/41783) - [C++] Make git-dependent definitions internal (#41781)
+* [GH-41789](https://github.com/apache/arrow/issues/41789) - [Java] Clean up immutables and checkerframework dependencies (#41790)
+* [GH-41797](https://github.com/apache/arrow/issues/41797) - [C++][S3] Remove GetBucketRegion hack for newer AWS SDK versions (#41798)
+* [GH-41799](https://github.com/apache/arrow/issues/41799) - [Java] Migrate to com.gradle:develocity-maven-extension (#41800)
+* [GH-41803](https://github.com/apache/arrow/issues/41803) - [MATLAB] Add C Data Interface format import/export functionality for `arrow.tabular.RecordBatch` (#41817)
+* [GH-41804](https://github.com/apache/arrow/issues/41804) - [Swift] Add Struct (Nested) type (#43082)
+* [GH-41806](https://github.com/apache/arrow/issues/41806) - [GLib][CI] Use vcpkg for C++ dependencies when building GLib libraries with MSVC (#41839)
+* [GH-41818](https://github.com/apache/arrow/issues/41818) - [C++][Parquet] normalize dictionary encoding to use RLE_DICTIONARY (#41819)
+* [GH-41834](https://github.com/apache/arrow/issues/41834) - [R] Better error handling in dplyr code (#41576)
+* [GH-41841](https://github.com/apache/arrow/issues/41841) - [R][CI] Remove more defunct rhub containers (#41828)
+* [GH-41887](https://github.com/apache/arrow/issues/41887) - [Go] Run linter via pre-commit (#41888)
+* [GH-41899](https://github.com/apache/arrow/issues/41899) - [C++] IPC: Minor enhance the code of writer (#41900)
+* [GH-41905](https://github.com/apache/arrow/issues/41905) - [JS] Update dependencies (#41906)
+* [GH-41910](https://github.com/apache/arrow/issues/41910) - [Python] Add support for Pyodide (#37822)
+* [GH-41923](https://github.com/apache/arrow/issues/41923) - [C++] Fix ExecuteScalar deduce all_scalar with chunked_array (#41925)
+* [GH-41929](https://github.com/apache/arrow/issues/41929) - [Java] pom.xml license formatting (#42049)
+* [GH-41945](https://github.com/apache/arrow/issues/41945) - [Swift] Add interface ArrowArrayHolderBuilder (#41946)
+* [GH-41947](https://github.com/apache/arrow/issues/41947) - [Java] Support catalog in JDBC driver with session options (#42035)
+* [GH-41952](https://github.com/apache/arrow/issues/41952) - [R] Turn S3 and ZSTD on by default for macOS (#42210)
+* [GH-41953](https://github.com/apache/arrow/issues/41953) - [C++] Minor enhance code style for FixedShapeTensorType (#41954)
+* [GH-41955](https://github.com/apache/arrow/issues/41955) - [C++] Follow up of adding null_bitmap to MapArray::FromArrays (#41956)
+* [GH-41960](https://github.com/apache/arrow/issues/41960) - Expose new S3 option check_directory_existence_before_creation (#41972)
+* [GH-41968](https://github.com/apache/arrow/issues/41968) - [Java] Implement TransferPair functionality for BinaryView (#41980)
+* [GH-41970](https://github.com/apache/arrow/issues/41970) - [C++] Misc changes making code around list-like types and list-view types behave the same way (#41971)
+* [GH-41978](https://github.com/apache/arrow/issues/41978) - [Python] Fix pandas tests to follow downstream datetime64 unit changes (#41979)
+* [GH-41983](https://github.com/apache/arrow/issues/41983) - [Dev] Run issue labeling bot only when opening an issue (not editing) (#41986)
+* [GH-41994](https://github.com/apache/arrow/issues/41994) - [C++] : kernel.cc: Remove defaults on switch so that compiler can check full enum coverage for us (#41995)
+* [GH-41999](https://github.com/apache/arrow/issues/41999) - [Swift] Add methods for adding array and vargs to arrow array (#42000)
+* [GH-42002](https://github.com/apache/arrow/issues/42002) - [Java] Update Unit Tests for Vector Module (#42019)
+* [GH-42013](https://github.com/apache/arrow/issues/42013) - [Python] Allow Array.filter() to take general array input (#42051)
+* [GH-42016](https://github.com/apache/arrow/issues/42016) - [Python] Expose new FLOAT16 logical type in the pyarrow.parquet bindings (#42103)
+* [GH-42020](https://github.com/apache/arrow/issues/42020) - [Swift] Add Arrow decoding implementation for Swift Codable (#42023)
+* [GH-42021](https://github.com/apache/arrow/issues/42021) - [Swift] Add Arrow encoder implementation for Swift Codable (#43063)
+* [GH-42025](https://github.com/apache/arrow/issues/42025) - [Java] Update Unit Tests for Algorithm Module (#42029)
+* [GH-42030](https://github.com/apache/arrow/issues/42030) - [Java] Update Unit Tests for Adapter Module (#42038)
+* [GH-42042](https://github.com/apache/arrow/issues/42042) - [Java] Update Unit Tests for Compressions Module (#42044)
+* [GH-42045](https://github.com/apache/arrow/issues/42045) - [Java] Update Unit Tests for Flight Module (#42158)
+* [GH-42087](https://github.com/apache/arrow/issues/42087) - [Swift] refactored to remove build warnings (#42088)
+* [GH-42092](https://github.com/apache/arrow/issues/42092) - [Java] Update Unit Tests for Tools Module (#42093)
+* [GH-42100](https://github.com/apache/arrow/issues/42100) - [C++][Parquet] ParquetFilePrinter::JSONPrint print length of FLBA (#41981)
+* [GH-42101](https://github.com/apache/arrow/issues/42101) - [Java] Create File for Output Validation in FileRoundtrip (#42115)
+* [GH-42109](https://github.com/apache/arrow/issues/42109) - [C++][CMake] Add preset for Valgrind (#42110)
+* [GH-42112](https://github.com/apache/arrow/issues/42112) - [Python] Array gracefully fails on non-cpu device (#42113)
+* [GH-42121](https://github.com/apache/arrow/issues/42121) - [Java] Cleanup spotless plugin configuration (#43019)
+* [GH-42124](https://github.com/apache/arrow/issues/42124) - [Swift] Add methods for loading and validating builder by type (#42195)
+* [GH-42126](https://github.com/apache/arrow/issues/42126) - [C++] Move TakeXXX free functions into TakeMetaFunction and make them private (#42127)
+* [GH-42128](https://github.com/apache/arrow/issues/42128) - [Packaging][CentOS] Migrate CentOS 7 and CentOS Stream 8 packaging jobs to use vault.centos.org (#42129)
+* [GH-42134](https://github.com/apache/arrow/issues/42134) - [C++][FS][Azure] Validate AzureOptions::{blob,dfs}_storage_scheme (#42135)
+* [GH-42143](https://github.com/apache/arrow/issues/42143) - [R] Sanitize R metadata (#41969)
+* [GH-42146](https://github.com/apache/arrow/issues/42146) - [MATLAB] Add IPC `RecordBatchFileReader` and `RecordBatchFileWriter` MATLAB classes (#42201)
+* [GH-42162](https://github.com/apache/arrow/issues/42162) - [Java] Update Unit Tests for Dataset Module (#42163)
+* [GH-42164](https://github.com/apache/arrow/issues/42164) - [Java] Update Unit Tests for Gandiva Module (#42166)
+* [GH-42165](https://github.com/apache/arrow/issues/42165) - [Java] Update Unit Tests for Memory Module (#42161)
+* [GH-42167](https://github.com/apache/arrow/issues/42167) - [CI] Upgrade the version of vcpkg in .env (#42171)
+* [GH-42168](https://github.com/apache/arrow/issues/42168) - [Python][Parquet] Pyarrow store decimal as integer (#42169)
+* [GH-42190](https://github.com/apache/arrow/issues/42190) - [Python] Add CI job for Numpy 1.X (#42189)
+* [GH-42193](https://github.com/apache/arrow/issues/42193) - [Java] Update dependency to maintain JUnit 5 only (#42206)
+* [GH-42228](https://github.com/apache/arrow/issues/42228) - [CI][Java] Suppress transfer progress log in java-jars (#42230)
+* [GH-42235](https://github.com/apache/arrow/issues/42235) - [C++] list_parent_indices: Add support for list-view types (#42236)
+* [GH-42243](https://github.com/apache/arrow/issues/42243) - [Swift] Update isValidBuilderType to not required instance of type (#42244)
+* [GH-42245](https://github.com/apache/arrow/issues/42245) - [Swift] Ensure map behavior is the same for all key types (#42246)
+* [GH-43020](https://github.com/apache/arrow/issues/43020) - [Java] Simplify flight.properties generation (#43028)
+* [GH-43033](https://github.com/apache/arrow/issues/43033) - [CI][Docker] Enable linter for python-wheel-windows-test-vs2019 (#43034)
+* [GH-43040](https://github.com/apache/arrow/issues/43040) - [C++] Reduce the recursion of many-join test (#43042)
+* [GH-43045](https://github.com/apache/arrow/issues/43045) - [CI][Python] Pin openjdk=17 in python substrait integration (#43051)
+* [GH-43060](https://github.com/apache/arrow/issues/43060) - [C++] Limit buffer size in BufferedInputStream::SetBufferSize with raw_read_bound (#43064)
+* [GH-43076](https://github.com/apache/arrow/issues/43076) - [C#] Upgrade Xunit and change how Python integration tests are skipped (#43091)
+
+# Apache Arrow 16.1.0 (2024-05-09)
+
+## Bug Fixes
+
+* [GH-40069](https://github.com/apache/arrow/issues/40069) - [C++] Make scalar scratch space immutable after initialization (#40237)
+* [GH-40407](https://github.com/apache/arrow/issues/40407) - [JS] Fix string coercion in MapRowProxyHandler.ownKeys (#40408)
+* [GH-40563](https://github.com/apache/arrow/issues/40563) - [Go] Unable to JSON marshal float64 arrays which contain a NaN value (#41109)
+* [GH-41133](https://github.com/apache/arrow/issues/41133) - [Benchmarking] Build benchmarks in benchmarks.env (#40925)
+* [GH-41137](https://github.com/apache/arrow/issues/41137) - [C#] Fix DenseUnionArray IsNull/Valid (#41138)
+* [GH-41140](https://github.com/apache/arrow/issues/41140) - [C#] Account for offset and length in union arrays (#41165)
+* [GH-41238](https://github.com/apache/arrow/issues/41238) - [Release] Use UTF-8 as the default encoding to upload binary (#41242)
+* [GH-41280](https://github.com/apache/arrow/issues/41280) - [Release][Java] Make Maven version detection more robust (#41281)
+* [GH-41302](https://github.com/apache/arrow/issues/41302) - [C#][Integration] Fix writing list and binary arrays with zero length offsets to IPC format (#41303)
+* [GH-41333](https://github.com/apache/arrow/issues/41333) - [C++][CMake] Prefer protobuf-config.cmake to FindProtobuf.cmake (#41360)
+* [GH-41369](https://github.com/apache/arrow/issues/41369) - [CI][GLib] Don't use /usr/local on macOS (#41387)
+* [GH-41370](https://github.com/apache/arrow/issues/41370) - [CI][MATLAB] MATLAB macOS CI workflow fails because of `macos-latest` change to `macos-14` (#41384)
+* [GH-41397](https://github.com/apache/arrow/issues/41397) - [C\#] Tests fail on MacOS arm64 with a stack overflow
+* [GH-41398](https://github.com/apache/arrow/issues/41398) - [R][CI] Windows job failing after R 4.4 release (#41409)
+* [GH-41407](https://github.com/apache/arrow/issues/41407) - [C++] Use static method to fill scalar scratch space to prevent ub (#41421)
+* [GH-41431](https://github.com/apache/arrow/issues/41431) - [C++][Parquet][Dataset] Fix repeated scan on encrypted dataset (#41550)
+* [GH-41462](https://github.com/apache/arrow/issues/41462) - [CI] Temporary pin azurite to v3.29.0 (#41501)
+* [GH-41463](https://github.com/apache/arrow/issues/41463) - [C++] Skip TestConcurrentFillFromScalar for platforms without threading support (#41461)
+* [GH-41562](https://github.com/apache/arrow/issues/41562) - [C++][Parquet] Decoding: Fix num_value handling in ByteStreamSplitDecoder (#41565)
+* [GH-41566](https://github.com/apache/arrow/issues/41566) - [CI][Packaging] macOS wheel for Catalina fails to build on macOS arm64 (#41567)
+* [GH-41577](https://github.com/apache/arrow/issues/41577) - [Java][Packaging] Add org.apache.arrow.memory.core to --add-opens=java.base/java.nio
+* [GH-41594](https://github.com/apache/arrow/issues/41594) - [Go] Support reading `date64` type & properly validate list-like types (#41595)
+
+
+## New Features and Improvements
+
+* [GH-39131](https://github.com/apache/arrow/issues/39131) - [JS] Add at() for array like types (#40730)
+* [GH-39482](https://github.com/apache/arrow/issues/39482) - [JS] Refactor imports (#39483)
+* [GH-39664](https://github.com/apache/arrow/issues/39664) - [C++][Acero] Ensure Acero benchmarks present a metric for identifying throughput (#40884)
+* [GH-40517](https://github.com/apache/arrow/issues/40517) - [C#] Fix writing sliced arrays to IPC format (#41197)
+* [GH-40959](https://github.com/apache/arrow/issues/40959) - [JS] Store Timestamps in 64 bits (#40960)
+* [GH-40989](https://github.com/apache/arrow/issues/40989) - [JS] Update dependencies (#40990)
+* [GH-41136](https://github.com/apache/arrow/issues/41136) - [C#] Recompute null count for sliced arrays on demand (#41144)
+* [GH-41225](https://github.com/apache/arrow/issues/41225) - [C#] Slice value buffers when writing sliced list or binary arrays in IPC format (#41230)
+* [GH-41231](https://github.com/apache/arrow/issues/41231) - [C#] Slice values array when writing a sliced list view array to IPC format (#41255)
+* [GH-41247](https://github.com/apache/arrow/issues/41247) - [Release] Use LC_ALL in binary upload scripts (#41248)
+* [GH-41353](https://github.com/apache/arrow/issues/41353) - [C++] Define bit_width and byte_width of ExtensionType in terms of the storage type (#41354)
+* [GH-41402](https://github.com/apache/arrow/issues/41402) - [CI][R] Update our backwards compatibility CI any other R 4.4 cleanups (#41403)
+* [GH-41405](https://github.com/apache/arrow/issues/41405) - [Release][Docs][GLib] Use Sphinx based GLib front page (#41406)
+
+# Apache Arrow 16.0.0 (2024-04-16)
+
+## Bug Fixes
+
+* [GH-20379](https://github.com/apache/arrow/issues/20379) - [Java] Dataset Failed to update reservation while freeing bytes (#40101)
+* [GH-35081](https://github.com/apache/arrow/issues/35081) - [Python] construct pandas.DataFrame with public API in `to_pandas` (#40897)
+* [GH-35369](https://github.com/apache/arrow/issues/35369) - [Docs] Add a missing space after ref:`IPC format <format-ipc>` (#38276)
+* [GH-35718](https://github.com/apache/arrow/issues/35718) - [Go][Parquet] Fix for null-only encoding panic (#39497)
+* [GH-36026](https://github.com/apache/arrow/issues/36026) - [C++][ORC] Catch all ORC exceptions to avoid crash (#40697)
+* [GH-36026](https://github.com/apache/arrow/issues/36026) - [Python] Fix ORC test segfault in the python wheel windows test (#40609)
+* [GH-37164](https://github.com/apache/arrow/issues/37164) - [Python] Attach Python stacktrace to errors in `ConvertPyError` (#39380)
+* [GH-37841](https://github.com/apache/arrow/issues/37841) - [Java] Dictionary decoding not using the compression factory from the ArrowReader (#38371)
+* [GH-37989](https://github.com/apache/arrow/issues/37989) - [Python] Plug reference leaks when creating Arrow array from Python list of dicts (#40412)
+* [GH-38768](https://github.com/apache/arrow/issues/38768) - [Python] Empty slicing an array backwards beyond the start is now empty (#40682)
+* [GH-38768](https://github.com/apache/arrow/issues/38768) - [Python] Slicing an array backwards beyond the start now includes first item. (#39240)
+* [GH-38794](https://github.com/apache/arrow/issues/38794) - [C++][S3] Handle conventional content-type for directories (#40147)
+* [GH-38821](https://github.com/apache/arrow/issues/38821) - [C++] Strengthen handling of duplicate slashes in S3, GCS (#40371)
+* [GH-38828](https://github.com/apache/arrow/issues/38828) - [R] Ensure that streams can be written to socket connections (#38897)
+* [GH-38833](https://github.com/apache/arrow/issues/38833) - [C++] Avoid hash_mean overflow (#39349)
+* [GH-38923](https://github.com/apache/arrow/issues/38923) - [GLib] Fix spelling (#38924)
+* [GH-38962](https://github.com/apache/arrow/issues/38962) - [C++] Fix spelling (array) (#38963)
+* [GH-39291](https://github.com/apache/arrow/issues/39291) - [Docs] Remove the "Show source" links from doc pages (#40167)
+* [GH-39309](https://github.com/apache/arrow/issues/39309) - [Go][Parquet] handle nil bitWriter for DeltaBinaryPacked (#39347)
+* [GH-39310](https://github.com/apache/arrow/issues/39310) - [CI][Java][Docs] Failed by new module-info-compiler Maven plugin
+* [GH-39416](https://github.com/apache/arrow/issues/39416) - [GLib][Docs] Fixed Broken Link in README Content  (#39896)
+* [GH-39424](https://github.com/apache/arrow/issues/39424) - [CI][R] test-r-rhub-debian-gcc-devel-lto-latest fails not being able to install Arrow
+* [GH-39440](https://github.com/apache/arrow/issues/39440) - [Python] Calling pyarrow.dataset.ParquetFileFormat.make_write_options as a class method results in a segfault (#40976)
+* [GH-39444](https://github.com/apache/arrow/issues/39444) - [Python] Fix parquet import in encryption test (#40505)
+* [GH-39444](https://github.com/apache/arrow/issues/39444) - [C++][Parquet] Fix crash in Modular Encryption (#39623)
+* [GH-39456](https://github.com/apache/arrow/issues/39456) - [Go][Parquet] Arrow DATE64 Type Coerced to Parquet DATE Logical Type (#39460)
+* [GH-39466](https://github.com/apache/arrow/issues/39466) - [Go][Parquet] Align Arrow and Parquet Timestamp Instant/Local Semantics (#39467)
+* [GH-39519](https://github.com/apache/arrow/issues/39519) - [Swift] Fix null count when using reader (#39520)
+* [GH-39523](https://github.com/apache/arrow/issues/39523) - [R] Don't override explicitly set NOT_CRAN=false when on dev version (#39524)
+* [GH-39558](https://github.com/apache/arrow/issues/39558) - [Java] Add SQL_ALL_TABLES_ARE_SELECTABLE, SQL_NULL_ORDERING and SQL_MAX_COLUMNS_IN_TABLE support to SqlInfoBuilder (#39561)
+* [GH-39579](https://github.com/apache/arrow/issues/39579) - [Python] fix raising ValueError on _ensure_partitioning (#39593)
+* [GH-39683](https://github.com/apache/arrow/issues/39683) - [Release] Use temporary direction with TEST_BINARY=1 (#39684)
+* [GH-39706](https://github.com/apache/arrow/issues/39706) - [Archery] Fix `benchmark diff` subcommand (#39733)
+* [GH-39738](https://github.com/apache/arrow/issues/39738) - [R] Support build against the last three released versions of Arrow (#39739)
+* [GH-39765](https://github.com/apache/arrow/issues/39765) - [C++][Dataset] Fix failures in dataset-scanner-benchmark (#39794)
+* [GH-39769](https://github.com/apache/arrow/issues/39769) - [C++][Device] Fix Importing nested and string types for DeviceArray (#39770)
+* [GH-39782](https://github.com/apache/arrow/issues/39782) - [C++] Use correct (non-CPU) address of buffer in ExportDeviceArray (#39783)
+* [GH-39788](https://github.com/apache/arrow/issues/39788) - [Python] Validate max_chunksize in Table.to_batches (#39796)
+* [GH-39841](https://github.com/apache/arrow/issues/39841) - [GLib] Add support for GLib 2.56 again (#39842)
+* [GH-39857](https://github.com/apache/arrow/issues/39857) - [C++] Improve error message for "chunker out of sync" condition (#39892)
+* [GH-39870](https://github.com/apache/arrow/issues/39870) - [Go] Include buffered pages in TotalBytesWritten (#40105)
+* [GH-39874](https://github.com/apache/arrow/issues/39874) - [CI][C++][Windows] Use pre-installed OpenSSL (#39882)
+* [GH-39883](https://github.com/apache/arrow/issues/39883) - [CI][R][Windows] Use ci/scripts/install_minio.sh with Git bash (#39929)
+* [GH-39909](https://github.com/apache/arrow/issues/39909) - [Java][CI] Update reference to Float16 testing file reference on Testing submodule (#39911)
+* [GH-39921](https://github.com/apache/arrow/issues/39921) - [Go][Parquet] ColumnWriter not reset TotalCompressedBytes after Flush (#39922)
+* [GH-39925](https://github.com/apache/arrow/issues/39925) - [Go][Parquet] Fix re-slicing in maybeReplaceValidity function (#39926)
+* [GH-39935](https://github.com/apache/arrow/issues/39935) - [GLib][Docs] Use GI-DocGen instead of GTK-Doc (#40427)
+* [GH-39955](https://github.com/apache/arrow/issues/39955) - [C++] Use make -j1 to install bundled bzip2 (#39956)
+* [GH-39965](https://github.com/apache/arrow/issues/39965) - [C++] DatasetWriter avoid creating zero-sized batch when `max_rows_per_file` enabled (#39995)
+* [GH-39973](https://github.com/apache/arrow/issues/39973) - [C++][CI] Disable debug memory pool for ASAN and Valgrind (#39975)
+* [GH-39992](https://github.com/apache/arrow/issues/39992) - [CI][Docs][Java] ubuntu-docs uses Maven version in .env (#39993)
+* [GH-39996](https://github.com/apache/arrow/issues/39996) - [Archery] Fix Crossbow build on a PR from a fork's main branch (#40002)
+* [GH-39996](https://github.com/apache/arrow/issues/39996) - [Archery] Fix Crossbow build on a PR from a fork's main branch (#39997)
+* [GH-40038](https://github.com/apache/arrow/issues/40038) - [Java] Export non empty offset buffer for variable-size layout through C Data Interface (#40043)
+* [GH-40039](https://github.com/apache/arrow/issues/40039) - [Java][FlightRPC] Improve performance by removing unnecessary memory copies (#40042)
+* [GH-40040](https://github.com/apache/arrow/issues/40040) - [C++][Gandiva] Make Gandiva's default cache size to be 5000 for object code cache (#40041)
+* [GH-40052](https://github.com/apache/arrow/issues/40052) - [C++][FS][Azure] Fix CreateDir and DeleteDir trailing slash issues on hierarchical namespace accounts (#40054)
+* [GH-40085](https://github.com/apache/arrow/issues/40085) - [C++][FS][Azure] Validate containers in AzureFileSystem::Impl::MovePaths() (#40086)
+* [GH-40089](https://github.com/apache/arrow/issues/40089) - [Go] Concurrent Recordset for receiving huge recordset (#40090)
+* [GH-40097](https://github.com/apache/arrow/issues/40097) - [Go][FlightRPC] Enable disabling TLS (#40098)
+* [GH-40126](https://github.com/apache/arrow/issues/40126) - [C++] Decimal types with different precisions and scales  bind failed in resolve type when call arithmetic function (#40223)
+* [GH-40145](https://github.com/apache/arrow/issues/40145) - [C++][Docs] Correct the console emitter link (#40146)
+* [GH-40153](https://github.com/apache/arrow/issues/40153) - [C++][Python] Fix test_gdb failures on 32-bit (#40293)
+* [GH-40153](https://github.com/apache/arrow/issues/40153) - [Python] Make `Tensor.__getbuffer__` work on 32-bit platforms (#40294)
+* [GH-40153](https://github.com/apache/arrow/issues/40153) - [Python] Avoid using np.take in Array.to_numpy() (#40295)
+* [GH-40153](https://github.com/apache/arrow/issues/40153) - [Python][C++] Fix large file handling on 32-bit Python build (#40176)
+* [GH-40153](https://github.com/apache/arrow/issues/40153) - [Python] Update size assumptions for 32-bit platforms (#40165)
+* [GH-40153](https://github.com/apache/arrow/issues/40153) - [Python] Fix OverflowError in foreign_buffer on 32-bit platforms (#40158)
+* [GH-40171](https://github.com/apache/arrow/issues/40171) - [Python] Add Type_FIXED_SIZE_LIST to _NESTED_TYPES set (#40172)
+* [GH-40181](https://github.com/apache/arrow/issues/40181) - [C++] Support glog 0.7 build (#40230)
+* [GH-40183](https://github.com/apache/arrow/issues/40183) - [C++] Fix cast function bind failed after add an alias name through AddAlias (#40200)
+* [GH-40199](https://github.com/apache/arrow/issues/40199) - [R] dbplyr 2.5.0 forward compatibility (#40197)
+* [GH-40207](https://github.com/apache/arrow/issues/40207) - [C++] TakeCC: Concatenate only once and delegate to TakeAA instead of TakeCA (#40206)
+* [GH-40227](https://github.com/apache/arrow/issues/40227) - [R] ensure executable files in `create_package_with_all_dependencies` (#40232)
+* [GH-40233](https://github.com/apache/arrow/issues/40233) - [C++] Fix an abort on asof_join_benchmark run for lost an arg (#40234)
+* [GH-40249](https://github.com/apache/arrow/issues/40249) - [Java] Fix NPE in ArrowDatabaseMetadata (#40988)
+* [GH-40266](https://github.com/apache/arrow/issues/40266) - [Python] Mark ListView as a nested type (#40265)
+* [GH-40268](https://github.com/apache/arrow/issues/40268) - [Archery] Bump the version of pygit2, adapt to API changes (#40269)
+* [GH-40276](https://github.com/apache/arrow/issues/40276) - [C++] Fix an simple buffer-overflow case in decimal_benchmark (#40277)
+* [GH-40279](https://github.com/apache/arrow/issues/40279) - [C++] Reduce S3Client initialization time (#40299)
+* [GH-40306](https://github.com/apache/arrow/issues/40306) - [C++] Fix a wrong total_bytes to generate StringType's test data in vector_hash_benchmark (#40307)
+* [GH-40308](https://github.com/apache/arrow/issues/40308) - [C++][Gandiva] Add support for compute module's decimal promotion rules (#40434)
+* [GH-40316](https://github.com/apache/arrow/issues/40316) - [Python] only allocate the ScalarMemoTable when used (#40565)
+* [GH-40327](https://github.com/apache/arrow/issues/40327) - [C++][Parquet] Add missing config.h include in key_management_test.cc (#40330)
+* [GH-40331](https://github.com/apache/arrow/issues/40331) - [C++][CMake] Add missing glog::glog dependency to arrow_util (#40332)
+* [GH-40334](https://github.com/apache/arrow/issues/40334) - [C++][Gandiva] Add missing OpenSSL dependency to encrypt_utils_test.cc (#40338)
+* [GH-40366](https://github.com/apache/arrow/issues/40366) - [C++] Remove const qualifier from Buffer::mutable_span_as (#40367)
+* [GH-40375](https://github.com/apache/arrow/issues/40375) - [Python] Error compiling Cython files on Windows during release verification
+* [GH-40395](https://github.com/apache/arrow/issues/40395) - [C++] Avoid simplifying expressions which call impure functions (#40396)
+* [GH-40398](https://github.com/apache/arrow/issues/40398) - [C++] Expose protobuf dependency if opentelemetry or ORC are enabled (#40399)
+* [GH-40422](https://github.com/apache/arrow/issues/40422) - [C++][FlightRPC] Add missing expiration_time arguments (#40425)
+* [GH-40431](https://github.com/apache/arrow/issues/40431) - [C++] Move key_hash/key_map/light_array related files to internal for prevent using by users (#40484)
+* [GH-40432](https://github.com/apache/arrow/issues/40432) - [C++] Add missing Threads::Threads dependency to arrow_static (#40433)
+* [GH-40439](https://github.com/apache/arrow/issues/40439) - [Python] Fix flake8 failures in python/benchmarks/parquet.py (#40440)
+* [GH-40443](https://github.com/apache/arrow/issues/40443) - [Python] Suppress python/examples/minimal_build/Dockerfile.* warnings (#40444)
+* [GH-40445](https://github.com/apache/arrow/issues/40445) - [C++] Fix static build on Windows (#40446)
+* [GH-40500](https://github.com/apache/arrow/issues/40500) - [C++] Ensure using bundled FlatBuffers (#40519)
+* [GH-40535](https://github.com/apache/arrow/issues/40535) - [Docs][R] Set RETICULATE_PYTHON_ENV in order to find pyarrow (#40571)
+* [GH-40558](https://github.com/apache/arrow/issues/40558) - [C++][CI] Fix TSAN and ASAN/UBSAN crashes (#40559)
+* [GH-40562](https://github.com/apache/arrow/issues/40562) - [C++] Repair FileSystem merge error (#40564)
+* [GH-40566](https://github.com/apache/arrow/issues/40566) - [C++] Fix 3.12 Python support (#40322)
+* [GH-40568](https://github.com/apache/arrow/issues/40568) - [Java] Test failure in Dataset regarding TestAllTypes (#40662)
+* [GH-40591](https://github.com/apache/arrow/issues/40591) - [R] Add extra CSS for navbar on pkgdown website (#40610)
+* [GH-40602](https://github.com/apache/arrow/issues/40602) - [C++] Move mold linker flags to variables (#40603)
+* [GH-40615](https://github.com/apache/arrow/issues/40615) - [Packaging][deb] Move libprotobuf-dev dependency to libarrow-dev from libarrow-flight-dev (#40617)
+* [GH-40616](https://github.com/apache/arrow/issues/40616) - [Docs][GLib] Ensure overwriting placeholder front pages (#40618)
+* [GH-40619](https://github.com/apache/arrow/issues/40619) - [Java] JDBC Adapter Build Issue (#40656)
+* [GH-40623](https://github.com/apache/arrow/issues/40623) - [Python][Docs] Add workaround for autosummary (#40739)
+* [GH-40634](https://github.com/apache/arrow/issues/40634) - [C#] ArrowStreamReader should not be null (#40765)
+* [GH-40642](https://github.com/apache/arrow/issues/40642) - [Python] BUG: Empty slicing an array backwards beyond the start should be empty
+* [GH-40652](https://github.com/apache/arrow/issues/40652) - [C++] Enlarge dest buffer according to dest offset for `CopyBitmap` benchmark (#40769)
+* [GH-40668](https://github.com/apache/arrow/issues/40668) - [Ruby][CI] Require GLib 2.58 or later for timezone (#40669)
+* [GH-40672](https://github.com/apache/arrow/issues/40672) - [Go][Parquet] Add proper build tags for min_max (#40676)
+* [GH-40674](https://github.com/apache/arrow/issues/40674) - [GLib] Don't assume gint64 and int64_t use the same type (#40736)
+* [GH-40693](https://github.com/apache/arrow/issues/40693) - [Go] Fix Decimal type precision loss on GetOneForMarshal (#40694)
+* [GH-40700](https://github.com/apache/arrow/issues/40700) - [Go][CI] test-debian-12-go-1.21 fails with \`go: updates to go.mod needed\`
+* [GH-40702](https://github.com/apache/arrow/issues/40702) - [R] Avoid undocumented dbplyr internals in duckdb tests (#40710)
+* [GH-40703](https://github.com/apache/arrow/issues/40703) - [CI][Packaging] Homebrew can't install Python 3.12 on GHA runners (#40704)
+* [GH-40706](https://github.com/apache/arrow/issues/40706) - [CI][Python] Activate ARROW_PYTHON_VENV if defined in sdist-test job (#40707)
+* [GH-40716](https://github.com/apache/arrow/issues/40716) - [Java][Integration] Fix test_package_java in verification scripts (#40724)
+* [GH-40718](https://github.com/apache/arrow/issues/40718) - [JS] Fix set visitor in vectors for js dates (#40725)
+* [GH-40719](https://github.com/apache/arrow/issues/40719) - [Go] Make `arrow.Null` non-null for `arrow.TypeEqual` to work properly with `new(arrow.NullType)` (#40802)
+* [GH-40727](https://github.com/apache/arrow/issues/40727) - [C++][Gandiva] 'ilike' function does not work (#40728)
+* [GH-40751](https://github.com/apache/arrow/issues/40751) - [C++] Fix protobuf package name setting for builds with substrait (#40753)
+* [GH-40773](https://github.com/apache/arrow/issues/40773) - [Java] add `DENSEUNION` case to StructWriters, resolves #40773 (#40809)
+* [GH-40775](https://github.com/apache/arrow/issues/40775) - [Benchmarking][Java] Fix conbench timeout (#40786)
+* [GH-40788](https://github.com/apache/arrow/issues/40788) - [C#] Override Accept in MapArray (#40789)
+* [GH-40790](https://github.com/apache/arrow/issues/40790) - [C#] Account for offset and length when getting fields of a StructArray (#40805)
+* [GH-40792](https://github.com/apache/arrow/issues/40792) - [C#] Fix slicing a previously sliced array (#40793)
+* [GH-40847](https://github.com/apache/arrow/issues/40847) - [Go] update readme (#40877)
+* [GH-40851](https://github.com/apache/arrow/issues/40851) - [JS] Fix nullcount and make vectors created from typed arrays not nullable (#40852)
+* [GH-40855](https://github.com/apache/arrow/issues/40855) - [C++][ORC] Fix `std::filesystem` related link error with ORC 2.0.0 or later (#41023)
+* [GH-40858](https://github.com/apache/arrow/issues/40858) - [R] Remove dangling commas from codegen.R (#40859)
+* [GH-40863](https://github.com/apache/arrow/issues/40863) - [C++] Fix TSAN link error for module library (#40864)
+* [GH-40870](https://github.com/apache/arrow/issues/40870) - [C#] Update CompareValidityBuffer() to pass when unspecified final bits are not identical (#40873)
+* [GH-40878](https://github.com/apache/arrow/issues/40878) - [JAVA] Fix flight-sql-jdbc-driver shading issues (#40879)
+* [GH-40891](https://github.com/apache/arrow/issues/40891) - [JS] Store Dates as TimestampMillisecond (#40892)
+* [GH-40893](https://github.com/apache/arrow/issues/40893) - [Java][FlightRPC] Support IntervalMonthDayNanoVector in FlightSQL JDBC Driver (#40894)
+* [GH-40896](https://github.com/apache/arrow/issues/40896) - [Java] Remove runtime dependencies on Eclipse, logback (#40904)
+* [GH-40898](https://github.com/apache/arrow/issues/40898) - [C#] Do not import length-zero buffers from C Data Interface Arrays (#41054)
+* [GH-40900](https://github.com/apache/arrow/issues/40900) - [Go] Fix Mallocator Weirdness (#40902)
+* [GH-40907](https://github.com/apache/arrow/issues/40907) - [Java][FlightSQL] Shade slf4j-api in JDBC driver (#40908)
+* [GH-40952](https://github.com/apache/arrow/issues/40952) - [Java][FlightSQL] Clean up flight-sql-jdbc-driver dependencies (#40953)
+* [GH-40954](https://github.com/apache/arrow/issues/40954) - [CI] Fix use of obsolete docker-compose command on Github Actions (#40949)
+* [GH-40961](https://github.com/apache/arrow/issues/40961) - [GLib] Suppress warnings for Vala examples on macOS (#40962)
+* [GH-40974](https://github.com/apache/arrow/issues/40974) - [CI][Python] CI failures on Python builds due to pytest_cython (#40975)
+* [GH-40991](https://github.com/apache/arrow/issues/40991) - [R] Prefer r-universe, add a startup message (#41019)
+* [GH-40999](https://github.com/apache/arrow/issues/40999) - [Java] Fix AIOOBE trying to splitAndTransfer DUV within nullable struct  (#41000)
+* [GH-41004](https://github.com/apache/arrow/issues/41004) - [C++][FS][Azure] Don't run TestGetFileInfoGenerator() with Valgrind (#41163)
+* [GH-41005](https://github.com/apache/arrow/issues/41005) - [CI] HDFS and skyhook tests require docker compose usage because they require multiple containers (#41027)
+* [GH-41007](https://github.com/apache/arrow/issues/41007) - [CI][Archery] Correctly interpolate environment variables from docker compose when using docker cli on archery docker (#41026)
+* [GH-41016](https://github.com/apache/arrow/issues/41016) - [C++] Fix null count check in BooleanArray.true_count() (#41070)
+* [GH-41024](https://github.com/apache/arrow/issues/41024) - [C++] IO: fixing compiling in gcc 7.5.0 (#41025)
+* [GH-41032](https://github.com/apache/arrow/issues/41032) - [C++][Parquet] Bugfixes and more tests in boolean arrow decoding (#41037)
+* [GH-41039](https://github.com/apache/arrow/issues/41039) - [Python] ListView pandas tests should use np.nan instead of None (#41040)
+* [GH-41044](https://github.com/apache/arrow/issues/41044) - [C++] formatting.h: Make sure space is allocated for the 'Z' when formatting timestamps (#41045)
+* [GH-41061](https://github.com/apache/arrow/issues/41061) - [C++] Ignore ARROW_USE_MOLD/ARROW_USE_LLD with clang < 12 (#41062)
+* [GH-41088](https://github.com/apache/arrow/issues/41088) - [CI][Crossbow] Fix GitHub Actions workflow syntax error (#41091)
+* [GH-41119](https://github.com/apache/arrow/issues/41119) - [Archery][Packaging][CI] Avoid using --progress flag on Docker on Windows on archery (#41120)
+* [GH-41121](https://github.com/apache/arrow/issues/41121) - [C++] Fix: left anti join filter empty rows. (#41122)
+* [GH-41124](https://github.com/apache/arrow/issues/41124) - [CI][C++] Don't use CMake 3.29.1 with vcpkg (#41151)
+* [GH-41127](https://github.com/apache/arrow/issues/41127) - [CI] Use GitHub Actions instead of Azure Pipelines for docker-tests (#41153)
+* [GH-41145](https://github.com/apache/arrow/issues/41145) - [R][CI] test-r-dev-duckdb fails installing duckdb (#41152)
+* [GH-41147](https://github.com/apache/arrow/issues/41147) - [CI][C++] Use newer LLVM on Ubuntu 24.04 (#41150)
+* [GH-41148](https://github.com/apache/arrow/issues/41148) - [CI][R][C++] test-r-linux-valgrind has started failing
+* [GH-41149](https://github.com/apache/arrow/issues/41149) - [C++][Python] Sporadic asof\_join failures in PyArrow
+* [GH-41154](https://github.com/apache/arrow/issues/41154) - [C++] Fix Valgrind error in string-to-float16 conversion (#41155)
+* [GH-41167](https://github.com/apache/arrow/issues/41167) - [CI][Release][GLib][Conda] Pin gobject-introspection to 1.78.1 (#41181)
+* [GH-41169](https://github.com/apache/arrow/issues/41169) - [CI][Release] Specify --build-config explicitly on Windows (#41178)
+* [GH-41176](https://github.com/apache/arrow/issues/41176) - [C++] Stop defining ARROW_TEST_MEMCHECK in config.h.cmake (#41177)
+* [GH-41201](https://github.com/apache/arrow/issues/41201) - [C++] Fix mistake in integration test. Explicitly cast std::string to avoid compiler interpreting char* -> bool (#41202)
+
+
+## New Features and Improvements
+
+* [GH-18014](https://github.com/apache/arrow/issues/18014) - [C++] Filesystem implementation for Azure Blob Storage
+* [GH-20127](https://github.com/apache/arrow/issues/20127) - [Python][CI] Remove legacy hdfs tests from hdfs and hypothesis setup (#40363)
+* [GH-20127](https://github.com/apache/arrow/issues/20127) - [Python] Remove deprecated pyarrow.filesystem legacy implementations (#39825)
+* [GH-20213](https://github.com/apache/arrow/issues/20213) - [C++] Implement cast to/from halffloat (#40067)
+* [GH-20339](https://github.com/apache/arrow/issues/20339) - [C++] Add residual filter support to swiss join (#39487)
+* [GH-23221](https://github.com/apache/arrow/issues/23221) - [C++] Add support for building with Emscripten (#37821)
+* [GH-24826](https://github.com/apache/arrow/issues/24826) - [Java] Add DUV.setOffset method (#40985)
+* [GH-24834](https://github.com/apache/arrow/issues/24834) - [C#] Support writing compressed IPC data (#39871)
+* [GH-30915](https://github.com/apache/arrow/issues/30915) - [C++][Python] Add missing methods to `RecordBatch` (#39506)
+* [GH-31545](https://github.com/apache/arrow/issues/31545) - [GLib] Enable clang-format (#40451)
+* [GH-31735](https://github.com/apache/arrow/issues/31735) - [Docs][Release] Move release verification guide to developers documentation (#39960)
+* [GH-33499](https://github.com/apache/arrow/issues/33499) - [Python][CI] Support ORC in Windows wheels
+* [GH-34235](https://github.com/apache/arrow/issues/34235) - [Python] Correct test marker for join_asof tests (#40666)
+* [GH-34235](https://github.com/apache/arrow/issues/34235) - [Python] Add `join_asof` binding (#34234)
+* [GH-34865](https://github.com/apache/arrow/issues/34865) - [C++][Java][Flight RPC] Add Session management messages (#34817)
+* [GH-35875](https://github.com/apache/arrow/issues/35875) - [R] Update Readme (#40148)
+* [GH-35941](https://github.com/apache/arrow/issues/35941) - [Dev][MATLAB] Add clang-format configuration to pre-commit (#40588)
+* [GH-36656](https://github.com/apache/arrow/issues/36656) - [Dev] Validate in merge script if issue has an assigned milestone already (#40771)
+* [GH-37286](https://github.com/apache/arrow/issues/37286) - [Java] Start adding nullability/nullness annotations (#37723)
+* [GH-37328](https://github.com/apache/arrow/issues/37328) - [Python] Add a function to download and extract timezone database on Windows (#38179)
+* [GH-37381](https://github.com/apache/arrow/issues/37381) - [Python][CI][Packaging] Enable ORC on Windows Appveyor CI and Windows wheels for pyarrow
+* [GH-37484](https://github.com/apache/arrow/issues/37484) - [Python] Add a FixedSizeTensorScalar class (#37533)
+* [GH-37931](https://github.com/apache/arrow/issues/37931) - [Python][CI][Dev][Python] Release and merge script errors (#37819)" (#40150)
+* [GH-38010](https://github.com/apache/arrow/issues/38010) - [Python] Construct pyarrow.Field and ChunkedArray through Arrow PyCapsule Protocol (#40818)
+* [GH-38309](https://github.com/apache/arrow/issues/38309) - [C++] build filesystems as separate modules (#39067)
+* [GH-38560](https://github.com/apache/arrow/issues/38560) - [C++][Parquet] Rewrite BYTE_STREAM_SPLIT SSE optimizations using xsimd (#40335)
+* [GH-38573](https://github.com/apache/arrow/issues/38573) - [Java][FlightRPC] Try all locations in JDBC driver (#40104)
+* [GH-38659](https://github.com/apache/arrow/issues/38659) - [CI][MATLAB][Packaging] Add MATLAB `packaging` task to crossbow `tasks.yml` (#38660)
+* [GH-38663](https://github.com/apache/arrow/issues/38663) - [C++] Add support for service-specific endpoint for S3 using `AWS_ENDPOINT_URL_S3` (#39160)
+* [GH-38703](https://github.com/apache/arrow/issues/38703) - [C++][FS][Azure] Implement DeleteFile() (#39840)
+* [GH-38704](https://github.com/apache/arrow/issues/38704) - [C++] Implement Azure FileSystem Move() via Azure DataLake Storage Gen 2 API (#39904)
+* [GH-38717](https://github.com/apache/arrow/issues/38717) - [C++] Add ImportChunkedArray and ExportChunkedArray to/from ArrowArrayStream (#39455)
+* [GH-38916](https://github.com/apache/arrow/issues/38916) - [R] Simplify dataset and table print output (#38917)
+* [GH-38988](https://github.com/apache/arrow/issues/38988) - [Go] Expose dictionary size from DictionaryBuilder (#39521)
+* [GH-38998](https://github.com/apache/arrow/issues/38998) - [Java] Build memory-core and memory-unsafe as JPMS modules (#39011)
+* [GH-39001](https://github.com/apache/arrow/issues/39001) - [Java] Modularize remaining modules (#39221)
+* [GH-39057](https://github.com/apache/arrow/issues/39057) - [CI][C++][Go] Don't run jobs that use a self-hosted GitHub Actions Runner on fork (#39903)
+* [GH-39069](https://github.com/apache/arrow/issues/39069) - [C++][FS][Azure] Use the generic filesystem tests (#40567)
+* [GH-39147](https://github.com/apache/arrow/issues/39147) - [R] Add Bootstrap.r (#39148)
+* [GH-39231](https://github.com/apache/arrow/issues/39231) - [C++][Compute] Add binary_slice kernel for fixed size binary (#39245)
+* [GH-39233](https://github.com/apache/arrow/issues/39233) - [Compute] Add some duration kernels (#39358)
+* [GH-39270](https://github.com/apache/arrow/issues/39270) - [C++] Avoid creating memory manager instance for every buffer view/copy (#39271)
+* [GH-39277](https://github.com/apache/arrow/issues/39277) - [Python] Fix missing byte_width attribute on DataType class (#39592)
+* [GH-39330](https://github.com/apache/arrow/issues/39330) - [Java][CI] Fix or suppress spurious errorprone warnings (#39529)
+* [GH-39336](https://github.com/apache/arrow/issues/39336) - [C++][Parquet] Minor: Style enhancement for parquet::FileMetaData (#39337)
+* [GH-39352](https://github.com/apache/arrow/issues/39352) - [FS][Azure] Enable azure in builds (#39971)
+* [GH-39377](https://github.com/apache/arrow/issues/39377) - [C++] IO: Reuse same buffer in CompressedInputStream (#39807)
+* [GH-39385](https://github.com/apache/arrow/issues/39385) - [C++] Use more permissable return code for rename (#39481)
+* [GH-39398](https://github.com/apache/arrow/issues/39398) - [C++][Parquet] Use std::count in ColumnReader ReadLevels (#39397)
+* [GH-39427](https://github.com/apache/arrow/issues/39427) - [GLib] Update script and documentation (#39428)
+* [GH-39463](https://github.com/apache/arrow/issues/39463) - [C++] Support cast kernel from large string, (large) binary to dictionary (#40017)
+* [GH-39532](https://github.com/apache/arrow/issues/39532) - [Python] Compatibility with NumPy 2.0
+* [GH-39549](https://github.com/apache/arrow/issues/39549) - [C++] Pass -jN to make in external projects (#39550)
+* [GH-39552](https://github.com/apache/arrow/issues/39552) - [Go] inclusion of option to use replacer when creating csv strings with go library (#39576)
+* [GH-39555](https://github.com/apache/arrow/issues/39555) - [Packaging][Python] Enable building pyarrow against numpy 2.0 (#39557)
+* [GH-39560](https://github.com/apache/arrow/issues/39560) - [C++][Parquet] Add integration test for BYTE_STREAM_SPLIT (#39570)
+* [GH-39574](https://github.com/apache/arrow/issues/39574) - [Go] Enable PollFlightInfo in Flight RPC (#39575)
+* [GH-39621](https://github.com/apache/arrow/issues/39621) - [CI][Packaging] Update vcpkg to 2023.11.20 release (#39622)
+* [GH-39651](https://github.com/apache/arrow/issues/39651) - [Python] Basic pyarrow bindings for Binary/StringView classes (#39652)
+* [GH-39654](https://github.com/apache/arrow/issues/39654) - [Java] Upgrade to Netty 4.1.105.Final (#39655)
+* [GH-39663](https://github.com/apache/arrow/issues/39663) - [C++] Ensure top-level benchmarks present informative metrics (#40091)
+* [GH-39666](https://github.com/apache/arrow/issues/39666) - [C++] Ensure CSV and JSON benchmarks present a bytes/s or items/s metric (#39764)
+* [GH-39667](https://github.com/apache/arrow/issues/39667) - [C++] Ensure dataset benchmarks present a bytes/s or items/s metric (#39766)
+* [GH-39669](https://github.com/apache/arrow/issues/39669) - [C++][Gandiva] Ensure Gandiva benchmarks present a bytes/s or items/s metric (#40435)
+* [GH-39680](https://github.com/apache/arrow/issues/39680) - [Java] enable half float support on Java module (#39681)
+* [GH-39697](https://github.com/apache/arrow/issues/39697) - [R] Source build should check if offline (#39699)
+* [GH-39702](https://github.com/apache/arrow/issues/39702) - [GLib] Add support for time zone in GArrowTimestampDataType (#39717)
+* [GH-39704](https://github.com/apache/arrow/issues/39704) - [C++][Parquet] Benchmark levels decoding  (#39705)
+* [GH-39707](https://github.com/apache/arrow/issues/39707) - [Java] Enable local build cache for Maven/Java build (#39708)
+* [GH-39718](https://github.com/apache/arrow/issues/39718) - [C++][FS][Azure] Remove StatusFromErrorResponse as it's not necessary (#39719)
+* [GH-39720](https://github.com/apache/arrow/issues/39720) - [Swift] Switch reader to use arrow field instead of proto for building arrays (#39721)
+* [GH-39734](https://github.com/apache/arrow/issues/39734) - [Java] Bump org.codehaus.mojo:exec-maven-plugin from 1.6.0 to 3.1.1 (#39696)
+* [GH-39747](https://github.com/apache/arrow/issues/39747) - [C++][Parquet] Make BYTE_STREAM_SPLIT routines type-agnostic (#39748)
+* [GH-39752](https://github.com/apache/arrow/issues/39752) - [Java] Remove Static imports for Utf8 Usage (#40683)
+* [GH-39761](https://github.com/apache/arrow/issues/39761) - [Docs] Link to Go documentation references outdated documentation from 2018 (#39750)
+* [GH-39771](https://github.com/apache/arrow/issues/39771) - [C++][Device] Generic CopyBatchTo/CopyArrayTo memory types (#39772)
+* [GH-39774](https://github.com/apache/arrow/issues/39774) - [Go] Add public access to PreparedStatement handle (#39775)
+* [GH-39779](https://github.com/apache/arrow/issues/39779) - [Python] Expose force_virtual_addressing in PyArrow (#39819)
+* [GH-39780](https://github.com/apache/arrow/issues/39780) - [Python][Parquet] Support hashing for FileMetaData and ParquetSchema (#39781)
+* [GH-39812](https://github.com/apache/arrow/issues/39812) - [Python] Add bindings for ListView and LargeListView (#39813)
+* [GH-39815](https://github.com/apache/arrow/issues/39815) - [C++] Document and micro-optimize ChunkResolver::Resolve() (#39817)
+* [GH-39823](https://github.com/apache/arrow/issues/39823) - [C++] Allow building cpp/src/arrow/**/*.cc without waiting bundled libraries (#39824)
+* [GH-39837](https://github.com/apache/arrow/issues/39837) - [Go][Flight] Allow cloning existing cookies in middleware (#39838)
+* [GH-39843](https://github.com/apache/arrow/issues/39843) - [C++][Parquet] Parquet binary length overflow exception should contain the length of binary (#39844)
+* [GH-39845](https://github.com/apache/arrow/issues/39845) - [C++][Parquet] Minor: avoid creating a new Reader object in Decoder::SetData (#39847)
+* [GH-39848](https://github.com/apache/arrow/issues/39848) - [Python][Packaging] Build pyarrow wheels with numpy RC instead of nightly (#41097)
+* [GH-39852](https://github.com/apache/arrow/issues/39852) - [Python] Support creating Binary/StringView arrays from python objects (#39853)
+* [GH-39855](https://github.com/apache/arrow/issues/39855) - [Python] ListView support for pa.array() (#40160)
+* [GH-39859](https://github.com/apache/arrow/issues/39859) - [R] Remove macOS from the allow list (#39861)
+* [GH-39863](https://github.com/apache/arrow/issues/39863) - [C++] Thirdparty: Bump google benchmark to 1.8.3 (#39878)
+* [GH-39864](https://github.com/apache/arrow/issues/39864) - [C++] DataType::ToString support optionally show metadata (#39888)
+* [GH-39872](https://github.com/apache/arrow/issues/39872) - [Packaging][Ubuntu] Add support for Ubuntu 24.04 Noble Numbat (#39887)
+* [GH-39885](https://github.com/apache/arrow/issues/39885) - [CI][MATLAB] Bump matlab-actions/setup-matlab and matlab-actions/run-tests from v1 to v2 (#39886)
+* [GH-39900](https://github.com/apache/arrow/issues/39900) - [Java][CI] To upload Maven and Memory Netty Buffer Patch into Apache Nightly repository (#39901)
+* [GH-39910](https://github.com/apache/arrow/issues/39910) - [Go] Add func to load prepared statement from ActionCreatePreparedStatementResult (#39913)
+* [GH-39928](https://github.com/apache/arrow/issues/39928) - [C++][Gandiva] Accept LLVM 18 (#39934)
+* [GH-39930](https://github.com/apache/arrow/issues/39930) - [C++] Use Requires instead of Libs for system RE2 in arrow.pc (#39932)
+* [GH-39946](https://github.com/apache/arrow/issues/39946) - [Java] Bump com.puppycrawl.tools:checkstyle from 8.19 to 8.29 (#39694)
+* [GH-39958](https://github.com/apache/arrow/issues/39958) - [Python][CI] Remove upper pin on pytest (#40487)
+* [GH-39962](https://github.com/apache/arrow/issues/39962) - [C++] Small CSV reader refactoring (#39963)
+* [GH-39968](https://github.com/apache/arrow/issues/39968) - [Python][FS][Azure] Minimal Python bindings for `AzureFileSystem`  (#40021)
+* [GH-39978](https://github.com/apache/arrow/issues/39978) - [C++][Parquet] Expand BYTE_STREAM_SPLIT to support FIXED_LEN_BYTE_ARRAY, INT32 and INT64 (#40094)
+* [GH-39979](https://github.com/apache/arrow/issues/39979) - [Python] Low-level bindings for exporting/importing the C Device Interface (#39980)
+* [GH-39984](https://github.com/apache/arrow/issues/39984) - [Python] Add ChunkedArray import/export to/from C  (#39985)
+* [GH-39987](https://github.com/apache/arrow/issues/39987) - [R] Make it possible to use a rtools libarrow on windows  (#39986)
+* [GH-40011](https://github.com/apache/arrow/issues/40011) - [CI] Update Fedora to 39 from 38 (#40012)
+* [GH-40023](https://github.com/apache/arrow/issues/40023) - [Python] Use Cast() instead of CastTo (#40116)
+* [GH-40026](https://github.com/apache/arrow/issues/40026) - [C++][FS][Azure] Add support for reading user defined metadata (#40671)
+* [GH-40028](https://github.com/apache/arrow/issues/40028) - [C++][FS][Azure] Add AzureFileSystem support to FileSystemFromUri() (#40325)
+* [GH-40029](https://github.com/apache/arrow/issues/40029) - [Packaging][Ubuntu] Drop support for Ubuntu 23.10 Mantic Minotaur (#40030)
+* [GH-40037](https://github.com/apache/arrow/issues/40037) - [C++][FS][Azure] Make attempted reads and writes against directories fail fast (#40119)
+* [GH-40055](https://github.com/apache/arrow/issues/40055) - [Java][Docs] Simplify use of Filter and Expression into Dataset Substrait (#40056)
+* [GH-40059](https://github.com/apache/arrow/issues/40059) - [C++][Python] Basic conversion of RecordBatch to Arrow Tensor (#40064)
+* [GH-40060](https://github.com/apache/arrow/issues/40060) - [C++][Python] Basic conversion of RecordBatch to Arrow Tensor - add support for different data types (#40359)
+* [GH-40061](https://github.com/apache/arrow/issues/40061) - [C++][Python] Basic conversion of RecordBatch to Arrow Tensor - add option to cast NULL to NaN (#40803)
+* [GH-40066](https://github.com/apache/arrow/issues/40066) - [Python] Support `requested_schema` in `__arrow_c_stream__()` (#40070)
+* [GH-40074](https://github.com/apache/arrow/issues/40074) - [C++][FS][Azure] Implement `DeleteFile()` for flat-namespace storage accounts (#40075)
+* [GH-40077](https://github.com/apache/arrow/issues/40077) - [CI] Use GitHub hosted M1 macOS runner (#40437)
+* [GH-40079](https://github.com/apache/arrow/issues/40079) - [CI][Packaging] Enable Azure in more tests and builds (#40080)
+* [GH-40082](https://github.com/apache/arrow/issues/40082) - [CI][C++] Add a job on ARM64 macOS (#40456)
+* [GH-40092](https://github.com/apache/arrow/issues/40092) - [Python] Support Binary/StringView conversion to numpy/pandas (#40093)
+* [GH-40095](https://github.com/apache/arrow/issues/40095) - [C++][Parquet] Remove AVX512 variants of BYTE_STREAM_SPLIT encoding (#40127)
+* [GH-40113](https://github.com/apache/arrow/issues/40113) - [Go][Parquet] New RegisterCodec function (#40114)
+* [GH-40133](https://github.com/apache/arrow/issues/40133) - [C++][Parquet][Tools] Print FIXED_LEN_BYTE_ARRAY length (#40132)
+* [GH-40142](https://github.com/apache/arrow/issues/40142) - [Python] Allow FileInfo instances to be passed to dataset init (#40143)
+* [GH-40151](https://github.com/apache/arrow/issues/40151) - [C++] Make S3 narrative test more flexible (#40144)
+* [GH-40152](https://github.com/apache/arrow/issues/40152) - [C++] Remove redundant invocation of BatchesFromTable (#40173)
+* [GH-40155](https://github.com/apache/arrow/issues/40155) - [Go][FlightRPC][FlightSQL] Implement Session Management (#40284)
+* [GH-40159](https://github.com/apache/arrow/issues/40159) - [Python][CI] Add 32-bit Debian build on Crossbow (#40164)
+* [GH-40190](https://github.com/apache/arrow/issues/40190) - [R][Docs] Update NEWS.md with build system changes (#40191)
+* [GH-40205](https://github.com/apache/arrow/issues/40205) - [Python] ListView arrow-to-pandas conversion (#40482)
+* [GH-40209](https://github.com/apache/arrow/issues/40209) - [C++][CMake] Use "RapidJSON" CMake target for RapidJSON (#40210)
+* [GH-40212](https://github.com/apache/arrow/issues/40212) - [R][CI] Add a C++ with gcc 14 build (#40244)
+* [GH-40221](https://github.com/apache/arrow/issues/40221) - [C++][CMake] Use arrow/util/config.h.cmake instead of add_definitions() (#40222)
+* [GH-40224](https://github.com/apache/arrow/issues/40224) - [C++] Fix: improve the backpressure handling in the dataset writer (#40722)
+* [GH-40228](https://github.com/apache/arrow/issues/40228) - [C++][CMake] Improve description why we need to initialize AWS C++ SDK in arrow-s3fs-test (#40229)
+* [GH-40236](https://github.com/apache/arrow/issues/40236) - [Python][CI] Disable generating C lines in Cython tracebacks (#40225)
+* [GH-40261](https://github.com/apache/arrow/issues/40261) - [Go] Don't export array functions with unexposed return types (#40272)
+* [GH-40273](https://github.com/apache/arrow/issues/40273) - [Python] Support construction of Run-End Encoded arrays in pa.array(..) (#40341)
+* [GH-40274](https://github.com/apache/arrow/issues/40274) - [C++] Add support for system glog 0.7 (#40275)
+* [GH-40280](https://github.com/apache/arrow/issues/40280) - [C++] Specialize ResolvedChunk::Value on value-specific types instead of entire class (#40281)
+* [GH-40291](https://github.com/apache/arrow/issues/40291) - [Python] Accept dict in pyarrow.record_batch() function (#40292)
+* [GH-40318](https://github.com/apache/arrow/issues/40318) - [C++][Docs] Add documentation of array factories (#40373)
+* [GH-40323](https://github.com/apache/arrow/issues/40323) - [R][CI] Use rocker/r-ver instead of library/r-base (#40321)
+* [GH-40328](https://github.com/apache/arrow/issues/40328) - [C++][Parquet] Allow use of FileDecryptionProperties after the CryptoFactory is destroyed (#40329)
+* [GH-40333](https://github.com/apache/arrow/issues/40333) - [Docs] Improve env var docs for ARROW_USER_SIMD_LEVEL (#40374)
+* [GH-40345](https://github.com/apache/arrow/issues/40345) - [FlightRPC][C++][Java][Go] Add URI scheme to reuse connection (#40084)
+* [GH-40357](https://github.com/apache/arrow/issues/40357) - [C++] Add benchmark for ToTensor conversions (#40358)
+* [GH-40370](https://github.com/apache/arrow/issues/40370) - [C++] Define ARROW_FORCE_INLINE for non-MSVC builds (#40372)
+* [GH-40376](https://github.com/apache/arrow/issues/40376) - [Python] Update for NumPy 2.0 ABI change in PyArray_Descr->elsize (#40418)
+* [GH-40377](https://github.com/apache/arrow/issues/40377) - [Python][CI] Fix install of nightly dask in integration tests (#40378)
+* [GH-40379](https://github.com/apache/arrow/issues/40379) - [Python] Fix byte_width for binary(0) + fix hypothesis tests (#40381)
+* [GH-40394](https://github.com/apache/arrow/issues/40394) - [C++] Add support for mold (#40397)
+* [GH-40400](https://github.com/apache/arrow/issues/40400) - [C++] Add support for LLD (#40927)
+* [GH-40402](https://github.com/apache/arrow/issues/40402) - [GLib] Add missing compute function options classes (#40403)
+* [GH-40405](https://github.com/apache/arrow/issues/40405) - [C++] Produce better error message when Move is attempted on flat-namespace accounts (#40406)
+* [GH-40428](https://github.com/apache/arrow/issues/40428) - [Python][CI] Fix dataset partition filter tests with pandas nightly (#40429)
+* [GH-40438](https://github.com/apache/arrow/issues/40438) - [GLib] Add GArrowTimestampParser (#40457)
+* [GH-40441](https://github.com/apache/arrow/issues/40441) - [GLib][Docs] Use Sphinx for Apache Arrow GLib front page (#40442)
+* [GH-40448](https://github.com/apache/arrow/issues/40448) - [CI][Dev] Run pre-commit (#40449)
+* [GH-40454](https://github.com/apache/arrow/issues/40454) - [CI][Debian] Update Debian to 12 from 11 (#40455)
+* [GH-40495](https://github.com/apache/arrow/issues/40495) - [GLib] Use G_DECLARE_DERIVABLE_TYPE() (#40497)
+* [GH-40498](https://github.com/apache/arrow/issues/40498) - [GLib] Remove arrow-glib/gobject-type.h (#40499)
+* [GH-40507](https://github.com/apache/arrow/issues/40507) - [C++][ORC] Upgrade ORC to 2.0.0 (#40508)
+* [GH-40515](https://github.com/apache/arrow/issues/40515) - [Java] Bump org.apache.maven dependencies from 3.3.9 to 3.8.7 (#40514)
+* [GH-40522](https://github.com/apache/arrow/issues/40522) - [Dev][Go] Add Dependabot configuration for Go (#40523)
+* [GH-40536](https://github.com/apache/arrow/issues/40536) - [CI] : Migrate remaining jobs away from self-hosted mac runners. (#40537)
+* [GH-40540](https://github.com/apache/arrow/issues/40540) - [CI][C++] Don't install FlatBuffers (#40541)
+* [GH-40542](https://github.com/apache/arrow/issues/40542) - [Dev][CI] Run pre-commit to all files (#40543)
+* [GH-40544](https://github.com/apache/arrow/issues/40544) - [Dev] Add cmake-format configuration to pre-commit (#40545)
+* [GH-40549](https://github.com/apache/arrow/issues/40549) - [Java] Revert bump org.apache.maven.plugins:maven-shade-plugin from 3.2.4 to 3.5.2 in /java (#40462)" (#41006)
+* [GH-40551](https://github.com/apache/arrow/issues/40551) - [Release][Docs] Improve documentation for patch Release process (#40552)
+* [GH-40553](https://github.com/apache/arrow/issues/40553) - [C#] Avoid logger instantiations per request (#40554)
+* [GH-40573](https://github.com/apache/arrow/issues/40573) - [GLib][Ruby][CSV] Add support for customizing timestamp parsers (#40590)
+* [GH-40575](https://github.com/apache/arrow/issues/40575) - [Docs][Python] Added JsonFileFormat to docs (#40585)
+* [GH-40577](https://github.com/apache/arrow/issues/40577) - [C++] Ensure pkg-config flags include -ldl for static builds (#40578)
+* [GH-40586](https://github.com/apache/arrow/issues/40586) - [Dev][C++][Python][R] Use pre-commit for clang-format (#40587)
+* [GH-40607](https://github.com/apache/arrow/issues/40607) - [C++] Rename `Function::is_impure()` to `is_pure()` (#40608)
+* [GH-40621](https://github.com/apache/arrow/issues/40621) - [C++] Add missing util/config.h in arrow/io/compressed_test.cc (#40625)
+* [GH-40630](https://github.com/apache/arrow/issues/40630) - [Go][Parquet] Enable writing of Parquet footer without closing file (#40654)
+* [GH-40659](https://github.com/apache/arrow/issues/40659) - [Python][C++] Support conversion of pyarrow.RunEndEncodedArray to numpy/pandas (#40661)
+* [GH-40680](https://github.com/apache/arrow/issues/40680) - [Java] Test JDK 22 in CI (#41038)
+* [GH-40684](https://github.com/apache/arrow/issues/40684) - [Java][Docs] JNI module debugging with IntelliJ (#40685)
+* [GH-40689](https://github.com/apache/arrow/issues/40689) - [Docs] Add nanoarrow to implementation status page (#41052)
+* [GH-40690](https://github.com/apache/arrow/issues/40690) - [C#][FlightRPC] Add do_exchange csharp implementation (#40691)
+* [GH-40695](https://github.com/apache/arrow/issues/40695) - [C++] Expand Substrait type support (#40696)
+* [GH-40698](https://github.com/apache/arrow/issues/40698) - [C++] Create registry for Devices to map DeviceType to MemoryManager in C Device Data import (#40699)
+* [GH-40720](https://github.com/apache/arrow/issues/40720) - [Python] Simplify and improve perf of creation of the column names in Table.to_pandas (#40721)
+* [GH-40731](https://github.com/apache/arrow/issues/40731) - [C++][Parquet] Minor enhancement code of encryption (#40732)
+* [GH-40733](https://github.com/apache/arrow/issues/40733) - [Go] Require Go 1.21 or later (#40848)
+* [GH-40745](https://github.com/apache/arrow/issues/40745) - [Java][FlightRPC] Support configuring backpressure threshold (#41051)
+* [GH-40767](https://github.com/apache/arrow/issues/40767) - [C++][Parquet] Simplify PageWriter and ColumnWriter creation (#40768)
+* [GH-40783](https://github.com/apache/arrow/issues/40783) - [C++] Re-order loads and stores in MemoryPoolStats update (#40647)
+* [GH-40784](https://github.com/apache/arrow/issues/40784) - [JS] Use bigIntToNumber (#40785)
+* [GH-40791](https://github.com/apache/arrow/issues/40791) - [Dev][CI] Use the official hadolint configuration (#40794)
+* [GH-40796](https://github.com/apache/arrow/issues/40796) - [Java] set `lastSet` in `ListVector.setNull` to avoid O(n²) in ListVectors with lots of nulls (#40810)
+* [GH-40799](https://github.com/apache/arrow/issues/40799) - [Doc][Format] Implementation status page should list canonical extension types (#41053)
+* [GH-40801](https://github.com/apache/arrow/issues/40801) - [Docs] Clarify device identifier documentation in the Arrow C Device data interface (#41101)
+* [GH-40806](https://github.com/apache/arrow/issues/40806) - [C++] Revert changes from PR #40857 (#40980)
+* [GH-40806](https://github.com/apache/arrow/issues/40806) - [C++] Correctly report asimd/neon in GetRuntimeInfo (#40857)
+* [GH-40814](https://github.com/apache/arrow/issues/40814) - [C++] Thirdparty: bump zstd to 1.5.6 (#40837)
+* [GH-40833](https://github.com/apache/arrow/issues/40833) - [Docs][Release] Make explicit in the documentation that verifying binaries is not required in order to case a vote (#40834)
+* [GH-40841](https://github.com/apache/arrow/issues/40841) - [Docs][C++][Python] Add initial documentation for RecordBatch::Tensor conversion (#40842)
+* [GH-40843](https://github.com/apache/arrow/issues/40843) - [Java] Cleanup protobuf-maven-plugin usage (#40844)
+* [GH-40866](https://github.com/apache/arrow/issues/40866) - [C++][Python] Basic conversion of RecordBatch to Arrow Tensor - add support for row-major (#40867)
+* [GH-40872](https://github.com/apache/arrow/issues/40872) - [C++][Parquet] Encoding: Optimize DecodeArrow/Decode(bitmap) for PlainBooleanDecoder (#40876)
+* [GH-40882](https://github.com/apache/arrow/issues/40882) - [C++] Suppress shorten-64-to-32 warnings in CUDA/Skyhook codes (#40883)
+* [GH-40888](https://github.com/apache/arrow/issues/40888) - [Go][FlightRPC] support conversion from array.Duration in FlightSQL driver (#40889)
+* [GH-40964](https://github.com/apache/arrow/issues/40964) - [CI][Archery] Archery linking should also check for undefined symbols Linux
+* [GH-40983](https://github.com/apache/arrow/issues/40983) - [C++] Fix unused function build error (#40984)
+* [GH-40994](https://github.com/apache/arrow/issues/40994) - [C++][Parquet] RleBooleanDecoder supports DecodeArrow with nulls (#40995)
+* [GH-41034](https://github.com/apache/arrow/issues/41034) - [C++][FS][Azure] Adjust DeleteDir/DeleteDirContents/GetFileInfoSelector behaviors against Azure for generic filesystem tests (#41068)
+* [GH-41043](https://github.com/apache/arrow/issues/41043) - [CI][Python] check message in test_make_write_options_error for Cython 2 (#41059)
+* [GH-41047](https://github.com/apache/arrow/issues/41047) - [C#] Address performance issue of reading from StringArray (#41048)
+* [GH-41098](https://github.com/apache/arrow/issues/41098) - [Python] Add copy keyword in Array.__array__ for numpy 2.0+ compatibility (#41071)
+* [GH-41100](https://github.com/apache/arrow/issues/41100) - [Python][Packaging] PyArrow wheel building is failing because of disabled vcpkg install of liblzma
+* [GH-41227](https://github.com/apache/arrow/issues/41227) - [CI][Release][GLib][Conda] Unpin gobject-introspection (#41228)
+* [PARQUET-2423](https://issues.apache.org/jira/browse/PARQUET-2423) - [C++][Parquet] Avoid allocating buffer object in RecordReader's SkipRecords (#39818)
+
+# Apache Arrow 15.0.2 (2024-03-13)
+
+## Bug Fixes
+
+* [GH-39582](https://github.com/apache/arrow/issues/39582) - [C++][Acero] Increase size of Acero TempStack (#40007)
+* [GH-39919](https://github.com/apache/arrow/issues/39919) - [C++][Dataset] Add missing Protobuf static link dependency (#40015)
+* [GH-39943](https://github.com/apache/arrow/issues/39943) - [CI][Python] Update manylinux images to avoid GPG problems downloading packages (#39944)
+* [GH-40018](https://github.com/apache/arrow/issues/40018) - [CI][Archery] Archery linking should also check for undefined symbols
+* [GH-40068](https://github.com/apache/arrow/issues/40068) - [C++] Possible data race when reading metadata of a parquet file (#40111)
+* [GH-40252](https://github.com/apache/arrow/issues/40252) - [C++] Make span SFINAE standards-conforming to enable compilation with nvcc (#40253)
+* [GH-40386](https://github.com/apache/arrow/issues/40386) - [Python] Fix except clauses (#40387)
+* [GH-40485](https://github.com/apache/arrow/issues/40485) - [Python][CI] Skip failing test_dateutil_tzinfo_to_string (#40486)
+
+
+## New Features and Improvements
+
+* [GH-40248](https://github.com/apache/arrow/issues/40248) - [R] fallback to the correct libtool when we find a GNU one (#40259)
+
+# Apache Arrow 15.0.1 (2024-02-23)
+
+## Bug Fixes
+
+* [GH-38655](https://github.com/apache/arrow/issues/38655) - [C++] "iso_calendar" kernel returns incorrect results for array length > 32 (#39360)
+* [GH-39313](https://github.com/apache/arrow/issues/39313) - [Python] Fix race condition in _pandas_api#_check_import (#39314)
+* [GH-39332](https://github.com/apache/arrow/issues/39332) - [C++] Explicit error in ExecBatchBuilder when appending var length data exceeds offset limit (int32 max) (#39383)
+* [GH-39525](https://github.com/apache/arrow/issues/39525) - [C++][Parquet] Pass memory pool to decoders (#39526)
+* [GH-39527](https://github.com/apache/arrow/issues/39527) - [C++][Parquet] Validate page sizes before truncating to int32 (#39528)
+* [GH-39577](https://github.com/apache/arrow/issues/39577) - [C++] Fix tail-word access cross buffer boundary in `CompareBinaryColumnToRow` (#39606)
+* [GH-39583](https://github.com/apache/arrow/issues/39583) - [C++] Fix the issue of ExecBatchBuilder when appending consecutive tail rows with the same id may exceed buffer boundary (for fixed size types) (#39585)
+* [GH-39599](https://github.com/apache/arrow/issues/39599) - [Python] Avoid leaking references to Numpy dtypes (#39636)
+* [GH-39640](https://github.com/apache/arrow/issues/39640) - [Docs] Pin pydata-sphinx-theme to 0.14.* (#39758)
+* [GH-39640](https://github.com/apache/arrow/issues/39640) - [Docs] Pin pydata-sphinx-theme to 0.14.1 (#39658)
+* [GH-39656](https://github.com/apache/arrow/issues/39656) - [Release] Update platform tags for macOS wheels to macosx_10_15 (#39657)
+* [GH-39672](https://github.com/apache/arrow/issues/39672) - [Go] Time to Date32/Date64 conversion issues for non-UTC timezones (#39674)
+* [GH-39690](https://github.com/apache/arrow/issues/39690) - [C++][FlightRPC] Fix nullptr dereference in PollInfo (#39711)
+* [GH-39732](https://github.com/apache/arrow/issues/39732) - [Python][CI] Fix test failures with latest/nightly pandas (#39760)
+* [GH-39737](https://github.com/apache/arrow/issues/39737) - [Release][Docs] Update post release documentation task (#39762)
+* [GH-39778](https://github.com/apache/arrow/issues/39778) - [C++] Fix tail-byte access cross buffer boundary in key hash avx2 (#39800)
+* [GH-39803](https://github.com/apache/arrow/issues/39803) - [C++][Acero] Fix AsOfJoin with differently ordered schemas than the output (#39804)
+* [GH-39860](https://github.com/apache/arrow/issues/39860) - [C++] Expression ExecuteScalarExpression execute empty args function with a wrong result (#39908)
+* [GH-39865](https://github.com/apache/arrow/issues/39865) - [C++] Strip extension metadata when importing a registered extension (#39866)
+* [GH-39916](https://github.com/apache/arrow/issues/39916) - [C#] Restore support for .NET 4.6.2 (#40008)
+* [GH-39933](https://github.com/apache/arrow/issues/39933) - [R] Fix pointer conversion to Python for latest reticulate (#39969)
+* [GH-39942](https://github.com/apache/arrow/issues/39942) - [Python] Make capsule name check more lenient (#39977)
+* [GH-39976](https://github.com/apache/arrow/issues/39976) - [C++] Fix out-of-line data size calculation in BinaryViewBuilder::AppendArraySlice (#39994)
+* [GH-40004](https://github.com/apache/arrow/issues/40004) - [Python][FlightRPC] Release GIL in GeneratorStream (#40005)
+* [GH-40112](https://github.com/apache/arrow/issues/40112) - [CI][Python] Ensure CPython is selected, not PyPy (#40131)
+* [GH-40174](https://github.com/apache/arrow/issues/40174) - [C++][CI][Parquet] Fixing parquet column_writer_test building (#40175)
+
+
+## New Features and Improvements
+
+* [GH-39504](https://github.com/apache/arrow/issues/39504) - [Docs] Update footer in main sphinx docs with correct attribution (#39505)
+* [GH-39673](https://github.com/apache/arrow/issues/39673) - [C++] PollFlightInfo does not follow rule of 5
+* [GH-39740](https://github.com/apache/arrow/issues/39740) - [C++] Fix filter and take kernel for month_day_nano intervals (#39795)
+* [GH-39849](https://github.com/apache/arrow/issues/39849) - [Python] Remove the use of pytest-lazy-fixture (#39850)
+* [GH-39876](https://github.com/apache/arrow/issues/39876) - [C++] Thirdparty: Bump zlib to 1.3.1 (#39877)
+* [GH-39880](https://github.com/apache/arrow/issues/39880) - [Python][CI] Pin moto<5 for dask integration tests (#39881)
+* [GH-39999](https://github.com/apache/arrow/issues/39999) - [Python] Fix tests for pandas with CoW / nightly integration tests (#40000)
+* [GH-40009](https://github.com/apache/arrow/issues/40009) - [C++] Add missing "#include <algorithm>" (#40010)
+
+# Apache Arrow 15.0.0 (2024-01-16)
+
+## Bug Fixes
+
+* [GH-15192](https://github.com/apache/arrow/issues/15192) - [C++] Bring back `case_when` tests for union types (#39308)
+* [GH-32570](https://github.com/apache/arrow/issues/32570) - [C++] Fix the issue of `ExecBatchBuilder` when appending consecutive tail rows with the same id may exceed buffer boundary (#39234)
+* [GH-32662](https://github.com/apache/arrow/issues/32662) - [C#] Make dictionaries in file and memory implementations work correctly and support integration tests (#39146)
+* [GH-33475](https://github.com/apache/arrow/issues/33475) - [Java] Add parameter binding for Prepared Statements in JDBC driver (#38404)
+* [GH-34532](https://github.com/apache/arrow/issues/34532) - [Java][FlightSQL] Change JDBC to handle multi-endpoints (#38521)
+* [GH-34610](https://github.com/apache/arrow/issues/34610) - [Java] Fix valueCount and field name when loading/transferring NullVector (#38973)
+* [GH-34890](https://github.com/apache/arrow/issues/34890) - [C++][Python] Add a no-op kernel for dictionary_encode(dictionary) (#38349)
+* [GH-35497](https://github.com/apache/arrow/issues/35497) - [C++] Use the latest tagged version of flatbuffers (#38192)
+* [GH-36588](https://github.com/apache/arrow/issues/36588) - [C#] Support blank column names and enable more integration tests. (#39167)
+* [GH-36594](https://github.com/apache/arrow/issues/36594) - [C++] Don't use MSVC_VERSION to determin -fms-compatibility-version (#36595)
+* [GH-36912](https://github.com/apache/arrow/issues/36912) - [Java] JDBC driver stops consuming roots if it sees an empty root (#38590)
+* [GH-37055](https://github.com/apache/arrow/issues/37055) - [C++] Optimize hash kernels for Dictionary ChunkedArrays (#38394)
+* [GH-37657](https://github.com/apache/arrow/issues/37657) - [JS] Run bin scripts with ts-node (#38500)
+* [GH-37726](https://github.com/apache/arrow/issues/37726) - [Swift][FlightSQL] Update behavior to be similar to existing impls (#37764)
+* [GH-37751](https://github.com/apache/arrow/issues/37751) - [C++][Gandiva] Avoid registering exported functions multiple times in gandiva (#37752)
+* [GH-37796](https://github.com/apache/arrow/issues/37796) - [C++][Acero] Fix race condition caused by straggling input in the as-of-join node (#37839)
+* [GH-37884](https://github.com/apache/arrow/issues/37884) - [Swift] allow reading of unaligned FlatBuffers buffers (#38635)
+* [GH-37969](https://github.com/apache/arrow/issues/37969) - [C++][Parquet] add more closed file checks for ParquetFileWriter (#38390)
+* [GH-38096](https://github.com/apache/arrow/issues/38096) - [Java] FlightStream with metadata can cause error when closing (#38110)
+* [GH-38198](https://github.com/apache/arrow/issues/38198) - [Go] Fix AuthenticateBasicToken to be reliable behind proxies (#38199)
+* [GH-38210](https://github.com/apache/arrow/issues/38210) - [C++][FlightRPC] Add missing app_metadata arguments (#38231)
+* [GH-38216](https://github.com/apache/arrow/issues/38216) - [R] open_dataset(format = "json") not documented (#38258)
+* [GH-38242](https://github.com/apache/arrow/issues/38242) - [Java] Fix incorrect internal struct accounting for DenseUnionVector#getBufferSizeFor (#38305)
+* [GH-38254](https://github.com/apache/arrow/issues/38254) - [Java] Add reusable buffer getters to char/binary vectors (#38266)
+* [GH-38268](https://github.com/apache/arrow/issues/38268) - [Java] Disable flaky TestFlightSqlStreams (#38319)
+* [GH-38281](https://github.com/apache/arrow/issues/38281) - [Go] Ensure CData imported arrays are freed on release (#38314)
+* [GH-38297](https://github.com/apache/arrow/issues/38297) - [C#] Fix build for .NET 4.7.2 (#38299)
+* [GH-38304](https://github.com/apache/arrow/issues/38304) - [C++][Parquet] Fix Valgrind memory leak in arrow-dataset-file-parquet-encryption-test (#38306)
+* [GH-38307](https://github.com/apache/arrow/issues/38307) - [CI] Remove gemfury_clean.rb (#38308)
+* [GH-38318](https://github.com/apache/arrow/issues/38318) - [Java][FlightRPC] Enable tests that leaked (#38719)
+* [GH-38323](https://github.com/apache/arrow/issues/38323) - [CI][Python] Use system gdb on test-conda-python (#38324)
+* [GH-38363](https://github.com/apache/arrow/issues/38363) - [Release][CI] Omit tests for main/maintenance branches on RC branch (#38365)
+* [GH-38366](https://github.com/apache/arrow/issues/38366) - [Java] Fix Murmur hash on buffers less than 4 bytes (#38368)
+* [GH-38378](https://github.com/apache/arrow/issues/38378) - [C++][Parquet] Don't initialize OpenSSL explicitly with OpenSSL 1.1 (#38379)
+* [GH-38382](https://github.com/apache/arrow/issues/38382) - [R] Explicitly clean up `arrow_duck_connection()` on exit (#38495)
+* [GH-38387](https://github.com/apache/arrow/issues/38387) - [Java] Fix JDK8 compilation issue with TestAllTypes (#38388)
+* [GH-38395](https://github.com/apache/arrow/issues/38395) - [Go] fix rounding errors in decimal256 string functions (#38426)
+* [GH-38399](https://github.com/apache/arrow/issues/38399) - [Go][Parquet] DeltaBitPack decoder reset usedFirst after SetData (#38413)
+* [GH-38401](https://github.com/apache/arrow/issues/38401) - [C++] Re-generate flatbuffers C++ for Skyhook (#38405)
+* [GH-38436](https://github.com/apache/arrow/issues/38436) - [R] Test segfault on reading CSVs with non-UTF-8 encoding
+* [GH-38439](https://github.com/apache/arrow/issues/38439) - [Java][CI] Use Eclipse Temurin for all Java CI linux jobs (#38440)
+* [GH-38447](https://github.com/apache/arrow/issues/38447) - [CI][Release] Don't use "|| {exit,continue}" (#38486)
+* [GH-38458](https://github.com/apache/arrow/issues/38458) - [Go] Add ValueLen to BinaryLike interface (#39242)
+* [GH-38470](https://github.com/apache/arrow/issues/38470) - [CI][Integration] Install jpype and build JNI c-data to run integration tests (#39502)
+* [GH-38477](https://github.com/apache/arrow/issues/38477) - [Go] Fixing decimal 128 rounding issue (#38478)
+* [GH-38479](https://github.com/apache/arrow/issues/38479) - [C++] Avoid passing null pointer to LZ4 frame decompressor (#39125)
+* [GH-38503](https://github.com/apache/arrow/issues/38503) - [Go][Parquet] Make the arrow column writer internal (#38727)
+* [GH-38503](https://github.com/apache/arrow/issues/38503) - [Go][Parquet] Style improvement for using ArrowColumnWriter (#38581)
+* [GH-38516](https://github.com/apache/arrow/issues/38516) - [Go][Parquet] Increment the number of rows written when appending a new row group (#38517)
+* [GH-38535](https://github.com/apache/arrow/issues/38535) - [Python] Fix S3FileSystem equals None segfault (#39276)
+* [GH-38554](https://github.com/apache/arrow/issues/38554) - [Release][Website] post-03-website.sh doesn't quote current.date (#38555)
+* [GH-38556](https://github.com/apache/arrow/issues/38556) - [C++] Add missing explicit size_t cast for i386 (#38557)
+* [GH-38594](https://github.com/apache/arrow/issues/38594) - [Docs][C++][Gandiva] Document how to register Gandiva external functions (#38763)
+* [GH-38599](https://github.com/apache/arrow/issues/38599) - [Docs] Update Headers (#38696)
+* [GH-38614](https://github.com/apache/arrow/issues/38614) - [Java] Add VarBinary and VarCharWriter helper methods to more writers (#38631)
+* [GH-38624](https://github.com/apache/arrow/issues/38624) - [C++] Fix: add TestingEqualOptions for gtest functions. (#38642)
+* [GH-38630](https://github.com/apache/arrow/issues/38630) - [MATLAB] `arrow.array.BooleanArray`'s `toMATLAB` method does not take slice offsets into account (#38636)
+* [GH-38653](https://github.com/apache/arrow/issues/38653) - [Packaging][Java][Python][Ruby] Raise the minimum macOS version to 10.15 catalina to allow using new APIs in C++17 (#38677)
+* [GH-38683](https://github.com/apache/arrow/issues/38683) - [Python][Docs] Update docstrings for Time32Type and Time64Type (#39059)
+* [GH-38684](https://github.com/apache/arrow/issues/38684) - [Integration] Try to strengthen C Data Interface testing (#38846)
+* [GH-38697](https://github.com/apache/arrow/issues/38697) - [C++][Gandiva] Use arrow io util to replace std::filesystem::path in gandiva (#38698)
+* [GH-38709](https://github.com/apache/arrow/issues/38709) - [C++] Protect against PREALLOCATE preprocessor defined on macOS (#38760)
+* [GH-38711](https://github.com/apache/arrow/issues/38711) - [CI] Rollback aws-cli for preview documentation (#38723)
+* [GH-38725](https://github.com/apache/arrow/issues/38725) - [Java] decompression in Lz4CompressionCodec.java does not set writer index (#38840)
+* [GH-38728](https://github.com/apache/arrow/issues/38728) - [Go] ipc: put lz4 decompression buffers back into sync.Pool (#38729)
+* [GH-38737](https://github.com/apache/arrow/issues/38737) - [Java] Fix JDBC caching of SqlInfo values (#38739)
+* [GH-38738](https://github.com/apache/arrow/issues/38738) - [C++] Check variadic buffer counts in bounds (#38740)
+* [GH-38745](https://github.com/apache/arrow/issues/38745) - [Integration] Fix huge integration test (#38746)
+* [GH-38762](https://github.com/apache/arrow/issues/38762) - [R] Versions of R and RTools in CI config are no longer current
+* [GH-38764](https://github.com/apache/arrow/issues/38764) - [Java] Clarify warning about `--add-opens=java.base/java.nio=ALL-UNNAMED` (#38765)
+* [GH-38782](https://github.com/apache/arrow/issues/38782) - [C++][FS][Azure] Do nothing for CreateDir("/container", true) (#38783)
+* [GH-38795](https://github.com/apache/arrow/issues/38795) - [Go] Fix race GetToTimeFunc for Timestamp (#38797)
+* [GH-38811](https://github.com/apache/arrow/issues/38811) - [R] Actually use fetched cmake on macos (#39453)
+* [GH-38816](https://github.com/apache/arrow/issues/38816) - [C#] Fix IArrowRecord implementation on StructArray (#38827)
+* [GH-38823](https://github.com/apache/arrow/issues/38823) - Fix TestArrowReaderAdHoc.ReadFloat16Files to use new uncompressed files (#38825)
+* [GH-38832](https://github.com/apache/arrow/issues/38832) - [Java] Avoid building twice in `ci/scripts/java_build.sh` (#38829)
+* [GH-38844](https://github.com/apache/arrow/issues/38844) - [C++] S3FileSystem export s3 sdk config "use_virtual_addressing" to arrow::fs::S3Options (#38858)
+* [GH-38851](https://github.com/apache/arrow/issues/38851) - Website: Contributing link is not working
+* [GH-38879](https://github.com/apache/arrow/issues/38879) - [C++][Gandiva] Fix Gandiva to_date function's validation for supress errors parameter (#38987)
+* [GH-38883](https://github.com/apache/arrow/issues/38883) - [Docs] Fix struct example to show hiding a child's entry (#38898)
+* [GH-38906](https://github.com/apache/arrow/issues/38906) - [R] Improve Windows CI configuration (#38927)
+* [GH-38921](https://github.com/apache/arrow/issues/38921) - [CI] Fix spelling (#38922)
+* [GH-38925](https://github.com/apache/arrow/issues/38925) - [CI] Fix spelling (#38926)
+* [GH-38928](https://github.com/apache/arrow/issues/38928) - [R] Fix spelling (#38929)
+* [GH-38930](https://github.com/apache/arrow/issues/38930) - [Java] Fix spelling (#38931)
+* [GH-38932](https://github.com/apache/arrow/issues/38932) - [GO] Fix spelling (#38933)
+* [GH-38938](https://github.com/apache/arrow/issues/38938) - [FlightRPC] Fix spelling (#38939)
+* [GH-38940](https://github.com/apache/arrow/issues/38940) - [Ruby] Fix spelling (#38941)
+* [GH-38942](https://github.com/apache/arrow/issues/38942) - [C#] Fix spelling (#38943)
+* [GH-38944](https://github.com/apache/arrow/issues/38944) - [Python] Fix spelling (#38945)
+* [GH-38946](https://github.com/apache/arrow/issues/38946) - [MATLAB] Fix spelling (#38947)
+* [GH-38948](https://github.com/apache/arrow/issues/38948) - [Swift] Fix spelling (#38949)
+* [GH-38950](https://github.com/apache/arrow/issues/38950) - [Docs] Fix spelling (#38951)
+* [GH-38952](https://github.com/apache/arrow/issues/38952) - [Format] Fix spelling (#38953)
+* [GH-38954](https://github.com/apache/arrow/issues/38954) - [Dev] Fix spelling (#38955)
+* [GH-38956](https://github.com/apache/arrow/issues/38956) - [Gandiva] Fix spelling (#38957)
+* [GH-38958](https://github.com/apache/arrow/issues/38958) - [C++][Parquet] Fix spelling (#38959)
+* [GH-38960](https://github.com/apache/arrow/issues/38960) - [C++] Fix spelling (acero) (#38961)
+* [GH-38964](https://github.com/apache/arrow/issues/38964) - [C++] Fix spelling (compute) (#38965)
+* [GH-38966](https://github.com/apache/arrow/issues/38966) - [C++] Fix spelling (util) (#38967)
+* [GH-38968](https://github.com/apache/arrow/issues/38968) - [C++] Fix spelling (dataset) (#38969)
+* [GH-38971](https://github.com/apache/arrow/issues/38971) - [C++] Fix spelling (filesystem) (#38972)
+* [GH-38975](https://github.com/apache/arrow/issues/38975) - [Dev] Fix spelling (#38976)
+* [GH-38977](https://github.com/apache/arrow/issues/38977) - [C++] Fix spelling (#38978)
+* [GH-38979](https://github.com/apache/arrow/issues/38979) - [C++] Fix spelling (#38980)
+* [GH-38981](https://github.com/apache/arrow/issues/38981) - [R][Release] Don't update version.json on compatible version release (#38982)
+* [GH-39014](https://github.com/apache/arrow/issues/39014) - [Java] Add default truststore along with KeychainStore when on Mac system (#39235)
+* [GH-39031](https://github.com/apache/arrow/issues/39031) - [Docs] Remove misspelled rule from contrib css (#39032)
+* [GH-39045](https://github.com/apache/arrow/issues/39045) - [C++][Acero] union node output batches should be unordered (#39046)
+* [GH-39113](https://github.com/apache/arrow/issues/39113) - [Integration][Flight][Java] Fix occasional failure starting Java server (#39115)
+* [GH-39116](https://github.com/apache/arrow/issues/39116) - [Go] Fix CI Staticcheck (#39117)
+* [GH-39126](https://github.com/apache/arrow/issues/39126) - [C++][CI] Fix Valgrind failures (#39127)
+* [GH-39130](https://github.com/apache/arrow/issues/39130) - [CI][GLib][Windows] Use old Ruby as workaround for load error (#39168)
+* [GH-39136](https://github.com/apache/arrow/issues/39136) - [C++] Remove needless system Protobuf dependency with -DARROW_HDFS=ON (#39137)
+* [GH-39138](https://github.com/apache/arrow/issues/39138) - [R] Fix implicit conversion warnings (#39250)
+* [GH-39156](https://github.com/apache/arrow/issues/39156) - [C++][Compute] Fix negative duration division (#39158)
+* [GH-39163](https://github.com/apache/arrow/issues/39163) - [C++] Add missing data copy in StreamDecoder::Consume(data) (#39164)
+* [GH-39185](https://github.com/apache/arrow/issues/39185) - [C++] Remove compiler warnings with `-Wconversion -Wno-sign-conversion` in public headers (#39186)
+* [GH-39191](https://github.com/apache/arrow/issues/39191) - [R] throw error when `string_replace` is passed vector of values in `pattern` (#39219)
+* [GH-39238](https://github.com/apache/arrow/issues/39238) - [Go] PATCH Prevents empty record to be appended to empty resultset (#39239)
+* [GH-39288](https://github.com/apache/arrow/issues/39288) - [Java][FlightSQL] Update Apache Avatica to version 1.24.0 (#39325)
+* [GH-39306](https://github.com/apache/arrow/issues/39306) - [C++][Benchmarking] Remove hardcoded min times (#39307)
+* [GH-39327](https://github.com/apache/arrow/issues/39327) - [Java] define assemble descriptor for new custom maven plugin project (#39331)
+* [GH-39333](https://github.com/apache/arrow/issues/39333) - [C++] Don't use "if constexpr" in lambda (#39334)
+* [GH-39359](https://github.com/apache/arrow/issues/39359) - [CI][C++] Remove MinGW MINGW32 C++ job (#39376)
+* [GH-39384](https://github.com/apache/arrow/issues/39384) - [C++] Disable -Werror=attributes for Azure SDK's identity.hpp (#39448)
+* [GH-39387](https://github.com/apache/arrow/issues/39387) - [C++] Fix compile warning (#39389)
+* [GH-39421](https://github.com/apache/arrow/issues/39421) - [CI][Ruby] Update to using Ubuntu 22.04 on test-ruby and test-c-glib nightly jobs (#39422)
+* [GH-39423](https://github.com/apache/arrow/issues/39423) - [CI][JS] TypeScript: Compilation failed on yarn build for several CI jobs
+* [GH-39425](https://github.com/apache/arrow/issues/39425) - [CI] Fix import to match new substrait repo structure (#39426)
+* [GH-39433](https://github.com/apache/arrow/issues/39433) - [Ruby] Add support for Table.load(format: json) options (#39464)
+* [GH-39437](https://github.com/apache/arrow/issues/39437) - [CI][Python] Update pandas tests failing on pandas nightly CI build (#39498)
+* [GH-39468](https://github.com/apache/arrow/issues/39468) - [Java] Fix site build for docs (#39471)
+* [GH-39469](https://github.com/apache/arrow/issues/39469) - [CI][JS] Force node 20 on JS build on arm64 to fix build issues (#39499)
+* [GH-39488](https://github.com/apache/arrow/issues/39488) - [Ruby] Add support for ChunkedArray in Ractor (#39490)
+* [GH-39517](https://github.com/apache/arrow/issues/39517) - [C++] Disable parallelism for jemalloc external project (#39522)
+* [GH-39562](https://github.com/apache/arrow/issues/39562) - [C++][Parquet] Fix crash in test_parquet_dataset_lazy_filtering (#39632)
+* [GH-39564](https://github.com/apache/arrow/issues/39564) - [CI][Java] Set correct version on Java BOM (#39580)
+* [GH-39584](https://github.com/apache/arrow/issues/39584) - [R] fallback to source gracefully (#39587)
+* [GH-39588](https://github.com/apache/arrow/issues/39588) - [CI][Go] Add CGO_ENABLED=1 to cdata_integration build to fix macOS build with conda (#39589)
+* [GH-39598](https://github.com/apache/arrow/issues/39598) - [C#] Fix verification script (#39605)
+* [GH-39604](https://github.com/apache/arrow/issues/39604) - [JS] Do not use resizable buffers yet (#39607)
+* [GH-39628](https://github.com/apache/arrow/issues/39628) - [C++] Disable parallelism for all \`make\`-based externalProjects when CMake \>= 3.28 is used
+
+
+## New Features and Improvements
+
+* [GH-14936](https://github.com/apache/arrow/issues/14936) - [Java] Remove netty dependency from arrow-vector (#38493)
+* [GH-28994](https://github.com/apache/arrow/issues/28994) - [C++][JSON] Change the max rows to Unlimited(int_32)  (#38582)
+* [GH-30117](https://github.com/apache/arrow/issues/30117) - [C++][Python] Add "Z" to the end of timestamp print string when tz defined (#39272)
+* [GH-30717](https://github.com/apache/arrow/issues/30717) - [C#] Add ToString() methods to Arrow classes (#36566)
+* [GH-31303](https://github.com/apache/arrow/issues/31303) - [Python] Remove the legacy ParquetDataset custom python-based implementation (#39112)
+* [GH-31579](https://github.com/apache/arrow/issues/31579) - [C#] : Remove out-of-support versions of .NET and update C# README (#39165)
+* [GH-33500](https://github.com/apache/arrow/issues/33500) - [Python] add `Table.to/from_struct_array` (#38520)
+* [GH-33984](https://github.com/apache/arrow/issues/33984) - [C++][Python] DLPack implementation for Arrow Arrays (producer) (#38472)
+* [GH-34316](https://github.com/apache/arrow/issues/34316) - [Python] FixedSizeListArray.from_arrays supports mask parameter (#39396)
+* [GH-34569](https://github.com/apache/arrow/issues/34569) - [C++] Diffing of Run-End Encoded arrays (#35003)
+* [GH-34636](https://github.com/apache/arrow/issues/34636) - [C#] Reduce allocations when using ArrayPool (#39166)
+* [GH-35260](https://github.com/apache/arrow/issues/35260) - [C++][Python][R] Allow users to adjust S3 log level by environment variable (#38267)
+* [GH-35331](https://github.com/apache/arrow/issues/35331) - [Python] Expose Parquet sorting metadata (#37665)
+* [GH-35344](https://github.com/apache/arrow/issues/35344) - [C++][Format] Implementation of the LIST_VIEW and LARGE_LIST_VIEW array formats (#35345)
+* [GH-35560](https://github.com/apache/arrow/issues/35560) - [C++] Use Cast() instead of CastTo() for Scalar in test (#39044)
+* [GH-36036](https://github.com/apache/arrow/issues/36036) - [C++][Python][Parquet] Implement Float16 logical type (#36073)
+* [GH-36044](https://github.com/apache/arrow/issues/36044) - [Python][Docs] Added ParquetFileFragment to the API reference docs (#38277)
+* [GH-36099](https://github.com/apache/arrow/issues/36099) - [C++] Add Utf8View and BinaryView to the c ABI (#38443)
+* [GH-36441](https://github.com/apache/arrow/issues/36441) - [Python] Make `CacheOptions` configurable from Python  (#36627)
+* [GH-36760](https://github.com/apache/arrow/issues/36760) - [Go] Add Avro OCF reader (#37115)
+* [GH-36815](https://github.com/apache/arrow/issues/36815) - [C#] : Enable net472 tests under Windows (#36818)
+* [GH-36898](https://github.com/apache/arrow/issues/36898) - [CI] Hashpin Sensitive GitHub Actions (#37676)
+* [GH-37002](https://github.com/apache/arrow/issues/37002) - [C++][Parquet] Add api to get RecordReader from RowGroupReader (#37003)
+* [GH-37061](https://github.com/apache/arrow/issues/37061) - [Docs][Format] Clarify semantics of GetSchema in FSQL (#38549)
+* [GH-37199](https://github.com/apache/arrow/issues/37199) - [C++] Expose a span converter for Buffer and ArraySpan (#38027)
+* [GH-37242](https://github.com/apache/arrow/issues/37242) - [Python][Parquet] Parquet Support write and validate Page CRC (#38360)
+* [GH-37312](https://github.com/apache/arrow/issues/37312) - [Python][Docs] Update Python docstrings to reflect new parquet encoding option (#38070)
+* [GH-37359](https://github.com/apache/arrow/issues/37359) - [C#] Add ToList() to Decimal128Array and Decimal256Array (#37383)
+* [GH-37378](https://github.com/apache/arrow/issues/37378) - [C++] Add A Dictionary Compaction Function For DictionaryArray (#37418)
+* [GH-37429](https://github.com/apache/arrow/issues/37429) - [C++] Add arrow::ipc::StreamDecoder::Reset() (#37970)
+* [GH-37511](https://github.com/apache/arrow/issues/37511) - [C++] Implement file reads for Azure filesystem (#38269)
+* [GH-37582](https://github.com/apache/arrow/issues/37582) - [Go][Parquet] Implement Float16 logical type (#37599)
+* [GH-37592](https://github.com/apache/arrow/issues/37592) - [MATLAB] Add `NumRows` property to `arrow.tabular.RecordBatch` (#38215)
+* [GH-37710](https://github.com/apache/arrow/issues/37710) - [C++][Integration] Add C++ Utf8View implementation  (#37792)
+* [GH-37753](https://github.com/apache/arrow/issues/37753) - [C++][Gandiva] Add external function registry support (#38116)
+* [GH-37812](https://github.com/apache/arrow/issues/37812) - [MATLAB] Add `arrow.type.ListType` MATLAB class (#38189)
+* [GH-37815](https://github.com/apache/arrow/issues/37815) - [MATLAB] Add `arrow.array.ListArray` MATLAB class (#38357)
+* [GH-37848](https://github.com/apache/arrow/issues/37848) - [C++][Gandiva] Migrate LLVM JIT engine from MCJIT to ORC v2/LLJIT (#39098)
+* [GH-37857](https://github.com/apache/arrow/issues/37857) - [Python][Dataset] Expose file size to python dataset (#37868)
+* [GH-37889](https://github.com/apache/arrow/issues/37889) - [Java][Doc] Improve JDBC driver documentation (#38469)
+* [GH-37895](https://github.com/apache/arrow/issues/37895) - [C++] Feature: support concatenate recordbatches. (#37896)
+* [GH-37910](https://github.com/apache/arrow/issues/37910) - [Java][Integration] Implement C Data Interface integration testing (#38248)
+* [GH-37943](https://github.com/apache/arrow/issues/37943) - [Java] Add parquet file with all supported types (#38249)
+* [GH-37979](https://github.com/apache/arrow/issues/37979) - [C++] Add support for specifying custom Array opening and closing delimiters to `arrow::PrettyPrintDelimiters` (#38187)
+* [GH-38022](https://github.com/apache/arrow/issues/38022) - [Java][FlightRPC] Expose app_metadata on FlightInfo and FlightEndpoint (#38331)
+* [GH-38024](https://github.com/apache/arrow/issues/38024) - [Java][FlightRPC] Expose appMetadata through JDBC ResultSet (#38781)
+* [GH-38033](https://github.com/apache/arrow/issues/38033) - [R] Allow `code()` to return package name prefix. (#38144)
+* [GH-38042](https://github.com/apache/arrow/issues/38042) - [C++][Benchmark] Add non-stream Codec Compression/Decompression (#38067)
+* [GH-38117](https://github.com/apache/arrow/issues/38117) - [C++][Parquet] Change DictEncoder dtor checking to warning log (#38118)
+* [GH-38131](https://github.com/apache/arrow/issues/38131) - [Swift][CI] Add linting and fix linting errors (#38133)
+* [GH-38153](https://github.com/apache/arrow/issues/38153) - [C#] expose ArrayDataConcatenator.Concatenate  (#38154)
+* [GH-38164](https://github.com/apache/arrow/issues/38164) - [MATLAB] Rename `Length` property on `arrow.array.Array` and  `arrow.array.ChunkedArray` to `NumElements` (#38190)
+* [GH-38166](https://github.com/apache/arrow/issues/38166) - [MATLAB] Improve tabular object display (#38482)
+* [GH-38246](https://github.com/apache/arrow/issues/38246) - [JAVA] added new getTransferPair() function that takes in a Field type for Complex Type Vectors (#38261)
+* [GH-38264](https://github.com/apache/arrow/issues/38264) - [Java][Packaging] Add BOM file (#38336)
+* [GH-38271](https://github.com/apache/arrow/issues/38271) - [C++][Parquet] Support reading parquet files with multiple gzip members (#38272)
+* [GH-38300](https://github.com/apache/arrow/issues/38300) - [Dev][Docs] Update dev/README.md for the current merge_arrow_pr.py (#38301)
+* [GH-38310](https://github.com/apache/arrow/issues/38310) - [MATLAB] Create the testing guideline document for testing MATLAB interface (#38459)
+* [GH-38316](https://github.com/apache/arrow/issues/38316) - [C#] Implement interval types (#39043)
+* [GH-38326](https://github.com/apache/arrow/issues/38326) - [C++][Parquet] check the decompressed page size same as size in page header (#38327)
+* [GH-38330](https://github.com/apache/arrow/issues/38330) - [C++][Azure] Use properties for input stream metadata (#38524)
+* [GH-38333](https://github.com/apache/arrow/issues/38333) - [C++][FS][Azure] Implement file writes (#38780)
+* [GH-38335](https://github.com/apache/arrow/issues/38335) - [C++] Implement `GetFileInfo` for a single file in Azure filesystem (#38505)
+* [GH-38339](https://github.com/apache/arrow/issues/38339) - [C++][CMake] Use transitive dependency for system GoogleTest (#38340)
+* [GH-38341](https://github.com/apache/arrow/issues/38341) - [Python] Remove usage of pandas internals DatetimeTZBlock (#38321)
+* [GH-38346](https://github.com/apache/arrow/issues/38346) - [C++][Parquet] Use new encrypted files for page index encryption test (#38347)
+* [GH-38348](https://github.com/apache/arrow/issues/38348) - [C#] Make PrimitiveArray<T> support IReadOnlyList<T?> (#38680)
+* [GH-38351](https://github.com/apache/arrow/issues/38351) - [C#] Add SqlDecimal support to Decimal128Array (#38481)
+* [GH-38354](https://github.com/apache/arrow/issues/38354) - [MATLAB] Implement `fromMATLAB` method for `arrow.array.ListArray` (#38561)
+* [GH-38361](https://github.com/apache/arrow/issues/38361) - Add validation logic for `offsets` and `values` to `arrow.array.ListArray.fromArrays` (#38531)
+* [GH-38376](https://github.com/apache/arrow/issues/38376) - [R] : Add `dimnames` method to `Dataset` class  (#38377)
+* [GH-38381](https://github.com/apache/arrow/issues/38381) - [C++][Acero] Create a  sorted merge node (#38380)
+* [GH-38398](https://github.com/apache/arrow/issues/38398) - [MATLAB] Improve array display (#38400)
+* [GH-38402](https://github.com/apache/arrow/issues/38402) - [CI][Integration] Provide wrapper scripts for integration testing (#38403)
+* [GH-38415](https://github.com/apache/arrow/issues/38415) - [MATLAB] Add indexing "slice" method to C++ Array Proxy class (#38674)
+* [GH-38417](https://github.com/apache/arrow/issues/38417) - [MATLAB] Implement a `TableTypeValidator` class that validates a MATLAB `cell` array contains only `table`s that share the same schema (#38551)
+* [GH-38418](https://github.com/apache/arrow/issues/38418) - [MATLAB] Add method for extracting one row of an `arrow.tabular.Table` as a string (#38463)
+* [GH-38419](https://github.com/apache/arrow/issues/38419) - [MATLAB] Implement a `ClassTypeValidator` class that validates a MATLAB `cell` array contains only values of the same class type.   (#38530)
+* [GH-38420](https://github.com/apache/arrow/issues/38420) - [MATLAB] Implement a `DatetimeValidator` class that validates a MATLAB `cell` array contains only values of zoned or unzoned `datetime`s (#38533)
+* [GH-38424](https://github.com/apache/arrow/issues/38424) - [CI][C++] Use Fedora 38 instead of 35 (#38425)
+* [GH-38452](https://github.com/apache/arrow/issues/38452) - [C++][Benchmark] Adding benchmark for LZ4/Snappy Compression (#38453)
+* [GH-38457](https://github.com/apache/arrow/issues/38457) - [C++] Support LogicalNullCount for DictionaryArray (#38681)
+* [GH-38460](https://github.com/apache/arrow/issues/38460) - [Java][FlightRPC] Add mTLS support for Flight SQL JDBC driver (#38461)
+* [GH-38462](https://github.com/apache/arrow/issues/38462) - [Go][Parquet] Handle Boolean RLE encoding/decoding (#38367)
+* [GH-38483](https://github.com/apache/arrow/issues/38483) - [C#] Add support for more decimal conversions (#38508)
+* [GH-38506](https://github.com/apache/arrow/issues/38506) - [Go][Parquet] Add NumRows and RowGroupNumRows to pqarrow.FileWriter (#38507)
+* [GH-38511](https://github.com/apache/arrow/issues/38511) - [Java] Add getTransferPair(Field, BufferAllocator, CallBack) for StructVector and MapVector (#38512)
+* [GH-38528](https://github.com/apache/arrow/issues/38528) - [Python][Compute] Describe strptime format semantics (#38665)
+* [GH-38537](https://github.com/apache/arrow/issues/38537) - [Java] upgrade to netty 4.1.100.Final (#38538)
+* [GH-38541](https://github.com/apache/arrow/issues/38541) - [MATLAB] Add remaining tests for arrow tabular object display (#38564)
+* [GH-38542](https://github.com/apache/arrow/issues/38542) - [C++][Parquet] Faster scalar BYTE_STREAM_SPLIT (#38529)
+* [GH-38562](https://github.com/apache/arrow/issues/38562) - [Packaging] Add support for Ubuntu 23.10 (#38563)
+* [GH-38576](https://github.com/apache/arrow/issues/38576) - [Java] Change JDBC driver to optionally preserve cookies and auth tokens when getting streams (#38580)
+* [GH-38578](https://github.com/apache/arrow/issues/38578) - [Java][FlightSQL] Remove joda usage from flight-sql library (#38579)
+* [GH-38589](https://github.com/apache/arrow/issues/38589) - [C++][Gandiva] Support registering external C functions (#38632)
+* [GH-38597](https://github.com/apache/arrow/issues/38597) - [C++] Implement GetFileInfo(selector) for Azure filesystem (#39009)
+* [GH-38602](https://github.com/apache/arrow/issues/38602) - [R] Add missing `prod` for summarize (#38601)
+* [GH-38627](https://github.com/apache/arrow/issues/38627) - [Java][FlightRPC] Handle null parameter values (#38628)
+* [GH-38648](https://github.com/apache/arrow/issues/38648) - [Java] Regenerate Flatbuffers (#38650)
+* [GH-38652](https://github.com/apache/arrow/issues/38652) - [MATLAB] Add tests about time precision preservation when converting MATLAB duration to `arrow.array.Time32Array` and `arrow.array.Time64Array` (#38661)
+* [GH-38662](https://github.com/apache/arrow/issues/38662) - [Java] Add comparators (#38669)
+* [GH-38699](https://github.com/apache/arrow/issues/38699) - [C++][FS][Azure] Implement `CreateDir()` (#38708)
+* [GH-38700](https://github.com/apache/arrow/issues/38700) - [C++][FS][Azure] Implement `DeleteDir()` (#38793)
+* [GH-38701](https://github.com/apache/arrow/issues/38701) - [C++][FS][Azure] Implement `DeleteDirContents()` (#38888)
+* [GH-38702](https://github.com/apache/arrow/issues/38702) - [C++] : Implement AzureFileSystem::DeleteRootDirContents (#39151)
+* [GH-38705](https://github.com/apache/arrow/issues/38705) - [C++][FS][Azure] Implement CopyFile() (#39058)
+* [GH-38712](https://github.com/apache/arrow/issues/38712) - [Python] Remove dead code in _reconstruct_block (#38714)
+* [GH-38718](https://github.com/apache/arrow/issues/38718) - [Go][Format][Integration] Add StringView/BinaryView to Go implementation (#35769)
+* [GH-38732](https://github.com/apache/arrow/issues/38732) - [Java][FlightRPC] Add support for Array parameter binding in JDBC (#38733)
+* [GH-38751](https://github.com/apache/arrow/issues/38751) - [C++][Go][Parquet] Add tests for reading Float16 files in parquet-testing (#38753)
+* [GH-38757](https://github.com/apache/arrow/issues/38757) - [C#] Implement common interfaces for structure arrays and record batches (#38759)
+* [GH-38758](https://github.com/apache/arrow/issues/38758) - [C++][FS][Azure] Rename AzurePath to AzureLocation (#38773)
+* [GH-38772](https://github.com/apache/arrow/issues/38772) - [C++] Implement directory semantics even when the storage account doesn't support HNS (#39361)
+* [GH-38798](https://github.com/apache/arrow/issues/38798) - [Integration] Enable C Data Interface integration testing on Rust (#38799)
+* [GH-38814](https://github.com/apache/arrow/issues/38814) - [C++][Parquet] Update parquet.thrift to sync with 2.10.0 (#38815)
+* [GH-38824](https://github.com/apache/arrow/issues/38824) - [Go] Enable GC checks (#38826)
+* [GH-38836](https://github.com/apache/arrow/issues/38836) - [Go] Add Size() for ArrayData (#38839)
+* [GH-38852](https://github.com/apache/arrow/issues/38852) - [C++] Replace "#ifdef ARROW_WITH_GZIP" in dataset test to ARROW_WITH_ZLIB (#38853)
+* [GH-38857](https://github.com/apache/arrow/issues/38857) - [Python] Fix append mode for cython 2 (#39027)
+* [GH-38857](https://github.com/apache/arrow/issues/38857) - [Python] Add append mode for pyarrow.OsFile (#38820)
+* [GH-38860](https://github.com/apache/arrow/issues/38860) - [C++][Parquet] Using length to optimize bloom filter read (#38863)
+* [GH-38870](https://github.com/apache/arrow/issues/38870) - [Documentation] Add List View and Large List View to status.rst (#38871)
+* [GH-38874](https://github.com/apache/arrow/issues/38874) - [C++][Parquet] Minor: making parquet TypedComparator operation as const method (#38875)
+* [GH-38884](https://github.com/apache/arrow/issues/38884) - [C++] DatasetWriter release rows_in_flight_throttle when allocate writing failed (#38885)
+* [GH-38887](https://github.com/apache/arrow/issues/38887) - [C++][Parquet] Move EstimatedBufferedValueBytes from TypedColumnWriter to ColumnWriter (#39055)
+* [GH-38907](https://github.com/apache/arrow/issues/38907) - [C++] Stop installing internal bpacking_simd* headers (#38908)
+* [GH-38909](https://github.com/apache/arrow/issues/38909) - [Packaging] Drop support for Ubuntu 23.04 (#38910)
+* [GH-38918](https://github.com/apache/arrow/issues/38918) - [Go] Avoid schema.Fields allocations in some places (#38919)
+* [GH-38920](https://github.com/apache/arrow/issues/38920) - [C++][Gandiva] Refactor function holder to return arrow Result (#38873)
+* [GH-38990](https://github.com/apache/arrow/issues/38990) - [Java] Upgrade to flatc version 23.5.26 (#38991)
+* [GH-38996](https://github.com/apache/arrow/issues/38996) - [Java] Update dependencies and plugins for JPMS modules (#38994)
+* [GH-39006](https://github.com/apache/arrow/issues/39006) - [Python] Extract libparquet requirements out of libarrow_python.so to new libarrow_python_parquet_encryption.so (#39316)
+* [GH-39013](https://github.com/apache/arrow/issues/39013) - [Go][Integration] Support cABI import/export of StringView (#39019)
+* [GH-39020](https://github.com/apache/arrow/issues/39020) - [CI][Release][JS] Use Node.js 18 instead of 16 (#39021)
+* [GH-39028](https://github.com/apache/arrow/issues/39028) - [Python][CI] Fix dask integration build by temporarily skipping test_categorize_info (#39029)
+* [GH-39037](https://github.com/apache/arrow/issues/39037) - [Java] Remove (Contrib/Experimental) mention in Flight SQL (#39040)
+* [GH-39049](https://github.com/apache/arrow/issues/39049) - [C++] Use Cast() instead of CastTo() for Dictionary Scalar in test (#39362)
+* [GH-39050](https://github.com/apache/arrow/issues/39050) - [C++] Use Cast() instead of CastTo() for Timestamp Scalar in test (#39060)
+* [GH-39051](https://github.com/apache/arrow/issues/39051) - [C++] Use Cast() instead of CastTo() for List Scalar in test (#39353)
+* [GH-39064](https://github.com/apache/arrow/issues/39064) - [C++][Parquet] Support row group filtering for nested paths for struct fields (#39065)
+* [GH-39088](https://github.com/apache/arrow/issues/39088) - [Dev][Java] Add Dependabot configuration for Java (#39089)
+* [GH-39096](https://github.com/apache/arrow/issues/39096) - [Python] Release GIL in `.nbytes` (#39097)
+* [GH-39119](https://github.com/apache/arrow/issues/39119) - [C++] Refactor the Azure FS tests and filesystem class instantiation (#39207)
+* [GH-39122](https://github.com/apache/arrow/issues/39122) - [C++][Parquet] Optimize FLBA record reader (#39124)
+* [GH-39134](https://github.com/apache/arrow/issues/39134) - Create module info compiler plugin (#39135)
+* [GH-39159](https://github.com/apache/arrow/issues/39159) - [C++] : Try to make Buffer::device_type_ non-optional (#39150)
+* [GH-39170](https://github.com/apache/arrow/issues/39170) - [Java] Improve error message explaining why TestTls might fail (#39171)
+* [GH-39189](https://github.com/apache/arrow/issues/39189) - [Java] Bump com.h2database:h2 from 1.4.196 to 2.2.224 in /java (#39188)
+* [GH-39196](https://github.com/apache/arrow/issues/39196) - [Python][Docs] Document the Arrow PyCapsule protocol in the 'extending pyarrow' section of the Python docs (#39199)
+* [GH-39208](https://github.com/apache/arrow/issues/39208) - [C++][Parquet] Remove deprecated AppendRowGroup(int64_t num_rows) (#39209)
+* [GH-39210](https://github.com/apache/arrow/issues/39210) - [C++][Parquet] Avoid WriteRecordBatch from produce zero-sized RowGroup (#39211)
+* [GH-39217](https://github.com/apache/arrow/issues/39217) - [Python] RecordBatchReader.from_stream constructor for objects implementing the Arrow PyCapsule protocol (#39218)
+* [GH-39223](https://github.com/apache/arrow/issues/39223) - [C#] Support IReadOnlyList<T?> on remaining scalar types (#39224)
+* [GH-39225](https://github.com/apache/arrow/issues/39225) - [GLib] Use Cast() instaed of CastTo (#39228)
+* [GH-39232](https://github.com/apache/arrow/issues/39232) - [C++] Support binary to fixed_size_binary cast (#39236)
+* [GH-39243](https://github.com/apache/arrow/issues/39243) - [R][CI] Remove r-arrow conda nightlies (#39244)
+* [GH-39246](https://github.com/apache/arrow/issues/39246) - [CI][GLib][Ruby] Use Ubuntu 22.04 not 20.04 (#39247)
+* [GH-39262](https://github.com/apache/arrow/issues/39262) - [C++][Azure][FS] Add default credential auth configuration (#39263)
+* [GH-39265](https://github.com/apache/arrow/issues/39265) - [Java] Make it run well with the netty newest version 4.1.104 (#39266)
+* [GH-39268](https://github.com/apache/arrow/issues/39268) - [C++] Don't install bundled Azure SDK for C++ with CMake 3.28+ (#39269)
+* [GH-39292](https://github.com/apache/arrow/issues/39292) - [C++][FS] : Remove the AzureBackend enum and add more flexible connection options (#39293)
+* [GH-39297](https://github.com/apache/arrow/issues/39297) - [C++][FS] : Inform caller of container not-existing when checking for HNS support (#39298)
+* [GH-39299](https://github.com/apache/arrow/issues/39299) - [Java] Upgrade to Avro 1.11.3 (#39300)
+* [GH-39303](https://github.com/apache/arrow/issues/39303) - [Archery][Benchmarking] Allow setting C++ repetition min time (#39324)
+* [GH-39318](https://github.com/apache/arrow/issues/39318) - [C++][FS][Azure] Add workload identity auth configuration (#39319)
+* [GH-39320](https://github.com/apache/arrow/issues/39320) - [C++][FS][Azure] Add managed identity auth configuration (#39321)
+* [GH-39322](https://github.com/apache/arrow/issues/39322) - [C++] Forward arguments to ExceptionToStatus all the way to Status::FromArgs (#39323)
+* [GH-39326](https://github.com/apache/arrow/issues/39326) - [C++] Flaky DatasetWriterTestFixture.MaxRowsOneWriteBackpresure test (#39379)
+* [GH-39328](https://github.com/apache/arrow/issues/39328) - [Java] Make default getConsumer public (#39329)
+* [GH-39335](https://github.com/apache/arrow/issues/39335) - [C#] Support creating FlightClient with Grpc.Core.Channel (#39348)
+* [GH-39339](https://github.com/apache/arrow/issues/39339) - [C++] Add ForceCachedHierarchicalNamespaceSupport to help with testing (#39340)
+* [GH-39341](https://github.com/apache/arrow/issues/39341) - [C#] Support Utf8View, BinaryView and ListView (#39342)
+* [GH-39343](https://github.com/apache/arrow/issues/39343) - [C++][FS][Azure] Add client secret auth configuration (#39346)
+* [GH-39355](https://github.com/apache/arrow/issues/39355) - [Java] Improve JdbcConsumer exceptions (#39356)
+* [GH-39357](https://github.com/apache/arrow/issues/39357) - [C++] Reduce function.h includes (#39312)
+* [GH-39363](https://github.com/apache/arrow/issues/39363) - [C++] Use Cast() instead of CastTo() for Parquet  (#39364)
+* [GH-39413](https://github.com/apache/arrow/issues/39413) - [C++][Parquet] Vectorize decode plain on FLBA (#39414)
+* [GH-39419](https://github.com/apache/arrow/issues/39419) - [C++][Parquet] Style: Using arrow::Buffer data_as api rather than reinterpret_cast (#39420)
+* [GH-39430](https://github.com/apache/arrow/issues/39430) - [C++][ORC] Upgrade ORC to 1.9.2 (#39431)
+* [GH-39449](https://github.com/apache/arrow/issues/39449) - [C++] Use default Azure credentials implicitly and support anonymous credentials explicitly (#39450)
+* [GH-39484](https://github.com/apache/arrow/issues/39484) - [Java] Support 256 bit decimals in JdbcToArrowUtils (#39485)
+* [GH-39500](https://github.com/apache/arrow/issues/39500) - [Docs] Pin pydata-sphinx-theme to 0.14 (#39501)
+* [GH-39515](https://github.com/apache/arrow/issues/39515) - [Python] Pass in type to `MapType.from_arrays` (#39516)
+* [GH-39531](https://github.com/apache/arrow/issues/39531) - [Python][CI] Skip failing dask tests: test_describe_empty and test_view (#39534)
+* [GH-39533](https://github.com/apache/arrow/issues/39533) - [Python] NumPy 2.0 compat: remove usage of np.core (#39535)
+* [GH-39537](https://github.com/apache/arrow/issues/39537) - [Packaging][Python] Add a numpy<2 pin to the install requirements for the 15.x release branch (#39538)
+* [GH-39601](https://github.com/apache/arrow/issues/39601) - [R] Don't download cmake when TEST_OFFLINE_BUILD=true (#39602)
+* [GH-39624](https://github.com/apache/arrow/issues/39624) - [R][CI] Add CMake to docker file and update envvars (#39625)
+* [GH-39626](https://github.com/apache/arrow/issues/39626) - [Docs][R] Update NEWS.md for 15.0.0
+* [PARQUET-2411](https://issues.apache.org/jira/browse/PARQUET-2411) - [C++][Parquet] Allow reading dictionary without reading data via ByteArrayDictionaryRecordReader (#39153)
+
+# Apache Arrow 14.0.2 (2023-11-29 08:00:00)
+
+## New Features and Improvements
+
+* [GH-27839](https://github.com/apache/arrow/issues/27839) - [R] Fetch latest nightly binary for arrow R dev versions. (#38236)
+* [GH-38342](https://github.com/apache/arrow/issues/38342) - [Python] Update to_pandas to use non-deprecated DataFrame constructor (#38374)
+* [GH-38364](https://github.com/apache/arrow/issues/38364) - [Python] Initialize S3 on first use (#38375)
+* [GH-38430](https://github.com/apache/arrow/issues/38430) - [R] Add test + fix corner cases after nixlibs.R refactor (#38534)
+* [GH-38432](https://github.com/apache/arrow/issues/38432) - [C++][Parquet] Try to fix performance regression in the DictByteArrayDecoderImpl (#38784)
+* [GH-38449](https://github.com/apache/arrow/issues/38449) - [Release][Go][macOS] Use local test data if possible (#38450)
+* [GH-38570](https://github.com/apache/arrow/issues/38570) - [R] Ensure that test-nix-libs is warning free (#38571)
+* [GH-38591](https://github.com/apache/arrow/issues/38591) - [Parquet][C++] Remove redundant open calls in `ParquetFileFormat::GetReaderAsync`  (#38621)
+* [GH-38756](https://github.com/apache/arrow/issues/38756) - [R] More debug output for r/configure and nixlibs.R (#38819)
+* [GH-38864](https://github.com/apache/arrow/issues/38864) - [R] Update NEWS.md for 14.0.0.1 (#38866)
+* [GH-38904](https://github.com/apache/arrow/issues/38904) - [R] Update news.md for 14.0.0.2 (#39022)
+* [GH-39041](https://github.com/apache/arrow/issues/39041) - [R] Improve `update-checksum.R` output (#39042)
+
+
+## Bug Fixes
+
+* [GH-38345](https://github.com/apache/arrow/issues/38345) - [Release] Use local test data for verification if possible (#38362)
+* [GH-38438](https://github.com/apache/arrow/issues/38438) - [C++] Dataset: Trying to fix the async bug in Parquet dataset (#38466)
+* [GH-38577](https://github.com/apache/arrow/issues/38577) - Reading parquet file behavior change from 13.0.0 to 14.0.0
+* [GH-38618](https://github.com/apache/arrow/issues/38618) - [C++] S3FileSystem: fix regression in deleting explicitly created sub-directories (#38845)
+* [GH-38626](https://github.com/apache/arrow/issues/38626) - [Python] Fix segfault when PyArrow is imported at shutdown (#38637)
+* [GH-38676](https://github.com/apache/arrow/issues/38676) - [Python] Fix potential deadlock when CSV reading errors out (#38713)
+* [GH-38715](https://github.com/apache/arrow/issues/38715) - [R] Fix possible bashism in configure script (#38716)
+* [GH-38752](https://github.com/apache/arrow/issues/38752) - [R] Wrap rosetta detection in tryCatch (#38754)
+* [GH-38766](https://github.com/apache/arrow/issues/38766) - [R] Add timeout option to try_download (#38767)
+* [GH-38779](https://github.com/apache/arrow/issues/38779) - [R][CI] Use devtools on self-hosted machines and use macos-11 for intel package build (#38974)
+* [GH-38861](https://github.com/apache/arrow/issues/38861) - [C++] Add missing "-framework Security" to Libs.private in arrow.pc (#38869)
+* [GH-38893](https://github.com/apache/arrow/issues/38893) - [R] Fix printf syntax in altrep.cpp (#38894)
+* [GH-38902](https://github.com/apache/arrow/issues/38902) - [R] Handle failing library detection with pkg-config (#38970)
+* [GH-38984](https://github.com/apache/arrow/issues/38984) - [Python][Packaging] Verification of wheels on AlmaLinux 8 are failing due to missing pip (#38985)
+* [GH-39003](https://github.com/apache/arrow/issues/39003) - [CI][macOS] Don't update Homebrew (#39016)
+* [GH-39072](https://github.com/apache/arrow/issues/39072) - [Release][CI] Python3.11-devel is required for the verification job on AlmaLinux 8 (#39073)
+* [GH-39074](https://github.com/apache/arrow/issues/39074) - [Release][Packaging] Use UTF-8 explicitly for KEYS (#39082)
+* [GH-39076](https://github.com/apache/arrow/issues/39076) - [R] Fix tests that trigger confusing dplyr warnings (#39077)
+* [GH-39138](https://github.com/apache/arrow/issues/39138) - [R] Compile with \`-Wconversion\` on clang15 results in compiler warnings
+
+# Apache Arrow 14.0.1 (2023-11-06)
+
+## Bug Fixes
+
+* [GH-38431](https://github.com/apache/arrow/issues/38431) - [Python][CI] Update fs.type_name checks for s3fs tests (#38455)
+* [GH-38607](https://github.com/apache/arrow/issues/38607) - [Python] Disable PyExtensionType autoload (#38608)
+
+# Apache Arrow 14.0.0 (2023-10-19)
+
+## Bug Fixes
+
+* [GH-15017](https://github.com/apache/arrow/issues/15017) - [Python] Harden test_memory.py for use with ARROW_USE_GLOG=ON (#36901)
+* [GH-15281](https://github.com/apache/arrow/issues/15281) - [C++] Replace bytes_view alias with span (#36334)
+* [GH-31621](https://github.com/apache/arrow/issues/31621) - [JS] Fix Union null bitmaps (#37122)
+* [GH-32439](https://github.com/apache/arrow/issues/32439) - [Python] Fix off by one bug when chunking nested structs (#37376)
+* [GH-32483](https://github.com/apache/arrow/issues/32483) - [Docs][Python] Clarify you need to use conda-forge for installing nightly conda package (#37948)
+* [GH-33807](https://github.com/apache/arrow/issues/33807) - [R] Add a message if we detect running under emulation (#37777)
+* [GH-34567](https://github.com/apache/arrow/issues/34567) - [JS] Improve build and do not generate `bin/bin` directory (#36607)
+* [GH-34640](https://github.com/apache/arrow/issues/34640) - [R] Can't read in partitioning column in CSV datasets when both (non-hive) partition and schema supplied (#37658)
+* [GH-34909](https://github.com/apache/arrow/issues/34909) - [C++] Avoid mean overflow on large integer inputs (#37243)
+* [GH-35095](https://github.com/apache/arrow/issues/35095) - [C++] Prevent write after close in arrow::ipc::IpcFormatWriter (#37783)
+* [GH-35167](https://github.com/apache/arrow/issues/35167) - [Docs][C++] Use new API for arrow::json::TableReader (#37301)
+* [GH-35292](https://github.com/apache/arrow/issues/35292) - [Release] Retry "apt install" (#36836)
+* [GH-35328](https://github.com/apache/arrow/issues/35328) - [Go][FlightSQL] Fix flaky test for FlightSql driver (#38044)
+* [GH-35450](https://github.com/apache/arrow/issues/35450) - [C++] Return error when `RecordBatch::ToStructArray` called with mismatched column lengths (#36654)
+* [GH-35581](https://github.com/apache/arrow/issues/35581) - [C++] Store offsets in scalars (#36018)
+* [GH-35641](https://github.com/apache/arrow/issues/35641) - [CI][C++] Disable precompiled headers (#37502)
+* [GH-35658](https://github.com/apache/arrow/issues/35658) - [Packaging] Sync conda recipes with feedstocks (#35637)
+* [GH-35770](https://github.com/apache/arrow/issues/35770) - [Go][Documentation] Update TimestampType zero value as seconds in comment (#37905)
+* [GH-35942](https://github.com/apache/arrow/issues/35942) - [C++] Improve Decimal ToReal accuracy (#36667)
+* [GH-36069](https://github.com/apache/arrow/issues/36069) - [Java] Ensure S3 is finalized on shutdown (#36934)
+* [GH-36154](https://github.com/apache/arrow/issues/36154) - [JS][CI] Use `jest` cache in CI (#36373)
+* [GH-36189](https://github.com/apache/arrow/issues/36189) - [C++][Parquet] StreamReader::SkipRows() skips to incorrect place in multi-row-group files (#36191)
+* [GH-36318](https://github.com/apache/arrow/issues/36318) - [Go] only decode lengths for the number of existing values, not for all nvalues. (#36322)
+* [GH-36323](https://github.com/apache/arrow/issues/36323) - [Python] Fix Timestamp scalar repr error on values outside datetime range (#36942)
+* [GH-36332](https://github.com/apache/arrow/issues/36332) - [CI][Java] Integration jobs with Spark fail with NoSuchMethodError:io.netty.buffer.PooledByteBufAllocator
+* [GH-36371](https://github.com/apache/arrow/issues/36371) - [Java] CycloneDX Unable to load the mojo 'makeBom'
+* [GH-36379](https://github.com/apache/arrow/issues/36379) - [C++] Bundled dependency include paths should override system include dirs (#37612)
+* [GH-36502](https://github.com/apache/arrow/issues/36502) - [C++] Add run-end encoded array support to ReferencedByteRanges (#36521)
+* [GH-36610](https://github.com/apache/arrow/issues/36610) - [CI][C++] Don't enable ARROW_ACERO by default (#36611)
+* [GH-36619](https://github.com/apache/arrow/issues/36619) - [Python] Parquet statistics string representation misleading (#36626)
+* [GH-36634](https://github.com/apache/arrow/issues/36634) - [Dev] Ensure merge script goes over all pages when requesting info from GitHub (#36637)
+* [GH-36638](https://github.com/apache/arrow/issues/36638) - [R] Error with create_package_with_all_dependencies() on Windows (#37226)
+* [GH-36645](https://github.com/apache/arrow/issues/36645) - [Go] returns writer.Close error to caller when writing parquet (#36646)
+* [GH-36655](https://github.com/apache/arrow/issues/36655) - [Dev] Fix fury command to upload nightly wheels (#36657)
+* [GH-36663](https://github.com/apache/arrow/issues/36663) - [C++] Fix the default value information for enum options (#36684)
+* [GH-36680](https://github.com/apache/arrow/issues/36680) - [Python] Add missing pytest.mark.acero (#36683)
+* [GH-36685](https://github.com/apache/arrow/issues/36685) - [R][C++] Fix illegal opcode failure with Homebrew (#36705)
+* [GH-36688](https://github.com/apache/arrow/issues/36688) - [C#] Fix dereference error (#36691)
+* [GH-36692](https://github.com/apache/arrow/issues/36692) - [CI][Packaging] Pin gemfury to 0.12.0 due to issue with faraday dependency (#36693)
+* [GH-36708](https://github.com/apache/arrow/issues/36708) - [C++] Fully calculate null-counts so the REE allocations make sense (#36740)
+* [GH-36712](https://github.com/apache/arrow/issues/36712) - [CI] Also update issue components when it's updated (#36723)
+* [GH-36720](https://github.com/apache/arrow/issues/36720) - [R] stringr modifier functions cannot be called with namespace prefix (#36758)
+* [GH-36726](https://github.com/apache/arrow/issues/36726) - [R] calling read_parquet on S3 connections results in error message being ignored (#37024)
+* [GH-36730](https://github.com/apache/arrow/issues/36730) - [Python] Add support for Cython 3.0.0 (#37097)
+* [GH-36771](https://github.com/apache/arrow/issues/36771) - [R] stringr helper functions drop calling environment when evaluating (#36784)
+* [GH-36776](https://github.com/apache/arrow/issues/36776) - [C++] Make ListArray::FromArrays() handle sliced offsets Arrays containing nulls (#36780)
+* [GH-36787](https://github.com/apache/arrow/issues/36787) - [R] lintr update leads to failing tests on main (#36788)
+* [GH-36809](https://github.com/apache/arrow/issues/36809) - [Python] MapScalar.as_py with custom field name (#36830)
+* [GH-36819](https://github.com/apache/arrow/issues/36819) - [R] Use RunWithCapturedR for reading Parquet files (#37274)
+* [GH-36828](https://github.com/apache/arrow/issues/36828) - [C++][Parquet] Make buffered RowGroupSerializer using BufferedPageWriter (#36829)
+* [GH-36850](https://github.com/apache/arrow/issues/36850) - [Go] Arrow Concatenate fix, ensure allocations are Free'd (#36854)
+* [GH-36856](https://github.com/apache/arrow/issues/36856) - [C++] Remove needless braces from BasicDecimal256FromLE() arguments (#36987)
+* [GH-36858](https://github.com/apache/arrow/issues/36858) - [Go] Fix dictionary builder leak (#36859)
+* [GH-36860](https://github.com/apache/arrow/issues/36860) - [C++] Report CMake error when system Protobuf exists but system gRPC doesn't exist (#36904)
+* [GH-36863](https://github.com/apache/arrow/issues/36863) - [C#] Remove unnecessary applied fix to not shutdown PythonEngine on CDataInterfacePythonTests if .NET is > 5.0 (#36872)
+* [GH-36863](https://github.com/apache/arrow/issues/36863) - [C#][Packaging] Do not shutdown PythonEngine on CDataInterfacePythonTests if .NET is > 5.0 (#36868)
+* [GH-36883](https://github.com/apache/arrow/issues/36883) - [R] Remove version number which triggers CRAN warning (#36884)
+* [GH-36920](https://github.com/apache/arrow/issues/36920) - [Java][Docs] Add ARROW_JSON var to maven build profile (#36921)
+* [GH-36922](https://github.com/apache/arrow/issues/36922) - [CI][C++][Windows] Search OpenSSL from PATH (#36923)
+* [GH-36935](https://github.com/apache/arrow/issues/36935) - [Go] Fix Timestamp to Time dates (#36964)
+* [GH-36939](https://github.com/apache/arrow/issues/36939) - [C++][Parquet] Direct put of BooleanArray is incorrect when called several times (#36972)
+* [GH-36941](https://github.com/apache/arrow/issues/36941) - [CI][Docs] Use system Protobuf (#36943)
+* [GH-36949](https://github.com/apache/arrow/issues/36949) - [C++] Fix KeyColumnArray's buffers array bounds assertion. (#36966)
+* [GH-36973](https://github.com/apache/arrow/issues/36973) - [CI][Python] Archery linter integrated with flake8==6.1.0 (#36976)
+* [GH-36975](https://github.com/apache/arrow/issues/36975) - [C++][FlightRPC] Skip unknown fields, don't crash (#36979)
+* [GH-36981](https://github.com/apache/arrow/issues/36981) - [Go] Fix ipc reader leak (#36982)
+* [GH-36983](https://github.com/apache/arrow/issues/36983) - [Python] Different get_file_info behaviour between pyarrow.fs.S3FileSystem and s3fs (#37768)
+* [GH-36991](https://github.com/apache/arrow/issues/36991) - [Python][Packaging] Skip tests on Win that require a tz database (#36996)
+* [GH-37017](https://github.com/apache/arrow/issues/37017) - [C++] Guard unexpected uses of BMI2 instructions (#37610)
+* [GH-37022](https://github.com/apache/arrow/issues/37022) - [CI][Java] Use the official Maven download URL (#37119)
+* [GH-37050](https://github.com/apache/arrow/issues/37050) - [Python][Interchange protocol] Add a workaround for empty dataframes (#38037)
+* [GH-37056](https://github.com/apache/arrow/issues/37056) - [Java] Fix importing an empty data array from c-data (#37531)
+* [GH-37067](https://github.com/apache/arrow/issues/37067) - [C++] Install bundled GoogleTest (#37483)
+* [GH-37099](https://github.com/apache/arrow/issues/37099) - [C++] Fix build of Flight-UCX (#37105)
+* [GH-37102](https://github.com/apache/arrow/issues/37102) - [Go][Parquet] Encoding: Make BitWriter Reserve when ReserveBytes (#37112)
+* [GH-37106](https://github.com/apache/arrow/issues/37106) - [C++] Remove overflowed integer rounding benchmarks (#37109)
+* [GH-37107](https://github.com/apache/arrow/issues/37107) - [C++] Suppress an unused variable warning with GCC 7 (#37240)
+* [GH-37110](https://github.com/apache/arrow/issues/37110) - [C++] Expression: SmallestTypeFor lost tz for Scalar (#37135)
+* [GH-37111](https://github.com/apache/arrow/issues/37111) - [C++][Parquet] Dataset: Fixing Schema Cast (#37793)
+* [GH-37116](https://github.com/apache/arrow/issues/37116) - [C++][ORC] Link to absl::log_internal_check_op for ABSL_DCHECK*() (#37117)
+* [GH-37120](https://github.com/apache/arrow/issues/37120) - [CI][Docs] Ensure removing existing Node.js (#37121)
+* [GH-37129](https://github.com/apache/arrow/issues/37129) - [CI][Docs] Use Ubuntu 22.04 (#37132)
+* [GH-37129](https://github.com/apache/arrow/issues/37129) - [CI][Docs] Free up disk space (#37131)
+* [GH-37148](https://github.com/apache/arrow/issues/37148) - [C++] Explicitly list the integer values of the Type::type enum (#37149)
+* [GH-37173](https://github.com/apache/arrow/issues/37173) - [C++][Go][Format] C-export/import Run-End Encoded Arrays (#37174)
+* [GH-37208](https://github.com/apache/arrow/issues/37208) - [R] Use currrently running R binary to compile test program (nix install) (#37225)
+* [GH-37213](https://github.com/apache/arrow/issues/37213) - [C#] Updating a reference to FlatBuffers missed due to rebase/merge conflict (#37214)
+* [GH-37217](https://github.com/apache/arrow/issues/37217) - [Python] Add missing docstrings to Cython (#37218)
+* [GH-37239](https://github.com/apache/arrow/issues/37239) - [Ruby] Updated documentation for ArrowTable#initialize to clarify argument details (#37261)
+* [GH-37245](https://github.com/apache/arrow/issues/37245) - [MATLAB] `arrow.internal.proxy.validate` throws `MATLAB:UndefinedFunction` when crafting the message to display when throwing the `arrow:proxy:ProxyNameMismatch` error  (#37248)
+* [GH-37266](https://github.com/apache/arrow/issues/37266) - [CI][C++] Use ARROW_CMAKE_ARGS not CMAKE_ARGS (#37272)
+* [GH-37276](https://github.com/apache/arrow/issues/37276) - [C++] Skip multithread tests on single thread env (#37327)
+* [GH-37294](https://github.com/apache/arrow/issues/37294) - [C++] Use std::string for HasSubstr matcher (#37314)
+* [GH-37299](https://github.com/apache/arrow/issues/37299) - [C++] Fix clang-format version mismatch error with Homebrew's clang-format (#37300)
+* [GH-37303](https://github.com/apache/arrow/issues/37303) - [Python] Update test_option_class_equality due to CumulativeSumOptions refactor (#37305)
+* [GH-37308](https://github.com/apache/arrow/issues/37308) - [C++][Docs] Change name for CPP tutorial and minor fixes to the job (#37311)
+* [GH-37325](https://github.com/apache/arrow/issues/37325) - [R] Update NEWS.md with missing changes for 13.0.0  (#37326)
+* [GH-37329](https://github.com/apache/arrow/issues/37329) - [Release][Homebrew] Follow directory structure change (#37349)
+* [GH-37340](https://github.com/apache/arrow/issues/37340) - [MATLAB] The `column(index)` method of `arrow.tabular.RecordBatch` errors if `index` refers to an `arrow.array.Time32Array` column (#37347)
+* [GH-37352](https://github.com/apache/arrow/issues/37352) - [C++] Don't put all dependencies to ArrowConfig.cmake/arrow.pc (#37399)
+* [GH-37373](https://github.com/apache/arrow/issues/37373) - [CI] Make integration build a bit leaner (#37366)
+* [GH-37373](https://github.com/apache/arrow/issues/37373) - [CI][Integration] Free up disk space (#37374)
+* [GH-37377](https://github.com/apache/arrow/issues/37377) - [C#] Throw OverflowException on overflow in TimestampArray.ConvertTo() (#37388)
+* [GH-37386](https://github.com/apache/arrow/issues/37386) - [R] CRAN failures due to "invalid non-character version specification" (#37387)
+* [GH-37406](https://github.com/apache/arrow/issues/37406) - [C++][FlightSQL] Add missing ArrowFlight::arrow_flight_{shared,static} dependencies (#37407)
+* [GH-37408](https://github.com/apache/arrow/issues/37408) - [C++] Install arrow-compute.pc only when ARROW_COMPUTE=ON (#37409)
+* [GH-37410](https://github.com/apache/arrow/issues/37410) - [C++][Gandiva] Add support for using LLVM shared library (#37412)
+* [GH-37411](https://github.com/apache/arrow/issues/37411) - [C++][Python] Add string -> date cast kernel (fix python scalar cast) (#38038)
+* [GH-37414](https://github.com/apache/arrow/issues/37414) - [Release][CI] Update references to wrong apache-arrow Homebrew formula path (#37415)
+* [GH-37419](https://github.com/apache/arrow/issues/37419) - [Go][Parquet] Decimal256 support for pqarrow (#37503)
+* [GH-37431](https://github.com/apache/arrow/issues/37431) - [R] Tests failing for R versions < 4.0 because of use of base pipe (|>) in tests (#37432)
+* [GH-37433](https://github.com/apache/arrow/issues/37433) - [CI][Release] Increase timeout for macOS (#37530)
+* [GH-37437](https://github.com/apache/arrow/issues/37437) - [C++] Fix MakeArrayOfNull for list array with large string values type (#37467)
+* [GH-37453](https://github.com/apache/arrow/issues/37453) - [C++][Parquet] Performance fix for WriteBatch (#37454)
+* [GH-37456](https://github.com/apache/arrow/issues/37456) - [R] CRAN incoming checks show NOTE due to internal function which isn't documented (#37457)
+* [GH-37463](https://github.com/apache/arrow/issues/37463) - [R] CRAN incoming checks fail due to test run length  (#37464)
+* [GH-37466](https://github.com/apache/arrow/issues/37466) - [C++][Parquet] Fix Valgrind failure in DELTA_BYTE_ARRAY decoder (#37471)
+* [GH-37470](https://github.com/apache/arrow/issues/37470) - [Python][Parquet] Add missing arguments to `ParquetFileWriteOptions` (#37469)
+* [GH-37480](https://github.com/apache/arrow/issues/37480) - [Python] Bump pandas version that contains regression for pandas issue 50127 (#37481)
+* [GH-37485](https://github.com/apache/arrow/issues/37485) - [C++][Skyhook] Don't use deprecated BufferReader API (#37486)
+* [GH-37487](https://github.com/apache/arrow/issues/37487) - [C++][Parquet] Dataset: Implement sync `ParquetFileFormat::GetReader` (#37514)
+* [GH-37488](https://github.com/apache/arrow/issues/37488) - [C++] Disable unity build for Azure SDK for C++ (#37489)
+* [GH-37500](https://github.com/apache/arrow/issues/37500) - [CI][C++] Disable Dataset and Substrait by default (#37501)
+* [GH-37507](https://github.com/apache/arrow/issues/37507) - [GLib] Don't use implicit include directories (#37508)
+* [GH-37515](https://github.com/apache/arrow/issues/37515) - [C++] Remove memory address optimization from `ChunkedArray::Equals(const std::shared_ptr<arrow::ChunkedArray>& other)` if the `ChunkedArray` can have `NaN` values (#37579)
+* [GH-37523](https://github.com/apache/arrow/issues/37523) - [C++][CI][CUDA] Don't use newer API and add missing CUDA dependencies (#37497)
+* [GH-37535](https://github.com/apache/arrow/issues/37535) - [C++][Parquet] Add missing "thrift" dependency in parquet.pc (#37603)
+* [GH-37539](https://github.com/apache/arrow/issues/37539) - [C++][FlightRPC] Fix binding to IPv6 addresses (#37552)
+* [GH-37555](https://github.com/apache/arrow/issues/37555) - [Python] Update get_file_info_selector to ignore base directory (#37558)
+* [GH-37560](https://github.com/apache/arrow/issues/37560) - [Python][Documentation] Replacing confusing batch size from 128Ki to 128_000 (#37605)
+* [GH-37574](https://github.com/apache/arrow/issues/37574) - [Python] Compatibilty with numpy 2.0 (#38040)
+* [GH-37576](https://github.com/apache/arrow/issues/37576) - [R] Use `SafeCallIntoR()` to call garbage collector after a failed allocation (#37565)
+* [GH-37601](https://github.com/apache/arrow/issues/37601) - [C++][Parquet] Add missing GoogleMock dependency (#37602)
+* [GH-37608](https://github.com/apache/arrow/issues/37608) - [C++][Gandiva] TO_DATE function supports YYYY-MM and YYYY (#37609)
+* [GH-37614](https://github.com/apache/arrow/issues/37614) - [R][CI] Update CI jobs due to duckdb repo moving (#37615)
+* [GH-37621](https://github.com/apache/arrow/issues/37621) - [Packaging][Conda] Sync conda recipes with feedstocks (#37624)
+* [GH-37639](https://github.com/apache/arrow/issues/37639) - [CI] Fix checkout on older OSes (#37640)
+* [GH-37648](https://github.com/apache/arrow/issues/37648) - [Packaging][Linux] Fix libarrow-glib-dev/arrow-glib-devel dependencies (#37714)
+* [GH-37650](https://github.com/apache/arrow/issues/37650) - [Python] Check filter inputs in FilterMetaFunction (#38075)
+* [GH-37671](https://github.com/apache/arrow/issues/37671) - [R] legacy timezone symlinks cause CRAN failures (#37672)
+* [GH-37712](https://github.com/apache/arrow/issues/37712) - [Go][Parquet] Fix ARM64 assembly for bitmap extract bits (#37785)
+* [GH-37715](https://github.com/apache/arrow/issues/37715) - [Packaging][CentOS] Use default g++ on CentOS 9 Stream (#37718)
+* [GH-37730](https://github.com/apache/arrow/issues/37730) - [C#] throw OverflowException in DecimalUtility if fractionalPart is too large (#37731)
+* [GH-37735](https://github.com/apache/arrow/issues/37735) - [C++][FreeBSD] Suppress a shorten-64-to-32 warning (#38004)
+* [GH-37738](https://github.com/apache/arrow/issues/37738) - [Go][CI] Update Go version for verification (#37745)
+* [GH-37750](https://github.com/apache/arrow/issues/37750) - [R][C++] Add compatability with IntelLLVM (#37781)
+* [GH-37767](https://github.com/apache/arrow/issues/37767) - [C++][CMake] Don't touch .git/index (#38003)
+* [GH-37771](https://github.com/apache/arrow/issues/37771) - [Go][Benchmarking] Update Conbench git info (#37772)
+* [GH-37803](https://github.com/apache/arrow/issues/37803) - [Python][CI] Pin setuptools_scm to fix release verification scripts (#37930)
+* [GH-37803](https://github.com/apache/arrow/issues/37803) - [CI][Dev][Python] Release and merge script errors (#37819)
+* [GH-37805](https://github.com/apache/arrow/issues/37805) - [CI][MATLAB] Hard-code `release` to `R2023a` for `matlab-actions/setup-matlab` action in MATLAB CI workflows (#37808)
+* [GH-37813](https://github.com/apache/arrow/issues/37813) - [R] add quoted_na argument to open_delim_dataset() (#37828)
+* [GH-37829](https://github.com/apache/arrow/issues/37829) - [Java] Avoid resizing data buffer twice when appending variable length vectors (#37844)
+* [GH-37834](https://github.com/apache/arrow/issues/37834) - [Gandiva] Migrate to new LLVM PassManager API (#37867)
+* [GH-37845](https://github.com/apache/arrow/issues/37845) - [Go][Parquet] Check the number of logical fields instead of physical columns (#37846)
+* [GH-37858](https://github.com/apache/arrow/issues/37858) - [Docs][JS] Fix check of remote URL to generate JS docs (#37870)
+* [GH-37893](https://github.com/apache/arrow/issues/37893) - [Java] Move Types.proto in a subfolder (#37894)
+* [GH-37907](https://github.com/apache/arrow/issues/37907) - [R] Setting rosetta variable is missing (#37961)
+* [GH-37927](https://github.com/apache/arrow/issues/37927) - [CI][Dev][Archery] Badges for crossbow jobs always show \`no status\` even when they have failed or succeeded
+* [GH-37936](https://github.com/apache/arrow/issues/37936) - [CI] Fix integration testing in rc-verify nightly builds (#37933)
+* [GH-37950](https://github.com/apache/arrow/issues/37950) - [R] tests fail on R < 4.0 due to test calling data.frame() without specifying stringsAsFactors=FALSE (#37951)
+* [GH-37952](https://github.com/apache/arrow/issues/37952) - [C++] Make unique->shared explicit to fix build failure on at least one compiler (#38136)
+* [GH-37993](https://github.com/apache/arrow/issues/37993) - [CI] Fix conda-integration build (#37990)
+* [GH-37999](https://github.com/apache/arrow/issues/37999) - [CI][Archery] Install python3-dev on ARM jobs to have access to Python.h (#38009)
+* [GH-38011](https://github.com/apache/arrow/issues/38011) - [C++][Dataset] Change force close to tend to close on write (#38030)
+* [GH-38014](https://github.com/apache/arrow/issues/38014) - [Python] pyarrow extension type is not converted to pandas properly in 13.0.0
+* [GH-38034](https://github.com/apache/arrow/issues/38034) - [Python] DataFrame Interchange Protocol - correct dtype information for categorical columns (#38065)
+* [GH-38039](https://github.com/apache/arrow/issues/38039) - [C++][Parquet] Fix segfault getting compression level for a Parquet column (#38025)
+* [GH-38049](https://github.com/apache/arrow/issues/38049) - [R] Prevent `on_rosetta()` from warning (#38052)
+* [GH-38057](https://github.com/apache/arrow/issues/38057) - [Python][CI] Fix flaky hypothesis tests (#38058)
+* [GH-38059](https://github.com/apache/arrow/issues/38059) - [Python][CI] Upgrade CUDA to 11.2.2 (#38081)
+* [GH-38060](https://github.com/apache/arrow/issues/38060) - [Python][CI] Upgrade Spark versions (#38082)
+* [GH-38068](https://github.com/apache/arrow/issues/38068) - [C++][CI] Fixing Parquet unittest `arrow_reader_writer_test.cc` compile (#38069)
+* [GH-38074](https://github.com/apache/arrow/issues/38074) - [C++] Fix Offset Size Calculation for Slicing Large String and Binary Types in Hash Join (#38147)
+* [GH-38076](https://github.com/apache/arrow/issues/38076) - [Java][CI][Java-Jars][MacOS] C++ libraries for MacOS AARCH 64
+* [GH-38077](https://github.com/apache/arrow/issues/38077) - [C++] Output bundled GoogleTest to ${BUILD_DIR}/${CONFIG} (#38132)
+* [GH-38084](https://github.com/apache/arrow/issues/38084) - [R] Do not memory map when explicitly checking for file removal (#38085)
+* [GH-38193](https://github.com/apache/arrow/issues/38193) - [CI][Java] Free up disk space for "AMD64 manylinux2014 Java JNI" (#38194)
+* [GH-38197](https://github.com/apache/arrow/issues/38197) - [R] Update actions that used setup-r@v1 to use setup-r@v2 (#38218)
+* [GH-38200](https://github.com/apache/arrow/issues/38200) - [CI][Release][Go] Ensure removing all module caches (#38222)
+* [GH-38201](https://github.com/apache/arrow/issues/38201) - [CI][Packaging] Pin zlib 1.2.13 when using thrift on conan (#38202)
+* [GH-38206](https://github.com/apache/arrow/issues/38206) - [CI] Remove more pre-installed files (#38233)
+* [GH-38226](https://github.com/apache/arrow/issues/38226) - [R] Remove R 3.5 from test-r-versions (#38230)
+* [GH-38227](https://github.com/apache/arrow/issues/38227) - [R] Fix non-unicode character errors in nightly builds (#38232)
+* [GH-38228](https://github.com/apache/arrow/issues/38228) - [R] Fence examples that need dataset with `examplesIf` (#38229)
+* [GH-38239](https://github.com/apache/arrow/issues/38239) - [CI][Python] Disable -W error on Python CI jobs temporarily (#38238)
+* [GH-38263](https://github.com/apache/arrow/issues/38263) - [C++] : Prefer to call string_view::data() instead of begin() where a char pointer is expected (#38265)
+* [GH-38282](https://github.com/apache/arrow/issues/38282) - [C++] : Implement ReplaceString with the right type signature (#38283)
+* [GH-38286](https://github.com/apache/arrow/issues/38286) - [CI][R] Clean GitHub runner disk for ubuntu-r-only-r images (#38287)
+* [GH-38293](https://github.com/apache/arrow/issues/38293) - [R] Fix non-deterministic duckdb test (#38294)
+* [GH-38295](https://github.com/apache/arrow/issues/38295) - [CI][R] Free up disk space for Azure Pipelines jobs (#38302)
+* [GH-38332](https://github.com/apache/arrow/issues/38332) - [CI][Release] Resolve symlinks in RAT lint (#38337)
+
+
+## New Features and Improvements
+
+* [GH-20086](https://github.com/apache/arrow/issues/20086) - [C++] Cast between fixed size and variable size lists (#37292)
+* [GH-21815](https://github.com/apache/arrow/issues/21815) - [JS] Add support for Duration type (#37341)
+* [GH-24868](https://github.com/apache/arrow/issues/24868) - [C++] Add a Tensor logical value type with varying dimensions, implemented using ExtensionType (#37166)
+* [GH-25659](https://github.com/apache/arrow/issues/25659) - [Java] Add DefaultVectorComparators for Large types (#37887)
+* [GH-29184](https://github.com/apache/arrow/issues/29184) - [R] Read CSV with comma as decimal mark (#38002)
+* [GH-29238](https://github.com/apache/arrow/issues/29238) - [C++][Dataset][Parquet] Support parquet modular encryption in the new Dataset API (#34616)
+* [GH-29847](https://github.com/apache/arrow/issues/29847) - [C++] Build with Azure SDK for C++ (#36835)
+* [GH-32863](https://github.com/apache/arrow/issues/32863) - [C++][Parquet] Add DELTA_BYTE_ARRAY encoder to Parquet writer (#14341)
+* [GH-33032](https://github.com/apache/arrow/issues/33032) - [C#] Support fixed-size lists (#35716)
+* [GH-33749](https://github.com/apache/arrow/issues/33749) - [Ruby] Add Arrow::RecordBatch#each_raw_record (#37137)
+* [GH-33985](https://github.com/apache/arrow/issues/33985) - [C++] Add substrait serialization/deserialization for expressions (#34834)
+* [GH-34031](https://github.com/apache/arrow/issues/34031) - [Python] Use PyCapsule for communicating C Data Interface pointers at the Python level
+* [GH-34105](https://github.com/apache/arrow/issues/34105) - [R] Provide extra output for failed builds (#37727)
+* [GH-34213](https://github.com/apache/arrow/issues/34213) - [C++] Use recursive calls without a delimiter if the user is doing a recursive GetFileInfo (#35440)
+* [GH-34252](https://github.com/apache/arrow/issues/34252) - [Java] Support ScannerBuilder::Project or ScannerBuilder::Filter as a Substrait proto extended expression (#35570)
+* [GH-34588](https://github.com/apache/arrow/issues/34588) - [C++][Python] Add a MetaFunction for "dictionary_decode" (#35356)
+* [GH-34620](https://github.com/apache/arrow/issues/34620) - [C#] Support DateOnly and TimeOnly on .NET 6.0+ (#36125)
+* [GH-34950](https://github.com/apache/arrow/issues/34950) - [C++][Parquet] Support encryption for page index (#36574)
+* [GH-35116](https://github.com/apache/arrow/issues/35116) - [CI][C++] Enable compile-time AVX2 on some CI platforms (#36662)
+* [GH-35176](https://github.com/apache/arrow/issues/35176) - [C++] Add support for disabling threading for emscripten (#35672)
+* [GH-35243](https://github.com/apache/arrow/issues/35243) - [C#] Implement MapType (#37885)
+* [GH-35273](https://github.com/apache/arrow/issues/35273) - [C++] Add integer round kernels (#36289)
+* [GH-35287](https://github.com/apache/arrow/issues/35287) - [C++][Parquet] Add CodecOptions to customize the compression parameter (#35886)
+* [GH-35296](https://github.com/apache/arrow/issues/35296) - [Go] Add arrow.Table.String() (#35580)
+* [GH-35409](https://github.com/apache/arrow/issues/35409) - [Python][Docs] Clarify S3FileSystem Credentials chain for EC2 (#35312)
+* [GH-35531](https://github.com/apache/arrow/issues/35531) - [Python] C Data Interface PyCapsule Protocol (#37797)
+* [GH-35600](https://github.com/apache/arrow/issues/35600) - [Python] Allow setting path to timezone db through python API (#37436)
+* [GH-35623](https://github.com/apache/arrow/issues/35623) - [C++][Python] FixedShapeTensorType.ToString() should print the type's parameters (#36496)
+* [GH-35627](https://github.com/apache/arrow/issues/35627) - [Format][Integration] Add string-view to arrow format (#37526)
+* [GH-35698](https://github.com/apache/arrow/issues/35698) - [C#] Update FlatBuffers (#35699)
+* [GH-35740](https://github.com/apache/arrow/issues/35740) - Add documentation for list arrays' values property (#35865)
+* [GH-35775](https://github.com/apache/arrow/issues/35775) - [Go][Parquet] Allow key value file metadata to be written after writing row groups (#37786)
+* [GH-35903](https://github.com/apache/arrow/issues/35903) - [C++] Skeleton for Azure Blob Storage filesystem implementation (#35701)
+* [GH-35916](https://github.com/apache/arrow/issues/35916) - [Java][arrow-jdbc] Add extra fields to JdbcFieldInfo (#37123)
+* [GH-35934](https://github.com/apache/arrow/issues/35934) - [C++][Parquet] PageIndex Read benchmark (#36702)
+* [GH-36078](https://github.com/apache/arrow/issues/36078) - [C#] Flight SQL implementation for C# (#36079)
+* [GH-36103](https://github.com/apache/arrow/issues/36103) - [C++] Initial device sync API (#37040)
+* [GH-36111](https://github.com/apache/arrow/issues/36111) - [C++] Refactor dict_internal.h to use Result (#37754)
+* [GH-36124](https://github.com/apache/arrow/issues/36124) - [C++] Export compile_commands.json by default (#37426)
+* [GH-36155](https://github.com/apache/arrow/issues/36155) - [C++][Go][Java][FlightRPC] Add support for long-running queries (#36946)
+* [GH-36187](https://github.com/apache/arrow/issues/36187) - [C++] Display the name of the problematic field when returning status "Data type ... is not supported in join non-key field" for HashJoin (#36539)
+* [GH-36199](https://github.com/apache/arrow/issues/36199) - [Python][CI][Spark] Update spark versions used on our nightly tests (#36347)
+* [GH-36240](https://github.com/apache/arrow/issues/36240) - [Python] Refactor CumulativeSumOptions to a separate class for independent deprecation (#36977)
+* [GH-36247](https://github.com/apache/arrow/issues/36247) - [R] Add write_csv_dataset (#36436)
+* [GH-36326](https://github.com/apache/arrow/issues/36326) - [C++] Remove APIs deprecated in v9.0 or earlier (#36675)
+* [GH-36363](https://github.com/apache/arrow/issues/36363) - [MATLAB] Create proxy classes for the DataType class hierarchy (#36419)
+* [GH-36417](https://github.com/apache/arrow/issues/36417) - [C++] Add Buffer::data_as, Buffer::mutable_data_as (#36418)
+* [GH-36420](https://github.com/apache/arrow/issues/36420) - [C++] Add An Enum Option For SetLookup Options (#36739)
+* [GH-36433](https://github.com/apache/arrow/issues/36433) - [C++] Update fast_float version to 3.10.1 (#36434)
+* [GH-36469](https://github.com/apache/arrow/issues/36469) - [Java][Packaging] Distribute linux aarch64 libs with mavencentral jars (#36487)
+* [GH-36488](https://github.com/apache/arrow/issues/36488) - [C++] Import/Export ArrowDeviceArray (#36489)
+* [GH-36511](https://github.com/apache/arrow/issues/36511) - [C++][FlightRPC] Get rid of GRPCPP_PP_INCLUDE (#36679)
+* [GH-36512](https://github.com/apache/arrow/issues/36512) - [C++][FlightRPC] Add async GetFlightInfo client call (#36517)
+* [GH-36546](https://github.com/apache/arrow/issues/36546) - [Swift] The initial implementation for swift arrow flight (#36547)
+* [GH-36570](https://github.com/apache/arrow/issues/36570) - [Dev] Add "Component: Swift" label to PRs (#36571)
+* [GH-36573](https://github.com/apache/arrow/issues/36573) - [CI] Remove Travis CI related files and mentions (#36741)
+* [GH-36590](https://github.com/apache/arrow/issues/36590) - [Docs] Support Pydata Sphinx Theme 0.14.0 (#36591)
+* [GH-36601](https://github.com/apache/arrow/issues/36601) - [MATLAB] Add a MATLAB "type traits" class hierarchy (#36653)
+* [GH-36614](https://github.com/apache/arrow/issues/36614) - [MATLAB] Subclass arrow::Buffer to keep MATLAB data backing arrow::Arrays alive (#36615)
+* [GH-36618](https://github.com/apache/arrow/issues/36618) - [C++] Add a test for evaluation of ARROW_CHECK payload (#36617)
+* [GH-36621](https://github.com/apache/arrow/issues/36621) - [C++] Add documentation for ACERO_ALIGNMENT_HANDLING (#36622)
+* [GH-36623](https://github.com/apache/arrow/issues/36623) - [Go] NullType support for csv (#36624)
+* [GH-36642](https://github.com/apache/arrow/issues/36642) - [Python][CI] Configure warnings as errors during pytest (#37018)
+* [GH-36643](https://github.com/apache/arrow/issues/36643) - [C++][Parquet] Use nested namespace in parquet (#36647)
+* [GH-36652](https://github.com/apache/arrow/issues/36652) - [MATLAB] Initialize the `Type` property of `arrow.array.Array` subclasses from existing proxy ids (#36731)
+* [GH-36666](https://github.com/apache/arrow/issues/36666) - [Python][CI] Re-enable skipped dask test_pandas_timestamp_overflow_pyarrow test (#38066)
+* [GH-36671](https://github.com/apache/arrow/issues/36671) - [Go] BinaryMemoTable optimize allocations of GetOrInsert (#36811)
+* [GH-36672](https://github.com/apache/arrow/issues/36672) - [Python][C++] Add support for vector function UDF (#36673)
+* [GH-36674](https://github.com/apache/arrow/issues/36674) - [C++] Use anonymous namespace in arrow/ipc/reader.cc (#36937)
+* [GH-36696](https://github.com/apache/arrow/issues/36696) - [Go] Improve the MapOf and ListOf helpers (#36697)
+* [GH-36698](https://github.com/apache/arrow/issues/36698) - [Go][Parquet] Add a TimestampLogicalType creation function … (#36699)
+* [GH-36709](https://github.com/apache/arrow/issues/36709) - [Python] Allow to specify use_threads=False in Table.group_by to have stable ordering (#36768)
+* [GH-36734](https://github.com/apache/arrow/issues/36734) - [MATLAB] template arrow::matlab::proxy::NumericArray on ArrowType instead of CType (#36738)
+* [GH-36735](https://github.com/apache/arrow/issues/36735) - Add `TimeUnit` and `TimeZone` to the `arrow.type.TimestampType` display (#36871)
+* [GH-36750](https://github.com/apache/arrow/issues/36750) - [R] Fix test-r-devdocs on MacOS (#36751)
+* [GH-36752](https://github.com/apache/arrow/issues/36752) - [Python] Remove AWS SDK bundling when building wheels (#36925)
+* [GH-36762](https://github.com/apache/arrow/issues/36762) - [Dev] Remove only component labels when an issue is updated (#36763)
+* [GH-36765](https://github.com/apache/arrow/issues/36765) - [Python][Dataset] Change default of pre_buffer to True for reading Parquet files (#37854)
+* [GH-36767](https://github.com/apache/arrow/issues/36767) - [C++][CI] Fix test failure on i386 (#36769)
+* [GH-36770](https://github.com/apache/arrow/issues/36770) - [C++] Use custom endpoint for s3 using environment variable AWS_ENDPOINT_URL (#36791)
+* [GH-36773](https://github.com/apache/arrow/issues/36773) - [C++][Parquet] Avoid calculating prebuffer column bitmap multiple times (#36774)
+* [GH-36789](https://github.com/apache/arrow/issues/36789) - [C++] Support divide(duration, duration) (#36800)
+* [GH-36793](https://github.com/apache/arrow/issues/36793) - [Go] Allow NewSchemaFromStruct to skip fields if tagged with parquet:"-" (#36794)
+* [GH-36795](https://github.com/apache/arrow/issues/36795) - [C#] Implement support for dense and sparse unions (#36797)
+* [GH-36816](https://github.com/apache/arrow/issues/36816) - [C#] Reduce allocations (#36817)
+* [GH-36824](https://github.com/apache/arrow/issues/36824) - [C++] Improve the test tracing of CheckWithDifferentShapes in the if-else kernel tests (#36825)
+* [GH-36837](https://github.com/apache/arrow/issues/36837) - [CI][RPM] Use multi-cores to install gems (#36838)
+* [GH-36843](https://github.com/apache/arrow/issues/36843) - [Python][Docs] Add dict to docstring (#36842)
+* [GH-36845](https://github.com/apache/arrow/issues/36845) - [C++][Python] Allow type promotion on `pa.concat_tables` (#36846)
+* [GH-36852](https://github.com/apache/arrow/issues/36852) - [MATLAB] Add `arrow.type.Field` class (#36855)
+* [GH-36853](https://github.com/apache/arrow/issues/36853) - [MATLAB] Add utility to create proxies from existing `arrow::DataType` objects (#36873)
+* [GH-36867](https://github.com/apache/arrow/issues/36867) - [C++] Add a struct_ and schema overload taking a vector of (name, type) pairs (#36915)
+* [GH-36874](https://github.com/apache/arrow/issues/36874) - [MATLAB] Move type constructor functions from the `arrow.type` package to `arrow` package (#36875)
+* [GH-36882](https://github.com/apache/arrow/issues/36882) - [C++][Parquet] Use RLE as BOOLEAN default encoding when both data page and version is V2 (#38163)
+* [GH-36882](https://github.com/apache/arrow/issues/36882) - [C++][Parquet] Default RLE for bool values in the parquet version 2.x (#36955)
+* [GH-36885](https://github.com/apache/arrow/issues/36885) - [Java][Docs] Add substrait dependency to maven build profiles (#36899)
+* [GH-36886](https://github.com/apache/arrow/issues/36886) - [C++] Configure `azurite` in preparation for testing Azure C++ filesystem (#36988)
+* [GH-36893](https://github.com/apache/arrow/issues/36893) - [Go][Flight] Expose underlying protobuf definitions (#36895)
+* [GH-36905](https://github.com/apache/arrow/issues/36905) - [C++] Add support for SparseUnion to selection functions (#36906)
+* [GH-36927](https://github.com/apache/arrow/issues/36927) - [Java][Docs] Enable Gandiva build as part of Java maven commands (#36929)
+* [GH-36931](https://github.com/apache/arrow/issues/36931) - [C++] Add cumulative_mean function (#36932)
+* [GH-36933](https://github.com/apache/arrow/issues/36933) - [Python] Pointless ellipsis in array repr (#37168)
+* [GH-36936](https://github.com/apache/arrow/issues/36936) - [Go] Make it possible to register custom functions. (#36959)
+* [GH-36944](https://github.com/apache/arrow/issues/36944) - [C++] Unify OpenSSL detection for building GCS (#36945)
+* [GH-36950](https://github.com/apache/arrow/issues/36950) - [C++] Change std::vector<std::shared_ptr<Field>> to use it's alias: FieldVector (#37101)
+* [GH-36952](https://github.com/apache/arrow/issues/36952) - [C++][FlightRPC][Python] Add methods to send headers (#36956)
+* [GH-36953](https://github.com/apache/arrow/issues/36953) - [MATLAB] Add gateway `arrow.array` function to create Arrow Arrays from MATLAB data (#36978)
+* [GH-36961](https://github.com/apache/arrow/issues/36961) - [MATLAB] Add `arrow.tabular.Schema` class and associated `arrow.schema` construction function (#37013)
+* [GH-36970](https://github.com/apache/arrow/issues/36970) - [C++][Parquet] Minor style fix for parquet metadata (#36971)
+* [GH-36984](https://github.com/apache/arrow/issues/36984) - [MATLAB] Create `arrow.recordbatch` convenience constructor function (#37025)
+* [GH-36990](https://github.com/apache/arrow/issues/36990) - [R] Expose Parquet ReaderProperties (#36992)
+* [GH-36994](https://github.com/apache/arrow/issues/36994) - [Java] Use JDK 21 in CI (#38219)
+* [GH-37012](https://github.com/apache/arrow/issues/37012) - [MATLAB] Remove the private property `ArrowArrays` from `arrow.tabular.RecordBatch` (#37015)
+* [GH-37014](https://github.com/apache/arrow/issues/37014) - [C++][Parquet] Preserve some Parquet distinct counts when merging stats (#37016)
+* [GH-37021](https://github.com/apache/arrow/issues/37021) - [Java][arrow-jdbc] Pluggable getConsumer (#37085)
+* [GH-37028](https://github.com/apache/arrow/issues/37028) - [C++] Add support for duration types to if_else functions (#37064)
+* [GH-37041](https://github.com/apache/arrow/issues/37041) - [MATLAB] Implement Feather V1 Reader using new MATLAB Interface APIs (#37044)
+* [GH-37042](https://github.com/apache/arrow/issues/37042) - [MATLAB] Implement Feather V1 Writer using new MATLAB Interface APIs (#37043)
+* [GH-37045](https://github.com/apache/arrow/issues/37045) - [MATLAB] Implement featherwrite in terms of arrow.internal.io.feather.Writer (#37047)
+* [GH-37046](https://github.com/apache/arrow/issues/37046) - [MATLAB] Implement `featherread` in terms of `arrow.internal.io.feather.Reader` (#37163)
+* [GH-37049](https://github.com/apache/arrow/issues/37049) - [MATLAB] Update feather `Reader` and `Writer` objects to work directly with `arrow.tabular.RecordBatch`s instead of MATLAB `table`s (#37052)
+* [GH-37051](https://github.com/apache/arrow/issues/37051) - [Dev][JS] Add Dependabot configuration for npm (#37053)
+* [GH-37073](https://github.com/apache/arrow/issues/37073) - [Java] JDBC: Only use username/pass auth if token is not provided (#37083)
+* [GH-37093](https://github.com/apache/arrow/issues/37093) - [Python] Add async Flight client with GetFlightInfo  (#36986)
+* [GH-37096](https://github.com/apache/arrow/issues/37096) - [MATLAB] Add utility which makes valid MATLAB table variable names from an arbitrary list of strings (#37098)
+* [GH-37124](https://github.com/apache/arrow/issues/37124) - [MATLAB] Add utility functions for validating numeric and string index values (#37150)
+* [GH-37128](https://github.com/apache/arrow/issues/37128) - [Java] Bump CI job from JDK 18 to JDK 20 (#37125)
+* [GH-37141](https://github.com/apache/arrow/issues/37141) - [GLib][FlightRPC] Add more ArrowFlight::ClientOptions properties (#37142)
+* [GH-37143](https://github.com/apache/arrow/issues/37143) - [GLib][FlightSQL] Add support for prepared INSERT (#37196)
+* [GH-37144](https://github.com/apache/arrow/issues/37144) - [C++] Add RecordBatchFileReader::To{RecordBatches,Table} (#37167)
+* [GH-37145](https://github.com/apache/arrow/issues/37145) - [Python] support boolean columns with bitsize 1 in from_dataframe (#37975)
+* [GH-37151](https://github.com/apache/arrow/issues/37151) - [MATLAB] Use `makeValidVariableNames` and `makeValidDimensionNames` in implementation of `table` method for `RecordBatch`  (#37152)
+* [GH-37155](https://github.com/apache/arrow/issues/37155) - [MATLAB] Use `arrow.internal.validate.index.numeric()` in the `column()` method of `arrow.tabular.RecordBatch` (#37156)
+* [GH-37157](https://github.com/apache/arrow/issues/37157) - [MATLAB] Use `arrow.internal.validate.index.numericOrString()` in the `field()` method of `arrow.tabular.Schema` (#37162)
+* [GH-37160](https://github.com/apache/arrow/issues/37160) - [MATLAB] `arrow.internal.validate.index.string()` should not error if given a string with zero characters (#37161)
+* [GH-37170](https://github.com/apache/arrow/issues/37170) - [C++] Support schema rewriting of RecordBatch. (#37171)
+* [GH-37175](https://github.com/apache/arrow/issues/37175) - [MATLAB] Support creating `arrow.tabular.RecordBatch` instances from a list of `arrow.array.Array` values (#37176)
+* [GH-37179](https://github.com/apache/arrow/issues/37179) - [MATLAB] Add a test utility that creates a MATLAB `table` containing all supported types (#37191)
+* [GH-37181](https://github.com/apache/arrow/issues/37181) - [MATLAB] Remove outdated test class` tArrowCppCall.m` (#37185)
+* [GH-37182](https://github.com/apache/arrow/issues/37182) - [MATLAB] Add public `Schema` property to MATLAB `arrow.tabular.RecordBatch` class (#37184)
+* [GH-37187](https://github.com/apache/arrow/issues/37187) - [MATLAB] Re-implement `tfeathermex.m` tests in terms of new internal Feather Reader and Writer objects (#37189)
+* [GH-37188](https://github.com/apache/arrow/issues/37188) - [MATLAB] Move `test/util/featherRoundTrip.m` into a packaged test utility function (#37190)
+* [GH-37203](https://github.com/apache/arrow/issues/37203) - [MATLAB] Remove unused feather V1 MEX infrastructure and code (#37204)
+* [GH-37209](https://github.com/apache/arrow/issues/37209) - [CI][Docs][MATLAB] Remove support for `MATLAB_ARROW_INTERFACE` flag from CMake build system and build new MATLAB Interface code by default (#37211)
+* [GH-37210](https://github.com/apache/arrow/issues/37210) - [Docs][MATLAB] Update MATLAB `README.md` to mention support for new MATLAB APIs (e.g. `RecordBatch`, `Field`, `Schema`, etc.) (#37215)
+* [GH-37212](https://github.com/apache/arrow/issues/37212) - [C++] IO: Add FromString to ::arrow::io::BufferReader (#37360)
+* [GH-37216](https://github.com/apache/arrow/issues/37216) - [Docs] adding documentation to deal with unreleased allocators (#37498)
+* [GH-37222](https://github.com/apache/arrow/issues/37222) - [Docs][MATLAB] Rename `arrow.recordbatch` (all lowercase) to `arrow.recordBatch` (camelCase) (#37223)
+* [GH-37228](https://github.com/apache/arrow/issues/37228) - [MATLAB] Add C++ `ARROW_MATLAB_EXPORT` symbol export macro (#37233)
+* [GH-37229](https://github.com/apache/arrow/issues/37229) - [MATLAB] Add `arrow.type.Date32Type` class and `arrow.date32` construction function (#37348)
+* [GH-37230](https://github.com/apache/arrow/issues/37230) - [MATLAB] Add `arrow.type.Date64Type` class and `arrow.date64` construction function (#37578)
+* [GH-37231](https://github.com/apache/arrow/issues/37231) - [MATLAB] Add `arrow.type.Time32Type` class and `arrow.time32` construction function (#37250)
+* [GH-37232](https://github.com/apache/arrow/issues/37232) - [MATLAB] Add `arrow.type.Time64Type` class and `arrow.time64` construction function  (#37287)
+* [GH-37234](https://github.com/apache/arrow/issues/37234) - [MATLAB] Create an abstract `arrow.type.TemporalType` class (#37236)
+* [GH-37237](https://github.com/apache/arrow/issues/37237) - [C++] Set extraction time to all downloaded contents timestamp (#37238)
+* [GH-37244](https://github.com/apache/arrow/issues/37244) - [Python] Remove support for pickle5 (#37644)
+* [GH-37246](https://github.com/apache/arrow/issues/37246) - [Java] expose VectorAppender class to offer support to append vector values (#37247)
+* [GH-37251](https://github.com/apache/arrow/issues/37251) - [MATLAB] Make `arrow.type.TemporalType` a "tag" class  (#37256)
+* [GH-37252](https://github.com/apache/arrow/issues/37252) - [MATLAB] Add `arrow.type.DateUnit` enumeration class (#37280)
+* [GH-37253](https://github.com/apache/arrow/issues/37253) - [MATLAB] Add test cases which verify that the `NumFields`, `BitWidth`, and `ID` properties can not be modified to `hFixedWidth` test class (#37316)
+* [GH-37254](https://github.com/apache/arrow/issues/37254) - [Python] Parametrize all pickling tests to use both the pickle and cloudpickle modules (#37255)
+* [GH-37257](https://github.com/apache/arrow/issues/37257) - [Ruby][FlightSQL] Use the same options for auto prepared statement close request (#37258)
+* [GH-37259](https://github.com/apache/arrow/issues/37259) - [Ruby] Add explicit csv gem dependency (#37506)
+* [GH-37262](https://github.com/apache/arrow/issues/37262) - [MATLAB] Add an abstract class called `arrow.type.TimeType` (#37279)
+* [GH-37268](https://github.com/apache/arrow/issues/37268) - [C++] adding move in some ctor in fs and dataset (#37264)
+* [GH-37273](https://github.com/apache/arrow/issues/37273) - [C++] Bump vendored xxhash version (#37275)
+* [GH-37290](https://github.com/apache/arrow/issues/37290) - [MATLAB] Add `arrow.array.Time32Array` class (#37315)
+* [GH-37293](https://github.com/apache/arrow/issues/37293) - [C++][Parquet] Encoding: Add Benchmark for DELTA_BYTE_ARRAY (#37641)
+* [GH-37306](https://github.com/apache/arrow/issues/37306) - [Go] Add binary dictionary unifier (#37309)
+* [GH-37307](https://github.com/apache/arrow/issues/37307) - [Python][CI] Manually skip tests with skip_with_pyarrow_strings marker for nightly dask integration tests (#37324)
+* [GH-37330](https://github.com/apache/arrow/issues/37330) - [Docs][CI] Increase the Timeout for the Sphinx build (#37331)
+* [GH-37334](https://github.com/apache/arrow/issues/37334) - [Packaging][Release][RPM] Don't remove old repodata/* (#37351)
+* [GH-37337](https://github.com/apache/arrow/issues/37337) - [MATLAB] Add `arrow.array.Time64Array` class (#37368)
+* [GH-37345](https://github.com/apache/arrow/issues/37345) - [MATLAB] Add function handle to `fromMATLAB` static construction methods to `TypeTraits` classes (#37370)
+* [GH-37364](https://github.com/apache/arrow/issues/37364) - [C++][GPU] Add CUDA impl of Device Event/Stream (#37365)
+* [GH-37367](https://github.com/apache/arrow/issues/37367) - [MATLAB] Add `arrow.array.Date32Array` class (#37445)
+* [GH-37379](https://github.com/apache/arrow/issues/37379) - [C++][Parquet] Thrift: Generate movable types (#37461)
+* [GH-37384](https://github.com/apache/arrow/issues/37384) - [R] Set _R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_ = TRUE on CI (#37385)
+* [GH-37391](https://github.com/apache/arrow/issues/37391) - [MATLAB] Implement the `isequal()` method on `arrow.array.Array` (#37446)
+* [GH-37392](https://github.com/apache/arrow/issues/37392) - [JS] Remove lerna (#37393)
+* [GH-37394](https://github.com/apache/arrow/issues/37394) - [C++][S3] Use AWS_SDK_VERSION_* instead of try_compile() (#37395)
+* [GH-37416](https://github.com/apache/arrow/issues/37416) - [Go] Allow accessing underlying index builder of dictionary builders (#37417)
+* [GH-37434](https://github.com/apache/arrow/issues/37434) - [C++] IO: Refactor BufferedInputStream::Read for small input (#37460)
+* [GH-37440](https://github.com/apache/arrow/issues/37440) - [C#][Docs] Add Flight SQL supported functions to status.rst (#37441)
+* [GH-37447](https://github.com/apache/arrow/issues/37447) - [C++][Docs] Document `ARROW_SUBSTRAIT` CMake flag (#37451)
+* [GH-37448](https://github.com/apache/arrow/issues/37448) - [MATLAB] Add `arrow.array.ChunkedArray` class (#37525)
+* [GH-37465](https://github.com/apache/arrow/issues/37465) - [Go] Add Value method to BooleanBuilder (#37459)
+* [GH-37472](https://github.com/apache/arrow/issues/37472) - [MATLAB] Implement the `isequal()` method on `arrow.type.Type` (#37474)
+* [GH-37473](https://github.com/apache/arrow/issues/37473) - [MATLAB] Add support for indexing `RecordBatch` columns by `Field` name  (#37475)
+* [GH-37477](https://github.com/apache/arrow/issues/37477) - [MATLAB] Add `AllowNonScalar` name-value pair to arrow.internal.validate.index.* validation functions (#37482)
+* [GH-37510](https://github.com/apache/arrow/issues/37510) - [C++] Don't install bundled Azure SDK for C++ (#38176)
+* [GH-37532](https://github.com/apache/arrow/issues/37532) - [CI][Docs][MATLAB] Remove `GoogleTest` support from the CMake build system for the MATLAB interface (#37784)
+* [GH-37537](https://github.com/apache/arrow/issues/37537) - [Integration][C++] Add C Data Interface integration testing (#37769)
+* [GH-37553](https://github.com/apache/arrow/issues/37553) - [Java] Allow FlightInfo#Schema to be nullable for long-running queries (#37528)
+* [GH-37562](https://github.com/apache/arrow/issues/37562) - [Ruby] Add support for table.each_raw_record.to_a (#37600)
+* [GH-37567](https://github.com/apache/arrow/issues/37567) - [C++] Migrate JSON Integration code to Result<> (#37573)
+* [GH-37568](https://github.com/apache/arrow/issues/37568) - [MATLAB] Implement `isequal` for the `arrow.tabular.Schema` MATLAB class (#37619)
+* [GH-37569](https://github.com/apache/arrow/issues/37569) - [MATLAB] Implement `isequal` for the `arrow.type.Field` MATLAB class (#37617)
+* [GH-37570](https://github.com/apache/arrow/issues/37570) - [MATLAB] Implement `isequal` for the `arrow.tabular.RecordBatch` MATLAB class (#37627)
+* [GH-37571](https://github.com/apache/arrow/issues/37571) - [MATLAB] Add `arrow.tabular.Table` MATLAB class (#37620)
+* [GH-37572](https://github.com/apache/arrow/issues/37572) - [MATLAB] Add `arrow.array.Date64Array` class (#37581)
+* [GH-37584](https://github.com/apache/arrow/issues/37584) - [Go] Add value len function to string array (#37586)
+* [GH-37587](https://github.com/apache/arrow/issues/37587) - [C++] Move integration machinery into its own directory and namespace (#37588)
+* [GH-37591](https://github.com/apache/arrow/issues/37591) - [MATLAB] Make `arrow.type.Type` inherit from `matlab.mixin.Heterogeneous` (#37593)
+* [GH-37597](https://github.com/apache/arrow/issues/37597) - [MATLAB] Add `toMATLAB` method to `arrow.array.ChunkedArray` class (#37613)
+* [GH-37628](https://github.com/apache/arrow/issues/37628) - [MATLAB] Implement `isequal` for the `arrow.tabular.Table` MATLAB class (#37629)
+* [GH-37635](https://github.com/apache/arrow/issues/37635) - [Format][C++][Go] Add app_metadata to FlightInfo and FlightEndpoint (#37679)
+* [GH-37636](https://github.com/apache/arrow/issues/37636) - [Go] Bump minimum go versions (#37637)
+* [GH-37643](https://github.com/apache/arrow/issues/37643) - [C++] Enhance arrow::Datum::ToString (#37646)
+* [GH-37651](https://github.com/apache/arrow/issues/37651) - [C#] expose ArrowArrayConcatenator.Concatenate (#37652)
+* [GH-37653](https://github.com/apache/arrow/issues/37653) - [MATLAB] Add `arrow.array.StructArray` MATLAB class (#37806)
+* [GH-37654](https://github.com/apache/arrow/issues/37654) - [MATLAB] Add `Fields` property to `arrow.type.Type` MATLAB class (#37725)
+* [GH-37670](https://github.com/apache/arrow/issues/37670) - [C++] IO FileInterface extend from enable_shared_from_this (#37713)
+* [GH-37681](https://github.com/apache/arrow/issues/37681) - [R] Update NEWS.md for 13.0.0.1 (#37682)
+* [GH-37687](https://github.com/apache/arrow/issues/37687) - [Go] Don't copy in realloc when capacity is sufficient. (#37688)
+* [GH-37694](https://github.com/apache/arrow/issues/37694) - [Go] Add SetNull to array builders (#37695)
+* [GH-37701](https://github.com/apache/arrow/issues/37701) - [Java] Add default comparators for more types (#37748)
+* [GH-37702](https://github.com/apache/arrow/issues/37702) - [Java] Add vector validation consistent with C++ (#37942)
+* [GH-37703](https://github.com/apache/arrow/issues/37703) - [Java] Method for setting exact number of records in ListVector (#37838)
+* [GH-37704](https://github.com/apache/arrow/issues/37704) - [Java] Add schema IPC serialization methods (#37778)
+* [GH-37705](https://github.com/apache/arrow/issues/37705) - [Java] Extra input methods for VarChar writers (#37883)
+* [GH-37705](https://github.com/apache/arrow/issues/37705) - [Java] Extra input methods for binary writers (#37791)
+* [GH-37706](https://github.com/apache/arrow/issues/37706) - [Java] VarCharWriter should support writing from \`Text\` and \`String\`
+* [GH-37722](https://github.com/apache/arrow/issues/37722) - [Java][FlightRPC] Deprecate stateful login methods (#37833)
+* [GH-37724](https://github.com/apache/arrow/issues/37724) - [MATLAB] Add `arrow.type.StructType` MATLAB class (#37749)
+* [GH-37742](https://github.com/apache/arrow/issues/37742) - [Python] Enable Cython 3 (#37743)
+* [GH-37744](https://github.com/apache/arrow/issues/37744) - [Swift] Add test for arrow flight doGet FlightData (#37746)
+* [GH-37770](https://github.com/apache/arrow/issues/37770) - [MATLAB] Add CSV `TableReader` and `TableWriter` MATLAB classes (#37773)
+* [GH-37779](https://github.com/apache/arrow/issues/37779) - [Go] Link to the pkg.go.dev site for Go reference docs (#37780)
+* [GH-37782](https://github.com/apache/arrow/issues/37782) - [C++] Add `CanReferenceFieldsByNames` method to `arrow::StructArray` (#37823)
+* [GH-37789](https://github.com/apache/arrow/issues/37789) - [Integration][Go] Go C Data Interface integration testing (#37788)
+* [GH-37795](https://github.com/apache/arrow/issues/37795) - [Java][FlightSQL] Add mock FlightSqlProducer and tests (#37837)
+* [GH-37799](https://github.com/apache/arrow/issues/37799) - [C++] Compute: CommonTemporal support time32 and time64 casting (#37949)
+* [GH-37825](https://github.com/apache/arrow/issues/37825) - [MATLAB] Improve `arrow.type.Field` display (#37826)
+* [GH-37835](https://github.com/apache/arrow/issues/37835) - [MATLAB] Improve `arrow.tabular.Schema` display (#37836)
+* [GH-37842](https://github.com/apache/arrow/issues/37842) - [R] Implement infer_schema.data.frame() (#37843)
+* [GH-37849](https://github.com/apache/arrow/issues/37849) - [C++] Add cpp/src/**/*.cmake to cmake-format targets (#37850)
+* [GH-37851](https://github.com/apache/arrow/issues/37851) - [C++] IPC: ArrayLoader style enhancement (#37872)
+* [GH-37863](https://github.com/apache/arrow/issues/37863) - [Java] Add typed getters for StructVector (#37916)
+* [GH-37864](https://github.com/apache/arrow/issues/37864) - [Java] Remove unnecessary throws from OrcReader (#37913)
+* [GH-37873](https://github.com/apache/arrow/issues/37873) - [C++][Parquet] DELTA_BYTE_ARRAY: avoid copying data when possible (#37874)
+* [GH-37876](https://github.com/apache/arrow/issues/37876) - [Format] Add list-view specification to arrow format (#37877)
+* [GH-37880](https://github.com/apache/arrow/issues/37880) - [CI][Python][Packaging] Add support for Python 3.12 (#37901)
+* [GH-37906](https://github.com/apache/arrow/issues/37906) - [Integration][C#] Implement C Data Interface integration testing for C# (#37904)
+* [GH-37917](https://github.com/apache/arrow/issues/37917) - [Parquet] Add OpenAsync for FileSource (#37918)
+* [GH-37923](https://github.com/apache/arrow/issues/37923) - [R] Move macOS build system to nixlibs.R (#37684)
+* [GH-37934](https://github.com/apache/arrow/issues/37934) - [Doc][Integration] Document C Data Interface testing (#37935)
+* [GH-37939](https://github.com/apache/arrow/issues/37939) - [C++] Use signed arithmetic for frame of reference when encoding DELTA_BINARY_PACKED (#37940)
+* [GH-37941](https://github.com/apache/arrow/issues/37941) - [R][CI][Release] Add checksum verification for pre-compiled binaries (#38115)
+* [GH-37945](https://github.com/apache/arrow/issues/37945) - [R] Update developer documentation (#38220)
+* [GH-37971](https://github.com/apache/arrow/issues/37971) - [CI][Java] Don't use cache for nightly upload (#37980)
+* [GH-37978](https://github.com/apache/arrow/issues/37978) - [C++] Add support for specifying custom Array element delimiter to `arrow::PrettyPrintOptions` (#37981)
+* [GH-37984](https://github.com/apache/arrow/issues/37984) - [Release] Use ISO 8601 format for YAML date value (#37985)
+* [GH-37994](https://github.com/apache/arrow/issues/37994) - [R] Create wrapper functions for the CSV*Options classes  (#37995)
+* [GH-37996](https://github.com/apache/arrow/issues/37996) - [MATLAB] Add a static constructor method named `fromMATLAB` to `arrow.array.StructArray`  (#37998)
+* [GH-38005](https://github.com/apache/arrow/issues/38005) - [Java] disable the debug log when running Java tests (#38006)
+* [GH-38015](https://github.com/apache/arrow/issues/38015) - [MATLAB] Add `arrow.buffer.Buffer` class to the MATLAB Interface (#38020)
+* [GH-38017](https://github.com/apache/arrow/issues/38017) - [Go][FlightSQL] Increment types handled by internal converter (#38028)
+* [GH-38043](https://github.com/apache/arrow/issues/38043) - [R] Enable all features by default on macOS (#38195)
+* [GH-38053](https://github.com/apache/arrow/issues/38053) - [C++][Go] Re-generate sources from Schema.fbs (#38054)
+* [GH-38055](https://github.com/apache/arrow/issues/38055) - [C++] Don't find/use Threads::Threads with ARROW_ENABLE_THREADING=OFF (#38056)
+* [GH-38063](https://github.com/apache/arrow/issues/38063) - [C++] Use absolute path for external project's ar/ranlib (#38064)
+* [GH-38071](https://github.com/apache/arrow/issues/38071) - [C++][CI] Fix Overlap column chunk ranges for pre-buffer (#38073)
+* [GH-38088](https://github.com/apache/arrow/issues/38088) - [R] Remove outdated references to brew and autobrew (#38089)
+* [GH-38138](https://github.com/apache/arrow/issues/38138) - [R] Add curl to suggests for use of `skip_if_offline()` (#38140)
+* [GH-38142](https://github.com/apache/arrow/issues/38142) - [R] Add NEWS for 14.0.0 (#38143)
+* [GH-38145](https://github.com/apache/arrow/issues/38145) - [Docs][Python] Add tzdata on Windows subsection in Python install docs (#38146)
+* [GH-38159](https://github.com/apache/arrow/issues/38159) - [CI][Release] Run only integration tests on integration test mode (#38177)
+* [GH-38172](https://github.com/apache/arrow/issues/38172) - [CI][C++] Use system GoogleTest on Ubuntu 22.04 (#38173)
+* [GH-38174](https://github.com/apache/arrow/issues/38174) - [C++] Update bundled Azure SDK for C++ to 1.10.3 (#38175)
+* [GH-38209](https://github.com/apache/arrow/issues/38209) - [Docs] Reduce width of header items and keep header height default (small) on smaller screens (#38148)
+* [GH-38240](https://github.com/apache/arrow/issues/38240) - [Docs] version_match should match the version from versions.json (#38241)
+* [GH-38243](https://github.com/apache/arrow/issues/38243) - [CI][Python] Add missing dataset marker for dataset encryption tests (#38244)
+* [GH-38285](https://github.com/apache/arrow/issues/38285) - [Go] Slight deps and docs update (#38284)
+* [GH-38312](https://github.com/apache/arrow/issues/38312) - [Docs] Add the Arrow C Device data interface page to the sidebar TOC (#38313)
+* [PARQUET-2323](https://issues.apache.org/jira/browse/PARQUET-2323) - [C++] Use bitmap to store pre-buffered column chunks (#36649)
+
+# Apache Arrow 13.0.0 (2023-08-17)
+
+## Bug Fixes
+
+* [GH-14969](https://github.com/apache/arrow/issues/14969) - [R][Docs] Enable pkgdown built-in search (#36374)
+* [GH-20385](https://github.com/apache/arrow/issues/20385) - [C++][Parquet] Reject partial load of an extension type (#33634)
+* [GH-23870](https://github.com/apache/arrow/issues/23870) - [Python] Ensure parquet.write_to_dataset doesn't create empty files for non-observed dictionary (category) values (#36465)
+* [GH-32832](https://github.com/apache/arrow/issues/32832) - [Go] support building with tinygo (#35723)
+* [GH-34017](https://github.com/apache/arrow/issues/34017) - [Python][FlightRPC][Doc] Fix FlightStreamReader.read_chunk's docstring (#35583)
+* [GH-34293](https://github.com/apache/arrow/issues/34293) - [Java] Error loading native libraries on Windows (#34312)
+* [GH-34338](https://github.com/apache/arrow/issues/34338) - [Java] Removing the automatic enabling of BaseAllocator.DEBUG on -ea (#36042)
+* [GH-34351](https://github.com/apache/arrow/issues/34351) - [C++][Parquet] Statistics: add detail documentation and tiny optimization (#35989)
+* [GH-34363](https://github.com/apache/arrow/issues/34363) - [C++] Use equal size parts in S3 upload for R2 compatibility (#35808)
+* [GH-34391](https://github.com/apache/arrow/issues/34391) - [C++] Future as-of-join-node hangs on distant times (#34392)
+* [GH-34523](https://github.com/apache/arrow/issues/34523) - [C++] Avoid mixing bundled Abseil and system Abseil (#35387)
+* [GH-34656](https://github.com/apache/arrow/issues/34656) - [CI][Python] Use gemfury tool to upload wheels instead of curl to fix Windows wheel upload (#35032)
+* [GH-34723](https://github.com/apache/arrow/issues/34723) - [Java] Enable log trace for Netty allocator memory usage (#35314)
+* [GH-34752](https://github.com/apache/arrow/issues/34752) - [C++] Add support for LoongArch (#34740)
+* [GH-34775](https://github.com/apache/arrow/issues/34775) - [R] arrow_table: as.data.frame() sometimes returns a tbl and sometimes a data.frame (#35173)
+* [GH-34884](https://github.com/apache/arrow/issues/34884) - [Python] : Support pickling pyarrow.dataset PartitioningFactory objects (#36550)
+* [GH-34884](https://github.com/apache/arrow/issues/34884) - [Python] : Support pickling pyarrow.dataset Partitioning subclasses (#36462)
+* [GH-34886](https://github.com/apache/arrow/issues/34886) - [Python] Add correct __array__ numpy conversion for Table and RecordBatch (#36242)
+* [GH-34897](https://github.com/apache/arrow/issues/34897) - [R] Ensure that the RStringViewer helper class does not own any Array references (#35812)
+* [GH-34907](https://github.com/apache/arrow/issues/34907) - [Docs][R] Version selector reports that release version is dev (#35103)
+* [GH-35007](https://github.com/apache/arrow/issues/35007) - [C++] Fix reading stdin (#35006)
+* [GH-35015](https://github.com/apache/arrow/issues/35015) - [Go] Fix parquet memleak (#35973)
+* [GH-35027](https://github.com/apache/arrow/issues/35027) - [Go] : Use base64.StdEncoding in FixedSizeBinaryBuilder Unmarshal (#35028)
+* [GH-35053](https://github.com/apache/arrow/issues/35053) - [Java] Fix MemoryUtil to support Java 21 (#36370)
+* [GH-35059](https://github.com/apache/arrow/issues/35059) - [C++] Fix "hash_count" for run-end encoded inputs (#35129)
+* [GH-35101](https://github.com/apache/arrow/issues/35101) - [C++] Update deprecated LOCATION target property in ArrowConfig.cmake.in (#35109)
+* [GH-35107](https://github.com/apache/arrow/issues/35107) - [FlightSQL] : Use `uint8` to refer to 8 bit unsigned integers rather than `uint1` (#35108)
+* [GH-35118](https://github.com/apache/arrow/issues/35118) - [Format][FlightSQL] More use `int32` to refer to 32-bit integers rather than `int` (#35213)
+* [GH-35118](https://github.com/apache/arrow/issues/35118) - [FlightSQL] Use `int32` to refer to 32-bit integers rather than `int` (#35120)
+* [GH-35140](https://github.com/apache/arrow/issues/35140) - [R] Rewrite configure script and ensure we don't use mismatched libarrow (#35147)
+* [GH-35144](https://github.com/apache/arrow/issues/35144) - [C++] Fix a unit test broken when the output order of the aggregate node changed (#35145)
+* [GH-35177](https://github.com/apache/arrow/issues/35177) - [Docs][Python] Suppress "WARNING: autosummary: failed to import serialize" (#35182)
+* [GH-35179](https://github.com/apache/arrow/issues/35179) - [C++] Fix IMPORTED_LOCATION property for Arrow::bundled_dependencies (#35196)
+* [GH-35188](https://github.com/apache/arrow/issues/35188) - [Go] Use AppendValueFromString for extension types in CSV Reader (#35189)
+* [GH-35190](https://github.com/apache/arrow/issues/35190) - [Go] Correctly handle null values in CSV reader (#35191)
+* [GH-35193](https://github.com/apache/arrow/issues/35193) - [Python][Packaging] Enable GCS on Windows wheels (#35255)
+* [GH-35202](https://github.com/apache/arrow/issues/35202) - [Go][Parquet] Fix panic reading nested empty list (#35276)
+* [GH-35234](https://github.com/apache/arrow/issues/35234) - [Go] Fix skip argument to Callers (#35231)
+* [GH-35240](https://github.com/apache/arrow/issues/35240) - [Go][FlightRPC] Fix crash in client middleware (#35241)
+* [GH-35266](https://github.com/apache/arrow/issues/35266) - [GLib][Parquet] Fix a GC bug that parent metadata reference is missing in sub metadata (#35286)
+* [GH-35266](https://github.com/apache/arrow/issues/35266) - [CI][GLib][Parquet] Omit gparquet_column_chunk_metadata_equal() test (#35278)
+* [GH-35267](https://github.com/apache/arrow/issues/35267) - [C#] Serialize TotalBytes and TotalRecords in FlightInfo (#35222)
+* [GH-35270](https://github.com/apache/arrow/issues/35270) - [C++] Use Buffer instead of raw buffer in hash join internals (#35347)
+* [GH-35297](https://github.com/apache/arrow/issues/35297) - [C++][IPC] Fix schema deserialization of map field (#35298)
+* [GH-35306](https://github.com/apache/arrow/issues/35306) - Fix Schema.Fields() to return copy of fields (#35307)
+* [GH-35310](https://github.com/apache/arrow/issues/35310) - [Go] Incorrect value decimal128 from string (#35311)
+* [GH-35316](https://github.com/apache/arrow/issues/35316) - [C++][FlightSQL] Use RowsToBatches() instead of ArrayFromJSON() in SQLite example server (#35322)
+* [GH-35326](https://github.com/apache/arrow/issues/35326) - [Go] Fix `*array.List` and `*array.LargeList` `ValueOffsets` implementation (#35327)
+* [GH-35346](https://github.com/apache/arrow/issues/35346) - [CI][Python] Move gdb from env-file to dockerfile (#35348)
+* [GH-35352](https://github.com/apache/arrow/issues/35352) - [Java] Fix issues with "semi complex" types. (#35353)
+* [GH-35359](https://github.com/apache/arrow/issues/35359) - [C++] FixedSizeListArray.flatten() errors if all elements are null (#35674)
+* [GH-35360](https://github.com/apache/arrow/issues/35360) - [C++] Take offset into account in ScalarHashImpl::ArrayHash() (#35814)
+* [GH-35363](https://github.com/apache/arrow/issues/35363) - [C++] Fix Substrait schema names and for segmented aggregation (#35364)
+* [GH-35379](https://github.com/apache/arrow/issues/35379) - [C++][FlightRPC] Add teardown needed checks to avoid crash on error (#35380)
+* [GH-35383](https://github.com/apache/arrow/issues/35383) - [C++] Prefer max_concurrency over executor capacity to avoid segmentation fault (#35384)
+* [GH-35406](https://github.com/apache/arrow/issues/35406) - [Website][Docs] Missing logo on Arrow docs page
+* [GH-35413](https://github.com/apache/arrow/issues/35413) - [Python] Add concrete floating point array types to pyarrow public API (#35414)
+* [GH-35421](https://github.com/apache/arrow/issues/35421) - [Go] Ensure interface contract between `array.X.ValueStr` & `array.XBuilder.AppendValueFromString` (#35457)
+* [GH-35425](https://github.com/apache/arrow/issues/35425) - [R] Tests failures on R < 4.0 due to data.frame conversion (#35432)
+* [GH-35438](https://github.com/apache/arrow/issues/35438) - [Docs] Make corrections to the source docs (#35549)
+* [GH-35445](https://github.com/apache/arrow/issues/35445) - [R] Behavior something like group_by(foo) |> across(everything()) is different from dplyr (#35473)
+* [GH-35448](https://github.com/apache/arrow/issues/35448) - [C++] Fix detection of %z in strptime format (#35449)
+* [GH-35468](https://github.com/apache/arrow/issues/35468) - [C++] Fix Acero var/std for multiple batches (#35469)
+* [GH-35483](https://github.com/apache/arrow/issues/35483) - [CI][C++] Add header for snprintf for Windows (#35484)
+* [GH-35490](https://github.com/apache/arrow/issues/35490) - [Python] Interchange protocol: update tests for string and large_string (#35504)
+* [GH-35501](https://github.com/apache/arrow/issues/35501) - [C++] Fix error C2280 in MSVC (#35683)
+* [GH-35503](https://github.com/apache/arrow/issues/35503) - [CI][Packaging][C++] Snappy patch fails to apply on arm64 windows wheel builds (#35509)
+* [GH-35521](https://github.com/apache/arrow/issues/35521) - [C++] Hash null bitmap only if null count is 0 (#35522)
+* [GH-35526](https://github.com/apache/arrow/issues/35526) - [CI][C++] Fixing arrow::internal::IsNullRunEndEncoded redeclared (#35527)
+* [GH-35528](https://github.com/apache/arrow/issues/35528) - [Java] Fix RangeEqualsVisitor comparing BitVector with different begin index (#35525)
+* [GH-35534](https://github.com/apache/arrow/issues/35534) - [R] Ensure missing grouping variables are added to the beginning of the variable list (#36305)
+* [GH-35539](https://github.com/apache/arrow/issues/35539) - [C++] Remove use of internal header files from public header file (#35592)
+* [GH-35553](https://github.com/apache/arrow/issues/35553) - [JAVA] Fix unwrap() in NettyArrowBuf (#35554)
+* [GH-35571](https://github.com/apache/arrow/issues/35571) - [C++][CI][Parquet] Change `EQ` to `FLOAT_EQ` in Decryption tests (#35605)
+* [GH-35573](https://github.com/apache/arrow/issues/35573) - [Python] pa.FixedShapeTensorArray.to_numpy_ndarray fails on sliced arrays (#36164)
+* [GH-35576](https://github.com/apache/arrow/issues/35576) - [C++] Make Decimal{128,256}::FromReal more accurate (#35997)
+* [GH-35588](https://github.com/apache/arrow/issues/35588) - [Java] returning a constant hashCode for null values, resolves #35588 (#35590)
+* [GH-35593](https://github.com/apache/arrow/issues/35593) - [R] Confusing (NULL) results when using \`[[\` and \`$\` to try to extract columns from Datasets
+* [GH-35596](https://github.com/apache/arrow/issues/35596) - [C++][CI] Improve compilation caching with PCG (#35597)
+* [GH-35599](https://github.com/apache/arrow/issues/35599) - [Python] Canonical fixed-shape tensor extension array/type is not picklable. (#35933)
+* [GH-35606](https://github.com/apache/arrow/issues/35606) - [CI][C++][MinGW32] Use more accurate float inputs for decimal test (#35680)
+* [GH-35617](https://github.com/apache/arrow/issues/35617) - [Docs] Current n_buffers use in C API example (#35626)
+* [GH-35618](https://github.com/apache/arrow/issues/35618) - [C++][Doc] Improve doc for Datum (#35794)
+* [GH-35633](https://github.com/apache/arrow/issues/35633) - [R] R builds failing with error 'Invalid: Timestamps already have a timezone: 'UTC'. Cannot localize to 'UTC'' (#35671)
+* [GH-35635](https://github.com/apache/arrow/issues/35635) - [C++][CI] Preserve root when ignoring host on PathFromUriHelper to fix HDFS tests (#36063)
+* [GH-35636](https://github.com/apache/arrow/issues/35636) - [C++] Extract two expensive test suites from compute-vector-test (#36401)
+* [GH-35649](https://github.com/apache/arrow/issues/35649) - [R] Always call `RecordBatchReader::ReadNext()` from DuckDB from the main R thread (#36307)
+* [GH-35651](https://github.com/apache/arrow/issues/35651) - [C++] Suppress self-move warning introduced in gcc 13 (#36328)
+* [GH-35651](https://github.com/apache/arrow/issues/35651) - [C++] Don't use self-move with MinGW (#35653)
+* [GH-35662](https://github.com/apache/arrow/issues/35662) - [CI][C++][MinGW] Avoid crash in FormatTwoDigits() with release build (#35663)
+* [GH-35665](https://github.com/apache/arrow/issues/35665) - [C++][Parquet] DeltaLengthByteArrayEncoder::Put reserve too much space (#35670)
+* [GH-35675](https://github.com/apache/arrow/issues/35675) - [C++] Don't copy the ArraySpan into the REE ArraySpan (#35677)
+* [GH-35681](https://github.com/apache/arrow/issues/35681) - [Ruby] Add support for #select_columns with empty table (#35682)
+* [GH-35684](https://github.com/apache/arrow/issues/35684) - [Go][Parquet] Fix nil dereference with nil list array (#35690)
+* [GH-35710](https://github.com/apache/arrow/issues/35710) - [R] Followup improvements to new configure script (#36435)
+* [GH-35712](https://github.com/apache/arrow/issues/35712) - [C++][CI] MacOS Disable ASSERT_DEATH in arrow-array-test (#35724)
+* [GH-35728](https://github.com/apache/arrow/issues/35728) - [CI][Python] Move test_total_bytes_allocated to a subprocess to improve reliability (#36355)
+* [GH-35733](https://github.com/apache/arrow/issues/35733) - [Java] Fix minor type in IntervalMonthDayNanoVector ctor (#35734)
+* [GH-35736](https://github.com/apache/arrow/issues/35736) - [C++] Fix compile key_map_avx2.cc (#35737)
+* [GH-35760](https://github.com/apache/arrow/issues/35760) - [C++] C Data Interface helpers should also run checks in non-debug mode (#36215)
+* [GH-35761](https://github.com/apache/arrow/issues/35761) - [Go] Fix map comparison in TypeEqual (#35762)
+* [GH-35763](https://github.com/apache/arrow/issues/35763) - [Go] Fix TypeEqual for lists (#35764)
+* [GH-35789](https://github.com/apache/arrow/issues/35789) - [C++] Remove check_overflow from CumulativeSumOptions (#35790)
+* [GH-35809](https://github.com/apache/arrow/issues/35809) - [C#] Improvements to the C Data Interface (#35810)
+* [GH-35819](https://github.com/apache/arrow/issues/35819) - [GLib][Ruby] Refer dependency objects of GArrowExecutePlan (#35963)
+* [GH-35833](https://github.com/apache/arrow/issues/35833) - [C++] Add support for Abseil 20230125 (#35881)
+* [GH-35837](https://github.com/apache/arrow/issues/35837) - [C++] Acero will hang if StopProducing is called while backpressure is applied on the source node (#35902)
+* [GH-35838](https://github.com/apache/arrow/issues/35838) - [C++] Add backpressure test for asof join node (#35874)
+* [GH-35838](https://github.com/apache/arrow/issues/35838) - [C++] Fix asof join backpresure (#35878)
+* [GH-35853](https://github.com/apache/arrow/issues/35853) - [Python] Fix deprecation warnings from NumPy NEP50 (#35854)
+* [GH-35858](https://github.com/apache/arrow/issues/35858) - [Python] Fixup linting from PR GH-36011 (#36046)
+* [GH-35858](https://github.com/apache/arrow/issues/35858) - [Python] disallow none schema parquet writer (#36011)
+* [GH-35859](https://github.com/apache/arrow/issues/35859) - [Python] Actually change the default row group size to 1Mi (#36012)
+* [GH-35866](https://github.com/apache/arrow/issues/35866) - [Go] Provide a copy in `arrow.NestedType.Fields()` implementations (#35867)
+* [GH-35868](https://github.com/apache/arrow/issues/35868) - [C++] Occasional TSAN failure on asof-join-node-test (#35904)
+* [GH-35869](https://github.com/apache/arrow/issues/35869) - [R][Release] U ndefined symbol \_ZN5arrow6Status14AddContextLineEPKciS2\_ on test-r-devdocs on maintenance branch for 12.0.1
+* [GH-35870](https://github.com/apache/arrow/issues/35870) - [C++] Add support for changing optimization flags with CMAKE_CXX_FLAGS_DEBUG (#35924)
+* [GH-35891](https://github.com/apache/arrow/issues/35891) - [Doc][Python] Update link to Parquet C++ repository (#35892)
+* [GH-35911](https://github.com/apache/arrow/issues/35911) - [Go] Fix method CastToBytes of decimal256Traits (#35912)
+* [GH-35943](https://github.com/apache/arrow/issues/35943) - [Dev] Ensure link issue works when PR body is empty (#36460)
+* [GH-35948](https://github.com/apache/arrow/issues/35948) - [Go] Only cast `int8` and `unit8` to `float64` when JSON marshaling arrays (#35950)
+* [GH-35952](https://github.com/apache/arrow/issues/35952) - [R] Ensure that schema metadata can actually be set as a named character vector (#35954)
+* [GH-35960](https://github.com/apache/arrow/issues/35960) - [Java] Detect overflow in allocation (#36185)
+* [GH-35965](https://github.com/apache/arrow/issues/35965) - [Go] Fix `Decimal256DictionaryBuilder` (#35966)
+* [GH-35982](https://github.com/apache/arrow/issues/35982) - [Go] Fix go1.18 broken builds (#35983)
+* [GH-35988](https://github.com/apache/arrow/issues/35988) - [C#] The C data interface implementation can leak on import (#35996)
+* [GH-36003](https://github.com/apache/arrow/issues/36003) - [Packaging][RPM] RPM jobs have a duplicated artifact pattern (#36004)
+* [GH-36013](https://github.com/apache/arrow/issues/36013) - [C++] Disabling bundled OpenTelemetry with Protobuf 3.22+ (#36016)
+* [GH-36052](https://github.com/apache/arrow/issues/36052) - [Go][Parquet] Cross build failures for 386 (#36066)
+* [GH-36053](https://github.com/apache/arrow/issues/36053) - [C++] summarizing a variable results in NA at random, while there is no NA in the subset of data (#36368)
+* [GH-36076](https://github.com/apache/arrow/issues/36076) - [C++] Remove deprecated cli flag (#36077)
+* [GH-36082](https://github.com/apache/arrow/issues/36082) - [Release] Do nothing deb bump minor/patch version by post-11-bump-versions.sh on main (#36083)
+* [GH-36090](https://github.com/apache/arrow/issues/36090) - [C++] Add testing libraries for Acero & Datasets (#36206)
+* [GH-36117](https://github.com/apache/arrow/issues/36117) - [C++] Ensure creating BUILD_OUTPUT_ROOT_DIRECTORY (#36160)
+* [GH-36121](https://github.com/apache/arrow/issues/36121) - [R] Warn for `set_io_thread_count()` with `num_threads` < 2 (#36304)
+* [GH-36168](https://github.com/apache/arrow/issues/36168) - [C++][Python] Support halffloat for Arrow list to pandas (#35944)
+* [GH-36172](https://github.com/apache/arrow/issues/36172) - [R] Windows devdocs build failing as it uses libarrow built without JSON capabilities  (#36174)
+* [GH-36176](https://github.com/apache/arrow/issues/36176) - [C++] Fix regression for single-key Table sorting (#36179)
+* [GH-36182](https://github.com/apache/arrow/issues/36182) - [Gandiva][C++] Fix substring_index function when index is negative. (#36184)
+* [GH-36200](https://github.com/apache/arrow/issues/36200) - [CI][Docs] Avoid "No space left on device" (#36230)
+* [GH-36201](https://github.com/apache/arrow/issues/36201) - [Python][CI] test\_total\_bytes\_allocated fails on arm64 wheels for manylinux
+* [GH-36209](https://github.com/apache/arrow/issues/36209) - [Java] Upgrade Netty due to security vulnerability (#36211)
+* [GH-36214](https://github.com/apache/arrow/issues/36214) - [C++] Specify `FieldPath::Hash` as template parameter where possible (#36222)
+* [GH-36224](https://github.com/apache/arrow/issues/36224) - [CI] Update rest api invocations in GitHub scripts (#36225)
+* [GH-36239](https://github.com/apache/arrow/issues/36239) - [CI][C++] Add support for multiple flags for ARROW_*_FLAGS_* (#36281)
+* [GH-36245](https://github.com/apache/arrow/issues/36245) - [C++] Compile errors with gcc 13
+* [GH-36257](https://github.com/apache/arrow/issues/36257) - [CI][Dev][Archery] bot requires pygithub 1.59.0 or later (#36467)
+* [GH-36259](https://github.com/apache/arrow/issues/36259) - [R] Docs for as_schema description incorrect  (#36260)
+* [GH-36311](https://github.com/apache/arrow/issues/36311) - [C++] Fix integer overflows in `utf8_slice_codeunits` (#36575)
+* [GH-36327](https://github.com/apache/arrow/issues/36327) - [C++][CI] Fix Valgrind failures (#36461)
+* [GH-36329](https://github.com/apache/arrow/issues/36329) - [C++][CI] Use OpenSSL 3 on macOS (#36336)
+* [GH-36331](https://github.com/apache/arrow/issues/36331) - [C++][CI] Sporadic errors in AsofJoinTest (#36356)
+* [GH-36340](https://github.com/apache/arrow/issues/36340) - [Java] Address race condition in allocator logger thread (#36341)
+* [GH-36346](https://github.com/apache/arrow/issues/36346) - [C++] Safe S3 finalization (#36442)
+* [GH-36349](https://github.com/apache/arrow/issues/36349) - [Python][CI] Avoid using 'build/etc/localtime' timezone in hypothesis tests (#36391)
+* [GH-36352](https://github.com/apache/arrow/issues/36352) - [Python] Add project_id to GcsFileSystem options (#36376)
+* [GH-36353](https://github.com/apache/arrow/issues/36353) - [R] Fix package version references to be text only and never numeric (#36364)
+* [GH-36369](https://github.com/apache/arrow/issues/36369) - [C++][FlightRPC] Fix a hang bug in FlightClient::Authenticate*() (#36372)
+* [GH-36396](https://github.com/apache/arrow/issues/36396) - [R] Non-existent functions called in array tests (#36397)
+* [GH-36404](https://github.com/apache/arrow/issues/36404) - [CI][C++][Gandiva] Crash tests for JNI build on arm64 macOS
+* [GH-36446](https://github.com/apache/arrow/issues/36446) - [C++] Minor style improvements in ConcatenateImpl (#36463)
+* [GH-36447](https://github.com/apache/arrow/issues/36447) - [C++][CI] arrow-s3fs-test fails on some nightly jobs
+* [GH-36448](https://github.com/apache/arrow/issues/36448) - [C++][CI] vcpkg nightly job fails to build scalar\_test.cc
+* [GH-36449](https://github.com/apache/arrow/issues/36449) - [C++][CI] Don't use -g1 for Python jobs (#36453)
+* [GH-36451](https://github.com/apache/arrow/issues/36451) - [CI][C++] Fix compilation failure on Fedora 35 (#36457)
+* [GH-36452](https://github.com/apache/arrow/issues/36452) - [CI][C++] Test C++20 support with compatible compiler (#36454)
+* [GH-36456](https://github.com/apache/arrow/issues/36456) - [R] Link to correct version of OpenSSL when using autobrew (#36551)
+* [GH-36475](https://github.com/apache/arrow/issues/36475) - [C++][CI] Fix Flight feature verification (#36473)
+* [GH-36476](https://github.com/apache/arrow/issues/36476) - [C++][FlightRPC] Fix uninitialized fields in FlightInfo (#36484)
+* [GH-36477](https://github.com/apache/arrow/issues/36477) - [CI][macOS] Ignore brew update failure on crossbow tasks (#36478)
+* [GH-36482](https://github.com/apache/arrow/issues/36482) - [C++][CI] Fix sporadic test failures in AsofJoinBasicTest (#36499)
+* [GH-36498](https://github.com/apache/arrow/issues/36498) - [Python][CI] Hypothesis nightly test fails with pytz.exceptions.UnknownTimeZoneError: 'Factory' (#36508)
+* [GH-36500](https://github.com/apache/arrow/issues/36500) - [CI][Java][JAR] Remove Homebrew's protobuf (#36515)
+* [GH-36501](https://github.com/apache/arrow/issues/36501) - [CI][Java][JAR] Ensure removing Homebrew's gRPC packages (#36516)
+* [GH-36523](https://github.com/apache/arrow/issues/36523) - [C++] Fix TSan-detected lock ordering issues in S3 (#36536)
+* [GH-36524](https://github.com/apache/arrow/issues/36524) - [GLib] Suppress a pessimizing-move warning (#36531)
+* [GH-36537](https://github.com/apache/arrow/issues/36537) - [Python] Ensure dataset writer follows default Parquet version of 2.6 (#36538)
+* [GH-36543](https://github.com/apache/arrow/issues/36543) - [CI][Docs] Use -g1 instead of -g for building docs (#36576)
+* [GH-36598](https://github.com/apache/arrow/issues/36598) - [C++][MinGW] Fix build failure with Protobuf 23.4 (#36606)
+* [GH-36629](https://github.com/apache/arrow/issues/36629) - [CI][Python] Skip dask tests due to our non-nanosecond changes in arrow->pandas conversion (#36630)
+* [GH-36641](https://github.com/apache/arrow/issues/36641) - [C++] Remove reference to acero from non-acero file (#36650)
+* [GH-36659](https://github.com/apache/arrow/issues/36659) - [Python] Fix pyarrow.dataset.Partitioning.__eq__ when comparing with other type (#36661)
+* [GH-36669](https://github.com/apache/arrow/issues/36669) - [Go] Guard against garbage in C Data structures (#36670)
+* [GH-36686](https://github.com/apache/arrow/issues/36686) - [C++] Pass CMAKE_OSX_SYSROOT to external projects (#36706)
+* [GH-36687](https://github.com/apache/arrow/issues/36687) - [R] Add correct branch name to autobrew formulae to facilitate local testing (#36689)
+* [GH-36707](https://github.com/apache/arrow/issues/36707) - [C++] Use ARROW_PACKAGE_PREFIX for OPENSSL_ROOT_DIR too (#36710)
+* [GH-36812](https://github.com/apache/arrow/issues/36812) - [C#] Fix C API support to work with .NET desktop framework (#36813)
+* [GH-36832](https://github.com/apache/arrow/issues/36832) - [Packaging][RPM] Remove needless Requires (#36833)
+* [GH-36892](https://github.com/apache/arrow/issues/36892) - [C++] Fix performance regressions in `FieldPath::Get` (#37032)
+* [GH-36913](https://github.com/apache/arrow/issues/36913) - [C++] Skip empty buffer concatenation to fix UBSan error (#36914)
+* [GH-36928](https://github.com/apache/arrow/issues/36928) - [Java] Make it run well with the netty newest version 4.1.96 (#36926)
+* [GH-36969](https://github.com/apache/arrow/issues/36969) - [R] Disable GCS by default when doing a bundled build on gcc-13 (#37147)
+* [GH-37019](https://github.com/apache/arrow/issues/37019) - [R] Documentation for read_parquet() et al needs updating (#37020)
+* [GH-37197](https://github.com/apache/arrow/issues/37197) - [Java][CI][Packaging] Free some disk space on the java-jars GitHub job (#37198)
+* [GH-37201](https://github.com/apache/arrow/issues/37201) - [CI][Packaging][Java] java-jars job fail on macOS aarch\_64
+
+
+## New Features and Improvements
+
+* [GH-14790](https://github.com/apache/arrow/issues/14790) - [Dev] Avoid extra comment with Closes issue id on PRs (#35811)
+* [GH-14946](https://github.com/apache/arrow/issues/14946) - [C++] Add flattening FieldPath/FieldRef::Get methods (#35197)
+* [GH-15187](https://github.com/apache/arrow/issues/15187) - [Java] Made `reader` initialization lazy and added new `getTransferPair()` function that takes in a `Field` type (#34424)
+* [GH-18547](https://github.com/apache/arrow/issues/18547) - [Java] Support re-emitting dictionaries in ArrowStreamWriter (#35920)
+* [GH-20047](https://github.com/apache/arrow/issues/20047) - [MATLAB] Enable GitHub Actions CI for MATLAB Interface on Windows (#35792)
+* [GH-21761](https://github.com/apache/arrow/issues/21761) - [Python] accept pyarrow scalars in array constructor (#36162)
+* [GH-26153](https://github.com/apache/arrow/issues/26153) - [C++] Share common codes for RecordBatchStreamReader and StreamDecoder (#36344)
+* [GH-29781](https://github.com/apache/arrow/issues/29781) - [C++][Parquet] Switch to use compliant nested types by default (#35146)
+* [GH-29887](https://github.com/apache/arrow/issues/29887) - [C++] Implement dictionary array sorting (#35280)
+* [GH-31521](https://github.com/apache/arrow/issues/31521) - [C++][Flight] Migrate Flight SQL client to Result (#36559)
+* [GH-32190](https://github.com/apache/arrow/issues/32190) - [C++][Compute] Implement cumulative prod, max and min functions (#36020)
+* [GH-32282](https://github.com/apache/arrow/issues/32282) - [R] Update case_when() binding to match changes in dplyr (#35502)
+* [GH-32335](https://github.com/apache/arrow/issues/32335) - [C++][Docs] Add design document for Acero (#35320)
+* [GH-32605](https://github.com/apache/arrow/issues/32605) - [C#] Extend validity buffer api (#35342)
+* [GH-32605](https://github.com/apache/arrow/issues/32605) - [C#] Extend ArrowBuffer.BitmapBuilder to improve performance of array concatenation (#13810)
+* [GH-32739](https://github.com/apache/arrow/issues/32739) - [CI][Docs] Document Docs PR Preview (#35614)
+* [GH-32763](https://github.com/apache/arrow/issues/32763) - [C++] Add FromProto for fetch & sort (#34651)
+* [GH-33206](https://github.com/apache/arrow/issues/33206) - [C++] Add support for StructArray sorting and nested sort keys (#35727)
+* [GH-33321](https://github.com/apache/arrow/issues/33321) - [Python] Support converting to non-nano datetime64 for pandas >= 2.0 (#35656)
+* [GH-33517](https://github.com/apache/arrow/issues/33517) - [C++][Flight] Exercise UCX on CI (#14667)
+* [GH-33804](https://github.com/apache/arrow/issues/33804) - [Python] Add support for manylinux_2_28 wheel (#34818)
+* [GH-33854](https://github.com/apache/arrow/issues/33854) - [MATLAB] Add basic libmexclass integration code to MATLAB interface  (#34563)
+* [GH-33856](https://github.com/apache/arrow/issues/33856) - [C#] Implement C Data Interface for C# (#35496)
+* [GH-33980](https://github.com/apache/arrow/issues/33980) - [Docs][Python] Document DataFrame Interchange Protocol implementation and usage (#35835)
+* [GH-33987](https://github.com/apache/arrow/issues/33987) - [R] Support new dplyr .by/by argument (#35667)
+* [GH-34216](https://github.com/apache/arrow/issues/34216) - [Python] Support for reading JSON Datasets With Python (#34586)
+* [GH-34223](https://github.com/apache/arrow/issues/34223) - [Java] Java Substrait Consumer JNI call to ACERO C++ (#34227)
+* [GH-34375](https://github.com/apache/arrow/issues/34375) - [C++][Parquet] Ignore page header stats when page index enabled (#35455)
+* [GH-34386](https://github.com/apache/arrow/issues/34386) - [C++] Add a PathFromUriOrPath method (#34420)
+* [GH-34436](https://github.com/apache/arrow/issues/34436) - [R] Bindings for JSON Dataset  (#35055)
+* [GH-34509](https://github.com/apache/arrow/issues/34509) - [C++][Parquet] Improve docstrings for ArrowReaderProperties::batch_size (#36486)
+* [GH-34722](https://github.com/apache/arrow/issues/34722) - [C++][Parquet] Minor: Update wording of Parquet NextPage (#35368)
+* [GH-34729](https://github.com/apache/arrow/issues/34729) - [C++][Python] Enhanced Arrow<->Pandas map/pydict support (#34730)
+* [GH-34749](https://github.com/apache/arrow/issues/34749) - [Java] Make Zstd compression level configurable (#34873)
+* [GH-34787](https://github.com/apache/arrow/issues/34787) - [Python] Accept zero_copy_only=False for ChunkedArray.to_numpy (#35582)
+* [GH-34788](https://github.com/apache/arrow/issues/34788) - [Python][Packaging][CI] Drop Python 3.7 support (#36061)
+* [GH-34852](https://github.com/apache/arrow/issues/34852) - [C++][Go][Java][FlightRPC] Add support for ordered data (#35178)
+* [GH-34858](https://github.com/apache/arrow/issues/34858) - [Swift] Initial reader impl (#34842)
+* [GH-34868](https://github.com/apache/arrow/issues/34868) - [Python] Share docstrings between classes (#34894)
+* [GH-34911](https://github.com/apache/arrow/issues/34911) - [C++] Add first and last aggregator (#34912)
+* [GH-34918](https://github.com/apache/arrow/issues/34918) - [C++] Update vendored double-conversion 3.2.1 (#34919)
+* [GH-34921](https://github.com/apache/arrow/issues/34921) - [C++][Python][Java] Require CMake 3.16 or later (#35921)
+* [GH-34949](https://github.com/apache/arrow/issues/34949) - [C++][Parquet] Enable page index by columns (#35230)
+* [GH-34971](https://github.com/apache/arrow/issues/34971) - [Format] Add non-CPU version of C Data Interface (#34972)
+* [GH-34979](https://github.com/apache/arrow/issues/34979) - [Python] Create a base class for Table and RecordBatch (#34980)
+* [GH-35004](https://github.com/apache/arrow/issues/35004) - [C++] Remove RelationInfo (#35005)
+* [GH-35033](https://github.com/apache/arrow/issues/35033) - [Java][Datasets] Add support for multi-file datasets from Java (#35034)
+* [GH-35035](https://github.com/apache/arrow/issues/35035) - [R] Implement names<- for Schemas  (#35172)
+* [GH-35067](https://github.com/apache/arrow/issues/35067) - [JavaScript] toString for signed `BigNum`s (#35067)
+* [GH-35084](https://github.com/apache/arrow/issues/35084) - [Docs][Format] Add how to change format specification (#35174)
+* [GH-35099](https://github.com/apache/arrow/issues/35099) - [CI][Packaging] Upgrade vcpkg to 2023.04.15 Release (#35430)
+* [GH-35112](https://github.com/apache/arrow/issues/35112) - [Python] Expose keys_sorted in python MapType (#35113)
+* [GH-35124](https://github.com/apache/arrow/issues/35124) - [C++] Avoid unnecessary copy when outputting join result (#35114)
+* [GH-35125](https://github.com/apache/arrow/issues/35125) - [C++][Acero] Add a self-defined io-executor in QueryOptions (#35464)
+* [GH-35130](https://github.com/apache/arrow/issues/35130) - [Docs] Document how to become a collaborator to get triage role (#36445)
+* [GH-35134](https://github.com/apache/arrow/issues/35134) - [C++] Add `arrow_vendored` namespace around double-conversion library (#35135)
+* [GH-35136](https://github.com/apache/arrow/issues/35136) - [Go][FlightSQL] Support backends without `CreatePreparedStatement` implemented (#35137)
+* [GH-35162](https://github.com/apache/arrow/issues/35162) - [Go] Float16 arithmetic (#35163)
+* [GH-35164](https://github.com/apache/arrow/issues/35164) - [Go] Additional methods for decimal data types (#35165)
+* [GH-35168](https://github.com/apache/arrow/issues/35168) - [CI][Packaging][Conan] Merge upstream changes (#35169)
+* [GH-35171](https://github.com/apache/arrow/issues/35171) - [C++][Parquet] Implement CRC for data page v2 (#35242)
+* [GH-35180](https://github.com/apache/arrow/issues/35180) - [R] Implement bindings for cumsum function (#35339)
+* [GH-35212](https://github.com/apache/arrow/issues/35212) - [Go] Add ability to show full call stack with ARROW_CHECKED_MAX_RETAINED_FRAMES (#35215)
+* [GH-35228](https://github.com/apache/arrow/issues/35228) - [C++][Parquet] Minor: Comment typo fixing in Parquet Reader (#35229)
+* [GH-35245](https://github.com/apache/arrow/issues/35245) - [Java][Dataset][Linux] Enable GCS (#35246)
+* [GH-35247](https://github.com/apache/arrow/issues/35247) - [C++] Add Arrow Substrait support for stddev/variance (#35249)
+* [GH-35250](https://github.com/apache/arrow/issues/35250) - [Python] Add test for datetime column conversion to pandas (#35546)
+* [GH-35256](https://github.com/apache/arrow/issues/35256) - [Go] Add ToMap to Metadata (#35257)
+* [GH-35264](https://github.com/apache/arrow/issues/35264) - [Python] Interchange protocol: test clean-up (#35530)
+* [GH-35275](https://github.com/apache/arrow/issues/35275) - [Java] Ensure VectorSchemaRoot slice returns a new root (#35476)
+* [GH-35279](https://github.com/apache/arrow/issues/35279) - [C++][Parquet] Tools: enhancement Parquet print stats (#35262)
+* [GH-35282](https://github.com/apache/arrow/issues/35282) - [C++] auto enable brotli when enable fuzzing (#35283)
+* [GH-35290](https://github.com/apache/arrow/issues/35290) - [JS] Update dependencies (#35291)
+* [GH-35302](https://github.com/apache/arrow/issues/35302) - [Go] Improve unsupported type error message in pqarrow (#35303)
+* [GH-35304](https://github.com/apache/arrow/issues/35304) - [C++][ORC] Support attributes conversion (#35499)
+* [GH-35315](https://github.com/apache/arrow/issues/35315) - [C++][CMake] Add presets for Flight SQL (#35317)
+* [GH-35335](https://github.com/apache/arrow/issues/35335) - [Python][Docs] Fix docstring of `map_` (#35336)
+* [GH-35361](https://github.com/apache/arrow/issues/35361) - [C++] Remove Perl dependency from cpp/build-support/run-test.sh (#35362)
+* [GH-35375](https://github.com/apache/arrow/issues/35375) - [C++][FlightRPC] Add `arrow::flight::ServerCallContext::incoming_headers()` (#35376)
+* [GH-35377](https://github.com/apache/arrow/issues/35377) - [C++][FlightRPC] Add a `ServerCallContext` parameter to `arrow::flight::ServerAuthHandler` methods (#35378)
+* [GH-35390](https://github.com/apache/arrow/issues/35390) - [Python] Consolidate some APIs in Table and RecordBatch (#35396)
+* [GH-35400](https://github.com/apache/arrow/issues/35400) - [R] Import download.file from utils (#35401)
+* [GH-35403](https://github.com/apache/arrow/issues/35403) - [Docs] Support sphinx 6 for building the docs (#36296)
+* [GH-35411](https://github.com/apache/arrow/issues/35411) - [MATLAB] Create a templated C++ Proxy Class for Numeric Arrays (#35479)
+* [GH-35415](https://github.com/apache/arrow/issues/35415) - [Python] RecordBatch string reprsentation includes column preview (#35416)
+* [GH-35417](https://github.com/apache/arrow/issues/35417) - [GLib] Add GArrowRunEndEncodedDataType (#36444)
+* [GH-35418](https://github.com/apache/arrow/issues/35418) - [GLib] Add GArrowRunEndEncodedArray (#36470)
+* [GH-35435](https://github.com/apache/arrow/issues/35435) - [Ruby][Flight] Add ArrowFlight::Client#authenticate_basic (#35436)
+* [GH-35442](https://github.com/apache/arrow/issues/35442) - [C++][FlightRPC] Pass ServerCallContext instead of CallHeaders to ServerMiddlewareFactory::StartCall() (#35454)
+* [GH-35480](https://github.com/apache/arrow/issues/35480) - [MATLAB] Add abstract MATLAB base class called `arrow.array.Array` (#35491)
+* [GH-35482](https://github.com/apache/arrow/issues/35482) - [Go] Append nulls to values in `array.FixedSizeListBuilder.AppendNull` (#35481)
+* [GH-35485](https://github.com/apache/arrow/issues/35485) - [CI][Python] Archery formats Python C++ codebase (#35487)
+* [GH-35489](https://github.com/apache/arrow/issues/35489) - [MATLAB] Add CMake `build` directory to MATLAB `.gitignore` (#35493)
+* [GH-35492](https://github.com/apache/arrow/issues/35492) - [MATLAB] : Add arrow.array.Float32Array MATLAB Class (#35495)
+* [GH-35500](https://github.com/apache/arrow/issues/35500) - [C++][Go][Java][FlightRPC] Add support for result set expiration (#36009)
+* [GH-35506](https://github.com/apache/arrow/issues/35506) - [C++] Support First and Last aggregators in Substrait (#35513)
+* [GH-35511](https://github.com/apache/arrow/issues/35511) - [C++] Util: add memory_pool in `SwapEndianArrayData` (#36431)
+* [GH-35515](https://github.com/apache/arrow/issues/35515) - [C++][Python] Add non decomposable aggregation UDF (#35514)
+* [GH-35516](https://github.com/apache/arrow/issues/35516) - [R] Add 11.0.0.3 to backwards compatibility matrix (#35517)
+* [GH-35537](https://github.com/apache/arrow/issues/35537) - [MATLAB] Create shared test class utility for numeric arrays (#35556)
+* [GH-35542](https://github.com/apache/arrow/issues/35542) - [R] Implement schema extraction function (#35543)
+* [GH-35545](https://github.com/apache/arrow/issues/35545) - [R] Re-organise reference page on pkgdown site (#36171)
+* [GH-35550](https://github.com/apache/arrow/issues/35550) - [MATLAB] Add public `toMATLAB` method to `arrow.array.Array` for converting to MATLAB types (#35551)
+* [GH-35557](https://github.com/apache/arrow/issues/35557) - [MATLAB] Add unsigned integer array MATLAB classes (i.e. `UInt8Array`, `UInt16Array`, `UInt32Array`, `UInt64Array`)  (#35562)
+* [GH-35558](https://github.com/apache/arrow/issues/35558) - [MATLAB] Add signed integer array MATLAB classes (i.e. `Int8Array`, `Int16Array`, `Int32Array`, `Int64Array`) (#35561)
+* [GH-35579](https://github.com/apache/arrow/issues/35579) - [C++] Support non-named FieldRefs in Parquet scanner (#35798)
+* [GH-35598](https://github.com/apache/arrow/issues/35598) - [MATLAB] Add a public `Valid` property to to the `MATLAB arrow.array.<Array>` classes to query Null values (i.e. validity bitmap support) (#35655)
+* [GH-35601](https://github.com/apache/arrow/issues/35601) - [R][Documentation] Add missing docs to fileysystem.R (#35895)
+* [GH-35607](https://github.com/apache/arrow/issues/35607) - [C++] Support simple Substrait aggregate extensions (#35608)
+* [GH-35609](https://github.com/apache/arrow/issues/35609) - [Docs] Enable the build of subsections of the documentation (#35610)
+* [GH-35611](https://github.com/apache/arrow/issues/35611) - [C++] Remove unnecessary safe operations for ListBuilder and BinaryBuilder (#35613)
+* [GH-35652](https://github.com/apache/arrow/issues/35652) - [Go][Compute] Allow executing Substrait Expressions using Go Compute (#35654)
+* [GH-35659](https://github.com/apache/arrow/issues/35659) - [Swift] Initial Swift IPC writer (#35660)
+* [GH-35669](https://github.com/apache/arrow/issues/35669) - [C++] Update to double-conversion 3.3.0, activate new flags, remove patches (#36002)
+* [GH-35676](https://github.com/apache/arrow/issues/35676) - [MATLAB] Add an `InferNulls` name-value pair for controlling null value inference during construction of `arrow.array.Array` (#35827)
+* [GH-35686](https://github.com/apache/arrow/issues/35686) - [Go] Add AppendTime to TimestampBuilder (#35687)
+* [GH-35693](https://github.com/apache/arrow/issues/35693) - [MATLAB] Add `Valid` as a name-value pair on the `arrow.array.Float64Array` constructor (#35977)
+* [GH-35705](https://github.com/apache/arrow/issues/35705) - [R] Rename docs page from acero (#36107)
+* [GH-35706](https://github.com/apache/arrow/issues/35706) - [CI] Set minimal permissions on pr_review_trigger.yml (#35708)
+* [GH-35709](https://github.com/apache/arrow/issues/35709) - [R][Documentation] Document passing data to duckdb for windowed aggregates (#35882)
+* [GH-35711](https://github.com/apache/arrow/issues/35711) - [Go] Add `Value` and `GetValueIndex` methods to some builders (#35744)
+* [GH-35729](https://github.com/apache/arrow/issues/35729) - [C++][Parquet] Implement batch interface for BloomFilter in Parquet (#35731)
+* [GH-35746](https://github.com/apache/arrow/issues/35746) - [Parquet][C++][Python] Switch default Parquet version to 2.6 (#36137)
+* [GH-35749](https://github.com/apache/arrow/issues/35749) - [C++] Handle run-end encoded filters in compute kernels (#35750)
+* [GH-35752](https://github.com/apache/arrow/issues/35752) - [CI][GLib][Ruby] Pass GITHUB_ACTIONS environment variable to Docker containers (#35753)
+* [GH-35754](https://github.com/apache/arrow/issues/35754) - [CI][GLib] Don't build static C++ libraries (#35755)
+* [GH-35757](https://github.com/apache/arrow/issues/35757) - [C++][Parquet] using page-encoding-stats to build encodings (#35758)
+* [GH-35765](https://github.com/apache/arrow/issues/35765) - [C++] Split vector_selection.cc into more compilation units (#35751)
+* [GH-35779](https://github.com/apache/arrow/issues/35779) - [R][Documentation] Document workaround for window-like functionality (#35702)
+* [GH-35783](https://github.com/apache/arrow/issues/35783) - [JS] Update dependencies (#35784)
+* [GH-35786](https://github.com/apache/arrow/issues/35786) - [C++] Add pairwise_diff function (#35787)
+* [GH-35788](https://github.com/apache/arrow/issues/35788) - [Swift] bug fixes and change reader/writer to user Result type (#35774)
+* [GH-35803](https://github.com/apache/arrow/issues/35803) - [Doc] Add columns to the Implementation Status tables for Swift (#35862)
+* [GH-35817](https://github.com/apache/arrow/issues/35817) - [Docs][C++] Fix value_counts/unique doc about null handling (#35818)
+* [GH-35828](https://github.com/apache/arrow/issues/35828) - [Go] Add `array.WithUnorderedMapKeys` option for `array.ApproxEqual` (#35823)
+* [GH-35847](https://github.com/apache/arrow/issues/35847) - [C++][Thirdparty] Bump xxhash version to v0.8.1 (#35849)
+* [GH-35871](https://github.com/apache/arrow/issues/35871) - [Go] Account for struct validity bitmap in `array.ApproxEqual` (#35872)
+* [GH-35879](https://github.com/apache/arrow/issues/35879) - [C++] Bump bundled google-cloud-cpp to 2.12.0 (#36119)
+* [GH-35906](https://github.com/apache/arrow/issues/35906) - [Docs] Enable building the documentation without having pyarrow installed (#35907)
+* [GH-35909](https://github.com/apache/arrow/issues/35909) - [Go] Deprecate `arrow.MapType.ValueField` & `arrow.MapType.ValueType` methods (#35899)
+* [GH-35914](https://github.com/apache/arrow/issues/35914) - [MATLAB] Integrate the latest libmexclass changes to support error-handling (#35918)
+* [GH-35915](https://github.com/apache/arrow/issues/35915) - [Ruby] Add support for converting function options from Hash automatically (#35927)
+* [GH-35922](https://github.com/apache/arrow/issues/35922) - [C++] Drop support for Debian GNU/Linux buster (10) (#35923)
+* [GH-35926](https://github.com/apache/arrow/issues/35926) - [C++][Parquet] Allow disabling ColumnIndex by disabling statistics (#35958)
+* [GH-35935](https://github.com/apache/arrow/issues/35935) - [C++] Clean interruption of a Acero plan with `use_threads=false` (#35953)
+* [GH-35949](https://github.com/apache/arrow/issues/35949) - [R] CSV File reader options class objects should print the selected values (#35955)
+* [GH-35961](https://github.com/apache/arrow/issues/35961) - [C++][FlightSQL] Accept Protobuf 3.12.0 or later (#35962)
+* [GH-35969](https://github.com/apache/arrow/issues/35969) - [Swift] use ArrowType instead of ArrowType.info and add binary, time32 and time64 types (#35985)
+* [GH-35974](https://github.com/apache/arrow/issues/35974) - [Go] Don't panic if importing C Array Stream fails (#35978)
+* [GH-35975](https://github.com/apache/arrow/issues/35975) - [Go] Support importing decimal256 (#35981)
+* [GH-35979](https://github.com/apache/arrow/issues/35979) - [C++] Refactor Acero scalar and hash aggregation into separate files (#35980)
+* [GH-35984](https://github.com/apache/arrow/issues/35984) - [MATLAB] Add null support to all numeric array classes (#36039)
+* [GH-35987](https://github.com/apache/arrow/issues/35987) - [C++] Unpin brew protobuf version (#36087)
+* [GH-35987](https://github.com/apache/arrow/issues/35987) - [C++] Pin brew protobuf version to 21 (#36029)
+* [GH-35990](https://github.com/apache/arrow/issues/35990) - [CI][C++][Windows] Don't use -l for "choco list" (#35991)
+* [GH-36006](https://github.com/apache/arrow/issues/36006) - [Packaging][RPM] Add support for Amazon Linux 2023 (#36081)
+* [GH-36008](https://github.com/apache/arrow/issues/36008) - [Ruby][Parquet] Add Parquet::ArrowFileReader#each_row_group (#36022)
+* [GH-36014](https://github.com/apache/arrow/issues/36014) - [Go] Allow duplicate field names in structs (#36015)
+* [GH-36023](https://github.com/apache/arrow/issues/36023) - [CI][Ruby][Release] Suppress meaningless progress log from verify-rc-ruby (#36024)
+* [GH-36025](https://github.com/apache/arrow/issues/36025) - [JS] Allow Node.js 18.14 or later in `verify-release-candidate.sh` (#36089)
+* [GH-36031](https://github.com/apache/arrow/issues/36031) - [JS] : Update dependencies (#36032)
+* [GH-36033](https://github.com/apache/arrow/issues/36033) - [JS] Remove BigInt compat (#36034)
+* [GH-36038](https://github.com/apache/arrow/issues/36038) - [Python] Implement __reduce__ on ExtensionType class (#36170)
+* [GH-36040](https://github.com/apache/arrow/issues/36040) - [MATLAB] Add `arrow.array.BooleanArray` class (#36041)
+* [GH-36045](https://github.com/apache/arrow/issues/36045) - [Python] Improve usability of pc.map_lookup / MapLookupOptions (#36387)
+* [GH-36047](https://github.com/apache/arrow/issues/36047) - [C++][Compute] Add support for duration types to IndexIn and IsIn (#36058)
+* [GH-36050](https://github.com/apache/arrow/issues/36050) - [Docs][C] Fix memory leak in C export documentation (#36051)
+* [GH-36055](https://github.com/apache/arrow/issues/36055) - [JS] Use Node.js 18 in CI (#36147)
+* [GH-36056](https://github.com/apache/arrow/issues/36056) - [CI] Enable Dependabot for GitHub Actions (#36194)
+* [GH-36059](https://github.com/apache/arrow/issues/36059) - [C++][Compute] Reserve space for hashtable for scalar lookup functions (#36067)
+* [GH-36070](https://github.com/apache/arrow/issues/36070) - [Go][Flight] Add Flight Client Cookie Middleware (#36071)
+* [GH-36072](https://github.com/apache/arrow/issues/36072) - [MATLAB] Add MATLAB `arrow.tabular.RecordBatch` class (#36190)
+* [GH-36074](https://github.com/apache/arrow/issues/36074) - [C++] Clarify docs for ConcatenateTablesOptions::field_merge_options (#36075)
+* [GH-36092](https://github.com/apache/arrow/issues/36092) - [C++] Simplify concurrency in as-of-join node (#36094)
+* [GH-36095](https://github.com/apache/arrow/issues/36095) - [Go] Add doc for `pqarrow.FileWriter.WriteBuffered` (#36163)
+* [GH-36096](https://github.com/apache/arrow/issues/36096) - [Python] Call __from_arrow__ in Array.to_pandas (#36314)
+* [GH-36098](https://github.com/apache/arrow/issues/36098) - [MATLAB] Change C++ proxy constructors to accept an options struct instead of a cell array containing the arguments (#36108)
+* [GH-36105](https://github.com/apache/arrow/issues/36105) - [Go] Support float16 in csv (#36106)
+* [GH-36109](https://github.com/apache/arrow/issues/36109) - [MATLAB] Store a nullptr as the validity bitmap if all array elements are valid (#36114)
+* [GH-36120](https://github.com/apache/arrow/issues/36120) - [C#] Support schema metadata through the C API (#36122)
+* [GH-36128](https://github.com/apache/arrow/issues/36128) - [C++][Compute] Allow multiplication between duration and all integer types (#36231)
+* [GH-36129](https://github.com/apache/arrow/issues/36129) - [Python] Consolidate common APIs in Table and RecordBatch (#36130)
+* [GH-36131](https://github.com/apache/arrow/issues/36131) - [Docs] Use https://arrow.apache.org/julia/ for Julia URL (#36156)
+* [GH-36141](https://github.com/apache/arrow/issues/36141) - [Go] Support large and fixed types in csv (#36142)
+* [GH-36151](https://github.com/apache/arrow/issues/36151) - [Java] Add `volatile` declaration to `keyPosition` in `ParallelSearcher` (#36152)
+* [GH-36157](https://github.com/apache/arrow/issues/36157) - [C++][Dev] Add support for using python3 to run IWYU (#36159)
+* [GH-36166](https://github.com/apache/arrow/issues/36166) - [C++][MATLAB] Add utility to convert UTF-8 strings to UTF-16 and UTF-16 strings to UTF-8 (#36167)
+* [GH-36173](https://github.com/apache/arrow/issues/36173) - [C++] Add lone high and low code-point test case for UTF8StringToUTF16 (#36383)
+* [GH-36177](https://github.com/apache/arrow/issues/36177) - [MATLAB] Add the Type object hierarchy to the MATLAB interface (#36210)
+* [GH-36178](https://github.com/apache/arrow/issues/36178) - [C++] support prefetching for ReadRangeCache lazy mode (#36180)
+* [GH-36181](https://github.com/apache/arrow/issues/36181) - [Go] add methods `AppendNulls` and `AppendEmptyValues` for all builders (#36145)
+* [GH-36198](https://github.com/apache/arrow/issues/36198) - [Go] Remove deprecated equality checks (#36169)
+* [GH-36203](https://github.com/apache/arrow/issues/36203) - [C++] Support casting in both ways for is_in and index_in (#36204)
+* [GH-36207](https://github.com/apache/arrow/issues/36207) - [MATLAB] Add MATLAB autosave files (`.asv`) to the `.gitignore` (#36208)
+* [GH-36212](https://github.com/apache/arrow/issues/36212) - [MATLAB] Update `README.md` to mention support for `arrow.array.Array` classes (#36213)
+* [GH-36217](https://github.com/apache/arrow/issues/36217) - [MATLAB] Add arrow.array.TimestampArray (#36333)
+* [GH-36218](https://github.com/apache/arrow/issues/36218) - [CI][Go] Run benchmark steps only on the main branch (#36229)
+* [GH-36218](https://github.com/apache/arrow/issues/36218) - [CI][Go] Run benchmark steps only on the main branch (#36219)
+* [GH-36220](https://github.com/apache/arrow/issues/36220) - [CI] Run the "Docker Push" step only on the main branch (#36221)
+* [GH-36227](https://github.com/apache/arrow/issues/36227) - [C++] New GcsOption to set the project id (#36228)
+* [GH-36232](https://github.com/apache/arrow/issues/36232) - [Packaging][Ubuntu] Drop support for Ubuntu 22.10 (kinetic) (#36237)
+* [GH-36233](https://github.com/apache/arrow/issues/36233) - [Packaging][Ubuntu] Add support for Ubuntu 23.04 (lunar) (#36238)
+* [GH-36234](https://github.com/apache/arrow/issues/36234) - [Packaging][Debian] Add support for Debian GNU/Linux trixie (13) (#36285)
+* [GH-36241](https://github.com/apache/arrow/issues/36241) - [Packaging] Drop support for Amazon Linux 2 (#36282)
+* [GH-36243](https://github.com/apache/arrow/issues/36243) - [Dev] Remove PR workflow label as part of merge (#36244)
+* [GH-36249](https://github.com/apache/arrow/issues/36249) - [MATLAB] Create a `MATLAB_ASSIGN_OR_ERROR` macro to mirror the C++ `ARROW_ASSIGN_OR_RAISE` macro (#36273)
+* [GH-36250](https://github.com/apache/arrow/issues/36250) - [MATLAB] Add `arrow.array.StringArray` class (#36366)
+* [GH-36251](https://github.com/apache/arrow/issues/36251) - [MATLAB] Add `Type` property to `arrow.array.Array` (#36270)
+* [GH-36252](https://github.com/apache/arrow/issues/36252) - [Python] Add non decomposable hash aggregate UDF  (#36253)
+* [GH-36255](https://github.com/apache/arrow/issues/36255) - [C++] Add benchmarks for "if_else" kernel on lists (#36256)
+* [GH-36264](https://github.com/apache/arrow/issues/36264) - [R] Add scalar() function  (#36265)
+* [GH-36271](https://github.com/apache/arrow/issues/36271) - [R] Split out R6 classes and convenience functions (#36394)
+* [GH-36284](https://github.com/apache/arrow/issues/36284) - [Python][Parquet] Support write page index in Python API (#36290)
+* [GH-36287](https://github.com/apache/arrow/issues/36287) - [Ruby] Add support for installing arrow-c-glib conda package automatically (#36288)
+* [GH-36293](https://github.com/apache/arrow/issues/36293) - [C++] Use ipc_write_options.memory_pool for compressed buffer and shrink after compression (#36294)
+* [GH-36297](https://github.com/apache/arrow/issues/36297) - [C++][Parquet] Benchmark for non-binary dict encoding (#36298)
+* [GH-36299](https://github.com/apache/arrow/issues/36299) - [R][CI] Remove pkgdown check CI step (#36300)
+* [GH-36309](https://github.com/apache/arrow/issues/36309) - [C++] Add ability to cast between scalars of list-like types (#36310)
+* [GH-36317](https://github.com/apache/arrow/issues/36317) - [C++] Return a BufferVector from CleanListOffsets (#36316)
+* [GH-36319](https://github.com/apache/arrow/issues/36319) - [Go][Parquet] Improved row group writer error messages (#36320)
+* [GH-36337](https://github.com/apache/arrow/issues/36337) - [Ruby] Relax required Apache Arrow C++ version (#36338)
+* [GH-36342](https://github.com/apache/arrow/issues/36342) - [C++] Add missing move semantic to RecordBatch (#36343)
+* [GH-36345](https://github.com/apache/arrow/issues/36345) - [C++] Prefer TypeError over Invalid in IsIn and IndexIn kernels (#36358)
+* [GH-36359](https://github.com/apache/arrow/issues/36359) - [MATLAB] Add support for Timestamp arrays to RecordBatch (#36361)
+* [GH-36367](https://github.com/apache/arrow/issues/36367) - [C++] Add a zipped range utility (#36393)
+* [GH-36375](https://github.com/apache/arrow/issues/36375) - [Java] Added creating MapWriter in ComplexWriter. (#36351)
+* [GH-36380](https://github.com/apache/arrow/issues/36380) - [R] Create convenience function arrow_array  (#36381)
+* [GH-36384](https://github.com/apache/arrow/issues/36384) - [Go] Schema: NumFields (#36365)
+* [GH-36402](https://github.com/apache/arrow/issues/36402) - [CI][macOS] Ignore `brew update` failure (#36403)
+* [GH-36405](https://github.com/apache/arrow/issues/36405) - [C++][ORC] Upgrade ORC to 1.9.0 (#36406)
+* [GH-36407](https://github.com/apache/arrow/issues/36407) - [C++] Add arrow::ipc::Listener::OnSchemaDecoded(schema, filtered_schema) (#36533)
+* [GH-36408](https://github.com/apache/arrow/issues/36408) - [GLib][FlightSQL] Add support for INSERT/UPDATE/DELETE (#36409)
+* [GH-36414](https://github.com/apache/arrow/issues/36414) - [C++] Add missing type_traits.h predicate: is_var_length_list()  (#36415)
+* [GH-36421](https://github.com/apache/arrow/issues/36421) - [Java] Enable Support for reading JSON Datasets (#36422)
+* [GH-36423](https://github.com/apache/arrow/issues/36423) - [C++][Compute] Support "or" in `Expression::IsSatisfiable` (#36424)
+* [GH-36450](https://github.com/apache/arrow/issues/36450) - [CI][Python] Upload wheel artifacts for Windows (#36466)
+* [GH-36479](https://github.com/apache/arrow/issues/36479) - [C++][FlightRPC] Use gRPC version detected by find_package() (#36581)
+* [GH-36483](https://github.com/apache/arrow/issues/36483) - [C++] Make `UTF8StringToUTF16` and `UTF16StringToUTF8` accept `string_views` (#36485)
+* [GH-36492](https://github.com/apache/arrow/issues/36492) - [CI][Python] Add Ubuntu 22.04 nightly build (#36480)
+* [GH-36513](https://github.com/apache/arrow/issues/36513) - [Dev][C#] Add Dependabot configuration for NuGet (#36514)
+* [GH-36541](https://github.com/apache/arrow/issues/36541) - [Python][CI] Fixup nopandas build after merge of GH-33321 (#36586)
+* [GH-36541](https://github.com/apache/arrow/issues/36541) - [Python][CI] Ensure the "Without pandas" CI build has no pandas installed (don't install doc requirements in conda-python image) (#36542)
+* [GH-36544](https://github.com/apache/arrow/issues/36544) - [Swift] Add/change some init methods to public access (#36545)
+* [GH-36553](https://github.com/apache/arrow/issues/36553) - [Python] Improve error message if certain submodule (cython or cpp) is not built (#36554)
+* [GH-36556](https://github.com/apache/arrow/issues/36556) - [CI][C++] Enable S3 in Valgrind build (#36579)
+* [GH-36560](https://github.com/apache/arrow/issues/36560) - [MATLAB] Remove the DeepCopy name-value pair from `arrow.array.<Numeric>Array` constructors (#36561)
+* [GH-36568](https://github.com/apache/arrow/issues/36568) - [Go] Include Timestamp Zone in ValueStr (#36569)
+* [GH-36577](https://github.com/apache/arrow/issues/36577) - [Dev][C#] Use `version-update:semver-major` for some packages (#36578)
+* [GH-36582](https://github.com/apache/arrow/issues/36582) - [CI][C++][Homebrew] Backport the latest formula changes (#36583)
+* [GH-36599](https://github.com/apache/arrow/issues/36599) - [MATLAB] Bump libmexclass version to 3465900 (#36600)
+* [GH-36744](https://github.com/apache/arrow/issues/36744) - [Python][Packaging] Add upper pin for cython<3 to pyarrow build dependencies (#36743)
+* [GH-36746](https://github.com/apache/arrow/issues/36746) - [R] Update NEWS.md for 12.0.1.1 release (#36747)
+* [GH-36756](https://github.com/apache/arrow/issues/36756) - [CI][Python] Install Cython < 3.0 on verify-release-candidate script (#36757)
+* [GH-36805](https://github.com/apache/arrow/issues/36805) - [R] Update NEWS.md for 13.0.0 (#36806)
+* [GH-36839](https://github.com/apache/arrow/issues/36839) - [CI][Docs] Update test-ubuntu-default-docs to use GitHub actions instead of Azure (#36840)
+* [GH-36947](https://github.com/apache/arrow/issues/36947) - [CI] Move free up disk space to the Jinja macros to be able to reuse it on docs job (#36948)
+* [PARQUET-2316](https://issues.apache.org/jira/browse/PARQUET-2316) - [C++] Allow partial PreBuffer in the parquet FileReader (#36192)
+* [PARQUET-2323](https://issues.apache.org/jira/browse/PARQUET-2323) - [C++] Use bitmap to store pre-buffered column chunks (#36649)
+
+# Apache Arrow 12.0.1 (2023-06-07)
+
+## Bug Fixes
+
+* [GH-34784](https://github.com/apache/arrow/issues/34784) - [Go] Fix 32-bit build (#35767)
+* [GH-35131](https://github.com/apache/arrow/issues/35131) - [R] Test failure with dev waldo (#35308)
+* [GH-35321](https://github.com/apache/arrow/issues/35321) - [Python][CI] Skip extension type test failing with pandas 2.0.1 (#35324)
+* [GH-35337](https://github.com/apache/arrow/issues/35337) - [Go] ASAN tests fail with Go1.20+ (#35338)
+* [GH-35389](https://github.com/apache/arrow/issues/35389) - [Python] Fix coalesce_keys=False option in join operation (#35505)
+* [GH-35404](https://github.com/apache/arrow/issues/35404) - [Docs] Fix logo url and temporarily pin sphinx to 5.x to  (#35405)
+* [GH-35410](https://github.com/apache/arrow/issues/35410) - [CI] Pin urllib3 for gcs testbench (#35412)
+* [GH-35423](https://github.com/apache/arrow/issues/35423) - [C++][Parquet] Parquet PageReader Force decompression buffer resize smaller (#35428)
+* [GH-35426](https://github.com/apache/arrow/issues/35426) - [CI][Packaging][Conan] Build grpc (#35427)
+* [GH-35498](https://github.com/apache/arrow/issues/35498) - [C++] Relax EnsureAlignment check in Acero from requiring 64-byte aligned buffers to requiring value-aligned buffers (#35565)
+* [GH-35519](https://github.com/apache/arrow/issues/35519) - [C++][Parquet] Fixing exception handling in parquet FileSerializer (#35520)
+* [GH-35538](https://github.com/apache/arrow/issues/35538) - [C++] Remove unnecessary status.h include from protobuf (#35673)
+* [GH-35594](https://github.com/apache/arrow/issues/35594) - [R][C++] Bump vendored date library (#35612)
+* [GH-35695](https://github.com/apache/arrow/issues/35695) - [CI][Packaging][Conan] Use build missing dependencies instead of defining them individually (#35696)
+* [GH-35730](https://github.com/apache/arrow/issues/35730) - [C++] Add the ability to specify custom schema on a dataset write (#35860)
+* [GH-35771](https://github.com/apache/arrow/issues/35771) - [Java] Bump Jackson to avoid CVE (#35791)
+* [GH-35799](https://github.com/apache/arrow/issues/35799) - [CI] Set s3 region for sccache (#35801)
+* [GH-35820](https://github.com/apache/arrow/issues/35820) - [C++][CI] EnsureAlignment.Buffer fails on test-build-vcpkg-win (#35834)
+* [GH-35821](https://github.com/apache/arrow/issues/35821) - [Python][CI] Skip extension type test failing with pandas 2.0.2 (#35822)
+* [GH-35845](https://github.com/apache/arrow/issues/35845) - [CI][Python] Fix usage of assert_frame_equal in test_hdfs.py (#35842)
+* [GH-35850](https://github.com/apache/arrow/issues/35850) - [C++] Don't disable optimization with RelWithDebInfo (#35856)
+* [GH-35932](https://github.com/apache/arrow/issues/35932) - [Java] Make JDBC test less brittle (#35940)
+* [GH-35946](https://github.com/apache/arrow/issues/35946) - [CI][Packaging] Free up more disk space for Linux packages (#35947)
+
+
+## New Features and Improvements
+
+* [GH-34657](https://github.com/apache/arrow/issues/34657) - [Go] Add ValueString(i int) string to array (#34986)
+* [GH-34789](https://github.com/apache/arrow/issues/34789) - [CI][Python] Update the Python versions in our nightly CI matrix (#35548)
+* [GH-35329](https://github.com/apache/arrow/issues/35329) - [Python] Address pandas.types.is_sparse deprecation (#35366)
+* [GH-35433](https://github.com/apache/arrow/issues/35433) - [CI] Unpin urllib3, upgrade gcs-testbench (#35434)
+* [GH-35458](https://github.com/apache/arrow/issues/35458) - [C++][Benchmarking] Require Google Benchmark 1.6.1 or later (#35459)
+* [GH-35937](https://github.com/apache/arrow/issues/35937) - [R] Update NEWS for 12.0.1 (#35938)
+
+# Apache Arrow 12.0.0 (2023-04-20 07:00:00)
+
+## Bug Fixes
+
+* [GH-14779](https://github.com/apache/arrow/issues/14779) - [C++] Compiling failed on Mac M1
+* [GH-14917](https://github.com/apache/arrow/issues/14917) - [C++] Error out when GTest is compiled with a C++ standard lower than 17 (#34765)
+* [GH-14923](https://github.com/apache/arrow/issues/14923) - [C++][Parquet] Fix DELTA_BINARY_PACKED problem on reading the last block with malford bit-width (#15241)
+* [GH-15054](https://github.com/apache/arrow/issues/15054) - [C++] Change s3 finalization to happen after arrow threads finished, add pyarrow exit hook (#33858)
+* [GH-15098](https://github.com/apache/arrow/issues/15098) - [C++] fix util::EqualityComparable to compile on clang 15 (#33940)
+* [GH-15102](https://github.com/apache/arrow/issues/15102) - [C++] Could not decompress arrow stream sent from Java arrow SDK (#15194)
+* [GH-15109](https://github.com/apache/arrow/issues/15109) - [Python] Allow creation of non empty struct array with zero field (#33764)
+* [GH-15137](https://github.com/apache/arrow/issues/15137) - [C++][CI] Fix ASAN error in streaming JSON reader tests (#33772)
+* [GH-15139](https://github.com/apache/arrow/issues/15139) - [C++] Improve bzip2 static library path detection for arrow.pc (#33712)
+* [GH-15173](https://github.com/apache/arrow/issues/15173) - [C++][Parquet] Fixing ByteStreamSplit Standard broken (#34140)
+* [GH-15212](https://github.com/apache/arrow/issues/15212) - [C++] fix sliced list array writing in ORC (#15213)
+* [GH-15247](https://github.com/apache/arrow/issues/15247) - [R] Error when trying to save a data.frame with NULL column names  (#34798)
+* [GH-15256](https://github.com/apache/arrow/issues/15256) - [C++][Dataset] Add support for writing with Partitioning::Default() (#33674)
+* [GH-28074](https://github.com/apache/arrow/issues/28074) - [C++][Dataset] Handle NaNs correctly in Parquet predicate push-down (#15125)
+* [GH-31880](https://github.com/apache/arrow/issues/31880) - [Python] Table.filter with expression now preserves order with use_threads=True (#34766)
+* [GH-31905](https://github.com/apache/arrow/issues/31905) - [DevTools] Add linting to Cython files (#14662)
+* [GH-32512](https://github.com/apache/arrow/issues/32512) - [Docs][R] Update conda install command (#34298)
+* [GH-32954](https://github.com/apache/arrow/issues/32954) - [Java][FlightRPC] Remove FlightTestUtil#getStartedServer and bind to port 0 directly (#34357)
+* [GH-33287](https://github.com/apache/arrow/issues/33287) - [R] Cannot read_parquet on http URL (#34708)
+* [GH-33336](https://github.com/apache/arrow/issues/33336) - [C++][Parquet] Avoid UB on unaligned load (#14488)
+* [GH-33466](https://github.com/apache/arrow/issues/33466) - [Go][Parquet] Add support for Dictionary arrays to pqarrow (#34342)
+* [GH-33501](https://github.com/apache/arrow/issues/33501) - [Packaging][Release] Add a post-release script to add a new version to conan (#34022)
+* [GH-33566](https://github.com/apache/arrow/issues/33566) - [C++] Add support for nullary and n-ary aggregate functions (#15083)
+* [GH-33600](https://github.com/apache/arrow/issues/33600) - [Go][Parquet] Panic in bitmap writer (#14989)
+* [GH-33616](https://github.com/apache/arrow/issues/33616) - [C++] Reorder group_by so that keys/segment keys come before aggregates (#34551)
+* [GH-33689](https://github.com/apache/arrow/issues/33689) - [Python][CI] Re-enable fsspec tests on dask nightly tests (#34925)
+* [GH-33697](https://github.com/apache/arrow/issues/33697) - [CI][Python] Nightly test for PySpark 3.2.0 fail with AttributeError on numpy.bool (#33714)
+* [GH-33699](https://github.com/apache/arrow/issues/33699) - [C++] Increase timeout of c++ tests when running under valgrind and shorten long tests (#33886)
+* [GH-33701](https://github.com/apache/arrow/issues/33701) - [C++] Add support for LTO (link time optimization) build (#33847)
+* [GH-33709](https://github.com/apache/arrow/issues/33709) - [R] Remove suffix argument from semi_join and anti_join (#34030)
+* [GH-33717](https://github.com/apache/arrow/issues/33717) - [Go] Flight SQL Server handle StreamChunk errors (#33718)
+* [GH-33721](https://github.com/apache/arrow/issues/33721) - [CI][R] Disable sccache on test-r-install-local macOS (#34713)
+* [GH-33726](https://github.com/apache/arrow/issues/33726) - [CI][Go] Set host name in Go benchmarks (#33728)
+* [GH-33727](https://github.com/apache/arrow/issues/33727) - [Python] array() errors if pandas categorical column has dictionary as string not object (#34289)
+* [GH-33754](https://github.com/apache/arrow/issues/33754) - [CI] Install brewfile dependencies for verification task jobs on M1 (#33755)
+* [GH-33767](https://github.com/apache/arrow/issues/33767) - [Go] Clear out parameter in ArrowArrayStream.get_next (#33768)
+* [GH-33777](https://github.com/apache/arrow/issues/33777) - [R] Nightly builds failing due to dataset test not being skipped on builds without datasets module (#33778)
+* [GH-33779](https://github.com/apache/arrow/issues/33779) - [R] Nightly builds (R 3.5 and 3.6) failing due to field refs test (#33780)
+* [GH-33782](https://github.com/apache/arrow/issues/33782) - [Release] Vote email number of issues is querying JIRA and producing a wrong number (#33791)
+* [GH-33783](https://github.com/apache/arrow/issues/33783) - [C#] Update release verification to use .NET 7.0 (#33799)
+* [GH-33786](https://github.com/apache/arrow/issues/33786) - [C++] Ignore old system xsimd (#33811)
+* [GH-33796](https://github.com/apache/arrow/issues/33796) - [C++] Fix wrong arrow-testing.pc config with system GoogleTest (#33812)
+* [GH-33801](https://github.com/apache/arrow/issues/33801) - [Python] Expose C++ ExtensionTypes/ExtensionArrays in pyarrow (#33802)
+* [GH-33813](https://github.com/apache/arrow/issues/33813) - [CI][GLib] Use Ruby 3.2 to update bundled MSYS2 (#33815)
+* [GH-33816](https://github.com/apache/arrow/issues/33816) - [CI][Conan] Use TARGET_FILE for portability (#33817)
+* [GH-33820](https://github.com/apache/arrow/issues/33820) - [CI][Release] Don't libxsimd-dev on Ubuntu 20.04 (#33821)
+* [GH-33824](https://github.com/apache/arrow/issues/33824) - [C++] Improve error message on diescovery failure (#33848)
+* [GH-33830](https://github.com/apache/arrow/issues/33830) - Clarify handling of Null values in REE encoding (#33831)
+* [GH-33849](https://github.com/apache/arrow/issues/33849) - [C++] Fix builds with ARROW_BUILD_SHARED=OFF and ARROW_BUILD_EXAMPLES=ON (#34350)
+* [GH-33864](https://github.com/apache/arrow/issues/33864) - [Go] Don't directly coerce cgo.Handle to unsafe.Pointer (#33865)
+* [GH-33876](https://github.com/apache/arrow/issues/33876) - [C++][Windows] Use different .pc path for each config (#33907)
+* [GH-33882](https://github.com/apache/arrow/issues/33882) - [C++] Don't find .pc files with ARROW_BUILD_STATIC=OFF (#34019)
+* [GH-33887](https://github.com/apache/arrow/issues/33887) - [Go] cdata package leaks handles, difficult debugging (#33889)
+* [GH-33904](https://github.com/apache/arrow/issues/33904) - [R] improve behavior of s3_bucket - work-around (#34009)
+* [GH-33911](https://github.com/apache/arrow/issues/33911) - [C++] Add missing std::forward to Result::ValueOrElse (#33912)
+* [GH-33914](https://github.com/apache/arrow/issues/33914) - [Release] Force brew install build-from-source to not install from API (#33915)
+* [GH-33920](https://github.com/apache/arrow/issues/33920) - [C++][CI] Disable Flight SQL in sanitizer job (#34014)
+* [GH-33932](https://github.com/apache/arrow/issues/33932) - [Go] Fix build RecordBuilder with non-nullable items map field (#33906)
+* [GH-33934](https://github.com/apache/arrow/issues/33934) - [Packaging][Linux] Enable Flight for arm64 (#34717)
+* [GH-33953](https://github.com/apache/arrow/issues/33953) - [Java] Pass custom headers on every request (#33967)
+* [GH-33954](https://github.com/apache/arrow/issues/33954) - [C++][Parquet] Preserve field-id for nested type (#33955)
+* [GH-33963](https://github.com/apache/arrow/issues/33963) - [C++] add missing arrow/engine headers (#33964)
+* [GH-33970](https://github.com/apache/arrow/issues/33970) - [C#] Make schema field names case sensitive (#33978)
+* [GH-33971](https://github.com/apache/arrow/issues/33971) - [C++] Fix AdaptiveIntBuilder to always populate data buffer (#33994)
+* [GH-33973](https://github.com/apache/arrow/issues/33973) - [Python][Docs] Update documentation for Parquet filter keyword (#33974)
+* [GH-34023](https://github.com/apache/arrow/issues/34023) - [Docs] Version warning about viewing old docs doesn't work for versions >= 10 (#34178)
+* [GH-34029](https://github.com/apache/arrow/issues/34029) - [Docs] Add Ninja to packages to install (#34040)
+* [GH-34035](https://github.com/apache/arrow/issues/34035) - [C++] Internal header file included from public one breaks build of external projects (#34036)
+* [GH-34037](https://github.com/apache/arrow/issues/34037) - [Python][Docs] Fix Table.drop docstring (#34038)
+* [GH-34044](https://github.com/apache/arrow/issues/34044) - [Go] Fix build with noasm tag (#34045)
+* [GH-34047](https://github.com/apache/arrow/issues/34047) - [C++][FlightRPC] Make DoAction warning less prominent (#34182)
+* [GH-34076](https://github.com/apache/arrow/issues/34076) - [C#] Allow schema fields with duplicate names (#34125)
+* [GH-34080](https://github.com/apache/arrow/issues/34080) - [Python] Add support for round_binary to python (#34084)
+* [GH-34082](https://github.com/apache/arrow/issues/34082) - [Packaging][deb] Follow Debian bookworm image change (#34091)
+* [GH-34086](https://github.com/apache/arrow/issues/34086) - [C++][Parquet] Fix writing num_rows to data page v2 (#34096)
+* [GH-34088](https://github.com/apache/arrow/issues/34088) - [Python] : Fix typo in get_writer (#34089)
+* [GH-34092](https://github.com/apache/arrow/issues/34092) - [R] open_csv_dataset() error if schema supplied and col_names left as TRUE (the default) (#34217)
+* [GH-34098](https://github.com/apache/arrow/issues/34098) - [Python][Docs] Fix dataset docstring (#34099)
+* [GH-34101](https://github.com/apache/arrow/issues/34101) - [Go][Parquet] NewSchemaManifest creates wrong schema field (#34127)
+* [GH-34104](https://github.com/apache/arrow/issues/34104) - [Python] update deduplicate_objects default in docs to match implementation (#34128)
+* [GH-34106](https://github.com/apache/arrow/issues/34106) - [C++][Parquet] Fix updating page stats for WriteArrowDictionary (#34107)
+* [GH-34138](https://github.com/apache/arrow/issues/34138) - [C++][Parquet] Fix parsing stats from min_value/max_value (#34112)
+* [GH-34143](https://github.com/apache/arrow/issues/34143) - [Python][Docs] Add fill_null back to API reference (#34144)
+* [GH-34148](https://github.com/apache/arrow/issues/34148) - [C++] Revert zstd back to 1.5.2 (#34190)
+* [GH-34150](https://github.com/apache/arrow/issues/34150) - [C++] Fix error due to improper initialization of conversion option defaults (#34209)
+* [GH-34150](https://github.com/apache/arrow/issues/34150) - [C++][Python] Fix improper initialization of ConversionOptions (#34156)
+* [GH-34163](https://github.com/apache/arrow/issues/34163) - [C++][CI] Ensure using the same Zstandard with bundled ORC (#34164)
+* [GH-34165](https://github.com/apache/arrow/issues/34165) - [Python] Extension array data type should default to the storage type if to_pandas_dtype is not implemented (#34559)
+* [GH-34175](https://github.com/apache/arrow/issues/34175) - [Docs] Remove Jira from .github/CONTRIBUTING.md (#34205)
+* [GH-34188](https://github.com/apache/arrow/issues/34188) - [C++][Benchmark] Add missing BENCHMARK_STATIC_DEFINE for bundled gbenchmark (#34194)
+* [GH-34191](https://github.com/apache/arrow/issues/34191) - [C++] Ensure using the same ProtoBuf in bundled ORC (#34192)
+* [GH-34206](https://github.com/apache/arrow/issues/34206) - [C++] Don't let jemalloc defines affect unity builds (#34185)
+* [GH-34210](https://github.com/apache/arrow/issues/34210) - [C++] Make casting timestamp and duration zero-copy when TimeUnit matches (#34270)
+* [GH-34211](https://github.com/apache/arrow/issues/34211) - [R] Make sure Arrow arrays are unmaterialized before attempting to access the underlying ChunkedArray (#34489)
+* [GH-34214](https://github.com/apache/arrow/issues/34214) - [C++] Pass OPENSSL_ROOT_HINT to CMAKE_PREFIX_PATH for bundled AWS (#34215)
+* [GH-34228](https://github.com/apache/arrow/issues/34228) - [R] Add LIB_DIR when Arrow is found via pkg-config (#34229)
+* [GH-34230](https://github.com/apache/arrow/issues/34230) - [Java] Call allocation listener on BaseAllocator#wrapForeignAllocation (#34231)
+* [GH-34238](https://github.com/apache/arrow/issues/34238) - [C++][Python] Segfault when calling groupby on table with misaligned chunks
+* [GH-34241](https://github.com/apache/arrow/issues/34241) - [C++] Fix ExecSpanIterator to properly initialize empty dictionary arrays (#34246)
+* [GH-34244](https://github.com/apache/arrow/issues/34244) - [Go][FlightRPC] SQLite example report Transactions support (#34245)
+* [GH-34256](https://github.com/apache/arrow/issues/34256) - [Dev] Update release scripts with main as new default branch (#34413)
+* [GH-34269](https://github.com/apache/arrow/issues/34269) - [C++] Fix include file name (#34285)
+* [GH-34271](https://github.com/apache/arrow/issues/34271) - [C++] Remove Thrift GitHub archive source url (#34273)
+* [GH-34283](https://github.com/apache/arrow/issues/34283) - [Python] Add types_mapper support to index for to_pandas (#34445)
+* [GH-34284](https://github.com/apache/arrow/issues/34284) - [Java][FlightRPC] Fixed issue with prepared statement getting sent twice (#34358)
+* [GH-34296](https://github.com/apache/arrow/issues/34296) - [C++][CI] Force appveyor builds to use conda-forge and ignore defaults channel (#34297)
+* [GH-34301](https://github.com/apache/arrow/issues/34301) - [CI][Packaging][RPM][arm64] Use closer.lua to download KEYS (#34302)
+* [GH-34303](https://github.com/apache/arrow/issues/34303) - [CI][Packaging][deb] Use system Meson on Debian GNU/Linux bookworm (#34304)
+* [GH-34306](https://github.com/apache/arrow/issues/34306) - [CI][Packaging][RPM] Don't install utf8proc-devel on CentOS Stream 8 (#34307)
+* [GH-34308](https://github.com/apache/arrow/issues/34308) - [CI][C++] Use str("") to reset std::stringstream for old g++ (#34317)
+* [GH-34309](https://github.com/apache/arrow/issues/34309) - [C++] Disable LTO for aws_lc and s2n-tls (#34349)
+* [GH-34324](https://github.com/apache/arrow/issues/34324) - [CI][C++] Specify set element type explicitly for old g++ (#34325)
+* [GH-34326](https://github.com/apache/arrow/issues/34326) - [C++][Parquet] Page null_count is incorrect if stats is disabled (#34327)
+* [GH-34366](https://github.com/apache/arrow/issues/34366) - [R] Don't getFromNamespace() the dplyr:::check_name() helper (#34369)
+* [GH-34367](https://github.com/apache/arrow/issues/34367) - [Java] Fix build error from sequential merges (#34368)
+* [GH-34381](https://github.com/apache/arrow/issues/34381) - [Dev] Retrieve committers from arrow-site committers.yml instead of relying on author_association (#34557)
+* [GH-34385](https://github.com/apache/arrow/issues/34385) - [Go] Read IPC files with compression enabled but uncompressed buffers (#34476)
+* [GH-34395](https://github.com/apache/arrow/issues/34395) - [Python] Add support for symbolic linked Arrow related include directories (#34674)
+* [GH-34404](https://github.com/apache/arrow/issues/34404) - [Python] Failing tests because pandas.Index can now store all numeric dtypes (not only 64bit versions) (#34498)
+* [GH-34410](https://github.com/apache/arrow/issues/34410) - [Python] Allow chunk sizes larger than the default to be used (#34435)
+* [GH-34432](https://github.com/apache/arrow/issues/34432) - [Java] NoCompressionCodec throws for unsupported codec type (#34580)
+* [GH-34446](https://github.com/apache/arrow/issues/34446) - [C++][Parquet] Fix RecordReaderPrimitveTypeTests test (#34447)
+* [GH-34464](https://github.com/apache/arrow/issues/34464) - [R] Missing rlang import - inform (#34465)
+* [GH-34467](https://github.com/apache/arrow/issues/34467) - [R] Disable DuckDB tests on R versions < 4.0.0   (#34468)
+* [GH-34472](https://github.com/apache/arrow/issues/34472) - [Go][FlightRPC] Drain result of DoAction in Flight SQL client (#34473)
+* [GH-34474](https://github.com/apache/arrow/issues/34474) - [C++] Detect and raise an error if a join will need too much key data (#35087)
+* [GH-34479](https://github.com/apache/arrow/issues/34479) - [Java] java-jars failing due to conflicting slf4j bindings (#34480)
+* [GH-34492](https://github.com/apache/arrow/issues/34492) - [Go] Fix missing boolean plain encoder state update (#34493)
+* [GH-34496](https://github.com/apache/arrow/issues/34496) - [C++][Parquet] fix parquet unittest in `MakePages` when num_values = 0 (#34497)
+* [GH-34513](https://github.com/apache/arrow/issues/34513) - [CI][Python] Remove unused imports from _acero.pyx to fix linting failures (#34514)
+* [GH-34519](https://github.com/apache/arrow/issues/34519) - [C++][R] Fix dataset scans that project the same name as a field (#34576)
+* [GH-34539](https://github.com/apache/arrow/issues/34539) - [C++] Fix throttled scheduler to avoid stack overflow in dataset writer (#35075)
+* [GH-34540](https://github.com/apache/arrow/issues/34540) - [C++] Removed set but unused variable (#34541)
+* [GH-34546](https://github.com/apache/arrow/issues/34546) - [C++] Support casting from large string to string scalar (#34549)
+* [GH-34568](https://github.com/apache/arrow/issues/34568) - [C++][Python] Expose Run-End Encoded arrays in Python Arrow (#34570)
+* [GH-34579](https://github.com/apache/arrow/issues/34579) - [Python][Docs] TableGroupBy.aggregate options (#34759)
+* [GH-34597](https://github.com/apache/arrow/issues/34597) - [Packaging][RPM] Don't use glog (#34598)
+* [GH-34603](https://github.com/apache/arrow/issues/34603) - [Go][Parquet] Problem writing dictionary with empty strings (#34709)
+* [GH-34605](https://github.com/apache/arrow/issues/34605) - [C++] Don't use std::move when passing shared_ptr to named table … (#34606)
+* [GH-34619](https://github.com/apache/arrow/issues/34619) - [C++] Add extension array handling to ArraySpan conversion (#34684)
+* [GH-34621](https://github.com/apache/arrow/issues/34621) - [GLib] Don't use "g_strdup(XXX->ToString().c_str())" (#34624)
+* [GH-34622](https://github.com/apache/arrow/issues/34622) - [CI][GLib] Use "meson setup ..." (#34623)
+* [GH-34629](https://github.com/apache/arrow/issues/34629) - [Go] Fix transpose_ints to work on riscv64-freebsd (#34647)
+* [GH-34633](https://github.com/apache/arrow/issues/34633) - [C++][Parquet] Fix StreamReader to read decimals (#34720)
+* [GH-34639](https://github.com/apache/arrow/issues/34639) - [C++] Support RecordBatch::FromStructArray even if struct array has nulls/offsets (#34691)
+* [GH-34641](https://github.com/apache/arrow/issues/34641) - [CI][Python] Mark test_scan on test_acero.py to require dataset (#34642)
+* [GH-34643](https://github.com/apache/arrow/issues/34643) - [CI] Fix files used for testing uncompressible data (#34646)
+* [GH-34653](https://github.com/apache/arrow/issues/34653) - [CI][C++] Fix for arrow-dataset-file-json-test segfault on alpine-linux-cpp (#35047)
+* [GH-34655](https://github.com/apache/arrow/issues/34655) - [CI][C++] arrow-compute-internals-test fails with \`No function registered with name: equal\` on test-cuda-cpp
+* [GH-34661](https://github.com/apache/arrow/issues/34661) - [CI][C#] Update Ubuntu C# jobs to use image with .NET 7.0 (#34662)
+* [GH-34667](https://github.com/apache/arrow/issues/34667) - [C++][Parquet] Test DeltaLengthByteArrayDecoder with invalid inputs (#34668)
+* [GH-34670](https://github.com/apache/arrow/issues/34670) - [Packaging][C++] Add support for customizing GDB plugin install directory (#34672)
+* [GH-34696](https://github.com/apache/arrow/issues/34696) - [C++] Check REE arrays have no null buffer in Validate() (#34697)
+* [GH-34731](https://github.com/apache/arrow/issues/34731) - [Python] Release GIL when creating RecordBatchReader (#34732)
+* [GH-34743](https://github.com/apache/arrow/issues/34743) - [Python] Relax condition in flaky Flight test (#34747)
+* [GH-34753](https://github.com/apache/arrow/issues/34753) - [C++] Nightly builds failing with EnsureAlignment (#34754)
+* [GH-34771](https://github.com/apache/arrow/issues/34771) - [C++] Add support for compiling on FreeBSD/amd64 (#34772)
+* [GH-34786](https://github.com/apache/arrow/issues/34786) - [C++] Fix output schema calculated by Substrait consumer for AggregateRel (#34904)
+* [GH-34801](https://github.com/apache/arrow/issues/34801) - [C++] Remove needless "Requires.private: libcurl openssl" from arrow.pc (#34810)
+* [GH-34807](https://github.com/apache/arrow/issues/34807) - [Go] Handle `io.EOF` when reading parquet footer size and magic bytes (#34808)
+* [GH-34823](https://github.com/apache/arrow/issues/34823) - [C++][ORC] Fix ORC CHAR type mapping (#34836)
+* [GH-34831](https://github.com/apache/arrow/issues/34831) - [C++] Check REE child buffers are valid before other checks (#34833)
+* [GH-34843](https://github.com/apache/arrow/issues/34843) - [R] Fix R build failed caused by Acero refactor (#34844)
+* [GH-34862](https://github.com/apache/arrow/issues/34862) - [C++] Fix ArrowDataset dependencies (#34866)
+* [GH-34869](https://github.com/apache/arrow/issues/34869) - [C++] Configure alpine linux nightly job to build gtest from source (#34870)
+* [GH-34871](https://github.com/apache/arrow/issues/34871) - [C++] Fixed the add_dataset_test function to properly refer to the test file (#34872)
+* [GH-34906](https://github.com/apache/arrow/issues/34906) - [C++] Return invalid status instead of segfault if reading from a closed ArrayStreamBatchReader (#35016)
+* [GH-34933](https://github.com/apache/arrow/issues/34933) - [Python] Raise minimum cython version (#34935)
+* [GH-34937](https://github.com/apache/arrow/issues/34937) - [R] Minimal build failing due to new test which relies on snappy being installed  (#34938)
+* [GH-34944](https://github.com/apache/arrow/issues/34944) - [Python] Fix crash when converting non-sequence object with getitem in pa.array() (#34958)
+* [GH-34953](https://github.com/apache/arrow/issues/34953) - [Ruby] Change null selection behavior in `Table.slice` to `:drop` (#34954)
+* [GH-34960](https://github.com/apache/arrow/issues/34960) - [C++] test util Fixing arrow Random Generator for lost nullable info (#34961)
+* [GH-34973](https://github.com/apache/arrow/issues/34973) - [CI][Packaging] Fix script path in wheel-clean (#34974)
+* [GH-34977](https://github.com/apache/arrow/issues/34977) - [C++] Fix "Requires" format in arrow-dataset.pc (#34978)
+* [GH-34983](https://github.com/apache/arrow/issues/34983) - [C++] Preserve map values nullability on C Data Interface import (#35013)
+* [GH-34988](https://github.com/apache/arrow/issues/34988) - [C#] Fix Windows-specific test issue in CDataSchemaPythonTest (#34989)
+* [GH-34995](https://github.com/apache/arrow/issues/34995) - [C++] Improve available GTest check for SYSTEM case (#34997)
+* [GH-35008](https://github.com/apache/arrow/issues/35008) - [C++] Add printers for REETestData and PageIndexReaderParam to placate Valgrind (#35011)
+* [GH-35014](https://github.com/apache/arrow/issues/35014) - [Python] Make sure unit tests can run without acero (#35017)
+* [GH-35018](https://github.com/apache/arrow/issues/35018) - [CI][Java][C++] Use ARROW_ZSTD_USE_SHARED=OFF for LLVM (#35023)
+* [GH-35021](https://github.com/apache/arrow/issues/35021) - [Python][CI] Use conda's gdb in test-conda-python (#35024)
+* [GH-35029](https://github.com/apache/arrow/issues/35029) - [CI][C#] Install python on ubuntu-csharp image to fix nuget CI build (#35030)
+* [GH-35038](https://github.com/apache/arrow/issues/35038) - [R] argument order in arrow_table affects object return type  (#35039)
+* [GH-35056](https://github.com/apache/arrow/issues/35056) - [Python][CI] Don't install gdb on Windows (#35057)
+* [GH-35060](https://github.com/apache/arrow/issues/35060) - [C#][CI] Update dotnet download link regex (#35061)
+* [GH-35062](https://github.com/apache/arrow/issues/35062) - [Go][CI] Fix verification failures (#35077)
+* [GH-35063](https://github.com/apache/arrow/issues/35063) - [CI] Fix Python requirement in C# tests (#35091)
+* [GH-35066](https://github.com/apache/arrow/issues/35066) - [CI][Packaging][Linux] Free more disk space (#35128)
+* [GH-35069](https://github.com/apache/arrow/issues/35069) - [Archery][Release] Remove retrieving ARROW issue from migration comment on Archery release (#35070)
+* [GH-35073](https://github.com/apache/arrow/issues/35073) - [R] Minimal build is failing (acero symbol not defined)  (#35074)
+* [GH-35086](https://github.com/apache/arrow/issues/35086) - [Java][CI] Upgrade CycloneDX Maven plugin version (#35092)
+* [GH-35089](https://github.com/apache/arrow/issues/35089) - [CI][C++][Flight] Test failures in macos release verification nightlies (#35090)
+* [GH-35115](https://github.com/apache/arrow/issues/35115) - [C++] Moved util_avx2.cc from acero to compute (#35117)
+* [GH-35133](https://github.com/apache/arrow/issues/35133) - [Go] fix for `math.MaxUint32 overflows int` error in 32-bit arch (#35159)
+* [GH-35143](https://github.com/apache/arrow/issues/35143) - [R][C++] Fixed shape tensor causes broken build on OSX (#35154)
+* [GH-35170](https://github.com/apache/arrow/issues/35170) - [CI][Packaging][Conan] Build grpc-proto (#35203)
+* [GH-35181](https://github.com/apache/arrow/issues/35181) - [R] Bump R package version number in versions.json (#35132)
+* [GH-35186](https://github.com/apache/arrow/issues/35186) - [CI][C++] Improve GoogleTest detection on Windows + vcpkg (#35200)
+* [GH-35187](https://github.com/apache/arrow/issues/35187) - [CI][C++] Use the latest arrow-testing (#35227)
+* [GH-35192](https://github.com/apache/arrow/issues/35192) - [Docs] Switch from `logo` to `logo_url` to support sphinx >= 6 (#35194)
+* [GH-35205](https://github.com/apache/arrow/issues/35205) - [C++][Gandiva] Don't find system Zstandard when we use bundled one (#35220)
+* [GH-35206](https://github.com/apache/arrow/issues/35206) - [C++] Look for Conda OpenSSL in Windows verification (#35225)
+* [GH-35235](https://github.com/apache/arrow/issues/35235) - [CI][Python] Pandas upstream_devel and nightlies are failing (#35248)
+* [GH-35252](https://github.com/apache/arrow/issues/35252) - [C++] Use FindGTestAlt.cmake by ArrowTesting (#35253)
+
+
+## New Features and Improvements
+
+* [GH-14863](https://github.com/apache/arrow/issues/14863) - [C++] Add appender functions to array builders that can take optionals (#24372)
+* [GH-14866](https://github.com/apache/arrow/issues/14866) - [C++] Remove internal GroupBy implementation (#14867)
+* [GH-14912](https://github.com/apache/arrow/issues/14912) - [Java] Remove usage of PlatformDependent in arrow-vector, arrow-jdbc and arrow-algorithm (#14913)
+* [GH-14939](https://github.com/apache/arrow/issues/14939) - [C++] Support Table lookups in FieldRef and FieldPath (#34537)
+* [GH-15059](https://github.com/apache/arrow/issues/15059) - [C++][Acero] populate guarantee columns from expression intstead of fragment (#15129)
+* [GH-15070](https://github.com/apache/arrow/issues/15070) - [Python][CI] Update pandas test for empty columns dtype change in pandas 2.0.1 (#35031)
+* [GH-15070](https://github.com/apache/arrow/issues/15070) - [Python][CI] Compatibility with pandas 2.0 (#34878)
+* [GH-15107](https://github.com/apache/arrow/issues/15107) - [C++][Parquet] Parquet Encoder: Support RLE for Boolean (#34526)
+* [GH-15164](https://github.com/apache/arrow/issues/15164) - [C++][Parquet] Implement current version of BloomFilter spec (#33776)
+* [GH-15171](https://github.com/apache/arrow/issues/15171) - [C++] Pass std::string_view by value (#33684)
+* [GH-15193](https://github.com/apache/arrow/issues/15193) - [C++][Parquet] Parquet FuzzReader add some fixed batch size (#33942)
+* [GH-15195](https://github.com/apache/arrow/issues/15195) - [C++][FlightRPC][Python] Add ToString/Equals for Flight types (#15196)
+* [GH-15203](https://github.com/apache/arrow/issues/15203) - [Java] Implement writing compressed files (#15223)
+* [GH-15209](https://github.com/apache/arrow/issues/15209) - [C++][Gandiva] Add abs function (#15208)
+* [GH-15231](https://github.com/apache/arrow/issues/15231) - [C++][Benchmarking] Add new memory pool metrics and track in benchmarks (#33731)
+* [GH-15280](https://github.com/apache/arrow/issues/15280) - [C++][Python][GLib] add libarrow_acero containing everything previously in compute/exec (#34711)
+* [GH-15280](https://github.com/apache/arrow/issues/15280) - [C++] Refactor to reorganize dependencies as a prequel to moving acero out of libarrow (#34518)
+* [GH-15284](https://github.com/apache/arrow/issues/15284) - [C++] Use DeclarationToExecBatches in Acero plan tests (#15288)
+* [GH-15285](https://github.com/apache/arrow/issues/15285) - [GLib] Add GArrowMatchSubstringOptions (#34725)
+* [GH-15286](https://github.com/apache/arrow/issues/15286) - [GLib] Add GArrowIndexOptions (#34679)
+* [GH-15287](https://github.com/apache/arrow/issues/15287) - [Ruby] Merge column and add suffix in Table#join (#33654)
+* [GH-15483](https://github.com/apache/arrow/issues/15483) - [C++] Add a Fixed Shape Tensor canonical ExtensionType (#8510)
+* [GH-18481](https://github.com/apache/arrow/issues/18481) - [C++] prefer casting literal over casting field ref (#15180)
+* [GH-18487](https://github.com/apache/arrow/issues/18487) - [R] Read Text (CSV/JSON) from character vector (#33968)
+* [GH-18818](https://github.com/apache/arrow/issues/18818) - [R] Create a field ref to a field in a struct (#19706)
+* [GH-20117](https://github.com/apache/arrow/issues/20117) - [Dev] Ask INFRA to switch default branch to main
+* [GH-20272](https://github.com/apache/arrow/issues/20272) - [C++] Bump version of bundled AWS SDK (#33808)
+* [GH-20351](https://github.com/apache/arrow/issues/20351) - [C++] Kernel input type matcher for run-end encoded types (#34503)
+* [GH-20407](https://github.com/apache/arrow/issues/20407) - [Go] Array Builder for REE arrays (#14114)
+* [GH-20408](https://github.com/apache/arrow/issues/20408) - [Go] Implement Encode and Decode functions for REE (#34534)
+* [GH-20415](https://github.com/apache/arrow/issues/20415) - [Go] Kernel Input Type for RLE (#14146)
+* [GH-20484](https://github.com/apache/arrow/issues/20484) - [Swift] Initial Arrow implementation (#14561)
+* [GH-21429](https://github.com/apache/arrow/issues/21429) - [GLib] Add GArrowDenseUnionArrayBuilder (#34981)
+* [GH-21430](https://github.com/apache/arrow/issues/21430) - [GLib] GArrowSparseUnionArrayBuilder (#34992)
+* [GH-25163](https://github.com/apache/arrow/issues/25163) - [C#] Support half-float arrays. (#34618)
+* [GH-25986](https://github.com/apache/arrow/issues/25986) - [C++] Enable external material and rotation for encryption keys (#34181)
+* [GH-29705](https://github.com/apache/arrow/issues/29705) - [Python] Remove deprecated pyarrow.serialization functionality (#34926)
+* [GH-30774](https://github.com/apache/arrow/issues/30774) - [Python] Remove deprecated `use_async` (#34034)
+* [GH-31148](https://github.com/apache/arrow/issues/31148) - [Dev] Update URLs in the repo to point to main (#34218)
+* [GH-31506](https://github.com/apache/arrow/issues/31506) - [Python] Address docstrings in Streams and File Access (Factory Functions) (#33609)
+* [GH-31507](https://github.com/apache/arrow/issues/31507) - [Python] Address docstrings in Streams and File Access (Stream Classes) (#33698)
+* [GH-31548](https://github.com/apache/arrow/issues/31548) - [Python] Test that zoneinfo timezones are accepted during type inference (#34394)
+* [GH-31715](https://github.com/apache/arrow/issues/31715) - [Python] Improving Classes and Methods Docstrings - Streams and File access
+* [GH-31809](https://github.com/apache/arrow/issues/31809) - [Docs] Add instructions on how to collect the produced telemetry data (#33873)
+* [GH-31868](https://github.com/apache/arrow/issues/31868) - [C++] Support concatenating extension arrays (#14463)
+* [GH-31910](https://github.com/apache/arrow/issues/31910) - [C++] Add support for Substrait cast expression (#34050)
+* [GH-32050](https://github.com/apache/arrow/issues/32050) - [C++] Implement Rank kernel on chunked arrays (#33846)
+* [GH-32104](https://github.com/apache/arrow/issues/32104) - [C++] Add support for Run-End encoded data to Arrow (#33641)
+* [GH-32105](https://github.com/apache/arrow/issues/32105) - [C++] Encode and decode Run-End Encoded vectors (#34195)
+* [GH-32240](https://github.com/apache/arrow/issues/32240) - [C#] Add new Apache.Arrow.Compression package to implement IPC decompression (#33893)
+* [GH-32240](https://github.com/apache/arrow/issues/32240) - [C#] Support decompression when reading an IPC stream from ReadOnlyMemory (#34108)
+* [GH-32240](https://github.com/apache/arrow/issues/32240) - [C#] Support decompression of IPC format buffers (#33603)
+* [GH-32292](https://github.com/apache/arrow/issues/32292) - [R][Packaging] Use binaries built on CentOS 7 for Ubuntu < 22.04 (#34048)
+* [GH-32338](https://github.com/apache/arrow/issues/32338) - [C++] Add IPC support for Run-End Encoded Arrays  (#34550)
+* [GH-32613](https://github.com/apache/arrow/issues/32613) - [C++] Simplify IPC writer for dense unions (#33822)
+* [GH-32619](https://github.com/apache/arrow/issues/32619) - [Python][Docs] Include options for PyArrow build explicitly (#34463)
+* [GH-32653](https://github.com/apache/arrow/issues/32653) - [C++] Cleanup error handling in execution engine (#15253)
+* [GH-32747](https://github.com/apache/arrow/issues/32747) - [C++] Substrait To Arrow Emit feature testing (#14174)
+* [GH-32801](https://github.com/apache/arrow/issues/32801) - [C++][Docs] Delete outdated .md files (#33829)
+* [GH-32804](https://github.com/apache/arrow/issues/32804) - [Dev] Remove "master" from default\_branch property of Target class in core.py after migration to "main" as the default Git branch
+* [GH-32916](https://github.com/apache/arrow/issues/32916) - [C++][Python] User-defined tabular functions (#14682)
+* [GH-32946](https://github.com/apache/arrow/issues/32946) - [Go] Implement REE Array and Compare (#14111)
+* [GH-32947](https://github.com/apache/arrow/issues/32947) - [Go] Implement Concatenate for REE Array (#14126)
+* [GH-32949](https://github.com/apache/arrow/issues/32949) - [Go] REE Array IPC read/write (#14223)
+* [GH-33024](https://github.com/apache/arrow/issues/33024) - [C++][Parquet] Add DELTA_LENGTH_BYTE_ARRAY encoder to Parquet writer (#14293)
+* [GH-33115](https://github.com/apache/arrow/issues/33115) - [C++] Parquet Implement crc in reading and writing Page for DATA_PAGE (v1) (#14351)
+* [GH-33143](https://github.com/apache/arrow/issues/33143) - [C++] Naming and doc/test changes for local_time compute kernel (#34263)
+* [GH-33143](https://github.com/apache/arrow/issues/33143) - [C++] Kernel to convert timestamp with timezone to wall time (#34208)
+* [GH-33209](https://github.com/apache/arrow/issues/33209) - [C++] Support for reading JSON Datasets (#33732)
+* [GH-33215](https://github.com/apache/arrow/issues/33215) - [Dev] Replace hard-coded string "master" with "main" in dev/archery/archery/crossbow/core.py after default branch migration 
+* [GH-33243](https://github.com/apache/arrow/issues/33243) - [Plasma] Remove (#34718)
+* [GH-33317](https://github.com/apache/arrow/issues/33317) - [C++] Utility method to ensure an array object meetings an alignment requirement (#14758)
+* [GH-33377](https://github.com/apache/arrow/issues/33377) - [Python] Table.drop should support passing a single column (#33810)
+* [GH-33439](https://github.com/apache/arrow/issues/33439) - [CI] Substrait Integration Testing (#14596)
+* [GH-33580](https://github.com/apache/arrow/issues/33580) - [C++] Support emit info in Substrait extension-multi and AsOfJoin (#14799)
+* [GH-33588](https://github.com/apache/arrow/issues/33588) - [Substrait] Add Substrait→Acero mapping for round operationMajor: (#33775)
+* [GH-33596](https://github.com/apache/arrow/issues/33596) - [C++][Parquet] Parquet page index read support (#14964)
+* [GH-33621](https://github.com/apache/arrow/issues/33621) - [Documentation][Developer Tools] Add CODEOWNERS file (#33622)
+* [GH-33631](https://github.com/apache/arrow/issues/33631) - [R] Rewrite Jira ticket numbers in pkgdown documents to GitHub issue numbers (#34260)
+* [GH-33640](https://github.com/apache/arrow/issues/33640) - [C++] Add backpressure to asof join node (#33648)
+* [GH-33652](https://github.com/apache/arrow/issues/33652) - [C++][Parquet] Add interface total_compressed_bytes_written (#33897)
+* [GH-33655](https://github.com/apache/arrow/issues/33655) - [C++][Parquet] Fix occasional failure in TestArrowReadWrite.MultithreadedWrite (#33739)
+* [GH-33655](https://github.com/apache/arrow/issues/33655) - [C++][Parquet] Write parquet columns in parallel (#33656)
+* [GH-33659](https://github.com/apache/arrow/issues/33659) - [Developer Tools] Add definition of Breaking Change and Critical Fix (#33660)
+* [GH-33673](https://github.com/apache/arrow/issues/33673) - [C++] Standardize as-of-join convention for past and future tolerance (#33676)
+* [GH-33679](https://github.com/apache/arrow/issues/33679) - [JS] Update dependencies (#33680)
+* [GH-33681](https://github.com/apache/arrow/issues/33681) - [JS] Update flatbuffers (#33682)
+* [GH-33723](https://github.com/apache/arrow/issues/33723) - [C++] re2::RE2::RE2() result must be checked (#33806)
+* [GH-33724](https://github.com/apache/arrow/issues/33724) - [Doc] Update the substrait conformance doc with the latest support (#33725)
+* [GH-33734](https://github.com/apache/arrow/issues/33734) - [Go] make compatible with grpc < 1.45 (#33735)
+* [GH-33737](https://github.com/apache/arrow/issues/33737) - [C++] simplify exec plan tracing (#33738)
+* [GH-33741](https://github.com/apache/arrow/issues/33741) - [Python] Address docstrings in Data Types Factory Functions (#33785)
+* [GH-33742](https://github.com/apache/arrow/issues/33742) - [Python] Address docstrings in Data Types classes  (#34380)
+* [GH-33746](https://github.com/apache/arrow/issues/33746) - [R] Update NEWS.md for 11.0.0 (#33748)
+* [GH-33750](https://github.com/apache/arrow/issues/33750) - [GLib] Add garrow_table_batch_reader_set_max_chunk_size() (#34601)
+* [GH-33760](https://github.com/apache/arrow/issues/33760) - [R][C++] Handle nested field refs in scanner  (#33770)
+* [GH-33787](https://github.com/apache/arrow/issues/33787) - [C++] Suppress unused-value warning from LinuxParseCpuFlags() on s390x (#33828)
+* [GH-33789](https://github.com/apache/arrow/issues/33789) - [Go] Add Err() to RecordReader  (#33792)
+* [GH-33794](https://github.com/apache/arrow/issues/33794) - [Go] Add SetRecordReader to PreparedStatement  (#33795)
+* [GH-33800](https://github.com/apache/arrow/issues/33800) - [Packaging] Drop support for Ubuntu 18.04 (#34020)
+* [GH-33825](https://github.com/apache/arrow/issues/33825) - [Python] Expose pyarrow.dataset.get_partition_keys publicly (get key/value from partition expression) (#33862)
+* [GH-33835](https://github.com/apache/arrow/issues/33835) - [Doc][Release] Improvements to release guide instructions (#33836)
+* [GH-33840](https://github.com/apache/arrow/issues/33840) - [Go] Improve SQLite Flight SQL Example and provide mainprog (#33841)
+* [GH-33850](https://github.com/apache/arrow/issues/33850) - [C++] Allow Substrait's default extension provider to be configured (fix) (#34075)
+* [GH-33850](https://github.com/apache/arrow/issues/33850) - [C++] Allow Substrait's default extension provider to be configured (#34042)
+* [GH-33851](https://github.com/apache/arrow/issues/33851) - [C++] Update bundled boost version (#33890)
+* [GH-33852](https://github.com/apache/arrow/issues/33852) - [Go] Return a catalog/schema from Flight SQL example server (#33853)
+* [GH-33859](https://github.com/apache/arrow/issues/33859) - [C++][Java] Bump Apache ORC to v1.8.2 (#33860)
+* [GH-33867](https://github.com/apache/arrow/issues/33867) - [Go][FlightSQL] Allow passing grpc call options to PreparedStatement methods (#33868)
+* [GH-33872](https://github.com/apache/arrow/issues/33872) - [C++] Remove hacky shared_ptr construction in AppendScalar (#33866)
+* [GH-33874](https://github.com/apache/arrow/issues/33874) - [Java] Ensure custom headers are included during JDBC auth handshake (#33946)
+* [GH-33875](https://github.com/apache/arrow/issues/33875) - [Go] Handle writing LargeString and LargeBinary types (#33965)
+* [GH-33892](https://github.com/apache/arrow/issues/33892) - [R] Map `dplyr::n()` to `count_all` kernel (#33917)
+* [GH-33895](https://github.com/apache/arrow/issues/33895) - [Release] Add a script to add new owner of our RubyGems (#33896)
+* [GH-33899](https://github.com/apache/arrow/issues/33899) - [C++] Add NamedTapRel relation as a Substrait extension (#33909)
+* [GH-33901](https://github.com/apache/arrow/issues/33901) - [Go] Add a malloc-based allocator (#33902)
+* [GH-33923](https://github.com/apache/arrow/issues/33923) - [Docs] Tensor canonical extension type specification (#33925)
+* [GH-33924](https://github.com/apache/arrow/issues/33924) - [Format] Fixed shape Tensor as a canonical extension type
+* [GH-33926](https://github.com/apache/arrow/issues/33926) - [Python] DataFrame Interchange Protocol for pyarrow.RecordBatch (#34294)
+* [GH-33935](https://github.com/apache/arrow/issues/33935) - [Go][FlightRPC] Implement Flight SQL extensions (#34039)
+* [GH-33936](https://github.com/apache/arrow/issues/33936) - [Go] C Data Interface: export dummy buffer for nil buffers (#33951)
+* [GH-33957](https://github.com/apache/arrow/issues/33957) - [C++] Add Rank chunked array benchmarks (#34602)
+* [GH-33972](https://github.com/apache/arrow/issues/33972) - [C++] Pass in metadata to ParquetReader (#34015)
+* [GH-33977](https://github.com/apache/arrow/issues/33977) - [Dev] PR Workflow automation bot (#34161)
+* [GH-33990](https://github.com/apache/arrow/issues/33990) - [C++] I know NAN != NAN but shouldn't literal(NAN) == literal(NAN)?
+* [GH-33993](https://github.com/apache/arrow/issues/33993) - [Java] Let OS assign port in tests while creating Flight server (#33992)
+* [GH-33998](https://github.com/apache/arrow/issues/33998) - [R] Update vignettes to reference the new open_*_dataset functions (#34710)
+* [GH-34003](https://github.com/apache/arrow/issues/34003) - [C++][nodiscard] (#34006)
+* [GH-34004](https://github.com/apache/arrow/issues/34004) - [C++] Add a benchmarks-maximal CMake preset (#34005)
+* [GH-34007](https://github.com/apache/arrow/issues/34007) - [C++] Add an array_span_mutable interface to ExecResult (#34008)
+* [GH-34011](https://github.com/apache/arrow/issues/34011) - [Doc] Ensure substrait is enabled on complete doc build (#34024)
+* [GH-34011](https://github.com/apache/arrow/issues/34011) - [Python][Doc] Add pyarrow.substrait to pyarrow's API reference docs (#34012)
+* [GH-34051](https://github.com/apache/arrow/issues/34051) - [C++] GcsFileSystem lazily starts sequential reads (#34052)
+* [GH-34053](https://github.com/apache/arrow/issues/34053) - [C++][Parquet] Write parquet page index (#34054)
+* [GH-34055](https://github.com/apache/arrow/issues/34055) - [Go][CI] Add test run in CI that uses noasm tag (#34167)
+* [GH-34056](https://github.com/apache/arrow/issues/34056) - [C++] Add Utility function to simplify converting any row-based structure into an `arrow::RecordBatchReader` or  an `arrow::Table` (#34057)
+* [GH-34059](https://github.com/apache/arrow/issues/34059) - [C++] Add a fetch node based on a batch index (#34060)
+* [GH-34063](https://github.com/apache/arrow/issues/34063) - [C++] Avoid waste in `GcsFileSystem::ReadAt()` (#34065)
+* [GH-34074](https://github.com/apache/arrow/issues/34074) - [GLib][FlightRPC] Add support for authentication (#34090)
+* [GH-34077](https://github.com/apache/arrow/issues/34077) - [Go] Implement RunEndEncoded Scalar (#34079)
+* [GH-34078](https://github.com/apache/arrow/issues/34078) - [C++][Parquet] Minor API improvements for BloomFilter (#33995)
+* [GH-34094](https://github.com/apache/arrow/issues/34094) - [C++] Increase Boost minimum version for clang >= 16 (#34100)
+* [GH-34113](https://github.com/apache/arrow/issues/34113) - [C++][Thirdparty] Bump zstd to v1.5.4 (#34114)
+* [GH-34118](https://github.com/apache/arrow/issues/34118) - [C++][Python] Make # of S3 event loop threads configurable (#34134)
+* [GH-34119](https://github.com/apache/arrow/issues/34119) - [C#] operator to Schema (#34126)
+* [GH-34122](https://github.com/apache/arrow/issues/34122) - [C++] Allow calling function registry functions without requiring a Substrait mapping (#34288)
+* [GH-34136](https://github.com/apache/arrow/issues/34136) - [C++] Add a concept of ordering to ExecPlan (#34137)
+* [GH-34142](https://github.com/apache/arrow/issues/34142) - [C++][Parquet] Fix record not to span multiple pages (#34193)
+* [GH-34147](https://github.com/apache/arrow/issues/34147) - [C++][Parquet] Support crc count and checking on DICTIONARY_PAGE (#34254)
+* [GH-34154](https://github.com/apache/arrow/issues/34154) - [Python] Add `is_nan` method to Array and Expression (#34184)
+* [GH-34157](https://github.com/apache/arrow/issues/34157) - [C++] Configure bundled AWS SDK to use aws-lc instead of OpenSSL (#34159)
+* [GH-34171](https://github.com/apache/arrow/issues/34171) - [Go][Compute] Implement "Unique" kernel (#34172)
+* [GH-34174](https://github.com/apache/arrow/issues/34174) - [Docs][Release] Add Twitter to post-release tasks (#34202)
+* [GH-34186](https://github.com/apache/arrow/issues/34186) - [Go] Add arrow.MapOfWithMetadata to support (#34207)
+* [GH-34197](https://github.com/apache/arrow/issues/34197) - [R][CI] Add previous R package versions to backwards compatibility CI jobs  (#34198)
+* [GH-34199](https://github.com/apache/arrow/issues/34199) - [R] Increment R package version in NEWS.md  (#34200)
+* [GH-34219](https://github.com/apache/arrow/issues/34219) - [Go][FlightRPC] Add Transactions to Sqlite FlightSQL example (#34220)
+* [GH-34242](https://github.com/apache/arrow/issues/34242) - [C++][Parquet] Optimize comment and move for shared_ptr in parquet schema (#34243)
+* [GH-34248](https://github.com/apache/arrow/issues/34248) - [Python] Expose the order_by node (#34654)
+* [GH-34248](https://github.com/apache/arrow/issues/34248) - [C++] Add an order_by node (#34249)
+* [GH-34257](https://github.com/apache/arrow/issues/34257) - [Docs] Update git links/branches from master to main for external projects (#34502)
+* [GH-34262](https://github.com/apache/arrow/issues/34262) - [C++][ORC] Support union type (#34416)
+* [GH-34266](https://github.com/apache/arrow/issues/34266) - [C++] Add a pivot_longer node (#34267)
+* [GH-34278](https://github.com/apache/arrow/issues/34278) - [C++] Expose schema in named table provider (#34279)
+* [GH-34280](https://github.com/apache/arrow/issues/34280) - [C++][Python] Clarify meaning of row_group_size and change default to 1Mi (#34281)
+* [GH-34322](https://github.com/apache/arrow/issues/34322) - [C++][Parquet] Encoding Microbench for ByteArray (#34323)
+* [GH-34330](https://github.com/apache/arrow/issues/34330) - [Go][Parquet] : Add Extension type support (#34631)
+* [GH-34332](https://github.com/apache/arrow/issues/34332) - [Go][FlightRPC] Add driver for `database/sql` framework (#34331)
+* [GH-34334](https://github.com/apache/arrow/issues/34334) - [Go][CSV] Support list fields (#34343)
+* [GH-34335](https://github.com/apache/arrow/issues/34335) - [C++][Parquet] Optimize Decoding DELTA_LENGTH_BYTE_ARRAY (#34955)
+* [GH-34339](https://github.com/apache/arrow/issues/34339) - [R] Add `skip_rows_after_names` option to `read_csv_arrow`'s options (#34340)
+* [GH-34359](https://github.com/apache/arrow/issues/34359) - [Python] Add select method to pyarrow.RecordBatch (#34360)
+* [GH-34361](https://github.com/apache/arrow/issues/34361) - [C++] Fix the handling of logical nulls for types without bitmaps like Unions and Run-End Encoded (#34408)
+* [GH-34382](https://github.com/apache/arrow/issues/34382) - [C++] Support more types in run_end_encode and run_end_decode functions (#34761)
+* [GH-34388](https://github.com/apache/arrow/issues/34388) - [C++] Build core compute kernels unconditionally (#34295)
+* [GH-34398](https://github.com/apache/arrow/issues/34398) - [R] Update NEWS.md for 11.0.0.3 (#34399)
+* [GH-34405](https://github.com/apache/arrow/issues/34405) - [C++] Add support for custom names in QueryOptions.  Wire this up to Substrait (#34406)
+* [GH-34411](https://github.com/apache/arrow/issues/34411) - [Python] Change array constructor to accept pyarrow array (#34275)
+* [GH-34417](https://github.com/apache/arrow/issues/34417) - [C++][Flight] Upgrade OpenTelemetry SemanticConventions header (#34419)
+* [GH-34421](https://github.com/apache/arrow/issues/34421) - [R] Let GcsFileSystem take a path for json_credentials (#34524)
+* [GH-34422](https://github.com/apache/arrow/issues/34422) - [R] Expose GcsFileSystem$options (#34477)
+* [GH-34425](https://github.com/apache/arrow/issues/34425) - [GLib] Add GArrowRankOptions (#34458)
+* [GH-34428](https://github.com/apache/arrow/issues/34428) - [Python][Docs] Add docsstring for `make_fragment` (#34429)
+* [GH-34437](https://github.com/apache/arrow/issues/34437) - [R] Use FetchNode and OrderByNode (#34685)
+* [GH-34440](https://github.com/apache/arrow/issues/34440) - [Ruby] Add support for `RecordBatch{File,Stream}Reader#each` without block (#34441)
+* [GH-34442](https://github.com/apache/arrow/issues/34442) - [Ruby][FlightRPC] Add `ArrowFlight::RecordBatchReader#each` (#34444)
+* [GH-34453](https://github.com/apache/arrow/issues/34453) - [Go] Support Builders for user defined extensions (#34454)
+* [GH-34481](https://github.com/apache/arrow/issues/34481) - [CI] Migrate ARM jobs from Travis to self-hosted runners (#34482)
+* [GH-34499](https://github.com/apache/arrow/issues/34499) - [R] Bump version in NEWS.md following release (#34500)
+* [GH-34536](https://github.com/apache/arrow/issues/34536) - [Parquet][C++] Overwrite default config for DeltaBitPackEncoder (#34632)
+* [GH-34543](https://github.com/apache/arrow/issues/34543) - [CI] Self-hosted ARM workflows improvements (#34512)
+* [GH-34547](https://github.com/apache/arrow/issues/34547) - [C++][ORC] Remove deprecated ORC_UNIQUE_PTR (#34548)
+* [GH-34552](https://github.com/apache/arrow/issues/34552) - [C++][Parquet] Sync parquet.thrift from upstream (#34553)
+* [GH-34561](https://github.com/apache/arrow/issues/34561) - [C++] Implement RunEndEncodedBuilder::AppendEmptyValues() (#34562)
+* [GH-34564](https://github.com/apache/arrow/issues/34564) - [Python][C++] Update code to compile with cython 3 (#34726)
+* [GH-34565](https://github.com/apache/arrow/issues/34565) - [C++] Teach dataset_writer to accept custom filename functor (#34984)
+* [GH-34572](https://github.com/apache/arrow/issues/34572) - [Go][CSV] Add binary support for CSV (#34558)
+* [GH-34581](https://github.com/apache/arrow/issues/34581) - [C++][Java] Bump Apache ORC to v1.8.3 (#34582)
+* [GH-34584](https://github.com/apache/arrow/issues/34584) - [Go][CSV] Add extension types support (#34585)
+* [GH-34590](https://github.com/apache/arrow/issues/34590) - [C++][ORC] Fix timestamp type mapping between orc and arrow (#34591)
+* [GH-34595](https://github.com/apache/arrow/issues/34595) - [C++] Update google-cloud-cpp to v2.8.0 (#34707)
+* [GH-34615](https://github.com/apache/arrow/issues/34615) - [CI][C++] Add CI job for basic format support without ARROW_COMPUTE (#34617)
+* [GH-34626](https://github.com/apache/arrow/issues/34626) - [C++] Add ordered/segmented aggregation Substrait extension (#34627)
+* [GH-34630](https://github.com/apache/arrow/issues/34630) - [C++] Second block of refactoring to move acero out of libarrow (#34575)
+* [GH-34638](https://github.com/apache/arrow/issues/34638) - [C++][Docs] Add documentation for minimal build flags (#34693)
+* [GH-34644](https://github.com/apache/arrow/issues/34644) - [C++] Prefer unsafe casting by default in Substrait  (#34645)
+* [GH-34650](https://github.com/apache/arrow/issues/34650) - [GLib] Add GArrowFilterNodeOptions (#34663)
+* [GH-34659](https://github.com/apache/arrow/issues/34659) - [C++] Review the validation processes around Run-End Encoded arrays to improve the Python integration (#34628)
+* [GH-34665](https://github.com/apache/arrow/issues/34665) - [Parquet][C++] Allow Reading BloomFilter (#34728)
+* [GH-34669](https://github.com/apache/arrow/issues/34669) - [Packaging][Conda] Update arrow feedstock dependencies (#34652)
+* [GH-34673](https://github.com/apache/arrow/issues/34673) - [C++][Parquet] Add Boolean Encoding benchmark for parquet (#34676)
+* [GH-34686](https://github.com/apache/arrow/issues/34686) - [Python] Add RunEndEncodedScalar class (#34924)
+* [GH-34687](https://github.com/apache/arrow/issues/34687) - [CI][Python] Create job to remove old nightly wheels from gemfury (#34705)
+* [GH-34692](https://github.com/apache/arrow/issues/34692) - [Java] Expose Location.toSocketAddress (#34648)
+* [GH-34700](https://github.com/apache/arrow/issues/34700) - [Packaging][RPM] Use lz4-libs instead of lz4 on AlmaLinux 8+ (#34716)
+* [GH-34703](https://github.com/apache/arrow/issues/34703) - [Python] Set copy=False explicitly when creating a pandas Series (#34593)
+* [GH-34737](https://github.com/apache/arrow/issues/34737) - [C#] C Data interface for schemas and types (#34133)
+* [GH-34742](https://github.com/apache/arrow/issues/34742) - [Java] Split flight-sql-jdbc-driver to facilitate reuse (#34678)
+* [GH-34768](https://github.com/apache/arrow/issues/34768) - [C++][Gandiva] Remove LLVM<16 pin (#34922)
+* [GH-34768](https://github.com/apache/arrow/issues/34768) - [C++][Gandiva] Accept LLVM 16 (#34916)
+* [GH-34778](https://github.com/apache/arrow/issues/34778) - [Java] Only apply ServerInterceptorAdapter logic to Flight service requests (#34815)
+* [GH-34790](https://github.com/apache/arrow/issues/34790) - [Go] : Add array.Edits.UnifiedDiff (#34827)
+* [GH-34790](https://github.com/apache/arrow/issues/34790) - [Go] : Add array.Diff() (#34806)
+* [GH-34796](https://github.com/apache/arrow/issues/34796) - [C++] Add FromTensor, ToTensor and strides methods to FixedShapeTensorArray (#34797)
+* [GH-34802](https://github.com/apache/arrow/issues/34802) - [C++][Parquet] Allow passing pool to decoder (#34803)
+* [GH-34805](https://github.com/apache/arrow/issues/34805) - [CI][Python] Cython test is failing in conda packaging builds
+* [GH-34812](https://github.com/apache/arrow/issues/34812) - [Packaging][Python] Use self-hosted arm64 Linux runner instead of Travis CI for Linux arm64 wheels (#34835)
+* [GH-34813](https://github.com/apache/arrow/issues/34813) - [C++] Improve GoogleTest detection (#34920)
+* [GH-34819](https://github.com/apache/arrow/issues/34819) - [Ruby] Add Slicer::ColumnCondition#match_substring (#34902)
+* [GH-34821](https://github.com/apache/arrow/issues/34821) - [DOC][ORC] Update documentation for ORC (#34822)
+* [GH-34832](https://github.com/apache/arrow/issues/34832) - [Go] Add Record SetColumn method  (#34794)
+* [GH-34837](https://github.com/apache/arrow/issues/34837) - [GLib][Ruby] Add Arrow::{Sparse,Dense}UnionArray#get_value (#34838)
+* [GH-34839](https://github.com/apache/arrow/issues/34839) - [Go] Build compute without noasm for non-amd64 GOARCH (#34840)
+* [GH-34853](https://github.com/apache/arrow/issues/34853) - [Go] Add TotalRecordSize, TotalArraySize (#34854)
+* [GH-34855](https://github.com/apache/arrow/issues/34855) - [Go] Add GetValue function to Metadata (#34856)
+* [GH-34863](https://github.com/apache/arrow/issues/34863) - [Go] Pow method for Decimal DataTypes (#34864)
+* [GH-34879](https://github.com/apache/arrow/issues/34879) - [Python][CI] Nightly integration tests with latest dask are failing (test\_null\_partition\_pyarrow)
+* [GH-34880](https://github.com/apache/arrow/issues/34880) - [Python][CI] Fix Windows tests failing with latest pandas 2.0 (#34881)
+* [GH-34882](https://github.com/apache/arrow/issues/34882) - [Python] Binding for FixedShapeTensorType (#34883)
+* [GH-34888](https://github.com/apache/arrow/issues/34888) - [C++][Parquet] Writer supports adding extra kv meta (#34889)
+* [GH-34893](https://github.com/apache/arrow/issues/34893) - [C++] Fix run-end encoded array iterator issues that manifest on backwards iteration (#34896)
+* [GH-34899](https://github.com/apache/arrow/issues/34899) - [C++] Dependency: bump zstd to v1.5.5 (#34900)
+* [GH-34914](https://github.com/apache/arrow/issues/34914) - [Packaging][Linux] Add support for Acero (#34915)
+* [GH-34945](https://github.com/apache/arrow/issues/34945) - [C++][Docs] Add missing cmake_minimum_required() to example (#34969)
+* [GH-34946](https://github.com/apache/arrow/issues/34946) - [Ruby] Remove DictionaryArrayBuilder related omissions (#34947)
+* [GH-34951](https://github.com/apache/arrow/issues/34951) - [Ruby] Add methods using MatchSubStringFamilyCondition (#34952)
+* [GH-34956](https://github.com/apache/arrow/issues/34956) - [Docs][Python] Add to docs the usage of the FixedShapeTensorType (#34957)
+* [GH-34962](https://github.com/apache/arrow/issues/34962) - [Go] Make GetOneForMarshal public on Array interface (#34964)
+* [GH-34968](https://github.com/apache/arrow/issues/34968) - [C++] Add Equal Options to RecordBatch (#34970)
+* [GH-35025](https://github.com/apache/arrow/issues/35025) - [Python] Remove use of deprecated pandas.Categorical fastpath keyword (#35026)
+* [GH-35042](https://github.com/apache/arrow/issues/35042) - [Go][FlightSQL driver] Add TLS configuration (#35051)
+* [GH-35078](https://github.com/apache/arrow/issues/35078) - [Python][CI] Tests on windows are running very slow
+* [GH-35218](https://github.com/apache/arrow/issues/35218) - [R] Update NEWS for the R component/version 12.0.0 (#35219)
+* [PARQUET-2201](https://issues.apache.org/jira/browse/PARQUET-2201) - [parquet-cpp] Add stress test for RecordReader ReadRecords and SkipRecords. (#14879)
+* [PARQUET-2225](https://issues.apache.org/jira/browse/PARQUET-2225) - [C++][Parquet] Allow reading dense with RecordReader (#17877)
+* [PARQUET-2232](https://issues.apache.org/jira/browse/PARQUET-2232) - [C++] Add an api to ColumnChunkMetaData to indicate if the column chunk uses a bloom filter (#33736)
+* [PARQUET-2250](https://issues.apache.org/jira/browse/PARQUET-2250) - [C++][Parquet] Expose column descriptor through RecordReader (#34318)
+
+# Apache Arrow 11.0.0 (2023-01-16 08:00:00)
+
+## New Features and Improvements
+
+* [ARROW-4709](https://issues.apache.org/jira/browse/ARROW-4709) - [C++] Optimize for ordered JSON fields (#14100)
+* [ARROW-11776](https://issues.apache.org/jira/browse/ARROW-11776) - [C++][Java] Support parquet write from ArrowReader to file (#14151)
+* [ARROW-13938](https://issues.apache.org/jira/browse/ARROW-13938) - [C++] Date and datetime types should autocast from strings
+* [ARROW-13980](https://issues.apache.org/jira/browse/ARROW-13980) - [Go] Implement Scalar ApproxEquals (#14543)
+* [ARROW-14161](https://issues.apache.org/jira/browse/ARROW-14161) - [C++][Docs] Improve Parquet C++ docs (#14018)
+* [ARROW-14832](https://issues.apache.org/jira/browse/ARROW-14832) - [R] Implement bindings for stringr::str_remove and stringr::str_remove_all (#14644)
+* [ARROW-14999](https://issues.apache.org/jira/browse/ARROW-14999) - [C++] Optional field name equality checks for map and list type (#14847)
+* [ARROW-15006](https://issues.apache.org/jira/browse/ARROW-15006) - [Python][Doc] Add five more numpydoc checks to CI (#15214)
+* [ARROW-15006](https://issues.apache.org/jira/browse/ARROW-15006) - [Python][CI][Doc] Enable numpydoc check PR03 (#13983)
+* [ARROW-15206](https://issues.apache.org/jira/browse/ARROW-15206) - [Ruby] Add support for `Arrow::Table.load(uri, schema:)` (#15148)
+* [ARROW-15460](https://issues.apache.org/jira/browse/ARROW-15460) - [R] Add as.data.frame.Dataset method (#14461)
+* [ARROW-15470](https://issues.apache.org/jira/browse/ARROW-15470) - [R] Set null value in CSV writer (#14679)
+* [ARROW-15538](https://issues.apache.org/jira/browse/ARROW-15538) - [C++] Expanding coverage of math functions from Substrait to Acero (#14434)
+* [ARROW-15592](https://issues.apache.org/jira/browse/ARROW-15592) - [C++] Add support for custom output field names in a substrait::PlanRel (#14292)
+* [ARROW-15691](https://issues.apache.org/jira/browse/ARROW-15691) - [Dev] Update archery to work with either master or main as default branch (#14033)
+* [ARROW-15732](https://issues.apache.org/jira/browse/ARROW-15732) - [C++] Do not use any CPU threads in execution plan when use_threads is false (#15104)
+* [ARROW-15812](https://issues.apache.org/jira/browse/ARROW-15812) - [R] Accept col_names in open_dataset for CSV (#14705)
+* [ARROW-16266](https://issues.apache.org/jira/browse/ARROW-16266) - [R] Add StructArray$create() (#14922)
+* [ARROW-16337](https://issues.apache.org/jira/browse/ARROW-16337) - [Python] Expose flag to enable/disable storing Arrow schema in Parquet metadata (#13000)
+* [ARROW-16430](https://issues.apache.org/jira/browse/ARROW-16430) - [Python] Add support for reading record batch custom metadata API (#13041)
+* [ARROW-16480](https://issues.apache.org/jira/browse/ARROW-16480) - [R] Update read_csv_arrow and open_dataset parse_options, read_options, and convert_options to take lists (#15270)
+* [ARROW-16616](https://issues.apache.org/jira/browse/ARROW-16616) - [Python] Add lazy Dataset.filter() method (#13409)
+* [ARROW-16673](https://issues.apache.org/jira/browse/ARROW-16673) - [Java] Integrate C Data into allocator hierarchy (#14506)
+* [ARROW-16728](https://issues.apache.org/jira/browse/ARROW-16728) - [Python] ParquetDataset to still take legacy code path when old filesystem is passed (#15269)
+* [ARROW-16728](https://issues.apache.org/jira/browse/ARROW-16728) - [Python] Switch default and deprecate use_legacy_dataset=True in ParquetDataset (#14052)
+* [ARROW-16782](https://issues.apache.org/jira/browse/ARROW-16782) - [Format] Add REE definitions to FlatBuffers (#14176)
+* [ARROW-17025](https://issues.apache.org/jira/browse/ARROW-17025) - [Dev] Remove github user name links from merge commit message (#14458)
+* [ARROW-17144](https://issues.apache.org/jira/browse/ARROW-17144) - [C++][Gandiva] Add sqrt function (#13656)
+* [ARROW-17187](https://issues.apache.org/jira/browse/ARROW-17187) - [R] Improve lazy ALTREP implementation for String (#14271)
+* [ARROW-17212](https://issues.apache.org/jira/browse/ARROW-17212) - [Python] Support lazy Dataset.filter
+* [ARROW-17301](https://issues.apache.org/jira/browse/ARROW-17301) - [C++] Implement compute function "binary_slice" (#14550)
+* [ARROW-17302](https://issues.apache.org/jira/browse/ARROW-17302) - [R] Configure curl timeout policy for S3 (#15166)
+* [ARROW-17360](https://issues.apache.org/jira/browse/ARROW-17360) - [Python] Order of columns in pyarrow.feather.read_table (#14528)
+* [ARROW-17416](https://issues.apache.org/jira/browse/ARROW-17416) - [R] Implement lubridate::with\_tz and lubridate::force\_tz
+* [ARROW-17425](https://issues.apache.org/jira/browse/ARROW-17425) - [R] `lubridate::as_datetime()` in dplyr query should be able to handle time in sub seconds (#13890)
+* [ARROW-17462](https://issues.apache.org/jira/browse/ARROW-17462) - [R] Cast scalars to type of field in Expression building (#13985)
+* [ARROW-17509](https://issues.apache.org/jira/browse/ARROW-17509) - [C++] Simplify async scheduler by removing the need to call End (#14524)
+* [ARROW-17520](https://issues.apache.org/jira/browse/ARROW-17520) - [C++] Implement SubStrait SetRel (UnionAll) (#14186)
+* [ARROW-17610](https://issues.apache.org/jira/browse/ARROW-17610) - [C++] Support additional source types in SourceNode (#14207)
+* [ARROW-17613](https://issues.apache.org/jira/browse/ARROW-17613) - [C++] Add function execution API for a preconfigured kernel (#14043)
+* [ARROW-17640](https://issues.apache.org/jira/browse/ARROW-17640) - [C++] Add File Handling Test cases for GlobFile handling in Substrait Read (#14132)
+* [ARROW-17662](https://issues.apache.org/jira/browse/ARROW-17662) - [R] Facilitate offline installation from binaries (#14086)
+* [ARROW-17726](https://issues.apache.org/jira/browse/ARROW-17726) - [CI] Enable sccache on more builds
+* [ARROW-17731](https://issues.apache.org/jira/browse/ARROW-17731) - [Website] Add blog post about Flight SQL JDBC driver
+* [ARROW-17732](https://issues.apache.org/jira/browse/ARROW-17732) - [Docs][Java] Add minimal JDBC driver docs (#14137)
+* [ARROW-17751](https://issues.apache.org/jira/browse/ARROW-17751) - [Go][Benchmarking] Add Go Benchmark Script (#14148)
+* [ARROW-17777](https://issues.apache.org/jira/browse/ARROW-17777) - [Dev] Update the pull request merge script to work with master or main
+* [ARROW-17798](https://issues.apache.org/jira/browse/ARROW-17798) - [C++][Parquet] Add DELTA_BINARY_PACKED encoder to Parquet writer (#14191)
+* [ARROW-17812](https://issues.apache.org/jira/browse/ARROW-17812) - [Gandiva][Docs] Add C++ Gandiva User Guide (#14200)
+* [ARROW-17825](https://issues.apache.org/jira/browse/ARROW-17825) - [C++] Allow the possibility to write several tables in ORCFileWriter (#14219)
+* [ARROW-17832](https://issues.apache.org/jira/browse/ARROW-17832) - [Python] Construct MapArray from sequence of dicts (instead of list of tuples) (#14547)
+* [ARROW-17836](https://issues.apache.org/jira/browse/ARROW-17836) - [C++] Allow specifying alignment of buffers (#14225)
+* [ARROW-17837](https://issues.apache.org/jira/browse/ARROW-17837) - [C++][Acero] Create ExecPlan-owned QueryContext that will store a plan's shared data structures (#14227)
+* [ARROW-17838](https://issues.apache.org/jira/browse/ARROW-17838) - [Python] Unify CMakeLists.txt in python/ (#14925)
+* [ARROW-17859](https://issues.apache.org/jira/browse/ARROW-17859) - [C++] Use self-pipe in signal-receiving StopSource (#14250)
+* [ARROW-17867](https://issues.apache.org/jira/browse/ARROW-17867) - [C++][FlightRPC] Expose bulk parameter binding in Flight SQL (#14266)
+* [ARROW-17870](https://issues.apache.org/jira/browse/ARROW-17870) - [Go] Add Scalar Binary Arithmetic
+* [ARROW-17871](https://issues.apache.org/jira/browse/ARROW-17871) - [Go] initial binary arithmetic implementation (#14255)
+* [ARROW-17887](https://issues.apache.org/jira/browse/ARROW-17887) - [R][Doc] Improve readability of the Get Started and README pages (#14514)
+* [ARROW-17892](https://issues.apache.org/jira/browse/ARROW-17892) - [CI] Use Python 3.10 in AppVeyor build (#14307)
+* [ARROW-17899](https://issues.apache.org/jira/browse/ARROW-17899) - [Go][CSV] Add Decimal support to CSV reader (#14504)
+* [ARROW-17932](https://issues.apache.org/jira/browse/ARROW-17932) - [C++] Implement streaming RecordBatchReader for JSON (#14355)
+* [ARROW-17949](https://issues.apache.org/jira/browse/ARROW-17949) - [C++][Docs] Remove the use of clcache from Windows dev docs (#14529)
+* [ARROW-17953](https://issues.apache.org/jira/browse/ARROW-17953) - [Archery] Add archery docker info command (#14345)
+* [ARROW-17960](https://issues.apache.org/jira/browse/ARROW-17960) - [C++][Python] Implement list_slice kernel (#14395)
+* [ARROW-17966](https://issues.apache.org/jira/browse/ARROW-17966) - [C++] Adjust to new format for Substrait optional arguments (#14415)
+* [ARROW-17972](https://issues.apache.org/jira/browse/ARROW-17972) - [CI] Update CUDA docker jobs (#14362)
+* [ARROW-17975](https://issues.apache.org/jira/browse/ARROW-17975) - [C++] Create at-fork facility (#14594)
+* [ARROW-17980](https://issues.apache.org/jira/browse/ARROW-17980) - [C++] As-of-Join Substrait extension (#14485)
+* [ARROW-17989](https://issues.apache.org/jira/browse/ARROW-17989) - [C++][Python] Enable struct_field kernel to accept string field names (#14495)
+* [ARROW-18008](https://issues.apache.org/jira/browse/ARROW-18008) - [Python][C++] Add use\_threads to run\_substrait\_query
+* [ARROW-18012](https://issues.apache.org/jira/browse/ARROW-18012) - [R] Make map_batches .lazy = TRUE by default (#14521)
+* [ARROW-18014](https://issues.apache.org/jira/browse/ARROW-18014) - [Java] Implement copy functions for vectors and Table (#14389)
+* [ARROW-18016](https://issues.apache.org/jira/browse/ARROW-18016) - [CI] Add sccache to r jobs (#14570)
+* [ARROW-18033](https://issues.apache.org/jira/browse/ARROW-18033) - [CI] Use $GITHUB_OUTPUT instead of set-output (#14409)
+* [ARROW-18042](https://issues.apache.org/jira/browse/ARROW-18042) - [Java] Distribute Apple M1 compatible JNI libraries via mavencentral (#14472)
+* [ARROW-18043](https://issues.apache.org/jira/browse/ARROW-18043) - [R] Properly instantiate empty arrays of extension types in Table__from_schema (#14519)
+* [ARROW-18051](https://issues.apache.org/jira/browse/ARROW-18051) - [C++] Enable tests skipped by ARROW-16392 (#14425)
+* [ARROW-18075](https://issues.apache.org/jira/browse/ARROW-18075) - [Website] Update install page for 9.0.0
+* [ARROW-18081](https://issues.apache.org/jira/browse/ARROW-18081) - [Go] Add Scalar Boolean functions (#14442)
+* [ARROW-18095](https://issues.apache.org/jira/browse/ARROW-18095) - [CI][C++][MinGW] All tests exited with 0xc0000139
+* [ARROW-18108](https://issues.apache.org/jira/browse/ARROW-18108) - [Go] More scalar binary arithmetic (Multiply and Divide) (#14544)
+* [ARROW-18109](https://issues.apache.org/jira/browse/ARROW-18109) - [Go] Initial Unary Arithmetic (#14605)
+* [ARROW-18110](https://issues.apache.org/jira/browse/ARROW-18110) - [Go] Scalar Comparisons (#14669)
+* [ARROW-18111](https://issues.apache.org/jira/browse/ARROW-18111) - [Go] Remaining scalar binary arithmetic (shifts, power, bitwise) (#14703)
+* [ARROW-18112](https://issues.apache.org/jira/browse/ARROW-18112) - [Go] Remaining Scalar Arithmetic (#14777)
+* [ARROW-18113](https://issues.apache.org/jira/browse/ARROW-18113) - [C++] Add RandomAccessFile::ReadManyAsync (#14723)
+* [ARROW-18120](https://issues.apache.org/jira/browse/ARROW-18120) - [Release][Dev] Automate running binaries/wheels verifications (#14469)
+* [ARROW-18121](https://issues.apache.org/jira/browse/ARROW-18121) - [Release][CI] Use Ubuntu 22.04 for verifying binaries (#14470)
+* [ARROW-18122](https://issues.apache.org/jira/browse/ARROW-18122) - [Release][Dev] Update expected vote e-mail (#14548)
+* [ARROW-18122](https://issues.apache.org/jira/browse/ARROW-18122) - [Release][Dev] Add verification PR URL to vote email (#14471)
+* [ARROW-18135](https://issues.apache.org/jira/browse/ARROW-18135) - [C++] Avoid warnings that ExecBatch::length may be uninitialized (#14480)
+* [ARROW-18137](https://issues.apache.org/jira/browse/ARROW-18137) - [Python][Docs] adding info about TableGroupBy.aggregation with empty list (#14482)
+* [ARROW-18144](https://issues.apache.org/jira/browse/ARROW-18144) - [C++] Improve JSONTypeError error message in testing (#14486)
+* [ARROW-18147](https://issues.apache.org/jira/browse/ARROW-18147) - [Go] Add Scalar Add/Sub for Decimal types (#14489)
+* [ARROW-18151](https://issues.apache.org/jira/browse/ARROW-18151) - [CI] Avoid unnecessary redirect for some conda URLs  (#14494)
+* [ARROW-18152](https://issues.apache.org/jira/browse/ARROW-18152) - [Python] DataFrame Interchange Protocol for pyarrow Table
+* [ARROW-18169](https://issues.apache.org/jira/browse/ARROW-18169) - [Website] Don't run dev docs update on fork repositories
+* [ARROW-18173](https://issues.apache.org/jira/browse/ARROW-18173) - [Python] Drop older versions of Pandas (<1.0) (#14631)
+* [ARROW-18174](https://issues.apache.org/jira/browse/ARROW-18174) - [R] Fix compile of altrep.cpp on some builds (#14530)
+* [ARROW-18177](https://issues.apache.org/jira/browse/ARROW-18177) - [Go] Add Add/Sub for Temporal types (#14532)
+* [ARROW-18178](https://issues.apache.org/jira/browse/ARROW-18178) - [Java] ArrowVectorIterator incorrectly closes Vectors (#14534)
+* [ARROW-18184](https://issues.apache.org/jira/browse/ARROW-18184) - [C++] Improve JSON parser benchmarks (#14552)
+* [ARROW-18203](https://issues.apache.org/jira/browse/ARROW-18203) - [R] Refactor to remove unnecessary uses of build_expr (#14553)
+* [ARROW-18206](https://issues.apache.org/jira/browse/ARROW-18206) - [C++][CI] Add a nightly build for C++20 compilation (#14571)
+* [ARROW-18220](https://issues.apache.org/jira/browse/ARROW-18220) - [Dev] Remove a magic number for the default parallel level in downloader (#14563)
+* [ARROW-18221](https://issues.apache.org/jira/browse/ARROW-18221) - [Release][Dev] Add support for customizing arrow-site dir (#14564)
+* [ARROW-18222](https://issues.apache.org/jira/browse/ARROW-18222) - [Release][MSYS2] Detect reverse dependencies automatically (#14565)
+* [ARROW-18223](https://issues.apache.org/jira/browse/ARROW-18223) - [Release][Homebrew] Detect reverse dependencies automatically (#14566)
+* [ARROW-18224](https://issues.apache.org/jira/browse/ARROW-18224) - [Release][jar] Use temporary directory for download (#14567)
+* [ARROW-18230](https://issues.apache.org/jira/browse/ARROW-18230) - [Python] Pass Cmake args to Python CPP 
+* [ARROW-18233](https://issues.apache.org/jira/browse/ARROW-18233) - [Release][JS] don't install yarn to system (#14577)
+* [ARROW-18235](https://issues.apache.org/jira/browse/ARROW-18235) - [C++][Gandiva] Fix the like function implementation for escape chars (#14579)
+* [ARROW-18237](https://issues.apache.org/jira/browse/ARROW-18237) - [Java] Extend Table code (#14573)
+* [ARROW-18238](https://issues.apache.org/jira/browse/ARROW-18238) - [Docs][Python] Improve docs for S3FileSystem (#14599)
+* [ARROW-18240](https://issues.apache.org/jira/browse/ARROW-18240) - [R] head() is crashing on some nightly builds (#14582)
+* [ARROW-18243](https://issues.apache.org/jira/browse/ARROW-18243) - [R] Sanitizer nightly failure pointing to mixup between TimestampType and DurationType
+* [ARROW-18248](https://issues.apache.org/jira/browse/ARROW-18248) - [CI][Release] Use GitHub token to avoid API rate limit (#14588)
+* [ARROW-18249](https://issues.apache.org/jira/browse/ARROW-18249) - [C++] Update vcpkg port to arrow 10.0.0
+* [ARROW-18253](https://issues.apache.org/jira/browse/ARROW-18253) - [C++][Parquet] Add additional bounds safety checks (#14592)
+* [ARROW-18259](https://issues.apache.org/jira/browse/ARROW-18259) - [C++][CMake] Add support for system Thrift CMake package (#14597)
+* [ARROW-18264](https://issues.apache.org/jira/browse/ARROW-18264) - [Python] Add missing value accessor to temporal types (#14746)
+* [ARROW-18264](https://issues.apache.org/jira/browse/ARROW-18264) - [Python] Expose time32/time64 scalar values (#14637)
+* [ARROW-18270](https://issues.apache.org/jira/browse/ARROW-18270) - [Python] Remove gcc 4.9 compatibility code (#14602)
+* [ARROW-18278](https://issues.apache.org/jira/browse/ARROW-18278) - [Java] Adjust path in Maven generate-libs-jni-macos-linux (#14623)
+* [ARROW-18280](https://issues.apache.org/jira/browse/ARROW-18280) - [C++][Python] Support slicing to end in list_slice kernel (#14749)
+* [ARROW-18282](https://issues.apache.org/jira/browse/ARROW-18282) - [C++][Python] Support step >= 1 in list_slice kernel (#14696)
+* [ARROW-18287](https://issues.apache.org/jira/browse/ARROW-18287) - [C++][CMake] Add support for Brotli/utf8proc provided by vcpkg (#14609)
+* [ARROW-18289](https://issues.apache.org/jira/browse/ARROW-18289) - [Release][vcpkg] Add a script to update vcpkg's arrow port (#14610)
+* [ARROW-18291](https://issues.apache.org/jira/browse/ARROW-18291) - [Release][Docs] Update how to release (#14612)
+* [ARROW-18292](https://issues.apache.org/jira/browse/ARROW-18292) - [Release][Python] Upload .wheel/.tar.gz for release not RC (#14708)
+* [ARROW-18303](https://issues.apache.org/jira/browse/ARROW-18303) - [Go] Allow easy compute module importing (#14690)
+* [ARROW-18306](https://issues.apache.org/jira/browse/ARROW-18306) - [R] Failing test after compute function updates (#14620)
+* [ARROW-18318](https://issues.apache.org/jira/browse/ARROW-18318) - [Python] Expose Scalar.validate() (#15149)
+* [ARROW-18321](https://issues.apache.org/jira/browse/ARROW-18321) - [R] Add tests for binary_slice kernel (#14647)
+* [ARROW-18323](https://issues.apache.org/jira/browse/ARROW-18323) - Enabling issue templates in GitHub issues (#14675)
+* [ARROW-18332](https://issues.apache.org/jira/browse/ARROW-18332) - [Go] Cast Dictionary types to value type (#14650)
+* [ARROW-18333](https://issues.apache.org/jira/browse/ARROW-18333) - [Go][Docs] Update compute function docs (#14815)
+* [ARROW-18336](https://issues.apache.org/jira/browse/ARROW-18336) - [Release][Docs] Don't update versions not in major release (#14653)
+* [ARROW-18337](https://issues.apache.org/jira/browse/ARROW-18337) - [R] Possible undesirable handling of POSIXlt objects (#15277)
+* [ARROW-18340](https://issues.apache.org/jira/browse/ARROW-18340) - [Python] PyArrow C++ header files no longer always included in installed pyarrow (#14656)
+* [ARROW-18341](https://issues.apache.org/jira/browse/ARROW-18341) - [Doc][Python] Update note about bundling Arrow C++ on Windows (#14660)
+* [ARROW-18342](https://issues.apache.org/jira/browse/ARROW-18342) - [C++] AsofJoinNode support for Boolean data field (#14658)
+* [ARROW-18345](https://issues.apache.org/jira/browse/ARROW-18345) - [R] Create a CRAN-specific packaging checklist that lives in the R package directory (#14678)
+* [ARROW-18348](https://issues.apache.org/jira/browse/ARROW-18348) - [CI][Release][Yum] redhat-rpm-config is needed on AlmaLinux 9 (#14661)
+* [ARROW-18350](https://issues.apache.org/jira/browse/ARROW-18350) - [C++] Use std::to_chars instead of std::to_string (#14666)
+* [ARROW-18358](https://issues.apache.org/jira/browse/ARROW-18358) - [R] Implement new function open\_dataset\_csv with signature more closely matching read\_csv\_arrow
+* [ARROW-18361](https://issues.apache.org/jira/browse/ARROW-18361) - [CI][Conan] Merge upstream changes (#14671)
+* [ARROW-18363](https://issues.apache.org/jira/browse/ARROW-18363) - [Docs] Include warning when viewing old docs (redirecting to stable/dev docs) (#14839)
+* [ARROW-18366](https://issues.apache.org/jira/browse/ARROW-18366) - [Packaging][RPM][Gandiva] Fix link error on AlmaLinux 9 (#14680)
+* [ARROW-18367](https://issues.apache.org/jira/browse/ARROW-18367) - [C++] Enable the creation of named table relations (#14681)
+* [ARROW-18373](https://issues.apache.org/jira/browse/ARROW-18373) - Fix component drop-down, add license text (#14688)
+* [ARROW-18377](https://issues.apache.org/jira/browse/ARROW-18377) - MIGRATION: Automate component labels from issue form content (#15245)
+* [ARROW-18380](https://issues.apache.org/jira/browse/ARROW-18380) - [Dev] Update dev_pr GitHub workflows to accept both GitHub issues and JIRA (#14731)
+* [ARROW-18384](https://issues.apache.org/jira/browse/ARROW-18384) - [Release][MSYS2] Show pull request title (#14709)
+* [ARROW-18391](https://issues.apache.org/jira/browse/ARROW-18391) - [R] Fix the version selector dropdown in the dev docs (#14800)
+* [ARROW-18395](https://issues.apache.org/jira/browse/ARROW-18395) - [C++] Move select-k implementation into separate module
+* [ARROW-18399](https://issues.apache.org/jira/browse/ARROW-18399) - [Python] Reduce warnings during tests (#14729)
+* [ARROW-18401](https://issues.apache.org/jira/browse/ARROW-18401) - [R] Failing test on test-r-rhub-ubuntu-gcc-release-latest (#14894)
+* [ARROW-18402](https://issues.apache.org/jira/browse/ARROW-18402) - [C++] Expose `DeclarationInfo` (#14765)
+* [ARROW-18406](https://issues.apache.org/jira/browse/ARROW-18406) - [C++] Can't build Arrow with Substrait on Ubuntu 20.04 (#14735)
+* [ARROW-18407](https://issues.apache.org/jira/browse/ARROW-18407) - [Release][Website] Use UTC for release date (#14737)
+* [ARROW-18409](https://issues.apache.org/jira/browse/ARROW-18409) - [GLib][Plasma] Suppress deprecated warning in building plasma-glib (#14739)
+* [ARROW-18410](https://issues.apache.org/jira/browse/ARROW-18410) - [Packaging][Ubuntu] Add support for Ubuntu 22.10 (#14740)
+* [ARROW-18413](https://issues.apache.org/jira/browse/ARROW-18413) - [C++][Parquet] Expose page index info from ColumnChunkMetaData (#14742)
+* [ARROW-18418](https://issues.apache.org/jira/browse/ARROW-18418) - [Website] do not delete /datafusion-python
+* [ARROW-18419](https://issues.apache.org/jira/browse/ARROW-18419) - [C++] Update vendored fast_float (#14817)
+* [ARROW-18420](https://issues.apache.org/jira/browse/ARROW-18420) - [C++][Parquet] Introduce ColumnIndex & OffsetIndex (#14803)
+* [ARROW-18421](https://issues.apache.org/jira/browse/ARROW-18421) - [C++][ORC] Add accessor for stripe information in reader (#14806)
+* [ARROW-18423](https://issues.apache.org/jira/browse/ARROW-18423) - [Python] Expose reading a schema from an IPC message (#14831)
+* [ARROW-18426](https://issues.apache.org/jira/browse/ARROW-18426) - Update committers and PMC members on website
+* [ARROW-18427](https://issues.apache.org/jira/browse/ARROW-18427) - [C++] Support negative tolerance in `AsofJoinNode` (#14934)
+* [ARROW-18428](https://issues.apache.org/jira/browse/ARROW-18428) - [Website] Enable github issues on arrow-site repo
+* [ARROW-18435](https://issues.apache.org/jira/browse/ARROW-18435) - [C++][Java] Update ORC to 1.8.1 (#14942)
+* [GH-14474](https://github.com/apache/arrow/issues/14474) - Opportunistically delete R references to shared pointers where possible (#15278)
+* [GH-14720](https://github.com/apache/arrow/issues/14720) - [Dev] Update merge_arrow_pr script to accept GitHub issues (#14750)
+* [GH-14755](https://github.com/apache/arrow/issues/14755) - [Python] Expose QuotingStyle to Python (#14722)
+* [GH-14761](https://github.com/apache/arrow/issues/14761) - [Dev] Update labels on PR labeler to use new Component ones (#14762)
+* [GH-14778](https://github.com/apache/arrow/issues/14778) - [Python] Add (Chunked)Array sort() method (#14781)
+* [GH-14784](https://github.com/apache/arrow/issues/14784) - [Dev] Add possibility to autoassign on GitHub issue comment (#14785)
+* [GH-14786](https://github.com/apache/arrow/issues/14786) - [Java][Doc] Replace in-folder documentation (#14789)
+* [GH-14787](https://github.com/apache/arrow/issues/14787) - [Java][Doc] Update table.rst (#14794)
+* [GH-14809](https://github.com/apache/arrow/issues/14809) - [Dev] Add created GitHub issues to issues@arrow.apache.org (#14811)
+* [GH-14816](https://github.com/apache/arrow/issues/14816) - [Release] Make dev/release/06-java-upload.sh reusable from other project (#14830)
+* [GH-14824](https://github.com/apache/arrow/issues/14824) - [CI] r-binary-packages should only upload artifacts if all tests succeed  (#14841)
+* [GH-14844](https://github.com/apache/arrow/issues/14844) - [Java] Short circuit null checks when comparing non null field types (#15106)
+* [GH-14846](https://github.com/apache/arrow/issues/14846) - [Dev] Support GitHub Releases in download_rc_binaries.py (#14848)
+* [GH-14854](https://github.com/apache/arrow/issues/14854) - Make changes to .md pages (#14852)
+* [GH-14869](https://github.com/apache/arrow/issues/14869) - [C++] Add Cflags.private defining <lib>_STATIC to <lib>.pc.in. (#14900)
+* [GH-14873](https://github.com/apache/arrow/issues/14873) - [Java] DictionaryEncoder can decode without building a DictionaryHashTable (#14874)
+* [GH-14885](https://github.com/apache/arrow/issues/14885) - [Docs] Make changes to the New Contrib Guide (Jira -> GitHub) (#14889)
+* [GH-14901](https://github.com/apache/arrow/issues/14901) - [Java] ListSubfieldEncoder and StructSubfieldEncoder can decode without DictionaryHashTable (#14902)
+* [GH-14918](https://github.com/apache/arrow/issues/14918) - [Docs] Make changes to developers section of the docs (Jira -> GitHub) (#14919)
+* [GH-14920](https://github.com/apache/arrow/issues/14920) - [C++][CMake] Add missing -latomic to Arrow CMake package (#15251)
+* [GH-14937](https://github.com/apache/arrow/issues/14937) - [C++] Add rank kernel benchmarks (#14938)
+* [GH-14951](https://github.com/apache/arrow/issues/14951) - [C++][Parquet] Add benchmarks for DELTA_BINARY_PACKED encoding (#15140)
+* [GH-14961](https://github.com/apache/arrow/issues/14961) - [Ruby] Use newer extpp for C++17 (#14962)
+* [GH-14975](https://github.com/apache/arrow/issues/14975) - [Python] Dataset.sort_by (#14976)
+* [GH-14976](https://github.com/apache/arrow/issues/14976) - [Python] Avoid dependency on exec plan in Table.sort_by to fix minimal tests (#15268)
+* [GH-14977](https://github.com/apache/arrow/issues/14977) - [Dev][CI] Add notify-token-expiration to archery (#14978)
+* [GH-14981](https://github.com/apache/arrow/issues/14981) - [R] Forward compatibility with dplyr::join_by()  (#33664)
+* [GH-14986](https://github.com/apache/arrow/issues/14986) - [Release] Don't detect previous version on maint-X.Y.Z branch (#14987)
+* [GH-14992](https://github.com/apache/arrow/issues/14992) - [Packaging] Make dev/release/binary-task.rb reusable from other project (#14994)
+* [GH-14997](https://github.com/apache/arrow/issues/14997) - [Release] Ensure archery release tasks works with both new style GitHub issues and old style JIRA issues (#33615)
+* [GH-14999](https://github.com/apache/arrow/issues/14999) - [Release][Archery] Update archery release changelog to support GitHub issues
+* [GH-15002](https://github.com/apache/arrow/issues/15002) - [Release][Archery] Update archery release cherry-pick to support GitHub issues
+* [GH-15005](https://github.com/apache/arrow/issues/15005) - [Go] Add scalar.Append to append scalars to builder (#15006)
+* [GH-15009](https://github.com/apache/arrow/issues/15009) - [R] stringr 1.5.0 with the str_like function is already released (#15010)
+* [GH-15012](https://github.com/apache/arrow/issues/15012) - [Packaging][deb] Use system Protobuf for Debian GNU/Linux bookworm (#15013)
+* [GH-15035](https://github.com/apache/arrow/issues/15035) - [CI] Remove unsupported turbodbc jobs and scripts from CI (#15036)
+* [GH-15050](https://github.com/apache/arrow/issues/15050) - [Java][Docs] Update and consolidate Memory documentation (#15051)
+* [GH-15072](https://github.com/apache/arrow/issues/15072) - [C++] Move the round functionality into a separate module (#15073)
+* [GH-15074](https://github.com/apache/arrow/issues/15074) - [Parquet][C++] change 16-bit page_ordinal to 32-bit (#15182)
+* [GH-15081](https://github.com/apache/arrow/issues/15081) - [Release] Add support for using custom artifacts directory in dev/release/05-binary-upload.sh (#15082)
+* [GH-15084](https://github.com/apache/arrow/issues/15084) - [Ruby] Use common keys when keys.nil? in Table#join (#15088)
+* [GH-15085](https://github.com/apache/arrow/issues/15085) - [Ruby] Add ColumnContainable#column_names (#15089)
+* [GH-15087](https://github.com/apache/arrow/issues/15087) - [Release] Slow down downloading RC binaries from GitHub (#15090)
+* [GH-15096](https://github.com/apache/arrow/issues/15096) - [C++] Substrait ProjectRel Emit Optimization (#15097)
+* [GH-15100](https://github.com/apache/arrow/issues/15100) - [C++][Parquet] Add benchmark for reading strings from Parquet (#15101)
+* [GH-15119](https://github.com/apache/arrow/issues/15119) - [Release][Docs][R] Update version information in patch release (#15120)
+* [GH-15134](https://github.com/apache/arrow/issues/15134) - [Ruby] Specify -mmacox-version-min=10.14 explicitly for old Xcode (#15135)
+* [GH-15146](https://github.com/apache/arrow/issues/15146) - [GLib] Add `GADatasetFinishOptions` (#15147)
+* [GH-15151](https://github.com/apache/arrow/issues/15151) - [C++] Adding RecordBatchReaderSource to solve an issue in R API (#15183)
+* [GH-15168](https://github.com/apache/arrow/issues/15168) - [GLib] Add support for half float (#15169)
+* [GH-15174](https://github.com/apache/arrow/issues/15174) - [Go][FlightRPC] Expose Flight Server Desc and RegisterFlightService (#15177)
+* [GH-15185](https://github.com/apache/arrow/issues/15185) - [C++][Parquet] Improve documentation for Parquet Reader column_indices (#15184)
+* [GH-15199](https://github.com/apache/arrow/issues/15199) - [C++][Substrait] Allow AGGREGATION_INVOCATION_UNSPECIFIED as valid invocation (#15198)
+* [GH-15200](https://github.com/apache/arrow/issues/15200) - [C++] Created benchmarks for round kernels. (#15201)
+* [GH-15205](https://github.com/apache/arrow/issues/15205) - [R] Fix a parquet-fixture finding in R tests (#15207)
+* [GH-15216](https://github.com/apache/arrow/issues/15216) - [C++][Parquet] Parquet writer accepts RecordBatch (#15240)
+* [GH-15218](https://github.com/apache/arrow/issues/15218) - [Python] Remove auto generated pyarrow_api.h and pyarrow_lib.h (#15219)
+* [GH-15226](https://github.com/apache/arrow/issues/15226) - [C++] Add DurationType to hash kernels (#33685)
+* [GH-15237](https://github.com/apache/arrow/issues/15237) - [C++] Add ::arrow::Unreachable() using std::string_view (#15238)
+* [GH-15239](https://github.com/apache/arrow/issues/15239) - [C++][Parquet] Parquet writer writes decimal as int32/64 (#15244)
+* [GH-15249](https://github.com/apache/arrow/issues/15249) - [Documentation] Add PR template (#15250)
+* [GH-15257](https://github.com/apache/arrow/issues/15257) - [GLib][Dataset] Add GADatasetHivePartitioning (#15272)
+* [GH-15265](https://github.com/apache/arrow/issues/15265) - [Java] Publish SBOM artifacts (#15267)
+* [GH-15289](https://github.com/apache/arrow/issues/15289) - [Ruby] Return self when saving Table to csv (#33653)
+* [GH-15290](https://github.com/apache/arrow/issues/15290) - [C++][Compute] Optimize IfElse kernel AAS/ASA case when the scalar is null (#15291)
+* [GH-33607](https://github.com/apache/arrow/issues/33607) - [C++] Support optional additional arguments for inline visit functions (#33608)
+* [GH-33610](https://github.com/apache/arrow/issues/33610) - [Dev] Do not allow ARROW prefixed tickets to be merged nor used on PR titles (#33611)
+* [GH-33619](https://github.com/apache/arrow/issues/33619) - [Documentation] Update PR template (#33620)
+* [GH-33657](https://github.com/apache/arrow/issues/33657) - [C++] arrow-dataset.pc doesn't depend on parquet.pc without ARROW_PARQUET=ON (#33665)
+* [GH-33670](https://github.com/apache/arrow/issues/33670) - [GLib] Add `GArrowProjectNodeOptions` (#33677)
+* [GH-33671](https://github.com/apache/arrow/issues/33671) - [GLib] Add `garrow_chunked_array_new_empty()` (#33675)
+* [PARQUET-2179](https://issues.apache.org/jira/browse/PARQUET-2179) - [C++][Parquet] Add a test for skipping repeated fields (#14366)
+* [PARQUET-2188](https://issues.apache.org/jira/browse/PARQUET-2188) - [parquet-cpp] Add SkipRecords API to RecordReader (#14142)
+* [PARQUET-2204](https://issues.apache.org/jira/browse/PARQUET-2204) - [parquet-cpp] TypedColumnReaderImpl::Skip should reuse scratch space (#14509)
+* [PARQUET-2206](https://issues.apache.org/jira/browse/PARQUET-2206) - [parquet-cpp] Microbenchmark for ColumnReader ReadBatch and Skip (#14523)
+* [PARQUET-2209](https://issues.apache.org/jira/browse/PARQUET-2209) - [parquet-cpp] Optimize skip for the case that number of values to skip equals page size (#14545)
+* [PARQUET-2210](https://issues.apache.org/jira/browse/PARQUET-2210) - [C++][Parquet] Skip pages based on header metadata using a callback (#14603)
+* [PARQUET-2211](https://issues.apache.org/jira/browse/PARQUET-2211) - [C++] Print ColumnMetaData.encoding_stats field (#14556)
+
+
+## Bug Fixes
+
+* [ARROW-11631](https://issues.apache.org/jira/browse/ARROW-11631) - [R] Implement RPrimitiveConverter for Decimal type
+* [ARROW-15026](https://issues.apache.org/jira/browse/ARROW-15026) - [Python] Error if datetime.timedelta to pyarrow.duration conversion overflows (#13718)
+* [ARROW-15328](https://issues.apache.org/jira/browse/ARROW-15328) - [C++][Docs] Streaming CSV reader missing from documentation (#14452)
+* [ARROW-15822](https://issues.apache.org/jira/browse/ARROW-15822) - [C++] Cast duration to string (thus CSV writing) not supported (#14450)
+* [ARROW-16464](https://issues.apache.org/jira/browse/ARROW-16464) - [C++][CI][GPU] Add CUDA CI (#14497)
+* [ARROW-16471](https://issues.apache.org/jira/browse/ARROW-16471) - [Go] RecordBuilder UnmarshalJSON handle complex values (#14560)
+* [ARROW-16547](https://issues.apache.org/jira/browse/ARROW-16547) - [Python] to_pandas fails with FixedOffset timezones when timestamp_as_object is used (#14448)
+* [ARROW-16795](https://issues.apache.org/jira/browse/ARROW-16795) - [C#][Flight] Nightly verify-rc-source-csharp-macos-arm64 fails (#15235)
+* [ARROW-16817](https://issues.apache.org/jira/browse/ARROW-16817) - [C++] Test ORC writer errors with invalid types (#14638)
+* [ARROW-17054](https://issues.apache.org/jira/browse/ARROW-17054) - [R] Creating an Array from an object bigger than 2^31 results in an Array of length 0 (#14929)
+* [ARROW-17192](https://issues.apache.org/jira/browse/ARROW-17192) - [Python] Pass **kwargs in read_feather to to_pandas() (#14492)
+* [ARROW-17332](https://issues.apache.org/jira/browse/ARROW-17332) - [R] error parsing folder path with accent ('c:/Público') in read_csv_arrow (#14930)
+* [ARROW-17361](https://issues.apache.org/jira/browse/ARROW-17361) - [R] dplyr::summarize fails with division when divisor is a variable (#14933)
+* [ARROW-17374](https://issues.apache.org/jira/browse/ARROW-17374) - [C++] Snappy package may be built without CMAKE_BUILD_TYPE (#14818)
+* [ARROW-17458](https://issues.apache.org/jira/browse/ARROW-17458) - [C++] Cast between decimal and string (#14232)
+* [ARROW-17538](https://issues.apache.org/jira/browse/ARROW-17538) - [C++] Import schema when importing array stream (#15037)
+* [ARROW-17637](https://issues.apache.org/jira/browse/ARROW-17637) - [R][us][s] (#14935)
+* [ARROW-17692](https://issues.apache.org/jira/browse/ARROW-17692) - [R] Add support for building with system AWS SDK C++ (#14235)
+* [ARROW-17772](https://issues.apache.org/jira/browse/ARROW-17772) - [Doc] Sphinx / reST markup error
+* [ARROW-17774](https://issues.apache.org/jira/browse/ARROW-17774) - [Python] Add python test for decimals to csv (#14525)
+* [ARROW-17858](https://issues.apache.org/jira/browse/ARROW-17858) - [C++] Compilating warning in arrow/csv/parser.h (#14445)
+* [ARROW-17893](https://issues.apache.org/jira/browse/ARROW-17893) - [Python] Test that reading of timedelta is stable (read_feather/to_pandas) (#14531)
+* [ARROW-17985](https://issues.apache.org/jira/browse/ARROW-17985) - [C++][Python] Improve s3fs error message when wrong region (#14601)
+* [ARROW-17991](https://issues.apache.org/jira/browse/ARROW-17991) - [Python][C++] Adding support for IpcWriteOptions to the dataset ipc file writer (#14414)
+* [ARROW-18052](https://issues.apache.org/jira/browse/ARROW-18052) - [Python] Support passing create_dir thru pq.write_to_dataset (#14459)
+* [ARROW-18068](https://issues.apache.org/jira/browse/ARROW-18068) - [Dev][Archery][Crossbow] Comment bot only waits for task if link is not available (#14429)
+* [ARROW-18070](https://issues.apache.org/jira/browse/ARROW-18070) - [C++] Invoke google::protobuf::ShutdownProtobufLibrary for substrait tests (#14508)
+* [ARROW-18086](https://issues.apache.org/jira/browse/ARROW-18086) - [Ruby] Add support for HalfFloat (#15204)
+* [ARROW-18087](https://issues.apache.org/jira/browse/ARROW-18087) - [C++] RecordBatch::Equals should not ignore field names (#14451)
+* [ARROW-18088](https://issues.apache.org/jira/browse/ARROW-18088) - [CI][Python] Fix pandas master/nightly build failure related to timedelta (#14460)
+* [ARROW-18101](https://issues.apache.org/jira/browse/ARROW-18101) - [R] RecordBatchReaderHead from ExecPlan with UDF cannot be read (#14518)
+* [ARROW-18106](https://issues.apache.org/jira/browse/ARROW-18106) - [C++] JSON reader ignores explicit schema with default unexpected_field_behavior="infer" (#14741)
+* [ARROW-18117](https://issues.apache.org/jira/browse/ARROW-18117) - [C++] Fix static bundle build (#14465)
+* [ARROW-18118](https://issues.apache.org/jira/browse/ARROW-18118) - [Release][Dev] Fix problems in 02-source.sh/03-binary-submit.sh for 10.0.0-rc0 (#14468)
+* [ARROW-18123](https://issues.apache.org/jira/browse/ARROW-18123) - [Python] Fix writing files with multi-byte characters in file name (#14764)
+* [ARROW-18125](https://issues.apache.org/jira/browse/ARROW-18125) - [Python] Handle pytest 8 deprecations about pytest.warns(None) 
+* [ARROW-18126](https://issues.apache.org/jira/browse/ARROW-18126) - [Python] Remove ARROW_BUILD_DIR in building pyarrow C++ (#14498)
+* [ARROW-18128](https://issues.apache.org/jira/browse/ARROW-18128) - [Java][CI] Update timestamp of Java Nightlies X.Y.Z-SNAPSHOT folder (#14496)
+* [ARROW-18149](https://issues.apache.org/jira/browse/ARROW-18149) - [C++] fix build failure of `join_example` (#14490)
+* [ARROW-18157](https://issues.apache.org/jira/browse/ARROW-18157) - [Dev][Archery] "archery docker run" sets env var to None when inherited (#14501)
+* [ARROW-18158](https://issues.apache.org/jira/browse/ARROW-18158) - [CI] Use default Python version when installing conda cpp environment to fix conda builds (#14500)
+* [ARROW-18159](https://issues.apache.org/jira/browse/ARROW-18159) - [Go][Release] Add `go install` to verify-release script (#14503)
+* [ARROW-18161](https://issues.apache.org/jira/browse/ARROW-18161) - [Ruby] Refer source input in sub objects (#15217)
+* [ARROW-18164](https://issues.apache.org/jira/browse/ARROW-18164) - [Python] Honor default memory pool in Dataset scanning (#14516)
+* [ARROW-18167](https://issues.apache.org/jira/browse/ARROW-18167) - [Go][Release] update go.work with release (#14522)
+* [ARROW-18172](https://issues.apache.org/jira/browse/ARROW-18172) - [CI][Release] Source Release and Merge Script jobs fail on master
+* [ARROW-18183](https://issues.apache.org/jira/browse/ARROW-18183) - [C++] cpp-micro benchmarks are failing on mac arm machine (#14562)
+* [ARROW-18188](https://issues.apache.org/jira/browse/ARROW-18188) - [CI] CUDA nightly docker upload fails due to wrong tag (#14538)
+* [ARROW-18195](https://issues.apache.org/jira/browse/ARROW-18195) - [C++] Fix case_when produces bad data when condition has nulls (#15131)
+* [ARROW-18202](https://issues.apache.org/jira/browse/ARROW-18202) - [C++] Reallow regexp replace on empty string (#15132)
+* [ARROW-18205](https://issues.apache.org/jira/browse/ARROW-18205) - [C++] Substrait consumer is not converting right side references correctly on joins (#14558)
+* [ARROW-18207](https://issues.apache.org/jira/browse/ARROW-18207) - [Ruby] RubyGems for 10.0.0 aren't updated yet
+* [ARROW-18209](https://issues.apache.org/jira/browse/ARROW-18209) - [Java] Make ComplexCopier agnostic of specific implementation of MapWriter (UnionMapWriter) (#14557)
+* [ARROW-18212](https://issues.apache.org/jira/browse/ARROW-18212) - [C++] NumericBuilder::Reset() doesn't reset all members (#14559)
+* [ARROW-18225](https://issues.apache.org/jira/browse/ARROW-18225) - [Python] Fully support filesystem in parquet.write_metadata (#14574)
+* [ARROW-18227](https://issues.apache.org/jira/browse/ARROW-18227) - [CI][Packaging] Do not fail conda-clean if conda search raises PackagesNotFound (#14569)
+* [ARROW-18229](https://issues.apache.org/jira/browse/ARROW-18229) - [Python] Check schema argument type in RecordBatchReader.from_batches (#14583)
+* [ARROW-18231](https://issues.apache.org/jira/browse/ARROW-18231) - [C++][CMake] Add support for overriding optimization level (#15022)
+* [ARROW-18246](https://issues.apache.org/jira/browse/ARROW-18246) - [Python][Docs] PyArrow table join docstring typos for left and right suffix arguments (#14591)
+* [ARROW-18247](https://issues.apache.org/jira/browse/ARROW-18247) - [JS] fix: RangeError crash in Vector.toArray() (#14587)
+* [ARROW-18256](https://issues.apache.org/jira/browse/ARROW-18256) - [C++][Windows] Use IMPORTED_IMPLIB for external shared Thrift (#14595)
+* [ARROW-18257](https://issues.apache.org/jira/browse/ARROW-18257) - [Python] pass back time types with correct type class (#14633)
+* [ARROW-18269](https://issues.apache.org/jira/browse/ARROW-18269) - [C++] Handle slash character in Hive-style partition values (#14646)
+* [ARROW-18272](https://issues.apache.org/jira/browse/ARROW-18272) - [Python] Support filesystem parameter in ParquetFile (#14717)
+* [ARROW-18284](https://issues.apache.org/jira/browse/ARROW-18284) - [Python][Docs] Add missing CMAKE_PREFIX_PATH to allow setup.py CMake invocations to find Arrow CMake package (#14586)
+* [ARROW-18290](https://issues.apache.org/jira/browse/ARROW-18290) - [C++] Escape all special chars in URI-encoding (#14645)
+* [ARROW-18309](https://issues.apache.org/jira/browse/ARROW-18309) - [Go] Fix delta bit packing decode panic (#14649)
+* [ARROW-18320](https://issues.apache.org/jira/browse/ARROW-18320) - [C++][FlightRPC] Fix improper Status/Result conversion in Flight client (#14859)
+* [ARROW-18334](https://issues.apache.org/jira/browse/ARROW-18334) - [C++] Handle potential non-commutativity by rebinding (#14659)
+* [ARROW-18339](https://issues.apache.org/jira/browse/ARROW-18339) - [Python][CI] Add DYLD_LIBRARY_PATH to avoid requiring PYARROW_BUNDLE_ARROW_CPP on macOS job (#14643)
+* [ARROW-18343](https://issues.apache.org/jira/browse/ARROW-18343) - [C++] Remove AllocateBitmap() with out parameter (#14657)
+* [ARROW-18351](https://issues.apache.org/jira/browse/ARROW-18351) - [C++][FlightRPC] Fix crash in DoExchange with UCX (#15031)
+* [ARROW-18353](https://issues.apache.org/jira/browse/ARROW-18353) - [C++][FlightRPC] Prevent concurrent Finish in UCX (#15034)
+* [ARROW-18360](https://issues.apache.org/jira/browse/ARROW-18360) - [Python] Don't crash when schema=None in FlightClient.do_put (#14698)
+* [ARROW-18374](https://issues.apache.org/jira/browse/ARROW-18374) - [Go][CI][Benchmarking] Fix Go benchmark github info (#14691)
+* [ARROW-18374](https://issues.apache.org/jira/browse/ARROW-18374) - [Go][CI][Benchmarking] Fix Go Bench Script after Conbench change (#14689)
+* [ARROW-18379](https://issues.apache.org/jira/browse/ARROW-18379) - [Python] Change warnings to _warnings in _plasma_store_entry_point (#14695)
+* [ARROW-18382](https://issues.apache.org/jira/browse/ARROW-18382) - [C++] Set ADDRESS_SANITIZER in fuzzing builds (#14702)
+* [ARROW-18383](https://issues.apache.org/jira/browse/ARROW-18383) - [C++] Avoid global variables for thread pools and at-fork handlers (#14704)
+* [ARROW-18389](https://issues.apache.org/jira/browse/ARROW-18389) - [CI][Python] Update nightly test-conda-python-3.7-pandas-0.24 to pandas >= 1.0 (#14714)
+* [ARROW-18390](https://issues.apache.org/jira/browse/ARROW-18390) - [CI][Python] Update spark test modules to match spark master (#14715)
+* [ARROW-18392](https://issues.apache.org/jira/browse/ARROW-18392) - [Python] Fix test_s3fs_wrong_region; set anonymous=True (#14716)
+* [ARROW-18394](https://issues.apache.org/jira/browse/ARROW-18394) - [Python][CI] Fix nightly job using pandas dev (temporarily skip tests) (#15048)
+* [ARROW-18397](https://issues.apache.org/jira/browse/ARROW-18397) - [C++] Clear S3 region resolver client at S3 shutdown (#14718)
+* [ARROW-18400](https://issues.apache.org/jira/browse/ARROW-18400) - [Python] Quadratic memory usage of Table.to\_pandas with nested data
+* [ARROW-18405](https://issues.apache.org/jira/browse/ARROW-18405) - [Ruby] Avoid rebuilding chunked arrays in Arrow::Table.new (#14738)
+* [ARROW-18412](https://issues.apache.org/jira/browse/ARROW-18412) - [C++][R] Windows build fails because of missing ChunkResolver symbols (#14774)
+* [ARROW-18424](https://issues.apache.org/jira/browse/ARROW-18424) - [C++] Fix Doxygen error on ARROW_ENGINE_EXPORT (#14845)
+* [ARROW-18429](https://issues.apache.org/jira/browse/ARROW-18429) - [R] : Bump dev version following 10.0.1 patch release (#14887)
+* [ARROW-18436](https://issues.apache.org/jira/browse/ARROW-18436) - [C++] Ensure correct (un)escaping of special characters in URI paths (#14974)
+* [ARROW-18437](https://issues.apache.org/jira/browse/ARROW-18437) - [C++][Parquet] Fix encoder for DELTA_BINARY_PACKED when flushing more than once (#14959)
+* [GH-14745](https://github.com/apache/arrow/issues/14745) - [R] {rlang} dependency must be at least version 1.0.0 because of check_dots_empty (#14744)
+* [GH-14775](https://github.com/apache/arrow/issues/14775) - [Go] Fix UnionBuilder.Len implementations (#14776)
+* [GH-14780](https://github.com/apache/arrow/issues/14780) - [Go] Fix issues with IPC writing of sliced map/list arrays (#14793)
+* [GH-14791](https://github.com/apache/arrow/issues/14791) - [JS] Fix BitmapBufferBuilder size truncation (#14881)
+* [GH-14805](https://github.com/apache/arrow/issues/14805) - [Format] C Data Interface: clarify nullability of buffer pointers (#14808)
+* [GH-14819](https://github.com/apache/arrow/issues/14819) - [CI][RPM] Add workaround for build failure on CentOS 9 Stream (#14820)
+* [GH-14828](https://github.com/apache/arrow/issues/14828) - [CI][Conda] Sync with conda-forge, fix nightly jobs (#14832)
+* [GH-14842](https://github.com/apache/arrow/issues/14842) - [C++] Propagate some errors in JSON chunker (#14843)
+* [GH-14849](https://github.com/apache/arrow/issues/14849) - [CI] R install-local builds sometimes fail because sccache times out (#14850)
+* [GH-14855](https://github.com/apache/arrow/issues/14855) - [C++] Support importing zero-case unions (#14857)
+* [GH-14856](https://github.com/apache/arrow/issues/14856) - [CI] Azure builds fail with docker permission error (#14858)
+* [GH-14865](https://github.com/apache/arrow/issues/14865) - [Go][Parquet] Address several memory leaks of buffers in pqarrow (#14878)
+* [GH-14872](https://github.com/apache/arrow/issues/14872) - [R] arrow returns wrong variable content when multiple group_by/summarise statements are used (#14905)
+* [GH-14875](https://github.com/apache/arrow/issues/14875) - [C++] C Data Interface: check imported buffer for non-null (#14814)
+* [GH-14876](https://github.com/apache/arrow/issues/14876) - [Go] Handling Crashes in C Data interface (#14877)
+* [GH-14883](https://github.com/apache/arrow/issues/14883) - [Go] Fix IPC encoding empty maps (#14904)
+* [GH-14883](https://github.com/apache/arrow/issues/14883) - [Go] ipc.Writer leaks memory when compressing body (#14892)
+* [GH-14884](https://github.com/apache/arrow/issues/14884) - [CI] R install resource may got 404 (#14893)
+* [GH-14890](https://github.com/apache/arrow/issues/14890) - [Java] Fix memory leak of DictionaryEncoder when exception thrown (#14891)
+* [GH-14907](https://github.com/apache/arrow/issues/14907) - [R] right_join() function does not produce the expected outcome (#15077)
+* [GH-14909](https://github.com/apache/arrow/issues/14909) - [Java] Prevent potential memory leak of ListSubfieldEncoder and StructSubfieldEncoder (#14910)
+* [GH-14916](https://github.com/apache/arrow/issues/14916) - [C++] Remove the API declaration about "ConcatenateBuffers" (#14915)
+* [GH-14927](https://github.com/apache/arrow/issues/14927) - [Dev] Crossbow submit does not work with fine grained PATs  (#14928)
+* [GH-14940](https://github.com/apache/arrow/issues/14940) - [Go][Parquet] Fix Encryption Column writing (#14954)
+* [GH-14943](https://github.com/apache/arrow/issues/14943) - [Python] Fix pyarrow.get_libraries() order (#14944)
+* [GH-14945](https://github.com/apache/arrow/issues/14945) - [Ruby] Add support for macOS 12 / Xcode 14 (#14960)
+* [GH-14947](https://github.com/apache/arrow/issues/14947) - [R] Compatibility with dplyr 1.1.0 (#14948)
+* [GH-14949](https://github.com/apache/arrow/issues/14949) - [CI][Release] Output script's stdout on failure (#14957)
+* [GH-14967](https://github.com/apache/arrow/issues/14967) - [R] Minimal nightly builds are failing (#14972)
+* [GH-14968](https://github.com/apache/arrow/issues/14968) - [Python] Fix segfault for dataset ORC write (#15049)
+* [GH-14990](https://github.com/apache/arrow/issues/14990) - [C++][Skyhook] Follow FileFormat API change (#15086)
+* [GH-14993](https://github.com/apache/arrow/issues/14993) - [CI][Conda] Fix missing RECIPE_ROOT variable now expected by conda build (#15014)
+* [GH-14995](https://github.com/apache/arrow/issues/14995) - [Go][FlightSQL] Fix Supported Unions Constant (#15003)
+* [GH-15001](https://github.com/apache/arrow/issues/15001) - [R] Fix Parquet datatype test failure (#15197)
+* [GH-15007](https://github.com/apache/arrow/issues/15007) - [CI][RPM] Ignore import failed key (#15008)
+* [GH-15023](https://github.com/apache/arrow/issues/15023) - [CI][Packaging][Java] Force to use libz3.a with Homebrew (#15024)
+* [GH-15025](https://github.com/apache/arrow/issues/15025) - [CI][C++][Homebrew] Ensure removing Python related commands (#15026)
+* [GH-15028](https://github.com/apache/arrow/issues/15028) - [R][Docs] `NOT_CRAN` should be `"true"` instead of `TRUE` in R (#15029)
+* [GH-15040](https://github.com/apache/arrow/issues/15040) - [C++] Improve pkg-config support for ARROW_BUILD_SHARED=OFF (#15075)
+* [GH-15042](https://github.com/apache/arrow/issues/15042) - [C++][Parquet] Update stats on subsequent batches of dictionaries (#15179)
+* [GH-15043](https://github.com/apache/arrow/issues/15043) - [Python][Docs] Update docstring for pyarrow.decompress (#15061)
+* [GH-15052](https://github.com/apache/arrow/issues/15052) - [C++][Parquet] Fix DELTA_BINARY_PACKED decoder when reading only one value (#15124)
+* [GH-15062](https://github.com/apache/arrow/issues/15062) - [C++] Simplify EnumParser behavior (#15063)
+* [GH-15064](https://github.com/apache/arrow/issues/15064) - [Python][CI] Dask nightly tests are failing due to fsspec bug (#15065)
+* [GH-15069](https://github.com/apache/arrow/issues/15069) - [C++][Python][FlightRPC] Make DoAction truly streaming (#15118)
+* [GH-15080](https://github.com/apache/arrow/issues/15080) - [CI][R] Re-enable binary package job for R 4.1 on Windows (#25359)
+* [GH-15092](https://github.com/apache/arrow/issues/15092) - [CI][C++][Homebrew] Ensure removing Python related commands (again) (#15093)
+* [GH-15094](https://github.com/apache/arrow/issues/15094) - [CI][Release][Ruby] Install Bundler by APT (#15095)
+* [GH-15110](https://github.com/apache/arrow/issues/15110) - [R][CI] Windows build fails in packaging job (#15111)
+* [GH-15114](https://github.com/apache/arrow/issues/15114) - [R][C++][CI] Homebrew can't install Python 3.11 on GHA runners (#15116)
+* [GH-15115](https://github.com/apache/arrow/issues/15115) - [R][CI] pyarrow tests fail on macos 10.13 due to missing pyarrow wheel (#15117)
+* [GH-15122](https://github.com/apache/arrow/issues/15122) - [Benchmarking][Python] Set ARROW_INSTALL_NAME_RPATH=ON for benchmark builds (#15123)
+* [GH-15126](https://github.com/apache/arrow/issues/15126) - [R] purrr::rerun was deprecated in purrr 1.0.0 (#15127)
+* [GH-15136](https://github.com/apache/arrow/issues/15136) - [Python][macOS] Use `@rpath` for libarrow_python.dylib (#15143)
+* [GH-15141](https://github.com/apache/arrow/issues/15141) - [C++] fix for unstable test due to unstable sort (#15142)
+* [GH-15150](https://github.com/apache/arrow/issues/15150) - [C++][FlightRPC] Wait for side effects in DoAction (#15152)
+* [GH-15156](https://github.com/apache/arrow/issues/15156) - [JS] Fix can't find variable: BigInt64Array (#15157)
+* [GH-15172](https://github.com/apache/arrow/issues/15172) - [Python] Docstring test failure (#15186)
+* [GH-15176](https://github.com/apache/arrow/issues/15176) - Fix various issues introduced in the asof-join benchmark by ARROW-17980 and ARROW-15732 (#15190)
+* [GH-15189](https://github.com/apache/arrow/issues/15189) - [R] Skip S3 tests on MacOS 10.13 (#33613)
+* [GH-15243](https://github.com/apache/arrow/issues/15243) - [C++] fix for potential deadlock in the group-by node (#33700)
+* [GH-15254](https://github.com/apache/arrow/issues/15254) - [GLib] garrow_execute_plain_wait() checks the finished status (#15255)
+* [GH-15259](https://github.com/apache/arrow/issues/15259) - [CI] component assignment fails due to typo (#15260)
+* [GH-15264](https://github.com/apache/arrow/issues/15264) - [C++] Add scanner tests for disabling readahead and fix relevant bugs (#29185)
+* [GH-15274](https://github.com/apache/arrow/issues/15274) - [Java][FlightRPC] handle null keystore password (#15276)
+* [GH-15282](https://github.com/apache/arrow/issues/15282) - [CI][C++] add CLANG_TOOLS variable in .travis.yaml (#32972)
+* [GH-15292](https://github.com/apache/arrow/issues/15292) - [C++] Typeclass alias is missing in ExtensionArray (#15293)
+* [GH-25633](https://github.com/apache/arrow/issues/25633) - [CI][Java][macOS] Ensure using bundled RE2 (#33711)
+* [GH-26209](https://github.com/apache/arrow/issues/26209) - [Ruby] Add support for Ruby 2.5 (#33602)
+* [GH-26394](https://github.com/apache/arrow/issues/26394) - [Python] Don't use target_include_directories() for imported target (#33606)
+* [GH-33626](https://github.com/apache/arrow/issues/33626) - [Packaging][RPM] Don't remove metadata for non-target arch (#33672)
+* [GH-33638](https://github.com/apache/arrow/issues/33638) - [C++] Removing ExecPlan::Make deprecation warning (#33658)
+* [GH-33643](https://github.com/apache/arrow/issues/33643) - [C++] Remove implicit = capture of this which is not valid in c++20 (#33644)
+* [GH-33666](https://github.com/apache/arrow/issues/33666) - [R] Remove extraneous argument to semi_join (#33693)
+* [GH-33667](https://github.com/apache/arrow/issues/33667) - [C++][CI] Use Ubuntu 22.04 for ASAN (#33669)
+* [GH-33687](https://github.com/apache/arrow/issues/33687) - [Dev] Fix commit message generation in merge script (#33691)
+* [GH-33705](https://github.com/apache/arrow/issues/33705) - [R] Fix link on README (#33706)
+
+# Apache Arrow 10.0.1 (2022-11-16)
+
+## New Features and Improvements
+
+* [ARROW-17487](https://issues.apache.org/jira/browse/ARROW-17487) - [Python][Packaging][CI] Add support for Python 3.11 (#14499)
+* [ARROW-17635](https://issues.apache.org/jira/browse/ARROW-17635) - [Python][CI] Sync conda recipe with the arrow-cpp feedstock (#14102)
+* [ARROW-18054](https://issues.apache.org/jira/browse/ARROW-18054) - [Python][CI] Enable Cython tests on windows wheels (#13552)
+* [ARROW-18080](https://issues.apache.org/jira/browse/ARROW-18080) - [C++] Remove gcc <= 4.9 workarounds (#14441)
+* [ARROW-18092](https://issues.apache.org/jira/browse/ARROW-18092) - [CI][Conan] Update versions of gRPC related dependencies (#14453)
+* [ARROW-18093](https://issues.apache.org/jira/browse/ARROW-18093) - [CI][Conda][Windows] Disable ORC (#14454)
+* [ARROW-18162](https://issues.apache.org/jira/browse/ARROW-18162) - [C++] Add Arm SVE compiler options (#14515)
+* [ARROW-18186](https://issues.apache.org/jira/browse/ARROW-18186) - [C++][MinGW] Make buildable with clang (#14536)
+* [ARROW-18255](https://issues.apache.org/jira/browse/ARROW-18255) - [C++] Don't fail cmake check for armv6 (#14611)
+* [ARROW-18260](https://issues.apache.org/jira/browse/ARROW-18260) - [C++][CMake] Add support for x64 for CMAKE_SYSTEM_PROCESSOR (#14598)
+* [ARROW-18299](https://issues.apache.org/jira/browse/ARROW-18299) - [CI][GLib][macOS] Fix dependency install failures (#14618)
+* [ARROW-18315](https://issues.apache.org/jira/browse/ARROW-18315) - [CI][deb][RPM] Pin createrepo_c on Travis CI arm64-graviton (#14625)
+* [ARROW-18325](https://issues.apache.org/jira/browse/ARROW-18325) - [Docs][Python] Add Python 3.11 to python/install.rst (#14630)
+* [ARROW-18326](https://issues.apache.org/jira/browse/ARROW-18326) - [Go] Add option to support dictionary deltas with IPC (#14639)
+* [ARROW-18327](https://issues.apache.org/jira/browse/ARROW-18327) - [CI][Release] verify-rc-source-*-macos-amd64 are failed (#14640)
+
+
+## Bug Fixes
+
+* [ARROW-18078](https://issues.apache.org/jira/browse/ARROW-18078) - [Docs][R] Fix broken link in R documentation (#14437)
+* [ARROW-18131](https://issues.apache.org/jira/browse/ARROW-18131) - [R] Correctly handle .data pronoun in group_by() (#14484)
+* [ARROW-18132](https://issues.apache.org/jira/browse/ARROW-18132) - [R] Add deprecation cycle for pull() change (#14475)
+* [ARROW-18190](https://issues.apache.org/jira/browse/ARROW-18190) - [CI][Packaging] Fix macOS mojave wheels test step to actually test wheels (#14540)
+* [ARROW-18251](https://issues.apache.org/jira/browse/ARROW-18251) - [CI][Python] Fix AMD64 macOS 12 Python 3 job (#14614)
+* [ARROW-18274](https://issues.apache.org/jira/browse/ARROW-18274) - [Go] StructBuilder premature release fields (#14604)
+* [ARROW-18285](https://issues.apache.org/jira/browse/ARROW-18285) - [R] Fix for failing test after lubridate 1.9 release (#14615)
+* [ARROW-18294](https://issues.apache.org/jira/browse/ARROW-18294) - [Java] Fix Flight SQL JDBC PreparedStatement#executeUpdate (#14616)
+* [ARROW-18296](https://issues.apache.org/jira/browse/ARROW-18296) - [Java] Honor Driver#connect API contract in JDBC driver (#14617)
+* [ARROW-18302](https://issues.apache.org/jira/browse/ARROW-18302) - [Python][Packaging] Update minimum vcpkg required version (#14634)
+* [ARROW-18305](https://issues.apache.org/jira/browse/ARROW-18305) - [R] Fix for dev purrr
+* [ARROW-18310](https://issues.apache.org/jira/browse/ARROW-18310) - [C++] Use atomic backpressure counter (#14622)
+* [ARROW-18317](https://issues.apache.org/jira/browse/ARROW-18317) - [Go] Dictionary replacement during IPC stream (#14636)
+* [ARROW-18322](https://issues.apache.org/jira/browse/ARROW-18322) - [Python] Add PYARROW_WITH_FLIGHT to PyArrow C++ cmake (#14642)
+
+# Apache Arrow 10.0.0 (2022-10-21)
+
+## New Features and Improvements
+
+* [ARROW-3678](https://issues.apache.org/jira/browse/ARROW-3678) - [Go] Implement Union Arrays (#13768)
+* [ARROW-6772](https://issues.apache.org/jira/browse/ARROW-6772) - [C++] Add operator== for interfaces with an Equals() method (#14038)
+* [ARROW-6858](https://issues.apache.org/jira/browse/ARROW-6858) - [C++] Simplify transitive build option dependencies (#14224)
+* [ARROW-7744](https://issues.apache.org/jira/browse/ARROW-7744) - [Java][FlightRPC] JDBC Driver for Arrow Flight SQL (#13800)
+* [ARROW-8201](https://issues.apache.org/jira/browse/ARROW-8201) - [Python] Add FileFragment.open() method (#14301)
+* [ARROW-8226](https://issues.apache.org/jira/browse/ARROW-8226) - [Go] Add 64-bit offset Binary Builder and String Builder (#13719)
+* [ARROW-10600](https://issues.apache.org/jira/browse/ARROW-10600) - [Go] Implement Decimal256 (#13792)
+* [ARROW-11699](https://issues.apache.org/jira/browse/ARROW-11699) - [R] Implement dplyr::across() for mutate()
+* [ARROW-11841](https://issues.apache.org/jira/browse/ARROW-11841) - [R][C++] Allow cancelling long-running commands (#13635)
+* [ARROW-12105](https://issues.apache.org/jira/browse/ARROW-12105) - [R] Replace vars_select, vars_rename with eval_select, eval_rename (#14371)
+* [ARROW-12590](https://issues.apache.org/jira/browse/ARROW-12590) - [C++][R] Update copies of Homebrew files to reflect recent updates (#13769)
+* [ARROW-12693](https://issues.apache.org/jira/browse/ARROW-12693) - [R] add unique() methods for ArrowTabular, datasets (#13641)
+* [ARROW-12778](https://issues.apache.org/jira/browse/ARROW-12778) - [R] Support tidyselect where() selection helper in dplyr verbs
+* [ARROW-12958](https://issues.apache.org/jira/browse/ARROW-12958) - [CI][Developer] Build + host the docs for PR branches (#13913)
+* [ARROW-13055](https://issues.apache.org/jira/browse/ARROW-13055) - [Doc] Create canonical extension types document (#14167)
+* [ARROW-13454](https://issues.apache.org/jira/browse/ARROW-13454) - [C++][Docs] Tables vs Record Batches (#14008)
+* [ARROW-13766](https://issues.apache.org/jira/browse/ARROW-13766) - [R] Add slice_*() methods (#14361)
+* [ARROW-14280](https://issues.apache.org/jira/browse/ARROW-14280) - [Doc] R package Architectural Overview (#14294)
+* [ARROW-14495](https://issues.apache.org/jira/browse/ARROW-14495) - [Python] Fix DictionaryArray.from_buffers, should not crash (#13989)
+* [ARROW-14500](https://issues.apache.org/jira/browse/ARROW-14500) - [C++] Support casting from storage type to extension type
+* [ARROW-14958](https://issues.apache.org/jira/browse/ARROW-14958) - [C++][Python][FlightRPC] Implement Flight middleware for OpenTelemetry propagation (#11920)
+* [ARROW-15011](https://issues.apache.org/jira/browse/ARROW-15011) - [R] Generate documentation for dplyr function bindings (#14014)
+* [ARROW-15260](https://issues.apache.org/jira/browse/ARROW-15260) - [R] open_dataset - add file_name as column (#12826)
+* [ARROW-15277](https://issues.apache.org/jira/browse/ARROW-15277) - [C++][Python] Use ChunkedArray::Make for chunked_array (#13950)
+* [ARROW-15479](https://issues.apache.org/jira/browse/ARROW-15479) - [C++] Cast fixed size list to compatible fixed size list type (other values type, other field name) (#14181)
+* [ARROW-15481](https://issues.apache.org/jira/browse/ARROW-15481) - [R][CI] Add a crossbow job that mimics CRAN's old macOS (#13925)
+* [ARROW-15540](https://issues.apache.org/jira/browse/ARROW-15540) - [C++] Allow the substrait consumer to accept plans with hints and nullable literals (#14402)
+* [ARROW-15545](https://issues.apache.org/jira/browse/ARROW-15545) - [Python][C++] Support casting to extension type (#14106)
+* [ARROW-15582](https://issues.apache.org/jira/browse/ARROW-15582) - [C++] Add support for registering standard Substrait functions (#13613)
+* [ARROW-15584](https://issues.apache.org/jira/browse/ARROW-15584) - [C++] Add support for Substrait's RelCommon::Emit (#13914)
+* [ARROW-15678](https://issues.apache.org/jira/browse/ARROW-15678) - [C++] Add support for -DCMAKE_BUILD_TYPE=MinSizeRel (#14342)
+* [ARROW-15693](https://issues.apache.org/jira/browse/ARROW-15693) - [Dev] Update crossbow templates to use master or main (#13975)
+* [ARROW-15745](https://issues.apache.org/jira/browse/ARROW-15745) - [Java] Deprecate redundant iterable of ScanTask (#14168)
+* [ARROW-15838](https://issues.apache.org/jira/browse/ARROW-15838) - [R] Coalesce join keys in full outer join (#14286)
+* [ARROW-15839](https://issues.apache.org/jira/browse/ARROW-15839) - [C++][Python] Accept validity bitmap in ListArray.from_arrays (#13894)
+* [ARROW-15927](https://issues.apache.org/jira/browse/ARROW-15927) - [C++][Skyhook] Add skyhook example (#12620)
+* [ARROW-16000](https://issues.apache.org/jira/browse/ARROW-16000) - [C++][Python] Dataset: Alternative implementation for adding transcoding function option to CSV scanner (#13820)
+* [ARROW-16190](https://issues.apache.org/jira/browse/ARROW-16190) - [CI][R] Implement CI on Apple M1 for R (#14099)
+* [ARROW-16226](https://issues.apache.org/jira/browse/ARROW-16226) - [C++] Add better coverage for filesystem tell. (#14064)
+* [ARROW-16340](https://issues.apache.org/jira/browse/ARROW-16340) - [C++][Python] Move all Python related code into PyArrow (#13311)
+* [ARROW-16356](https://issues.apache.org/jira/browse/ARROW-16356) - [Python] Expose RandomAccessFile::GetStream (#13793)
+* [ARROW-16384](https://issues.apache.org/jira/browse/ARROW-16384) - [Docs] Add Flight SQL to status page (#14053)
+* [ARROW-16424](https://issues.apache.org/jira/browse/ARROW-16424) - [C++] Use Uri to parse substrait ReadRel file path (#14071)
+* [ARROW-16431](https://issues.apache.org/jira/browse/ARROW-16431) - [C++][Python] Improve AppendRowGroups error when schemas differ (#14029)
+* [ARROW-16584](https://issues.apache.org/jira/browse/ARROW-16584) - [Java] Java JNI with S3 support (#13157)
+* [ARROW-16605](https://issues.apache.org/jira/browse/ARROW-16605) - [CI][R] Fix revdep docker job (#13483)
+* [ARROW-16690](https://issues.apache.org/jira/browse/ARROW-16690) - [R][FlightRPC] Additional max_chunksize parameter in do_put method (#13267)
+* [ARROW-16695](https://issues.apache.org/jira/browse/ARROW-16695) - [R][Python][C++] Extension types are not supported in joins (#13501)
+* [ARROW-16719](https://issues.apache.org/jira/browse/ARROW-16719) - [Python] Add path/URI + filesystem handling to parquet.read_metadata (#13629)
+* [ARROW-16740](https://issues.apache.org/jira/browse/ARROW-16740) - [C++] Remove IR Consumer (#13301)
+* [ARROW-16855](https://issues.apache.org/jira/browse/ARROW-16855) - [C++] Adding Read Relation ToProto (#13401)
+* [ARROW-16870](https://issues.apache.org/jira/browse/ARROW-16870) - [C++] Fix link issues with ldd and clang for flight examples (#14077)
+* [ARROW-16879](https://issues.apache.org/jira/browse/ARROW-16879) - [R][CI] Test R GCS bindings with testbench (#13542)
+* [ARROW-16894](https://issues.apache.org/jira/browse/ARROW-16894) - [C++] Add Benchmarks for Asof Join Node (#13426)
+* [ARROW-16949](https://issues.apache.org/jira/browse/ARROW-16949) - [Doc] Add Glossary to the New Contributor's Guide (#13951)
+* [ARROW-16981](https://issues.apache.org/jira/browse/ARROW-16981) - [C++] Expose jemalloc statistics for logging (#13516)
+* [ARROW-16988](https://issues.apache.org/jira/browse/ARROW-16988) - [C++] Introduce Substrait ToProto/FromProto conversion options (#13537)
+* [ARROW-17004](https://issues.apache.org/jira/browse/ARROW-17004) - [Java] Add utility to bind Arrow data to JDBC parameters  (#13589)
+* [ARROW-17016](https://issues.apache.org/jira/browse/ARROW-17016) - [C++][Python] Move Arrow Python C++ tests into Cython (#14117)
+* [ARROW-17017](https://issues.apache.org/jira/browse/ARROW-17017) - [C++][Python] Enable automate re-build of Arrow Python
+* [ARROW-17021](https://issues.apache.org/jira/browse/ARROW-17021) - [C++][R][CI] Enable use of sccache in crossbow (#13556)
+* [ARROW-17052](https://issues.apache.org/jira/browse/ARROW-17052) - [C++][Python][FlightRPC] expose flight structures serialize (#13986)
+* [ARROW-17079](https://issues.apache.org/jira/browse/ARROW-17079) - Show HTTP status code for unknown S3 errors (#14019)
+* [ARROW-17079](https://issues.apache.org/jira/browse/ARROW-17079) - [C++] Raise proper error message instead of error code for S3 errors (#14001)
+* [ARROW-17079](https://issues.apache.org/jira/browse/ARROW-17079) - [C++] Improve error messages for AWS S3 calls (#13979)
+* [ARROW-17081](https://issues.apache.org/jira/browse/ARROW-17081) - [Java][Datasets] Move JNI build configuration from cpp/ to java/ (#13911)
+* [ARROW-17088](https://issues.apache.org/jira/browse/ARROW-17088) - [R] Use `.arrow` as extension of IPC files of datasets (#13690)
+* [ARROW-17089](https://issues.apache.org/jira/browse/ARROW-17089) - [Python] Use `.arrow` as extension for IPC file dataset (#13677)
+* [ARROW-17092](https://issues.apache.org/jira/browse/ARROW-17092) - [Docs] Add note about "Feather" to the IPC file format document (#13693)
+* [ARROW-17106](https://issues.apache.org/jira/browse/ARROW-17106) - [Python] Move init code to core and expose only API (#13802)
+* [ARROW-17113](https://issues.apache.org/jira/browse/ARROW-17113) - [Java] Fail loudly in static initializer blocks (#13678)
+* [ARROW-17122](https://issues.apache.org/jira/browse/ARROW-17122) - [Python] Cleanup after moving Python related code into pyarrow
+* [ARROW-17131](https://issues.apache.org/jira/browse/ARROW-17131) - [Python] add StructType().field(): returns a field by name or index (#13652)
+* [ARROW-17154](https://issues.apache.org/jira/browse/ARROW-17154) - [C++] Change cmake project name from arrow\_python to pyarrow\_cpp
+* [ARROW-17160](https://issues.apache.org/jira/browse/ARROW-17160) - [C++] Create a base directory for PyArrow CPP header files (#14275)
+* [ARROW-17172](https://issues.apache.org/jira/browse/ARROW-17172) - [C++][Python] test_cython_api fails on windows (#14133)
+* [ARROW-17175](https://issues.apache.org/jira/browse/ARROW-17175) - [CI][macOS] macos-10.15 is deprecated and macos-latest is macos-11 (#13684)
+* [ARROW-17178](https://issues.apache.org/jira/browse/ARROW-17178) - [R] Support head() in arrow_dplyr_query with user-defined function (#13706)
+* [ARROW-17181](https://issues.apache.org/jira/browse/ARROW-17181) - [Docs][Python] Scalar UDF Experimental Documentation (#13687)
+* [ARROW-17205](https://issues.apache.org/jira/browse/ARROW-17205) - [Dev][Release] Merge script should prompt for next version when maintenance branch is created (#13708)
+* [ARROW-17214](https://issues.apache.org/jira/browse/ARROW-17214) - [C++] Add scalar casts to string types for list based types (#13737)
+* [ARROW-17219](https://issues.apache.org/jira/browse/ARROW-17219) - [Go][IPC] Endianness Conversion for Non-Native Endianness (#13716)
+* [ARROW-17222](https://issues.apache.org/jira/browse/ARROW-17222) - [Docs][Archery][Integration] Document the current Integration test cases covered by archery (#13717)
+* [ARROW-17240](https://issues.apache.org/jira/browse/ARROW-17240) - [CI][Release] Verify wheels in nightly CI (#14319)
+* [ARROW-17243](https://issues.apache.org/jira/browse/ARROW-17243) - [Website] Add ClickHouse to "powered by"
+* [ARROW-17247](https://issues.apache.org/jira/browse/ARROW-17247) - [C++][Docs] Include visibilty to ExecPlan APIs in Acero Docs (#13741)
+* [ARROW-17252](https://issues.apache.org/jira/browse/ARROW-17252) - [R] Intermittent valgrind failure (#13773)
+* [ARROW-17266](https://issues.apache.org/jira/browse/ARROW-17266) - [Doc] Java nightlies file prefix changed (#13755)
+* [ARROW-17269](https://issues.apache.org/jira/browse/ARROW-17269) - [Java] implemented TransferPair methods in MapVector to get correct valuevector as mapvector instead of listvector (#13776)
+* [ARROW-17270](https://issues.apache.org/jira/browse/ARROW-17270) - [Docs] Move nightly package instructions to dev docs (#13766)
+* [ARROW-17273](https://issues.apache.org/jira/browse/ARROW-17273) - [Go][CSV] Add Timestamp, Date32, Date64 format support to csv.Writer (#13772)
+* [ARROW-17274](https://issues.apache.org/jira/browse/ARROW-17274) - [GO] Remove panic from parquet.file.RowGroupReader.Column(index int) (#13767)
+* [ARROW-17275](https://issues.apache.org/jira/browse/ARROW-17275) - [Go][Integration] Handle Large offset types in IPC read/write (#13770)
+* [ARROW-17276](https://issues.apache.org/jira/browse/ARROW-17276) - [Go][Integration] Implement IPC handling for union type (#13806)
+* [ARROW-17277](https://issues.apache.org/jira/browse/ARROW-17277) - [Go][CSV] Custom csv.Writer formatter for boolean values (#13774)
+* [ARROW-17280](https://issues.apache.org/jira/browse/ARROW-17280) - [C++] Move vendored flatbuffers to private namespace (#13775)
+* [ARROW-17282](https://issues.apache.org/jira/browse/ARROW-17282) - [Python] flake8 update fails linter CI (#13778)
+* [ARROW-17287](https://issues.apache.org/jira/browse/ARROW-17287) - [C++] Create scan node that doesn't rely on the merged generator (#13782)
+* [ARROW-17289](https://issues.apache.org/jira/browse/ARROW-17289) - [C++] Add type category membership checks (#13783)
+* [ARROW-17293](https://issues.apache.org/jira/browse/ARROW-17293) - [Java][CI] Prune java nightly builds (#13839)
+* [ARROW-17297](https://issues.apache.org/jira/browse/ARROW-17297) - [Java][Doc] Adding documentation to interact between C++ to Java via C Data Interface (#13788)
+* [ARROW-17299](https://issues.apache.org/jira/browse/ARROW-17299) - [C++][Python] Expose the Scanner kDefaultBatchReadahead and kDefaultFragmentReadahead parameters (#13799)
+* [ARROW-17303](https://issues.apache.org/jira/browse/ARROW-17303) - [Java][Dataset] Read Arrow IPC files by NativeDatasetFactory (#13760) (#13811)
+* [ARROW-17304](https://issues.apache.org/jira/browse/ARROW-17304) - [C++][Compute] Print actual values when compare fails in aggregate test (#13814)
+* [ARROW-17305](https://issues.apache.org/jira/browse/ARROW-17305) - [C++] Avoid spending time in popcount in BitmapAnd benchmark (#13794)
+* [ARROW-17306](https://issues.apache.org/jira/browse/ARROW-17306) - [C++] Provide an optimized `GetFileInfoGenerator` specialization for `LocalFileSystem` (#13796)
+* [ARROW-17310](https://issues.apache.org/jira/browse/ARROW-17310) - [C++] Expose RBR:Make() from Iterator<RB> (#13798)
+* [ARROW-17317](https://issues.apache.org/jira/browse/ARROW-17317) - [Release][Docs] Normalize previous document version directory (#14457)
+* [ARROW-17318](https://issues.apache.org/jira/browse/ARROW-17318) - [C++][Dataset] Support async streaming interface for getting fragments in Dataset (#13804)
+* [ARROW-17320](https://issues.apache.org/jira/browse/ARROW-17320) - [Python] Refine pyarrow.parquet API exposure (#14096)
+* [ARROW-17321](https://issues.apache.org/jira/browse/ARROW-17321) - [JS] Update dependencies (#13758)
+* [ARROW-17322](https://issues.apache.org/jira/browse/ARROW-17322) - [Docs] Documenting issue lifecycle for bugs and feature requests (#13781)
+* [ARROW-17323](https://issues.apache.org/jira/browse/ARROW-17323) - [Go] Cleanup and upgrade dependencies (#13807)
+* [ARROW-17324](https://issues.apache.org/jira/browse/ARROW-17324) - [Go][CI] Add go1.18 job and -asan flag (#13867)
+* [ARROW-17326](https://issues.apache.org/jira/browse/ARROW-17326) - [Go][FlightSQL] Add FlightSQL support for Go (#13828)
+* [ARROW-17340](https://issues.apache.org/jira/browse/ARROW-17340) - [Go] Use `T.TempDir` to create temporary test directory (#13816)
+* [ARROW-17348](https://issues.apache.org/jira/browse/ARROW-17348) - [C++] Add support for building bundled LZ4 with Visual C++ 2019 or later (#13817)
+* [ARROW-17349](https://issues.apache.org/jira/browse/ARROW-17349) - [C++] Allow casting map types (#14198)
+* [ARROW-17355](https://issues.apache.org/jira/browse/ARROW-17355) - [R] Refactor the handle_* utility functions for a better dev experience (#14030)
+* [ARROW-17357](https://issues.apache.org/jira/browse/ARROW-17357) - [CI][Conan] Enable JSON (#13823)
+* [ARROW-17358](https://issues.apache.org/jira/browse/ARROW-17358) - [CI][C++] Add a job for Alpine Linux (#13825)
+* [ARROW-17359](https://issues.apache.org/jira/browse/ARROW-17359) - [Go][FlightSQL] Create Example with SQLite in-mem and use to test FlightSQL server (#13868)
+* [ARROW-17362](https://issues.apache.org/jira/browse/ARROW-17362) - [R] Implement dplyr::across() inside summarise() (#14042)
+* [ARROW-17364](https://issues.apache.org/jira/browse/ARROW-17364) - [R] Implement .names argument inside across()
+* [ARROW-17366](https://issues.apache.org/jira/browse/ARROW-17366) - [R] Support purrr-style lambda functions in .fns argument to across() (#14327)
+* [ARROW-17367](https://issues.apache.org/jira/browse/ARROW-17367) - [C++] Fix the LZ4's CMake target name (#13831)
+* [ARROW-17368](https://issues.apache.org/jira/browse/ARROW-17368) - [C++] Add support for installing utilities (#13832)
+* [ARROW-17370](https://issues.apache.org/jira/browse/ARROW-17370) - [C++] Add limit to SplitString() (#13833)
+* [ARROW-17371](https://issues.apache.org/jira/browse/ARROW-17371) - [R] Remove as.factor to dictionary_encode mapping
+* [ARROW-17377](https://issues.apache.org/jira/browse/ARROW-17377) - [C++][Docs] Adds tutorial for basic Arrow, file access, compute, and datasets (#13859)
+* [ARROW-17385](https://issues.apache.org/jira/browse/ARROW-17385) - [Integration] Re-enable Rust integration case (#13852) (#13858)
+* [ARROW-17385](https://issues.apache.org/jira/browse/ARROW-17385) - [Integration] Revert "Re-enable Rust integration case" (#13856)
+* [ARROW-17387](https://issues.apache.org/jira/browse/ARROW-17387) - [R] Implement dplyr::across() inside filter() (#14281)
+* [ARROW-17390](https://issues.apache.org/jira/browse/ARROW-17390) - [Go] Add union scalar types (#13860)
+* [ARROW-17394](https://issues.apache.org/jira/browse/ARROW-17394) - [C++][Parquet] Fix parquet_static dependencies (#13863)
+* [ARROW-17395](https://issues.apache.org/jira/browse/ARROW-17395) - [CI][Conan] can't find grpc-proto/cci.20220627 package (#13864)
+* [ARROW-17405](https://issues.apache.org/jira/browse/ARROW-17405) - [Doc][Java] C Data Interface library able to compile with mvn command (#13881)
+* [ARROW-17407](https://issues.apache.org/jira/browse/ARROW-17407) - [Doc][FlightRPC] Flight/gRPC best practices (#13873)
+* [ARROW-17409](https://issues.apache.org/jira/browse/ARROW-17409) - [Packaging][RPM][GLib] *-glib-libs should have .typelib and *-glib-devel should have .gir (#13876)
+* [ARROW-17412](https://issues.apache.org/jira/browse/ARROW-17412) - [C++] AsofJoin multiple keys and types (#13880)
+* [ARROW-17418](https://issues.apache.org/jira/browse/ARROW-17418) - [Doc][Java] Dataset library able to compile with mvn command (#13889)
+* [ARROW-17420](https://issues.apache.org/jira/browse/ARROW-17420) - [C++][FlightRPC] Fix schema validation in Flight SQL integration test (#13897)
+* [ARROW-17427](https://issues.apache.org/jira/browse/ARROW-17427) - [Java] Add Windows build script that produces DLLs (#14203)
+* [ARROW-17430](https://issues.apache.org/jira/browse/ARROW-17430) - [Java] ListBinder to bind Arrow List type to DB column  (#13906)
+* [ARROW-17431](https://issues.apache.org/jira/browse/ARROW-17431) - [Java] MapBinder to bind Arrow Map type to DB column (#13941)
+* [ARROW-17434](https://issues.apache.org/jira/browse/ARROW-17434) - [Java][CI] Add build Windows support for Java (#13918)
+* [ARROW-17435](https://issues.apache.org/jira/browse/ARROW-17435) - [CI][Python][CUDA] Install Numba for CUDA interop tests  (#13899)
+* [ARROW-17436](https://issues.apache.org/jira/browse/ARROW-17436) - [C++] Use -O2 instead of -O3 for RELEASE builds (#13661)
+* [ARROW-17439](https://issues.apache.org/jira/browse/ARROW-17439) - [R] Change behavior of pull to compute instead of collect (#14330)
+* [ARROW-17449](https://issues.apache.org/jira/browse/ARROW-17449) - [Python] Better repr for Buffer, MemoryPool, NativeFile and Codec (#13921)
+* [ARROW-17451](https://issues.apache.org/jira/browse/ARROW-17451) - [CI][Java] Use manylinux2014 image for JNI (#13920)
+* [ARROW-17455](https://issues.apache.org/jira/browse/ARROW-17455) - [Go] Function and Kernel execution architecture (#13964)
+* [ARROW-17456](https://issues.apache.org/jira/browse/ARROW-17456) - [Go] Mark the compute module as a separate sub-module (#13910)
+* [ARROW-17460](https://issues.apache.org/jira/browse/ARROW-17460) - [R] Don't warn if the new UDF I'm registering is the same as the existing one (#14436)
+* [ARROW-17463](https://issues.apache.org/jira/browse/ARROW-17463) - [R] Avoid unnecessary projections (#13954)
+* [ARROW-17470](https://issues.apache.org/jira/browse/ARROW-17470) - [CI][GLib] Add more system packages to sync the upstream PKGBUILD (#13917)
+* [ARROW-17475](https://issues.apache.org/jira/browse/ARROW-17475) - [Go] Function interface and Registry impl (#13924)
+* [ARROW-17476](https://issues.apache.org/jira/browse/ARROW-17476) - [Release][Packaging] Make binary uploader reusable from datafusion-c (#13923)
+* [ARROW-17479](https://issues.apache.org/jira/browse/ARROW-17479) - [Go] Add ArraySpan and utilities (#13929)
+* [ARROW-17480](https://issues.apache.org/jira/browse/ARROW-17480) - [Java] add setNull() to FieldVector interface (#14244)
+* [ARROW-17482](https://issues.apache.org/jira/browse/ARROW-17482) - [Go] Remove ValueDescr types (#13930)
+* [ARROW-17483](https://issues.apache.org/jira/browse/ARROW-17483) - [Python] Support Expression filters in non-legacy ParquetDataset/read_table (#14011)
+* [ARROW-17485](https://issues.apache.org/jira/browse/ARROW-17485) - [R] Allow TRUE/FALSE to the compression option of `write_feather` (`write_ipc_file`) (#13935)
+* [ARROW-17488](https://issues.apache.org/jira/browse/ARROW-17488) - [Python] Add support for RelWithDebInfo
+* [ARROW-17489](https://issues.apache.org/jira/browse/ARROW-17489) - [R] Nightly builds failing due to test referencing unrelease stringr functions (#13937)
+* [ARROW-17492](https://issues.apache.org/jira/browse/ARROW-17492) - [C++] Hashing32/64 support for large var-binary types (#13940)
+* [ARROW-17499](https://issues.apache.org/jira/browse/ARROW-17499) - [Go] Shift MakeArrayOfNull to array Package (#13944)
+* [ARROW-17500](https://issues.apache.org/jira/browse/ARROW-17500) - [Go] Kernel and KernelContext interfaces (#13946)
+* [ARROW-17510](https://issues.apache.org/jira/browse/ARROW-17510) - [CI][C++][Windows][MSVC] Use ccache (#13957)
+* [ARROW-17511](https://issues.apache.org/jira/browse/ARROW-17511) - [C++] Add support for xsimd 9.0.0 (#13958)
+* [ARROW-17512](https://issues.apache.org/jira/browse/ARROW-17512) - [Doc] Updates to crossbow documentation for clarity (#13993)
+* [ARROW-17519](https://issues.apache.org/jira/browse/ARROW-17519) - [R] RTools35 job is failing (#14035)
+* [ARROW-17521](https://issues.apache.org/jira/browse/ARROW-17521) - [Python] Add python bindings for NamedTableProvider for Substrait consumer (#14024)
+* [ARROW-17523](https://issues.apache.org/jira/browse/ARROW-17523) - [C++] Add support to substrait function is_null, is_not_null and count (#13969)
+* [ARROW-17525](https://issues.apache.org/jira/browse/ARROW-17525) - [Java] Read ORC files using NativeDatasetFactory  (#13973)
+* [ARROW-17527](https://issues.apache.org/jira/browse/ARROW-17527) - [Go] Implement Cast to Boolean Functions (#13974)
+* [ARROW-17532](https://issues.apache.org/jira/browse/ARROW-17532) - [Go][Compute] Implement Numeric Cast functions (#13992)
+* [ARROW-17536](https://issues.apache.org/jira/browse/ARROW-17536) - [Packaging][RPM][Gandiva] Fix build error on CentOS Stream 9 (#13984)
+* [ARROW-17545](https://issues.apache.org/jira/browse/ARROW-17545) - [C++][CI] Mandate C++17 instead of C++11 (#13991)
+* [ARROW-17546](https://issues.apache.org/jira/browse/ARROW-17546) - [C++] Remove pre-C++17 compatibility measures
+* [ARROW-17551](https://issues.apache.org/jira/browse/ARROW-17551) - [Go] Implement Temporal Cast Functions (#14006)
+* [ARROW-17553](https://issues.apache.org/jira/browse/ARROW-17553) - [Go] Enable flight.Server to register additional grpc services (#13995)
+* [ARROW-17554](https://issues.apache.org/jira/browse/ARROW-17554) - [Python][Packaging] Stop producing macOS Mavericks wheels (#13996)
+* [ARROW-17555](https://issues.apache.org/jira/browse/ARROW-17555) - [Dev][CI] "ci/scripts/install\_osx\_sdk.sh" unused
+* [ARROW-17560](https://issues.apache.org/jira/browse/ARROW-17560) - [Java][Gandiva] Move JNI build configuration from cpp/ to java/ (#14159)
+* [ARROW-17561](https://issues.apache.org/jira/browse/ARROW-17561) - [Java][ORC] Move JNI build configuration from cpp/ to java/ (#14162)
+* [ARROW-17569](https://issues.apache.org/jira/browse/ARROW-17569) - [C++] Bump xsimd version to 9.0.1 (#14005)
+* [ARROW-17575](https://issues.apache.org/jira/browse/ARROW-17575) - [Docs][C++] Update build document to follow new CMake package (#14097)
+* [ARROW-17585](https://issues.apache.org/jira/browse/ARROW-17585) - [Java] Update GenerateSampleData.java (#14289)
+* [ARROW-17586](https://issues.apache.org/jira/browse/ARROW-17586) - [Go] String To Numeric cast functions (#14015)
+* [ARROW-17587](https://issues.apache.org/jira/browse/ARROW-17587) - [Go] Cast From Extension Types (#14016)
+* [ARROW-17588](https://issues.apache.org/jira/browse/ARROW-17588) - [Go] Casting to binary-like types (#14027)
+* [ARROW-17594](https://issues.apache.org/jira/browse/ARROW-17594) - [R][Packaging] Build binaries with devtoolset 8 on CentOS 7 (#14243)
+* [ARROW-17600](https://issues.apache.org/jira/browse/ARROW-17600) - [Go] Implement Casting for Nested types (#14056)
+* [ARROW-17603](https://issues.apache.org/jira/browse/ARROW-17603) - [C++][FlightRPC] Be verbose about failures when REQUIRE_TLSCREDENTIALSOPTIONS is on (#14034)
+* [ARROW-17604](https://issues.apache.org/jira/browse/ARROW-17604) - [Docs][Java] Make it more obvious that --add-opens is required (#14066)
+* [ARROW-17617](https://issues.apache.org/jira/browse/ARROW-17617) - [Docs] Remove experimental qualifier from Flight (#14055)
+* [ARROW-17621](https://issues.apache.org/jira/browse/ARROW-17621) - [CI] Audit workflows (#14155)
+* [ARROW-17628](https://issues.apache.org/jira/browse/ARROW-17628) - [CI][Packaging][Java] Publish latest nightly with SNAPSHOT version (#14135)
+* [ARROW-17629](https://issues.apache.org/jira/browse/ARROW-17629) - [Java] Bind DB column to Arrow Map type in JdbcToArrowUtils (#14134)
+* [ARROW-17630](https://issues.apache.org/jira/browse/ARROW-17630) - [Java] Introduce column index in JdbcToArrowTypeConverter as JdbcFieldInfo.column
+* [ARROW-17631](https://issues.apache.org/jira/browse/ARROW-17631) - [Java] Propagate table/columns comments into Arrow Schema (#14081)
+* [ARROW-17632](https://issues.apache.org/jira/browse/ARROW-17632) - [Python][C++] Add details of where libarrow is being found during build (#14059)
+* [ARROW-17638](https://issues.apache.org/jira/browse/ARROW-17638) - [Go] Extend C Data API support for Union arrays and RecordReader interface (#14057)
+* [ARROW-17646](https://issues.apache.org/jira/browse/ARROW-17646) - [Go][CI] Switch C Data to use cgo.Handle (bumps to Go1.17) (#14067)
+* [ARROW-17647](https://issues.apache.org/jira/browse/ARROW-17647) - [C++] Using better namespace style when using protobuf with Substrait (#14121)
+* [ARROW-17649](https://issues.apache.org/jira/browse/ARROW-17649) - [Python] Remove remaining deprecated APIs from <= 1.0.0 (#14401)
+* [ARROW-17659](https://issues.apache.org/jira/browse/ARROW-17659) - [Java] Populate JDBC schema name metadata when config.shouldIncludeMetadata provided (#14196)
+* [ARROW-17665](https://issues.apache.org/jira/browse/ARROW-17665) - [R] Document dplyr and compute functionality (#14387)
+* [ARROW-17666](https://issues.apache.org/jira/browse/ARROW-17666) - [R] Document exceptions to dplyr verb support
+* [ARROW-17667](https://issues.apache.org/jira/browse/ARROW-17667) - [R] Document exceptions to function binding support
+* [ARROW-17669](https://issues.apache.org/jira/browse/ARROW-17669) - [Go] Take Function kernels for Record batch, Tables and Chunked Arrays (#14214)
+* [ARROW-17670](https://issues.apache.org/jira/browse/ARROW-17670) - [Go] Implement Filter function for Primitive and FixedSize types (#14088)
+* [ARROW-17671](https://issues.apache.org/jira/browse/ARROW-17671) - [Go] Filter kernels for Binary/String (#14098)
+* [ARROW-17673](https://issues.apache.org/jira/browse/ARROW-17673) - [R] `desc` in `dplyr::arrange` should allow `dplyr::` prefix (#14090)
+* [ARROW-17674](https://issues.apache.org/jira/browse/ARROW-17674) - [R] Implement dplyr::across() inside arrange() (#14092)
+* [ARROW-17677](https://issues.apache.org/jira/browse/ARROW-17677) - [Go] Filter functions for list and extension types (#14141)
+* [ARROW-17678](https://issues.apache.org/jira/browse/ARROW-17678) - [Go] Filter kernels for Record Batches and Tables (#14156)
+* [ARROW-17688](https://issues.apache.org/jira/browse/ARROW-17688) - [C++][Java][FlightRPC] Substrait, transaction, cancellation for Flight SQL (#13492)
+* [ARROW-17689](https://issues.apache.org/jira/browse/ARROW-17689) - [R] Implement dplyr::across() inside group_by() (#14122)
+* [ARROW-17690](https://issues.apache.org/jira/browse/ARROW-17690) - [R] Implement dplyr::across() inside distinct() (#14154)
+* [ARROW-17691](https://issues.apache.org/jira/browse/ARROW-17691) - [Go] Implement Take for Primitive Types (#14101)
+* [ARROW-17693](https://issues.apache.org/jira/browse/ARROW-17693) - [C++] Remove string_view backport (#14177)
+* [ARROW-17694](https://issues.apache.org/jira/browse/ARROW-17694) - [C++] Remove std::optional backport (#14105)
+* [ARROW-17695](https://issues.apache.org/jira/browse/ARROW-17695) - [C++] Remove Variant class (#14136)
+* [ARROW-17698](https://issues.apache.org/jira/browse/ARROW-17698) - [R] Implement use of \`where()\` inside \`across()
+* [ARROW-17701](https://issues.apache.org/jira/browse/ARROW-17701) - [C++][Gandiva] Add support for untyped node (#14110)
+* [ARROW-17704](https://issues.apache.org/jira/browse/ARROW-17704) - [Java][FlightRPC] Update to Junit 5 (#14103)
+* [ARROW-17716](https://issues.apache.org/jira/browse/ARROW-17716) - [Docs] Remove IR documentation page (#14112)
+* [ARROW-17724](https://issues.apache.org/jira/browse/ARROW-17724) - [R] Allow package name prefix inside dplyr::across's .fns argument (#14279)
+* [ARROW-17730](https://issues.apache.org/jira/browse/ARROW-17730) - [Go] Implement Take kernels for FSB and VarBinary (#14127)
+* [ARROW-17734](https://issues.apache.org/jira/browse/ARROW-17734) - [Go] Implement Take for Lists and Dense Union (#14130)
+* [ARROW-17736](https://issues.apache.org/jira/browse/ARROW-17736) - [C++] Added a fallback name resolution mechanism to the Substrait producer. (#14143)
+* [ARROW-17741](https://issues.apache.org/jira/browse/ARROW-17741) - [Packaging] Include JDBC driver in java-jars artifacts (#14139)
+* [ARROW-17749](https://issues.apache.org/jira/browse/ARROW-17749) - [Go] Implement Filter and Take for Structs (#14145)
+* [ARROW-17764](https://issues.apache.org/jira/browse/ARROW-17764) - [CI][C++] "#include <optional>" is missing (#14161)
+* [ARROW-17767](https://issues.apache.org/jira/browse/ARROW-17767) - [Java][ORC] Move JNI build configuration from cpp/ to java/ (#14163)
+* [ARROW-17778](https://issues.apache.org/jira/browse/ARROW-17778) - [Go][CSV] Simple CSV Reader Schema and type inference (#14171)
+* [ARROW-17782](https://issues.apache.org/jira/browse/ARROW-17782) - [C++][R] R package not building on macos 10.13 with C++17 std lib (#14178)
+* [ARROW-17786](https://issues.apache.org/jira/browse/ARROW-17786) - [Java] Read CSV files using org.apache.arrow.dataset.jni.NativeDatasetFactory (#14182)
+* [ARROW-17788](https://issues.apache.org/jira/browse/ARROW-17788) - [R][Doc] Add example of using Scanner (#14184)
+* [ARROW-17789](https://issues.apache.org/jira/browse/ARROW-17789) - [Java][Docs] Update Java Dataset documentation with latest changes (#14382)
+* [ARROW-17792](https://issues.apache.org/jira/browse/ARROW-17792) - [C++] Use lambda capture move construction (#14188)
+* [ARROW-17794](https://issues.apache.org/jira/browse/ARROW-17794) - [Java] Force delete jni lib file on JVM exit (#14189)
+* [ARROW-17803](https://issues.apache.org/jira/browse/ARROW-17803) - [C++][nodiscard] (#14193)
+* [ARROW-17804](https://issues.apache.org/jira/browse/ARROW-17804) - [Go][CSV] Add Date32 and Time32 parsers (#14192)
+* [ARROW-17810](https://issues.apache.org/jira/browse/ARROW-17810) - [Java] Use jacoco-maven-plugin 0.8.8 for Java 18 support (#14197)
+* [ARROW-17811](https://issues.apache.org/jira/browse/ARROW-17811) - [Java][Doc] Added high-level documentation for Dictionary Encoding in Java (#14213)
+* [ARROW-17814](https://issues.apache.org/jira/browse/ARROW-17814) - [C++] Fix style (#14218)
+* [ARROW-17814](https://issues.apache.org/jira/browse/ARROW-17814) - [C++] Remove make_unique reimplementation (#14204)
+* [ARROW-17815](https://issues.apache.org/jira/browse/ARROW-17815) - [Python] Warn, not error out, when SetSignalStopSource fails (#14205)
+* [ARROW-17817](https://issues.apache.org/jira/browse/ARROW-17817) - [C++] Let ORC compile on MSVC if it is activated (#14208)
+* [ARROW-17823](https://issues.apache.org/jira/browse/ARROW-17823) - [C++] Revert std::make_shared change for CUDA (#14233)
+* [ARROW-17823](https://issues.apache.org/jira/browse/ARROW-17823) - [C++] Prefer std::make_shared/std::make_unique over constructor with new (#14216)
+* [ARROW-17824](https://issues.apache.org/jira/browse/ARROW-17824) - [C++][Gandiva] Implement preallocation for variable length output buffer (#14230)
+* [ARROW-17826](https://issues.apache.org/jira/browse/ARROW-17826) - [Python] Allow scalars when creating expression from compute kernels (#14360)
+* [ARROW-17834](https://issues.apache.org/jira/browse/ARROW-17834) - [Python] Allow creating ExtensionArray through pa.array(..) constructor (#14253)
+* [ARROW-17840](https://issues.apache.org/jira/browse/ARROW-17840) - [Java] Disable flaky JaCoCo coverage check (#14231)
+* [ARROW-17844](https://issues.apache.org/jira/browse/ARROW-17844) - [C++] Remove atomic shared_ptr compatibility functions (#14239)
+* [ARROW-17845](https://issues.apache.org/jira/browse/ARROW-17845) - [CI][Conan] Re-enable Flight in Conan CI check (#14240)
+* [ARROW-17846](https://issues.apache.org/jira/browse/ARROW-17846) - [C++] Use `if constexpr` in CSV subsystem (#14241)
+* [ARROW-17847](https://issues.apache.org/jira/browse/ARROW-17847) - [C++] Support unquoted decimal in JSON parser (#14242)
+* [ARROW-17849](https://issues.apache.org/jira/browse/ARROW-17849) - [R][Docs] Document changes due to C++17 for centos-7 users (#14440)
+* [ARROW-17854](https://issues.apache.org/jira/browse/ARROW-17854) - [CI][Developer] Host preview docs on S3 (#14247)
+* [ARROW-17856](https://issues.apache.org/jira/browse/ARROW-17856) - [CI][Archery] Add new Archery command to delete old branches and tags on crossbow repo (#14248)
+* [ARROW-17857](https://issues.apache.org/jira/browse/ARROW-17857) - [C++] Fix segfault in Table::CombineChunksToBatch (#14249)
+* [ARROW-17860](https://issues.apache.org/jira/browse/ARROW-17860) - [Plasma] Deprecate Plasma
+* [ARROW-17861](https://issues.apache.org/jira/browse/ARROW-17861) - [C++] Deprecate Plasma (#14305)
+* [ARROW-17862](https://issues.apache.org/jira/browse/ARROW-17862) - [Plasma][GLib] Deprecate Plasma C GLib bindings (#14259)
+* [ARROW-17863](https://issues.apache.org/jira/browse/ARROW-17863) - [Python] Deprecate Plasma Python bindings (#14343)
+* [ARROW-17864](https://issues.apache.org/jira/browse/ARROW-17864) - [Plasma][Ruby] Deprecate Plasma Ruby bindings (#14258)
+* [ARROW-17865](https://issues.apache.org/jira/browse/ARROW-17865) - [Java] Deprecate Java Plasma JNI bindings (#14262)
+* [ARROW-17868](https://issues.apache.org/jira/browse/ARROW-17868) - [C++][Python] Restore the ARROW_PYTHON CMake option (#14273)
+* [ARROW-17872](https://issues.apache.org/jira/browse/ARROW-17872) - [C++][CI] Reduce macOS CI dependencies (#14310)
+* [ARROW-17875](https://issues.apache.org/jira/browse/ARROW-17875) - [C++] Remove assorted pre-C++17 compatibility measures (#14263)
+* [ARROW-17878](https://issues.apache.org/jira/browse/ARROW-17878) - [Website] Exclude Ballista docs from being deleted
+* [ARROW-17880](https://issues.apache.org/jira/browse/ARROW-17880) - [Go] Add support for Decimal128 and Decimal256 to CSV writer (#14278)
+* [ARROW-17882](https://issues.apache.org/jira/browse/ARROW-17882) - [Java][Doc] Adding building steps for Windows user to produce JNI DLL (#14379)
+* [ARROW-17883](https://issues.apache.org/jira/browse/ARROW-17883) - [Java] implement immutable table (#14316)
+* [ARROW-17888](https://issues.apache.org/jira/browse/ARROW-17888) - [Docs] Add reference of the cookbook contrib page to New Contributor's Guide (#14283)
+* [ARROW-17889](https://issues.apache.org/jira/browse/ARROW-17889) - [CI] Remove Kartothek integration tests (#14274)
+* [ARROW-17891](https://issues.apache.org/jira/browse/ARROW-17891) - [Docs][Python] Update and sync Win section of the developers/python page (#14350)
+* [ARROW-17903](https://issues.apache.org/jira/browse/ARROW-17903) - [JS] Update dependencies (#14285)
+* [ARROW-17911](https://issues.apache.org/jira/browse/ARROW-17911) - [R] Implement `across()` within `transmute()` (#14290)
+* [ARROW-17924](https://issues.apache.org/jira/browse/ARROW-17924) - [Doc][Format] Clarify immutability assumption in C Data Interface (#14304)
+* [ARROW-17929](https://issues.apache.org/jira/browse/ARROW-17929) - [C#] Improve the NuGet packages. (#14312)
+* [ARROW-17934](https://issues.apache.org/jira/browse/ARROW-17934) - [R] Use tempfile instead of working directory for dataset test (#14315)
+* [ARROW-17936](https://issues.apache.org/jira/browse/ARROW-17936) - [R] ExecPlanReader test aborts with a crash
+* [ARROW-17939](https://issues.apache.org/jira/browse/ARROW-17939) - [Docs][Python] Update python dev page after PyArrow C++ tests change (#14322)
+* [ARROW-17940](https://issues.apache.org/jira/browse/ARROW-17940) - [Java][Gandiva] Implement Reserve for JavaBuffer (#14323)
+* [ARROW-17942](https://issues.apache.org/jira/browse/ARROW-17942) - [Website] Some links can be changed from http to https
+* [ARROW-17944](https://issues.apache.org/jira/browse/ARROW-17944) - [Python] substrait.run_query accept bytes/Buffer and not segfault (#14331)
+* [ARROW-17945](https://issues.apache.org/jira/browse/ARROW-17945) - [Website][Release] Use https:// for search.maven.org (#14329)
+* [ARROW-17950](https://issues.apache.org/jira/browse/ARROW-17950) - [Docs][Python] Add more info about the change in PyArrow C++ API (#14333)
+* [ARROW-17952](https://issues.apache.org/jira/browse/ARROW-17952) - [Archery][CI] Fix archery error when running ubuntu-cuda-cpp (#14335)
+* [ARROW-17954](https://issues.apache.org/jira/browse/ARROW-17954) - [R] Update news for 10.0 (#14337)
+* [ARROW-17955](https://issues.apache.org/jira/browse/ARROW-17955) - [Docs][Java] Tutorial documentation for Table (#14344)
+* [ARROW-17962](https://issues.apache.org/jira/browse/ARROW-17962) - [Java] Remove unused schema creation from try with resources (#14346)
+* [ARROW-17965](https://issues.apache.org/jira/browse/ARROW-17965) - [C++] ExecBatch support for ChunkedArray values (#14348)
+* [ARROW-17969](https://issues.apache.org/jira/browse/ARROW-17969) - [CI][C++] Don't use LLVM 14 or later on Ubuntu 18.04 (#14356)
+* [ARROW-17971](https://issues.apache.org/jira/browse/ARROW-17971) - [Format][Docs] Add ADBC (#14079)
+* [ARROW-17976](https://issues.apache.org/jira/browse/ARROW-17976) - [C++] Use generic lambdas in arrow/compare.cc (#14363)
+* [ARROW-17982](https://issues.apache.org/jira/browse/ARROW-17982) - [C++][Java] Update ORC to 1.8.0 (#14367)
+* [ARROW-17988](https://issues.apache.org/jira/browse/ARROW-17988) - [C++] Remove index_sequence_for and aligned_union backports (#14372)
+* [ARROW-17992](https://issues.apache.org/jira/browse/ARROW-17992) - [CI][C++][Conda] Remove needless clangdev/llvmdev pinnings (#14376)
+* [ARROW-17993](https://issues.apache.org/jira/browse/ARROW-17993) - [CI][Release] Use Node.js 16 LTS for verify-rc-source-*-conda-* (#14377)
+* [ARROW-17997](https://issues.apache.org/jira/browse/ARROW-17997) - [Ruby] Add support for building Arrow::Tensor from raw nested Ruby array (#14381)
+* [ARROW-18010](https://issues.apache.org/jira/browse/ARROW-18010) - [Go] Add ARM64 Neon impl for Casting (#14388)
+* [ARROW-18017](https://issues.apache.org/jira/browse/ARROW-18017) - [Go] Simplify Compute module deps and release (#14391)
+* [ARROW-18019](https://issues.apache.org/jira/browse/ARROW-18019) - [C++][Gandiva] Improve Projector evaluation performance (#14394)
+* [ARROW-18026](https://issues.apache.org/jira/browse/ARROW-18026) - [C++][Gandiva] Add div and mod functions for unsigned ints (#14397)
+* [ARROW-18027](https://issues.apache.org/jira/browse/ARROW-18027) - [Dev][Archery][Crossbow] Reuse GitHub Token (#14398)
+* [ARROW-18028](https://issues.apache.org/jira/browse/ARROW-18028) - [Dev][Archery][Crossbow] Always use GitHub Action's run page URL in PR comment (#14399)
+* [ARROW-18030](https://issues.apache.org/jira/browse/ARROW-18030) - [C++] Bump LZ4 version (#14405)
+* [ARROW-18044](https://issues.apache.org/jira/browse/ARROW-18044) - [Java] upgrade error-prone library version to 2.16 (#14423)
+* [ARROW-18047](https://issues.apache.org/jira/browse/ARROW-18047) - [Dev][Archery][Crossbow] Queue.put() should use Job.queue setter (#14410)
+* [ARROW-18048](https://issues.apache.org/jira/browse/ARROW-18048) - [Dev][Archery][Crossbow] Comment bot waits for a while before generate a report (#14412)
+* [ARROW-18053](https://issues.apache.org/jira/browse/ARROW-18053) - [Dev] Fix a bug that merge_arrow_pr.py doesn't detect Co-authored-by: (#14416)
+* [ARROW-18056](https://issues.apache.org/jira/browse/ARROW-18056) - [Ruby] Add support for building Arrow::Table from {name: Arrow::Tensor} (#14417)
+* [ARROW-18057](https://issues.apache.org/jira/browse/ARROW-18057) - [R] test for slice functions fail on builds without Datasets capability (#14418)
+* [ARROW-18058](https://issues.apache.org/jira/browse/ARROW-18058) - [Dev][Archery] Remove removed ARROW_JNI related code (#14419)
+* [ARROW-18061](https://issues.apache.org/jira/browse/ARROW-18061) - [CI][R] Reduce number of jobs on every commit (#14420)
+* [ARROW-18069](https://issues.apache.org/jira/browse/ARROW-18069) - [Docs] Suggest using force with lease initially (#14430)
+* [ARROW-18072](https://issues.apache.org/jira/browse/ARROW-18072) - [C++] Can't use bundled ORC with CMake 3.10 (#14432)
+* [ARROW-18074](https://issues.apache.org/jira/browse/ARROW-18074) - [CI] Running ctest for PyArrow C++ not needed anymore (#14435)
+* [ARROW-18083](https://issues.apache.org/jira/browse/ARROW-18083) - [C++] Bump vendored zlib version (#14446)
+* [PARQUET-2172](https://issues.apache.org/jira/browse/PARQUET-2172) - [C++] Change field return type to const NodePtr& (#13865)
+
+
+## Bug Fixes
+
+* [ARROW-12175](https://issues.apache.org/jira/browse/ARROW-12175) - [C++] Fix CMake packages (#13892)
+* [ARROW-13763](https://issues.apache.org/jira/browse/ARROW-13763) - [Python] Close files in ParquetFile & ParquetDatasetPiece (#13821)
+* [ARROW-14363](https://issues.apache.org/jira/browse/ARROW-14363) - [C++][Gandiva] LLVM 13 has deprecated CreateGEP and CreateLoad methods without explicit element type
+* [ARROW-15602](https://issues.apache.org/jira/browse/ARROW-15602) - [R][Docs] Update docs to explain how to read timestamp with timezone columns (#13877)
+* [ARROW-15733](https://issues.apache.org/jira/browse/ARROW-15733) - array.String offsets int32 overflow
+* [ARROW-16141](https://issues.apache.org/jira/browse/ARROW-16141) - [R] Update rhub/fedora-clang-devel for upstreamed changes (#12824)
+* [ARROW-16174](https://issues.apache.org/jira/browse/ARROW-16174) - [Python] Fix FixedSizeListArray.flatten() on sliced input (#14000)
+* [ARROW-16521](https://issues.apache.org/jira/browse/ARROW-16521) - [C++][Python] Configure curl timeout policy for S3 (#13385)
+* [ARROW-16651](https://issues.apache.org/jira/browse/ARROW-16651) - [Python] Casting Table to new schema ignores nullability of fields (#14048)
+* [ARROW-16652](https://issues.apache.org/jira/browse/ARROW-16652) - [Python] Cast compute kernel segfaults when called with a Table (#14044)
+* [ARROW-16674](https://issues.apache.org/jira/browse/ARROW-16674) - [Java] C data interface: Reading as nioBuffer from imported buffer causes error (#13249)
+* [ARROW-16754](https://issues.apache.org/jira/browse/ARROW-16754) - [Java] StructVector's child vectors get unexpectedly reordered after adding duplicated fields (#13321)
+* [ARROW-16838](https://issues.apache.org/jira/browse/ARROW-16838) - [Python] Improve schema inference for pandas indexes with extension dtypes (#14080)
+* [ARROW-16897](https://issues.apache.org/jira/browse/ARROW-16897) - [R][C++] Full join on Arrow objects is incorrect
+* [ARROW-16942](https://issues.apache.org/jira/browse/ARROW-16942) - Error building JNI Libraries on MacOS: Could not find a package configuration file provided by "xsimd"
+* [ARROW-16993](https://issues.apache.org/jira/browse/ARROW-16993) - [C++] Don't find Boost components if they aren't needed (#13846)
+* [ARROW-17057](https://issues.apache.org/jira/browse/ARROW-17057) - [Python] S3FileSystem has no parameter for retry strategy (#13633)
+* [ARROW-17069](https://issues.apache.org/jira/browse/ARROW-17069) - [Docs][Python] Describe authentication for GCS public and private (#14392)
+* [ARROW-17084](https://issues.apache.org/jira/browse/ARROW-17084) - [R] Install the package before linting (#13620)
+* [ARROW-17099](https://issues.apache.org/jira/browse/ARROW-17099) - [Python] pyarrow build does not support RELWITHDEBINFO build type (#14324)
+* [ARROW-17104](https://issues.apache.org/jira/browse/ARROW-17104) - [CI][Python] Pyarrow cannot be imported on CI job AMD64 MacOS 10.15 Python 3 
+* [ARROW-17166](https://issues.apache.org/jira/browse/ARROW-17166) - [R][CI] force_tests() cannot return TRUE (#13680)
+* [ARROW-17169](https://issues.apache.org/jira/browse/ARROW-17169) - [Go][Parquet] Panic in bitmap writer with Nullable List of Struct (#14183)
+* [ARROW-17193](https://issues.apache.org/jira/browse/ARROW-17193) - [C++] Add support for finding system Abseil (#13731)
+* [ARROW-17199](https://issues.apache.org/jira/browse/ARROW-17199) - [Java][FlightRPC] Clean up Flight SQL example server (#13710)
+* [ARROW-17217](https://issues.apache.org/jira/browse/ARROW-17217) - [Docs][Python] Adding pandas as required dependency (#13714)
+* [ARROW-17223](https://issues.apache.org/jira/browse/ARROW-17223) - [C#] DecimalArray incorrectly appends values greater than Decimal.MaxValue / 2 and less than Decimal.MinValue / 2 (#13732)
+* [ARROW-17228](https://issues.apache.org/jira/browse/ARROW-17228) - [Python] dataset.write_data should use Scanner.projected_schema when passed a scanner with projected columns (#13756)
+* [ARROW-17230](https://issues.apache.org/jira/browse/ARROW-17230) - [C++] Fix DeserializePlan, add additional option validation (#13728)
+* [ARROW-17233](https://issues.apache.org/jira/browse/ARROW-17233) - [Packaging][Linux] Update artifact patterns (#13740)
+* [ARROW-17248](https://issues.apache.org/jira/browse/ARROW-17248) - [CI][Conan] Enable Zstandard (#13742)
+* [ARROW-17249](https://issues.apache.org/jira/browse/ARROW-17249) - [CI][Conan] Enable bzip2 (#13743)
+* [ARROW-17250](https://issues.apache.org/jira/browse/ARROW-17250) - [CI][Conan] Enable utf8proc automatically (#13744)
+* [ARROW-17251](https://issues.apache.org/jira/browse/ARROW-17251) - [CI][Conan] Enable Flight (#13761)
+* [ARROW-17253](https://issues.apache.org/jira/browse/ARROW-17253) - [Python] Detect iterator exception instead of crashing (#13764)
+* [ARROW-17254](https://issues.apache.org/jira/browse/ARROW-17254) - [C++][Go][Java][FlightRPC] Implement and test Flight SQL GetSchema (#13898)
+* [ARROW-17256](https://issues.apache.org/jira/browse/ARROW-17256) - [Python] Can't call combine_chunks on empty ChunkedArray (#13757)
+* [ARROW-17272](https://issues.apache.org/jira/browse/ARROW-17272) - [Dev] Pass --add-opens in integration tests (#13765)
+* [ARROW-17281](https://issues.apache.org/jira/browse/ARROW-17281) - [C++] Fix cache size reporting on Windows (#13813)
+* [ARROW-17296](https://issues.apache.org/jira/browse/ARROW-17296) - [Python] Update serialized metadata size in pyarrow.parquet.read_metadata doctest (#13790)
+* [ARROW-17315](https://issues.apache.org/jira/browse/ARROW-17315) - [Release][Docs] Update versions.json by post version bump (#13805)
+* [ARROW-17338](https://issues.apache.org/jira/browse/ARROW-17338) - [Java] The maximum request memory of BaseVariableWidthVector should limit to Integer.MAX_VALUE (#13815)
+* [ARROW-17341](https://issues.apache.org/jira/browse/ARROW-17341) - [C++] Fix cpu_info.cc build error on musl libc (#13819)
+* [ARROW-17350](https://issues.apache.org/jira/browse/ARROW-17350) - [C++] Create a scheduler for asynchronous work (#13912)
+* [ARROW-17353](https://issues.apache.org/jira/browse/ARROW-17353) - [Release][R] Validate binaries version (#14396)
+* [ARROW-17372](https://issues.apache.org/jira/browse/ARROW-17372) - [Go][Parquet] Fix failures for ppc64le (#13840)
+* [ARROW-17382](https://issues.apache.org/jira/browse/ARROW-17382) - [C++] open_dataset doesn't ignore BOM in csv file when header's with quotes (#13838)
+* [ARROW-17386](https://issues.apache.org/jira/browse/ARROW-17386) - [R] strptime tests not robust across platforms (#13854)
+* [ARROW-17389](https://issues.apache.org/jira/browse/ARROW-17389) - [Python] Properly exclude tests when PYARROW_INSTALL_TESTS=0 (#13904)
+* [ARROW-17410](https://issues.apache.org/jira/browse/ARROW-17410) - [JS][Integration] Downgrade zlib for integration (#13885)
+* [ARROW-17421](https://issues.apache.org/jira/browse/ARROW-17421) - [C++] CUDA on Windows fails to build (#13883)
+* [ARROW-17422](https://issues.apache.org/jira/browse/ARROW-17422) - [C++][CI] Linux builds are missing dependencies (#13886)
+* [ARROW-17423](https://issues.apache.org/jira/browse/ARROW-17423) - [CI][C++] Fix building CUDA docker images (#13896)
+* [ARROW-17426](https://issues.apache.org/jira/browse/ARROW-17426) - [C++] Substrait consumer fails to compile on older Ubuntu (#13888)
+* [ARROW-17433](https://issues.apache.org/jira/browse/ARROW-17433) - [CI][C++] Use Visual Studio 2019 on AppVeyor (#13903)
+* [ARROW-17438](https://issues.apache.org/jira/browse/ARROW-17438) - [R] glimpse() errors if there is a UDF
+* [ARROW-17440](https://issues.apache.org/jira/browse/ARROW-17440) - [C++] Support RISC-V architecture (#13902)
+* [ARROW-17448](https://issues.apache.org/jira/browse/ARROW-17448) - [R] Fix cloud storage paths in some documentation (#14070)
+* [ARROW-17450](https://issues.apache.org/jira/browse/ARROW-17450) - [C++][Parquet] Add support for uint8 boolean decode in addition to bool array (#14359)
+* [ARROW-17450](https://issues.apache.org/jira/browse/ARROW-17450) - [C++][Parquet] Support RLE decode for boolean datatype (#14147)
+* [ARROW-17453](https://issues.apache.org/jira/browse/ARROW-17453) - [Go][C++][Parquet] Inconsistent Data with Repetition Levels (#13982)
+* [ARROW-17467](https://issues.apache.org/jira/browse/ARROW-17467) - [Go] Aligned Bitmap Ops mess up the final byte when no t… (#13915)
+* [ARROW-17478](https://issues.apache.org/jira/browse/ARROW-17478) - [C++][Java] Update ORC to 1.7.6 (#13926)
+* [ARROW-17494](https://issues.apache.org/jira/browse/ARROW-17494) - [C++] Fix substrait tests linkage on static builds (#13939)
+* [ARROW-17496](https://issues.apache.org/jira/browse/ARROW-17496) - [Go] Fix Nightly Build (#13943)
+* [ARROW-17501](https://issues.apache.org/jira/browse/ARROW-17501) - [Python][wheel] Use old AWS SDK C++ (#14157)
+* [ARROW-17507](https://issues.apache.org/jira/browse/ARROW-17507) - [Dev][CI][R] GHA "autotune" doesn't work (#14060)
+* [ARROW-17517](https://issues.apache.org/jira/browse/ARROW-17517) - [C++] Test engine API in public API test (#13965)
+* [ARROW-17517](https://issues.apache.org/jira/browse/ARROW-17517) - [C++] Remove internal headers from substrait API (#14131)
+* [ARROW-17518](https://issues.apache.org/jira/browse/ARROW-17518) - [CI][Doc][Python] Update glob to detect arrow development version from git (#13966)
+* [ARROW-17524](https://issues.apache.org/jira/browse/ARROW-17524) - [C++] Correction for fields included when reading an ORC table (#13962)
+* [ARROW-17543](https://issues.apache.org/jira/browse/ARROW-17543) - [R] Fix bug for NULL type 0-length vectors in array creation
+* [ARROW-17550](https://issues.apache.org/jira/browse/ARROW-17550) - [C++][CI][MinGW] Use system Python for GCS testbench (#14272)
+* [ARROW-17556](https://issues.apache.org/jira/browse/ARROW-17556) - [C++] Unbound scan projection expression leads to all fields being loaded (#14264)
+* [ARROW-17559](https://issues.apache.org/jira/browse/ARROW-17559) - [R][C++] Regression: big performance hit after removing schema binding
+* [ARROW-17565](https://issues.apache.org/jira/browse/ARROW-17565) - [C++] Backward compatible ${PACKAGE}_shared CMake target isn't provided (#14003)
+* [ARROW-17567](https://issues.apache.org/jira/browse/ARROW-17567) - [C++] Avoid internal compiler error with gcc 7 and c++17 (#14004)
+* [ARROW-17571](https://issues.apache.org/jira/browse/ARROW-17571) - [Benchmarks] Default build for PyArrow seems to be debug (#14010)
+* [ARROW-17573](https://issues.apache.org/jira/browse/ARROW-17573) - [Go][Parquet] ByteArray statistics can cause memory leak (#14013)
+* [ARROW-17577](https://issues.apache.org/jira/browse/ARROW-17577) - [C++][Python] CMake cannot find Arrow/Arrow Python when building PyArrow
+* [ARROW-17578](https://issues.apache.org/jira/browse/ARROW-17578) - [CI][R] Fix build for Ubuntu 22.04 and GCC 12 on R (#14022)
+* [ARROW-17579](https://issues.apache.org/jira/browse/ARROW-17579) - [Python] PYARROW_CXXFLAGS ignored? (#14074)
+* [ARROW-17583](https://issues.apache.org/jira/browse/ARROW-17583) - [C++][Python] Changed datawidth of WrittenFile.size to int64 to match C++ code (#14032)
+* [ARROW-17598](https://issues.apache.org/jira/browse/ARROW-17598) - [C++] Skip memory_benchmark if SIMD level is NEON (#14036)
+* [ARROW-17612](https://issues.apache.org/jira/browse/ARROW-17612) - [Benchmarks] Failing benchmarks on macos-arm
+* [ARROW-17614](https://issues.apache.org/jira/browse/ARROW-17614) - [CI][Python] test test_write_dataset_max_rows_per_file is producing several nightly build failures (#14199)
+* [ARROW-17616](https://issues.apache.org/jira/browse/ARROW-17616) - [CI][Java] Solving regex to support last Arrow Java versions >= 10.0.0 (#14076)
+* [ARROW-17620](https://issues.apache.org/jira/browse/ARROW-17620) - [R] as_arrow_array() ignores type for StructArrays (#14047)
+* [ARROW-17627](https://issues.apache.org/jira/browse/ARROW-17627) - [Go][Parquet] Forward schema metadata to file without StoreSchema (#14087)
+* [ARROW-17639](https://issues.apache.org/jira/browse/ARROW-17639) - [R] infer_type() fails for lists where the first element is NULL (#14062)
+* [ARROW-17641](https://issues.apache.org/jira/browse/ARROW-17641) - [python] Fix ParseOptions deserialization of invalid_row_handler (#14061)
+* [ARROW-17643](https://issues.apache.org/jira/browse/ARROW-17643) - [R] Latest duckdb release is causing test failure (#14149)
+* [ARROW-17645](https://issues.apache.org/jira/browse/ARROW-17645) - [CI] Get conda-integration building again (#14069)
+* [ARROW-17675](https://issues.apache.org/jira/browse/ARROW-17675) - [C++] Modified the FileSource::Equals method to handle the case where buffer_ is null (#14085)
+* [ARROW-17681](https://issues.apache.org/jira/browse/ARROW-17681) - [CI][Packaging] Update brew dependency glib-utils with glib (#14095)
+* [ARROW-17682](https://issues.apache.org/jira/browse/ARROW-17682) - [CI][C++] Nightly test-ubuntu-20.04-cpp-thread-sanitizer fails arrow-utility-test around the AsyncTaskScheduler
+* [ARROW-17684](https://issues.apache.org/jira/browse/ARROW-17684) - [CI][deb] Disable Flight for arm64 (#14300)
+* [ARROW-17686](https://issues.apache.org/jira/browse/ARROW-17686) - [C++] Add custom ToPrint to AsofJoinBasicTest (#14172)
+* [ARROW-17687](https://issues.apache.org/jira/browse/ARROW-17687) - ScanningStress test is flaky in CI (#14314)
+* [ARROW-17696](https://issues.apache.org/jira/browse/ARROW-17696) - [C++] arrow-compute-asof-join-node-test inordinately slow (#14190)
+* [ARROW-17697](https://issues.apache.org/jira/browse/ARROW-17697) - [Python] Fix Cython warning in types.pxi (#14280)
+* [ARROW-17699](https://issues.apache.org/jira/browse/ARROW-17699) - [R] Add better error message for if a non-schema passed into open_dataset() (#14108)
+* [ARROW-17702](https://issues.apache.org/jira/browse/ARROW-17702) - [R][CI] Test failure on CentOS 7
+* [ARROW-17703](https://issues.apache.org/jira/browse/ARROW-17703) - [C++][Gandiva] Fix Gandiva OpenSSL dependency (#14109)
+* [ARROW-17717](https://issues.apache.org/jira/browse/ARROW-17717) - [R] Lintr error on CI (#14113)
+* [ARROW-17725](https://issues.apache.org/jira/browse/ARROW-17725) - [CI][Python] Fix test collection in case of Arrow built without parquet (#14119)
+* [ARROW-17728](https://issues.apache.org/jira/browse/ARROW-17728) - [C++][Gandiva] Accept LLVM 15.0 (#14125)
+* [ARROW-17733](https://issues.apache.org/jira/browse/ARROW-17733) - [C++] Take index_width into account when filling nulls in index buffer (#14129)
+* [ARROW-17737](https://issues.apache.org/jira/browse/ARROW-17737) - [R] Groups before conversion to a Table must not be restored after `collect()` (#14175)
+* [ARROW-17738](https://issues.apache.org/jira/browse/ARROW-17738) - [R] dplyr::compute should convert from grouped arrow_dplyr_query to arrow Table (#14160)
+* [ARROW-17742](https://issues.apache.org/jira/browse/ARROW-17742) - [C++][Gandiva] Fix Gandiva utf8proc dependency in CMake presets (#14140)
+* [ARROW-17753](https://issues.apache.org/jira/browse/ARROW-17753) - [Python][Docs] Document cleaning for fixing build environment issues (#14260)
+* [ARROW-17770](https://issues.apache.org/jira/browse/ARROW-17770) - [C++][Gandiva] Fix const correctness of Gandiva projector Evaluate (#14165)
+* [ARROW-17771](https://issues.apache.org/jira/browse/ARROW-17771) - [Docs][Python] Add the use of CONDA_DLL_SEARCH_MODIFICATION_ENABLE to the docs (#14302)
+* [ARROW-17773](https://issues.apache.org/jira/browse/ARROW-17773) - [CI][C++] Fix sccache error on Travis-CI Arm64 build (#14201)
+* [ARROW-17785](https://issues.apache.org/jira/browse/ARROW-17785) - [Java] Suppress flakiness from gRPC in JDBC driver tests (#14210)
+* [ARROW-17787](https://issues.apache.org/jira/browse/ARROW-17787) - [Java] Fix Javadoc build (#14212)
+* [ARROW-17790](https://issues.apache.org/jira/browse/ARROW-17790) - [C++][Gandiva] Adapt to LLVM opaque pointer (#14187)
+* [ARROW-17791](https://issues.apache.org/jira/browse/ARROW-17791) - [Python][CI] Some nightly jobs are failing due to ACCESS\_DENIED to S3 bucket
+* [ARROW-17795](https://issues.apache.org/jira/browse/ARROW-17795) - [C++][R] Add missing PKG_CONFIG_PATH to use system zstd (#14202)
+* [ARROW-17800](https://issues.apache.org/jira/browse/ARROW-17800) - [C++] Fix failures in jemalloc stats tests (#14194)
+* [ARROW-17805](https://issues.apache.org/jira/browse/ARROW-17805) - [C++][CI] Use Brew installed clang for MacOS
+* [ARROW-17813](https://issues.apache.org/jira/browse/ARROW-17813) - [Python] Nested ExtensionArray conversion to/from pandas/numpy (#14238)
+* [ARROW-17818](https://issues.apache.org/jira/browse/ARROW-17818) - [R] Skip duckdb test that is failing until the issue is resolved (#14209)
+* [ARROW-17822](https://issues.apache.org/jira/browse/ARROW-17822) - [C++][FlightRPC] Fix crash on invalid transport scheme (#14267)
+* [ARROW-17829](https://issues.apache.org/jira/browse/ARROW-17829) - [Python] Avoid pandas groupby deprecation warning write_to_dataset (#14306)
+* [ARROW-17830](https://issues.apache.org/jira/browse/ARROW-17830) - [C++][Gandiva] Temporarily pin LLVM version on AppVeyor (#14228)
+* [ARROW-17831](https://issues.apache.org/jira/browse/ARROW-17831) - [Python][Docs] PyArrow Architecture page outdated after moving pyarrow C++ code (#14311)
+* [ARROW-17842](https://issues.apache.org/jira/browse/ARROW-17842) - [C++][CI] Use Brew installed clang for MacOS verify-rc (#14236)
+* [ARROW-17848](https://issues.apache.org/jira/browse/ARROW-17848) - [R] Skip lubridate::format_ISO8601 tests until next release (#14282)
+* [ARROW-17850](https://issues.apache.org/jira/browse/ARROW-17850) - [Java] Upgrade netty + grpc + protobuf + jackson BOM versions (#14265)
+* [ARROW-17853](https://issues.apache.org/jira/browse/ARROW-17853) - [Python][CI] Timeout in test_dataset.py::test_write_dataset_s3_put_only (#14257)
+* [ARROW-17853](https://issues.apache.org/jira/browse/ARROW-17853) - temporary revert fix for test_write_dataset_max_rows_per_file (#14246)
+* [ARROW-17885](https://issues.apache.org/jira/browse/ARROW-17885) - [R] Return BLOB data as list of raw instead of a list of integers (#14277)
+* [ARROW-17915](https://issues.apache.org/jira/browse/ARROW-17915) - [C++] Error when using Substrait ProjectRel (#14295)
+* [ARROW-17927](https://issues.apache.org/jira/browse/ARROW-17927) - [C++] Changed SleepABitAsync to use a thread pool to reduce the # of running threads (#14339)
+* [ARROW-17930](https://issues.apache.org/jira/browse/ARROW-17930) - [CI][C++] Valgrind failure in PrintValue<arrow::dataset::ScannerTestParams> (#14317)
+* [ARROW-17931](https://issues.apache.org/jira/browse/ARROW-17931) - [C++][CI] Thread Sanitizer failure around the dataset "new scanner" on CI
+* [ARROW-17938](https://issues.apache.org/jira/browse/ARROW-17938) - [Python] Fix compilation error on python_test.cc (#14321)
+* [ARROW-17973](https://issues.apache.org/jira/browse/ARROW-17973) - [C++] Expression::ToString wrong for nullary function call (#14370)
+* [ARROW-17977](https://issues.apache.org/jira/browse/ARROW-17977) - [CI][C++] Don't use LLVM 14 or later on Debian i386 (#14368)
+* [ARROW-17990](https://issues.apache.org/jira/browse/ARROW-17990) - [C++] Restore -mbmi2 flag (#14375)
+* [ARROW-17995](https://issues.apache.org/jira/browse/ARROW-17995) - [C++] Fix json decimals not being rescaled based on the explicit schema (#14380)
+* [ARROW-17999](https://issues.apache.org/jira/browse/ARROW-17999) - [C++] Make Minio server launch more robust (#14383)
+* [ARROW-18004](https://issues.apache.org/jira/browse/ARROW-18004) - [C++] ExecBatch conversion to RecordBatch may go out of bounds (#14386)
+* [ARROW-18018](https://issues.apache.org/jira/browse/ARROW-18018) - [C++] Potential segmentation fault in unit tests due to usage of AllComplete instead of AllFinished (#14393)
+* [ARROW-18031](https://issues.apache.org/jira/browse/ARROW-18031) - [C++][Parquet] Undefined behavior in bool RLE decoder (#14407)
+* [ARROW-18041](https://issues.apache.org/jira/browse/ARROW-18041) - [Python] Sustrait-related test failure in wheel tests (#14408)
+* [ARROW-18055](https://issues.apache.org/jira/browse/ARROW-18055) - [C++] arrow-dataset-dataset-writer-test still times out occassionally (#14428)
+* [ARROW-18062](https://issues.apache.org/jira/browse/ARROW-18062) - [R] error in CI jobs for R 3.5 and 3.6 when R package being installed (#14424)
+* [ARROW-18079](https://issues.apache.org/jira/browse/ARROW-18079) - [R] Improve efficiency of schema creation to prevent performance regressions (#14447)
+* [ARROW-18088](https://issues.apache.org/jira/browse/ARROW-18088) - [Python][CI] Build with pandas master/nightly failure related to timedelta64 resolution
+* [ARROW-18103](https://issues.apache.org/jira/browse/ARROW-18103) - [Packaging][deb][RPM] Fix upload artifacts patterns (#14462)
+
+# Apache Arrow 9.0.0 (2022-07-29)
+
+## Bug Fixes
+
+* [ARROW-11341](https://issues.apache.org/jira/browse/ARROW-11341) - [Python][Gandiva] Add NULL/None checks to Gandiva builder functions (#9289)
+* [ARROW-12626](https://issues.apache.org/jira/browse/ARROW-12626) - [C++] Support toolchain xsimd, update toolchain version to version 8.1.0 (#13244)
+* [ARROW-13129](https://issues.apache.org/jira/browse/ARROW-13129) - [C#] Fix TableFromRecordBatches (#10562)
+* [ARROW-13612](https://issues.apache.org/jira/browse/ARROW-13612) - [Python] Allow specifying a custom type for converting ExtensionScalar to python object (#13454)
+* [ARROW-14114](https://issues.apache.org/jira/browse/ARROW-14114) - [C++][Parquet] Fix multi-threaded read of PME files
+* [ARROW-14518](https://issues.apache.org/jira/browse/ARROW-14518) - [Ruby][BigDecimal] ) (#13377)
+* [ARROW-14575](https://issues.apache.org/jira/browse/ARROW-14575) - [R] Allow functions with `pkg::` prefixes (#13160)
+* [ARROW-14613](https://issues.apache.org/jira/browse/ARROW-14613) - [R] [Docs] Add the R package to C Stream interface?
+* [ARROW-14790](https://issues.apache.org/jira/browse/ARROW-14790) - [GLib] Fix a memory leak on creating GArrowDatum (#13228)
+* [ARROW-14889](https://issues.apache.org/jira/browse/ARROW-14889) - [C++] GCS tests hang if testbench not installed (#13520)
+* [ARROW-14989](https://issues.apache.org/jira/browse/ARROW-14989) - [R] Update num_rows methods to output doubles not integers to prevent integer overflow
+* [ARROW-15415](https://issues.apache.org/jira/browse/ARROW-15415) - [C++] Fixes for MSVC + vcpkg Debug build (#13108)
+* [ARROW-15938](https://issues.apache.org/jira/browse/ARROW-15938) - [C++][Compute] Fixing HashJoinBasicImpl in case of zero batches on build side (#13686)
+* [ARROW-16002](https://issues.apache.org/jira/browse/ARROW-16002) - [Go] fileBlock.NewMessage should use memory.Allocator (#13554)
+* [ARROW-16005](https://issues.apache.org/jira/browse/ARROW-16005) - [Java] Fix ArrayConsumer when using ArrowVectorIterator (#12692)
+* [ARROW-16035](https://issues.apache.org/jira/browse/ARROW-16035) - [Java] Handling empty JDBC ResultSet
+* [ARROW-16116](https://issues.apache.org/jira/browse/ARROW-16116) - [C++] Handle non-nullable fields when reading Parquet
+* [ARROW-16142](https://issues.apache.org/jira/browse/ARROW-16142) - [C++] Temporal floor/ceil/round returns incorrect results for date32 and time32 inputs (#13539)
+* [ARROW-16272](https://issues.apache.org/jira/browse/ARROW-16272) - [Python] Fix NativeFile.read1()
+* [ARROW-16302](https://issues.apache.org/jira/browse/ARROW-16302) - [C++] Null values in partitioning field for FilenamePartitioning
+* [ARROW-16309](https://issues.apache.org/jira/browse/ARROW-16309) - [CI] [Go] [Flight] Verify release jobs are failing due to: panic: rpc error: code = NotFound desc = Unknown descriptor
+* [ARROW-16317](https://issues.apache.org/jira/browse/ARROW-16317) - [CI][Dev] Do not use incremental ids on crossbow submit action branches
+* [ARROW-16341](https://issues.apache.org/jira/browse/ARROW-16341) - [Python] Research CMake of C++ vs PyArrow
+* [ARROW-16342](https://issues.apache.org/jira/browse/ARROW-16342) - [Python] First draft of the PyArrow build setup changes
+* [ARROW-16343](https://issues.apache.org/jira/browse/ARROW-16343) - [Python] Refine the fist draft of the PyArrow build setup changes
+* [ARROW-16344](https://issues.apache.org/jira/browse/ARROW-16344) - [Python] Finalize Pyarrow build setup changes
+* [ARROW-16345](https://issues.apache.org/jira/browse/ARROW-16345) - [Python] Make changes to the C++ build setup due moving Python C++ API to PyArrow
+* [ARROW-16346](https://issues.apache.org/jira/browse/ARROW-16346) - [Python] Add a migration path for external packages due to Python code being moved to PyArrow
+* [ARROW-16371](https://issues.apache.org/jira/browse/ARROW-16371) - [JS] Fix error iterating tables with no batches (#13287)
+* [ARROW-16372](https://issues.apache.org/jira/browse/ARROW-16372) - [Python] Use IPC over Parquet for tests where Parquet is unnecessary
+* [ARROW-16413](https://issues.apache.org/jira/browse/ARROW-16413) - [Python] Certain dataset APIs hang with a python filesystem
+* [ARROW-16420](https://issues.apache.org/jira/browse/ARROW-16420) - [Python] pq.write_to_dataset always ignores partitioning
+* [ARROW-16425](https://issues.apache.org/jira/browse/ARROW-16425) - [C++] Add compute kernel test for scalar array timestamp comparison
+* [ARROW-16427](https://issues.apache.org/jira/browse/ARROW-16427) - [Java] Provide explicit column type mapping
+* [ARROW-16434](https://issues.apache.org/jira/browse/ARROW-16434) - [R][CI] Revert devdocs to setup-r@v1 for now
+* [ARROW-16436](https://issues.apache.org/jira/browse/ARROW-16436) - [C++][Python] Datasets should not ignore CSV autogenerate_column_names
+* [ARROW-16441](https://issues.apache.org/jira/browse/ARROW-16441) - [Go][Flight][Java] Update flight integration test to wait for io.EOF after DoPut
+* [ARROW-16442](https://issues.apache.org/jira/browse/ARROW-16442) - [Python][Dataset] Fix fragments of ORC Dataset to use FileFragment class
+* [ARROW-16456](https://issues.apache.org/jira/browse/ARROW-16456) - [Go] Fix RecordBuilder UnmarshalJSON when extra fields are present
+* [ARROW-16458](https://issues.apache.org/jira/browse/ARROW-16458) - [CI][Python] Run dask S3 tests on nightly integration
+* [ARROW-16461](https://issues.apache.org/jira/browse/ARROW-16461) - [C++] Fix sporadic Thread Sanitizer failure
+* [ARROW-16473](https://issues.apache.org/jira/browse/ARROW-16473) - [Go] fixing memory leak in serializedPageReader
+* [ARROW-16474](https://issues.apache.org/jira/browse/ARROW-16474) - [C++][Packaging] Require Python 3.7 or later
+* [ARROW-16478](https://issues.apache.org/jira/browse/ARROW-16478) - [C++] Refine cpu info detection
+* [ARROW-16489](https://issues.apache.org/jira/browse/ARROW-16489) - [R] wrong encoding causes parsing error
+* [ARROW-16490](https://issues.apache.org/jira/browse/ARROW-16490) - [C++][Windows] Don't force to use bundled GoogleTest
+* [ARROW-16494](https://issues.apache.org/jira/browse/ARROW-16494) - [C++] Add missing include that is making some packaging jobs fail
+* [ARROW-16498](https://issues.apache.org/jira/browse/ARROW-16498) - [C++] Fix potential deadlock in arrow::compute::TaskScheduler
+* [ARROW-16502](https://issues.apache.org/jira/browse/ARROW-16502) - [Go] Accept missing optional fields when unmarshalling JSON in StructBuilder
+* [ARROW-16507](https://issues.apache.org/jira/browse/ARROW-16507) - [CI][C++] Use system gtest with mamba/conda
+* [ARROW-16525](https://issues.apache.org/jira/browse/ARROW-16525) - [C++] Tee node not properly marking node finished
+* [ARROW-16526](https://issues.apache.org/jira/browse/ARROW-16526) - [Python] test_partitioned_dataset fails when building with PARQUET but without DATASET
+* [ARROW-16531](https://issues.apache.org/jira/browse/ARROW-16531) - [Dev] Update pre-commit to use latest flake8 and remove unsupported cython linting
+* [ARROW-16534](https://issues.apache.org/jira/browse/ARROW-16534) - [Java] update Gandiva protobuf library to enable builds on M1
+* [ARROW-16546](https://issues.apache.org/jira/browse/ARROW-16546) - [Parquet][C++][Python] Make Thrift limits configurable (#13275)
+* [ARROW-16548](https://issues.apache.org/jira/browse/ARROW-16548) - [Python] Add pytest.mark.parquet to all tests under tests/parquet package
+* [ARROW-16560](https://issues.apache.org/jira/browse/ARROW-16560) - [Website][Release] Fix versions.json update phase
+* [ARROW-16563](https://issues.apache.org/jira/browse/ARROW-16563) - [Go][Parquet] Fix broken parquet plain boolean decoder
+* [ARROW-16566](https://issues.apache.org/jira/browse/ARROW-16566) - [Java] Initialize JNI components on use instead of statically (#13146)
+* [ARROW-16572](https://issues.apache.org/jira/browse/ARROW-16572) - [C++] Fix LZ4 build for external projects
+* [ARROW-16574](https://issues.apache.org/jira/browse/ARROW-16574) - [C++] TSAN failure in arrow-ipc-read-write-test (#13245)
+* [ARROW-16578](https://issues.apache.org/jira/browse/ARROW-16578) - [R] unique() and is.na() on a column of a tibble is much slower after writing to and reading from a parquet file (#13415)
+* [ARROW-16579](https://issues.apache.org/jira/browse/ARROW-16579) - [Go][CI] Fix Flakey Struct Test
+* [ARROW-16585](https://issues.apache.org/jira/browse/ARROW-16585) - [C++] Add support for absolute CMAKE_INSTALL_*DIR
+* [ARROW-16592](https://issues.apache.org/jira/browse/ARROW-16592) - [C++][Python][FlightRPC] Finish after failed writes (#13191)
+* [ARROW-16597](https://issues.apache.org/jira/browse/ARROW-16597) - [Python][FlightRPC] Force server shutdown at interpreter exit
+* [ARROW-16604](https://issues.apache.org/jira/browse/ARROW-16604) - [C++] Remove needless Boost dependency from benchmarks (#13192)
+* [ARROW-16606](https://issues.apache.org/jira/browse/ARROW-16606) - [FlightRPC][Python] Handle non-lowercase header names (#13274)
+* [ARROW-16612](https://issues.apache.org/jira/browse/ARROW-16612) - [R] Fix compression inference from filename (#13625)
+* [ARROW-16617](https://issues.apache.org/jira/browse/ARROW-16617) - [C++] Add support for multi-byte system error message on Windows
+* [ARROW-16638](https://issues.apache.org/jira/browse/ARROW-16638) - [Go][Parquet] Fix skipping large number of rows in boolean columns
+* [ARROW-16638](https://issues.apache.org/jira/browse/ARROW-16638) - [Go][Parquet] Fix boolean column skip
+* [ARROW-16643](https://issues.apache.org/jira/browse/ARROW-16643) - [C++] Fix warnings for clang-14
+* [ARROW-16646](https://issues.apache.org/jira/browse/ARROW-16646) - [C++] Allow key columns to be scalars in Bloom filter
+* [ARROW-16659](https://issues.apache.org/jira/browse/ARROW-16659) - [C++] Remove ambiguous constructor for VectorKernel
+* [ARROW-16669](https://issues.apache.org/jira/browse/ARROW-16669) - [Go][CI] Test failure on ARM for pqarrow (#13628)
+* [ARROW-16675](https://issues.apache.org/jira/browse/ARROW-16675) - [C++] Wrong Tell() result from BufferedOutputStream in an edge case  (#13250)
+* [ARROW-16678](https://issues.apache.org/jira/browse/ARROW-16678) - [R] Cannot install fresh Arrow 8.0.0 on Ubuntu 22.04 with "NOT\_CRAN" = TRUE
+* [ARROW-16685](https://issues.apache.org/jira/browse/ARROW-16685) - [Python] Preserve order of columns in joins (#13281)
+* [ARROW-16692](https://issues.apache.org/jira/browse/ARROW-16692) - [C++] StackOverflow in merge generator causes segmentation fault in scan (#13691)
+* [ARROW-16694](https://issues.apache.org/jira/browse/ARROW-16694) - [Packaging][Python] Use Mamba instead of conda to build conda environment for windows packaging jobs (#13351)
+* [ARROW-16699](https://issues.apache.org/jira/browse/ARROW-16699) - [C++][GANDIVA] Fix Concat_WS allocation bug (#13276)
+* [ARROW-16700](https://issues.apache.org/jira/browse/ARROW-16700) - [C++][R][Datasets] aggregates on partitioning columns (#13518)
+* [ARROW-16720](https://issues.apache.org/jira/browse/ARROW-16720) - [R] Cannot read datasets partitioned by columns starting with dots
+* [ARROW-16722](https://issues.apache.org/jira/browse/ARROW-16722) - [CI][C++] Fix Minio failures specifying the Minio version to use (#13299)
+* [ARROW-16723](https://issues.apache.org/jira/browse/ARROW-16723) - [CI] Github Actions setup failures
+* [ARROW-16725](https://issues.apache.org/jira/browse/ARROW-16725) - [C++] Fix compilation warnings in release mode (#13293)
+* [ARROW-16726](https://issues.apache.org/jira/browse/ARROW-16726) - [Python] Fix Setuptools warnings about installing packages as data (#13309)
+* [ARROW-16738](https://issues.apache.org/jira/browse/ARROW-16738) - [C++][Gandiva] Fix TO_TIMESTAMP(INTEGER) function for big integer values (#13298)
+* [ARROW-16744](https://issues.apache.org/jira/browse/ARROW-16744) - [JavaScript] Fix yarn perf failure (#13305)
+* [ARROW-16749](https://issues.apache.org/jira/browse/ARROW-16749) - [Go] Fix pqarrow writer for null array
+* [ARROW-16788](https://issues.apache.org/jira/browse/ARROW-16788) - [C++] Remove hardening flags gRPC doesn't support (#13346)
+* [ARROW-16794](https://issues.apache.org/jira/browse/ARROW-16794) - [CI][C++][MinGW] Make CI jobs more stable (#13359)
+* [ARROW-16796](https://issues.apache.org/jira/browse/ARROW-16796) - [C++] Fix bad defaulting of ExecContext argument (#13355)
+* [ARROW-16801](https://issues.apache.org/jira/browse/ARROW-16801) - [CI][C++] Use the specified MinIO instead of MinIO from Homewbrew (#13362)
+* [ARROW-16803](https://issues.apache.org/jira/browse/ARROW-16803) - [R][CI] Fix caching for R mingw build (#13379)
+* [ARROW-16806](https://issues.apache.org/jira/browse/ARROW-16806) - [CI][Python] Bump required setuptools version (#13361)
+* [ARROW-16807](https://issues.apache.org/jira/browse/ARROW-16807) - [C++][R] count distinct incorrectly merges state (#13583)
+* [ARROW-16808](https://issues.apache.org/jira/browse/ARROW-16808) - [C++] count\_distinct aggregates incorrectly across row groups
+* [ARROW-16813](https://issues.apache.org/jira/browse/ARROW-16813) - [Go][Parquet] fix go parquet dictionary encoding writer property
+* [ARROW-16825](https://issues.apache.org/jira/browse/ARROW-16825) - [Java] Rename file that contains metadata about commit git.properties (#13578)
+* [ARROW-16831](https://issues.apache.org/jira/browse/ARROW-16831) - [Go] panic in ipc.Reader when string array offsets are invalid
+* [ARROW-16848](https://issues.apache.org/jira/browse/ARROW-16848) - [C++][Java] Update ORC to 1.7.5 (#13392)
+* [ARROW-16864](https://issues.apache.org/jira/browse/ARROW-16864) - [Python] Allow omitting S3 external_id and session_name with role_arn (#13455)
+* [ARROW-16869](https://issues.apache.org/jira/browse/ARROW-16869) - [CI][C++][Homebrew] Build Apache Arrow with C++17 (#13407)
+* [ARROW-16872](https://issues.apache.org/jira/browse/ARROW-16872) - [C++] Fix CSV parser edge case (#13437)
+* [ARROW-16877](https://issues.apache.org/jira/browse/ARROW-16877) - [C++] Define custom printer for Registry tests to fix valgrind (#13438)
+* [ARROW-16881](https://issues.apache.org/jira/browse/ARROW-16881) - [Gandiva][C++] Fix castINTERVALYEAR implementation (#13421)
+* [ARROW-16892](https://issues.apache.org/jira/browse/ARROW-16892) - [Dev][Release] Fix version sorting on merge_arrow script (#13427)
+* [ARROW-16895](https://issues.apache.org/jira/browse/ARROW-16895) - [R] Fix cmake version detection (#13429)
+* [ARROW-16898](https://issues.apache.org/jira/browse/ARROW-16898) - [Python] Fix pandas conversion failure when using non-str index name (#13402)
+* [ARROW-16899](https://issues.apache.org/jira/browse/ARROW-16899) - [R][CI] R nightly builds used old libarrow (#13411)
+* [ARROW-16902](https://issues.apache.org/jira/browse/ARROW-16902) - [C++][FlightRPC] Fix DLL linkage in Flight SQL (#13434)
+* [ARROW-16904](https://issues.apache.org/jira/browse/ARROW-16904) - [C++] min/max not deterministic if Parquet files have multiple row groups (#13509)
+* [ARROW-16908](https://issues.apache.org/jira/browse/ARROW-16908) - [Python][CI] Avoid installing wrong numpy version required for testing wheels (#13449)
+* [ARROW-16919](https://issues.apache.org/jira/browse/ARROW-16919) - [C++] Flight integration tests fail on verify rc nightly on linux amd64
+* [ARROW-16926](https://issues.apache.org/jira/browse/ARROW-16926) - [Go] Fix csv reader errors clobbered by subsequent reads (#13451)
+* [ARROW-16932](https://issues.apache.org/jira/browse/ARROW-16932) - [C++] Rounding RoundTemporalOptions.calendar_based_origin doesn't correctly offset non-UTC results (#13462)
+* [ARROW-16933](https://issues.apache.org/jira/browse/ARROW-16933) - [C++] Fix google-cloud-cpp build with bundled zlib (#13466)
+* [ARROW-16936](https://issues.apache.org/jira/browse/ARROW-16936) - [C++] Update gRPC absl static dependencies (#13486)
+* [ARROW-16939](https://issues.apache.org/jira/browse/ARROW-16939) - [R] Fix nightly builds after the merge of ARROW-16407 (#13479)
+* [ARROW-16943](https://issues.apache.org/jira/browse/ARROW-16943) - [Java][Packaging] Fix nigthly build problem that generates excessive jars (#13485)
+* [ARROW-16948](https://issues.apache.org/jira/browse/ARROW-16948) - [C++] Benchmark Aggregates Fails To Compile After Aggregate Updates (#13489)
+* [ARROW-16978](https://issues.apache.org/jira/browse/ARROW-16978) - [C#] Intermittent Archery Failures (#13573)
+* [ARROW-16983](https://issues.apache.org/jira/browse/ARROW-16983) - [Go][Parquet] fix EstimatedDataEncodedSize of DeltaByteArrayEncoder (#13522)
+* [ARROW-16989](https://issues.apache.org/jira/browse/ARROW-16989) - [C++] Substrait ProjectRel is interpreted incorrectly (#13528)
+* [ARROW-16994](https://issues.apache.org/jira/browse/ARROW-16994) - [Docs][CI] Clean up docs warnings (#13533)
+* [ARROW-16996](https://issues.apache.org/jira/browse/ARROW-16996) - [Java] Configure Netty/GRPC/Protobuf base on BOM configuration + upgrade of dependencies by CVE (#13544)
+* [ARROW-16998](https://issues.apache.org/jira/browse/ARROW-16998) - [Java] Upgrade commons-codec dependencies (#13540)
+* [ARROW-17013](https://issues.apache.org/jira/browse/ARROW-17013) - [CI][C++] Fix arrow build for Ubuntu CPP 22.04 (#13547)
+* [ARROW-17014](https://issues.apache.org/jira/browse/ARROW-17014) - [CI] Add ENABLE_EXTENDED_ALIGNED_STORAGE on cython tests on Windows (#13549)
+* [ARROW-17018](https://issues.apache.org/jira/browse/ARROW-17018) - [C++][Python] Timedelta dtype metadata base unit is globally mutated by the Table.to_pandas() method (#13553)
+* [ARROW-17030](https://issues.apache.org/jira/browse/ARROW-17030) - [Python] Ensure that dtype mutation test works on s390x (#13560)
+* [ARROW-17041](https://issues.apache.org/jira/browse/ARROW-17041) - [C++] Fix uninitialized FixedSizeBinaryScalar buffer value (#13597)
+* [ARROW-17045](https://issues.apache.org/jira/browse/ARROW-17045) - [C++] Reject trailing slashes on file path (#13577)
+* [ARROW-17051](https://issues.apache.org/jira/browse/ARROW-17051) - [C++] Link Flight/gRPC/Protobuf consistently (#13599)
+* [ARROW-17059](https://issues.apache.org/jira/browse/ARROW-17059) - [C++] Fix expression benchmark (#13584)
+* [ARROW-17066](https://issues.apache.org/jira/browse/ARROW-17066) - [C++][Python][Substrait] "ignore_unknown_fields" should be specified when converting JSON to binary (#13605)
+* [ARROW-17071](https://issues.apache.org/jira/browse/ARROW-17071) - [C++][Compute] Fixing off-by-one error in hash join node (#13616)
+* [ARROW-17075](https://issues.apache.org/jira/browse/ARROW-17075) - [C++] Enforce no trailing slashes on filenames in HDFS (#13615)
+* [ARROW-17087](https://issues.apache.org/jira/browse/ARROW-17087) - [C++] Race condition in scanner test (#13651)
+* [ARROW-17100](https://issues.apache.org/jira/browse/ARROW-17100) - [C++][Parquet] Fix backwards compatibility for ParquetV2 data pages written prior to 3.0.0 per ARROW-10353 (#13665)
+* [ARROW-17107](https://issues.apache.org/jira/browse/ARROW-17107) - [Java] Fix variable-width vectors in integration JSON writer (#13676)
+* [ARROW-17111](https://issues.apache.org/jira/browse/ARROW-17111) - [CI][Packaging] Packaging almalinux 9 and centos 9 fail installing arrow due to missing libre2
+* [ARROW-17112](https://issues.apache.org/jira/browse/ARROW-17112) - [Java] Fix a failure of TestArrowReaderWriter.testFileFooterSizeOverflow on s390x (#13638)
+* [ARROW-17115](https://issues.apache.org/jira/browse/ARROW-17115) - [C++] HashJoin fails if it encounters a batch with more than 32Ki rows (#13679)
+* [ARROW-17142](https://issues.apache.org/jira/browse/ARROW-17142) - [Python] Parquet FileMetadata.equals() method segfaults when passed None (#13658)
+* [ARROW-17174](https://issues.apache.org/jira/browse/ARROW-17174) - [C++] FileSystemDataset FilenamePartitioning error - fsspec filesystem
+* [ARROW-17191](https://issues.apache.org/jira/browse/ARROW-17191) - [C++][FlightRPC] Handle inlined slices after concatenation (#13696)
+* [ARROW-17197](https://issues.apache.org/jira/browse/ARROW-17197) - [R] floor_date/ceiling_date lubridate comparison tests failing on macOS (#13705)
+* [ARROW-17206](https://issues.apache.org/jira/browse/ARROW-17206) - [R] Skip test to fix snappy sanitizer issue (#13704)
+* [ARROW-17211](https://issues.apache.org/jira/browse/ARROW-17211) - [Java] Fix java-jar nightly on gh & self-hosted runners (#13712)
+* [ARROW-17227](https://issues.apache.org/jira/browse/ARROW-17227) - [C++] Extend hash-join unit tests to cover both empty and length=0 batches (#13725)
+* [ARROW-17234](https://issues.apache.org/jira/browse/ARROW-17234) - [Release][R] Add r-binary-packages to packaging group (#13734)
+* [ARROW-17237](https://issues.apache.org/jira/browse/ARROW-17237) - [Release] Restore the installation of python tests dependencies in the python_wheel_unix_test.sh script (#13735)
+* [ARROW-17238](https://issues.apache.org/jira/browse/ARROW-17238) - [Release] Turn off GCS testing during wheel verification (#13736)
+* [ARROW-17246](https://issues.apache.org/jira/browse/ARROW-17246) - [Packaging][deb][RPM] Don't use system jemalloc (#13739)
+* [PARQUET-2163](https://issues.apache.org/jira/browse/PARQUET-2163) - Handle decimal schemas with large fixed_len_byte_arrays
+
+
+## New Features and Improvements
+
+* [ARROW-602](https://issues.apache.org/jira/browse/ARROW-602) - [C++] Provide iterator access to primitive elements inside an Array
+* [ARROW-8324](https://issues.apache.org/jira/browse/ARROW-8324) - [R] Add read/write_ipc_file separate from _feather (#13626)
+* [ARROW-10359](https://issues.apache.org/jira/browse/ARROW-10359) - [R] Don't download linux binary if system requirements not met
+* [ARROW-12203](https://issues.apache.org/jira/browse/ARROW-12203) - [C++][Python] Switch default Parquet version to 2.4 (#13280)
+* [ARROW-13052](https://issues.apache.org/jira/browse/ARROW-13052) - [Gandiva][C++] Add regexp_extract function
+* [ARROW-13160](https://issues.apache.org/jira/browse/ARROW-13160) - [CI][C++] Use binary caching for vcpkg builds (#13507)
+* [ARROW-13388](https://issues.apache.org/jira/browse/ARROW-13388) - [C++][Parquet] Fix documentation to reflect the reading support for DELTA_LENGTH_BYTE_ARRAY (#13530)
+* [ARROW-13388](https://issues.apache.org/jira/browse/ARROW-13388) - [C++][Parquet] Enable DELTA_LENGTH_BYTE_ARRAY decoder (#13386)
+* [ARROW-13530](https://issues.apache.org/jira/browse/ARROW-13530) - [C++] Implement cumulative sum compute function
+* [ARROW-13844](https://issues.apache.org/jira/browse/ARROW-13844) - [Docs][Release] Add Release Management Guide to Dev docs (#13272)
+* [ARROW-14163](https://issues.apache.org/jira/browse/ARROW-14163) - [C++] Naive spillover implementation for join
+* [ARROW-14182](https://issues.apache.org/jira/browse/ARROW-14182) - [C++][Compute] Hash Join performance improvement v2 (#13493)
+* [ARROW-14185](https://issues.apache.org/jira/browse/ARROW-14185) - [C++] HashJoinNode should validate HashJoinNodeOptions (#13051)
+* [ARROW-14458](https://issues.apache.org/jira/browse/ARROW-14458) - [R] Use expect\_snapshot() to improve tests
+* [ARROW-14471](https://issues.apache.org/jira/browse/ARROW-14471) - [R] Implement lubridate's individual date/time parsers
+* [ARROW-14512](https://issues.apache.org/jira/browse/ARROW-14512) - [Java][Doc] JavaDoc errors while building the docs
+* [ARROW-14632](https://issues.apache.org/jira/browse/ARROW-14632) - [Python] Make write_dataset arguments keyword-only
+* [ARROW-14771](https://issues.apache.org/jira/browse/ARROW-14771) - [C++] Export Protobuf symbol table (#13387)
+* [ARROW-14819](https://issues.apache.org/jira/browse/ARROW-14819) - [R] Binding for lubridate::qday (#13440)
+* [ARROW-14820](https://issues.apache.org/jira/browse/ARROW-14820) - [R] Implement bindings for lubridate calculation functions
+* [ARROW-14821](https://issues.apache.org/jira/browse/ARROW-14821) - [R] Implement bindings for lubridate's floor_date, ceiling_date, and round_date (#12154)
+* [ARROW-14821](https://issues.apache.org/jira/browse/ARROW-14821) - [C++] Add ceil_is_strictly_greater and calendar_based_origin temporal round options (to mimic lubridate's date rounding) (#12657)
+* [ARROW-14845](https://issues.apache.org/jira/browse/ARROW-14845) - [R] Implement bindings for lubridate formatter functions
+* [ARROW-14848](https://issues.apache.org/jira/browse/ARROW-14848) - [R] Implement bindings for lubridate's parse_date_time
+* [ARROW-14892](https://issues.apache.org/jira/browse/ARROW-14892) - [Python][C++] GCS Bindings (#12763)
+* [ARROW-14945](https://issues.apache.org/jira/browse/ARROW-14945) - [R] Implement lubridate functions for doing maths with dates
+* [ARROW-15016](https://issues.apache.org/jira/browse/ARROW-15016) - [R] `show_exec_plan` for an `arrow_dplyr_query` (#13541)
+* [ARROW-15130](https://issues.apache.org/jira/browse/ARROW-15130) - [Docs] Add glossary (#12868)
+* [ARROW-15174](https://issues.apache.org/jira/browse/ARROW-15174) - [Java] Consolidate JNI compilation
+* [ARROW-15176](https://issues.apache.org/jira/browse/ARROW-15176) - [Java] Check which versions of Java Arrow currently support
+* [ARROW-15177](https://issues.apache.org/jira/browse/ARROW-15177) - [Java] Check which Java versions we are packaging for
+* [ARROW-15179](https://issues.apache.org/jira/browse/ARROW-15179) - [Java] Ensure Support for modern Java versions
+* [ARROW-15222](https://issues.apache.org/jira/browse/ARROW-15222) - [Ruby] Use Compute for Enum operations on Column (#12053)
+* [ARROW-15224](https://issues.apache.org/jira/browse/ARROW-15224) - [R] Add binding for not\_between() ternary kernel
+* [ARROW-15271](https://issues.apache.org/jira/browse/ARROW-15271) - [R] Refactor do_exec_plan to return a RecordBatchReader
+* [ARROW-15280](https://issues.apache.org/jira/browse/ARROW-15280) - [R] Expose FileSystemFactoryOptions
+* [ARROW-15292](https://issues.apache.org/jira/browse/ARROW-15292) - [R] default to binary libarrow on Ubuntu/Redhat
+* [ARROW-15293](https://issues.apache.org/jira/browse/ARROW-15293) - [R] [CI] move arrow-r-nightly over to apache/arrow / crossbow
+* [ARROW-15301](https://issues.apache.org/jira/browse/ARROW-15301) - [R] Discussion: move testthat test helpers to R/test-helpers.R
+* [ARROW-15365](https://issues.apache.org/jira/browse/ARROW-15365) - [Python] Expose full cast options in the pyarrow.compute.cast function (#13109)
+* [ARROW-15422](https://issues.apache.org/jira/browse/ARROW-15422) - [Packaging][RPM][deb] Add support for GDB plugin (#13477)
+* [ARROW-15430](https://issues.apache.org/jira/browse/ARROW-15430) - [Python] Address docstrings in Filesystems (Interface) (#13564)
+* [ARROW-15498](https://issues.apache.org/jira/browse/ARROW-15498) - [C++][Compute] Implement Bloom filter pushdown between hash joins
+* [ARROW-15534](https://issues.apache.org/jira/browse/ARROW-15534) - [C++] Add convenience function to substrait consumer to create plan instead of declaration
+* [ARROW-15568](https://issues.apache.org/jira/browse/ARROW-15568) - [C++][Gandiva] Implement Translate Function (#12333)
+* [ARROW-15583](https://issues.apache.org/jira/browse/ARROW-15583) - [C++] The Substrait consumer could potentially use a massive amount of RAM if the producer uses large anchors
+* [ARROW-15587](https://issues.apache.org/jira/browse/ARROW-15587) - [C++] Add support for all options specified by substrait::ReadRel::LocalFiles::FileOrFiles
+* [ARROW-15590](https://issues.apache.org/jira/browse/ARROW-15590) - [C++] Add support for joins to the Substrait consumer (#13078)
+* [ARROW-15591](https://issues.apache.org/jira/browse/ARROW-15591) - [C++] Add support for aggregation to the Substrait consumer (#13130)
+* [ARROW-15622](https://issues.apache.org/jira/browse/ARROW-15622) - [R] Implement union_all and union for arrow_dplyr_query
+* [ARROW-15639](https://issues.apache.org/jira/browse/ARROW-15639) - [C++][Python] UDF Scalar Function Implementation
+* [ARROW-15661](https://issues.apache.org/jira/browse/ARROW-15661) - [Gandiva][C++] Add SHA512 function (#12404)
+* [ARROW-15671](https://issues.apache.org/jira/browse/ARROW-15671) - [GLib] Add support for Vala
+* [ARROW-15779](https://issues.apache.org/jira/browse/ARROW-15779) - [Python] Create python bindings for Substrait consumer
+* [ARROW-15804](https://issues.apache.org/jira/browse/ARROW-15804) - [R] Improve as.Date() error message when supplying several tryFormats
+* [ARROW-15893](https://issues.apache.org/jira/browse/ARROW-15893) - [CI][Python] Add python minimal builds to nightly builds (#13113)
+* [ARROW-15901](https://issues.apache.org/jira/browse/ARROW-15901) - [C++] Support flat custom output field names in Substrait (#13069)
+* [ARROW-15906](https://issues.apache.org/jira/browse/ARROW-15906) - [C++][Python][R] By default, don't create or delete S3 buckets (#13206)
+* [ARROW-15936](https://issues.apache.org/jira/browse/ARROW-15936) - [Ruby] Add test for Arrow::DictionaryArray#raw_records
+* [ARROW-15937](https://issues.apache.org/jira/browse/ARROW-15937) - [Website] Direct Flight SQL subproject page to main docs after 8.0.0 release
+* [ARROW-15958](https://issues.apache.org/jira/browse/ARROW-15958) - [Java][Docs] Improve and document StackTrace (#12656)
+* [ARROW-15959](https://issues.apache.org/jira/browse/ARROW-15959) - [Java][Docs] Improve Java dev experience with IntelliJ
+* [ARROW-16006](https://issues.apache.org/jira/browse/ARROW-16006) - [C++][Docs] Provide row conversion example for dynamic schemas (#12775)
+* [ARROW-16018](https://issues.apache.org/jira/browse/ARROW-16018) - [Doc][Python] Run doctests on Python docstring examples (--doctest-cython)
+* [ARROW-16018](https://issues.apache.org/jira/browse/ARROW-16018) - [Doc][Python] Run doctests on Python docstring examples (CI job)
+* [ARROW-16018](https://issues.apache.org/jira/browse/ARROW-16018) - [Doc][Python] Run doctests on Python docstring examples (--doctest-modules)
+* [ARROW-16083](https://issues.apache.org/jira/browse/ARROW-16083) - [C++] Implement AsofJoin execution node (#13028)
+* [ARROW-16085](https://issues.apache.org/jira/browse/ARROW-16085) - [C++][R] InMemoryDataset::ReplaceSchema does not alter scan output
+* [ARROW-16091](https://issues.apache.org/jira/browse/ARROW-16091) - [Python] Continuation of improving Classes and Methods Docstrings 
+* [ARROW-16092](https://issues.apache.org/jira/browse/ARROW-16092) - [Python] Address docstrings in Filesystems (Implementations) (#13416)
+* [ARROW-16093](https://issues.apache.org/jira/browse/ARROW-16093) - [Python] Address docstrings in Filesystems (Python Implementations) (#13595)
+* [ARROW-16094](https://issues.apache.org/jira/browse/ARROW-16094) - [Python] Address docstrings in Filesystems (Utilities) (#13582)
+* [ARROW-16144](https://issues.apache.org/jira/browse/ARROW-16144) - [R] Write compressed data streams (particularly over S3)
+* [ARROW-16168](https://issues.apache.org/jira/browse/ARROW-16168) - [C++][CMake] Use target to add include paths
+* [ARROW-16183](https://issues.apache.org/jira/browse/ARROW-16183) - [C++][FlightRPC] Support bundled UCX
+* [ARROW-16206](https://issues.apache.org/jira/browse/ARROW-16206) - [Ruby] Add support for DictionaryArray#values, #raw_records with {Month,DayTime,MonthDayNano} Interval Type (#13255)
+* [ARROW-16228](https://issues.apache.org/jira/browse/ARROW-16228) - [CI][Packaging][Conan] Add a job to test minimum build
+* [ARROW-16234](https://issues.apache.org/jira/browse/ARROW-16234) - [C++] Vector Kernel for Rank (#12963)
+* [ARROW-16241](https://issues.apache.org/jira/browse/ARROW-16241) - [Python] Suppress warnings in tests when using use_legacy_dataset=True
+* [ARROW-16243](https://issues.apache.org/jira/browse/ARROW-16243) - [C++][Python] Remove Parquet ReadSchemaField method (#13060)
+* [ARROW-16253](https://issues.apache.org/jira/browse/ARROW-16253) - [R] Helper function for casting from float to duration via int64()
+* [ARROW-16255](https://issues.apache.org/jira/browse/ARROW-16255) - [R] Reorganise the datetime bindings
+* [ARROW-16267](https://issues.apache.org/jira/browse/ARROW-16267) - [Java] Adding support to compile Java code with JDK 18
+* [ARROW-16268](https://issues.apache.org/jira/browse/ARROW-16268) - [R] Remove long-deprecated functions (#13550)
+* [ARROW-16276](https://issues.apache.org/jira/browse/ARROW-16276) - [R] Arrow 8.0 News
+* [ARROW-16281](https://issues.apache.org/jira/browse/ARROW-16281) - [R][CI] Bump versions with the release of 4.2
+* [ARROW-16297](https://issues.apache.org/jira/browse/ARROW-16297) - [R] Improve detection of ARROW_*_URL variables for offline build
+* [ARROW-16323](https://issues.apache.org/jira/browse/ARROW-16323) - [Go] Implement Dictionary Scalars (#13575)
+* [ARROW-16324](https://issues.apache.org/jira/browse/ARROW-16324) - [Go] Implement Dictionary Unification (#13529)
+* [ARROW-16327](https://issues.apache.org/jira/browse/ARROW-16327) - [Java][CI] Add Java 17 to CI matrix for java workflows
+* [ARROW-16328](https://issues.apache.org/jira/browse/ARROW-16328) - [Java] POC Arrow Modular
+* [ARROW-16329](https://issues.apache.org/jira/browse/ARROW-16329) - [Java][C++] Keep more context when marshalling errors through JNI (#13246)
+* [ARROW-16333](https://issues.apache.org/jira/browse/ARROW-16333) - [Release] Improve Nightly Reports
+* [ARROW-16335](https://issues.apache.org/jira/browse/ARROW-16335) - [Release][C++] Windows source verification runs C++ tests on a single thread
+* [ARROW-16357](https://issues.apache.org/jira/browse/ARROW-16357) - [Archery][Dev] Add possibility to send nightly reports to Zulip/Slack
+* [ARROW-16358](https://issues.apache.org/jira/browse/ARROW-16358) - [CI][Dev] Allow archery crossbow to generate a CSV report for nightly builds
+* [ARROW-16359](https://issues.apache.org/jira/browse/ARROW-16359) - [Dev][CI] Create simple static site with current status of nightly builds
+* [ARROW-16360](https://issues.apache.org/jira/browse/ARROW-16360) - [Dev][CI] Add to nightlies dashboard last successful commit / date on failed jobs
+* [ARROW-16361](https://issues.apache.org/jira/browse/ARROW-16361) - [Dev][Archery] Add link to static page for nightly build report notifications (#13450)
+* [ARROW-16378](https://issues.apache.org/jira/browse/ARROW-16378) - [Archery][CI] Add possibility to archery crossbow reports to send a Zulip notification report via a webhook
+* [ARROW-16380](https://issues.apache.org/jira/browse/ARROW-16380) - [C++] Research where Memory Mapping is ON by default in Arrow-C++
+* [ARROW-16382](https://issues.apache.org/jira/browse/ARROW-16382) - [Python] Disable memory mapping by default in pyarrow (#13342)
+* [ARROW-16383](https://issues.apache.org/jira/browse/ARROW-16383) - [C++] Disable memory mapping by default in Arrow-C++ (#13419)
+* [ARROW-16394](https://issues.apache.org/jira/browse/ARROW-16394) - [R] Implement lubridate's parsers with year, month and date components
+* [ARROW-16395](https://issues.apache.org/jira/browse/ARROW-16395) - [R] Implement lubridate's parsers with year, month, and day, hour, minute, and second components (#13627)
+* [ARROW-16400](https://issues.apache.org/jira/browse/ARROW-16400) - [R][CI] Integrate arrow-r nightly/release builds into Crossbow
+* [ARROW-16401](https://issues.apache.org/jira/browse/ARROW-16401) - [R][CI] Dissect arrow-r-nightly workflow into Crossbow tasks
+* [ARROW-16402](https://issues.apache.org/jira/browse/ARROW-16402) - [R][CI] Create new Archery Tasks
+* [ARROW-16403](https://issues.apache.org/jira/browse/ARROW-16403) - [R][CI] Create Crossbow task for R nightly builds
+* [ARROW-16404](https://issues.apache.org/jira/browse/ARROW-16404) - [R][CI] Research alternative binary hosting 
+* [ARROW-16405](https://issues.apache.org/jira/browse/ARROW-16405) - [R][CI] Use nightlies.apache.org as dev repo (#13241)
+* [ARROW-16406](https://issues.apache.org/jira/browse/ARROW-16406) - [Docs][R] Update documentation with new nightly location
+* [ARROW-16407](https://issues.apache.org/jira/browse/ARROW-16407) - [R] Extend `parse_date_time` to cover hour, dates, and minutes components (#13196)
+* [ARROW-16414](https://issues.apache.org/jira/browse/ARROW-16414) - [R] Remove ARROW_R_WITH_ARROW and arrow_available()
+* [ARROW-16415](https://issues.apache.org/jira/browse/ARROW-16415) - [R] Update `strptime` binding signature with the `tz` argument (#13190)
+* [ARROW-16418](https://issues.apache.org/jira/browse/ARROW-16418) - [R] Refactor the difftime() and as.diffime() bindings 
+* [ARROW-16426](https://issues.apache.org/jira/browse/ARROW-16426) - [C++] Add TeeNode to execution engine
+* [ARROW-16439](https://issues.apache.org/jira/browse/ARROW-16439) - [R] Implement binding for `lubridate::fast_strptime`
+* [ARROW-16444](https://issues.apache.org/jira/browse/ARROW-16444) - [R] Implement user-defined scalar functions in R bindings (#13397)
+* [ARROW-16445](https://issues.apache.org/jira/browse/ARROW-16445) - [R][Doc] Add a short summary for the Installing the Arrow package on Linux article
+* [ARROW-16446](https://issues.apache.org/jira/browse/ARROW-16446) - [R] Update parse\_date\_time to accept a string with no separators
+* [ARROW-16448](https://issues.apache.org/jira/browse/ARROW-16448) - [CI][Archery] Refactor EmailReport to be a JinjaReport
+* [ARROW-16450](https://issues.apache.org/jira/browse/ARROW-16450) - [Go][Docs] Include error handling in csv examples
+* [ARROW-16455](https://issues.apache.org/jira/browse/ARROW-16455) - [CI][Packaging] Add linux-ppc64le to the list of platforms to clean on conda
+* [ARROW-16467](https://issues.apache.org/jira/browse/ARROW-16467) - [Python] Add helper function _exec_plan._filter_table to filter tables based on Expression
+* [ARROW-16468](https://issues.apache.org/jira/browse/ARROW-16468) - [Python] Test Table filter feature with complex exprs and add Expression.apply method
+* [ARROW-16469](https://issues.apache.org/jira/browse/ARROW-16469) - [Python] Table.filter accepts a boolean expression in addition to boolean array
+* [ARROW-16470](https://issues.apache.org/jira/browse/ARROW-16470) - [Docs][Python] Document filtering by expression Tables and Datasets (#13319)
+* [ARROW-16477](https://issues.apache.org/jira/browse/ARROW-16477) - [Packaging][deb] Use -Dvapi instead of -Dvala (#13499)
+* [ARROW-16477](https://issues.apache.org/jira/browse/ARROW-16477) - [Packaging][RPM] Add support for Amazon Linux 2 on aarch64 (#13473)
+* [ARROW-16484](https://issues.apache.org/jira/browse/ARROW-16484) - [Go][Parquet] Update parquet writer version
+* [ARROW-16486](https://issues.apache.org/jira/browse/ARROW-16486) - [Go] Implement bit_packing functions with Arm64 GoLang Assembly
+* [ARROW-16487](https://issues.apache.org/jira/browse/ARROW-16487) - [C++][Parquet] Fix parquet::Statistics::Equals() with minmax
+* [ARROW-16488](https://issues.apache.org/jira/browse/ARROW-16488) - [Archery][Dev] Allow extra message to be sent on chat report
+* [ARROW-16497](https://issues.apache.org/jira/browse/ARROW-16497) - [R] Update version in NEWS.md
+* [ARROW-16499](https://issues.apache.org/jira/browse/ARROW-16499) - [Release][Ruby] Add missing export
+* [ARROW-16500](https://issues.apache.org/jira/browse/ARROW-16500) - [Release][R] Don't use GNU sed extension for r/NEWS.md update
+* [ARROW-16501](https://issues.apache.org/jira/browse/ARROW-16501) - [Docs][C++][R] Migrate to Matomo from Google Analytics
+* [ARROW-16504](https://issues.apache.org/jira/browse/ARROW-16504) - [Go][CSV] Add arrow.TimestampType support to the reader
+* [ARROW-16508](https://issues.apache.org/jira/browse/ARROW-16508) - [Archery][Dev] Add possibility to extend chat report message based on success or failures of jobs
+* [ARROW-16509](https://issues.apache.org/jira/browse/ARROW-16509) - [R][Docs] Make corrections to datasets vignette
+* [ARROW-16510](https://issues.apache.org/jira/browse/ARROW-16510) - [R] Add bindings for GCS filesystem (#13404)
+* [ARROW-16511](https://issues.apache.org/jira/browse/ARROW-16511) - [R] Preserve schema metadata in write_dataset()
+* [ARROW-16514](https://issues.apache.org/jira/browse/ARROW-16514) - [Website] Update install page for 8.0.0
+* [ARROW-16515](https://issues.apache.org/jira/browse/ARROW-16515) - [C++] Adding a Close method to RecordBatchReader (#13205)
+* [ARROW-16516](https://issues.apache.org/jira/browse/ARROW-16516) - [R] Implement ym() my() and yq() parsers
+* [ARROW-16523](https://issues.apache.org/jira/browse/ARROW-16523) - [C++] Part 1 of ExecPlan cleanup: Centralized Task Group (#13143)
+* [ARROW-16527](https://issues.apache.org/jira/browse/ARROW-16527) - [Gandiva][C++] Add binary functions
+* [ARROW-16529](https://issues.apache.org/jira/browse/ARROW-16529) - [Java] Fix ArrowVectorIterator.hasNext()
+* [ARROW-16530](https://issues.apache.org/jira/browse/ARROW-16530) - [Go] Added concurrency in key places that are always serial, regardless if parallel=true or not
+* [ARROW-16537](https://issues.apache.org/jira/browse/ARROW-16537) - [Java] Patch dataset module testing failure with JSE11+
+* [ARROW-16538](https://issues.apache.org/jira/browse/ARROW-16538) - [Java] Adding flexibility to mock ResultSets
+* [ARROW-16539](https://issues.apache.org/jira/browse/ARROW-16539) - [C++] Bump bundled thrift to 0.16.0
+* [ARROW-16541](https://issues.apache.org/jira/browse/ARROW-16541) - [R][CI] Reduce the number of times lintr is run
+* [ARROW-16549](https://issues.apache.org/jira/browse/ARROW-16549) - [C++] Simplify AggregateNodeOptions aggregates/targets (#13150)
+* [ARROW-16551](https://issues.apache.org/jira/browse/ARROW-16551) - [Go] Improve Temporal Types
+* [ARROW-16552](https://issues.apache.org/jira/browse/ARROW-16552) - [Go] Improve decimal128 utilities
+* [ARROW-16553](https://issues.apache.org/jira/browse/ARROW-16553) - [CI][Java] Adding Java nightly packages (.pom/.jar) to nightlies.apache repository (#13328)
+* [ARROW-16554](https://issues.apache.org/jira/browse/ARROW-16554) - [Java] Download Java nightlies artifacts from https://nightlies.apache.org/arrow/java/org/apache/arrow/ (#13352)
+* [ARROW-16555](https://issues.apache.org/jira/browse/ARROW-16555) - [Go][Parquet] Lift BitBlockCounter and VisitBitBlocks into shared internal utils
+* [ARROW-16556](https://issues.apache.org/jira/browse/ARROW-16556) - [Go] Add Layout method to DataTypes (#13136)
+* [ARROW-16557](https://issues.apache.org/jira/browse/ARROW-16557) - [Go] Enable Slicing memory.Buffer objects
+* [ARROW-16561](https://issues.apache.org/jira/browse/ARROW-16561) - [Go][Parquet] test for parquet root node configuration
+* [ARROW-16561](https://issues.apache.org/jira/browse/ARROW-16561) - [Go][Parquet] add option to customise parquet root node
+* [ARROW-16567](https://issues.apache.org/jira/browse/ARROW-16567) - [Doc][Python] Sphinx Copybutton should ignore IPython prompt text (#13329)
+* [ARROW-16568](https://issues.apache.org/jira/browse/ARROW-16568) - [Java] Enable skip BOUNDS_CHECKING with setBytes and getBytes of ArrowBuf
+* [ARROW-16569](https://issues.apache.org/jira/browse/ARROW-16569) - [CI] Update checkout actions to newer version
+* [ARROW-16570](https://issues.apache.org/jira/browse/ARROW-16570) - [R] Make pkg-config commands find all of the libs
+* [ARROW-16571](https://issues.apache.org/jira/browse/ARROW-16571) - [Java] Update .gitignore to exclude JNI-related binaries
+* [ARROW-16573](https://issues.apache.org/jira/browse/ARROW-16573) - [C++][Format] Add canonical include guard for C Data Interface
+* [ARROW-16581](https://issues.apache.org/jira/browse/ARROW-16581) - [C++][Java] Upgrade ORC to 1.7.4
+* [ARROW-16582](https://issues.apache.org/jira/browse/ARROW-16582) - [Python][Docs] Update Python build docs to include dataset
+* [ARROW-16588](https://issues.apache.org/jira/browse/ARROW-16588) - [C++][FlightRPC] Don't subclass GTest in test helpers
+* [ARROW-16590](https://issues.apache.org/jira/browse/ARROW-16590) - [C++] Consolidate files dealing with row-major storage (#13218)
+* [ARROW-16594](https://issues.apache.org/jira/browse/ARROW-16594) - [R] Consistently use "getOption" to set nightly repo
+* [ARROW-16599](https://issues.apache.org/jira/browse/ARROW-16599) - [C++] Implementation of ExecuteScalarExpressionOverhead benchmarks without arrow for comparision (#13179)
+* [ARROW-16600](https://issues.apache.org/jira/browse/ARROW-16600) - [Java] Configurable RoundingMode to handle inconsistent scale in BigDecimals (#13433)
+* [ARROW-16601](https://issues.apache.org/jira/browse/ARROW-16601) - [C++][FlightRPC] Don't enforcing static link with static GoogleTest for arrow_flight_testing (#13180)
+* [ARROW-16602](https://issues.apache.org/jira/browse/ARROW-16602) - [Dev] Use GitHub API to merge pull request (#13184)
+* [ARROW-16607](https://issues.apache.org/jira/browse/ARROW-16607) - [R] Improve KeyValueMetadata handling
+* [ARROW-16609](https://issues.apache.org/jira/browse/ARROW-16609) - [C++] xxhash not installed into dist/lib/include when building C++ (#13282)
+* [ARROW-16610](https://issues.apache.org/jira/browse/ARROW-16610) - [Python] Raise an error for conflicting options in pq.write_to_dataset (#13317)
+* [ARROW-16613](https://issues.apache.org/jira/browse/ARROW-16613) - [C++][Parquet] Fix performance of repeated calls to AppendRowGroups()
+* [ARROW-16614](https://issues.apache.org/jira/browse/ARROW-16614) - [C++] Use lz4::lz4 for lz4's CMake target name (#13193)
+* [ARROW-16623](https://issues.apache.org/jira/browse/ARROW-16623) - [GLib] Add GArrowQuantileOptions (#13374)
+* [ARROW-16626](https://issues.apache.org/jira/browse/ARROW-16626) - [C++] Name the C++ streaming execution engine
+* [ARROW-16634](https://issues.apache.org/jira/browse/ARROW-16634) - [Gandiva][C++] Add udfdegrees alias
+* [ARROW-16636](https://issues.apache.org/jira/browse/ARROW-16636) - [Rust] Activate several IPC integration tests for rust (#13219)
+* [ARROW-16647](https://issues.apache.org/jira/browse/ARROW-16647) - [C++] Add support for unique(), value_counts(), dictionary_encode() with interval types
+* [ARROW-16648](https://issues.apache.org/jira/browse/ARROW-16648) - [GLib] Add MemoryPool wrapper (#13224)
+* [ARROW-16653](https://issues.apache.org/jira/browse/ARROW-16653) - [R] All formats are supported with the lubridate `parse_date_time` binding (#13506)
+* [ARROW-16654](https://issues.apache.org/jira/browse/ARROW-16654) - [Dev][Archery] Support cherry-picking for major releases
+* [ARROW-16655](https://issues.apache.org/jira/browse/ARROW-16655) - [Release] Release improvements
+* [ARROW-16656](https://issues.apache.org/jira/browse/ARROW-16656) - [CI][Release] Allow archery to support MINOR tickets and update release comments to contain MINOR
+* [ARROW-16657](https://issues.apache.org/jira/browse/ARROW-16657) - [C++] Support nesting of extension-id-registries (#13232)
+* [ARROW-16660](https://issues.apache.org/jira/browse/ARROW-16660) - [C#] Add support for Time32Array and Time64Array (#13279)
+* [ARROW-16663](https://issues.apache.org/jira/browse/ARROW-16663) - [Release][Dev] Add flag to archery release curate to only show minimal information (#13284)
+* [ARROW-16664](https://issues.apache.org/jira/browse/ARROW-16664) - [CI][Release] Create verify release Pull Request automatically (#13511)
+* [ARROW-16665](https://issues.apache.org/jira/browse/ARROW-16665) - [Release] Update binary submit to track binary submission tasks on automatically created PR (#13612)
+* [ARROW-16666](https://issues.apache.org/jira/browse/ARROW-16666) - [Docs][Release] Update release guide to specify new workflow and feature freeze (#13308)
+* [ARROW-16667](https://issues.apache.org/jira/browse/ARROW-16667) - [CI][Release] Post merge script should not be necessary (#13593)
+* [ARROW-16668](https://issues.apache.org/jira/browse/ARROW-16668) - [CI] Add Substrait support to python wheels (#13239)
+* [ARROW-16672](https://issues.apache.org/jira/browse/ARROW-16672) - [Java] Allow duplicated field names in Java C data interface (#13247)
+* [ARROW-16676](https://issues.apache.org/jira/browse/ARROW-16676) - [C++] ReservationListenableMemoryPool::Impl::bytes_allocated() should return its own number of bytes rather than the underlying pool's
+* [ARROW-16677](https://issues.apache.org/jira/browse/ARROW-16677) - [C++] Support nesting of function registries (#13252)
+* [ARROW-16679](https://issues.apache.org/jira/browse/ARROW-16679) - [R] configure fails if CDPATH is not null (#13313)
+* [ARROW-16681](https://issues.apache.org/jira/browse/ARROW-16681) - [Python] Fix doc for PyArrow unit tests dependant on module path (#13318)
+* [ARROW-16683](https://issues.apache.org/jira/browse/ARROW-16683) - [C++] Add missing dependency to bundled gflags target
+* [ARROW-16684](https://issues.apache.org/jira/browse/ARROW-16684) - [CI][Archery] Add retry mechanism to git fetch on GitError failures
+* [ARROW-16686](https://issues.apache.org/jira/browse/ARROW-16686) - [C++] Use shared_ptr with FunctionOptions (#13344)
+* [ARROW-16689](https://issues.apache.org/jira/browse/ARROW-16689) - [CI] Improve R Nightly Workflow (#13266)
+* [ARROW-16693](https://issues.apache.org/jira/browse/ARROW-16693) - [JS] Upgrade to TS 4.7
+* [ARROW-16703](https://issues.apache.org/jira/browse/ARROW-16703) - [R] Refactor map_batches() so it can stream results (#13650)
+* [ARROW-16704](https://issues.apache.org/jira/browse/ARROW-16704) - [JS] Handle case where `tableFromIPC` input is an async `RecordBatchReader` (#13278)
+* [ARROW-16706](https://issues.apache.org/jira/browse/ARROW-16706) - [Python] Expose RankOptions (#13327)
+* [ARROW-16708](https://issues.apache.org/jira/browse/ARROW-16708) - [Dev] Replace basic auth with token auth for JIRA  (#13283)
+* [ARROW-16709](https://issues.apache.org/jira/browse/ARROW-16709) - [Docs][Python] Add how to run doctests to the developer guide (#13325)
+* [ARROW-16711](https://issues.apache.org/jira/browse/ARROW-16711) - [C++] Remove deprecated ORC APIs (#13286)
+* [ARROW-16713](https://issues.apache.org/jira/browse/ARROW-16713) - [C++] Pull join accumulation outside of HashJoinImpl (#13332)
+* [ARROW-16714](https://issues.apache.org/jira/browse/ARROW-16714) - [C++] Remove deprecated IPC APIs (#13288)
+* [ARROW-16715](https://issues.apache.org/jira/browse/ARROW-16715) - [R] Bump default parquet version (#13555)
+* [ARROW-16716](https://issues.apache.org/jira/browse/ARROW-16716) - [C++] Add Benchmarks for ProjectNode (#13314)
+* [ARROW-16717](https://issues.apache.org/jira/browse/ARROW-16717) - [C++] Add support for system jemalloc (#13373)
+* [ARROW-16721](https://issues.apache.org/jira/browse/ARROW-16721) - [C++] Drop support for bundled Thrift < 0.13 (#13292)
+* [ARROW-16729](https://issues.apache.org/jira/browse/ARROW-16729) - [C++] Bump Abseil/gRPC dependency versions (#13315)
+* [ARROW-16730](https://issues.apache.org/jira/browse/ARROW-16730) - [C++] Bump vendored jemalloc version (#13294)
+* [ARROW-16731](https://issues.apache.org/jira/browse/ARROW-16731) - [C++] Bump version of vendored mimalloc (#13295)
+* [ARROW-16732](https://issues.apache.org/jira/browse/ARROW-16732) - [C++] Bump vendored version of nlohmann_json (#13571)
+* [ARROW-16733](https://issues.apache.org/jira/browse/ARROW-16733) - [C++] Bump vendored version of opentelemetry-cpp and opentelemetry-proto (#13580)
+* [ARROW-16734](https://issues.apache.org/jira/browse/ARROW-16734) - [C++] Bump vendored version of protobuf (#13581)
+* [ARROW-16735](https://issues.apache.org/jira/browse/ARROW-16735) - [C++] Bump vendored version of rapidjson (#13608)
+* [ARROW-16736](https://issues.apache.org/jira/browse/ARROW-16736) - [C++] Bump vendored version of RE2 (#13570)
+* [ARROW-16737](https://issues.apache.org/jira/browse/ARROW-16737) - [C++] Bump vendored version of zstd (#13611)
+* [ARROW-16741](https://issues.apache.org/jira/browse/ARROW-16741) - [C++] Add Benchmarks for Binary Temporal Operations (#13302)
+* [ARROW-16742](https://issues.apache.org/jira/browse/ARROW-16742) - [C++][Docs] Fix output type of hash_distinct in docs (#13303)
+* [ARROW-16745](https://issues.apache.org/jira/browse/ARROW-16745) - [Packaging][RPM] Add support for AlmaLinux 9 (#13307)
+* [ARROW-16747](https://issues.apache.org/jira/browse/ARROW-16747) - [CI][Release][Python] Drop support for manylinux 2010 (#13566)
+* [ARROW-16751](https://issues.apache.org/jira/browse/ARROW-16751) - [C++] Fix ucx target error on cmake3.5 (#13389)
+* [ARROW-16752](https://issues.apache.org/jira/browse/ARROW-16752) - [R] Rework Linux binary installation (#13464)
+* [ARROW-16756](https://issues.apache.org/jira/browse/ARROW-16756) - [C++] Introduce non-owning ArraySpan, ExecSpan data structures and refactor ScalarKernels to use them (#13364)
+* [ARROW-16757](https://issues.apache.org/jira/browse/ARROW-16757) - [C++][FOLLOWUP] Fix mingw32 RTools 4.0 build by removing usage of alignas (#13557)
+* [ARROW-16757](https://issues.apache.org/jira/browse/ARROW-16757) - [C++] Remove "scalar" output modality for ScalarKernel implementations, remove ValueDescr class (#13521)
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] update testify to get security patch for gopkg.in/yaml.v3 (v7)
+* [ARROW-16760](https://issues.apache.org/jira/browse/ARROW-16760) - [Docs] mention PYARROW_PARALLEL in Python dev docs (#13324)
+* [ARROW-16761](https://issues.apache.org/jira/browse/ARROW-16761) - [C++][Python] Track bytes written in dataset (#13338)
+* [ARROW-16763](https://issues.apache.org/jira/browse/ARROW-16763) - [Packaging][RPM] Add support for CentOS Stream 9 (#13474)
+* [ARROW-16764](https://issues.apache.org/jira/browse/ARROW-16764) - [Packaging][deb] Drop support for Debian GNU/Linux buster (#13470)
+* [ARROW-16765](https://issues.apache.org/jira/browse/ARROW-16765) - [Packaging][RPM] Fix conflict with arrow-libs and arrow8-libs (#13472)
+* [ARROW-16767](https://issues.apache.org/jira/browse/ARROW-16767) - [Archery] Refactor archery.release submodule to its own subpackage (#13326)
+* [ARROW-16769](https://issues.apache.org/jira/browse/ARROW-16769) - [C++] Add Warn() function to Status (#13383)
+* [ARROW-16776](https://issues.apache.org/jira/browse/ARROW-16776) - [R] dplyr::glimpse method for arrow table and datasets (#13563)
+* [ARROW-16779](https://issues.apache.org/jira/browse/ARROW-16779) - [CI][Python] Request for Pyarrow Flight to be shipped in arm64 MacOS version of the wheel (#13460)
+* [ARROW-16780](https://issues.apache.org/jira/browse/ARROW-16780) - [CI] Add automatic PR label for docs PRs (#13340)
+* [ARROW-16783](https://issues.apache.org/jira/browse/ARROW-16783) - [R] Explicit check for supported classes in arrow_dplyr_query
+* [ARROW-16784](https://issues.apache.org/jira/browse/ARROW-16784) - [C++][Gandiva] Add alias to Upper and Lower (#13335)
+* [ARROW-16785](https://issues.apache.org/jira/browse/ARROW-16785) - [Packaging][Linux] Add FindThrift.cmake (#13337)
+* [ARROW-16786](https://issues.apache.org/jira/browse/ARROW-16786) - [Docs] Update "closed without merge" in pull request note (#13341)
+* [ARROW-16789](https://issues.apache.org/jira/browse/ARROW-16789) - [Format] Remove experimental marker from C Streaming Interface (#13345)
+* [ARROW-16792](https://issues.apache.org/jira/browse/ARROW-16792) - [C++][CMake] Add support for using Arrow options when Arrow is used as subproject (#13348)
+* [ARROW-16793](https://issues.apache.org/jira/browse/ARROW-16793) - [CI] Update tags for M1 self-hosted runner jobs to be more specific (#13350)
+* [ARROW-16799](https://issues.apache.org/jira/browse/ARROW-16799) - [C++] Create a self-pipe abstraction (#13354)
+* [ARROW-16800](https://issues.apache.org/jira/browse/ARROW-16800) - [C++] RecordBatchBuilder deprecate Status APIs, add Result APIs (#13356)
+* [ARROW-16804](https://issues.apache.org/jira/browse/ARROW-16804) - [CI][Conan] Merge upstream changes (#13360)
+* [ARROW-16809](https://issues.apache.org/jira/browse/ARROW-16809) - [C++] Add Benchmarks for FilterNode (#13366)
+* [ARROW-16815](https://issues.apache.org/jira/browse/ARROW-16815) - [Packaging][RPM] Disable Apache Arrow Flight for aarch64 (#13371)
+* [ARROW-16816](https://issues.apache.org/jira/browse/ARROW-16816) - [C++] Upgrade Substrait to v0.6.0 (#13468)
+* [ARROW-16818](https://issues.apache.org/jira/browse/ARROW-16818) - [Doc][Python] Document GCS filesystem for PyArrow (#13681)
+* [ARROW-16819](https://issues.apache.org/jira/browse/ARROW-16819) - [C++] arrow::compute::CallFunction needs a batch length for nullary functions
+* [ARROW-16823](https://issues.apache.org/jira/browse/ARROW-16823) - [C++] Arrow Substrait enhancements for UDF (#13375)
+* [ARROW-16824](https://issues.apache.org/jira/browse/ARROW-16824) - [C++] Migrate VectorKernels to use ExecSpan, split out ChunkedArray execution (#13398)
+* [ARROW-16828](https://issues.apache.org/jira/browse/ARROW-16828) - [R][Packaging] Enable Brotli and BZ2 on MacOS and Windows (#13484)
+* [ARROW-16829](https://issues.apache.org/jira/browse/ARROW-16829) - [R] Add link to new contributors guide to developer guide
+* [ARROW-16832](https://issues.apache.org/jira/browse/ARROW-16832) - [C++] Remove hiveserver2 related codes entirely (#13400)
+* [ARROW-16832](https://issues.apache.org/jira/browse/ARROW-16832) - [C++] Remove cpp/src/arrow/dbi/hiveserver2 (#13382)
+* [ARROW-16839](https://issues.apache.org/jira/browse/ARROW-16839) - [CI][C++] Fix xsimd missing related failures (#13388)
+* [ARROW-16840](https://issues.apache.org/jira/browse/ARROW-16840) - [CI] replace actions/setup-ruby with ruby/setup-ruby
+* [ARROW-16850](https://issues.apache.org/jira/browse/ARROW-16850) - [C++] Copy CSV data field and end chars separately (#13394)
+* [ARROW-16852](https://issues.apache.org/jira/browse/ARROW-16852) - [C++] Migrate remaining kernels to use ExecSpan, remove ExecBatchIterator (#13630)
+* [ARROW-16871](https://issues.apache.org/jira/browse/ARROW-16871) - [R] Implement exp() and sqrt() in Arrow dplyr queries (#13517)
+* [ARROW-16873](https://issues.apache.org/jira/browse/ARROW-16873) - [Python] Disable faulthandler on spawned child subprocess on run_debug_memory_pool tests (#13461)
+* [ARROW-16874](https://issues.apache.org/jira/browse/ARROW-16874) - [Ruby] Use more .try_convert for auto data type conversion (#13417)
+* [ARROW-16875](https://issues.apache.org/jira/browse/ARROW-16875) - [Ruby] Add Column#cast and ChunkedArray#cast (#13418)
+* [ARROW-16886](https://issues.apache.org/jira/browse/ARROW-16886) - [C++] Add option to disable PIC (#13475)
+* [ARROW-16887](https://issues.apache.org/jira/browse/ARROW-16887) - [R][Docs] Update Filesystem Vignette for GCS (#13601)
+* [ARROW-16900](https://issues.apache.org/jira/browse/ARROW-16900) - [R] Upgrade lintr (#13432)
+* [ARROW-16901](https://issues.apache.org/jira/browse/ARROW-16901) - [R][CI] Prune R nightly builds (#13453)
+* [ARROW-16906](https://issues.apache.org/jira/browse/ARROW-16906) - [CI][C++] Enable ARROW_GCS on MinGW workflows (#13444)
+* [ARROW-16910](https://issues.apache.org/jira/browse/ARROW-16910) - [C++] Add Equals method for FileFragment (#13490)
+* [ARROW-16911](https://issues.apache.org/jira/browse/ARROW-16911) - [C++] Add Equals method to Partitioning (#13567)
+* [ARROW-16912](https://issues.apache.org/jira/browse/ARROW-16912) - [R][CI] Fix nightly centos package without GCS (#13441)
+* [ARROW-16913](https://issues.apache.org/jira/browse/ARROW-16913) - [Java] Implement ArrowArrayStream (#13465)
+* [ARROW-16918](https://issues.apache.org/jira/browse/ARROW-16918) - [Gandiva][C++] Adding UTC-local timezone conversion functions (#13428)
+* [ARROW-16930](https://issues.apache.org/jira/browse/ARROW-16930) - [Java] Move CPP ORC JNI code to Java ORC project (#13458)
+* [ARROW-16931](https://issues.apache.org/jira/browse/ARROW-16931) - [Ruby] Add support for nullable in Arrow::Field (#13459)
+* [ARROW-16934](https://issues.apache.org/jira/browse/ARROW-16934) - [Go][Parquet] Fix TODO.  Add json and csv, add params to set output and turn off metadata (#13463)
+* [ARROW-16935](https://issues.apache.org/jira/browse/ARROW-16935) - [Packaging][RPM] Disable GCS for Amazon Linux 2 (#13469)
+* [ARROW-16937](https://issues.apache.org/jira/browse/ARROW-16937) - [Packaging][deb] Drop support for Ubuntu impish (#13471)
+* [ARROW-16938](https://issues.apache.org/jira/browse/ARROW-16938) - [GLib] Add girdir/vapidir to .pc (#13476)
+* [ARROW-16941](https://issues.apache.org/jira/browse/ARROW-16941) - [Java][Dataset] Update more jni_util.h paths (#13503)
+* [ARROW-16941](https://issues.apache.org/jira/browse/ARROW-16941) - [Java] Consolidate Dataset JNI compilation (#13481)
+* [ARROW-16955](https://issues.apache.org/jira/browse/ARROW-16955) - [CI] Upgrade setup-python github action to v4 (#13491)
+* [ARROW-16964](https://issues.apache.org/jira/browse/ARROW-16964) - [C++] TSAN error in asof-join-node tests (#13639)
+* [ARROW-16966](https://issues.apache.org/jira/browse/ARROW-16966) - [Doc] Document Substrait conformance (#13494)
+* [ARROW-16971](https://issues.apache.org/jira/browse/ARROW-16971) - [GLib] Check g_seekable_can_seek() before calling g_seekable_tell() (#13498)
+* [ARROW-16972](https://issues.apache.org/jira/browse/ARROW-16972) - [CI][Packaging] Fix -Dvapi instead of -Dvala on homebrew formulae (#13504)
+* [ARROW-16974](https://issues.apache.org/jira/browse/ARROW-16974) - [GLib] Make C99 compatible (#13512)
+* [ARROW-16977](https://issues.apache.org/jira/browse/ARROW-16977) - [R] Update dataset row counting so no integer overflow on large datasets (#13514)
+* [ARROW-16984](https://issues.apache.org/jira/browse/ARROW-16984) - [Ruby] Add support for installing Apache Arrow GLib automatically on Fedora (#13524)
+* [ARROW-16995](https://issues.apache.org/jira/browse/ARROW-16995) - [CI][C++][MinGW] Don't cache site-packages (#13534)
+* [ARROW-16997](https://issues.apache.org/jira/browse/ARROW-16997) - [Doc][Dev] Update arrow/dev README (#13694)
+* [ARROW-16999](https://issues.apache.org/jira/browse/ARROW-16999) - [C++] Add support for SnappyConfig.cmake (#13536)
+* [ARROW-17001](https://issues.apache.org/jira/browse/ARROW-17001) - [Release][R] Use apache artifactory for libarrow binaries. (#13622)
+* [ARROW-17003](https://issues.apache.org/jira/browse/ARROW-17003) - [Java][Docs] Document arrow-jdbc adapter (#13543)
+* [ARROW-17005](https://issues.apache.org/jira/browse/ARROW-17005) - [Java] Allow overriding column nullability in arrow-jdbc (#13558)
+* [ARROW-17010](https://issues.apache.org/jira/browse/ARROW-17010) - [Python] Remove deprecated APIs from <= 1.0.0 (top-level ipc, Value scalar classes, pyarrow.compat module) (#13545)
+* [ARROW-17011](https://issues.apache.org/jira/browse/ARROW-17011) - [C++][Flight] Remove the need for serialization_internal.h inside python/flight.cc (#13546)
+* [ARROW-17012](https://issues.apache.org/jira/browse/ARROW-17012) - [C++][Flight] Remove the need for serialization\_internal.h inside python/flight.cc
+* [ARROW-17019](https://issues.apache.org/jira/browse/ARROW-17019) - [Java][Doc]: Update documentation aligned to task of delete mac / linux netty-native profiles
+* [ARROW-17032](https://issues.apache.org/jira/browse/ARROW-17032) - [GLib][Ruby] Add support for Apache Arrow Flight SQL (#13561)
+* [ARROW-17034](https://issues.apache.org/jira/browse/ARROW-17034) - [C++] Enable compiler caching for ThirdpartyToolchain.cmake (#13562)
+* [ARROW-17035](https://issues.apache.org/jira/browse/ARROW-17035) - [C++][Gandiva] Add Ceil Function (#13565)
+* [ARROW-17036](https://issues.apache.org/jira/browse/ARROW-17036) - [C++][Gandiva] Add sign Function (#13568)
+* [ARROW-17037](https://issues.apache.org/jira/browse/ARROW-17037) - [C++] Split utf8.h to avoid exposing xsimd dependency to third-party code (#13569)
+* [ARROW-17039](https://issues.apache.org/jira/browse/ARROW-17039) - [C++] Partition schema() method is not const supported. (#13572)
+* [ARROW-17046](https://issues.apache.org/jira/browse/ARROW-17046) - [Python] improve documentation of pyarrow.parquet.write_to_dataset function (#13591)
+* [ARROW-17047](https://issues.apache.org/jira/browse/ARROW-17047) - [Python][Docs] Document how to get field from StructType (#13642)
+* [ARROW-17050](https://issues.apache.org/jira/browse/ARROW-17050) - [CI] Use -y flag on mamba install to not ask for confirmation (#13579)
+* [ARROW-17055](https://issues.apache.org/jira/browse/ARROW-17055) - [Java][FlightRPC] Don't duplicate generated Protobuf classes between flight-core and flight-sql (#13596)
+* [ARROW-17060](https://issues.apache.org/jira/browse/ARROW-17060) - [C++] Change AsOfJoinNode to use ExecContext's Memory Pool (#13585)
+* [ARROW-17063](https://issues.apache.org/jira/browse/ARROW-17063) - [GLib] Add examples to send/receive record batches via network (#13590)
+* [ARROW-17065](https://issues.apache.org/jira/browse/ARROW-17065) - [Python] Allow using subclassed ExtensionScalar in ExtensionType (#13594)
+* [ARROW-17067](https://issues.apache.org/jira/browse/ARROW-17067) - [C++][Gandiva] Implement Substring_Index Function. (#13600)
+* [ARROW-17070](https://issues.apache.org/jira/browse/ARROW-17070) - [Gandiva][C++] Adding mask-show-first/last-n functions (#13609)
+* [ARROW-17078](https://issues.apache.org/jira/browse/ARROW-17078) - [C++] Clean up error handling in C++ Examples (#13598)
+* [ARROW-17080](https://issues.apache.org/jira/browse/ARROW-17080) - [Java] Add a top-level CMakeLists.txt for JNI (#13618)
+* [ARROW-17082](https://issues.apache.org/jira/browse/ARROW-17082) - [CI][Conan] Enable Brotli (#13617)
+* [ARROW-17083](https://issues.apache.org/jira/browse/ARROW-17083) - [Python] Delete created files and folders in Filesystems docstring examples (#13619)
+* [ARROW-17085](https://issues.apache.org/jira/browse/ARROW-17085) - [R] group_vars() should not return NULL (#13621)
+* [ARROW-17086](https://issues.apache.org/jira/browse/ARROW-17086) - [C++] Install java/dataset include file and fix debug build failed by compiler flag (#13614)
+* [ARROW-17095](https://issues.apache.org/jira/browse/ARROW-17095) - [Go] Allow Concatenating Dictionary Arrays (#13624)
+* [ARROW-17096](https://issues.apache.org/jira/browse/ARROW-17096) - [C++][Compute] Fix mode kernel error on boolean array (#13646)
+* [ARROW-17101](https://issues.apache.org/jira/browse/ARROW-17101) - [Java] Update protoc and protoc-gen-grpc-java (#13632)
+* [ARROW-17102](https://issues.apache.org/jira/browse/ARROW-17102) - [R] Test fails on R minimal nightly builds due to Parquet writing (#13631)
+* [ARROW-17108](https://issues.apache.org/jira/browse/ARROW-17108) - [Python] Stop skipping dask tests on integration jobs (#13636)
+* [ARROW-17118](https://issues.apache.org/jira/browse/ARROW-17118) - [Docs][Release] Use direct link for adding a new release to Apache report database (#13645)
+* [ARROW-17121](https://issues.apache.org/jira/browse/ARROW-17121) - [Gandiva][C++] Adding mask function to Gandiva (#13647)
+* [ARROW-17135](https://issues.apache.org/jira/browse/ARROW-17135) - [C++] Reduce code size in compute/kernels/scalar_compare.cc (#13654)
+* [ARROW-17140](https://issues.apache.org/jira/browse/ARROW-17140) - [C++][GANDIVA] Adding Floor function (#13655)
+* [ARROW-17151](https://issues.apache.org/jira/browse/ARROW-17151) - [Docs] Pin docs theme to delay dark mode update (#13663)
+* [ARROW-17153](https://issues.apache.org/jira/browse/ARROW-17153) - [GLib][Homebrew] glib-utils is only needed for GLib (#13683)
+* [ARROW-17153](https://issues.apache.org/jira/browse/ARROW-17153) - [CI][Homebrew] Require glib-utils (#13666)
+* [ARROW-17156](https://issues.apache.org/jira/browse/ARROW-17156) - [GLib][Flight] Add GAFlightClientOptions::disable-server-verification (#13670)
+* [ARROW-17157](https://issues.apache.org/jira/browse/ARROW-17157) - [GLib][Ruby][Flight] Add support for headers to GAFlightCallOptions (#13671)
+* [ARROW-17158](https://issues.apache.org/jira/browse/ARROW-17158) - [GLib][Flight] Add support for GetFlightInfo (#13672)
+* [ARROW-17161](https://issues.apache.org/jira/browse/ARROW-17161) - [C++][Java] Dataset: Support reading from fixed offset of a file for Parquet format
+* [ARROW-17162](https://issues.apache.org/jira/browse/ARROW-17162) - [C++] Bump protobuf vendored version to include ABI mismatch fix when compiling on DEBUG (#13674)
+* [ARROW-17163](https://issues.apache.org/jira/browse/ARROW-17163) - [C++] Revert installation of jni_util.h (#13675)
+* [ARROW-17188](https://issues.apache.org/jira/browse/ARROW-17188) - [R] Update news for 9.0.0 (#13726)
+* [ARROW-17194](https://issues.apache.org/jira/browse/ARROW-17194) - [CI][Conan] Enable glog (#13697)
+* [ARROW-17213](https://issues.apache.org/jira/browse/ARROW-17213) - [C++] Fix for valgrind issue in test-r-linux-valgrind crossbow build (#13715)
+* [ARROW-17242](https://issues.apache.org/jira/browse/ARROW-17242) - [C++][FlightRPC] Propagate RecordBatchReader::Close errors through Flight (#13738)
+
+# Apache Arrow 8.0.1 (2022-07-14)
+
+## New Features and Improvements
+
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] backport gopkg.in/yaml.v3 security patch to v8 (#13588)
+
+# Apache Arrow 7.0.1 (2022-07-14)
+
+## New Features and Improvements
+
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] Update testify to fix securiy vulnerability
+
+# Apache Arrow 6.0.2 (2022-07-14)
+
+## New Features and Improvements
+
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] backport gopkg.in/yaml.v3 security patch to v6 (#13586)
+
+# Apache Arrow 8.0.0 (2022-05-03)
+
+## Bug Fixes
+
+* [ARROW-5248](https://issues.apache.org/jira/browse/ARROW-5248) - [Python] support zoneinfo / dateutil timezones
+* [ARROW-7350](https://issues.apache.org/jira/browse/ARROW-7350) - [Python] Decode parquet statistics as scalars
+* [ARROW-9664](https://issues.apache.org/jira/browse/ARROW-9664) - [Python] Array/ChunkedArray.to_pandas do not support types_mapper keyword
+* [ARROW-11415](https://issues.apache.org/jira/browse/ARROW-11415) - [R] map_batches wouldn't accept a dataset as an argument
+* [ARROW-13168](https://issues.apache.org/jira/browse/ARROW-13168) - [C++][R] Enable runtime timezone database for Windows
+* [ARROW-13594](https://issues.apache.org/jira/browse/ARROW-13594) - [CI] Enable nightly turbodbc builds again
+* [ARROW-13922](https://issues.apache.org/jira/browse/ARROW-13922) - [Python] Fix ParquetDataset throw error when len(path_or_paths) == 1
+* [ARROW-14047](https://issues.apache.org/jira/browse/ARROW-14047) - [C++] [Parquet] FileReader returns inconsistent results on repeat reads
+* [ARROW-14215](https://issues.apache.org/jira/browse/ARROW-14215) - [R][CI] Conda Windows builds failing due to space in library name
+* [ARROW-14256](https://issues.apache.org/jira/browse/ARROW-14256) - [CI][Package] Re-enable disabled conda packaging builds
+* [ARROW-14389](https://issues.apache.org/jira/browse/ARROW-14389) - [C++][Gandiva] Fix performance bug with LIKE expressions
+* [ARROW-14638](https://issues.apache.org/jira/browse/ARROW-14638) - [C++][R] Unknown C compiler / ccache on Arch Linux
+* [ARROW-14647](https://issues.apache.org/jira/browse/ARROW-14647) - [JS] fix bignumToNumber for negative numbers
+* [ARROW-14665](https://issues.apache.org/jira/browse/ARROW-14665) - [JAVA] fix JdbcToArrow ResultSet iteration bug
+* [ARROW-14708](https://issues.apache.org/jira/browse/ARROW-14708) - [C++] Adding missing abseil dependencies to enable static flight build
+* [ARROW-14908](https://issues.apache.org/jira/browse/ARROW-14908) - [C++][R] Dataset hash join segfaults on Windows
+* [ARROW-14911](https://issues.apache.org/jira/browse/ARROW-14911) - [C++] arrow-compute-hash-join-node-test failed
+* [ARROW-14960](https://issues.apache.org/jira/browse/ARROW-14960) - [C++] Add exception to Arrow style guide based on changes in Google style guide that we are not adopting
+* [ARROW-15092](https://issues.apache.org/jira/browse/ARROW-15092) - [R] Support create_package_with_all_dependencies() on non-linux systems
+* [ARROW-15253](https://issues.apache.org/jira/browse/ARROW-15253) - [Python] Error in to_pandas for empty dataframe with index with extension type
+* [ARROW-15272](https://issues.apache.org/jira/browse/ARROW-15272) - [Java] Add cleanup failures as suppressed in ArrowVectorIterator#create
+* [ARROW-15291](https://issues.apache.org/jira/browse/ARROW-15291) - [C++][Python] Segfault in StructArray.to_numpy and to_pandas if it contains an ExtensionArray
+* [ARROW-15312](https://issues.apache.org/jira/browse/ARROW-15312) - [R][C++] filtering a Parquet dataset with is.na() misses some rows
+* [ARROW-15401](https://issues.apache.org/jira/browse/ARROW-15401) - [Python] Gdb tests are failing on windows and apple M1
+* [ARROW-15426](https://issues.apache.org/jira/browse/ARROW-15426) - [C++][Gandiva] Update InExpressionNode validation
+* [ARROW-15444](https://issues.apache.org/jira/browse/ARROW-15444) - [C++] Compilation with GCC 7.5 fails in aggregate\_basic.cc
+* [ARROW-15465](https://issues.apache.org/jira/browse/ARROW-15465) - [Python] Add some missing parquet marks in dataset tests
+* [ARROW-15502](https://issues.apache.org/jira/browse/ARROW-15502) - [Java] Detect exceptional footer size in Arrow file reader
+* [ARROW-15504](https://issues.apache.org/jira/browse/ARROW-15504) - [Python][CI] Ensure that optional components are tested
+* [ARROW-15509](https://issues.apache.org/jira/browse/ARROW-15509) - [Go][Parquet] Parquet cmds crash
+* [ARROW-15511](https://issues.apache.org/jira/browse/ARROW-15511) - [Python][C++] Remove reference management in numpy indexer
+* [ARROW-15514](https://issues.apache.org/jira/browse/ARROW-15514) - [C++][Gandiva] Add flag to enable Gandiva Object Code
+* [ARROW-15520](https://issues.apache.org/jira/browse/ARROW-15520) - [C++] Qualify `arrow_vendored::date::format()` for C++20 compatibility
+* [ARROW-15533](https://issues.apache.org/jira/browse/ARROW-15533) - [C++] Check ARROW_WITH_OPENTELEMETRY in CI
+* [ARROW-15539](https://issues.apache.org/jira/browse/ARROW-15539) - [Archery] Add ARROW_JEMALLOC to build options
+* [ARROW-15541](https://issues.apache.org/jira/browse/ARROW-15541) - [Python] Bump the minimum Cython version
+* [ARROW-15544](https://issues.apache.org/jira/browse/ARROW-15544) - [Go][Parquet] Fix origin schema base64 decoding
+* [ARROW-15546](https://issues.apache.org/jira/browse/ARROW-15546) - [FlightRPC][C++] Remove quotes from cookie header
+* [ARROW-15555](https://issues.apache.org/jira/browse/ARROW-15555) - [Release] Don't push the release tag since it already exists
+* [ARROW-15580](https://issues.apache.org/jira/browse/ARROW-15580) - [Python] Make pytz an actual optional dependency of PyArrow
+* [ARROW-15593](https://issues.apache.org/jira/browse/ARROW-15593) - [C++] Make after-fork ThreadPool reinitialization thread-safe
+* [ARROW-15598](https://issues.apache.org/jira/browse/ARROW-15598) - [C++][Gandiva] Avoid using hardcoded raw pointer addresses in generated code
+* [ARROW-15599](https://issues.apache.org/jira/browse/ARROW-15599) - [R] Convert a column as a sub-second timestamp from CSV file with the `T` col type option
+* [ARROW-15603](https://issues.apache.org/jira/browse/ARROW-15603) - [C++] Remove unused variables
+* [ARROW-15604](https://issues.apache.org/jira/browse/ARROW-15604) - [C++][CI] Sporadic ThreadSanitizer failure with OpenTracing
+* [ARROW-15604](https://issues.apache.org/jira/browse/ARROW-15604) - [C++][CI] Sporadic ThreadSanitizer failure with OpenTracing
+* [ARROW-15607](https://issues.apache.org/jira/browse/ARROW-15607) - [C++] Fix incorrect CPUID flag for AVX detection
+* [ARROW-15626](https://issues.apache.org/jira/browse/ARROW-15626) - [GLib] Fix a bug that GArrowGIOInputStream may not read enough data
+* [ARROW-15627](https://issues.apache.org/jira/browse/ARROW-15627) - [R] Fix union dataset unify schema
+* [ARROW-15648](https://issues.apache.org/jira/browse/ARROW-15648) - [C++][Gandiva] Fix the size of the Gandiva cache
+* [ARROW-15652](https://issues.apache.org/jira/browse/ARROW-15652) - [C++] Fix GDB pretty-printing from inside parquet namespace
+* [ARROW-15659](https://issues.apache.org/jira/browse/ARROW-15659) - [R] strptime should return NA (not error) with format mismatch
+* [ARROW-15664](https://issues.apache.org/jira/browse/ARROW-15664) - [C++] parquet reader Segfaults with illegal SIMD instruction 
+* [ARROW-15667](https://issues.apache.org/jira/browse/ARROW-15667) - [R] Test development build with ARROW_BUILD_STATIC=OFF
+* [ARROW-15674](https://issues.apache.org/jira/browse/ARROW-15674) - [C++][Gandiva] Like function doesn't properly handle patterns with special characters in certain cases
+* [ARROW-15677](https://issues.apache.org/jira/browse/ARROW-15677) - [R] calling invalidate() method on ArrowObjects causes subsequent segfault
+* [ARROW-15679](https://issues.apache.org/jira/browse/ARROW-15679) - [R] count should return an ungrouped dataframe
+* [ARROW-15688](https://issues.apache.org/jira/browse/ARROW-15688) - [C++] add_checked doesn't error out on duration overflow
+* [ARROW-15699](https://issues.apache.org/jira/browse/ARROW-15699) - [C++][Gandiva] Fix implementation of left and right func…
+* [ARROW-15700](https://issues.apache.org/jira/browse/ARROW-15700) - [C++] Compilation error on Ubuntu 18.04
+* [ARROW-15705](https://issues.apache.org/jira/browse/ARROW-15705) - [JavaScript] Allowing appending null on children in a StructBuilder
+* [ARROW-15710](https://issues.apache.org/jira/browse/ARROW-15710) - [C++] Intermittent deadlock on arrow-threading-utility-test
+* [ARROW-15715](https://issues.apache.org/jira/browse/ARROW-15715) - [Go] ipc trim value offsets on arrays
+* [ARROW-15718](https://issues.apache.org/jira/browse/ARROW-15718) - [C++] Increase thread limit to work around thread issues
+* [ARROW-15720](https://issues.apache.org/jira/browse/ARROW-15720) - [CI] Fix nightly dask build (skip failing test due to wrong usage of Array.to_pandas)
+* [ARROW-15723](https://issues.apache.org/jira/browse/ARROW-15723) - [Python] Segfault  orcWriter write table
+* [ARROW-15727](https://issues.apache.org/jira/browse/ARROW-15727) - [Python] Allow converting lists of MonthDayNano intervals to Pandas
+* [ARROW-15728](https://issues.apache.org/jira/browse/ARROW-15728) - [Python] Reduce entropy for zstd test_ipc
+* [ARROW-15743](https://issues.apache.org/jira/browse/ARROW-15743) - [R] `skip` not connected up to `skip_rows` on open_dataset despite error messages indicating otherwise
+* [ARROW-15746](https://issues.apache.org/jira/browse/ARROW-15746) - [Release][Java] Add missing artifacts to tasks.yml
+* [ARROW-15748](https://issues.apache.org/jira/browse/ARROW-15748) - [Python] Round temporal options default unit is `day` but documented as `second`. Follow-up
+* [ARROW-15748](https://issues.apache.org/jira/browse/ARROW-15748) - [Python] Round temporal options default unit is `day` but documented as `second`
+* [ARROW-15757](https://issues.apache.org/jira/browse/ARROW-15757) - [Python] Missing bindings for existing_data_behavior makes it impossible to maintain old behavior
+* [ARROW-15760](https://issues.apache.org/jira/browse/ARROW-15760) - [C++] Avoid hard dependency on git in cmake (download tarballs from github instead)
+* [ARROW-15770](https://issues.apache.org/jira/browse/ARROW-15770) - [CI] Not all python tests are running on CI jobs
+* [ARROW-15772](https://issues.apache.org/jira/browse/ARROW-15772) - [Go][Flight] Server Basic Auth Middleware/Interceptor wrongly base64 decode
+* [ARROW-15778](https://issues.apache.org/jira/browse/ARROW-15778) - [Java] set native endian to schema
+* [ARROW-15783](https://issues.apache.org/jira/browse/ARROW-15783) - [Python] Initialize static pandas data on write
+* [ARROW-15784](https://issues.apache.org/jira/browse/ARROW-15784) - [C++][Python] Removing flag enable_parallel_column_conversion which is no longer used
+* [ARROW-15791](https://issues.apache.org/jira/browse/ARROW-15791) - [Go] ipc FileWriter negative WaitGroup counter
+* [ARROW-15794](https://issues.apache.org/jira/browse/ARROW-15794) - [CI][Crossbow] Nightly builds failing due to error in types_mapper
+* [ARROW-15815](https://issues.apache.org/jira/browse/ARROW-15815) - [C++][Parquet] Fix undefined behaviour on invalid input
+* [ARROW-15819](https://issues.apache.org/jira/browse/ARROW-15819) - [R] R docs version switcher doesn't work on Safari on MacOS
+* [ARROW-15830](https://issues.apache.org/jira/browse/ARROW-15830) - [C++] Ensure target directory exists before running Substrait generation
+* [ARROW-15837](https://issues.apache.org/jira/browse/ARROW-15837) - [C++][Python] Clarify documentation for ListArray::offsets()
+* [ARROW-15845](https://issues.apache.org/jira/browse/ARROW-15845) - [Python][Packaging] Fix macOS wheel builds
+* [ARROW-15847](https://issues.apache.org/jira/browse/ARROW-15847) - [Python][CI] Ensure we have a nightly Python build with parquet encryption disabled
+* [ARROW-15847](https://issues.apache.org/jira/browse/ARROW-15847) - [Python] Building with Parquet but without Parquet encryption fails
+* [ARROW-15848](https://issues.apache.org/jira/browse/ARROW-15848) - [Gandiva][C++] Fix function istrue and is not true
+* [ARROW-15851](https://issues.apache.org/jira/browse/ARROW-15851) - [C++] Enable RE2 when building with gRPC
+* [ARROW-15852](https://issues.apache.org/jira/browse/ARROW-15852) - [JS] Fix error thrown by `Table.getByteLength()`
+* [ARROW-15857](https://issues.apache.org/jira/browse/ARROW-15857) - [R] rhub/fedora-clang-devel fails to install 'sass' (rmarkdown dependency)
+* [ARROW-15863](https://issues.apache.org/jira/browse/ARROW-15863) - [Packaging][C++][Python] Fix conda package builds
+* [ARROW-15869](https://issues.apache.org/jira/browse/ARROW-15869) - [C++] Fix Valgrind failure (uninitialized value)
+* [ARROW-15888](https://issues.apache.org/jira/browse/ARROW-15888) - [Doc][Python] Modernize development instructions
+* [ARROW-15892](https://issues.apache.org/jira/browse/ARROW-15892) - [C++] Dataset APIs require s3:ListBucket Permissions
+* [ARROW-15895](https://issues.apache.org/jira/browse/ARROW-15895) - [R] R docs version switcher disappears & reappears with back button on Chrome
+* [ARROW-15898](https://issues.apache.org/jira/browse/ARROW-15898) - [CI] Clean old conda nightlies more thoroughly
+* [ARROW-15905](https://issues.apache.org/jira/browse/ARROW-15905) - [Python][C++] Fix CMake warning when building PyArrow
+* [ARROW-15928](https://issues.apache.org/jira/browse/ARROW-15928) - [C++] Fix crashes and implement chunked array support for replace_with_mask function
+* [ARROW-15929](https://issues.apache.org/jira/browse/ARROW-15929) - [R] io_thread_count is actually the CPU thread count
+* [ARROW-15946](https://issues.apache.org/jira/browse/ARROW-15946) - [Go] Fix memory leak in pqarrow.NewColumnWriter when writing nested data
+* [ARROW-15949](https://issues.apache.org/jira/browse/ARROW-15949) - [Python] Do not require Parquet encryption when Parquet is disabled
+* [ARROW-15951](https://issues.apache.org/jira/browse/ARROW-15951) - [CI][Python] "Test wheel" step successful despite test error
+* [ARROW-15954](https://issues.apache.org/jira/browse/ARROW-15954) - [Java] Remove mac native netty kqueue dependency after upgrade
+* [ARROW-15960](https://issues.apache.org/jira/browse/ARROW-15960) - [C++] Fix crash on adaptive int builder edge cases
+* [ARROW-15962](https://issues.apache.org/jira/browse/ARROW-15962) - [C++][GANDIVA] Fix unhex errors return
+* [ARROW-15965](https://issues.apache.org/jira/browse/ARROW-15965) - [C++][Python] Add Scalar constructor of RoundToMultipleOptions to Python
+* [ARROW-15970](https://issues.apache.org/jira/browse/ARROW-15970) - [R][CI] Re-enable DuckDB dev tests
+* [ARROW-15973](https://issues.apache.org/jira/browse/ARROW-15973) - [CI] Split nightly reports into three: Tests, Packaging, Release
+* [ARROW-15982](https://issues.apache.org/jira/browse/ARROW-15982) - [Python] parquet.read_table fails to parse home directory path
+* [ARROW-15985](https://issues.apache.org/jira/browse/ARROW-15985) - [CI] Fix conda-clean failure when there are no files to delete
+* [ARROW-15987](https://issues.apache.org/jira/browse/ARROW-15987) - [C++][FlightRPC] Work around arrow-flight-test crash on AppVeyor
+* [ARROW-15993](https://issues.apache.org/jira/browse/ARROW-15993) - [CI] Add sphinx-tabs to ci/conda_env_sphinx.txt
+* [ARROW-16012](https://issues.apache.org/jira/browse/ARROW-16012) - [C++] Retry S3 request in tests when Minio not fully initialized
+* [ARROW-16013](https://issues.apache.org/jira/browse/ARROW-16013) - [C++][Python] Signed overflow when using negative stride in NumPyStridedConverter
+* [ARROW-16016](https://issues.apache.org/jira/browse/ARROW-16016) - [C++] Fix recursive ccache invocation error
+* [ARROW-16019](https://issues.apache.org/jira/browse/ARROW-16019) - [C++] Minimize chances of Minio connect errors
+* [ARROW-16021](https://issues.apache.org/jira/browse/ARROW-16021) - [C++] arrow-compute-hash-join-node-test  timeout on MinGW
+* [ARROW-16025](https://issues.apache.org/jira/browse/ARROW-16025) - [Python][C++] Fix segmentation fault when closing ORCFileWritter
+* [ARROW-16031](https://issues.apache.org/jira/browse/ARROW-16031) - [C++][Gandiva] Fix Soundex errors generate
+* [ARROW-16035](https://issues.apache.org/jira/browse/ARROW-16035) - [Java] Handling empty JDBC ResultSet
+* [ARROW-16043](https://issues.apache.org/jira/browse/ARROW-16043) - [C++][Filesystem][S3] Add missing empty content for creating directory
+* [ARROW-16048](https://issues.apache.org/jira/browse/ARROW-16048) - [Python] Avoid exposing null buffer address to the Python buffer protocol
+* [ARROW-16051](https://issues.apache.org/jira/browse/ARROW-16051) - [Gandiva][C++] Fix datediff regression build
+* [ARROW-16052](https://issues.apache.org/jira/browse/ARROW-16052) - [R] undefined global function %>%
+* [ARROW-16060](https://issues.apache.org/jira/browse/ARROW-16060) - [C++] subtract_checked support for timestamp("s") and date32
+* [ARROW-16071](https://issues.apache.org/jira/browse/ARROW-16071) - [R] More undefined global functions
+* [ARROW-16078](https://issues.apache.org/jira/browse/ARROW-16078) - Upgrade bundled zlib to 1.2.12
+* [ARROW-16099](https://issues.apache.org/jira/browse/ARROW-16099) - [JS] RecordBatches that are compressed should throw an error
+* [ARROW-16107](https://issues.apache.org/jira/browse/ARROW-16107) - [Dev][Archery] Fix archery crossbow latest-prefix query
+* [ARROW-16110](https://issues.apache.org/jira/browse/ARROW-16110) - [C++] GcsFileSystem::Make ignores IOContext
+* [ARROW-16113](https://issues.apache.org/jira/browse/ARROW-16113) - [Python] Partitioning.dictionaries in case of a subset of fields are dictionary encoded
+* [ARROW-16131](https://issues.apache.org/jira/browse/ARROW-16131) - [C++] support saving and retrieving custom metadata in batches for IPC file
+* [ARROW-16134](https://issues.apache.org/jira/browse/ARROW-16134) - [C++][GANDIVA] Fix Concat_WS errors return
+* [ARROW-16136](https://issues.apache.org/jira/browse/ARROW-16136) - [Gandiva][C++] Fix problem of the huge size of AddMappings function
+* [ARROW-16139](https://issues.apache.org/jira/browse/ARROW-16139) - [Python] Crash in tests/test\_dataset.py::test\_write\_dataset\_s3 
+* [ARROW-16143](https://issues.apache.org/jira/browse/ARROW-16143) - [Java] Upgrade jackson dependencies CVE-2020-36518
+* [ARROW-16143](https://issues.apache.org/jira/browse/ARROW-16143) - [Java] Upgrade jackson dependencies CVE-2020-36518
+* [ARROW-16146](https://issues.apache.org/jira/browse/ARROW-16146) - [C++] arrow-gcsfs-test is timing out
+* [ARROW-16148](https://issues.apache.org/jira/browse/ARROW-16148) - [C++] TPC-H generator cleanup
+* [ARROW-16152](https://issues.apache.org/jira/browse/ARROW-16152) - [C++] Fix segfault with unknown functions in Substrait
+* [ARROW-16159](https://issues.apache.org/jira/browse/ARROW-16159) - [C++][Python] Allow FileSystem::DeleteDirContents to succeed if the directory is missing
+* [ARROW-16162](https://issues.apache.org/jira/browse/ARROW-16162) - [C++][FlightRPC] Fix Flight build on Ubuntu 18.04
+* [ARROW-16163](https://issues.apache.org/jira/browse/ARROW-16163) - [Go] IPC FileReader leaks memory when used with ZSTD compression
+* [ARROW-16165](https://issues.apache.org/jira/browse/ARROW-16165) - [CI][Archery] Fix nightly query to crossbow to send reports
+* [ARROW-16169](https://issues.apache.org/jira/browse/ARROW-16169) - [C++][Gandiva] Fix empty string case in convert_fromUTF8_binary()
+* [ARROW-16181](https://issues.apache.org/jira/browse/ARROW-16181) - [CI][C++] Valgrind failure in TPCH node tests
+* [ARROW-16182](https://issues.apache.org/jira/browse/ARROW-16182) - [C++][CI] TPCH node tests timeout under ThreadSanitizer
+* [ARROW-16185](https://issues.apache.org/jira/browse/ARROW-16185) - [C++] Fix uninitialized output data in strptime kernel
+* [ARROW-16197](https://issues.apache.org/jira/browse/ARROW-16197) - [Docs] Fix broken link
+* [ARROW-16205](https://issues.apache.org/jira/browse/ARROW-16205) - [C++][FlightRPC] Don't use constexpr std::initializer_list
+* [ARROW-16209](https://issues.apache.org/jira/browse/ARROW-16209) - [JS] Support setting arbitrary symbols on Tables
+* [ARROW-16215](https://issues.apache.org/jira/browse/ARROW-16215) - [C++][FlightRPC] Fix segfault in Flight test on Windows
+* [ARROW-16216](https://issues.apache.org/jira/browse/ARROW-16216) - [Python][FlightRPC] Fix test_flight.py when Flight is not available
+* [ARROW-16219](https://issues.apache.org/jira/browse/ARROW-16219) - [CI] Fix git config to prevent SCM tools failure
+* [ARROW-16223](https://issues.apache.org/jira/browse/ARROW-16223) - [C++] Fix decimal reduce scale rounding
+* [ARROW-16225](https://issues.apache.org/jira/browse/ARROW-16225) - [C++][Parquet] Fix length of encryption AAD random byte generation
+* [ARROW-16233](https://issues.apache.org/jira/browse/ARROW-16233) - [Python][Packaging] test_zoneinfo_tzinfo_to_string fails with zoneinfo._common.ZoneInfoNotFoundError on packaging wheels on Windows
+* [ARROW-16235](https://issues.apache.org/jira/browse/ARROW-16235) - [C++] Fix build failure, compiler warnings from MinGW
+* [ARROW-16236](https://issues.apache.org/jira/browse/ARROW-16236) - [Python] [Packaging] test\_s3fs\_limited\_permissions\_create\_bucket fails with Permission denied on MAC OS wheel builds 
+* [ARROW-16237](https://issues.apache.org/jira/browse/ARROW-16237) - [Docs] Apache Impala is no longer incubating
+* [ARROW-16238](https://issues.apache.org/jira/browse/ARROW-16238) - [C++] Fix nullptr dereference when pre-buffering IPC reads
+* [ARROW-16261](https://issues.apache.org/jira/browse/ARROW-16261) - [C++] Fix DeleteDirContents on HDFS with missing_dir_ok=True
+* [ARROW-16262](https://issues.apache.org/jira/browse/ARROW-16262) - [CI][Integration] Skip failing tests from kartothek integration
+* [ARROW-16278](https://issues.apache.org/jira/browse/ARROW-16278) - [CI] Fix git installation failure on brew
+* [ARROW-16278](https://issues.apache.org/jira/browse/ARROW-16278) - [CI] Fix git installation failure on brew
+* [ARROW-16278](https://issues.apache.org/jira/browse/ARROW-16278) - [CI] Fix git installation failure on brew
+* [ARROW-16293](https://issues.apache.org/jira/browse/ARROW-16293) - [CI][GLib] Make tests stable
+* [ARROW-16295](https://issues.apache.org/jira/browse/ARROW-16295) - [CI][Release] Use windows-2019 for verify-rc-source-windows
+* [ARROW-16300](https://issues.apache.org/jira/browse/ARROW-16300) - pc.sort\_indices with nonexistent column throws malloc error
+* [ARROW-16301](https://issues.apache.org/jira/browse/ARROW-16301) - [C#][CI] Fix docker configuration for .NET 6
+* [ARROW-16305](https://issues.apache.org/jira/browse/ARROW-16305) - [C++] Missed reference to ARROW_ENGINE during the rename
+* [ARROW-16306](https://issues.apache.org/jira/browse/ARROW-16306) - [CI] Fix Nightly verify rc on ubuntu
+* [ARROW-16307](https://issues.apache.org/jira/browse/ARROW-16307) - [Java][FlightRPC] Skip flaky test TestDoExchange.testClientCancel
+* [ARROW-16311](https://issues.apache.org/jira/browse/ARROW-16311) - [Java] Do not return table_schema column when it's not requested
+* [ARROW-16312](https://issues.apache.org/jira/browse/ARROW-16312) - [C++][CI] Install tzdata in the windows verification builds
+* [ARROW-16313](https://issues.apache.org/jira/browse/ARROW-16313) - [R] Ensure assume_timezone options are always initialized
+* [ARROW-16332](https://issues.apache.org/jira/browse/ARROW-16332) - [Release][Java] Add artifacts uploaded verification
+* [ARROW-16336](https://issues.apache.org/jira/browse/ARROW-16336) - [Python] ParquetDataset - Hide internal (common_)metadata related warnings from the user
+* [ARROW-16374](https://issues.apache.org/jira/browse/ARROW-16374) - [R][C++] skip another snappy test during sanitizer runs
+* [ARROW-16375](https://issues.apache.org/jira/browse/ARROW-16375) - [R][CI] Pin test-r-devdocs on Windows to R 4.1
+* [ARROW-16393](https://issues.apache.org/jira/browse/ARROW-16393) - [JAVA] Update option spec to accept value for query, catalog, schema and table
+* [ARROW-16413](https://issues.apache.org/jira/browse/ARROW-16413) - [Python] Certain dataset APIs hang with a python filesystem
+* [ARROW-16417](https://issues.apache.org/jira/browse/ARROW-16417) - [C++][Python] Segfault in test_exec_plan.py / test_joins
+* [ARROW-16419](https://issues.apache.org/jira/browse/ARROW-16419) - [Python] Properly wait for ExecPlan to finish
+* [ARROW-16442](https://issues.apache.org/jira/browse/ARROW-16442) - [Python][Dataset] Fix fragments of ORC Dataset to use FileFragment class
+* [PARQUET-2115](https://issues.apache.org/jira/browse/PARQUET-2115) - [C++] Parquet dictionary bit widths are limited to 32 bits
+* [PARQUET-2118](https://issues.apache.org/jira/browse/PARQUET-2118) - [C++] Don't assume standard pointers
+* [PARQUET-2119](https://issues.apache.org/jira/browse/PARQUET-2119) - [C++] Fix DeltaBitPackDecoder fuzzer found issue
+* [PARQUET-2123](https://issues.apache.org/jira/browse/PARQUET-2123) - [C++] Fix invalid memory access in ScanFileContents
+* [PARQUET-2124](https://issues.apache.org/jira/browse/PARQUET-2124) - [C++] Remove Parquet Dictionary DCHECK
+* [PARQUET-2130](https://issues.apache.org/jira/browse/PARQUET-2130) - Fix crash in debug with non-standard key names.
+* [PARQUET-2131](https://issues.apache.org/jira/browse/PARQUET-2131) - Number values decoded DCHECKs should be exceptions
+
+
+## New Features and Improvements
+
+* [ARROW-1888](https://issues.apache.org/jira/browse/ARROW-1888) - [C++] Implement Struct Casts
+* [ARROW-3016](https://issues.apache.org/jira/browse/ARROW-3016) - [Docs][C++] Memory profiling with perf
+* [ARROW-3039](https://issues.apache.org/jira/browse/ARROW-3039) - [Go] Add support for DictionaryArray
+* [ARROW-3998](https://issues.apache.org/jira/browse/ARROW-3998) - [C++] Add TPC-H Generator
+* [ARROW-5107](https://issues.apache.org/jira/browse/ARROW-5107) - [Release] Validate non-RC source and binary artifacts
+* [ARROW-5598](https://issues.apache.org/jira/browse/ARROW-5598) - [Go] Rename array.Array{,Approx}Equal to array.{,Approx}Equal
+* [ARROW-6780](https://issues.apache.org/jira/browse/ARROW-6780) - [C++][Parquet] Support DurationType in writing/reading parquet (written as int64)
+* [ARROW-7174](https://issues.apache.org/jira/browse/ARROW-7174) - [Python] Expose parquet dictionary_pagesize_limit write parameter
+* [ARROW-7272](https://issues.apache.org/jira/browse/ARROW-7272) - [C++][Java][Dataset] JNI bridge between RecordBatch and VectorSchemaRoot
+* [ARROW-7914](https://issues.apache.org/jira/browse/ARROW-7914) - [Python] Allow pandas datetime as index for feather
+* [ARROW-9235](https://issues.apache.org/jira/browse/ARROW-9235) - [R] Support for `connection` class when reading and writing files
+* [ARROW-9378](https://issues.apache.org/jira/browse/ARROW-9378) - [Go] Support unsigned dictionary indices
+* [ARROW-9947](https://issues.apache.org/jira/browse/ARROW-9947) - [Python] High-level Python API for Parquet encryption of files.
+* [ARROW-10643](https://issues.apache.org/jira/browse/ARROW-10643) - [Python] Pandas<->pyarrow roundtrip failing to recreate index for empty dataframe
+* [ARROW-10924](https://issues.apache.org/jira/browse/ARROW-10924) - [C++] Validate temporal data in ValidateArrayFull
+* [ARROW-11071](https://issues.apache.org/jira/browse/ARROW-11071) - [R][CI] Use processx to set up minio and flight servers in tests
+* [ARROW-11259](https://issues.apache.org/jira/browse/ARROW-11259) - [Python] Allow to create field reference to nested field
+* [ARROW-11989](https://issues.apache.org/jira/browse/ARROW-11989) - [C++][Python] Improve ChunkedArray's complexity for the access of elements
+* [ARROW-12515](https://issues.apache.org/jira/browse/ARROW-12515) - [Dev][Wiki][Release] Fix and update Windows RC verify script
+* [ARROW-12516](https://issues.apache.org/jira/browse/ARROW-12516) - [C++][Gandiva] Implements castINTERVALDAY(varchar) and castINTERVALYEAR(varchar) functions
+* [ARROW-12659](https://issues.apache.org/jira/browse/ARROW-12659) - [C++] Support is_valid as a guarantee
+* [ARROW-12743](https://issues.apache.org/jira/browse/ARROW-12743) - [R] Add DESCRIPTION fields for dev dependencies
+* [ARROW-13185](https://issues.apache.org/jira/browse/ARROW-13185) - [MATLAB] Create a single MEX gateway function which delegates to specific C++ functions
+* [ARROW-13204](https://issues.apache.org/jira/browse/ARROW-13204) - [MATLAB] Update documentation for the MATLAB Interface to reflect latest CMake build system changes
+* [ARROW-13231](https://issues.apache.org/jira/browse/ARROW-13231) - [Doc] Add ORC documentation
+* [ARROW-13260](https://issues.apache.org/jira/browse/ARROW-13260) - [Doc] Host different released versions of the documentation + version switcher
+* [ARROW-13337](https://issues.apache.org/jira/browse/ARROW-13337) - [R] Define Math group generics
+* [ARROW-13375](https://issues.apache.org/jira/browse/ARROW-13375) - [C++][Gandiva] Implement POSITIVE and NEGATIVE Hive functions on Gandiva
+* [ARROW-13409](https://issues.apache.org/jira/browse/ARROW-13409) - [C++][FlightRPC] Expose server shutdown with deadline
+* [ARROW-13564](https://issues.apache.org/jira/browse/ARROW-13564) - [Dev] Check individual commit messages for "Co-authored-by:" tags when integrating a pull request
+* [ARROW-13616](https://issues.apache.org/jira/browse/ARROW-13616) - [R] Cheat Sheet Structure
+* [ARROW-13683](https://issues.apache.org/jira/browse/ARROW-13683) - [R] Test Windows UCRT R
+* [ARROW-13703](https://issues.apache.org/jira/browse/ARROW-13703) - [Python][R] Add bindings for new dataset writing options
+* [ARROW-13993](https://issues.apache.org/jira/browse/ARROW-13993) - [C++][Compute] Add hash_one aggregate function
+* [ARROW-14075](https://issues.apache.org/jira/browse/ARROW-14075) - [C++][CI] Add an appveyor CI job for VisualStudio 2019, non-conda
+* [ARROW-14091](https://issues.apache.org/jira/browse/ARROW-14091) - [C++] add(date, duration) -> timestamp kernel
+* [ARROW-14093](https://issues.apache.org/jira/browse/ARROW-14093) - [C++] subtract(date, date) -> duration kernel
+* [ARROW-14094](https://issues.apache.org/jira/browse/ARROW-14094) - [C++] add(timestamp, duration) -> timestamp kernel
+* [ARROW-14095](https://issues.apache.org/jira/browse/ARROW-14095) - [C++] subtract(timestamp, duration) -> timestamp kernel
+* [ARROW-14096](https://issues.apache.org/jira/browse/ARROW-14096) - [C++] add(time, duration) -> time kernel
+* [ARROW-14097](https://issues.apache.org/jira/browse/ARROW-14097) - [C++] subtract(time, duration) -> time kernel
+* [ARROW-14098](https://issues.apache.org/jira/browse/ARROW-14098) - [C++] subtract(time, time) -> duration kernel
+* [ARROW-14099](https://issues.apache.org/jira/browse/ARROW-14099) - [C++] add(duration, duration) -> duration kernel
+* [ARROW-14100](https://issues.apache.org/jira/browse/ARROW-14100) - [C++] subtract(duration, duration) -> duration kernel
+* [ARROW-14101](https://issues.apache.org/jira/browse/ARROW-14101) - [C++] multiply(duration, integer) -> duration kernel
+* [ARROW-14102](https://issues.apache.org/jira/browse/ARROW-14102) - [C++] divide(duration, integer) -\> duration kernel
+* [ARROW-14153](https://issues.apache.org/jira/browse/ARROW-14153) - [C++][Dataset] Add support for batch_size in the ORC Scanner
+* [ARROW-14168](https://issues.apache.org/jira/browse/ARROW-14168) - [R] Warn only once about arrow function differences
+* [ARROW-14169](https://issues.apache.org/jira/browse/ARROW-14169) - [R] altrep for factors
+* [ARROW-14199](https://issues.apache.org/jira/browse/ARROW-14199) - [R] bindings for format (where possible)
+* [ARROW-14266](https://issues.apache.org/jira/browse/ARROW-14266) - [R] Use WriteNode to write queries
+* [ARROW-14279](https://issues.apache.org/jira/browse/ARROW-14279) - [Docs] Initial attempt at describing structure of PyArrow library
+* [ARROW-14292](https://issues.apache.org/jira/browse/ARROW-14292) - [C++][Python] Join foundation for Tables
+* [ARROW-14293](https://issues.apache.org/jira/browse/ARROW-14293) - [Python] Basic Join functionality in PyArrow
+* [ARROW-14322](https://issues.apache.org/jira/browse/ARROW-14322) - [Doc] Add Python doc on how to connect Python to other languages
+* [ARROW-14333](https://issues.apache.org/jira/browse/ARROW-14333) - [C++][Compute] Add binary and LargeStringType tests to comparison kernels
+* [ARROW-14339](https://issues.apache.org/jira/browse/ARROW-14339) - [Docs] Add canonical url to the pkgdown (R) docs
+* [ARROW-14442](https://issues.apache.org/jira/browse/ARROW-14442) - [R] fix behaviour when converting timestamps with "" as tzone
+* [ARROW-14444](https://issues.apache.org/jira/browse/ARROW-14444) - [C++] Implement task-based model into the executable-pipelines.
+* [ARROW-14498](https://issues.apache.org/jira/browse/ARROW-14498) - [Docs] Make it possible to regenerate older docs with additional patch(es)
+* [ARROW-14502](https://issues.apache.org/jira/browse/ARROW-14502) - [C++][Gandiva] Add test DayOfMonth
+* [ARROW-14506](https://issues.apache.org/jira/browse/ARROW-14506) - [C++] Conda support for google-cloud-cpp
+* [ARROW-14553](https://issues.apache.org/jira/browse/ARROW-14553) - [Doc] Java Cookbook Release 1
+* [ARROW-14579](https://issues.apache.org/jira/browse/ARROW-14579) - [Documentation] Document the CI
+* [ARROW-14591](https://issues.apache.org/jira/browse/ARROW-14591) - [R] Implement bindings for lubridate duration types
+* [ARROW-14612](https://issues.apache.org/jira/browse/ARROW-14612) - [C++] Support for filename-based partitioning
+* [ARROW-14631](https://issues.apache.org/jira/browse/ARROW-14631) - [C++][Gandiva] Implement Nextday Function
+* [ARROW-14651](https://issues.apache.org/jira/browse/ARROW-14651) - [Release][Archery] Add support for retrying download
+* [ARROW-14672](https://issues.apache.org/jira/browse/ARROW-14672) - [Docs] Document how to exchange data between Python and Java
+* [ARROW-14679](https://issues.apache.org/jira/browse/ARROW-14679) - [R][C++] Handle suffix argument in joins
+* [ARROW-14698](https://issues.apache.org/jira/browse/ARROW-14698) - [Docs][FlightRPC] Add API docs for Flight SQL
+* [ARROW-14702](https://issues.apache.org/jira/browse/ARROW-14702) - [Doc][C++] Document threading model
+* [ARROW-14745](https://issues.apache.org/jira/browse/ARROW-14745) - [R] Enable true duckdb streaming
+* [ARROW-14776](https://issues.apache.org/jira/browse/ARROW-14776) - [Website] Don't include squashed commits in merge commit message
+* [ARROW-14798](https://issues.apache.org/jira/browse/ARROW-14798) - [C++][Python][R] Add container window to PrettyPrintOptions
+* [ARROW-14808](https://issues.apache.org/jira/browse/ARROW-14808) - [R] Implement bindings for `lubridate::date()`
+* [ARROW-14810](https://issues.apache.org/jira/browse/ARROW-14810) - [R] Implement bindings for lubridate's `date_decimal()` and `decimal_date()`
+* [ARROW-14815](https://issues.apache.org/jira/browse/ARROW-14815) - [R] bindings for `lubridate::semester()`
+* [ARROW-14817](https://issues.apache.org/jira/browse/ARROW-14817) - [R] Implement bindings for `lubridate::tz()`
+* [ARROW-14823](https://issues.apache.org/jira/browse/ARROW-14823) - [R] Implement bindings for lubridate::leap_year
+* [ARROW-14824](https://issues.apache.org/jira/browse/ARROW-14824) - [R] Implement bindings for lubridate::epiyear()
+* [ARROW-14825](https://issues.apache.org/jira/browse/ARROW-14825) - [C++] Temporal component extraction function for extracting epiyear
+* [ARROW-14826](https://issues.apache.org/jira/browse/ARROW-14826) - [R] Implement bindings for `lubridate::dst()`
+* [ARROW-14827](https://issues.apache.org/jira/browse/ARROW-14827) - [C++] Temporal component extraction function for extracting dst indicator
+* [ARROW-14893](https://issues.apache.org/jira/browse/ARROW-14893) - [C++] Allow creating GCS filesystem from URI
+* [ARROW-14927](https://issues.apache.org/jira/browse/ARROW-14927) - [CI] Upgrade Fedora 33 to Fedora 35
+* [ARROW-14942](https://issues.apache.org/jira/browse/ARROW-14942) - [R] Bindings for lubridate's dpicoseconds, dnanoseconds, desconds, dmilliseconds, dmicroseconds
+* [ARROW-14943](https://issues.apache.org/jira/browse/ARROW-14943) - [R] Bindings for lubridate's ddays, dhours, dminutes, dmonths, dweeks, dyears
+* [ARROW-14944](https://issues.apache.org/jira/browse/ARROW-14944) - [R] Implement `lubridate::make_difftime()`
+* [ARROW-14963](https://issues.apache.org/jira/browse/ARROW-14963) - [Doc] Add copy button extension to code-blocks
+* [ARROW-14993](https://issues.apache.org/jira/browse/ARROW-14993) - [C++] Benchmark CSV writer
+* [ARROW-14997](https://issues.apache.org/jira/browse/ARROW-14997) - [Python][Doc] Add thread_count functions to API docs
+* [ARROW-15013](https://issues.apache.org/jira/browse/ARROW-15013) - [R] Expose concatenate at the R level
+* [ARROW-15015](https://issues.apache.org/jira/browse/ARROW-15015) - [R] Test / CI flag for ensuring all tests are run?
+* [ARROW-15020](https://issues.apache.org/jira/browse/ARROW-15020) - [R] Add bindings for new dataset writing options
+* [ARROW-15040](https://issues.apache.org/jira/browse/ARROW-15040) - [R] Enable write_csv_arrow to take a Dataset or arrow_dplyr_query as input
+* [ARROW-15061](https://issues.apache.org/jira/browse/ARROW-15061) - [C++] Add logging for kernel functions and exec plan nodes
+* [ARROW-15062](https://issues.apache.org/jira/browse/ARROW-15062) - [C++] Add memory information to current spans
+* [ARROW-15064](https://issues.apache.org/jira/browse/ARROW-15064) - [C++] Vectorize CheckStringHasNoStructuralChars in CSV writer
+* [ARROW-15066](https://issues.apache.org/jira/browse/ARROW-15066) - [C++] Enable use of non-bundled OpenTelemetry
+* [ARROW-15067](https://issues.apache.org/jira/browse/ARROW-15067) - [C++] Add tracing spans to the scanner
+* [ARROW-15080](https://issues.apache.org/jira/browse/ARROW-15080) - [Python][C++] Enable tuples conversion to interval
+* [ARROW-15089](https://issues.apache.org/jira/browse/ARROW-15089) - [C++][Compute] Implement kernel to lookup a MapArray item for a given key
+* [ARROW-15098](https://issues.apache.org/jira/browse/ARROW-15098) - [R] Add binding for `lubridate::duration()` and/or `as.difftime()`
+* [ARROW-15118](https://issues.apache.org/jira/browse/ARROW-15118) - [C++] Avoid bitmap buffer if all inputs are all valid for Scalar Kernels
+* [ARROW-15152](https://issues.apache.org/jira/browse/ARROW-15152) - [C++][Compute] Implement hash_list aggregate function
+* [ARROW-15156](https://issues.apache.org/jira/browse/ARROW-15156) - [Doc] Implement Tutorials for the Java Documentation
+* [ARROW-15157](https://issues.apache.org/jira/browse/ARROW-15157) - [Doc] New Contributors Guide v2
+* [ARROW-15163](https://issues.apache.org/jira/browse/ARROW-15163) - [R] lubridate functions for 8.0.0
+* [ARROW-15167](https://issues.apache.org/jira/browse/ARROW-15167) - [R] Improve efficiency of decimal casting
+* [ARROW-15168](https://issues.apache.org/jira/browse/ARROW-15168) - [R] Add S3 generics to create main Arrow objects
+* [ARROW-15178](https://issues.apache.org/jira/browse/ARROW-15178) - [Java][Docs] Java Tutorial: Developer Docs for Java
+* [ARROW-15180](https://issues.apache.org/jira/browse/ARROW-15180) - Document how to add JNI bindings for C++ features
+* [ARROW-15183](https://issues.apache.org/jira/browse/ARROW-15183) - [Python][Docs] Add Missing Dataset Write Options
+* [ARROW-15192](https://issues.apache.org/jira/browse/ARROW-15192) - [Java] Allow use of Jackson 2.12 and higher
+* [ARROW-15195](https://issues.apache.org/jira/browse/ARROW-15195) - [MATLAB] Enable GitHub Actions CI for MATLAB Interface on macOS
+* [ARROW-15197](https://issues.apache.org/jira/browse/ARROW-15197) - [C++] UTF-8 string repeat kernel
+* [ARROW-15212](https://issues.apache.org/jira/browse/ARROW-15212) - [C++] Handle suffix argument in joins
+* [ARROW-15215](https://issues.apache.org/jira/browse/ARROW-15215) - [C++] Consolidate kernel data-copy utilities between replace_with_mask, case_when, coalesce, choose, fill_null_forward, fill_null_backward
+* [ARROW-15223](https://issues.apache.org/jira/browse/ARROW-15223) - [C++] Implement Not Between ternary kernel
+* [ARROW-15238](https://issues.apache.org/jira/browse/ARROW-15238) - [C++] ARROW_ENGINE module with substrait consumer
+* [ARROW-15239](https://issues.apache.org/jira/browse/ARROW-15239) - [C++][Compute] Adding Bloom filter implementation
+* [ARROW-15258](https://issues.apache.org/jira/browse/ARROW-15258) - [C++] Easy options to create a source node from a table
+* [ARROW-15262](https://issues.apache.org/jira/browse/ARROW-15262) - [C++] Create a ToTable sink node
+* [ARROW-15281](https://issues.apache.org/jira/browse/ARROW-15281) - [C++] Implement ability to retrieve fragment filename
+* [ARROW-15282](https://issues.apache.org/jira/browse/ARROW-15282) - [C++][FlightRPC] Split data methods from the underlying transport
+* [ARROW-15294](https://issues.apache.org/jira/browse/ARROW-15294) - [R] Remove arrow-without-arrow and other Solaris hacks
+* [ARROW-15296](https://issues.apache.org/jira/browse/ARROW-15296) - [CI][GO] Add Go staticcheck linting to CI lint job
+* [ARROW-15299](https://issues.apache.org/jira/browse/ARROW-15299) - [R] investigate {remotes} dependencies "soft" vs TRUE 
+* [ARROW-15313](https://issues.apache.org/jira/browse/ARROW-15313) - [C++][Java][FlightRPC] Implement type info method to flight-sql
+* [ARROW-15314](https://issues.apache.org/jira/browse/ARROW-15314) - [C++][Java][FlightRPC] Add missing metadata on Arrow schemas returned by Flight SQL
+* [ARROW-15321](https://issues.apache.org/jira/browse/ARROW-15321) - [Dev][Python] Also numpydoc-validate Cython-generated methods
+* [ARROW-15346](https://issues.apache.org/jira/browse/ARROW-15346) - [Doc][Guide] Arrow codebase - minor corrections
+* [ARROW-15347](https://issues.apache.org/jira/browse/ARROW-15347) - [Doc][Guide] Update testing section in new contributors guide
+* [ARROW-15348](https://issues.apache.org/jira/browse/ARROW-15348) - [Doc][Guide] Lifecycle of a PR - minor corrections
+* [ARROW-15349](https://issues.apache.org/jira/browse/ARROW-15349) - [Doc][Guide] Existing Contributors page - update
+* [ARROW-15350](https://issues.apache.org/jira/browse/ARROW-15350) - [Doc][Guide] Add styling and linters info section
+* [ARROW-15351](https://issues.apache.org/jira/browse/ARROW-15351) - [Doc][Guide] Additional tutorial for R bindings
+* [ARROW-15352](https://issues.apache.org/jira/browse/ARROW-15352) - [Doc][Guide] R package and make clean
+* [ARROW-15353](https://issues.apache.org/jira/browse/ARROW-15353) - [Doc][Guide] Intro into CI topic and link to the existing docs
+* [ARROW-15364](https://issues.apache.org/jira/browse/ARROW-15364) - [Python] Update filesystem entry in read docstrings to reflect current behaviour
+* [ARROW-15366](https://issues.apache.org/jira/browse/ARROW-15366) - [Docs] Automate incrementing of package version for R and non-R version switchers
+* [ARROW-15367](https://issues.apache.org/jira/browse/ARROW-15367) - [Python] Improve Classes and Methods Docstrings
+* [ARROW-15369](https://issues.apache.org/jira/browse/ARROW-15369) - [Doc] Tweak example to use the new support for str pointers
+* [ARROW-15374](https://issues.apache.org/jira/browse/ARROW-15374) - [C++][FlightRPC] Add support for MemoryManager in data methods
+* [ARROW-15389](https://issues.apache.org/jira/browse/ARROW-15389) - [C++][Dev] Improve Array preview in GDB plugin
+* [ARROW-15400](https://issues.apache.org/jira/browse/ARROW-15400) - [Go][CI] Exercise builds on arm machines 
+* [ARROW-15410](https://issues.apache.org/jira/browse/ARROW-15410) - [C++][Datasets] Improve memory usage of datasets API when scanning parquet
+* [ARROW-15418](https://issues.apache.org/jira/browse/ARROW-15418) - [Go][Flight] Update gRPC version, hide impl details
+* [ARROW-15425](https://issues.apache.org/jira/browse/ARROW-15425) - [C++] Add delta dictionaries in file format to integration tests
+* [ARROW-15428](https://issues.apache.org/jira/browse/ARROW-15428) - [Python] Address docstrings in Parquet classes and functions
+* [ARROW-15429](https://issues.apache.org/jira/browse/ARROW-15429) - [Python] Address docstrings for ChunkedArray class, methods, attributes and constructor
+* [ARROW-15431](https://issues.apache.org/jira/browse/ARROW-15431) - [Python] Address docstrings in Schema
+* [ARROW-15432](https://issues.apache.org/jira/browse/ARROW-15432) - [Python] Address CSV docstrings
+* [ARROW-15440](https://issues.apache.org/jira/browse/ARROW-15440) - [Go] Implement 'unpack_bool' with Arm64 GoLang Assembly
+* [ARROW-15450](https://issues.apache.org/jira/browse/ARROW-15450) - [Python][Wheel] Flight test receives SIGKILL during in macOS tests
+* [ARROW-15462](https://issues.apache.org/jira/browse/ARROW-15462) - [GLib] Add GArrow{Month,DayTime,MonthDayNano}Interval{Scalar,Array,ArrayBuilder}
+* [ARROW-15468](https://issues.apache.org/jira/browse/ARROW-15468) - [R][CI] A crossbow job that tests against DuckDB's dev branch
+* [ARROW-15471](https://issues.apache.org/jira/browse/ARROW-15471) - [R] ExtensionType support in R
+* [ARROW-15472](https://issues.apache.org/jira/browse/ARROW-15472) - [Website] Add Flight SQL blog post
+* [ARROW-15477](https://issues.apache.org/jira/browse/ARROW-15477) - [C++][Python] Allow to create (FixedSize/Large)ListArray from arrays and type
+* [ARROW-15480](https://issues.apache.org/jira/browse/ARROW-15480) - [R] Expand on schema/colnames mismatch error messages
+* [ARROW-15483](https://issues.apache.org/jira/browse/ARROW-15483) - [Release] Revamp the verification scripts
+* [ARROW-15487](https://issues.apache.org/jira/browse/ARROW-15487) - [FlightRPC][C++][GLib][Python][R] Implement FlightClient::Close
+* [ARROW-15489](https://issues.apache.org/jira/browse/ARROW-15489) - [R] Expand RecordBatchReader usability
+* [ARROW-15491](https://issues.apache.org/jira/browse/ARROW-15491) - [Website] Rotate PMC chair for 2022
+* [ARROW-15497](https://issues.apache.org/jira/browse/ARROW-15497) - [C++][Homebrew] Use Clang Tools 12
+* [ARROW-15501](https://issues.apache.org/jira/browse/ARROW-15501) - [Java] Support validating decimal vectors
+* [ARROW-15503](https://issues.apache.org/jira/browse/ARROW-15503) - [GLib][Release] Avoid deprecation warning
+* [ARROW-15505](https://issues.apache.org/jira/browse/ARROW-15505) - [C++][Compute] Support null type in product aggregation
+* [ARROW-15506](https://issues.apache.org/jira/browse/ARROW-15506) - [C++][Compute] Support Null type in hash_sum/hash_product/hash_mean
+* [ARROW-15510](https://issues.apache.org/jira/browse/ARROW-15510) - [C++][FlightRPC] Add CUDA memory manager support to benchmark
+* [ARROW-15515](https://issues.apache.org/jira/browse/ARROW-15515) - [C++] Update ExecPlan example code and documentation with new options
+* [ARROW-15517](https://issues.apache.org/jira/browse/ARROW-15517) - [R] Use WriteNode in write_dataset()
+* [ARROW-15523](https://issues.apache.org/jira/browse/ARROW-15523) - [Python] Support for Datasets as inputs of Joins
+* [ARROW-15524](https://issues.apache.org/jira/browse/ARROW-15524) - [Python] Make joins able to receive Tables as inputs
+* [ARROW-15525](https://issues.apache.org/jira/browse/ARROW-15525) - [Python] Make joins able to output a Table as result.
+* [ARROW-15526](https://issues.apache.org/jira/browse/ARROW-15526) - [Python] Support for Dataset.join
+* [ARROW-15527](https://issues.apache.org/jira/browse/ARROW-15527) - [Python] Make Joins able to execute the join operation
+* [ARROW-15532](https://issues.apache.org/jira/browse/ARROW-15532) - [C++] Fix unused warning for StringClassifyDoc
+* [ARROW-15542](https://issues.apache.org/jira/browse/ARROW-15542) - [GLib][Parquet] Add GParquet\*Metadata
+* [ARROW-15550](https://issues.apache.org/jira/browse/ARROW-15550) - [C++] Add optional debug memory checks
+* [ARROW-15551](https://issues.apache.org/jira/browse/ARROW-15551) - [C++][FlightRPC] Update gRPC TLS options detection for 1.43
+* [ARROW-15552](https://issues.apache.org/jira/browse/ARROW-15552) - [Doc][Format] Remove erroneous mention of base64
+* [ARROW-15556](https://issues.apache.org/jira/browse/ARROW-15556) - [Release] Add a script to update Homebrew packages
+* [ARROW-15569](https://issues.apache.org/jira/browse/ARROW-15569) - [Packaging][deb] Use gem instead of apt to install gobject-introspection gem
+* [ARROW-15570](https://issues.apache.org/jira/browse/ARROW-15570) - [CI][Nightly] Drop centos-8 R nightly job
+* [ARROW-15572](https://issues.apache.org/jira/browse/ARROW-15572) - [Java][Docs] Add Installation section to Java documentation
+* [ARROW-15573](https://issues.apache.org/jira/browse/ARROW-15573) - [Java][Doc] Document Apache Arrow memory management
+* [ARROW-15574](https://issues.apache.org/jira/browse/ARROW-15574) - [Java][Doc] Review existing documentation
+* [ARROW-15575](https://issues.apache.org/jira/browse/ARROW-15575) - [Java][Doc] Datasets Tutorial
+* [ARROW-15576](https://issues.apache.org/jira/browse/ARROW-15576) - [Java][Doc] Document VectorSchemaRoots for 2D data
+* [ARROW-15577](https://issues.apache.org/jira/browse/ARROW-15577) - [Java][Doc] Add Arrow Flight documentation
+* [ARROW-15578](https://issues.apache.org/jira/browse/ARROW-15578) - [Java][Doc] Document C Data Interface and how to interface with other languages
+* [ARROW-15579](https://issues.apache.org/jira/browse/ARROW-15579) - [C++] Add MemoryManager::CopyBuffer(const Buffer&)
+* [ARROW-15594](https://issues.apache.org/jira/browse/ARROW-15594) - [C++][FlightRPC] Add Deserialize(const Buffer&) to various Flight types
+* [ARROW-15595](https://issues.apache.org/jira/browse/ARROW-15595) - [Release][Ruby] Add support for MFA
+* [ARROW-15600](https://issues.apache.org/jira/browse/ARROW-15600) - [C++][FlightRPC] Add minimal Flight SQL query example
+* [ARROW-15601](https://issues.apache.org/jira/browse/ARROW-15601) - [Docs][Release] Update post release script to move stable docs + keep dev docs
+* [ARROW-15605](https://issues.apache.org/jira/browse/ARROW-15605) - [CI][R] Keep using old macos runners on our autobrew CI job
+* [ARROW-15606](https://issues.apache.org/jira/browse/ARROW-15606) - [CI][R] Add brew build that exercises the R package
+* [ARROW-15609](https://issues.apache.org/jira/browse/ARROW-15609) - [C++][Compute] Support hash_aggregate with only keys
+* [ARROW-15611](https://issues.apache.org/jira/browse/ARROW-15611) - [C++] Migrate arrow::ipc::internal::json::ArrayFromJSON to Result<>
+* [ARROW-15614](https://issues.apache.org/jira/browse/ARROW-15614) - [C++] Add sqrt binary scalar kernel
+* [ARROW-15617](https://issues.apache.org/jira/browse/ARROW-15617) - [Doc][C++] Document environment variables
+* [ARROW-15619](https://issues.apache.org/jira/browse/ARROW-15619) - [C++] Temporal component extraction function for extracting is_leap_year indicator
+* [ARROW-15623](https://issues.apache.org/jira/browse/ARROW-15623) - [C++][Python] Update developers/python.rst (console blocks + "" in archery install)
+* [ARROW-15625](https://issues.apache.org/jira/browse/ARROW-15625) - [C++] Convert underscore to hyphen in example executable names
+* [ARROW-15629](https://issues.apache.org/jira/browse/ARROW-15629) - [GLib] Add garrow_{,large_}string_array_builder_append_string_len()
+* [ARROW-15630](https://issues.apache.org/jira/browse/ARROW-15630) - [Release][MSYS2] Update reverse dependencies too
+* [ARROW-15631](https://issues.apache.org/jira/browse/ARROW-15631) - [Packaging][RPM] Add major version to libs packages
+* [ARROW-15632](https://issues.apache.org/jira/browse/ARROW-15632) - [R] Prune the bundled libarrow source
+* [ARROW-15633](https://issues.apache.org/jira/browse/ARROW-15633) - [R] Skip s3_bucket example that requires network connection
+* [ARROW-15634](https://issues.apache.org/jira/browse/ARROW-15634) - [C++][Packaging] Improve compilation speed for java-jars nighlty build for MacOS
+* [ARROW-15643](https://issues.apache.org/jira/browse/ARROW-15643) - [C++] Allow selecting subset of fields of a StructArray via cast
+* [ARROW-15650](https://issues.apache.org/jira/browse/ARROW-15650) - [MATLAB] Rename the MEX gateway function
+* [ARROW-15653](https://issues.apache.org/jira/browse/ARROW-15653) - [R][CI] Fix tests of bundled cpp source
+* [ARROW-15656](https://issues.apache.org/jira/browse/ARROW-15656) - [C++][R] Make valgrind builds slightly quicker
+* [ARROW-15657](https://issues.apache.org/jira/browse/ARROW-15657) - [C++][Java] Upgrade Apache ORC to 1.7.3
+* [ARROW-15665](https://issues.apache.org/jira/browse/ARROW-15665) - [C++] Fix error_is_null in strptime with invalid inputs
+* [ARROW-15665](https://issues.apache.org/jira/browse/ARROW-15665) - [C++] Add error handling option to StrptimeOptions
+* [ARROW-15670](https://issues.apache.org/jira/browse/ARROW-15670) - [C++/Python/Packaging] Update conda pinnings and enable GCS on Windows
+* [ARROW-15672](https://issues.apache.org/jira/browse/ARROW-15672) - [C++] Enable CSV writer to control the field delimiter
+* [ARROW-15673](https://issues.apache.org/jira/browse/ARROW-15673) - [R] Error gracefully if DuckDB isn't installed
+* [ARROW-15680](https://issues.apache.org/jira/browse/ARROW-15680) - [C++] Temporal floor/ceil/round should accept week_starts_monday when rounding to multiple of week
+* [ARROW-15682](https://issues.apache.org/jira/browse/ARROW-15682) - [CI] Github starting to migrate "windows-latest" tag from windows 2019 to windows 2022
+* [ARROW-15683](https://issues.apache.org/jira/browse/ARROW-15683) - [Website][Rust][DataFusion] Make a 7.0.0 release announcement blog
+* [ARROW-15690](https://issues.apache.org/jira/browse/ARROW-15690) - [Dev] Update GitHub Actions workflows that hardcode master as default
+* [ARROW-15692](https://issues.apache.org/jira/browse/ARROW-15692) - [Dev] Update release scripts to use default branch
+* [ARROW-15694](https://issues.apache.org/jira/browse/ARROW-15694) - [Dev] Update apache/arrow-site GitHub Actions deploy.yml website deployment workflow to support being triggered when pushing to main
+* [ARROW-15697](https://issues.apache.org/jira/browse/ARROW-15697) - [R] Add logo and meta tags to pkgdown site
+* [ARROW-15698](https://issues.apache.org/jira/browse/ARROW-15698) - [Integration] Privatized some code in tests
+* [ARROW-15701](https://issues.apache.org/jira/browse/ARROW-15701) - [R] month() should allow integer inputs
+* [ARROW-15706](https://issues.apache.org/jira/browse/ARROW-15706) - [C++][FlightRPC] Implement a UCX transport
+* [ARROW-15707](https://issues.apache.org/jira/browse/ARROW-15707) - [C++][FlightRPC] Make Flight tests more resuable across transports
+* [ARROW-15708](https://issues.apache.org/jira/browse/ARROW-15708) - [R][CI] skip snappy encoded parquets on clang sanitizer
+* [ARROW-15709](https://issues.apache.org/jira/browse/ARROW-15709) - [C++] Compilation of ARROW_ENGINE fails if doing an "inline" build
+* [ARROW-15709](https://issues.apache.org/jira/browse/ARROW-15709) - [C++] Revert change
+* [ARROW-15709](https://issues.apache.org/jira/browse/ARROW-15709) - [C++] Compilation of ARROW_ENGINE fails if doing an "inline" build
+* [ARROW-15712](https://issues.apache.org/jira/browse/ARROW-15712) - [R] Add a `type` method for `Expression` objects
+* [ARROW-15714](https://issues.apache.org/jira/browse/ARROW-15714) - [C++][Gandiva] Increase the protobuf recursion limit in gandiva protobuf parser
+* [ARROW-15717](https://issues.apache.org/jira/browse/ARROW-15717) - [Docs] Add hash_one to the documentation
+* [ARROW-15721](https://issues.apache.org/jira/browse/ARROW-15721) - [Docs][FlightRPC] Add Flight/Flight SQL to subprojects
+* [ARROW-15722](https://issues.apache.org/jira/browse/ARROW-15722) - [Java] Improve error message for nested types with incorrect children
+* [ARROW-15726](https://issues.apache.org/jira/browse/ARROW-15726) - [C++] If a projected_schema is not supplied but a bound projection expression is then we should use that to infer the projected_schema
+* [ARROW-15739](https://issues.apache.org/jira/browse/ARROW-15739) - [C++] Bump xsimd to latest version
+* [ARROW-15740](https://issues.apache.org/jira/browse/ARROW-15740) - [C++][Compute] Benchmark element wise min/max
+* [ARROW-15741](https://issues.apache.org/jira/browse/ARROW-15741) - [Doc][Format] Clarify thread-safety of C stream interface
+* [ARROW-15742](https://issues.apache.org/jira/browse/ARROW-15742) - [Go] Implement 'bitmap_neon' with Arm64 GoLang Assembly
+* [ARROW-15744](https://issues.apache.org/jira/browse/ARROW-15744) - [Gandiva][C++] Add NEGATIVE function for interval types
+* [ARROW-15749](https://issues.apache.org/jira/browse/ARROW-15749) - [Ruby] Add support for #values of Month Interval Type
+* [ARROW-15750](https://issues.apache.org/jira/browse/ARROW-15750) - [Ruby] Add support for #raw_records of Month Interval Type
+* [ARROW-15755](https://issues.apache.org/jira/browse/ARROW-15755) - [Java] Support Java 17
+* [ARROW-15763](https://issues.apache.org/jira/browse/ARROW-15763) - [C++] Improve CSV writer performance
+* [ARROW-15766](https://issues.apache.org/jira/browse/ARROW-15766) - [R] Implement bindings for lubridate::duration()
+* [ARROW-15769](https://issues.apache.org/jira/browse/ARROW-15769) - [C++] Generate less arithmetic kernels
+* [ARROW-15775](https://issues.apache.org/jira/browse/ARROW-15775) - [R] Clean up as.* methods to use build_expr()
+* [ARROW-15776](https://issues.apache.org/jira/browse/ARROW-15776) - [Python] Expose IpcReadOptions
+* [ARROW-15777](https://issues.apache.org/jira/browse/ARROW-15777) - [Python][Flight] Allow passing IpcReadOptions to FlightCallOptions
+* [ARROW-15781](https://issues.apache.org/jira/browse/ARROW-15781) - [Python] Release GIL in ensure_complete_metadata
+* [ARROW-15782](https://issues.apache.org/jira/browse/ARROW-15782) - [C++] Fix Findre2Alt.cmake to check RE2_ROOT variable first
+* [ARROW-15788](https://issues.apache.org/jira/browse/ARROW-15788) - [C++][FlightRPC] Prepare benchmark for alternative transports
+* [ARROW-15789](https://issues.apache.org/jira/browse/ARROW-15789) - [C++] Update OpenTelemetry to v1.2.0
+* [ARROW-15795](https://issues.apache.org/jira/browse/ARROW-15795) - [Java] Add a getter for the timeZone in timestamp with timezone vectors
+* [ARROW-15796](https://issues.apache.org/jira/browse/ARROW-15796) - [Python] Pickling ParquetFileFragment shouldn't fetch metadata
+* [ARROW-15799](https://issues.apache.org/jira/browse/ARROW-15799) - [R] Update as.Date() to support an origin different from epoch
+* [ARROW-15800](https://issues.apache.org/jira/browse/ARROW-15800) - [R] Implement bindings for `lubridate::as_date()` and `lubridate::as_datetime()`
+* [ARROW-15801](https://issues.apache.org/jira/browse/ARROW-15801) - [R] Implement bindings for lubridate date-time helpers
+* [ARROW-15802](https://issues.apache.org/jira/browse/ARROW-15802) - [R] bindings for `lubridate::make_datetime()` and `lubridate::make_date()`
+* [ARROW-15810](https://issues.apache.org/jira/browse/ARROW-15810) - [CI][Nightly] Check R related image strictly
+* [ARROW-15814](https://issues.apache.org/jira/browse/ARROW-15814) - [R][DOCS] Improve documentation for cast()
+* [ARROW-15817](https://issues.apache.org/jira/browse/ARROW-15817) - [R] Use TableSourceNode instead of InMemoryDataset
+* [ARROW-15818](https://issues.apache.org/jira/browse/ARROW-15818) - [R] Implement initial Substrait consumer in the R bindings
+* [ARROW-15820](https://issues.apache.org/jira/browse/ARROW-15820) - [C++][Doc] Add table_source to streaming_execution.rst & clarify parameter name
+* [ARROW-15821](https://issues.apache.org/jira/browse/ARROW-15821) - [JS] Fix paths to sourcemaps in directories
+* [ARROW-15823](https://issues.apache.org/jira/browse/ARROW-15823) - [C++][Python] Add a method to convert a Table to a RecordBatchReader
+* [ARROW-15824](https://issues.apache.org/jira/browse/ARROW-15824) - [Python] Make pyarrow.parquet a package
+* [ARROW-15827](https://issues.apache.org/jira/browse/ARROW-15827) - [R] Improve UX of write_dataset(..., max_rows_per_group)
+* [ARROW-15831](https://issues.apache.org/jira/browse/ARROW-15831) - [Java] Upgrade Flight dependencies
+* [ARROW-15841](https://issues.apache.org/jira/browse/ARROW-15841) - [R] Implement SafeCallIntoR to safely call the R API from another thread
+* [ARROW-15844](https://issues.apache.org/jira/browse/ARROW-15844) - [Release][Packaging] Use ASCII format for detached sign
+* [ARROW-15846](https://issues.apache.org/jira/browse/ARROW-15846) - [Format] Clarify presence of struct validity bitmap
+* [ARROW-15850](https://issues.apache.org/jira/browse/ARROW-15850) - [C++] Engine substrait headers missing from install
+* [ARROW-15854](https://issues.apache.org/jira/browse/ARROW-15854) - [C++] Refine CSV writer code
+* [ARROW-15860](https://issues.apache.org/jira/browse/ARROW-15860) - [Python] Document RecordBatchReader
+* [ARROW-15864](https://issues.apache.org/jira/browse/ARROW-15864) - [Java][Docs] Update Arrow nightly Maven releases documentation
+* [ARROW-15866](https://issues.apache.org/jira/browse/ARROW-15866) - [Packaging][Ubuntu] Drop support for Ubuntu 21.04
+* [ARROW-15870](https://issues.apache.org/jira/browse/ARROW-15870) - [Python] Start to raise deprecation warnings for use_legacy_dataset=True in parquet.read_table
+* [ARROW-15871](https://issues.apache.org/jira/browse/ARROW-15871) - [Python] Start raising deprecation warnings for ParquetDataset keywords that won't be supported with the new API
+* [ARROW-15873](https://issues.apache.org/jira/browse/ARROW-15873) - [CI] Migrate from Ubuntu 21.04 to 22.04
+* [ARROW-15875](https://issues.apache.org/jira/browse/ARROW-15875) - [R] Expose ReadMetadata for input streams
+* [ARROW-15882](https://issues.apache.org/jira/browse/ARROW-15882) - [Python][CI] Ensure we are running hypothesis tests in the nightly hypothesis build
+* [ARROW-15885](https://issues.apache.org/jira/browse/ARROW-15885) - [Ruby] Add support for #values of DayTime Interval Type
+* [ARROW-15886](https://issues.apache.org/jira/browse/ARROW-15886) - [Ruby] Add support for #raw_records of DayTimeInterval type
+* [ARROW-15890](https://issues.apache.org/jira/browse/ARROW-15890) - [CI][Python] Use venv instead of virtualenv
+* [ARROW-15896](https://issues.apache.org/jira/browse/ARROW-15896) - [Python][C++] Add errno detail for filesystem "file not found" errors
+* [ARROW-15900](https://issues.apache.org/jira/browse/ARROW-15900) - [C++] Support Substrait reading of a Feather-format local file
+* [ARROW-15902](https://issues.apache.org/jira/browse/ARROW-15902) - [Website] Add new committers: Raphael Taylor-Davies, Wang Xudong, Yijie Shen, Kun Liu
+* [ARROW-15916](https://issues.apache.org/jira/browse/ARROW-15916) - [Packaging][RPM] Add support for CentOS Stream 8
+* [ARROW-15917](https://issues.apache.org/jira/browse/ARROW-15917) - [Java][Docs] Document how to use Flight artifacts
+* [ARROW-15918](https://issues.apache.org/jira/browse/ARROW-15918) - [Ruby][{day:, millisecond:}, ...] )
+* [ARROW-15919](https://issues.apache.org/jira/browse/ARROW-15919) - [C++] Add function not commutative with timestamps & duration maths
+* [ARROW-15921](https://issues.apache.org/jira/browse/ARROW-15921) - [Format][FlightRPC][C++][Java] Clarify interpretation of FlightEndpoint.locations
+* [ARROW-15923](https://issues.apache.org/jira/browse/ARROW-15923) - [Packaging][Linux] Enable GCS support
+* [ARROW-15924](https://issues.apache.org/jira/browse/ARROW-15924) - [Ruby] Add support for #values of MonthDayNanoInterval type
+* [ARROW-15925](https://issues.apache.org/jira/browse/ARROW-15925) - [Ruby] Add support for #raw_records of MonthDayNanoInterval type
+* [ARROW-15931](https://issues.apache.org/jira/browse/ARROW-15931) - [Website] Add explicit Apache LICENSE.txt and NOTICE.txt files to apache/arrow-site repository
+* [ARROW-15932](https://issues.apache.org/jira/browse/ARROW-15932) - [C++][FlightRPC] Add more tests to the common Flight suite
+* [ARROW-15934](https://issues.apache.org/jira/browse/ARROW-15934) - [Python] Expose write_batch_size in python
+* [ARROW-15935](https://issues.apache.org/jira/browse/ARROW-15935) - [Ruby] Add test for Arrow::DictionaryArray#values
+* [ARROW-15939](https://issues.apache.org/jira/browse/ARROW-15939) - [Python] Add pickle support for JSON options classes
+* [ARROW-15940](https://issues.apache.org/jira/browse/ARROW-15940) - [Gandiva][C++] Add NEGATIVE function for decimal data type
+* [ARROW-15941](https://issues.apache.org/jira/browse/ARROW-15941) - [C++] Allow overriding the number of IO threads with an environment variable
+* [ARROW-15944](https://issues.apache.org/jira/browse/ARROW-15944) - [Docs][C++] Document dependencies for building on Arch Linux
+* [ARROW-15947](https://issues.apache.org/jira/browse/ARROW-15947) - [R] rename_with s3 method for arrow_dplyr_query
+* [ARROW-15950](https://issues.apache.org/jira/browse/ARROW-15950) - [Go] Lift BitSetRunReader to internal/bitutils package
+* [ARROW-15952](https://issues.apache.org/jira/browse/ARROW-15952) - [C++] Document Visitors and finish Scalar::Accept
+* [ARROW-15955](https://issues.apache.org/jira/browse/ARROW-15955) - [Packaging][RPM] Add missing json-devel to CentOS Stream 8 build image
+* [ARROW-15956](https://issues.apache.org/jira/browse/ARROW-15956) - [Java] Consolidate Flight integration testing code
+* [ARROW-15963](https://issues.apache.org/jira/browse/ARROW-15963) - [Go][Parquet] simplify ReaderAtSeeker interface
+* [ARROW-15968](https://issues.apache.org/jira/browse/ARROW-15968) - [C++] Update AsyncGenerator semantics to emit a terminal item only after all outstanding futures have completed
+* [ARROW-15972](https://issues.apache.org/jira/browse/ARROW-15972) - [Java][Doc] Add Getting Started section
+* [ARROW-15974](https://issues.apache.org/jira/browse/ARROW-15974) - [C++] Migrate flight/types.h header definitions to use Result<>
+* [ARROW-15975](https://issues.apache.org/jira/browse/ARROW-15975) - [C++] Document type traits and inline visitors
+* [ARROW-15976](https://issues.apache.org/jira/browse/ARROW-15976) - [C++] Clean up commenting on execution plan example
+* [ARROW-15979](https://issues.apache.org/jira/browse/ARROW-15979) - [C++][Doc] Expose more functions of parquet::WriterProperties in doc
+* [ARROW-15984](https://issues.apache.org/jira/browse/ARROW-15984) - [C++] Change RecordBatchReader API to use Result<>
+* [ARROW-15989](https://issues.apache.org/jira/browse/ARROW-15989) - [R] rbind & cbind for Table & RecordBatch
+* [ARROW-15994](https://issues.apache.org/jira/browse/ARROW-15994) - [C++] Back out taskify changes
+* [ARROW-15995](https://issues.apache.org/jira/browse/ARROW-15995) - [GO] Improve 'sum_float64_neon' performance
+* [ARROW-15998](https://issues.apache.org/jira/browse/ARROW-15998) - [Docs][CI] Use sphinx-design tabs instead of sphinx-tabs
+* [ARROW-15999](https://issues.apache.org/jira/browse/ARROW-15999) - [Python] Turn deadlines off for the test using hypothesis
+* [ARROW-16007](https://issues.apache.org/jira/browse/ARROW-16007) - [R] grepl bindings return FALSE for NA inputs
+* [ARROW-16011](https://issues.apache.org/jira/browse/ARROW-16011) - [R] CI jobs should fail if lintr picked up issues
+* [ARROW-16014](https://issues.apache.org/jira/browse/ARROW-16014) - [C++] Create more benchmarks for measuring expression evaluation overhead
+* [ARROW-16026](https://issues.apache.org/jira/browse/ARROW-16026) - [C++] Add support for the serial executor to expose an async generator as an iterable
+* [ARROW-16032](https://issues.apache.org/jira/browse/ARROW-16032) - [C++] Migrate FlightClient API to Result<>
+* [ARROW-16033](https://issues.apache.org/jira/browse/ARROW-16033) - [C++] Pass schema to consuming sink node
+* [ARROW-16038](https://issues.apache.org/jira/browse/ARROW-16038) - [R] different behavior from dplyr when mutate's `.keep` option is set
+* [ARROW-16042](https://issues.apache.org/jira/browse/ARROW-16042) - [GO] Fix header file preprocessor issues
+* [ARROW-16044](https://issues.apache.org/jira/browse/ARROW-16044) - [Julia] Remove from apache/arrow
+* [ARROW-16046](https://issues.apache.org/jira/browse/ARROW-16046) - [Docs][FlightRPC][Python] Ensure Flight Python API is documented
+* [ARROW-16049](https://issues.apache.org/jira/browse/ARROW-16049) - [C++][FlightRPC] Fix Flight SQL's ColumnMetadata constructor visibility
+* [ARROW-16053](https://issues.apache.org/jira/browse/ARROW-16053) - [C++][FlightRPC] Fix flaky test TestAuthHandler.FailUnauthenticatedCalls
+* [ARROW-16055](https://issues.apache.org/jira/browse/ARROW-16055) - [C++][Gandiva] Skip unnecessary work during cache hit when using object code cache
+* [ARROW-16057](https://issues.apache.org/jira/browse/ARROW-16057) - [Python] Address docstrings for RecordBatch class, methods, attributes and constructor
+* [ARROW-16058](https://issues.apache.org/jira/browse/ARROW-16058) - [Python] Address docstrings for Table class, methods, attributes and constructor
+* [ARROW-16059](https://issues.apache.org/jira/browse/ARROW-16059) - [Python] Address docstrings for Tensor class
+* [ARROW-16061](https://issues.apache.org/jira/browse/ARROW-16061) - [R][CI] Speed up windows 3.6 builds
+* [ARROW-16062](https://issues.apache.org/jira/browse/ARROW-16062) - [Python] Move libarrow_python include definitions to its own file
+* [ARROW-16064](https://issues.apache.org/jira/browse/ARROW-16064) - [Java][C++][FlightRPC] Add missing column metadata for type name on FlightSQL
+* [ARROW-16065](https://issues.apache.org/jira/browse/ARROW-16065) - [FlightRPC][Docs] Improve Flight documentation
+* [ARROW-16068](https://issues.apache.org/jira/browse/ARROW-16068) - [C++][FlightRPC] Migrate remaining flight API to use Result<>
+* [ARROW-16069](https://issues.apache.org/jira/browse/ARROW-16069) - [C++][FlightRPC] Refactor out gRPC error code handling
+* [ARROW-16073](https://issues.apache.org/jira/browse/ARROW-16073) - [R] clean-up date time unit testing once tzdb is available on Windows
+* [ARROW-16074](https://issues.apache.org/jira/browse/ARROW-16074) - [Docs] Document joins
+* [ARROW-16079](https://issues.apache.org/jira/browse/ARROW-16079) - [Python] Address docstrings in Parquet schema and metadata
+* [ARROW-16082](https://issues.apache.org/jira/browse/ARROW-16082) - [Flight][Go] Allow specifying a net.Listener
+* [ARROW-16098](https://issues.apache.org/jira/browse/ARROW-16098) - [JS] Don't return null in table and recordbatch iterators
+* [ARROW-16102](https://issues.apache.org/jira/browse/ARROW-16102) - [C++] Add support for building with system gRPC and bundled GCS
+* [ARROW-16104](https://issues.apache.org/jira/browse/ARROW-16104) - [Packaging] Add support for Ubuntu 22.04
+* [ARROW-16105](https://issues.apache.org/jira/browse/ARROW-16105) - [C++][Gandiva] Add support for LLVM 14
+* [ARROW-16109](https://issues.apache.org/jira/browse/ARROW-16109) - [Python] Add dataset mark to test in order to avoid failure
+* [ARROW-16114](https://issues.apache.org/jira/browse/ARROW-16114) - [Docs][Python] Document Parquet FileMetaData
+* [ARROW-16117](https://issues.apache.org/jira/browse/ARROW-16117) - [JS] Improve decode UTF8 performance
+* [ARROW-16120](https://issues.apache.org/jira/browse/ARROW-16120) - [Python] ParquetDataset deprecation: change Deprecation to FutureWarnings
+* [ARROW-16121](https://issues.apache.org/jira/browse/ARROW-16121) - [Python] Deprecate the (common_)metadata(_path) attributes of ParquetDataset
+* [ARROW-16122](https://issues.apache.org/jira/browse/ARROW-16122) - [Python] Change use_legacy_dataset default and deprecate no-longer supported keywords in parquet.write_to_dataset
+* [ARROW-16128](https://issues.apache.org/jira/browse/ARROW-16128) - [C++][FlightRPC] Fix Flight SQL static build on Windows
+* [ARROW-16132](https://issues.apache.org/jira/browse/ARROW-16132) - [Packaging][deb][CUDA] Relax libcuda1 dependency
+* [ARROW-16154](https://issues.apache.org/jira/browse/ARROW-16154) - [R] Errors which pass through `handle_csv_read_error()` and `handle_parquet_io_error()` need better error tracing
+* [ARROW-16156](https://issues.apache.org/jira/browse/ARROW-16156) - [R] Clarify warning message for features not turned on in .onAttach()
+* [ARROW-16158](https://issues.apache.org/jira/browse/ARROW-16158) - [C++][R] Rename ARROW_ENGINE to ARROW_SUBSTRAIT
+* [ARROW-16166](https://issues.apache.org/jira/browse/ARROW-16166) - [C++][Compute] Utilities for assembling join output
+* [ARROW-16167](https://issues.apache.org/jira/browse/ARROW-16167) - [JS] refactor get and set visitors
+* [ARROW-16173](https://issues.apache.org/jira/browse/ARROW-16173) - [C++] Add benchmarks for temporal functions/kernels
+* [ARROW-16176](https://issues.apache.org/jira/browse/ARROW-16176) - [Release][C#] Use .NET 6.0 on Ubuntu 22.04
+* [ARROW-16186](https://issues.apache.org/jira/browse/ARROW-16186) - [C++][GANDIVA] Add alias and tests for decimal, quarter, xor, etc...
+* [ARROW-16187](https://issues.apache.org/jira/browse/ARROW-16187) - [Go][Parquet] Properly utilize BufferedStream and buffer size when reading
+* [ARROW-16192](https://issues.apache.org/jira/browse/ARROW-16192) - [Go] Remove deprecated aliases for v8
+* [ARROW-16193](https://issues.apache.org/jira/browse/ARROW-16193) - [Go] Replace CPU discovery package with golang.org/x/sys/cpu module
+* [ARROW-16198](https://issues.apache.org/jira/browse/ARROW-16198) - [CI][Packaging][Python] Update VCPKG version
+* [ARROW-16201](https://issues.apache.org/jira/browse/ARROW-16201) - [R] SafeCallIntoR on 3.4
+* [ARROW-16203](https://issues.apache.org/jira/browse/ARROW-16203) - [Release] Remove all old artifacts on release
+* [ARROW-16204](https://issues.apache.org/jira/browse/ARROW-16204) - [C++][Dataset] Default error existing_data_behaviour for writing dataset ignores a single file
+* [ARROW-16208](https://issues.apache.org/jira/browse/ARROW-16208) - [JS] Upgrade deps
+* [ARROW-16210](https://issues.apache.org/jira/browse/ARROW-16210) - [JS] Implement tableFromJSON and support struct vector in vectorFromArray
+* [ARROW-16214](https://issues.apache.org/jira/browse/ARROW-16214) - [GLib][Parquet] Add GParquetFileMetadata
+* [ARROW-16229](https://issues.apache.org/jira/browse/ARROW-16229) - [CI] Temporary remove turbodbc tests from nightly tests
+* [ARROW-16232](https://issues.apache.org/jira/browse/ARROW-16232) - [C++] Include OpenTelemetry in LICENSE.txt
+* [ARROW-16240](https://issues.apache.org/jira/browse/ARROW-16240) - [Python] Support row_group_size/chunk_size keyword in pq.write_to_dataset with use_legacy_dataset=False
+* [ARROW-16242](https://issues.apache.org/jira/browse/ARROW-16242) - [Go] xerrors.Errorf and xerrors.Is are deprecated, fix linting
+* [ARROW-16245](https://issues.apache.org/jira/browse/ARROW-16245) - [GLib][Parquet] Add GParquetRowGroupMetadata
+* [ARROW-16247](https://issues.apache.org/jira/browse/ARROW-16247) - [GLib] Add GArrowGCSFileSystem
+* [ARROW-16250](https://issues.apache.org/jira/browse/ARROW-16250) - [GLib][Parquet] Add GParquetColumnChunkMetadata
+* [ARROW-16251](https://issues.apache.org/jira/browse/ARROW-16251) - [GLib][Parquet] Add GParquetStatistics and its family
+* [ARROW-16252](https://issues.apache.org/jira/browse/ARROW-16252) - [CI][Archery] Highlight number of failed builds on nightly reports
+* [ARROW-16256](https://issues.apache.org/jira/browse/ARROW-16256) - [Docs] Document which format version is supported
+* [ARROW-16257](https://issues.apache.org/jira/browse/ARROW-16257) - [R] Break-up as\_date and as\_datetime into individual functions
+* [ARROW-16264](https://issues.apache.org/jira/browse/ARROW-16264) - [C++][CI] Valgrind timeout in arrow-compute-hash-join-node-test
+* [ARROW-16277](https://issues.apache.org/jira/browse/ARROW-16277) - [Python] No builds for macOS arm64.
+* [ARROW-16280](https://issues.apache.org/jira/browse/ARROW-16280) - [C++] Avoid copying shared_ptr in Expression::type()
+* [ARROW-16282](https://issues.apache.org/jira/browse/ARROW-16282) - [CI] [C\#] Verifiy release on c-sharp has been failing since upgrading ubuntu to 22.04
+* [ARROW-16283](https://issues.apache.org/jira/browse/ARROW-16283) - [Go] Cleanup panics in new Buffered Reader
+* [ARROW-16284](https://issues.apache.org/jira/browse/ARROW-16284) - [Python][Packaging] Use delocate-fuse to create universal2 wheels
+* [ARROW-16291](https://issues.apache.org/jira/browse/ARROW-16291) - [Java]: Support JSE17 for Java Cookbooks
+* [ARROW-16292](https://issues.apache.org/jira/browse/ARROW-16292) - [Java][Doc] Upgrade java documentation for JSE17/JSE18
+* [ARROW-16294](https://issues.apache.org/jira/browse/ARROW-16294) - [C++] Improve performance of parquet readahead
+* [ARROW-16296](https://issues.apache.org/jira/browse/ARROW-16296) - [GLib] Add missing casts for GArrowRoundMode
+* [ARROW-16303](https://issues.apache.org/jira/browse/ARROW-16303) - [C++] Check EINTR in file IO
+* [ARROW-16308](https://issues.apache.org/jira/browse/ARROW-16308) - [CI] Upgrade windows runner version as windows-2016 is deprecated.
+* [ARROW-16314](https://issues.apache.org/jira/browse/ARROW-16314) - [Python][CI] Skip running cython tests in windows verification builds
+* [ARROW-16325](https://issues.apache.org/jira/browse/ARROW-16325) - [R] Add task for R package with gcc12
+* [ARROW-16334](https://issues.apache.org/jira/browse/ARROW-16334) - [Archery][CI] Use build links on nightly report emails instead of branch link
+* [ARROW-16338](https://issues.apache.org/jira/browse/ARROW-16338) - [CI] Update azure windows image as vs2017-win2016 is retired
+* [ARROW-16347](https://issues.apache.org/jira/browse/ARROW-16347) - [Release] Escape backtick in verification script
+* [ARROW-16349](https://issues.apache.org/jira/browse/ARROW-16349) - [Release][Packaging][RPM] Remove ed25519 keys from KEYS
+* [ARROW-16350](https://issues.apache.org/jira/browse/ARROW-16350) - [Dev][Archery] Add missing newline in error message comment
+* [ARROW-16352](https://issues.apache.org/jira/browse/ARROW-16352) - [GLib] Fix wrong enums.h install location
+* [ARROW-16354](https://issues.apache.org/jira/browse/ARROW-16354) - [Packaging][RPM] Update artifacts pattern list
+* [ARROW-16355](https://issues.apache.org/jira/browse/ARROW-16355) - [Dev] Update verify-release-candidate.sh to compile cpp in parallel
+* [ARROW-16373](https://issues.apache.org/jira/browse/ARROW-16373) - [Docs][CI] Small improvements to CI documentation
+* [ARROW-16387](https://issues.apache.org/jira/browse/ARROW-16387) - [C++] Add -Wshorten-64-to-32 to list of CHECKIN warnings tested by clang
+* [ARROW-16390](https://issues.apache.org/jira/browse/ARROW-16390) - [C++] Dataset initialization could segfault if called simultaneously
+* [ARROW-16408](https://issues.apache.org/jira/browse/ARROW-16408) - [C++] Add support for DATE type in SQLite FlightSQL example
+* [ARROW-16411](https://issues.apache.org/jira/browse/ARROW-16411) - [Website] Migrate to Matomo from Google Analitics
+* [ARROW-16412](https://issues.apache.org/jira/browse/ARROW-16412) - [Java] Updated README to reference compilation docs
+* [ARROW-16416](https://issues.apache.org/jira/browse/ARROW-16416) - [C++] Support cast-function in Substrait
+* [ARROW-16428](https://issues.apache.org/jira/browse/ARROW-16428) - [Release] Add prefix to ENV variables
+
+# Apache Arrow 7.0.0 (2022-01-29)
+
+## Bug Fixes
+
+* [ARROW-8340](https://issues.apache.org/jira/browse/ARROW-8340) - [Documentation] Remove the old Sphinx pin
+* [ARROW-9648](https://issues.apache.org/jira/browse/ARROW-9648) - [C++] Added compression level parameter to LZ4_FRAME compression codec
+* [ARROW-9688](https://issues.apache.org/jira/browse/ARROW-9688) - [C++][Python] Enable building c++ library and pyarrow package for win/arm64 build
+* [ARROW-10140](https://issues.apache.org/jira/browse/ARROW-10140) - [Python][C++] Add test for map column of a parquet file created from pyarrow and pandas
+* [ARROW-10485](https://issues.apache.org/jira/browse/ARROW-10485) - [R] Accept partitioning in open_dataset when file paths are hive-style
+* [ARROW-10794](https://issues.apache.org/jira/browse/ARROW-10794) - [JS] Typescript Arrowjs Class 'RecordBatch<T\>' incorrectly extends base class 'StructVector<T\>
+* [ARROW-11549](https://issues.apache.org/jira/browse/ARROW-11549) - [C++][Gandiva] Fix issues with FilterCacheKey caused by ToString() not distinguishing null and 'null'
+* [ARROW-12042](https://issues.apache.org/jira/browse/ARROW-12042) - [C++] Fix array_sort_indices on chunked arrays
+* [ARROW-12066](https://issues.apache.org/jira/browse/ARROW-12066) - [Python] Test to ensure filtering with equal to null does not crash
+* [ARROW-12768](https://issues.apache.org/jira/browse/ARROW-12768) - [C++] Stricter signed zero comparison in tests
+* [ARROW-13294](https://issues.apache.org/jira/browse/ARROW-13294) - [C#] Create Flight example server and client
+* [ARROW-13412](https://issues.apache.org/jira/browse/ARROW-13412) - [C++] Fix Kleene kernels on chunked array + scalar input
+* [ARROW-13462](https://issues.apache.org/jira/browse/ARROW-13462) - [C++] Fix example code stub in Compute API documentation
+* [ARROW-13628](https://issues.apache.org/jira/browse/ARROW-13628) - [Rust] Activate IPC month_day_nano_interval integration test for rust
+* [ARROW-13735](https://issues.apache.org/jira/browse/ARROW-13735) - [C++][Python] Creating a Map array with non-default field names segfaults
+* [ARROW-13756](https://issues.apache.org/jira/browse/ARROW-13756) - [Python] Error in pandas conversion for datetimetz column index
+* [ARROW-13780](https://issues.apache.org/jira/browse/ARROW-13780) - [Gandiva][UDF] Fix bug in udf space/rpad/lpad
+* [ARROW-13861](https://issues.apache.org/jira/browse/ARROW-13861) - [JS] Create Field with List type will throw error
+* [ARROW-13879](https://issues.apache.org/jira/browse/ARROW-13879) - [C++] Mixed support for binary types in regex functions
+* [ARROW-13896](https://issues.apache.org/jira/browse/ARROW-13896) - [Python] Print of timestamp with timezone errors
+* [ARROW-13947](https://issues.apache.org/jira/browse/ARROW-13947) - [C++] Support more types in index kernel
+* [ARROW-13948](https://issues.apache.org/jira/browse/ARROW-13948) - [C++] Support timestamp with timezone in is_in/index_in
+* [ARROW-13950](https://issues.apache.org/jira/browse/ARROW-13950) - [C++] min_element_wise/max_element_wise missing support for some types
+* [ARROW-13981](https://issues.apache.org/jira/browse/ARROW-13981) - [Java] VectorSchemaRootAppender doesn't work for BitVector
+* [ARROW-14029](https://issues.apache.org/jira/browse/ARROW-14029) - [R] Repair map_batches()
+* [ARROW-14151](https://issues.apache.org/jira/browse/ARROW-14151) - [C++] Mixed support for binary types in ASCII string functions
+* [ARROW-14238](https://issues.apache.org/jira/browse/ARROW-14238) - [Python] "could not run mc" error in test_fs.py
+* [ARROW-14253](https://issues.apache.org/jira/browse/ARROW-14253) - [R] Update lz4 test failing locally due to different error message
+* [ARROW-14318](https://issues.apache.org/jira/browse/ARROW-14318) - [Docs] Fix doc building of dataset docs multiple times
+* [ARROW-14374](https://issues.apache.org/jira/browse/ARROW-14374) - [Java] Integration tests for the C data Interface implementation for Java
+* [ARROW-14395](https://issues.apache.org/jira/browse/ARROW-14395) - [R] Re-enable duckdb autocleaning
+* [ARROW-14405](https://issues.apache.org/jira/browse/ARROW-14405) - [C++] Fix build error from clang for windows
+* [ARROW-14419](https://issues.apache.org/jira/browse/ARROW-14419) - [R] Add filter + join test
+* [ARROW-14426](https://issues.apache.org/jira/browse/ARROW-14426) - [C++] Add a minimum_row_group_size to dataset writing
+* [ARROW-14429](https://issues.apache.org/jira/browse/ARROW-14429) - [C++] RecordBatchFileReader performance really bad in S3
+* [ARROW-14437](https://issues.apache.org/jira/browse/ARROW-14437) - [Python] Make CSV cancellation test more robust
+* [ARROW-14461](https://issues.apache.org/jira/browse/ARROW-14461) - [R] write_dataset() allows users to pass invalid additional arguments
+* [ARROW-14469](https://issues.apache.org/jira/browse/ARROW-14469) - [R] Binding for lubridate::month() doesn't have `label` argument implemented
+* [ARROW-14475](https://issues.apache.org/jira/browse/ARROW-14475) - [C++] Don't shadow enable_if helpers
+* [ARROW-14492](https://issues.apache.org/jira/browse/ARROW-14492) - [JS] Fix export for browser bundles
+* [ARROW-14493](https://issues.apache.org/jira/browse/ARROW-14493) - [Release][Go] Add update of import path for major versions to script
+* [ARROW-14513](https://issues.apache.org/jira/browse/ARROW-14513) - [Release][Go] Update release-6.0.0 with /v6 suffix
+* [ARROW-14516](https://issues.apache.org/jira/browse/ARROW-14516) - [CI] Disable privileged mode for Docker runs
+* [ARROW-14517](https://issues.apache.org/jira/browse/ARROW-14517) - [Python] Missing ampersand in CIpcReadOptions of CFeatherReader
+* [ARROW-14519](https://issues.apache.org/jira/browse/ARROW-14519) - [C++] Properly error if joining on unsupported type
+* [ARROW-14522](https://issues.apache.org/jira/browse/ARROW-14522) - [C++] Fix validation of ExtensionType with null storage type
+* [ARROW-14523](https://issues.apache.org/jira/browse/ARROW-14523) - [C++] Fix potential data loss in S3 multipart upload
+* [ARROW-14529](https://issues.apache.org/jira/browse/ARROW-14529) - [GLib] Validate Decimal{128,256}DataType precision
+* [ARROW-14530](https://issues.apache.org/jira/browse/ARROW-14530) - [GLib] Return error for invalid decimal string
+* [ARROW-14538](https://issues.apache.org/jira/browse/ARROW-14538) - [R] Work around empty tr call on Solaris
+* [ARROW-14539](https://issues.apache.org/jira/browse/ARROW-14539) - [C++] Dataset scanner test failing a DCHECK
+* [ARROW-14550](https://issues.apache.org/jira/browse/ARROW-14550) - [Doc] Remove the JSON license; a non-free one.
+* [ARROW-14554](https://issues.apache.org/jira/browse/ARROW-14554) - [C++][CI] Fix OSS-Fuzz build failure
+* [ARROW-14578](https://issues.apache.org/jira/browse/ARROW-14578) - [Format][Documentation] Update union-of-structs doc
+* [ARROW-14582](https://issues.apache.org/jira/browse/ARROW-14582) - [CI] Timeout asan ubsan job after 60m
+* [ARROW-14583](https://issues.apache.org/jira/browse/ARROW-14583) - [C++] Handle empty chunked arrays in Take, empty datasets in GroupByNode
+* [ARROW-14584](https://issues.apache.org/jira/browse/ARROW-14584) - [Python][CI] Python sdist installation fails with latest setuptools 58.5
+* [ARROW-14586](https://issues.apache.org/jira/browse/ARROW-14586) - [R] summarise() with nested aggregate expressions has a confusing error
+* [ARROW-14589](https://issues.apache.org/jira/browse/ARROW-14589) - [CI][Go] Fix CGO Windows Tests
+* [ARROW-14592](https://issues.apache.org/jira/browse/ARROW-14592) - [C++] list_parent_indices output type should not depend on input type
+* [ARROW-14593](https://issues.apache.org/jira/browse/ARROW-14593) - [C++] Fix crashes on invalid IPC file (OSS-Fuzz)
+* [ARROW-14594](https://issues.apache.org/jira/browse/ARROW-14594) - [R] Enable snappy+lz4 by default
+* [ARROW-14595](https://issues.apache.org/jira/browse/ARROW-14595) - [R] Clean up from setting deps_source to auto
+* [ARROW-14598](https://issues.apache.org/jira/browse/ARROW-14598) - [C++][Flight] Fix protoc generation dependency for example
+* [ARROW-14600](https://issues.apache.org/jira/browse/ARROW-14600) - [Docs] Fix broken link in Python Development page
+* [ARROW-14616](https://issues.apache.org/jira/browse/ARROW-14616) - [C++] Fix build errors on master
+* [ARROW-14620](https://issues.apache.org/jira/browse/ARROW-14620) - [Python] Missing bindings for existing_data_behavior makes it impossible to maintain old behavior
+* [ARROW-14622](https://issues.apache.org/jira/browse/ARROW-14622) - [C++] Fix initialization-order-fiasco reports
+* [ARROW-14625](https://issues.apache.org/jira/browse/ARROW-14625) - [Python][CI] Enable Python test on s390x
+* [ARROW-14627](https://issues.apache.org/jira/browse/ARROW-14627) - [C++] Fix tests compilation error using GCC 11.1
+* [ARROW-14629](https://issues.apache.org/jira/browse/ARROW-14629) - [Python] Add pytest dataset marker to test_permutation_of_column_order
+* [ARROW-14630](https://issues.apache.org/jira/browse/ARROW-14630) - [C++] Fix aggregation over scalar key columns
+* [ARROW-14640](https://issues.apache.org/jira/browse/ARROW-14640) - [R] reading data from S3
+* [ARROW-14642](https://issues.apache.org/jira/browse/ARROW-14642) - [C++] ScanNode is not using the filter expression
+* [ARROW-14644](https://issues.apache.org/jira/browse/ARROW-14644) - [C++][R] open_dataset doesn't ignore BOM in csv file
+* [ARROW-14659](https://issues.apache.org/jira/browse/ARROW-14659) - [R] Remove warning about factor conversion to string in if_else()
+* [ARROW-14664](https://issues.apache.org/jira/browse/ARROW-14664) - [C++] Fix accepted types for Parquet encoding DELTA_BYTE_ARRAY
+* [ARROW-14667](https://issues.apache.org/jira/browse/ARROW-14667) - [C++] Added a dcheck to ensure aws is initialized before s3 options are used
+* [ARROW-14667](https://issues.apache.org/jira/browse/ARROW-14667) - [R][C++] segfault on calls to arrow::S3FileSystem$create
+* [ARROW-14682](https://issues.apache.org/jira/browse/ARROW-14682) - [dev] Verify go on non x86 archs
+* [ARROW-14685](https://issues.apache.org/jira/browse/ARROW-14685) - [Python] test case automatically detects byteorder of numpy object
+* [ARROW-14693](https://issues.apache.org/jira/browse/ARROW-14693) - [R] Non-integers being passed to chunk_size
+* [ARROW-14696](https://issues.apache.org/jira/browse/ARROW-14696) - [Java] Reset vectors before populating JDBC data when reusing vector schema root
+* [ARROW-14699](https://issues.apache.org/jira/browse/ARROW-14699) - [C++] Fix lz4 undefined behaviour issues
+* [ARROW-14700](https://issues.apache.org/jira/browse/ARROW-14700) - [C++] Only check zone offset sign when offset present
+* [ARROW-14701](https://issues.apache.org/jira/browse/ARROW-14701) - [Python][MINOR] document parquet.write_table row_group_size
+* [ARROW-14704](https://issues.apache.org/jira/browse/ARROW-14704) - [C++] Fix Valgrind failure in parquet-arrow-test
+* [ARROW-14709](https://issues.apache.org/jira/browse/ARROW-14709) - [C++][Java] Upgrade ORC to 1.7.1 and use the official Apache distribution site
+* [ARROW-14710](https://issues.apache.org/jira/browse/ARROW-14710) - [R] Install error on Linux arm64 with cmake-X.X.X-Linux-x86_64
+* [ARROW-14717](https://issues.apache.org/jira/browse/ARROW-14717) - [Go] Use the ipc.Reader allocator in messageReader
+* [ARROW-14721](https://issues.apache.org/jira/browse/ARROW-14721) - [C++] Strengthen DELTA_BYTE_ARRAY decoder
+* [ARROW-14722](https://issues.apache.org/jira/browse/ARROW-14722) - [R] Fix altrep vector negation modifying original
+* [ARROW-14728](https://issues.apache.org/jira/browse/ARROW-14728) - [Go] Pull LICENSE.txt up to new module root
+* [ARROW-14739](https://issues.apache.org/jira/browse/ARROW-14739) - [JS] Ensure docs point to right source
+* [ARROW-14744](https://issues.apache.org/jira/browse/ARROW-14744) - [R] open_dataset() error when `schema` argument supplied, but `column_names` not supplied to `CSVReadOptions`
+* [ARROW-14749](https://issues.apache.org/jira/browse/ARROW-14749) - [Python][Release] Set release verification script to use target source instead of current source directory
+* [ARROW-14765](https://issues.apache.org/jira/browse/ARROW-14765) - [Python] StructFieldOptions not exposed
+* [ARROW-14766](https://issues.apache.org/jira/browse/ARROW-14766) - [Python] Mark compute function arguments positional-only
+* [ARROW-14769](https://issues.apache.org/jira/browse/ARROW-14769) - [Go] Ensure MessageReader errors get reported
+* [ARROW-14773](https://issues.apache.org/jira/browse/ARROW-14773) - [JS] Fix sourcemap paths
+* [ARROW-14774](https://issues.apache.org/jira/browse/ARROW-14774) - [JS] Correct package exports
+* [ARROW-14778](https://issues.apache.org/jira/browse/ARROW-14778) - [C++] Round mean of decimal types after division
+* [ARROW-14783](https://issues.apache.org/jira/browse/ARROW-14783) - [C++][Python] Fix the write ORC in BytesIO issue
+* [ARROW-14786](https://issues.apache.org/jira/browse/ARROW-14786) - [R] Bump dev version following 6.0.1 patch release
+* [ARROW-14788](https://issues.apache.org/jira/browse/ARROW-14788) - [C++] Fix warning in dataset/file_orc_test.cc
+* [ARROW-14791](https://issues.apache.org/jira/browse/ARROW-14791) - [C++] Fix crash when validating corrupt list array
+* [ARROW-14792](https://issues.apache.org/jira/browse/ARROW-14792) - [C++] Fix crash when reading DELTA_BYTE_ARRAY Parquet file
+* [ARROW-14795](https://issues.apache.org/jira/browse/ARROW-14795) - [C++] Fix issue on replace with mask for null values
+* [ARROW-14796](https://issues.apache.org/jira/browse/ARROW-14796) - [Python] Documentation: Correct default value
+* [ARROW-14800](https://issues.apache.org/jira/browse/ARROW-14800) - [C++] Disambiguate std::launder on MSVC with C++17 enabled
+* [ARROW-14803](https://issues.apache.org/jira/browse/ARROW-14803) - [R] Function not declared in scope
+* [ARROW-14839](https://issues.apache.org/jira/browse/ARROW-14839) - [R] test-fedora-r-clang-sanitizer job failing due to snappy causing a sanitizer error
+* [ARROW-14840](https://issues.apache.org/jira/browse/ARROW-14840) - [R][CI] test-ubuntu-20.10-docs nightly build failing due to R install issue
+* [ARROW-14851](https://issues.apache.org/jira/browse/ARROW-14851) - [Archery] Don't dump JSON benchmark output on stdout
+* [ARROW-14853](https://issues.apache.org/jira/browse/ARROW-14853) - [C++][Python] Improve error message for missing function options
+* [ARROW-14854](https://issues.apache.org/jira/browse/ARROW-14854) - [C++] Fix struct_field crash on invalid index
+* [ARROW-14894](https://issues.apache.org/jira/browse/ARROW-14894) - [R] Integer overflow in write_parquet chunk size calculation
+* [ARROW-14898](https://issues.apache.org/jira/browse/ARROW-14898) - [C++][Compute] Fix crash of out-of-bounds memory accessing in key_hash if a key is smaller than int64
+* [ARROW-14919](https://issues.apache.org/jira/browse/ARROW-14919) - [R] write_parquet() drops attributes for grouped dataframes
+* [ARROW-14922](https://issues.apache.org/jira/browse/ARROW-14922) - [C++][Parquet] Fix column-io-benchmark throws
+* [ARROW-14930](https://issues.apache.org/jira/browse/ARROW-14930) - [C++] Make S3 directory detection more robust
+* [ARROW-14931](https://issues.apache.org/jira/browse/ARROW-14931) - [Python] csv/orc format strings missing from some dataset docs
+* [ARROW-14933](https://issues.apache.org/jira/browse/ARROW-14933) - [JS] apache-arrow does not compile with typescript when types are checked
+* [ARROW-14936](https://issues.apache.org/jira/browse/ARROW-14936) - [C++][Gandiva] Fix split_part function in gandiva
+* [ARROW-14937](https://issues.apache.org/jira/browse/ARROW-14937) - [Doc] Make sure the docs directory is mounted as a volume
+* [ARROW-14962](https://issues.apache.org/jira/browse/ARROW-14962) - [CI] Fix minio installation on s390x
+* [ARROW-14966](https://issues.apache.org/jira/browse/ARROW-14966) - [R][CI] Add redundancy to CRAN mirrors for dependency installation
+* [ARROW-14979](https://issues.apache.org/jira/browse/ARROW-14979) - [C++] Fix process leaks in GCS integration tests
+* [ARROW-14980](https://issues.apache.org/jira/browse/ARROW-14980) - [C++] GCS tests use PYTHON environment variable
+* [ARROW-14991](https://issues.apache.org/jira/browse/ARROW-14991) - [Packaging][Python] Windows wheel builds are failing due to wrong vcpkg triplet name
+* [ARROW-15002](https://issues.apache.org/jira/browse/ARROW-15002) - [Python] Fix hypothesis strategy for interval types
+* [ARROW-15004](https://issues.apache.org/jira/browse/ARROW-15004) - [Dev][Archery] Use default simd level
+* [ARROW-15009](https://issues.apache.org/jira/browse/ARROW-15009) - [C++] Make hash join tests less slow with TSan
+* [ARROW-15027](https://issues.apache.org/jira/browse/ARROW-15027) - [C++] Fix OpenTelemetry CMake definitions
+* [ARROW-15028](https://issues.apache.org/jira/browse/ARROW-15028) - [C++] Fix Gandiva compile failure on Unity builds
+* [ARROW-15030](https://issues.apache.org/jira/browse/ARROW-15030) - [C++] CSV writer test failures
+* [ARROW-15031](https://issues.apache.org/jira/browse/ARROW-15031) - [C++] Fix crash on invalid Parquet file (OSS-Fuzz)
+* [ARROW-15041](https://issues.apache.org/jira/browse/ARROW-15041) - [R] Flaky BOM removal test
+* [ARROW-15047](https://issues.apache.org/jira/browse/ARROW-15047) - [R][MINOR] Suggest R command for setting build environment variables
+* [ARROW-15071](https://issues.apache.org/jira/browse/ARROW-15071) - [C#] Fixed a bug in Column.cs ValidateArrayDataTypes method
+* [ARROW-15076](https://issues.apache.org/jira/browse/ARROW-15076) - [C++][Gandiva] Fix allocation of AES {en,de}cryption result
+* [ARROW-15078](https://issues.apache.org/jira/browse/ARROW-15078) - [C++] Silence CMake error "includes non-existent path" with bundled OpenTelemetry
+* [ARROW-15090](https://issues.apache.org/jira/browse/ARROW-15090) - [C++] SerializedAsyncTaskGroup does not finish if an error arrives while there are still tasks to run
+* [ARROW-15101](https://issues.apache.org/jira/browse/ARROW-15101) - [Python] Fix build failure on CSV writer
+* [ARROW-15105](https://issues.apache.org/jira/browse/ARROW-15105) - [R] unsupported timestamp cast in CSV with tz element
+* [ARROW-15123](https://issues.apache.org/jira/browse/ARROW-15123) - [R] CSV dataset file header read in as data
+* [ARROW-15143](https://issues.apache.org/jira/browse/ARROW-15143) - [C++] Remove incorrect comment on API of Transform for StringBinaryTransformExecBase
+* [ARROW-15144](https://issues.apache.org/jira/browse/ARROW-15144) - [Java] Unable to read IPC file in master
+* [ARROW-15145](https://issues.apache.org/jira/browse/ARROW-15145) - [R][CI] test-r-minimal-build fails due to updated error message
+* [ARROW-15147](https://issues.apache.org/jira/browse/ARROW-15147) - [CI][C++][Gandiva] Fix broken nigthly builds related to boost dependencies
+* [ARROW-15171](https://issues.apache.org/jira/browse/ARROW-15171) - [C++][Java] Update ORC to 1.7.2
+* [ARROW-15181](https://issues.apache.org/jira/browse/ARROW-15181) - [C++][FlightRPC] Fix race between signal handler and shutdown
+* [ARROW-15184](https://issues.apache.org/jira/browse/ARROW-15184) - [C++] Unit tests of reading delta-encoded Parquet files with and without nulls
+* [ARROW-15185](https://issues.apache.org/jira/browse/ARROW-15185) - [R] Make arrow build options check case insensitive
+* [ARROW-15194](https://issues.apache.org/jira/browse/ARROW-15194) - [C++] Combine ChunkedArray constructors
+* [ARROW-15199](https://issues.apache.org/jira/browse/ARROW-15199) - [Java] Update protobuf-maven-plugin to avoid 'Text file busy' failure
+* [ARROW-15200](https://issues.apache.org/jira/browse/ARROW-15200) - [C++][Gandiva] Enable RTTI when building LLVM dependency using vcpkg
+* [ARROW-15226](https://issues.apache.org/jira/browse/ARROW-15226) - [Python] Update Cython bindings of ChunkedArray constructors
+* [ARROW-15231](https://issues.apache.org/jira/browse/ARROW-15231) - [Packaging][deb] Add missing ArrowFlight-1.0.typelib
+* [ARROW-15234](https://issues.apache.org/jira/browse/ARROW-15234) - [Python] Fix crash with custom CSV invalid row handler
+* [ARROW-15241](https://issues.apache.org/jira/browse/ARROW-15241) - [C++] MakeArrayOfNull fails on extension types with a nested storage type
+* [ARROW-15243](https://issues.apache.org/jira/browse/ARROW-15243) - [CI][Python] Make PyArrow installation more robust in CI
+* [ARROW-15265](https://issues.apache.org/jira/browse/ARROW-15265) - [C++] Fix hang in dataset writer with kDeleteMatchingPartitions and #partitions >= 8
+* [ARROW-15266](https://issues.apache.org/jira/browse/ARROW-15266) - [R][CI] Test reorganization triggering valgrind errors
+* [ARROW-15286](https://issues.apache.org/jira/browse/ARROW-15286) - [Python] Convert indices passed to FileSystemDataset.take to array to avoid segfault
+* [ARROW-15290](https://issues.apache.org/jira/browse/ARROW-15290) - [Python][Docs] Documentation pages for PyArrow have incorrect hyperlinks
+* [ARROW-15306](https://issues.apache.org/jira/browse/ARROW-15306) - [C++] S3FileSystem Should set the content-type header to application/octet-stream if not specified
+* [ARROW-15315](https://issues.apache.org/jira/browse/ARROW-15315) - [Java][FlightRPC] FlightSqlProducer#doAction always throws INVALID_ARGUMENT
+* [ARROW-15318](https://issues.apache.org/jira/browse/ARROW-15318) - [C++][Python] Regression reading partition keys of large batches.
+* [ARROW-15323](https://issues.apache.org/jira/browse/ARROW-15323) - [CI] Nightly spark integration builds are failing
+* [ARROW-15324](https://issues.apache.org/jira/browse/ARROW-15324) - [C++] Avoid crashing when HDFS file fails closing
+* [ARROW-15325](https://issues.apache.org/jira/browse/ARROW-15325) - [R] Fix CRAN comment on map\_batches collect
+* [ARROW-15326](https://issues.apache.org/jira/browse/ARROW-15326) - [C++] Fix Gandiva crashes
+* [ARROW-15335](https://issues.apache.org/jira/browse/ARROW-15335) - [Java] Fix setPosition call in UnionListReader for empty List
+* [ARROW-15358](https://issues.apache.org/jira/browse/ARROW-15358) - [C++] Fix custom matcher compilation
+* [ARROW-15360](https://issues.apache.org/jira/browse/ARROW-15360) - [Python] Check slice bounds in Buffer.slice()
+* [ARROW-15362](https://issues.apache.org/jira/browse/ARROW-15362) - Setting OMP\_NUM\_THREADS to 1 causes dataset to hang
+* [ARROW-15370](https://issues.apache.org/jira/browse/ARROW-15370) - [Python] Fix regression in empty table to_pandas conversion
+* [ARROW-15371](https://issues.apache.org/jira/browse/ARROW-15371) - [C++][Release] Missing libsqlite-dev from the verification docker images
+* [ARROW-15372](https://issues.apache.org/jira/browse/ARROW-15372) - [C++][Gandiva] Gandiva now depends on boost/crc.hpp which is missing from the trimmed boost archive
+* [ARROW-15376](https://issues.apache.org/jira/browse/ARROW-15376) - [Go][Release] cpu_arm64 needs +build comment
+* [ARROW-15377](https://issues.apache.org/jira/browse/ARROW-15377) - [Release] Bump nodejs version to 16 in the macOS verification builds
+* [ARROW-15378](https://issues.apache.org/jira/browse/ARROW-15378) - [C++][Release] GTest linking error during windows verification
+* [ARROW-15380](https://issues.apache.org/jira/browse/ARROW-15380) - [Python][Release] NumPy ABI incompatibility during verification
+* [ARROW-15385](https://issues.apache.org/jira/browse/ARROW-15385) - [Integration] Split duration from interval in integration tests
+* [ARROW-15388](https://issues.apache.org/jira/browse/ARROW-15388) - [C++] Avoid including absl from flatbuffers
+* [ARROW-15393](https://issues.apache.org/jira/browse/ARROW-15393) - [Release][Crossbow] Fall back to <version>dev0 when the generated scm version number doesn't have a distance
+* [ARROW-15394](https://issues.apache.org/jira/browse/ARROW-15394) - [CI][Docs] Fix env variable to ensure doxygen is used in doc build
+* [ARROW-15395](https://issues.apache.org/jira/browse/ARROW-15395) - [Release][Ruby] Ruby verification fails on M1
+* [ARROW-15403](https://issues.apache.org/jira/browse/ARROW-15403) - [Python][Packaging] Use bundled ORC to build the python wheels
+* [ARROW-15404](https://issues.apache.org/jira/browse/ARROW-15404) - [Java][Packaging] Use bundled ORC for building java JNI jars
+* [ARROW-15414](https://issues.apache.org/jira/browse/ARROW-15414) - [java] RangeEqualsVisitor does not work for BitVector
+* [ARROW-15417](https://issues.apache.org/jira/browse/ARROW-15417) - [Python][Packaging] Use vcpkg manifest to install wheel dependencies; downgrade AWS SDK by building the bundled version
+* [ARROW-15420](https://issues.apache.org/jira/browse/ARROW-15420) - [Python] Skip if GDB script is not found
+* [ARROW-15424](https://issues.apache.org/jira/browse/ARROW-15424) - [C++][GLib] Fix CUDA bindings
+* [ARROW-15427](https://issues.apache.org/jira/browse/ARROW-15427) - [C++][Gandiva] Use a lock guard to hold a mutex
+* [ARROW-15433](https://issues.apache.org/jira/browse/ARROW-15433) - [Doc] Fix warnings when building
+* [ARROW-15437](https://issues.apache.org/jira/browse/ARROW-15437) - [Python][FlightRPC] Fix flaky test test_interrupt
+* [ARROW-15438](https://issues.apache.org/jira/browse/ARROW-15438) - [Python] Flaky test test_write_dataset_max_open_files
+* [ARROW-15441](https://issues.apache.org/jira/browse/ARROW-15441) - [C++][Compute] Fix incorrect result of hash_count a null type column
+* [ARROW-15442](https://issues.apache.org/jira/browse/ARROW-15442) - [C++][Python] Skip GDB tests on a non-debug build
+* [ARROW-15444](https://issues.apache.org/jira/browse/ARROW-15444) - [C++] Compilation with GCC 7.5 fails in aggregate\_basic.cc
+* [ARROW-15447](https://issues.apache.org/jira/browse/ARROW-15447) - [C++] Avoid conflict between ORC options API and glibc-defined macro
+* [ARROW-15451](https://issues.apache.org/jira/browse/ARROW-15451) - [C++] Fix build with C++17 and ARROW_GCS=ON
+* [ARROW-15454](https://issues.apache.org/jira/browse/ARROW-15454) - [Python] Try to make CSV cancellation test more robust
+* [ARROW-15461](https://issues.apache.org/jira/browse/ARROW-15461) - [C++] Avoid clang bug in ReverseBitmap
+* [ARROW-15467](https://issues.apache.org/jira/browse/ARROW-15467) - [Go][Parquet] Fix pqarrow decimal tests on s390x
+* [ARROW-15485](https://issues.apache.org/jira/browse/ARROW-15485) - [Release][Java] Fix java jars upload script
+* [ARROW-15488](https://issues.apache.org/jira/browse/ARROW-15488) - [Go] Fix ipc.Writer corrupting null bitmaps
+* [ARROW-15493](https://issues.apache.org/jira/browse/ARROW-15493) - [C++][Gandiva] Init ExpressionCacheKey.mode_
+* [ARROW-15499](https://issues.apache.org/jira/browse/ARROW-15499) - [Python] Fix import error in pyarrow._orc
+* [PARQUET-1856](https://issues.apache.org/jira/browse/PARQUET-1856) - [C++] Avoid failing tests with Snappy support disabled
+* [PARQUET-2109](https://issues.apache.org/jira/browse/PARQUET-2109) - [C++] Check if Parquet page has too few values
+
+
+## New Features and Improvements
+
+* [ARROW-1299](https://issues.apache.org/jira/browse/ARROW-1299) - [Doc] Publish nightly documentation against master somewhere
+* [ARROW-1699](https://issues.apache.org/jira/browse/ARROW-1699) - [C++] forward, backward fill kernel functions
+* [ARROW-2366](https://issues.apache.org/jira/browse/ARROW-2366) - [Python][C++][Parquet] Add test to ensure support reading Parquet files having a permutation of column order
+* [ARROW-3699](https://issues.apache.org/jira/browse/ARROW-3699) - [C++] Dockerfile for testing 32-bit C++ build
+* [ARROW-4975](https://issues.apache.org/jira/browse/ARROW-4975) - [C++] Support concatenation of UnionArrays
+* [ARROW-5599](https://issues.apache.org/jira/browse/ARROW-5599) - [Go] Migrate array.{Interface,Record,Column,Chunked,Table} to arrow.{Array,Record,Column,Chunked,Table}
+* [ARROW-6001](https://issues.apache.org/jira/browse/ARROW-6001) - [Python] : Add from_pylist() and to_pylist() to pyarrow.Table to convert list of records
+* [ARROW-6276](https://issues.apache.org/jira/browse/ARROW-6276) - [C++] for some arrow classes
+* [ARROW-8285](https://issues.apache.org/jira/browse/ARROW-8285) - [Python][Dataset] Test that ScalarExpression accepts numpy scalars
+* [ARROW-8605](https://issues.apache.org/jira/browse/ARROW-8605) - [R] Add brotli to Windows R build
+* [ARROW-8823](https://issues.apache.org/jira/browse/ARROW-8823) - [C++] Add total size of batch buffers to IPC write statistics
+* [ARROW-9186](https://issues.apache.org/jira/browse/ARROW-9186) - [R] Allow specifying CSV file encoding
+* [ARROW-9483](https://issues.apache.org/jira/browse/ARROW-9483) - [C++] Reorganize testing headers
+* [ARROW-9630](https://issues.apache.org/jira/browse/ARROW-9630) - [Go] Implement public JSON reader/writer
+* [ARROW-10209](https://issues.apache.org/jira/browse/ARROW-10209) - [Python] Support positional options in compute functions
+* [ARROW-10220](https://issues.apache.org/jira/browse/ARROW-10220) - [JS] Cache javascript utf-8 dictionary keys?
+* [ARROW-10317](https://issues.apache.org/jira/browse/ARROW-10317) - [Python] Document compute function options
+* [ARROW-10456](https://issues.apache.org/jira/browse/ARROW-10456) - [R] Implement MapType and MapArray
+* [ARROW-10998](https://issues.apache.org/jira/browse/ARROW-10998) - [C++] Detect URIs where a filesystem path is expected
+* [ARROW-11297](https://issues.apache.org/jira/browse/ARROW-11297) - [C++][Python] Add ORC writer options
+* [ARROW-11347](https://issues.apache.org/jira/browse/ARROW-11347) - [JS] Consider Objects instead of Maps
+* [ARROW-11424](https://issues.apache.org/jira/browse/ARROW-11424) - [C++] StructType::{AddField,RemoveField,SetField} member functions
+* [ARROW-11475](https://issues.apache.org/jira/browse/ARROW-11475) - [C++] Upgrade mimalloc to v1.7.3
+* [ARROW-11938](https://issues.apache.org/jira/browse/ARROW-11938) - [R] Enable R build process to find locally built C++ library on Windows
+* [ARROW-12053](https://issues.apache.org/jira/browse/ARROW-12053) - [C++] Implement aggregate compute functions for decimal datatypes
+* [ARROW-12060](https://issues.apache.org/jira/browse/ARROW-12060) - [Python] Enable calling compute functions on Expressions
+* [ARROW-12315](https://issues.apache.org/jira/browse/ARROW-12315) - [R] add max_partitions argument to write_dataset()
+* [ARROW-12404](https://issues.apache.org/jira/browse/ARROW-12404) - [C++] Implement "random" nullary function that generates uniform random between 0 and 1
+* [ARROW-12422](https://issues.apache.org/jira/browse/ARROW-12422) - [C++][Gandiva] Add castVARCHAR from date millis function
+* [ARROW-12480](https://issues.apache.org/jira/browse/ARROW-12480) - [Java][Dataset] FileSystemDataset: Support reading from a directory
+* [ARROW-12536](https://issues.apache.org/jira/browse/ARROW-12536) - [JS] Construct tables from JavaScript types
+* [ARROW-12538](https://issues.apache.org/jira/browse/ARROW-12538) - [JS] Show Vectors in the docs
+* [ARROW-12545](https://issues.apache.org/jira/browse/ARROW-12545) - [Python][Docs] Fill in section about Custom Schema and Field Metadata
+* [ARROW-12548](https://issues.apache.org/jira/browse/ARROW-12548) - [JS] Get rid of columns
+* [ARROW-12549](https://issues.apache.org/jira/browse/ARROW-12549) - [JS] Table and RecordBatch should not extend Vector, make JS lib smaller
+* [ARROW-12595](https://issues.apache.org/jira/browse/ARROW-12595) - [C++][Gandiva][binary][string] functions
+* [ARROW-12607](https://issues.apache.org/jira/browse/ARROW-12607) - [Website] Doc section for Dataset Java bindings
+* [ARROW-12671](https://issues.apache.org/jira/browse/ARROW-12671) - [C++] Add OpenTelemetry to ThirdpartyToolchain
+* [ARROW-12683](https://issues.apache.org/jira/browse/ARROW-12683) - [C++] Enable fine-grained I/O (coalescing) in IPC reader
+* [ARROW-12706](https://issues.apache.org/jira/browse/ARROW-12706) - [Python] Drop Python 3.6 support
+* [ARROW-12712](https://issues.apache.org/jira/browse/ARROW-12712) - [C++] String repeat kernel
+* [ARROW-12735](https://issues.apache.org/jira/browse/ARROW-12735) - [C++] Write GDB plugin
+* [ARROW-12803](https://issues.apache.org/jira/browse/ARROW-12803) - [C++] [Dataset] Write dataset with scanner does not support async scan
+* [ARROW-12820](https://issues.apache.org/jira/browse/ARROW-12820) - [C++] Support zone offset in ISO8601, strptime parser
+* [ARROW-12858](https://issues.apache.org/jira/browse/ARROW-12858) - [C++][Gandiva] Add isNull, isTrue, isFalse, isNotTrue, IsNotFalse and NVL functions on Gandiva
+* [ARROW-12880](https://issues.apache.org/jira/browse/ARROW-12880) - [C++][Gandiva] Add castTIME(int32), castTIMESTAMP(int64) and castTIME(utf8) functions
+* [ARROW-12922](https://issues.apache.org/jira/browse/ARROW-12922) - [Java][FlightSQL] Create stubbed APIs for Flight SQL
+* [ARROW-12943](https://issues.apache.org/jira/browse/ARROW-12943) - [Gandiva][C++] Implement MD5 Hive function
+* [ARROW-13016](https://issues.apache.org/jira/browse/ARROW-13016) - [C++][Compute] Support Null type in Sum/Mean aggregation
+* [ARROW-13035](https://issues.apache.org/jira/browse/ARROW-13035) - [C++] indices_nonzero compute function
+* [ARROW-13051](https://issues.apache.org/jira/browse/ARROW-13051) - [Release][Java] Use artifacts built by Crossbow
+* [ARROW-13081](https://issues.apache.org/jira/browse/ARROW-13081) - [C++] Disallow comparing zoned and naive timestamps
+* [ARROW-13087](https://issues.apache.org/jira/browse/ARROW-13087) - [R] Expose Parquet ArrowReaderProperties::coerce_int96_timestamp_unit_
+* [ARROW-13111](https://issues.apache.org/jira/browse/ARROW-13111) - [R] altrep vectors for ChunkedArray
+* [ARROW-13130](https://issues.apache.org/jira/browse/ARROW-13130) - [C++] Add decimal support to arithmetic kernels
+* [ARROW-13156](https://issues.apache.org/jira/browse/ARROW-13156) - [R] bindings for str_count
+* [ARROW-13208](https://issues.apache.org/jira/browse/ARROW-13208) - [Python][CI] Create a build for validating python docstrings
+* [ARROW-13328](https://issues.apache.org/jira/browse/ARROW-13328) - [C++][Dataset] Use an ExecPlan for synchronous scans or drop synchronous scans
+* [ARROW-13338](https://issues.apache.org/jira/browse/ARROW-13338) - [C++][Dataset] Make async Scanner the default
+* [ARROW-13362](https://issues.apache.org/jira/browse/ARROW-13362) - [R] Clean up in/by Arrow messaging
+* [ARROW-13371](https://issues.apache.org/jira/browse/ARROW-13371) - [R] binding for make_struct -> StructArray$create()
+* [ARROW-13373](https://issues.apache.org/jira/browse/ARROW-13373) - [C++][Gandiva] Implement CRC32 Hive function on Gandiva
+* [ARROW-13376](https://issues.apache.org/jira/browse/ARROW-13376) - [C++][Gandiva] Implement FACTORIAL Hive function on Gandiva
+* [ARROW-13377](https://issues.apache.org/jira/browse/ARROW-13377) - [C++][Gandiva] Implement PMOD Hive functions on Gandiva
+* [ARROW-13383](https://issues.apache.org/jira/browse/ARROW-13383) - [R] Add examples to functions which don't have examples
+* [ARROW-13398](https://issues.apache.org/jira/browse/ARROW-13398) - [R] Update install.Rmd vignette
+* [ARROW-13400](https://issues.apache.org/jira/browse/ARROW-13400) - [R] Update fs.Rmd (Working with S3) vignette
+* [ARROW-13401](https://issues.apache.org/jira/browse/ARROW-13401) - [R] : Update python.Rmd vignette
+* [ARROW-13408](https://issues.apache.org/jira/browse/ARROW-13408) - [Packaging] Update crossbow to checkout specific git hashes
+* [ARROW-13449](https://issues.apache.org/jira/browse/ARROW-13449) - [Format] Update documentation related to wire format of schema
+* [ARROW-13467](https://issues.apache.org/jira/browse/ARROW-13467) - [C++] Support delta dictionaries in the IPC file format
+* [ARROW-13494](https://issues.apache.org/jira/browse/ARROW-13494) - [C++] Rename BitUtil and LittleEndianArray namespaces
+* [ARROW-13514](https://issues.apache.org/jira/browse/ARROW-13514) - [JS] Update flatbuffers
+* [ARROW-13536](https://issues.apache.org/jira/browse/ARROW-13536) - [C++] Use decimal-point aware conversion from fast-float
+* [ARROW-13553](https://issues.apache.org/jira/browse/ARROW-13553) - [Doc] Add guidelines for code reviews
+* [ARROW-13554](https://issues.apache.org/jira/browse/ARROW-13554) - [C++] Remove deprecated Scanner::Scan
+* [ARROW-13558](https://issues.apache.org/jira/browse/ARROW-13558) - [C++] Validate decimal arrays/scalars
+* [ARROW-13571](https://issues.apache.org/jira/browse/ARROW-13571) - [Python][ORC] Expose stripe size ORCWriter API
+* [ARROW-13579](https://issues.apache.org/jira/browse/ARROW-13579) - Expose Create EmptyArray, EmptyRecordBatch and EmptyTable utility functions.
+* [ARROW-13589](https://issues.apache.org/jira/browse/ARROW-13589) - [C++] Reconcile ValidateArray and ValidateArrayFull
+* [ARROW-13590](https://issues.apache.org/jira/browse/ARROW-13590) - [C++] Ensure dataset writing applies back pressure
+* [ARROW-13598](https://issues.apache.org/jira/browse/ARROW-13598) - [C++] Remove Datum::COLLECTION
+* [ARROW-13607](https://issues.apache.org/jira/browse/ARROW-13607) - [C++] Add Skyhook to Arrow
+* [ARROW-13610](https://issues.apache.org/jira/browse/ARROW-13610) - [R] Unvendor cpp11
+* [ARROW-13615](https://issues.apache.org/jira/browse/ARROW-13615) - [R] Bindings for stringr::str\_to\_sentence
+* [ARROW-13617](https://issues.apache.org/jira/browse/ARROW-13617) - [C++] Make Decimal representations consistent
+* [ARROW-13623](https://issues.apache.org/jira/browse/ARROW-13623) - [R] write_csv_arrow update to follow the signature of readr::write_csv
+* [ARROW-13643](https://issues.apache.org/jira/browse/ARROW-13643) - [C++][Compute] Implement outer join with support for residual predicates
+* [ARROW-13663](https://issues.apache.org/jira/browse/ARROW-13663) - [C++] RecordBatchReader STL-like iteration
+* [ARROW-13668](https://issues.apache.org/jira/browse/ARROW-13668) - [Python] Add `write_batch` and `write` methods to `ParquetWriter`
+* [ARROW-13707](https://issues.apache.org/jira/browse/ARROW-13707) - [Doc] Cookbook Release 2
+* [ARROW-13711](https://issues.apache.org/jira/browse/ARROW-13711) - [Doc][Cookbook] Sending and receiving data over a network using an Arrow Flight RPC server - R
+* [ARROW-13781](https://issues.apache.org/jira/browse/ARROW-13781) - [Python] Allow per column encoding in parquet writer
+* [ARROW-13811](https://issues.apache.org/jira/browse/ARROW-13811) - [Java] Provide a general out-of-place sorter
+* [ARROW-13826](https://issues.apache.org/jira/browse/ARROW-13826) - [C++][Gandiva] Implement QUOTE Hive functions on Gandiva
+* [ARROW-13828](https://issues.apache.org/jira/browse/ARROW-13828) - [C++][Gandiva] Implement SOUNDEX Hive functions on Gandiva
+* [ARROW-13829](https://issues.apache.org/jira/browse/ARROW-13829) - [C++][Gandiva] Implement GREATEST and LEAST Hive functions on Gandiva
+* [ARROW-13830](https://issues.apache.org/jira/browse/ARROW-13830) - [C++][Gandiva] Implement CHR Hive functions on Gandiva
+* [ARROW-13832](https://issues.apache.org/jira/browse/ARROW-13832) - [Doc] Improve compute documentation
+* [ARROW-13834](https://issues.apache.org/jira/browse/ARROW-13834) - [R][Documentation] Document the process of creating R bindings for compute kernels and rationale behind conventions
+* [ARROW-13841](https://issues.apache.org/jira/browse/ARROW-13841) - [Doc] Document the different subcomponents that make up the CI and how they fit together
+* [ARROW-13886](https://issues.apache.org/jira/browse/ARROW-13886) - [R] Expand documentation for decimal()
+* [ARROW-13887](https://issues.apache.org/jira/browse/ARROW-13887) - [R] Capture error produced when reading in CSV file with headers and using a schema, and add suggestion
+* [ARROW-13888](https://issues.apache.org/jira/browse/ARROW-13888) - [R] Rephrase docs for schema()'s ellipses argument and rephrase error message
+* [ARROW-13923](https://issues.apache.org/jira/browse/ARROW-13923) - [C++] Faster CSV chunker with long CSV cells
+* [ARROW-13943](https://issues.apache.org/jira/browse/ARROW-13943) - [Python] Hide hash_aggregate functions from compute module
+* [ARROW-13984](https://issues.apache.org/jira/browse/ARROW-13984) - [Go][Parquet] File readers
+* [ARROW-13984](https://issues.apache.org/jira/browse/ARROW-13984) - [Go][Parquet] file handling for go parquet, just the readers
+* [ARROW-13986](https://issues.apache.org/jira/browse/ARROW-13986) - [Go][Parquet] Add File Writers and tests
+* [ARROW-13987](https://issues.apache.org/jira/browse/ARROW-13987) - [C++] Support nested field refs
+* [ARROW-13988](https://issues.apache.org/jira/browse/ARROW-13988) - [C++] Support base binary types in hash_min_max
+* [ARROW-13989](https://issues.apache.org/jira/browse/ARROW-13989) - [C++] Add support for month-day-nano interval to compute functions
+* [ARROW-14011](https://issues.apache.org/jira/browse/ARROW-14011) - [C++][Gandiva] Add elt hive function to gandiva
+* [ARROW-14022](https://issues.apache.org/jira/browse/ARROW-14022) - [Dev] Remove arrow/dev/benchmarking
+* [ARROW-14032](https://issues.apache.org/jira/browse/ARROW-14032) - [C++][Gandiva] Add concat_ws hive function to gandiva
+* [ARROW-14039](https://issues.apache.org/jira/browse/ARROW-14039) - [C++][Docs] Indicate memory requirements for building
+* [ARROW-14041](https://issues.apache.org/jira/browse/ARROW-14041) - [C++] Replace uses of BitmapReader in Parquet decoders
+* [ARROW-14048](https://issues.apache.org/jira/browse/ARROW-14048) - [C++][Gandiva] Cache only object code in memory instead of entire module
+* [ARROW-14051](https://issues.apache.org/jira/browse/ARROW-14051) - [R] Handle conditionals enclosing aggregate expressions
+* [ARROW-14074](https://issues.apache.org/jira/browse/ARROW-14074) - [C++][Compute] C++ consumer of compute IR
+* [ARROW-14092](https://issues.apache.org/jira/browse/ARROW-14092) - [C++] subtract(date, duration) -> timestamp kernel
+* [ARROW-14166](https://issues.apache.org/jira/browse/ARROW-14166) - [C++] update vcpkg builtin baseline
+* [ARROW-14167](https://issues.apache.org/jira/browse/ARROW-14167) - [C++][R] Directly support dictionaries in coalesce
+* [ARROW-14171](https://issues.apache.org/jira/browse/ARROW-14171) - [C++][Python][Packaging] Upgrade VCPKG version and add google-cloud-cpp dependency
+* [ARROW-14174](https://issues.apache.org/jira/browse/ARROW-14174) - [C++] Deduplicate some Decimal/FixedSizeBinary kernels
+* [ARROW-14181](https://issues.apache.org/jira/browse/ARROW-14181) - [C++][Compute] Support for dictionaries in hash join
+* [ARROW-14189](https://issues.apache.org/jira/browse/ARROW-14189) - [Docs] Add version dropdown to the sphinx docs
+* [ARROW-14193](https://issues.apache.org/jira/browse/ARROW-14193) - [C++][Gandiva] Implement INSTR function
+* [ARROW-14205](https://issues.apache.org/jira/browse/ARROW-14205) - [C++] Add utf8_normalize compute function
+* [ARROW-14227](https://issues.apache.org/jira/browse/ARROW-14227) - [R] Implement lubridate is.* methods
+* [ARROW-14229](https://issues.apache.org/jira/browse/ARROW-14229) - [C++] Bump versions of bundled dependencies
+* [ARROW-14231](https://issues.apache.org/jira/browse/ARROW-14231) - [C++] Support casting timestamp with timezone to string
+* [ARROW-14242](https://issues.apache.org/jira/browse/ARROW-14242) - Exposing the correct `indent` paramenter in `to_string`
+* [ARROW-14277](https://issues.apache.org/jira/browse/ARROW-14277) - R Tutorials 2021-Q4 Initiative
+* [ARROW-14278](https://issues.apache.org/jira/browse/ARROW-14278) - [Doc] New Contributors Guide
+* [ARROW-14294](https://issues.apache.org/jira/browse/ARROW-14294) - [Doc][Python] Add tutorial on Flight to pyarrow documentation
+* [ARROW-14297](https://issues.apache.org/jira/browse/ARROW-14297) - [R] smooth out integer division to better match R
+* [ARROW-14306](https://issues.apache.org/jira/browse/ARROW-14306) - [C++][Compute] Add binary reverse kernel
+* [ARROW-14310](https://issues.apache.org/jira/browse/ARROW-14310) - [R] Make expect_dplyr_equal() more intuitive
+* [ARROW-14311](https://issues.apache.org/jira/browse/ARROW-14311) - [C++] Make GCS FileSystem tests faster
+* [ARROW-14315](https://issues.apache.org/jira/browse/ARROW-14315) - [C++][Gandiva] Implement BROUND function
+* [ARROW-14336](https://issues.apache.org/jira/browse/ARROW-14336) - [C++] Maintain bundled dependency tarballs in an Apache-managed location
+* [ARROW-14338](https://issues.apache.org/jira/browse/ARROW-14338) - [Docs] Add version dropdown to the pkgdown (R) docs
+* [ARROW-14346](https://issues.apache.org/jira/browse/ARROW-14346) - [C++] Implement GcsFileSystem::OpenOutputStream
+* [ARROW-14347](https://issues.apache.org/jira/browse/ARROW-14347) - [C++] random access files for GcsFileSystem
+* [ARROW-14349](https://issues.apache.org/jira/browse/ARROW-14349) - [IR] Remove RelBase
+* [ARROW-14350](https://issues.apache.org/jira/browse/ARROW-14350) - [IR] Add filter expression to Source node
+* [ARROW-14351](https://issues.apache.org/jira/browse/ARROW-14351) - [IR] Add projection list to Source node
+* [ARROW-14352](https://issues.apache.org/jira/browse/ARROW-14352) - [IR] Remove schema property from Source
+* [ARROW-14355](https://issues.apache.org/jira/browse/ARROW-14355) - [C++] Create naive implementation of algorithm to estimate table/batch buffer size
+* [ARROW-14356](https://issues.apache.org/jira/browse/ARROW-14356) - [C++] Create kernel to determine buffer memory "referenced" by arrays (even if there are offsets)
+* [ARROW-14365](https://issues.apache.org/jira/browse/ARROW-14365) - [R] Update README example to reflect new capabilities
+* [ARROW-14384](https://issues.apache.org/jira/browse/ARROW-14384) - [Docs] Add documentation for building Sphinx docs without having to build pyarrow
+* [ARROW-14385](https://issues.apache.org/jira/browse/ARROW-14385) - [C++] update google-cloud-cpp
+* [ARROW-14388](https://issues.apache.org/jira/browse/ARROW-14388) - [Python] Add unit test for pandas masks
+* [ARROW-14390](https://issues.apache.org/jira/browse/ARROW-14390) - [Packaging][Ubuntu] Add support for Ubuntu 21.10
+* [ARROW-14391](https://issues.apache.org/jira/browse/ARROW-14391) - [Docs] Archery requires docker
+* [ARROW-14398](https://issues.apache.org/jira/browse/ARROW-14398) - [CI] Don't build doxygen docs in all of the conda builds
+* [ARROW-14409](https://issues.apache.org/jira/browse/ARROW-14409) - [Packaging][Python] Update the manylinux platform tags
+* [ARROW-14412](https://issues.apache.org/jira/browse/ARROW-14412) - [R] Better error handling for flight_put() when data arg object is wrong type
+* [ARROW-14413](https://issues.apache.org/jira/browse/ARROW-14413) - [C++][Gandiva] Implement levenshtein function
+* [ARROW-14416](https://issues.apache.org/jira/browse/ARROW-14416) - [R] Fix package installation on the Raspberry Pi
+* [ARROW-14421](https://issues.apache.org/jira/browse/ARROW-14421) - [C++] Implement Flight SQL
+* [ARROW-14430](https://issues.apache.org/jira/browse/ARROW-14430) - [Go] Basic Expression, Field Reference and Datum handling
+* [ARROW-14431](https://issues.apache.org/jira/browse/ARROW-14431) - [C++][Gandiva] Implement AES ENCRYPT and AES DECRYPT functions
+* [ARROW-14433](https://issues.apache.org/jira/browse/ARROW-14433) - [Release][APT] Skip arm64 Ubuntu 21.04 verification
+* [ARROW-14435](https://issues.apache.org/jira/browse/ARROW-14435) - [Release] Update verification scripts to check python 3.10 wheels
+* [ARROW-14436](https://issues.apache.org/jira/browse/ARROW-14436) - [C++] Disable color diagnostics when compiling with ccache
+* [ARROW-14438](https://issues.apache.org/jira/browse/ARROW-14438) - [CI] Don't cancel builds on the main branch
+* [ARROW-14440](https://issues.apache.org/jira/browse/ARROW-14440) - [C++][FlightRPC] Add gRPC + Flight example
+* [ARROW-14441](https://issues.apache.org/jira/browse/ARROW-14441) - [R] Add our philosophy to the dev vignette
+* [ARROW-14446](https://issues.apache.org/jira/browse/ARROW-14446) - [Docs][Release] Update documentation on verification of release candidates
+* [ARROW-14448](https://issues.apache.org/jira/browse/ARROW-14448) - [Python] Update pyarrow.array() docstring note on timestamp (timezone) conversion
+* [ARROW-14449](https://issues.apache.org/jira/browse/ARROW-14449) - [Python] RecordBatch in Cython is missing column\_data method
+* [ARROW-14450](https://issues.apache.org/jira/browse/ARROW-14450) - [R] Old macos build error
+* [ARROW-14451](https://issues.apache.org/jira/browse/ARROW-14451) - [Release][Ruby] The `--path` flag is deprecated
+* [ARROW-14452](https://issues.apache.org/jira/browse/ARROW-14452) - [Release][JS] Update JavaScript testing
+* [ARROW-14454](https://issues.apache.org/jira/browse/ARROW-14454) - [Release] shasum is not available on CentOS 8
+* [ARROW-14459](https://issues.apache.org/jira/browse/ARROW-14459) - [Doc] Update the pinned sphinx version to 4.2
+* [ARROW-14462](https://issues.apache.org/jira/browse/ARROW-14462) - [Go][Parquet] Update dependencies
+* [ARROW-14464](https://issues.apache.org/jira/browse/ARROW-14464) - [R] Change write_parquet()'s default chunk_size from all rows
+* [ARROW-14470](https://issues.apache.org/jira/browse/ARROW-14470) - [Python] Expose the use_threads option in Feather read functions
+* [ARROW-14476](https://issues.apache.org/jira/browse/ARROW-14476) - [CI] Crossbow should comment cause of failure
+* [ARROW-14479](https://issues.apache.org/jira/browse/ARROW-14479) - [C++] Hash Join Microbenchmarks
+* [ARROW-14480](https://issues.apache.org/jira/browse/ARROW-14480) - [R] Expose arrow::dataset::ExistingDataBehavior to R
+* [ARROW-14482](https://issues.apache.org/jira/browse/ARROW-14482) - [C++][Gandiva] Implement MASK_FIRST_N and MASK_LAST_N functions
+* [ARROW-14483](https://issues.apache.org/jira/browse/ARROW-14483) - [Release] Add missing download targets
+* [ARROW-14484](https://issues.apache.org/jira/browse/ARROW-14484) - [Crossbow] Add support for specifying queue path by environment variable
+* [ARROW-14486](https://issues.apache.org/jira/browse/ARROW-14486) - [Packaging][deb] Add missing libthrift-dev dependency
+* [ARROW-14489](https://issues.apache.org/jira/browse/ARROW-14489) - [Rust][CI] Install stable rust toolchain in the integration docker image
+* [ARROW-14490](https://issues.apache.org/jira/browse/ARROW-14490) - [Doc] Regenerate CHANGELOG.md to include all versions
+* [ARROW-14491](https://issues.apache.org/jira/browse/ARROW-14491) - [CI] Add Debian 10 C++ nightly build
+* [ARROW-14496](https://issues.apache.org/jira/browse/ARROW-14496) - [Docs] Create relative links for R / JS / C/Glib references in the sphinx toctree using stub pages
+* [ARROW-14499](https://issues.apache.org/jira/browse/ARROW-14499) - [Docs] Version dropdown side-by-side with search box
+* [ARROW-14505](https://issues.apache.org/jira/browse/ARROW-14505) - [CI][Docs] Exercise documentation builds more frequently
+* [ARROW-14510](https://issues.apache.org/jira/browse/ARROW-14510) - [R][CI] ensure that docker runs don't use host-built artifacts
+* [ARROW-14514](https://issues.apache.org/jira/browse/ARROW-14514) - [C++][R] UBSAN error on round kernel
+* [ARROW-14515](https://issues.apache.org/jira/browse/ARROW-14515) - [R] Add clang sanitizer to crossbow
+* [ARROW-14531](https://issues.apache.org/jira/browse/ARROW-14531) - [Ruby] Add Arrow::Table#join
+* [ARROW-14533](https://issues.apache.org/jira/browse/ARROW-14533) - [R] Turn linter off on curly braces on new line
+* [ARROW-14551](https://issues.apache.org/jira/browse/ARROW-14551) - [Ruby] Accept Arrow::Column as Arrow::Datum argument
+* [ARROW-14558](https://issues.apache.org/jira/browse/ARROW-14558) - [R] clarify OOP system wording in the Arrow vignette
+* [ARROW-14559](https://issues.apache.org/jira/browse/ARROW-14559) - [C++] reduce memory usage in GcsFileSystem::OpenInputStream
+* [ARROW-14562](https://issues.apache.org/jira/browse/ARROW-14562) - [Ruby] Add support for loading Arrow::Table from URI
+* [ARROW-14577](https://issues.apache.org/jira/browse/ARROW-14577) - [C++] Enable fine grained IO for async IPC reader
+* [ARROW-14580](https://issues.apache.org/jira/browse/ARROW-14580) - [Python] update trove classifiers to include Python 3.10
+* [ARROW-14581](https://issues.apache.org/jira/browse/ARROW-14581) - [C++] Fine-grained IPC reader tests are flaky
+* [ARROW-14585](https://issues.apache.org/jira/browse/ARROW-14585) - [C++] Find libgrpc++_reflection via pkg-config
+* [ARROW-14590](https://issues.apache.org/jira/browse/ARROW-14590) - [R] Implement lubridate::week
+* [ARROW-14599](https://issues.apache.org/jira/browse/ARROW-14599) - [Release][Java] Upload .jar to Artifacts
+* [ARROW-14601](https://issues.apache.org/jira/browse/ARROW-14601) - [JAVA] fix the comment for timestamp sec
+* [ARROW-14602](https://issues.apache.org/jira/browse/ARROW-14602) - [Doc] Tutorial - Python feature PR
+* [ARROW-14603](https://issues.apache.org/jira/browse/ARROW-14603) - [Doc] Tutorial - R bindings
+* [ARROW-14605](https://issues.apache.org/jira/browse/ARROW-14605) - [Doc] General outline
+* [ARROW-14608](https://issues.apache.org/jira/browse/ARROW-14608) - [Python] Provide access to hash_aggregate functions through a Table.group_by method
+* [ARROW-14609](https://issues.apache.org/jira/browse/ARROW-14609) - [R] left_join by argument error message mismatch
+* [ARROW-14610](https://issues.apache.org/jira/browse/ARROW-14610) - [Doc] New Contributors Guide: Introduction + skeleton
+* [ARROW-14615](https://issues.apache.org/jira/browse/ARROW-14615) - [C++] Refactor nested field refs and add union support
+* [ARROW-14617](https://issues.apache.org/jira/browse/ARROW-14617) - [R][CI] Upstream clang sanitizer to rhub
+* [ARROW-14618](https://issues.apache.org/jira/browse/ARROW-14618) - [Release] Add missing AlmaLinux artifacts URL to vote email template
+* [ARROW-14619](https://issues.apache.org/jira/browse/ARROW-14619) - [Ruby] Use no @ openssl Homebrew package for pkg-config
+* [ARROW-14623](https://issues.apache.org/jira/browse/ARROW-14623) - [Packaging][Java] Upload not only .jar but also .pom
+* [ARROW-14626](https://issues.apache.org/jira/browse/ARROW-14626) - [Website] Update versions tested on
+* [ARROW-14628](https://issues.apache.org/jira/browse/ARROW-14628) - [Release][Python] Use python -m pytest
+* [ARROW-14636](https://issues.apache.org/jira/browse/ARROW-14636) - [Ruby] Add Cookbook section to documentation
+* [ARROW-14637](https://issues.apache.org/jira/browse/ARROW-14637) - [GLib][Ruby] Add support for initializing S3 APIs explicitly
+* [ARROW-14641](https://issues.apache.org/jira/browse/ARROW-14641) - [C++][Compute] Reduce print statements from unit tests
+* [ARROW-14645](https://issues.apache.org/jira/browse/ARROW-14645) - [Go] Add ValueOffsets function to array.String
+* [ARROW-14650](https://issues.apache.org/jira/browse/ARROW-14650) - [JS] toArray equivalent to values/values64
+* [ARROW-14652](https://issues.apache.org/jira/browse/ARROW-14652) - [R] Dataset vignette download script likely to fail with default options
+* [ARROW-14653](https://issues.apache.org/jira/browse/ARROW-14653) - [R] head() hangs on CSV datasets > 600MB
+* [ARROW-14654](https://issues.apache.org/jira/browse/ARROW-14654) - [R][Docs] Add article on how to run R with C++ debugger to dev docs
+* [ARROW-14657](https://issues.apache.org/jira/browse/ARROW-14657) - [R][Docs] Broken link in R docs
+* [ARROW-14658](https://issues.apache.org/jira/browse/ARROW-14658) - [C++] Add basic support for nested field refs in scanning
+* [ARROW-14662](https://issues.apache.org/jira/browse/ARROW-14662) - [Docs] Add note about linking Flight/gRPC/Protobuf
+* [ARROW-14669](https://issues.apache.org/jira/browse/ARROW-14669) - [JS] Clarify Perspective's use of apache arrow
+* [ARROW-14670](https://issues.apache.org/jira/browse/ARROW-14670) - [Release][Java] Build missing javadoc and source .jar
+* [ARROW-14671](https://issues.apache.org/jira/browse/ARROW-14671) - [Python][Doc] Documentation on how to integrate PyArrow and R
+* [ARROW-14675](https://issues.apache.org/jira/browse/ARROW-14675) - [R] Enable merge by union for NEWS.md
+* [ARROW-14676](https://issues.apache.org/jira/browse/ARROW-14676) - [R][Docs] Add article on how to build a few different setups via docker to dev docs
+* [ARROW-14678](https://issues.apache.org/jira/browse/ARROW-14678) - [C++] Add reasonable CMake presets for quick dev setup
+* [ARROW-14683](https://issues.apache.org/jira/browse/ARROW-14683) - [Release][Java] Build missing source-release.zip
+* [ARROW-14684](https://issues.apache.org/jira/browse/ARROW-14684) - [CI][C++] Use aws-sdk-cpp package on macOS
+* [ARROW-14686](https://issues.apache.org/jira/browse/ARROW-14686) - [Python][C++] make byte order detection for numpy builtin type correct
+* [ARROW-14694](https://issues.apache.org/jira/browse/ARROW-14694) - [R] Let me dput a schema
+* [ARROW-14712](https://issues.apache.org/jira/browse/ARROW-14712) - [R] fix compare_dplyr_error() for dplyr 1.0.8
+* [ARROW-14714](https://issues.apache.org/jira/browse/ARROW-14714) - [C++][Doc] Rework CMake presets and add documentation
+* [ARROW-14715](https://issues.apache.org/jira/browse/ARROW-14715) - [Doc] Steps in making your first PR - finding issues
+* [ARROW-14716](https://issues.apache.org/jira/browse/ARROW-14716) - [R][CI] Bump R versions used in docker tests
+* [ARROW-14718](https://issues.apache.org/jira/browse/ARROW-14718) - [Java] loadValidityBuffer should avoid allocating memory when input is not null and there are only null or non-null values
+* [ARROW-14732](https://issues.apache.org/jira/browse/ARROW-14732) - [Python] Improve error message in compute functions when passing wrong number of positional arguments
+* [ARROW-14733](https://issues.apache.org/jira/browse/ARROW-14733) - [R] Add section to how to get output when things hang to debugger docs
+* [ARROW-14737](https://issues.apache.org/jira/browse/ARROW-14737) - [C++][Dataset] Support URI-decoding partition keys
+* [ARROW-14738](https://issues.apache.org/jira/browse/ARROW-14738) - [Python][Doc] Make return types clickable
+* [ARROW-14741](https://issues.apache.org/jira/browse/ARROW-14741) - [C++] Add support for RecordBatchReader in CSV writer
+* [ARROW-14743](https://issues.apache.org/jira/browse/ARROW-14743) - [C++] Error reading in dataset when partitioning variable in schema
+* [ARROW-14746](https://issues.apache.org/jira/browse/ARROW-14746) - [CI] Allow (temporary) disabling of constantly failing nightlies
+* [ARROW-14747](https://issues.apache.org/jira/browse/ARROW-14747) - [Release] Add a script to merge changes in release branch
+* [ARROW-14748](https://issues.apache.org/jira/browse/ARROW-14748) - [C++][CI] Update flags to give warning for unused results
+* [ARROW-14750](https://issues.apache.org/jira/browse/ARROW-14750) - [Release] Update post-03-website.sh for 6.0.1
+* [ARROW-14751](https://issues.apache.org/jira/browse/ARROW-14751) - [C++] Add doc for set lookup "meta" compute functions
+* [ARROW-14752](https://issues.apache.org/jira/browse/ARROW-14752) - [Doc] Steps in making your first PR - Set up
+* [ARROW-14753](https://issues.apache.org/jira/browse/ARROW-14753) - [Doc] Steps in making your first PR - building C++
+* [ARROW-14754](https://issues.apache.org/jira/browse/ARROW-14754) - [Doc] Steps in making your first PR - building R package
+* [ARROW-14755](https://issues.apache.org/jira/browse/ARROW-14755) - [Doc] Steps in making your first PR - building PyArrow
+* [ARROW-14756](https://issues.apache.org/jira/browse/ARROW-14756) - [Doc] Steps in making your first PR - Python bindings
+* [ARROW-14757](https://issues.apache.org/jira/browse/ARROW-14757) - [Doc] Steps in making your first PR - R bindings
+* [ARROW-14758](https://issues.apache.org/jira/browse/ARROW-14758) - [Doc] Steps in making your first PR - test in Python
+* [ARROW-14759](https://issues.apache.org/jira/browse/ARROW-14759) - [Doc] Steps in making your first PR - test in R
+* [ARROW-14760](https://issues.apache.org/jira/browse/ARROW-14760) - [Doc] Steps in making your first PR - PR life cycle
+* [ARROW-14761](https://issues.apache.org/jira/browse/ARROW-14761) - [Doc] Helping with documentation
+* [ARROW-14762](https://issues.apache.org/jira/browse/ARROW-14762) - [Doc] Additional info and resources
+* [ARROW-14763](https://issues.apache.org/jira/browse/ARROW-14763) - [Doc] Arrow General Overview
+* [ARROW-14764](https://issues.apache.org/jira/browse/ARROW-14764) - [Website] Add instructions for installing Go package
+* [ARROW-14768](https://issues.apache.org/jira/browse/ARROW-14768) - [C++] Validate compute function docstring formatting
+* [ARROW-14777](https://issues.apache.org/jira/browse/ARROW-14777) - [Release] Enable to run on RHEL derivatives
+* [ARROW-14779](https://issues.apache.org/jira/browse/ARROW-14779) - [C++] Add other common round mode names to RoundMode docs
+* [ARROW-14784](https://issues.apache.org/jira/browse/ARROW-14784) - [GLib][Ruby] Rename GArrowSortKey::name to ::target
+* [ARROW-14804](https://issues.apache.org/jira/browse/ARROW-14804) - [R] import_from_c() / export_to_c() methods should accept external pointers
+* [ARROW-14807](https://issues.apache.org/jira/browse/ARROW-14807) - [R] Implement bindings for lubridate am and pm
+* [ARROW-14816](https://issues.apache.org/jira/browse/ARROW-14816) - [R] Implement bindings for lubridate::mday
+* [ARROW-14822](https://issues.apache.org/jira/browse/ARROW-14822) - [C++] Implement floor/ceil/round for temporal objects
+* [ARROW-14823](https://issues.apache.org/jira/browse/ARROW-14823) - [R] Implement bindings for lubridate::leap_year
+* [ARROW-14842](https://issues.apache.org/jira/browse/ARROW-14842) - [C++] Improve precision range error messages for Decimal
+* [ARROW-14843](https://issues.apache.org/jira/browse/ARROW-14843) - [R] Implement `decimal128()` (to replace `decimal()`)
+* [ARROW-14844](https://issues.apache.org/jira/browse/ARROW-14844) - [R] Implement decimal256()
+* [ARROW-14849](https://issues.apache.org/jira/browse/ARROW-14849) - [R] Update messaging in installation scripts
+* [ARROW-14850](https://issues.apache.org/jira/browse/ARROW-14850) - [R] Update ARROW_DEPENDENCY_SOURCE to default to AUTO
+* [ARROW-14857](https://issues.apache.org/jira/browse/ARROW-14857) - [CI][Homebrew] Add apache-arrow-glib fomula
+* [ARROW-14858](https://issues.apache.org/jira/browse/ARROW-14858) - [R][CI] Don't build extra deps on ubuntu 21.04
+* [ARROW-14880](https://issues.apache.org/jira/browse/ARROW-14880) - [CI][C++] Enable ccache on MacOS builds
+* [ARROW-14897](https://issues.apache.org/jira/browse/ARROW-14897) - [CI][C++] Upgrade Clang Tools to 12 from 8
+* [ARROW-14899](https://issues.apache.org/jira/browse/ARROW-14899) - [C++] implement GcsInputStream::GetMetadata
+* [ARROW-14903](https://issues.apache.org/jira/browse/ARROW-14903) - [C++] Enable CSV Writer to control string to be used for missing data
+* [ARROW-14905](https://issues.apache.org/jira/browse/ARROW-14905) - [C++] Enable CSV Writer to handle quoting
+* [ARROW-14907](https://issues.apache.org/jira/browse/ARROW-14907) - [C++] Enable CSV Writer to control end-of-line character
+* [ARROW-14910](https://issues.apache.org/jira/browse/ARROW-14910) - [R][CI] Use dev duckdb to build with < 8GB or ram
+* [ARROW-14912](https://issues.apache.org/jira/browse/ARROW-14912) - [C++] implement GcsFileSystem::CopyFile
+* [ARROW-14913](https://issues.apache.org/jira/browse/ARROW-14913) - [C++] implement GcsFileSystem::DeleteFile
+* [ARROW-14914](https://issues.apache.org/jira/browse/ARROW-14914) - [C++] gcsfs will not implement DeleteRootDirContents
+* [ARROW-14915](https://issues.apache.org/jira/browse/ARROW-14915) - [C++] implement GcsFileSystem::DeleteDirContents
+* [ARROW-14916](https://issues.apache.org/jira/browse/ARROW-14916) - [C++] GcsFileSystem can delete directories
+* [ARROW-14917](https://issues.apache.org/jira/browse/ARROW-14917) - [C++] Implement GcsFileSystem::CreateDir
+* [ARROW-14918](https://issues.apache.org/jira/browse/ARROW-14918) - [C++] Implement GcsFileSystem::GetFileInfo(FileSelector)
+* [ARROW-14920](https://issues.apache.org/jira/browse/ARROW-14920) - [C++] Use alphabetical ordering
+* [ARROW-14924](https://issues.apache.org/jira/browse/ARROW-14924) - [C++] generic fs tests for GcsFileSystem
+* [ARROW-14926](https://issues.apache.org/jira/browse/ARROW-14926) - [Docs] Fix CSS for visibility of the version dropdown
+* [ARROW-14929](https://issues.apache.org/jira/browse/ARROW-14929) - [CI] Fix kartothek integration build (install new dependency)
+* [ARROW-14932](https://issues.apache.org/jira/browse/ARROW-14932) - [CI] Prefer mamba over conda
+* [ARROW-14935](https://issues.apache.org/jira/browse/ARROW-14935) - [Ruby] Add GArrowTemporalDataType
+* [ARROW-14940](https://issues.apache.org/jira/browse/ARROW-14940) - [C++] Speed up CSV parser with long CSV cells
+* [ARROW-14941](https://issues.apache.org/jira/browse/ARROW-14941) - [R] Implement Duration R6 class and bindings for lubridate::duration()
+* [ARROW-14957](https://issues.apache.org/jira/browse/ARROW-14957) - [C++] Update OpenTelemetry to v1.1.0
+* [ARROW-14961](https://issues.apache.org/jira/browse/ARROW-14961) - [C++] Bump google benchmark version
+* [ARROW-14968](https://issues.apache.org/jira/browse/ARROW-14968) - [Python] Pin numpy build dependency using oldest-supported-numpy
+* [ARROW-14969](https://issues.apache.org/jira/browse/ARROW-14969) - [C++][Python] Un-deprecate FileSystem::OpenAppendStream
+* [ARROW-14971](https://issues.apache.org/jira/browse/ARROW-14971) - [C++] Implement GcsFileSystem::Move
+* [ARROW-14975](https://issues.apache.org/jira/browse/ARROW-14975) - [Docs] Fix typo in emit_dictionary_deltas documentation
+* [ARROW-14976](https://issues.apache.org/jira/browse/ARROW-14976) - [Dev][Archery] Fail early if no benchmark found
+* [ARROW-14977](https://issues.apache.org/jira/browse/ARROW-14977) - [Python] Add a "made-up" feature for the guide tutorial
+* [ARROW-14981](https://issues.apache.org/jira/browse/ARROW-14981) - [CI][Docs] Upload built documents
+* [ARROW-14984](https://issues.apache.org/jira/browse/ARROW-14984) - [CI][Debian] rsync is missing
+* [ARROW-14985](https://issues.apache.org/jira/browse/ARROW-14985) - [CI][Go] Use Go 1.16
+* [ARROW-14986](https://issues.apache.org/jira/browse/ARROW-14986) - [Release][Docs] Use artifact built by Crossbow
+* [ARROW-14990](https://issues.apache.org/jira/browse/ARROW-14990) - [CI] Fix nightly dask integration build (ensure pandas is installed)
+* [ARROW-14992](https://issues.apache.org/jira/browse/ARROW-14992) - [R] Installation can't use prebuilt Arrow binaries on Pop! OS
+* [ARROW-15005](https://issues.apache.org/jira/browse/ARROW-15005) - [C++] Improve csv parser with Neon
+* [ARROW-15010](https://issues.apache.org/jira/browse/ARROW-15010) - [R] Create a function registry for our NSE funcs
+* [ARROW-15019](https://issues.apache.org/jira/browse/ARROW-15019) - [Python] Add bindings for new dataset writing options
+* [ARROW-15022](https://issues.apache.org/jira/browse/ARROW-15022) - [R] install vignette and installation dev vignette need alt text for images
+* [ARROW-15029](https://issues.apache.org/jira/browse/ARROW-15029) - [C++] Split compute/kernels/scalar_string.cc
+* [ARROW-15032](https://issues.apache.org/jira/browse/ARROW-15032) - [C++] Add year_month_day function
+* [ARROW-15036](https://issues.apache.org/jira/browse/ARROW-15036) - [C++] Automatically configure S3 SDK configuration parameter "maxConnections"
+* [ARROW-15038](https://issues.apache.org/jira/browse/ARROW-15038) - [Packaging][CentOS] Drop support for CentOS 8
+* [ARROW-15043](https://issues.apache.org/jira/browse/ARROW-15043) - [Python][Docs] Include time64 to type conversion table for pandas <-> arrow
+* [ARROW-15044](https://issues.apache.org/jira/browse/ARROW-15044) - [C++] Add OpenTelemetry exporters for debugging use
+* [ARROW-15049](https://issues.apache.org/jira/browse/ARROW-15049) - [R] arrowExports.cpp generation changed with glue package 1.5.1
+* [ARROW-15055](https://issues.apache.org/jira/browse/ARROW-15055) - [C++] Refactor GcsFileSystem tests
+* [ARROW-15056](https://issues.apache.org/jira/browse/ARROW-15056) - [C++] Speed up GcsFileSystem tests
+* [ARROW-15057](https://issues.apache.org/jira/browse/ARROW-15057) - [R][CI] Move where we install DuckDB from in CI
+* [ARROW-15058](https://issues.apache.org/jira/browse/ARROW-15058) - [Java] Remove log4j2 dependency in performance module
+* [ARROW-15070](https://issues.apache.org/jira/browse/ARROW-15070) - [Python][C++][R][Doc] Add a general statement to dataset docs around the lack of ACID guarantees
+* [ARROW-15074](https://issues.apache.org/jira/browse/ARROW-15074) - [Format] Clarify that LZ4 contains a single frame
+* [ARROW-15077](https://issues.apache.org/jira/browse/ARROW-15077) - [Python] Move Expression class from _dataset to _compute cython module
+* [ARROW-15082](https://issues.apache.org/jira/browse/ARROW-15082) - [R] Clean up one more duration mapping entry
+* [ARROW-15084](https://issues.apache.org/jira/browse/ARROW-15084) - [C++] public factory function for GcsFileSystem
+* [ARROW-15085](https://issues.apache.org/jira/browse/ARROW-15085) - [C++] support credential types in GcsFileSystem
+* [ARROW-15087](https://issues.apache.org/jira/browse/ARROW-15087) - [Python][Docs] Document MapArray and update parent class to ListArray
+* [ARROW-15091](https://issues.apache.org/jira/browse/ARROW-15091) - [C++][Doc] Document nodes in C++ streaming execution engine
+* [ARROW-15095](https://issues.apache.org/jira/browse/ARROW-15095) - [Dev][Website] Changelog generation should use commit messages
+* [ARROW-15096](https://issues.apache.org/jira/browse/ARROW-15096) - [R] Sanitizer failures with duration type
+* [ARROW-15099](https://issues.apache.org/jira/browse/ARROW-15099) - [C++] Improve GcsFileSystem::GetFileInfo
+* [ARROW-15100](https://issues.apache.org/jira/browse/ARROW-15100) - [CI] Stop using Python 3.6 by default
+* [ARROW-15103](https://issues.apache.org/jira/browse/ARROW-15103) - [Documentation][C++] Error building docs: "arrow/cpp/src/arrow/csv/options.h:182: error: Found unknown command '\r' "
+* [ARROW-15109](https://issues.apache.org/jira/browse/ARROW-15109) - [Python] Add show_info() to print build, component, and system info
+* [ARROW-15110](https://issues.apache.org/jira/browse/ARROW-15110) - [C++][Gandiva] Revert change on Gandiva's cache policy
+* [ARROW-15112](https://issues.apache.org/jira/browse/ARROW-15112) - [C++][FlightRPC][Integration][Java] Implement Flight RPC integration tests
+* [ARROW-15113](https://issues.apache.org/jira/browse/ARROW-15113) - [C++] Make GcsFileSystem tests a bit faster
+* [ARROW-15114](https://issues.apache.org/jira/browse/ARROW-15114) - [C++] GcsFileSystem uses metadata for directory markers
+* [ARROW-15115](https://issues.apache.org/jira/browse/ARROW-15115) - [C++] GcsFileSystem return errors if using closed streams
+* [ARROW-15116](https://issues.apache.org/jira/browse/ARROW-15116) - [Python] Expose invalid_row_handler for CSV reader
+* [ARROW-15119](https://issues.apache.org/jira/browse/ARROW-15119) - [C++] allow reading directories as files in generic tests
+* [ARROW-15121](https://issues.apache.org/jira/browse/ARROW-15121) - [C++] Implement max recursion on GcsFileSystem
+* [ARROW-15122](https://issues.apache.org/jira/browse/ARROW-15122) - [R] Gate parquet tests on snappy
+* [ARROW-15126](https://issues.apache.org/jira/browse/ARROW-15126) - [C++] Support Null type as group keys
+* [ARROW-15127](https://issues.apache.org/jira/browse/ARROW-15127) - [R] More visible documentation of AWS_EC2_METADATA_DISABLED=TRUE
+* [ARROW-15133](https://issues.apache.org/jira/browse/ARROW-15133) - [CI] Remove util_checkout.sh and util_cleanup.sh scripts
+* [ARROW-15134](https://issues.apache.org/jira/browse/ARROW-15134) - [GLib] Add GArrow{Month,DayTime,MonthDayNano}IntervalDataType
+* [ARROW-15136](https://issues.apache.org/jira/browse/ARROW-15136) - [C++] Make S3FS tests faster
+* [ARROW-15137](https://issues.apache.org/jira/browse/ARROW-15137) - [Dev] Update archery crossbow latest-prefix to work with nightly dates
+* [ARROW-15138](https://issues.apache.org/jira/browse/ARROW-15138) - [C++] Make ExecPlan::ToString give some additional information
+* [ARROW-15140](https://issues.apache.org/jira/browse/ARROW-15140) - [CI] move to v2 of checkouts for GHA
+* [ARROW-15150](https://issues.apache.org/jira/browse/ARROW-15150) - [Doc] Add guidance on partitioning datasets
+* [ARROW-15153](https://issues.apache.org/jira/browse/ARROW-15153) - [Python] Expose ReferencedBufferSize to python
+* [ARROW-15154](https://issues.apache.org/jira/browse/ARROW-15154) - [R] Expose ReferencedBufferSize to R
+* [ARROW-15165](https://issues.apache.org/jira/browse/ARROW-15165) - [Python] Expose function to resolve S3 bucket region
+* [ARROW-15166](https://issues.apache.org/jira/browse/ARROW-15166) - [C++] Enable filter for decimal256
+* [ARROW-15169](https://issues.apache.org/jira/browse/ARROW-15169) - [Python][R] Avoid unsafe Python-R pointer transfer
+* [ARROW-15172](https://issues.apache.org/jira/browse/ARROW-15172) - [Go] Add Arm64 Neon implementation for Arrow-math
+* [ARROW-15173](https://issues.apache.org/jira/browse/ARROW-15173) - [R] Provide backward compatibility for bridge to older versions of pyarrow
+* [ARROW-15187](https://issues.apache.org/jira/browse/ARROW-15187) - [Java][FlightRPC] Fix pom.xml for new flight-sql modules
+* [ARROW-15188](https://issues.apache.org/jira/browse/ARROW-15188) - [C++] Upgrade bundled re2 library version
+* [ARROW-15189](https://issues.apache.org/jira/browse/ARROW-15189) - [C++] Upgrade bundled utf8proc version
+* [ARROW-15190](https://issues.apache.org/jira/browse/ARROW-15190) - [C++] Upgrade bundled zstd version
+* [ARROW-15193](https://issues.apache.org/jira/browse/ARROW-15193) - [R][Documentation] Update R binding documentation
+* [ARROW-15198](https://issues.apache.org/jira/browse/ARROW-15198) - [C++][FlightRPC] Fix unity build error in Flight SQL
+* [ARROW-15203](https://issues.apache.org/jira/browse/ARROW-15203) - [GLib] garrow_struct_scalar_get_value() for scalar from C++ returns value
+* [ARROW-15204](https://issues.apache.org/jira/browse/ARROW-15204) - [GLib] Add Arrow::RoundOptions
+* [ARROW-15205](https://issues.apache.org/jira/browse/ARROW-15205) - [GLib] Add garrow_function_all()
+* [ARROW-15207](https://issues.apache.org/jira/browse/ARROW-15207) - [GLib] Use the Meson's default -Dwerror=
+* [ARROW-15216](https://issues.apache.org/jira/browse/ARROW-15216) - [GLib] Add Arrow::RoundToMultipleOptions
+* [ARROW-15218](https://issues.apache.org/jira/browse/ARROW-15218) - [C++] Add decimal support to the indices_nonzero compute function
+* [ARROW-15219](https://issues.apache.org/jira/browse/ARROW-15219) - [Python] Export the random compute function
+* [ARROW-15220](https://issues.apache.org/jira/browse/ARROW-15220) - [C++] Remove bool specializations of bit block counter operations
+* [ARROW-15232](https://issues.apache.org/jira/browse/ARROW-15232) - [Packaging][deb] Disable DWARF optimization for libarrow.so
+* [ARROW-15235](https://issues.apache.org/jira/browse/ARROW-15235) - [R] drop support for R 3.3
+* [ARROW-15244](https://issues.apache.org/jira/browse/ARROW-15244) - [Format] Clarify that offsets are monotonic for binary like arrays
+* [ARROW-15245](https://issues.apache.org/jira/browse/ARROW-15245) - [Go] Address most of the staticcheck linting issues.
+* [ARROW-15248](https://issues.apache.org/jira/browse/ARROW-15248) - [C++][Docs] Improve docs about linting/formatting
+* [ARROW-15249](https://issues.apache.org/jira/browse/ARROW-15249) - [R] Autobrew + AWS sdk dependency
+* [ARROW-15267](https://issues.apache.org/jira/browse/ARROW-15267) - [GLib] Add garrow_function_get_default_options()
+* [ARROW-15268](https://issues.apache.org/jira/browse/ARROW-15268) - [Packaging][deb] Don't use gi shortcut
+* [ARROW-15269](https://issues.apache.org/jira/browse/ARROW-15269) - [C++][Docs] Clarify that not all compute functions are invocable via CallFunction
+* [ARROW-15273](https://issues.apache.org/jira/browse/ARROW-15273) - [GLib] add garrow_function_get_options_type()
+* [ARROW-15274](https://issues.apache.org/jira/browse/ARROW-15274) - [Ruby] Improve Arrow::Function#execute usability
+* [ARROW-15279](https://issues.apache.org/jira/browse/ARROW-15279) - [R] Update "writing bindings" dev docs based on user feedback
+* [ARROW-15288](https://issues.apache.org/jira/browse/ARROW-15288) - [GLib] Add garrow_execute_plan_build_hash_join_node()
+* [ARROW-15295](https://issues.apache.org/jira/browse/ARROW-15295) - [R] Add 6.0.0 to our old versions to check
+* [ARROW-15300](https://issues.apache.org/jira/browse/ARROW-15300) - [C++] Update Skyhook for async dataset interfaces
+* [ARROW-15302](https://issues.apache.org/jira/browse/ARROW-15302) - [R] Followup to dropping R 3.3 support
+* [ARROW-15303](https://issues.apache.org/jira/browse/ARROW-15303) - [R] linting errors
+* [ARROW-15316](https://issues.apache.org/jira/browse/ARROW-15316) - [R] Make a one-function pointer function
+* [ARROW-15320](https://issues.apache.org/jira/browse/ARROW-15320) - [Go] Implement memset_neon with Arm64 GoLang Assembly
+* [ARROW-15322](https://issues.apache.org/jira/browse/ARROW-15322) - [Docs][Go] Update sidebar link for Go docs.
+* [ARROW-15327](https://issues.apache.org/jira/browse/ARROW-15327) - [R] Update news for 7.0.0
+* [ARROW-15331](https://issues.apache.org/jira/browse/ARROW-15331) - [Go][Parquet] Add pqarrow package for direct Parquet <--> Arrow conversion
+* [ARROW-15332](https://issues.apache.org/jira/browse/ARROW-15332) - [C++] Add new cases and fix issues in IPC read/write benchmark
+* [ARROW-15334](https://issues.apache.org/jira/browse/ARROW-15334) - [CI][GLib][Windows] Use Ruby 3.1
+* [ARROW-15336](https://issues.apache.org/jira/browse/ARROW-15336) - [Go] Implement 'min_max_neon' with Arm64 GoLang Assembly
+* [ARROW-15337](https://issues.apache.org/jira/browse/ARROW-15337) - [Doc] New contributors guide updates
+* [ARROW-15338](https://issues.apache.org/jira/browse/ARROW-15338) - [Python] Add `pyarrow.orc.read_table` API
+* [ARROW-15343](https://issues.apache.org/jira/browse/ARROW-15343) - [Doc][Guide] Introduction and the checklist - minor corrections
+* [ARROW-15344](https://issues.apache.org/jira/browse/ARROW-15344) - [Doc][Guide] Communication - minor corrections
+* [ARROW-15345](https://issues.apache.org/jira/browse/ARROW-15345) - [Doc][Guide] Finding JIRA issues - minor corrections
+* [ARROW-15355](https://issues.apache.org/jira/browse/ARROW-15355) - [Docs] Trigger sphinx build on documentation changes
+* [ARROW-15356](https://issues.apache.org/jira/browse/ARROW-15356) - [Ruby] Add support for .arrows extension
+* [ARROW-15373](https://issues.apache.org/jira/browse/ARROW-15373) - [C++] Return unique_ptr from MemoryManager::AllocateBuffer
+* [ARROW-15381](https://issues.apache.org/jira/browse/ARROW-15381) - [C#] Bump dependencies for C# Arrow.Flight and allow netstandard2.0
+* [ARROW-15383](https://issues.apache.org/jira/browse/ARROW-15383) - [Release] Add a script to update MSYS2 package
+* [ARROW-15387](https://issues.apache.org/jira/browse/ARROW-15387) - [R] Un-skip chunked array test for decimal256()
+* [ARROW-15390](https://issues.apache.org/jira/browse/ARROW-15390) - [Dev][C++][Doc] Document the GDB extension
+* [ARROW-15399](https://issues.apache.org/jira/browse/ARROW-15399) - [Release][JS] Increase minimum NodeJS version to 16
+* [ARROW-15416](https://issues.apache.org/jira/browse/ARROW-15416) - [Python] Add option to skip gdb tests
+* [ARROW-15423](https://issues.apache.org/jira/browse/ARROW-15423) - [C++][Dev] Make GDB plugin auto-load friendly
+* [ARROW-15435](https://issues.apache.org/jira/browse/ARROW-15435) - [C++][Doc] Improve API docs coverage
+* [ARROW-15436](https://issues.apache.org/jira/browse/ARROW-15436) - [Release][Python] Disable flaky csv::test_cancellation test on apple M1
+* [ARROW-15439](https://issues.apache.org/jira/browse/ARROW-15439) - [Release] Update .deb/.rpm changelogs after release
+* [ARROW-15448](https://issues.apache.org/jira/browse/ARROW-15448) - [C++] Use apache mirror system to download ORC's source
+* [ARROW-15450](https://issues.apache.org/jira/browse/ARROW-15450) - [Python][Wheel] Flight test receives SIGKILL during in macOS tests
+* [ARROW-15457](https://issues.apache.org/jira/browse/ARROW-15457) - [Packaging][deb] Specify CUDAToolkit_ROOT explicitly
+* [ARROW-15463](https://issues.apache.org/jira/browse/ARROW-15463) - [GLib] Add arrow::compute::Utf8NormalizeOptions bindings
+* [ARROW-15495](https://issues.apache.org/jira/browse/ARROW-15495) - [C++][FlightRPC] Require Protobuf/gRPC SOURCEs to match
+* [PARQUET-492](https://issues.apache.org/jira/browse/PARQUET-492) - [C++][Parquet] Basic support for reading DELTA_BYTE_ARRAY data.
+
 # Apache Arrow 6.0.1 (2021-11-18)
 
 ## Bug Fixes

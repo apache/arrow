@@ -1372,6 +1372,48 @@ def _table_like_slice_tests(factory):
     assert obj.slice(len(obj) - 4, 2).equals(obj[-4:-2])
 
 
+@pytest.mark.parametrize("factory", [
+    pa.chunked_array,
+    pa.RecordBatch.from_arrays,
+    pa.table,
+])
+@pytest.mark.parametrize("scalar_type", [
+    pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+    pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64(),
+])
+def test_table_like_slice_integer_scalars(factory, scalar_type):
+    data = [pa.array(range(10))]
+    names = ["c0"]
+    if factory is pa.chunked_array:
+        obj = factory(data)
+    else:
+        obj = factory(data, names=names)
+    offsets = pa.array([2, 4], type=scalar_type)
+
+    result = obj.slice(offsets[0], offsets[1])
+
+    assert result.equals(obj.slice(2, 4))
+
+
+@pytest.mark.parametrize("factory", [
+    pa.chunked_array,
+    pa.RecordBatch.from_arrays,
+    pa.table,
+])
+def test_table_like_slice_uint64_scalar_overflow(factory):
+    data = [pa.array(range(10))]
+    names = ["c0"]
+    if factory is pa.chunked_array:
+        obj = factory(data)
+    else:
+        obj = factory(data, names=names)
+    overflow = pa.scalar(2 ** 63, type=pa.uint64())
+
+    assert obj.slice(overflow).equals(obj.slice(len(obj)))
+    with pytest.raises(OverflowError):
+        obj.slice(0, overflow)
+
+
 def test_recordbatch_slice_getitem():
     return _table_like_slice_tests(pa.RecordBatch.from_arrays)
 

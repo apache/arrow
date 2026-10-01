@@ -15,9 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+from cpython.pycapsule cimport (
+    PyCapsule_CheckExact,
+    PyCapsule_GetPointer,
+    PyCapsule_New,
+    PyCapsule_SetName,
+)
 
 from collections.abc import Sequence
+import operator
 import os
 import warnings
 from cython import sizeof
@@ -1118,6 +1124,19 @@ cdef PandasOptions _convert_pandas_options(dict options):
     return result
 
 
+def _compute_binary_op(func_name, left, right):
+    """
+    Helper for arithmetic/bitwise dunder methods.
+
+    Only use for ops that can't raise ArrowTypeError as it
+    subclasses TypeError, so will get swallowed.
+    """
+    try:
+        return _pc().call_function(func_name, [left, right])
+    except TypeError:
+        return NotImplemented
+
+
 cdef class Array(_PandasConvertible):
     """
     The base class for all Arrow arrays.
@@ -1618,11 +1637,13 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        offset : int, default 0
+        offset : int or pyarrow.Scalar, default 0
             Offset from start of array to slice.
-        length : int, default None
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of Array starting from
             offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -1631,6 +1652,7 @@ cdef class Array(_PandasConvertible):
         """
         cdef shared_ptr[CArray] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -1638,6 +1660,7 @@ cdef class Array(_PandasConvertible):
         if length is None:
             result = self.ap.Slice(offset)
         else:
+            length = operator.index(length)
             if length < 0:
                 raise ValueError('Length must be non-negative')
             result = self.ap.Slice(offset, length)
@@ -2269,7 +2292,55 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(array)
 
-    def __dlpack__(self, stream=None, max_version=None, dl_device=None, copy=None):
+    @staticmethod
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct an Array from an object implementing the DLPack protocol.
+        Only 1-dimensional contiguous tensors are accepted as input.
+        For multi-dimensional tensors, use `Tensor.from_dlpack` or
+        `FixedShapeTensorArray.from_dlpack`.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting Array should reside, in the
+            format returned by :meth:`Array.__dlpack_device__`. When None,
+            the output Array occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        Array
+            An Array housing the data from the input object, potentially
+            as a copy or view.
+        """
+        version = (DLPACK_VERSION.major, DLPACK_VERSION.minor)
+        pycapsule = x.__dlpack__(max_version=version, dl_device=device, copy=copy)
+        if not PyCapsule_CheckExact(pycapsule):
+            raise TypeError("DLPack producer did not return a PyCapsule")
+        cdef DLManagedTensorVersioned* ptr = <DLManagedTensorVersioned*>PyCapsule_GetPointer(
+            pycapsule, "dltensor_versioned")
+        if ptr == NULL:
+            raise ValueError(
+                'DLPack producer did not produce a "dltensor_versioned" PyCapsule')
+        # Mark the capsule as consumed so its destructor does not also invoke the deleter.
+        # ImportArrayVersionedFromDLPack will take ownership even if it errors (calling
+        # the deleter in that case).
+        PyCapsule_SetName(pycapsule, "used_dltensor_versioned")
+        with nogil:
+            # Copy handled on producer side
+            result = ImportArrayVersionedFromDLPack(ptr)
+        carray = GetResultValue(result)
+        return pyarrow_wrap_array(carray)
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
         """
         Export a primitive array as a DLPack capsule.
 
@@ -2387,15 +2458,15 @@ cdef class Array(_PandasConvertible):
 
     def __add__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('add_checked', [self, other])
+        return _compute_binary_op('add_checked', self, other)
 
     def __truediv__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('divide_checked', [self, other])
+        return _compute_binary_op('divide_checked', self, other)
 
     def __mul__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('multiply_checked', [self, other])
+        return _compute_binary_op('multiply_checked', self, other)
 
     def __neg__(self):
         self._assert_cpu()
@@ -2403,31 +2474,31 @@ cdef class Array(_PandasConvertible):
 
     def __pow__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('power_checked', [self, other])
+        return _compute_binary_op('power_checked', self, other)
 
     def __sub__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('subtract_checked', [self, other])
+        return _compute_binary_op('subtract_checked', self, other)
 
     def __and__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_and', [self, other])
+        return _compute_binary_op('bit_wise_and', self, other)
 
     def __or__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_or', [self, other])
+        return _compute_binary_op('bit_wise_or', self, other)
 
     def __xor__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_xor', [self, other])
+        return _compute_binary_op('bit_wise_xor', self, other)
 
     def __lshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_left_checked', [self, other])
+        return _compute_binary_op('shift_left_checked', self, other)
 
     def __rshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_right_checked', [self, other])
+        return _compute_binary_op('shift_right_checked', self, other)
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
@@ -4970,6 +5041,32 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         return self.to_tensor().to_numpy()
 
     @staticmethod
+    def from_tensor(Tensor tensor not None):
+        """
+        Convert a pyarrow.Tensor to a fixed shape tensor extension array.
+
+        The first dimension of the tensor becomes the length of the fixed shape
+        tensor array and the remaining dimensions the shape of the individual
+        tensors. If the tensor provides strides, they are used to determine the
+        dimension permutation, otherwise row-major layout is assumed.
+
+        Parameters
+        ----------
+        tensor : pyarrow.Tensor
+
+        Returns
+        -------
+        FixedShapeTensorArray
+        """
+        cdef shared_ptr[CFixedShapeTensorArray] c_array
+
+        with nogil:
+            c_array = GetResultValue(
+                CFixedShapeTensorArray.FromTensor(tensor.sp_tensor))
+
+        return pyarrow_wrap_array(<shared_ptr[CArray]> c_array)
+
+    @staticmethod
     def from_numpy_ndarray(obj, dim_names=None):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
@@ -5043,6 +5140,55 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                                dim_names=dim_names,
                                permutation=permutation[1:] - 1),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
+        )
+
+    @staticmethod
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct a FixedShapeTensorArray from an object implementing the DLPack
+        protocol.
+
+        The outermost dimension of the input becomes the length of the tensor
+        array, and the remaining dimensions the shape of the individual tensors.
+        The outermost dimension must have the largest stride.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting array should reside, in the
+            format returned by :meth:`Array.__dlpack_device__`. When None,
+            the output array occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        FixedShapeTensorArray
+            An array housing the data from the input object, potentially
+            as a copy or view.
+
+        """
+        return FixedShapeTensorArray.from_tensor(
+            Tensor.from_dlpack(x, device=device, copy=copy))
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
+        """
+        Export a tensor array as a DLPack capsule.
+
+        The element positions in the array become the first dimension of the
+        resulting tensor (equal to ``len(self)``).
+
+        See :meth:`Tensor.__dlpack__` for the parameter semantics.
+        """
+        return self.to_tensor().__dlpack__(
+            stream=stream, max_version=max_version,
+            dl_device=dl_device, copy=copy,
         )
 
 
@@ -5265,16 +5411,16 @@ cdef object get_array_class_from_type(
         return _array_classes[data_type.id()]
 
 
-cdef object get_values(object obj, bint* is_series):
+cdef object get_values(object obj, bint* is_pandas_object):
     if pandas_api.is_series(obj) or pandas_api.is_index(obj):
         result = pandas_api.get_values(obj)
-        is_series[0] = True
+        is_pandas_object[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
-        is_series[0] = False
+        is_pandas_object[0] = False
     else:
-        result = pandas_api.series(obj, copy=False).values
-        is_series[0] = False
+        result = pandas_api.get_values(pandas_api.series(obj, copy=False))
+        is_pandas_object[0] = False
 
     return result
 

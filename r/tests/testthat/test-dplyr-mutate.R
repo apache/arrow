@@ -775,3 +775,70 @@ test_that("across() does not select grouping variables within transmute()", {
     "Column `chr` doesn't exist"
   )
 })
+
+test_that("mutate() with aggregations after arrange() (GH-45373)", {
+  compare_dplyr_binding(
+    .input |>
+      select(int, chr) |>
+      arrange(int) |>
+      mutate(avg_int = mean(int)) |>
+      collect(),
+    tbl
+  )
+  # A row limit between arrange() and mutate() still uses the sorted rows
+  compare_dplyr_binding(
+    .input |>
+      select(int, chr) |>
+      arrange(desc(int)) |>
+      head(3) |>
+      mutate(min_int = min(int, na.rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("mutate() keeps the name given to if_any() and if_all()", {
+  # GH-34860
+  compare_dplyr_binding(
+    .input |>
+      mutate(new_var = if_any(starts_with("dbl"), ~ . > 4)) |>
+      select(new_var) |>
+      collect(),
+    example_data
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      mutate(new_var = if_all(starts_with("dbl"), ~ . > 4)) |>
+      select(new_var) |>
+      collect(),
+    example_data
+  )
+
+  # other expressions in the same mutate() must not be folded into the if_any()
+  compare_dplyr_binding(
+    .input |>
+      mutate(
+        int_plus = int + 1L,
+        new_var = if_any(starts_with("dbl"), ~ . > 4)
+      ) |>
+      select(int_plus, new_var) |>
+      collect(),
+    example_data
+  )
+})
+
+test_that("mutate() with a variable that shares a name with a function binding", {
+  # GH-39688: `abs` is also a function binding. The user's variable should be
+  # found when used as a value, and the binding when used as a function.
+  abs <- 1L
+  compare_dplyr_binding(
+    .input |>
+      mutate(
+        x = int + abs,
+        y = abs(int) + abs
+      ) |>
+      collect(),
+    tibble::tibble(int = -1:1)
+  )
+})

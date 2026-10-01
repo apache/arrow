@@ -19,20 +19,34 @@
 
 #include <array>
 #include <memory>
+#include <numeric>
 #include <type_traits>
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/util/macros.h"
 
 namespace arrow::dlpack {
 
+extern const DLPackVersion kVersion = {
+    .major = DLPACK_MAJOR_VERSION,
+    .minor = DLPACK_MINOR_VERSION,
+};
+
 namespace {
+
+/***************
+ *  Producers  *
+ ***************/
 
 Result<DLDataType> GetDLDataType(const DataType& type) {
   auto dtype = DLDataType{};
@@ -108,7 +122,7 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
   // Strides must be non-null when ndim > 0
   ctx->tensor.dl_tensor.strides = ctx->strides.data();
   if constexpr (std::is_same_v<DT, DLManagedTensorVersioned>) {
-    ctx->tensor.version = {.major = DLPACK_MAJOR_VERSION, .minor = DLPACK_MINOR_VERSION};
+    ctx->tensor.version = kVersion;
     ctx->tensor.flags = p.flags;
   }
 
@@ -246,6 +260,267 @@ Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Te
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
   return ExportDeviceImpl(t);
+}
+
+/***************
+ *  Consumers  *
+ ***************/
+
+namespace {
+
+class CppDLTensor {
+ public:
+  using value_type = DLManagedTensorVersioned;
+  using pointer_type = value_type*;
+
+  static Result<CppDLTensor> TakeOwnership(pointer_type ptr) {
+    if (ARROW_PREDICT_FALSE(ptr == nullptr)) {
+      return Status::Invalid("Received null pointer.");
+    }
+    // Create the wrapper before checking the version as the spec mandates that the
+    // deleter MUST be called on version major mismatch.
+    auto out = CppDLTensor(ptr);
+    if (ARROW_PREDICT_FALSE(out.ptr_->version.major != kVersion.major)) {
+      return Status::Invalid("Unsupported DLPack major version ", out.ptr_->version.major,
+                             ", expected ", kVersion.major);
+    }
+    if (ARROW_PREDICT_FALSE(out.tensor().ndim < 0)) {
+      return Status::Invalid("Invalid DLPack tensor: ndim must be >= 0");
+    }
+    if (ARROW_PREDICT_FALSE(out.tensor().ndim != 0 && out.tensor().shape == nullptr)) {
+      return Status::Invalid(
+          "Invalid DLPack tensor: shape must be non-null when ndim != 0");
+    }
+    // Null strides are handled as row major
+    return out;
+  }
+
+  const DLTensor& tensor() const { return ptr_->dl_tensor; }
+
+  int64_t ndim() const {
+    DCHECK_GE(tensor().ndim, 0);
+    return tensor().ndim;
+  }
+
+  template <typename T>
+  T* data_as() {
+    return static_cast<T*>(tensor().data);
+  }
+
+  std::span<const int64_t> shape() const {
+    return {tensor().shape, static_cast<std::size_t>(ndim())};
+  }
+
+  /// Strides or empty span for old DLPack row-major convention.
+  std::span<const int64_t> strides() const {
+    if (auto strides = tensor().strides; strides != nullptr) {
+      return {strides, static_cast<std::size_t>(ndim())};
+    }
+    return {};
+  }
+
+  bool flag_is_set(uint8_t bits) const { return (ptr_->flags & bits) == bits; }
+
+  bool is_readonly() const { return flag_is_set(DLPACK_FLAG_BITMASK_READ_ONLY); }
+
+  int32_t byte_width() const { return tensor().dtype.bits / 8; }
+
+  /// Number of element in this tensor's buffer.
+  ///
+  /// Possibly more elements than represented in the tensor for non-contiguous tensors.
+  ///
+  /// A zero dimensional tensor is a scalar, it holds a single element.
+  Result<int64_t> ComputeNumElements() const {
+    const auto strides = this->strides();
+    const auto shape = this->shape();
+    if (strides.size() > 0) {
+      // DLPack strides are in number of elements, so is the size we compute from them.
+      return internal::ComputeTensorSize(shape, strides, 1);
+    }
+    // DLPack <1.3 may set strides == nullptr for row major
+    return std::reduce(shape.begin(), shape.end(), int64_t{1}, std::multiplies{});
+  }
+
+  /// Number of bytes needed to store this tensor data.
+  Result<int64_t> ComputeNumBytes() const {
+    ARROW_ASSIGN_OR_RAISE(const auto nelements, ComputeNumElements());
+    int64_t nbytes = 0;
+    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
+            nelements, static_cast<int64_t>(byte_width()), &nbytes))) {
+      return Status::Invalid("Overflow computing DLPack tensor size in bytes.");
+    }
+    return nbytes;
+  }
+
+ private:
+  struct Deleter {
+    void operator()(pointer_type ptr) {
+      // Null is valid in DLPack spec
+      if (auto del = ptr->deleter) {
+        del(ptr);
+      }
+    }
+  };
+
+  /// Make a safe wrapper that will delete the resource in case of exception.
+  std::unique_ptr<value_type, Deleter> ptr_;
+
+  explicit CppDLTensor(pointer_type ptr) : ptr_(ptr) {}
+};
+
+Result<std::shared_ptr<FixedWidthType>> DataTypeFromDLPack(DLDataType dtype) {
+  if (dtype.lanes != 1) {
+    return Status::TypeError("Only type with one lane are supported.");
+  }
+
+  auto constexpr as_fw = [](auto dt) {
+    return std::static_pointer_cast<FixedWidthType>(std::move(dt));
+  };
+
+  switch (dtype.code) {
+    case kDLInt: {
+      switch (dtype.bits) {
+        case 8:
+          return as_fw(int8());
+        case 16:
+          return as_fw(int16());
+        case 32:
+          return as_fw(int32());
+        case 64:
+          return as_fw(int64());
+        default:
+          return Status::Invalid("unsupported integer bit width ",
+                                 static_cast<int>(dtype.bits));
+      }
+    }
+    case kDLUInt: {
+      switch (dtype.bits) {
+        case 8:
+          return as_fw(uint8());
+        case 16:
+          return as_fw(uint16());
+        case 32:
+          return as_fw(uint32());
+        case 64:
+          return as_fw(uint64());
+        default:
+          return Status::Invalid("unsupported unsigned integer bit width ",
+                                 static_cast<int>(dtype.bits));
+      }
+    }
+    case kDLFloat: {
+      switch (dtype.bits) {
+        case 16:
+          return as_fw(float16());
+        case 32:
+          return as_fw(float32());
+        case 64:
+          return as_fw(float64());
+        default:
+          return Status::Invalid("unsupported float bit width ",
+                                 static_cast<int>(dtype.bits));
+      }
+    }
+    default: {
+      return Status::Invalid("unsupported DLPack type ", static_cast<int>(dtype.code));
+    }
+  }
+}
+
+Result<std::vector<int64_t>> StridesInBytes(std::span<const int64_t> strides,
+                                            int64_t byte_width) {
+  std::vector<int64_t> out{};
+  out.reserve(strides.size());
+  for (const auto& s : strides) {
+    int64_t stride_bytes = 0;
+    if (ARROW_PREDICT_FALSE(
+            internal::MultiplyWithOverflow(s, byte_width, &stride_bytes))) {
+      return Status::Invalid("Overflow computing DLPack tensor stride in bytes.");
+    }
+    out.push_back(stride_bytes);
+  }
+  return out;
+}
+
+Result<std::shared_ptr<Buffer>> ImportBuffer(CppDLTensor&& dl) {
+  ARROW_ASSIGN_OR_RAISE(const int64_t nbytes, dl.ComputeNumBytes());
+
+  // DLPack mandates a null data pointer when the tensor holds no element, so there is
+  // neither anything to share nor to copy.
+  uint8_t* data =
+      (nbytes == 0) ? nullptr : dl.data_as<uint8_t>() + dl.tensor().byte_offset;
+
+  std::shared_ptr<Buffer> buffer = nullptr;
+  if (nbytes == 0) {
+    // DLPack data pointer may be null on empty tensors
+    buffer = std::make_shared<Buffer>(data, nbytes);
+  } else if (const auto byte_offset = dl.tensor().byte_offset; dl.is_readonly()) {
+    auto get_data = [byte_offset](auto& d) {
+      return d.template data_as<const uint8_t>() + byte_offset;
+    };
+    buffer = Buffer::TakeOwnership(std::move(dl), nbytes, get_data);
+    ARROW_DCHECK(!buffer->is_mutable());
+  } else {
+    auto get_data = [byte_offset](auto& d) {
+      return d.template data_as<uint8_t>() + byte_offset;
+    };
+    buffer = Buffer::TakeOwnership(std::move(dl), nbytes, get_data);
+    ARROW_DCHECK(buffer->is_mutable());
+  }
+
+  return buffer;
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* unmanaged) {
+  ARROW_ASSIGN_OR_RAISE(auto dl, CppDLTensor::TakeOwnership(unmanaged));
+
+  if (dl.tensor().device.device_type != kDLCPU) {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
+
+  const auto strides = dl.strides();
+  if (dl.ndim() != 1 || (!strides.empty() && strides.front() != 1)) {
+    return Status::Invalid(
+        "Only contiguous one dimensional tensor can be imported as arrays."
+        " Try importing to Tensor first.");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto type, DataTypeFromDLPack(dl.tensor().dtype));
+  const auto nelements = dl.shape().front();
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl)));
+  auto data = ArrayData::Make(type, nelements, {nullptr, std::move(buffer)});
+  return MakeArray(std::move(data));
+}
+
+Result<std::shared_ptr<Tensor>> ImportTensorVersioned(
+    DLManagedTensorVersioned* unmanaged) {
+  ARROW_ASSIGN_OR_RAISE(auto dl, CppDLTensor::TakeOwnership(unmanaged));
+
+  if (dl.tensor().device.device_type != kDLCPU) {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto type, DataTypeFromDLPack(dl.tensor().dtype));
+  auto shape = std::vector<int64_t>(dl.shape().begin(), dl.shape().end());
+  const auto strides = dl.strides();
+
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ImportBuffer(std::move(dl)));
+  const auto byte_width = type->byte_width();
+
+  // In older DLPack null strides means row major, same as in Arrow.
+  if (strides.empty()) {
+    return Tensor::Make(std::move(type), std::move(buffer), std::move(shape));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto strides_bytes,
+      StridesInBytes(std::vector<int64_t>(strides.begin(), strides.end()), byte_width));
+  return Tensor::Make(std::move(type), std::move(buffer), std::move(shape),
+                      std::move(strides_bytes));
 }
 
 }  // namespace arrow::dlpack

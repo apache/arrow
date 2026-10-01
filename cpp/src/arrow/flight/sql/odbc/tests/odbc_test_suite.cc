@@ -29,6 +29,22 @@
 
 namespace arrow::flight::sql::odbc {
 
+#ifdef _WIN32
+namespace {
+
+// GH-49538: Hold a handle to the driver for the entire duration of the test
+// suite to avoid a segfault on teardown. This most likely due to having two
+// statically linked copies of gRPC in the test program (one from the driver and
+// one from the mock server).
+void PinDriverModule() {
+  HMODULE unused = nullptr;
+  GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, ARROW_FLIGHT_SQL_ODBC_DLL_FILE_NAME,
+                     &unused);
+}
+
+}  // namespace
+#endif  // _WIN32
+
 class MockServerEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
@@ -137,6 +153,14 @@ void ODBCTestBase::ConnectWithString(std::string connect_str, SQLHDBC& conn_hand
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn_handle);
+
+// GH-49538: Hold a handle to the driver for the entire duration of the test
+// suite to avoid a segfault on teardown. This most likely due to having two
+// statically linked copies of gRPC in the test program (one from the driver and
+// one from the mock server).
+#ifdef _WIN32
+  PinDriverModule();
+#endif
 }
 
 void ODBCTestBase::Disconnect(SQLHENV& env_handle, SQLHDBC& conn_handle) {
