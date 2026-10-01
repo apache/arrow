@@ -261,11 +261,20 @@ TEST(KeyValueMetadataTest, Delete) {
   {
     KeyValueMetadata metadata(keys, values);
     std::string expected_error_message =
-        "Index error: KeyValueMetadata::DeleteMany: duplicate index 1 in indices to "
+        "Index error: KeyValueMetadata::DeleteMany: duplicate index 0 in indices to "
         "delete";
 
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
                                metadata.DeleteMany({0, 0, 5, 2}));
+  }
+  {
+    KeyValueMetadata metadata(keys, values);
+    std::string expected_error_message =
+        "Index error: KeyValueMetadata::DeleteMany: duplicate index 6 in indices to "
+        "delete";
+
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
+                               metadata.DeleteMany({6, 6}));
   }
 }
 
