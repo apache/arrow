@@ -209,6 +209,7 @@ def test_from_numpy_dtype():
         (np.dtype('timedelta64[ms]'), pa.duration('ms')),
         (np.dtype('timedelta64[us]'), pa.duration('us')),
         (np.dtype('timedelta64[ns]'), pa.duration('ns')),
+        (np.dtypes.StringDType(), pa.string()),
     ]
 
     for dt, pt in cases:
