@@ -54,6 +54,11 @@ class Encryptor;
 class OffsetIndexBuilder;
 class WriterProperties;
 
+namespace internal {
+class ContentDefinedChunker;
+struct LevelInfo;
+}  // namespace internal
+
 class PARQUET_EXPORT LevelEncoder {
  public:
   LevelEncoder();
@@ -199,6 +204,22 @@ class PARQUET_EXPORT ColumnWriter {
                                      int64_t num_levels, const ::arrow::Array& leaf_array,
                                      ArrowWriteContext* ctx,
                                      bool leaf_field_nullable) = 0;
+
+ private:
+  friend class RowGroupSerializer;
+
+  /// \brief Create a column writer using the given level information and content
+  /// defined chunker
+  ///
+  /// The file writer computes the level information of a column once and gives the same
+  /// chunker to the column writers of a column, so the content defined chunking is
+  /// carried over between the row groups. The chunker is required if the properties
+  /// enable content defined chunking.
+  static std::shared_ptr<ColumnWriter> Make(
+      ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
+      const WriterProperties* properties, BloomFilter* bloom_filter,
+      const internal::LevelInfo& level_info,
+      internal::ContentDefinedChunker* content_defined_chunker);
 };
 
 // API to write values to a single column. This is the main client facing API.

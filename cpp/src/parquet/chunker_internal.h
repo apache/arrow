@@ -22,6 +22,7 @@
 
 #include "arrow/array.h"
 #include "parquet/level_conversion.h"
+#include "parquet/properties.h"
 
 namespace parquet::internal {
 
@@ -72,10 +73,10 @@ struct Chunk {
 /// Implementation details:
 ///
 /// Only the parquet writer must be aware of the content defined chunking, the reader
-/// doesn't need to know about it. Each parquet column writer holds a
-/// ContentDefinedChunker instance depending on the writer's properties. The chunker's
-/// state is maintained across the entire column without being reset between pages and row
-/// groups.
+/// doesn't need to know about it. The parquet file writer holds one
+/// ContentDefinedChunker per leaf column depending on the writer's properties, and passes
+/// it to the column writers of every row group. The chunker's state is maintained
+/// across the entire column without being reset between pages and row groups.
 ///
 /// The chunker receives the record shredded column data (def_levels, rep_levels, values)
 /// and goes over the (def_level, rep_level, value) triplets one by one while adjusting
@@ -118,7 +119,16 @@ class PARQUET_EXPORT ContentDefinedChunker {
   ///   expense of fragmentation.
   ContentDefinedChunker(const LevelInfo& level_info, int64_t min_chunk_size,
                         int64_t max_chunk_size, int norm_level = 0);
+  ContentDefinedChunker(ContentDefinedChunker&&) noexcept;
+  ContentDefinedChunker& operator=(ContentDefinedChunker&&) noexcept;
   ~ContentDefinedChunker();
+
+  /// Create a new ContentDefinedChunker instance using the given chunking options
+  ///
+  /// @param level_info Information about definition and repetition levels
+  /// @param options Content defined chunking options
+  static ContentDefinedChunker Make(const LevelInfo& level_info,
+                                    const CdcOptions& options);
 
   /// Get the chunk boundaries for the given column data
   ///
