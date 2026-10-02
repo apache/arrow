@@ -155,12 +155,12 @@ inline size_t InterleavedPforMaxEncodedSize(size_t n) {
 //
 //   for each 8-lane slice lb, for each 8-row block rb:
 //     eight registers <- unpack rows rb..rb+7, lanes lb..lb+7   (8-16 loads)
-//     the unpacklo/unpackhi/permute2x128 ladder                 (24 shuffles)
+//     the unpacklo/unpackhi/permute2x128 sequence               (24 shuffles)
 //     eight 32-byte stores across out[lb..lb+7][rb..rb+7]       (8 stores)
 //
 // Load and store counts per block are then identical to the file-order kernel's
 // (each packed word read once, each output value written once); the only thing
-// FL_ORDER pays over file order is the shuffle ladder. lb is the outer loop on
+// FL_ORDER pays over file order is the shuffles. lb is the outer loop on
 // purpose: a fixed lb writes out[lb * 32, lb * 32 + 256), one contiguous 1 KiB
 // run, whereas rb outer would stride 128 bytes across the whole 4 KiB block.
 // ---------------------------------------------------------------------------
@@ -172,8 +172,8 @@ namespace internal {
 // needs it too, and that header is upstream of this one.
 
 // One 8x8 tile: unpack eight rows' worth of an 8-lane slice, transpose in
-// registers, store across eight output rows. The ladder is the same one
-// Transpose32x32Avx2 uses; only the source of r0..r7 differs.
+// registers, store across eight output rows. The shuffle sequence is the same
+// one Transpose32x32Avx2 uses; only the source of r0..r7 differs.
 template <uint32_t w, bool kHasBias, uint32_t rb>
 ARROW_FORCE_INLINE void FlUnpackTile(const uint32_t* ARROW_RESTRICT packed,
                                      int32_t* ARROW_RESTRICT out, size_t lb,
@@ -255,7 +255,8 @@ namespace internal {
 
 // One 4x4 tile, the NEON counterpart of FlUnpackTile: unpack four rows' worth of
 // a 4-lane slice, transpose in registers, store across four output rows. The
-// ladder is the one Transpose32x32Neon uses; only the source of r0..r3 differs.
+// shuffle sequence is the one Transpose32x32Neon uses; only the source of
+// r0..r3 differs.
 // Four-wide rather than eight-wide because that is the register width, which
 // costs four times as many tiles per block but the same number of loads and
 // stores -- a 16-byte store of four output values either way.

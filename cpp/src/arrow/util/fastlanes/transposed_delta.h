@@ -445,13 +445,13 @@ inline void Transpose32x32Neon(const uint32_t* ARROW_RESTRICT grid,
 
 #ifdef ARROW_TRANSPOSED_DELTA_AVX2
 // Sixteen 8x8 transposes, each done entirely in registers: eight 32-byte loads
-// down a column of the grid, an unpack ladder, eight 32-byte stores across a row
+// down a column of the grid, a shuffle sequence, eight 32-byte stores across a row
 // of the output. A permutation is the one thing in this file the autovectorizer
 // cannot do -- it is not a lane-wise operation, and GCC lowers the scalar
 // version below to 1024 four-byte loads at a 128-byte stride plus 1024 scalar
 // stores. This issues 128 loads and 128 stores instead, so the block costs
 // shuffle throughput rather than memory-op throughput. 256-bit and not 512-bit
-// on purpose: a 16x16 register block needs vpermi2d ladders to cross the extra
+// on purpose: a 16x16 register block needs vpermi2d shuffles to cross the extra
 // lane boundary, and on this microarchitecture 512-bit buys nothing for the
 // unpack either.
 inline void Transpose32x32Avx2(const uint32_t* ARROW_RESTRICT grid,
@@ -570,7 +570,7 @@ inline void PrefixSumAndTransposeNeon(const uint32_t* ARROW_RESTRICT grid,
 // The loop nest is the transpose's, with the blocking order swapped: lane block
 // outer, row block inner, so one accumulator register carries eight lanes'
 // running sums down all 32 rows and never spills. Each 8x8 register block is
-// eight loads, eight adds along the chain, the same unpack ladder
+// eight loads, eight adds along the chain, the same shuffle sequence
 // Transpose32x32Avx2 uses, and eight 32-byte stores across a row of the output.
 // The adds are the only addition to the transpose's instruction stream, and they
 // sit on the load-to-shuffle path rather than after it.
@@ -655,7 +655,7 @@ inline void PrefixSumAndTransposeAvx2(const uint32_t* ARROW_RESTRICT grid,
 // of from memory, so each packed word is read once and each output value written
 // once, and the block never exists. Nothing else changes -- the accumulator
 // still carries eight lanes' running sums down all 32 rows in one register, and
-// the ladder is still the one Transpose32x32Avx2 uses.
+// the shuffle sequence is still the one Transpose32x32Avx2 uses.
 //
 // kHasBias is true here rather than folded into the accumulator: the wire format
 // stores min-subtracted deltas, so every one of the 32 values in a lane's chain
