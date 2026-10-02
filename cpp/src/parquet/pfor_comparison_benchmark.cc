@@ -454,6 +454,19 @@ static void BM_DeltaBitPack64Decode(benchmark::State& state, Gen64 gen) {
 // ----------------------------------------------------------------------
 // Plain + ZSTD Encode/Decode
 
+// Codec::Create returns NotImplemented for a codec the build did not enable, and
+// dereferencing that Result aborts the process -- one unbuilt dependency would take
+// down every other benchmark registered in this binary. Report it as a skip instead.
+static std::unique_ptr<Codec> CodecOrSkip(benchmark::State& state,
+                                          Compression::type codec_type) {
+  auto maybe_codec = Codec::Create(codec_type);
+  if (!maybe_codec.ok()) {
+    state.SkipWithError(maybe_codec.status().ToString().c_str());
+    return nullptr;
+  }
+  return std::move(maybe_codec).ValueUnsafe();
+}
+
 template <typename T>
 static void PlainCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
                                  Compression::type codec_type) {
@@ -462,7 +475,8 @@ static void PlainCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
   const int64_t uncompressed_size = num_values * sizeof(T);
   const uint8_t* raw = reinterpret_cast<const uint8_t*>(values.data());
 
-  auto codec = *Codec::Create(codec_type);
+  auto codec = CodecOrSkip(state, codec_type);
+  if (codec == nullptr) return;
   int64_t max_comp = codec->MaxCompressedLen(uncompressed_size, raw);
   std::vector<uint8_t> compressed(max_comp);
 
@@ -489,7 +503,8 @@ static void PlainCodecDecodeImpl(benchmark::State& state, GenT<T> gen,
   const int64_t uncompressed_size = num_values * sizeof(T);
   const uint8_t* raw = reinterpret_cast<const uint8_t*>(values.data());
 
-  auto codec = *Codec::Create(codec_type);
+  auto codec = CodecOrSkip(state, codec_type);
+  if (codec == nullptr) return;
   int64_t max_comp = codec->MaxCompressedLen(uncompressed_size, raw);
   std::vector<uint8_t> compressed(max_comp);
   int64_t comp_size =
@@ -668,7 +683,8 @@ static void BssCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
   auto descr = MakeDescriptor<T>();
   auto encoder = MakeTypedEncoder<PType>(Encoding::BYTE_STREAM_SPLIT,
                                          /*use_dictionary=*/false, descr.get());
-  auto codec = *Codec::Create(codec_type);
+  auto codec = CodecOrSkip(state, codec_type);
+  if (codec == nullptr) return;
 
   encoder->Put(values.data(), static_cast<int>(num_values));
   auto encoded_buf = encoder->FlushValues();
@@ -705,7 +721,8 @@ static void BssCodecDecodeImpl(benchmark::State& state, GenT<T> gen,
   auto descr = MakeDescriptor<T>();
   auto encoder = MakeTypedEncoder<PType>(Encoding::BYTE_STREAM_SPLIT,
                                          /*use_dictionary=*/false, descr.get());
-  auto codec = *Codec::Create(codec_type);
+  auto codec = CodecOrSkip(state, codec_type);
+  if (codec == nullptr) return;
 
   encoder->Put(values.data(), static_cast<int>(num_values));
   auto encoded_buf = encoder->FlushValues();
@@ -1264,12 +1281,9 @@ static void BM_DbpRsDirect(benchmark::State& state, Gen32 gen) {
   DbpAblateImpl<int32_t, DbpAblate::kDirect>(state, gen, 128, 4);
 }
 
-// Geometry sweep, full decode each time. 128/4 is Arrow's default and the
-// control; the rest vary how many values one unpack call covers and how often a
-// block header is parsed.
-static void BM_DbpGeom128x4(benchmark::State& state, Gen32 gen) {
-  DbpAblateImpl<int32_t, DbpAblate::kFull>(state, gen, 128, 4);
-}
+// Geometry sweep, full decode each time. The 128/4 control is Arrow's default and
+// is registered as BM_DbpAbFull above; these vary how many values one unpack call
+// covers and how often a block header is parsed.
 static void BM_DbpGeom128x1(benchmark::State& state, Gen32 gen) {
   DbpAblateImpl<int32_t, DbpAblate::kFull>(state, gen, 128, 1);
 }
