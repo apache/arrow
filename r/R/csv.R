@@ -722,6 +722,10 @@ readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
 #'    and LF (`0x0a`) characters?
 #' @param ignore_empty_lines Logical: should empty lines be ignored (default) or
 #'    generate a row of missing values (if `FALSE`)?
+#' @param pad_short_rows Logical: should rows with fewer columns than expected be
+#'    padded with missing values (default `FALSE`) or raise an error?
+#' @param ignore_extra_columns Logical: should columns beyond the number expected be
+#'    ignored (default `FALSE`) or raise an error?
 #' @examplesIf arrow_with_dataset()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
@@ -737,7 +741,9 @@ csv_parse_options <- function(
   escaping = FALSE,
   escape_char = "\\",
   newlines_in_values = FALSE,
-  ignore_empty_lines = TRUE
+  ignore_empty_lines = TRUE,
+  pad_short_rows = FALSE,
+  ignore_extra_columns = FALSE
 ) {
   csv___ParseOptions__initialize(
     list(
@@ -748,7 +754,9 @@ csv_parse_options <- function(
       escaping = escaping,
       escape_char = escape_char,
       newlines_in_values = newlines_in_values,
-      ignore_empty_lines = ignore_empty_lines
+      ignore_empty_lines = ignore_empty_lines,
+      pad_short_rows = pad_short_rows,
+      ignore_extra_columns = ignore_extra_columns
     )
   )
 }

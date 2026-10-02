@@ -691,6 +691,54 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
   expect_equal(tab1, tab2)
 })
 
+test_that("pad_short_rows and ignore_extra_columns parse options", {
+  # Rows with fewer columns than expected are padded with nulls (GH-50925), and
+  # extra columns are dropped (GH-50967).
+  short <- I("a,b,c\n1,2,9\n3")
+  expect_error(read_csv_arrow(short))
+  expect_identical(
+    read_csv_arrow(short, parse_options = csv_parse_options(pad_short_rows = TRUE)),
+    tibble::tibble(a = c(1L, 3L), b = c(2L, NA), c = c(9L, NA))
+  )
+
+  extra <- I("a,b\n1,2,3\n4,5")
+  expect_error(read_csv_arrow(extra))
+  expect_identical(
+    read_csv_arrow(extra, parse_options = csv_parse_options(ignore_extra_columns = TRUE)),
+    tibble::tibble(a = c(1L, 4L), b = c(2L, 5L))
+  )
+
+  # Both together
+  ragged <- I("a,b\n1,2,3\n4")
+  expect_identical(
+    read_csv_arrow(
+      ragged,
+      parse_options = csv_parse_options(pad_short_rows = TRUE, ignore_extra_columns = TRUE)
+    ),
+    tibble::tibble(a = c(1L, 4L), b = c(2L, NA))
+  )
+
+  # The options are also accepted as a plain list, and via the R6 constructor.
+  expected <- tibble::tibble(a = c(1L, 4L), b = c(2L, NA))
+  expect_identical(
+    read_csv_arrow(
+      ragged,
+      parse_options = list(pad_short_rows = TRUE, ignore_extra_columns = TRUE)
+    ),
+    expected
+  )
+  expect_identical(
+    read_csv_arrow(
+      ragged,
+      parse_options = CsvParseOptions$create(
+        pad_short_rows = TRUE,
+        ignore_extra_columns = TRUE
+      )
+    ),
+    expected
+  )
+})
+
 test_that("Read literal data directly", {
   expected <- tibble::tibble(x = c(1L, 3L), y = c(2L, 4L))
 
