@@ -284,11 +284,7 @@ repos:
           (
           ?^c_glib/.*\.sh$|
           ?^ci/.*\.sh$|
-          ?^cpp/build-support/.*\.sh$|
-          ?^cpp/examples/minimal_build/run\.sh$|
-          ?^cpp/examples/tutorial_examples/.*\.sh$|
-          ?^cpp/src/.*\.sh$|
-          ?^cpp/thirdparty/download_dependencies\.sh$|
+          ?^cpp/.*\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-flightsqlodbc-upload\.sh$|
           ?^dev/release/08-publish-gh-release\.sh$|
