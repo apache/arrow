@@ -102,5 +102,5 @@ echo "=="
 echo
 
 pushd $EXAMPLE_DIR
-
+#
 $EXAMPLE_BUILD_DIR/arrow-example
