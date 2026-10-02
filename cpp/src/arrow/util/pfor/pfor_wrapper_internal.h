@@ -80,6 +80,11 @@ class ARROW_EXPORT PforWrapper {
     int32_t num_elements_ = 0;
     int32_t vector_size_ = 0;
     int32_t num_vectors_ = 0;
+    // Which bit-packing layout the page declares. A vector shorter than a full
+    // interleaved block is written as kForBitPack even on an interleaved page,
+    // and DecodeVector derives that from the element count the way the
+    // whole-page decoder does.
+    PackingMode packing_mode_ = PackingMode::kForBitPack;
   };
 
   /// \brief Encode integer values into a PFOR-compressed page

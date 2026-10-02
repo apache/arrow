@@ -1563,4 +1563,53 @@ TEST(PforInterleavedTest, ForgedHeaderIsRejected) {
                                                       decoded.data()));
 }
 
+/// A column reader does not hand a whole page to the decoder: it opens the page
+/// once and asks for one vector at a time, which is a second decode path over
+/// the same bytes. The layout a page declares has to reach that path too, or
+/// every full interleaved vector read through a Parquet file expands as though
+/// it were sequential -- wrong values, and no error to say so.
+///
+/// The page here is three vectors and a short tail, so it covers both rules the
+/// path has to get right: the full vectors are interleaved, and the tail, which
+/// is too short for a block, is sequential on the same page.
+TEST(PforInterleavedTest, VectorAtATimeReadMatchesWholePage) {
+  using T = int32_t;
+  const auto vector_size = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  const int32_t num_values = 3 * vector_size + 300;
+
+  for (int width : {1, 3, 7, 8, 13, 16, 24, 31}) {
+    const auto values = ValuesForWidth<T>(width, /*zero_frame=*/true, num_values,
+                                          static_cast<uint32_t>(width));
+
+    int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
+    std::vector<uint8_t> page(comp_size);
+    ASSERT_OK(PforWrapper<T>::Encode(
+        values.data(), num_values, page.data(), &comp_size,
+        PforEncodeOptions{.mode = PackingMode::kForBitPackInterleaved}));
+    ASSERT_EQ(static_cast<uint8_t>(PackingMode::kForBitPackInterleaved),
+              PackingModeOf(page))
+        << "width " << width;
+
+    ASSERT_OK_AND_ASSIGN(auto reader, PforWrapper<T>::VectorReader::Open(
+                                          {page.data(), static_cast<size_t>(comp_size)}));
+    ASSERT_EQ(num_values, reader.num_elements()) << "width " << width;
+    ASSERT_EQ(4, reader.num_vectors()) << "width " << width;
+
+    std::vector<T> streamed;
+    streamed.reserve(num_values);
+    for (int32_t v = 0; v < reader.num_vectors(); ++v) {
+      ASSERT_OK_AND_ASSIGN(const int32_t length, reader.VectorLength(v));
+      std::vector<T> one(length);
+      ASSERT_OK(reader.DecodeVector(v, one)) << "width " << width << " vector " << v;
+      streamed.insert(streamed.end(), one.begin(), one.end());
+    }
+    ASSERT_EQ(values, streamed) << "width " << width;
+
+    // The whole-page decoder is the reference the two paths have to agree on.
+    std::vector<T> whole(num_values);
+    ASSERT_OK(PforWrapper<T>::Decode(page.data(), comp_size, num_values, whole.data()));
+    ASSERT_EQ(whole, streamed) << "width " << width;
+  }
+}
+
 }  // namespace arrow::util::pfor
