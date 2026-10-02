@@ -253,7 +253,9 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
     // same split from the same element count.
     auto encoded = PforCompression<T>::EncodeVector(
         values + start_idx, elements_in_vector,
-        PforEncodeOptions{options.delta_enabled, effective_mode});
+        PforEncodeOptions{.delta_enabled = options.delta_enabled,
+                          .force_delta = options.force_delta,
+                          .mode = effective_mode});
 
     // Serialize to output
     ARROW_ASSIGN_OR_RAISE(

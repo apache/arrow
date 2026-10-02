@@ -1356,7 +1356,7 @@ TYPED_TEST(PforTest, InterleavedAllBitWidths) {
       int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
       std::vector<uint8_t> page(comp_size);
       ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, page.data(), &comp_size,
-                                       kInterleaved));
+                                       PforEncodeOptions{.mode = kInterleaved}));
       page.resize(comp_size);
 
       std::vector<T> decoded(num_values);
@@ -1387,7 +1387,7 @@ TYPED_TEST(PforTest, InterleavedWithExceptions) {
   int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
   std::vector<uint8_t> page(comp_size);
   ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, page.data(), &comp_size,
-                                   PackingMode::kForBitPackInterleaved));
+                                   PforEncodeOptions{.mode = PackingMode::kForBitPackInterleaved}));
 
   std::vector<T> decoded(num_values);
   ASSERT_OK(PforWrapper<T>::Decode(page.data(), comp_size, num_values, decoded.data()));
@@ -1405,7 +1405,7 @@ TYPED_TEST(PforTest, InterleavedShortTailVector) {
     int64_t comp_size = PforWrapper<T>::GetMaxCompressedSize(num_values).ValueOrDie();
     std::vector<uint8_t> page(comp_size);
     ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, page.data(), &comp_size,
-                                     PackingMode::kForBitPackInterleaved));
+                                     PforEncodeOptions{.mode = PackingMode::kForBitPackInterleaved}));
 
     std::vector<T> decoded(num_values);
     ASSERT_OK(PforWrapper<T>::Decode(page.data(), comp_size, num_values, decoded.data()))
@@ -1432,7 +1432,7 @@ TYPED_TEST(PforTest, InterleavedCostsNoSpace) {
     std::vector<uint8_t> interleaved(interleaved_size);
     ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, interleaved.data(),
                                      &interleaved_size,
-                                     PackingMode::kForBitPackInterleaved));
+                                     PforEncodeOptions{.mode = PackingMode::kForBitPackInterleaved}));
 
     ASSERT_EQ(sequential_size, interleaved_size) << "num_values " << num_values;
   }
@@ -1465,7 +1465,7 @@ TEST(PforInterleavedTest, LayoutsDifferBelowThirtyTwoBits) {
     std::vector<uint8_t> interleaved(interleaved_size);
     ASSERT_OK(PforWrapper<T>::Encode(values.data(), num_values, interleaved.data(),
                                      &interleaved_size,
-                                     PackingMode::kForBitPackInterleaved));
+                                     PforEncodeOptions{.mode = PackingMode::kForBitPackInterleaved}));
     interleaved.resize(interleaved_size);
 
     ASSERT_EQ(sequential.size(), interleaved.size()) << "width " << width;
@@ -1507,7 +1507,7 @@ TEST(PforInterleavedTest, UnsatisfiableRequestRecordsSequential) {
         PforWrapper<int64_t>::GetMaxCompressedSize(num_values).ValueOrDie();
     std::vector<uint8_t> page(comp_size);
     ASSERT_OK(PforWrapper<int64_t>::Encode(values.data(), num_values, page.data(),
-                                           &comp_size, kInterleaved));
+                                           &comp_size, PforEncodeOptions{.mode = kInterleaved}));
     ASSERT_EQ(static_cast<uint8_t>(PackingMode::kForBitPack), PackingModeOf(page));
 
     std::vector<int64_t> decoded(num_values);
@@ -1525,7 +1525,7 @@ TEST(PforInterleavedTest, UnsatisfiableRequestRecordsSequential) {
         PforWrapper<int32_t>::GetMaxCompressedSize(num_values, kVectorSize).ValueOrDie();
     std::vector<uint8_t> page(comp_size);
     ASSERT_OK(PforWrapper<int32_t>::Encode(values.data(), num_values, kVectorSize,
-                                           page.data(), &comp_size, kInterleaved));
+                                           page.data(), &comp_size, PforEncodeOptions{.mode = kInterleaved}));
     ASSERT_EQ(static_cast<uint8_t>(PackingMode::kForBitPack), PackingModeOf(page));
 
     std::vector<int32_t> decoded(num_values);

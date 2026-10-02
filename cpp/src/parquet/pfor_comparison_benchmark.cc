@@ -373,13 +373,13 @@ static void BM_PforDbpDelta64Decode(benchmark::State& state, Gen64 gen) {
 static void BM_PforPlainSeqDecode(benchmark::State& state, Gen32 gen) {
   PforDecodeImpl<int32_t>(
       state, gen,
-      {/*delta_enabled=*/false, ::arrow::util::pfor::PackingMode::kForBitPack});
+      {.delta_enabled = false, .mode = ::arrow::util::pfor::PackingMode::kForBitPack});
 }
 static void BM_PforPlainInterleavedDecode(benchmark::State& state, Gen32 gen) {
   PforDecodeImpl<int32_t>(
       state, gen,
-      {/*delta_enabled=*/false,
-       ::arrow::util::pfor::PackingMode::kForBitPackInterleaved});
+      {.delta_enabled = false,
+       .mode = ::arrow::util::pfor::PackingMode::kForBitPackInterleaved});
 }
 
 // ----------------------------------------------------------------------
