@@ -274,6 +274,7 @@ util_tests = {
             'thread_pool_test.cc',
         ],
     },
+    'arrow-encoding-utility-test': {'sources': ['alp/alp_test.cc']},
     'arrow-crc32-test': {'sources': ['crc32_test.cc']},
 }
 

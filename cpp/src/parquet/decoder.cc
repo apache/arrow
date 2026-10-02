@@ -24,6 +24,8 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -35,6 +37,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/alp/alp_codec_internal.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
@@ -2444,6 +2447,174 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
   }
 };
 
+// ----------------------------------------------------------------------
+// ALP decoder (Adaptive Lossless floating-Point)
+
+template <typename DType>
+class AlpDecoder : public TypedDecoderImpl<DType> {
+ public:
+  using Base = TypedDecoderImpl<DType>;
+  using T = typename DType::c_type;
+  using VectorReader = ::arrow::util::alp::AlpVectorReader<T>;
+  using PooledVector = ::arrow::util::alp::AlpVector<T>;
+
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "ALP only supports float and double types");
+
+  explicit AlpDecoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : Base(descr, Encoding::ALP),
+        pool_(pool),
+        cached_vector_(::arrow::util::alp::AlpAllocator<T>(pool)) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) final {
+    if (num_values < 0 || len < 0) {
+      throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
+                             " len=" + std::to_string(len));
+    }
+    Base::SetData(num_values, data, len);
+    if (num_values > 0 && len == 0) {
+      throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
+                             " but len=" + std::to_string(len));
+    }
+    // `num_values` is the page's level count, which includes nulls, while the ALP
+    // payload holds only the non-null values. Its own header is the authority on
+    // how many, so take the count from there.
+    if (len > 0) {
+      PARQUET_ASSIGN_OR_THROW(
+          reader_, VectorReader::Open({data, static_cast<size_t>(len)}, pool_));
+      const int32_t num_encoded_values = reader_->num_elements();
+      if (num_encoded_values > num_values) {
+        throw ParquetException("ALP page declares " + std::to_string(num_encoded_values) +
+                               " values but the page header allows at most " +
+                               std::to_string(num_values));
+      }
+      this->num_values_ = num_encoded_values;
+    } else {
+      reader_.reset();
+      this->num_values_ = 0;
+    }
+    levels_remaining_ = num_values;
+    cached_vector_index_ = -1;
+  }
+
+  int Decode(T* buffer, int max_values) override {
+    if (ARROW_PREDICT_FALSE(max_values < 0)) {
+      throw ParquetException("ALP Decode: max_values must be non-negative");
+    }
+    max_values = std::min(max_values, this->num_values_);
+    if (max_values == 0) {
+      return 0;
+    }
+    DecodeInternal(buffer, max_values);
+    this->num_values_ -= max_values;
+    levels_remaining_ -= max_values;
+    CheckPageConsumed();
+    return max_values;
+  }
+
+  int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
+                   int64_t valid_bits_offset) override {
+    const int num_decoded =
+        Base::DecodeSpaced(buffer, num_values, null_count, valid_bits, valid_bits_offset);
+    levels_remaining_ -= null_count;
+    CheckPageConsumed();
+    return num_decoded;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::Accumulator* builder) override {
+    const int values_to_decode = num_values - null_count;
+    if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
+      ParquetException::EofException(
+          "ALP DecodeArrow: Not enough values available. Available: " +
+          std::to_string(this->num_values_) +
+          ", Requested: " + std::to_string(values_to_decode));
+    }
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+    // 1. Land the values in the builder's storage packed to the right, so step 2
+    //    can expand them in place into their final positions.
+    T* decode_out = builder->GetMutableValue(builder->length() + null_count);
+    DecodeInternal(decode_out, values_to_decode);
+
+    // 2. Expand the values into their final positions.
+    if (null_count == 0) {
+      // No expansion required, and no need to append the bitmap
+      builder->UnsafeAdvance(num_values);
+    } else {
+      ::arrow::util::internal::SpacedExpandLeftward(
+          reinterpret_cast<uint8_t*>(builder->GetMutableValue(builder->length())),
+          static_cast<int>(sizeof(T)), num_values, null_count, valid_bits,
+          valid_bits_offset);
+      builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
+    }
+    this->num_values_ -= values_to_decode;
+    levels_remaining_ -= num_values;
+    CheckPageConsumed();
+    return values_to_decode;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* builder) override {
+    ParquetException::NYI("DecodeArrow to DictAccumulator for ALP");
+  }
+
+ private:
+  // Decode only vectors intersecting the range. Full vectors go straight to
+  // `out`; partial vectors are decoded into reusable scratch.
+  void CheckPageConsumed() const {
+    ARROW_DCHECK_GE(levels_remaining_, 0) << "ALP decoder consumed too many levels";
+    if (ARROW_PREDICT_FALSE(levels_remaining_ <= 0 && this->num_values_ > 0)) {
+      throw ParquetException("ALP page has " + std::to_string(this->num_values_) +
+                             " unconsumed values after all levels were read");
+    }
+  }
+
+  void DecodeInternal(T* out, int count) {
+    const int32_t vector_size = reader_->vector_size();
+    int32_t processed_values = reader_->num_elements() - this->num_values_;
+    int32_t remaining = count;
+    while (remaining > 0) {
+      const int32_t vector_index = processed_values / vector_size;
+      const int32_t position = processed_values % vector_size;
+      PARQUET_ASSIGN_OR_THROW(const int32_t vector_length,
+                              reader_->VectorLength(vector_index));
+      const int32_t take = std::min(remaining, vector_length - position);
+      if (take == vector_length) {
+        PARQUET_THROW_NOT_OK(reader_->Decode(
+            vector_index, std::span<T>(out, static_cast<size_t>(vector_length))));
+      } else {
+        if (cached_vector_index_ != vector_index) {
+          const size_t cached_size = static_cast<size_t>(vector_length);
+          if (cached_vector_.size() < cached_size) {
+            cached_vector_.resize(cached_size);
+          }
+          PARQUET_THROW_NOT_OK(reader_->Decode(
+              vector_index, std::span<T>(cached_vector_.data(), cached_size)));
+          cached_vector_index_ = vector_index;
+        }
+        std::memcpy(out, cached_vector_.data() + position, take * sizeof(T));
+      }
+      out += take;
+      processed_values += take;
+      remaining -= take;
+    }
+  }
+
+  // Pool used to construct reader_ and cached_vector_.
+  ::arrow::MemoryPool* pool_;
+  // Set when the page has ALP payload; header and offsets are parsed once.
+  std::optional<VectorReader> reader_;
+  // Cached decoded vector for partial reads.
+  PooledVector cached_vector_;
+  // Index of the vector cached in cached_vector_, or -1.
+  int32_t cached_vector_index_{-1};
+  // Definition/repetition levels not yet accounted for in the current page.
+  int64_t levels_remaining_{0};
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -2489,6 +2660,15 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
         throw ParquetException(
             "BYTE_STREAM_SPLIT only supports FLOAT, DOUBLE, INT32, INT64 "
             "and FIXED_LEN_BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::ALP) {
+    switch (type_num) {
+      case Type::FLOAT:
+        return std::make_unique<AlpDecoder<FloatType>>(descr, pool);
+      case Type::DOUBLE:
+        return std::make_unique<AlpDecoder<DoubleType>>(descr, pool);
+      default:
+        throw ParquetException("ALP encoding only supports FLOAT and DOUBLE");
     }
   } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
     switch (type_num) {
@@ -2569,7 +2749,7 @@ std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
       return {Encoding::PLAIN};
     case Type::FLOAT:
     case Type::DOUBLE:
-      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::ALP};
     case Type::FIXED_LEN_BYTE_ARRAY:
       return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
     case Type::BYTE_ARRAY:
