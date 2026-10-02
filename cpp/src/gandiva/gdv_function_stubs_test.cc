@@ -805,7 +805,7 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "{Õhp,Pqśv}Ń+");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, "sɦasasdsɦsd\"sdsdɦ", 19, &out_len);
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "sɦasasdsɦsd\"sdsdɦ", 20, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Sɦasasdsɦsd\"Sdsdɦ");
   EXPECT_FALSE(ctx.has_error());
 
@@ -1186,6 +1186,44 @@ TEST(TestGdvFnStubs, TestMaskTruncatedUtf8NoOverread) {
   gdv_mask_last_n_utf8_int32(ctx_ptr, buf, truncated_len, 4, &out_len);
   EXPECT_EQ(out_len, 0);
   EXPECT_TRUE(ctx.has_error());
+}
+
+TEST(TestGdvFnStubs, TestMaskOutputLengthOverflow) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = -1;
+  const std::string data(65536, 'A');
+  const std::string replacement(65536, 'X');
+  auto result = mask_utf8_utf8_utf8_utf8(
+      ctx_ptr, data.data(), static_cast<int32_t>(data.size()), replacement.data(),
+      static_cast<int32_t>(replacement.size()), "x", 1, "n", 1, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+}
+
+TEST(TestGdvFnStubs, TestCaseConversionTruncatedUtf8) {
+  const std::string inputs[] = {"a\xc2\xa2", "a\xe2\x82\xac", "a\xf0\x9f\x98\x80"};
+  for (auto convert : {gdv_fn_lower_utf8, gdv_fn_upper_utf8, gdv_fn_initcap_utf8}) {
+    for (const auto& input : inputs) {
+      const auto full_len = static_cast<int32_t>(input.size());
+      for (int32_t len = 2; len < full_len; ++len) {
+        gandiva::ExecutionContext ctx;
+        auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+        int32_t out_len = -1;
+        // Bytes beyond len complete the glyph, but are outside the input slice.
+        convert(ctx_ptr, input.data(), len, &out_len);
+        EXPECT_EQ(out_len, 0);
+        EXPECT_TRUE(ctx.has_error());
+      }
+      gandiva::ExecutionContext ctx;
+      auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+      int32_t out_len = -1;
+      convert(ctx_ptr, input.data(), full_len, &out_len);
+      EXPECT_GT(out_len, 0);
+      EXPECT_FALSE(ctx.has_error());
+    }
+  }
 }
 
 TEST(TestGdvFnStubs, TestTranslate) {
