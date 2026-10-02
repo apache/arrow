@@ -396,6 +396,12 @@ def test_filesystem_dataset(mockfs):
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, file_format, schema)
+    with pytest.raises(TypeError, match="Fragment must not be None"):
+        ds.FileSystemDataset([None], schema=schema, format=file_format)
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        ds.FileSystemDataset(fragments, schema=None, format=file_format)
+    with pytest.raises(TypeError, match="Argument 'format' has incorrect type"):
+        ds.FileSystemDataset(fragments, schema=schema, format=None)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, schema=schema,
