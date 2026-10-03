@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_run_end.h"
+#include "arrow/array/util.h"
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
@@ -102,7 +104,7 @@ Status RunCompressorBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeat
     current_value_ = scalar.is_valid ? scalar.shared_from_this() : NULLPTR;
     current_run_length_ = n_repeats;
   } else if ((current_value_ == NULLPTR && !scalar.is_valid) ||
-             (current_value_ != NULLPTR && current_value_->Equals(scalar))) {
+             (current_value_ != NULLPTR && current_value_->Equals(scalar, options_))) {
     // Extend the currently open run
     current_run_length_ += n_repeats;
   } else {
