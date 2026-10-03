@@ -33,4 +33,19 @@ template void unpack_scalar<uint16_t>(const uint8_t*, uint16_t*, const UnpackOpt
 template void unpack_scalar<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
 template void unpack_scalar<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
+template <typename Uint>
+void unpack_bias_scalar(const uint8_t* in, Uint* out, const UnpackOptions& opts,
+                        Uint bias) {
+  return unpack_jump<ScalarUnpackerForWidth, /*kHasBias=*/true>(in, out, opts, bias);
+}
+
+template void unpack_bias_scalar<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&,
+                                          uint8_t);
+template void unpack_bias_scalar<uint16_t>(const uint8_t*, uint16_t*,
+                                           const UnpackOptions&, uint16_t);
+template void unpack_bias_scalar<uint32_t>(const uint8_t*, uint32_t*,
+                                           const UnpackOptions&, uint32_t);
+template void unpack_bias_scalar<uint64_t>(const uint8_t*, uint64_t*,
+                                           const UnpackOptions&, uint64_t);
+
 }  // namespace arrow::internal::bpacking

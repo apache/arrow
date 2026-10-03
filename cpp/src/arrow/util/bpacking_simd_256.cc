@@ -17,9 +17,11 @@
 
 #if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  define UNPACK_PLATFORM unpack_sve256
+#  define UNPACK_BIAS_PLATFORM unpack_bias_sve256
 #  define KERNEL_PLATFORM KernelSve256
 #elif defined(ARROW_HAVE_RUNTIME_AVX2)
 #  define UNPACK_PLATFORM unpack_avx2
+#  define UNPACK_BIAS_PLATFORM unpack_bias_avx2
 #  define KERNEL_PLATFORM KernelAvx2
 #endif
 
@@ -48,6 +50,22 @@ template void UNPACK_PLATFORM<uint16_t>(const uint8_t*, uint16_t*, const UnpackO
 template void UNPACK_PLATFORM<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
 template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
+template <typename Uint>
+void UNPACK_BIAS_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts,
+                          Uint bias) {
+  return unpack_jump<KERNEL_PLATFORM, /*kHasBias=*/true>(in, out, opts, bias);
+}
+
+template void UNPACK_BIAS_PLATFORM<uint8_t>(const uint8_t*, uint8_t*,
+                                            const UnpackOptions&, uint8_t);
+template void UNPACK_BIAS_PLATFORM<uint16_t>(const uint8_t*, uint16_t*,
+                                             const UnpackOptions&, uint16_t);
+template void UNPACK_BIAS_PLATFORM<uint32_t>(const uint8_t*, uint32_t*,
+                                             const UnpackOptions&, uint32_t);
+template void UNPACK_BIAS_PLATFORM<uint64_t>(const uint8_t*, uint64_t*,
+                                             const UnpackOptions&, uint64_t);
+
 }  // namespace arrow::internal::bpacking
 
 #undef UNPACK_PLATFORM
+#undef UNPACK_BIAS_PLATFORM

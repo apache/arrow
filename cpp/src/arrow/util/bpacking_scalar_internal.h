@@ -42,4 +42,20 @@ extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint32_t>(
 extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint64_t>(
     const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
 
+template <typename Uint>
+ARROW_EXPORT void unpack_bias_scalar(const uint8_t* in, Uint* out,
+                                     const UnpackOptions& opts, Uint bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias_scalar<uint8_t>(
+    const uint8_t* in, uint8_t* out, const UnpackOptions& opts, uint8_t bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias_scalar<uint16_t>(
+    const uint8_t* in, uint16_t* out, const UnpackOptions& opts, uint16_t bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias_scalar<uint32_t>(
+    const uint8_t* in, uint32_t* out, const UnpackOptions& opts, uint32_t bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias_scalar<uint64_t>(
+    const uint8_t* in, uint64_t* out, const UnpackOptions& opts, uint64_t bias);
+
 }  // namespace arrow::internal::bpacking

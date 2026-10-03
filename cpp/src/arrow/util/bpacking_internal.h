@@ -48,4 +48,29 @@ extern template ARROW_TEMPLATE_EXPORT void unpack<uint32_t>(  //
 extern template ARROW_TEMPLATE_EXPORT void unpack<uint64_t>(  //
     const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
 
+/// \brief Unpack, adding `bias` to every value.
+///
+/// Equivalent to `unpack()` followed by a loop adding `bias`, but the addition
+/// happens inside the unpacker before its store, so the output is traversed
+/// once instead of twice. Frame-of-reference decoders are the motivating
+/// caller: the separate add pass costs as much as the unpack it follows.
+///
+/// `bias + value` is computed in `Uint`, so it wraps rather than saturating.
+/// Not defined for `bool` output, where an add has no meaning.
+template <typename Uint>
+ARROW_EXPORT void unpack_bias(const uint8_t* in, Uint* out, const UnpackOptions& opts,
+                              Uint bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias<uint8_t>(  //
+    const uint8_t* in, uint8_t* out, const UnpackOptions& opts, uint8_t bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias<uint16_t>(  //
+    const uint8_t* in, uint16_t* out, const UnpackOptions& opts, uint16_t bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias<uint32_t>(  //
+    const uint8_t* in, uint32_t* out, const UnpackOptions& opts, uint32_t bias);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_bias<uint64_t>(  //
+    const uint8_t* in, uint64_t* out, const UnpackOptions& opts, uint64_t bias);
+
 }  // namespace arrow::internal

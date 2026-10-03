@@ -43,6 +43,23 @@ struct UnpackDynamicFunction {
   }
 };
 
+template <typename Uint>
+struct UnpackBiasDynamicFunction {
+  using FunctionType = decltype(&bpacking::unpack_bias_scalar<Uint>);
+
+  static constexpr auto targets() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&bpacking::unpack_bias_scalar<Uint>)    //
+        ARROW_DISPATCH_TARGET_NEON(&bpacking::unpack_bias_neon<Uint>)      //
+        ARROW_DISPATCH_TARGET_SVE128(&bpacking::unpack_bias_sve128<Uint>)  //
+        ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_bias_sve256<Uint>)  //
+        ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_bias_sse4_2<Uint>)  //
+        ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_bias_avx2<Uint>)      //
+        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_bias_avx512<Uint>)  //
+    };
+  }
+};
+
 }  // namespace
 
 template <typename Uint>
@@ -56,5 +73,20 @@ template void unpack<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
 template void unpack<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
 template void unpack<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
 template void unpack<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
+
+template <typename Uint>
+void unpack_bias(const uint8_t* in, Uint* out, const UnpackOptions& opts, Uint bias) {
+  static const DynamicDispatch<UnpackBiasDynamicFunction<Uint>> dispatch;
+  return dispatch(in, out, opts, bias);
+}
+
+template void unpack_bias<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&,
+                                   uint8_t);
+template void unpack_bias<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&,
+                                    uint16_t);
+template void unpack_bias<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&,
+                                    uint32_t);
+template void unpack_bias<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&,
+                                    uint64_t);
 
 }  // namespace arrow::internal
