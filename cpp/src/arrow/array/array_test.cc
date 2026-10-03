@@ -768,6 +768,62 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 }
 
+TEST_F(TestArray, TestAppendScalarValidation) {
+  // Untyped NullScalar (Type::NA) rejected by Int32Builder
+  Int32Builder int_builder(pool_);
+  ASSERT_RAISES(Invalid, int_builder.AppendScalar(NullScalar(), 1));
+
+  // Typed null scalar accepted
+  auto typed_null = MakeNullScalar(int32());
+  ASSERT_OK(int_builder.AppendScalar(*typed_null, 1));
+  ASSERT_EQ(int_builder.length(), 1);
+  ASSERT_EQ(int_builder.null_count(), 1);
+
+  // Parameterized type mismatches
+  // FixedSizeBinary byte width mismatch
+  FixedSizeBinaryBuilder fsb_builder(fixed_size_binary(3), pool_);
+  FixedSizeBinaryScalar fsb_scalar(Buffer::FromString("12345"), fixed_size_binary(5));
+  ASSERT_RAISES(Invalid, fsb_builder.AppendScalar(fsb_scalar, 1));
+
+  // Decimal scale mismatch
+  Decimal128Builder dec_builder(decimal128(10, 2), pool_);
+  Decimal128Scalar dec_scalar(Decimal128(12345), decimal128(10, 4));
+  ASSERT_RAISES(Invalid, dec_builder.AppendScalar(dec_scalar, 1));
+
+  // Timestamp unit mismatch
+  TimestampBuilder ts_builder(timestamp(TimeUnit::MICRO), pool_);
+  TimestampScalar ts_scalar(100, timestamp(TimeUnit::SECOND));
+  ASSERT_RAISES(Invalid, ts_builder.AppendScalar(ts_scalar, 1));
+
+  // FixedSizeList size mismatch
+  auto fsl_type = fixed_size_list(int32(), 3);
+  std::unique_ptr<ArrayBuilder> fsl_builder_ptr;
+  ASSERT_OK(MakeBuilder(pool_, fsl_type, &fsl_builder_ptr));
+  Int32Builder child_builder(pool_);
+  ASSERT_OK(child_builder.AppendValues({1, 2, 3, 4, 5}));
+  ASSERT_OK_AND_ASSIGN(auto child_array, child_builder.Finish());
+  FixedSizeListScalar fsl_scalar(child_array, fixed_size_list(int32(), 5));
+  ASSERT_RAISES(Invalid, fsl_builder_ptr->AppendScalar(fsl_scalar, 1));
+
+  // 1-argument AppendScalar call directly on concrete builders (verifying no method hiding)
+  ASSERT_OK(int_builder.AppendScalar(*MakeScalar<int32_t>(42)));
+  FixedSizeBinaryScalar valid_fsb_scalar(Buffer::FromString("123"), fixed_size_binary(3));
+  ASSERT_OK(fsb_builder.AppendScalar(valid_fsb_scalar));
+  Decimal128Scalar valid_dec_scalar(Decimal128(12345), decimal128(10, 2));
+  ASSERT_OK(dec_builder.AppendScalar(valid_dec_scalar));
+  // ValidateAppendScalars with temporary builder type
+  ScalarVector fsb_scalars = {std::make_shared<FixedSizeBinaryScalar>(valid_fsb_scalar)};
+  ASSERT_OK(fsb_builder.AppendScalars(fsb_scalars));
+}
+
+TEST_F(TestArray, TestAppendScalarsAtomicPreValidation) {
+  Int32Builder builder(pool_);
+  ScalarVector scalars = {MakeScalar<int32_t>(10), MakeScalar<int32_t>(20),
+                          MakeScalar("string_type_mismatch")};
+  ASSERT_RAISES(Invalid, builder.AppendScalars(scalars));
+  ASSERT_EQ(builder.length(), 0);
+}
+
 TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   // Regression test for ARROW-13437
   auto scalars = GetScalars();
