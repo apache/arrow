@@ -142,8 +142,8 @@ class NullColumnDecoderTest : public ColumnDecoderTest {
   NullColumnDecoderTest() {}
 
   void MakeDecoder(std::shared_ptr<DataType> type) {
-    ASSERT_OK_AND_ASSIGN(auto decoder, ColumnDecoder::MakeNull(default_memory_pool(),
-                                                               std::move(type)));
+    ASSERT_OK_AND_ASSIGN(auto decoder,
+                         ColumnDecoder::MakeNull(default_memory_pool(), std::move(type)));
     SetDecoder(decoder);
   }
 
