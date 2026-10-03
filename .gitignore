@@ -94,3 +94,6 @@ rat.txt
 
 # for ODBC DLL
 *.rc
+
+# Local out-of-tree benchmark build dir
+cpp/build-bench/
