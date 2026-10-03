@@ -102,7 +102,7 @@ class CsvFileScanner : public FragmentScanner {
     std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
     for (const auto& scan_column : scan_request.fragment_selection->columns()) {
       if (scan_column.path.indices().size() != 1) {
-        return Status::Invalid("CSV reader does not supported nested references");
+        return Status::Invalid("CSV reader does not support nested references");
       }
       const std::string& column_name =
           inspected_fragment.column_names[scan_column.path.indices()[0]];
