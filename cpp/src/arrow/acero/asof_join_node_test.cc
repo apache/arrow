@@ -42,13 +42,13 @@
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
@@ -72,6 +72,7 @@ using compute::Cast;
 using compute::Divide;
 using compute::ExecBatchFromJSON;
 using compute::Multiply;
+using compute::SortKey;
 using compute::Subtract;
 
 namespace acero {
@@ -254,11 +255,14 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   Declaration join{"asofjoin", join_options};
 
   join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
+      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false),
+                                  Ordering::Implicit()}});
   join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{r0_batches.schema, r0_batches.gen(false, false)}});
+      "source", SourceNodeOptions{r0_batches.schema, r0_batches.gen(false, false),
+                                  Ordering::Implicit()}});
   join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{r1_batches.schema, r1_batches.gen(false, false)}});
+      "source", SourceNodeOptions{r1_batches.schema, r1_batches.gen(false, false),
+                                  Ordering::Implicit()}});
 
   ASSERT_OK_AND_ASSIGN(auto res_table,
                        DeclarationToTable(std::move(join), /*use_threads=*/false));
@@ -278,9 +282,11 @@ void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
 
   Declaration join{"asofjoin", join_options};
   join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
+      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false),
+                                  Ordering::Implicit()}});
   join.inputs.emplace_back(Declaration{
-      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
+      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false),
+                                  Ordering::Implicit()}});
 
   if (fail_on_plan_creation) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -1285,6 +1291,10 @@ TRACED_TEST(AsofJoinTest, TestUnsupportedOntype, {
                                field("l_v0", float64())}),
                        schema({field("time", list(int32())), field("key", int32()),
                                field("r0_v0", float32())}));
+  DoRunInvalidTypeTest(
+      schema({field("time", boolean()), field("key", int32()), field("l_v0", float64())}),
+      schema(
+          {field("time", boolean()), field("key", int32()), field("r0_v0", float32())}));
 })
 
 TRACED_TEST(AsofJoinTest, TestUnsupportedByType, {
@@ -1292,14 +1302,12 @@ TRACED_TEST(AsofJoinTest, TestUnsupportedByType, {
                                field("l_v0", float64())}),
                        schema({field("time", int64()), field("key", list(int32())),
                                field("r0_v0", float32())}));
-})
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedDatatype, {
-  // List is unsupported
-  DoRunInvalidTypeTest(
-      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
-      schema({field("time", int64()), field("key", int32()),
-              field("r0_v0", list(int32()))}));
+  auto dictionary_type = dictionary(int8(), utf8());
+  DoRunInvalidTypeTest(schema({field("time", int64()), field("key", dictionary_type),
+                               field("l_v0", float64())}),
+                       schema({field("time", int64()), field("key", dictionary_type),
+                               field("r0_v0", float32())}));
 })
 
 TRACED_TEST(AsofJoinTest, TestMissingKeys, {
@@ -1374,6 +1382,7 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
 })
 
 struct BackpressureCounters {
+  std::atomic<int32_t> batch_count = 0;
   std::atomic<int32_t> pause_count = 0;
   std::atomic<int32_t> resume_count = 0;
 };
@@ -1409,7 +1418,10 @@ struct BackpressureCountingNode : public MapNode {
   }
 
   const char* kind_name() const override { return kKindName; }
-  Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
+    ++counters->batch_count;
+    return batch;
+  }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
     ++counters->pause_count;
@@ -1487,13 +1499,15 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
     const auto& config = source_configs[i];
     if (config.is_delayed) {
       src_decls.emplace_back(
-          "source",
-          SourceNodeOptions(config.schema, MakeDelayedGen(config.batches, "slow_source",
-                                                          /*delay_sec=*/0.5,
-                                                          /*noisy=*/false)));
+          "source", SourceNodeOptions(config.schema,
+                                      MakeDelayedGen(config.batches, "slow_source",
+                                                     /*delay_sec=*/0.5,
+                                                     /*noisy=*/false),
+                                      Ordering::Implicit()));
     } else {
-      src_decls.emplace_back("source",
-                             SourceNodeOptions(config.schema, GetGen(config.batches)));
+      src_decls.emplace_back(
+          "source",
+          SourceNodeOptions(config.schema, GetGen(config.batches), Ordering::Implicit()));
     }
     bp_options.push_back(
         std::make_shared<BackpressureCountingNodeOptions>(&bp_counters[i]));
@@ -1542,7 +1556,7 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
   for (size_t i = 0; i < source_configs.size(); i++) {
     const auto& counters = bp_counters[i];
     if (!source_configs[i].is_gated) {
-      ASSERT_GE(counters.resume_count, 0);
+      ASSERT_GT(counters.resume_count, 0);
     }
   }
 }
@@ -1570,10 +1584,10 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
   ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
   ASSERT_OK_AND_ASSIGN(auto r_batches, make_shift(r_schema, 1));
 
-  Declaration l_src = {"source",
-                       SourceNodeOptions(l_schema, l_batches.gen(false, false))};
-  Declaration r_src = {"source",
-                       SourceNodeOptions(r_schema, r_batches.gen(false, false))};
+  Declaration l_src = {"source", SourceNodeOptions(l_schema, l_batches.gen(false, false),
+                                                   Ordering::Implicit())};
+  Declaration r_src = {"source", SourceNodeOptions(r_schema, r_batches.gen(false, false),
+                                                   Ordering::Implicit())};
 
   Declaration asofjoin = {
       "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
@@ -1611,10 +1625,10 @@ void TestSchemaResolution(BatchesMaker maker, int num_batches, int batch_size) {
   ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
   ASSERT_OK_AND_ASSIGN(auto r_batches, make_shift(r_schema, 1));
 
-  Declaration l_src = {"source",
-                       SourceNodeOptions(l_schema, l_batches.gen(false, false))};
-  Declaration r_src = {"source",
-                       SourceNodeOptions(r_schema, r_batches.gen(false, false))};
+  Declaration l_src = {"source", SourceNodeOptions(l_schema, l_batches.gen(false, false),
+                                                   Ordering::Implicit())};
+  Declaration r_src = {"source", SourceNodeOptions(r_schema, r_batches.gen(false, false),
+                                                   Ordering::Implicit())};
   Declaration l_project = {
       "project",
       {std::move(l_src)},
@@ -1677,13 +1691,859 @@ T GetEnvValue(const std::string& var, T default_value) {
 }  // namespace
 
 TEST(AsofJoinTest, BackpressureWithBatchesGen) {
-  GTEST_SKIP() << "Skipping - see GH-36331";
   int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 20);
   int batch_size = GetEnvValue("ARROW_BACKPRESSURE_DEMO_BATCH_SIZE", 1);
   return TestBackpressure(MakeIntegerBatchGenForTest, /*batch_size=*/batch_size,
                           /*num_l_batches=*/num_batches,
                           /*num_r0_batches=*/num_batches, /*num_r1_batches=*/num_batches,
                           /*slow_r0=*/false);
+}
+
+namespace {
+
+class PausingSinkConsumer : public SinkNodeConsumer {
+ public:
+  explicit PausingSinkConsumer(bool pause_after_first = true)
+      : pause_after_first_(pause_after_first) {}
+
+  Status Init(const std::shared_ptr<Schema>&, BackpressureControl* control,
+              ExecPlan*) override {
+    control_.store(control);
+    return Status::OK();
+  }
+
+  Status Consume(ExecBatch) override {
+    if (batches_received_.fetch_add(1) == 0 && pause_after_first_) {
+      Pause();
+    }
+    return Status::OK();
+  }
+
+  Future<> Finish() override {
+    finished_.MarkFinished();
+    return finished_;
+  }
+
+  void Pause() {
+    auto* control = control_.load();
+    DCHECK_NE(control, nullptr);
+    control->Pause();
+    paused_.store(true);
+  }
+
+  void Resume() {
+    auto* control = control_.load();
+    DCHECK_NE(control, nullptr);
+    control->Resume();
+    paused_.store(false);
+  }
+
+  int batches_received() const { return batches_received_.load(); }
+  bool is_initialized() const { return control_.load() != nullptr; }
+  bool is_paused() const { return paused_.load(); }
+  const Future<>& finished() const { return finished_; }
+
+ private:
+  bool pause_after_first_;
+  std::atomic<int> batches_received_{0};
+  std::atomic<bool> paused_{false};
+  std::atomic<BackpressureControl*> control_{nullptr};
+  Future<> finished_ = Future<>::Make();
+};
+
+}  // namespace
+
+TEST(AsofJoinTest, LeftBatchIsOutputBackbone) {
+  auto left_schema = schema({field("on", int64(), /*nullable=*/false),
+                             field("label", utf8(), /*nullable=*/false)});
+  auto right_schema = schema({field("on", int64(), /*nullable=*/false),
+                              field("value", int32(), /*nullable=*/false)});
+
+  ExecBatch first(
+      {ArrayFromJSON(int64(), "[1, 2]"), std::make_shared<StringScalar>("first")}, 2);
+  ExecBatch empty({ArrayFromJSON(int64(), "[]"), std::make_shared<StringScalar>("empty")},
+                  0);
+  ExecBatch last({ArrayFromJSON(int64(), "[3]"), std::make_shared<StringScalar>("last")},
+                 1);
+  ExecBatch right({ArrayFromJSON(int64(), "[1, 2, 3]"), std::make_shared<Int32Scalar>(7)},
+                  3);
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left_source{"exec_batch_source", ExecBatchSourceNodeOptions(
+                                                     left_schema, {first, empty, last})};
+    Declaration right_source{"exec_batch_source",
+                             ExecBatchSourceNodeOptions(right_schema, {right})};
+    QueryOptions query_options;
+    query_options.use_threads = use_threads;
+    query_options.sequence_output = false;
+    Declaration join{"asofjoin",
+                     {std::move(left_source), std::move(right_source)},
+                     GetRepeatedOptions(2, "on", {}, 0)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), query_options));
+
+    ASSERT_EQ(result.batches.size(), 3U);
+    ASSERT_FALSE(result.schema->field(0)->nullable());
+    ASSERT_FALSE(result.schema->field(1)->nullable());
+    ASSERT_TRUE(result.schema->field(2)->nullable());
+
+    const std::vector<int64_t> expected_lengths = {2, 0, 1};
+    const std::vector<std::string> expected_labels = {"first", "empty", "last"};
+    for (size_t i = 0; i < result.batches.size(); ++i) {
+      const ExecBatch& batch = result.batches[i];
+      EXPECT_EQ(batch.index, static_cast<int64_t>(i));
+      EXPECT_EQ(batch.length, expected_lengths[i]);
+      ASSERT_TRUE(batch.values[1].is_scalar());
+      EXPECT_EQ(batch.values[1].scalar_as<StringScalar>().view(), expected_labels[i]);
+      ASSERT_TRUE(batch.values[2].is_array());
+    }
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[7, 7]"),
+                      *result.batches[0].values[2].make_array());
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[]"),
+                      *result.batches[1].values[2].make_array());
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[7]"),
+                      *result.batches[2].values[2].make_array());
+  }
+}
+
+TEST(AsofJoinTest, ScalarColumnsAreFirstClass) {
+  auto left_schema =
+      schema({field("on", int64()), field("key", utf8()), field("left_value", int32())});
+  auto right_schema =
+      schema({field("on", int64()), field("key", utf8()), field("right_value", int32())});
+  ExecBatch left({std::make_shared<Int64Scalar>(5), std::make_shared<StringScalar>("a"),
+                  std::make_shared<Int32Scalar>(7)},
+                 3);
+  ExecBatch right({std::make_shared<Int64Scalar>(5), std::make_shared<StringScalar>("a"),
+                   std::make_shared<Int32Scalar>(9)},
+                  2);
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left_source{"exec_batch_source",
+                            ExecBatchSourceNodeOptions(left_schema, {left})};
+    Declaration right_source{"exec_batch_source",
+                             ExecBatchSourceNodeOptions(right_schema, {right})};
+    AsofJoinNodeOptions options({{{"on"}, {{"key"}}}, {{"on"}, {{"key"}}}}, 0);
+    Declaration join{"asofjoin",
+                     {std::move(left_source), std::move(right_source)},
+                     std::move(options)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), use_threads));
+
+    ASSERT_EQ(result.batches.size(), 1U);
+    const ExecBatch& output = result.batches[0];
+    ASSERT_EQ(output.length, 3);
+    for (size_t column = 0; column < left.values.size(); ++column) {
+      ASSERT_TRUE(output.values[column].is_scalar());
+      EXPECT_EQ(output.values[column].scalar().get(), left.values[column].scalar().get());
+    }
+    ASSERT_TRUE(output.values[3].is_array());
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[9, 9, 9]"),
+                      *output.values[3].make_array());
+  }
+}
+
+TEST(AsofJoinTest, MixedScalarAndArrayByKeys) {
+  auto left_schema = schema({field("on", int64()), field("scalar_key", utf8()),
+                             field("array_key", int32()), field("left_value", int32())});
+  auto right_schema =
+      schema({field("on", int64()), field("scalar_key", utf8()),
+              field("array_key", int32()), field("right_value", int32())});
+  ExecBatch left(
+      {ArrayFromJSON(int64(), "[1, 2, 3]"), std::make_shared<StringScalar>("a"),
+       ArrayFromJSON(int32(), "[1, 2, 3]"), std::make_shared<Int32Scalar>(7)},
+      3);
+  ExecBatch right(
+      {ArrayFromJSON(int64(), "[1, 2, 3]"), std::make_shared<StringScalar>("a"),
+       ArrayFromJSON(int32(), "[1, 99, 3]"), ArrayFromJSON(int32(), "[10, 20, 30]")},
+      3);
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left_source{"exec_batch_source",
+                            ExecBatchSourceNodeOptions(left_schema, {left})};
+    Declaration right_source{"exec_batch_source",
+                             ExecBatchSourceNodeOptions(right_schema, {right})};
+    AsofJoinNodeOptions options({{{"on"}, {{"scalar_key"}, {"array_key"}}},
+                                 {{"on"}, {{"scalar_key"}, {"array_key"}}}},
+                                0);
+    Declaration join{"asofjoin",
+                     {std::move(left_source), std::move(right_source)},
+                     std::move(options)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), use_threads));
+
+    ASSERT_EQ(result.batches.size(), 1U);
+    ASSERT_TRUE(result.batches[0].values[4].is_array());
+    AssertArraysEqual(*ArrayFromJSON(int32(), "[10, null, 30]"),
+                      *result.batches[0].values[4].make_array());
+  }
+}
+
+TEST(AsofJoinTest, HashCollisionsUseExactByKeys) {
+  auto left_schema =
+      schema({field("on", int64()), field("key_a", int64()), field("key_b", int64())});
+  auto right_schema = schema({field("on", int64()), field("key_a", int64()),
+                              field("key_b", int64()), field("value", int32())});
+  ExecBatch left = ExecBatchFromJSON({int64(), int64(), int64()},
+                                     "[[1, 0, 0], [1, 1, 383703870779339957]]");
+  ExecBatch right =
+      ExecBatchFromJSON({int64(), int64(), int64(), int32()},
+                        "[[1, 0, 0, 100], [1, 1, 383703870779339957, 200]]");
+  ExecBatch expected =
+      ExecBatchFromJSON({int64(), int64(), int64(), int32()},
+                        "[[1, 0, 0, 100], [1, 1, 383703870779339957, 200]]");
+
+  ExecBatch colliding_keys({left.values[1], left.values[2]}, left.length);
+  std::vector<uint64_t> hashes(left.length);
+  std::vector<compute::KeyColumnArray> column_arrays;
+  util::TempVectorStack temp_stack;
+  ASSERT_OK(temp_stack.Init(default_memory_pool(),
+                            compute::Hashing64::kHashBatchTempStackUsage));
+  ASSERT_OK(compute::Hashing64::HashBatch(
+      colliding_keys, hashes.data(), column_arrays,
+      internal::CpuInfo::GetInstance()->hardware_flags(), &temp_stack,
+      /*start_row=*/0, left.length));
+  ASSERT_EQ(hashes[0], hashes[1]);
+
+  for (int64_t tolerance : {int64_t{0}, int64_t{1}}) {
+    for (bool use_threads : {false, true}) {
+      SCOPED_TRACE(std::string(tolerance == 0 ? "backward" : "forward") +
+                   (use_threads ? " threaded" : " serial"));
+      Declaration left_source{"exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left})};
+      Declaration right_source{"exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right})};
+      AsofJoinNodeOptions options(
+          {{{"on"}, {{"key_a"}, {"key_b"}}}, {{"on"}, {{"key_a"}, {"key_b"}}}},
+          tolerance);
+      Declaration join{"asofjoin",
+                       {std::move(left_source), std::move(right_source)},
+                       std::move(options)};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(join), use_threads));
+      ASSERT_EQ(result.batches.size(), 1U);
+      AssertExecBatchesEqual(result.schema, {expected}, result.batches);
+    }
+  }
+}
+
+TEST(AsofJoinTest, SupportsAdditionalFlatByKeyTypes) {
+  struct TestCase {
+    std::shared_ptr<DataType> type;
+    std::string_view left_keys;
+    std::string_view right_keys;
+  };
+  const std::vector<TestCase> test_cases = {
+      {boolean(), "[false, true, false, true]", "[false, false, true, true]"},
+      {fixed_size_binary(3), R"(["aaa", "bbb", "aaa", "bbb"])",
+       R"(["aaa", "aaa", "bbb", "bbb"])"},
+      {decimal32(9, 2), R"(["1.00", "2.00", "1.00", "2.00"])",
+       R"(["1.00", "1.00", "2.00", "2.00"])"},
+      {decimal64(18, 2), R"(["1.00", "2.00", "1.00", "2.00"])",
+       R"(["1.00", "1.00", "2.00", "2.00"])"},
+      {decimal128(20, 2), R"(["1.00", "2.00", "1.00", "2.00"])",
+       R"(["1.00", "1.00", "2.00", "2.00"])"},
+      {decimal256(40, 2), R"(["1.00", "2.00", "1.00", "2.00"])",
+       R"(["1.00", "1.00", "2.00", "2.00"])"},
+  };
+
+  for (const TestCase& test_case : test_cases) {
+    SCOPED_TRACE(test_case.type->ToString());
+    auto left_schema = schema({field("on", int64()), field("key", test_case.type),
+                               field("left_value", int32())});
+    auto right_schema = schema({field("on", int64()), field("key", test_case.type),
+                                field("right_value", int32())});
+    ExecBatch left({ArrayFromJSON(int64(), "[1, 2, 3, 4]"),
+                    ArrayFromJSON(test_case.type, test_case.left_keys),
+                    ArrayFromJSON(int32(), "[10, 20, 30, 40]")},
+                   4);
+    ExecBatch right({ArrayFromJSON(int64(), "[1, 2, 3, 4]"),
+                     ArrayFromJSON(test_case.type, test_case.right_keys),
+                     ArrayFromJSON(int32(), "[100, 200, 300, 400]")},
+                    4);
+
+    for (int64_t tolerance : {int64_t{-10}, int64_t{10}}) {
+      SCOPED_TRACE(tolerance < 0 ? "backward" : "forward");
+      const char* expected_right =
+          tolerance < 0 ? "[100, null, 200, 400]" : "[100, 300, null, 400]";
+      ExecBatch expected({left.values[0], left.values[1], left.values[2],
+                          ArrayFromJSON(int32(), expected_right)},
+                         left.length);
+
+      for (bool use_threads : {false, true}) {
+        SCOPED_TRACE(use_threads ? "threaded" : "serial");
+        Declaration left_source{"exec_batch_source",
+                                ExecBatchSourceNodeOptions(left_schema, {left})};
+        Declaration right_source{"exec_batch_source",
+                                 ExecBatchSourceNodeOptions(right_schema, {right})};
+        AsofJoinNodeOptions options({{{"on"}, {{"key"}}}, {{"on"}, {{"key"}}}},
+                                    tolerance);
+        Declaration join{"asofjoin",
+                         {std::move(left_source), std::move(right_source)},
+                         std::move(options)};
+        ASSERT_OK_AND_ASSIGN(auto result,
+                             DeclarationToExecBatches(std::move(join), use_threads));
+        ASSERT_EQ(result.batches.size(), 1U);
+        AssertExecBatchesEqual(result.schema, {expected}, result.batches);
+      }
+    }
+  }
+}
+
+TEST(AsofJoinTest, MaterializesGenericRhsPayloads) {
+  auto dictionary_type = dictionary(int8(), utf8());
+  ASSERT_OK_AND_ASSIGN(
+      auto first_dictionary,
+      DictionaryArray::FromArrays(dictionary_type, ArrayFromJSON(int8(), "[0]"),
+                                  ArrayFromJSON(utf8(), R"(["a"])")));
+  ASSERT_OK_AND_ASSIGN(
+      auto second_dictionary,
+      DictionaryArray::FromArrays(dictionary_type, ArrayFromJSON(int8(), "[0, 1]"),
+                                  ArrayFromJSON(utf8(), R"(["b", "a"])")));
+  auto fixed_list_type = fixed_size_list(int32(), 2);
+
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema =
+      schema({field("on", int64()), field("list_value", list(int32()), false),
+              field("fixed_value", fixed_list_type, false),
+              field("dictionary_value", dictionary_type, false)});
+  ExecBatch left = ExecBatchFromJSON({int64()}, "[[1], [2], [4]]");
+  ExecBatch first_right(
+      {ArrayFromJSON(int64(), "[1]"), ArrayFromJSON(list(int32()), "[[1, 2]]"),
+       ArrayFromJSON(fixed_list_type, "[[10, 11]]"), first_dictionary},
+      1);
+  ExecBatch second_right(
+      {ArrayFromJSON(int64(), "[2, 3]"), ArrayFromJSON(list(int32()), "[[3], [4, 5]]"),
+       ArrayFromJSON(fixed_list_type, "[[20, 21], [30, 31]]"), second_dictionary},
+      2);
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left_source{"exec_batch_source",
+                            ExecBatchSourceNodeOptions(left_schema, {left})};
+    Declaration right_source{
+        "exec_batch_source",
+        ExecBatchSourceNodeOptions(right_schema, {first_right, second_right})};
+    Declaration join{"asofjoin",
+                     {std::move(left_source), std::move(right_source)},
+                     GetRepeatedOptions(2, "on", {}, 0)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), use_threads));
+    ASSERT_EQ(result.batches.size(), 1U);
+    const ExecBatch& output = result.batches[0];
+    AssertArraysEqual(*ArrayFromJSON(list(int32()), "[[1, 2], [3], null]"),
+                      *output.values[1].make_array());
+    AssertArraysEqual(*ArrayFromJSON(fixed_list_type, "[[10, 11], [20, 21], null]"),
+                      *output.values[2].make_array());
+    ASSERT_OK_AND_ASSIGN(Datum decoded_dictionary, Cast(output.values[3], utf8()));
+    AssertArraysEqual(*ArrayFromJSON(utf8(), R"(["a", "b", null])"),
+                      *decoded_dictionary.make_array());
+  }
+}
+
+TEST(AsofJoinTest, SignedTimesNullsAndExtremeTolerance) {
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+
+  ExecBatch left = ExecBatchFromJSON({int64()}, "[[-2], [-1], [0], [1], [null]]");
+  ExecBatch right = ExecBatchFromJSON({int64(), int32()},
+                                      "[[-3, 300], [-1, 100], [0, 0], [null, 999]]");
+  ExecBatch expected = ExecBatchFromJSON(
+      {int64(), int32()}, "[[-2, 300], [-1, 100], [0, 0], [1, 0], [null, null]]");
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left_source{"exec_batch_source",
+                            ExecBatchSourceNodeOptions(left_schema, {left})};
+    Declaration right_source{"exec_batch_source",
+                             ExecBatchSourceNodeOptions(right_schema, {right})};
+    AsofJoinNodeOptions options({{{"on"}, {}}, {{"on"}, {}}}, -1);
+    Declaration join{"asofjoin", {left_source, right_source}, options};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), use_threads));
+    AssertExecBatchesEqualIgnoringOrder(result.schema, {expected}, result.batches);
+
+    ExecBatch extreme_left = ExecBatchFromJSON({int64()}, "[[0]]");
+    ExecBatch extreme_right =
+        ExecBatchFromJSON({int64(), int32()}, "[[-9223372036854775808, 9]]");
+    ExecBatch extreme_expected = ExecBatchFromJSON({int64(), int32()}, "[[0, 9]]");
+    Declaration extreme_left_source{
+        "exec_batch_source", ExecBatchSourceNodeOptions(left_schema, {extreme_left})};
+    Declaration extreme_right_source{
+        "exec_batch_source", ExecBatchSourceNodeOptions(right_schema, {extreme_right})};
+    AsofJoinNodeOptions extreme_options({{{"on"}, {}}, {{"on"}, {}}},
+                                        std::numeric_limits<int64_t>::min());
+    Declaration extreme_join{
+        "asofjoin", {extreme_left_source, extreme_right_source}, extreme_options};
+    ASSERT_OK_AND_ASSIGN(auto extreme_result,
+                         DeclarationToExecBatches(std::move(extreme_join), use_threads));
+    AssertExecBatchesEqualIgnoringOrder(extreme_result.schema, {extreme_expected},
+                                        extreme_result.batches);
+  }
+}
+
+TEST(AsofJoinTest, ToleranceRangeExcludesExactMatches) {
+  auto left_schema = schema({field("on", int64()), field("key", int64())});
+  auto right_schema =
+      schema({field("on", int64()), field("key", int64()), field("value", int32())});
+  ExecBatch left =
+      ExecBatchFromJSON({int64(), int64()}, "[[10, 1], [20, 1], [30, 1], [40, 1]]");
+  ExecBatch right = ExecBatchFromJSON({int64(), int64(), int32()},
+                                      "[[9, 1, 1], [12, 1, 2], [30, 1, 3], [41, 1, 4]]");
+
+  struct TestCase {
+    AsofJoinNodeOptions::ToleranceRange tolerance;
+    std::string_view expected;
+  };
+  const std::vector<TestCase> test_cases = {
+      {{-10, -1}, "[[10, 1, 1], [20, 1, 2], [30, 1, null], [40, 1, 3]]"},
+      {{1, 10}, "[[10, 1, 2], [20, 1, 3], [30, 1, null], [40, 1, 4]]"},
+  };
+
+  for (const auto& test_case : test_cases) {
+    for (bool use_threads : {false, true}) {
+      SCOPED_TRACE(use_threads ? "threaded" : "serial");
+      Declaration left_source{"exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left})};
+      Declaration right_source{"exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right})};
+      AsofJoinNodeOptions options({{{"on"}, {{"key"}}}, {{"on"}, {{"key"}}}},
+                                  test_case.tolerance);
+      Declaration join{"asofjoin", {left_source, right_source}, options};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(join), use_threads));
+      ExecBatch expected =
+          ExecBatchFromJSON({int64(), int64(), int32()}, test_case.expected);
+      AssertExecBatchesEqual(result.schema, {expected}, result.batches);
+    }
+  }
+}
+
+TEST(AsofJoinTest, ToleranceRangeSelectsNearestAndBreaksTies) {
+  auto left_schema = schema({field("on", int64()), field("key", int64())});
+  auto right_schema =
+      schema({field("on", int64()), field("key", int64()), field("value", int32())});
+  ExecBatch left =
+      ExecBatchFromJSON({int64(), int64()}, "[[10, 1], [20, 1], [30, 1], [40, 1]]");
+  ExecBatch right =
+      ExecBatchFromJSON({int64(), int64(), int32()},
+                        "[[8, 1, 8], [12, 1, 12], [18, 1, 18], [22, 1, 22], [30, 1, 30], "
+                        "[38, 1, 38], [41, 1, 41]]");
+
+  for (bool prefer_earlier_on_tie : {true, false}) {
+    for (bool use_threads : {false, true}) {
+      SCOPED_TRACE(prefer_earlier_on_tie ? "prefer earlier" : "prefer later");
+      SCOPED_TRACE(use_threads ? "threaded" : "serial");
+      Declaration left_source{"exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left})};
+      Declaration right_source{"exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right})};
+      AsofJoinNodeOptions options({{{"on"}, {{"key"}}}, {{"on"}, {{"key"}}}}, {-3, 3},
+                                  prefer_earlier_on_tie);
+      Declaration join{"asofjoin", {left_source, right_source}, options};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(join), use_threads));
+      const std::string_view expected_json =
+          prefer_earlier_on_tie ? "[[10, 1, 8], [20, 1, 18], [30, 1, 30], [40, 1, 41]]"
+                                : "[[10, 1, 12], [20, 1, 22], [30, 1, 30], [40, 1, 41]]";
+      ExecBatch expected = ExecBatchFromJSON({int64(), int64(), int32()}, expected_json);
+      AssertExecBatchesEqual(result.schema, {expected}, result.batches);
+    }
+  }
+}
+
+TEST(AsofJoinTest, RejectsInvalidToleranceRange) {
+  auto left_schema = schema({field("on", int64()), field("key", int64())});
+  auto right_schema =
+      schema({field("on", int64()), field("key", int64()), field("value", int32())});
+  AsofJoinNodeOptions options({{{"on"}, {{"key"}}}, {{"on"}, {{"key"}}}}, {1, -1});
+  DoRunInvalidPlanTest(left_schema, right_schema, options,
+                       "tolerance lower bound must not exceed its upper bound");
+}
+
+TEST(AsofJoinTest, ToleranceRangeHandlesOnKeyLimits) {
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+
+  struct TestCase {
+    std::string_view left;
+    std::string_view right;
+    AsofJoinNodeOptions::ToleranceRange tolerance;
+    std::string_view expected;
+  };
+  const std::vector<TestCase> test_cases = {
+      {"[[-9223372036854775808], [-9223372036854775807]]",
+       "[[-9223372036854775808, 1]]",
+       {-1, -1},
+       "[[-9223372036854775808, null], [-9223372036854775807, 1]]"},
+      {"[[9223372036854775806], [9223372036854775807]]",
+       "[[9223372036854775807, 1]]",
+       {1, 1},
+       "[[9223372036854775806, 1], [9223372036854775807, null]]"},
+  };
+
+  for (const auto& test_case : test_cases) {
+    for (bool use_threads : {false, true}) {
+      SCOPED_TRACE(use_threads ? "threaded" : "serial");
+      ExecBatch left = ExecBatchFromJSON({int64()}, test_case.left);
+      ExecBatch right = ExecBatchFromJSON({int64(), int32()}, test_case.right);
+      Declaration left_source{"exec_batch_source",
+                              ExecBatchSourceNodeOptions(left_schema, {left})};
+      Declaration right_source{"exec_batch_source",
+                               ExecBatchSourceNodeOptions(right_schema, {right})};
+      AsofJoinNodeOptions options({{{"on"}, {}}, {{"on"}, {}}}, test_case.tolerance);
+      Declaration join{"asofjoin", {left_source, right_source}, options};
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(join), use_threads));
+      ExecBatch expected = ExecBatchFromJSON({int64(), int32()}, test_case.expected);
+      AssertExecBatchesEqual(result.schema, {expected}, result.batches);
+    }
+  }
+}
+
+TEST(AsofJoinTest, ImplicitOrderingIgnoresNullPlacement) {
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+  ExecBatch left = ExecBatchFromJSON({int64()}, "[[null], [0], [null], [1], [null]]");
+  ExecBatch right = ExecBatchFromJSON(
+      {int64(), int32()}, "[[null, 9], [0, 10], [null, 9], [1, 11], [null, 9]]");
+  ExecBatch expected = ExecBatchFromJSON(
+      {int64(), int32()}, "[[null, null], [0, 10], [null, null], [1, 11], [null, null]]");
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left_source{"exec_batch_source",
+                            ExecBatchSourceNodeOptions(left_schema, {left})};
+    Declaration right_source{"exec_batch_source",
+                             ExecBatchSourceNodeOptions(right_schema, {right})};
+    Declaration join{"asofjoin",
+                     {std::move(left_source), std::move(right_source)},
+                     GetRepeatedOptions(2, "on", {}, 0)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), use_threads));
+    AssertExecBatchesEqualIgnoringOrder(result.schema, {expected}, result.batches);
+  }
+}
+
+TEST(AsofJoinTest, ExplicitOrderingControlsNullPlacement) {
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+  auto make_source = [](std::shared_ptr<Schema> schema, std::vector<ExecBatch> batches,
+                        compute::NullPlacement null_placement) {
+    BatchesWithSchema input{std::move(batches), schema};
+    return Declaration{
+        "source",
+        SourceNodeOptions(
+            std::move(schema), input.gen(/*parallel=*/false, /*slow=*/false),
+            Ordering({SortKey("on", compute::SortOrder::Ascending, null_placement)}))};
+  };
+
+  ExecBatch left = ExecBatchFromJSON({int64()}, "[[null], [0], [1]]");
+  ExecBatch right =
+      ExecBatchFromJSON({int64(), int32()}, "[[0, 10], [1, 11], [null, 9]]");
+  ExecBatch expected =
+      ExecBatchFromJSON({int64(), int32()}, "[[null, null], [0, 10], [1, 11]]");
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration join{"asofjoin",
+                     {make_source(left_schema, {left}, compute::NullPlacement::AtStart),
+                      make_source(right_schema, {right}, compute::NullPlacement::AtEnd)},
+                     GetRepeatedOptions(2, "on", {}, 0)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), use_threads));
+    AssertExecBatchesEqualIgnoringOrder(result.schema, {expected}, result.batches);
+  }
+
+  for (auto null_placement :
+       {compute::NullPlacement::AtStart, compute::NullPlacement::AtEnd}) {
+    SCOPED_TRACE(null_placement == compute::NullPlacement::AtStart ? "nulls-first"
+                                                                   : "nulls-last");
+    std::vector<ExecBatch> invalid =
+        null_placement == compute::NullPlacement::AtStart
+            ? std::vector<ExecBatch>{ExecBatchFromJSON({int64()}, "[[0]]"),
+                                     ExecBatchFromJSON({int64()}, "[[null]]")}
+            : std::vector<ExecBatch>{ExecBatchFromJSON({int64()}, "[[null]]"),
+                                     ExecBatchFromJSON({int64()}, "[[0]]")};
+    Declaration join{"asofjoin",
+                     {make_source(left_schema, std::move(invalid), null_placement),
+                      make_source(right_schema, {right}, compute::NullPlacement::AtEnd)},
+                     GetRepeatedOptions(2, "on", {}, 0)};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("out-of-order on-key values"),
+        DeclarationToExecBatches(std::move(join), /*use_threads=*/false));
+  }
+}
+
+TEST(AsofJoinTest, ValidatesAndPropagatesInputOrdering) {
+  auto left_schema = schema({field("on", int64()), field("label", utf8())});
+  auto right_schema = schema({field("on", int64()), field("label", utf8())});
+  BatchesWithSchema left_batches{{}, left_schema};
+  BatchesWithSchema right_batches{{}, right_schema};
+  Ordering left_ordering(
+      {SortKey("on", compute::SortOrder::Ascending, compute::NullPlacement::AtStart),
+       SortKey("label", compute::SortOrder::Descending, compute::NullPlacement::AtEnd)});
+  Ordering right_ordering(
+      {SortKey("on", compute::SortOrder::Ascending, compute::NullPlacement::AtEnd)});
+  Declaration left{
+      "source",
+      SourceNodeOptions(left_schema, left_batches.gen(false, false), left_ordering)};
+  Declaration right{
+      "source",
+      SourceNodeOptions(right_schema, right_batches.gen(false, false), right_ordering)};
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(*threaded_exec_context()));
+  Declaration join_decl{"asofjoin",
+                        {std::move(left), std::move(right)},
+                        GetRepeatedOptions(2, "on", {}, 0)};
+  ASSERT_OK_AND_ASSIGN(ExecNode * join, join_decl.AddToPlan(plan.get()));
+
+  Ordering expected(
+      {SortKey(0, compute::SortOrder::Ascending, compute::NullPlacement::AtStart),
+       SortKey(1, compute::SortOrder::Descending, compute::NullPlacement::AtEnd)});
+  EXPECT_TRUE(join->ordering().Equals(expected));
+
+  Declaration unordered_left{
+      "source", SourceNodeOptions(left_schema, left_batches.gen(false, false),
+                                  Ordering::Unordered())};
+  Declaration ordered_right{
+      "source",
+      SourceNodeOptions(right_schema, right_batches.gen(false, false), right_ordering)};
+  Declaration unordered_join{"asofjoin",
+                             {std::move(unordered_left), std::move(ordered_right)},
+                             GetRepeatedOptions(2, "on", {}, 0)};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("has no meaningful ordering"),
+                                  unordered_join.AddToPlan(plan.get()));
+
+  for (Ordering incompatible : {Ordering({SortKey("on", compute::SortOrder::Descending)}),
+                                Ordering({SortKey("label"), SortKey("on")})}) {
+    Declaration incompatible_left{
+        "source", SourceNodeOptions(left_schema, left_batches.gen(false, false),
+                                    std::move(incompatible))};
+    Declaration another_ordered_right{
+        "source",
+        SourceNodeOptions(right_schema, right_batches.gen(false, false), right_ordering)};
+    Declaration incompatible_join{
+        "asofjoin",
+        {std::move(incompatible_left), std::move(another_ordered_right)},
+        GetRepeatedOptions(2, "on", {}, 0)};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("must be ordered by its ascending on-key"),
+        incompatible_join.AddToPlan(plan.get()));
+  }
+}
+
+TEST(AsofJoinTest, SequencesJitteredInputsOnBothExecutors) {
+  // Keep this above AsofJoin's input high watermark.  Besides checking logical order,
+  // this ensures later physical arrivals cannot pause a reordering input while it still
+  // owns the batch that closes the sequencing gap.
+  constexpr int64_t kRows = 128;
+  constexpr random::SeedType kLeftSeed = 42;
+  constexpr random::SeedType kRightSeed = 84;
+  RegisterTestNodes();
+
+  ASSERT_OK_AND_ASSIGN(auto on_values, gen::Step<int64_t>()->Generate(kRows));
+  auto left_table = Table::Make(schema({field("on", int64())}), {on_values});
+  auto right_table = Table::Make(schema({field("on", int64()), field("value", int64())}),
+                                 {on_values, on_values});
+
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    Declaration left = Declaration::Sequence(
+        {{"table_source", TableSourceNodeOptions(left_table, /*max_batch_size=*/1)},
+         {"jitter", JitterNodeOptions(kLeftSeed, 4)}});
+    Declaration right = Declaration::Sequence(
+        {{"table_source", TableSourceNodeOptions(right_table, /*max_batch_size=*/1)},
+         {"jitter", JitterNodeOptions(kRightSeed, 4)}});
+    QueryOptions query_options;
+    query_options.use_threads = use_threads;
+    query_options.sequence_output = false;
+    Declaration join{"asofjoin",
+                     {std::move(left), std::move(right)},
+                     GetRepeatedOptions(2, "on", {}, 0)};
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         DeclarationToExecBatches(std::move(join), query_options));
+
+    ASSERT_EQ(result.batches.size(), static_cast<size_t>(kRows));
+    for (int64_t i = 0; i < kRows; ++i) {
+      const ExecBatch& batch = result.batches[i];
+      ASSERT_EQ(batch.index, i);
+      ASSERT_EQ(batch.length, 1);
+      EXPECT_EQ(batch.values[0].make_array()->GetScalar(0).ValueOrDie()->ToString(),
+                std::to_string(i));
+      EXPECT_EQ(batch.values[1].make_array()->GetScalar(0).ValueOrDie()->ToString(),
+                std::to_string(i));
+    }
+  }
+}
+
+TEST(AsofJoinTest, PauseStopsUntilLeftInputFinishesThenFlushes) {
+  BackpressureCountingNode::Register();
+  auto consumer = std::make_shared<PausingSinkConsumer>();
+  BackpressureCounters left_counters;
+  BackpressureCounters right_counters;
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+  std::vector<ExecBatch> left_batches = {
+      ExecBatchFromJSON({int64()}, "[[1]]"),
+      ExecBatchFromJSON({int64()}, "[[2]]"),
+      ExecBatchFromJSON({int64()}, "[[3]]"),
+  };
+  ExecBatch right_batch =
+      ExecBatchFromJSON({int64(), int32()}, "[[1, 10], [2, 20], [3, 30]]");
+
+  PushGenerator<std::optional<ExecBatch>> left_generator;
+  Declaration left_source{
+      "source", SourceNodeOptions(left_schema, left_generator, Ordering::Implicit())};
+  Declaration left{BackpressureCountingNode::kFactoryName,
+                   {std::move(left_source)},
+                   BackpressureCountingNodeOptions(&left_counters)};
+  Declaration right_source{"exec_batch_source",
+                           ExecBatchSourceNodeOptions(right_schema, {right_batch})};
+  Declaration right{BackpressureCountingNode::kFactoryName,
+                    {std::move(right_source)},
+                    BackpressureCountingNodeOptions(&right_counters)};
+  Declaration join{"asofjoin",
+                   {std::move(left), std::move(right)},
+                   GetRepeatedOptions(2, "on", {}, 0)};
+  Declaration sink{
+      "consuming_sink",
+      {std::move(join)},
+      ConsumingSinkNodeOptions(consumer, /*names=*/{}, /*sequence_output=*/false)};
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(*threaded_exec_context()));
+  ASSERT_OK(sink.AddToPlan(plan.get()));
+  ASSERT_OK(plan->Validate());
+  plan->StartProducing();
+  left_generator.producer().Push(left_batches[0]);
+  BusyWait(10.0, [&] { return consumer->is_paused(); });
+
+  // The open source owns a scheduler task.  Additional batches may arrive after the
+  // downstream pause, but no new left generation starts before the source reaches EOS.
+  left_generator.producer().Push(left_batches[1]);
+  left_generator.producer().Push(left_batches[2]);
+
+  BusyWait(10.0, [&] {
+    return left_counters.batch_count.load() == 3 &&
+           right_counters.batch_count.load() == 1;
+  });
+  EXPECT_EQ(left_counters.batch_count.load(), 3);
+  EXPECT_EQ(right_counters.batch_count.load(), 1);
+
+  // Downstream pause controls left-batch activation, not input production.  With
+  // fewer than the queue high watermark, neither input should be paused directly.
+  EXPECT_EQ(left_counters.pause_count.load(), 0);
+  EXPECT_EQ(right_counters.pause_count.load(), 0);
+
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+  EXPECT_TRUE(consumer->is_paused());
+  EXPECT_EQ(consumer->batches_received(), 1);
+  EXPECT_FALSE(consumer->finished().is_finished());
+  EXPECT_FALSE(plan->finished().is_finished());
+
+  left_generator.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+  ASSERT_FINISHES_OK(consumer->finished());
+  ASSERT_FINISHES_OK(plan->finished());
+  EXPECT_EQ(consumer->batches_received(), 3);
+
+  // A late resume after flushing is harmless because the join is already terminal.
+  consumer->Resume();
+  EXPECT_FALSE(consumer->is_paused());
+}
+
+TEST(AsofJoinTest, StopWhilePausedAtLeftBatchBoundary) {
+  auto consumer = std::make_shared<PausingSinkConsumer>();
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+  ExecBatch left_batch = ExecBatchFromJSON({int64()}, "[[1]]");
+  ExecBatch right_batch = ExecBatchFromJSON({int64(), int32()}, "[[1, 10]]");
+
+  PushGenerator<std::optional<ExecBatch>> left_generator;
+  Declaration left{"source",
+                   SourceNodeOptions(left_schema, left_generator, Ordering::Implicit())};
+  Declaration right{"exec_batch_source",
+                    ExecBatchSourceNodeOptions(right_schema, {right_batch})};
+  Declaration join{"asofjoin",
+                   {std::move(left), std::move(right)},
+                   GetRepeatedOptions(2, "on", {}, 0)};
+  Declaration sink{
+      "consuming_sink",
+      {std::move(join)},
+      ConsumingSinkNodeOptions(consumer, /*names=*/{}, /*sequence_output=*/false)};
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(*threaded_exec_context()));
+  ASSERT_OK(sink.AddToPlan(plan.get()));
+  ASSERT_OK(plan->Validate());
+  plan->StartProducing();
+  left_generator.producer().Push(std::move(left_batch));
+  BusyWait(10.0, [&] { return consumer->is_paused(); });
+  EXPECT_TRUE(consumer->is_paused());
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+  EXPECT_EQ(consumer->batches_received(), 1);
+  EXPECT_FALSE(plan->finished().is_finished());
+
+  plan->StopProducing();
+  left_generator.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+  ASSERT_TRUE(plan->finished().Wait(kDefaultAssertFinishesWaitSeconds));
+  ASSERT_TRUE(plan->finished().status().IsCancelled());
+}
+
+TEST(AsofJoinTest, PauseAllowsActiveLeftBatchToFinish) {
+  auto consumer = std::make_shared<PausingSinkConsumer>(/*pause_after_first=*/false);
+  auto left_schema = schema({field("on", int64())});
+  auto right_schema = schema({field("on", int64()), field("value", int32())});
+  ExecBatch left_batch = ExecBatchFromJSON({int64()}, "[[1]]");
+  ExecBatch right_batch = ExecBatchFromJSON({int64(), int32()}, "[[1, 10], [2, 20]]");
+
+  Future<std::optional<ExecBatch>> right_ready = Future<std::optional<ExecBatch>>::Make();
+  auto generator_calls = std::make_shared<std::atomic<int>>(0);
+  AsyncGenerator<std::optional<ExecBatch>> delayed_right = [right_ready,
+                                                            generator_calls]() mutable {
+    if (generator_calls->fetch_add(1) == 0) {
+      return right_ready;
+    }
+    return Future<std::optional<ExecBatch>>::MakeFinished(std::nullopt);
+  };
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(left_schema, {left_batch})};
+  Declaration right{"source", SourceNodeOptions(right_schema, std::move(delayed_right),
+                                                Ordering::Implicit())};
+  Declaration join{"asofjoin",
+                   {std::move(left), std::move(right)},
+                   GetRepeatedOptions(2, "on", {}, 0)};
+  Declaration sink{
+      "consuming_sink",
+      {std::move(join)},
+      ConsumingSinkNodeOptions(consumer, /*names=*/{}, /*sequence_output=*/false)};
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(*threaded_exec_context()));
+  ASSERT_OK(sink.AddToPlan(plan.get()));
+  ASSERT_OK(plan->Validate());
+  plan->StartProducing();
+
+  // The source's unresolved future is tracked by the plan scheduler.  Once the CPU
+  // executor is idle, the left lane is active and waiting for this RHS batch.
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+  ASSERT_TRUE(consumer->is_initialized());
+  ASSERT_EQ(consumer->batches_received(), 0);
+  consumer->Pause();
+  right_ready.MarkFinished(std::optional<ExecBatch>(std::move(right_batch)));
+
+  BusyWait(10.0, [&] { return consumer->batches_received() == 1; });
+  if (consumer->batches_received() != 1) {
+    // Ensure a failing test still drains the plan cleanly.
+    consumer->Resume();
+    ASSERT_FINISHES_OK(consumer->finished());
+    ASSERT_FINISHES_OK(plan->finished());
+    FAIL() << "an already-active left batch remained stranded behind pause";
+  }
+  ASSERT_FINISHES_OK(consumer->finished());
+  ASSERT_FINISHES_OK(plan->finished());
+  consumer->Resume();
+  EXPECT_EQ(consumer->batches_received(), 1);
 }
 
 // Reproduction of GH-40675: A logical race between Process() and Push() that can be more
