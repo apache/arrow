@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <functional>
 #include <iterator>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -32,6 +34,7 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/expression.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/dataset/dataset.h"
@@ -380,6 +383,31 @@ struct SortBehavior {
   }
 };
 
+// Evaluates a FetchRel offset_expr/count_expr to a constant int64. Acero needs a
+// constant, so only literals are accepted; a null literal returns nullopt (unset).
+Result<std::optional<int64_t>> FetchArgFromExpr(
+    const substrait::Expression& expr, std::string_view arg_name,
+    const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(compute::Expression bound,
+                        FromProto(expr, ext_set, conversion_options));
+  const Datum* literal = bound.literal();
+  if (literal == nullptr || !literal->is_scalar()) {
+    return Status::NotImplemented(
+        "substrait::FetchRel ", arg_name,
+        " is not a constant literal; Acero requires a constant offset/count");
+  }
+  const Scalar& scalar = *literal->scalar();
+  if (!scalar.is_valid) {
+    return std::nullopt;
+  }
+  if (!is_integer(scalar.type->id())) {
+    return Status::Invalid("substrait::FetchRel ", arg_name,
+                           " must be an integer literal, got ", scalar.type->ToString());
+  }
+  ARROW_ASSIGN_OR_RAISE(Datum casted, compute::Cast(*literal, int64()));
+  return checked_cast<const Int64Scalar&>(*casted.scalar()).value;
+}
+
 }  // namespace
 
 Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
@@ -691,10 +719,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         case substrait::JoinRel::JOIN_TYPE_RIGHT:
           join_type = acero::JoinType::RIGHT_OUTER;
           break;
-        case substrait::JoinRel::JOIN_TYPE_SEMI:
+        case substrait::JoinRel::JOIN_TYPE_LEFT_SEMI:
           join_type = acero::JoinType::LEFT_SEMI;
           break;
-        case substrait::JoinRel::JOIN_TYPE_ANTI:
+        case substrait::JoinRel::JOIN_TYPE_LEFT_ANTI:
           join_type = acero::JoinType::LEFT_ANTI;
           break;
         default:
@@ -779,8 +807,73 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       ARROW_ASSIGN_OR_RAISE(auto input,
                             FromProto(fetch.input(), ext_set, conversion_options));
 
-      int64_t offset = fetch.offset();
-      int64_t count = fetch.count();
+      // Unset offset is 0. The scalar `offset` is deprecated for `offset_expr`
+      // but still read for older producers.
+      int64_t offset = 0;
+      switch (fetch.offset_mode_case()) {
+        case substrait::FetchRel::kOffset:
+          // GH-44954: the scalar `offset` field is [[deprecated]] in the proto.
+          ARROW_SUPPRESS_DEPRECATION_WARNING
+          offset = fetch.offset();
+          ARROW_UNSUPPRESS_DEPRECATION_WARNING
+          break;
+        case substrait::FetchRel::kOffsetExpr: {
+          ARROW_ASSIGN_OR_RAISE(auto value,
+                                FetchArgFromExpr(fetch.offset_expr(), "offset", ext_set,
+                                                 conversion_options));
+          offset = value.value_or(0);
+          break;
+        }
+        case substrait::FetchRel::OFFSET_MODE_NOT_SET:
+          break;
+      }
+      if (offset < 0) {
+        return Status::Invalid("substrait::FetchRel offset must be non-negative, got ",
+                               offset);
+      }
+
+      // Unset count, a null count_expr, or the deprecated scalar -1 all mean ALL.
+      // Acero has no unbounded fetch, so ALL uses int64 max (FetchCounter tracks
+      // skipped and returned rows separately, so this cannot overflow).
+      constexpr int64_t kFetchAll = std::numeric_limits<int64_t>::max();
+      int64_t count = kFetchAll;
+      switch (fetch.count_mode_case()) {
+        case substrait::FetchRel::kCount: {
+          // The deprecated scalar field uses -1 to signal ALL.
+          ARROW_SUPPRESS_DEPRECATION_WARNING
+          int64_t scalar_count = fetch.count();
+          ARROW_UNSUPPRESS_DEPRECATION_WARNING
+          if (scalar_count >= 0) {
+            count = scalar_count;
+          } else if (scalar_count != -1) {
+            return Status::Invalid(
+                "substrait::FetchRel count must be non-negative or -1 (ALL), got ",
+                scalar_count);
+          }
+          break;
+        }
+        case substrait::FetchRel::kCountExpr: {
+          ARROW_ASSIGN_OR_RAISE(
+              auto value,
+              FetchArgFromExpr(fetch.count_expr(), "count", ext_set, conversion_options));
+          if (value.has_value()) {
+            if (*value < 0) {
+              return Status::Invalid(
+                  "substrait::FetchRel count must be non-negative, got ", *value);
+            }
+            count = *value;
+          }
+          break;
+        }
+        case substrait::FetchRel::COUNT_MODE_NOT_SET:
+          break;
+      }
+
+      // Skip a no-op fetch (keep everything) so it does not impose the fetch
+      // node's input-ordering requirement on plans that never limit their output.
+      if (count == kFetchAll && offset == 0) {
+        return ProcessEmit(fetch, input, input.output_schema);
+      }
 
       acero::Declaration fetch_dec{
           "fetch", {input.declaration}, acero::FetchNodeOptions(offset, count)};
@@ -855,12 +948,35 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       std::vector<FieldRef> keys;
       if (aggregate.groupings_size() > 0) {
         const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
-        int grouping_expr_size = group.grouping_expressions_size();
-        keys.reserve(grouping_expr_size);
-        for (int exp_id = 0; exp_id < grouping_expr_size; exp_id++) {
-          ARROW_ASSIGN_OR_RAISE(
-              compute::Expression expr,
-              FromProto(group.grouping_expressions(exp_id), ext_set, conversion_options));
+        // Current producers reference grouping expressions by index into the
+        // AggregateRel-level `grouping_expressions`; older ones inline them in the
+        // deprecated `Grouping.grouping_expressions`. Reading only the deprecated
+        // field drops the group keys, collapsing every row into one group.
+        std::vector<const substrait::Expression*> grouping_exprs;
+        if (group.expression_references_size() > 0) {
+          grouping_exprs.reserve(group.expression_references_size());
+          for (uint32_t ref : group.expression_references()) {
+            if (ref >= static_cast<uint32_t>(aggregate.grouping_expressions_size())) {
+              return Status::Invalid(
+                  "substrait::AggregateRel grouping expression reference ", ref,
+                  " is out of bounds (", aggregate.grouping_expressions_size(),
+                  " grouping expressions)");
+            }
+            grouping_exprs.push_back(&aggregate.grouping_expressions(ref));
+          }
+        } else {
+          // GH-44954: the inline `Grouping.grouping_expressions` is [[deprecated]].
+          ARROW_SUPPRESS_DEPRECATION_WARNING
+          grouping_exprs.reserve(group.grouping_expressions_size());
+          for (const auto& grouping_expr : group.grouping_expressions()) {
+            grouping_exprs.push_back(&grouping_expr);
+          }
+          ARROW_UNSUPPRESS_DEPRECATION_WARNING
+        }
+        keys.reserve(grouping_exprs.size());
+        for (const substrait::Expression* grouping_expr : grouping_exprs) {
+          ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                                FromProto(*grouping_expr, ext_set, conversion_options));
           const FieldRef* field_ref = expr.field_ref();
           if (field_ref) {
             keys.emplace_back(std::move(*field_ref));

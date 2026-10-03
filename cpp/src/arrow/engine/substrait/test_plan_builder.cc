@@ -132,7 +132,11 @@ Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
   if (!keys.empty()) {
     substrait::AggregateRel::Grouping* grouping = agg->add_groupings();
     for (int key : keys) {
+      // GH-44954: the inline `Grouping.grouping_expressions` is [[deprecated]]; this
+      // test helper deliberately exercises the deprecated form.
+      ARROW_SUPPRESS_DEPRECATION_WARNING
       substrait::Expression* key_expr = grouping->add_grouping_expressions();
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
       CreateDirectReference(key, key_expr);
     }
   }
