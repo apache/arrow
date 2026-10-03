@@ -147,6 +147,11 @@ if(ARROW_DEFINE_OPTIONS)
   define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
                        "")
 
+  # For more details see:
+  # https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html
+  define_option(ARROW_HARDENING
+                "Build with OpenSSF-recommended compiler and linker hardening flags" OFF)
+
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
 
