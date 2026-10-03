@@ -30,6 +30,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#  include <xsimd/xsimd.hpp>
+#endif
+
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
@@ -1434,6 +1438,68 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
 // ----------------------------------------------------------------------
 // DELTA_BINARY_PACKED decoder
 
+namespace {
+
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+// Applies inclusive-scan steps recursively for power-of-two lane offsets.
+template <std::size_t kShift, typename Batch>
+Batch InclusiveScan(Batch values) {
+  if constexpr (kShift < Batch::size) {
+    values += xsimd::slide_left<kShift * sizeof(typename Batch::value_type)>(values);
+    return InclusiveScan<kShift * 2>(values);
+  } else {
+    return values;
+  }
+}
+#endif
+
+// Reconstructs values in place using unsigned arithmetic to preserve wrapping.
+template <typename T>
+std::make_unsigned_t<T> ReconstructValuesFromDeltas(
+    T* values, int num_values, std::make_unsigned_t<T> min_delta,
+    std::make_unsigned_t<T> previous_value) {
+  using UT = std::make_unsigned_t<T>;
+  int i = 0;
+
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+  using Batch = xsimd::batch<UT>;
+  constexpr int kLanes = static_cast<int>(Batch::size);
+  // slide_left shifts toward higher lanes on the supported architectures.
+  // At two lanes the scan loses to the additions it replaces, so it is compiled only
+  // where a register holds four or more values; narrower ones use the loop below.
+  if constexpr (kLanes >= 4) {
+    // Broadcast pattern for the last lane, which carries the running value into the
+    // next vector without a round trip through a general-purpose register.
+    struct LastLane {
+      static constexpr unsigned get(unsigned /*index*/, unsigned size) {
+        return size - 1;
+      }
+    };
+    const auto last_lane =
+        xsimd::make_batch_constant<UT, LastLane, xsimd::default_arch>();
+    const Batch min_delta_batch(min_delta);
+    Batch carry(previous_value);
+    for (; i + kLanes <= num_values; i += kLanes) {
+      // Adding the frame before the scan turns its running multiple into a term the
+      // scan produces, rather than a multiply per lane.
+      Batch batch = xsimd::bitwise_cast<UT>(xsimd::batch<T>::load_unaligned(values + i));
+      batch = InclusiveScan<1>(batch + min_delta_batch) + carry;
+      xsimd::bitwise_cast<T>(batch).store_unaligned(values + i);
+      carry = xsimd::swizzle(batch, last_lane);
+    }
+    previous_value = carry.get(0);
+  }
+#endif
+
+  for (; i < num_values; ++i) {
+    previous_value += min_delta + static_cast<UT>(values[i]);
+    values[i] = static_cast<T>(previous_value);
+  }
+  return previous_value;
+}
+
+}  // namespace
+
 template <typename DType>
 class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
  public:
@@ -1689,16 +1755,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
             num_values_to_decode) {
           ParquetException::EofException();
         }
-        // Keep both members in locals: `buffer` may alias either one, forcing a
-        // reload after every output store.
-        UT last = static_cast<UT>(last_value_);
-        const UT min_delta = static_cast<UT>(min_delta_);
-        for (int j = 0; j < num_values_to_decode; ++j) {
-          // Reconstruct in unsigned arithmetic so overflow wraps as specified.
-          last += min_delta + static_cast<UT>(buffer[i + j]);
-          buffer[i + j] = last;
-        }
-        last_value_ = static_cast<T>(last);
+        last_value_ = static_cast<T>(ReconstructValuesFromDeltas(
+            buffer + i, num_values_to_decode, static_cast<UT>(min_delta_),
+            static_cast<UT>(last_value_)));
       }
       mini_block_idx_ += additional_mini_blocks;
       values_remaining_current_mini_block_ -= values_this_mini_block;

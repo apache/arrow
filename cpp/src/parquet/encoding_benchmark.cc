@@ -675,6 +675,21 @@ static auto MakeDeltaBitPackingInputNarrow(size_t length) {
   return numbers;
 }
 
+// A non-decreasing random walk with deltas in [0, 1000]. Its miniblocks need 10
+// bits, while Narrow's signed deltas need 11.
+template <typename DType>
+static auto MakeDeltaBitPackingInputIncreasing(size_t length) {
+  using T = typename DType::c_type;
+  auto numbers = std::vector<T>(length);
+  ::arrow::randint<T, T>(length, 0, 1000, &numbers);
+  T value = 0;
+  for (auto& number : numbers) {
+    value = static_cast<T>(value + number);
+    number = value;
+  }
+  return numbers;
+}
+
 template <typename DType>
 static auto MakeDeltaBitPackingInputWide(size_t length) {
   using T = typename DType::c_type;
@@ -713,6 +728,16 @@ static void BM_DeltaBitPackingEncode_Int64_Narrow(benchmark::State& state) {
   BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputNarrow<Int64Type>);
 }
 
+static void BM_DeltaBitPackingEncode_Int32_Increasing(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int32Type>(state,
+                                      MakeDeltaBitPackingInputIncreasing<Int32Type>);
+}
+
+static void BM_DeltaBitPackingEncode_Int64_Increasing(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int64Type>(state,
+                                      MakeDeltaBitPackingInputIncreasing<Int64Type>);
+}
+
 static void BM_DeltaBitPackingEncode_Int32_Wide(benchmark::State& state) {
   BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputWide<Int32Type>);
 }
@@ -725,6 +750,8 @@ BENCHMARK(BM_DeltaBitPackingEncode_Int32_Fixed)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int64_Fixed)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int32_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int32_Increasing)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int64_Increasing)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingEncode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
 
@@ -762,6 +789,16 @@ static void BM_DeltaBitPackingDecode_Int64_Narrow(benchmark::State& state) {
   BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputNarrow<Int64Type>);
 }
 
+static void BM_DeltaBitPackingDecode_Int32_Increasing(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int32Type>(state,
+                                      MakeDeltaBitPackingInputIncreasing<Int32Type>);
+}
+
+static void BM_DeltaBitPackingDecode_Int64_Increasing(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int64Type>(state,
+                                      MakeDeltaBitPackingInputIncreasing<Int64Type>);
+}
+
 static void BM_DeltaBitPackingDecode_Int32_Wide(benchmark::State& state) {
   BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputWide<Int32Type>);
 }
@@ -774,6 +811,8 @@ BENCHMARK(BM_DeltaBitPackingDecode_Int32_Fixed)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int64_Fixed)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int32_Narrow)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int32_Increasing)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int64_Increasing)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_DeltaBitPackingDecode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
 

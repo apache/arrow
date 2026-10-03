@@ -2093,6 +2093,42 @@ TYPED_TEST(TestDeltaBitPackEncoding, MiniblockBitWidthRuns) {
   }
 }
 
+TYPED_TEST(TestDeltaBitPackEncoding, AllDeltaBitWidthsAndBatchTails) {
+  // Cover every residual width, SIMD batch tail, block boundary, and unsigned wrap.
+  using T = typename TypeParam::c_type;
+  using UT = std::make_unsigned_t<T>;
+  constexpr int kBits = static_cast<int>(sizeof(T) * 8);
+  constexpr int kValuesPerBlock = TestFixture::kValuesPerBlock;
+
+  auto make_values = [](int width, T frame, int num_deltas) {
+    std::vector<T> values;
+    values.reserve(num_deltas + 1);
+    const UT spread = width == kBits ? ~UT{0} : static_cast<UT>((UT{1} << width) - 1);
+    // Two deltas in three sit at the frame, so it is the smallest in every miniblock.
+    UT current = 0;
+    values.push_back(static_cast<T>(current));
+    for (int i = 0; i < num_deltas; ++i) {
+      current = static_cast<UT>(current + static_cast<UT>(frame) +
+                                (i % 3 == 0 ? spread : UT{0}));
+      values.push_back(static_cast<T>(current));
+    }
+    return values;
+  };
+
+  for (int width = 0; width <= kBits; ++width) {
+    for (const T frame : {T{0}, static_cast<T>(-5), T{7}}) {
+      // 16-23 leaves every remainder for group sizes up to eight. The last length
+      // crosses a block boundary with a remainder left, at either block size.
+      for (const int num_deltas :
+           {16, 17, 18, 19, 20, 21, 22, 23, kValuesPerBlock + 73}) {
+        ARROW_SCOPED_TRACE("width = ", width, ", frame = ", static_cast<int64_t>(frame),
+                           ", num_deltas = ", num_deltas);
+        this->CheckRoundtripWithValues(make_values(width, frame, num_deltas));
+      }
+    }
+  }
+}
+
 // ----------------------------------------------------------------------
 // Rle for Boolean encode/decode tests.
 
