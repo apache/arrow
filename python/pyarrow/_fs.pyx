@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-from cpython.datetime cimport datetime, PyDateTime_DateTime
-
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
 from pyarrow.lib import _detect_compression, frombytes, tobytes
@@ -160,7 +158,7 @@ cdef class FileInfo(_Weakrefable):
                                 "can be given")
             if isinstance(mtime, datetime):
                 self.info.set_mtime(PyDateTime_to_TimePoint(
-                    <PyDateTime_DateTime*> mtime))
+                    <PyObject*> mtime))
             else:
                 self.info.set_mtime(TimePoint_from_s(mtime))
         elif mtime_ns is not None:
@@ -1239,12 +1237,18 @@ cdef class SubTreeFileSystem(FileSystem):
 
 cdef class _MockFileSystem(FileSystem):
 
-    def __init__(self, datetime current_time=None):
+    def __init__(self, object current_time=None):
+        # object (not a C-struct datetime type): we never touch the datetime's
+        # internals here. The arg passes across the FFI as an opaque PyObject*
+        # and C++ goes through the stable PyDatetimeField (see
+        # arrow/python/datetime.h). Cimporting cpython.datetime just for this
+        # annotation would emit its C-struct field accessors (PyDateTime_*_GET_*,
+        # PyDateTime_IMPORT), which do not exist under Py_LIMITED_API.
         cdef shared_ptr[CMockFileSystem] wrapped
 
         current_time = current_time or datetime.now()
         wrapped = make_shared[CMockFileSystem](
-            PyDateTime_to_TimePoint(<PyDateTime_DateTime*> current_time)
+            PyDateTime_to_TimePoint(<PyObject*> current_time)
         )
 
         self.init(<shared_ptr[CFileSystem]> wrapped)
