@@ -216,8 +216,12 @@ void TestSession() {
 
   ListType list_type(uint8());
   LargeListType large_list_type(large_utf8());
+  ListViewType list_view_type(uint8());
+  LargeListViewType large_list_view_type(large_utf8());
   auto heap_list_type = list(uint8());
   auto heap_large_list_type = large_list(large_utf8());
+  auto heap_list_view_type = list_view(uint8());
+  auto heap_large_list_view_type = large_list_view(large_utf8());
 
   FixedSizeListType fixed_size_list_type(float64(), 3);
   auto heap_fixed_size_list_type = fixed_size_list(float64(), 3);
@@ -385,6 +389,12 @@ void TestSession() {
   LargeListScalar large_list_scalar{list_value_array};
   LargeListScalar large_list_scalar_null{list_zero_length, large_list(int32()),
                                          /*is_valid=*/false};
+  ListViewScalar list_view_scalar{list_value_array};
+  ListViewScalar list_view_scalar_null{list_zero_length, list_view(int32()),
+                                       /*is_valid=*/false};
+  LargeListViewScalar large_list_view_scalar{list_value_array};
+  LargeListViewScalar large_list_view_scalar_null{
+      list_zero_length, large_list_view(int32()), /*is_valid=*/false};
   FixedSizeListScalar fixed_size_list_scalar{list_value_array};
   FixedSizeListScalar fixed_size_list_scalar_null{
       list_value_array, fixed_size_list(int32(), 3), /*is_valid=*/false};
@@ -447,6 +457,11 @@ void TestSession() {
 
   auto heap_list_array = SliceArrayFromJSON(list(int64()), "[[1, 2], null, []]");
   ListArray list_array{heap_list_array->data()};
+  auto heap_list_view_array =
+      SliceArrayFromJSON(list_view(int64()), "[[1, 2], null, []]");
+  ListViewArray list_view_array{heap_list_view_array->data()};
+  auto heap_large_list_view_array =
+      SliceArrayFromJSON(large_list_view(int64()), "[[1, 2], null, []]");
 
   const char* json_double_array = "[-1.5, null]";
   auto heap_double_array = SliceArrayFromJSON(float64(), json_double_array);
