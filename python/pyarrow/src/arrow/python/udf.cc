@@ -210,8 +210,9 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
         out->value = std::move(val);
         return Status::OK();
       }
-      return Status::TypeError("Unexpected output type: ",
-                               Py_TYPE(result->obj())->tp_name, " (expected Scalar)");
+      return Status::TypeError(
+          "Unexpected output type: ", internal::PyObject_StdStringTypeName(result->obj()),
+          " (expected Scalar)");
     }));
     return Status::OK();
   }
@@ -352,7 +353,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
           ARROW_RETURN_NOT_OK(builder->AppendScalar(std::move(*val)));
         } else {
           return Status::TypeError("Unexpected output type: ",
-                                   Py_TYPE(result->obj())->tp_name, " (expected Scalar)");
+                                   internal::PyObject_StdStringTypeName(result->obj()),
+                                   " (expected Scalar)");
         }
       }
       ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
@@ -435,8 +437,9 @@ struct PythonUdf : public PythonUdfKernelState {
       out->value = std::move(val->data());
       return Status::OK();
     } else {
-      return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
-                               " (expected Array)");
+      return Status::TypeError(
+          "Unexpected output type: ", internal::PyObject_StdStringTypeName(result.obj()),
+          " (expected Array)");
     }
     return Status::OK();
   }
