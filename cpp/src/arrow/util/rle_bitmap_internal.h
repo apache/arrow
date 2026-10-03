@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -110,6 +111,18 @@ class RleRunToBitmapDecoder {
     values_left_ -= n_vals;
     ARROW_DCHECK_GE(remaining(), 0);
     return n_vals;
+  }
+
+  /// Advance and count the number of occurrences of `value`.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were processed.
+  RleCountUpToResult CountUpTo(bool value, rle_size_t batch_size) {
+    const auto n_vals = Advance(batch_size);
+    return {
+        .matching_count = n_vals * (value == this->value()),
+        .processed_count = n_vals,
+    };
   }
 
   /// Read the next value into `out` and return false if there are no more.
@@ -229,6 +242,19 @@ class BitPackedRunToBitmapDecoder {
     return n_vals;
   }
 
+  /// Advance and count the number of occurrences of `value`.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were processed.
+  RleCountUpToResult CountUpTo(bool value, rle_size_t batch_size) {
+    const auto n_vals = GetAdvanceCapacity(batch_size);
+    const auto set_count = static_cast<rle_size_t>(arrow::internal::CountSetBits(
+        unread_values_ptr(), unread_values_bit_offset(), n_vals));
+    const auto matching_count = value ? set_count : n_vals - set_count;
+    ARROW_UNUSED(Advance(n_vals));
+    return {.matching_count = matching_count, .processed_count = n_vals};
+  }
+
   /// Get the next value and return false if there are no more.
   [[nodiscard]] bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
 
@@ -282,10 +308,22 @@ class RleBitPackedToBitmapDecoder {
   /// Whether there is still runs to iterate over.
   bool exhausted() const { return (run_remaining() == 0) && parser_.exhausted(); }
 
+  /// Advance by as many values as provided or until exhaustion of the decoder.
+  /// Return the number of values skipped.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size);
+
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough
   /// values left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size);
+
+  /// Advance and count the number of occurrences of `value`.
+  ///
+  /// The count is limited to at most the next `batch_size` items. Fewer than
+  /// `batch_size` elements may be processed if there are not enough values left
+  /// or if an error occurred.
+  /// @return The matching value count and number of elements that were processed.
+  RleCountUpToResult CountUpTo(bool value, rle_size_t batch_size);
 
  private:
   RleBitPackedParser parser_ = {};
@@ -296,10 +334,60 @@ class RleBitPackedToBitmapDecoder {
     return std::visit([](const auto& dec) { return dec.remaining(); }, decoder_);
   }
 
-  /// Get a batch of values from the current run and return the number elements read.
-  [[nodiscard]] rle_size_t RunGetBatch(BitmapSpanMut out, rle_size_t batch_size) {
-    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder_);
+  /// Process data in the current run and subsequent ones.
+  ///
+  /// `func` is called as `func(decoder, run_batch_size)` where `decoder` is a
+  /// statically-typed run decoder (not the variant).
+  /// Must return the number of values it processed.
+  ///
+  /// Return the number of values processed.
+  template <typename Callable>
+  rle_size_t ProcessValues(Callable&& func, rle_size_t batch_size);
+};
+
+/// Minimal decoder for legacy bit packed encoding (BIT_PACKED = 4) into a bitmap.
+///
+/// This is the bitmap counterpart of ``BitPackedDecoder``: it decodes a single
+/// bit-packed run of booleans (each value stored on a single bit) directly into an
+/// Arrow validity bitmap, without the RLE framing.
+///
+/// The number of values that the decoder can represent is up to 2^31 - 1.
+class BitPackedToBitmapDecoder : private BitPackedRunToBitmapDecoder {
+ private:
+  using Base = BitPackedRunToBitmapDecoder;
+
+ public:
+  using Base::Advance;
+  using Base::CountUpTo;
+  using Base::Get;
+  using Base::GetBatch;
+  using Base::remaining;
+
+  BitPackedToBitmapDecoder() noexcept = default;
+
+  /// Create a decoder object.
+  ///
+  /// @param data and data_size are the raw bytes to decode.
+  /// @param value_count is the number of values in the run.
+  BitPackedToBitmapDecoder(const uint8_t* data, rle_size_t data_size,
+                           rle_size_t value_count) noexcept {
+    Reset(data, data_size, value_count);
   }
+
+  void Reset(const uint8_t* data, rle_size_t data_size, rle_size_t value_count) noexcept {
+    ARROW_DCHECK_GE(value_count, 0);
+    ARROW_DCHECK_LE(value_count, std::numeric_limits<rle_size_t>::max());
+    const auto run = BitPackedRun{
+        /* data= */ data,
+        /* value_count= */ value_count,
+        /* value_bit_width= */ 1,
+        /* max_read_bytes= */ data_size,
+    };
+    return Base::Reset(run);
+  }
+
+  /// Whether there is still values to iterate over.
+  bool exhausted() const { return Base::remaining() == 0; }
 };
 
 /************************************************
@@ -320,24 +408,26 @@ struct RleBitPackedToBitmapDecoderGetDecoder<BitPackedRun> {
   using type = BitPackedRunToBitmapDecoder;
 };
 
-inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
-                                                  rle_size_t batch_size) -> rle_size_t {
+template <typename Callable>
+auto RleBitPackedToBitmapDecoder::ProcessValues(Callable&& func,
+                                                rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
   if (ARROW_PREDICT_FALSE(batch_size == 0 || exhausted())) {
     return 0;
   }
 
-  rle_size_t values_read = 0;
+  rle_size_t values_processed = 0;
 
   // Remaining from a previous call that would have left some unread data from a run.
   if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
-    const auto read = RunGetBatch(out, batch_size);
-    values_read += read;
+    const auto processed =
+        std::visit([&](auto& decoder) { return func(decoder, batch_size); }, decoder_);
+    values_processed += processed;
 
     // Either we fulfilled all the batch to be read or we finished remaining run.
-    if (ARROW_PREDICT_FALSE(values_read == batch_size)) {
-      return values_read;
+    if (ARROW_PREDICT_FALSE(values_processed == batch_size)) {
+      return values_processed;
     }
     ARROW_DCHECK(run_remaining() == 0);
   }
@@ -345,17 +435,14 @@ inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
   parser_.ParseWithCallable([&](auto run) {
     using RunDecoder = RleBitPackedToBitmapDecoderGetDecoder<decltype(run)>::type;
 
-    ARROW_DCHECK_LT(values_read, batch_size);
+    ARROW_DCHECK_LT(values_processed, batch_size);
     RunDecoder decoder(run);
-    // The output span carries its own bit offset, so advancing it past the values
-    // already written keeps successive runs correctly aligned in the bitmap.
-    const auto read =
-        decoder.GetBatch(out.NewStartingAt(values_read), batch_size - values_read);
-    ARROW_DCHECK_LE(read, batch_size - values_read);
-    values_read += read;
+    const auto read = func(decoder, batch_size - values_processed);
+    ARROW_DCHECK_LE(read, batch_size - values_processed);
+    values_processed += read;
 
     // Stop reading and store remaining decoder
-    if (ARROW_PREDICT_FALSE(values_read == batch_size || read == 0)) {
+    if (ARROW_PREDICT_FALSE(values_processed == batch_size || read == 0)) {
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
@@ -363,7 +450,39 @@ inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
     return ControlFlow::Continue;
   });
 
-  return values_read;
+  return values_processed;
+}
+
+inline auto RleBitPackedToBitmapDecoder::Advance(rle_size_t batch_size) -> rle_size_t {
+  return ProcessValues(
+      [](auto& decoder, rle_size_t run_batch_size) {
+        return decoder.Advance(run_batch_size);
+      },
+      batch_size);
+}
+
+inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
+                                                  rle_size_t batch_size) -> rle_size_t {
+  return ProcessValues(
+      [&out](auto& decoder, rle_size_t run_batch_size) {
+        const auto read = decoder.GetBatch(out, run_batch_size);
+        out = out.NewStartingAt(read);
+        return read;
+      },
+      batch_size);
+}
+
+inline auto RleBitPackedToBitmapDecoder::CountUpTo(bool value, rle_size_t batch_size)
+    -> RleCountUpToResult {
+  rle_size_t matching_count = 0;
+  const rle_size_t processed_count = ProcessValues(
+      [value, &matching_count](auto& decoder, rle_size_t run_batch_size) {
+        const auto result = decoder.CountUpTo(value, run_batch_size);
+        matching_count += result.matching_count;
+        return result.processed_count;
+      },
+      batch_size);
+  return {.matching_count = matching_count, .processed_count = processed_count};
 }
 
 }  // namespace arrow::util
