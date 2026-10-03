@@ -2491,6 +2491,37 @@ TEST(ScanNode, Trivial) {
   ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
+TEST(ScanNode, NoFragmentReadahead) {
+  for (bool empty : {false, true}) {
+    for (bool require_sequenced_output : {false, true}) {
+      SCOPED_TRACE("empty=" + std::to_string(empty) +
+                   ", sequenced=" + std::to_string(require_sequenced_output));
+      TestPlan plan;
+      auto basic = MakeBasicDataset();
+      if (empty) {
+        basic.dataset =
+            std::make_shared<FragmentDataset>(basic.dataset->schema(), FragmentVector{});
+        basic.batches.clear();
+      }
+      auto options = std::make_shared<ScanOptions>();
+      options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
+      options->fragment_readahead = 0;
+
+      ASSERT_OK(acero::Declaration::Sequence(
+                    {{"scan",
+                      ScanNodeOptions{basic.dataset, options, require_sequenced_output}},
+                     {"sink", acero::SinkNodeOptions{&plan.sink_gen}}})
+                    .AddToPlan(plan.get()));
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, plan.Run());
+      if (require_sequenced_output) {
+        ASSERT_THAT(batches, ::testing::ElementsAreArray(basic.batches));
+      } else {
+        ASSERT_THAT(batches, UnorderedElementsAreArray(basic.batches));
+      }
+    }
+  }
+}
+
 TEST(ScanNode, FilteredOnVirtualColumn) {
   TestPlan plan;
 
