@@ -94,8 +94,11 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     }
   }
 
-  // Set the object cache for LLVM
-  ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(obj_cache));
+  // Pre-load the already-compiled object from the cache lookup above, if there was
+  // one. Reuses prev_cached_obj instead of letting SetLLVMObjectCache re-query the
+  // shared cache, so this can never disagree with the is_cached snapshot that
+  // decided whether Build() below still compiles fresh IR (see GH-601).
+  ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(prev_cached_obj));
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 
