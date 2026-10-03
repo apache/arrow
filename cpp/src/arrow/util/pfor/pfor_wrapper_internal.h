@@ -1,0 +1,156 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+// High-level wrapper interface for PFOR compression
+//
+// Handles page-level serialization: header, offset array, and vectors.
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
+
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/util/pfor/pfor_internal.h"
+
+namespace arrow {
+namespace util {
+namespace pfor {
+
+/// \class PforWrapper
+/// \brief High-level interface for PFOR page-level compression
+///
+/// Manages this page layout (offsets are relative to the offset array):
+///
+///   +---------------------------------------------------------------+
+///   | PFOR header (7 bytes)                                         |
+///   | Offset 0 | Offset 1 | ... | Offset n-1      (4 bytes each)    |
+///   | Vector 0 | Vector 1 | ... | Vector n-1                         |
+///   +---------------------------------------------------------------+
+///
+/// Header fields:
+///
+///   +--------+--------------------+---------------------+
+///   | Offset | Field              | Size                |
+///   +--------+--------------------+---------------------+
+///   |      0 | packing_mode       | 1 byte (uint8)      |
+///   |      1 | log_vector_size    | 1 byte (uint8)      |
+///   |      2 | value_byte_width   | 1 byte (uint8)      |
+///   |      3 | num_elements       | 4 bytes (int32)     |
+///   +--------+--------------------+---------------------+
+///
+/// \tparam T the integer type (int32_t or int64_t)
+template <typename T>
+class PforWrapper {
+ public:
+  /// A validated view of one encoded page.  It keeps no decoded values and can
+  /// therefore serve arbitrary vectors without materializing the whole page.
+  class VectorReader {
+   public:
+    static Result<VectorReader> Open(std::span<const uint8_t> input);
+
+    int32_t num_elements() const { return num_elements_; }
+    int32_t vector_size() const { return vector_size_; }
+    int32_t num_vectors() const { return num_vectors_; }
+
+    Result<int32_t> VectorLength(int32_t vector_index) const;
+    Status DecodeVector(int32_t vector_index, std::span<T> output) const;
+
+   private:
+    std::span<const uint8_t> input_;
+    const uint8_t* offset_array_start_ = nullptr;
+    int64_t payload_size_ = 0;
+    int32_t num_elements_ = 0;
+    int32_t vector_size_ = 0;
+    int32_t num_vectors_ = 0;
+  };
+
+  /// \brief Encode integer values into a PFOR-compressed page
+  ///
+  /// \param[in] values pointer to input integers
+  /// \param[in] num_values total number of values; zero writes a bare header,
+  ///            which is what an all-null page encodes to
+  /// \param[in] vector_size number of elements per vector (must be a power of 2,
+  ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
+  /// \param[out] comp pointer to output buffer, at least
+  ///             GetMaxCompressedSize(num_values, vector_size) bytes
+  /// \param[in,out] comp_size input: available buffer size, which must be at
+  ///                least GetMaxCompressedSize(num_values, vector_size);
+  ///                output: bytes written
+  /// \return Status::OK on success, or an error if the arguments are invalid
+  static Status Encode(const T* values, int32_t num_values, int32_t vector_size,
+                       uint8_t* comp, int64_t* comp_size);
+
+  /// Convenience overload with default vector_size = kPforVectorSize
+  static Status Encode(const T* values, int32_t num_values, uint8_t* comp,
+                       int64_t* comp_size);
+
+  /// \brief Decode a PFOR-compressed page
+  ///
+  /// \param[in] comp pointer to compressed data
+  /// \param[in] comp_size size of compressed data
+  /// \param[in] num_values number of values the page holds, which must equal the
+  ///            count in its header; DecodeElementCount reads that count. Zero is
+  ///            valid: an all-null page is a bare header.
+  /// \param[out] values pointer to output buffer, sized for num_values
+  /// \return Status::OK on success, or an error if the data is malformed
+  static Status Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,
+                       T* values);
+
+  /// \brief Read the value count a page declares in its own header
+  ///
+  /// The parquet page header counts nulls, which a PFOR page does not store, so
+  /// a caller holding a page needs this to learn how many values are in it.
+  ///
+  /// \param[in] comp pointer to compressed data
+  /// \param[in] comp_size size of compressed data
+  /// \return the number of values the page holds, or an error if the header is
+  ///         malformed
+  static Result<int32_t> DecodeElementCount(const uint8_t* comp, int64_t comp_size);
+
+  /// \brief Get the maximum compressed size for a given number of values
+  ///
+  /// \param[in] num_values number of integer values
+  /// \param[in] vector_size number of elements per vector (must be a power of 2,
+  ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
+  /// \return maximum possible compressed page size in bytes, or an error if the
+  ///         arguments are invalid
+  static Result<int64_t> GetMaxCompressedSize(
+      int32_t num_values,
+      int32_t vector_size = static_cast<int32_t>(PforConstants::kPforVectorSize));
+
+ private:
+  /// \brief Page header structure (7 bytes)
+  struct PforHeader {
+    uint8_t packing_mode;      // 0 = FOR + bit-packing
+    uint8_t log_vector_size;   // log2(vector_size)
+    uint8_t value_byte_width;  // sizeof(T): 4 or 8
+    int32_t num_elements;      // total element count
+  };
+
+  static constexpr int32_t kVectorSize =
+      static_cast<int32_t>(PforConstants::kPforVectorSize);
+
+  static void StoreHeader(std::span<uint8_t> dest, const PforHeader& header);
+  static Result<PforHeader> LoadHeader(std::span<const uint8_t> src);
+};
+
+}  // namespace pfor
+}  // namespace util
+}  // namespace arrow
