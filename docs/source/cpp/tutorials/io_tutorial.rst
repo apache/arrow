@@ -66,6 +66,13 @@ I/O functionality for each file type we'll work with in this article:
   :start-after: (Doc section: Includes)
   :end-before: (Doc section: Includes)
 
+.. note::
+   The Parquet headers come from a library separate from ``arrow``, so linking
+   ``Arrow::arrow_shared`` alone is not enough to build this example. Your
+   ``CMakeLists.txt`` needs ``find_package(Parquet REQUIRED)`` and the
+   ``Parquet::parquet_shared`` target as well. See
+   :ref:`cpp-build-system-linking-parquet` for a complete ``CMakeLists.txt``.
+
 Main()
 ^^^^^^
 
