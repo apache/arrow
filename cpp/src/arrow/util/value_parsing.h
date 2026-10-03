@@ -826,10 +826,12 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
     return false;
   }
-  // ignore the time part
-  arrow_vendored::date::sys_seconds secs =
-      arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /
-                                     (result.tm_mon + 1) / std::max(result.tm_mday, 1));
+  const auto ymd = arrow_vendored::date::year(result.tm_year + 1900) /
+                   (result.tm_mon + 1) / std::max(result.tm_mday, 1);
+  if (ARROW_PREDICT_FALSE(!ymd.ok())) {
+    return false;
+  }
+  arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(ymd);
   if (!ignore_time_in_day) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
