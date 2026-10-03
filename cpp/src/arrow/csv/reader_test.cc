@@ -620,6 +620,28 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
   ASSERT_TRUE(table->Equals(*expected_table));
 }
 
+TEST(ReaderTests, MultiDelimiter) {
+  auto input =
+      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a||b||c\n1||2||3\n"));
+  auto read_options = ReadOptions::Defaults();
+  read_options.block_size = 8;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.delimiter_string = "||";
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.default_column_type = utf8();
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+
+  auto expected_schema =
+      schema({field("a", utf8()), field("b", utf8()), field("c", utf8())});
+  auto expected_table =
+      TableFromJSON(expected_schema, {R"([{"a":"1", "b":"2", "c":"3"}])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
 TEST(ReaderTests, ShortRows) {
   auto input =
       std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a,b,c\n1,2\n3,,"));
