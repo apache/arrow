@@ -31,13 +31,13 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 #include "arrow/vendored/strptime.h"
 
 namespace arrow {
@@ -651,13 +651,11 @@ static inline bool ParseYYYY_MM_DD(const char* s, Duration* since_epoch) {
   if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 8, 2, &day))) {
     return false;
   }
-  arrow_vendored::date::year_month_day ymd{arrow_vendored::date::year{year},
-                                           arrow_vendored::date::month{month},
-                                           arrow_vendored::date::day{day}};
+  chrono::year_month_day ymd{chrono::year{year}, chrono::month{month}, chrono::day{day}};
   if (ARROW_PREDICT_FALSE(!ymd.ok())) return false;
 
-  *since_epoch = std::chrono::duration_cast<Duration>(
-      arrow_vendored::date::sys_days{ymd}.time_since_epoch());
+  *since_epoch =
+      std::chrono::duration_cast<Duration>(chrono::sys_days{ymd}.time_since_epoch());
   return true;
 }
 
@@ -810,7 +808,7 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
                                           const char* format, bool ignore_time_in_day,
                                           bool allow_trailing_chars, TimeUnit::type unit,
                                           int64_t* out) {
-  // NOTE: strptime() is more than 10x faster than arrow_vendored::date::parse().
+  // Keep strptime(): benchmarks found it more than 10x faster than date::parse().
   // The buffer may not be nul-terminated
   std::string clean_copy(buf, length);
   struct tm result;
@@ -827,9 +825,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
     return false;
   }
   // ignore the time part
-  arrow_vendored::date::sys_seconds secs =
-      arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /
-                                     (result.tm_mon + 1) / std::max(result.tm_mday, 1));
+  chrono::sys_seconds secs =
+      chrono::sys_days(chrono::year(result.tm_year + 1900) / (result.tm_mon + 1) /
+                       std::max(result.tm_mday, 1));
   if (!ignore_time_in_day) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
@@ -860,8 +858,7 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
   using value_type = typename DATE_TYPE::c_type;
 
   using duration_type =
-      typename std::conditional<std::is_same<DATE_TYPE, Date32Type>::value,
-                                arrow_vendored::date::days,
+      typename std::conditional<std::is_same<DATE_TYPE, Date32Type>::value, chrono::days,
                                 std::chrono::milliseconds>::type;
 
   bool Convert(const DATE_TYPE& type, const char* s, size_t length, value_type* out) {

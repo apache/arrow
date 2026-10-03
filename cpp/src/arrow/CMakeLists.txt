@@ -542,7 +542,8 @@ set(ARROW_VENDORED_SRCS
     vendored/double-conversion/strtod.cc
     vendored/musl/strptime.c)
 if(APPLE)
-  list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
+  # This wrapper excludes the iOS timezone implementation from standard-backend builds.
+  list(APPEND ARROW_VENDORED_SRCS vendored/datetime_ios.mm)
 endif()
 set_source_files_properties(vendored/datetime.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION
                                                              ON)
