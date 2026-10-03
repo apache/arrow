@@ -400,7 +400,7 @@ class MemoryMappedFile::MemoryMap
   // will then keep the original region alive as long as necessary.
   class Region : public Buffer {
    public:
-    Region(std::shared_ptr<MemoryMappedFile::MemoryMap> memory_map, uint8_t* data,
+    Region(const std::shared_ptr<MemoryMappedFile::MemoryMap>& memory_map, uint8_t* data,
            int64_t size)
         : Buffer(data, size) {
       is_mutable_ = memory_map->writable();

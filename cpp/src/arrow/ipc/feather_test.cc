@@ -95,7 +95,7 @@ class TestFeatherBase {
     }
   }
 
-  void CheckSlices(std::shared_ptr<RecordBatch> batch) {
+  void CheckSlices(const std::shared_ptr<RecordBatch>& batch) {
     std::vector<int> starts = {0, 1, 300, 301, 302, 303, 304, 305, 306, 307};
     std::vector<int> sizes = {0, 1, 7, 8, 30, 32, 100};
     for (auto start : starts) {
@@ -105,7 +105,7 @@ class TestFeatherBase {
     }
   }
 
-  void CheckRoundtrip(std::shared_ptr<RecordBatch> batch) {
+  void CheckRoundtrip(const std::shared_ptr<RecordBatch>& batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches = {batch};
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
 

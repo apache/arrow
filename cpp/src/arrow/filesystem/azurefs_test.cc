@@ -2937,7 +2937,7 @@ TEST_F(TestAzuriteFileSystem, OpenInputStreamTrailingSlash) {
 
 namespace {
 std::shared_ptr<const KeyValueMetadata> NormalizerKeyValueMetadata(
-    std::shared_ptr<const KeyValueMetadata> metadata) {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto normalized = std::make_shared<KeyValueMetadata>();
   for (int64_t i = 0; i < metadata->size(); ++i) {
     auto key = metadata->key(i);

@@ -195,7 +195,7 @@ class SerialBlockReader : public BlockReader {
 
   static Iterator<CSVBlock> MakeIterator(
       Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
-      std::shared_ptr<Buffer> first_buffer, int64_t skip_rows) {
+      const std::shared_ptr<Buffer>& first_buffer, int64_t skip_rows) {
     auto block_reader =
         std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer, skip_rows);
     // Wrap shared pointer in callable
@@ -208,7 +208,7 @@ class SerialBlockReader : public BlockReader {
 
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-      std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
+      std::unique_ptr<Chunker> chunker, const std::shared_ptr<Buffer>& first_buffer,
       int64_t skip_rows) {
     auto block_reader =
         std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer, skip_rows);
@@ -283,7 +283,7 @@ class ThreadedBlockReader : public BlockReader {
 
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-      std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
+      std::unique_ptr<Chunker> chunker, const std::shared_ptr<Buffer>& first_buffer,
       int64_t skip_rows) {
     auto block_reader = std::make_shared<ThreadedBlockReader>(std::move(chunker),
                                                               first_buffer, skip_rows);
@@ -1024,7 +1024,7 @@ class AsyncThreadedTableReader
   using BaseTableReader::BaseTableReader;
 
   AsyncThreadedTableReader(io::IOContext io_context,
-                           std::shared_ptr<io::InputStream> input,
+                           const std::shared_ptr<io::InputStream>& input,
                            const ReadOptions& read_options,
                            const ParseOptions& parse_options,
                            const ConvertOptions& convert_options, Executor* cpu_executor)
@@ -1115,8 +1115,9 @@ class AsyncThreadedTableReader
 };
 
 Result<std::shared_ptr<TableReader>> MakeTableReader(
-    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
+    MemoryPool* pool, io::IOContext io_context,
+    const std::shared_ptr<io::InputStream>& input, const ReadOptions& read_options,
+    const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());
@@ -1136,7 +1137,7 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
 }
 
 Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
-    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    io::IOContext io_context, const std::shared_ptr<io::InputStream>& input,
     Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   RETURN_NOT_OK(parse_options.Validate());

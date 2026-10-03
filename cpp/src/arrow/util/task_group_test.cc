@@ -50,7 +50,7 @@ static std::vector<double> RandomSleepDurations(int nsleeps, double min_seconds,
 }
 
 // Check TaskGroup behaviour with a bunch of all-successful tasks
-void TestTaskGroupSuccess(std::shared_ptr<TaskGroup> task_group) {
+void TestTaskGroupSuccess(const std::shared_ptr<TaskGroup>& task_group) {
   const int NTASKS = 10;
   auto sleeps = RandomSleepDurations(NTASKS, 1e-3, 4e-3);
 
@@ -280,7 +280,7 @@ void StressFailingTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> 
   }
 }
 
-void TestNoCopyTask(std::shared_ptr<TaskGroup> task_group) {
+void TestNoCopyTask(const std::shared_ptr<TaskGroup>& task_group) {
   auto counter = std::make_shared<uint8_t>(0);
   CopyCountingTask task(counter);
   task_group->Append(std::move(task));
@@ -327,7 +327,7 @@ void TestFinishNotSticky(std::function<std::shared_ptr<TaskGroup>()> factory) {
   }
 }
 
-void TestFinishNeverStarted(std::shared_ptr<TaskGroup> task_group) {
+void TestFinishNeverStarted(const std::shared_ptr<TaskGroup>& task_group) {
   // If we call FinishAsync we are done adding tasks so if we never added any it should be
   // completed
   auto finished = task_group->FinishAsync();

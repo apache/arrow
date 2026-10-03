@@ -873,7 +873,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, AppendArrayInvalidType) {
 #endif
 
 template <typename DecimalValue>
-void TestDecimalDictionaryBuilderBasic(std::shared_ptr<DataType> decimal_type) {
+void TestDecimalDictionaryBuilderBasic(const std::shared_ptr<DataType>& decimal_type) {
   // Build the dictionary Array
   DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type);
 
@@ -903,7 +903,8 @@ TEST(TestDecimal256DictionaryBuilder, Basic) {
 }
 
 void TestDecimalDictionaryBuilderDoubleTableSize(
-    std::shared_ptr<DataType> decimal_type, FixedSizeBinaryBuilder& decimal_builder) {
+    const std::shared_ptr<DataType>& decimal_type,
+    FixedSizeBinaryBuilder& decimal_builder) {
   // Build the dictionary Array
   DictionaryBuilder<FixedSizeBinaryType> dict_builder(decimal_type);
 

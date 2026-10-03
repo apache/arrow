@@ -130,7 +130,7 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   if (offsets.null_count() > 0) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
                           CleanListOffsets<TYPE>(null_bitmap, offsets, pool));
-    auto data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+    auto data = ArrayData::Make(std::move(type), offsets.length() - 1, std::move(buffers),
                                 {values.data()}, offsets.null_count(), /*offset=*/0);
     return std::make_shared<ArrayType>(std::move(data));
   }
@@ -138,7 +138,7 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
   auto buffers = BufferVector({std::move(null_bitmap), typed_offsets.values()});
-  auto data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+  auto data = ArrayData::Make(std::move(type), offsets.length() - 1, std::move(buffers),
                               {values.data()}, null_count, offsets.offset());
   return std::make_shared<ArrayType>(std::move(data));
 }
@@ -209,8 +209,8 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListViewArrayFromA
       typed_offsets.values(),
       typed_sizes.values(),
   });
-  auto data = ArrayData::Make(type, sizes.length(), std::move(buffers), {values.data()},
-                              null_count, array_offset);
+  auto data = ArrayData::Make(std::move(type), sizes.length(), std::move(buffers),
+                              {values.data()}, null_count, array_offset);
   return std::make_shared<ArrayType>(std::move(data));
 }
 

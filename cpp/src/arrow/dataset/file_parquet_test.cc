@@ -537,13 +537,13 @@ TEST_F(TestParquetFileSystemDataset, WriteWithEncryptionConfigNotSupported) {
 
 class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper> {
  public:
-  std::shared_ptr<RecordBatch> SingleBatch(std::shared_ptr<Fragment> fragment) {
+  std::shared_ptr<RecordBatch> SingleBatch(const std::shared_ptr<Fragment>& fragment) {
     auto batches = IteratorToVector(PhysicalBatches(fragment));
     EXPECT_EQ(batches.size(), 1);
     return batches.front();
   }
 
-  void CountRowsAndBatchesInScan(std::shared_ptr<Fragment> fragment,
+  void CountRowsAndBatchesInScan(const std::shared_ptr<Fragment>& fragment,
                                  int64_t expected_rows, int64_t expected_batches) {
     int64_t actual_rows = 0;
     int64_t actual_batches = 0;

@@ -90,7 +90,7 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
 template <typename T>
 AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(
     AsyncGenerator<T> wrapped,
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span) {
+    const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& span) {
   return [=]() mutable -> Future<T> {
     auto scope = GetTracer()->WithActiveSpan(span);
     return wrapped();

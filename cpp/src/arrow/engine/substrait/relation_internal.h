@@ -65,7 +65,7 @@ ARROW_ENGINE_EXPORT
 Result<compute::Aggregate> ParseAggregateMeasure(
     const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options, bool is_hash,
-    const std::shared_ptr<Schema> input_schema);
+    const std::shared_ptr<Schema>& input_schema);
 
 /// \brief Make an aggregate declaration info
 ///
@@ -75,7 +75,7 @@ Result<compute::Aggregate> ParseAggregateMeasure(
 /// \param[in] keys the field-refs for grouping keys to use
 /// \param[in] segment_keys the field-refs for segment keys to use
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    acero::Declaration input_decl, std::shared_ptr<Schema> output_schema,
+    acero::Declaration input_decl, const std::shared_ptr<Schema>& output_schema,
     std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
     std::vector<FieldRef> segment_keys);
 

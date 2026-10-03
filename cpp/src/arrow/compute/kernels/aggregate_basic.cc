@@ -316,7 +316,7 @@ struct ProductImpl : public ScalarAggregator {
   using ProductType = typename TypeTraits<AccType>::CType;
   using OutputType = typename TypeTraits<AccType>::ScalarType;
 
-  explicit ProductImpl(std::shared_ptr<DataType> out_type,
+  explicit ProductImpl(const std::shared_ptr<DataType>& out_type,
                        const ScalarAggregateOptions& options)
       : out_type(out_type),
         options(options),
@@ -400,7 +400,7 @@ struct ProductInit {
 
   ProductInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
-      : ctx(ctx), type(type), options(options) {}
+      : ctx(ctx), type(std::move(type)), options(options) {}
 
   Status Visit(const DataType&) {
     return Status::NotImplemented("No product implemented");
@@ -844,8 +844,8 @@ struct IndexInit {
 
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
-                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
-                        SimdLevel::type simd_level) {
+                        const std::shared_ptr<DataType>& out_ty,
+                        ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   for (const auto& ty : types) {
     // array[InT] -> scalar[OutT]
     auto sig = KernelSignature::Make({ty->id()}, out_ty);
@@ -857,7 +857,7 @@ namespace {
 
 void AddScalarAggKernels(KernelInit init,
                          const std::vector<std::shared_ptr<DataType>>& types,
-                         std::shared_ptr<DataType> out_ty,
+                         const std::shared_ptr<DataType>& out_ty,
                          ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({ty->id()}, out_ty);
@@ -867,7 +867,7 @@ void AddScalarAggKernels(KernelInit init,
 
 void AddArrayScalarAggKernels(KernelInit init,
                               const std::vector<std::shared_ptr<DataType>>& types,
-                              std::shared_ptr<DataType> out_ty,
+                              const std::shared_ptr<DataType>& out_ty,
                               ScalarAggregateFunction* func,
                               SimdLevel::type simd_level = SimdLevel::NONE) {
   AddBasicAggKernels(init, types, out_ty, func, simd_level);

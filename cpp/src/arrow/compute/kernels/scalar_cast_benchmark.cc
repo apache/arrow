@@ -31,7 +31,7 @@ constexpr auto kSeed = 0x94378165;
 
 template <typename InputType, typename CType = typename InputType::c_type>
 static void BenchmarkNumericCast(benchmark::State& state,
-                                 std::shared_ptr<DataType> to_type,
+                                 const std::shared_ptr<DataType>& to_type,
                                  const CastOptions& options, CType min, CType max) {
   GenericItemsArgs args(state);
   random::RandomArrayGenerator rand(kSeed);
@@ -44,14 +44,14 @@ static void BenchmarkNumericCast(benchmark::State& state,
 template <typename InputType, typename CType = typename InputType::c_type>
 static void BenchmarkFloatingToIntegerCast(benchmark::State& state,
                                            std::shared_ptr<DataType> from_type,
-                                           std::shared_ptr<DataType> to_type,
+                                           const std::shared_ptr<DataType>& to_type,
                                            const CastOptions& options, CType min,
                                            CType max) {
   GenericItemsArgs args(state);
   random::RandomArrayGenerator rand(kSeed);
   auto array = rand.Numeric<InputType>(args.size, min, max, args.null_proportion);
 
-  std::shared_ptr<Array> values_as_float = *Cast(*array, from_type);
+  std::shared_ptr<Array> values_as_float = *Cast(*array, std::move(from_type));
 
   for (auto _ : state) {
     ABORT_NOT_OK(Cast(values_as_float, to_type, options));

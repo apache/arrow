@@ -137,7 +137,7 @@ class OrcStripeReader : public RecordBatchReader {
   OrcStripeReader(std::unique_ptr<liborc::RowReader> row_reader,
                   std::shared_ptr<Schema> schema, int64_t batch_size, MemoryPool* pool)
       : row_reader_(std::move(row_reader)),
-        schema_(schema),
+        schema_(std::move(schema)),
         pool_(pool),
         batch_size_{batch_size} {}
 

@@ -192,7 +192,7 @@ void StressInvalidTableReader(TableReaderFactory reader_factory) {
   }
 }
 
-void TestNestedParallelism(std::shared_ptr<internal::ThreadPool> thread_pool,
+void TestNestedParallelism(const std::shared_ptr<internal::ThreadPool>& thread_pool,
                            TableReaderFactory reader_factory) {
   const int NROWS = 1000;
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
