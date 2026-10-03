@@ -385,6 +385,11 @@ class ParquetFile:
     def schema(self):
         """
         Return the Parquet schema, unconverted to Arrow types
+
+        The Parquet schema lists the leaf columns of the file, so nested
+        fields such as lists and structs appear as their leaf columns (for
+        example ``'element'`` for the values of a list column). Use
+        :attr:`schema_arrow` for the Arrow schema with the top-level fields.
         """
         return self.metadata.schema
 

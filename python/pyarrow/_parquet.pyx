@@ -1245,7 +1245,15 @@ cdef class FileMetaData(_Weakrefable):
 
 
 cdef class ParquetSchema(_Weakrefable):
-    """A Parquet schema."""
+    """
+    A Parquet schema.
+
+    This describes the physical layout of the Parquet file. Its length,
+    indexing and :attr:`names` refer to the leaf columns, so nested fields
+    such as lists and structs appear as their leaf columns rather than as
+    top-level fields. Use :meth:`to_arrow_schema` to get the Arrow schema
+    with the top-level fields.
+    """
 
     def __cinit__(self, FileMetaData container):
         self.parent = container
@@ -1268,7 +1276,28 @@ cdef class ParquetSchema(_Weakrefable):
 
     @property
     def names(self):
-        """Name of each field (list of str)."""
+        """
+        Name of each leaf column (list of str).
+
+        For nested columns this is the name of the leaf node only, for
+        example ``'element'`` for the values of a list column. Use
+        ``ColumnSchema.path`` for the full dotted path of a column, or
+        ``to_arrow_schema().names`` for the names of the top-level fields.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pyarrow.parquet as pq
+        >>> table = pa.table({'n_legs': [2, 4], 'tags': [['a'], ['b', 'c']]})
+        >>> pq.write_table(table, 'example_nested.parquet')
+        >>> schema = pq.ParquetFile('example_nested.parquet').schema
+        >>> schema.names
+        ['n_legs', 'element']
+        >>> [schema.column(i).path for i in range(len(schema))]
+        ['n_legs', 'tags.list.element']
+        >>> schema.to_arrow_schema().names
+        ['n_legs', 'tags']
+        """
         return [self[i].name for i in range(len(self))]
 
     def to_arrow_schema(self):
