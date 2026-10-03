@@ -1,0 +1,396 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+// Core PFOR (Patched Frame of Reference) compression implementation
+//
+// Implementation notes:
+//   - Vector size: 1024
+//   - Max exceptions: PforConstants::ExceptionCountType
+//   - Exception values: original integers (not FOR offsets)
+//   - Bit packing: Arrow's BitWriter/unpack
+
+#include "arrow/util/pfor/pfor_internal.h"
+
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <limits>
+#include <span>
+
+#include "arrow/util/bit_stream_utils_internal.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/bpacking_internal.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
+
+namespace arrow {
+namespace util {
+namespace pfor {
+
+namespace {
+
+// The PFOR wire format is little-endian, so every multi-byte field converts on the
+// way in and out. The bit-packed deltas need no conversion of their own:
+// bit_util::BitWriter writes them little-endian and arrow::internal::unpack reads
+// them back the same way, so those bytes are copied verbatim.
+//
+// On a little-endian host both helpers below are a plain memcpy.
+template <typename T>
+void StoreLittleEndianArray(const T* values, int64_t num_values, uint8_t* output) {
+  if constexpr (ARROW_LITTLE_ENDIAN == 1) {
+    std::memcpy(output, values, static_cast<size_t>(num_values) * sizeof(T));
+  } else {
+    for (int64_t i = 0; i < num_values; ++i) {
+      util::SafeStore(output + i * sizeof(T), bit_util::ToLittleEndian(values[i]));
+    }
+  }
+}
+
+}  // namespace
+
+// ----------------------------------------------------------------------
+// FindOptimalBitWidth: histogram-based cost model
+
+template <typename T>
+BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
+                                                       int32_t num_elements) {
+  constexpr uint8_t max_bits = PforTypeTraits<T>::kMaxBitWidth;
+  constexpr int32_t position_bits =
+      static_cast<int32_t>(sizeof(PforConstants::PositionType)) * 8;
+  constexpr int32_t value_bits = sizeof(T) * 8;
+
+  // Build histogram: histogram[b] = count of deltas requiring exactly b bits.
+  // Use 4 independent accumulators so the read-modify-write doesn't serialize
+  // on repeated bins and the four load->clz->bump chains overlap (this loop is
+  // ~half of encode time; a single histogram array runs scalar and stalls).
+  std::array<int32_t, 65> h0{}, h1{}, h2{}, h3{};
+  int32_t i = 0;
+  for (; i + 4 <= num_elements; i += 4) {
+    ++h0[PforTypeTraits<T>::BitsRequired(deltas[i])];
+    ++h1[PforTypeTraits<T>::BitsRequired(deltas[i + 1])];
+    ++h2[PforTypeTraits<T>::BitsRequired(deltas[i + 2])];
+    ++h3[PforTypeTraits<T>::BitsRequired(deltas[i + 3])];
+  }
+  for (; i < num_elements; ++i) ++h0[PforTypeTraits<T>::BitsRequired(deltas[i])];
+  std::array<int32_t, 65> histogram{};
+  for (int b = 0; b <= 64; ++b) histogram[b] = h0[b] + h1[b] + h2[b] + h3[b];
+
+  // Evaluate each candidate bit width
+  int64_t best_cost = std::numeric_limits<int64_t>::max();
+  uint8_t best_bit_width = max_bits;
+  PforConstants::ExceptionCountType best_num_exceptions = 0;
+
+  int64_t exceptions_above = num_elements;
+
+  for (uint8_t b = 0; b <= max_bits; ++b) {
+    exceptions_above -= histogram[b];
+
+    // A vector holds at most kMaxVectorSize elements, so that is also the most
+    // exceptions one can name. Skipping the wider counts keeps the cast below
+    // exact; the full-width candidate has none at all, so a best is always
+    // found.
+    if (exceptions_above > PforConstants::kMaxVectorSize) {
+      continue;
+    }
+
+    int64_t packing_cost = static_cast<int64_t>(num_elements) * b;
+    int64_t exception_cost = exceptions_above * (position_bits + value_bits);
+    int64_t total_cost = packing_cost + exception_cost;
+
+    if (total_cost < best_cost) {
+      best_cost = total_cost;
+      best_bit_width = b;
+      best_num_exceptions =
+          static_cast<PforConstants::ExceptionCountType>(exceptions_above);
+    }
+  }
+
+  return {best_bit_width, best_num_exceptions};
+}
+
+// ----------------------------------------------------------------------
+// EncodeVector
+
+template <typename T>
+PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
+                                                      int32_t num_elements) {
+  ARROW_DCHECK(num_elements > 0);
+
+  // Step 1: Find min (frame of reference)
+  T min_val = values[0];
+  for (int32_t i = 1; i < num_elements; ++i) {
+    if (values[i] < min_val) min_val = values[i];
+  }
+
+  // Step 2: Compute unsigned deltas. Use a stack scratch for the common
+  // (<=vector-size) case to avoid a per-vector heap alloc + zero-init.
+  const auto unsigned_min = static_cast<UnsignedT>(min_val);
+  constexpr int32_t kFull = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  UnsignedT stack_deltas[kFull];
+  std::vector<UnsignedT> heap_deltas;
+  UnsignedT* deltas = stack_deltas;
+  if (num_elements > kFull) {
+    heap_deltas.resize(num_elements);
+    deltas = heap_deltas.data();
+  }
+  for (int32_t i = 0; i < num_elements; ++i) {
+    deltas[i] = static_cast<UnsignedT>(values[i]) - unsigned_min;
+  }
+
+  // Step 3: Find optimal bit width
+  auto [bit_width, num_exceptions] = FindOptimalBitWidth(deltas, num_elements);
+
+  // Step 4: Collect exceptions and replace with placeholder (0)
+  PforEncodedVector<T> result;
+  result.set_info(PforVectorInfo<T>(min_val, bit_width, num_exceptions));
+
+  if (num_exceptions > 0) {
+    result.mutable_exception_positions().reserve(num_exceptions);
+    result.mutable_exception_values().reserve(num_exceptions);
+
+    UnsignedT mask = (bit_width >= PforTypeTraits<T>::kMaxBitWidth)
+                         ? static_cast<UnsignedT>(-1)
+                         : (static_cast<UnsignedT>(1) << bit_width) - 1;
+
+    for (int32_t i = 0; i < num_elements; ++i) {
+      if (deltas[i] > mask) {
+        result.mutable_exception_positions().push_back(
+            static_cast<PforConstants::PositionType>(i));
+        result.mutable_exception_values().push_back(values[i]);
+        deltas[i] = 0;
+      }
+    }
+  }
+
+  // Step 5: Bit-pack the deltas
+  if (bit_width > 0) {
+    int64_t packed_size =
+        bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bit_width);
+    result.mutable_packed_values().resize(static_cast<size_t>(packed_size), 0);
+
+    bit_util::BitWriter writer(result.mutable_packed_values().data(),
+                               static_cast<int>(packed_size));
+    for (int32_t i = 0; i < num_elements; ++i) {
+      writer.PutValue(static_cast<uint64_t>(deltas[i]), bit_width);
+    }
+    writer.Flush();
+  }
+
+  return result;
+}
+
+// ----------------------------------------------------------------------
+// DecodeVector
+
+template <typename T>
+Result<int64_t> PforCompression<T>::DecodeVector(std::span<const uint8_t> data,
+                                                 int32_t num_elements, T* values) {
+  // Step 1: Read vector info
+  ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
+  const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
+
+  // `values` holds num_elements slots, and everything below is sized by fields
+  // that came off the wire, so check them against it before reading or writing.
+  if (info.num_exceptions() > num_elements) {
+    return Status::Invalid("PFOR vector has ", info.num_exceptions(),
+                           " exceptions but only ", num_elements, " elements");
+  }
+  const int64_t packed_bytes =
+      bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
+  const int64_t exception_bytes =
+      info.num_exceptions() *
+      (static_cast<int64_t>(sizeof(PforConstants::PositionType)) + sizeof(T));
+  if (PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes >
+      static_cast<int64_t>(data.size())) {
+    return Status::Invalid(
+        "PFOR vector needs ",
+        PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes,
+        " bytes but only ", data.size(), " remain");
+  }
+
+  // Step 2: Handle constant data (bit_width == 0, no exceptions)
+  if (info.bit_width() == 0 && info.num_exceptions() == 0) {
+    std::fill(values, values + num_elements, info.frame_of_reference());
+    return PforVectorInfo<T>::kStoredSize;
+  }
+
+  // Step 3: Unpack bit-packed deltas and add FOR
+  if (info.bit_width() > 0) {
+    const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference());
+
+    // The vector kernels load a fixed-size window per step. Use the remaining
+    // page bytes as the read bound so a kernel can process the final step when
+    // its load extends beyond this vector's packed payload.
+    //
+    // `data` runs from this vector to the end of the page, so every byte after
+    // this vector's header is inside the caller's buffer and ours to read.
+    const auto readable_bytes = static_cast<int>(std::min<int64_t>(
+        static_cast<int64_t>(data.size()) - PforVectorInfo<T>::kStoredSize,
+        std::numeric_limits<int>::max()));
+
+    if (unsigned_for == 0) {
+      // FOR is zero: there is no bias to add, so unpack straight into the
+      // output. T and UnsignedT are the same width, so the unsigned bits the
+      // unpacker writes are the signed values — no scratch buffer and no
+      // second (add-FOR) pass. This is the common case (any column whose
+      // minimum is 0) and decodes at the raw unpack speed. Exceptions are
+      // still patched below in Step 4.
+      arrow::internal::unpack(
+          read_ptr, reinterpret_cast<UnsignedT*>(values),
+          arrow::internal::UnpackOptions{static_cast<int>(num_elements), info.bit_width(),
+                                         /*bit_offset=*/0, readable_bytes});
+    } else {
+      // Fold the non-zero frame into the unpacker's store to avoid a second
+      // traversal of the output.
+      //
+      // The add is modular in UnsignedT, so the bits the unpacker stores are the
+      // signed values, exactly as in the FOR==0 case above — no cast pass, no
+      // scratch, and no aliasing question. Exceptions are patched in Step 4.
+      arrow::internal::unpack_bias(
+          read_ptr, reinterpret_cast<UnsignedT*>(values),
+          arrow::internal::UnpackOptions{static_cast<int>(num_elements), info.bit_width(),
+                                         /*bit_offset=*/0, readable_bytes},
+          unsigned_for);
+    }
+
+    read_ptr += packed_bytes;
+  } else {
+    // bit_width == 0 but has exceptions - fill with FOR
+    std::fill(values, values + num_elements, info.frame_of_reference());
+  }
+
+  // Step 4: Patch exceptions (stored as original values at their positions).
+  const PforConstants::ExceptionCountType num_exceptions = info.num_exceptions();
+  if (num_exceptions > 0) {
+    const uint8_t* positions_ptr = read_ptr;
+    read_ptr += num_exceptions * sizeof(PforConstants::PositionType);
+
+    const uint8_t* values_ptr = read_ptr;
+    read_ptr += num_exceptions * sizeof(T);
+
+    // Every position indexes `values`, so one past the end is an out-of-bounds
+    // write. Take the maximum first: a reduction still vectorizes, where a
+    // bounds check with an early return inside the patch loop would not.
+    PforConstants::PositionType max_position = 0;
+    for (PforConstants::ExceptionCountType i = 0; i < num_exceptions; ++i) {
+      max_position = std::max(
+          max_position,
+          bit_util::FromLittleEndian(util::SafeLoadAs<PforConstants::PositionType>(
+              positions_ptr + i * sizeof(PforConstants::PositionType))));
+    }
+    if (max_position >= num_elements) {
+      return Status::Invalid("PFOR exception position ", max_position,
+                             " is outside a vector of ", num_elements, " elements");
+    }
+
+    for (PforConstants::ExceptionCountType i = 0; i < num_exceptions; ++i) {
+      PforConstants::PositionType pos =
+          bit_util::FromLittleEndian(util::SafeLoadAs<PforConstants::PositionType>(
+              positions_ptr + i * sizeof(PforConstants::PositionType)));
+      T value =
+          bit_util::FromLittleEndian(util::SafeLoadAs<T>(values_ptr + i * sizeof(T)));
+      values[static_cast<size_t>(pos)] = value;
+    }
+  }
+
+  return static_cast<int64_t>(read_ptr - data.data());
+}
+
+// ----------------------------------------------------------------------
+// Serialization helpers
+
+template <typename T>
+int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec,
+                                                 int32_t num_elements) {
+  int64_t size = PforVectorInfo<T>::kStoredSize;
+  if (vec.info().bit_width() > 0) {
+    size += bit_util::BytesForBits(static_cast<int64_t>(num_elements) *
+                                   vec.info().bit_width());
+  }
+  size += vec.info().num_exceptions() *
+          static_cast<int64_t>(sizeof(PforConstants::PositionType));
+  size += vec.info().num_exceptions() * static_cast<int64_t>(sizeof(T));
+  return size;
+}
+
+template <typename T>
+Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
+                                                    int32_t num_elements,
+                                                    std::span<uint8_t> dest) {
+  const int64_t needed = SerializedVectorSize(vec, num_elements);
+  if (static_cast<int64_t>(dest.size()) < needed) {
+    return Status::Invalid("PFOR vector needs ", needed, " bytes to serialize but only ",
+                           dest.size(), " remain");
+  }
+
+  // `needed` is computed from bit_width and num_exceptions, while the copies
+  // below take their lengths from the sections themselves, so a vector whose
+  // info disagrees with its sections would write past `needed` bytes.
+  const int64_t expected_packed_bytes =
+      vec.info().bit_width() > 0
+          ? bit_util::BytesForBits(static_cast<int64_t>(num_elements) *
+                                   vec.info().bit_width())
+          : 0;
+  if (static_cast<int64_t>(vec.packed_values().size()) != expected_packed_bytes) {
+    return Status::Invalid("PFOR vector has ", vec.packed_values().size(),
+                           " packed bytes but bit_width ",
+                           static_cast<int>(vec.info().bit_width()), " over ",
+                           num_elements, " elements needs ", expected_packed_bytes);
+  }
+  if (vec.exception_positions().size() != vec.info().num_exceptions() ||
+      vec.exception_values().size() != vec.info().num_exceptions()) {
+    return Status::Invalid("PFOR vector claims ", vec.info().num_exceptions(),
+                           " exceptions but carries ", vec.exception_positions().size(),
+                           " positions and ", vec.exception_values().size(), " values");
+  }
+
+  uint8_t* write_ptr = dest.data();
+
+  // Write vector info
+  vec.info().Store(std::span<uint8_t>(write_ptr, PforVectorInfo<T>::kStoredSize));
+  write_ptr += PforVectorInfo<T>::kStoredSize;
+
+  // Write packed values
+  if (vec.info().bit_width() > 0) {
+    std::memcpy(write_ptr, vec.packed_values().data(), vec.packed_values().size());
+    write_ptr += vec.packed_values().size();
+  }
+
+  // Write exception positions
+  if (vec.info().num_exceptions() > 0) {
+    StoreLittleEndianArray(vec.exception_positions().data(), vec.info().num_exceptions(),
+                           write_ptr);
+    write_ptr += vec.info().num_exceptions() * sizeof(PforConstants::PositionType);
+
+    // Write exception values (original integers)
+    StoreLittleEndianArray(vec.exception_values().data(), vec.info().num_exceptions(),
+                           write_ptr);
+    write_ptr += vec.info().num_exceptions() * sizeof(T);
+  }
+
+  return static_cast<int64_t>(write_ptr - dest.data());
+}
+
+// Explicit template instantiations
+template class PforCompression<int32_t>;
+template class PforCompression<int64_t>;
+
+}  // namespace pfor
+}  // namespace util
+}  // namespace arrow
