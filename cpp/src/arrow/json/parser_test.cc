@@ -235,6 +235,24 @@ TEST(BlockParserWithSchema, FailOnIncompleteJson) {
   ASSERT_RAISES(Invalid, ParseFromString(options, "{\"a\":0, \"b\"", &parsed));
 }
 
+TEST(BlockParserWithSchema, ValidateIgnoredFields) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema = schema({field("known", int64())});
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
+
+  std::shared_ptr<Array> parsed;
+  // Ignored fields should still be validated for malformed JSON.
+  Status error = ParseFromString(options, R"({"known": 1, "ignored": [1,]})", &parsed);
+  ASSERT_RAISES(Invalid, error);
+  EXPECT_THAT(error.message(), testing::StartsWith("Invalid JSON value"));
+}
+
+TEST(BlockParserWithSchema, NumberWithWhitespace) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema = schema({field("a", int64())});
+  AssertParseColumns(options, R"({"a":   123   })", {field("a", utf8())}, {R"(["123"])"});
+}
+
 TEST(BlockParser, Basics) {
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
@@ -305,7 +323,7 @@ TEST(BlockParser, FailOnInvalidEOF) {
   auto status = ParseFromString(ParseOptions::Defaults(), "}", &parsed);
   ASSERT_RAISES(Invalid, status);
   EXPECT_THAT(status.message(),
-              ::testing::StartsWith("JSON parse error: The document is empty"));
+              ::testing::StartsWith("JSON parse error: JSON document was truncated"));
 }
 
 TEST(BlockParser, AdHoc) {

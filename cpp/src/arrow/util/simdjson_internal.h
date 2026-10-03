@@ -266,7 +266,7 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
     }
 
     case simdjson::ondemand::json_type::unknown:
-      return Status::Invalid("Unknown JSON type");
+      return Status::Invalid("Invalid JSON value");
   }
 
   return Status::Invalid("Unreachable");
@@ -349,5 +349,7 @@ ARROW_EXPORT Status ConsumeJsonValue(simdjson::ondemand::value value);
 
 ARROW_EXPORT Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
                                          simdjson::padded_string& json);
+
+ARROW_EXPORT int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing);
 
 }  // namespace arrow::internal
