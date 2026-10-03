@@ -276,6 +276,15 @@ TEST(KeyValueMetadataTest, Delete) {
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
                                metadata.DeleteMany({6, 6}));
   }
+  {
+    KeyValueMetadata metadata(keys, values);
+    std::string expected_error_message =
+        "Index error: KeyValueMetadata::DeleteMany: Stop index 8 out of bounds for "
+        "metadata of size 7";
+
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
+                               metadata.DeleteMany({8, 8, 6}));
+  }
 }
 
 }  // namespace arrow
