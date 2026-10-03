@@ -222,6 +222,8 @@ struct InitStateVisitor {
             ty1, " and ", ty2);
       }
     } else if ((arg_type.id() == Type::STRING || arg_type.id() == Type::LARGE_STRING) &&
+               !(options.value_set.type()->id() == Type::NA &&
+                 options.value_set.length() == 0) &&
                !is_base_binary_like(options.value_set.type()->id())) {
       // This is a bit of a hack, but don't implicitly cast from a non-binary
       // type to string, since most types support casting to string and that
