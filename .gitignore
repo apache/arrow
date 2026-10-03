@@ -59,6 +59,7 @@ python/doc/
 
 .vscode
 .idea/
+.icodemate/
 .pytest_cache/
 pkgs
 docker_cache
