@@ -1058,8 +1058,10 @@ type_reprs = {
     'Decimal256Type': 'decimal256',
     'StringType': 'utf8',
     'LargeStringType': 'large_utf8',
+    'StringViewType': 'utf8_view',
     'BinaryType': 'binary',
     'LargeBinaryType': 'large_binary',
+    'BinaryViewType': 'binary_view',
     'FixedSizeBinaryType': 'fixed_size_binary',
     'ListType': 'list',
     'LargeListType': 'large_list',
@@ -1831,6 +1833,46 @@ class BinaryArrayDataPrinter(ArrayDataPrinter):
                 yield self._null_child(i)
 
 
+class BinaryViewArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for string/binary view.
+    """
+
+    def __init__(self, name, val):
+        self.is_utf8 = self.type_id == Type.STRING_VIEW
+        self.format_string = utf8_literal if self.is_utf8 else bytes_literal
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        views_buf = self._buffer(1)
+        if views_buf is None:
+            return
+        endian = '<' if byte_order() == 'little' else '>'
+        views_bytes = bytes(views_buf.bytes_view(self.offset * 16, self.length * 16))
+        null_bits = self._null_bitmap()
+        for i, valid in enumerate(null_bits):
+            if valid:
+                header_bytes = views_bytes[i * 16:(i + 1) * 16]
+                size = struct.unpack(endian + 'i', header_bytes[:4])[0]
+                if size:
+                    if size <= 12:
+                        ptr = views_buf.data + ((self.offset + i) * 16 + 4)
+                    else:
+                        buffer_index, offset = struct.unpack(endian + 'ii', header_bytes[8:16])
+                        data_buf = self._buffer(2 + buffer_index)
+                        ptr = data_buf.data + offset
+                    yield self._valid_child(
+                        i, self.format_string(ptr, size))
+                else:
+                    yield self._valid_child(i, '""')
+            else:
+                yield self._null_child(i)
+
+
 class ArrayPrinter:
     """
     Pretty-printer for arrow::Array and subclasses.
@@ -1980,6 +2022,13 @@ class BaseBinaryTypeClass(DataTypeClass):
     array_data_printer = BinaryArrayDataPrinter
 
 
+class BinaryViewTypeClass(DataTypeClass):
+    is_parametric = False
+    type_printer = PrimitiveTypePrinter
+    scalar_printer = BaseBinaryScalarPrinter
+    array_data_printer = BinaryViewArrayDataPrinter
+
+
 class FixedSizeBinaryTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = FixedSizeBinaryTypePrinter
@@ -2059,6 +2108,8 @@ type_traits_by_id = {
     Type.BINARY: DataTypeTraits(BaseBinaryTypeClass, 'BinaryType'),
     Type.LARGE_STRING: DataTypeTraits(BaseBinaryTypeClass, 'LargeStringType'),
     Type.LARGE_BINARY: DataTypeTraits(BaseBinaryTypeClass, 'LargeBinaryType'),
+    Type.STRING_VIEW: DataTypeTraits(BinaryViewTypeClass, 'StringViewType'),
+    Type.BINARY_VIEW: DataTypeTraits(BinaryViewTypeClass, 'BinaryViewType'),
 
     Type.FIXED_SIZE_BINARY: DataTypeTraits(FixedSizeBinaryTypeClass,
                                            'FixedSizeBinaryType'),
