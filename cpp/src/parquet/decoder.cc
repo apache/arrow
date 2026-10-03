@@ -24,6 +24,8 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -44,6 +46,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/pfor/pfor_wrapper_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/spaced_internal.h"
 #include "arrow/util/ubsan.h"
@@ -2372,6 +2375,183 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
   }
 };
 
+// ----------------------------------------------------------------------
+// PFOR Decoder
+
+template <typename DType>
+class PforDecoder : public TypedDecoderImpl<DType> {
+ public:
+  using Base = TypedDecoderImpl<DType>;
+  using T = typename DType::c_type;
+  using VectorReader = typename ::arrow::util::pfor::PforWrapper<T>::VectorReader;
+
+  explicit PforDecoder(const ColumnDescriptor* descr,
+                       MemoryPool* pool = ::arrow::default_memory_pool())
+      : Base(descr, Encoding::PFOR), cached_vector_(AllocateBuffer(pool, 0)) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    if (num_values < 0 || len < 0) {
+      throw ParquetException("PFOR SetData: num_values=" + std::to_string(num_values) +
+                             " len=" + std::to_string(len));
+    }
+    Base::SetData(num_values, data, len);
+    if (num_values > 0 && len == 0) {
+      throw ParquetException("PFOR SetData: num_values=" + std::to_string(num_values) +
+                             " but len=" + std::to_string(len));
+    }
+    // A decoder is cached per encoding and reused across the data pages of a
+    // column chunk, so every piece of state describing the previous page has to
+    // be dropped along with the page itself.
+    cached_vector_index_ = -1;
+    // `num_values` is the page's level count, which includes nulls, while a PFOR
+    // page stores only the non-null values. Its own header is the authority on
+    // how many, so take the count from there.
+    if (len > 0) {
+      PARQUET_ASSIGN_OR_THROW(
+          reader_, VectorReader::Open({this->data_, static_cast<size_t>(this->len_)}));
+      const int32_t encoded_values = reader_->num_elements();
+      if (encoded_values > num_values) {
+        throw ParquetException("PFOR page declares " + std::to_string(encoded_values) +
+                               " values but the page header allows at most " +
+                               std::to_string(num_values));
+      }
+      this->num_values_ = encoded_values;
+    } else {
+      reader_.reset();
+      this->num_values_ = 0;
+    }
+    levels_remaining_ = num_values;
+  }
+
+  int Decode(T* buffer, int max_values) override {
+    if (ARROW_PREDICT_FALSE(max_values < 0)) {
+      throw ParquetException("PFOR Decode: max_values must be non-negative");
+    }
+    max_values = std::min(max_values, this->num_values_);
+    if (max_values == 0) return 0;
+    DecodeInternal(buffer, max_values);
+    this->num_values_ -= max_values;
+    levels_remaining_ -= max_values;
+    CheckPageConsumed();
+    return max_values;
+  }
+
+  int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
+                   int64_t valid_bits_offset) override {
+    const int decoded =
+        Base::DecodeSpaced(buffer, num_values, null_count, valid_bits, valid_bits_offset);
+    levels_remaining_ -= null_count;
+    CheckPageConsumed();
+    return decoded;
+  }
+
+  // `num_values` counts output slots; only the non-null ones are backed by
+  // encoded values, so decode that many and spread them over the valid runs.
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::Accumulator* builder) override {
+    const int values_to_decode = num_values - null_count;
+    if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
+      ParquetException::EofException(
+          "PFOR DecodeArrow: not enough values available. "
+          "Available: " +
+          std::to_string(this->num_values_) +
+          ", requested: " + std::to_string(values_to_decode));
+    }
+
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+    // 1. Land the values in the builder's storage packed to the right, so step 2
+    //    can expand them in place into their final positions. An all-null run
+    //    asks for no values, and a page carrying none has nothing to decode.
+    if (values_to_decode > 0) {
+      T* decode_out = builder->GetMutableValue(builder->length() + null_count);
+      DecodeInternal(decode_out, values_to_decode);
+    }
+
+    // 2. Expand the values into their final positions.
+    if (null_count == 0) {
+      builder->UnsafeAdvance(num_values);
+    } else {
+      ::arrow::util::internal::SpacedExpandLeftward(
+          reinterpret_cast<uint8_t*>(builder->GetMutableValue(builder->length())),
+          static_cast<int>(sizeof(T)), num_values, null_count, valid_bits,
+          valid_bits_offset);
+      builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
+    }
+    this->num_values_ -= values_to_decode;
+    levels_remaining_ -= num_values;
+    CheckPageConsumed();
+    return values_to_decode;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* out) override {
+    const int values_decoded = num_values - null_count;
+    std::vector<T> values(values_decoded);
+    if (Decode(values.data(), values_decoded) != values_decoded) {
+      ParquetException::EofException();
+    }
+    levels_remaining_ -= null_count;
+    CheckPageConsumed();
+
+    const T* data = values.data();
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() { PARQUET_THROW_NOT_OK(out->Append(*data++)); },
+        [&]() { PARQUET_THROW_NOT_OK(out->AppendNull()); });
+    return values_decoded;
+  }
+
+ private:
+  void CheckPageConsumed() const {
+    ARROW_DCHECK_GE(levels_remaining_, 0) << "PFOR decoder consumed too many levels";
+    if (ARROW_PREDICT_FALSE(levels_remaining_ <= 0 && this->num_values_ > 0)) {
+      throw ParquetException("PFOR page has " + std::to_string(this->num_values_) +
+                             " unconsumed values after all levels were read");
+    }
+  }
+
+  void DecodeInternal(T* output, int count) {
+    const int32_t vector_size = reader_->vector_size();
+    int32_t processed = reader_->num_elements() - this->num_values_;
+    for (int32_t remaining = count; remaining > 0;) {
+      const int32_t vector_index = processed / vector_size;
+      const int32_t position = processed % vector_size;
+      PARQUET_ASSIGN_OR_THROW(const int32_t vector_length,
+                              reader_->VectorLength(vector_index));
+      const int32_t take = std::min(remaining, vector_length - position);
+      if (position == 0 && take == vector_length) {
+        PARQUET_THROW_NOT_OK(reader_->DecodeVector(
+            vector_index, {output, static_cast<size_t>(vector_length)}));
+      } else {
+        if (cached_vector_index_ != vector_index) {
+          PARQUET_THROW_NOT_OK(
+              cached_vector_->Resize(static_cast<int64_t>(vector_length) * sizeof(T),
+                                     /*shrink_to_fit=*/false));
+          PARQUET_THROW_NOT_OK(
+              reader_->DecodeVector(vector_index, {cached_vector_->mutable_data_as<T>(),
+                                                   static_cast<size_t>(vector_length)}));
+          cached_vector_index_ = vector_index;
+        }
+        std::memcpy(output, cached_vector_->data_as<T>() + position,
+                    static_cast<size_t>(take) * sizeof(T));
+      }
+      output += take;
+      processed += take;
+      remaining -= take;
+    }
+  }
+
+  std::optional<VectorReader> reader_;
+  // One vector of pool-backed scratch, reused when a batch begins or ends inside it.
+  std::shared_ptr<ResizableBuffer> cached_vector_;
+  int32_t cached_vector_index_ = -1;
+  int64_t levels_remaining_ = 0;
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -2448,6 +2628,15 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::make_unique<RleBooleanDecoder>(descr);
     }
     throw ParquetException("RLE encoding only supports BOOLEAN");
+  } else if (encoding == Encoding::PFOR) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::make_unique<PforDecoder<Int32Type>>(descr, pool);
+      case Type::INT64:
+        return std::make_unique<PforDecoder<Int64Type>>(descr, pool);
+      default:
+        throw ParquetException("PFOR decoder only supports INT32 and INT64");
+    }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }
@@ -2491,8 +2680,8 @@ std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
       return {Encoding::PLAIN, Encoding::RLE};
     case Type::INT32:
     case Type::INT64:
-      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
-              Encoding::BYTE_STREAM_SPLIT};
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED, Encoding::BYTE_STREAM_SPLIT,
+              Encoding::PFOR};
     case Type::INT96:
       return {Encoding::PLAIN};
     case Type::FLOAT:
