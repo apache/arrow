@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/tensor/converter.h"
+#include "arrow/tensor/converter_internal.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -27,8 +27,10 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/visit_type_inline.h"
 
@@ -57,24 +59,24 @@ inline void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCSFIndex
 
-class SparseCSFTensorConverter : private SparseTensorConverterMixin {
-  using SparseTensorConverterMixin::AssignIndex;
-  using SparseTensorConverterMixin::IsNonZero;
-
+class SparseCSFTensorConverter {
  public:
   SparseCSFTensorConverter(const Tensor& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
                            MemoryPool* pool)
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
+  // Note: The same type is considered for both indices and indptr during
+  // tensor-to-CSF-tensor conversion.
   Status Convert() {
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
-
-    const int index_elsize = index_value_type_->byte_width();
-    const int value_elsize = tensor_.type()->byte_width();
-
     const int64_t ndim = tensor_.ndim();
+    if (ndim <= 1) {
+      return Status::NotImplemented("TODO for ndim <= 1");
+    }
+
+    const int value_elsize = tensor_.type()->byte_width();
     // Axis order as ascending order of dimension size is a good heuristic but is not
     // necessarily optimal.
     std::vector<int64_t> axis_order = internal::ArgSort(tensor_.shape());
@@ -82,81 +84,72 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
 
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(value_elsize * nonzero_count, pool_));
-    auto* values = values_buffer->mutable_data();
 
     std::vector<int64_t> counts(ndim, 0);
     std::vector<int64_t> coord(ndim, 0);
     std::vector<int64_t> previous_coord(ndim, -1);
-    std::vector<BufferBuilder> indptr_buffer_builders(ndim - 1);
-    std::vector<BufferBuilder> indices_buffer_builders(ndim);
-
-    const auto* tensor_data = tensor_.raw_data();
-    uint8_t index_buffer[sizeof(int64_t)];
-
-    if (ndim <= 1) {
-      return Status::NotImplemented("TODO for ndim <= 1");
-    } else {
-      const auto& shape = tensor_.shape();
-      for (int64_t n = tensor_.size(); n > 0; n--) {
-        const auto offset = tensor_.CalculateValueOffset(coord);
-        const auto xp = tensor_data + offset;
-
-        if (std::any_of(xp, xp + value_elsize, IsNonZero)) {
-          bool tree_split = false;
-
-          std::copy_n(xp, value_elsize, values);
-          values += value_elsize;
-
-          for (int64_t i = 0; i < ndim; ++i) {
-            int64_t dimension = axis_order[i];
-
-            tree_split = tree_split || (coord[dimension] != previous_coord[dimension]);
-            if (tree_split) {
-              if (i < ndim - 1) {
-                AssignIndex(index_buffer, counts[i + 1], index_elsize);
-                RETURN_NOT_OK(
-                    indptr_buffer_builders[i].Append(index_buffer, index_elsize));
-              }
-
-              AssignIndex(index_buffer, coord[dimension], index_elsize);
-              RETURN_NOT_OK(
-                  indices_buffer_builders[i].Append(index_buffer, index_elsize));
-
-              ++counts[i];
-            }
-          }
-
-          previous_coord = coord;
-        }
-
-        IncrementIndex(coord, shape, axis_order);
-      }
-    }
-
-    for (int64_t column = 0; column < ndim - 1; ++column) {
-      AssignIndex(index_buffer, counts[column + 1], index_elsize);
-      RETURN_NOT_OK(indptr_buffer_builders[column].Append(index_buffer, index_elsize));
-    }
-
-    // make results
-    data = std::move(values_buffer);
-
     std::vector<std::shared_ptr<Buffer>> indptr_buffers(ndim - 1);
     std::vector<std::shared_ptr<Buffer>> indices_buffers(ndim);
-    std::vector<int64_t> indptr_shapes(counts.begin(), counts.end() - 1);
-    std::vector<int64_t> indices_shapes = counts;
+    const auto& shape = tensor_.shape();
+    auto index_elsize = index_value_type_->byte_width();
+    std::vector indptr_buffer_builders(ndim - 1, BufferBuilder(pool_));
+    std::vector indices_buffer_builders(ndim, BufferBuilder(pool_));
+
+    auto visitor = [&](const auto& value_type) {
+      using ValueType = std::decay_t<decltype(value_type)>;
+      if constexpr (is_number_type<ValueType>::value) {
+        using ValueCType = typename ValueType::c_type;
+
+        auto* values = values_buffer->mutable_data_as<ValueCType>();
+
+        for (int64_t n = tensor_.size(); n > 0; n--) {
+          const auto value = tensor_.Value<ValueType>(coord);
+
+          if (is_not_zero<ValueType>(value)) {
+            bool tree_split = false;
+            *values++ = value;
+            for (int64_t i = 0; i < ndim; ++i) {
+              int64_t dimension = axis_order[i];
+
+              tree_split = tree_split || (coord[dimension] != previous_coord[dimension]);
+              if (tree_split) {
+                if (i < ndim - 1) {
+                  RETURN_NOT_OK(
+                      indptr_buffer_builders[i].Append(&counts[i + 1], index_elsize));
+                }
+                RETURN_NOT_OK(
+                    indices_buffer_builders[i].Append(&coord[dimension], index_elsize));
+                ++counts[i];
+              }
+            }
+            previous_coord = coord;
+          }
+
+          IncrementIndex(coord, shape, axis_order);
+        }
+      }
+      return Status::OK();
+    };
+
+    ARROW_RETURN_NOT_OK(VisitType(*tensor_.type(), visitor));
+    for (int64_t column = 0; column < ndim - 1; ++column) {
+      RETURN_NOT_OK(
+          indptr_buffer_builders[column].Append(&counts[column + 1], index_elsize));
+    }
 
     for (int64_t column = 0; column < ndim; ++column) {
       RETURN_NOT_OK(
           indices_buffer_builders[column].Finish(&indices_buffers[column], true));
     }
+
     for (int64_t column = 0; column < ndim - 1; ++column) {
       RETURN_NOT_OK(indptr_buffer_builders[column].Finish(&indptr_buffers[column], true));
     }
+    ARROW_ASSIGN_OR_RAISE(sparse_index,
+                          SparseCSFIndex::Make(index_value_type_, counts, axis_order,
+                                               indptr_buffers, indices_buffers));
+    data = std::move(values_buffer);
 
-    ARROW_ASSIGN_OR_RAISE(
-        sparse_index, SparseCSFIndex::Make(index_value_type_, indices_shapes, axis_order,
-                                           indptr_buffers, indices_buffers));
     return Status::OK();
   }
 
@@ -272,8 +265,7 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCSFTensorConverter converter(tensor, index_value_type, pool);
-  RETURN_NOT_OK(converter.Convert());
-
+  ARROW_RETURN_NOT_OK(converter.Convert());
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
