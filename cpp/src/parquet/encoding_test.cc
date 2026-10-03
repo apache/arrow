@@ -22,6 +22,7 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <numeric>
 #include <span>
 #include <utility>
 #include <vector>
@@ -1044,6 +1045,71 @@ class EncodingAdHocTyped : public ::testing::Test {
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
+  void Pfor(int seed) {
+    if (!std::is_same<ParquetType, Int32Type>::value &&
+        !std::is_same<ParquetType, Int64Type>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder =
+        MakeTypedEncoder<ParquetType>(Encoding::PFOR,
+                                      /*use_dictionary=*/false, column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PFOR, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(size_, result->length());
+    ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
+  }
+
+  void PforDict(int seed) {
+    if constexpr (!std::is_same_v<ParquetType, Int32Type> &&
+                  !std::is_same_v<ParquetType, Int64Type>) {
+      return;
+    } else {
+      auto values = GetValues(seed);
+      auto encoder =
+          MakeTypedEncoder<ParquetType>(Encoding::PFOR,
+                                        /*use_dictionary=*/false, column_descr());
+      auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PFOR, column_descr());
+
+      ASSERT_NO_THROW(encoder->Put(*values));
+      auto buf = encoder->FlushValues();
+
+      int num_values = static_cast<int>(values->length() - values->null_count());
+      decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+      DictBuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+      ASSERT_EQ(num_values,
+                decoder->DecodeArrow(static_cast<int>(values->length()),
+                                     static_cast<int>(values->null_count()),
+                                     values->null_bitmap_data(), values->offset(), &acc));
+
+      std::shared_ptr<::arrow::Array> result;
+      ASSERT_OK(acc.Finish(&result));
+      ASSERT_OK(result->ValidateFull());
+      ASSERT_EQ(size_, result->length());
+
+      // The accumulator produced a DictionaryArray; compare it densely.
+      ASSERT_OK_AND_ASSIGN(auto dense_datum,
+                           ::arrow::compute::Cast(::arrow::Datum(result), arrow_type()));
+      ::arrow::AssertArraysEqual(*values, *dense_datum.make_array(), /*verbose=*/true);
+    }
+  }
+
   void Dict(int seed) {
     if (std::is_same<ParquetType, BooleanType>::value) {
       return;
@@ -1225,6 +1291,27 @@ TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
   this->null_probability_ = 0;
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->DeltaBitPack(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PforArrowDirectPut) {
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->Pfor(seed);
+  }
+  // Same, but without nulls (this could trigger different code paths)
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->Pfor(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PforArrowDirectPutDictBuilder) {
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->PforDict(seed);
+  }
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->PforDict(seed);
   }
 }
 
@@ -2032,6 +2119,157 @@ TYPED_TEST(TestDeltaBitPackEncoding, ZeroDeltaBitWidth) {
     int_values.push_back((i * 5) % 7);
   }
   this->CheckRoundtripWithValues(int_values);
+}
+
+// ----------------------------------------------------------------------
+// PFOR encode/decode tests.
+
+template <typename Type>
+class TestPforEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+
+  void CheckDecoding(int read_batch_size) {
+    auto decoder = MakeTypedDecoder<Type>(Encoding::PFOR, descr_.get());
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+
+    std::vector<c_type> decoded(num_values_);
+    int values_decoded = 0;
+    while (values_decoded < num_values_) {
+      const int decoded_now =
+          decoder->Decode(decoded.data() + values_decoded, read_batch_size);
+      ASSERT_GT(decoded_now, 0);
+      values_decoded += decoded_now;
+    }
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decoded.data(), draws_, num_values_));
+  }
+
+  void CheckRoundtrip() override {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::PFOR,
+                                          /*use_dictionary=*/false, descr_.get());
+    encoder->Put(draws_, num_values_);
+    encode_buffer_ = encoder->FlushValues();
+
+    // A reader asks for whatever its batch size is, so the page has to come out
+    // the same whether it is drained in one call or in many.
+    for (const int read_batch_size : {1, 11, num_values_}) {
+      if (read_batch_size > 0) {
+        ASSERT_NO_FATAL_FAILURE(CheckDecoding(read_batch_size));
+      }
+    }
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+};
+
+using TestPforEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
+TYPED_TEST_SUITE(TestPforEncoding, TestPforEncodingTypes);
+
+TYPED_TEST(TestPforEncoding, BasicRoundTrip) {
+  // The default vector size is 1024, so cover an empty page, a single value, a
+  // partial vector, an exact multiple, and a partial trailing vector.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(100, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1024, 4));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1025, 3));
+}
+
+TYPED_TEST(TestPforEncoding, DecoderReusedAcrossPages) {
+  using c_type = typename TypeParam::c_type;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::PFOR,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
+
+  // A column chunk reuses one decoder for all of its data pages, with only
+  // SetData between them. The second page is the longer one, so a decoder that
+  // kept the first page's values would also read past the end of them.
+  const std::vector<std::vector<c_type>> pages = {
+      {10, 11, 12, 13}, {900, 901, 902, 903, 904, 905, 906, 907}};
+
+  for (const auto& page : pages) {
+    const int page_values = static_cast<int>(page.size());
+    encoder->Put(page.data(), page_values);
+    auto buffer = encoder->FlushValues();
+    decoder->SetData(page_values, buffer->data(), static_cast<int>(buffer->size()));
+
+    std::vector<c_type> decoded(page.size());
+    ASSERT_EQ(page_values, decoder->Decode(decoded.data(), page_values));
+    ASSERT_EQ(page, decoded);
+  }
+}
+
+TYPED_TEST(TestPforEncoding, AllNullPage) {
+  constexpr int kNumValues = 40;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::PFOR,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto buffer = encoder->FlushValues();
+
+  // A reader hands the decoder the page's level count, which counts the nulls, so
+  // the page and its bare header have to survive being handed the full count.
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+
+  // All slots are null, so the page carries no encoded values at all.
+  std::vector<uint8_t> valid_bits(bit_util::BytesForBits(kNumValues), 0);
+  typename EncodingTraits<TypeParam>::Accumulator acc;
+  ASSERT_EQ(0, decoder->DecodeArrow(kNumValues, /*null_count=*/kNumValues,
+                                    valid_bits.data(), /*valid_bits_offset=*/0, &acc));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(kNumValues, result->length());
+  ASSERT_EQ(kNumValues, result->null_count());
+}
+
+TYPED_TEST(TestPforEncoding, RejectsPageWithUnreadValues) {
+  using c_type = typename TypeParam::c_type;
+  constexpr int kNumValues = 200;
+  constexpr int kNullCount = 30;
+
+  std::vector<c_type> values(kNumValues);
+  std::iota(values.begin(), values.end(), static_cast<c_type>(0));
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::PFOR,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  encoder->Put(values.data(), kNumValues);
+  auto encoded = encoder->FlushValues();
+
+  std::vector<uint8_t> valid_bits(bit_util::BytesForBits(kNumValues), 0);
+  for (int i = 0; i < kNumValues - kNullCount; ++i) {
+    bit_util::SetBit(valid_bits.data(), i);
+  }
+  std::vector<c_type> output(kNumValues);
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
+  decoder->SetData(kNumValues, encoded->data(), static_cast<int>(encoded->size()));
+  ASSERT_THROW(decoder->DecodeSpaced(output.data(), kNumValues, kNullCount,
+                                     valid_bits.data(), /*valid_bits_offset=*/0),
+               ParquetException);
+}
+
+TYPED_TEST(TestPforEncoding, RejectsNegativeArguments) {
+  using c_type = typename TypeParam::c_type;
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
+  uint8_t byte = 0;
+  ASSERT_THROW(decoder->SetData(-1, &byte, 1), ParquetException);
+  ASSERT_THROW(decoder->SetData(0, &byte, -1), ParquetException);
+
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::PFOR,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  const c_type value = 7;
+  encoder->Put(&value, 1);
+  auto encoded = encoder->FlushValues();
+  decoder->SetData(1, encoded->data(), static_cast<int>(encoded->size()));
+  c_type output{};
+  ASSERT_THROW(decoder->Decode(&output, -1), ParquetException);
 }
 
 // ----------------------------------------------------------------------
