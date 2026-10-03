@@ -49,8 +49,8 @@ struct REETestData {
   }
 
  public:
-  static REETestData JSON(const std::shared_ptr<DataType>& data_type, std::string input_json,
-                          std::string expected_values_json,
+  static REETestData JSON(const std::shared_ptr<DataType>& data_type,
+                          std::string input_json, std::string expected_values_json,
                           std::string expected_run_ends_json, int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
     return SingleArray(input_offset ? input_array->Slice(input_offset) : input_array,

@@ -398,9 +398,9 @@ struct ProductInit {
   std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  ProductInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  ProductInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
-      : ctx(ctx), type(type), options(options) {}
+      : ctx(ctx), type(std::move(type)), options(options) {}
 
   Status Visit(const DataType&) {
     return Status::NotImplemented("No product implemented");
@@ -844,8 +844,8 @@ struct IndexInit {
 
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
-                        const std::shared_ptr<DataType>& out_ty, ScalarAggregateFunction* func,
-                        SimdLevel::type simd_level) {
+                        const std::shared_ptr<DataType>& out_ty,
+                        ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   for (const auto& ty : types) {
     // array[InT] -> scalar[OutT]
     auto sig = KernelSignature::Make({ty->id()}, out_ty);

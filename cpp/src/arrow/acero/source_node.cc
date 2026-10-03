@@ -370,9 +370,9 @@ struct TableSourceNode : public SourceNode {
 
 template <typename This, typename Options>
 struct SchemaSourceNode : public SourceNode {
-  SchemaSourceNode(ExecPlan* plan, const std::shared_ptr<Schema>& schema,
+  SchemaSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                    arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
+      : SourceNode(plan, std::move(schema), generator, Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -406,9 +406,9 @@ struct SchemaSourceNode : public SourceNode {
 };
 
 struct RecordBatchReaderSourceNode : public SourceNode {
-  RecordBatchReaderSourceNode(ExecPlan* plan, const std::shared_ptr<Schema>& schema,
+  RecordBatchReaderSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                               arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
+      : SourceNode(plan, std::move(schema), generator, Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

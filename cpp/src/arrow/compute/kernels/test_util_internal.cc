@@ -83,7 +83,8 @@ void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& in
 }
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
-                 const std::shared_ptr<Scalar>& expected, const FunctionOptions* options) {
+                 const std::shared_ptr<Scalar>& expected,
+                 const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
   ValidateOutput(out);
   if (!out.scalar()->Equals(*expected)) {

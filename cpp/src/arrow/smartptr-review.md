@@ -103,7 +103,7 @@ void f() {
 
 ### Rule SP2: Useless SharedPtr pass by value
 
-**Pattern**: A parameter `ptr` of SharedPtr type is passed by value, but `ptr` is never moved from in the function body.
+**Pattern**: A parameter `ptr` of SharedPtr type is passed by value, AND `ptr` is never moved from in the function body AND `ptr` is not potentially modified in the function body.
 
 **Issue**: Unnecessary reference count increment/decrement overhead at call site.
 
@@ -114,7 +114,8 @@ void f() {
 
 **Fix**:
   - If any visible call site passes a non-local SharedPtr (namespace-scope, static, or a nonstatic data member) and the callee's call tree could reset it, ignore it as a violation of this rule.
-  - Otherwise, if the function would not compile if `ptr` was passed by `const&` instead, report that the parameter could not be changed to `const&` and report the specific use(s) in the body that would fail to compile. (Example: if `ptr` or `&ptr` is passed to a function that takes a reference or pointer to the non-`const` SharedPtr type.) For each definite last use of `ptr` that is a copy from `ptr` and for which writing `std::move(ptr)` instead of `ptr` would compile, write `std::move(ptr)` instead.
+  - Otherwise, if every definite last use of `ptr` in the function body is a copy from `ptr` for which writing `std::move(ptr)` instead of `ptr` would compile, then write `std::move(ptr)` instead of `ptr` on every definite last use of `ptr` in the function body.
+  - Otherwise, if the function would not compile if `ptr` was passed by `const&` instead, report that the parameter could not be changed to `const&` and report the specific use(s) in the body that would fail to compile. (Example: if `ptr` or `&ptr` is passed to a function that takes a reference or pointer to the non-`const` SharedPtr type.) For each definite last use of `ptr` that is a copy from `ptr` AND for which writing `std::move(ptr)` instead of `ptr` would compile, write `std::move(ptr)` instead.
   - Otherwise, pass `ptr` by `const&` instead.
 
 **Example violation**:

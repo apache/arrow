@@ -2002,7 +2002,7 @@ class ObjectOutputStream final : public io::OutputStream {
       RequestType&& req,
       UploadResultCallbackFunction<RequestType, OutcomeType> sync_result_callback,
       UploadResultCallbackFunction<RequestType, OutcomeType> async_result_callback,
-      const void* data, int64_t nbytes, const std::shared_ptr<Buffer>& owned_buffer = nullptr) {
+      const void* data, int64_t nbytes, std::shared_ptr<Buffer> owned_buffer = nullptr) {
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
     req.SetContentLength(nbytes);
@@ -2072,7 +2072,7 @@ class ObjectOutputStream final : public io::OutputStream {
   Status UploadUsingSingleRequest(const void* data, int64_t nbytes,
                                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
     auto sync_result_callback = [](const Aws::S3::Model::PutObjectRequest& request,
-                                   const std::shared_ptr<UploadState>& state,
+                                   std::shared_ptr<UploadState> state,
                                    int32_t part_number,
                                    Aws::S3::Model::PutObjectOutcome outcome) {
       if (!outcome.IsSuccess()) {
@@ -2082,7 +2082,7 @@ class ObjectOutputStream final : public io::OutputStream {
     };
 
     auto async_result_callback = [](const Aws::S3::Model::PutObjectRequest& request,
-                                    const std::shared_ptr<UploadState>& state,
+                                    std::shared_ptr<UploadState> state,
                                     int32_t part_number,
                                     Aws::S3::Model::PutObjectOutcome outcome) {
       HandleUploadUsingSingleRequestOutcome(state, request, outcome);
@@ -2120,7 +2120,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetUploadId(multipart_upload_id_);
 
     auto sync_result_callback = [](const Aws::S3::Model::UploadPartRequest& request,
-                                   const std::shared_ptr<UploadState>& state,
+                                   std::shared_ptr<UploadState> state,
                                    int32_t part_number,
                                    Aws::S3::Model::UploadPartOutcome outcome) {
       if (!outcome.IsSuccess()) {
@@ -2133,7 +2133,7 @@ class ObjectOutputStream final : public io::OutputStream {
     };
 
     auto async_result_callback = [](const Aws::S3::Model::UploadPartRequest& request,
-                                    const std::shared_ptr<UploadState>& state,
+                                    std::shared_ptr<UploadState> state,
                                     int32_t part_number,
                                     Aws::S3::Model::UploadPartOutcome outcome) {
       HandleUploadPartOutcome(state, part_number, request, outcome);

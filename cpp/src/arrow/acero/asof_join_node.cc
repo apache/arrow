@@ -237,8 +237,8 @@ struct MemoStore {
   struct Entry {
     Entry() = default;
 
-    Entry(OnType time, const std::shared_ptr<arrow::RecordBatch>& batch, row_index_t row)
-        : time(time), batch(batch), row(row) {}
+    Entry(OnType time, std::shared_ptr<arrow::RecordBatch> batch, row_index_t row)
+        : time(time), batch(std::move(batch)), row(row) {}
 
     void swap(Entry& other) {
       std::swap(time, other.time);

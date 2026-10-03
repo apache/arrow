@@ -115,7 +115,7 @@ class ParquetFormatHelper {
     }
 
     return MakeFunctionIterator([reader] { return reader->Next(); })
-        .Visit([&](const std::shared_ptr<RecordBatch>& batch) {
+        .Visit([&](std::shared_ptr<RecordBatch> batch) {
           return WriteRecordBatch(*batch, writer);
         });
   }
@@ -767,7 +767,7 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   // select all row groups
   EXPECT_OK_AND_ASSIGN(auto all_row_groups_fragment,
                        format_->MakeFragment(*source, literal(true))
-                           .Map([](const std::shared_ptr<FileFragment>& f) {
+                           .Map([](std::shared_ptr<FileFragment> f) {
                              return checked_pointer_cast<ParquetFileFragment>(f);
                            }));
 

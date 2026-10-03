@@ -427,39 +427,39 @@ struct SmallDecimalGenerator {
 
 }  // namespace
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal32(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal32(std::shared_ptr<DataType> type,
                                                        int64_t size,
                                                        double null_probability,
                                                        int64_t alignment,
                                                        MemoryPool* memory_pool) {
-  SmallDecimalGenerator<Decimal32Type> gen{type, this};
+  SmallDecimalGenerator<Decimal32Type> gen{std::move(type), this};
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal64(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal64(std::shared_ptr<DataType> type,
                                                        int64_t size,
                                                        double null_probability,
                                                        int64_t alignment,
                                                        MemoryPool* memory_pool) {
-  SmallDecimalGenerator<Decimal64Type> gen{type, this};
+  SmallDecimalGenerator<Decimal64Type> gen{std::move(type), this};
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal128(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal128(std::shared_ptr<DataType> type,
                                                         int64_t size,
                                                         double null_probability,
                                                         int64_t alignment,
                                                         MemoryPool* memory_pool) {
-  DecimalGenerator<Decimal128Type> gen{type, this};
+  DecimalGenerator<Decimal128Type> gen{std::move(type), this};
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Decimal256(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> RandomArrayGenerator::Decimal256(std::shared_ptr<DataType> type,
                                                         int64_t size,
                                                         double null_probability,
                                                         int64_t alignment,
                                                         MemoryPool* memory_pool) {
-  DecimalGenerator<Decimal256Type> gen{type, this};
+  DecimalGenerator<Decimal256Type> gen{std::move(type), this};
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 

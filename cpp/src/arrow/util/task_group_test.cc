@@ -73,7 +73,7 @@ void TestTaskGroupSuccess(const std::shared_ptr<TaskGroup>& task_group) {
 }
 
 // Check TaskGroup behaviour with some successful and some failing tasks
-void TestTaskGroupErrors(const std::shared_ptr<TaskGroup>& task_group) {
+void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
   const int NSUCCESSES = 2;
   const int NERRORS = 20;
 
@@ -115,7 +115,7 @@ void TestTaskGroupErrors(const std::shared_ptr<TaskGroup>& task_group) {
   ASSERT_RAISES(Invalid, task_group->Finish());
 }
 
-void TestTaskGroupCancel(const std::shared_ptr<TaskGroup>& task_group, StopSource* stop_source) {
+void TestTaskGroupCancel(std::shared_ptr<TaskGroup> task_group, StopSource* stop_source) {
   const int NSUCCESSES = 2;
   const int NCANCELS = 20;
 
@@ -186,7 +186,7 @@ class CopyCountingTask {
 };
 
 // Check TaskGroup behaviour with tasks spawning other tasks
-void TestTasksSpawnTasks(const std::shared_ptr<TaskGroup>& task_group) {
+void TestTasksSpawnTasks(std::shared_ptr<TaskGroup> task_group) {
   const int N = 6;
 
   std::atomic<int> count(0);

@@ -43,13 +43,13 @@ class ARROW_EXPORT TableReader {
 
   /// Create a TableReader instance
   static Result<std::shared_ptr<TableReader>> Make(MemoryPool* pool,
-                                                   const std::shared_ptr<io::InputStream>& input,
+                                                   std::shared_ptr<io::InputStream> input,
                                                    const ReadOptions&,
                                                    const ParseOptions&);
 };
 
 ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
-                                                           const std::shared_ptr<Buffer>& json);
+                                                           std::shared_ptr<Buffer> json);
 
 /// \brief A class that reads a JSON file incrementally
 ///

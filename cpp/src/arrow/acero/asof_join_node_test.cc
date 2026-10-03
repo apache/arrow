@@ -1396,9 +1396,9 @@ struct BackpressureCountingNode : public MapNode {
   }
 
   BackpressureCountingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                           const std::shared_ptr<Schema>& output_schema,
+                           std::shared_ptr<Schema> output_schema,
                            const BackpressureCountingNodeOptions& options)
-      : MapNode(plan, inputs, output_schema), counters(options.counters) {}
+      : MapNode(plan, inputs, std::move(output_schema)), counters(options.counters) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

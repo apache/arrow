@@ -900,7 +900,7 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
                      std::move(scan_options)) {}
 
 std::shared_ptr<ScannerBuilder> ScannerBuilder::FromRecordBatchReader(
-    const std::shared_ptr<RecordBatchReader>& reader) {
+    std::shared_ptr<RecordBatchReader> reader) {
   auto batch_it = MakeIteratorFromReader(reader);
   auto fragment =
       std::make_shared<OneShotFragment>(reader->schema(), std::move(batch_it));

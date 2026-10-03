@@ -77,7 +77,8 @@ class ColumnBuilderTest : public ::testing::Test {
 
   void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
                      const ConvertOptions& options,
-                     const std::shared_ptr<ChunkedArray>& expected, bool validate_full = true) {
+                     const std::shared_ptr<ChunkedArray>& expected,
+                     bool validate_full = true) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK_AND_ASSIGN(

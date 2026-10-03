@@ -60,7 +60,8 @@ static std::shared_ptr<Array> InvalidUtf8(const std::shared_ptr<DataType>& type)
   return BinaryArrayFromStrings(type, {"Hi", "olá mundo", "你好世界", "", "\xa0\xa1"});
 }
 
-static std::shared_ptr<Array> FixedSizeInvalidUtf8(const std::shared_ptr<DataType>& type) {
+static std::shared_ptr<Array> FixedSizeInvalidUtf8(
+    const std::shared_ptr<DataType>& type) {
   if (type->id() == Type::FIXED_SIZE_BINARY) {
     // Assume a particular width for testing
     EXPECT_EQ(3, checked_cast<const FixedSizeBinaryType&>(*type).byte_width());
@@ -88,7 +89,8 @@ static void AssertBufferSame(const Array& left, const Array& right, size_t buffe
             right.data()->buffers[buffer_index].get());
 }
 
-static void CheckCast(const std::shared_ptr<Array>& input, const std::shared_ptr<Array>& expected,
+static void CheckCast(const std::shared_ptr<Array>& input,
+                      const std::shared_ptr<Array>& expected,
                       CastOptions options = CastOptions{}) {
   options.to_type = expected->type();
   CheckScalarUnary("cast", input, expected, &options);
@@ -112,9 +114,9 @@ static void CheckCastFails(const std::shared_ptr<Array>& input, CastOptions opti
 }
 
 static void CheckCastZeroCopy(const std::shared_ptr<Array>& input,
-                              const std::shared_ptr<DataType>& to_type,
+                              std::shared_ptr<DataType> to_type,
                               CastOptions options = CastOptions::Safe()) {
-  ASSERT_OK_AND_ASSIGN(auto converted, Cast(*input, to_type, options));
+  ASSERT_OK_AND_ASSIGN(auto converted, Cast(*input, std::move(to_type), options));
   ValidateOutput(*converted);
 
   ASSERT_EQ(input->data()->buffers.size(), converted->data()->buffers.size());
@@ -144,7 +146,7 @@ static std::shared_ptr<Array> MaskArrayWithNullsAt(const std::shared_ptr<Array>&
 }
 
 TEST(Cast, CanCast) {
-  auto ExpectCanCast = [](const std::shared_ptr<DataType>& from,
+  auto ExpectCanCast = [](std::shared_ptr<DataType> from,
                           std::vector<std::shared_ptr<DataType>> to_set,
                           bool expected = true) {
     for (auto to : to_set) {
@@ -153,7 +155,7 @@ TEST(Cast, CanCast) {
     }
   };
 
-  auto ExpectCannotCast = [ExpectCanCast](const std::shared_ptr<DataType>& from,
+  auto ExpectCannotCast = [ExpectCanCast](std::shared_ptr<DataType> from,
                                           std::vector<std::shared_ptr<DataType>> to_set) {
     ExpectCanCast(from, to_set, /*expected=*/false);
   };
@@ -3205,7 +3207,8 @@ TEST(Cast, StringToDate) {
   }
 }
 
-static void AssertBinaryZeroCopy(const std::shared_ptr<Array>& lhs, const std::shared_ptr<Array>& rhs) {
+static void AssertBinaryZeroCopy(const std::shared_ptr<Array>& lhs,
+                                 const std::shared_ptr<Array>& rhs) {
   EXPECT_TRUE(is_base_binary_like(lhs->type_id()) || is_binary_view_like(lhs->type_id()));
   EXPECT_EQ(is_base_binary_like(lhs->type_id()), is_base_binary_like(rhs->type_id()));
   // null bitmap and data buffers are always zero-copied
@@ -4281,7 +4284,7 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
 
 TEST(Cast, IdentityCasts) {
   // ARROW-4102
-  auto CheckIdentityCast = [](const std::shared_ptr<DataType>& type, const std::string& json) {
+  auto CheckIdentityCast = [](std::shared_ptr<DataType> type, const std::string& json) {
     CheckCastZeroCopy(ArrayFromJSON(type, json), type);
   };
 
@@ -4311,7 +4314,7 @@ TEST(Cast, IdentityCasts) {
 
 TEST(Cast, EmptyCasts) {
   // ARROW-4766: 0-length arrays should not segfault
-  auto CheckCastEmpty = [](const std::shared_ptr<DataType>& from, const std::shared_ptr<DataType>& to) {
+  auto CheckCastEmpty = [](std::shared_ptr<DataType> from, std::shared_ptr<DataType> to) {
     // Python creates array with nullptr instead of 0-length (valid) buffers.
     auto data = ArrayData::Make(from, /* length */ 0, /* buffers */ {nullptr, nullptr});
     CheckCast(MakeArray(data), ArrayFromJSON(to, "[]"));

@@ -501,7 +501,7 @@ struct ScalarMinMax {
 
   static Result<std::shared_ptr<Scalar>> ExecScalar(
       const ExecSpan& batch, const ElementWiseAggregateOptions& options,
-      const std::shared_ptr<DataType>& type) {
+      std::shared_ptr<DataType> type) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
@@ -523,9 +523,9 @@ struct ScalarMinMax {
       }
     }
     if (valid) {
-      return MakeScalar(type, std::move(value));
+      return MakeScalar(std::move(type), std::move(value));
     } else {
-      return MakeNullScalar(type);
+      return MakeNullScalar(std::move(type));
     }
   }
 

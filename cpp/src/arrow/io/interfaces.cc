@@ -133,7 +133,7 @@ Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync()
 }
 
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
-    const std::shared_ptr<InputStream>& stream, int64_t block_size) {
+    std::shared_ptr<InputStream> stream, int64_t block_size) {
   if (stream->closed()) {
     return Status::Invalid("Cannot take iterator on closed stream");
   }

@@ -975,9 +975,10 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
   }
 }
 
-Status CommitBlockList(const std::shared_ptr<Storage::Blobs::BlockBlobClient>& block_blob_client,
-                       const std::vector<std::string>& block_ids,
-                       const Blobs::CommitBlockListOptions& options) {
+Status CommitBlockList(
+    const std::shared_ptr<Storage::Blobs::BlockBlobClient>& block_blob_client,
+    const std::vector<std::string>& block_ids,
+    const Blobs::CommitBlockListOptions& options) {
   try {
     // CommitBlockList puts all block_ids in the latest element. That means in the case
     // of overlapping block_ids the newly staged block ids will always replace the
@@ -1324,7 +1325,7 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Status AppendBlock(const void* data, int64_t nbytes,
-                     const std::shared_ptr<Buffer>& owned_buffer = nullptr) {
+                     std::shared_ptr<Buffer> owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
 
     if (nbytes == 0) {

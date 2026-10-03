@@ -59,7 +59,7 @@ using internal::checked_pointer_cast;
 
 namespace dataset {
 
-FileSource::FileSource(const std::shared_ptr<io::RandomAccessFile>& file,
+FileSource::FileSource(std::shared_ptr<io::RandomAccessFile> file,
                        Compression::type compression)
     : custom_open_([=] { return ToResult(file); }),
       custom_size_(-1),
@@ -461,7 +461,7 @@ class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
-                                const std::shared_ptr<Scanner>& scanner) {
+                                std::shared_ptr<Scanner> scanner) {
   auto exprs = scanner->options()->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scanner->options()->projection.call()->options.get())
@@ -632,7 +632,7 @@ class TeeNode : public acero::MapNode,
   Status WriteNextBatch(const std::shared_ptr<RecordBatch>& batch,
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
-                      [this](const std::shared_ptr<RecordBatch>& next_batch,
+                      [this](std::shared_ptr<RecordBatch> next_batch,
                              const PartitionPathFormat& destination) {
                         dataset_writer_->WriteRecordBatch(
                             next_batch, destination.directory, destination.filename);

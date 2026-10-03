@@ -245,9 +245,9 @@ class TableReaderImpl : public TableReader,
         read_options_(read_options),
         task_group_(std::move(task_group)) {}
 
-  Status Init(const std::shared_ptr<io::InputStream>& input) {
-    ARROW_ASSIGN_OR_RAISE(auto it,
-                          io::MakeInputStreamIterator(input, read_options_.block_size));
+  Status Init(std::shared_ptr<io::InputStream> input) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto it, io::MakeInputStreamIterator(std::move(input), read_options_.block_size));
     return MakeReadaheadIterator(std::move(it), task_group_->parallelism())
         .Value(&buffer_iterator_);
   }
@@ -370,11 +370,11 @@ class StreamingReaderImpl : public StreamingReader {
   }
 
   static Future<std::shared_ptr<StreamingReaderImpl>> MakeAsync(
-      const std::shared_ptr<DecodeContext>& context, const std::shared_ptr<io::InputStream>& stream,
+      std::shared_ptr<DecodeContext> context, std::shared_ptr<io::InputStream> stream,
       io::IOContext io_context, Executor* cpu_executor, const ReadOptions& read_options) {
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_it,
-        io::MakeInputStreamIterator(stream, read_options.block_size));
+        io::MakeInputStreamIterator(std::move(stream), read_options.block_size));
     ARROW_ASSIGN_OR_RAISE(
         auto buffer_gen,
         MakeBackgroundGenerator(std::move(buffer_it), io_context.executor()));
@@ -438,7 +438,7 @@ class StreamingReaderImpl : public StreamingReader {
     }
 
     return FirstBlock(decoding_gen)
-        .Then([source = std::move(decoding_gen), context = context,
+        .Then([source = std::move(decoding_gen), context = std::move(context),
                max_readahead](const DecodedBlock& block) {
           return std::make_shared<StreamingReaderImpl>(block, std::move(source), context,
                                                        max_readahead);
@@ -499,7 +499,7 @@ class StreamingReaderImpl : public StreamingReader {
 }  // namespace
 
 Result<std::shared_ptr<TableReader>> TableReader::Make(
-    MemoryPool* pool, const std::shared_ptr<io::InputStream>& input,
+    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options) {
   std::shared_ptr<TableReaderImpl> ptr;
   if (read_options.use_threads) {
@@ -535,7 +535,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 }
 
 Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
-                                              const std::shared_ptr<Buffer>& json) {
+                                              std::shared_ptr<Buffer> json) {
   DecodeContext context(std::move(options));
 
   std::unique_ptr<BlockParser> parser;

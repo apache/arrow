@@ -126,11 +126,11 @@ arrow::Result<std::shared_ptr<Table>> FlightStreamReader::ToTable(
 class IpcMessageReader : public ipc::MessageReader {
  public:
   IpcMessageReader(std::shared_ptr<internal::ClientDataStream> stream,
-                   const std::shared_ptr<internal::PeekableFlightDataReader>& peekable_reader,
+                   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader,
                    std::shared_ptr<MemoryManager> memory_manager,
                    std::shared_ptr<Buffer>* app_metadata)
       : stream_(std::move(stream)),
-        peekable_reader_(peekable_reader),
+        peekable_reader_(std::move(peekable_reader)),
         memory_manager_(memory_manager ? std::move(memory_manager)
                                        : CPUDevice::Instance()->default_memory_manager()),
         app_metadata_(app_metadata),
@@ -463,7 +463,7 @@ class ClientStreamWriter : public FlightStreamWriter {
 
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
     FlightPayload payload;
-    payload.app_metadata = app_metadata;
+    payload.app_metadata = std::move(app_metadata);
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
       return Close();
@@ -474,7 +474,7 @@ class ClientStreamWriter : public FlightStreamWriter {
   Status WriteWithMetadata(const RecordBatch& batch,
                            std::shared_ptr<Buffer> app_metadata) override {
     RETURN_NOT_OK(CheckStarted());
-    app_metadata_ = app_metadata;
+    app_metadata_ = std::move(app_metadata);
     auto status = batch_writer_->WriteRecordBatch(batch);
     if (!status.ok() &&
         // Only want to Close() if server error, not for client error

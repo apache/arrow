@@ -764,7 +764,8 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
  public:
   using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
 
-  static ArrayFactory JSONArrayFactory(const std::shared_ptr<DataType>& type, const char* json) {
+  static ArrayFactory JSONArrayFactory(const std::shared_ptr<DataType>& type,
+                                       const char* json) {
     return [=]() { return ArrayFromJSON(type, json); };
   }
 

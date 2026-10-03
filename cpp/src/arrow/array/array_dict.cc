@@ -517,7 +517,7 @@ struct RecursiveUnifier {
 }  // namespace
 
 Result<std::unique_ptr<DictionaryUnifier>> DictionaryUnifier::Make(
-    const std::shared_ptr<DataType>& value_type, MemoryPool* pool) {
+    std::shared_ptr<DataType> value_type, MemoryPool* pool) {
   MakeUnifier maker(pool, value_type);
   RETURN_NOT_OK(VisitTypeInline(*value_type, &maker));
   return std::move(maker.result);

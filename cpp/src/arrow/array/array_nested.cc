@@ -102,7 +102,7 @@ Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_bu
 
 template <typename TYPE>
 Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArrays(
-    const std::shared_ptr<DataType>& type, const Array& offsets, const Array& values,
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
     MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap = NULLPTR,
     int64_t null_count = kUnknownNullCount) {
   using offset_type = typename TYPE::offset_type;
@@ -130,7 +130,7 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   if (offsets.null_count() > 0) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
                           CleanListOffsets<TYPE>(null_bitmap, offsets, pool));
-    auto data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+    auto data = ArrayData::Make(std::move(type), offsets.length() - 1, std::move(buffers),
                                 {values.data()}, offsets.null_count(), /*offset=*/0);
     return std::make_shared<ArrayType>(std::move(data));
   }
@@ -138,14 +138,14 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
   auto buffers = BufferVector({std::move(null_bitmap), typed_offsets.values()});
-  auto data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+  auto data = ArrayData::Make(std::move(type), offsets.length() - 1, std::move(buffers),
                               {values.data()}, null_count, offsets.offset());
   return std::make_shared<ArrayType>(std::move(data));
 }
 
 template <typename TYPE>
 Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListViewArrayFromArrays(
-    const std::shared_ptr<DataType>& type, const Array& offsets, const Array& sizes,
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& sizes,
     const Array& values, MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap = NULLPTR,
     int64_t null_count = kUnknownNullCount) {
   using offset_type = typename TYPE::offset_type;
@@ -209,8 +209,8 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListViewArrayFromA
       typed_offsets.values(),
       typed_sizes.values(),
   });
-  auto data = ArrayData::Make(type, sizes.length(), std::move(buffers), {values.data()},
-                              null_count, array_offset);
+  auto data = ArrayData::Make(std::move(type), sizes.length(), std::move(buffers),
+                              {values.data()}, null_count, array_offset);
   return std::make_shared<ArrayType>(std::move(data));
 }
 
@@ -524,7 +524,7 @@ ListArray::ListArray(std::shared_ptr<ArrayData> data) {
 }
 
 ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
-                     std::shared_ptr<Buffer> value_offsets, const std::shared_ptr<Array>& values,
+                     std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
                      std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                      int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::LIST);
@@ -644,7 +644,7 @@ ListViewArray::ListViewArray(std::shared_ptr<ArrayData> data) {
 ListViewArray::ListViewArray(std::shared_ptr<DataType> type, int64_t length,
                              std::shared_ptr<Buffer> value_offsets,
                              std::shared_ptr<Buffer> value_sizes,
-                             const std::shared_ptr<Array>& values,
+                             std::shared_ptr<Array> values,
                              std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                              int64_t offset) {
   ListViewArray::SetData(ArrayData::Make(
@@ -719,7 +719,7 @@ LargeListViewArray::LargeListViewArray(std::shared_ptr<ArrayData> data) {
 LargeListViewArray::LargeListViewArray(std::shared_ptr<DataType> type, int64_t length,
                                        std::shared_ptr<Buffer> value_offsets,
                                        std::shared_ptr<Buffer> value_sizes,
-                                       const std::shared_ptr<Array>& values,
+                                       std::shared_ptr<Array> values,
                                        std::shared_ptr<Buffer> null_bitmap,
                                        int64_t null_count, int64_t offset) {
   LargeListViewArray::SetData(ArrayData::Make(

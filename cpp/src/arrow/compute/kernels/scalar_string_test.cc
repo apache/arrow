@@ -74,7 +74,8 @@ class BaseTestStringKernels : public ::testing::Test {
   }
 
   void CheckVarArgsScalar(std::string func_name, std::string json_input,
-                          const std::shared_ptr<DataType>& out_ty, std::string json_expected,
+                          const std::shared_ptr<DataType>& out_ty,
+                          std::string json_expected,
                           const FunctionOptions* options = nullptr) {
     // CheckScalar (on arrays) checks scalar arguments individually,
     // but this lets us test the all-scalar case explicitly

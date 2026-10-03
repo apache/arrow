@@ -210,7 +210,7 @@ TEST_P(BaseChunkerTest, Basics) {
 }
 
 TEST_P(BaseChunkerTest, BlockSizes) {
-  auto check_block_sizes = [&](const std::shared_ptr<Buffer>& data) {
+  auto check_block_sizes = [&](std::shared_ptr<Buffer> data) {
     for (int64_t block_size = min_block_size; block_size < min_block_size + 30;
          ++block_size) {
       AssertChunkingBlockSize(*chunker_, data, block_size, object_count);

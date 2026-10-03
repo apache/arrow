@@ -1988,22 +1988,22 @@ void CheckListListTypeMetadata(ListListTypeFactory list_type_factory) {
 }
 
 TEST(TestListType, Metadata) {
-  CheckListListTypeMetadata([](const std::shared_ptr<Field>& field) { return list(field); });
+  CheckListListTypeMetadata([](std::shared_ptr<Field> field) { return list(field); });
 }
 
 TEST(TestLargeListType, Metadata) {
   CheckListListTypeMetadata(
-      [](const std::shared_ptr<Field>& field) { return large_list(field); });
+      [](std::shared_ptr<Field> field) { return large_list(field); });
 }
 
 TEST(TestListViewType, Metadata) {
   CheckListListTypeMetadata(
-      [](const std::shared_ptr<Field>& field) { return list_view(field); });
+      [](std::shared_ptr<Field> field) { return list_view(field); });
 }
 
 TEST(TestLargeListViewType, Metadata) {
   CheckListListTypeMetadata(
-      [](const std::shared_ptr<Field>& field) { return large_list_view(field); });
+      [](std::shared_ptr<Field> field) { return large_list_view(field); });
 }
 
 TEST(TestNestedType, Equals) {

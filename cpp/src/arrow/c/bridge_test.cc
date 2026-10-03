@@ -1465,7 +1465,7 @@ class TestDeviceArrayExport : public ::testing::Test {
 
 #ifdef ARROW_COMPUTE
   static std::function<Result<std::shared_ptr<Array>>()> JSONREEArrayFactory(
-      const std::shared_ptr<MemoryManager>& mm, std::shared_ptr<DataType> type,
+      const std::shared_ptr<MemoryManager>& mm, const std::shared_ptr<DataType>& type,
       const char* json) {
     return [=]() -> Result<std::shared_ptr<Array>> {
       ARROW_ASSIGN_OR_RAISE(auto result, REEFromJSON(type, json));
@@ -3912,7 +3912,8 @@ class TestArrayRoundtrip : public ::testing::Test {
 
   void SetUp() override { pool_ = default_memory_pool(); }
 
-  static ArrayFactory JSONArrayFactory(const std::shared_ptr<DataType>& type, const char* json) {
+  static ArrayFactory JSONArrayFactory(const std::shared_ptr<DataType>& type,
+                                       const char* json) {
     return [=]() { return ArrayFromJSON(type, json); };
   }
 
@@ -4352,7 +4353,8 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
   }
 
   static ArrayFactory JSONArrayFactory(const std::shared_ptr<MemoryManager>& mm,
-                                       const std::shared_ptr<DataType>& type, const char* json) {
+                                       const std::shared_ptr<DataType>& type,
+                                       const char* json) {
     return [=]() { return ToDevice(mm, *ArrayFromJSON(type, json)->data()); };
   }
 
@@ -4519,7 +4521,8 @@ class BaseArrayStreamTest : public ::testing::Test {
 
   void TearDown() override { ASSERT_EQ(pool_->bytes_allocated(), orig_allocated_); }
 
-  RecordBatchVector MakeBatches(const std::shared_ptr<Schema>& schema, ArrayVector arrays) {
+  RecordBatchVector MakeBatches(const std::shared_ptr<Schema>& schema,
+                                ArrayVector arrays) {
     DCHECK_EQ(schema->num_fields(), 1);
     RecordBatchVector batches;
     for (const auto& array : arrays) {

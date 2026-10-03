@@ -244,11 +244,11 @@ class ExchangeDataStream final : public internal::ServerDataStream {
 class GrpcServiceHandler final : public FlightService::Service {
  public:
   GrpcServiceHandler(
-      const std::shared_ptr<ServerAuthHandler>& auth_handler,
+      std::shared_ptr<ServerAuthHandler> auth_handler,
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,
       internal::ServerTransport* impl)
-      : auth_handler_(auth_handler), middleware_(middleware), impl_(impl) {}
+      : auth_handler_(std::move(auth_handler)), middleware_(middleware), impl_(impl) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
   ::grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {

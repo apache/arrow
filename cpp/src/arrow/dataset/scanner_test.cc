@@ -582,7 +582,7 @@ INSTANTIATE_TEST_SUITE_P(BasicNewScannerTests, TestScannerBase,
                            return std::to_string(info.index) + info.param.ToString();
                          });
 
-void CheckScannerBackpressure(const std::shared_ptr<MockDataset>& dataset, ScanV2Options options,
+void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Options options,
                               int maxConcurrentFragments, int maxConcurrentBatches,
                               ::arrow::internal::ThreadPool* thread_pool) {
   // Start scanning

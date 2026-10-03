@@ -106,8 +106,8 @@ Status AddPassFactory(
     }
 
     PassNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-             const std::shared_ptr<Schema>& output_schema)
-        : MapNode(plan, inputs, output_schema) {}
+             std::shared_ptr<Schema> output_schema)
+        : MapNode(plan, inputs, std::move(output_schema)) {}
 
     const char* kind_name() const override { return "PassNode"; }
     Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
@@ -233,7 +233,7 @@ void ValidateNumProjectNodes(int expected_projections, const std::shared_ptr<Buf
 }
 
 TEST(Substrait, SupportedTypes) {
-  auto ExpectEq = [](std::string_view json, const std::shared_ptr<DataType>& expected_type) {
+  auto ExpectEq = [](std::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
 
     ExtensionSet empty;
@@ -6142,7 +6142,7 @@ TEST(Substrait, PlanWithNamedTapExtension) {
   conversion_options.named_tap_provider =
       [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         const std::shared_ptr<Schema>& tap_schema) -> Result<acero::Declaration> {
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
     return acero::Declaration{tap_kind, std::move(inputs), acero::ExecNodeOptions{}};
   };
 
@@ -6269,7 +6269,7 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   conversion_options.named_tap_provider =
       [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         const std::shared_ptr<Schema>& tap_schema) -> Result<acero::Declaration> {
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
     return acero::Declaration{tap_kind, std::move(inputs), acero::ExecNodeOptions{}};
   };
 

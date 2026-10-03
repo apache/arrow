@@ -245,7 +245,7 @@ void TestInvalidRowsSkipped(TableReaderFactory reader_factory, bool async) {
 }
 
 TableReaderFactory MakeSerialFactory() {
-  return [](const std::shared_ptr<io::InputStream>& input_stream, ParseOptions parse_options,
+  return [](std::shared_ptr<io::InputStream> input_stream, ParseOptions parse_options,
             std::optional<int32_t> block_size) {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = block_size.value_or(1 << 10);
@@ -269,12 +269,12 @@ TEST(SerialReaderTests, InvalidRowsSkipped) {
 }
 
 Result<TableReaderFactory> MakeAsyncFactory(
-    const std::shared_ptr<internal::ThreadPool>& thread_pool = nullptr) {
+    std::shared_ptr<internal::ThreadPool> thread_pool = nullptr) {
   if (!thread_pool) {
     ARROW_ASSIGN_OR_RAISE(thread_pool, internal::ThreadPool::Make(1));
   }
   return [thread_pool](
-             const std::shared_ptr<io::InputStream>& input_stream, ParseOptions parse_options,
+             std::shared_ptr<io::InputStream> input_stream, ParseOptions parse_options,
              std::optional<int32_t> block_size) -> Result<std::shared_ptr<TableReader>> {
     ReadOptions read_options = ReadOptions::Defaults();
     read_options.use_threads = true;
@@ -318,7 +318,7 @@ TEST(AsyncReaderTests, InvalidRowsSkipped) {
 
 TableReaderFactory MakeStreamingFactory(bool use_threads = true) {
   return [use_threads](
-             const std::shared_ptr<io::InputStream>& input_stream, ParseOptions parse_options,
+             std::shared_ptr<io::InputStream> input_stream, ParseOptions parse_options,
              std::optional<int32_t> block_size) -> Result<std::shared_ptr<TableReader>> {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = block_size.value_or(1 << 10);
@@ -332,7 +332,7 @@ TableReaderFactory MakeStreamingFactory(bool use_threads = true) {
 }
 
 Result<StreamingReaderFactory> MakeStreamingReaderFactory() {
-  return [](const std::shared_ptr<io::InputStream>& input_stream)
+  return [](std::shared_ptr<io::InputStream> input_stream)
              -> Result<std::shared_ptr<StreamingReader>> {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = 1 << 10;

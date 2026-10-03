@@ -2227,7 +2227,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
-  auto Read = [](const std::shared_ptr<Buffer>& stream) -> Status {
+  auto Read = [](std::shared_ptr<Buffer> stream) -> Status {
     io::BufferReader reader(stream);
     ARROW_ASSIGN_OR_RAISE(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;

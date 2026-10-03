@@ -120,7 +120,7 @@ struct FlightServerBase::Impl {
     self_pipe_->Send(/*payload=*/0);
   }
 
-  static void WaitForSignals(std::shared_ptr<SelfPipe> self_pipe) {
+  static void WaitForSignals(const std::shared_ptr<SelfPipe>& self_pipe) {
     // Wait for a signal handler to wake up the pipe
     auto st = self_pipe->Wait().status();
     // Status::Invalid means the pipe was shutdown without any wakeup

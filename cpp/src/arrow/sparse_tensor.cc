@@ -235,7 +235,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<DataType>& indices_type,
     const std::vector<int64_t>& indices_shape,
-    const std::vector<int64_t>& indices_strides, const std::shared_ptr<Buffer>& indices_data,
+    const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data,
     bool is_canonical) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
@@ -248,7 +248,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<DataType>& indices_type,
     const std::vector<int64_t>& indices_shape,
-    const std::vector<int64_t>& indices_strides, const std::shared_ptr<Buffer>& indices_data) {
+    const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
   auto coords = std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
@@ -259,7 +259,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-    int64_t non_zero_length, const std::shared_ptr<Buffer>& indices_data, bool is_canonical) {
+    int64_t non_zero_length, std::shared_ptr<Buffer> indices_data, bool is_canonical) {
   auto ndim = static_cast<int64_t>(shape.size());
   if (!is_integer(indices_type->id())) {
     return Status::TypeError("Type of SparseCOOIndex indices must be integer");
@@ -268,12 +268,13 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
       internal::checked_cast<const IntegerType&>(*indices_type).bit_width() / 8;
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize * ndim, elsize});
-  return Make(indices_type, indices_shape, indices_strides, indices_data, is_canonical);
+  return Make(indices_type, indices_shape, indices_strides, std::move(indices_data),
+              is_canonical);
 }
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-    int64_t non_zero_length, const std::shared_ptr<Buffer>& indices_data) {
+    int64_t non_zero_length, std::shared_ptr<Buffer> indices_data) {
   auto ndim = static_cast<int64_t>(shape.size());
   if (!is_integer(indices_type->id())) {
     return Status::TypeError("Type of SparseCOOIndex indices must be integer");
@@ -281,7 +282,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
   const int64_t elsize = indices_type->byte_width();
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize * ndim, elsize});
-  return Make(indices_type, indices_shape, indices_strides, indices_data);
+  return Make(indices_type, indices_shape, indices_strides, std::move(indices_data));
 }
 
 // Constructor with a contiguous NumericTensor

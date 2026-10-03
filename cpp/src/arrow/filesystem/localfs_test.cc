@@ -93,9 +93,9 @@ struct ConcreteTypedOption : ExampleTypedOption {
 
 class SlowFileSystemPublicProps : public SlowFileSystem {
  public:
-  SlowFileSystemPublicProps(const std::shared_ptr<FileSystem>& base_fs, double average_latency,
+  SlowFileSystemPublicProps(std::shared_ptr<FileSystem> base_fs, double average_latency,
                             int32_t seed)
-      : SlowFileSystem(base_fs, average_latency, seed),
+      : SlowFileSystem(std::move(base_fs), average_latency, seed),
         average_latency{average_latency},
         seed{seed} {}
   double average_latency;
