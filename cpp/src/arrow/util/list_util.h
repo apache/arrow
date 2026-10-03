@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <utility>
 
 #include "arrow/array/data.h"
@@ -48,6 +49,20 @@ ARROW_EXPORT Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(
 /// is true
 /// \return The sum of all list or list-view sizes
 ARROW_EXPORT Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input);
+
+/// \brief Materialize a (large)list array from a list-view array
+///
+/// The returned array data has `dest_type_id`'s layout: freshly computed list
+/// offsets and a child array gathering the values referenced by every view, in
+/// list order. The value type is the input's, so that callers may cast the
+/// child afterwards.
+///
+/// \param input The input list-view array
+/// \param dest_type_id Either `Type::LIST` or `Type::LARGE_LIST`
+/// \param pool MemoryPool used for the allocations
+ARROW_EXPORT Result<std::shared_ptr<ArrayData>> ListFromListView(const ArraySpan& input,
+                                                                 Type::type dest_type_id,
+                                                                 MemoryPool* pool);
 
 }  // namespace internal
 

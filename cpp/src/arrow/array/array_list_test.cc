@@ -1049,6 +1049,35 @@ class TestListConversions : public ::testing::Test {
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*expected_list_wo_nulls, *result, /*verbose=*/true);
   }
+
+  template <typename DestListType, typename SrcListViewType>
+  void DoTestListFromSlicedListView() {
+    using SrcListViewArrayClass = typename TypeTraits<SrcListViewType>::ArrayType;
+    using DestListArrayClass = typename TypeTraits<DestListType>::ArrayType;
+    auto list_view_type = std::make_shared<SrcListViewType>(int32());
+    auto list_type = std::make_shared<DestListType>(int32());
+
+    auto list_view =
+        ArrayFromJSON(list_view_type, "[[1, 2], [3], null, [], [4], [5, 6], null, [7]]");
+
+    auto check = [&](const Array& sliced, const std::shared_ptr<Array>& expected) {
+      ASSERT_OK_AND_ASSIGN(
+          auto result, DestListArrayClass::FromListView(
+                           checked_cast<const SrcListViewArrayClass&>(sliced), pool_));
+      ASSERT_OK(result->ValidateFull());
+      AssertArraysEqual(*expected, *result, /*verbose=*/true);
+    };
+
+    // A slice whose element offset is not a multiple of 8, so the bitmap's bit
+    // offset and byte offset differ (GH-51613).
+    check(*list_view->Slice(1, 6),
+          ArrayFromJSON(list_type, "[[3], null, [], [4], [5, 6], null]"));
+    // A slice starting on a byte boundary, so that the bit offset is zero.
+    check(*list_view->Slice(2, 4), ArrayFromJSON(list_type, "[null, [], [4], [5, 6]]"));
+    // A slice whose only null is the last slot.
+    check(*list_view->Slice(0, 8),
+          ArrayFromJSON(list_type, "[[1, 2], [3], null, [], [4], [5, 6], null, [7]]"));
+  }
 };
 
 TEST_F(TestListConversions, ListViewFromList) {
@@ -1059,6 +1088,11 @@ TEST_F(TestListConversions, ListViewFromList) {
 TEST_F(TestListConversions, ListFromListView) {
   this->DoTestListFromListView<ListType, ListViewType>();
   this->DoTestListFromListView<LargeListType, LargeListViewType>();
+}
+
+TEST_F(TestListConversions, ListFromSlicedListView) {
+  this->DoTestListFromSlicedListView<ListType, ListViewType>();
+  this->DoTestListFromSlicedListView<LargeListType, LargeListViewType>();
 }
 
 // ----------------------------------------------------------------------
