@@ -17,6 +17,7 @@
 
 #if defined(ARROW_HAVE_RUNTIME_SVE128)
 #  define UNPACK_PLATFORM unpack_sve128
+#  define UNPACK_BIAS_PLATFORM unpack_bias_sve128
 #  define KERNEL_PLATFORM KernelSve128
 #endif
 
@@ -46,6 +47,22 @@ template void UNPACK_PLATFORM<uint16_t>(const uint8_t*, uint16_t*, const UnpackO
 template void UNPACK_PLATFORM<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
 template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
+template <typename Uint>
+void UNPACK_BIAS_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts,
+                          Uint bias) {
+  return unpack_jump<KERNEL_PLATFORM, /*kHasBias=*/true>(in, out, opts, bias);
+}
+
+template void UNPACK_BIAS_PLATFORM<uint8_t>(const uint8_t*, uint8_t*,
+                                            const UnpackOptions&, uint8_t);
+template void UNPACK_BIAS_PLATFORM<uint16_t>(const uint8_t*, uint16_t*,
+                                             const UnpackOptions&, uint16_t);
+template void UNPACK_BIAS_PLATFORM<uint32_t>(const uint8_t*, uint32_t*,
+                                             const UnpackOptions&, uint32_t);
+template void UNPACK_BIAS_PLATFORM<uint64_t>(const uint8_t*, uint64_t*,
+                                             const UnpackOptions&, uint64_t);
+
 }  // namespace arrow::internal::bpacking
 
 #undef UNPACK_PLATFORM
+#undef UNPACK_BIAS_PLATFORM
