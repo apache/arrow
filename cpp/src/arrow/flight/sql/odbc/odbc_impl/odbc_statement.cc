@@ -241,7 +241,7 @@ ODBCStatement::ODBCStatement(ODBCConnection& connection,
       ird_(std::make_shared<ODBCDescriptor>(spi_statement_->GetDiagnostics(), nullptr,
                                             this, false, false,
                                             connection.IsOdbc2Connection())),
-      current_ard_(built_in_apd_.get()),
+      current_ard_(built_in_ard_.get()),
       current_apd_(built_in_apd_.get()),
       row_number_(0),
       max_rows_(0),
@@ -323,6 +323,10 @@ void ODBCStatement::ExecuteDirect(const std::string& query) {
 
 bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
                           SQLUSMALLINT* row_status_array) {
+  if (!current_result_) {
+    throw DriverException("Invalid cursor state", "24000");
+  }
+
   if (has_reached_end_of_result_) {
     ird_->SetRowsProcessed(0);
     return false;
@@ -558,8 +562,9 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
 
   switch (statement_attribute) {
     case SQL_ATTR_APP_PARAM_DESC: {
-      ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (desc && current_apd_ != desc) {
+      ODBCDescriptor* desc =
+          value ? static_cast<ODBCDescriptor*>(value) : built_in_apd_.get();
+      if (current_apd_ != desc) {
         if (current_apd_ != built_in_apd_.get()) {
           current_apd_->DetachFromStatement(this, true);
         }
@@ -571,8 +576,9 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
       return;
     }
     case SQL_ATTR_APP_ROW_DESC: {
-      ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (desc && current_ard_ != desc) {
+      ODBCDescriptor* desc =
+          value ? static_cast<ODBCDescriptor*>(value) : built_in_ard_.get();
+      if (current_ard_ != desc) {
         if (current_ard_ != built_in_ard_.get()) {
           current_ard_->DetachFromStatement(this, false);
         }
@@ -740,6 +746,10 @@ void ODBCStatement::CloseCursor(bool suppress_errors) {
 SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                  SQLPOINTER data_ptr, SQLLEN buffer_length,
                                  SQLLEN* indicator_ptr) {
+  if (!current_result_) {
+    throw DriverException("Invalid cursor state", "24000");
+  }
+
   if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
   } else if (static_cast<size_t>(record_number) > ird_->GetRecords().size()) {
@@ -785,6 +795,7 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
 
 SQLRETURN ODBCStatement::GetMoreResults() {
   // Multiple result sets are not supported by Arrow protocol.
+  CloseCursor(/*suppress_errors=*/true);
   return SQL_NO_DATA;
 }
 
@@ -811,6 +822,12 @@ void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
 
 void ODBCStatement::ReleaseStatement() {
   CloseCursor(true);
+  if (current_apd_ != built_in_apd_.get()) {
+    current_apd_->DetachFromStatement(this, true);
+  }
+  if (current_ard_ != built_in_ard_.get()) {
+    current_ard_->DetachFromStatement(this, false);
+  }
   connection_.DropStatement(this);
 }
 
