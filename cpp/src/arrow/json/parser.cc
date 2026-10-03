@@ -529,50 +529,51 @@ class RawBuilderSet {
 
   /// Appending null is slightly tricky since null count is stored inline
   /// for builders of Kind::kNull. Append nulls using this helper
-  Status AppendNull(BuilderPtr parent, int field_index, BuilderPtr builder) {
-    if (ARROW_PREDICT_FALSE(!builder.nullable)) {
+  Status AppendNull(BuilderPtr parent, int field_index, BuilderPtr* builder) {
+    if (ARROW_PREDICT_FALSE(!builder->nullable)) {
       return ParseError("a required field was null");
     }
-    switch (builder.kind) {
+    switch (builder->kind) {
       case Kind::kNull: {
-        DCHECK_EQ(builder, parent.kind == Kind::kArray
-                               ? Cast<Kind::kArray>(parent)->value_builder()
-                               : Cast<Kind::kObject>(parent)->field_builder(field_index));
+        DCHECK_EQ(*builder,
+                  parent.kind == Kind::kArray
+                      ? Cast<Kind::kArray>(parent)->value_builder()
+                      : Cast<Kind::kObject>(parent)->field_builder(field_index));
 
         // increment null count stored inline
-        builder.index += 1;
+        builder->index += 1;
 
         // update the parent, since changing builder doesn't affect parent
         if (parent.kind == Kind::kArray) {
-          Cast<Kind::kArray>(parent)->value_builder(builder);
+          Cast<Kind::kArray>(parent)->value_builder(*builder);
         } else {
-          Cast<Kind::kObject>(parent)->field_builder(field_index, builder);
+          Cast<Kind::kObject>(parent)->field_builder(field_index, *builder);
         }
         return Status::OK();
       }
       case Kind::kBoolean:
-        return Cast<Kind::kBoolean>(builder)->AppendNull();
+        return Cast<Kind::kBoolean>(*builder)->AppendNull();
 
       case Kind::kNumber:
-        return Cast<Kind::kNumber>(builder)->AppendNull();
+        return Cast<Kind::kNumber>(*builder)->AppendNull();
 
       case Kind::kString:
-        return Cast<Kind::kString>(builder)->AppendNull();
+        return Cast<Kind::kString>(*builder)->AppendNull();
 
       case Kind::kNumberOrString: {
-        return Cast<Kind::kNumberOrString>(builder)->AppendNull();
+        return Cast<Kind::kNumberOrString>(*builder)->AppendNull();
       }
 
       case Kind::kArray:
-        return Cast<Kind::kArray>(builder)->AppendNull();
+        return Cast<Kind::kArray>(*builder)->AppendNull();
 
       case Kind::kObject: {
-        auto struct_builder = Cast<Kind::kObject>(builder);
+        auto struct_builder = Cast<Kind::kObject>(*builder);
         RETURN_NOT_OK(struct_builder->AppendNull());
 
         for (int i = 0; i < struct_builder->num_fields(); ++i) {
           auto field_builder = struct_builder->field_builder(i);
-          RETURN_NOT_OK(AppendNull(builder, i, field_builder));
+          RETURN_NOT_OK(AppendNull(*builder, i, &field_builder));
         }
         return Status::OK();
       }
@@ -672,7 +673,7 @@ class HandlerBase : public BlockParser,
   ///
   /// @{
   bool Null() {
-    status_ = builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
+    status_ = builder_set_.AppendNull(builder_stack_.back(), field_index_, &builder_);
     return status_.ok();
   }
 
@@ -869,7 +870,7 @@ class HandlerBase : public BlockParser,
       if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
         return ParseError("a required field was absent");
       }
-      RETURN_NOT_OK(builder_set_.AppendNull(parent, i, field_builder));
+      RETURN_NOT_OK(builder_set_.AppendNull(parent, i, &field_builder));
     }
     absent_fields_stack_.Pop();
     EndNested();
