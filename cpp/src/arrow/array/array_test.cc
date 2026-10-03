@@ -768,6 +768,59 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 }
 
+TEST_F(TestArray, TestMakeArrayFromScalarOffsetOverflow) {
+  // Regression test for GH-36388: MakeArrayFromScalar should return an error
+  // when the total data size would overflow 32-bit offsets instead of silently
+  // producing an invalid array with negative offsets.
+
+  // A single-byte string repeated 2^31 times overflows int32 offsets
+  auto scalar = MakeScalar("x");
+  int64_t length = static_cast<int64_t>(1) << 31;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar, length));
+
+  // A two-byte string repeated just over INT32_MAX/2 times also overflows
+  auto scalar2 = MakeScalar("xy");
+  int64_t length2 = (static_cast<int64_t>(1) << 30) + 1;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar2, length2));
+
+  // Binary type has the same issue
+  auto bin_scalar = std::make_shared<BinaryScalar>(Buffer::FromString("abc"));
+  int64_t length3 = (static_cast<int64_t>(std::numeric_limits<int32_t>::max()) / 3) + 1;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*bin_scalar, length3));
+
+  // Large string type should NOT overflow (uses 64-bit offsets)
+  auto large_scalar = std::make_shared<LargeStringScalar>("x");
+  // Just verify it doesn't raise for a small count (we can't allocate 2^31 bytes here)
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*large_scalar, 16));
+  ASSERT_EQ(arr->length(), 16);
+
+  // A negative length must be rejected outright.
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar, -1));
+}
+
+// These cases require multi-GB allocations to actually exercise the success path at
+// the int32 offset boundary (as opposed to the rejection path above, which fails
+// before any large buffer is fully populated), so they're gated like other
+// large-memory tests in this codebase (see gtest_util.h).
+TEST_F(TestArray, LARGE_MEMORY_TEST(MakeArrayFromScalarOffsetBoundary)) {
+  // Only the total data size (value size * length) needs to fit in OffsetType, not
+  // length on its own: an empty string can be repeated far more than
+  // int32_t::max() times, since every offset stays 0. This guards against the
+  // false-positive case flagged in https://github.com/apache/arrow/pull/38504
+  // (a length-only check would incorrectly reject this).
+  auto empty_scalar = std::make_shared<StringScalar>("");
+  int64_t empty_length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+  ASSERT_OK_AND_ASSIGN(auto empty_arr, MakeArrayFromScalar(*empty_scalar, empty_length));
+  ASSERT_EQ(empty_arr->length(), empty_length);
+
+  // Boundary case that should just work: "aa" repeated int32::max/2 times fits
+  // exactly within int32 offsets (avoid false positives at the edge).
+  auto scalar3 = MakeScalar("aa");
+  int64_t length5 = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) / 2;
+  ASSERT_OK_AND_ASSIGN(auto arr3, MakeArrayFromScalar(*scalar3, length5));
+  ASSERT_EQ(arr3->length(), length5);
+}
+
 TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   // Regression test for ARROW-13437
   auto scalars = GetScalars();
