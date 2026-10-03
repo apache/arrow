@@ -28,6 +28,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/pfor/pfor_internal.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
@@ -57,7 +58,7 @@ namespace pfor {
 ///
 /// \tparam T the integer type (int32_t or int64_t)
 template <typename T>
-class PforWrapper {
+class ARROW_EXPORT PforWrapper {
  public:
   /// A validated view of one encoded page.  It keeps no decoded values and can
   /// therefore serve arbitrary vectors without materializing the whole page.

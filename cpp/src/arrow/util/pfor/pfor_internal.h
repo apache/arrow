@@ -35,6 +35,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/pfor/pfor_constants_internal.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
@@ -185,7 +186,7 @@ struct BitWidthResult {
 ///
 /// \tparam T the integer type (int32_t or int64_t)
 template <typename T>
-class PforCompression {
+class ARROW_EXPORT PforCompression {
  public:
   using UnsignedT = typename PforTypeTraits<T>::UnsignedType;
 
