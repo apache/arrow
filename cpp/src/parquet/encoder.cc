@@ -40,6 +40,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/pfor/pfor_wrapper_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/spaced_internal.h"
 #include "arrow/util/ubsan.h"
@@ -1764,6 +1765,106 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 }  // namespace
 
 // ----------------------------------------------------------------------
+// PFOR Encoder
+
+// TODO: support incremental encoding. Today `Put` only appends raw input
+// to `values_`, and `FlushValues` runs the entire PFOR pipeline on the
+// whole buffer in one shot. A future revision should encode complete
+// vectors as `Put` calls fill them, holding only a partial-vector tail
+// across calls, so the encoder can produce output progressively and use
+// bounded memory. This is deferred to a follow-up change; the decoder
+// carries the matching TODO.
+//
+// TODO: fall back to PLAIN when PFOR is not paying for itself. This encoder
+// always emits a PFOR page, and the cost model's worst case is the full width
+// with no exceptions, so a column whose deltas never narrow (random values, or
+// a low null sentinel that becomes the frame of reference and can never be an
+// exception) encodes to its plain size plus the page header, the offset array
+// and one PforVectorInfo per vector.
+//
+// The decision belongs in ColumnWriterImpl, not here: `encoding_` is const, so
+// this encoder cannot relabel its own page, and the choice depends on the page
+// compressor, which this layer knows nothing about. The mechanism already
+// exists -- mirror `FallbackToPlainEncoding()` in column_writer.cc, which swaps
+// `current_encoder_` for a PLAIN encoder and updates `encoding_`. Parquet
+// records the encoding per page, so mixing PLAIN and PFOR pages in one column
+// chunk needs no format change.
+//
+// What is missing on this side is a way for the writer to know the ratio
+// before paying for the encode. FindOptimalBitWidth already computes the cost
+// of a vector in bits, so a sampled estimate over the first few vectors would
+// answer the question without encoding the page twice.
+template <typename DType>
+class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+ public:
+  using T = typename DType::c_type;
+  using TypedEncoder<DType>::Put;
+
+  explicit PforEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
+      : EncoderImpl(descr, Encoding::PFOR, pool), pool_(pool) {}
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    // An all-null optional page adds no values and is still written, so an empty
+    // buffer has to encode to a header-only page rather than to zero bytes, which
+    // the reader would reject for having no header to load.
+    const int32_t num_values = static_cast<int32_t>(values_.size());
+    PARQUET_ASSIGN_OR_THROW(
+        int64_t max_size,
+        ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values));
+    PARQUET_ASSIGN_OR_THROW(auto buffer,
+                            ::arrow::AllocateResizableBuffer(max_size, pool_));
+
+    int64_t comp_size = max_size;
+    PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
+        values_.data(), num_values, buffer->mutable_data(), &comp_size));
+
+    PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
+    values_.clear();
+    return buffer;
+  }
+
+  int64_t EstimatedDataEncodedSize() override {
+    return static_cast<int64_t>(values_.size() * sizeof(T));
+  }
+
+  void Put(const ::arrow::Array& values) override {
+    const auto& data = *values.data();
+    if (data.length > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Array cannot be longer than ",
+                             std::numeric_limits<int32_t>::max());
+    }
+    if (values.null_count() == 0) {
+      Put(data.template GetValues<T>(1), static_cast<int>(data.length));
+    } else {
+      PutSpaced(data.template GetValues<T>(1), static_cast<int>(data.length),
+                data.GetValues<uint8_t>(0, 0), data.offset);
+    }
+  }
+
+  void Put(const T* buffer, int num_values) override {
+    values_.insert(values_.end(), buffer, buffer + num_values);
+  }
+
+  void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+                 int64_t valid_bits_offset) override {
+    if (valid_bits != NULLPTR) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer,
+                              ::arrow::AllocateBuffer(num_values * sizeof(T), pool_));
+      T* dest = reinterpret_cast<T*>(buffer->mutable_data());
+      int num_valid = ::arrow::util::internal::SpacedCompress<T>(
+          src, num_values, valid_bits, valid_bits_offset, dest);
+      Put(dest, num_valid);
+    } else {
+      Put(src, num_values);
+    }
+  }
+
+ private:
+  MemoryPool* pool_;
+  std::vector<T> values_;
+};
+
+// ----------------------------------------------------------------------
 // Factory function
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
@@ -1861,6 +1962,15 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       default:
         throw ParquetException(
             "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::PFOR) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::make_unique<PforEncoder<Int32Type>>(descr, pool);
+      case Type::INT64:
+        return std::make_unique<PforEncoder<Int64Type>>(descr, pool);
+      default:
+        throw ParquetException("PFOR encoder only supports INT32 and INT64");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");

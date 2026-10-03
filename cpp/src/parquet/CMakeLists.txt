@@ -407,6 +407,7 @@ add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
 
 add_parquet_test(arrow-reader-writer-test
                  SOURCES
+                 arrow/arrow_encoding_test.cc
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
@@ -452,5 +453,6 @@ add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(metadata_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
                       benchmark_util.cc)
+add_parquet_benchmark(pfor_comparison_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 add_parquet_benchmark(arrow/size_stats_benchmark PREFIX "parquet-arrow")
