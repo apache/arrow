@@ -479,9 +479,11 @@ TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
   };
   const std::pair<arrow::util::GZipCodecOptions, bool> options[]{
       {make_option(5, GZipFormat::GZIP, 15), true},
+      {make_option(0, GZipFormat::GZIP, 15), true},
       {make_option(9, GZipFormat::ZLIB, 12), true},
       {make_option(-1, GZipFormat::DEFLATE, 10), true},
-      {make_option(10, GZipFormat::GZIP, 25), false},
+      {make_option(10, GZipFormat::GZIP, 15), false},
+      {make_option(5, GZipFormat::GZIP, 25), false},
       {make_option(-992, GZipFormat::GZIP, 15), false},
   };
   CheckSpecifyCodecOptions<arrow::util::GZipCodecOptions>(Compression::GZIP, options);
