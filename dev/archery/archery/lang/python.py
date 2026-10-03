@@ -93,6 +93,10 @@ class NumpyDoc:
         EnumMeta: ["PR01"]
     }
 
+    # When there's no signature (like for Cython classes where it can't parse
+    # __init__), numpydoc sees zero parameters and reports "Unknown parameters"
+    PARAMETER_CHECKS = ("PR01", "PR02", "PR03")
+
     def __init__(self, symbols=None):
         if not have_numpydoc:
             raise RuntimeError(
@@ -203,6 +207,13 @@ class NumpyDoc:
                 logger.warning(f"Unable to validate `{symbol}` due to `{e}`")
                 return
 
+            try:
+                inspect.signature(obj)
+            except (TypeError, ValueError):
+                has_signature = False
+            else:
+                has_signature = True
+
             errors = []
             for errcode, errmsg in result.get('errors', []):
                 if allow_rules and errcode not in allow_rules:
@@ -212,6 +223,9 @@ class NumpyDoc:
                 if any(isinstance(obj, obj_type) and errcode in errcode_list
                        for obj_type, errcode_list
                        in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
+                    continue
+                if (not has_signature and
+                        errcode in NumpyDoc.PARAMETER_CHECKS):
                     continue
                 errors.append((errcode, errmsg))
 
