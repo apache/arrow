@@ -42,6 +42,10 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
                         ${ARGN})
 
   set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
+  set(_PARQUET_TEST_EXTRA_ARGS ${ARG_UNPARSED_ARGUMENTS})
+  if(PARQUET_TEST_EXTRA_INCLUDES)
+    list(APPEND _PARQUET_TEST_EXTRA_ARGS EXTRA_INCLUDES ${PARQUET_TEST_EXTRA_INCLUDES})
+  endif()
 
   if(ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
@@ -49,14 +53,14 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
                   parquet_static
                   ${PARQUET_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS}
-                  ${ARG_UNPARSED_ARGUMENTS})
+                  ${_PARQUET_TEST_EXTRA_ARGS})
   else()
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
                   parquet_shared
                   ${PARQUET_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS}
-                  ${ARG_UNPARSED_ARGUMENTS})
+                  ${_PARQUET_TEST_EXTRA_ARGS})
   endif()
 endfunction()
 
@@ -134,6 +138,13 @@ elseif(NOT MSVC)
   list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
+set(PARQUET_FSST_DIR "${ARROW_SOURCE_DIR}/thirdparty/fsst")
+set(PARQUET_FSST_SOURCES
+    "${PARQUET_FSST_DIR}/libfsst.cpp"
+    "${PARQUET_FSST_DIR}/fsst_avx512.cpp")
+set(PARQUET_TEST_EXTRA_INCLUDES ${PARQUET_FSST_DIR})
+set(PARQUET_PRIVATE_INCLUDE_DIRS ${PARQUET_FSST_DIR})
+
 #
 # Generated Thrift sources
 set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
@@ -192,6 +203,16 @@ set(PARQUET_SRCS
     stream_reader.cc
     stream_writer.cc
     types.cc)
+
+list(APPEND PARQUET_SRCS ${PARQUET_FSST_SOURCES})
+set_property(SOURCE ${PARQUET_FSST_SOURCES}
+             APPEND
+             PROPERTY COMPILE_OPTIONS
+                      "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wno-error=shorten-64-to-32;-Wno-shorten-64-to-32>"
+                      "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error=missing-declarations;-Wno-missing-declarations>"
+                      "$<$<CXX_COMPILER_ID:MSVC>:/wd4244>"
+                      "$<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-include>"
+                      "$<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:${CMAKE_CURRENT_SOURCE_DIR}/fsst_compat.h>")
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
@@ -308,6 +329,15 @@ add_arrow_lib(parquet
               ${PARQUET_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
+
+if(PARQUET_PRIVATE_INCLUDE_DIRS)
+  foreach(_parquet_target parquet_objlib parquet_shared parquet_static)
+    if(TARGET ${_parquet_target})
+      target_include_directories(${_parquet_target}
+                                 PRIVATE ${PARQUET_PRIVATE_INCLUDE_DIRS})
+    endif()
+  endforeach()
+endif()
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC

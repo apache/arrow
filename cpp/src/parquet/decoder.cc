@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -49,6 +51,7 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -2372,6 +2375,288 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
   }
 };
 
+// ----------------------------------------------------------------------
+
+class FsstDecoder : public DecoderImpl, virtual public TypedDecoder<ByteArrayType> {
+ public:
+  using Base = DecoderImpl;
+  using Base::num_values_;
+
+  explicit FsstDecoder(const ColumnDescriptor* descr,
+                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : DecoderImpl(descr, Encoding::FSST), pool_(pool) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    if (len < static_cast<int>(sizeof(uint32_t))) {
+      throw ParquetException("FSST page too small to contain decoder header length");
+    }
+    const uint32_t header_size =
+        ::arrow::bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(data));
+    data += sizeof(uint32_t);
+    len -= sizeof(uint32_t);
+    if (header_size == 0 || header_size > FSST_MAXHEADER ||
+        header_size > static_cast<uint32_t>(len)) {
+      throw ParquetException("Invalid FSST decoder header length");
+    }
+    // fsst_import has no input-length argument. Copy into a padded buffer before
+    // importing so a truncated header cannot make the library read past the page.
+    std::array<uint8_t, FSST_MAXHEADER> header{};
+    std::memcpy(header.data(), data, header_size);
+    if (header_size < 17) {
+      throw ParquetException("Invalid FSST decoder header");
+    }
+    std::array<uint8_t, 8> length_counts{};
+    std::memcpy(length_counts.data(), header.data() + 9, length_counts.size());
+    const bool zero_terminated = (header[8] & 1) != 0;
+    if (zero_terminated && length_counts[0] == 0) {
+      throw ParquetException("Invalid FSST decoder header");
+    }
+    if (zero_terminated) --length_counts[0];
+    size_t expected_size = 17;
+    size_t symbol_count = zero_terminated ? 1 : 0;
+    for (size_t length = 1; length <= 8; ++length) {
+      const size_t count = length_counts[length & 7];
+      symbol_count += count;
+      expected_size += count * ((length & 7) + 1);
+    }
+    if (symbol_count > 255 || expected_size != header_size) {
+      throw ParquetException("Invalid FSST decoder header");
+    }
+    const uint32_t consumed = fsst_import(&decoder_, header.data());
+    if (consumed == 0 || consumed != header_size) {
+      throw ParquetException("Invalid FSST decoder header");
+    }
+    num_values_ = num_values;
+    next_ = data + header_size;
+    remaining_bytes_ = len - static_cast<int>(header_size);
+    decode_buffer_size_ = 0;
+  }
+
+  int Decode(ByteArray* buffer, int max_values) override {
+    max_values = std::min(max_values, num_values_);
+    if (max_values == 0) {
+      return 0;
+    }
+
+    const int64_t estimated_output_size =
+        decode_buffer_size_ +
+        static_cast<int64_t>(remaining_bytes_) * kMaxDecompressionExpansion;
+    EnsureDecodeBuffer(estimated_output_size);
+
+    int decoded = 0;
+
+    while (decoded < max_values) {
+      if (ARROW_PREDICT_FALSE(remaining_bytes_ < static_cast<int>(kLengthPrefixSize))) {
+        throw ParquetException("FSST data truncated before length prefix");
+      }
+
+      const uint32_t compressed_len =
+          ::arrow::bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(next_));
+      next_ += kLengthPrefixSize;
+      remaining_bytes_ -= static_cast<int>(kLengthPrefixSize);
+
+      if (ARROW_PREDICT_FALSE(compressed_len > static_cast<uint32_t>(remaining_bytes_))) {
+        throw ParquetException("FSST compressed length exceeds available data");
+      }
+
+      const uint8_t* compressed_ptr = next_;
+      next_ += compressed_len;
+      remaining_bytes_ -= static_cast<int>(compressed_len);
+
+      uint8_t* value_ptr = nullptr;
+      const size_t decompressed_len =
+          DecompressValue(compressed_ptr, compressed_len, &value_ptr);
+
+      buffer[decoded].ptr = value_ptr;
+      buffer[decoded].len = static_cast<uint32_t>(decompressed_len);
+      decode_buffer_size_ += static_cast<int64_t>(decompressed_len);
+      ++decoded;
+    }
+
+    num_values_ -= decoded;
+    return decoded;
+  }
+
+  int DecodeSpaced(ByteArray* buffer, int num_values, int null_count,
+                   const uint8_t* valid_bits, int64_t valid_bits_offset) override {
+    if (null_count == 0) {
+      return Decode(buffer, num_values);
+    }
+
+    const int values_to_decode = num_values - null_count;
+    temp_values_.resize(values_to_decode);
+    const int decoded = Decode(temp_values_.data(), values_to_decode);
+    if (ARROW_PREDICT_FALSE(decoded != values_to_decode)) {
+      throw ParquetException("Expected to decode ", values_to_decode,
+                             " values but decoded ", decoded, " values.");
+    }
+
+    int value_index = 0;
+    for (int i = 0; i < num_values; ++i) {
+      if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        buffer[i] = temp_values_[value_index++];
+      } else {
+        buffer[i].ptr = nullptr;
+        buffer[i].len = 0;
+      }
+    }
+
+    return value_index;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::Accumulator* builder) override {
+    int values_decoded = 0;
+    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                          valid_bits_offset, builder, &values_decoded));
+    return values_decoded;
+  }
+
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) override {
+    int values_decoded = 0;
+    PARQUET_THROW_NOT_OK(DecodeArrowDict(num_values, null_count, valid_bits,
+                                         valid_bits_offset, builder, &values_decoded));
+    return values_decoded;
+  }
+
+ private:
+  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
+                          int* out_values_decoded) {
+    const int values_to_decode = num_values - null_count;
+    temp_values_.resize(values_to_decode);
+
+    const int decoded = Decode(temp_values_.data(), values_to_decode);
+    if (ARROW_PREDICT_FALSE(decoded != values_to_decode)) {
+      throw ParquetException("Expected to decode ", values_to_decode,
+                             " values but decoded ", decoded, " values.");
+    }
+
+    auto visit_binary_helper = [&](auto* helper) {
+      auto* values_ptr = temp_values_.data();
+      int value_index = 0;
+
+      RETURN_NOT_OK(
+          VisitBitRuns(valid_bits, valid_bits_offset, num_values,
+                       [&](int64_t position, int64_t run_length, bool is_valid) {
+                         if (is_valid) {
+                           for (int64_t i = 0; i < run_length; ++i) {
+                             const auto& value = values_ptr[value_index++];
+                             RETURN_NOT_OK(helper->AppendValue(
+                                 value.ptr, static_cast<int32_t>(value.len)));
+                           }
+                         } else {
+                           RETURN_NOT_OK(helper->AppendNulls(run_length));
+                         }
+                         return Status::OK();
+                       }));
+
+      *out_values_decoded = decoded;
+      return Status::OK();
+    };
+
+    return DispatchArrowBinaryHelper<ByteArrayType>(
+        out, num_values, /*estimated_data_length=*/{}, visit_binary_helper);
+  }
+
+  Status DecodeArrowDict(int num_values, int null_count, const uint8_t* valid_bits,
+                         int64_t valid_bits_offset,
+                         typename EncodingTraits<ByteArrayType>::DictAccumulator* builder,
+                         int* out_values_decoded) {
+    const int values_to_decode = num_values - null_count;
+    temp_values_.resize(values_to_decode);
+
+    const int decoded = Decode(temp_values_.data(), values_to_decode);
+    if (ARROW_PREDICT_FALSE(decoded != values_to_decode)) {
+      throw ParquetException("Expected to decode ", values_to_decode,
+                             " values but decoded ", decoded, " values.");
+    }
+
+    RETURN_NOT_OK(builder->Reserve(num_values));
+
+    int value_index = 0;
+    RETURN_NOT_OK(VisitBitRuns(valid_bits, valid_bits_offset, num_values,
+                               [&](int64_t position, int64_t run_length, bool is_valid) {
+                                 if (is_valid) {
+                                   for (int64_t i = 0; i < run_length; ++i) {
+                                     const auto& value = temp_values_[value_index++];
+                                     RETURN_NOT_OK(builder->Append(
+                                         value.ptr, static_cast<int32_t>(value.len)));
+                                   }
+                                 } else {
+                                   RETURN_NOT_OK(builder->AppendNulls(run_length));
+                                 }
+                                 return Status::OK();
+                               }));
+
+    *out_values_decoded = decoded;
+    return Status::OK();
+  }
+
+  uint8_t* EnsureDecodeBuffer(int64_t capacity) {
+    const int64_t min_capacity = std::max<int64_t>(capacity, kInitialDecodeBufferSize);
+    const int64_t target = ::arrow::bit_util::NextPower2(min_capacity);
+
+    if (!decode_buffer_) {
+      PARQUET_ASSIGN_OR_THROW(decode_buffer_,
+                              ::arrow::AllocateResizableBuffer(target, pool_));
+    } else if (decode_buffer_->size() < target) {
+      PARQUET_THROW_NOT_OK(decode_buffer_->Resize(target, false));
+    }
+    return decode_buffer_->mutable_data();
+  }
+
+  size_t DecompressValue(const uint8_t* compressed_ptr, uint32_t compressed_len,
+                         uint8_t** value_ptr) {
+    EnsureDecodeBuffer(decode_buffer_size_ + OutputUpperBound(compressed_len));
+
+    while (true) {
+      uint8_t* destination = decode_buffer_->mutable_data() + decode_buffer_size_;
+      const size_t available =
+          static_cast<size_t>(decode_buffer_->size() - decode_buffer_size_);
+
+      const size_t decompressed = fsst_decompress(&decoder_, compressed_len,
+                                                  compressed_ptr, available, destination);
+
+      if (decompressed > 0 || compressed_len == 0) {
+        *value_ptr = destination;
+        return decompressed;
+      }
+
+      int64_t new_capacity =
+          std::max<int64_t>(decode_buffer_->size() * 2,
+                            decode_buffer_size_ + OutputUpperBound(compressed_len));
+      if (new_capacity <= decode_buffer_->size()) {
+        throw ParquetException("FSST decompression failed");
+      }
+      EnsureDecodeBuffer(new_capacity);
+    }
+  }
+
+  static int64_t OutputUpperBound(uint32_t compressed_len) {
+    const int64_t expanded =
+        static_cast<int64_t>(compressed_len) * kMaxDecompressionExpansion;
+    return std::max<int64_t>(expanded, kInitialDecodeBufferSize);
+  }
+
+  static constexpr size_t kLengthPrefixSize = sizeof(uint32_t);
+  static constexpr int64_t kInitialDecodeBufferSize = 1024;
+  static constexpr int64_t kMaxDecompressionExpansion = 8;
+
+  fsst_decoder_t decoder_{};
+  const uint8_t* next_ = nullptr;
+  int remaining_bytes_ = 0;
+  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::ResizableBuffer> decode_buffer_;
+  int64_t decode_buffer_size_ = 0;
+  std::vector<ByteArray> temp_values_;
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -2438,6 +2723,13 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
         throw ParquetException(
             "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
     }
+  } else if (encoding == Encoding::FSST) {
+    switch (type_num) {
+      case Type::BYTE_ARRAY:
+        return std::make_unique<FsstDecoder>(descr, pool);
+      default:
+        throw ParquetException("FSST encoding only supports BYTE_ARRAY");
+    }
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
       return std::make_unique<DeltaLengthByteArrayDecoder>(descr, pool);
@@ -2502,7 +2794,7 @@ std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
       return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
     case Type::BYTE_ARRAY:
       return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
-              Encoding::DELTA_BYTE_ARRAY};
+              Encoding::DELTA_BYTE_ARRAY, Encoding::FSST};
     default:
       throw ParquetException("Invalid physical type");
   }
