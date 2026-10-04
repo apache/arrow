@@ -89,14 +89,14 @@ inline size_t LaneDeltaMaxEncodedSize(size_t n) {
          (n % kBlockSize) * sizeof(int32_t);
 }
 
-#define LANE_DELTA_PACK_CASE(W) \
-  case W:                       \
-    PackBlock<W>(grid, dst);    \
+#define LANE_DELTA_PACK_CASE(W)        \
+  case W:                              \
+    PackBlock<uint32_t, W>(grid, dst); \
     break;
 
-#define LANE_DELTA_UNPACK_CASE(W)          \
-  case W:                                  \
-    UnpackBlock<W, true>(src, grid, bias); \
+#define LANE_DELTA_UNPACK_CASE(W)                    \
+  case W:                                            \
+    UnpackBlock<uint32_t, W, true>(src, grid, bias); \
     break;
 
 // clang-format off

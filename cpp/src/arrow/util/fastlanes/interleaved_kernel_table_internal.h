@@ -47,12 +47,12 @@ namespace fastlanes {
 // constant and never reaches a kernel.
 template <typename Arch, size_t... W>
 constexpr std::array<InterleavedPackFn, 33> MakePackTable(std::index_sequence<W...>) {
-  return {nullptr, &PackBlock<W + 1, Arch>...};
+  return {nullptr, &PackBlock<uint32_t, W + 1, Arch>...};
 }
 
 template <typename Arch, bool kHasBias, size_t... W>
 constexpr std::array<InterleavedUnpackFn, 33> MakeUnpackTable(std::index_sequence<W...>) {
-  return {nullptr, &UnpackBlock<W + 1, kHasBias, Arch>...};
+  return {nullptr, &UnpackBlock<uint32_t, W + 1, kHasBias, Arch>...};
 }
 
 // Arch defaults to the architecture xsimd derives from the including

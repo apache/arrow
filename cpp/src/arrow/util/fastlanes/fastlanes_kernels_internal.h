@@ -34,29 +34,31 @@
 // so nothing has to be permuted on the way out and exception positions stay
 // meaningful without translation.
 //
-// Within a 1024-value block (32 lanes x 32 rows for uint32_t), the packed
-// buffer holds w u32 rows of 32 u32 words, where w is the bit width. Row r,
-// lane l contributes to packed[word * 32 + l] at bit shift (r*w) % 32, where
-// word = (r*w) / 32, possibly straddling into packed[word * 32 + 32 + l].
-// (word == r only when w == 32.)
+// A block holds kBlockSize values whatever the element width, so the grid is
+// sizeof(T)*8 rows by kBlockSize/(sizeof(T)*8) lanes: 32 rows of 32 lanes for
+// uint32_t, 16 rows of 64 lanes for uint16_t, 8 rows of 128 lanes for uint8_t.
+// The packed buffer holds w rows of kLanes words. Row r, lane l contributes to
+// packed[word * kLanes + l] at bit shift (r*w) % kBits, where
+// word = (r*w) / kBits, possibly straddling into packed[endWord * kLanes + l].
+// (word == r only when w == kBits.) The payload is 128 * w bytes at every
+// element width, the same size the sequential layout needs for a full block.
 //
 // Bits are assembled exactly as sequential bit-packing assembles them: within
 // one lane, successive rows occupy successive bit positions LSB-first, and a
 // value that runs off the end of a word continues in the low bits of the next.
 // The two layouts differ only in which values land at adjacent bit positions --
 // successive rows of one lane here, successive values of the stream in
-// arrow::internal::unpack -- not in how the bits of a value are laid out. That
-// is why the shift and the straddle depend on the row and never on the lane,
-// and so why all 32 lanes do identical work. The payload is byte-identical in
-// size to the sequential layout for a full block: 128 * w bytes.
+// arrow::internal::unpack -- not in how the bits of a value are laid out. So
+// the shift and the straddle depend on the row and never on the lane, and all
+// lanes do identical work.
 //
 // Both kernels take an Arch type parameter their bodies never mention, so that
 // this one source compiled at two different instruction sets yields two
-// distinct symbols. Without it, PackBlock<16> compiled with NEON flags and
-// PackBlock<16> compiled with SVE flags share a mangled name, the linker keeps
-// one definition, and every caller silently gets whichever copy it kept --
-// undoing the per-instruction-set translation units of
-// interleaved_dispatch_internal.h with no diagnostic.
+// distinct symbols. Without it, PackBlock<uint32_t, 16> compiled with NEON
+// flags and the same instantiation compiled with SVE flags share a mangled
+// name, the linker keeps one definition, and every caller silently gets
+// whichever copy it kept -- undoing the per-instruction-set translation units
+// of interleaved_dispatch_internal.h with no diagnostic.
 // arrow::internal::bpacking carries the parameter for the same reason. A caller
 // that compiles exactly one copy of these kernels leaves it at its default and
 // is unaffected.
@@ -66,6 +68,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #include "arrow/util/macros.h"
 
@@ -74,112 +77,151 @@ namespace util {
 namespace fastlanes {
 
 constexpr size_t kBlockSize = 1024;
-constexpr size_t kLanes = 32;         // 1024 / sizeof(uint32_t) / 8
-constexpr size_t kRowsPerBlock = 32;  // 1024 / kLanes
 
-static_assert(kLanes * kRowsPerBlock == kBlockSize,
-              "every value of a block must land in exactly one lane and row");
+// Grid geometry for one block of T.
+template <typename T>
+struct BlockGeometry {
+  static_assert(std::is_unsigned_v<T> && !std::is_same_v<T, bool>,
+                "element type must be an unsigned integer wider than bool");
+  static constexpr size_t kBits = sizeof(T) * 8;
+  static constexpr size_t kRowsPerBlock = kBits;
+  static constexpr size_t kLanes = kBlockSize / kBits;
 
-// ---------------------------------------------------------------------------
-// Pack: 1024 u32 inputs, in input order -> w*32 u32 packed words.
-// ---------------------------------------------------------------------------
-template <uint32_t w, typename Arch = void>
-inline void PackBlock(const uint32_t* ARROW_RESTRICT in, uint32_t* ARROW_RESTRICT out) {
-  static_assert(w >= 1 && w <= 32);
-  constexpr uint32_t kMask = (w == 32) ? 0xFFFFFFFFu : ((1u << w) - 1);
+  static_assert(kLanes * kRowsPerBlock == kBlockSize,
+                "every value of a block must land in exactly one lane and row");
+};
 
-  if constexpr (w == 32) {
-    std::memcpy(out, in, kBlockSize * sizeof(uint32_t));
-    return;
+// The 32-bit grid the PFOR and delta wire formats are written on. Those formats
+// hold these values in their payload arithmetic, so they keep an unqualified
+// name here; a codec at another element width asks BlockGeometry<T> instead.
+constexpr size_t kLanes = BlockGeometry<uint32_t>::kLanes;
+constexpr size_t kRowsPerBlock = BlockGeometry<uint32_t>::kRowsPerBlock;
+
+// Shifts and masks are evaluated in this type, which is unsigned and never
+// narrower than the element. uint8_t and uint16_t would otherwise promote to
+// int. A masked value below 2^w shifted by less than the element width cannot
+// reach 2^31, so the result is the same either way; naming the type keeps the
+// kernel bodies free of promotion concerns.
+template <typename T>
+using BlockWord = std::conditional_t<(sizeof(T) < sizeof(uint32_t)), uint32_t, T>;
+
+template <typename T, uint32_t w>
+constexpr BlockWord<T> BlockMask() {
+  using W = BlockWord<T>;
+  constexpr size_t kBits = BlockGeometry<T>::kBits;
+  // w == kBits would shift by the width of W when W is exactly T, so that case
+  // takes the all-ones form instead.
+  if constexpr (w >= kBits) {
+    return static_cast<W>(~W(0) >> (sizeof(W) * 8 - kBits));
+  } else {
+    return static_cast<W>((W(1) << w) - 1);
   }
+}
 
-  std::memset(out, 0, w * kLanes * sizeof(uint32_t));
+// ---------------------------------------------------------------------------
+// Pack: kBlockSize inputs, in input order -> w * kLanes packed words.
+// ---------------------------------------------------------------------------
+template <typename T, uint32_t w, typename Arch = void>
+inline void PackBlock(const T* ARROW_RESTRICT in, T* ARROW_RESTRICT out) {
+  using G = BlockGeometry<T>;
+  using W = BlockWord<T>;
+  static_assert(w >= 1 && w <= G::kBits);
+  constexpr W kMask = BlockMask<T, w>();
+  constexpr uint32_t kT = static_cast<uint32_t>(G::kBits);
+
+  if constexpr (w == G::kBits) {
+    std::memcpy(out, in, kBlockSize * sizeof(T));
+    return;
+  } else {
+    std::memset(out, 0, w * G::kLanes * sizeof(T));
 
 #pragma GCC unroll 32
-  for (uint32_t row = 0; row < kRowsPerBlock; ++row) {
-    constexpr uint32_t kT = 32;
-    const uint32_t startBit = row * w;
-    const uint32_t word = startBit / kT;
-    const uint32_t shift = startBit % kT;
-    const uint32_t endBit = startBit + w;
-    const uint32_t endWord = (endBit - 1) / kT;
+    for (uint32_t row = 0; row < G::kRowsPerBlock; ++row) {
+      const uint32_t startBit = row * w;
+      const uint32_t word = startBit / kT;
+      const uint32_t shift = startBit % kT;
+      const uint32_t endBit = startBit + w;
+      const uint32_t endWord = (endBit - 1) / kT;
 
-    if (word == endWord) {
-      for (uint32_t lane = 0; lane < kLanes; ++lane) {
-        const uint32_t v = in[row * kLanes + lane] & kMask;
-        out[word * kLanes + lane] |= (v << shift);
-      }
-    } else {
-      // shift is never 0 in this branch -- a value that straddles has to start
-      // partway into its word -- so the >> below is never a shift by 32.
-      const uint32_t lowBits = kT - shift;
-      for (uint32_t lane = 0; lane < kLanes; ++lane) {
-        const uint32_t v = in[row * kLanes + lane] & kMask;
-        out[word * kLanes + lane] |= (v << shift);
-        out[endWord * kLanes + lane] |= (v >> lowBits);
+      if (word == endWord) {
+        for (uint32_t lane = 0; lane < G::kLanes; ++lane) {
+          const W v = static_cast<W>(in[row * G::kLanes + lane]) & kMask;
+          out[word * G::kLanes + lane] |= static_cast<T>(v << shift);
+        }
+      } else {
+        // shift is never 0 in this branch -- a value that straddles has to
+        // start partway into its word -- so the >> below is never a shift by
+        // the full word width.
+        const uint32_t lowBits = kT - shift;
+        for (uint32_t lane = 0; lane < G::kLanes; ++lane) {
+          const W v = static_cast<W>(in[row * G::kLanes + lane]) & kMask;
+          out[word * G::kLanes + lane] |= static_cast<T>(v << shift);
+          out[endWord * G::kLanes + lane] |= static_cast<T>(v >> lowBits);
+        }
       }
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Unpack: w*32 packed u32 words -> 1024 u32 outputs in input order.
+// Unpack: w * kLanes packed words -> kBlockSize outputs in input order.
 //
 // With kHasBias, `bias` is added to every value before it is stored, so a
 // frame-of-reference decoder does not need a second pass over the output to add
 // it. That pass costs 1.47x-2.40x of the unpack it follows, and a pass that
 // only copies costs the same as one that adds, so what is paid for is the
-// traversal rather than the arithmetic. The add is modular in uint32_t,
-// matching the encoder's subtraction. kHasBias is a template parameter rather
-// than a runtime argument so the no-bias instantiations carry no test in their
-// inner loop.
+// traversal rather than the arithmetic. The add is modular in T, matching the
+// encoder's subtraction. kHasBias is a template parameter rather than a runtime
+// argument so the no-bias instantiations carry no test in their inner loop.
 // ---------------------------------------------------------------------------
-template <uint32_t w, bool kHasBias = false, typename Arch = void>
-inline void UnpackBlock(const uint32_t* ARROW_RESTRICT packed,
-                        uint32_t* ARROW_RESTRICT out, uint32_t bias = 0) {
-  static_assert(w >= 1 && w <= 32);
-  constexpr uint32_t kMask = (w == 32) ? 0xFFFFFFFFu : ((1u << w) - 1);
+template <typename T, uint32_t w, bool kHasBias = false, typename Arch = void>
+inline void UnpackBlock(const T* ARROW_RESTRICT packed, T* ARROW_RESTRICT out,
+                        T bias = 0) {
+  using G = BlockGeometry<T>;
+  using W = BlockWord<T>;
+  static_assert(w >= 1 && w <= G::kBits);
+  constexpr W kMask = BlockMask<T, w>();
+  constexpr uint32_t kT = static_cast<uint32_t>(G::kBits);
 
-  if constexpr (w == 32) {
+  if constexpr (w == G::kBits) {
     if constexpr (kHasBias) {
-      // A loop, not memcpy-then-add: both pointers are restrict-qualified
-      // uint32_t*, so this vectorizes and stays a single traversal.
+      // A loop, not memcpy-then-add: both pointers are restrict-qualified T*,
+      // so this vectorizes and stays a single traversal.
       for (size_t i = 0; i < kBlockSize; ++i) {
-        out[i] = packed[i] + bias;
+        out[i] = static_cast<T>(packed[i] + bias);
       }
     } else {
-      std::memcpy(out, packed, kBlockSize * sizeof(uint32_t));
+      std::memcpy(out, packed, kBlockSize * sizeof(T));
     }
     return;
-  }
-
+  } else {
 #pragma GCC unroll 32
-  for (uint32_t row = 0; row < kRowsPerBlock; ++row) {
-    constexpr uint32_t kT = 32;
-    const uint32_t startBit = row * w;
-    const uint32_t word = startBit / kT;
-    const uint32_t shift = startBit % kT;
-    const uint32_t endBit = startBit + w;
-    const uint32_t endWord = (endBit - 1) / kT;
+    for (uint32_t row = 0; row < G::kRowsPerBlock; ++row) {
+      const uint32_t startBit = row * w;
+      const uint32_t word = startBit / kT;
+      const uint32_t shift = startBit % kT;
+      const uint32_t endBit = startBit + w;
+      const uint32_t endWord = (endBit - 1) / kT;
 
-    if (word == endWord) {
-      for (uint32_t lane = 0; lane < kLanes; ++lane) {
-        uint32_t v = (packed[word * kLanes + lane] >> shift) & kMask;
-        if constexpr (kHasBias) {
-          v += bias;
+      if (word == endWord) {
+        for (uint32_t lane = 0; lane < G::kLanes; ++lane) {
+          W v = (static_cast<W>(packed[word * G::kLanes + lane]) >> shift) & kMask;
+          if constexpr (kHasBias) {
+            v = static_cast<W>(v + static_cast<W>(bias));
+          }
+          out[row * G::kLanes + lane] = static_cast<T>(v);
         }
-        out[row * kLanes + lane] = v;
-      }
-    } else {
-      const uint32_t lowBits = kT - shift;
-      for (uint32_t lane = 0; lane < kLanes; ++lane) {
-        const uint32_t lo = packed[word * kLanes + lane] >> shift;
-        const uint32_t hi = packed[endWord * kLanes + lane] << lowBits;
-        uint32_t v = (lo | hi) & kMask;
-        if constexpr (kHasBias) {
-          v += bias;
+      } else {
+        const uint32_t lowBits = kT - shift;
+        for (uint32_t lane = 0; lane < G::kLanes; ++lane) {
+          const W lo = static_cast<W>(packed[word * G::kLanes + lane]) >> shift;
+          const W hi = static_cast<W>(packed[endWord * G::kLanes + lane]) << lowBits;
+          W v = (lo | hi) & kMask;
+          if constexpr (kHasBias) {
+            v = static_cast<W>(v + static_cast<W>(bias));
+          }
+          out[row * G::kLanes + lane] = static_cast<T>(v);
         }
-        out[row * kLanes + lane] = v;
       }
     }
   }

@@ -118,6 +118,9 @@ add_arrow_test(threading-utility-test
                test_common.cc
                thread_pool_test.cc)
 
+add_arrow_test(fastlanes-kernels-test
+                SOURCES fastlanes/fastlanes_kernels_test.cc)
+
 add_arrow_test(pfor-test SOURCES pfor/pfor_test.cc)
 
 add_arrow_benchmark(pfor/pfor_benchmark)

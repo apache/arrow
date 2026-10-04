@@ -264,14 +264,14 @@ inline size_t TransposedMaxEncodedSize(size_t n) {
          n * sizeof(uint32_t) + (n % kBlockSize) * sizeof(int32_t) + 8;
 }
 
-#define TPOSE_PACK_CASE(W)   \
-  case W:                    \
-    PackBlock<W>(grid, dst); \
+#define TPOSE_PACK_CASE(W)             \
+  case W:                              \
+    PackBlock<uint32_t, W>(grid, dst); \
     break;
 
-#define TPOSE_UNPACK_CASE(W)               \
-  case W:                                  \
-    UnpackBlock<W, true>(src, grid, bias); \
+#define TPOSE_UNPACK_CASE(W)                         \
+  case W:                                            \
+    UnpackBlock<uint32_t, W, true>(src, grid, bias); \
     break;
 
 #define TPOSE_FUSED_UNPACK_CASE(W)                                              \
