@@ -127,9 +127,18 @@ std::vector<uint8_t> ReferenceDecode(const op::CompactDictionary& dict,
 //   packed, prebuilt DecompressPacked against a view the caller built
 //   packed, short    a prefix short enough to trip the guard that skips the view
 //                    and decodes straight out of the stored dictionary
+//   packed, tails    sixteen consecutive lengths, covering every remainder
 //
-// The last one matters because nothing else reaches that path: real streams carry
+// The short case matters because nothing else reaches that path: real streams carry
 // far more codes than tokens, so the fallback would otherwise never run here.
+//
+// The tail sweep matters for a different reason. The packed kernels decode a fixed
+// group of codes per iteration and hand whatever is left to the per-code loop, so a
+// length one code short of a whole group is where a mistake in that handover shows
+// up. The short case above cannot be relied on for that: its length is fixed by the
+// dictionary size, so which remainder it lands on is an accident. Sweeping sixteen
+// consecutive lengths covers every remainder any group size up to sixteen can leave,
+// whatever the group size is compiled to be.
 bool VerifyDecodePaths(const op::Column& col, const char* tag) {
   const size_t ncodes = col.codes.size();
   const size_t ntokens = col.dict.num_tokens();
@@ -142,11 +151,15 @@ bool VerifyDecodePaths(const op::Column& col, const char* tag) {
 
   std::vector<uint8_t> buf(op::DecodedLen(col) + op::kDecodePadding, 0);
   size_t bad = 0;
-  auto agrees = [&](const char* what, const std::vector<uint8_t>& want, size_t got) {
-    if (got == want.size() && std::memcmp(buf.data(), want.data(), want.size()) == 0) return;
+  auto agrees_bytes = [&](const char* what, const uint8_t* want, size_t want_len,
+                          size_t got) {
+    if (got == want_len && std::memcmp(buf.data(), want, want_len) == 0) return;
     std::printf("      %s: disagrees with the scalar reference (%zu vs %zu bytes)\n", what,
-                got, want.size());
+                got, want_len);
     ++bad;
+  };
+  auto agrees = [&](const char* what, const std::vector<uint8_t>& want, size_t got) {
+    agrees_bytes(what, want.data(), want.size(), got);
   };
 
   const std::vector<uint8_t> want_all = ReferenceDecode(col.dict, col.codes, ncodes);
@@ -162,8 +175,22 @@ bool VerifyDecodePaths(const op::Column& col, const char* tag) {
            op::DecompressPacked(col.dict, packed.data(), nshort, bits, buf.data()));
   }
 
-  std::printf("    %-15s: 4 decode paths agree  (%zu tokens, %zub codes, max token %zu)  %s\n",
-              tag, ntokens, bits, col.dict.max_token_len, bad == 0 ? "[OK]" : "[FAIL]");
+  // Decoding a prefix of the codes yields a prefix of the whole-column bytes, so the
+  // expected output is want_all truncated -- no need to decode a reference per tail.
+  // The prebuilt view is used so the guard that falls back to the stored dictionary
+  // on a short stream cannot skip the kernel under test.
+  size_t tails = 0, want_len = want_all.size();
+  for (size_t k = 1; k <= 16 && k < ncodes; ++k) {
+    want_len -= col.dict.token_len(col.codes[ncodes - k]);
+    agrees_bytes("packed, tail", want_all.data(), want_len,
+                 op::DecompressPacked(view, packed.data(), ncodes - k, bits, buf.data()));
+    ++tails;
+  }
+
+  std::printf("    %-15s: %zu decode paths agree  (%zu tokens, %zub codes, "
+              "max token %zu)  %s\n",
+              tag, 4 + tails, ntokens, bits, col.dict.max_token_len,
+              bad == 0 ? "[OK]" : "[FAIL]");
   return bad == 0;
 }
 
