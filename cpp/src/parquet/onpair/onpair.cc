@@ -20,7 +20,9 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <numeric>
 #include <utility>
 
@@ -1385,5 +1387,183 @@ size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed, si
 }
 
 #undef ONPAIR_DISPATCH_BITS
+
+// --- Choosing a dictionary budget -------------------------------------------
+
+namespace {
+
+// Fitted against 270 measurements -- 30 corpora x 9 rungs -- on Neoverse-V2, of
+// median decode seconds against the code count and dictionary size each rung
+// trained to. The shape:
+//
+//   seconds = num_codes * (kNsBase + kNsPerOctave * max(0, log2(view / kViewKnee)))
+//
+// A code costs a flat 0.74ns while the strided view the gather walks stays inside
+// about 128 KiB, and roughly 0.10ns more per doubling past that -- 1.05ns at the
+// 1 MiB view a saturated 16-bit dictionary needs. R^2 = 0.91 on per-code cost.
+//
+// Re-fit these on a new microarchitecture by running the decode grid and
+// regressing per-code cost on log2(view size); the knee is where per-code cost
+// stops being flat. Getting them wrong costs selection quality, not correctness --
+// the term that dominates is the code count, and no constant scales that away.
+constexpr double kNsBase = 0.7417;
+constexpr double kNsPerOctave = 0.1017;
+constexpr double kViewKnee = 128.0 * 1024.0;
+
+}  // namespace
+
+double DecodeCostEstimate(uint64_t num_codes, uint32_t num_tokens) {
+  // The gather walks the decode-side view, not the stored dictionary: a fixed
+  // kStride bytes per token plus one length byte. Charging the stored blob instead
+  // would understate a dictionary of short tokens, which is exactly the case the
+  // narrow rungs produce.
+  const double view_bytes =
+      static_cast<double>(num_tokens) * static_cast<double>(StridedDictionary::kStride + 1);
+  double ns = kNsBase;
+  if (view_bytes > kViewKnee) ns += kNsPerOctave * std::log2(view_bytes / kViewKnee);
+  return static_cast<double>(num_codes) * ns;
+}
+
+size_t SelectBudget(const BudgetCandidate* candidates, size_t n, const SelectionPolicy& policy) {
+  if (n == 0) return 0;
+  double best_cost = std::numeric_limits<double>::infinity();
+  for (size_t i = 0; i < n; ++i) {
+    best_cost = std::min(best_cost, DecodeCostEstimate(candidates[i].num_codes,
+                                                       candidates[i].num_tokens));
+  }
+  // An infinite cap means "ignore decode", and infinity * anything must stay a
+  // limit that admits everything rather than becoming a NaN.
+  const double limit = std::isinf(policy.max_decode_regression)
+                           ? std::numeric_limits<double>::infinity()
+                           : best_cost * (1.0 + policy.max_decode_regression);
+  size_t chosen = n;
+  uint64_t chosen_bytes = 0;
+  double chosen_cost = 0;
+  for (size_t i = 0; i < n; ++i) {
+    const double cost = DecodeCostEstimate(candidates[i].num_codes, candidates[i].num_tokens);
+    if (cost > limit) continue;
+    const bool better = chosen == n || candidates[i].stored_bytes < chosen_bytes ||
+                        (candidates[i].stored_bytes == chosen_bytes && cost < chosen_cost);
+    if (better) {
+      chosen = i;
+      chosen_bytes = candidates[i].stored_bytes;
+      chosen_cost = cost;
+    }
+  }
+  return chosen;
+}
+
+namespace {
+
+/// Bits needed to hold `x`, i.e. index of its highest set bit plus one.
+size_t BitsFor(uint64_t x) {
+  return x == 0 ? 0 : 64 - static_cast<size_t>(__builtin_clzll(x));
+}
+
+size_t PackedBytes(uint64_t n, size_t bits) { return static_cast<size_t>((n * bits + 7) / 8); }
+
+}  // namespace
+
+uint8_t CodeWidth(size_t num_tokens) {
+  if (num_tokens <= 1) return 1;
+  return static_cast<uint8_t>(BitsFor(static_cast<uint64_t>(num_tokens - 1)));
+}
+
+uint64_t VaryingStoredBytes(const CompactDictionary& dict, uint64_t num_codes) {
+  const uint64_t blob = dict.logical_bytes();
+  // The offset array is bit-packed at the width the blob's own size needs, the same
+  // way a stored dictionary would carry it; a fixed u32 per offset would charge a
+  // 16-bit dictionary 260 KiB it does not need and tilt the ladder toward narrow
+  // rungs for a reason that is an artifact of this function.
+  const uint64_t offsets = PackedBytes(dict.offsets.size(), std::max<size_t>(1, BitsFor(blob)));
+  const uint64_t codes = PackedBytes(num_codes, CodeWidth(dict.num_tokens()));
+  return blob + offsets + codes;
+}
+
+Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
+                    size_t num_rows, const LadderOptions& opts, SelectionReport* report) {
+  const auto started = std::chrono::steady_clock::now();
+
+  const uint8_t lo = std::max<uint8_t>(8, opts.min_budget);
+  const uint8_t hi = std::max<uint8_t>(lo, std::min<uint8_t>(16, opts.max_budget));
+
+  std::vector<BudgetCandidate> cands;
+  cands.reserve(static_cast<size_t>(hi - lo) + 1);
+  // Kept only to recognise a rung that retrained the same dictionary. A dictionary
+  // is at most a few hundred KiB, so holding the whole ladder's worth is cheap in a
+  // way holding their code streams is not.
+  std::vector<CompactDictionary> dicts;
+  // One scratch code stream, reused. Pass 1 needs a rung's code count and nothing
+  // else about its codes.
+  std::vector<uint16_t> codes;
+  std::vector<uint32_t> row_offsets;
+  size_t distinct = 0;
+
+  for (uint8_t b = lo; b <= hi; ++b) {
+    Config cfg = opts.base;
+    cfg.max_dict_bits = b;
+    TrainResult tr = Train(bytes, offsets, num_rows, cfg, nullptr);
+
+    // A budget the trainer never filled can land on exactly the dictionary a
+    // narrower rung already produced -- 51 of 270 rungs on the 30-corpus set, and a
+    // whole ladder collapsing to one rung on the low-cardinality enums. Which rungs
+    // coincide is not predictable from the budget, because the threshold controller
+    // paces itself against the capacity and so takes a different path to the same
+    // place: tpch_p_type repeats at budgets 9-13, 15 and 16 but not at 14. So this
+    // is checked, not assumed. Tokenizing is the expensive half of encode and it is
+    // a pure function of the dictionary, so a repeat inherits its twin's numbers.
+    size_t twin = dicts.size();
+    for (size_t i = 0; i < dicts.size(); ++i) {
+      if (dicts[i].offsets == tr.dict.offsets && dicts[i].bytes == tr.dict.bytes) {
+        twin = i;
+        break;
+      }
+    }
+
+    BudgetCandidate cand;
+    cand.budget = b;
+    cand.num_tokens = static_cast<uint32_t>(tr.dict.num_tokens());
+    cand.code_width = CodeWidth(tr.dict.num_tokens());
+    if (twin != dicts.size()) {
+      cand.num_codes = cands[twin].num_codes;
+      cand.stored_bytes = cands[twin].stored_bytes;
+    } else {
+      ++distinct;
+      codes.clear();
+      row_offsets.clear();
+      EncodeStrings(bytes, offsets, num_rows, tr.lpm, &codes, &row_offsets);
+      cand.num_codes = codes.size();
+      cand.stored_bytes = opts.stored_bytes == nullptr
+                              ? VaryingStoredBytes(tr.dict, cand.num_codes)
+                              : opts.stored_bytes(tr.dict, cand.num_codes, opts.stored_bytes_ctx);
+    }
+    dicts.push_back(std::move(tr.dict));
+    cands.push_back(cand);
+  }
+
+  const size_t chosen = SelectBudget(cands.data(), cands.size(), opts.policy);
+
+  Config winner = opts.base;
+  winner.max_dict_bits = cands[chosen].budget;
+  Column col = Compress(bytes, bytes_len, offsets, num_rows, winner, nullptr);
+
+  if (report != nullptr) {
+    report->candidates = std::move(cands);
+    report->chosen = chosen;
+    report->distinct_dictionaries = distinct;
+    report->best_cost = std::numeric_limits<double>::infinity();
+    size_t smallest = 0;
+    for (size_t i = 0; i < report->candidates.size(); ++i) {
+      const BudgetCandidate& c = report->candidates[i];
+      report->best_cost = std::min(report->best_cost, DecodeCostEstimate(c.num_codes, c.num_tokens));
+      if (c.stored_bytes < report->candidates[smallest].stored_bytes) smallest = i;
+    }
+    report->bytes_only = smallest;
+    report->chosen_cost = DecodeCostEstimate(report->candidates[chosen].num_codes,
+                                             report->candidates[chosen].num_tokens);
+    report->encode_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+  }
+  return col;
+}
 
 }  // namespace parquet::onpair

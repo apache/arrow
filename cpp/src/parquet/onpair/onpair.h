@@ -259,4 +259,173 @@ size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed,
 size_t DecompressPacked(const StridedDictionary& dict, const uint8_t* packed,
                         size_t ncodes, size_t bits, uint8_t* out);
 
+// --- Choosing a dictionary budget -------------------------------------------
+//
+// Training every rung and keeping the smallest output is the obvious selector and
+// the wrong one, because size and decode speed do not sit at the same end of the
+// ladder. The decoder's unit of work is a token, not a byte: it reads one code,
+// gathers one fixed-width slot, and advances the output by that token's length.
+// Narrowing the budget shortens the average token, so the same column needs more
+// codes -- and stored size still falls, because the dictionary shrinks faster than
+// the code stream grows. So the narrow rungs buy ratio with dictionary
+// amortization and pay for it in code count, which is the one quantity decode is
+// linear in.
+//
+// Measured across 30 corpora and all nine rungs, the two axes are not even
+// comparably sized: decode varies 1.94x across the rungs of a median column while
+// stored size varies 1.36x. Picking on bytes alone therefore optimizes the axis
+// with less headroom, and on the columns where the ladder's ends diverge it gives
+// up a lot: sha256_hex, c_name and s_name each decode 1.40-1.53x slower at their
+// smallest rung than at their fastest. It is also not a conservative default in the
+// direction you would guess: of the 24 corpora whose rungs differ by more than 5%
+// at all, the fastest rung is budget 12 or wider on all 24 and never the narrow
+// end. The remaining six are the low-cardinality enums, where the trainer saturates
+// below every budget and all nine rungs are the same dictionary.
+
+/// One trained rung, reduced to what the selector compares.
+///
+/// `stored_bytes` is the caller's to fill: how a column is framed -- length side
+/// array, dictionary offsets, page headers -- belongs to the format, not here, and
+/// a selector that guessed at it would rank rungs by the wrong quantity.
+struct BudgetCandidate {
+  uint8_t budget = 0;      ///< the Config::max_dict_bits this rung was trained at
+  uint8_t code_width = 0;  ///< bits per stored code, ceil(log2(num_tokens))
+  uint32_t num_tokens = 0;
+  uint64_t num_codes = 0;
+  uint64_t stored_bytes = 0;
+};
+
+/// Relative decode cost of a candidate, in arbitrary units, from quantities
+/// training already produced.
+///
+/// The point of predicting rather than timing is that the encoder can afford to
+/// train nine dictionaries but not to decode the whole column nine times. It turns
+/// out not to be a compromise: against an oracle that timed every rung, selecting
+/// on this estimate picked a rung with identical median decode and at worst 6.6%
+/// off, and the same ratio on every corpus.
+///
+/// Only ratios between candidates are meaningful. The absolute scale and the
+/// working-set knee are fitted to one machine (see the constants in the .cc), and
+/// what carries across machines is that the cache term is *bounded*: per-code cost
+/// rises about 1.42x from a 256-token dictionary to a saturated one, while code
+/// counts across a ladder vary around 2x. A different cache hierarchy moves that
+/// bound; it does not reorder the large code-count differences, which is where the
+/// selector's decisions come from.
+double DecodeCostEstimate(uint64_t num_codes, uint32_t num_tokens);
+
+/// How the selector trades decode speed for stored bytes.
+struct SelectionPolicy {
+  /// Admit a candidate only if its predicted decode cost is within this fraction
+  /// of the best any candidate achieves; among those admitted, take the smallest.
+  ///
+  /// A cap rather than a weighted sum, because a cap is auditable: "this column is
+  /// never more than 30% off the fastest decode this codec can give it" is a
+  /// sentence a reviewer can check against a measurement, and a relative exchange
+  /// rate between bytes and nanoseconds is not.
+  ///
+  /// Measured over 30 corpora against the published bytes-only baseline (budgets
+  /// 9..16, all bytes resident, 4.276x median ratio at 7810 MiB/s), every figure
+  /// timed in one process:
+  ///
+  ///   cap    median ratio   median decode   worst rung vs its own fastest
+  ///   0.05      4.200x        9311 MiB/s        1.07x
+  ///   0.30      4.381x        7979 MiB/s        1.29x
+  ///   inf       4.391x        7323 MiB/s        1.52x
+  ///
+  /// The default is 0.30 because it beats the published baseline on both axes at
+  /// once, so turning the selector on cannot be read as a ratio regression, and
+  /// because no column of the 30 comes out worse than that baseline on both axes at
+  /// either 0.30 or 0.05. It is also rarely binding: at 0.30 the cap moves the choice
+  /// on 3 of the 30 columns, and they are the three where the ladder's ends diverge
+  /// most. Drop to 0.05 where decode is worth more than ratio at the margin -- it
+  /// buys 19% decode for 1.8% of ratio. Set it to infinity for pure ratio, which is
+  /// what costs 6% of decode and puts six columns past 1.20x.
+  double max_decode_regression = 0.30;
+};
+
+/// Index of the chosen candidate, or `n` if there are none.
+///
+/// Always returns a Pareto-optimal candidate: it is the smallest of the admitted
+/// set, so nothing admitted is smaller, and ties on size break toward lower decode
+/// cost.
+size_t SelectBudget(const BudgetCandidate* candidates, size_t n, const SelectionPolicy& policy);
+
+/// Bits per stored code for a dictionary of `num_tokens` tokens: ceil(log2), at
+/// least 1.
+///
+/// Not the budget. The budget caps the dictionary; this is what actually gets
+/// written, and the two differ on every column whose training saturates below its
+/// cap -- an enum trained at budget 16 still writes 6-bit codes.
+uint8_t CodeWidth(size_t num_tokens);
+
+/// Stored bytes of one rung, counting only what varies with the budget: the
+/// dictionary blob, its offset array, and the bit-packed code stream.
+///
+/// This is deliberately not a page size. A real frame also carries a row-length
+/// side array and headers, and those are the same bytes at every rung -- a term
+/// equal across all candidates cannot change which one is smallest, so omitting it
+/// costs the ranking nothing and keeps this function from pretending to know a
+/// format it does not. Anything that reports a compression ratio, or that frames
+/// rungs differently from each other, should supply its own through
+/// LadderOptions::stored_bytes.
+uint64_t VaryingStoredBytes(const CompactDictionary& dict, uint64_t num_codes);
+inline uint64_t VaryingStoredBytes(const Column& col) {
+  return VaryingStoredBytes(col.dict, col.codes.size());
+}
+
+/// Which rungs to train, and how to choose between them.
+struct LadderOptions {
+  /// Inclusive budget range, clamped to the legal 8..16.
+  uint8_t min_budget = 8;
+  uint8_t max_budget = 16;
+
+  /// Everything except the budget. `base.max_dict_bits` is ignored -- the ladder
+  /// sets it per rung.
+  ///
+  /// Pruning is on here although Config defaults it off, because the bottom of the
+  /// ladder does not exist without it: 256 mandatory literals fill an 8-bit budget
+  /// exactly and leave no code for a pair, so that rung could not compress at all.
+  Config base = Config{/*max_dict_bits=*/12, /*threshold_fraction=*/0.15, /*seed=*/42,
+                       /*prune_absent_literals=*/true};
+
+  SelectionPolicy policy;
+
+  /// Stored size of a rung, if the caller frames columns differently from
+  /// VaryingStoredBytes. Receives the trained dictionary and the number of codes
+  /// tokenizing produced; `ctx` is passed through untouched.
+  uint64_t (*stored_bytes)(const CompactDictionary& dict, uint64_t num_codes, void* ctx) = nullptr;
+  void* stored_bytes_ctx = nullptr;
+};
+
+/// The whole ladder and what it decided, for logging and for tests.
+///
+/// Worth logging per column: a selector regression should show up as choices
+/// drifting, which this makes visible, rather than as stored bytes quietly moving,
+/// which it does not.
+struct SelectionReport {
+  /// One entry per budget in [min_budget, max_budget], in budget order.
+  std::vector<BudgetCandidate> candidates;
+  size_t chosen = 0;      ///< index into `candidates`
+  size_t bytes_only = 0;  ///< index a size-only selector would have taken
+  double chosen_cost = 0;  ///< predicted decode cost of the chosen rung
+  double best_cost = 0;    ///< cheapest predicted cost in the ladder
+  /// Dictionaries actually trained. Below the ladder size when rungs coincide,
+  /// which happens whenever the trainer saturates below its budget.
+  size_t distinct_dictionaries = 0;
+  double encode_s = 0;  ///< whole call, both passes
+};
+
+/// Train every rung of the ladder, choose one by `opts.policy`, and return that
+/// rung's compressed column.
+///
+/// Costs about ten single-budget Compress calls on a nine-rung ladder: one per rung
+/// to learn its code count, plus one to re-encode the winner. Re-encoding rather
+/// than keeping every rung's code stream is the reason -- holding nine of those on a
+/// large column costs gigabytes, and which rung wins is not known until the ladder
+/// is complete, since the decode cap moves as cheaper rungs appear. Encode is
+/// explicitly the side we are willing to spend on.
+Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
+                    size_t num_rows, const LadderOptions& opts,
+                    SelectionReport* report = nullptr);
+
 }  // namespace parquet::onpair
