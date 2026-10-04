@@ -18,6 +18,7 @@
 #include "parquet/onpair/onpair.h"
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <cstring>
 #include <numeric>
@@ -277,6 +278,19 @@ class LongestPrefixMatcher {
     return m;
   }
 
+  /// Empty matcher pre-loaded with `lits` only, ids assigned in the given order.
+  /// The ids are positions in `lits`, not the byte values themselves, so
+  /// FindLongestMatch's fallback would report a wrong id rather than report
+  /// nothing. Callers must seed every byte the data contains; ChooseLiterals does.
+  static LongestPrefixMatcher NewWithLiterals(const std::vector<uint8_t>& lits) {
+    LongestPrefixMatcher m;
+    for (size_t i = 0; i < lits.size(); ++i) {
+      m.short_by_len_[1].Put(static_cast<uint64_t>(lits[i]), static_cast<uint32_t>(i));
+    }
+    m.next_id_ = static_cast<uint32_t>(lits.size());
+    return m;
+  }
+
   /// Build from a complete dictionary: token at index i receives id i.
   static LongestPrefixMatcher FromDictionary(const CompactDictionary& dict) {
     LongestPrefixMatcher m;
@@ -340,7 +354,9 @@ class LongestPrefixMatcher {
     }
     uint32_t one = short_by_len_[1].Find(low64 & 0xFF);
     if (one != kFlatEmpty) return {static_cast<Token>(one), 1};
-    // Precondition: every single-byte token is present, so the probe above hits.
+    // Precondition: every byte the data contains has a single-byte token, so the
+    // probe above hits. Reachable only for a byte outside the seed set, where the
+    // id below would be wrong -- see NewWithLiterals.
     return {static_cast<Token>(data[0]), 1};
   }
 
@@ -583,25 +599,55 @@ struct TrainResult {
   LongestPrefixMatcher lpm;
 };
 
+/// The single-byte tokens to seed: the byte values the column actually contains.
+///
+/// An absent byte costs a code for nothing, and at a narrow budget those codes are
+/// the whole game. This set never overflows the budget -- there are at most 256 byte
+/// values and the narrowest budget holds exactly 256 codes -- so no occurring byte
+/// ever goes without a token and the tokenizer stays total with no escape code.
+std::vector<uint8_t> ChooseLiterals(const uint8_t* data, size_t total_bytes, size_t budget) {
+  bool present[256] = {};
+  for (size_t i = 0; i < total_bytes; ++i) present[data[i]] = true;
+
+  std::vector<uint8_t> lits;
+  for (int b = 0; b < 256; ++b) {
+    if (present[b]) lits.push_back(static_cast<uint8_t>(b));
+  }
+  assert(lits.size() <= budget && "a byte alphabet cannot outgrow a 256-code budget");
+  (void)budget;
+  return lits;
+}
+
 TrainResult Train(const uint8_t* data, const uint32_t* offsets, size_t n,
                   const Config& cfg, EncodeProfile* profile) {
   using Clock = std::chrono::steady_clock;
   auto t0 = Clock::now();
   size_t dict_capacity = size_t{1} << cfg.max_dict_bits;
 
+  size_t total_bytes = n == 0 ? 0 : offsets[n];
+
+  std::vector<uint8_t> lits;
+  if (cfg.prune_absent_literals) {
+    lits = ChooseLiterals(data, total_bytes, dict_capacity);
+  } else {
+    lits.resize(256);
+    for (int i = 0; i < 256; ++i) lits[i] = static_cast<uint8_t>(i);
+  }
+
   std::vector<uint8_t> dict_bytes;
   dict_bytes.reserve(dict_capacity * kMaxTokenSize);
   std::vector<uint32_t> dict_offsets;
   dict_offsets.reserve(dict_capacity + 1);
   dict_offsets.push_back(0);
-  for (uint16_t i = 0; i <= 255; ++i) {
-    dict_bytes.push_back(static_cast<uint8_t>(i));
+  for (uint8_t b : lits) {
+    dict_bytes.push_back(b);
     dict_offsets.push_back(static_cast<uint32_t>(dict_bytes.size()));
   }
-  LongestPrefixMatcher lpm = LongestPrefixMatcher::New();
+  LongestPrefixMatcher lpm = cfg.prune_absent_literals
+                                 ? LongestPrefixMatcher::NewWithLiterals(lits)
+                                 : LongestPrefixMatcher::New();
 
-  size_t total_bytes = n == 0 ? 0 : offsets[n];
-  size_t capacity = dict_capacity - 256;
+  size_t capacity = dict_capacity - lits.size();
   DynamicThresholdController ctrl(capacity, total_bytes, cfg.threshold_fraction);
   uint8_t threshold = ctrl.get();
 
@@ -620,7 +666,10 @@ TrainResult Train(const uint8_t* data, const uint32_t* offsets, size_t n,
 
   FlatFreqMap freq;
 
-  bool full_dictionary = false;
+  // The literals can fill the budget outright -- 256 of them at an 8-bit budget --
+  // in which case the check inside the loop is already true and would let the first
+  // insert overrun.
+  bool full_dictionary = capacity == 0;
   bool budget_exhausted = false;
 
   for (uint32_t idx : order) {
@@ -643,7 +692,6 @@ TrainResult Train(const uint8_t* data, const uint32_t* offsets, size_t n,
 
     while (pos < len) {
       auto [curr_id, curr_len] = lpm.FindLongestMatch(str + pos, len - pos);
-
       ctrl.on_bytes_scanned(curr_len);
       if (ctrl.budget_exhausted()) {
         budget_exhausted = true;
@@ -716,6 +764,7 @@ void EncodeStrings(const uint8_t* data, const uint32_t* offsets, size_t n,
     row_offsets->push_back(static_cast<uint32_t>(codes->size()));
   }
 }
+
 
 }  // namespace
 
@@ -1230,11 +1279,25 @@ size_t DecompressStridedFixed(const StridedDictionary& dict, const uint8_t* pack
   return w;
 }
 
-// Resolve `bits` to a constant for the widths a trained dictionary can produce
-// (kMinDictBits..kMaxDictBits), falling back to the runtime-width loop otherwise so
-// no input is rejected.
+// Resolve `bits` to a constant for the widths a trained dictionary can produce,
+// falling back to the runtime-width loop otherwise so no input is rejected.
+//
+// The ladder used to start at 9 because a dictionary that seeded all 256 bytes could
+// never hold fewer than 256 tokens. Seeding only the bytes a column actually uses
+// removes that floor -- tpch_l_shipmode trains to 36 tokens, six bits -- and those
+// widths were landing on the fallback, which retires codes about 40% slower than a
+// constant width does. A narrower code has less work to do per code, not more, so
+// the widths below 9 belong here too.
 #define ONPAIR_DISPATCH_BITS(bits, CALL, FALLBACK) \
   switch (bits) {                                  \
+    case 1: return CALL(1);                        \
+    case 2: return CALL(2);                        \
+    case 3: return CALL(3);                        \
+    case 4: return CALL(4);                        \
+    case 5: return CALL(5);                        \
+    case 6: return CALL(6);                        \
+    case 7: return CALL(7);                        \
+    case 8: return CALL(8);                        \
     case 9: return CALL(9);                        \
     case 10: return CALL(10);                      \
     case 11: return CALL(11);                      \

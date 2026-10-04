@@ -76,12 +76,31 @@ constexpr size_t kDecodePadding = kMaxTokenSize;
 
 /// Training configuration. Mirrors the reference `Config`.
 struct Config {
-  /// Dictionary-size budget: at most 2^max_dict_bits tokens. Valid range 9..=16.
+  /// Dictionary-size budget: at most 2^max_dict_bits tokens. Valid range 8..=16.
+  /// A budget of 8 needs prune_absent_literals to be any use, since 256 mandatory
+  /// single-byte tokens fill a 256-code space exactly and leave no room for a pair.
   uint8_t max_dict_bits = 12;
   /// Dynamic-threshold byte-sampling fraction, in (0, 1].
   double threshold_fraction = 0.15;
   /// Deterministic sampling seed.
   uint64_t seed = 42;
+  /// Seed the dictionary with only the byte values that actually occur, instead
+  /// of all 256.
+  ///
+  /// Full residency is what lets the tokenizer run without an escape mechanism,
+  /// but it is stronger than needed: a byte that never occurs is never asked for.
+  /// Dropping the absent ones spends the freed codes on pairs, which is the only
+  /// thing that shortens the code stream. The effect grows as the budget narrows
+  /// -- at 9 bits it turns 256 pair slots into up to 503, and at 8 bits it is the
+  /// difference between a usable rung and no rung at all.
+  ///
+  /// This needs no escape mechanism to stay total. A byte alphabet holds at most
+  /// 256 values and the narrowest budget has exactly 256 codes, so the bytes that
+  /// occur always fit -- including the worst case of a column using all 256, which
+  /// gets 256 literals, no pair slots and no compression, but still encodes. Every
+  /// code therefore means exactly one token at every budget, which is what keeps
+  /// the stream a fixed stride and a row seekable without its neighbours.
+  bool prune_absent_literals = false;
 
   static Config Dict12() { return Config{12, 0.15, 42}; }
   static Config Dict16() { return Config{16, 0.15, 42}; }
