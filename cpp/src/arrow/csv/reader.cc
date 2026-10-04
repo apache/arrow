@@ -1117,8 +1117,7 @@ class AsyncThreadedTableReader
 Result<std::shared_ptr<TableReader>> MakeTableReader(
     MemoryPool* pool, io::IOContext io_context,
     const std::shared_ptr<io::InputStream>& input, const ReadOptions& read_options,
-    const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
+    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());
   RETURN_NOT_OK(convert_options.Validate());
