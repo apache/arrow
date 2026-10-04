@@ -474,6 +474,70 @@ endif()
 add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc)
 add_parquet_test(schema_test)
 
+# OnPair is an evaluation codec rather than a Parquet encoding. Keep its
+# implementation and standalone checks out of the installed Parquet library,
+# while ensuring that the maintained evaluation code is built by CI.
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  add_library(parquet_onpair_experimental STATIC
+              onpair/onpair.cc
+              onpair/prefix_plus.cc)
+  target_include_directories(parquet_onpair_experimental
+                             PUBLIC ${CMAKE_SOURCE_DIR}/src)
+endif()
+
+if(ARROW_BUILD_TESTS)
+  add_executable(parquet-onpair-compress-auto-test onpair/compress_auto_test.cc)
+  add_executable(parquet-onpair-narrow-budget-test onpair/narrow_budget_test.cc)
+  add_executable(parquet-onpair-onpair-test onpair/onpair_test_standalone.cc)
+  add_executable(parquet-onpair-prefix-plus-test
+                 onpair/prefix_plus_test_standalone.cc)
+  add_executable(parquet-onpair-selector-test onpair/selector_test.cc)
+
+  set(PARQUET_ONPAIR_TEST_TARGETS
+      parquet-onpair-compress-auto-test
+      parquet-onpair-narrow-budget-test
+      parquet-onpair-onpair-test
+      parquet-onpair-prefix-plus-test
+      parquet-onpair-selector-test)
+  foreach(_onpair_target ${PARQUET_ONPAIR_TEST_TARGETS})
+    target_link_libraries(${_onpair_target} PRIVATE parquet_onpair_experimental)
+    add_test(NAME ${_onpair_target} COMMAND ${_onpair_target})
+    set_tests_properties(${_onpair_target} PROPERTIES LABELS parquet-tests)
+  endforeach()
+  add_dependencies(parquet-tests ${PARQUET_ONPAIR_TEST_TARGETS})
+endif()
+
+if(ARROW_BUILD_BENCHMARKS AND TARGET LZ4::lz4 AND ARROW_ZSTD_LIBZSTD)
+  add_executable(parquet-fsst-onpair-benchmark
+                 onpair/fsst16.cc
+                 onpair/fsst_onpair_benchmark.cc
+                 ${PARQUET_FSST_SOURCES})
+  target_include_directories(parquet-fsst-onpair-benchmark
+                             PRIVATE ${PARQUET_FSST_DIR})
+  target_link_libraries(parquet-fsst-onpair-benchmark
+                        PRIVATE parquet_onpair_experimental LZ4::lz4
+                                ${ARROW_ZSTD_LIBZSTD})
+
+  add_executable(parquet-onpair-cascade-benchmark
+                 onpair/cascade_benchmark.cc
+                 ${PARQUET_FSST_SOURCES})
+  target_include_directories(parquet-onpair-cascade-benchmark
+                             PRIVATE ${PARQUET_FSST_DIR})
+  if(ARROW_BUILD_SHARED)
+    set(_parquet_onpair_library parquet_shared)
+  else()
+    set(_parquet_onpair_library parquet_static)
+  endif()
+  target_link_libraries(parquet-onpair-cascade-benchmark
+                        PRIVATE parquet_onpair_experimental
+                                ${_parquet_onpair_library} LZ4::lz4
+                                ${ARROW_ZSTD_LIBZSTD})
+
+  add_dependencies(parquet-benchmarks
+                   parquet-fsst-onpair-benchmark
+                   parquet-onpair-cascade-benchmark)
+endif()
+
 add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
                       benchmark_util.cc)
 add_parquet_benchmark(column_reader_benchmark)
