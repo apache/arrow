@@ -127,6 +127,39 @@ struct CompactDictionary {
   size_t logical_bytes() const { return offsets.empty() ? 0 : offsets.back(); }
 };
 
+/// A decode-side view of the dictionary: one cache line per token instead of two.
+///
+/// CompactDictionary makes the decoder read two independent random locations per
+/// token -- a u32 offsets pair from one array, then the payload from a
+/// variable-stride blob. That gather, not the store traffic, is what the decode
+/// loop waits on. Giving every token a fixed 16-byte slot and its length a byte in
+/// a dense side array collapses the pair into one line, which is the layout FSST's
+/// decoder has always used (fixed-stride `symbol[]` plus `len[]`).
+///
+/// This is deliberately NOT the stored form. A 16-byte slot plus a length byte is
+/// ~17 bytes per token against ~12 for blob-plus-offsets, so serializing it would
+/// add hundreds of KiB on a 65k-token dictionary and move every compression ratio.
+/// It is built once per column from the stored form and thrown away, so it costs
+/// footprint only for the duration of a decode and nothing at all on disk.
+struct StridedDictionary {
+  /// One slot per token. Also the decoder's fixed over-read width, and a power of
+  /// two <= 64, so a 64-byte-aligned base puts every slot inside a single line.
+  static constexpr size_t kStride = kMaxTokenSize;
+
+  std::vector<uint8_t> storage;  ///< backing bytes; `slots` is aligned into this
+  uint8_t* slots = nullptr;      ///< kStride bytes per token, 64-byte aligned
+  std::vector<uint8_t> lens;     ///< parallel token lengths, one byte each
+  /// Same meaning and same conservative default as CompactDictionary's: the
+  /// portable kernel's fixed copy width comes from it, so it must never
+  /// understate the true maximum.
+  size_t max_token_len = kMaxTokenSize;
+
+  size_t num_tokens() const { return lens.size(); }
+
+  /// Populate from a stored dictionary. O(tokens), once per column.
+  void Build(const CompactDictionary& dict);
+};
+
 /// A compressed string column. `codes` is the row-concatenated code stream;
 /// row k is codes[row_offsets[k] .. row_offsets[k+1]].
 struct Column {
@@ -179,7 +212,18 @@ std::vector<uint8_t> PackValues(const uint32_t* vals, size_t n, size_t bits);
 
 /// Decode a bit-packed code stream: read `bits` per code and gather-copy the
 /// token. `packed` needs >=4 trailing pad bytes; `out` >= DecodedLen + padding.
+///
+/// Builds a StridedDictionary internally and decodes through it, except when the
+/// stream is short enough that the O(tokens) build outweighs what it saves, in
+/// which case the blob-and-offsets kernel runs directly. Decode a series of pages
+/// against one dictionary through the overload below instead, so the build is paid
+/// once rather than per page.
 size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed,
+                        size_t ncodes, size_t bits, uint8_t* out);
+
+/// Same, against a view built once by the caller. Output is byte-identical to the
+/// CompactDictionary overload.
+size_t DecompressPacked(const StridedDictionary& dict, const uint8_t* packed,
                         size_t ncodes, size_t bits, uint8_t* out);
 
 }  // namespace parquet::onpair

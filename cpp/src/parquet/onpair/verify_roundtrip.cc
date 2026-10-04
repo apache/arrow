@@ -30,6 +30,7 @@
 //   cpp/src/parquet/onpair/onpair.cc cpp/src/parquet/onpair/verify_roundtrip.cc -o /tmp/verify
 // Run:   /tmp/verify bench-fsst-onpair/corpora/tpch_l_shipmode.txt [more files...]
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -104,6 +105,68 @@ void Samples(const Corpus& c, const uint8_t* decoded) {
   }
 }
 
+// Independent scalar reference decode: exact-length copies straight out of the
+// stored dictionary, deliberately the dumbest loop that can be written. It shares
+// no code with any shipped kernel, which is the point -- the kernels are checked
+// against it rather than against each other.
+std::vector<uint8_t> ReferenceDecode(const op::CompactDictionary& dict,
+                                     const std::vector<uint16_t>& codes, size_t n) {
+  std::vector<uint8_t> out;
+  for (size_t i = 0; i < n; ++i) {
+    const uint8_t* p = dict.token_ptr(codes[i]);
+    out.insert(out.end(), p, p + dict.token_len(codes[i]));
+  }
+  return out;
+}
+
+// Decode is served by several kernels chosen by target features and by stream
+// length, and they must be interchangeable to the byte. Checked here:
+//
+//   whole-column     DecompressInto, unpacked u16 codes
+//   packed           DecompressPacked, building its own strided view
+//   packed, prebuilt DecompressPacked against a view the caller built
+//   packed, short    a prefix short enough to trip the guard that skips the view
+//                    and decodes straight out of the stored dictionary
+//
+// The last one matters because nothing else reaches that path: real streams carry
+// far more codes than tokens, so the fallback would otherwise never run here.
+bool VerifyDecodePaths(const op::Column& col, const char* tag) {
+  const size_t ncodes = col.codes.size();
+  const size_t ntokens = col.dict.num_tokens();
+  size_t bits = 1;
+  while ((size_t{1} << bits) < ntokens) ++bits;
+  std::vector<uint32_t> cw(col.codes.begin(), col.codes.end());
+  std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), bits);
+  op::StridedDictionary view;
+  view.Build(col.dict);
+
+  std::vector<uint8_t> buf(op::DecodedLen(col) + op::kDecodePadding, 0);
+  size_t bad = 0;
+  auto agrees = [&](const char* what, const std::vector<uint8_t>& want, size_t got) {
+    if (got == want.size() && std::memcmp(buf.data(), want.data(), want.size()) == 0) return;
+    std::printf("      %s: disagrees with the scalar reference (%zu vs %zu bytes)\n", what,
+                got, want.size());
+    ++bad;
+  };
+
+  const std::vector<uint8_t> want_all = ReferenceDecode(col.dict, col.codes, ncodes);
+  agrees("whole-column", want_all, op::DecompressInto(col, buf.data()));
+  agrees("packed", want_all,
+         op::DecompressPacked(col.dict, packed.data(), ncodes, bits, buf.data()));
+  agrees("packed, prebuilt view", want_all,
+         op::DecompressPacked(view, packed.data(), ncodes, bits, buf.data()));
+
+  const size_t nshort = std::min(ncodes, ntokens == 0 ? 0 : ntokens - 1);
+  if (nshort != 0) {
+    agrees("packed, short stream", ReferenceDecode(col.dict, col.codes, nshort),
+           op::DecompressPacked(col.dict, packed.data(), nshort, bits, buf.data()));
+  }
+
+  std::printf("    %-15s: 4 decode paths agree  (%zu tokens, %zub codes, max token %zu)  %s\n",
+              tag, ntokens, bits, col.dict.max_token_len, bad == 0 ? "[OK]" : "[FAIL]");
+  return bad == 0;
+}
+
 // OnPair (no dedup): compress then whole-column decode.
 bool VerifyOnPair(const Corpus& c, uint8_t bits, double threshold, bool show_samples) {
   op::Config cfg{bits, threshold, 42};
@@ -115,8 +178,13 @@ bool VerifyOnPair(const Corpus& c, uint8_t bits, double threshold, bool show_sam
   std::printf("    OnPair%-2u       : %zu/%zu rows exact  %s\n", bits, c.rows() - bad, c.rows(),
               bad == 0 ? "[OK]" : "[FAIL]");
   if (bad != 0) std::printf("      first mismatching row: %ld\n", bad_at);
+  // Every width gets the four-path check, not just 16: each width instantiates a
+  // different unpack kernel, so agreement at one width says nothing about another.
+  char tag[32];
+  std::snprintf(tag, sizeof(tag), "OnPair%u paths", static_cast<unsigned>(bits));
+  bool paths = VerifyDecodePaths(col, tag);
   if (show_samples) Samples(c, out.data());
-  return bad == 0;
+  return paths && bad == 0;
 }
 
 // The distinct-value set a dedup cascade OnPairs, plus the per-row ids into it.
@@ -174,7 +242,10 @@ bool VerifyOnPairDedup(const Corpus& c, const Distinct& d, uint8_t bits, double 
               c.rows() - bad, c.rows(), d.count(), bad == 0 ? "[OK]" : "[FAIL]");
   if (bad != 0) std::printf("      first mismatching row: %ld\n", bad_at);
   if (show_samples) Samples(c, out.data());
-  return bad == 0;
+  // A distinct-value dictionary is far smaller than a whole column's, so its codes
+  // pack into a narrower width than OnPair ever picks -- this is where the low end
+  // of the width dispatch gets exercised.
+  return VerifyDecodePaths(col, "  ↳ paths") && bad == 0;
 }
 
 }  // namespace
