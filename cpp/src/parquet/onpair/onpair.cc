@@ -737,6 +737,26 @@ Column Compress(const uint8_t* bytes, size_t /*bytes_len*/, const uint32_t* offs
   return col;
 }
 
+Column CompressWithTokens(const uint8_t* bytes, const uint32_t* offsets, size_t num_rows,
+                          const std::vector<uint8_t>& token_bytes,
+                          const std::vector<uint32_t>& token_offsets) {
+  std::vector<uint8_t> sorted_bytes;
+  std::vector<uint32_t> sorted_offsets;
+  SortTokens(token_bytes, token_offsets, &sorted_bytes, &sorted_offsets);
+  PadRaw(&sorted_bytes, sorted_offsets);
+
+  Column col;
+  col.dict.bytes = std::move(sorted_bytes);
+  col.dict.offsets = std::move(sorted_offsets);
+  col.dict.RecomputeMaxTokenLen();
+  LongestPrefixMatcher lpm = LongestPrefixMatcher::FromDictionary(col.dict);
+
+  col.codes.reserve(num_rows == 0 ? 0 : offsets[num_rows]);
+  col.row_offsets.reserve(num_rows + 1);
+  EncodeStrings(bytes, offsets, num_rows, lpm, &col.codes, &col.row_offsets);
+  return col;
+}
+
 size_t DecodedLen(const Column& col) {
   size_t sum = 0;
   for (uint16_t c : col.codes) sum += col.dict.token_len(c);

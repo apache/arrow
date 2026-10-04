@@ -13,21 +13,28 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-// Visible round-trip proof for the OnPair port: decode both plain OnPair16 and
-// OnPair16-dedup and check EVERY row equals the original bytes, then print a few
-// concrete original -> decoded samples so a human can eyeball the recovery.
+// Visible round-trip proof for the OnPair port and for the FSST16 trainer it is
+// compared against: decode every configuration and check EVERY row equals the
+// original bytes, then print a few concrete original -> decoded samples so a
+// human can eyeball the recovery.
 //
-// Every dictionary budget in the valid 9..16 range is checked, not just 16: the
-// packed decode loop is templated on the code width, and OnPair-auto picks a
-// width per column, so verifying only 16 would leave the width the benchmarks
-// actually report unverified. The merge threshold comes from bench_common.h so
-// the dictionary trained here is the one the benchmarks measure.
+// The FSST16 rows are decoded twice, once through the whole-column path and once
+// through the bit-packed path at the code width the trained table actually needs,
+// because the packed loop is templated on that width and a table of a few hundred
+// tokens exercises a far narrower one than OnPair ever produces.
 //
-// Exits non-zero if any row of any corpus at any width fails to round-trip, so
-// this can gate a run.
+// For OnPair, every dictionary budget in the valid 9..16 range is checked, not
+// just 16: OnPair-auto picks a width per column, so verifying only 16 would leave
+// the width the benchmarks actually report unverified. The merge threshold comes
+// from bench_common.h so the dictionary trained here is the one the benchmarks
+// measure.
+//
+// Exits non-zero if any row of any corpus in any configuration or at any width
+// fails to round-trip, so this can gate a benchmark run.
 //
 // Build (one line): g++ -std=c++17 -O2 -Icpp/src
-//   cpp/src/parquet/onpair/onpair.cc cpp/src/parquet/onpair/verify_roundtrip.cc -o /tmp/verify
+//   cpp/src/parquet/onpair/onpair.cc cpp/src/parquet/onpair/fsst16.cc
+//   cpp/src/parquet/onpair/verify_roundtrip.cc -o /tmp/verify
 // Run:   /tmp/verify bench-fsst-onpair/corpora/tpch_l_shipmode.txt [more files...]
 
 #include <algorithm>
@@ -40,9 +47,11 @@
 #include <vector>
 
 #include "parquet/onpair/bench_common.h"
+#include "parquet/onpair/fsst16.h"
 #include "parquet/onpair/onpair.h"
 
 namespace op = parquet::onpair;
+namespace f16 = parquet::fsst16;
 
 namespace {
 
@@ -214,6 +223,50 @@ bool VerifyOnPair(const Corpus& c, uint8_t bits, double threshold, bool show_sam
   return paths && bad == 0;
 }
 
+// FSST's training algorithm at a 16-bit code space, decoded through OnPair's own
+// path. The trained token list is handed to the encoder's train-free entry point,
+// so the parsing pass and the decode kernel are the same code OnPair16 uses and
+// only the table differs.
+bool VerifyFsst16(const Corpus& c, int max_symbol_len, size_t sample_target, const char* tag,
+                  bool show_samples) {
+  f16::Config cfg;
+  cfg.max_symbol_len = max_symbol_len;
+  if (sample_target != 0) cfg.sample_target = sample_target;
+  f16::Tokens t = f16::Train(c.bytes.data(), c.offsets.data(), c.rows(), cfg);
+  op::Column col =
+      op::CompressWithTokens(c.bytes.data(), c.offsets.data(), c.rows(), t.bytes, t.offsets);
+
+  std::vector<uint8_t> out(op::DecodedLen(col) + op::kDecodePadding, 0);
+  size_t dn = op::DecompressInto(col, out.data());
+  long bad_at;
+  size_t bad = CheckPerRow(c, out.data(), dn, &bad_at);
+
+  // The width a stored format would pack these codes at, which is what the
+  // benchmark charges for and therefore what has to decode correctly.
+  size_t nt = col.dict.num_tokens();
+  size_t code_bits = 1;
+  while ((size_t{1} << code_bits) < nt) ++code_bits;
+  std::vector<uint32_t> cw(col.codes.begin(), col.codes.end());
+  std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), code_bits);
+  std::vector<uint8_t> pout(op::DecodedLen(col) + op::kDecodePadding, 0);
+  size_t pn =
+      op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, pout.data());
+  long pbad_at;
+  size_t pbad = CheckPerRow(c, pout.data(), pn, &pbad_at);
+
+  std::printf("    %-15s: %zu/%zu rows exact, packed %zu/%zu  (%zu tokens, %zub codes, "
+              "max token %zu)  %s\n",
+              tag, c.rows() - bad, c.rows(), c.rows() - pbad, c.rows(), nt, code_bits,
+              col.dict.max_token_len, (bad == 0 && pbad == 0) ? "[OK]" : "[FAIL]");
+  if (bad != 0) std::printf("      first mismatching row: %ld\n", bad_at);
+  if (pbad != 0) std::printf("      first mismatching packed row: %ld\n", pbad_at);
+  if (show_samples) Samples(c, pout.data());
+  // An FSST-trained table at an 8-byte cap stays far smaller than OnPair's, so this
+  // is where the narrow end of the width dispatch gets exercised.
+  bool fsst_paths = VerifyDecodePaths(col, "  ↳ paths");
+  return bad == 0 && pbad == 0 && fsst_paths;
+}
+
 // The distinct-value set a dedup cascade OnPairs, plus the per-row ids into it.
 // Built once per corpus and reused across widths -- deduplicating 500k rows is
 // far more expensive than the training pass being verified.
@@ -295,6 +348,14 @@ int main(int argc, char** argv) {
     double threshold = bench::ThresholdFor(std::filesystem::path(argv[a]).stem().string());
     std::printf("\n%s  (%zu rows, %.2f MiB, threshold %.2f)\n", argv[a], c.rows(),
                 c.bytes.size() / (1024.0 * 1024.0), threshold);
+    // FSST16 at its native symbol cap, at OnPair's cap, and at a sample large
+    // enough to actually fill a 16-bit table. The last one is the config whose
+    // dictionary is big enough to reach the wide packed-decode loops. Its code
+    // width follows from the trained table, so these run once, not per budget.
+    if (!VerifyFsst16(c, 8, 0, "FSST16-8B", false)) ++failures;
+    if (!VerifyFsst16(c, 16, 0, "FSST16-16B", false)) ++failures;
+    if (!VerifyFsst16(c, 16, size_t{4} << 20, "FSST16-16B-4M", true)) ++failures;
+    rows_checked += 6 * c.rows();  // 3 configs, each checked unpacked and packed
     Distinct d = BuildDistinct(c);
     for (uint8_t bits = 9; bits <= 16; ++bits) {
       // Samples are the human-readable proof; print them once, at the width the
