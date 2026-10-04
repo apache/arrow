@@ -906,21 +906,6 @@ test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in w
   )
 })
 
-test_that("Writing a flat file dataset without a delimiter throws an error.", {
-  df <- tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[1:10],
-  )
-
-  dst_dir <- make_temp_dir()
-  expect_error(
-    write_dataset(df, dst_dir, format = "txt"),
-    "A delimiter must be given for a txt format."
-  )
-})
-
 test_that("Dataset can write flat files using readr::write_csv() options.", {
   df <- tibble(
     int = 1:10,
@@ -1058,4 +1043,25 @@ test_that("write_dataset maps format 'text' to 'csv' (GH-38217)", {
 
   expect_identical(dir(dst_dir), "part-0.csv")
   expect_equal(open_dataset(dst_dir, format = "csv") |> collect(), df)
+})
+
+test_that("write_dataset format = 'txt' is deprecated and maps to 'csv'", {
+  df <- tibble(int = 1:10, dbl = as.numeric(1:10), chr = letters[1:10])
+
+  dst_dir <- make_temp_dir()
+  expect_warning(
+    write_dataset(df, dst_dir, format = "txt"),
+    "deprecated"
+  )
+
+  expect_identical(dir(dst_dir), "part-0.csv")
+  expect_equal(open_dataset(dst_dir, format = "csv") |> collect(), df)
+
+  # A delimiter passed alongside "txt" still reaches the writer
+  dst_dir2 <- make_temp_dir()
+  expect_warning(
+    write_dataset(df, dst_dir2, format = "txt", delimiter = ";"),
+    "deprecated"
+  )
+  expect_equal(open_dataset(dst_dir2, format = "csv", delimiter = ";") |> collect(), df)
 })
