@@ -16,16 +16,12 @@
 // Does a wider code make OnPair decode faster? Isolate the code width from
 // everything else that changes with the dictionary budget.
 //
-// The obvious way to ask this -- compare OnPair-auto (which picks a budget per
-// column) against OnPair16 -- cannot answer it. A narrower budget trains a
-// SMALLER DICTIONARY, so it also changes the tokens, the token count per row, and
-// the gather-copy width the decoder picks from max_token_len. Those move decode
-// far more than the unpacking does, and they move in both directions, so the
-// comparison is confounded and its answer is noise.
+// Comparing independently trained budgets also changes tokens, code count, and
+// copy width, so it does not isolate the packing width.
 //
 // This benchmark holds the dictionary fixed and varies only the packing width.
-// For each training budget it takes the ONE trained dictionary and its ONE code
-// stream, then bit-packs those same codes at every width from their true width up
+// For each training budget it takes one dictionary and code stream, then packs
+// those codes at every width from their required width up
 // to 16 and times DecompressPacked at each. Identical tokens, identical code
 // sequence, identical output bytes, identical copy width -- the only difference is
 // how many bits each code occupies and which DecompressPackedFixedBits<> template
@@ -36,8 +32,8 @@
 // against each other: the "own width" column across training budgets is what a
 // budget sweep sees, and the widen-in-place rows are what the width alone does.
 //
-// PIN AND QUIESCE: this is a timing benchmark. Run it under `taskset -c 0` with
-// core 0 idle -- `ps -eo pid,psr,pcpu | awk '$2==0 && $3>5'` must print nothing.
+// Run on an otherwise idle pinned core and record the compiler, effective flags,
+// processor, and frequency policy.
 //
 // Build (one line):
 //   g++ -std=c++17 -O3 -march=native -Icpp/src \
@@ -75,7 +71,7 @@ struct WidthPoint {
 struct BudgetResult {
   uint8_t budget = 0;
   size_t num_tokens = 0;
-  size_t true_bits = 0;    // ceil(log2 num_tokens) -- the width a real page stores
+  size_t true_bits = 0;  // ceil(log2 num_tokens) -- the width a real page stores
   size_t num_codes = 0;
   size_t max_token_len = 0;
   double bytes_per_token = 0;
@@ -99,8 +95,10 @@ double TimeDecode(const bench::Corpus& c, const op::CompactDictionary& dict,
   const size_t out_cap = c.raw_bytes() + op::kDecodePadding + 64;
   {
     std::vector<uint8_t> out(out_cap, 0);
-    size_t w = op::DecompressPacked(dict, packed.data(), num_codes, bits, out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+    size_t w = op::DecompressPacked(dict, packed.data(), packed.size(), num_codes, bits,
+                                    out.data(), out.size());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
       std::fprintf(stderr, "width %zu roundtrip mismatch on %s (w=%zu raw=%zu)\n", bits,
                    c.name.c_str(), w, c.raw_bytes());
       std::abort();
@@ -110,7 +108,8 @@ double TimeDecode(const bench::Corpus& c, const op::CompactDictionary& dict,
   for (int it = 0; it < bench::kDecodeIters; ++it) {
     std::vector<uint8_t> out(out_cap, 0);
     auto t0 = bench::Clock::now();
-    size_t w = op::DecompressPacked(dict, packed.data(), num_codes, bits, out.data());
+    size_t w = op::DecompressPacked(dict, packed.data(), packed.size(), num_codes, bits,
+                                    out.data(), out.size());
     double dt = std::chrono::duration<double>(bench::Clock::now() - t0).count();
     asm volatile("" ::"r"(w) : "memory");
     mibs.push_back(bench::Mib(c.raw_bytes()) / dt);
@@ -129,7 +128,8 @@ BudgetResult SweepBudget(const bench::Corpus& c, uint8_t budget, double threshol
   r.true_bits = bench::IndexBits(r.num_tokens);
   r.num_codes = col.codes.size();
   r.max_token_len = col.dict.max_token_len;
-  r.bytes_per_token = static_cast<double>(c.raw_bytes()) / static_cast<double>(r.num_codes);
+  r.bytes_per_token =
+      static_cast<double>(c.raw_bytes()) / static_cast<double>(r.num_codes);
 
   // Widen once; PackValues takes u32. The same values are re-packed at each width,
   // so every width decodes the identical code sequence.
@@ -153,7 +153,8 @@ void PrintCorpus(const bench::Corpus& c, const std::vector<BudgetResult>& result
     std::printf(
         "  budget %2ub: %6zu tokens, true width %zu b, %zu codes (%.2f raw B/token), "
         "copy width %zu\n",
-        r.budget, r.num_tokens, r.true_bits, r.num_codes, r.bytes_per_token, r.max_token_len);
+        r.budget, r.num_tokens, r.true_bits, r.num_codes, r.bytes_per_token,
+        r.max_token_len);
     std::printf("      width :");
     for (const WidthPoint& w : r.widths) std::printf(" %8zu", w.bits);
     std::printf("\n      MiB/s :");
@@ -161,7 +162,8 @@ void PrintCorpus(const bench::Corpus& c, const std::vector<BudgetResult>& result
     std::printf("\n      vs true:");
     const WidthPoint* base = r.at(r.true_bits);
     for (const WidthPoint& w : r.widths) {
-      std::printf(" %+7.1f%%", 100.0 * (w.decode_mibs - base->decode_mibs) / base->decode_mibs);
+      std::printf(" %+7.1f%%",
+                  100.0 * (w.decode_mibs - base->decode_mibs) / base->decode_mibs);
     }
     std::printf("\n      codes  :");
     for (const WidthPoint& w : r.widths) {
@@ -176,7 +178,8 @@ void PrintCorpus(const bench::Corpus& c, const std::vector<BudgetResult>& result
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::vector<std::filesystem::path> files = bench::CorpusFiles(bench::CorpusDir(argc, argv));
+  std::vector<std::filesystem::path> files =
+      bench::CorpusFiles(bench::CorpusDir(argc, argv));
   if (files.empty()) {
     std::fprintf(stderr, "no .txt corpora found\n");
     return 2;
@@ -218,24 +221,27 @@ int main(int argc, char** argv) {
       const WidthPoint* base = r.at(r.true_bits);
       const WidthPoint* w16 = r.at(16);
       const WidthPoint* wp1 = r.at(r.true_bits + 1);
-      deltas.push_back({c.name, r.budget, r.true_bits,
-                        100.0 * (w16->decode_mibs - base->decode_mibs) / base->decode_mibs,
-                        100.0 * (wp1->decode_mibs - base->decode_mibs) / base->decode_mibs,
-                        100.0 * (static_cast<double>(w16->codes_bytes) - base->codes_bytes) /
-                            base->codes_bytes});
+      deltas.push_back(
+          {c.name, r.budget, r.true_bits,
+           100.0 * (w16->decode_mibs - base->decode_mibs) / base->decode_mibs,
+           100.0 * (wp1->decode_mibs - base->decode_mibs) / base->decode_mibs,
+           100.0 * (static_cast<double>(w16->codes_bytes) - base->codes_bytes) /
+               base->codes_bytes});
     }
   }
 
   // Summary. The question is whether widening the code buys decode speed, so the
   // headline is the sign and size of the true-width -> 16-bit change, against what
   // that widening costs on the code stream.
-  std::printf("\n\n=== Summary: decode change from widening the code, dictionary held fixed ===\n");
+  std::printf(
+      "\n\n=== Summary: decode change from widening the code, dictionary held fixed "
+      "===\n");
   std::printf("%-30s %6s %6s %10s %10s %12s\n", "corpus", "budget", "true b", "->true+1",
               "->16 b", "codes at 16b");
   std::vector<double> all16, allp1, cost16;
   for (const Delta& d : deltas) {
-    std::printf("%-30s %5ub %5zub %+9.1f%% %+9.1f%% %+11.1f%%\n", d.corpus.c_str(), d.budget,
-                d.true_bits, d.to_plus1, d.to_16, d.codes_cost_16);
+    std::printf("%-30s %5ub %5zub %+9.1f%% %+9.1f%% %+11.1f%%\n", d.corpus.c_str(),
+                d.budget, d.true_bits, d.to_plus1, d.to_16, d.codes_cost_16);
     all16.push_back(d.to_16);
     allp1.push_back(d.to_plus1);
     cost16.push_back(d.codes_cost_16);
@@ -247,16 +253,18 @@ int main(int argc, char** argv) {
       for (double x : v) {
         if (x > 0) ++faster;
       }
-      std::printf("  %-22s median %+6.1f%%  min %+6.1f%%  max %+6.1f%%  faster on %d/%zu\n", label,
-                  bench::Median(v), v.front(), v.back(), faster, v.size());
+      std::printf(
+          "  %-22s median %+6.1f%%  min %+6.1f%%  max %+6.1f%%  faster on %d/%zu\n",
+          label, bench::Median(v), v.front(), v.back(), faster, v.size());
     };
-    std::printf("\n%zu (corpus, budget) pairs where the true width is below 16:\n", all16.size());
+    std::printf("\n%zu (corpus, budget) pairs where the true width is below 16:\n",
+                all16.size());
     stats(allp1, "decode, true -> true+1");
     stats(all16, "decode, true -> 16 b");
     std::vector<double> c16 = cost16;
     std::sort(c16.begin(), c16.end());
-    std::printf("  %-22s median %+6.1f%%  min %+6.1f%%  max %+6.1f%%\n", "code stream at 16 b",
-                bench::Median(c16), c16.front(), c16.back());
+    std::printf("  %-22s median %+6.1f%%  min %+6.1f%%  max %+6.1f%%\n",
+                "code stream at 16 b", bench::Median(c16), c16.front(), c16.back());
   }
   return 0;
 }

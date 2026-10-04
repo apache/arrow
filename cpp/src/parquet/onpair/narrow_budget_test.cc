@@ -1,14 +1,25 @@
-// Tests for the narrow end of the dictionary-budget ladder.
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements. See the NOTICE file distributed with this
+// work for additional information regarding copyright ownership. The ASF
+// licenses this file to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// Seeding only the byte values a column uses is what makes a 256-code budget usable
-// at all, and it has a second consequence worth pinning down: the encoding needs no
-// escape mechanism, at any budget. A byte alphabet holds at most 256 values and the
-// narrowest budget has exactly 256 codes, so every occurring byte always gets a
-// token. One code always means one token, which is what keeps a row reachable
-// without decoding its neighbours -- so these check that property directly, on the
-// worst case for it, rather than inferring it from a corpus that never gets close.
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//   g++ -std=c++17 -O3 -I<arrow>/cpp/src narrow_rung_test.cc onpair.cc -o /tmp/narrow_test
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations
+// under the License.
+
+// Tests dictionary budgets near the minimum. A byte alphabet has at most 256
+// values, so a 256-code dictionary can represent every occurring byte without
+// an escape code. Each code still identifies one token, preserving row-local
+// decoding.
+//
+//   g++ -std=c++17 -O3 -I<arrow>/cpp/src narrow_rung_test.cc onpair.cc -o
+//   /tmp/narrow_test
 #include <cstdio>
 #include <cstring>
 #include <random>
@@ -41,21 +52,23 @@ struct Result {
 
 // Decodes the whole column, then decodes single rows in isolation. The second part
 // is the one that fails if a code ever stops meaning exactly one token.
-Result Roundtrip(const std::vector<uint8_t>& data, const std::vector<uint32_t>& offs, uint8_t bits,
-                 bool prune, const std::string& name) {
+Result Roundtrip(const std::vector<uint8_t>& data, const std::vector<uint32_t>& offs,
+                 uint8_t bits, bool prune, const std::string& name) {
   op::Config cfg;
   cfg.max_dict_bits = bits;
   cfg.prune_absent_literals = prune;
-  op::Column col = op::Compress(data.data(), data.size(), offs.data(), offs.size() - 1, cfg);
+  op::Column col =
+      op::Compress(data.data(), data.size(), offs.data(), offs.size() - 1, cfg);
 
   Result r{col.dict.num_tokens(), IndexBits(col.dict.num_tokens()), col.codes.size()};
   std::vector<uint32_t> cw(col.codes.begin(), col.codes.end());
   std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), r.width);
 
   std::vector<uint8_t> out(data.size() + op::kDecodePadding + 64, 0xAA);
-  size_t w = op::DecompressPacked(col.dict, packed.data(), col.codes.size(), r.width, out.data());
-  Check(w == data.size(),
-        name + ": decoded " + std::to_string(w) + " bytes, expected " + std::to_string(data.size()));
+  size_t w = op::DecompressPacked(col.dict, packed.data(), packed.size(),
+                                  col.codes.size(), r.width, out.data(), out.size());
+  Check(w == data.size(), name + ": decoded " + std::to_string(w) + " bytes, expected " +
+                              std::to_string(data.size()));
   Check(w == data.size() && std::memcmp(out.data(), data.data(), data.size()) == 0,
         name + ": bytes differ");
 
@@ -68,8 +81,8 @@ Result Roundtrip(const std::vector<uint8_t>& data, const std::vector<uint32_t>& 
     std::vector<uint8_t> subpacked = op::PackValues(sub.data(), sub.size(), r.width);
     size_t rowlen = offs[k + 1] - offs[k];
     std::vector<uint8_t> rowout(rowlen + op::kDecodePadding + 64, 0xBB);
-    size_t rw = op::DecompressPacked(col.dict, subpacked.data(), last - first, r.width,
-                                     rowout.data());
+    size_t rw = op::DecompressPacked(col.dict, subpacked.data(), subpacked.size(),
+                                     last - first, r.width, rowout.data(), rowout.size());
     Check(rw == rowlen && std::memcmp(rowout.data(), data.data() + offs[k], rowlen) == 0,
           name + ": row " + std::to_string(k) + " does not decode on its own");
   }
@@ -83,7 +96,7 @@ size_t DistinctBytes(const std::vector<uint8_t>& d) {
 }  // namespace
 
 int main() {
-  std::printf("narrow-rung tests\n");
+  std::printf("narrow-budget tests\n");
 
   {
     // The worst case for the narrowest budget: every byte value occurs, so the
@@ -112,13 +125,17 @@ int main() {
                                 std::to_string(r8.tokens));
     Check(r8.width == 8, "all-256-bytes budget 8: expected an 8-bit code");
     Check(r8.codes == data.size(), "all-256-bytes budget 8: expected one code per byte");
-    std::printf("  all 256 byte values at budget 8: %zu tokens, %zu-bit code, %zu codes for %zu "
-                "bytes\n", r8.tokens, r8.width, r8.codes, data.size());
+    std::printf(
+        "  all 256 byte values at budget 8: %zu tokens, %zu-bit code, %zu codes for %zu "
+        "bytes\n",
+        r8.tokens, r8.width, r8.codes, data.size());
 
     // The same data at wider budgets has room for pairs, and must still round-trip.
     for (uint8_t b : {9, 12, 16}) {
-      Result r = Roundtrip(data, offs, b, true, "all-256-bytes budget " + std::to_string(b));
-      Check(r.codes < data.size(), "budget " + std::to_string(b) + ": no pair was admitted");
+      Result r =
+          Roundtrip(data, offs, b, true, "all-256-bytes budget " + std::to_string(b));
+      Check(r.codes < data.size(),
+            "budget " + std::to_string(b) + ": no pair was admitted");
     }
   }
 
@@ -139,9 +156,10 @@ int main() {
     Check(pruned.width < 8, "pruning did not take the width below 8 (got " +
                                 std::to_string(pruned.width) + ")");
     Check(full.width >= 9, "full residency should floor the width at 9 here");
-    std::printf("  %zu distinct bytes: pruned to %zu tokens / %zu-bit code, "
-                "fully resident %zu tokens / %zu-bit code\n",
-                DistinctBytes(data), pruned.tokens, pruned.width, full.tokens, full.width);
+    std::printf(
+        "  %zu distinct bytes: pruned to %zu tokens / %zu-bit code, "
+        "fully resident %zu tokens / %zu-bit code\n",
+        DistinctBytes(data), pruned.tokens, pruned.width, full.tokens, full.width);
   }
 
   {
@@ -165,7 +183,8 @@ int main() {
     }
     for (uint8_t b = 8; b <= 16; ++b) {
       Roundtrip(data, offs, b, true, "text pruned budget " + std::to_string(b));
-      if (b >= 9) Roundtrip(data, offs, b, false, "text resident budget " + std::to_string(b));
+      if (b >= 9)
+        Roundtrip(data, offs, b, false, "text resident budget " + std::to_string(b));
     }
   }
 

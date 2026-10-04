@@ -1,21 +1,20 @@
-//! Apples-to-apples comparison of FSST vs OnPair16 (the paper's 16-byte-max-token
-//! variant, arXiv:2508.02280) at 12- and 16-bit dictionary sizes, on the same
-//! string corpora.
+//! Compares FSST with the 12- and 16-bit OnPair configurations on the same
+//! string corpora. OnPair follows the 16-byte-token variant from arXiv:2508.02280.
 //!
 //! Both codecs run in a single Rust process so encode/decode throughput is
 //! measured under one harness. Pin to a single core with `taskset -c 0`.
 //!
 //! Corpora:
-//!   * TPC-H string columns (o_comment, p_name, l_comment, c_comment),
+//!   - TPC-H string columns (o_comment, p_name, l_comment, c_comment),
 //!     generated in-process via tpchgen at scale factor 1.
-//!   * ClickBench: real `hits.parquet`-style data if ONPAIR_BENCH_PARQUET is
-//!     set (+ optional ONPAIR_BENCH_COLUMN), else a synthetic URL corpus.
+//!   - A deterministic synthetic URL corpus.
 //!
 //! Size accounting (raw codec output, no downstream integer compression):
-//!   * OnPair  = dict bytes + dict offsets(u32) + codes(u16) + row offsets(u32)
-//!   * FSST    = symbol table + symbol lengths + code bytes + row offsets(u32)
+//!   - OnPair = dictionary bytes, u32 dictionary offsets, u16 codes, and u32 row offsets.
+//!   - FSST = symbol table, symbol lengths, code bytes, and u32 row offsets.
 //!
-//! Both count an (n+1) u32 row-offset vector so the comparison is fair.
+//! Both projections include an (n+1) u32 row-offset vector. These are projected
+//! codec sizes rather than bytes emitted by a serialized format.
 
 use std::hint::black_box;
 use std::mem::MaybeUninit;
@@ -32,8 +31,7 @@ use tpchgen_arrow::{
 };
 
 const BATCH_SIZE: usize = 8192 * 8;
-/// Every corpus is truncated/generated to exactly this many rows for a fair
-/// equal-N comparison.
+/// Number of rows generated or retained for each corpus.
 const TARGET_ROWS: usize = 500_000;
 const ENCODE_ITERS: usize = 3;
 const DECODE_ITERS: usize = 10;
@@ -50,7 +48,12 @@ struct Corpus {
 impl Corpus {
     fn new(name: impl Into<String>, bytes: Vec<u8>, offsets: Vec<u64>) -> Self {
         let n_rows = offsets.len() - 1;
-        Corpus { name: name.into(), bytes, offsets, n_rows }
+        Corpus {
+            name: name.into(),
+            bytes,
+            offsets,
+            n_rows,
+        }
     }
     fn raw_bytes(&self) -> usize {
         self.bytes.len()
@@ -71,7 +74,7 @@ fn mib(bytes: usize) -> f64 {
     bytes as f64 / (1024.0 * 1024.0)
 }
 
-// ───────────────────────────── OnPair ─────────────────────────────
+// OnPair
 
 struct Measured {
     label: String,
@@ -110,8 +113,17 @@ fn run_onpair(c: &Corpus, bits: u8, threshold: f64) -> Measured {
         let mut buf: Vec<MaybeUninit<u8>> = vec![MaybeUninit::uninit(); cap];
         let n = unsafe { col.view().decompress_into(&mut buf) };
         let decoded: &[u8] = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, n) };
-        assert_eq!(n, c.raw_bytes(), "OnPair{bits} decoded len mismatch on {}", c.name);
-        assert!(decoded == c.bytes.as_slice(), "OnPair{bits} roundtrip mismatch on {}", c.name);
+        assert_eq!(
+            n,
+            c.raw_bytes(),
+            "OnPair{bits} decoded len mismatch on {}",
+            c.name
+        );
+        assert!(
+            decoded == c.bytes.as_slice(),
+            "OnPair{bits} roundtrip mismatch on {}",
+            c.name
+        );
     }
     let mut dec = Vec::with_capacity(DECODE_ITERS);
     for _ in 0..DECODE_ITERS {
@@ -132,7 +144,7 @@ fn run_onpair(c: &Corpus, bits: u8, threshold: f64) -> Measured {
     }
 }
 
-// ───────────────────────────── FSST ─────────────────────────────
+// FSST
 
 /// Train + compress every row into one concatenated code buffer with
 /// (n+1) u32 offsets. Returns (compressor, codes, offsets).
@@ -187,7 +199,11 @@ fn run_fsst(c: &Corpus) -> Measured {
         let n = decompressor.decompress_into(&codes, &mut buf);
         let decoded: &[u8] = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, n) };
         assert_eq!(n, c.raw_bytes(), "FSST decoded len mismatch on {}", c.name);
-        assert!(decoded == c.bytes.as_slice(), "FSST roundtrip mismatch on {}", c.name);
+        assert!(
+            decoded == c.bytes.as_slice(),
+            "FSST roundtrip mismatch on {}",
+            c.name
+        );
     }
     let mut dec = Vec::with_capacity(DECODE_ITERS);
     for _ in 0..DECODE_ITERS {
@@ -207,7 +223,7 @@ fn run_fsst(c: &Corpus) -> Measured {
     }
 }
 
-// ───────────────────────────── Corpora ─────────────────────────────
+// Corpora
 
 /// Load any TPC-H string column, dispatching to its table generator by the
 /// column-name prefix (o_/l_/c_/p_/s_).
@@ -217,19 +233,22 @@ fn tpch_column(col: &str) -> Corpus {
     // truncate to exactly TARGET_ROWS.
     let sf: f64 = match col.split('_').next().unwrap() {
         "l" | "o" => 1.0,
-        "c" => 4.0,   // 150k * 4 = 600k
-        "p" => 3.0,   // 200k * 3 = 600k
-        "s" => 50.0,  // 10k * 50 = 500k
+        "c" => 4.0,  // 150k * 4 = 600k
+        "p" => 3.0,  // 200k * 3 = 600k
+        "s" => 50.0, // 10k * 50 = 500k
         _ => 1.0,
     };
     let idx_of = |schema: &arrow_schema::Schema| {
-        schema.fields().iter().position(|f| f.name() == col).unwrap_or_else(|| {
-            panic!("column {col} not found in table schema")
-        })
+        schema
+            .fields()
+            .iter()
+            .position(|f| f.name() == col)
+            .unwrap_or_else(|| panic!("column {col} not found in table schema"))
     };
     let (bytes, offsets) = match col.split('_').next().unwrap() {
         "l" => {
-            let it = LineItemArrow::new(LineItemGenerator::new(sf, 1, 1)).with_batch_size(BATCH_SIZE);
+            let it =
+                LineItemArrow::new(LineItemGenerator::new(sf, 1, 1)).with_batch_size(BATCH_SIZE);
             let schema = it.schema().clone();
             collect(it, idx_of(&schema))
         }
@@ -239,7 +258,8 @@ fn tpch_column(col: &str) -> Corpus {
             collect(it, idx_of(&schema))
         }
         "c" => {
-            let it = CustomerArrow::new(CustomerGenerator::new(sf, 1, 1)).with_batch_size(BATCH_SIZE);
+            let it =
+                CustomerArrow::new(CustomerGenerator::new(sf, 1, 1)).with_batch_size(BATCH_SIZE);
             let schema = it.schema().clone();
             collect(it, idx_of(&schema))
         }
@@ -249,7 +269,8 @@ fn tpch_column(col: &str) -> Corpus {
             collect(it, idx_of(&schema))
         }
         "s" => {
-            let it = SupplierArrow::new(SupplierGenerator::new(sf, 1, 1)).with_batch_size(BATCH_SIZE);
+            let it =
+                SupplierArrow::new(SupplierGenerator::new(sf, 1, 1)).with_batch_size(BATCH_SIZE);
             let schema = it.schema().clone();
             collect(it, idx_of(&schema))
         }
@@ -278,34 +299,40 @@ where
     (bytes, offsets)
 }
 
-fn clickbench_corpus() -> Corpus {
-    if let Ok(path) = std::env::var("ONPAIR_BENCH_PARQUET") {
-        if let Some((bytes, offsets, colname)) = read_parquet(&path) {
-            return Corpus::new(format!("clickbench/{colname}"), bytes, offsets);
-        }
-        eprintln!("warning: could not read {path}, falling back to synthetic");
-    }
+fn synthetic_url_corpus() -> Corpus {
     let (bytes, offsets) = synthetic_clickbench_urls(TARGET_ROWS);
-    Corpus::new("clickbench/synthetic-urls", bytes, offsets)
-}
-
-fn read_parquet(_path: &str) -> Option<(Vec<u8>, Vec<u64>, String)> {
-    // Only wired when ONPAIR_BENCH_PARQUET is set; requires the `parquet` crate.
-    // Left unimplemented to keep the default build light; synthetic is used.
-    None
+    Corpus::new("synthetic/urls", bytes, offsets)
 }
 
 fn synthetic_clickbench_urls(n: usize) -> (Vec<u8>, Vec<u64>) {
     const HOSTS: &[&str] = &[
-        "https://www.yandex.ru", "https://www.google.com", "https://news.ycombinator.com",
-        "https://www.example.com", "https://docs.example.org", "https://api.example.net",
-        "http://m.yandex.ru", "https://maps.example.com", "https://shop.example.com",
+        "https://www.yandex.ru",
+        "https://www.google.com",
+        "https://news.ycombinator.com",
+        "https://www.example.com",
+        "https://docs.example.org",
+        "https://api.example.net",
+        "http://m.yandex.ru",
+        "https://maps.example.com",
+        "https://shop.example.com",
         "ftp://files.example.com",
     ];
     const PATHS: &[&str] = &[
-        "/", "/page", "/news", "/search?q=", "/profile", "/login", "/api/v1/data",
-        "/static/asset.png", "/blog/post-", "/feed.xml", "/sitemap.xml", "/users/",
-        "/admin/dashboard", "/categories/electronics", "/cart/checkout",
+        "/",
+        "/page",
+        "/news",
+        "/search?q=",
+        "/profile",
+        "/login",
+        "/api/v1/data",
+        "/static/asset.png",
+        "/blog/post-",
+        "/feed.xml",
+        "/sitemap.xml",
+        "/users/",
+        "/admin/dashboard",
+        "/categories/electronics",
+        "/cart/checkout",
     ];
     const TAILS: &[&str] = &["", "alpha", "beta", "gamma", "delta", "001", "002", "003"];
     let mut bytes = Vec::new();
@@ -362,7 +389,7 @@ fn synthetic_variant_json(n: usize) -> (Vec<u8>, Vec<u64>) {
     (bytes, offsets)
 }
 
-// ───────────────────────────── main ─────────────────────────────
+// Corpus export and benchmark entry point
 
 /// Write each corpus as a newline-delimited .txt (one row per line) into `dir`,
 /// so the C++ harness reads byte-identical inputs. All these columns are
@@ -375,18 +402,31 @@ fn dump_corpora(dir: &str) {
     // high-cardinality addresses, patterned IDs, and low-cardinality enums.
     let tpch_cols = [
         // free text
-        "o_comment", "l_comment", "c_comment", "p_comment", "s_comment",
+        "o_comment",
+        "l_comment",
+        "c_comment",
+        "p_comment",
+        "s_comment",
         // multi-word names / types
-        "p_name", "p_type", "c_name", "s_name",
+        "p_name",
+        "p_type",
+        "c_name",
+        "s_name",
         // high-cardinality addresses
-        "c_address", "s_address",
+        "c_address",
+        "s_address",
         // patterned IDs / numbers
-        "o_clerk", "c_phone",
+        "o_clerk",
+        "c_phone",
         // low-cardinality enums / small vocab
-        "o_orderpriority", "l_shipmode", "p_brand", "p_container", "c_mktsegment",
+        "o_orderpriority",
+        "l_shipmode",
+        "p_brand",
+        "p_container",
+        "c_mktsegment",
     ];
     let mut corpora: Vec<Corpus> = tpch_cols.iter().map(|c| tpch_column(c)).collect();
-    corpora.push(clickbench_corpus());
+    corpora.push(synthetic_url_corpus());
     {
         let (bytes, offsets) = synthetic_variant_json(TARGET_ROWS);
         corpora.push(Corpus::new("variant/json-events", bytes, offsets));
@@ -403,7 +443,11 @@ fn dump_corpora(dir: &str) {
             w.write_all(b"\n").unwrap();
         }
         w.flush().unwrap();
-        eprintln!("[dump] {path}: {} rows, {:.2} MiB", c.n_rows, mib(c.raw_bytes()));
+        eprintln!(
+            "[dump] {path}: {} rows, {:.2} MiB",
+            c.n_rows,
+            mib(c.raw_bytes())
+        );
     }
 }
 
@@ -415,21 +459,20 @@ fn main() {
         return;
     }
 
-    // TPC-H uses threshold 0.2 (matches onpair's tpch bench); ClickBench 0.5.
+    // TPC-H uses threshold 0.2; the synthetic URL corpus uses 0.5.
     let corpora: Vec<(Corpus, f64)> = vec![
         (tpch_column("o_comment"), 0.2),
         (tpch_column("l_comment"), 0.2),
         (tpch_column("c_comment"), 0.2),
         (tpch_column("p_name"), 0.2),
-        (clickbench_corpus(), 0.5),
+        (synthetic_url_corpus(), 0.5),
     ];
 
     println!(
         "{:<26} {:>10} {:>10}  {:>9} {:>9} {:>9}  {:>9} {:>9} {:>9}",
-        "corpus", "rows", "raw MiB",
-        "ratio", "enc MiB/s", "dec MiB/s", "", "", ""
+        "corpus", "rows", "raw MiB", "ratio", "enc MiB/s", "dec MiB/s", "", "", ""
     );
-    println!("{}", "─".repeat(120));
+    println!("{}", "-".repeat(120));
 
     for (c, threshold) in &corpora {
         let fsst = run_fsst(c);
@@ -438,21 +481,27 @@ fn main() {
 
         println!(
             "{:<26} {:>10} {:>10.2}",
-            c.name, c.n_rows, mib(c.raw_bytes())
+            c.name,
+            c.n_rows,
+            mib(c.raw_bytes())
         );
         for m in [&fsst, &op12, &op16] {
             let ratio = c.raw_bytes() as f64 / m.compressed_bytes as f64;
             println!(
                 "  {:<24} {:>10} {:>10.2}  {:>8.3}x {:>9.1} {:>9.1}",
-                m.label, "", mib(m.compressed_bytes),
-                ratio, m.encode_mibs, m.decode_mibs
+                m.label,
+                "",
+                mib(m.compressed_bytes),
+                ratio,
+                m.encode_mibs,
+                m.decode_mibs
             );
         }
-        // Head-to-head deltas: OnPair16 vs FSST.
+        // OnPair16 relative to FSST.
         let ratio_fsst = c.raw_bytes() as f64 / fsst.compressed_bytes as f64;
         let ratio_op16 = c.raw_bytes() as f64 / op16.compressed_bytes as f64;
         println!(
-            "  → OnPair16 vs FSST: ratio {:+.1}%, encode {:+.1}%, decode {:+.1}%",
+            "  OnPair16 vs FSST: ratio {:+.1}%, encode {:+.1}%, decode {:+.1}%",
             (ratio_op16 / ratio_fsst - 1.0) * 100.0,
             (op16.encode_mibs / fsst.encode_mibs - 1.0) * 100.0,
             (op16.decode_mibs / fsst.decode_mibs - 1.0) * 100.0,

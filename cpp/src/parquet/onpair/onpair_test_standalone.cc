@@ -45,14 +45,15 @@ bool Roundtrip(const std::vector<std::string>& rows, uint8_t bits, const char* n
   cfg.threshold_fraction = 0.5;
   cfg.seed = 42;
 
-  op::Column col = op::Compress(bytes.data(), bytes.size(), offsets.data(),
-                                rows.size(), cfg);
+  op::Column col =
+      op::Compress(bytes.data(), bytes.size(), offsets.data(), rows.size(), cfg);
 
   // Whole-column decode.
   size_t dlen = op::DecodedLen(col);
   std::vector<uint8_t> out(dlen + op::kDecodePadding, 0);
-  size_t w = op::DecompressInto(col, out.data());
-  bool ok = (w == bytes.size()) && (std::memcmp(out.data(), bytes.data(), bytes.size()) == 0);
+  size_t w = op::DecompressInto(col, out.data(), out.size());
+  bool ok = (w == bytes.size()) &&
+            (bytes.empty() || std::memcmp(out.data(), bytes.data(), bytes.size()) == 0);
   if (!ok) {
     std::printf("  FAIL %-22s bits=%2u: decoded %zu vs raw %zu%s\n", name, bits, w,
                 bytes.size(), (w == bytes.size() ? " (content mismatch)" : ""));
@@ -87,10 +88,68 @@ std::vector<std::string> SyntheticUrls(size_t n) {
   return out;
 }
 
+template <typename Fn>
+void ExpectInvalid(Fn&& fn, const char* name) {
+  try {
+    fn();
+    std::printf("  FAIL %-22s: expected invalid_argument\n", name);
+    ++g_failures;
+  } catch (const std::invalid_argument&) {
+  }
+}
+
+void ValidateRejectedInputs() {
+  const std::vector<uint8_t> bytes{'a', 'b'};
+  const std::vector<uint32_t> offsets{0, 2};
+  op::Config cfg;
+
+  cfg.max_dict_bits = 7;
+  ExpectInvalid([&] { op::Compress(bytes.data(), bytes.size(), offsets.data(), 1, cfg); },
+                "dictionary width");
+
+  cfg.max_dict_bits = 9;
+  const std::vector<uint32_t> bad_offsets{0, 3};
+  ExpectInvalid(
+      [&] { op::Compress(bytes.data(), bytes.size(), bad_offsets.data(), 1, cfg); },
+      "input offsets");
+
+  const std::vector<uint8_t> oversized_token(17, 'x');
+  const std::vector<uint32_t> oversized_offsets{0, 17};
+  ExpectInvalid(
+      [&] {
+        op::CompressWithTokens(bytes.data(), bytes.size(), offsets.data(), 1,
+                               oversized_token, oversized_offsets);
+      },
+      "oversized token");
+
+  op::Column col = op::Compress(bytes.data(), bytes.size(), offsets.data(), 1, cfg);
+  std::vector<uint32_t> codes(col.codes.begin(), col.codes.end());
+  std::vector<uint8_t> packed =
+      op::PackValues(codes.data(), codes.size(), op::CodeWidth(col.dict.num_tokens()));
+  std::vector<uint8_t> output(op::DecodedLen(col) + op::kDecodePadding);
+  const size_t width = op::CodeWidth(col.dict.num_tokens());
+
+  ExpectInvalid(
+      [&] {
+        op::DecompressPacked(col.dict, packed.data(), 1, col.codes.size(), width,
+                             output.data(), output.size());
+      },
+      "truncated packed input");
+  ExpectInvalid(
+      [&] {
+        op::DecompressPacked(col.dict, packed.data(), packed.size(), col.codes.size(),
+                             width, output.data(), output.size() - 1);
+      },
+      "undersized output");
+  ExpectInvalid([&] { op::DecompressInto(col, output.data(), output.size() - 1); },
+                "undersized plain output");
+}
+
 }  // namespace
 
 int main() {
   std::printf("OnPair C++ port roundtrip tests\n");
+  ValidateRejectedInputs();
 
   for (uint8_t bits = 9; bits <= 16; ++bits) {
     // Mixed lengths incl. empty, 1-byte, boundary 8/9, 16, >16.

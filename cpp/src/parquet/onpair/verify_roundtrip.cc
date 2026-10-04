@@ -13,21 +13,17 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-// Visible round-trip proof for the OnPair port and for the FSST16 trainer it is
-// compared against: decode every configuration and check EVERY row equals the
-// original bytes, then print a few concrete original -> decoded samples so a
-// human can eyeball the recovery.
+// Round-trip validation for OnPair and the benchmark-only FSST16 trainer. It
+// decodes every configuration and compares every row with the input.
 //
 // The FSST16 rows are decoded twice, once through the whole-column path and once
 // through the bit-packed path at the code width the trained table actually needs,
 // because the packed loop is templated on that width and a table of a few hundred
 // tokens exercises a far narrower one than OnPair ever produces.
 //
-// For OnPair, every dictionary budget in the valid 9..16 range is checked, not
-// just 16: OnPair-auto picks a width per column, so verifying only 16 would leave
-// the width the benchmarks actually report unverified. The merge threshold comes
-// from bench_common.h so the dictionary trained here is the one the benchmarks
-// measure.
+// For OnPair, every dictionary budget in the valid 9..16 range is checked. The merge
+// threshold comes from bench_common.h so the dictionary trained here is the one the
+// benchmarks measure.
 //
 // Exits non-zero if any row of any corpus in any configuration or at any width
 // fails to round-trip, so this can gate a benchmark run.
@@ -163,8 +159,8 @@ bool VerifyDecodePaths(const op::Column& col, const char* tag) {
   auto agrees_bytes = [&](const char* what, const uint8_t* want, size_t want_len,
                           size_t got) {
     if (got == want_len && std::memcmp(buf.data(), want, want_len) == 0) return;
-    std::printf("      %s: disagrees with the scalar reference (%zu vs %zu bytes)\n", what,
-                got, want_len);
+    std::printf("      %s: disagrees with the scalar reference (%zu vs %zu bytes)\n",
+                what, got, want_len);
     ++bad;
   };
   auto agrees = [&](const char* what, const std::vector<uint8_t>& want, size_t got) {
@@ -172,16 +168,19 @@ bool VerifyDecodePaths(const op::Column& col, const char* tag) {
   };
 
   const std::vector<uint8_t> want_all = ReferenceDecode(col.dict, col.codes, ncodes);
-  agrees("whole-column", want_all, op::DecompressInto(col, buf.data()));
+  agrees("whole-column", want_all, op::DecompressInto(col, buf.data(), buf.size()));
   agrees("packed", want_all,
-         op::DecompressPacked(col.dict, packed.data(), ncodes, bits, buf.data()));
+         op::DecompressPacked(col.dict, packed.data(), packed.size(), ncodes, bits,
+                              buf.data(), buf.size()));
   agrees("packed, prebuilt view", want_all,
-         op::DecompressPacked(view, packed.data(), ncodes, bits, buf.data()));
+         op::DecompressPacked(view, packed.data(), packed.size(), ncodes, bits,
+                              buf.data(), buf.size()));
 
   const size_t nshort = std::min(ncodes, ntokens == 0 ? 0 : ntokens - 1);
   if (nshort != 0) {
     agrees("packed, short stream", ReferenceDecode(col.dict, col.codes, nshort),
-           op::DecompressPacked(col.dict, packed.data(), nshort, bits, buf.data()));
+           op::DecompressPacked(col.dict, packed.data(), packed.size(), nshort, bits,
+                                buf.data(), buf.size()));
   }
 
   // Decoding a prefix of the codes yields a prefix of the whole-column bytes, so the
@@ -192,27 +191,30 @@ bool VerifyDecodePaths(const op::Column& col, const char* tag) {
   for (size_t k = 1; k <= 16 && k < ncodes; ++k) {
     want_len -= col.dict.token_len(col.codes[ncodes - k]);
     agrees_bytes("packed, tail", want_all.data(), want_len,
-                 op::DecompressPacked(view, packed.data(), ncodes - k, bits, buf.data()));
+                 op::DecompressPacked(view, packed.data(), packed.size(), ncodes - k,
+                                      bits, buf.data(), buf.size()));
     ++tails;
   }
 
-  std::printf("    %-15s: %zu decode paths agree  (%zu tokens, %zub codes, "
-              "max token %zu)  %s\n",
-              tag, 4 + tails, ntokens, bits, col.dict.max_token_len,
-              bad == 0 ? "[OK]" : "[FAIL]");
+  std::printf(
+      "    %-15s: %zu decode paths agree  (%zu tokens, %zub codes, "
+      "max token %zu)  %s\n",
+      tag, 4 + tails, ntokens, bits, col.dict.max_token_len,
+      bad == 0 ? "[OK]" : "[FAIL]");
   return bad == 0;
 }
 
 // OnPair (no dedup): compress then whole-column decode.
 bool VerifyOnPair(const Corpus& c, uint8_t bits, double threshold, bool show_samples) {
   op::Config cfg{bits, threshold, 42};
-  op::Column col = op::Compress(c.bytes.data(), c.bytes.size(), c.offsets.data(), c.rows(), cfg);
+  op::Column col =
+      op::Compress(c.bytes.data(), c.bytes.size(), c.offsets.data(), c.rows(), cfg);
   std::vector<uint8_t> out(op::DecodedLen(col) + op::kDecodePadding, 0);
-  size_t dn = op::DecompressInto(col, out.data());
+  size_t dn = op::DecompressInto(col, out.data(), out.size());
   long bad_at;
   size_t bad = CheckPerRow(c, out.data(), dn, &bad_at);
-  std::printf("    OnPair%-2u       : %zu/%zu rows exact  %s\n", bits, c.rows() - bad, c.rows(),
-              bad == 0 ? "[OK]" : "[FAIL]");
+  std::printf("    OnPair%-2u       : %zu/%zu rows exact  %s\n", bits, c.rows() - bad,
+              c.rows(), bad == 0 ? "[OK]" : "[FAIL]");
   if (bad != 0) std::printf("      first mismatching row: %ld\n", bad_at);
   // Every width gets the four-path check, not just 16: each width instantiates a
   // different unpack kernel, so agreement at one width says nothing about another.
@@ -227,17 +229,17 @@ bool VerifyOnPair(const Corpus& c, uint8_t bits, double threshold, bool show_sam
 // path. The trained token list is handed to the encoder's train-free entry point,
 // so the parsing pass and the decode kernel are the same code OnPair16 uses and
 // only the table differs.
-bool VerifyFsst16(const Corpus& c, int max_symbol_len, size_t sample_target, const char* tag,
-                  bool show_samples) {
+bool VerifyFsst16(const Corpus& c, int max_symbol_len, size_t sample_target,
+                  const char* tag, bool show_samples) {
   f16::Config cfg;
   cfg.max_symbol_len = max_symbol_len;
   if (sample_target != 0) cfg.sample_target = sample_target;
   f16::Tokens t = f16::Train(c.bytes.data(), c.offsets.data(), c.rows(), cfg);
-  op::Column col =
-      op::CompressWithTokens(c.bytes.data(), c.offsets.data(), c.rows(), t.bytes, t.offsets);
+  op::Column col = op::CompressWithTokens(c.bytes.data(), c.bytes.size(),
+                                          c.offsets.data(), c.rows(), t.bytes, t.offsets);
 
   std::vector<uint8_t> out(op::DecodedLen(col) + op::kDecodePadding, 0);
-  size_t dn = op::DecompressInto(col, out.data());
+  size_t dn = op::DecompressInto(col, out.data(), out.size());
   long bad_at;
   size_t bad = CheckPerRow(c, out.data(), dn, &bad_at);
 
@@ -249,15 +251,16 @@ bool VerifyFsst16(const Corpus& c, int max_symbol_len, size_t sample_target, con
   std::vector<uint32_t> cw(col.codes.begin(), col.codes.end());
   std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), code_bits);
   std::vector<uint8_t> pout(op::DecodedLen(col) + op::kDecodePadding, 0);
-  size_t pn =
-      op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, pout.data());
+  size_t pn = op::DecompressPacked(col.dict, packed.data(), packed.size(),
+                                   col.codes.size(), code_bits, pout.data(), pout.size());
   long pbad_at;
   size_t pbad = CheckPerRow(c, pout.data(), pn, &pbad_at);
 
-  std::printf("    %-15s: %zu/%zu rows exact, packed %zu/%zu  (%zu tokens, %zub codes, "
-              "max token %zu)  %s\n",
-              tag, c.rows() - bad, c.rows(), c.rows() - pbad, c.rows(), nt, code_bits,
-              col.dict.max_token_len, (bad == 0 && pbad == 0) ? "[OK]" : "[FAIL]");
+  std::printf(
+      "    %-15s: %zu/%zu rows exact, packed %zu/%zu  (%zu tokens, %zub codes, "
+      "max token %zu)  %s\n",
+      tag, c.rows() - bad, c.rows(), c.rows() - pbad, c.rows(), nt, code_bits,
+      col.dict.max_token_len, (bad == 0 && pbad == 0) ? "[OK]" : "[FAIL]");
   if (bad != 0) std::printf("      first mismatching row: %ld\n", bad_at);
   if (pbad != 0) std::printf("      first mismatching packed row: %ld\n", pbad_at);
   if (show_samples) Samples(c, pout.data());
@@ -305,9 +308,10 @@ Distinct BuildDistinct(const Corpus& c) {
 bool VerifyOnPairDedup(const Corpus& c, const Distinct& d, uint8_t bits, double threshold,
                        bool show_samples) {
   op::Config cfg{bits, threshold, 42};
-  op::Column col = op::Compress(d.bytes.data(), d.bytes.size(), d.offsets.data(), d.count(), cfg);
+  op::Column col =
+      op::Compress(d.bytes.data(), d.bytes.size(), d.offsets.data(), d.count(), cfg);
   std::vector<uint8_t> dbuf(op::DecodedLen(col) + op::kDecodePadding, 0);
-  op::DecompressInto(col, dbuf.data());  // distinct values, concatenated in id order
+  op::DecompressInto(col, dbuf.data(), dbuf.size());
   std::vector<uint8_t> out(c.bytes.size() + 16, 0);
   size_t w = 0;
   for (size_t i = 0; i < c.rows(); ++i) {
@@ -345,7 +349,8 @@ int main(int argc, char** argv) {
       continue;
     }
     // Same rule the benchmarks use, so the trained dictionary matches theirs.
-    double threshold = bench::ThresholdFor(std::filesystem::path(argv[a]).stem().string());
+    double threshold =
+        bench::ThresholdFor(std::filesystem::path(argv[a]).stem().string());
     std::printf("\n%s  (%zu rows, %.2f MiB, threshold %.2f)\n", argv[a], c.rows(),
                 c.bytes.size() / (1024.0 * 1024.0), threshold);
     // FSST16 at its native symbol cap, at OnPair's cap, and at a sample large
@@ -358,8 +363,7 @@ int main(int argc, char** argv) {
     rows_checked += 6 * c.rows();  // 3 configs, each checked unpacked and packed
     Distinct d = BuildDistinct(c);
     for (uint8_t bits = 9; bits <= 16; ++bits) {
-      // Samples are the human-readable proof; print them once, at the width the
-      // report's fixed-budget rows use, rather than eight times per corpus.
+      // Print samples once at the fixed-budget width.
       bool show = (bits == 16);
       if (!VerifyOnPair(c, bits, threshold, show)) ++failures;
       if (!VerifyOnPairDedup(c, d, bits, threshold, show)) ++failures;

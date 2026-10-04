@@ -36,12 +36,12 @@
 //      the baseline a new encoding has to beat; the companion benchmark's
 //      zstd-over-concatenated-bytes column is a projection of a page, not one.
 //
-// Accounting matches the companion benchmark so ratios are comparable across the
-// two binaries (see bench_common.h), with one deliberate difference: PLAIN and
-// the DELTA_* family embed their own lengths, so they are NOT charged the
-// separate bit-packed row-length array that FSST/zstd/lz4/OnPair are. Charging
-// it would count row boundaries twice. Every number here is therefore the
-// complete page payload needed to reconstruct the column.
+// Projected accounting matches the companion benchmark so ratios are comparable across
+// the two binaries (see bench_common.h), with one deliberate difference: PLAIN and the
+// DELTA_* family embed their own lengths, so they are not charged the separate bit-packed
+// row-length array that FSST/zstd/lz4/OnPair are. Charging it would count row boundaries
+// twice. Candidate-codec sizes are projections; native Parquet sizes come from emitted
+// payloads.
 //
 // Decode is timed as "reconstruct the whole column into a contiguous buffer",
 // including the generic decompression and the per-page decoder setup. The
@@ -60,7 +60,8 @@
 //   /usr/lib64/libzstd.so.1 /usr/lib64/liblz4.so.1
 //   -Wl,-rpath,$PWD/cpp/build-bench/release -o /tmp/cascade_bench
 //
-// Run:  taskset -c 0 /tmp/cascade_bench <corpora_dir>   (run twice, use the 2nd)
+// Run on an otherwise idle pinned core and record the compiler, effective flags,
+// processor, and frequency policy.
 
 #include <cstdint>
 #include <cstdio>
@@ -70,6 +71,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "fsst.h"
 #include "parquet/encoding.h"
 #include "parquet/onpair/bench_common.h"
@@ -112,8 +114,8 @@ std::vector<uint8_t> GenericCompress(const uint8_t* src, size_t n, Generic g) {
   } else {
     out.resize(static_cast<size_t>(LZ4_compressBound(static_cast<int>(n))));
     int c = LZ4_compress_default(reinterpret_cast<const char*>(src),
-                                 reinterpret_cast<char*>(out.data()),
-                                 static_cast<int>(n), static_cast<int>(out.size()));
+                                 reinterpret_cast<char*>(out.data()), static_cast<int>(n),
+                                 static_cast<int>(out.size()));
     if (c <= 0) {
       std::fprintf(stderr, "lz4 compress error\n");
       std::abort();
@@ -140,8 +142,8 @@ void GenericDecompress(const uint8_t* src, size_t csize, uint8_t* dst, size_t ra
     return;
   }
   int w = LZ4_decompress_safe(reinterpret_cast<const char*>(src),
-                             reinterpret_cast<char*>(dst), static_cast<int>(csize),
-                             static_cast<int>(raw_size));
+                              reinterpret_cast<char*>(dst), static_cast<int>(csize),
+                              static_cast<int>(raw_size));
   if (w != static_cast<int>(raw_size)) {
     std::fprintf(stderr, "lz4 decompress error\n");
     std::abort();
@@ -152,8 +154,8 @@ void GenericDecompress(const uint8_t* src, size_t csize, uint8_t* dst, size_t ra
 // (the encode side, training included), `decode` reconstructs the concatenated
 // column bytes from a payload buffer and returns the byte count written.
 using BuildFn = std::function<std::vector<uint8_t>()>;
-using DecodeFn = std::function<size_t(const uint8_t* payload, size_t payload_size,
-                                      uint8_t* out)>;
+using DecodeFn =
+    std::function<size_t(const uint8_t* payload, size_t payload_size, uint8_t* out)>;
 
 // Extra slack after the payload copy: OnPair's packed-code reader over-reads up
 // to 4 bytes past the last code, and its dictionary decode over-reads one token.
@@ -163,8 +165,8 @@ constexpr size_t kPad = 64;
 // of it. Only used to reproduce the companion benchmark's zstd/lz4 accounting,
 // which charges an uncompressed row-length array alongside a frame that holds
 // only the value bytes.
-Measured RunCodec(const Corpus& c, const std::string& label, Generic g, const BuildFn& build,
-                  const DecodeFn& decode, size_t extra_bytes = 0) {
+Measured RunCodec(const Corpus& c, const std::string& label, Generic g,
+                  const BuildFn& build, const DecodeFn& decode, size_t extra_bytes = 0) {
   Measured m;
   m.label = label;
 
@@ -189,9 +191,10 @@ Measured RunCodec(const Corpus& c, const std::string& label, Generic g, const Bu
     std::vector<uint8_t> out(out_cap, 0);
     GenericDecompress(comp.data(), comp.size(), scratch.data(), payload.size(), g);
     size_t w = decode(scratch.data(), payload.size(), out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
-      std::fprintf(stderr, "%s roundtrip mismatch on %s (w=%zu raw=%zu)\n", m.label.c_str(),
-                   c.name.c_str(), w, c.raw_bytes());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "%s roundtrip mismatch on %s (w=%zu raw=%zu)\n",
+                   m.label.c_str(), c.name.c_str(), w, c.raw_bytes());
       std::abort();
     }
   }
@@ -287,13 +290,14 @@ std::vector<uint8_t> BuildFsstPayload(const Corpus& c) {
   return v;
 }
 
-size_t DecodeFsstPayload(const uint8_t* p, size_t /*size*/, uint8_t* out, size_t out_cap) {
+size_t DecodeFsstPayload(const uint8_t* p, size_t /*size*/, uint8_t* out,
+                         size_t out_cap) {
   size_t table_bytes = GetU32(p);
   size_t stream_bytes = GetU32(p + 4);
   fsst_decoder_t dec;
   fsst_import(&dec, p + 8);
-  return fsst_decompress(&dec, stream_bytes, const_cast<unsigned char*>(p + 8 + table_bytes),
-                         out_cap, out);
+  return fsst_decompress(&dec, stream_bytes,
+                         const_cast<unsigned char*>(p + 8 + table_bytes), out_cap, out);
 }
 
 // Group A codec 2: OnPair, bit-packed (the layout Tables 1-3 report)
@@ -301,8 +305,8 @@ size_t DecodeFsstPayload(const uint8_t* p, size_t /*size*/, uint8_t* out, size_t
 // Payload: [u32 tokens][u32 dict_bytes][u32 codes][u8 code_bits][u8 off_bits][pad*2]
 //          [dictionary blob][packed dict offsets][packed codes][lengths]
 
-// Choose the dictionary budget the way the companion benchmark's OnPair-auto
-// does: train at every width in 9..16 and keep the one that stores least.
+// Select the smallest projected result after trying budgets 9 through 16. The
+// selection cost is outside the timed encode.
 size_t OnPairSize(const op::Column& col, const Corpus& c) {
   size_t db = col.dict.logical_bytes();
   return db + BitPackedBytes(col.dict.offsets.size(), std::max<size_t>(1, BitWidth(db))) +
@@ -369,7 +373,8 @@ std::vector<uint8_t> BuildOnPairPayload(const Corpus& c, const op::Config& cfg,
 // Rebuilds the dictionary from the payload (a reader must, since the decoder
 // needs read-padded token bytes and materialized offsets) and decodes the packed
 // code stream in place.
-size_t DecodeOnPairPayload(const uint8_t* p, size_t /*size*/, uint8_t* out) {
+size_t DecodeOnPairPayload(const uint8_t* p, size_t size, uint8_t* out,
+                           size_t out_capacity) {
   size_t num_tokens = GetU32(p);
   size_t dict_bytes = GetU32(p + 4);
   size_t num_codes = GetU32(p + 8);
@@ -386,11 +391,14 @@ size_t DecodeOnPairPayload(const uint8_t* p, size_t /*size*/, uint8_t* out) {
   std::memcpy(dict.bytes.data(), dict_blob, dict_bytes);
   dict.offsets.resize(num_tokens + 1);
   for (size_t t = 0; t <= num_tokens; ++t) {
-    dict.offsets[t] = op::GetBits(packed_offs, t * off_bits, off_bits);
+    dict.offsets[t] = op::GetBits(
+        packed_offs, size - static_cast<size_t>(packed_offs - p), t * off_bits, off_bits);
   }
   dict.RecomputeMaxTokenLen();
 
-  return op::DecompressPacked(dict, packed_codes, num_codes, code_bits, out);
+  const size_t packed_offset = static_cast<size_t>(packed_codes - p);
+  return op::DecompressPacked(dict, packed_codes, size - packed_offset, num_codes,
+                              code_bits, out, out_capacity);
 }
 
 // Group A codec 3: dictionary-encode, then OnPair the distinct values.
@@ -405,7 +413,7 @@ size_t DecodeOnPairPayload(const uint8_t* p, size_t /*size*/, uint8_t* out) {
 //          [pad*2][OnPair payload of the distinct set][packed distinct lengths]
 //          [packed row references]
 //
-// Note what is NOT charged: the per-row length array. Row lengths are recovered
+// The per-row length array is not charged. Row lengths are recovered
 // from a row's reference plus the distinct-value lengths, so charging both would
 // count boundaries twice. This matches the companion benchmark's accounting.
 
@@ -414,7 +422,8 @@ size_t DecodeOnPairPayload(const uint8_t* p, size_t /*size*/, uint8_t* out) {
 // low-cardinality columns. Same function the companion benchmark uses, so both
 // binaries build the identical distinct set in the identical order.
 inline uint64_t HashBytes(const uint8_t* p, size_t len) {
-  uint64_t h = 0x9E3779B97F4A7C15ull ^ (static_cast<uint64_t>(len) * 0xff51afd7ed558ccdull);
+  uint64_t h =
+      0x9E3779B97F4A7C15ull ^ (static_cast<uint64_t>(len) * 0xff51afd7ed558ccdull);
   size_t i = 0;
   for (; i + 8 <= len; i += 8) {
     uint64_t w;
@@ -433,9 +442,9 @@ inline uint64_t HashBytes(const uint8_t* p, size_t len) {
 }
 
 struct DedupSet {
-  std::vector<uint8_t> bytes;      // distinct values, concatenated in first-seen order
-  std::vector<uint32_t> offsets;   // n_distinct + 1
-  std::vector<uint32_t> refs;      // one per row
+  std::vector<uint8_t> bytes;     // distinct values, concatenated in first-seen order
+  std::vector<uint32_t> offsets;  // n_distinct + 1
+  std::vector<uint32_t> refs;     // one per row
   size_t n_distinct = 0;
 };
 
@@ -485,8 +494,8 @@ constexpr size_t kDictOnPairHeader = 16;
 
 std::vector<uint8_t> BuildDictOnPairPayload(const Corpus& c, const op::Config& cfg) {
   DedupSet d = BuildDedupSet(c);
-  op::Column col = op::Compress(d.bytes.data(), d.bytes.size(), d.offsets.data(),
-                                d.n_distinct, cfg);
+  op::Column col =
+      op::Compress(d.bytes.data(), d.bytes.size(), d.offsets.data(), d.n_distinct, cfg);
   size_t dict_bytes = col.dict.logical_bytes();
   size_t code_bits = IndexBits(col.dict.num_tokens());
   size_t off_bits = std::max<size_t>(1, BitWidth(dict_bytes));
@@ -528,11 +537,13 @@ std::vector<uint8_t> BuildDictOnPairPayload(const Corpus& c, const op::Config& c
 
   std::vector<uint32_t> dlens(d.n_distinct);
   for (size_t j = 0; j < d.n_distinct; ++j) dlens[j] = d.offsets[j + 1] - d.offsets[j];
-  std::vector<uint8_t> packed_dlens = op::PackValues(dlens.data(), dlens.size(), dlen_bits);
+  std::vector<uint8_t> packed_dlens =
+      op::PackValues(dlens.data(), dlens.size(), dlen_bits);
   packed_dlens.resize(BitPackedBytes(dlens.size(), dlen_bits));
   v.insert(v.end(), packed_dlens.begin(), packed_dlens.end());
 
-  std::vector<uint8_t> packed_refs = op::PackValues(d.refs.data(), d.refs.size(), ref_bits);
+  std::vector<uint8_t> packed_refs =
+      op::PackValues(d.refs.data(), d.refs.size(), ref_bits);
   packed_refs.resize(BitPackedBytes(d.refs.size(), ref_bits));
   v.insert(v.end(), packed_refs.begin(), packed_refs.end());
   return v;
@@ -568,7 +579,7 @@ uint8_t PickDictOnPairBits(const Corpus& c, double threshold) {
 // this payload is self-describing, so a reader really does pay it. The difference
 // is a prefix sum over the distinct set, which is negligible where dedup wins and
 // only matters on all-distinct columns, where dedup loses regardless.
-size_t DecodeDictOnPairPayload(const uint8_t* p, uint8_t* out,
+size_t DecodeDictOnPairPayload(const uint8_t* p, size_t size, uint8_t* out,
                                std::vector<uint8_t>* scratch) {
   size_t n_distinct = GetU32(p);
   size_t n_rows = GetU32(p + 4);
@@ -594,25 +605,31 @@ size_t DecodeDictOnPairPayload(const uint8_t* p, uint8_t* out,
   std::memcpy(dict.bytes.data(), dict_blob, dict_bytes);
   dict.offsets.resize(num_tokens + 1);
   for (size_t t = 0; t <= num_tokens; ++t) {
-    dict.offsets[t] = op::GetBits(packed_offs, t * off_bits, off_bits);
+    dict.offsets[t] = op::GetBits(
+        packed_offs, size - static_cast<size_t>(packed_offs - p), t * off_bits, off_bits);
   }
   dict.RecomputeMaxTokenLen();
 
   if (scratch->size() < distinct_bytes + op::kDecodePadding) {
     scratch->assign(distinct_bytes + op::kDecodePadding, 0);
   }
-  op::DecompressPacked(dict, packed_codes, num_codes, code_bits, scratch->data());
+  const size_t packed_offset = static_cast<size_t>(packed_codes - p);
+  op::DecompressPacked(dict, packed_codes, size - packed_offset, num_codes, code_bits,
+                       scratch->data(), scratch->size());
 
   std::vector<uint32_t> doff(n_distinct + 1);
   doff[0] = 0;
   for (size_t j = 0; j < n_distinct; ++j) {
-    doff[j + 1] = doff[j] + op::GetBits(packed_dlens, j * dlen_bits, dlen_bits);
+    doff[j + 1] =
+        doff[j] + op::GetBits(packed_dlens, size - static_cast<size_t>(packed_dlens - p),
+                              j * dlen_bits, dlen_bits);
   }
 
   const uint8_t* dbuf = scratch->data();
   size_t w = 0, bp = 0;
   for (size_t i = 0; i < n_rows; ++i) {
-    uint32_t id = op::GetBits(packed_refs, bp, ref_bits);
+    uint32_t id = op::GetBits(packed_refs, size - static_cast<size_t>(packed_refs - p),
+                              bp, ref_bits);
     bp += ref_bits;
     size_t off = doff[id];
     size_t len = doff[id + 1] - off;
@@ -638,7 +655,8 @@ std::shared_ptr<parquet::ColumnDescriptor> ByteArrayDescr() {
 std::vector<parquet::ByteArray> CorpusValues(const Corpus& c) {
   std::vector<parquet::ByteArray> vals(c.n_rows());
   for (size_t i = 0; i < c.n_rows(); ++i) {
-    vals[i] = parquet::ByteArray(c.offsets[i + 1] - c.offsets[i], c.bytes.data() + c.offsets[i]);
+    vals[i] = parquet::ByteArray(c.offsets[i + 1] - c.offsets[i],
+                                 c.bytes.data() + c.offsets[i]);
   }
   return vals;
 }
@@ -688,7 +706,7 @@ size_t DecodePqPayload(const Corpus& c, parquet::Encoding::type e, const uint8_t
 //
 // `dict_page_enc` is PLAIN for the RLE_DICTIONARY rows, which is the only thing a
 // writer may emit: a BYTE_ARRAY dictionary page is PLAIN-encoded by spec. Passing
-// anything else measures a *hypothetical* format change -- the fair opponent for
+// anything else measures a hypothetical format change. The comparable baseline for
 // replacing the dictionary page with an OnPair blob, since both ask the same
 // question of the spec. It is stored in the header rather than threaded through
 // the decode lambda so the payload stays self-describing; the word it occupies
@@ -702,7 +720,8 @@ std::vector<uint8_t> BuildDictPayload(const Corpus& c,
   auto base = parquet::MakeEncoder(parquet::Type::BYTE_ARRAY, parquet::Encoding::PLAIN,
                                    /*use_dictionary=*/true, descr);
   auto* enc = dynamic_cast<parquet::TypedEncoder<parquet::ByteArrayType>*>(base.get());
-  auto* dict_enc = dynamic_cast<parquet::DictEncoder<parquet::ByteArrayType>*>(base.get());
+  auto* dict_enc =
+      dynamic_cast<parquet::DictEncoder<parquet::ByteArrayType>*>(base.get());
   enc->Put(vals.data(), static_cast<int>(c.n_rows()));
 
   size_t dict_bytes = static_cast<size_t>(dict_enc->dict_encoded_size());
@@ -821,15 +840,17 @@ int main(int argc, char** argv) {
       return DecodeFsstPayload(p, s, o, out_cap);
     };
     auto op_build = [&] { return BuildOnPairPayload(c, cfg, /*byte_aligned=*/false); };
-    auto op16_build = [&] { return BuildOnPairPayload(c, cfg16, /*byte_aligned=*/false); };
+    auto op16_build = [&] {
+      return BuildOnPairPayload(c, cfg16, /*byte_aligned=*/false);
+    };
     auto opba_build = [&] { return BuildOnPairPayload(c, cfg, /*byte_aligned=*/true); };
     auto op_decode = [&](const uint8_t* p, size_t s, uint8_t* o) {
-      return DecodeOnPairPayload(p, s, o);
+      return DecodeOnPairPayload(p, s, o, out_cap);
     };
     auto dop_build = [&] { return BuildDictOnPairPayload(c, cfg16); };
     auto dop_auto_build = [&] { return BuildDictOnPairPayload(c, cfg_dop); };
-    auto dop_decode = [&](const uint8_t* p, size_t /*s*/, uint8_t* o) {
-      return DecodeDictOnPairPayload(p, o, &dop_scratch);
+    auto dop_decode = [&](const uint8_t* p, size_t s, uint8_t* o) {
+      return DecodeDictOnPairPayload(p, s, o, &dop_scratch);
     };
     auto concat_build = [&] { return BuildConcatPayload(c, /*with_lengths=*/true); };
     auto bytes_build = [&] { return BuildConcatPayload(c, /*with_lengths=*/false); };
@@ -863,24 +884,27 @@ int main(int argc, char** argv) {
     // inside the compressed page, which is what Parquet actually writes. FSST
     // and OnPair alone already match Tables 1-3, since their payload carries the
     // bit-packed length array uncompressed either way.
-    ms.push_back(RunCodec(c, "zstd(1) [split len]", Generic::kZstd1, bytes_build, concat_decode,
-                          c.len_array_bytes()));
+    ms.push_back(RunCodec(c, "zstd(1) [split len]", Generic::kZstd1, bytes_build,
+                          concat_decode, c.len_array_bytes()));
     ms.push_back(RunCodec(c, "lz4 [split len]", Generic::kLz4, bytes_build, concat_decode,
                           c.len_array_bytes()));
+    ms.push_back(RunCodec(c, "zstd(1) [len in page]", Generic::kZstd1, concat_build,
+                          concat_decode));
     ms.push_back(
-        RunCodec(c, "zstd(1) [len in page]", Generic::kZstd1, concat_build, concat_decode));
-    ms.push_back(RunCodec(c, "lz4 [len in page]", Generic::kLz4, concat_build, concat_decode));
+        RunCodec(c, "lz4 [len in page]", Generic::kLz4, concat_build, concat_decode));
     ms.push_back(RunCodec(c, "FSST", Generic::kNone, fsst_build, fsst_decode));
-    ms.push_back(RunCodec(c, "OnPair-auto", Generic::kNone, op_build, op_decode));
+    ms.push_back(RunCodec(c, "OnPair-chosen", Generic::kNone, op_build, op_decode));
     ms.push_back(RunCodec(c, "OnPair16", Generic::kNone, op16_build, op_decode));
     ms.push_back(RunCodec(c, "DICT+OnPair", Generic::kNone, dop_build, dop_decode));
-    ms.push_back(RunCodec(c, "DICT+OnPair-auto", Generic::kNone, dop_auto_build, dop_decode));
+    ms.push_back(
+        RunCodec(c, "DICT+OnPair-chosen", Generic::kNone, dop_auto_build, dop_decode));
 
     // Group A: cascade a generic codec over FSST / OnPair.
     ms.push_back(RunCodec(c, "FSST+zstd(1)", Generic::kZstd1, fsst_build, fsst_decode));
     ms.push_back(RunCodec(c, "FSST+lz4", Generic::kLz4, fsst_build, fsst_decode));
-    ms.push_back(RunCodec(c, "OnPair-auto+zstd(1)", Generic::kZstd1, op_build, op_decode));
-    ms.push_back(RunCodec(c, "OnPair-auto+lz4", Generic::kLz4, op_build, op_decode));
+    ms.push_back(
+        RunCodec(c, "OnPair-chosen+zstd(1)", Generic::kZstd1, op_build, op_decode));
+    ms.push_back(RunCodec(c, "OnPair-chosen+lz4", Generic::kLz4, op_build, op_decode));
     ms.push_back(RunCodec(c, "OnPair-bytealign", Generic::kNone, opba_build, op_decode));
     ms.push_back(
         RunCodec(c, "OnPair-bytealign+zstd(1)", Generic::kZstd1, opba_build, op_decode));
@@ -901,8 +925,8 @@ int main(int argc, char** argv) {
       }
     }
     for (Generic g : {Generic::kNone, Generic::kZstd1, Generic::kLz4}) {
-      ms.push_back(RunCodec(c, "RLE_DICTIONARY" + std::string(GenericSuffix(g)), g, dict_build,
-                            dict_decode));
+      ms.push_back(RunCodec(c, "RLE_DICTIONARY" + std::string(GenericSuffix(g)), g,
+                            dict_build, dict_decode));
     }
     // A dictionary page carrying DELTA_LENGTH_BYTE_ARRAY instead of PLAIN. Not a
     // page any writer can emit -- the spec fixes BYTE_ARRAY dictionary pages at
@@ -911,8 +935,8 @@ int main(int argc, char** argv) {
     // the index stream alone. Encode throughput here is pessimistic; see
     // BuildDictPayload.
     for (Generic g : {Generic::kNone, Generic::kZstd1}) {
-      ms.push_back(RunCodec(c, "DICT+DLBA" + std::string(GenericSuffix(g)), g, dict_dlba.first,
-                            dict_dlba.second));
+      ms.push_back(RunCodec(c, "DICT+DLBA" + std::string(GenericSuffix(g)), g,
+                            dict_dlba.first, dict_dlba.second));
     }
 
     std::printf("%-30s %10zu %10.2f\n", c.name.c_str(), c.n_rows(), Mib(c.raw_bytes()));
@@ -934,8 +958,8 @@ int main(int argc, char** argv) {
     };
     const Measured* fsst_alone = find("FSST");
     const Measured* fsst_z = find("FSST+zstd(1)");
-    const Measured* op_alone = find("OnPair-auto");
-    const Measured* op_z = find("OnPair-auto+zstd(1)");
+    const Measured* op_alone = find("OnPair-chosen");
+    const Measured* op_z = find("OnPair-chosen+zstd(1)");
     const Measured* opba_z = find("OnPair-bytealign+zstd(1)");
     std::printf("  -> FSST+zstd vs FSST alone:        ratio %+.1f%%, decode %+.1f%%\n",
                 (ratio(*fsst_z) / ratio(*fsst_alone) - 1.0) * 100.0,
@@ -943,8 +967,9 @@ int main(int argc, char** argv) {
     std::printf("  -> OnPair+zstd vs OnPair alone:    ratio %+.1f%%, decode %+.1f%%\n",
                 (ratio(*op_z) / ratio(*op_alone) - 1.0) * 100.0,
                 (op_z->decode_mibs / op_alone->decode_mibs - 1.0) * 100.0);
-    std::printf("  -> OnPair byte-aligned+zstd vs bit-packed OnPair alone: ratio %+.1f%%\n",
-                (ratio(*opba_z) / ratio(*op_alone) - 1.0) * 100.0);
+    std::printf(
+        "  -> OnPair byte-aligned+zstd vs bit-packed OnPair alone: ratio %+.1f%%\n",
+        (ratio(*opba_z) / ratio(*op_alone) - 1.0) * 100.0);
 
     const Measured* best_pq = nullptr;
     for (const Measured& m : ms) {
@@ -952,7 +977,8 @@ int main(int argc, char** argv) {
           m.label.rfind("RLE_DICTIONARY", 0) != 0) {
         continue;
       }
-      if (best_pq == nullptr || m.compressed_bytes < best_pq->compressed_bytes) best_pq = &m;
+      if (best_pq == nullptr || m.compressed_bytes < best_pq->compressed_bytes)
+        best_pq = &m;
     }
     std::printf("  -> best Parquet-native (%s): %.3fx; OnPair alone %+.1f%% vs it\n\n",
                 best_pq->label.c_str(), ratio(*best_pq),

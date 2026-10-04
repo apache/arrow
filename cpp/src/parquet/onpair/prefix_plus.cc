@@ -27,7 +27,8 @@ namespace {
 // Longest common prefix of two strings, capped at `cap`. With `guard`, trim so
 // the returned length never falls between an FSST escape byte (255) and its
 // literal: if the last matched byte is 255, drop it (thesis Listing 5.4).
-size_t Lcp(const uint8_t* a, size_t la, const uint8_t* b, size_t lb, size_t cap, bool guard) {
+size_t Lcp(const uint8_t* a, size_t la, const uint8_t* b, size_t lb, size_t cap,
+           bool guard) {
   size_t m = std::min(std::min(la, lb), cap);
   size_t l = 0;
   while (l < m && a[l] == b[l]) ++l;
@@ -39,8 +40,9 @@ size_t Lcp(const uint8_t* a, size_t la, const uint8_t* b, size_t lb, size_t cap,
 // (already sorted). Writes prefix_len[k] and chunk_first_local[k] for each
 // string k in the block; chunk_first_local is a block-local index. Returns the
 // number of chunks that carry a non-empty prefix.
-size_t CleaveBlock(const uint8_t* const* strs, const size_t* lens, size_t bn, size_t max_prefix,
-                   bool guard, uint32_t* prefix_len, uint32_t* chunk_first_local) {
+size_t CleaveBlock(const uint8_t* const* strs, const size_t* lens, size_t bn,
+                   size_t max_prefix, bool guard, uint32_t* prefix_len,
+                   uint32_t* chunk_first_local) {
   if (bn == 0) return 0;
 
   // Consecutive LCPs, then min_lcp[i][j] = shared prefix length of strings i..j
@@ -53,7 +55,8 @@ size_t CleaveBlock(const uint8_t* const* strs, const size_t* lens, size_t bn, si
   for (size_t i = 0; i < bn; ++i) {
     min_lcp[i][i] = static_cast<uint32_t>(std::min(lens[i], max_prefix));
     for (size_t j = i + 1; j < bn; ++j) {
-      min_lcp[i][j] = std::min<uint32_t>(min_lcp[i][j - 1], static_cast<uint32_t>(lcp[j - 1]));
+      min_lcp[i][j] =
+          std::min<uint32_t>(min_lcp[i][j - 1], static_cast<uint32_t>(lcp[j - 1]));
     }
   }
 
@@ -72,7 +75,8 @@ size_t CleaveBlock(const uint8_t* const* strs, const size_t* lens, size_t bn, si
       for (int c = 0; c < n_cand; ++c) {
         const size_t p = candidates[c];
         const size_t cnt = i - j;
-        const size_t per_string_overhead = 1 + (p > 0 ? 2 : 0);  // prefix_length [+ jumpback]
+        const size_t per_string_overhead =
+            1 + (p > 0 ? 2 : 0);  // prefix_length [+ jumpback]
         const size_t overhead = cnt * per_string_overhead;
         const size_t sum_len = len_prefix_sum[i] - len_prefix_sum[j];
         // Store the shared prefix once (p bytes) + all suffixes (sum_len - cnt*p)
@@ -105,8 +109,8 @@ size_t CleaveBlock(const uint8_t* const* strs, const size_t* lens, size_t bn, si
 
 }  // namespace
 
-Cleaving CleaveSorted(const uint8_t* const* strs, const size_t* lens, size_t n, size_t max_prefix,
-                      bool guard_escape255) {
+Cleaving CleaveSorted(const uint8_t* const* strs, const size_t* lens, size_t n,
+                      size_t max_prefix, bool guard_escape255) {
   if (max_prefix > kMaxPrefix) max_prefix = kMaxPrefix;
   Cleaving out;
   out.prefix_len.assign(n, 0);

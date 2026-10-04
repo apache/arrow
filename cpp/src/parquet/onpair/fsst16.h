@@ -15,89 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// FSST's symbol-table training algorithm, lifted to a 16-bit code space.
+// Benchmark-only FSST trainer for a 16-bit code space. The vendored FSST trainer
+// uses a dense pair-frequency matrix and 64-bit symbols, so widening it would
+// require prohibitive memory and would retain an eight-byte symbol limit. This
+// implementation instead uses sparse pair counts and explicit byte arrays.
+//
+// Codes 0 through 255 represent literal bytes; higher codes represent learned
+// symbols. The trainer follows FSST's progressive sampling and scoring, but it
+// bounds-checks matches, uses deterministic shorter-first lexicographic tie
+// breaking, and does not renumber fixed-width codes. It returns a token list so
+// comparisons can share the same tokenizer and decoder.
 //
 // Reference: P. Boncz, T. Neumann, V. Leis, "FSST: Fast Random Access String
-// Compression", VLDB 2020. The vendored reference implementation trains a
-// 255-symbol table addressed by one output byte, with one code reserved to
-// escape a literal byte. This trains the same way but over a table addressed by
-// two output bytes, which is what a like-for-like comparison against a
-// 16-bit-code dictionary codec needs.
-//
-// WHY THIS IS A SEPARATE IMPLEMENTATION, NOT A PARAMETER
-//
-// The reference cannot be widened in place. Two of its structures are tied to
-// the narrow code space:
-//
-//   * The pair-frequency counter is a dense code-by-code matrix. It is a few
-//     hundred KiB at a 9-bit code space and tens of GiB at a 16-bit one, so a
-//     16-bit table needs a sparse counter and a candidate-generation loop that
-//     walks occupied entries instead of the full square.
-//   * A symbol is stored in a single 64-bit word, which caps it at 8 bytes. A
-//     16-byte symbol needs a wider representation, and the byte-at-a-time
-//     longest-match index built around that word has to be replaced.
-//
-// The vendored reference is therefore left untouched, so the 8-bit baseline it
-// produces stays exactly what it was.
-//
-// CODE SPACE
-//
-// Codes 0..255 are the literal bytes; codes 256 and up are learned symbols.
-// This is the natural reading of the reference's own escape mechanism at two
-// bytes per code: there, escaping a literal costs a code plus the byte, so the
-// trainer works hard to keep literals rare. Here a literal costs one code, the
-// same as any symbol, so escapes disappear and the 256 single bytes are simply
-// always resident. Every emitted code is the same fixed width, so the output
-// size is exactly two bytes times the number of codes, and the trainer's
-// objective reduces to emitting as few codes as possible.
-//
-// TRAINING SHAPE PRESERVED FROM THE REFERENCE
-//
-// Progressive sampling over five rounds at increasing sample fractions; each
-// round compresses the sample with the current table while counting single-
-// symbol and adjacent-pair frequencies; candidate symbols are the counted
-// symbols plus every counted pair concatenated; a candidate's score is its
-// count times its length; single-byte candidates are scored eight times up;
-// candidates below a round-scaled minimum count are discarded; the table is
-// cleared and refilled from the highest-scoring candidates each round; the
-// round with the best measured gain is kept and rebuilt from its own counts at
-// the end.
-//
-// DEVIATIONS, and why each is forced or harmless
-//
-//   V1. Sparse pair counter. Open-addressed rather than a dense matrix, for the
-//       reason above. Counts are 32-bit and do not saturate, where the
-//       reference's pair counts saturate at twelve bits. A pair frequent enough
-//       to saturate is selected either way, so this can only change the
-//       relative order of two already-selected candidates.
-//   V2. Candidate generation walks the occupied pair entries rather than nesting
-//       a right-code loop inside a left-code loop. The set of candidates is the
-//       same; the order in which they are first seen is not, which matters only
-//       for ties.
-//   V3. No terminator byte. The reference picks the least frequent byte as a
-//       terminator, forces it into every table, and refuses to build a
-//       multi-byte symbol containing it, so that its match loop can read past
-//       the end of a string. This bounds-checks its match loop instead, which
-//       removes the special case entirely.
-//   V4. Single-byte candidates are scored and ranked but never admitted, since
-//       the 256 literals are already resident. The eight-times promotion is kept
-//       so the pair-generation path sees the same scores, but it cannot change
-//       the table.
-//   V5. Ties in candidate score are broken by shorter-first then lexicographic
-//       byte order, rather than by the reference's numeric ordering of the
-//       symbol's packed word. Both are arbitrary; a total order is all that is
-//       needed for a deterministic table.
-//   V6. No code renumbering at the end. The reference renumbers so that its
-//       most frequent symbols land in the range addressable by a single byte;
-//       with a fixed two-byte code, code order cannot affect the output size.
-//
-// The trained table is emitted as a token list, so the tokenizer and decoder of
-// the 16-bit dictionary codec it is being compared against can consume it
-// directly. That is deliberate: the parsing pass and the decode pass are then
-// literally the same code for both, and every difference that remains is a
-// difference in how the table was chosen.
-//
-// NOT a production encoder - this is a benchmark artifact.
+// Compression", VLDB 2020.
 //
 // Little-endian hosts only.
 

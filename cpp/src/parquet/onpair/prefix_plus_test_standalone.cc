@@ -14,9 +14,7 @@
 // under the License.
 
 // Standalone validation for the prefix_plus cleaving core. No Arrow deps.
-// Build:  g++ -std=c++17 -O2 -Icpp/src \
-//           cpp/src/parquet/onpair/prefix_plus.cc \
-//           cpp/src/parquet/onpair/prefix_plus_test_standalone.cc -o t
+// Build both this file and prefix_plus.cc with C++17 and cpp/src on the include path.
 //
 // Checks the cleaving invariant that makes decode correct: for every string i,
 // its first prefix_len[i] bytes equal the first prefix_len[i] bytes of its
@@ -65,8 +63,8 @@ bool Check(std::vector<std::string> rows, bool guard, const char* name) {
     const uint32_t cf = cl.chunk_first[i];
     // Bounds.
     if (p > lens[i] || p > pp::kMaxPrefix || cf > i) {
-      std::printf("  FAIL %-22s: bad cleave at %zu (p=%u cf=%u len=%zu)\n", name, i, p, cf,
-                  lens[i]);
+      std::printf("  FAIL %-22s: bad cleave at %zu (p=%u cf=%u len=%zu)\n", name, i, p,
+                  cf, lens[i]);
       ++g_failures;
       return false;
     }
@@ -116,8 +114,8 @@ int main() {
   // No shared prefix (distinct first bytes) -> every prefix_len should be 0.
   {
     std::vector<std::string> v;
-    for (int i = 0; i < 100; ++i) v.push_back(std::string(1, static_cast<char>('A' + i % 26)) +
-                                              std::to_string(i));
+    for (int i = 0; i < 100; ++i)
+      v.push_back(std::string(1, static_cast<char>('A' + i % 26)) + std::to_string(i));
     Check(v, false, "no_shared_prefix");
   }
 
@@ -131,8 +129,8 @@ int main() {
   {
     std::vector<std::string> v;
     for (int g = 0; g < 10; ++g)
-      for (int i = 0; i < 40; ++i) v.push_back("group" + std::to_string(g) + "/item" +
-                                               std::to_string(i));
+      for (int i = 0; i < 40; ++i)
+        v.push_back("group" + std::to_string(g) + "/item" + std::to_string(i));
     Check(v, false, "multi_block");
   }
 

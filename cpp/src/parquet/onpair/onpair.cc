@@ -18,12 +18,14 @@
 #include "parquet/onpair/onpair.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <cmath>
 #include <cstring>
 #include <limits>
 #include <numeric>
+#include <stdexcept>
 #include <utility>
 
 // The decode loop stores exactly one token's length per iteration when a
@@ -31,7 +33,7 @@
 // is a compile-time guard on purpose: the portable path below is byte-identical
 // and only slower, so a build without SVE loses speed and nothing else.
 #if defined(__ARM_FEATURE_SVE)
-#include <arm_sve.h>
+#  include <arm_sve.h>
 #endif
 
 namespace parquet::onpair {
@@ -39,6 +41,105 @@ namespace {
 
 constexpr size_t kBucketPrefixLen = 8;
 constexpr size_t kPromoteThreshold = 128;
+
+void ValidateConfig(const Config& cfg) {
+  if (cfg.max_dict_bits < 8 || cfg.max_dict_bits > 16) {
+    throw std::invalid_argument("OnPair dictionary width must be between 8 and 16 bits");
+  }
+  if (!std::isfinite(cfg.threshold_fraction) || cfg.threshold_fraction <= 0.0 ||
+      cfg.threshold_fraction > 1.0) {
+    throw std::invalid_argument("OnPair threshold fraction must be in (0, 1]");
+  }
+}
+
+void ValidateRows(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
+                  size_t num_rows) {
+  if (offsets == nullptr) {
+    throw std::invalid_argument("OnPair offsets must not be null");
+  }
+  if (bytes == nullptr && bytes_len != 0) {
+    throw std::invalid_argument("OnPair bytes must not be null");
+  }
+  if (offsets[0] != 0 || offsets[num_rows] > bytes_len) {
+    throw std::invalid_argument("OnPair offsets are outside the input buffer");
+  }
+  for (size_t i = 0; i < num_rows; ++i) {
+    if (offsets[i] > offsets[i + 1]) {
+      throw std::invalid_argument("OnPair offsets must be nondecreasing");
+    }
+  }
+}
+
+void ValidateDictionary(const CompactDictionary& dict) {
+  if (dict.offsets.empty() || dict.offsets.front() != 0 ||
+      dict.offsets.back() > dict.bytes.size()) {
+    throw std::invalid_argument("Invalid OnPair dictionary offsets");
+  }
+  size_t actual_max = 0;
+  for (size_t i = 0; i + 1 < dict.offsets.size(); ++i) {
+    if (dict.offsets[i] >= dict.offsets[i + 1] ||
+        dict.offsets[i + 1] - dict.offsets[i] > kMaxTokenSize) {
+      throw std::invalid_argument(
+          "OnPair dictionary tokens must contain between 1 and 16 bytes");
+    }
+    actual_max = std::max<size_t>(actual_max, dict.offsets[i + 1] - dict.offsets[i]);
+  }
+  if (dict.num_tokens() > 65536 || dict.max_token_len < actual_max ||
+      dict.max_token_len > kMaxTokenSize ||
+      dict.bytes.size() - dict.offsets.back() < kMaxTokenSize) {
+    throw std::invalid_argument("Invalid OnPair dictionary metadata or padding");
+  }
+}
+
+void ValidateCodes(const CompactDictionary& dict, const uint16_t* codes, size_t count) {
+  ValidateDictionary(dict);
+  for (size_t i = 0; i < count; ++i) {
+    if (codes[i] >= dict.num_tokens()) {
+      throw std::invalid_argument("OnPair code is outside the dictionary");
+    }
+  }
+}
+
+void ValidatePackedArguments(size_t num_tokens, size_t bits) {
+  if (bits == 0 || bits > 16 || bits < CodeWidth(num_tokens)) {
+    throw std::invalid_argument("Invalid OnPair packed code width");
+  }
+}
+
+size_t RequiredPackedSize(size_t count, size_t bits) {
+  if (count == 0) return 0;
+  if (count - 1 > std::numeric_limits<size_t>::max() / bits) {
+    throw std::invalid_argument("OnPair packed stream is too large");
+  }
+  const size_t last_byte = ((count - 1) * bits) / 8;
+  if (last_byte > std::numeric_limits<size_t>::max() - sizeof(uint32_t)) {
+    throw std::invalid_argument("OnPair packed stream is too large");
+  }
+  return last_byte + sizeof(uint32_t);
+}
+
+void ValidatePackedCodes(const uint8_t* packed, size_t packed_size, size_t count,
+                         size_t bits, size_t num_tokens) {
+  ValidatePackedArguments(num_tokens, bits);
+  if (packed == nullptr && count != 0) {
+    throw std::invalid_argument("OnPair packed input must not be null");
+  }
+  if (packed_size < RequiredPackedSize(count, bits)) {
+    throw std::invalid_argument("OnPair packed input is truncated");
+  }
+  for (size_t i = 0; i < count; ++i) {
+    if (GetBits(packed, packed_size, i * bits, bits) >= num_tokens) {
+      throw std::invalid_argument("OnPair packed code is outside the dictionary");
+    }
+  }
+}
+
+size_t RequiredOutputSize(size_t decoded_size) {
+  if (decoded_size > std::numeric_limits<size_t>::max() - kDecodePadding) {
+    throw std::invalid_argument("OnPair decoded output is too large");
+  }
+  return decoded_size == 0 ? 0 : decoded_size + kDecodePadding;
+}
 
 // Little-endian packing helpers
 
@@ -298,8 +399,8 @@ class LongestPrefixMatcher {
     LongestPrefixMatcher m;
     size_t n = dict.num_tokens();
     for (size_t i = 0; i < n; ++i) {
-      m.InsertInternal(dict.token_ptr(static_cast<Token>(i)), dict.token_len(static_cast<Token>(i)),
-                       static_cast<Token>(i));
+      m.InsertInternal(dict.token_ptr(static_cast<Token>(i)),
+                       dict.token_len(static_cast<Token>(i)), static_cast<Token>(i));
     }
     m.next_id_ = static_cast<uint32_t>(n);
     return m;
@@ -332,7 +433,8 @@ class LongestPrefixMatcher {
         std::pair<Token, size_t> hit{0, 0};
         bool found;
         if (b.trie_root < 0) {
-          found = SearchLinear(b.entries, LoadLeU64(suf, suf_len, suf_len), suf_len, &hit);
+          found =
+              SearchLinear(b.entries, LoadLeU64(suf, suf_len, suf_len), suf_len, &hit);
         } else {
           found = SearchTrie(static_cast<uint32_t>(b.trie_root), suf, suf_len, &hit);
         }
@@ -493,7 +595,8 @@ class DynamicThresholdController {
  public:
   DynamicThresholdController(size_t capacity, size_t total_bytes, double scan_fraction)
       : capacity_(capacity),
-        scan_budget_(static_cast<size_t>(static_cast<double>(total_bytes) * scan_fraction)),
+        scan_budget_(
+            static_cast<size_t>(static_cast<double>(total_bytes) * scan_fraction)),
         check_interval_(std::max<size_t>(capacity / 128, 64)),
         next_checkpoint_(check_interval_) {}
 
@@ -607,7 +710,8 @@ struct TrainResult {
 /// the whole game. This set never overflows the budget -- there are at most 256 byte
 /// values and the narrowest budget holds exactly 256 codes -- so no occurring byte
 /// ever goes without a token and the tokenizer stays total with no escape code.
-std::vector<uint8_t> ChooseLiterals(const uint8_t* data, size_t total_bytes, size_t budget) {
+std::vector<uint8_t> ChooseLiterals(const uint8_t* data, size_t total_bytes,
+                                    size_t budget) {
   bool present[256] = {};
   for (size_t i = 0; i < total_bytes; ++i) present[data[i]] = true;
 
@@ -702,7 +806,8 @@ TrainResult Train(const uint8_t* data, const uint32_t* offsets, size_t n,
 
       size_t pair_len = prev_len + curr_len;
       if (pair_len <= kMaxTokenSize) {
-        uint32_t key = (static_cast<uint32_t>(prev_id) << 16) | static_cast<uint32_t>(curr_id);
+        uint32_t key =
+            (static_cast<uint32_t>(prev_id) << 16) | static_cast<uint32_t>(curr_id);
         uint8_t count = freq.Bump(key);
         if (count >= threshold) {
           size_t pair_start = pos - prev_len;
@@ -767,13 +872,14 @@ void EncodeStrings(const uint8_t* data, const uint32_t* offsets, size_t n,
   }
 }
 
-
 }  // namespace
 
 // Public API
 
-Column Compress(const uint8_t* bytes, size_t /*bytes_len*/, const uint32_t* offsets,
+Column Compress(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
                 size_t num_rows, const Config& cfg, EncodeProfile* profile) {
+  ValidateConfig(cfg);
+  ValidateRows(bytes, bytes_len, offsets, num_rows);
   TrainResult tr = Train(bytes, offsets, num_rows, cfg, profile);
   Column col;
   col.dict = std::move(tr.dict);
@@ -788,9 +894,29 @@ Column Compress(const uint8_t* bytes, size_t /*bytes_len*/, const uint32_t* offs
   return col;
 }
 
-Column CompressWithTokens(const uint8_t* bytes, const uint32_t* offsets, size_t num_rows,
-                          const std::vector<uint8_t>& token_bytes,
+Column CompressWithTokens(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
+                          size_t num_rows, const std::vector<uint8_t>& token_bytes,
                           const std::vector<uint32_t>& token_offsets) {
+  if (token_offsets.empty() || token_offsets.front() != 0 ||
+      token_offsets.back() != token_bytes.size() || token_offsets.size() > 65537) {
+    throw std::invalid_argument("Invalid OnPair token offsets");
+  }
+  std::array<bool, 256> has_literal{};
+  for (size_t i = 0; i + 1 < token_offsets.size(); ++i) {
+    const size_t length = token_offsets[i + 1] - token_offsets[i];
+    if (token_offsets[i] > token_offsets[i + 1] || length == 0 ||
+        length > kMaxTokenSize) {
+      throw std::invalid_argument("OnPair tokens must contain between 1 and 16 bytes");
+    }
+    if (token_offsets[i + 1] - token_offsets[i] == 1) {
+      has_literal[token_bytes[token_offsets[i]]] = true;
+    }
+  }
+  if (!std::all_of(has_literal.begin(), has_literal.end(),
+                   [](bool present) { return present; })) {
+    throw std::invalid_argument("OnPair token set must contain every byte literal");
+  }
+  ValidateRows(bytes, bytes_len, offsets, num_rows);
   std::vector<uint8_t> sorted_bytes;
   std::vector<uint32_t> sorted_offsets;
   SortTokens(token_bytes, token_offsets, &sorted_bytes, &sorted_offsets);
@@ -809,12 +935,20 @@ Column CompressWithTokens(const uint8_t* bytes, const uint32_t* offsets, size_t 
 }
 
 size_t DecodedLen(const Column& col) {
+  ValidateCodes(col.dict, col.codes.data(), col.codes.size());
   size_t sum = 0;
-  for (uint16_t c : col.codes) sum += col.dict.token_len(c);
+  for (uint16_t c : col.codes) {
+    const size_t length = col.dict.token_len(c);
+    if (sum > std::numeric_limits<size_t>::max() - length) {
+      throw std::invalid_argument("OnPair decoded output is too large");
+    }
+    sum += length;
+  }
   return sum;
 }
 
 void StridedDictionary::Build(const CompactDictionary& dict) {
+  ValidateDictionary(dict);
   // Align `slots` to a cache line so that a kStride-byte slot, kStride being a
   // power of two no larger than a line, never straddles two lines. std::vector
   // only promises alignment for its element type, so over-allocate by one line
@@ -842,14 +976,15 @@ namespace {
 // Building the strided view is one pass over the dictionary, so it pays for itself
 // only when the code stream is long enough to amortise it. Below this the blob
 // kernel runs directly. The crossover measured at roughly one code per token; the
-// build-charged rung's worst corpus (a two-token dictionary over a short column)
-// sits exactly here and came out level rather than slower.
+// worst build-charged case, a two-token dictionary over a short column, reaches
+// this threshold without slowing down.
 bool StridedViewWorthBuilding(size_t ncodes, size_t ntokens) { return ncodes >= ntokens; }
 
 // Shared body of DecompressInto over the strided view, parameterised on the copy
 // width for the same reason the packed kernels are. See max_token_len.
 template <size_t kCopy>
-size_t DecompressIntoStrided(const StridedDictionary& dict, const Column& col, uint8_t* out) {
+size_t DecompressIntoStrided(const StridedDictionary& dict, const Column& col,
+                             uint8_t* out) {
   const uint8_t* slots = dict.slots;
   const uint8_t* lens = dict.lens.data();
   size_t w = 0;
@@ -897,7 +1032,13 @@ size_t DecompressIntoFixed(const Column& col, uint8_t* out) {
 
 }  // namespace
 
-size_t DecompressInto(const Column& col, uint8_t* out) {
+size_t DecompressInto(const Column& col, uint8_t* out, size_t out_capacity) {
+  ValidateCodes(col.dict, col.codes.data(), col.codes.size());
+  const size_t decoded_size = DecodedLen(col);
+  if ((out == nullptr && decoded_size != 0) ||
+      out_capacity < RequiredOutputSize(decoded_size)) {
+    throw std::invalid_argument("OnPair output buffer is too small");
+  }
   const size_t maxlen = col.dict.max_token_len;
   if (!StridedViewWorthBuilding(col.codes.size(), col.dict.num_tokens())) {
     if (maxlen <= 4) return DecompressIntoFixed<4>(col, out);
@@ -916,9 +1057,16 @@ size_t DecompressInto(const Column& col, uint8_t* out) {
 }
 
 std::vector<uint8_t> PackValues(const uint32_t* vals, size_t n, size_t bits) {
+  if (bits == 0 || bits > 25 || (vals == nullptr && n != 0) ||
+      n > (std::numeric_limits<size_t>::max() - 7) / bits) {
+    throw std::invalid_argument("Invalid OnPair bit-packing arguments");
+  }
   std::vector<uint8_t> out((n * bits + 7) / 8 + 4, 0);
   size_t bitpos = 0;
   for (size_t i = 0; i < n; ++i) {
+    if (vals[i] >= (uint32_t{1} << bits)) {
+      throw std::invalid_argument("OnPair value does not fit the packed width");
+    }
     size_t byte = bitpos >> 3, off = bitpos & 7;
     uint32_t w;
     std::memcpy(&w, out.data() + byte, 4);
@@ -931,44 +1079,13 @@ std::vector<uint8_t> PackValues(const uint32_t* vals, size_t n, size_t bits) {
 
 namespace {
 
-// What this loop actually waits on, measured by ablation across 30 corpora rather
-// than inferred: the random dictionary read. Deleting the gather while keeping the
-// unpack and the store nearly doubles throughput (+83%). Deleting the store while
-// keeping the gather makes the loop SLOWER (-14%, on every corpus). So the store is
-// not the constraint, and storing fewer bytes is not the lever.
-//
-// This corrects an earlier reading of the same code. The evidence then was that
-// (over-copy factor) x (decode MiB/s) came out constant across corpora, which was
-// taken to mean a fixed store-bandwidth ceiling. That product is equally constant
-// when the loop is bound by tokens retired, because over-copy is
-// kCopy / mean_token_len while throughput is mean_token_len x tokens_per_second --
-// the two models are indistinguishable from that measurement, and the ablation
-// picks the other one.
-//
-// Two experiments were rejected under the old reading. Both really did lose, so
-// they are recorded here, but the reason was misattributed:
-//
-//   - Unpacking codes a block at a time and prefetching before the gather: -22%
-//     with the offsets prefetched, -41% with the payload prefetched, worst case
-//     -65%, on all corpora. Aimed at the right cost, but a prefetch cannot help a
-//     stream of unpredictable indices arriving one code ahead of its use; it only
-//     adds a pass and the traffic of prefetches that arrive too late to hide
-//     anything.
-//   - A 12-byte copy as two stores: -4 to -6% wherever it applied. One wide store
-//     beats two narrow ones, which is a store-issue effect and holds regardless of
-//     what the loop is bound by.
-//
-// A third was measured and never built: choosing the copy width per block of 32
-// codes rather than per stream. Worth a median 1.00x of store traffic, because
-// nearly every block of 32 contains at least one 16-byte token.
-//
-// The fix is to change what the gather reads. StridedDictionary gives each token a
-// fixed slot and puts its length in a dense byte array, so one random line serves a
-// token instead of two -- the layout FSST's decoder has always had, and which
-// OnPair gave up when it lifted the length cap. See the kernels below.
+// Random dictionary access, rather than output stores, limits this loop. Keep each
+// token in a fixed slot and its length in a dense array so decoding needs one
+// unpredictable payload lookup. Block prefetching cannot hide a lookup whose index
+// becomes available only one code before use and would add another pass.
 template <size_t kCopy>
-size_t DecompressPackedFixed(const CompactDictionary& dict, const uint8_t* packed, size_t ncodes,
-                             size_t bits, uint8_t* out) {
+size_t DecompressPackedFixed(const CompactDictionary& dict, const uint8_t* packed,
+                             size_t ncodes, size_t bits, uint8_t* out) {
   size_t bitpos = 0, w = 0;
   const uint32_t mask = (bits >= 32) ? 0xFFFFFFFFu : ((1u << bits) - 1);
   for (size_t i = 0; i < ncodes; ++i) {
@@ -1071,7 +1188,7 @@ size_t DecompressStridedExactBits(const StridedDictionary& dict, const uint8_t* 
 //      code, so this leaves those columns on the per-code loop
 //   2  groups of at least ONPAIR_GROUP_CODES codes at every width, 16 included
 #ifndef ONPAIR_GROUP_UNROLL
-#define ONPAIR_GROUP_UNROLL 2
+#  define ONPAIR_GROUP_UNROLL 2
 #endif
 
 // 0 asks for the phase period itself, the smallest group that makes every offset
@@ -1080,29 +1197,13 @@ size_t DecompressStridedExactBits(const StridedDictionary& dict, const uint8_t* 
 // emits eight codes at the widths whose period is eight and four at 14 and 16, where
 // the request is taken literally.
 //
-// Four is measured, not chosen for its arithmetic. Sweeping the request over 2, 4, 8
-// and 16 only moves the widths where the request is not rounded up, and a 16-bit width
-// is the only one of those where the group size is genuinely free. What happens there
-// depends on the build, which is the more interesting result of the sweep. With the
-// predicated store the answer is a step: two codes gains nothing at all and four gains
-// the lot. On the portable build it is a slope, two already gaining about half of what
-// eight gains, close to the (1 - 1/n) curve a loop whose group saving is per-code
-// cursor arithmetic would follow. So the group form is removing scalar work in one
-// build and covering dictionary-read latency in the other, and neither reading
-// generalizes to the other. Four is the smallest request that captures the bulk of the
-// gain on both.
-//
-// Above four the sweep stops choosing. Four and eight differ by well under a per cent
-// at the only widths where they differ at all, and the two builds disagree on which
-// way: with the predicated store four is ahead on 12 of the 15 16-bit columns, and on
-// the portable build eight is ahead, in both portable sweeps. This is a tie broken on
-// code size and on the shorter remainder a smaller group leaves after its last whole
-// group, which matters on a short page and which the corpora here are all too long to
-// show.
+// Four is the smallest request that benefits both predicated and portable stores.
+// Larger requests increase code size and leave longer scalar remainders without a
+// consistent throughput gain.
 #if ONPAIR_GROUP_UNROLL >= 2
-#ifndef ONPAIR_GROUP_CODES
-#define ONPAIR_GROUP_CODES 4
-#endif
+#  ifndef ONPAIR_GROUP_CODES
+#    define ONPAIR_GROUP_CODES 4
+#  endif
 constexpr size_t kGroupCodesRequest = ONPAIR_GROUP_CODES;
 #else
 constexpr size_t kGroupCodesRequest = 0;
@@ -1117,34 +1218,9 @@ constexpr size_t kGroupCodesRequest = 0;
 // group instead of once per code, so the cursor arithmetic the loops above do per
 // code disappears.
 //
-// Any whole multiple of the period has the same property, so asking for a fixed
-// number of codes and rounding up to a whole period is constant-addressed at every
-// width. That matters because the period is one code at a 16-bit width -- there is
-// no phase to fold -- and a trained 16-bit code space lands there on half the
-// corpora, so unrolling by the period alone leaves exactly the largest-dictionary
-// columns on the per-code loop. Asking for a group instead unrolls those columns on
-// the strength of having several independent gathers in flight rather than on folded
-// addressing.
-//
-// Sorting the measured gain by code width rather than by period separates the two
-// effects. The 16-bit columns gain with no phase to fold at all, which is the part
-// that is not addressing; the 15-bit columns, the worst phase case, gain about three
-// times as much at the same instruction count per code, which is the part that is.
-// Both terms are real and neither accounts for the whole. Width and dictionary size
-// move together, though, so this does not fully separate cheaper addressing from a
-// dictionary that misses L1.
-//
-// Nothing else changes: the same single fused pass, the same gather, the same
-// store, no staging buffer, no prefetch, no added memory traffic. That is what
-// separates this from the block-wise unpack recorded above as a loss, which paid an
-// extra pass and 64 prefetches per block for the same codes.
-//
-// The reason to expect anything here is that the ablation ladder above does not
-// actually isolate the gather. Deleting the gather deletes its two loads and their
-// address arithmetic as well, so that rung bounds the gather plus its instructions,
-// not the gather alone -- the same confound as the store-bandwidth reading it
-// replaced. This change removes instructions while leaving the gather byte for
-// byte identical, so it separates the two where neither ablation could.
+// Any multiple of the period preserves constant offsets. A minimum group size also
+// exposes independent dictionary reads when the period is one, as it is at 16 bits.
+// The implementation remains a single pass with no staging or prefetch traffic.
 //
 // A group's last code is read by a 4-byte load at a constant offset, which runs at
 // most 3 bytes past the group at every width and group size used here. PackValues
@@ -1226,8 +1302,9 @@ size_t DecompressStridedGroupBits(const StridedDictionary& dict, const uint8_t* 
 // And the predicated-store loop, group-unrolled. Same two changes composed: one
 // random line per token, exactly the token's bytes stored, constant addressing.
 template <size_t kBits>
-size_t DecompressStridedGroupExactBits(const StridedDictionary& dict, const uint8_t* packed,
-                                       size_t ncodes, uint8_t* out) {
+size_t DecompressStridedGroupExactBits(const StridedDictionary& dict,
+                                       const uint8_t* packed, size_t ncodes,
+                                       uint8_t* out) {
   using Group = PackedCodeGroup<kBits, kGroupCodesRequest>;
   // See above: at a group of one there is no phase to fold, and that form measured
   // slower than the plain loop.
@@ -1241,7 +1318,8 @@ size_t DecompressStridedGroupExactBits(const StridedDictionary& dict, const uint
   auto emit = [&](uint32_t code) {
     const uint32_t len = lens[code];
     svbool_t pg = svwhilelt_b8_u32(0u, len);
-    svst1_u8(pg, out + w, svld1_u8(pg, slots + size_t{code} * StridedDictionary::kStride));
+    svst1_u8(pg, out + w,
+             svld1_u8(pg, slots + size_t{code} * StridedDictionary::kStride));
     w += len;
   };
   for (size_t g = 0, ngroups = ncodes / Group::kCodes; g < ngroups; ++g) {
@@ -1261,8 +1339,7 @@ size_t DecompressStridedGroupExactBits(const StridedDictionary& dict, const uint
 }
 #endif
 
-// Runtime code width, for the widths training cannot produce but the format does
-// not forbid. Kept so no input is rejected; never on a measured path.
+// Runtime fallback for valid widths that training does not produce.
 template <size_t kCopy>
 size_t DecompressStridedFixed(const StridedDictionary& dict, const uint8_t* packed,
                               size_t ncodes, size_t bits, uint8_t* out) {
@@ -1284,31 +1361,45 @@ size_t DecompressStridedFixed(const StridedDictionary& dict, const uint8_t* pack
 // Resolve `bits` to a constant for the widths a trained dictionary can produce,
 // falling back to the runtime-width loop otherwise so no input is rejected.
 //
-// The ladder used to start at 9 because a dictionary that seeded all 256 bytes could
-// never hold fewer than 256 tokens. Seeding only the bytes a column actually uses
-// removes that floor -- tpch_l_shipmode trains to 36 tokens, six bits -- and those
-// widths were landing on the fallback, which retires codes about 40% slower than a
-// constant width does. A narrower code has less work to do per code, not more, so
-// the widths below 9 belong here too.
+// Seeding only observed bytes permits dictionaries below 256 tokens, so dispatch
+// every width that training can produce rather than sending narrow widths through
+// the runtime fallback.
 #define ONPAIR_DISPATCH_BITS(bits, CALL, FALLBACK) \
   switch (bits) {                                  \
-    case 1: return CALL(1);                        \
-    case 2: return CALL(2);                        \
-    case 3: return CALL(3);                        \
-    case 4: return CALL(4);                        \
-    case 5: return CALL(5);                        \
-    case 6: return CALL(6);                        \
-    case 7: return CALL(7);                        \
-    case 8: return CALL(8);                        \
-    case 9: return CALL(9);                        \
-    case 10: return CALL(10);                      \
-    case 11: return CALL(11);                      \
-    case 12: return CALL(12);                      \
-    case 13: return CALL(13);                      \
-    case 14: return CALL(14);                      \
-    case 15: return CALL(15);                      \
-    case 16: return CALL(16);                      \
-    default: return FALLBACK;                      \
+    case 1:                                        \
+      return CALL(1);                              \
+    case 2:                                        \
+      return CALL(2);                              \
+    case 3:                                        \
+      return CALL(3);                              \
+    case 4:                                        \
+      return CALL(4);                              \
+    case 5:                                        \
+      return CALL(5);                              \
+    case 6:                                        \
+      return CALL(6);                              \
+    case 7:                                        \
+      return CALL(7);                              \
+    case 8:                                        \
+      return CALL(8);                              \
+    case 9:                                        \
+      return CALL(9);                              \
+    case 10:                                       \
+      return CALL(10);                             \
+    case 11:                                       \
+      return CALL(11);                             \
+    case 12:                                       \
+      return CALL(12);                             \
+    case 13:                                       \
+      return CALL(13);                             \
+    case 14:                                       \
+      return CALL(14);                             \
+    case 15:                                       \
+      return CALL(15);                             \
+    case 16:                                       \
+      return CALL(16);                             \
+    default:                                       \
+      return FALLBACK;                             \
   }
 
 template <size_t kCopy>
@@ -1322,14 +1413,15 @@ size_t DecompressPackedDispatchBits(const CompactDictionary& dict, const uint8_t
 
 template <size_t kCopy>
 size_t DecompressStridedDispatchBits(const StridedDictionary& dict, const uint8_t* packed,
-                                     size_t ncodes, size_t bits, uint8_t* out) {
+                                     size_t ncodes, size_t bits, uint8_t* out){
 #if ONPAIR_GROUP_UNROLL
-#define ONPAIR_STRIDED(B) DecompressStridedGroupBits<kCopy, B>(dict, packed, ncodes, out)
+#  define ONPAIR_STRIDED(B) \
+    DecompressStridedGroupBits<kCopy, B>(dict, packed, ncodes, out)
 #else
-#define ONPAIR_STRIDED(B) DecompressStridedBits<kCopy, B>(dict, packed, ncodes, out)
+#  define ONPAIR_STRIDED(B) DecompressStridedBits<kCopy, B>(dict, packed, ncodes, out)
 #endif
-  ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED,
-                       DecompressStridedFixed<kCopy>(dict, packed, ncodes, bits, out))
+    ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED,
+                         DecompressStridedFixed<kCopy>(dict, packed, ncodes, bits, out))
 #undef ONPAIR_STRIDED
 }
 
@@ -1337,15 +1429,17 @@ size_t DecompressStridedDispatchBits(const StridedDictionary& dict, const uint8_
 size_t DecompressThroughView(const StridedDictionary& dict, const uint8_t* packed,
                              size_t ncodes, size_t bits, uint8_t* out) {
 #if defined(__ARM_FEATURE_SVE)
-#if ONPAIR_GROUP_UNROLL
-#define ONPAIR_STRIDED_EXACT(B) \
-  DecompressStridedGroupExactBits<B>(dict, packed, ncodes, out)
-#else
-#define ONPAIR_STRIDED_EXACT(B) DecompressStridedExactBits<B>(dict, packed, ncodes, out)
-#endif
-  ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED_EXACT,
-                       DecompressStridedFixed<kMaxTokenSize>(dict, packed, ncodes, bits, out))
-#undef ONPAIR_STRIDED_EXACT
+#  if ONPAIR_GROUP_UNROLL
+#    define ONPAIR_STRIDED_EXACT(B) \
+      DecompressStridedGroupExactBits<B>(dict, packed, ncodes, out)
+#  else
+#    define ONPAIR_STRIDED_EXACT(B) \
+      DecompressStridedExactBits<B>(dict, packed, ncodes, out)
+#  endif
+  ONPAIR_DISPATCH_BITS(
+      bits, ONPAIR_STRIDED_EXACT,
+      DecompressStridedFixed<kMaxTokenSize>(dict, packed, ncodes, bits, out))
+#  undef ONPAIR_STRIDED_EXACT
 #else
   // Read the width, do not scan for it: an O(tokens) scan here costs 1-3% on
   // dictionaries of 20-60k tokens, which is charged to decode for something a
@@ -1358,27 +1452,65 @@ size_t DecompressThroughView(const StridedDictionary& dict, const uint8_t* packe
   // `out` needs kDecodePadding of slack either way, and a slot is zero-filled out
   // to kStride, so every width here is in bounds and reads defined bytes.
   const size_t maxlen = dict.max_token_len;
-  if (maxlen <= 4) return DecompressStridedDispatchBits<4>(dict, packed, ncodes, bits, out);
-  if (maxlen <= 8) return DecompressStridedDispatchBits<8>(dict, packed, ncodes, bits, out);
+  if (maxlen <= 4)
+    return DecompressStridedDispatchBits<4>(dict, packed, ncodes, bits, out);
+  if (maxlen <= 8)
+    return DecompressStridedDispatchBits<8>(dict, packed, ncodes, bits, out);
   return DecompressStridedDispatchBits<kMaxTokenSize>(dict, packed, ncodes, bits, out);
 #endif
 }
 
 }  // namespace
 
-size_t DecompressPacked(const StridedDictionary& dict, const uint8_t* packed, size_t ncodes,
-                        size_t bits, uint8_t* out) {
+size_t DecompressPacked(const StridedDictionary& dict, const uint8_t* packed,
+                        size_t packed_size, size_t ncodes, size_t bits, uint8_t* out,
+                        size_t out_capacity) {
+  if ((dict.slots == nullptr && !dict.lens.empty()) ||
+      dict.max_token_len > kMaxTokenSize) {
+    throw std::invalid_argument("Invalid OnPair strided dictionary");
+  }
+  ValidatePackedCodes(packed, packed_size, ncodes, bits, dict.num_tokens());
+  size_t decoded_size = 0;
+  for (size_t i = 0; i < ncodes; ++i) {
+    const size_t length = dict.lens[GetBits(packed, packed_size, i * bits, bits)];
+    if (decoded_size > std::numeric_limits<size_t>::max() - length) {
+      throw std::invalid_argument("OnPair decoded output is too large");
+    }
+    decoded_size += length;
+  }
+  if ((out == nullptr && decoded_size != 0) ||
+      out_capacity < RequiredOutputSize(decoded_size)) {
+    throw std::invalid_argument("OnPair output buffer is too small");
+  }
   return DecompressThroughView(dict, packed, ncodes, bits, out);
 }
 
-size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed, size_t ncodes,
-                        size_t bits, uint8_t* out) {
+size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed,
+                        size_t packed_size, size_t ncodes, size_t bits, uint8_t* out,
+                        size_t out_capacity) {
+  ValidateDictionary(dict);
+  ValidatePackedCodes(packed, packed_size, ncodes, bits, dict.num_tokens());
+  size_t decoded_size = 0;
+  for (size_t i = 0; i < ncodes; ++i) {
+    const size_t length =
+        dict.token_len(static_cast<Token>(GetBits(packed, packed_size, i * bits, bits)));
+    if (decoded_size > std::numeric_limits<size_t>::max() - length) {
+      throw std::invalid_argument("OnPair decoded output is too large");
+    }
+    decoded_size += length;
+  }
+  if ((out == nullptr && decoded_size != 0) ||
+      out_capacity < RequiredOutputSize(decoded_size)) {
+    throw std::invalid_argument("OnPair output buffer is too small");
+  }
   if (!StridedViewWorthBuilding(ncodes, dict.num_tokens())) {
     // See DecompressThroughView for why the width is read rather than scanned for,
     // and why only 4/8/16 are offered.
     const size_t maxlen = dict.max_token_len;
-    if (maxlen <= 4) return DecompressPackedDispatchBits<4>(dict, packed, ncodes, bits, out);
-    if (maxlen <= 8) return DecompressPackedDispatchBits<8>(dict, packed, ncodes, bits, out);
+    if (maxlen <= 4)
+      return DecompressPackedDispatchBits<4>(dict, packed, ncodes, bits, out);
+    if (maxlen <= 8)
+      return DecompressPackedDispatchBits<8>(dict, packed, ncodes, bits, out);
     return DecompressPackedDispatchBits<kMaxTokenSize>(dict, packed, ncodes, bits, out);
   }
   StridedDictionary view;
@@ -1392,8 +1524,8 @@ size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed, si
 
 namespace {
 
-// Fitted against 270 measurements -- 30 corpora x 9 rungs -- on Neoverse-V2, of
-// median decode seconds against the code count and dictionary size each rung
+// Fitted against 270 measurements -- 30 corpora x 9 budgets -- on Neoverse-V2, of
+// median decode seconds against the code count and dictionary size each candidate
 // trained to. The shape:
 //
 //   seconds = num_codes * (kNsBase + kNsPerOctave * max(0, log2(view / kViewKnee)))
@@ -1416,20 +1548,25 @@ double DecodeCostEstimate(uint64_t num_codes, uint32_t num_tokens) {
   // The gather walks the decode-side view, not the stored dictionary: a fixed
   // kStride bytes per token plus one length byte. Charging the stored blob instead
   // would understate a dictionary of short tokens, which is exactly the case the
-  // narrow rungs produce.
-  const double view_bytes =
-      static_cast<double>(num_tokens) * static_cast<double>(StridedDictionary::kStride + 1);
+  // narrow budgets produce.
+  const double view_bytes = static_cast<double>(num_tokens) *
+                            static_cast<double>(StridedDictionary::kStride + 1);
   double ns = kNsBase;
   if (view_bytes > kViewKnee) ns += kNsPerOctave * std::log2(view_bytes / kViewKnee);
   return static_cast<double>(num_codes) * ns;
 }
 
-size_t SelectBudget(const BudgetCandidate* candidates, size_t n, const SelectionPolicy& policy) {
+size_t SelectBudget(const BudgetCandidate* candidates, size_t n,
+                    const SelectionPolicy& policy) {
   if (n == 0) return 0;
+  if (candidates == nullptr || std::isnan(policy.max_decode_regression) ||
+      policy.max_decode_regression < 0.0) {
+    throw std::invalid_argument("OnPair decode regression limit must be nonnegative");
+  }
   double best_cost = std::numeric_limits<double>::infinity();
   for (size_t i = 0; i < n; ++i) {
-    best_cost = std::min(best_cost, DecodeCostEstimate(candidates[i].num_codes,
-                                                       candidates[i].num_tokens));
+    best_cost = std::min(
+        best_cost, DecodeCostEstimate(candidates[i].num_codes, candidates[i].num_tokens));
   }
   // An infinite cap means "ignore decode", and infinity * anything must stay a
   // limit that admits everything rather than becoming a NaN.
@@ -1440,10 +1577,12 @@ size_t SelectBudget(const BudgetCandidate* candidates, size_t n, const Selection
   uint64_t chosen_bytes = 0;
   double chosen_cost = 0;
   for (size_t i = 0; i < n; ++i) {
-    const double cost = DecodeCostEstimate(candidates[i].num_codes, candidates[i].num_tokens);
+    const double cost =
+        DecodeCostEstimate(candidates[i].num_codes, candidates[i].num_tokens);
     if (cost > limit) continue;
-    const bool better = chosen == n || candidates[i].stored_bytes < chosen_bytes ||
-                        (candidates[i].stored_bytes == chosen_bytes && cost < chosen_cost);
+    const bool better =
+        chosen == n || candidates[i].stored_bytes < chosen_bytes ||
+        (candidates[i].stored_bytes == chosen_bytes && cost < chosen_cost);
     if (better) {
       chosen = i;
       chosen_bytes = candidates[i].stored_bytes;
@@ -1460,7 +1599,9 @@ size_t BitsFor(uint64_t x) {
   return x == 0 ? 0 : 64 - static_cast<size_t>(__builtin_clzll(x));
 }
 
-size_t PackedBytes(uint64_t n, size_t bits) { return static_cast<size_t>((n * bits + 7) / 8); }
+size_t PackedBytes(uint64_t n, size_t bits) {
+  return static_cast<size_t>((n * bits + 7) / 8);
+}
 
 }  // namespace
 
@@ -1473,15 +1614,26 @@ uint64_t VaryingStoredBytes(const CompactDictionary& dict, uint64_t num_codes) {
   const uint64_t blob = dict.logical_bytes();
   // The offset array is bit-packed at the width the blob's own size needs, the same
   // way a stored dictionary would carry it; a fixed u32 per offset would charge a
-  // 16-bit dictionary 260 KiB it does not need and tilt the ladder toward narrow
-  // rungs for a reason that is an artifact of this function.
-  const uint64_t offsets = PackedBytes(dict.offsets.size(), std::max<size_t>(1, BitsFor(blob)));
+  // 16-bit dictionary 260 KiB it does not need and bias selection toward narrow
+  // budgets for a reason that is an artifact of this function.
+  const uint64_t offsets =
+      PackedBytes(dict.offsets.size(), std::max<size_t>(1, BitsFor(blob)));
   const uint64_t codes = PackedBytes(num_codes, CodeWidth(dict.num_tokens()));
   return blob + offsets + codes;
 }
 
 Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
-                    size_t num_rows, const LadderOptions& opts, SelectionReport* report) {
+                    size_t num_rows, const BudgetSearchOptions& opts,
+                    SelectionReport* report) {
+  ValidateRows(bytes, bytes_len, offsets, num_rows);
+  if (!std::isfinite(opts.base.threshold_fraction) ||
+      opts.base.threshold_fraction <= 0.0 || opts.base.threshold_fraction > 1.0) {
+    throw std::invalid_argument("OnPair threshold fraction must be in (0, 1]");
+  }
+  if (std::isnan(opts.policy.max_decode_regression) ||
+      opts.policy.max_decode_regression < 0.0) {
+    throw std::invalid_argument("OnPair decode regression limit must be nonnegative");
+  }
   const auto started = std::chrono::steady_clock::now();
 
   const uint8_t lo = std::max<uint8_t>(8, opts.min_budget);
@@ -1489,11 +1641,10 @@ Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offs
 
   std::vector<BudgetCandidate> cands;
   cands.reserve(static_cast<size_t>(hi - lo) + 1);
-  // Kept only to recognise a rung that retrained the same dictionary. A dictionary
-  // is at most a few hundred KiB, so holding the whole ladder's worth is cheap in a
-  // way holding their code streams is not.
+  // Retain dictionaries to recognize candidates that train to the same result.
+  // This is much cheaper than retaining every candidate's code stream.
   std::vector<CompactDictionary> dicts;
-  // One scratch code stream, reused. Pass 1 needs a rung's code count and nothing
+  // One scratch code stream, reused. Pass 1 needs a candidate's code count and nothing
   // else about its codes.
   std::vector<uint16_t> codes;
   std::vector<uint32_t> row_offsets;
@@ -1502,16 +1653,13 @@ Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offs
   for (uint8_t b = lo; b <= hi; ++b) {
     Config cfg = opts.base;
     cfg.max_dict_bits = b;
+    ValidateConfig(cfg);
     TrainResult tr = Train(bytes, offsets, num_rows, cfg, nullptr);
 
-    // A budget the trainer never filled can land on exactly the dictionary a
-    // narrower rung already produced -- 51 of 270 rungs on the 30-corpus set, and a
-    // whole ladder collapsing to one rung on the low-cardinality enums. Which rungs
-    // coincide is not predictable from the budget, because the threshold controller
-    // paces itself against the capacity and so takes a different path to the same
-    // place: tpch_p_type repeats at budgets 9-13, 15 and 16 but not at 14. So this
-    // is checked, not assumed. Tokenizing is the expensive half of encode and it is
-    // a pure function of the dictionary, so a repeat inherits its twin's numbers.
+    // Different budgets can train to the same dictionary. Detect equality because
+    // the threshold controller may take different paths to the same result.
+    // Tokenization is a pure function of the dictionary, so duplicates reuse the
+    // first candidate's measurements.
     size_t twin = dicts.size();
     for (size_t i = 0; i < dicts.size(); ++i) {
       if (dicts[i].offsets == tr.dict.offsets && dicts[i].bytes == tr.dict.bytes) {
@@ -1533,9 +1681,10 @@ Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offs
       row_offsets.clear();
       EncodeStrings(bytes, offsets, num_rows, tr.lpm, &codes, &row_offsets);
       cand.num_codes = codes.size();
-      cand.stored_bytes = opts.stored_bytes == nullptr
-                              ? VaryingStoredBytes(tr.dict, cand.num_codes)
-                              : opts.stored_bytes(tr.dict, cand.num_codes, opts.stored_bytes_ctx);
+      cand.stored_bytes =
+          opts.stored_bytes == nullptr
+              ? VaryingStoredBytes(tr.dict, cand.num_codes)
+              : opts.stored_bytes(tr.dict, cand.num_codes, opts.stored_bytes_ctx);
     }
     dicts.push_back(std::move(tr.dict));
     cands.push_back(cand);
@@ -1555,13 +1704,15 @@ Column CompressAuto(const uint8_t* bytes, size_t bytes_len, const uint32_t* offs
     size_t smallest = 0;
     for (size_t i = 0; i < report->candidates.size(); ++i) {
       const BudgetCandidate& c = report->candidates[i];
-      report->best_cost = std::min(report->best_cost, DecodeCostEstimate(c.num_codes, c.num_tokens));
+      report->best_cost =
+          std::min(report->best_cost, DecodeCostEstimate(c.num_codes, c.num_tokens));
       if (c.stored_bytes < report->candidates[smallest].stored_bytes) smallest = i;
     }
     report->bytes_only = smallest;
     report->chosen_cost = DecodeCostEstimate(report->candidates[chosen].num_codes,
                                              report->candidates[chosen].num_tokens);
-    report->encode_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    report->encode_s =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
   }
   return col;
 }

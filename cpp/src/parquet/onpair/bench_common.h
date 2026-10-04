@@ -36,8 +36,10 @@
 // zstd: declare the small, ABI-stable subset we use so the standalone build
 // needs only the installed libzstd (no dev header). Link libzstd.so directly.
 extern "C" {
-size_t ZSTD_compress(void* dst, size_t dstCapacity, const void* src, size_t srcSize, int level);
-size_t ZSTD_decompress(void* dst, size_t dstCapacity, const void* src, size_t compressedSize);
+size_t ZSTD_compress(void* dst, size_t dstCapacity, const void* src, size_t srcSize,
+                     int level);
+size_t ZSTD_decompress(void* dst, size_t dstCapacity, const void* src,
+                       size_t compressedSize);
 size_t ZSTD_compressBound(size_t srcSize);
 unsigned ZSTD_isError(size_t code);
 // lz4 (fast block compressor) - ABI-stable subset; link the installed liblz4.
@@ -66,9 +68,10 @@ inline size_t BitWidth(uint64_t x) {
 }
 // Bits to index `count` distinct symbols [0, count)  (== ceil(log2 count), >=1).
 inline size_t IndexBits(size_t count) {
-  return count <= 1 ? 1
-                    : (64 - static_cast<size_t>(
-                                __builtin_clzll(static_cast<uint64_t>(count - 1))));
+  return count <= 1
+             ? 1
+             : (64 -
+                static_cast<size_t>(__builtin_clzll(static_cast<uint64_t>(count - 1))));
 }
 inline size_t BitPackedBytes(size_t n, size_t bits) { return (n * bits + 7) / 8; }
 
@@ -81,7 +84,8 @@ struct Corpus {
   size_t raw_bytes() const { return bytes.size(); }
   size_t max_row_len() const {
     size_t m = 0;
-    for (size_t i = 0; i < n_rows(); ++i) m = std::max<size_t>(m, offsets[i + 1] - offsets[i]);
+    for (size_t i = 0; i < n_rows(); ++i)
+      m = std::max<size_t>(m, offsets[i + 1] - offsets[i]);
     return m;
   }
   // Realistic per-row row-length side array (delta offsets), bit-packed at the
@@ -89,7 +93,7 @@ struct Corpus {
   // zstd, lz4, OnPair) so the row boundaries are accounted the way a real
   // columnar format stores them - not as raw (n+1) u32.
   //
-  // NOT charged to Parquet's own byte-array encodings: PLAIN and the DELTA_*
+  // This is not charged to Parquet's byte-array encodings: PLAIN and the DELTA_*
   // family embed their lengths in the encoded payload, so adding this on top
   // would count row boundaries twice.
   size_t len_array_bytes() const {

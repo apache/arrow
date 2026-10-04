@@ -13,13 +13,13 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-// Standalone C++ comparison of FSST (Arrow PR #48232 vendored codec), a C++
-// OnPair implementation, zstd level 1 and lz4, in one process on identical
-// string corpora. Reports compression ratio and encode/decode throughput.
+// Standalone comparison of FSST, OnPair, zstd level 1, and lz4 on identical
+// string corpora. Projected sizes include the streams needed for reconstruction;
+// they are not bytes emitted by a file-format writer.
 // Corpora are produced by the Rust bench-fsst-onpair/ generator (--dump-corpora).
 //
-// All codecs run single-threaded; pin the process with `taskset -c 0`, and run
-// it twice using the warm second run.
+// All codecs run single-threaded. Pin the process to an otherwise idle core and
+// record the compiler, effective flags, processor, and frequency policy.
 //
 // Build (from the Arrow repo root), one line:
 //   g++ -std=c++17 -O3 -march=native -Icpp/src -Icpp/thirdparty/fsst
@@ -64,9 +64,9 @@ using namespace bench;  // NOLINT(build/namespaces)
 // Compress the whole corpus into one packed buffer; returns compressed bytes,
 // per-row lengths, and the serialized symbol-table size.
 struct FsstEncoded {
-  std::vector<uint8_t> output;   // packed compressed bytes
-  size_t total = 0;              // used bytes in `output`
-  size_t table_bytes = 0;        // fsst_export size (symbol table)
+  std::vector<uint8_t> output;  // packed compressed bytes
+  size_t total = 0;             // used bytes in `output`
+  size_t table_bytes = 0;       // fsst_export size (symbol table)
 };
 
 FsstEncoded FsstEncode(const Corpus& c) {
@@ -85,8 +85,8 @@ FsstEncoded FsstEncode(const Corpus& c) {
   e.output.resize(out_cap);
   std::vector<size_t> lenOut(n);
   std::vector<unsigned char*> strOut(n);
-  size_t done = fsst_compress(enc, n, lenIn.data(), strIn.data(), out_cap, e.output.data(),
-                              lenOut.data(), strOut.data());
+  size_t done = fsst_compress(enc, n, lenIn.data(), strIn.data(), out_cap,
+                              e.output.data(), lenOut.data(), strOut.data());
   if (done != n) {
     std::fprintf(stderr, "FSST: only compressed %zu/%zu rows\n", done, n);
     std::abort();
@@ -134,9 +134,10 @@ Measured RunFsst(const Corpus& c) {
   {
     std::vector<uint8_t> out(cap);
     size_t w = fsst_decompress(&dec, e.total, e.output.data(), cap, out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
-      std::fprintf(stderr, "FSST roundtrip mismatch on %s (w=%zu raw=%zu)\n", c.name.c_str(), w,
-                   c.raw_bytes());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "FSST roundtrip mismatch on %s (w=%zu raw=%zu)\n",
+                   c.name.c_str(), w, c.raw_bytes());
       std::abort();
     }
   }
@@ -211,21 +212,22 @@ Measured RunLz4(const Corpus& c) {
   int raw = static_cast<int>(c.raw_bytes());
   int bound = LZ4_compressBound(raw);
   std::vector<char> comp(bound);
-  int csize = LZ4_compress_default(reinterpret_cast<const char*>(c.bytes.data()), comp.data(), raw,
-                                   bound);
+  int csize = LZ4_compress_default(reinterpret_cast<const char*>(c.bytes.data()),
+                                   comp.data(), raw, bound);
   if (csize <= 0) {
     std::fprintf(stderr, "lz4 compress error on %s\n", c.name.c_str());
     std::abort();
   }
   Measured m;
   m.label = "lz4";
-  m.compressed_bytes = static_cast<size_t>(csize) + c.len_array_bytes();  // + bit-packed lengths
+  m.compressed_bytes =
+      static_cast<size_t>(csize) + c.len_array_bytes();  // + bit-packed lengths
 
   std::vector<double> enc;
   for (int it = 0; it < kEncodeIters; ++it) {
     auto t0 = Clock::now();
-    int r = LZ4_compress_default(reinterpret_cast<const char*>(c.bytes.data()), comp.data(), raw,
-                                 bound);
+    int r = LZ4_compress_default(reinterpret_cast<const char*>(c.bytes.data()),
+                                 comp.data(), raw, bound);
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(r) : "memory");
     enc.push_back(Mib(c.raw_bytes()) / dt);
@@ -256,8 +258,8 @@ Measured RunLz4(const Corpus& c) {
 
 // OnPair
 
-Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_tokens = nullptr,
-                   size_t* out_max_len = nullptr) {
+Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold,
+                   size_t* out_tokens = nullptr, size_t* out_max_len = nullptr) {
   op::Config cfg;
   cfg.max_dict_bits = bits;
   cfg.threshold_fraction = threshold;
@@ -269,9 +271,8 @@ Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_
   m.label = "OnPair" + std::to_string(bits);
   if (out_tokens != nullptr) *out_tokens = col.dict.num_tokens();
   if (out_max_len != nullptr) *out_max_len = col.dict.max_token_len;
-  // Realistic bit-packed accounting: codes packed at the true code width for the
-  // trained dictionary (not a fixed u16), dictionary offsets bit-packed, and the
-  // shared per-row length array (in place of the OnPair code-offset array).
+  // Projected bit-packed accounting uses the trained dictionary's code width,
+  // bit-packed dictionary offsets, and a per-row length array.
   size_t dict_bytes = col.dict.logical_bytes();
   size_t code_bits = IndexBits(col.dict.num_tokens());
   size_t codes = BitPackedBytes(col.codes.size(), code_bits);
@@ -282,7 +283,8 @@ Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_
   std::vector<double> enc;
   for (int it = 0; it < kEncodeIters; ++it) {
     auto t0 = Clock::now();
-    op::Column tmp = op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
+    op::Column tmp =
+        op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(tmp.codes.size()) : "memory");
     enc.push_back(Mib(c.raw_bytes()) / dt);
@@ -296,10 +298,12 @@ Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_
   std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), code_bits);
   {
     std::vector<uint8_t> out(cap, 0);
-    size_t w = op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
-      std::fprintf(stderr, "OnPair%u packed roundtrip mismatch on %s (w=%zu raw=%zu)\n", bits,
-                   c.name.c_str(), w, c.raw_bytes());
+    size_t w = op::DecompressPacked(col.dict, packed.data(), packed.size(),
+                                    col.codes.size(), code_bits, out.data(), out.size());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "OnPair%u packed roundtrip mismatch on %s (w=%zu raw=%zu)\n",
+                   bits, c.name.c_str(), w, c.raw_bytes());
       std::abort();
     }
   }
@@ -307,7 +311,8 @@ Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_
   for (int it = 0; it < kDecodeIters; ++it) {
     std::vector<uint8_t> out(cap, 0);
     auto t0 = Clock::now();
-    size_t w = op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, out.data());
+    size_t w = op::DecompressPacked(col.dict, packed.data(), packed.size(),
+                                    col.codes.size(), code_bits, out.data(), out.size());
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(w) : "memory");
     dec_r.push_back(Mib(c.raw_bytes()) / dt);
@@ -321,28 +326,25 @@ Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_
 size_t OnPairSize(const op::Column& col, const Corpus& c) {
   size_t db = col.dict.logical_bytes();
   return db + BitPackedBytes(col.dict.offsets.size(), std::max<size_t>(1, BitWidth(db))) +
-         BitPackedBytes(col.codes.size(), IndexBits(col.dict.num_tokens())) + c.len_array_bytes();
+         BitPackedBytes(col.codes.size(), IndexBits(col.dict.num_tokens())) +
+         c.len_array_bytes();
 }
 
-// OnPair with the dictionary bit-width chosen per column: try 9..16 and keep the
-// width that minimizes bit-packed size, then report that width's ratio/decode.
-// This exhaustive full-column sweep is the reliable way to pick the width. A
-// cheap "train on a sub-sample and project to full size" picker does NOT
-// reproduce it: training is not scale-invariant (the dynamic-threshold controller
-// paces against the input size, so a sub-sample yields a differently *shaped*
-// dictionary, not a smaller one), and enlarging the sample doesn't fix it - a
-// token-gain curve fitted on a sample inherits the same skew. A cheap picker
-// therefore needs a verify-against-the-ceiling fail-safe (train at the chosen
-// budget and the ceiling, keep whichever stores less), not blind trust.
+// Selects the smallest projected result after trying budgets 9 through 16. This
+// is an oracle comparison: selection happens before the timed encode.
 Measured RunOnPairAuto(const Corpus& c, double threshold) {
   size_t n = c.n_rows();
   uint8_t best_bits = 9;
   size_t best_sz = SIZE_MAX;
   for (uint8_t b = 9; b <= 16; ++b) {
     op::Config cfg{b, threshold, 42};
-    op::Column col = op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
+    op::Column col =
+        op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
     size_t sz = OnPairSize(col, c);
-    if (sz < best_sz) { best_sz = sz; best_bits = b; }
+    if (sz < best_sz) {
+      best_sz = sz;
+      best_bits = b;
+    }
   }
 
   op::Config cfg{best_bits, threshold, 42};
@@ -351,15 +353,16 @@ Measured RunOnPairAuto(const Corpus& c, double threshold) {
   // Report the *stored* code width = ceil(log2(tokens trained)), which is what
   // determines size. It can be < the budget when training saturates first.
   size_t stored_bits = IndexBits(col.dict.num_tokens());
-  m.label = "OnPair-auto(" + std::to_string(stored_bits) + "b)";
+  m.label = "OnPair-chosen(" + std::to_string(stored_bits) + "b)";
   m.compressed_bytes = OnPairSize(col, c);
 
-  // Encode throughput at the chosen width (a real encoder adds only a cheap
-  // one-pass width estimate, not a full re-search, so this is representative).
+  // Times encoding at the previously selected budget. It excludes the budget
+  // search and is not automatic-selection throughput.
   std::vector<double> enc;
   for (int it = 0; it < kEncodeIters; ++it) {
     auto t0 = Clock::now();
-    op::Column tmp = op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
+    op::Column tmp =
+        op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(tmp.codes.size()) : "memory");
     enc.push_back(Mib(c.raw_bytes()) / dt);
@@ -374,7 +377,9 @@ Measured RunOnPairAuto(const Corpus& c, double threshold) {
   for (int it = 0; it < kDecodeIters; ++it) {
     std::vector<uint8_t> out(cap, 0);
     auto t0 = Clock::now();
-    size_t w = op::DecompressPacked(col.dict, packed.data(), col.codes.size(), stored_bits, out.data());
+    size_t w =
+        op::DecompressPacked(col.dict, packed.data(), packed.size(), col.codes.size(),
+                             stored_bits, out.data(), out.size());
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(w) : "memory");
     dec_r.push_back(Mib(c.raw_bytes()) / dt);
@@ -403,7 +408,8 @@ Measured RunFsst16(const Corpus& c, int max_symbol_len, size_t sample_target = 0
 
   auto build = [&] {
     f16::Tokens t = f16::Train(c.bytes.data(), c.offsets.data(), n, cfg);
-    return op::CompressWithTokens(c.bytes.data(), c.offsets.data(), n, t.bytes, t.offsets);
+    return op::CompressWithTokens(c.bytes.data(), c.bytes.size(), c.offsets.data(), n,
+                                  t.bytes, t.offsets);
   };
 
   op::Column col = build();
@@ -429,9 +435,10 @@ Measured RunFsst16(const Corpus& c, int max_symbol_len, size_t sample_target = 0
   std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), code_bits);
   {
     std::vector<uint8_t> out(cap, 0);
-    size_t w =
-        op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+    size_t w = op::DecompressPacked(col.dict, packed.data(), packed.size(),
+                                    col.codes.size(), code_bits, out.data(), out.size());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
       std::fprintf(stderr, "FSST16-%dB packed roundtrip mismatch on %s (w=%zu raw=%zu)\n",
                    max_symbol_len, c.name.c_str(), w, c.raw_bytes());
       std::abort();
@@ -441,8 +448,8 @@ Measured RunFsst16(const Corpus& c, int max_symbol_len, size_t sample_target = 0
   for (int it = 0; it < kDecodeIters; ++it) {
     std::vector<uint8_t> out(cap, 0);
     auto t0 = Clock::now();
-    size_t w =
-        op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, out.data());
+    size_t w = op::DecompressPacked(col.dict, packed.data(), packed.size(),
+                                    col.codes.size(), code_bits, out.data(), out.size());
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(w) : "memory");
     dec_r.push_back(Mib(c.raw_bytes()) / dt);
@@ -469,7 +476,8 @@ inline size_t CeilLog2(size_t x) {
 // tail) and a final avalanche - far cheaper than a byte-at-a-time FNV for the
 // short strings that dominate low-cardinality columns.
 inline uint64_t HashBytes(const uint8_t* p, size_t len) {
-  uint64_t h = 0x9E3779B97F4A7C15ull ^ (static_cast<uint64_t>(len) * 0xff51afd7ed558ccdull);
+  uint64_t h =
+      0x9E3779B97F4A7C15ull ^ (static_cast<uint64_t>(len) * 0xff51afd7ed558ccdull);
   size_t i = 0;
   for (; i + 8 <= len; i += 8) {
     uint64_t w;
@@ -541,7 +549,8 @@ Measured RunOnPairDedup(const Corpus& c, uint8_t bits, double threshold) {
   std::vector<uint32_t> refs;
   size_t n_distinct = build_dedup(&d_bytes, &d_offsets, &refs);
 
-  op::Column col = op::Compress(d_bytes.data(), d_bytes.size(), d_offsets.data(), n_distinct, cfg);
+  op::Column col =
+      op::Compress(d_bytes.data(), d_bytes.size(), d_offsets.data(), n_distinct, cfg);
 
   Measured m;
   m.label = "OnPair" + std::to_string(bits) + "-dedup";
@@ -556,7 +565,8 @@ Measured RunOnPairDedup(const Corpus& c, uint8_t bits, double threshold) {
   size_t dmax = 0;
   for (size_t j = 0; j + 1 < d_offsets.size(); ++j)
     dmax = std::max<size_t>(dmax, d_offsets[j + 1] - d_offsets[j]);
-  size_t distinct_len_bytes = BitPackedBytes(n_distinct, std::max<size_t>(1, BitWidth(dmax)));
+  size_t distinct_len_bytes =
+      BitPackedBytes(n_distinct, std::max<size_t>(1, BitWidth(dmax)));
   size_t onpair_bytes = dict_bytes + dict_offsets + codes + distinct_len_bytes;
   size_t refs_bytes = BitPackedBytes(n, IndexBits(n_distinct));  // index column
   m.compressed_bytes = onpair_bytes + refs_bytes;
@@ -599,16 +609,19 @@ Measured RunOnPairDedup(const Corpus& c, uint8_t bits, double threshold) {
   // each row by unpacking its reference and copying the referenced value. <=16-byte
   // values use one branchless 128-bit store (dbuf/out are 16-byte padded).
   auto decode = [&](uint8_t* dbuf, uint8_t* out) -> size_t {
-    op::DecompressPacked(col.dict, packed_codes.data(), col.codes.size(), code_bits, dbuf);
+    op::DecompressPacked(col.dict, packed_codes.data(), packed_codes.size(),
+                         col.codes.size(), code_bits, dbuf, dlen + op::kDecodePadding);
     size_t w = 0, bp = 0;
     for (size_t i = 0; i < n; ++i) {
-      uint32_t id = op::GetBits(packed_refs.data(), bp, ref_bits);
+      uint32_t id = op::GetBits(packed_refs.data(), packed_refs.size(), bp, ref_bits);
       bp += ref_bits;
       size_t off = d_offsets[id];
       size_t len = d_offsets[id + 1] - off;
       const uint8_t* src = dbuf + off;
-      if (len <= 16) std::memcpy(out + w, src, 16);
-      else std::memcpy(out + w, src, len);
+      if (len <= 16)
+        std::memcpy(out + w, src, 16);
+      else
+        std::memcpy(out + w, src, len);
       w += len;
     }
     return w;
@@ -617,8 +630,10 @@ Measured RunOnPairDedup(const Corpus& c, uint8_t bits, double threshold) {
   {
     std::vector<uint8_t> dbuf(dlen + op::kDecodePadding, 0), out(cap);
     size_t w = decode(dbuf.data(), out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
-      std::fprintf(stderr, "OnPair%u-dedup packed roundtrip mismatch on %s\n", bits, c.name.c_str());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "OnPair%u-dedup packed roundtrip mismatch on %s\n", bits,
+                   c.name.c_str());
       std::abort();
     }
   }
@@ -690,7 +705,10 @@ Dedup BuildDedup(const Corpus& c) {
       }
       size_t off = d.offsets[cur];
       size_t clen = d.offsets[cur + 1] - off;
-      if (clen == len && std::memcmp(d.bytes.data() + off, row, len) == 0) { id = cur; break; }
+      if (clen == len && std::memcmp(d.bytes.data() + off, row, len) == 0) {
+        id = cur;
+        break;
+      }
       slot = (slot + 1) & mask;
     }
     d.refs[i] = id;
@@ -704,15 +722,15 @@ namespace pp = parquet::prefix_plus;
 // ---- FSST+ ----------------------------------------------------------------
 
 struct FsstPlusEnc {
-  std::vector<uint8_t> comp;        // FSST-compressed distinct values (spans by id)
-  std::vector<uint32_t> comp_off;   // distinct id -> byte offset into comp
-  std::vector<uint32_t> comp_len;   // distinct id -> compressed length
-  std::vector<uint8_t> table;       // fsst_export symbol table
+  std::vector<uint8_t> comp;       // FSST-compressed distinct values (spans by id)
+  std::vector<uint32_t> comp_off;  // distinct id -> byte offset into comp
+  std::vector<uint32_t> comp_len;  // distinct id -> compressed length
+  std::vector<uint8_t> table;      // fsst_export symbol table
   size_t table_bytes = 0;
   fsst_decoder_t dec{};
-  std::vector<uint32_t> order;      // sorted rank -> distinct id (by compressed bytes)
-  std::vector<uint32_t> sorted_pos; // distinct id -> sorted rank
-  pp::Cleaving cl;                  // over the sorted compressed spans
+  std::vector<uint32_t> order;       // sorted rank -> distinct id (by compressed bytes)
+  std::vector<uint32_t> sorted_pos;  // distinct id -> sorted rank
+  pp::Cleaving cl;                   // over the sorted compressed spans
   size_t nd = 0;
 };
 
@@ -735,7 +753,8 @@ FsstPlusEnc EncodeFsstPlus(const Corpus& c, const Dedup& dd) {
   size_t done = fsst_compress(enc, nd, lenIn.data(), strIn.data(), out_cap, e.comp.data(),
                               lenOut.data(), strOut.data());
   if (done != nd) {
-    std::fprintf(stderr, "FSST+ compressed %zu/%zu distinct on %s\n", done, nd, c.name.c_str());
+    std::fprintf(stderr, "FSST+ compressed %zu/%zu distinct on %s\n", done, nd,
+                 c.name.c_str());
     std::abort();
   }
   e.comp_off.resize(nd);
@@ -770,7 +789,8 @@ FsstPlusEnc EncodeFsstPlus(const Corpus& c, const Dedup& dd) {
     sptr[k] = base + e.comp_off[e.order[k]];
     slen[k] = e.comp_len[e.order[k]];
   }
-  e.cl = pp::CleaveSorted(sptr.data(), slen.data(), nd, pp::kMaxPrefix, /*guard_escape255=*/true);
+  e.cl = pp::CleaveSorted(sptr.data(), slen.data(), nd, pp::kMaxPrefix,
+                          /*guard_escape255=*/true);
   return e;
 }
 
@@ -778,16 +798,17 @@ FsstPlusEnc EncodeFsstPlus(const Corpus& c, const Dedup& dd) {
 size_t FsstPlusSize(const FsstPlusEnc& e, const Corpus& c) {
   size_t nd = e.nd;
   size_t num_blocks = (nd + pp::kBlockSize - 1) / pp::kBlockSize;
-  size_t bytes = 2 + 4 * num_blocks + 4;  // num_blocks + block_start_offsets[] + data_end_offset
+  size_t bytes =
+      2 + 4 * num_blocks + 4;  // num_blocks + block_start_offsets[] + data_end_offset
   for (size_t bstart = 0; bstart < nd; bstart += pp::kBlockSize) {
     size_t bn = std::min(pp::kBlockSize, nd - bstart);
     bytes += 1 + 2 * bn;  // num_strings + suffix_data_area_offsets[]
     for (size_t k = bstart; k < bstart + bn; ++k) {
       uint32_t p = e.cl.prefix_len[k];
       uint32_t clen = e.comp_len[e.order[k]];
-      bytes += 1;                                     // prefix_length
-      if (p > 0) bytes += 2;                          // jump_back_offset
-      bytes += clen - p;                              // compressed suffix
+      bytes += 1;                                         // prefix_length
+      if (p > 0) bytes += 2;                              // jump_back_offset
+      bytes += clen - p;                                  // compressed suffix
       if (p > 0 && e.cl.chunk_first[k] == k) bytes += p;  // shared prefix, stored once
     }
   }
@@ -855,9 +876,10 @@ Measured RunFsstPlus(const Corpus& c) {
     std::vector<uint8_t> dictbuf(distinct_total + 32, 0), out(cap);
     std::vector<uint32_t> voff;
     size_t w = decode(dictbuf, voff, out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
-      std::fprintf(stderr, "FSST+ roundtrip mismatch on %s (w=%zu raw=%zu)\n", c.name.c_str(), w,
-                   c.raw_bytes());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "FSST+ roundtrip mismatch on %s (w=%zu raw=%zu)\n",
+                   c.name.c_str(), w, c.raw_bytes());
       std::abort();
     }
   }
@@ -878,13 +900,15 @@ Measured RunFsstPlus(const Corpus& c) {
 // ---- OnPair+ --------------------------------------------------------------
 
 struct OnPairPlusEnc {
-  op::Column col;                          // {shared prefixes + suffixes} as one column
-  std::vector<uint32_t> piece_off;         // num_pieces + 1 byte offsets (also decoded boundaries)
+  op::Column col;  // {shared prefixes + suffixes} as one column
+  std::vector<uint32_t>
+      piece_off;  // num_pieces + 1 byte offsets (also decoded boundaries)
   size_t num_pieces = 0;
   std::vector<uint32_t> order, sorted_pos;  // distinct id <-> sorted rank (by raw bytes)
-  pp::Cleaving cl;                         // over raw sorted values
-  std::vector<uint32_t> prefix_piece;      // sorted rank of a chunk rep -> its prefix piece index
-  size_t n_prefix_pieces = 0;              // suffix piece of sorted value k == n_prefix_pieces + k
+  pp::Cleaving cl;                          // over raw sorted values
+  std::vector<uint32_t>
+      prefix_piece;            // sorted rank of a chunk rep -> its prefix piece index
+  size_t n_prefix_pieces = 0;  // suffix piece of sorted value k == n_prefix_pieces + k
   size_t nd = 0;
 };
 
@@ -913,7 +937,8 @@ OnPairPlusEnc EncodeOnPairPlus(const Corpus& c, const Dedup& dd, double threshol
     sptr[k] = base + dd.offsets[id];
     slen[k] = dd.offsets[id + 1] - dd.offsets[id];
   }
-  e.cl = pp::CleaveSorted(sptr.data(), slen.data(), nd, pp::kMaxPrefix, /*guard_escape255=*/false);
+  e.cl = pp::CleaveSorted(sptr.data(), slen.data(), nd, pp::kMaxPrefix,
+                          /*guard_escape255=*/false);
 
   // Pieces: each chunk's shared prefix once, then every value's suffix.
   std::vector<uint8_t> pbytes;
@@ -938,7 +963,8 @@ OnPairPlusEnc EncodeOnPairPlus(const Corpus& c, const Dedup& dd, double threshol
   e.piece_off = std::move(poff);
 
   op::Config cfg{16, threshold, 42};
-  e.col = op::Compress(pbytes.data(), pbytes.size(), e.piece_off.data(), e.num_pieces, cfg);
+  e.col =
+      op::Compress(pbytes.data(), pbytes.size(), e.piece_off.data(), e.num_pieces, cfg);
   return e;
 }
 
@@ -999,7 +1025,8 @@ Measured RunOnPairPlus(const Corpus& c, double threshold) {
 
   auto decode = [&](std::vector<uint8_t>& piecebuf, std::vector<uint8_t>& dictbuf,
                     std::vector<uint32_t>& voff, uint8_t* out) -> size_t {
-    op::DecompressPacked(e.col.dict, packed.data(), e.col.codes.size(), code_bits, piecebuf.data());
+    op::DecompressPacked(e.col.dict, packed.data(), packed.size(), e.col.codes.size(),
+                         code_bits, piecebuf.data(), piecebuf.size());
     voff.assign(e.nd + 1, 0);
     size_t w = 0;
     for (size_t k = 0; k < e.nd; ++k) {
@@ -1030,9 +1057,10 @@ Measured RunOnPairPlus(const Corpus& c, double threshold) {
     std::vector<uint8_t> dictbuf(distinct_total + 32, 0), out(cap);
     std::vector<uint32_t> voff;
     size_t w = decode(piecebuf, dictbuf, voff, out.data());
-    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
-      std::fprintf(stderr, "OnPair+ roundtrip mismatch on %s (w=%zu raw=%zu)\n", c.name.c_str(), w,
-                   c.raw_bytes());
+    if (w != c.raw_bytes() ||
+        std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "OnPair+ roundtrip mismatch on %s (w=%zu raw=%zu)\n",
+                   c.name.c_str(), w, c.raw_bytes());
       std::abort();
     }
   }
@@ -1092,16 +1120,18 @@ int main(int argc, char** argv) {
 
     std::printf("%-26s %10zu %10.2f\n", c.name.c_str(), c.n_rows(), Mib(c.raw_bytes()));
     auto emit = [&](const Measured& m) {
-      double ratio = static_cast<double>(c.raw_bytes()) / static_cast<double>(m.compressed_bytes);
+      double ratio =
+          static_cast<double>(c.raw_bytes()) / static_cast<double>(m.compressed_bytes);
       std::printf("  %-24s %10s %10.2f  %7.3fx %9.1f %9.1f\n", m.label.c_str(), "",
                   Mib(m.compressed_bytes), ratio, m.encode_mibs, m.decode_mibs);
     };
 
     if (core_only) {
       for (const Measured* m : {&fsst, &f16_8, &f16_16, &f16_m, &op16, &opauto}) emit(*m);
-      std::printf("  -> tables: FSST16-8B %zu tokens/max %zu, FSST16-16B %zu/%zu, "
-                  "FSST16-16B-4M %zu/%zu, OnPair16 %zu/%zu\n\n",
-                  t8, l8, t16, l16, tfull, lfull, op16_tokens, op16_max_len);
+      std::printf(
+          "  -> tables: FSST16-8B %zu tokens/max %zu, FSST16-16B %zu/%zu, "
+          "FSST16-16B-4M %zu/%zu, OnPair16 %zu/%zu\n\n",
+          t8, l8, t16, l16, tfull, lfull, op16_tokens, op16_max_len);
       continue;
     }
     Measured zstd1 = RunZstd(c, 1);
@@ -1110,20 +1140,23 @@ int main(int argc, char** argv) {
     Measured fsstp = RunFsstPlus(c);
     Measured oppl = RunOnPairPlus(c, threshold);
 
-    for (const Measured* m :
-         {&fsst, &f16_8, &f16_16, &f16_m, &zstd1, &lz4, &op16, &opauto, &op16d, &fsstp, &oppl}) {
+    for (const Measured* m : {&fsst, &f16_8, &f16_16, &f16_m, &zstd1, &lz4, &op16,
+                              &opauto, &op16d, &fsstp, &oppl}) {
       emit(*m);
     }
     double r_fsst = static_cast<double>(c.raw_bytes()) / fsst.compressed_bytes;
     double r_zstd = static_cast<double>(c.raw_bytes()) / zstd1.compressed_bytes;
     double r_op16 = static_cast<double>(c.raw_bytes()) / op16.compressed_bytes;
-    std::printf("  -> OnPair16 vs FSST:    ratio %+.1f%%, encode %+.1f%%, decode %+.1f%%\n",
-                (r_op16 / r_fsst - 1.0) * 100.0, (op16.encode_mibs / fsst.encode_mibs - 1.0) * 100.0,
-                (op16.decode_mibs / fsst.decode_mibs - 1.0) * 100.0);
-    std::printf("  -> OnPair16 vs zstd(1): ratio %+.1f%%, encode %+.1f%%, decode %+.1f%%\n",
-                (r_op16 / r_zstd - 1.0) * 100.0,
-                (op16.encode_mibs / zstd1.encode_mibs - 1.0) * 100.0,
-                (op16.decode_mibs / zstd1.decode_mibs - 1.0) * 100.0);
+    std::printf(
+        "  -> OnPair16 vs FSST:    ratio %+.1f%%, encode %+.1f%%, decode %+.1f%%\n",
+        (r_op16 / r_fsst - 1.0) * 100.0,
+        (op16.encode_mibs / fsst.encode_mibs - 1.0) * 100.0,
+        (op16.decode_mibs / fsst.decode_mibs - 1.0) * 100.0);
+    std::printf(
+        "  -> OnPair16 vs zstd(1): ratio %+.1f%%, encode %+.1f%%, decode %+.1f%%\n",
+        (r_op16 / r_zstd - 1.0) * 100.0,
+        (op16.encode_mibs / zstd1.encode_mibs - 1.0) * 100.0,
+        (op16.decode_mibs / zstd1.decode_mibs - 1.0) * 100.0);
     double r_op16d = static_cast<double>(c.raw_bytes()) / op16d.compressed_bytes;
     std::printf("  -> OnPair16-dedup vs zstd(1): ratio %+.1f%%, decode %+.1f%%\n",
                 (r_op16d / r_zstd - 1.0) * 100.0,
@@ -1132,8 +1165,10 @@ int main(int argc, char** argv) {
     double r_oppl = static_cast<double>(c.raw_bytes()) / oppl.compressed_bytes;
     std::printf("  -> FSST+ vs FSST: ratio %+.1f%%; FSST+ vs zstd(1): ratio %+.1f%%\n",
                 (r_fsstp / r_fsst - 1.0) * 100.0, (r_fsstp / r_zstd - 1.0) * 100.0);
-    std::printf("  -> OnPair+ vs OnPair16-dedup: ratio %+.1f%%; OnPair+ vs zstd(1): ratio %+.1f%%\n\n",
-                (r_oppl / r_op16d - 1.0) * 100.0, (r_oppl / r_zstd - 1.0) * 100.0);
+    std::printf(
+        "  -> OnPair+ vs OnPair16-dedup: ratio %+.1f%%; OnPair+ vs zstd(1): ratio "
+        "%+.1f%%\n\n",
+        (r_oppl / r_op16d - 1.0) * 100.0, (r_oppl / r_zstd - 1.0) * 100.0);
   }
   return 0;
 }

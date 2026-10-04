@@ -40,7 +40,8 @@ inline uint64_t FsstHash(uint64_t w) {
 // Byte-range hash for the symbol indexes below: eight bytes a step with a tail,
 // then an avalanche.
 inline uint64_t HashBytes(const uint8_t* p, size_t len) {
-  uint64_t h = 0x9E3779B97F4A7C15ull ^ (static_cast<uint64_t>(len) * 0xff51afd7ed558ccdull);
+  uint64_t h =
+      0x9E3779B97F4A7C15ull ^ (static_cast<uint64_t>(len) * 0xff51afd7ed558ccdull);
   size_t i = 0;
   for (; i + 8 <= len; i += 8) {
     uint64_t w;
@@ -174,8 +175,12 @@ class PairCounts {
   }
 
   const std::vector<size_t>& used() const { return used_; }
-  uint32_t left(size_t slot) const { return static_cast<uint32_t>((keys_[slot] - 1) >> 16); }
-  uint32_t right(size_t slot) const { return static_cast<uint32_t>((keys_[slot] - 1) & 0xFFFF); }
+  uint32_t left(size_t slot) const {
+    return static_cast<uint32_t>((keys_[slot] - 1) >> 16);
+  }
+  uint32_t right(size_t slot) const {
+    return static_cast<uint32_t>((keys_[slot] - 1) & 0xFFFF);
+  }
   uint32_t count(size_t slot) const { return vals_[slot]; }
 
  private:
@@ -457,7 +462,7 @@ class Trainer {
   const Config& cfg_;
   const size_t cap_;  // effective max symbol length
 
-  std::vector<uint8_t> buf_;                            // sample backing store
+  std::vector<uint8_t> buf_;                              // sample backing store
   std::vector<std::pair<const uint8_t*, size_t>> lines_;  // sample rows
 
   std::vector<Sym> syms_;  // 0..255 literals, then learned symbols

@@ -1,6 +1,19 @@
-// SelectBudget is a pure function over trained candidates, so its behaviour can be
-// pinned without training or timing anything. These are the properties the rest of
-// the design leans on.
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements. See the NOTICE file distributed with this
+// work for additional information regarding copyright ownership. The ASF
+// licenses this file to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations
+// under the License.
+
+// Tests SelectBudget independently of training and timing.
 #include <cinttypes>
 #include <cmath>
 #include <cstdio>
@@ -22,7 +35,8 @@ void Check(bool ok, const char* what) {
   }
 }
 
-op::BudgetCandidate Cand(uint8_t budget, uint32_t tokens, uint64_t codes, uint64_t stored) {
+op::BudgetCandidate Cand(uint8_t budget, uint32_t tokens, uint64_t codes,
+                         uint64_t stored) {
   op::BudgetCandidate c;
   c.budget = budget;
   c.code_width = budget;
@@ -40,25 +54,23 @@ size_t Pick(const std::vector<op::BudgetCandidate>& c, double cap) {
 
 // The shape every real column has: as the budget widens the dictionary grows and
 // the code count falls, and stored size bottoms out somewhere in between.
-std::vector<op::BudgetCandidate> Ladder() {
+std::vector<op::BudgetCandidate> Candidates() {
   return {
-      Cand(8, 256, 1600, 1000),    // smallest, most codes
-      Cand(9, 512, 1470, 1010),
-      Cand(10, 1024, 1372, 1040),
-      Cand(13, 8192, 1092, 1100),
-      Cand(16, 65536, 1010, 1300),  // fewest codes, biggest
+      Cand(8, 256, 1600, 1000),  // smallest, most codes
+      Cand(9, 512, 1470, 1010),   Cand(10, 1024, 1372, 1040),
+      Cand(13, 8192, 1092, 1100), Cand(16, 65536, 1010, 1300),  // fewest codes, biggest
   };
 }
 
 void TestEnds() {
-  auto l = Ladder();
+  auto l = Candidates();
   Check(Pick(l, std::numeric_limits<double>::infinity()) == 0,
         "an infinite cap ignores decode and takes the smallest");
   // Not the fewest codes: index 4 has 1010 of them but a saturated dictionary, and
   // the per-code penalty for that outweighs the 8% code saving over index 3. The
-  // cheapest rung sits inside the ladder, which is the whole reason the estimate
-  // carries a dictionary term at all.
-  Check(Pick(l, 0.0) == 3, "a zero cap takes the cheapest predicted rung, not the narrowest stream");
+  // The dictionary penalty makes an interior candidate cheapest to decode.
+  Check(Pick(l, 0.0) == 3,
+        "a zero cap takes the cheapest predicted candidate, not the narrowest stream");
   // A cap must never turn into a NaN comparison that admits or rejects everything
   // by accident, which is the failure mode of writing best * (1 + inf).
   Check(Pick(l, std::numeric_limits<double>::infinity()) != l.size(),
@@ -66,7 +78,7 @@ void TestEnds() {
 }
 
 void TestMonotone() {
-  auto l = Ladder();
+  auto l = Candidates();
   // Widening the cap can only ever admit more candidates, so the chosen size is
   // non-increasing in the cap. This is what makes the knob safe to tune.
   uint64_t prev = std::numeric_limits<uint64_t>::max();
@@ -80,27 +92,30 @@ void TestMonotone() {
 void TestParetoAndTies() {
   // Same size, different decode cost: the cheaper decode must win, or the selector
   // would return a dominated candidate.
-  std::vector<op::BudgetCandidate> tie = {Cand(9, 512, 2000, 500), Cand(12, 4096, 1000, 500)};
+  std::vector<op::BudgetCandidate> tie = {Cand(9, 512, 2000, 500),
+                                          Cand(12, 4096, 1000, 500)};
   Check(tie[Pick(tie, 1.0)].budget == 12, "a size tie breaks toward cheaper decode");
 
   // One candidate is always admissible: it defines the best cost itself.
   std::vector<op::BudgetCandidate> one = {Cand(11, 2048, 999, 77)};
   Check(Pick(one, 0.0) == 0, "a lone candidate is admitted at any cap");
 
-  Check(op::SelectBudget(nullptr, 0, op::SelectionPolicy{}) == 0, "no candidates returns n");
+  Check(op::SelectBudget(nullptr, 0, op::SelectionPolicy{}) == 0,
+        "no candidates returns n");
 }
 
 void TestDictionaryTermIsBounded() {
   // The dictionary term is real but bounded: across the entire realizable range,
   // 256 tokens to a saturated 65536, per-code cost rises about 1.42x. Code counts
-  // across a ladder routinely vary 2x, so a code saving larger than that bound
+  // across candidates routinely vary 2x, so a code saving larger than that bound
   // always wins no matter what it does to the dictionary. This bound is what makes
   // the estimate portable -- a machine with a different cache hierarchy moves the
   // 1.42x, not the ordering of the large code-count differences.
   double per_code_small = op::DecodeCostEstimate(1000, 256) / 1000.0;
   double per_code_saturated = op::DecodeCostEstimate(1000, 65536) / 1000.0;
   double span = per_code_saturated / per_code_small;
-  Check(span > 1.2 && span < 1.6, "per-code cost spans 1.2x-1.6x over the whole token range");
+  Check(span > 1.2 && span < 1.6,
+        "per-code cost spans 1.2x-1.6x over the whole token range");
   Check(op::DecodeCostEstimate(500, 65536) < op::DecodeCostEstimate(1000, 256),
         "halving the code count beats the worst dictionary penalty");
   // Below the knee the cost is flat, so equal code counts compare equal.
@@ -108,13 +123,14 @@ void TestDictionaryTermIsBounded() {
         "dictionaries under the knee cost the same per code");
 }
 
-void TestFlatLadder() {
+void TestEquivalentCandidates() {
   // The low-cardinality columns train to the same dictionary at every budget. The
   // selector must be indifferent rather than arbitrary: identical candidates mean
   // the first, so the choice is the narrowest budget that achieves it.
   std::vector<op::BudgetCandidate> flat;
   for (uint8_t b = 8; b <= 16; ++b) flat.push_back(Cand(b, 36, 500000, 400000));
-  Check(flat[Pick(flat, 0.05)].budget == 8, "an all-equal ladder picks the narrowest budget");
+  Check(flat[Pick(flat, 0.05)].budget == 8,
+        "equivalent candidates pick the narrowest budget");
 }
 
 }  // namespace
@@ -125,7 +141,7 @@ int main() {
   TestMonotone();
   TestParetoAndTies();
   TestDictionaryTermIsBounded();
-  TestFlatLadder();
+  TestEquivalentCandidates();
   std::printf("%s (%d failures)\n", failures == 0 ? "PASS" : "FAIL", failures);
   return failures == 0 ? 0 : 1;
 }
