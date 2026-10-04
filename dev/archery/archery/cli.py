@@ -762,8 +762,8 @@ def _set_default(opt, default):
 @click.option('--gold-dirs', multiple=True,
               help="gold integration test file paths")
 @click.option('-k', '--match',
-              help=("Substring for test names to include in run, "
-                    "e.g. -k primitive"))
+              help=("Substring for data file or Flight scenario names to include "
+                    "in run, e.g. -k primitive or -k flight_sql"))
 def integration(with_all=False, random_seed=12345, write_generated_json="",
                 write_gold_files="", **args):
     """If you don't specify the "--target-implementations" option nor
