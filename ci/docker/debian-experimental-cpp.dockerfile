@@ -73,6 +73,7 @@ RUN if [ -n "${gcc}" ]; then \
         libssh2-1-dev \
         libssl-dev \
         libthrift-dev \
+        liburiparser-dev \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \
@@ -143,6 +144,5 @@ ENV ARROW_ACERO=ON \
     CXX=g++${gcc:+-${gcc}} \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
     xsimd_SOURCE=BUNDLED

@@ -94,17 +94,6 @@ test_that("pull", {
   )
 })
 
-test_that("pull() shows a deprecation warning if the option isn't set", {
-  expect_warning(
-    vec <- tbl |>
-      arrow_table() |>
-      pull(as_vector = NULL),
-    "Current behavior of returning an R vector is deprecated"
-  )
-  # And the default is the old behavior, an R vector
-  expect_identical(vec, pull(tbl))
-})
-
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
 
@@ -760,4 +749,19 @@ test_that("nested field ref error handling", {
       compute(),
     "No match"
   )
+})
+
+test_that("pull() returns an R vector by default", {
+  withr::local_options(arrow.pull_as_vector = NULL)
+  tab <- arrow_table(tbl)
+
+  expect_no_warning(out <- pull(tab, int))
+  expect_identical(out, tbl$int)
+  expect_no_warning(out <- pull(tab |> filter(int > 4), int))
+  expect_identical(out, tbl$int[!is.na(tbl$int) & tbl$int > 4])
+
+  expect_r6_class(pull(tab, int, as_vector = FALSE), "ChunkedArray")
+
+  withr::local_options(arrow.pull_as_vector = FALSE)
+  expect_r6_class(pull(tab, int), "ChunkedArray")
 })

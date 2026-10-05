@@ -237,11 +237,26 @@ still active.
    ``Status: needs champion`` are confirmed-wanted enhancements that need
    a contributor. See :ref:`finding-issues` for more.
 
+.. _pr-limit:
+
+Limit on concurrent pull requests
++++++++++++++++++++++++++++++++++
+
+Due to the increase in pull requests opened by AI bots, and in order to keep
+the review queue manageable, contributors without the required access to the
+repository may have at most **3 pull requests open at the same time**.
+The required access is either write access (committers) or triage (collaborators).
+A pull request opened beyond that limit is automatically closed by a GitHub
+Actions workflow, with a comment explaining why. Once one of your other pull
+requests has been merged or closed, you can reopen it.
+
 .. _issue-assignment:
 
 Issue assignment
 ++++++++++++++++
 
 Assignment signals commitment to work on an issue, and contributors should
-self-assign issues when that work starts. Anyone can now self-assign issues
-by commenting ``take``.
+be assigned to issues when that work starts. If you would like to work on an
+issue, leave a comment saying so and a committer or collaborator will assign
+it to you. See :ref:`collaborators` for how to get the ability to assign
+issues yourself.

@@ -204,6 +204,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     c_bool is_primitive(Type type)
     c_bool is_numeric(Type type)
+    c_bool is_nested(Type type)
 
     cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
         optional[CArrayStatisticsCountType] null_count
@@ -279,6 +280,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] CopyTo(const shared_ptr[CMemoryManager]& to) const
 
         const shared_ptr[CArrayStatistics]& statistics() const
+
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool allow_nulls) const
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -1458,6 +1461,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef struct DLPackVersion:
+        uint32_t major
+        uint32_t minor
+
     ctypedef enum DLDeviceType:
         kDLCPU = 1
 
@@ -1473,6 +1480,8 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
 
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    const DLPackVersion DLPACK_VERSION" arrow::dlpack::kVersion"
+
     CResult[DLManagedTensor*] ExportArrayToDLPack" arrow::dlpack::ExportArray"(
         const shared_ptr[CArray]& arr)
     CResult[DLManagedTensor*] ExportTensorToDLPack" arrow::dlpack::ExportTensor"(
@@ -1487,6 +1496,13 @@ cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
     CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
+
+    CResult[shared_ptr[CArray]] \
+        ImportArrayVersionedFromDLPack" arrow::dlpack::ImportArrayVersioned"(
+            DLManagedTensorVersioned* raw)
+    CResult[shared_ptr[CTensor]] \
+        ImportTensorVersionedFromDLPack" arrow::dlpack::ImportTensorVersioned"(
+            DLManagedTensorVersioned* raw)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
@@ -1606,10 +1622,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         FileMode_WRITE" arrow::io::FileMode::WRITE"
         FileMode_READWRITE" arrow::io::FileMode::READWRITE"
 
-    cdef enum ObjectType" arrow::io::ObjectType::type":
-        ObjectType_FILE" arrow::io::ObjectType::FILE"
-        ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
-
     cdef cppclass CIOContext" arrow::io::IOContext":
         CIOContext()
         CIOContext(CStopToken)
@@ -1619,10 +1631,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     CIOContext c_default_io_context "arrow::io::default_io_context"()
     int GetIOThreadPoolCapacity()
     CStatus SetIOThreadPoolCapacity(int threads)
-
-    cdef cppclass FileStatistics:
-        int64_t size
-        ObjectType kind
 
     cdef cppclass FileInterface:
         CStatus Close()
@@ -1690,9 +1698,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass ReadWriteFileInterface(CRandomAccessFile,
                                          WritableFile):
         pass
-
-    cdef cppclass CIOFileSystem" arrow::io::FileSystem":
-        CStatus Stat(const c_string& path, FileStatistics* stat)
 
     cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
@@ -1784,78 +1789,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         "arrow::py::MakeStreamTransformFunc"(
         CTransformInputStreamVTable vtable,
         object method_arg)
-
-    # ----------------------------------------------------------------------
-    # HDFS
-
-    CStatus HaveLibHdfs()
-    CStatus HaveLibHdfs3()
-
-    cdef enum HdfsDriver" arrow::io::HdfsDriver":
-        HdfsDriver_LIBHDFS" arrow::io::HdfsDriver::LIBHDFS"
-        HdfsDriver_LIBHDFS3" arrow::io::HdfsDriver::LIBHDFS3"
-
-    cdef cppclass HdfsConnectionConfig:
-        c_string host
-        int port
-        c_string user
-        c_string kerb_ticket
-        unordered_map[c_string, c_string] extra_conf
-        HdfsDriver driver
-
-    cdef cppclass HdfsPathInfo:
-        ObjectType kind
-        c_string name
-        c_string owner
-        c_string group
-        int32_t last_modified_time
-        int32_t last_access_time
-        int64_t size
-        int16_t replication
-        int64_t block_size
-        int16_t permissions
-
-    cdef cppclass HdfsReadableFile(CRandomAccessFile):
-        pass
-
-    cdef cppclass HdfsOutputStream(COutputStream):
-        pass
-
-    cdef cppclass CIOHadoopFileSystem \
-            "arrow::io::HadoopFileSystem"(CIOFileSystem):
-        @staticmethod
-        CStatus Connect(const HdfsConnectionConfig* config,
-                        shared_ptr[CIOHadoopFileSystem]* client)
-
-        CStatus MakeDirectory(const c_string& path)
-
-        CStatus Delete(const c_string& path, c_bool recursive)
-
-        CStatus Disconnect()
-
-        c_bool Exists(const c_string& path)
-
-        CStatus Chmod(const c_string& path, int mode)
-        CStatus Chown(const c_string& path, const char* owner,
-                      const char* group)
-
-        CStatus GetCapacity(int64_t* nbytes)
-        CStatus GetUsed(int64_t* nbytes)
-
-        CStatus ListDirectory(const c_string& path,
-                              vector[HdfsPathInfo]* listing)
-
-        CStatus GetPathInfo(const c_string& path, HdfsPathInfo* info)
-
-        CStatus Rename(const c_string& src, const c_string& dst)
-
-        CStatus OpenReadable(const c_string& path,
-                             shared_ptr[HdfsReadableFile]* handle)
-
-        CStatus OpenWritable(const c_string& path, c_bool append,
-                             int32_t buffer_size, int16_t replication,
-                             int64_t default_block_size,
-                             shared_ptr[HdfsOutputStream]* handle)
 
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(CRandomAccessFile):
@@ -2181,6 +2114,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char delimiter
         CQuotingStyle quoting_style
         CQuotingStyle quoting_header
+        c_string eol
+        c_string null_string
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -2814,6 +2749,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOrder order
         CNullPlacement null_placement
 
+    cdef enum CSearchSortedSide \
+            "arrow::compute::SearchSortedOptions::Side":
+        CSearchSortedSide_Left "arrow::compute::SearchSortedOptions::Left"
+        CSearchSortedSide_Right "arrow::compute::SearchSortedOptions::Right"
+
+    cdef cppclass CSearchSortedOptions \
+            "arrow::compute::SearchSortedOptions"(CFunctionOptions):
+        CSearchSortedOptions(CSearchSortedSide side)
+        CSearchSortedSide side
+
     cdef cppclass CSortKey" arrow::compute::SortKey":
         CSortKey(CFieldRef target, CSortOrder order)
         CSortKey(CFieldRef target, CSortOrder order, CNullPlacement null_placement)
@@ -3090,7 +3035,10 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
 
     cdef cppclass CFixedShapeTensorArray \
             " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
-        const CResult[shared_ptr[CTensor]] ToTensor() const
+
+        @staticmethod
+        CResult[shared_ptr[CFixedShapeTensorArray]] FromTensor(
+            const shared_ptr[CTensor]& tensor)
 
 
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:

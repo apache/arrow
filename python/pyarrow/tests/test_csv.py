@@ -417,6 +417,7 @@ def test_write_options():
 
     check_options_class(
         cls, include_header=[True, False], delimiter=[',', '\t', '|'],
+        eol=['\n', '\r\n'], null_string=['', 'NA'],
         quoting_style=['needed', 'none', 'all_valid'])
 
     assert opts.batch_size > 0
@@ -2136,6 +2137,41 @@ def test_write_quoting_header():
             writer.write_table(t)
         assert buf.getvalue() == res
         buf.seek(0)
+
+
+def test_write_eol():
+    t = pa.Table.from_arrays([[1, 2, 3], ["a", "b", "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,"b"\n3,"c"\n'),
+        (WriteOptions(eol='\n'), b'"c1","c2"\n1,"a"\n2,"b"\n3,"c"\n'),
+        (WriteOptions(eol='\r\n'),
+         b'"c1","c2"\r\n1,"a"\r\n2,"b"\r\n3,"c"\r\n'),
+        (WriteOptions(eol='*'), b'"c1","c2"*1,"a"*2,"b"*3,"c"*'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        assert buf.getvalue() == res
+        buf.seek(0)
+        buf.truncate()
+
+
+def test_write_null_string():
+    t = pa.Table.from_arrays([[1, 2, None], ["a", None, "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(null_string=''), b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(null_string='NA'),
+         b'"c1","c2"\n1,"a"\n2,NA\nNA,"c"\n'),
+        (WriteOptions(null_string='N/A'),
+         b'"c1","c2"\n1,"a"\n2,N/A\nN/A,"c"\n'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        assert buf.getvalue() == res
+        buf.seek(0)
+        buf.truncate()
 
 
 def test_read_csv_reference_cycle():

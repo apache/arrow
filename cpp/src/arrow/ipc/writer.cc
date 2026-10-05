@@ -1119,7 +1119,9 @@ Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* poo
 Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
                                                         MemoryPool* pool) {
   IpcPayload payload;
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   RETURN_NOT_OK(GetSparseTensorPayload(sparse_tensor, pool, &payload));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   return std::unique_ptr<Message>(
       new Message(std::move(payload.metadata), std::move(payload.body_buffers[0])));
 }
@@ -1154,7 +1156,9 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
   int32_t metadata_length = 0;
   int64_t body_length = 0;
   io::MockOutputStream dst;
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   RETURN_NOT_OK(WriteTensor(tensor, &dst, &metadata_length, &body_length));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   *size = dst.GetExtentBytesWritten();
   return Status::OK();
 }

@@ -32,7 +32,7 @@ import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 from queue import Queue, Empty as QueueEmpty
 
-from pyarrow.lib cimport check_status, HaveLibHdfs
+from pyarrow.lib cimport check_status
 from pyarrow.util import _is_path_like, _stringify_path
 
 
@@ -44,18 +44,6 @@ cdef extern from "Python.h":
     # To let us get a PyObject* and avoid Cython auto-ref-counting
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
-
-
-def have_libhdfs():
-    """
-    Return true if HDFS (HadoopFileSystem) library is set up correctly.
-    """
-    try:
-        with nogil:
-            check_status(HaveLibHdfs())
-        return True
-    except Exception:
-        return False
 
 
 def io_thread_count():
@@ -548,6 +536,8 @@ cdef class NativeFile(_Weakrefable):
         handle = self.get_input_stream()
 
         py_buf = py_buffer(b)
+        if not py_buf.buffer.get().is_mutable():
+            raise TypeError("readinto() argument must be a writable buffer")
         buf_len = py_buf.size
         buf = py_buf.buffer.get().mutable_data()
 
@@ -1101,6 +1091,7 @@ cdef class MemoryMappedFile(NativeFile):
         ----------
         new_size : new size in bytes
         """
+        self._assert_open()
         check_status(self.handle.get().Resize(new_size))
 
     def fileno(self):
