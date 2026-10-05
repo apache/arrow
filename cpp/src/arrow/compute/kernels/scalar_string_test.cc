@@ -2950,14 +2950,16 @@ TEST(TestStringViewPredicates, MatchLike) {
   }
 }
 
-// utf8_view registers as StringViewType, so ignore_case folds the full Unicode
-// range (É matches é), not just ASCII. This would fail if utf8_view were
-// dispatched through the generic BinaryViewType path and lost that distinction.
+// Both view types share the BinaryViewType kernel, but ignore_case folding depends
+// on the logical input type: utf8_view folds the full Unicode range (É matches é),
+// while binary_view treats the input as raw bytes and only folds ASCII.
 TEST(TestStringViewPredicates, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options{"aé(", /*ignore_case=*/true};
-  CheckScalarUnary("match_substring", utf8_view(),
-                   R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])", boolean(),
+  const char* input = R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])";
+  CheckScalarUnary("match_substring", utf8_view(), input, boolean(),
                    "[false, false, true, true, false, true]", &options);
+  CheckScalarUnary("match_substring", binary_view(), input, boolean(),
+                   "[false, false, false, true, false, true]", &options);
 }
 #endif
 
