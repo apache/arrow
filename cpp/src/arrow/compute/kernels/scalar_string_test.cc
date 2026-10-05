@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -2951,8 +2951,9 @@ TEST(TestStringViewPredicates, MatchLike) {
 }
 
 // Both view types share the BinaryViewType kernel, but ignore_case folding depends
-// on the logical input type: utf8_view folds the full Unicode range (É matches é),
-// while binary_view treats the input as raw bytes and only folds ASCII.
+// on the logical input type: utf8_view folds UTF-8 characters (É matches é), while
+// binary_view matches byte-wise as Latin-1, where the UTF-8 bytes of É and é are
+// not case variants of each other.
 TEST(TestStringViewPredicates, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options{"aé(", /*ignore_case=*/true};
   const char* input = R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])";
@@ -2992,12 +2993,15 @@ TEST(TestStringViewPredicates, Utf8Classification) {
 // A validation-passing view array may hold arbitrary bytes in a null slot's
 // header, because ValidateBinaryView skips null slots. The view kernels must not
 // decode those, or they would dereference a bogus buffer_index/offset. Craft
-// ["ok", <null slot with a 0xFF header>] and confirm the kernels ignore the null.
+// ["ok", <null slot with an out-of-line header pointing at a nonexistent buffer>]
+// and confirm the kernels ignore the null.
 TEST(TestStringViewPredicates, NullSlotWithUnvalidatedHeader) {
   auto good = ArrayFromJSON(utf8_view(), R"(["ok", null])");
   std::vector<BinaryViewType::c_type> views(2);
   views[0] = util::ToInlineBinaryView("ok");
-  std::memset(&views[1], 0xFF, sizeof(BinaryViewType::c_type));
+  views[1].ref.size = 64;  // > kInlineSize, so decoding would follow buffer_index
+  views[1].ref.buffer_index = std::numeric_limits<int32_t>::max();
+  views[1].ref.offset = std::numeric_limits<int32_t>::max();
   auto data = std::make_shared<ArrayData>(*good->data());
   data->buffers[1] = Buffer::FromVector(std::move(views));
   auto arr = MakeArray(data);

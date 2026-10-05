@@ -270,7 +270,9 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
     ARROW_DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
   }
   ARROW_DCHECK_OK(func->AddKernel(
-      {utf8_view()}, boolean(), StringPredicateFunctor<BinaryViewType, Predicate>::Exec));
+      {utf8_view()}, boolean(),
+      GenerateTypeAgnosticVarBinaryViewBase<StringPredicateFunctor, Predicate>(
+          utf8_view())));
   ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
