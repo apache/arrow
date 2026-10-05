@@ -1622,20 +1622,6 @@ const FunctionDoc match_like_doc(
     {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
 #endif
 
-// Register the view kernels for a match-substring-style predicate. Both view types
-// use the BinaryViewType physical exec; is_utf8 is determined at runtime from the
-// input type (utf8_view -> true, binary_view -> false), so ignore_case/regex folding
-// stays correct without a separate StringViewType instantiation.
-template <template <typename...> class ExecTemplate, typename... Matcher>
-void AddMatchSubstringViewKernels(ScalarFunction* func) {
-  DCHECK_OK(func->AddKernel({binary_view()}, boolean(),
-                            ExecTemplate<BinaryViewType, Matcher...>::Exec,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({utf8_view()}, boolean(),
-                            ExecTemplate<BinaryViewType, Matcher...>::Exec,
-                            MatchSubstringState::Init));
-}
-
 void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
@@ -1646,7 +1632,13 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
-    AddMatchSubstringViewKernels<MatchSubstring, PlainSubstringMatcher>(func.get());
+    for (const auto& ty : BinaryViewTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryViewBase<MatchSubstring, PlainSubstringMatcher>(
+              ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -1658,7 +1650,13 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
-    AddMatchSubstringViewKernels<MatchSubstring, PlainStartsWithMatcher>(func.get());
+    for (const auto& ty : BinaryViewTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryViewBase<MatchSubstring, PlainStartsWithMatcher>(
+              ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -1670,7 +1668,12 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
-    AddMatchSubstringViewKernels<MatchSubstring, PlainEndsWithMatcher>(func.get());
+    for (const auto& ty : BinaryViewTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryViewBase<MatchSubstring, PlainEndsWithMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #ifdef ARROW_WITH_RE2
@@ -1683,7 +1686,13 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
-    AddMatchSubstringViewKernels<MatchSubstring, RegexSubstringMatcher>(func.get());
+    for (const auto& ty : BinaryViewTypes()) {
+      auto exec =
+          GenerateTypeAgnosticVarBinaryViewBase<MatchSubstring, RegexSubstringMatcher>(
+              ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -1694,7 +1703,11 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
       DCHECK_OK(
           func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
     }
-    AddMatchSubstringViewKernels<MatchLike>(func.get());
+    for (const auto& ty : BinaryViewTypes()) {
+      auto exec = GenerateTypeAgnosticVarBinaryViewBase<MatchLike>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
@@ -1832,13 +1845,12 @@ void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
-    // Per view type to keep the is_utf8 distinction; view length fits int32.
-    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
-                              FindSubstringExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
-    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
-                              FindSubstringExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
+    // View element length is int32-sized, so both view types emit int32.
+    for (const auto& ty : BinaryViewTypes()) {
+      DCHECK_OK(func->AddKernel(
+          {ty}, int32(), GenerateTypeAgnosticVarBinaryViewBase<FindSubstringExec>(ty),
+          MatchSubstringState::Init));
+    }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               FindSubstringExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
@@ -1855,12 +1867,12 @@ void AddAsciiStringFindSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
-    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
-                              FindSubstringRegexExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
-    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
-                              FindSubstringRegexExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
+    for (const auto& ty : BinaryViewTypes()) {
+      DCHECK_OK(func->AddKernel(
+          {ty}, int32(),
+          GenerateTypeAgnosticVarBinaryViewBase<FindSubstringRegexExec>(ty),
+          MatchSubstringState::Init));
+    }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               FindSubstringRegexExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
@@ -1995,12 +2007,11 @@ void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
                                 GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
     }
-    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
-                              CountSubstringExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
-    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
-                              CountSubstringExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
+    for (const auto& ty : BinaryViewTypes()) {
+      DCHECK_OK(func->AddKernel(
+          {ty}, int32(), GenerateTypeAgnosticVarBinaryViewBase<CountSubstringExec>(ty),
+          MatchSubstringState::Init));
+    }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               CountSubstringExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
@@ -2017,12 +2028,12 @@ void AddAsciiStringCountSubstring(FunctionRegistry* registry) {
                           GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
                           MatchSubstringState::Init));
     }
-    DCHECK_OK(func->AddKernel({binary_view()}, int32(),
-                              CountSubstringRegexExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
-    DCHECK_OK(func->AddKernel({utf8_view()}, int32(),
-                              CountSubstringRegexExec<BinaryViewType>::Exec,
-                              MatchSubstringState::Init));
+    for (const auto& ty : BinaryViewTypes()) {
+      DCHECK_OK(func->AddKernel(
+          {ty}, int32(),
+          GenerateTypeAgnosticVarBinaryViewBase<CountSubstringRegexExec>(ty),
+          MatchSubstringState::Init));
+    }
     DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                               CountSubstringRegexExec<FixedSizeBinaryType>::Exec,
                               MatchSubstringState::Init));
