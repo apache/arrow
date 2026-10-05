@@ -20,6 +20,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -353,6 +354,52 @@ TEST(BlockParser, NullTypeRejectsNonNullUnderError) {
   std::shared_ptr<Array> parsed;
   // Should reject — "a" is typed null(), but 5 is not null.
   ASSERT_RAISES(Invalid, ParseFromString(options, R"({"a": 5})", &parsed));
+}
+
+TEST(BlockParser, NestingDepth) {
+  auto deeply_nested_json_object = [](int depth) {
+    std::stringstream ss;
+    for (int i = 0; i < depth; ++i) {
+      ss << "{\"a\":";
+    }
+    ss << "1";
+    for (int i = 0; i < depth; ++i) {
+      ss << "}";
+    }
+    return std::move(ss).str();
+  };
+
+  auto deeply_nested_json_array = [](int depth) {
+    std::stringstream ss;
+    ss << "{\"a\":";
+    for (int i = 0; i < depth - 1; ++i) {
+      ss << "[";
+    }
+    ss << "1";
+    for (int i = 0; i < depth - 1; ++i) {
+      ss << "]";
+    }
+    ss << "}";
+    return std::move(ss).str();
+  };
+
+  const int kMaxDepth = 300;  // hard-coded in parser.cc
+  std::shared_ptr<Array> parsed;
+  ASSERT_OK(ParseFromString(ParseOptions::Defaults(),
+                            deeply_nested_json_object(kMaxDepth), &parsed));
+  ASSERT_OK(parsed->ValidateFull());
+  ASSERT_OK(ParseFromString(ParseOptions::Defaults(), deeply_nested_json_array(kMaxDepth),
+                            &parsed));
+  ASSERT_OK(parsed->ValidateFull());
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
+      ParseFromString(ParseOptions::Defaults(), deeply_nested_json_object(kMaxDepth + 1),
+                      &parsed));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
+      ParseFromString(ParseOptions::Defaults(), deeply_nested_json_array(kMaxDepth + 1),
+                      &parsed));
 }
 
 }  // namespace json
