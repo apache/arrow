@@ -156,7 +156,9 @@ def show_info():
         print(f"  {fs: <20}: {status: <8}")
 
     print("\nCompression Codecs:")
-    codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
+    # "lz4" and "lz4_frame" are the same codec, and lz4_raw is a
+    # separate one that was missing here. See _ensure_compression().
+    codecs = ["brotli", "bz2", "gzip", "lz4", "lz4_raw", "snappy", "zstd"]
     for codec in codecs:
         status = "Enabled" if Codec.is_available(codec) else "-"
         print(f"  {codec: <20}: {status: <8}")
