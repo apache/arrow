@@ -3503,6 +3503,25 @@ def test_csv_format(tempdir, dataset_reader):
     assert result.equals(table)
 
 
+@pytest.mark.parametrize("float_type", [pa.float32(), pa.float64()])
+def test_csv_integral_floats_preserve_inferred_type(
+        tempdir, float_type, dataset_reader):
+    tables = [
+        pa.table({'x': pa.array([20.0, 21.0], type=float_type), 'i': [20, 21]}),
+        pa.table({'x': pa.array([20.5, 21.25], type=float_type), 'i': [22, 23]}),
+    ]
+    paths = [str(tempdir / f't{i}.csv') for i in range(len(tables))]
+    for table, path in zip(tables, paths):
+        pyarrow.csv.write_csv(table, path)
+
+    assert pathlib.Path(paths[0]).read_text() == '"x","i"\n20.0,20\n21.0,21\n'
+    expected = pa.table({'x': [20.0, 21.0, 20.5, 21.25],
+                         'i': [20, 21, 22, 23]})
+    dataset = ds.dataset(paths, format='csv')
+    assert dataset.schema == expected.schema
+    assert dataset_reader.to_table(dataset).equals(expected)
+
+
 @pytest.mark.pandas
 @pytest.mark.parametrize("compression", [
     "bz2",
