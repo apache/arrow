@@ -76,8 +76,7 @@ std::string get_bad_data_dir();
 std::string get_data_file(const std::string& filename, bool is_good = true);
 
 template <typename T>
-static inline void assert_vector_equal(const std::vector<T>& left,
-                                       const std::vector<T>& right) {
+inline void assert_vector_equal(const std::vector<T>& left, const std::vector<T>& right) {
   ASSERT_EQ(left.size(), right.size());
 
   for (size_t i = 0; i < left.size(); ++i) {
@@ -86,7 +85,7 @@ static inline void assert_vector_equal(const std::vector<T>& left,
 }
 
 template <typename T>
-static inline bool vector_equal(const std::vector<T>& left, const std::vector<T>& right) {
+inline bool vector_equal(const std::vector<T>& left, const std::vector<T>& right) {
   if (left.size() != right.size()) {
     return false;
   }
@@ -103,7 +102,7 @@ static inline bool vector_equal(const std::vector<T>& left, const std::vector<T>
 }
 
 template <typename T>
-static std::vector<T> slice(const std::vector<T>& values, int start, int end) {
+std::vector<T> slice(const std::vector<T>& values, int start, int end) {
   if (end < start) {
     return std::vector<T>(0);
   }
@@ -176,21 +175,20 @@ std::shared_ptr<Buffer> EncodeValues(Encoding::type encoding, bool use_dictionar
 }
 
 template <typename T>
-static void InitValues(int num_values, uint32_t seed, std::vector<T>& values,
-                       std::vector<uint8_t>& buffer) {
+void InitValues(int num_values, uint32_t seed, std::vector<T>& values,
+                std::vector<uint8_t>& buffer) {
   random_numbers(num_values, seed, std::numeric_limits<T>::min(),
                  std::numeric_limits<T>::max(), values.data());
 }
 
 template <typename T>
-static void InitValues(int num_values, std::vector<T>& values,
-                       std::vector<uint8_t>& buffer) {
+void InitValues(int num_values, std::vector<T>& values, std::vector<uint8_t>& buffer) {
   InitValues(num_values, 0, values, buffer);
 }
 
 template <typename T>
-static void InitDictValues(int num_values, int num_dicts, std::vector<T>& values,
-                           std::vector<uint8_t>& buffer) {
+void InitDictValues(int num_values, int num_dicts, std::vector<T>& values,
+                    std::vector<uint8_t>& buffer) {
   int repeat_factor = num_values / num_dicts;
   InitValues<T>(num_dicts, values, buffer);
   // add some repeated values
@@ -347,7 +345,7 @@ inline void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d
 }
 
 template <typename Type>
-static std::shared_ptr<DataPageV1> MakeDataPage(
+std::shared_ptr<DataPageV1> MakeDataPage(
     const ColumnDescriptor* d, const std::vector<typename Type::c_type>& values,
     int num_vals, Encoding::type encoding, const uint8_t* indices, int indices_size,
     const std::vector<int16_t>& def_levels, int16_t max_def_level,
@@ -441,7 +439,7 @@ inline std::shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::AppendValues(
 }
 
 template <typename Type>
-inline static std::shared_ptr<DictionaryPage> MakeDictPage(
+inline std::shared_ptr<DictionaryPage> MakeDictPage(
     const ColumnDescriptor* d, const std::vector<typename Type::c_type>& values,
     const std::vector<int>& values_per_page, Encoding::type encoding,
     std::vector<std::shared_ptr<Buffer>>& rle_indices) {
@@ -463,15 +461,13 @@ inline static std::shared_ptr<DictionaryPage> MakeDictPage(
 
 // Given def/rep levels and values create multiple dict pages
 template <typename Type>
-inline static void PaginateDict(const ColumnDescriptor* d,
-                                const std::vector<typename Type::c_type>& values,
-                                const std::vector<int16_t>& def_levels,
-                                int16_t max_def_level,
-                                const std::vector<int16_t>& rep_levels,
-                                int16_t max_rep_level, int num_levels_per_page,
-                                const std::vector<int>& values_per_page,
-                                std::vector<std::shared_ptr<Page>>& pages,
-                                Encoding::type encoding = Encoding::RLE_DICTIONARY) {
+inline void PaginateDict(const ColumnDescriptor* d,
+                         const std::vector<typename Type::c_type>& values,
+                         const std::vector<int16_t>& def_levels, int16_t max_def_level,
+                         const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
+                         int num_levels_per_page, const std::vector<int>& values_per_page,
+                         std::vector<std::shared_ptr<Page>>& pages,
+                         Encoding::type encoding = Encoding::RLE_DICTIONARY) {
   int num_pages = static_cast<int>(values_per_page.size());
   std::vector<std::shared_ptr<Buffer>> rle_indices;
   std::shared_ptr<DictionaryPage> dict_page =
@@ -501,15 +497,14 @@ inline static void PaginateDict(const ColumnDescriptor* d,
 
 // Given def/rep levels and values create multiple plain pages
 template <typename Type>
-static inline void PaginatePlain(const ColumnDescriptor* d,
-                                 const std::vector<typename Type::c_type>& values,
-                                 const std::vector<int16_t>& def_levels,
-                                 int16_t max_def_level,
-                                 const std::vector<int16_t>& rep_levels,
-                                 int16_t max_rep_level, int num_levels_per_page,
-                                 const std::vector<int>& values_per_page,
-                                 std::vector<std::shared_ptr<Page>>& pages,
-                                 Encoding::type encoding = Encoding::PLAIN) {
+inline void PaginatePlain(const ColumnDescriptor* d,
+                          const std::vector<typename Type::c_type>& values,
+                          const std::vector<int16_t>& def_levels, int16_t max_def_level,
+                          const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
+                          int num_levels_per_page,
+                          const std::vector<int>& values_per_page,
+                          std::vector<std::shared_ptr<Page>>& pages,
+                          Encoding::type encoding = Encoding::PLAIN) {
   int num_pages = static_cast<int>(values_per_page.size());
   int def_level_start = 0;
   int def_level_end = 0;
@@ -537,14 +532,12 @@ static inline void PaginatePlain(const ColumnDescriptor* d,
 
 // Generates pages from randomly generated data
 template <typename Type>
-static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_page,
-                            std::vector<int16_t>& def_levels,
-                            std::vector<int16_t>& rep_levels,
-                            std::vector<typename Type::c_type>& values,
-                            std::vector<uint8_t>& buffer,
-                            std::vector<std::shared_ptr<Page>>& pages,
-                            Encoding::type encoding = Encoding::PLAIN,
-                            uint32_t seed = 0) {
+inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_page,
+                     std::vector<int16_t>& def_levels, std::vector<int16_t>& rep_levels,
+                     std::vector<typename Type::c_type>& values,
+                     std::vector<uint8_t>& buffer,
+                     std::vector<std::shared_ptr<Page>>& pages,
+                     Encoding::type encoding = Encoding::PLAIN, uint32_t seed = 0) {
   int num_levels = levels_per_page * num_pages;
   int num_values = 0;
   int16_t zero = 0;

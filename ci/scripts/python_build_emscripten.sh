@@ -44,5 +44,8 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
 fi
 
 pushd "${python_build_dir}"
+# scikit-build-core strips unnecessary symbols by default.
+# LLVM 23 also removes the required dylink.0 section (llvm/llvm-project#180246)
+export SKBUILD_INSTALL_STRIP=false
 pyodide build
 popd

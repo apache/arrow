@@ -386,9 +386,10 @@ class PARQUET_EXPORT FileMetaData {
   friend class SerializedFile;
   friend class SerializedRowGroup;
 
-  explicit FileMetaData(const void* serialized_metadata, int64_t metadata_len,
-                        const ReaderProperties& properties,
-                        std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+  explicit FileMetaData(ReaderProperties properties);
+  FileMetaData(const void* serialized_metadata, int64_t metadata_len,
+               const ReaderProperties& properties,
+               std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
   const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;

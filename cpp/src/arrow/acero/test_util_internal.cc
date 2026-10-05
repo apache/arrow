@@ -121,7 +121,7 @@ struct DummyNode : ExecNode {
  private:
   void AssertIsOutput(ExecNode* output) { ASSERT_EQ(output->output(), nullptr); }
 
-  std::shared_ptr<Schema> dummy_schema() const {
+  static std::shared_ptr<Schema> dummy_schema() {
     return schema({field("dummy", null())});
   }
 

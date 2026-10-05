@@ -85,6 +85,9 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
+          (github.event_name == 'push' &&
+           github.repository == 'apache/arrow' &&
+           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
@@ -113,6 +116,11 @@ jobs:
               -e BUILD_WARNING_LEVEL=PRODUCTION
             runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
             title: AMD64 Ubuntu Large Memory Tests
+          - image: ubuntu-cpp-bundled-offline
+            runs-on: ubuntu-latest
+            envs:
+              - UBUNTU=24.04
+            title: AMD64 Ubuntu Bundled Offline
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
@@ -141,7 +149,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -170,7 +178,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -230,7 +238,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -252,7 +260,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -307,7 +315,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ccache
           key: jni-macos
@@ -353,7 +361,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ccache
           key: jni-macos
@@ -408,15 +416,20 @@ jobs:
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
 
+      - name: Find Visual Studio
+        shell: pwsh
+        run: |
+          "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
+
       - name: CMake
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake ^
             -S cpp ^
             -B cpp.build ^
@@ -427,13 +440,13 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake --build cpp.build
 
       - name: Install
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake --install cpp.build
 
       - name: Test
@@ -443,7 +456,7 @@ jobs:
           ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
           PARQUET_TEST_DATA: ${{ github.workspace }}\cpp\submodules\parquet-testing\data
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
 
           set exclude_tests=arrow-acero-asof-join-node-test
@@ -460,7 +473,7 @@ jobs:
       - name: Build example
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
 
           cmake ^
             -S cpp/examples/minimal_build ^
@@ -477,7 +490,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -511,7 +524,7 @@ jobs:
           docker compose up -d dremio
           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -527,7 +540,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -601,7 +614,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -624,7 +637,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@984c2f4d3f941ae6a224ba81be9c7f0176a3c3b7
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -684,8 +697,8 @@ jobs:
       contents: read
       packages: write
     env:
-      ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_SHARED: OFF
+      ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
@@ -701,6 +714,10 @@ jobs:
       # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
       # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
       ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
+      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_MIMALLOC: OFF
+      ARROW_TEST_LINKAGE: static
+      ARROW_USE_STATIC_CRT: OFF
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
@@ -723,7 +740,7 @@ jobs:
         shell: cmd
         run: |
           set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           # Convert VCPKG Windows path to MSYS path
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I

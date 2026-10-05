@@ -83,11 +83,15 @@ runs:
         $(vcpkg fetch nuget | tail -n 1) \
           setapikey "${{ inputs.github-token }}" \
           -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+    - name: Find Visual Studio
+      shell: pwsh
+      run: |
+        "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
     - name: Build
       shell: cmd
       run: |
         set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+        call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
         set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
         bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
     - name: Register Flight SQL ODBC Driver

@@ -418,6 +418,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
                                        uint32_t* metadata_len)
 
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        CMemoryPool* memory_pool() const
+        void set_memory_pool(CMemoryPool* pool)
+
         c_bool is_buffered_stream_enabled() const
         void enable_buffered_stream()
         void disable_buffered_stream()
@@ -430,6 +433,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         void set_thrift_container_size_limit(int32_t size)
         int32_t thrift_container_size_limit() const
+
+        void set_schema_depth_limit(int32_t limit)
+        int32_t schema_depth_limit() const
 
         void file_decryption_properties(shared_ptr[CFileDecryptionProperties]
                                         decryption)

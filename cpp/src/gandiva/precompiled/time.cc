@@ -631,7 +631,7 @@ void set_error_for_date(gdv_int32 length, const char* input, const char* msg,
                         int64_t execution_context) {
   int size = length + static_cast<int>(strlen(msg)) + 1;
   char* error = reinterpret_cast<char*>(malloc(size));
-  snprintf(error, size, "%s%s", msg, input);
+  snprintf(error, size, "%s%.*s", msg, length, input);
   gdv_fn_context_set_error_msg(execution_context, error);
   free(error);
 }

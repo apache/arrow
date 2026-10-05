@@ -48,6 +48,7 @@ re2
 simdjson
 snappy
 thrift-cpp>=0.11.0
+uriparser
 xsimd>=14.2
 zlib
 zstd

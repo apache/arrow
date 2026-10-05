@@ -1021,6 +1021,10 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def build_array(...)
       ListArray.new(self, ...)
     end

@@ -25,6 +25,9 @@
 
 namespace arrow::dlpack {
 
+/// The DLPack version used during compilation.
+ARROW_EXPORT extern const DLPackVersion kVersion;
+
 /// \brief Export Arrow array as DLPack tensor.
 ///
 /// DLMangedTensor is produced as defined by the DLPack protocol,
@@ -104,5 +107,27 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr);
 
 ARROW_EXPORT
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t);
+
+/// \brief Import a DLPack tensor as an Arrow Array.
+///
+/// Same restrictions on data types as `ExportArrayVersioned`, only row-major
+/// tensors are supported. Takes ownership of the `DLManagedTensorVersioned` in
+/// an error-safe fashion.
+///
+/// \param[in] raw DLPack tensor
+/// \return An Arrow Array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* raw);
+
+/// \brief Import a DLPack tensor as an Arrow Tensor.
+///
+/// Same restrictions on data types as `ExportTensorVersioned`.
+/// Takes ownership of the `DLManagedTensorVersioned` in an error-safe fashion.
+/// If the DLPack input is marked as readonly, this will produce an immutable tensor.
+///
+/// \param[in] raw DLPack tensor
+/// \return An Arrow Tensor
+ARROW_EXPORT
+Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* raw);
 
 }  // namespace arrow::dlpack
