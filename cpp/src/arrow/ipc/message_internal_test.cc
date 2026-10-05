@@ -19,6 +19,7 @@
 #include <iosfwd>
 #include <memory>
 #include <sstream>
+#include <string>
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -112,6 +113,29 @@ TEST(TestMessageInternal, TestEndiannessRoundtrip) {
     ASSERT_OK_AND_ASSIGN(auto parsed_schema, ReadSchema(*message, nullptr));
     AssertSchemaEqual(*schema, *parsed_schema, /*check_metadata=*/true);
   }
+}
+
+// GH-51779: Schema.fbs allows DictionaryEncoding.indexType to be omitted, in
+// which case the indices are signed int32.
+TEST(TestMessageInternal, DictionaryEncodingWithoutIndexType) {
+  FBB fbb;
+  auto name = fbb.CreateString("f0");
+  auto value_type = flatbuf::CreateUtf8(fbb);
+  auto encoding = flatbuf::CreateDictionaryEncoding(fbb, /*id=*/0, /*indexType=*/0);
+  auto fb_field = flatbuf::CreateField(fbb, name, /*nullable=*/true, flatbuf::Type_Utf8,
+                                       value_type.Union(), encoding);
+  auto fb_schema = flatbuf::CreateSchema(fbb, flatbuf::Endianness_Little,
+                                         fbb.CreateVector({fb_field}));
+  fbb.Finish(flatbuf::CreateMessage(fbb, flatbuf::MetadataVersion_V5,
+                                    flatbuf::MessageHeader_Schema, fb_schema.Union()));
+  auto metadata = Buffer::FromString(
+      std::string(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()));
+
+  ASSERT_OK_AND_ASSIGN(auto message, Message::Open(metadata, /*body=*/nullptr));
+  DictionaryMemo memo;
+  ASSERT_OK_AND_ASSIGN(auto schema, ReadSchema(*message, &memo));
+  AssertSchemaEqual(*::arrow::schema({field("f0", dictionary(int32(), utf8()))}),
+                    *schema);
 }
 
 struct SampleMessageParams {
