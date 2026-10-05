@@ -99,7 +99,7 @@ def _alltypes_example(size=100):
 
 def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
-                            check_dtype=True, check_freq=False,
+                            check_dtype=True, check_freq=True,
                             schema=None, preserve_index=False,
                             as_batch=False):
     klass = pa.RecordBatch if as_batch else pa.Table
@@ -224,7 +224,7 @@ class TestConvertMetadata:
             np.random.randn(5, 3),
             columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz=tz)
         )
-        _check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True, check_freq=False)
 
     def test_column_index_names_with_decimal(self):
         # GH-41503: Test valid roundtrip with decimal value in column index
