@@ -85,6 +85,9 @@ else
 fi
 
 %changelog
+* Mon Oct 05 2026 Raúl Cumplido <raulcumplido@gmail.com> - 26.0.0-1
+- New upstream release.
+
 * Wed Aug 05 2026 Raúl Cumplido <raulcumplido@gmail.com> - 25.0.1-1
 - New upstream release.
 
