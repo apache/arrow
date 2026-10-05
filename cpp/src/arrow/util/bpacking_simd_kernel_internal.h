@@ -209,6 +209,46 @@ ARROW_FORCE_INLINE auto right_shift_by_excess(
   return batch >> shifts;
 }
 
+/// Fallback for variable shift left.
+///
+/// The mirror of `right_shift_by_excess` for the other direction. On AVX2 there is a
+/// variable shift for 32 and 64 bit lanes but none for the narrower ones, so a batch of
+/// bytes or shorts is shifted as the next integer size up. The even lanes are masked
+/// out of the way, shifted, and masked again because a left shift can carry bits into
+/// the neighbouring lane; the odd lanes only need the first mask, since what they carry
+/// leaves the wider lane entirely. Shifting bytes recurses once more, bytes to shorts to
+/// 32 bit lanes, as both narrow sizes take the same route.
+///
+/// Without this, xsimd widens and narrows around its own shift, which costs a lane
+/// extract and a pack on either side of every shift. That cost falls only on the large
+/// kernel, the one place a variable left shift is needed, and so only on the packed
+/// widths that reach it.
+template <typename Arch, typename Int, Int... kShifts>
+ARROW_FORCE_INLINE auto left_shift_by_excess(
+    const xsimd::batch<Int, Arch>& batch,
+    xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+  constexpr auto IntSize = sizeof(Int);
+
+  if constexpr (IsAvx2<Arch> &&
+                (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
+    using twice_uint = SizedUint<2 * IntSize>;
+
+    const auto batch2 = xsimd::bitwise_cast<twice_uint>(batch);
+
+    constexpr auto kShifts0 = select_stride<twice_uint, 0>(shifts);
+    constexpr auto kMask0 = bit_util::LeastSignificantBitMask<twice_uint>(8 * IntSize);
+    const auto shifted0 = left_shift_by_excess(batch2 & kMask0, kShifts0) & kMask0;
+
+    constexpr auto kShifts1 = select_stride<twice_uint, 1>(shifts);
+    constexpr auto kMask1 = static_cast<twice_uint>(kMask0 << (8 * IntSize));
+    const auto shifted1 = left_shift_by_excess(batch2 & kMask1, kShifts1);
+
+    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
+  }
+
+  return batch << shifts;
+}
+
 /****************************
  *  Properties of a kernel  *
  ****************************/
@@ -982,7 +1022,7 @@ struct LargeKernel {
 
     const auto high_swizzled = xsimd::swizzle(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
-    const auto high_shifted = high_words << kHighLShifts;
+    const auto high_shifted = left_shift_by_excess(high_words, kHighLShifts);
 
     // We can have a single mask and apply it after OR because the shifts will ensure that
     // there are zeros where the high/low values are incomplete.
@@ -1086,10 +1126,16 @@ constexpr bool kMediumShouldUseUint32 =
     (KerTraits::kShape.packed_bit_size() < 32) &&
     KernelTraitsWithUnpackUint<KerTraits, uint32_t>::kShape.is_medium();
 
-// Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
+// Benchmarking show large unpack to uint8_t is underperforming on SSE4.2, and on AVX2
+// as well: a byte needs two rounds of the widening in `right_shift_by_excess` and
+// `left_shift_by_excess` on each of the two shifts, where a short needs one. With both
+// buffers in L1, routing through the medium kernel on shorts runs 2.02x to 2.13x as fast
+// as the large kernel at the four byte widths that reach it. AVX-512 is left out
+// because the same route runs 0.16x to 0.23x as fast there.
 template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
 constexpr bool kLargeShouldUseUint16 =
-    IsSse2<Arch> && (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
+    (IsSse2<Arch> || IsAvx2<Arch>) &&
+    (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
 
 // A ``std::enable_if`` that works on MSVC
 template <typename KerTraits>
