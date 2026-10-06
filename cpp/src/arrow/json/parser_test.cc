@@ -384,22 +384,33 @@ TEST(BlockParser, NestingDepth) {
   };
 
   const int kMaxDepth = 300;  // hard-coded in parser.cc
+  ParseOptions options = ParseOptions::Defaults();
   std::shared_ptr<Array> parsed;
-  ASSERT_OK(ParseFromString(ParseOptions::Defaults(),
-                            deeply_nested_json_object(kMaxDepth), &parsed));
-  ASSERT_OK(parsed->ValidateFull());
-  ASSERT_OK(ParseFromString(ParseOptions::Defaults(), deeply_nested_json_array(kMaxDepth),
-                            &parsed));
-  ASSERT_OK(parsed->ValidateFull());
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
-      ParseFromString(ParseOptions::Defaults(), deeply_nested_json_object(kMaxDepth + 1),
-                      &parsed));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
-      ParseFromString(ParseOptions::Defaults(), deeply_nested_json_array(kMaxDepth + 1),
-                      &parsed));
+  for (UnexpectedFieldBehavior unexpected_field_behavior :
+       {UnexpectedFieldBehavior::Ignore, UnexpectedFieldBehavior::InferType}) {
+    options.unexpected_field_behavior = unexpected_field_behavior;
+    options.explicit_schema = schema({{"not_here", int32()}});
+    ASSERT_OK(ParseFromString(options, deeply_nested_json_object(kMaxDepth), &parsed));
+    ASSERT_OK(parsed->ValidateFull());
+    ASSERT_OK(ParseFromString(options, deeply_nested_json_array(kMaxDepth), &parsed));
+    ASSERT_OK(parsed->ValidateFull());
+
+    // `kMaxDepth + 1` is the first value that triggers an error (but wouldn't trigger
+    // a stack overflow otherwise).
+    // 100'000 would definitely trigger a stack overflow, validate that the error is
+    // detected before that would happen.
+    for (int depth : {kMaxDepth + 1, 100'000}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
+          ParseFromString(options, deeply_nested_json_object(depth), &parsed));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
+          ParseFromString(options, deeply_nested_json_array(depth), &parsed));
+    }
+  }
 }
 
 }  // namespace json

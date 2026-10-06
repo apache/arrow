@@ -676,7 +676,9 @@ class ParseImpl : public BlockParser {
         return ParseError("unexpected field");
 
       case UnexpectedFieldBehavior::Ignore:
-        return internal::ConsumeJsonValue(value);
+        return internal::ConsumeJsonValue(
+            value, kMaxNestingDepth,
+            /*depth=*/static_cast<int>(builder_stack_.size() - 1));
 
       case UnexpectedFieldBehavior::InferType: {
         // If an unexpected field is encountered, add a NullBuilder with leading nulls.
