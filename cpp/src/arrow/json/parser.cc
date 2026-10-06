@@ -658,6 +658,7 @@ class ParseImpl : public BlockParser {
   }
 
   Status Null() {
+    DCHECK(!builder_stack_.empty());
     return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
   }
 

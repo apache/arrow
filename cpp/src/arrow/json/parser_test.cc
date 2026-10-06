@@ -339,5 +339,12 @@ TEST(BlockParser, AdHoc) {
        R"([{"c":true, "d": "1991-02-03"}, {"c":false, "d":"2019-04-01"}])"});
 }
 
+TEST(BlockParser, TopLevelNull) {
+  std::shared_ptr<Array> parsed;
+  ASSERT_RAISES(Invalid, ParseFromString(ParseOptions::Defaults(), "null\n", &parsed));
+  ASSERT_RAISES(Invalid,
+                ParseFromString(ParseOptions::Defaults(), "{\"a\":1}\nnull\n", &parsed));
+}
+
 }  // namespace json
 }  // namespace arrow
