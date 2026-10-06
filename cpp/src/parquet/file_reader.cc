@@ -130,7 +130,8 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
 
   auto reader = internal::RecordReader::Make(
       descr, level_info, contents_->properties()->memory_pool(), read_dictionary,
-      contents_->properties()->read_dense_for_nullable());
+      contents_->properties()->read_dense_for_nullable(),
+      /* arrow_type= */ NULLPTR, /* flat_optional_optimization= */ true);
   reader->SetPageReader(std::move(page_reader));
   return reader;
 }
