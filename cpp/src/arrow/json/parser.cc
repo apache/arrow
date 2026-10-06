@@ -805,7 +805,8 @@ class ParseImpl : public BlockParser {
 
   template <Kind::type kind>
   Status MaybePromoteFromNull() {
-    if (builder_.kind != Kind::kNull) {
+    if (unexpected_field_behavior_ != UnexpectedFieldBehavior::InferType ||
+        builder_.kind != Kind::kNull) {
       return Status::OK();
     }
 

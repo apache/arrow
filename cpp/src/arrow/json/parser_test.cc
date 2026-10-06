@@ -346,5 +346,14 @@ TEST(BlockParser, TopLevelNull) {
                 ParseFromString(ParseOptions::Defaults(), "{\"a\":1}\nnull\n", &parsed));
 }
 
+TEST(BlockParser, NullTypeRejectsNonNullUnderError) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema = schema({field("a", null())});
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
+  std::shared_ptr<Array> parsed;
+  // Should reject — "a" is typed null(), but 5 is not null.
+  ASSERT_RAISES(Invalid, ParseFromString(options, R"({"a": 5})", &parsed));
+}
+
 }  // namespace json
 }  // namespace arrow
