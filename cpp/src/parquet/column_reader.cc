@@ -3016,10 +3016,19 @@ class ByteArrayDictionaryRecordReader final
   using ValueSink = typename byte_array_dictionary_record_reader<kRequired>::ValueSink;
 };
 
-std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
-    const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
-    bool read_dictionary, bool read_dense_for_nullable,
-    const std::shared_ptr<::arrow::DataType>& arrow_type) {
+struct DispatchParams {
+  const ColumnDescriptor* descr;
+  LevelInfo leaf_info;
+  MemoryPool* pool;
+  std::shared_ptr<::arrow::DataType> arrow_type;
+  bool read_dense_for_nullable;
+  bool flat_optional_optimization;
+};
+
+std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const DispatchParams& params,
+                                                        bool read_dictionary) {
+  const ColumnDescriptor* descr = params.descr;
+  MemoryPool* pool = params.pool;
   const bool required =
       descr->max_definition_level() == 0 && descr->max_repetition_level() == 0;
   if (read_dictionary) {
@@ -3029,46 +3038,48 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
       return std::make_shared<RequiredReader>(descr, pool);
     }
     using Reader = ByteArrayDictionaryRecordReader</*kRequired=*/false>;
-    return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable);
+    return std::make_shared<Reader>(descr, params.leaf_info, pool,
+                                    params.read_dense_for_nullable);
   } else {
     if (required) {
       using RequiredReader = ByteArrayChunkedRecordReader</*kRequired=*/true>;
 
-      return std::make_shared<RequiredReader>(descr, pool, arrow_type);
+      return std::make_shared<RequiredReader>(descr, pool, params.arrow_type);
     }
     using Reader = ByteArrayChunkedRecordReader</*kRequired=*/false>;
-    return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable,
-                                    arrow_type);
+    return std::make_shared<Reader>(descr, params.leaf_info, pool,
+                                    params.read_dense_for_nullable, params.arrow_type);
   }
 }
 
 template <typename DType>
-std::shared_ptr<RecordReader> DispatchTypedRecordReader(const ColumnDescriptor* descr,
-                                                        LevelInfo leaf_info,
-                                                        MemoryPool* pool,
-                                                        bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> DispatchTypedRecordReader(const DispatchParams& params) {
+  const ColumnDescriptor* descr = params.descr;
+  MemoryPool* pool = params.pool;
   if constexpr (std::is_same_v<DType, FLBAType>) {
     if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
       using FLBAReader = FLBARecordReader</*kRequired=*/true>;
       return std::make_shared<FLBAReader>(descr, pool);
     }
     using FLBAReader = FLBARecordReader</*kRequired=*/false>;
-    return std::make_shared<FLBAReader>(descr, leaf_info, pool, read_dense_for_nullable);
+    return std::make_shared<FLBAReader>(descr, params.leaf_info, pool,
+                                        params.read_dense_for_nullable);
   } else {
     using c_type = typename DType::c_type;
     using ValueSink = ValueSinkBuffer<c_type>;
     if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
       using Reader = RequiredTypedRecordReader<DType, ValueSink, false>;
       return std::make_shared<Reader>(descr, pool, ValueSink(pool));
-    } else if (descr->max_definition_level() == 1 && descr->max_repetition_level() == 0 &&
+    } else if (params.flat_optional_optimization && descr->max_definition_level() == 1 &&
+               descr->max_repetition_level() == 0 &&
                descr->schema_node()->is_optional()) {
       using Reader = FlatOptionalTypedRecordReader<DType>;
-      return std::make_shared<Reader>(descr, pool, read_dense_for_nullable,
+      return std::make_shared<Reader>(descr, pool, params.read_dense_for_nullable,
                                       ValueSink(pool));
     }
     using Reader = TypedRecordReader<DType, ValueSink, false>;
-    return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable,
-                                    ValueSink(pool));
+    return std::make_shared<Reader>(descr, params.leaf_info, pool,
+                                    params.read_dense_for_nullable, ValueSink(pool));
   }
 }
 }  // namespace
@@ -3076,33 +3087,34 @@ std::shared_ptr<RecordReader> DispatchTypedRecordReader(const ColumnDescriptor* 
 std::shared_ptr<RecordReader> RecordReader::Make(
     const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
     bool read_dictionary, bool read_dense_for_nullable,
-    const std::shared_ptr<::arrow::DataType>& arrow_type) {
+    const std::shared_ptr<::arrow::DataType>& arrow_type,
+    bool flat_optional_optimization) {
+  const DispatchParams params{
+      .descr = descr,
+      .leaf_info = leaf_info,
+      .pool = pool,
+      .arrow_type = arrow_type,
+      .read_dense_for_nullable = read_dense_for_nullable,
+      .flat_optional_optimization = flat_optional_optimization,
+  };
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return DispatchTypedRecordReader<BooleanType>(descr, leaf_info, pool,
-                                                    read_dense_for_nullable);
+      return DispatchTypedRecordReader<BooleanType>(params);
     case Type::INT32:
-      return DispatchTypedRecordReader<Int32Type>(descr, leaf_info, pool,
-                                                  read_dense_for_nullable);
+      return DispatchTypedRecordReader<Int32Type>(params);
     case Type::INT64:
-      return DispatchTypedRecordReader<Int64Type>(descr, leaf_info, pool,
-                                                  read_dense_for_nullable);
+      return DispatchTypedRecordReader<Int64Type>(params);
     case Type::INT96:
-      return DispatchTypedRecordReader<Int96Type>(descr, leaf_info, pool,
-                                                  read_dense_for_nullable);
+      return DispatchTypedRecordReader<Int96Type>(params);
     case Type::FLOAT:
-      return DispatchTypedRecordReader<FloatType>(descr, leaf_info, pool,
-                                                  read_dense_for_nullable);
+      return DispatchTypedRecordReader<FloatType>(params);
     case Type::DOUBLE:
-      return DispatchTypedRecordReader<DoubleType>(descr, leaf_info, pool,
-                                                   read_dense_for_nullable);
+      return DispatchTypedRecordReader<DoubleType>(params);
     case Type::BYTE_ARRAY: {
-      return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable, arrow_type);
+      return MakeByteArrayRecordReader(params, read_dictionary);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return DispatchTypedRecordReader<FLBAType>(descr, leaf_info, pool,
-                                                 read_dense_for_nullable);
+      return DispatchTypedRecordReader<FLBAType>(params);
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       const auto type = static_cast<int>(descr->physical_type());

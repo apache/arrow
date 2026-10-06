@@ -300,11 +300,16 @@ class PARQUET_EXPORT RecordReader {
   /// values
   /// @param arrow_type Which type to read this column as (optional). Currently
   /// only used for byte array columns (see BinaryRecordReader::GetBuilderChunks).
+  /// @param flat_optional_optimization An optimization for flat (non nested)
+  /// optional values where definition levels are decoded directly into the validity
+  /// bitmap. This delivers significant speedup, but `int16_t` definition levels are
+  /// no longer available and `def_levels()` will throw.
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       bool read_dictionary = false, bool read_dense_for_nullable = false,
-      const std::shared_ptr<::arrow::DataType>& arrow_type = NULLPTR);
+      const std::shared_ptr<::arrow::DataType>& arrow_type = NULLPTR,
+      bool flat_optional_optimization = false);
 
   virtual ~RecordReader() = default;
 
