@@ -749,7 +749,8 @@ class ParseImpl : public BlockParser {
 
     const std::string_view input(reinterpret_cast<const char*>(json->data()),
                                  json->size());
-
+    // TODO(GH-51809): Remove this check once Arrow requires simdjson 5.0.2,
+    // which fixes truncated_bytes() for empty input.
     const int64_t input_size = input.size();
     if (internal::ConsumeJsonWhitespace(input, /*trailing=*/false) == input_size) {
       return Status::OK();
