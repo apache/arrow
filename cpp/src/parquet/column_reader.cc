@@ -2517,7 +2517,12 @@ class FlatOptionalTypedRecordReader
 
   int64_t values_written() const final { return value_sink_.values_count(); }
 
-  int16_t* def_levels() const final { return nullptr; }
+  int16_t* def_levels() const final {
+    throw ParquetException(
+        "Definition levels are not available for RecordReader"
+        " created with `flat_optional_optimization = true`."
+        " Set it to false to deactivate the optimization and access the levels.");
+  }
 
   int16_t* rep_levels() const final { return nullptr; }
 
