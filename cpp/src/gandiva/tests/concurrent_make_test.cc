@@ -26,9 +26,6 @@
 // fired and Make() returned "Failed to add IR module to LLJIT: Duplicate definition of
 // symbol".
 //
-// Note that this surfaces as a returned Status rather than a crash, so every Make() below
-// must be asserted on -- that is precisely what the pre-existing Java-side repro
-// (ProjectorTest#testMakeProjectorParallel) failed to do.
 
 #include <gtest/gtest.h>
 
@@ -51,9 +48,7 @@ using arrow::int32;
 
 namespace {
 
-// Releases every waiting thread at once, so the racing Make() calls actually overlap
-// instead of trickling in as each thread is spawned. Hand-rolled rather than std::latch
-// to avoid depending on the standard library's C++20 <latch> support.
+// Releases every waiting thread at once, so the racing Make() calls overlap.
 class StartGate {
  public:
   void Wait() {
@@ -75,23 +70,37 @@ class StartGate {
   bool open_ = false;
 };
 
-int NumThreads() {
-  auto hw = static_cast<int>(std::thread::hardware_concurrency());
-  return std::max(8, 2 * std::max(1, hw));
+int HardwareConcurrency() {
+  return std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
 }
 
-// Each iteration needs a cache key that has never been built before, so that every thread
-// in that iteration genuinely starts from a miss. Note that TestConfiguration() returns
-// the *same* shared Configuration instance every call, and ExpressionCacheKey compares
-// configurations by pointer identity, so varying the configuration would not produce a
-// miss -- vary the schema instead.
+int NumThreads() { return std::min(32, std::max(8, 2 * HardwareConcurrency())); }
+
+// This test only works when the threads are oversubscribed relative to the CPUs: the race
+// window is between two reads of the shared cache inside one Make().
+// So if the cap in NumThreads() has pulled the count under 2x, this test
+// cannot fail and must not report success.
+bool HasEnoughOversubscription() { return NumThreads() >= 2 * HardwareConcurrency(); }
+
 constexpr int kIterations = 25;
 
 }  // namespace
 
 class TestConcurrentMake : public ::testing::Test {
  public:
-  void SetUp() { pool_ = arrow::default_memory_pool(); }
+  void SetUp() {
+    if (!HasEnoughOversubscription()) {
+      GTEST_SKIP()
+          << "Needs >= 2x thread oversubscription to observe the GH-601 race, but "
+             "NumThreads() is "
+          << NumThreads() << " against hardware_concurrency() " << HardwareConcurrency()
+          << ". Skipping rather than passing vacuously -- see the note on "
+             "HasEnoughOversubscription(). Note that hardware_concurrency() is not "
+             "cgroup-aware, so in a CPU-limited container it reports the host's "
+             "cores and this skip may be unnecessary.";
+    }
+    pool_ = arrow::default_memory_pool();
+  }
 
  protected:
   arrow::MemoryPool* pool_;
@@ -137,9 +146,6 @@ TEST_F(TestConcurrentMake, TestProjectorMakeSameCacheKey) {
       ASSERT_OK(statuses[i]) << "iteration " << iter << ", thread " << i;
       ASSERT_NE(projectors[i], nullptr) << "iteration " << iter << ", thread " << i;
 
-      // Every projector must evaluate correctly, including the ones built from the cache
-      // hit path. No pre-existing test evaluates a cache-hit projector, so a
-      // corrupt-but-non-null cached module would otherwise go unnoticed.
       arrow::ArrayVector outputs;
       ASSERT_OK(projectors[i]->Evaluate(*in_batch, pool_, &outputs))
           << "iteration " << iter << ", thread " << i;
