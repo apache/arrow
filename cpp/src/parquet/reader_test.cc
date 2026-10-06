@@ -568,11 +568,13 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   ASSERT_GT(result.size(), 0);
 }
 
+// GH-51673: An all-null DECIMAL column has a null count but no min/max.
+// The printer must not try to decode missing min/max values.
 TEST(TestDebugPrintWithMemoryFile, AllNullDecimalStatistics) {
   auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
       "schema", Repetition::REQUIRED,
-      {PrimitiveNode::Make("decimal", Repetition::OPTIONAL,
-                           LogicalType::Decimal(10, 3), Type::FIXED_LEN_BYTE_ARRAY, 5)}));
+      {PrimitiveNode::Make("decimal", Repetition::OPTIONAL, LogicalType::Decimal(10, 3),
+                           Type::FIXED_LEN_BYTE_ARRAY, 5)}));
   ASSERT_OK_AND_ASSIGN(auto output, ::arrow::io::BufferOutputStream::Create());
   auto writer = ParquetFileWriter::Open(output, schema);
   auto row_group = writer->AppendRowGroup();

@@ -167,24 +167,24 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       }
       stream << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
-        std::string max_exact =
-            stats->is_max_value_exact.has_value()
-                ? (stats->is_max_value_exact.value() ? "true" : "false")
-                : "unknown";
-        std::string min_exact =
-            stats->is_min_value_exact.has_value()
-                ? (stats->is_min_value_exact.value() ? "true" : "false")
-                : "unknown";
         stream << ", Null Values: " << stats->null_count
                << ", Distinct Values: " << stats->distinct_count;
         if (stats->has_max || stats->has_min) {
           stream << std::endl << "  ";
           if (stats->has_max) {
+            std::string max_exact =
+                stats->is_max_value_exact.has_value()
+                    ? (stats->is_max_value_exact.value() ? "true" : "false")
+                    : "unknown";
             stream << "Max (exact: " << max_exact << "): "
                    << FormatStatValue(descr->physical_type(), stats->max(),
                                       descr->logical_type());
           }
           if (stats->has_min) {
+            std::string min_exact =
+                stats->is_min_value_exact.has_value()
+                    ? (stats->is_min_value_exact.value() ? "true" : "false")
+                    : "unknown";
             if (stats->has_max) {
               stream << ", ";
             }
