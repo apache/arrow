@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array/array_binary.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -1810,7 +1811,20 @@ TEST_P(RecordReaderStressTest, StressTest) {
 
     // The flat optional reader decodes definition levels straight into the validity
     // bitmap of the records it produces, so it never materializes levels to check.
-    if (!required && !flat_optional) {
+    if (flat_optional) {
+      // Releasing hands the bitmap over, which is only safe because the next
+      // iteration starts with a Reset.
+      const auto valid_bits = record_reader->ReleaseIsValid();
+      ASSERT_NE(valid_bits, nullptr) << seeds;
+      ASSERT_GE(valid_bits->size(), ::arrow::bit_util::BytesForBits(
+                                        static_cast<int64_t>(expected_def_levels.size())))
+          << seeds;
+      for (size_t i = 0; i < expected_def_levels.size(); ++i) {
+        ASSERT_EQ(::arrow::bit_util::GetBit(valid_bits->data(), i),
+                  expected_def_levels[i] == level_info.def_level)
+            << seeds << " index: " << i;
+      }
+    } else if (!required) {
       std::vector<int16_t> read_def_levels(
           record_reader->def_levels(),
           record_reader->def_levels() + record_reader->levels_position());
