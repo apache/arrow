@@ -678,7 +678,7 @@ class ParseImpl : public BlockParser {
         return ParseError("unexpected field");
 
       case UnexpectedFieldBehavior::Ignore:
-        return internal::ConsumeJsonValue(
+        return internal::ValidateJsonValue(
             std::move(value), kMaxNestingDepth,
             /*depth=*/static_cast<int>(builder_stack_.size() - 1));
 

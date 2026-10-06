@@ -546,7 +546,7 @@ static Status ValidateJsonObject(simdjson::ondemand::object object, int max_dept
   for (auto field_result : object) {
     ARROW_ASSIGN_OR_RAISE(
         auto field, ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
-    RETURN_NOT_OK(ConsumeJsonValue(field.value(), max_depth, depth));
+    RETURN_NOT_OK(ValidateJsonValue(field.value(), max_depth, depth));
   }
   return Status::OK();
 }
@@ -560,12 +560,12 @@ static Status ValidateJsonArray(simdjson::ondemand::array array, int max_depth,
     ARROW_ASSIGN_OR_RAISE(
         auto value,
         ResolveSimdjsonResult(element_result, "Failed to iterate JSON array"));
-    RETURN_NOT_OK(ConsumeJsonValue(value, max_depth, depth));
+    RETURN_NOT_OK(ValidateJsonValue(value, max_depth, depth));
   }
   return Status::OK();
 }
 
-Status ConsumeJsonValue(simdjson::ondemand::value value, int max_depth, int depth) {
+Status ValidateJsonValue(simdjson::ondemand::value value, int max_depth, int depth) {
   return VisitJsonValue(
       value,
       [depth, max_depth](simdjson::ondemand::object object) {
@@ -588,7 +588,7 @@ Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
   ARROW_ASSIGN_OR_RAISE(auto value, ResolveSimdjsonResult(document.get_value(),
                                                           "Failed to get JSON value"));
 
-  return ConsumeJsonValue(value, max_depth);
+  return ValidateJsonValue(value, max_depth);
 }
 
 /// Returns the position of the first non-whitespace character when trailing is false,

@@ -341,8 +341,8 @@ Result<T> GetJsonField(simdjson::ondemand::object& object, std::string_view key)
 
 ARROW_EXPORT Result<std::string> MinifyJson(std::string_view json);
 
-ARROW_EXPORT Status ConsumeJsonValue(simdjson::ondemand::value value, int max_depth,
-                                     int depth = 0);
+ARROW_EXPORT Status ValidateJsonValue(simdjson::ondemand::value value, int max_depth,
+                                      int depth = 0);
 
 ARROW_EXPORT Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
                                          simdjson::padded_string& json, int max_depth);
