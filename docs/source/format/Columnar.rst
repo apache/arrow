@@ -884,7 +884,7 @@ Dense union represents a mixed-type array with 5 bytes of overhead for
 each value. Its physical layout is as follows:
 
 * One child array for each type
-* Types buffer: A buffer of 8-bit signed integers, indicating the type
+* Types buffer: A buffer of 8-bit signed integers, indicating the logical type
   id of each slot. Note that these type ids are not necessarily the
   same as the child array index (see above). A union with more than 128
   possible types can be modeled as a union of unions.
