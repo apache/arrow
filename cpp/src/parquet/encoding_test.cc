@@ -77,8 +77,10 @@ void TestSupportedEncodingsConsistentWith(
       if (std::find(supported_encodings.begin(), supported_encodings.end(), encoding) !=
           supported_encodings.end()) {
         ASSERT_NO_THROW(func(type, encoding, descr));
+        ASSERT_TRUE(IsEncodingSupported(type, encoding));
       } else {
         ASSERT_THROW(func(type, encoding, descr), ParquetException);
+        ASSERT_FALSE(IsEncodingSupported(type, encoding));
       }
     }
   }
