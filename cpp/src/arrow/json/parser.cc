@@ -117,8 +117,10 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
 
 namespace {
 
-// Tuned to not crash on any of our CI platforms in release mode
-constexpr int kMaxNestingDepth = 300;
+// Tuned to not crash on any of our CI platforms in release mode.
+// This may seem low but some platforms have very low thread stack sizes
+// (128 kiB on musllinux).
+constexpr int kMaxNestingDepth = 100;
 
 template <typename... T>
 Status ParseError(T&&... t) {
@@ -670,14 +672,14 @@ class ParseImpl : public BlockParser {
     return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
   }
 
-  Status HandleUnexpectedField(std::string_view key, sj::value value) {
+  Status HandleUnexpectedField(std::string_view key, sj::value& value) {
     switch (unexpected_field_behavior_) {
       case UnexpectedFieldBehavior::Error:
         return ParseError("unexpected field");
 
       case UnexpectedFieldBehavior::Ignore:
         return internal::ConsumeJsonValue(
-            value, kMaxNestingDepth,
+            std::move(value), kMaxNestingDepth,
             /*depth=*/static_cast<int>(builder_stack_.size() - 1));
 
       case UnexpectedFieldBehavior::InferType: {
@@ -843,7 +845,7 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
-  Status ParseValue(sj::value value) {
+  Status ParseValue(sj::value& value) {
     ARROW_ASSIGN_OR_RAISE(auto type, arrow::internal::ResolveSimdjsonResult(
                                          value.type(), "Failed to determine JSON type"));
 
@@ -897,7 +899,7 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
-  Status ParseArray(sj::value value) {
+  Status ParseArray(sj::value& value) {
     constexpr auto kind = Kind::kArray;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
       return IllegallyChangedTo(kind);
@@ -910,9 +912,9 @@ class ParseImpl : public BlockParser {
                                           value.get_array(), "Failed to get JSON array"));
     int64_t size = 0;
     for (auto element_result : array) {
-      ARROW_ASSIGN_OR_RAISE(auto element,
-                            arrow::internal::ResolveSimdjsonResult(
-                                element_result, "Failed to iterate JSON array"));
+      ARROW_ASSIGN_OR_RAISE(
+          auto element, arrow::internal::ResolveSimdjsonResult(
+                            std::move(element_result), "Failed to iterate JSON array"));
 
       RETURN_NOT_OK(ParseValue(element));
       ++size;
@@ -925,7 +927,7 @@ class ParseImpl : public BlockParser {
     return list_builder->Append(static_cast<int32_t>(size));
   }
 
-  Status ParseObject(sj::value value) {
+  Status ParseObject(sj::value& value) {
     constexpr auto kind = Kind::kObject;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
       return IllegallyChangedTo(kind);
@@ -941,10 +943,10 @@ class ParseImpl : public BlockParser {
                                                             "Failed to get JSON object"));
 
     for (auto field_result : object) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto field,
-          arrow::internal::ResolveSimdjsonResult(
-              field_result, "JSON parse error: Failed to iterate JSON object"));
+      ARROW_ASSIGN_OR_RAISE(auto field,
+                            arrow::internal::ResolveSimdjsonResult(
+                                std::move(field_result),
+                                "JSON parse error: Failed to iterate JSON object"));
 
       ARROW_ASSIGN_OR_RAISE(auto key,
                             arrow::internal::ResolveSimdjsonResult(
@@ -971,7 +973,7 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
-  Status ParseObjectField(std::string_view key, sj::value value) {
+  Status ParseObjectField(std::string_view key, sj::value& value) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(key);
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {

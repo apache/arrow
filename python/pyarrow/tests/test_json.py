@@ -356,7 +356,7 @@ class BaseTestJSON(abc.ABC):
         def deeply_nested_json_array(depth):
             return b'{"a":' + b'[' * (depth - 1) + b'1' + b']' * (depth - 1) + b'}'
 
-        max_depth = 300  # Hard-coded in arrow/json/parser.cc
+        max_depth = 100  # Hard-coded in arrow/json/parser.cc
         table = self.read_bytes(deeply_nested_json_object(max_depth))
         table.validate(full=True)
         table = self.read_bytes(deeply_nested_json_array(max_depth))

@@ -383,7 +383,7 @@ TEST(BlockParser, NestingDepth) {
     return std::move(ss).str();
   };
 
-  const int kMaxDepth = 300;  // hard-coded in parser.cc
+  const int kMaxDepth = 100;  // hard-coded in parser.cc
   ParseOptions options = ParseOptions::Defaults();
   std::shared_ptr<Array> parsed;
 
@@ -403,11 +403,11 @@ TEST(BlockParser, NestingDepth) {
     for (int depth : {kMaxDepth + 1, 100'000}) {
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           Invalid,
-          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
+          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 100"),
           ParseFromString(options, deeply_nested_json_object(depth), &parsed));
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           Invalid,
-          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 300"),
+          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 100"),
           ParseFromString(options, deeply_nested_json_array(depth), &parsed));
     }
   }
