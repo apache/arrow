@@ -477,7 +477,8 @@ class LeafReader : public ColumnReaderImpl {
     record_reader_ = RecordReader::Make(
         descr_, leaf_info, ctx_->pool,
         /*read_dictionary=*/field_->type()->id() == ::arrow::Type::DICTIONARY,
-        /*read_dense_for_nullable=*/false, /*arrow_type=*/type_for_reading);
+        /*read_dense_for_nullable=*/false, /*arrow_type=*/type_for_reading,
+        /* flat_optional_optimization= */ true);
     NextRowGroup();
   }
 
