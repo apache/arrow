@@ -189,6 +189,10 @@ void InitValues(int num_values, std::vector<T>& values, std::vector<uint8_t>& bu
 template <typename T>
 void InitDictValues(int num_values, int num_dicts, std::vector<T>& values,
                     std::vector<uint8_t>& buffer) {
+  num_dicts = std::min(num_dicts, num_values);
+  if (num_dicts == 0) {
+    return;
+  }
   int repeat_factor = num_values / num_dicts;
   InitValues<T>(num_dicts, values, buffer);
   // add some repeated values
