@@ -258,9 +258,10 @@ TEST(TestFlight, DISABLED_IpV6Port) {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
-  ASSERT_GT(server->port(), 0);
+  ASSERT_OK_AND_ASSIGN(auto port, server->port());
+  ASSERT_GT(port, 0);
 
-  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTcp("[::1]", server->port()));
+  ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTcp("[::1]", port));
   std::unique_ptr<FlightClient> client;
   ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location2));
   ASSERT_OK(client->ListFlights());
@@ -311,8 +312,9 @@ class TestFlightClient : public ::testing::Test {
   }
 
   Status ConnectClient() {
+    ARROW_ASSIGN_OR_RAISE(auto port, server_->port());
     ARROW_ASSIGN_OR_RAISE(auto location,
-                          Location::ForGrpcTcp("localhost", server_->port()));
+                          Location::ForGrpcTcp("localhost", port));
     return FlightClient::Connect(location).Value(&client_);
   }
 
@@ -473,7 +475,8 @@ class TestTls : public ::testing::Test {
     ASSERT_OK(server_->Init(options));
     server_is_initialized_ = true;
 
-    ASSERT_OK_AND_ASSIGN(location_, Location::ForGrpcTls("localhost", server_->port()));
+    ASSERT_OK_AND_ASSIGN(auto port, server_->port());
+    ASSERT_OK_AND_ASSIGN(location_, Location::ForGrpcTls("localhost", port));
     ASSERT_OK(ConnectClient());
   }
 
@@ -1087,7 +1090,8 @@ TEST_F(TestFlightClient, GenericOptions) {
   auto options = FlightClientOptions::Defaults();
   // Set a very low limit at the gRPC layer to fail all calls
   options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", server_->port()));
+  ASSERT_OK_AND_ASSIGN(auto port, server_->port());
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", port));
   ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location, options));
   auto descr = FlightDescriptor::Path({"examples", "ints"});
   std::shared_ptr<Schema> schema;

@@ -59,7 +59,8 @@ void ConnectivityTest::TestGetPort() {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
-  ASSERT_GT(server->port(), 0);
+  ASSERT_OK_AND_ASSIGN(auto port, server->port());
+  ASSERT_GT(port, 0);
 }
 void ConnectivityTest::TestBuilderHook() {
   std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
@@ -73,7 +74,8 @@ void ConnectivityTest::TestBuilderHook() {
   };
   ASSERT_OK(server->Init(options));
   ASSERT_TRUE(builder_hook_run);
-  ASSERT_GT(server->port(), 0);
+  ASSERT_OK_AND_ASSIGN(auto port, server->port());
+  ASSERT_GT(port, 0);
   ASSERT_OK(server->Shutdown());
 }
 void ConnectivityTest::TestShutdown() {
@@ -85,7 +87,8 @@ void ConnectivityTest::TestShutdown() {
 
     FlightServerOptions options(location);
     ASSERT_OK(server->Init(options));
-    ASSERT_GT(server->port(), 0);
+    ASSERT_OK_AND_ASSIGN(auto port, server->port());
+    ASSERT_GT(port, 0);
     std::thread t([&]() { ASSERT_OK(server->Serve()); });
     ASSERT_OK(server->Shutdown());
     ASSERT_OK(server->Wait());
@@ -98,7 +101,8 @@ void ConnectivityTest::TestShutdownWithDeadline() {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
-  ASSERT_GT(server->port(), 0);
+  ASSERT_OK_AND_ASSIGN(auto port, server->port());
+  ASSERT_GT(port, 0);
 
   auto deadline = std::chrono::system_clock::now() + std::chrono::microseconds(10);
 
@@ -112,8 +116,9 @@ void ConnectivityTest::TestBrokenConnection() {
   ASSERT_OK(server->Init(options));
 
   std::unique_ptr<FlightClient> client;
+  ASSERT_OK_AND_ASSIGN(auto port, server->port());
   ASSERT_OK_AND_ASSIGN(location,
-                       Location::ForScheme(transport(), "127.0.0.1", server->port()));
+                       Location::ForScheme(transport(), "127.0.0.1", port));
   ASSERT_OK_AND_ASSIGN(client, FlightClient::Connect(location));
 
   ASSERT_OK(server->Shutdown());
@@ -165,8 +170,9 @@ void DataTest::TearDownTest() {
   ASSERT_OK(server_->Shutdown());
 }
 Status DataTest::ConnectClient() {
+  ARROW_ASSIGN_OR_RAISE(auto port, server_->port());
   ARROW_ASSIGN_OR_RAISE(auto location,
-                        Location::ForScheme(transport(), "127.0.0.1", server_->port()));
+                        Location::ForScheme(transport(), "127.0.0.1", port));
   ARROW_ASSIGN_OR_RAISE(client_, FlightClient::Connect(location));
   return Status::OK();
 }
@@ -825,8 +831,9 @@ void DoPutTest::TestLargeBatch() {
 
 void DoPutTest::TestSizeLimit() {
   const int64_t size_limit = 4096;
+  ASSERT_OK_AND_ASSIGN(auto port, server_->port());
   ASSERT_OK_AND_ASSIGN(auto location,
-                       Location::ForScheme(transport(), "127.0.0.1", server_->port()));
+                       Location::ForScheme(transport(), "127.0.0.1", port));
   auto client_options = FlightClientOptions::Defaults();
   client_options.write_size_limit_bytes = size_limit;
   ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location, client_options));
@@ -1831,7 +1838,8 @@ void AsyncClientTest::SetUpTest() {
   FlightServerOptions server_options(location);
   ASSERT_OK(server_->Init(server_options));
 
-  std::string uri = location.scheme() + "://127.0.0.1:" + std::to_string(server_->port());
+  ASSERT_OK_AND_ASSIGN(auto port, server_->port());
+  std::string uri = location.scheme() + "://127.0.0.1:" + std::to_string(port);
   ASSERT_OK_AND_ASSIGN(auto real_location, Location::Parse(uri));
   FlightClientOptions client_options = FlightClientOptions::Defaults();
   ASSERT_OK_AND_ASSIGN(client_, FlightClient::Connect(real_location, client_options));
