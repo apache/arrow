@@ -105,31 +105,16 @@ class TransportMetadataWriter final : public FlightMetadataWriter {
   ServerDataStream* stream_;
 };
 
-/// \brief Base class for server transport implementations.
+/// \brief Write a FlightDataStream to a transport-level stream.
 ///
-/// Provides shared helpers for constructing message readers/writers from a
-/// transport-level data stream, and for writing a FlightDataStream to a
-/// transport-level stream (used by DoGet/DoExchange).
-class ARROW_FLIGHT_EXPORT ServerTransportBase {
- public:
-  explicit ServerTransportBase(std::shared_ptr<MemoryManager> memory_manager)
-      : memory_manager_(std::move(memory_manager)) {}
-  virtual ~ServerTransportBase() = default;
-
- protected:
-  /// \brief Write a FlightDataStream to a transport-level stream.
-  ///
-  /// Used by DoGet and DoExchange to stream results back to the client.
-  /// The schema is written first, followed by record batches until the
-  /// stream is exhausted.
-  ///
-  /// \param[in] data_stream The Arrow data stream to read from.
-  /// \param[in] stream The transport-specific data stream to write to.
-  Status WriteDataStream(std::unique_ptr<FlightDataStream> data_stream,
-                         ServerDataStream* stream) const;
-
-  std::shared_ptr<MemoryManager> memory_manager_;
-};
+/// Used by DoGet and DoExchange to stream results back to the client.
+/// The schema is written first, followed by record batches until the
+/// stream is exhausted.
+///
+/// \param[in] data_stream The Arrow data stream to read from.
+/// \param[in] stream The transport-specific data stream to write to.
+Status WriteDataStream(std::unique_ptr<FlightDataStream> data_stream,
+                       ServerDataStream* stream);
 
 /// \brief Manages a background thread that waits for OS signals.
 ///
@@ -286,19 +271,5 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
   std::function<Status()> shutdown_;
   const char* shutdown_warning_ = nullptr;
 };
-
-/// \brief Parse a Flight Location into a URI.
-///
-/// \param[in] location The Flight location to parse.
-ARROW_FLIGHT_EXPORT
-arrow::Result<arrow::util::Uri> ParseLocationUri(const Location& location);
-
-/// \brief Extract the port number from a Flight Location.
-///
-/// Returns -1 if the location cannot be parsed or has no port.
-///
-/// \param[in] location The Flight location.
-ARROW_FLIGHT_EXPORT
-int PortFromLocation(const Location& location);
 
 }  // namespace arrow::flight::internal

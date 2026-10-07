@@ -294,20 +294,8 @@ void ServerSignalState::WaitForSignals(
   }
 }
 
-arrow::Result<arrow::util::Uri> ParseLocationUri(const Location& location) {
-  return arrow::util::Uri::FromString(location.ToString());
-}
-
-int PortFromLocation(const Location& location) {
-  auto maybe_uri = ParseLocationUri(location);
-  if (!maybe_uri.ok()) {
-    return -1;
-  }
-  return maybe_uri.ValueUnsafe().port();
-}
-
-Status ServerTransportBase::WriteDataStream(std::unique_ptr<FlightDataStream> data_stream,
-                                            ServerDataStream* stream) const {
+Status WriteDataStream(std::unique_ptr<FlightDataStream> data_stream,
+                       ServerDataStream* stream) {
   if (!data_stream) {
     return Status::KeyError("No data in this flight");
   }

@@ -23,15 +23,16 @@
 
 namespace arrow::flight::transport::grpc {
 
-Status AddServerListeningPort(const FlightServerOptions& options,
-                              const arrow::util::Uri& uri, ::grpc::ServerBuilder* builder,
-                              Location* location, int* port) {
+arrow::Result<GrpcServerEndpoint> ParseServerEndpoint(const FlightServerOptions& options,
+                                                       const arrow::util::Uri& uri) {
+  GrpcServerEndpoint endpoint;
+  endpoint.location = options.location;
   const std::string scheme = uri.scheme();
   if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
     std::stringstream address;
     address << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
+    endpoint.address = address.str();
 
-    std::shared_ptr<::grpc::ServerCredentials> creds;
     if (scheme == kSchemeGrpcTls) {
       ::grpc::SslServerCredentialsOptions ssl_options;
       for (const auto& pair : options.tls_certificates) {
@@ -44,19 +45,18 @@ Status AddServerListeningPort(const FlightServerOptions& options,
       if (!options.root_certificates.empty()) {
         ssl_options.pem_root_certs = options.root_certificates;
       }
-      creds = ::grpc::SslServerCredentials(ssl_options);
+      endpoint.credentials = ::grpc::SslServerCredentials(ssl_options);
     } else {
-      creds = ::grpc::InsecureServerCredentials();
+      endpoint.credentials = ::grpc::InsecureServerCredentials();
     }
-    builder->AddListeningPort(address.str(), creds, port);
-    return Status::OK();
+    return endpoint;
   }
   if (scheme == kSchemeGrpcUnix) {
     std::stringstream address;
     address << "unix:" << uri.path();
-    builder->AddListeningPort(address.str(), ::grpc::InsecureServerCredentials());
-    *location = options.location;
-    return Status::OK();
+    endpoint.address = address.str();
+    endpoint.credentials = ::grpc::InsecureServerCredentials();
+    return endpoint;
   }
   return Status::NotImplemented("Scheme is not supported: " + scheme);
 }
@@ -71,19 +71,6 @@ void ConfigureServerBuilderOptions(const FlightServerOptions& options,
   if (options.builder_hook) {
     options.builder_hook(builder);
   }
-}
-
-Status SetServerLocationFromUri(const arrow::util::Uri& uri, int port,
-                                Location* location) {
-  const std::string scheme = uri.scheme();
-  if (scheme == kSchemeGrpcTls) {
-    ARROW_ASSIGN_OR_RAISE(
-        *location, Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
-  } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-    ARROW_ASSIGN_OR_RAISE(
-        *location, Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
-  }
-  return Status::OK();
 }
 
 }  // namespace arrow::flight::transport::grpc

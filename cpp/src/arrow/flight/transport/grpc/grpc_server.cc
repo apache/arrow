@@ -443,7 +443,13 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     ::grpc::ServerBuilder builder;
     int port = 0;
-    RETURN_NOT_OK(AddServerListeningPort(options, uri, &builder, &location_, &port));
+    ARROW_ASSIGN_OR_RAISE(auto endpoint, ParseServerEndpoint(options, uri));
+    location_ = endpoint.location;
+    if (uri.scheme() == kSchemeGrpcUnix) {
+      builder.AddListeningPort(endpoint.address, endpoint.credentials);
+    } else {
+      builder.AddListeningPort(endpoint.address, endpoint.credentials, &port);
+    }
 
     builder.RegisterService(grpc_service_.get());
     ConfigureServerBuilderOptions(options, &builder);
@@ -452,7 +458,14 @@ class GrpcServerTransport : public internal::ServerTransport {
     if (!grpc_server_) {
       return Status::UnknownError("Server did not start properly");
     }
-    return SetServerLocationFromUri(uri, port, &location_);
+    if (uri.scheme() == kSchemeGrpcTls) {
+      ARROW_ASSIGN_OR_RAISE(
+          location_, Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
+    } else if (uri.scheme() == kSchemeGrpc || uri.scheme() == kSchemeGrpcTcp) {
+      ARROW_ASSIGN_OR_RAISE(
+          location_, Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
+    }
+    return Status::OK();
   }
   Status Shutdown() override {
     grpc_server_->Shutdown();

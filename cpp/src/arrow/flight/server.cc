@@ -70,11 +70,11 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
   ARROW_ASSIGN_OR_RAISE(impl_->transport_,
                         internal::GetDefaultTransportRegistry()->MakeServer(
                             scheme, this, options.memory_manager));
-  ARROW_ASSIGN_OR_RAISE(auto uri, internal::ParseLocationUri(options.location));
+  ARROW_ASSIGN_OR_RAISE(auto uri, options.location.uri());
   return impl_->transport_->Init(options, uri);
 }
 
-int FlightServerBase::port() const { return internal::PortFromLocation(location()); }
+arrow::Result<int> FlightServerBase::port() const { return location().port(); }
 
 Location FlightServerBase::location() const { return impl_->transport_->location(); }
 

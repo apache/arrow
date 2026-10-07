@@ -55,10 +55,10 @@ class ARROW_FLIGHT_EXPORT ServerDataStream : public TransportDataStream {
 /// application RPC method handlers.
 ///
 /// Used by FlightServerBase to manage the server lifecycle.
-class ARROW_FLIGHT_EXPORT ServerTransport : public ServerTransportBase {
+class ARROW_FLIGHT_EXPORT ServerTransport {
  public:
   ServerTransport(FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager)
-      : ServerTransportBase(std::move(memory_manager)), base_(base) {}
+      : base_(base), memory_manager_(std::move(memory_manager)) {}
   virtual ~ServerTransport() = default;
 
   /// \name Server Lifecycle Methods
@@ -126,6 +126,7 @@ class ARROW_FLIGHT_EXPORT ServerTransport : public ServerTransportBase {
 
  protected:
   FlightServerBase* base_;
+  std::shared_ptr<MemoryManager> memory_manager_;
 };
 
 }  // namespace internal
