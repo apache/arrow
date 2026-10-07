@@ -384,6 +384,9 @@ maybe_setup_conda() {
     fi
     # Activate the environment
     conda activate $env
+    if [ -x "${CONDA_PREFIX}/bin/pkg-config" ]; then
+      export PKG_CONFIG="${CONDA_PREFIX}/bin/pkg-config"
+    fi
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
@@ -646,7 +649,8 @@ test_glib() {
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
   bundle config set --local path 'vendor/bundle'
   bundle install
-  bundle exec ruby test/run-test.rb
+  # replaced bundle exec to avoid macOS SIP removing DYLD_* via #!/bin/sh
+  ruby -rbundler/setup test/run-test.rb
 
   popd
 }
@@ -681,7 +685,7 @@ test_ruby() {
     pushd ${module}
     bundle config set --local path 'vendor/bundle'
     bundle install
-    bundle exec ruby test/run-test.rb
+    ruby -rbundler/setup test/run-test.rb
     popd
   done
 
