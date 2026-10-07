@@ -612,6 +612,62 @@ TEST(Expression, BindNestedFieldRef) {
                                                                field("b", int64())}))})));
 }
 
+TEST(Expression, NullableFieldRef) {
+  auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
+  for (int i = 0; i < input_schema->num_fields(); ++i) {
+    for (const auto& ref : {FieldRef(input_schema->field(i)->name()), FieldRef(i)}) {
+      auto expr = field_ref(ref);
+      EXPECT_TRUE(expr.nullable());
+
+      ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
+      EXPECT_EQ(bound.nullable(), input_schema->field(i)->nullable());
+      EXPECT_TRUE(expr.nullable());
+
+      ASSERT_OK_AND_ASSIGN(auto bound_to_type,
+                           expr.Bind(struct_(input_schema->fields())));
+      EXPECT_EQ(bound_to_type.nullable(), bound.nullable());
+    }
+  }
+}
+
+TEST(Expression, NullableConservativeFallback) {
+  auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
+  EXPECT_TRUE(Expression{}.nullable());
+  for (const auto& expr : {literal(1), literal(std::make_shared<Int32Scalar>()),
+                           add(field_ref("r"), literal(1)), is_valid(field_ref("n"))}) {
+    EXPECT_TRUE(expr.nullable());
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
+    EXPECT_TRUE(bound.IsBound());
+    EXPECT_TRUE(bound.nullable());
+  }
+}
+
+TEST(Expression, NullableNestedFieldRef) {
+  for (bool parent_nullable : {false, true}) {
+    for (bool child_nullable : {false, true}) {
+      auto input_schema = schema(
+          {field("a", struct_({field("b", int32(), child_nullable)}), parent_nullable)});
+      for (const auto& ref : {FieldRef("a", "b"), FieldRef(FieldPath({0, 0}))}) {
+        ASSERT_OK_AND_ASSIGN(auto bound, field_ref(ref).Bind(*input_schema));
+        EXPECT_TRUE(bound.nullable());
+      }
+    }
+  }
+}
+
+TEST(Expression, NullableRebind) {
+  auto required_schema = schema({field("a", int32(), false)});
+  auto optional_schema = schema({field("a", int32(), true)});
+  ASSERT_OK_AND_ASSIGN(auto required, field_ref("a").Bind(*required_schema));
+  ASSERT_OK_AND_ASSIGN(auto optional, required.Bind(*optional_schema));
+  EXPECT_FALSE(required.nullable());
+  EXPECT_TRUE(optional.nullable());
+
+  ASSERT_OK_AND_ASSIGN(auto rebound_required, optional.Bind(*required_schema));
+  EXPECT_FALSE(rebound_required.nullable());
+  EXPECT_TRUE(optional.nullable());
+}
+
 TEST(Expression, BindCall) {
   auto expr = add(field_ref("i32"), field_ref("i32_req"));
   EXPECT_FALSE(expr.IsBound());
@@ -1399,6 +1455,15 @@ TEST(Expression, RemoveNamedRefs) {
                       call("add", {literal(4), field_ref(2)}));
   auto nested_schema = Schema({field("a", struct_({field("b", int32())}))});
   ExpectRemovesRefsTo(field_ref({"a", "b"}), field_ref({0, 0}), nested_schema);
+}
+
+TEST(Expression, NullableRemoveNamedRefs) {
+  ASSERT_OK_AND_ASSIGN(auto bound, field_ref("i32_req").Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs, RemoveNamedRefs(bound));
+  EXPECT_TRUE(without_named_refs.IsBound());
+  EXPECT_TRUE(without_named_refs.field_ref()->IsFieldPath());
+  EXPECT_FALSE(without_named_refs.nullable());
+  EXPECT_FALSE(bound.nullable());
 }
 
 TEST(Expression, ExtractKnownFieldValues) {

@@ -779,6 +779,14 @@ TEST(ExecPlanExecution, ProjectPreservesDirectFieldNullability) {
   AssertSchemaEqual(schema({field("n", int64(), true), field("renamed", int64(), false),
                             field("computed", int64(), true)}),
                     reordered_schema);
+
+  ASSERT_OK_AND_ASSIGN(auto bound_r, field_ref(0).Bind(*input_schema));
+  ASSERT_OK_AND_ASSIGN(auto bound_n, field_ref(1).Bind(*input_schema));
+  auto bound = Declaration::Sequence(
+      {source, {"project", ProjectNodeOptions({bound_n, bound_r}, {"n", "renamed"})}});
+  ASSERT_OK_AND_ASSIGN(auto bound_schema, DeclarationToSchema(bound));
+  AssertSchemaEqual(schema({field("n", int64(), true), field("renamed", int64(), false)}),
+                    bound_schema);
 }
 
 TEST(ExecPlanExecution, DeclarationToReader) {

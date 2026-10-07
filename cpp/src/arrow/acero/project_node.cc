@@ -75,16 +75,8 @@ class ProjectNode : public MapNode {
         ARROW_ASSIGN_OR_RAISE(
             expr, expr.Bind(input_schema, plan->query_context()->exec_context()));
       }
-      bool nullable = true;
-      if (const auto* parameter = expr.parameter()) {
-        if (parameter->indices.size() == 1) {
-          int index = parameter->indices[0];
-          if (index >= 0 && index < input_schema.num_fields()) {
-            nullable = input_schema.field(index)->nullable();
-          }
-        }
-      }
-      fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr(), nullable);
+      fields[i] =
+          field(std::move(names[i]), expr.type()->GetSharedPtr(), expr.nullable());
       ++i;
     }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
