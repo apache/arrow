@@ -28,7 +28,12 @@
 #include <vector>
 
 #include "arrow/array/array_binary.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/chunked_array.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -41,6 +46,7 @@ namespace parquet {
 using ParquetType = parquet::Type;
 
 using internal::BinaryRecordReader;
+using internal::DictionaryRecordReader;
 using internal::LevelInfo;
 using schema::GroupNode;
 using schema::NodePtr;
@@ -1409,6 +1415,8 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
         descr_.get(), level_info, ::arrow::default_memory_pool(),
         /*read_dictionary=*/false, read_dense_for_nullable(), /*arrow_type=*/nullptr,
         /*flat_optional_optimization=*/true);
+    // Only the flat optional reader does not materialize definition levels.
+    ASSERT_THROW(record_reader_->def_levels(), ParquetException);
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1483,9 +1491,17 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
 
 // Similar to above, except for Byte arrays. FLBA and Byte arrays are
 // sufficiently different to warrant a separate class for readability.
-class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
+struct ByteArrayRecordReaderParam {
+  bool read_dense_for_nullable;
+  bool read_dictionary;
+  Encoding::type encoding;
+};
+
+class ByteArrayRecordReaderTest
+    : public ::testing::TestWithParam<ByteArrayRecordReaderParam> {
  public:
-  bool read_dense_for_nullable() { return GetParam(); }
+  bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
+  bool read_dictionary() { return GetParam().read_dictionary; }
 
   void MakeRecordReader(int levels_per_page, int num_pages) {
     levels_per_page_ = levels_per_page;
@@ -1496,14 +1512,16 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
     descr_ = std::make_unique<ColumnDescriptor>(type, level_info.def_level,
                                                 level_info.rep_level);
     MakePages<ByteArrayType>(descr_.get(), num_pages, levels_per_page, def_levels_,
-                             rep_levels_, values_, buffer_, pages_, Encoding::PLAIN);
+                             rep_levels_, values_, buffer_, pages_, GetParam().encoding);
 
     auto pager = std::make_unique<MockPageReader>(pages_);
 
     record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable(), /*arrow_type=*/nullptr,
+        descr_.get(), level_info, ::arrow::default_memory_pool(), read_dictionary(),
+        read_dense_for_nullable(), /*arrow_type=*/nullptr,
         /*flat_optional_optimization=*/true);
+    // Only the flat optional reader does not materialize definition levels.
+    ASSERT_THROW(record_reader_->def_levels(), ParquetException);
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1534,10 +1552,35 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
   }
 
   void CheckReadValues(int start, int end) {
-    auto binary_reader = dynamic_cast<BinaryRecordReader*>(record_reader_.get());
-    ASSERT_NE(binary_reader, nullptr);
-    // Chunks are reset after this call.
-    ::arrow::ArrayVector array_vector = binary_reader->GetBuilderChunks();
+    ::arrow::ArrayVector array_vector;
+    if (read_dictionary()) {
+      auto dict_reader = dynamic_cast<DictionaryRecordReader*>(record_reader_.get());
+      ASSERT_NE(dict_reader, nullptr);
+      // Chunks are reset after this call.
+      std::shared_ptr<::arrow::ChunkedArray> chunked = dict_reader->GetResult();
+      ASSERT_EQ(chunked->num_chunks(), 1);
+      const auto& dict_array =
+          ::arrow::internal::checked_cast<const ::arrow::DictionaryArray&>(
+              *chunked->chunk(0));
+      const auto& dictionary =
+          ::arrow::internal::checked_cast<const ::arrow::BinaryArray&>(
+              *dict_array.dictionary());
+      ::arrow::BinaryBuilder builder;
+      for (int64_t i = 0; i < dict_array.length(); ++i) {
+        if (dict_array.IsNull(i)) {
+          ASSERT_OK(builder.AppendNull());
+        } else {
+          ASSERT_OK(builder.Append(dictionary.GetView(dict_array.GetValueIndex(i))));
+        }
+      }
+      ASSERT_OK_AND_ASSIGN(auto decoded, builder.Finish());
+      array_vector.push_back(std::move(decoded));
+    } else {
+      auto binary_reader = dynamic_cast<BinaryRecordReader*>(record_reader_.get());
+      ASSERT_NE(binary_reader, nullptr);
+      // Chunks are reset after this call.
+      array_vector = binary_reader->GetBuilderChunks();
+    }
     ASSERT_EQ(array_vector.size(), 1);
     ::arrow::BinaryArray* binary_array =
         dynamic_cast<::arrow::BinaryArray*>(array_vector[0].get());
@@ -1644,8 +1687,30 @@ TEST_P(FLBARecordReaderTest, ReadAndSkipOptional) {
   record_reader_->Reset();
 }
 
-INSTANTIATE_TEST_SUITE_P(ByteArrayRecordReaderTests, ByteArrayRecordReaderTest,
-                         testing::Bool());
+std::vector<ByteArrayRecordReaderParam> ByteArrayRecordReaderParams() {
+  std::vector<ByteArrayRecordReaderParam> params;
+  for (bool read_dense_for_nullable : {false, true}) {
+    for (bool read_dictionary : {false, true}) {
+      for (Encoding::type encoding : {Encoding::PLAIN, Encoding::RLE_DICTIONARY}) {
+        params.push_back({
+            .read_dense_for_nullable = read_dense_for_nullable,
+            .read_dictionary = read_dictionary,
+            .encoding = encoding,
+        });
+      }
+    }
+  }
+  return params;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ByteArrayRecordReaderTests, ByteArrayRecordReaderTest,
+    testing::ValuesIn(ByteArrayRecordReaderParams()),
+    [](const testing::TestParamInfo<ByteArrayRecordReaderParam>& info) {
+      return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
+             (info.param.read_dictionary ? "Dictionary" : "Binary") +
+             EncodingToString(info.param.encoding);
+    });
 
 INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest, testing::Bool());
 
