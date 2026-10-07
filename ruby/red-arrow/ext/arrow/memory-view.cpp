@@ -31,6 +31,7 @@
 #  undef private
 #endif
 
+#include <algorithm>
 #include <cstring>
 #include <sstream>
 
@@ -205,11 +206,13 @@ namespace red_arrow {
       private:
       void fill(const arrow::Array& array) {
         const auto array_data = array.data();
-        const auto data = array_data->GetValuesSafe<uint8_t>(1);
-        view_->data = const_cast<void *>(reinterpret_cast<const void *>(data));
         const auto type =
           std::static_pointer_cast<const arrow::FixedWidthType>(array.type());
         view_->item_size = type->bit_width() / 8;
+        const auto byte_offset =
+          array_data->offset * std::max<int64_t>(view_->item_size, 1);
+        const auto data = array_data->GetValuesSafe<uint8_t>(1, byte_offset);
+        view_->data = const_cast<void *>(reinterpret_cast<const void *>(data));
         view_->byte_size = view_->item_size * array.length();
       }
 

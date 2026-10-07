@@ -29,6 +29,48 @@ class MemoryViewTest < Test::Unit::TestCase
     [1].pack("s") == [1].pack("s<")
   end
 
+  [
+    [Arrow::Int8Array, "c"],
+    [Arrow::UInt8Array, "C"],
+    [Arrow::Int16Array, "s"],
+    [Arrow::UInt16Array, "S"],
+    [Arrow::Int32Array, "l"],
+    [Arrow::UInt32Array, "L"],
+    [Arrow::Int64Array, "q"],
+    [Arrow::UInt64Array, "Q"],
+    [Arrow::FloatArray, "f"],
+    [Arrow::DoubleArray, "d"],
+  ].each do |array_class, format|
+    test("#{array_class.name}: sliced") do
+      values = (0...8).to_a
+      array = array_class.new(values)
+      item_size = [0].pack(format).bytesize
+      slices = [
+        [array.slice(1, 3), values.slice(1, 3)],
+        [array.slice(4, 3), values.slice(4, 3)],
+        [array.slice(1, 6).slice(2, 3), values.slice(3, 3)],
+        [array.slice(4, 0), []],
+        [array.slice(8, 0), []],
+      ]
+      slices.each do |sliced_array, sliced_values|
+        Fiddle::MemoryView.export(sliced_array) do |memory_view|
+          assert_equal([
+                         format,
+                         item_size,
+                         item_size * sliced_values.size,
+                         sliced_values.pack("#{format}*"),
+                       ],
+                       [
+                         memory_view.format,
+                         memory_view.item_size,
+                         memory_view.byte_size,
+                         memory_view.to_s,
+                       ])
+        end
+      end
+    end
+  end
+
   test("BooleanArray") do
     array = Arrow::BooleanArray.new([true] * 9)
     Fiddle::MemoryView.export(array) do |memory_view|
