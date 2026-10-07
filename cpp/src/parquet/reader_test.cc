@@ -568,6 +568,40 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   ASSERT_GT(result.size(), 0);
 }
 
+// GH-51673: An all-null DECIMAL column has a null count but no min/max.
+// The printer must not try to decode missing min/max values.
+TEST(TestDebugPrintWithMemoryFile, AllNullDecimalStatistics) {
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED,
+      {PrimitiveNode::Make("decimal", Repetition::OPTIONAL, LogicalType::Decimal(10, 3),
+                           Type::FIXED_LEN_BYTE_ARRAY, 5)}));
+  ASSERT_OK_AND_ASSIGN(auto output, ::arrow::io::BufferOutputStream::Create());
+  auto writer = ParquetFileWriter::Open(output, schema);
+  auto row_group = writer->AppendRowGroup();
+  auto column = static_cast<FixedLenByteArrayWriter*>(row_group->NextColumn());
+  const std::vector<int16_t> definition_levels(3, 0);
+  column->WriteBatch(definition_levels.size(), definition_levels.data(), nullptr,
+                     nullptr);
+  row_group->Close();
+  writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, output->Finish());
+  auto reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  auto stats = reader->metadata()->RowGroup(0)->ColumnChunk(0)->encoded_statistics();
+  ASSERT_NE(stats, nullptr);
+  ASSERT_TRUE(stats->has_null_count);
+  ASSERT_FALSE(stats->has_min);
+  ASSERT_FALSE(stats->has_max);
+
+  std::stringstream stream;
+  ParquetFilePrinter(reader.get()).DebugPrint(stream, {}, false);
+  const std::string result = stream.str();
+  EXPECT_THAT(result, testing::HasSubstr("Values: 3, Null Values: 3"));
+  EXPECT_THAT(result, testing::Not(testing::HasSubstr("Max (exact:")));
+  EXPECT_THAT(result, testing::Not(testing::HasSubstr("Min (exact:")));
+}
+
 TEST_F(TestAllTypesPlain, ColumnSelection) {
   std::stringstream ss;
 
