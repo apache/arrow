@@ -46,15 +46,7 @@ enum class InferKind {
 class InferStatus {
  public:
   explicit InferStatus(const ConvertOptions& options)
-      : kind_(InferKind::Null), can_loosen_type_(true), options_(options) {
-    if (!options.timestamp_parsers.empty()) {
-      // Date and time inference must not use the user-defined timestamp parsers,
-      // otherwise a value with a time-of-day (resp. date) part could be inferred
-      // as a date (resp. time) and be silently truncated.
-      date_time_options_ = std::make_unique<ConvertOptions>(options);
-      date_time_options_->timestamp_parsers.clear();
-    }
-  }
+      : kind_(InferKind::Null), can_loosen_type_(true), options_(options) {}
 
   InferKind kind() const { return kind_; }
 
@@ -116,8 +108,7 @@ class InferStatus {
 
     auto make_date_time_converter =
         [&](std::shared_ptr<DataType> type) -> Result<std::shared_ptr<Converter>> {
-      return Converter::Make(type, date_time_options_ ? *date_time_options_ : options_,
-                             pool);
+      return Converter::Make(type, options_, pool, /*is_type_inference=*/true);
     };
 
     auto make_dict_converter =
@@ -173,9 +164,6 @@ class InferStatus {
   InferKind kind_;
   bool can_loosen_type_;
   const ConvertOptions& options_;
-  // Copy of options_ with timestamp_parsers cleared, for date and time inference.
-  // Only allocated when custom timestamp parsers are configured.
-  std::unique_ptr<ConvertOptions> date_time_options_;
 };
 
 }  // namespace csv

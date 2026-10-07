@@ -765,9 +765,12 @@ std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType
 template <template <typename, typename> class ConverterType, typename T>
 std::shared_ptr<Converter> MakeDateTimeConverter(const std::shared_ptr<DataType>& type,
                                                  const ConvertOptions& options,
-                                                 MemoryPool* pool) {
-  if (options.timestamp_parsers.empty()) {
-    // Default to ISO-8601
+                                                 MemoryPool* pool,
+                                                 bool is_type_inference) {
+  if (is_type_inference || options.timestamp_parsers.empty()) {
+    // Default to ISO-8601. Type inference must not use the user-defined
+    // timestamp parsers, otherwise a value with a time-of-day (resp. date) part
+    // could be inferred as a date (resp. time) and be silently truncated.
     return std::make_shared<ConverterType<T, NumericValueDecoder<T>>>(type, options,
                                                                       pool);
   }
@@ -816,7 +819,8 @@ DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_
 
 Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataType>& type,
                                                    const ConvertOptions& options,
-                                                   MemoryPool* pool) {
+                                                   MemoryPool* pool,
+                                                   bool is_type_inference) {
   std::shared_ptr<Converter> ptr;
 
   switch (type->id()) {
@@ -861,19 +865,23 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
       break;
 
     case Type::DATE32:
-      ptr = MakeDateTimeConverter<PrimitiveConverter, Date32Type>(type, options, pool);
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Date32Type>(type, options, pool,
+                                                                  is_type_inference);
       break;
 
     case Type::DATE64:
-      ptr = MakeDateTimeConverter<PrimitiveConverter, Date64Type>(type, options, pool);
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Date64Type>(type, options, pool,
+                                                                  is_type_inference);
       break;
 
     case Type::TIME32:
-      ptr = MakeDateTimeConverter<PrimitiveConverter, Time32Type>(type, options, pool);
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Time32Type>(type, options, pool,
+                                                                  is_type_inference);
       break;
 
     case Type::TIME64:
-      ptr = MakeDateTimeConverter<PrimitiveConverter, Time64Type>(type, options, pool);
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Time64Type>(type, options, pool,
+                                                                  is_type_inference);
       break;
 
     case Type::STRING:
