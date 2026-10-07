@@ -1,0 +1,143 @@
+{
+  "metadata": {
+    "project_name": "arrow",
+    "description": "A Cpp project with Makefile",
+    "generated_by": "Braxis",
+    "generated_at": "2026-10-06T23:56:13.042991",
+    "schema_version": "1.0"
+  },
+  "project": {
+    "languages": [
+      "python",
+      "c",
+      "cpp",
+      "r",
+      "ruby",
+      "javascript"
+    ],
+    "primary_language": "cpp",
+    "build_system": "Makefile",
+    "architecture": "single-package",
+    "is_monorepo": false,
+    "monorepo_type": null,
+    "subsystems": []
+  },
+  "ai_readiness": {
+    "overall_score": 92,
+    "tier": "Agent-Optimized",
+    "dimensions": {
+      "architecture": {
+        "score": 15,
+        "reason": "Code organization and modularity"
+      },
+      "testing": {
+        "score": 15,
+        "reason": "1330 test files found"
+      },
+      "dependencies": {
+        "score": 12,
+        "reason": "Dependency management and version pinning"
+      },
+      "conventions": {
+        "score": 10,
+        "reason": "Consistency in naming and patterns"
+      },
+      "entry_points": {
+        "score": 7,
+        "reason": "1 critical files identified"
+      },
+      "security": {
+        "score": 15,
+        "reason": "Input validation and error handling"
+      },
+      "build": {
+        "score": 10,
+        "reason": "Build system clarity and configuration"
+      },
+      "documentation": {
+        "score": 8,
+        "reason": "README and code documentation"
+      }
+    }
+  },
+  "development": {
+    "setup_command": "npm install",
+    "test_command": "npm test",
+    "lint_command": "npm run lint",
+    "format_command": "npm run format",
+    "dev_server_command": null,
+    "prerequisites": {
+      "language_version": "N/A",
+      "package_manager": "npm",
+      "key_tools": [
+        "pytest"
+      ]
+    }
+  },
+  "architecture": {
+    "pattern": "single-package project",
+    "main_entry": "server.py",
+    "key_modules": [
+      {
+        "name": "server",
+        "path": "python/examples/flight/server.py",
+        "purpose": "Source module"
+      }
+    ],
+    "layers": [
+      "CLI interface (if applicable)",
+      "Business logic",
+      "Utilities and helpers"
+    ]
+  },
+  "mcp_servers": [],
+  "core_principles": [
+    "Modularity - Code organized by functionality",
+    "Testability - Comprehensive test coverage",
+    "Clarity - Code easy for AI agents to understand",
+    "Consistency - Uniform patterns throughout"
+  ],
+  "contribution_criteria": {
+    "what_we_want": [
+      "Bug fixes with test coverage",
+      "Code quality improvements",
+      "Test coverage increases",
+      "Documentation improvements",
+      "Performance optimizations"
+    ],
+    "what_we_dont_want": [
+      "New dependencies without justification",
+      "Code that reduces test coverage",
+      "Inconsistent naming or style",
+      "Dead code or commented code"
+    ]
+  },
+  "contribution_boundaries": {
+    "project_scale": "large",
+    "suggestion": "This large project should define clear contribution boundaries. Consider LlamaIndex model: 'no new X' policy."
+  },
+  "commands": {
+    "setup": {
+      "command": "npm install",
+      "description": "Install dependencies and set up development environment"
+    },
+    "test": {
+      "command": "npm test",
+      "description": "Run all tests"
+    },
+    "lint": {
+      "command": "npm run lint",
+      "description": "Check code style and quality"
+    },
+    "format": {
+      "command": "npm run format",
+      "description": "Format code to project standards"
+    }
+  },
+  "testing": {
+    "framework": "pytest",
+    "total_tests": 1330,
+    "pass_rate": 100,
+    "run_command": "npm test"
+  }
+}
