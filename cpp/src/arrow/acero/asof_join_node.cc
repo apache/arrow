@@ -1064,7 +1064,12 @@ class AsofJoinNode : public ExecNode {
       ARROW_RETURN_NOT_OK(ActivateOrFinishUnlocked(&tasks, &finish));
     }
     ScheduleAll(std::move(tasks));
-    return finish ? FinishNormally() : Status::OK();
+    if (finish) {
+      // Upstream may wait for its producer plan when stopped. Leave its completion
+      // callback before propagating the stop, so that plan can finish its task.
+      Schedule([this] { return FinishNormally(); }, "AsofJoinNode::Finish");
+    }
+    return Status::OK();
   }
 
   Status OutputDelivered() {

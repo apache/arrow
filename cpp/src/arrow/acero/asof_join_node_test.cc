@@ -1701,6 +1701,48 @@ TEST(AsofJoinTest, BackpressureWithBatchesGen) {
 
 namespace {
 
+// Model a source backed by another plan: stopping it waits for its completion
+// callback to return. Bound the wait so a reentrant stop fails instead of hanging.
+class CompletionWaitingSource : public ExecNode {
+ public:
+  CompletionWaitingSource(ExecPlan* plan, std::shared_ptr<Schema> schema)
+      : ExecNode(plan, {}, {}, std::move(schema)) {}
+
+  const char* kind_name() const override { return "CompletionWaitingSource"; }
+  const Ordering& ordering() const override { return Ordering::Implicit(); }
+  Status InputReceived(ExecNode*, ExecBatch) override {
+    return Status::Invalid("Source has no inputs");
+  }
+  Status InputFinished(ExecNode*, int) override {
+    return Status::Invalid("Source has no inputs");
+  }
+  Status StartProducing() override {
+    plan()->query_context()->ScheduleTask(
+        [this] {
+          auto status = output_->InputFinished(this, 0);
+          completion_returned_.MarkFinished();
+          return status;
+        },
+        "CompletionWaitingSource::Finish");
+    return Status::OK();
+  }
+  void PauseProducing(ExecNode*, int32_t) override {}
+  void ResumeProducing(ExecNode*, int32_t) override {}
+  bool stopped() const { return stopped_.load(); }
+
+ protected:
+  Status StopProducingImpl() override {
+    stopped_.store(true);
+    return completion_returned_.Wait(kDefaultAssertFinishesWaitSeconds)
+               ? Status::OK()
+               : Status::Invalid("Upstream stop waited on its own completion callback");
+  }
+
+ private:
+  Future<> completion_returned_ = Future<>::Make();
+  std::atomic<bool> stopped_{false};
+};
+
 class PausingSinkConsumer : public SinkNodeConsumer {
  public:
   explicit PausingSinkConsumer(bool pause_after_first = true)
@@ -2377,6 +2419,27 @@ TEST(AsofJoinTest, SequencesJitteredInputsOnBothExecutors) {
                 std::to_string(i));
     }
   }
+}
+
+TEST(AsofJoinTest, CompletionStopsUpstreamWithoutReentry) {
+  auto input_schema = schema({field("on", int64())});
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(*threaded_exec_context()));
+  auto* left = plan->EmplaceNode<CompletionWaitingSource>(plan.get(), input_schema);
+  Declaration right_source{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(input_schema, std::vector<ExecBatch>{})};
+  ASSERT_OK_AND_ASSIGN(auto right, right_source.AddToPlan(plan.get()));
+  ASSERT_OK_AND_ASSIGN(auto join, MakeExecNode("asofjoin", plan.get(), {left, right},
+                                               GetRepeatedOptions(2, "on", {}, 0)));
+  auto consumer = std::make_shared<PausingSinkConsumer>();
+  ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {join},
+                         ConsumingSinkNodeOptions(consumer)));
+  ASSERT_OK(plan->Validate());
+  plan->StartProducing();
+  ASSERT_TRUE(plan->finished().Wait(2 * kDefaultAssertFinishesWaitSeconds));
+  ASSERT_OK(plan->finished().status());
+  EXPECT_TRUE(left->stopped());
+  EXPECT_TRUE(consumer->finished().is_finished());
 }
 
 TEST(AsofJoinTest, PauseStopsUntilLeftInputFinishesThenFlushes) {
