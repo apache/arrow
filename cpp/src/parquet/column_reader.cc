@@ -2491,14 +2491,13 @@ struct FlatOptionalTypedRecordReaderTraits {
 /// In this special case, the max definition level is 1 and these correspond to the arrow
 /// array we are building. A special level decoder is used to bypass decoding completely
 /// and only copy the bitmap into the Arrow buffer.
-template <typename DType>
+template <typename DType, typename ValueSink = ValueSinkBuffer<typename DType::c_type>>
 class FlatOptionalTypedRecordReader
     : public ColumnChunkReader<FlatOptionalTypedRecordReaderTraits<DType>>,
       virtual public RecordReader {
  public:
   using T = typename DType::c_type;
   using Base = ColumnChunkReader<FlatOptionalTypedRecordReaderTraits<DType>>;
-  using ValueSink = ValueSinkBuffer<T>;
 
   FlatOptionalTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                                 bool read_dense_for_nullable, ValueSink value_sink)
@@ -2533,7 +2532,7 @@ class FlatOptionalTypedRecordReader
 
   bool nullable_values() const final { return true; }
 
-  bool read_dictionary() const final { return false; }
+  bool read_dictionary() const override { return false; }
 
   bool read_dense_for_nullable() const final { return valid_bits_.is_void(); }
 
@@ -2592,8 +2591,8 @@ class FlatOptionalTypedRecordReader
  *  FlatOptionalTypedRecordReader Implementation  *
  **************************************************/
 
-template <typename DT>
-int64_t FlatOptionalTypedRecordReader<DT>::ReadRecords(int64_t num_records) {
+template <typename DT, typename VS>
+int64_t FlatOptionalTypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
   if (num_records <= 0) {
     return 0;
   }
@@ -2630,15 +2629,15 @@ int64_t FlatOptionalTypedRecordReader<DT>::ReadRecords(int64_t num_records) {
   return records_read;
 }
 
-template <typename DT>
-void FlatOptionalTypedRecordReader<DT>::Reset() {
+template <typename DT, typename VS>
+void FlatOptionalTypedRecordReader<DT, VS>::Reset() {
   null_count_ = 0;
   valid_bits_.ResetValues();
   value_sink_.ResetValues();
 }
 
-template <typename DT>
-void FlatOptionalTypedRecordReader<DT>::DebugPrintState() {
+template <typename DT, typename VS>
+void FlatOptionalTypedRecordReader<DT, VS>::DebugPrintState() {
   std::cout << "values: ";
   value_sink_.DebugPrintState();
   std::cout << std::endl;
@@ -2708,48 +2707,66 @@ class ArrayValuesSink : private ValueSinkCursor {
  *  FLBARecordReader  *
  **********************/
 
-template <typename DType, typename ValueSink, bool kRequired>
-using record_reader_base_t =
-    std::conditional_t<kRequired, RequiredTypedRecordReader<DType, ValueSink>,
-                       TypedRecordReader<DType, ValueSink>>;
+/// Selects the record reader base class from the column layout.
+enum class RecordReaderSelector {
+  /// Non-nullable, non-repeated column: RequiredTypedRecordReader.
+  Required,
+  /// Nullable, non-nested column: FlatOptionalTypedRecordReader.
+  FlatOptional,
+  /// Any other column: TypedRecordReader.
+  General,
+};
 
-template <bool kRequired>
+template <typename DType, typename ValueSink, RecordReaderSelector kReaderKind>
+using record_reader_base_t = std::conditional_t<
+    kReaderKind == RecordReaderSelector::Required,
+    RequiredTypedRecordReader<DType, ValueSink>,
+    std::conditional_t<kReaderKind == RecordReaderSelector::FlatOptional,
+                       FlatOptionalTypedRecordReader<DType, ValueSink>,
+                       TypedRecordReader<DType, ValueSink>>>;
+
+template <RecordReaderSelector kReaderKind>
 struct flba_record_reader_base {
   using DType = FLBAType;
   using c_type = typename DType::c_type;
   using Builder = ::arrow::FixedSizeBinaryBuilder;
   using ValueSink = ArrayValuesSink<c_type, Builder>;
-  using type = record_reader_base_t<DType, ValueSink, kRequired>;
+  using type = record_reader_base_t<DType, ValueSink, kReaderKind>;
 };
 
-template <bool kRequired>
-using flba_record_reader_base_t = typename flba_record_reader_base<kRequired>::type;
+template <RecordReaderSelector kReaderKind>
+using flba_record_reader_base_t = typename flba_record_reader_base<kReaderKind>::type;
 
 /// Reads fixed length byte array values into a FixedSizeBinaryBuilder.
 ///
-/// `kRequired` selects the base class: RequiredTypedRecordReader for
-/// required (non-nullable, non-repeated) columns, TypedRecordReader
-/// otherwise.
+/// `kReaderKind` selects the base class, see RecordReaderKind.
 ///
 /// Values are decoded directly into `array_builder_`; the `values_` buffer
 /// of the base class is a ReadValuesNoBuffer and only tracks the number of
 /// values written. The `valid_bits_` buffer, if any, is consumed by each
 /// spaced decode.
-template <bool kRequired>
-class FLBARecordReader final : public flba_record_reader_base_t<kRequired>,
+template <RecordReaderSelector kReaderKind>
+class FLBARecordReader final : public flba_record_reader_base_t<kReaderKind>,
                                virtual public BinaryRecordReader {
  public:
-  using Base = flba_record_reader_base_t<kRequired>;
+  using Base = flba_record_reader_base_t<kReaderKind>;
 
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                    ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-    requires(!kRequired)
+    requires(kReaderKind == RecordReaderSelector::General)
       : Base(descr, leaf_info, pool, read_dense_for_nullable, MakeSink(descr, pool)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
   }
 
+  FLBARecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                   bool read_dense_for_nullable)
+    requires(kReaderKind == RecordReaderSelector::FlatOptional)
+      : Base(descr, pool, read_dense_for_nullable, MakeSink(descr, pool)) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+  }
+
   FLBARecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-    requires(kRequired)
+    requires(kReaderKind == RecordReaderSelector::Required)
       : Base(descr, pool, MakeSink(descr, pool)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
   }
@@ -2760,8 +2777,8 @@ class FLBARecordReader final : public flba_record_reader_base_t<kRequired>,
   }
 
  private:
-  using Builder = typename flba_record_reader_base<kRequired>::Builder;
-  using ValueSink = typename flba_record_reader_base<kRequired>::ValueSink;
+  using Builder = typename flba_record_reader_base<kReaderKind>::Builder;
+  using ValueSink = typename flba_record_reader_base<kReaderKind>::ValueSink;
 
   static auto MakeSink(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool) {
     return ValueSink(Builder(::arrow::fixed_size_binary(descr->type_length()), pool));
@@ -2798,49 +2815,55 @@ std::unique_ptr<::arrow::ArrayBuilder> MakeByteArrayBuilder(::arrow::DataType* a
   }
 }
 
-template <bool kRequired>
+template <RecordReaderSelector kReaderKind>
 struct byte_array_chunked_record_reader {
   using DType = ByteArrayType;
   using c_type = typename DType::c_type;
   using Builder = typename EncodingTraits<ByteArrayType>::Accumulator;
   using ValueSink = ArrayValuesSink<c_type, Builder>;
-  using type = record_reader_base_t<DType, ValueSink, kRequired>;
+  using type = record_reader_base_t<DType, ValueSink, kReaderKind>;
 };
 
-template <bool kRequired>
+template <RecordReaderSelector kReaderKind>
 using byte_array_chunked_record_reader_t =
-    typename byte_array_chunked_record_reader<kRequired>::type;
+    typename byte_array_chunked_record_reader<kReaderKind>::type;
 
 /// Reads variable length byte array values into a chunked binary builder.
 ///
-/// `kRequired` selects the base class: RequiredTypedRecordReader for
-/// required (non-nullable, non-repeated) columns, TypedRecordReader
-/// otherwise.
+/// `kReaderKind` selects the base class, see RecordReaderKind.
 ///
 /// It only calls `DecodeArrowNonNull` and `DecodeArrow` to read values, and
 /// `Decode` and `DecodeSpaced` are not used.
 ///
 /// The `values_` buffers are never used, and the `accumulator_`
 /// is used to store the values.
-template <bool kRequired>
+template <RecordReaderSelector kReaderKind>
 class ByteArrayChunkedRecordReader final
-    : public byte_array_chunked_record_reader_t<kRequired>,
+    : public byte_array_chunked_record_reader_t<kReaderKind>,
       virtual public BinaryRecordReader {
  public:
-  using Base = byte_array_chunked_record_reader_t<kRequired>;
+  using Base = byte_array_chunked_record_reader_t<kReaderKind>;
 
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable,
                                const std::shared_ptr<::arrow::DataType>& arrow_type)
-    requires(!kRequired)
+    requires(kReaderKind == RecordReaderSelector::General)
       : Base(descr, leaf_info, pool, read_dense_for_nullable,
              MakeSink(pool, arrow_type)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
   }
 
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                               bool read_dense_for_nullable,
                                const std::shared_ptr<::arrow::DataType>& arrow_type)
-    requires(kRequired)
+    requires(kReaderKind == RecordReaderSelector::FlatOptional)
+      : Base(descr, pool, read_dense_for_nullable, MakeSink(pool, arrow_type)) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
+  }
+
+  ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                               const std::shared_ptr<::arrow::DataType>& arrow_type)
+    requires(kReaderKind == RecordReaderSelector::Required)
       : Base(descr, pool, MakeSink(pool, arrow_type)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
   }
@@ -2857,8 +2880,8 @@ class ByteArrayChunkedRecordReader final
   }
 
  private:
-  using Builder = typename byte_array_chunked_record_reader<kRequired>::Builder;
-  using ValueSink = typename byte_array_chunked_record_reader<kRequired>::ValueSink;
+  using Builder = typename byte_array_chunked_record_reader<kReaderKind>::Builder;
+  using ValueSink = typename byte_array_chunked_record_reader<kReaderKind>::ValueSink;
 
   static auto MakeSink(::arrow::MemoryPool* pool,
                        const std::shared_ptr<::arrow::DataType>& arrow_type) {
@@ -2968,42 +2991,47 @@ class ValuesSinkByteArrayDict : private ValueSinkCursor {
  *  ByteArrayDictionaryRecordReader  *
  *************************************/
 
-template <bool kRequired>
+template <RecordReaderSelector kReaderKind>
 struct byte_array_dictionary_record_reader {
   using DType = ByteArrayType;
   using ValueSink = ValuesSinkByteArrayDict;
-  using type = record_reader_base_t<DType, ValueSink, kRequired>;
+  using type = record_reader_base_t<DType, ValueSink, kReaderKind>;
 };
 
-template <bool kRequired>
+template <RecordReaderSelector kReaderKind>
 using byte_array_dictionary_record_reader_t =
-    typename byte_array_dictionary_record_reader<kRequired>::type;
+    typename byte_array_dictionary_record_reader<kReaderKind>::type;
 
 /// Reads byte array values into ::arrow::dictionary(index: int32, values: binary).
 ///
-/// `kRequired` selects the base class: RequiredTypedRecordReader for
-/// required (non-nullable, non-repeated) columns, TypedRecordReader
-/// otherwise.
+/// `kReaderKind` selects the base class, see RecordReaderKind.
 ///
 /// The `values_` buffers are never used, the values are stored in the
 /// dictionary builder held by the value sink.
-template <bool kRequired>
+template <RecordReaderSelector kReaderKind>
 class ByteArrayDictionaryRecordReader final
-    : public byte_array_dictionary_record_reader_t<kRequired>,
+    : public byte_array_dictionary_record_reader_t<kReaderKind>,
       virtual public DictionaryRecordReader {
  public:
-  using Base = byte_array_dictionary_record_reader_t<kRequired>;
+  using Base = byte_array_dictionary_record_reader_t<kReaderKind>;
 
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-    requires(!kRequired)
+    requires(kReaderKind == RecordReaderSelector::General)
       : Base(descr, leaf_info, pool, read_dense_for_nullable, ValueSink(pool)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
   }
 
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
+                                  ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+    requires(kReaderKind == RecordReaderSelector::FlatOptional)
+      : Base(descr, pool, read_dense_for_nullable, ValueSink(pool)) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
+  }
+
+  ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
                                   ::arrow::MemoryPool* pool)
-    requires(kRequired)
+    requires(kReaderKind == RecordReaderSelector::Required)
       : Base(descr, pool, ValueSink(pool)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
     ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
@@ -3017,7 +3045,7 @@ class ByteArrayDictionaryRecordReader final
   }
 
  private:
-  using ValueSink = typename byte_array_dictionary_record_reader<kRequired>::ValueSink;
+  using ValueSink = typename byte_array_dictionary_record_reader<kReaderKind>::ValueSink;
 };
 
 struct DispatchParams {
@@ -3029,61 +3057,69 @@ struct DispatchParams {
   bool flat_optional_optimization;
 };
 
+RecordReaderSelector GetRecordReaderKind(const DispatchParams& params) {
+  const ColumnDescriptor* descr = params.descr;
+  if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
+    return RecordReaderSelector::Required;
+  }
+  if (params.flat_optional_optimization && descr->max_definition_level() == 1 &&
+      descr->max_repetition_level() == 0 && descr->schema_node()->is_optional()) {
+    return RecordReaderSelector::FlatOptional;
+  }
+  return RecordReaderSelector::General;
+}
+
+/// Construct `Reader<kReaderKind>` with the constructor arguments matching `kReaderKind`.
+///
+/// `extra_args` are appended after the arguments common to all kinds.
+template <template <RecordReaderSelector> typename Reader, typename... ExtraArgs>
+std::shared_ptr<RecordReader> MakeRecordReader(const DispatchParams& params,
+                                               ExtraArgs&&... extra_args) {
+  switch (GetRecordReaderKind(params)) {
+    case RecordReaderSelector::Required:
+      return std::make_shared<Reader<RecordReaderSelector::Required>>(
+          params.descr, params.pool, std::forward<ExtraArgs>(extra_args)...);
+    case RecordReaderSelector::FlatOptional:
+      return std::make_shared<Reader<RecordReaderSelector::FlatOptional>>(
+          params.descr, params.pool, params.read_dense_for_nullable,
+          std::forward<ExtraArgs>(extra_args)...);
+    case RecordReaderSelector::General:
+      return std::make_shared<Reader<RecordReaderSelector::General>>(
+          params.descr, params.leaf_info, params.pool, params.read_dense_for_nullable,
+          std::forward<ExtraArgs>(extra_args)...);
+  }
+  ::arrow::Unreachable();
+}
+
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const DispatchParams& params,
                                                         bool read_dictionary) {
-  const ColumnDescriptor* descr = params.descr;
-  MemoryPool* pool = params.pool;
-  const bool required =
-      descr->max_definition_level() == 0 && descr->max_repetition_level() == 0;
   if (read_dictionary) {
-    if (required) {
-      using RequiredReader = ByteArrayDictionaryRecordReader</*kRequired=*/true>;
-
-      return std::make_shared<RequiredReader>(descr, pool);
-    }
-    using Reader = ByteArrayDictionaryRecordReader</*kRequired=*/false>;
-    return std::make_shared<Reader>(descr, params.leaf_info, pool,
-                                    params.read_dense_for_nullable);
-  } else {
-    if (required) {
-      using RequiredReader = ByteArrayChunkedRecordReader</*kRequired=*/true>;
-
-      return std::make_shared<RequiredReader>(descr, pool, params.arrow_type);
-    }
-    using Reader = ByteArrayChunkedRecordReader</*kRequired=*/false>;
-    return std::make_shared<Reader>(descr, params.leaf_info, pool,
-                                    params.read_dense_for_nullable, params.arrow_type);
+    return MakeRecordReader<ByteArrayDictionaryRecordReader>(params);
   }
+  return MakeRecordReader<ByteArrayChunkedRecordReader>(params, params.arrow_type);
 }
 
 template <typename DType>
 std::shared_ptr<RecordReader> DispatchTypedRecordReader(const DispatchParams& params) {
-  const ColumnDescriptor* descr = params.descr;
-  MemoryPool* pool = params.pool;
   if constexpr (std::is_same_v<DType, FLBAType>) {
-    if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
-      using FLBAReader = FLBARecordReader</*kRequired=*/true>;
-      return std::make_shared<FLBAReader>(descr, pool);
-    }
-    using FLBAReader = FLBARecordReader</*kRequired=*/false>;
-    return std::make_shared<FLBAReader>(descr, params.leaf_info, pool,
-                                        params.read_dense_for_nullable);
+    return MakeRecordReader<FLBARecordReader>(params);
   } else {
-    using c_type = typename DType::c_type;
-    using ValueSink = ValueSinkBuffer<c_type>;
-    if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
-      using Reader = RequiredTypedRecordReader<DType, ValueSink>;
-      return std::make_shared<Reader>(descr, pool, ValueSink(pool));
-    } else if (params.flat_optional_optimization && descr->max_definition_level() == 1 &&
-               descr->max_repetition_level() == 0 &&
-               descr->schema_node()->is_optional()) {
-      using Reader = FlatOptionalTypedRecordReader<DType>;
-      return std::make_shared<Reader>(descr, pool, params.read_dense_for_nullable,
-                                      ValueSink(pool));
+    using ValueSink = ValueSinkBuffer<typename DType::c_type>;
+    const ColumnDescriptor* descr = params.descr;
+    MemoryPool* pool = params.pool;
+    switch (GetRecordReaderKind(params)) {
+      case RecordReaderSelector::Required:
+        return std::make_shared<RequiredTypedRecordReader<DType, ValueSink>>(
+            descr, pool, ValueSink(pool));
+      case RecordReaderSelector::FlatOptional:
+        return std::make_shared<FlatOptionalTypedRecordReader<DType, ValueSink>>(
+            descr, pool, params.read_dense_for_nullable, ValueSink(pool));
+      case RecordReaderSelector::General:
+        return std::make_shared<TypedRecordReader<DType, ValueSink>>(
+            descr, params.leaf_info, pool, params.read_dense_for_nullable,
+            ValueSink(pool));
     }
-    using Reader = TypedRecordReader<DType, ValueSink>;
-    return std::make_shared<Reader>(descr, params.leaf_info, pool,
-                                    params.read_dense_for_nullable, ValueSink(pool));
+    ::arrow::Unreachable();
   }
 }
 }  // namespace
