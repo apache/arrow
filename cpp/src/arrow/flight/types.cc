@@ -844,9 +844,12 @@ arrow::Result<arrow::util::Uri> Location::uri() const {
   return arrow::util::Uri::FromString(ToString());
 }
 
-arrow::Result<int> Location::port() const {
-  ARROW_ASSIGN_OR_RAISE(const auto maybe_uri, uri());
-  return maybe_uri.port();
+int Location::port() const {
+  auto maybe_uri = uri();
+  if (!maybe_uri.ok()) {
+    return -1;
+  }
+  return maybe_uri.ValueUnsafe().port();
 }
 
 arrow::Status FlightEndpoint::SerializeToString(std::string* out) const {

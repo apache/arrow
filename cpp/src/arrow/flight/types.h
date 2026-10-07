@@ -571,8 +571,8 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
 
   /// \brief Get the port of this location.
   ///
-  /// \return Arrow result with the port number.
-  arrow::Result<int> port() const;
+  /// \return The port number. -1 if the port is not available.
+  int port() const;
 
  private:
   friend class FlightClient;
