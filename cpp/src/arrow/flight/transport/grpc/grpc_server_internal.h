@@ -190,16 +190,18 @@ class GrpcServerCallContextHelper {
 };
 
 ARROW_FLIGHT_EXPORT
-Status AddServerListeningPort(const FlightServerOptions& options,
-                              const arrow::util::Uri& uri, ::grpc::ServerBuilder* builder,
-                              Location* location, int* port);
+struct GrpcServerEndpoint {
+  std::string address;
+  std::shared_ptr<::grpc::ServerCredentials> credentials;
+  Location location;
+};
+
+ARROW_FLIGHT_EXPORT
+arrow::Result<GrpcServerEndpoint> ParseServerEndpoint(const FlightServerOptions& options,
+                                                       const arrow::util::Uri& uri);
 
 ARROW_FLIGHT_EXPORT
 void ConfigureServerBuilderOptions(const FlightServerOptions& options,
                                    ::grpc::ServerBuilder* builder);
-
-ARROW_FLIGHT_EXPORT
-Status SetServerLocationFromUri(const arrow::util::Uri& uri, int port,
-                                Location* location);
 
 }  // namespace arrow::flight::transport::grpc
