@@ -1445,7 +1445,8 @@ namespace {
   simdjson::ondemand::parser parser;
   auto padded_json = simdjson::padded_string(json_string);
 
-  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, padded_json));
+  RETURN_NOT_OK(
+      ::arrow::internal::ValidateJsonDocument(parser, padded_json, /*max_depth=*/10));
 
   return ::arrow::Status::OK();
 }

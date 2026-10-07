@@ -17,7 +17,6 @@
 
 #include "arrow/json/parser.h"
 
-#include <functional>
 #include <limits>
 #include <memory>
 #include <string_view>
@@ -46,11 +45,6 @@ using internal::checked_cast;
 namespace json {
 
 namespace sj = simdjson::ondemand;
-
-template <typename... T>
-static Status ParseError(T&&... t) {
-  return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
-}
 
 const std::string& Kind::Name(Kind::type kind) {
   static const std::string names[] = {
@@ -119,6 +113,18 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Kind::type* kind_;
   } visitor = {kind};
   return VisitTypeInline(type, &visitor);
+}
+
+namespace {
+
+// Tuned to not crash on any of our CI platforms in release mode.
+// This may seem low but some platforms have very low thread stack sizes
+// (128 kiB on musllinux).
+constexpr int kMaxNestingDepth = 100;
+
+template <typename... T>
+Status ParseError(T&&... t) {
+  return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
 }
 
 /// \brief ArrayBuilder for parsed but unconverted arrays
@@ -305,20 +311,17 @@ class RawArrayBuilder<Kind::kArray> {
     return null_bitmap_builder_.Append(count, false);
   }
 
-  Status Finish(std::function<Status(BuilderPtr, std::shared_ptr<Array>*)> finish_child,
-                std::shared_ptr<Array>* out) {
+  Status Finish(std::shared_ptr<Array> child_values, std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(offset_builder_.Append(offset_));
     auto size = length();
     auto null_count = null_bitmap_builder_.false_count();
     std::shared_ptr<Buffer> offsets, null_bitmap;
     RETURN_NOT_OK(offset_builder_.Finish(&offsets));
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-    std::shared_ptr<Array> values;
-    RETURN_NOT_OK(finish_child(value_builder_, &values));
-    auto type = list(field("item", values->type(), value_builder_.nullable,
+    auto type = list(field("item", child_values->type(), value_builder_.nullable,
                            Kind::Tag(value_builder_.kind)));
-    *out = MakeArray(ArrayData::Make(type, size, {null_bitmap, offsets}, {values->data()},
-                                     null_count));
+    *out = MakeArray(ArrayData::Make(type, size, {null_bitmap, offsets},
+                                     {child_values->data()}, null_count));
     return Status::OK();
   }
 
@@ -404,21 +407,18 @@ class RawArrayBuilder<Kind::kObject> {
     field_infos_[index].builder = builder;
   }
 
-  Status Finish(std::function<Status(BuilderPtr, std::shared_ptr<Array>*)> finish_child,
+  Status Finish(std::vector<std::shared_ptr<ArrayData>> child_data,
                 std::shared_ptr<Array>* out) {
     auto size = length();
     auto null_count = null_bitmap_builder_.false_count();
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
+    DCHECK_EQ(child_data.size(), static_cast<size_t>(num_fields()));
     std::vector<std::shared_ptr<Field>> fields(num_fields());
-    std::vector<std::shared_ptr<ArrayData>> child_data(num_fields());
     for (int i = 0; i < num_fields(); ++i) {
       const auto& info = field_infos_[i];
-      std::shared_ptr<Array> field_values;
-      RETURN_NOT_OK(finish_child(info.builder, &field_values));
-      child_data[i] = field_values->data();
-      fields[i] = field(std::string(info.name), field_values->type(),
+      fields[i] = field(std::string(info.name), child_data[i]->type,
                         info.builder.nullable, Kind::Tag(info.builder.kind));
     }
 
@@ -581,10 +581,6 @@ class RawBuilderSet {
 
   Status Finish(const std::shared_ptr<Array>& scalar_values, BuilderPtr builder,
                 std::shared_ptr<Array>* out) {
-    auto finish_children = [this, &scalar_values](BuilderPtr child,
-                                                  std::shared_ptr<Array>* out) {
-      return Finish(scalar_values, child, out);
-    };
     switch (builder.kind) {
       case Kind::kNull: {
         auto length = static_cast<int64_t>(builder.index);
@@ -603,11 +599,25 @@ class RawBuilderSet {
       case Kind::kNumberOrString:
         return FinishScalar(scalar_values, Cast<Kind::kNumberOrString>(builder), out);
 
-      case Kind::kArray:
-        return Cast<Kind::kArray>(builder)->Finish(std::move(finish_children), out);
+      case Kind::kArray: {
+        auto array_builder = Cast<Kind::kArray>(builder);
+        auto child_builder = array_builder->value_builder();
+        std::shared_ptr<Array> child_values;
+        RETURN_NOT_OK(Finish(scalar_values, child_builder, &child_values));
+        return array_builder->Finish(std::move(child_values), out);
+      }
 
-      case Kind::kObject:
-        return Cast<Kind::kObject>(builder)->Finish(std::move(finish_children), out);
+      case Kind::kObject: {
+        auto object_builder = Cast<Kind::kObject>(builder);
+        std::vector<std::shared_ptr<ArrayData>> child_data(object_builder->num_fields());
+        for (int i = 0; i < object_builder->num_fields(); ++i) {
+          auto child_builder = object_builder->field_builder(i);
+          std::shared_ptr<Array> child_values;
+          RETURN_NOT_OK(Finish(scalar_values, child_builder, &child_values));
+          child_data[i] = child_values->data();
+        }
+        return object_builder->Finish(std::move(child_data), out);
+      }
 
       default:
         return Status::NotImplemented("invalid builder kind");
@@ -662,13 +672,15 @@ class ParseImpl : public BlockParser {
     return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
   }
 
-  Status HandleUnexpectedField(std::string_view key, sj::value value) {
+  Status HandleUnexpectedField(std::string_view key, sj::value& value) {
     switch (unexpected_field_behavior_) {
       case UnexpectedFieldBehavior::Error:
         return ParseError("unexpected field");
 
       case UnexpectedFieldBehavior::Ignore:
-        return internal::ConsumeJsonValue(value);
+        return internal::ValidateJsonValue(
+            std::move(value), kMaxNestingDepth,
+            /*depth=*/static_cast<int>(builder_stack_.size() - 1));
 
       case UnexpectedFieldBehavior::InferType: {
         // If an unexpected field is encountered, add a NullBuilder with leading nulls.
@@ -833,7 +845,7 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
-  Status ParseValue(sj::value value) {
+  Status ParseValue(sj::value& value) {
     ARROW_ASSIGN_OR_RAISE(auto type, arrow::internal::ResolveSimdjsonResult(
                                          value.type(), "Failed to determine JSON type"));
 
@@ -887,25 +899,22 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
-  Status ParseArray(sj::value value) {
+  Status ParseArray(sj::value& value) {
     constexpr auto kind = Kind::kArray;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
       return IllegallyChangedTo(kind);
     }
 
-    StartNested();
-
+    RETURN_NOT_OK(StartNested());
     builder_ = Cast<kind>(builder_)->value_builder();
 
     ARROW_ASSIGN_OR_RAISE(auto array, arrow::internal::ResolveSimdjsonResult(
                                           value.get_array(), "Failed to get JSON array"));
-
     int64_t size = 0;
-
     for (auto element_result : array) {
-      ARROW_ASSIGN_OR_RAISE(auto element,
-                            arrow::internal::ResolveSimdjsonResult(
-                                element_result, "Failed to iterate JSON array"));
+      ARROW_ASSIGN_OR_RAISE(
+          auto element, arrow::internal::ResolveSimdjsonResult(
+                            std::move(element_result), "Failed to iterate JSON array"));
 
       RETURN_NOT_OK(ParseValue(element));
       ++size;
@@ -918,7 +927,7 @@ class ParseImpl : public BlockParser {
     return list_builder->Append(static_cast<int32_t>(size));
   }
 
-  Status ParseObject(sj::value value) {
+  Status ParseObject(sj::value& value) {
     constexpr auto kind = Kind::kObject;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
       return IllegallyChangedTo(kind);
@@ -926,7 +935,7 @@ class ParseImpl : public BlockParser {
 
     auto struct_builder = Cast<kind>(builder_);
     absent_fields_stack_.Push(struct_builder->num_fields(), true);
-    StartNested();
+    RETURN_NOT_OK(StartNested());
     RETURN_NOT_OK(struct_builder->Append());
 
     ARROW_ASSIGN_OR_RAISE(
@@ -934,10 +943,10 @@ class ParseImpl : public BlockParser {
                                                             "Failed to get JSON object"));
 
     for (auto field_result : object) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto field,
-          arrow::internal::ResolveSimdjsonResult(
-              field_result, "JSON parse error: Failed to iterate JSON object"));
+      ARROW_ASSIGN_OR_RAISE(auto field,
+                            arrow::internal::ResolveSimdjsonResult(
+                                std::move(field_result),
+                                "JSON parse error: Failed to iterate JSON object"));
 
       ARROW_ASSIGN_OR_RAISE(auto key,
                             arrow::internal::ResolveSimdjsonResult(
@@ -964,7 +973,7 @@ class ParseImpl : public BlockParser {
     return Status::OK();
   }
 
-  Status ParseObjectField(std::string_view key, sj::value value) {
+  Status ParseObjectField(std::string_view key, sj::value& value) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(key);
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
@@ -1002,10 +1011,16 @@ class ParseImpl : public BlockParser {
   /// helper method for ParseArray and ParseObject
   /// adds the current builder to a stack so its
   /// children can be visited and parsed.
-  void StartNested() {
+  Status StartNested() {
+    if (ARROW_PREDICT_FALSE(builder_stack_.size() >=
+                            static_cast<size_t>(kMaxNestingDepth))) {
+      return Status::Invalid("JSON too deeply nested: max nesting depth is ",
+                             kMaxNestingDepth);
+    }
     field_index_stack_.push_back(field_index_);
     field_index_ = -1;
     builder_stack_.push_back(builder_);
+    return Status::OK();
   }
 
   /// helper method for EndArray and EndObject
@@ -1048,6 +1063,8 @@ class ParseImpl : public BlockParser {
   StringBuilder scalar_values_builder_;
   sj::parser parser_;
 };
+
+}  // namespace
 
 Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
                          std::unique_ptr<BlockParser>* out) {

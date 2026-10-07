@@ -20,6 +20,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -353,6 +354,63 @@ TEST(BlockParser, NullTypeRejectsNonNullUnderError) {
   std::shared_ptr<Array> parsed;
   // Should reject — "a" is typed null(), but 5 is not null.
   ASSERT_RAISES(Invalid, ParseFromString(options, R"({"a": 5})", &parsed));
+}
+
+TEST(BlockParser, NestingDepth) {
+  auto deeply_nested_json_object = [](int depth) {
+    std::stringstream ss;
+    for (int i = 0; i < depth; ++i) {
+      ss << "{\"a\":";
+    }
+    ss << "1";
+    for (int i = 0; i < depth; ++i) {
+      ss << "}";
+    }
+    return std::move(ss).str();
+  };
+
+  auto deeply_nested_json_array = [](int depth) {
+    std::stringstream ss;
+    ss << "{\"a\":";
+    for (int i = 0; i < depth - 1; ++i) {
+      ss << "[";
+    }
+    ss << "1";
+    for (int i = 0; i < depth - 1; ++i) {
+      ss << "]";
+    }
+    ss << "}";
+    return std::move(ss).str();
+  };
+
+  const int kMaxDepth = 100;  // hard-coded in parser.cc
+  ParseOptions options = ParseOptions::Defaults();
+  std::shared_ptr<Array> parsed;
+
+  for (UnexpectedFieldBehavior unexpected_field_behavior :
+       {UnexpectedFieldBehavior::Ignore, UnexpectedFieldBehavior::InferType}) {
+    options.unexpected_field_behavior = unexpected_field_behavior;
+    options.explicit_schema = schema({{"not_here", int32()}});
+    ASSERT_OK(ParseFromString(options, deeply_nested_json_object(kMaxDepth), &parsed));
+    ASSERT_OK(parsed->ValidateFull());
+    ASSERT_OK(ParseFromString(options, deeply_nested_json_array(kMaxDepth), &parsed));
+    ASSERT_OK(parsed->ValidateFull());
+
+    // `kMaxDepth + 1` is the first value that triggers an error (but wouldn't trigger
+    // a stack overflow otherwise).
+    // 100'000 would definitely trigger a stack overflow, validate that the error is
+    // detected before that would happen.
+    for (int depth : {kMaxDepth + 1, 100'000}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 100"),
+          ParseFromString(options, deeply_nested_json_object(depth), &parsed));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr("JSON too deeply nested: max nesting depth is 100"),
+          ParseFromString(options, deeply_nested_json_array(depth), &parsed));
+    }
+  }
 }
 
 }  // namespace json
