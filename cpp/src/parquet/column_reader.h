@@ -291,19 +291,33 @@ namespace internal {
 /// \since 1.3.0
 class PARQUET_EXPORT RecordReader {
  public:
+  /// \brief Parameters to create a record reader.
+  struct MakeParams {
+    /// Column descriptor
+    const ColumnDescriptor* descr = NULLPTR;
+    /// Level info, used to determine if a column is nullable or not
+    LevelInfo leaf_info;
+    /// Memory pool to use for buffering values and rep/def levels
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool();
+    /// True if reading directly as Arrow dictionary-encoded
+    bool read_dictionary = false;
+    /// True if reading dense and not leaving space for null values
+    bool read_dense_for_nullable = false;
+    /// Which type to read this column as (optional). Currently only used for byte
+    /// array columns (see BinaryRecordReader::GetBuilderChunks).
+    std::shared_ptr<::arrow::DataType> arrow_type = NULLPTR;
+    /// An optimization for flat (non nested) optional values where definition levels
+    /// are decoded directly into the validity bitmap. This delivers significant
+    /// speedup, but `int16_t` definition levels are no longer available and
+    /// `def_levels()` will throw.
+    bool flat_optional_optimization = false;
+  };
+
   /// \brief Creates a record reader.
-  /// @param descr Column descriptor
-  /// @param leaf_info Level info, used to determine if a column is nullable or not
-  /// @param pool Memory pool to use for buffering values and rep/def levels
-  /// @param read_dictionary True if reading directly as Arrow dictionary-encoded
-  /// @param read_dense_for_nullable True if reading dense and not leaving space for null
-  /// values
-  /// @param arrow_type Which type to read this column as (optional). Currently
-  /// only used for byte array columns (see BinaryRecordReader::GetBuilderChunks).
-  /// @param flat_optional_optimization An optimization for flat (non nested)
-  /// optional values where definition levels are decoded directly into the validity
-  /// bitmap. This delivers significant speedup, but `int16_t` definition levels are
-  /// no longer available and `def_levels()` will throw.
+  static std::shared_ptr<RecordReader> Make(const MakeParams& params);
+
+  /// \brief Creates a record reader.
+  /// \see DispatchParams for the parameters documentation.
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),

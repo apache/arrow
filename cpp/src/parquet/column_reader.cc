@@ -3048,16 +3048,7 @@ class ByteArrayDictionaryRecordReader final
   using ValueSink = typename byte_array_dictionary_record_reader<kReaderKind>::ValueSink;
 };
 
-struct DispatchParams {
-  const ColumnDescriptor* descr;
-  LevelInfo leaf_info;
-  MemoryPool* pool;
-  std::shared_ptr<::arrow::DataType> arrow_type;
-  bool read_dense_for_nullable;
-  bool flat_optional_optimization;
-};
-
-RecordReaderSelector GetRecordReaderKind(const DispatchParams& params) {
+RecordReaderSelector GetRecordReaderKind(const RecordReader::MakeParams& params) {
   const ColumnDescriptor* descr = params.descr;
   if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
     return RecordReaderSelector::Required;
@@ -3073,7 +3064,7 @@ RecordReaderSelector GetRecordReaderKind(const DispatchParams& params) {
 ///
 /// `extra_args` are appended after the arguments common to all kinds.
 template <template <RecordReaderSelector> typename Reader, typename... ExtraArgs>
-std::shared_ptr<RecordReader> MakeRecordReader(const DispatchParams& params,
+std::shared_ptr<RecordReader> MakeRecordReader(const RecordReader::MakeParams& params,
                                                ExtraArgs&&... extra_args) {
   switch (GetRecordReaderKind(params)) {
     case RecordReaderSelector::Required:
@@ -3091,16 +3082,17 @@ std::shared_ptr<RecordReader> MakeRecordReader(const DispatchParams& params,
   ::arrow::Unreachable();
 }
 
-std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const DispatchParams& params,
-                                                        bool read_dictionary) {
-  if (read_dictionary) {
+std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
+    const RecordReader::MakeParams& params) {
+  if (params.read_dictionary) {
     return MakeRecordReader<ByteArrayDictionaryRecordReader>(params);
   }
   return MakeRecordReader<ByteArrayChunkedRecordReader>(params, params.arrow_type);
 }
 
 template <typename DType>
-std::shared_ptr<RecordReader> DispatchTypedRecordReader(const DispatchParams& params) {
+std::shared_ptr<RecordReader> DispatchTypedRecordReader(
+    const RecordReader::MakeParams& params) {
   if constexpr (std::is_same_v<DType, FLBAType>) {
     return MakeRecordReader<FLBARecordReader>(params);
   } else {
@@ -3129,14 +3121,19 @@ std::shared_ptr<RecordReader> RecordReader::Make(
     bool read_dictionary, bool read_dense_for_nullable,
     const std::shared_ptr<::arrow::DataType>& arrow_type,
     bool flat_optional_optimization) {
-  const DispatchParams params{
+  return Make(MakeParams{
       .descr = descr,
       .leaf_info = leaf_info,
       .pool = pool,
-      .arrow_type = arrow_type,
+      .read_dictionary = read_dictionary,
       .read_dense_for_nullable = read_dense_for_nullable,
+      .arrow_type = arrow_type,
       .flat_optional_optimization = flat_optional_optimization,
-  };
+  });
+}
+
+std::shared_ptr<RecordReader> RecordReader::Make(const MakeParams& params) {
+  const ColumnDescriptor* descr = params.descr;
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return DispatchTypedRecordReader<BooleanType>(params);
@@ -3151,7 +3148,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(
     case Type::DOUBLE:
       return DispatchTypedRecordReader<DoubleType>(params);
     case Type::BYTE_ARRAY: {
-      return MakeByteArrayRecordReader(params, read_dictionary);
+      return MakeByteArrayRecordReader(params);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return DispatchTypedRecordReader<FLBAType>(params);
