@@ -197,7 +197,7 @@ struct GrpcServerEndpoint {
 
 ARROW_FLIGHT_EXPORT
 arrow::Result<GrpcServerEndpoint> ParseServerEndpoint(const FlightServerOptions& options,
-                                                       const arrow::util::Uri& uri);
+                                                      const arrow::util::Uri& uri);
 
 ARROW_FLIGHT_EXPORT
 void ConfigureServerBuilderOptions(const FlightServerOptions& options,
