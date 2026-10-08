@@ -42,10 +42,13 @@ class ARROW_EXPORT Converter {
 
   std::shared_ptr<DataType> type() const { return type_; }
 
-  // Create a Converter for the given data type
-  static Result<std::shared_ptr<Converter>> Make(
-      const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-      MemoryPool* pool = default_memory_pool());
+  // Create a Converter for the given data type.
+  // If is_type_inference is true, date and time converters ignore
+  // options.timestamp_parsers and accept only ISO-8601 values.
+  static Result<std::shared_ptr<Converter>> Make(const std::shared_ptr<DataType>& type,
+                                                 const ConvertOptions& options,
+                                                 MemoryPool* pool = default_memory_pool(),
+                                                 bool is_type_inference = false);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);

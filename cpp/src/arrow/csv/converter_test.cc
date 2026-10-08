@@ -171,6 +171,25 @@ void AssertConversionError(const std::shared_ptr<DataType>& type,
   }
 }
 
+// Parses seconds since the epoch given as an integer, to produce timestamps
+// out of the reach of the built-in parsers (which require a 4-digit year)
+class EpochSecondsParser : public TimestampParser {
+ public:
+  bool operator()(const char* s, size_t length, TimeUnit::type out_unit, int64_t* out,
+                  bool* out_zone_offset_present) const override {
+    int64_t seconds = 0;
+    if (!::arrow::internal::ParseValue(Int64Type{}, s, length, &seconds)) {
+      return false;
+    }
+    if (out_zone_offset_present != nullptr) {
+      *out_zone_offset_present = false;
+    }
+    return ::arrow::util::CastSecondsToUnit(out_unit, seconds, out);
+  }
+
+  const char* kind() const override { return "epoch_seconds"; }
+};
+
 //////////////////////////////////////////////////////////////////////////
 // Converter tests
 
@@ -472,6 +491,69 @@ TEST(Date32Conversion, Errors) {
   AssertConversionError(date32(), {"2020-13-01\n"}, {0});
 }
 
+TEST(Date32Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+  const auto type = date32();
+
+  // Test a single parser
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d/%m/%y")};
+  AssertConversion<Date32Type, int32_t>(type, {"15/10/15,18/06/90\n"}, {{16723}, {7473}},
+                                        options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Date32Type, int32_t>(type, {"2020-03-15,15/10/15\n"},
+                                        {{18336}, {16723}}, options);
+
+  // Test multiple parsers, with a pre-epoch value
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%d-%m-%Y"));
+  AssertConversion<Date32Type, int32_t>(type, {"15/10/15,08-05-1945\n"},
+                                        {{16723}, {-9004}}, options);
+
+  // Test month names, parsed case-insensitively
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
+  AssertConversion<Date32Type, int32_t>(type, {"15-OCT-15,18-Jun-90\n"},
+                                        {{16723}, {7473}}, options);
+
+  // Parsed timestamps are floored to the day boundary, also before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %H:%M")};
+  AssertConversion<Date32Type, int32_t>(type, {"03/15/2020 14:30,05/08/1945 14:30\n"},
+                                        {{18336}, {-9004}}, options);
+
+  // Test errors
+  AssertConversionError(type, {"24-12-2020\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
+  AssertConversionError(type, {"01/02/1970 +0000\n"}, {0}, options);
+
+  // ISO-8601 fractional seconds are discarded, also before the epoch and
+  // outside the range of nanosecond timestamps
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Date32Type, int32_t>(
+      type,
+      {"2020-03-15 14:30:00.123,1969-12-31 23:59:59.123456789,1600-01-01 00:00:00.5\n"},
+      {{18336}, {-1}, {-135140}}, options);
+  // With the "T" separator and the remaining numbers of fractional digits
+  AssertConversion<Date32Type, int32_t>(
+      type,
+      {"2020-03-15T14:30:00.12,2020-03-15T14:30:00.1234,2020-03-15T14:30:00.12345,"
+       "2020-03-15T14:30:00.123456,2020-03-15T14:30:00.1234567,"
+       "2020-03-15T14:30:00.12345678\n"},
+      {{18336}, {18336}, {18336}, {18336}, {18336}, {18336}}, options);
+  AssertConversionError(type, {"2020-03-15 14:30:00.1234567890\n"}, {0}, options);
+  AssertConversionError(type, {"2020-03-15 14:30:00.\n"}, {0}, options);
+  AssertConversionError(type, {"2020-03-15 14:30:00.12x\n"}, {0}, options);
+  // Zone offsets are rejected, also after fractional seconds
+  AssertConversionError(type,
+                        {"2020-03-15 14:30:00.5Z,2020-03-15 14:30:00.5+05,"
+                         "2020-03-15 14:30:00.5+0530,2020-03-15T14:30:00.5+05:30\n"},
+                        {0, 1, 2, 3}, options);
+
+  // Days outside the range of date32 are rejected rather than wrapped
+  options.timestamp_parsers = {std::make_shared<EpochSecondsParser>()};
+  AssertConversion<Date32Type, int32_t>(type, {"185542587100800,-185542587187200\n"},
+                                        {{INT32_MAX}, {INT32_MIN}}, options);
+  AssertConversionError(type, {"185542587187200,-185542587273600\n"}, {0, 1}, options);
+}
+
 TEST(Date64Conversion, Basics) {
   AssertConversion<Date64Type, int64_t>(date64(), {"1945-05-08\n", "2020-03-15\n"},
                                         {{-777945600000LL, 1584230400000LL}});
@@ -485,6 +567,55 @@ TEST(Date64Conversion, Nulls) {
 TEST(Date64Conversion, Errors) {
   AssertConversionError(date64(), {"1945-06-31\n"}, {0});
   AssertConversionError(date64(), {"2020-13-01\n"}, {0});
+}
+
+TEST(Date64Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+  const auto type = date64();
+
+  // Test a single parser
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d/%m/%y")};
+  AssertConversion<Date64Type, int64_t>(type, {"15/10/15,18/06/90\n"},
+                                        {{1444867200000LL}, {645667200000LL}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Date64Type, int64_t>(type, {"2020-03-15,15/10/15\n"},
+                                        {{1584230400000LL}, {1444867200000LL}}, options);
+
+  // Test multiple parsers, with a pre-epoch value
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%d-%m-%Y"));
+  AssertConversion<Date64Type, int64_t>(type, {"15/10/15,08-05-1945\n"},
+                                        {{1444867200000LL}, {-777945600000LL}}, options);
+
+  // Test month names, parsed case-insensitively
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
+  AssertConversion<Date64Type, int64_t>(type, {"15-OCT-15,18-Jun-90\n"},
+                                        {{1444867200000LL}, {645667200000LL}}, options);
+
+  // Parsed timestamps are floored to the day boundary, also before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %H:%M")};
+  AssertConversion<Date64Type, int64_t>(type, {"03/15/2020 14:30,05/08/1945 14:30\n"},
+                                        {{1584230400000LL}, {-777945600000LL}}, options);
+
+  // Test errors
+  AssertConversionError(type, {"24-12-2020\n"}, {0}, options);
+
+  // ISO-8601 fractional seconds are discarded, also before the epoch and
+  // outside the range of nanosecond timestamps
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Date64Type, int64_t>(
+      type,
+      {"2020-03-15 14:30:00.123,1969-12-31 23:59:59.123456789,1600-01-01 00:00:00.5\n"},
+      {{1584230400000LL}, {-86400000LL}, {-11676096000000LL}}, options);
+
+  // Days outside the range of date64 are rejected rather than overflowing
+  options.timestamp_parsers = {std::make_shared<EpochSecondsParser>()};
+  AssertConversion<Date64Type, int64_t>(
+      type, {"9223372036828800,-9223372036828800\n"},
+      {{9223372036828800000LL}, {-9223372036828800000LL}}, options);
+  AssertConversionError(type,
+                        {"9223372036915200,-9223372036915200,9223372036854775807\n"},
+                        {0, 1, 2}, options);
 }
 
 TEST(Time32Conversion, Seconds) {
@@ -513,6 +644,40 @@ TEST(Time32Conversion, Millis) {
   AssertConversionError(type, {"23:59:60\n"}, {0});
 }
 
+TEST(Time32Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+
+  // Test a single parser, with non-zero-padded hours
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"7:55:00,12:01:02\n"},
+                                        {{28500}, {43262}}, options);
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::MILLI), {"7:55:00\n"},
+                                        {{28500000}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"07:55:00,7:55:00\n"},
+                                        {{28500}, {28500}}, options);
+
+  // The time of day is extracted from parsed timestamps, also before the epoch
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%Y-%m-%d %H:%M"));
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND),
+                                        {"2020-03-15 07:55,1945-05-08 07:55\n"},
+                                        {{28500}, {28500}}, options);
+
+  // Test errors
+  AssertConversionError(time32(TimeUnit::SECOND), {"24:00:00\n"}, {0}, options);
+
+  // Fractional seconds are kept for times, but rejected when the time unit
+  // cannot represent them
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Time32Type, int32_t>(
+      time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5\n"}, {{28500500}}, options);
+  AssertConversionError(time32(TimeUnit::SECOND), {"2020-03-15 07:55:00.5\n"}, {0},
+                        options);
+  AssertConversionError(time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5000\n"}, {0},
+                        options);
+}
+
 TEST(Time64Conversion, Micros) {
   const auto type = time64(TimeUnit::MICRO);
 
@@ -537,6 +702,44 @@ TEST(Time64Conversion, Nanos) {
 
   AssertConversionError(type, {"24:00\n"}, {0});
   AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+
+  // Test a single parser, with non-zero-padded hours
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::MICRO), {"7:55:00\n"},
+                                        {{28500000000LL}}, options);
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO), {"7:55:00\n"},
+                                        {{28500000000000LL}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::MICRO), {"07:55:00.123456\n"},
+                                        {{28500123456LL}}, options);
+
+  // Test errors
+  AssertConversionError(time64(TimeUnit::MICRO), {"24:00:00\n"}, {0}, options);
+
+  // The time of day is extracted without overflow near the minimum of
+  // nanosecond timestamps (1677-09-21 00:12:43.145224192), and before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO),
+                                        {"1677-09-21 00:12:44,1969-12-31 23:59:59\n"},
+                                        {{764000000000LL}, {86399000000000LL}}, options);
+
+  // The time of day is extracted from dates outside the range of nanosecond
+  // timestamps, with and without fractional seconds
+  AssertConversion<Time64Type, int64_t>(
+      time64(TimeUnit::NANO),
+      {"9999-12-31 07:55:00,1600-01-01 07:55:00,9999-12-31 07:55:00.123456789,"
+       "1600-01-01 07:55:00.5\n"},
+      {{28500000000000LL}, {28500000000000LL}, {28500123456789LL}, {28500500000000LL}},
+      options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S")};
+  AssertConversion<Time64Type, int64_t>(
+      time64(TimeUnit::NANO), {"9999-12-31 07:55:00,1600-01-01 07:55:00\n"},
+      {{28500000000000LL}, {28500000000000LL}}, options);
 }
 
 TEST(TimestampConversion, Basics) {
