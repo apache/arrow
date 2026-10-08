@@ -40,14 +40,17 @@ class MemoryViewTest < Test::Unit::TestCase
   end
 
   sub_test_case("BooleanArray") do
+    def template
+      if little_endian?
+        "b"
+      else
+        "B"
+      end
+    end
+
     test("offset: 0") do
       array = Arrow::BooleanArray.new([true] * 9)
       Fiddle::MemoryView.export(array) do |memory_view|
-        if little_endian?
-          template = "b"
-        else
-          template = "B"
-        end
         assert_equal([
                        "#{template}8",
                        1,
@@ -66,7 +69,6 @@ class MemoryViewTest < Test::Unit::TestCase
     test("offset: byte aligned") do
       array = Arrow::BooleanArray.new(([false] * 8) + ([true] * 9)).slice(8, 9)
       Fiddle::MemoryView.export(array) do |memory_view|
-        template = little_endian? ? "b" : "B"
         assert_equal([
                        "#{template}8",
                        1,
