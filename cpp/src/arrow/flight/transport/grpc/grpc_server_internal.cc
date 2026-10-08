@@ -24,7 +24,7 @@
 namespace arrow::flight::transport::grpc {
 
 arrow::Result<GrpcServerEndpoint> ParseServerEndpoint(const FlightServerOptions& options,
-                                                       const arrow::util::Uri& uri) {
+                                                      const arrow::util::Uri& uri) {
   GrpcServerEndpoint endpoint;
   endpoint.location = options.location;
   const std::string scheme = uri.scheme();
