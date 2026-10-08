@@ -19,7 +19,7 @@ add_gandiva_test(projector-test
                  SOURCES
                  binary_test.cc
                  boolean_expr_test.cc
-                 concurrent_make_test.cc
+                 cache_race_test.cc
                  date_time_test.cc
                  decimal_alignment_test.cc
                  decimal_single_test.cc
