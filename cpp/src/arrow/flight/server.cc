@@ -74,7 +74,7 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
   return impl_->transport_->Init(options, uri);
 }
 
-arrow::Result<int> FlightServerBase::port() const { return location().port(); }
+int FlightServerBase::port() const { return location().port(); }
 
 Location FlightServerBase::location() const { return impl_->transport_->location(); }
 
