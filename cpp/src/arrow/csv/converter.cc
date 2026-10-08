@@ -552,7 +552,12 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
           *out = days * kMillisPerDay;
         } else {
           static_assert(is_time_type<T>::value);
-          *out = static_cast<value_type>(timestamp - days * ticks_per_day_);
+          // Normalized remainder, as days * ticks_per_day_ can overflow
+          int64_t time_of_day = timestamp % ticks_per_day_;
+          if (time_of_day < 0) {
+            time_of_day += ticks_per_day_;
+          }
+          *out = static_cast<value_type>(time_of_day);
         }
         return Status::OK();
       }

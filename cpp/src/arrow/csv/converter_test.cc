@@ -676,6 +676,13 @@ TEST(Time64Conversion, UserDefinedParsers) {
 
   // Test errors
   AssertConversionError(time64(TimeUnit::MICRO), {"24:00:00\n"}, {0}, options);
+
+  // The time of day is extracted without overflow near the minimum of
+  // nanosecond timestamps (1677-09-21 00:12:43.145224192), and before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO),
+                                        {"1677-09-21 00:12:44,1969-12-31 23:59:59\n"},
+                                        {{764000000000LL}, {86399000000000LL}}, options);
 }
 
 TEST(TimestampConversion, Basics) {
