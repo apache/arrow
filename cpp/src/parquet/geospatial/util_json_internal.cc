@@ -30,6 +30,10 @@
 namespace parquet {
 
 namespace {
+
+// An upper bound on the expected nesting depth of a geospatial JSON metadata object
+constexpr int kMaxJsonDepth = 20;
+
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     simdjson::ondemand::object object) {
   auto json_crs_result =
@@ -195,7 +199,7 @@ namespace {
   simdjson::ondemand::parser parser;
   simdjson::padded_string json(crs);
 
-  if (!::arrow::internal::ValidateJsonDocument(parser, json).ok()) {
+  if (!::arrow::internal::ValidateJsonDocument(parser, json, kMaxJsonDepth).ok()) {
     return EscapeJsonString(crs);
   }
 
@@ -215,7 +219,7 @@ LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
   simdjson::ondemand::parser parser;
   simdjson::padded_string json(serialized_data);
 
-  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, json));
+  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, json, kMaxJsonDepth));
 
   // Reparse because validation consumes the On-Demand document.
   ARROW_ASSIGN_OR_RAISE(auto document, ::arrow::internal::ResolveSimdjsonResult(

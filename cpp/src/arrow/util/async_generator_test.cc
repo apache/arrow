@@ -976,6 +976,9 @@ TEST_F(MergedGeneratorErrorHookTest, OuterErrorToWaiterNotOvertakenByLaterPull) 
 // receives the error has completed, even when it is requested while the generator is
 // already completing.
 TEST_F(MergedGeneratorErrorHookTest, InnerErrorToWaiterNotOvertakenDuringCompletion) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto failing = Future<TestInt>::Make();
   AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
   std::vector<AsyncGenerator<TestInt>> subs = {failing_sub};
@@ -994,6 +997,9 @@ TEST_F(MergedGeneratorErrorHookTest, InnerErrorToWaiterNotOvertakenDuringComplet
 }
 
 TEST_F(MergedGeneratorErrorHookTest, OuterErrorToWaiterNotOvertakenDuringCompletion) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto failing = Future<AsyncGenerator<TestInt>>::Make();
   AsyncGenerator<AsyncGenerator<TestInt>> source = [failing]() { return failing; };
   MergedGenerator<TestInt> gen(std::move(source), 1);
@@ -1011,6 +1017,9 @@ TEST_F(MergedGeneratorErrorHookTest, OuterErrorToWaiterNotOvertakenDuringComplet
 }
 
 TEST_F(MergedGeneratorErrorHookTest, ClaimedErrorNotOvertakenDuringCompletion) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto failing = Future<TestInt>::Make();
   AsyncGenerator<TestInt> failing_sub = [failing]() { return failing; };
   std::vector<AsyncGenerator<TestInt>> subs = {MakeVectorGenerator<TestInt>({TestInt(1)}),

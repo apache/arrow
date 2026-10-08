@@ -22,6 +22,7 @@ import io
 import itertools
 import json
 import string
+import sys
 import unittest
 
 try:
@@ -344,6 +345,32 @@ class BaseTestJSON(abc.ABC):
                             # Better error output
                             assert table.to_pydict() == expected.to_pydict()
 
+    def test_max_nesting_depth(self):
+        if pa.build_info.build_type == 'debug' and sys.platform == 'darwin':
+            pytest.skip('test crashes in debug mode on macOS '
+                        'due to small default thread stack size')
+
+        def deeply_nested_json_object(depth):
+            return b'{"a":' * depth + b'1' + b'}' * depth
+
+        def deeply_nested_json_array(depth):
+            return b'{"a":' + b'[' * (depth - 1) + b'1' + b']' * (depth - 1) + b'}'
+
+        max_depth = 100  # Hard-coded in arrow/json/parser.cc
+        table = self.read_bytes(deeply_nested_json_object(max_depth))
+        table.validate(full=True)
+        table = self.read_bytes(deeply_nested_json_array(max_depth))
+        table.validate(full=True)
+
+        with pytest.raises(
+                ValueError,
+                match=f"JSON too deeply nested: max nesting depth is {max_depth}"):
+            self.read_bytes(deeply_nested_json_object(max_depth + 1))
+        with pytest.raises(
+                ValueError,
+                match=f"JSON too deeply nested: max nesting depth is {max_depth}"):
+            self.read_bytes(deeply_nested_json_array(max_depth + 1))
+
 
 class BaseTestJSONRead(BaseTestJSON):
 
@@ -452,7 +479,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
         read_options = ReadOptions()
         read_options.block_size = 16
         with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error: Invalid value.*"):
+                           match="JSON parse error: Invalid JSON value.*"):
             self.open_bytes(bad_first_block, read_options=read_options)
 
     def test_bad_middle_parse_after_empty(self):
@@ -460,7 +487,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
         read_options = ReadOptions()
         read_options.block_size = 16
         with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error: Invalid value.*"):
+                           match="JSON parse error: Invalid JSON value.*"):
             self.open_bytes(bad_first_block, read_options=read_options)
 
     def test_bad_middle_parse(self):
@@ -476,8 +503,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
         }
         with pytest.raises(
             pa.ArrowInvalid,
-            match="JSON parse error:\
- Missing a comma or '}' after an object member*"
+            match="JSON parse error:"
         ):
             reader.read_next_batch()
 

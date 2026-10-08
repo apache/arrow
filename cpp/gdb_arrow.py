@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from bisect import bisect_right
 from collections import namedtuple
 from collections.abc import Sequence
 import datetime
@@ -95,7 +96,8 @@ def identity(v):
 
 
 def has_null_bitmap(type_id):
-    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION)
+    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION,
+                           Type.RUN_END_ENCODED)
 
 
 @lru_cache()
@@ -626,11 +628,12 @@ class Buffer:
         """
         Return a view over the bytes of this buffer.
         """
-        if self.size > 0:
-            if length is None:
-                length = self.size
+        if length is None:
+            length = self.size - offset
+        # Sliced arrays may share buffers, so only read the requested range.
+        if length > 0:
             mem = gdb.selected_inferior().read_memory(
-                self.val['data_'] + offset, self.size)
+                self.val['data_'] + offset, length)
         else:
             mem = memoryview(b"")
         # Read individual bytes as unsigned integers rather than
@@ -769,7 +772,8 @@ class Bitmap(Sequence):
     def from_buffer(cls, buf, offset, length):
         assert isinstance(buf, Buffer)
         byte_offset, bit_offset = divmod(offset, 8)
-        byte_length = math.ceil(length + offset / 8) - byte_offset
+        # E.g. offset=3, length=6 selects bits 3..8 and needs 2 bytes.
+        byte_length = math.ceil((bit_offset + length) / 8)
         return cls(buf.bytes_view(byte_offset, byte_length),
                    bit_offset, length)
 
@@ -1069,6 +1073,7 @@ type_reprs = {
     'SparseUnionType': 'sparse_union',
     'DenseUnionType': 'dense_union',
     'DictionaryType': 'dictionary',
+    'RunEndEncodedType': 'run_end_encoded',
     }
 
 
@@ -1168,6 +1173,20 @@ class ListTypePrinter(TypePrinter):
             return f"{self._format_type()}<uninitialized or corrupt>"
         else:
             return f"{self._format_type()}({child})"
+
+
+class RunEndEncodedTypePrinter(TypePrinter):
+    """
+    Pretty-printer for run-end encoded types.
+    """
+
+    def to_string(self):
+        fields = self.fields
+        if len(fields) != 2:
+            return f"{self._format_type()}<uninitialized or corrupt>"
+        run_end_type = fields[0].type
+        value_type = fields[1].type
+        return f"{self._format_type()}({run_end_type}, {value_type})"
 
 
 class FixedSizeListTypePrinter(ListTypePrinter):
@@ -1456,6 +1475,18 @@ class DictionaryScalarPrinter(ScalarPrinter):
 class BaseListScalarPrinter(ScalarPrinter):
     """
     Pretty-printer for arrow::BaseListScalar and subclasses.
+    """
+
+    def to_string(self):
+        if not self.is_valid:
+            return self._format_null()
+        value = deref(self.val['value'])
+        return f"{self._format_type()} of value {value}"
+
+
+class RunEndEncodedScalarPrinter(ScalarPrinter):
+    """
+    Pretty-printer for arrow::RunEndEncodedScalar.
     """
 
     def to_string(self):
@@ -1831,6 +1862,51 @@ class BinaryArrayDataPrinter(ArrayDataPrinter):
                 yield self._null_child(i)
 
 
+class RunEndEncodedArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for run-end encoded arrays.
+    """
+
+    def __init__(self, name, val):
+        if self.length == 0:
+            return
+        child_data = StdVector(self.val['child_data'])
+        self._run_ends_printer = ArrayDataPrinter(
+            "arrow::ArrayData", deref(child_data[0]))
+        self._values_printer = ArrayDataPrinter(
+            "arrow::ArrayData", deref(child_data[1]))
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        run_ends = self._run_ends_printer._unpacked_buffer_values(
+            1, self._run_ends_printer.type_id)
+        values = iter(self._values_printer.children() or ())
+        run_index = bisect_right(run_ends, self.offset)
+        # Advance to the value for the run containing the logical offset.
+        for _ in range(run_index + 1):
+            value = next(values, None)
+            if value is None:
+                return
+
+        logical_index = self.offset
+        logical_end = self.offset + self.length
+        # Expand each run into the logical elements visible in this slice.
+        while logical_index < logical_end:
+            run_end = run_ends[run_index]
+            for i in range(logical_index, min(run_end, logical_end)):
+                yield self._valid_child(i - self.offset, value[1])
+            logical_index = run_end
+            run_index += 1
+            if logical_index < logical_end:
+                value = next(values, None)
+                if value is None:
+                    return
+
+
 class ArrayPrinter:
     """
     Pretty-printer for arrow::Array and subclasses.
@@ -1999,6 +2075,13 @@ class FixedSizeListTypeClass(DataTypeClass):
     scalar_printer = BaseListScalarPrinter
 
 
+class RunEndEncodedTypeClass(DataTypeClass):
+    is_parametric = True
+    type_printer = RunEndEncodedTypePrinter
+    scalar_printer = RunEndEncodedScalarPrinter
+    array_data_printer = RunEndEncodedArrayDataPrinter
+
+
 class MapTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = MapTypePrinter
@@ -2093,6 +2176,8 @@ type_traits_by_id = {
 
     Type.DICTIONARY: DataTypeTraits(DictionaryTypeClass, 'DictionaryType'),
     Type.EXTENSION: DataTypeTraits(ExtensionTypeClass, 'ExtensionType'),
+    Type.RUN_END_ENCODED: DataTypeTraits(RunEndEncodedTypeClass,
+                                         'RunEndEncodedType'),
 }
 
 

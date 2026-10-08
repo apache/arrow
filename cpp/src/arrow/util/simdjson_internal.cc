@@ -538,47 +538,71 @@ Result<std::string> MinifyJson(std::string_view json) {
   return minified;
 }
 
-Status ConsumeJsonValue(simdjson::ondemand::value value) {
+static Status ValidateJsonObject(simdjson::ondemand::object object, int max_depth,
+                                 int depth) {
+  if (ARROW_PREDICT_FALSE(depth >= max_depth)) {
+    return Status::Invalid("JSON too deeply nested: max nesting depth is ", max_depth);
+  }
+  for (auto field_result : object) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto field, ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
+    RETURN_NOT_OK(ValidateJsonValue(field.value(), max_depth, depth));
+  }
+  return Status::OK();
+}
+
+static Status ValidateJsonArray(simdjson::ondemand::array array, int max_depth,
+                                int depth) {
+  if (ARROW_PREDICT_FALSE(depth >= max_depth)) {
+    return Status::Invalid("JSON too deeply nested: max nesting depth is ", max_depth);
+  }
+  for (auto element_result : array) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto value,
+        ResolveSimdjsonResult(element_result, "Failed to iterate JSON array"));
+    RETURN_NOT_OK(ValidateJsonValue(value, max_depth, depth));
+  }
+  return Status::OK();
+}
+
+Status ValidateJsonValue(simdjson::ondemand::value value, int max_depth, int depth) {
   return VisitJsonValue(
-      value, ValidateJsonObject, ValidateJsonArray,
+      value,
+      [depth, max_depth](simdjson::ondemand::object object) {
+        return ValidateJsonObject(object, max_depth, depth + 1);
+      },
+      [depth, max_depth](simdjson::ondemand::array array) {
+        return ValidateJsonArray(array, max_depth, depth + 1);
+      },
       [](std::string_view) { return Status::OK(); }, [](bool) { return Status::OK(); },
       []() { return Status::OK(); }, [](int64_t) { return Status::OK(); },
       [](uint64_t) { return Status::OK(); }, [](double) { return Status::OK(); },
       [](simdjson::ondemand::value) { return Status::OK(); });
 }
 
-Status ValidateJsonObject(simdjson::ondemand::object object) {
-  for (auto field_result : object) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto field, ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
-
-    RETURN_NOT_OK(ConsumeJsonValue(field.value()));
-  }
-
-  return Status::OK();
-}
-
-Status ValidateJsonArray(simdjson::ondemand::array array) {
-  for (auto element_result : array) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto value,
-        ResolveSimdjsonResult(element_result, "Failed to iterate JSON array"));
-
-    RETURN_NOT_OK(ConsumeJsonValue(value));
-  }
-
-  return Status::OK();
-}
-
 Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
-                            simdjson::padded_string& json) {
+                            simdjson::padded_string& json, int max_depth) {
   ARROW_ASSIGN_OR_RAISE(
       auto document, ResolveSimdjsonResult(parser.iterate(json), "Failed to parse JSON"));
 
   ARROW_ASSIGN_OR_RAISE(auto value, ResolveSimdjsonResult(document.get_value(),
                                                           "Failed to get JSON value"));
 
-  return ConsumeJsonValue(value);
+  return ValidateJsonValue(value, max_depth);
+}
+
+/// Returns the position of the first non-whitespace character when trailing is false,
+/// or the number of trailing whitespace characters when trailing is true.
+// XXX We could try to SIMD-accelerate this routine.
+int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing) {
+  if (!trailing) {
+    const auto pos = view.find_first_not_of(" \t\r\n");
+    return static_cast<int64_t>(pos == std::string_view::npos ? view.size() : pos);
+  }
+
+  const auto pos = view.find_last_not_of(" \t\r\n");
+  return static_cast<int64_t>(pos == std::string_view::npos ? view.size()
+                                                            : view.size() - pos - 1);
 }
 
 }  // namespace arrow::internal

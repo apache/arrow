@@ -193,6 +193,15 @@ set(PARQUET_SRCS
     stream_writer.cc
     types.cc)
 
+# guards itself: Neon on aarch64, SSE4.2 on x86, empty elsewhere
+list(APPEND PARQUET_SRCS level_comparison_simd_128.cc)
+if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
+  set_source_files_properties(level_comparison_simd_128.cc
+                              PROPERTIES COMPILE_OPTIONS "${ARROW_SSE4_2_FLAG}")
+endif()
+
+append_runtime_avx2_src(PARQUET_SRCS level_comparison_simd_256.cc)
+
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND

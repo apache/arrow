@@ -1816,29 +1816,8 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    find_program(PATCH patch)
-    if(PATCH)
-      list(APPEND
-           THRIFT_PATCH_COMMAND
-           ${PATCH}
-           -p1
-           -i)
-    else()
-      find_program(GIT git)
-      if(GIT)
-        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
-      endif()
-    endif()
-    if(THRIFT_PATCH_COMMAND)
-      # https://github.com/apache/thrift/pull/3187
-      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
-    endif()
-  endif()
   fetchcontent_declare(thrift
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
                        URL ${THRIFT_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
@@ -2868,6 +2847,10 @@ function(build_simdjson)
                        URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
+
+  # Keep simdjson's threading configuration consistent with Arrow's,
+  # which is required for Emscripten where Arrow threading is disabled.
+  set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
 
   # simdjson enables precompiled headers unconditionally.
   # Recompiling simdjson.cpp against it produces differing artifacts
