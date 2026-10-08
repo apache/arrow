@@ -171,6 +171,25 @@ void AssertConversionError(const std::shared_ptr<DataType>& type,
   }
 }
 
+// Parses seconds since the epoch given as an integer, to produce timestamps
+// out of the reach of the built-in parsers (which require a 4-digit year)
+class EpochSecondsParser : public TimestampParser {
+ public:
+  bool operator()(const char* s, size_t length, TimeUnit::type out_unit, int64_t* out,
+                  bool* out_zone_offset_present) const override {
+    int64_t seconds = 0;
+    if (!::arrow::internal::ParseValue(Int64Type{}, s, length, &seconds)) {
+      return false;
+    }
+    if (out_zone_offset_present != nullptr) {
+      *out_zone_offset_present = false;
+    }
+    return ::arrow::util::CastSecondsToUnit(out_unit, seconds, out);
+  }
+
+  const char* kind() const override { return "epoch_seconds"; }
+};
+
 //////////////////////////////////////////////////////////////////////////
 // Converter tests
 
@@ -527,6 +546,12 @@ TEST(Date32Conversion, UserDefinedParsers) {
                         {"2020-03-15 14:30:00.5Z,2020-03-15 14:30:00.5+05,"
                          "2020-03-15 14:30:00.5+0530,2020-03-15T14:30:00.5+05:30\n"},
                         {0, 1, 2, 3}, options);
+
+  // Days outside the range of date32 are rejected rather than wrapped
+  options.timestamp_parsers = {std::make_shared<EpochSecondsParser>()};
+  AssertConversion<Date32Type, int32_t>(type, {"185542587100800,-185542587187200\n"},
+                                        {{INT32_MAX}, {INT32_MIN}}, options);
+  AssertConversionError(type, {"185542587187200,-185542587273600\n"}, {0, 1}, options);
 }
 
 TEST(Date64Conversion, Basics) {
@@ -582,6 +607,15 @@ TEST(Date64Conversion, UserDefinedParsers) {
       type,
       {"2020-03-15 14:30:00.123,1969-12-31 23:59:59.123456789,1600-01-01 00:00:00.5\n"},
       {{1584230400000LL}, {-86400000LL}, {-11676096000000LL}}, options);
+
+  // Days outside the range of date64 are rejected rather than overflowing
+  options.timestamp_parsers = {std::make_shared<EpochSecondsParser>()};
+  AssertConversion<Date64Type, int64_t>(
+      type, {"9223372036828800,-9223372036828800\n"},
+      {{9223372036828800000LL}, {-9223372036828800000LL}}, options);
+  AssertConversionError(type,
+                        {"9223372036915200,-9223372036915200,9223372036854775807\n"},
+                        {0, 1, 2}, options);
 }
 
 TEST(Time32Conversion, Seconds) {

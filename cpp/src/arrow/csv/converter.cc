@@ -37,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/trie_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"  // IWYU pragma: keep
@@ -561,9 +562,15 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
         int64_t days = timestamp / ticks_per_day;
         days -= (timestamp % ticks_per_day) < 0;
         if constexpr (std::is_same_v<T, Date32Type>) {
+          if (days < std::numeric_limits<value_type>::min() ||
+              days > std::numeric_limits<value_type>::max()) {
+            continue;  // out of the range of date32
+          }
           *out = static_cast<value_type>(days);
         } else if constexpr (std::is_same_v<T, Date64Type>) {
-          *out = days * kMillisPerDay;
+          if (arrow::internal::MultiplyWithOverflow(days, kMillisPerDay, out)) {
+            continue;  // out of the range of date64
+          }
         } else {
           static_assert(is_time_type<T>::value);
           // Normalized remainder, as days * ticks_per_day can overflow
