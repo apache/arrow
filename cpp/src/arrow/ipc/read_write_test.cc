@@ -2305,7 +2305,7 @@ TEST(TestRecordBatchStreamReader, FileMagicAfterFirstMessageDoesNotSuggestFileRe
   ASSERT_OK(helper.WriteBatch(batch));
   ASSERT_OK(helper.Finish());
 
-  // Replace the 8-byte  marker with the IPC file magic.
+  // Replace the 8-byte marker with the IPC file magic.
   std::string data = helper.buffer_->ToString();
   data.resize(data.size() - 8);
   data.append("ARROW1\0\0", 8);
