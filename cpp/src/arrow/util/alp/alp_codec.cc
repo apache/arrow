@@ -399,9 +399,10 @@ Result<typename AlpVectorReader<T>::VectorLayout> AlpVectorReader<T>::LoadVector
 
   VectorLayout layout;
   ARROW_ASSIGN_OR_RAISE(layout.alp_info, AlpInfo::Load({vector_start, remaining_bytes}));
-  ARROW_ASSIGN_OR_RAISE(layout.for_info,
-                        AlpForInfo<T>::Load({vector_start + AlpInfo::kStoredSize,
-                                             remaining_bytes - AlpInfo::kStoredSize}));
+  ARROW_ASSIGN_OR_RAISE(
+      layout.for_info,
+      AlpForInfo<T>::Load({vector_start + AlpInfo::kStoredSize,
+                           remaining_bytes - static_cast<size_t>(AlpInfo::kStoredSize)}));
 
   ARROW_ASSIGN_OR_RAISE(layout.num_elements, VectorLength(vector_index));
   layout.data = vector_start + kMetadataSize;
