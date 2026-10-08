@@ -79,7 +79,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Pre-load the already-compiled object from the cache lookup above, if there was
   // one. Reuses prev_cached_obj instead of letting SetLLVMObjectCache re-query the
   // shared cache, so this can never disagree with the is_cached snapshot that
-  // decided whether Build() below still compiles fresh IR (see GH-601).
+  // decided whether Build() below still compiles.
   ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(prev_cached_obj));
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
