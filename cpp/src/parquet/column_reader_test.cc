@@ -652,17 +652,17 @@ internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
 
 struct RecordReaderTestParam {
   bool read_dense_for_nullable;
-  bool flat_optional_optimization;
+  bool allow_levels_optimization;
 };
 
 std::vector<RecordReaderTestParam> RecordReaderTestParams(
-    std::initializer_list<bool> flat_optional_optimizations) {
+    std::initializer_list<bool> allow_levels_optimizations) {
   std::vector<RecordReaderTestParam> params;
   for (bool read_dense_for_nullable : {true, false}) {
-    for (bool flat_optional_optimization : flat_optional_optimizations) {
+    for (bool allow_levels_optimization : allow_levels_optimizations) {
       params.push_back({
           .read_dense_for_nullable = read_dense_for_nullable,
-          .flat_optional_optimization = flat_optional_optimization,
+          .allow_levels_optimization = allow_levels_optimization,
       });
     }
   }
@@ -672,7 +672,8 @@ std::vector<RecordReaderTestParam> RecordReaderTestParams(
 std::string RecordReaderTestParamName(
     const testing::TestParamInfo<RecordReaderTestParam>& info) {
   return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
-         (info.param.flat_optional_optimization ? "FlatOptional" : "General");
+         (info.param.allow_levels_optimization ? "LevelsOptimization"
+                                               : "NoLevelsOptimization");
 }
 
 class RecordReaderPrimitiveTypeTest
@@ -682,9 +683,7 @@ class RecordReaderPrimitiveTypeTest
 
   bool read_dense_for_nullable() const { return GetParam().read_dense_for_nullable; }
 
-  bool flat_optional_optimization() const {
-    return GetParam().flat_optional_optimization;
-  }
+  bool allow_levels_optimization() const { return GetParam().allow_levels_optimization; }
 
   void Init(NodePtr column) {
     NodePtr root = GroupNode::Make("root", Repetition::REQUIRED, {column});
@@ -694,7 +693,7 @@ class RecordReaderPrimitiveTypeTest
         .descr = descr_,
         .leaf_info = ComputeLevelInfo(descr_),
         .read_dense_for_nullable = read_dense_for_nullable(),
-        .flat_optional_optimization = flat_optional_optimization(),
+        .allow_levels_optimization = allow_levels_optimization(),
     });
   }
 
@@ -703,7 +702,7 @@ class RecordReaderPrimitiveTypeTest
   // validity bitmap of the records it produces, so it never materializes levels and
   // reports none: `def_levels()` is null and both level counters stay at zero.
   bool exposes_levels() const {
-    return !(flat_optional_optimization() && descr_->max_definition_level() == 1 &&
+    return !(allow_levels_optimization() && descr_->max_definition_level() == 1 &&
              descr_->max_repetition_level() == 0 && descr_->schema_node()->is_optional());
   }
 
@@ -1435,7 +1434,7 @@ INSTANTIATE_TEST_SUITE_P(RecordReaderFlatOptionalTests, RecordReaderFlatOptional
 class FLBARecordReaderTest : public ::testing::TestWithParam<RecordReaderTestParam> {
  public:
   bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
-  bool flat_optional_optimization() { return GetParam().flat_optional_optimization; }
+  bool allow_levels_optimization() { return GetParam().allow_levels_optimization; }
 
   void MakeRecordReader(int levels_per_page, int num_pages, int FLBA_type_length) {
     levels_per_page_ = levels_per_page;
@@ -1455,9 +1454,9 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<RecordReaderTestPar
         .descr = descr_.get(),
         .leaf_info = level_info,
         .read_dense_for_nullable = read_dense_for_nullable(),
-        .flat_optional_optimization = flat_optional_optimization(),
+        .allow_levels_optimization = allow_levels_optimization(),
     });
-    if (flat_optional_optimization()) {
+    if (allow_levels_optimization()) {
       // Only the flat optional reader does not materialize definition levels.
       ASSERT_THROW(record_reader_->def_levels(), ParquetException);
     }
@@ -1539,7 +1538,7 @@ struct ByteArrayRecordReaderParam {
   bool read_dense_for_nullable;
   bool read_dictionary;
   Encoding::type encoding;
-  bool flat_optional_optimization;
+  bool allow_levels_optimization;
 };
 
 class ByteArrayRecordReaderTest
@@ -1547,7 +1546,7 @@ class ByteArrayRecordReaderTest
  public:
   bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
   bool read_dictionary() { return GetParam().read_dictionary; }
-  bool flat_optional_optimization() { return GetParam().flat_optional_optimization; }
+  bool allow_levels_optimization() { return GetParam().allow_levels_optimization; }
 
   void MakeRecordReader(int levels_per_page, int num_pages) {
     levels_per_page_ = levels_per_page;
@@ -1567,9 +1566,9 @@ class ByteArrayRecordReaderTest
         .leaf_info = level_info,
         .read_dictionary = read_dictionary(),
         .read_dense_for_nullable = read_dense_for_nullable(),
-        .flat_optional_optimization = flat_optional_optimization(),
+        .allow_levels_optimization = allow_levels_optimization(),
     });
-    if (flat_optional_optimization()) {
+    if (allow_levels_optimization()) {
       // Only the flat optional reader does not materialize definition levels.
       ASSERT_THROW(record_reader_->def_levels(), ParquetException);
     }
@@ -1743,12 +1742,12 @@ std::vector<ByteArrayRecordReaderParam> ByteArrayRecordReaderParams() {
   for (bool read_dense_for_nullable : {false, true}) {
     for (bool read_dictionary : {false, true}) {
       for (Encoding::type encoding : {Encoding::PLAIN, Encoding::RLE_DICTIONARY}) {
-        for (bool flat_optional_optimization : {true, false}) {
+        for (bool allow_levels_optimization : {true, false}) {
           params.push_back({
               .read_dense_for_nullable = read_dense_for_nullable,
               .read_dictionary = read_dictionary,
               .encoding = encoding,
-              .flat_optional_optimization = flat_optional_optimization,
+              .allow_levels_optimization = allow_levels_optimization,
           });
         }
       }
@@ -1764,7 +1763,8 @@ INSTANTIATE_TEST_SUITE_P(
       return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
              (info.param.read_dictionary ? "Dictionary" : "Binary") +
              EncodingToString(info.param.encoding) +
-             (info.param.flat_optional_optimization ? "FlatOptional" : "General");
+             (info.param.allow_levels_optimization ? "LevelsOptimization"
+                                                   : "NoLevelsOptimization");
     });
 
 INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest,
@@ -1773,7 +1773,7 @@ INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest,
 
 struct RecordReaderStressParam {
   Repetition::type repetition;
-  bool flat_optional_optimization;
+  bool allow_levels_optimization;
 };
 
 // Test random combination of ReadRecords and SkipRecords.
@@ -1786,7 +1786,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   // Define these boolean variables for improving readability below.
   bool repeated = false, required = false;
   const bool flat_optional =
-      repetition == Repetition::OPTIONAL && GetParam().flat_optional_optimization;
+      repetition == Repetition::OPTIONAL && GetParam().allow_levels_optimization;
   if (repetition == Repetition::REQUIRED) {
     level_info.def_level = 0;
     level_info.rep_level = 0;
@@ -1826,7 +1826,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   std::shared_ptr<internal::RecordReader> record_reader = internal::RecordReader::Make({
       .descr = &descr,
       .leaf_info = level_info,
-      .flat_optional_optimization = GetParam().flat_optional_optimization,
+      .allow_levels_optimization = GetParam().allow_levels_optimization,
   });
   record_reader->SetPageReader(std::move(pager));
 
@@ -1982,7 +1982,8 @@ INSTANTIATE_TEST_SUITE_P(
       return std::string(repetition == Repetition::REQUIRED   ? "Required"
                          : repetition == Repetition::OPTIONAL ? "Optional"
                                                               : "Repeated") +
-             (info.param.flat_optional_optimization ? "FlatOptional" : "General");
+             (info.param.allow_levels_optimization ? "LevelsOptimization"
+                                                   : "NoLevelsOptimization");
     });
 
 }  // namespace test

@@ -480,7 +480,7 @@ class LeafReader : public ColumnReaderImpl {
         .pool = ctx_->pool,
         .read_dictionary = field_->type()->id() == ::arrow::Type::DICTIONARY,
         .arrow_type = type_for_reading,
-        .flat_optional_optimization = true,
+        .allow_levels_optimization = true,
     });
     NextRowGroup();
   }

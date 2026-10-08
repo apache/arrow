@@ -2518,7 +2518,7 @@ class FlatOptionalTypedRecordReader
   int16_t* def_levels() const final {
     throw ParquetException(
         "Definition levels are not available for RecordReader"
-        " created with `flat_optional_optimization = true`."
+        " created with `allow_levels_optimization = true`."
         " Set it to false to deactivate the optimization and access the levels.");
   }
 
@@ -3053,7 +3053,7 @@ RecordReaderSelector GetRecordReaderKind(const RecordReader::MakeParams& params)
   if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
     return RecordReaderSelector::Required;
   }
-  if (params.flat_optional_optimization && descr->max_definition_level() == 1 &&
+  if (params.allow_levels_optimization && descr->max_definition_level() == 1 &&
       descr->max_repetition_level() == 0 && descr->schema_node()->is_optional()) {
     return RecordReaderSelector::FlatOptional;
   }
@@ -3120,7 +3120,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(
     const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
     bool read_dictionary, bool read_dense_for_nullable,
     const std::shared_ptr<::arrow::DataType>& arrow_type,
-    bool flat_optional_optimization) {
+    bool allow_levels_optimization) {
   return Make(MakeParams{
       .descr = descr,
       .leaf_info = leaf_info,
@@ -3128,7 +3128,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(
       .read_dictionary = read_dictionary,
       .read_dense_for_nullable = read_dense_for_nullable,
       .arrow_type = arrow_type,
-      .flat_optional_optimization = flat_optional_optimization,
+      .allow_levels_optimization = allow_levels_optimization,
   });
 }
 
