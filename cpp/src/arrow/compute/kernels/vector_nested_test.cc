@@ -271,6 +271,18 @@ TEST(TestVectorNested, ListParentIndices) {
   }
 }
 
+TEST(TestVectorNested, ListParentIndicesMap) {
+  auto input =
+      ArrayFromJSON(map(utf8(), uint16()), R"([[["a", 1], ["b", 2]], [["c", 3]]])");
+  auto chunked =
+      std::make_shared<ChunkedArray>(ArrayVector{input->Slice(0, 1), input->Slice(1)});
+  for (const auto& datum : {Datum(input), Datum(chunked)}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                    ::testing::HasSubstr("expects list input, got map"),
+                                    CallFunction("list_parent_indices", {datum}));
+  }
+}
+
 TEST(TestVectorNested, ListParentIndicesChunkedArray) {
   const auto types = {
       list(int16()),
