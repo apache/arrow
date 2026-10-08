@@ -189,6 +189,7 @@ class GrpcServerCallContextHelper {
   MiddlewareFactoryList middleware_;
 };
 
+ARROW_FLIGHT_EXPORT
 struct GrpcServerEndpoint {
   std::string address;
   std::shared_ptr<::grpc::ServerCredentials> credentials;
