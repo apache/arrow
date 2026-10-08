@@ -29,6 +29,16 @@ class MemoryViewTest < Test::Unit::TestCase
     [1].pack("s") == [1].pack("s<")
   end
 
+  def memory_view_available?(target)
+    libruby = Fiddle.dlopen(nil)
+    rb_memory_view_available_p = Fiddle::Function.new(
+      libruby["rb_memory_view_available_p"],
+      [Fiddle::TYPE_UINTPTR_T],
+      Fiddle::TYPE_BOOL
+    )
+    rb_memory_view_available_p.call(Fiddle.dlwrap(target))
+  end
+
   sub_test_case("BooleanArray") do
     test("offset: 0") do
       array = Arrow::BooleanArray.new([true] * 9)
@@ -74,9 +84,8 @@ class MemoryViewTest < Test::Unit::TestCase
 
     test("offset: not byte aligned") do
       array = Arrow::BooleanArray.new([false, true, false]).slice(1, 2)
-      assert_raise(ArgumentError) do
-        Fiddle::MemoryView.export(array) do |memory_view|
-        end
+      assert do
+        not memory_view_available?(array)
       end
     end
   end
