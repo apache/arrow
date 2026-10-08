@@ -310,7 +310,7 @@ Status Engine::SetLLVMObjectCache(
     // Copy rather than hand over the cache's own buffer -- addObjectFile takes
     // ownership and may free it, but the shared cache map holds a reference to the
     // same object too.
-    auto cached_buffer = prev_cached_obj->getMemBufferCopy(
+    auto cached_buffer = llvm::MemoryBuffer::getMemBufferCopy(
         prev_cached_obj->getBuffer(), prev_cached_obj->getBufferIdentifier());
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
     if (error) {
