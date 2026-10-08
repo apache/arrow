@@ -632,6 +632,16 @@ TEST(Time32Conversion, UserDefinedParsers) {
 
   // Test errors
   AssertConversionError(time32(TimeUnit::SECOND), {"24:00:00\n"}, {0}, options);
+
+  // Fractional seconds are kept for times, but rejected when the time unit
+  // cannot represent them
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Time32Type, int32_t>(
+      time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5\n"}, {{28500500}}, options);
+  AssertConversionError(time32(TimeUnit::SECOND), {"2020-03-15 07:55:00.5\n"}, {0},
+                        options);
+  AssertConversionError(time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5000\n"}, {0},
+                        options);
 }
 
 TEST(Time64Conversion, Micros) {
@@ -683,6 +693,19 @@ TEST(Time64Conversion, UserDefinedParsers) {
   AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO),
                                         {"1677-09-21 00:12:44,1969-12-31 23:59:59\n"},
                                         {{764000000000LL}, {86399000000000LL}}, options);
+
+  // The time of day is extracted from dates outside the range of nanosecond
+  // timestamps, with and without fractional seconds
+  AssertConversion<Time64Type, int64_t>(
+      time64(TimeUnit::NANO),
+      {"9999-12-31 07:55:00,1600-01-01 07:55:00,9999-12-31 07:55:00.123456789,"
+       "1600-01-01 07:55:00.5\n"},
+      {{28500000000000LL}, {28500000000000LL}, {28500123456789LL}, {28500500000000LL}},
+      options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S")};
+  AssertConversion<Time64Type, int64_t>(
+      time64(TimeUnit::NANO), {"9999-12-31 07:55:00,1600-01-01 07:55:00\n"},
+      {{28500000000000LL}, {28500000000000LL}}, options);
 }
 
 TEST(TimestampConversion, Basics) {

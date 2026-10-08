@@ -22,6 +22,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -482,11 +483,13 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
 // timestamp parsers
 //
 
-// Discards the fractional seconds (up to 9 digits) of an ISO-8601 timestamp
+// Splits the fractional seconds (up to 9 digits) off an ISO-8601 timestamp
 // "YYYY-MM-DD[ T]hh:mm:ss.s{1,9}" with an optional zone offset. Returns `s`
 // if there are no fractional seconds, a copy without them in `buffer`, or
-// nullptr if they are malformed.
-const char* DiscardISO8601Subseconds(const char* s, uint32_t* size, char (&buffer)[64]) {
+// nullptr if they are malformed. The split-off digits are returned in
+// `subseconds`.
+const char* SplitISO8601Subseconds(const char* s, uint32_t* size, char (&buffer)[64],
+                                   std::string_view* subseconds) {
   if (*size <= 20 || s[19] != '.') {
     return s;
   }
@@ -501,6 +504,7 @@ const char* DiscardISO8601Subseconds(const char* s, uint32_t* size, char (&buffe
   }
   std::memcpy(buffer, s, 19);
   std::memcpy(buffer + 19, s + 20 + fraction_length, rest_length);
+  *subseconds = std::string_view(s + 20, fraction_length);
   *size = 19 + rest_length;
   return buffer;
 }
@@ -534,30 +538,47 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
       const char* s = reinterpret_cast<const char*>(data);
       uint32_t s_size = size;
       char buffer[64];
-      if (is_date_type<T>::value && std::strcmp(parser->kind(), "iso8601") == 0) {
-        // Dates discard fractional seconds, so accept them in any number
-        s = DiscardISO8601Subseconds(s, &s_size, buffer);
+      std::string_view subseconds;
+      if (std::strcmp(parser->kind(), "iso8601") == 0) {
+        // Set the fractional seconds aside, so that any number of digits is
+        // accepted: dates discard them, times add them back below
+        s = SplitISO8601Subseconds(s, &s_size, buffer, &subseconds);
         if (s == nullptr) {
           continue;
         }
       }
-      if (parser->operator()(s, s_size, parse_unit_, &timestamp, &zone_offset_present) &&
-          !zone_offset_present) {
+      TimeUnit::type unit = parse_unit_;
+      bool parsed = parser->operator()(s, s_size, unit, &timestamp, &zone_offset_present);
+      if (!parsed && unit != TimeUnit::SECOND) {
+        // The date may be out of the range of the time unit while the time of
+        // day is representable: retry in seconds, scaled below
+        unit = TimeUnit::SECOND;
+        parsed = parser->operator()(s, s_size, unit, &timestamp, &zone_offset_present);
+      }
+      if (parsed && !zone_offset_present) {
+        const int64_t ticks_per_day = TicksPerDay(unit);
         // Floor division, to handle values before the epoch
-        int64_t days = timestamp / ticks_per_day_;
-        days -= (timestamp % ticks_per_day_) < 0;
+        int64_t days = timestamp / ticks_per_day;
+        days -= (timestamp % ticks_per_day) < 0;
         if constexpr (std::is_same_v<T, Date32Type>) {
           *out = static_cast<value_type>(days);
         } else if constexpr (std::is_same_v<T, Date64Type>) {
           *out = days * kMillisPerDay;
         } else {
           static_assert(is_time_type<T>::value);
-          // Normalized remainder, as days * ticks_per_day_ can overflow
-          int64_t time_of_day = timestamp % ticks_per_day_;
+          // Normalized remainder, as days * ticks_per_day can overflow
+          int64_t time_of_day = timestamp % ticks_per_day;
           if (time_of_day < 0) {
-            time_of_day += ticks_per_day_;
+            time_of_day += ticks_per_day;
           }
-          *out = static_cast<value_type>(time_of_day);
+          uint32_t subseconds_ticks = 0;
+          if (!subseconds.empty() &&
+              !arrow::internal::detail::ParseSubSeconds(
+                  subseconds.data(), subseconds.size(), parse_unit_, &subseconds_ticks)) {
+            continue;  // the time unit cannot represent the fractional seconds
+          }
+          *out = static_cast<value_type>(time_of_day * (ticks_per_day_ / ticks_per_day) +
+                                         subseconds_ticks);
         }
         return Status::OK();
       }
