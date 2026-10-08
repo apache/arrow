@@ -20,7 +20,6 @@
 #include "arrow/result.h"
 #include "arrow/table_builder.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/simdjson_internal.h"
 
 #include <simdjson.h>
@@ -59,13 +58,6 @@ Status AppendJsonValue(const sj::dom::element& value,
 
 Status AppendJsonStruct(const sj::dom::element& value, const StructType& type,
                         StructBuilder* builder) {
-  if (value.is_null()) {
-    for (int i = 0; i < type.num_fields(); ++i) {
-      ARROW_RETURN_NOT_OK(builder->child_builder(i)->AppendNull());
-    }
-    return builder->AppendNull();
-  }
-
   if (!value.is_object()) {
     return Status::TypeError("Expected JSON object for struct");
   }
@@ -93,10 +85,6 @@ Status AppendJsonStruct(const sj::dom::element& value, const StructType& type,
 
 Status AppendJsonList(const sj::dom::element& value, const ListType& type,
                       ListBuilder* builder) {
-  if (value.is_null()) {
-    return builder->AppendNull();
-  }
-
   ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonArray(value, "JSON value"));
 
   ARROW_RETURN_NOT_OK(builder->Append());
@@ -191,6 +179,7 @@ Result<std::shared_ptr<RecordBatch>> ConvertToRecordBatch(
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch, batch_builder->Flush());
 
+  // Use RecordBatch::ValidateFull() to make sure arrays were correctly constructed.
   ARROW_RETURN_NOT_OK(batch->ValidateFull());
   return batch;
 }  // ConvertToRecordBatch
@@ -211,12 +200,7 @@ Status WriteJsonStruct(const StructArray& array, int64_t index, const StructType
     const auto& child = array.field(i);
 
     writer->Key(field->name());
-
-    if (child->IsNull(index)) {
-      writer->Null();
-    } else {
-      ARROW_RETURN_NOT_OK(WriteJsonValue(*child, index, field->type(), writer));
-    }
+    ARROW_RETURN_NOT_OK(WriteJsonValue(*child, index, field->type(), writer));
   }
 
   writer->EndObject();
@@ -371,14 +355,19 @@ Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table, Table::FromRecordBatches({batch}));
 
+  // Print table
   std::cout << table->ToString() << std::endl;
   ARROW_RETURN_NOT_OK(table->ValidateFull());
+  //(Doc section: Convert to Arrow)
 
   //(Doc section: Convert to Rows)
+  // Create converter
   ArrowToJsonConverter to_json_converter;
 
+  // Convert table into JSON (row) iterator
   auto json_iter = to_json_converter.ConvertToIterator(table, batch_size);
 
+  // Print each row
   for (Result<std::shared_ptr<std::string>> json_result : json_iter) {
     ARROW_ASSIGN_OR_RAISE(auto json, std::move(json_result));
     std::cout << *json << std::endl;
