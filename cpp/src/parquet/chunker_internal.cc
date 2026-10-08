@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array.h"
@@ -349,6 +350,17 @@ class ContentDefinedChunker::Impl {
     });
   }
 
+  std::vector<Chunk> CalculateBinaryView(const int16_t* def_levels,
+                                         const int16_t* rep_levels, int64_t num_levels,
+                                         const ::arrow::Array& values) {
+    const auto& array = checked_cast<const ::arrow::BinaryViewArray&>(values);
+    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
+      const std::string_view value = array.GetView(i);
+      Roll(reinterpret_cast<const uint8_t*>(value.data()),
+           static_cast<int64_t>(value.size()));
+    });
+  }
+
   std::vector<Chunk> GetChunks(const int16_t* def_levels, const int16_t* rep_levels,
                                int64_t num_levels, const ::arrow::Array& values) {
     auto handle_type = [&](auto&& type) -> std::vector<Chunk> {
@@ -380,6 +392,8 @@ class ContentDefinedChunker::Impl {
       } else if constexpr (::arrow::is_large_binary_like(ArrowType::type_id)) {
         return CalculateBinaryLike<::arrow::LargeBinaryArray>(def_levels, rep_levels,
                                                               num_levels, values);
+      } else if constexpr (::arrow::is_binary_view_like(ArrowType::type_id)) {
+        return CalculateBinaryView(def_levels, rep_levels, num_levels, values);
       } else if constexpr (::arrow::is_dictionary(ArrowType::type_id)) {
         return GetChunks(def_levels, rep_levels, num_levels,
                          *static_cast<const ::arrow::DictionaryArray&>(values).indices());
