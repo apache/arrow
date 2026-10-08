@@ -650,11 +650,41 @@ internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
 
 }  // namespace
 
-using ReadDenseForNullable = bool;
+struct RecordReaderTestParam {
+  bool read_dense_for_nullable;
+  bool flat_optional_optimization;
+};
+
+std::vector<RecordReaderTestParam> RecordReaderTestParams(
+    std::initializer_list<bool> flat_optional_optimizations) {
+  std::vector<RecordReaderTestParam> params;
+  for (bool read_dense_for_nullable : {true, false}) {
+    for (bool flat_optional_optimization : flat_optional_optimizations) {
+      params.push_back({
+          .read_dense_for_nullable = read_dense_for_nullable,
+          .flat_optional_optimization = flat_optional_optimization,
+      });
+    }
+  }
+  return params;
+}
+
+std::string RecordReaderTestParamName(
+    const testing::TestParamInfo<RecordReaderTestParam>& info) {
+  return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
+         (info.param.flat_optional_optimization ? "FlatOptional" : "General");
+}
+
 class RecordReaderPrimitiveTypeTest
-    : public ::testing::TestWithParam<ReadDenseForNullable> {
+    : public ::testing::TestWithParam<RecordReaderTestParam> {
  public:
   const int32_t kNullValue = -1;
+
+  bool read_dense_for_nullable() const { return GetParam().read_dense_for_nullable; }
+
+  bool flat_optional_optimization() const {
+    return GetParam().flat_optional_optimization;
+  }
 
   void Init(NodePtr column) {
     NodePtr root = GroupNode::Make("root", Repetition::REQUIRED, {column});
@@ -663,8 +693,8 @@ class RecordReaderPrimitiveTypeTest
     record_reader_ = internal::RecordReader::Make({
         .descr = descr_,
         .leaf_info = ComputeLevelInfo(descr_),
-        .read_dense_for_nullable = GetParam(),
-        .flat_optional_optimization = true,
+        .read_dense_for_nullable = read_dense_for_nullable(),
+        .flat_optional_optimization = flat_optional_optimization(),
     });
   }
 
@@ -673,8 +703,8 @@ class RecordReaderPrimitiveTypeTest
   // validity bitmap of the records it produces, so it never materializes levels and
   // reports none: `def_levels()` is null and both level counters stay at zero.
   bool exposes_levels() const {
-    return !(descr_->max_definition_level() == 1 && descr_->max_repetition_level() == 0 &&
-             descr_->schema_node()->is_optional());
+    return !(flat_optional_optimization() && descr_->max_definition_level() == 1 &&
+             descr_->max_repetition_level() == 0 && descr_->schema_node()->is_optional());
   }
 
   void CheckReadValues(std::vector<int32_t> expected_values,
@@ -791,7 +821,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   // Read 10, null
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
     CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{2, 0},
@@ -809,7 +839,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   // Read 20, 20, null (parent present), 30, 30, 30
   records_read = record_reader_->ReadRecords(/*num_records=*/6);
   ASSERT_EQ(records_read, 6);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/5, /*null_count=*/0, /*levels_written=*/7,
                /*levels_position=*/6);
     CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
@@ -829,7 +859,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   // Read the last null value and read past the end.
   records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 1);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
                /*levels_position=*/1);
     CheckReadValues(/*expected_values=*/{},
@@ -937,7 +967,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   // We do not read this null for both reading dense and spaced.
   records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
     CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{3, 0},
@@ -957,7 +987,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   // when reading spaced.
   records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/7,
                /*levels_position=*/3);
     CheckReadValues(/*expected_values=*/{20, 20},
@@ -981,7 +1011,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   // Read the last record.
   records_read = record_reader_->ReadRecords(/*num_records=*/1);
   ASSERT_EQ(records_read, 1);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/3, /*null_count=*/0, /*levels_written=*/4,
                /*levels_position=*/4);
     CheckReadValues(/*expected_values=*/{30, 30, 30},
@@ -1030,8 +1060,11 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRequiredTopLevel) {
              /*levels_position=*/0);
 }
 
+// Flat optional columns, exercised with and without the flat optional optimization.
+class RecordReaderFlatOptionalTest : public RecordReaderPrimitiveTypeTest {};
+
 // Skip an optional field. Intentionally included some null values.
-TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
+TEST_P(RecordReaderFlatOptionalTest, SkipOptional) {
   Init(schema::Int32("b", Repetition::OPTIONAL));
 
   // Records look like {null, 10, 20, 30, null, 40, 50, 60}
@@ -1062,7 +1095,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
     int64_t records_read = record_reader_->ReadRecords(/*num_records=*/3);
 
     ASSERT_EQ(records_read, 3);
-    if (GetParam() == /*read_dense_for_nullable=*/true) {
+    if (read_dense_for_nullable()) {
       // We had skipped 2 of the levels above. So there is only 6 left in total to
       // read, and we read 3 of them here.
       CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/6,
@@ -1391,13 +1424,18 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
 }
 
 INSTANTIATE_TEST_SUITE_P(RecordReaderPrimitiveTypeTests, RecordReaderPrimitiveTypeTest,
-                         ::testing::Values(/*read_dense_for_nullable=*/true, false),
-                         testing::PrintToStringParamName());
+                         ::testing::ValuesIn(RecordReaderTestParams({true})),
+                         RecordReaderTestParamName);
+
+INSTANTIATE_TEST_SUITE_P(RecordReaderFlatOptionalTests, RecordReaderFlatOptionalTest,
+                         ::testing::ValuesIn(RecordReaderTestParams({true, false})),
+                         RecordReaderTestParamName);
 
 // Parameterized test for FLBA record reader.
-class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
+class FLBARecordReaderTest : public ::testing::TestWithParam<RecordReaderTestParam> {
  public:
-  bool read_dense_for_nullable() { return GetParam(); }
+  bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
+  bool flat_optional_optimization() { return GetParam().flat_optional_optimization; }
 
   void MakeRecordReader(int levels_per_page, int num_pages, int FLBA_type_length) {
     levels_per_page_ = levels_per_page;
@@ -1417,10 +1455,12 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
         .descr = descr_.get(),
         .leaf_info = level_info,
         .read_dense_for_nullable = read_dense_for_nullable(),
-        .flat_optional_optimization = true,
+        .flat_optional_optimization = flat_optional_optimization(),
     });
-    // Only the flat optional reader does not materialize definition levels.
-    ASSERT_THROW(record_reader_->def_levels(), ParquetException);
+    if (flat_optional_optimization()) {
+      // Only the flat optional reader does not materialize definition levels.
+      ASSERT_THROW(record_reader_->def_levels(), ParquetException);
+    }
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1499,6 +1539,7 @@ struct ByteArrayRecordReaderParam {
   bool read_dense_for_nullable;
   bool read_dictionary;
   Encoding::type encoding;
+  bool flat_optional_optimization;
 };
 
 class ByteArrayRecordReaderTest
@@ -1506,6 +1547,7 @@ class ByteArrayRecordReaderTest
  public:
   bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
   bool read_dictionary() { return GetParam().read_dictionary; }
+  bool flat_optional_optimization() { return GetParam().flat_optional_optimization; }
 
   void MakeRecordReader(int levels_per_page, int num_pages) {
     levels_per_page_ = levels_per_page;
@@ -1525,10 +1567,12 @@ class ByteArrayRecordReaderTest
         .leaf_info = level_info,
         .read_dictionary = read_dictionary(),
         .read_dense_for_nullable = read_dense_for_nullable(),
-        .flat_optional_optimization = true,
+        .flat_optional_optimization = flat_optional_optimization(),
     });
-    // Only the flat optional reader does not materialize definition levels.
-    ASSERT_THROW(record_reader_->def_levels(), ParquetException);
+    if (flat_optional_optimization()) {
+      // Only the flat optional reader does not materialize definition levels.
+      ASSERT_THROW(record_reader_->def_levels(), ParquetException);
+    }
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1699,11 +1743,14 @@ std::vector<ByteArrayRecordReaderParam> ByteArrayRecordReaderParams() {
   for (bool read_dense_for_nullable : {false, true}) {
     for (bool read_dictionary : {false, true}) {
       for (Encoding::type encoding : {Encoding::PLAIN, Encoding::RLE_DICTIONARY}) {
-        params.push_back({
-            .read_dense_for_nullable = read_dense_for_nullable,
-            .read_dictionary = read_dictionary,
-            .encoding = encoding,
-        });
+        for (bool flat_optional_optimization : {true, false}) {
+          params.push_back({
+              .read_dense_for_nullable = read_dense_for_nullable,
+              .read_dictionary = read_dictionary,
+              .encoding = encoding,
+              .flat_optional_optimization = flat_optional_optimization,
+          });
+        }
       }
     }
   }
@@ -1716,24 +1763,35 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<ByteArrayRecordReaderParam>& info) {
       return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
              (info.param.read_dictionary ? "Dictionary" : "Binary") +
-             EncodingToString(info.param.encoding);
+             EncodingToString(info.param.encoding) +
+             (info.param.flat_optional_optimization ? "FlatOptional" : "General");
     });
 
-INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest,
+                         ::testing::ValuesIn(RecordReaderTestParams({true, false})),
+                         RecordReaderTestParamName);
+
+struct RecordReaderStressParam {
+  Repetition::type repetition;
+  bool flat_optional_optimization;
+};
 
 // Test random combination of ReadRecords and SkipRecords.
-class RecordReaderStressTest : public ::testing::TestWithParam<Repetition::type> {};
+class RecordReaderStressTest : public ::testing::TestWithParam<RecordReaderStressParam> {
+};
 
 TEST_P(RecordReaderStressTest, StressTest) {
+  const Repetition::type repetition = GetParam().repetition;
   internal::LevelInfo level_info;
   // Define these boolean variables for improving readability below.
   bool repeated = false, required = false;
-  const bool flat_optional = GetParam() == Repetition::OPTIONAL;
-  if (GetParam() == Repetition::REQUIRED) {
+  const bool flat_optional =
+      repetition == Repetition::OPTIONAL && GetParam().flat_optional_optimization;
+  if (repetition == Repetition::REQUIRED) {
     level_info.def_level = 0;
     level_info.rep_level = 0;
     required = true;
-  } else if (GetParam() == Repetition::OPTIONAL) {
+  } else if (repetition == Repetition::OPTIONAL) {
     level_info.def_level = 1;
     level_info.rep_level = 0;
   } else {
@@ -1742,7 +1800,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
     repeated = true;
   }
 
-  NodePtr type = schema::Int32("b", GetParam());
+  NodePtr type = schema::Int32("b", repetition);
   const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
   auto seed1 = static_cast<uint32_t>(time(0));
@@ -1768,7 +1826,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   std::shared_ptr<internal::RecordReader> record_reader = internal::RecordReader::Make({
       .descr = &descr,
       .leaf_info = level_info,
-      .flat_optional_optimization = true,
+      .flat_optional_optimization = GetParam().flat_optional_optimization,
   });
   record_reader->SetPageReader(std::move(pager));
 
@@ -1913,9 +1971,19 @@ TEST_P(RecordReaderStressTest, StressTest) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(Repetition_type, RecordReaderStressTest,
-                         ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL,
-                                           Repetition::REPEATED));
+INSTANTIATE_TEST_SUITE_P(
+    Repetition_type, RecordReaderStressTest,
+    ::testing::Values(RecordReaderStressParam{Repetition::REQUIRED, true},
+                      RecordReaderStressParam{Repetition::OPTIONAL, true},
+                      RecordReaderStressParam{Repetition::OPTIONAL, false},
+                      RecordReaderStressParam{Repetition::REPEATED, true}),
+    [](const testing::TestParamInfo<RecordReaderStressParam>& info) {
+      const auto repetition = info.param.repetition;
+      return std::string(repetition == Repetition::REQUIRED   ? "Required"
+                         : repetition == Repetition::OPTIONAL ? "Optional"
+                                                              : "Repeated") +
+             (info.param.flat_optional_optimization ? "FlatOptional" : "General");
+    });
 
 }  // namespace test
 }  // namespace parquet
