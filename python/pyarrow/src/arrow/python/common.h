@@ -23,9 +23,11 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -267,7 +269,16 @@ class SmartPtrNoGIL : public SmartPtr<Ts...> {
   // Only release the GIL if we own an object *and* the Python runtime is
   // valid *and* the GIL is held.
   std::optional<PyReleaseGIL> optional_gil_release() const {
-    if (this->get() != nullptr && Py_IsInitialized() && PyGILState_Check()) {
+    // PyGILState_Check() is a full-C-API (Py_LIMITED_API-hidden) function,
+    // unavailable in the cp311-abi3 build. In the non-freethreading build we
+    // ship (GIL always enabled) it reduces to "the current thread has a valid
+    // thread state and holds the GIL", which for any thread executing Python
+    // code is exactly Py_IsInitialized() (a bare C++ worker thread that never
+    // entered Python has no thread state, and we never call reset() from one
+    // while destroying a live PyObject without the GIL). Py_IsInitialized()
+    // is the limited-API-correct guard and also covers the post-finalization
+    // case (GH-38626) the original comment targets.
+    if (this->get() != nullptr && Py_IsInitialized()) {
       return PyReleaseGIL();
     }
     return {};
@@ -398,23 +409,40 @@ struct PyBytesView {
   // View the given Python object as binary-like, i.e. bytes
   Status ParseBinary(PyObject* obj) {
     if (PyBytes_Check(obj)) {
-      bytes = PyBytes_AS_STRING(obj);
-      size = PyBytes_GET_SIZE(obj);
+      bytes = PyBytes_AsString(obj);
+      size = PyBytes_Size(obj);
+      ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyByteArray_Check(obj)) {
-      bytes = PyByteArray_AS_STRING(obj);
-      size = PyByteArray_GET_SIZE(obj);
+      bytes = PyByteArray_AsString(obj);
+      size = PyByteArray_Size(obj);
+      ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
-      PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      // C-contiguous view of the memoryview's data. May be a fresh copy, so
+      // hold it via `ref` for the lifetime of this view (fixes a use-after-free
+      // for non-contiguous memoryviews). Uses only the stable C-API.
+      ref.reset(PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C'));
       RETURN_IF_PYERROR();
-      Py_buffer* buffer = PyMemoryView_GET_BUFFER(ref);
-      bytes = reinterpret_cast<const char*>(buffer->buf);
-      size = buffer->len;
+      Py_buffer buffer;
+      // Two CPython >= 3.13 limited-API constraints:
+      // - The compat stub of PyObject_GetBuffer traps bare PyBUF_READ /
+      //   PyBUF_WRITE (raises SystemError), so the flags must carry extra bits.
+      // - memoryview's getbuffer rejects any flag set without PyBUF_STRIDES
+      //   when the view has a format ("cannot cast to unsigned bytes").
+      // PyBUF_READ | PyBUF_STRIDES satisfies both.
+      if (PyObject_GetBuffer(ref.obj(), &buffer, PyBUF_READ | PyBUF_STRIDES) < 0) {
+        RETURN_IF_PYERROR();
+      }
+      // Release the buffer export now; the data stays valid because `ref`
+      // (the memoryview, which owns the underlying buffer) remains alive.
+      bytes = reinterpret_cast<const char*>(buffer.buf);
+      size = buffer.len;
+      PyBuffer_Release(&buffer);
       is_utf8 = false;
     } else {
-      return Status::TypeError("Expected bytes, got a '", Py_TYPE(obj)->tp_name,
-                               "' object");
+      return Status::TypeError("Expected bytes, got a '",
+                               internal::PyObject_StdStringTypeName(obj), "' object");
     }
     return Status::OK();
   }
@@ -425,10 +453,12 @@ struct PyBytesView {
     RETURN_IF_PYERROR();
     if (!PyBytes_Check(ref.obj())) {
       return Status::TypeError("Expected uuid.UUID.bytes to return bytes, got '",
-                               Py_TYPE(ref.obj())->tp_name, "' object");
+                               internal::PyObject_StdStringTypeName(ref.obj()),
+                               "' object");
     }
-    bytes = PyBytes_AS_STRING(ref.obj());
-    size = PyBytes_GET_SIZE(ref.obj());
+    bytes = PyBytes_AsString(ref.obj());
+    size = PyBytes_Size(ref.obj());
+    ARROW_DCHECK(!PyErr_Occurred());
     is_utf8 = false;
     return Status::OK();
   }
@@ -465,6 +495,28 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
                                                 const char* argspec, ArgTypes... args) {
   return PyObject_CallMethod(obj, const_cast<char*>(method_name),
                              const_cast<char*>(argspec), args...);
+}
+
+// bytes is immutable: there is NO stable-API in-place resize (bytes has no
+// public resize, and bytes' buffer-protocol bf_resize is NULL), so shrinking a
+// freshly-allocated max-size bytes buffer down to the actual number of bytes
+// read requires the private _PyBytes_Resize. It is not in the 3.11
+// stable_abi.toml but IS exported by libpython at every target version
+// (verified 3.11-3.15) and is only ever called here on a bytes object this
+// code just created with refcount 1 (the documented safe usage). The
+// limited-API <Python.h> omits the prototype, and Cython cannot emit one for a
+// symbol declared in an extern-from-"Python.h" block (it trusts the real
+// header). We therefore declare the symbol ourselves and expose a thin wrapper
+// for the Cython side to call.
+// => allowlisted in the symbol audit (false-positive path).
+extern "C" {
+#if defined(Py_LIMITED_API)
+int _PyBytes_Resize(PyObject** bytes, Py_ssize_t newsize);
+#endif
+}
+
+static inline int cpp_PyBytes_Resize(PyObject** bytes, Py_ssize_t newsize) {
+  return _PyBytes_Resize(bytes, newsize);
 }
 
 }  // namespace py
