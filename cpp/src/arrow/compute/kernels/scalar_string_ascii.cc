@@ -2642,7 +2642,8 @@ struct SliceBytesTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_bytes;
     }
-    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    const int64_t stop = std::clamp(opt.stop, -input_bytes, input_bytes);
+    int64_t max_slice_bytes = (stop - opt.start + opt.step - 1) / opt.step;
     return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
   }
 
