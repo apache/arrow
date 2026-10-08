@@ -196,8 +196,8 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
 
   /// \brief Get the port that the Flight server is listening on.
   /// This method must only be called after Init().
-  /// \return Arrow result with the port number, or an error if it cannot be determined.
-  arrow::Result<int> port() const;
+  /// \return The port number. -1 if the port is not available.
+  int port() const;
 
   /// \brief Get the address that the Flight server is listening on.
   /// This method must only be called after Init().
