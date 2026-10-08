@@ -134,7 +134,7 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
       .pool = contents_->properties()->memory_pool(),
       .read_dictionary = read_dictionary,
       .read_dense_for_nullable = contents_->properties()->read_dense_for_nullable(),
-      .flat_optional_optimization = true,
+      .allow_levels_optimization = true,
   });
   reader->SetPageReader(std::move(page_reader));
   return reader;

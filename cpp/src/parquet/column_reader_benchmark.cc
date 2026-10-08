@@ -76,7 +76,7 @@ class BenchmarkHelper {
         .descr = descr_.get(),
         .leaf_info = level_info,
         .read_dense_for_nullable = read_dense_for_nullable,
-        .flat_optional_optimization = true,
+        .allow_levels_optimization = true,
     });
     record_reader_->SetPageReader(std::move(pager));
     return record_reader_.get();
