@@ -29,144 +29,215 @@ class MemoryViewTest < Test::Unit::TestCase
     [1].pack("s") == [1].pack("s<")
   end
 
-  [
-    [Arrow::Int8Array, "c"],
-    [Arrow::UInt8Array, "C"],
-    [Arrow::Int16Array, "s"],
-    [Arrow::UInt16Array, "S"],
-    [Arrow::Int32Array, "l"],
-    [Arrow::UInt32Array, "L"],
-    [Arrow::Int64Array, "q"],
-    [Arrow::UInt64Array, "Q"],
-    [Arrow::FloatArray, "f"],
-    [Arrow::DoubleArray, "d"],
-  ].each do |array_class, format|
-    test("#{array_class.name}: sliced") do
-      values = (0...8).to_a
-      array = array_class.new(values)
-      item_size = [0].pack(format).bytesize
-      slices = [
-        [array.slice(1, 3), values.slice(1, 3)],
-        [array.slice(4, 3), values.slice(4, 3)],
-        [array.slice(1, 6).slice(2, 3), values.slice(3, 3)],
-        [array.slice(4, 0), []],
-        [array.slice(8, 0), []],
-      ]
-      slices.each do |sliced_array, sliced_values|
-        Fiddle::MemoryView.export(sliced_array) do |memory_view|
-          assert_equal([
-                         format,
-                         item_size,
-                         item_size * sliced_values.size,
-                         sliced_values.pack("#{format}*"),
-                       ],
-                       [
-                         memory_view.format,
-                         memory_view.item_size,
-                         memory_view.byte_size,
-                         memory_view.to_s,
-                       ])
+  sub_test_case("BooleanArray") do
+    test("offset: 0") do
+      array = Arrow::BooleanArray.new([true] * 9)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        if little_endian?
+          template = "b"
+        else
+          template = "B"
+        end
+        assert_equal([
+                       "#{template}8",
+                       1,
+                       2,
+                       [(("1" * 9) + ("0" * 7))].pack("#{template}*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
+    end
+
+    test("offset: byte aligned") do
+      array = Arrow::BooleanArray.new(([false] * 8) + ([true] * 9)).slice(8, 9)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        template = little_endian? ? "b" : "B"
+        assert_equal([
+                       "#{template}8",
+                       1,
+                       2,
+                       [("1" * 9) + ("0" * 7)].pack("#{template}*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
+    end
+
+    test("offset: not byte aligned") do
+      array = Arrow::BooleanArray.new([false, true, false]).slice(1, 2)
+      assert_raise(ArgumentError) do
+        Fiddle::MemoryView.export(array) do |memory_view|
         end
       end
     end
   end
 
-  test("BooleanArray") do
-    array = Arrow::BooleanArray.new([true] * 9)
-    Fiddle::MemoryView.export(array) do |memory_view|
-      if little_endian?
-        template = "b"
-      else
-        template = "B"
+  sub_test_case("Int8Array") do
+    test("offset: 0") do
+      values = [-(2 ** 7), 0, (2 ** 7) - 1]
+      array = Arrow::Int8Array.new(values)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "c",
+                       1,
+                       values.size,
+                       values.pack("c*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
       end
-      assert_equal([
-                     "#{template}8",
-                     1,
-                     2,
-                     [(("1" * 9) + ("0" * 7))].pack("#{template}*"),
-                   ],
-                   [
-                     memory_view.format,
-                     memory_view.item_size,
-                     memory_view.byte_size,
-                     memory_view.to_s,
-                   ])
+    end
+
+    test("offset: non-0") do
+      values = [0, 1, 2]
+      array = Arrow::Int8Array.new(values).slice(1, 2)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "c",
+                       1,
+                       1 * 2,
+                       values.slice(1, 2).pack("c*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
     end
   end
 
-  test("Int8Array") do
-    values = [-(2 ** 7), 0, (2 ** 7) - 1]
-    array = Arrow::Int8Array.new(values)
-    Fiddle::MemoryView.export(array) do |memory_view|
-      assert_equal([
-                     "c",
-                     1,
-                     values.size,
-                     values.pack("c*"),
-                   ],
-                   [
-                     memory_view.format,
-                     memory_view.item_size,
-                     memory_view.byte_size,
-                     memory_view.to_s,
-                   ])
+  sub_test_case("Int16Array") do
+    test("offset: 0") do
+      values = [-(2 ** 15), 0, (2 ** 15) - 1]
+      array = Arrow::Int16Array.new(values)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "s",
+                       2,
+                       2 * values.size,
+                       values.pack("s*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
+    end
+
+    test("offset: non-0") do
+      values = [0, 1, 2]
+      array = Arrow::Int16Array.new(values).slice(1, 2)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "s",
+                       2,
+                       2 * 2,
+                       values.slice(1, 2).pack("s*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
     end
   end
 
-  test("Int16Array") do
-    values = [-(2 ** 15), 0, (2 ** 15) - 1]
-    array = Arrow::Int16Array.new(values)
-    Fiddle::MemoryView.export(array) do |memory_view|
-      assert_equal([
-                     "s",
-                     2,
-                     2 * values.size,
-                     values.pack("s*"),
-                   ],
-                   [
-                     memory_view.format,
-                     memory_view.item_size,
-                     memory_view.byte_size,
-                     memory_view.to_s,
-                   ])
+  sub_test_case("Int32Array") do
+    test("offset: 0") do
+      values = [-(2 ** 31), 0, (2 ** 31) - 1]
+      array = Arrow::Int32Array.new(values)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "l",
+                       4,
+                       4 * values.size,
+                       values.pack("l*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
+    end
+
+    test("offset: non-0") do
+      values = [0, 1, 2]
+      array = Arrow::Int32Array.new(values).slice(1, 2)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "l",
+                       4,
+                       4 * 2,
+                       values.slice(1, 2).pack("l*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
     end
   end
 
-  test("Int32Array") do
-    values = [-(2 ** 31), 0, (2 ** 31) - 1]
-    array = Arrow::Int32Array.new(values)
-    Fiddle::MemoryView.export(array) do |memory_view|
-      assert_equal([
-                     "l",
-                     4,
-                     4 * values.size,
-                     values.pack("l*"),
-                   ],
-                   [
-                     memory_view.format,
-                     memory_view.item_size,
-                     memory_view.byte_size,
-                     memory_view.to_s,
-                   ])
+  sub_test_case("Int64Array") do
+    test("offset: 0") do
+      values = [-(2 ** 63), 0, (2 ** 63) - 1]
+      array = Arrow::Int64Array.new(values)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "q",
+                       8,
+                       8 * values.size,
+                       values.pack("q*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
     end
-  end
 
-  test("Int64Array") do
-    values = [-(2 ** 63), 0, (2 ** 63) - 1]
-    array = Arrow::Int64Array.new(values)
-    Fiddle::MemoryView.export(array) do |memory_view|
-      assert_equal([
-                     "q",
-                     8,
-                     8 * values.size,
-                     values.pack("q*"),
-                   ],
-                   [
-                     memory_view.format,
-                     memory_view.item_size,
-                     memory_view.byte_size,
-                     memory_view.to_s,
-                   ])
+    test("offset: non-0") do
+      values = [0, 1, 2]
+      array = Arrow::Int64Array.new(values).slice(1, 2)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "q",
+                       8,
+                       8 * 2,
+                       values.slice(1, 2).pack("q*"),
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
     end
   end
 
@@ -284,23 +355,45 @@ class MemoryViewTest < Test::Unit::TestCase
     end
   end
 
-  test("FixedSizeBinaryArray") do
-    values = ["\x01\x02", "\x03\x04", "\x05\x06"]
-    data_type = Arrow::FixedSizeBinaryDataType.new(2)
-    array = Arrow::FixedSizeBinaryArray.new(data_type, values)
-    Fiddle::MemoryView.export(array) do |memory_view|
-      assert_equal([
-                     "C2",
-                     2,
-                     2 * values.size,
-                     values.join("").b,
-                   ],
-                   [
-                     memory_view.format,
-                     memory_view.item_size,
-                     memory_view.byte_size,
-                     memory_view.to_s,
-                   ])
+  sub_test_case("FixedSizeBinaryArray") do
+    test("offset: 0") do
+      values = ["\x01\x02", "\x03\x04", "\x05\x06"]
+      data_type = Arrow::FixedSizeBinaryDataType.new(2)
+      array = Arrow::FixedSizeBinaryArray.new(data_type, values)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "C2",
+                       2,
+                       2 * values.size,
+                       values.join("").b,
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
+    end
+
+    test("offset: non-0") do
+      values = ["\x01\x02", "\x03\x04", "\x05\x06"]
+      data_type = Arrow::FixedSizeBinaryDataType.new(2)
+      array = Arrow::FixedSizeBinaryArray.new(data_type, values).slice(1, 2)
+      Fiddle::MemoryView.export(array) do |memory_view|
+        assert_equal([
+                       "C2",
+                       2,
+                       2 * 2,
+                       values.slice(1, 2).join("").b,
+                     ],
+                     [
+                       memory_view.format,
+                       memory_view.item_size,
+                       memory_view.byte_size,
+                       memory_view.to_s,
+                     ])
+      end
     end
   end
 

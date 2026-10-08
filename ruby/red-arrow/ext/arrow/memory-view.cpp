@@ -31,7 +31,6 @@
 #  undef private
 #endif
 
-#include <algorithm>
 #include <cstring>
 #include <sstream>
 
@@ -74,6 +73,9 @@ namespace red_arrow {
       }
 
       arrow::Status Visit(const arrow::BooleanArray& array) override {
+        if (array.offset() % 8 != 0) {
+          return arrow::Status::Invalid("Boolean array offset must be byte aligned");
+        }
         fill(static_cast<const arrow::Array&>(array));
         // Memory view doesn't support bit stream. We use one byte
         // for 8 elements. Users can't calculate the number of
@@ -210,7 +212,7 @@ namespace red_arrow {
           std::static_pointer_cast<const arrow::FixedWidthType>(array.type());
         view_->item_size = type->bit_width() / 8;
         const auto byte_offset =
-          array_data->offset * std::max<int64_t>(view_->item_size, 1);
+          array_data->offset * type->bit_width() / 8;
         const auto data = array_data->GetValuesSafe<uint8_t>(1, byte_offset);
         view_->data = const_cast<void *>(reinterpret_cast<const void *>(data));
         view_->byte_size = view_->item_size * array.length();
@@ -232,6 +234,8 @@ namespace red_arrow {
       PrimitiveArrayGetter getter(view_);
       auto status = arrow_array->Accept(&getter);
       if (!status.ok()) {
+        delete static_cast<PrivateData *>(view_->private_data);
+        view_->private_data = nullptr;
         return false;
       }
       view_->readonly = true;
