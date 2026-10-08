@@ -504,6 +504,29 @@ TEST(Date32Conversion, UserDefinedParsers) {
   AssertConversionError(type, {"24-12-2020\n"}, {0}, options);
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%m/%d/%Y %z")};
   AssertConversionError(type, {"01/02/1970 +0000\n"}, {0}, options);
+
+  // ISO-8601 fractional seconds are discarded, also before the epoch and
+  // outside the range of nanosecond timestamps
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Date32Type, int32_t>(
+      type,
+      {"2020-03-15 14:30:00.123,1969-12-31 23:59:59.123456789,1600-01-01 00:00:00.5\n"},
+      {{18336}, {-1}, {-135140}}, options);
+  // With the "T" separator and the remaining numbers of fractional digits
+  AssertConversion<Date32Type, int32_t>(
+      type,
+      {"2020-03-15T14:30:00.12,2020-03-15T14:30:00.1234,2020-03-15T14:30:00.12345,"
+       "2020-03-15T14:30:00.123456,2020-03-15T14:30:00.1234567,"
+       "2020-03-15T14:30:00.12345678\n"},
+      {{18336}, {18336}, {18336}, {18336}, {18336}, {18336}}, options);
+  AssertConversionError(type, {"2020-03-15 14:30:00.1234567890\n"}, {0}, options);
+  AssertConversionError(type, {"2020-03-15 14:30:00.\n"}, {0}, options);
+  AssertConversionError(type, {"2020-03-15 14:30:00.12x\n"}, {0}, options);
+  // Zone offsets are rejected, also after fractional seconds
+  AssertConversionError(type,
+                        {"2020-03-15 14:30:00.5Z,2020-03-15 14:30:00.5+05,"
+                         "2020-03-15 14:30:00.5+0530,2020-03-15T14:30:00.5+05:30\n"},
+                        {0, 1, 2, 3}, options);
 }
 
 TEST(Date64Conversion, Basics) {
@@ -551,6 +574,14 @@ TEST(Date64Conversion, UserDefinedParsers) {
 
   // Test errors
   AssertConversionError(type, {"24-12-2020\n"}, {0}, options);
+
+  // ISO-8601 fractional seconds are discarded, also before the epoch and
+  // outside the range of nanosecond timestamps
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Date64Type, int64_t>(
+      type,
+      {"2020-03-15 14:30:00.123,1969-12-31 23:59:59.123456789,1600-01-01 00:00:00.5\n"},
+      {{1584230400000LL}, {-86400000LL}, {-11676096000000LL}}, options);
 }
 
 TEST(Time32Conversion, Seconds) {

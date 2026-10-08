@@ -482,6 +482,29 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
 // timestamp parsers
 //
 
+// Discards the fractional seconds (up to 9 digits) of an ISO-8601 timestamp
+// "YYYY-MM-DD[ T]hh:mm:ss.s{1,9}" with an optional zone offset. Returns `s`
+// if there are no fractional seconds, a copy without them in `buffer`, or
+// nullptr if they are malformed.
+const char* DiscardISO8601Subseconds(const char* s, uint32_t* size, char (&buffer)[64]) {
+  if (*size <= 20 || s[19] != '.') {
+    return s;
+  }
+  uint32_t fraction_length = 0;
+  while (20 + fraction_length < *size && s[20 + fraction_length] >= '0' &&
+         s[20 + fraction_length] <= '9') {
+    ++fraction_length;
+  }
+  const uint32_t rest_length = *size - 20 - fraction_length;
+  if (fraction_length == 0 || fraction_length > 9 || 19 + rest_length > sizeof(buffer)) {
+    return nullptr;
+  }
+  std::memcpy(buffer, s, 19);
+  std::memcpy(buffer + 19, s + 20 + fraction_length, rest_length);
+  *size = 19 + rest_length;
+  return buffer;
+}
+
 // Tries the ISO-8601 format first, then the user-defined timestamp parsers.
 // A timestamp produced by a user-defined parser is floored to the day
 // boundary for dates, and reduced to the time of day for times (consistent
@@ -508,8 +531,17 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
     for (const auto& parser : parsers_) {
       int64_t timestamp = 0;
       bool zone_offset_present = false;
-      if (parser->operator()(reinterpret_cast<const char*>(data), size, parse_unit_,
-                             &timestamp, &zone_offset_present) &&
+      const char* s = reinterpret_cast<const char*>(data);
+      uint32_t s_size = size;
+      char buffer[64];
+      if (is_date_type<T>::value && std::strcmp(parser->kind(), "iso8601") == 0) {
+        // Dates discard fractional seconds, so accept them in any number
+        s = DiscardISO8601Subseconds(s, &s_size, buffer);
+        if (s == nullptr) {
+          continue;
+        }
+      }
+      if (parser->operator()(s, s_size, parse_unit_, &timestamp, &zone_offset_present) &&
           !zone_offset_present) {
         // Floor division, to handle values before the epoch
         int64_t days = timestamp / ticks_per_day_;
