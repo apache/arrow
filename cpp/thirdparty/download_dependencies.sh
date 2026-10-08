@@ -38,6 +38,8 @@ download_dependency() {
   local url=$1
   local out=$2
 
+  echo "Downloading ${url}" 1>&2
+
   wget --quiet --continue --output-document="${out}" "${url}" || \
     (echo "Failed downloading ${url}" 1>&2; exit 1)
 }
@@ -46,7 +48,7 @@ main() {
   mkdir -p "${DESTDIR}"
 
   # Load `DEPENDENCIES` variable.
-  source ${SOURCE_DIR}/versions.txt
+  source "${SOURCE_DIR}/versions.txt"
 
   echo "# Environment variables for offline Arrow build"
   for ((i = 0; i < ${#DEPENDENCIES[@]}; i++)); do

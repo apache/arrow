@@ -104,6 +104,7 @@ needs_testing = (get_option('testing').enabled()
     or needs_integration
 )
 needs_json = get_option('json').enabled() or needs_testing
+needs_simdjson = needs_json or needs_parquet
 needs_brotli = get_option('brotli').enabled() or needs_fuzzing
 needs_bz2 = get_option('bz2').enabled()
 needs_lz4 = get_option('lz4').enabled()

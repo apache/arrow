@@ -349,6 +349,7 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
 
 Status AdaptiveUIntBuilder::AppendValues(const uint64_t* values, int64_t length,
                                          const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(CommitPendingData());
   RETURN_NOT_OK(Reserve(length));
 
   return AppendValuesInternal(values, length, valid_bytes);

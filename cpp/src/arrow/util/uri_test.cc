@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -367,6 +368,21 @@ TEST(UriFromAbsolutePath, Basics) {
   ASSERT_OK_AND_EQ("file:///tmp/foo/bar", UriFromAbsolutePath("/tmp/foo/bar"));
   ASSERT_OK_AND_EQ("file:///some%20path/100%25%20%C3%A9l%C3%A9phant",
                    UriFromAbsolutePath("/some path/100% éléphant"));
+#endif
+}
+
+TEST(UriFromAbsolutePath, NonNulTerminatedView) {
+  // The argument is a std::string_view, which is not required to be
+  // NUL-terminated. A view backed by a larger buffer must not make the
+  // conversion consume bytes beyond the view's length.
+#ifdef _WIN32
+  std::string backing = "C:/foo/bar and more bytes";
+  std::string_view path(backing.data(), std::string_view("C:/foo/bar").size());
+  ASSERT_OK_AND_EQ("file:///C:/foo/bar", UriFromAbsolutePath(path));
+#else
+  std::string backing = "/tmp/foo and more bytes";
+  std::string_view path(backing.data(), std::string_view("/tmp/foo").size());
+  ASSERT_OK_AND_EQ("file:///tmp/foo", UriFromAbsolutePath(path));
 #endif
 }
 

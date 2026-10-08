@@ -913,6 +913,11 @@ def test_table_from_struct_array_invalid():
         pa.Table.from_struct_array(pa.array(range(5)))
 
 
+def test_table_from_struct_array_empty_chunked_array_invalid():
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
+        pa.Table.from_struct_array(pa.chunked_array([], type=pa.int64()))
+
+
 def test_table_from_struct_array():
     struct_array = pa.array(
         [{"ints": 1}, {"floats": 1.0}],
@@ -939,6 +944,21 @@ def test_table_from_struct_array_chunked_array():
             pa.array([None, 1.0], type=pa.float32()),
         ], ["ints", "floats"]
     ))
+
+
+def test_table_from_struct_array_for_empty_chunked_array():
+    # GH-48344
+    struct_type = pa.struct([("ints", pa.int32()), ("floats", pa.float32())])
+    empty_chunked_struct_array = pa.chunked_array([], type=struct_type)
+    result = pa.Table.from_struct_array(empty_chunked_struct_array)
+    expected = pa.Table.from_arrays(
+        [
+            pa.array([], type=pa.int32()),
+            pa.array([], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    assert result.equals(expected)
+    assert result.schema == expected.schema
 
 
 def test_table_to_struct_array():
@@ -1350,6 +1370,48 @@ def _table_like_slice_tests(factory):
     assert obj.slice(2, len(obj) - 2).equals(obj[2:])
     assert obj.slice(len(obj) - 2, 2).equals(obj[-2:])
     assert obj.slice(len(obj) - 4, 2).equals(obj[-4:-2])
+
+
+@pytest.mark.parametrize("factory", [
+    pa.chunked_array,
+    pa.RecordBatch.from_arrays,
+    pa.table,
+])
+@pytest.mark.parametrize("scalar_type", [
+    pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+    pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64(),
+])
+def test_table_like_slice_integer_scalars(factory, scalar_type):
+    data = [pa.array(range(10))]
+    names = ["c0"]
+    if factory is pa.chunked_array:
+        obj = factory(data)
+    else:
+        obj = factory(data, names=names)
+    offsets = pa.array([2, 4], type=scalar_type)
+
+    result = obj.slice(offsets[0], offsets[1])
+
+    assert result.equals(obj.slice(2, 4))
+
+
+@pytest.mark.parametrize("factory", [
+    pa.chunked_array,
+    pa.RecordBatch.from_arrays,
+    pa.table,
+])
+def test_table_like_slice_uint64_scalar_overflow(factory):
+    data = [pa.array(range(10))]
+    names = ["c0"]
+    if factory is pa.chunked_array:
+        obj = factory(data)
+    else:
+        obj = factory(data, names=names)
+    overflow = pa.scalar(2 ** 63, type=pa.uint64())
+
+    assert obj.slice(overflow).equals(obj.slice(len(obj)))
+    with pytest.raises(OverflowError):
+        obj.slice(0, overflow)
 
 
 def test_recordbatch_slice_getitem():

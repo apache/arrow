@@ -45,12 +45,12 @@ rm -rf date
 sed -i.bak -E \
     -e 's/namespace date/namespace arrow_vendored::date/g' \
     -e 's,include "date/,include ",g' \
-    *.{cpp,h,mm}
+    ./*.{cpp,h,mm}
 sed -i.bak -E \
     -e 's/(#ifndef |#define |#endif *\/\/ )(DATE_H|ios_hpp|TZ_H|TZ_PRIVATE_H)/\1ARROW_VENDORED_\2/g' \
-    *.h
+    ./*.h
 sed -i.bak -E \
     -e "s/changeset [0-9a-f]+/changeset ${commit_id}/g" \
     README.md
-rm *.bak
+rm ./*.bak
 popd

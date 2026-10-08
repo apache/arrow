@@ -1709,6 +1709,37 @@ def test_tensor_class_methods(np_type_str):
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize(
+    ("transpose", "permutation"),
+    [(False, [0, 1]), (True, [1, 0])]
+)
+def test_tensor_array_from_tensor(transpose, permutation):
+    arr = np.arange(24, dtype=np.int32).reshape(2, 3, 4)
+    arr = arr.transpose(0, 2, 1) if transpose else arr
+
+    result = pa.FixedShapeTensorArray.from_tensor(pa.Tensor.from_numpy(arr))
+    result.validate(full=True)
+
+    assert isinstance(result.type, pa.FixedShapeTensorType)
+    assert result.type.value_type == pa.int32()
+    # Shape is in physical order (unpermuted)
+    assert result.type.shape == [3, 4]
+    assert result.type.permutation == permutation
+    assert len(result) == 2
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), arr)
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize("permutation", [(1, 0, 2), (1, 2, 0), (2, 1, 0)])
+def test_tensor_array_from_tensor_not_first_major(permutation):
+    arr = np.arange(24, dtype=np.int32).reshape(2, 3, 4).transpose(*permutation)
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Only first-major tensors can be zero-copy"):
+        pa.FixedShapeTensorArray.from_tensor(pa.Tensor.from_numpy(arr))
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
 def test_tensor_array_from_numpy(np_type_str):
     from numpy.lib.stride_tricks import as_strided

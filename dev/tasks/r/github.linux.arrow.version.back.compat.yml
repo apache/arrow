@@ -19,6 +19,11 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  contents: read
+  # For OIDC token for sccache
+  id-token: write
+
 jobs:
   write-files:
     name: "Write files"
@@ -44,6 +49,7 @@ jobs:
         shell: Rscript {0}
       - name: Install sccache
         run: arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+      {{ macros.github_configure_aws_credentials()|indent }}
       - name: Install Arrow
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}

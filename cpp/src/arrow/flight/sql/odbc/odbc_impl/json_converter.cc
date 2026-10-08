@@ -20,8 +20,8 @@
 #include <boost/beast/core/detail/base64.hpp>
 #include "arrow/builder.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
-#include "arrow/json/json_writer_internal.h"
 #include "arrow/scalar.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/visitor.h"
 
 using boost::beast::detail::base64::encode;
@@ -30,7 +30,7 @@ namespace base64 = boost::beast::detail::base64;
 
 namespace arrow::flight::sql::odbc {
 
-using ::arrow::json::JsonWriter;
+using ::arrow::internal::JsonWriter;
 using util::ThrowIfNotOK;
 
 namespace {

@@ -193,6 +193,15 @@ set(PARQUET_SRCS
     stream_writer.cc
     types.cc)
 
+# guards itself: Neon on aarch64, SSE4.2 on x86, empty elsewhere
+list(APPEND PARQUET_SRCS level_comparison_simd_128.cc)
+if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
+  set_source_files_properties(level_comparison_simd_128.cc
+                              PROPERTIES COMPILE_OPTIONS "${ARROW_SSE4_2_FLAG}")
+endif()
+
+append_runtime_avx2_src(PARQUET_SRCS level_comparison_simd_256.cc)
+
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND
@@ -411,6 +420,23 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
+
+if(ARROW_WITH_OPENTELEMETRY)
+  if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
+    # System OpenTelemetry is not bundled with libarrow.
+    # We need to link against it explicitly otherwise we get missing symbols.
+    set(EXTRA_TEST_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  else()
+    # Bundled OpenTelemetry is statically linked into libarrow; linking it
+    # again duplicates globals and causes a double free at exit.
+    set(EXTRA_TEST_LINK_LIBS opentelemetry-cpp::sdk)
+  endif()
+  add_parquet_test(arrow-reader-writer-tracing-test
+                   SOURCES
+                   arrow/arrow_reader_writer_tracing_test.cc
+                   EXTRA_LINK_LIBS
+                   ${EXTRA_TEST_LINK_LIBS})
+endif()
 
 add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
 

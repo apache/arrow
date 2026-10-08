@@ -2276,7 +2276,9 @@ Result<std::shared_ptr<Schema>> ReadSchema(const Message& message,
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return ReadTensor(*message);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message) {
@@ -2969,7 +2971,9 @@ Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
   std::shared_ptr<Tensor> tensor;
 
   while (true) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_ASSIGN_OR_RAISE(tensor, ReadTensor(&buffer_reader));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     if (tensor == nullptr) {
       break;
     }

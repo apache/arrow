@@ -150,8 +150,8 @@ template <typename Type>
 class TestHashKernelPrimitive : public ::testing::Test {};
 
 typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
-                         UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType,
-                         Date32Type, Date64Type>
+                         UInt32Type, Int64Type, UInt64Type, HalfFloatType, FloatType,
+                         DoubleType, Date32Type, Date64Type>
     PrimitiveDictionaries;
 
 TYPED_TEST_SUITE(TestHashKernelPrimitive, PrimitiveDictionaries);

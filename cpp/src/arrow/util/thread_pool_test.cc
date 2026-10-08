@@ -16,6 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
+#  include <sys/resource.h>
 #  include <sys/types.h>
 #  include <unistd.h>
 #endif
@@ -832,6 +833,36 @@ TEST_F(TestThreadPool, SetCapacity) {
   ASSERT_EQ(pool->GetCapacity(), 7);
 }
 #endif
+
+#if defined(ARROW_ENABLE_THREADING) && !defined(_WIN32)
+TEST_F(TestThreadPool, FailedWorkerLaunch) {
+#  ifdef __APPLE__
+  GTEST_SKIP() << "RLIMIT_NPROC does not limit thread creation on macOS";
+#  else
+  auto pool = this->MakeThreadPool(4);
+
+  struct rlimit limit;
+  ASSERT_EQ(getrlimit(RLIMIT_NPROC, &limit), 0);
+  const rlim_t soft_limit = limit.rlim_cur;
+  limit.rlim_cur = 1;
+  if (setrlimit(RLIMIT_NPROC, &limit) != 0) {
+    GTEST_SKIP() << "Could not lower RLIMIT_NPROC";
+  }
+  const Status st = pool->Spawn([] {});
+  limit.rlim_cur = soft_limit;
+  ASSERT_EQ(setrlimit(RLIMIT_NPROC, &limit), 0);
+
+  if (st.ok()) {
+    GTEST_SKIP() << "Lowering RLIMIT_NPROC did not prevent thread creation";
+  }
+  ASSERT_RAISES(UnknownError, st);
+  ASSERT_EQ(pool->GetActualCapacity(), 0);
+  ASSERT_EQ(pool->GetNumTasks(), 0);
+  ASSERT_OK(pool->Shutdown());
+#  endif
+}
+#endif
+
 // Test Submit() functionality
 
 TEST_F(TestThreadPool, Submit) {

@@ -55,7 +55,7 @@ class ARROW_EXPORT IntegrationJsonWriter {
  private:
   explicit IntegrationJsonWriter(const std::shared_ptr<Schema>& schema);
 
-  // Hide RapidJSON details from public API
+  // Hide JSON implementation details from public API
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -106,7 +106,7 @@ class ARROW_EXPORT IntegrationJsonReader {
  private:
   IntegrationJsonReader(MemoryPool* pool, std::shared_ptr<Buffer> data);
 
-  // Hide RapidJSON details from public API
+  // Hide JSON implementation details from public API
   class Impl;
   std::unique_ptr<Impl> impl_;
 };

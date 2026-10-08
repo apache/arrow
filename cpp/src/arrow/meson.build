@@ -18,6 +18,22 @@
 dl_dep = dependency('dl')
 threads_dep = dependency('threads')
 
+if needs_simdjson
+    simdjson_dep = dependency('simdjson', allow_fallback: false, required: false)
+
+    if not simdjson_dep.found()
+        cmake = import('cmake')
+        simdjson_opts = cmake.subproject_options()
+
+        simdjson_opts.add_cmake_defines({'SIMDJSON_EXCEPTIONS': 'OFF'})
+
+        simdjson_proj = cmake.subproject('simdjson', options: simdjson_opts)
+        simdjson_dep = simdjson_proj.dependency('simdjson')
+    endif
+else
+    simdjson_dep = disabler()
+endif
+
 arrow_components = {
     'arrow_array': {
         'sources': [
@@ -85,8 +101,6 @@ arrow_components = {
             'io/caching.cc',
             'io/compressed.cc',
             'io/file.cc',
-            'io/hdfs.cc',
-            'io/hdfs_internal.cc',
             'io/interfaces.cc',
             'io/memory.cc',
             'io/slow.cc',
@@ -110,21 +124,6 @@ arrow_components = {
             'vendored/double-conversion/string-to-double.cc',
             'vendored/double-conversion/strtod.cc',
             'vendored/musl/strptime.c',
-            'vendored/uriparser/UriCommon.c',
-            'vendored/uriparser/UriCompare.c',
-            'vendored/uriparser/UriEscape.c',
-            'vendored/uriparser/UriFile.c',
-            'vendored/uriparser/UriIp4.c',
-            'vendored/uriparser/UriIp4Base.c',
-            'vendored/uriparser/UriMemory.c',
-            'vendored/uriparser/UriNormalize.c',
-            'vendored/uriparser/UriNormalizeBase.c',
-            'vendored/uriparser/UriParse.c',
-            'vendored/uriparser/UriParseBase.c',
-            'vendored/uriparser/UriQuery.c',
-            'vendored/uriparser/UriRecompose.c',
-            'vendored/uriparser/UriResolve.c',
-            'vendored/uriparser/UriShorten.c',
         ],
     },
     'arrow_base': {
@@ -222,7 +221,40 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-arrow_util_deps = [threads_dep]
+uriparser_dep = dependency(
+    'liburiparser',
+    'uriparser',
+    version: '>=0.9.6',
+    allow_fallback: false,
+    required: false,
+)
+
+if not uriparser_dep.found()
+    cmake = import('cmake')
+    uriparser_opts = cmake.subproject_options()
+
+    uriparser_opts.add_cmake_defines(
+        {
+            'BUILD_SHARED_LIBS': 'OFF',
+            # Required to link the static subproject into libarrow.so.
+            'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
+            'URIPARSER_BUILD_DOCS': 'OFF',
+            'URIPARSER_BUILD_TESTS': 'OFF',
+            'URIPARSER_BUILD_TOOLS': 'OFF',
+            'URIPARSER_BUILD_WCHAR_T': 'OFF',
+        },
+    )
+
+    uriparser_proj = cmake.subproject('uriparser', options: uriparser_opts)
+    uriparser_dep = uriparser_proj.dependency('uriparser')
+endif
+
+arrow_util_deps = [threads_dep, uriparser_dep]
+
+if needs_simdjson
+    arrow_util_srcs += ['util/simdjson_internal.cc']
+    arrow_util_deps += [simdjson_dep]
+endif
 
 if needs_brotli
     arrow_util_srcs += ['util/compression_brotli.cc']
@@ -316,22 +348,6 @@ if needs_json or needs_integration
     )
 else
     rapidjson_dep = disabler()
-endif
-
-if needs_json or needs_integration
-    simdjson_dep = dependency('simdjson', allow_fallback: false, required: false)
-
-    if not simdjson_dep.found()
-        cmake = import('cmake')
-        simdjson_opts = cmake.subproject_options()
-
-        simdjson_opts.add_cmake_defines({'SIMDJSON_EXCEPTIONS': 'OFF'})
-
-        simdjson_proj = cmake.subproject('simdjson', options: simdjson_opts)
-        simdjson_dep = simdjson_proj.dependency('simdjson')
-    endif
-else
-    simdjson_dep = disabler()
 endif
 
 azure_dep = disabler()
@@ -479,7 +495,10 @@ disable Arrow gcs support with -Dgcs=disabled.
     endif
 
     if needs_hdfs
-        arrow_filesystem_srcs += ['filesystem/hdfs.cc']
+        arrow_filesystem_srcs += [
+            'filesystem/hdfs.cc',
+            'filesystem/hdfs_internal.cc',
+        ]
     endif
 
     if needs_s3
@@ -530,8 +549,6 @@ if needs_json
                 'json/chunker.cc',
                 'json/converter.cc',
                 'json/from_string.cc',
-                'json/json_writer_internal.cc',
-                'json/object_parser.cc',
                 'json/options.cc',
                 'json/parser.cc',
                 'json/reader.cc',
@@ -607,6 +624,7 @@ if needs_compute
         'compute/kernels/vector_rank.cc',
         'compute/kernels/vector_replace.cc',
         'compute/kernels/vector_run_end_encode.cc',
+        'compute/kernels/vector_search_sorted.cc',
         'compute/kernels/vector_select_k.cc',
         'compute/kernels/vector_sort.cc',
         'compute/kernels/vector_statistics.cc',
@@ -755,6 +773,7 @@ if needs_testing
             filesystem_dep,
             gmock_dep,
             gtest_dep,
+            simdjson_dep,
         ],
     )
 

@@ -174,7 +174,7 @@ This applies the style to all pom.xml files under the current directory or from 
 .. _benchmark: https://github.com/ursacomputing/benchmarks
 .. _archery: https://github.com/apache/arrow/blob/main/dev/conbench_envs/README.md#L188
 .. _conbench: https://github.com/conbench/conbench
-.. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
+.. _checkstyle: https://github.com/apache/arrow-java/blob/main/dev/checkstyle/checkstyle.xml
 .. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention
 .. _Spotless: https://github.com/diffplug/spotless
 .. _Google Java Style: https://google.github.io/styleguide/javaguide.html

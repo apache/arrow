@@ -1185,16 +1185,6 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
   const FunctionOptions* options_;
 };
 
-template <typename ExecutorType,
-          typename FunctionType = typename ExecutorType::FunctionType>
-Result<std::unique_ptr<KernelExecutor>> MakeExecutor(ExecContext* ctx,
-                                                     const Function* func,
-                                                     const FunctionOptions* options) {
-  DCHECK_EQ(ExecutorType::function_kind, func->kind());
-  auto typed_func = checked_cast<const FunctionType*>(func);
-  return std::make_unique<ExecutorType>(ctx, typed_func, options);
-}
-
 }  // namespace
 
 Status PropagateNulls(KernelContext* ctx, const ExecSpan& batch, ArrayData* output) {

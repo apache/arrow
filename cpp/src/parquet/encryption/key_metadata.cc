@@ -17,14 +17,13 @@
 
 #include <string_view>
 
-#include "arrow/json/json_writer_internal.h"
-#include "arrow/json/object_parser.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::JsonWriter;
-using ::arrow::json::internal::ObjectParser;
+using ::arrow::internal::JsonObjectParser;
+using ::arrow::internal::JsonWriter;
 
 namespace parquet::encryption {
 
@@ -38,7 +37,7 @@ KeyMetadata::KeyMetadata(const KeyMaterial& key_material)
     : is_internal_storage_(true), key_material_or_reference_(key_material) {}
 
 KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
-  ObjectParser json_parser;
+  JsonObjectParser json_parser;
   ::arrow::Status status = json_parser.Parse(key_metadata);
   if (!status.ok()) {
     throw ParquetException("Failed to parse key metadata " + key_metadata);
@@ -61,8 +60,7 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 
   if (is_internal_storage) {
     // 3.1 "key material" is stored internally, inside "key metadata" - parse it
-    KeyMaterial key_material = KeyMaterial::Parse(&json_parser);
-    return KeyMetadata(key_material);
+    return KeyMetadata(KeyMaterial::Parse(key_metadata));
   } else {
     // 3.2 "key material" is stored externally. "key metadata" keeps a reference to it
     std::string key_reference;
