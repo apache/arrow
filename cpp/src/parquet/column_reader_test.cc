@@ -660,10 +660,12 @@ class RecordReaderPrimitiveTypeTest
     NodePtr root = GroupNode::Make("root", Repetition::REQUIRED, {column});
     schema_descriptor_.Init(root);
     descr_ = schema_descriptor_.Column(0);
-    record_reader_ = internal::RecordReader::Make(
-        descr_, ComputeLevelInfo(descr_), ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, GetParam(), /*arrow_type=*/nullptr,
-        /*flat_optional_optimization=*/true);
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_,
+        .leaf_info = ComputeLevelInfo(descr_),
+        .read_dense_for_nullable = GetParam(),
+        .flat_optional_optimization = true,
+    });
   }
 
   // Whether the record reader for this column exposes definition and repetition
@@ -1411,10 +1413,12 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
     MakePages<FLBAType>(descr_.get(), num_pages, levels_per_page, def_levels_,
                         rep_levels_, values_, buffer_, pages_, Encoding::PLAIN);
     auto pager = std::make_unique<MockPageReader>(pages_);
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable(), /*arrow_type=*/nullptr,
-        /*flat_optional_optimization=*/true);
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_.get(),
+        .leaf_info = level_info,
+        .read_dense_for_nullable = read_dense_for_nullable(),
+        .flat_optional_optimization = true,
+    });
     // Only the flat optional reader does not materialize definition levels.
     ASSERT_THROW(record_reader_->def_levels(), ParquetException);
     record_reader_->SetPageReader(std::move(pager));
@@ -1516,10 +1520,13 @@ class ByteArrayRecordReaderTest
 
     auto pager = std::make_unique<MockPageReader>(pages_);
 
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(), read_dictionary(),
-        read_dense_for_nullable(), /*arrow_type=*/nullptr,
-        /*flat_optional_optimization=*/true);
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_.get(),
+        .leaf_info = level_info,
+        .read_dictionary = read_dictionary(),
+        .read_dense_for_nullable = read_dense_for_nullable(),
+        .flat_optional_optimization = true,
+    });
     // Only the flat optional reader does not materialize definition levels.
     ASSERT_THROW(record_reader_->def_levels(), ParquetException);
     record_reader_->SetPageReader(std::move(pager));
@@ -1758,10 +1765,11 @@ TEST_P(RecordReaderStressTest, StressTest) {
   pager.reset(new test::MockPageReader(pages));
 
   // Set up the RecordReader.
-  std::shared_ptr<internal::RecordReader> record_reader = internal::RecordReader::Make(
-      &descr, level_info, ::arrow::default_memory_pool(), /*read_dictionary=*/false,
-      /*read_dense_for_nullable=*/false, /*arrow_type=*/nullptr,
-      /*flat_optional_optimization=*/true);
+  std::shared_ptr<internal::RecordReader> record_reader = internal::RecordReader::Make({
+      .descr = &descr,
+      .leaf_info = level_info,
+      .flat_optional_optimization = true,
+  });
   record_reader->SetPageReader(std::move(pager));
 
   // Figure out how many total records.
