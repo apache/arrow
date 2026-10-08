@@ -563,25 +563,7 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
   }
 
   auto metadata_length = decoder->next_required_size();
-
-  // "ARRO" (first 4 bytes of kArrowMagicBytes) as little-endian int32.
-  constexpr int32_t kArrowMagicPrefix = 0x4F525241;
-
-  // Did we misinterpret the metadata as a length?
-  if (metadata_length == kArrowMagicPrefix) {
-    constexpr std::string_view kRemainingMagic =
-        internal::kArrowMagicBytes.substr(sizeof(int32_t));
-    ARROW_ASSIGN_OR_RAISE(auto peek, file->Read(kRemainingMagic.size()));
-    if (peek->size() >= static_cast<int64_t>(kRemainingMagic.size()) &&
-        std::string_view(reinterpret_cast<const char*>(peek->data()),
-                         kRemainingMagic.size()) == kRemainingMagic) {
-      return Status::Invalid(
-          "This appears to be an Arrow IPC file. "
-          "Try the IPC file reader instead of the IPC stream reader.");
-    }
-  }
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(metadata_length));
-
   if (metadata->size() != metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
@@ -1069,6 +1051,19 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     message_ = std::move(message);
+    first_message_ = false;
+    return Status::OK();
+  }
+
+  Status OnMetadata() override {
+    // An IPC file starts with "ARROW1". Read as a stream, its first four bytes
+    // ("ARRO") decode as a metadata length of 0x4F525241.
+    constexpr int64_t kArrowMagicAsMetadataLength = 0x4F525241;
+    if (first_message_ && decoder_.next_required_size() == kArrowMagicAsMetadataLength) {
+      return Status::Invalid(
+          "This appears to be an Arrow IPC file. "
+          "Try the IPC file reader instead of the IPC stream reader.");
+    }
     return Status::OK();
   }
 
@@ -1081,6 +1076,7 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
   io::InputStream* stream_;
   std::shared_ptr<io::InputStream> owned_stream_;
   std::unique_ptr<Message> message_;
+  bool first_message_ = true;
   MessageDecoder decoder_;
 };
 

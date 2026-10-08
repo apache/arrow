@@ -2296,6 +2296,28 @@ TEST(TestRecordBatchStreamReader, CorruptDataDoesNotSuggestFileReader) {
       RecordBatchStreamReader::Open(&reader));
 }
 
+TEST(TestRecordBatchStreamReader, FileMagicAfterFirstMessageDoesNotSuggestFileReader) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  StreamWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  // Replace the 8-byte  marker with the IPC file magic.
+  std::string data = helper.buffer_->ToString();
+  data.resize(data.size() - 8);
+  data.append("ARROW1\0\0", 8);
+  io::BufferReader reader(Buffer::FromString(std::move(data)));
+
+  ASSERT_OK_AND_ASSIGN(auto stream_reader, RecordBatchStreamReader::Open(&reader));
+  ASSERT_OK(stream_reader->Next());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::Not(::testing::HasSubstr("Try the IPC file reader")),
+      stream_reader->Next());
+}
+
 TEST(TestRecordBatchFileReader, OpenStreamFormatSuggestsStreamReader) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntRecordBatch(&batch));
