@@ -30,6 +30,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/test_util.h"
@@ -747,12 +748,9 @@ Result<int64_t> CalculateCdcSize(const std::shared_ptr<Array>& array, bool nulla
     auto binary_array = checked_cast<const ::arrow::LargeBinaryArray*>(array.get());
     result += binary_array->total_values_length();
   } else if (::arrow::is_binary_view_like(type_id)) {
-    auto view_array = checked_cast<const ::arrow::BinaryViewArray*>(array.get());
-    for (int64_t i = 0; i < view_array->length(); i++) {
-      if (view_array->IsValid(i)) {
-        result += static_cast<int64_t>(view_array->GetView(i).size());
-      }
-    }
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *array->data(),
+        [&](std::string_view v) { result += static_cast<int64_t>(v.size()); }, [] {});
   } else {
     return Status::NotImplemented("CDC size calculation for type ",
                                   array->type()->ToString(), " is not implemented");
