@@ -1610,11 +1610,24 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
     }
 
     total_values_remaining_ = total_value_count_;
-    if (delta_bit_widths_ == nullptr) {
-      delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
-    } else {
-      PARQUET_THROW_NOT_OK(
-          delta_bit_widths_->Resize(mini_blocks_per_block_, /*shrink_to_fit*/ false));
+    if (total_value_count_ > 1) {
+      const int64_t required_blocks = ::arrow::bit_util::CeilDiv(
+          static_cast<int64_t>(total_value_count_) - 1, values_per_block_);
+      const int64_t required_bit_widths =
+          required_blocks * static_cast<int64_t>(mini_blocks_per_block_);
+      const int64_t bytes_left = decoder_->bytes_left();
+      if (required_bit_widths > bytes_left) {
+        throw ParquetException("the required number of miniblock bit widths (" +
+                               std::to_string(required_bit_widths) +
+                               ") exceeds the number of bytes remaining in the data (" +
+                               std::to_string(bytes_left) + ")");
+      }
+      if (delta_bit_widths_ == nullptr) {
+        delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+      } else {
+        PARQUET_THROW_NOT_OK(
+            delta_bit_widths_->Resize(mini_blocks_per_block_, /*shrink_to_fit*/ false));
+      }
     }
     first_block_initialized_ = false;
     values_remaining_current_mini_block_ = 0;
