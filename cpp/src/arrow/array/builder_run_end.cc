@@ -94,6 +94,7 @@ Status RunCompressorBuilder::AppendEmptyValues(int64_t length) {
 }
 
 Status RunCompressorBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   if (ARROW_PREDICT_FALSE(n_repeats == 0)) {
     return Status::OK();
   }
@@ -122,6 +123,7 @@ Status RunCompressorBuilder::AppendScalars(const ScalarVector& scalars) {
   if (scalars.empty()) {
     return Status::OK();
   }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*this, scalars));
   RETURN_NOT_OK(ArrayBuilder::AppendScalars(scalars));
   UpdateDimensions();
   return Status::OK();
@@ -204,6 +206,10 @@ Status RunEndEncodedBuilder::AppendEmptyValues(int64_t length) {
 
 Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
   if (scalar.type->id() == Type::RUN_END_ENCODED) {
+    if (!scalar.type->Equals(*type())) {
+      return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
     return AppendScalar(*internal::checked_cast<const RunEndEncodedScalar&>(scalar).value,
                         n_repeats);
   }
@@ -214,6 +220,17 @@ Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeat
 
 Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
   if (scalars.empty()) return Status::OK();
+  for (const auto& scalar : scalars) {
+    if (scalar->type->id() == Type::RUN_END_ENCODED) {
+      if (!scalar->type->Equals(*type())) {
+        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                               " to builder for type ", type()->ToString());
+      }
+    } else if (!scalar->type->Equals(*type_->value_type())) {
+      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+  }
   for (const auto& scalar : scalars) {
     RETURN_NOT_OK(AppendScalar(*scalar, 1));
   }
