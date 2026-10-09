@@ -616,6 +616,8 @@ TEST(Expression, NullableFieldRef) {
   auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
   for (int i = 0; i < input_schema->num_fields(); ++i) {
     for (const auto& ref : {FieldRef(input_schema->field(i)->name()), FieldRef(i)}) {
+      SCOPED_TRACE(input_schema->field(i)->ToString());
+      SCOPED_TRACE(ref.ToString());
       auto expr = field_ref(ref);
       EXPECT_TRUE(expr.nullable());
 
@@ -635,6 +637,7 @@ TEST(Expression, NullableConservativeFallback) {
   EXPECT_TRUE(Expression{}.nullable());
   for (const auto& expr : {literal(1), literal(std::make_shared<Int32Scalar>()),
                            add(field_ref("r"), literal(1)), is_valid(field_ref("n"))}) {
+    SCOPED_TRACE(expr.ToString());
     EXPECT_TRUE(expr.nullable());
     ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
     EXPECT_TRUE(bound.IsBound());
@@ -648,6 +651,8 @@ TEST(Expression, NullableNestedFieldRef) {
       auto input_schema = schema(
           {field("a", struct_({field("b", int32(), child_nullable)}), parent_nullable)});
       for (const auto& ref : {FieldRef("a", "b"), FieldRef(FieldPath({0, 0}))}) {
+        SCOPED_TRACE(input_schema->ToString());
+        SCOPED_TRACE(ref.ToString());
         ASSERT_OK_AND_ASSIGN(auto bound, field_ref(ref).Bind(*input_schema));
         EXPECT_TRUE(bound.nullable());
       }
@@ -1464,6 +1469,20 @@ TEST(Expression, NullableRemoveNamedRefs) {
   EXPECT_TRUE(without_named_refs.field_ref()->IsFieldPath());
   EXPECT_FALSE(without_named_refs.nullable());
   EXPECT_FALSE(bound.nullable());
+
+  ASSERT_OK_AND_ASSIGN(auto bound_call,
+                       add(field_ref("i32_req"), literal(1)).Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs_call, RemoveNamedRefs(bound_call));
+  EXPECT_TRUE(without_named_refs_call.IsBound());
+  EXPECT_TRUE(without_named_refs_call.nullable());
+  const auto* call = without_named_refs_call.call();
+  ASSERT_NE(call, nullptr);
+  ASSERT_EQ(call->arguments.size(), 2);
+  const auto& field_arg = call->arguments[0];
+  EXPECT_TRUE(field_arg.IsBound());
+  ASSERT_NE(field_arg.field_ref(), nullptr);
+  EXPECT_TRUE(field_arg.field_ref()->IsFieldPath());
+  EXPECT_FALSE(field_arg.nullable());
 }
 
 TEST(Expression, ExtractKnownFieldValues) {
