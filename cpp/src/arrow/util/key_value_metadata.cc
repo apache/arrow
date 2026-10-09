@@ -114,6 +114,17 @@ Status KeyValueMetadata::Delete(int64_t index) {
 Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
   std::sort(indices.begin(), indices.end());
   const int64_t size = static_cast<int64_t>(keys_.size());
+  if (ARROW_PREDICT_FALSE(!indices.empty() &&
+                          (indices.front() < 0 || indices.back() >= size))) {
+    const int64_t out_of_bounds = indices.front() < 0 ? indices.front() : indices.back();
+    return Status::IndexError("KeyValueMetadata::DeleteMany: index ", out_of_bounds,
+                              " is out of bounds for metadata "
+                              "of size ",
+                              size);
+  }
+  // Remove duplicate indices, otherwise the shifting logic below would move entries
+  // to incorrect (potentially negative) positions.
+  indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
   indices.push_back(size);
 
   int64_t shift = 0;
