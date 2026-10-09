@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/tensor/converter.h"
+#include "arrow/tensor/converter_internal.h"
 
 #include <cstdint>
 #include <limits>
@@ -24,8 +24,10 @@
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -33,15 +35,13 @@ namespace arrow {
 class MemoryPool;
 
 namespace internal {
+
 namespace {
 
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCSRIndex
 
-class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
-  using SparseTensorConverterMixin::AssignIndex;
-  using SparseTensorConverterMixin::IsNonZero;
-
+class SparseCSXMatrixConverter {
  public:
   SparseCSXMatrixConverter(SparseMatrixCompressedAxis axis, const Tensor& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
@@ -51,13 +51,14 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
   Status Convert() {
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
-
     const int index_elsize = index_value_type_->byte_width();
     const int value_elsize = tensor_.type()->byte_width();
 
     const int64_t ndim = tensor_.ndim();
     if (ndim > 2) {
       return Status::Invalid("Invalid tensor dimension");
+    } else if (ndim <= 1) {
+      return Status::NotImplemented("TODO for ndim <= 1");
     }
 
     const int major_axis = static_cast<int>(axis_);
@@ -70,54 +71,51 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
 
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(value_elsize * nonzero_count, pool_));
-    auto* values = values_buffer->mutable_data();
-
-    const auto* tensor_data = tensor_.raw_data();
-
-    if (ndim <= 1) {
-      return Status::NotImplemented("TODO for ndim <= 1");
-    } else {
-      ARROW_ASSIGN_OR_RAISE(indptr_buffer,
-                            AllocateBuffer(index_elsize * (n_major + 1), pool_));
-      auto* indptr = indptr_buffer->mutable_data();
-
-      ARROW_ASSIGN_OR_RAISE(indices_buffer,
-                            AllocateBuffer(index_elsize * nonzero_count, pool_));
-      auto* indices = indices_buffer->mutable_data();
-
-      std::vector<int64_t> coords(2);
-      int64_t k = 0;
-      std::fill_n(indptr, index_elsize, 0);
-      indptr += index_elsize;
-      for (int64_t i = 0; i < n_major; ++i) {
-        for (int64_t j = 0; j < n_minor; ++j) {
-          if (axis_ == SparseMatrixCompressedAxis::ROW) {
-            coords = {i, j};
-          } else {
-            coords = {j, i};
-          }
-          const int64_t offset = tensor_.CalculateValueOffset(coords);
-          if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize,
-                          IsNonZero)) {
-            std::copy_n(tensor_data + offset, value_elsize, values);
-            values += value_elsize;
-
-            AssignIndex(indices, j, index_elsize);
-            indices += index_elsize;
-
-            k++;
-          }
-        }
-        AssignIndex(indptr, k, index_elsize);
-        indptr += index_elsize;
-      }
-    }
-
+    ARROW_ASSIGN_OR_RAISE(indptr_buffer,
+                          AllocateBuffer(index_elsize * (n_major + 1), pool_));
+    ARROW_ASSIGN_OR_RAISE(indices_buffer,
+                          AllocateBuffer(index_elsize * nonzero_count, pool_));
     std::vector<int64_t> indptr_shape({n_major + 1});
     std::shared_ptr<Tensor> indptr_tensor =
         std::make_shared<Tensor>(index_value_type_, indptr_buffer, indptr_shape);
-
     std::vector<int64_t> indices_shape({nonzero_count});
+    std::vector<int64_t> coords(2);
+    int64_t k = 0;
+    auto* indptr = indptr_buffer->mutable_data();
+    auto* indices = indices_buffer->mutable_data();
+
+    auto visitor = [&](const auto& value_type) {
+      using ValueType = std::decay_t<decltype(value_type)>;
+      if constexpr (is_number_type<ValueType>::value) {
+        using ValueCType = typename ValueType::c_type;
+
+        auto* values = values_buffer->mutable_data_as<ValueCType>();
+
+        std::fill_n(indptr, index_elsize, 0);
+        indptr += index_elsize;
+        for (int64_t i = 0; i < n_major; ++i) {
+          for (int64_t j = 0; j < n_minor; ++j) {
+            if (axis_ == SparseMatrixCompressedAxis::ROW) {
+              coords = {i, j};
+            } else {
+              coords = {j, i};
+            }
+            auto value = tensor_.Value<ValueType>(coords);
+            if (is_not_zero<ValueType>(value)) {
+              *values++ = value;
+              SparseTensorConverterMixin::AssignIndex(indices, j, index_elsize);
+              indices += index_elsize;
+              k++;
+            }
+          }
+          SparseTensorConverterMixin::AssignIndex(indptr, k, index_elsize);
+          indptr += index_elsize;
+        }
+      }
+      return Status::OK();
+    };
+    ARROW_RETURN_NOT_OK(VisitType(*tensor_.type(), visitor));
+
     std::shared_ptr<Tensor> indices_tensor =
         std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
 
@@ -127,7 +125,6 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
       sparse_index = std::make_shared<SparseCSCIndex>(indptr_tensor, indices_tensor);
     }
     data = std::move(values_buffer);
-
     return Status::OK();
   }
 
@@ -150,8 +147,7 @@ Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCSXMatrixConverter converter(axis, tensor, index_value_type, pool);
-  RETURN_NOT_OK(converter.Convert());
-
+  ARROW_RETURN_NOT_OK(converter.Convert());
   *out_sparse_index = converter.sparse_index;
   *out_data = converter.data;
   return Status::OK();
