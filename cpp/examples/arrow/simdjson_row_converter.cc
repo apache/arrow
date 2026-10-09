@@ -15,18 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/api.h"
-#include "arrow/record_batch.h"
-#include "arrow/result.h"
-#include "arrow/table_builder.h"
-#include "arrow/util/iterator.h"
-#include "arrow/util/simdjson_internal.h"
+#include <arrow/api.h>
+#include <arrow/result.h>
+#include <arrow/table_builder.h>
+#include <arrow/util/iterator.h>
 
 #include <simdjson.h>
 
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 // Transforming dynamic row data into Arrow data
@@ -38,39 +43,55 @@
 // As an example, this conversion is between JSON strings and Arrow tables.
 //
 // We use the following helpers and patterns here:
-//  * arrow::internal::JsonWriter for writing JSON values
-//  * arrow::internal::ParseJsonObject and related helpers for parsing JSON
+//  * simdjson's DOM API for parsing JSON rows
 //  * arrow::RecordBatchBuilder for constructing Arrow arrays from row data
 //  * arrow::TableBatchReader and Arrow iterators for converting Arrow tables back
 //    into row-based JSON data
 
-namespace arrow {
+// Convert a simdjson result into an arrow::Result, so that errors are reported
+// as arrow::Status rather than as exceptions.
+template <typename T>
+arrow::Result<T> Unwrap(simdjson::simdjson_result<T> result, const char* what) {
+  T value{};
+  simdjson::error_code error = std::move(result).get(value);
+  if (error) {
+    return arrow::Status::Invalid(what, ": ", simdjson::error_message(error));
+  }
+  return value;
+}
 
-namespace {
-
-namespace sj = simdjson;
+// Look up a field of a JSON object. Returns std::nullopt if the field is missing.
+arrow::Result<std::optional<simdjson::dom::element>> GetField(
+    simdjson::dom::object object, std::string_view name) {
+  simdjson::dom::element value;
+  simdjson::error_code error = object.at_key(name).get(value);
+  if (error == simdjson::NO_SUCH_FIELD) {
+    return std::nullopt;
+  }
+  if (error) {
+    return arrow::Status::Invalid("Failed to get JSON field '", name,
+                                  "': ", simdjson::error_message(error));
+  }
+  return value;
+}
 
 // Append a JSON value to an Arrow builder according to the expected Arrow type.
 // This example only handles the types used by the example schema; extend this
 // switch when adapting it to schemas with additional Arrow types.
-Status AppendJsonValue(const sj::dom::element& value,
-                       const std::shared_ptr<DataType>& type, ArrayBuilder* builder);
+arrow::Status AppendJsonValue(simdjson::dom::element value,
+                              const std::shared_ptr<arrow::DataType>& type,
+                              arrow::ArrayBuilder* builder);
 
-Status AppendJsonStruct(const sj::dom::element& value, const StructType& type,
-                        StructBuilder* builder) {
-  if (!value.is_object()) {
-    return Status::TypeError("Expected JSON object for struct");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto object,
-      internal::ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object"));
+arrow::Status AppendJsonStruct(simdjson::dom::element value,
+                               const arrow::StructType& type,
+                               arrow::StructBuilder* builder) {
+  ARROW_ASSIGN_OR_RAISE(auto object,
+                        Unwrap(value.get_object(), "Failed to get JSON object"));
 
   for (int i = 0; i < type.num_fields(); ++i) {
     const auto& field = type.field(i);
 
-    ARROW_ASSIGN_OR_RAISE(auto child,
-                          internal::GetOptionalJsonField(object, field->name()));
+    ARROW_ASSIGN_OR_RAISE(auto child, GetField(object, field->name()));
 
     if (!child.has_value()) {
       ARROW_RETURN_NOT_OK(builder->child_builder(i)->AppendNull());
@@ -83,91 +104,94 @@ Status AppendJsonStruct(const sj::dom::element& value, const StructType& type,
   return builder->Append();
 }
 
-Status AppendJsonList(const sj::dom::element& value, const ListType& type,
-                      ListBuilder* builder) {
-  ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonArray(value, "JSON value"));
+arrow::Status AppendJsonList(simdjson::dom::element value, const arrow::ListType& type,
+                             arrow::ListBuilder* builder) {
+  ARROW_ASSIGN_OR_RAISE(auto array,
+                        Unwrap(value.get_array(), "Failed to get JSON array"));
 
   ARROW_RETURN_NOT_OK(builder->Append());
 
-  for (auto element : array) {
+  for (simdjson::dom::element element : array) {
     ARROW_RETURN_NOT_OK(
         AppendJsonValue(element, type.value_field()->type(), builder->value_builder()));
   }
 
-  return Status::OK();
+  return arrow::Status::OK();
 }
 
-Status AppendJsonValue(const sj::dom::element& value,
-                       const std::shared_ptr<DataType>& type, ArrayBuilder* builder) {
+arrow::Status AppendJsonValue(simdjson::dom::element value,
+                              const std::shared_ptr<arrow::DataType>& type,
+                              arrow::ArrayBuilder* builder) {
   if (value.is_null()) {
     return builder->AppendNull();
   }
 
   switch (type->id()) {
-    case Type::INT64: {
+    case arrow::Type::INT64: {
       ARROW_ASSIGN_OR_RAISE(auto number,
-                            internal::GetJsonInt(value, "JSON value", "integers"));
-      return static_cast<Int64Builder*>(builder)->Append(number);
+                            Unwrap(value.get_int64(), "Failed to get JSON integer"));
+      return static_cast<arrow::Int64Builder*>(builder)->Append(number);
     }
 
-    case Type::DOUBLE: {
+    case arrow::Type::DOUBLE: {
       ARROW_ASSIGN_OR_RAISE(auto number,
-                            internal::ResolveSimdjsonResult(value.get_double(),
-                                                            "Failed to get JSON double"));
-      return static_cast<DoubleBuilder*>(builder)->Append(number);
+                            Unwrap(value.get_double(), "Failed to get JSON double"));
+      return static_cast<arrow::DoubleBuilder*>(builder)->Append(number);
     }
 
-    case Type::STRING: {
+    case arrow::Type::STRING: {
       ARROW_ASSIGN_OR_RAISE(auto string,
-                            internal::ResolveSimdjsonResult(value.get_string(),
-                                                            "Failed to get JSON string"));
-      return static_cast<StringBuilder*>(builder)->Append(string);
+                            Unwrap(value.get_string(), "Failed to get JSON string"));
+      return static_cast<arrow::StringBuilder*>(builder)->Append(string);
     }
 
-    case Type::BOOL: {
-      ARROW_ASSIGN_OR_RAISE(
-          auto boolean, internal::ResolveSimdjsonResult(value.get_bool(),
-                                                        "Failed to get JSON boolean"));
-      return static_cast<BooleanBuilder*>(builder)->Append(boolean);
+    case arrow::Type::BOOL: {
+      ARROW_ASSIGN_OR_RAISE(auto boolean,
+                            Unwrap(value.get_bool(), "Failed to get JSON boolean"));
+      return static_cast<arrow::BooleanBuilder*>(builder)->Append(boolean);
     }
 
-    case Type::STRUCT:
-      return AppendJsonStruct(value, *static_cast<const StructType*>(type.get()),
-                              static_cast<StructBuilder*>(builder));
+    case arrow::Type::STRUCT:
+      return AppendJsonStruct(value, *static_cast<const arrow::StructType*>(type.get()),
+                              static_cast<arrow::StructBuilder*>(builder));
 
-    case Type::LIST:
-      return AppendJsonList(value, *static_cast<const ListType*>(type.get()),
-                            static_cast<ListBuilder*>(builder));
+    case arrow::Type::LIST:
+      return AppendJsonList(value, *static_cast<const arrow::ListType*>(type.get()),
+                            static_cast<arrow::ListBuilder*>(builder));
 
     default:
-      return Status::NotImplemented("Cannot convert JSON value to Arrow array of type ",
-                                    type->ToString());
+      return arrow::Status::NotImplemented(
+          "Cannot convert JSON value to Arrow array of type ", type->ToString());
   }
 }  // AppendJsonValue
 
-// RecordBatchBuilder will create array builders for us for each field in our
-// schema. By passing the number of output rows (`rows.size()`), we pre-allocate
-// the correct size of arrays, except of course in the case of string and list
-// arrays, which have dynamic lengths.
-Result<std::shared_ptr<RecordBatch>> ConvertToRecordBatch(
-    const std::vector<std::string>& rows, const std::shared_ptr<Schema>& schema) {
-  std::unique_ptr<RecordBatchBuilder> batch_builder;
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
+    const std::vector<std::string>& rows, std::shared_ptr<arrow::Schema> schema) {
+  // RecordBatchBuilder will create array builders for us for each field in our
+  // schema. By passing the number of output rows (`rows.size()`) we can
+  // pre-allocate the correct size of arrays, except of course in the case of
+  // string, byte, and list arrays, which have dynamic lengths.
+  std::unique_ptr<arrow::RecordBatchBuilder> batch_builder;
+  ARROW_ASSIGN_OR_RAISE(
+      batch_builder,
+      arrow::RecordBatchBuilder::Make(schema, arrow::default_memory_pool(), rows.size()));
 
-  ARROW_ASSIGN_OR_RAISE(batch_builder, RecordBatchBuilder::Make(
-                                           schema, default_memory_pool(), rows.size()));
-
-  sj::dom::parser parser;
+  // DOM elements are only valid until the next parse() on the same parser, so each
+  // row is fully appended to the builders before the next row is parsed.
+  simdjson::dom::parser parser;
 
   // Parse each row and append its values to the corresponding Arrow builders.
   for (const auto& json : rows) {
-    ARROW_ASSIGN_OR_RAISE(auto object, internal::ParseJsonObject(parser, json));
+    ARROW_ASSIGN_OR_RAISE(auto element,
+                          Unwrap(parser.parse(json), "Failed to parse JSON row"));
+    ARROW_ASSIGN_OR_RAISE(auto object,
+                          Unwrap(element.get_object(), "Expected a JSON object"));
 
     for (int i = 0; i < schema->num_fields(); ++i) {
       const auto& field = schema->field(i);
-      auto builder = batch_builder->GetField(i);
+      arrow::ArrayBuilder* builder = batch_builder->GetField(i);
 
-      ARROW_ASSIGN_OR_RAISE(auto value,
-                            internal::GetOptionalJsonField(object, field->name()));
+      ARROW_ASSIGN_OR_RAISE(auto value, GetField(object, field->name()));
 
       if (!value.has_value()) {
         ARROW_RETURN_NOT_OK(builder->AppendNull());
@@ -177,116 +201,153 @@ Result<std::shared_ptr<RecordBatch>> ConvertToRecordBatch(
     }
   }
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch, batch_builder->Flush());
+  std::shared_ptr<arrow::RecordBatch> batch;
+  ARROW_ASSIGN_OR_RAISE(batch, batch_builder->Flush());
 
   // Use RecordBatch::ValidateFull() to make sure arrays were correctly constructed.
   ARROW_RETURN_NOT_OK(batch->ValidateFull());
   return batch;
 }  // ConvertToRecordBatch
 
+// Append `value` to `out` as a quoted and escaped JSON string.
+void AppendJsonString(std::string_view value, std::string* out) {
+  out->push_back('"');
+  for (unsigned char c : value) {
+    switch (c) {
+      case '"':
+        out->append("\\\"");
+        break;
+      case '\\':
+        out->append("\\\\");
+        break;
+      case '\n':
+        out->append("\\n");
+        break;
+      case '\r':
+        out->append("\\r");
+        break;
+      case '\t':
+        out->append("\\t");
+        break;
+      default:
+        if (c < 0x20) {
+          char buffer[8];
+          std::snprintf(buffer, sizeof(buffer), "\\u%04x", c);
+          out->append(buffer);
+        } else {
+          out->push_back(static_cast<char>(c));
+        }
+    }
+  }
+  out->push_back('"');
+}
+
 // Write an Arrow value as JSON according to its Arrow type.
 // This example only handles the types used by the example schema; extend this
 // switch when adapting it to schemas with additional Arrow types.
-Status WriteJsonValue(const Array& array, int64_t index,
-                      const std::shared_ptr<DataType>& type,
-                      internal::JsonWriter* writer);
+arrow::Status WriteJsonValue(const arrow::Array& array, int64_t index, std::string* out);
 
-Status WriteJsonStruct(const StructArray& array, int64_t index, const StructType& type,
-                       internal::JsonWriter* writer) {
-  writer->StartObject();
+arrow::Status WriteJsonStruct(const arrow::StructArray& array, int64_t index,
+                              std::string* out) {
+  const arrow::StructType& type = *array.struct_type();
 
+  out->push_back('{');
   for (int i = 0; i < type.num_fields(); ++i) {
-    const auto& field = type.field(i);
-    const auto& child = array.field(i);
-
-    writer->Key(field->name());
-    ARROW_RETURN_NOT_OK(WriteJsonValue(*child, index, field->type(), writer));
+    if (i > 0) {
+      out->push_back(',');
+    }
+    AppendJsonString(type.field(i)->name(), out);
+    out->push_back(':');
+    ARROW_RETURN_NOT_OK(WriteJsonValue(*array.field(i), index, out));
   }
-
-  writer->EndObject();
-  return Status::OK();
+  out->push_back('}');
+  return arrow::Status::OK();
 }
 
-Status WriteJsonList(const ListArray& array, int64_t index, const ListType& type,
-                     internal::JsonWriter* writer) {
-  writer->StartArray();
-
+arrow::Status WriteJsonList(const arrow::ListArray& array, int64_t index,
+                            std::string* out) {
   const int64_t offset = array.value_offset(index);
   const int64_t length = array.value_length(index);
   const auto& values = *array.values();
 
+  out->push_back('[');
   for (int64_t i = 0; i < length; ++i) {
-    ARROW_RETURN_NOT_OK(
-        WriteJsonValue(values, offset + i, type.value_field()->type(), writer));
+    if (i > 0) {
+      out->push_back(',');
+    }
+    ARROW_RETURN_NOT_OK(WriteJsonValue(values, offset + i, out));
   }
-
-  writer->EndArray();
-  return Status::OK();
+  out->push_back(']');
+  return arrow::Status::OK();
 }
 
-Status WriteJsonValue(const Array& array, int64_t index,
-                      const std::shared_ptr<DataType>& type,
-                      internal::JsonWriter* writer) {
+arrow::Status WriteJsonValue(const arrow::Array& array, int64_t index, std::string* out) {
   if (array.IsNull(index)) {
-    writer->Null();
-    return Status::OK();
+    out->append("null");
+    return arrow::Status::OK();
   }
 
-  switch (type->id()) {
-    case Type::INT64:
-      writer->Int64(static_cast<const Int64Array&>(array).Value(index));
-      return Status::OK();
+  switch (array.type_id()) {
+    case arrow::Type::INT64:
+      out->append(
+          std::to_string(static_cast<const arrow::Int64Array&>(array).Value(index)));
+      return arrow::Status::OK();
 
-    case Type::DOUBLE:
-      writer->Double(static_cast<const DoubleArray&>(array).Value(index));
-      return Status::OK();
+    case arrow::Type::DOUBLE: {
+      double value = static_cast<const arrow::DoubleArray&>(array).Value(index);
+      if (std::isfinite(value)) {
+        char buffer[32];
+        std::snprintf(buffer, sizeof(buffer), "%.17g", value);
+        out->append(buffer);
+      } else {
+        // JSON has no representation for NaN or infinity.
+        out->append("null");
+      }
+      return arrow::Status::OK();
+    }
 
-    case Type::STRING:
-      writer->String(static_cast<const StringArray&>(array).GetView(index));
-      return Status::OK();
+    case arrow::Type::STRING:
+      AppendJsonString(static_cast<const arrow::StringArray&>(array).GetView(index), out);
+      return arrow::Status::OK();
 
-    case Type::BOOL:
-      writer->Bool(static_cast<const BooleanArray&>(array).Value(index));
-      return Status::OK();
+    case arrow::Type::BOOL:
+      out->append(static_cast<const arrow::BooleanArray&>(array).Value(index) ? "true"
+                                                                              : "false");
+      return arrow::Status::OK();
 
-    case Type::STRUCT:
-      return WriteJsonStruct(static_cast<const StructArray&>(array), index,
-                             *static_cast<const StructType*>(type.get()), writer);
+    case arrow::Type::STRUCT:
+      return WriteJsonStruct(static_cast<const arrow::StructArray&>(array), index, out);
 
-    case Type::LIST:
-      return WriteJsonList(static_cast<const ListArray&>(array), index,
-                           *static_cast<const ListType*>(type.get()), writer);
+    case arrow::Type::LIST:
+      return WriteJsonList(static_cast<const arrow::ListArray&>(array), index, out);
 
     default:
-      return Status::NotImplemented("Cannot convert Arrow array of type ",
-                                    type->ToString(), " to JSON");
+      return arrow::Status::NotImplemented("Cannot convert Arrow array of type ",
+                                           array.type()->ToString(), " to JSON");
   }
 }  // WriteJsonValue
 
 // Convert a single row of an Arrow record batch into a JSON object.
-Result<std::string> ConvertRowToJson(const RecordBatch& batch, int64_t row) {
-  internal::JsonWriter writer;
-
-  writer.StartObject();
-
+arrow::Result<std::string> ConvertRowToJson(const arrow::RecordBatch& batch,
+                                            int64_t row) {
+  std::string json = "{";
   for (int i = 0; i < batch.num_columns(); ++i) {
-    const auto& field = batch.schema()->field(i);
-    const auto& column = batch.column(i);
-
-    writer.Key(field->name());
-    ARROW_RETURN_NOT_OK(WriteJsonValue(*column, row, field->type(), &writer));
+    if (i > 0) {
+      json.push_back(',');
+    }
+    AppendJsonString(batch.schema()->field(i)->name(), &json);
+    json.push_back(':');
+    ARROW_RETURN_NOT_OK(WriteJsonValue(*batch.column(i), row, &json));
   }
-
-  writer.EndObject();
-
-  ARROW_ASSIGN_OR_RAISE(auto json, writer.GetString());
-
-  return std::string(json);
+  json.push_back('}');
+  return json;
 }
 
 // Convert a single batch of Arrow data into JSON rows.
-Result<std::vector<std::shared_ptr<std::string>>> ConvertToVector(
-    const std::shared_ptr<RecordBatch>& batch) {
+// Rows are held by shared_ptr because Arrow iterators signal end-of-iteration
+// with a sentinel value (a null pointer here).
+arrow::Result<std::vector<std::shared_ptr<std::string>>> ConvertToVector(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
   std::vector<std::shared_ptr<std::string>> rows;
   rows.reserve(batch->num_rows());
 
@@ -298,30 +359,30 @@ Result<std::vector<std::shared_ptr<std::string>>> ConvertToVector(
   return rows;
 }
 
-// Convert an Arrow table into an iterator of JSON rows.
 class ArrowToJsonConverter {
  public:
-  Iterator<std::shared_ptr<std::string>> ConvertToIterator(std::shared_ptr<Table> table,
-                                                           size_t batch_size) {
-    // Use TableBatchReader to divide the table into smaller batches. The batches
+  /// Convert an Arrow table into an iterator of JSON rows
+  arrow::Iterator<std::shared_ptr<std::string>> ConvertToIterator(
+      std::shared_ptr<arrow::Table> table, size_t batch_size) {
+    // Use TableBatchReader to divide table into smaller batches. The batches
     // created are zero-copy slices with *at most* `batch_size` rows.
-    auto batch_reader = std::make_shared<TableBatchReader>(*table);
+    auto batch_reader = std::make_shared<arrow::TableBatchReader>(*table);
     batch_reader->set_chunksize(batch_size);
 
-    auto read_batch = [](const std::shared_ptr<RecordBatch>& batch)
-        -> Result<Iterator<std::shared_ptr<std::string>>> {
+    auto read_batch = [](const std::shared_ptr<arrow::RecordBatch>& batch)
+        -> arrow::Result<arrow::Iterator<std::shared_ptr<std::string>>> {
       ARROW_ASSIGN_OR_RAISE(auto rows, ConvertToVector(batch));
-      return MakeVectorIterator(std::move(rows));
+      return arrow::MakeVectorIterator(std::move(rows));
     };
 
-    auto nested_iter =
-        MakeMaybeMapIterator(read_batch, MakeIteratorFromReader(std::move(batch_reader)));
+    auto nested_iter = arrow::MakeMaybeMapIterator(
+        read_batch, arrow::MakeIteratorFromReader(std::move(batch_reader)));
 
-    return MakeFlattenIterator(std::move(nested_iter));
+    return arrow::MakeFlattenIterator(std::move(nested_iter));
   }
 };  // ArrowToJsonConverter
 
-Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
+arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   //(Doc section: Convert to Arrow)
   // Write JSON records
   std::vector<std::string> json_records = {
@@ -331,7 +392,6 @@ Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
 
   std::vector<std::string> records;
   records.reserve(num_rows);
-
   for (int32_t i = 0; i < num_rows; ++i) {
     records.push_back(json_records[i % json_records.size()]);
   }
@@ -340,20 +400,21 @@ Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
     std::cout << json << std::endl;
   }
 
-  auto tags_schema = list(struct_({
-      field("key", utf8()),
-      field("value", int64()),
+  auto tags_schema = arrow::list(arrow::struct_({
+      arrow::field("key", arrow::utf8()),
+      arrow::field("value", arrow::int64()),
   }));
-
-  auto table_schema = schema({field("pk", int64()), field("date_created", utf8()),
-                              field("data", struct_({field("deleted", boolean()),
-                                                     field("metrics", tags_schema)}))});
+  auto schema = arrow::schema(
+      {arrow::field("pk", arrow::int64()), arrow::field("date_created", arrow::utf8()),
+       arrow::field("data", arrow::struct_({arrow::field("deleted", arrow::boolean()),
+                                            arrow::field("metrics", tags_schema)}))});
 
   // Convert records into a table
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch,
-                        ConvertToRecordBatch(records, table_schema));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,
+                        ConvertToRecordBatch(records, schema));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table, Table::FromRecordBatches({batch}));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table,
+                        arrow::Table::FromRecordBatches({batch}));
 
   // Print table
   std::cout << table->ToString() << std::endl;
@@ -368,29 +429,24 @@ Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   auto json_iter = to_json_converter.ConvertToIterator(table, batch_size);
 
   // Print each row
-  for (Result<std::shared_ptr<std::string>> json_result : json_iter) {
+  for (arrow::Result<std::shared_ptr<std::string>> json_result : json_iter) {
     ARROW_ASSIGN_OR_RAISE(auto json, std::move(json_result));
     std::cout << *json << std::endl;
   }
   //(Doc section: Convert to Rows)
 
-  return Status::OK();
+  return arrow::Status::OK();
 }
-
-}  // namespace
-
-}  // namespace arrow
 
 int main(int argc, char** argv) {
   int32_t num_rows = argc > 1 ? std::atoi(argv[1]) : 100;
   int32_t batch_size = argc > 2 ? std::atoi(argv[2]) : 100;
 
-  arrow::Status status = arrow::DoRowConversion(num_rows, batch_size);
+  arrow::Status status = DoRowConversion(num_rows, batch_size);
 
   if (!status.ok()) {
     std::cerr << "Error occurred: " << status.message() << std::endl;
     return EXIT_FAILURE;
   }
-
   return EXIT_SUCCESS;
 }
