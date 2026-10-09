@@ -168,7 +168,7 @@ class TDigest::TDigestImpl {
     if (total_weight != total_weight_) {
       return Status::Invalid("tdigest total weight mismatch");
     }
-    // check if buffer expanded
+    // check if buffer size exceeded delta
     if (tdigests_[0].size() > delta_ || tdigests_[1].size() > delta_) {
       return Status::Invalid("oversized tdigest buffer");
     }
