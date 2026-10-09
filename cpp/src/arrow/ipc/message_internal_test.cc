@@ -19,7 +19,6 @@
 #include <iosfwd>
 #include <memory>
 #include <sstream>
-#include <string>
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -128,14 +127,16 @@ TEST(TestMessageInternal, DictionaryEncodingWithoutIndexType) {
                                          fbb.CreateVector({fb_field}));
   fbb.Finish(flatbuf::CreateMessage(fbb, flatbuf::MetadataVersion_V5,
                                     flatbuf::MessageHeader_Schema, fb_schema.Union()));
-  auto metadata = Buffer::FromString(
-      std::string(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()));
+  ASSERT_OK_AND_ASSIGN(auto metadata, WriteFlatbufferBuilder(fbb));
 
   ASSERT_OK_AND_ASSIGN(auto message, Message::Open(metadata, /*body=*/nullptr));
   DictionaryMemo memo;
   ASSERT_OK_AND_ASSIGN(auto schema, ReadSchema(*message, &memo));
   AssertSchemaEqual(*::arrow::schema({field("f0", dictionary(int32(), utf8()))}),
                     *schema);
+  ASSERT_OK_AND_EQ(0, memo.fields().GetFieldId({0}));
+  ASSERT_OK_AND_ASSIGN(auto dict_value_type, memo.GetDictionaryType(0));
+  AssertTypeEqual(utf8(), dict_value_type);
 }
 
 struct SampleMessageParams {
