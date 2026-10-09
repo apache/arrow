@@ -68,19 +68,26 @@ namespace red_arrow {
 
     class PrimitiveArrayGetter : public arrow::ArrayVisitor {
     public:
+      // If view is nullptr, this only validates whether the visited
+      // array can be represented by memory view.
       explicit PrimitiveArrayGetter(memory_view *view)
         : view_(view) {
       }
 
       arrow::Status Visit(const arrow::BooleanArray& array) override {
-        fill(static_cast<const arrow::Array&>(array));
+        if (array.offset() % 8 != 0) {
+          return arrow::Status::Invalid("Boolean array offset must be byte aligned");
+        }
+        if (!view_) {
+          return arrow::Status::OK();
+        }
         // Memory view doesn't support bit stream. We use one byte
         // for 8 elements. Users can't calculate the number of
         // elements from memory view but it's limitation of memory view.
 #ifdef ARROW_LITTLE_ENDIAN
-        view_->format = "b8";
+        fill(static_cast<const arrow::Array&>(array), "b8");
 #else
-        view_->format = "B8";
+        fill(static_cast<const arrow::Array&>(array), "B8");
 #endif
         view_->item_size = 1;
         view_->byte_size = (array.length() + 7) / 8;
@@ -88,67 +95,59 @@ namespace red_arrow {
       }
 
       arrow::Status Visit(const arrow::Int8Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "c";
+        fill(static_cast<const arrow::Array&>(array), "c");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Int16Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "s";
+        fill(static_cast<const arrow::Array&>(array), "s");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Int32Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "l";
+        fill(static_cast<const arrow::Array&>(array), "l");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Int64Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q";
+        fill(static_cast<const arrow::Array&>(array), "q");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::UInt8Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "C";
+        fill(static_cast<const arrow::Array&>(array), "C");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::UInt16Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "S";
+        fill(static_cast<const arrow::Array&>(array), "S");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::UInt32Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "L";
+        fill(static_cast<const arrow::Array&>(array), "L");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::UInt64Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "Q";
+        fill(static_cast<const arrow::Array&>(array), "Q");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::FloatArray& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "f";
+        fill(static_cast<const arrow::Array&>(array), "f");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::DoubleArray& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "d";
+        fill(static_cast<const arrow::Array&>(array), "d");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::FixedSizeBinaryArray& array) override {
-        fill(static_cast<const arrow::Array&>(array));
+        if (!view_) {
+          return arrow::Status::OK();
+        }
         auto priv = static_cast<PrivateData *>(view_->private_data);
         const auto type =
           std::static_pointer_cast<const arrow::FixedSizeBinaryType>(
@@ -156,60 +155,59 @@ namespace red_arrow {
         std::ostringstream output;
         output << "C" << type->byte_width();
         priv->format = output.str();
-        view_->format = priv->format.c_str();
+        fill(static_cast<const arrow::Array&>(array), priv->format.c_str());
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Date32Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "l";
+        fill(static_cast<const arrow::Array&>(array), "l");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Date64Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q";
+        fill(static_cast<const arrow::Array&>(array), "q");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Time32Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "l";
+        fill(static_cast<const arrow::Array&>(array), "l");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Time64Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q";
+        fill(static_cast<const arrow::Array&>(array), "q");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::TimestampArray& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q";
+        fill(static_cast<const arrow::Array&>(array), "q");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Decimal128Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q2";
+        fill(static_cast<const arrow::Array&>(array), "q2");
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Decimal256Array& array) override {
-        fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q4";
+        fill(static_cast<const arrow::Array&>(array), "q4");
         return arrow::Status::OK();
       }
 
       private:
-      void fill(const arrow::Array& array) {
+      void fill(const arrow::Array& array, const char *format) {
+        if (!view_) {
+          return;
+        }
+        view_->format = format;
         const auto array_data = array.data();
-        const auto data = array_data->GetValuesSafe<uint8_t>(1);
-        view_->data = const_cast<void *>(reinterpret_cast<const void *>(data));
         const auto type =
           std::static_pointer_cast<const arrow::FixedWidthType>(array.type());
         view_->item_size = type->bit_width() / 8;
+        const auto byte_offset =
+          array_data->offset * type->bit_width() / 8;
+        const auto data = array_data->GetValuesSafe<uint8_t>(1, byte_offset);
+        view_->data = const_cast<void *>(reinterpret_cast<const void *>(data));
         view_->byte_size = view_->item_size * array.length();
       }
 
@@ -229,6 +227,8 @@ namespace red_arrow {
       PrimitiveArrayGetter getter(view_);
       auto status = arrow_array->Accept(&getter);
       if (!status.ok()) {
+        delete static_cast<PrivateData *>(view_->private_data);
+        view_->private_data = nullptr;
         return false;
       }
       view_->readonly = true;
@@ -243,7 +243,10 @@ namespace red_arrow {
     }
 
     bool primitive_array_available_p(VALUE obj) {
-      return true;
+      auto array = GARROW_ARRAY(RVAL2GOBJ(obj));
+      auto arrow_array = garrow_array_get_raw(array);
+      PrimitiveArrayGetter validator(nullptr);
+      return arrow_array->Accept(&validator).ok();
     }
 
     rb_memory_view_entry_t primitive_array_entry = {
