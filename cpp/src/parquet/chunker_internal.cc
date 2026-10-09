@@ -112,14 +112,11 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
   }
 }
 
-}  // namespace
-
-class ContentDefinedChunker::Impl {
+/// The gear hash of a column together with the state deciding the chunk boundaries
+class GearHash {
  public:
-  Impl(const LevelInfo& level_info, int64_t min_chunk_size, int64_t max_chunk_size,
-       int norm_level)
-      : level_info_(level_info),
-        min_chunk_size_(min_chunk_size),
+  GearHash(int64_t min_chunk_size, int64_t max_chunk_size, int norm_level)
+      : min_chunk_size_(min_chunk_size),
         max_chunk_size_(max_chunk_size),
         rolling_hash_mask_(CalculateMask(min_chunk_size, max_chunk_size, norm_level)) {}
 
@@ -201,6 +198,40 @@ class ContentDefinedChunker::Impl {
     return false;
   }
 
+ private:
+  // Minimum chunk size in bytes, the rolling hash will not be updated until this size is
+  // reached for each chunk. Note that all data sent through the hash function is counted
+  // towards the chunk size, including definition and repetition levels.
+  int64_t min_chunk_size_;
+  int64_t max_chunk_size_;
+  // The mask to match the rolling hash against to determine if a new chunk should be
+  // created. The mask is calculated based on min/max chunk size and the normalization
+  // level.
+  uint64_t rolling_hash_mask_;
+
+  // Whether the rolling hash has matched the mask since the last chunk creation. This
+  // flag is set true by the Roll() function when the mask is matched and reset to false
+  // by NeedNewChunk() method.
+  bool has_matched_ = false;
+  // The current run of the rolling hash, used to normalize the chunk size distribution
+  // by requiring multiple consecutive matches to create a new chunk.
+  int8_t nth_run_ = 0;
+  // Current chunk size in bytes, reset to 0 when a new chunk is created.
+  int64_t chunk_size_ = 0;
+  // Rolling hash state, never reset only initialized once for the entire column.
+  uint64_t rolling_hash_ = 0;
+};
+
+}  // namespace
+
+class ContentDefinedChunker::Impl {
+ public:
+  Impl(const LevelInfo& level_info, int64_t min_chunk_size, int64_t max_chunk_size,
+       int norm_level)
+      : level_info_(level_info), gearhash_(min_chunk_size, max_chunk_size, norm_level) {}
+
+  uint64_t GetRollingHashMask() const { return gearhash_.GetRollingHashMask(); }
+
   void ValidateChunks(const std::vector<Chunk>& chunks, int64_t num_levels) const {
     // chunks must be non-empty and monotonic increasing
     ARROW_DCHECK(!chunks.empty());
@@ -248,6 +279,9 @@ class ContentDefinedChunker::Impl {
     // requirements, we create a new chunk. See the `NeedNewChunk()` method for more
     // details.
     std::vector<Chunk> chunks;
+    // Roll a local copy of the hash so the compiler can keep it in registers instead of
+    // storing it to memory for every hashed byte
+    GearHash gearhash = gearhash_;
     int64_t offset;
     int64_t prev_offset = 0;
     int64_t prev_value_offset = 0;
@@ -257,8 +291,8 @@ class ContentDefinedChunker::Impl {
     if (!has_rep_levels && !has_def_levels) {
       // fastest path for non-nested non-null data
       for (offset = 0; offset < num_levels; ++offset) {
-        RollValue(offset);
-        if (NeedNewChunk()) {
+        RollValue(gearhash, offset);
+        if (gearhash.NeedNewChunk()) {
           chunks.push_back({prev_offset, prev_offset, offset - prev_offset});
           prev_offset = offset;
         }
@@ -271,11 +305,11 @@ class ContentDefinedChunker::Impl {
       for (int64_t offset = 0; offset < num_levels; ++offset) {
         def_level = def_levels[offset];
 
-        Roll(&def_level);
+        gearhash.Roll(&def_level);
         if (def_level == level_info_.def_level) {
-          RollValue(offset);
+          RollValue(gearhash, offset);
         }
-        if (NeedNewChunk()) {
+        if (gearhash.NeedNewChunk()) {
           chunks.push_back({prev_offset, prev_offset, offset - prev_offset});
           prev_offset = offset;
         }
@@ -292,13 +326,13 @@ class ContentDefinedChunker::Impl {
         def_level = def_levels[offset];
         rep_level = rep_levels[offset];
 
-        Roll(&def_level);
-        Roll(&rep_level);
+        gearhash.Roll(&def_level);
+        gearhash.Roll(&rep_level);
         if (def_level == level_info_.def_level) {
-          RollValue(value_offset);
+          RollValue(gearhash, value_offset);
         }
 
-        if (rep_level == 0 && NeedNewChunk()) {
+        if (rep_level == 0 && gearhash.NeedNewChunk()) {
           // if we are at a record boundary and need a new chunk, we create a new chunk
           auto levels_to_write = offset - prev_offset;
           if (levels_to_write > 0) {
@@ -313,6 +347,7 @@ class ContentDefinedChunker::Impl {
         }
       }
     }
+    gearhash_ = gearhash;
 
     // add the last chunk if we have any levels left
     if (prev_offset < num_levels) {
@@ -332,9 +367,10 @@ class ContentDefinedChunker::Impl {
     const uint8_t* raw_values =
         values.data()->GetValues<uint8_t>(/*i=*/1, /*absolute_offset=*/0) +
         values.offset() * kByteWidth;
-    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
-      return Roll<kByteWidth>(&raw_values[i * kByteWidth]);
-    });
+    return Calculate(def_levels, rep_levels, num_levels,
+                     [&](GearHash& gearhash, int64_t i) {
+                       return gearhash.Roll<kByteWidth>(&raw_values[i * kByteWidth]);
+                     });
   }
 
   template <typename ArrayType>
@@ -342,11 +378,12 @@ class ContentDefinedChunker::Impl {
                                          const int16_t* rep_levels, int64_t num_levels,
                                          const ::arrow::Array& values) {
     const auto& array = checked_cast<const ArrayType&>(values);
-    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
-      typename ArrayType::offset_type length;
-      const uint8_t* value = array.GetValue(i, &length);
-      Roll(value, length);
-    });
+    return Calculate(def_levels, rep_levels, num_levels,
+                     [&](GearHash& gearhash, int64_t i) {
+                       typename ArrayType::offset_type length;
+                       const uint8_t* value = array.GetValue(i, &length);
+                       gearhash.Roll(value, length);
+                     });
   }
 
   std::vector<Chunk> GetChunks(const int16_t* def_levels, const int16_t* rep_levels,
@@ -354,16 +391,19 @@ class ContentDefinedChunker::Impl {
     auto handle_type = [&](auto&& type) -> std::vector<Chunk> {
       using ArrowType = std::decay_t<decltype(type)>;
       if constexpr (ArrowType::type_id == ::arrow::Type::NA) {
-        return Calculate(def_levels, rep_levels, num_levels, [](int64_t) {});
+        return Calculate(def_levels, rep_levels, num_levels, [](GearHash&, int64_t) {});
       } else if constexpr (ArrowType::type_id == ::arrow::Type::BOOL) {
         const auto& array = static_cast<const ::arrow::BooleanArray&>(values);
-        return Calculate(def_levels, rep_levels, num_levels,
-                         [&](int64_t i) { Roll(array.Value(i)); });
+        return Calculate(
+            def_levels, rep_levels, num_levels,
+            [&](GearHash& gearhash, int64_t i) { gearhash.Roll(array.Value(i)); });
       } else if constexpr (ArrowType::type_id == ::arrow::Type::FIXED_SIZE_BINARY) {
         const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
         const auto byte_width = array.byte_width();
         return Calculate(def_levels, rep_levels, num_levels,
-                         [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
+                         [&](GearHash& gearhash, int64_t i) {
+                           gearhash.Roll(array.GetValue(i), byte_width);
+                         });
       } else if constexpr (ArrowType::type_id == ::arrow::Type::EXTENSION) {
         const auto& array = static_cast<const ::arrow::ExtensionArray&>(values);
         return GetChunks(def_levels, rep_levels, num_levels, *array.storage());
@@ -392,29 +432,11 @@ class ContentDefinedChunker::Impl {
   }
 
  private:
-  // Reference to the column's level information
-  const internal::LevelInfo& level_info_;
-  // Minimum chunk size in bytes, the rolling hash will not be updated until this size is
-  // reached for each chunk. Note that all data sent through the hash function is counted
-  // towards the chunk size, including definition and repetition levels.
-  const int64_t min_chunk_size_;
-  const int64_t max_chunk_size_;
-  // The mask to match the rolling hash against to determine if a new chunk should be
-  // created. The mask is calculated based on min/max chunk size and the normalization
-  // level.
-  const uint64_t rolling_hash_mask_;
-
-  // Whether the rolling hash has matched the mask since the last chunk creation. This
-  // flag is set true by the Roll() function when the mask is matched and reset to false
-  // by NeedNewChunk() method.
-  bool has_matched_ = false;
-  // The current run of the rolling hash, used to normalize the chunk size distribution
-  // by requiring multiple consecutive matches to create a new chunk.
-  int8_t nth_run_ = 0;
-  // Current chunk size in bytes, reset to 0 when a new chunk is created.
-  int64_t chunk_size_ = 0;
-  // Rolling hash state, never reset only initialized once for the entire column.
-  uint64_t rolling_hash_ = 0;
+  // The column's level information
+  const internal::LevelInfo level_info_;
+  // The gear hash carried over between the calls, so the chunking continues across
+  // the pages and the row groups
+  GearHash gearhash_;
 };
 
 ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
@@ -422,7 +444,16 @@ ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
                                              int64_t max_chunk_size, int norm_level)
     : impl_(new Impl(level_info, min_chunk_size, max_chunk_size, norm_level)) {}
 
+ContentDefinedChunker::ContentDefinedChunker(ContentDefinedChunker&&) noexcept = default;
+ContentDefinedChunker& ContentDefinedChunker::operator=(
+    ContentDefinedChunker&&) noexcept = default;
 ContentDefinedChunker::~ContentDefinedChunker() = default;
+
+ContentDefinedChunker ContentDefinedChunker::Make(const LevelInfo& level_info,
+                                                  const CdcOptions& options) {
+  return ContentDefinedChunker(level_info, options.min_chunk_size, options.max_chunk_size,
+                               options.norm_level);
+}
 
 std::vector<Chunk> ContentDefinedChunker::GetChunks(const int16_t* def_levels,
                                                     const int16_t* rep_levels,
