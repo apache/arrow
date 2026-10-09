@@ -187,7 +187,8 @@ add_arrow_acero_test(sorted_merge_node_test SOURCES sorted_merge_node_test.cc)
 add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)
 add_arrow_acero_test(union_node_test SOURCES union_node_test.cc)
 add_arrow_acero_test(aggregate_node_test SOURCES aggregate_node_test.cc)
-add_arrow_acero_test(util_test SOURCES util_test.cc task_util_test.cc)
+add_arrow_acero_test(util_test SOURCES util_test.cc task_util_test.cc
+                     time_series_util_test.cc)
 add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc)
 
 add_arrow_acero_test(test_util_internal_test SOURCES test_util_internal_test.cc)
