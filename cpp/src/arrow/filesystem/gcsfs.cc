@@ -334,8 +334,8 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
 
 class GcsFileSystem::Impl {
  public:
-  explicit Impl(GcsOptions o)
-      : options_(std::move(o)), client_(internal::AsGoogleCloudOptions(options_)) {}
+  explicit Impl(GcsOptions o, const io::IOContext& io_context)
+      : options_(std::move(o)), client_(internal::AsGoogleCloudOptions(options_, &io_context)) {}
 
   const GcsOptions& options() const { return options_; }
 
@@ -975,7 +975,7 @@ Result<std::shared_ptr<GcsFileSystem>> GcsFileSystem::Make(
 }
 
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)
-    : FileSystem(context), impl_(std::make_shared<Impl>(options)) {}
+    : FileSystem(context), impl_(std::make_shared<Impl>(options, context)) {}
 
 }  // namespace fs
 }  // namespace arrow

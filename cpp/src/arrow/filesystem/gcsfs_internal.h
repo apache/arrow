@@ -65,7 +65,8 @@ ARROW_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
 
 ARROW_EXPORT std::int64_t Depth(std::string_view path);
 
-ARROW_EXPORT google::cloud::Options AsGoogleCloudOptions(const GcsOptions& options);
+ARROW_EXPORT google::cloud::Options AsGoogleCloudOptions(const GcsOptions& options,
+                                                         const io::IOContext* io_context = nullptr);
 
 }  // namespace internal
 }  // namespace fs
