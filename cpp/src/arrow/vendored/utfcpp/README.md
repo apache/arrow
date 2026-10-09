@@ -24,5 +24,5 @@
     DEALINGS IN THE SOFTWARE.
 -->
 
-The files in this directory are vendored from utfcpp git tag v3.1.1
+The files in this directory are vendored from utfcpp git tag v4.2.0
 (https://github.com/nemtrif/utfcpp).
