@@ -721,17 +721,26 @@ jobs:
           # that works on ARM64 and AMD64.
           pkgutil --expand-full "${pkg_path}" expanded
 
-          dylib_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
+          # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink 
+          # to the versioned dylib that the
+          # install name (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib)
+          # resolves to. Run lipo on the real file so the symlinks stay intact.
+          symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
+          lib_dir="$(dirname "${symlink_path}")"
+          dylib_path="$(realpath "${symlink_path}")"
+          echo "Merging into ${dylib_path} (via ${symlink_path})"
           lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
             -output "${dylib_path}"
-
-          dylib_archs="$(lipo -archs "${dylib_path}")"
-          echo "Universal dylib architectures: ${dylib_archs}"
-          for arch in arm64 x86_64; do
-            if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
-              echo "Universal dylib is missing '${arch}' (got: ${dylib_archs})"
-              exit 1
-            fi
+          
+          for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
+            dylib_archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${dylib_archs}"
+            for arch in arm64 x86_64; do
+              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
+                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
+                exit 1
+              fi
+            done
           done
 
           pkgutil --flatten-full expanded "${pkg_name}.pkg"
@@ -780,13 +789,15 @@ jobs:
           echo "Found ODBC dylib: ${dylib}"
 
           local_arch="$(uname -m)"
-          archs="$(lipo -archs "${dylib}")"
           echo "Local architecture: ${local_arch}"
-          echo "Installed dylib architectures: ${archs}"
-          if ! grep -qw "${local_arch}" <<< "${archs}"; then
-            echo "Installed ODBC dylib does not support local architecture '${local_arch}' (got: ${archs})"
-            exit 1
-          fi
+          for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
+            archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${archs}"
+            if ! grep -qw "${local_arch}" <<< "${archs}"; then
+              echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
+              exit 1
+            fi
+          done
 
   odbc-msvc:
     needs: check-enabled
