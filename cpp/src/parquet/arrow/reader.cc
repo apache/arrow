@@ -474,10 +474,14 @@ class LeafReader : public ColumnReaderImpl {
         (::arrow::is_base_binary_like(type_id) || ::arrow::is_binary_view_like(type_id))
             ? field_->type()
             : nullptr;
-    record_reader_ = RecordReader::Make(
-        descr_, leaf_info, ctx_->pool,
-        /*read_dictionary=*/field_->type()->id() == ::arrow::Type::DICTIONARY,
-        /*read_dense_for_nullable=*/false, /*arrow_type=*/type_for_reading);
+    record_reader_ = RecordReader::Make({
+        .descr = descr_,
+        .leaf_info = leaf_info,
+        .pool = ctx_->pool,
+        .read_dictionary = field_->type()->id() == ::arrow::Type::DICTIONARY,
+        .arrow_type = type_for_reading,
+        .allow_levels_optimization = true,
+    });
     NextRowGroup();
   }
 

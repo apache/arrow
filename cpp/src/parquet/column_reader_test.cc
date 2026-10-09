@@ -28,6 +28,12 @@
 #include <vector>
 
 #include "arrow/array/array_binary.h"
+#include "arrow/array/array_dict.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/chunked_array.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -40,6 +46,7 @@ namespace parquet {
 using ParquetType = parquet::Type;
 
 using internal::BinaryRecordReader;
+using internal::DictionaryRecordReader;
 using internal::LevelInfo;
 using schema::GroupNode;
 using schema::NodePtr;
@@ -643,19 +650,60 @@ internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
 
 }  // namespace
 
-using ReadDenseForNullable = bool;
+struct RecordReaderTestParam {
+  bool read_dense_for_nullable;
+  bool allow_levels_optimization;
+};
+
+std::vector<RecordReaderTestParam> RecordReaderTestParams(
+    std::initializer_list<bool> allow_levels_optimizations) {
+  std::vector<RecordReaderTestParam> params;
+  for (bool read_dense_for_nullable : {true, false}) {
+    for (bool allow_levels_optimization : allow_levels_optimizations) {
+      params.push_back({
+          .read_dense_for_nullable = read_dense_for_nullable,
+          .allow_levels_optimization = allow_levels_optimization,
+      });
+    }
+  }
+  return params;
+}
+
+std::string RecordReaderTestParamName(
+    const testing::TestParamInfo<RecordReaderTestParam>& info) {
+  return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
+         (info.param.allow_levels_optimization ? "LevelsOptimization"
+                                               : "NoLevelsOptimization");
+}
+
 class RecordReaderPrimitiveTypeTest
-    : public ::testing::TestWithParam<ReadDenseForNullable> {
+    : public ::testing::TestWithParam<RecordReaderTestParam> {
  public:
   const int32_t kNullValue = -1;
+
+  bool read_dense_for_nullable() const { return GetParam().read_dense_for_nullable; }
+
+  bool allow_levels_optimization() const { return GetParam().allow_levels_optimization; }
 
   void Init(NodePtr column) {
     NodePtr root = GroupNode::Make("root", Repetition::REQUIRED, {column});
     schema_descriptor_.Init(root);
     descr_ = schema_descriptor_.Column(0);
-    record_reader_ = internal::RecordReader::Make(descr_, ComputeLevelInfo(descr_),
-                                                  ::arrow::default_memory_pool(),
-                                                  /*read_dictionary=*/false, GetParam());
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_,
+        .leaf_info = ComputeLevelInfo(descr_),
+        .read_dense_for_nullable = read_dense_for_nullable(),
+        .allow_levels_optimization = allow_levels_optimization(),
+    });
+  }
+
+  // Whether the record reader for this column exposes definition and repetition
+  // levels. The flat optional reader decodes definition levels straight into the
+  // validity bitmap of the records it produces, so it never materializes levels and
+  // reports none: `def_levels()` is null and both level counters stay at zero.
+  bool exposes_levels() const {
+    return !(allow_levels_optimization() && descr_->max_definition_level() == 1 &&
+             descr_->max_repetition_level() == 0 && descr_->schema_node()->is_optional());
   }
 
   void CheckReadValues(std::vector<int32_t> expected_values,
@@ -671,7 +719,7 @@ class RecordReaderPrimitiveTypeTest
       }
     }
 
-    if (!descr_->schema_node()->is_required()) {
+    if (exposes_levels() && !descr_->schema_node()->is_required()) {
       std::vector<int16_t> read_defs(
           record_reader_->def_levels(),
           record_reader_->def_levels() + record_reader_->levels_position());
@@ -690,8 +738,10 @@ class RecordReaderPrimitiveTypeTest
                   int64_t levels_position) {
     ASSERT_EQ(record_reader_->values_written(), values_written);
     ASSERT_EQ(record_reader_->null_count(), null_count);
-    ASSERT_EQ(record_reader_->levels_written(), levels_written);
-    ASSERT_EQ(record_reader_->levels_position(), levels_position);
+    if (exposes_levels()) {
+      ASSERT_EQ(record_reader_->levels_written(), levels_written);
+      ASSERT_EQ(record_reader_->levels_position(), levels_position);
+    }
   }
 
  protected:
@@ -770,7 +820,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   // Read 10, null
   int64_t records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
     CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{2, 0},
@@ -788,7 +838,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   // Read 20, 20, null (parent present), 30, 30, 30
   records_read = record_reader_->ReadRecords(/*num_records=*/6);
   ASSERT_EQ(records_read, 6);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/5, /*null_count=*/0, /*levels_written=*/7,
                /*levels_position=*/6);
     CheckReadValues(/*expected_values=*/{20, 20, 30, 30, 30},
@@ -808,7 +858,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   // Read the last null value and read past the end.
   records_read = record_reader_->ReadRecords(/*num_records=*/3);
   ASSERT_EQ(records_read, 1);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/1,
                /*levels_position=*/1);
     CheckReadValues(/*expected_values=*/{},
@@ -916,7 +966,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   // We do not read this null for both reading dense and spaced.
   records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/1, /*null_count=*/0, /*levels_written=*/9,
                /*levels_position=*/2);
     CheckReadValues(/*expected_values=*/{10}, /*expected_defs=*/{3, 0},
@@ -936,7 +986,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   // when reading spaced.
   records_read = record_reader_->ReadRecords(/*num_records=*/2);
   ASSERT_EQ(records_read, 2);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/7,
                /*levels_position=*/3);
     CheckReadValues(/*expected_values=*/{20, 20},
@@ -960,7 +1010,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   // Read the last record.
   records_read = record_reader_->ReadRecords(/*num_records=*/1);
   ASSERT_EQ(records_read, 1);
-  if (GetParam() == /*read_dense_for_nullable=*/true) {
+  if (read_dense_for_nullable()) {
     CheckState(/*values_written=*/3, /*null_count=*/0, /*levels_written=*/4,
                /*levels_position=*/4);
     CheckReadValues(/*expected_values=*/{30, 30, 30},
@@ -1009,8 +1059,11 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRequiredTopLevel) {
              /*levels_position=*/0);
 }
 
+// Flat optional columns, exercised with and without the flat optional optimization.
+class RecordReaderFlatOptionalTest : public RecordReaderPrimitiveTypeTest {};
+
 // Skip an optional field. Intentionally included some null values.
-TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
+TEST_P(RecordReaderFlatOptionalTest, SkipOptional) {
   Init(schema::Int32("b", Repetition::OPTIONAL));
 
   // Records look like {null, 10, 20, 30, null, 40, 50, 60}
@@ -1041,7 +1094,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
     int64_t records_read = record_reader_->ReadRecords(/*num_records=*/3);
 
     ASSERT_EQ(records_read, 3);
-    if (GetParam() == /*read_dense_for_nullable=*/true) {
+    if (read_dense_for_nullable()) {
       // We had skipped 2 of the levels above. So there is only 6 left in total to
       // read, and we read 3 of them here.
       CheckState(/*values_written=*/2, /*null_count=*/0, /*levels_written=*/6,
@@ -1370,13 +1423,18 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
 }
 
 INSTANTIATE_TEST_SUITE_P(RecordReaderPrimitiveTypeTests, RecordReaderPrimitiveTypeTest,
-                         ::testing::Values(/*read_dense_for_nullable=*/true, false),
-                         testing::PrintToStringParamName());
+                         ::testing::ValuesIn(RecordReaderTestParams({true})),
+                         RecordReaderTestParamName);
+
+INSTANTIATE_TEST_SUITE_P(RecordReaderFlatOptionalTests, RecordReaderFlatOptionalTest,
+                         ::testing::ValuesIn(RecordReaderTestParams({true, false})),
+                         RecordReaderTestParamName);
 
 // Parameterized test for FLBA record reader.
-class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
+class FLBARecordReaderTest : public ::testing::TestWithParam<RecordReaderTestParam> {
  public:
-  bool read_dense_for_nullable() { return GetParam(); }
+  bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
+  bool allow_levels_optimization() { return GetParam().allow_levels_optimization; }
 
   void MakeRecordReader(int levels_per_page, int num_pages, int FLBA_type_length) {
     levels_per_page_ = levels_per_page;
@@ -1392,9 +1450,16 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
     MakePages<FLBAType>(descr_.get(), num_pages, levels_per_page, def_levels_,
                         rep_levels_, values_, buffer_, pages_, Encoding::PLAIN);
     auto pager = std::make_unique<MockPageReader>(pages_);
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable());
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_.get(),
+        .leaf_info = level_info,
+        .read_dense_for_nullable = read_dense_for_nullable(),
+        .allow_levels_optimization = allow_levels_optimization(),
+    });
+    if (allow_levels_optimization()) {
+      // Only the flat optional reader does not materialize definition levels.
+      ASSERT_THROW(record_reader_->def_levels(), ParquetException);
+    }
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1469,9 +1534,19 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
 
 // Similar to above, except for Byte arrays. FLBA and Byte arrays are
 // sufficiently different to warrant a separate class for readability.
-class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
+struct ByteArrayRecordReaderParam {
+  bool read_dense_for_nullable;
+  bool read_dictionary;
+  Encoding::type encoding;
+  bool allow_levels_optimization;
+};
+
+class ByteArrayRecordReaderTest
+    : public ::testing::TestWithParam<ByteArrayRecordReaderParam> {
  public:
-  bool read_dense_for_nullable() { return GetParam(); }
+  bool read_dense_for_nullable() { return GetParam().read_dense_for_nullable; }
+  bool read_dictionary() { return GetParam().read_dictionary; }
+  bool allow_levels_optimization() { return GetParam().allow_levels_optimization; }
 
   void MakeRecordReader(int levels_per_page, int num_pages) {
     levels_per_page_ = levels_per_page;
@@ -1482,13 +1557,21 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
     descr_ = std::make_unique<ColumnDescriptor>(type, level_info.def_level,
                                                 level_info.rep_level);
     MakePages<ByteArrayType>(descr_.get(), num_pages, levels_per_page, def_levels_,
-                             rep_levels_, values_, buffer_, pages_, Encoding::PLAIN);
+                             rep_levels_, values_, buffer_, pages_, GetParam().encoding);
 
     auto pager = std::make_unique<MockPageReader>(pages_);
 
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable());
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_.get(),
+        .leaf_info = level_info,
+        .read_dictionary = read_dictionary(),
+        .read_dense_for_nullable = read_dense_for_nullable(),
+        .allow_levels_optimization = allow_levels_optimization(),
+    });
+    if (allow_levels_optimization()) {
+      // Only the flat optional reader does not materialize definition levels.
+      ASSERT_THROW(record_reader_->def_levels(), ParquetException);
+    }
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1519,10 +1602,35 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
   }
 
   void CheckReadValues(int start, int end) {
-    auto binary_reader = dynamic_cast<BinaryRecordReader*>(record_reader_.get());
-    ASSERT_NE(binary_reader, nullptr);
-    // Chunks are reset after this call.
-    ::arrow::ArrayVector array_vector = binary_reader->GetBuilderChunks();
+    ::arrow::ArrayVector array_vector;
+    if (read_dictionary()) {
+      auto dict_reader = dynamic_cast<DictionaryRecordReader*>(record_reader_.get());
+      ASSERT_NE(dict_reader, nullptr);
+      // Chunks are reset after this call.
+      std::shared_ptr<::arrow::ChunkedArray> chunked = dict_reader->GetResult();
+      ASSERT_EQ(chunked->num_chunks(), 1);
+      const auto& dict_array =
+          ::arrow::internal::checked_cast<const ::arrow::DictionaryArray&>(
+              *chunked->chunk(0));
+      const auto& dictionary =
+          ::arrow::internal::checked_cast<const ::arrow::BinaryArray&>(
+              *dict_array.dictionary());
+      ::arrow::BinaryBuilder builder;
+      for (int64_t i = 0; i < dict_array.length(); ++i) {
+        if (dict_array.IsNull(i)) {
+          ASSERT_OK(builder.AppendNull());
+        } else {
+          ASSERT_OK(builder.Append(dictionary.GetView(dict_array.GetValueIndex(i))));
+        }
+      }
+      ASSERT_OK_AND_ASSIGN(auto decoded, builder.Finish());
+      array_vector.push_back(std::move(decoded));
+    } else {
+      auto binary_reader = dynamic_cast<BinaryRecordReader*>(record_reader_.get());
+      ASSERT_NE(binary_reader, nullptr);
+      // Chunks are reset after this call.
+      array_vector = binary_reader->GetBuilderChunks();
+    }
     ASSERT_EQ(array_vector.size(), 1);
     ::arrow::BinaryArray* binary_array =
         dynamic_cast<::arrow::BinaryArray*>(array_vector[0].get());
@@ -1629,23 +1737,61 @@ TEST_P(FLBARecordReaderTest, ReadAndSkipOptional) {
   record_reader_->Reset();
 }
 
-INSTANTIATE_TEST_SUITE_P(ByteArrayRecordReaderTests, ByteArrayRecordReaderTest,
-                         testing::Bool());
+std::vector<ByteArrayRecordReaderParam> ByteArrayRecordReaderParams() {
+  std::vector<ByteArrayRecordReaderParam> params;
+  for (bool read_dense_for_nullable : {false, true}) {
+    for (bool read_dictionary : {false, true}) {
+      for (Encoding::type encoding : {Encoding::PLAIN, Encoding::RLE_DICTIONARY}) {
+        for (bool allow_levels_optimization : {true, false}) {
+          params.push_back({
+              .read_dense_for_nullable = read_dense_for_nullable,
+              .read_dictionary = read_dictionary,
+              .encoding = encoding,
+              .allow_levels_optimization = allow_levels_optimization,
+          });
+        }
+      }
+    }
+  }
+  return params;
+}
 
-INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(
+    ByteArrayRecordReaderTests, ByteArrayRecordReaderTest,
+    testing::ValuesIn(ByteArrayRecordReaderParams()),
+    [](const testing::TestParamInfo<ByteArrayRecordReaderParam>& info) {
+      return std::string(info.param.read_dense_for_nullable ? "Dense" : "Spaced") +
+             (info.param.read_dictionary ? "Dictionary" : "Binary") +
+             EncodingToString(info.param.encoding) +
+             (info.param.allow_levels_optimization ? "LevelsOptimization"
+                                                   : "NoLevelsOptimization");
+    });
+
+INSTANTIATE_TEST_SUITE_P(FLBARecordReaderTests, FLBARecordReaderTest,
+                         ::testing::ValuesIn(RecordReaderTestParams({true, false})),
+                         RecordReaderTestParamName);
+
+struct RecordReaderStressParam {
+  Repetition::type repetition;
+  bool allow_levels_optimization;
+};
 
 // Test random combination of ReadRecords and SkipRecords.
-class RecordReaderStressTest : public ::testing::TestWithParam<Repetition::type> {};
+class RecordReaderStressTest : public ::testing::TestWithParam<RecordReaderStressParam> {
+};
 
 TEST_P(RecordReaderStressTest, StressTest) {
+  const Repetition::type repetition = GetParam().repetition;
   internal::LevelInfo level_info;
   // Define these boolean variables for improving readability below.
   bool repeated = false, required = false;
-  if (GetParam() == Repetition::REQUIRED) {
+  const bool flat_optional =
+      repetition == Repetition::OPTIONAL && GetParam().allow_levels_optimization;
+  if (repetition == Repetition::REQUIRED) {
     level_info.def_level = 0;
     level_info.rep_level = 0;
     required = true;
-  } else if (GetParam() == Repetition::OPTIONAL) {
+  } else if (repetition == Repetition::OPTIONAL) {
     level_info.def_level = 1;
     level_info.rep_level = 0;
   } else {
@@ -1654,7 +1800,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
     repeated = true;
   }
 
-  NodePtr type = schema::Int32("b", GetParam());
+  NodePtr type = schema::Int32("b", repetition);
   const ColumnDescriptor descr(type, level_info.def_level, level_info.rep_level);
 
   auto seed1 = static_cast<uint32_t>(time(0));
@@ -1677,8 +1823,11 @@ TEST_P(RecordReaderStressTest, StressTest) {
   pager.reset(new test::MockPageReader(pages));
 
   // Set up the RecordReader.
-  std::shared_ptr<internal::RecordReader> record_reader =
-      internal::RecordReader::Make(&descr, level_info);
+  std::shared_ptr<internal::RecordReader> record_reader = internal::RecordReader::Make({
+      .descr = &descr,
+      .leaf_info = level_info,
+      .allow_levels_optimization = GetParam().allow_levels_optimization,
+  });
   record_reader->SetPageReader(std::move(pager));
 
   // Figure out how many total records.
@@ -1791,7 +1940,22 @@ TEST_P(RecordReaderStressTest, StressTest) {
       }
     }
 
-    if (!required) {
+    // The flat optional reader decodes definition levels straight into the validity
+    // bitmap of the records it produces, so it never materializes levels to check.
+    if (flat_optional) {
+      // Releasing hands the bitmap over, which is only safe because the next
+      // iteration starts with a Reset.
+      const auto valid_bits = record_reader->ReleaseIsValid();
+      ASSERT_NE(valid_bits, nullptr) << seeds;
+      ASSERT_GE(valid_bits->size(), ::arrow::bit_util::BytesForBits(
+                                        static_cast<int64_t>(expected_def_levels.size())))
+          << seeds;
+      for (size_t i = 0; i < expected_def_levels.size(); ++i) {
+        ASSERT_EQ(::arrow::bit_util::GetBit(valid_bits->data(), i),
+                  expected_def_levels[i] == level_info.def_level)
+            << seeds << " index: " << i;
+      }
+    } else if (!required) {
       std::vector<int16_t> read_def_levels(
           record_reader->def_levels(),
           record_reader->def_levels() + record_reader->levels_position());
@@ -1807,9 +1971,20 @@ TEST_P(RecordReaderStressTest, StressTest) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(Repetition_type, RecordReaderStressTest,
-                         ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL,
-                                           Repetition::REPEATED));
+INSTANTIATE_TEST_SUITE_P(
+    Repetition_type, RecordReaderStressTest,
+    ::testing::Values(RecordReaderStressParam{Repetition::REQUIRED, true},
+                      RecordReaderStressParam{Repetition::OPTIONAL, true},
+                      RecordReaderStressParam{Repetition::OPTIONAL, false},
+                      RecordReaderStressParam{Repetition::REPEATED, true}),
+    [](const testing::TestParamInfo<RecordReaderStressParam>& info) {
+      const auto repetition = info.param.repetition;
+      return std::string(repetition == Repetition::REQUIRED   ? "Required"
+                         : repetition == Repetition::OPTIONAL ? "Optional"
+                                                              : "Repeated") +
+             (info.param.allow_levels_optimization ? "LevelsOptimization"
+                                                   : "NoLevelsOptimization");
+    });
 
 }  // namespace test
 }  // namespace parquet
