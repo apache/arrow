@@ -58,7 +58,7 @@ constexpr char* NonConst(const char* st) {
   return const_cast<char*>(st);
 }
 
-static PyTypeObject MonthDayNanoTupleType = {};
+static PyTypeObject* MonthDayNanoTupleType = nullptr;
 
 static PyStructSequence_Field MonthDayNanoField[] = {
     {NonConst("months"), NonConst("The number of months in the interval")},
@@ -67,8 +67,13 @@ static PyStructSequence_Field MonthDayNanoField[] = {
     {nullptr, nullptr}};
 
 static PyStructSequence_Desc MonthDayNanoTupleDesc = {
-    NonConst("MonthDayNano"),
-    NonConst("A calendar interval consisting of months, days and nanoseconds."),
+    NonConst("pyarrow.lib.MonthDayNano"),
+    NonConst("A calendar interval consisting of months, days and nanoseconds.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "iterable : sequence\n"
+             "    The months, days and nanoseconds fields of the interval.\n"),
     MonthDayNanoField,
     /*n_in_sequence=*/3};
 
@@ -274,13 +279,17 @@ static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_
 }
 
 PyObject* NewMonthDayNanoTupleType() {
-  if (MonthDayNanoTupleType.tp_name == nullptr) {
-    if (PyStructSequence_InitType2(&MonthDayNanoTupleType, &MonthDayNanoTupleDesc) != 0) {
+  if (MonthDayNanoTupleType == nullptr) {
+    MonthDayNanoTupleType = PyStructSequence_NewType(&MonthDayNanoTupleDesc);
+    if (MonthDayNanoTupleType == nullptr) {
       Py_FatalError("Could not initialize MonthDayNanoTuple");
     }
   }
-  Py_INCREF(&MonthDayNanoTupleType);
-  return (PyObject*)&MonthDayNanoTupleType;
+  // Py_INCREF takes PyObject*; pass the base explicitly — the PyTypeObject* to
+  // PyObject* derived-to-base conversion is not implicit here under the limited API.
+  Py_INCREF((PyObject*)MonthDayNanoTupleType);
+  // Same limited-API note: cast the PyTypeObject* to the PyObject* return type.
+  return (PyObject*)MonthDayNanoTupleType;
 }
 
 Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out) {
@@ -313,9 +322,12 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
   return Status::OK();
 }
 
-int64_t PyDate_to_days(PyDateTime_Date* pydate) {
-  return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
-                            PyDateTime_GET_DAY(pydate));
+int64_t PyDate_to_days(PyObject* pydate) {
+  // datetime struct-field accessors (PyDateTime_GET_YEAR etc.) are hidden under
+  // Py_LIMITED_API, so read the calendar fields through the stable attribute API.
+  return get_days_from_date(PyDatetimeField(pydate, "year"),
+                            PyDatetimeField(pydate, "month"),
+                            PyDatetimeField(pydate, "day"));
 }
 
 Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
@@ -324,8 +336,7 @@ Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
   OwnedRef pyoffset(PyObject_CallMethod(obj, "utcoffset", NULL));
   RETURN_IF_PYERROR();
   if (pyoffset.obj() != nullptr && pyoffset.obj() != Py_None) {
-    auto delta = reinterpret_cast<PyDateTime_Delta*>(pyoffset.obj());
-    return internal::PyDelta_to_s(delta);
+    return internal::PyDelta_to_s(pyoffset.obj());
   } else {
     return 0;
   }
@@ -341,10 +352,9 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
         "Object returned by tzinfo.utcoffset(None) is not an instance of "
         "datetime.timedelta");
   }
-  auto pydelta = reinterpret_cast<PyDateTime_Delta*>(pydelta_object.obj());
 
   // retrieve the offset as seconds
-  auto total_seconds = internal::PyDelta_to_s(pydelta);
+  auto total_seconds = internal::PyDelta_to_s(pydelta_object.obj());
 
   // determine whether the offset is positive or negative
   auto sign = (total_seconds < 0) ? "-" : "+";
@@ -596,7 +606,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
 
 PyObject* MonthDayNanoIntervalToNamedTuple(
     const MonthDayNanoIntervalType::MonthDayNanos& interval) {
-  OwnedRef tuple(PyStructSequence_New(&MonthDayNanoTupleType));
+  OwnedRef tuple(PyStructSequence_New(MonthDayNanoTupleType));
   if (ARROW_PREDICT_FALSE(tuple.obj() == nullptr)) {
     return nullptr;
   }
