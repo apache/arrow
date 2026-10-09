@@ -47,6 +47,7 @@ cdef class Dataset(_Weakrefable):
         SharedPtrNoGIL[CDataset] wrapped
         CDataset* dataset
         public dict _scan_options
+        public dict _columns
 
     cdef void init(self, const shared_ptr[CDataset]& sp)
 
