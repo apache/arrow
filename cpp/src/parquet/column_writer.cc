@@ -2002,8 +2002,10 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
                             ::arrow::compute::Unique(*chunk_indices, &exec_ctx));
 
-    // On first run, we might be able to re-use the existing dictionary
-    if (referenced_indices.length() == dictionary->length()) {
+    // On first run, we might be able to re-use the existing dictionary.
+    // Null indices show up as one null in referenced_indices: don't count it.
+    if (referenced_indices.length() - referenced_indices.null_count() ==
+        dictionary->length()) {
       referenced_dictionary = dictionary;
     } else {
       PARQUET_ASSIGN_OR_THROW(
@@ -2043,12 +2045,14 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_ || bloom_filter_writer_) {
-      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
-    }
+    // Statistics need the recomputed validity too: an index under a null parent may
+    // be valid in the leaf array.
     PARQUET_ASSIGN_OR_THROW(
         writeable_indices,
         MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
+    if (page_statistics_ || bloom_filter_writer_) {
+      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
+    }
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
