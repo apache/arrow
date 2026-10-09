@@ -3616,6 +3616,135 @@ static void CheckListToList(const std::vector<std::shared_ptr<DataType>>& value_
   }
 }
 
+TEST(Cast, ListViewToList) {
+  // Views may be out of order or overlapping, so the referenced values have to
+  // be gathered rather than reinterpreted (GH-51612).
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+
+  // Out of order and overlapping views.
+  auto offsets = ArrayFromJSON(int32(), "[2, 0, 1]");
+  auto sizes = ArrayFromJSON(int32(), "[2, 2, 1]");
+  ASSERT_OK_AND_ASSIGN(auto list_view,
+                       ListViewArray::FromArrays(*offsets, *sizes, *values));
+  CheckCast(list_view, ArrayFromJSON(list(int32()), "[[3, 4], [1, 2], [2]]"));
+  // Same offset width, larger offset width, and a child type change.
+  CheckCast(list_view, ArrayFromJSON(large_list(int32()), "[[3, 4], [1, 2], [2]]"));
+  CheckCast(list_view, ArrayFromJSON(list(int64()), "[[3, 4], [1, 2], [2]]"));
+  CheckCast(list_view, ArrayFromJSON(large_list(float32()), "[[3, 4], [1, 2], [2]]"));
+
+  // The large_list_view source, narrowing as well as widening the offset width.
+  ASSERT_OK_AND_ASSIGN(
+      auto large_list_view,
+      LargeListViewArray::FromArrays(*ArrayFromJSON(int64(), "[2, 0, 1]"),
+                                     *ArrayFromJSON(int64(), "[2, 2, 1]"), *values));
+  CheckCast(large_list_view, ArrayFromJSON(large_list(int32()), "[[3, 4], [1, 2], [2]]"));
+  CheckCast(large_list_view, ArrayFromJSON(list(int32()), "[[3, 4], [1, 2], [2]]"));
+
+  // Views that happen to be contiguous, i.e. what a list array would look like.
+  ASSERT_OK_AND_ASSIGN(list_view, ListViewArray::FromArrays(
+                                      *ArrayFromJSON(int32(), "[0, 2, 4]"),
+                                      *ArrayFromJSON(int32(), "[2, 2, 0]"), *values));
+  CheckCast(list_view, ArrayFromJSON(list(int32()), "[[1, 2], [3, 4], []]"));
+
+  // Nulls.
+  {
+    auto list_view_w_nulls = MaskArrayWithNullsAt(list_view, {0});
+    CheckCast(list_view_w_nulls, ArrayFromJSON(list(int32()), "[null, [3, 4], []]"));
+  }
+  {
+    // A null view contributes no values, whatever size it declares.
+    ASSERT_OK_AND_ASSIGN(auto lv, ListViewArray::FromArrays(
+                                      *ArrayFromJSON(int32(), "[0, 2, 2]"),
+                                      *ArrayFromJSON(int32(), "[2, 2, 2]"), *values));
+    CheckCast(MaskArrayWithNullsAt(lv, {2}),
+              ArrayFromJSON(list(int32()), "[[1, 2], [3, 4], null]"));
+  }
+
+  // Sliced list-view.
+  {
+    ASSERT_OK_AND_ASSIGN(
+        auto lv, ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 0, 1, 2, 0]"),
+                                           *ArrayFromJSON(int32(), "[2, 2, 2, 0, 2, 2]"),
+                                           *values));
+    CheckCast(lv->Slice(2, 3), ArrayFromJSON(list(int32()), "[[1, 2], [], [3, 4]]"));
+    CheckCast(lv->Slice(1, 4),
+              ArrayFromJSON(large_list(int32()), "[[3, 4], [1, 2], [], [3, 4]]"));
+  }
+
+  // Options pass through to the child cast.
+  {
+    ASSERT_OK_AND_ASSIGN(
+        auto lv, ListViewArray::FromArrays(
+                     *ArrayFromJSON(int32(), "[0, 2]"), *ArrayFromJSON(int32(), "[2, 2]"),
+                     *ArrayFromJSON(int64(), "[87654321, 0, 0, 0]")));
+    auto options = CastOptions::Safe(list(int16()));
+    CheckCastFails(lv, options);
+    options.allow_int_overflow = true;
+    CheckCast(lv, ArrayFromJSON(list(int16()), "[[32689, 0], [0, 0]]"), options);
+  }
+}
+
+TEST(Cast, ListViewToListEdgeCases) {
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+
+  auto make = [](const char* offsets, const char* sizes,
+                 const std::shared_ptr<Array>& values) {
+    return ListViewArray::FromArrays(*ArrayFromJSON(int32(), offsets),
+                                     *ArrayFromJSON(int32(), sizes), *values);
+  };
+
+  // Zero-length list-view.
+  CheckCast(ArrayFromJSON(list_view(int32()), "[]"), ArrayFromJSON(list(int32()), "[]"));
+  CheckCast(ArrayFromJSON(large_list_view(int32()), "[]"),
+            ArrayFromJSON(large_list(int32()), "[]"));
+
+  // All views null, several with a non-zero declared size: no value is gathered.
+  {
+    ASSERT_OK_AND_ASSIGN(auto lv, make("[0, 2, 4]", "[2, 2, 2]", values));
+    CheckCast(MaskArrayWithNullsAt(lv, {0, 1, 2}),
+              ArrayFromJSON(list(int32()), "[null, null, null]"));
+  }
+
+  // Out-of-order/overlapping views combined with nulls.
+  {
+    ASSERT_OK_AND_ASSIGN(auto lv, make("[2, 0, 1]", "[2, 2, 1]", values));
+    CheckCast(MaskArrayWithNullsAt(lv, {1}),
+              ArrayFromJSON(list(int32()), "[[3, 4], null, [2]]"));
+  }
+
+  // A view of size zero interleaved with out-of-order views.
+  {
+    ASSERT_OK_AND_ASSIGN(auto lv, make("[1, 3, 0, 2]", "[0, 1, 4, 2]", values));
+    CheckCast(lv, ArrayFromJSON(list(int32()), "[[], [4], [1, 2, 3, 4], [3, 4]]"));
+  }
+
+  // The list-view's child array is itself sliced, i.e. has a non-zero offset.
+  {
+    auto sliced_values = ArrayFromJSON(int32(), "[9, 1, 2, 3, 4, 9]")->Slice(1, 4);
+    ASSERT_OK_AND_ASSIGN(auto lv, make("[2, 0, 1]", "[2, 2, 1]", sliced_values));
+    CheckCast(lv, ArrayFromJSON(list(int32()), "[[3, 4], [1, 2], [2]]"));
+  }
+
+  // Nested list-view, exercising the gather on a non-primitive child.
+  {
+    auto nested_values =
+        ArrayFromJSON(list(int32()), "[[10], [20, 21], [30, 31, 32], [40]]");
+    ASSERT_OK_AND_ASSIGN(auto lv, make("[1, 0, 2]", "[1, 2, 2]", nested_values));
+    CheckCast(lv, ArrayFromJSON(large_list(list(int64())),
+                                "[[[20, 21]], [[10], [20, 21]], [[30, 31, 32], [40]]]"));
+  }
+
+  // A sliced list-view whose validity bitmap bit offset is non-zero.
+  {
+    auto lv = ArrayFromJSON(list_view(int32()),
+                            "[[1, 2], [3], null, [], [4], [5, 6], null, [7], [8, 9]]");
+    CheckCast(lv->Slice(1, 7),
+              ArrayFromJSON(list(int32()), "[[3], null, [], [4], [5, 6], null, [7]]"));
+    CheckCast(lv->Slice(1, 7), ArrayFromJSON(large_list(int64()),
+                                             "[[3], null, [], [4], [5, 6], null, [7]]"));
+  }
+}
+
 TEST(Cast, ListToList) {
   CheckListToList({int32(), float32(), int64()},
                   "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]");

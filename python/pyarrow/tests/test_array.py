@@ -4538,6 +4538,60 @@ def test_list_view_slice(list_view_type):
     assert sliced_array[0].as_py() == sliced_array.values[i:j].to_pylist() == [4]
 
 
+@pytest.mark.parametrize(
+    ('list_view_array_type', 'offset_type', 'list_factory'),
+    [
+        (pa.ListViewArray, pa.int32(), pa.list_),
+        (pa.ListViewArray, pa.int32(), pa.large_list),
+        (pa.LargeListViewArray, pa.int64(), pa.list_),
+        (pa.LargeListViewArray, pa.int64(), pa.large_list),
+    ])
+def test_cast_list_view_to_list(list_view_array_type, offset_type, list_factory):
+    # Casting a list-view to a list has to gather the values referenced by each
+    # view: views are neither required to be laid out in order nor to be
+    # non-overlapping. See GH-51612.
+    views = list_view_array_type.from_arrays(
+        pa.array([2, 0, 1], type=offset_type),   # offsets
+        pa.array([2, 2, 1], type=offset_type),   # sizes
+        pa.array([1, 2, 3, 4], type=pa.int32()),  # values
+    )
+
+    assert views.to_pylist() == [[3, 4], [1, 2], [2]]
+
+    # The child values are cast as well.
+    for value_type, expected in [
+            (pa.int32(), [[3, 4], [1, 2], [2]]),
+            (pa.int64(), [[3, 4], [1, 2], [2]]),
+            (pa.float64(), [[3.0, 4.0], [1.0, 2.0], [2.0]])]:
+        assert views.cast(list_factory(value_type)).to_pylist() == expected
+
+
+def test_cast_list_view_to_list_nulls():
+    # A null view must not contribute any values, whatever size it declares.
+    views = pa.ListViewArray.from_arrays(
+        pa.array([0, 2, 2], type=pa.int32()),   # offsets
+        pa.array([2, 2, 2], type=pa.int32()),   # sizes
+        pa.array([1, 2, 3, 4], type=pa.int32()),  # values
+        mask=pa.array([False, True, False]),   # True means null
+    )
+
+    assert views.to_pylist() == [[1, 2], None, [3, 4]]
+    assert views.cast(pa.list_(pa.int32())).to_pylist() == [[1, 2], None, [3, 4]]
+
+
+def test_cast_list_view_to_list_sliced():
+    # The validity bitmap of a sliced list-view must be read with the element
+    # offset applied as a bit offset. See GH-51613.
+    views = pa.array(
+        [[1, 2], [3], None, [], [4], [5, 6], None, [7], [8, 9]],
+        type=pa.list_view(pa.int32()),
+    )
+
+    sliced = views.slice(1, 7)
+    assert sliced.cast(pa.list_(pa.int32())).to_pylist() == [
+        [3], None, [], [4], [5, 6], None, [7]]
+
+
 @pytest.mark.numpy
 @pytest.mark.parametrize('numpy_native_dtype', ['u2', 'i4', 'f8'])
 def test_swapped_byte_order_fails(numpy_native_dtype):

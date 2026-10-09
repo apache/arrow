@@ -30,6 +30,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/list_util.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -105,7 +106,37 @@ struct CastList {
     return Status::OK();
   }
 
+  /// \brief Cast a list-view array to a (large)list array
+  ///
+  /// The values referenced by a list-view have to be gathered according to the
+  /// views' offsets and sizes, so the views' offsets buffer cannot be reused as
+  /// a list-offsets buffer (GH-51612).
+  static Status ExecListView(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> list_data,
+                          list_util::internal::ListFromListView(
+                              batch[0].array, DestType::type_id, ctx->memory_pool()));
+
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(list_data->child_data[0], child_type,
+                                                  options, ctx->exec_context()));
+    DCHECK(cast_values.is_array());
+
+    ArrayData* out_array = out->array_data().get();
+    out_array->buffers[0] = std::move(list_data->buffers[0]);
+    out_array->buffers[1] = std::move(list_data->buffers[1]);
+    out_array->null_count.store(list_data->null_count.load());
+    out_array->offset = list_data->offset;
+    out_array->child_data.push_back(cast_values.array());
+    return Status::OK();
+  }
+
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    if constexpr (is_list_view(SrcType::type_id)) {
+      return ExecListView(ctx, batch, out);
+    }
+
     const CastOptions& options = CastState::Get(ctx);
 
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
