@@ -195,9 +195,8 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   Status Init(const FlightServerOptions& options);
 
   /// \brief Get the port that the Flight server is listening on.
-  /// This method must only be called after Init().  Will return a
-  /// non-positive value if no port exists (e.g. when listening on a
-  /// domain socket).
+  /// This method must only be called after Init().
+  /// \return The port number. -1 if the port is not available.
   int port() const;
 
   /// \brief Get the address that the Flight server is listening on.

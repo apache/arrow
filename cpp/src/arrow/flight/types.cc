@@ -840,6 +840,18 @@ arrow::Status Location::Deserialize(std::string_view serialized, Location* out) 
   return DeserializeProtoString<pb::Location, Location>("Location", serialized, out);
 }
 
+arrow::Result<arrow::util::Uri> Location::uri() const {
+  return arrow::util::Uri::FromString(ToString());
+}
+
+int Location::port() const {
+  auto maybe_uri = uri();
+  if (!maybe_uri.ok()) {
+    return -1;
+  }
+  return maybe_uri.ValueUnsafe().port();
+}
+
 arrow::Status FlightEndpoint::SerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::FlightEndpoint>("FlightEndpoint", *this, out);
 }

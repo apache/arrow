@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport_server_internal.h"
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/type_fwd.h"
