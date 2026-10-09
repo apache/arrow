@@ -60,7 +60,7 @@ Status MismatchingColumns(const InvalidRow& row) {
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
 
-enum class DelimiterMatch { NoMatch, Match, Incomplete };
+enum class DelimiterMatch { NoMatch, Match, Partial };
 
 DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
                               const char* data_end, bool is_final) {
@@ -71,7 +71,7 @@ DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
     return DelimiterMatch::NoMatch;
   }
   if (available < delimiter.size()) {
-    return is_final ? DelimiterMatch::NoMatch : DelimiterMatch::Incomplete;
+    return is_final ? DelimiterMatch::NoMatch : DelimiterMatch::Partial;
   }
   return DelimiterMatch::Match;
 }
@@ -363,7 +363,7 @@ class BlockParserImpl {
       if constexpr (SpecializedOptions::multi_delimiter) {
         const auto delimiter = internal::GetDelimiter(options_);
         const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
-        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Incomplete)) {
+        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Partial)) {
           goto AbortLine;
         }
         if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Match)) {
@@ -429,7 +429,7 @@ class BlockParserImpl {
     if constexpr (SpecializedOptions::multi_delimiter) {
       const auto delimiter = internal::GetDelimiter(options_);
       const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
-      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Incomplete)) {
+      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Partial)) {
         goto AbortLine;
       }
       if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Match)) {

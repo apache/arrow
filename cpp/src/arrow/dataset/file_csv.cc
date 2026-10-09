@@ -22,6 +22,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -372,8 +373,11 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
   const auto& other_parse_options =
       checked_cast<const CsvFileFormat&>(format).parse_options;
 
-  return parse_options.delimiter == other_parse_options.delimiter &&
-         parse_options.delimiter_string == other_parse_options.delimiter_string &&
+  const auto effective_delimiter = [](const csv::ParseOptions& options) {
+    return options.delimiter_string.empty() ? std::string_view(&options.delimiter, 1)
+                                            : std::string_view(options.delimiter_string);
+  };
+  return effective_delimiter(parse_options) == effective_delimiter(other_parse_options) &&
          parse_options.quoting == other_parse_options.quoting &&
          parse_options.quote_char == other_parse_options.quote_char &&
          parse_options.double_quote == other_parse_options.double_quote &&

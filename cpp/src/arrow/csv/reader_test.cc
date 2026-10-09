@@ -620,6 +620,93 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
   ASSERT_TRUE(table->Equals(*expected_table));
 }
 
+TEST(ParseOptions, DelimiterLineEndings) {
+  for (char c : {'\r', '\n'}) {
+    auto options = ParseOptions::Defaults();
+    options.delimiter = c;
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               "Invalid: ParseOptions: delimiter cannot be \\r or \\n",
+                               options.Validate());
+
+    options.delimiter = ',';
+    const std::string newline(1, c);
+    for (const auto& delimiter : {newline + "||", "|" + newline + "|", "||" + newline}) {
+      options.delimiter_string = delimiter;
+      ASSERT_RAISES_WITH_MESSAGE(
+          Invalid, "Invalid: ParseOptions: delimiter_string cannot contain \\r or \\n",
+          options.Validate());
+    }
+  }
+}
+
+TEST(ParseOptions, DelimiterEscaping) {
+  for (char escape_char : {'\\', '!'}) {
+    auto options = ParseOptions::Defaults();
+    options.escape_char = escape_char;
+    options.delimiter = escape_char;
+    ASSERT_OK(options.Validate());
+    options.escaping = true;
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               "Invalid: ParseOptions: delimiter cannot be the escape "
+                               "character when escaping is enabled",
+                               options.Validate());
+
+    options.delimiter = ',';
+    const std::string escape(1, escape_char);
+    for (const auto& delimiter :
+         {escape, escape + "||", "|" + escape + "|", "||" + escape}) {
+      options.delimiter_string = delimiter;
+      options.escaping = true;
+      ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                                 "Invalid: ParseOptions: delimiter_string cannot contain "
+                                 "the escape character when escaping is enabled",
+                                 options.Validate());
+      options.escaping = false;
+      ASSERT_OK(options.Validate());
+    }
+  }
+}
+
+TEST(ParseOptions, DelimiterQuoting) {
+  for (char quote_char : {'"', '\''}) {
+    auto options = ParseOptions::Defaults();
+    options.quote_char = quote_char;
+    options.delimiter = quote_char;
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               "Invalid: ParseOptions: delimiter cannot start with the "
+                               "quote character when quoting is enabled",
+                               options.Validate());
+    options.quoting = false;
+    ASSERT_OK(options.Validate());
+
+    options.delimiter = ',';
+    const std::string quote(1, quote_char);
+    for (const auto& delimiter : {quote, quote + "||"}) {
+      options.delimiter_string = delimiter;
+      options.quoting = true;
+      ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                                 "Invalid: ParseOptions: delimiter cannot start with the "
+                                 "quote character when quoting is enabled",
+                                 options.Validate());
+      options.quoting = false;
+      ASSERT_OK(options.Validate());
+    }
+    options.delimiter_string = "|" + quote;
+    options.quoting = true;
+    ASSERT_OK(options.Validate());
+  }
+}
+
+TEST(ParseOptions, DelimiterStringOverridesDelimiter) {
+  auto options = ParseOptions::Defaults();
+  options.delimiter_string = "||";
+  options.escaping = true;
+  for (char delimiter : {'\r', '\n', options.escape_char, options.quote_char}) {
+    options.delimiter = delimiter;
+    ASSERT_OK(options.Validate());
+  }
+}
+
 TEST(ReaderTests, MultiDelimiter) {
   auto input =
       std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a||b||c\n1||2||3\n"));
