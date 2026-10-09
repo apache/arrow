@@ -434,6 +434,27 @@ TEST(BitPacked, BitPackedDecoder) {
       /* expected= */ {1000, 1, 2, 3, 4, 5, 6, 7});
 }
 
+TEST(BitPacked, BitPackedDecoderGetBatchAndCount) {
+  const std::array<uint8_t, 3> bytes = {0x88, 0xc6, 0xfa};
+  const std::vector<uint16_t> expected = {0, 1, 2, 3, 4, 5, 6, 7};
+
+  BitPackedDecoder<uint16_t> decoder(
+      bytes.data(),
+      static_cast<rle_size_t>(bytes.size()),
+      /* value_bit_width= */ 3,
+      /* value_count= */ 8);
+
+  std::vector<uint16_t> decoded(expected.size());
+
+  const auto result =
+      decoder.GetBatchAndCount(decoded.data(), /* value= */ 3,
+                               /* batch_size= */ static_cast<rle_size_t>(decoded.size()));
+
+  EXPECT_EQ(result.processed_count, 8);
+  EXPECT_EQ(result.matching_count, 1);
+  EXPECT_EQ(decoded, expected);
+}
+
 template <typename T>
 void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
                             std::vector<T> expected) {
@@ -1250,6 +1271,71 @@ void CheckCountUpTo(const Array& data, int bit_width, typename Type::c_type valu
   EXPECT_LT(res.processed_count, 8);
 }
 
+/// Check RleBitPackedDecoder::GetBatchAndCount, which spans multiple runs
+/// through the parser.
+///
+/// The decoded values are compared against the original data and the matching
+/// counts are compared against a naive count over the original data.
+template <typename Type>
+void CheckGetBatchAndCount(const Array& data, int bit_width,
+                           typename Type::c_type value) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using value_type = typename Type::c_type;
+
+  const auto data_size = static_cast<rle_size_t>(data.length());
+  const value_type* data_values =
+      arrow::internal::checked_cast<const ArrayType&>(data).raw_values();
+
+  ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", data_size = ", data_size,
+                     ", value = ", value);
+
+  // Encode all values into `buffer`.
+  const auto buffer = EncodeTestArray<Type>(data, bit_width);
+
+  RleBitPackedDecoder<value_type> decoder(buffer.data(),
+                                           static_cast<int>(buffer.size()),
+                                           bit_width);
+
+  // Decode in chunks small enough to repeatedly cross run boundaries.
+  const rle_size_t step = std::max<rle_size_t>(data_size / 16, 1);
+  std::vector<value_type> decoded(step);
+
+  rle_size_t pos = 0;
+  rle_size_t total_matching = 0;
+
+  while (pos < data_size) {
+    const auto to_process = std::min(step, data_size - pos);
+
+    const auto result =
+        decoder.GetBatchAndCount(decoded.data(), value, to_process);
+
+    ASSERT_EQ(result.processed_count, to_process);
+
+    // The decoded output must exactly match the original input.
+    for (rle_size_t i = 0; i < result.processed_count; ++i) {
+      EXPECT_EQ(decoded[i], data_values[pos + i])
+          << "at position " << (pos + i);
+    }
+
+    // The matching count must equal a naive count over the same input range.
+    const auto expected =
+        std::count(data_values + pos, data_values + pos + to_process, value);
+
+    EXPECT_EQ(result.matching_count, static_cast<rle_size_t>(expected))
+        << "at position " << pos;
+
+    pos += result.processed_count;
+    total_matching += result.matching_count;
+  }
+
+  EXPECT_EQ(pos, data_size) << "Total number of values processed is off";
+
+  const auto total_expected =
+      std::count(data_values, data_values + data_size, value);
+
+  EXPECT_EQ(total_matching, static_cast<rle_size_t>(total_expected));
+}
+
 template <typename T>
 struct DataTestRleBitPackedRandomPart {
   using value_type = T;
@@ -1418,6 +1504,12 @@ void DoTestGetBatchSpacedRoundtrip() {
     CheckCountUpTo<ArrowType>(*array, case_.bit_width, first);
     CheckCountUpTo<ArrowType>(*array, case_.bit_width, max_value);
     CheckCountUpTo<ArrowType>(*array->Slice(1), case_.bit_width, first);
+
+    // Tests for GetBatchAndCount with both a value present in the data and a value
+    // that may not be present.
+    CheckGetBatchAndCount<ArrowType>(*array, case_.bit_width, first);
+    CheckGetBatchAndCount<ArrowType>(*array, case_.bit_width, max_value);
+    CheckGetBatchAndCount<ArrowType>(*array->Slice(1), case_.bit_width, first);
 
     // Tests for GetBatchSpaced
     CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true,
