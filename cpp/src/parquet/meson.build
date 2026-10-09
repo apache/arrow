@@ -227,6 +227,7 @@ parquet_tests = {
     'chunker-test': {'sources': files('chunker_internal_test.cc')},
     'arrow-reader-writer-test': {
         'sources': files(
+            'arrow/arrow_encoding_test.cc',
             'arrow/arrow_reader_writer_test.cc',
             'arrow/arrow_statistics_test.cc',
             'arrow/variant_test.cc',

@@ -550,6 +550,10 @@ arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
 
 set(ARROW_UTIL_SRCS
     util/align_util.cc
+    util/alp/alp_metadata.cc
+    util/alp/alp_compression.cc
+    util/alp/alp_sampler.cc
+    util/alp/alp_codec.cc
     util/async_util.cc
     util/atfork_internal.cc
     util/basic_decimal.cc
