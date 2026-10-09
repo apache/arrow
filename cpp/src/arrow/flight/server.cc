@@ -83,17 +83,15 @@ Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
 }
 
 Status FlightServerBase::Serve() {
+  // Check before entering the signal helper: a failing wait() callback would
+  // otherwise leave the process signal handlers overridden, and clearing the
+  // signal target on the error path would disable signals for another server.
+  if (!impl_->transport_) {
+    return Status::UnknownError("Server did not start properly");
+  }
   return impl_->signal_state_.Serve(
-      [this]() -> Status {
-        if (!impl_->transport_) {
-          return Status::UnknownError("Server did not start properly");
-        }
-        return impl_->transport_->Wait();
-      },
+      [this]() -> Status { return impl_->transport_->Wait(); },
       [this](const std::chrono::system_clock::time_point* deadline) -> Status {
-        if (!impl_->transport_) {
-          return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
-        }
         if (deadline) {
           return impl_->transport_->Shutdown(*deadline);
         }
@@ -105,11 +103,11 @@ Status FlightServerBase::Serve() {
 int FlightServerBase::GotSignal() const { return impl_->signal_state_.GotSignal(); }
 
 Status FlightServerBase::Shutdown(const std::chrono::system_clock::time_point* deadline) {
+  if (!impl_->transport_) {
+    return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
+  }
   return impl_->signal_state_.Shutdown(
       [this](const std::chrono::system_clock::time_point* maybe_deadline) -> Status {
-        if (!impl_->transport_) {
-          return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
-        }
         if (maybe_deadline) {
           return impl_->transport_->Shutdown(*maybe_deadline);
         }
