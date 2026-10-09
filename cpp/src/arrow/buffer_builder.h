@@ -29,6 +29,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
@@ -91,7 +92,12 @@ class ARROW_EXPORT BufferBuilder {
   /// \param[in] additional_bytes number of additional bytes to make space for
   /// \return Status
   Status Reserve(const int64_t additional_bytes) {
-    auto min_capacity = size_ + additional_bytes;
+    int64_t min_capacity;
+    if (ARROW_PREDICT_FALSE(
+            internal::AddWithOverflow(size_, additional_bytes, &min_capacity))) {
+      return Status::CapacityError("Reserve: capacity overflow: ", size_, " + ",
+                                   additional_bytes);
+    }
     if (min_capacity <= capacity_) {
       return Status::OK();
     }
@@ -104,15 +110,24 @@ class ARROW_EXPORT BufferBuilder {
     // (versus 1.5x) seems to have slightly better performance when using
     // jemalloc, but significantly better performance when using the system
     // allocator. See ARROW-6450 for further discussion
-    return std::max(new_capacity, current_capacity * 2);
+    int64_t doubled;
+    if (ARROW_PREDICT_FALSE(
+            internal::AddWithOverflow(current_capacity, current_capacity, &doubled))) {
+      return new_capacity;
+    }
+    return std::max(new_capacity, doubled);
   }
 
   /// \brief Append the given data to the buffer
   ///
   /// The buffer is automatically expanded if necessary.
   Status Append(const void* data, const int64_t length) {
-    if (ARROW_PREDICT_FALSE(size_ + length > capacity_)) {
-      ARROW_RETURN_NOT_OK(Resize(GrowByFactor(capacity_, size_ + length), false));
+    int64_t new_size;
+    if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(size_, length, &new_size))) {
+      return Status::CapacityError("Append: size overflow: ", size_, " + ", length);
+    }
+    if (ARROW_PREDICT_FALSE(new_size > capacity_)) {
+      ARROW_RETURN_NOT_OK(Resize(GrowByFactor(capacity_, new_size), false));
     }
     UnsafeAppend(data, length);
     return Status::OK();
@@ -250,12 +265,13 @@ class TypedBufferBuilder<
   }
 
   Status Append(const T* values, int64_t num_elements) {
-    return bytes_builder_.Append(reinterpret_cast<const uint8_t*>(values),
-                                 num_elements * sizeof(T));
+    int64_t num_bytes = 0;
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Append", num_elements, &num_bytes));
+    return bytes_builder_.Append(reinterpret_cast<const uint8_t*>(values), num_bytes);
   }
 
   Status Append(const int64_t num_copies, T value) {
-    ARROW_RETURN_NOT_OK(Reserve(num_copies + length()));
+    ARROW_RETURN_NOT_OK(Reserve(num_copies));
     UnsafeAppend(num_copies, value);
     return Status::OK();
   }
@@ -284,15 +300,21 @@ class TypedBufferBuilder<
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    return bytes_builder_.Resize(new_capacity * sizeof(T), shrink_to_fit);
+    int64_t num_bytes = 0;
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Resize", new_capacity, &num_bytes));
+    return bytes_builder_.Resize(num_bytes, shrink_to_fit);
   }
 
   Status Reserve(const int64_t additional_elements) {
-    return bytes_builder_.Reserve(additional_elements * sizeof(T));
+    int64_t num_bytes = 0;
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Reserve", additional_elements, &num_bytes));
+    return bytes_builder_.Reserve(num_bytes);
   }
 
   Status Advance(const int64_t length) {
-    return bytes_builder_.Advance(length * sizeof(T));
+    int64_t num_bytes = 0;
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Advance", length, &num_bytes));
+    return bytes_builder_.Advance(num_bytes);
   }
 
   void UnsafeAdvance(const int64_t length) {
@@ -316,7 +338,9 @@ class TypedBufferBuilder<
   /// only for memory allocation).
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
-    return bytes_builder_.FinishWithLength(final_length * sizeof(T), shrink_to_fit);
+    int64_t num_bytes = 0;
+    ARROW_RETURN_NOT_OK(ElementsToBytes("FinishWithLength", final_length, &num_bytes));
+    return bytes_builder_.FinishWithLength(num_bytes, shrink_to_fit);
   }
 
   void Reset() { bytes_builder_.Reset(); }
@@ -327,6 +351,18 @@ class TypedBufferBuilder<
   T* mutable_data() { return reinterpret_cast<T*>(bytes_builder_.mutable_data()); }
 
  private:
+  // Convert a number of elements to a number of bytes, erroring out on
+  // byte size overflow.
+  static Status ElementsToBytes(const char* operation, int64_t num_elements,
+                                int64_t* num_bytes) {
+    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
+            num_elements, static_cast<int64_t>(sizeof(T)), num_bytes))) {
+      return Status::CapacityError(operation, ": byte size overflow: ", num_elements,
+                                   " * ", sizeof(T));
+    }
+    return Status::OK();
+  }
+
   BufferBuilder bytes_builder_;
 };
 
@@ -429,9 +465,13 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Reserve(const int64_t additional_elements) {
-    return Resize(
-        BufferBuilder::GrowByFactor(bit_length_, bit_length_ + additional_elements),
-        false);
+    int64_t min_length;
+    if (ARROW_PREDICT_FALSE(
+            internal::AddWithOverflow(bit_length_, additional_elements, &min_length))) {
+      return Status::CapacityError("Reserve: capacity overflow: ", bit_length_, " + ",
+                                   additional_elements);
+    }
+    return Resize(BufferBuilder::GrowByFactor(bit_length_, min_length), false);
   }
 
   Status Advance(const int64_t length) {
