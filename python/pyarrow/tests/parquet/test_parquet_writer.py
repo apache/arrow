@@ -41,6 +41,50 @@ except ImportError:
 pytestmark = pytest.mark.parquet
 
 
+@pytest.mark.parametrize("minimum", [None, 0.0, 0.1, 1.0])
+@pytest.mark.parametrize("page_version", ["1.0", "2.0"])
+@pytest.mark.parametrize("compression", ["none", "snappy"])
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_min_space_savings(
+        minimum, page_version, compression, use_writer):
+    table = pa.table({
+        "value": pa.array([0.0] * 1000, type=pa.float32())
+    })
+    sink = pa.BufferOutputStream()
+    options = dict(
+        compression=compression,
+        use_dictionary=False,
+        data_page_version=page_version,
+        min_space_savings=minimum,
+    )
+
+    if use_writer:
+        with pq.ParquetWriter(sink, table.schema, **options) as writer:
+            writer.write_table(table)
+    else:
+        pq.write_table(table, sink, **options)
+
+    assert pq.read_table(sink.getvalue()).equals(table)
+
+
+@pytest.mark.parametrize(
+    "minimum",
+    [-0.1, 1.1, float("inf"), -float("inf"), float("nan")]
+)
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_invalid_min_space_savings(minimum, use_writer):
+    table = pa.table({"value": [1.0]})
+    sink = pa.BufferOutputStream()
+
+    with pytest.raises(ValueError, match="min_space_savings"):
+        if use_writer:
+            pq.ParquetWriter(
+                sink, table.schema, min_space_savings=minimum)
+        else:
+            pq.write_table(
+                table, sink, min_space_savings=minimum)
+
+
 @pytest.mark.pandas
 def test_parquet_incremental_file_build(tempdir):
     df = _test_dataframe(100)
