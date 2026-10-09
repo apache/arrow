@@ -1,4 +1,4 @@
-%MAKELINKSTRING Utility function for creating hyperlinks.
+%MAKEDIMENSIONSTRING Creates a string representation of array dimensions.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -6,7 +6,7 @@
 % The ASF licenses this file to you under the Apache License, Version
 % 2.0 (the "License"); you may not use this file except in compliance
 % with the License.  You may obtain a copy of the License at
-%
+% 
 %   http://www.apache.org/licenses/LICENSE-2.0
 %
 % Unless required by applicable law or agreed to in writing, software
@@ -15,18 +15,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function link = makeLinkString(opts)
-    arguments
-        opts.FullClassName(1, 1) string
-        opts.ClassName(1, 1) string
-        % When displaying heterogeneous arrays, only the name of the 
-        % closest shared ancestor class is displayed in bold. All other
-        % class names are not bolded.
-        opts.BoldFont(1, 1) logical
-    end
-        
-    link = arrow.internal.display.makeLinkString( ...
-        HelpTarget=opts.FullClassName, ...
-        Text=opts.ClassName, ...
-        BoldFont=opts.BoldFont);
+function dimensionString = makeDimensionString(arraySize)
+    dimensionString = string(arraySize);
+    dimensionString = join(dimensionString, char(215));
 end
