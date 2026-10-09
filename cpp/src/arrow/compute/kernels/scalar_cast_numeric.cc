@@ -126,7 +126,8 @@ template <template <typename...> class Checker, typename InType, typename OutTyp
 ARROW_DISABLE_UBSAN("float-cast-overflow")
 Status CheckFloatToIntValues(const ArraySpan& input, const ArraySpan& output) {
   auto GetErrorMessage = [&](InT val) {
-    if (WasOutOfRange<InType, OutType>::Check(OutT{}, val)) {
+    if constexpr (std::is_same_v<Checker<InType, OutType>,
+                                 WasOutOfRange<InType, OutType>>) {
       return Status::Invalid("Float value ", val, " out of range converting to ",
                              *output.type);
     }
