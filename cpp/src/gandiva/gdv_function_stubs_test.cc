@@ -404,6 +404,35 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromMilliseconds) {
   ctx.Reset();
 }
 
+// Dates whose formatted form is longer than "YYYY-MM-DD" must still fit in the
+// block they are written to. A following allocation from the same arena would
+// otherwise land inside the bytes this cast already wrote.
+TEST(TestGdvFnStubs, TestCastVARCHARFromMillisecondsLongOutput) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  int32_t other_len = 0;
+
+  // Year 10000 needs 11 bytes.
+  const char* out_str =
+      gdv_fn_castVARCHAR_date64_int64(ctx_ptr, 253402300800000LL, 100, &out_len);
+  gdv_fn_castVARCHAR_int32_int64(ctx_ptr, 12345, 100, &other_len);
+  EXPECT_EQ(std::string(out_str, out_len), "10000-01-01");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Out-of-range dates format as a diagnostic string, far longer than a date.
+  out_str = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, std::numeric_limits<int64_t>::min(),
+                                            100, &out_len);
+  gdv_fn_castVARCHAR_int32_int64(ctx_ptr, 12345, 100, &other_len);
+  EXPECT_EQ(std::string(out_str, out_len), "<value out of range: -9223372036854775808>");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncation to the requested length still applies.
+  out_str = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, 253402300800000LL, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "10000");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
