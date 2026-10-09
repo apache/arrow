@@ -5949,6 +5949,27 @@ def test_write_dataset_content_defined_chunking(tempdir, cdc):
     assert ds.dataset(tempdir, format=fmt).to_table().equals(expected_table)
 
 
+@pytest.mark.parquet
+@pytest.mark.parametrize("minimum", [None, 0.0, 0.1, 1.0])
+def test_parquet_min_space_savings(tempdir, minimum):
+    import pyarrow.parquet as pq
+
+    table = pa.table({
+        "value": pa.array([0.0] * 1000, type=pa.float32())
+    })
+    pq.write_to_dataset(
+        table,
+        tempdir,
+        compression="snappy",
+        use_dictionary=False,
+        data_page_version="2.0",
+        min_space_savings=minimum,
+    )
+
+    result = ds.dataset(tempdir, format="parquet").to_table()
+    assert result.equals(table)
+
+
 def test_make_write_options_error():
     # GH-39440: calling make_write_options as a static class method
     msg_1 = ("make_write_options() should be called on an "
