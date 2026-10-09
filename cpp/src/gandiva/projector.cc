@@ -230,8 +230,6 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
 }
 
 Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) const {
-  ARROW_RETURN_IF(!batch.schema()->Equals(*schema_),
-                  Status::Invalid("Schema in RecordBatch must match schema in Make()"));
   ARROW_RETURN_IF(batch.num_rows() == 0,
                   Status::Invalid("RecordBatch must be non-empty."));
 
