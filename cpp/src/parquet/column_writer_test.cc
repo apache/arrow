@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -112,7 +114,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
-      int64_t max_rows_per_page = kDefaultMaxRowsPerPage) {
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
+      std::optional<double> min_space_savings = {}) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -130,6 +133,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
     wp_builder.max_rows_per_page(max_rows_per_page);
+    wp_builder.min_space_savings(min_space_savings);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -2082,6 +2086,99 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
     values_[0] = 142857;
     verify_only_one_uncompressed_page(/*total_num_values=*/1);
+  }
+}
+
+TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
+  this->SetUpSchema(Repetition::OPTIONAL);
+  this->descr_ = this->schema_.Column(0);
+  this->GenerateData(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), 0);
+
+  // Calculate the actual savings to test the exact threshold.
+  ASSERT_OK_AND_ASSIGN(auto codec, Codec::Create(Compression::ZSTD));
+  const int64_t original_size = SMALL_SIZE * sizeof(int32_t);
+  std::vector<uint8_t> input(original_size, 0);
+  std::vector<uint8_t> compressed(codec->MaxCompressedLen(original_size, input.data()));
+  ASSERT_OK_AND_ASSIGN(auto compressed_size,
+                       codec->Compress(original_size, input.data(), compressed.size(),
+                                       compressed.data()));
+
+  const double savings = 1.0 - static_cast<double>(compressed_size) / original_size;
+  ASSERT_GT(savings, 0.0);
+  ASSERT_LT(savings, 1.0);
+
+  const std::vector<std::pair<std::optional<double>, bool>> cases = {
+      {std::nullopt, true},
+      {0.0, true},
+      {std::nextafter(savings, 0.0), true},
+      {savings, true},
+      {std::nextafter(savings, 1.0), false},
+      {1.0, false},
+  };
+
+  ColumnProperties column_properties;
+  column_properties.set_compression(Compression::ZSTD);
+
+  for (const auto& [minimum, expected_compressed] : cases) {
+    auto writer = this->BuildWriter(
+        SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+        ParquetDataPageVersion::V2, false, kDefaultDataPageSize,
+        kDefaultMaxRowsPerPage, minimum);
+    writer->WriteBatch(SMALL_SIZE, this->def_levels_.data(), nullptr,
+                       this->values_ptr_);
+    writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+
+    auto page_reader = PageReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
+        Compression::ZSTD, default_reader_properties(), *this->descr_);
+    auto page = page_reader->NextPage();
+    ASSERT_NE(page, nullptr);
+    ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+    ASSERT_EQ(expected_compressed, data_page->is_compressed());
+    ASSERT_EQ(page_reader->NextPage(), nullptr);
+
+    // Verify that the data still reads correctly.
+    auto read_pages = PageReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
+        Compression::ZSTD, default_reader_properties(), *this->descr_);
+    auto reader = std::static_pointer_cast<Int32Reader>(
+        ColumnReader::Make(this->descr_, std::move(read_pages)));
+    std::vector<int32_t> values(SMALL_SIZE);
+    std::vector<int16_t> definitions(SMALL_SIZE);
+    int64_t values_read = 0;
+    ASSERT_EQ(SMALL_SIZE,
+              reader->ReadBatch(SMALL_SIZE, definitions.data(), nullptr,
+                                values.data(), &values_read));
+    ASSERT_EQ(SMALL_SIZE, values_read);
+    ASSERT_EQ(this->values_, values);
+    ASSERT_EQ(this->def_levels_, definitions);
+  }
+}
+
+TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsIgnoredForDataPageV1) {
+  this->GenerateData(SMALL_SIZE);
+  ColumnProperties column_properties;
+  column_properties.set_compression(Compression::ZSTD);
+  std::shared_ptr<Buffer> default_output;
+
+  for (std::optional<double> minimum :
+       {std::optional<double>{}, std::optional<double>{1.0}}) {
+    auto writer = this->BuildWriter(
+        SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+        ParquetDataPageVersion::V1, false, kDefaultDataPageSize,
+        kDefaultMaxRowsPerPage, minimum);
+    writer->WriteBatch(SMALL_SIZE, nullptr, nullptr, this->values_ptr_);
+    writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+
+    if (!minimum) {
+      default_output = buffer;
+    } else {
+      ASSERT_TRUE(default_output->Equals(*buffer));
+    }
   }
 }
 #endif

@@ -403,6 +403,7 @@ class PARQUET_EXPORT WriterProperties {
           max_rows_per_page_(properties.max_rows_per_page()),
           version_(properties.version()),
           data_page_version_(properties.data_page_version()),
+          min_space_savings_(properties.min_space_savings()),
           created_by_(properties.created_by()),
           store_decimal_as_integer_(properties.store_decimal_as_integer()),
           page_checksum_enabled_(properties.page_checksum_enabled()),
@@ -526,6 +527,18 @@ class PARQUET_EXPORT WriterProperties {
     /// Default V1.
     Builder* data_page_version(ParquetDataPageVersion data_page_version) {
       data_page_version_ = data_page_version;
+      return this;
+    }
+
+    /// Minimum space savings required to compress V2 data page values.
+    ///
+    /// Savings are (1.0 - compressed_size / uncompressed_size), excluding
+    /// repetition and definition levels. For example, 0.1 requires 10% savings.
+    /// If unset, keep compression whenever it makes the values smaller.
+    /// Ignored for V1 pages and when compression is disabled.
+    /// Values outside [0, 1], including NaN, cause build() to throw.
+    Builder* min_space_savings(std::optional<double> min_space_savings) {
+      min_space_savings_ = min_space_savings;
       return this;
     }
 
@@ -883,6 +896,10 @@ class PARQUET_EXPORT WriterProperties {
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
+      if (min_space_savings_ &&
+          !(*min_space_savings_ >= 0.0 && *min_space_savings_ <= 1.0)) {
+        throw ParquetException("min_space_savings must be in range [0, 1]");
+      }
       std::unordered_map<std::string, ColumnProperties> column_properties;
       auto get = [&](const std::string& key) -> ColumnProperties& {
         auto it = column_properties.find(key);
@@ -918,7 +935,7 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_, max_rows_per_page_, version_, created_by_, page_checksum_enabled_,
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_),
+          min_space_savings_, store_decimal_as_integer_, std::move(sorting_columns_),
           content_defined_chunking_enabled_, content_defined_chunking_options_));
     }
 
@@ -933,6 +950,7 @@ class PARQUET_EXPORT WriterProperties {
     int64_t max_rows_per_page_;
     ParquetVersion::type version_;
     ParquetDataPageVersion data_page_version_;
+    std::optional<double> min_space_savings_ = {};
     std::string created_by_;
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
@@ -972,6 +990,9 @@ class PARQUET_EXPORT WriterProperties {
   inline ParquetDataPageVersion data_page_version() const {
     return parquet_data_page_version_;
   }
+
+  /// Minimum space savings required to compress V2 data page values, if set.
+  std::optional<double> min_space_savings() const { return min_space_savings_; }
 
   inline ParquetVersion::type version() const { return parquet_version_; }
 
@@ -1100,7 +1121,8 @@ class PARQUET_EXPORT WriterProperties {
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
-      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
+      ParquetDataPageVersion data_page_version, std::optional<double> min_space_savings,
+      bool store_short_decimal_as_integer,
       std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
       CdcOptions content_defined_chunking_options)
       : pool_(pool),
@@ -1110,6 +1132,7 @@ class PARQUET_EXPORT WriterProperties {
         pagesize_(pagesize),
         max_rows_per_page_(max_rows_per_page),
         parquet_data_page_version_(data_page_version),
+        min_space_savings_(min_space_savings),
         parquet_version_(version),
         parquet_created_by_(created_by),
         store_decimal_as_integer_(store_short_decimal_as_integer),
@@ -1129,6 +1152,7 @@ class PARQUET_EXPORT WriterProperties {
   int64_t pagesize_;
   int64_t max_rows_per_page_;
   ParquetDataPageVersion parquet_data_page_version_;
+  std::optional<double> min_space_savings_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
   bool store_decimal_as_integer_;

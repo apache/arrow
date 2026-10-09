@@ -80,6 +80,31 @@ TEST(TestWriterProperties, DefaultCompression) {
             ::arrow::util::kUseDefaultCompressionLevel);
 }
 
+TEST(TestWriterProperties, MinSpaceSavings) {
+  WriterProperties::Builder builder;
+  ASSERT_FALSE(builder.build()->min_space_savings().has_value());
+
+  for (double savings : {0.0, 0.1, 1.0}) {
+    auto properties = builder.min_space_savings(savings)->build();
+    ASSERT_EQ(std::optional<double>(savings), properties->min_space_savings());
+
+    auto copied = WriterProperties::Builder(*properties).build();
+    ASSERT_EQ(properties->min_space_savings(), copied->min_space_savings());
+  }
+
+  auto properties = builder.min_space_savings(std::nullopt)->build();
+  ASSERT_FALSE(properties->min_space_savings().has_value());
+}
+
+TEST(TestWriterProperties, InvalidMinSpaceSavings) {
+  for (double savings : {-0.1, 1.1, std::numeric_limits<double>::infinity(),
+                         -std::numeric_limits<double>::infinity(),
+                         std::numeric_limits<double>::quiet_NaN()}) {
+    EXPECT_THROW(WriterProperties::Builder().min_space_savings(savings)->build(),
+                 ParquetException);
+  }
+}
+
 TEST(TestWriterProperties, AdvancedHandling) {
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);
