@@ -672,6 +672,13 @@ jobs:
           name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
           path: build/cpp/ArrowFlightSQLODBC-*.pkg
           if-no-files-found: error
+      - name: Upload Intel ODBC dylib to the job
+        if: matrix.build-type == 'release' && matrix.architecture == 'AMD64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-dylib-${{ matrix.architecture }}
+          path: build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
@@ -685,6 +692,112 @@ jobs:
           sudo mkdir -p /Library/ODBC
           sudo chown -R $USER /Library/ODBC
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  odbc-macos-universal:
+    needs: odbc-macos
+    if: needs.check-enabled.outputs.is_enabled == 'true'
+    name: ODBC universal macOS installer
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Download ARM64 PKG
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-pkg-installer-ARM64
+          path: arm64-pkg
+      - name: Download AMD64 dylib
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-dylib-AMD64
+          path: amd64-dylib
+      - name: Build universal macOS installer
+        run: |
+          set -euo pipefail
+
+          pkg_path="$(ls arm64-pkg/ArrowFlightSQLODBC-*.pkg)"
+          pkg_name="$(basename "${pkg_path}" .pkg)"
+
+          # Use the ARM64 .pkg and swap in a universal ODBC dylib
+          # that works on ARM64 and AMD64.
+          pkgutil --expand-full "${pkg_path}" expanded
+
+          # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink 
+          # to the versioned dylib that the
+          # install name (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib)
+          # resolves to. Run lipo on the real file so the symlinks stay intact.
+          symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
+          lib_dir="$(dirname "${symlink_path}")"
+          dylib_path="$(realpath "${symlink_path}")"
+          echo "Merging into ${dylib_path} (via ${symlink_path})"
+          lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
+            -output "${dylib_path}"
+          
+          for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
+            dylib_archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${dylib_archs}"
+            for arch in arm64 x86_64; do
+              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
+                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
+                exit 1
+              fi
+            done
+          done
+
+          pkgutil --flatten-full expanded "${pkg_name}.pkg"
+      - name: Upload universal ODBC PKG
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-universal
+          path: ArrowFlightSQLODBC-*.pkg
+          if-no-files-found: error
+
+  odbc-macos-universal-verify:
+    needs: odbc-macos-universal
+    if: needs.check-enabled.outputs.is_enabled == 'true'
+    name: ODBC universal installer verify ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+    runs-on: macos-${{ matrix.macos-version }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "15-intel"
+          - architecture: ARM64
+            macos-version: "14"
+    steps:
+      - name: Download universal PKG
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-pkg-installer-universal
+      - name: Install ODBC PKG
+        run: |
+          set -euo pipefail
+
+          pkg_path="$(ls ArrowFlightSQLODBC-*.pkg)"
+          sudo installer -pkg "${pkg_path}" -target / -verbose
+      - name: Check ODBC dylib installation
+        run: |
+          set -euo pipefail
+
+          dylib="/Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc.dylib"
+
+          if [ ! -f "${dylib}" ]; then
+            echo "ODBC dylib not found at ${dylib}"
+            exit 1
+          fi
+          echo "Found ODBC dylib: ${dylib}"
+
+          local_arch="$(uname -m)"
+          echo "Local architecture: ${local_arch}"
+          for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
+            archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${archs}"
+            if ! grep -qw "${local_arch}" <<< "${archs}"; then
+              echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
+              exit 1
+            fi
+          done
 
   odbc-msvc:
     needs: check-enabled
@@ -856,6 +969,8 @@ jobs:
       - msvc-arm64
       - odbc-linux
       - odbc-macos
+      - odbc-macos-universal
+      - odbc-macos-universal-verify
       - odbc-msvc
       - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
