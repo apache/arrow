@@ -254,9 +254,15 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
 
-    std::string error_msg =
-        "Invalid: Failed to convert JSON to " + decimal_type->ToString() +
-        ": 123456789012345678901234567890.0123456789 requires precision 40";
+    std::string error_msg;
+    if (decimal_type->id() == Type::DECIMAL128) {
+      error_msg =
+          "Invalid: The string '123456789012345678901234567890.0123456789' "
+          "cannot be represented as decimal128";
+    } else {
+      error_msg = "Invalid: Failed to convert JSON to " + decimal_type->ToString() +
+                  ": 123456789012345678901234567890.0123456789 requires precision 40";
+    }
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr(error_msg),
         Convert(decimal_type, parse_array->GetFieldByName("")));
