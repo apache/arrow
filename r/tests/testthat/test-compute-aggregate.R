@@ -21,8 +21,11 @@ test_that("list_compute_functions", {
   justmins <- list_compute_functions("^min")
   expect_true(length(justmins) > 0)
   expect_all_true(grepl("min", justmins))
-  no_hash_funcs <- list_compute_functions("^hash")
+  no_hash_funcs <- list_compute_functions("^hash_")
   expect_true(length(no_hash_funcs) == 0)
+  # hash32/hash64 are scalar functions (no underscore), unlike the hash_*
+  # group-by aggregations filtered out above, so they remain discoverable
+  expect_true(all(c("hash32", "hash64") %in% allfuncs))
 })
 
 test_that("sum.Array", {

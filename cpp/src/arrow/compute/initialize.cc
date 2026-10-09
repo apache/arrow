@@ -31,6 +31,7 @@ Status RegisterComputeKernels() {
   internal::RegisterScalarArithmetic(registry);
   internal::RegisterScalarBoolean(registry);
   internal::RegisterScalarComparison(registry);
+  internal::RegisterScalarHash(registry);
   internal::RegisterScalarIfElse(registry);
   internal::RegisterScalarNested(registry);
   internal::RegisterScalarRandom(registry);  // Nullary
