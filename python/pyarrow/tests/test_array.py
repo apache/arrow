@@ -3369,6 +3369,17 @@ def test_list_value_parent_indices(list_type):
     assert arr.value_parent_indices().equals(expected)
 
 
+def test_map_value_parent_indices():
+    arr = pa.array([{'a': 1, 'b': 2}, {'c': 3}],
+                   type=pa.map_(pa.utf8(), pa.uint16()))
+
+    message = "expects list input, got map"
+    with pytest.raises(pa.ArrowTypeError, match=message):
+        arr.value_parent_indices()
+    with pytest.raises(pa.ArrowTypeError, match=message):
+        pc.list_parent_indices(arr)
+
+
 @pytest.mark.parametrize(('offset_type', 'list_type'),
                          [(pa.int32(), pa.list_(pa.int32())),
                           (pa.int32(), pa.list_(pa.int32(), list_size=2)),
