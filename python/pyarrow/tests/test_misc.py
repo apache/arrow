@@ -270,3 +270,32 @@ def test_extension_type_constructor_errors(klass):
     msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
     with pytest.raises(TypeError, match=msg):
         klass()
+
+
+@pytest.mark.processes
+@pytest.mark.parametrize(("module", "call", "message"), [
+    pytest.param(
+        "acero", "ScanNodeOptions(None)", "Argument 'dataset'",
+        marks=[pytest.mark.acero, pytest.mark.dataset], id="scan"),
+    pytest.param(
+        "acero", "ProjectNodeOptions([None])", "Expression must not be None",
+        marks=pytest.mark.acero, id="project"),
+    pytest.param(
+        "parquet", "ParquetSchema(None)", "Argument 'container'",
+        marks=pytest.mark.parquet, id="parquet-schema"),
+    pytest.param(
+        "parquet", "ColumnSchema(None, 0)", "Argument 'schema'",
+        marks=pytest.mark.parquet, id="column-schema"),
+    pytest.param(
+        "fs", 'SubTreeFileSystem("", None)', "Argument 'base_fs'",
+        id="subtree"),
+])
+def test_required_arrow_objects_reject_none_without_crashing(
+    module: str, call: str, message: str
+) -> None:
+    result = subprocess.run(
+        args=[sys.executable, "-c", f"import pyarrow.{module} as mod; mod.{call}"],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 1, result.stderr
+    assert f"TypeError: {message}" in result.stderr
