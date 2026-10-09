@@ -258,7 +258,7 @@ def test_pandas_roundtrip_categorical():
     assert col_result.size() == col_table.size()
     assert col_result.offset == col_table.offset
 
-    desc_cat_table = col_result.describe_categorical
+    desc_cat_table = col_table.describe_categorical
     desc_cat_result = col_result.describe_categorical
 
     assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
@@ -380,10 +380,12 @@ def test_pyarrow_roundtrip(uint, int, float, np_float_str,
 
 
 @pytest.mark.parametrize("offset, length", [(0, 10), (0, 2), (7, 3), (2, 1)])
-def test_pyarrow_roundtrip_categorical(offset, length):
+@pytest.mark.parametrize("ordered", [False, True])
+def test_pyarrow_roundtrip_categorical(offset, length, ordered):
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", None, "Sun"]
+    dict_type = pa.dictionary(pa.int32(), pa.string(), ordered=ordered)
     table = pa.table(
-        {"weekday": pa.array(arr).dictionary_encode()}
+        {"weekday": pa.array(arr).dictionary_encode().cast(dict_type)}
     )
     table = table.slice(offset, length)
     result = _from_dataframe(table.__dataframe__())
