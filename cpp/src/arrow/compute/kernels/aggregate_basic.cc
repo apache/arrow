@@ -971,15 +971,15 @@ const FunctionDoc first_last_doc{
 const FunctionDoc first_doc{
     "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "If skip_nulls = false, then this will return the first and last values\n"
+     "If skip_nulls = false, then this will return the first value\n"
      "regardless if it is null"),
     {"array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc last_doc{
-    "Compute the first value in each group",
+    "Compute the last value in each group",
     ("Null values are ignored by default.\n"
-     "If skip_nulls = false, then this will return the first and last values\n"
+     "If skip_nulls = false, then this will return the last value\n"
      "regardless if it is null"),
     {"array"},
     "ScalarAggregateOptions"};
