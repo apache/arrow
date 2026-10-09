@@ -833,6 +833,76 @@ enum SqlInfo {
    * - true: if invoking user-defined or vendor functions using the stored procedure escape syntax is supported.
    */
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
+
+  /*
+   * Retrieves the supported row-limit and offset grammars. Variants differ
+   * in their offset behavior: SQL_LIMIT_OFFSET_LIMIT accepts an optional
+   * OFFSET, SQL_LIMIT_OFFSET_FETCH requires a preceding OFFSET clause, and
+   * SQL_LIMIT_OFFSET_TOP is limit-only and does not compose with offset.
+   *
+   * Returns an int32 bitmask value representing the supported grammars.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * grammars.
+   *
+   * For instance:
+   * - return 0 (\b0)    => [] (no row-limit grammar is supported);
+   * - return 1 (\b1)    => [SQL_LIMIT_OFFSET_LIMIT];
+   * - return 2 (\b10)   => [SQL_LIMIT_OFFSET_FETCH];
+   * - return 3 (\b11)   => [SQL_LIMIT_OFFSET_LIMIT, SQL_LIMIT_OFFSET_FETCH];
+   * - return 4 (\b100)  => [SQL_LIMIT_OFFSET_TOP];
+   * - return 6 (\b110)  => [SQL_LIMIT_OFFSET_FETCH, SQL_LIMIT_OFFSET_TOP].
+   * Valid grammars are described under `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
+   */
+  SQL_SUPPORTED_LIMIT_OFFSET = 577;
+
+  /*
+   * Retrieves the supported syntaxes for explicit null ordering in ORDER BY.
+   * Distinct from SQL_NULL_ORDERING (507), which reports the server's default
+   * null ordering rather than which explicit syntax parses.
+   *
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0) => [] (no explicit null-ordering syntax is supported);
+   * - return 1 (\b1) => [SQL_NULLS_ORDERING_FIRST_LAST].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
+   */
+  SQL_SUPPORTED_NULLS_ORDERING = 578;
+
+  /*
+   * Retrieves the supported literal syntaxes for boolean values.
+   *
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no boolean literal syntax is supported);
+   * - return 1 (\b1)   => [SQL_BOOLEAN_LITERAL_TRUE_FALSE];
+   * - return 2 (\b10)  => [SQL_BOOLEAN_LITERAL_INT_ONE_ZERO];
+   * - return 3 (\b11)  => [SQL_BOOLEAN_LITERAL_TRUE_FALSE, SQL_BOOLEAN_LITERAL_INT_ONE_ZERO].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlBooleanLiteralSyntax`.
+   */
+  SQL_SUPPORTED_BOOLEAN_LITERAL = 579;
+
+  /*
+   * Retrieves the supported literal syntaxes for date, time, and timestamp
+   * values.
+   *
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no datetime literal syntax is supported);
+   * - return 1 (\b1)   => [SQL_DATETIME_LITERAL_ANSI_KEYWORD];
+   * - return 2 (\b10)  => [SQL_DATETIME_LITERAL_BARE_STRING];
+   * - return 3 (\b11)  => [SQL_DATETIME_LITERAL_ANSI_KEYWORD, SQL_DATETIME_LITERAL_BARE_STRING].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlDatetimeLiteralSyntax`.
+   */
+  SQL_SUPPORTED_DATETIME_LITERAL = 580;
 }
 
 // The level of support for Flight SQL transaction RPCs.
@@ -955,6 +1025,35 @@ enum SqlSupportsConvert {
   SQL_CONVERT_TINYINT = 17;
   SQL_CONVERT_VARBINARY = 18;
   SQL_CONVERT_VARCHAR = 19;
+}
+
+enum SqlLimitOffsetSyntax {
+  // LIMIT n [OFFSET m]  (PostgreSQL, MySQL, SQLite, DuckDB, Snowflake, ...)
+  SQL_LIMIT_OFFSET_LIMIT = 0;
+  // OFFSET m ROWS FETCH NEXT n ROWS ONLY  (SQL Server, Oracle, ANSI)
+  SQL_LIMIT_OFFSET_FETCH = 1;
+  // SELECT TOP n ...  (SQL Server, Sybase, Snowflake). Limit-only; does not
+  // compose with offset.
+  SQL_LIMIT_OFFSET_TOP = 2;
+}
+
+enum SqlNullsOrderingSyntax {
+  // ORDER BY col [ASC|DESC] NULLS FIRST|LAST
+  SQL_NULLS_ORDERING_FIRST_LAST = 0;
+}
+
+enum SqlBooleanLiteralSyntax {
+  // TRUE / FALSE keywords
+  SQL_BOOLEAN_LITERAL_TRUE_FALSE = 0;
+  // Integer 1 / 0
+  SQL_BOOLEAN_LITERAL_INT_ONE_ZERO = 1;
+}
+
+enum SqlDatetimeLiteralSyntax {
+  // DATE '2026-01-01', TIME '12:00:00', TIMESTAMP '2026-01-01 12:00:00'
+  SQL_DATETIME_LITERAL_ANSI_KEYWORD = 0;
+  // Bare quoted string, e.g. '2026-01-01' or '2026-01-01 12:00:00'
+  SQL_DATETIME_LITERAL_BARE_STRING = 1;
 }
 
 /**
