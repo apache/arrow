@@ -933,7 +933,8 @@ TEST(TestParquetStatistics, NoNullCount) {
   auto int32_to_parquet_stats = [](int32_t v) {
     std::string value;
     value.resize(sizeof(int32_t));
-    memcpy(value.data(), &v, sizeof(int32_t));
+    int32_t le_v = ::arrow::bit_util::ToLittleEndian(v);
+    memcpy(value.data(), &le_v, sizeof(int32_t));
     return value;
   };
   {
