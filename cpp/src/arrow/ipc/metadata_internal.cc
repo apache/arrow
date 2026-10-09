@@ -898,8 +898,12 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
     // dictionary_memo
     std::shared_ptr<DataType> index_type;
     auto int_data = encoding->indexType();
-    CHECK_FLATBUFFERS_NOT_NULL(int_data, "DictionaryEncoding.indexType");
-    RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
+    if (int_data == nullptr) {
+      // Schema.fbs: "If this field is null, the indices must be signed int32."
+      index_type = int32();
+    } else {
+      RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
+    }
     dict_value_type = type;
     ARROW_ASSIGN_OR_RAISE(type,
                           DictionaryType::Make(index_type, type, encoding->isOrdered()));

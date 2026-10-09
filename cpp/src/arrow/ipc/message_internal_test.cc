@@ -114,6 +114,31 @@ TEST(TestMessageInternal, TestEndiannessRoundtrip) {
   }
 }
 
+// GH-51779: Schema.fbs allows DictionaryEncoding.indexType to be omitted, in
+// which case the indices are signed int32.
+TEST(TestMessageInternal, DictionaryEncodingWithoutIndexType) {
+  FBB fbb;
+  auto name = fbb.CreateString("f0");
+  auto value_type = flatbuf::CreateUtf8(fbb);
+  auto encoding = flatbuf::CreateDictionaryEncoding(fbb, /*id=*/0, /*indexType=*/0);
+  auto fb_field = flatbuf::CreateField(fbb, name, /*nullable=*/true, flatbuf::Type_Utf8,
+                                       value_type.Union(), encoding);
+  auto fb_schema = flatbuf::CreateSchema(fbb, flatbuf::Endianness_Little,
+                                         fbb.CreateVector({fb_field}));
+  fbb.Finish(flatbuf::CreateMessage(fbb, flatbuf::MetadataVersion_V5,
+                                    flatbuf::MessageHeader_Schema, fb_schema.Union()));
+  ASSERT_OK_AND_ASSIGN(auto metadata, WriteFlatbufferBuilder(fbb));
+
+  ASSERT_OK_AND_ASSIGN(auto message, Message::Open(metadata, /*body=*/nullptr));
+  DictionaryMemo memo;
+  ASSERT_OK_AND_ASSIGN(auto schema, ReadSchema(*message, &memo));
+  AssertSchemaEqual(*::arrow::schema({field("f0", dictionary(int32(), utf8()))}),
+                    *schema);
+  ASSERT_OK_AND_EQ(0, memo.fields().GetFieldId({0}));
+  ASSERT_OK_AND_ASSIGN(auto dict_value_type, memo.GetDictionaryType(0));
+  AssertTypeEqual(utf8(), dict_value_type);
+}
+
 struct SampleMessageParams {
   std::shared_ptr<const KeyValueMetadata> custom_metadata = {};
   int64_t body_length = 0;
