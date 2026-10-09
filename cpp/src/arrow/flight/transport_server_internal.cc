@@ -284,9 +284,13 @@ void ServerSignalState::WaitForSignals(
     std::shared_ptr<::arrow::internal::SelfPipe> self_pipe) {
   // Wait for a signal handler to wake up the pipe
   auto st = self_pipe->Wait().status();
-  // Status::Invalid means the pipe was shutdown without any wakeup
-  if (!st.ok() && !st.IsInvalid()) {
-    ARROW_LOG(FATAL) << "Failed to wait on self-pipe: " << st.ToString();
+  if (!st.ok()) {
+    // Status::Invalid means the pipe was shutdown without any wakeup
+    if (!st.IsInvalid()) {
+      ARROW_LOG(FATAL) << "Failed to wait on self-pipe: " << st.ToString();
+    }
+    // Nothing to shut down: Serve() is already tearing down.
+    return;
   }
   auto instance = running_instance_.load();
   if (instance != nullptr && instance->shutdown_) {

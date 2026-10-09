@@ -128,20 +128,26 @@ class ServerSignalHandler {
 
   /// \brief Initialize the signal handler and start the background thread.
   ///
+  /// \param[in] self_pipe The pipe the handler thread should wait on.  It is
+  ///   stored before the thread is started, so the signal handler can always
+  ///   write to it.
   /// \param[in] handler A callable that will be invoked on the background
   ///   thread, receiving the SelfPipe as an argument.
-  /// \return The SelfPipe, which can be used to signal the handler thread.
   template <typename Fn>
-  arrow::Result<std::shared_ptr<::arrow::internal::SelfPipe>> Init(Fn handler) {
-    ARROW_ASSIGN_OR_RAISE(self_pipe_,
-                          ::arrow::internal::SelfPipe::Make(/*signal_safe=*/true));
-    handle_signals_ = std::thread(handler, self_pipe_);
-    return self_pipe_;
+  Status Init(const std::shared_ptr<::arrow::internal::SelfPipe>& self_pipe, Fn&& handler) {
+    self_pipe_ = self_pipe;
+    handle_signals_ = std::thread(std::forward<Fn>(handler), self_pipe_);
+    return Status::OK();
   }
 
   /// \brief Shut down the signal handler and join the background thread.
+  ///
+  /// The thread is woken with a plain payload rather than SelfPipe::Shutdown():
+  /// a signal handler may have been entered and preempted just before this
+  /// point, and writing to a pipe whose read end was closed raises SIGPIPE in
+  /// that handler, killing the process.
   Status Shutdown() {
-    RETURN_NOT_OK(self_pipe_->Shutdown());
+    self_pipe_->Send(/*payload=*/0);
     handle_signals_.join();
     return Status::OK();
   }
@@ -185,41 +191,62 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
                const char* shutdown_warning) {
     got_signal_ = 0;
     old_signal_handlers_.clear();
-    running_instance_ = this;
-
-    ServerSignalHandler signal_handler;
+    // Everything the signal handler touches must be initialized before the
+    // instance is published: a signal arriving earlier would otherwise find an
+    // empty self-pipe (crash) or an empty shutdown callback, in which case
+    // WaitForSignals() consumes the wakeup and wait() blocks forever.
     ARROW_ASSIGN_OR_RAISE(self_pipe_,
-                          signal_handler.Init(&ServerSignalState::WaitForSignals));
-    for (size_t i = 0; i < signals_.size(); ++i) {
-      int signum = signals_[i];
-      ::arrow::internal::SignalHandler new_handler(&ServerSignalState::HandleSignal),
-          old_handler;
-      ARROW_ASSIGN_OR_RAISE(old_handler,
-                            ::arrow::internal::SetSignalHandler(signum, new_handler));
-      old_signal_handlers_.push_back(std::move(old_handler));
-    }
-
+                          ::arrow::internal::SelfPipe::Make(/*signal_safe=*/true));
     shutdown_ = [shutdown = std::forward<ShutdownFn>(shutdown)]() mutable {
       return shutdown(nullptr);
     };
     shutdown_warning_ = shutdown_warning;
-    auto status = wait();
-    if (!status.ok()) {
+    running_instance_ = this;
+
+    Status status;
+    {
+      ServerSignalHandler signal_handler;
+      status = signal_handler.Init(self_pipe_, &ServerSignalState::WaitForSignals);
+      if (status.ok()) {
+        for (size_t i = 0; i < signals_.size(); ++i) {
+          int signum = signals_[i];
+          ::arrow::internal::SignalHandler new_handler(&ServerSignalState::HandleSignal),
+              old_handler;
+          auto old = ::arrow::internal::SetSignalHandler(signum, new_handler);
+          if (!old.ok()) {
+            status = old.status();
+            break;
+          }
+          old_signal_handlers_.push_back(std::move(old).ValueOrDie());
+        }
+      }
+      if (status.ok()) {
+        status = wait();
+      }
+      // Stop publishing this instance before the signal thread is joined: the
+      // destructor shuts the self-pipe down, and a signal handler writing to a
+      // closed pipe would kill the process with SIGPIPE.
       running_instance_ = nullptr;
-      shutdown_ = nullptr;
-      shutdown_warning_ = nullptr;
-      return status;
+      // The signal thread is joined by the destructor here, before the callback
+      // is cleared below: it may be executing it right now.
     }
-    running_instance_ = nullptr;
+
     shutdown_ = nullptr;
     shutdown_warning_ = nullptr;
 
-    for (size_t i = 0; i < signals_.size(); ++i) {
-      RETURN_NOT_OK(
-          ::arrow::internal::SetSignalHandler(signals_[i], old_signal_handlers_[i])
-              .status());
+    // Restore the original handlers, whatever the outcome of wait() was.
+    Status restore_status;
+    for (size_t i = 0; i < old_signal_handlers_.size(); ++i) {
+      auto restored =
+          ::arrow::internal::SetSignalHandler(signals_[i], old_signal_handlers_[i]);
+      if (!restored.ok() && restore_status.ok()) {
+        restore_status = restored.status();
+      }
     }
-    return Status::OK();
+    if (!status.ok()) {
+      return status;
+    }
+    return restore_status;
   }
 
   /// \brief Shut down the server through the given callback.
