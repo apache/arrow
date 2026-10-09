@@ -676,7 +676,9 @@ TEST(TestAllocateResizableBuffer, ZeroSize) {
 
 TEST(TestAllocateResizableBuffer, ZeroResize) {
   MemoryPool* pool = default_memory_pool();
+#ifdef ENABLE_MEMORY_POOL_STATS
   auto allocated_bytes = pool->bytes_allocated();
+#endif
   {
     std::shared_ptr<ResizableBuffer> buffer;
 
@@ -684,17 +686,22 @@ TEST(TestAllocateResizableBuffer, ZeroResize) {
     ASSERT_EQ(buffer->size(), 1000);
     ASSERT_NE(buffer->data(), nullptr);
     ASSERT_EQ(buffer->mutable_data(), buffer->data());
-
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_GE(pool->bytes_allocated(), allocated_bytes + 1000);
+#endif
 
     ASSERT_OK(buffer->Resize(0));
     ASSERT_NE(buffer->data(), nullptr);
     ASSERT_EQ(buffer->mutable_data(), buffer->data());
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
     ASSERT_LT(pool->bytes_allocated(), allocated_bytes + 1000);
+#endif
   }
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+#endif
 }
 
 TEST(TestBufferBuilder, ResizeReserve) {
