@@ -949,12 +949,16 @@ class TestDirectKeyEncryption:
             magic = f.read(4)
         assert magic == b"PARE"
 
-    def test_plaintext_footer(self, tempdir, data_table):
-        path = tempdir / "direct_plaintext_footer.parquet"
+    @pytest.mark.parametrize("algorithm", ["AES_GCM_V1", "AES_GCM_CTR_V1"])
+    @pytest.mark.parametrize("plaintext_footer", [False, True])
+    def test_footer_algorithms(self, tempdir, data_table, algorithm,
+                               plaintext_footer):
+        path = tempdir / "direct_footer_algorithms.parquet"
 
         enc_props = pe.create_encryption_properties(
             footer_key=DIRECT_KEY_128,
-            plaintext_footer=True,
+            plaintext_footer=plaintext_footer,
+            encryption_algorithm=algorithm,
         )
         pq.write_table(data_table, path, encryption_properties=enc_props)
 

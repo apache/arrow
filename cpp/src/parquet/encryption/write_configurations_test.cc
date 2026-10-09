@@ -19,6 +19,8 @@
 
 #include <stdio.h>
 
+#include <fstream>
+
 #include <arrow/io/file.h>
 
 #include "parquet/column_reader.h"
@@ -193,6 +195,50 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
                             ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
                             ->build(),
                         "tmp_encrypt_columns_and_footer_ctr.parquet.encrypted"));
+}
+
+// Cover the file algorithm independently of the footer signing cipher.
+TEST_F(TestEncryptionConfiguration, PlaintextFooterAlgorithms) {
+  for (auto algorithm : {ParquetCipher::AES_GCM_V1, ParquetCipher::AES_GCM_CTR_V1}) {
+    SCOPED_TRACE(algorithm);
+    FileEncryptionProperties::Builder encryption_builder(kFooterEncryptionKey_);
+    auto encryption_properties =
+        encryption_builder.algorithm(algorithm)->set_plaintext_footer()->build();
+    const std::string file = temp_dir->path().ToString() + "plaintext_footer.parquet";
+    encryptor_.EncryptFile(file, encryption_properties);
+
+    FileDecryptionProperties::Builder decryption_builder;
+    auto decryption_properties =
+        decryption_builder.footer_key(kFooterEncryptionKey_)->build();
+    ReaderProperties reader_properties;
+    reader_properties.file_decryption_properties(decryption_properties);
+    auto reader = ParquetFileReader::OpenFile(file, false, reader_properties);
+    EXPECT_EQ(reader->metadata()->encryption_algorithm().algorithm, algorithm);
+    reader->Close();
+
+    FileDecryptor decryptor;
+    EXPECT_NO_THROW(decryptor.DecryptFile(file, decryption_properties));
+
+    FileDecryptionProperties::Builder wrong_key_builder;
+    ReaderProperties wrong_key_properties;
+    wrong_key_properties.file_decryption_properties(
+        wrong_key_builder.footer_key(kColumnEncryptionKey1_)->build());
+    EXPECT_THROW(ParquetFileReader::OpenFile(file, false, wrong_key_properties),
+                 ParquetException);
+
+    // The signature precedes the footer length and trailing magic (eight bytes).
+    std::fstream stream(file, std::ios::in | std::ios::out | std::ios::binary);
+    stream.seekg(-9, std::ios::end);
+    char tag_byte;
+    stream.read(&tag_byte, 1);
+    ASSERT_TRUE(stream.good());
+    tag_byte ^= 1;
+    stream.seekp(-9, std::ios::end);
+    stream.write(&tag_byte, 1);
+    stream.close();
+    EXPECT_THROW(ParquetFileReader::OpenFile(file, false, reader_properties),
+                 ParquetException);
+  }
 }
 
 // Set temp_dir before running the write/read tests. The encrypted files will

@@ -2133,7 +2133,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
     metadata_->__isset.column_orders = true;
 
-    // if plaintext footer, set footer signing algorithm
+    // For a plaintext footer, record the file encryption algorithm.
     auto file_encryption_properties = properties_->file_encryption_properties();
     if (file_encryption_properties && !file_encryption_properties->encrypted_footer()) {
       EncryptionAlgorithm signing_algorithm;
@@ -2143,7 +2143,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       if (!algo.aad.supply_aad_prefix) {
         signing_algorithm.aad.aad_prefix = algo.aad.aad_prefix;
       }
-      signing_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
+      signing_algorithm.algorithm = algo.algorithm;
 
       metadata_->__set_encryption_algorithm(ToThrift(signing_algorithm));
       const std::string& footer_signing_key_metadata =
