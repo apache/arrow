@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -431,6 +432,23 @@ class FileWriterImpl : public FileWriter {
           WriteRowGroup(0, 0).OrElse([&](auto&&) { PARQUET_IGNORE_NOT_OK(Close()); }));
     }
 
+    // If max_row_group_size is set, use buffered path to write row groups.
+    if (this->properties().max_row_group_size() != std::numeric_limits<int64_t>::max()) {
+      ::arrow::TableBatchReader reader(table);
+      reader.set_chunksize(std::min(chunk_size, this->properties().write_batch_size()));
+      while (true) {
+        std::shared_ptr<RecordBatch> batch;
+        RETURN_NOT_OK(reader.ReadNext(&batch));
+        if (batch == nullptr) {
+          break;
+        }
+        RETURN_NOT_OK(WriteRecordBatchBuffered(*batch, chunk_size).OrElse([&](auto&&) {
+          PARQUET_IGNORE_NOT_OK(Close());
+        }));
+      }
+      return Status::OK();
+    }
+
     for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
       int64_t offset = chunk * chunk_size;
       RETURN_NOT_OK(WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset))
@@ -449,17 +467,44 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    // Checked up front because reading the properties of a closed file throws.
+    RETURN_NOT_OK(CheckClosed());
+    return WriteRecordBatchBuffered(batch, this->properties().max_row_group_length());
+  }
+
+  // Writes `batch` into buffered row groups, starting a new row group whenever
+  // the current one reaches `max_rows_per_row_group` rows or the max row group
+  // size in bytes configured on the writer properties.
+  Status WriteRecordBatchBuffered(const RecordBatch& batch,
+                                  int64_t max_rows_per_row_group) {
     RETURN_NOT_OK(CheckClosed());
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
 
-    // Max number of rows allowed in a row group.
-    const int64_t max_row_group_length = this->properties().max_row_group_length();
+    // Max byte size allowed in a row group.
+    const int64_t max_row_group_size = this->properties().max_row_group_size();
+    const bool row_group_size_limited =
+        max_row_group_size != std::numeric_limits<int64_t>::max();
+
+    // Whether the current row group reached the row count or byte size limit.
+    // Values not yet formed into a page are still held by the column encoders,
+    // so they are counted through EstimatedBufferedStats(); those estimates are
+    // uncompressed and exclude future page headers, hence only approximate.
+    auto row_group_full = [&]() {
+      const auto buffered = row_group_writer_->estimated_buffered_stats();
+      const int64_t estimated_size = row_group_writer_->total_compressed_bytes() +
+                                     row_group_writer_->total_compressed_bytes_written() +
+                                     buffered.value_bytes + buffered.def_level_bytes +
+                                     buffered.rep_level_bytes + buffered.dict_bytes;
+
+      return row_group_writer_->num_rows() >= max_rows_per_row_group ||
+             (row_group_size_limited && estimated_size >= max_row_group_size);
+    };
 
     // Initialize a new buffered row group writer if necessary.
     if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
-        row_group_writer_->num_rows() >= max_row_group_length) {
+        row_group_full()) {
       RETURN_NOT_OK(NewBufferedRowGroup());
     }
 
@@ -495,14 +540,13 @@ class FileWriterImpl : public FileWriter {
     int64_t offset = 0;
     while (offset < batch.num_rows()) {
       const int64_t batch_size =
-          std::min(max_row_group_length - row_group_writer_->num_rows(),
+          std::min(max_rows_per_row_group - row_group_writer_->num_rows(),
                    batch.num_rows() - offset);
       RETURN_NOT_OK(WriteBatch(offset, batch_size));
       offset += batch_size;
 
       // Flush current row group writer and create a new writer if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length &&
-          offset < batch.num_rows()) {
+      if (row_group_full() && offset < batch.num_rows()) {
         RETURN_NOT_OK(NewBufferedRowGroup());
       }
     }
