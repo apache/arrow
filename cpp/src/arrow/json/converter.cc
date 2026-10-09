@@ -75,7 +75,7 @@ Status VisitDictionaryEntries(const DictionaryArray& dict_array,
 // base class for types which accept and output non-nested types
 class PrimitiveConverter : public Converter {
  public:
-  PrimitiveConverter(MemoryPool* pool, std::shared_ptr<DataType> out_type)
+  PrimitiveConverter(MemoryPool* pool, const std::shared_ptr<DataType>& out_type)
       : Converter(pool, out_type) {}
 };
 

@@ -72,7 +72,7 @@ Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
 
 Result<std::shared_ptr<Dataset>> DatasetFactory::Finish(std::shared_ptr<Schema> schema) {
   FinishOptions options;
-  options.schema = schema;
+  options.schema = std::move(schema);
   return Finish(std::move(options));
 }
 

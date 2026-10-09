@@ -268,7 +268,8 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
       internal::checked_cast<const IntegerType&>(*indices_type).bit_width() / 8;
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize * ndim, elsize});
-  return Make(indices_type, indices_shape, indices_strides, indices_data, is_canonical);
+  return Make(indices_type, indices_shape, indices_strides, std::move(indices_data),
+              is_canonical);
 }
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
@@ -281,7 +282,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
   const int64_t elsize = indices_type->byte_width();
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize * ndim, elsize});
-  return Make(indices_type, indices_shape, indices_strides, indices_data);
+  return Make(indices_type, indices_shape, indices_strides, std::move(indices_data));
 }
 
 // Constructor with a contiguous NumericTensor

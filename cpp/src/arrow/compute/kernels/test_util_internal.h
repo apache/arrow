@@ -95,7 +95,7 @@ inline std::shared_ptr<Scalar> DecimalScalarFromJSON(
 // Call the function with the given arguments, as well as slices of
 // the arguments and scalars extracted from the arguments.
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
-                 std::shared_ptr<Scalar> expected,
+                 const std::shared_ptr<Scalar>& expected,
                  const FunctionOptions* options = nullptr);
 
 void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expected,
@@ -114,8 +114,8 @@ void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& in
                              const Datum& expected,
                              const FunctionOptions* options = nullptr);
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
-                      std::string json_input, std::shared_ptr<DataType> out_ty,
+void CheckScalarUnary(std::string func_name, const std::shared_ptr<DataType>& in_ty,
+                      std::string json_input, const std::shared_ptr<DataType>& out_ty,
                       std::string json_expected,
                       const FunctionOptions* options = nullptr);
 

@@ -468,7 +468,7 @@ struct TemporalScalar : internal::PrimitiveScalar<T> {
   using ValueType = typename internal::PrimitiveScalar<T>::ValueType;
 
   TemporalScalar(ValueType value, std::shared_ptr<DataType> type)
-      : internal::PrimitiveScalar<T>(std::move(value), type) {}
+      : internal::PrimitiveScalar<T>(std::move(value), std::move(type)) {}
 };
 
 template <typename T>

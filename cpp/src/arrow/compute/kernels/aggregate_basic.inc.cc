@@ -166,7 +166,7 @@ struct SumLikeInit {
 
   SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
-      : ctx(ctx), type(type), options(options) {}
+      : ctx(ctx), type(std::move(type)), options(options) {}
 
   // If this returns true, then the aggregator will promote a decimal to the maximum
   // precision for that type. For instance, a decimal128(3, 2) will be promoted to a
@@ -289,7 +289,7 @@ template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
   MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
-      : SumLikeInit<KernelClass>(ctx, type, options) {}
+      : SumLikeInit<KernelClass>(ctx, std::move(type), options) {}
 
   bool PromoteDecimal() const override { return false; }
 

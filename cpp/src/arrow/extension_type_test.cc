@@ -263,7 +263,7 @@ std::shared_ptr<Array> ExampleParametric(std::shared_ptr<DataType> type,
                                          const std::string& json_data) {
   auto arr = ArrayFromJSON(int32(), json_data);
   auto ext_data = arr->data()->Copy();
-  ext_data->type = type;
+  ext_data->type = std::move(type);
   return MakeArray(ext_data);
 }
 

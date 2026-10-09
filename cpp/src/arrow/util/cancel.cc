@@ -239,7 +239,7 @@ struct SignalStopState : public std::enable_shared_from_this<SignalStopState> {
     ReinstateSignalHandler(signum, &HandleSignal);
   }
 
-  static void ReceiveSignals(std::shared_ptr<SelfPipe> self_pipe) {
+  static void ReceiveSignals(const std::shared_ptr<SelfPipe>& self_pipe) {
     // Wait for signals on the self-pipe and propagate them to the current StopSource
     DCHECK(self_pipe);
     while (true) {
