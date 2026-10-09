@@ -18,6 +18,10 @@
 // ----------------------------------------------------------------------
 // Tests for Flight which don't actually spin up a client/server
 
+#include <atomic>
+#include <chrono>
+#include <csignal>
+#include <thread>
 #include <type_traits>
 
 #include <gmock/gmock.h>
@@ -37,6 +41,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/string.h"
 
 // Include after Flight headers
@@ -860,6 +865,64 @@ TEST(TransportErrorHandling, ReconstructStatus) {
 }
 
 // TODO: test TransportStatusDetail
+
+#if !defined(_WIN32) && defined(ARROW_ENABLE_THREADING)
+
+// Serve() must not leave the process signal handlers overridden when it fails
+// (https://github.com/apache/arrow/pull/50407#discussion_r4208711354).
+TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
+  FlightServerBase server;
+  ASSERT_OK(server.SetShutdownOnSignals({SIGUSR1}));
+  ASSERT_OK_AND_ASSIGN(auto before, ::arrow::internal::GetSignalHandler(SIGUSR1));
+
+  ASSERT_RAISES(UnknownError, server.Serve());
+
+  ASSERT_OK_AND_ASSIGN(auto after, ::arrow::internal::GetSignalHandler(SIGUSR1));
+  EXPECT_EQ(before.callback(), after.callback());
+}
+
+// Shutdown() on a server that was never initialized must not clear the
+// process-wide signal target of another, serving instance
+// (https://github.com/apache/arrow/pull/50407#discussion_r4216028229).
+TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalable) {
+  FlightServerBase serving_server;
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
+  FlightServerOptions options(location);
+  ASSERT_OK(serving_server.Init(options));
+  ASSERT_OK(serving_server.SetShutdownOnSignals({SIGUSR1}));
+
+  std::atomic<bool> returned{false};
+  std::thread serving_thread([&] {
+    auto status = serving_server.Serve();
+    ARROW_UNUSED(status);
+    returned = true;
+  });
+
+  // Wait for Serve() to install the process signal handler.
+  ASSERT_OK_AND_ASSIGN(auto original, ::arrow::internal::GetSignalHandler(SIGUSR1));
+  for (int i = 0; i < 1000 && !returned.load(); ++i) {
+    ASSERT_OK_AND_ASSIGN(auto current, ::arrow::internal::GetSignalHandler(SIGUSR1));
+    if (current.callback() != original.callback()) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
+  FlightServerBase uninitialized;
+  ASSERT_RAISES(Invalid, uninitialized.Shutdown());
+
+  ::raise(SIGUSR1);
+  for (int i = 0; i < 500 && !returned.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  EXPECT_TRUE(returned.load());
+  if (!returned.load()) {
+    ASSERT_OK(serving_server.Shutdown());
+  }
+  serving_thread.join();
+}
+
+#endif
 
 }  // namespace flight
 }  // namespace arrow
