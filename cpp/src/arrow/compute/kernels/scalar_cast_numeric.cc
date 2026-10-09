@@ -17,6 +17,8 @@
 
 // Implementation of casting to integer, floating point, or decimal types
 
+#include <cmath>
+
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
@@ -87,12 +89,47 @@ struct WasTruncated<HalfFloatType, OutType> {
   }
 };
 
-// InType is a floating point type we are planning to cast to integer
 template <typename InType, typename OutType, typename InT = typename InType::c_type,
           typename OutT = typename OutType::c_type>
+struct WasOutOfRange {
+  // Both bounds are zero or a power of two, so they are exact in InT
+  static constexpr auto kMin = static_cast<InT>(std::numeric_limits<OutT>::min());
+  static constexpr auto kMaxPlusOne =
+      static_cast<InT>(std::numeric_limits<OutT>::max() / 2 + 1) * 2;
+
+  static bool Check(OutT, InT in_val) {
+    return !(std::trunc(in_val) >= kMin) | !(in_val < kMaxPlusOne);
+  }
+
+  static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {
+    return is_valid && Check(out_val, in_val);
+  }
+};
+
+template <typename OutType>
+struct WasOutOfRange<HalfFloatType, OutType> {
+  using OutT = typename OutType::c_type;
+  static bool Check(OutT out_val, uint16_t in_val) {
+    return WasOutOfRange<FloatType, OutType>::Check(out_val,
+                                                    Float16::FromBits(in_val).ToFloat());
+  }
+
+  static bool CheckMaybeNull(OutT out_val, uint16_t in_val, bool is_valid) {
+    return is_valid && Check(out_val, in_val);
+  }
+};
+
+// InType is a floating point type we are planning to cast to integer
+template <template <typename...> class Checker, typename InType, typename OutType,
+          typename InT = typename InType::c_type,
+          typename OutT = typename OutType::c_type>
 ARROW_DISABLE_UBSAN("float-cast-overflow")
-Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
+Status CheckFloatToIntValues(const ArraySpan& input, const ArraySpan& output) {
   auto GetErrorMessage = [&](InT val) {
+    if (WasOutOfRange<InType, OutType>::Check(OutT{}, val)) {
+      return Status::Invalid("Float value ", val, " out of range converting to ",
+                             *output.type);
+    }
     return Status::Invalid("Float value ", val, " was truncated converting to ",
                            *output.type);
   };
@@ -110,20 +147,19 @@ Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
     if (block.popcount == block.length) {
       // Fast path: branchless
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |=
-            WasTruncated<InType, OutType>::Check(out_data[i], in_data[i]);
+        block_out_of_bounds |= Checker<InType, OutType>::Check(out_data[i], in_data[i]);
       }
     } else if (block.popcount > 0) {
       // Indices have nulls, must only boundscheck non-null values
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= WasTruncated<InType, OutType>::CheckMaybeNull(
+        block_out_of_bounds |= Checker<InType, OutType>::CheckMaybeNull(
             out_data[i], in_data[i], bit_util::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (input.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (WasTruncated<InType, OutType>::CheckMaybeNull(
+          if (Checker<InType, OutType>::CheckMaybeNull(
                   out_data[i], in_data[i],
                   bit_util::GetBit(bitmap, offset_position + i))) {
             return GetErrorMessage(in_data[i]);
@@ -131,7 +167,7 @@ Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (WasTruncated<InType, OutType>::Check(out_data[i], in_data[i])) {
+          if (Checker<InType, OutType>::Check(out_data[i], in_data[i])) {
             return GetErrorMessage(in_data[i]);
           }
         }
@@ -145,25 +181,25 @@ Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
   return Status::OK();
 }
 
-template <typename InType>
-Status CheckFloatToIntTruncationImpl(const ArraySpan& input, const ArraySpan& output) {
+template <template <typename...> class Checker, typename InType>
+Status CheckFloatToIntImpl(const ArraySpan& input, const ArraySpan& output) {
   switch (output.type->id()) {
     case Type::INT8:
-      return CheckFloatTruncation<InType, Int8Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, Int8Type>(input, output);
     case Type::INT16:
-      return CheckFloatTruncation<InType, Int16Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, Int16Type>(input, output);
     case Type::INT32:
-      return CheckFloatTruncation<InType, Int32Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, Int32Type>(input, output);
     case Type::INT64:
-      return CheckFloatTruncation<InType, Int64Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, Int64Type>(input, output);
     case Type::UINT8:
-      return CheckFloatTruncation<InType, UInt8Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, UInt8Type>(input, output);
     case Type::UINT16:
-      return CheckFloatTruncation<InType, UInt16Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, UInt16Type>(input, output);
     case Type::UINT32:
-      return CheckFloatTruncation<InType, UInt32Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, UInt32Type>(input, output);
     case Type::UINT64:
-      return CheckFloatTruncation<InType, UInt64Type>(input, output);
+      return CheckFloatToIntValues<Checker, InType, UInt64Type>(input, output);
     default:
       break;
   }
@@ -171,15 +207,16 @@ Status CheckFloatToIntTruncationImpl(const ArraySpan& input, const ArraySpan& ou
   return Status::OK();
 }
 
-Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& output) {
+template <template <typename...> class Checker>
+Status CheckFloatToInt(const ExecValue& input, const ExecResult& output) {
   switch (input.type()->id()) {
     case Type::FLOAT:
-      return CheckFloatToIntTruncationImpl<FloatType>(input.array, *output.array_span());
+      return CheckFloatToIntImpl<Checker, FloatType>(input.array, *output.array_span());
     case Type::DOUBLE:
-      return CheckFloatToIntTruncationImpl<DoubleType>(input.array, *output.array_span());
+      return CheckFloatToIntImpl<Checker, DoubleType>(input.array, *output.array_span());
     case Type::HALF_FLOAT:
-      return CheckFloatToIntTruncationImpl<HalfFloatType>(input.array,
-                                                          *output.array_span());
+      return CheckFloatToIntImpl<Checker, HalfFloatType>(input.array,
+                                                         *output.array_span());
     default:
       break;
   }
@@ -192,7 +229,9 @@ Status CastFloatingToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResu
   CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
                            out->array_span_mutable());
   if (!options.allow_float_truncate) {
-    RETURN_NOT_OK(CheckFloatToIntTruncation(batch[0], *out));
+    RETURN_NOT_OK(CheckFloatToInt<WasTruncated>(batch[0], *out));
+  } else if (!options.allow_int_overflow) {
+    RETURN_NOT_OK(CheckFloatToInt<WasOutOfRange>(batch[0], *out));
   }
   return Status::OK();
 }
