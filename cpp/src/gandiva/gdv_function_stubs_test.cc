@@ -404,6 +404,31 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromMilliseconds) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestCastVARCHARFromMillisecondsOutOfRange) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t len_a = 0, len_b = 0;
+
+  // date64 is in milliseconds; this value is far past the year range the
+  // formatter can print, so StringFormatter<Date64Type> emits the longer
+  // "<value out of range: ...>" rendering, which is well over 10 bytes.
+  gdv_date64 out_of_range = 9000000000000000LL;
+  const char* a = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, out_of_range, 100, &len_a);
+  std::string expected_a(a, len_a);
+  EXPECT_EQ(expected_a, "<value out of range: 9000000000000000>");
+  EXPECT_FALSE(ctx.has_error());
+
+  // The next cast reuses the same arena chunk immediately after `a`. If `a` only
+  // reserved 10 bytes the longer write ran past its slot, so this allocation
+  // overlaps and corrupts it; with the buffer sized for the real output the two
+  // do not overlap and `a` is still intact here.
+  gdv_date64 ts = StringToTimestamp("2021-04-23 10:20:33");
+  gdv_fn_castVARCHAR_date64_int64(ctx_ptr, ts, 100, &len_b);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(std::string(a, len_a), expected_a);
+  ctx.Reset();
+}
+
 TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
