@@ -19,13 +19,13 @@
 #' @description Apache Arrow defines two formats for [serializing data for interprocess
 #' communication
 #' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
-#' a "stream" format and a "file" format, known as Feather.
+#' a "stream" format and a "file" format.
 #' `RecordBatchStreamWriter` and `RecordBatchFileWriter` are
 #' interfaces for writing record batches to those formats, respectively.
 #'
 #' For guidance on how to use these classes, see the examples section.
 #'
-#' @seealso [write_ipc_stream()] and [write_feather()] provide a much simpler
+#' @seealso [write_ipc_stream()] and [write_ipc_file()] provide a much simpler
 #' interface for writing data to these formats and are sufficient for many use
 #' cases. [write_to_raw()] is a version that serializes data to a buffer.
 #' @usage NULL

@@ -30,6 +30,7 @@ template <typename T>
 class ConnectionInfoTest : public T {};
 
 class ConnectionInfoMockTest : public FlightSQLODBCMockTestBase {};
+class ConnectionInfoRemoteTest : public FlightSQLODBCRemoteTestBase {};
 using TestTypes = ::testing::Types<ConnectionInfoMockTest, FlightSQLODBCRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionInfoTest, TestTypes);
 
@@ -622,18 +623,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAlterTable) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoCatalogLocation) {
-  // GH-49482 TODO: resolve inconsitent return value for SQL_CATALOG_LOCATION and change
-  // test type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString(), this->conn);
-
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogLocation) {
   SQLUSMALLINT value;
   GetInfo(this->conn, SQL_CATALOG_LOCATION, &value);
 
   EXPECT_EQ(static_cast<SQLUSMALLINT>(0), value);
-
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogName) {
@@ -706,7 +700,8 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCreateSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_CREATE_SCHEMA, &value);
 
-  EXPECT_EQ(static_cast<SQLUINTEGER>(1), value);
+  // SQLite (the mock backend) does not support schema DDL.
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCreateTable) {
@@ -758,32 +753,27 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
-  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_SCHEMA and change test
-  // type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString(), this->conn);
-
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
+  // Neither the SQLite mock backend nor the Dremio backend support schema DDL.
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
-
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
-TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropTable) {
-  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_TABLE and change test
-  // type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString(), this->conn);
-
+TEST_F(ConnectionInfoMockTest, TestSQLGetInfoDropTable) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_TABLE, &value);
 
-  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+  EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DT_DROP_TABLE), value);
+}
 
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoDropTable) {
+  SQLUINTEGER value;
+  GetInfo(this->conn, SQL_DROP_TABLE, &value);
+
+  // The Dremio backend does not report table DDL support.
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTranslation) {

@@ -73,7 +73,7 @@
 #' hierarchical filesystem. Default is TRUE.
 #' @param preserve_order Preserve the order of the rows.
 #' @param ... additional format-specific arguments. For available Parquet
-#' options, see [write_parquet()]. The available Feather options are:
+#' options, see [write_parquet()]. The available IPC options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
 #'   versions 0.14 and lower can read it. Default is `FALSE`. You can also
 #'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
@@ -143,6 +143,11 @@ write_dataset <- function(
   ...
 ) {
   format <- match.arg(format)
+  if (format == "feather") {
+    .Deprecated(
+      msg = '`format = "feather"` is deprecated; use `format = "ipc"` instead.'
+    )
+  }
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
   }

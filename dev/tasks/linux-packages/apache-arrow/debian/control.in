@@ -18,13 +18,16 @@ Build-Depends:
   libgrpc++-dev,
   libgtest-dev,
   liblz4-dev,
+@USE_SYSTEM_OPEN_TELEMETRY@  libopentelemetry-proto-dev,
   libprotobuf-dev,
   libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
   libthrift-dev,
+  liburiparser-dev,
   libutf8proc-dev,
+  libxml2-dev,
   libxxhash-dev,
   libzstd-dev,
   meson,
@@ -35,6 +38,7 @@ Build-Depends:
 # in the debian-forky Dockerfile) skips this build dependency and the CUDA
 # packages below.
   nvidia-cuda-toolkit [!arm64] <!pkg.apache-arrow.nocuda>,
+@USE_SYSTEM_OPEN_TELEMETRY@  opentelemetry-cpp-dev,
   pkg-config,
   protobuf-compiler,
   protobuf-compiler-grpc,
@@ -124,6 +128,19 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Dataset module.
 
+Package: libarrow-s3-2600
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow2600 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for S3 filesystem module.
+
 Package: libarrow-flight2600
 Section: libs
 Architecture: any
@@ -162,16 +179,20 @@ Depends:
   libbz2-dev,
   libc-ares-dev,
   libcurl4-openssl-dev,
+@SYSTEM_OPEN_TELEMETRY_REQUIRE_GRPC@  libgrpc++-dev,
   liblz4-dev,
   libprotobuf-dev,
   libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
+  liburiparser-dev,
   libutf8proc-dev,
+  libxml2-dev,
   libxxhash-dev,
   libzstd-dev,
   nlohmann-json-dev | nlohmann-json3-dev,
+@USE_SYSTEM_OPEN_TELEMETRY@  opentelemetry-cpp-dev,
   protobuf-compiler-grpc,
   zlib1g-dev
 Description: Apache Arrow is a data processing library for analysis
@@ -229,6 +250,18 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for dataset module.
+
+Package: libarrow-s3-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-s3-2600 (= ${binary:Version}),
+  libarrow-dev (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for S3 filesystem module.
 
 Package: libarrow-flight-dev
 Section: libdevel

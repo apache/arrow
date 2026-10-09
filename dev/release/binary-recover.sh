@@ -43,11 +43,26 @@ fi
 # To deactivate one category, deactivate the category and all of its dependents.
 # To explicitly select one category, set RECOVER_DEFAULT=0 RECOVER_X=1.
 : "${RECOVER_DEFAULT:=1}"
+: "${RECOVER_ALMALINUX:=${RECOVER_DEFAULT}}"
+: "${RECOVER_AMAZON_LINUX:=${RECOVER_DEFAULT}}"
+: "${RECOVER_CENTOS:=${RECOVER_DEFAULT}}"
 : "${RECOVER_DEBIAN:=${RECOVER_DEFAULT}}"
 : "${RECOVER_UBUNTU:=${RECOVER_DEFAULT}}"
 
 rake_tasks=()
 apt_targets=()
+if [ "${RECOVER_ALMALINUX}" -gt 0 ]; then
+  rake_tasks+=(yum:recover)
+  yum_targets+=(almalinux)
+fi
+if [ "${RECOVER_AMAZON_LINUX}" -gt 0 ]; then
+  rake_tasks+=(yum:recover)
+  yum_targets+=(amazon-linux)
+fi
+if [ "${RECOVER_CENTOS}" -gt 0 ]; then
+  rake_tasks+=(yum:recover)
+  yum_targets+=(centos)
+fi
 if [ "${RECOVER_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:recover)
   apt_targets+=(debian)
@@ -74,4 +89,8 @@ docker_run \
   RC="" \
   STAGING="${STAGING:-no}" \
   VERBOSE="${VERBOSE:-no}" \
-  VERSION=""
+  VERSION="" \
+  YUM_TARGETS="$(
+    IFS=,
+    echo "${yum_targets[*]}"
+  )"

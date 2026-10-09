@@ -26,7 +26,7 @@ namespace arrow::internal::bpacking {
 
 #if defined(ARROW_HAVE_NEON)
 #  define UNPACK_ARCH128 unpack_neon
-#elif defined(ARROW_HAVE_SSE4_2)
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  define UNPACK_ARCH128 unpack_sse4_2
 #endif
 
@@ -52,34 +52,6 @@ extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<uint64_t>(
 
 #endif  // UNPACK_ARCH128
 #undef UNPACK_ARCH128
-
-#if defined(ARROW_HAVE_RUNTIME_SVE128)
-#  define UNPACK_ARCH128_ALT unpack_sve128
-#endif
-
-#if defined(UNPACK_ARCH128_ALT)
-
-template <typename Uint>
-ARROW_EXPORT void UNPACK_ARCH128_ALT(const uint8_t* in, Uint* out,
-                                     const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128_ALT<bool>(  //
-    const uint8_t* in, bool* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128_ALT<uint8_t>(
-    const uint8_t* in, uint8_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128_ALT<uint16_t>(
-    const uint8_t* in, uint16_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128_ALT<uint32_t>(
-    const uint8_t* in, uint32_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128_ALT<uint64_t>(
-    const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
-
-#endif  // UNPACK_ARCH128_ALT
-#undef UNPACK_ARCH128_ALT
 
 #if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  define UNPACK_ARCH256 unpack_sve256

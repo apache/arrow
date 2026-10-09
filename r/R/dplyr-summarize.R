@@ -88,6 +88,8 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # Apply the results to the .data object.
   # First, the aggregations
   .data$aggregations <- mask$.aggregations
+  .data$arrange_vars <- list()
+  .data$arrange_desc <- logical()
   # Then collapse the query so that the resulting query object can have
   # additional operations applied to it
   out <- collapse.arrow_dplyr_query(.data)

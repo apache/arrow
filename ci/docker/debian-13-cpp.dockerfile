@@ -70,6 +70,7 @@ RUN apt-get update -y -q && \
         libsqlite3-dev \
         libssl-dev \
         libthrift-dev \
+        liburiparser-dev \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \
@@ -137,6 +138,6 @@ ENV ARROW_ACERO=ON \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

@@ -946,6 +946,19 @@ def test_serializing_expressions(expr):
     assert "test_expr" in returned.expressions
 
 
+@pytest.mark.parametrize("func", [pc.starts_with, pc.ends_with, pc.match_substring])
+def test_serializing_string_match_expressions(func):
+    # GH-50988: these map onto Substrait's starts_with / ends_with / contains
+    schema = pa.schema([pa.field("s", pa.string())])
+    expr = func(pc.field("s"), "al", ignore_case=True)
+
+    buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    # Substrait refers to fields by index, so compare against the normalized form
+    assert str(returned.expressions["test_expr"]) == str(
+        func(pc.field(0), "al", ignore_case=True))
+
+
 def test_arrow_specific_types():
     fields = {
         "time_seconds": (pa.time32("s"), 0),

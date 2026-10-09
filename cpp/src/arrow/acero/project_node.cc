@@ -67,14 +67,16 @@ class ProjectNode : public MapNode {
                           " doesn't match size of expressions " +
                           std::to_string(exprs.size())));
     }
+    const auto& input_schema = *inputs[0]->output_schema();
     FieldVector fields(exprs.size());
     int i = 0;
     for (auto& expr : exprs) {
       if (!expr.IsBound()) {
-        ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*inputs[0]->output_schema(),
-                                              plan->query_context()->exec_context()));
+        ARROW_ASSIGN_OR_RAISE(
+            expr, expr.Bind(input_schema, plan->query_context()->exec_context()));
       }
-      fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr());
+      fields[i] =
+          field(std::move(names[i]), expr.type()->GetSharedPtr(), expr.nullable());
       ++i;
     }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),

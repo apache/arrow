@@ -2453,6 +2453,88 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
   }
 }
 
+// Sentinel used to pre-fill the SQLULEN column_size output. If SQLDescribeCol
+// only writes the low bytes (the width bug guarded against here), the upper
+// bytes remain set to this pattern and the value is far outside any legal
+// column size.
+static constexpr SQLULEN kColumnSizeSentinel =
+    static_cast<SQLULEN>(0xFFFFFFFFFFFFFFFFULL);
+
+// Verify that SQLDescribeCol fully initializes the SQLULEN column_size output
+// for a DECIMAL column. Prior to GH-50560 the numeric path read
+// SQL_DESC_PRECISION (a SQLSMALLINT) straight into the SQLULEN* output, writing
+// only 2 of the 8 bytes and leaving the upper 6 bytes as uninitialized garbage.
+// The mock server reports SQL_WVARCHAR for `SELECT ... AS` columns, so this is
+// a remote-only test.
+TEST_F(ColumnsRemoteTest, SQLDescribeColDecimalColumnSizeIsFullyWritten) {
+  std::wstring wsql = this->GetQueryAllDataTypes();
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // decimal_positive column in the all-data-types query.
+  constexpr SQLUSMALLINT kDecimalColumn = 17;
+
+  SQLWCHAR column_name[1024];
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
+  SQLSMALLINT name_length = 0;
+  SQLSMALLINT data_type = 0;
+  SQLULEN column_size = kColumnSizeSentinel;
+  SQLSMALLINT decimal_digits = -1;
+  SQLSMALLINT nullable = 0;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, kDecimalColumn, column_name,
+                                        buf_char_len, &name_length, &data_type,
+                                        &column_size, &decimal_digits, &nullable));
+
+  EXPECT_EQ(SQL_DECIMAL, data_type);
+
+  // If only the low 2 bytes were written, the sentinel's upper 6 bytes would
+  // remain set and the full 8-byte value would be enormous rather than the
+  // expected precision. Comparing the whole SQLULEN is what catches the short
+  // write. Expected values match SQLDescribeColQueryAllDataTypesMetadata.
+  EXPECT_NE(kColumnSizeSentinel, column_size);
+  EXPECT_EQ(19u, column_size) << "column_size upper bytes look uninitialized: 0x"
+                              << std::hex << column_size;
+  EXPECT_EQ(0, decimal_digits);
+}
+
+// Verify SQLDescribeCol reports a fully-written column_size for a TIMESTAMP
+// column, exercising the datetime branch. Remote-only for the same reason as
+// the DECIMAL test above.
+TEST_F(ColumnsRemoteTest, SQLDescribeColTimestampColumnSizeIsFullyWritten) {
+  std::wstring wsql = this->GetQueryAllDataTypes();
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // timestamp_min column in the all-data-types query.
+  constexpr SQLUSMALLINT kTimestampColumn = 31;
+
+  SQLWCHAR column_name[1024];
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
+  SQLSMALLINT name_length = 0;
+  SQLSMALLINT data_type = 0;
+  SQLULEN column_size = kColumnSizeSentinel;
+  SQLSMALLINT decimal_digits = -1;
+  SQLSMALLINT nullable = 0;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, kTimestampColumn, column_name,
+                                        buf_char_len, &name_length, &data_type,
+                                        &column_size, &decimal_digits, &nullable));
+
+  EXPECT_EQ(SQL_TYPE_TIMESTAMP, data_type);
+
+  // Expected values match SQLDescribeColQueryAllDataTypesMetadata. A short write
+  // would leave the sentinel's upper bytes intact.
+  EXPECT_NE(kColumnSizeSentinel, column_size);
+  EXPECT_EQ(23u, column_size) << "column_size upper bytes look uninitialized: 0x"
+                              << std::hex << column_size;
+  EXPECT_EQ(23, decimal_digits);
+}
+
 TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
   SQLWCHAR column_name[1024];

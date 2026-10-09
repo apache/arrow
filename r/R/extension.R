@@ -485,10 +485,10 @@ VctrsExtensionType <- R6Class(
 #' array$type
 #' as.vector(array)
 #'
-#' temp_feather <- tempfile()
-#' write_feather(arrow_table(col = array), temp_feather)
-#' read_feather(temp_feather)
-#' unlink(temp_feather)
+#' temp_ipc <- tempfile()
+#' write_ipc_file(arrow_table(col = array), temp_ipc)
+#' read_ipc_file(temp_ipc)
+#' unlink(temp_ipc)
 vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x), storage_type = NULL) {
   if (inherits(x, "ExtensionArray") && inherits(x$type, "VctrsExtensionType")) {
     return(x)

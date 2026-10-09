@@ -186,6 +186,12 @@ ARROW_TESTING_EXPORT
 Status MakeDictExtension(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeDenseUnionExtension(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeSparseUnionExtension(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
                         const std::vector<int64_t>& shape, bool row_major_p,
                         std::shared_ptr<Tensor>* out, uint32_t seed = 0);

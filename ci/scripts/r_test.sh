@@ -18,15 +18,19 @@
 
 set -ex
 
-: ${R_BIN:=R}
+: "${R_BIN:=R}"
 
-source_dir=${1}/r
+source_dir="${1}/r"
 
-pushd ${source_dir}
+pushd "${source_dir}"
 
 printenv
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
+  #
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
@@ -47,8 +51,8 @@ if [ "$ARROW_R_FORCE_TESTS" = "true" ]; then
 fi
 
 if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
-  export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-  export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
+  export LD_LIBRARY_PATH="${ARROW_HOME}/lib:${LD_LIBRARY_PATH}"
+  export R_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
 fi
 
 export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} ${ARROW_R_CXXFLAGS}"
@@ -126,7 +130,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   print(args)
 
   rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
-echo "$SCRIPT" | ${R_BIN} --no-save
+echo "$SCRIPT" | "${R_BIN}" --no-save
 
 AFTER=$(ls -alh ~/)
 if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then

@@ -70,10 +70,13 @@ foreach(LIB_TARGET ${ARROW_SUBSTRAIT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
 endforeach()
 
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_substrait_static PUBLIC ARROW_ENGINE_STATIC)
+endif()
+
 set(ARROW_SUBSTRAIT_TEST_LINK_LIBS ${ARROW_SUBSTRAIT_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static
-       arrow_substrait_static)
+  list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static)
 else()
   list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_shared)
 endif()

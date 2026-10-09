@@ -25,6 +25,7 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
+#include "parquet/column_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
@@ -263,6 +264,15 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::fixed_size_binary(16)},
       {"float16", LogicalType::Float16(), ParquetType::FIXED_LEN_BYTE_ARRAY, 2,
        ::arrow::float16()},
+      {"timestamp_flba12_ms", LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
+       ::arrow::timestamp(::arrow::TimeUnit::MILLI, "UTC")},
+      {"timestamp_flba12_us", LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
+       ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC")},
+      {"timestamp_flba12_ns", LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
+       ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC")},
       {"none", LogicalType::None(), ParquetType::BOOLEAN, -1, ::arrow::boolean()},
       {"none", LogicalType::None(), ParquetType::INT32, -1, ::arrow::int32()},
       {"none", LogicalType::None(), ParquetType::INT64, -1, ::arrow::int64()},
@@ -304,6 +314,29 @@ TEST_F(TestConvertParquetSchema, DuplicateFieldNames) {
   ASSERT_OK(ConvertSchema(parquet_fields));
   arrow_fields = {arrow_field1, arrow_field2};
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema(arrow_fields)));
+}
+
+TEST_F(TestConvertParquetSchema, FlbaTimestampConversion) {
+  auto make_fields = [] {
+    std::vector<NodePtr> fields;
+    fields.push_back(
+        PrimitiveNode::Make("ts", Repetition::REQUIRED,
+                            LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+                            ParquetType::FIXED_LEN_BYTE_ARRAY, /*length=*/12));
+    return fields;
+  };
+
+  // Should convert to an Arrow timestamp.
+  ASSERT_OK(ConvertSchema(make_fields()));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema({::arrow::field(
+      "ts", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"), false)})));
+
+  // Should output the raw FLBA value.
+  ArrowReaderProperties props;
+  props.set_convert_flba_timestamps(false);
+  ASSERT_OK(ConvertSchema(make_fields(), /*key_value_metadata=*/{}, props));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+      ::arrow::schema({::arrow::field("ts", ::arrow::fixed_size_binary(12), false)})));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {
@@ -1902,8 +1935,10 @@ class TestConvertRoundTrip : public ::testing::Test {
         ::parquet::default_writer_properties();
     RETURN_NOT_OK(ToParquetSchema(arrow_schema_.get(), *properties.get(),
                                   *arrow_properties, &parquet_schema_));
-    ::parquet::schema::ToParquet(parquet_schema_->group_node(), &parquet_format_schema_);
-    auto parquet_schema = ::parquet::schema::FromParquet(parquet_format_schema_);
+    ::parquet::schema::SchemaToThrift(parquet_schema_->group_node(),
+                                      &parquet_format_schema_);
+    auto parquet_schema =
+        ::parquet::schema::SchemaFromThrift(parquet_format_schema_, /*max_depth=*/100);
     return FromParquetSchema(parquet_schema.get(), &result_schema_);
   }
 
@@ -2171,6 +2206,31 @@ TEST(TestFromParquetSchema, UndefinedLogicalType) {
             *::arrow::field("column with unknown type", ::arrow::binary()));
 }
 
+TEST(TestFromParquetSchema, IncompatibleLogicalTypeDropped) {
+  // A file with INT32 annotated as UUID. The reader should succeed and ignore the logical
+  // type and stats.
+  auto path = test::get_data_file("int32_with_uuid_logical_type.parquet");
+  std::unique_ptr<parquet::ParquetFileReader> reader =
+      parquet::ParquetFileReader::OpenFile(path);
+
+  const auto* pq_schema = reader->metadata()->schema();
+  ASSERT_EQ(pq_schema->num_columns(), 1);
+
+  const auto* col_desc = pq_schema->Column(0);
+  ASSERT_EQ(col_desc->physical_type(), parquet::Type::INT32);
+  ASSERT_FALSE(col_desc->logical_type()->is_valid());
+  ASSERT_FALSE(col_desc->can_use_min_max());
+
+  auto row_group = reader->RowGroup(0);
+  auto col_reader = std::static_pointer_cast<parquet::Int32Reader>(row_group->Column(0));
+  const auto num_rows = 10;
+  std::vector<int32_t> values(num_rows);
+  int64_t values_read = 0;
+  col_reader->ReadBatch(num_rows, nullptr, nullptr, values.data(), &values_read);
+  ASSERT_EQ(values_read, num_rows);
+  for (int32_t i = 0; i < num_rows; ++i) ASSERT_EQ(values[i], i);
+}
+
 //
 // Test LevelInfo computation from a Parquet schema
 // (for Parquet -> Arrow reading).
@@ -2214,13 +2274,12 @@ TEST_F(TestLevels, TestPrimitive) {
       PrimitiveNode::Make("node_name", Repetition::REQUIRED, ParquetType::BOOLEAN));
   ASSERT_OK_AND_ASSIGN(std::deque<LevelInfo> levels,
                        RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*null_slot_usage=*/1,
-                                            /*def_level=*/0, /*rep_level=*/0,
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/0, /*rep_level=*/0,
                                             /*ancestor_list_def_level*/ 0}));
   SetParquetSchema(
       PrimitiveNode::Make("node_name", Repetition::OPTIONAL, ParquetType::BOOLEAN));
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1,
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/1,
                                             /*rep_level=*/0,
                                             /*ancestor_list_def_level*/ 0}));
 
@@ -2228,12 +2287,11 @@ TEST_F(TestLevels, TestPrimitive) {
   SetParquetSchema(
       PrimitiveNode::Make("node_name", Repetition::REPEATED, ParquetType::BOOLEAN));
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},  // List Field
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1}));  //  primitive field
+  EXPECT_THAT(levels,
+              ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 0},  // List Field
+                          LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 1}));  //  primitive field
 }
 
 TEST_F(TestLevels, TestMaps) {
@@ -2248,24 +2306,20 @@ TEST_F(TestLevels, TestMaps) {
       GroupNode::Make("my_map", Repetition::OPTIONAL, {list}, LogicalType::Map()));
   ASSERT_OK_AND_ASSIGN(std::deque<LevelInfo> levels,
                        RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 2},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 2}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 2},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 2}));
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/1));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 2},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 2}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 2},
+                                  LevelInfo{/*def_level=*/3, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 2}));
 
   // single column map.
   key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
@@ -2276,12 +2330,10 @@ TEST_F(TestLevels, TestMaps) {
       GroupNode::Make("my_set", Repetition::REQUIRED, {list}, LogicalType::Map()));
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 1}));
 }
 
 TEST_F(TestLevels, TestSimpleGroups) {
@@ -2293,14 +2345,12 @@ TEST_F(TestLevels, TestSimpleGroups) {
           {PrimitiveNode::Make("inner", Repetition::REQUIRED, ParquetType::BOOLEAN)})}));
   ASSERT_OK_AND_ASSIGN(std::deque<LevelInfo> levels,
                        RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0}));
 
   // Arrow schema: struct(child: struct(inner: boolean ))
   SetParquetSchema(GroupNode::Make(
@@ -2309,14 +2359,12 @@ TEST_F(TestLevels, TestSimpleGroups) {
           "child", Repetition::OPTIONAL,
           {PrimitiveNode::Make("inner", Repetition::OPTIONAL, ParquetType::BOOLEAN)})}));
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/3, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0}));
 
   // Arrow schema: struct(child: struct(inner: boolean)) not null
   SetParquetSchema(GroupNode::Make(
@@ -2325,14 +2373,12 @@ TEST_F(TestLevels, TestSimpleGroups) {
           "child", Repetition::OPTIONAL,
           {PrimitiveNode::Make("inner", Repetition::OPTIONAL, ParquetType::BOOLEAN)})}));
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/0, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/0,
-                            /*ancestor_list_def_level*/ 0}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/0, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/1, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/0,
+                                            /*ancestor_list_def_level*/ 0}));
 }
 
 TEST_F(TestLevels, TestRepeatedGroups) {
@@ -2346,12 +2392,10 @@ TEST_F(TestLevels, TestRepeatedGroups) {
 
   ASSERT_OK_AND_ASSIGN(std::deque<LevelInfo> levels,
                        RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 2}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/3, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 2}));
 
   // Arrow schema: list(bool) not null
   SetParquetSchema(GroupNode::Make(
@@ -2362,12 +2406,10 @@ TEST_F(TestLevels, TestRepeatedGroups) {
       LogicalType::List()));
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 1}));
 
   // Arrow schema: list(bool not null)
   SetParquetSchema(GroupNode::Make(
@@ -2378,12 +2420,10 @@ TEST_F(TestLevels, TestRepeatedGroups) {
       LogicalType::List()));
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 2}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/2, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 2}));
 
   // Arrow schema: list(bool not null) not null
   SetParquetSchema(GroupNode::Make(
@@ -2394,12 +2434,10 @@ TEST_F(TestLevels, TestRepeatedGroups) {
       LogicalType::List()));
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1}));
+  EXPECT_THAT(levels, ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 0},
+                                  LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                            /*ancestor_list_def_level*/ 1}));
 
   // Arrow schema: list(struct(child: struct(list(bool not null) not null)) non null) not
   // null
@@ -2411,16 +2449,16 @@ TEST_F(TestLevels, TestRepeatedGroups) {
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
   EXPECT_THAT(
       levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
+      ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
                             /*ancestor_list_def_level*/ 0},
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
+                  LevelInfo{/*def_level=*/1, /*rep_level=*/1,
                             /*ancestor_list_def_level*/ 1},
 
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                  LevelInfo{/*def_level=*/2, /*rep_level=*/1,
                             /*ancestor_list_def_level*/ 1},  // optional child struct
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/2,
+                  LevelInfo{/*def_level=*/3, /*rep_level=*/2,
                             /*ancestor_list_def_level*/ 1},  // repeated field
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/2,
+                  LevelInfo{/*def_level=*/3, /*rep_level=*/2,
                             /*ancestor_list_def_level*/ 3}));  // inner field
 
   // Arrow schema: list(struct(child_list: list(struct(f0: bool f1: bool))) not null) not
@@ -2438,43 +2476,41 @@ TEST_F(TestLevels, TestRepeatedGroups) {
                                        ParquetType::BOOLEAN)})})},
           LogicalType::List())}));
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},  // parent list
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1},  // parent struct
+  EXPECT_THAT(levels,
+              ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 0},  // parent list
+                          LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 1},  // parent struct
 
-                  // Def_level=2 is handled together with def_level=3
-                  // When decoding.  Def_level=2 indicates present but empty
-                  // list.  def_level=3 indicates a present element in the
-                  // list.
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 1},  // list field
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/4, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 3},  // inner struct field
+                          // Def_level=2 is handled together with def_level=3
+                          // When decoding.  Def_level=2 indicates present but empty
+                          // list.  def_level=3 indicates a present element in the
+                          // list.
+                          LevelInfo{/*def_level=*/3, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 1},  // list field
+                          LevelInfo{/*def_level=*/4, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 3},  // inner struct field
 
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/5, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 3}));  // f0 bool field
+                          LevelInfo{/*def_level=*/5, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 3}));  // f0 bool field
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/1));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},  // parent list
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1},  // parent struct
-                  // Def_level=2 is handled together with def_level=3
-                  // When decoding.  Def_level=2 indicate present but empty
-                  // list.  def_level=3 indicates a present element in the
-                  // list.
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 1},  // list field
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/4, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 3},  // inner struct field
+  EXPECT_THAT(levels,
+              ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 0},  // parent list
+                          LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 1},  // parent struct
+                          // Def_level=2 is handled together with def_level=3
+                          // When decoding.  Def_level=2 indicate present but empty
+                          // list.  def_level=3 indicates a present element in the
+                          // list.
+                          LevelInfo{/*def_level=*/3, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 1},  // list field
+                          LevelInfo{/*def_level=*/4, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 3},  // inner struct field
 
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/4, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 3}));  // f1 bool field
+                          LevelInfo{/*def_level=*/4, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 3}));  // f1 bool field
 
   // Arrow schema: list(struct(child_list: list(bool not null)) not null) not null
   // Legacy 2-level encoding (required for backwards compatibility.  See
@@ -2488,21 +2524,20 @@ TEST_F(TestLevels, TestRepeatedGroups) {
           LogicalType::List())}));
 
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
-  EXPECT_THAT(
-      levels,
-      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 0},  // parent list
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
-                            /*ancestor_list_def_level*/ 1},  // parent struct
+  EXPECT_THAT(levels,
+              ElementsAre(LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 0},  // parent list
+                          LevelInfo{/*def_level=*/1, /*rep_level=*/1,
+                                    /*ancestor_list_def_level*/ 1},  // parent struct
 
-                  // Def_level=2 is handled together with def_level=3
-                  // When decoding.  Def_level=2 indicate present but empty
-                  // list.  def_level=3 indicates a present element in the
-                  // list.
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 1},  // list field
-                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/2,
-                            /*ancestor_list_def_level*/ 3}));  // inner bool
+                          // Def_level=2 is handled together with def_level=3
+                          // When decoding.  Def_level=2 indicate present but empty
+                          // list.  def_level=3 indicates a present element in the
+                          // list.
+                          LevelInfo{/*def_level=*/3, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 1},  // list field
+                          LevelInfo{/*def_level=*/3, /*rep_level=*/2,
+                                    /*ancestor_list_def_level*/ 3}));  // inner bool
 }
 
 TEST_F(TestLevels, ListErrors) {

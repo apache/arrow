@@ -55,7 +55,9 @@
 #' dataset.). If you provide a `Schema` and the names match what is detected,
 #' it will use the types defined by the Schema. In the example file path above,
 #' you could provide a Schema to specify that "month" should be `int8()`
-#' instead of the `int32()` it will be parsed as by default.
+#' instead of the `int32()` it will be parsed as by default. This is also
+#' useful for keeping leading zeros, so that a value such as `001` isn't
+#' parsed as the integer `1`.
 #'
 #' If your file paths do not appear to be Hive-style, or if you pass
 #' `hive_style = FALSE`, the `partitioning` argument will be used to create
@@ -63,6 +65,23 @@
 #' partitions; you may instead provide a `Schema` to map those names to desired
 #' column types, as described above. If neither are provided, no partitioning
 #' information will be taken from the file paths.
+#'
+#' @section Adding the source filename as a column:
+#'
+#' Partitioning only recovers information encoded in directory names. If you
+#' need to know which file each row came from, call [add_filename()] inside a
+#' `dplyr` query on the dataset:
+#'
+#' ```r
+#' open_dataset("nyc-taxi") |>
+#'   mutate(file = add_filename()) |>
+#'   collect()
+#' ```
+#'
+#' This is useful, for example, when you have opened a subdirectory of a
+#' partitioned dataset directly (so the partition columns above that directory
+#' are not inferred) and want to recover the partition values from the path.
+#' See [add_filename()] for details and limitations.
 #'
 #' @param sources One of:
 #'   * a string path or URI to a directory containing data files
@@ -107,8 +126,8 @@
 #' the files in `x`. This argument is ignored when `sources` is a list of `Dataset` objects.
 #' Currently supported values:
 #' * "parquet"
-#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-#'   only version 2 files are supported
+#' * "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+#'   this is deprecated)
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
@@ -119,13 +138,13 @@
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
-#' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_feather()] on how to specify these).
+#' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_ipc_file()] on how to specify these).
 #' @inheritParams dataset_factory
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
 #' @seealso \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
-#' datasets article}
+#' datasets article}, [add_filename()]
 #' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
@@ -171,6 +190,13 @@
 #'
 #' # If you want to specify the data types for your fields, you can pass in a Schema
 #' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
+#'
+#' # Specifying the type also keeps leading zeros, so "001" stays a string
+#' # instead of becoming the integer 1
+#' products <- data.frame(x = 1:3, product_id = c("001", "002", "010"))
+#' tf4 <- tempfile()
+#' write_dataset(products, tf4, partitioning = "product_id")
+#' open_dataset(tf4, partitioning = schema(product_id = string()))
 open_dataset <- function(
   sources,
   schema = NULL,
@@ -481,7 +507,7 @@ FileSystemDataset <- R6Class(
       file_type <- self$format$type
       pretty_file_type <- list(
         parquet = "Parquet",
-        ipc = "Feather"
+        ipc = "Arrow IPC"
       )[[file_type]]
 
       paste(

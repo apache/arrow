@@ -30,7 +30,7 @@ jinja_req = 'jinja2>=2.11'
 extras = {
     'benchmark': ['pandas'],
     'crossbow': [jinja_req, 'pygit2>=1.14.0', 'pygithub>=2.5.0', 'requests',
-                 'ruamel.yaml', 'setuptools_scm>=8.0.0'],
+                 'ruamel.yaml'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'integration': ['cffi', 'numpy'],
     'integration-java': ['jpype1'],

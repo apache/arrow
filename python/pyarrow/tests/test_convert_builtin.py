@@ -240,7 +240,7 @@ def test_sequence_boolean(seq):
 @pytest.mark.numpy
 @parametrize_with_sequence_types
 def test_sequence_numpy_boolean(seq):
-    expected = [np.bool_(True), None, np.bool_(False), None]
+    expected = [np.bool(True), None, np.bool(False), None]
     arr = pa.array(seq(expected))
     assert arr.type == pa.bool_()
     assert arr.to_pylist() == [True, None, False, None]

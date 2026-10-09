@@ -201,8 +201,8 @@ jobs:
       fail-fast: false
       matrix:
         runs-on:
-          - macos-15-intel
-          - macos-14
+          - macos-26-intel
+          - macos-26
     env:
       RC: ${{ needs.target.outputs.rc }}
       TEST_WHEELS: "1"
@@ -232,7 +232,7 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4.0.1
+      - uses: conda-incubator/setup-miniconda@be893c923ea9cf1cf7cd510fbdde27c7e18cbdcb # v4.1.0
       - name: Install System Dependencies
         run: |
           choco install --no-progress --yes boost-msvc-14.1
@@ -251,7 +251,7 @@ jobs:
     name: Yum
     needs: target
     runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

@@ -222,14 +222,19 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
                            int32_t x_scale, int32_t* dec_str_len) {
   arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
   std::string dec_str = dec.ToString(x_scale);
-  *dec_str_len = static_cast<int32_t>(dec_str.length());
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *dec_str_len));
+  auto dec_str_length = static_cast<int32_t>(dec_str.length());
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, dec_str_length));
   if (ret == nullptr) {
     std::string err_msg = "Could not allocate memory for string: " + dec_str;
     gdv_fn_context_set_error_msg(context, err_msg.data());
+    // Report zero length so a caller can never combine a positive length with the
+    // null buffer (the original bug: memcpy(dst, nullptr, positive_len) -> SIGSEGV).
+    *dec_str_len = 0;
     return nullptr;
   }
-  memcpy(ret, dec_str.data(), *dec_str_len);
+  *dec_str_len = dec_str_length;
+  memcpy(ret, dec_str.data(), dec_str_length);
   return ret;
 }
 
@@ -484,7 +489,7 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
   while ((chars_masked < n_to_mask) && (bytes_masked < data_len)) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
-                         data_len, &utf8_char);
+                         data_len - bytes_masked, &utf8_char);
 
     if (char_len < 0) {
       gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
@@ -592,7 +597,12 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   while ((bytes_read < data_len) && (chars_counter < (num_of_chars - n_to_mask))) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     chars_counter++;
     bytes_read += static_cast<int>(char_len);
   }
@@ -606,7 +616,12 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   while (bytes_read < data_len) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     switch (utf8proc_category(utf8_char)) {
       case 1:
         out[out_idx] = 'X';
@@ -695,7 +710,12 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
   while (bytes_read < data_len) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     switch (utf8proc_category(utf8_char)) {
       case UTF8PROC_CATEGORY_LU:
         memcpy(out + out_index, upper, upper_length);

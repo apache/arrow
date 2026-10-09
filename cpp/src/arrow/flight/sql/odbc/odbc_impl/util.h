@@ -25,7 +25,6 @@
 #include "arrow/flight/types.h"
 
 #include <boost/xpressive/xpressive.hpp>
-#include <codecvt>
 #include <functional>
 #include <optional>
 

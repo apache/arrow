@@ -21,6 +21,7 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
+import operator
 import pytest
 import struct
 import subprocess
@@ -34,8 +35,8 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-from pyarrow.vendored.version import Version
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 @pytest.mark.processes
@@ -562,6 +563,63 @@ def test_array_slice():
             assert res.to_pylist() == expected
             if np is not None:
                 assert res.to_numpy().tolist() == expected
+
+
+@pytest.mark.parametrize("scalar_type", [
+    pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+    pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64(),
+])
+def test_array_slice_integer_scalars(scalar_type):
+    arr = pa.array(range(10))
+    offsets = pa.array([2, 4], type=scalar_type)
+
+    result = arr.slice(offsets[0], offsets[1])
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.numpy
+def test_array_slice_numpy_integer_scalars():
+    arr = pa.array(range(10))
+
+    result = arr.slice(np.int64(2), np.int64(4))
+
+    assert result.equals(arr.slice(2, 4))
+
+
+@pytest.mark.parametrize("scalar", [
+    pa.scalar(2.0),
+    pa.scalar(True),
+    pa.scalar(None, type=pa.int64()),
+])
+@pytest.mark.parametrize("args", [
+    lambda scalar: (scalar,),
+    lambda scalar: (0, scalar),
+])
+def test_array_slice_invalid_scalars(scalar, args):
+    arr = pa.array(range(10))
+
+    with pytest.raises(TypeError):
+        arr.slice(*args(scalar))
+
+
+def test_array_slice_negative_integer_scalars():
+    arr = pa.array(range(10))
+    negative = pa.scalar(-1, type=pa.int64())
+
+    with pytest.raises(IndexError):
+        arr.slice(negative)
+    with pytest.raises(ValueError):
+        arr.slice(0, negative)
+
+
+def test_array_slice_uint64_scalar_overflow():
+    arr = pa.array(range(10))
+    overflow = pa.scalar(2 ** 63, type=pa.uint64())
+
+    assert arr.slice(overflow).equals(arr.slice(len(arr)))
+    with pytest.raises(OverflowError):
+        arr.slice(0, overflow)
 
 
 def test_array_slice_negative_step():
@@ -2680,6 +2738,8 @@ def test_array_from_list_of_timestamps(unit):
 
 @pytest.mark.numpy
 def test_array_from_timestamp_with_generic_unit():
+    if Version(np.__version__) >= Version("2.5.0"):
+        pytest.skip("generic units of timedelta64 deprecated")
     n = np.datetime64('NaT')
     x = np.datetime64('2017-01-01 01:01:01.111111111')
     y = np.datetime64('2018-11-22 12:24:48.111111111')
@@ -2721,11 +2781,13 @@ def test_array_from_numpy_timedelta(dtype, type):
 @pytest.mark.numpy
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
-    td = np.timedelta64(1)
+    if Version(np.__version__) < Version("2.5.0"):
+        # Generic units of timedelta64 deprecated in NumPy 2.5
+        td = np.timedelta64(1)
 
-    for data in [[td], np.array([td])]:
-        with pytest.raises(NotImplementedError):
-            pa.array(data)
+        for data in [[td], np.array([td])]:
+            with pytest.raises(NotImplementedError):
+                pa.array(data)
 
     # unsupported unit
     td = np.timedelta64(1, 'M')
@@ -2820,11 +2882,10 @@ def test_interval_array_from_relativedelta():
     assert arr.equals(expected)
     assert arr.to_pandas().tolist() == [
         None, DateOffset(months=13, days=8,
-                         microseconds=(
+                         nanoseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
                                                 minutes=1, hours=1) //
-                             datetime.timedelta(microseconds=1)),
-                         nanoseconds=0)]
+                             datetime.timedelta(microseconds=1)) * 1000)]
     with pytest.raises(ValueError):
         pa.array([DateOffset(years=((1 << 32) // 12), months=100)])
     with pytest.raises(ValueError):
@@ -2872,12 +2933,11 @@ def test_interval_array_from_dateoffset():
     assert arr.equals(expected)
     expected_from_pandas = [
         None, DateOffset(months=13, days=8,
-                         microseconds=(
+                         nanoseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
                                                 minutes=1, hours=1) //
-                             datetime.timedelta(microseconds=1)),
-                         nanoseconds=1),
-        DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
+                             datetime.timedelta(microseconds=1) * 1000) + 1),
+        DateOffset(months=0, days=0, nanoseconds=0)]
 
     assert arr.to_pandas().tolist() == expected_from_pandas
 
@@ -2926,6 +2986,85 @@ def test_array_from_numpy_unicode(string_type):
     arrow_arr = pa.array(arr, string_type)
     expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
+
+
+@pytest.fixture
+def numpy_string_dtype():
+    dtypes = pytest.importorskip("numpy.dtypes")
+    return dtypes.StringDType
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.string(),
+    pa.large_string(),
+    pa.string_view()])
+def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
+    values = [
+        "short",
+        "a" * 100,
+        "b" * 300,
+        "árvíztűrő tükörfúrógép 🥐 你好",
+        "🥐" * 200,
+        "",
+    ]
+    arr = np.array(values, dtype=numpy_string_dtype())
+
+    arrow_arr = pa.array(arr, type=string_type)
+
+    arrow_arr.validate(full=True)
+    assert arrow_arr.type == (string_type or pa.string())
+    assert arrow_arr.to_pylist() == arr.tolist()
+
+    strided = np.array(list(itertools.chain.from_iterable(
+        zip(values, itertools.repeat("skip")))),
+        dtype=numpy_string_dtype())[::2]
+    arrow_arr = pa.array(strided, type=string_type)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == values
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('na_object, expected', [
+    (None, None),
+    (float("nan"), None),
+    ("__placeholder__", "__placeholder__"),
+])
+def test_array_from_numpy_string_dtype_na_object(
+        numpy_string_dtype, na_object, expected):
+    arr = np.array(["some", na_object, "strings"],
+                   dtype=numpy_string_dtype(na_object=na_object))
+
+    arrow_arr = pa.array(arr)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == ["some", expected, "strings"]
+
+    mask = np.array([False, False, True])
+    arrow_arr = pa.array(arr, mask=mask)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == ["some", expected, None]
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype_rejects_non_string_type(
+        numpy_string_dtype):
+    arr = np.array(["some", "strings"], dtype=numpy_string_dtype())
+
+    msg = "Expected an Arrow string type.*got binary"
+    with pytest.raises(TypeError, match=msg):
+        pa.array(arr, type=pa.binary())
+
+
+@pytest.mark.numpy
+def test_array_from_list_of_numpy_string_dtype_arrays(numpy_string_dtype):
+    values = [["a", "bb"], ["ccc"]]
+    arrays = [np.array(v, dtype=numpy_string_dtype()) for v in values]
+
+    result = pa.array(arrays)
+
+    assert result.type == pa.list_(pa.string())
+    assert result.to_pylist() == values
 
 
 @pytest.mark.numpy
@@ -3802,21 +3941,12 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0.0.dev0"):
-        # copy keyword is not strict and not passed down to __array__
-        result = np.array(arr, copy=False)
-        np.testing.assert_array_equal(result, expected)
+    with pytest.raises(ValueError, match="Unable to avoid a copy"):
+        np.array(arr, copy=False)
 
-        result = np.array(arr, dtype="float64", copy=False)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
-        with pytest.raises(ValueError, match="Unable to avoid a copy"):
-            np.array(arr, copy=False)
-
-        arr = pa.array([1, 2, 3])
-        with pytest.raises(ValueError):
-            np.array(arr, dtype="float64", copy=False)
+    arr = pa.array([1, 2, 3])
+    with pytest.raises(ValueError):
+        np.array(arr, dtype="float64", copy=False)
 
     # copy=True -> not yet passed by numpy, so we have to call this directly to test
     arr = pa.array([1, 2, 3])
@@ -4438,7 +4568,7 @@ def test_non_cpu_array():
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)
-    validity = np.array([True, False, True, False], dtype=np.bool_)
+    validity = np.array([True, False, True, False], dtype=np.bool)
     cuda_data_buf = ctx.buffer_from_data(data)
     cuda_validity_buf = ctx.buffer_from_data(validity)
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
@@ -4585,3 +4715,77 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+@pytest.mark.parametrize("index_type", [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                                        pa.uint8(), pa.uint16(), pa.uint32(),
+                                        pa.uint64()])
+def test_dictionary_array_preserves_index_type(index_type):
+    # GH-37476: an unsigned dictionary index type must be preserved, not replaced by the
+    # signed integer type of the same width. Signed index types are kept as-is.
+    dict_type = pa.dictionary(index_type, pa.string())
+
+    arr = pa.array(["a", "b", None, "a"], type=dict_type)
+    assert arr.type == dict_type
+    assert arr.to_pylist() == ["a", "b", None, "a"]
+    arr.validate(full=True)
+
+    chunked = pa.chunked_array([["a", "b", "a"]], dict_type)
+    assert chunked.type == dict_type
+
+
+@pytest.mark.parametrize("start_type, widened_type", [(pa.int8(), pa.int16()),
+                                                      (pa.uint8(), pa.uint16())])
+def test_dictionary_array_index_width_adapts(start_type, widened_type):
+    # The index width adapts to the number of distinct values, as it does for signed
+    # indices; only the signedness of the requested type is preserved.
+    values = [str(i) for i in range(200)]
+    arr = pa.array(values, type=pa.dictionary(start_type, pa.string()))
+    assert arr.type == pa.dictionary(widened_type, pa.string())
+    assert arr.to_pylist() == values
+
+
+@pytest.mark.pandas
+def test_dictionary_uint64_index_to_pandas():
+    # GH-37476: uint64 dictionary indices are preserved, and converting them to pandas
+    # maps the indices to int64 categorical codes, which is safe because the indices are
+    # bounded by the dictionary length.
+    arr = pa.array(["a", "b", None, "a"], type=pa.dictionary(pa.uint64(), pa.string()))
+    result = arr.to_pandas()
+    assert list(result.cat.categories) == ["a", "b"]
+    assert result.cat.codes.tolist() == [0, 1, -1, 0]
+
+
+@pytest.mark.parametrize("op", [
+    operator.add,
+    operator.sub,
+    operator.mul,
+    operator.truediv,
+    operator.pow,
+    operator.and_,
+    operator.or_,
+    operator.xor,
+    operator.lshift,
+    operator.rshift,
+])
+def test_arithmetic_dunders_unknown_types(op):
+    # GH-49826
+    class MyObj:
+        def __radd__(self, other):
+            return "reflected"
+
+        __rsub__ = __rmul__ = __rtruediv__ = __rpow__ = __radd__
+        __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
+
+    assert op(pa.array([1, 2, 3]), MyObj()) == "reflected"
+
+    # If NotImplemented is returned for both sides of the operation
+    # Python will fallback to a TypeError
+    with pytest.raises(TypeError, match="unsupported operand type\\(s\\)"):
+        op(pa.array([1, 2, 3]), object())
+
+
+def test_arithmetic_dunder_raises_arrow_invalid():
+    # GH-49826
+    with pytest.raises(pa.ArrowInvalid, match="divide by zero"):
+        pa.array([1, 2, 3]) / pa.scalar(0)

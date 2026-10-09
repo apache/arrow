@@ -256,11 +256,11 @@ To configure how Parquet files are written, use the :class:`WriterProperties::Bu
 
    std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
       .max_row_group_length(64 * 1024)
-      .created_by("My Application")
-      .version(ParquetVersion::PARQUET_2_6)
-      .data_page_version(ParquetDataPageVersion::V2)
-      .compression(Compression::SNAPPY)
-      .build();
+      ->created_by("My Application")
+      ->version(ParquetVersion::PARQUET_2_6)
+      ->data_page_version(ParquetDataPageVersion::V2)
+      ->compression(Compression::SNAPPY)
+      ->build();
 
 The ``max_row_group_length`` sets an upper bound on the number of rows per row
 group that takes precedent over the ``chunk_size`` passed in the write methods.

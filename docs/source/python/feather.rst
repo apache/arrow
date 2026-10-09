@@ -22,10 +22,6 @@
 Feather File Format
 ===================
 
-.. deprecated:: 24.0.0
-   The ``pyarrow.feather`` module is deprecated. Feather V2 is the Arrow IPC
-   file format. Use :mod:`pyarrow.ipc` instead. See :ref:`ipc` for details.
-
 Feather is a portable file format for storing Arrow tables or data frames (from
 languages like Python or R) that utilizes the :ref:`Arrow IPC format <ipc>`
 internally. Feather was created early in the Arrow project as a proof of
@@ -39,8 +35,8 @@ R. There are two file format versions for Feather:
 * Version 1 (V1), a legacy version available starting in 2016, replaced by
   V2. V1 files are distinct from Arrow IPC files and lack many features, such
   as the ability to store all Arrow data types. V1 files also lack compression
-  support. We intend to maintain read support for V1 for the foreseeable
-  future.
+  support. Reading and writing V1 files is deprecated as of 25.0.0 and will
+  be removed in a future version.
 
 The ``pyarrow.feather`` module contains the read and write functions for the
 format. :func:`~pyarrow.feather.write_feather` accepts either a
@@ -108,12 +104,22 @@ reduced disk IO requirements.
 Writing Version 1 (V1) Files
 ----------------------------
 
+.. deprecated:: 25.0.0
+   Support for the legacy Feather V1 format is deprecated. Reading and
+   writing V1 files will be removed in a future version. Rewrite V1 files
+   in the Arrow IPC file format (Feather V2).
+
 For compatibility with libraries without support for Version 2 files, you can
-write the version 1 format by passing ``version=1`` to ``write_feather``. We
-intend to maintain read support for V1 for the foreseeable future.
+write the version 1 format by passing ``version=1`` to ``write_feather``.
 
 Migration to IPC
 ----------------
+
+.. note::
+
+   ``pyarrow.feather.write_feather`` and ``pyarrow.feather.read_table``
+   equivalents will be provided in :mod:`pyarrow.ipc` before the
+   ``pyarrow.feather`` module is deprecated.
 
 Since Feather V2 is the Arrow IPC file format, you can use the
 :mod:`pyarrow.ipc` module as a direct replacement:

@@ -69,8 +69,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 
 #' Infer the arrow Array type from an R object
 #'
-#' [type()] is deprecated in favor of [infer_type()].
-#'
 #' @param x an R object (usually a vector) to be converted to an [Array] or
 #'   [ChunkedArray].
 #' @param ... Passed to S3 methods
@@ -88,12 +86,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @export
 infer_type <- function(x, ...) UseMethod("infer_type")
 
-#' @rdname infer_type
-#' @export
-type <- function(x) {
-  .Deprecated("infer_type")
-  infer_type(x)
-}
 
 #' @export
 infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
@@ -364,7 +356,9 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' to `double` ("numeric") and `int64` is converted to `bit64::integer64`. For
 #' `int64` types, this conversion can be disabled (so that `int64` always yields
 #' a `bit64::integer64` object) by setting `options(arrow.int64_downcast =
-#' FALSE)`.
+#' FALSE)`. For values nested inside a list type, this decision is made once
+#' for all values in the column, so every element of the list uses the same R
+#' type.
 #'
 #' `decimal128()` creates a `Decimal128Type`. Arrow decimals are fixed-point
 #' decimal numbers encoded as a scalar integer. The `precision` is the number of

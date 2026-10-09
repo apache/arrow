@@ -17,17 +17,13 @@
 
 #include "parquet/level_conversion.h"
 
-#include <algorithm>
 #include <limits>
 #include <optional>
 
-#include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "parquet/exception.h"
 
-#include "parquet/level_comparison.h"
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
 #  include "parquet/level_conversion_bmi2_internal.h"
 #endif
@@ -118,11 +114,6 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
     output->values_read = offsets - orig_pos;
   } else if (valid_bits_writer.has_value()) {
     output->values_read = valid_bits_writer->position();
-  }
-  if (output->null_count > 0 && level_info.null_slot_usage > 1) {
-    throw ParquetException(
-        "Null values with null_slot_usage > 1 not supported."
-        "(i.e. FixedSizeLists with null values are not supported)");
   }
 }
 

@@ -33,7 +33,7 @@ for old_rc in $old_rcs; do
   svn \
     delete \
     -m "Remove old Apache Arrow RC: ${old_rc}" \
-    ${dev_base_url}/${old_rc}
+    "${dev_base_url}/${old_rc}"
 done
 
 echo "Keep only the latest release"
@@ -49,7 +49,7 @@ for old_release_version in $old_releases; do
   svn \
     delete \
     -m "Remove old Apache Arrow release: ${old_release_version}" \
-    ${release_base_url}/${old_release_version}
+    "${release_base_url}/${old_release_version}"
 done
 
 echo "Success! See the current artifacts:"

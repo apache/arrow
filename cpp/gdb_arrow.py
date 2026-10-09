@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from bisect import bisect_right
 from collections import namedtuple
 from collections.abc import Sequence
 import datetime
@@ -45,7 +46,9 @@ _type_ids = [
     'INTERVAL_MONTHS', 'INTERVAL_DAY_TIME', 'DECIMAL128', 'DECIMAL256',
     'LIST', 'STRUCT', 'SPARSE_UNION', 'DENSE_UNION', 'DICTIONARY', 'MAP',
     'EXTENSION', 'FIXED_SIZE_LIST', 'DURATION', 'LARGE_STRING',
-    'LARGE_BINARY', 'LARGE_LIST', 'INTERVAL_MONTH_DAY_NANO']
+    'LARGE_BINARY', 'LARGE_LIST', 'INTERVAL_MONTH_DAY_NANO',
+    'RUN_END_ENCODED', 'STRING_VIEW', 'BINARY_VIEW',
+    'LIST_VIEW', 'LARGE_LIST_VIEW', 'DECIMAL32', 'DECIMAL64']
 
 # Mirror the C++ Type::type enum
 Type = enum.IntEnum('Type', _type_ids, start=0)
@@ -93,7 +96,8 @@ def identity(v):
 
 
 def has_null_bitmap(type_id):
-    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION)
+    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION,
+                           Type.RUN_END_ENCODED)
 
 
 @lru_cache()
@@ -624,11 +628,12 @@ class Buffer:
         """
         Return a view over the bytes of this buffer.
         """
-        if self.size > 0:
-            if length is None:
-                length = self.size
+        if length is None:
+            length = self.size - offset
+        # Sliced arrays may share buffers, so only read the requested range.
+        if length > 0:
             mem = gdb.selected_inferior().read_memory(
-                self.val['data_'] + offset, self.size)
+                self.val['data_'] + offset, length)
         else:
             mem = memoryview(b"")
         # Read individual bytes as unsigned integers rather than
@@ -767,7 +772,8 @@ class Bitmap(Sequence):
     def from_buffer(cls, buf, offset, length):
         assert isinstance(buf, Buffer)
         byte_offset, bit_offset = divmod(offset, 8)
-        byte_length = math.ceil(length + offset / 8) - byte_offset
+        # E.g. offset=3, length=6 selects bits 3..8 and needs 2 bytes.
+        byte_length = math.ceil((bit_offset + length) / 8)
         return cls(buf.bytes_view(byte_offset, byte_length),
                    bit_offset, length)
 
@@ -856,16 +862,19 @@ class MetadataPtr(Sequence):
         return self.md[i]
 
 
-DecimalTraits = namedtuple('DecimalTraits', ('bit_width', 'struct_format_le'))
+DecimalTraits = namedtuple(
+    'DecimalTraits', ('bit_width', 'struct_format_le', 'storage_member'))
 
 decimal_traits = {
-    128: DecimalTraits(128, 'Qq'),
-    256: DecimalTraits(256, 'QQQq'),
+    32: DecimalTraits(32, 'i', 'value_'),
+    64: DecimalTraits(64, 'q', 'value_'),
+    128: DecimalTraits(128, 'Qq', 'array_'),
+    256: DecimalTraits(256, 'QQQq', 'array_'),
 }
 
 class BaseDecimal:
     """
-    Base class for arrow::BasicDecimal{128,256...} values.
+    Base class for arrow::BasicDecimal{32,64,128,256...} values.
     """
 
     def __init__(self, address):
@@ -875,9 +884,9 @@ class BaseDecimal:
     def from_value(cls, val):
         """
         Create a decimal from a gdb.Value representing the corresponding
-        arrow::BasicDecimal{128,256...}.
+        arrow::BasicDecimal{32,64,128,256...}.
         """
-        return cls(val['array_'].address)
+        return cls(val[cls.traits.storage_member].address)
 
     @classmethod
     def from_address(cls, address):
@@ -924,6 +933,14 @@ class BaseDecimal:
             return str(decimal.Decimal(v).scaleb(-scale))
 
 
+class Decimal32(BaseDecimal):
+    traits = decimal_traits[32]
+
+
+class Decimal64(BaseDecimal):
+    traits = decimal_traits[64]
+
+
 class Decimal128(BaseDecimal):
     traits = decimal_traits[128]
 
@@ -933,6 +950,8 @@ class Decimal256(BaseDecimal):
 
 
 decimal_bits_to_class = {
+    32: Decimal32,
+    64: Decimal64,
     128: Decimal128,
     256: Decimal256,
 }
@@ -1037,6 +1056,8 @@ type_reprs = {
     'DayTimeIntervalType': 'day_time_interval',
     'MonthDayNanoIntervalType': 'month_day_nano_interval',
     'DurationType': 'duration',
+    'Decimal32Type': 'decimal32',
+    'Decimal64Type': 'decimal64',
     'Decimal128Type': 'decimal128',
     'Decimal256Type': 'decimal256',
     'StringType': 'utf8',
@@ -1052,6 +1073,7 @@ type_reprs = {
     'SparseUnionType': 'sparse_union',
     'DenseUnionType': 'dense_union',
     'DictionaryType': 'dictionary',
+    'RunEndEncodedType': 'run_end_encoded',
     }
 
 
@@ -1151,6 +1173,20 @@ class ListTypePrinter(TypePrinter):
             return f"{self._format_type()}<uninitialized or corrupt>"
         else:
             return f"{self._format_type()}({child})"
+
+
+class RunEndEncodedTypePrinter(TypePrinter):
+    """
+    Pretty-printer for run-end encoded types.
+    """
+
+    def to_string(self):
+        fields = self.fields
+        if len(fields) != 2:
+            return f"{self._format_type()}<uninitialized or corrupt>"
+        run_end_type = fields[0].type
+        value_type = fields[1].type
+        return f"{self._format_type()}({run_end_type}, {value_type})"
 
 
 class FixedSizeListTypePrinter(ListTypePrinter):
@@ -1439,6 +1475,18 @@ class DictionaryScalarPrinter(ScalarPrinter):
 class BaseListScalarPrinter(ScalarPrinter):
     """
     Pretty-printer for arrow::BaseListScalar and subclasses.
+    """
+
+    def to_string(self):
+        if not self.is_valid:
+            return self._format_null()
+        value = deref(self.val['value'])
+        return f"{self._format_type()} of value {value}"
+
+
+class RunEndEncodedScalarPrinter(ScalarPrinter):
+    """
+    Pretty-printer for arrow::RunEndEncodedScalar.
     """
 
     def to_string(self):
@@ -1814,6 +1862,51 @@ class BinaryArrayDataPrinter(ArrayDataPrinter):
                 yield self._null_child(i)
 
 
+class RunEndEncodedArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for run-end encoded arrays.
+    """
+
+    def __init__(self, name, val):
+        if self.length == 0:
+            return
+        child_data = StdVector(self.val['child_data'])
+        self._run_ends_printer = ArrayDataPrinter(
+            "arrow::ArrayData", deref(child_data[0]))
+        self._values_printer = ArrayDataPrinter(
+            "arrow::ArrayData", deref(child_data[1]))
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        run_ends = self._run_ends_printer._unpacked_buffer_values(
+            1, self._run_ends_printer.type_id)
+        values = iter(self._values_printer.children() or ())
+        run_index = bisect_right(run_ends, self.offset)
+        # Advance to the value for the run containing the logical offset.
+        for _ in range(run_index + 1):
+            value = next(values, None)
+            if value is None:
+                return
+
+        logical_index = self.offset
+        logical_end = self.offset + self.length
+        # Expand each run into the logical elements visible in this slice.
+        while logical_index < logical_end:
+            run_end = run_ends[run_index]
+            for i in range(logical_index, min(run_end, logical_end)):
+                yield self._valid_child(i - self.offset, value[1])
+            logical_index = run_end
+            run_index += 1
+            if logical_index < logical_end:
+                value = next(values, None)
+                if value is None:
+                    return
+
+
 class ArrayPrinter:
     """
     Pretty-printer for arrow::Array and subclasses.
@@ -1982,6 +2075,13 @@ class FixedSizeListTypeClass(DataTypeClass):
     scalar_printer = BaseListScalarPrinter
 
 
+class RunEndEncodedTypeClass(DataTypeClass):
+    is_parametric = True
+    type_printer = RunEndEncodedTypePrinter
+    scalar_printer = RunEndEncodedScalarPrinter
+    array_data_printer = RunEndEncodedArrayDataPrinter
+
+
 class MapTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = MapTypePrinter
@@ -2059,6 +2159,8 @@ type_traits_by_id = {
     Type.INTERVAL_MONTH_DAY_NANO: DataTypeTraits(MonthDayNanoIntervalTypeClass,
                                                  'MonthDayNanoIntervalType'),
 
+    Type.DECIMAL32: DataTypeTraits(DecimalTypeClass, 'Decimal32Type'),
+    Type.DECIMAL64: DataTypeTraits(DecimalTypeClass, 'Decimal64Type'),
     Type.DECIMAL128: DataTypeTraits(DecimalTypeClass, 'Decimal128Type'),
     Type.DECIMAL256: DataTypeTraits(DecimalTypeClass, 'Decimal256Type'),
 
@@ -2074,9 +2176,9 @@ type_traits_by_id = {
 
     Type.DICTIONARY: DataTypeTraits(DictionaryTypeClass, 'DictionaryType'),
     Type.EXTENSION: DataTypeTraits(ExtensionTypeClass, 'ExtensionType'),
+    Type.RUN_END_ENCODED: DataTypeTraits(RunEndEncodedTypeClass,
+                                         'RunEndEncodedType'),
 }
-
-max_type_id = len(type_traits_by_id) - 1
 
 
 def lookup_type_class(type_id):
@@ -2366,11 +2468,15 @@ class DecimalPrinter:
 
 printers = {
     "arrow::ArrayData": ArrayDataPrinter,
+    "arrow::BasicDecimal32": partial(DecimalPrinter, 32),
+    "arrow::BasicDecimal64": partial(DecimalPrinter, 64),
     "arrow::BasicDecimal128": partial(DecimalPrinter, 128),
     "arrow::BasicDecimal256": partial(DecimalPrinter, 256),
     "arrow::ChunkedArray": ChunkedArrayPrinter,
     "arrow::Datum": DatumPrinter,
     "arrow::DayTimeIntervalType::DayMilliseconds": DayMillisecondsPrinter,
+    "arrow::Decimal32": partial(DecimalPrinter, 32),
+    "arrow::Decimal64": partial(DecimalPrinter, 64),
     "arrow::Decimal128": partial(DecimalPrinter, 128),
     "arrow::Decimal256": partial(DecimalPrinter, 256),
     "arrow::MonthDayNanoIntervalType::MonthDayNanos": MonthDayNanosPrinter,

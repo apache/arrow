@@ -75,6 +75,9 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
+          (github.event_name == 'push' &&
+           github.repository == 'apache/arrow' &&
+           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: R')

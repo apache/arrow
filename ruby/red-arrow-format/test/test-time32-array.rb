@@ -62,7 +62,7 @@ class TestTime32Array < Test::Unit::TestCase
 
   sub_test_case("#[]") do
     def test_valid
-      assert_equal(@values[3], @array[3])
+      assert_equal(@values[2], @array[2])
     end
 
     def test_null

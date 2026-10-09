@@ -69,8 +69,8 @@ the files in \code{x}. This argument is ignored when \code{sources} is a list of
 Currently supported values:
 \itemize{
 \item "parquet"
-\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-only version 2 files are supported
+\item "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+this is deprecated)
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
@@ -104,7 +104,7 @@ yourself).
 \item{...}{additional arguments passed to \code{dataset_factory()} when \code{sources}
 is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 These may include \code{format} to indicate the file format, or other
-format-specific options (see \code{\link[=read_csv_arrow]{read_csv_arrow()}}, \code{\link[=read_parquet]{read_parquet()}} and \code{\link[=read_feather]{read_feather()}} on how to specify these).}
+format-specific options (see \code{\link[=read_csv_arrow]{read_csv_arrow()}}, \code{\link[=read_parquet]{read_parquet()}} and \code{\link[=read_ipc_file]{read_ipc_file()}} on how to specify these).}
 }
 \value{
 A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,
@@ -151,7 +151,9 @@ partition columns, do that using \code{select()} or \code{rename()} after openin
 dataset.). If you provide a \code{Schema} and the names match what is detected,
 it will use the types defined by the Schema. In the example file path above,
 you could provide a Schema to specify that "month" should be \code{int8()}
-instead of the \code{int32()} it will be parsed as by default.
+instead of the \code{int32()} it will be parsed as by default. This is also
+useful for keeping leading zeros, so that a value such as \code{001} isn't
+parsed as the integer \code{1}.
 
 If your file paths do not appear to be Hive-style, or if you pass
 \code{hive_style = FALSE}, the \code{partitioning} argument will be used to create
@@ -159,6 +161,24 @@ Directory partitioning. A character vector of names is required to create
 partitions; you may instead provide a \code{Schema} to map those names to desired
 column types, as described above. If neither are provided, no partitioning
 information will be taken from the file paths.
+}
+
+\section{Adding the source filename as a column}{
+
+
+Partitioning only recovers information encoded in directory names. If you
+need to know which file each row came from, call \code{\link[=add_filename]{add_filename()}} inside a
+\code{dplyr} query on the dataset:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{open_dataset("nyc-taxi") |>
+  mutate(file = add_filename()) |>
+  collect()
+}\if{html}{\out{</div>}}
+
+This is useful, for example, when you have opened a subdirectory of a
+partitioned dataset directly (so the partition columns above that directory
+are not inferred) and want to recover the partition values from the path.
+See \code{\link[=add_filename]{add_filename()}} for details and limitations.
 }
 
 \examples{
@@ -206,9 +226,16 @@ open_dataset(tf3, partitioning = c("Month", "Day"))
 
 # If you want to specify the data types for your fields, you can pass in a Schema
 open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
+
+# Specifying the type also keeps leading zeros, so "001" stays a string
+# instead of becoming the integer 1
+products <- data.frame(x = 1:3, product_id = c("001", "002", "010"))
+tf4 <- tempfile()
+write_dataset(products, tf4, partitioning = "product_id")
+open_dataset(tf4, partitioning = schema(product_id = string()))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
 \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
-datasets article}
+datasets article}, \code{\link[=add_filename]{add_filename()}}
 }

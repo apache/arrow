@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 
 #include "arrow/array/data.h"
 #include "arrow/buffer_builder.h"
@@ -149,9 +150,10 @@ struct GroupedValueTraits<BooleanType> {
 };
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
-typename arrow::internal::call_traits::enable_if_return<ConsumeValue, void>::type
-VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
-                   ConsumeNull&& null_func) {
+  requires std::is_void_v<
+      std::invoke_result_t<ConsumeValue, uint32_t, typename GetViewType<Type>::T>>
+void VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
+                        ConsumeNull&& null_func) {
   auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
@@ -174,9 +176,10 @@ VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
 }
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
-typename arrow::internal::call_traits::enable_if_return<ConsumeValue, Status>::type
-VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
-                   ConsumeNull&& null_func) {
+  requires std::is_same_v<
+      std::invoke_result_t<ConsumeValue, uint32_t, typename GetViewType<Type>::T>, Status>
+Status VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
+                          ConsumeNull&& null_func) {
   auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     return VisitArrayValuesInline<Type>(

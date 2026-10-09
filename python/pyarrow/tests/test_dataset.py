@@ -240,7 +240,7 @@ def multisourcefs(request):
 
     # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
-    for part, chunk in df_b.groupby([df_b.date.dt.dayofweek, df_b.color]):
+    for part, chunk in df_b.groupby([df_b.date.dt.day_of_week, df_b.color]):
         folder = f'schema/{part[0]}/{part[1]}'
         path = f'{folder}/chunk.parquet'
         mockfs.create_dir(folder)
@@ -1022,6 +1022,7 @@ def test_parquet_scan_options():
     cache_opts = pa.CacheOptions(
         hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
     opts7 = ds.ParquetFragmentScanOptions(pre_buffer=True, cache_options=cache_opts)
+    opts8 = ds.ParquetFragmentScanOptions(schema_depth_limit=42)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
@@ -1030,6 +1031,7 @@ def test_parquet_scan_options():
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
     assert opts1.page_checksum_verification is False
+    assert opts1.schema_depth_limit == 100  # default in C++
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -1056,6 +1058,8 @@ def test_parquet_scan_options():
     assert opts7.cache_options == cache_opts
     assert opts7.cache_options != opts1.cache_options
 
+    assert opts8.schema_depth_limit == 42
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
@@ -1063,6 +1067,7 @@ def test_parquet_scan_options():
     assert opts5 != opts1
     assert opts6 != opts1
     assert opts7 != opts1
+    assert opts8 != opts1
 
 
 def test_file_format_pickling(pickle_module):
@@ -1097,6 +1102,7 @@ def test_file_format_pickling(pickle_module):
                 buffer_size=4096,
                 thrift_string_size_limit=123,
                 thrift_container_size_limit=456,
+                schema_depth_limit=42,
             ),
         ])
 
@@ -1927,7 +1933,6 @@ def test_fragments_parquet_subset_with_nested_fields(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_fragments_repr(tempdir, dataset):
     # partitioned parquet dataset
     fragment = list(dataset.get_fragments())[0]
@@ -3700,7 +3705,7 @@ def test_column_names_encoding(tempdir, dataset_reader):
     assert dataset_transcoded.to_table().equals(expected_table)
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
+@pytest.mark.filterwarnings("ignore:Feather V1:DeprecationWarning")
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
@@ -4082,7 +4087,6 @@ def test_dataset_project_null_column(tempdir, dataset_reader):
     assert dataset_reader.to_table(dataset).equals(expected)
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_dataset_project_columns(tempdir, dataset_reader):
     # basic column re-projection with expressions
     from pyarrow import feather
@@ -4434,7 +4438,6 @@ def test_write_dataset_with_dataset(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_existing_data(tempdir):
     directory = tempdir / 'ds'
     table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
@@ -5099,7 +5102,6 @@ def test_write_dataset_arrow_schema_metadata(tempdir):
     assert result["a"].type.tz == "Europe/Brussels"
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_schema_metadata(tempdir):
     # ensure that schema metadata gets written
     from pyarrow import feather
@@ -5932,6 +5934,19 @@ def test_checksum_write_dataset_read_dataset_to_table(tempdir):
             corrupted_dir_path,
             format=pq_read_format_crc
         ).to_table()
+
+
+@pytest.mark.parquet
+@pytest.mark.parametrize("cdc", [
+    True,
+    {"min_chunk_size": 32 * 1024, "max_chunk_size": 64 * 1024},
+])
+def test_write_dataset_content_defined_chunking(tempdir, cdc):
+    expected_table = pa.table({'a': [1, 2, 3]})
+    fmt = ds.ParquetFileFormat()
+    opts = fmt.make_write_options(use_content_defined_chunking=cdc)
+    ds.write_dataset(expected_table, tempdir, format=fmt, file_options=opts)
+    assert ds.dataset(tempdir, format=fmt).to_table().equals(expected_table)
 
 
 def test_make_write_options_error():

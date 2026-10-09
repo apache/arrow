@@ -25,6 +25,7 @@ try:
     from pyarrow.acero import (
         Declaration,
         TableSourceNodeOptions,
+        RecordBatchReaderSourceNodeOptions,
         FilterNodeOptions,
         ProjectNodeOptions,
         AggregateNodeOptions,
@@ -97,6 +98,96 @@ def test_table_source():
         ValueError, match="TableSourceNode requires table which is not null"
     ):
         _ = decl.to_table()
+
+
+def test_record_batch_reader_source():
+    table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
+    reader = pa.RecordBatchReader.from_batches(
+        table.schema, table.to_batches(max_chunksize=2)
+    )
+    decl = Declaration(
+        "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(reader)
+    )
+    result = decl.to_table()
+    assert result.equals(table)
+
+    # a reader can only be consumed once
+    decl = Declaration(
+        "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(reader)
+    )
+    result = decl.to_table()
+    assert result.num_rows == 0
+
+    with pytest.raises(TypeError):
+        RecordBatchReaderSourceNodeOptions(table)
+
+    with pytest.raises(TypeError):
+        RecordBatchReaderSourceNodeOptions(None)
+
+
+def test_record_batch_reader_source_lazy_generator():
+    # the reader can be backed by a Python generator, which is only
+    # consumed (from an I/O thread) while the plan executes
+    table = pa.table({'a': list(range(10)), 'b': list(range(10, 20))})
+    batches = table.to_batches(max_chunksize=2)
+    consumed = []
+
+    def gen():
+        for i, batch in enumerate(batches):
+            consumed.append(i)
+            yield batch
+
+    reader = pa.RecordBatchReader.from_batches(table.schema, gen())
+    decl = Declaration.from_sequence([
+        Declaration(
+            "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(reader)
+        ),
+        Declaration("filter", options=FilterNodeOptions(field("a") >= 5)),
+    ])
+    assert consumed == []
+    result = decl.to_table()
+    assert consumed == list(range(len(batches)))
+    assert result.sort_by("a").equals(table.slice(5))
+
+
+def test_record_batch_reader_source_generator_error():
+    # an error raised by the generator propagates to the plan execution
+    schema = pa.schema([("a", pa.int64())])
+
+    def gen():
+        yield pa.record_batch([pa.array([1, 2, 3])], schema=schema)
+        raise ValueError("error in generator")
+
+    reader = pa.RecordBatchReader.from_batches(schema, gen())
+    decl = Declaration(
+        "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(reader)
+    )
+    with pytest.raises(ValueError, match="error in generator"):
+        _ = decl.to_table()
+
+
+def test_record_batch_reader_source_hash_join_probe():
+    # streaming reader as the probe side of a hash join
+    left = pa.table({'key': [1, 2, 3, 4], 'a': ["a", "b", "c", "d"]})
+    right = pa.table({'key': [2, 3, 4, 5], 'b': ["p", "q", "r", "s"]})
+    reader = pa.RecordBatchReader.from_batches(
+        left.schema, left.to_batches(max_chunksize=1)
+    )
+    left_source = Declaration(
+        "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(reader)
+    )
+    right_source = Declaration("table_source", TableSourceNodeOptions(right))
+    join_opts = HashJoinNodeOptions(
+        "inner", left_keys="key", right_keys="key",
+        left_output=["key", "a"], right_output=["b"]
+    )
+    joined = Declaration("hashjoin", options=join_opts,
+                         inputs=[left_source, right_source])
+    result = joined.to_table()
+    expected = pa.table({
+        'key': [2, 3, 4], 'a': ["b", "c", "d"], 'b': ["p", "q", "r"]
+    })
+    assert result.sort_by("key").equals(expected)
 
 
 def test_filter(table_source):

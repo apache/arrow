@@ -586,9 +586,8 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({ty}, uint64());
-    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(ty);
     DCHECK_OK(func->AddKernel(base));
   }
   base.signature = KernelSignature::Make({Type::FIXED_SIZE_BINARY}, uint64());

@@ -16,6 +16,7 @@
 # under the License.
 
 require "bigdecimal"
+require "date"
 
 require_relative "array-builder"
 require_relative "bitmap"
@@ -489,11 +490,12 @@ module ArrowFormat
     end
 
     private
+    UNIX_EPOCH = Date.new(1970, 1, 1).jd
     def pack_value(value, template, type)
       if value.nil?
         [0].pack(template)
       elsif value.is_a?(Date)
-        [value.day].pack(template)
+        [value.jd - UNIX_EPOCH].pack(template)
       else
         [value].pack(template)
       end
@@ -852,7 +854,21 @@ module ArrowFormat
   end
 
   class FixedSizeBinaryArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
+    include BufferAlignable
+
+    def initialize(type, *args)
+      unless type.is_a?(Type)
+        type = FixedSizeBinaryType.try_convert(type) || type
+      end
+      if args.size == 1
+        args = build_data(args.first, type)
+      elsif args.size != 3
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size + 1}, expected 2 or 4)"
+      end
+
+      size, validity_buffer, values_buffer = args
+
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
@@ -874,6 +890,44 @@ module ArrowFormat
         @values_buffer.get_string(offset, byte_width)
       end
       apply_validity(values)
+    end
+
+    private
+    def build_data(data, type)
+      n = 0
+      validity_buffer_builder = nil
+
+      values = +"".b
+      byte_width = type.byte_width
+      null_value = "\x00" * byte_width
+
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+          values.append_as_bytes(null_value)
+        else
+          unless value.bytesize == byte_width
+            message = "value size must be #{byte_width}: #{value.inspect}"
+            raise ArgumentError, message
+          end
+          values.append_as_bytes(value)
+        end
+
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+
+      pad!(values, buffer_padding_size(values))
+      values.freeze
+      values_buffer = IO::Buffer.for(values)
+
+      [
+        n,
+        validity_buffer,
+        values_buffer,
+      ]
     end
   end
 
@@ -985,6 +1039,53 @@ module ArrowFormat
   end
 
   class ListArray < VariableSizeListArray
+    include BufferAlignable
+
+    def initialize(type, *args)
+      if args.size == 1
+        args = build_data(type, args.first)
+      elsif args.size != 4
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size + 1}, expected 2 or 5)"
+      end
+
+      super(type, *args)
+    end
+
+    private
+    def build_data(type, data)
+      n = 0
+      validity_buffer_builder = nil
+
+      child_values = []
+      offsets = [0]
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+        else
+          child_values.concat(value)
+        end
+        offsets << child_values.size
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+
+      offsets_data = offsets.pack("#{type.offset_pack_template}*")
+      pad!(offsets_data, buffer_padding_size(offsets_data))
+      offsets_data.freeze
+      offsets_buffer = IO::Buffer.for(offsets_data)
+
+      child = type.child.type.build_array(child_values)
+
+      [
+        n,
+        validity_buffer,
+        offsets_buffer,
+        child,
+      ]
+    end
   end
 
   class LargeListArray < VariableSizeListArray
@@ -992,7 +1093,15 @@ module ArrowFormat
 
   class FixedSizeListArray < Array
     attr_reader :child
-    def initialize(type, size, validity_buffer, child)
+    def initialize(type, *args)
+      if args.size == 1
+        args = build_data(type, args.first)
+      elsif args.size != 3
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size + 1}, expected 2 or 4)"
+      end
+
+      size, validity_buffer, child = args
       super(type, size, validity_buffer)
       @child = child
     end
@@ -1011,6 +1120,36 @@ module ArrowFormat
     end
 
     private
+    def build_data(type, data)
+      n = 0
+      validity_buffer_builder = nil
+
+      child_values = []
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+          child_values.concat([nil] * type.size)
+        else
+          unless value.size == type.size
+            message = "list size must be #{type.size}: #{value.inspect}"
+            raise ArgumentError, message
+          end
+          child_values.concat(value)
+        end
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+      child = type.child.type.build_array(child_values)
+
+      [
+        n,
+        validity_buffer,
+        child,
+      ]
+    end
+
     def slice!(offset, size)
       super
       @child = @child.slice(@type.size * @offset,

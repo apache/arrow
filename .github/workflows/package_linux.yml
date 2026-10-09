@@ -72,6 +72,9 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
+          (github.event_name == 'push' &&
+           github.repository == 'apache/arrow' &&
+           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
@@ -187,7 +190,7 @@ jobs:
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
@@ -231,7 +234,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -254,7 +257,7 @@ jobs:
         if: >-
           !cancelled()
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
@@ -351,9 +354,10 @@ jobs:
           # inside its own tempdir and doesn't copy artifacts back,
           # so this is purely a verification step.
           reprotest \
-            --vary=-fileordering \
             --build-command \
               "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+            --no-diffoscope \
+            --vary=-fileordering \
             "${PWD}" \
             "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
 

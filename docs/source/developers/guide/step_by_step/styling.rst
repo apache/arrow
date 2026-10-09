@@ -38,12 +38,11 @@ linters and styling of the code.
       For the R package you can use
       `air <https://posit-dev.github.io/air/>`_ to format the code,
       and
-
-      ``{lintr}``
+      `jarl <https://etiennebacher.github.io/jarl/>`_
       to check if the code follows the
       `tidyverse style <https://style.tidyverse.org/>`_.
 
-      The instructions on how to use `air` and ``{lintr}``
+      The instructions on how to use `air` and `jarl`
       can be found in the
       `Styling and Linting section of the Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
 

@@ -282,6 +282,9 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' `AzureDefaultCredential` for authentication, so that several authentication
 #' types are tried until one succeeds.
 #'
+#' `AzureFileSystem` is not presently supported on Windows due to upstream
+#' compatibility issues between the Azure C++ SDK and the MinGW toolchain.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class

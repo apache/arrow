@@ -41,8 +41,8 @@ converted back into an R vector.
 array$type
 as.vector(array)
 
-temp_feather <- tempfile()
-write_feather(arrow_table(col = array), temp_feather)
-read_feather(temp_feather)
-unlink(temp_feather)
+temp_ipc <- tempfile()
+write_ipc_file(arrow_table(col = array), temp_ipc)
+read_ipc_file(temp_ipc)
+unlink(temp_ipc)
 }

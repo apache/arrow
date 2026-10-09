@@ -17,14 +17,100 @@
 
 from archery.utils.source import ArrowSources
 from archery.crossbow import Config, Queue
-from archery.crossbow.core import CrossbowError, Repo, TaskAssets, TaskStatus
+from archery.crossbow.core import (
+    CrossbowError,
+    Repo,
+    TaskAssets,
+    TaskStatus,
+    get_version,
+)
 
 import pathlib
+import shutil
+import subprocess
 from datetime import date
 from unittest import mock
 
 import pytest
 from github import GithubException
+
+
+@pytest.mark.parametrize(
+    ("description", "expected"),
+    [
+        ("apache-arrow-4.0.0-0-gabcdef\n", "5.0.0.dev0"),
+        ("apache-arrow-4.0.0-12-gabcdef-dirty\n", "5.0.0.dev12"),
+        ("apache-arrow-5.0.0.dev-7-gabcdef\n", "5.0.0.dev7"),
+        ("apache-arrow-5.0.0-rc1-2-gabcdef\n", "6.0.0.dev2"),
+    ],
+)
+def test_get_version(description, expected):
+    with mock.patch("archery.crossbow.core.subprocess.run") as mocked_run:
+        mocked_run.return_value.stdout = description
+
+        assert get_version("/arrow") == expected
+
+    mocked_run.assert_called_once_with(
+        [
+            "git",
+            "describe",
+            "--dirty",
+            "--tags",
+            "--long",
+            "--match",
+            "apache-arrow-[0-9]*.*",
+        ],
+        cwd="/arrow",
+        check=True,
+        stdout=mock.ANY,
+        text=True,
+    )
+
+
+def test_get_version_rejects_unexpected_describe_output():
+    with mock.patch("archery.crossbow.core.subprocess.run") as mocked_run:
+        mocked_run.return_value.stdout = "not-an-arrow-version\n"
+
+        with pytest.raises(CrossbowError, match="git describe output"):
+            get_version("/arrow")
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_get_version_from_git_repository(tmp_path):
+    def run_git(*args):
+        subprocess.run(
+            ["git", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    run_git("init")
+    run_git(
+        "-c",
+        "user.name=Archery Test",
+        "-c",
+        "user.email=archery@example.com",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "release",
+    )
+    run_git("tag", "apache-arrow-4.0.0")
+
+    run_git(
+        "-c",
+        "user.name=Archery Test",
+        "-c",
+        "user.email=archery@example.com",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "development",
+    )
+
+    assert get_version(tmp_path) == "5.0.0.dev1"
 
 
 def test_config():

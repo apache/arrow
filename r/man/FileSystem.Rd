@@ -194,7 +194,7 @@ On \code{AzureFileSystem}, passing no arguments for authentication uses the
 \code{AzureDefaultCredential} for authentication, so that several authentication
 types are tried until one succeeds.
 
-\code{AzureFileSystem} is not presently supported on Windows due to upstream compatibility
-issues between the Azure C++ SDK and the MinGW toolchain.
+\code{AzureFileSystem} is not presently supported on Windows due to upstream
+compatibility issues between the Azure C++ SDK and the MinGW toolchain.
 }
 

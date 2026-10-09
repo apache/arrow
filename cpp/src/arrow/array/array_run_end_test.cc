@@ -366,6 +366,59 @@ TEST_P(TestRunEndEncodedArray, Builder) {
     }
   }
 }
+TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsPrimitiveScalar) {
+  auto value_type = float32();
+  auto ree_type = run_end_encoded(run_end_type, value_type);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder, MakeBuilder(ree_type));
+
+  ASSERT_OK_AND_ASSIGN(auto v1, MakeScalar(float32(), 1.0f));
+  ASSERT_OK_AND_ASSIGN(auto v2, MakeScalar(float32(), 1.0f));
+  ASSERT_OK_AND_ASSIGN(auto v3, MakeScalar(float32(), 2.0f));
+  ASSERT_OK_AND_ASSIGN(auto v4, MakeScalar(float32(), 2.0f));
+  ASSERT_OK_AND_ASSIGN(auto v5, MakeScalar(float32(), 3.0f));
+
+  ScalarVector scalars = {v1, v2, v3, v4, v5};
+
+  ASSERT_OK(builder->AppendScalars(scalars));
+  ASSERT_EQ(builder->length(), 5);
+  ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+  ASSERT_OK(array->ValidateFull());
+
+  auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
+  ASSERT_NE(ree_array, NULLPTR);
+  auto expected_run_ends = ArrayFromJSON(run_end_type, "[2,4,5]");
+  auto expected_values = ArrayFromJSON(float32(), "[1,2,3]");
+  ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
+  ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
+}
+
+TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsRunEndEncodedScalar) {
+  auto value_type = float32();
+  auto ree_type = run_end_encoded(run_end_type, value_type);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder, MakeBuilder(ree_type));
+
+  ASSERT_OK_AND_ASSIGN(auto s1, MakeScalar(ree_type, *MakeScalar(float32(), 1.0f)));
+  ASSERT_OK_AND_ASSIGN(auto s2, MakeScalar(ree_type, *MakeScalar(float32(), 1.0f)));
+  ASSERT_OK_AND_ASSIGN(auto s3, MakeScalar(ree_type, *MakeScalar(float32(), 2.0f)));
+  ASSERT_OK_AND_ASSIGN(auto s4, MakeScalar(ree_type, *MakeScalar(float32(), 2.0f)));
+  ASSERT_OK_AND_ASSIGN(auto s5, MakeScalar(ree_type, *MakeScalar(float32(), 3.0f)));
+
+  ScalarVector scalars = {s1, s2, s3, s4, s5};
+
+  ASSERT_OK(builder->AppendScalars(scalars));
+  ASSERT_EQ(builder->length(), 5);
+  ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+  ASSERT_OK(array->ValidateFull());
+
+  auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
+  ASSERT_NE(ree_array, NULLPTR);
+  auto expected_run_ends = ArrayFromJSON(run_end_type, "[2,4,5]");
+  auto expected_values = ArrayFromJSON(float32(), "[1,2,3]");
+  ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
+  ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
+}
 
 TEST_P(TestRunEndEncodedArray, BuilderReuseAfterFinish) {
   // GH-45532: RunEndEncodedBuilder should clear dimensions after a Finish() call

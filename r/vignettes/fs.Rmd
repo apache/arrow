@@ -49,7 +49,7 @@ can be created with the `gs_bucket()` function and `?AzureFileSystem` objects ca
 you don't need to prefix the bucket path when listing a directory).
 
 With a `FileSystem` object, you can point to specific files in it with the `$path()` method
-and pass the result to file readers and writers (`read_parquet()`, `write_feather()`, et al.).
+and pass the result to file readers and writers (`read_parquet()`, `write_ipc_file()`, et al.).
 
 Often the reason users work with cloud storage in real world analysis is to access large data sets. An example of this is discussed in the [datasets article](./dataset.html), but new users may prefer to work with a much smaller data set while learning how the arrow cloud storage interface works. To that end, the examples in this article rely on a multi-file Parquet dataset that stores a copy of the `diamonds` data made available through the [`ggplot2`](https://ggplot2.tidyverse.org/) package, documented in `help("diamonds", package = "ggplot2")`. The cloud storage version of this data set consists of 5 Parquet files totaling less than 1MB in size.
 
@@ -148,7 +148,7 @@ june2019 <- SubTreeFileSystem$create("s3://arrow-datasets/nyc-taxi/year=2019/mon
 
 ## Connecting directly with a URI
 
-In most use cases, the easiest and most natural way to connect to cloud storage in arrow is to use the FileSystem objects returned by `s3_bucket()`, `gs_bucket()`, and `az_container()`, especially when multiple file operations are required. However, in some cases you may want to download a file directly by specifying the URI. This is permitted by arrow, and functions like `read_parquet()`, `write_feather()`, `open_dataset()` etc will all accept URIs to cloud resources hosted on S3, GCS, or Azure. The format of an S3 URI is as follows:
+In most use cases, the easiest and most natural way to connect to cloud storage in arrow is to use the FileSystem objects returned by `s3_bucket()`, `gs_bucket()`, and `az_container()`, especially when multiple file operations are required. However, in some cases you may want to download a file directly by specifying the URI. This is permitted by arrow, and functions like `read_parquet()`, `write_ipc_file()`, `open_dataset()` etc will all accept URIs to cloud resources hosted on S3, GCS, or Azure. The format of an S3 URI is as follows:
 
 ```
 s3://[access_key:secret_key@]bucket/path[?region=]

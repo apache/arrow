@@ -21,6 +21,7 @@
 
 #include "arrow/util/key_value_metadata.h"
 
+#include "parquet/platform.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -29,8 +30,8 @@ namespace parquet {
 /// GeoArrow `ARROW:extension:metadata` (JSON-encoded extension type metadata)
 ///
 /// Returns the appropriate LogicalType or Invalid if the metadata was invalid.
-::arrow::Result<std::shared_ptr<const LogicalType>> LogicalTypeFromGeoArrowMetadata(
-    std::string_view serialized_data);
+PARQUET_EXPORT ::arrow::Result<std::shared_ptr<const LogicalType>>
+LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data);
 
 /// \brief Compute a suitable DataType into which a GEOMETRY or GEOGRAPHY type should be
 /// read
@@ -38,7 +39,8 @@ namespace parquet {
 /// The result of this function depends on whether or not "geoarrow.wkb" has been
 /// registered: if it has, the result will be the registered ExtensionType; if it has not,
 /// the result will be the given storage_type.
-::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
+PARQUET_EXPORT ::arrow::Result<std::shared_ptr<::arrow::DataType>>
+GeoArrowTypeFromLogicalType(
     const LogicalType& logical_type,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata,
     const std::shared_ptr<::arrow::DataType>& storage_type);

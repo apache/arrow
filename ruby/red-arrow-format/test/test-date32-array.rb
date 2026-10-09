@@ -35,6 +35,18 @@ class TestDate32Array < Test::Unit::TestCase
       assert_equal(values,
                    ArrowFormat::Date32Array.new(values).to_a)
     end
+
+    def test_date
+      values = [
+        Date.new(1969, 12, 31),
+        Date.new(1970, 1, 1),
+        nil,
+        Date.new(2025, 12, 9),
+      ]
+      expected = [-1, 0, nil, @date_2025_12_09]
+      assert_equal(expected,
+                   ArrowFormat::Date32Array.new(values).to_a)
+    end
   end
 
   sub_test_case("#==") do
@@ -62,7 +74,7 @@ class TestDate32Array < Test::Unit::TestCase
 
   sub_test_case("#[]") do
     def test_valid
-      assert_equal(@values[3], @array[3])
+      assert_equal(@values[2], @array[2])
     end
 
     def test_null

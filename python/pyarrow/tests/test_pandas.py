@@ -99,8 +99,8 @@ def _alltypes_example(size=100):
 
 def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
-                            check_dtype=True, schema=None,
-                            preserve_index=False,
+                            check_dtype=True, check_freq=True,
+                            schema=None, preserve_index=False,
                             as_batch=False):
     klass = pa.RecordBatch if as_batch else pa.Table
     table = klass.from_pandas(df, schema=schema,
@@ -125,7 +125,8 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
             "ignore", "elementwise comparison failed", DeprecationWarning)
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                               check_index_type=('equiv' if preserve_index
-                                                else False))
+                                                else False),
+                              check_freq=check_freq)
 
 
 def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
@@ -223,7 +224,7 @@ class TestConvertMetadata:
             np.random.randn(5, 3),
             columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz=tz)
         )
-        _check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True, check_freq=False)
 
     def test_column_index_names_with_decimal(self):
         # GH-41503: Test valid roundtrip with decimal value in column index
@@ -254,13 +255,13 @@ class TestConvertMetadata:
         result = table.to_pandas()
         tm.assert_frame_equal(result, df)
         assert isinstance(result.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result.index, 'step') == 2
+        assert result.index.step == 2
         assert result.index.name == index_name
 
         result2 = table_no_index_name.to_pandas()
         tm.assert_frame_equal(result2, df2)
         assert isinstance(result2.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
+        assert result2.index.step == 1
         assert result2.index.name is None
 
     def test_range_index_force_serialization(self):
@@ -1686,10 +1687,6 @@ class TestConvertDateTimeLikeTypes:
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
-    @pytest.mark.skipif(
-        np is not None and Version('1.16.0') <= Version(
-            np.__version__) < Version('1.16.1'),
-        reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
             'a': [
@@ -1733,8 +1730,7 @@ class TestConvertDateTimeLikeTypes:
         from pandas.tseries.offsets import DateOffset
         df = pd.DataFrame({
             'date_offset': [None,
-                            DateOffset(days=3600, months=3600, microseconds=3,
-                                       nanoseconds=600)]
+                            DateOffset(days=3600, months=3600, nanoseconds=3600)]
         })
         schema = pa.schema([('date_offset', pa.month_day_nano_interval())])
         _check_pandas_roundtrip(
@@ -2784,7 +2780,7 @@ class TestConvertStructTypes:
 
     def test_from_numpy(self):
         dt = np.dtype([('x', np.int32),
-                       (('y_title', 'y'), np.bool_)])
+                       (('y_title', 'y'), np.bool)])
         ty = pa.struct([pa.field('x', pa.int32()),
                         pa.field('y', pa.bool_())])
 
@@ -2798,7 +2794,7 @@ class TestConvertStructTypes:
                                    {'x': 43, 'y': False}]
 
         # With mask
-        arr = pa.array(data, mask=np.bool_([False, True]), type=ty)
+        arr = pa.array(data, mask=np.bool([False, True]), type=ty)
         assert arr.to_pylist() == [{'x': 42, 'y': True}, None]
 
         # Trivial struct type
@@ -2816,7 +2812,7 @@ class TestConvertStructTypes:
     def test_from_numpy_nested(self):
         # Note: an object field inside a struct
         dt = np.dtype([('x', np.dtype([('xx', np.int8),
-                                       ('yy', np.bool_)])),
+                                       ('yy', np.bool)])),
                        ('y', np.int16),
                        ('z', np.object_)])
         # Note: itemsize is not necessarily a multiple of sizeof(object)
@@ -2900,7 +2896,7 @@ class TestConvertStructTypes:
         ty = pa.struct([pa.field('x', pa.int32()),
                         pa.field('y', pa.bool_())])
         dt = np.dtype([('x', np.int32),
-                       ('z', np.bool_)])
+                       ('z', np.bool)])
 
         data = np.array([], dtype=dt)
         with pytest.raises(ValueError,
@@ -3339,19 +3335,29 @@ def _fully_loaded_dataframe_example():
 
     c1 = pd.date_range('2000-01-01', periods=10)
     data = {
-        0: c1,
-        1: c1.tz_localize('utc'),
-        2: c1.tz_localize('US/Eastern'),
-        3: c1[::2].tz_localize('utc').repeat(2).astype('category'),
-        4: ['foo', 'bar'] * 5,
-        5: pd.Series(['foo', 'bar'] * 5).astype('category').values,
-        6: [True, False] * 5,
-        7: np.random.randn(10),
-        8: np.random.randint(0, 100, size=10),
-        9: pd.period_range('2013', periods=10, freq='M'),
-        10: pd.interval_range(start=1, freq=1, periods=10),
+        "col0": c1,
+        "col1": c1.tz_localize('utc'),
+        "col2": c1.tz_localize('US/Eastern'),
+        "col3": c1[::2].tz_localize('utc').repeat(2).astype('category'),
+        "col4": ['foo', 'bar'] * 5,
+        "col5": pd.Series(['foo', 'bar'] * 5).astype('category').values,
+        "col6": [True, False] * 5,
+        "col7": np.random.randn(10),
+        "col8": np.random.randint(0, 100, size=10),
+        "col9": pd.period_range('2013', periods=10, freq='M'),
+        "col10": pd.interval_range(start=1, freq=1, periods=10),
     }
     return pd.DataFrame(data, index=index)
+
+
+def test_roundtrip_fully_loaded_dataframe_example():
+    df = _fully_loaded_dataframe_example()
+    expected = df.copy()
+    expected["col3"] = df["col3"].cat.rename_categories(
+        df["col3"].cat.categories.tz_convert(None))
+    _check_pandas_roundtrip(df, preserve_index=None, expected=expected)
+    _check_pandas_roundtrip(df, preserve_index=None,
+                            expected=expected, use_threads=True)
 
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
@@ -3860,7 +3866,7 @@ def test_array_uses_memory_pool():
     # ARROW-6570
     N = 10000
     arr = pa.array(np.arange(N, dtype=np.int64),
-                   mask=np.random.randint(0, 2, size=N).astype(np.bool_))
+                   mask=np.random.randint(0, 2, size=N).astype(np.bool))
 
     # In the case the gc is caught loading
     gc.collect()
@@ -4150,21 +4156,14 @@ def test_dictionary_with_pandas():
         d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
         d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-        if index_type == 'uint64':
-            # uint64 is not supported due to overflow risk (values > 2^63-1)
-            with pytest.raises(TypeError,
-                               match="UInt64 dictionary indices"):
-                d1.to_pandas()
-            continue
-
         pandas1 = d1.to_pandas()
         # Pandas Categorical uses signed int codes. Arrow converts:
-        # uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+        # uint8 to int16, uint16 to int32, uint32 and uint64 to int64, signed unchanged
         if index_type == 'uint8':
             compare_indices = indices.astype('int16')
         elif index_type == 'uint16':
             compare_indices = indices.astype('int32')
-        elif index_type == 'uint32':
+        elif index_type in ('uint32', 'uint64'):
             compare_indices = indices.astype('int64')
         else:
             compare_indices = indices
@@ -4180,7 +4179,7 @@ def test_dictionary_with_pandas():
             signed_indices = indices.astype('int16')
         elif index_type == 'uint16':
             signed_indices = indices.astype('int32')
-        elif index_type == 'uint32':
+        elif index_type in ('uint32', 'uint64'):
             signed_indices = indices.astype('int64')
         else:
             signed_indices = indices
@@ -5018,7 +5017,7 @@ def test_does_not_mutate_timedelta_dtype():
 
     assert np.dtype(np.timedelta64) == expected
 
-    df = pd.DataFrame({"a": [np.timedelta64()]})
+    df = pd.DataFrame({"a": [np.timedelta64(0, "s")]})
     t = pa.Table.from_pandas(df)
     t.to_pandas()
 
@@ -5339,3 +5338,28 @@ def test_json_unserializable_pd_df_attrs():
     pd_metadata = json.loads(df_table.schema.metadata[b"pandas"])
 
     assert not pd_metadata["attributes"]
+
+
+def test_pandas_array_likes_with_extension_arrays():
+    # https://github.com/apache/arrow/issues/51302
+    dtidx = pd.date_range("2025-01-01", periods=10)
+
+    arrays = [
+        (dtidx.array.tz_localize("UTC"), None),
+        (dtidx.array.tz_localize("Europe/Paris"), None),
+        (dtidx.array.tz_localize("Europe/Paris").as_unit("s"), None),
+        (pd.period_range('2013', periods=10, freq='M'), None),
+        (pd.interval_range(start=1, freq=1, periods=10), None),
+        (pd.array([1, 2, 3], dtype="Int32"), np.array([1, 2, 3], dtype="int32")),
+        (pd.array([1.1, 2.2, None], dtype="Float64"),
+         np.array([1.1, 2.2, np.nan], dtype="float64")),
+        (pd.array([True, False, True], dtype="boolean"),
+         np.array([True, False, True], dtype="bool")),
+        (pd.array(["a", "b", None], dtype="string"),
+         np.array(["a", "b", None], dtype="object")),
+    ]
+
+    for arr in arrays:
+        for box in [pd.array, pd.Index, pd.Series]:
+            _check_array_roundtrip(box(arr[0]), expected=pd.Series(
+                arr[1]) if arr[1] is not None else None)

@@ -1464,6 +1464,8 @@ cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
         ParquetLogicalType_JSON: 'JSON',
         ParquetLogicalType_BSON: 'BSON',
         ParquetLogicalType_UUID: 'UUID',
+        ParquetLogicalType_GEOMETRY: 'GEOMETRY',
+        ParquetLogicalType_GEOGRAPHY: 'GEOGRAPHY',
         ParquetLogicalType_NONE: 'NONE',
     }.get(type_, 'UNKNOWN')
 
@@ -1590,6 +1592,7 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
+             schema_depth_limit=None,
              page_checksum_verification=False,
              arrow_extensions_enabled=False):
         """
@@ -1609,6 +1612,7 @@ cdef class ParquetReader(_Weakrefable):
         decryption_properties : FileDecryptionProperties, optional
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
+        schema_depth_limit : int, optional
         page_checksum_verification : bool, default False
         arrow_extensions_enabled : bool, default False
         """
@@ -1644,6 +1648,11 @@ cdef class ParquetReader(_Weakrefable):
                                  "must be larger than zero")
             properties.set_thrift_container_size_limit(
                 thrift_container_size_limit)
+        if schema_depth_limit is not None:
+            if schema_depth_limit <= 0:
+                raise ValueError("schema_depth_limit "
+                                 "must be larger than zero")
+            properties.set_schema_depth_limit(schema_depth_limit)
 
         if decryption_properties is not None:
             properties.file_decryption_properties(

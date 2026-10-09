@@ -126,7 +126,7 @@ static void BenchmarkMemoize(benchmark::State& state, Memoized&& mem,
 static void MemoizeLruCached(benchmark::State& state) {
   const auto keys = MakeStrings(kCacheSize, state.range(0));
   const auto values = MakeStrings(kCacheSize, state.range(1));
-  auto mem = MemoizeLru(Callable(values), kCacheSize);
+  auto mem = MemoizeLru<std::string>(Callable(values), kCacheSize);
   BenchmarkMemoize(state, mem, keys);
 }
 
@@ -135,7 +135,8 @@ static void MemoizeLruCachedThreadUnsafe(benchmark::State& state) {
   const auto values = MakeStrings(kCacheSize, state.range(1));
   // Emulate recommended usage of MemoizeLruCachedThreadUnsafe
   // (the compiler is probably able to cache the TLS-looked up value, though)
-  thread_local auto mem = MemoizeLruThreadUnsafe(Callable(values), kCacheSize);
+  thread_local auto mem =
+      MemoizeLruThreadUnsafe<std::string>(Callable(values), kCacheSize);
   BenchmarkMemoize(state, mem, keys);
 }
 

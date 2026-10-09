@@ -18,12 +18,12 @@
 
 set -ex
 
-: ${R_BIN:=RDsan}
+: "${R_BIN:=RDsan}"
 
 source_dir=${1}/r
 rhome=$(${R_BIN} RHOME)
 
-pushd ${source_dir}
+pushd "${source_dir}"
 
 # Unity builds were causing the CI job to run out of memory
 export CMAKE_UNITY_BUILD=OFF
@@ -33,10 +33,10 @@ export ARROW_R_DEV=TRUE
 export CMAKE_BUILD_TYPE=RelWithDebInfo
 
 ncores=$(${R_BIN} -s -e 'cat(parallel::detectCores())')
-echo "MAKEFLAGS=-j${ncores}" >> ${rhome}/etc/Renviron.site
+echo "MAKEFLAGS=-j${ncores}" >> "${rhome}/etc/Renviron.site"
 
 # build first so that any stray compiled files in r/src are ignored
-${R_BIN} CMD build --no-build-vignettes --no-manual .
+"${R_BIN}" CMD build --no-build-vignettes --no-manual .
 
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
@@ -47,12 +47,13 @@ export ARROW_R_VERBOSE_TEST=TRUE
 # We prune dependencies for these, so we need to disable forcing suggests
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 
-export SUPPRESSION_FILE=$(readlink -f "tools/ubsan.supp")
+SUPPRESSION_FILE="$(readlink -f tools/ubsan.supp)"
+export SUPPRESSION_FILE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=${SUPPRESSION_FILE}"
 # From the old rhub image https://github.com/r-hub/rhub-linux-builders/blob/master/fedora-clang-devel-san/Dockerfile
 export ASAN_OPTIONS="alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0"
 
-${R_BIN} CMD check --no-manual --no-vignettes --no-build-vignettes arrow*.tar.gz
+"${R_BIN}" CMD check --no-manual --no-vignettes --no-build-vignettes arrow*.tar.gz
 
 # Find sanitizer issues, print the file(s) they are part of, and fail the job
 find . -type f -name "*Rout" -exec grep -l "runtime error\|SUMMARY: UndefinedBehaviorSanitizer" {} \; > sanitizer_errors.txt

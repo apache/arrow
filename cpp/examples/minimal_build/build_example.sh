@@ -18,8 +18,8 @@
 
 set -ex
 
-mkdir -p $EXAMPLE_BUILD_DIR
-pushd $EXAMPLE_BUILD_DIR
+mkdir -p "$EXAMPLE_BUILD_DIR"
+pushd "$EXAMPLE_BUILD_DIR"
 
 cmake /io
 make

@@ -46,6 +46,10 @@ if(ARROW_TESTING AND ARROW_COMPUTE)
   target_link_libraries(arrow_compute_testing
                         PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
                         PUBLIC ${ARROW_GTEST_GTEST})
+  if(ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_compute_testing PUBLIC ARROW_COMPUTE_STATIC
+                                                            ARROW_STATIC)
+  endif()
 endif()
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
@@ -171,6 +175,7 @@ add_arrow_compute_test(expression_test
 add_arrow_compute_test(row_test
                        SOURCES
                        key_hash_test.cc
+                       key_map_test.cc
                        light_array_test.cc
                        row/compare_test.cc
                        row/grouper_test.cc

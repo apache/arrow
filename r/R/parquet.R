@@ -20,7 +20,7 @@
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
 #' This function enables you to read Parquet files into R.
 #'
-#' @inheritParams read_feather
+#' @inheritParams read_ipc_file
 #' @param props [ParquetArrowReaderProperties]
 #' @param mmap Use TRUE to use memory mapping where possible
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`

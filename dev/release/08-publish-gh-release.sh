@@ -35,4 +35,4 @@ rc=$2
 REPOSITORY="apache/arrow"
 
 rc_tag="apache-arrow-${version}-rc${rc}"
-gh release edit ${rc_tag} --repo ${REPOSITORY} --draft=false
+gh release edit "${rc_tag}" --repo "${REPOSITORY}" --draft=false

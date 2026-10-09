@@ -79,6 +79,31 @@ class TableSourceNodeOptions(_TableSourceNodeOptions):
         self._set_options(table)
 
 
+cdef class _RecordBatchReaderSourceNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, RecordBatchReader reader):
+        self.wrapped.reset(
+            new CRecordBatchReaderSourceNodeOptions(reader.reader)
+        )
+
+
+class RecordBatchReaderSourceNodeOptions(_RecordBatchReaderSourceNodeOptions):
+    """
+    A Source node which streams data from a RecordBatchReader.
+
+    This is the option class for the "record_batch_reader_source" node
+    factory.
+
+    Parameters
+    ----------
+    reader : pyarrow.RecordBatchReader
+        The reader which acts as the data source.
+    """
+
+    def __init__(self, RecordBatchReader reader not None):
+        self._set_options(reader)
+
+
 cdef class _FilterNodeOptions(ExecNodeOptions):
 
     def _set_options(self, Expression filter_expression not None):
