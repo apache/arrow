@@ -1319,6 +1319,24 @@ TEST_F(TestTable, Slice) {
                     *three->Slice(length + length / 3, 2 * (length - length / 3)));
 }
 
+TEST_F(TestTable, SliceZeroColumns) {
+  const int64_t length = 10;
+  auto empty_columns_table = Table::Make(
+      ::arrow::schema({}), std::vector<std::shared_ptr<ChunkedArray>>{}, length);
+  ASSERT_EQ(empty_columns_table->num_rows(), length);
+  ASSERT_EQ(empty_columns_table->Slice(3)->num_rows(), length - 3);
+  ASSERT_EQ(empty_columns_table->Slice(0)->num_rows(), length);
+  ASSERT_EQ(empty_columns_table->Slice(3, 100)->num_rows(), length - 3);
+  ASSERT_EQ(empty_columns_table->Slice(3, 4)->num_rows(), 4);
+  ASSERT_EQ(empty_columns_table->Slice(length + 5)->num_rows(), 0);
+
+  MakeExample1(length);
+  auto table = Table::Make(schema_, columns_);
+  ASSERT_OK_AND_ASSIGN(auto no_columns, table->SelectColumns({}));
+  ASSERT_EQ(no_columns->Slice(1)->num_rows(), table->Slice(1)->num_rows());
+  ASSERT_EQ(no_columns->Slice(1, 4)->num_rows(), 4);
+}
+
 TEST_F(TestTable, RemoveColumn) {
   const int64_t length = 10;
   MakeExample1(length);
