@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -747,6 +748,64 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
+// Whether decoding `arr` into its string/binary value type would overflow the
+// 32-bit offsets of the dense array (GH-50842), i.e. whether Take would reject
+// it. The length of the dense data is computed from the dictionary offsets.
+bool DecodingWouldOverflow(const DictionaryArray& arr) {
+  // As in the Take kernel for binary-like arrays
+  constexpr int64_t kOffsetLimit = std::numeric_limits<int32_t>::max() - 1;
+  const auto& dictionary = checked_cast<const BinaryArray&>(*arr.dictionary());
+  const int64_t dictionary_length = dictionary.length();
+  // Cheap bounds first: no overflow is possible if every row referred to the
+  // whole dictionary, or if no value is longer than kOffsetLimit / length
+  const int64_t length = arr.length();
+  const int64_t dictionary_bytes =
+      dictionary.value_offset(dictionary_length) - dictionary.value_offset(0);
+  if (dictionary_bytes <= 0 || length <= kOffsetLimit / dictionary_bytes) {
+    return false;
+  }
+  if (dictionary_length <= length) {
+    const int64_t max_value_length = kOffsetLimit / length;
+    int64_t i = 0;
+    while (i < dictionary_length && dictionary.value_length(i) <= max_value_length) {
+      ++i;
+    }
+    if (i == dictionary_length) {
+      return false;
+    }
+  }
+  const bool has_nulls = arr.null_count() > 0;
+  int64_t total_length = 0;
+  for (int64_t i = 0; i < length; ++i) {
+    if (has_nulls && arr.IsNull(i)) {
+      continue;
+    }
+    const int64_t index = arr.GetValueIndex(i);
+    if (index < 0 || index >= dictionary_length) {
+      // Let the decoding report the invalid index
+      return false;
+    }
+    total_length += dictionary.value_length(index);
+    if (total_length > kOffsetLimit) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DecodingWouldOverflow(const ChunkedArray& arr) {
+  const auto& value_type = checked_cast<const DictionaryType&>(*arr.type()).value_type();
+  if (!is_binary_like(value_type->id())) {
+    return false;
+  }
+  for (int c = 0; c < arr.num_chunks(); c++) {
+    if (DecodingWouldOverflow(checked_cast<const DictionaryArray&>(*arr.chunk(c)))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& dense_type,
                           ArrayVector* arrays) {
   compute::ExecContext ctx(pool);
@@ -1378,6 +1437,40 @@ struct ObjectWriterVisitor {
 
   Status Visit(const StructType& type) {
     return ConvertStruct(options, data, out_values);
+  }
+
+  // Dictionaries whose decoding would overflow the 32-bit offsets of the dense
+  // array (GH-50842) are not decoded. Instead, the dictionary values are
+  // converted once and referenced for each index.
+  Status Visit(const DictionaryType& type) {
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
+      const int64_t dictionary_length = arr.dictionary()->length();
+      std::vector<PyObject*> values(dictionary_length, nullptr);
+      ChunkedArray dictionary(arr.dictionary());
+      ObjectWriterVisitor values_visitor{options, dictionary, values.data()};
+      Status st = VisitTypeInline(*arr.dictionary()->type(), &values_visitor);
+      for (int64_t i = 0; st.ok() && i < arr.length(); ++i) {
+        if (arr.IsNull(i)) {
+          Py_INCREF(Py_None);
+          *out_values = Py_None;
+        } else {
+          const int64_t index = arr.GetValueIndex(i);
+          if (index < 0 || index >= dictionary_length) {
+            st = Status::IndexError("Index ", index, " out of bounds");
+            break;
+          }
+          Py_INCREF(values[index]);
+          *out_values = values[index];
+        }
+        ++out_values;
+      }
+      for (PyObject* value : values) {
+        Py_XDECREF(value);
+      }
+      RETURN_NOT_OK(st);
+    }
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
@@ -2275,9 +2368,16 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       }
       *output_type = PandasWriter::OBJECT;
     } break;
-    case Type::DICTIONARY:
-      *output_type = PandasWriter::CATEGORICAL;
-      break;
+    case Type::DICTIONARY: {
+      // A string/binary dictionary that is not decoded because the dense array
+      // would overflow is converted to objects instead, see
+      // ObjectWriterVisitor::Visit(const DictionaryType&)
+      const auto& value_type =
+          checked_cast<const DictionaryType&>(*data.type()).value_type();
+      *output_type = options.decode_dictionaries && is_binary_like(value_type->id())
+                         ? PandasWriter::OBJECT
+                         : PandasWriter::CATEGORICAL;
+    } break;
     case Type::EXTENSION:
       // UUID has a native object conversion to uuid.UUID. Other extension
       // types continue through the pandas ExtensionArray protocol.
@@ -2595,7 +2695,11 @@ Status ConvertArrayToPandas(const PandasOptions& options, std::shared_ptr<Array>
 Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                                    std::shared_ptr<ChunkedArray> arr, PyObject* py_ref,
                                    PyObject** out) {
-  if (options.decode_dictionaries && arr->type()->id() == Type::DICTIONARY) {
+  // Decoding a string/binary dictionary can overflow the 32-bit offsets of
+  // the dense array (GH-50842): such arrays are converted to objects without
+  // decoding instead, see ObjectWriterVisitor::Visit(const DictionaryType&)
+  if (options.decode_dictionaries && arr->type()->id() == Type::DICTIONARY &&
+      !DecodingWouldOverflow(*arr)) {
     // XXX we should return an error as below if options.zero_copy_only
     // is true, but that would break compatibility with existing tests.
     const auto& dense_type =
