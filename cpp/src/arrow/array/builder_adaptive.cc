@@ -108,6 +108,26 @@ std::shared_ptr<DataType> AdaptiveUIntBuilder::type() const {
 
 std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
   auto int_size = int_size_;
+  if (use_unsigned_range_) {
+    if (pending_pos_ != 0) {
+      const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
+      int_size =
+          internal::DetectUIntWidth(pending_data_, valid_bytes, pending_pos_, int_size_);
+    }
+    switch (int_size) {
+      case 1:
+        return uint8();
+      case 2:
+        return uint16();
+      case 4:
+        return uint32();
+      case 8:
+        return uint64();
+      default:
+        DCHECK(false);
+    }
+    return nullptr;
+  }
   if (pending_pos_ != 0) {
     const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
     int_size = internal::DetectIntWidth(reinterpret_cast<const int64_t*>(pending_data_),
@@ -129,8 +149,9 @@ std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
 }
 
 AdaptiveIntBuilder::AdaptiveIntBuilder(uint8_t start_int_size, MemoryPool* pool,
-                                       int64_t alignment)
-    : AdaptiveIntBuilderBase(start_int_size, pool, alignment) {}
+                                       int64_t alignment, bool use_unsigned_range)
+    : AdaptiveIntBuilderBase(start_int_size, pool, alignment),
+      use_unsigned_range_(use_unsigned_range) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
@@ -158,8 +179,12 @@ Status AdaptiveIntBuilder::CommitPendingData() {
   }
   RETURN_NOT_OK(Reserve(pending_pos_));
   const uint8_t* valid_bytes = pending_has_nulls_ ? pending_valid_ : nullptr;
-  RETURN_NOT_OK(AppendValuesInternal(reinterpret_cast<const int64_t*>(pending_data_),
-                                     pending_pos_, valid_bytes));
+  if (use_unsigned_range_) {
+    RETURN_NOT_OK(AppendValuesUnsignedInternal(pending_data_, pending_pos_, valid_bytes));
+  } else {
+    RETURN_NOT_OK(AppendValuesInternal(reinterpret_cast<const int64_t*>(pending_data_),
+                                       pending_pos_, valid_bytes));
+  }
   pending_has_nulls_ = false;
   pending_pos_ = 0;
   return Status::OK();
@@ -223,6 +248,94 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
   return Status::OK();
 }
 
+Status AdaptiveIntBuilder::AppendValuesUnsignedInternal(const uint64_t* values,
+                                                        int64_t length,
+                                                        const uint8_t* valid_bytes) {
+  if (pending_pos_ > 0) {
+    // UnsafeAppendToBitmap expects length_ to be the pre-update value, satisfy it
+    DCHECK_EQ(length, pending_pos_) << "AppendValuesInternal called while data pending";
+    length_ -= pending_pos_;
+  }
+
+  while (length > 0) {
+    // See AdaptiveIntBuilder::AppendValuesInternal
+    const int64_t chunk_size = std::min(length, kAdaptiveIntChunkSize);
+
+    uint8_t new_int_size;
+    new_int_size = internal::DetectUIntWidth(values, valid_bytes, chunk_size, int_size_);
+
+    DCHECK_GE(new_int_size, int_size_);
+    if (new_int_size > int_size_) {
+      // This updates int_size_
+      RETURN_NOT_OK(ExpandUIntSize(new_int_size));
+    }
+
+    switch (int_size_) {
+      case 1:
+        internal::DowncastUInts(values, reinterpret_cast<uint8_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      case 2:
+        internal::DowncastUInts(values, reinterpret_cast<uint16_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      case 4:
+        internal::DowncastUInts(values, reinterpret_cast<uint32_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      case 8:
+        internal::DowncastUInts(values, reinterpret_cast<uint64_t*>(raw_data_) + length_,
+                                chunk_size);
+        break;
+      default:
+        DCHECK(false);
+    }
+
+    // UnsafeAppendToBitmap increments length_ by chunk_size
+    ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, chunk_size);
+    values += chunk_size;
+    if (valid_bytes != nullptr) {
+      valid_bytes += chunk_size;
+    }
+    length -= chunk_size;
+  }
+
+  return Status::OK();
+}
+
+template <typename new_type>
+Status AdaptiveIntBuilder::ExpandUIntSizeN() {
+  switch (int_size_) {
+    case 1:
+      return ExpandIntSizeInternal<new_type, uint8_t>();
+    case 2:
+      return ExpandIntSizeInternal<new_type, uint16_t>();
+    case 4:
+      return ExpandIntSizeInternal<new_type, uint32_t>();
+    case 8:
+      return ExpandIntSizeInternal<new_type, uint64_t>();
+    default:
+      DCHECK(false);
+  }
+  return Status::OK();
+}
+
+Status AdaptiveIntBuilder::ExpandUIntSize(uint8_t new_int_size) {
+  switch (new_int_size) {
+    case 1:
+      return ExpandUIntSizeN<uint8_t>();
+    case 2:
+      return ExpandUIntSizeN<uint16_t>();
+    case 4:
+      return ExpandUIntSizeN<uint32_t>();
+    case 8:
+      return ExpandUIntSizeN<uint64_t>();
+    default:
+      DCHECK(false);
+  }
+  return Status::OK();
+}
+
 Status AdaptiveUIntBuilder::CommitPendingData() {
   if (pending_pos_ == 0) {
     return Status::OK();
@@ -240,6 +353,10 @@ Status AdaptiveIntBuilder::AppendValues(const int64_t* values, int64_t length,
   RETURN_NOT_OK(CommitPendingData());
   RETURN_NOT_OK(Reserve(length));
 
+  if (use_unsigned_range_) {
+    return AppendValuesUnsignedInternal(reinterpret_cast<const uint64_t*>(values), length,
+                                        valid_bytes);
+  }
   return AppendValuesInternal(values, length, valid_bytes);
 }
 
