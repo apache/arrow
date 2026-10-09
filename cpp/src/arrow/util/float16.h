@@ -185,7 +185,6 @@ static_assert(sizeof(Float16) == sizeof(uint16_t));
 }  // namespace util
 }  // namespace arrow
 
-// TODO: Not complete
 template <>
 class std::numeric_limits<arrow::util::Float16> {
   using T = arrow::util::Float16;
@@ -193,14 +192,44 @@ class std::numeric_limits<arrow::util::Float16> {
  public:
   static constexpr bool is_specialized = true;
   static constexpr bool is_signed = true;
+  static constexpr bool is_integer = false;
+  static constexpr bool is_exact = false;
   static constexpr bool has_infinity = true;
   static constexpr bool has_quiet_NaN = true;
+  static constexpr bool has_signaling_NaN = true;
+  static constexpr std::float_denorm_style has_denorm = std::denorm_present;
+  static constexpr bool has_denorm_loss = false;
+  static constexpr bool is_iec559 = true;
+  static constexpr bool is_bounded = true;
+  static constexpr bool is_modulo = false;
+  static constexpr int radix = 2;
+
+  // Float16 has 10 explicit mantissa bits + 1 implicit bit = 11 bits precision
+  static constexpr int digits = 11;
+  // Number of decimal digits that can be represented: floor(10 * log10(2))
+  static constexpr int digits10 = 3;
+  // Number of decimal digits to fully represent the type: ceil(11 * log10(2) + 1)
+  static constexpr int max_digits10 = 5;
+
+  // Exponent range: bias = 15, min subnormal exponent = -14, min normal = -13
+  static constexpr int min_exponent = -13;
+  static constexpr int min_exponent10 = -4;
+  // Max exponent before infinity: field value 30 -> 30 - 15 + 1 = 16
+  static constexpr int max_exponent = 16;
+  static constexpr int max_exponent10 = 4;
+
+  static constexpr bool traps = false;
+  static constexpr bool tinyness_before = false;
+  static constexpr std::float_round_style round_style = std::round_to_nearest;
 
   static constexpr T min() { return T::FromBits(0b0000010000000000); }
   static constexpr T max() { return T::FromBits(0b0111101111111111); }
   static constexpr T lowest() { return -max(); }
+  static constexpr T epsilon() { return T::FromBits(0b0001010000000000); }      // 2^-10
+  static constexpr T round_error() { return T::FromBits(0b0011100000000000); }  // 0.5
+  static constexpr T denorm_min() { return T::FromBits(0b0000000000000001); }
 
   static constexpr T infinity() { return T::FromBits(0b0111110000000000); }
-
   static constexpr T quiet_NaN() { return T::FromBits(0b0111111111111111); }
+  static constexpr T signaling_NaN() { return T::FromBits(0b0111110000000001); }
 };
