@@ -31,12 +31,20 @@ exc = executable(
 )
 test('arrow-canonical-extensions-test', exc)
 
+file_extension_test = executable(
+    'arrow-parquet-file-extension-test',
+    sources: ['parquet_file_test.cc'],
+    dependencies: [arrow_test_dep],
+)
+test('arrow-parquet-file-extension-test', file_extension_test)
+
 install_headers(
     [
         'bool8.h',
         'fixed_shape_tensor.h',
         'json.h',
         'opaque.h',
+        'parquet_file.h',
         'parquet_variant.h',
         'uuid.h',
         'variable_shape_tensor.h',
