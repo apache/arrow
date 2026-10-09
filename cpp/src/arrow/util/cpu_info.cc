@@ -98,6 +98,14 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor) {
   *hardware_flags |= (sve && sve_size == 32) ? CpuInfo::SVE256 : 0;
   *hardware_flags |= (sve && sve_size == 64) ? CpuInfo::SVE512 : 0;
 
+  // RVV and length
+  const bool rvv = cpu.rvv();
+  const auto rvv_size = cpu.rvv_size_bytes();
+  *hardware_flags |= rvv ? CpuInfo::RVV : 0;
+  *hardware_flags |= (rvv && rvv_size == 16) ? CpuInfo::RVV128 : 0;
+  *hardware_flags |= (rvv && rvv_size == 32) ? CpuInfo::RVV256 : 0;
+  *hardware_flags |= (rvv && rvv_size == 64) ? CpuInfo::RVV512 : 0;
+
   // x86 only
   switch (cpu.known_manufacturer()) {
     case (xsimd::x86_manufacturer::intel):
