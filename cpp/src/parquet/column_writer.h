@@ -54,6 +54,10 @@ class Encryptor;
 class OffsetIndexBuilder;
 class WriterProperties;
 
+namespace internal {
+class ContentDefinedChunker;
+}  // namespace internal
+
 class PARQUET_EXPORT LevelEncoder {
  public:
   LevelEncoder();
@@ -127,10 +131,10 @@ class PARQUET_EXPORT ColumnWriter {
  public:
   virtual ~ColumnWriter() = default;
 
-  static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
-                                            std::unique_ptr<PageWriter>,
-                                            const WriterProperties* properties,
-                                            BloomFilter* bloom_filter = NULLPTR);
+  static std::shared_ptr<ColumnWriter> Make(
+      ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
+      const WriterProperties* properties, BloomFilter* bloom_filter = NULLPTR,
+      internal::ContentDefinedChunker* content_defined_chunker = NULLPTR);
 
   /// \brief Closes the ColumnWriter, commits any buffered values to pages.
   /// \return Total size of the column in bytes

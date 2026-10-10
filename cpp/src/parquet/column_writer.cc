@@ -744,7 +744,8 @@ class ColumnWriterImpl {
  public:
   ColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                   Encoding::type encoding, const WriterProperties* properties)
+                   Encoding::type encoding, const WriterProperties* properties,
+                   internal::ContentDefinedChunker* content_defined_chunker)
       : metadata_(metadata),
         descr_(metadata->descr()),
         level_info_(internal::LevelInfo::ComputeLevelInfo(metadata->descr())),
@@ -763,7 +764,8 @@ class ColumnWriterImpl {
         closed_(false),
         fallback_(false),
         definition_levels_sink_(allocator_),
-        repetition_levels_sink_(allocator_) {
+        repetition_levels_sink_(allocator_),
+        content_defined_chunker_(content_defined_chunker) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -775,11 +777,11 @@ class ColumnWriterImpl {
       compressor_temp_buffer_ =
           std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     }
-    if (properties_->content_defined_chunking_enabled()) {
-      auto cdc_options = properties_->content_defined_chunking_options();
-      content_defined_chunker_.emplace(level_info_, cdc_options.min_chunk_size,
-                                       cdc_options.max_chunk_size,
-                                       cdc_options.norm_level);
+    if (properties_->content_defined_chunking_enabled() &&
+        content_defined_chunker_ == nullptr) {
+      throw ParquetException(
+          "Content-defined chunking requires a content defined chunker, use "
+          "ParquetFileWriter instead.");
     }
   }
 
@@ -912,7 +914,9 @@ class ColumnWriterImpl {
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
 
-  std::optional<internal::ContentDefinedChunker> content_defined_chunker_;
+  // The chunker of the column owned by the file writer, null without content defined
+  // chunking
+  internal::ContentDefinedChunker* content_defined_chunker_;
 
  private:
   void InitSinks() {
@@ -1286,9 +1290,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
                         Encoding::type encoding, const WriterProperties* properties,
-                        BloomFilter* bloom_filter)
-      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
-                         properties) {
+                        BloomFilter* bloom_filter,
+                        internal::ContentDefinedChunker* content_defined_chunker)
+      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
+                         content_defined_chunker) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
                                    descr_, properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
@@ -1444,7 +1449,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     }
 
     if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
-      DCHECK(content_defined_chunker_.has_value());
       auto chunks = content_defined_chunker_->GetChunks(def_levels, rep_levels,
                                                         num_levels, leaf_array);
       for (size_t i = 0; i < chunks.size(); i++) {
@@ -2700,10 +2704,10 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
 // ----------------------------------------------------------------------
 // Dynamic column writer constructor
 
-std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
-                                                 std::unique_ptr<PageWriter> pager,
-                                                 const WriterProperties* properties,
-                                                 BloomFilter* bloom_filter) {
+std::shared_ptr<ColumnWriter> ColumnWriter::Make(
+    ColumnChunkMetaDataBuilder* metadata, std::unique_ptr<PageWriter> pager,
+    const WriterProperties* properties, BloomFilter* bloom_filter,
+    internal::ContentDefinedChunker* content_defined_chunker) {
   const ColumnDescriptor* descr = metadata->descr();
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
@@ -2725,29 +2729,36 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
       }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties,
-          /*bloom_filter=*/nullptr);
+          /*bloom_filter=*/nullptr, content_defined_chunker);
     }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::INT64:
       return std::make_shared<TypedColumnWriterImpl<Int64Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::INT96:
       return std::make_shared<TypedColumnWriterImpl<Int96Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::FLOAT:
       return std::make_shared<TypedColumnWriterImpl<FloatType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::DOUBLE:
       return std::make_shared<TypedColumnWriterImpl<DoubleType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<ByteArrayType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     default:
       ParquetException::NYI("Column writer not implemented for type: " +
                             TypeToString(descr->physical_type()));
