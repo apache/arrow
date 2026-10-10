@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -112,7 +114,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
-      int64_t max_rows_per_page = kDefaultMaxRowsPerPage) {
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
+      std::optional<double> min_space_savings = {}) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -130,6 +133,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
     wp_builder.max_rows_per_page(max_rows_per_page);
+    wp_builder.min_space_savings(min_space_savings);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -2084,6 +2088,55 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     verify_only_one_uncompressed_page(/*total_num_values=*/1);
   }
 }
+
+// Tests if compression works when:
+// - min_space_savings is unset
+// - min_space_savings = 0.1
+// - min_space_savings = 1
+TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
+
+  // Used zeros because it compresses well
+  this->SetUpSchema(Repetition::OPTIONAL);
+  this->descr_ = this->schema_.Column(0);
+  this->GenerateData(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), 0);
+
+  ColumnProperties column_properties;
+  column_properties.set_compression(Compression::ZSTD);
+
+  const std::vector<std::pair<std::optional<double>, bool>> cases = {
+      {std::nullopt, true},
+      {0.1, true},
+      {1.0, false},
+  };
+
+  for (const auto& [minimum, expected_compressed] : cases) {
+    auto writer = this->BuildWriter(
+        SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+        ParquetDataPageVersion::V2, false, kDefaultDataPageSize,
+        kDefaultMaxRowsPerPage, minimum);
+
+    writer->WriteBatch(SMALL_SIZE, this->def_levels_.data(), nullptr,
+                       this->values_ptr_);
+    writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+
+    auto page_reader = PageReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
+        Compression::ZSTD, default_reader_properties(), *this->descr_);
+
+    auto page = page_reader->NextPage();
+
+    ASSERT_NE(page, nullptr);
+    ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
+
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+
+    ASSERT_EQ(expected_compressed, data_page->is_compressed());
+  }
+}
+
 #endif
 
 // Test writing and reading geometry columns

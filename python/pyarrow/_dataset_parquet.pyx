@@ -664,6 +664,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             store_decimal_as_integer=self._properties["store_decimal_as_integer"],
             use_content_defined_chunking=self._properties["use_content_defined_chunking"],
             bloom_filter_options=self._properties["bloom_filter_options"],
+            min_space_savings=self._properties["min_space_savings"],
         )
 
     def _set_arrow_properties(self):
@@ -707,6 +708,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_byte_stream_split=False,
             column_encoding=None,
             data_page_version="1.0",
+            min_space_savings=None,
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
