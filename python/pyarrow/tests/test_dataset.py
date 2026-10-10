@@ -5970,6 +5970,26 @@ def test_parquet_min_space_savings(tempdir, minimum):
     assert result.equals(table)
 
 
+@pytest.mark.parquet
+def test_dataset_min_space_savings_changes_size(tempdir):
+    table = pa.table({"value": [0.0] * 1000})
+    sizes = []
+
+    for minimum in [None, 1.0]:
+        directory = tempdir / str(minimum)
+        pq.write_to_dataset(
+            table,
+            directory,
+            compression="snappy",
+            use_dictionary=False,
+            data_page_version="2.0",
+            min_space_savings=minimum,
+        )
+        sizes.append(next(directory.iterdir()).stat().st_size)
+
+    assert sizes[1] > sizes[0]
+
+
 def test_make_write_options_error():
     # GH-39440: calling make_write_options as a static class method
     msg_1 = ("make_write_options() should be called on an "
