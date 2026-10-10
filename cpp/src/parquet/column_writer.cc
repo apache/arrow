@@ -780,7 +780,7 @@ class ColumnWriterImpl {
     if (properties_->content_defined_chunking_enabled() &&
         content_defined_chunker_ == nullptr) {
       throw ParquetException(
-          "Content-defined chunking is not supported in ColumnWriter::Make(), use "
+          "Content-defined chunking requires a content defined chunker, use "
           "ParquetFileWriter instead.");
     }
   }
@@ -2765,14 +2765,6 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(
   }
   // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);
-}
-
-std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
-                                                 std::unique_ptr<PageWriter> pager,
-                                                 const WriterProperties* properties,
-                                                 BloomFilter* bloom_filter) {
-  return Make(metadata, std::move(pager), properties, bloom_filter,
-              /*content_defined_chunker=*/nullptr);
 }
 
 }  // namespace parquet
