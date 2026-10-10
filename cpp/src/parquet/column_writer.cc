@@ -745,11 +745,10 @@ class ColumnWriterImpl {
   ColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
                    Encoding::type encoding, const WriterProperties* properties,
-                   const internal::LevelInfo& level_info,
                    internal::ContentDefinedChunker* content_defined_chunker)
       : metadata_(metadata),
         descr_(metadata->descr()),
-        level_info_(level_info),
+        level_info_(internal::LevelInfo::ComputeLevelInfo(metadata->descr())),
         pager_(std::move(pager)),
         has_dictionary_(use_dictionary),
         encoding_(encoding),
@@ -1291,10 +1290,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
                         Encoding::type encoding, const WriterProperties* properties,
-                        BloomFilter* bloom_filter, const internal::LevelInfo& level_info,
+                        BloomFilter* bloom_filter,
                         internal::ContentDefinedChunker* content_defined_chunker)
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
-                         level_info, content_defined_chunker) {
+                         content_defined_chunker) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
                                    descr_, properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
@@ -2708,7 +2707,6 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
 std::shared_ptr<ColumnWriter> ColumnWriter::Make(
     ColumnChunkMetaDataBuilder* metadata, std::unique_ptr<PageWriter> pager,
     const WriterProperties* properties, BloomFilter* bloom_filter,
-    const internal::LevelInfo& level_info,
     internal::ContentDefinedChunker* content_defined_chunker) {
   const ColumnDescriptor* descr = metadata->descr();
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
@@ -2731,36 +2729,36 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(
       }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties,
-          /*bloom_filter=*/nullptr, level_info, content_defined_chunker);
+          /*bloom_filter=*/nullptr, content_defined_chunker);
     }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     case Type::INT64:
       return std::make_shared<TypedColumnWriterImpl<Int64Type>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     case Type::INT96:
       return std::make_shared<TypedColumnWriterImpl<Int96Type>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     case Type::FLOAT:
       return std::make_shared<TypedColumnWriterImpl<FloatType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     case Type::DOUBLE:
       return std::make_shared<TypedColumnWriterImpl<DoubleType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     case Type::BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<ByteArrayType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          level_info, content_defined_chunker);
+          content_defined_chunker);
     default:
       ParquetException::NYI("Column writer not implemented for type: " +
                             TypeToString(descr->physical_type()));
@@ -2774,7 +2772,6 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
                                                  const WriterProperties* properties,
                                                  BloomFilter* bloom_filter) {
   return Make(metadata, std::move(pager), properties, bloom_filter,
-              internal::LevelInfo::ComputeLevelInfo(metadata->descr()),
               /*content_defined_chunker=*/nullptr);
 }
 

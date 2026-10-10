@@ -56,7 +56,6 @@ class WriterProperties;
 
 namespace internal {
 class ContentDefinedChunker;
-struct LevelInfo;
 }  // namespace internal
 
 class PARQUET_EXPORT LevelEncoder {
@@ -208,17 +207,14 @@ class PARQUET_EXPORT ColumnWriter {
  private:
   friend class RowGroupSerializer;
 
-  /// \brief Create a column writer using the given level information and content
-  /// defined chunker
+  /// \brief Create a column writer using the given content defined chunker
   ///
-  /// The file writer computes the level information of a column once and gives the same
-  /// chunker to the column writers of a column, so the content defined chunking is
-  /// carried over between the row groups. The chunker is required if the properties
-  /// enable content defined chunking.
+  /// The file writer gives the same chunker to the column writers of a column, so the
+  /// content defined chunking is carried over between the row groups. The chunker is
+  /// required if the properties enable content defined chunking.
   static std::shared_ptr<ColumnWriter> Make(
       ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
       const WriterProperties* properties, BloomFilter* bloom_filter,
-      const internal::LevelInfo& level_info,
       internal::ContentDefinedChunker* content_defined_chunker);
 };
 
