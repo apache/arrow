@@ -935,6 +935,18 @@ garrow_csv_read_options_dispose(GObject *object)
 }
 
 static void
+garrow_csv_read_options_finalize(GObject *object)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
+
+  priv->convert_options.~ConvertOptions();
+  priv->parse_options.~ParseOptions();
+  priv->read_options.~ReadOptions();
+
+  G_OBJECT_CLASS(garrow_csv_read_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_csv_read_options_set_property(GObject *object,
                                      guint prop_id,
                                      const GValue *value,
@@ -1052,6 +1064,9 @@ static void
 garrow_csv_read_options_init(GArrowCSVReadOptions *object)
 {
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
+  new (&priv->read_options) arrow::csv::ReadOptions;
+  new (&priv->parse_options) arrow::csv::ParseOptions;
+  new (&priv->convert_options) arrow::csv::ConvertOptions;
   priv->read_options = arrow::csv::ReadOptions::Defaults();
   priv->parse_options = arrow::csv::ParseOptions::Defaults();
   priv->convert_options = arrow::csv::ConvertOptions::Defaults();
@@ -1064,6 +1079,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize = garrow_csv_read_options_finalize;
   gobject_class->dispose = garrow_csv_read_options_dispose;
   gobject_class->set_property = garrow_csv_read_options_set_property;
   gobject_class->get_property = garrow_csv_read_options_get_property;
