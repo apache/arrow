@@ -469,6 +469,37 @@ TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }
 
 TEST_P(TestCsvFileFormat, FragmentEquals) { TestFragmentEquals(); }
 
+TEST(CsvFileFormat, DelimiterEquals) {
+  CsvFileFormat left;
+  CsvFileFormat right;
+  auto check_equals = [&](bool expected) {
+    EXPECT_EQ(left.Equals(right), expected);
+    EXPECT_EQ(right.Equals(left), expected);
+  };
+
+  check_equals(true);
+  right.parse_options.delimiter = '|';
+  check_equals(false);
+
+  left.parse_options.delimiter_string = "||";
+  right.parse_options.delimiter_string = "||";
+  check_equals(true);
+  right.parse_options.delimiter_string = "::";
+  check_equals(false);
+
+  right.parse_options.delimiter_string.clear();
+  check_equals(false);
+  left.parse_options.delimiter_string = "|";
+  check_equals(true);
+
+  right.parse_options.quoting = false;
+  check_equals(false);
+  left.parse_options.quoting = false;
+  check_equals(true);
+  left.parse_options.quote_char = '\'';
+  check_equals(false);
+}
+
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::UNCOMPRESSED,
                                                                false}));

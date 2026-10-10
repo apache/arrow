@@ -193,6 +193,47 @@ TEST_P(BaseChunkerTest, QuotingNewline) {
   }
 }
 
+TEST_P(BaseChunkerTest, MultiDelimiter) {
+  if (!options_.newlines_in_values) {
+    return;
+  }
+  options_.delimiter_string = "||";
+  MakeChunker();
+
+  auto partial = std::make_shared<Buffer>("name|");
+  auto block = std::make_shared<Buffer>("|message||\"hello\nworld\"||42\nnext||row\n");
+  std::shared_ptr<Buffer> completion;
+  std::shared_ptr<Buffer> rest;
+  ASSERT_OK(chunker_->ProcessWithPartial(partial, block, &completion, &rest));
+  ASSERT_EQ(completion->ToString(), "|message||\"hello\nworld\"||42\n");
+  ASSERT_EQ(rest->ToString(), "next||row\n");
+
+  partial = std::make_shared<Buffer>("name|");
+  block = std::make_shared<Buffer>("|message");
+  ASSERT_RAISES(Invalid,
+                chunker_->ProcessWithPartial(partial, block, &completion, &rest));
+
+  // Long ordinary fields make the bulk filter profitable.
+  for (size_t padding : {0, 256}) {
+    const std::string first_field = std::string(padding, 'a') + "a|b";
+    const std::string row = first_field + "||\"c\n d\"||e\n";
+    const std::string next_row = std::string(padding, 'n') + "next||row\n";
+    MakeChunker();
+    const auto lengths = {row.size(), next_row.size()};
+    AssertChunking(*chunker_, row + next_row, lengths);
+
+    for (size_t split :
+         {first_field.find('|') + 1, first_field.size() + 1, first_field.size() + 2}) {
+      ARROW_SCOPED_TRACE("padding = ", padding, ", split = ", split);
+      partial = Buffer::FromString(row.substr(0, split));
+      block = Buffer::FromString(row.substr(split) + next_row);
+      ASSERT_OK(chunker_->ProcessWithPartial(partial, block, &completion, &rest));
+      ASSERT_EQ(completion->ToString(), row.substr(split));
+      ASSERT_EQ(rest->ToString(), next_row);
+    }
+  }
+}
+
 TEST_P(BaseChunkerTest, QuotingUnbalanced) {
   // Quote introduces a quoted field that doesn't end
   auto csv = MakeCSVData({"a,b\n", "1,\",3,,5\n", "c,d\n"});
