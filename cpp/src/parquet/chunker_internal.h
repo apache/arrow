@@ -22,7 +22,6 @@
 
 #include "arrow/array.h"
 #include "parquet/level_conversion.h"
-#include "parquet/properties.h"
 
 namespace parquet::internal {
 
@@ -120,15 +119,7 @@ class PARQUET_EXPORT ContentDefinedChunker {
   ContentDefinedChunker(const LevelInfo& level_info, int64_t min_chunk_size,
                         int64_t max_chunk_size, int norm_level = 0);
   ContentDefinedChunker(ContentDefinedChunker&&) noexcept;
-  ContentDefinedChunker& operator=(ContentDefinedChunker&&) noexcept;
   ~ContentDefinedChunker();
-
-  /// Create a new ContentDefinedChunker instance using the given chunking options
-  ///
-  /// @param level_info Information about definition and repetition levels
-  /// @param options Content defined chunking options
-  static ContentDefinedChunker Make(const LevelInfo& level_info,
-                                    const CdcOptions& options);
 
   /// Get the chunk boundaries for the given column data
   ///

@@ -468,10 +468,11 @@ class FileSerializer : public ParquetFileWriter::Contents {
       throw ParquetException("Appending to file not implemented.");
     }
     if (properties_->content_defined_chunking_enabled()) {
+      const auto& options = properties_->content_defined_chunking_options();
       for (int i = 0; i < num_columns(); i++) {
-        content_defined_chunkers_.push_back(internal::ContentDefinedChunker::Make(
+        content_defined_chunkers_.emplace_back(
             internal::LevelInfo::ComputeLevelInfo(schema_.Column(i)),
-            properties_->content_defined_chunking_options()));
+            options.min_chunk_size, options.max_chunk_size, options.norm_level);
       }
     }
   }

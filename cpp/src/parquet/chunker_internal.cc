@@ -423,15 +423,7 @@ ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
     : impl_(new Impl(level_info, min_chunk_size, max_chunk_size, norm_level)) {}
 
 ContentDefinedChunker::ContentDefinedChunker(ContentDefinedChunker&&) noexcept = default;
-ContentDefinedChunker& ContentDefinedChunker::operator=(
-    ContentDefinedChunker&&) noexcept = default;
 ContentDefinedChunker::~ContentDefinedChunker() = default;
-
-ContentDefinedChunker ContentDefinedChunker::Make(const LevelInfo& level_info,
-                                                  const CdcOptions& options) {
-  return ContentDefinedChunker(level_info, options.min_chunk_size, options.max_chunk_size,
-                               options.norm_level);
-}
 
 std::vector<Chunk> ContentDefinedChunker::GetChunks(const int16_t* def_levels,
                                                     const int16_t* rep_levels,
