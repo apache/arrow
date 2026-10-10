@@ -504,7 +504,10 @@ Result<std::shared_ptr<FileWriter>> CsvFileFormat::MakeWriter(
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options.");
   }
-  if (!parse_options.delimiter_string.empty()) {
+  const auto& other_parse_options =
+      checked_cast<const CsvFileFormat&>(*options->format()).parse_options;
+  if (!parse_options.delimiter_string.empty() ||
+      !other_parse_options.delimiter_string.empty()) {
     return Status::NotImplemented(
         "Writing CSV files with delimiter_string is not supported");
   }
