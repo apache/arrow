@@ -141,9 +141,6 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     // Throws an error if more columns are being written
     auto col_meta = metadata_->NextColumnChunk();
-    // Keep the ordinal in step with the metadata even if closing the previous column
-    // writer throws
-    const int32_t column_ordinal = next_column_index_++;
 
     if (column_writers_[0]) {
       total_bytes_written_ += column_writers_[0]->Close();
@@ -151,6 +148,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
           column_writers_[0]->total_compressed_bytes_written();
     }
 
+    const int32_t column_ordinal = next_column_index_++;
     column_writers_[0] = CreateColumnWriterForColumn(col_meta, column_ordinal);
     return column_writers_[0].get();
   }
