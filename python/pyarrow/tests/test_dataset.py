@@ -2563,6 +2563,114 @@ def test_construct_from_list_of_files(tempdir, dataset_reader):
 
 
 @pytest.mark.parquet
+@pytest.mark.parametrize('container', [list, tuple])
+@pytest.mark.parametrize('source_kinds', [
+    ('path', 'path'),
+    ('info', 'info'),
+    ('path', 'info'),
+    ('info', 'path'),
+])
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_construct_from_paths_and_file_infos(mockfs, container,
+                                             source_kinds, duplicate):
+    paths = ['subdir/1/xxx/file0.parquet',
+             'subdir/2/yyy/file1.parquet']
+    if duplicate:
+        paths[1] = paths[0]
+    infos = mockfs.get_file_info(paths)
+    sources = container(path if kind == 'path' else info
+                        for path, info, kind in zip(paths, infos, source_kinds))
+
+    dataset = ds.dataset(sources, filesystem=mockfs)
+
+    assert dataset.files == paths
+    expected = [0] * 5 + [0 if duplicate else 1] * 5
+    assert dataset.to_table()['const'].to_pylist() == expected
+
+
+@pytest.mark.parquet
+def test_construct_from_interleaved_paths_and_file_infos(mockfs):
+    path0 = 'subdir/1/xxx/file0.parquet'
+    path1 = 'subdir/2/yyy/file1.parquet'
+    info1 = mockfs.get_file_info(path1)
+
+    dataset = ds.dataset([path0, info1, path0], filesystem=mockfs)
+
+    assert dataset.files == [path0, path1, path0]
+    assert dataset.to_table()['const'].to_pylist() == [0] * 5 + [1] * 5 + [0] * 5
+
+
+@pytest.mark.parquet
+@pytest.mark.parametrize('source_kinds', [('path', 'info'),
+                                          ('info', 'path')])
+def test_construct_from_mixed_sources_with_subtree_filesystem(mockfs,
+                                                              source_kinds):
+    filesystem = fs.SubTreeFileSystem('subdir', mockfs)
+    paths = ['1/xxx/file0.parquet', '2/yyy/file1.parquet']
+    infos = filesystem.get_file_info(paths)
+    sources = [path if kind == 'path' else info
+               for path, info, kind in zip(paths, infos, source_kinds)]
+
+    dataset = ds.dataset(sources, filesystem=filesystem)
+
+    assert dataset.files == paths
+    assert dataset.to_table()['const'].to_pylist() == [0] * 5 + [1] * 5
+
+
+@pytest.mark.parquet
+def test_mixed_sources_preserve_file_info(mockfs):
+    path = 'subdir/1/xxx/file0.parquet'
+    info = mockfs.get_file_info(path)
+
+    _, sources = ds._ensure_multiple_sources([info, path], mockfs)
+
+    assert sources[0] is info
+    assert sources[1].path == path
+
+
+@pytest.mark.parquet
+@pytest.mark.parametrize('source_kinds', [('path', 'info'),
+                                          ('info', 'path')])
+def test_construct_from_mixed_sources_missing_with_subtree(mockfs,
+                                                           source_kinds):
+    filesystem = fs.SubTreeFileSystem('subdir', mockfs)
+    info = filesystem.get_file_info('1/xxx/file0.parquet')
+    sources = ['missing.parquet' if kind == 'path' else info
+               for kind in source_kinds]
+
+    with pytest.raises(FileNotFoundError):
+        ds.dataset(sources, filesystem=filesystem).to_table()
+
+
+@pytest.mark.parquet
+@pytest.mark.parametrize('source_kinds', [('path', 'info'),
+                                          ('info', 'path')])
+@pytest.mark.parametrize('invalid, error', [
+    ('subdir/1/xxx/doesnt-exist.parquet', FileNotFoundError),
+    ('subdir/1/xxx', IsADirectoryError),
+])
+def test_construct_from_mixed_sources_invalid_path(mockfs, source_kinds,
+                                                   invalid, error):
+    path = 'subdir/1/xxx/file0.parquet'
+    info = mockfs.get_file_info(path)
+    sources = [invalid if kind == 'path' else info
+               for kind in source_kinds]
+
+    with pytest.raises(error):
+        ds.dataset(sources, filesystem=mockfs)
+
+
+@pytest.mark.parquet
+def test_filesystem_factory_rejects_mixed_file_infos(mockfs):
+    path = 'subdir/1/xxx/file0.parquet'
+    info = mockfs.get_file_info(path)
+
+    with pytest.raises(TypeError, match='FileInfo'):
+        ds.FileSystemDatasetFactory(
+            mockfs, [info, path], ds.ParquetFileFormat())
+
+
+@pytest.mark.parquet
 def test_construct_from_list_of_mixed_paths_fails(mockfs):
     # instantiate from a list of mixed paths
     files = [
