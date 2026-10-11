@@ -41,6 +41,8 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
@@ -490,64 +492,75 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
 namespace {
 
 template <typename IndexCType>
-Status VarBinaryViewTakeTyped(const ArraySpan& values, const ArraySpan& indices,
-                              BinaryViewType::c_type* out_views, uint8_t* out_validity,
-                              int64_t* valid_count) {
+int64_t VarBinaryViewTakeTyped(const ArraySpan& values, const ArraySpan& indices,
+                               BinaryViewType::c_type* out_views, uint8_t* out_validity,
+                               std::vector<uint8_t>* used_buffers) {
   const auto* source_views = values.GetValues<BinaryViewType::c_type>(1);
   const auto* index_values = indices.GetValues<IndexCType>(1);
+  const auto* indices_validity =
+      indices.MayHaveNulls() ? indices.buffers[0].data : nullptr;
+  int64_t valid_count = 0;
 
-  const bool values_may_have_nulls = values.MayHaveNulls();
-  const bool indices_may_have_nulls = indices.MayHaveNulls();
-
-  if (!values_may_have_nulls && !indices_may_have_nulls) {
-    for (int64_t out_i = 0; out_i < indices.length; ++out_i) {
-      out_views[out_i] = source_views[static_cast<int64_t>(index_values[out_i])];
+  auto copy_view = [&](int64_t out_i) {
+    auto view = source_views[static_cast<int64_t>(index_values[out_i])];
+    out_views[out_i] = view;
+    if (!view.is_inline()) {
+      (*used_buffers)[view.ref.buffer_index] = true;
     }
-    *valid_count = indices.length;
-    return Status::OK();
+    ++valid_count;
+  };
+
+  if (!values.MayHaveNulls()) {
+    int64_t out_i = 0;
+    VisitBitBlocksVoid(
+        indices_validity, indices.offset, indices.length,
+        [&](int64_t i) {
+          copy_view(i);
+          ++out_i;
+        },
+        [&]() { out_views[out_i++] = {}; });
+  } else {
+    // Take gathers validity through arbitrary indices. VisitTwoBitBlocksVoid and
+    // OptionalBitmapAnd cannot combine the source and index bitmaps elementwise.
+    ::arrow::internal::FirstTimeBitmapWriter writer(out_validity, 0, indices.length);
+    VisitBitBlocksVoid(
+        indices_validity, indices.offset, indices.length,
+        [&](int64_t i) {
+          if (values.IsValid(static_cast<int64_t>(index_values[i]))) {
+            copy_view(i);
+            writer.Set();
+          } else {
+            out_views[i] = {};
+          }
+          writer.Next();
+        },
+        [&]() {
+          out_views[writer.position()] = {};
+          writer.Next();
+        });
+    writer.Finish();
   }
-
-  for (int64_t out_i = 0; out_i < indices.length; ++out_i) {
-    if (indices_may_have_nulls &&
-        !bit_util::GetBit(indices.buffers[0].data, indices.offset + out_i)) {
-      continue;
-    }
-
-    const int64_t source_i = static_cast<int64_t>(index_values[out_i]);
-    const bool source_valid =
-        !values_may_have_nulls ||
-        bit_util::GetBit(values.buffers[0].data, values.offset + source_i);
-    if (!source_valid) {
-      continue;
-    }
-
-    out_views[out_i] = source_views[source_i];
-    if (out_validity != nullptr) {
-      bit_util::SetBit(out_validity, out_i);
-    }
-    ++(*valid_count);
-  }
-
-  return Status::OK();
+  return valid_count;
 }
 
-Status VarBinaryViewTakeDispatch(const ArraySpan& values, const ArraySpan& indices,
-                                 BinaryViewType::c_type* out_views, uint8_t* out_validity,
-                                 int64_t* valid_count) {
+int64_t VarBinaryViewTakeDispatch(const ArraySpan& values, const ArraySpan& indices,
+                                  BinaryViewType::c_type* out_views,
+                                  uint8_t* out_validity,
+                                  std::vector<uint8_t>* used_buffers) {
   switch (indices.type->byte_width()) {
     case 1:
       return VarBinaryViewTakeTyped<uint8_t>(values, indices, out_views, out_validity,
-                                             valid_count);
+                                             used_buffers);
     case 2:
       return VarBinaryViewTakeTyped<uint16_t>(values, indices, out_views, out_validity,
-                                              valid_count);
+                                              used_buffers);
     case 4:
       return VarBinaryViewTakeTyped<uint32_t>(values, indices, out_views, out_validity,
-                                              valid_count);
+                                              used_buffers);
     default:
       DCHECK_EQ(indices.type->byte_width(), 8);
       return VarBinaryViewTakeTyped<uint64_t>(values, indices, out_views, out_validity,
-                                              valid_count);
+                                              used_buffers);
   }
 }
 
@@ -562,41 +575,52 @@ Status VarBinaryViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResu
   }
 
   const int64_t out_length = indices.length;
-  const bool may_have_nulls = values.MayHaveNulls() || indices.MayHaveNulls();
   const auto data_buffers = values.GetVariadicBuffers();
+  std::vector<uint8_t> used_buffers(data_buffers.size(), 0);
 
   ARROW_ASSIGN_OR_RAISE(
       auto views_buf,
       AllocateBuffer(out_length * static_cast<int64_t>(sizeof(BinaryViewType::c_type)),
                      ctx->memory_pool()));
   auto* out_views = reinterpret_cast<BinaryViewType::c_type*>(views_buf->mutable_data());
-  if (may_have_nulls && views_buf->size() > 0) {
-    std::memset(out_views, 0, views_buf->size());
-  }
 
   std::shared_ptr<Buffer> validity_buf;
   uint8_t* out_validity = nullptr;
-  if (may_have_nulls) {
-    ARROW_ASSIGN_OR_RAISE(validity_buf,
-                          AllocateEmptyBitmap(out_length, ctx->memory_pool()));
-    if (validity_buf->size() > 0) {
-      std::memset(validity_buf->mutable_data(), 0, validity_buf->size());
-    }
+  if (values.MayHaveNulls()) {
+    ARROW_ASSIGN_OR_RAISE(validity_buf, AllocateBitmap(out_length, ctx->memory_pool()));
     out_validity = validity_buf->mutable_data();
+  } else if (indices.MayHaveNulls()) {
+    // All source values are valid, so reuse or realign the index bitmap.
+    ARROW_ASSIGN_OR_RAISE(validity_buf, ::arrow::internal::OptionalBitmapAnd(
+                                            ctx->memory_pool(), indices.GetBuffer(0),
+                                            indices.offset, nullptr, 0, out_length));
   }
 
-  int64_t valid_count = 0;
-  RETURN_NOT_OK(
-      VarBinaryViewTakeDispatch(values, indices, out_views, out_validity, &valid_count));
-
+  const int64_t valid_count =
+      VarBinaryViewTakeDispatch(values, indices, out_views, out_validity, &used_buffers);
   const int64_t null_count = out_length - valid_count;
+  // Preserve buffer indices without retaining unused payload allocations. C++ arrays
+  // require non-null variadic buffer slots, even though the C Data Interface permits
+  // null pointers for zero-sized buffers.
+  size_t num_data_buffers = used_buffers.size();
+  while (num_data_buffers > 0 && !used_buffers[num_data_buffers - 1]) {
+    --num_data_buffers;
+  }
   BufferVector buffers;
-  buffers.reserve(2 + data_buffers.size());
+  buffers.reserve(2 + num_data_buffers);
   buffers.push_back(null_count == 0 ? nullptr : std::move(validity_buf));
   buffers.push_back(std::move(views_buf));
 
-  for (const auto& data_buffer : data_buffers) {
-    buffers.push_back(data_buffer);
+  std::shared_ptr<Buffer> empty_buffer;
+  for (size_t i = 0; i < num_data_buffers; ++i) {
+    if (used_buffers[i]) {
+      buffers.push_back(data_buffers[i]);
+    } else {
+      if (!empty_buffer) {
+        empty_buffer = std::make_shared<Buffer>(nullptr, 0);
+      }
+      buffers.push_back(empty_buffer);
+    }
   }
 
   out->value = ArrayData::Make(values.type->GetSharedPtr(), out_length,

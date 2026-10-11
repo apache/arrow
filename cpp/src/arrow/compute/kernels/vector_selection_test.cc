@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -27,6 +28,8 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
+#include "arrow/c/abi.h"
+#include "arrow/c/bridge.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
@@ -39,6 +42,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -83,7 +87,9 @@ std::shared_ptr<Array> MakeViewArrayWithMultiplePayloadBuffers(
   constexpr int32_t first_size = sizeof("first-long-value") - 1;
   constexpr int32_t second_size = sizeof("second-long-value") - 1;
 
-  BinaryViewType::c_type null_view{};
+  // Null slots may contain an out-of-line view, but must not retain its payload.
+  auto null_view = util::ToNonInlineBinaryView(payload0->data() + first_offset,
+                                               first_size, 0, first_offset);
   std::vector<BinaryViewType::c_type> views = {
       util::ToInlineBinaryView(""),
       util::ToInlineBinaryView("tiny"),
@@ -735,6 +741,31 @@ TEST_F(TestFilterKernel, FilterBinaryViewMultiplePayloadBuffers) {
     auto ree_actual = ree_actual_datum.make_array();
     ValidateOutput(*ree_actual);
     AssertArraysEqual(*expected, *ree_actual, /*verbose=*/true);
+  }
+}
+
+TEST_F(TestFilterKernel, FilterViewDropsUnusedPayloadBuffers) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    auto values = MakeViewArrayWithMultiplePayloadBuffers(value_type)->Slice(1, 4);
+    auto filter = ArrayFromJSON(boolean(), "[true, false, null, true, true]")->Slice(1);
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
+    for (const auto& options : {drop_, emit_null_}) {
+      auto expected =
+          ArrayFromJSON(value_type, options.null_selection_behavior == FilterOptions::DROP
+                                        ? R"([null, "second-long-value"])"
+                                        : R"([null, null, "second-long-value"])");
+      for (const auto& selection : {filter, ree_filter}) {
+        ASSERT_OK_AND_ASSIGN(auto actual_datum, Filter(values, selection, options));
+        auto actual = actual_datum.make_array();
+        ValidateOutput(*actual);
+        AssertArraysEqual(*expected, *actual);
+        ASSERT_EQ(actual->data()->buffers.size(), 4);
+        ASSERT_NE(actual->data()->buffers[2], nullptr);
+        ASSERT_EQ(actual->data()->buffers[2]->size(), 0);
+        ASSERT_EQ(actual->data()->buffers[2]->parent(), nullptr);
+        ASSERT_EQ(actual->data()->buffers[3], values->data()->buffers[3]);
+      }
+    }
   }
 }
 
@@ -1762,7 +1793,7 @@ TEST_F(TestTakeKernel, TakeViewMultiplePayloadBuffers) {
     auto actual = actual_datum.make_array();
     ValidateOutput(*actual);
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-    ASSERT_GE(actual->data()->buffers.size(), values->data()->buffers.size());
+    ASSERT_EQ(actual->data()->buffers.size(), values->data()->buffers.size());
     ASSERT_EQ(values->data()->buffers[2].get(), actual->data()->buffers[2].get());
     ASSERT_EQ(values->data()->buffers[3].get(), actual->data()->buffers[3].get());
 
@@ -1776,6 +1807,107 @@ TEST_F(TestTakeKernel, TakeViewMultiplePayloadBuffers) {
     auto expected_with_offset =
         ArrayFromJSON(value_type, R"(["second-long-value", null, "first-long-value"])");
     DoAssertTakeAAA(values, indices_with_offset, expected_with_offset);
+  }
+}
+
+TEST_F(TestTakeKernel, TakeViewDropsUnusedPayloadBuffers) {
+  struct TestCase {
+    const char* indices;
+    const char* expected;
+    bool uses_first;
+    bool uses_second;
+  };
+  const TestCase cases[] = {
+      {"[4, 3, 4, null, 1]",
+       R"(["second-long-value", null, "second-long-value", null, "tiny"])", false, true},
+      {"[2, 1, 2]", R"(["first-long-value", "tiny", "first-long-value"])", true, false},
+      {"[4, 2]", R"(["second-long-value", "first-long-value"])", true, true},
+      {"[0, 1, 5, null, 3]", R"(["", "tiny", "z", null, null])", false, false},
+      {"[3, null, 3]", "[null, null, null]", false, false},
+      {"[]", "[]", false, false},
+  };
+  for (const auto& value_type : BinaryViewTypes()) {
+    for (const auto& test : cases) {
+      ARROW_SCOPED_TRACE(value_type->ToString(), " indices = ", test.indices);
+      auto values = MakeViewArrayWithMultiplePayloadBuffers(value_type);
+      auto indices = ArrayFromJSON(int32(), test.indices);
+      auto expected = ArrayFromJSON(value_type, test.expected);
+      std::weak_ptr<Buffer> first = values->data()->buffers[2];
+      std::weak_ptr<Buffer> second = values->data()->buffers[3];
+
+      ASSERT_OK_AND_ASSIGN(auto actual, TakeAAA(*values, *indices));
+      ValidateOutput(*actual);
+      AssertArraysEqual(*expected, *actual);
+      const auto& buffers = actual->data()->buffers;
+      ASSERT_EQ(buffers.size(), test.uses_second ? 4 : (test.uses_first ? 3 : 2));
+      if (test.uses_first) {
+        ASSERT_EQ(buffers[2], first.lock());
+      } else if (test.uses_second) {
+        ASSERT_NE(buffers[2], nullptr);
+        ASSERT_EQ(buffers[2]->size(), 0);
+        ASSERT_EQ(buffers[2]->parent(), nullptr);
+      }
+      if (test.uses_second) {
+        ASSERT_EQ(buffers[3], second.lock());
+      }
+      values.reset();
+      ASSERT_EQ(first.expired(), !test.uses_first);
+      ASSERT_EQ(second.expired(), !test.uses_second);
+
+      // Empty placeholders must also be safe to export and import.
+      ArrowArray c_array{};
+      ASSERT_OK(ExportArray(*actual, &c_array));
+      ASSERT_OK_AND_ASSIGN(auto imported, ImportArray(&c_array, value_type));
+      ValidateOutput(*imported);
+      AssertArraysEqual(*expected, *imported);
+    }
+  }
+}
+
+TEST_F(TestTakeKernel, TakeViewValidityFollowsIndices) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    for (const auto& index_type : IntTypes()) {
+      for (bool source_has_nulls : {false, true}) {
+        for (int64_t offset : {0, 1, 7, 8}) {
+          ARROW_SCOPED_TRACE(value_type->ToString(),
+                             " indices = ", index_type->ToString(),
+                             " source nulls = ", source_has_nulls, " offset = ", offset);
+          auto values = ArrayFromJSON(
+              value_type,
+              source_has_nulls
+                  ? R"(["unused", "a", null, "long-value-over-inline-limit", "z"])"
+                  : R"(["unused", "a", "b", "long-value-over-inline-limit", "z"])");
+          values = values->Slice(1);
+          // Cross bitmap word boundaries with all-valid, all-null and mixed blocks.
+          std::vector<std::string> index_json(offset, "0");
+          std::vector<std::string> expected_json;
+          const char* source_json[] = {R"("a")", source_has_nulls ? "null" : R"("b")",
+                                       R"("long-value-over-inline-limit")", R"("z")"};
+          for (int64_t i = 0; i < 193; ++i) {
+            const int64_t index = (i * 3 + 2) % 4;
+            const bool is_null = (i >= 64 && i < 128) || (i >= 128 && i % 3 == 0);
+            index_json.push_back(is_null ? "null" : std::to_string(index));
+            expected_json.push_back(is_null ? "null" : source_json[index]);
+          }
+          auto indices = ArrayFromJSON(
+              index_type, "[" + ::arrow::internal::JoinStrings(index_json, ",") + "]");
+          // A null index's payload is unspecified and must never be dereferenced.
+          auto* index_bytes = indices->data()->buffers[1]->mutable_data();
+          for (int64_t i = 0; i < indices->length(); ++i) {
+            if (indices->IsNull(i)) {
+              std::memset(index_bytes + i * index_type->byte_width(), 0xff,
+                          index_type->byte_width());
+            }
+          }
+          indices = indices->Slice(offset);
+          values->data()->null_count = kUnknownNullCount;
+          indices->data()->null_count = kUnknownNullCount;
+          auto expected = ArrayFromJSON(
+              value_type, "[" + ::arrow::internal::JoinStrings(expected_json, ",") + "]");
+          DoAssertTakeAAA(values, indices, expected);
+        }
+      }
+    }
   }
 }
 
