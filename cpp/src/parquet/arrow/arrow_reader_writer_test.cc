@@ -3571,6 +3571,15 @@ static const std::vector<FixedSizeListTestCase> kFixedSizeListTestCases = {
           {"root": [[1, 2], null, [3, 4]]},
           {"root": null},
           {"root": [null, [5, 6]]},
+          {"root": []}])"},
+    // GH-49683: zero-sized lists
+    {.type = ::arrow::fixed_size_list(::arrow::float32(), /*list_size=*/0), .json = R"([
+          {"root": []},
+          {"root": []},
+          {"root": []}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::float32(), /*list_size=*/0), .json = R"([
+          {"root": []},
+          {"root": null},
           {"root": []}])"}};
 
 TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {

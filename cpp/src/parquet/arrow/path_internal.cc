@@ -846,8 +846,10 @@ class PathBuilder {
     // well.
     info_.max_def_level++;
     info_.max_rep_level++;
-    info_.path.emplace_back(FixedSizeListNode(FixedSizedRangeSelector{list_size},
-                                              info_.max_rep_level, info_.max_def_level));
+    // Lists are empty only when list_size == 0 (GH-49683).
+    info_.path.emplace_back(
+        FixedSizeListNode(FixedSizedRangeSelector{list_size}, info_.max_rep_level,
+                          /*def_level_if_empty=*/info_.max_def_level - 1));
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
     if (array.offset() > 0) {
       return VisitInline(*array.values()->Slice(array.value_offset(0)));
