@@ -532,6 +532,10 @@ csv_read_options <- function(
 #'    and LF (`0x0a`) characters? (default `FALSE`)
 #' - `ignore_empty_lines` Logical: should empty lines be ignored (default) or
 #'    generate a row of missing values (if `FALSE`)?
+#' - `pad_short_rows` Logical: should rows with fewer columns than expected be
+#'    padded with missing values (default `FALSE`) or raise an error?
+#' - `ignore_extra_columns` Logical: should columns beyond the number expected be
+#'    ignored (default `FALSE`) or raise an error?
 #'
 #' `JsonParseOptions$create()` accepts only the `newlines_in_values` argument.
 #'

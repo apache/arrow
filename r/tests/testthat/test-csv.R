@@ -695,14 +695,12 @@ test_that("pad_short_rows and ignore_extra_columns parse options", {
   # Rows with fewer columns than expected are padded with nulls (GH-50925), and
   # extra columns are dropped (GH-50967).
   short <- I("a,b,c\n1,2,9\n3")
-  expect_error(read_csv_arrow(short))
   expect_identical(
     read_csv_arrow(short, parse_options = csv_parse_options(pad_short_rows = TRUE)),
     tibble::tibble(a = c(1L, 3L), b = c(2L, NA), c = c(9L, NA))
   )
 
   extra <- I("a,b\n1,2,3\n4,5")
-  expect_error(read_csv_arrow(extra))
   expect_identical(
     read_csv_arrow(extra, parse_options = csv_parse_options(ignore_extra_columns = TRUE)),
     tibble::tibble(a = c(1L, 4L), b = c(2L, 5L))

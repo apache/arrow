@@ -28,7 +28,7 @@
   converted to a single R type across the column (#50514).
 
 - `csv_parse_options()` and `CsvParseOptions$create()` gain `pad_short_rows` and
-  `ignore_extra_columns`, exposing the new C++ parse options (#51659).
+  `ignore_extra_columns`, exposing the new C++ parse options (@rajaryan2007, #51659).
 
 # arrow 25.0.1
 
