@@ -158,6 +158,116 @@ def test_coerce_timestamps_truncated(tempdir):
     tm.assert_frame_equal(df_expected, df_ms)
 
 
+@pytest.mark.parametrize("version, source_unit, target_unit, expected_unit", [
+    ("1.0", "ns", None, "us"),
+    ("2.4", "ns", None, "us"),
+    ("2.6", "ns", None, "ns"),
+    ("2.6", "s", None, "ms"),
+    ("2.6", "ns", "us", "us"),
+    ("1.0", "ns", "ms", "ms"),
+    ("2.6", "ms", "us", "us"),
+    ("2.6", "us", "ms", "ms"),
+    ("2.6", "s", "us", "us"),
+])
+@pytest.mark.parametrize("store_schema", [False, True])
+def test_coerce_times(version, source_unit, target_unit, expected_unit,
+                      store_schema):
+    units_per_second = {"s": 1, "ms": 1000, "us": 1000000, "ns": 1000000000}
+    source_type = (pa.time32(source_unit) if source_unit in ("s", "ms")
+                   else pa.time64(source_unit))
+    array = pa.array([0, 40984 * units_per_second[source_unit], None],
+                     source_type)
+    expected_type = (pa.time32(expected_unit) if expected_unit == "ms"
+                     else pa.time64(expected_unit))
+    expected = pa.array([0, 40984 * units_per_second[expected_unit], None],
+                        expected_type)
+    buffer = io.BytesIO()
+    pq.write_table(pa.table({"time": array}), buffer, version=version,
+                   coerce_timestamps=target_unit, store_schema=store_schema)
+    buffer.seek(0)
+    file = pq.ParquetFile(buffer)
+    physical_type = "INT32" if expected_unit == "ms" else "INT64"
+    assert file.schema.column(0).physical_type == physical_type
+    assert file.schema.to_arrow_schema().field(0).type == expected_type
+    assert file.read().column(0).combine_chunks().equals(expected)
+
+
+@pytest.mark.parametrize("target_unit, value", [("us", 1001), ("ms", 1000001)])
+def test_coerce_times_truncated(target_unit, value):
+    table = pa.table({"time": pa.array([value, None], pa.time64("ns"))})
+    with pytest.raises(pa.ArrowInvalid, match="would lose data"):
+        pq.write_table(table, io.BytesIO(), coerce_timestamps=target_unit)
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer, coerce_timestamps=target_unit,
+                   allow_truncated_timestamps=True)
+    buffer.seek(0)
+    dtype = pa.time32("ms") if target_unit == "ms" else pa.time64("us")
+    assert pq.read_table(buffer).column(0).combine_chunks().equals(
+        pa.array([1, None], dtype))
+
+
+@pytest.mark.parametrize("version", ["1.0", "2.4"])
+def test_time_default_coercion_rejects_truncation(version):
+    table = pa.table({"time": pa.array([1001], pa.time64("ns"))})
+    with pytest.raises(pa.ArrowInvalid, match="would lose data"):
+        pq.write_table(table, io.BytesIO(), version=version,
+                       allow_truncated_timestamps=True)
+
+
+@pytest.mark.parametrize("source_type, target_unit, value", [
+    (pa.time32("s"), "ms", 2147483647),
+    (pa.time64("us"), "ms", 2147483648000),
+])
+def test_coerce_times_overflow(source_type, target_unit, value):
+    table = pa.table({"time": pa.array([value], source_type)})
+    with pytest.raises(pa.ArrowInvalid, match="overflow"):
+        pq.write_table(table, io.BytesIO(), coerce_timestamps=target_unit,
+                       allow_truncated_timestamps=True)
+
+
+def test_coerce_times_null_parent():
+    child = pa.array([1001, 2000], pa.time64("ns"))
+    array = pa.StructArray.from_arrays([child], names=["time"],
+                                       mask=pa.array([True, False]))
+    buffer = io.BytesIO()
+    pq.write_table(pa.table({"s": array}), buffer, coerce_timestamps="us")
+    buffer.seek(0)
+    expected_child = pa.array([None, 2], pa.time64("us"))
+    expected = pa.StructArray.from_arrays([expected_child], names=["time"],
+                                          mask=pa.array([True, False]))
+    assert pq.read_table(buffer).column(0).combine_chunks().equals(expected)
+
+
+@pytest.mark.parametrize("kind", [
+    "chunked", "list", "dictionary", "all_null",
+])
+def test_coerce_times_array_layouts(kind):
+    array = pa.array([7, 1000000, None, 2000000], pa.time64("ns")).slice(1)
+    expected = pa.array([1000, None, 2000], pa.time64("us"))
+    if kind == "chunked":
+        array = pa.chunked_array([array.slice(0, 1), array.slice(1)])
+    elif kind == "list":
+        array = pa.array([[1000000, None], None, [2000000]],
+                         pa.list_(pa.time64("ns")))
+        expected = pa.array([[1000, None], None, [2000]],
+                            pa.list_(pa.time64("us")))
+    elif kind == "dictionary":
+        array = pa.DictionaryArray.from_arrays(
+            pa.array([0, None, 1], pa.int8()),
+            pa.array([1000000, 2000000], pa.time64("ns")))
+    elif kind == "all_null":
+        array = pa.array([None, None, None], pa.time64("ns"))
+        expected = pa.array([None, None, None], pa.time64("us"))
+    buffer = io.BytesIO()
+    pq.write_table(pa.table({"time": array}), buffer, version="2.4",
+                   row_group_size=1)
+    buffer.seek(0)
+    result = pq.read_table(buffer).column(0).combine_chunks()
+    if pa.types.is_dictionary(result.type):
+        result = result.dictionary_decode()
+    assert result.equals(expected)
+
+
 @pytest.mark.pandas
 def test_date_time_types(tempdir):
     t1 = pa.date32()

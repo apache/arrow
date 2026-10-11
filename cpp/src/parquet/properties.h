@@ -1392,24 +1392,26 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
-    /// \brief Coerce all timestamps to the specified time unit.
+    /// \brief Coerce all timestamps and times to the specified time unit.
     /// \param unit time unit to truncate to.
-    /// For Parquet versions 1.0 and 2.4, nanoseconds are casted to microseconds.
+    /// Parquet versions 1.0 and 2.4 support milliseconds and microseconds.
+    /// Parquet version 2.6 also supports nanoseconds.
     Builder* coerce_timestamps(::arrow::TimeUnit::type unit) {
       coerce_timestamps_enabled_ = true;
       coerce_timestamps_unit_ = unit;
       return this;
     }
 
-    /// \brief Allow loss of data when truncating timestamps.
+    /// \brief Allow loss of data when explicitly coercing timestamps or times.
     ///
     /// This is disallowed by default and an error will be returned.
+    /// Only applies when coerce_timestamps is explicitly enabled.
     Builder* allow_truncated_timestamps() {
       truncated_timestamps_allowed_ = true;
       return this;
     }
 
-    /// \brief Disallow loss of data when truncating timestamps (default).
+    /// \brief Disallow loss of data when truncating timestamps or times (default).
     Builder* disallow_truncated_timestamps() {
       truncated_timestamps_allowed_ = false;
       return this;
