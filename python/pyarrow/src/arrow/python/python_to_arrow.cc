@@ -841,7 +841,11 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
     }
-    if (has_numpy() && PyArray_Check(value)) {
+    if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      RETURN_NOT_OK(this->list_builder_->AppendScalar(GetStorageScalar(*scalar)));
+    } else if (has_numpy() && PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));

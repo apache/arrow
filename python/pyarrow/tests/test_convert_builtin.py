@@ -2552,6 +2552,11 @@ def test_array_from_pylist_offset_overflow():
      pa.list_view(pa.int64())),
     ([["a", "b"]], [pa.scalar(["a", "b"], type=pa.list_view(pa.string()))],
      pa.list_view(pa.string())),
+    # GH-40319: null list scalars
+    ([None, [1]], [pa.scalar(None, pa.list_(pa.int64())), pa.scalar([1])],
+     pa.list_(pa.int64())),
+    ([None], [pa.scalar(None, pa.large_list(pa.int64()))],
+     pa.large_list(pa.int64())),
     (
         [1, 2, None],
         [pa.scalar(1, type=pa.int8()), pa.scalar(2, type=pa.int8()), None],
