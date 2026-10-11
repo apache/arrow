@@ -2167,6 +2167,15 @@ def test_map_from_tuples():
             pa.array([entry], type=pa.map_('i4', 'i4'))
 
 
+def test_map_null_entry_raises():
+    # GH-41283: a null map entry must raise instead of aborting
+    ty = pa.map_(pa.string(), pa.int32())
+    with pytest.raises(pa.ArrowInvalid, match="entries cannot be null"):
+        pa.array([[{'key': 'a', 'value': 1}, None]], type=ty)
+    with pytest.raises(pa.ArrowInvalid, match="entries cannot be null"):
+        pa.array([[None]], type=pa.map_(pa.int32(), pa.int32()))
+
+
 def test_dictionary_from_boolean():
     typ = pa.dictionary(pa.int8(), value_type=pa.bool_())
     a = pa.array([False, False, True, False, True], type=typ)
