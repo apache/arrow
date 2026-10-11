@@ -3811,6 +3811,22 @@ TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
   }
 }
 
+TEST(TestArrowReadWrite, DictionaryValueTypeRoundtrip) {
+  // GH-37875: the binary layout of dictionary values should be preserved
+  for (const auto& value_type : {::arrow::utf8(), ::arrow::large_utf8(),
+                                 ::arrow::binary(), ::arrow::large_binary()}) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    auto dict_type = ::arrow::dictionary(::arrow::int32(), value_type);
+    auto schema = ::arrow::schema({field("dictionary", dict_type)});
+    auto array = DictArrayFromJSON(dict_type, R"([0, 1, null, 0])", R"(["foo", "bar"])");
+    auto table = Table::Make(schema, {array});
+    auto arrow_writer_props =
+        parquet::ArrowWriterProperties::Builder().store_schema()->build();
+
+    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
+  }
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;

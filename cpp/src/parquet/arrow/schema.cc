@@ -1110,8 +1110,17 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     // so no need to recurse on value types.
     const auto& dict_origin_type =
         checked_cast<const ::arrow::DictionaryType&>(*origin_type);
+    auto value_type = inferred_type;
+    const auto& origin_value_type = dict_origin_type.value_type();
+    // Restore large dictionary values (GH-37875)
+    if ((origin_value_type->id() == ::arrow::Type::LARGE_STRING &&
+         inferred_type->id() == ::arrow::Type::STRING) ||
+        (origin_value_type->id() == ::arrow::Type::LARGE_BINARY &&
+         inferred_type->id() == ::arrow::Type::BINARY)) {
+      value_type = origin_value_type;
+    }
     inferred->field = inferred->field->WithType(::arrow::dictionary(
-        dict_origin_type.index_type(), inferred_type, dict_origin_type.ordered()));
+        dict_origin_type.index_type(), value_type, dict_origin_type.ordered()));
     modified = true;
   }
 
