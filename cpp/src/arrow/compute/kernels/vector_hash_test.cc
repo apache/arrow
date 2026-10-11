@@ -538,6 +538,18 @@ TYPED_TEST(TestHashKernelBinaryTypes, BinaryResizeTable) {
   this->CheckDictEncodeP(values, {}, uniques, {}, indices);
 }
 
+TEST_F(TestHashKernel, UniqueBinaryViewWithNull) {
+  // GH-39635: the null slot must stay null in the unique values
+  for (const auto& type : {binary_view(), utf8_view()}) {
+    ARROW_SCOPED_TRACE(type->ToString());
+    CheckUnique(ArrayFromJSON(type, R"(["test", "a string that is not inlined", null,
+                                       "test"])"),
+                ArrayFromJSON(type, R"(["test", "a string that is not inlined", null])"));
+    CheckUnique(ArrayFromJSON(type, R"(["ab", null, "cd", "ab", null])")->Slice(1, 3),
+                ArrayFromJSON(type, R"([null, "cd", "ab"])"));
+  }
+}
+
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
   auto type = fixed_size_binary(3);
 

@@ -166,8 +166,15 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
     BinaryViewBuilder builder(pool);
     RETURN_NOT_OK(builder.Resize(memo_table.size() - start_offset));
     RETURN_NOT_OK(builder.ReserveData(memo_table.values_size()));
-    memo_table.VisitValues(static_cast<int32_t>(start_offset),
-                           [&](std::string_view s) { builder.UnsafeAppend(s); });
+    const int32_t null_index = memo_table.GetNull();
+    int32_t index = static_cast<int32_t>(start_offset);
+    memo_table.VisitValues(static_cast<int32_t>(start_offset), [&](std::string_view s) {
+      if (index++ == null_index) {
+        builder.UnsafeAppendNull();
+      } else {
+        builder.UnsafeAppend(s);
+      }
+    });
 
     std::shared_ptr<ArrayData> out;
     RETURN_NOT_OK(builder.FinishInternal(&out));
