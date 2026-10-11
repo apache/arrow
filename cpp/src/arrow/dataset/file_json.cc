@@ -135,12 +135,19 @@ json::ParseOptions GetInitialParseOptions(json::ParseOptions options) {
   return options;
 }
 
+// `is_final` means `data` holds the whole file, so a trailing object without a
+// newline is complete.
 Result<std::shared_ptr<StructType>> ParseToStructType(
-    std::string_view data, const json::ParseOptions& parse_options, MemoryPool* pool) {
+    std::string_view data, bool is_final, const json::ParseOptions& parse_options,
+    MemoryPool* pool) {
   auto full_buffer = std::make_shared<Buffer>(data);
   std::shared_ptr<Buffer> buffer, partial;
-  auto chunker = json::MakeChunker(parse_options);
-  RETURN_NOT_OK(chunker->Process(full_buffer, &buffer, &partial));
+  if (is_final) {
+    buffer = full_buffer;
+  } else {
+    auto chunker = json::MakeChunker(parse_options);
+    RETURN_NOT_OK(chunker->Process(full_buffer, &buffer, &partial));
+  }
 
   std::unique_ptr<json::BlockParser> parser;
   RETURN_NOT_OK(json::BlockParser::Make(pool, parse_options, &parser));
@@ -151,10 +158,11 @@ Result<std::shared_ptr<StructType>> ParseToStructType(
   return checked_pointer_cast<StructType>(parsed->type());
 }
 
-Result<std::shared_ptr<Schema>> ParseToSchema(std::string_view data,
+Result<std::shared_ptr<Schema>> ParseToSchema(std::string_view data, bool is_final,
                                               const json::ParseOptions& parse_options,
                                               MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto type, ParseToStructType(data, parse_options, pool));
+  ARROW_ASSIGN_OR_RAISE(auto type,
+                        ParseToStructType(data, is_final, parse_options, pool));
   return schema(type->fields());
 }
 
@@ -289,8 +297,10 @@ Result<Future<ReaderPtr>> DoOpenReader(
           // schema for the reader based on the dataset schema.
           ARROW_ASSIGN_OR_RAISE(auto first_block,
                                 state->stream->Peek(state->read_options.block_size));
+          const bool is_final =
+              static_cast<int64_t>(first_block.size()) < state->read_options.block_size;
           ARROW_ASSIGN_OR_RAISE(auto physical_schema,
-                                ParseToSchema(first_block, state->parse_options,
+                                ParseToSchema(first_block, is_final, state->parse_options,
                                               state->scan_options->pool));
           ARROW_ASSIGN_OR_RAISE(state->parse_options.explicit_schema,
                                 GetPartialSchema(*state->scan_options, *physical_schema));
@@ -344,8 +354,10 @@ Result<std::shared_ptr<InspectedFragment>> DoInspectFragment(
                         stream->Peek(format_options.read_options.block_size));
 
   auto parse_options = GetInitialParseOptions(format_options.parse_options);
+  const bool is_final =
+      static_cast<int64_t>(first_block.size()) < format_options.read_options.block_size;
   ARROW_ASSIGN_OR_RAISE(auto struct_type,
-                        ParseToStructType(first_block, parse_options, pool));
+                        ParseToStructType(first_block, is_final, parse_options, pool));
 
   std::vector<std::string> column_names;
   column_names.reserve(struct_type->num_fields());

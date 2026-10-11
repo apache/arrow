@@ -220,6 +220,23 @@ class JsonScanMixin {
     ASSERT_EQ(num_rows, 3);
   }
 
+  void TestScanSingleLineWithoutNewline() {
+    // GH-45394
+    auto source = ToFileSource("{\"i\":7}");
+    auto fragment = this_->MakeFragment(*source);
+    this_->SetSchema({field("i", int64())});
+    this_->SetJsonOptions();
+
+    RecordBatchVector batches;
+    for (auto maybe_batch : this_->Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      batches.push_back(std::move(batch));
+    }
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+    AssertTablesEqual(*TableFromJSON(schema({field("i", int64())}), {R"([{"i": 7}])"}),
+                      *table);
+  }
+
   void TestScanWithParallelDecoding() {
     // Test intra-fragment parallelism, which the JSON reader supports independent of the
     // scanner. We set a small block size to stress thread usage alongside the scanner's
@@ -313,6 +330,7 @@ TEST_P(TestJsonScan, ScanWithBOM) { TestScanWithBOM(); }
 TEST_P(TestJsonScan, ScanWithCustomParseOptions) { TestScanWithCustomParseOptions(); }
 TEST_P(TestJsonScan, ScanWithCustomBlockSize) { TestScanWithCustomBlockSize(); }
 TEST_P(TestJsonScan, ScanWithParallelDecoding) { TestScanWithParallelDecoding(); }
+TEST_P(TestJsonScan, ScanSingleLineWithoutNewline) { TestScanSingleLineWithoutNewline(); }
 
 INSTANTIATE_TEST_SUITE_P(TestJsonScan, TestJsonScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
