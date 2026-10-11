@@ -482,6 +482,20 @@ def test_numpy_scalars_mixed_type():
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize("int_type", [
+    "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"
+])
+def test_numpy_scalars_mixed_float16_int(int_type):
+    # GH-25859: follow NumPy type promotion
+    int_scalar = getattr(np, int_type)(5)
+    expected_type = pa.from_numpy_dtype(np.result_type(np.float16, int_type))
+    for data in ([np.float16(1.5), int_scalar], [int_scalar, np.float16(1.5)]):
+        arr = pa.array(data)
+        assert arr.type == expected_type
+        assert arr.to_pylist() == [float(x) for x in data]
+
+
+@pytest.mark.numpy
 @pytest.mark.xfail(reason="Type inference for uint64 not implemented",
                    raises=OverflowError)
 def test_uint64_max_convert():
