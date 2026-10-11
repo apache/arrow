@@ -432,6 +432,13 @@ TEST(Cast, FloatingToIntOverflow) {
     opts.to_type = uint64();
     CheckCastFails(ArrayFromJSON(from, "[18446744073709551616.0]"), opts);
   }
+
+  auto opts = CastOptions::Safe(int8());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Float value 1.5"),
+                                  Cast(ArrayFromJSON(float16(), "[1.5]"), opts));
+  opts.allow_float_truncate = true;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Float value inf out"),
+                                  Cast(ArrayFromJSON(float16(), "[Inf]"), opts));
 }
 
 TEST(Cast, FloatingToFloating) {
