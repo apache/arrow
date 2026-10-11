@@ -90,6 +90,17 @@ def test_validate_schema_write_table(tempdir):
             w.write_table(simple_table)
 
 
+def test_write_table_column_order_mismatch(tempdir):
+    # GH-39241
+    table = pa.table({'a': [1], 'b': ['x']})
+    schema = pa.schema([('b', pa.string()), ('a', pa.int64())])
+
+    with pq.ParquetWriter(tempdir / 'test.parquet', schema) as w:
+        with pytest.raises(ValueError, match="different order"):
+            w.write_table(table)
+        w.write_table(table.select(schema.names))
+
+
 def test_parquet_invalid_writer(tempdir):
     # avoid segfaults with invalid construction
     with pytest.raises(TypeError):

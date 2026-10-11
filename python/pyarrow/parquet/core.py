@@ -1204,6 +1204,8 @@ Examples
         Parameters
         ----------
         table : Table
+            Its schema must match the writer schema, including the order
+            of the columns.
         row_group_size : int, default None
             Maximum number of rows in each written row group. If None,
             the row group size will be the minimum of the Table size (in rows)
@@ -1220,6 +1222,12 @@ Examples
                 "Table schema does not match schema used to create file: \n"
                 f"table:\n{table.schema!s} vs. \nfile:\n{self.schema!s}"
             )
+            if (table.schema.names != self.schema.names and
+                    sorted(table.schema.names) == sorted(self.schema.names)):
+                msg += (
+                    "\nThe columns are in a different order. Use "
+                    "table.select(schema.names) to reorder them."
+                )
             raise ValueError(msg)
 
         self.writer.write_table(table, row_group_size=row_group_size)
