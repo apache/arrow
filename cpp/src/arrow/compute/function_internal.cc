@@ -45,8 +45,10 @@ Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
   const auto* options_type =
       dynamic_cast<const GenericOptionsType*>(options.options_type());
   if (!options_type) {
-    return Status::NotImplemented("serializing ", options.type_name(),
-                                  " to StructScalar");
+    return Status::NotImplemented("Serialization of FunctionOptions type '",
+                                  options.type_name(),
+                                  "' is not supported: only built-in options types "
+                                  "can be serialized");
   }
   RETURN_NOT_OK(options_type->ToStructScalar(options, &field_names, &values));
   field_names.push_back(kTypeNameField);

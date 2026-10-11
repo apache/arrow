@@ -2247,6 +2247,15 @@ TEST(Expression, Filter) {
   ])");
 }
 
+TEST(Expression, SerializeCustomOptions) {
+  // GH-30923: custom FunctionOptionsType cannot be serialized
+  auto expr = call("widgetify", {}, std::make_shared<WidgetifyOptions>());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented,
+      HasSubstr("FunctionOptions type 'widgetify' is not supported: only built-in"),
+      Serialize(expr));
+}
+
 TEST(Expression, SerializationRoundTrips) {
   auto ExpectRoundTrips = [](const Expression& expr) {
     ASSERT_OK_AND_ASSIGN(auto serialized, Serialize(expr));

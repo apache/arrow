@@ -137,7 +137,8 @@ arrow::Status RunComputeRegister(int argc, char** argv) {
   // FunctionOptions for which serialization is not supported.
   auto expr = cp::call(name, {}, options);
   auto maybe_serialized = cp::Serialize(expr);
-  std::cerr << maybe_serialized.status().ToString() << std::endl;
+  std::cout << "Serializing an expression with ExampleFunctionOptions fails as expected: "
+            << maybe_serialized.status().ToString() << std::endl;
 
   auto exec_registry = ac::default_exec_factory_registry();
   ARROW_RETURN_NOT_OK(
