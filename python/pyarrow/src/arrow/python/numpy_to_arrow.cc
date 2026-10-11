@@ -238,6 +238,8 @@ class NumPyConverter {
 
   Status Visit(const FixedSizeBinaryType& type);
 
+  Status Visit(const DecimalType& type);
+
   // Default case
   Status Visit(const DataType& type) { return TypeNotImplemented(type.ToString()); }
 
@@ -636,6 +638,31 @@ Status NumPyConverter::Visit(const BinaryViewType& type) {
   std::shared_ptr<Array> result;
   RETURN_NOT_OK(builder.Finish(&result));
   return PushArray(result->data());
+}
+
+Status NumPyConverter::Visit(const DecimalType& type) {
+  // Decimal types derive from FixedSizeBinaryType, so without this overload
+  // integer arrays would be reinterpreted as raw bytes.
+  if (!PyTypeNum_ISINTEGER(dtype_->type_num)) {
+    return TypeNotImplemented(type.ToString());
+  }
+  ARROW_ASSIGN_OR_RAISE(auto input_type, NumPyDtypeToArrow(dtype_));
+  NumPyConverter converter(pool_, reinterpret_cast<PyObject*>(arr_),
+                           reinterpret_cast<PyObject*>(mask_), input_type, from_pandas_,
+                           cast_options_);
+  RETURN_NOT_OK(converter.Convert());
+  // Go through decimal128(20, 0), which holds any 64-bit integer, so the
+  // final cast checks the values rather than the input type's range.
+  const auto wide_type = decimal128(20, 0);
+  compute::ExecContext context(pool_);
+  for (const auto& arr : converter.result()) {
+    ARROW_ASSIGN_OR_RAISE(auto wide,
+                          compute::Cast(*arr, wide_type, cast_options_, &context));
+    ARROW_ASSIGN_OR_RAISE(auto casted,
+                          compute::Cast(*wide, type_, cast_options_, &context));
+    out_arrays_.push_back(std::move(casted));
+  }
+  return Status::OK();
 }
 
 Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {

@@ -1882,6 +1882,22 @@ def test_half_float_array_from_python():
         arr = pa.array(['a', 3, None], type=pa.float16())
 
 
+@pytest.mark.numpy
+@pytest.mark.parametrize('typ', [pa.decimal32(9, 2), pa.decimal64(18, 2),
+                                 pa.decimal128(38, 9), pa.decimal256(40, 2)])
+def test_decimal_from_numpy_integers(typ):
+    # GH-44712
+    arr = np.array([1, -2, 3], dtype=np.int64)
+    expected = pa.array([1, -2, 3], type=typ)
+    assert pa.array(arr, type=typ).equals(expected)
+
+    result = pa.array(arr, type=typ, mask=np.array([False, True, False]))
+    assert result.equals(pa.array([1, None, 3], type=typ))
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.array(np.array([10**6], dtype=np.int64), type=pa.decimal32(5, 2))
+
+
 def test_decimal_to_int_safe():
     safe_cases = [
         (
