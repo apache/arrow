@@ -19,8 +19,6 @@
 
 #include <sstream>
 
-#include <grpcpp/support/server_callback.h>
-
 namespace arrow::flight::transport::grpc {
 
 arrow::Result<GrpcServerEndpoint> ParseServerEndpoint(const FlightServerOptions& options,
@@ -36,7 +34,8 @@ arrow::Result<GrpcServerEndpoint> ParseServerEndpoint(const FlightServerOptions&
     if (scheme == kSchemeGrpcTls) {
       ::grpc::SslServerCredentialsOptions ssl_options;
       for (const auto& pair : options.tls_certificates) {
-        ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+        ssl_options.pem_key_cert_pairs.push_back(
+            {.private_key = pair.pem_key, .cert_chain = pair.pem_cert});
       }
       if (options.verify_client) {
         ssl_options.client_certificate_request =

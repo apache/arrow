@@ -128,13 +128,14 @@ class ServerSignalHandler {
 
   /// \brief Initialize the signal handler and start the background thread.
   ///
-  /// \param[in] self_pipe The pipe the handler thread should wait on.  It is
-  ///   stored before the thread is started, so the signal handler can always
-  ///   write to it.
+  /// \param[in] self_pipe The pipe the handler thread should wait on It is
+  /// stored before the thread is started, so the signal handler can always
+  /// write to it.
   /// \param[in] handler A callable that will be invoked on the background
   ///   thread, receiving the SelfPipe as an argument.
   template <typename Fn>
-  Status Init(const std::shared_ptr<::arrow::internal::SelfPipe>& self_pipe, Fn&& handler) {
+  Status Init(const std::shared_ptr<::arrow::internal::SelfPipe>& self_pipe,
+              Fn&& handler) {
     self_pipe_ = self_pipe;
     handle_signals_ = std::thread(std::forward<Fn>(handler), self_pipe_);
     return Status::OK();
