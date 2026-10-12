@@ -147,7 +147,7 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       -> Future<std::shared_ptr<ipc::RecordBatchFileReader>> {
     ARROW_ASSIGN_OR_RAISE(auto options,
                           GetReadOptions(*reader->schema(), *self, *options));
-    return OpenReader(source, options);
+    return OpenReaderAsync(source, options);
   };
   auto readahead_level = options->batch_readahead;
   auto default_fragment_scan_options = this->default_fragment_scan_options;
