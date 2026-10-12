@@ -131,10 +131,10 @@ class PARQUET_EXPORT ColumnWriter {
  public:
   virtual ~ColumnWriter() = default;
 
-  static std::shared_ptr<ColumnWriter> Make(
-      ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
-      const WriterProperties* properties, BloomFilter* bloom_filter = NULLPTR,
-      internal::ContentDefinedChunker* content_defined_chunker = NULLPTR);
+  static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
+                                            std::unique_ptr<PageWriter>,
+                                            const WriterProperties* properties,
+                                            BloomFilter* bloom_filter = NULLPTR);
 
   /// \brief Closes the ColumnWriter, commits any buffered values to pages.
   /// \return Total size of the column in bytes
@@ -203,6 +203,16 @@ class PARQUET_EXPORT ColumnWriter {
                                      int64_t num_levels, const ::arrow::Array& leaf_array,
                                      ArrowWriteContext* ctx,
                                      bool leaf_field_nullable) = 0;
+
+ private:
+  friend class RowGroupSerializer;
+
+  // Private to keep the internal chunker out of the public API, the file writer uses
+  // it to carry the content defined chunking over between the row groups
+  static std::shared_ptr<ColumnWriter> Make(
+      ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
+      const WriterProperties* properties, BloomFilter* bloom_filter,
+      internal::ContentDefinedChunker* content_defined_chunker);
 };
 
 // API to write values to a single column. This is the main client facing API.

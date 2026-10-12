@@ -2761,4 +2761,12 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(
   return std::shared_ptr<ColumnWriter>(nullptr);
 }
 
+std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
+                                                 std::unique_ptr<PageWriter> pager,
+                                                 const WriterProperties* properties,
+                                                 BloomFilter* bloom_filter) {
+  return Make(metadata, std::move(pager), properties, bloom_filter,
+              /*content_defined_chunker=*/nullptr);
+}
+
 }  // namespace parquet
