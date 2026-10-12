@@ -1,13 +1,5 @@
 # arrow <img src="https://arrow.apache.org/img/arrow-logo_hex_black-txt_white-bg.png" align="right" alt="" width="120" />
 
-<!-- badges: start -->
-
-[![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
-[![CI](https://github.com/apache/arrow/actions/workflows/r.yml/badge.svg?branch=main&event=push)](https://github.com/apache/arrow/actions/workflows/r.yml?query=branch%3Amain+event%3Apush)
-[![R-universe status badge](https://apache.r-universe.dev/badges/arrow)](https://apache.r-universe.dev)
-[![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
-
-<!-- badges: end -->
 
 ## Overview
 
