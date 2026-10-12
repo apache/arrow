@@ -22,6 +22,20 @@ and takes no arguments.
 \item \verb{$set_thrift_string_size_limit()}
 \item \verb{$thrift_container_size_limit()}
 \item \verb{$set_thrift_container_size_limit()}
+\item \verb{$page_checksum_verification()}: Whether page checksums are verified
+when present (default \code{FALSE}).
+\item \verb{$set_page_checksum_verification(check_crc)}: Enable or disable page
+checksum verification with a logical value.
 }
 }
 
+\examples{
+\dontshow{if (arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+reader_props <- ParquetReaderProperties$create()
+reader_props$set_page_checksum_verification(TRUE)
+tf <- tempfile()
+write_parquet(data.frame(x = 1:5), tf)
+read_parquet(tf, reader_props = reader_props)
+unlink(tf)
+\dontshow{\}) # examplesIf}
+}

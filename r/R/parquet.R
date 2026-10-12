@@ -672,6 +672,18 @@ calculate_chunk_size <- function(
 #' - `$set_thrift_string_size_limit()`
 #' - `$thrift_container_size_limit()`
 #' - `$set_thrift_container_size_limit()`
+#' - `$page_checksum_verification()`: Whether page checksums are verified
+#'   when present (default `FALSE`).
+#' - `$set_page_checksum_verification(check_crc)`: Enable or disable page
+#'   checksum verification with a logical value.
+#'
+#' @examplesIf arrow_with_parquet()
+#' reader_props <- ParquetReaderProperties$create()
+#' reader_props$set_page_checksum_verification(TRUE)
+#' tf <- tempfile()
+#' write_parquet(data.frame(x = 1:5), tf)
+#' read_parquet(tf, reader_props = reader_props)
+#' unlink(tf)
 #'
 #' @export
 ParquetReaderProperties <- R6Class(
