@@ -777,12 +777,6 @@ class ColumnWriterImpl {
       compressor_temp_buffer_ =
           std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     }
-    if (properties_->content_defined_chunking_enabled() &&
-        content_defined_chunker_ == nullptr) {
-      throw ParquetException(
-          "Content-defined chunking requires a content defined chunker, use "
-          "ParquetFileWriter instead.");
-    }
   }
 
   virtual ~ColumnWriterImpl() = default;
@@ -1335,7 +1329,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                      const int16_t* rep_levels, const T* values) override {
-    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+    if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       throw ParquetException(
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
@@ -1378,7 +1372,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override {
-    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+    if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       throw ParquetException(
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
@@ -1448,7 +1442,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
 
-    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+    if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       auto chunks = content_defined_chunker_->GetChunks(def_levels, rep_levels,
                                                         num_levels, leaf_array);
       for (size_t i = 0; i < chunks.size(); i++) {
