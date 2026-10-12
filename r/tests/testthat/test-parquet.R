@@ -532,6 +532,59 @@ test_that("thrift string and container size can be specified when reading Parque
   expect_identical(collect.ArrowTabular(data), example_data)
 })
 
+test_that("Parquet page checksum verification can be enabled and disabled", {
+  reader_props <- ParquetReaderProperties$create()
+  expect_identical(reader_props$page_checksum_verification(), FALSE)
+  reader_props$set_page_checksum_verification(TRUE)
+  expect_identical(reader_props$page_checksum_verification(), TRUE)
+  reader_props$set_page_checksum_verification(FALSE)
+  expect_identical(reader_props$page_checksum_verification(), FALSE)
+})
+
+test_that("Parquet page checksum verification detects corrupt checksums", {
+  parquet_test_data <- file.path(
+    Sys.getenv("ARROW_SOURCE_HOME", ".."),
+    "cpp", "submodules", "parquet-testing", "data"
+  )
+  skip_if_not(dir.exists(parquet_test_data) | force_tests(), "Parquet test data missing")
+
+  reader_props <- ParquetReaderProperties$create()
+  corrupt_files <- c(
+    "datapage_v1-corrupt-checksum.parquet" = 5120L,
+    "rle-dict-uncompressed-corrupt-checksum.parquet" = 1000L
+  )
+  for (name in names(corrupt_files)) {
+    file <- file.path(parquet_test_data, name)
+    expect_equal(nrow(read_parquet(file)), corrupt_files[[name]])
+
+    reader_props$set_page_checksum_verification(TRUE)
+    expect_error(
+      read_parquet(file, reader_props = reader_props),
+      "CRC checksum verification failed"
+    )
+
+    reader_props$set_page_checksum_verification(FALSE)
+    expect_equal(nrow(read_parquet(file, reader_props = reader_props)), corrupt_files[[name]])
+  }
+
+  reader_props$set_page_checksum_verification(TRUE)
+  valid_files <- c(
+    "datapage_v1-uncompressed-checksum.parquet" = 5120L,
+    "plain-dict-uncompressed-checksum.parquet" = 1000L
+  )
+  for (name in names(valid_files)) {
+    file <- file.path(parquet_test_data, name)
+    expect_equal(nrow(read_parquet(file, reader_props = reader_props)), valid_files[[name]])
+  }
+
+  # Files without page checksums remain readable when verification is enabled.
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  table <- Table$create(x = 1:5)
+  write_parquet(table, tf, compression = "uncompressed")
+  expect_equal(read_parquet(tf, as_data_frame = FALSE, reader_props = reader_props), table)
+})
+
 test_that("We can use WriteBatch on ParquetFileWriter", {
   tf <- tempfile()
   on.exit(unlink(tf))
