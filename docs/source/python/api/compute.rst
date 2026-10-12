@@ -95,12 +95,17 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    exp
    expm1
+   hypot
+   modulo
+   modulo_checked
    multiply
    multiply_checked
    negate
    negate_checked
    power
    power_checked
+   remainder
+   remainder_checked
    sign
    sqrt
    sqrt_checked

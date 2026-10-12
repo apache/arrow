@@ -96,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "25.0.0-SNAPSHOT")
+set(ARROW_VERSION "26.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -179,6 +179,7 @@ set(ARROW_DOC_DIR "${CMAKE_INSTALL_DOCDIR}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "23.1"
     "22.1"
     "21.1"
     "20.1"
@@ -263,6 +264,9 @@ if(ARROW_USE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
 
+  # XXX This does not detect if ccache is enabled externally, for example
+  # by adding `/usr/lib/ccache` to PATH in which case `cc` resolves to
+  # `/usr/lib/ccache/cc`. Such double-wrapping of ccache is suboptimal.
   find_program(CCACHE_FOUND ccache)
 
   if(CCACHE_FOUND)
@@ -480,6 +484,15 @@ if(ARROW_BUILD_STATIC)
 endif()
 set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
 
+# For arrow-s3.pc.
+set(ARROW_S3_PC_CFLAGS "")
+set(ARROW_S3_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_S3_PC_CFLAGS_PRIVATE " -DARROW_S3_STATIC")
+endif()
+set(ARROW_S3_PC_LIBS_PRIVATE "")
+set(ARROW_S3_PC_REQUIRES_PRIVATE "")
+
 # For arrow-substrait.pc.
 set(ARROW_SUBSTRAIT_PC_CFLAGS "")
 set(ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE "")
@@ -550,9 +563,6 @@ message(STATUS "CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}: ${CMAKE_CXX_FLAGS_${UPP
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
-
-# Compiled flatbuffers files
-include_directories(src/generated)
 
 #
 # Visibility

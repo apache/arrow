@@ -20,6 +20,7 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "parquet/platform.h"
@@ -38,17 +39,18 @@ namespace schema {
 // Conversion from Parquet Thrift metadata
 
 PARQUET_EXPORT
-std::shared_ptr<SchemaDescriptor> FromParquet(
-    const std::vector<format::SchemaElement>& schema);
+std::shared_ptr<SchemaDescriptor> SchemaFromThrift(
+    std::span<const format::SchemaElement> schema, int max_depth);
 
 PARQUET_EXPORT
-std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int length);
+std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> schema,
+                                int max_depth);
 
 // ----------------------------------------------------------------------
 // Conversion to Parquet Thrift metadata
 
 PARQUET_EXPORT
-void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out);
+void SchemaToThrift(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
 }  // namespace schema
 }  // namespace parquet

@@ -341,6 +341,26 @@ TEST_P(BaseChunkerTest, EscapingAndQuoting) {
   }
 }
 
+TEST_P(BaseChunkerTest, EmbeddedNulBytesDisableBulkFilter) {
+  // Regression test for GH-50481 in Lexer's own bulk filter (used for
+  // chunking, separately from BlockParser's).
+  //
+  // Lead-in with no structural bytes so ShouldUseBulkFilter's probe of the
+  // first 256 bytes decides to use the bulk filter here.
+  std::string lead_in(300, 'x');
+  // NUL right before the closing quote: the misaligned-SIMD-scan trigger.
+  std::string trigger_field = "abc";
+  trigger_field += '\0';
+  trigger_field += "def";
+  std::string first_row = lead_in + ",\"" + trigger_field + "\",tail\n";
+  // No trailing newline on the second row, so Process() must split it out
+  // as the partial remainder -- proving the first row's boundary was found.
+  std::string csv = first_row + "next";
+
+  MakeChunker();
+  AssertChunkSize(*chunker_, csv, static_cast<uint32_t>(first_row.size()));
+}
+
 TEST_P(BaseChunkerTest, ParseSkip) {
   {
     auto csv = MakeCSVData({"ab,c,\n", "def,,gh\n", ",ij,kl\n"});

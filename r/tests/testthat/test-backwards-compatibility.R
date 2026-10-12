@@ -90,7 +90,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_2.0.0_", comp, ".feather"))
 
-    df <- read_feather(feather_file)
+    df <- read_ipc_file(feather_file)
     expect_identical_with_metadata(df, example_with_metadata)
   })
 
@@ -99,7 +99,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_1.0.1_", comp, ".feather"))
 
-    df <- read_feather(feather_file)
+    df <- read_ipc_file(feather_file)
     # 1.0.1 didn't save top-level metadata, so we need to remove it.
     expect_identical_with_metadata(df, example_with_metadata, top_level = FALSE)
   })
@@ -109,7 +109,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_0.17.0_", comp, ".feather"))
 
-    df <- read_feather(feather_file)
+    df <- read_ipc_file(feather_file)
     # the metadata from 0.17.0 doesn't have the top level, the special class is
     # not maintained and the embedded tibble's attributes are read in a wrong
     # order. Since this is prior to 1.0.0 punting on checking the attributes
@@ -134,7 +134,7 @@ test_that("sfc columns written by arrow <= 7.0.0 can be re-read", {
   #   })
   # nolint end
 
-  df <- read_feather(
+  df <- read_ipc_file(
     test_path("golden-files/data-arrow-sf_7.0.0.feather")
   )
 

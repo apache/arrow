@@ -438,8 +438,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
 
-  // If all entries are inline, we can drop the extra data buffer for
-  // large strings in output->buffers[2].
+  // If all entries are inline, there are no variadic data buffers to expose.
   bool all_entries_are_inline = true;
   VisitSetBitRunsVoid(
       validity, output->offset, output->length,
@@ -463,8 +462,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
         }
       });
   if (all_entries_are_inline) {
-    output->buffers[2] = nullptr;
+    output->buffers.resize(2);
   }
+
   return Status::OK();
 }
 
@@ -508,11 +508,15 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   const int32_t fixed_size_width = input.type->byte_width();
   const int64_t total_length = input.offset + input.length;
+  // Values of width <= BinaryViewType::kInlineSize are stored inline in the
+  // views, so the output only needs a variadic data buffer for larger widths.
+  const bool values_are_inline = fixed_size_width <= BinaryViewType::kInlineSize;
+  const size_t num_buffers = values_are_inline ? 2 : 3;
 
   ArrayData* output = out->array_data().get();
   DCHECK_EQ(output->length, input.length);
   output->offset = input.offset;
-  output->buffers.resize(3);
+  output->buffers.resize(num_buffers);
   output->SetNullCount(input.null_count);
   // Share the validity bitmap buffer
   output->buffers[0] = input.GetBuffer(0);
@@ -539,7 +543,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
 
   // Inline string and non-inline string loops
-  if (fixed_size_width <= BinaryViewType::kInlineSize) {
+  if (values_are_inline) {
     int32_t data_offset = static_cast<int32_t>(input.offset) * fixed_size_width;
     for (int64_t i = 0; i < input.length; i++) {
       auto& out_view = out_views[i];

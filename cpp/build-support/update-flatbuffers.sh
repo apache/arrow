@@ -24,13 +24,16 @@ set -euo pipefail
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR="$CWD/../src"
-PYTHON_SOURCE_DIR="$CWD/../../python"
 FORMAT_DIR="$CWD/../../format"
-TOP="$FORMAT_DIR/.."
 FLATC="flatc --cpp --cpp-std c++11 --scoped-enums"
 
 OUT_DIR="$SOURCE_DIR/generated"
-FILES=($(find $FORMAT_DIR -name '*.fbs'))
+# Avoid word splitting (SC2207) while maintaining Bash 3 compatibility.
+# See: https://www.shellcheck.net/wiki/SC2207
+FILES=()
+while IFS= read -r file; do
+  FILES+=("$file")
+done < <(find "$FORMAT_DIR" -name '*.fbs')
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
 $FLATC -o "$OUT_DIR" "${FILES[@]}"

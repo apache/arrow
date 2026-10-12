@@ -23,6 +23,7 @@
 #include "arrow/util/tracing_internal.h"
 
 #include <condition_variable>
+#include <exception>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -466,7 +467,19 @@ Future<> AsyncTaskScheduler::Make(FnOnce<Status(AsyncTaskScheduler*)> initial_ta
   auto scope = START_SCOPED_SPAN_SV(span, "AsyncTaskScheduler::InitialTask"sv);
   auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(std::move(stop_token),
                                                             std::move(abort_callback));
-  Status initial_task_st = std::move(initial_task)(scheduler.get());
+  Status initial_task_st;
+  // GH-47642: We normally don't catch exceptions in Arrow C++ code, as the error
+  // reporting model uses the Status object instead. Usually, an uncaught exception
+  // will simply terminate the process, surfacing the programming error.
+  // However, an exception thrown from the initial task would result in a much
+  // harder to diagnose process hang.
+  try {
+    initial_task_st = std::move(initial_task)(scheduler.get());
+  } catch (const std::exception& e) {
+    initial_task_st = Status::UnknownError("Initial task threw an exception: ", e.what());
+  } catch (...) {
+    initial_task_st = Status::UnknownError("Initial task threw an unknown exception");
+  }
   scheduler->OnTaskFinished(std::move(initial_task_st));
   // Keep scheduler alive until finished
   return scheduler->OnFinished().Then([scheduler = std::move(scheduler)] {});

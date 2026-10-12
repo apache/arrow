@@ -1706,6 +1706,29 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
                 TakeCAC(type, {kABNullDE, kABC}, "[4, 10]").Value(&chunked_arr));
 }
 
+// GH-50840: taking more data than a 32-bit offset can address must raise
+// instead of silently overflowing the offsets buffer.
+TEST_F(TestTakeKernel, LARGE_MEMORY_TEST(TakeBinaryOffsetOverflow)) {
+  // 2048 * 1 MiB = 2 GiB of output, one value past the int32 offset limit.
+  constexpr int64_t kValueSize = 1 << 20;
+  constexpr int64_t kNumIndices = 2048;
+
+  StringBuilder values_builder;
+  ASSERT_OK(values_builder.Append(std::string(kValueSize, 'x')));
+  ASSERT_OK_AND_ASSIGN(auto values, values_builder.Finish());
+
+  Int32Builder indices_builder;
+  ASSERT_OK(indices_builder.Reserve(kNumIndices));
+  for (int64_t i = 0; i < kNumIndices; ++i) {
+    indices_builder.UnsafeAppend(0);
+  }
+  ASSERT_OK_AND_ASSIGN(auto indices, indices_builder.Finish());
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Take operation overflowed binary array capacity"),
+      TakeAAA(*values, *indices));
+}
+
 using ListAndListViewArrowTypes =
     ::testing::Types<ListType, LargeListType, ListViewType, LargeListViewType>;
 

@@ -538,7 +538,7 @@ register_bindings_duration <- function() {
     "base::as.difftime",
     function(x, format = "%X", units = "secs") {
       # windows doesn't seem to like "%X"
-      if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
+      if (format == "%X" && tolower(Sys.info()[["sysname"]]) == "windows") {
         format <- "%H:%M:%S"
       }
 
@@ -671,7 +671,7 @@ register_bindings_datetime_parsers <- function() {
     notes = c(
       "`quiet = FALSE` is not supported",
       "Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.",
-      "On Linux and OS X additionally a, A, b, B, Om, p, r are available."
+      "On Linux and macOS additionally a, A, b, B, Om, p, r are available."
     )
   )
 
@@ -724,7 +724,7 @@ register_bindings_datetime_parsers <- function() {
     register_binding(
       paste0("lubridate::", tolower(order)),
       parser_map_factory(order),
-      notes = "`locale` argument not supported"
+      notes = "`locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats"
     )
   }
 

@@ -67,13 +67,14 @@ def release_changelog_add(obj, version):
 
     # just handle the current version
     release = Release(version, repo=repo, issue_tracker=issue_tracker)
-    if release.is_released:
-        raise ValueError('This version has been already released!')
 
     changelog = release.changelog()
     changelog_path = pathlib.Path(repo) / 'CHANGELOG.md'
 
     current_content = changelog_path.read_text()
+    if f'# Apache Arrow {version} (' in current_content:
+        raise ValueError(
+            f'CHANGELOG.md already contains the changelog of {version}!')
     new_content = changelog.render('markdown') + current_content
 
     changelog_path.write_text(new_content)

@@ -34,8 +34,8 @@ echo "Copying dev/ to release/"
 svn \
   cp \
   -m "Apache Arrow ${version}" \
-  https://dist.apache.org/repos/dist/dev/arrow/${rc_id} \
-  https://dist.apache.org/repos/dist/release/arrow/${release_id}
+  "https://dist.apache.org/repos/dist/dev/arrow/${rc_id}" \
+  "https://dist.apache.org/repos/dist/release/arrow/${release_id}"
 
 echo "Success! The release is available here:"
 echo "  https://dist.apache.org/repos/dist/release/arrow/${release_id}"

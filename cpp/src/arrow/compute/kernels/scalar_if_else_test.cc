@@ -2726,6 +2726,36 @@ TEST(TestCaseWhen, UnionBoolStringRandom) {
 }
 
 TEST(TestCaseWhen, DispatchExact) {
+  // Matching parameterized types should exact-match.
+  CheckDispatchExact("case_when", {struct_({field("", boolean())}), fixed_size_binary(4),
+                                   fixed_size_binary(4)});
+  CheckDispatchExact("case_when",
+                     {struct_({field("", boolean())}), list(int32()), list(int32())});
+  CheckDispatchExact("case_when",
+                     {struct_({field("", boolean())}), fixed_size_list(int32(), 2),
+                      fixed_size_list(int32(), 2)});
+  CheckDispatchExact("case_when",
+                     {struct_({field("", boolean())}), dictionary(int8(), utf8()),
+                      dictionary(int8(), utf8())});
+
+  // Mismatched parameterized types should not exact-match.
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        fixed_size_binary(4), fixed_size_binary(5)});
+  CheckDispatchExactFails(
+      "case_when", {struct_({field("", boolean())}), list(int16()), list(int32())});
+  CheckDispatchExactFails("case_when",
+                          {struct_({field("", boolean())}), fixed_size_list(int32(), 2),
+                           fixed_size_list(int32(), 3)});
+  CheckDispatchExactFails(
+      "case_when", {struct_({field("", boolean())}), struct_({field("a", int32())}),
+                    struct_({field("a", int64())})});
+  CheckDispatchExactFails("case_when",
+                          {struct_({field("", boolean())}), dictionary(int8(), utf8()),
+                           dictionary(int8(), large_utf8())});
+  CheckDispatchExactFails("case_when",
+                          {struct_({field("", boolean())}), dictionary(int8(), utf8()),
+                           dictionary(int16(), utf8())});
+
   // Decimal types with same (p, s)
   CheckDispatchExact("case_when", {struct_({field("", boolean())}), decimal128(20, 3),
                                    decimal128(20, 3)});
@@ -2823,6 +2853,28 @@ TEST(TestCaseWhen, DispatchBest) {
       "case_when",
       {struct_({field("", boolean())}), decimal256(20, 3), decimal256(21, 1)},
       {struct_({field("", boolean())}), decimal256(23, 3), decimal256(23, 3)});
+}
+
+TEST(TestCaseWhen, ParameterizedValueTypeMismatch) {
+  auto cond = MakeStruct({ArrayFromJSON(boolean(), "[true]")});
+
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("case_when", {cond, ArrayFromJSON(fixed_size_binary(4), R"(["abcd"])"),
+                                 ArrayFromJSON(fixed_size_binary(5), R"(["efghi"])")}));
+  ASSERT_RAISES(NotImplemented,
+                CallFunction("case_when", {cond, ArrayFromJSON(list(int16()), "[[1, 2]]"),
+                                           ArrayFromJSON(list(int32()), "[[3, 4]]")}));
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("case_when",
+                   {cond, ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2]]"),
+                    ArrayFromJSON(fixed_size_list(int32(), 3), "[[3, 4, 5]]")}));
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("case_when",
+                   {cond, ArrayFromJSON(struct_({field("a", int32())}), R"([{"a": 1}])"),
+                    ArrayFromJSON(struct_({field("a", int64())}), R"([{"a": 2}])")}));
 }
 
 template <typename Type>
@@ -3641,8 +3693,26 @@ TEST(TestCoalesce, DispatchBest) {
   CheckDispatchBest("coalesce", {int32(), decimal128(3, 2)},
                     {decimal128(12, 2), decimal128(12, 2)});
   CheckDispatchBest("coalesce", {float32(), decimal128(3, 2)}, {float64(), float64()});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal128(4, 2)},
+                    {decimal128(4, 2), decimal128(4, 2)});
+  CheckDispatchBest("coalesce", {decimal128(4, 2), decimal128(3, 2)},
+                    {decimal128(4, 2), decimal128(4, 2)});
+  CheckDispatchBest("coalesce", {decimal128(4, 1), decimal128(3, 2)},
+                    {decimal128(5, 2), decimal128(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal128(4, 1)},
+                    {decimal128(5, 2), decimal128(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal128(4, 3)},
+                    {decimal128(4, 3), decimal128(4, 3)});
+  CheckDispatchBest("coalesce", {decimal128(4, 3), decimal128(3, 2)},
+                    {decimal128(4, 3), decimal128(4, 3)});
   CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(3, 2)},
                     {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {decimal256(3, 2), decimal128(3, 2)},
+                    {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchBest("coalesce", {decimal256(4, 1), decimal128(3, 2)},
+                    {decimal256(5, 2), decimal256(5, 2)});
+  CheckDispatchBest("coalesce", {decimal128(3, 2), decimal256(4, 1)},
+                    {decimal256(5, 2), decimal256(5, 2)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), date32()},
                     {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
@@ -3656,6 +3726,21 @@ TEST(TestCoalesce, DispatchBest) {
   CheckDispatchBest("coalesce",
                     {dictionary(int8(), binary()), dictionary(int16(), large_utf8())},
                     {large_binary(), large_binary()});
+}
+
+TEST(TestCoalesce, DispatchExact) {
+  CheckDispatchExact("coalesce", {decimal128(3, 2), decimal128(3, 2)});
+  CheckDispatchExact("coalesce", {decimal256(3, 2), decimal256(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal128(4, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(4, 2), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(4, 1), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal128(4, 1)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal128(4, 3)});
+  CheckDispatchExactFails("coalesce", {decimal128(4, 3), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal256(3, 2), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal256(4, 1), decimal128(3, 2)});
+  CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(4, 1)});
 }
 
 template <typename Type>

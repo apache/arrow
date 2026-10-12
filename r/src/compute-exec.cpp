@@ -48,8 +48,10 @@ std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads) {
   // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
   // been added we can probably entirely remove all reference to ExecPlan from R
   // in favor of DeclarationToXyz
-  auto plan =
-      ValueOrStop(acero::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+  acero::QueryOptions query_options;
+  query_options.unaligned_buffer_handling = acero::UnalignedBufferHandling::kReallocate;
+  auto plan = ValueOrStop(acero::ExecPlan::Make(
+      std::move(query_options), use_threads ? &threaded_context : gc_context()));
 
   return plan;
 }

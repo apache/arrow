@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/exception.h"
@@ -64,8 +65,11 @@ class WKBBuffer {
 
   template <typename Coord, typename Visit>
   void ReadCoords(uint32_t n_coords, bool swap, Visit&& visit) {
-    size_t total_bytes = n_coords * sizeof(Coord);
-    if (size_ < total_bytes) {
+    uint64_t total_bytes = 0;
+    if (::arrow::internal::MultiplyWithOverflow(static_cast<uint64_t>(n_coords),
+                                                static_cast<uint64_t>(sizeof(Coord)),
+                                                &total_bytes) ||
+        size_ < total_bytes) {
       throw ParquetException("Can't read coordinate sequence of ", total_bytes,
                              " bytes from WKBBuffer with ", size_, " remaining");
     }

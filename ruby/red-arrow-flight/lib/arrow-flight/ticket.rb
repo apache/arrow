@@ -28,5 +28,13 @@ module ArrowFlight
         end
       end
     end
+
+    alias_method :initialize_raw, :initialize
+    private :initialize_raw
+    def initialize(data)
+      data = GLib::Bytes.new(data) if data.is_a?(String)
+      initialize_raw(data)
+      @data = data
+    end
   end
 end

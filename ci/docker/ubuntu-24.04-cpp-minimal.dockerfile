@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:24.04
-FROM ${base}
+ARG arch=amd64
+ARG base=ubuntu:24.04
+FROM --platform=linux/${arch} ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -104,5 +105,4 @@ ENV ARROW_ACERO=ON \
     CMAKE_GENERATOR="Unix Makefiles" \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3

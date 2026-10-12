@@ -22,9 +22,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_includes.h"
 
 #include <algorithm>
-#include <codecvt>
 #include <cstring>
-#include <locale>
 #include <memory>
 #include <string>
 

@@ -41,8 +41,8 @@ class TestSortIndices < Test::Unit::TestCase
     }
     record_batch = build_record_batch(columns)
     sort_keys = [
-      Arrow::SortKey.new("column1", :ascending),
-      Arrow::SortKey.new("column2", :descending),
+      Arrow::SortKey.new("column1", :ascending, :at_end),
+      Arrow::SortKey.new("column2", :descending, :at_end),
     ]
     options = Arrow::SortOptions.new(sort_keys)
     assert_equal(build_uint64_array([4, 1, 0, 5, 3, 2]),
@@ -61,8 +61,8 @@ class TestSortIndices < Test::Unit::TestCase
     }
     table = build_table(columns)
     options = Arrow::SortOptions.new
-    options.add_sort_key(Arrow::SortKey.new("column1", :ascending))
-    options.add_sort_key(Arrow::SortKey.new("column2", :descending))
+    options.add_sort_key(Arrow::SortKey.new("column1", :ascending, :at_end))
+    options.add_sort_key(Arrow::SortKey.new("column2", :descending, :at_end))
     assert_equal(build_uint64_array([4, 1, 0, 5, 3, 2]),
                  table.sort_indices(options))
   end

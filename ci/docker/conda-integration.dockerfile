@@ -16,10 +16,10 @@
 # under the License.
 
 ARG repo
-ARG arch=amd64
-FROM ${repo}:${arch}-conda-cpp
+ARG arch
+ARG arch_short
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-cpp
 
-ARG arch=amd64
 # We need to synchronize the following values with the values in .env
 # and services.conda-integration in compose.yaml.
 ARG maven=3.9.9
@@ -30,14 +30,11 @@ ARG jdk=17
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
 
-# Pin Python until pythonnet is made compatible with 3.12
-# (https://github.com/pythonnet/pythonnet/pull/2249)
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
-        "python < 3.12" \
         numpy \
         compilers \
-        go \
+        go-cgo \
         maven=${maven} \
         nodejs=${node} \
         yarn=${yarn} \

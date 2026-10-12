@@ -279,7 +279,6 @@ SQLRETURN SQLError(SQLHENV env, SQLHDBC conn, SQLHSTMT stmt, SQLWCHAR* sql_state
 
   // Use the last record
   SQLINTEGER diag_number;
-  SQLSMALLINT diag_number_length;
 
   SQLRETURN ret = arrow::flight::sql::odbc::SQLGetDiagField(
       handle_type, handle, 0, SQL_DIAG_NUMBER, &diag_number, sizeof(SQLINTEGER), 0);
@@ -642,7 +641,7 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
   }
 
   // Convert from ODBC 1 based record number to internal diagnostics 0 indexed storage
-  const size_t record_index = static_cast<size_t>(rec_number - 1);
+  const auto record_index = static_cast<uint32_t>(rec_number - 1);
   if (!diagnostics->HasRecord(record_index)) {
     return SQL_NO_DATA;
   }
@@ -1581,8 +1580,14 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
         case SQL_REAL:
         case SQL_FLOAT:
         case SQL_DOUBLE: {
-          ird->GetField(column_number, SQL_DESC_PRECISION, column_size_ptr,
-                        sizeof(SQLULEN), nullptr);
+          // SQL_DESC_PRECISION is stored as a SQLSMALLINT. Read it into a
+          // correctly-sized local and widen into the SQLULEN output. Passing the
+          // SQLULEN* directly would only write the low 2 bytes and leave the
+          // upper 6 bytes uninitialized.
+          SQLSMALLINT precision = 0;
+          ird->GetField(column_number, SQL_DESC_PRECISION, &precision, sizeof(precision),
+                        nullptr);
+          *column_size_ptr = static_cast<SQLULEN>(precision);
           break;
         }
 
@@ -1604,7 +1609,7 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
         case SQL_DECIMAL:
         case SQL_NUMERIC: {
           ird->GetField(column_number, SQL_DESC_SCALE, decimal_digits_ptr,
-                        sizeof(SQLULEN), nullptr);
+                        sizeof(SQLSMALLINT), nullptr);
           break;
         }
 
@@ -1622,7 +1627,7 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
         case SQL_INTERVAL_HOUR_TO_SECOND:
         case SQL_INTERVAL_DAY_TO_SECOND: {
           ird->GetField(column_number, SQL_DESC_PRECISION, decimal_digits_ptr,
-                        sizeof(SQLULEN), nullptr);
+                        sizeof(SQLSMALLINT), nullptr);
           break;
         }
 

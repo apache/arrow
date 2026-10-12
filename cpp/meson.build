@@ -19,7 +19,7 @@ project(
     'arrow',
     'cpp',
     'c',
-    version: '25.0.0-SNAPSHOT',
+    version: '26.0.0-SNAPSHOT',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
     default_options: ['c_std=c11', 'warning_level=2', 'cpp_std=c++20'],
@@ -104,6 +104,7 @@ needs_testing = (get_option('testing').enabled()
     or needs_integration
 )
 needs_json = get_option('json').enabled() or needs_testing
+needs_simdjson = needs_json or needs_parquet
 needs_brotli = get_option('brotli').enabled() or needs_fuzzing
 needs_bz2 = get_option('bz2').enabled()
 needs_lz4 = get_option('lz4').enabled()

@@ -29,6 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -258,6 +259,17 @@ class ARROW_EXPORT Array {
   Result<std::shared_ptr<Array>> MakeStatisticsArray(
       MemoryPool* pool = default_memory_pool()) const;
 
+  /// \brief Create a Tensor from this Array
+  ///
+  /// When the data can reasonably be understood as a multidimensional numeric Tensor,
+  /// return the data as such.
+  /// Examples include NumericArray, FixedShapeTensorArray, nested FixedSizeListArray.
+  ///
+  /// \param[in] allow_nulls When true, nulls are ignored, leaving the output tensor with
+  ///            unspecified values where this array has null entries. When false, nulls
+  ///            are rejected.
+  Result<std::shared_ptr<Tensor>> ToTensor(bool allow_nulls = false) const;
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
@@ -274,6 +286,9 @@ class ARROW_EXPORT Array {
     }
     data_ = data;
   }
+
+  /// Implementation of ToTensor with nulls as undefined.
+  virtual Result<std::shared_ptr<Tensor>> ToTensorWithNulls() const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);

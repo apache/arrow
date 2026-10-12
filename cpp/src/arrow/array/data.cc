@@ -73,7 +73,7 @@ bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
   auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
   const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
   const int child_id = union_type->child_ids()[types[data.offset + i]];
-  return data.child_data[child_id]->IsNull(i);
+  return data.child_data[child_id]->IsNull(data.offset + i);
 }
 
 bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
@@ -698,7 +698,7 @@ bool ArraySpan::IsNullSparseUnion(int64_t i) const {
   auto* union_type = checked_cast<const SparseUnionType*>(this->type);
   const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
   const int child_id = union_type->child_ids()[types[this->offset + i]];
-  return this->child_data[child_id].IsNull(i);
+  return this->child_data[child_id].IsNull(this->offset + i);
 }
 
 bool ArraySpan::IsNullDenseUnion(int64_t i) const {
@@ -744,7 +744,12 @@ namespace {
 void AccumulateLayouts(const std::shared_ptr<DataType>& type,
                        std::vector<DataTypeLayout>* layouts) {
   layouts->push_back(type->layout());
-  for (const auto& child : type->fields()) {
+  const DataType* type_for_children = type.get();
+  if (type->id() == Type::EXTENSION) {
+    const auto& ext_type = checked_cast<const ExtensionType&>(*type);
+    type_for_children = ext_type.storage_type().get();
+  }
+  for (const auto& child : type_for_children->fields()) {
     AccumulateLayouts(child->type(), layouts);
   }
 }
@@ -916,8 +921,14 @@ struct ViewDataImpl {
         out_type, out_length, std::move(out_buffers), out_null_count, out_offset);
     out_data->dictionary = dictionary;
 
+    const DataType* type_for_children = out_type.get();
+    if (out_type->id() == Type::EXTENSION) {
+      const auto& ext_type = checked_cast<const ExtensionType&>(*out_type);
+      type_for_children = ext_type.storage_type().get();
+    }
+
     // Process children recursively, depth-first
-    for (const auto& child_field : out_type->fields()) {
+    for (const auto& child_field : type_for_children->fields()) {
       std::shared_ptr<ArrayData> child_data;
       RETURN_NOT_OK(MakeDataView(child_field, &child_data));
       out_data->child_data.push_back(std::move(child_data));

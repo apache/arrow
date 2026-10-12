@@ -17,9 +17,99 @@
   under the License.
 -->
 
-# arrow 24.0.0.9000
+# arrow 25.0.1.9000
 
-# arrow 24.0.0
+## Breaking changes
+
+- The `.data.frame` argument to `map_batches()`, deprecated since 9.0.0, has
+  been removed. Call `collect()` on the result to get a data frame (#51655).
+- `read_feather()` and `write_feather()` now warn that they are deprecated. Use
+  `read_ipc_file()` and `write_ipc_file()` instead. Similarly,
+  `format = "feather"` in `open_dataset()` and `write_dataset()` is deprecated
+  in favour of `format = "ipc"`, and extra arguments passed via `...` to
+  `read_ipc_stream()` and `write_ipc_stream()` are deprecated and ignored
+  (#49237).
+- `register_scalar_function()` now errors if the names in `in_type` do not
+  match the argument names of `fun`, instead of silently ignoring them
+  (#37761).
+
+## New features
+
+- New `AzureFileSystem` class and `az_container()` helper for working with
+  Azure Blob Storage, analogous to `S3FileSystem` and `s3_bucket()`. See
+  `vignette("install", package = "arrow")` for how to enable Azure support
+  when building from source (@marberts, #32123).
+
+## Minor improvements and fixes
+
+- Variables with the same name as a function, such as `date`, can now be used
+  in dplyr verbs (#39688).
+- Reading Parquet files with `float16` columns now returns the correct values
+  (#50378).
+- `if_else()` now works when one branch is a bare `NA` and the other is a date
+  or timestamp (#38358).
+- `mutate()` with `if_any()` or `if_all()` now gives the new column the correct
+  name (#34860).
+- Factor levels inside list columns are now unified across the whole column
+  when converting to R, so data read in multiple batches (e.g. via
+  `read_ipc_stream()` or `open_dataset()`) produces valid factors that can be
+  unnested. Similarly, `int64` and `uint32` values inside list columns are
+  converted to a single R type across the column (#50514).
+- `pull()` on Arrow data no longer warns about a future change of default.
+  The planned switch to returning a `ChunkedArray` has been dropped, so
+  `pull()` will keep returning an R vector by default; use
+  `as_vector = FALSE` or `options(arrow.pull_as_vector = FALSE)` to get a
+  `ChunkedArray` (#51655).
+- `str_replace()` with an `NA` replacement now returns `NA` for matched
+  elements, matching stringr (@Gosling-dude, #33432).
+- `summarise()` after `arrange()` now works (#45373).
+
+# arrow 25.0.1
+
+## Minor improvements and fixes
+
+- Improved mimalloc memory allocator configuration on macOS (#50428).
+
+# arrow 25.0.0
+
+## Breaking changes
+
+- Arrow `uint64` types are now always converted to R `double` (numeric) vectors,
+  regardless of the values. Previously, small `uint64` values were converted to
+  R `integer`, which could cause inconsistent types within list-columns when
+  different list elements had different value ranges (#50339).
+
+## New features
+
+- `Field` objects now support field-level metadata via `$metadata` and
+  `$with_metadata()` (@max-romagnoli, #33390).
+- Parquet files now support list-columns of ordered factors (ordered
+  dictionaries) (#49689).
+
+## Minor improvements and fixes
+
+- `Array$create()` now gives a clearer error message when given a `POSIXct`
+  object with an invalid timezone (#40886).
+- Dictionary arrays with `large_string` value types now convert correctly to R
+  factors (#39603).
+- `open_dataset()` now gives a clearer error message when providing a mix of
+  `readr` and Arrow options (@Rich-T-kid, #33420).
+- `read_parquet()` no longer triggers a C++ alignment warning from the Acero
+  source node (#46178).
+- `Schema` metadata partial matching on `$metadata$r` no longer errors when
+  other metadata keys start with "r" (#50163).
+- `to_arrow()` now preserves `group_by()` when converting from a dbplyr lazy
+  table (#40640).
+- `write_parquet()` now correctly validates that `max_rows_per_group` is a
+  positive number (#40742).
+- Stale S3 connections no longer cause a segfault during garbage collection
+  (#50009).
+- Spurious warnings are no longer emitted when reading files with custom schema
+  metadata (#48712).
+
+## Installation
+
+- The R package now builds under `r-universe/r-wasm` (#49981).
 
 # arrow 24.0.0
 

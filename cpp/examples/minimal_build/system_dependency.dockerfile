@@ -25,7 +25,6 @@ RUN apt-get update -y -q && \
       cmake \
       libboost-filesystem-dev \
       libboost-regex-dev \
-      libboost-system-dev \
       libbrotli-dev \
       libbz2-dev \
       libgflags-dev \
@@ -35,6 +34,7 @@ RUN apt-get update -y -q && \
       libre2-dev \
       libsnappy-dev \
       libthrift-dev \
+      liburiparser-dev \
       libutf8proc-dev \
       libzstd-dev \
       pkg-config \

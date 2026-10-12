@@ -217,6 +217,9 @@ TYPED_TEST_P(TestIntegersFromString, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[0.0]"));
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"0\"]"));
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[0]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[0]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[0], [1]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[0] junk"));
 }
 
 TYPED_TEST_P(TestIntegersFromString, OutOfBounds) {
@@ -305,9 +308,9 @@ TYPED_TEST_P(TestStringsFromString, Basics) {
   AssertJSONArray<T, std::string>(type, "[\"\xc3\xa9\"]", {"\xc3\xa9"});
 
   if (!T::is_utf8) {
-    // Arbitrary binary (non-UTF8) sequence in string
+    // Arbitrary binary (non-UTF8) sequences cannot be represented
     s = "\xff\x9f";
-    AssertJSONArray<T, std::string>(type, "[\"" + s + "\"]", {s});
+    ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"" + s + "\"]"));
   }
 
   // Bytes < 0x20 can be represented as JSON unicode escapes
@@ -441,7 +444,8 @@ TEST(TestDoubleFromString, Basics) {
   AssertJSONArray<DoubleType>(type, "[1, 2.5, -3e4]", {1.0, 2.5, -3.0e4});
   AssertJSONArray<DoubleType>(type, "[-0.0, Inf, -Inf, null]", {true, true, true, false},
                               {-0.0, INFINITY, -INFINITY, 0.0});
-
+  AssertJSONArray<DoubleType>(type, "[Infinity, -Infinity, null]", {true, true, false},
+                              {INFINITY, -INFINITY, 0.0});
   ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSONString(type, "[NaN]"));
   ASSERT_OK(actual->ValidateFull());
   double value = checked_cast<DoubleArray&>(*actual).Value(0);
@@ -536,9 +540,10 @@ TEST(TestFixedSizeBinaryFromString, Basics) {
                                                     {"foo", "bar"});
   AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[null, \"foo\"]",
                                                     {false, true}, {"", "foo"});
-  // Arbitrary binary (non-UTF8) sequence in string
+  // Arbitrary binary (non-UTF8) sequences cannot be represented: the JSON
+  // parser requires its input to be valid UTF-8
   std::string s = "\xff\x9f\xcc";
-  AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[\"" + s + "\"]", {s});
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"" + s + "\"]"));
 }
 
 TEST(TestFixedSizeBinaryFromString, Errors) {
@@ -1563,6 +1568,9 @@ TEST(TestScalarFromJSONString, Errors) {
   ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]"));
   ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0"));
   ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\""));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "1, 2"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "1] , [2"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "1 junk"));
 }
 
 TEST(TestDictScalarFromJSONString, Basics) {

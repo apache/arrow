@@ -28,6 +28,7 @@
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
 #include "gandiva/llvm_types.h"
+#include "gandiva/llvm_util_internal.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {
@@ -543,16 +544,17 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
   }
 
   // build a call to the llvm function.
-  llvm::Value* value;
+  llvm::CallInst* call;
   if (ret_type->isVoidTy()) {
     // void functions can't have a name for the call.
-    value = ir_builder()->CreateCall(fn, args);
+    call = ir_builder()->CreateCall(fn, args);
   } else {
-    value = ir_builder()->CreateCall(fn, args, full_name);
-    DCHECK(value->getType() == ret_type);
+    call = ir_builder()->CreateCall(fn, args, full_name);
+    DCHECK(call->getType() == ret_type);
   }
+  internal::CopyZExtAttrs(*fn, *call);
 
-  return value;
+  return call;
 }
 
 std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* value,
@@ -1118,9 +1120,16 @@ void LLVMGenerator::Visitor::VisitInExpression<gandiva::DecimalScalar128>(
   const InExprDex<gandiva::DecimalScalar128>& dex_instance =
       dynamic_cast<const InExprDex<gandiva::DecimalScalar128>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast =
-      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
-  params.push_back(ptr_int_cast);
+  // Switch to the entry block and load the holder pointer
+  auto builder = ir_builder();
+  llvm::BasicBlock* saved_block = builder->GetInsertBlock();
+  builder->SetInsertPoint(entry_block_);
+
+  llvm::Value* in_holder = generator_->LoadVectorAtIndex(
+      arg_holder_ptrs_, types->i64_type(), dex_instance.get_holder_idx(), "in_holder");
+
+  builder->SetInsertPoint(saved_block);
+  params.push_back(in_holder);
 
   /* eval expr result */
   for (auto& pair : dex.args()) {

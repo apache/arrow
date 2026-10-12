@@ -20,15 +20,13 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
-#include <memory>
-#include <string>
+#include <string_view>
 
-#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// CpuInfo is an interface to query for cpu information at runtime.  The caller can
 /// ask for the sizes of the caches and what hardware features are supported.
@@ -36,8 +34,6 @@ namespace internal {
 /// /sys/devices)
 class ARROW_EXPORT CpuInfo {
  public:
-  ~CpuInfo();
-
   /// x86 features
   static constexpr int64_t SSSE3 = (1LL << 0);
   static constexpr int64_t SSE4_1 = (1LL << 1);
@@ -70,16 +66,19 @@ class ARROW_EXPORT CpuInfo {
   static const CpuInfo* GetInstance();
 
   /// Returns all the flags for this cpu
-  int64_t hardware_flags() const;
+  int64_t hardware_flags() const { return hardware_flags_; }
 
   /// Returns the number of cores (including hyper-threaded) on this machine.
-  int num_cores() const;
+  int num_cores() const { return num_cores_ <= 0 ? 1 : num_cores_; }
 
   /// Returns the vendor of the cpu.
-  Vendor vendor() const;
+  Vendor vendor() const { return vendor_; }
 
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
-  const std::string& model_name() const;
+  std::string_view model_name() const {
+    // Unavailable in xsimd at the time of migration and previously unused.
+    return "Unknown";
+  }
 
   /// Returns the size of the cache in KB at this cache level
   int64_t CacheSize(CacheLevel level) const;
@@ -108,11 +107,15 @@ class ARROW_EXPORT CpuInfo {
   }
 
  private:
-  CpuInfo();
+  static constexpr int kCacheLevels = static_cast<int>(CpuInfo::CacheLevel::Last) + 1;
 
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
+  std::array<int64_t, kCacheLevels> cache_sizes_ = {};
+  int64_t original_hardware_flags_ = 0;
+  int64_t hardware_flags_ = 0;
+  int num_cores_ = 0;
+  Vendor vendor_ = Vendor::Unknown;
+
+  CpuInfo();
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -90,11 +90,9 @@ class ARROW_EXPORT RecordBatch {
   /// in the resulting struct array.
   Result<std::shared_ptr<StructArray>> ToStructArray() const;
 
-  /// \brief Convert record batch with one data type to Tensor
+  /// \brief Convert RecordBatch to Tensor
   ///
-  /// Create a Tensor object with shape (number of rows, number of columns) and
-  /// strides (type size in bytes, type size in bytes * number of rows).
-  /// Generated Tensor will have column-major layout.
+  /// Create a Tensor object.
   ///
   /// \param[in] null_to_nan if true, convert nulls to NaN
   /// \param[in] row_major if true, create row-major Tensor else column-major Tensor
@@ -137,12 +135,19 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Determine if two record batches are approximately equal
   ///
+  /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
+  /// 'arrow::kDefaultAbsoluteTolerance' is used.
+  ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are approximately equal
   bool ApproxEquals(const RecordBatch& other,
                     const EqualOptions& opts = EqualOptions::Defaults()) const {
-    return Equals(other, opts.use_schema(false).use_atol(true));
+    auto resolved_options = opts.use_schema(false);
+    if (!resolved_options.atol()) {
+      resolved_options = resolved_options.atol(kDefaultAbsoluteTolerance);
+    }
+    return Equals(other, resolved_options);
   }
 
   /// \return the record batch's schema

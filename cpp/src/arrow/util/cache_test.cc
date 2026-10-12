@@ -183,18 +183,16 @@ struct Callable {
 };
 
 struct MemoizeLruFactory {
-  template <typename Func,
-            typename RetType = decltype(MemoizeLru(std::declval<Func>(), 0))>
-  RetType operator()(Func&& func, int32_t capacity) {
-    return MemoizeLru(std::forward<Func>(func), capacity);
+  template <typename Func>
+  auto operator()(Func&& func, int32_t capacity) {
+    return MemoizeLru<std::string>(std::forward<Func>(func), capacity);
   }
 };
 
 struct MemoizeLruThreadUnsafeFactory {
-  template <typename Func,
-            typename RetType = decltype(MemoizeLruThreadUnsafe(std::declval<Func>(), 0))>
-  RetType operator()(Func&& func, int32_t capacity) {
-    return MemoizeLruThreadUnsafe(std::forward<Func>(func), capacity);
+  template <typename Func>
+  auto operator()(Func&& func, int32_t capacity) {
+    return MemoizeLruThreadUnsafe<std::string>(std::forward<Func>(func), capacity);
   }
 };
 

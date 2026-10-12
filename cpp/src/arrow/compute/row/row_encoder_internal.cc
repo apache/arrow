@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/row_encoder_internal.h"
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging_internal.h"
 
@@ -256,6 +257,34 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
+Result<std::shared_ptr<ArrayData>> BinaryViewKeyEncoder::Decode(uint8_t** encoded_bytes,
+                                                                int32_t length,
+                                                                MemoryPool* pool) {
+  // Build a fresh view array; MakeBuilder gives the type-faithful builder and
+  // Append handles inline vs. out-of-line storage.
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(pool, type_, &builder));
+  auto& view_builder = checked_cast<BinaryViewBuilder&>(*builder);
+  RETURN_NOT_OK(view_builder.Reserve(length));
+
+  for (int32_t i = 0; i < length; ++i) {
+    uint8_t*& encoded_ptr = encoded_bytes[i];
+    const bool is_valid = (*encoded_ptr++ == kValidByte);
+    const auto key_length = util::SafeLoadAs<Offset>(encoded_ptr);
+    encoded_ptr += sizeof(Offset);
+    if (is_valid) {
+      RETURN_NOT_OK(view_builder.Append(encoded_ptr, key_length));
+    } else {
+      RETURN_NOT_OK(view_builder.AppendNull());
+    }
+    encoded_ptr += key_length;  // zero for null rows
+  }
+
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(view_builder.Finish(&out));
+  return out->data();
+}
+
 void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
@@ -298,6 +327,11 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
     if (is_large_binary_like(type.id())) {
       encoders_[i] =
           std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(type.GetSharedPtr());
+      continue;
+    }
+
+    if (is_binary_view_like(type.id())) {
+      encoders_[i] = std::make_shared<BinaryViewKeyEncoder>(type.GetSharedPtr());
       continue;
     }
 

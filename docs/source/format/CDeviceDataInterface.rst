@@ -1064,5 +1064,5 @@ Any incompatible changes should be part of a new specification, for example
 .. _OpenCL (Open Computing Language): https://www.khronos.org/opencl/
 .. _Vulkan: https://www.vulkan.org/
 .. _Metal: https://developer.apple.com/metal/
-.. _ROCm: https://www.amd.com/en/graphics/servers-solutions-rocm
+.. _ROCm: https://www.amd.com/en/products/software/rocm.html
 .. _oneAPI: https://www.intel.com/content/www/us/en/developer/tools/oneapi/overview.html

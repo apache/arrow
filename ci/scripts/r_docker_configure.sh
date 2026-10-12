@@ -18,28 +18,28 @@
 
 set -ex
 
-: ${R_BIN:=R}
+: "${R_BIN:=R}"
 # This is where our docker setup puts things; set this to run outside of docker
-: ${ARROW_SOURCE_HOME:=/arrow}
+: "${ARROW_SOURCE_HOME:=/arrow}"
 
 # The Dockerfile should have put this file here
 if [ -f "${ARROW_SOURCE_HOME}/ci/etc/rprofile" ]; then
   # Ensure parallel R package installation, set CRAN repo mirror,
   # and use pre-built binaries where possible
-  cat ${ARROW_SOURCE_HOME}/ci/etc/rprofile >> $(${R_BIN} RHOME)/etc/Rprofile.site
+  cat "${ARROW_SOURCE_HOME}/ci/etc/rprofile" >> "$(${R_BIN} RHOME)/etc/Rprofile.site"
 fi
 
 # Ensure parallel compilation of C/C++ code
-echo "MAKEFLAGS=-j$(${R_BIN} -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
+echo "MAKEFLAGS=-j$(${R_BIN} -s -e 'cat(parallel::detectCores())')" >> "$(R RHOME)/etc/Renviron.site"
 
 # Figure out what package manager we have
-if [ "`which dnf`" ]; then
+if [ "$(which dnf)" ]; then
   PACKAGE_MANAGER=dnf
-elif [ "`which yum`" ]; then
+elif [ "$(which yum)" ]; then
   PACKAGE_MANAGER=yum
-elif [ "`which zypper`" ]; then
+elif [ "$(which zypper)" ]; then
   PACKAGE_MANAGER=zypper
-elif [ "`which apk`" ]; then
+elif [ "$(which apk)" ]; then
   PACKAGE_MANAGER=apk
 else
   PACKAGE_MANAGER=apt-get
@@ -47,15 +47,15 @@ else
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
-: ${R_CUSTOM_CCACHE:=FALSE}
-R_CUSTOM_CCACHE=`echo $R_CUSTOM_CCACHE | tr '[:upper:]' '[:lower:]'`
-if [ ${R_CUSTOM_CCACHE} = "true" ]; then
+: "${R_CUSTOM_CCACHE:=FALSE}"
+R_CUSTOM_CCACHE=$(echo "$R_CUSTOM_CCACHE" | tr '[:upper:]' '[:lower:]')
+if [ "${R_CUSTOM_CCACHE}" = "true" ]; then
   # install ccache
   if [ "$PACKAGE_MANAGER" = "apk" ]; then
-    $PACKAGE_MANAGER add ccache
+    "$PACKAGE_MANAGER" add ccache
   else
-    $PACKAGE_MANAGER install -y epel-release || true
-    $PACKAGE_MANAGER install -y ccache
+    "$PACKAGE_MANAGER" install -y epel-release || true
+    "$PACKAGE_MANAGER" install -y ccache
   fi
 
   mkdir -p ~/.R
@@ -80,11 +80,28 @@ fi
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
 # cmake is now a listed sys req.
 if [ "$PACKAGE_MANAGER" = "apk" ]; then
-  $PACKAGE_MANAGER add rsync cmake curl
+  "$PACKAGE_MANAGER" add rsync cmake curl
 else
-  $PACKAGE_MANAGER install -y rsync cmake curl
+  "$PACKAGE_MANAGER" install -y rsync cmake curl
 fi
 
+
+# Update clang version to latest available.
+# The rhub/ubuntu-clang image ships clang-15 but CRAN's debian-clang now uses
+# clang 22. Install clang-22 from LLVM's apt repos to match.
+if [ "$R_UPDATE_CLANG" = true ]; then
+  apt-get update -y --allow-releaseinfo-change
+  apt-get install -y gnupg
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
+  echo "deb https://apt.llvm.org/jammy/ llvm-toolchain-jammy-22 main" > /etc/apt/sources.list.d/llvm22.list
+  apt-get update -y --allow-releaseinfo-change
+  apt-get install -y clang-22 lld-22
+  # The rhub image hardcodes clang-15/clang++-15 in R's Makeconf, so installing
+  # clang-22 alone isn't enough: point R at the new compilers.
+  sed -i 's/clang++-15/clang++-22/g; s/clang-15/clang-22/g' "$(R RHOME)/etc/Makeconf"
+  echo "R is now using CC=$(R CMD config CC) CXX=$(R CMD config CXX)"
+  clang-22 --version
+fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

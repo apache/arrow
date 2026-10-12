@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:24.04
-FROM ${base}
+ARG arch=amd64
+ARG base=ubuntu:24.04
+FROM --platform=linux/${arch} ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -74,7 +75,6 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
@@ -95,12 +95,14 @@ RUN apt-get update -y -q && \
         libradospp-dev \
         libre2-dev \
         librtmp-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssh-dev \
         libssh2-1-dev \
         libssl-dev \
         libthrift-dev \
+        liburiparser-dev \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \
@@ -120,6 +122,7 @@ RUN apt-get update -y -q && \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
+        sudo \
         tzdata \
         tzdata-legacy \
         unixodbc-dev \
@@ -164,9 +167,6 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_azurite.sh
-
-COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_ceph.sh
 
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
@@ -220,6 +220,6 @@ ENV absl_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

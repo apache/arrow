@@ -50,18 +50,12 @@ fi
 if ! type storage-testbench >/dev/null 2>&1; then
   exclude_tests+=("arrow-gcsfs-test")
 fi
-if ! type minio >/dev/null 2>&1; then
-  exclude_tests+=("arrow-s3fs-test")
-fi
 case "$(uname)" in
   Linux)
-    exclude_tests+=("arrow-flight-sql-odbc-test")
     n_jobs=$(nproc)
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
-    # TODO: https://github.com/apache/arrow/issues/40410
-    exclude_tests+=("arrow-s3fs-test")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
@@ -152,12 +146,19 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
   cmake \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
+    -DARROW_EXAMPLE_S3_STATIC_CHECK=ON \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
   cmake --build "${build_dir}/examples/minimal_build"
   pushd "${source_dir}/examples/minimal_build"
   # PATH= is for Windows.
   PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
     "${build_dir}/examples/minimal_build/arrow-example"
+  # Test static linking with S3
+  s3_example="${build_dir}/examples/minimal_build/arrow-example-s3-static"
+  if [ -x "${s3_example}" ]; then
+    PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
+      "${s3_example}"
+  fi
   popd
 fi
 

@@ -104,6 +104,11 @@ When contributing a patch, use this list as a checklist of Apache Arrow workflow
   merged, this will be retained in the extended commit message.
 * Make sure that your code **passes the unit tests**. You can find instructions how
   to run the unit tests for each Arrow component in its respective README file.
+* In order to improve our code and your review experience, we have
+  enabled GitHub Copilot reviews to automate the first pass. Reviewers
+  and contributors are encouraged to address valid suggestions; you
+  don't need to respond to every comment, but please don't ignore them
+  either.
 
 Core developers and others with a stake in the part of the project your change
 affects will review, request changes, and hopefully indicate their approval

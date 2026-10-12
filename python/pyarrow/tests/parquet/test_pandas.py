@@ -27,7 +27,6 @@ import pytest
 import pyarrow as pa
 from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.util import guid
-from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -430,22 +429,20 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 @pytest.mark.pandas
 def test_backwards_compatible_column_metadata_handling(datadir):
-    if Version("2.2.0") <= Version(pd.__version__):
-        # TODO: regression in pandas
-        # https://github.com/pandas-dev/pandas/issues/56775
-        pytest.skip("Regression in pandas 2.2.0")
+    dates = pd.date_range(
+        "2017-01-01", periods=3, tz='Europe/Brussels'
+    ).as_unit("ns")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
-         'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
+         'c': dates})
     expected.index = pd.MultiIndex.from_arrays(
-        [['a', 'b', 'c'],
-         pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')],
+        [['a', 'b', 'c'], dates],
         names=['index', None])
 
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
     table = _read_table(path)
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected)
+    tm.assert_frame_equal(result, expected, check_freq=False)
 
     table = _read_table(
         path, columns=['a'])
@@ -472,7 +469,7 @@ def test_categorical_index_survives_roundtrip():
 def test_categorical_order_survives_roundtrip():
     # ARROW-6302
     df = pd.DataFrame({"a": pd.Categorical(
-        ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
+        ["d", "b", "c", None], categories=["b", "c", "d"], ordered=True)})
 
     table = pa.Table.from_pandas(df)
     bos = pa.BufferOutputStream()
@@ -524,9 +521,6 @@ def test_pandas_categorical_roundtrip():
 @pytest.mark.pandas
 def test_categories_with_string_pyarrow_dtype(tempdir):
     # gh-33727: writing to parquet should not fail
-    if Version(pd.__version__) < Version("1.3.0"):
-        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
-
     df1 = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
     df1 = df1.astype("category")
 

@@ -46,6 +46,9 @@ TYPED_TEST_SUITE(ColumnsOdbcV2Test, TestTypesOdbcV2);
 
 namespace {
 // Helper functions
+
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 void CheckSQLColumns(
     SQLHSTMT stmt, const std::wstring& expected_table,
     const std::wstring& expected_column, const SQLINTEGER& expected_data_type,
@@ -125,6 +128,7 @@ void CheckRemoteSQLColumns(
                   expected_octet_char_length, expected_ordinal_position,
                   expected_is_nullable);
 }
+#endif  // __linux__
 
 void CheckSQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT idx,
                           const std::string& expected_column_name,
@@ -416,6 +420,8 @@ TYPED_TEST(ColumnsTest, SQLColumnsTestInputData) {
   ValidateFetch(this->stmt, SQL_SUCCESS);
 }
 
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
   // Check table pattern and column pattern returns all columns
 
@@ -1210,6 +1216,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsTableColumnPattern) {
   // There is no more column
   EXPECT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
+#endif  // __linux__
 
 TEST_F(ColumnsMockTest, TestSQLColumnsInvalidTablePattern) {
   ASSIGN_SQLWCHAR_ARR(table_pattern, L"non-existent-table");
@@ -2446,6 +2453,88 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
   }
 }
 
+// Sentinel used to pre-fill the SQLULEN column_size output. If SQLDescribeCol
+// only writes the low bytes (the width bug guarded against here), the upper
+// bytes remain set to this pattern and the value is far outside any legal
+// column size.
+static constexpr SQLULEN kColumnSizeSentinel =
+    static_cast<SQLULEN>(0xFFFFFFFFFFFFFFFFULL);
+
+// Verify that SQLDescribeCol fully initializes the SQLULEN column_size output
+// for a DECIMAL column. Prior to GH-50560 the numeric path read
+// SQL_DESC_PRECISION (a SQLSMALLINT) straight into the SQLULEN* output, writing
+// only 2 of the 8 bytes and leaving the upper 6 bytes as uninitialized garbage.
+// The mock server reports SQL_WVARCHAR for `SELECT ... AS` columns, so this is
+// a remote-only test.
+TEST_F(ColumnsRemoteTest, SQLDescribeColDecimalColumnSizeIsFullyWritten) {
+  std::wstring wsql = this->GetQueryAllDataTypes();
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // decimal_positive column in the all-data-types query.
+  constexpr SQLUSMALLINT kDecimalColumn = 17;
+
+  SQLWCHAR column_name[1024];
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
+  SQLSMALLINT name_length = 0;
+  SQLSMALLINT data_type = 0;
+  SQLULEN column_size = kColumnSizeSentinel;
+  SQLSMALLINT decimal_digits = -1;
+  SQLSMALLINT nullable = 0;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, kDecimalColumn, column_name,
+                                        buf_char_len, &name_length, &data_type,
+                                        &column_size, &decimal_digits, &nullable));
+
+  EXPECT_EQ(SQL_DECIMAL, data_type);
+
+  // If only the low 2 bytes were written, the sentinel's upper 6 bytes would
+  // remain set and the full 8-byte value would be enormous rather than the
+  // expected precision. Comparing the whole SQLULEN is what catches the short
+  // write. Expected values match SQLDescribeColQueryAllDataTypesMetadata.
+  EXPECT_NE(kColumnSizeSentinel, column_size);
+  EXPECT_EQ(19u, column_size) << "column_size upper bytes look uninitialized: 0x"
+                              << std::hex << column_size;
+  EXPECT_EQ(0, decimal_digits);
+}
+
+// Verify SQLDescribeCol reports a fully-written column_size for a TIMESTAMP
+// column, exercising the datetime branch. Remote-only for the same reason as
+// the DECIMAL test above.
+TEST_F(ColumnsRemoteTest, SQLDescribeColTimestampColumnSizeIsFullyWritten) {
+  std::wstring wsql = this->GetQueryAllDataTypes();
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // timestamp_min column in the all-data-types query.
+  constexpr SQLUSMALLINT kTimestampColumn = 31;
+
+  SQLWCHAR column_name[1024];
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
+  SQLSMALLINT name_length = 0;
+  SQLSMALLINT data_type = 0;
+  SQLULEN column_size = kColumnSizeSentinel;
+  SQLSMALLINT decimal_digits = -1;
+  SQLSMALLINT nullable = 0;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, kTimestampColumn, column_name,
+                                        buf_char_len, &name_length, &data_type,
+                                        &column_size, &decimal_digits, &nullable));
+
+  EXPECT_EQ(SQL_TYPE_TIMESTAMP, data_type);
+
+  // Expected values match SQLDescribeColQueryAllDataTypesMetadata. A short write
+  // would leave the sentinel's upper bytes intact.
+  EXPECT_NE(kColumnSizeSentinel, column_size);
+  EXPECT_EQ(23u, column_size) << "column_size upper bytes look uninitialized: 0x"
+                              << std::hex << column_size;
+  EXPECT_EQ(23, decimal_digits);
+}
+
 TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
   SQLWCHAR column_name[1024];
@@ -2560,10 +2649,6 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
 
   ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * from 数据 LIMIT 1;");
 
-  ASSIGN_SQLWCHAR_ARR_AND_LEN(expected_column_name, L"资料");
-  SQLSMALLINT expected_column_data_type = SQL_WVARCHAR;
-  SQLULEN expected_column_size = 0;
-
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -2572,13 +2657,14 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
                                         buf_char_len, &name_length, &column_data_type,
                                         &column_size, &decimal_digits, &nullable));
 
-  EXPECT_EQ(name_length, expected_column_name_len);
+  std::wstring expected_column_name_wstr = std::wstring(L"资料");
+  size_t expected_column_name_len = expected_column_name_wstr.length();
 
   std::wstring returned(column_name, column_name + name_length);
-  std::wstring expected_col_name_str = ConvertToWString(expected_column_name);
-  EXPECT_EQ(expected_col_name_str, returned);
-  EXPECT_EQ(expected_column_data_type, column_data_type);
-  EXPECT_EQ(expected_column_size, column_size);
+  EXPECT_EQ(expected_column_name_wstr, returned);
+  EXPECT_EQ(expected_column_name_len, name_length);
+  EXPECT_EQ(SQL_WVARCHAR, column_data_type);
+  EXPECT_EQ(0, column_size);
   EXPECT_EQ(0, decimal_digits);
   EXPECT_EQ(SQL_NULLABLE, nullable);
 

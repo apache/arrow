@@ -63,9 +63,11 @@ find . -not -path ./ccache -a -not -path "./ccache/*" -delete
 if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPILERCHECK=content
   export CCACHE_COMPRESS=1
-  export CCACHE_COMPRESSLEVEL=6
-  export CCACHE_MAXSIZE=500M
   export CCACHE_DIR="${PWD}/ccache"
+  export CCACHE_LOGFILE="${PWD}/ccache.log"
+  export CCACHE_MAXSIZE=3GiB
+  rm -f "${CCACHE_LOGFILE}"
+  ccache --zero-stats
   ccache --show-stats --verbose || :
   if [ -d "${lib_directory}/ccache" ]; then
     PATH="${lib_directory}/ccache:$PATH"

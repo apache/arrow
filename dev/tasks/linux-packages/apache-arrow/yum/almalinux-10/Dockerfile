@@ -59,6 +59,8 @@ RUN \
     snappy-devel \
     tar \
     thrift-devel \
+    unixODBC-devel \
+    uriparser-devel \
     utf8proc-devel \
     vala \
     which \

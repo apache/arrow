@@ -44,3 +44,31 @@ cdef void dlpack_pycapsule_deleter(object dltensor) noexcept:
 
     # Set the error indicator from err_type, err_value, err_traceback
     cpython.PyErr_Restore(err_type, err_value, err_traceback)
+
+
+cdef void dlpack_versioned_pycapsule_deleter(object dltensor) noexcept:
+    cdef DLManagedTensorVersioned* dlm_tensor
+    cdef PyObject* err_type
+    cdef PyObject* err_value
+    cdef PyObject* err_traceback
+
+    # Do nothing if the capsule has been consumed
+    if cpython.PyCapsule_IsValid(dltensor, "used_dltensor_versioned"):
+        return
+
+    # An exception may be in-flight, we must save it in case
+    # we create another one
+    cpython.PyErr_Fetch(&err_type, &err_value, &err_traceback)
+
+    dlm_tensor = <DLManagedTensorVersioned*>cpython.PyCapsule_GetPointer(
+        dltensor, 'dltensor_versioned')
+    if dlm_tensor == NULL:
+        cpython.PyErr_WriteUnraisable(dltensor)
+    # The deleter can be NULL if there is no way for the caller
+    # to provide a reasonable destructor
+    elif dlm_tensor.deleter:
+        dlm_tensor.deleter(dlm_tensor)
+        assert (not cpython.PyErr_Occurred())
+
+    # Set the error indicator from err_type, err_value, err_traceback
+    cpython.PyErr_Restore(err_type, err_value, err_traceback)

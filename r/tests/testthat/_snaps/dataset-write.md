@@ -1,20 +1,11 @@
 # write_dataset checks for format-specific arguments
 
     Code
-      write_dataset(df, dst_dir, format = "feather", compression = "snappy")
+      write_dataset(df, dst_dir, format = "ipc", compression = "snappy")
     Condition
       Error in `check_additional_args()`:
       ! `compression` is not a valid argument for your chosen `format`.
       i You could try using `codec` instead of `compression`.
-      i Supported arguments: `use_legacy_format`, `metadata_version`, `codec`, and `null_fallback`.
-
----
-
-    Code
-      write_dataset(df, dst_dir, format = "feather", nonsensical_arg = "blah-blah")
-    Condition
-      Error in `check_additional_args()`:
-      ! `nonsensical_arg` is not a valid argument for your chosen `format`.
       i Supported arguments: `use_legacy_format`, `metadata_version`, `codec`, and `null_fallback`.
 
 ---

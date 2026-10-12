@@ -32,6 +32,8 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/encryption/crypto_factory.h"
+#include "parquet/encryption/file_system_key_material_store.h"
+#include "parquet/encryption/key_material.h"
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/encryption/test_in_memory_kms.h"
@@ -192,6 +194,72 @@ class TestEncryptionKeyManagement : public ::testing::Test {
                                      double_wrapping);
     TestOnlyInServerWrapKms::FinishKeyRotation();
     crypto_factory_.RemoveCacheEntriesForAllTokens();
+  }
+
+  // Write a file that uses external key material and records the KMS
+  // instance ID and instance URL in its key material.
+  std::string WriteExternalMaterialFileWithKmsConfig(const std::string& instance_id,
+                                                     const std::string& instance_url) {
+    kms_connection_config_.kms_instance_id = instance_id;
+    kms_connection_config_.kms_instance_url = instance_url;
+    TestOnlyInServerWrapKms::InitializeMasterKeys(key_list_);
+    constexpr bool double_wrapping = true;
+    constexpr int encryption_no = 0;
+    this->WriteEncryptedParquetFile(double_wrapping, /*internal_key_material=*/false,
+                                    encryption_no);
+    return temp_dir_->path().ToString() + GetFileName(double_wrapping, wrap_locally_,
+                                                      /*internal_key_material=*/false,
+                                                      encryption_no);
+  }
+
+  // Rotate the keys of a file written with the KMS ID and URL configured,
+  // and return the KMS connection configurations used to create clients
+  // during key rotation.
+  std::vector<KmsConnectionConfig> RotateKeysWithKmsConfig(
+      const KmsConnectionConfig& rotation_config, const bool read_kms_url) {
+    const auto file_system = std::make_shared<::arrow::fs::LocalFileSystem>();
+    this->SetupCryptoFactory(false);
+
+    const std::string file_path =
+        this->WriteExternalMaterialFileWithKmsConfig("123", "https://example.com/kms");
+
+    auto kms_client_factory = std::make_shared<TestOnlyInMemoryKmsClientFactory>(
+        /*wrap_locally=*/false, key_list_);
+    auto crypto_factory = std::make_shared<CryptoFactory>();
+    crypto_factory->RegisterKmsClientFactory(kms_client_factory);
+
+    TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
+    crypto_factory->RotateMasterKeys(rotation_config, file_path, file_system,
+                                     /*double_wrapping=*/true,
+                                     kDefaultCacheLifetimeSeconds, read_kms_url);
+    TestOnlyInServerWrapKms::FinishKeyRotation();
+
+    std::vector<KmsConnectionConfig> creation_requests =
+        kms_client_factory->CreationRequests();
+
+    // The new key material always uses the KMS connection configuration provided,
+    // not the config from the previous key material.
+    // If it's empty, default values are written.
+    const auto key_material_store =
+        FileSystemKeyMaterialStore::Make(file_path, file_system,
+                                         /*use_tmp_prefix=*/false);
+    const KeyMaterial rotated_key_material = KeyMaterial::Parse(
+        key_material_store->GetKeyMaterial(std::string(KeyMaterial::kFooterKeyIdInFile)));
+    const auto& expected_id = rotation_config.kms_instance_id.empty()
+                                  ? KmsClient::kKmsInstanceIdDefault
+                                  : rotation_config.kms_instance_id;
+    const auto& expected_url = rotation_config.kms_instance_url.empty()
+                                   ? KmsClient::kKmsInstanceUrlDefault
+                                   : rotation_config.kms_instance_url;
+    EXPECT_EQ(rotated_key_material.kms_instance_id(), expected_id);
+    EXPECT_EQ(rotated_key_material.kms_instance_url(), expected_url);
+
+    // Check the rotated file is readable
+    const auto file_decryption_properties = crypto_factory->GetFileDecryptionProperties(
+        rotation_config, GetDecryptionConfiguration(), file_path, file_system);
+    decryptor_.DecryptFile(file_path, file_decryption_properties);
+
+    return creation_requests;
   }
 
   // Create encryption properties without keeping the creating CryptoFactory alive
@@ -439,6 +507,102 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
                                  string_values[row].len);
     ASSERT_EQ(read_string, expected_string);
   }
+}
+
+TEST_F(TestEncryptionKeyManagement, ReadKmsUrlFromFile) {
+  this->SetupCryptoFactory(true);
+
+  constexpr bool internal_key_material = true;
+  constexpr bool double_wrapping = true;
+  constexpr int encryption_no = 0;
+
+  std::string file_name = "kms-config-test-file.parquet.encrypted";
+  std::string file_path = temp_dir_->path().ToString() + file_name;
+
+  auto encryption_config =
+      GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
+
+  KmsConnectionConfig write_config;
+  write_config.kms_instance_id = "123";
+  write_config.kms_instance_url = "https://example.com/kms";
+
+  auto file_encryption_properties =
+      crypto_factory_.GetFileEncryptionProperties(write_config, encryption_config);
+  encryptor_.EncryptFile(file_path, file_encryption_properties);
+
+  for (const auto& enable_kms_url_read : {false, true}) {
+    // Create a fresh crypto factory and client factory for each read
+    // to avoid re-using cached clients.
+    CryptoFactory read_crypto_factory;
+    auto kms_client_factory =
+        std::make_shared<TestOnlyInMemoryKmsClientFactory>(true, key_list_);
+    read_crypto_factory.RegisterKmsClientFactory(kms_client_factory);
+
+    auto decryption_config = DecryptionConfiguration();
+    decryption_config.read_kms_url = enable_kms_url_read;
+
+    KmsConnectionConfig read_config;
+
+    auto file_decryption_properties =
+        read_crypto_factory.GetFileDecryptionProperties(read_config, decryption_config);
+
+    decryptor_.DecryptFile(file_path, file_decryption_properties);
+
+    ASSERT_EQ(kms_client_factory->CreationRequests().size(), 1);
+    const auto& request = kms_client_factory->CreationRequests()[0];
+    EXPECT_EQ(request.kms_instance_id, "123");
+    if (enable_kms_url_read) {
+      EXPECT_EQ(request.kms_instance_url, "https://example.com/kms");
+    } else {
+      EXPECT_EQ(request.kms_instance_url, "DEFAULT");
+    }
+  }
+}
+
+TEST_F(TestEncryptionKeyManagement, ReadKmsUrlFromFileDuringKeyRotation) {
+  // Use an empty config for rotation
+  const KmsConnectionConfig rotation_config;
+  const auto requests = RotateKeysWithKmsConfig(rotation_config, /*read_kms_url=*/true);
+
+  ASSERT_EQ(requests.size(), 2);
+  // The first KMS creation request is for wrapping new keys.
+  // This uses the empty config provided.
+  EXPECT_EQ(requests[0].kms_instance_id, "");
+  EXPECT_EQ(requests[0].kms_instance_url, "");
+  // The KMS client used to unwrap the previous keys should be configured
+  // with the instance ID and url provided at write time.
+  EXPECT_EQ(requests[1].kms_instance_id, "123");
+  EXPECT_EQ(requests[1].kms_instance_url, "https://example.com/kms");
+}
+
+TEST_F(TestEncryptionKeyManagement, KeyRotationWithoutReadingKmsUrl) {
+  // Use an empty config for rotation
+  const KmsConnectionConfig rotation_config;
+  const auto requests = RotateKeysWithKmsConfig(rotation_config, /*read_kms_url=*/false);
+
+  ASSERT_EQ(requests.size(), 2);
+  // The first KMS creation request is for wrapping new keys.
+  // This uses the empty config provided.
+  EXPECT_EQ(requests[0].kms_instance_id, "");
+  EXPECT_EQ(requests[0].kms_instance_url, "");
+  // When unwrapping the existing keys, the URL in the key material is
+  // ignored and the default used.
+  EXPECT_EQ(requests[1].kms_instance_id, "123");
+  EXPECT_EQ(requests[1].kms_instance_url, KmsClient::kKmsInstanceUrlDefault);
+}
+
+TEST_F(TestEncryptionKeyManagement, KeyRotationUsesProvidedKmsConfig) {
+  KmsConnectionConfig rotation_config;
+  rotation_config.kms_instance_id = "456";
+  rotation_config.kms_instance_url = "https://example.com/kms2";
+  const auto requests = RotateKeysWithKmsConfig(rotation_config, /*read_kms_url=*/true);
+
+  ASSERT_EQ(requests.size(), 1);
+  // Wrap and unwrap both use the same configuration.
+  // The instance id and url in the existing key material is ignored even though
+  // read_kms_url is enabled. The provided config takes precedence.
+  EXPECT_EQ(requests[0].kms_instance_id, "456");
+  EXPECT_EQ(requests[0].kms_instance_url, "https://example.com/kms2");
 }
 
 }  // namespace parquet::encryption::test

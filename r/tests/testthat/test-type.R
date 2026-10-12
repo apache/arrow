@@ -327,15 +327,6 @@ test_that("infer_type() infers type for vctrs", {
   )
 })
 
-test_that("type() is deprecated", {
-  a <- Array$create(1:10)
-  expect_deprecated(
-    a_type <- type(a),
-    "infer_type"
-  )
-  expect_equal(a_type, a$type)
-})
-
 test_that("infer_type() infers type for lists of raw() as binary()", {
   expect_equal(
     infer_type(list(raw())),

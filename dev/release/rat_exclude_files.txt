@@ -80,7 +80,6 @@ requirements.txt
 *.svg
 *.devhelp2
 *.scss
-r/.lintr
 r/R/arrowExports.R
 r/src/arrowExports.cpp
 r/DESCRIPTION
@@ -101,4 +100,6 @@ r/tools/nixlibs-allowlist.txt
 .gitattributes
 ruby/red-arrow/.yardopts
 ruby/red-arrow-format/lib/arrow-format/org/*
+.github/copilot-instructions.md
 .github/pull_request_template.md
+.claude/*

@@ -53,7 +53,7 @@ group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
 group_vars.Dataset <- function(x) character()
 group_vars.RecordBatchReader <- function(x) character()
 group_vars.ArrowTabular <- function(x) {
-  x$metadata$r$attributes$.group_vars %||% character()
+  x$metadata[["r"]]$attributes$.group_vars %||% character()
 }
 
 # the logical literal in the two functions below controls the default value of
@@ -62,7 +62,7 @@ group_by_drop_default.arrow_dplyr_query <- function(.tbl) {
   .tbl$drop_empty_groups %||% TRUE
 }
 group_by_drop_default.ArrowTabular <- function(.tbl) {
-  .tbl$metadata$r$attributes$.group_by_drop %||% TRUE
+  .tbl$metadata[["r"]]$attributes$.group_by_drop %||% TRUE
 }
 group_by_drop_default.Dataset <- group_by_drop_default.RecordBatchReader <-
   function(.tbl) TRUE
@@ -84,11 +84,11 @@ set_group_attributes <- function(tab, group_vars, .drop) {
   # so passing NULL means unset (ungroup)
   if (is.null(group_vars) || length(group_vars)) {
     # Since accessing schema metadata does some work, only overwrite if needed
-    new_atts <- old_atts <- tab$metadata$r$attributes %||% list()
+    new_atts <- old_atts <- tab$metadata[["r"]]$attributes %||% list()
     new_atts[[".group_vars"]] <- group_vars
     new_atts[[".group_by_drop"]] <- .drop
     if (!identical(new_atts, old_atts)) {
-      tab$metadata$r$attributes <- new_atts
+      tab$metadata[["r"]]$attributes <- new_atts
     }
   }
   tab

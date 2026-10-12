@@ -40,8 +40,11 @@ Status RTasks::Finish() {
     }
   }
 
-  // then wait for the parallel tasks to finish
+  // submit the delayed parallel tasks and wait for them to finish
   if (use_threads_) {
+    for (auto& task : delayed_parallel_tasks_) {
+      parallel_tasks_->Append(std::move(task));
+    }
     status &= parallel_tasks_->Finish();
   }
 
@@ -50,7 +53,7 @@ Status RTasks::Finish() {
 
 void RTasks::Append(bool parallel, RTasks::Task&& task) {
   if (parallel && use_threads_) {
-    parallel_tasks_->Append(std::move(task));
+    delayed_parallel_tasks_.push_back(std::move(task));
   } else {
     delayed_serial_tasks_.push_back(std::move(task));
   }
@@ -58,6 +61,7 @@ void RTasks::Append(bool parallel, RTasks::Task&& task) {
 
 void RTasks::Reset() {
   delayed_serial_tasks_.clear();
+  delayed_parallel_tasks_.clear();
 
   stop_source_.Reset();
   if (use_threads_) {

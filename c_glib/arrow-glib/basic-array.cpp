@@ -279,7 +279,8 @@ garrow_equal_options_get_property(GObject *object,
     g_value_set_boolean(value, priv->options.nans_equal());
     break;
   case PROP_ABSOLUTE_TOLERANCE:
-    g_value_set_double(value, priv->options.atol());
+    g_value_set_double(value,
+                       priv->options.atol().has_value() ? *priv->options.atol() : 0.0);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -348,7 +349,7 @@ garrow_equal_options_class_init(GArrowEqualOptionsClass *klass)
                              "of floating-point values",
                              -G_MAXDOUBLE,
                              G_MAXDOUBLE,
-                             options.atol(),
+                             options.atol().has_value() ? *options.atol() : 0.0,
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_ABSOLUTE_TOLERANCE, spec);
 }

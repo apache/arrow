@@ -387,34 +387,41 @@ class ListPathNode {
                               PathWriteContext* context) {
     // First fill int the remainder of the list.
     RETURN_IF_ERROR(FillRepLevels(child_range->Size(), rep_level_, context));
+
     // Once we've reached this point the following preconditions should hold:
     // 1.  There are no more repeated path nodes to deal with.
-    // 2.  All elements in |range| represent contiguous elements in the
-    //     child array (Null values would have shortened the range to ensure
-    //     all remaining list elements are present (though they may be empty lists)).
+    // 2.  Null values would have shortened the range to ensure all remaining
+    //     list elements are present (though they may be empty lists).
     // 3.  No element of range spans a parent list (intermediate
     //     list nodes only handle one list entry at a time).
     //
-    // Given these preconditions it should be safe to fill runs on non-empty
+    // Given these preconditions it is safe to fill runs on contiguous non-empty
     // lists here and expand the range in the child node accordingly.
-
     while (!range->Empty()) {
-      ElementRange size_check = selector_.GetRange(range->start);
-      if (size_check.Empty()) {
+      ElementRange next_child_range = selector_.GetRange(range->start);
+      if (next_child_range.Empty()) {
         // The empty range will need to be handled after we pass down the accumulated
         // range because it affects def_level placement and we need to get the children
         // def_levels entered first.
         break;
+      }
+      // FillForLast extends child_range by updating only its end. Non-contiguous
+      // selectors must split at gaps.
+      if constexpr (RangeSelector::kContiguous) {
+        DCHECK_EQ(next_child_range.start, child_range->end)
+            << next_child_range.start << " != " << child_range->end;
+      } else {
+        if (next_child_range.start != child_range->end) {
+          break;
+        }
       }
       // This is the start of a new list. We can be sure it only applies
       // to the previous list (and doesn't jump to the start of any list
       // further up in nesting due to the constraints mentioned at the start
       // of the function).
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
-      RETURN_IF_ERROR(context->AppendRepLevels(size_check.Size() - 1, rep_level_));
-      DCHECK_EQ(size_check.start, child_range->end)
-          << size_check.start << " != " << child_range->end;
-      child_range->end = size_check.end;
+      RETURN_IF_ERROR(context->AppendRepLevels(next_child_range.Size() - 1, rep_level_));
+      child_range->end = next_child_range.end;
       ++range->start;
     }
 
@@ -434,19 +441,37 @@ class ListPathNode {
 
 template <typename OffsetType>
 struct VarRangeSelector {
+  static constexpr bool kContiguous = true;
+
   ElementRange GetRange(int64_t index) const {
-    return ElementRange{offsets[index], offsets[index + 1]};
+    return ElementRange{.start = offsets[index], .end = offsets[index + 1]};
   }
 
   // Either int32_t* or int64_t*.
   const OffsetType* offsets;
 };
 
+template <typename OffsetType>
+struct ListViewRangeSelector {
+  static constexpr bool kContiguous = false;
+
+  ElementRange GetRange(int64_t index) const {
+    const int64_t start = offsets[index];
+    return ElementRange{.start = start, .end = start + sizes[index]};
+  }
+
+  const OffsetType* offsets;
+  const OffsetType* sizes;
+};
+
 struct FixedSizedRangeSelector {
+  static constexpr bool kContiguous = true;
+
   ElementRange GetRange(int64_t index) const {
     int64_t start = index * list_size;
-    return ElementRange{start, start + list_size};
+    return ElementRange{.start = start, .end = start + list_size};
   }
+
   int list_size;
 };
 
@@ -510,6 +535,8 @@ class NullableNode {
 
 using ListNode = ListPathNode<VarRangeSelector<int32_t>>;
 using LargeListNode = ListPathNode<VarRangeSelector<int64_t>>;
+using ListViewNode = ListPathNode<ListViewRangeSelector<int32_t>>;
+using LargeListViewNode = ListPathNode<ListViewRangeSelector<int64_t>>;
 using FixedSizeListNode = ListPathNode<FixedSizedRangeSelector>;
 
 // Contains static information derived from traversing the schema.
@@ -517,9 +544,9 @@ struct PathInfo {
   // The vectors are expected to the same length info.
 
   // Note index order matters here.
-  using Node =
-      std::variant<NullableTerminalNode, ListNode, LargeListNode, FixedSizeListNode,
-                   NullableNode, AllPresentTerminalNode, AllNullsTerminalNode>;
+  using Node = std::variant<NullableTerminalNode, ListNode, LargeListNode, ListViewNode,
+                            LargeListViewNode, FixedSizeListNode, NullableNode,
+                            AllPresentTerminalNode, AllNullsTerminalNode>;
 
   std::vector<Node> path;
   std::shared_ptr<Array> primitive_array;
@@ -527,6 +554,28 @@ struct PathInfo {
   int16_t max_rep_level = 0;
   bool has_dictionary = false;
   bool leaf_is_nullable = false;
+};
+
+struct WritePathVisitor {
+  IterationResult operator()(NullableNode& node) {
+    return node.Run(stack_position, stack_position + 1, context);
+  }
+  IterationResult operator()(NullableTerminalNode& node) {
+    return node.Run(*stack_position, context);
+  }
+  IterationResult operator()(AllPresentTerminalNode& node) {
+    return node.Run(*stack_position, context);
+  }
+  IterationResult operator()(AllNullsTerminalNode& node) {
+    return node.Run(*stack_position, context);
+  }
+  template <typename RangeSelector>
+  IterationResult operator()(ListPathNode<RangeSelector>& node) {
+    return node.Run(stack_position, stack_position + 1, context);
+  }
+
+  ElementRange* stack_position;
+  PathWriteContext* context;
 };
 
 /// Contains logic for writing a single leaf node to parquet.
@@ -575,32 +624,7 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   // |root_range| are processed.
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
-    struct {
-      IterationResult operator()(NullableNode& node) {
-        return node.Run(stack_position, stack_position + 1, context);
-      }
-      IterationResult operator()(ListNode& node) {
-        return node.Run(stack_position, stack_position + 1, context);
-      }
-      IterationResult operator()(NullableTerminalNode& node) {
-        return node.Run(*stack_position, context);
-      }
-      IterationResult operator()(FixedSizeListNode& node) {
-        return node.Run(stack_position, stack_position + 1, context);
-      }
-      IterationResult operator()(AllPresentTerminalNode& node) {
-        return node.Run(*stack_position, context);
-      }
-      IterationResult operator()(AllNullsTerminalNode& node) {
-        return node.Run(*stack_position, context);
-      }
-      IterationResult operator()(LargeListNode& node) {
-        return node.Run(stack_position, stack_position + 1, context);
-      }
-      ElementRange* stack_position;
-      PathWriteContext* context;
-    } visitor = {stack_position, &context};
-
+    WritePathVisitor visitor = {.stack_position = stack_position, .context = &context};
     IterationResult result = std::visit(visitor, node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
@@ -637,20 +661,17 @@ struct FixupVisitor {
   int max_rep_level = -1;
   int16_t rep_level_if_null = kLevelNotSet;
 
-  template <typename T>
-  void HandleListNode(T& arg) {
-    if (arg.rep_level() == max_rep_level) {
-      arg.SetLast();
+  template <typename RangeSelector>
+  void operator()(ListPathNode<RangeSelector>& node) {
+    if (node.rep_level() == max_rep_level) {
+      node.SetLast();
       // after the last list node we don't need to fill
       // rep levels on null.
       rep_level_if_null = kLevelNotSet;
     } else {
-      rep_level_if_null = arg.rep_level();
+      rep_level_if_null = node.rep_level();
     }
   }
-  void operator()(ListNode& node) { HandleListNode(node); }
-  void operator()(LargeListNode& node) { HandleListNode(node); }
-  void operator()(FixedSizeListNode& node) { HandleListNode(node); }
 
   // For non-list intermediate nodes.
   template <typename T>
@@ -737,6 +758,23 @@ class PathBuilder {
         info_.max_rep_level, info_.max_def_level - 1);
     info_.path.emplace_back(std::move(node));
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
+    return VisitInline(*array.values());
+  }
+
+  template <typename T>
+    requires ::arrow::is_list_view_type<typename T::TypeClass>::value
+  Status Visit(const T& array) {
+    MaybeAddNullable(array);
+    // Increment necessary due to empty lists.
+    info_.max_def_level++;
+    info_.max_rep_level++;
+    // raw_value_offsets() and raw_value_sizes() account for any slice offset.
+    ListPathNode<ListViewRangeSelector<typename T::offset_type>> node(
+        ListViewRangeSelector<typename T::offset_type>{array.raw_value_offsets(),
+                                                       array.raw_value_sizes()},
+        info_.max_rep_level, info_.max_def_level - 1);
+    info_.path.emplace_back(std::move(node));
+    nullable_in_parent_ = array.list_view_type()->value_field()->nullable();
     return VisitInline(*array.values());
   }
 
@@ -830,8 +868,6 @@ class PathBuilder {
   // Types not yet supported in Parquet.
   NOT_IMPLEMENTED_VISIT(Union)
   NOT_IMPLEMENTED_VISIT(RunEndEncoded);
-  NOT_IMPLEMENTED_VISIT(ListView);
-  NOT_IMPLEMENTED_VISIT(LargeListView);
 
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }

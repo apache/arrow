@@ -256,11 +256,11 @@ To configure how Parquet files are written, use the :class:`WriterProperties::Bu
 
    std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
       .max_row_group_length(64 * 1024)
-      .created_by("My Application")
-      .version(ParquetVersion::PARQUET_2_6)
-      .data_page_version(ParquetDataPageVersion::V2)
-      .compression(Compression::SNAPPY)
-      .build();
+      ->created_by("My Application")
+      ->version(ParquetVersion::PARQUET_2_6)
+      ->data_page_version(ParquetDataPageVersion::V2)
+      ->compression(Compression::SNAPPY)
+      ->build();
 
 The ``max_row_group_length`` sets an upper bound on the number of rows per row
 group that takes precedent over the ``chunk_size`` passed in the write methods.
@@ -500,7 +500,8 @@ physical type.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(4) On the write side, an Arrow FixedSizedList is also mapped to a Parquet LIST.
+* \(4) On the write side, an Arrow FixedSizeList, ListView or LargeListView is
+  also mapped to a Parquet LIST.
 
 * \(5) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the

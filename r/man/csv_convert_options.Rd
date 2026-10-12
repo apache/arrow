@@ -24,14 +24,14 @@ csv_convert_options(
 
 \item{null_values}{Character vector of recognized spellings for null values.
 Analogous to the \code{na.strings} argument to
-\code{\link[utils:read.table]{read.csv()}} or \code{na} in \code{\link[readr:read_delim]{readr::read_csv()}}.}
+\code{\link[utils:read.csv]{read.csv()}} or \code{na} in \code{\link[readr:read_csv]{readr::read_csv()}}.}
 
 \item{true_values}{Character vector of recognized spellings for \code{TRUE} values}
 
 \item{false_values}{Character vector of recognized spellings for \code{FALSE} values}
 
 \item{strings_can_be_null}{Logical: can string / binary columns have
-null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_delim]{readr::read_csv()}}}
+null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_csv]{readr::read_csv()}}}
 
 \item{col_types}{A \code{Schema} or \code{NULL} to infer types}
 
@@ -51,12 +51,20 @@ columns named in it but not found in the data be included as a column of
 type \code{null()}? The default (\code{FALSE}) means that the reader will instead
 raise an error.}
 
-\item{timestamp_parsers}{User-defined timestamp parsers. If more than one
-parser is specified, the CSV conversion logic will try parsing values
-starting from the beginning of this vector. Possible values are
-(a) \code{NULL}, the default, which uses the ISO-8601 parser;
-(b) a character vector of \link[base:strptime]{strptime} parse strings; or
-(c) a list of \link{TimestampParser} objects.}
+\item{timestamp_parsers}{User-defined timestamp parsers, tried in order
+when inferring column types and when converting columns of type
+\code{\link[=timestamp]{timestamp()}}. Possible values are:
+\itemize{
+\item \code{NULL}: the default, which uses the ISO-8601 parser
+\item a character vector of \link[base:strptime]{strptime} parse strings
+\item a list of \link{TimestampParser} objects and/or parse strings
+}
+
+Supplying parsers replaces the default ISO-8601 parser rather than adding
+to it. If none of the parsers match a value during type inference, the
+column is read as a string without error; to get an error instead, specify
+the column as a timestamp in \code{col_types}. These parsers are not used for
+date columns.}
 
 \item{decimal_point}{Character to use for decimal point in floating point numbers.}
 }

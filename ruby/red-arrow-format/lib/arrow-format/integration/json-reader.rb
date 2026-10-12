@@ -205,18 +205,11 @@ module ArrowFormat
       end
 
       def read_bitmap(bitmap)
-        buffer = +"".b
-        bitmap.each_slice(8) do |bits|
-          byte = 0
-          while bits.size < 8
-            bits << 0
-          end
-          bits.reverse_each do |bit|
-            byte = (byte << 1) + bit
-          end
-          buffer << [byte].pack("C")
+        builder = DenseBitmapBuilder.new
+        bitmap.each do |bit|
+          builder.append(bit == 1)
         end
-        IO::Buffer.for(buffer)
+        builder.finish
       end
 
       def read_types(types)
@@ -255,8 +248,6 @@ module ArrowFormat
 
       def read_values(data, type)
         case type
-        when BooleanType
-          read_bitmap(data.collect {|boolean| boolean ? 1 : 0})
         when DayTimeIntervalType
           buffer_types = [type.buffer_type] * 2
           size = IO::Buffer.size_of(buffer_types)
@@ -321,14 +312,37 @@ module ArrowFormat
         end
       end
 
+      def apply_validity(values, validity)
+        values.zip(validity).collect do |value, valid|
+          if valid == 1
+            value
+          else
+            nil
+          end
+        end
+      end
+
       def read_array(column, type)
         length = column["count"]
         case type
         when NullType
           type.build_array(length)
-        when BooleanType,
-             NumberType,
-             TemporalType,
+        when BooleanType
+          values = apply_validity(column["DATA"], column["VALIDITY"])
+          type.build_array(values)
+        when NumberType
+          values = column["DATA"].collect do |value|
+            if value.is_a?(String)
+              # If the type is 64bit such as `Int64Type`, `value` is a
+              # string not integer to round-trip data through JSON.
+              Integer(value, 10)
+            else
+              value
+            end
+          end
+          values = apply_validity(values, column["VALIDITY"])
+          type.build_array(values)
+        when TemporalType,
              FixedSizeBinaryType
           validity_buffer = read_bitmap(column["VALIDITY"])
           values_buffer = read_values(column["DATA"], type)

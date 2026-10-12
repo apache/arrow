@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "25.0.0-SNAPSHOT")
+set(PYARROW_VERSION "26.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -130,11 +130,18 @@ if(CCACHE_FOUND
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
   message(STATUS "Using ccache: ${CCACHE_FOUND}")
-  set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_FOUND})
-  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
-  # ARROW-3985: let ccache preserve C++ comments, because some of them may be
-  # meaningful to the compiler
-  set(ENV{CCACHE_COMMENTS} "1")
+  # 1. Let ccache preserve C++ comments, because some of them may be
+  #    meaningful to the compiler (ARROW-3985)
+  # 2. Set ccache base_dir to the build output directory as it is typically
+  #    a temporary directory, and would otherwise fail caching because of
+  #    using different paths everytime.
+  # Also, we use `cmake -E env` to set environment variables as the
+  # `ccache option=value ...` form of passing configuration options
+  # is not supported by ccache < 4.8.
+  set(ccache_command ${CMAKE_COMMAND} -E env CCACHE_COMMENTS=1
+                     CCACHE_BASEDIR=${CMAKE_BINARY_DIR} -- ${CCACHE_FOUND})
+  set(CMAKE_C_COMPILER_LAUNCHER ${ccache_command})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${ccache_command})
 endif()
 
 #
@@ -167,16 +174,7 @@ if($ENV{PYODIDE})
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
   set(Python3_EXECUTABLE)
-  execute_process(COMMAND ${Python3_EXECUTABLE} -c
-                          "import numpy; print(numpy.__version__)"
-                  OUTPUT_VARIABLE PYODIDE_NUMPY_VERSION
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
-  string(REGEX MATCH "^([0-9]+)" PYODIDE_NUMPY_MAJOR_VERSION ${PYODIDE_NUMPY_VERSION})
-  if(PYODIDE_NUMPY_MAJOR_VERSION GREATER_EQUAL 2)
-    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
-  else()
-    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-  endif()
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
   # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.
@@ -278,6 +276,10 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
+if(Python3_NumPy_VERSION AND Python3_NumPy_VERSION VERSION_LESS "2.0")
+  message(FATAL_ERROR "PyArrow requires NumPy 2.0 or newer, found ${Python3_NumPy_VERSION}"
+  )
+endif()
 message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
 message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
 
@@ -742,6 +744,18 @@ if(PYARROW_BUILD_S3)
   if(NOT ARROW_S3)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_S3=ON")
   endif()
+  find_package(ArrowS3 REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_S3_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_S3_IMPORT_LIB})
+      endif()
+    endif()
+    set(S3_LINK_LIBS ArrowS3::arrow_s3_shared)
+  else()
+    set(S3_LINK_LIBS ArrowS3::arrow_s3_static)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _s3fs)
 endif()
 
@@ -1038,35 +1052,47 @@ if(PYARROW_BUILD_PARQUET)
   endif()
 endif()
 
+if(PYARROW_BUILD_S3)
+  target_link_libraries(_s3fs PRIVATE ${S3_LINK_LIBS})
+endif()
+
 #
 # Type stubs with docstring injection
 #
+# TODO(GH-32609): Reintroduce type stubs into PyArrow wheels.
+# GH-49831: Temporarily do not install pyarrow-stubs into wheels.
 # Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
 # alongside the package so type checkers can find them (PEP 561).
-set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
-if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
-  install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
-          DESTINATION "."
-          FILES_MATCHING
-          PATTERN "*.pyi")
-
-  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
-    install(CODE "
-      execute_process(
-        COMMAND \"${Python3_EXECUTABLE}\"
-                \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
-                \"${CMAKE_INSTALL_PREFIX}\"
-                \"${CMAKE_CURRENT_SOURCE_DIR}\"
-        RESULT_VARIABLE _pyarrow_stub_docstrings_result
-      )
-      if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
-        message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
-      endif()
-    ")
-  endif()
-else()
-  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
-    message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
-                        "cannot build wheel without .pyi files.")
-  endif()
+# The stubs are currently incomplete, and some type checkers consume .pyi files
+# even without the py.typed marker. Re-enable this when the stubs are complete.
+if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+  message(FATAL_ERROR "PYARROW_REQUIRE_STUB_DOCSTRINGS cannot be used while "
+                      "pyarrow-stubs are omitted from wheels (GH-49831).")
 endif()
+# set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+# if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+#   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
+#           DESTINATION "."
+#           FILES_MATCHING
+#           PATTERN "*.pyi")
+#
+#   if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+#     install(CODE "
+#       execute_process(
+#         COMMAND \"${Python3_EXECUTABLE}\"
+#                 \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+#                 \"${CMAKE_INSTALL_PREFIX}\"
+#                 \"${CMAKE_CURRENT_SOURCE_DIR}\"
+#         RESULT_VARIABLE _pyarrow_stub_docstrings_result
+#       )
+#       if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
+#         message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+#       endif()
+#     ")
+#   endif()
+# else()
+#   if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+#     message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
+#                         "cannot build wheel without .pyi files.")
+#   endif()
+# endif()

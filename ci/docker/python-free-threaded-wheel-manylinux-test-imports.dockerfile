@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG python_version=3.13
+ARG python_version=3.14
 
 ENV DEBIAN_FRONTEND=noninteractive
 

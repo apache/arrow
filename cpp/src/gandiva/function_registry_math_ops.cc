@@ -61,7 +61,7 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   static std::vector<NativeFunction> math_fn_registry_ = {
-      MATH_UNARY_OPS(cbrt, {}), MATH_UNARY_OPS(exp, {}), MATH_UNARY_OPS(log, {}),
+      MATH_UNARY_OPS(cbrt, {}), MATH_UNARY_OPS(exp, {}), MATH_UNARY_OPS(log, {"ln"}),
       MATH_UNARY_OPS(log10, {}),
 
       MATH_BINARY_UNSAFE(log, {}),

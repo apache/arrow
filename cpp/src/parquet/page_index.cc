@@ -335,9 +335,14 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
 
     /// Page index location must be within the range of the read range.
+    int64_t index_end = 0;
+    int64_t range_end = 0;
     if (index_location.offset < index_read_range->offset ||
-        index_location.offset + index_location.length >
-            index_read_range->offset + index_read_range->length) {
+        ::arrow::internal::AddWithOverflow(index_location.offset, index_location.length,
+                                           &index_end) ||
+        ::arrow::internal::AddWithOverflow(index_read_range->offset,
+                                           index_read_range->length, &range_end) ||
+        index_end > range_end) {
       throw ParquetException("Page index location [offset:", index_location.offset,
                              ",length:", index_location.length,
                              "] is out of range from previous WillNeed request [offset:",
@@ -961,13 +966,13 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 
 std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                                const void* serialized_index,
-                                               uint32_t index_len,
+                                               int64_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::ColumnIndex column_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  &index_len, &column_index, decryptor);
+                                  index_len, &column_index, decryptor);
   if (ARROW_PREDICT_FALSE(LoadEnumSafe(&column_index.boundary_order) ==
                           BoundaryOrder::UNDEFINED)) {
     // Guard against UB when moving column_index
@@ -1006,13 +1011,13 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
 }
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
-                                               uint32_t index_len,
+                                               int64_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::OffsetIndex offset_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  &index_len, &offset_index, decryptor);
+                                  index_len, &offset_index, decryptor);
   return std::make_unique<OffsetIndexImpl>(offset_index);
 }
 

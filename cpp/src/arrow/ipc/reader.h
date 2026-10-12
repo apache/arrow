@@ -36,8 +36,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace ipc {
+namespace arrow::ipc {
 
 class DictionaryMemo;
 struct IpcPayload;
@@ -59,6 +58,11 @@ struct ReadStats {
   /// Number of replaced dictionaries (i.e. where a dictionary batch replaces
   /// an existing dictionary with an unrelated new dictionary).
   int64_t num_replaced_dictionaries = 0;
+
+  /// The original endianness of the schema in the IPC file or stream.
+  /// This is not reflected in the schema returned by the RecordBatchReader
+  /// unless IpcReadOptions.ensure_native_endian is set to false.
+  Endianness original_endianness = Endianness::Native;
 };
 
 /// \brief Synchronous batch stream reader that reads from io::InputStream
@@ -584,6 +588,9 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 ///
 /// \param[in] file an InputStream pointed at the start of the message
 /// \return the read tensor
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file);
 
@@ -591,6 +598,9 @@ Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file);
 ///
 /// \param[in] message a Message containing the tensor metadata and body
 /// \return the read tensor
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message);
 
@@ -598,6 +608,9 @@ Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message);
 ///
 /// \param[in] file an InputStream pointed at the start of the message
 /// \return the read sparse tensor
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file);
 
@@ -605,6 +618,9 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file);
 ///
 /// \param[in] message a Message containing the tensor metadata and body
 /// \return the read sparse tensor
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message);
 
@@ -634,5 +650,4 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size);
 
 }  // namespace internal
 
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc

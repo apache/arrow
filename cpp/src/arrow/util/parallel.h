@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/util/functional.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
@@ -47,7 +47,7 @@ Status ParallelFor(int num_tasks, FUNCTION&& func,
 }
 
 template <class FUNCTION, typename T,
-          typename R = typename internal::call_traits::return_type<FUNCTION>::ValueType>
+          typename R = typename std::invoke_result_t<FUNCTION, int, T>::ValueType>
 Future<std::vector<R>> ParallelForAsync(std::vector<T> inputs, FUNCTION&& func,
                                         Executor* executor = internal::GetCpuThreadPool(),
                                         TaskHints hints = TaskHints{}) {
@@ -84,7 +84,7 @@ Status OptionalParallelFor(bool use_threads, int num_tasks, FUNCTION&& func,
 // depending on the input boolean.
 
 template <class FUNCTION, typename T,
-          typename R = typename internal::call_traits::return_type<FUNCTION>::ValueType>
+          typename R = typename std::invoke_result_t<FUNCTION, int, T>::ValueType>
 Future<std::vector<R>> OptionalParallelForAsync(
     bool use_threads, std::vector<T> inputs, FUNCTION&& func,
     Executor* executor = internal::GetCpuThreadPool(), TaskHints hints = TaskHints{}) {

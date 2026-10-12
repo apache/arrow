@@ -16,10 +16,10 @@
 # under the License.
 
 click
-github3.py
 jinja2
 jira
 pygit2
+pygithub
 ruamel.yaml
 setuptools_scm
 toolz

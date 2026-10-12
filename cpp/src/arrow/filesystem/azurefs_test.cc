@@ -18,6 +18,7 @@
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
+#include <chrono>
 #include <memory>
 #include <random>
 #include <string>
@@ -91,6 +92,26 @@ class BaseAzureEnv : public ::testing::Environment {
   }
 };
 
+namespace {
+Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
+  AzureOptions options;
+  options.account_name = env->account_name();
+  switch (env->backend()) {
+    case AzureBackend::kAzurite:
+      options.blob_storage_authority = "127.0.0.1:10000";
+      options.dfs_storage_authority = "127.0.0.1:10000";
+      options.blob_storage_scheme = "http";
+      options.dfs_storage_scheme = "http";
+      break;
+    case AzureBackend::kAzure:
+      // Use the default values
+      break;
+  }
+  ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
+  return options;
+}
+}  // namespace
+
 template <class AzureEnvClass>
 class AzureEnvImpl : public BaseAzureEnv {
  private:
@@ -158,6 +179,24 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
   arrow::internal::PlatformFilename debug_log_path_;
   std::unique_ptr<util::Process> server_process_;
 
+  // Azurite has no readiness endpoint: https://github.com/Azure/Azurite/issues/1666
+  Status WaitForStartup() {
+    ARROW_ASSIGN_OR_RAISE(auto options, MakeOptions(this));
+    ARROW_ASSIGN_OR_RAISE(auto client, options.MakeBlobServiceClient());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    std::string last_error;
+    while (server_process_->IsRunning() && std::chrono::steady_clock::now() < deadline) {
+      try {
+        client->ListBlobContainers();
+        return Status::OK();
+      } catch (const std::exception& exception) {
+        last_error = exception.what();
+      }
+      SleepFor(0.1);
+    }
+    return Status::IOError("Azurite failed to start: ", last_error);
+  }
+
   using AzureEnvImpl::AzureEnvImpl;
 
  public:
@@ -182,6 +221,7 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
                                     // Azurite with old Node.js on old Ubuntu.
                                     "--skipApiVersionCheck"});
     ARROW_RETURN_NOT_OK(self->server_process_->Execute());
+    ARROW_RETURN_NOT_OK(self->WaitForStartup());
     return self;
   }
 
@@ -263,26 +303,6 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 
   bool WithHierarchicalNamespace() const final { return true; }
 };
-
-namespace {
-Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
-  AzureOptions options;
-  options.account_name = env->account_name();
-  switch (env->backend()) {
-    case AzureBackend::kAzurite:
-      options.blob_storage_authority = "127.0.0.1:10000";
-      options.dfs_storage_authority = "127.0.0.1:10000";
-      options.blob_storage_scheme = "http";
-      options.dfs_storage_scheme = "http";
-      break;
-    case AzureBackend::kAzure:
-      // Use the default values
-      break;
-  }
-  ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
-  return options;
-}
-}  // namespace
 
 struct PreexistingData {
  public:

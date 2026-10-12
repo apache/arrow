@@ -20,8 +20,12 @@ set -ex
 
 NPROC=$(nproc)
 
-mkdir -p $ARROW_BUILD_DIR
-pushd $ARROW_BUILD_DIR
+mkdir -p "$ARROW_BUILD_DIR"
+pushd "$ARROW_BUILD_DIR"
+
+# Convert the space-separated CMake options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a ARROW_CMAKE_OPTIONS_ARRAY <<< "$ARROW_CMAKE_OPTIONS"
 
 # Enable the CSV reader as it's used by the example third-party build
 cmake /arrow/cpp \
@@ -30,9 +34,9 @@ cmake /arrow/cpp \
     -DARROW_FILESYSTEM=ON \
     -DARROW_PARQUET=ON \
     -DARROW_MIMALLOC=OFF \
-    $ARROW_CMAKE_OPTIONS
+    "${ARROW_CMAKE_OPTIONS_ARRAY[@]}"
 
-make -j$NPROC
+make -j"$NPROC"
 make install
 
 popd

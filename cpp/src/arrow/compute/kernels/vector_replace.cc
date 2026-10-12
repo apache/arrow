@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -422,12 +423,10 @@ struct ReplaceMaskChunked {
       ExecResult chunk_result;
       if (is_fixed_width(out->type()->id())) {
         auto chunk_out = std::make_shared<ArrayData>(chunk->type(), chunk->length());
-        chunk_out->buffers.resize(2);
-        ARROW_ASSIGN_OR_RAISE(chunk_out->buffers[0],
-                              ctx->AllocateBitmap(chunk->length()));
-        const int64_t slot_width = out->type()->byte_width();
-        ARROW_ASSIGN_OR_RAISE(chunk_out->buffers[1],
-                              ctx->Allocate(slot_width * chunk->length()));
+        ArrayData* chunk_out_arr = chunk_out.get();
+        RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+            ctx, chunk->length(), /*source=*/*chunk->data(),
+            /*allocate_validity=*/true, chunk_out_arr));
         chunk_result.value = chunk_out;
       }
       if (batch[1].is_scalar()) {
@@ -696,10 +695,9 @@ struct FillNullForwardChunked {
       for (const std::shared_ptr<Array>& chunk : values.chunks()) {
         if (is_fixed_width(out->type()->id())) {
           ArrayData* output = out->mutable_array();
-          ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(chunk->length()));
-          ARROW_ASSIGN_OR_RAISE(
-              output->buffers[1],
-              ctx->Allocate(out->type()->byte_width() * chunk->length()));
+          RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+              ctx, chunk->length(), /*source=*/*chunk->data(),
+              /*allocate_validity=*/true, output));
         }
         ExecResult chunk_result;
         chunk_result.value = out->array();
@@ -780,9 +778,9 @@ struct FillNullBackwardChunked {
         const auto& chunk = chunks[i];
         if (is_fixed_width(out->type()->id())) {
           ArrayData* output = out->mutable_array();
-          auto data_bytes = output->type->byte_width() * chunk->length();
-          ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(chunk->length()));
-          ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->Allocate(data_bytes));
+          RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+              ctx, chunk->length(), /*source=*/*chunk->data(),
+              /*allocate_validity=*/true, output));
         }
         ExecResult chunk_result;
         chunk_result.value = out->array();
@@ -857,11 +855,10 @@ void RegisterVectorFunction(FunctionRegistry* registry,
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
             registry, func.get());
   for (const auto& ty : BaseBinaryTypes()) {
-    AddKernel(
-        ty->id(), Functor<FixedSizeBinaryType>::GetSignature(ty->id()),
-        GenerateTypeAgnosticVarBinaryBase<Functor, ArrayKernelExec>(*ty),
-        GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor, VectorKernel::ChunkedExec>(*ty),
-        registry, func.get());
+    AddKernel(ty->id(), Functor<FixedSizeBinaryType>::GetSignature(ty->id()),
+              GenerateTypeAgnosticVarBinaryBase<Functor>(*ty),
+              GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor>(*ty), registry,
+              func.get());
   }
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));

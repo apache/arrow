@@ -52,17 +52,17 @@ files into Arrow structures.
    filesystems
    numpy
    pandas
-   interchange_protocol
-   dlpack
    timestamps
-   orc
+   parquet/index
+   dataset
    csv
+   orc
    feather
    json
-   parquet
-   dataset
    flight
    extending_types
+   interchange_protocol
+   dlpack
    integration
    env_vars
    api

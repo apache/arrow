@@ -604,24 +604,100 @@ TEST_F(TestExtractHolder, TestExtractInvalidPattern) {
   execution_context_.Reset();
 }
 
-TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
-  // Create function with incorrect number of params
+TEST_F(TestExtractHolder, TestEmptyInput) {
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"((\w+))"));
+  auto& extract = *extract_holder;
+  int32_t out_length = 0;
+
+  const char* ret = extract(&execution_context_, "", 0, 0, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "");
+  EXPECT_FALSE(execution_context_.has_error());
+}
+
+TEST_F(TestExtractHolder, TestOptionalGroup) {
+  // (a)?(b): group 1 is optional; when input is "b" it doesn't participate
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"((a)?(b))"));
+  auto& extract = *extract_holder;
+  int32_t out_length = 0;
+
+  std::string input = "b";
+  const char* ret = extract(&execution_context_, input.c_str(),
+                            static_cast<int32_t>(input.size()), 1, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "");
+  EXPECT_FALSE(execution_context_.has_error());
+
+  ret = extract(&execution_context_, input.c_str(), static_cast<int32_t>(input.size()), 2,
+                &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "b");
+
+  input = "ab";
+  ret = extract(&execution_context_, input.c_str(), static_cast<int32_t>(input.size()), 1,
+                &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "a");
+}
+
+TEST_F(TestExtractHolder, TestNoUserGroups) {
+  // Pattern with no user capturing groups — only the outer wrapper group exists.
+  // Index 0 returns the full match; index 1 is out of range.
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"(\d+)"));
+  auto& extract = *extract_holder;
+  int32_t out_length = 0;
+
+  std::string input = "abc123def";
+  const char* ret = extract(&execution_context_, input.c_str(),
+                            static_cast<int32_t>(input.size()), 0, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "123");
+  EXPECT_FALSE(execution_context_.has_error());
+
+  ret = extract(&execution_context_, input.c_str(), static_cast<int32_t>(input.size()), 1,
+                &out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_TRUE(execution_context_.has_error());
+  execution_context_.Reset();
+}
+
+TEST_F(TestExtractHolder, TestDefaultIndexExtract) {
+  // 2-arg form defaults to index 1 (first capture group)
   auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
   auto pattern_node = std::make_shared<LiteralNode>(
       arrow::utf8(), LiteralHolder(R"((\w+) (\w+))"), false);
   auto function_node =
       FunctionNode("regexp_extract", {field, pattern_node}, arrow::utf8());
 
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(function_node));
+
+  std::string input_string = "John Doe";
+  int32_t out_length = 0;
+
+  auto& extract = *extract_holder;
+  const char* ret = extract(&execution_context_, input_string.c_str(),
+                            static_cast<int32_t>(input_string.length()), 1, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "John");
+
+  input_string = "Ringo Beast";
+  ret = extract(&execution_context_, input_string.c_str(),
+                static_cast<int32_t>(input_string.length()), 1, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "Ringo");
+}
+
+TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
+  // Create function with incorrect number of params (one arg)
+  auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+  NodeVector one_arg = {field};
+  auto function_node = FunctionNode("regexp_extract", one_arg, arrow::utf8());
+
   auto extract_holder = ExtractHolder::Make(function_node);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("'extract' function requires three parameters"),
+      Invalid,
+      ::testing::HasSubstr("'extract' function requires two or three parameters"),
       extract_holder.status());
 
   execution_context_.Reset();
 
   // Create function with non-utf8 literal parameter as pattern
   field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
-  pattern_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
+  auto pattern_node =
+      std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
   auto index_node = std::make_shared<FieldNode>(arrow::field("idx", arrow::int32()));
   function_node =
       FunctionNode("regexp_extract", {field, pattern_node, index_node}, arrow::utf8());
@@ -654,3 +730,60 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
 }
 
 }  // namespace gandiva
+
+extern "C" const char* gdv_fn_regexp_extract_utf8_utf8(int64_t ptr, int64_t holder_ptr,
+                                                       const char* data, int32_t data_len,
+                                                       const char* pattern,
+                                                       int32_t pattern_len,
+                                                       int32_t* out_length);
+
+TEST(TestRegexpExtractStub, TestDefaultIndexStub) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_OK_AND_ASSIGN(auto holder, gandiva::ExtractHolder::Make(R"((\w+) (\w+))"));
+  auto holder_ptr = reinterpret_cast<int64_t>(holder.get());
+
+  std::string pattern = R"((\w+) (\w+))";
+  int32_t out_length = 0;
+
+  std::string input = "John Doe";
+  const char* ret = gdv_fn_regexp_extract_utf8_utf8(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "John");
+
+  input = "Ringo Beast";
+  ret = gdv_fn_regexp_extract_utf8_utf8(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "Ringo");
+
+  // no match returns empty string
+  input = "--- ---";
+  ret = gdv_fn_regexp_extract_utf8_utf8(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), &out_length);
+  EXPECT_EQ(out_length, 0);
+}
+
+extern "C" const char* gdv_fn_regexp_extract_utf8_utf8_int32(
+    int64_t ptr, int64_t holder_ptr, const char* data, int32_t data_len,
+    const char* pattern, int32_t pattern_len, int32_t extract_index, int32_t* out_length);
+
+TEST(TestRegexpExtractStub, TestIndexStub) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_OK_AND_ASSIGN(auto holder, gandiva::ExtractHolder::Make(R"((\w+) (\w+))"));
+  auto holder_ptr = reinterpret_cast<int64_t>(holder.get());
+
+  std::string pattern = R"((\w+) (\w+))";
+  int32_t out_length = 0;
+
+  std::string input = "John Doe";
+  const char* ret = gdv_fn_regexp_extract_utf8_utf8_int32(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), 2, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "Doe");
+}

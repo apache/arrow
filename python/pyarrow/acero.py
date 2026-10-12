@@ -30,6 +30,7 @@ try:
         Declaration,
         ExecNodeOptions,
         TableSourceNodeOptions,
+        RecordBatchReaderSourceNodeOptions,
         FilterNodeOptions,
         ProjectNodeOptions,
         AggregateNodeOptions,

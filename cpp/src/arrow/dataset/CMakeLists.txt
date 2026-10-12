@@ -187,7 +187,7 @@ endif()
 
 if(ARROW_JSON)
   add_arrow_dataset_test(file_json_test EXTRA_LINK_LIBS ${ARROW_DATASET_TEST_LINK_LIBS}
-                         RapidJSON)
+                         arrow::simdjson)
 endif()
 
 if(ARROW_ORC)

@@ -2,12 +2,9 @@
 % Please edit documentation in R/type.R
 \name{infer_type}
 \alias{infer_type}
-\alias{type}
 \title{Infer the arrow Array type from an R object}
 \usage{
 infer_type(x, ...)
-
-type(x)
 }
 \arguments{
 \item{x}{an R object (usually a vector) to be converted to an \link{Array} or
@@ -19,7 +16,7 @@ type(x)
 An arrow \link[=data-type]{data type}
 }
 \description{
-\code{\link[=type]{type()}} is deprecated in favor of \code{\link[=infer_type]{infer_type()}}.
+Infer the arrow Array type from an R object
 }
 \examples{
 infer_type(1:10)

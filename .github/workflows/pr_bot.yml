@@ -73,7 +73,7 @@ jobs:
           curl -sL -o committers.yml $url
           echo "committers_path=$(pwd)/committers.yml" >> $GITHUB_OUTPUT
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: arrow
           repository: apache/arrow
@@ -82,7 +82,7 @@ jobs:
           # fetch the tags for version number generation
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Install Archery and Crossbow dependencies

@@ -871,3 +871,25 @@ def test_read_schema_uuid_extension_type(tmp_path):
 
     schema_disabled = pq.read_schema(file_path_str, arrow_extensions_enabled=False)
     assert schema_disabled.field("ext").type == pa.binary(16)
+
+
+def test_geospatial_types(parquet_test_datadir):
+    metadata = pq.read_metadata(
+        parquet_test_datadir / "geospatial" / "crs-default.parquet"
+    )
+    column_schema = metadata.schema.column(1)
+    assert column_schema.name == "geometry"
+    assert column_schema.logical_type.type == "GEOMETRY"
+
+    col_chunk = metadata.row_group(0).column(1)
+    assert col_chunk.is_geo_stats_set
+    assert isinstance(col_chunk.geo_statistics, pa._parquet.GeoStatistics)
+    assert isinstance(col_chunk.geo_statistics.geospatial_types, list)
+    assert isinstance(col_chunk.geo_statistics.xmin, float)
+
+    metadata = pq.read_metadata(
+        parquet_test_datadir / "geospatial" / "crs-geography.parquet"
+    )
+    column_schema = metadata.schema.column(1)
+    assert column_schema.name == "geography"
+    assert column_schema.logical_type.type == "GEOGRAPHY"

@@ -49,3 +49,21 @@ if(ARROW_LINK_SHARED)
 else()
   target_link_libraries(arrow-example PRIVATE Arrow::arrow_static)
 endif()
+
+option(ARROW_EXAMPLE_S3_STATIC_CHECK "Verify S3 and static linking" OFF)
+# Check only when Arrow got built with S3 by ArrowOptions.cmake via find_package
+if(ARROW_EXAMPLE_S3_STATIC_CHECK
+   AND ARROW_S3
+   AND TARGET Arrow::arrow_static)
+  find_package(ArrowS3 REQUIRED)
+  if(NOT TARGET ArrowS3::arrow_s3_static)
+    message(FATAL_ERROR "ArrowS3::arrow_s3_static not found")
+  endif()
+  add_executable(arrow-example-s3-static example.cc)
+  target_compile_definitions(arrow-example-s3-static
+                             PRIVATE ARROW_EXAMPLE_S3_STATIC_CHECK)
+  target_link_libraries(arrow-example-s3-static PRIVATE ArrowS3::arrow_s3_static)
+elseif(ARROW_EXAMPLE_S3_STATIC_CHECK)
+  message(STATUS "Skipping arrow-example-s3-static: "
+                 "requires ARROW_S3 and Arrow::arrow_static")
+endif()
