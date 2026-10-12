@@ -466,22 +466,23 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
 };
 
 #if defined(__GNUC__) || defined(__clang__)
-// For gcc and clang, we can avoid the intermediate `result_name` 
+// For gcc and clang, we can avoid the intermediate `result_name`
 // escaping the current scope by using a compiler extension.
 // Otherwise, we fall back to an implementation where the intermediate
 // declaration might consume additional stack space.
-#define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr)       \
-  lhs = __extension__({                                           \
+#  define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr)       \
+    lhs = __extension__({                                           \
+      auto&& result_name = (rexpr);                                 \
+      ARROW_RETURN_IF_(!(result_name).ok(), (result_name).status(), \
+                       ARROW_STRINGIFY(rexpr));                     \
+      std::move(result_name).ValueUnsafe();                         \
+    })
+#else
+#  define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr)     \
     auto&& result_name = (rexpr);                                 \
     ARROW_RETURN_IF_(!(result_name).ok(), (result_name).status(), \
                      ARROW_STRINGIFY(rexpr));                     \
-    std::move(result_name).ValueUnsafe();                         \
-  })
-#else
-#define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr)                              \
-  auto&& result_name = (rexpr);                                                          \
-  ARROW_RETURN_IF_(!(result_name).ok(), (result_name).status(), ARROW_STRINGIFY(rexpr)); \
-  lhs = std::move(result_name).ValueUnsafe();
+    lhs = std::move(result_name).ValueUnsafe();
 #endif
 
 #define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
