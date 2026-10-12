@@ -60,7 +60,7 @@ Status MismatchingColumns(const InvalidRow& row) {
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
 
-enum class DelimiterMatch { NoMatch, Match, Partial };
+enum class DelimiterMatch { kNoMatch, kMatch, kPartial };
 
 DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
                               const char* data_end, bool is_final) {
@@ -68,12 +68,12 @@ DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
   const auto available = static_cast<size_t>(data_end - data);
   const auto compared = std::min(available, delimiter.size());
   if (std::memcmp(data, delimiter.data(), compared) != 0) {
-    return DelimiterMatch::NoMatch;
+    return DelimiterMatch::kNoMatch;
   }
   if (available < delimiter.size()) {
-    return is_final ? DelimiterMatch::NoMatch : DelimiterMatch::Partial;
+    return is_final ? DelimiterMatch::kNoMatch : DelimiterMatch::kPartial;
   }
-  return DelimiterMatch::Match;
+  return DelimiterMatch::kMatch;
 }
 
 template <bool IgnoreExtraColumns>
@@ -363,10 +363,10 @@ class BlockParserImpl {
       if constexpr (SpecializedOptions::multi_delimiter) {
         const auto delimiter = internal::GetDelimiter(options_);
         const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
-        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Partial)) {
+        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kPartial)) {
           goto AbortLine;
         }
-        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Match)) {
+        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kMatch)) {
           delimiter_len = delimiter.size();
         }
       } else if (*data == options_.delimiter) {
@@ -429,10 +429,10 @@ class BlockParserImpl {
     if constexpr (SpecializedOptions::multi_delimiter) {
       const auto delimiter = internal::GetDelimiter(options_);
       const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
-      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Partial)) {
+      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kPartial)) {
         goto AbortLine;
       }
-      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::Match)) {
+      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kMatch)) {
         data += delimiter.size();
         goto FieldEnd;
       }
