@@ -294,6 +294,7 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
       checked_cast<const SparseCOOIndex&>(*sparse_tensor->sparse_index());
   const auto& coords = sparse_index.indices();
   const auto* coords_data = coords->raw_data();
+  const auto& coords_strides = coords->strides();
 
   const int index_elsize = coords->type()->byte_width();
 
@@ -314,10 +315,11 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
     int64_t offset = 0;
 
     for (int j = 0; j < ndim; ++j) {
-      auto index = static_cast<int64_t>(
-          SparseTensorConverterMixin::GetIndexValue(coords_data, index_elsize));
+      const auto* index_data =
+          coords_data + i * coords_strides[0] + j * coords_strides[1];
+      const auto index = static_cast<int64_t>(
+          SparseTensorConverterMixin::GetIndexValue(index_data, index_elsize));
       offset += index * strides[j];
-      coords_data += index_elsize;
     }
 
     std::copy_n(raw_data, value_elsize, values + offset);
