@@ -1648,6 +1648,14 @@ parquet___arrow___ReaderProperties__set_thrift_container_size_limit <- function(
   invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit`, properties, size))
 }
 
+parquet___arrow___ReaderProperties__get_page_checksum_verification <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_page_checksum_verification`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_page_checksum_verification <- function(properties, check_crc) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_page_checksum_verification`, properties, check_crc))
+}
+
 parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads) {
   invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads`, properties, use_threads))
 }

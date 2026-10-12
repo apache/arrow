@@ -4233,6 +4233,38 @@ extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_thrift_container_
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_PARQUET)
+bool parquet___arrow___ReaderProperties__get_page_checksum_verification(const std::shared_ptr<parquet::ReaderProperties>& properties);
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__get_page_checksum_verification(SEXP properties_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type properties(properties_sexp);
+	return cpp11::as_sexp(parquet___arrow___ReaderProperties__get_page_checksum_verification(properties));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__get_page_checksum_verification(SEXP properties_sexp){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__get_page_checksum_verification(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+void parquet___arrow___ReaderProperties__set_page_checksum_verification(const std::shared_ptr<parquet::ReaderProperties>& properties, bool check_crc);
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_page_checksum_verification(SEXP properties_sexp, SEXP check_crc_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<bool>::type check_crc(check_crc_sexp);
+	parquet___arrow___ReaderProperties__set_page_checksum_verification(properties, check_crc);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_page_checksum_verification(SEXP properties_sexp, SEXP check_crc_sexp){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__set_page_checksum_verification(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
 void parquet___arrow___ArrowReaderProperties__set_use_threads(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_use_threads(SEXP properties_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
@@ -6179,6 +6211,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit, 2}, 
 		{ "_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit, 1}, 
 		{ "_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit, 2}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__get_page_checksum_verification", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__get_page_checksum_verification, 1}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__set_page_checksum_verification", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__set_page_checksum_verification, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary, 2}, 

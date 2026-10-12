@@ -76,6 +76,18 @@ void parquet___arrow___ReaderProperties__set_thrift_container_size_limit(
 }
 
 // [[parquet::export]]
+bool parquet___arrow___ReaderProperties__get_page_checksum_verification(
+    const std::shared_ptr<parquet::ReaderProperties>& properties) {
+  return properties->page_checksum_verification();
+}
+
+// [[parquet::export]]
+void parquet___arrow___ReaderProperties__set_page_checksum_verification(
+    const std::shared_ptr<parquet::ReaderProperties>& properties, bool check_crc) {
+  properties->set_page_checksum_verification(check_crc);
+}
+
+// [[parquet::export]]
 void parquet___arrow___ArrowReaderProperties__set_use_threads(
     const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads) {
   properties->set_use_threads(use_threads);

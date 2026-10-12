@@ -689,6 +689,12 @@ ParquetReaderProperties <- R6Class(
     },
     set_thrift_container_size_limit = function(size) {
       parquet___arrow___ReaderProperties__set_thrift_container_size_limit(self, size)
+    },
+    page_checksum_verification = function() {
+      parquet___arrow___ReaderProperties__get_page_checksum_verification(self)
+    },
+    set_page_checksum_verification = function(check_crc) {
+      parquet___arrow___ReaderProperties__set_page_checksum_verification(self, check_crc)
     }
   )
 )
