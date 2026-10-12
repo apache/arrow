@@ -1726,6 +1726,34 @@ TEST(Cast, Decimal128ToDecimal32) {
   }
 }
 
+// GH-53288: narrowing to Decimal32 must rescale and range-check the full-width
+// coefficient. Truncating to 32 bits first silently wrapped the value.
+TEST(Cast, Decimal128ToDecimal32NarrowingChecksFullCoefficient) {
+  CastOptions options;
+  options.allow_decimal_truncate = false;
+
+  // Ten-digit coefficient does not fit decimal32(9, 0). Truncating first yielded
+  // 5000000000 - 2^32 = 705032704, which does fit, so the cast wrongly succeeded.
+  auto too_wide = ArrayFromJSON(decimal128(12, 0), R"(["5000000000."])");
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(too_wide, options);
+
+  // 536870912000 is exactly 125 * 2^32, so the low 32 bits are zero. Rescaling by
+  // -3 first gives 536870912, which fits decimal32(9, -3) and must be preserved.
+  Decimal32Builder builder(decimal32(9, -3));
+  ASSERT_OK(builder.Append(Decimal32(536870912)));  // 536870912 * 10^3
+  ASSERT_OK_AND_ASSIGN(auto expected_negative_scale, builder.Finish());
+
+  auto negative_scale_input = ArrayFromJSON(decimal128(12, 0), R"(["536870912000."])");
+  CheckCast(negative_scale_input, expected_negative_scale, options);
+
+  // 30000000.00 has an unscaled value of 3000000000, which wraps to a negative
+  // int32. The wrapped value is no longer divisible by 100, so the exact rescale
+  // was rejected as a data loss.
+  auto exact_rescale = ArrayFromJSON(decimal128(12, 2), R"(["30000000.00"])");
+  CheckCast(exact_rescale, ArrayFromJSON(decimal32(9, 0), R"(["30000000."])"), options);
+}
+
 TEST(Cast, Decimal128ToDecimal64) {
   CastOptions options;
 
