@@ -1727,8 +1727,9 @@ TEST(Cast, Decimal128ToDecimal32) {
 }
 
 // GH-53288: narrowing to Decimal32 must rescale and range-check the full-width
-// coefficient. Truncating to 32 bits first silently wrapped the value.
-TEST(Cast, Decimal128ToDecimal32NarrowingChecksFullCoefficient) {
+// coefficient. Truncating to 32 bits first silently wrapped the value. One
+// specialization serves every source width, so all of them were affected.
+TEST(Cast, DecimalToDecimal32NarrowingChecksFullCoefficient) {
   CastOptions options;
   options.allow_decimal_truncate = false;
 
@@ -1752,6 +1753,16 @@ TEST(Cast, Decimal128ToDecimal32NarrowingChecksFullCoefficient) {
   // was rejected as a data loss.
   auto exact_rescale = ArrayFromJSON(decimal128(12, 2), R"(["30000000.00"])");
   CheckCast(exact_rescale, ArrayFromJSON(decimal32(9, 0), R"(["30000000."])"), options);
+
+  // The same specialization serves every source width, so check the other two.
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(ArrayFromJSON(decimal64(18, 0), R"(["5000000000."])"), options);
+  CheckCastFails(ArrayFromJSON(decimal256(40, 0), R"(["5000000000."])"), options);
+
+  // With truncation allowed the rescale now also happens at the source width, so
+  // the downscale sees 536870912000 rather than its low 32 bits.
+  options.allow_decimal_truncate = true;
+  CheckCast(negative_scale_input, expected_negative_scale, options);
 }
 
 TEST(Cast, Decimal128ToDecimal64) {
