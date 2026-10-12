@@ -159,6 +159,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool allow_bucket_creation
         c_bool allow_bucket_deletion
         c_bool check_directory_existence_before_creation
+        c_string user_agent
         c_bool force_virtual_addressing
         c_string tls_ca_file_path
         shared_ptr[const CKeyValueMetadata] default_metadata

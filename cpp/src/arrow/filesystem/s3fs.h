@@ -130,6 +130,10 @@ struct ARROW_S3_EXPORT S3Options {
   /// S3 connection transport, default "https"
   std::string scheme = "https";
 
+  /// Optional User-Agent override for this filesystem's S3 requests.
+  /// If empty, use the AWS SDK default.
+  std::string user_agent;
+
   /// ARN of role to assume
   std::string role_arn;
   /// Optional identifier for an assumed role session.

@@ -489,6 +489,7 @@ bool S3Options::Equals(const S3Options& other) const {
           connect_timeout == other.connect_timeout &&
           request_timeout == other.request_timeout &&
           endpoint_override == other.endpoint_override && scheme == other.scheme &&
+          user_agent == other.user_agent &&
           role_arn == other.role_arn && session_name == other.session_name &&
           external_id == other.external_id && load_frequency == other.load_frequency &&
           proxy_options.Equals(other.proxy_options) &&
@@ -1161,6 +1162,9 @@ class ClientBuilder {
           static_cast<long>(ceil(options_.connect_timeout * 1000));  // NOLINT runtime/int
     }
 
+    if (!options_.user_agent.empty()) {
+      client_config_.userAgent = ToAwsString(options_.user_agent);
+    }
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
       client_config_.scheme = Aws::Http::Scheme::HTTP;

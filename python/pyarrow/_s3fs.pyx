@@ -263,6 +263,10 @@ cdef class S3FileSystem(FileSystem):
         If true, then virtual addressing is always enabled.
         If false, then virtual addressing is only enabled if `endpoint_override` is empty.
         This can be used for non-AWS backends that only support virtual hosted-style access.
+    user_agent : str, default None
+        Override the User-Agent for this filesystem's S3 requests.
+        If None or empty, use the AWS SDK default. This setting does not
+        affect other filesystem instances.
     tls_ca_file_path : str, default None
         If set, this should be the path of a file containing TLS certificates
         in PEM format which will be used for TLS verification.
@@ -293,7 +297,8 @@ cdef class S3FileSystem(FileSystem):
                  check_directory_existence_before_creation=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
                      max_attempts=3),
-                 force_virtual_addressing=False, tls_ca_file_path=None):
+                 force_virtual_addressing=False, tls_ca_file_path=None,
+                 user_agent=None):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -407,6 +412,8 @@ cdef class S3FileSystem(FileSystem):
         options.value().allow_bucket_creation = allow_bucket_creation
         options.value().allow_bucket_deletion = allow_bucket_deletion
         options.value().check_directory_existence_before_creation = check_directory_existence_before_creation
+        if user_agent is not None:
+            options.value().user_agent = tobytes(user_agent)
         options.value().force_virtual_addressing = force_virtual_addressing
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
@@ -478,6 +485,7 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
+                user_agent=frombytes(opts.user_agent),
                 force_virtual_addressing=opts.force_virtual_addressing,
                 tls_ca_file_path=frombytes(opts.tls_ca_file_path),
             ),)

@@ -1726,6 +1726,64 @@ def test_filesystem_from_path_object(path):
 
 
 @pytest.mark.s3
+@pytest.mark.parametrize("pickle_roundtrip", [False, True])
+def test_s3fs_user_agent(pickle_roundtrip, pickle_module):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from threading import Thread
+    from pyarrow.fs import S3FileSystem
+
+    user_agents = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_HEAD(self):
+            user_agents.append(self.headers.get("User-Agent"))
+            self.send_response(200)
+            self.send_header("Content-Length", "3")
+            self.end_headers()
+
+        def do_GET(self):
+            self.do_HEAD()
+            self.wfile.write(b"abc")
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        options = dict(anonymous=True, region="us-east-1", scheme="http",
+                       endpoint_override=f"127.0.0.1:{server.server_port}")
+        first = S3FileSystem(**options, user_agent="first-app/1.0")
+        second = S3FileSystem(**options, user_agent="second-app/2.0")
+        default = S3FileSystem(**options)
+        assert first != second
+        assert first != default
+        assert S3FileSystem(**options, user_agent="") == default
+        if pickle_roundtrip:
+            restored = pickle_module.loads(pickle_module.dumps(first))
+            assert restored == first
+            first = restored
+        for filesystem, expected in [(first, "first-app/1.0"),
+                                     (second, "second-app/2.0"),
+                                     (first, "first-app/1.0"),
+                                     (default, None)]:
+            user_agents.clear()
+            with filesystem.open_input_file("bucket/object") as stream:
+                assert stream.read() == b"abc"
+            assert user_agents
+            if expected:
+                assert all(value == expected for value in user_agents)
+            else:
+                assert all("first-app" not in value and "second-app" not in value
+                           for value in user_agents)
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+@pytest.mark.s3
 def test_filesystem_from_uri_s3(s3_server):
     from pyarrow.fs import S3FileSystem
 
