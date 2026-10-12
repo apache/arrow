@@ -392,8 +392,8 @@ class ContentDefinedChunker::Impl {
   }
 
  private:
-  // Reference to the column's level information
-  const internal::LevelInfo& level_info_;
+  // The column's level information
+  const internal::LevelInfo level_info_;
   // Minimum chunk size in bytes, the rolling hash will not be updated until this size is
   // reached for each chunk. Note that all data sent through the hash function is counted
   // towards the chunk size, including definition and repetition levels.
@@ -422,6 +422,7 @@ ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
                                              int64_t max_chunk_size, int norm_level)
     : impl_(new Impl(level_info, min_chunk_size, max_chunk_size, norm_level)) {}
 
+ContentDefinedChunker::ContentDefinedChunker(ContentDefinedChunker&&) noexcept = default;
 ContentDefinedChunker::~ContentDefinedChunker() = default;
 
 std::vector<Chunk> ContentDefinedChunker::GetChunks(const int16_t* def_levels,
