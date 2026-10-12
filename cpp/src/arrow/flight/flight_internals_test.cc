@@ -869,7 +869,6 @@ TEST(TransportErrorHandling, ReconstructStatus) {
 #if !defined(_WIN32) && defined(ARROW_ENABLE_THREADING)
 
 // Serve() must not leave the process signal handlers overridden when it fails
-// (https://github.com/apache/arrow/pull/50407#discussion_r4208711354).
 TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
   FlightServerBase server;
   ASSERT_OK(server.SetShutdownOnSignals({SIGUSR1}));
@@ -883,7 +882,6 @@ TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
 
 // Shutdown() on a server that was never initialized must not clear the
 // process-wide signal target of another, serving instance
-// (https://github.com/apache/arrow/pull/50407#discussion_r4216028229).
 TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalable) {
   FlightServerBase serving_server;
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
