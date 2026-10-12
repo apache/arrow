@@ -30,6 +30,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/test_util.h"
@@ -169,6 +170,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       GENERATE_CASE(BINARY, ::arrow::BinaryBuilder,
                     std::string("bin_") + std::to_string(val))
       GENERATE_CASE(LARGE_BINARY, ::arrow::LargeBinaryBuilder,
+                    std::string("bin_") + std::to_string(val))
+      GENERATE_CASE(STRING_VIEW, ::arrow::StringViewBuilder,
+                    std::string("str_") + std::to_string(val))
+      GENERATE_CASE(BINARY_VIEW, ::arrow::BinaryViewBuilder,
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size =
@@ -742,6 +747,10 @@ Result<int64_t> CalculateCdcSize(const std::shared_ptr<Array>& array, bool nulla
   } else if (::arrow::is_large_binary_like(type_id)) {
     auto binary_array = checked_cast<const ::arrow::LargeBinaryArray*>(array.get());
     result += binary_array->total_values_length();
+  } else if (::arrow::is_binary_view_like(type_id)) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *array->data(),
+        [&](std::string_view v) { result += static_cast<int64_t>(v.size()); }, [] {});
   } else {
     return Status::NotImplemented("CDC size calculation for type ",
                                   array->type()->ToString(), " is not implemented");
@@ -784,7 +793,8 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
     ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
   }
 
-  if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id)) {
+  if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id) ||
+      ::arrow::is_binary_view_like(type_id)) {
     int64_t offset = 0;
 
     auto page_lengths = column_info.page_lengths;
@@ -1451,7 +1461,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(
         CaseConfig{::arrow::boolean(), false}, CaseConfig{::arrow::int64(), true},
         // Binary-like
-        CaseConfig{::arrow::utf8(), false},
+        CaseConfig{::arrow::utf8(), false}, CaseConfig{::arrow::utf8_view(), true},
         CaseConfig{::arrow::fixed_size_binary(16), true},
         // Nested types
         CaseConfig{::arrow::list(::arrow::int32()), false},
@@ -1475,6 +1485,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Binary-like
         CaseConfig{::arrow::utf8(), false}, CaseConfig{::arrow::binary(), true},
         CaseConfig{::arrow::fixed_size_binary(16), true},
+        CaseConfig{::arrow::utf8_view(), false}, CaseConfig{::arrow::binary_view(), true},
         // Temporal
         CaseConfig{::arrow::date32(), false},
         CaseConfig{::arrow::time32(::arrow::TimeUnit::MILLI), true},
