@@ -1732,6 +1732,24 @@ ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
 ARROW_EXPORT Result<Datum> MonthDayNanoBetween(const Datum& left, const Datum& right,
                                                ExecContext* ctx = NULLPTR);
 
+/// \brief Construct month-day-nanosecond intervals from integer components
+///
+/// Months and days are safely cast to int32, and nanoseconds to int64.
+/// Scalar components are broadcast. If any component is null, the output is null.
+/// Component values are preserved without normalization.
+///
+/// \param[in] months integer array or scalar of months
+/// \param[in] days integer array or scalar of days
+/// \param[in] nanoseconds integer array or scalar of nanoseconds
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 27.0.0
+ARROW_EXPORT Result<Datum> MonthDayNanoIntervalFromParts(const Datum& months,
+                                                         const Datum& days,
+                                                         const Datum& nanoseconds,
+                                                         ExecContext* ctx = NULLPTR);
+
 /// \brief DayTime Between finds the number of days and milliseconds between two values
 ///
 /// \param[in] left input treated as the start time

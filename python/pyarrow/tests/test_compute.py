@@ -2628,6 +2628,106 @@ def test_strftime():
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 
+def test_month_day_nano_interval_from_parts():
+    # Python integers infer int64, including the month and day components.
+    result = pc.month_day_nano_interval_from_parts(
+        [1, -2, 0], [32, 3, -4], [90_000_000_000_000, -5, 6])
+    expected = pa.array(
+        [(1, 32, 90_000_000_000_000), (-2, 3, -5), (0, -4, 6)],
+        type=pa.month_day_nano_interval())
+    assert result.equals(expected)
+
+    result = pc.month_day_nano_interval_from_parts(
+        pa.array([1, 2], type=pa.uint16()),
+        pa.array([3, -4], type=pa.int8()),
+        pa.array([2**32, 5], type=pa.uint64()))
+    assert result.equals(pa.array(
+        [(1, 3, 2**32), (2, -4, 5)], type=pa.month_day_nano_interval()))
+
+
+def test_month_day_nano_interval_from_parts_scalars():
+    result = pc.month_day_nano_interval_from_parts(1, -2, 3)
+    assert result.equals(pa.scalar(
+        (1, -2, 3), type=pa.month_day_nano_interval()))
+
+    result = pc.month_day_nano_interval_from_parts(1, [2, None, -3], 4)
+    assert result.equals(pa.array(
+        [(1, 2, 4), None, (1, -3, 4)], type=pa.month_day_nano_interval()))
+
+    result = pc.month_day_nano_interval_from_parts(None, 2, 3)
+    assert result.equals(pa.scalar(None, type=pa.month_day_nano_interval()))
+
+    result = pc.month_day_nano_interval_from_parts(
+        [1, 2], pa.scalar(None, type=pa.int32()), 3)
+    assert result.equals(pa.array(
+        [None, None], type=pa.month_day_nano_interval()))
+
+
+def test_month_day_nano_interval_from_parts_nulls():
+    result = pc.month_day_nano_interval_from_parts(
+        [1, None, 3, 4], [2, 3, None, 5], [3, 4, 5, None])
+    assert result.equals(pa.array(
+        [(1, 2, 3), None, None, None], type=pa.month_day_nano_interval()))
+
+
+def test_month_day_nano_interval_from_parts_sliced_and_chunked():
+    months = pa.array([99, 1, -2, 3, 99]).slice(1, 3)
+    days = pa.array([99, 4, 5, -6, 99]).slice(1, 3)
+    nanoseconds = pa.array([99, 7, -8, 9, 99]).slice(1, 3)
+    expected = pa.array(
+        [(1, 4, 7), (-2, 5, -8), (3, -6, 9)],
+        type=pa.month_day_nano_interval())
+    result = pc.month_day_nano_interval_from_parts(months, days, nanoseconds)
+    assert result.equals(expected)
+
+    # Chunk boundaries need not align between the component inputs.
+    months = pa.chunked_array([months[:1], months[1:]])
+    days = pa.chunked_array([days[:2], days[2:]])
+    result = pc.month_day_nano_interval_from_parts(months, days, nanoseconds)
+    assert result.combine_chunks().equals(expected)
+
+
+@pytest.mark.parametrize("chunked", [False, True])
+def test_month_day_nano_interval_from_parts_empty(chunked):
+    months = (pa.chunked_array([], type=pa.int32()) if chunked
+              else pa.array([], type=pa.int32()))
+    result = pc.month_day_nano_interval_from_parts(months, 2, 3)
+    assert result.type == pa.month_day_nano_interval()
+    assert len(result) == 0
+
+
+def test_month_day_nano_interval_from_parts_boundaries():
+    result = pc.month_day_nano_interval_from_parts(
+        [-2**31, 2**31 - 1], [2**31 - 1, -2**31],
+        [-2**63, 2**63 - 1])
+    assert result.equals(pa.array(
+        [(-2**31, 2**31 - 1, -2**63),
+         (2**31 - 1, -2**31, 2**63 - 1)],
+        type=pa.month_day_nano_interval()))
+
+
+@pytest.mark.parametrize("component", [0, 1])
+@pytest.mark.parametrize("value", [-2**31 - 1, 2**31])
+def test_month_day_nano_interval_from_parts_overflow(component, value):
+    parts = [1, 2, 3]
+    parts[component] = value
+    with pytest.raises(pa.ArrowInvalid, match="not in range"):
+        pc.month_day_nano_interval_from_parts(*parts)
+
+
+def test_month_day_nano_interval_from_parts_unsigned_overflow():
+    nanoseconds = pa.array([2**63], type=pa.uint64())
+    with pytest.raises(pa.ArrowInvalid, match="not in range"):
+        pc.month_day_nano_interval_from_parts(1, 2, nanoseconds)
+
+
+@pytest.mark.parametrize("months", [1.0, "1"])
+def test_month_day_nano_interval_from_parts_invalid_type(months):
+    with pytest.raises(pa.ArrowNotImplementedError,
+                       match="no kernel matching input types"):
+        pc.month_day_nano_interval_from_parts(months, 2, 3)
+
+
 def _check_datetime_components(timestamps, timezone=None):
     ts = pd.to_datetime(timestamps).tz_localize(
         "UTC").tz_convert(timezone).to_series()

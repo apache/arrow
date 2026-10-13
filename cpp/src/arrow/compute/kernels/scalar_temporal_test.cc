@@ -3886,5 +3886,174 @@ TEST_F(ScalarTemporalTest, DurationUnaryArithmetics) {
                    ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
   CheckScalarUnary("sign", arr, ArrayFromJSON(int8(), "[1, -1, null, 1, 0]"));
 }
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsBroadcasting) {
+  const char* function_name = "month_day_nano_interval_from_parts";
+  const DatumVector arrays = {ArrayFromJSON(int32(), "[1, 2, 3]"),
+                              ArrayFromJSON(int32(), "[-1, -2, -3]"),
+                              ArrayFromJSON(int64(), "[10, 20, 30]")};
+  const DatumVector scalars = {ScalarFromJSON(int32(), "4"), ScalarFromJSON(int32(), "5"),
+                               ScalarFromJSON(int64(), "-6")};
+  const char* expected_arrays[] = {"[[1, 5, -6], [2, 5, -6], [3, 5, -6]]",
+                                   "[[4, -1, -6], [4, -2, -6], [4, -3, -6]]",
+                                   "[[1, -1, -6], [2, -2, -6], [3, -3, -6]]",
+                                   "[[4, 5, 10], [4, 5, 20], [4, 5, 30]]",
+                                   "[[1, 5, 10], [2, 5, 20], [3, 5, 30]]",
+                                   "[[4, -1, 10], [4, -2, 20], [4, -3, 30]]",
+                                   "[[1, -1, 10], [2, -2, 20], [3, -3, 30]]"};
+
+  CheckScalar(function_name, scalars,
+              ScalarFromJSON(month_day_nano_interval(), "[4, 5, -6]"));
+  for (int array_mask = 1; array_mask < 8; ++array_mask) {
+    SCOPED_TRACE(array_mask);
+    DatumVector inputs;
+    for (int component = 0; component < 3; ++component) {
+      inputs.push_back(array_mask & (1 << component) ? arrays[component]
+                                                     : scalars[component]);
+    }
+    CheckScalar(
+        function_name, inputs,
+        ArrayFromJSON(month_day_nano_interval(), expected_arrays[array_mask - 1]));
+  }
+}
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsNullsAndSlices) {
+  const char* function_name = "month_day_nano_interval_from_parts";
+  // Give each input a different offset, including validity bits past the first byte.
+  auto months =
+      ArrayFromJSON(int32(), "[99, 1, 2, null, 4, 5, 6, 7, 8, null, 10, 11]")->Slice(1);
+  auto days =
+      ArrayFromJSON(int32(), "[99, 99, -1, null, -3, -4, -5, -6, -7, -8, -9, -10, -11]")
+          ->Slice(2);
+  auto nanos =
+      ArrayFromJSON(int64(),
+                    "[99, 99, 99, 10, 20, 30, null, 50, 60, 70, 80, 90, 100, 110]")
+          ->Slice(3);
+  CheckScalar(function_name, {months, days, nanos},
+              ArrayFromJSON(month_day_nano_interval(),
+                            "[[1, -1, 10], null, null, null, [5, -5, 50], [6, -6, 60], "
+                            "[7, -7, 70], [8, -8, 80], null, [10, -10, 100], "
+                            "[11, -11, 110]]"));
+
+  const DatumVector arrays = {ArrayFromJSON(int32(), "[1, 2, 3]"),
+                              ArrayFromJSON(int32(), "[4, 5, 6]"),
+                              ArrayFromJSON(int64(), "[7, 8, 9]")};
+  const DatumVector scalars = {ScalarFromJSON(int32(), "1"), ScalarFromJSON(int32(), "4"),
+                               ScalarFromJSON(int64(), "7")};
+  for (int component = 0; component < 3; ++component) {
+    SCOPED_TRACE(component);
+    auto inputs = arrays;
+    inputs[component] = MakeNullScalar(arrays[component].type());
+    CheckScalar(function_name, inputs,
+                ArrayFromJSON(month_day_nano_interval(), "[null, null, null]"));
+    inputs[component] = ArrayFromJSON(null(), "[null, null, null]");
+    CheckScalar(function_name, inputs,
+                ArrayFromJSON(month_day_nano_interval(), "[null, null, null]"));
+
+    inputs = scalars;
+    inputs[component] = MakeNullScalar(scalars[component].type());
+    CheckScalar(function_name, inputs, MakeNullScalar(month_day_nano_interval()));
+    inputs[component] = MakeNullScalar(null());
+    CheckScalar(function_name, inputs, MakeNullScalar(month_day_nano_interval()));
+  }
+}
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsIntegerInputs) {
+  const char* function_name = "month_day_nano_interval_from_parts";
+  CheckScalar(function_name,
+              {ArrayFromJSON(int32(), "[-2147483648, 2147483647, 1, -1]"),
+               ArrayFromJSON(int32(), "[2147483647, -2147483648, -32, 32]"),
+               ArrayFromJSON(int64(),
+                             "[-9223372036854775808, 9223372036854775807, "
+                             "86400000000000, -86400000000000]")},
+              ArrayFromJSON(month_day_nano_interval(),
+                            "[[-2147483648, 2147483647, -9223372036854775808], "
+                            "[2147483647, -2147483648, 9223372036854775807], "
+                            "[1, -32, 86400000000000], [-1, 32, -86400000000000]]"));
+
+  for (const auto& type : IntTypes()) {
+    SCOPED_TRACE(type->ToString());
+    auto values = ArrayFromJSON(type, "[0, 1, 127]");
+    CheckScalar(function_name, {values, values, values},
+                ArrayFromJSON(month_day_nano_interval(),
+                              "[[0, 0, 0], [1, 1, 1], [127, 127, 127]]"));
+  }
+  CheckScalar(
+      function_name,
+      {ArrayFromJSON(int8(), "[-1, 2]"), ArrayFromJSON(uint16(), "[32, 0]"),
+       ArrayFromJSON(int32(), "[-1000000000, 1]")},
+      ArrayFromJSON(month_day_nano_interval(), "[[-1, 32, -1000000000], [2, 0, 1]]"));
+}
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsDifferentChunks) {
+  CheckScalarNonRecursive(
+      "month_day_nano_interval_from_parts",
+      {ChunkedArrayFromJSON(int32(), {"[1, 2]", "[]", "[3, null]"}),
+       ChunkedArrayFromJSON(int32(), {"[-1]", "[-2, -3, -4]"}),
+       ChunkedArrayFromJSON(int64(), {"[10, 20, 30]", "[40]"})},
+      ChunkedArrayFromJSON(month_day_nano_interval(),
+                           {"[[1, -1, 10], [2, -2, 20], [3, -3, 30], null]"}));
+}
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsDictionaryInputs) {
+  CheckScalar(
+      "month_day_nano_interval_from_parts",
+      {DictArrayFromJSON(dictionary(int8(), int16()), "[0, 1, null, 0]", "[1, -2]"),
+       DictArrayFromJSON(dictionary(int8(), uint16()), "[1, 0, 1, 0]", "[4, 5]"),
+       DictArrayFromJSON(dictionary(int8(), int64()), "[0, 0, 1, 1]", "[10, null]")},
+      ArrayFromJSON(month_day_nano_interval(), "[[1, 5, 10], [-2, 4, 10], null, null]"));
+}
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsInvalidInputs) {
+  const char* function_name = "month_day_nano_interval_from_parts";
+  const DatumVector inputs = {ArrayFromJSON(int32(), "[0]"),
+                              ArrayFromJSON(int32(), "[0]"),
+                              ArrayFromJSON(int64(), "[0]")};
+  for (int component = 0; component < 3; ++component) {
+    SCOPED_TRACE(component);
+    for (const auto& bad_input :
+         {ArrayFromJSON(float64(), "[1.0]"), ArrayFromJSON(utf8(), "[\"1\"]"),
+          ArrayFromJSON(boolean(), "[true]")}) {
+      auto bad_inputs = inputs;
+      bad_inputs[component] = bad_input;
+      ASSERT_RAISES(NotImplemented, CallFunction(function_name, bad_inputs));
+    }
+    auto bad_inputs = inputs;
+    bad_inputs[component] = ArrayFromJSON(inputs[component].type(), "[0, 1]");
+    ASSERT_RAISES(Invalid, CallFunction(function_name, bad_inputs));
+  }
+
+  for (const char* value : {"[2147483648]", "[-2147483649]"}) {
+    for (int component : {0, 1}) {
+      auto bad_inputs = inputs;
+      bad_inputs[component] = ArrayFromJSON(int64(), value);
+      ASSERT_RAISES(Invalid, CallFunction(function_name, bad_inputs));
+    }
+  }
+  ASSERT_RAISES(
+      Invalid,
+      CallFunction(function_name, {inputs[0], inputs[1],
+                                   ArrayFromJSON(uint64(), "[9223372036854775808]")}));
+  ASSERT_RAISES(Invalid, CallFunction(function_name, DatumVector{}));
+  ASSERT_RAISES(Invalid, CallFunction(function_name, {inputs[0], inputs[1]}));
+  ASSERT_RAISES(
+      Invalid, CallFunction(function_name, {inputs[0], inputs[1], inputs[2], inputs[2]}));
+}
+
+TEST_F(ScalarTemporalTest, MonthDayNanoIntervalFromPartsEagerAPI) {
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       MonthDayNanoIntervalFromParts(ScalarFromJSON(int16(), "-2"),
+                                                     ScalarFromJSON(int64(), "32"),
+                                                     ScalarFromJSON(uint64(), "5")));
+  AssertDatumsEqual(ScalarFromJSON(month_day_nano_interval(), "[-2, 32, 5]"), result);
+
+  ASSERT_OK_AND_ASSIGN(
+      result, MonthDayNanoIntervalFromParts(ArrayFromJSON(int32(), "[1, null, -1]"),
+                                            ScalarFromJSON(int32(), "0"),
+                                            ArrayFromJSON(int64(), "[10, 20, -30]")));
+  AssertDatumsEqual(
+      ArrayFromJSON(month_day_nano_interval(), "[[1, 0, 10], null, [-1, 0, -30]]"),
+      result);
+}
 }  // namespace compute
 }  // namespace arrow
