@@ -676,6 +676,19 @@ TEST(Time32Conversion, UserDefinedParsers) {
                         options);
   AssertConversionError(time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5000\n"}, {0},
                         options);
+
+  // A second fractional part, or a zone offset after the fractional part, is
+  // rejected rather than parsed as part of the value (a second fraction also
+  // produced times of day out of range)
+  AssertConversionError(time32(TimeUnit::MILLI),
+                        {"2020-03-15 14:30:00.5.5,2020-03-15 23:59:59.9.9,"
+                         "2020-03-15 14:30:00.5Z,2020-03-15 14:30:00.5+05,"
+                         "2020-03-15 14:30:00.5+0530,2020-03-15T14:30:00.5+05:30\n"},
+                        {0, 1, 2, 3, 4, 5}, options);
+  AssertConversionError(time64(TimeUnit::MICRO), {"2020-03-15 14:30:00.5.5\n"}, {0},
+                        options);
+  AssertConversionError(time64(TimeUnit::NANO), {"2020-03-15 14:30:00.5.5\n"}, {0},
+                        options);
 }
 
 TEST(Time64Conversion, Micros) {

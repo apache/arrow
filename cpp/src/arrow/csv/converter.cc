@@ -484,30 +484,27 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
 // timestamp parsers
 //
 
-// Splits the fractional seconds (up to 9 digits) off an ISO-8601 timestamp
-// "YYYY-MM-DD[ T]hh:mm:ss.s{1,9}" with an optional zone offset. Returns `s`
-// if there are no fractional seconds, a copy without them in `buffer`, or
-// nullptr if they are malformed. The split-off digits are returned in
-// `subseconds`.
-const char* SplitISO8601Subseconds(const char* s, uint32_t* size, char (&buffer)[64],
-                                   std::string_view* subseconds) {
+// Splits the fractional seconds (1 to 9 digits) off the end of an ISO-8601
+// timestamp "YYYY-MM-DD[ T]hh:mm:ss.s{1,9}" into `subseconds`, and shortens
+// `size` to exclude them. Returns false if the fractional seconds are
+// malformed or followed by anything (zone offsets are rejected for dates and
+// times anyway).
+bool SplitISO8601Subseconds(const char* s, uint32_t* size, std::string_view* subseconds) {
   if (*size <= 20 || s[19] != '.') {
-    return s;
+    return true;
   }
-  uint32_t fraction_length = 0;
-  while (20 + fraction_length < *size && s[20 + fraction_length] >= '0' &&
-         s[20 + fraction_length] <= '9') {
-    ++fraction_length;
+  const uint32_t fraction_length = *size - 20;
+  if (fraction_length > 9) {
+    return false;
   }
-  const uint32_t rest_length = *size - 20 - fraction_length;
-  if (fraction_length == 0 || fraction_length > 9 || 19 + rest_length > sizeof(buffer)) {
-    return nullptr;
+  for (uint32_t i = 20; i < *size; ++i) {
+    if (s[i] < '0' || s[i] > '9') {
+      return false;
+    }
   }
-  std::memcpy(buffer, s, 19);
-  std::memcpy(buffer + 19, s + 20 + fraction_length, rest_length);
   *subseconds = std::string_view(s + 20, fraction_length);
-  *size = 19 + rest_length;
-  return buffer;
+  *size = 19;
+  return true;
 }
 
 // Tries the ISO-8601 format first, then the user-defined timestamp parsers.
@@ -538,15 +535,12 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
       bool zone_offset_present = false;
       const char* s = reinterpret_cast<const char*>(data);
       uint32_t s_size = size;
-      char buffer[64];
       std::string_view subseconds;
-      if (std::strcmp(parser->kind(), "iso8601") == 0) {
-        // Set the fractional seconds aside, so that any number of digits is
-        // accepted: dates discard them, times add them back below
-        s = SplitISO8601Subseconds(s, &s_size, buffer, &subseconds);
-        if (s == nullptr) {
-          continue;
-        }
+      // Set the fractional seconds aside, so that any number of digits is
+      // accepted: dates discard them, times add them back below
+      if (std::strcmp(parser->kind(), "iso8601") == 0 &&
+          !SplitISO8601Subseconds(s, &s_size, &subseconds)) {
+        continue;
       }
       TimeUnit::type unit = parse_unit_;
       bool parsed = parser->operator()(s, s_size, unit, &timestamp, &zone_offset_present);
