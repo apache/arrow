@@ -552,6 +552,10 @@ TEST(Date32Conversion, UserDefinedParsers) {
   AssertConversion<Date32Type, int32_t>(type, {"185542587100800,-185542587187200\n"},
                                         {{INT32_MAX}, {INT32_MIN}}, options);
   AssertConversionError(type, {"185542587187200,-185542587273600\n"}, {0, 1}, options);
+
+  // Leap seconds are rejected rather than wrapped into the next day
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S")};
+  AssertConversionError(type, {"2020-12-31 23:59:60\n"}, {0}, options);
 }
 
 TEST(Date64Conversion, Basics) {
@@ -688,6 +692,12 @@ TEST(Time32Conversion, UserDefinedParsers) {
   AssertConversionError(time64(TimeUnit::MICRO), {"2020-03-15 14:30:00.5.5\n"}, {0},
                         options);
   AssertConversionError(time64(TimeUnit::NANO), {"2020-03-15 14:30:00.5.5\n"}, {0},
+                        options);
+
+  // Leap seconds are rejected, as without parsers, rather than wrapped into the
+  // next minute
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversionError(time32(TimeUnit::SECOND), {"23:59:60,12:30:60\n"}, {0, 1},
                         options);
 }
 

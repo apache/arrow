@@ -826,6 +826,13 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
     return false;
   }
+  // Reject leap seconds, which Arrow cannot represent, instead of adding them
+  // to the time of day (which wraps them into the next minute); consistent with
+  // the ISO-8601 parser. See GH-50146 for how strptime implementations and
+  // standards differ on these values.
+  if (result.tm_sec >= 60) {
+    return false;
+  }
   // ignore the time part
   arrow_vendored::date::sys_seconds secs =
       arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /

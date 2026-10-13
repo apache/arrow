@@ -869,7 +869,11 @@ TEST(TimestampParser, StrptimeParser) {
   }
 
   // Unparseable strings
-  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6"};
+  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6",
+                                           // Leap seconds are rejected, as by the
+                                           // ISO-8601 parser
+                                           "5/31/2000 12:30:60", "5/31/2000 23:59:60",
+                                           "5/31/2000 23:59:61"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
