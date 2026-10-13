@@ -19,6 +19,7 @@ import datetime
 import decimal
 from collections import OrderedDict
 import io
+import operator
 
 try:
     import numpy as np
@@ -712,16 +713,36 @@ def test_metadata_schema_filesystem(tempdir):
             fname, filesystem=LocalFileSystem()).equals(schema)
 
 
-def test_metadata_equals():
+@pytest.mark.parametrize("kind", [
+    "file", "row_group", "column_chunk", "statistics", "schema", "column_schema"
+])
+def test_metadata_equals(kind):
     table = pa.table({"a": [1, 2, 3]})
     with pa.BufferOutputStream() as out:
         pq.write_table(table, out)
         buf = out.getvalue()
 
     original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    row_group = original_metadata.row_group(0)
+    column_chunk = row_group.column(0)
+    metadata = {
+        "file": original_metadata,
+        "row_group": row_group,
+        "column_chunk": column_chunk,
+        "statistics": column_chunk.statistics,
+        "schema": original_metadata.schema,
+        "column_schema": original_metadata.schema.column(0),
+    }[kind]
+
+    assert metadata.equals(metadata)
+    assert operator.eq(metadata, metadata)
+    assert not operator.eq(metadata, None)
+    assert not operator.eq(None, metadata)
+    assert operator.ne(metadata, None)
+    assert operator.ne(None, metadata)
     match = "Argument 'other' has incorrect type"
     with pytest.raises(TypeError, match=match):
-        original_metadata.equals(None)
+        metadata.equals(None)
 
 
 @pytest.mark.parametrize("t1,t2,expected_error", (
