@@ -563,6 +563,12 @@ TEST(Date32Conversion, UserDefinedParsers) {
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S")};
   AssertConversionError(type, {"2021-02-29 10:00:00\n"}, {0}, options);
 
+  // A zero day is rejected rather than taken as the first of the month
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
+  AssertConversionError(type, {"00-FEB-15\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d")};
+  AssertConversionError(type, {"2020-01-00\n"}, {0}, options);
+
   // Parsers that cannot produce a date are not tried, so that a time does not
   // silently become 1900-01-01
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y"),
@@ -633,6 +639,12 @@ TEST(Date64Conversion, UserDefinedParsers) {
   AssertConversionError(type,
                         {"9223372036915200,-9223372036915200,9223372036854775807\n"},
                         {0, 1, 2}, options);
+
+  // A zero day is rejected rather than taken as the first of the month
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
+  AssertConversionError(type, {"00-FEB-15\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d")};
+  AssertConversionError(type, {"2020-01-00\n"}, {0}, options);
 }
 
 TEST(Time32Conversion, Seconds) {
@@ -879,6 +891,11 @@ TEST(TimestampConversion, UserDefinedParsers) {
   // Impossible dates are rejected rather than rolled over into the next month
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y")};
   AssertConversionError(type, {"30-FEB-15\n"}, {0}, options);
+
+  // A zero day is rejected rather than taken as the first of the month
+  AssertConversionError(type, {"00-FEB-15\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d")};
+  AssertConversionError(type, {"2020-01-00\n"}, {0}, options);
 }
 
 TEST(TimestampConversion, UserDefinedParsersWithZone) {

@@ -815,6 +815,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   std::string clean_copy(buf, length);
   struct tm result;
   memset(&result, 0, sizeof(struct tm));
+  // Default the day to the first for formats without a day directive, so that
+  // an explicitly parsed zero day is not mistaken for an omitted one
+  result.tm_mday = 1;
 #ifdef _WIN32
   char* ret = arrow_strptime(clean_copy.c_str(), format, &result);
 #else
@@ -833,12 +836,12 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (result.tm_sec >= 60) {
     return false;
   }
-  // Reject impossible dates such as February 30, which strptime accepts (the
-  // day of month is only checked to be in 1..31), instead of rolling them over
-  // into the next month; consistent with the ISO-8601 parser.
+  // Reject impossible dates such as February 30 or a zero day, which strptime
+  // may accept (the day of month is checked against 31 at most), instead of
+  // rolling them over into the next month; consistent with the ISO-8601 parser.
   const arrow_vendored::date::year_month_day ymd =
       arrow_vendored::date::year(result.tm_year + 1900) / (result.tm_mon + 1) /
-      std::max(result.tm_mday, 1);
+      result.tm_mday;
   if (!ymd.ok()) {
     return false;
   }

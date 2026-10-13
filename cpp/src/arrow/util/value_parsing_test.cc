@@ -877,7 +877,10 @@ TEST(TimestampParser, StrptimeParser) {
       "5/31/2000 12:30:60", "5/31/2000 23:59:60", "5/31/2000 23:59:61",
       // Impossible dates are rejected rather
       // than rolled over into the next month
-      "2/30/2000 12:34:56", "4/31/2000 12:34:56", "2/29/2001 12:34:56"};
+      "2/30/2000 12:34:56", "4/31/2000 12:34:56", "2/29/2001 12:34:56",
+      // A zero day is rejected rather than
+      // taken as the first of the month
+      "2/00/2000 12:34:56"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
