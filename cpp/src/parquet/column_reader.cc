@@ -1136,6 +1136,7 @@ class ColumnChunkReader {
     pager_ = std::move(reader);
     current_decoder_.SetDecoder(nullptr);
     decoders_.clear();
+    new_dictionary_ = nullptr;
     current_encoding_ = Encoding::UNKNOWN;
   }
 
@@ -1182,6 +1183,14 @@ class ColumnChunkReader {
     return dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
   }
 
+  /// Return the dictionary decoder if a dictionary page was read since the last call.
+  ///
+  /// At most one dictionary in Parquet column chunk and it has to be the first page.
+  /// It is read lazily along with the first data page, not when setting the page reader.
+  DictDecoder<DType>* PopNewDictionary() {
+    return std::exchange(new_dictionary_, nullptr);
+  }
+
   int16_t max_def_level() const { return def_levels_decoder_.max_level(); }
 
   int16_t max_rep_level() const { return rep_levels_decoder_.max_level(); }
@@ -1217,6 +1226,7 @@ class ColumnChunkReader {
   // into memory or skipped over.
   int32_t num_decoded_values_ = 0;
   Encoding::type current_encoding_ = Encoding::UNKNOWN;
+  DictDecoder<DType>* new_dictionary_ = nullptr;
 
   // Advance to the next data page
   bool ReadNewPage();
@@ -1330,6 +1340,7 @@ void ColumnChunkReader<Traits>::ConfigureDictionary(const DictionaryPage* page) 
 
     std::unique_ptr<DictDecoder<DType>> decoder = MakeDictDecoder<DType>(descr_, pool_);
     decoder->SetDict(dictionary.get());
+    new_dictionary_ = decoder.get();
     decoders_[encoding] = std::move(decoder);
   } else {
     ParquetException::NYI("only plain dictionary encoding has been implemented");
@@ -2160,12 +2171,6 @@ template <typename DT, typename VS>
 void TypedRecordReader<DT, VS>::SetPageReader(std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
   Base::SetPageReader(std::move(reader));
-  // At most one dictionary in Parquet column chunk and it has to be the first page.
-  if (this->HasPageReader() && this->EnsureDataPage()) {
-    if (auto* dict = this->current_dict_decoder()) {
-      value_sink_.OnNewDictionary(*dict);
-    }
-  }
 }
 
 template <typename DT, typename VS>
@@ -2261,6 +2266,9 @@ void TypedRecordReader<DT, VS>::ReadSpacedForOptionalOrRepeatedInBuffer(
 
 template <typename DT, typename VS>
 int64_t TypedRecordReader<DT, VS>::ReadRecordDataInBuffer(int64_t num_records) {
+  if (auto* dict = this->PopNewDictionary()) {
+    value_sink_.OnNewDictionary(*dict);
+  }
   // The value and validity sinks reserve their own capacity as they read, so
   // there is no need to pre-reserve an upper bound here.
   const int64_t start_levels_position = levels_position_;
@@ -2414,12 +2422,6 @@ class RequiredTypedRecordReader
 
   void SetPageReader(std::unique_ptr<PageReader> reader) final {
     Base::SetPageReader(std::move(reader));
-    // At most one dictionary in Parquet column chunk and it has to be the first page.
-    if (this->HasPageReader() && this->EnsureDataPage()) {
-      if (auto* dict = this->current_dict_decoder()) {
-        value_sink_.OnNewDictionary(*dict);
-      }
-    }
   }
 
   bool HasMoreData() const override {
@@ -2455,6 +2457,9 @@ int64_t RequiredTypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
     // Is there more data to read in this row group?
     if (!this->EnsureDataPage()) {
       break;
+    }
+    if (auto* dict = this->PopNewDictionary()) {
+      value_sink_.OnNewDictionary(*dict);
     }
 
     const int32_t batch_size =
@@ -2568,12 +2573,6 @@ class FlatOptionalTypedRecordReader
 
   void SetPageReader(std::unique_ptr<PageReader> reader) final {
     Base::SetPageReader(std::move(reader));
-    // At most one dictionary in Parquet column chunk and it has to be the first page.
-    if (this->HasPageReader() && this->EnsureDataPage()) {
-      if (auto* dict = this->current_dict_decoder()) {
-        value_sink_.OnNewDictionary(*dict);
-      }
-    }
   }
 
   bool HasMoreData() const override {
@@ -2610,6 +2609,9 @@ int64_t FlatOptionalTypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) 
     // Is there more data to read in this row group?
     if (!this->EnsureDataPage()) {
       break;
+    }
+    if (auto* dict = this->PopNewDictionary()) {
+      value_sink_.OnNewDictionary(*dict);
     }
 
     const int32_t batch_size =
