@@ -785,27 +785,31 @@ def test_array_from_buffers():
         pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
 
 
-def test_string_binary_from_buffers():
-    array = pa.array(["a", None, "b", "c"])
+@pytest.mark.parametrize("array_factory,string_type,binary_type", [
+    (pa.StringArray, pa.string(), pa.binary()),
+    (pa.LargeStringArray, pa.large_string(), pa.large_binary()),
+])
+def test_string_binary_from_buffers(array_factory, string_type, binary_type):
+    array = pa.array(["a", None, "b", "c"], type=string_type)
 
     buffers = array.buffers()
-    copied = pa.StringArray.from_buffers(
+    copied = array_factory.from_buffers(
         len(array), buffers[1], buffers[2], buffers[0], array.null_count,
         array.offset)
     assert copied.to_pylist() == ["a", None, "b", "c"]
 
-    binary_copy = pa.Array.from_buffers(pa.binary(), len(array),
+    binary_copy = pa.Array.from_buffers(binary_type, len(array),
                                         array.buffers(), array.null_count,
                                         array.offset)
     assert binary_copy.to_pylist() == [b"a", None, b"b", b"c"]
 
-    copied = pa.StringArray.from_buffers(
+    copied = array_factory.from_buffers(
         len(array), buffers[1], buffers[2], buffers[0])
     assert copied.to_pylist() == ["a", None, "b", "c"]
 
     sliced = array[1:]
     buffers = sliced.buffers()
-    copied = pa.StringArray.from_buffers(
+    copied = array_factory.from_buffers(
         len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
     assert copied.to_pylist() == [None, "b", "c"]
     assert copied.null_count == 1
@@ -814,10 +818,63 @@ def test_string_binary_from_buffers():
     # the null bitmap.
     sliced = array[2:]
     buffers = sliced.buffers()
-    copied = pa.StringArray.from_buffers(
+    copied = array_factory.from_buffers(
         len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
     assert copied.to_pylist() == ["b", "c"]
     assert copied.null_count == 0
+
+
+@pytest.mark.large_memory
+@pytest.mark.skipif(
+    sys.maxsize <= 2**31, reason="Requires a 64-bit address space",
+)
+@pytest.mark.parametrize("array_factory,string_type,offset_format", [
+    (pa.StringArray, pa.string(), "<i"),
+    (pa.LargeStringArray, pa.large_string(), "<q"),
+])
+@pytest.mark.parametrize("counter", ["length", "offset", "null_count"])
+def test_string_from_buffers_large_counters(array_factory, string_type,
+                                           offset_format, counter):
+    mmap = pytest.importorskip("mmap")
+    if not hasattr(mmap, "MAP_ANONYMOUS"):
+        pytest.skip("Requires private anonymous mappings")
+
+    boundary = 2**31
+    length = boundary + 1 if counter == "length" else 1
+    offset = boundary if counter == "offset" else 0
+    null_count = boundary if counter == "null_count" else 0
+    if counter == "null_count":
+        length = boundary
+
+    # Zero-filled private mappings reserve address space without materializing
+    # billions of empty strings. Only the final offset and value are nonzero.
+    width = struct.calcsize(offset_format)
+    offsets_size = (length + offset + 1) * width
+    offsets_map = mmap.mmap(-1, offsets_size,
+                           flags=mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS)
+    struct.pack_into(offset_format, offsets_map, offsets_size - width, 1)
+    offsets = pa.py_buffer(offsets_map)
+    data = pa.py_buffer(b"x")
+    null_bitmap = None
+    if null_count:
+        bitmap_map = mmap.mmap(-1, (length + 7) // 8,
+                              flags=mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS)
+        null_bitmap = pa.py_buffer(bitmap_map)
+
+    expected = pa.Array.from_buffers(string_type, length,
+                                     [null_bitmap, offsets, data],
+                                     null_count=null_count, offset=offset)
+    expected.validate()
+    assert expected[-1].as_py() == (None if null_count else "x")
+
+    result = array_factory.from_buffers(length, offsets, data, null_bitmap,
+                                        null_count, offset)
+    result.validate()
+    assert result.type == expected.type
+    assert len(result) == length
+    assert result.offset == offset
+    assert result.null_count == null_count
+    assert result[-1].as_py() == expected[-1].as_py()
 
 
 def test_string_view_from_buffers():
