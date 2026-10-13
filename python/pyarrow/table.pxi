@@ -6245,7 +6245,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none"):
     """
     Concatenate pyarrow.Table objects.
 
