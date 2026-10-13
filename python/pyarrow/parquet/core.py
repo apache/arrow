@@ -46,7 +46,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               SortingColumn)
 from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
                         _ensure_filesystem)
-from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
+from pyarrow.util import guid, _is_path_like, _stringify_path
 
 
 def _check_contains_null(val):
@@ -194,11 +194,6 @@ def filters_to_expression(filters):
         disjunction_members.append(reduce(operator.and_, conjunction_members))
 
     return reduce(operator.or_, disjunction_members)
-
-
-_filters_to_expression = _deprecate_api(
-    "_filters_to_expression", "filters_to_expression",
-    filters_to_expression, "10.0.0", DeprecationWarning)
 
 
 # ----------------------------------------------------------------------
@@ -2526,6 +2521,5 @@ __all__ = (
     "write_metadata",
     "write_table",
     "write_to_dataset",
-    "_filters_to_expression",
     "filters_to_expression",
 )
