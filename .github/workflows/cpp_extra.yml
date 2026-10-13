@@ -567,10 +567,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { architecture: AMD64, macos-version: "15-intel", build-type : debug }
-          - { architecture: AMD64, macos-version: "15-intel", build-type : release }
-          - { architecture: ARM64, macos-version: "14", build-type : debug }
-          - { architecture: ARM64, macos-version: "14", build-type : release }
+          - { architecture: AMD64, macos-version: "26-intel", build-type : debug }
+          - { architecture: AMD64, macos-version: "26-intel", build-type : release }
+          - { architecture: ARM64, macos-version: "26", build-type : debug }
+          - { architecture: ARM64, macos-version: "26", build-type : release }
     env:
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: ${{ matrix.build-type }}
@@ -672,7 +672,7 @@ jobs:
           name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
           path: build/cpp/ArrowFlightSQLODBC-*.pkg
           if-no-files-found: error
-      - name: Upload Intel ODBC dylib to the job
+      - name: Upload AMD64 ODBC dylib to the job
         if: matrix.build-type == 'release' && matrix.architecture == 'AMD64'
         uses: actions/upload-artifact@v7
         with:
@@ -695,9 +695,8 @@ jobs:
 
   odbc-macos-universal:
     needs: odbc-macos
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: ODBC universal macOS installer
-    runs-on: macos-14
+    name: Create ODBC universal macOS installer
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - name: Download ARM64 PKG
@@ -731,16 +730,11 @@ jobs:
           echo "Merging into ${dylib_path} (via ${symlink_path})"
           lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
             -output "${dylib_path}"
-          
+
+          # Verify every dylib (including the symlinks) is universal before re-packaging.
           for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
-            dylib_archs="$(lipo -archs "${lib}")"
-            echo "${lib}: ${dylib_archs}"
-            for arch in arm64 x86_64; do
-              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
-                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
-                exit 1
-              fi
-            done
+            echo "Checking ${lib}"
+            lipo "${lib}" -verify_arch arm64 x86_64
           done
 
           pkgutil --flatten-full expanded "${pkg_name}.pkg"
@@ -753,7 +747,6 @@ jobs:
 
   odbc-macos-universal-verify:
     needs: odbc-macos-universal
-    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC universal installer verify ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
     timeout-minutes: 30
@@ -762,9 +755,9 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "15-intel"
+            macos-version: "26-intel"
           - architecture: ARM64
-            macos-version: "14"
+            macos-version: "26"
     steps:
       - name: Download universal PKG
         uses: actions/download-artifact@v8
@@ -788,15 +781,10 @@ jobs:
           fi
           echo "Found ODBC dylib: ${dylib}"
 
-          local_arch="$(uname -m)"
-          echo "Local architecture: ${local_arch}"
+          # Verify every installed dylib (including the symlinks) is universal.
           for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
-            archs="$(lipo -archs "${lib}")"
-            echo "${lib}: ${archs}"
-            if ! grep -qw "${local_arch}" <<< "${archs}"; then
-              echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
-              exit 1
-            fi
+            echo "Checking ${lib}"
+            lipo "${lib}" -verify_arch arm64 x86_64
           done
 
   odbc-msvc:
