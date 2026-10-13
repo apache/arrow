@@ -869,6 +869,9 @@ class ValueSinkBuffer : public DataSinkBuffer<T> {
   using Base = DataSinkBuffer<T>;
   using value_type = T;
 
+  /// The validity bitmap is part of the output and must be kept alongside the values.
+  static constexpr bool kCanDiscardValidity = false;
+
   explicit ValueSinkBuffer(MemoryPool* pool) : Base(AllocateBuffer(pool)) {}
 
   void OnNewDictionary(auto& /* decoder */) {}
@@ -2251,6 +2254,9 @@ void TypedRecordReader<DT, VS>::ReadSpacedForOptionalOrRepeatedInBuffer(
                                clamp_to<int32_t>(*null_count),
                                /* valid_bits= */ valid_bits_.data(),
                                /* valid_bits_offset= */ valid_bits_offset);
+  if constexpr (VS::kCanDiscardValidity) {
+    valid_bits_.ResetValues();
+  }
 }
 
 template <typename DT, typename VS>
@@ -2621,6 +2627,9 @@ int64_t FlatOptionalTypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) 
       value_sink_.ReadValuesSpaced(*this->current_decoder_.get(), batch_size, null_count,
                                    /* valid_bits= */ valid_bits_.data(),
                                    /* valid_bits_offset= */ old_valid_bits_start);
+      if constexpr (VS::kCanDiscardValidity) {
+        valid_bits_.ResetValues();
+      }
       this->MarkValuesAsConsumed(batch_size);
       records_read += batch_size;
       null_count_ += null_count;
@@ -2655,6 +2664,9 @@ class ArrayValuesSink : private ValueSinkCursor {
 
   using ValueSinkCursor::capacity;
   using ValueSinkCursor::values_count;
+
+  /// The builder keeps its own validity, the reader bitmap can be recycled after a read.
+  static constexpr bool kCanDiscardValidity = true;
 
   explicit ArrayValuesSink(BuilderType builder) : builder_{std::move(builder)} {}
 
@@ -2910,6 +2922,9 @@ class ValuesSinkByteArrayDict : private ValueSinkCursor {
 
   using ValueSinkCursor::capacity;
   using ValueSinkCursor::values_count;
+
+  /// The builder keeps its own validity, the reader bitmap can be recycled after a read.
+  static constexpr bool kCanDiscardValidity = true;
 
   explicit ValuesSinkByteArrayDict(::arrow::MemoryPool* pool)
       : builder_(std::make_unique<Builder>(pool)) {}
