@@ -856,7 +856,8 @@ TEST(TimestampParser, StrptimeParser) {
   };
 
   std::vector<Case> cases = {{"5/31/2000 12:34:56", "2000-05-31 12:34:56"},
-                             {"5/31/2000 00:00:00", "2000-05-31 00:00:00"}};
+                             {"5/31/2000 00:00:00", "2000-05-31 00:00:00"},
+                             {"2/29/2000 12:34:56", "2000-02-29 12:34:56"}};
 
   for (auto unit : TimeUnit::values()) {
     for (const auto& case_ : cases) {
@@ -869,15 +870,25 @@ TEST(TimestampParser, StrptimeParser) {
   }
 
   // Unparseable strings
-  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6",
-                                           // Leap seconds are rejected, as by the
-                                           // ISO-8601 parser
-                                           "5/31/2000 12:30:60", "5/31/2000 23:59:60",
-                                           "5/31/2000 23:59:61"};
+  std::vector<std::string> unparseables = {
+      "foo", "5/1/2000", "5/1/2000 12:34:56:6",
+      // Leap seconds are rejected, as by the
+      // ISO-8601 parser
+      "5/31/2000 12:30:60", "5/31/2000 23:59:60", "5/31/2000 23:59:61",
+      // Impossible dates are rejected rather
+      // than rolled over into the next month
+      "2/30/2000 12:34:56", "4/31/2000 12:34:56", "2/29/2001 12:34:56"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
   }
+
+  // A format without a day still parses (the day defaults to the first)
+  auto month_parser = TimestampParser::MakeStrptime("%Y-%m");
+  int64_t converted, expected;
+  ASSERT_TRUE((*month_parser)("2000-02", 7, TimeUnit::SECOND, &converted));
+  ASSERT_TRUE(ParseTimestampISO8601("2000-02-01", 10, TimeUnit::SECOND, &expected));
+  ASSERT_EQ(expected, converted);
 }
 
 TEST(TimestampParser, StrptimeZoneOffset) {
