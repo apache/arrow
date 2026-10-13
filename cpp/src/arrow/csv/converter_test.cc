@@ -556,6 +556,13 @@ TEST(Date32Conversion, UserDefinedParsers) {
   // Leap seconds are rejected rather than wrapped into the next day
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S")};
   AssertConversionError(type, {"2020-12-31 23:59:60\n"}, {0}, options);
+
+  // Parsers that cannot produce a date are not tried, so that a time does not
+  // silently become 1900-01-01
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y"),
+                               TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Date32Type, int32_t>(type, {"15-OCT-15\n"}, {{16723}}, options);
+  AssertConversionError(type, {"7:55:00\n"}, {0}, options);
 }
 
 TEST(Date64Conversion, Basics) {
@@ -699,6 +706,20 @@ TEST(Time32Conversion, UserDefinedParsers) {
   options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
   AssertConversionError(time32(TimeUnit::SECOND), {"23:59:60,12:30:60\n"}, {0, 1},
                         options);
+
+  // Parsers that cannot produce a time are not tried, and date-only ISO-8601
+  // values are rejected, so that a date does not silently become midnight
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y"),
+                               TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"7:55:00\n"},
+                                        {{28500}}, options);
+  AssertConversionError(time32(TimeUnit::SECOND), {"15-OCT-15\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversionError(time32(TimeUnit::SECOND), {"2020-03-15\n"}, {0}, options);
+
+  // A format with only AM/PM has no hour, so it is not tried for times
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%p")};
+  AssertConversionError(time32(TimeUnit::SECOND), {"PM\n"}, {0}, options);
 }
 
 TEST(Time64Conversion, Micros) {

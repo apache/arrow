@@ -507,6 +507,82 @@ bool SplitISO8601Subseconds(const char* s, uint32_t* size, std::string_view* sub
   return true;
 }
 
+// Whether a strptime format can produce a value of type T: a date for date
+// types, a time of day for time types. Directives not listed here count as
+// both, so that a usable parser is never skipped.
+template <typename T>
+bool StrptimeFormatCanProduce(const char* format) {
+  const char* p = format;
+  while (*p != '\0') {
+    if (*p++ != '%') {
+      continue;
+    }
+    // Skip flags, field width and the E/O modifiers
+    while (*p != '\0' && std::strchr("_-0^#123456789EO", *p) != nullptr) {
+      ++p;
+    }
+    switch (*p == '\0' ? '\0' : *p++) {
+      case '\0':
+        return false;
+      case 'Y':
+      case 'y':
+      case 'C':
+      case 'G':
+      case 'g':
+      case 'm':
+      case 'b':
+      case 'B':
+      case 'h':
+      case 'd':
+      case 'e':
+      case 'j':
+      case 'U':
+      case 'W':
+      case 'V':
+      case 'D':
+      case 'F':
+      case 'x':
+      case 'v':
+        if constexpr (is_date_type<T>::value) {
+          return true;
+        }
+        break;
+      case 'H':
+      case 'I':
+      case 'k':
+      case 'l':
+      case 'M':
+      case 'S':
+      case 'R':
+      case 'T':
+      case 'r':
+      case 'X':
+        if constexpr (is_time_type<T>::value) {
+          return true;
+        }
+        break;
+      case 'a':
+      case 'A':
+      case 'u':
+      case 'w':
+      case 'z':
+      case 'Z':
+      case 'n':
+      case 't':
+      case '%':
+      case 'p':
+      case 'P':
+        // Weekday, zone offset, whitespace, literal '%', and AM/PM, which only
+        // qualifies an hour given by another directive
+        break;
+      default:
+        // %c, %s, %+ and directives not listed here
+        return true;
+    }
+  }
+  return false;
+}
+
 // Tries the ISO-8601 format first, then the user-defined timestamp parsers.
 // A timestamp produced by a user-defined parser is floored to the day
 // boundary for dates, and reduced to the time of day for times (consistent
@@ -522,7 +598,7 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
         concrete_type_(checked_cast<const T&>(*type)),
         parse_unit_(GetParseUnit(concrete_type_)),
         ticks_per_day_(TicksPerDay(parse_unit_)),
-        parsers_(GetTimestampParsers(options_)) {}
+        parsers_(GetParsers(options_)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     TrimWhiteSpace(&data, &size);
@@ -537,9 +613,11 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
       uint32_t s_size = size;
       std::string_view subseconds;
       // Set the fractional seconds aside, so that any number of digits is
-      // accepted: dates discard them, times add them back below
+      // accepted: dates discard them, times add them back below. A date-only
+      // value ("YYYY-MM-DD") has no time of day.
       if (std::strcmp(parser->kind(), "iso8601") == 0 &&
-          !SplitISO8601Subseconds(s, &s_size, &subseconds)) {
+          (!SplitISO8601Subseconds(s, &s_size, &subseconds) ||
+           (is_time_type<T>::value && s_size == 10))) {
         continue;
       }
       TimeUnit::type unit = parse_unit_;
@@ -589,6 +667,21 @@ struct DateTimeWithParsersValueDecoder : public ValueDecoder {
 
  protected:
   static constexpr int64_t kMillisPerDay = 86400000;
+
+  // The user-defined parsers, except strptime parsers whose format cannot
+  // produce a T, so that a value of the other kind is not silently accepted
+  // with the missing part defaulted
+  static std::vector<const TimestampParser*> GetParsers(const ConvertOptions& options) {
+    std::vector<const TimestampParser*> parsers;
+    for (const auto* parser : GetTimestampParsers(options)) {
+      if (std::strcmp(parser->kind(), "strptime") == 0 &&
+          !StrptimeFormatCanProduce<T>(parser->format())) {
+        continue;
+      }
+      parsers.push_back(parser);
+    }
+    return parsers;
+  }
 
   static TimeUnit::type GetParseUnit(const T& type) {
     if constexpr (is_time_type<T>::value) {

@@ -359,6 +359,10 @@ A timestamp produced by such a parser is floored to the day boundary for
 dates, and reduced to the time of day for times, like casting a timestamp
 to a date or time type.  For example, with the parser ``"%m/%d/%Y %H:%M"``,
 the value ``03/15/2020 14:30`` in a date32 column yields ``2020-03-15``.
+Parsers that cannot produce the column's kind of value are skipped: for
+example, ``"%H:%M:%S"`` is not tried for date columns and ``"%d-%b-%y"`` is
+not tried for time columns, and a date-only ISO-8601 value is rejected in a
+time column.
 
 Type inference of date and time columns always uses the ISO-8601 formats
 only, regardless of :member:`ConvertOptions::timestamp_parsers`.

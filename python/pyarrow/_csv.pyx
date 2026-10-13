@@ -705,8 +705,12 @@ cdef class ConvertOptions(_Weakrefable):
         or time64, after the built-in ISO-8601 parser failed on a value.
         A timestamp produced by a fallback parser is floored to the day
         boundary for dates, and reduced to the time of day for times (like
-        casting a timestamp to a date or time type).  Type inference of
-        date and time columns is not affected.
+        casting a timestamp to a date or time type).  Parsers that cannot
+        produce the column's kind of value are skipped: strptime parsers
+        without a date directive for date columns, without a time directive
+        for time columns, and for time columns ISO-8601 values without a
+        time of day.  Type inference of date and time columns is not
+        affected.
 
     Examples
     --------
