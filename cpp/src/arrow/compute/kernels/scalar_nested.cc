@@ -539,16 +539,21 @@ const FunctionDoc list_element_doc(
      "is emitted. Null values emit a null in the output."),
     {"lists", "index"});
 
-// Null values are matched without "equal", but must be comparable all the same
-Status CheckNullValueType(KernelContext* ctx, const DataType& values_type,
-                          const DataType& value_type) {
-  if (value_type.id() == Type::NA || value_type.Equals(values_type)) {
+// Raise the errors "equal" would when comparing these types
+Status CheckComparable(KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
+                       const std::shared_ptr<DataType>& queries_type) {
+  ARROW_ASSIGN_OR_RAISE(auto values, MakeArrayOfNull(values_type, 1, ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto queries,
+                        MakeArrayOfNull(queries_type, 1, ctx->memory_pool()));
+  return CallFunction("equal", {values, queries}, ctx->exec_context()).status();
+}
+
+// Null queries are matched without "equal", but must be comparable all the same
+Status CheckNullQueries(KernelContext* ctx, const Datum& values, const Datum& queries) {
+  if (queries.type()->id() == Type::NA || queries.type()->Equals(*values.type())) {
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto equal,
-                        ctx->exec_context()->func_registry()->GetFunction("equal"));
-  std::vector<TypeHolder> types{&values_type, &value_type};
-  return equal->DispatchBest(&types).status();
+  return CheckComparable(ctx, values.type(), queries.type());
 }
 
 // Cast `values` and `queries` to the types "equal" compares them as, raising the
@@ -556,20 +561,15 @@ Status CheckNullValueType(KernelContext* ctx, const DataType& values_type,
 // views as large binary.
 Status CastToComparable(KernelContext* ctx, Datum* values, Datum* queries) {
   ExecContext* exec_ctx = ctx->exec_context();
-  std::vector<Datum> nulls;
-  std::vector<TypeHolder> types;
   for (Datum* datum : {values, queries}) {
     if (datum->type()->id() == Type::HALF_FLOAT) {
       ARROW_ASSIGN_OR_RAISE(*datum,
                             Cast(*datum, float32(), CastOptions::Safe(), exec_ctx));
     }
-    ARROW_ASSIGN_OR_RAISE(auto null,
-                          MakeArrayOfNull(datum->type(), 1, ctx->memory_pool()));
-    nulls.emplace_back(std::move(null));
-    types.emplace_back(datum->type());
   }
-  RETURN_NOT_OK(CallFunction("equal", nulls, exec_ctx));
+  RETURN_NOT_OK(CheckComparable(ctx, values->type(), queries->type()));
   ARROW_ASSIGN_OR_RAISE(auto equal, exec_ctx->func_registry()->GetFunction("equal"));
+  std::vector<TypeHolder> types{values->type(), queries->type()};
   RETURN_NOT_OK(equal->DispatchBest(&types));
   for (Datum* datum : {values, queries}) {
     TypeHolder type = types[datum == values ? 0 : 1];
@@ -737,7 +737,7 @@ Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
   Datum values = list.value;
   Datum queries = query_span.ToArrayData();
   if (queries.null_count() == queries.length()) {
-    RETURN_NOT_OK(CheckNullValueType(ctx, *values.type(), *queries.type()));
+    RETURN_NOT_OK(CheckNullQueries(ctx, values, queries));
     bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
                         values.null_count() > 0);
     return Status::OK();
@@ -806,7 +806,7 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   const int64_t query_step = scalar_query ? 0 : 1;
 
   if (queries.null_count() == queries.length()) {
-    RETURN_NOT_OK(CheckNullValueType(ctx, *values.type(), *queries.type()));
+    RETURN_NOT_OK(CheckNullQueries(ctx, values, queries));
     const ArraySpan v(*values.array());
     SearchLists<Type>(list, values_start, values_length, out_arr,
                       [&](int64_t j, int64_t) { return v.IsNull(j); });

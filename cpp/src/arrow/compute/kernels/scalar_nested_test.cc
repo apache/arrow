@@ -400,11 +400,13 @@ TEST(TestScalarNested, ListContainsInvalid) {
         Raises(StatusCode::NotImplemented));
   }
   // Like "equal", timestamps with and without a time zone don't compare
-  EXPECT_THAT(
-      CallFunction("list_contains",
-                   {ArrayFromJSON(list(timestamp(TimeUnit::SECOND, "UTC")), "[[1]]"),
-                    ScalarFromJSON(timestamp(TimeUnit::SECOND), "1")}),
-      Raises(StatusCode::Invalid));
+  for (auto value : {"1", "null"}) {
+    EXPECT_THAT(
+        CallFunction("list_contains",
+                     {ArrayFromJSON(list(timestamp(TimeUnit::SECOND, "UTC")), "[[1]]"),
+                      ScalarFromJSON(timestamp(TimeUnit::SECOND), value)}),
+        Raises(StatusCode::Invalid));
+  }
 }
 
 using VarLenListLikeTypeFactory =
