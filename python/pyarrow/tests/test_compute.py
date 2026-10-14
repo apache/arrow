@@ -1244,6 +1244,30 @@ def test_replace_plain():
     assert ar.tolist() == ['barzfoo', 'bard', None]
 
 
+def test_replace_substring_negative_max_replacements():
+    # GH-39149: negative max_replacements should raise ValueError,
+    # not cause an indefinite hang.
+    with pytest.raises(ValueError, match="max_replacements must be >= -1"):
+        pc.ReplaceSubstringOptions(pattern='a', replacement='b',
+                                   max_replacements=-3)
+    with pytest.raises(ValueError, match="max_replacements must be >= -1"):
+        pc.ReplaceSubstringOptions(pattern='a', replacement='b',
+                                   max_replacements=-2)
+    # -1 and None are valid (unlimited)
+    opts = pc.ReplaceSubstringOptions(pattern='a', replacement='b',
+                                      max_replacements=-1)
+    assert opts.max_replacements == -1
+    opts = pc.ReplaceSubstringOptions(pattern='a', replacement='b')
+    assert opts.max_replacements == -1
+    # Non-negative values are valid
+    opts = pc.ReplaceSubstringOptions(pattern='a', replacement='b',
+                                      max_replacements=0)
+    assert opts.max_replacements == 0
+    opts = pc.ReplaceSubstringOptions(pattern='a', replacement='b',
+                                      max_replacements=5)
+    assert opts.max_replacements == 5
+
+
 def test_replace_regex():
     data = pa.array(['foo', 'mood', None])
     expected = ['f00', 'm00d', None]

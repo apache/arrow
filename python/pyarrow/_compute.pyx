@@ -1221,13 +1221,19 @@ class ReplaceSubstringOptions(_ReplaceSubstringOptions):
     replacement : str
         What to replace the pattern with.
     max_replacements : int or None, default None
-        The maximum number of strings to replace in each
-        input value (unlimited if None).
+        The maximum number of replacements to make in each
+        input value (unlimited if None or -1). If specified,
+        must be >= 0.
     """
 
     def __init__(self, pattern, replacement, *, max_replacements=None):
         if max_replacements is None:
             max_replacements = -1
+        if max_replacements < -1:
+            raise ValueError(
+                f"max_replacements must be >= -1, got {max_replacements}. "
+                "Use None or -1 for unlimited replacements."
+            )
         self._set_options(pattern, replacement, max_replacements)
 
 
