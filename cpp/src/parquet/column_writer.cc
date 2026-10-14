@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <memory>
 #include <span>
@@ -45,6 +46,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
+#include "arrow/util/time.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_array_inline.h"
@@ -1544,6 +1546,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return Status::OK();
   }
 
+  template <typename ArrowType>
+  Status WriteArrowTimes(const int16_t* def_levels, const int16_t* rep_levels,
+                         int64_t num_levels, const ::arrow::Array& array,
+                         ArrowWriteContext* ctx, bool maybe_parent_nulls);
+
   Status WriteArrowTimestamps(const int16_t* def_levels, const int16_t* rep_levels,
                               int64_t num_levels, const ::arrow::Array& values,
                               ArrowWriteContext* ctx, bool maybe_parent_nulls) {
@@ -2228,21 +2235,95 @@ struct SerializeFunctor<
   }
 };
 
-template <>
-struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
-  Status Serialize(const ::arrow::Time32Array& array, ArrowWriteContext*, int32_t* out) {
-    const int32_t* input = array.raw_values();
-    const auto& type = static_cast<const ::arrow::Time32Type&>(*array.type());
-    if (type.unit() == ::arrow::TimeUnit::SECOND) {
-      for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = input[i] * 1000;
-      }
-    } else {
-      std::copy(input, input + array.length(), out);
+template <typename ParquetType>
+template <typename ArrowType>
+Status TypedColumnWriterImpl<ParquetType>::WriteArrowTimes(
+    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
+  using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+  const auto& values = checked_cast<const ArrayType&>(array);
+  const auto& source_type = checked_cast<const ::arrow::TimeType&>(*array.type());
+  const auto& logical_type = this->descr()->logical_type();
+  auto target_unit = source_type.unit() == ::arrow::TimeUnit::SECOND
+                         ? ::arrow::TimeUnit::MILLI
+                         : source_type.unit();
+  if (logical_type->is_time()) {
+    switch (checked_cast<const TimeLogicalType&>(*logical_type).time_unit()) {
+      case LogicalType::TimeUnit::MILLIS:
+        target_unit = ::arrow::TimeUnit::MILLI;
+        break;
+      case LogicalType::TimeUnit::MICROS:
+        target_unit = ::arrow::TimeUnit::MICRO;
+        break;
+      case LogicalType::TimeUnit::NANOS:
+        target_unit = ::arrow::TimeUnit::NANO;
+        break;
+      default:
+        return Status::Invalid("Unsupported Parquet time unit");
     }
-    return Status::OK();
+  } else if constexpr (sizeof(T) != sizeof(typename ArrowType::c_type)) {
+    ARROW_UNSUPPORTED();
   }
-};
+  if (source_type.unit() == target_unit) {
+    return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, array, ctx,
+                              maybe_parent_nulls);
+  }
+
+  const auto target_type = target_unit == ::arrow::TimeUnit::MILLI
+                               ? ::arrow::time32(target_unit)
+                               : ::arrow::time64(target_unit);
+  const auto [operation, factor] =
+      ::arrow::util::GetTimestampConversion(source_type.unit(), target_unit);
+  const bool allow_truncation = ctx->properties->coerce_timestamps_enabled() &&
+                                ctx->properties->truncated_timestamps_allowed();
+  T* out = nullptr;
+  RETURN_NOT_OK(ctx->GetScratchData<T>(array.length(), &out));
+  int64_t level_index = 0;
+  for (int64_t i = 0; i < array.length(); ++i) {
+    out[i] = 0;
+    bool valid = array.IsValid(i);
+    if (maybe_parent_nulls) {
+      // Definition levels also mask children beneath null parents.
+      while (level_index < num_levels &&
+             def_levels[level_index] < level_info_.repeated_ancestor_def_level) {
+        ++level_index;
+      }
+      valid =
+          level_index < num_levels && def_levels[level_index++] == level_info_.def_level;
+    }
+    if (!valid) {
+      continue;
+    }
+    const int64_t value = values.Value(i);
+    int64_t converted;
+    if (operation == ::arrow::util::DIVIDE) {
+      if (!allow_truncation && value % factor != 0) {
+        return Status::Invalid("Casting from ", source_type.ToString(), " to ",
+                               target_type->ToString(), " would lose data: ", value);
+      }
+      converted = value / factor;
+    } else if (::arrow::internal::MultiplyWithOverflowGeneric(value, factor,
+                                                              &converted)) {
+      return Status::Invalid("Integer overflow when casting time value ", value);
+    }
+    if (converted < std::numeric_limits<T>::min() ||
+        converted > std::numeric_limits<T>::max()) {
+      return Status::Invalid("Integer overflow when casting time value ", value);
+    }
+    out[i] = static_cast<T>(converted);
+  }
+
+  const bool no_nulls =
+      this->descr()->schema_node()->is_required() || array.null_count() == 0;
+  if (!maybe_parent_nulls && no_nulls) {
+    PARQUET_CATCH_NOT_OK(WriteBatchInternal(num_levels, def_levels, rep_levels, out));
+  } else {
+    PARQUET_CATCH_NOT_OK(WriteBatchSpacedInternal(num_levels, def_levels, rep_levels,
+                                                  array.null_bitmap_data(),
+                                                  array.offset(), out));
+  }
+  return Status::OK();
+}
 
 template <>
 Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
@@ -2261,7 +2342,12 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
       WRITE_ZERO_COPY_CASE(INT32)
       WRITE_ZERO_COPY_CASE(DATE32)
       WRITE_SERIALIZE_CASE(DATE64)
-      WRITE_SERIALIZE_CASE(TIME32)
+    case ::arrow::Type::TIME32:
+      return WriteArrowTimes<::arrow::Time32Type>(def_levels, rep_levels, num_levels,
+                                                  array, ctx, maybe_parent_nulls);
+    case ::arrow::Type::TIME64:
+      return WriteArrowTimes<::arrow::Time64Type>(def_levels, rep_levels, num_levels,
+                                                  array, ctx, maybe_parent_nulls);
       WRITE_SERIALIZE_CASE(DECIMAL32)
       WRITE_SERIALIZE_CASE(DECIMAL64)
       WRITE_SERIALIZE_CASE(DECIMAL128)
@@ -2439,7 +2525,12 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_ZERO_COPY_CASE(INT64)
       WRITE_SERIALIZE_CASE(UINT32)
       WRITE_SERIALIZE_CASE(UINT64)
-      WRITE_ZERO_COPY_CASE(TIME64)
+    case ::arrow::Type::TIME32:
+      return WriteArrowTimes<::arrow::Time32Type>(def_levels, rep_levels, num_levels,
+                                                  array, ctx, maybe_parent_nulls);
+    case ::arrow::Type::TIME64:
+      return WriteArrowTimes<::arrow::Time64Type>(def_levels, rep_levels, num_levels,
+                                                  array, ctx, maybe_parent_nulls);
       WRITE_ZERO_COPY_CASE(DURATION)
       WRITE_SERIALIZE_CASE(DECIMAL32)
       WRITE_SERIALIZE_CASE(DECIMAL64)
