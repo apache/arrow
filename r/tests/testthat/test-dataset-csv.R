@@ -736,3 +736,11 @@ test_that("more informative error when column inferred as null due to sparse dat
     "column type being inferred as"
   )
 })
+
+test_that("FileFormat$create(format = 'txt') is deprecated and maps to csv", {
+  expect_warning(
+    fmt <- FileFormat$create("txt"),
+    "deprecated"
+  )
+  expect_r6_class(fmt, "CsvFileFormat")
+})
