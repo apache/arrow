@@ -732,9 +732,17 @@ jobs:
             -output "${dylib_path}"
 
           # Verify every dylib (including the symlinks) is universal before re-packaging.
+          # Check one architecture at a time with `lipo -archs`, 
+          # as macOS 27 support only one architecture search at a time.
           for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
-            echo "Checking ${lib}"
-            lipo "${lib}" -verify_arch arm64 x86_64
+            dylib_archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${dylib_archs}"
+            for arch in arm64 x86_64; do
+              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
+                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
+                exit 1
+              fi
+            done
           done
 
           pkgutil --flatten-full expanded "${pkg_name}.pkg"
@@ -782,9 +790,15 @@ jobs:
           echo "Found ODBC dylib: ${dylib}"
 
           # Verify every installed dylib (including the symlinks) is universal.
+          local_arch="$(uname -m)"
+          echo "Local architecture: ${local_arch}"
           for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
-            echo "Checking ${lib}"
-            lipo "${lib}" -verify_arch arm64 x86_64
+            archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${archs}"
+            if ! grep -qw "${local_arch}" <<< "${archs}"; then
+              echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
+              exit 1
+            fi
           done
 
   odbc-msvc:
