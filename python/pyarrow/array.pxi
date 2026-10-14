@@ -4203,9 +4203,9 @@ cdef class StringArray(Array):
         return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
 
     @staticmethod
-    def from_buffers(int length, Buffer value_offsets, Buffer data,
-                     Buffer null_bitmap=None, int null_count=-1,
-                     int offset=0):
+    def from_buffers(int64_t length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int64_t null_count=-1,
+                     int64_t offset=0):
         """
         Construct a StringArray from value_offsets and data buffers.
         If there are nulls in the data, also a null_bitmap and the matching
@@ -4241,9 +4241,9 @@ cdef class LargeStringArray(Array):
         return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
 
     @staticmethod
-    def from_buffers(int length, Buffer value_offsets, Buffer data,
-                     Buffer null_bitmap=None, int null_count=-1,
-                     int offset=0):
+    def from_buffers(int64_t length, Buffer value_offsets, Buffer data,
+                     Buffer null_bitmap=None, int64_t null_count=-1,
+                     int64_t offset=0):
         """
         Construct a LargeStringArray from value_offsets and data buffers.
         If there are nulls in the data, also a null_bitmap and the matching
