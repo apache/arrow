@@ -725,6 +725,42 @@ void SearchLists(const ArraySpan& list, int64_t values_start, int64_t values_len
   }
 }
 
+// Look up each query in the values of a single list
+Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
+                          const ArraySpan& query_span, ArraySpan* out_arr) {
+  bit_util::SetBitsTo(out_arr->buffers[0].data, out_arr->offset, out_arr->length,
+                      list.is_valid);
+  out_arr->null_count = list.is_valid ? 0 : out_arr->length;
+  if (!list.is_valid) {
+    return Status::OK();
+  }
+  Datum values = list.value;
+  Datum queries = query_span.ToArrayData();
+  if (queries.null_count() == queries.length()) {
+    RETURN_NOT_OK(CheckNullValueType(ctx, *values.type(), *queries.type()));
+    bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
+                        values.null_count() > 0);
+    return Status::OK();
+  }
+  RETURN_NOT_OK(CastToComparable(ctx, &values, &queries));
+  ExecContext* exec_ctx = ctx->exec_context();
+  if (is_floating(values.type()->id())) {
+    // "is_in" tells -0.0 from 0.0, so turn -0.0 into 0.0
+    ARROW_ASSIGN_OR_RAISE(auto zero, MakeScalar(values.type(), 0.0));
+    for (Datum* datum : {&values, &queries}) {
+      ARROW_ASSIGN_OR_RAISE(*datum, CallFunction("add", {*datum, zero}, exec_ctx));
+    }
+  }
+  const SetLookupOptions options(values);
+  ARROW_ASSIGN_OR_RAISE(Datum found,
+                        CallFunction("is_in", {queries}, &options, exec_ctx));
+  const ArrayData& found_data = *found.array();
+  arrow::internal::CopyBitmap(found_data.buffers[1]->data(), found_data.offset,
+                              found_data.length, out_arr->buffers[1].data,
+                              out_arr->offset);
+  return Status::OK();
+}
+
 template <typename Type>
 Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   ArraySpan* out_arr = out->array_span_mutable();
@@ -732,12 +768,9 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     return Status::OK();
   }
   if (batch[0].is_scalar()) {
-    // A scalar list is only paired with an array of queries here, so broadcast it
-    ARROW_ASSIGN_OR_RAISE(auto lists, MakeArrayFromScalar(*batch[0].scalar, batch.length,
-                                                          ctx->memory_pool()));
-    ExecSpan array_batch = batch;
-    array_batch.values[0].SetArray(*lists->data());
-    return ListContains<Type>(ctx, array_batch, out);
+    // A scalar list is only paired with an array of queries here
+    return ScalarListContains(ctx, checked_cast<const BaseListScalar&>(*batch[0].scalar),
+                              batch[1].array, out_arr);
   }
   const ArraySpan& list = batch[0].array;
 
