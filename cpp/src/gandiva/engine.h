@@ -87,6 +87,11 @@ class GANDIVA_EXPORT Engine {
   /// Return the generated IR for the module.
   const std::string& ir();
 
+  /// Return the generated IR before the optimizer pipeline runs.
+  const std::string& unoptimized_ir();
+
+  bool has_unoptimized_ir() const { return !unoptimized_module_ir_.empty(); }
+
   /// Load the function IRs that can be accessed in the module.
   Status LoadFunctionIRs();
 
@@ -129,6 +134,7 @@ class GANDIVA_EXPORT Engine {
   bool cached_;
   bool functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
+  std::string unoptimized_module_ir_;
   std::string module_ir_;
   // The lifetime of the TargetMachine is shared with LLJIT. This prevents unnecessary
   // duplication of this expensive object.
