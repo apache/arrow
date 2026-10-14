@@ -66,6 +66,7 @@ set(SRC_FILES
     date_utils.cc
     encrypt_utils.cc
     encrypt_utils_gcm.cc
+    encrypt_mode_dispatcher.cc
     encrypt_utils_cbc.cc
     encrypt_utils_common.cc
     encrypt_utils_ecb.cc

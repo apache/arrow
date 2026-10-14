@@ -21,6 +21,7 @@
 
 #include <boost/crc.hpp>
 #include <cstdio>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -30,6 +31,7 @@
 #include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/value_parsing.h"
 
+#include "gandiva/encrypt_mode_dispatcher.h"
 #include "gandiva/encrypt_utils.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
@@ -909,6 +911,125 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
   return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
 }
 
+// The 3- and 4-argument versions forward to the 5-argument one with the omitted
+// optional arguments empty.
+GANDIVA_EXPORT
+const char* gdv_fn_encrypt_dispatcher_3args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, int32_t* out_len) {
+  return gdv_fn_encrypt_dispatcher_5args(context, data, data_len, key_data, key_data_len,
+                                         mode, mode_len, nullptr, 0, nullptr, 0, out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_decrypt_dispatcher_3args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, int32_t* out_len) {
+  return gdv_fn_decrypt_dispatcher_5args(context, data, data_len, key_data, key_data_len,
+                                         mode, mode_len, nullptr, 0, nullptr, 0, out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_encrypt_dispatcher_4args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, int32_t* out_len) {
+  return gdv_fn_encrypt_dispatcher_5args(context, data, data_len, key_data, key_data_len,
+                                         mode, mode_len, iv_data, iv_data_len, nullptr, 0,
+                                         out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_decrypt_dispatcher_4args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, int32_t* out_len) {
+  return gdv_fn_decrypt_dispatcher_5args(context, data, data_len, key_data, key_data_len,
+                                         mode, mode_len, iv_data, iv_data_len, nullptr, 0,
+                                         out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_encrypt_dispatcher_5args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, const char* aad,
+                                            int32_t aad_len, int32_t* out_len) {
+  try {
+    if (data_len < 0) {
+      throw std::runtime_error("ENCRYPT: data length can't be negative, got " +
+                               std::to_string(data_len));
+    }
+    // Room for the largest output: PKCS#7 padding adds up to one 16-byte block, and GCM
+    // appends a 16-byte tag. Unused for the no-padding modes.
+    constexpr int32_t kMaxExpansion = 16;
+    if (data_len > std::numeric_limits<int32_t>::max() - kMaxExpansion) {
+      throw std::runtime_error("ENCRYPT: data is too large to encrypt, got " +
+                               std::to_string(data_len) + " bytes");
+    }
+    auto* output = reinterpret_cast<unsigned char*>(
+        gdv_fn_context_arena_malloc(context, data_len + kMaxExpansion));
+    if (output == nullptr) {
+      throw std::runtime_error("Memory allocation failed for encryption output");
+    }
+
+    int32_t cipher_len = gandiva::EncryptModeDispatcher::encrypt(
+        data, data_len, key_data, key_data_len, mode, mode_len, iv_data, iv_data_len, aad,
+        aad_len, output);
+
+    *out_len = cipher_len;
+    return reinterpret_cast<const char*>(output);
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
+    return nullptr;
+  }
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_decrypt_dispatcher_5args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, const char* aad,
+                                            int32_t aad_len, int32_t* out_len) {
+  try {
+    if (data_len < 0) {
+      throw std::runtime_error("DECRYPT: data length can't be negative, got " +
+                               std::to_string(data_len));
+    }
+    // The plaintext is never longer than the ciphertext, but OpenSSL documents that
+    // EVP_DecryptUpdate may use up to `inl + block_size` bytes of output space, so size
+    // the buffer accordingly. This also covers empty input.
+    constexpr int32_t kBlockSize = 16;
+    if (data_len > std::numeric_limits<int32_t>::max() - kBlockSize) {
+      throw std::runtime_error("DECRYPT: data is too large to decrypt, got " +
+                               std::to_string(data_len) + " bytes");
+    }
+    auto* output = reinterpret_cast<unsigned char*>(
+        gdv_fn_context_arena_malloc(context, data_len + kBlockSize));
+    if (output == nullptr) {
+      throw std::runtime_error("Memory allocation failed for decryption output");
+    }
+
+    int32_t plaintext_len = gandiva::EncryptModeDispatcher::decrypt(
+        data, data_len, key_data, key_data_len, mode, mode_len, iv_data, iv_data_len, aad,
+        aad_len, output);
+
+    *out_len = plaintext_len;
+    return reinterpret_cast<const char*>(output);
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
+    return nullptr;
+  }
+}
+
 ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
@@ -1147,6 +1268,114 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_aes_decrypt));
+
+  // gdv_fn_encrypt_dispatcher_3args (data, key, mode)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_encrypt_dispatcher_3args", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_3args));
+
+  // gdv_fn_decrypt_dispatcher_3args (data, key, mode)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_decrypt_dispatcher_3args", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_3args));
+
+  // gdv_fn_encrypt_dispatcher_4args (data, key, mode, iv)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_encrypt_dispatcher_4args", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_4args));
+
+  // gdv_fn_decrypt_dispatcher_4args (data, key, mode, iv)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_decrypt_dispatcher_4args", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_4args));
+
+  // gdv_fn_encrypt_dispatcher_5args (data, key, mode, iv, aad)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i8_ptr_type(),  // aad (binary string)
+      types->i32_type(),     // aad_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_encrypt_dispatcher_5args", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_5args));
+
+  // gdv_fn_decrypt_dispatcher_5args (data, key, mode, iv, aad)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i8_ptr_type(),  // aad (binary string)
+      types->i32_type(),     // aad_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_decrypt_dispatcher_5args", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_5args));
 
   // gdv_mask_first_n and gdv_mask_last_n
   std::vector<llvm::Type*> mask_args = {
