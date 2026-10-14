@@ -255,6 +255,9 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
   # Load CPack after all CPACK* variables are set
   include(CPack)
+  # The component name is part of the CPack file ID referenced in
+  # install/windows/arrow-flight-sql-odbc.wxs (CM_FP_ArrowFlightSQLODBC.*).
+  # Update the .wxs if it is renamed.
   cpack_add_component(ArrowFlightSQLODBC
                       DISPLAY_NAME "ODBC library"
                       DESCRIPTION "Apache Arrow Flight SQL ODBC library bin, required to install"

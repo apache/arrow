@@ -795,6 +795,10 @@ jobs:
 
                 # Verify ODBC driver registration values
                 $key = "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver"
+                if (-not (Test-Path $key)) {
+                  Write-Error "ODBC driver registry key not found: $key"
+                  exit 1
+                }
                 $props = Get-ItemProperty $key
                 foreach ($name in "Driver", "Setup") {
                   Write-Host "$name = '$($props.$name)'"
