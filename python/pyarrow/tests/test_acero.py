@@ -532,7 +532,7 @@ def test_hash_join_with_residual_filter():
 def test_asof_join():
     left = pa.table({'key': [1, 2, 3], 'ts': [1, 1, 1], 'a': [4, 5, 6]})
     left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
-    right = pa.table({'key': [2, 3, 4], 'ts': [2, 5, 2], 'b': [4, 5, 6]})
+    right = pa.table({'key': [2, 4, 3], 'ts': [2, 2, 5], 'b': [4, 6, 5]})
     right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
 
     # asof join
