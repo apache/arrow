@@ -20,8 +20,8 @@
 #include <cmath>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
@@ -30,10 +30,8 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
-#include "arrow/util/ubsan.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {
@@ -541,20 +539,6 @@ const FunctionDoc list_element_doc(
      "is emitted. Null values emit a null in the output."),
     {"lists", "index"});
 
-bool IsNaN(const Scalar& value) {
-  switch (value.type->id()) {
-    case Type::HALF_FLOAT:
-      return util::Float16::FromBits(checked_cast<const HalfFloatScalar&>(value).value)
-          .is_nan();
-    case Type::FLOAT:
-      return std::isnan(checked_cast<const FloatScalar&>(value).value);
-    case Type::DOUBLE:
-      return std::isnan(checked_cast<const DoubleScalar&>(value).value);
-    default:
-      return false;
-  }
-}
-
 // Null values are matched without "equal", but must be comparable all the same
 Status CheckNullValueType(KernelContext* ctx, const DataType& values_type,
                           const DataType& value_type) {
@@ -567,133 +551,195 @@ Status CheckNullValueType(KernelContext* ctx, const DataType& values_type,
   return equal->DispatchBest(&types).status();
 }
 
-// Match `values` with a scalar `value`, or element-wise with an array of them. Like
-// "is_in", and unlike "equal", a null value matches null values and a NaN value
-// matches NaN values.
-Result<Datum> ListValuesMatch(KernelContext* ctx, const Datum& values,
-                              const Datum& value) {
+// Cast `values` and `queries` to the types "equal" compares them as, raising the
+// errors it would. float16, which "equal" lacks, is compared as float32, and binary
+// views as large binary.
+Status CastToComparable(KernelContext* ctx, Datum* values, Datum* queries) {
   ExecContext* exec_ctx = ctx->exec_context();
-  if (value.null_count() == value.length()) {
-    RETURN_NOT_OK(CheckNullValueType(ctx, *values.type(), *value.type()));
-    return CallFunction("is_null", {values}, exec_ctx);
-  }
-  if (value.is_scalar()) {
-    if (is_floating(values.type()->id()) && IsNaN(*value.scalar())) {
-      return CallFunction("is_nan", {values}, exec_ctx);
+  std::vector<Datum> nulls;
+  std::vector<TypeHolder> types;
+  for (Datum* datum : {values, queries}) {
+    if (datum->type()->id() == Type::HALF_FLOAT) {
+      ARROW_ASSIGN_OR_RAISE(*datum,
+                            Cast(*datum, float32(), CastOptions::Safe(), exec_ctx));
     }
-    return CallFunction("equal", {values, value}, exec_ctx);
+    ARROW_ASSIGN_OR_RAISE(auto null,
+                          MakeArrayOfNull(datum->type(), 1, ctx->memory_pool()));
+    nulls.emplace_back(std::move(null));
+    types.emplace_back(datum->type());
   }
-  ARROW_ASSIGN_OR_RAISE(Datum match, CallFunction("equal", {values, value}, exec_ctx));
-  ARROW_ASSIGN_OR_RAISE(Datum values_null, CallFunction("is_null", {values}, exec_ctx));
-  ARROW_ASSIGN_OR_RAISE(Datum value_null, CallFunction("is_null", {value}, exec_ctx));
-  ARROW_ASSIGN_OR_RAISE(Datum both_null,
-                        CallFunction("and", {values_null, value_null}, exec_ctx));
-  ARROW_ASSIGN_OR_RAISE(match, CallFunction("or_kleene", {match, both_null}, exec_ctx));
-  if (is_floating(values.type()->id()) && is_floating(value.type()->id())) {
-    ARROW_ASSIGN_OR_RAISE(Datum values_nan, CallFunction("is_nan", {values}, exec_ctx));
-    ARROW_ASSIGN_OR_RAISE(Datum value_nan, CallFunction("is_nan", {value}, exec_ctx));
-    ARROW_ASSIGN_OR_RAISE(Datum both_nan,
-                          CallFunction("and_kleene", {values_nan, value_nan}, exec_ctx));
-    ARROW_ASSIGN_OR_RAISE(match, CallFunction("or_kleene", {match, both_nan}, exec_ctx));
+  RETURN_NOT_OK(CallFunction("equal", nulls, exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(auto equal, exec_ctx->func_registry()->GetFunction("equal"));
+  RETURN_NOT_OK(equal->DispatchBest(&types));
+  for (Datum* datum : {values, queries}) {
+    TypeHolder type = types[datum == values ? 0 : 1];
+    if (is_binary_view_like(type.id())) {
+      type = large_binary();
+    }
+    if (!datum->type()->Equals(*type)) {
+      ARROW_ASSIGN_OR_RAISE(*datum, Cast(*datum, type, CastOptions::Safe(), exec_ctx));
+    }
   }
-  return match;
+  return Status::OK();
 }
 
-// Returns a function giving the number of child values of list i, with none for null
-// list views
+// Calls `visit` with a function telling whether value j equals query k, both of the
+// same type. Unlike "equal", NaN equals NaN.
+template <typename Visit>
+Status VisitEqual(const ArraySpan& values, const ArraySpan& queries, Visit&& visit) {
+  auto numbers = [&](auto zero) {
+    using T = decltype(zero);
+    const T* v = values.GetValues<T>(1);
+    const T* q = queries.GetValues<T>(1);
+    // `x != x` only holds for NaN
+    return visit([v, q](int64_t j, int64_t k) {
+      return v[j] == q[k] || (q[k] != q[k] && v[j] != v[j]);
+    });
+  };
+  auto binary = [&](auto zero) {
+    using T = decltype(zero);
+    const T* vo = values.GetValues<T>(1);
+    const T* qo = queries.GetValues<T>(1);
+    const uint8_t* vd = values.buffers[2].data;
+    const uint8_t* qd = queries.buffers[2].data;
+    return visit([=](int64_t j, int64_t k) {
+      const T length = vo[j + 1] - vo[j];
+      return length == qo[k + 1] - qo[k] &&
+             std::memcmp(vd + vo[j], qd + qo[k], length) == 0;
+    });
+  };
+  switch (values.type->id()) {
+    case Type::BOOL:
+      return visit([&](int64_t j, int64_t k) {
+        return bit_util::GetBit(values.buffers[1].data, values.offset + j) ==
+               bit_util::GetBit(queries.buffers[1].data, queries.offset + k);
+      });
+    case Type::FLOAT:
+      return numbers(float{});
+    case Type::DOUBLE:
+      return numbers(double{});
+    case Type::BINARY:
+    case Type::STRING:
+      return binary(int32_t{});
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return binary(int64_t{});
+    default:
+      break;
+  }
+  // Integers, temporal types, decimals and fixed-size binary compare bitwise
+  switch (const int width = values.type->bit_width() / 8) {
+    case 1:
+      return numbers(uint8_t{});
+    case 2:
+      return numbers(uint16_t{});
+    case 4:
+      return numbers(uint32_t{});
+    case 8:
+      return numbers(uint64_t{});
+    default: {
+      if (width <= 0) {
+        return Status::NotImplemented("list_contains for ", *values.type);
+      }
+      const uint8_t* v = values.buffers[1].data + values.offset * width;
+      const uint8_t* q = queries.buffers[1].data + queries.offset * width;
+      return visit([=](int64_t j, int64_t k) {
+        return std::memcmp(v + j * width, q + k * width, width) == 0;
+      });
+    }
+  }
+}
+
+// Returns a function giving the (child offset, length) of list i, with no values for
+// null list views
 template <typename Type>
-auto GetListLengths(const ArraySpan& list) {
+auto GetListRanges(const ArraySpan& list) {
+  using Range = std::pair<int64_t, int64_t>;
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
     const int64_t width = checked_cast<const FixedSizeListType&>(*list.type).list_size();
-    return [width](int64_t) { return width; };
-  } else if constexpr (is_list_view_type<Type>::value) {
-    const auto* sizes = list.GetValues<typename Type::offset_type>(2);
-    return
-        [&list, sizes](int64_t i) -> int64_t { return list.IsValid(i) ? sizes[i] : 0; };
+    return [&list, width](int64_t i) { return Range((list.offset + i) * width, width); };
   } else {
     const auto* offsets = list.GetValues<typename Type::offset_type>(1);
-    return [offsets](int64_t i) -> int64_t { return offsets[i + 1] - offsets[i]; };
+    if constexpr (is_list_view_type<Type>::value) {
+      const auto* sizes = list.GetValues<typename Type::offset_type>(2);
+      return [&list, offsets, sizes](int64_t i) {
+        return Range(offsets[i], list.IsValid(i) ? sizes[i] : 0);
+      };
+    } else {
+      return
+          [offsets](int64_t i) { return Range(offsets[i], offsets[i + 1] - offsets[i]); };
+    }
   }
 }
 
-// Returns the child values of all lists, one list after the other
-template <typename Type>
-Result<std::shared_ptr<ArrayData>> GetListValues(KernelContext* ctx,
-                                                 const ArraySpan& list) {
-  if constexpr (std::is_same_v<Type, FixedSizeListType>) {
-    const int64_t width = GetListLengths<Type>(list)(0);
-    return list.child_data[0].ToArrayData()->Slice(list.offset * width,
-                                                   list.length * width);
-  } else if constexpr (is_list_view_type<Type>::value) {
-    // List views may reference child values in any order
-    typename TypeTraits<Type>::ArrayType list_view(list.ToArrayData());
-    ARROW_ASSIGN_OR_RAISE(auto values, list_view.Flatten(ctx->memory_pool()));
-    return values->data();
+// Search each list for its query: `matches(j, i)` tells whether child value j matches
+// the query of list i, relative to the first child value referenced. If given,
+// `confirm` is the exact check, and `matches` a cheaper superset of it that long lists
+// are searched with first.
+template <typename Type, typename Matches, typename Confirm = std::nullptr_t>
+void SearchLists(const ArraySpan& list, int64_t values_start, int64_t values_length,
+                 ArraySpan* out_arr, Matches&& matches, Confirm&& confirm = nullptr) {
+  constexpr bool kConfirm = !std::is_same_v<std::decay_t<Confirm>, std::nullptr_t>;
+  const auto list_range = GetListRanges<Type>(list);
+  auto emit = [&](auto&& found_in) {
+    int64_t i = 0;
+    arrow::internal::GenerateBitsUnrolled(out_arr->buffers[1].data, out_arr->offset,
+                                          out_arr->length, [&] {
+                                            auto [start, length] = list_range(i);
+                                            start -= values_start;
+                                            return found_in(start, start + length, i++);
+                                          });
+  };
+  if (values_length < 32 * list.length) {
+    // Short lists are faster to check in full, without branching on the data
+    auto exact = [&](int64_t j, int64_t i) {
+      if constexpr (kConfirm) {
+        return confirm(j, i);
+      } else {
+        return matches(j, i);
+      }
+    };
+    emit([&](int64_t start, int64_t end, int64_t i) {
+      bool found = false;
+      for (int64_t j = start; j < end; ++j) found |= exact(j, i);
+      return found;
+    });
   } else {
-    const auto* offsets = list.GetValues<typename Type::offset_type>(1);
-    return list.child_data[0].ToArrayData()->Slice(offsets[0],
-                                                   offsets[list.length] - offsets[0]);
+    // Stop after the first chunk of 16 values holding a match
+    auto any = [](auto&& predicate, int64_t start, int64_t end, int64_t i) {
+      bool found = false;
+      for (int64_t chunk = start; chunk < end && !found; chunk += 16) {
+        for (int64_t j = chunk; j < std::min(chunk + 16, end); ++j) {
+          found |= predicate(j, i);
+        }
+      }
+      return found;
+    };
+    emit([&](int64_t start, int64_t end, int64_t i) {
+      if constexpr (kConfirm) {
+        return any(matches, start, end, i) && any(confirm, start, end, i);
+      } else {
+        return any(matches, start, end, i);
+      }
+    });
   }
 }
 
-// Whether any of the `length` bits from `offset` is set in `bits`, a bitmap of `size`
-// bytes
-bool AnySet(const uint8_t* bits, int64_t size, int64_t offset, int64_t length) {
-  const int64_t byte_offset = offset / 8;
-  const int64_t bit_offset = offset % 8;
-  if (bit_offset + length <= 64 && byte_offset + 8 <= size) {
-    // Short ranges fit in a single word
-    const uint64_t word =
-        bit_util::FromLittleEndian(util::SafeLoadAs<uint64_t>(bits + byte_offset));
-    const uint64_t mask = length == 64 ? ~uint64_t{0} : (uint64_t{1} << length) - 1;
-    return ((word >> bit_offset) & mask) != 0;
-  }
-  arrow::internal::BitBlockCounter counter(bits, offset, length);
-  for (int64_t position = 0; position < length;) {
-    const auto block = counter.NextWord();
-    if (block.popcount > 0) {
-      return true;
-    }
-    position += block.length;
-  }
-  return false;
-}
-
-// Repeat the value of each list for each of its child values
-template <typename Type>
-Result<Datum> RepeatListValues(KernelContext* ctx, const ArraySpan& list,
-                               int64_t values_length, const ArraySpan& value) {
-  const auto list_length = GetListLengths<Type>(list);
-  Int64Builder indices(ctx->memory_pool());
-  RETURN_NOT_OK(indices.Reserve(values_length));
-  for (int64_t i = 0; i < list.length; ++i) {
-    const int64_t length = list_length(i);
-    for (int64_t j = 0; j < length; ++j) {
-      indices.UnsafeAppend(i);
-    }
-  }
-  ARROW_ASSIGN_OR_RAISE(auto repeat_indices, indices.Finish());
-  return CallFunction("take", {value.ToArrayData(), repeat_indices}, ctx->exec_context());
-}
-
-// Match the child values of all lists with a single vectorized comparison, then check
-// each list's range in the resulting bitmap.
 template <typename Type>
 Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  ArraySpan* out_arr = out->array_span_mutable();
   if (batch.length == 0) {
     return Status::OK();
   }
   if (batch[0].is_scalar()) {
-    // A scalar list is only paired with an array of values here, so broadcast it
+    // A scalar list is only paired with an array of queries here, so broadcast it
     ARROW_ASSIGN_OR_RAISE(auto lists, MakeArrayFromScalar(*batch[0].scalar, batch.length,
                                                           ctx->memory_pool()));
     ExecSpan array_batch = batch;
     array_batch.values[0].SetArray(*lists->data());
     return ListContains<Type>(ctx, array_batch, out);
   }
-
   const ArraySpan& list = batch[0].array;
-  ArraySpan* out_arr = out->array_span_mutable();
 
   // Only null lists emit a null
   if (list.MayHaveNulls()) {
@@ -704,44 +750,60 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   out_arr->null_count = list.null_count;
 
-  ARROW_ASSIGN_OR_RAISE(auto values, GetListValues<Type>(ctx, list));
-  Datum value;
-  if (batch[1].is_scalar()) {
-    value = batch[1].scalar->GetSharedPtr();
-  } else if (batch[1].array.length == 1) {
-    // Also covers scalar inputs, which are promoted to arrays
-    ARROW_ASSIGN_OR_RAISE(value, batch[1].array.ToArray()->GetScalar(0));
+  // The child values referenced by the lists, in any order for list views
+  int64_t values_start = 0;
+  int64_t values_length = list.child_data[0].length;
+  if constexpr (!is_list_view_type<Type>::value) {
+    const auto list_range = GetListRanges<Type>(list);
+    values_start = list_range(0).first;
+    values_length = list_range(list.length - 1).first +
+                    list_range(list.length - 1).second - values_start;
+  }
+  Datum values = list.child_data[0].ToArrayData()->Slice(values_start, values_length);
+
+  // A scalar query is a single query for all lists
+  const bool scalar_query = batch[1].is_scalar();
+  Datum queries;
+  if (scalar_query) {
+    ARROW_ASSIGN_OR_RAISE(queries,
+                          MakeArrayFromScalar(*batch[1].scalar, 1, ctx->memory_pool()));
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        value, RepeatListValues<Type>(ctx, list, values->length, batch[1].array));
+    queries = batch[1].array.ToArrayData();
   }
-  ARROW_ASSIGN_OR_RAISE(Datum match, ListValuesMatch(ctx, values, value));
+  const int64_t query_step = scalar_query ? 0 : 1;
 
-  // Null matches never count
-  const ArrayData& match_data = *match.array();
-  std::shared_ptr<Buffer> matches = match_data.buffers[1];
-  int64_t matches_offset = match_data.offset;
-  if (match_data.MayHaveNulls()) {
-    ARROW_ASSIGN_OR_RAISE(
-        matches, arrow::internal::BitmapAnd(
-                     ctx->memory_pool(), matches->data(), match_data.offset,
-                     match_data.buffers[0]->data(), match_data.offset, match_data.length,
-                     /*out_offset=*/0));
-    matches_offset = 0;
+  if (queries.null_count() == queries.length()) {
+    RETURN_NOT_OK(CheckNullValueType(ctx, *values.type(), *queries.type()));
+    const ArraySpan v(*values.array());
+    SearchLists<Type>(list, values_start, values_length, out_arr,
+                      [&](int64_t j, int64_t) { return v.IsNull(j); });
+    return Status::OK();
   }
-
-  // The output bits of null lists don't matter, so they are not special-cased
-  const auto list_length = GetListLengths<Type>(list);
-  int64_t start = matches_offset;
-  int64_t i = 0;
-  arrow::internal::GenerateBitsUnrolled(
-      out_arr->buffers[1].data, out_arr->offset, out_arr->length, [&] {
-        const int64_t length = list_length(i++);
-        const bool found = AnySet(matches->data(), matches->size(), start, length);
-        start += length;
-        return found;
+  RETURN_NOT_OK(CastToComparable(ctx, &values, &queries));
+  const ArraySpan v(*values.array());
+  const ArraySpan q(*queries.array());
+  return VisitEqual(v, q, [&](auto&& equal) {
+    auto search = [&](auto&&... predicates) {
+      SearchLists<Type>(list, values_start, values_length, out_arr, predicates...);
+    };
+    // Null checks are only paid for where there are nulls
+    if (q.MayHaveNulls()) {
+      search([&](int64_t j, int64_t i) {
+        const int64_t k = i * query_step;
+        return q.IsNull(k) ? v.IsNull(j) : v.IsValid(j) && equal(j, k);
       });
-  return Status::OK();
+    } else if (v.MayHaveNulls()) {
+      // Null values may hold anything, so lists found are searched again for them
+      const uint8_t* validity = v.buffers[0].data;
+      search([&](int64_t j, int64_t i) { return equal(j, i * query_step); },
+             [&, validity, offset = v.offset](int64_t j, int64_t i) {
+               return bit_util::GetBit(validity, offset + j) & equal(j, i * query_step);
+             });
+    } else {
+      search([&](int64_t j, int64_t i) { return equal(j, i * query_step); });
+    }
+    return Status::OK();
+  });
 }
 
 void AddListContainsKernels(ScalarFunction* func) {

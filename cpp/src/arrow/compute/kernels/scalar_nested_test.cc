@@ -175,6 +175,8 @@ TEST(TestScalarNested, ListContainsLongLists) {
   CheckListContains(input, ArrayFromJSON(int32(), "[7, 7, null]"),
                     "[false, false, false]");
   CheckListContains(input, ArrayFromJSON(int32(), "[1, null, 7]"), "[true, true, true]");
+  // The null value's slot holds 0, which must not match
+  CheckListContains(input, ScalarFromJSON(int32(), "0"), "[false, false, false]");
 }
 
 TEST(TestScalarNested, ListContainsManyShortLists) {
@@ -182,6 +184,7 @@ TEST(TestScalarNested, ListContainsManyShortLists) {
   std::string lists = "[";
   std::string contains_5 = "[";
   std::string contains_null = "[";
+  std::string contains_0 = "[";
   for (int i = 0; i < 200; ++i) {
     const std::string sep = i == 0 ? "" : ", ";
     const bool is_null = i % 11 == 0;
@@ -193,10 +196,13 @@ TEST(TestScalarNested, ListContainsManyShortLists) {
     contains_null += sep + (is_null                    ? "null"
                             : i % 7 != 0 && i % 3 == 0 ? "true"
                                                        : "false");
+    contains_0 += sep + (is_null ? "null" : "false");
   }
   auto input = ArrayFromJSON(list(int32()), lists + "]");
   CheckListContains(input, ScalarFromJSON(int32(), "5"), contains_5 + "]");
   CheckListContains(input, ScalarFromJSON(int32(), "null"), contains_null + "]");
+  // Null values' slots hold 0, which must not match
+  CheckListContains(input, ScalarFromJSON(int32(), "0"), contains_0 + "]");
 }
 
 TEST(TestScalarNested, ListContainsNull) {
@@ -252,13 +258,39 @@ TEST(TestScalarNested, ListContainsValueTypes) {
         list(ty), "[[" + x + ", null], [" + y + "], [" + x + ", " + y + "], [], null]");
     CheckListContains(input, ScalarFromJSON(ty, x), "[true, false, true, false, null]");
     CheckListContains(input, ScalarFromJSON(ty, y), "[false, true, true, false, null]");
+    CheckListContains(
+        input,
+        ArrayFromJSON(ty, "[" + x + ", " + y + ", " + y + ", " + x + ", " + x + "]"),
+        "[true, true, true, false, null]");
+    // A single list is searched for each query
+    CheckListContains(ScalarFromJSON(list(ty), "[" + x + ", null]"),
+                      ArrayFromJSON(ty, "[" + x + ", " + y + ", null]"),
+                      "[true, false, true]");
   };
   check(utf8(), R"("x")", R"("y")");
   check(large_binary(), R"("x")", R"("y")");
+  check(binary_view(), R"("x")", R"("y")");
+  check(fixed_size_binary(1), R"("x")", R"("y")");
   check(boolean(), "true", "false");
+  check(int16(), "1", "2");
+  check(float16(), "1.5", "2.5");
   check(date32(), "18262", "18628");
   check(decimal128(38, 2), R"("1.50")", R"("2.50")");
+  check(decimal256(40, 2), R"("1.50")", R"("2.50")");
   check(timestamp(TimeUnit::NANO), "1", "2");
+  check(duration(TimeUnit::MILLI), "1", "2");
+}
+
+TEST(TestScalarNested, ListContainsSignedZero) {
+  // Like "equal", -0.0 equals 0.0
+  auto input = ArrayFromJSON(list(float64()), "[[0.0], [-0.0], [1.0], null]");
+  CheckListContains(input, ScalarFromJSON(float64(), "-0.0"),
+                    "[true, true, false, null]");
+  CheckListContains(input, ArrayFromJSON(float64(), "[-0.0, 0.0, 0.0, 0.0]"),
+                    "[true, true, false, null]");
+  CheckListContains(ScalarFromJSON(list(float64()), "[-0.0, NaN]"),
+                    ArrayFromJSON(float64(), "[0.0, -0.0, NaN, 1.0]"),
+                    "[true, true, true, false]");
 }
 
 TEST(TestScalarNested, ListContainsImplicitCast) {
@@ -344,6 +376,12 @@ TEST(TestScalarNested, ListContainsArrayOfValues) {
                     ArrayFromJSON(int32(), "[2, 3]"), "[true, false]");
   CheckListContains(ScalarFromJSON(list(int32()), "null"),
                     ArrayFromJSON(int32(), "[1, 2]"), "[null, null]");
+  CheckListContains(ScalarFromJSON(list(int64()), "[1, 2]"),
+                    ArrayFromJSON(float64(), "[2.0, 2.5, null]"), "[true, false, false]");
+  CheckListContains(ScalarFromJSON(list(utf8()), R"(["a", null])"),
+                    ArrayFromJSON(null(), "[null, null]"), "[true, true]");
+  CheckListContains(ScalarFromJSON(list(utf8()), R"(["a"])"),
+                    ArrayFromJSON(utf8(), "[null, null]"), "[false, false]");
 }
 
 TEST(TestScalarNested, ListContainsInvalid) {
@@ -356,7 +394,17 @@ TEST(TestScalarNested, ListContainsInvalid) {
         Datum(ArrayFromJSON(utf8(), "[null, null]"))}) {
     EXPECT_THAT(CallFunction("list_contains", {input, value}),
                 Raises(StatusCode::NotImplemented));
+    EXPECT_THAT(
+        CallFunction("list_contains", {ScalarFromJSON(list(int32()), "[1]"),
+                                       ArrayFromJSON(value.type(), "[null, null]")}),
+        Raises(StatusCode::NotImplemented));
   }
+  // Like "equal", timestamps with and without a time zone don't compare
+  EXPECT_THAT(
+      CallFunction("list_contains",
+                   {ArrayFromJSON(list(timestamp(TimeUnit::SECOND, "UTC")), "[[1]]"),
+                    ScalarFromJSON(timestamp(TimeUnit::SECOND), "1")}),
+      Raises(StatusCode::Invalid));
 }
 
 using VarLenListLikeTypeFactory =
