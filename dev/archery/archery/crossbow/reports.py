@@ -25,6 +25,7 @@ import operator
 import fnmatch
 import functools
 import time
+from urllib.parse import quote
 
 import click
 import requests
@@ -82,6 +83,14 @@ class Report:
             # show link to the actual build, some CI providers implement
             # the statuses API others implement the checks API, retrieve any.
             return build_links[0]
+        elif task.ci == 'github':
+            branch = quote(task.branch, safe='')
+            return f'{self.repo_url}/actions?query=branch:{branch}'
+        elif task.ci == 'azure':
+            repo = '/'.join(self.repo_url.rsplit('/', 2)[-2:])
+            branch = quote(task.branch, safe='')
+            return (f'https://dev.azure.com/{repo}/_build/latest'
+                    f'?definitionId=1&branchName={branch}')
         else:
             # show link to the branch if no status build link was found.
             return self.branch_url(task.branch)
