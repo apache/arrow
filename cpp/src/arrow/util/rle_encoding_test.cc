@@ -941,7 +941,7 @@ TEST(BitRle, Random) {
       }
       parity = !parity;
     }
-    if (!CheckRoundTrip(values, static_cast<int>(bit_util::BitWidth(values.size())))) {
+    if (!CheckRoundTrip(values, bit_util::BitWidth(values.size()))) {
       FAIL() << "failing seed: " << seed;
     }
   }

@@ -87,7 +87,7 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
   // assuming that the gear hash has a uniform distribution, we can calculate the mask
   // by taking the floor(log2(target_size))
   auto target_bits = ::arrow::bit_util::BitWidth(static_cast<uint64_t>(target_size));
-  int mask_bits = target_bits == 0 ? 0 : static_cast<int>(target_bits - 1);
+  int mask_bits = target_bits == 0 ? 0 : target_bits - 1;
 
   // a user defined `norm_level` can be used to adjust the mask size, hence the matching
   // probability, by increasing the norm_level we increase the probability of matching

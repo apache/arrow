@@ -199,8 +199,7 @@ std::optional<int64_t> EstimateCompressedSizeBits(
   const EncodedUnsigned delta = (static_cast<EncodedUnsigned>(max_encoded_value) -
                                  static_cast<EncodedUnsigned>(min_encoded_value));
 
-  const int32_t estimated_bits_per_value =
-      static_cast<int32_t>(bit_util::BitWidth(delta));
+  const int32_t estimated_bits_per_value = bit_util::BitWidth(delta);
   int64_t estimated_compression_size =
       static_cast<int64_t>(inputs.size()) * estimated_bits_per_value;
   estimated_compression_size +=

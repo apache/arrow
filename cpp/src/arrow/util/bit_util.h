@@ -145,19 +145,19 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
 // clang.
 // TODO: We can remove this condition once CRAN upgrades its macOS SDK from 11.3.
 template <typename T>
-constexpr T BitWidth(T x) noexcept {
+constexpr int BitWidth(T x) noexcept {
   static_assert(std::is_unsigned_v<T>, "BitWidth requires an unsigned integer type");
 #if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
-  return std::log2p1(x);
+  return static_cast<int>(std::log2p1(x));
 #else
-  return std::bit_width(x);
+  return static_cast<int>(std::bit_width(x));
 #endif
 }
 
 // Returns ceil(log2(x)).
 static inline int Log2(uint64_t x) {
   // DCHECK_GT(x, 0);
-  return static_cast<int>(BitWidth(x - 1));
+  return BitWidth(x - 1);
 }
 
 //
