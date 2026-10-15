@@ -156,17 +156,23 @@ The following example starts an interactive ``bash`` session in the container
 
     archery docker run ubuntu-cpp bash
 
-**Build the image with increased debugging output:**
+**Control debugging output:**
 
-To enable additional logging output for debugging, pass the ``--debug`` flag
-to ``archery``.
+Archery Docker commands enable debugging output by default. This includes
+``DEBUG``-level logging and passing ``--progress=plain`` to the
+docker(-compose) build command on non-Windows systems.
+
+To disable debugging output, set ``ARCHERY_DEBUG=0``:
 
 .. code:: bash
 
-    archery --debug docker run ubuntu-cpp
+    ARCHERY_DEBUG=0 archery docker run ubuntu-cpp
 
-In addition to enabling ``DEBUG``-level logging, this also translates to
-passing ``--progress=plain`` to docker(-compose) build command.
+To silence executed commands as well, pass ``--quiet`` to ``archery``:
+
+.. code:: bash
+
+    archery --quiet docker run ubuntu-cpp
 
 Docker Volume Caches
 ~~~~~~~~~~~~~~~~~~~~

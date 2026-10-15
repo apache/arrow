@@ -15,12 +15,87 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import logging
+import os
+from subprocess import CompletedProcess, PIPE
 from unittest.mock import patch
+
+import pytest
 
 from click.testing import CliRunner
 
+from archery.cli import archery
 from archery.docker import DockerCompose
 from archery.docker.cli import docker
+from archery.utils.logger import ctx as log_ctx, logger
+
+
+@pytest.mark.parametrize(('options', 'debug_env', 'debug'), [
+    ([], None, True),
+    ([], '1', True),
+    ([], '0', False),
+    ([], 'false', False),
+    ([], 'OFF', False),
+    (['--quiet'], None, False),
+    (['--debug'], '0', True),
+    (['--debug', '--quiet'], None, True),
+    (['--quiet'], '1', True),
+])
+def test_docker_debug_output(options, debug_env, debug, tmp_path,
+                             monkeypatch, caplog):
+    monkeypatch.delenv('ARCHERY_DEBUG', raising=False)
+    if debug_env is not None:
+        monkeypatch.setenv('ARCHERY_DEBUG', debug_env)
+    monkeypatch.setattr(log_ctx, 'quiet', False)
+    (tmp_path / 'cpp').mkdir()
+    (tmp_path / 'cpp' / 'CMakeLists.txt').touch()
+    config = '''
+x-hierarchy:
+  - test
+services:
+  test:
+    image: test
+    build:
+      context: .
+      dockerfile: Dockerfile
+'''
+    (tmp_path / 'compose.yaml').write_text(config)
+    args = options + ['docker', '--src', str(tmp_path),
+                      'build', '--no-pull', 'test']
+
+    with caplog.at_level(logging.DEBUG, logger='archery'):
+        logger.setLevel(logging.INFO)
+        with patch('subprocess.run', return_value=CompletedProcess(
+                [], 0, stdout=config.encode(), stderr=b'')) as run:
+            result = CliRunner().invoke(archery, args)
+
+    assert result.exit_code == 0, result.output
+    calls = run.call_args_list
+    assert any(call.args[0] == ['docker', 'version']
+               for call in calls) is debug
+    build = next(call for call in calls if 'build' in call.args[0])
+    assert ('--progress=plain' in build.args[0]) is (debug and os.name != 'nt')
+    assert (build.kwargs.get('stdout') == PIPE) is ('--quiet' in options)
+    assert any(record.name == 'archery' and record.levelno == logging.DEBUG
+               and 'Executing' in record.message
+               for record in caplog.records) is debug
+
+
+def test_non_docker_debug_default(monkeypatch, caplog):
+    monkeypatch.delenv('ARCHERY_DEBUG', raising=False)
+    monkeypatch.setattr(log_ctx, 'quiet', False)
+    with caplog.at_level(logging.DEBUG, logger='archery'):
+        logger.setLevel(logging.INFO)
+        with patch('archery.linking.check_dynamic_library_dependencies',
+                   side_effect=lambda *args, **kwargs:
+                   logger.debug('Checking dependencies')) as check:
+            result = CliRunner().invoke(
+                archery, ['linking', 'check-dependencies', 'somelib.so'])
+
+    assert result.exit_code == 0, result.output
+    check.assert_called_once()
+    assert not any(record.message == 'Checking dependencies'
+                   for record in caplog.records)
 
 
 @patch.object(DockerCompose, "pull")

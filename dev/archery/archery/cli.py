@@ -65,9 +65,10 @@ def _run_metadata(ctx):
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--debug", type=BOOL, is_flag=True, default=False,
+@click.option("--debug", type=BOOL, is_flag=True, default=None,
               envvar='ARCHERY_DEBUG',
-              help="Increase logging with debugging output.")
+              help="Increase logging with debugging output "
+                   "(enabled by default for Docker commands).")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
 @click.option("-q", "--quiet", type=BOOL, is_flag=True, default=False,
@@ -83,6 +84,8 @@ def archery(ctx, debug, pdb, quiet):
     ctx.ensure_object(dict)
 
     log_ctx.quiet = quiet
+    if debug is None:
+        debug = ctx.invoked_subcommand == 'docker' and not quiet
     if debug:
         logger.setLevel(logging.DEBUG)
 
