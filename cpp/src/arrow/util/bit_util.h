@@ -138,18 +138,26 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   return (v << n) >> n;
 }
 
+// Returns the number of bits needed to represent x, i.e. std::bit_width(x).
+//
+// The libc++ in the macOS 11.3 SDK used by CRAN only has the pre-standard
+// name std::log2p1. __apple_build_version__ should be defined only on Apple
+// clang.
+// TODO: We can remove this condition once CRAN upgrades its macOS SDK from 11.3.
+template <typename T>
+constexpr T BitWidth(T x) noexcept {
+  static_assert(std::is_unsigned_v<T>, "BitWidth requires an unsigned integer type");
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+  return std::log2p1(x);
+#else
+  return std::bit_width(x);
+#endif
+}
+
 // Returns ceil(log2(x)).
 static inline int Log2(uint64_t x) {
   // DCHECK_GT(x, 0);
-
-// TODO: We can remove this condition once CRAN upgrades its macOS
-// SDK from 11.3.
-// __apple_build_version__ should be defined only on Apple clang
-#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
-  return std::log2p1(x - 1);
-#else
-  return std::bit_width(x - 1);
-#endif
+  return static_cast<int>(BitWidth(x - 1));
 }
 
 //
