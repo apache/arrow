@@ -39,6 +39,20 @@ env:
 
 jobs:
 
+  pr-scripts:
+    name: PR Workflow Script Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Test PR workflow scripts
+        run: node --test .github/workflows/dev_pr/*.test.js
+
   lint:
     name: Lint C++, Python, R, Docker, RAT
     # Use Ubuntu 24.04 to ensure working pre-commit on Ubuntu 24.04.

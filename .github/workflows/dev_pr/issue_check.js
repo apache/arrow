@@ -26,17 +26,24 @@ const helpers = require("./helpers.js");
  * @param {Object} issueInfo
  */
 async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) {
-    await github.rest.issues.addAssignees({
+    const creator = context.payload.pull_request.user.login;
+    const response = await github.rest.issues.addAssignees({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: issueInfo.number,
-        assignees: context.payload.pull_request.user.login
+        assignees: [creator]
     });
+    const assigned = response.data.assignees.some((assignee) => assignee.login === creator);
+    const body = assigned
+        ? ":warning: GitHub issue #" + issueInfo.number + " **has been automatically assigned in GitHub** to PR creator."
+        : ":warning: GitHub issue #" + issueInfo.number + " **could not be automatically assigned** to the PR creator. " +
+          "Please leave a comment on " + issueInfo.html_url + " requesting assignment. " +
+          "A committer or collaborator can then assign the issue to you.";
     await github.rest.issues.createComment({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: pullRequestNumber,
-        body: ":warning: GitHub issue #" + issueInfo.number + " **has been automatically assigned in GitHub** to PR creator."
+        body
     });
 }
 
