@@ -50,6 +50,8 @@ namespace arrow {
 
 using internal::BitsetStack;
 using internal::CopyBitmap;
+using internal::CountAndNotSetBits;
+using internal::CountAndSetBits;
 using internal::CountSetBits;
 using internal::InvertBitmap;
 using internal::ReverseBitmap;
@@ -325,6 +327,39 @@ TEST(BitUtilTests, TestCountSetBits) {
       }
     }
   }
+}
+
+TEST(BitUtilTests, TestCountAndNotSetBits) {
+  const int kBufferSize = 1000;
+  alignas(8) uint8_t left[kBufferSize] = {0};
+  alignas(8) uint8_t right[kBufferSize] = {0};
+  const int buffer_bits = kBufferSize * 8;
+
+  random_bytes(kBufferSize, 0, left);
+  random_bytes(kBufferSize, 1, right);
+
+  for (const int64_t left_offset : {0, 1, 7, 63, 64, 129}) {
+    for (const int64_t right_offset : {0, 3, 8, 64, 100}) {
+      const int64_t length = buffer_bits - std::max(left_offset, right_offset);
+      int64_t expected = 0;
+      for (int64_t i = 0; i < length; ++i) {
+        expected += bit_util::GetBit(left, left_offset + i) &&
+                    !bit_util::GetBit(right, right_offset + i);
+      }
+      ASSERT_EQ(expected,
+                CountAndNotSetBits(left, left_offset, right, right_offset, length))
+          << "left_offset = " << left_offset << ", right_offset = " << right_offset;
+    }
+  }
+
+  // Zero length is well-defined and touches no memory
+  ASSERT_EQ(0, CountAndNotSetBits(left, 0, right, 0, 0));
+
+  // "x & ~y" complements "x & y" over the bits set in x
+  const int64_t length = buffer_bits - 64;
+  ASSERT_EQ(CountSetBits(left, 64, length),
+            CountAndSetBits(left, 64, right, 3, length) +
+                CountAndNotSetBits(left, 64, right, 3, length));
 }
 
 TEST(BitUtilTests, TestSetBitsTo) {
