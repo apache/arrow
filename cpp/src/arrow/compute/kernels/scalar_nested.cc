@@ -830,7 +830,9 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
       const uint8_t* validity = v.buffers[0].data;
       search([&](int64_t j, int64_t i) { return equal(j, i * query_step); },
              [&, validity, offset = v.offset](int64_t j, int64_t i) {
-               return bit_util::GetBit(validity, offset + j) & equal(j, i * query_step);
+               // `&` rather than `&&`, so short lists don't branch on the data
+               return (static_cast<int>(bit_util::GetBit(validity, offset + j)) &
+                       static_cast<int>(equal(j, i * query_step))) != 0;
              });
     } else {
       search([&](int64_t j, int64_t i) { return equal(j, i * query_step); });
