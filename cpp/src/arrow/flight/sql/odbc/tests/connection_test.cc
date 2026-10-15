@@ -550,20 +550,10 @@ TYPED_TEST(ConnectionTest, TestSQLSetStmtAttrDescriptor) {
 
   EXPECT_EQ(ard_descriptor, value);
 
-  // A null descriptor handle restores the corresponding implicit descriptor.
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, SQL_NULL_HANDLE, 0));
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, SQL_NULL_HANDLE, 0));
-  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
-                                        sizeof(value), 0));
-  EXPECT_EQ(internal_apd, value);
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
-  EXPECT_EQ(internal_ard, value);
-
-  // Assign replacement descriptors after the reset. Freeing the old descriptors must
-  // not revert these replacements, which proves the reset detached the old handles.
+  // Assign replacement descriptors. Freeing the old descriptors must not revert these
+  // replacements, which proves switching descriptors detached the old handles. Null
+  // descriptor restoration is covered through the direct driver API because some driver
+  // managers intercept it.
   SQLHDESC replacement_apd, replacement_ard;
   ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &replacement_apd));
   ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &replacement_ard));

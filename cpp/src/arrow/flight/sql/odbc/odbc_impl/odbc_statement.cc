@@ -583,6 +583,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
           current_ard_->DetachFromStatement(this, false);
         }
         current_ard_ = desc;
+        current_ard_->NotifyBindingsHaveChanged();
         if (current_ard_ != built_in_ard_.get()) {
           desc->RegisterToStatement(this, false);
         }
@@ -724,6 +725,7 @@ void ODBCStatement::RevertAppDescriptor(bool isApd) {
     current_apd_ = built_in_apd_.get();
   } else {
     current_ard_ = built_in_ard_.get();
+    current_ard_->NotifyBindingsHaveChanged();
   }
 }
 

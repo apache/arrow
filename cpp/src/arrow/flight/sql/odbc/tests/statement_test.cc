@@ -1781,6 +1781,41 @@ TYPED_TEST(StatementTest, TestSQLBindColRowFetching) {
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
 
+TYPED_TEST(StatementTest, TestChangingAppRowDescriptorRebindsColumns) {
+  SQLINTEGER implicit_value = -1;
+  SQLLEN implicit_indicator;
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &implicit_value,
+                                    sizeof(implicit_value), &implicit_indicator));
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
+   SELECT 1 AS value
+   UNION ALL SELECT 2
+   UNION ALL SELECT 3;
+ )");
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  EXPECT_EQ(1, implicit_value);
+
+  SQLHDESC explicit_ard;
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &explicit_ard));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, explicit_ard, 0));
+  SQLINTEGER explicit_value = -1;
+  SQLLEN explicit_indicator;
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &explicit_value,
+                                    sizeof(explicit_value), &explicit_indicator));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  EXPECT_EQ(2, explicit_value);
+
+  // Releasing an active explicit ARD restores and rebinds the implicit ARD.
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, explicit_ard));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  EXPECT_EQ(3, implicit_value);
+  EXPECT_EQ(2, explicit_value);
+}
+
 TYPED_TEST(StatementTest, TestSQLBindColRowArraySize) {
   // Set SQL_ATTR_ROW_ARRAY_SIZE to fetch 3 rows at once
 
@@ -1991,17 +2026,25 @@ TYPED_TEST(StatementTest, TestSQLMoreResultsWithoutQuery) {
   ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
 }
 
-TYPED_TEST(StatementTest, TestSQLFetchWithoutCursor) {
+TYPED_TEST(StatementTest, TestDriverManagerSQLFetchWithoutCursor) {
   ASSERT_EQ(SQL_ERROR, SQLFetch(this->stmt));
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif
 }
 
-TYPED_TEST(StatementTest, TestSQLGetDataWithoutCursor) {
+TYPED_TEST(StatementTest, TestDriverManagerSQLGetDataWithoutCursor) {
   SQLINTEGER value;
   SQLLEN indicator;
   ASSERT_EQ(SQL_ERROR,
             SQLGetData(this->stmt, 1, SQL_C_LONG, &value, sizeof(value), &indicator));
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
