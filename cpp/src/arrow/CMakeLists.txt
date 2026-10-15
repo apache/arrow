@@ -467,6 +467,7 @@ arrow_add_object_library(ARROW_ARRAY
                          array/array_nested.cc
                          array/array_primitive.cc
                          array/array_run_end.cc
+                         array/buffer_truncate.cc
                          array/builder_adaptive.cc
                          array/builder_base.cc
                          array/builder_binary.cc

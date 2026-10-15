@@ -3158,6 +3158,10 @@ cdef extern from "arrow/array/concatenate.h" namespace "arrow" nogil:
         const vector[shared_ptr[CArray]]& arrays,
         CMemoryPool* pool)
 
+cdef extern from "arrow/array/buffer_truncate.h" namespace "arrow::array" nogil:
+    CResult[shared_ptr[CArrayData]] TruncateBuffers(
+        shared_ptr[CArrayData] data, CMemoryPool* pool)
+
 cdef extern from "arrow/c/abi.h":
     cdef struct ArrowSchema:
         void (*release)(ArrowSchema*) noexcept nogil

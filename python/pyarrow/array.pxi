@@ -743,6 +743,17 @@ cdef _reduce_array_data(const CArrayData* ad):
         ad.offset, buffers, children, dictionary
 
 
+cdef _reduce_array_data_top_level(shared_ptr[CArrayData] ad_sp):
+    """
+    Like _reduce_array_data but first truncates all buffers to the range
+    actually represented by (offset, length).  This prevents sliced arrays
+    from serializing their entire backing buffer (GH-26685).
+    """
+    cdef shared_ptr[CArrayData] truncated
+    truncated = GetResultValue(TruncateBuffers(ad_sp, NULL))
+    return _reduce_array_data(truncated.get())
+
+
 cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
     """
     Reconstruct CArrayData objects from the tuple structure generated
@@ -1344,7 +1355,7 @@ cdef class Array(_PandasConvertible):
     def __reduce__(self):
         self._assert_cpu()
         return _restore_array, \
-            (_reduce_array_data(self.sp_array.get().data().get()),)
+            (_reduce_array_data_top_level(self.sp_array.get().data()),)
 
     @staticmethod
     def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
