@@ -18,7 +18,6 @@
 // From Apache Impala (incubating) as of 2016-01-29
 
 #include <algorithm>
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <random>
@@ -942,14 +941,7 @@ TEST(BitRle, Random) {
       }
       parity = !parity;
     }
-    // TODO: We can remove this condition once CRAN upgrades its macOS
-    // SDK from 11.3.
-    // __apple_build_version__ should be defined only on Apple clang
-#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
-    if (!CheckRoundTrip(values, std::log2p1(values.size()))) {
-#else
-    if (!CheckRoundTrip(values, std::bit_width(values.size()))) {
-#endif
+    if (!CheckRoundTrip(values, static_cast<int>(bit_util::BitWidth(values.size())))) {
       FAIL() << "failing seed: " << seed;
     }
   }
