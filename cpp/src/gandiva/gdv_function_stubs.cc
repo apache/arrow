@@ -179,8 +179,10 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
     return -1;
   }
 
-  // append the new entry.
-  memcpy(buffer->mutable_data() + offset, entry_buf, entry_len);
+  // append the new entry (NULL entries have a null buffer and zero length).
+  if (entry_len > 0) {
+    memcpy(buffer->mutable_data() + offset, entry_buf, entry_len);
+  }
 
   // update offsets buffer.
   offsets[slot] = offset;
