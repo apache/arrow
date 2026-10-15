@@ -35,7 +35,9 @@ constexpr const char* AES_CBC_NONE_MODE = "AES-CBC-NONE";
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (must be exactly 16 bytes)
+ * @param iv The initialization vector (must be exactly 16 bytes). It should be
+ * unpredictable (e.g. random) and need not be secret; a fixed IV makes the output
+ * deterministic for equal plaintexts.
  * @param iv_len Length of IV in bytes (must be 16)
  * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param cipher Output buffer for encrypted data
@@ -54,7 +56,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
  * @param ciphertext_len Length of ciphertext in bytes
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (must be exactly 16 bytes)
+ * @param iv The initialization vector used for encryption (must be exactly 16 bytes)
  * @param iv_len Length of IV in bytes (must be 16)
  * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param plaintext Output buffer for decrypted data

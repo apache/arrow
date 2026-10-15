@@ -3048,6 +3048,73 @@ TEST_F(TestProjector, TestEncryptDecryptErrors) {
       << status.message();
 }
 
+// A NULL in any argument yields a NULL result without evaluating the function
+TEST_F(TestProjector, TestEncryptDecryptNullArguments) {
+  auto data_field = field("data", arrow::binary());
+  auto key_field = field("key", arrow::binary());
+  auto mode_field = field("mode", arrow::utf8());
+  auto iv_field = field("iv", arrow::binary());
+  auto aad_field = field("aad", arrow::binary());
+  auto schema = arrow::schema({data_field, key_field, mode_field, iv_field, aad_field});
+
+  NodeVector args;
+  for (const auto& f : schema->fields()) args.push_back(TreeExprBuilder::MakeField(f));
+  auto make_projector = [&](const std::string& function) {
+    std::shared_ptr<Projector> projector;
+    auto node = TreeExprBuilder::MakeFunction(function, args, arrow::binary());
+    EXPECT_OK(Projector::Make(
+        schema, {TreeExprBuilder::MakeExpression(node, field("res", arrow::binary()))},
+        TestConfiguration(), &projector));
+    return projector;
+  };
+
+  const std::string key = "12345678abcdefgh";
+  const std::string iv = "123456789012";
+  const std::string aad = "aad";
+  // Row 0 is fully valid; in rows 1-5 exactly one of data, key, mode, iv, aad is NULL
+  const int num_records = 6;
+  auto binary_column = [&](const std::string& value, int null_row) {
+    std::vector<bool> valid(num_records, true);
+    valid[null_row] = false;
+    return MakeArrowArrayBinary(std::vector<std::string>(num_records, value), valid);
+  };
+  auto utf8_column = [&](const std::string& value, int null_row) {
+    std::vector<bool> valid(num_records, true);
+    valid[null_row] = false;
+    return MakeArrowArrayUtf8(std::vector<std::string>(num_records, value), valid);
+  };
+
+  auto in_batch = arrow::RecordBatch::Make(
+      schema, num_records,
+      {binary_column("some data", 1), binary_column(key, 2), utf8_column("AES-GCM", 3),
+       binary_column(iv, 4), binary_column(aad, 5)});
+
+  arrow::ArrayVector encrypted;
+  ASSERT_OK(make_projector("encrypt")->Evaluate(*in_batch, pool_, &encrypted));
+  EXPECT_TRUE(encrypted.at(0)->IsValid(0));
+  for (int row = 1; row < num_records; ++row) {
+    EXPECT_TRUE(encrypted.at(0)->IsNull(row)) << "row " << row;
+  }
+
+  // Same for decrypt, using the ciphertext of the valid row as the data in every row
+  const auto& cipher_array = static_cast<const arrow::BinaryArray&>(*encrypted.at(0));
+  const std::string cipher = cipher_array.GetString(0);
+  std::vector<bool> data_valid(num_records, true);
+  data_valid[1] = false;
+  auto cipher_column =
+      MakeArrowArrayBinary(std::vector<std::string>(num_records, cipher), data_valid);
+  auto decrypt_batch =
+      arrow::RecordBatch::Make(schema, num_records,
+                               {cipher_column, in_batch->column(1), in_batch->column(2),
+                                in_batch->column(3), in_batch->column(4)});
+  arrow::ArrayVector decrypted;
+  ASSERT_OK(make_projector("decrypt")->Evaluate(*decrypt_batch, pool_, &decrypted));
+  EXPECT_TRUE(decrypted.at(0)->IsValid(0));
+  for (int row = 1; row < num_records; ++row) {
+    EXPECT_TRUE(decrypted.at(0)->IsNull(row)) << "row " << row;
+  }
+}
+
 TEST_F(TestProjector, TestMaskFirstMaskLastN) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

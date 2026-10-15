@@ -36,7 +36,9 @@ constexpr int32_t GCM_TAG_LENGTH = 16;
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (variable length, typically 12 bytes)
+ * @param iv The initialization vector (variable length, typically 12 bytes). It must
+ * be unique for every encryption under the same key: reusing a nonce with GCM
+ * breaks both confidentiality and authenticity.
  * @param iv_len Length of IV in bytes
  * @param aad Optional additional authenticated data (can be null)
  * @param aad_len Length of AAD in bytes (0 if aad is null)
@@ -57,7 +59,7 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len, const char
  * @param ciphertext_len Length of ciphertext in bytes (includes tag)
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (variable length, typically 12 bytes)
+ * @param iv The initialization vector used for encryption (variable length)
  * @param iv_len Length of IV in bytes
  * @param aad Optional additional authenticated data (can be null)
  * @param aad_len Length of AAD in bytes (0 if aad is null)

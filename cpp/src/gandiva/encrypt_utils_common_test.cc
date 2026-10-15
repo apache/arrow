@@ -21,6 +21,20 @@
 #include <gtest/gtest.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/opensslv.h>
+
+namespace {
+
+// ERR_raise() only exists since OpenSSL 3.0
+void RaiseOpenSSLError(int reason) {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+  ERR_raise(ERR_LIB_EVP, reason);
+#else
+  ERR_put_error(ERR_LIB_EVP, 0, reason, __FILE__, __LINE__);
+#endif
+}
+
+}  // namespace
 
 // Test that get_openssl_error_string returns "Unknown OpenSSL error" when queue is empty
 TEST(TestOpenSSLErrorUtils, TestEmptyErrorQueue) {
@@ -38,7 +52,7 @@ TEST(TestOpenSSLErrorUtils, TestSingleError) {
   ERR_clear_error();
 
   // Add a single error to the queue
-  ERR_raise(ERR_LIB_EVP, EVP_R_UNSUPPORTED_ALGORITHM);
+  RaiseOpenSSLError(EVP_R_UNSUPPORTED_ALGORITHM);
 
   std::string error_string = gandiva::get_openssl_error_string();
 
@@ -53,9 +67,9 @@ TEST(TestOpenSSLErrorUtils, TestMultipleErrors) {
   ERR_clear_error();
 
   // Populate the OpenSSL error queue with multiple errors
-  ERR_raise(ERR_LIB_EVP, EVP_R_UNSUPPORTED_ALGORITHM);
-  ERR_raise(ERR_LIB_EVP, EVP_R_INVALID_KEY_LENGTH);
-  ERR_raise(ERR_LIB_EVP, EVP_R_INVALID_OPERATION);
+  RaiseOpenSSLError(EVP_R_UNSUPPORTED_ALGORITHM);
+  RaiseOpenSSLError(EVP_R_INVALID_KEY_LENGTH);
+  RaiseOpenSSLError(EVP_R_INVALID_OPERATION);
 
   // Call our function to get all errors
   std::string error_string = gandiva::get_openssl_error_string();
@@ -78,8 +92,8 @@ TEST(TestOpenSSLErrorUtils, TestErrorQueueDrained) {
   ERR_clear_error();
 
   // Add errors to the queue
-  ERR_raise(ERR_LIB_EVP, EVP_R_UNSUPPORTED_ALGORITHM);
-  ERR_raise(ERR_LIB_EVP, EVP_R_INVALID_KEY_LENGTH);
+  RaiseOpenSSLError(EVP_R_UNSUPPORTED_ALGORITHM);
+  RaiseOpenSSLError(EVP_R_INVALID_KEY_LENGTH);
 
   // Call our function to get all errors
   std::string error_string = gandiva::get_openssl_error_string();

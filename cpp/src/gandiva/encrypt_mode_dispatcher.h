@@ -36,7 +36,9 @@ class EncryptModeDispatcher {
    * @param key_len Length of key in bytes
    * @param mode Mode string
    * @param mode_len Length of mode string in bytes
-   * @param iv The initialization vector (optional, only for modes that support it)
+   * @param iv The initialization vector (optional, only for modes that support it).
+   * It is caller-managed: GCM needs a nonce that is unique per key and CBC an
+   * unpredictable IV.
    * @param iv_len Length of the IV in bytes
    * @param aad Additional authenticated data (optional, only used by GCM)
    * @param aad_len Length of aad in bytes
