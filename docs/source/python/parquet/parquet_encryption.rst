@@ -269,10 +269,8 @@ Direct Key Encryption (without KMS)
 encryption/decryption properties directly from a plaintext key, bypassing
 :class:`~pyarrow.parquet.encryption.CryptoFactory` and the KMS-based flow.
 
-.. note::
-   Only uniform encryption (a single key for the footer and all columns) is
-   supported by these functions. For per-column keys, use the
-   ``CryptoFactory``/``EncryptionConfiguration`` flow described above.
+Without ``column_keys``, these functions use uniform encryption: the footer
+key also encrypts every column.
 
 .. code-block:: python
 
@@ -288,3 +286,30 @@ encryption/decryption properties directly from a plaintext key, bypassing
    ...     aad_prefix=b'table_id',
    ... )
    >>> pq.read_table('encrypted.parquet', decryption_properties=decryption_props)  # doctest: +SKIP
+
+To encrypt selected columns with separate keys, pass ``column_keys`` as a
+dictionary mapping full Parquet column paths to raw keys. Unlike
+``EncryptionConfiguration.column_keys``, this maps column paths to keys,
+rather than master key IDs to lists of column names. Unlisted columns remain
+unencrypted. Nested fields use dot-separated leaf paths, such as
+``"person.email"``. The dictionary must not be empty.
+Specify each nested leaf separately; parent-field aliases cannot be used
+for decryption.
+
+.. code-block:: python
+
+   >>> import pyarrow as pa
+   >>> table = pa.table({"sensitive": [1, 2], "public": ["a", "b"]})  # doctest: +SKIP
+   >>> column_keys = {"sensitive": b'abcdef0123456789'}
+   >>> props = pe.create_encryption_properties(  # doctest: +SKIP
+   ...     footer_key=b'0123456789abcdef', column_keys=column_keys)
+   >>> pq.write_table(table, 'columns.parquet', encryption_properties=props)  # doctest: +SKIP
+   >>> decryption_props = pe.create_decryption_properties(  # doctest: +SKIP
+   ...     footer_key=b'0123456789abcdef', column_keys=column_keys)
+   >>> pq.read_table('columns.parquet', decryption_properties=decryption_props)  # doctest: +SKIP
+
+Readers only need keys for the encrypted columns they project. The footer key
+is still required by these functions, and all supplied keys must be 16, 24,
+or 32 bytes. The caller remains responsible for managing and protecting raw
+keys; ``CryptoFactory`` provides the higher-level KMS-based key management
+flow described above.
