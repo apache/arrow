@@ -1188,6 +1188,14 @@ TEST_F(TestArray, ValidateBuffersPrimitive) {
   data = ArrayData::Make(int64(), 2, {null_buffer, data_buffer}, kUnknownNullCount, 1);
   array = MakeArray(data);
   ASSERT_RAISES(Invalid, array->Validate());
+
+  // Negative offset. The buffer-size checks use length + offset, so a negative
+  // offset that cancels the length would otherwise accept too-small buffers and
+  // leave reads of Value(i) addressing before the buffer.
+  data = ArrayData::Make(int64(), 2, {null_buffer, data_buffer}, kUnknownNullCount, -2);
+  array = MakeArray(data);
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
 }
 
 // ----------------------------------------------------------------------
