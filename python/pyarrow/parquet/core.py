@@ -347,7 +347,8 @@ class ParquetFile:
             arrow_extensions_enabled=arrow_extensions_enabled,
         )
         self.common_metadata = common_metadata
-        self._nested_paths_by_prefix = self._build_nested_paths()
+        (self._nested_paths_by_prefix,
+         self._top_level_paths_by_name) = self._build_nested_paths()
 
     def __enter__(self):
         return self
@@ -359,9 +360,11 @@ class ParquetFile:
         paths = self.reader.column_paths
 
         result = defaultdict(list)
+        top_level_paths = defaultdict(list)
 
         for i, path in enumerate(paths):
             key = path[0]
+            top_level_paths[key].append(i)
             rest = path[1:]
             while True:
                 result[key].append(i)
@@ -372,7 +375,7 @@ class ParquetFile:
                 key = '.'.join((key, rest[0]))
                 rest = rest[1:]
 
-        return result
+        return result, top_level_paths
 
     @property
     def metadata(self):
@@ -454,7 +457,8 @@ class ParquetFile:
         columns : list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'.
+            'a.b', 'a.c', and 'a.d.e'. An exact top-level name takes precedence
+            over a nested field path with the same dotted name.
         use_threads : bool, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : bool, default False
@@ -501,7 +505,8 @@ class ParquetFile:
         columns : list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'.
+            'a.b', 'a.c', and 'a.d.e'. An exact top-level name takes precedence
+            over a nested field path with the same dotted name.
         use_threads : bool, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : bool, default False
@@ -552,7 +557,8 @@ class ParquetFile:
         columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'.
+            'a.b', 'a.c', and 'a.d.e'. An exact top-level name takes precedence
+            over a nested field path with the same dotted name.
         use_threads : boolean, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : boolean, default False
@@ -611,7 +617,8 @@ class ParquetFile:
         columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'.
+            'a.b', 'a.c', and 'a.d.e'. An exact top-level name takes precedence
+            over a nested field path with the same dotted name.
         use_threads : bool, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : bool, default False
@@ -693,7 +700,9 @@ class ParquetFile:
         indices = []
 
         for name in column_names:
-            if name in self._nested_paths_by_prefix:
+            if name in self._top_level_paths_by_name:
+                indices.extend(self._top_level_paths_by_name[name])
+            elif name in self._nested_paths_by_prefix:
                 indices.extend(self._nested_paths_by_prefix[name])
 
         if use_pandas_metadata:

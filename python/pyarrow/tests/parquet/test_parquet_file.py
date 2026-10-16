@@ -201,6 +201,81 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
+def test_dotted_top_level_column_takes_precedence():
+    table = pa.table({
+        'a.b': [10, 20],
+        'a': pa.array([{'b': 1}, {'b': 2}]),
+        'other': [3, 4],
+    })
+    sink = pa.BufferOutputStream()
+    pq.write_table(table, sink)
+    data = sink.getvalue()
+    file_ = pq.ParquetFile(data)
+    expected = table.select(['a.b'])
+
+    assert file_.read(columns=['a.b']).equals(expected)
+    assert file_.read_row_group(0, columns=['a.b']).equals(expected)
+    assert pa.Table.from_batches(
+        list(file_.iter_batches(columns=['a.b']))).equals(expected)
+    assert pq.read_table(
+        pa.BufferReader(data), columns=['a.b']).equals(expected)
+    assert file_.read(columns=['a.b', 'a.b']).equals(expected)
+    assert file_.read(columns=['a.b', 'a']).equals(
+        table.select(['a.b', 'a']))
+
+
+def test_nested_column_selection_without_collision():
+    table = pa.table({
+        'a': pa.array([
+            {'b': {'c': 1, 'd': 2}, 'x': 3},
+            {'b': {'c': 4, 'd': 5}, 'x': 6},
+        ]),
+        'other': [5, 6],
+    })
+    sink = pa.BufferOutputStream()
+    pq.write_table(table, sink)
+    file_ = pq.ParquetFile(sink.getvalue())
+
+    assert file_.read(columns=['a']).equals(table.select(['a']))
+    assert file_.read(columns=['a.b']).to_pydict() == {
+        'a': [{'b': {'c': 1, 'd': 2}}, {'b': {'c': 4, 'd': 5}}],
+    }
+    assert file_.read(columns=['a.b.c']).to_pydict() == {
+        'a': [{'b': {'c': 1}}, {'b': {'c': 4}}],
+    }
+
+
+def test_non_conflicting_dotted_column_names():
+    table = pa.table({
+        'metric.value': [10, 20],
+        'a': pa.array([{'b': 1}, {'b': 2}]),
+    })
+    sink = pa.BufferOutputStream()
+    pq.write_table(table, sink)
+    file_ = pq.ParquetFile(sink.getvalue())
+
+    assert file_.read(columns=['metric.value']).equals(
+        table.select(['metric.value']))
+    assert file_.read(columns=['a.b']).to_pydict() == {
+        'a': [{'b': 1}, {'b': 2}],
+    }
+
+
+@pytest.mark.pandas
+def test_dotted_top_level_column_with_pandas_metadata():
+    df = pd.DataFrame(
+        {'a.b': [10, 20], 'a': [{'b': 1}, {'b': 2}]},
+        index=pd.Index([7, 8], name='row_id'))
+    table = pa.Table.from_pandas(df, preserve_index=True)
+    sink = pa.BufferOutputStream()
+    pq.write_table(table, sink)
+    file_ = pq.ParquetFile(sink.getvalue())
+
+    result = file_.read(columns=['a.b'], use_pandas_metadata=True)
+    assert result.column_names == ['a.b', 'row_id']
+    tm.assert_frame_equal(result.to_pandas(), df[['a.b']])
+
+
 @pytest.mark.pandas
 @pytest.mark.parametrize('batch_size', [300, 1000, 1300])
 def test_iter_batches_columns_reader(tempdir, batch_size):
