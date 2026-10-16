@@ -241,6 +241,8 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
   std::shared_ptr<Schema> parameter_schema;
   /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
+  /// \brief Whether this prepared statement represents an update query (or nullopt if unset/unknown).
+  std::optional<bool> is_update = std::nullopt;
 };
 
 /// @}
