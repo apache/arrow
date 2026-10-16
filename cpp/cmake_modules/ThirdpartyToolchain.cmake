@@ -2852,6 +2852,11 @@ function(build_simdjson)
   # which is required for Emscripten where Arrow threading is disabled.
   set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
 
+  # Enable parsing of NaN and Infinity literals in JSON (permitted by
+  # Arrow's JSON reader even though not in strict JSON). Requires
+  # simdjson >= 5.0.
+  set(SIMDJSON_ENABLE_NAN_INF ON)
+
   # simdjson enables precompiled headers unconditionally.
   # Recompiling simdjson.cpp against it produces differing artifacts
   # Disable precompiled headers to avoid reproducible build failures.

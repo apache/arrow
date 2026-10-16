@@ -16,8 +16,8 @@
 # under the License.
 
 [wrap-file]
-source_url = https://github.com/simdjson/simdjson/archive/refs/tags/v4.6.4.tar.gz
-source_filename = simdjson-v4.6.4.tar.gz
-source_hash = b091107844fe928158c5c2265c20360fff312889ddf7ebc4528a0f0f8f2ff9cd
-directory = simdjson-v4.6.4
+source_url = https://github.com/simdjson/simdjson/archive/refs/tags/v5.0.5.tar.gz
+source_filename = simdjson-v5.0.5.tar.gz
+source_hash = 50bb17769e1054ff1bfcd5dbbfcf33544c77f6ebdb31a318436ea0e47f78f571
+directory = simdjson-v5.0.5
 method = cmake
