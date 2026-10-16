@@ -32,11 +32,11 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace internal {
@@ -344,7 +344,7 @@ constexpr size_t BufferSizeYYYY_MM_DD() {
          detail::Digits10(31);
 }
 
-inline void FormatYYYY_MM_DD(arrow_vendored::date::year_month_day ymd, char** cursor) {
+inline void FormatYYYY_MM_DD(chrono::year_month_day ymd, char** cursor) {
   FormatTwoDigits(static_cast<unsigned>(ymd.day()), cursor);
   FormatOneChar('-', cursor);
   FormatTwoDigits(static_cast<unsigned>(ymd.month()), cursor);
@@ -372,7 +372,7 @@ constexpr size_t BufferSizeHH_MM_SS() {
 }
 
 template <typename Duration>
-void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor) {
+void FormatHH_MM_SS(chrono::hh_mm_ss<Duration> hms, char** cursor) {
   constexpr size_t subsecond_digits = Digits10(Duration::period::den) - 1;
   if (subsecond_digits != 0) {
     FormatAllDigitsLeftPadded(hms.subseconds().count(), subsecond_digits, '0', cursor);
@@ -386,20 +386,18 @@ void FormatHH_MM_SS(arrow_vendored::date::hh_mm_ss<Duration> hms, char** cursor)
 }
 
 // Some out-of-bound datetime values would result in erroneous printing
-// because of silent integer wraparound in the `arrow_vendored::date` library.
+// because calendar conversions outside the supported year range can wrap around.
 //
 // To avoid such misprinting, we must therefore check the bounds explicitly.
 // The bounds correspond to start of year -32767 and end of year 32767,
-// respectively (-32768 is an invalid year value in `arrow_vendored::date`).
+// respectively (-32768 is an invalid year value in both chrono backends).
 //
 // Note these values are the same as documented for C++20:
 // https://en.cppreference.com/w/cpp/chrono/year_month_day/operator_days
 template <typename Unit>
 bool IsDateTimeInRange(Unit duration) {
-  constexpr Unit kMinIncl =
-      std::chrono::duration_cast<Unit>(arrow_vendored::date::days{-12687428});
-  constexpr Unit kMaxExcl =
-      std::chrono::duration_cast<Unit>(arrow_vendored::date::days{11248738});
+  constexpr Unit kMinIncl = std::chrono::duration_cast<Unit>(chrono::days{-12687428});
+  constexpr Unit kMaxExcl = std::chrono::duration_cast<Unit>(chrono::days{11248738});
   return duration >= kMinIncl && duration < kMaxExcl;
 }
 
@@ -422,7 +420,7 @@ Return<Appender> FormatOutOfRange(RawValue&& raw_value, Appender&& append) {
   return append(std::move(formatted));
 }
 
-const auto kEpoch = arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
+const auto kEpoch = chrono::sys_days{chrono::jan / 1 / 1970};
 
 }  // namespace detail
 
@@ -437,16 +435,15 @@ class DateToStringFormatterMixin {
 
  protected:
   template <typename Appender>
-  Return<Appender> FormatDays(arrow_vendored::date::days since_epoch, Appender&& append) {
-    arrow_vendored::date::sys_days timepoint_days{since_epoch};
+  Return<Appender> FormatDays(chrono::days since_epoch, Appender&& append) {
+    chrono::sys_days timepoint_days{since_epoch};
 
     constexpr size_t buffer_size = detail::BufferSizeYYYY_MM_DD();
 
     std::array<char, buffer_size> buffer;
     char* cursor = buffer.data() + buffer_size;
 
-    detail::FormatYYYY_MM_DD(arrow_vendored::date::year_month_day{timepoint_days},
-                             &cursor);
+    detail::FormatYYYY_MM_DD(chrono::year_month_day{timepoint_days}, &cursor);
     return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 };
@@ -460,7 +457,7 @@ class StringFormatter<Date32Type> : public DateToStringFormatterMixin {
 
   template <typename Appender>
   Return<Appender> operator()(value_type value, Appender&& append) {
-    const auto since_epoch = arrow_vendored::date::days{value};
+    const auto since_epoch = chrono::days{value};
     if (!ARROW_PREDICT_TRUE(detail::IsDateTimeInRange(since_epoch))) {
       return detail::FormatOutOfRange(value, append);
     }
@@ -481,7 +478,7 @@ class StringFormatter<Date64Type> : public DateToStringFormatterMixin {
     if (!ARROW_PREDICT_TRUE(detail::IsDateTimeInRange(since_epoch))) {
       return detail::FormatOutOfRange(value, append);
     }
-    return FormatDays(std::chrono::duration_cast<arrow_vendored::date::days>(since_epoch),
+    return FormatDays(std::chrono::duration_cast<chrono::days>(since_epoch),
                       std::forward<Appender>(append));
   }
 };
@@ -497,7 +494,7 @@ class StringFormatter<TimestampType> {
 
   template <typename Duration, typename Appender>
   Return<Appender> operator()(Duration, value_type value, Appender&& append) {
-    using arrow_vendored::date::days;
+    using chrono::days;
 
     const Duration since_epoch{value};
     if (!ARROW_PREDICT_TRUE(detail::IsDateTimeInRange(since_epoch))) {
@@ -506,7 +503,7 @@ class StringFormatter<TimestampType> {
 
     const auto timepoint = detail::kEpoch + since_epoch;
     // Round days towards zero
-    // (the naive approach of using arrow_vendored::date::floor() would
+    // (the naive approach of using chrono::floor() would
     //  result in UB for very large negative timestamps, similarly as
     //  https://github.com/HowardHinnant/date/issues/696)
     auto timepoint_days = std::chrono::time_point_cast<days>(timepoint);
@@ -530,7 +527,7 @@ class StringFormatter<TimestampType> {
     if (timezone_.size() > 0) {
       detail::FormatOneChar('Z', &cursor);
     }
-    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
+    detail::FormatHH_MM_SS(chrono::hh_mm_ss<Duration>{since_midnight}, &cursor);
     detail::FormatOneChar(' ', &cursor);
     detail::FormatYYYY_MM_DD(timepoint_days, &cursor);
     return append(detail::ViewDigitBuffer(buffer, cursor));
@@ -566,7 +563,7 @@ class StringFormatter<T, enable_if_time<T>> {
     std::array<char, buffer_size> buffer;
     char* cursor = buffer.data() + buffer_size;
 
-    detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
+    detail::FormatHH_MM_SS(chrono::hh_mm_ss<Duration>{since_midnight}, &cursor);
     return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 

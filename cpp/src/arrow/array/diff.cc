@@ -43,16 +43,18 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
-#include "arrow/vendored/datetime.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
+
+namespace chrono = internal::chrono;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -631,14 +633,13 @@ class MakeFormatterImpl {
   template <typename T>
   enable_if_date<T, Status> Visit(const T&) {
     using unit = typename std::conditional<std::is_same<T, Date32Type>::value,
-                                           arrow_vendored::date::days,
-                                           std::chrono::milliseconds>::type;
+                                           chrono::days, std::chrono::milliseconds>::type;
 
-    static arrow_vendored::date::sys_days epoch{arrow_vendored::date::jan / 1 / 1970};
+    static chrono::sys_days epoch{chrono::jan / 1 / 1970};
 
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       unit value(checked_cast<const NumericArray<T>&>(array).Value(index));
-      *os << arrow_vendored::date::format("%F", value + epoch);
+      *os << chrono::format("%F", value + epoch);
     };
     return Status::OK();
   }
@@ -854,42 +855,41 @@ class MakeFormatterImpl {
       auto value = checked_cast<const NumericArray<T>&>(array).Value(index);
       // Using unqualified `format` directly would produce ambiguous
       // lookup because of `std::format` (ARROW-15520).
-      namespace avd = arrow_vendored::date;
       using std::chrono::nanoseconds;
       using std::chrono::microseconds;
       using std::chrono::milliseconds;
       using std::chrono::seconds;
       if (AddEpoch) {
-        static avd::sys_days epoch{avd::jan / 1 / 1970};
+        static chrono::sys_days epoch{chrono::jan / 1 / 1970};
 
         switch (unit) {
           case TimeUnit::NANO:
-            *os << avd::format(fmt, static_cast<nanoseconds>(value) + epoch);
+            *os << chrono::format(fmt, static_cast<nanoseconds>(value) + epoch);
             break;
           case TimeUnit::MICRO:
-            *os << avd::format(fmt, static_cast<microseconds>(value) + epoch);
+            *os << chrono::format(fmt, static_cast<microseconds>(value) + epoch);
             break;
           case TimeUnit::MILLI:
-            *os << avd::format(fmt, static_cast<milliseconds>(value) + epoch);
+            *os << chrono::format(fmt, static_cast<milliseconds>(value) + epoch);
             break;
           case TimeUnit::SECOND:
-            *os << avd::format(fmt, static_cast<seconds>(value) + epoch);
+            *os << chrono::format(fmt, static_cast<seconds>(value) + epoch);
             break;
         }
         return;
       }
       switch (unit) {
         case TimeUnit::NANO:
-          *os << avd::format(fmt, static_cast<nanoseconds>(value));
+          *os << chrono::format(fmt, static_cast<nanoseconds>(value));
           break;
         case TimeUnit::MICRO:
-          *os << avd::format(fmt, static_cast<microseconds>(value));
+          *os << chrono::format(fmt, static_cast<microseconds>(value));
           break;
         case TimeUnit::MILLI:
-          *os << avd::format(fmt, static_cast<milliseconds>(value));
+          *os << chrono::format(fmt, static_cast<milliseconds>(value));
           break;
         case TimeUnit::SECOND:
-          *os << avd::format(fmt, static_cast<seconds>(value));
+          *os << chrono::format(fmt, static_cast<seconds>(value));
           break;
       }
     };

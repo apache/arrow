@@ -138,8 +138,8 @@ def test_import_at_shutdown():
 
 
 @pytest.mark.skipif(sys.platform == "win32",
-                    reason="Path to timezone database is not configurable "
-                           "on non-Windows platforms")
+                    reason="Whether the timezone database path is configurable "
+                           "on Windows depends on the C++ chrono backend")
 def test_set_timezone_db_path_non_windows():
     # set_timezone_db_path raises an error on non-Windows platforms
     with pytest.warns(FutureWarning, match="deprecated"):

@@ -18,10 +18,24 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/time.h"
 
 namespace arrow {
 namespace util {
+
+TEST(TimeTest, ChronoFormats) {
+  namespace chrono = arrow::internal::chrono;
+  using std::chrono::milliseconds;
+  using std::chrono::minutes;
+  EXPECT_EQ(chrono::format("%F", chrono::sys_days{}), "1970-01-01");
+  EXPECT_EQ(chrono::format("%F %T", chrono::sys_time<milliseconds>{milliseconds{-1}}),
+            "1969-12-31 23:59:59.999");
+  EXPECT_EQ(chrono::format("%T", milliseconds{5400123}), "01:30:00.123");
+  EXPECT_EQ(chrono::format("%T", milliseconds{-5400123}), "-01:30:00.123");
+  EXPECT_EQ(chrono::format("%H%M", minutes{90}), "0130");
+  EXPECT_EQ(chrono::format("%H%M", minutes{-90}), "-0130");
+}
 
 TEST(TimeTest, ConvertTimestampValue) {
   auto convert = [](TimeUnit::type in, TimeUnit::type out, int64_t value) {

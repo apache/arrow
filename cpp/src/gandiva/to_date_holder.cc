@@ -21,7 +21,6 @@
 #include <string>
 
 #include "arrow/util/value_parsing.h"
-#include "arrow/vendored/datetime.h"
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/node.h"

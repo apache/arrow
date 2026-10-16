@@ -462,8 +462,7 @@ struct ParseDate {
   using value_type = typename DateType::c_type;
 
   using duration_type =
-      typename std::conditional<std::is_same<DateType, Date32Type>::value,
-                                arrow_vendored::date::days,
+      typename std::conditional<std::is_same<DateType, Date32Type>::value, chrono::days,
                                 std::chrono::milliseconds>::type;
 
   template <typename OutValue, typename Arg0Value>

@@ -15,12 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
+#include <sstream>
 #include <tuple>
 
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -2001,6 +2004,120 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
   CheckScalarUnary("assume_timezone", timestamp(TimeUnit::NANO), times,
                    timestamp(TimeUnit::NANO, timezone), times_earliest_nano,
                    &options_earliest);
+}
+
+#if ARROW_USE_STD_CHRONO
+TEST(TimestampFormatterTest, CoalesceChronoFields) {
+  using internal::detail::ToChronoFormat;
+  EXPECT_EQ(ToChronoFormat(StrftimeOptions::kDefaultFormat, false),
+            "{0:L%Y-%m-%dT%H:%M:%S}");
+  EXPECT_EQ(ToChronoFormat("%Y%m%d %H%M%S %Ez %Z", false), "{0:L%Y%m%d %H%M%S %Ez %Z}");
+  EXPECT_EQ(ToChronoFormat("%Y%n%t%m", false), "{0:L%Y\n\t%m}");
+  EXPECT_EQ(ToChronoFormat("%Y{%m}%d", false), "{0:L%Y}{{{0:L%m}}}{0:L%d}");
+  EXPECT_EQ(ToChronoFormat("%Y%%%m%J%d%E", false), "{0:L%Y}%{0:L%m}%J{0:L%d}%E");
+  EXPECT_EQ(ToChronoFormat("%Y %Q %m %q %d", false),
+            "{0:L%Y }{2:L} {0:L%m }{1:L%q} {0:L%d}");
+  EXPECT_EQ(ToChronoFormat("%Y %Q %m %q %d", true),
+            "{0:L%Y }{2:L} {0:L%m }\xC2\xB5s {0:L%d}");
+}
+#endif
+
+TEST(TimestampFormatterTest, ReuseFormatter) {
+  const arrow::internal::OffsetZone zone{std::chrono::minutes{60}};
+  internal::TimestampFormatter<std::chrono::microseconds> formatter{
+      "{%F %T} %Q %q %J", zone, std::locale::classic()};
+  for (const auto& [count, expected] :
+       {std::pair{1, "{1970-01-01 01:00:00.000001} 3600000001 \xC2\xB5s %J"},
+        std::pair{-1, "{1970-01-01 00:59:59.999999} 3599999999 \xC2\xB5s %J"}}) {
+    ASSERT_OK_AND_ASSIGN(auto result, formatter(count));
+    EXPECT_EQ(result, expected);
+  }
+}
+
+TEST(TimestampFormatterTest, NanosecondRangeLimits) {
+  const arrow::internal::OffsetZone zone{std::chrono::minutes{0}};
+  internal::TimestampFormatter<std::chrono::nanoseconds> formatter{
+      "%F %T %Q %q", zone, std::locale::classic()};
+  for (const auto& [count, expected] :
+       {std::pair{std::numeric_limits<int64_t>::min() + 1000000000,
+                  "1677-09-21 00:12:44.145224192 764145224192 ns"},
+        std::pair{int64_t{-86400000000000}, "1969-12-31 00:00:00.000000000 0 ns"},
+        std::pair{int64_t{-1}, "1969-12-31 23:59:59.999999999 86399999999999 ns"},
+        std::pair{int64_t{0}, "1970-01-01 00:00:00.000000000 0 ns"},
+        std::pair{int64_t{1}, "1970-01-01 00:00:00.000000001 1 ns"},
+        std::pair{std::numeric_limits<int64_t>::max(),
+                  "2262-04-11 23:47:16.854775807 85636854775807 ns"}}) {
+    SCOPED_TRACE(count);
+    ASSERT_OK_AND_ASSIGN(auto result, formatter(count));
+    EXPECT_EQ(result, expected);
+  }
+
+  // Formatting calendar fields at the exact lower bound can overflow within
+  // standard-library formatters. Test the time-of-day directives independently.
+  internal::TimestampFormatter<std::chrono::nanoseconds> count_formatter{
+      "%Q %q", zone, std::locale::classic()};
+  ASSERT_OK_AND_ASSIGN(auto result, count_formatter(std::numeric_limits<int64_t>::min()));
+  EXPECT_EQ(result, "763145224192 ns");
+}
+
+TEST(TimestampFormatterTest, StreamState) {
+  internal::TimestampFormatter<std::chrono::seconds> formatter{
+      "%F %T", arrow::internal::OffsetZone{std::chrono::minutes{0}},
+      std::locale::classic()};
+  auto& out = formatter.bufstream;
+  out << std::hex << std::showbase;
+  out.precision(3);
+  out.width(30);
+  out.fill('*');
+  const auto flags = out.flags();
+  ASSERT_OK_AND_ASSIGN(auto result, formatter(0));
+  EXPECT_EQ(result, "1970-01-01 00:00:00");
+  EXPECT_EQ(out.flags(), flags);
+  EXPECT_EQ(out.precision(), 3);
+  EXPECT_EQ(out.width(), 30);
+  EXPECT_EQ(out.fill(), '*');
+
+  // A streambuf with no put area rejects every write.
+  class FailingBuffer : public std::streambuf {
+  } buffer;
+  auto& stream = static_cast<std::ostream&>(out);
+  auto* original = stream.rdbuf(&buffer);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Failed formatting timestamp"), formatter(0));
+  stream.rdbuf(original);
+  ASSERT_OK_AND_ASSIGN(result, formatter(0));
+  EXPECT_EQ(result, "1970-01-01 00:00:00");
+}
+
+TEST_F(ScalarTemporalTest, StrftimeFormatSyntax) {
+  const auto type = timestamp(TimeUnit::MILLI, "UTC");
+  const char* input = R"(["1970-01-01T00:00:00.123", null])";
+  for (const auto& [format, expected] :
+       {std::pair{"", R"(["", null])"},
+        std::pair{"literal {%Y}", R"(["literal {1970}", null])"},
+        std::pair{"unmatched }%Y{", R"(["unmatched }1970{", null])"},
+        std::pair{"%Y}", R"(["1970}", null])"},
+        std::pair{"%Y{%m}%d", R"(["1970{01}01", null])"},
+        std::pair{"%Y%%%m%J%d%E", R"(["1970%01%J01%E", null])"},
+        std::pair{"%Y%n%t%m", R"(["1970\n\t01", null])"},
+        std::pair{"%Y %Q %m %q %d", R"(["1970 123 01 ms 01", null])"},
+        std::pair{"%Q %q %J %z %Z", R"(["123 ms %J +0000 UTC", null])"},
+        std::pair{"%% %n%t %Ez %Oz %OV %EJ end%",
+                  R"(["% \n\t +00:00 +00:00 01 %EJ end%", null])"}}) {
+    SCOPED_TRACE(format);
+    const auto options = StrftimeOptions(format);
+    CheckScalarUnary("strftime", type, input, utf8(), expected, &options);
+  }
+
+  for (const auto& [format, expected] :
+       {std::pair{"%Q %q", R"(["1 \u00b5s", null])"},
+        std::pair{"%Y %Q %m %q %d", R"(["1970 1 01 \u00b5s 01", null])"}}) {
+    SCOPED_TRACE(format);
+    const auto options = StrftimeOptions(format);
+    CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "UTC"),
+                     R"(["1970-01-01T00:00:00.000001", null])", utf8(), expected,
+                     &options);
+  }
 }
 
 TEST_F(ScalarTemporalTest, StrftimeOffsetTimezone) {

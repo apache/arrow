@@ -21,51 +21,24 @@
 /// \brief Abstraction layer for C++20 chrono calendar/timezone APIs
 ///
 /// This header provides a unified interface for chrono calendar and timezone
-/// functionality. On compilers with full C++20 chrono support, it uses
-/// std::chrono. On other compilers, it falls back to the vendored Howard Hinnant
+/// functionality. It uses std::chrono with supported C++20 timezone
+/// implementations, otherwise falling back to the vendored Howard Hinnant
 /// date library.
+/// See chrono_config_internal.h for backend selection.
 ///
-/// The main benefit is on Windows where std::chrono uses the system timezone
-/// database, eliminating the need for users to install IANA tzdata separately.
+/// On Windows with MSVC, std::chrono uses the system timezone database,
+/// eliminating the need for users to install IANA tzdata separately.
 
 #include <chrono>
 #include <string>
 #include <string_view>
 
-// Feature detection for C++20 chrono timezone support
-// https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L
-//
-// On Windows with MSVC: std::chrono uses Windows' internal timezone database,
-// eliminating the need for users to install IANA tzdata separately.
-//
-// On Windows with MinGW/GCC: libstdc++ reads tzdata files via TZDIR env var.
-// Set TZDIR=/usr/share/zoneinfo to use the system tzdata.
-//
-// On non-Windows: GCC libstdc++ has a bug where DST state is incorrectly reset when
-// a timezone transitions between rule sets (e.g., Australia/Broken_Hill around
-// 2000-02-29). Until this is fixed, we use the vendored date.h library.
-// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-
-// Use std::chrono on Windows when C++20 chrono timezone support is available.
-// The __cpp_lib_chrono >= 201907L feature test macro indicates full support:
-// - MSVC: Uses Windows' internal timezone database (no IANA tzdata needed)
-// - GCC/libstdc++: Requires TZDIR environment variable to locate tzdata
-// - Clang/libc++: Does not define 201907L (no timezone support), so falls back
-//
-// On non-Windows, we use the vendored date library due to a GCC libstdc++ bug
-// where DST state is incorrectly reset during timezone rule transitions.
-// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  define ARROW_USE_STD_CHRONO 1
-#else
-#  define ARROW_USE_STD_CHRONO 0
-#endif
+#include "arrow/util/chrono_config_internal.h"
 
 #if ARROW_USE_STD_CHRONO
 // Use C++20 standard library chrono
 #  include <format>
-#  include <iterator>
-#  include <ostream>
+#  include <locale>
 #else
 // Use vendored Howard Hinnant date library
 #  include "arrow/vendored/datetime.h"
@@ -151,22 +124,14 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 
 inline const time_zone* current_zone() { return std::chrono::current_zone(); }
 
-// Formatting support - streams directly using C++20 std::vformat_to
-// Provides: direct streaming, stream state preservation, chaining, rich format specifiers
-template <typename CharT, typename Traits, typename Duration, typename TimeZonePtr>
-std::basic_ostream<CharT, Traits>& to_stream(
-    std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
-    const std::chrono::zoned_time<Duration, TimeZonePtr>& zt) {
-  std::vformat_to(std::ostreambuf_iterator<CharT>(os), std::string("{:") + fmt + "}",
-                  std::make_format_args(zt));
-  return os;
-}
-
-// Format a duration using strftime-like format specifiers
-// Converts "%H%M" style to C++20's "{:%H%M}" style and uses std::vformat
-template <typename Duration>
-std::string format(const char* fmt, const Duration& d) {
-  return std::vformat(std::string("{:") + fmt + "}", std::make_format_args(d));
+// Format durations and unzoned time points using internal format strings shared
+// by both backends. User-supplied strftime syntax uses TimestampFormatter in
+// arrow/compute/kernels/temporal_internal.h.
+// Keep each format in one replacement field to avoid repeating duration signs.
+template <typename Temporal>
+std::string format(const char* fmt, const Temporal& value) {
+  return std::vformat(std::locale{}, std::string("{:L") + fmt + "}",
+                      std::make_format_args(value));
 }
 
 inline constexpr std::chrono::month jan = std::chrono::January;
@@ -248,15 +213,13 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 
 inline const time_zone* current_zone() { return vendored::current_zone(); }
 
+#  if !ARROW_CHRONO_USE_OS_TZDB
+using vendored::reload_tzdb;
+using vendored::set_install;
+#  endif
+
 // Formatting support
 using vendored::format;
-
-template <typename CharT, typename Traits, typename Duration, typename TimeZonePtr>
-std::basic_ostream<CharT, Traits>& to_stream(
-    std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
-    const vendored::zoned_time<Duration, TimeZonePtr>& zt) {
-  return vendored::to_stream(os, fmt, zt);
-}
 
 inline constexpr vendored::month jan = vendored::jan;
 inline constexpr vendored::month dec = vendored::dec;

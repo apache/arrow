@@ -41,6 +41,10 @@ void set_timezone_database(cpp11::strings path) {
     cpp11::stop("Must provide a single path to the timezone database.");
   }
 
+  // Builds using the OS or standard library timezone database (e.g. MinGW with
+  // std::chrono) do not accept a path, so there is nothing to configure.
+  if (arrow::GetRuntimeInfo().using_os_timezone_db) return;
+
   ARROW_SUPPRESS_DEPRECATION_WARNING
   arrow::GlobalOptions options;
   options.timezone_db_path = std::make_optional(paths[0]);
