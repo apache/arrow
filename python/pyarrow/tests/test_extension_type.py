@@ -1431,6 +1431,22 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+def test_uuid_dictionary_ipc():
+    # GH-49704: a dictionary whose value type is an extension type
+    storage = pa.array([b"0123456789abcdef", b"zyxwvutsrqponmlk"],
+                       pa.binary(16))
+    dictionary = pa.ExtensionArray.from_storage(pa.uuid(), storage)
+    indices = pa.array([0, 1, None, 1, 0], pa.int32())
+    array = pa.DictionaryArray.from_arrays(indices, dictionary)
+    assert array.type == pa.dictionary(pa.int32(), pa.uuid())
+
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["uuid_dict"]))
+
+    batch = ipc_read_batch(buf)
+    assert batch.schema.field("uuid_dict").type == array.type
+    assert batch.column(0) == array
+
+
 @pytest.mark.numpy
 def test_uuid_to_numpy_uses_storage():
     value = uuid4()
