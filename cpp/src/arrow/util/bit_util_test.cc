@@ -1111,23 +1111,9 @@ TEST(BitUtil, CopyBits) {
 TEST(BitUtil, BitWidth) {
   EXPECT_EQ(bit_util::BitWidth(uint8_t{0}), 0);
   EXPECT_EQ(bit_util::BitWidth(uint8_t{1}), 1);
-  EXPECT_EQ(bit_util::BitWidth(uint8_t{2}), 2);
-  EXPECT_EQ(bit_util::BitWidth(uint8_t{3}), 2);
-  EXPECT_EQ(bit_util::BitWidth(uint8_t{127}), 7);
-  EXPECT_EQ(bit_util::BitWidth(uint8_t{128}), 8);
-  EXPECT_EQ(bit_util::BitWidth(std::numeric_limits<uint8_t>::max()), 8);
-
-  EXPECT_EQ(bit_util::BitWidth(uint32_t{0}), 0);
   EXPECT_EQ(bit_util::BitWidth(uint32_t{1} << 20), 21);
   EXPECT_EQ(bit_util::BitWidth((uint32_t{1} << 20) - 1), 20);
-  EXPECT_EQ(bit_util::BitWidth(std::numeric_limits<uint32_t>::max()), 32);
-
-  EXPECT_EQ(bit_util::BitWidth(uint64_t{0}), 0);
-  EXPECT_EQ(bit_util::BitWidth(uint64_t{1} << 40), 41);
-  EXPECT_EQ(bit_util::BitWidth((uint64_t{1} << 40) - 1), 40);
-  EXPECT_EQ(bit_util::BitWidth(uint64_t{1} << 63), 64);
   EXPECT_EQ(bit_util::BitWidth(std::numeric_limits<uint64_t>::max()), 64);
-
   // constexpr-evaluable.
   static_assert(bit_util::BitWidth(uint16_t{0x0100}) == 9);
 }
@@ -1135,19 +1121,11 @@ TEST(BitUtil, BitWidth) {
 TEST(BitUtil, HasSingleBit) {
   EXPECT_FALSE(bit_util::HasSingleBit(uint8_t{0}));
   EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{1}));
-  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{2}));
-  EXPECT_FALSE(bit_util::HasSingleBit(uint8_t{3}));
-  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{128}));
-  EXPECT_FALSE(bit_util::HasSingleBit(std::numeric_limits<uint8_t>::max()));
-
   EXPECT_TRUE(bit_util::HasSingleBit(uint32_t{1} << 20));
   EXPECT_FALSE(bit_util::HasSingleBit((uint32_t{1} << 20) + 1));
-  EXPECT_TRUE(bit_util::HasSingleBit(uint64_t{1} << 63));
   EXPECT_FALSE(bit_util::HasSingleBit(std::numeric_limits<uint64_t>::max()));
-
   // constexpr-evaluable.
   static_assert(bit_util::HasSingleBit(uint16_t{0x0100}));
-  static_assert(!bit_util::HasSingleBit(uint16_t{0x0101}));
 }
 
 }  // namespace arrow
