@@ -128,8 +128,14 @@ arrow::Status AppendJsonValue(simdjson::dom::element value,
 
   switch (type->id()) {
     case arrow::Type::INT64: {
+      if (value.is_uint64()) {
+        ARROW_ASSIGN_OR_RAISE(auto number,
+                              Unwrap(value.get_uint64(), "Failed to get JSON uint64"));
+        return static_cast<arrow::Int64Builder*>(builder)->Append(
+            static_cast<int64_t>(number));
+      }
       ARROW_ASSIGN_OR_RAISE(auto number,
-                            Unwrap(value.get_int64(), "Failed to get JSON integer"));
+                            Unwrap(value.get_int64(), "Failed to get JSON int64"));
       return static_cast<arrow::Int64Builder*>(builder)->Append(number);
     }
 
