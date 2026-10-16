@@ -39,6 +39,7 @@ Status RegisterComputeKernels() {
   internal::RegisterScalarStringAscii(registry);
   internal::RegisterScalarStringUtf8(registry);
   internal::RegisterScalarTemporalBinary(registry);
+  internal::RegisterScalarTemporalTernary(registry);
   internal::RegisterScalarTemporalUnary(registry);
   internal::RegisterScalarValidity(registry);
 

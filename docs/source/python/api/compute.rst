@@ -443,6 +443,7 @@ Conversions
    cast
    ceil_temporal
    floor_temporal
+   month_day_nano_interval_from_parts
    round_temporal
    run_end_decode
    run_end_encode

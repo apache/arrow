@@ -38,6 +38,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry);
 void RegisterScalarStringAscii(FunctionRegistry* registry);
 void RegisterScalarStringUtf8(FunctionRegistry* registry);
 void RegisterScalarTemporalBinary(FunctionRegistry* registry);
+void RegisterScalarTemporalTernary(FunctionRegistry* registry);
 void RegisterScalarTemporalUnary(FunctionRegistry* registry);
 void RegisterScalarValidity(FunctionRegistry* registry);
 

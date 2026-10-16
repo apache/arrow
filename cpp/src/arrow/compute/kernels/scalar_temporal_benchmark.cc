@@ -19,6 +19,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -166,6 +168,75 @@ static void BenchmarkAssumeTimezone(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * array_size);
 }
 
+void IntervalFromPartsSetArgs(benchmark::internal::Benchmark* bench) {
+  for (const auto size : {1024, 65536, 1048576}) {
+    for (const auto inverse_null_proportion : {0, 100, 2}) {
+      bench->Args({size, inverse_null_proportion});
+    }
+  }
+}
+
+struct IntervalPartsInputs {
+  Datum months;
+  Datum days;
+  std::shared_ptr<Int64Array> nanoseconds;
+};
+
+template <bool ScalarParts>
+static IntervalPartsInputs MakeIntervalPartsInputs(const RegressionArgs& args) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  IntervalPartsInputs inputs;
+  if constexpr (ScalarParts) {
+    inputs.months = Datum(int32_t{2});
+    inputs.days = Datum(int32_t{-3});
+  } else {
+    inputs.months = rand.Numeric<Int32Type>(args.size, -12, 12, args.null_proportion);
+    inputs.days = rand.Numeric<Int32Type>(args.size, -31, 31, args.null_proportion);
+  }
+  inputs.nanoseconds = std::static_pointer_cast<Int64Array>(
+      rand.Numeric<Int64Type>(args.size, kInt64Min, kInt64Max, args.null_proportion));
+  return inputs;
+}
+
+template <bool ScalarParts>
+static void BenchmarkMonthDayNanoIntervalFromParts(benchmark::State& state) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  const IntervalPartsInputs inputs = MakeIntervalPartsInputs<ScalarParts>(args);
+  ExecContext* ctx = default_exec_context();
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(MonthDayNanoIntervalFromParts(inputs.months, inputs.days,
+                                               inputs.nanoseconds, ctx));
+  }
+}
+
+template <bool ScalarParts>
+static void BenchmarkMonthDayNanoIntervalBuilder(benchmark::State& state) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  const IntervalPartsInputs inputs = MakeIntervalPartsInputs<ScalarParts>(args);
+  const auto months = ScalarParts ? nullptr : inputs.months.array_as<Int32Array>();
+  const auto days = ScalarParts ? nullptr : inputs.days.array_as<Int32Array>();
+
+  for (auto _ : state) {
+    MonthDayNanoIntervalBuilder builder;
+    ABORT_NOT_OK(builder.Reserve(args.size));
+    for (int64_t i = 0; i < args.size; ++i) {
+      bool valid = inputs.nanoseconds->IsValid(i);
+      if constexpr (!ScalarParts) {
+        valid = valid && months->IsValid(i) && days->IsValid(i);
+      }
+      if (valid) {
+        builder.UnsafeAppend({ScalarParts ? int32_t{2} : months->Value(i),
+                              ScalarParts ? int32_t{-3} : days->Value(i),
+                              inputs.nanoseconds->Value(i)});
+      } else {
+        builder.UnsafeAppendNull();
+      }
+    }
+    ABORT_NOT_OK(builder.Finish());
+  }
+}
+
 auto zoned = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
 auto non_zoned = timestamp(TimeUnit::NANO);
 auto time32_type = time32(TimeUnit::MILLI);
@@ -246,6 +317,17 @@ BENCHMARK_TEMPLATE(BenchmarkStrftime, zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrptime, non_zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrptime, zoned)->Apply(SetArgs);
 BENCHMARK(BenchmarkAssumeTimezone)->Apply(SetArgs);
+
+// Null proportions apply independently to each array input. Scalar months and
+// days are valid constants, and nanoseconds remains an array in both cases.
+BENCHMARK_TEMPLATE(BenchmarkMonthDayNanoIntervalFromParts, false)
+    ->Apply(IntervalFromPartsSetArgs);
+BENCHMARK_TEMPLATE(BenchmarkMonthDayNanoIntervalFromParts, true)
+    ->Apply(IntervalFromPartsSetArgs);
+BENCHMARK_TEMPLATE(BenchmarkMonthDayNanoIntervalBuilder, false)
+    ->Apply(IntervalFromPartsSetArgs);
+BENCHMARK_TEMPLATE(BenchmarkMonthDayNanoIntervalBuilder, true)
+    ->Apply(IntervalFromPartsSetArgs);
 
 // binary temporal benchmarks
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(YearsBetween);

@@ -865,6 +865,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_string_ascii.cc
        compute/kernels/scalar_string_utf8.cc
        compute/kernels/scalar_temporal_binary.cc
+       compute/kernels/scalar_temporal_ternary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
        compute/kernels/util_internal.cc

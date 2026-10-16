@@ -1561,6 +1561,26 @@ null input value is converted into a null output value.
 * \(6) Any input type that can be cast to the resulting extension's storage type.
   This excludes extension types, unless being cast to the same extension type.
 
+Temporal construction
+~~~~~~~~~~~~~~~~~~~~~
+
++------------------------------------+------------+-------------------+-----------------------+
+| Function name                      | Arity      | Input types       | Output type           |
++====================================+============+===================+=======================+
+| month_day_nano_interval_from_parts | Ternary    | Integer           | MonthDayNano interval |
++------------------------------------+------------+-------------------+-----------------------+
+
+``month_day_nano_interval_from_parts`` constructs an interval from three
+components: months, days, and nanoseconds. Integer inputs are safely cast to
+Int32 for months and days, and Int64 for nanoseconds; values outside these
+ranges raise an error. Floating-point and string inputs are not supported.
+
+The components are stored without normalization, including negative values.
+For example, 32 days remain 32 days rather than being converted into months.
+If any component is null, the resulting interval is null. Scalar components
+are broadcast when combined with arrays, and three scalar inputs produce a
+scalar interval.
+
 Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

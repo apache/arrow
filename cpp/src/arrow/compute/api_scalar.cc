@@ -953,6 +953,12 @@ SCALAR_EAGER_BINARY(MillisecondsBetween, "milliseconds_between")
 SCALAR_EAGER_BINARY(MicrosecondsBetween, "microseconds_between")
 SCALAR_EAGER_BINARY(NanosecondsBetween, "nanoseconds_between")
 
+Result<Datum> MonthDayNanoIntervalFromParts(const Datum& months, const Datum& days,
+                                            const Datum& nanoseconds, ExecContext* ctx) {
+  return CallFunction("month_day_nano_interval_from_parts", {months, days, nanoseconds},
+                      ctx);
+}
+
 // ----------------------------------------------------------------------
 // Structural transforms
 Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext* ctx) {
