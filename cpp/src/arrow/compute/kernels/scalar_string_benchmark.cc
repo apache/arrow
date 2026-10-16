@@ -116,6 +116,63 @@ static void MatchLikeSuffix(benchmark::State& state) {
 }
 #endif
 
+static void MatcherReusedBenchmark(benchmark::State& state, const std::string& func_name,
+                                   const FunctionOptions* options) {
+  const int64_t total_length = 1 << 20;
+  const int64_t num_batches = state.range(0);
+  const int64_t batch_length = total_length / num_batches;
+  const int64_t value_min_size = 0;
+  const int64_t value_max_size = 32;
+  const double null_probability = 0.01;
+  random::RandomArrayGenerator rng(kSeed);
+
+  std::vector<Datum> batches;
+  batches.reserve(num_batches);
+  int64_t total_bytes = 0;
+  for (int64_t i = 0; i < num_batches; ++i) {
+    auto batch =
+        rng.String(batch_length, value_min_size, value_max_size, null_probability);
+    total_bytes += batch->data()->buffers[2]->size();
+    batches.emplace_back(std::move(batch));
+  }
+
+  for (auto _ : state) {
+    auto func_exec = GetFunctionExecutor(func_name, {utf8()}, options).ValueOrDie();
+    for (const auto& batch : batches) {
+      ABORT_NOT_OK(func_exec->Execute({batch}));
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * total_length);
+  state.SetBytesProcessed(state.iterations() * total_bytes);
+}
+
+static void MatchSubstringReused(benchmark::State& state) {
+  MatchSubstringOptions options("abac");
+  MatcherReusedBenchmark(state, "match_substring", &options);
+}
+
+#ifdef ARROW_WITH_RE2
+static void MatchSubstringRegexSimpleReused(benchmark::State& state) {
+  MatchSubstringOptions options("abac");
+  MatcherReusedBenchmark(state, "match_substring_regex", &options);
+}
+
+static void MatchSubstringRegexExpensiveReused(benchmark::State& state) {
+  MatchSubstringOptions options("([a-zA-Z0-9_.+-]+)@([a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+)");
+  MatcherReusedBenchmark(state, "match_substring_regex", &options);
+}
+
+static void MatchLikeFastPathReused(benchmark::State& state) {
+  MatchSubstringOptions options("%abac%");
+  MatcherReusedBenchmark(state, "match_like", &options);
+}
+
+static void MatchLikeRegexFallbackReused(benchmark::State& state) {
+  MatchSubstringOptions options("ab%ac");
+  MatcherReusedBenchmark(state, "match_like", &options);
+}
+#endif
+
 #ifdef ARROW_WITH_UTF8PROC
 static void Utf8Upper(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_upper");
@@ -250,6 +307,13 @@ BENCHMARK(MatchLike);
 BENCHMARK(MatchLikeSubstring);
 BENCHMARK(MatchLikePrefix);
 BENCHMARK(MatchLikeSuffix);
+#endif
+BENCHMARK(MatchSubstringReused)->RangeMultiplier(8)->Range(1, 64);
+#ifdef ARROW_WITH_RE2
+BENCHMARK(MatchSubstringRegexSimpleReused)->RangeMultiplier(8)->Range(1, 64);
+BENCHMARK(MatchSubstringRegexExpensiveReused)->RangeMultiplier(8)->Range(1, 64);
+BENCHMARK(MatchLikeFastPathReused)->RangeMultiplier(8)->Range(1, 64);
+BENCHMARK(MatchLikeRegexFallbackReused)->RangeMultiplier(8)->Range(1, 64);
 #endif
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
