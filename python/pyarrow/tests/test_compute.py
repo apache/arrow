@@ -2267,6 +2267,25 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
+@pytest.mark.parametrize('list_type', [pa.list_, pa.large_list])
+@pytest.mark.parametrize('safe', [True, False])
+def test_cast_list_value_nullability(list_type, safe):
+    # GH-43146: Table.cast must also enforce nested field nullability.
+    source_type = list_type(pa.field("item", pa.int64()))
+    target_type = list_type(pa.field("item", pa.int64(), nullable=False))
+    schema = pa.schema([pa.field("x", target_type, nullable=False)])
+    table = pa.table({"x": pa.array([[1, None, 3], [], [4, 5]],
+                                    type=source_type)})
+    with pytest.raises(pa.ArrowInvalid, match="non-nullable"):
+        table.cast(schema, safe=safe)
+
+    valid = pa.table({"x": pa.array([[1, 2, 3], [], [4, 5]],
+                                    type=source_type)})
+    result = valid.cast(schema, safe=safe)
+    assert result.schema == schema
+    assert result.to_pydict() == valid.to_pydict()
+
+
 @pytest.mark.parametrize('value_type', [pa.date32(), pa.date64()])
 def test_identity_cast_dates(value_type):
     dt = datetime.date(1990, 3, 1)

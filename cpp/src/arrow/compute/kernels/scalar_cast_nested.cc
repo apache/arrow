@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
@@ -39,6 +40,96 @@ using internal::CopyBitmap;
 namespace compute::internal {
 
 namespace {
+
+bool CanMaskNestedValues(Type::type type) {
+  return is_list_like(type) || is_list_view(type) || type == Type::STRUCT ||
+         type == Type::DICTIONARY;
+}
+
+template <typename ListType, typename Visit>
+Status VisitValidListValueRanges(const ArraySpan& in_array, Visit&& visit) {
+  for (int64_t i = 0; i < in_array.length; ++i) {
+    if (in_array.IsNull(i)) {
+      continue;
+    }
+    int64_t offset, length;
+    if constexpr (is_fixed_size_list_type<ListType>::value) {
+      length = checked_cast<const ListType&>(*in_array.type).list_size();
+      offset = (in_array.offset + i) * length;
+    } else {
+      const auto* offsets = in_array.GetValues<typename ListType::offset_type>(1);
+      offset = offsets[i];
+      if constexpr (is_list_view_type<ListType>::value) {
+        length = in_array.GetValues<typename ListType::offset_type>(2)[i];
+      } else {
+        length = offsets[i + 1] - offset;
+      }
+    }
+    RETURN_NOT_OK(visit(offset, length));
+  }
+  return Status::OK();
+}
+
+template <typename DestType>
+Status CheckListValueNullability(const ArrayData& out_array) {
+  const auto& out_type = checked_cast<const DestType&>(*out_array.type);
+  if (out_type.value_field()->nullable() ||
+      out_array.child_data[0]->GetNullCount() == 0) {
+    return Status::OK();
+  }
+  const ArraySpan array(out_array);
+  auto values = array.child_data[0];
+  const int64_t values_offset = values.offset;
+  return VisitValidListValueRanges<DestType>(array, [&](int64_t offset, int64_t length) {
+    values.SetSlice(values_offset + offset, length);
+    if (values.GetNullCount() > 0) {
+      return Status::Invalid("List values have nulls. Can't cast to non-nullable ",
+                             "value field '", out_type.value_field()->name(), "'");
+    }
+    return Status::OK();
+  });
+}
+
+template <typename SrcType>
+Status MaskNestedListValues(KernelContext* ctx, const ArraySpan& in_array,
+                            std::shared_ptr<ArrayData>* values) {
+  if (!CanMaskNestedValues((*values)->type->id())) {
+    return Status::OK();
+  }
+  if (in_array.GetNullCount() == 0) {
+    if constexpr (is_fixed_size_list_type<SrcType>::value) {
+      const int64_t size = checked_cast<const SrcType&>(*in_array.type).list_size();
+      if (in_array.offset == 0 && in_array.length * size == (*values)->length) {
+        return Status::OK();
+      }
+    } else if constexpr (!is_list_view_type<SrcType>::value) {
+      const auto* offsets = in_array.GetValues<typename SrcType::offset_type>(1);
+      if (offsets[0] == 0 && offsets[in_array.length] == (*values)->length) {
+        return Status::OK();
+      }
+    }
+  }
+
+  // Recursive casts must not validate descendants hidden by a null parent or slice.
+  ARROW_ASSIGN_OR_RAISE(
+      auto bitmap,
+      AllocateEmptyBitmap((*values)->offset + (*values)->length, ctx->memory_pool()));
+  RETURN_NOT_OK(
+      VisitValidListValueRanges<SrcType>(in_array, [&](int64_t offset, int64_t length) {
+        offset += (*values)->offset;
+        if ((*values)->buffers[0]) {
+          CopyBitmap((*values)->buffers[0]->data(), offset, length,
+                     bitmap->mutable_data(), offset);
+        } else {
+          bit_util::SetBitsTo(bitmap->mutable_data(), offset, length, true);
+        }
+        return Status::OK();
+      }));
+  *values = (*values)->Copy();
+  (*values)->buffers[0] = std::move(bitmap);
+  (*values)->null_count = kUnknownNullCount;
+  return Status::OK();
+}
 
 // (Large)List<T> -> (Large)List<U>
 
@@ -108,7 +199,8 @@ struct CastList {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
 
-    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+    const auto& out_type = checked_cast<const DestType&>(*out->type());
+    auto child_type = out_type.value_type();
 
     const ArraySpan& in_array = batch[0].array;
 
@@ -118,6 +210,7 @@ struct CastList {
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    RETURN_NOT_OK(MaskNestedListValues<SrcType>(ctx, in_array, &values));
 
     RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
 
@@ -127,7 +220,7 @@ struct CastList {
 
     DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
-    return Status::OK();
+    return CheckListValueNullability<DestType>(*out_array);
   }
 };
 
@@ -148,7 +241,8 @@ struct CastFixedToVarList {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
 
-    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+    const auto& out_type = checked_cast<const DestType&>(*out->type());
+    auto child_type = out_type.value_type();
 
     const ArraySpan& in_array = batch[0].array;
 
@@ -171,6 +265,7 @@ struct CastFixedToVarList {
 
     // Handle values
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    RETURN_NOT_OK(MaskNestedListValues<FixedSizeListType>(ctx, in_array, &values));
     if (in_array.offset > 0) {
       values = values->Slice(in_array.offset * list_size, in_array.length * list_size);
     }
@@ -179,7 +274,7 @@ struct CastFixedToVarList {
     DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
 
-    return Status::OK();
+    return CheckListValueNullability<DestType>(*out_array);
   }
 };
 
@@ -269,6 +364,7 @@ struct CastVarToFixedList {
 
     // Handle values
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    RETURN_NOT_OK(MaskNestedListValues<SrcType>(ctx, in_array, &values));
     ARROW_ASSIGN_OR_RAISE(Datum cast_values_datum,
                           Cast(values, child_type, options, ctx->exec_context()));
 
@@ -291,7 +387,7 @@ struct CastVarToFixedList {
 
     out_array->child_data.emplace_back(std::move(cast_values));
 
-    return Status::OK();
+    return CheckListValueNullability<FixedSizeListType>(*out_array);
   }
 };
 
@@ -311,6 +407,7 @@ struct CastFixedList {
 
     const ArraySpan& in_array = batch[0].array;
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    RETURN_NOT_OK(MaskNestedListValues<FixedSizeListType>(ctx, in_array, &values));
     ArrayData* out_array = out->array_data().get();
     out_array->buffers[0] = in_array.GetBuffer(0);
 
@@ -322,7 +419,7 @@ struct CastFixedList {
                           Cast(values, child_type, options, ctx->exec_context()));
     DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
-    return Status::OK();
+    return CheckListValueNullability<FixedSizeListType>(*out_array);
   }
 };
 
@@ -382,7 +479,7 @@ struct CastStruct {
         out_array->child_data.push_back(nulls->data());
       } else {
         const auto& in_field = in_type.field(in_field_index);
-        const auto& in_values = (in_array.child_data[in_field_index].ToArrayData()->Slice(
+        auto in_values = (in_array.child_data[in_field_index].ToArrayData()->Slice(
             in_array.offset, in_array.length));
         if (in_field->nullable() && !out_field->nullable() &&
             in_values->GetNullCount() > 0) {
@@ -390,6 +487,12 @@ struct CastStruct {
               "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
               " has nulls. Can't cast to non-nullable field '", out_field->name(),
               "' of type ", out_field_type->ToString());
+        }
+        if (in_array.GetNullCount() > 0 && CanMaskNestedValues(in_values->type->id())) {
+          auto in_struct = checked_pointer_cast<StructArray>(in_array.ToArray());
+          ARROW_ASSIGN_OR_RAISE(auto flattened, in_struct->GetFlattenedField(
+                                                    in_field_index, ctx->memory_pool()));
+          in_values = flattened->data();
         }
         ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(in_values, out_field_type, options,
                                                       ctx->exec_context()));
@@ -443,7 +546,25 @@ struct CastMap {
                                        in_array.offset, in_array.length));
     }
 
-    RETURN_NOT_OK(CastListImpl::HandleOffsets(ctx, in_array, out_array, &entries));
+    const auto* offsets = in_array.GetValues<MapType::offset_type>(1);
+    if (in_array.GetNullCount() > 0 || offsets[0] != 0 ||
+        offsets[in_array.length] != entries->length) {
+      // Drop hidden entries before recursively casting their non-nullable keys.
+      auto in_map = checked_pointer_cast<MapArray>(in_array.ToArray());
+      ARROW_ASSIGN_OR_RAISE(auto flattened, in_map->Flatten(ctx->memory_pool()));
+      entries = flattened->data();
+      using offset_type = typename DestType::offset_type;
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
+                            ctx->Allocate(sizeof(offset_type) * (in_array.length + 1)));
+      auto* out_offsets = out_array->GetMutableValues<offset_type>(1);
+      out_offsets[0] = 0;
+      for (int64_t i = 0; i < in_array.length; ++i) {
+        out_offsets[i + 1] =
+            out_offsets[i] + (in_array.IsValid(i) ? offsets[i + 1] - offsets[i] : 0);
+      }
+    } else {
+      RETURN_NOT_OK(CastListImpl::HandleOffsets(ctx, in_array, out_array, &entries));
+    }
 
     // Handle keys
     const std::shared_ptr<ArrayData>& keys =

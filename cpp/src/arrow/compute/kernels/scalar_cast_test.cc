@@ -3641,6 +3641,144 @@ TEST(Cast, ListToListOptionsPassthru) {
   }
 }
 
+TEST(Cast, ListValueNullability) {
+  auto list_types = [](const std::shared_ptr<Field>& value_field) {
+    return std::vector<std::shared_ptr<DataType>>{
+        list(value_field), large_list(value_field), fixed_size_list(value_field, 2)};
+  };
+  for (const auto& src_type : list_types(field("item", int32()))) {
+    for (const auto& value_type : {int32(), int64()}) {
+      for (const auto& dest_type :
+           list_types(field("item", value_type, /*nullable=*/false))) {
+        ARROW_SCOPED_TRACE("src_type = ", src_type->ToString(),
+                           ", dest_type = ", dest_type->ToString());
+        auto with_nulls = ArrayFromJSON(src_type, "[[1, null], [3, 4]]");
+        CheckCastFails(with_nulls, CastOptions::Safe(dest_type));
+        CheckCastFails(with_nulls, CastOptions::Unsafe(dest_type));
+        CheckCast(ArrayFromJSON(src_type, "[[1, 2], null, [3, 4]]"),
+                  ArrayFromJSON(dest_type, "[[1, 2], null, [3, 4]]"));
+        CheckCast(MaskArrayWithNullsAt(with_nulls, {0}),
+                  ArrayFromJSON(dest_type, "[null, [3, 4]]"));
+
+        // Nulls before and after a slice do not belong to the cast.
+        auto sliced = ArrayFromJSON(src_type, "[[null, 0], [1, 2], [3, 4], [null, null]]")
+                          ->Slice(1, 2);
+        CheckCast(sliced, ArrayFromJSON(dest_type, "[[1, 2], [3, 4]]"));
+        CheckCast(with_nulls->Slice(1, 0), ArrayFromJSON(dest_type, "[]"));
+      }
+    }
+  }
+}
+
+TEST(Cast, ListValueNullabilitySlicedChild) {
+  for (const auto& src_type :
+       {list(int32()), large_list(int32()), fixed_size_list(int32(), 2)}) {
+    auto dest_field = field("item", int64(), /*nullable=*/false);
+    auto dest_type = src_type->id() == Type::LIST ? list(dest_field)
+                     : src_type->id() == Type::LARGE_LIST
+                         ? large_list(dest_field)
+                         : fixed_size_list(dest_field, 2);
+    auto src = ArrayFromJSON(src_type, "[[1, 2], [3, 4]]");
+    auto values = ArrayFromJSON(int32(), "[null, null, 1, 2, 3, 4, null]");
+    auto data = src->data()->Copy();
+    data->child_data[0] = values->Slice(2, 4)->data();
+    CheckCast(MakeArray(data), ArrayFromJSON(dest_type, "[[1, 2], [3, 4]]"));
+
+    auto null_values = ArrayFromJSON(int32(), "[0, 0, 1, null, 3, 4]");
+    data->child_data[0] = null_values->Slice(2, 4)->data()->Copy();
+    data->child_data[0]->null_count = kUnknownNullCount;
+    CheckCastFails(MakeArray(data), CastOptions::Safe(dest_type));
+  }
+}
+
+TEST(Cast, ListValueNullabilityDictionaryValues) {
+  auto values =
+      DictArrayFromJSON(dictionary(int8(), int32()), "[0, 1, 1, 1]", "[null, 10]");
+  ASSERT_EQ(values->null_count(), 0);
+  for (bool nullable : {false, true}) {
+    auto src_field = field("item", values->type(), nullable);
+    auto dest_field = field("item", int32(), /*nullable=*/false);
+    for (const auto& types :
+         {std::make_pair(list(src_field), list(dest_field)),
+          std::make_pair(large_list(src_field), large_list(dest_field)),
+          std::make_pair(fixed_size_list(src_field, 2),
+                         fixed_size_list(dest_field, 2))}) {
+      auto data = ArrayFromJSON(types.second, "[[1, 2], [3, 4]]")->data()->Copy();
+      data->type = types.first;
+      data->child_data[0] = values->data();
+      auto src = MakeArray(data);
+      CheckCastFails(src, CastOptions::Safe(types.second));
+      CheckCastFails(src, CastOptions::Unsafe(types.second));
+      CheckCast(MaskArrayWithNullsAt(src, {0}),
+                ArrayFromJSON(types.second, "[null, [10, 10]]"));
+    }
+  }
+}
+
+TEST(Cast, ListValueNullabilityNestedMasked) {
+  auto leaf_type = list(int32());
+  auto non_nullable_leaf = list(field("item", int32(), /*nullable=*/false));
+  for (const auto& types :
+       {std::make_pair(list(leaf_type), list(non_nullable_leaf)),
+        std::make_pair(large_list(leaf_type), large_list(non_nullable_leaf)),
+        std::make_pair(fixed_size_list(leaf_type, 2),
+                       fixed_size_list(non_nullable_leaf, 2))}) {
+    auto src = ArrayFromJSON(types.first, "[[[null], [0]], [[1], [2]]]");
+    CheckCast(MaskArrayWithNullsAt(src, {0}),
+              ArrayFromJSON(types.second, "[null, [[1], [2]]]"));
+    CheckCast(src->Slice(1, 1), ArrayFromJSON(types.second, "[[[1], [2]]]"));
+
+    auto suffix = ArrayFromJSON(types.first, "[[[1], [2]], [[null], [0]]]");
+    CheckCast(suffix->Slice(0, 1), ArrayFromJSON(types.second, "[[[1], [2]]]"));
+  }
+
+  auto deep = ArrayFromJSON(list(list(leaf_type)), "[[[[null]]], [[[1]]]]");
+  CheckCast(MaskArrayWithNullsAt(deep, {0}),
+            ArrayFromJSON(list(list(non_nullable_leaf)), "[null, [[[1]]]]"));
+
+  auto struct_type = struct_({field("a", leaf_type)});
+  auto dest_struct_type = struct_({field("a", non_nullable_leaf)});
+  auto structs = ArrayFromJSON(struct_type, R"([{"a": [null]}, {"a": [1]}])");
+  CheckCast(MaskArrayWithNullsAt(structs, {0}),
+            ArrayFromJSON(dest_struct_type, R"([null, {"a": [1]}])"));
+
+  auto mixed = ArrayFromJSON(list(struct_type), R"([[{"a": [null]}], [{"a": [1]}]])");
+  CheckCast(MaskArrayWithNullsAt(mixed, {0}),
+            ArrayFromJSON(list(dest_struct_type), R"([null, [{"a": [1]}]])"));
+
+  auto map_type = map(utf8(), leaf_type);
+  auto dest_map_type = map(utf8(), non_nullable_leaf);
+  auto maps = ArrayFromJSON(map_type, R"([[["k", [null]]], [["k", [1]]]])");
+  CheckCast(MaskArrayWithNullsAt(maps, {0}),
+            ArrayFromJSON(dest_map_type, R"([null, [["k", [1]]]])"));
+  CheckCast(maps->Slice(1, 1), ArrayFromJSON(dest_map_type, R"([[["k", [1]]]])"));
+  auto map_suffix = ArrayFromJSON(map_type, R"([[["k", [1]]], [["k", [null]]]])");
+  CheckCast(map_suffix->Slice(0, 1), ArrayFromJSON(dest_map_type, R"([[["k", [1]]]])"));
+
+  auto key_map_type = map(leaf_type, int32());
+  auto dest_key_map_type = map(non_nullable_leaf, int32());
+  auto key_maps = ArrayFromJSON(key_map_type, "[[[[null], 1]], [[[1], 2]]]");
+  CheckCast(MaskArrayWithNullsAt(key_maps, {0}),
+            ArrayFromJSON(dest_key_map_type, "[null, [[[1], 2]]]"));
+}
+
+TEST(Cast, ListValueNullabilityNestedAndNullType) {
+  auto nested = ArrayFromJSON(list(list(int32())), "[[[1, null], []], []]");
+  auto non_nullable = list(list(field("item", int32(), /*nullable=*/false)));
+  CheckCastFails(nested, CastOptions::Safe(non_nullable));
+
+  auto null_values = ArrayFromJSON(list(null()), "[[null], []]");
+  CheckCastFails(null_values,
+                 CastOptions::Safe(list(field("item", int32(), /*nullable=*/false))));
+  CheckCast(null_values->Slice(1, 1),
+            ArrayFromJSON(list(field("item", int32(), /*nullable=*/false)), "[[]]"));
+
+  for (const auto& src_type : {list_view(int32()), large_list_view(int32())}) {
+    CheckCastFails(ArrayFromJSON(src_type, "[[1, null], [3, 4]]"),
+                   CastOptions::Safe(list(field("item", int32(), /*nullable=*/false))));
+  }
+}
+
 static void CheckFSLToFSL(const std::vector<std::shared_ptr<DataType>>& value_types,
                           const std::string& json_data,
                           const std::string& tweaked_val_bit_string,
