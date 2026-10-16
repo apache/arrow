@@ -893,6 +893,8 @@ def test_geospatial_types(parquet_test_datadir):
     column_schema = metadata.schema.column(1)
     assert column_schema.name == "geography"
     assert column_schema.logical_type.type == "GEOGRAPHY"
+
+
 def test_parquet_metadata_equality_with_none():
     table = pa.table({"a": [1, 2, 3]})
     with pa.BufferOutputStream() as out:
