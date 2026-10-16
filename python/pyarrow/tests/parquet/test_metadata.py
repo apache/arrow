@@ -916,4 +916,5 @@ def test_parquet_metadata_equality_with_none():
     for obj in objects:
         with pytest.raises(TypeError, match="Argument 'other' has incorrect type"):
             obj.equals(none)
-        assert obj != none
+        assert (obj == none) is False
+        assert (obj != none) is True
