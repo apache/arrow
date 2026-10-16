@@ -121,6 +121,12 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
 
   int64_t shift = 0;
   for (int64_t i = 0; i < static_cast<int64_t>(indices.size() - 1); ++i) {
+    if (ARROW_PREDICT_FALSE(indices[i] < 0 || i >= static_cast<int64_t>(keys_.size()))) {
+      return Status::IndexError("KeyValueMetadata::DeleteMany: index ", indices[i],
+                                " is out of bounds for metadata "
+                                "of size ",
+                                keys_.size());
+    }
     ++shift;
     const auto start = indices[i] + 1;
     const auto stop = indices[i + 1];

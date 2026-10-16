@@ -230,7 +230,7 @@ TEST(KeyValueMetadataTest, Delete) {
     KeyValueMetadata metadata(keys, values);
 
     std::string expected_error_message =
-        "Index error: KeyValueMetadata::DeleteMany: Start index -3 out of bounds for "
+        "Index error: KeyValueMetadata::DeleteMany: index -3 is out of bounds for "
         "metadata of size 7";
 
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
@@ -284,6 +284,26 @@ TEST(KeyValueMetadataTest, Delete) {
 
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
                                metadata.DeleteMany({8, 8, 6}));
+  }
+
+  {
+    KeyValueMetadata metadata(keys, values);
+    std::string expected_error_message =
+        "Index error: KeyValueMetadata::DeleteMany: duplicate index 2 in indices to "
+        "delete";
+
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
+                               metadata.DeleteMany({0, 2, 2}));
+  }
+
+  {
+    KeyValueMetadata metadata(keys, values);
+    std::string expected_error_message =
+        "Index error: KeyValueMetadata::DeleteMany: index -1 is out of bounds for "
+        "metadata of size 7";
+
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
+                               metadata.DeleteMany({-1, 0}));
   }
 }
 
