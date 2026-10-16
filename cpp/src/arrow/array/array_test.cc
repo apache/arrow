@@ -2558,6 +2558,32 @@ TEST(TestPrimitiveAdHoc, FloatingUlpDistanceEquality) {
   CheckFloatApproxEqualsWithUlpDistance<DoubleType>();
 }
 
+TEST(TestRunEncodedBuilder, MergeConsecutiveNaNs) {
+  auto run_end_encoded_type = run_end_encoded(int32(), float32());
+  std::shared_ptr<RunEndEncodedArray> result;
+  auto run_end_builder = std::make_shared<Int32Builder>();
+  auto value_builder = std::make_shared<FloatBuilder>();
+  RunEndEncodedBuilder builder(default_memory_pool(), run_end_builder, value_builder,
+                               run_end_encoded_type);
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 1), 15));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 1), 10));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 2), 20));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), std::nanf("")), 25));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), std::nanf("")), 5));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 3), 15));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), std::nanf("")), 20));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 4), 25));
+  ASSERT_OK(builder.Finish(&result));
+
+  std::shared_ptr<Array> expected_run_end_array;
+  std::shared_ptr<Array> expected_value_array;
+  ArrayFromVector<Int32Type>({25, 45, 75, 90, 110, 135}, &expected_run_end_array);
+  ArrayFromVector<FloatType>({1.0, 2.0, std::nanf(""), 3.0, std::nanf(""), 4.0},
+                             &expected_value_array);
+  AssertArraysEqual(*expected_run_end_array, *result->run_ends());
+  AssertArraysEqual(*expected_value_array, *result->values());
+}
+
 // ----------------------------------------------------------------------
 // FixedSizeBinary tests
 
