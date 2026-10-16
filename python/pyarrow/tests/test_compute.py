@@ -4518,3 +4518,128 @@ def test_winsorize():
     result = pc.winsorize(
         arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
     assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+
+
+# ---------------------------------------------------------------------------
+# Tests for bind_function / FunctionExecutor  (GH-49214)
+# ---------------------------------------------------------------------------
+
+def test_bind_function_basic():
+    """bind_function returns a FunctionExecutor that can execute."""
+    value_set = pa.array([1, 2, 3, 5])
+    arr = pa.array([1, 2, 4, 5, 6])
+
+    executor = pc.bind_function(
+        "is_in", [arr], options=pc.SetLookupOptions(value_set))
+    assert isinstance(executor, pc.FunctionExecutor)
+
+    result = executor.execute([arr])
+    expected = pc.is_in(arr, value_set=value_set)
+    assert result.equals(expected)
+
+
+def test_bind_function_reuse_is_in():
+    """Same value_set, multiple input arrays — executor reuses MemoTable."""
+    value_set = pa.array(range(1000))
+    arrays = [pa.array(range(i, i + 500)) for i in range(10)]
+
+    executor = pc.bind_function(
+        "is_in", [arrays[0]],
+        options=pc.SetLookupOptions(value_set))
+
+    for arr in arrays:
+        result = executor.execute([arr])
+        expected = pc.is_in(arr, value_set=value_set)
+        assert result.equals(expected)
+
+
+def test_bind_function_reuse_index_in():
+    """Same value_set, multiple input arrays for index_in."""
+    value_set = pa.array(["a", "b", "c"])
+    arrays = [pa.array(["a", "b", "d"]), pa.array(["c", "a", "e"])]
+
+    executor = pc.bind_function(
+        "index_in", [arrays[0]],
+        options=pc.SetLookupOptions(value_set))
+
+    for arr in arrays:
+        result = executor.execute([arr])
+        expected = pc.index_in(arr, value_set=value_set)
+        assert result.equals(expected)
+
+
+def test_bind_function_no_options():
+    """bind_function works for functions without options (e.g. add)."""
+    a = pa.array([1, 2, 3])
+    b = pa.array([4, 5, 6])
+
+    executor = pc.bind_function("add", [a, b])
+    result = executor.execute([a, b])
+    expected = pc.add(a, b)
+    assert result.equals(expected)
+
+
+def test_bind_function_different_options():
+    """Different options produce different executors."""
+    vs1 = pa.array([1, 2])
+    vs2 = pa.array([2, 3])
+    arr = pa.array([1, 2, 3])
+
+    exec1 = pc.bind_function(
+        "is_in", [arr], options=pc.SetLookupOptions(vs1))
+    exec2 = pc.bind_function(
+        "is_in", [arr], options=pc.SetLookupOptions(vs2))
+
+    assert exec1.execute([arr]).to_pylist() == [True, True, False]
+    assert exec2.execute([arr]).to_pylist() == [False, True, True]
+
+
+def test_bind_function_no_direct_construction():
+    """FunctionExecutor cannot be constructed directly."""
+    with pytest.raises(TypeError, match="Do not call FunctionExecutor"):
+        pc.FunctionExecutor()
+
+
+def test_bind_function_with_custom_registry():
+    """bind_function accepts a custom FunctionRegistry."""
+    registry = pc.function_registry()
+    value_set = pa.array([1, 2, 3])
+    arr = pa.array([1, 2])
+
+    executor = pc.bind_function(
+        "is_in", [arr], options=pc.SetLookupOptions(value_set),
+        registry=registry)
+    result = executor.execute([arr])
+    assert result.to_pylist() == [True, True]
+
+
+def test_bind_function_wrong_arg_type():
+    """Arguments whose types don't match the bound types raise on execute."""
+    value_set = pa.array([1, 2, 3])
+    int_arr = pa.array([1, 2])
+    str_arr = pa.array(["a", "b"])
+
+    executor = pc.bind_function(
+        "is_in", [int_arr], options=pc.SetLookupOptions(value_set))
+
+    # Different types — should raise
+    with pytest.raises((pa.ArrowInvalid, pa.ArrowNotImplementedError)):
+        executor.execute([str_arr])
+
+
+def test_bind_function_chunks():
+    """bind_function + executor work on ChunkedArrays too."""
+    value_set = pa.array(range(100))
+    chunked = pa.chunked_array([pa.array(range(0, 50)),
+                                pa.array(range(50, 100))])
+
+    executor = pc.bind_function(
+        "is_in", [chunked],
+        options=pc.SetLookupOptions(value_set))
+
+    # Use a fresh ChunkedArray of the same type as input
+    chunked2 = pa.chunked_array([pa.array([1, 2, 3]), pa.array([4, 5])])
+    result = executor.execute([chunked2])
+    expected = pc.is_in(chunked2, value_set=value_set)
+    assert result.equals(expected)

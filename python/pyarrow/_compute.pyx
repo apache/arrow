@@ -611,6 +611,155 @@ def call_function(name, args, options=None, memory_pool=None, length=None):
                      length=length)
 
 
+def bind_function(name, args, options=None, memory_pool=None, registry=None):
+    """
+    Bind a function to its input types and options, returning a
+    reusable :class:`FunctionExecutor`.
+
+    The returned executor preconfigures the function's kernel (including any
+    one-time state such as hash tables for `is_in` / `index_in`) and can be
+    called repeatedly on data of the same type without the overhead of
+    repeated bind & kernel initialization.
+
+    This is useful when the same function with the same options needs to be
+    applied to many different input arrays, e.g. in a processing loop.
+
+    Parameters
+    ----------
+    name : str
+        The name of the function to bind (e.g. "is_in", "index_in", ...).
+    args : iterable
+        A prototype of the arguments to this function.  Accepted types are
+        the same as for :func:`call_function`: Array, ChunkedArray, Scalar,
+        RecordBatch, Table, or Python scalars.  Only the types matter for
+        binding — values are not copied into the executor except where the
+        options capture a `value_set`.
+    options : FunctionOptions, optional
+        Options instance for the bound function.  If the options carry a
+        `value_set` (as is the case for :class:`SetLookupOptions`), its
+        hash table is built once during binding and reused for every call
+        to :meth:`FunctionExecutor.execute`.
+    memory_pool : pyarrow.MemoryPool, optional
+        Memory pool used during binding (notably for allocating any
+        precomputed state such as a hash table).
+    registry : FunctionRegistry, optional
+        The registry to look up the function in.  If not passed, the global
+        registry (as returned by :func:`function_registry`) is used.
+
+    Returns
+    -------
+    FunctionExecutor
+        A reusable executor.  Call :meth:`FunctionExecutor.execute` on it to
+        run the bound computation on fresh data.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> value_set = pa.array([1, 2, 3])
+    >>> executor = pc.bind_function("is_in", [pa.array([1])],
+    ...                               options=pc.SetLookupOptions(value_set))
+    >>> for arr in [pa.array([1, 2, 4]), pa.array([2, 3, 5])]:
+    ...     print(executor.execute([arr]))
+    ...
+    [ True  True False]
+    [ True  True False]
+    """
+    cdef:
+        vector[CDatum] c_args
+        const CFunctionOptions* c_options = NULL
+        CFunctionRegistry* c_registry = NULL
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        CExecContext c_exec_ctx = CExecContext(pool)
+        shared_ptr[CFunctionExecutor] sp_executor
+        c_string c_name = tobytes(name)
+        FunctionOptions c_options_obj
+        FunctionRegistry c_registry_obj
+
+    _pack_compute_args(args, &c_args)
+
+    if options is not None:
+        c_options_obj = <FunctionOptions> options
+        c_options = c_options_obj.get_options()
+
+    if registry is not None:
+        c_registry_obj = <FunctionRegistry> registry
+        c_registry = c_registry_obj.registry
+
+    with nogil:
+        sp_executor = GetResultValue(
+            GetFunctionExecutor(c_name, c_args, c_options, c_registry)
+        )
+
+    check_status(sp_executor.get().Init(c_options, &c_exec_ctx))
+
+    cdef FunctionExecutor executor = FunctionExecutor.__new__(FunctionExecutor)
+    executor.init(sp_executor)
+    return executor
+
+
+cdef class FunctionExecutor(_Weakrefable):
+    """
+    A pre-bound compute function executor.
+
+    Obtain an instance using :func:`bind_function`.  An executor holds
+    precomputed state (for example, a hash table over the ``value_set`` for
+    ``is_in`` / ``index_in``) and can be run many times on new input data
+    of the same shape and types.
+
+    Calling conventions are the same as :meth:`Function.call`.
+    """
+
+    def __init__(self):
+        raise TypeError(
+            "Do not call FunctionExecutor's constructor directly. "
+            "Use pyarrow.compute.bind_function() instead."
+        )
+
+    cdef void init(self, const shared_ptr[CFunctionExecutor]& sp_executor) except *:
+        self.sp_executor = sp_executor
+        self.base_executor = sp_executor.get()
+
+    def execute(self, args, memory_pool=None, length=None):
+        """
+        Execute the bound function on new arguments.
+
+        Parameters
+        ----------
+        args : iterable
+            Arguments to pass to the function.  Types must match the ones
+            used when :func:`bind_function` was called.
+        memory_pool : pyarrow.MemoryPool, optional
+            Memory pool to use for allocations during execution.  If not
+            passed, allocates from the default memory pool.
+        length : int, optional
+            Batch size for execution, for nullary functions.  If not passed,
+            inferred from the data.
+
+        Returns
+        -------
+        Any
+            Result of the bound function, wrapped as a PyArrow / Python
+            object — same types as :func:`call_function`.
+        """
+        cdef:
+            vector[CDatum] c_args
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CExecContext c_exec_ctx = CExecContext(pool)
+            CDatum result
+
+        _pack_compute_args(args, &c_args)
+
+        cdef int64_t c_length = length if length is not None else -1
+
+        with nogil:
+            result = GetResultValue(
+                self.base_executor.Execute(c_args, c_length)
+            )
+
+        return wrap_datum(result)
+
+
 cdef class FunctionOptions(_Weakrefable):
     __slots__ = ()  # avoid mistakingly creating attributes
 
