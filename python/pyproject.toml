@@ -31,6 +31,7 @@ build-backend = "scikit_build_core.build"
 name = "pyarrow"
 dynamic = ["version"]
 requires-python = ">=3.11"
+dependencies = ["numpy>=2.0"]
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "Apache-2.0"
