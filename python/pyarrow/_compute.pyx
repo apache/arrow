@@ -1668,7 +1668,7 @@ class CountOptions(_CountOptions):
 
 
 cdef class _IndexOptions(FunctionOptions):
-    def _set_options(self, scalar):
+    def _set_options(self, Scalar scalar not None):
         self.wrapped.reset(new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
 
 
@@ -1682,7 +1682,7 @@ class IndexOptions(_IndexOptions):
         The value to search for.
     """
 
-    def __init__(self, value):
+    def __init__(self, Scalar value not None):
         self._set_options(value)
 
 
