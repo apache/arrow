@@ -24,6 +24,7 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
@@ -41,6 +42,8 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
@@ -469,6 +472,145 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
 
 namespace {
 
+template <typename IndexCType>
+int64_t VarBinaryViewTakeTyped(const ArraySpan& values, const ArraySpan& indices,
+                               BinaryViewType::c_type* out_views, uint8_t* out_validity,
+                               std::vector<uint8_t>* used_buffers) {
+  const auto* source_views = values.GetValues<BinaryViewType::c_type>(1);
+  const auto* index_values = indices.GetValues<IndexCType>(1);
+  const auto* indices_validity =
+      indices.MayHaveNulls() ? indices.buffers[0].data : nullptr;
+  int64_t valid_count = 0;
+
+  auto copy_view = [&](int64_t out_i) {
+    auto view = source_views[static_cast<int64_t>(index_values[out_i])];
+    out_views[out_i] = view;
+    if (!view.is_inline()) {
+      (*used_buffers)[view.ref.buffer_index] = true;
+    }
+    ++valid_count;
+  };
+
+  if (!values.MayHaveNulls()) {
+    int64_t out_i = 0;
+    VisitBitBlocksVoid(
+        indices_validity, indices.offset, indices.length,
+        [&](int64_t i) {
+          copy_view(i);
+          ++out_i;
+        },
+        [&]() { out_views[out_i++] = {}; });
+  } else {
+    // Take gathers validity through arbitrary indices. VisitTwoBitBlocksVoid and
+    // OptionalBitmapAnd cannot combine the source and index bitmaps elementwise.
+    ::arrow::internal::FirstTimeBitmapWriter writer(out_validity, 0, indices.length);
+    VisitBitBlocksVoid(
+        indices_validity, indices.offset, indices.length,
+        [&](int64_t i) {
+          if (values.IsValid(static_cast<int64_t>(index_values[i]))) {
+            copy_view(i);
+            writer.Set();
+          } else {
+            out_views[i] = {};
+          }
+          writer.Next();
+        },
+        [&]() {
+          out_views[writer.position()] = {};
+          writer.Next();
+        });
+    writer.Finish();
+  }
+  return valid_count;
+}
+
+int64_t VarBinaryViewTakeDispatch(const ArraySpan& values, const ArraySpan& indices,
+                                  BinaryViewType::c_type* out_views,
+                                  uint8_t* out_validity,
+                                  std::vector<uint8_t>* used_buffers) {
+  switch (indices.type->byte_width()) {
+    case 1:
+      return VarBinaryViewTakeTyped<uint8_t>(values, indices, out_views, out_validity,
+                                             used_buffers);
+    case 2:
+      return VarBinaryViewTakeTyped<uint16_t>(values, indices, out_views, out_validity,
+                                              used_buffers);
+    case 4:
+      return VarBinaryViewTakeTyped<uint32_t>(values, indices, out_views, out_validity,
+                                              used_buffers);
+    default:
+      DCHECK_EQ(indices.type->byte_width(), 8);
+      return VarBinaryViewTakeTyped<uint64_t>(values, indices, out_views, out_validity,
+                                              used_buffers);
+  }
+}
+
+}  // namespace
+
+Status VarBinaryViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& indices = batch[1].array;
+
+  if (TakeState::Get(ctx).boundscheck) {
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length));
+  }
+
+  const int64_t out_length = indices.length;
+  const auto data_buffers = values.GetVariadicBuffers();
+  std::vector<uint8_t> used_buffers(data_buffers.size(), 0);
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto views_buf,
+      AllocateBuffer(out_length * static_cast<int64_t>(sizeof(BinaryViewType::c_type)),
+                     ctx->memory_pool()));
+  auto* out_views = reinterpret_cast<BinaryViewType::c_type*>(views_buf->mutable_data());
+
+  std::shared_ptr<Buffer> validity_buf;
+  uint8_t* out_validity = nullptr;
+  if (values.MayHaveNulls()) {
+    ARROW_ASSIGN_OR_RAISE(validity_buf, AllocateBitmap(out_length, ctx->memory_pool()));
+    out_validity = validity_buf->mutable_data();
+  } else if (indices.MayHaveNulls()) {
+    // All source values are valid, so reuse or realign the index bitmap.
+    ARROW_ASSIGN_OR_RAISE(validity_buf, ::arrow::internal::OptionalBitmapAnd(
+                                            ctx->memory_pool(), indices.GetBuffer(0),
+                                            indices.offset, nullptr, 0, out_length));
+  }
+
+  const int64_t valid_count =
+      VarBinaryViewTakeDispatch(values, indices, out_views, out_validity, &used_buffers);
+  const int64_t null_count = out_length - valid_count;
+  // Preserve buffer indices without retaining unused payload allocations. C++ arrays
+  // require non-null variadic buffer slots, even though the C Data Interface permits
+  // null pointers for zero-sized buffers.
+  size_t num_data_buffers = used_buffers.size();
+  while (num_data_buffers > 0 && !used_buffers[num_data_buffers - 1]) {
+    --num_data_buffers;
+  }
+  BufferVector buffers;
+  buffers.reserve(2 + num_data_buffers);
+  buffers.push_back(null_count == 0 ? nullptr : std::move(validity_buf));
+  buffers.push_back(std::move(views_buf));
+
+  std::shared_ptr<Buffer> empty_buffer;
+  for (size_t i = 0; i < num_data_buffers; ++i) {
+    if (used_buffers[i]) {
+      buffers.push_back(data_buffers[i]);
+    } else {
+      if (!empty_buffer) {
+        empty_buffer = std::make_shared<Buffer>(nullptr, 0);
+      }
+      buffers.push_back(empty_buffer);
+    }
+  }
+
+  out->value = ArrayData::Make(values.type->GetSharedPtr(), out_length,
+                               std::move(buffers), null_count, /*offset=*/0);
+  return Status::OK();
+}
+
+namespace {
+
 // ----------------------------------------------------------------------
 // Null take
 
@@ -721,6 +863,8 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), take_indices, FixedWidthTakeExec},
       {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
       {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
+      {InputType(Type::BINARY_VIEW), take_indices, VarBinaryViewTakeExec},
+      {InputType(Type::STRING_VIEW), take_indices, VarBinaryViewTakeExec},
       {InputType(match::FixedSizeBinaryLike()), take_indices, FixedWidthTakeExec},
       {InputType(null()), take_indices, NullTakeExec},
       {InputType(Type::DICTIONARY), take_indices, DictionaryTake},
