@@ -154,6 +154,19 @@ constexpr int BitWidth(T x) noexcept {
 #endif
 }
 
+// Returns true if x is a power of two, i.e. std::has_single_bit(x).
+// See the note on BitWidth: the macOS 11.3 SDK only has the pre-standard
+// name std::ispow2.
+template <typename T>
+constexpr bool HasSingleBit(T x) noexcept {
+  static_assert(std::is_unsigned_v<T>, "HasSingleBit requires an unsigned integer type");
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+  return std::ispow2(x);
+#else
+  return std::has_single_bit(x);
+#endif
+}
+
 // Returns ceil(log2(x)).
 static inline int Log2(uint64_t x) {
   // DCHECK_GT(x, 0);

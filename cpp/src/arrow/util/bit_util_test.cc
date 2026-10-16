@@ -1132,4 +1132,22 @@ TEST(BitUtil, BitWidth) {
   static_assert(bit_util::BitWidth(uint16_t{0x0100}) == 9);
 }
 
+TEST(BitUtil, HasSingleBit) {
+  EXPECT_FALSE(bit_util::HasSingleBit(uint8_t{0}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{1}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{2}));
+  EXPECT_FALSE(bit_util::HasSingleBit(uint8_t{3}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{128}));
+  EXPECT_FALSE(bit_util::HasSingleBit(std::numeric_limits<uint8_t>::max()));
+
+  EXPECT_TRUE(bit_util::HasSingleBit(uint32_t{1} << 20));
+  EXPECT_FALSE(bit_util::HasSingleBit((uint32_t{1} << 20) + 1));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint64_t{1} << 63));
+  EXPECT_FALSE(bit_util::HasSingleBit(std::numeric_limits<uint64_t>::max()));
+
+  // constexpr-evaluable.
+  static_assert(bit_util::HasSingleBit(uint16_t{0x0100}));
+  static_assert(!bit_util::HasSingleBit(uint16_t{0x0101}));
+}
+
 }  // namespace arrow
