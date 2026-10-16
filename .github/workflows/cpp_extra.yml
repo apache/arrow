@@ -907,6 +907,29 @@ jobs:
               $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
               if (Test-Path $dll) {
                 Write-Host "Found ODBC DLL: $dll"
+
+                # Verify ODBC driver registration values
+                $key = "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver"
+                if (-not (Test-Path $key)) {
+                  Write-Error "ODBC driver registry key not found: $key"
+                  exit 1
+                }
+                $props = Get-ItemProperty $key
+                foreach ($name in "Driver", "Setup") {
+                  Write-Host "$name = '$($props.$name)'"
+                  if ($props.$name -ne $dll) {
+                    Write-Error "Registry value '$name' should be '$dll'"
+                    exit 1
+                  }
+                }
+                if ($props.DriverODBCVer -ne "03.00") {
+                  Write-Error "Registry value 'DriverODBCVer' should be '03.00', got '$($props.DriverODBCVer)'"
+                  exit 1
+                }
+                if ($props.UsageCount -ne 1) {
+                  Write-Error "Registry value 'UsageCount' should be 1, got '$($props.UsageCount)'"
+                  exit 1
+                }
                 exit 0
               }
             }
