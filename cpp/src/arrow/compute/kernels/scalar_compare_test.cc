@@ -1934,6 +1934,57 @@ TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
   }
 }
 
+// Random arrays over 64 elements at a range of null densities and offsets,
+// checked against a simple element-wise reference.
+TYPED_TEST(TestVarArgsCompareNumeric, MinMaxElementWiseRandom) {
+  using CType = typename TypeParam::c_type;
+  auto ty = this->type_singleton();
+  auto rand = random::RandomArrayGenerator(0x5416447);
+
+  auto reference = [](const std::vector<std::shared_ptr<Array>>& args, bool is_min,
+                      bool skip_nulls, int64_t i, bool* valid) -> CType {
+    bool have = false, any_null = false;
+    CType acc{};
+    for (const auto& arg : args) {
+      const auto& typed = checked_cast<const NumericArray<TypeParam>&>(*arg);
+      if (typed.IsNull(i)) {
+        any_null = true;
+        continue;
+      }
+      CType v = typed.Value(i);
+      acc = !have ? v : (is_min ? std::min(acc, v) : std::max(acc, v));
+      have = true;
+    }
+    *valid = have && (skip_nulls || !any_null);
+    return acc;
+  };
+
+  for (double null_prob : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+    for (int64_t length : {65, 128, 200}) {
+      for (int64_t offset : {0, 1, 3, 7}) {
+        std::vector<std::shared_ptr<Array>> args = {
+            rand.ArrayOf(ty, length + offset, null_prob)->Slice(offset),
+            rand.ArrayOf(ty, length + offset, null_prob)->Slice(offset),
+            rand.ArrayOf(ty, length + offset, null_prob)->Slice(offset)};
+        for (bool skip_nulls : {true, false}) {
+          this->element_wise_aggregate_options_.skip_nulls = skip_nulls;
+          for (bool is_min : {true, false}) {
+            auto func = is_min ? MinElementWise : MaxElementWise;
+            auto actual = this->Eval(func, {args[0], args[1], args[2]}).make_array();
+            const auto& typed = checked_cast<const NumericArray<TypeParam>&>(*actual);
+            for (int64_t i = 0; i < length; ++i) {
+              bool valid = false;
+              CType expected = reference(args, is_min, skip_nulls, i, &valid);
+              ASSERT_EQ(typed.IsValid(i), valid) << "slot " << i;
+              if (valid) ASSERT_EQ(typed.Value(i), expected) << "slot " << i;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {
   this->Assert(MaxElementWise, this->scalar(R"("3.14")"),
                {this->scalar(R"("3.14")"), this->scalar(R"("2.14")")});
