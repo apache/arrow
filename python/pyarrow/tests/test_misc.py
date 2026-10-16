@@ -270,3 +270,21 @@ def test_extension_type_constructor_errors(klass):
     msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
     with pytest.raises(TypeError, match=msg):
         klass()
+
+
+@pytest.mark.processes
+@pytest.mark.dataset
+@pytest.mark.parametrize(("call", "argument"), [
+    ("ds.get_partition_keys(None)", "partition_expression"),
+    ("ds.field('a').equals(None)", "other"),
+])
+def test_expression_apis_reject_none_without_crashing(
+        call: str, argument: str) -> None:
+    code = f"""if 1:
+        import pytest
+        import pyarrow.dataset as ds
+
+        with pytest.raises(TypeError, match="Argument '{argument}'"):
+            {call}
+        """
+    subprocess.check_call(args=[sys.executable, "-c", code], timeout=30)

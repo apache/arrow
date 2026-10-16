@@ -2708,7 +2708,7 @@ cdef class Expression(_Weakrefable):
     cdef inline CExpression unwrap(self):
         return self.expr
 
-    def equals(self, Expression other):
+    def equals(self, Expression other not None):
         """
         Parameters
         ----------
