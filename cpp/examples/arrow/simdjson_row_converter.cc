@@ -18,7 +18,10 @@
 #include <arrow/api.h>
 #include <arrow/result.h>
 #include <arrow/table_builder.h>
+#include <arrow/type_traits.h>
 #include <arrow/util/iterator.h>
+#include <arrow/visit_array_inline.h>
+#include <arrow/visit_type_inline.h>
 
 #include <simdjson.h>
 
@@ -27,10 +30,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
+#include <locale>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -38,7 +45,8 @@
 // When building connectors to other data systems, it's common to receive data in
 // row-based structures. While the row_wise_conversion_example.cc shows how to
 // handle this conversion for fixed schemas, this example demonstrates how to
-// convert between row-based JSON data and Arrow data for arbitrary schemas.
+// convert between row-based JSON data and Arrow data for a useful subset of
+// nested Arrow schemas.
 //
 // As an example, this conversion is between JSON strings and Arrow tables.
 //
@@ -47,6 +55,11 @@
 //  * arrow::RecordBatchBuilder for constructing Arrow arrays from row data
 //  * arrow::TableBatchReader and Arrow iterators for converting Arrow tables back
 //    into row-based JSON data
+//  * arrow::VisitTypeInline and arrow::VisitArrayInline for implementing a visitor
+//    pattern with Arrow to handle different types and array types
+//  * arrow::enable_if_primitive_ctype to create a template method that handles
+//    conversion for Arrow types that have corresponding C types (bool, integer,
+//    float).
 
 // Convert a simdjson result into an arrow::Result, so that errors are reported
 // as arrow::Status rather than as exceptions.
@@ -75,101 +88,180 @@ arrow::Result<std::optional<simdjson::dom::element>> GetField(
   return value;
 }
 
-// Append a JSON value to an Arrow builder according to the expected Arrow type.
-// This example only handles the types used by the example schema; extend this
-// switch when adapting it to schemas with additional Arrow types.
-arrow::Status AppendJsonValue(simdjson::dom::element value,
-                              const std::shared_ptr<arrow::DataType>& type,
-                              arrow::ArrayBuilder* builder);
+// A JSON value, or std::nullopt if it is missing.
+using JsonValue = std::optional<simdjson::dom::element>;
 
-arrow::Status AppendJsonStruct(simdjson::dom::element value,
-                               const arrow::StructType& type,
-                               arrow::StructBuilder* builder) {
-  ARROW_ASSIGN_OR_RAISE(auto object,
-                        Unwrap(value.get_object(), "Failed to get JSON object"));
+bool IsNull(const JsonValue& value) { return !value.has_value() || value->is_null(); }
 
-  for (int i = 0; i < type.num_fields(); ++i) {
-    const auto& field = type.field(i);
-
-    ARROW_ASSIGN_OR_RAISE(auto child, GetField(object, field->name()));
-
-    if (!child.has_value()) {
-      ARROW_RETURN_NOT_OK(builder->child_builder(i)->AppendNull());
-    } else {
-      ARROW_RETURN_NOT_OK(
-          AppendJsonValue(*child, field->type(), builder->child_builder(i).get()));
+// Collect the value of a field from each of the given JSON objects.
+// Missing fields, and fields of null objects, are returned as std::nullopt.
+arrow::Result<std::vector<JsonValue>> GetChildValues(
+    const std::vector<JsonValue>& objects, std::string_view name) {
+  std::vector<JsonValue> children;
+  children.reserve(objects.size());
+  for (const JsonValue& value : objects) {
+    if (IsNull(value)) {
+      children.push_back(std::nullopt);
+      continue;
     }
+    ARROW_ASSIGN_OR_RAISE(auto object,
+                          Unwrap(value->get_object(), "Failed to get JSON object"));
+    ARROW_ASSIGN_OR_RAISE(auto child, GetField(object, name));
+    children.push_back(child);
   }
-
-  return builder->Append();
+  return children;
 }
 
-arrow::Status AppendJsonList(simdjson::dom::element value, const arrow::ListType& type,
-                             arrow::ListBuilder* builder) {
-  ARROW_ASSIGN_OR_RAISE(auto array,
-                        Unwrap(value.get_array(), "Failed to get JSON array"));
-
-  ARROW_RETURN_NOT_OK(builder->Append());
-
-  for (simdjson::dom::element element : array) {
-    ARROW_RETURN_NOT_OK(
-        AppendJsonValue(element, type.value_field()->type(), builder->value_builder()));
+/// \brief Visitor that appends the JSON values of one column to an Arrow builder.
+///
+/// Implements Visit() methods for each Arrow type; each one appends one value per row.
+class JsonValueConverter {
+ public:
+  /// \brief Append `values` (one per row) to `builder`, according to `type`.
+  arrow::Status Convert(const arrow::DataType& type, arrow::ArrayBuilder* builder,
+                        const std::vector<JsonValue>& values) {
+    builder_ = builder;
+    values_ = &values;
+    return arrow::VisitTypeInline(type, this);
   }
 
-  return arrow::Status::OK();
-}
-
-arrow::Status AppendJsonValue(simdjson::dom::element value,
-                              const std::shared_ptr<arrow::DataType>& type,
-                              arrow::ArrayBuilder* builder) {
-  if (value.is_null()) {
-    return builder->AppendNull();
+  // Default implementation
+  arrow::Status Visit(const arrow::DataType& type) {
+    return arrow::Status::NotImplemented(
+        "Cannot convert json value to Arrow array of type ", type.ToString());
   }
 
-  switch (type->id()) {
-    case arrow::Type::INT64: {
-      if (value.is_uint64()) {
+  arrow::Status Visit(const arrow::Int64Type& type) {
+    auto* builder = static_cast<arrow::Int64Builder*>(builder_);
+    for (const JsonValue& value : *values_) {
+      if (IsNull(value)) {
+        ARROW_RETURN_NOT_OK(builder->AppendNull());
+      } else if (value->is_uint64()) {
         ARROW_ASSIGN_OR_RAISE(auto number,
-                              Unwrap(value.get_uint64(), "Failed to get JSON uint64"));
-        return static_cast<arrow::Int64Builder*>(builder)->Append(
-            static_cast<int64_t>(number));
+                              Unwrap(value->get_uint64(), "Failed to get JSON uint64"));
+        if (number > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+          return arrow::Status::Invalid("JSON uint64 value does not fit in int64");
+        }
+        ARROW_RETURN_NOT_OK(builder->Append(static_cast<int64_t>(number)));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(auto number,
+                              Unwrap(value->get_int64(), "Failed to get JSON int64"));
+        ARROW_RETURN_NOT_OK(builder->Append(number));
       }
-      ARROW_ASSIGN_OR_RAISE(auto number,
-                            Unwrap(value.get_int64(), "Failed to get JSON int64"));
-      return static_cast<arrow::Int64Builder*>(builder)->Append(number);
     }
-
-    case arrow::Type::DOUBLE: {
-      ARROW_ASSIGN_OR_RAISE(auto number,
-                            Unwrap(value.get_double(), "Failed to get JSON double"));
-      return static_cast<arrow::DoubleBuilder*>(builder)->Append(number);
-    }
-
-    case arrow::Type::STRING: {
-      ARROW_ASSIGN_OR_RAISE(auto string,
-                            Unwrap(value.get_string(), "Failed to get JSON string"));
-      return static_cast<arrow::StringBuilder*>(builder)->Append(string);
-    }
-
-    case arrow::Type::BOOL: {
-      ARROW_ASSIGN_OR_RAISE(auto boolean,
-                            Unwrap(value.get_bool(), "Failed to get JSON boolean"));
-      return static_cast<arrow::BooleanBuilder*>(builder)->Append(boolean);
-    }
-
-    case arrow::Type::STRUCT:
-      return AppendJsonStruct(value, *static_cast<const arrow::StructType*>(type.get()),
-                              static_cast<arrow::StructBuilder*>(builder));
-
-    case arrow::Type::LIST:
-      return AppendJsonList(value, *static_cast<const arrow::ListType*>(type.get()),
-                            static_cast<arrow::ListBuilder*>(builder));
-
-    default:
-      return arrow::Status::NotImplemented(
-          "Cannot convert JSON value to Arrow array of type ", type->ToString());
+    return arrow::Status::OK();
   }
-}  // AppendJsonValue
+
+  arrow::Status Visit(const arrow::DoubleType& type) {
+    auto* builder = static_cast<arrow::DoubleBuilder*>(builder_);
+    for (const JsonValue& value : *values_) {
+      if (IsNull(value)) {
+        ARROW_RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(auto number,
+                              Unwrap(value->get_double(), "Failed to get JSON double"));
+        ARROW_RETURN_NOT_OK(builder->Append(number));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::StringType& type) {
+    auto* builder = static_cast<arrow::StringBuilder*>(builder_);
+    for (const JsonValue& value : *values_) {
+      if (IsNull(value)) {
+        ARROW_RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(auto string,
+                              Unwrap(value->get_string(), "Failed to get JSON string"));
+        ARROW_RETURN_NOT_OK(builder->Append(string));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::BooleanType& type) {
+    auto* builder = static_cast<arrow::BooleanBuilder*>(builder_);
+    for (const JsonValue& value : *values_) {
+      if (IsNull(value)) {
+        ARROW_RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(auto boolean,
+                              Unwrap(value->get_bool(), "Failed to get JSON boolean"));
+        ARROW_RETURN_NOT_OK(builder->Append(boolean));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::StructType& type) {
+    auto* builder = static_cast<arrow::StructBuilder*>(builder_);
+
+    // Convert each child column recursively.
+    for (int i = 0; i < type.num_fields(); ++i) {
+      std::shared_ptr<arrow::Field> child_field = type.field(i);
+      ARROW_ASSIGN_OR_RAISE(auto child_values,
+                            GetChildValues(*values_, child_field->name()));
+      JsonValueConverter child_converter;
+      ARROW_RETURN_NOT_OK(child_converter.Convert(
+          *child_field->type(), builder->child_builder(i).get(), child_values));
+    }
+
+    // Make null bitmap
+    for (const JsonValue& value : *values_) {
+      ARROW_RETURN_NOT_OK(builder->Append(!IsNull(value)));
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::ListType& type) {
+    auto* builder = static_cast<arrow::ListBuilder*>(builder_);
+
+    // Values and offsets need to be interleaved in ListBuilder, so first collect the
+    // elements of all the lists and convert them into a temporary array.
+    std::vector<JsonValue> child_values;
+    std::vector<int64_t> sizes;
+    for (const JsonValue& value : *values_) {
+      int64_t size = 0;
+      if (!IsNull(value)) {
+        ARROW_ASSIGN_OR_RAISE(auto array,
+                              Unwrap(value->get_array(), "Failed to get JSON array"));
+        for (simdjson::dom::element element : array) {
+          child_values.push_back(element);
+          ++size;
+        }
+      }
+      sizes.push_back(size);
+    }
+
+    std::unique_ptr<arrow::ArrayBuilder> tmp_value_builder;
+    ARROW_ASSIGN_OR_RAISE(tmp_value_builder,
+                          arrow::MakeBuilder(builder->value_builder()->type()));
+    JsonValueConverter child_converter;
+    ARROW_RETURN_NOT_OK(child_converter.Convert(*type.value_type(),
+                                                tmp_value_builder.get(), child_values));
+
+    std::shared_ptr<arrow::Array> values_array;
+    ARROW_RETURN_NOT_OK(tmp_value_builder->Finish(&values_array));
+    arrow::ArraySpan values_span(*values_array->data());
+
+    arrow::ArrayBuilder* value_builder = builder->value_builder();
+    int64_t offset = 0;
+    for (size_t i = 0; i < values_->size(); ++i) {
+      ARROW_RETURN_NOT_OK(builder->Append(!IsNull((*values_)[i])));
+      if (sizes[i] > 0) {
+        ARROW_RETURN_NOT_OK(
+            value_builder->AppendArraySlice(values_span, offset, sizes[i]));
+        offset += sizes[i];
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  arrow::ArrayBuilder* builder_ = nullptr;
+  const std::vector<JsonValue>* values_ = nullptr;
+};  // JsonValueConverter
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
     const std::vector<std::string>& rows, std::shared_ptr<arrow::Schema> schema) {
@@ -182,29 +274,25 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
       batch_builder,
       arrow::RecordBatchBuilder::Make(schema, arrow::default_memory_pool(), rows.size()));
 
-  // DOM elements are only valid until the next parse() on the same parser, so each
-  // row is fully appended to the builders before the next row is parsed.
-  simdjson::dom::parser parser;
+  // The converter below visits all rows once per column, but a DOM element is only
+  // valid until its parser is used again. So each row gets its own parser.
+  std::vector<simdjson::dom::parser> parsers(rows.size());
+  std::vector<JsonValue> row_values;
+  row_values.reserve(rows.size());
+  for (size_t i = 0; i < rows.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto row,
+                          Unwrap(parsers[i].parse(rows[i]), "Failed to parse JSON row"));
+    row_values.push_back(row);
+  }
 
-  // Parse each row and append its values to the corresponding Arrow builders.
-  for (const auto& json : rows) {
-    ARROW_ASSIGN_OR_RAISE(auto element,
-                          Unwrap(parser.parse(json), "Failed to parse JSON row"));
-    ARROW_ASSIGN_OR_RAISE(auto object,
-                          Unwrap(element.get_object(), "Expected a JSON object"));
-
-    for (int i = 0; i < schema->num_fields(); ++i) {
-      const auto& field = schema->field(i);
-      arrow::ArrayBuilder* builder = batch_builder->GetField(i);
-
-      ARROW_ASSIGN_OR_RAISE(auto value, GetField(object, field->name()));
-
-      if (!value.has_value()) {
-        ARROW_RETURN_NOT_OK(builder->AppendNull());
-      } else {
-        ARROW_RETURN_NOT_OK(AppendJsonValue(*value, field->type(), builder));
-      }
-    }
+  // Inner converter will take the values of each field and be responsible for
+  // appending them to the provided array builder.
+  JsonValueConverter converter;
+  for (int i = 0; i < batch_builder->num_fields(); ++i) {
+    std::shared_ptr<arrow::Field> field = schema->field(i);
+    ARROW_ASSIGN_OR_RAISE(auto values, GetChildValues(row_values, field->name()));
+    ARROW_RETURN_NOT_OK(
+        converter.Convert(*field->type(), batch_builder->GetField(i), values));
   }
 
   std::shared_ptr<arrow::RecordBatch> batch;
@@ -248,120 +336,158 @@ void AppendJsonString(std::string_view value, std::string* out) {
   out->push_back('"');
 }
 
-// Write an Arrow value as JSON according to its Arrow type.
-// This example only handles the types used by the example schema; extend this
-// switch when adapting it to schemas with additional Arrow types.
-arrow::Status WriteJsonValue(const arrow::Array& array, int64_t index, std::string* out);
-
-arrow::Status WriteJsonStruct(const arrow::StructArray& array, int64_t index,
-                              std::string* out) {
-  const arrow::StructType& type = *array.struct_type();
-
-  out->push_back('{');
-  for (int i = 0; i < type.num_fields(); ++i) {
-    if (i > 0) {
-      out->push_back(',');
+// Return a boolean, integer or floating point value as JSON text.
+template <typename T>
+std::string FormatPrimitive(T value) {
+  if constexpr (std::is_same_v<T, bool>) {
+    return value ? "true" : "false";
+  } else if constexpr (std::is_floating_point_v<T>) {
+    if (!std::isfinite(value)) {
+      // JSON has no representation for NaN or infinity.
+      return "null";
     }
-    AppendJsonString(type.field(i)->name(), out);
-    out->push_back(':');
-    ARROW_RETURN_NOT_OK(WriteJsonValue(*array.field(i), index, out));
+    std::ostringstream ss;
+    ss.imbue(std::locale::classic());
+    ss.precision(17);
+    ss << value;
+    return ss.str();
+  } else {
+    return std::to_string(value);
   }
-  out->push_back('}');
-  return arrow::Status::OK();
 }
 
-arrow::Status WriteJsonList(const arrow::ListArray& array, int64_t index,
-                            std::string* out) {
-  const int64_t offset = array.value_offset(index);
-  const int64_t length = array.value_length(index);
-  const auto& values = *array.values();
-
-  out->push_back('[');
-  for (int64_t i = 0; i < length; ++i) {
-    if (i > 0) {
-      out->push_back(',');
-    }
-    ARROW_RETURN_NOT_OK(WriteJsonValue(values, offset + i, out));
-  }
-  out->push_back(']');
-  return arrow::Status::OK();
-}
-
-arrow::Status WriteJsonValue(const arrow::Array& array, int64_t index, std::string* out) {
-  if (array.IsNull(index)) {
-    out->append("null");
-    return arrow::Status::OK();
-  }
-
-  switch (array.type_id()) {
-    case arrow::Type::INT64:
-      out->append(
-          std::to_string(static_cast<const arrow::Int64Array&>(array).Value(index)));
-      return arrow::Status::OK();
-
-    case arrow::Type::DOUBLE: {
-      double value = static_cast<const arrow::DoubleArray&>(array).Value(index);
-      if (std::isfinite(value)) {
-        char buffer[32];
-        std::snprintf(buffer, sizeof(buffer), "%.17g", value);
-        out->append(buffer);
-      } else {
-        // JSON has no representation for NaN or infinity.
-        out->append("null");
-      }
-      return arrow::Status::OK();
-    }
-
-    case arrow::Type::STRING:
-      AppendJsonString(static_cast<const arrow::StringArray&>(array).GetView(index), out);
-      return arrow::Status::OK();
-
-    case arrow::Type::BOOL:
-      out->append(static_cast<const arrow::BooleanArray&>(array).Value(index) ? "true"
-                                                                              : "false");
-      return arrow::Status::OK();
-
-    case arrow::Type::STRUCT:
-      return WriteJsonStruct(static_cast<const arrow::StructArray&>(array), index, out);
-
-    case arrow::Type::LIST:
-      return WriteJsonList(static_cast<const arrow::ListArray&>(array), index, out);
-
-    default:
-      return arrow::Status::NotImplemented("Cannot convert Arrow array of type ",
-                                           array.type()->ToString(), " to JSON");
-  }
-}  // WriteJsonValue
-
-// Convert a single row of an Arrow record batch into a JSON object.
-arrow::Result<std::string> ConvertRowToJson(const arrow::RecordBatch& batch,
-                                            int64_t row) {
+// Join the converted columns into the JSON object of one row.
+std::string ObjectToJson(const std::vector<std::shared_ptr<arrow::Field>>& fields,
+                         const std::vector<std::vector<std::string>>& columns,
+                         int64_t row) {
   std::string json = "{";
-  for (int i = 0; i < batch.num_columns(); ++i) {
+  for (size_t i = 0; i < fields.size(); ++i) {
     if (i > 0) {
       json.push_back(',');
     }
-    AppendJsonString(batch.schema()->field(i)->name(), &json);
+    AppendJsonString(fields[i]->name(), &json);
     json.push_back(':');
-    ARROW_RETURN_NOT_OK(WriteJsonValue(*batch.column(i), row, &json));
+    json += columns[i][row];
   }
   json.push_back('}');
   return json;
 }
+
+/// \brief Visitor that writes the elements of one Arrow array as JSON.
+///
+/// Implements Visit() methods for each type of Arrow Array. Each one produces the
+/// JSON text of every element of the array ("null" for null elements).
+class JsonColumnWriter {
+ public:
+  /// \brief Retrieve the JSON text of each element.
+  std::vector<std::string> Values() && { return std::move(values_); }
+
+  // Default implementation
+  arrow::Status Visit(const arrow::Array& array) {
+    return arrow::Status::NotImplemented("Cannot convert to json for array of type ",
+                                         array.type()->ToString());
+  }
+
+  // Handles booleans, integers, floats
+  template <typename ArrayType, typename DataClass = typename ArrayType::TypeClass>
+  arrow::enable_if_primitive_ctype<DataClass, arrow::Status> Visit(
+      const ArrayType& array) {
+    values_.reserve(array.length());
+    for (int64_t i = 0; i < array.length(); ++i) {
+      values_.push_back(array.IsNull(i) ? "null" : FormatPrimitive(array.Value(i)));
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::StringArray& array) {
+    values_.reserve(array.length());
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (array.IsNull(i)) {
+        values_.push_back("null");
+      } else {
+        values_.emplace_back();
+        AppendJsonString(array.GetView(i), &values_.back());
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::StructArray& array) {
+    const arrow::StructType* type = array.struct_type();
+
+    // Convert each child column recursively.
+    std::vector<std::vector<std::string>> columns;
+    for (int i = 0; i < type->num_fields(); ++i) {
+      JsonColumnWriter child_writer;
+      ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(*array.field(i), &child_writer));
+      columns.push_back(std::move(child_writer).Values());
+    }
+
+    values_.reserve(array.length());
+    for (int64_t i = 0; i < array.length(); ++i) {
+      values_.push_back(array.IsNull(i) ? "null"
+                                        : ObjectToJson(type->fields(), columns, i));
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Visit(const arrow::ListArray& array) {
+    if (array.length() == 0) {
+      return arrow::Status::OK();
+    }
+
+    // Only convert the part of the child values that this (possibly sliced) array
+    // refers to.
+    const int64_t begin = array.value_offset(0);
+    const int64_t end = array.value_offset(array.length());
+    JsonColumnWriter child_writer;
+    ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(
+        *array.values()->Slice(begin, end - begin), &child_writer));
+    std::vector<std::string> child_values = std::move(child_writer).Values();
+
+    values_.reserve(array.length());
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (array.IsNull(i)) {
+        values_.push_back("null");
+        continue;
+      }
+      std::string json = "[";
+      for (int64_t j = array.value_offset(i); j < array.value_offset(i + 1); ++j) {
+        if (j > array.value_offset(i)) {
+          json.push_back(',');
+        }
+        json += child_values[j - begin];
+      }
+      json.push_back(']');
+      values_.push_back(std::move(json));
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  std::vector<std::string> values_;
+};  // JsonColumnWriter
 
 // Convert a single batch of Arrow data into JSON rows.
 // Rows are held by shared_ptr because Arrow iterators signal end-of-iteration
 // with a sentinel value (a null pointer here).
 arrow::Result<std::vector<std::shared_ptr<std::string>>> ConvertToVector(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
-  std::vector<std::shared_ptr<std::string>> rows;
-  rows.reserve(batch->num_rows());
-
-  for (int64_t i = 0; i < batch->num_rows(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto row, ConvertRowToJson(*batch, i));
-    rows.push_back(std::make_shared<std::string>(std::move(row)));
+  // Visit each column of the batch, converting all of its values at once.
+  std::vector<std::vector<std::string>> columns;
+  for (int i = 0; i < batch->num_columns(); ++i) {
+    JsonColumnWriter writer;
+    ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(*batch->column(i), &writer));
+    columns.push_back(std::move(writer).Values());
   }
 
+  // Then join the columns into one JSON object per row.
+  std::vector<std::shared_ptr<std::string>> rows;
+  rows.reserve(batch->num_rows());
+  for (int64_t i = 0; i < batch->num_rows(); ++i) {
+    rows.push_back(std::make_shared<std::string>(
+        ObjectToJson(batch->schema()->fields(), columns, i)));
+  }
   return rows;
 }
 
@@ -447,6 +573,11 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
 int main(int argc, char** argv) {
   int32_t num_rows = argc > 1 ? std::atoi(argv[1]) : 100;
   int32_t batch_size = argc > 2 ? std::atoi(argv[2]) : 100;
+
+  if (num_rows < 0 || batch_size <= 0) {
+    std::cerr << "Error: num_rows must be >= 0 and batch_size must be > 0." << std::endl;
+    return EXIT_FAILURE;
+  }
 
   arrow::Status status = DoRowConversion(num_rows, batch_size);
 
