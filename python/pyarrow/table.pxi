@@ -75,14 +75,6 @@ cdef class ChunkedArray(_PandasConvertible):
         return chunked_array, (self.chunks, self.type)
 
     @property
-    def data(self):
-        import warnings
-        warnings.warn("Calling .data on ChunkedArray is provided for "
-                      "compatibility after Column was removed, simply drop "
-                      "this attribute", FutureWarning)
-        return self
-
-    @property
     def type(self):
         """
         Return data type of a ChunkedArray.
@@ -166,23 +158,6 @@ cdef class ChunkedArray(_PandasConvertible):
             )
 
         return frombytes(result, safe=True)
-
-    def format(self, **kwargs):
-        """
-        DEPRECATED, use pyarrow.ChunkedArray.to_string
-
-        Parameters
-        ----------
-        **kwargs : dict
-
-        Returns
-        -------
-        str
-        """
-        import warnings
-        warnings.warn('ChunkedArray.format is deprecated, '
-                      'use ChunkedArray.to_string')
-        return self.to_string(**kwargs)
 
     def __str__(self):
         return self.to_string()
@@ -3528,14 +3503,6 @@ cdef class RecordBatch(_Tabular):
         else:
             num_rows = 0
 
-        if isinstance(names, Schema):
-            import warnings
-            warnings.warn("Schema passed to names= option, please "
-                          "pass schema= explicitly. "
-                          "Will raise exception in future", FutureWarning)
-            schema = names
-            names = None
-
         converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
                                             &c_schema)
 
@@ -6278,7 +6245,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none"):
     """
     Concatenate pyarrow.Table objects.
 
@@ -6306,7 +6273,6 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         For memory allocations, if required, otherwise use default pool.
     promote_options : str, default none
         Accepts strings "none", "default" and "permissive".
-    **kwargs : dict, optional
 
     Examples
     --------
@@ -6335,13 +6301,6 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         Table table
         CConcatenateTablesOptions options = (
             CConcatenateTablesOptions.Defaults())
-
-    if "promote" in kwargs:
-        warnings.warn(
-            "promote has been superseded by promote_options='default'.",
-            FutureWarning, stacklevel=2)
-        if kwargs['promote'] is True:
-            promote_options = "default"
 
     for table in tables:
         c_tables.push_back(table.sp_table)

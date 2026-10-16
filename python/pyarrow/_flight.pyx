@@ -21,7 +21,6 @@ import collections
 import enum
 import re
 import time
-import warnings
 import weakref
 
 from cython.operator cimport dereference as deref
@@ -1231,7 +1230,7 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
             check_flight_status(
                 self._writer().WriteRecordBatch(deref(batch.batch), custom_metadata))
 
-    def write_table(self, Table table, max_chunksize=None, **kwargs):
+    def write_table(self, Table table, max_chunksize=None):
         """
         Write Table to stream in (contiguous) RecordBatch objects.
 
@@ -1245,13 +1244,6 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         cdef:
             # max_chunksize must be > 0 to have any impact
             int64_t c_max_chunksize = -1
-
-        if 'chunksize' in kwargs:
-            max_chunksize = kwargs['chunksize']
-            msg = ('The parameter chunksize is deprecated for the write_table '
-                   'methods as of 0.15, please use parameter '
-                   'max_chunksize instead')
-            warnings.warn(msg, FutureWarning)
 
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize
@@ -1522,25 +1514,6 @@ cdef class FlightClient(_Weakrefable):
                 break
             else:
                 break
-
-    @classmethod
-    def connect(cls, location, tls_root_certs=None, cert_chain=None,
-                private_key=None, override_hostname=None,
-                disable_server_verification=None):
-        """Connect to a Flight server.
-
-        .. deprecated:: 0.15.0
-            Use the ``FlightClient`` constructor or ``pyarrow.flight.connect`` function instead.
-        """
-        warnings.warn("The 'FlightClient.connect' method is deprecated, use "
-                      "FlightClient constructor or pyarrow.flight.connect "
-                      "function instead")
-        return FlightClient(
-            location, tls_root_certs=tls_root_certs,
-            cert_chain=cert_chain, private_key=private_key,
-            override_hostname=override_hostname,
-            disable_server_verification=disable_server_verification
-        )
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -3204,16 +3177,6 @@ cdef class FlightServerBase(_Weakrefable):
             raise ValueError("run() on uninitialized FlightServerBase")
         with nogil:
             check_flight_status(self.server.get().ServeWithSignals())
-
-    def run(self):
-        """Block until the server shuts down.
-
-        .. deprecated:: 0.15.0
-            Use the ``FlightServer.serve`` method instead
-        """
-        warnings.warn("The 'FlightServer.run' method is deprecated, use "
-                      "FlightServer.serve method instead")
-        self.serve()
 
     def shutdown(self):
         """Shut down the server, blocking until current requests finish.
