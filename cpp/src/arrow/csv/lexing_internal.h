@@ -19,22 +19,25 @@
 
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 
 #include "arrow/csv/options.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/simd.h"
 
 namespace arrow {
 namespace csv {
 namespace internal {
 
-template <bool Quoting, bool Escaping>
+template <bool Quoting, bool Escaping, bool MultiDelimiter>
 class SpecializedOptions {
  public:
   static constexpr bool quoting = Quoting;
   static constexpr bool escaping = Escaping;
+  static constexpr bool multi_delimiter = MultiDelimiter;
 };
 
 /// Convert runtime boolean options into template arguments for a callable.
@@ -60,6 +63,58 @@ decltype(auto) DispatchBool(Fn&& fn, Rest... rest)
     }(rest...);
   }
 }
+
+inline std::string_view GetDelimiter(const ParseOptions& options) {
+  if (!options.delimiter_string.empty()) {
+    return options.delimiter_string;
+  }
+  return {&options.delimiter, 1};
+}
+
+inline char GetDelimiterFirstByte(const ParseOptions& options) {
+  if (!options.delimiter_string.empty()) {
+    return options.delimiter_string.front();
+  }
+  return options.delimiter;
+}
+
+class StreamingDelimiterMatcher {
+ public:
+  explicit StreamingDelimiterMatcher(std::string_view delimiter) : delimiter_(delimiter) {
+    DCHECK(!delimiter_.empty());
+  }
+
+  bool Consume(char c) {
+    if (c == delimiter_[matched_]) {
+      matched_++;
+      if (matched_ == delimiter_.size()) {
+        matched_ = 0;
+        return true;
+      }
+      return false;
+    }
+
+    const std::string_view delimiter(delimiter_);
+    for (size_t length = matched_; length > 0; --length) {
+      if (c == delimiter[length - 1] &&
+          delimiter.substr(0, length - 1) ==
+              delimiter.substr(matched_ - (length - 1), length - 1)) {
+        matched_ = length;
+        return false;
+      }
+    }
+    matched_ = 0;
+    return false;
+  }
+
+  void Reset() { matched_ = 0; }
+
+  bool has_partial_match() const { return matched_ != 0; }
+
+ private:
+  const std::string delimiter_;
+  size_t matched_ = 0;
+};
 
 //
 // Bulk filters for packed character matching.
@@ -87,7 +142,7 @@ class BaseBloomFilter {
     auto add_char = [&](char c) { filter |= CharFilter(c); };
     add_char('\n');
     add_char('\r');
-    add_char(options.delimiter);
+    add_char(GetDelimiterFirstByte(options));
     if (options.escaping) {
       add_char(options.escape_char);
     }
@@ -188,7 +243,7 @@ class SSE42Filter {
     // Make a SIMD word of the characters we want to match
     const char cr = '\r';
     const char lf = '\n';
-    const char delim = options.delimiter;
+    const char delim = GetDelimiterFirstByte(options);
     const char quote = SpecializedOptions::quoting ? options.quote_char : cr;
     const char escape = SpecializedOptions::escaping ? options.escape_char : cr;
 
@@ -213,7 +268,7 @@ class NeonFilter {
   using WordType = uint8x8_t;
 
   explicit NeonFilter(const ParseOptions& options)
-      : delim_(vdup_n_u8(options.delimiter)),
+      : delim_(vdup_n_u8(GetDelimiterFirstByte(options))),
         quote_(vdup_n_u8(SpecializedOptions::quoting ? options.quote_char : '\n')),
         escape_(vdup_n_u8(SpecializedOptions::escaping ? options.escape_char : '\n')) {}
 
