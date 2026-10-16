@@ -206,6 +206,26 @@ for filename in pyarrow/*.so pyarrow/*.so.*; do
     echo "Stripping debug symbols from: $filename";
     strip --strip-debug "$filename"
 done
+# Audit limited-API symbols: every Py* symbol the extensions import must be
+# exported by CPython 3.11. Free-threaded wheels (cp314t/cp315t) are exempt
+# because they target the free-threaded stable ABI.
+if [[ "${PYTHON_ABI_TAG}" != *t ]]; then
+    PY311=$(ls /opt/python/cp311-cp311/lib/libpython3.11.so* 2>/dev/null | head -1)
+    if [[ -z "${PY311}" ]]; then
+        # Newer manylinux/musllinux base images ship CPython without a
+        # libpython*.so; the interpreter binary exports the same Py* symbol
+        # set through its dynamic symbol table (what readelf --dyn-syms
+        # reads either way).
+        PY311=/opt/python/cp311-cp311/bin/python3.11
+    fi
+    if [[ ! -f "${PY311}" ]]; then
+        echo "ERROR: no libpython3.11 found in /opt/python for the symbol audit"
+        exit 1
+    fi
+    echo "=== (${PYTHON_VERSION}) Auditing limited-API symbols against ${PY311} ==="
+    python /arrow/python/scripts/audit_limited_api_symbols.py \
+        "${PY311}" pyarrow/*.so pyarrow/*.so.*
+fi
 # Zip wheel again after stripping symbols
 zip -r "$wheel_name" .
 mv "$wheel_name" ..
@@ -215,4 +235,16 @@ rm -rf dist/temp-fix-wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with ${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION} ==="
 auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
+
+# Perf gate (Python layer only): time the pyarrow benchmarks against the
+# built wheel and compare with the committed reference (2x ceiling — a
+# regression tripwire across machines). Free-threaded wheels are exempt.
+# See python/scripts/perf_gate.py.
+if [[ "${PYTHON_ABI_TAG}" != *t ]]; then
+    echo "=== (${PYTHON_VERSION}) Running Python-layer perf gate ==="
+    pip install --quiet numpy pandas pytest
+    pip install --quiet --force-reinstall repaired_wheels/pyarrow-*.whl
+    python /arrow/python/scripts/perf_gate.py --gate
+fi
+
 popd
