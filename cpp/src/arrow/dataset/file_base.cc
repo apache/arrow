@@ -439,7 +439,7 @@ class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
   }
 
  private:
-  Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
+  Status WriteNextBatch(const std::shared_ptr<RecordBatch>& batch,
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
@@ -629,7 +629,7 @@ class TeeNode : public acero::MapNode,
     return batch;
   }
 
-  Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
+  Status WriteNextBatch(const std::shared_ptr<RecordBatch>& batch,
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,

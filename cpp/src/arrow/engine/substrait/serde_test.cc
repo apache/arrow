@@ -107,7 +107,7 @@ Status AddPassFactory(
 
     PassNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
              std::shared_ptr<Schema> output_schema)
-        : MapNode(plan, inputs, output_schema) {}
+        : MapNode(plan, inputs, std::move(output_schema)) {}
 
     const char* kind_name() const override { return "PassNode"; }
     Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
@@ -118,8 +118,8 @@ Status AddPassFactory(
 const auto kNullConsumer = std::make_shared<acero::NullSinkNodeConsumer>();
 
 void WriteIpcData(const std::string& path,
-                  const std::shared_ptr<fs::FileSystem> file_system,
-                  const std::shared_ptr<Table> input) {
+                  const std::shared_ptr<fs::FileSystem>& file_system,
+                  const std::shared_ptr<Table>& input) {
   EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
   ASSERT_OK_AND_ASSIGN(
       auto file_writer,
@@ -128,7 +128,7 @@ void WriteIpcData(const std::string& path,
   ASSERT_OK(file_writer->Close());
 }
 
-void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
+void CheckRoundTripResult(const std::shared_ptr<Table>& expected_table,
                           std::shared_ptr<Buffer>& buf,
                           const std::vector<int>& include_columns = {},
                           const ConversionOptions& conversion_options = {},

@@ -80,7 +80,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
   return compressed;
 }
 
-Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
+Status RunCompressedInputStream(Codec* codec, const std::shared_ptr<Buffer>& compressed,
                                 int64_t* stream_pos, std::vector<uint8_t>* out) {
   // Create compressed input stream
   auto buffer_reader = std::make_shared<BufferReader>(compressed);
@@ -106,7 +106,7 @@ Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed
   return Status::OK();
 }
 
-Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
+Status RunCompressedInputStream(Codec* codec, const std::shared_ptr<Buffer>& compressed,
                                 std::vector<uint8_t>* out) {
   return RunCompressedInputStream(codec, compressed, nullptr, out);
 }

@@ -66,7 +66,8 @@ namespace {
 
 parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
-    const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
+    const std::string& path = "",
+    const std::shared_ptr<fs::FileSystem>& filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   parquet::ReaderProperties properties = *parquet_scan_options->reader_properties;
   properties.set_memory_pool(pool);

@@ -37,7 +37,7 @@ struct PauseThenStopNode : public MapNode {
   PauseThenStopNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                     std::shared_ptr<Schema> output_schema,
                     const PauseThenStopNodeOptions& options)
-      : MapNode(plan, inputs, output_schema), num_pass(options.num_pass) {}
+      : MapNode(plan, inputs, std::move(output_schema)), num_pass(options.num_pass) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

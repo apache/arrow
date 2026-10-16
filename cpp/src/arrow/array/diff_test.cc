@@ -115,7 +115,7 @@ class DiffTest : public ::testing::Test {
                       /*verbose=*/true);
   }
 
-  void BaseAndTargetFromRandomFilter(std::shared_ptr<Array> values,
+  void BaseAndTargetFromRandomFilter(const std::shared_ptr<Array>& values,
                                      double filter_probability) {
     std::shared_ptr<Array> base_filter, target_filter;
     do {

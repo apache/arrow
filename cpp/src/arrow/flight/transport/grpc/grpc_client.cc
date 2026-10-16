@@ -220,7 +220,7 @@ class GrpcClientAuthSender : public ClientAuthSender {
       std::shared_ptr<
           ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
           stream)
-      : stream_(stream) {}
+      : stream_(std::move(stream)) {}
 
   Status Write(const std::string& token) override {
     pb::HandshakeRequest response;
@@ -242,7 +242,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
       std::shared_ptr<
           ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
           stream)
-      : stream_(stream) {}
+      : stream_(std::move(stream)) {}
 
   Status Read(std::string* token) override {
     pb::HandshakeResponse request;

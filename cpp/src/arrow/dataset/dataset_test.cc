@@ -599,7 +599,7 @@ class TestSchemaUnification : public TestUnionDataset {
   }
 
   template <typename TupleType>
-  void AssertScanEquals(std::shared_ptr<Scanner> scanner,
+  void AssertScanEquals(const std::shared_ptr<Scanner>& scanner,
                         const std::vector<TupleType>& expected_rows) {
     std::vector<std::string> columns;
     for (const auto& field : scanner->options()->projected_schema->fields()) {
@@ -614,7 +614,7 @@ class TestSchemaUnification : public TestUnionDataset {
   }
 
   template <typename TupleType>
-  void AssertBuilderEquals(std::shared_ptr<ScannerBuilder> builder,
+  void AssertBuilderEquals(const std::shared_ptr<ScannerBuilder>& builder,
                            const std::vector<TupleType>& expected_rows) {
     ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
     AssertScanEquals(scanner, expected_rows);

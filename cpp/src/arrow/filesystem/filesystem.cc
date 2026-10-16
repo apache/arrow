@@ -290,7 +290,7 @@ SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
                                      std::shared_ptr<FileSystem> base_fs)
     : FileSystem(base_fs->io_context()),
       base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()),
-      base_fs_(base_fs) {}
+      base_fs_(std::move(base_fs)) {}
 
 SubTreeFileSystem::~SubTreeFileSystem() = default;
 
@@ -518,13 +518,13 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency)
     : FileSystem(base_fs->io_context()),
-      base_fs_(base_fs),
+      base_fs_(std::move(base_fs)),
       latencies_(io::LatencyGenerator::Make(average_latency)) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : FileSystem(base_fs->io_context()),
-      base_fs_(base_fs),
+      base_fs_(std::move(base_fs)),
       latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
 bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }

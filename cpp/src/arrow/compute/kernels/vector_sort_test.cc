@@ -2396,7 +2396,7 @@ class TestRank : public BaseTestRank {
     AssertRank(datums_, order, null_placement, tiebreaker, expected);
   }
 
-  static void AssertRankEmpty(std::shared_ptr<DataType> type, SortOrder order,
+  static void AssertRankEmpty(const std::shared_ptr<DataType>& type, SortOrder order,
                               NullPlacement null_placement,
                               RankOptions::Tiebreaker tiebreaker) {
     AssertRank({ArrayFromJSON(type, "[]")}, order, null_placement, tiebreaker,
@@ -2708,7 +2708,7 @@ class TestRankQuantile : public BaseTestRank {
     AssertRankQuantileGeneric("rank_normal", std::forward<Args>(args)...);
   }
 
-  void AssertRankQuantileEmpty(std::shared_ptr<DataType> type) {
+  void AssertRankQuantileEmpty(const std::shared_ptr<DataType>& type) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto order : AllOrders()) {
         AssertRankQuantile(ArrayFromJSON(type, "[]"), order, null_placement, "[]");
@@ -2765,7 +2765,7 @@ class TestRankQuantile : public BaseTestRank {
                      "-1.2815515655446004, 0.5244005127080407]");
   }
 
-  void AssertRankQuantileNumeric(std::shared_ptr<DataType> type) {
+  void AssertRankQuantileNumeric(const std::shared_ptr<DataType>& type) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     AssertRankQuantileEmpty(type);
 
@@ -2794,7 +2794,7 @@ class TestRankQuantile : public BaseTestRank {
     AssertRankQuantile_N1N2N();
   }
 
-  void AssertRankQuantileBinaryLike(std::shared_ptr<DataType> type) {
+  void AssertRankQuantileBinaryLike(const std::shared_ptr<DataType>& type) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     AssertRankQuantileEmpty(type);
 

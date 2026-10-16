@@ -118,7 +118,7 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
   }
 }
 
-void AssertChunkingBlockSize(Chunker& chunker, std::shared_ptr<Buffer> buf,
+void AssertChunkingBlockSize(Chunker& chunker, const std::shared_ptr<Buffer>& buf,
                              int64_t block_size, int expected_count) {
   std::shared_ptr<Buffer> partial = Buffer::FromString({});
   int64_t pos = 0;

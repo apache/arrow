@@ -68,7 +68,7 @@ class TestRunEndEncodedArray
   }
 
   std::shared_ptr<RunEndEncodedArray> RunEndEncodedArrayFromJSON(
-      int64_t logical_length, std::shared_ptr<DataType> value_type,
+      int64_t logical_length, const std::shared_ptr<DataType>& value_type,
       std::string_view run_ends_json, std::string_view values_json,
       int64_t logical_offset = 0) {
     auto run_ends = ArrayFromJSON(run_end_type, run_ends_json);
