@@ -31,6 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/integration/json_integration.h"
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
@@ -48,6 +49,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/simdjson_internal.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
@@ -725,6 +727,113 @@ static const char* json_example6 = R"example(
 }
 )example";
 
+// A batch with dictionaries whose value type is an extension type (GH-49704)
+static const char* json_example7 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "uuid_dict",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 16
+        },
+        "nullable": true,
+        "children": [],
+        "dictionary": {
+          "id": 0,
+          "indexType": {
+            "name": "int",
+            "isSigned": true,
+            "bitWidth": 8
+          },
+          "isOrdered": false,
+          "metadata": [
+            {"key": "ARROW:extension:name", "value": "uuid"},
+            {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+          ]
+        },
+        "metadata": [
+          {"key": "some_key", "value": "some_value"}
+        ]
+      },
+      {
+        "name": "unknown_dict",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 16
+        },
+        "nullable": true,
+        "children": [],
+        "dictionary": {
+          "id": 1,
+          "indexType": {
+            "name": "int",
+            "isSigned": true,
+            "bitWidth": 8
+          },
+          "isOrdered": false,
+          "metadata": [
+            {"key": "ARROW:extension:name", "value": "unknown.extension"},
+            {"key": "ARROW:extension:metadata", "value": ""}
+          ]
+        }
+      }
+    ]
+  },
+  "dictionaries": [
+    {
+      "id": 0,
+      "data": {
+        "count": 2,
+        "columns": [
+          {
+            "name": "DICT0",
+            "count": 2,
+            "VALIDITY": [1, 1],
+            "DATA": ["30313233343536373839616263646566",
+                     "61626364656630313233343536373839"]
+          }
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "data": {
+        "count": 1,
+        "columns": [
+          {
+            "name": "DICT1",
+            "count": 1,
+            "VALIDITY": [1],
+            "DATA": ["30313233343536373839616263646566"]
+          }
+        ]
+      }
+    }
+  ],
+  "batches": [
+    {
+      "count": 4,
+      "columns": [
+        {
+          "name": "uuid_dict",
+          "count": 4,
+          "DATA": [1, 0, 0, 1],
+          "VALIDITY": [1, 1, 0, 1]
+        },
+        {
+          "name": "unknown_dict",
+          "count": 4,
+          "DATA": [0, 0, 0, 0],
+          "VALIDITY": [1, 0, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
 void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
   arrow::internal::JsonWriter writer;
 
@@ -1177,6 +1286,114 @@ void CheckRoundtrip(const RecordBatch& batch) {
 
   // take care of float rounding error in the text representation
   ApproxCompareBatch(batch, *result_batch);
+}
+
+TEST(TestJsonFileReadWrite, JsonExample7) {
+  // Example 7: dictionaries whose value type is an extension type (GH-49704)
+  auto uuid_type = uuid();
+  ExtensionTypeGuard ext_guard(uuid_type);
+  // The value type of the second dictionary is an unregistered extension type,
+  // and is read as its storage type
+  Schema ex_schema({field("uuid_dict", dictionary(int8(), uuid_type), /*nullable=*/true,
+                          key_value_metadata({{"some_key", "some_value"}})),
+                    field("unknown_dict", dictionary(int8(), fixed_size_binary(16)))});
+
+  std::shared_ptr<RecordBatch> batch;
+  ReadOneBatchJson(json_example7, ex_schema, &batch);
+
+  auto uuid_values = ExtensionType::WrapArray(
+      uuid_type, ArrayFromJSON(fixed_size_binary(16),
+                               R"(["0123456789abcdef", "abcdef0123456789"])"));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_uuid_dict,
+      DictionaryArray::FromArrays(dictionary(int8(), uuid_type),
+                                  ArrayFromJSON(int8(), "[1, 0, null, 1]"), uuid_values));
+  AssertArraysEqual(*batch->column(0), *expected_uuid_dict, /*verbose=*/true);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_unknown_dict,
+      DictionaryArray::FromArrays(
+          dictionary(int8(), fixed_size_binary(16)),
+          ArrayFromJSON(int8(), "[0, null, 0, 0]"),
+          ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef"])")));
+  AssertArraysEqual(*batch->column(1), *expected_unknown_dict, /*verbose=*/true);
+}
+
+TEST(TestJsonFileReadWrite, DictionaryOfExtension) {
+  // GH-49704: the extension metadata of a dictionary value type is written to
+  // the "metadata" member of the field's "dictionary" object
+  auto uuid_type = uuid();
+  ExtensionTypeGuard ext_guard({uuid_type, dict_extension_type()});
+  auto schema = ::arrow::schema({
+      field("f0", dictionary(int16(), uuid_type), /*nullable=*/true,
+            key_value_metadata({{"some_key", "some_value"}})),
+      field("f1", list(dictionary(int32(), uuid_type))),
+      field("f2", dict_extension_type()),
+  });
+  TestSchemaRoundTrip(schema);
+
+  arrow::internal::JsonWriter writer;
+  DictionaryFieldMapper mapper(*schema);
+  writer.StartObject();
+  ASSERT_OK(json::WriteSchema(*schema, mapper, &writer));
+  writer.EndObject();
+  ASSERT_OK_AND_ASSIGN(std::string_view json_schema, writer.GetString());
+
+  simdjson::dom::parser parser;
+  ASSERT_OK_AND_ASSIGN(auto doc, internal::ResolveSimdjsonResult(
+                                     parser.parse(json_schema.data(), json_schema.size()),
+                                     "Failed to parse JSON"));
+  using Metadata = std::vector<std::pair<std::string, std::string>>;
+  auto get_metadata = [](simdjson::dom::element obj) {
+    Metadata metadata;
+    simdjson::dom::array kvs;
+    if (obj["metadata"].get(kvs) == simdjson::SUCCESS) {
+      for (auto kv : kvs) {
+        metadata.emplace_back(std::string(kv["key"].get_string().value_unsafe()),
+                              std::string(kv["value"].get_string().value_unsafe()));
+      }
+    }
+    return metadata;
+  };
+  const Metadata uuid_metadata = {{"ARROW:extension:name", "uuid"},
+                                  {"ARROW:extension:metadata", "uuid-serialized"}};
+
+  auto fields = doc["schema"]["fields"];
+  auto f0 = fields.at(0).value_unsafe();
+  ASSERT_EQ(get_metadata(f0), (Metadata{{"some_key", "some_value"}}));
+  ASSERT_EQ(get_metadata(f0["dictionary"].value_unsafe()), uuid_metadata);
+
+  auto f1_child = fields.at(1).value_unsafe()["children"].at(0).value_unsafe();
+  ASSERT_EQ(get_metadata(f1_child), Metadata{});
+  ASSERT_EQ(get_metadata(f1_child["dictionary"].value_unsafe()), uuid_metadata);
+
+  // An extension type with a dictionary storage type keeps its metadata on
+  // the field
+  auto f2 = fields.at(2).value_unsafe();
+  ASSERT_EQ(get_metadata(f2),
+            (Metadata{{"ARROW:extension:name", "dict-extension"},
+                      {"ARROW:extension:metadata", "dict-extension-serialized"}}));
+  ASSERT_EQ(get_metadata(f2["dictionary"].value_unsafe()), Metadata{});
+}
+
+TEST(TestJsonFileReadWrite, DictionaryOfExtensionRoundTrip) {
+  // GH-49704
+  for (const auto& value_type : {uuid(), extension::uuid()}) {
+    auto values = ExtensionType::WrapArray(
+        value_type, ArrayFromJSON(fixed_size_binary(16),
+                                  R"(["0123456789abcdef", "abcdef0123456789", null])"));
+    for (const auto& index_type : {int8(), int32()}) {
+      ARROW_SCOPED_TRACE("value_type = ", value_type->ToString(),
+                         ", index_type = ", index_type->ToString());
+      ASSERT_OK_AND_ASSIGN(auto dict_array,
+                           DictionaryArray::FromArrays(
+                               dictionary(index_type, value_type),
+                               ArrayFromJSON(index_type, "[0, 1, null, 2, 1]"), values));
+      auto batch = RecordBatch::Make(::arrow::schema({field("f0", dict_array->type())}),
+                                     dict_array->length(), {dict_array});
+      CheckRoundtrip(*batch);
+    }
+  }
 }
 
 TEST_P(TestJsonRoundTrip, RoundTrip) {
