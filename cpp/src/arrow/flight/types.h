@@ -564,6 +564,16 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
   /// Use `Deserialize(serialized)` if you want a Result-returning version.
   static arrow::Status Deserialize(std::string_view serialized, Location* out);
 
+  /// \brief Get the URI representation of this location.
+  ///
+  /// \return Arrow result with the URI.
+  arrow::Result<arrow::util::Uri> uri() const;
+
+  /// \brief Get the port of this location.
+  ///
+  /// \return The port number. -1 if the port is not available.
+  int port() const;
+
  private:
   friend class FlightClient;
   friend class FlightServerBase;
