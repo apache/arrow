@@ -486,8 +486,12 @@ struct DecimalConversions<Decimal256, InDecimal> {
 
 template <typename InDecimal>
 struct DecimalConversions<Decimal32, InDecimal> {
-  static Decimal32 ConvertInput(InDecimal&& val) { return Decimal32(val.low_bits()); }
-  static Decimal32 ConvertOutput(Decimal32&& val) { return val; }
+  // Scale then truncate. Narrowing in ConvertInput would drop coefficient bits
+  // before Rescale and FitsInPrecision could see them.
+  static InDecimal ConvertInput(InDecimal&& val) { return val; }
+  static Decimal32 ConvertOutput(InDecimal&& val) {
+    return Decimal32(static_cast<int32_t>(val.low_bits()));
+  }
 };
 
 template <>
