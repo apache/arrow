@@ -2433,6 +2433,12 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_lpad", {input}, &options_bad));
+  // One leading byte followed by stray continuation bytes is not valid UTF-8
+  options_bad.padding = "a" + std::string(15, '\x80');
+  options_bad.width = 100;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_lpad", {input}, &options_bad));
 }
 
 TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
@@ -2475,6 +2481,11 @@ TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_zero_fill", {input}, &options_bad));
   options_bad.padding = "";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zero_fill", {input}, &options_bad));
+  options_bad.padding = "a" + std::string(15, '\x80');
+  options_bad.width = 100;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_zero_fill", {input}, &options_bad));

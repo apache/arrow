@@ -919,7 +919,8 @@ struct Utf8PadTransform : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
     auto strlen = options_.padding.size();
-    if (util::UTF8Length(str, str + strlen) != 1) {
+    util::InitializeUTF8();
+    if (!util::ValidateUTF8(str, strlen) || util::UTF8Length(str, str + strlen) != 1) {
       return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
                              "'");
     }
@@ -1012,7 +1013,8 @@ struct Utf8ZeroFillTransform : public StringTransformBase {
     if (!options_.padding.empty()) {
       auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
       auto strlen = options_.padding.size();
-      if (util::UTF8Length(str, str + strlen) != 1) {
+      util::InitializeUTF8();
+      if (!util::ValidateUTF8(str, strlen) || util::UTF8Length(str, str + strlen) != 1) {
         return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
                                "'");
       }
