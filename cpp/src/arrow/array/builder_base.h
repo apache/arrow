@@ -38,6 +38,12 @@ namespace arrow {
 
 namespace internal {
 
+ARROW_EXPORT
+Status ValidateAppendScalar(const ArrayBuilder& builder, const Scalar& scalar);
+
+ARROW_EXPORT
+Status ValidateAppendScalars(const ArrayBuilder& builder, const ScalarVector& scalars);
+
 template <class Builder, class V>
 class ArrayBuilderExtraOps {
  public:
