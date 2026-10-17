@@ -21,6 +21,7 @@
 
 #include <boost/crc.hpp>
 #include <cstdio>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -377,8 +378,15 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return nullptr;
   }
 
-  *out_len = static_cast<int32_t>(
-      arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize) + kAesBlockSize);
+  int64_t alloc_len =
+      arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize) + kAesBlockSize;
+  if (ARROW_PREDICT_FALSE(alloc_len > std::numeric_limits<int32_t>::max())) {
+    gdv_fn_context_set_error_msg(context,
+                                 "AES_ENCRYPT: would overflow maximum output size");
+    *out_len = 0;
+    return nullptr;
+  }
+  *out_len = static_cast<int32_t>(alloc_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg = "AES_ENCRYPT: could not allocate memory for ciphertext output";
@@ -420,8 +428,15 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return nullptr;
   }
 
-  *out_len = static_cast<int32_t>(
-      arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize) + kAesBlockSize);
+  int64_t alloc_len =
+      arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize) + kAesBlockSize;
+  if (ARROW_PREDICT_FALSE(alloc_len > std::numeric_limits<int32_t>::max())) {
+    gdv_fn_context_set_error_msg(context,
+                                 "AES_DECRYPT: would overflow maximum output size");
+    *out_len = 0;
+    return nullptr;
+  }
+  *out_len = static_cast<int32_t>(alloc_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg = "Could not allocate memory for returning aes decrypt plaintext";

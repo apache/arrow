@@ -1654,4 +1654,33 @@ TEST(TestGdvFnStubs, TestAesEncryptBlockAlignedInput) {
   ASSERT_FALSE(ctx.has_error());
   EXPECT_EQ(first, std::string(decrypted, decrypted_len));
 }
+
+TEST(TestGdvFnStubs, TestAesOutputSizeOverflow) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  std::string data = "a";
+
+  // Rounding up and adding the padding block pushes these lengths past INT32_MAX.
+  // The size check runs before the input is read, so the short buffer is fine.
+  for (int32_t data_len :
+       {std::numeric_limits<int32_t>::max() - 15, std::numeric_limits<int32_t>::max()}) {
+    int32_t out_len = -1;
+    const char* ret = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                         key16_len, &out_len);
+    EXPECT_EQ(ret, nullptr);
+    EXPECT_EQ(out_len, 0);
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("would overflow"));
+    ctx.Reset();
+
+    out_len = -1;
+    ret = gdv_fn_aes_decrypt(ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len,
+                             &out_len);
+    EXPECT_EQ(ret, nullptr);
+    EXPECT_EQ(out_len, 0);
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("would overflow"));
+    ctx.Reset();
+  }
+}
 }  // namespace gandiva
