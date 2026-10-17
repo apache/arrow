@@ -28,6 +28,53 @@ import operator
 
 import pyarrow as pa
 
+_read_docstring_common = {
+    "dataset": """\
+read_dictionary : list, default None
+    List of names or column paths (for nested types) to read directly
+    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
+    a flat column as dictionary-encoded pass the column name. For
+    nested types, you must pass the full column "path", which could be
+    something like level1.level2.list.item. Refer to the Parquet
+    file's schema to obtain the paths.
+binary_type : pyarrow.DataType, default None
+    If given, Parquet binary columns will be read as this datatype.
+    This setting is ignored if a serialized Arrow schema is found in
+    the Parquet metadata.
+list_type : subclass of pyarrow.DataType, default None
+    If given, non-MAP repeated columns will be read as an instance of
+    this datatype (either pyarrow.ListType or pyarrow.LargeListType).
+    This setting is ignored if a serialized Arrow schema is found in
+    the Parquet metadata.
+memory_map : bool, default False
+    If the source is a file path, use a memory map to read file, which can
+    improve performance in some environments.
+buffer_size : int, default 0
+    If positive, perform read buffering when deserializing individual
+    column chunks. Otherwise IO calls are unbuffered.
+partitioning : pyarrow.dataset.Partitioning or str or list of str or None, \
+default "hive"
+    The partitioning scheme for a partitioned dataset. The default of "hive"
+    assumes directory names with key=value pairs like "/year=2009/month=11".
+    In addition, a scheme like "/2009/11" is also supported, in which case
+    you need to specify the field names or a full schema. If no partitioning
+    is used, pass ``None``.
+    See the ``pyarrow.dataset.partitioning()`` function for more details.""",
+    "limits": """\
+thrift_string_size_limit : int, default None
+    If not None, override the maximum total string size allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+thrift_container_size_limit : int, default None
+    If not None, override the maximum total size of containers allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+schema_depth_limit : int, default None
+    If not None, override the maximum nesting depth of the Parquet file schema.
+    This guards against recursion overflow on invalid schemas.
+    The default limit should be sufficient for most Parquet files.""",
+}
+
 try:
     import pyarrow._parquet as _parquet
 except ImportError as exc:
@@ -206,7 +253,7 @@ _filters_to_expression = _deprecate_api(
 
 
 class ParquetFile:
-    """
+    __doc__ = f"""
     Reader interface for a single Parquet file.
 
     Parameters
@@ -250,18 +297,7 @@ class ParquetFile:
         in nanoseconds.
     decryption_properties : FileDecryptionProperties, default None
         File decryption properties for Parquet Modular Encryption.
-    thrift_string_size_limit : int, default None
-        If not None, override the maximum total string size allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    thrift_container_size_limit : int, default None
-        If not None, override the maximum total size of containers allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    schema_depth_limit : int, default None
-        If not None, override the maximum nesting depth of the Parquet file schema.
-        This guards against recursion overflow on invalid schemas.
-        The default limit should be sufficient for most Parquet files.
+    {_read_docstring_common["limits"].replace(chr(10), chr(10) + "    ")}
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
@@ -279,9 +315,9 @@ class ParquetFile:
     Generate an example PyArrow Table and write it to Parquet file:
 
     >>> import pyarrow as pa
-    >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
+    >>> table = pa.table({{'n_legs': [2, 2, 4, 4, 5, 100],
     ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                              "Brittle stars", "Centipede"]})
+    ...                              "Brittle stars", "Centipede"]}})
 
     >>> import pyarrow.parquet as pq
     >>> pq.write_table(table, 'example.parquet')
@@ -1258,39 +1294,6 @@ def _get_pandas_index_columns(keyvalues):
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
-_read_docstring_common = """\
-read_dictionary : list, default None
-    List of names or column paths (for nested types) to read directly
-    as DictionaryArray. Only supported for BYTE_ARRAY storage. To read
-    a flat column as dictionary-encoded pass the column name. For
-    nested types, you must pass the full column "path", which could be
-    something like level1.level2.list.item. Refer to the Parquet
-    file's schema to obtain the paths.
-binary_type : pyarrow.DataType, default None
-    If given, Parquet binary columns will be read as this datatype.
-    This setting is ignored if a serialized Arrow schema is found in
-    the Parquet metadata.
-list_type : subclass of pyarrow.DataType, default None
-    If given, non-MAP repeated columns will be read as an instance of
-    this datatype (either pyarrow.ListType or pyarrow.LargeListType).
-    This setting is ignored if a serialized Arrow schema is found in
-    the Parquet metadata.
-memory_map : bool, default False
-    If the source is a file path, use a memory map to read file, which can
-    improve performance in some environments.
-buffer_size : int, default 0
-    If positive, perform read buffering when deserializing individual
-    column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str or None, \
-default "hive"
-    The partitioning scheme for a partitioned dataset. The default of "hive"
-    assumes directory names with key=value pairs like "/year=2009/month=11".
-    In addition, a scheme like "/2009/11" is also supported, in which case
-    you need to specify the field names or a full schema. If no partitioning
-    is used, pass ``None``.
-    See the ``pyarrow.dataset.partitioning()`` function for more details."""
-
-
 _parquet_dataset_example = """\
 Generate an example PyArrow Table and write it to a partitioned dataset:
 
@@ -1352,7 +1355,7 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     Within-file level filtering and different partitioning schemes are supported.
 
     {_DNF_filter_doc}
-{_read_docstring_common}
+{_read_docstring_common["dataset"]}
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process.
@@ -1374,18 +1377,7 @@ decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
     ``CryptoFactory.file_decryption_properties()``.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-schema_depth_limit : int, default None
-    If not None, override the maximum nesting depth of the Parquet file schema.
-    This guards against recursion overflow on invalid schemas.
-    The default limit should be sufficient for most Parquet files.
+{_read_docstring_common["limits"]}
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
@@ -1741,8 +1733,8 @@ Examples
         return self._dataset.partitioning
 
 
-_read_table_docstring = """
-{0}
+_read_table_docstring = f"""
+{{0}}
 
 Parameters
 ----------
@@ -1762,7 +1754,7 @@ use_threads : bool, default True
 schema : Schema, optional
     Optionally provide the Schema for the parquet dataset, in which case it
     will not be inferred from the source.
-{1}
+{{1}}
 filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
@@ -1773,7 +1765,7 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     exploited to avoid loading files at all if they contain no matching rows.
     Within-file level filtering and different partitioning schemes are supported.
 
-    {3}
+    {{3}}
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process.
@@ -1795,18 +1787,7 @@ decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
     ``CryptoFactory.file_decryption_properties()``.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-schema_depth_limit : int, default None
-    If not None, override the maximum nesting depth of the Parquet file schema.
-    This guards against recursion overflow on invalid schemas.
-    The default limit should be sufficient for most Parquet files.
+{_read_docstring_common["limits"]}
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
@@ -1816,9 +1797,9 @@ arrow_extensions_enabled : bool, default True
 
 Returns
 -------
-{2}
+{{2}}
 
-{4}
+{{4}}
 """
 
 _read_table_example = """\
@@ -1990,7 +1971,7 @@ read_table.__doc__ = _read_table_docstring.format(
     """Read a Table from Parquet format""",
     "\n".join(("""use_pandas_metadata : bool, default False
     If True and file has custom pandas schema metadata, ensure that
-    index columns are also loaded.""", _read_docstring_common)),
+    index columns are also loaded.""", _read_docstring_common["dataset"])),
     """pyarrow.Table
     Content of the file as a table (of columns)""",
     _DNF_filter_doc, _read_table_example)
@@ -2005,7 +1986,7 @@ def read_pandas(source, columns=None, **kwargs):
 read_pandas.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format, also reading DataFrame\n'
     'index values if known in the file metadata',
-    "\n".join((_read_docstring_common,
+    "\n".join((_read_docstring_common["dataset"],
                """**kwargs
     additional options for :func:`read_table`""")),
     """pyarrow.Table
