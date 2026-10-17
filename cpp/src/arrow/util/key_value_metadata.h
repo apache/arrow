@@ -57,6 +57,9 @@ class ARROW_EXPORT KeyValueMetadata {
   /// \return Status indicating success or failure.
 
   Status DeleteMany(std::vector<int64_t> indices);
+  Status KeyValueMetaDataValidation(const std::vector<int64_t>& indices,
+                                    const int64_t& start, const int64_t& stop,
+                                    const int64_t& current_index, const int64_t& size);
   Status Set(std::string key, std::string value);
 
   void reserve(int64_t n);

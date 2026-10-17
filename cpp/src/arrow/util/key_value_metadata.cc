@@ -111,6 +111,37 @@ Status KeyValueMetadata::Delete(int64_t index) {
   return Status::OK();
 }
 
+Status KeyValueMetadata::KeyValueMetaDataValidation(const std::vector<int64_t>& indices,
+                                                    const int64_t& start,
+                                                    const int64_t& stop,
+                                                    const int64_t& current_index,
+                                                    const int64_t& size) {
+  if (ARROW_PREDICT_FALSE(indices[current_index] < 0 || current_index >= size)) {
+    return Status::IndexError("KeyValueMetadata::DeleteMany: index ",
+                              indices[current_index],
+                              " is out of bounds for metadata "
+                              "of size ",
+                              size);
+  }
+
+  if (ARROW_PREDICT_FALSE(indices[current_index] == stop)) {
+    return Status::IndexError("KeyValueMetadata::DeleteMany: duplicate index ",
+                              indices[current_index], " in indices to delete");
+  }
+
+  if (ARROW_PREDICT_FALSE(start < 0 || start > size)) {
+    return Status::IndexError("KeyValueMetadata::DeleteMany: Start index ", start - 1,
+                              " out of bounds for metadata of size ", size);
+  }
+
+  if (ARROW_PREDICT_FALSE(stop < 0 || stop > size)) {
+    return Status::IndexError("KeyValueMetadata::DeleteMany: Stop index ", stop,
+                              " out of bounds for metadata of size ", size);
+  }
+
+  return Status::OK();
+}
+
 Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
   if (indices.size() == 1) {
     return Delete(indices[0]);
@@ -121,29 +152,12 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
 
   int64_t shift = 0;
   for (int64_t i = 0; i < static_cast<int64_t>(indices.size() - 1); ++i) {
-    if (ARROW_PREDICT_FALSE(indices[i] < 0 || i >= static_cast<int64_t>(keys_.size()))) {
-      return Status::IndexError("KeyValueMetadata::DeleteMany: index ", indices[i],
-                                " is out of bounds for metadata "
-                                "of size ",
-                                keys_.size());
-    }
-    ++shift;
     const auto start = indices[i] + 1;
     const auto stop = indices[i + 1];
-
-    if (ARROW_PREDICT_FALSE(start < 0 || start > size)) {
-      return Status::IndexError("KeyValueMetadata::DeleteMany: Start index ", start - 1,
-                                " out of bounds for metadata of size ", size);
-    }
-
-    if (ARROW_PREDICT_FALSE(stop < 0 || stop > size)) {
-      return Status::IndexError("KeyValueMetadata::DeleteMany: Stop index ", stop,
-                                " out of bounds for metadata of size ", size);
-    }
-
-    if (ARROW_PREDICT_FALSE(indices[i] == stop)) {
-      return Status::IndexError("KeyValueMetadata::DeleteMany: duplicate index ",
-                                indices[i], " in indices to delete");
+    ++shift;
+    Status validation_status = KeyValueMetaDataValidation(indices, start, stop, i, size);
+    if (ARROW_PREDICT_FALSE(!validation_status.ok())) {
+      return validation_status;
     }
     for (int64_t index = start; index < stop; ++index) {
       keys_[index - shift] = std::move(keys_[index]);
