@@ -109,6 +109,16 @@ class CSVBufferIterator {
   Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
     if (buf == nullptr) {
       // EOF
+      if (pending_cr_) {
+        // A '\r' was withheld from the end of the previous buffer.  Emit it
+        // now so that no data is lost, and ask to be called again with the
+        // end-of-stream marker so that we can then finish the stream.
+        pending_cr_ = false;
+        ARROW_ASSIGN_OR_RAISE(auto cr, AllocateBuffer(1));
+        cr->mutable_data()[0] = '\r';
+        return TransformYield(std::shared_ptr<Buffer>(std::move(cr)),
+                              /*ready_for_next=*/false);
+      }
       return TransformFinish();
     }
 
@@ -120,25 +130,53 @@ class CSVBufferIterator {
       first_buffer_ = false;
     }
 
-    if (trailing_cr_ && buf->data()[offset] == '\n') {
-      // Skip '\r\n' line separator that started at the end of previous buffer
-      ++offset;
+    if (pending_cr_) {
+      // Reattach the '\r' withheld from the end of the previous buffer to the
+      // start of this one.  This keeps a CRLF pair straddling the boundary
+      // contiguous inside a single buffer, where both the chunker and the
+      // parser handle it correctly -- whether it is a line separator or data
+      // inside a quoted field (GH-51368).
+      pending_cr_ = false;
+      const int64_t rest = buf->size() - offset;
+      ARROW_ASSIGN_OR_RAISE(auto joined, AllocateBuffer(1 + rest));
+      uint8_t* out = joined->mutable_data();
+      out[0] = '\r';
+      if (rest > 0) {
+        memcpy(out + 1, buf->data() + offset, static_cast<size_t>(rest));
+      }
+      buf = std::shared_ptr<Buffer>(std::move(joined));
+      offset = 0;
     }
 
-    trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
-    buf = SliceBuffer(std::move(buf), offset);
+    if (buf->size() > offset && buf->data()[buf->size() - 1] == '\r') {
+      // Withhold a trailing '\r' so that downstream code never observes a
+      // buffer ending with '\r'.  The chunker and the parser treat a '\r' at
+      // the end of a buffer as a complete line terminator; dropping the '\n'
+      // that may follow it (as was done previously) silently corrupts CRLF
+      // sequences inside quoted fields (GH-51368).
+      pending_cr_ = true;
+      buf = SliceBuffer(std::move(buf), offset, buf->size() - offset - 1);
+    } else if (offset != 0) {
+      buf = SliceBuffer(std::move(buf), offset);
+    }
+
     if (buf->size() == 0) {
+      if (pending_cr_) {
+        // The withheld '\r' was the entire buffer contents; skip this empty
+        // buffer and wait for more data (or EOF, which flushes the '\r').
+        return TransformSkip();
+      }
       // EOF
       return TransformFinish();
-    } else {
-      return TransformYield(std::move(buf));
     }
+    return TransformYield(std::move(buf));
   }
 
  protected:
   bool first_buffer_ = true;
-  // Whether there was a trailing CR at the end of last received buffer
-  bool trailing_cr_ = false;
+  // Whether a trailing '\r' was withheld from the end of the last emitted
+  // buffer, to be prepended to the next one (GH-51368)
+  bool pending_cr_ = false;
 };
 
 struct CSVBlock {

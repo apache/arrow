@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
@@ -133,6 +134,44 @@ void TestStraddling(TableReaderFactory reader_factory) {
   // gracefully after an error (GH-48741). Alternatively, the destructor could
   // deadlock at process shutdown when the thread pool is reaped.
   internal::GetCpuThreadPool()->WaitForIdle();
+}
+
+void TestQuotedCRLFStraddlingBlockBoundary(TableReaderFactory reader_factory) {
+  // GH-51368: a CRLF inside a quoted field must survive intact when the CR is
+  // the last byte of a read block and the LF is the first byte of the next
+  // block.  Previously the LF was silently dropped.
+  constexpr int32_t kBlockSize = 1024;
+  const std::string prefix = "id,s,p\n0,\"";
+  const std::string embedded = "A\r\nB";
+  const std::string suffix = "\",x\n1,plain,x\n2,plain,x\n";
+  // Place 'A' at byte kBlockSize - 2 and '\r' at the last byte of the block
+  const int32_t pad = kBlockSize - static_cast<int32_t>(prefix.size()) - 2;
+  const std::string first_value = std::string(static_cast<size_t>(pad), 'z') + embedded;
+  const std::string data =
+      prefix + std::string(static_cast<size_t>(pad), 'z') + embedded + suffix;
+
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.newlines_in_values = true;
+
+  auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(data));
+  ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(input, parse_options, kBlockSize));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+
+  ASSERT_EQ(table->num_columns(), 3);
+  ASSERT_EQ(table->num_rows(), 3);
+  auto column = table->GetColumnByName("s");
+  ASSERT_NE(column, nullptr);
+  std::vector<std::string> values;
+  for (int i = 0; i < column->num_chunks(); ++i) {
+    auto arr = std::static_pointer_cast<StringArray>(column->chunk(i));
+    for (int64_t j = 0; j < arr->length(); ++j) {
+      values.push_back(arr->GetString(j));
+    }
+  }
+  ASSERT_EQ(values.size(), 3);
+  EXPECT_EQ(values[0], first_value);
+  EXPECT_EQ(values[1], "plain");
+  EXPECT_EQ(values[2], "plain");
 }
 
 void StressTableReader(TableReaderFactory reader_factory) {
@@ -258,6 +297,9 @@ TableReaderFactory MakeSerialFactory() {
 TEST(SerialReaderTests, Empty) { TestEmptyTable(MakeSerialFactory()); }
 TEST(SerialReaderTests, HeaderOnly) { TestHeaderOnly(MakeSerialFactory()); }
 TEST(SerialReaderTests, Straddling) { TestStraddling(MakeSerialFactory()); }
+TEST(SerialReaderTests, QuotedCRLFStraddlingBlockBoundary) {
+  TestQuotedCRLFStraddlingBlockBoundary(MakeSerialFactory());
+}
 TEST(SerialReaderTests, Stress) { StressTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, StressInvalid) { StressInvalidTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, NestedParallelism) {
@@ -293,6 +335,10 @@ TEST(AsyncReaderTests, Empty) {
 TEST(AsyncReaderTests, HeaderOnly) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
   TestHeaderOnly(table_factory);
+}
+TEST(AsyncReaderTests, QuotedCRLFStraddlingBlockBoundary) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestQuotedCRLFStraddlingBlockBoundary(table_factory);
 }
 TEST(AsyncReaderTests, Straddling) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
@@ -348,6 +394,9 @@ TEST(StreamingReaderTests, HeaderOnly) {
   TestHeaderOnlyStreaming(table_factory);
 }
 TEST(StreamingReaderTests, Straddling) { TestStraddling(MakeStreamingFactory()); }
+TEST(StreamingReaderTests, QuotedCRLFStraddlingBlockBoundary) {
+  TestQuotedCRLFStraddlingBlockBoundary(MakeStreamingFactory());
+}
 TEST(StreamingReaderTests, Stress) { StressTableReader(MakeStreamingFactory()); }
 TEST(StreamingReaderTests, StressInvalid) {
   StressInvalidTableReader(MakeStreamingFactory());
