@@ -315,6 +315,18 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     possible_encoded_stats_ = nullptr;
     possible_geo_stats_ = nullptr;
     InitKeyValueMetadata();
+
+    // A column with max_definition_level == 0 cannot contain null values, so
+    // a non-zero null_count in its statistics is contradictory. Drop the bad
+    // value so the file remains readable.
+    if (descr_->max_definition_level() == 0 && column_metadata_->__isset.statistics &&
+        column_metadata_->statistics.__isset.null_count &&
+        column_metadata_->statistics.null_count > 0) {
+      decrypted_metadata_ = *column_metadata_;
+      column_metadata_ = &decrypted_metadata_;
+      decrypted_metadata_.statistics.null_count = 0;
+      decrypted_metadata_.statistics.__isset.null_count = false;
+    }
   }
 
   bool Equals(const ColumnChunkMetaDataImpl& other) const {
