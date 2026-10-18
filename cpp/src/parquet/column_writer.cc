@@ -1058,17 +1058,11 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   if (pager_->has_compressor() && values->size() > 0) {
     pager_->Compress(*values, compressor_temp_buffer_.get());
 
-    if (const auto minimum = properties_->min_space_savings()) {
-
-      //Checks if compressed size meets the minimum threshold
-      const double savings =
-          1.0 - static_cast<double>(compressor_temp_buffer_->size()) / values->size();
-      page_is_compressed = savings >= *minimum;
-    } else {
-      // Keeps original behavior
-      // Allows users keep min_space_savings unset
-      page_is_compressed = compressor_temp_buffer_->size() < values->size();
-    }
+    const int64_t compressed = compressor_temp_buffer_->size();
+    const auto minimum = properties_->min_space_savings();
+    page_is_compressed =
+        compressed < values->size() &&
+        (!minimum || 1.0 - static_cast<double>(compressed) / values->size() >= *minimum);
   }
   std::shared_ptr<Buffer> compressed_values =
       (page_is_compressed ? compressor_temp_buffer_ : values);
