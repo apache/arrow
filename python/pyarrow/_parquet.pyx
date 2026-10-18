@@ -2090,6 +2090,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         savings = min_space_savings
         if not (0.0 <= savings <= 1.0):
             raise ValueError("min_space_savings must be in range [0, 1]")
+        if data_page_version in (None, "1.0"):
+            raise ValueError("min_space_savings requires V2 data pages")
         props.min_space_savings(optional[double](savings))
 
     # data_page_version

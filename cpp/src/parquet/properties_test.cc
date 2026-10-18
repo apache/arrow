@@ -85,6 +85,7 @@ TEST(TestWriterProperties, MinSpaceSavings) {
   WriterProperties::Builder builder;
   ASSERT_FALSE(builder.build()->min_space_savings().has_value());
 
+  builder.data_page_version(ParquetDataPageVersion::V2);
   for (double savings : {0.0, 0.1, 1.0}) {
     auto properties = builder.min_space_savings(savings)->build();
     ASSERT_EQ(std::optional<double>(savings), properties->min_space_savings());
@@ -102,8 +103,28 @@ TEST(TestWriterProperties, InvalidMinSpaceSavings) {
   for (double savings : {-0.1, 1.1, std::numeric_limits<double>::infinity(),
                          -std::numeric_limits<double>::infinity(),
                          std::numeric_limits<double>::quiet_NaN()}) {
-    EXPECT_THROW(WriterProperties::Builder().min_space_savings(savings)->build(),
+    EXPECT_THROW(WriterProperties::Builder()
+                     .data_page_version(ParquetDataPageVersion::V2)
+                     ->min_space_savings(savings)
+                     ->build(),
                  ParquetException);
+  }
+}
+
+TEST(TestWriterProperties, MinSpaceSavingsRequiresDataPageV2) {
+  for (double savings : {0.0, 0.1, 1.0}) {
+    WriterProperties::Builder builder;
+    builder.min_space_savings(savings);
+    EXPECT_THROW(builder.build(), ParquetException);
+
+    builder.data_page_version(ParquetDataPageVersion::V2);
+    EXPECT_NO_THROW(builder.build());
+
+    builder.data_page_version(ParquetDataPageVersion::V1);
+    EXPECT_THROW(builder.build(), ParquetException);
+
+    builder.min_space_savings(std::nullopt);
+    EXPECT_NO_THROW(builder.build());
   }
 }
 
