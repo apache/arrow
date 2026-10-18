@@ -1279,7 +1279,11 @@ class Converter_Extension : public Converter {
     auto extension_type =
         dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
     if (extension_type == nullptr) {
-      Rf_error("Converter_Extension can't be used with a non-R extension type");
+      // Not an extension type created from R (e.g., a canonical extension type
+      // such as arrow.uuid registered by libarrow itself), so there is no R-level
+      // as_vector() to call: convert the storage arrays instead, which is what
+      // the default ExtensionType$as_vector() does.
+      return ConvertStorage();
     }
 
     return extension_type->Convert(chunked_array_);
@@ -1307,6 +1311,23 @@ class Converter_Extension : public Converter {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     return Status::OK();
+  }
+
+ private:
+  SEXP ConvertStorage() const {
+    const auto& extension_type =
+        checked_cast<const arrow::ExtensionType&>(*chunked_array_->type());
+    ArrayVector storage_chunks;
+    storage_chunks.reserve(chunked_array_->num_chunks());
+    for (const auto& chunk : chunked_array_->chunks()) {
+      storage_chunks.push_back(
+          checked_cast<const arrow::ExtensionArray&>(*chunk).storage());
+    }
+    auto storage = std::make_shared<ChunkedArray>(std::move(storage_chunks),
+                                                  extension_type.storage_type());
+    // Allocate() is already running as a task of the outer conversion, so the
+    // storage is converted serially here like RExtensionType::Convert() is
+    return Converter::Convert(storage, false);
   }
 };
 
