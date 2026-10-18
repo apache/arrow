@@ -69,7 +69,19 @@ def test_min_space_savings(
     else:
         pq.write_table(table, sink, **options)
 
-    assert pq.read_table(sink.getvalue()).equals(table)
+    buf = sink.getvalue()
+    assert pq.read_table(buf).equals(table)
+
+    column = pq.ParquetFile(buf).metadata.row_group(0).column(0)
+    expect_uncompressed = (
+        compression == "none"
+        or (page_version == "2.0" and minimum == 1.0)
+    )
+    if expect_uncompressed:
+        assert column.total_compressed_size == column.total_uncompressed_size
+    else:
+        assert column.total_compressed_size < column.total_uncompressed_size
+
 
 # Tests invalid settings
 @pytest.mark.parametrize(
