@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -82,6 +83,20 @@ static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
 
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryAndViewTypes = {
     binary(), utf8(), large_binary(), large_utf8(), utf8_view(), binary_view()};
+
+// The decimal type of the same width and precision with another scale, which may be
+// out of the range that DecimalXXX::FromString() can produce
+static std::shared_ptr<DataType> DecimalTypeWithScale(
+    const std::shared_ptr<DataType>& type, int32_t scale) {
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
+  return DecimalType::Make(type->id(), decimal_type.precision(), scale).ValueOrDie();
+}
+
+// The same unscaled decimal values with another scale
+static std::shared_ptr<Array> DecimalViewWithScale(const std::shared_ptr<Array>& array,
+                                                   int32_t scale) {
+  return array->View(DecimalTypeWithScale(array->type(), scale)).ValueOrDie();
+}
 
 static void AssertBufferSame(const Array& left, const Array& right, size_t buffer_index) {
   ASSERT_EQ(left.data()->buffers[buffer_index].get(),
@@ -762,6 +777,33 @@ TEST(Cast, Decimal256ToInt) {
   options.allow_int_overflow = true;
   options.allow_decimal_truncate = true;
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
+}
+
+TEST(Cast, DecimalToIntTruncateScaleOutOfRange) {
+  // GH-55340: a decimal type's scale is not bounded by kMaxScale, so neither is the
+  // scale change of a truncating cast
+  auto options = CastOptions::Unsafe(int64());
+  for (const auto& [unscaled_type, max_scale] :
+       std::vector<std::pair<std::shared_ptr<DataType>, int32_t>>{
+           {decimal32(9, 0), 9},
+           {decimal64(18, 0), 18},
+           {decimal128(38, 0), 38},
+           {decimal256(76, 0), 76}}) {
+    auto unscaled = ArrayFromJSON(unscaled_type, R"(["12", "-3", "0", null])");
+    auto zero = ArrayFromJSON(unscaled_type, R"(["0", null])");
+    // Downscaling truncates to zero
+    for (int32_t scale :
+         {max_scale, max_scale + 1, std::numeric_limits<int32_t>::max()}) {
+      CheckCast(DecimalViewWithScale(unscaled, scale),
+                ArrayFromJSON(int64(), "[0, 0, 0, null]"), options);
+    }
+    // Upscaling overflows, except for zero
+    for (int32_t scale : {-max_scale - 1, std::numeric_limits<int32_t>::min()}) {
+      CheckCastFails(DecimalViewWithScale(unscaled, scale), options);
+      CheckCast(DecimalViewWithScale(zero, scale), ArrayFromJSON(int64(), "[0, null]"),
+                options);
+    }
+  }
 }
 
 TEST(Cast, IntegerToDecimal) {
@@ -2145,6 +2187,31 @@ TEST(Cast, Decimal256ToDecimal128) {
   }
 }
 
+TEST(Cast, DecimalToDecimalTruncateScaleOutOfRange) {
+  // GH-55340: a decimal type's scale is not bounded by kMaxScale, so neither is the
+  // scale change of a truncating cast
+  auto options = CastOptions::Unsafe();
+  const std::vector<std::shared_ptr<DataType>> unscaled_types = {
+      decimal32(9, 0), decimal64(18, 0), decimal128(38, 0), decimal256(76, 0)};
+  for (const auto& in_type : unscaled_types) {
+    auto unscaled = ArrayFromJSON(in_type, R"(["12", "-3", "0", null])");
+    for (const auto& out_type : unscaled_types) {
+      // Downscaling by more than kMaxScale truncates to zero
+      for (int32_t scale : {77, std::numeric_limits<int32_t>::max()}) {
+        CheckCast(DecimalViewWithScale(unscaled, scale),
+                  ArrayFromJSON(out_type, R"(["0", "0", "0", null])"), options);
+      }
+      // Upscaling by more than kMaxScale overflows
+      options.to_type = DecimalTypeWithScale(out_type, 77);
+      CheckCastFails(unscaled, options);
+      options.to_type =
+          DecimalTypeWithScale(out_type, std::numeric_limits<int32_t>::max());
+      CheckCastFails(DecimalViewWithScale(unscaled, std::numeric_limits<int32_t>::min()),
+                     options);
+    }
+  }
+}
+
 TEST(Cast, FloatingToDecimal) {
   for (auto float_type : {float32(), float64()}) {
     for (auto decimal_type :
@@ -3129,6 +3196,24 @@ TEST(Cast, StringToDecimal) {
       LocaleGuard locale_guard("fr_FR.UTF-8");
       CheckCast(strings, decimals);
 #endif
+    }
+  }
+}
+
+TEST(Cast, StringToDecimalTruncateScaleOutOfRange) {
+  // GH-55340: the scale of a decimal string comes from its exponent and is not
+  // bounded by kMaxScale
+  auto options = CastOptions::Unsafe();
+  for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto decimal_type :
+         {decimal32(9, 0), decimal64(18, 0), decimal128(38, 0), decimal256(76, 0)}) {
+      // Downscaling by more than kMaxScale truncates to zero
+      CheckCast(ArrayFromJSON(string_type,
+                              R"(["1E-77", "-12E-1000000000", "1E-2147483647", null])"),
+                ArrayFromJSON(decimal_type, R"(["0", "0", "0", null])"), options);
+      // Upscaling by more than kMaxScale overflows
+      options.to_type = DecimalTypeWithScale(decimal_type, 77);
+      CheckCastFails(ArrayFromJSON(string_type, R"(["1"])"), options);
     }
   }
 }
