@@ -849,6 +849,20 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// escape syntax is supported.
     SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576,
 
+    /// Retrieves a UTF-8 string containing a Substrait dialect: a YAML
+    /// document, conforming to the Substrait dialect schema, that lists the
+    /// types, relations, expressions and function signatures the server
+    /// accepts in a Substrait plan. Should only be returned if
+    /// FLIGHT_SQL_SERVER_SUBSTRAIT is true. Its absence means that the server
+    /// does not describe which part of Substrait it accepts.
+    SQL_SUBSTRAIT_DIALECT = 577,
+
+    /// Retrieves an opaque string identifying the content of
+    /// SQL_SUBSTRAIT_DIALECT, for use as a client-side cache key. The server
+    /// must return a different value whenever the dialect changes, e.g. a
+    /// hex-encoded SHA-256 digest of the dialect.
+    SQL_SUBSTRAIT_DIALECT_HASH = 578,
+
     /// @}
   };
 

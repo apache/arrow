@@ -833,6 +833,36 @@ enum SqlInfo {
    * - true: if invoking user-defined or vendor functions using the stored procedure escape syntax is supported.
    */
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
+
+  /*
+   * Retrieves a UTF-8 string containing a Substrait dialect: a YAML document,
+   * conforming to the Substrait dialect schema (text/dialect_schema.yaml in the
+   * Substrait repository), that lists the types, relations, expressions and
+   * function signatures the server accepts in a Substrait plan.
+   *
+   * A plan that only uses what the dialect lists is expected to be accepted;
+   * one that uses anything else may be rejected. The dialect should only be
+   * returned if FLIGHT_SQL_SERVER_SUBSTRAIT is true. Its absence means that the
+   * server does not describe which part of Substrait it accepts, not that it
+   * accepts all of it.
+   *
+   * A dialect can be tens of kilobytes. A client that retrieves it repeatedly
+   * can retrieve SQL_SUBSTRAIT_DIALECT_HASH first and only retrieve this value
+   * when the hash has changed.
+   */
+  SQL_SUBSTRAIT_DIALECT = 577;
+
+  /*
+   * Retrieves a string value identifying the content of SQL_SUBSTRAIT_DIALECT,
+   * for use as a client-side cache key. It is opaque to the client, which
+   * should only compare it for equality: the server must return a different
+   * value whenever the dialect changes, and should return the same value for
+   * the same dialect. A digest of the dialect, such as a hex-encoded SHA-256,
+   * satisfies this.
+   *
+   * Should only be returned if SQL_SUBSTRAIT_DIALECT is returned.
+   */
+  SQL_SUBSTRAIT_DIALECT_HASH = 578;
 }
 
 // The level of support for Flight SQL transaction RPCs.
