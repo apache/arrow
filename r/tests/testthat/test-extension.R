@@ -383,6 +383,7 @@ test_that("extension types defined outside of R can be used", {
   expect_identical(as.vector(table$x), as.vector(storage))
   expect_identical(as.vector(table$x$Slice(1, 2)), as.vector(storage$Slice(1, 2)))
   chunked <- concat_tables(table, table)
+  expect_equal(chunked$x$num_chunks, 2L)
   expect_identical(as.data.frame(chunked)$x, as.vector(concat_arrays(storage, storage)))
 
   # struct() drops field metadata, so build the type from the Field directly
@@ -390,6 +391,7 @@ test_that("extension types defined outside of R can be used", {
     s = StructArray$create(x = storage),
     schema = schema(field("s", struct__(list(uuid_field))))
   ))
+  expect_identical(nested$s$type$GetFieldByName("x")$type$extension_name(), "arrow.uuid")
   expect_identical(as.data.frame(nested)$s$x, as.vector(storage))
 
   list_storage <- Array$create(
@@ -400,6 +402,7 @@ test_that("extension types defined outside of R can be used", {
     l = list_storage,
     schema = schema(field("l", list_of(uuid_field)))
   ))
+  expect_identical(listed$l$type$value_type$extension_name(), "arrow.uuid")
   expect_identical(as.vector(listed$l), as.vector(list_storage))
 
   # arrow.json has utf8 storage, which converts to an ALTREP vector
