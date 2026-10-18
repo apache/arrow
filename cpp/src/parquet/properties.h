@@ -896,6 +896,9 @@ class PARQUET_EXPORT WriterProperties {
           !(*min_space_savings_ >= 0.0 && *min_space_savings_ <= 1.0)) {
         throw ParquetException("min_space_savings must be in range [0, 1]");
       }
+      if (min_space_savings_ && data_page_version_ == ParquetDataPageVersion::V1) {
+        throw ParquetException("min_space_savings requires V2 data pages");
+      }
       std::unordered_map<std::string, ColumnProperties> column_properties;
       auto get = [&](const std::string& key) -> ColumnProperties& {
         auto it = column_properties.find(key);
