@@ -989,7 +989,6 @@ class PARQUET_EXPORT WriterProperties {
     return parquet_data_page_version_;
   }
 
-
   std::optional<double> min_space_savings() const { return min_space_savings_; }
 
   inline ParquetVersion::type version() const { return parquet_version_; }
@@ -1120,9 +1119,8 @@ class PARQUET_EXPORT WriterProperties {
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, std::optional<double> min_space_savings,
-      bool store_short_decimal_as_integer,
-      std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
-      CdcOptions content_defined_chunking_options)
+      bool store_short_decimal_as_integer, std::vector<SortingColumn> sorting_columns,
+      bool content_defined_chunking_enabled, CdcOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
