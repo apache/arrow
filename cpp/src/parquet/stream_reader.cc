@@ -53,10 +53,17 @@ StreamReader::StreamReader(std::unique_ptr<ParquetFileReader> reader)
   if (schema->num_columns() == 0) {
     throw ParquetException("StreamReader does not support empty schemas.");
   }
-  nodes_.resize(schema->num_columns());
+  // Each column is read from a field of the root group, so every field of
+  // the root group must be a primitive node (i.e. the schema must be flat).
+  nodes_.resize(group_node->field_count());
 
-  for (auto i = 0; i < schema->num_columns(); ++i) {
-    nodes_[i] = std::static_pointer_cast<schema::PrimitiveNode>(group_node->field(i));
+  for (auto i = 0; i < group_node->field_count(); ++i) {
+    const auto& field = group_node->field(i);
+    if (!field->is_primitive()) {
+      throw ParquetException("StreamReader does not support nested schemas.  Field '" +
+                             field->name() + "' is a group.");
+    }
+    nodes_[i] = std::static_pointer_cast<schema::PrimitiveNode>(field);
   }
   NextRowGroup();
 }

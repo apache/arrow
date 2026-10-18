@@ -53,7 +53,7 @@ namespace parquet {
 /// However, if the value is not present then a ParquetException will
 /// be raised.
 ///
-/// Currently there is no support for repeated fields.
+/// Currently there is no support for nested or repeated fields.
 ///
 class PARQUET_EXPORT StreamReader {
  public:
@@ -65,7 +65,8 @@ class PARQUET_EXPORT StreamReader {
   //      assigned afterwards.
   StreamReader() = default;
 
-  /// Reader must have at least one field defined in its schema.
+  /// Reader must have at least one field defined in its schema, and
+  /// every field of the schema must be a primitive (non-nested) column.
   explicit StreamReader(std::unique_ptr<ParquetFileReader> reader);
 
   ~StreamReader() = default;
