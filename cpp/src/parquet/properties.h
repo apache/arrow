@@ -533,6 +533,10 @@ class PARQUET_EXPORT WriterProperties {
     /// Used to set minimum threshold for V2 page data values compression
     /// If min_space_savings unset, keep compression if compressed value is smaller.
     Builder* min_space_savings(std::optional<double> min_space_savings) {
+      if (min_space_savings &&
+          !(*min_space_savings >= 0.0 && *min_space_savings <= 1.0)) {
+        throw ParquetException("min_space_savings must be in range [0, 1]");
+      }
       min_space_savings_ = min_space_savings;
       return this;
     }
@@ -891,11 +895,6 @@ class PARQUET_EXPORT WriterProperties {
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
-      // checks for invalid input of min_space_savings
-      if (min_space_savings_ &&
-          !(*min_space_savings_ >= 0.0 && *min_space_savings_ <= 1.0)) {
-        throw ParquetException("min_space_savings must be in range [0, 1]");
-      }
       if (min_space_savings_ && data_page_version_ == ParquetDataPageVersion::V1) {
         throw ParquetException("min_space_savings requires V2 data pages");
       }
