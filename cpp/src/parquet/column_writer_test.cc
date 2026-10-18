@@ -2094,7 +2094,6 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
 // - min_space_savings = 0.1
 // - min_space_savings = 1
 TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
-
   // Used zeros because it compresses well
   this->SetUpSchema(Repetition::OPTIONAL);
   this->descr_ = this->schema_.Column(0);
@@ -2112,20 +2111,19 @@ TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
   };
 
   for (const auto& [minimum, expected_compressed] : cases) {
-    auto writer = this->BuildWriter(
-        SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
-        ParquetDataPageVersion::V2, false, kDefaultDataPageSize,
-        kDefaultMaxRowsPerPage, minimum);
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2, false, kDefaultDataPageSize,
+                          kDefaultMaxRowsPerPage, minimum);
 
-    writer->WriteBatch(SMALL_SIZE, this->def_levels_.data(), nullptr,
-                       this->values_ptr_);
+    writer->WriteBatch(SMALL_SIZE, this->def_levels_.data(), nullptr, this->values_ptr_);
     writer->Close();
 
     ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
 
-    auto page_reader = PageReader::Open(
-        std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
-        Compression::ZSTD, default_reader_properties(), *this->descr_);
+    auto page_reader =
+        PageReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
+                         Compression::ZSTD, default_reader_properties(), *this->descr_);
 
     auto page = page_reader->NextPage();
 
