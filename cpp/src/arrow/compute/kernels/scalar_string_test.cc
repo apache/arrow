@@ -2668,6 +2668,20 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
                    this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
+TYPED_TEST(TestStringKernels, SliceCodeunitsOverflow) {
+  // The output-size estimate must not overflow for extreme slice options. A huge
+  // step or a very negative start wrapped (stop - start + step - 1) negative, so
+  // the kernel allocated a zero-length output buffer while Transform still wrote
+  // the real slice into it (heap buffer overflow, ASan/UBSan).
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{0, max, max};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "a", "ab", "𝑓öõ"])", this->type(),
+                   R"(["", "a", "a", "𝑓"])", &options_max_step);
+  SliceOptions options_neg_max_step{-5, -1, max};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "a", "ab", "𝑓öõ"])", this->type(),
+                   R"(["", "", "a", "𝑓"])", &options_neg_max_step);
+}
+
 #endif  // ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
@@ -2791,6 +2805,21 @@ TYPED_TEST(TestBinaryKernels, SliceBytesNegPos) {
       "binary_slice",
       this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
       this->MakeArray({"", "", "b", "\xa2", "\xa2Z", "Z\xc2"}), &options_step_neg);
+}
+
+TYPED_TEST(TestBinaryKernels, SliceBytesOverflow) {
+  // The output-size estimate must not overflow for extreme slice options. pyarrow
+  // leaves stop at INT64_MAX by default, which wrapped (stop - start + step - 1)
+  // negative, so the kernel allocated a zero-length output buffer while Transform
+  // still wrote the real slice into it (heap buffer overflow, ASan/UBSan).
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_max{0, max, 2};
+  this->CheckUnary("binary_slice", this->MakeArray({"abcdef", "foobaz"}),
+                   this->MakeArray({"ace", "foa"}), &options_max);
+  SliceOptions options_min{min, -1, 2};
+  this->CheckUnary("binary_slice", this->MakeArray({"abcdef", "foobaz"}),
+                   this->MakeArray({"ace", "foa"}), &options_min);
 }
 
 TYPED_TEST(TestStringKernels, PadAscii) {

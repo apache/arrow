@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/util/config.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8_internal.h"
 
@@ -1172,11 +1173,27 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_ncodeunits;
     }
-    int64_t stop = std::clamp(opt.stop, -input_ncodeunits, input_ncodeunits);
-    int64_t max_slice_codepoints = (stop - opt.start + opt.step - 1) / opt.step;
+    const int64_t stop = std::clamp(opt.stop, -input_ncodeunits, input_ncodeunits);
+    // (stop - opt.start + opt.step - 1) / opt.step, guarded against signed
+    // overflow (opt.start and opt.step are unbounded int64 options even though
+    // stop is clamped). The output is never longer than the input, so on
+    // overflow fall back to that safe bound instead of wrapping to a too-small
+    // allocation.
+    int64_t span;
+    if (arrow::internal::SubtractWithOverflow(stop, opt.start, &span) ||
+        arrow::internal::AddWithOverflow(span, opt.step, &span) ||
+        arrow::internal::SubtractWithOverflow(span, int64_t{1}, &span)) {
+      return input_ncodeunits;
+    }
+    const int64_t max_slice_codepoints = span / opt.step;
     // The maximum UTF8 byte size of a codepoint is 4
-    return std::min(input_ncodeunits,
-                    4 * ninputs * std::max<int64_t>(0, max_slice_codepoints));
+    int64_t estimate;
+    if (arrow::internal::MultiplyWithOverflow(
+            ninputs, std::max<int64_t>(0, max_slice_codepoints), &estimate) ||
+        arrow::internal::MultiplyWithOverflow(int64_t{4}, estimate, &estimate)) {
+      return input_ncodeunits;
+    }
+    return std::min(input_ncodeunits, estimate);
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,

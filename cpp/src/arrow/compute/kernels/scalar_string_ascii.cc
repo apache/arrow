@@ -29,6 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/config.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
@@ -2642,8 +2643,23 @@ struct SliceBytesTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_bytes;
     }
-    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
-    return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
+    // (opt.stop - opt.start + opt.step - 1) / opt.step, guarded against signed
+    // overflow (opt.start, opt.stop and opt.step are unbounded int64 options).
+    // The output is never longer than the input, so on overflow fall back to
+    // that safe bound instead of wrapping to a too-small allocation.
+    int64_t span;
+    if (arrow::internal::SubtractWithOverflow(opt.stop, opt.start, &span) ||
+        arrow::internal::AddWithOverflow(span, opt.step, &span) ||
+        arrow::internal::SubtractWithOverflow(span, int64_t{1}, &span)) {
+      return input_bytes;
+    }
+    const int64_t max_slice_bytes = span / opt.step;
+    int64_t estimate;
+    if (arrow::internal::MultiplyWithOverflow(
+            ninputs, std::max<int64_t>(0, max_slice_bytes), &estimate)) {
+      return input_bytes;
+    }
+    return std::min(input_bytes, estimate);
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_bytes, uint8_t* output) {
