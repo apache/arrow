@@ -58,7 +58,7 @@ namespace parquet {
 /// have a value (i.e. it is nullopt) then a ParquetException will be
 /// raised.
 ///
-/// Currently there is no support for repeated fields.
+/// Currently there is no support for nested or repeated fields.
 ///
 class PARQUET_EXPORT StreamWriter {
  public:
@@ -70,6 +70,8 @@ class PARQUET_EXPORT StreamWriter {
   //      assigned afterwards.
   StreamWriter() = default;
 
+  /// Every field of the writer's schema must be a primitive (non-nested)
+  /// column.
   explicit StreamWriter(std::unique_ptr<ParquetFileWriter> writer);
 
   ~StreamWriter() = default;

@@ -105,6 +105,30 @@ TEST_F(TestStreamWriter, DefaultConstructed) {
   EXPECT_EQ(0, os.SkipColumns(11));
 }
 
+TEST(StreamWriterNestedSchema, ThrowsOnConstruction) {
+  auto int32_node = [](const std::string& name) {
+    return schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT32,
+                                       ConvertedType::INT_32);
+  };
+  auto make_schema = [](const schema::NodeVector& fields) {
+    return std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  };
+
+  // More columns than fields in the root group.
+  auto schema = make_schema({schema::GroupNode::Make(
+      "group", Repetition::REQUIRED, {int32_node("a"), int32_node("b")})});
+  EXPECT_THROW(StreamWriter{ParquetFileWriter::Open(CreateOutputStream(), schema)},
+               ParquetException);
+
+  // As many columns as fields in the root group, but one field is a group.
+  schema = make_schema(
+      {schema::GroupNode::Make("group", Repetition::REQUIRED, {int32_node("a")}),
+       int32_node("b")});
+  EXPECT_THROW(StreamWriter{ParquetFileWriter::Open(CreateOutputStream(), schema)},
+               ParquetException);
+}
+
 TEST_F(TestStreamWriter, TypeChecking) {
   std::array<char, 3> char3_array = {'T', 'S', 'T'};
   std::array<char, 4> char4_array = {'T', 'E', 'S', 'T'};

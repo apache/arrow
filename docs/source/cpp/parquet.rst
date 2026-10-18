@@ -133,6 +133,8 @@ thrown in the following circumstances:
 
 * Attempt to read beyond end of file.
 
+* Attempt to read a file whose schema contains nested (group) fields.
+
 .. code-block:: cpp
 
    #include "arrow/io/file.h"
@@ -206,6 +208,8 @@ thrown in the following circumstances:
 * Attempt to write too many fields in a row.
 
 * Attempt to skip a required field.
+
+* Attempt to write with a schema containing nested (group) fields.
 
 .. code-block:: cpp
 
