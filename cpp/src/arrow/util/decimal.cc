@@ -81,7 +81,7 @@ struct BaseDecimalRealConversion {
 
   // Return 10**exp, with a fast lookup if possible
   template <typename Real>
-  static Real LargePowerOfTen(int32_t exp) {
+  static Real LargePowerOfTen(int64_t exp) {
     constexpr int N = kPrecomputedPowersOfTen;
     if (ARROW_PREDICT_TRUE(exp >= -N && exp <= N)) {
       return RealTraits<Real>::powers_of_ten()[exp + N];
@@ -124,8 +124,9 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
 
     // Problem statement: construct the Decimal with the value
     // closest to `real * 10^scale`.
-    if (scale < 0) {
-      // Negative scales are not handled below, fall back to approx algorithm
+    if (scale < 0 || scale > kMaxScale) {
+      // Negative scales and scales too large for the powers of ten tables
+      // are not handled below, fall back to approx algorithm
       return Derived::FromPositiveRealApprox(real, precision, scale);
     }
 
@@ -242,8 +243,6 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
   static Result<DecimalType> FromReal(Real x, int32_t precision, int32_t scale) {
     DCHECK_GT(precision, 0);
     DCHECK_LE(precision, kMaxPrecision);
-    DCHECK_GE(scale, -kMaxScale);
-    DCHECK_LE(scale, kMaxScale);
 
     if (!std::isfinite(x)) {
       return Status::Invalid("Cannot convert ", x, " to Decimal128");
@@ -261,8 +260,6 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
 
   template <typename Real>
   static Real ToReal(const DecimalType& decimal, int32_t scale) {
-    DCHECK_GE(scale, -kMaxScale);
-    DCHECK_LE(scale, kMaxScale);
     if (decimal.IsNegative()) {
       // Convert the absolute value to avoid precision loss
       auto abs = decimal;
@@ -290,7 +287,7 @@ struct Decimal32RealConversion
   template <typename Real>
   static Result<Decimal32> FromPositiveRealApprox(Real real, int32_t precision,
                                                   int32_t scale) {
-    const auto x = std::nearbyint(real * PowerOfTen<Real>(scale));
+    const auto x = std::nearbyint(real * LargePowerOfTen<Real>(scale));
     const auto max_abs = PowerOfTen<Real>(precision);
     if (x <= -max_abs || x >= max_abs) {
       return OverflowError(real, precision, scale);
@@ -302,13 +299,14 @@ struct Decimal32RealConversion
   template <typename Real>
   static Real ToRealPositiveNoSplit(const Decimal32& decimal, int32_t scale) {
     Real x = static_cast<Real>(decimal.value());
-    x *= LargePowerOfTen<Real>(-scale);
+    x *= LargePowerOfTen<Real>(-static_cast<int64_t>(scale));
     return x;
   }
 
   template <typename Real>
   static Real ToRealPositive(const Decimal32& decimal, int32_t scale) {
-    if (scale <= 0 || uint64_t(decimal.value()) <= RealTraits<Real>::kMaxPreciseInteger) {
+    if (scale <= 0 || scale > kMaxScale ||
+        uint64_t(decimal.value()) <= RealTraits<Real>::kMaxPreciseInteger) {
       return ToRealPositiveNoSplit<Real>(decimal, scale);
     }
 
@@ -357,7 +355,7 @@ struct Decimal64RealConversion
   template <typename Real>
   static Result<Decimal64> FromPositiveRealApprox(Real real, int32_t precision,
                                                   int32_t scale) {
-    const auto x = std::nearbyint(real * PowerOfTen<Real>(scale));
+    const auto x = std::nearbyint(real * LargePowerOfTen<Real>(scale));
     const auto max_abs = PowerOfTen<Real>(precision);
     if (x <= -max_abs || x >= max_abs) {
       return OverflowError(real, precision, scale);
@@ -369,13 +367,14 @@ struct Decimal64RealConversion
   template <typename Real>
   static Real ToRealPositiveNoSplit(const Decimal64& decimal, int32_t scale) {
     Real x = static_cast<Real>(decimal.value());
-    x *= LargePowerOfTen<Real>(-scale);
+    x *= LargePowerOfTen<Real>(-static_cast<int64_t>(scale));
     return x;
   }
 
   template <typename Real>
   static Real ToRealPositive(const Decimal64& decimal, int32_t scale) {
-    if (scale <= 0 || uint64_t(decimal.value()) <= RealTraits<Real>::kMaxPreciseInteger) {
+    if (scale <= 0 || scale > kMaxScale ||
+        uint64_t(decimal.value()) <= RealTraits<Real>::kMaxPreciseInteger) {
       return ToRealPositiveNoSplit<Real>(decimal, scale);
     }
 
@@ -440,7 +439,7 @@ struct Decimal128RealConversion
                                                    int32_t scale) {
     // Approximate algorithm that operates in the FP domain (thus subject
     // to precision loss).
-    const auto x = std::nearbyint(real * PowerOfTen<double>(scale));
+    const auto x = std::nearbyint(real * LargePowerOfTen<double>(scale));
     const auto max_abs = PowerOfTen<double>(precision);
     if (x <= -max_abs || x >= max_abs) {
       return OverflowError(real, precision, scale);
@@ -460,7 +459,7 @@ struct Decimal128RealConversion
   static Real ToRealPositiveNoSplit(const Decimal128& decimal, int32_t scale) {
     Real x = RealTraits<Real>::two_to_64(static_cast<Real>(decimal.high_bits()));
     x += static_cast<Real>(decimal.low_bits());
-    x *= LargePowerOfTen<Real>(-scale);
+    x *= LargePowerOfTen<Real>(-static_cast<int64_t>(scale));
     return x;
   }
 
@@ -474,10 +473,12 @@ struct Decimal128RealConversion
   /// Here "exact value" means the closest representable value by Real.
   template <typename Real>
   static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
-    if (scale <= 0 || (decimal.high_bits() == 0 &&
-                       decimal.low_bits() <= RealTraits<Real>::kMaxPreciseInteger)) {
-      // No need to split the decimal if it is already an integer (scale <= 0) or if it
-      // can be precisely represented by Real
+    if (scale <= 0 || scale > kMaxScale ||
+        (decimal.high_bits() == 0 &&
+         decimal.low_bits() <= RealTraits<Real>::kMaxPreciseInteger)) {
+      // No need to split the decimal if it is already an integer (scale <= 0), if it
+      // has no integer part (scale > kMaxScale) or if it can be precisely represented
+      // by Real
       return ToRealPositiveNoSplit<Real>(decimal, scale);
     }
 
@@ -1363,7 +1364,7 @@ struct Decimal256RealConversion
   template <typename Real>
   static Result<Decimal256> FromPositiveRealApprox(Real real, int32_t precision,
                                                    int32_t scale) {
-    auto x = std::nearbyint(real * PowerOfTen<double>(scale));
+    auto x = std::nearbyint(real * LargePowerOfTen<double>(scale));
     const auto max_abs = PowerOfTen<double>(precision);
     if (x >= max_abs) {
       return OverflowError(real, precision, scale);
@@ -1399,7 +1400,7 @@ struct Decimal256RealConversion
     x += RealTraits<Real>::two_to_128(static_cast<Real>(parts_le[2]));
     x += RealTraits<Real>::two_to_64(static_cast<Real>(parts_le[1]));
     x += static_cast<Real>(parts_le[0]);
-    x *= LargePowerOfTen<Real>(-scale);
+    x *= LargePowerOfTen<Real>(-static_cast<int64_t>(scale));
     return x;
   }
 
@@ -1414,10 +1415,12 @@ struct Decimal256RealConversion
   template <typename Real>
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     const auto parts_le = decimal.little_endian_array();
-    if (scale <= 0 || (parts_le[3] == 0 && parts_le[2] == 0 && parts_le[1] == 0 &&
-                       parts_le[0] < RealTraits<Real>::kMaxPreciseInteger)) {
-      // No need to split the decimal if it is already an integer (scale <= 0) or if it
-      // can be precisely represented by Real
+    if (scale <= 0 || scale > kMaxScale ||
+        (parts_le[3] == 0 && parts_le[2] == 0 && parts_le[1] == 0 &&
+         parts_le[0] < RealTraits<Real>::kMaxPreciseInteger)) {
+      // No need to split the decimal if it is already an integer (scale <= 0), if it
+      // has no integer part (scale > kMaxScale) or if it can be precisely represented
+      // by Real
       return ToRealPositiveNoSplit<Real>(decimal, scale);
     }
 

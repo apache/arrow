@@ -425,6 +425,8 @@ struct ProductInit {
 
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
+    using AccType = typename ProductImpl<Type>::AccType;
+    RETURN_NOT_OK(MultiplyTraits<AccType>::CheckType(*type));
     state.reset(new ProductImpl<Type>(type, options));
     return Status::OK();
   }
