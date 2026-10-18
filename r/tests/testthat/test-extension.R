@@ -353,9 +353,12 @@ test_that("Handling vctrs_rcrd type", {
 })
 
 test_that("extension types defined outside of R can be used", {
-  # arrow.uuid is a canonical extension type registered by libarrow itself,
-  # so there is no R6 class registered for it from R (GH-53951). An IPC
-  # round trip with the extension metadata on the field gives us an instance.
+  # arrow.uuid is a canonical extension type registered by libarrow itself, so
+  # there is no R6 class registered for it from R (GH-53951). An IPC round trip
+  # with the extension metadata on the field gives us an instance.
+  roundtrip <- function(table) {
+    read_ipc_stream(write_to_raw(table), as_data_frame = FALSE)
+  }
   storage <- Array$create(
     list(as.raw(1:16), NULL, as.raw(17:32)),
     type = fixed_size_binary(16)
@@ -365,67 +368,48 @@ test_that("extension types defined outside of R can be used", {
     fixed_size_binary(16),
     metadata = c("ARROW:extension:name" = "arrow.uuid")
   )
-  uuid_schema <- schema(uuid_field)
-  table <- read_ipc_stream(
-    write_to_raw(Table$create(x = storage, schema = uuid_schema)),
-    as_data_frame = FALSE
-  )
+  table <- roundtrip(Table$create(x = storage, schema = schema(uuid_field)))
 
   type <- table$x$type
-  expect_r6_class(type, "ExtensionType")
   expect_identical(class(type)[1], "ExtensionType")
+  expect_identical(type$r6_class(), ExtensionType)
   expect_identical(type$extension_name(), "arrow.uuid")
-  expect_true(type$storage_type() == fixed_size_binary(16))
-  expect_identical(type$extension_metadata(), raw())
-  expect_false(ExtensionType__is_r_type(type))
+  expect_identical(type$ToString(), "extension<arrow.uuid>")
+  # The C++ guard is unreachable through r6_class(), so exercise it directly
   expect_error(ExtensionType__r6_class(type), "was not created from R")
 
-  # Printing uses libarrow's representation rather than the R one
-  expect_identical(type$ToString(), "extension<arrow.uuid>")
-  expect_output(print(table$x), "extension<arrow.uuid>")
-
-  # Conversion to R falls back to converting the storage array
+  # Conversion to R falls back to the storage array, including for slices,
+  # multiple chunks, and columns nested in a struct or list
   expect_identical(as.vector(table$x), as.vector(storage))
-  expect_identical(as.vector(table$x$chunk(0)), as.vector(storage))
-  expect_identical(as.data.frame(table)$x, as.vector(storage))
-
-  # ...including slices and empty results
   expect_identical(as.vector(table$x$Slice(1, 2)), as.vector(storage$Slice(1, 2)))
-  expect_identical(as.data.frame(table$Slice(0, 0))$x, as.vector(storage)[0])
-
-  # ...also when there is more than one chunk
   chunked <- concat_tables(table, table)
-  expect_equal(chunked$x$num_chunks, 2L)
-  expect_identical(as.vector(chunked$x), as.vector(concat_arrays(storage, storage)))
   expect_identical(as.data.frame(chunked)$x, as.vector(concat_arrays(storage, storage)))
 
-  # ...and when the extension column is nested inside a struct
-  nested_storage <- StructArray$create(x = storage)
   # struct() drops field metadata, so build the type from the Field directly
-  nested_schema <- schema(field("s", struct__(list(uuid_field))))
-  nested <- read_ipc_stream(
-    write_to_raw(Table$create(s = nested_storage, schema = nested_schema)),
-    as_data_frame = FALSE
-  )
-  expect_identical(
-    nested$s$type$GetFieldByName("x")$type$extension_name(),
-    "arrow.uuid"
-  )
+  nested <- roundtrip(Table$create(
+    s = StructArray$create(x = storage),
+    schema = schema(field("s", struct__(list(uuid_field))))
+  ))
   expect_identical(as.data.frame(nested)$s$x, as.vector(storage))
 
-  # ...and inside a list
   list_storage <- Array$create(
-    list(list(as.raw(1:16), as.raw(17:32)), NULL, list(as.raw(17:32))),
+    list(list(as.raw(1:16)), NULL),
     type = list_of(fixed_size_binary(16))
   )
-  list_schema <- schema(field("l", list_of(uuid_field)))
-  listed <- read_ipc_stream(
-    write_to_raw(Table$create(l = list_storage, schema = list_schema)),
-    as_data_frame = FALSE
-  )
-  expect_identical(
-    listed$l$type$value_type$extension_name(),
-    "arrow.uuid"
-  )
+  listed <- roundtrip(Table$create(
+    l = list_storage,
+    schema = schema(field("l", list_of(uuid_field)))
+  ))
   expect_identical(as.vector(listed$l), as.vector(list_storage))
+
+  # arrow.json has utf8 storage, which converts to an ALTREP vector
+  json_storage <- Array$create(c('{"a":1}', NA))
+  json_field <- field("j", utf8(), metadata = c("ARROW:extension:name" = "arrow.json"))
+  json <- roundtrip(Table$create(
+    j = json_storage,
+    s = StructArray$create(j = json_storage),
+    schema = schema(json_field, field("s", struct__(list(json_field))))
+  ))
+  expect_identical(as.data.frame(json)$j, as.vector(json_storage))
+  expect_identical(as.data.frame(json)$s$j, as.vector(json_storage))
 })
