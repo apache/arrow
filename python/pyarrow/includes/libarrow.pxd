@@ -2202,6 +2202,7 @@ cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
     cdef cppclass CThreadPool "arrow::internal::ThreadPool"(CExecutor):
         @staticmethod
         CResult[shared_ptr[CThreadPool]] Make(int threads)
+        void WaitForIdle()
 
     CThreadPool* GetCpuThreadPool()
 

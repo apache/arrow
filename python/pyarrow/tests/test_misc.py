@@ -137,6 +137,50 @@ def test_import_at_shutdown():
     subprocess.check_call([sys.executable, "-c", code])
 
 
+@pytest.mark.processes
+def test_cpu_thread_pool_is_idle_before_interpreter_finalization():
+    pytest.importorskip("fsspec")
+    code = """if 1:
+        import atexit
+        from pathlib import Path
+        import shutil
+        import tempfile
+
+        root = Path(tempfile.mkdtemp())
+        atexit.register(shutil.rmtree, root, ignore_errors=True)
+
+        import fsspec
+        import pyarrow as pa
+        import pyarrow.dataset as ds
+        import pyarrow.fs as fs
+        import pyarrow.parquet as pq
+
+        pa.set_cpu_count(24)
+        pq.write_table(
+            pa.table({"value": [1, 2, 3]}), root / "valid.parquet", compression="NONE"
+        )
+        (root / "bad.parquet").write_bytes(b"not a parquet file")
+        filesystem = fs.PyFileSystem(
+            fs.FSSpecHandler(fsspec.filesystem("file"))
+        )
+        paths = [str(root / name) for name in (
+            "valid.parquet", "bad.parquet", "valid.parquet", "valid.parquet"
+        )]
+        dataset = ds.dataset(
+            paths, filesystem=filesystem, format="parquet",
+            schema=pa.schema([("value", pa.int64())]),
+            exclude_invalid_files=False
+        )
+        try:
+            dataset.to_table(use_threads=True, fragment_readahead=4)
+        except pa.ArrowInvalid:
+            pass
+        else:
+            raise AssertionError("Expected the malformed-fragment error")
+        """
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=30)
+
+
 @pytest.mark.skipif(sys.platform == "win32",
                     reason="Path to timezone database is not configurable "
                            "on non-Windows platforms")
