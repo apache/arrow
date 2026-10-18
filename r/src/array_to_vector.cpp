@@ -1325,8 +1325,8 @@ class Converter_Extension : public Converter {
     }
     auto storage = std::make_shared<ChunkedArray>(std::move(storage_chunks),
                                                   extension_type.storage_type());
-    // Allocate() is already running as a task of the outer conversion, so the
-    // storage is converted serially here like RExtensionType::Convert() is
+    // The outer conversion's task group isn't reachable from Allocate(), so the
+    // storage is converted serially here, as RExtensionType::Convert() does
     return Converter::Convert(storage, false);
   }
 };
