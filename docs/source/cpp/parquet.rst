@@ -271,6 +271,13 @@ with ``data_page_version``. It's V1 by default; setting to V2 will allow more
 optimal compression (skipping compressing pages where there isn't a space
 benefit), but not all readers support this data page version.
 
+For V2 pages, use ``min_space_savings`` to set how much space compression must
+save. Use a value from 0.0 to 1.0. For example, ``min_space_savings(0.1)`` requires
+at least 10% savings. If the space savings do not meet the threshold, it is not
+compressed. If the ``min_space_savings`` option is unset, compression is kept as
+long as compressed values are smaller than original values. Setting a number
+with V1 or using a number outside the allowed range throws ``ParquetException``.
+
 Compression is off by default, but to get the most out of Parquet, you should
 also choose a compression codec. You can choose one for the whole file or
 choose one for individual columns. If you choose a mix, the file-level option
