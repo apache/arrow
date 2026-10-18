@@ -103,10 +103,7 @@ TEST(TestWriterProperties, InvalidMinSpaceSavings) {
   for (double savings : {-0.1, 1.1, std::numeric_limits<double>::infinity(),
                          -std::numeric_limits<double>::infinity(),
                          std::numeric_limits<double>::quiet_NaN()}) {
-    EXPECT_THROW(WriterProperties::Builder()
-                     .data_page_version(ParquetDataPageVersion::V2)
-                     ->min_space_savings(savings)
-                     ->build(),
+    EXPECT_THROW(WriterProperties::Builder().min_space_savings(savings),
                  ParquetException);
   }
 }
