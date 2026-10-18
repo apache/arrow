@@ -2763,6 +2763,11 @@ TYPED_TEST(TestBinaryKernels, SliceBytesPosNeg) {
 TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
   constexpr auto min = std::numeric_limits<int64_t>::min();
   const std::string long_input(300, 'x');
+  SliceOptions options_extreme_start{/*start=*/min, /*stop=*/-1};
+  this->CheckUnary("binary_slice", this->template MakeArray<std::string>({"x"}),
+                   this->template MakeArray<std::string>({""}),
+                   &options_extreme_start);
+
   SliceOptions options_min{/*start=*/-1, /*stop=*/min};
   this->CheckUnary("binary_slice",
                    this->template MakeArray<std::string>({"abcdef", long_input}),
