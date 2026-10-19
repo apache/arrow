@@ -236,9 +236,9 @@ struct CastVarToFixedList {
     RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
     for (int64_t offset_i = 0; offset_i < in_array.length; ++offset_i) {
       if (in_array.IsNull(offset_i)) {
-        // If element is null, just fill in the null slots with first value.
+        // If element is null, fill in the null slots with null values.
         for (int64_t j = 0; j < list_size; ++j) {
-          builder.UnsafeAppend(0);
+          builder.UnsafeAppendNull();
         }
       } else {
         int64_t value_i = offsets[offset_i];
@@ -275,18 +275,25 @@ struct CastVarToFixedList {
     DCHECK(cast_values_datum.is_array());
     std::shared_ptr<ArrayData> cast_values = cast_values_datum.array();
 
-    const auto* offsets = in_array.GetValues<src_offset_type>(1);
-    if (in_array.GetNullCount() > 0 && !nulls_have_correct_length) {
-      // We need to fill in the null slots, so we'll use Take on the values.
-      ARROW_ASSIGN_OR_RAISE(auto indices, BuildTakeIndices(in_array, list_size, ctx));
-      ARROW_ASSIGN_OR_RAISE(auto take_result,
-                            Take(cast_values, Datum(indices),
-                                 TakeOptions::NoBoundsCheck(), ctx->exec_context()));
-      DCHECK(take_result.is_array());
-      cast_values = take_result.array();
-    } else if (offsets[0] != 0) {
-      // No nulls, but we need to slice the values
-      cast_values = cast_values->Slice(offsets[0], in_array.length * list_size);
+    if (cast_values->length == 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto null_values,
+          MakeArrayOfNull(child_type, in_array.length * list_size, ctx->memory_pool()));
+      cast_values = null_values->data();
+    } else {
+      const auto* offsets = in_array.GetValues<src_offset_type>(1);
+      if (in_array.GetNullCount() > 0 && !nulls_have_correct_length) {
+        // We need to fill in the null slots, so we'll use Take on the values.
+        ARROW_ASSIGN_OR_RAISE(auto indices, BuildTakeIndices(in_array, list_size, ctx));
+        ARROW_ASSIGN_OR_RAISE(auto take_result,
+                              Take(cast_values, Datum(indices),
+                                   TakeOptions::NoBoundsCheck(), ctx->exec_context()));
+        DCHECK(take_result.is_array());
+        cast_values = take_result.array();
+      } else if (offsets[0] != 0 || cast_values->length > in_array.length * list_size) {
+        // No nulls or nulls have correct length, but we need to slice the values
+        cast_values = cast_values->Slice(offsets[0], in_array.length * list_size);
+      }
     }
 
     out_array->child_data.emplace_back(std::move(cast_values));
