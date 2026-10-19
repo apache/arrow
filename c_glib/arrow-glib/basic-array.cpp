@@ -128,12 +128,12 @@ G_BEGIN_DECLS
  * string data. If you don't have Arrow format data, you need to
  * use #GArrowLargeStringArrayBuilder to create a new array.
  *
- * #GArrayBinaryViewArray is a class for variable-size binary view array.
+ * #GArrowBinaryViewArray is a class for variable-size binary view array.
  * It can store zero or more binary view data. If you don't have Arrow
  * format data, you need to use #GArrowBinaryViewArrayBuilder to create
  * a new array.
  *
- * #GArrayStringViewArray is a class for variable-size string view array.
+ * #GArrowStringViewArray is a class for variable-size string view array.
  * It can store zero or more string view data. If you don't have Arrow
  * format data, you need to use #GArrowStringViewArrayBuilder to create
  * a new array.
@@ -4139,6 +4139,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::RUN_END_ENCODED:
     type = GARROW_TYPE_RUN_END_ENCODED_ARRAY;
+    break;
+  case arrow::Type::type::STRING_VIEW:
+    type = GARROW_TYPE_STRING_VIEW_ARRAY;
     break;
   case arrow::Type::type::BINARY_VIEW:
     type = GARROW_TYPE_BINARY_VIEW_ARRAY;
