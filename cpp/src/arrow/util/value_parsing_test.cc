@@ -722,6 +722,10 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversionFails(type, "1970-01-01 00:00:00-00000");
     AssertConversionFails(type, "1970-01-01 00:00:00+2400");
     AssertConversionFails(type, "1970-01-01 00:00:00+00:99");
+    AssertConversionFails(type, "1970-01-01 00:00:00+00:00:60");
+    AssertConversionFails(type, "1970-01-01 00:00:00+000060");
+    AssertConversionFails(type, "1970-01-01 00:00:00+240000");
+    AssertConversionFails(type, "1970-01-01 00:00:00+24:00:00");
   }
   {
     TimestampType type{TimeUnit::MILLI};
@@ -742,6 +746,10 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "2018-11-13 17:11:10.123-01", 1542129070123LL + 3600000LL);
     AssertConversion(type, "2018-11-13 17:11:10.123-0117", 1542129070123LL + 4620000LL);
     AssertConversion(type, "2018-11-13 17:11:10.123-01:17", 1542129070123LL + 4620000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123+004430", 1542129070123LL - 2670000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123+00:44:30", 1542129070123LL - 2670000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123-004430", 1542129070123LL + 2670000LL);
+    AssertConversion(type, "2018-11-13 17:11:10.123-00:44:30", 1542129070123LL + 2670000LL);
 
     // Invalid subseconds
     AssertConversionFails(type, "1900-02-28 12:34:56.1234");

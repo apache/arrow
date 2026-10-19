@@ -2041,6 +2041,12 @@ TEST_F(ScalarTemporalTest, Strftime) {
   CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
+  auto options_ez = StrftimeOptions("%Y-%m-%dT%H:%M:%S%Ez");
+  const char* string_microseconds_ez = R"(
+      ["1970-01-01T05:30:59.123456+05:30", null])";
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
+                   utf8(), string_microseconds_ez, &options_ez);
+
   auto options_hms = StrftimeOptions("%H:%M:%S");
   auto options_ymdhms = StrftimeOptions("%Y-%m-%dT%H:%M:%S");
 
@@ -2095,6 +2101,15 @@ TEST_F(ScalarTemporalTest, Strftime) {
       Invalid,
       testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
       Strftime(arr_ns, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr_s, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Ez")));
+  auto arr_ts = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
+      Strftime(arr_ts, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Ez")));
 
   auto options_ymd = StrftimeOptions("%Y-%m-%d");
 
@@ -2123,6 +2138,10 @@ TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
 
   CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), seconds, utf8(), seconds,
                    &options_default);
+  auto options_empty = StrftimeOptions("");
+  const char* empty_strings = R"(["", null])";
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), seconds, utf8(),
+                   empty_strings, &options_empty);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
@@ -2169,6 +2188,12 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
                    utf8(), string_microseconds, &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
+
+  auto options_ez = StrftimeOptions("%Y-%m-%dT%H:%M:%S%Ez");
+  const char* string_microseconds_ez = R"(
+      ["1970-01-01T05:30:59.123456+05:30", null])";
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
+                   utf8(), string_microseconds_ez, &options_ez);
 
   CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_locale_specific, &options_locale_specific);
