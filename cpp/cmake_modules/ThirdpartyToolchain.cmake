@@ -371,7 +371,7 @@ endmacro()
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
 
-set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
+set(THIRDPARTY_DIR "${ARROW_SOURCE_DIR}/thirdparty")
 
 add_library(arrow::flatbuffers INTERFACE IMPORTED)
 target_include_directories(arrow::flatbuffers
