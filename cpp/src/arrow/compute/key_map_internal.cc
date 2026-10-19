@@ -628,7 +628,11 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
     int64_t new_total = static_cast<int64_t>(num_inserted_) +
                         static_cast<int64_t>(num_ids);
 
-    // Find the smallest log_blocks whose load-factor capacity >= new_total.
+    // Find the smallest log_blocks whose load-factor capacity strictly exceeds
+    // new_total (one above the exact count). Using a strict greater-than avoids a
+    // corner case where capacity == new_total would still let map_new_keys_helper
+    // trigger an out_of_capacity stop (which fires when num_inserted_ == num_groups_limit).
+    //
     // Mirrors num_groups_for_resize():
     //   small tables (log_blocks <= 9): 50% load factor
     //   large tables (log_blocks > 9):  75% load factor
@@ -641,22 +645,20 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
       } else {
         capacity = num_slots * 3 / 4;
       }
-      if (capacity >= new_total) break;
+      if (capacity > new_total) break;
       ++target_log_blocks;
     }
 
-    // Only grow if the pre-grow actually saves work: more than one grow_double would
-    // otherwise be required.  A single grow_double is cheap enough.
-    // We also avoid pre-growing when the table is already reasonably large to keep the
-    // heuristic focused on the "many new keys, small table" scenario.
+    // Only pre-grow if it actually saves work: more than one grow_double would
+    // otherwise be required.  A single grow_double is cheap enough to keep the
+    // fast path untouched.
     int grows_needed = target_log_blocks - log_blocks_;
     if (grows_needed > 1) {
       for (int i = 0; i < grows_needed; ++i) {
         RETURN_NOT_OK(grow_double());
       }
-      // Recompute starting slot ids after the batched grow.
-      // init_slot_ids_for_new_keys must be called after any resize because the mapping
-      // between hashes and slot ids changes when log_blocks_ changes.
+      // init_slot_ids_for_new_keys below will recompute starting slot ids using the
+      // new log_blocks_, so no extra bookkeeping is needed here.
     }
   }
 
