@@ -3144,6 +3144,73 @@ TEST(TestArrowReadWrite, ManySmallLists) {
                        default_arrow_writer_properties());
 }
 
+TEST(TestArrowReadWrite, SingleRowRepeatedSmallPageSize) {
+  // GH-54533: When writing a repeated column with a single row / small page size,
+  // the writer must not emit an empty leading data page, and the reader must
+  // handle data pages without prematurely terminating the column chunk.
+  auto list_type = ::arrow::list(::arrow::boolean());
+  auto array = ArrayFromJSON(list_type, "[[true]]");
+  auto field = ::arrow::field("c0", list_type);
+  auto schema = ::arrow::schema({field});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props = WriterProperties::Builder()
+                          .data_pagesize(64)
+                          ->data_page_version(ParquetDataPageVersion::V2)
+                          ->build();
+  CheckConfiguredRoundtrip(table, table, writer_props);
+}
+
+TEST(TestArrowReadWrite, LastRowGroupSingleRowRepeatedSmallPageSize) {
+  // GH-54533: Last row group holding a single repeated record.
+  auto list_type = ::arrow::list(::arrow::boolean());
+  auto array = ArrayFromJSON(list_type, "[[true], [false], [true]]");
+  auto field = ::arrow::field("c0", list_type);
+  auto schema = ::arrow::schema({field});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props = WriterProperties::Builder()
+                          .data_pagesize(64)
+                          ->data_page_version(ParquetDataPageVersion::V2)
+                          ->build();
+  std::shared_ptr<Table> actual_table;
+  DoRoundtrip(table, /*row_group_size=*/2, &actual_table, writer_props);
+  ::arrow::AssertTablesEqual(*table, *actual_table);
+}
+
+TEST(TestArrowReadWrite, ListDictionarySmallPageSize) {
+  // GH-54533: Dictionary encoding with very small data page size.
+  auto list_type = ::arrow::list(::arrow::int32());
+  auto array = ArrayFromJSON(list_type, "[[1], [2], [3]]");
+  auto field = ::arrow::field("c0", list_type);
+  auto schema = ::arrow::schema({field});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props = WriterProperties::Builder().data_pagesize(4)->build();
+  std::shared_ptr<Table> actual_table;
+  DoRoundtrip(table, /*row_group_size=*/2, &actual_table, writer_props);
+  ::arrow::AssertTablesEqual(*table, *actual_table);
+}
+
+TEST(TestArrowReadWrite, MultiColumnRepeatedSmallPageSize) {
+  // GH-54533: Two columns where one is repeated and page size is small.
+  auto list_type = ::arrow::list(::arrow::boolean());
+  auto f0 = ::arrow::field("id", ::arrow::int64());
+  auto f1 = ::arrow::field("c0", list_type);
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(::arrow::int64(), "[1]");
+  auto a1 = ArrayFromJSON(list_type, "[[true]]");
+  auto table = Table::Make(
+      schema, {std::make_shared<ChunkedArray>(a0), std::make_shared<ChunkedArray>(a1)});
+
+  auto writer_props = WriterProperties::Builder()
+                          .data_pagesize(64)
+                          ->data_page_version(ParquetDataPageVersion::V2)
+                          ->build();
+  CheckConfiguredRoundtrip(table, table, writer_props);
+}
+
 TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   // See ARROW-1974
   using ::arrow::ArrayFromVector;
