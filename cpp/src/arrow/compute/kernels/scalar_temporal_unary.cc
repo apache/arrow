@@ -1198,6 +1198,28 @@ Result<std::locale> GetLocale(const std::string& locale) {
   }
 }
 
+// Check if format string contains %z, %Ez, or (optionally) %Z
+static inline bool FormatHasZone(std::string_view format, bool include_zone_name = true) {
+  size_t cur = 0;
+  size_t count = 0;
+  while (cur + 1 < format.size()) {
+    if (format[cur] == '%') {
+      count++;
+      if (count % 2 == 1) {
+        if (format[cur + 1] == 'z' ||
+            (include_zone_name && format[cur + 1] == 'Z') ||
+            (format[cur + 1] == 'E' && cur + 2 < format.size() && format[cur + 2] == 'z')) {
+          return true;
+        }
+      }
+    } else {
+      count = 0;
+    }
+    cur++;
+  }
+  return false;
+}
+
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
@@ -1215,8 +1237,7 @@ struct Strftime {
     const auto& timezone = GetInputTimezone(type);
 
     if (timezone.empty()) {
-      if ((options.format.find("%z") != std::string::npos) ||
-          (options.format.find("%Z") != std::string::npos)) {
+      if (FormatHasZone(options.format, /*include_zone_name=*/true)) {
         return Status::Invalid(
             "Timezone not present, cannot convert to string with timezone: ",
             options.format);
@@ -1262,23 +1283,7 @@ struct Strftime {
 // Convert string representations of timestamps in arbitrary format to timestamps
 
 const std::string GetZone(const std::string& format) {
-  // Check for use of %z or %Z
-  size_t cur = 0;
-  size_t count = 0;
-  std::string zone = "";
-  while (cur < format.size() - 1) {
-    if (format[cur] == '%') {
-      count++;
-      if (format[cur + 1] == 'z' && count % 2 == 1) {
-        zone = "UTC";
-        break;
-      }
-    } else {
-      count = 0;
-    }
-    cur++;
-  }
-  return zone;
+  return FormatHasZone(format, /*include_zone_name=*/false) ? "UTC" : "";
 }
 
 template <typename Duration, typename InType>
