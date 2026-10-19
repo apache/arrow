@@ -1262,16 +1262,19 @@ struct Strftime {
 // Convert string representations of timestamps in arbitrary format to timestamps
 
 const std::string GetZone(const std::string& format) {
-  // Check for use of %z or %Z
+  // Check for use of %z or %Ez
   size_t cur = 0;
   size_t count = 0;
   std::string zone = "";
   while (cur < format.size() - 1) {
     if (format[cur] == '%') {
       count++;
-      if (format[cur + 1] == 'z' && count % 2 == 1) {
-        zone = "UTC";
-        break;
+      if (count % 2 == 1) {
+        if (format[cur + 1] == 'z' ||
+            (format[cur + 1] == 'E' && cur + 2 < format.size() && format[cur + 2] == 'z')) {
+          zone = "UTC";
+          break;
+        }
       }
     } else {
       count = 0;
