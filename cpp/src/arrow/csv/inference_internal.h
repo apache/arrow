@@ -129,7 +129,7 @@ class InferStatus {
       case InferKind::Date:
         return make_date_time_converter(date32());
       case InferKind::Time:
-        return make_converter(time32(TimeUnit::SECOND));
+        return make_date_time_converter(time32(TimeUnit::SECOND));
       case InferKind::Timestamp:
         return make_converter(timestamp(TimeUnit::SECOND));
       case InferKind::TimestampNS:

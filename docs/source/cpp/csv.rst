@@ -348,20 +348,24 @@ values afterwards using the ``assume_timezone`` compute function.
 |                   |     2021-01-01T00:00:00Z     |                   |
 +-------------------+------------------------------+-------------------+
 
-Date parsing
-------------
+Date and time parsing
+---------------------
 
-Columns explicitly typed as date32 or date64 are parsed from the ISO-8601
-format (e.g. ``2021-01-01``).  If a value fails to parse as such, the
-user-defined parsers in :member:`ConvertOptions::timestamp_parsers` are then
-tried in order.  A timestamp produced by such a parser is floored to the day
-boundary, like casting a timestamp to a date type.  For example, with the
-parser ``"%m/%d/%Y %H:%M"``, the value ``03/15/2020 14:30`` in a date32 column
-yields ``2020-03-15``.  Parsers that cannot produce a date are skipped: for
-example, ``"%H:%M:%S"`` is not tried for date columns.
+Columns explicitly typed as date32, date64, time32 or time64 are parsed
+from the ISO-8601 formats (e.g. ``2021-01-01`` and ``01:23:45``,
+respectively).  If a value fails to parse as such, the user-defined parsers
+in :member:`ConvertOptions::timestamp_parsers` are then tried in order.
+A timestamp produced by such a parser is floored to the day boundary for
+dates, and reduced to the time of day for times, like casting a timestamp
+to a date or time type.  For example, with the parser ``"%m/%d/%Y %H:%M"``,
+the value ``03/15/2020 14:30`` in a date32 column yields ``2020-03-15``.
+Parsers that cannot produce the column's kind of value are skipped: for
+example, ``"%H:%M:%S"`` is not tried for date columns and ``"%d-%b-%y"`` is
+not tried for time columns, and a date-only ISO-8601 value is rejected in a
+time column.
 
-Type inference of date columns always uses the ISO-8601 format only,
-regardless of :member:`ConvertOptions::timestamp_parsers`.
+Type inference of date and time columns always uses the ISO-8601 formats
+only, regardless of :member:`ConvertOptions::timestamp_parsers`.
 
 Nulls
 -----

@@ -1202,6 +1202,28 @@ class BaseCSVTableRead(BaseTestCSV):
         table = self.read_bytes(rows, convert_options=opts)
         assert table.schema == pa.schema([('a', pa.timestamp('s'))])
 
+    def test_times_with_timestamp_parsers(self):
+        # Custom timestamp parsers are used as a fallback for explicitly-typed
+        # time columns (GH-41488, GH-54651)
+        from datetime import time
+
+        rows = b"a,b\n7:55:00,12:01:02\n23:59:59,0:00:01\n"
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.time32('s'), 'b': pa.time64('us')}
+        with pytest.raises(pa.ArrowInvalid,
+                           match="CSV conversion error to time"):
+            self.read_bytes(rows, convert_options=opts)
+
+        opts.timestamp_parsers = ['%H:%M:%S']
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.time32('s')),
+                            ('b', pa.time64('us'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [time(7, 55, 0), time(23, 59, 59)],
+            'b': [time(12, 1, 2), time(0, 0, 1)],
+        }
+
     def test_times(self):
         # Times are inferred as time32[s] by default
         from datetime import time

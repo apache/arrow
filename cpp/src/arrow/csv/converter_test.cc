@@ -673,6 +673,73 @@ TEST(Time32Conversion, Millis) {
   AssertConversionError(type, {"23:59:60\n"}, {0});
 }
 
+TEST(Time32Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+
+  // Test a single parser, with non-zero-padded hours
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"7:55:00,12:01:02\n"},
+                                        {{28500}, {43262}}, options);
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::MILLI), {"7:55:00\n"},
+                                        {{28500000}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"07:55:00,7:55:00\n"},
+                                        {{28500}, {28500}}, options);
+
+  // The time of day is extracted from parsed timestamps, also before the epoch
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%Y-%m-%d %H:%M"));
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND),
+                                        {"2020-03-15 07:55,1945-05-08 07:55\n"},
+                                        {{28500}, {28500}}, options);
+
+  // Test errors
+  AssertConversionError(time32(TimeUnit::SECOND), {"24:00:00\n"}, {0}, options);
+
+  // Fractional seconds are kept for times, but rejected when the time unit
+  // cannot represent them
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Time32Type, int32_t>(
+      time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5\n"}, {{28500500}}, options);
+  AssertConversionError(time32(TimeUnit::SECOND), {"2020-03-15 07:55:00.5\n"}, {0},
+                        options);
+  AssertConversionError(time32(TimeUnit::MILLI), {"2020-03-15 07:55:00.5000\n"}, {0},
+                        options);
+
+  // A second fractional part, or a zone offset after the fractional part, is
+  // rejected rather than parsed as part of the value (a second fraction also
+  // produced times of day out of range)
+  AssertConversionError(time32(TimeUnit::MILLI),
+                        {"2020-03-15 14:30:00.5.5,2020-03-15 23:59:59.9.9,"
+                         "2020-03-15 14:30:00.5Z,2020-03-15 14:30:00.5+05,"
+                         "2020-03-15 14:30:00.5+0530,2020-03-15T14:30:00.5+05:30\n"},
+                        {0, 1, 2, 3, 4, 5}, options);
+  AssertConversionError(time64(TimeUnit::MICRO), {"2020-03-15 14:30:00.5.5\n"}, {0},
+                        options);
+  AssertConversionError(time64(TimeUnit::NANO), {"2020-03-15 14:30:00.5.5\n"}, {0},
+                        options);
+
+  // Leap seconds are rejected, as without parsers, rather than wrapped into the
+  // next minute
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversionError(time32(TimeUnit::SECOND), {"23:59:60,12:30:60\n"}, {0, 1},
+                        options);
+
+  // Parsers that cannot produce a time are not tried, and date-only ISO-8601
+  // values are rejected, so that a date does not silently become midnight
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%d-%b-%y"),
+                               TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time32Type, int32_t>(time32(TimeUnit::SECOND), {"7:55:00\n"},
+                                        {{28500}}, options);
+  AssertConversionError(time32(TimeUnit::SECOND), {"15-OCT-15\n"}, {0}, options);
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversionError(time32(TimeUnit::SECOND), {"2020-03-15\n"}, {0}, options);
+
+  // A format with only AM/PM has no hour, so it is not tried for times
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%p")};
+  AssertConversionError(time32(TimeUnit::SECOND), {"PM\n"}, {0}, options);
+}
+
 TEST(Time64Conversion, Micros) {
   const auto type = time64(TimeUnit::MICRO);
 
@@ -697,6 +764,44 @@ TEST(Time64Conversion, Nanos) {
 
   AssertConversionError(type, {"24:00\n"}, {0});
   AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, UserDefinedParsers) {
+  auto options = ConvertOptions::Defaults();
+
+  // Test a single parser, with non-zero-padded hours
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%H:%M:%S")};
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::MICRO), {"7:55:00\n"},
+                                        {{28500000000LL}}, options);
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO), {"7:55:00\n"},
+                                        {{28500000000000LL}}, options);
+
+  // ISO-8601 values are still accepted when parsers are given
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::MICRO), {"07:55:00.123456\n"},
+                                        {{28500123456LL}}, options);
+
+  // Test errors
+  AssertConversionError(time64(TimeUnit::MICRO), {"24:00:00\n"}, {0}, options);
+
+  // The time of day is extracted without overflow near the minimum of
+  // nanosecond timestamps (1677-09-21 00:12:43.145224192), and before the epoch
+  options.timestamp_parsers = {TimestampParser::MakeISO8601()};
+  AssertConversion<Time64Type, int64_t>(time64(TimeUnit::NANO),
+                                        {"1677-09-21 00:12:44,1969-12-31 23:59:59\n"},
+                                        {{764000000000LL}, {86399000000000LL}}, options);
+
+  // The time of day is extracted from dates outside the range of nanosecond
+  // timestamps, with and without fractional seconds
+  AssertConversion<Time64Type, int64_t>(
+      time64(TimeUnit::NANO),
+      {"9999-12-31 07:55:00,1600-01-01 07:55:00,9999-12-31 07:55:00.123456789,"
+       "1600-01-01 07:55:00.5\n"},
+      {{28500000000000LL}, {28500000000000LL}, {28500123456789LL}, {28500500000000LL}},
+      options);
+  options.timestamp_parsers = {TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S")};
+  AssertConversion<Time64Type, int64_t>(
+      time64(TimeUnit::NANO), {"9999-12-31 07:55:00,1600-01-01 07:55:00\n"},
+      {{28500000000000LL}, {28500000000000LL}}, options);
 }
 
 TEST(TimestampConversion, Basics) {
