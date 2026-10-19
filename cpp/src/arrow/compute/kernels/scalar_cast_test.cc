@@ -3450,6 +3450,26 @@ TEST(Cast, StringToString) {
   }
 }
 
+TEST(Cast, BinaryViewToBinaryNullViewSize) {
+  // Views under a null bit are undefined and may hold a negative size; it must
+  // not shrink the output data buffer.
+  auto json = R"(["foofoofoofoofoo", null, "barbarbarbarbarbarbar"])";
+  for (auto from_type : {utf8_view(), binary_view()}) {
+    auto data = ArrayFromJSON(from_type, json)->data()->Copy();
+    ASSERT_OK_AND_ASSIGN(data->buffers[1],
+                         data->buffers[1]->CopySlice(0, data->buffers[1]->size()));
+    data->GetMutableValues<BinaryViewType::c_type>(1)[1].inlined.size = -36;
+    auto from = MakeArray(data);
+    ASSERT_OK(from->ValidateFull());
+
+    for (auto to_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+      ASSERT_OK_AND_ASSIGN(auto out, Cast(*from, to_type));
+      ValidateOutput(*out);
+      AssertArraysEqual(*ArrayFromJSON(to_type, json), *out, /*verbose=*/true);
+    }
+  }
+}
+
 TEST(Cast, StringToStringWithOffset) {
   // GH-43660: Check casting String Arrays with nonzero offset
   std::vector<int64_t> offsets = {3, 8, 10, 12};

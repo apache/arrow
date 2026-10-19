@@ -367,8 +367,14 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   OffsetBuilder offset_builder(ctx->memory_pool());
   RETURN_NOT_OK(offset_builder.Reserve(input.length + 1));
   offset_builder.UnsafeAppend(0);  // offsets start at 0
-  const int64_t sum_of_binary_view_sizes = util::SumOfBinaryViewSizes(
-      input.GetValues<BinaryViewType::c_type>(1), input.length);
+  // Null views are undefined and may hold any size, so only sum the valid ones
+  const auto* views = input.GetValues<BinaryViewType::c_type>(1);
+  int64_t sum_of_binary_view_sizes = 0;
+  arrow::internal::VisitSetBitRunsVoid(
+      input.buffers[0].data, input.offset, input.length,
+      [&](int64_t position, int64_t length) {
+        sum_of_binary_view_sizes += util::SumOfBinaryViewSizes(views + position, length);
+      });
   DataBuilder data_builder(ctx->memory_pool());
   RETURN_NOT_OK(data_builder.Reserve(sum_of_binary_view_sizes));
   VisitArraySpanInline<I>(
