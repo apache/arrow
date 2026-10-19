@@ -216,7 +216,7 @@ update_deb_package_names() {
         ${target} \
         $(echo ${target} | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
     done
-    local deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
+    local deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet)[-a-z0-9]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
     rm -f debian*/control*.bak
     git add debian*/control*
