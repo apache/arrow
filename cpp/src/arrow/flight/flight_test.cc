@@ -1525,8 +1525,6 @@ TEST_F(TestCountingServerMiddleware, Count) {
   ASSERT_EQ(1, request_counter_->failed_);
 }
 
-// GH-34865: headers for GetFlightInfo are also gathered after the handler
-// runs, so middleware can send headers depending on the handler's state.
 TEST_F(TestHandlerStateServerMiddleware, GetFlightInfo) {
   ASSERT_OK(client_->GetFlightInfo(FlightDescriptor::Command("")));
   ASSERT_THAT(client_middleware_->values_, ::testing::ElementsAre("true"));

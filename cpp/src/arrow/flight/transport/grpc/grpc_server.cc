@@ -276,8 +276,6 @@ class GrpcServiceHandler final : public FlightService::Service {
 
     std::unique_ptr<FlightInfo> info;
     auto res = impl_->base()->GetFlightInfo(flight_context, descr, &info);
-    // The middleware headers are gathered a second time after the handler ran so
-    // that middleware can send headers depending on the handler's state (GH-34865).
     helper_.AddMiddlewareHeaders(context, &flight_context);
     SERVICE_RETURN_NOT_OK(flight_context, res);
 
