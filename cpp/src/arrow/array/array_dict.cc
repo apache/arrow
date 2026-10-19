@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <climits>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -36,6 +37,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -187,9 +189,8 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   }
 
   // Default path: compute a buffer of transposed indices.
-  ARROW_ASSIGN_OR_RAISE(
-      auto out_buffer,
-      AllocateBuffer(data->length * (out_index_type.bit_width() / CHAR_BIT), pool));
+  const int64_t out_buffer_size = data->length * (out_index_type.bit_width() / CHAR_BIT);
+  ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(out_buffer_size, pool));
 
   // Shift null buffer if the original offset is non-zero
   std::shared_ptr<Buffer> null_bitmap;
@@ -203,10 +204,20 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   auto out_data = ArrayData::Make(out_type, data->length,
                                   {null_bitmap, std::move(out_buffer)}, data->null_count);
   out_data->dictionary = dictionary;
-  RETURN_NOT_OK(internal::TransposeInts(
-      in_index_type, out_index_type, data->GetValues<uint8_t>(1, 0),
-      out_data->GetMutableValues<uint8_t>(1, 0), data->offset, out_data->offset,
-      data->length, transpose_map));
+  const uint8_t* in_indices = data->GetValues<uint8_t>(1, 0);
+  uint8_t* out_indices = out_data->GetMutableValues<uint8_t>(1, 0);
+  // Indices under null slots are unspecified and may be out of bounds for
+  // transpose_map, so zero them and only transpose the valid runs.
+  if (data->MayHaveNulls()) {
+    std::memset(out_indices, 0, static_cast<size_t>(out_buffer_size));
+  }
+  RETURN_NOT_OK(internal::VisitSetBitRuns(data->buffers[0], data->offset, data->length,
+                                          [&](int64_t position, int64_t length) {
+                                            return internal::TransposeInts(
+                                                in_index_type, out_index_type, in_indices,
+                                                out_indices, data->offset + position,
+                                                position, length, transpose_map);
+                                          }));
   return out_data;
 }
 

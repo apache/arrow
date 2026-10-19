@@ -1439,6 +1439,36 @@ TEST(TestDictionary, TransposeNulls) {
   CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 }
 
+TEST(TestDictionary, TransposeNullsWithOutOfBoundsIndex) {
+  // Index values under null slots are not checked by ValidateFull(),
+  // so they must not be looked up in the transpose map.
+  auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
+  auto dict_type = dictionary(int32(), utf8());
+  auto valid_indices = ArrayFromJSON(int32(), "[1, null, 0, null]");
+  auto indices = MakeArray(ArrayData::Make(
+      int32(), 4,
+      {valid_indices->data()->buffers[0],
+       Buffer::FromVector(std::vector<int32_t>{1, 1 << 30, 0, -(1 << 30)})},
+      /*null_count=*/2));
+  auto arr = std::make_shared<DictionaryArray>(dict_type, indices, dict);
+  ASSERT_OK(arr->ValidateFull());
+
+  auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
+  std::vector<int32_t> transpose_map = {1, 3, 2};
+  CheckTranspose(arr, transpose_map.data(), dict_type, out_dict,
+                 ArrayFromJSON(int32(), "[3, null, 1, null]"));
+  CheckTranspose(arr->Slice(1, 2), transpose_map.data(), dict_type, out_dict,
+                 ArrayFromJSON(int32(), "[null, 1]"));
+
+  ASSERT_OK_AND_ASSIGN(auto compacted, arr->Compact());
+  ASSERT_OK(compacted->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      DictionaryArray::FromArrays(dict_type, ArrayFromJSON(int32(), "[1, null, 0, null]"),
+                                  ArrayFromJSON(utf8(), "[\"A\", \"B\"]")));
+  AssertArraysEqual(*compacted, *expected);
+}
+
 TEST(TestDictionary, ListOfDictionary) {
   std::unique_ptr<ArrayBuilder> root_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
