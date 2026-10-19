@@ -233,7 +233,7 @@ update_deb_package_names() {
         ${target} \
         $(echo ${target} | sed -e "s/${deb_gir_suffix}/${next_deb_gir_suffix}/")
     done
-    local deb_gir_suffix_substitute_pattern="s/(gir1\\.2-(arrow|gandiva|parquet)[-a-z]*)${deb_gir_suffix}/\\1${next_deb_gir_suffix}/g"
+    local deb_gir_suffix_substitute_pattern="s/(gir1\\.2-(arrow|gandiva|parquet)[-a-z0-9]*)${deb_gir_suffix}/\\1${next_deb_gir_suffix}/g"
     sed -i.bak -E -e "${deb_gir_suffix_substitute_pattern}" debian*/control*
     rm -f debian*/control*.bak
     git add debian*/control*
