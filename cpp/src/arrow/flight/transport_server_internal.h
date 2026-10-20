@@ -160,6 +160,12 @@ class ServerSignalHandler {
   std::thread handle_signals_;
 };
 
+// The signal handler (ServerSignalState::HandleSignal) only touches the
+// atomics below, so they must be always lock-free to be signal-safe.
+#if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
+#  error "atomic ints and atomic pointers not always lock-free!"
+#endif
+
 /// \brief Manages signal-driven graceful shutdown for server transports.
 ///
 /// Installs signal handlers for the given set of signals. When a signal is
