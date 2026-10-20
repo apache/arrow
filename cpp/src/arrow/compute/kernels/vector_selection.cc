@@ -29,6 +29,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -40,6 +41,7 @@
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
@@ -70,32 +72,51 @@ using TakeState = OptionsWrapper<TakeOptions>;
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
-std::shared_ptr<arrow::BooleanArray> MakeDropNullFilter(const Array& values) {
+int64_t DropNullCount(const Array& values) {
+  if (is_union(values.type_id())) {
+    return values.data()->MayHaveLogicalNulls() ? values.ComputeLogicalNullCount() : 0;
+  }
+  return values.null_count();
+}
+
+Result<std::shared_ptr<BooleanArray>> MakeDropNullFilter(const Array& values,
+                                                         ExecContext* ctx) {
+  if (is_union(values.type_id())) {
+    ARROW_ASSIGN_OR_RAISE(auto validity, IsValid(values, ctx));
+    return checked_pointer_cast<BooleanArray>(validity.make_array());
+  }
   auto& bitmap_buffer = values.null_bitmap();
   return std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
                                         values.offset());
 }
 
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
-  if (values->null_count() == 0) {
+  const auto null_count = DropNullCount(*values);
+  if (null_count == 0) {
     return values;
   }
-  if (values->null_count() == values->length()) {
+  if (null_count == values->length()) {
     return MakeEmptyArray(values->type(), ctx->memory_pool());
   }
   if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
   }
-  auto drop_null_filter = Datum{MakeDropNullFilter(*values)};
-  return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
+  ARROW_ASSIGN_OR_RAISE(auto drop_null_filter, MakeDropNullFilter(*values, ctx));
+  return Filter(values, Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
 
 Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
                                    ExecContext* ctx) {
-  if (values->null_count() == 0) {
+  auto null_count = values->null_count();
+  if (is_union(values->type()->id())) {
+    for (const auto& chunk : values->chunks()) {
+      null_count += DropNullCount(*chunk);
+    }
+  }
+  if (null_count == 0) {
     return values;
   }
-  if (values->null_count() == values->length()) {
+  if (null_count == values->length()) {
     return ChunkedArray::MakeEmpty(values->type(), ctx->memory_pool());
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
@@ -113,7 +134,7 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
   // Compute an upper bound of the final null count
   int64_t null_count = 0;
   for (const auto& column : batch->columns()) {
-    null_count += column->null_count();
+    null_count += DropNullCount(*column);
   }
   if (null_count == 0) {
     return batch;
@@ -126,7 +147,12 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
       bit_util::SetBitsTo(dst->mutable_data(), 0, batch->num_rows(), false);
       break;
     }
-    if (column->null_bitmap_data()) {
+    if (is_union(column->type_id())) {
+      ARROW_ASSIGN_OR_RAISE(auto validity, MakeDropNullFilter(*column, ctx));
+      ::arrow::internal::BitmapAnd(validity->values()->data(), validity->offset(),
+                                   dst->data(), 0, column->length(), 0,
+                                   dst->mutable_data());
+    } else if (column->null_bitmap_data()) {
       ::arrow::internal::BitmapAnd(column->null_bitmap_data(), column->offset(),
                                    dst->data(), 0, column->length(), 0,
                                    dst->mutable_data());
@@ -147,7 +173,7 @@ Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ct
   int64_t null_count = 0;
   for (const auto& col : table->columns()) {
     for (const auto& column_chunk : col->chunks()) {
-      null_count += column_chunk->null_count();
+      null_count += DropNullCount(*column_chunk);
     }
   }
   if (null_count == 0) {

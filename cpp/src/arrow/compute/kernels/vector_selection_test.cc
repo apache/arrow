@@ -2610,7 +2610,86 @@ TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
       [2, 111],
       [5, null]
     ])";
-    CheckDropNull(union_type, union_json, union_json);
+    auto expected_json = R"([
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      [2, 111]
+    ])";
+    CheckDropNull(union_type, union_json, expected_json);
+    CheckDropNull(union_type, expected_json, expected_json);
+    CheckDropNull(union_type, "[[2, null], [5, null]]", "[]");
+    CheckDropNull(union_type, "[]", "[]");
+
+    auto values = ArrayFromJSON(union_type, union_json);
+    AssertDropNullArrays(values->Slice(1, 5), ArrayFromJSON(union_type, expected_json));
+  }
+}
+
+TEST_F(TestDropNullKernelWithUnion, DropNullChunkedUnion) {
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto values = ArrayFromJSON(union_type,
+                                R"([[2, null], [2, 1], [5, null], [5, "x"], [2, null]])");
+    auto input = std::make_shared<ChunkedArray>(
+        ArrayVector{values->Slice(0, 1), values->Slice(1, 2), values->Slice(3, 2),
+                    values->Slice(5, 0)});
+    ASSERT_OK_AND_ASSIGN(auto actual, DropNull(input));
+    ValidateOutput(actual);
+    AssertChunkedEqual(
+        *ChunkedArrayFromJSON(union_type, {R"([[2, 1]])", R"([[5, "x"]])"}),
+        *actual.chunked_array());
+
+    auto all_null =
+        ChunkedArrayFromJSON(union_type, {R"([[2, null]])", R"([[5, null]])"});
+    ASSERT_OK_AND_ASSIGN(actual, DropNull(all_null));
+    ValidateOutput(actual);
+    ASSERT_EQ(actual.length(), 0);
+    ASSERT_TRUE(actual.type()->Equals(union_type));
+  }
+}
+
+TEST_F(TestDropNullKernelWithUnion, DropNullUnionRecordBatchAndTable) {
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto schm = schema({field("u", union_type), field("n", int32())});
+    auto input = RecordBatchFromJSON(schm, R"([
+      {"u": [2, null], "n": 0},
+      {"u": [2, 222], "n": 1},
+      {"u": [5, "hello"], "n": null},
+      {"u": [5, "eh"], "n": 3},
+      {"u": [2, null], "n": 4},
+      {"u": [2, 111], "n": 5},
+      {"u": [5, null], "n": 6}
+    ])");
+    auto expected = RecordBatchFromJSON(schm, R"([
+      {"u": [2, 222], "n": 1},
+      {"u": [5, "eh"], "n": 3},
+      {"u": [2, 111], "n": 5}
+    ])");
+    ASSERT_OK_AND_ASSIGN(auto actual, DropNull(input));
+    ValidateOutput(actual);
+    ASSERT_BATCHES_EQUAL(*expected, *actual.record_batch());
+
+    // Different chunk boundaries exercise the sliced union columns produced by
+    // TableBatchReader while combining union and ordinary validity.
+    auto unions = std::make_shared<ChunkedArray>(
+        ArrayVector{input->column(0)->Slice(0, 2), input->column(0)->Slice(2)});
+    auto numbers = std::make_shared<ChunkedArray>(
+        ArrayVector{input->column(1)->Slice(0, 4), input->column(1)->Slice(4)});
+    auto table = Table::Make(schm, {unions, numbers});
+    ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected}));
+    ASSERT_OK_AND_ASSIGN(actual, DropNull(table));
+    ValidateOutput(actual);
+    AssertTablesEqual(*expected_table, *actual.table(), /*same_chunk_layout=*/false);
+
+    // No physical validity bitmap is present when every column is a union.
+    auto union_only = Table::Make(schema({field("u", union_type)}), {unions});
+    ASSERT_OK_AND_ASSIGN(actual, DropNull(union_only));
+    ValidateOutput(actual);
+    ASSERT_EQ(actual.length(), 4);
   }
 }
 
