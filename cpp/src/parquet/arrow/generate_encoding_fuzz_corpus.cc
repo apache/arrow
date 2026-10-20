@@ -20,6 +20,7 @@
 // More details about the format in fuzz_encoding_internal.h.
 
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -130,6 +131,64 @@ Result<std::vector<DataWithEncodings>> SampleData() {
     }
   }
 
+  // Deliberately crafted value distributions that exercise encoder/decoder
+  // fast and slow paths: sorted runs (DELTA_BINARY_PACKED), constants (RLE
+  // runs), decimal fractions (ALP), and high-cardinality strings (dictionary
+  // encoding).
+  {
+    auto from_int64_values =
+        [](std::vector<int64_t> values) -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(
+          auto buffer, AllocateBuffer(static_cast<int64_t>(values.size()) *
+                                      static_cast<int64_t>(sizeof(int64_t))));
+      std::memcpy(buffer->mutable_data(), values.data(),
+                  values.size() * sizeof(int64_t));
+      auto data = ArrayData::Make(int64(), static_cast<int64_t>(values.size()),
+                                  {nullptr, std::move(buffer)}, /*null_count=*/0);
+      return MakeArray(data);
+    };
+
+    std::vector<int64_t> ascending(1000);
+    std::vector<int64_t> descending(1000);
+    std::vector<int64_t> constant(1000, 123456789);
+    for (int64_t i = 0; i < 1000; ++i) {
+      ascending[i] = i;
+      descending[i] = -i * 7919;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto ascending_arr, from_int64_values(std::move(ascending)));
+    push_array(std::move(ascending_arr));
+    ARROW_ASSIGN_OR_RAISE(auto descending_arr, from_int64_values(std::move(descending)));
+    push_array(std::move(descending_arr));
+    ARROW_ASSIGN_OR_RAISE(auto constant_arr, from_int64_values(std::move(constant)));
+    push_array(std::move(constant_arr));
+
+    // Decimal fractions with few significant digits are exactly representable
+    // and compress well with ALP.
+    std::vector<double> alp(1000);
+    for (int64_t i = 0; i < 1000; ++i) {
+      alp[i] = (i % 1000) * 0.01;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto alp_buffer,
+                          AllocateBuffer(static_cast<int64_t>(alp.size()) *
+                                         static_cast<int64_t>(sizeof(double))));
+    std::memcpy(alp_buffer->mutable_data(), alp.data(), alp.size() * sizeof(double));
+    auto alp_data =
+        ArrayData::Make(float64(), static_cast<int64_t>(alp.size()),
+                        {nullptr, std::move(alp_buffer)}, /*null_count=*/0);
+    push_array(MakeArray(alp_data));
+
+    // High-cardinality strings (contrast with BinaryWithRepeats above).
+    push_array(rag.String(500, /*min_length=*/8, /*max_length=*/16,
+                          /*null_probability=*/0.0));
+  }
+
+  // Tiny pages, to exercise boundary paths in the encoders and decoders.
+  push_array(rag.Int32(1, /*min=*/0, /*max=*/10));
+  push_array(rag.Int64(2, /*min=*/0, /*max=*/1'000));
+  push_array(rag.Boolean(1, /*true_probability=*/0.5));
+  push_array(rag.Float64(2, /*min=*/-1.0, /*max=*/1.0));
+  push_array(rag.FixedSizeBinary(1, /*byte_width=*/3));
+
   return all_data;
 }
 
@@ -166,10 +225,14 @@ Status DoMain(const std::string& out_dir) {
 
   auto write_sample = [&](Encoding::type source_encoding,
                           Encoding::type roundtrip_encoding, FullParquetType type,
-                          const BufferVector& buffers) -> Status {
+                          const BufferVector& buffers,
+                          const std::string& suffix = "") -> Status {
     std::stringstream ss;
     ss << type.ToString() << "-" << ::parquet::EncodingToString(source_encoding) << "-"
        << ::parquet::EncodingToString(roundtrip_encoding);
+    if (!suffix.empty()) {
+      ss << "-" << suffix;
+    }
     ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_file_name(ss.str())));
     std::cerr << sample_fn.ToString() << std::endl;
     ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
@@ -202,6 +265,26 @@ Status DoMain(const std::string& out_dir) {
         RETURN_NOT_OK(
             write_sample(source_encoding, roundtrip_encoding, data.pq_type, buffers));
       }
+    }
+
+    // Dictionary roundtrip variants: the payload stays PLAIN-encoded, but the
+    // header instructs the fuzzer to also roundtrip the decoded reference
+    // values through the dictionary encoders/decoders.
+    {
+      BufferVector buffers;
+      FuzzEncodingHeader header(
+          Encoding::PLAIN, Encoding::PLAIN, &descr, /*num_values=*/
+          static_cast<int>(data.values->length() - data.values->null_count()),
+          /*use_dictionary=*/true);
+      buffers.push_back(Buffer::FromString(header.Serialize()));
+      BEGIN_PARQUET_CATCH_EXCEPTIONS
+      auto encoder = ::parquet::MakeEncoder(data.pq_type.type, Encoding::PLAIN,
+                                            /*use_dictionary=*/false, &descr);
+      encoder->Put(*data.values);
+      buffers.push_back(encoder->FlushValues());
+      END_PARQUET_CATCH_EXCEPTIONS
+      RETURN_NOT_OK(write_sample(Encoding::PLAIN, Encoding::PLAIN, data.pq_type, buffers,
+                                 /*suffix=*/"dict"));
     }
   }
 

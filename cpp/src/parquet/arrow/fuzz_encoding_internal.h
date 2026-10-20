@@ -60,11 +60,16 @@ struct FuzzEncodingHeader {
   int32_t type_length;
   /// The number of encoded values
   int32_t num_values;
+  /// Whether to also roundtrip the decoded values through the dictionary
+  /// encoders/decoders (in addition to `roundtrip_encoding`)
+  bool use_dictionary;
 
   FuzzEncodingHeader(Encoding::type source_encoding, Encoding::type roundtrip_encoding,
-                     Type::type type, int type_length, int num_values);
+                     Type::type type, int type_length, int num_values,
+                     bool use_dictionary = false);
   FuzzEncodingHeader(Encoding::type source_encoding, Encoding::type roundtrip_encoding,
-                     const ColumnDescriptor* descr, int num_values);
+                     const ColumnDescriptor* descr, int num_values,
+                     bool use_dictionary = false);
 
   /// Serialize as a fixed size header for fuzz corpus generation
   std::string Serialize() const;

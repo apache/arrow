@@ -18,6 +18,7 @@
 #include "parquet/arrow/fuzz_encoding_internal.h"
 
 #include <string.h>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -69,6 +70,10 @@ namespace {
 
 constexpr auto kPackedEncodingHeaderSize = 64;
 
+/// Header flag: roundtrip the decoded values through the dictionary
+/// encoders/decoders as well.
+constexpr uint8_t kFuzzEncodingFlagDictionary = 1;
+
 ARROW_PACKED_START(struct, PackedEncodingHeader) {
   ARROW_PACKED_START(struct, Header) {
     uint8_t source_encoding_id;
@@ -76,10 +81,11 @@ ARROW_PACKED_START(struct, PackedEncodingHeader) {
     uint8_t type_id;
     int32_t type_length;
     int32_t num_values;
+    uint8_t flags;
   };
   ARROW_PACKED_END
 
-  static_assert(sizeof(Header) == 3 * 1 + 2 * 4);
+  static_assert(sizeof(Header) == 3 * 1 + 2 * 4 + 1);
   using Reserved = std::array<uint8_t, kPackedEncodingHeaderSize - sizeof(Header)>;
 
   Header header;
@@ -93,18 +99,21 @@ static_assert(sizeof(PackedEncodingHeader) == kPackedEncodingHeaderSize);
 
 FuzzEncodingHeader::FuzzEncodingHeader(Encoding::type source_encoding,
                                        Encoding::type roundtrip_encoding, Type::type type,
-                                       int type_length, int num_values)
+                                       int type_length, int num_values,
+                                       bool use_dictionary)
     : source_encoding(source_encoding),
       roundtrip_encoding(roundtrip_encoding),
       type(type),
       type_length(type_length),
-      num_values(num_values) {}
+      num_values(num_values),
+      use_dictionary(use_dictionary) {}
 
 FuzzEncodingHeader::FuzzEncodingHeader(Encoding::type source_encoding,
                                        Encoding::type roundtrip_encoding,
-                                       const ColumnDescriptor* descr, int num_values)
+                                       const ColumnDescriptor* descr, int num_values,
+                                       bool use_dictionary)
     : FuzzEncodingHeader(source_encoding, roundtrip_encoding, descr->physical_type(),
-                         descr->type_length(), num_values) {}
+                         descr->type_length(), num_values, use_dictionary) {}
 
 std::string FuzzEncodingHeader::Serialize() const {
   PackedEncodingHeader packed{};
@@ -113,6 +122,7 @@ std::string FuzzEncodingHeader::Serialize() const {
   packed.header.type_id = static_cast<uint8_t>(type);
   packed.header.type_length = type_length;
   packed.header.num_values = num_values;
+  packed.header.flags = use_dictionary ? kFuzzEncodingFlagDictionary : 0;
   return std::string(reinterpret_cast<const char*>(&packed), kPackedEncodingHeaderSize);
 }
 
@@ -134,6 +144,9 @@ std::string FuzzEncodingHeader::Serialize() const {
     return invalid_payload();
   }
   const auto& ph = packed.header;
+  if (ph.flags & ~kFuzzEncodingFlagDictionary) {
+    return invalid_payload();
+  }
   if (ph.source_encoding_id >= static_cast<uint8_t>(Encoding::UNDEFINED) ||
       ph.roundtrip_encoding_id >= static_cast<uint8_t>(Encoding::UNDEFINED) ||
       ph.type_id >= static_cast<uint8_t>(Type::UNDEFINED)) {
@@ -142,7 +155,8 @@ std::string FuzzEncodingHeader::Serialize() const {
   FuzzEncodingHeader header(static_cast<Encoding::type>(ph.source_encoding_id),
                             static_cast<Encoding::type>(ph.roundtrip_encoding_id),
                             static_cast<Type::type>(ph.type_id), ph.type_length,
-                            ph.num_values);
+                            ph.num_values,
+                            (ph.flags & kFuzzEncodingFlagDictionary) != 0);
   if (!IsEncodingSupported(header.type, header.source_encoding) ||
       !IsEncodingSupported(header.type, header.roundtrip_encoding)) {
     return invalid_payload();
@@ -187,12 +201,13 @@ struct TypedFuzzEncoding {
 
   TypedFuzzEncoding(Encoding::type source_encoding, Encoding::type roundtrip_encoding,
                     const ColumnDescriptor* descr, int num_values,
-                    std::span<const uint8_t> encoded_data)
+                    std::span<const uint8_t> encoded_data, bool use_dictionary = false)
       : source_encoding_(source_encoding),
         roundtrip_encoding_(roundtrip_encoding),
         descr_(descr),
         num_values_(num_values),
-        encoded_data_(encoded_data) {}
+        encoded_data_(encoded_data),
+        use_dictionary_(use_dictionary) {}
 
   // Decoders of string-like types return pointers into the
   // decoder's internal scratch space, which get invalidated on the
@@ -211,6 +226,41 @@ struct TypedFuzzEncoding {
     // of physical values.
     decoder->SetData(num_values_, encoded_data.data(),
                      static_cast<int>(encoded_data.size()));
+    while (total_values < num_values_) {
+      const int read_size = std::min(num_values_ - total_values, chunk_size);
+      PoolVector<c_type> chunk_values(pool());
+      BEGIN_CATCH_BAD_ALLOC
+      chunk_values.resize(read_size);
+      END_CATCH_BAD_ALLOC
+      int values_read;
+      if constexpr (kType == Type::BOOLEAN) {
+        values_read =
+            decoder->Decode(reinterpret_cast<bool*>(chunk_values.data()), read_size);
+      } else {
+        values_read = decoder->Decode(chunk_values.data(), read_size);
+      }
+      ARROW_CHECK_LE(values_read, read_size);
+      RETURN_NOT_OK(func(total_values, std::span(chunk_values).first(values_read)));
+      total_values += values_read;
+      if (values_read < chunk_size) {
+        break;
+      }
+    }
+    if (total_values < num_values_) {
+      return Status::Invalid("Read less values than expected");
+    }
+    END_PARQUET_CATCH_EXCEPTIONS
+    return Status::OK();
+  }
+
+  // Same as RunOnDecodedChunks, but with a decoder that has already been
+  // prepared (i.e. SetData() has already been called on it). This is required
+  // for decoders that need extra setup, such as dictionary decoders.
+  Status RunOnPreparedDecoderChunks(
+      TypedDecoder<DType>* decoder, int chunk_size,
+      std::function<Status(int offset, std::span<const c_type>)> func) {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    int total_values = 0;
     while (total_values < num_values_) {
       const int read_size = std::min(num_values_ - total_values, chunk_size);
       PoolVector<c_type> chunk_values(pool());
@@ -284,6 +334,64 @@ struct TypedFuzzEncoding {
     return output;
   }
 
+  // Roundtrip the reference values through the dictionary encoders and
+  // decoders, which the regular encoding matrix above does not cover.
+  // The dictionary page is fed through a PLAIN decoder in between, mirroring
+  // how a real Parquet reader consumes a dictionary page.
+  Status FuzzDictionaryRoundtrip() {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN_DICTIONARY,
+                                           /*use_dictionary=*/true, descr_, pool());
+    auto* dict_encoder = dynamic_cast<DictEncoder<DType>*>(encoder.get());
+    if (dict_encoder == nullptr) {
+      // Dictionary encoding is not available for this type
+      return Status::OK();
+    }
+    if constexpr (arrow_supported()) {
+      dict_encoder->Put(*reference_array_);
+    } else {
+      return Status::OK();
+    }
+
+    // Write out the dictionary page
+    const int dict_size = dict_encoder->dict_encoded_size();
+    PoolVector<uint8_t> dict_buffer(pool());
+    BEGIN_CATCH_BAD_ALLOC
+    dict_buffer.resize(dict_size);
+    END_CATCH_BAD_ALLOC
+    dict_encoder->WriteDict(dict_buffer.data());
+
+    // Write out the indices page
+    const auto indices_capacity =
+        std::max<int64_t>(dict_encoder->EstimatedDataEncodedSize(), 16);
+    PoolVector<uint8_t> indices_buffer(pool());
+    BEGIN_CATCH_BAD_ALLOC
+    indices_buffer.resize(indices_capacity);
+    END_CATCH_BAD_ALLOC
+    const int indices_size = dict_encoder->WriteIndices(
+        indices_buffer.data(), static_cast<int>(indices_buffer.size()));
+    ARROW_CHECK_GE(indices_size, 0);
+
+    // Decode the dictionary page with a PLAIN decoder, as a real reader does
+    auto dict_page_decoder = MakeDecoder(Encoding::PLAIN);
+    dict_page_decoder->SetData(dict_encoder->num_entries(), dict_buffer.data(),
+                               dict_size);
+
+    auto dict_decoder = MakeDictDecoder<DType>(descr_, pool());
+    dict_decoder->SetDict(dict_page_decoder.get());
+    dict_decoder->SetData(num_values_, indices_buffer.data(), indices_size);
+
+    auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
+      return CompareChunkAgainstReference(offset, chunk_values);
+    };
+    for (const int chunk_size : chunk_sizes()) {
+      RETURN_NOT_OK(RunOnPreparedDecoderChunks(dict_decoder.get(), chunk_size,
+                                               compare_chunk));
+    }
+    END_PARQUET_CATCH_EXCEPTIONS
+    return Status::OK();
+  }
+
   Status Fuzz() {
     // Decode using source encoding
     if constexpr (arrow_supported()) {
@@ -334,6 +442,22 @@ struct TypedFuzzEncoding {
     // OOM when attempting to roundtrip is not a hard failure, any other error is.
     if (!roundtrip_status.IsOutOfMemory()) {
       ARROW_CHECK_OK(roundtrip_status);
+    }
+
+    // Optionally roundtrip the reference values through the dictionary
+    // encoders/decoders as well, which is not exercised by the regular
+    // encoding matrix above.
+    if (use_dictionary_) {
+      if constexpr (arrow_supported()) {
+        if (num_values_ > 0) {
+          Status dict_status = FuzzDictionaryRoundtrip();
+          // OOM when attempting to roundtrip is not a hard failure, any other
+          // error is.
+          if (!dict_status.IsOutOfMemory()) {
+            ARROW_CHECK_OK(dict_status);
+          }
+        }
+      }
     }
     return roundtrip_status;
   }
@@ -490,6 +614,7 @@ struct TypedFuzzEncoding {
   const Encoding::type source_encoding_, roundtrip_encoding_;
   const ColumnDescriptor* descr_;
   const int num_values_;
+  const bool use_dictionary_;
   const std::span<const uint8_t> encoded_data_;
 
   std::shared_ptr<Array> reference_array_;
@@ -521,7 +646,8 @@ FuzzStatus FuzzEncoding(const uint8_t* data, int64_t size) {
   auto typed_fuzz = [&](auto* dtype) {
     using DType = std::decay_t<decltype(*dtype)>;
     TypedFuzzEncoding<DType> typed_fuzz{header.source_encoding, header.roundtrip_encoding,
-                                        &descr, header.num_values, encoded_data};
+                                        &descr, header.num_values, encoded_data,
+                                        header.use_dictionary};
     return typed_fuzz.Fuzz();
   };
   RETURN_NOT_OK(VisitType(header.type, typed_fuzz));
