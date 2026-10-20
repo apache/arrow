@@ -1074,6 +1074,7 @@ def test_file_format_pickling(pickle_module):
     formats = [
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
+        ds.CsvFileFormat(pa.csv.ParseOptions(pad_short_rows=True)),
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
                                              ignore_empty_lines=True)),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(

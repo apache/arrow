@@ -236,7 +236,8 @@ def test_parse_options(pickle_module):
                         double_quote=[True, False],
                         newlines_in_values=[False, True],
                         ignore_empty_lines=[True, False],
-                        invalid_row_handler=[None, skip_handler])
+                        invalid_row_handler=[None, skip_handler],
+                        pad_short_rows=[False, True])
 
     check_options_class_pickling(cls, pickler=pickle_module,
                                  delimiter='x',
@@ -245,7 +246,8 @@ def test_parse_options(pickle_module):
                                  double_quote=False,
                                  newlines_in_values=True,
                                  ignore_empty_lines=False,
-                                 invalid_row_handler=skip_handler)
+                                 invalid_row_handler=skip_handler,
+                                 pad_short_rows=True)
 
     cls().validate()
     opts = cls()
@@ -292,7 +294,8 @@ def test_parse_options(pickle_module):
     escape_char='\r',
     newlines_in_values=False,
     ignore_empty_lines=True,
-    invalid_row_handler=None"""
+    invalid_row_handler=None,
+    pad_short_rows=False"""
 
     assert repr(opts) == f"<pyarrow.csv.ParseOptions>({expected_repr_inner})"
     assert str(opts) == f"ParseOptions({expected_repr_inner})"
@@ -764,6 +767,49 @@ class BaseTestCSV(abc.ABC):
         assert table.to_pydict() == {
             'a': ["d", "i"],
             'b': ["e", "j"],
+        }
+
+    def test_pad_short_rows(self):
+        # Default behavior: error on short rows
+        rows = b"a,b,c\n1,2,3\n4,5\n6\n"
+        with pytest.raises(ValueError, match="Expected 3 columns, got 2: 4,5"):
+            self.read_bytes(rows, parse_options=ParseOptions(pad_short_rows=False))
+
+        # Pad short rows with nulls
+        table = self.read_bytes(rows, parse_options=ParseOptions(pad_short_rows=True))
+        assert table.to_pydict() == {
+            "a": ["1", "4", "6"],
+            "b": ["2", "5", None],
+            "c": ["3", None, None],
+        }
+
+        # Pad short rows with explicit column names
+        rows_no_header = b"1,2,3\n4,5\n6\n"
+        read_opts = ReadOptions(column_names=["x", "y", "z"])
+        table = self.read_bytes(
+            rows_no_header,
+            read_options=read_opts,
+            parse_options=ParseOptions(pad_short_rows=True),
+        )
+        assert table.to_pydict() == {
+            "x": ["1", "4", "6"],
+            "y": ["2", "5", None],
+            "z": ["3", None, None],
+        }
+
+        # Pad short rows with typed converters
+        convert_opts = ConvertOptions(
+            column_types={"a": pa.int64(), "b": pa.float64(), "c": pa.string()}
+        )
+        table = self.read_bytes(
+            rows,
+            convert_options=convert_opts,
+            parse_options=ParseOptions(pad_short_rows=True),
+        )
+        assert table.to_pydict() == {
+            "a": [1, 4, 6],
+            "b": [2.0, 5.0, None],
+            "c": ["3", None, None],
         }
 
     def test_chunker_out_of_sync(self):
