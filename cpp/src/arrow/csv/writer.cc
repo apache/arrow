@@ -512,10 +512,15 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       return Status::Invalid("Null string cannot contain quotes.");
     }
 
+    const std::string null_string_value =
+        schema->num_fields() == 1 && options.null_string.empty() &&
+                options.quoting_style != QuotingStyle::None
+            ? std::string(R"("")")
+            : options.null_string;
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
-                          arrow::AllocateBuffer(options.null_string.length()));
-    memcpy(null_string->mutable_data(), options.null_string.data(),
-           options.null_string.length());
+                          arrow::AllocateBuffer(null_string_value.length()));
+    memcpy(null_string->mutable_data(), null_string_value.data(),
+           null_string_value.length());
 
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     std::string delimiter(1, options.delimiter);
