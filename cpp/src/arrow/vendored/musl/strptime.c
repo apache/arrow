@@ -17,7 +17,7 @@
 
 #undef HAVE_LANGINFO
 
-#if !defined(_WIN32) && !defined(ARROW_TEST_FALLBACK_LANGINFO)
+#ifndef _WIN32
 #define HAVE_LANGINFO 1
 #endif
 
@@ -25,8 +25,10 @@
 #include <langinfo.h>
 #else
 // C-locale replacement for nl_langinfo(), restricted to the items used below.
-// The constants follow the glibc/musl layout that the symbolic_range loop
-// relies on: full names directly follow the abbreviated ones.
+// The values are those of the POSIX locale (LC_TIME in POSIX.1, chapter 7),
+// as in musl's own C locale (c_time in src/locale/langinfo.c), and in the
+// same order, which the symbolic_range loop relies on: full names directly
+// follow the abbreviated ones.
 enum { ABDAY_1 = 0, DAY_1 = 7, ABMON_1 = 14, MON_1 = 26, AM_STR = 38, PM_STR = 39,
 	D_T_FMT = 40, D_FMT = 41, T_FMT = 42, T_FMT_AMPM = 43 };
 static const char *arrow_c_langinfo[] = {
