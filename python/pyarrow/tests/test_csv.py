@@ -300,6 +300,18 @@ def test_parse_options(pickle_module):
     assert repr(opts) == f"<pyarrow.csv.ParseOptions>({expected_repr_inner})"
     assert str(opts) == f"ParseOptions({expected_repr_inner})"
 
+    # Verify backward compatibility with legacy 7-element state
+    legacy_state = (',', '"', True, False, False, True, None)
+    opts_legacy = ParseOptions()
+    opts_legacy.__setstate__(legacy_state)
+    assert opts_legacy.pad_short_rows is False
+    assert opts_legacy.delimiter == ','
+    assert opts_legacy.quote_char == '"'
+
+    # Verify equality differentiation
+    assert ParseOptions() != ParseOptions(pad_short_rows=True)
+    assert ParseOptions() == ParseOptions(pad_short_rows=False)
+
 
 def test_convert_options(pickle_module):
     cls = ConvertOptions
@@ -775,12 +787,36 @@ class BaseTestCSV(abc.ABC):
         with pytest.raises(ValueError, match="Expected 3 columns, got 2: 4,5"):
             self.read_bytes(rows, parse_options=ParseOptions(pad_short_rows=False))
 
-        # Pad short rows with nulls
+        # Pad short rows with nulls (inferred as int64)
         table = self.read_bytes(rows, parse_options=ParseOptions(pad_short_rows=True))
         assert table.to_pydict() == {
-            "a": ["1", "4", "6"],
-            "b": ["2", "5", None],
-            "c": ["3", None, None],
+            "a": [1, 4, 6],
+            "b": [2, 5, None],
+            "c": [3, None, None],
+        }
+
+        # Pad short rows with string values
+        rows_str = b"a,b,c\nfoo,bar,baz\nqux,quux\ncorge\n"
+        table_str = self.read_bytes(
+            rows_str, parse_options=ParseOptions(pad_short_rows=True)
+        )
+        assert table_str.to_pydict() == {
+            "a": ["foo", "qux", "corge"],
+            "b": ["bar", "quux", None],
+            "c": ["baz", None, None],
+        }
+
+        # Missing trailing fields vs explicitly empty trailing fields
+        rows_empty = b"a,b,c\nfoo,bar,baz\nqux,quux,\ncorge\n"
+        table_empty = self.read_bytes(
+            rows_empty,
+            parse_options=ParseOptions(pad_short_rows=True),
+            convert_options=ConvertOptions(strings_can_be_null=False),
+        )
+        assert table_empty.to_pydict() == {
+            "a": ["foo", "qux", "corge"],
+            "b": ["bar", "quux", None],
+            "c": ["baz", "", None],
         }
 
         # Pad short rows with explicit column names
@@ -792,9 +828,9 @@ class BaseTestCSV(abc.ABC):
             parse_options=ParseOptions(pad_short_rows=True),
         )
         assert table.to_pydict() == {
-            "x": ["1", "4", "6"],
-            "y": ["2", "5", None],
-            "z": ["3", None, None],
+            "x": [1, 4, 6],
+            "y": [2, 5, None],
+            "z": [3, None, None],
         }
 
         # Pad short rows with typed converters
@@ -811,6 +847,19 @@ class BaseTestCSV(abc.ABC):
             "b": [2.0, 5.0, None],
             "c": ["3", None, None],
         }
+
+        # Rows with excess columns still raise error when ignore_extra_columns=False
+        rows_extra = b"a,b\n1,2\n3,4,5\n"
+        with pytest.raises(ValueError, match="Expected 2 columns, got 3"):
+            self.read_bytes(rows_extra, parse_options=ParseOptions(pad_short_rows=True))
+
+        # Header-only input
+        rows_header = b"a,b,c\n"
+        table_header = self.read_bytes(
+            rows_header, parse_options=ParseOptions(pad_short_rows=True)
+        )
+        assert table_header.schema.names == ["a", "b", "c"]
+        assert table_header.num_rows == 0
 
     def test_chunker_out_of_sync(self):
         # GH-39892: if there are newlines in values, the parser may become
