@@ -1889,7 +1889,7 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status DoWrite(const void* data, int64_t nbytes,
-                 std::shared_ptr<Buffer> owned_buffer = nullptr) {
+                 const std::shared_ptr<Buffer>& owned_buffer = nullptr) {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
@@ -2067,7 +2067,7 @@ class ObjectOutputStream final : public io::OutputStream {
         "PutObject", outcome.GetError());
   }
 
-  Status UploadUsingSingleRequest(std::shared_ptr<Buffer> buffer) {
+  Status UploadUsingSingleRequest(const std::shared_ptr<Buffer>& buffer) {
     return UploadUsingSingleRequest(buffer->data(), buffer->size(), buffer);
   }
 
@@ -2099,7 +2099,7 @@ class ObjectOutputStream final : public io::OutputStream {
         data, nbytes, std::move(owned_buffer));
   }
 
-  Status UploadPart(std::shared_ptr<Buffer> buffer) {
+  Status UploadPart(const std::shared_ptr<Buffer>& buffer) {
     return UploadPart(buffer->data(), buffer->size(), buffer);
   }
 

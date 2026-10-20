@@ -45,7 +45,8 @@ void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,
 
 class DatasetFactoryTest : public TestFileSystemDataset {
  public:
-  void AssertInspect(std::shared_ptr<Schema> expected, InspectOptions options = {}) {
+  void AssertInspect(const std::shared_ptr<Schema>& expected,
+                     InspectOptions options = {}) {
     ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(options));
     EXPECT_EQ(*actual, *expected);
   }

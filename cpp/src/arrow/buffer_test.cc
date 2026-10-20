@@ -87,7 +87,8 @@ class MyDevice : public Device {
 
 class MyMemoryManager : public MemoryManager {
  public:
-  explicit MyMemoryManager(std::shared_ptr<Device> device) : MemoryManager(device) {}
+  explicit MyMemoryManager(const std::shared_ptr<Device>& device)
+      : MemoryManager(device) {}
 
   bool allow_copy() const {
     return checked_cast<const MyDevice&>(*device()).allow_copy();
@@ -135,7 +136,7 @@ class MyBuffer : public Buffer {
   MyBuffer(std::shared_ptr<MemoryManager> mm, const std::shared_ptr<Buffer>& parent)
       : Buffer(parent->data(), parent->size()) {
     parent_ = parent;
-    SetMemoryManager(mm);
+    SetMemoryManager(std::move(mm));
   }
 };
 

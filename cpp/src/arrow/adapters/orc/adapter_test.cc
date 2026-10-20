@@ -103,7 +103,7 @@ std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
 }
 
 std::shared_ptr<Array> CastFixedSizeBinaryArrayToBinaryArray(
-    std::shared_ptr<Array> array) {
+    const std::shared_ptr<Array>& array) {
   auto fixed_size_binary_array = checked_pointer_cast<FixedSizeBinaryArray>(array);
   std::shared_ptr<Buffer> value_offsets = GenerateFixedDifferenceBuffer(
       fixed_size_binary_array->byte_width(), array->length() + 1);
@@ -114,7 +114,7 @@ std::shared_ptr<Array> CastFixedSizeBinaryArrayToBinaryArray(
 
 template <typename TargetArrayType>
 std::shared_ptr<Array> CastInt64ArrayToTemporalArray(
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array> array) {
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& array) {
   std::shared_ptr<ArrayData> new_array_data =
       ArrayData::Make(type, array->length(), array->data()->buffers);
   return std::make_shared<TargetArrayType>(new_array_data);
@@ -128,7 +128,7 @@ Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
 }
 
 Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(
-    int64_t size, std::shared_ptr<TimestampType> type, double null_probability) {
+    int64_t size, const std::shared_ptr<TimestampType>& type, double null_probability) {
   random::RandomArrayGenerator rand(kRandomSeed);
   switch (type->unit()) {
     case TimeUnit::type::SECOND: {
@@ -1049,7 +1049,7 @@ namespace {
 // read them back and compare equality in the unit test). Because the orc reader
 // fills unselected values to nulls when reading from the file. So flattening
 // the SparseUnionArray before writing makes it easy for the array equality check.
-std::shared_ptr<Array> FlattenSparseUnionArray(std::shared_ptr<Array> array) {
+std::shared_ptr<Array> FlattenSparseUnionArray(const std::shared_ptr<Array>& array) {
   auto union_array = checked_pointer_cast<SparseUnionArray>(array);
   ArrayVector children;
   for (int i = 0; i < array->num_fields(); ++i) {
@@ -1061,7 +1061,7 @@ std::shared_ptr<Array> FlattenSparseUnionArray(std::shared_ptr<Array> array) {
                                             union_array->type_codes(), array->offset());
 }
 
-void TestUnionConversion(std::shared_ptr<Array> array) {
+void TestUnionConversion(const std::shared_ptr<Array>& array) {
   auto length = array->length();
   auto orc_type = liborc::Type::buildTypeFromString("uniontype<string,int>");
 

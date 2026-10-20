@@ -345,7 +345,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
 template <>
 class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter {
  public:
-  ConcreteRecordBatchColumnSorter(std::shared_ptr<Array> array, SortOrder order,
+  ConcreteRecordBatchColumnSorter(const std::shared_ptr<Array>& array, SortOrder order,
                                   NullPlacement null_placement,
                                   RecordBatchColumnSorter* next_column = nullptr)
       : RecordBatchColumnSorter(next_column), null_placement_(null_placement) {}

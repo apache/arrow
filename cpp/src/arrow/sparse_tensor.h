@@ -245,8 +245,8 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
       std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
-    return Make(indices_type, indices_type, indptr_shape, indices_shape, indptr_data,
-                indices_data);
+    return Make(indices_type, indices_type, indptr_shape, indices_shape,
+                std::move(indptr_data), std::move(indices_data));
   }
 
   /// \brief Make a subclass of SparseCSXIndex from sparse tensor's shape properties and
@@ -260,8 +260,8 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
                           ComputeSparseCSXIndptrLength(COMPRESSED_AXIS, shape));
     std::vector<int64_t> indptr_shape({indptr_length});
     std::vector<int64_t> indices_shape({non_zero_length});
-    return Make(indptr_type, indices_type, indptr_shape, indices_shape, indptr_data,
-                indices_data);
+    return Make(indptr_type, indices_type, indptr_shape, indices_shape,
+                std::move(indptr_data), std::move(indices_data));
   }
 
   /// \brief Make a subclass of SparseCSXIndex from sparse tensor's shape properties and
@@ -270,8 +270,8 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
       std::shared_ptr<Buffer> indices_data) {
-    return Make(indices_type, indices_type, shape, non_zero_length, indptr_data,
-                indices_data);
+    return Make(indices_type, indices_type, shape, non_zero_length,
+                std::move(indptr_data), std::move(indices_data));
   }
 
   /// \brief Construct SparseCSXIndex from two index vectors

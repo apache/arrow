@@ -37,7 +37,7 @@ namespace compute {
 constexpr int32_t kSeed = 0xfede4a7e;
 constexpr int64_t kScalarCount = 1 << 10;
 
-inline ScalarVector ToScalars(std::shared_ptr<Array> arr) {
+inline ScalarVector ToScalars(const std::shared_ptr<Array>& arr) {
   ScalarVector scalars{static_cast<size_t>(arr->length())};
   int64_t i = 0;
   for (auto& scalar : scalars) {

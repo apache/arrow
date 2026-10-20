@@ -1093,7 +1093,7 @@ std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& 
 // error fallback
 template <typename To>
 Result<std::shared_ptr<Scalar>> CastImpl(const Scalar& from,
-                                         std::shared_ptr<DataType> to_type) {
+                                         const std::shared_ptr<DataType>& to_type) {
   return Status::NotImplemented("casting scalars of type ", *from.type, " to type ",
                                 *to_type);
 }

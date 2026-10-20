@@ -28,8 +28,8 @@
 namespace arrow {
 namespace json {
 
-Result<std::shared_ptr<Array>> Convert(std::shared_ptr<DataType> type,
-                                       std::shared_ptr<Array> unconverted) {
+Result<std::shared_ptr<Array>> Convert(const std::shared_ptr<DataType>& type,
+                                       const std::shared_ptr<Array>& unconverted) {
   std::shared_ptr<Array> converted;
   // convert the array
   std::shared_ptr<Converter> converter;

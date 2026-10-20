@@ -335,7 +335,7 @@ struct ReadMessageState {
 // A common continuation callback for ReadMessage and ReadMessageAsync overloads
 static Result<std::unique_ptr<Message>> ReadMessageContinued(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
-    std::shared_ptr<Buffer> metadata, io::RandomAccessFile* file,
+    const std::shared_ptr<Buffer>& metadata, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader, ReadMessageState* state) {
   MessageDecoder* decoder = state->decoder.get();
   if (body_length.has_value()) {

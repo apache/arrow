@@ -520,7 +520,7 @@ class AsyncStatSelector {
   /// the producer is closed automatically.
   static Status DoDiscovery(const PlatformFilename& dir_fn, int32_t nesting_depth,
                             FileSelector selector,
-                            std::shared_ptr<DiscoveryState> discovery_state,
+                            const std::shared_ptr<DiscoveryState>& discovery_state,
                             const io::IOContext& io_context,
                             int32_t file_info_batch_size) {
     ARROW_RETURN_IF(discovery_state->producer.is_closed(),

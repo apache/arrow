@@ -104,7 +104,7 @@ std::shared_ptr<BoundaryFinder> MakeNewlineBoundaryFinder() {
 Chunker::~Chunker() {}
 
 Chunker::Chunker(std::shared_ptr<BoundaryFinder> delimiter)
-    : boundary_finder_(delimiter) {}
+    : boundary_finder_(std::move(delimiter)) {}
 
 Status Chunker::Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
                         std::shared_ptr<Buffer>* partial) {
