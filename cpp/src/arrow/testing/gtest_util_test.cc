@@ -38,6 +38,13 @@
 
 namespace arrow::util {
 
+TEST(TestAssertionReporting, ArrayEqualityFailure) {
+  // The exported helper must report to the same GoogleTest runtime as this test.
+  EXPECT_FATAL_FAILURE(
+      AssertArraysEqual(*ArrayFromJSON(int32(), "[1]"), *ArrayFromJSON(int32(), "[2]")),
+      "");
+}
+
 // Test basic cases for contains NaN.
 class TestAssertContainsNaN : public ::testing::Test {};
 
@@ -206,14 +213,11 @@ TEST(AssertTestWithinUlp, Basics) {
                   std::numeric_limits<double>::quiet_NaN(), 2);
   AssertWithinUlp(std::numeric_limits<Float16>::quiet_NaN(),
                   std::numeric_limits<Float16>::quiet_NaN(), 2);
-#ifndef _WIN32
-  // GH-47442
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.4567, 123.45670000000015, 10),
                        "not within 10 ulps");
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
   EXPECT_FATAL_FAILURE(AssertWithinUlp(Float16(123.456f), Float16(124.143501f), 10),
                        "not within 10 ulps");
-#endif
 }
 
 }  // namespace arrow::util
