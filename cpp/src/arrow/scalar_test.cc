@@ -585,6 +585,9 @@ TEST(TestRealScalarUlpDistance, Double) {
   // context.
   static auto options = EqualOptions::Defaults();
   AssertScalarsEqual(0.9999999999999988, 1.0000000000000007, options.ulp_distance(14));
+#if !defined(_WIN32) || defined(ARROW_TESTING_STATIC) || \
+    (defined(GTEST_LINKED_AS_SHARED_LIBRARY) && GTEST_LINKED_AS_SHARED_LIBRARY)
+  // GH-47442: A static GoogleTest runtime is separate in each Windows DLL.
   EXPECT_FATAL_FAILURE(AssertScalarsEqual(0.9999999999999988, 1.0000000000000007,
                                           options.ulp_distance(13)),
                        "");
@@ -596,11 +599,14 @@ TEST(TestRealScalarUlpDistance, Double) {
       AssertScalarsEqual(0.9999999999999988, std::numeric_limits<double>::quiet_NaN(),
                          options.ulp_distance(14).nans_equal(false)),
       "");
+#endif
 }
 
 TEST(TestRealScalarUlpDistance, Float) {
   static auto options = EqualOptions::Defaults();
   AssertScalarsEqual(123.456f, 123.456085f, options.ulp_distance(11));
+#if !defined(_WIN32) || defined(ARROW_TESTING_STATIC) || \
+    (defined(GTEST_LINKED_AS_SHARED_LIBRARY) && GTEST_LINKED_AS_SHARED_LIBRARY)
   EXPECT_FATAL_FAILURE(
       AssertScalarsEqual(123.456f, 123.456085f, options.ulp_distance(10)), "");
   EXPECT_FATAL_FAILURE(
@@ -611,11 +617,14 @@ TEST(TestRealScalarUlpDistance, Float) {
       AssertScalarsEqual(123.456f, std::numeric_limits<float>::quiet_NaN(),
                          options.ulp_distance(11).nans_equal(false)),
       "");
+#endif
 }
 
 TEST(TestRealScalarUlpDistance, HalfFloat) {
   static auto options = EqualOptions::Defaults();
   AssertScalarsEqual(Float16(1.00097656), Float16(0.999511719f), options.ulp_distance(2));
+#if !defined(_WIN32) || defined(ARROW_TESTING_STATIC) || \
+    (defined(GTEST_LINKED_AS_SHARED_LIBRARY) && GTEST_LINKED_AS_SHARED_LIBRARY)
   EXPECT_FATAL_FAILURE(AssertScalarsEqual(Float16(1.00097656), Float16(0.999511719f),
                                           options.ulp_distance(1)),
                        "");
@@ -627,6 +636,7 @@ TEST(TestRealScalarUlpDistance, HalfFloat) {
       AssertScalarsEqual(Float16(1.00097656), std::numeric_limits<Float16>::quiet_NaN(),
                          options.ulp_distance(2).nans_equal(false)),
       "");
+#endif
 }
 
 template <typename T>
