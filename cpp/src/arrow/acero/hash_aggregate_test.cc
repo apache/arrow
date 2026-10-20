@@ -956,6 +956,28 @@ TEST_P(GroupBy, SumMeanProductDecimal) {
   }
 }
 
+TEST_P(GroupBy, ProductDecimalScaleOutOfRange) {
+  // GH-54307: the product is rescaled by the decimal type's scale, which must be
+  // within [0, kMaxScale]
+  auto key = ArrayFromJSON(int64(), "[1, 2]");
+  for (const auto& [unscaled_type, max_scale] :
+       std::vector<std::pair<std::shared_ptr<DataType>, int32_t>>{
+           {decimal128(38, 0), 38}, {decimal256(76, 0), 76}}) {
+    auto unscaled = ArrayFromJSON(unscaled_type, R"(["2", "3"])");
+    for (int32_t scale : {-1, max_scale + 1}) {
+      ASSERT_OK_AND_ASSIGN(auto type,
+                           DecimalType::Make(unscaled_type->id(), max_scale, scale));
+      ASSERT_OK_AND_ASSIGN(auto values, unscaled->View(type));
+      for (bool use_threads : {true, false}) {
+        SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            NotImplemented, HasSubstr("scale outside"),
+            GroupByTest({values}, {key}, {{"hash_product", nullptr}}, use_threads));
+      }
+    }
+  }
+}
+
 TEST_P(GroupBy, MeanOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");

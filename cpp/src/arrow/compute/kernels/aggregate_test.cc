@@ -846,6 +846,23 @@ TEST(TestDecimalProductKernel, ScalarAggregateOptions) {
   }
 }
 
+TEST(TestDecimalProductKernel, ScaleOutOfRange) {
+  // GH-54307: the product is rescaled by the decimal type's scale, which must be
+  // within [0, kMaxScale]
+  for (const auto& [unscaled_type, max_scale] :
+       std::vector<std::pair<std::shared_ptr<DataType>, int32_t>>{
+           {decimal128(38, 0), 38}, {decimal256(76, 0), 76}}) {
+    auto unscaled = ArrayFromJSON(unscaled_type, R"(["2", "3"])");
+    for (int32_t scale : {-1, max_scale + 1}) {
+      ASSERT_OK_AND_ASSIGN(auto type,
+                           DecimalType::Make(unscaled_type->id(), max_scale, scale));
+      ASSERT_OK_AND_ASSIGN(auto values, unscaled->View(type));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          NotImplemented, ::testing::HasSubstr("scale outside"), Product(values));
+    }
+  }
+}
+
 TEST(TestProductKernel, Overflow) {
   EXPECT_THAT(Product(ArrayFromJSON(int64(), "[8589934592, 8589934593]")),
               ResultWith(Datum(static_cast<int64_t>(8589934592))));
