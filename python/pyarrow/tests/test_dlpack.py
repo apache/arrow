@@ -268,6 +268,8 @@ def immutable_tensor():
 
 @check_bytes_allocated
 @pytest.mark.parametrize('max_version', [None, (0, 8)])
+# Filter deprecation warning, already asserted in test_dlpack_legacy_capsule
+@pytest.mark.filterwarnings("ignore: Exporting an unversioned DLPack")
 def test_dlpack_legacy_capsule_immutable_tensor(max_version):
     tensor = immutable_tensor()
     with pytest.raises(NotImplementedError,
@@ -306,6 +308,7 @@ def test_dlpack_versioned_capsule(obj, max_version, copy):
 @requires_numpy_version("2.1.0")
 @check_bytes_allocated
 @pytest.mark.parametrize('obj', dlpack_objects())
+@pytest.mark.filterwarnings("ignore: Exporting an unversioned DLPack")
 def test_dlpack_versioned_roundtrip(obj):
     expected = np.from_dlpack(DLPackForwarder(obj, max_version=None))
     for copy in [None, False, True]:
@@ -331,28 +334,36 @@ def test_dlpack_copy_is_writeable():
     assert arr.to_pylist() == [1, 2, 3]
 
 
+def from_dlpack_split(obj):
+    if Version(np.__version__) < Version("2.1.0"):
+        max_version = None
+    else:
+        max_version = (1, 0)
+    return np.from_dlpack(DLPackForwarder(obj, max_version=max_version))
+
+
 def test_dlpack_not_supported():
     arr = pa.array([1, None, 3])
     with pytest.raises(TypeError, match="Can only use DLPack "
                        "on arrays with no nulls."):
-        np.from_dlpack(arr)
+        from_dlpack_split(arr)
 
     arr = pa.array(
         [[0, 1], [3, 4]],
         type=pa.list_(pa.int32())
     )
     with pytest.raises(TypeError, match="DataType is not compatible with DLPack spec"):
-        np.from_dlpack(arr)
+        from_dlpack_split(arr)
 
     arr = pa.array([])
     with pytest.raises(TypeError, match="DataType is not compatible with DLPack spec"):
-        np.from_dlpack(arr)
+        from_dlpack_split(arr)
 
     # DLPack doesn't support bit-packed boolean values
     arr = pa.array([True, False, True])
     with pytest.raises(TypeError, match="Bit-packed boolean data type "
                        "not supported by DLPack."):
-        np.from_dlpack(arr)
+        from_dlpack_split(arr)
 
 
 def test_dlpack_cuda_not_supported():
@@ -369,7 +380,7 @@ def test_dlpack_cuda_not_supported():
     # CudaBuffers not yet supported
     with pytest.raises(NotImplementedError, match="DLPack support is implemented "
                        "only for buffers on CPU device."):
-        np.from_dlpack(carr)
+        from_dlpack_split(carr)
 
     with pytest.raises(NotImplementedError, match="DLPack support is implemented "
                        "only for buffers on CPU device."):
