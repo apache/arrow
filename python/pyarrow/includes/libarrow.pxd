@@ -1627,6 +1627,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CIOContext(CStopToken)
         CIOContext(CMemoryPool*)
         CIOContext(CMemoryPool*, CStopToken)
+        CExecutor* executor() const
 
     CIOContext c_default_io_context "arrow::io::default_io_context"()
     int GetIOThreadPoolCapacity()
@@ -2202,7 +2203,7 @@ cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
     cdef cppclass CThreadPool "arrow::internal::ThreadPool"(CExecutor):
         @staticmethod
         CResult[shared_ptr[CThreadPool]] Make(int threads)
-        void WaitForIdle()
+        void WaitForIdle(CThreadPool& other)
 
     CThreadPool* GetCpuThreadPool()
 
