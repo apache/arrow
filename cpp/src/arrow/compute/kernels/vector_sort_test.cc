@@ -2341,6 +2341,477 @@ TEST_F(TestNestedSortIndices, SortRecordBatch) { TestSort(GetRecordBatch()); }
 TEST_F(TestNestedSortIndices, SortTable) { TestSort(GetTable()); }
 
 // ----------------------------------------------------------------------
+// Tests for dictionary sort keys in chunked arrays, record batches and tables
+
+std::shared_ptr<DataType> DecodedType(const std::shared_ptr<DataType>& type) {
+  if (type->id() == Type::DICTIONARY) {
+    return checked_cast<const DictionaryType&>(*type).value_type();
+  }
+  if (type->id() != Type::STRUCT) {
+    return type;
+  }
+  FieldVector fields;
+  for (const auto& f : type->fields()) {
+    fields.push_back(f->WithType(DecodedType(f->type())));
+  }
+  return struct_(std::move(fields));
+}
+
+// Decode dictionaries, recursing into struct children
+Result<std::shared_ptr<Array>> DecodeDictionaries(const std::shared_ptr<Array>& array) {
+  if (array->type_id() == Type::DICTIONARY) {
+    return DecodeDictionary(*array);
+  }
+  if (array->type_id() != Type::STRUCT) {
+    return array;
+  }
+  auto data = array->data()->Copy();
+  FieldVector fields;
+  for (size_t i = 0; i < data->child_data.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto child, DecodeDictionaries(MakeArray(data->child_data[i])));
+    fields.push_back(array->type()->field(static_cast<int>(i))->WithType(child->type()));
+    data->child_data[i] = child->data();
+  }
+  data->type = struct_(std::move(fields));
+  return MakeArray(std::move(data));
+}
+
+Result<std::shared_ptr<ChunkedArray>> DecodeDictionaries(const ChunkedArray& chunked) {
+  ArrayVector chunks;
+  for (const auto& chunk : chunked.chunks()) {
+    ARROW_ASSIGN_OR_RAISE(auto decoded, DecodeDictionaries(chunk));
+    chunks.push_back(std::move(decoded));
+  }
+  return ChunkedArray::Make(std::move(chunks), DecodedType(chunked.type()));
+}
+
+Result<Datum> DecodeDictionaries(const Datum& datum) {
+  switch (datum.kind()) {
+    case Datum::ARRAY:
+      return DecodeDictionaries(datum.make_array());
+    case Datum::CHUNKED_ARRAY:
+      return DecodeDictionaries(*datum.chunked_array());
+    case Datum::RECORD_BATCH: {
+      const auto& batch = *datum.record_batch();
+      ArrayVector columns;
+      FieldVector fields;
+      for (int i = 0; i < batch.num_columns(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto column, DecodeDictionaries(batch.column(i)));
+        fields.push_back(batch.schema()->field(i)->WithType(column->type()));
+        columns.push_back(std::move(column));
+      }
+      return RecordBatch::Make(schema(std::move(fields)), batch.num_rows(),
+                               std::move(columns));
+    }
+    case Datum::TABLE: {
+      const auto& table = *datum.table();
+      ChunkedArrayVector columns;
+      FieldVector fields;
+      for (int i = 0; i < table.num_columns(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto column, DecodeDictionaries(*table.column(i)));
+        fields.push_back(table.schema()->field(i)->WithType(column->type()));
+        columns.push_back(std::move(column));
+      }
+      return Table::Make(schema(std::move(fields)), std::move(columns), table.num_rows());
+    }
+    default:
+      return Status::NotImplemented("Cannot decode ", datum.ToString());
+  }
+}
+
+// Sort options over the given key names. All order/placement combinations are used for
+// up to two keys; beyond that, the combinations are applied uniformly and alternating.
+std::vector<SortOptions> DictionarySortOptions(const std::vector<FieldRef>& refs) {
+  std::vector<SortOptions> all_options;
+  if (refs.size() <= 2) {
+    std::vector<std::vector<SortKey>> prefixes = {{}};
+    for (const auto& ref : refs) {
+      std::vector<std::vector<SortKey>> extended;
+      for (const auto& prefix : prefixes) {
+        for (auto order : AllOrders()) {
+          for (auto null_placement : AllNullPlacements()) {
+            auto keys = prefix;
+            keys.emplace_back(ref, order, null_placement);
+            extended.push_back(std::move(keys));
+          }
+        }
+      }
+      prefixes = std::move(extended);
+    }
+    for (auto& keys : prefixes) {
+      all_options.emplace_back(std::move(keys));
+    }
+    return all_options;
+  }
+  for (auto order : AllOrders()) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (bool alternate : {false, true}) {
+        std::vector<SortKey> keys;
+        for (size_t i = 0; i < refs.size(); ++i) {
+          auto key_order = order;
+          if (alternate && i % 2 == 1) {
+            key_order = order == SortOrder::Ascending ? SortOrder::Descending
+                                                      : SortOrder::Ascending;
+          }
+          keys.emplace_back(refs[i], key_order, null_placement);
+        }
+        all_options.emplace_back(std::move(keys));
+      }
+    }
+  }
+  return all_options;
+}
+
+void AssertSortIndicesMatchDecoded(const Datum& input,
+                                   const std::vector<FieldRef>& refs) {
+  ASSERT_OK_AND_ASSIGN(auto decoded, DecodeDictionaries(input));
+  for (const auto& options : DictionarySortOptions(refs)) {
+    ARROW_SCOPED_TRACE("options = ", options.ToString());
+    ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("sort_indices", {input}, &options));
+    ValidateOutput(actual);
+    ASSERT_OK_AND_ASSIGN(auto expected,
+                         CallFunction("sort_indices", {decoded}, &options));
+    AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
+void AssertArraySortIndicesMatchDecoded(const Datum& input) {
+  ASSERT_OK_AND_ASSIGN(auto decoded, DecodeDictionaries(input));
+  for (auto order : AllOrders()) {
+    for (auto null_placement : AllNullPlacements()) {
+      ArraySortOptions options(order, null_placement);
+      ARROW_SCOPED_TRACE("options = ", options.ToString());
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           CallFunction("array_sort_indices", {input}, &options));
+      ValidateOutput(actual);
+      ASSERT_OK_AND_ASSIGN(auto expected,
+                           CallFunction("array_sort_indices", {decoded}, &options));
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+    }
+  }
+}
+
+class TestDictionarySortIndices : public ::testing::Test {
+ protected:
+  static std::shared_ptr<DataType> StringDictType() {
+    return dictionary(int32(), utf8());
+  }
+
+  // Chunks with distinct but overlapping dictionaries, a shared dictionary, null
+  // dictionary values without null indices, an empty chunk and an all-null chunk.
+  static std::shared_ptr<ChunkedArray> GetStringChunkedArray() {
+    auto type = StringDictType();
+    auto chunk0 = DictArrayFromJSON(type, "[0, 1, null, 2, 1]", R"(["b", "a", "c"])");
+    auto chunk1 = DictArrayFromJSON(type, "[3, 0, 1, 2, 3]", R"(["c", "d", "a", null])");
+    auto chunk2 = DictArrayFromJSON(type, "[]", R"(["e"])");
+    auto chunk3 = *DictionaryArray::FromArrays(
+        type, ArrayFromJSON(int32(), "[2, 0, 0]"),
+        checked_cast<const DictionaryArray&>(*chunk0).dictionary());
+    auto chunk4 = DictArrayFromJSON(type, "[null, null]", R"(["a", "z"])");
+    auto chunked = *ChunkedArray::Make({chunk0, chunk1, chunk2, chunk3, chunk4});
+    ARROW_CHECK_OK(chunked->ValidateFull());
+    return chunked;
+  }
+
+  // Float dictionaries carry NaNs, which must sort as null-like values rather than
+  // as the greatest value.
+  static std::shared_ptr<ChunkedArray> GetFloatChunkedArray() {
+    auto type = dictionary(int8(), float64());
+    auto chunk0 =
+        DictArrayFromJSON(type, "[0, 1, 2, 3, 4, 1, null]", "[1.0, NaN, 0.5, null, 2.0]");
+    auto chunk1 = DictArrayFromJSON(type, "[2, 0, 1, null, 2]", "[NaN, 2.0, -1.5]");
+    auto chunked = *ChunkedArray::Make({chunk0, chunk1});
+    ARROW_CHECK_OK(chunked->ValidateFull());
+    return chunked;
+  }
+
+  static std::shared_ptr<Array> RandomStringDictionary(random::RandomArrayGenerator& rng,
+                                                       int64_t length,
+                                                       int64_t dict_length) {
+    // Short strings so that separately generated dictionaries overlap
+    auto values = rng.StringWithRepeats(dict_length, /*unique=*/dict_length / 2 + 1,
+                                        /*min_length=*/0, /*max_length=*/2,
+                                        /*null_probability=*/0.1);
+    auto indices = rng.Int32(length, 0, static_cast<int32_t>(dict_length - 1),
+                             /*null_probability=*/0.1);
+    return *DictionaryArray::FromArrays(StringDictType(), indices, values);
+  }
+
+  static std::shared_ptr<Array> RandomFloatDictionary(random::RandomArrayGenerator& rng,
+                                                      int64_t length,
+                                                      int64_t dict_length) {
+    auto values = rng.Float64(dict_length, -2, 2, /*null_probability=*/0.1,
+                              /*nan_probability=*/0.1);
+    auto indices = rng.Int16(length, 0, static_cast<int16_t>(dict_length - 1),
+                             /*null_probability=*/0.1);
+    return *DictionaryArray::FromArrays(dictionary(int16(), float64()), indices, values);
+  }
+
+  // A batch with alternating dictionary and low-cardinality integer columns, so that
+  // ties on earlier keys are common.
+  static std::shared_ptr<RecordBatch> RandomBatch(random::RandomArrayGenerator& rng,
+                                                  int64_t length, int num_columns) {
+    FieldVector fields;
+    ArrayVector columns;
+    for (int i = 0; i < num_columns; ++i) {
+      std::shared_ptr<Array> column;
+      switch (i % 3) {
+        case 0:
+          column = RandomStringDictionary(rng, length, /*dict_length=*/6);
+          break;
+        case 1:
+          column = rng.Int32(length, 0, 2, /*null_probability=*/0.1);
+          break;
+        default:
+          column = RandomFloatDictionary(rng, length, /*dict_length=*/5);
+          break;
+      }
+      fields.push_back(field("f" + std::to_string(i), column->type()));
+      columns.push_back(std::move(column));
+    }
+    auto batch = RecordBatch::Make(schema(std::move(fields)), length, std::move(columns));
+    ARROW_CHECK_OK(batch->ValidateFull());
+    return batch;
+  }
+
+  static std::vector<FieldRef> ColumnRefs(const Schema& schema) {
+    std::vector<FieldRef> refs;
+    for (const auto& f : schema.fields()) {
+      refs.emplace_back(f->name());
+    }
+    return refs;
+  }
+};
+
+TEST_F(TestDictionarySortIndices, Array) {
+  for (const auto& chunked : {GetStringChunkedArray(), GetFloatChunkedArray()}) {
+    for (const auto& chunk : chunked->chunks()) {
+      ARROW_SCOPED_TRACE("chunk = ", chunk->ToString());
+      AssertArraySortIndicesMatchDecoded(chunk);
+      AssertSortIndicesMatchDecoded(chunk, {});
+    }
+  }
+}
+
+TEST_F(TestDictionarySortIndices, ChunkedArray) {
+  for (const auto& chunked : {GetStringChunkedArray(), GetFloatChunkedArray()}) {
+    ARROW_SCOPED_TRACE("type = ", chunked->type()->ToString());
+    AssertArraySortIndicesMatchDecoded(chunked);
+    AssertSortIndicesMatchDecoded(chunked, {});
+  }
+}
+
+TEST_F(TestDictionarySortIndices, EmptyChunkedArray) {
+  auto chunked = *ChunkedArray::Make({}, StringDictType());
+  AssertArraySortIndicesMatchDecoded(chunked);
+}
+
+TEST_F(TestDictionarySortIndices, ChunkedArrayExpected) {
+  // Spot-check against a hand-computed result. Decoded values:
+  //   ["b", "a", null, "c", "a" | null, "c", "d", "a", null | | "c", "b", "b" | null,
+  //   null]
+  auto chunked = GetStringChunkedArray();
+  ArraySortOptions options(SortOrder::Ascending, NullPlacement::AtEnd);
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       CallFunction("array_sort_indices", {chunked}, &options));
+  AssertDatumsEqual(ChunkedArrayFromJSON(
+                        uint64(), {"[1, 4, 8, 0, 11, 12, 3, 6, 10, 7, 2, 5, 9, 13, 14]"}),
+                    actual, /*verbose=*/true);
+}
+
+TEST_F(TestDictionarySortIndices, FloatNaN) {
+  // Regression test: NaNs used to be ranked as the greatest dictionary value
+  auto array = DictArrayFromJSON(dictionary(int32(), float64()), "[0, 1, 2, 3, 4]",
+                                 "[1.0, NaN, 0.5, null, 2.0]");
+  AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtEnd, "[2, 0, 4, 1, 3]");
+  AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[3, 1, 2, 0, 4]");
+  AssertSortIndices(array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[4, 0, 2, 1, 3]");
+  AssertSortIndices(array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[3, 1, 4, 0, 2]");
+}
+
+TEST_F(TestDictionarySortIndices, RecordBatch) {
+  auto dict_type = StringDictType();
+  auto schema = ::arrow::schema({field("d", dict_type), field("i", int32()),
+                                 field("f", dictionary(int8(), float64()))});
+  // Column "d" has null dictionary values but no null indices, so its null count as a
+  // DictionaryArray is zero.
+  auto d = DictArrayFromJSON(dict_type, "[0, 1, 2, 3, 0, 1, 2, 3]",
+                             R"(["b", null, "a", "b"])");
+  auto i = ArrayFromJSON(int32(), "[1, 2, 2, 0, 0, null, 1, 1]");
+  auto f = DictArrayFromJSON(dictionary(int8(), float64()), "[0, 1, 2, null, 1, 0, 2, 3]",
+                             "[NaN, 1.5, -1.0, NaN]");
+  auto batch = RecordBatch::Make(schema, 8, {d, i, f});
+  ASSERT_OK(batch->ValidateFull());
+
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("d"), FieldRef("i")});
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("i"), FieldRef("d")});
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("f"), FieldRef("d")});
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("d"), FieldRef("f")});
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("d")});
+
+  // Decoded "d": ["b", null, "a", "b", "b", null, "a", "b"]
+  SortOptions options({SortKey("d"), SortKey("i", SortOrder::Descending)});
+  AssertSortIndices(batch, options, "[2, 6, 0, 7, 3, 4, 1, 5]");
+}
+
+TEST_F(TestDictionarySortIndices, RecordBatchRandom) {
+  random::RandomArrayGenerator rng(/*seed=*/0x5eed);
+  // More keys than kMaxRadixSortKeys exercises MultipleKeyRecordBatchSorter
+  for (int num_columns : {2, 3, 9}) {
+    ARROW_SCOPED_TRACE("num_columns = ", num_columns);
+    auto batch = RandomBatch(rng, /*length=*/300, num_columns);
+    AssertSortIndicesMatchDecoded(batch, ColumnRefs(*batch->schema()));
+  }
+}
+
+TEST_F(TestDictionarySortIndices, Table) {
+  auto string_chunked = GetStringChunkedArray();
+  // Columns have different chunk boundaries, so TableBatchReader slices them to a
+  // common chunking.
+  auto float_type = dictionary(int8(), float64());
+  ASSERT_OK_AND_ASSIGN(
+      auto float_chunked,
+      ChunkedArray::Make(
+          {DictArrayFromJSON(float_type, "[0, 1]", "[NaN, 1.0]"),
+           DictArrayFromJSON(float_type, "[2, 0, 1, 3, null, 2, 1, 0, 3, 3]",
+                             "[1.0, NaN, 0.5, null]"),
+           DictArrayFromJSON(float_type, "[0, 1, 0]", "[2.0, -1.0]")}));
+  auto int_chunked = ChunkedArrayFromJSON(
+      int32(), {"[1, 0, 1]", "[1, 0, 0, 1, 1, 0, 1, 0, null]", "[0, 0, 1]"});
+  ASSERT_EQ(string_chunked->length(), 15);
+  ASSERT_EQ(float_chunked->length(), 15);
+  ASSERT_EQ(int_chunked->length(), 15);
+  auto schema = ::arrow::schema(
+      {field("d", string_chunked->type()), field("i", int32()), field("f", float_type)});
+  auto table = Table::Make(schema, {string_chunked, int_chunked, float_chunked});
+  ASSERT_OK(table->ValidateFull());
+
+  AssertSortIndicesMatchDecoded(table, {FieldRef("d")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("f")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("d"), FieldRef("i")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("i"), FieldRef("d")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("f"), FieldRef("d")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("d"), FieldRef("f")});
+}
+
+TEST_F(TestDictionarySortIndices, TableRandom) {
+  random::RandomArrayGenerator rng(/*seed=*/0xdec0de);
+  for (int num_columns : {2, 9}) {
+    ARROW_SCOPED_TRACE("num_columns = ", num_columns);
+    // Every batch is generated separately, so each carries its own dictionaries
+    RecordBatchVector batches;
+    for (int64_t length : {50, 0, 120, 1, 80}) {
+      batches.push_back(RandomBatch(rng, length, num_columns));
+    }
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
+    AssertSortIndicesMatchDecoded(table, ColumnRefs(*table->schema()));
+    AssertSortIndicesMatchDecoded(table, {FieldRef("f0")});
+  }
+}
+
+TEST_F(TestDictionarySortIndices, ManyOverlappingDictionaries) {
+  // Many chunks whose short random dictionaries repeat each other's values (and
+  // contain nulls), so ranks must be deduplicated across dictionaries.
+  random::RandomArrayGenerator rng(/*seed=*/0x0ddba11);
+  ArrayVector dict_chunks;
+  ArrayVector int_chunks;
+  for (int i = 0; i < 40; ++i) {
+    const int64_t length = (i % 7 == 0) ? 0 : 20 + 13 * (i % 5);
+    dict_chunks.push_back(RandomStringDictionary(rng, length, /*dict_length=*/12));
+    int_chunks.push_back(rng.Int32(length, 0, 2, /*null_probability=*/0.1));
+  }
+  ASSERT_OK_AND_ASSIGN(auto dict_chunked,
+                       ChunkedArray::Make(dict_chunks, StringDictType()));
+  ASSERT_OK_AND_ASSIGN(auto int_chunked, ChunkedArray::Make(int_chunks, int32()));
+  ASSERT_OK(dict_chunked->ValidateFull());
+
+  AssertArraySortIndicesMatchDecoded(dict_chunked);
+  AssertSortIndicesMatchDecoded(dict_chunked, {});
+
+  auto table = Table::Make(schema({field("d", StringDictType()), field("i", int32())}),
+                           {dict_chunked, int_chunked});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("d")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("d"), FieldRef("i")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("i"), FieldRef("d")});
+}
+
+TEST_F(TestDictionarySortIndices, ValueTypes) {
+  struct Case {
+    std::shared_ptr<DataType> value_type;
+    std::string dict0;
+    std::string dict1;
+  };
+  const std::string ints0 = "[3, 1, null, 2]";
+  const std::string ints1 = "[2, 7, 1, null]";
+  const std::string strs0 = R"(["c", "a", null, "b"])";
+  const std::string strs1 = R"(["b", "g", "a", null])";
+  const std::vector<Case> cases = {
+      {timestamp(TimeUnit::MILLI), ints0, ints1},
+      {timestamp(TimeUnit::MICRO, "UTC"), ints0, ints1},
+      {timestamp(TimeUnit::NANO, "America/Edmonton"), ints0, ints1},
+      {date32(), ints0, ints1},
+      {time64(TimeUnit::MICRO), ints0, ints1},
+      {duration(TimeUnit::SECOND), ints0, ints1},
+      {int64(), ints0, ints1},
+      {decimal128(10, 2), R"(["3.00", "1.50", null, "2.25"])",
+       R"(["2.25", "7.00", "1.50", null])"},
+      {binary(), strs0, strs1},
+      {large_utf8(), strs0, strs1},
+      // UUID-like keys
+      {fixed_size_binary(16),
+       R"(["cccccccccccccccc", "aaaaaaaaaaaaaaaa", null, "bbbbbbbbbbbbbbbb"])",
+       R"(["bbbbbbbbbbbbbbbb", "gggggggggggggggg", "aaaaaaaaaaaaaaaa", null])"},
+  };
+  for (const auto& c : cases) {
+    ARROW_SCOPED_TRACE("value type = ", c.value_type->ToString());
+    auto type = dictionary(int32(), c.value_type);
+    auto chunk0 = DictArrayFromJSON(type, "[0, 1, 2, 3, 0, null]", c.dict0);
+    auto chunk1 = DictArrayFromJSON(type, "[3, 0, 1, 2, 2]", c.dict1);
+    ASSERT_OK_AND_ASSIGN(auto d, ChunkedArray::Make({chunk0, chunk1}));
+    auto i = ChunkedArrayFromJSON(int32(), {"[1, 0, 1, 0, 1, 0]", "[0, 1, 0, 1, 0]"});
+
+    AssertArraySortIndicesMatchDecoded(chunk0);
+    AssertArraySortIndicesMatchDecoded(d);
+    auto batch =
+        RecordBatch::Make(schema({field("d", type), field("i", int32())}), 6,
+                          {chunk0, ArrayFromJSON(int32(), "[1, 0, 1, 0, 1, 0]")});
+    AssertSortIndicesMatchDecoded(batch, {FieldRef("d"), FieldRef("i")});
+    auto table = Table::Make(schema({field("d", type), field("i", int32())}), {d, i});
+    AssertSortIndicesMatchDecoded(table, {FieldRef("d"), FieldRef("i")});
+    AssertSortIndicesMatchDecoded(table, {FieldRef("i"), FieldRef("d")});
+  }
+}
+
+TEST_F(TestDictionarySortIndices, Nested) {
+  auto dict_type = StringDictType();
+  auto d = DictArrayFromJSON(dict_type, "[0, 1, 2, null, 0, 3, 2]",
+                             R"(["b", "a", "c", null])");
+  auto x = ArrayFromJSON(int32(), "[1, 0, 1, 0, 0, 1, 0]");
+  std::shared_ptr<Buffer> parent_bitmap;
+  ASSERT_OK(GetBitmapFromVector<bool>({1, 1, 0, 1, 1, 1, 1}, &parent_bitmap));
+  ASSERT_OK_AND_ASSIGN(
+      auto s, StructArray::Make({d, x}, {field("d", dict_type), field("x", int32())},
+                                parent_bitmap));
+  auto batch = RecordBatch::Make(schema({field("s", s->type())}), s->length(), {s});
+  ASSERT_OK(batch->ValidateFull());
+
+  // A struct key expands to its leaf fields
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("s")});
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("s", "d"), FieldRef("s", "x")});
+  AssertSortIndicesMatchDecoded(batch, {FieldRef("s", "x"), FieldRef("s", "d")});
+
+  ASSERT_OK_AND_ASSIGN(auto table,
+                       Table::FromRecordBatches({batch->Slice(0, 3), batch->Slice(3)}));
+  AssertSortIndicesMatchDecoded(table, {FieldRef("s", "d"), FieldRef("s", "x")});
+  AssertSortIndicesMatchDecoded(table, {FieldRef("s", "x"), FieldRef("s", "d")});
+  // Sorting a struct array goes through SortStructArray
+  AssertArraySortIndicesMatchDecoded(s);
+}
+
+// ----------------------------------------------------------------------
 // Tests for Rank, Quantile Rank and Normal Rank
 
 class BaseTestRank : public ::testing::Test {
