@@ -269,6 +269,37 @@ TEST(StreamReaderEmptySchema, ThrowsOnConstruction) {
   EXPECT_THROW(StreamReader{std::move(file_reader)}, ParquetException);
 }
 
+TEST(StreamReaderNestedSchema, ThrowsOnConstruction) {
+  auto make_file_reader = [](const schema::NodeVector& fields) {
+    PARQUET_ASSIGN_OR_THROW(auto buffer_os, ::arrow::io::BufferOutputStream::Create());
+
+    auto schema = std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+    auto file_writer = ParquetFileWriter::Open(buffer_os, schema);
+    file_writer->Close();
+
+    PARQUET_ASSIGN_OR_THROW(auto buffer, buffer_os->Finish());
+    auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+    return ParquetFileReader::Open(buffer_reader);
+  };
+  auto int32_node = [](const std::string& name) {
+    return schema::PrimitiveNode::Make(name, Repetition::REQUIRED, Type::INT32,
+                                       ConvertedType::INT_32);
+  };
+
+  // More columns than fields in the root group.
+  auto file_reader = make_file_reader({schema::GroupNode::Make(
+      "group", Repetition::REQUIRED, {int32_node("a"), int32_node("b")})});
+  EXPECT_THROW(StreamReader{std::move(file_reader)}, ParquetException);
+
+  // As many columns as fields in the root group, but one field is a group.
+  file_reader = make_file_reader(
+      {schema::GroupNode::Make("group", Repetition::REQUIRED, {int32_node("a")}),
+       int32_node("b")});
+  EXPECT_THROW(StreamReader{std::move(file_reader)}, ParquetException);
+}
+
 TEST_F(TestStreamReader, TypeChecking) {
   bool b;
   std::string s;
