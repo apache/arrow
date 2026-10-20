@@ -106,6 +106,11 @@ class InferStatus {
       return Converter::Make(type, options_, pool);
     };
 
+    auto make_date_time_converter =
+        [&](std::shared_ptr<DataType> type) -> Result<std::shared_ptr<Converter>> {
+      return Converter::Make(type, options_, pool, /*is_type_inference=*/true);
+    };
+
     auto make_dict_converter =
         [&](std::shared_ptr<DataType> type) -> Result<std::shared_ptr<Converter>> {
       ARROW_ASSIGN_OR_RAISE(auto dict_converter,
@@ -122,9 +127,9 @@ class InferStatus {
       case InferKind::Boolean:
         return make_converter(boolean());
       case InferKind::Date:
-        return make_converter(date32());
+        return make_date_time_converter(date32());
       case InferKind::Time:
-        return make_converter(time32(TimeUnit::SECOND));
+        return make_date_time_converter(time32(TimeUnit::SECOND));
       case InferKind::Timestamp:
         return make_converter(timestamp(TimeUnit::SECOND));
       case InferKind::TimestampNS:
