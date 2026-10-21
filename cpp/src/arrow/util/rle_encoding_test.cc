@@ -21,6 +21,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <random>
 #include <span>
 #include <vector>
@@ -1451,6 +1452,74 @@ TEST(RleBitPacked, GetBatchSpacedRoundtripUInt32) {
 }
 TEST(RleBitPacked, GetBatchSpacedRoundtripUint64) {
   DoTestGetBatchSpacedRoundtrip<uint64_t>();
+}
+
+TEST(RleBitPacked, PutRepeatedMatchesPut) {
+  for (int width : {0, 1, 2, 3, 8, 16, 32, 64}) {
+    const uint64_t maximum =
+        width == 64 ? std::numeric_limits<uint64_t>::max() : ((uint64_t{1} << width) - 1);
+    for (uint64_t value : {uint64_t{0}, maximum}) {
+      for (int prefix : {0, 1, 7, 8, 9, 503, 504, 505}) {
+        for (int count : {0, 1, 7, 8, 9, 63, 64, 767, 768, 4096}) {
+          const int total = prefix + count + 9;
+          const int capacity =
+              static_cast<int>(RleBitPackedEncoder::MaxBufferSize(width, total) +
+                               RleBitPackedEncoder::MinBufferSize(width));
+          std::vector<uint8_t> expected(capacity);
+          std::vector<uint8_t> actual(capacity);
+          RleBitPackedEncoder reference(expected.data(), capacity, width);
+          RleBitPackedEncoder encoder(actual.data(), capacity, width);
+          for (int i = 0; i < prefix; ++i) {
+            const uint64_t item = static_cast<uint64_t>(i & 1) & maximum;
+            ASSERT_TRUE(reference.Put(item));
+            ASSERT_TRUE(encoder.Put(item));
+          }
+          for (int i = 0; i < count; ++i) {
+            ASSERT_TRUE(reference.Put(value));
+          }
+          const int first = count / 2;
+          ASSERT_EQ(first, encoder.PutRepeated(value, first));
+          ASSERT_EQ(count - first, encoder.PutRepeated(value, count - first));
+          for (int i = 0; i < 9; ++i) {
+            const uint64_t item = static_cast<uint64_t>(i & 1) & maximum;
+            ASSERT_TRUE(reference.Put(item));
+            ASSERT_TRUE(encoder.Put(item));
+          }
+          expected.resize(reference.Flush());
+          actual.resize(encoder.Flush());
+          ASSERT_EQ(expected, actual);
+        }
+      }
+    }
+  }
+}
+
+TEST(RleBitPacked, PutRepeatedFullBufferMatchesPut) {
+  for (int width : {1, 3, 16}) {
+    const int capacity = static_cast<int>(RleBitPackedEncoder::MinBufferSize(width));
+    std::vector<uint8_t> expected(capacity);
+    std::vector<uint8_t> actual(capacity);
+    RleBitPackedEncoder reference(expected.data(), capacity, width);
+    RleBitPackedEncoder encoder(actual.data(), capacity, width);
+    bool stopped = false;
+    for (int run = 0; run < 4096; ++run) {
+      const uint64_t value = run & 1;
+      const int count = run % 17 + 1;
+      int accepted = 0;
+      while (accepted < count && reference.Put(value)) {
+        ++accepted;
+      }
+      ASSERT_EQ(accepted, encoder.PutRepeated(value, count));
+      if (accepted != count) {
+        stopped = true;
+        break;
+      }
+    }
+    ASSERT_TRUE(stopped);
+    expected.resize(reference.Flush());
+    actual.resize(encoder.Flush());
+    ASSERT_EQ(expected, actual);
+  }
 }
 
 }  // namespace arrow::util
