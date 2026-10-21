@@ -252,6 +252,31 @@ int LevelEncoder::EncodeRepeated(int batch_size, int16_t level) {
   return encoded;
 }
 
+int LevelEncoder::EncodeFixedSizeList(int batch_size, int32_t list_size) {
+  if (!rle_encoder_ || encoding_ != Encoding::RLE || bit_width_ != 1 || batch_size < 0 ||
+      list_size <= 0) {
+    throw ParquetException("Invalid input for fixed-size-list level encoding");
+  }
+  if (list_size == 1) {
+    return EncodeRepeated(batch_size, 0);
+  }
+  int encoded = 0;
+  while (encoded < batch_size) {
+    if (!rle_encoder_->Put(0)) {
+      break;
+    }
+    ++encoded;
+    const int count = std::min(list_size - 1, batch_size - encoded);
+    const int accepted = rle_encoder_->PutRepeated(1, count);
+    encoded += accepted;
+    if (accepted != count) {
+      break;
+    }
+  }
+  rle_length_ = rle_encoder_->Flush();
+  return encoded;
+}
+
 // ----------------------------------------------------------------------
 // PageWriter implementation
 

@@ -76,6 +76,9 @@ class PARQUET_EXPORT LevelEncoder {
   // Encode a constant level without an input array. Requires RLE encoding.
   int EncodeRepeated(int batch_size, int16_t level);
 
+  // Encode 0 followed by list_size - 1 ones, starting at a list boundary.
+  int EncodeFixedSizeList(int batch_size, int32_t list_size);
+
   int32_t len() {
     if (encoding_ != Encoding::RLE) {
       throw ParquetException("Only implemented for RLE encoding");
