@@ -1245,6 +1245,41 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   writer->Close();
 }
 
+TEST(TestLevelEncoder, EncodeRepeatedMatchesEncode) {
+  for (int16_t maximum : {1, 2, 3, 7}) {
+    for (int16_t level : {int16_t{0}, maximum}) {
+      for (int count : {0, 1, 7, 8, 9, 767, 768, 4096}) {
+        const int capacity = LevelEncoder::MaxBufferSize(Encoding::RLE, maximum, count);
+        std::vector<int16_t> levels(count, level);
+        std::vector<uint8_t> expected(capacity);
+        std::vector<uint8_t> actual(capacity);
+        LevelEncoder reference;
+        LevelEncoder encoder;
+        reference.Init(Encoding::RLE, maximum, count, expected.data(), capacity);
+        encoder.Init(Encoding::RLE, maximum, count, actual.data(), capacity);
+        ASSERT_EQ(count, reference.Encode(count, levels.data()));
+        ASSERT_EQ(count, encoder.EncodeRepeated(count, level));
+        expected.resize(reference.len());
+        actual.resize(encoder.len());
+        ASSERT_EQ(expected, actual);
+      }
+    }
+  }
+}
+
+TEST(TestLevelEncoder, EncodeRepeatedRejectsInvalidInput) {
+  LevelEncoder encoder;
+  EXPECT_THROW(encoder.EncodeRepeated(1, 1), ParquetException);
+  const int capacity = LevelEncoder::MaxBufferSize(Encoding::RLE, 1, 8);
+  std::vector<uint8_t> buffer(capacity);
+  encoder.Init(Encoding::RLE, 1, 8, buffer.data(), capacity);
+  EXPECT_THROW(encoder.EncodeRepeated(-1, 1), ParquetException);
+  EXPECT_THROW(encoder.EncodeRepeated(1, -1), ParquetException);
+  EXPECT_THROW(encoder.EncodeRepeated(1, 2), ParquetException);
+  encoder.Init(Encoding::BIT_PACKED, 1, 8, buffer.data(), capacity);
+  EXPECT_THROW(encoder.EncodeRepeated(1, 1), ParquetException);
+}
+
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,
                     std::vector<int16_t>& input_levels) {
   // for each repetition count up to max_repeat_factor

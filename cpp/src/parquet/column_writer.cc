@@ -242,6 +242,16 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
   return num_encoded;
 }
 
+int LevelEncoder::EncodeRepeated(int batch_size, int16_t level) {
+  if (!rle_encoder_ || encoding_ != Encoding::RLE || batch_size < 0 || level < 0 ||
+      static_cast<uint64_t>(level) >= (uint64_t{1} << bit_width_)) {
+    throw ParquetException("Invalid input for repeated level encoding");
+  }
+  const int encoded = rle_encoder_->PutRepeated(level, batch_size);
+  rle_length_ = rle_encoder_->Flush();
+  return encoded;
+}
+
 // ----------------------------------------------------------------------
 // PageWriter implementation
 
