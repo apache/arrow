@@ -1789,7 +1789,7 @@ TYPED_TEST(StatementTest, TestChangingAppRowDescriptorRebindsColumns) {
 
   ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
                               LR"(
-   SELECT 1 AS value
+   SELECT 1 AS val
    UNION ALL SELECT 2
    UNION ALL SELECT 3;
  )");
