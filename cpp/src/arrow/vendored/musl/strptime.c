@@ -212,7 +212,7 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			*dest = 0;
 			for (i=1; i<=min+range && isdigit(*s); i*=10)
 				*dest = *dest * 10 + *s++ - '0';
-			if (*dest - min >= range) return 0;
+			if ((unsigned)(*dest - min) >= (unsigned)range) return 0;
 			*dest -= adj;
 			switch((char *)dest - (char *)tm) {
 			case offsetof(struct tm, tm_yday):

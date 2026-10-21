@@ -877,7 +877,10 @@ TEST(TimestampParser, StrptimeParser) {
                                            "2/29/2001 12:34:56",
                                            // A zero day is rejected rather than
                                            // taken as the first of the month
-                                           "2/00/2000 12:34:56"};
+                                           "2/00/2000 12:34:56",
+                                           // A zero month is rejected rather than
+                                           // taken as December of the previous year
+                                           "0/15/2000 12:34:56"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
