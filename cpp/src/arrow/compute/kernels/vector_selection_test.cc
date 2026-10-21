@@ -28,6 +28,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
+#include "arrow/extension/bool8.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
@@ -2597,6 +2598,25 @@ TEST_F(TestDropNullKernelWithStruct, DropNullStruct) {
 
 class TestDropNullKernelWithUnion : public TestDropNullKernelTyped<UnionType> {};
 
+namespace {
+
+Result<std::shared_ptr<Array>> MakeBool8UnionArray(
+    bool is_dense, const std::shared_ptr<Array>& type_ids,
+    const std::shared_ptr<Array>& value_offsets,
+    const std::shared_ptr<Array>& bool8_storage,
+    const std::shared_ptr<Array>& other_values) {
+  auto bool8_values = ExtensionType::WrapArray(extension::bool8(), bool8_storage);
+  ArrayVector children{bool8_values, other_values};
+  if (is_dense) {
+    return DenseUnionArray::Make(*type_ids, *value_offsets, std::move(children),
+                                 std::vector<std::string>{"bool8", "other"});
+  }
+  return SparseUnionArray::Make(*type_ids, std::move(children),
+                                std::vector<std::string>{"bool8", "other"});
+}
+
+}  // namespace
+
 TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
   for (const auto& union_type :
        {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
@@ -2647,6 +2667,78 @@ TEST_F(TestDropNullKernelWithUnion, DropNullChunkedUnion) {
     ValidateOutput(actual);
     ASSERT_EQ(actual.length(), 0);
     ASSERT_TRUE(actual.type()->Equals(union_type));
+  }
+}
+
+TEST_F(TestDropNullKernelWithUnion, DropNullBool8ExtensionChild) {
+  for (bool is_dense : {true, false}) {
+    auto all_null_type_ids = ArrayFromJSON(int8(), "[0, 0]");
+    auto all_null_offsets = ArrayFromJSON(int32(), "[0, 1]");
+    auto all_null_storage = ArrayFromJSON(int8(), "[null, null]");
+    auto all_null_other = ArrayFromJSON(int32(), is_dense ? "[]" : "[0, 0]");
+    ASSERT_OK_AND_ASSIGN(
+        auto all_null, MakeBool8UnionArray(is_dense, all_null_type_ids, all_null_offsets,
+                                           all_null_storage, all_null_other));
+
+    ASSERT_EQ(all_null->ComputeLogicalNullCount(), all_null->length());
+    ASSERT_OK_AND_ASSIGN(auto empty_array, DropNull(*all_null));
+    ValidateOutput(empty_array);
+    ASSERT_EQ(empty_array->length(), 0);
+    ASSERT_TRUE(empty_array->type()->Equals(all_null->type()));
+
+    auto all_null_chunks = std::make_shared<ChunkedArray>(
+        ArrayVector{all_null->Slice(0, 1), all_null->Slice(1, 1)});
+    ASSERT_OK_AND_ASSIGN(auto empty_chunked, DropNull(all_null_chunks));
+    ValidateOutput(empty_chunked);
+    ASSERT_EQ(empty_chunked.length(), 0);
+    ASSERT_TRUE(empty_chunked.type()->Equals(all_null->type()));
+
+    auto schm = schema({field("u", all_null->type())});
+    auto batch = RecordBatch::Make(schm, all_null->length(), {all_null});
+    ASSERT_OK_AND_ASSIGN(auto empty_batch, DropNull(batch));
+    ValidateOutput(empty_batch);
+    ASSERT_EQ(empty_batch.length(), 0);
+    ASSERT_TRUE(empty_batch.record_batch()->schema()->Equals(*schm));
+
+    auto table = Table::Make(schm, {all_null_chunks}, all_null->length());
+    ASSERT_OK_AND_ASSIGN(auto empty_table, DropNull(table));
+    ValidateOutput(empty_table);
+    ASSERT_EQ(empty_table.length(), 0);
+    ASSERT_TRUE(empty_table.table()->schema()->Equals(*schm));
+
+    // The first and last selected bool8 child slots are null. A sliced input
+    // checks that union offsets are respected while retaining the valid slot.
+    auto mixed_type_ids = ArrayFromJSON(int8(), "[1, 0, 0, 0]");
+    auto mixed_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2]");
+    auto mixed_storage =
+        ArrayFromJSON(int8(), is_dense ? "[null, 1, null]" : "[1, null, 1, null]");
+    auto mixed_other = ArrayFromJSON(int32(), is_dense ? "[42]" : "[42, 42, 42, 42]");
+    ASSERT_OK_AND_ASSIGN(auto mixed,
+                         MakeBool8UnionArray(is_dense, mixed_type_ids, mixed_offsets,
+                                             mixed_storage, mixed_other));
+
+    ASSERT_OK_AND_ASSIGN(auto actual, DropNull(*mixed));
+    ValidateOutput(actual);
+    ASSERT_EQ(actual->length(), 2);
+    ASSERT_EQ(actual->ComputeLogicalNullCount(), 0);
+    const auto& actual_union = static_cast<const UnionArray&>(*actual);
+    ASSERT_EQ(actual_union.type_code(0), 1);
+    ASSERT_EQ(actual_union.type_code(1), 0);
+    AssertArraysEqual(*mixed->Slice(0, 1), *actual->Slice(0, 1),
+                      /*verbose=*/true);
+    AssertArraysEqual(*mixed->Slice(2, 1), *actual->Slice(1, 1),
+                      /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(auto actual_slice, DropNull(*mixed->Slice(1, 3)));
+    ValidateOutput(actual_slice);
+    AssertArraysEqual(*mixed->Slice(2, 1), *actual_slice, /*verbose=*/true);
+
+    auto mixed_chunks = std::make_shared<ChunkedArray>(
+        ArrayVector{mixed->Slice(0, 1), mixed->Slice(1, 3)});
+    ASSERT_OK_AND_ASSIGN(auto actual_chunked, DropNull(mixed_chunks));
+    ValidateOutput(actual_chunked);
+    ASSERT_EQ(actual_chunked.length(), 2);
+    ASSERT_TRUE(actual_chunked.type()->Equals(mixed->type()));
   }
 }
 
