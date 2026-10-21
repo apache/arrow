@@ -3462,6 +3462,15 @@ def test_index_in():
     assert result.to_pylist() == [0, None, None, 0, None, 1]
 
 
+@pytest.mark.parametrize("typ", [pa.float32(), pa.float64()])
+def test_is_in_index_in_signed_zero(typ):
+    # -0.0 == 0.0, so membership must not depend on the sign of the zero
+    arr = pa.array([-0.0, 0.0, 1.5], type=typ)
+    for value_set in (pa.array([0.0], type=typ), pa.array([-0.0], type=typ)):
+        assert pc.is_in(arr, value_set=value_set).to_pylist() == [True, True, False]
+        assert pc.index_in(arr, value_set=value_set).to_pylist() == [0, 0, None]
+
+
 def test_quantile():
     arr = pa.array([1, 2, 3, 4])
 
