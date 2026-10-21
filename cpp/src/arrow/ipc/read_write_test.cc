@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -222,6 +223,31 @@ TEST(TestMessage, Verify) {
 
   Message message(std::make_shared<Buffer>(metadata), std::make_shared<Buffer>(body));
   ASSERT_FALSE(message.Verify());
+}
+
+TEST(TestMessage, OpenUnalignedMetadata) {
+  auto custom_metadata = key_value_metadata({"foo"}, {"bar"});
+  ASSERT_OK_AND_ASSIGN(
+      auto serialized,
+      internal::WriteRecordBatchMessage(
+          /*length=*/0, /*body_length=*/0, custom_metadata,
+          /*nodes=*/{},
+          /*buffers=*/{}, /*variadic_counts=*/{}, IpcWriteOptions::Defaults()));
+
+  // Place the metadata at an odd address, as when it is sliced out of a larger
+  // buffer (e.g. a Flight data_header)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> storage,
+                       AllocateBuffer(serialized->size() + 1));
+  std::memcpy(storage->mutable_data() + 1, serialized->data(), serialized->size());
+  auto unaligned = SliceBuffer(storage, 1, serialized->size());
+  ASSERT_NE(0, reinterpret_cast<uintptr_t>(unaligned->data()) % 8);
+
+  ASSERT_OK_AND_ASSIGN(auto message, Message::Open(unaligned, /*body=*/nullptr));
+  ASSERT_EQ(0, reinterpret_cast<uintptr_t>(message->metadata()->data()) % 8);
+  ASSERT_TRUE(message->metadata()->Equals(*serialized));
+  ASSERT_EQ(MessageType::RECORD_BATCH, message->type());
+  ASSERT_EQ(0, message->body_length());
+  ASSERT_TRUE(message->custom_metadata()->Equals(*custom_metadata));
 }
 
 INSTANTIATE_TEST_SUITE_P(TestMessage, TestMessage,
