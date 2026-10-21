@@ -1127,6 +1127,7 @@ TEST_F(TestDecimal, TestCastDecimalVarCharLongInputs) {
            {"0." + std::string(37, '0') + "5" + std::string(70, '0'), 38, 37,
             "0." + std::string(36, '0') + "1"},
            {"0." + std::string(100, '0') + "5", 38, 37, "0"},
+           {"0." + std::string(100, '0'), 38, 0, "0"},
            {"1e-30", 38, 0, "0"},
            {"9." + std::string(80, '9'), 4, 2, "10.00"},
            {"-9." + std::string(80, '9'), 4, 2, "-10.00"},
