@@ -52,12 +52,12 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
 
     // We now split inputs and process 4 at a time,
     // in order to process 64-bit blocks
+    // Block offsets are computed in 64 bits, as they may not fit in 32 bits.
     //
-    __m256i vblock_offset =
-        _mm256_mullo_epi32(vblock_id, _mm256_set1_epi32(num_block_bytes));
-    __m256i voffset_A = _mm256_and_si256(vblock_offset, _mm256_set1_epi64x(0xffffffff));
+    __m256i voffset_A = _mm256_mul_epu32(vblock_id, _mm256_set1_epi32(num_block_bytes));
     __m256i vstamp_A = _mm256_and_si256(vstamp, _mm256_set1_epi64x(0xffffffff));
-    __m256i voffset_B = _mm256_srli_epi64(vblock_offset, 32);
+    __m256i voffset_B = _mm256_mul_epu32(_mm256_srli_epi64(vblock_id, 32),
+                                         _mm256_set1_epi32(num_block_bytes));
     __m256i vstamp_B = _mm256_srli_epi64(vstamp, 32);
 
     auto blocks_i64 =

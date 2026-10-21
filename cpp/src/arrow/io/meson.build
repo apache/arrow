@@ -28,18 +28,6 @@ foreach io_test : io_tests
     test(test_name, exc)
 endforeach
 
-if needs_hdfs
-    hdfs_incdir = '../../../thirdparty/hadoop/include'
-    exc = executable(
-        'arrow-io-hdfs-test',
-        sources: 'hdfs_test.cc',
-        dependencies: [arrow_test_dep, filesystem_dep],
-        implicit_include_directories: false,
-        include_directories: [hdfs_incdir],
-    )
-    test('arrow-io-hdfs-test', exc)
-endif
-
 io_benchmarks = ['file_benchmark', 'compressed_benchmark']
 
 foreach io_benchmark : io_benchmarks
@@ -63,7 +51,6 @@ install_headers(
         'compressed.h',
         'concurrency.h',
         'file.h',
-        'hdfs.h',
         'interfaces.h',
         'memory.h',
         'mman.h',

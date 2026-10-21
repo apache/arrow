@@ -281,8 +281,9 @@ garrow_buffer_get_capacity(GArrowBuffer *buffer)
  * garrow_buffer_get_data:
  * @buffer: A #GArrowBuffer.
  *
- * Returns: (transfer full): The data of the buffer. The data is owned by
- *   the buffer. You should not free or modify the data.
+ * Returns: (transfer full): The data of the buffer. The data isn't
+ *   copied. The returned #GBytes keeps the data alive. You should not
+ *   modify the data.
  *
  * Since: 0.3.0
  */
@@ -296,7 +297,10 @@ garrow_buffer_get_data(GArrowBuffer *buffer)
   }
 
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
-  auto data = g_bytes_new_static(arrow_buffer->data(), arrow_buffer->size());
+  auto data = g_bytes_new_with_free_func(arrow_buffer->data(),
+                                         arrow_buffer->size(),
+                                         g_object_unref,
+                                         g_object_ref(buffer));
   return data;
 }
 
@@ -305,8 +309,8 @@ garrow_buffer_get_data(GArrowBuffer *buffer)
  * @buffer: A #GArrowBuffer.
  *
  * Returns: (transfer full) (nullable): The data of the buffer. If the
- *   buffer is immutable, it returns %NULL. The data is owned by the
- *   buffer. You should not free the data.
+ *   buffer is immutable, it returns %NULL. The data isn't copied. The
+ *   returned #GBytes keeps the data alive.
  *
  * Since: 0.3.0
  */
@@ -324,7 +328,10 @@ garrow_buffer_get_mutable_data(GArrowBuffer *buffer)
     return priv->data;
   }
 
-  return g_bytes_new_static(arrow_buffer->mutable_data(), arrow_buffer->size());
+  return g_bytes_new_with_free_func(arrow_buffer->mutable_data(),
+                                    arrow_buffer->size(),
+                                    g_object_unref,
+                                    g_object_ref(buffer));
 }
 
 /**

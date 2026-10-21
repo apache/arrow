@@ -79,8 +79,8 @@ in the comments.
 
    When you find a GitHub issue you would like to work on, please mention
    your interest in the comment section of that issue; that way we will know
-   you are working on it.
-   Consider assigning yourself to the issue (:ref:`issue-assignment`) when the work starts.
+   you are working on it and can assign the issue to you
+   (see :ref:`issue-assignment`).
 
 Also, do not hesitate to ask questions in the comment. You can get some
 pointers about where to start and similar issues already solved.

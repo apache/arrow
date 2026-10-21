@@ -253,8 +253,9 @@ class TableReaderImpl : public TableReader,
   }
 
   Result<std::shared_ptr<Table>> Read() override {
-    auto block_it = MakeChunkingIterator(std::move(buffer_iterator_),
-                                         MakeChunker(decode_context_.parse_options()));
+    auto block_it = MakeChunkingIterator(
+        std::move(buffer_iterator_),
+        MakeChunker(decode_context_.parse_options(), decode_context_.pool()));
 
     bool did_read = false;
     while (true) {
@@ -395,8 +396,8 @@ class StreamingReaderImpl : public StreamingReader {
       buffer_gen = [source = std::move(buffer_gen), cpu_executor] {
         return cpu_executor->TransferAlways(source());
       };
-      auto chunking_gen = MakeChunkingGenerator(std::move(buffer_gen),
-                                                MakeChunker(context->parse_options()));
+      auto chunking_gen = MakeChunkingGenerator(
+          std::move(buffer_gen), MakeChunker(context->parse_options(), context->pool()));
 
       // At this stage, we want to allow the decoding tasks for each chunked block to run
       // in parallel on the CPU executor. However:
@@ -432,7 +433,7 @@ class StreamingReaderImpl : public StreamingReader {
       // the IO pool while we process its buffers on the calling thread
       auto chunking_it =
           MakeChunkingIterator(MakeGeneratorIterator(std::move(buffer_gen)),
-                               MakeChunker(context->parse_options()));
+                               MakeChunker(context->parse_options(), context->pool()));
       decoding_gen =
           MakeDecodingGenerator(std::move(chunking_it), DecodingOperator(context));
     }

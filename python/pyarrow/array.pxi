@@ -23,6 +23,7 @@ from cpython.pycapsule cimport (
 )
 
 from collections.abc import Sequence
+import operator
 import os
 import warnings
 from cython import sizeof
@@ -1123,6 +1124,19 @@ cdef PandasOptions _convert_pandas_options(dict options):
     return result
 
 
+def _compute_binary_op(func_name, left, right):
+    """
+    Helper for arithmetic/bitwise dunder methods.
+
+    Only use for ops that can't raise ArrowTypeError as it
+    subclasses TypeError, so will get swallowed.
+    """
+    try:
+        return _pc().call_function(func_name, [left, right])
+    except TypeError:
+        return NotImplemented
+
+
 cdef class Array(_PandasConvertible):
     """
     The base class for all Arrow arrays.
@@ -1623,11 +1637,13 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        offset : int, default 0
+        offset : int or pyarrow.Scalar, default 0
             Offset from start of array to slice.
-        length : int, default None
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of Array starting from
             offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -1636,6 +1652,7 @@ cdef class Array(_PandasConvertible):
         """
         cdef shared_ptr[CArray] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -1643,6 +1660,7 @@ cdef class Array(_PandasConvertible):
         if length is None:
             result = self.ap.Slice(offset)
         else:
+            length = operator.index(length)
             if length < 0:
                 raise ValueError('Length must be non-negative')
             result = self.ap.Slice(offset, length)
@@ -2440,15 +2458,15 @@ cdef class Array(_PandasConvertible):
 
     def __add__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('add_checked', [self, other])
+        return _compute_binary_op('add_checked', self, other)
 
     def __truediv__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('divide_checked', [self, other])
+        return _compute_binary_op('divide_checked', self, other)
 
     def __mul__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('multiply_checked', [self, other])
+        return _compute_binary_op('multiply_checked', self, other)
 
     def __neg__(self):
         self._assert_cpu()
@@ -2456,31 +2474,31 @@ cdef class Array(_PandasConvertible):
 
     def __pow__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('power_checked', [self, other])
+        return _compute_binary_op('power_checked', self, other)
 
     def __sub__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('subtract_checked', [self, other])
+        return _compute_binary_op('subtract_checked', self, other)
 
     def __and__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_and', [self, other])
+        return _compute_binary_op('bit_wise_and', self, other)
 
     def __or__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_or', [self, other])
+        return _compute_binary_op('bit_wise_or', self, other)
 
     def __xor__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_xor', [self, other])
+        return _compute_binary_op('bit_wise_xor', self, other)
 
     def __lshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_left_checked', [self, other])
+        return _compute_binary_op('shift_left_checked', self, other)
 
     def __rshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_right_checked', [self, other])
+        return _compute_binary_op('shift_right_checked', self, other)
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
@@ -5393,16 +5411,16 @@ cdef object get_array_class_from_type(
         return _array_classes[data_type.id()]
 
 
-cdef object get_values(object obj, bint* is_series):
+cdef object get_values(object obj, bint* is_pandas_object):
     if pandas_api.is_series(obj) or pandas_api.is_index(obj):
         result = pandas_api.get_values(obj)
-        is_series[0] = True
+        is_pandas_object[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
-        is_series[0] = False
+        is_pandas_object[0] = False
     else:
-        result = pandas_api.series(obj, copy=False).values
-        is_series[0] = False
+        result = pandas_api.get_values(pandas_api.series(obj, copy=False))
+        is_pandas_object[0] = False
 
     return result
 

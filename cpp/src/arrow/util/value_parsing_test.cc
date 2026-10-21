@@ -856,7 +856,8 @@ TEST(TimestampParser, StrptimeParser) {
   };
 
   std::vector<Case> cases = {{"5/31/2000 12:34:56", "2000-05-31 12:34:56"},
-                             {"5/31/2000 00:00:00", "2000-05-31 00:00:00"}};
+                             {"5/31/2000 00:00:00", "2000-05-31 00:00:00"},
+                             {"2/29/2000 12:34:56", "2000-02-29 12:34:56"}};
 
   for (auto unit : TimeUnit::values()) {
     for (const auto& case_ : cases) {
@@ -869,11 +870,62 @@ TEST(TimestampParser, StrptimeParser) {
   }
 
   // Unparseable strings
-  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6"};
+  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6",
+                                           // Impossible dates are rejected rather
+                                           // than rolled over into the next month
+                                           "2/30/2000 12:34:56", "4/31/2000 12:34:56",
+                                           "2/29/2001 12:34:56",
+                                           // A zero day is rejected rather than
+                                           // taken as the first of the month
+                                           "2/00/2000 12:34:56",
+                                           // A zero month is rejected rather than
+                                           // taken as December of the previous year
+                                           "0/15/2000 12:34:56"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
   }
+}
+
+TEST(TimestampParser, StrptimeLocaleDirectives) {
+  // Directives that use the names and formats of the C locale
+  struct Case {
+    std::string format;
+    std::string value;
+    std::string iso8601;
+  };
+
+  std::vector<Case> cases = {
+      {"%a %d %b %Y", "Sun 15 Feb 2015", "2015-02-15 00:00:00"},
+      {"%A %d %B %Y", "Sunday 15 February 2015", "2015-02-15 00:00:00"},
+      {"%d %h %Y", "15 Feb 2015", "2015-02-15 00:00:00"},
+      {"%d-%b-%Y", "15-feb-2015", "2015-02-15 00:00:00"},
+      {"%c", "Sun Feb 15 14:30:00 2015", "2015-02-15 14:30:00"},
+      {"%m/%d/%Y %I:%M %p", "02/15/2015 02:30 PM", "2015-02-15 14:30:00"},
+      {"%Y-%m-%d %r", "2015-02-15 02:30:00 PM", "2015-02-15 14:30:00"},
+      {"%x", "02/15/15", "2015-02-15 00:00:00"},
+      {"%Y-%m-%d %X", "2015-02-15 14:30:00", "2015-02-15 14:30:00"},
+  };
+
+  for (const auto& case_ : cases) {
+    SCOPED_TRACE(case_.format);
+    auto parser = TimestampParser::MakeStrptime(case_.format);
+    int64_t converted, expected;
+    ASSERT_TRUE(
+        (*parser)(case_.value.c_str(), case_.value.size(), TimeUnit::SECOND, &converted));
+    ASSERT_TRUE(ParseTimestampISO8601(case_.iso8601.c_str(), case_.iso8601.size(),
+                                      TimeUnit::SECOND, &expected));
+    ASSERT_EQ(expected, converted);
+  }
+}
+
+TEST(TimestampParser, StrptimeWithoutDay) {
+  // A format without a day directive gives the first of the month
+  auto parser = TimestampParser::MakeStrptime("%Y-%m");
+  int64_t converted, expected;
+  ASSERT_TRUE((*parser)("2000-02", 7, TimeUnit::SECOND, &converted));
+  ASSERT_TRUE(ParseTimestampISO8601("2000-02-01", 10, TimeUnit::SECOND, &expected));
+  ASSERT_EQ(expected, converted);
 }
 
 TEST(TimestampParser, StrptimeZoneOffset) {

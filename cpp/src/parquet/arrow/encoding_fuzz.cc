@@ -22,6 +22,5 @@
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   auto status =
       parquet::fuzzing::internal::FuzzEncoding(data, static_cast<int64_t>(size));
-  arrow::internal::LogFuzzStatus(status, data, static_cast<int64_t>(size));
-  return 0;
+  return arrow::internal::LogFuzzStatus(status, data, static_cast<int64_t>(size));
 }

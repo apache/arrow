@@ -240,7 +240,7 @@ def multisourcefs(request):
 
     # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
-    for part, chunk in df_b.groupby([df_b.date.dt.dayofweek, df_b.color]):
+    for part, chunk in df_b.groupby([df_b.date.dt.day_of_week, df_b.color]):
         folder = f'schema/{part[0]}/{part[1]}'
         path = f'{folder}/chunk.parquet'
         mockfs.create_dir(folder)
@@ -5934,6 +5934,19 @@ def test_checksum_write_dataset_read_dataset_to_table(tempdir):
             corrupted_dir_path,
             format=pq_read_format_crc
         ).to_table()
+
+
+@pytest.mark.parquet
+@pytest.mark.parametrize("cdc", [
+    True,
+    {"min_chunk_size": 32 * 1024, "max_chunk_size": 64 * 1024},
+])
+def test_write_dataset_content_defined_chunking(tempdir, cdc):
+    expected_table = pa.table({'a': [1, 2, 3]})
+    fmt = ds.ParquetFileFormat()
+    opts = fmt.make_write_options(use_content_defined_chunking=cdc)
+    ds.write_dataset(expected_table, tempdir, format=fmt, file_options=opts)
+    assert ds.dataset(tempdir, format=fmt).to_table().equals(expected_table)
 
 
 def test_make_write_options_error():

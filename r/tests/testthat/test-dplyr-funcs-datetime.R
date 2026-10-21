@@ -238,8 +238,6 @@ test_that("strptime works for individual formats", {
       collect()
   )
 
-  # Some formats are not supported on Windows
-  skip_on_os("windows")
   expect_equal(
     strptime_test_df |>
       arrow_table() |>

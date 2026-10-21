@@ -115,11 +115,9 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
     if extra_column_path:
         keys = dict(**KEYS, **{EXTRA_COL_KEY_NAME: EXTRA_COL_KEY})
         column_keys = dict(**COLUMN_KEYS, **{EXTRA_COL_KEY_NAME: [extra_column_path]})
-        extra_column_name = extra_column_path.split(".")[0]
     else:
         keys = KEYS
         column_keys = COLUMN_KEYS
-        extra_column_name = None
 
     # define the actual test
     def assert_decrypts(
@@ -135,12 +133,14 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
         encrypt_kms_connection_config = create_kms_connection_config(write_keys)
         decrypt_kms_connection_config = create_kms_connection_config(read_keys)
 
-        crypto_factory = pe.CryptoFactory(kms_factory)
+        encrypt_crypto_factory = pe.CryptoFactory(kms_factory)
+        # Keep the writer's cached keys out of the reader's configuration.
+        decrypt_crypto_factory = pe.CryptoFactory(kms_factory)
         parquet_encryption_cfg = ds.ParquetEncryptionConfig(
-            crypto_factory, encrypt_kms_connection_config, encryption_config
+            encrypt_crypto_factory, encrypt_kms_connection_config, encryption_config
         )
         parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-            crypto_factory, decrypt_kms_connection_config, decryption_config
+            decrypt_crypto_factory, decrypt_kms_connection_config, decryption_config
         )
 
         # create write_options with dataset encryption config
@@ -178,7 +178,7 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
                 assert table.select(read_columns).equals(dataset.to_table(read_columns))
 
         # set decryption properties for parquet fragment scan options
-        decryption_properties = crypto_factory.file_decryption_properties(
+        decryption_properties = decrypt_crypto_factory.file_decryption_properties(
             decrypt_kms_connection_config, decryption_config)
         pq_scan_opts = ds.ParquetFragmentScanOptions(
             decryption_properties=decryption_properties
@@ -235,13 +235,10 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
                              for key_name, key in keys.items()
                              if key_name in [FOOTER_KEY_NAME, column_key_name]}
 
-                # that one encrypted column can only be read
-                # if it is not a column path / nested field
-                plaintext_and_one_success = encrypted_column_name != extra_column_name
                 plaintext_and_one = plaintext_column_names + [encrypted_column_name]
 
                 assert_decrypts(read_keys, plaintext_column_names, True)
-                assert_decrypts(read_keys, plaintext_and_one, plaintext_and_one_success)
+                assert_decrypts(read_keys, plaintext_and_one, True)
                 assert_decrypts(read_keys, encrypted_column_names, False)
                 assert_decrypts(read_keys, all_column_names, False)
 

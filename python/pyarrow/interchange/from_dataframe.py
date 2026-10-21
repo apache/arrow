@@ -330,7 +330,7 @@ def buffers_to_array(
 
     Parameters
     ----------
-    buffer : ColumnBuffers
+    buffers : ColumnBuffers
         Dictionary containing tuples of underlying buffers and
         their associated dtype.
     data_type : Tuple[DtypeKind, int, str, str],
