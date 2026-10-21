@@ -34,6 +34,11 @@
 
 namespace parquet {
 
+struct LevelDecoderParams {
+  int32_t value_count = 0;
+  int16_t max_level = 0;
+};
+
 /*******************************
  *  PageLevelDecoder Adapters  *
  *******************************/
@@ -42,7 +47,8 @@ namespace parquet {
 struct LevelBitPackedDecoder : ::arrow::util::BitPackedDecoder<int16_t> {
   using Base = BitPackedDecoder<int16_t>;
 
-  LevelBitPackedDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+  LevelBitPackedDecoder(const uint8_t* data, int32_t data_size,
+                        const LevelDecoderParams& params)
       : Base(data, data_size,
              /* value_bit_width= */ ::arrow::bit_util::Log2(params.max_level + 1),
              params.value_count) {}
@@ -54,7 +60,8 @@ struct LevelBitPackedDecoder : ::arrow::util::BitPackedDecoder<int16_t> {
 struct LevelRleBitPackedDecoder : ::arrow::util::RleBitPackedDecoder<int16_t> {
   using Base = RleBitPackedDecoder<int16_t>;
 
-  LevelRleBitPackedDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+  LevelRleBitPackedDecoder(const uint8_t* data, int32_t data_size,
+                           const LevelDecoderParams& params)
       : Base(data, data_size,
              /* value_bit_width= */ ::arrow::bit_util::Log2(params.max_level + 1)) {}
 
@@ -69,7 +76,7 @@ struct LevelToBitmapBitPackedDecoder : ::arrow::util::BitPackedToBitmapDecoder {
   using Base = BitPackedToBitmapDecoder;
 
   LevelToBitmapBitPackedDecoder(const uint8_t* data, int32_t data_size,
-                                const auto& params)
+                                const LevelDecoderParams& params)
       : Base(data, data_size, params.value_count) {
     ARROW_DCHECK_EQ(params.max_level, 1);
   }
@@ -84,7 +91,7 @@ struct LevelToBitmapRleBitPackedDecoder : ::arrow::util::RleBitPackedToBitmapDec
   using Base = RleBitPackedToBitmapDecoder;
 
   LevelToBitmapRleBitPackedDecoder(const uint8_t* data, int32_t data_size,
-                                   const auto& params)
+                                   const LevelDecoderParams& params)
       : Base(data, data_size) {
     ARROW_DCHECK_EQ(params.max_level, 1);
   }
@@ -112,25 +119,21 @@ template <typename BitDecoder = LevelBitPackedDecoder,
           typename RleDecoder = LevelRleBitPackedDecoder>
 class PageLevelDecoder {
  public:
-  struct DataParams {
-    int32_t value_count = 0;
-    int16_t max_level = 0;
-  };
-
   explicit PageLevelDecoder(int16_t max_level = 0)
-      : decoder_(BitDecoder(nullptr, 0, DataParams{.max_level = max_level})),
+      : decoder_(BitDecoder(nullptr, 0, LevelDecoderParams{.max_level = max_level})),
         max_level_(max_level) {}
 
   /// Initialize the decoder state with new data from a legacy (V1) page.
   ///
   /// @return the number of bytes consumed
   int32_t SetDataV1(Encoding::type encoding, const uint8_t* data, int32_t max_data_size,
-                    const DataParams& params);
+                    const LevelDecoderParams& params);
 
   /// Initialize the decoder state with new data from a V2 page.
   ///
   /// Repetition and definition levels in V2 pages are always RLE encoded.
-  void SetDataV2(const uint8_t* data, int32_t data_size, const DataParams& params);
+  void SetDataV2(const uint8_t* data, int32_t data_size,
+                 const LevelDecoderParams& params);
 
   /// Decode a batch of levels into `out` and return the number of levels decoded.
   template <typename Out>
@@ -228,7 +231,7 @@ template <typename BitDec, typename RleDec>
 int32_t PageLevelDecoder<BitDec, RleDec>::SetDataV1(Encoding::type encoding,
                                                     const uint8_t* data,
                                                     int32_t max_data_size,
-                                                    const DataParams& params) {
+                                                    const LevelDecoderParams& params) {
   using ::arrow::bit_util::BytesForBits;
   using ::arrow::bit_util::Log2;
   using ::arrow::internal::MultiplyWithOverflow;
@@ -270,7 +273,7 @@ int32_t PageLevelDecoder<BitDec, RleDec>::SetDataV1(Encoding::type encoding,
 
 template <typename BitDec, typename RleDec>
 void PageLevelDecoder<BitDec, RleDec>::SetDataV2(const uint8_t* data, int32_t data_size,
-                                                 const DataParams& params) {
+                                                 const LevelDecoderParams& params) {
   if (data_size < 0) {
     throw ParquetException("Invalid page header (corrupt data page?)");
   }
