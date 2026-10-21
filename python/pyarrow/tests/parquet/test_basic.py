@@ -1089,3 +1089,47 @@ def test_filters_to_expression_deprecated_alias():
         result = pq._filters_to_expression(filters)
     assert isinstance(result, ds.Expression)
     assert result.equals(expected)
+
+
+@pytest.fixture
+def proxy_pool():
+    # Owned by the fixture so that it outlives every object created from it
+    # inside the test function (readers and tables keep a raw pool pointer).
+    return pa.proxy_memory_pool(pa.default_memory_pool())
+
+
+@pytest.mark.parametrize("use_dataset_path", [True, False])
+def test_read_table_memory_pool(tempdir, proxy_pool, use_dataset_path,
+                                monkeypatch):
+    table = pa.table({'a': list(range(1000)),
+                      'b': [str(i) for i in range(1000)]})
+    path = str(tempdir / 'data.parquet')
+    pq.write_table(table, path)
+
+    if not use_dataset_path:
+        # Exercise the ParquetFile fallback used without pyarrow.dataset
+        monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
+
+    result = pq.read_table(path, memory_pool=proxy_pool)
+    assert result.equals(table)
+    assert proxy_pool.max_memory() > 0
+
+
+def test_parquet_file_memory_pool(tempdir, proxy_pool):
+    table = pa.table({'a': list(range(1000))})
+    path = str(tempdir / 'data.parquet')
+    pq.write_table(table, path)
+
+    result = pq.ParquetFile(path, memory_pool=proxy_pool).read()
+    assert result.equals(table)
+    assert proxy_pool.max_memory() > 0
+
+
+def test_parquet_dataset_memory_pool(tempdir, proxy_pool):
+    table = pa.table({'a': list(range(1000)), 'part': ['x', 'y'] * 500})
+    root = str(tempdir / 'dataset')
+    pq.write_to_dataset(table, root, partition_cols=['part'])
+
+    result = pq.ParquetDataset(root, memory_pool=proxy_pool).read()
+    assert result.num_rows == table.num_rows
+    assert proxy_pool.max_memory() > 0
