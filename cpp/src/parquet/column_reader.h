@@ -113,7 +113,7 @@ class PARQUET_EXPORT LevelDecoder {
   /// Return the max level used in this decoder.
   int16_t max_level() const;
 
-  /// Return the number of values left to be decoded.
+  /// Return the number of levels left to be decoded.
   int32_t remaining() const;
 
  private:
@@ -383,9 +383,16 @@ class PARQUET_EXPORT RecordReader {
   virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
+  ///
+  /// This always return a valid pointer, except:
+  /// - when the max definition level is zero (non-repeated required values).
+  /// - when `allow_levels_optimization` is true and the column is a flat optional type.
   virtual int16_t* def_levels() const = 0;
 
   /// \brief Decoded repetition levels
+  ///
+  /// This always return a valid pointer, except when the max repetition level is
+  /// zero (some repeated fields).
   virtual int16_t* rep_levels() const = 0;
 
   /// \brief Decoded values, including nulls, if any

@@ -123,14 +123,15 @@ concept can_cout = requires(std::ostream& os, const T& value) {
  ******************/
 
 // Replacement for legacy LevelDecoder
-using NewLevelDecoder = PageLevelDecoder<>;
+using PageLevelToIntDecoder = PageLevelDecoder<>;
 
 struct LevelDecoder::Impl {
-  NewLevelDecoder decoder_{};
+  PageLevelToIntDecoder decoder_{};
 };
 
 LevelDecoder::LevelDecoder(int16_t max_level)
-    : impl_(new Impl{NewLevelDecoder(max_level)})  // old compilers make_unique fail here
+    : impl_(new Impl{
+          PageLevelToIntDecoder(max_level)})  // old compilers make_unique fail here
 {}
 
 LevelDecoder::LevelDecoder(LevelDecoder&&) = default;
@@ -694,7 +695,7 @@ class SkippableTypedDecoder {
  *  ValueSinkCursor  *
  *********************/
 
-inline int64_t compute_capacity_pow2(int64_t capacity, int64_t size, int64_t extra_size) {
+inline int64_t ComputeCapacityPow2(int64_t capacity, int64_t size, int64_t extra_size) {
   if (extra_size < 0) {
     throw ParquetException("Negative size (corrupt file?)");
   }
@@ -727,13 +728,13 @@ class ValueSinkCursor {
 
   void increase_values_count(int64_t extra) { values_count_ += extra; }
 
-  int64_t fit_capacity_for_extra(int64_t extra_values) {
-    auto new_capacity = compute_capacity_pow2(capacity_, values_count_, extra_values);
+  int64_t FitCapacityForExtra(int64_t extra_values) {
+    auto new_capacity = ComputeCapacityPow2(capacity_, values_count_, extra_values);
     ARROW_DCHECK_GE(new_capacity, capacity());
     return std::exchange(capacity_, new_capacity);
   }
 
-  void reset() {
+  void Reset() {
     values_count_ = 0;
     capacity_ = 0;
   }
@@ -801,13 +802,13 @@ class DataSinkBuffer : private ValueSinkCursor {
     const auto byte_count = BytesCounter::bytes_for_values(values_count());
     PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
     values_ = AllocateBuffer(pool);
-    ValueSinkCursor::reset();
+    ValueSinkCursor::Reset();
     return result;
   }
 
   /// Exponentially reserve more capacity if needed.
   void ReserveValues(int64_t extra_values) {
-    const auto old_capacity = fit_capacity_for_extra(extra_values);
+    const auto old_capacity = FitCapacityForExtra(extra_values);
     if (capacity() > old_capacity && !is_void()) {
       const auto byte_count = BytesCounter::bytes_for_values(capacity());
       PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
@@ -823,7 +824,7 @@ class DataSinkBuffer : private ValueSinkCursor {
     // Resizing a never allocated buffer would make a zero-size allocation
     if (!is_void() && values_count() > 0) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
-      ValueSinkCursor::reset();
+      ValueSinkCursor::Reset();
     }
   }
 
@@ -1467,8 +1468,8 @@ int64_t ColumnChunkReader<Traits>::Skip(int64_t num_values_to_skip) {
 template <typename D>
 struct TypedColumnReaderImplTraits {
   using DType = D;
-  using DefLevelDecoder = NewLevelDecoder;
-  using RepLevelDecoder = NewLevelDecoder;
+  using DefLevelDecoder = PageLevelToIntDecoder;
+  using RepLevelDecoder = PageLevelToIntDecoder;
 };
 
 template <typename DType>
@@ -1481,8 +1482,8 @@ class TypedColumnReaderImpl
 
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
                         ::arrow::MemoryPool* pool)
-      : Base(descr, pool, NewLevelDecoder(descr->max_definition_level()),
-             NewLevelDecoder(descr->max_repetition_level())) {
+      : Base(descr, pool, PageLevelToIntDecoder(descr->max_definition_level()),
+             PageLevelToIntDecoder(descr->max_repetition_level())) {
     this->SetPageReader(std::move(pager));
   }
 
@@ -1709,8 +1710,8 @@ namespace {
 template <typename D>
 struct TypedRecordReaderTraits {
   using DType = D;
-  using DefLevelDecoder = NewLevelDecoder;
-  using RepLevelDecoder = NewLevelDecoder;
+  using DefLevelDecoder = PageLevelToIntDecoder;
+  using RepLevelDecoder = PageLevelToIntDecoder;
 };
 
 /// General record reader for a given data type.
@@ -1729,8 +1730,8 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable, ValueSink value_sink)
-      : Base(descr, pool, NewLevelDecoder(descr->max_definition_level()),
-             NewLevelDecoder(descr->max_repetition_level())),
+      : Base(descr, pool, PageLevelToIntDecoder(descr->max_definition_level()),
+             PageLevelToIntDecoder(descr->max_repetition_level())),
         value_sink_(std::move(value_sink)),
         leaf_info_(leaf_info) {
     if (!read_dense_for_nullable && nullable_values()) {
@@ -2356,8 +2357,8 @@ void TypedRecordReader<DT, VS>::DebugPrintState() {
 template <typename D>
 struct RequiredTypedRecordReaderTraits {
   using DType = D;
-  using DefLevelDecoder = NewLevelDecoder;
-  using RepLevelDecoder = NewLevelDecoder;
+  using DefLevelDecoder = PageLevelToIntDecoder;
+  using RepLevelDecoder = PageLevelToIntDecoder;
 };
 
 /// A special type of record reader for required data.
@@ -2374,8 +2375,8 @@ class RequiredTypedRecordReader
 
   RequiredTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                             ValueSink value_sink)
-      : Base(descr, pool, NewLevelDecoder(descr->max_definition_level()),
-             NewLevelDecoder(descr->max_repetition_level())),
+      : Base(descr, pool, PageLevelToIntDecoder(descr->max_definition_level()),
+             PageLevelToIntDecoder(descr->max_repetition_level())),
         value_sink_(std::move(value_sink)) {
     RequiredTypedRecordReader::Reset();
     ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
@@ -2495,7 +2496,7 @@ template <typename DT>
 struct FlatOptionalTypedRecordReaderTraits {
   using DType = DT;
   using DefLevelDecoder = PageLevelToBitmapDecoder;
-  using RepLevelDecoder = NewLevelDecoder;
+  using RepLevelDecoder = PageLevelToIntDecoder;
 };
 
 /// A specialized record reader for flat optional data.
@@ -2513,7 +2514,7 @@ class FlatOptionalTypedRecordReader
 
   FlatOptionalTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                                 bool read_dense_for_nullable, ValueSink value_sink)
-      : Base(descr, pool, PageLevelToBitmapDecoder(), NewLevelDecoder(0)),
+      : Base(descr, pool, PageLevelToBitmapDecoder(), PageLevelToIntDecoder(0)),
         value_sink_(std::move(value_sink)) {
     ARROW_DCHECK_EQ(descr->max_definition_level(), 1);
     ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
@@ -2679,7 +2680,7 @@ class ArrayValuesSink : private ValueSinkCursor {
   }
 
   void ReserveValues(int64_t extra_values) {
-    fit_capacity_for_extra(extra_values);
+    FitCapacityForExtra(extra_values);
     if constexpr (requires { builder_.Reserve(extra_values); }) {
       PARQUET_THROW_NOT_OK(builder_.Reserve(extra_values));
     } else {
@@ -2937,7 +2938,7 @@ class ValuesSinkByteArrayDict : private ValueSinkCursor {
     return nullptr;
   }
 
-  void ReserveValues(int64_t extra_values) { fit_capacity_for_extra(extra_values); }
+  void ReserveValues(int64_t extra_values) { FitCapacityForExtra(extra_values); }
 
   void ResetValues() { ValueSinkCursor::operator=({}); }
 
