@@ -179,6 +179,34 @@ TEST(TestSparseUnionArray, SliceIsNull) {
   check_slice(sliced_children_1_4, {false, false, true, false});
 }
 
+TEST(TestSparseUnionArray, MakeFromSlicedTypeIds) {
+  // GH-54907: SparseUnionArray::Make used type_ids.offset() as the offset of the
+  // union array, which also shifts the positions looked up in the children.
+  auto type_ids = ArrayFromJSON(int8(), "[1, 0, 1, 0, 0]")->Slice(1, 3);
+  ASSERT_EQ(type_ids->offset(), 1);
+  auto ints = ArrayFromJSON(int64(), "[10, 20, 30]");
+  auto strs = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+
+  ASSERT_OK_AND_ASSIGN(auto arr, SparseUnionArray::Make(*type_ids, {ints, strs}));
+  ASSERT_OK(arr->ValidateFull());
+  ASSERT_EQ(arr->length(), 3);
+  auto expected = ArrayFromJSON(arr->type(), R"([[0, 10], [1, "b"], [0, 30]])");
+  AssertArraysEqual(*expected, *arr, /*verbose=*/true);
+
+  // Children that are themselves sliced compose with the sliced type ids.
+  auto sliced_ints = ArrayFromJSON(int64(), "[999, 10, 20, 30]")->Slice(1);
+  auto sliced_strs = ArrayFromJSON(utf8(), R"(["z", "a", "b", "c"])")->Slice(1);
+  ASSERT_OK_AND_ASSIGN(auto arr_sliced_children,
+                       SparseUnionArray::Make(*type_ids, {sliced_ints, sliced_strs}));
+  ASSERT_OK(arr_sliced_children->ValidateFull());
+  AssertArraysEqual(*expected, *arr_sliced_children, /*verbose=*/true);
+
+  // Children must still match the length of the (sliced) type ids.
+  auto long_ints = ArrayFromJSON(int64(), "[10, 20, 30, 40]");
+  auto long_strs = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])");
+  ASSERT_RAISES(Invalid, SparseUnionArray::Make(*type_ids, {long_ints, long_strs}));
+}
+
 TEST(TestSparseUnionArray, Validate) {
   auto a = ArrayFromJSON(int32(), "[4, 5]");
   auto type = sparse_union({field("a", int32())});
