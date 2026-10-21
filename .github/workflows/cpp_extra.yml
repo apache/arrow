@@ -591,6 +591,13 @@ jobs:
         run: |
           brew bundle --file=cpp/Brewfile
 
+          # GH-54638: Bundled gRPC v1.76.0 doesn't compile with OpenSSL 4 yet
+          brew list openssl@3 > /dev/null 2>&1 || brew install openssl@3
+          # Don't uninstall OpenSSL 4 as other formulae (e.g. ccache)
+          # could link to it.
+          brew unlink openssl@4 || :
+          brew link --overwrite --force openssl@3
+
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
@@ -631,7 +638,8 @@ jobs:
           export BUILD_WARNING_LEVEL=PRODUCTION
           LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
           ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
-          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
+          # GH-54638: Force link OpenSSL 3 to build with gRPC v1.76.0
+          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Save ccache
