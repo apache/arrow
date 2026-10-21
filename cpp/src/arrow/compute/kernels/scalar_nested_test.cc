@@ -293,6 +293,16 @@ TEST(TestScalarNested, ListContainsValueTypes) {
   check(decimal256(40, 2), R"("1.50")", R"("2.50")");
   check(timestamp(TimeUnit::NANO), "1", "2");
   check(duration(TimeUnit::MILLI), "1", "2");
+
+  // Zero-width values all equal each other
+  auto input =
+      ArrayFromJSON(list(fixed_size_binary(0)), R"([["", null], [null], [], null])");
+  CheckListContains(input, ScalarFromJSON(fixed_size_binary(0), R"("")"),
+                    "[true, false, false, null]");
+  CheckListContains(input, ArrayFromJSON(fixed_size_binary(0), R"(["", "", "", ""])"),
+                    "[true, false, false, null]");
+  CheckListContains(ScalarFromJSON(list(fixed_size_binary(0)), R"(["", null])"),
+                    ArrayFromJSON(fixed_size_binary(0), R"(["", null])"), "[true, true]");
 }
 
 TEST(TestScalarNested, ListContainsSignedZero) {

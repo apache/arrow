@@ -629,6 +629,9 @@ Status VisitEqual(const ArraySpan& values, const ArraySpan& queries, Visit&& vis
   }
   // Integers, temporal types, decimals and fixed-size binary compare bitwise
   switch (const int width = values.type->bit_width() / 8) {
+    case 0:
+      // Only zero-width fixed-size binary, whose values all equal each other
+      return visit([](int64_t, int64_t) { return true; });
     case 1:
       return numbers(uint8_t{});
     case 2:
@@ -638,7 +641,7 @@ Status VisitEqual(const ArraySpan& values, const ArraySpan& queries, Visit&& vis
     case 8:
       return numbers(uint64_t{});
     default: {
-      if (width <= 0) {
+      if (width < 0) {
         return Status::NotImplemented("list_contains for ", *values.type);
       }
       const uint8_t* v = values.buffers[1].data + values.offset * width;
