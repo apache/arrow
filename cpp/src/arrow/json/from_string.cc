@@ -868,11 +868,13 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
         array, "[type_id, value] pair",
         {[this, &id, &child_converter](sj::value& id_elem) {
            ARROW_ASSIGN_OR_RAISE(auto id_value, internal::GetJsonAs<int64_t>(id_elem));
+           if (id_value < 0 ||
+               id_value >= static_cast<int64_t>(type_id_to_child_num_.size()) ||
+               type_id_to_child_num_[id_value] == -1) {
+             return Status::Invalid("type_id ", id_value, " not found in ", *type_);
+           }
            id = static_cast<int8_t>(id_value);
            auto child_num = type_id_to_child_num_[id];
-           if (child_num == -1) {
-             return Status::Invalid("type_id ", id, " not found in ", *type_);
-           }
            child_converter = child_converters_[child_num];
 
            if (mode_ == UnionMode::SPARSE) {

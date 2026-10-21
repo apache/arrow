@@ -1448,6 +1448,10 @@ TEST(TestDenseUnionFromString, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"not a valid type_id\"]"));
   ASSERT_RAISES(Invalid,
                 ArrayFromJSONString(type, "[[0, 99]]"));  // 0 is not one of {4, 8}
+  // Out of range type_ids, including one that truncates to 4 as int8
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[-1, 99]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[100, 99]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[260, 99]]"));
   ASSERT_RAISES(Invalid,
                 ArrayFromJSONString(type, "[[4, \"\"]]"));  // "" is not a valid int8()
 
@@ -1464,6 +1468,9 @@ TEST(TestSparseUnionFromString, Errors) {
 
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"not a valid type_id\"]"));
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[0, 99]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[-1, 99]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[100, 99]]"));
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[260, 99]]"));
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[4, \"\"]]"));
 
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"not a pair\"]"));
