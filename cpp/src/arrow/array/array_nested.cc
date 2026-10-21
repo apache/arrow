@@ -1380,13 +1380,35 @@ Result<std::shared_ptr<Array>> DenseUnionArray::Make(
     return Status::Invalid("type_codes must have the same length as children");
   }
 
-  BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(type_ids).values(),
-                          checked_cast<const Int32Array&>(value_offsets).values()};
+  // Longer value_offsets arrays are tolerated: only the first len(type_ids)
+  // offsets are used (and existing callers rely on that).
+  if (value_offsets.length() < type_ids.length()) {
+    return Status::Invalid(
+        "Dense UnionArray value_offsets must have at least the same length as type_ids");
+  }
+
+  // `type_ids` and `value_offsets` may be sliced differently, so slice their
+  // buffers (zero-copy) to their logical windows and build the union with
+  // offset 0. Unsliced inputs keep using the original buffers.
+  std::shared_ptr<Buffer> type_ids_buffer =
+      checked_cast<const Int8Array&>(type_ids).values();
+  if (type_ids.offset() != 0) {
+    type_ids_buffer =
+        SliceBuffer(std::move(type_ids_buffer), type_ids.offset(), type_ids.length());
+  }
+  std::shared_ptr<Buffer> value_offsets_buffer =
+      checked_cast<const Int32Array&>(value_offsets).values();
+  if (value_offsets.offset() != 0) {
+    value_offsets_buffer = SliceBuffer(std::move(value_offsets_buffer),
+                                       value_offsets.offset() * sizeof(int32_t),
+                                       value_offsets.length() * sizeof(int32_t));
+  }
+  BufferVector buffers = {nullptr, std::move(type_ids_buffer),
+                          std::move(value_offsets_buffer)};
 
   auto union_type = dense_union(children, std::move(field_names), std::move(type_codes));
-  auto internal_data =
-      ArrayData::Make(std::move(union_type), type_ids.length(), std::move(buffers),
-                      /*null_count=*/0, type_ids.offset());
+  auto internal_data = ArrayData::Make(std::move(union_type), type_ids.length(),
+                                       std::move(buffers), /*null_count=*/0);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }

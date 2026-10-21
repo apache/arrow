@@ -425,6 +425,37 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
   ASSERT_RAISES(Invalid, SparseUnionArray::Make(*type_ids_, children));
 }
 
+TEST_F(TestUnionArrayFactories, TestMakeDenseSliced) {
+  // type_ids unsliced, value_offsets sliced
+  auto type_ids = ArrayFromJSON(int8(), "[0, 0]");
+  auto child = ArrayFromJSON(int64(), "[10, 20, 30]");
+  auto value_offsets = ArrayFromJSON(int32(), "[0, 1, 2]")->Slice(1, 2);
+  ASSERT_OK_AND_ASSIGN(auto arr,
+                       DenseUnionArray::Make(*type_ids, *value_offsets, {child}));
+  ASSERT_OK(arr->ValidateFull());
+  auto expected = ArrayFromJSON(arr->type(), R"([[0, 20], [0, 30]])");
+  AssertArraysEqual(*expected, *arr, /*verbose=*/true);
+
+  // type_ids sliced, value_offsets unsliced
+  auto sliced_type_ids = ArrayFromJSON(int8(), "[1, 0, 0]")->Slice(1, 2);
+  auto plain_value_offsets = ArrayFromJSON(int32(), "[1, 2]");
+  ASSERT_OK_AND_ASSIGN(
+      arr, DenseUnionArray::Make(*sliced_type_ids, *plain_value_offsets, {child}));
+  ASSERT_OK(arr->ValidateFull());
+  AssertArraysEqual(*expected, *arr, /*verbose=*/true);
+
+  // both inputs sliced
+  auto sliced_value_offsets = ArrayFromJSON(int32(), "[9, 1, 2]")->Slice(1, 2);
+  ASSERT_OK_AND_ASSIGN(
+      arr, DenseUnionArray::Make(*sliced_type_ids, *sliced_value_offsets, {child}));
+  ASSERT_OK(arr->ValidateFull());
+  AssertArraysEqual(*expected, *arr, /*verbose=*/true);
+
+  // value_offsets shorter than type_ids is rejected
+  auto short_offsets = ArrayFromJSON(int32(), "[0, 1]")->Slice(0, 1);
+  ASSERT_RAISES(Invalid, DenseUnionArray::Make(*type_ids, *short_offsets, {child}));
+}
+
 template <typename B>
 class UnionBuilderTest : public ::testing::Test {
  public:
