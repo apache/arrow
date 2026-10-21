@@ -38,6 +38,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
@@ -49,10 +50,6 @@ namespace ipc {
 class DictionaryMemo;
 struct ReadStats;
 }  // namespace ipc
-
-namespace util {
-class Uri;
-}  // namespace util
 
 namespace flight {
 
