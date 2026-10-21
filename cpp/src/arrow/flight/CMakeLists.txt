@@ -186,9 +186,11 @@ set(ARROW_FLIGHT_SRCS
     server_tracing_middleware.cc
     transport.cc
     transport_server.cc
+    transport_server_internal.cc
     # Bundle the gRPC impl with libarrow_flight
     transport/grpc/grpc_client.cc
     transport/grpc/grpc_server.cc
+    transport/grpc/grpc_server_internal.cc
     transport/grpc/serialization_internal.cc
     transport/grpc/protocol_grpc_internal.cc
     transport/grpc/util_internal.cc

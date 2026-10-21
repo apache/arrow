@@ -587,6 +587,75 @@ class CountingServerMiddlewareFactory : public ServerMiddlewareFactory {
   std::atomic<int> failed_;
 };
 
+// A server middleware that only sends a header once the RPC handler has
+// flagged it, to check that headers are gathered after the handler runs.
+class HandlerStateServerMiddleware : public ServerMiddleware {
+ public:
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {
+    if (handler_ran) {
+      outgoing_headers->AddHeader("x-handler-ran", "true");
+    }
+  }
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "HandlerStateServerMiddleware"; }
+
+  bool handler_ran = false;
+};
+
+class HandlerStateServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    *middleware = std::make_shared<HandlerStateServerMiddleware>();
+    return Status::OK();
+  }
+};
+
+class HandlerStateTestServer : public FlightServerBase {
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) override {
+    auto middleware = static_cast<HandlerStateServerMiddleware*>(
+        context.GetMiddleware("handler_state"));
+    if (middleware == nullptr) {
+      return Status::Invalid("Could not find middleware");
+    }
+    middleware->handler_ran = true;
+    ARROW_ASSIGN_OR_RAISE(auto flight_info,
+                          FlightInfo::Make(*arrow::schema({}), request, {}, -1, -1));
+    *info = std::make_unique<FlightInfo>(std::move(flight_info));
+    return Status::OK();
+  }
+};
+
+// A client middleware that records the values of the x-handler-ran header.
+class HandlerStateClientMiddleware : public ClientMiddleware {
+ public:
+  explicit HandlerStateClientMiddleware(std::vector<std::string>* values)
+      : values_(values) {}
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
+  void ReceivedHeaders(const CallHeaders& incoming_headers) override {
+    auto [begin, end] = incoming_headers.equal_range("x-handler-ran");
+    for (auto it = begin; it != end; ++it) {
+      values_->emplace_back(it->second);
+    }
+  }
+  void CallCompleted(const Status& status) override {}
+
+ private:
+  std::vector<std::string>* values_;
+};
+
+class HandlerStateClientMiddlewareFactory : public ClientMiddlewareFactory {
+ public:
+  void StartCall(const CallInfo& info,
+                 std::unique_ptr<ClientMiddleware>* middleware) override {
+    *middleware = std::make_unique<HandlerStateClientMiddleware>(&values_);
+  }
+
+  std::vector<std::string> values_;
+};
+
 // The current span ID, used to emulate OpenTracing style distributed
 // tracing. Only used for communication between application code and
 // client middleware.
@@ -868,6 +937,34 @@ class TestCountingServerMiddleware : public ::testing::Test {
 
  protected:
   std::shared_ptr<CountingServerMiddlewareFactory> request_counter_;
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+class TestHandlerStateServerMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    client_middleware_ = std::make_shared<HandlerStateClientMiddlewareFactory>();
+    ASSERT_OK(MakeServer<HandlerStateTestServer>(
+        &server_, &client_,
+        [](FlightServerOptions* options) {
+          options->middleware.push_back(
+              {"handler_state", std::make_shared<HandlerStateServerMiddlewareFactory>()});
+          return Status::OK();
+        },
+        [&](FlightClientOptions* options) {
+          options->middleware.push_back(client_middleware_);
+          return Status::OK();
+        }));
+  }
+
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
+
+ protected:
+  std::shared_ptr<HandlerStateClientMiddlewareFactory> client_middleware_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
 };
@@ -1473,6 +1570,11 @@ TEST_F(TestCountingServerMiddleware, Count) {
 
   ASSERT_EQ(1, request_counter_->successful_);
   ASSERT_EQ(1, request_counter_->failed_);
+}
+
+TEST_F(TestHandlerStateServerMiddleware, GetFlightInfo) {
+  ASSERT_OK(client_->GetFlightInfo(FlightDescriptor::Command("")));
+  ASSERT_THAT(client_middleware_->values_, ::testing::ElementsAre("true"));
 }
 
 TEST_F(TestPropagatingMiddleware, Propagate) {
