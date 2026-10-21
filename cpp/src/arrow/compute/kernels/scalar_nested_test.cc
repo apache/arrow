@@ -370,6 +370,18 @@ TEST(TestScalarNested, ListContainsListViewOutOfOrder) {
                     "[true, false, false]");
   CheckListContains(input->Slice(3), ScalarFromJSON(int32(), "1"), "[false, false]");
   CheckListContains(input->Slice(4), ScalarFromJSON(int32(), "1"), "[false]");
+
+  // Child values outside every view are not cast either: 2^53 + 1 isn't a float64
+  ASSERT_OK_AND_ASSIGN(
+      input, ListViewArray::FromArrays(
+                 *ArrayFromJSON(int32(), "[0, 2]"), *ArrayFromJSON(int32(), "[1, 1]"),
+                 *ArrayFromJSON(int64(), "[1, 9007199254740993, 3, 9007199254740993]")));
+  CheckListContains(input, ScalarFromJSON(float64(), "1"), "[true, false]");
+  CheckListContains(input, ArrayFromJSON(float64(), "[3, 3]"), "[false, true]");
+  auto views = ArrayFromJSON(list_view(int64()), "[[1, 2], null, [], [3, null]]");
+  CheckListContains(views, ScalarFromJSON(float64(), "3"), "[false, null, false, true]");
+  CheckListContains(views, ArrayFromJSON(float64(), "[2, 1, 1, null]"),
+                    "[true, null, false, true]");
 }
 
 TEST(TestScalarNested, ListContainsArrayOfValues) {

@@ -18,8 +18,10 @@
 // Vector kernels involving nested types
 
 #include <cmath>
+#include <limits>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -556,29 +558,31 @@ Status CheckNullQueries(KernelContext* ctx, const Datum& values, const Datum& qu
   return CheckComparable(ctx, values.type(), queries.type());
 }
 
-// Cast `values` and `queries` to the types "equal" compares them as, raising the
-// errors it would. float16, which "equal" lacks, is compared as float32, and binary
-// views as large binary.
-Status CastToComparable(KernelContext* ctx, Datum* values, Datum* queries) {
-  ExecContext* exec_ctx = ctx->exec_context();
-  for (Datum* datum : {values, queries}) {
-    if (datum->type()->id() == Type::HALF_FLOAT) {
-      ARROW_ASSIGN_OR_RAISE(*datum,
-                            Cast(*datum, float32(), CastOptions::Safe(), exec_ctx));
-    }
+// The types "equal" compares `values` and `queries` as, raising the errors it would.
+// float16, which "equal" lacks, is compared as float32, and binary views as large
+// binary.
+Result<std::vector<TypeHolder>> ComparableTypes(KernelContext* ctx, const Datum& values,
+                                                const Datum& queries) {
+  std::vector<TypeHolder> types;
+  for (const auto& type : {values.type(), queries.type()}) {
+    types.emplace_back(type->id() == Type::HALF_FLOAT ? float32() : type);
   }
-  RETURN_NOT_OK(CheckComparable(ctx, values->type(), queries->type()));
-  ARROW_ASSIGN_OR_RAISE(auto equal, exec_ctx->func_registry()->GetFunction("equal"));
-  std::vector<TypeHolder> types{values->type(), queries->type()};
+  RETURN_NOT_OK(CheckComparable(ctx, types[0].GetSharedPtr(), types[1].GetSharedPtr()));
+  ARROW_ASSIGN_OR_RAISE(auto equal,
+                        ctx->exec_context()->func_registry()->GetFunction("equal"));
   RETURN_NOT_OK(equal->DispatchBest(&types));
-  for (Datum* datum : {values, queries}) {
-    TypeHolder type = types[datum == values ? 0 : 1];
+  for (auto& type : types) {
     if (is_binary_view_like(type.id())) {
       type = large_binary();
     }
-    if (!datum->type()->Equals(*type)) {
-      ARROW_ASSIGN_OR_RAISE(*datum, Cast(*datum, type, CastOptions::Safe(), exec_ctx));
-    }
+  }
+  return types;
+}
+
+Status CastTo(KernelContext* ctx, const TypeHolder& type, Datum* datum) {
+  if (!datum->type()->Equals(*type)) {
+    ARROW_ASSIGN_OR_RAISE(*datum,
+                          Cast(*datum, type, CastOptions::Safe(), ctx->exec_context()));
   }
   return Status::OK();
 }
@@ -653,9 +657,10 @@ Status VisitEqual(const ArraySpan& values, const ArraySpan& queries, Visit&& vis
   }
 }
 
-// Returns a function giving the (child offset, length) of list i, with no values for
-// null list views
-template <typename Type>
+// Returns a function giving the (child offset, length) of list i. With `kGathered`,
+// list views' offsets are into their gathered values instead, so the function must
+// be called for i = 0, 1, ...
+template <typename Type, bool kGathered = false>
 auto GetListRanges(const ArraySpan& list) {
   using Range = std::pair<int64_t, int64_t>;
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
@@ -665,9 +670,21 @@ auto GetListRanges(const ArraySpan& list) {
     const auto* offsets = list.GetValues<typename Type::offset_type>(1);
     if constexpr (is_list_view_type<Type>::value) {
       const auto* sizes = list.GetValues<typename Type::offset_type>(2);
-      return [&list, offsets, sizes](int64_t i) {
-        return Range(offsets[i], list.IsValid(i) ? sizes[i] : 0);
+      // Reading the validity bit directly keeps this cheap enough to be inlined
+      const uint8_t* validity = list.MayHaveNulls() ? list.buffers[0].data : nullptr;
+      auto size = [sizes, validity, offset = list.offset](int64_t i) -> int64_t {
+        return validity == nullptr || bit_util::GetBit(validity, offset + i) ? sizes[i]
+                                                                             : 0;
       };
+      if constexpr (kGathered) {
+        return [size, start = int64_t{0}](int64_t i) mutable {
+          const int64_t length = size(i);
+          start += length;
+          return Range(start - length, length);
+        };
+      } else {
+        return [offsets, size](int64_t i) { return Range(offsets[i], size(i)); };
+      }
     } else {
       return
           [offsets](int64_t i) { return Range(offsets[i], offsets[i + 1] - offsets[i]); };
@@ -675,15 +692,32 @@ auto GetListRanges(const ArraySpan& list) {
   }
 }
 
+// Gather the child values referenced by list views, one view after the other
+template <typename Type>
+Result<Datum> GatherListViewValues(KernelContext* ctx, const ArraySpan& list) {
+  auto list_range = GetListRanges<Type>(list);
+  Int64Builder indices(ctx->memory_pool());
+  for (int64_t i = 0; i < list.length; ++i) {
+    const auto [start, length] = list_range(i);
+    RETURN_NOT_OK(indices.Reserve(length));
+    for (int64_t j = start; j < start + length; ++j) {
+      indices.UnsafeAppend(j);
+    }
+  }
+  ARROW_ASSIGN_OR_RAISE(auto gather_indices, indices.Finish());
+  return CallFunction("take", {list.child_data[0].ToArrayData(), gather_indices},
+                      ctx->exec_context());
+}
+
 // Search each list for its query: `matches(j, i)` tells whether child value j matches
 // the query of list i, relative to the first child value referenced. If given,
 // `confirm` is the exact check, and `matches` a cheaper superset of it that long lists
 // are searched with first.
-template <typename Type, typename Matches, typename Confirm = std::nullptr_t>
-void SearchLists(const ArraySpan& list, int64_t values_start, int64_t values_length,
-                 ArraySpan* out_arr, Matches&& matches, Confirm&& confirm = nullptr) {
+template <typename ListRanges, typename Matches, typename Confirm = std::nullptr_t>
+void SearchLists(ListRanges list_range, int64_t num_lists, int64_t values_start,
+                 int64_t values_length, ArraySpan* out_arr, Matches&& matches,
+                 Confirm&& confirm = nullptr) {
   constexpr bool kConfirm = !std::is_same_v<std::decay_t<Confirm>, std::nullptr_t>;
-  const auto list_range = GetListRanges<Type>(list);
   auto emit = [&](auto&& found_in) {
     int64_t i = 0;
     arrow::internal::GenerateBitsUnrolled(out_arr->buffers[1].data, out_arr->offset,
@@ -693,7 +727,7 @@ void SearchLists(const ArraySpan& list, int64_t values_start, int64_t values_len
                                             return found_in(start, start + length, i++);
                                           });
   };
-  if (values_length < 32 * list.length) {
+  if (values_length < 32 * num_lists) {
     // Short lists are faster to check in full, without branching on the data
     auto exact = [&](int64_t j, int64_t i) {
       if constexpr (kConfirm) {
@@ -745,7 +779,9 @@ Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
                         values.null_count() > 0);
     return Status::OK();
   }
-  RETURN_NOT_OK(CastToComparable(ctx, &values, &queries));
+  ARROW_ASSIGN_OR_RAISE(auto types, ComparableTypes(ctx, values, queries));
+  RETURN_NOT_OK(CastTo(ctx, types[0], &values));
+  RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
   ExecContext* exec_ctx = ctx->exec_context();
   if (is_floating(values.type()->id())) {
     // "is_in" tells -0.0 from 0.0 and NaNs with different payloads apart, so turn
@@ -792,15 +828,27 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   out_arr->null_count = list.null_count;
 
   // The child values referenced by the lists, in any order for list views
+  auto list_range = GetListRanges<Type>(list);
   int64_t values_start = 0;
-  int64_t values_length = list.child_data[0].length;
+  int64_t values_end = list.child_data[0].length;
   if constexpr (!is_list_view_type<Type>::value) {
-    const auto list_range = GetListRanges<Type>(list);
     values_start = list_range(0).first;
-    values_length = list_range(list.length - 1).first +
-                    list_range(list.length - 1).second - values_start;
+    values_end = list_range(list.length - 1).first + list_range(list.length - 1).second;
   }
-  Datum values = list.child_data[0].ToArrayData()->Slice(values_start, values_length);
+  Datum values =
+      list.child_data[0].ToArrayData()->Slice(values_start, values_end - values_start);
+  bool gathered = false;
+  auto search = [&](auto&&... predicates) {
+    if constexpr (is_list_view_type<Type>::value) {
+      if (gathered) {
+        SearchLists(GetListRanges<Type, true>(list), list.length, /*values_start=*/0,
+                    values.length(), out_arr, predicates...);
+        return;
+      }
+    }
+    SearchLists(list_range, list.length, values_start, values.length(), out_arr,
+                predicates...);
+  };
 
   // A scalar query is a single query for all lists
   const bool scalar_query = batch[1].is_scalar();
@@ -816,17 +864,37 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   if (queries.null_count() == queries.length()) {
     RETURN_NOT_OK(CheckNullQueries(ctx, values, queries));
     const ArraySpan v(*values.array());
-    SearchLists<Type>(list, values_start, values_length, out_arr,
-                      [&](int64_t j, int64_t) { return v.IsNull(j); });
+    search([&](int64_t j, int64_t) { return v.IsNull(j); });
     return Status::OK();
   }
-  RETURN_NOT_OK(CastToComparable(ctx, &values, &queries));
+  ARROW_ASSIGN_OR_RAISE(auto types, ComparableTypes(ctx, values, queries));
+  if constexpr (is_list_view_type<Type>::value) {
+    if (!values.type()->Equals(*types[0])) {
+      // Only cast the span of values that views reference. Values in gaps between
+      // views may not convert, so then only cast the referenced values.
+      values_start = std::numeric_limits<int64_t>::max();
+      values_end = 0;
+      for (int64_t i = 0; i < list.length; ++i) {
+        const auto [start, length] = list_range(i);
+        if (length > 0) {
+          values_start = std::min(values_start, start);
+          values_end = std::max(values_end, start + length);
+        }
+      }
+      values_start = std::min(values_start, values_end);
+      values = list.child_data[0].ToArrayData()->Slice(values_start,
+                                                       values_end - values_start);
+      if (!CastTo(ctx, types[0], &values).ok()) {
+        ARROW_ASSIGN_OR_RAISE(values, GatherListViewValues<Type>(ctx, list));
+        gathered = true;
+      }
+    }
+  }
+  RETURN_NOT_OK(CastTo(ctx, types[0], &values));
+  RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
   const ArraySpan v(*values.array());
   const ArraySpan q(*queries.array());
   return VisitEqual(v, q, [&](auto&& equal) {
-    auto search = [&](auto&&... predicates) {
-      SearchLists<Type>(list, values_start, values_length, out_arr, predicates...);
-    };
     // Null checks are only paid for where there are nulls
     if (q.MayHaveNulls()) {
       search([&](int64_t j, int64_t i) {
