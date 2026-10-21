@@ -71,6 +71,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
@@ -1579,6 +1580,22 @@ TEST(Substrait, InvalidEmptyExtensionDeclaration) {
   })"));
 
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, InvalidDecimalPrecisionReturnsStatus) {
+  // GH-50230: a decimal precision outside [1, 38] must produce an error rather
+  // than aborting the process in the Decimal128Type constructor.
+  constexpr std::string_view kPocBase64 =
+      "GswBCskBCsYBEr4BCgJjMAoCYzEKAmMyCgJjMwoCYzQKAmM1CgJjNgoCYzcKAmM4CgJjOQoDYzEw"
+      "CgNjMTEKA2MxMgoDYzEzCgNjMTQKA2MxNQoDYzE2CgNjMTcSbAoCCgAKAhIACgIaAAoCKgAKAjoA"
+      "CgJSAAoCWgAKAmIACgJqAAoCcgAKA4IBAAoDigEACgfCAQQIAhAqCgWqAQIIBAoFsgECCAgKB9oB"
+      "BAoCOgAKC+IBCAoCYgASAjoACgvKAQgKAioACgJiADoDCgF0MgsQLCoHbzItc2VlZA==";
+  ASSERT_OK_AND_ASSIGN(auto poc, util::base64_decode(kPocBase64));
+  ASSERT_EQ(poc.size(), 220);
+
+  EXPECT_THAT(DeserializePlan(*Buffer::FromString(std::move(poc)),
+                              /*registry=*/nullptr, /*ext_set_out=*/nullptr),
+              Raises(StatusCode::Invalid, HasSubstr("Decimal precision out of range")));
 }
 
 TEST(Substrait, JoinPlanBasic) {
