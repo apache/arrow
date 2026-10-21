@@ -22,9 +22,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/config.h"
@@ -1314,6 +1317,84 @@ TEST(TestLevelEncoder, EncodeFixedSizeListRejectsInvalidInput) {
   EXPECT_THROW(encoder.EncodeFixedSizeList(3, -1), ParquetException);
   encoder.Init(Encoding::RLE, 2, 8, buffer.data(), capacity);
   EXPECT_THROW(encoder.EncodeFixedSizeList(3, 3), ParquetException);
+}
+
+class TestFixedSizeListWriter : public ::testing::Test {
+ protected:
+  void MakeWriter(Type::type physical_type) {
+    auto item = PrimitiveNode::Make("item", Repetition::OPTIONAL, physical_type);
+    auto repeated = GroupNode::Make("list", Repetition::REPEATED, {item});
+    auto field =
+        GroupNode::Make("root", Repetition::OPTIONAL, {repeated}, ConvertedType::LIST);
+    schema_.Init(GroupNode::Make("schema", Repetition::REQUIRED, {field}));
+    properties_ = WriterProperties::Builder().disable_dictionary()->build();
+    metadata_ = ColumnChunkMetaDataBuilder::Make(properties_, schema_.Column(0));
+    auto pager = PageWriter::Open(CreateOutputStream(), Compression::UNCOMPRESSED,
+                                  metadata_.get());
+    writer_ = ColumnWriter::Make(metadata_.get(), std::move(pager), properties_.get());
+  }
+
+  void TearDown() override {
+    if (writer_) {
+      ASSERT_NO_THROW(writer_->Close());
+    }
+  }
+
+  SchemaDescriptor schema_;
+  std::shared_ptr<WriterProperties> properties_;
+  std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
+  std::shared_ptr<ColumnWriter> writer_;
+  std::shared_ptr<ArrowWriterProperties> arrow_properties_ =
+      default_arrow_writer_properties();
+  ArrowWriteContext context_{::arrow::default_memory_pool(), arrow_properties_.get()};
+};
+
+TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
+  MakeWriter(Type::INT32);
+  auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5, 6]");
+  context_.fixed_size_list_size = 3;
+  ASSERT_OK(writer_->WriteArrow(nullptr, nullptr, 6, *values, &context_, true));
+  EXPECT_EQ(2, writer_->rows_written());
+  EXPECT_EQ(0, writer_->estimated_buffered_def_level_bytes());
+  EXPECT_EQ(0, writer_->estimated_buffered_rep_level_bytes());
+
+  auto typed = std::static_pointer_cast<Int32Writer>(writer_);
+  const int16_t definitions[] = {3, 2, 3};
+  const int16_t repetitions[] = {0, 1, 1};
+  const int32_t packed[] = {7, 9};
+  const int32_t spaced[] = {7, 0, 9};
+  const uint8_t validity = 0x05;
+  EXPECT_THROW(typed->WriteBatch(3, definitions, repetitions, packed), ParquetException);
+  EXPECT_THROW(typed->WriteBatchSpaced(3, definitions, repetitions, &validity, 0, spaced),
+               ParquetException);
+  auto packed_array = ::arrow::ArrayFromJSON(::arrow::int32(), "[7, 9]");
+  context_.fixed_size_list_size = 0;
+  EXPECT_TRUE(
+      writer_->WriteArrow(definitions, repetitions, 3, *packed_array, &context_, true)
+          .IsInvalid());
+  context_.fixed_size_list_size = 3;
+  ASSERT_OK(writer_->WriteArrow(nullptr, nullptr, 6, *values, &context_, true));
+  EXPECT_EQ(4, writer_->rows_written());
+}
+
+TEST_F(TestFixedSizeListWriter, RejectsUnsupportedType) {
+  MakeWriter(Type::BYTE_ARRAY);
+  auto values = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])");
+  context_.fixed_size_list_size = 3;
+  EXPECT_TRUE(
+      writer_->WriteArrow(nullptr, nullptr, 3, *values, &context_, true).IsInvalid());
+  EXPECT_EQ(0, writer_->rows_written());
+}
+
+TEST_F(TestFixedSizeListWriter, RejectsMarkersWithRecipe) {
+  MakeWriter(Type::INT32);
+  auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3]");
+  const int16_t definitions[] = {3, 3, 3};
+  const int16_t repetitions[] = {0, 1, 1};
+  context_.fixed_size_list_size = 3;
+  EXPECT_TRUE(writer_->WriteArrow(definitions, repetitions, 3, *values, &context_, true)
+                  .IsInvalid());
+  EXPECT_EQ(0, writer_->rows_written());
 }
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,

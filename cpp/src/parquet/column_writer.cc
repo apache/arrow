@@ -874,7 +874,8 @@ class ColumnWriterImpl {
 
   // RLE encode the src_buffer into dest_buffer and return the encoded size
   int64_t RleEncodeLevels(const void* src_buffer, ResizableBuffer* dest_buffer,
-                          int16_t max_level, bool include_length_prefix = true);
+                          int16_t max_level, bool include_length_prefix = true,
+                          bool is_repetition = false);
 
   // Serialize the buffered Data Pages
   void FlushBufferedDataPages();
@@ -895,6 +896,8 @@ class ColumnWriterImpl {
   const WriterProperties* properties_;
 
   LevelEncoder level_encoder_;
+
+  int32_t fixed_size_list_size_ = 0;
 
   MemoryPool* allocator_;
 
@@ -970,25 +973,35 @@ class ColumnWriterImpl {
 // return the size of the encoded buffer
 int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
                                           ResizableBuffer* dest_buffer, int16_t max_level,
-                                          bool include_length_prefix) {
-  // V1 DataPage includes the length of the RLE level as a prefix.
-  int32_t prefix_size = include_length_prefix ? sizeof(int32_t) : 0;
-
-  // TODO: This only works with due to some RLE specifics
-  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
-                                                 static_cast<int>(num_buffered_values_)) +
-                     prefix_size;
-
-  // Use Arrow::Buffer::shrink_to_fit = false
-  // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
-  PARQUET_THROW_NOT_OK(dest_buffer->Resize(rle_size, false));
-
-  level_encoder_.Init(Encoding::RLE, max_level, static_cast<int>(num_buffered_values_),
+                                          bool include_length_prefix,
+                                          bool is_repetition) {
+  if (num_buffered_values_ < 0 ||
+      num_buffered_values_ > std::numeric_limits<int>::max()) {
+    throw ParquetException("Too many levels in a data page");
+  }
+  const int count = static_cast<int>(num_buffered_values_);
+  const int32_t prefix_size =
+      include_length_prefix ? static_cast<int32_t>(sizeof(int32_t)) : 0;
+  const int64_t capacity =
+      static_cast<int64_t>(LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, count)) +
+      prefix_size;
+  PARQUET_THROW_NOT_OK(dest_buffer->Resize(capacity, false));
+  level_encoder_.Init(Encoding::RLE, max_level, count,
                       dest_buffer->mutable_data() + prefix_size,
                       static_cast<int>(dest_buffer->size() - prefix_size));
-  int encoded = level_encoder_.Encode(static_cast<int>(num_buffered_values_),
-                                      reinterpret_cast<const int16_t*>(src_buffer));
-  DCHECK_EQ(encoded, num_buffered_values_);
+  int encoded;
+  if (fixed_size_list_size_ > 0) {
+    if (is_repetition) {
+      encoded = level_encoder_.EncodeFixedSizeList(count, fixed_size_list_size_);
+    } else {
+      encoded = level_encoder_.EncodeRepeated(count, max_level);
+    }
+  } else {
+    encoded = level_encoder_.Encode(count, reinterpret_cast<const int16_t*>(src_buffer));
+  }
+  if (encoded != count) {
+    throw ParquetException("Could not encode all levels in a data page");
+  }
 
   if (include_length_prefix) {
     reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
@@ -1013,7 +1026,8 @@ void ColumnWriterImpl::AddDataPage() {
   if (descr_->max_repetition_level() > 0) {
     repetition_levels_rle_size = RleEncodeLevels(
         repetition_levels_sink_.data(), repetition_levels_rle_.get(),
-        descr_->max_repetition_level(), /*include_length_prefix=*/is_v1_data_page);
+        descr_->max_repetition_level(), /*include_length_prefix=*/is_v1_data_page,
+        /*is_repetition=*/true);
   }
 
   int64_t uncompressed_size =
@@ -1271,6 +1285,39 @@ inline void DoInBatchesRepeated(const int16_t* def_levels, const int16_t* rep_le
 }
 
 template <typename Action, typename GetBufferedRows>
+inline void DoInBatchesFixedSizeList(int64_t num_levels, int32_t list_size,
+                                     int64_t batch_size, int64_t max_rows_per_page,
+                                     bool pages_change_on_record_boundaries,
+                                     Action&& action,
+                                     GetBufferedRows&& curr_page_buffered_rows) {
+  if (list_size <= 0 || num_levels < 0 || num_levels % list_size != 0 ||
+      batch_size <= 0 || max_rows_per_page <= 0) {
+    throw ParquetException("Invalid fixed-size-list batch settings");
+  }
+  int64_t offset = 0;
+  while (offset < num_levels) {
+    const int64_t remaining_rows = (num_levels - offset) / list_size;
+    const int64_t max_batch_size = std::min(batch_size, num_levels - offset);
+    const int64_t batch_rows = (max_batch_size - 1) / list_size + 1;
+    const int64_t available_rows = max_rows_per_page - curr_page_buffered_rows();
+    if (available_rows < 0) {
+      throw ParquetException("Data page contains too many rows");
+    }
+    const int64_t rows = std::min(batch_rows, available_rows);
+    if (rows < remaining_rows) {
+      const int64_t count = rows * list_size;
+      action(offset, count, true);
+      offset += count;
+    } else {
+      const int64_t last_row = num_levels - list_size;
+      action(offset, last_row - offset, true);
+      action(last_row, list_size, !pages_change_on_record_boundaries);
+      offset = num_levels;
+    }
+  }
+}
+
+template <typename Action, typename GetBufferedRows>
 inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
                         int64_t num_levels, int64_t batch_size, int64_t max_rows_per_page,
                         bool pages_change_on_record_boundaries, Action&& action,
@@ -1364,6 +1411,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                      const int16_t* rep_levels, const T* values) override {
+    if (fixed_size_list_size_ > 0) {
+      throw ParquetException("Cannot use WriteBatch after fixed-size-list writing");
+    }
     if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       throw ParquetException(
           "Content-defined chunking is not supported in WriteBatch() or "
@@ -1398,15 +1448,25 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       // circumvent this check when writing ::arrow::DictionaryArray directly
       CheckDictionarySizeLimit();
     };
-    DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
-                properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
-                WriteChunk, [this]() { return num_buffered_rows_; });
+    if (fixed_size_list_size_ > 0) {
+      DoInBatchesFixedSizeList(
+          num_values, fixed_size_list_size_, properties_->write_batch_size(),
+          properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+          WriteChunk, [this]() { return num_buffered_rows_; });
+    } else {
+      DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
+                  properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                  WriteChunk, [this]() { return num_buffered_rows_; });
+    }
     return value_offset;
   }
 
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override {
+    if (fixed_size_list_size_ > 0) {
+      throw ParquetException("Cannot use WriteBatchSpaced after fixed-size-list writing");
+    }
     if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       throw ParquetException(
           "Content-defined chunking is not supported in WriteBatch() or "
@@ -1459,6 +1519,44 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                     int64_t num_levels, const ::arrow::Array& leaf_array,
                     ArrowWriteContext* ctx, bool leaf_field_nullable) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
+    if (ctx->fixed_size_list_size < 0) {
+      return Status::Invalid("Fixed-size-list size must not be negative");
+    }
+    if (ctx->fixed_size_list_size > 0) {
+      const int32_t list_size = ctx->fixed_size_list_size;
+      const auto arrow_type = leaf_array.type_id();
+      const bool supported_type = (std::is_same_v<ParquetType, Int32Type> &&
+                                   arrow_type == ::arrow::Type::INT32) ||
+                                  (std::is_same_v<ParquetType, Int64Type> &&
+                                   arrow_type == ::arrow::Type::INT64) ||
+                                  (std::is_same_v<ParquetType, FloatType> &&
+                                   arrow_type == ::arrow::Type::FLOAT) ||
+                                  (std::is_same_v<ParquetType, DoubleType> &&
+                                   arrow_type == ::arrow::Type::DOUBLE);
+      if (!supported_type) {
+        return Status::Invalid(
+            "Fixed-size-list writing requires a matching numeric type");
+      }
+      if (closed_ || content_defined_chunker_ != nullptr ||
+          descr_->max_repetition_level() != 1 || def_levels != nullptr ||
+          rep_levels != nullptr || num_levels < 0 || num_levels % list_size != 0 ||
+          leaf_array.length() != num_levels || leaf_array.null_count() != 0) {
+        return Status::Invalid("Invalid input for fixed-size-list writing");
+      }
+      if ((fixed_size_list_size_ == 0 && num_buffered_values_ != 0) ||
+          (fixed_size_list_size_ != 0 && fixed_size_list_size_ != list_size)) {
+        return Status::Invalid("Cannot mix fixed-size-list writing paths");
+      }
+      if (num_levels == 0) {
+        return Status::OK();
+      }
+      fixed_size_list_size_ = list_size;
+      return WriteArrowDense(nullptr, nullptr, num_levels, leaf_array, ctx,
+                             /*maybe_parent_nulls=*/false);
+    }
+    if (fixed_size_list_size_ != 0) {
+      return Status::Invalid("Cannot mix fixed-size-list writing paths");
+    }
     // Leaf nulls are canonical when there is only a single null element after a list
     // and it is at the leaf.
     bool single_nullable_element =
@@ -1704,6 +1802,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteLevels(int64_t num_levels, const int16_t* def_levels,
                       const int16_t* rep_levels) {
+    if (fixed_size_list_size_ > 0) {
+      ARROW_DCHECK_EQ(num_levels % fixed_size_list_size_, 0);
+      const int64_t rows = num_levels / fixed_size_list_size_;
+      if (page_size_statistics_) {
+        auto& statistics = *page_size_statistics_;
+        statistics.definition_level_histogram[descr_->max_definition_level()] +=
+            num_levels;
+        statistics.repetition_level_histogram[0] += rows;
+        statistics.repetition_level_histogram[1] += num_levels - rows;
+      }
+      rows_written_ += rows;
+      num_buffered_rows_ += rows;
+      return num_levels;
+    }
     // Update histograms now, to maximize cache efficiency.
     UpdateLevelHistogram(num_levels, def_levels, rep_levels);
 
