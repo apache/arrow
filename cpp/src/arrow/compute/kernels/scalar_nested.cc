@@ -745,10 +745,15 @@ Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
   RETURN_NOT_OK(CastToComparable(ctx, &values, &queries));
   ExecContext* exec_ctx = ctx->exec_context();
   if (is_floating(values.type()->id())) {
-    // "is_in" tells -0.0 from 0.0, so turn -0.0 into 0.0
+    // "is_in" tells -0.0 from 0.0 and NaNs with different payloads apart, so turn
+    // -0.0 into 0.0 and all NaNs into one
     ARROW_ASSIGN_OR_RAISE(auto zero, MakeScalar(values.type(), 0.0));
+    ARROW_ASSIGN_OR_RAISE(auto nan, MakeScalar(values.type(), std::nan("")));
     for (Datum* datum : {&values, &queries}) {
       ARROW_ASSIGN_OR_RAISE(*datum, CallFunction("add", {*datum, zero}, exec_ctx));
+      ARROW_ASSIGN_OR_RAISE(Datum is_nan, CallFunction("is_nan", {*datum}, exec_ctx));
+      ARROW_ASSIGN_OR_RAISE(*datum,
+                            CallFunction("if_else", {is_nan, nan, *datum}, exec_ctx));
     }
   }
   const SetLookupOptions options(values);

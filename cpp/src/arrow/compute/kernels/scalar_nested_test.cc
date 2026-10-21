@@ -249,6 +249,20 @@ TEST(TestScalarNested, ListContainsNaN) {
                     "[false, true, true, false, null]");
   CheckListContains(ArrayFromJSON(list(float32()), "[[1.5], [NaN]]"),
                     ScalarFromJSON(float16(), "NaN"), "[false, true]");
+
+  // NaNs with different payloads (0x7ff8000000000001, 0x7ff8000000000002) match too
+  ASSERT_OK_AND_ASSIGN(auto nans,
+                       ArrayFromJSON(uint64(), "[9221120237041090561]")->View(float64()));
+  ASSERT_OK_AND_ASSIGN(
+      auto queries, ArrayFromJSON(uint64(), "[9221120237041090562, 4607182418800017408]")
+                        ->View(float64()));  // [NaN, 1.0]
+  ASSERT_OK_AND_ASSIGN(
+      input, ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 1]"), *nans));
+  CheckListContains(input, queries, "[true, false]");
+  ASSERT_OK_AND_ASSIGN(auto nan_query, queries->GetScalar(0));
+  CheckListContains(input, nan_query, "[true, false]");
+  ASSERT_OK_AND_ASSIGN(auto nan_list, input->GetScalar(0));
+  CheckListContains(nan_list, queries, "[true, false]");
 }
 
 TEST(TestScalarNested, ListContainsValueTypes) {
