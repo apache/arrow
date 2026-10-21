@@ -453,6 +453,47 @@ class TestBasicAuthHandler : public ::testing::Test {
   std::unique_ptr<FlightServerBase> server_;
 };
 
+// A client auth handler that reads and writes after the server
+// finishes the handshake.
+class ReadWriteAfterFinishClientAuthHandler : public ClientAuthHandler {
+ public:
+  Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override {
+    std::string token;
+    // The server finishes the handshake without sending anything. So
+    // this finishes the stream.
+    RETURN_NOT_OK(incoming->Read(&token));
+    // The stream is already finished.
+    return outgoing->Write("token");
+  }
+
+  Status GetToken(std::string* token) override {
+    *token = "";
+    return Status::OK();
+  }
+};
+
+class TestNoOpAuthHandler : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(MakeServer<AuthTestServer>(
+        &server_, &client_,
+        [](FlightServerOptions* options) {
+          options->auth_handler = std::make_unique<NoOpAuthHandler>();
+          return Status::OK();
+        },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
 class TestTls : public ::testing::Test {
  public:
   void SetUp() {
@@ -1323,6 +1364,12 @@ TEST_F(TestBasicAuthHandler, CheckPeerIdentity) {
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
+}
+
+TEST_F(TestNoOpAuthHandler, ReadWriteAfterFinish) {
+  // GH-49818: This must not call Finish() on the handshake stream twice.
+  ASSERT_OK(client_->Authenticate(
+      {}, std::make_unique<ReadWriteAfterFinishClientAuthHandler>()));
 }
 
 TEST_F(TestTls, DoAction) {
