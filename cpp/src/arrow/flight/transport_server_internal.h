@@ -189,11 +189,9 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
   ///
   /// \param[in] wait A callable that blocks until the server stops.
   /// \param[in] shutdown A callable invoked on signal receipt to stop the server.
-  /// \param[in] not_started_message Logged if shutdown is called before the server
   /// starts. \param[in] shutdown_warning Logged if shutdown itself fails.
   template <typename WaitFn, typename ShutdownFn>
-  Status Serve(WaitFn&& wait, ShutdownFn&& shutdown, const char* not_started_message,
-               const char* shutdown_warning) {
+  Status Serve(WaitFn&& wait, ShutdownFn&& shutdown, const char* shutdown_warning) {
     got_signal_ = 0;
     old_signal_handlers_.clear();
     // Everything the signal handler touches must be initialized before the

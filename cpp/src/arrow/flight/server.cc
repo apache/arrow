@@ -97,7 +97,7 @@ Status FlightServerBase::Serve() {
         }
         return impl_->transport_->Shutdown();
       },
-      "Server did not start properly", "Error shutting down server");
+      "Error shutting down server");
 }
 
 int FlightServerBase::GotSignal() const { return impl_->signal_state_.GotSignal(); }
