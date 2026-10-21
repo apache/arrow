@@ -835,10 +835,9 @@ enum SqlInfo {
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
 
   /*
-   * Retrieves a UTF-8 string containing a Substrait dialect: a YAML document,
-   * conforming to the Substrait dialect schema (text/dialect_schema.yaml in the
-   * Substrait repository), that lists the types, relations, expressions and
-   * function signatures the server accepts in a Substrait plan.
+   * Retrieves a UTF-8 string containing a Substrait dialect describing the
+   * part of Substrait the server accepts in a plan. See
+   * https://github.com/substrait-io/substrait/blob/main/text/dialect_schema.yaml.
    *
    * A plan that only uses what the dialect lists is expected to be accepted;
    * one that uses anything else may be rejected. The dialect should only be
