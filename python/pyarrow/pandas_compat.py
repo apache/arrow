@@ -904,19 +904,20 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
             # that are certainly numpy dtypes
             try:
                 pandas_dtype = _pandas_api.pandas_dtype(dtype)
-            except TypeError:
+            except (TypeError, ValueError):
                 # Complex/nested Arrow types (list, struct, dictionary, ...)
                 # serialize to a 'numpy_type' string (e.g.
                 # "list<item: string>[pyarrow]") that pandas_dtype() cannot
-                # parse back. Fall back to building the ArrowDtype directly
-                # from the schema's actual field type instead of giving up
-                # on round-tripping the dtype entirely.
+                # parse back; np.dtype() is tried first and, for strings
+                # with a comma (struct, dictionary, map), misreads it as
+                # its legacy multi-field format syntax and raises
+                # ValueError before the ArrowDtype parser is ever reached,
+                # rather than the TypeError a comma-free string like list
+                # gets. Either way, don't guess that the user wants an
+                # ArrowDtype for a dtype string we can't actually parse;
+                # leave this column out so it isn't treated specially.
                 # See GH-39914 / pandas-dev/pandas#53011.
-                try:
-                    field = table.schema.field(name)
-                except KeyError:
-                    continue
-                pandas_dtype = _pandas_api.pd.ArrowDtype(field.type)
+                continue
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
                 if isinstance(pandas_dtype, _pandas_api.pd.StringDtype):
                     # when the metadata indicate to use the string dtype,

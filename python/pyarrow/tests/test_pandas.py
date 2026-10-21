@@ -4570,18 +4570,27 @@ def test_to_pandas_extension_dtypes_mapping_complex_type_no_types_mapper():
     # GH-39914: without an explicit types_mapper, the pandas metadata
     # embedded by from_pandas() stores a 'numpy_type' string like
     # "list<item: string>[pyarrow]" for complex/nested ArrowDtype columns.
-    # pandas_dtype() cannot parse that string back, so to_pandas() (and, by
-    # extension, pd.read_parquet() without dtype_backend="pyarrow") used to
-    # raise a TypeError instead of falling back to the schema's actual field
-    # type. See pandas-dev/pandas#53011.
+    # pandas_dtype() cannot parse that string back -- with TypeError for a
+    # comma-free string like the list case, or ValueError for a string
+    # with a comma (struct, dictionary, map), which np.dtype() misreads as
+    # its legacy multi-field format syntax before ever reaching the
+    # ArrowDtype parser. Either way, to_pandas() (and, by extension,
+    # pd.read_parquet() without dtype_backend="pyarrow") used to crash
+    # outright instead of leaving the column out of the metadata-driven
+    # extension-dtype handling. See pandas-dev/pandas#53011.
+    #
+    # The ArrowDtype is not expected to round-trip here: an unparseable
+    # 'numpy_type' string isn't necessarily an ArrowDtype the caller still
+    # wants, so the column just falls back to its normal (non-metadata)
+    # conversion.
     list_type = pd.ArrowDtype(pa.list_(pa.string()))
     df0 = pd.DataFrame({
         "a": pd.Series([["x"], ["x", "y"]], dtype=list_type),
     })
-
     table = pa.Table.from_pandas(df0)
     df1 = table.to_pandas()
-    pd.testing.assert_frame_equal(df0, df1)
+    assert df1["a"].dtype == np.dtype("object")
+    assert [list(v) for v in df1["a"]] == [["x"], ["x", "y"]]
 
     struct_type = pd.ArrowDtype(
         pa.struct([pa.field("bar", pa.bool_()), pa.field("baz", pa.float32())])
@@ -4594,7 +4603,17 @@ def test_to_pandas_extension_dtypes_mapping_complex_type_no_types_mapper():
     })
     table2 = pa.Table.from_pandas(df2)
     df3 = table2.to_pandas()
-    pd.testing.assert_frame_equal(df2, df3)
+    assert df3["a"].dtype == np.dtype("object")
+    assert df3["a"].tolist() == [
+        {"bar": True, "baz": 1.0}, {"bar": False, "baz": None}
+    ]
+
+    dict_type = pd.ArrowDtype(pa.dictionary(pa.int32(), pa.string()))
+    df4 = pd.DataFrame({"a": pd.Series(["x", "y", "x"], dtype=dict_type)})
+    table4 = pa.Table.from_pandas(df4)
+    df5 = table4.to_pandas()
+    assert isinstance(df5["a"].dtype, pd.CategoricalDtype)
+    assert df5["a"].tolist() == ["x", "y", "x"]
 
 
 def test_array_to_pandas():
