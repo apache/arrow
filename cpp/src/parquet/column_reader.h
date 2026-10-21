@@ -392,7 +392,7 @@ class PARQUET_EXPORT RecordReader {
   /// \brief Decoded repetition levels
   ///
   /// This always return a valid pointer, except when the max repetition level is
-  /// zero (some repeated fields).
+  /// zero (no repeated fields).
   virtual int16_t* rep_levels() const = 0;
 
   /// \brief Decoded values, including nulls, if any
