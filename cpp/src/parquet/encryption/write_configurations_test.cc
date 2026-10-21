@@ -19,6 +19,9 @@
 
 #include <stdio.h>
 
+#include <stdexcept>
+#include <tuple>
+
 #include <arrow/io/file.h>
 
 #include "parquet/column_reader.h"
@@ -194,6 +197,131 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
                             ->build(),
                         "tmp_encrypt_columns_and_footer_ctr.parquet.encrypted"));
 }
+
+enum class AadPrefixMode { None, Stored, External };
+
+class TestGeneratedEncryptionConfiguration
+    : public ::testing::TestWithParam<
+          std::tuple<ParquetCipher::type, bool, AadPrefixMode>> {
+ public:
+  void SetUp() override {
+    PARQUET_ASSIGN_OR_THROW(temp_dir_, temp_data_dir());
+    file_path_ = temp_dir_->path().ToString() + "algorithm_metadata.parquet.encrypted";
+
+    std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> columns;
+    columns[kDoubleFieldName] =
+        ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+    columns[kFloatFieldName] =
+        ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2, "kc2");
+    columns[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
+
+    FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
+    builder.footer_key_metadata("kf")
+        ->encrypted_columns(std::move(columns))
+        ->algorithm(std::get<0>(GetParam()));
+    if (std::get<1>(GetParam())) {
+      builder.set_plaintext_footer();
+    }
+    if (std::get<2>(GetParam()) != AadPrefixMode::None) {
+      builder.aad_prefix(kFileName);
+    }
+    if (std::get<2>(GetParam()) == AadPrefixMode::External) {
+      builder.disable_aad_prefix_storage();
+    }
+    FileEncryptor().EncryptFile(file_path_, builder.build());
+  }
+
+ protected:
+  enum class Keys { All, MissingColumn, WrongFooter };
+  enum class AadPrefix { Match, Missing, Wrong };
+
+  std::shared_ptr<FileDecryptionProperties> MakeDecryptionProperties(
+      Keys keys = Keys::All, AadPrefix prefix = AadPrefix::Match) {
+    auto retriever = std::make_shared<StringKeyIdRetriever>();
+    retriever->PutKey("kf", keys == Keys::WrongFooter ? SecureString(kNewFooterMasterKey)
+                                                      : kFooterEncryptionKey);
+    if (keys != Keys::MissingColumn) {
+      retriever->PutKey("kc1", kColumnEncryptionKey1);
+    }
+    retriever->PutKey("kc2", kColumnEncryptionKey2);
+
+    FileDecryptionProperties::Builder builder;
+    builder.key_retriever(std::move(retriever));
+    if (std::get<2>(GetParam()) != AadPrefixMode::None && prefix != AadPrefix::Missing) {
+      builder.aad_prefix(prefix == AadPrefix::Wrong ? "incorrect-prefix" : kFileName);
+    }
+    return builder.build();
+  }
+
+  std::unique_ptr<ParquetFileReader> OpenReader(
+      std::shared_ptr<FileDecryptionProperties> decryption_properties) {
+    auto reader_properties = default_reader_properties();
+    reader_properties.file_decryption_properties(std::move(decryption_properties));
+    return ParquetFileReader::OpenFile(file_path_, false, reader_properties);
+  }
+
+  void ReadFirstSecretValue(std::shared_ptr<FileDecryptionProperties> properties) {
+    auto reader = OpenReader(std::move(properties));
+    auto column = reader->RowGroup(0)->Column(5);
+    auto* double_reader = static_cast<DoubleReader*>(column.get());
+    double value;
+    int64_t values_read;
+    double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+  }
+
+  std::unique_ptr<TemporaryDir> temp_dir_;
+  std::string file_path_;
+};
+
+TEST_P(TestGeneratedEncryptionConfiguration, AlgorithmMetadataAndRoundTrip) {
+  const auto cipher = std::get<0>(GetParam());
+  const bool plaintext_footer = std::get<1>(GetParam());
+  const auto prefix_mode = std::get<2>(GetParam());
+  auto reader = OpenReader(MakeDecryptionProperties());
+  const auto metadata = reader->metadata();
+  if (plaintext_footer) {
+    ASSERT_TRUE(metadata->is_encryption_algorithm_set());
+    const auto algorithm = metadata->encryption_algorithm();
+    ASSERT_EQ(cipher, algorithm.algorithm);
+    EXPECT_FALSE(algorithm.aad.aad_file_unique.empty());
+    EXPECT_EQ(prefix_mode == AadPrefixMode::External, algorithm.aad.supply_aad_prefix);
+    EXPECT_EQ(prefix_mode == AadPrefixMode::Stored ? kFileName : "",
+              algorithm.aad.aad_prefix);
+  } else {
+    // An encrypted footer declares the algorithm in FileCryptoMetaData instead.
+    EXPECT_FALSE(metadata->is_encryption_algorithm_set());
+  }
+  reader->Close();
+
+  FileDecryptor decryptor;
+  // Verify every physical column and all row groups through sync and async readers.
+  ASSERT_NO_THROW(decryptor.DecryptFile(file_path_, MakeDecryptionProperties()));
+  if (prefix_mode == AadPrefixMode::Stored) {
+    ASSERT_NO_THROW(decryptor.DecryptFile(
+        file_path_, MakeDecryptionProperties(Keys::All, AadPrefix::Missing)));
+  }
+  if (plaintext_footer) {
+    // This reads only public columns and does not authenticate the keyless footer.
+    ASSERT_NO_THROW(decryptor.DecryptFile(file_path_, nullptr));
+  }
+  EXPECT_THROW(ReadFirstSecretValue(MakeDecryptionProperties(Keys::MissingColumn)),
+               std::out_of_range);
+  EXPECT_THROW(OpenReader(MakeDecryptionProperties(Keys::WrongFooter)), ParquetException);
+  if (prefix_mode == AadPrefixMode::External) {
+    EXPECT_THROW(OpenReader(MakeDecryptionProperties(Keys::All, AadPrefix::Missing)),
+                 ParquetException);
+    EXPECT_THROW(OpenReader(MakeDecryptionProperties(Keys::All, AadPrefix::Wrong)),
+                 ParquetException);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    GeneratedFiles, TestGeneratedEncryptionConfiguration,
+    ::testing::Combine(::testing::Values(ParquetCipher::AES_GCM_V1,
+                                         ParquetCipher::AES_GCM_CTR_V1),
+                       ::testing::Bool(),
+                       ::testing::Values(AadPrefixMode::None, AadPrefixMode::Stored,
+                                         AadPrefixMode::External)));
 
 // Set temp_dir before running the write/read tests. The encrypted files will
 // be written/read from this directory.

@@ -2133,19 +2133,15 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
     metadata_->__isset.column_orders = true;
 
-    // if plaintext footer, set footer signing algorithm
+    // Plaintext footers declare the file encryption algorithm and signing key metadata.
     auto file_encryption_properties = properties_->file_encryption_properties();
     if (file_encryption_properties && !file_encryption_properties->encrypted_footer()) {
-      EncryptionAlgorithm signing_algorithm;
-      EncryptionAlgorithm algo = file_encryption_properties->algorithm();
-      signing_algorithm.aad.aad_file_unique = algo.aad.aad_file_unique;
-      signing_algorithm.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
-      if (!algo.aad.supply_aad_prefix) {
-        signing_algorithm.aad.aad_prefix = algo.aad.aad_prefix;
+      EncryptionAlgorithm algorithm = file_encryption_properties->algorithm();
+      if (algorithm.aad.supply_aad_prefix) {
+        algorithm.aad.aad_prefix.clear();
       }
-      signing_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
 
-      metadata_->__set_encryption_algorithm(ToThrift(signing_algorithm));
+      metadata_->__set_encryption_algorithm(ToThrift(algorithm));
       const std::string& footer_signing_key_metadata =
           file_encryption_properties->footer_key_metadata();
       if (footer_signing_key_metadata.size() > 0) {
