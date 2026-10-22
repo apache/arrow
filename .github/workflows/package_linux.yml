@@ -349,6 +349,9 @@ jobs:
         if: env.TASK_NAMESPACE == 'apt'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # /tmp is a size-limited tmpfs on some runner images.
+          # Reprotest copies the source tree there for each build.
+          TMPDIR: ${{ runner.temp }}
         run: |
           # Validate reproducibility. Reprotest runs the build twice
           # inside its own tempdir and doesn't copy artifacts back,
