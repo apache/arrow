@@ -342,6 +342,8 @@ def from_dlpack_split(obj):
     return np.from_dlpack(DLPackForwarder(obj, max_version=max_version))
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Exporting an unversioned DLPack:DeprecationWarning")
 def test_dlpack_not_supported():
     arr = pa.array([1, None, 3])
     with pytest.raises(TypeError, match="Can only use DLPack "
