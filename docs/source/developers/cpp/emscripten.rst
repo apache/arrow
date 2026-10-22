@@ -36,7 +36,7 @@ activate it using the commands below (see https://emscripten.org/docs/getting_st
    # replace <version> with the desired EMSDK version.
    # e.g. for Pyodide 314.0.x, you need EMSDK version 5.0.3
    # the versions can be found in the Makefile.envs file in the Pyodide repo:
-   # https://github.com/pyodide/pyodide/blob/314.0.4/Makefile.envs
+   # https://github.com/pyodide/pyodide/blob/314.07/Makefile.envs
    ./emsdk install <version>
    ./emsdk activate <version>
    source ./emsdk_env.sh
