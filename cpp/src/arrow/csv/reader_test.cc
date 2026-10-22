@@ -174,6 +174,50 @@ void TestQuotedCRLFStraddlingBlockBoundary(TableReaderFactory reader_factory) {
   EXPECT_EQ(values[2], "plain");
 }
 
+void TestHeaderRowEndingAtBlockBoundary(TableReaderFactory reader_factory) {
+  // The header row's line terminator is the last byte of the first read
+  // block.  ProcessHeader parses the first buffer on its own, so the buffer
+  // handed to it must still contain the end of the header line; withholding
+  // a trailing '\r' from the first buffer (as done for later buffers to fix
+  // GH-51368) makes the header unreadable here.
+  for (const std::string& data :
+       {std::string("a,b\r1,2\r"), std::string("a,b\r\n1,2\r\n")}) {
+    // block_size=4 splits the input right after the header terminator;
+    // block_size=64 makes it a single block (also exercising the case of a
+    // lone first buffer ending with '\r').
+    for (const int32_t block_size : {4, 64}) {
+      auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(data));
+      ASSERT_OK_AND_ASSIGN(auto reader,
+                           reader_factory(input, ParseOptions::Defaults(), block_size));
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto table, reader->ReadAsync());
+
+      ASSERT_EQ(table->num_columns(), 2);
+      ASSERT_EQ(table->num_rows(), 1);
+      auto col_a = table->GetColumnByName("a");
+      auto col_b = table->GetColumnByName("b");
+      ASSERT_NE(col_a, nullptr);
+      ASSERT_NE(col_b, nullptr);
+      std::vector<int64_t> values_a, values_b;
+      for (int i = 0; i < col_a->num_chunks(); ++i) {
+        auto arr = std::static_pointer_cast<Int64Array>(col_a->chunk(i));
+        for (int64_t j = 0; j < arr->length(); ++j) {
+          values_a.push_back(arr->Value(j));
+        }
+      }
+      for (int i = 0; i < col_b->num_chunks(); ++i) {
+        auto arr = std::static_pointer_cast<Int64Array>(col_b->chunk(i));
+        for (int64_t j = 0; j < arr->length(); ++j) {
+          values_b.push_back(arr->Value(j));
+        }
+      }
+      ASSERT_EQ(values_a.size(), 1);
+      ASSERT_EQ(values_b.size(), 1);
+      EXPECT_EQ(values_a[0], 1);
+      EXPECT_EQ(values_b[0], 2);
+    }
+  }
+}
+
 void StressTableReader(TableReaderFactory reader_factory) {
 #ifdef ARROW_VALGRIND
   const int NTASKS = 10;
@@ -300,6 +344,9 @@ TEST(SerialReaderTests, Straddling) { TestStraddling(MakeSerialFactory()); }
 TEST(SerialReaderTests, QuotedCRLFStraddlingBlockBoundary) {
   TestQuotedCRLFStraddlingBlockBoundary(MakeSerialFactory());
 }
+TEST(SerialReaderTests, HeaderRowEndingAtBlockBoundary) {
+  TestHeaderRowEndingAtBlockBoundary(MakeSerialFactory());
+}
 TEST(SerialReaderTests, Stress) { StressTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, StressInvalid) { StressInvalidTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, NestedParallelism) {
@@ -339,6 +386,10 @@ TEST(AsyncReaderTests, HeaderOnly) {
 TEST(AsyncReaderTests, QuotedCRLFStraddlingBlockBoundary) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
   TestQuotedCRLFStraddlingBlockBoundary(table_factory);
+}
+TEST(AsyncReaderTests, HeaderRowEndingAtBlockBoundary) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestHeaderRowEndingAtBlockBoundary(table_factory);
 }
 TEST(AsyncReaderTests, Straddling) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
@@ -396,6 +447,9 @@ TEST(StreamingReaderTests, HeaderOnly) {
 TEST(StreamingReaderTests, Straddling) { TestStraddling(MakeStreamingFactory()); }
 TEST(StreamingReaderTests, QuotedCRLFStraddlingBlockBoundary) {
   TestQuotedCRLFStraddlingBlockBoundary(MakeStreamingFactory());
+}
+TEST(StreamingReaderTests, HeaderRowEndingAtBlockBoundary) {
+  TestHeaderRowEndingAtBlockBoundary(MakeStreamingFactory());
 }
 TEST(StreamingReaderTests, Stress) { StressTableReader(MakeStreamingFactory()); }
 TEST(StreamingReaderTests, StressInvalid) {

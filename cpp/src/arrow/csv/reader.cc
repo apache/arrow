@@ -109,6 +109,13 @@ class CSVBufferIterator {
   Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
     if (buf == nullptr) {
       // EOF
+      if (held_first_buffer_ != nullptr) {
+        // The whole input was a single buffer ending with '\r', which was
+        // held back (see below).  Emit it as-is: no buffer follows, so its
+        // trailing '\r' cannot be the first half of a straddling CRLF pair.
+        auto held = std::move(held_first_buffer_);
+        return TransformYield(std::move(held), /*ready_for_next=*/false);
+      }
       if (pending_cr_) {
         // A '\r' was withheld from the end of the previous buffer.  Emit it
         // now so that no data is lost, and ask to be called again with the
@@ -123,6 +130,7 @@ class CSVBufferIterator {
     }
 
     int64_t offset = 0;
+    const bool is_first_buffer = first_buffer_;
     if (first_buffer_) {
       ARROW_ASSIGN_OR_RAISE(auto data, util::SkipUTF8BOM(buf->data(), buf->size()));
       offset += data - buf->data();
@@ -148,14 +156,46 @@ class CSVBufferIterator {
       offset = 0;
     }
 
+    if (held_first_buffer_ != nullptr) {
+      // Prepend the first buffer, which was held back because it ended with
+      // '\r' (see below), so that the first emitted buffer contains the end
+      // of the first line whenever it falls inside the first read block.
+      auto held = std::move(held_first_buffer_);
+      const int64_t rest = buf->size() - offset;
+      ARROW_ASSIGN_OR_RAISE(auto joined, AllocateBuffer(held->size() + rest));
+      uint8_t* out = joined->mutable_data();
+      memcpy(out, held->data(), static_cast<size_t>(held->size()));
+      if (rest > 0) {
+        memcpy(out + held->size(), buf->data() + offset, static_cast<size_t>(rest));
+      }
+      buf = std::shared_ptr<Buffer>(std::move(joined));
+      offset = 0;
+    }
+
     if (buf->size() > offset && buf->data()[buf->size() - 1] == '\r') {
+      if (is_first_buffer) {
+        // Do not withhold a trailing '\r' from the first buffer: the header
+        // parser (ReaderMixin::ProcessHeader) parses the first buffer on
+        // its own and needs to find the end of the first line in it, so
+        // emitting the buffer without its only line terminator makes the
+        // header unreadable (e.g. block_size=4 on "a,b\r1,2\r").  Hold the
+        // whole buffer back instead and prepend it to the next one above;
+        // the '\r' then sits inside the emitted buffer, where downstream
+        // code handles it like any other line terminator.
+        held_first_buffer_ = SliceBuffer(buf, offset);
+        return TransformSkip();
+      }
       // Withhold a trailing '\r' so that downstream code never observes a
       // buffer ending with '\r'.  The chunker and the parser treat a '\r' at
       // the end of a buffer as a complete line terminator; dropping the '\n'
       // that may follow it (as was done previously) silently corrupts CRLF
       // sequences inside quoted fields (GH-51368).
       pending_cr_ = true;
-      buf = SliceBuffer(std::move(buf), offset, buf->size() - offset - 1);
+      // Compute the slice length before moving `buf`: the evaluation order
+      // of function arguments is unspecified, so `buf->size()` could
+      // otherwise be read after `buf` has been moved from.
+      const int64_t length = buf->size() - offset - 1;
+      buf = SliceBuffer(std::move(buf), offset, length);
     } else if (offset != 0) {
       buf = SliceBuffer(std::move(buf), offset);
     }
@@ -177,6 +217,9 @@ class CSVBufferIterator {
   // Whether a trailing '\r' was withheld from the end of the last emitted
   // buffer, to be prepended to the next one (GH-51368)
   bool pending_cr_ = false;
+  // The first buffer, if it ended with '\r' and was held back to be
+  // prepended to the second buffer (or emitted as-is at end of stream)
+  std::shared_ptr<Buffer> held_first_buffer_;
 };
 
 struct CSVBlock {
