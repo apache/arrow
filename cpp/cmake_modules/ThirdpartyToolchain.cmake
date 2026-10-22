@@ -1450,7 +1450,7 @@ macro(arrow_append_pc_system_library
   if(PkgConfig_FOUND AND ${PC_PREFIX}_FOUND)
     string(APPEND ${ARROW_PC_TARGET}_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
   else()
-    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} in arrow.pc")
+    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} for ${ARROW_PC_TARGET}")
     string(APPEND ${ARROW_PC_TARGET}_PC_LIBS_PRIVATE " ${FALLBACK}")
   endif()
 endmacro()
