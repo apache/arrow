@@ -655,6 +655,11 @@ struct RecordReaderTestParam {
   bool allow_levels_optimization;
 };
 
+void PrintTo(const RecordReaderTestParam& param, std::ostream* os) {
+  *os << "{read_dense_for_nullable=" << param.read_dense_for_nullable
+      << ", allow_levels_optimization=" << param.allow_levels_optimization << "}";
+}
+
 std::vector<RecordReaderTestParam> RecordReaderTestParams(
     std::initializer_list<bool> allow_levels_optimizations) {
   std::vector<RecordReaderTestParam> params;
@@ -1541,6 +1546,13 @@ struct ByteArrayRecordReaderParam {
   bool allow_levels_optimization;
 };
 
+void PrintTo(const ByteArrayRecordReaderParam& param, std::ostream* os) {
+  *os << "{read_dense_for_nullable=" << param.read_dense_for_nullable
+      << ", read_dictionary=" << param.read_dictionary
+      << ", encoding=" << EncodingToString(param.encoding)
+      << ", allow_levels_optimization=" << param.allow_levels_optimization << "}";
+}
+
 class ByteArrayRecordReaderTest
     : public ::testing::TestWithParam<ByteArrayRecordReaderParam> {
  public:
@@ -1775,6 +1787,11 @@ struct RecordReaderStressParam {
   Repetition::type repetition;
   bool allow_levels_optimization;
 };
+
+void PrintTo(const RecordReaderStressParam& param, std::ostream* os) {
+  *os << "{repetition=" << static_cast<int>(param.repetition)
+      << ", allow_levels_optimization=" << param.allow_levels_optimization << "}";
+}
 
 // Test random combination of ReadRecords and SkipRecords.
 class RecordReaderStressTest : public ::testing::TestWithParam<RecordReaderStressParam> {
