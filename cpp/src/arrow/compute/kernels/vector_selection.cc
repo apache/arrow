@@ -80,9 +80,29 @@ int64_t DropNullCount(const Array& values) {
   return values.null_count();
 }
 
+bool HasExtensionType(const DataType& type) {
+  if (type.id() == Type::EXTENSION) {
+    return true;
+  }
+  if (type.id() == Type::RUN_END_ENCODED) {
+    // Keep the existing run-end encoded empty-array path unchanged.
+    return false;
+  }
+  if (type.id() == Type::DICTIONARY) {
+    const auto& dictionary_type = checked_cast<const DictionaryType&>(type);
+    return HasExtensionType(*dictionary_type.value_type());
+  }
+  for (const auto& field : type.fields()) {
+    if (HasExtensionType(*field->type())) {
+      return true;
+    }
+  }
+  return false;
+}
+
 Result<std::shared_ptr<Array>> MakeDropNullEmptyArray(
     const std::shared_ptr<DataType>& type, ExecContext* ctx) {
-  if (is_union(type->id())) {
+  if (is_union(type->id()) || HasExtensionType(*type)) {
     // Unlike MakeEmptyArray, this doesn't require builders for extension children.
     return MakeArrayOfNull(type, 0, ctx->memory_pool());
   }

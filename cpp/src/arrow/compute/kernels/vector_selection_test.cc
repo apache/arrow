@@ -2615,6 +2615,27 @@ Result<std::shared_ptr<Array>> MakeBool8UnionArray(
                                 std::vector<std::string>{"bool8", "other"});
 }
 
+Result<std::pair<std::shared_ptr<Array>, std::shared_ptr<Array>>>
+MakeBool8ExtensionSiblingColumns(bool is_dense) {
+  auto all_null_type_ids = ArrayFromJSON(int8(), "[0, 0]");
+  auto all_null_offsets = ArrayFromJSON(int32(), "[0, 1]");
+  auto all_null_storage = ArrayFromJSON(int8(), "[null, null]");
+  auto all_null_other = ArrayFromJSON(int32(), is_dense ? "[]" : "[0, 0]");
+  ARROW_ASSIGN_OR_RAISE(auto all_null_union,
+                        MakeBool8UnionArray(is_dense, all_null_type_ids, all_null_offsets,
+                                            all_null_storage, all_null_other));
+
+  auto list_offsets = ArrayFromJSON(int32(), "[0, 0, 0]");
+  auto empty_bool8_storage = ArrayFromJSON(int8(), "[]");
+  auto empty_bool8_values =
+      ExtensionType::WrapArray(extension::bool8(), empty_bool8_storage);
+  ARROW_ASSIGN_OR_RAISE(auto empty_lists,
+                        ListArray::FromArrays(list(extension::bool8()), *list_offsets,
+                                              *empty_bool8_values));
+
+  return std::make_pair(std::move(all_null_union), std::move(empty_lists));
+}
+
 }  // namespace
 
 TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
@@ -2739,6 +2760,47 @@ TEST_F(TestDropNullKernelWithUnion, DropNullBool8ExtensionChild) {
     ValidateOutput(actual_chunked);
     ASSERT_EQ(actual_chunked.length(), 2);
     ASSERT_TRUE(actual_chunked.type()->Equals(mixed->type()));
+  }
+}
+
+TEST_F(TestDropNullKernelWithUnion, DropNullBool8ExtensionSiblingColumnRecordBatch) {
+  for (bool is_dense : {true, false}) {
+    SCOPED_TRACE(is_dense ? "dense union" : "sparse union");
+    ASSERT_OK_AND_ASSIGN(auto columns, MakeBool8ExtensionSiblingColumns(is_dense));
+    auto schm = schema(
+        {field("u", columns.first->type()), field("lists", columns.second->type())});
+    auto batch = RecordBatch::Make(schm, 2, {columns.first, columns.second});
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_EQ(columns.second->null_count(), 0);
+    ASSERT_EQ(columns.second->length(), 2);
+
+    ASSERT_OK_AND_ASSIGN(auto actual, DropNull(batch));
+    ValidateOutput(actual);
+    ASSERT_EQ(actual.length(), 0);
+    ASSERT_TRUE(actual.record_batch()->schema()->Equals(*schm));
+    ASSERT_TRUE(
+        actual.record_batch()->column(1)->type()->Equals(list(extension::bool8())));
+  }
+}
+
+TEST_F(TestDropNullKernelWithUnion, DropNullBool8ExtensionSiblingColumnTable) {
+  for (bool is_dense : {true, false}) {
+    SCOPED_TRACE(is_dense ? "dense union" : "sparse union");
+    ASSERT_OK_AND_ASSIGN(auto columns, MakeBool8ExtensionSiblingColumns(is_dense));
+    auto schm = schema(
+        {field("u", columns.first->type()), field("lists", columns.second->type())});
+    auto table = Table::Make(schm, {std::make_shared<ChunkedArray>(columns.first),
+                                    std::make_shared<ChunkedArray>(columns.second)});
+    ASSERT_OK(table->ValidateFull());
+    ASSERT_EQ(columns.second->null_count(), 0);
+    ASSERT_EQ(columns.second->length(), 2);
+
+    ASSERT_OK_AND_ASSIGN(auto actual, DropNull(table));
+    ValidateOutput(actual);
+    ASSERT_EQ(actual.length(), 0);
+    ASSERT_TRUE(actual.table()->schema()->Equals(*schm));
+    ASSERT_TRUE(actual.table()->column(1)->type()->Equals(list(extension::bool8())));
+    ASSERT_EQ(actual.table()->column(1)->length(), 0);
   }
 }
 
