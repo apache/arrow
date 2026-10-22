@@ -20,6 +20,7 @@ import datetime
 import gc
 import io
 from pathlib import Path
+import random
 import shutil
 import subprocess
 import sys
@@ -714,11 +715,12 @@ def test_orc_writer_with_null_arrays(tempdir):
     'uncompressed', 'zlib', 'snappy', 'lz4', 'zstd'])
 def batch_file(request):
     from pyarrow import orc
-    import numpy as np
 
     rows = 4 * 16384
-    values = np.random.default_rng(42).integers(0, 2**62, size=rows)
-    table = pa.table({'value': values, 'other': values // 3})
+    rng = random.Random(42)
+    values = [rng.getrandbits(62) for _ in range(rows)]
+    table = pa.table({'value': values,
+                      'other': [value // 3 for value in values]})
     sink = pa.BufferOutputStream()
     orc.write_table(table, sink, stripe_size=1, batch_size=16384,
                     compression=request.param)
@@ -823,12 +825,11 @@ def test_iter_batches_invalid_stripes(batch_file, stripes, error):
 
 def test_iter_batches_snapshot_and_state(batch_file):
     from pyarrow import orc
-    import numpy as np
 
     reader = orc.ORCFile(batch_file[0])
-    stripes = [np.int64(2), 0]
+    stripes = [2, 0]
     columns = ['value']
-    first = reader.iter_batches(np.int64(1000), stripes, columns)
+    first = reader.iter_batches(1000, stripes, columns)
     stripes[:] = [1]
     columns[:] = ['other']
     second = reader.iter_batches(7, [1])
@@ -845,6 +846,20 @@ def test_iter_batches_snapshot_and_state(batch_file):
     with pytest.raises(IOError):
         next(reader.iter_batches(columns=['missing']))
     assert list(reader.iter_batches(stripes=[], columns=['missing'])) == []
+
+
+@pytest.mark.numpy
+def test_iter_batches_numpy_integer_arguments():
+    from pyarrow import orc
+    import numpy as np
+
+    table = pa.table({'value': [0, 1, 2, 3]})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    reader = orc.ORCFile(sink.getvalue())
+    batches = list(reader.iter_batches(np.int64(2), [np.int64(0)]))
+    assert [batch.num_rows for batch in batches] == [2, 2]
+    assert pa.Table.from_batches(batches).equals(table)
 
 
 class BatchTrackingFile(io.BytesIO):
@@ -867,7 +882,8 @@ class BatchTrackingFile(io.BytesIO):
         return len(data)
 
 
-def test_iter_batches_lazy_close_and_owner(batch_file, monkeypatch):
+@pytest.mark.parametrize('stripes', [None, [2, 0]], ids=['all', 'selected'])
+def test_iter_batches_lazy_close_and_owner(batch_file, monkeypatch, stripes):
     from pyarrow import orc
 
     source = BatchTrackingFile(batch_file[0].to_pybytes())
@@ -876,8 +892,8 @@ def test_iter_batches_lazy_close_and_owner(batch_file, monkeypatch):
     reader_ref = weakref.ref(file.reader)
     source_ref = weakref.ref(source)
 
-    for stripes in (None, [2, 0], []):
-        unstarted = file.iter_batches(32, stripes)
+    for unstarted_stripes in (None, [2, 0], []):
+        unstarted = file.iter_batches(32, unstarted_stripes)
         unstarted.close()
         assert list(unstarted) == []
         assert source.reads == []
@@ -888,13 +904,14 @@ def test_iter_batches_lazy_close_and_owner(batch_file, monkeypatch):
         pytest.fail('iter_batches must not call read_stripe')
 
     monkeypatch.setattr(orc.ORCFile, 'read_stripe', fail_whole_stripe)
-    iterator = file.iter_batches(32, [2, 0])
+    iterator = file.iter_batches(32, stripes)
     assert source.reads == []
     del file
     gc.collect()
     assert reader_ref() is not None
     retained = next(iterator)
-    expected = batch_file[1].slice(2 * 16384, 32)
+    start = 0 if stripes is None else stripes[0] * 16384
+    expected = batch_file[1].slice(start, 32)
     assert pa.Table.from_batches([retained]).equals(expected)
     assert source.reads
     reads = list(source.reads)
