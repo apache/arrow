@@ -311,6 +311,19 @@ TEST(TestScalarNested, ListContainsValueTypes) {
                     "[true, false, false, null]");
   CheckListContains(ScalarFromJSON(list(fixed_size_binary(0)), R"(["", null])"),
                     ArrayFromJSON(fixed_size_binary(0), R"(["", null])"), "[true, true]");
+
+  // Values of other widths never match, even with a common prefix
+  for (const auto& list_type :
+       {list(fixed_size_binary(1)), list_view(fixed_size_binary(1))}) {
+    input = ArrayFromJSON(list_type, R"([["a"], ["b", null], null])");
+    CheckListContains(input, ScalarFromJSON(fixed_size_binary(2), R"("ab")"),
+                      "[false, false, null]");
+    CheckListContains(input, ArrayFromJSON(fixed_size_binary(2), R"(["ab", null, "ab"])"),
+                      "[false, true, null]");
+  }
+  CheckListContains(ScalarFromJSON(list(fixed_size_binary(2)), R"(["ab", null])"),
+                    ArrayFromJSON(fixed_size_binary(1), R"(["a", null])"),
+                    "[false, true]");
 }
 
 TEST(TestScalarNested, ListContainsSignedZero) {

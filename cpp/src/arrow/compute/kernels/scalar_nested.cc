@@ -555,6 +555,10 @@ Result<std::vector<TypeHolder>> ComparableTypes(
                         ctx->exec_context()->func_registry()->GetFunction("equal"));
   RETURN_NOT_OK(equal->DispatchBest(&types));
   RETURN_NOT_OK(ValidateComparison(*types[0], *types[1]));
+  if (types[0].id() == Type::FIXED_SIZE_BINARY && *types[0] != *types[1]) {
+    // Fixed-size binary values of different widths differ, as binary values do
+    types = {binary(), binary()};
+  }
   for (auto& type : types) {
     if (is_binary_view_like(type.id())) {
       type = large_binary();
