@@ -218,6 +218,241 @@ void TestHeaderRowEndingAtBlockBoundary(TableReaderFactory reader_factory) {
   }
 }
 
+// An InputStream that delivers its data in prescribed chunk sizes, to
+// exercise short reads: a stream is allowed to return fewer bytes than
+// requested, so block boundaries as seen by the reader do not necessarily
+// fall on multiples of the configured block size.
+class ChunkedInputStream : public io::InputStream {
+ public:
+  ChunkedInputStream(std::shared_ptr<Buffer> data, std::vector<int64_t> chunks)
+      : data_(std::move(data)), chunks_(std::move(chunks)) {}
+
+  Status Close() override {
+    closed_ = true;
+    return Status::OK();
+  }
+  bool closed() const override { return closed_; }
+  Result<int64_t> Tell() const override { return pos_; }
+  Result<int64_t> Read(int64_t nbytes, void* out) override {
+    int64_t to_read = NextChunk(nbytes);
+    if (to_read > 0) {
+      memcpy(out, data_->data() + pos_, static_cast<size_t>(to_read));
+      pos_ += to_read;
+    }
+    return to_read;
+  }
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    int64_t start = pos_;
+    int64_t to_read = NextChunk(nbytes);
+    pos_ += to_read;
+    return SliceBuffer(data_, start, to_read);
+  }
+
+ private:
+  int64_t NextChunk(int64_t nbytes) {
+    int64_t chunk = chunks_[std::min(chunk_idx_, chunks_.size() - 1)];
+    int64_t to_read = std::min({nbytes, chunk, data_->size() - pos_});
+    if (to_read == chunk) ++chunk_idx_;
+    return to_read;
+  }
+  std::shared_ptr<Buffer> data_;
+  std::vector<int64_t> chunks_;
+  size_t chunk_idx_ = 0;
+  int64_t pos_ = 0;
+  bool closed_ = false;
+};
+
+// Check a parsed two-column table ("a": int64, "b": string) against the
+// expected values.  Returns "" on success, a description of the mismatch
+// otherwise (so that loop-driven tests can report every failing case).
+std::string CheckTableContents(const std::shared_ptr<Table>& table,
+                               const std::vector<int64_t>& expected_a,
+                               const std::vector<std::string>& expected_b) {
+  if (table->num_columns() != 2) {
+    return "expected 2 columns, got " + std::to_string(table->num_columns());
+  }
+  if (table->num_rows() != static_cast<int64_t>(expected_a.size())) {
+    return "expected " + std::to_string(expected_a.size()) + " rows, got " +
+           std::to_string(table->num_rows());
+  }
+  std::vector<int64_t> values_a;
+  for (int i = 0; i < table->column(0)->num_chunks(); ++i) {
+    auto arr = std::dynamic_pointer_cast<Int64Array>(table->column(0)->chunk(i));
+    if (arr == nullptr) {
+      return "column 'a' is not int64";
+    }
+    for (int64_t j = 0; j < arr->length(); ++j) {
+      values_a.push_back(arr->Value(j));
+    }
+  }
+  std::vector<std::string> values_b;
+  for (int i = 0; i < table->column(1)->num_chunks(); ++i) {
+    auto arr = std::dynamic_pointer_cast<StringArray>(table->column(1)->chunk(i));
+    if (arr == nullptr) {
+      return "column 'b' is not a string column";
+    }
+    for (int64_t j = 0; j < arr->length(); ++j) {
+      values_b.push_back(arr->GetString(j));
+    }
+  }
+  if (values_a != expected_a) {
+    return "column 'a' values differ";
+  }
+  if (values_b != expected_b) {
+    return "column 'b' values differ";
+  }
+  return "";
+}
+
+// Read a whole table from `input` and check its contents, with the same
+// return convention as CheckTableContents.
+std::string ReadAndCheckTable(TableReaderFactory reader_factory,
+                              std::shared_ptr<io::InputStream> input,
+                              const ParseOptions& parse_options, int32_t block_size,
+                              const std::vector<int64_t>& expected_a,
+                              const std::vector<std::string>& expected_b) {
+  auto maybe_reader = reader_factory(input, parse_options, block_size);
+  if (!maybe_reader.ok()) {
+    return "could not create reader: " + maybe_reader.status().message();
+  }
+  auto maybe_table = (*maybe_reader)->Read();
+  if (!maybe_table.ok()) {
+    return "read failed: " + maybe_table.status().message();
+  }
+  return CheckTableContents(*maybe_table, expected_a, expected_b);
+}
+
+void TestMixedLineEndingsStraddling(TableReaderFactory reader_factory) {
+  // LF-terminated rows followed by a final CRLF-terminated row, read with
+  // block_size=8.  The last row ("333,z\r\n") is 7 bytes: it must parse
+  // even when short reads split the stream so that the '\r' arrives in a
+  // different read than the data it terminates (e.g. chunk sizes 8, 8, 2, 1
+  // deliver "...333," / "z\r" / "\n").  Splitting the '\r' from the "z"
+  // used to make the chunker reject the file with "straddling object
+  // straddles two block boundaries", even though the row is smaller than
+  // the block size.
+  const std::string data = "a,b\n1,x\n2,y\n333,z\r\n";
+  const std::vector<int64_t> expected_a = {1, 2, 333};
+  const std::vector<std::string> expected_b = {"x", "y", "z"};
+
+  // Aligned reads of exactly block_size bytes
+  {
+    auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(data));
+    ASSERT_EQ("", ReadAndCheckTable(reader_factory, input, ParseOptions::Defaults(),
+                                    /*block_size=*/8, expected_a, expected_b));
+  }
+  // Short reads in various chunk patterns (each read still returns at most
+  // block_size bytes).  The first read of each pattern covers the header
+  // line: the first block handed to the reader must contain its end (the
+  // header parser reads the first block on its own).
+  for (const auto& chunks :
+       {std::vector<int64_t>{8, 8, 2, 1}, std::vector<int64_t>{16, 2, 1},
+        std::vector<int64_t>{4, 4, 8, 2, 1}, std::vector<int64_t>{5, 7}}) {
+    auto input =
+        std::make_shared<ChunkedInputStream>(std::make_shared<Buffer>(data), chunks);
+    ASSERT_EQ("", ReadAndCheckTable(reader_factory, input, ParseOptions::Defaults(),
+                                    /*block_size=*/8, expected_a, expected_b))
+        << "with chunk pattern starting with " << chunks[0];
+  }
+}
+
+void TestSmallInputsAcrossBlockSizes(TableReaderFactory reader_factory) {
+  // Systematically read small inputs across line-ending styles, presence
+  // or absence of a final line ending, small block sizes and field styles,
+  // checking the exact parsed values each time.  Block boundaries must not
+  // change the parse result (GH-51368 and follow-ups): in particular, a
+  // block must never lose the line terminator of the data it carries.
+  //
+  // The block sizes are chosen per field style so that every row still
+  // completes within the block that follows the one it starts in: the
+  // chunker legitimately rejects rows straddling more than that ("straddling
+  // object straddles two block boundaries", see TestStraddling), on the
+  // unmodified reader too.
+  const std::vector<std::string> ending_names = {"LF", "CR", "CRLF"};
+  const std::vector<std::string> line_endings = {"\n", "\r", "\r\n"};
+  struct FieldStyle {
+    std::string name;
+    std::vector<std::string> rows;
+    std::vector<int64_t> expected_a;
+    std::vector<std::string> expected_b;
+    bool newlines_in_values;
+    std::vector<int32_t> block_sizes;
+  };
+  const std::vector<FieldStyle> styles = {
+      {"plain",
+       {"1,x", "2,y", "33,z"},
+       {1, 2, 33},
+       {"x", "y", "z"},
+       /*newlines_in_values=*/false,
+       {4, 5, 6, 7, 8, 9, 11, 16}},
+      {"quoted",
+       {"1,\"p\nq\"", "2,\"r\rs\"", "3,\"t\r\nu\""},
+       {1, 2, 3},
+       {"p\nq", "r\rs", "t\r\nu"},
+       /*newlines_in_values=*/true,
+       {8, 9, 11, 16}},
+  };
+
+  std::vector<std::string> failures;
+  auto check = [&](const FieldStyle& style, size_t ending_index, bool final_ending,
+                   const std::string& data, int32_t block_size) {
+    auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(data));
+    auto parse_options = ParseOptions::Defaults();
+    parse_options.newlines_in_values = style.newlines_in_values;
+    auto problem = ReadAndCheckTable(reader_factory, input, parse_options, block_size,
+                                     style.expected_a, style.expected_b);
+    if (!problem.empty()) {
+      failures.push_back("style=" + style.name +
+                         " endings=" + ending_names[ending_index] +
+                         " final_ending=" + (final_ending ? "yes" : "no") +
+                         " block_size=" + std::to_string(block_size) + ": " + problem);
+    }
+  };
+
+  for (const auto& style : styles) {
+    for (size_t e = 0; e < line_endings.size(); ++e) {
+      for (const bool final_ending : {true, false}) {
+        std::string data = "a,b";
+        for (const auto& row : style.rows) {
+          data += line_endings[e] + row;
+        }
+        if (final_ending) {
+          data += line_endings[e];
+        }
+        for (const int32_t block_size : style.block_sizes) {
+          check(style, e, final_ending, data, block_size);
+        }
+      }
+    }
+  }
+
+  // Quoted fields with embedded CRLF at block_size=7: a block can end
+  // right after an embedded '\r', whose '\n' must not be dropped
+  // (GH-51368; the unmodified reader silently corrupts the values here).
+  {
+    const auto& style = styles[1];
+    const size_t e = 2;  // CRLF
+    for (const bool final_ending : {true, false}) {
+      std::string data = "a,b";
+      for (const auto& row : style.rows) {
+        data += line_endings[e] + row;
+      }
+      if (final_ending) {
+        data += line_endings[e];
+      }
+      check(style, e, final_ending, data, /*block_size=*/7);
+    }
+  }
+
+  EXPECT_TRUE(failures.empty()) << [&] {
+    std::string out;
+    for (const auto& failure : failures) {
+      out += "\n  " + failure;
+    }
+    return out;
+  }();
+}
+
 void StressTableReader(TableReaderFactory reader_factory) {
 #ifdef ARROW_VALGRIND
   const int NTASKS = 10;
@@ -347,6 +582,12 @@ TEST(SerialReaderTests, QuotedCRLFStraddlingBlockBoundary) {
 TEST(SerialReaderTests, HeaderRowEndingAtBlockBoundary) {
   TestHeaderRowEndingAtBlockBoundary(MakeSerialFactory());
 }
+TEST(SerialReaderTests, MixedLineEndingsStraddling) {
+  TestMixedLineEndingsStraddling(MakeSerialFactory());
+}
+TEST(SerialReaderTests, SmallInputsAcrossBlockSizes) {
+  TestSmallInputsAcrossBlockSizes(MakeSerialFactory());
+}
 TEST(SerialReaderTests, Stress) { StressTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, StressInvalid) { StressInvalidTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, NestedParallelism) {
@@ -390,6 +631,14 @@ TEST(AsyncReaderTests, QuotedCRLFStraddlingBlockBoundary) {
 TEST(AsyncReaderTests, HeaderRowEndingAtBlockBoundary) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
   TestHeaderRowEndingAtBlockBoundary(table_factory);
+}
+TEST(AsyncReaderTests, MixedLineEndingsStraddling) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestMixedLineEndingsStraddling(table_factory);
+}
+TEST(AsyncReaderTests, SmallInputsAcrossBlockSizes) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestSmallInputsAcrossBlockSizes(table_factory);
 }
 TEST(AsyncReaderTests, Straddling) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
@@ -450,6 +699,12 @@ TEST(StreamingReaderTests, QuotedCRLFStraddlingBlockBoundary) {
 }
 TEST(StreamingReaderTests, HeaderRowEndingAtBlockBoundary) {
   TestHeaderRowEndingAtBlockBoundary(MakeStreamingFactory());
+}
+TEST(StreamingReaderTests, MixedLineEndingsStraddling) {
+  TestMixedLineEndingsStraddling(MakeStreamingFactory());
+}
+TEST(StreamingReaderTests, SmallInputsAcrossBlockSizes) {
+  TestSmallInputsAcrossBlockSizes(MakeStreamingFactory());
 }
 TEST(StreamingReaderTests, Stress) { StressTableReader(MakeStreamingFactory()); }
 TEST(StreamingReaderTests, StressInvalid) {
