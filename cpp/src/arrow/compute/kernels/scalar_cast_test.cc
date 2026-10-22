@@ -408,6 +408,8 @@ TEST(Cast, FloatingToIntOverflow) {
       }
       CheckCast(ArrayFromJSON(from, "[127.0, null, -128.0]"),
                 ArrayFromJSON(int8(), "[127, null, -128]"), opts);
+      CheckCast(TweakValidityBit(ArrayFromJSON(from, "[1000.0, 1.0]"), 0, false),
+                ArrayFromJSON(int8(), "[null, 1]"), opts);
 
       opts.to_type = uint8();
       CheckCastFails(ArrayFromJSON(from, "[256.0]"), opts);
