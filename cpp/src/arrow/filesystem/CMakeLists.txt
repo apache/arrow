@@ -61,6 +61,17 @@ if(ARROW_GCS)
                                                       -Wno-documentation-deprecated-sync)
     endif()
   endif()
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
+    add_arrow_test(gcsfs_module_test
+                   SOURCES
+                   gcsfs_module_test.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_GCS_LIBPATH="$<TARGET_FILE:arrow_gcs_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_gcs_shared)
+  endif()
 endif()
 
 if(ARROW_AZURE)
