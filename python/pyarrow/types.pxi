@@ -31,8 +31,7 @@ import sys
 import warnings
 from cython import sizeof
 
-# These are imprecise because the type (in pandas 0.x) depends on the presence
-# of nulls
+# These are imprecise because the type depends on the presence of nulls
 cdef dict _pandas_type_map = {}
 
 
@@ -41,7 +40,7 @@ def _get_pandas_type_map():
     if not _pandas_type_map:
         _pandas_type_map.update({
             _Type_NA: np.object_,  # NaNs
-            _Type_BOOL: np.bool_,
+            _Type_BOOL: np.bool,
             _Type_INT8: np.int8,
             _Type_INT16: np.int16,
             _Type_INT32: np.int32,
@@ -160,6 +159,11 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
 def _is_primitive(Type type):
     # This is simply a redirect, the official API is in pyarrow.types.
     return is_primitive(type)
+
+
+def _is_nested(Type type):
+    # This is simply a redirect, the official API is in pyarrow.types.
+    return is_nested(type)
 
 
 def _get_pandas_type(arrow_type, coerce_to_ns=False):

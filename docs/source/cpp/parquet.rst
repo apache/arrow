@@ -256,11 +256,11 @@ To configure how Parquet files are written, use the :class:`WriterProperties::Bu
 
    std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
       .max_row_group_length(64 * 1024)
-      .created_by("My Application")
-      .version(ParquetVersion::PARQUET_2_6)
-      .data_page_version(ParquetDataPageVersion::V2)
-      .compression(Compression::SNAPPY)
-      .build();
+      ->created_by("My Application")
+      ->version(ParquetVersion::PARQUET_2_6)
+      ->data_page_version(ParquetDataPageVersion::V2)
+      ->compression(Compression::SNAPPY)
+      ->build();
 
 The ``max_row_group_length`` sets an upper bound on the number of rows per row
 group that takes precedent over the ``chunk_size`` passed in the write methods.
@@ -407,12 +407,18 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
+| ALP                      | ✓        | ✓        | \(3)    |
++--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,
   and boolean values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.4 or greater is selected in :func:`WriterProperties::version`.
+
+* \(3) Only supported for FLOAT and DOUBLE values. ALP is a Preview feature in the
+  Parquet format, so other readers may not support it. It is never selected
+  automatically: a column uses ALP only where ``encoding()`` names it.
 
 Types
 -----

@@ -225,6 +225,9 @@ if not gio.found()
     gio = dependency('gio-2.0')
 endif
 dependencies = [arrow_acero, arrow_compute, arrow, gobject, gio]
+if arrow_s3.found()
+    dependencies += arrow_s3
+endif
 libarrow_glib = library(
     'arrow-glib',
     sources: sources + enums,

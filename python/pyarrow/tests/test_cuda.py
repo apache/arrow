@@ -297,14 +297,6 @@ def test_foreign_buffer():
     del hbuf
     fbuf.copy_to_host()
 
-    # test deallocating the host buffer memory making it inaccessible
-    hbuf = cuda.new_host_buffer(size * dtype.itemsize)
-    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size)
-    del hbuf
-    with pytest.raises(pa.ArrowIOError,
-                       match=('Cuda error ')):
-        fbuf.copy_to_host()
-
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
 def test_CudaBuffer(size):

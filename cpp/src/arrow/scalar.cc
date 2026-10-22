@@ -17,6 +17,7 @@
 
 #include "arrow/scalar.h"
 
+#include <chrono>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -31,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/hashing.h"
@@ -1191,13 +1193,13 @@ constexpr int64_t kMillisecondsInDay = 86400000;
 
 // date to date
 template <typename To>
-enable_if_t<std::is_same<To, Date64Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date64Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const Date32Scalar& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<Date64Scalar>(from.value * kMillisecondsInDay,
                                         std::move(to_type));
 }
 template <typename To>
-enable_if_t<std::is_same<To, Date32Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date32Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const Date64Scalar& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<Date32Scalar>(
       static_cast<int32_t>(from.value / kMillisecondsInDay), std::move(to_type));
@@ -1205,27 +1207,31 @@ CastImpl(const Date64Scalar& from, std::shared_ptr<DataType> to_type) {
 
 // timestamp to date
 template <typename To>
-enable_if_t<std::is_same<To, Date64Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date64Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
   ARROW_ASSIGN_OR_RAISE(
       auto millis,
       util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
-  return std::make_shared<Date64Scalar>(millis - millis % kMillisecondsInDay,
+  const auto days_since_epoch =
+      internal::chrono::floor<internal::chrono::days>(std::chrono::milliseconds{millis});
+  return std::make_shared<Date64Scalar>(days_since_epoch.count() * kMillisecondsInDay,
                                         std::move(to_type));
 }
 template <typename To>
-enable_if_t<std::is_same<To, Date32Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date32Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
   ARROW_ASSIGN_OR_RAISE(
       auto millis,
       util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
-  return std::make_shared<Date32Scalar>(static_cast<int32_t>(millis / kMillisecondsInDay),
+  const auto days_since_epoch =
+      internal::chrono::floor<internal::chrono::days>(std::chrono::milliseconds{millis});
+  return std::make_shared<Date32Scalar>(static_cast<int32_t>(days_since_epoch.count()),
                                         std::move(to_type));
 }
 
 // date to timestamp
 template <typename To, typename From>
-enable_if_timestamp<Result<std::shared_ptr<To>>> CastImpl(
+enable_if_timestamp<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const DateScalar<From>& from, std::shared_ptr<DataType> to_type) {
   using ToScalar = typename TypeTraits<To>::ScalarType;
   int64_t millis = from.value;

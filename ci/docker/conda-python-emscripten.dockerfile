@@ -22,9 +22,9 @@ ARG python="3.14"
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
-ARG pyodide_version="314.0.4"
+ARG pyodide_version="314.0.7"
 # pyodide-build is versioned independently of Pyodide
-ARG pyodide_build_version="0.39.0"
+ARG pyodide_build_version="0.39.2"
 ARG chrome_version="latest"
 ARG required_python_min="(3,14)"
 # fail if python version < 3.14

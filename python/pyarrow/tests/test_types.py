@@ -244,7 +244,10 @@ def test_is_nested_or_struct():
     assert types.is_nested(pa.large_list(pa.int32()))
     assert types.is_nested(pa.list_view(pa.int32()))
     assert types.is_nested(pa.large_list_view(pa.int32()))
+    assert types.is_nested(pa.map_(pa.string(), pa.int32()))
+    assert types.is_nested(pa.run_end_encoded(pa.int32(), pa.string()))
     assert not types.is_nested(pa.int32())
+    assert not types.is_nested(pa.dictionary(pa.int32(), pa.string()))
 
 
 def test_is_union():
@@ -1350,8 +1353,8 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(True)
     assert pa.types.is_boolean_value(False)
     if np is not None:
-        assert pa.types.is_boolean_value(np.bool_(True))
-        assert pa.types.is_boolean_value(np.bool_(False))
+        assert pa.types.is_boolean_value(np.bool(True))
+        assert pa.types.is_boolean_value(np.bool(False))
 
 
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))

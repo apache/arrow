@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/s3_visibility.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
@@ -38,7 +39,7 @@ class STSClient;
 namespace arrow::fs {
 
 /// Options for using a proxy for S3
-struct ARROW_EXPORT S3ProxyOptions {
+struct ARROW_S3_EXPORT S3ProxyOptions {
   std::string scheme;
   std::string host;
   int port = -1;
@@ -67,7 +68,7 @@ enum class S3CredentialsKind : int8_t {
 };
 
 /// Pure virtual class for describing custom S3 retry strategies
-class ARROW_EXPORT S3RetryStrategy {
+class ARROW_S3_EXPORT S3RetryStrategy {
  public:
   virtual ~S3RetryStrategy() = default;
 
@@ -96,7 +97,7 @@ class ARROW_EXPORT S3RetryStrategy {
 };
 
 /// Options for the S3FileSystem implementation.
-struct ARROW_EXPORT S3Options {
+struct ARROW_S3_EXPORT S3Options {
   /// \brief Smart defaults for option values
   ///
   /// The possible values for this setting are explained in the AWS docs:
@@ -315,7 +316,7 @@ struct ARROW_EXPORT S3Options {
 /// Some implementation notes:
 /// - buckets are special and the operations available on them may be limited
 ///   or more expensive than desired.
-class ARROW_EXPORT S3FileSystem : public FileSystem {
+class ARROW_S3_EXPORT S3FileSystem : public FileSystem {
  public:
   ~S3FileSystem() override;
 
@@ -409,7 +410,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
-struct ARROW_EXPORT S3GlobalOptions {
+struct ARROW_S3_EXPORT S3GlobalOptions {
   /// The log level for S3-originating messages.
   S3LogLevel log_level;
 
@@ -444,21 +445,21 @@ struct ARROW_EXPORT S3GlobalOptions {
 ///
 /// Once this function is called you MUST call FinalizeS3 before the end of the
 /// application in order to avoid a segmentation fault at shutdown.
-ARROW_EXPORT
+ARROW_S3_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
 /// \brief Ensure the S3 APIs are initialized, but only if not already done.
 ///
 /// If necessary, this will call InitializeS3() with some default options.
-ARROW_EXPORT
+ARROW_S3_EXPORT
 Status EnsureS3Initialized();
 
 /// Whether S3 was initialized, and not finalized.
-ARROW_EXPORT
+ARROW_S3_EXPORT
 bool IsS3Initialized();
 
 /// Whether S3 was finalized.
-ARROW_EXPORT
+ARROW_S3_EXPORT
 bool IsS3Finalized();
 
 /// \brief Shutdown the S3 APIs.
@@ -470,16 +471,16 @@ bool IsS3Finalized();
 /// Calls to InitializeS3() and FinalizeS3() should be serialized by the
 /// application (this also applies to EnsureS3Initialized() and
 /// EnsureS3Finalized()).
-ARROW_EXPORT
+ARROW_S3_EXPORT
 Status FinalizeS3();
 
 /// \brief Ensure the S3 APIs are shutdown, but only if not already done.
 ///
 /// If necessary, this will call FinalizeS3().
-ARROW_EXPORT
+ARROW_S3_EXPORT
 Status EnsureS3Finalized();
 
-ARROW_EXPORT
+ARROW_S3_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
 }  // namespace arrow::fs

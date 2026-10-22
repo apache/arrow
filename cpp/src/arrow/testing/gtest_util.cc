@@ -53,7 +53,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/json/from_string.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -65,12 +64,9 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
-
-#include <rapidjson/document.h>
-
-namespace rj = arrow::rapidjson;
 
 namespace arrow {
 
@@ -445,24 +441,24 @@ std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
                                        std::string_view dim_names) {
   std::shared_ptr<Array> array = arrow::ArrayFromJSON(type, data);
 
-  rj::Document json_shape;
-  json_shape.Parse(shape.data(), shape.length());
-  std::vector<int64_t> shape_vector;
-  for (auto& x : json_shape.GetArray()) {
-    shape_vector.emplace_back(x.GetInt64());
-  }
-  rj::Document json_strides;
-  json_strides.Parse(strides.data(), strides.length());
-  std::vector<int64_t> strides_vector;
-  for (auto& x : json_strides.GetArray()) {
-    strides_vector.emplace_back(x.GetInt64());
-  }
-  rj::Document json_dim_names;
-  json_dim_names.Parse(dim_names.data(), dim_names.length());
-  std::vector<std::string> dim_names_vector;
-  for (auto& x : json_dim_names.GetArray()) {
-    dim_names_vector.emplace_back(x.GetString());
-  }
+  simdjson::dom::parser parser;
+
+  auto json_shape =
+      internal::ResolveSimdjsonResult(parser.parse(shape), "Failed to parse shape")
+          .ValueOrDie();
+  auto shape_vector = internal::GetJsonIntArray(json_shape, "shape").ValueOrDie();
+
+  auto json_strides =
+      internal::ResolveSimdjsonResult(parser.parse(strides), "Failed to parse strides")
+          .ValueOrDie();
+  auto strides_vector = internal::GetJsonIntArray(json_strides, "strides").ValueOrDie();
+
+  auto json_dim_names = internal::ResolveSimdjsonResult(parser.parse(dim_names),
+                                                        "Failed to parse dimension names")
+                            .ValueOrDie();
+  auto dim_names_vector =
+      internal::GetJsonStringArray(json_dim_names, "dimension names").ValueOrDie();
+
   return *Tensor::Make(type, array->data()->buffers[1], shape_vector, strides_vector,
                        dim_names_vector);
 }
@@ -977,6 +973,29 @@ Result<std::shared_ptr<DataType>> BinaryViewExtensionType::Deserialize(
   return std::make_shared<BinaryViewExtensionType>();
 }
 
+bool UnionExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> UnionExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK(ExtensionEquals(checked_cast<const ExtensionType&>(*data->type)));
+  return std::make_shared<UnionExtensionArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> UnionExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != extension_name_) {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*storage_type_)) {
+    return Status::Invalid("Invalid storage type for ", extension_name_, ": ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<UnionExtensionType>(std::move(storage_type), extension_name_);
+}
+
 bool Complex128Type::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -1019,6 +1038,18 @@ std::shared_ptr<DataType> dict_extension_type() {
 
 std::shared_ptr<DataType> complex128() { return std::make_shared<Complex128Type>(); }
 
+std::shared_ptr<DataType> dense_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      dense_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "dense-union-extension");
+}
+
+std::shared_ptr<DataType> sparse_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      sparse_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "sparse-union-extension");
+}
+
 std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
                                       const std::shared_ptr<Array>& imag) {
   auto type = complex128();
@@ -1055,6 +1086,20 @@ std::shared_ptr<Array> ExampleComplex128() {
   auto arr = arrow::ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
                                   "[[1.0, -2.5], null, [3.0, -4.5]]");
   return ExtensionType::WrapArray(complex128(), arr);
+}
+
+std::shared_ptr<Array> ExampleDenseUnionExtension() {
+  auto type = dense_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  return ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
+}
+
+std::shared_ptr<Array> ExampleSparseUnionExtension() {
+  auto type = sparse_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  return ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
 }
 
 ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type)

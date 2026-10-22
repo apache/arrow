@@ -56,7 +56,7 @@ tasks.
 It allows users to read and write data in a variety of formats:
 
 - Read and write Parquet files, an efficient and widely used columnar format
-- Read and write Arrow (formerly known as Feather) files, a format optimized for speed and
+- Read and write Arrow IPC (formerly known as Feather) files, a format optimized for speed and
   interoperability
 - Read and write CSV files with excellent speed and efficiency
 - Read and write multi-file and larger-than-memory datasets
@@ -64,7 +64,7 @@ It allows users to read and write data in a variety of formats:
 
 It provides access to remote filesystems and servers:
 
-- Read and write files in Amazon S3 and Google Cloud Storage buckets (note: CRAN builds include S3 support but not GCS which require an alternative installation method; see the [cloud storage article](https://arrow.apache.org/docs/r/articles/fs.html) for details)
+- Read and write files in Amazon S3, Google Cloud Storage, and Azure Blob Storage (note: CRAN builds include S3 support but not GCS, which requires an alternative installation method; Azure is not currently available on Windows. See the [cloud storage article](https://arrow.apache.org/docs/r/articles/fs.html) for details)
 - Connect to Arrow Flight servers to transport large datasets over networks
 
 Additional features include:

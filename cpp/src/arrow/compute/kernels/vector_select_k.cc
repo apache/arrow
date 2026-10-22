@@ -274,6 +274,9 @@ class ChunkedArraySelector : public TypeVisitor {
 
     const auto num_chunks = chunked_array_.num_chunks();
     if (num_chunks == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                            MakeMutableUInt64Array(0, ctx_->memory_pool()));
+      *output_ = Datum(take_indices);
       return Status::OK();
     }
     if (k_ > chunked_array_.length()) {
@@ -624,6 +627,9 @@ class TableSelector : public TypeVisitor {
 
     const auto num_rows = table_.num_rows();
     if (num_rows == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                            MakeMutableUInt64Array(0, ctx_->memory_pool()));
+      *output_ = Datum(take_indices);
       return Status::OK();
     }
     if (k_ > table_.num_rows()) {

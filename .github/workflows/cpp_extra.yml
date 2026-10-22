@@ -64,6 +64,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARROW_ENABLE_TIMING_TESTS: OFF
+  DOCKER_VOLUME_PREFIX: ".docker/"
+
 jobs:
   check-labels:
     uses: ./.github/workflows/check_labels.yml
@@ -80,6 +85,9 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
+          (github.event_name == 'push' &&
+           github.repository == 'apache/arrow' &&
+           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
@@ -108,6 +116,11 @@ jobs:
               -e BUILD_WARNING_LEVEL=PRODUCTION
             runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
             title: AMD64 Ubuntu Large Memory Tests
+          - image: ubuntu-cpp-bundled-offline
+            runs-on: ubuntu-latest
+            envs:
+              - UBUNTU=24.04
+            title: AMD64 Ubuntu Bundled Offline
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
@@ -122,10 +135,12 @@ jobs:
               -e CMAKE_CXX_STANDARD=23
             runs-on: ubuntu-latest
             title: AMD64 Debian C++23
-    env:
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
+          - image: debian-cpp
+            run-options: >-
+              -e ARROW_SIMD_LEVEL=NONE
+              -e ARROW_CXXFLAGS=-march=x86-64
+            runs-on: ubuntu-latest
+            title: AMD64 Debian SIMD Level NONE
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
@@ -134,7 +149,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -163,7 +178,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -223,7 +238,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -245,7 +260,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -300,7 +315,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ccache
           key: jni-macos
@@ -346,7 +361,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ccache
           key: jni-macos
@@ -401,15 +416,20 @@ jobs:
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
 
+      - name: Find Visual Studio
+        shell: pwsh
+        run: |
+          "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
+
       - name: CMake
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake ^
             -S cpp ^
             -B cpp.build ^
@@ -420,13 +440,13 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake --build cpp.build
 
       - name: Install
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           cmake --install cpp.build
 
       - name: Test
@@ -436,7 +456,7 @@ jobs:
           ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
           PARQUET_TEST_DATA: ${{ github.workspace }}\cpp\submodules\parquet-testing\data
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
 
           set exclude_tests=arrow-acero-asof-join-node-test
@@ -453,7 +473,7 @@ jobs:
       - name: Build example
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
 
           cmake ^
             -S cpp/examples/minimal_build ^
@@ -470,7 +490,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -485,9 +505,6 @@ jobs:
       fail-fast: false
     env:
       ARCH: amd64
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
       UBUNTU: 24.04
     steps:
       - name: Checkout Arrow
@@ -507,7 +524,7 @@ jobs:
           docker compose up -d dremio
           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -523,7 +540,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -550,10 +567,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { architecture: AMD64, macos-version: "15-intel", build-type : debug }
-          - { architecture: AMD64, macos-version: "15-intel", build-type : release }
-          - { architecture: ARM64, macos-version: "14", build-type : debug }
-          - { architecture: ARM64, macos-version: "14", build-type : release }
+          - { architecture: AMD64, macos-version: "26-intel", build-type : debug }
+          - { architecture: AMD64, macos-version: "26-intel", build-type : release }
+          - { architecture: ARM64, macos-version: "26", build-type : debug }
+          - { architecture: ARM64, macos-version: "26", build-type : release }
     env:
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: ${{ matrix.build-type }}
@@ -597,7 +614,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -620,7 +637,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -655,6 +672,13 @@ jobs:
           name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
           path: build/cpp/ArrowFlightSQLODBC-*.pkg
           if-no-files-found: error
+      - name: Upload AMD64 ODBC dylib to the job
+        if: matrix.build-type == 'release' && matrix.architecture == 'AMD64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-dylib-${{ matrix.architecture }}
+          path: build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
@@ -669,6 +693,114 @@ jobs:
           sudo chown -R $USER /Library/ODBC
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
+  odbc-macos-universal:
+    needs: odbc-macos
+    name: Create ODBC universal macOS installer
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Download ARM64 PKG
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-pkg-installer-ARM64
+          path: arm64-pkg
+      - name: Download AMD64 dylib
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-dylib-AMD64
+          path: amd64-dylib
+      - name: Build universal macOS installer
+        run: |
+          set -euo pipefail
+
+          pkg_path="$(ls arm64-pkg/ArrowFlightSQLODBC-*.pkg)"
+          pkg_name="$(basename "${pkg_path}" .pkg)"
+
+          # Use the ARM64 .pkg and swap in a universal ODBC dylib
+          # that works on ARM64 and AMD64.
+          pkgutil --expand-full "${pkg_path}" expanded
+
+          # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink 
+          # to the versioned dylib that the
+          # install name (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib)
+          # resolves to. Run lipo on the real file so the symlinks stay intact.
+          symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
+          lib_dir="$(dirname "${symlink_path}")"
+          dylib_path="$(realpath "${symlink_path}")"
+          echo "Merging into ${dylib_path} (via ${symlink_path})"
+          lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
+            -output "${dylib_path}"
+
+          # Verify every dylib (including the symlinks) is universal before re-packaging.
+          # Check one architecture at a time with `lipo -archs`, 
+          # as macOS 27 support only one architecture search at a time.
+          for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
+            dylib_archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${dylib_archs}"
+            for arch in arm64 x86_64; do
+              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
+                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
+                exit 1
+              fi
+            done
+          done
+
+          pkgutil --flatten-full expanded "${pkg_name}.pkg"
+      - name: Upload universal ODBC PKG
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-universal
+          path: ArrowFlightSQLODBC-*.pkg
+          if-no-files-found: error
+
+  odbc-macos-universal-verify:
+    needs: odbc-macos-universal
+    name: ODBC universal installer verify ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+    runs-on: macos-${{ matrix.macos-version }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "26-intel"
+          - architecture: ARM64
+            macos-version: "26"
+    steps:
+      - name: Download universal PKG
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-pkg-installer-universal
+      - name: Install ODBC PKG
+        run: |
+          set -euo pipefail
+
+          pkg_path="$(ls ArrowFlightSQLODBC-*.pkg)"
+          sudo installer -pkg "${pkg_path}" -target / -verbose
+      - name: Check ODBC dylib installation
+        run: |
+          set -euo pipefail
+
+          dylib="/Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc.dylib"
+
+          if [ ! -f "${dylib}" ]; then
+            echo "ODBC dylib not found at ${dylib}"
+            exit 1
+          fi
+          echo "Found ODBC dylib: ${dylib}"
+
+          # Verify every installed dylib (including the symlinks) is universal.
+          local_arch="$(uname -m)"
+          echo "Local architecture: ${local_arch}"
+          for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
+            archs="$(lipo -archs "${lib}")"
+            echo "${lib}: ${archs}"
+            if ! grep -qw "${local_arch}" <<< "${archs}"; then
+              echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
+              exit 1
+            fi
+          done
+
   odbc-msvc:
     needs: check-enabled
     if: needs.check-enabled.outputs.is_enabled == 'true'
@@ -680,8 +812,8 @@ jobs:
       contents: read
       packages: write
     env:
-      ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_SHARED: OFF
+      ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
@@ -697,6 +829,10 @@ jobs:
       # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
       # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
       ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
+      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_MIMALLOC: OFF
+      ARROW_TEST_LINKAGE: static
+      ARROW_USE_STATIC_CRT: OFF
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
@@ -719,7 +855,7 @@ jobs:
         shell: cmd
         run: |
           set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           # Convert VCPKG Windows path to MSYS path
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
@@ -771,6 +907,29 @@ jobs:
               $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
               if (Test-Path $dll) {
                 Write-Host "Found ODBC DLL: $dll"
+
+                # Verify ODBC driver registration values
+                $key = "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver"
+                if (-not (Test-Path $key)) {
+                  Write-Error "ODBC driver registry key not found: $key"
+                  exit 1
+                }
+                $props = Get-ItemProperty $key
+                foreach ($name in "Driver", "Setup") {
+                  Write-Host "$name = '$($props.$name)'"
+                  if ($props.$name -ne $dll) {
+                    Write-Error "Registry value '$name' should be '$dll'"
+                    exit 1
+                  }
+                }
+                if ($props.DriverODBCVer -ne "03.00") {
+                  Write-Error "Registry value 'DriverODBCVer' should be '03.00', got '$($props.DriverODBCVer)'"
+                  exit 1
+                }
+                if ($props.UsageCount -ne 1) {
+                  Write-Error "Registry value 'UsageCount' should be 1, got '$($props.UsageCount)'"
+                  exit 1
+                }
                 exit 0
               }
             }
@@ -835,6 +994,8 @@ jobs:
       - msvc-arm64
       - odbc-linux
       - odbc-macos
+      - odbc-macos-universal
+      - odbc-macos-universal-verify
       - odbc-msvc
       - odbc-nightly
     uses: ./.github/workflows/report_ci.yml

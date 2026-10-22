@@ -183,6 +183,16 @@ python -m build --sdist --wheel . --no-isolation \
     -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" \
     -C cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
 
+if command -v ccache &> /dev/null; then
+  echo "=== ccache stats after the build ==="
+  ccache -sv 2>/dev/null || ccache -s
+fi
+
+if command -v sccache &> /dev/null; then
+  echo "=== sccache stats after the build ==="
+  sccache --show-stats
+fi
+
 echo "=== Strip symbols from wheel ==="
 mkdir -p dist/temp-fix-wheel
 mv dist/pyarrow-*.whl dist/temp-fix-wheel

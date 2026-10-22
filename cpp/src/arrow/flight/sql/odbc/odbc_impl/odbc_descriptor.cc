@@ -215,7 +215,7 @@ void ODBCDescriptor::SetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
       has_bindings_changed_ = true;
       break;
     case SQL_DESC_NAME:
-      SetAttributeUTF8(value, buffer_length, record.name);
+      SetAttributeSQLWCHAR(value, buffer_length, record.name);
       has_bindings_changed_ = true;
       break;
     case SQL_DESC_OCTET_LENGTH:

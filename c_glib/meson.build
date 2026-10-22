@@ -32,7 +32,7 @@ project(
     #   * 22.04: 0.61.2
     #   * 24.04: 1.3.2
     meson_version: '>=0.61.2',
-    version: '26.0.0-SNAPSHOT',
+    version: '27.0.0-SNAPSHOT',
 )
 
 version = meson.project_version()
@@ -165,6 +165,13 @@ if arrow_cpp_build_lib_dir == ''
         modules: ['ArrowDataset::arrow_dataset_shared'],
         required: false,
     )
+    arrow_s3 = dependency(
+        'arrow-s3',
+        'ArrowS3',
+        kwargs: common_args,
+        modules: ['ArrowS3::arrow_s3_shared'],
+        required: false,
+    )
     arrow_flight = dependency(
         'arrow-flight',
         'ArrowFlight',
@@ -232,6 +239,11 @@ main(void)
     )
     arrow_dataset = cpp_compiler.find_library(
         'arrow_dataset',
+        dirs: [arrow_cpp_build_lib_dir],
+        required: false,
+    )
+    arrow_s3 = cpp_compiler.find_library(
+        'arrow_s3',
         dirs: [arrow_cpp_build_lib_dir],
         required: false,
     )

@@ -1245,7 +1245,7 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
 
   // decomposed: U+0061(LATIN SMALL LETTER A) + U+0301(COMBINING ACUTE ACCENT)
   // composed: U+00E1(LATIN SMALL LETTER A WITH ACUTE)
-  const char* json_composed = "[\"foo\", \"á\"]";
+  const char* json_composed = "[\"foo\", \"\xc3\xa1\"]";
   const char* json_decomposed = "[\"foo\", \"a\xcc\x81\"]";
   for (const auto& options : compose_options) {
     this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_composed,
@@ -1257,6 +1257,39 @@ TYPED_TEST(TestStringKernels, Utf8Normalize) {
     this->CheckUnary("utf8_normalize", json_composed, this->type(), json_decomposed,
                      &options);
     this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_decomposed,
+                     &options);
+  }
+
+  // decomposed: U+1112(HANGUL CHOSEONG HIEUH) + U+1161(HANGUL JUNGSEONG A) +
+  //             U+11AB(HANGUL JONGSEONG NIEUN)
+  // composed: U+D55C(HANGUL SYLLABLE HAN)
+  json_composed = "[\"\xed\x95\x9c\"]";
+  json_decomposed = "[\"\xe1\x84\x92\xe1\x85\xa1\xe1\x86\xab\"]";
+  for (const auto& options : compose_options) {
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_composed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_composed,
+                     &options);
+  }
+  for (const auto& options : decompose_options) {
+    this->CheckUnary("utf8_normalize", json_composed, this->type(), json_decomposed,
+                     &options);
+    this->CheckUnary("utf8_normalize", json_decomposed, this->type(), json_decomposed,
+                     &options);
+  }
+
+  // singleton: U+212B(ANGSTROM SIGN) decomposes to U+0041(LATIN CAPITAL LETTER A) +
+  //            U+030A(COMBINING RING ABOVE), which composes to U+00C5(LATIN CAPITAL
+  //            LETTER A WITH RING ABOVE), so the composed form differs from the input
+  const char* json_singleton = "[\"\xe2\x84\xab\"]";
+  json_composed = "[\"\xc3\x85\"]";
+  json_decomposed = "[\"A\xcc\x8a\"]";
+  for (const auto& options : compose_options) {
+    this->CheckUnary("utf8_normalize", json_singleton, this->type(), json_composed,
+                     &options);
+  }
+  for (const auto& options : decompose_options) {
+    this->CheckUnary("utf8_normalize", json_singleton, this->type(), json_decomposed,
                      &options);
   }
 

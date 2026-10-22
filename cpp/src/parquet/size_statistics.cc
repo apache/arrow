@@ -168,7 +168,7 @@ void UpdateLevelHistogram(std::span<const int16_t> levels, std::span<int64_t> hi
     auto it = levels.begin();
     while (it != levels.end()) {
       const auto chunk_size = std::min<int64_t>(levels.end() - it, kChunkSize);
-      hist1 += std::accumulate(levels.begin(), levels.begin() + chunk_size, int16_t{0});
+      hist1 += std::accumulate(it, it + chunk_size, int16_t{0});
       it += chunk_size;
     }
     histogram[0] += num_levels - hist1;

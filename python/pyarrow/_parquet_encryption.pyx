@@ -198,8 +198,13 @@ cdef class DecryptionConfiguration(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, *, cache_lifetime=None):
+    def __init__(self, *, cache_lifetime=None,
+                 read_kms_url=None):
         self.configuration.reset(new CDecryptionConfiguration())
+        if cache_lifetime is not None:
+            self.cache_lifetime = cache_lifetime
+        if read_kms_url is not None:
+            self.read_kms_url = read_kms_url
 
     @property
     def cache_lifetime(self):
@@ -210,7 +215,27 @@ cdef class DecryptionConfiguration(_Weakrefable):
 
     @cache_lifetime.setter
     def cache_lifetime(self, value):
-        self.configuration.get().cache_lifetime_seconds = value.total_seconds()
+        try:
+            # Expect a timedelta value
+            seconds = value.total_seconds()
+        except AttributeError:
+            # Also accept a number of seconds
+            seconds = float(value)
+        self.configuration.get().cache_lifetime_seconds = seconds
+
+    @property
+    def read_kms_url(self):
+        """Whether the KMS instance URL may be read from Parquet key material
+        when it is not configured in the KmsConnectionConfig.
+
+        This should only be enabled when the KMS implementation validates the
+        URL it receives, to ensure a KMS access token isn't sent to a malicious
+        URL."""
+        return self.configuration.get().read_kms_url
+
+    @read_kms_url.setter
+    def read_kms_url(self, value):
+        self.configuration.get().read_kms_url = value
 
     cdef inline shared_ptr[CDecryptionConfiguration] unwrap(self) nogil:
         return self.configuration
@@ -430,13 +455,13 @@ cdef class CryptoFactory(_Weakrefable):
         parquet_file_path : str, pathlib.Path, or None, default None
             Path to the parquet file to be encrypted. Only required when the
             internal_key_material attribute of EncryptionConfiguration is set
-            to False. Used to derive the path for storing key material 
+            to False. Used to derive the path for storing key material
             specific to this parquet file.
 
         filesystem : FileSystem or None, default None
-            Used only when internal_key_material is set to False on 
+            Used only when internal_key_material is set to False on
             EncryptionConfiguration. If None, the file system will be inferred
-            based on parquet_file_path. 
+            based on parquet_file_path.
 
         Returns
         -------
@@ -491,7 +516,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
-            None, the file system will be inferred based on parquet_file_path. 
+            None, the file system will be inferred based on parquet_file_path.
 
         Returns
         -------
@@ -538,7 +563,8 @@ cdef class CryptoFactory(_Weakrefable):
             parquet_file_path,
             FileSystem filesystem=None,
             double_wrapping=True,
-            cache_lifetime_seconds=600):
+            cache_lifetime_seconds=600,
+            read_kms_url=False):
         """ Rotates master encryption keys for a Parquet file that uses
         external key material.
 
@@ -552,7 +578,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
-            None, the file system will be inferred based on parquet_file_path. 
+            None, the file system will be inferred based on parquet_file_path.
 
         double_wrapping : bool, default True
             In the single wrapping mode, encrypts data encryption keys with
@@ -563,6 +589,15 @@ cdef class CryptoFactory(_Weakrefable):
         cache_lifetime_seconds : int or float, default 600
             During key rotation, KMS Client and Key Encryption Keys will be
             cached for this duration.
+
+        read_kms_url : bool, default False
+            Whether the KMS instance URL may be read from the key material of
+            the file being rotated, when it is not configured in
+            kms_connection_config. This should only be enabled when the KMS
+            implementation validates the URL it receives, to ensure a KMS
+            access token isn't sent to a malicious URL. This only affects
+            reading the existing key material, the key material written by key
+            rotation always uses the properties from kms_connection_config.
         """
         cdef:
             c_string c_parquet_file_path
@@ -580,7 +615,8 @@ cdef class CryptoFactory(_Weakrefable):
             c_parquet_file_path,
             c_filesystem,
             double_wrapping,
-            cache_lifetime_seconds)
+            cache_lifetime_seconds,
+            read_kms_url)
 
         check_status(status)
 
@@ -665,7 +701,7 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
 
         filesystem : FileSystem, default None
             FileSystem where the parquet file is located. If None,
-            will be inferred based on parquet_file_path. 
+            will be inferred based on parquet_file_path.
 
         Returns
         -------

@@ -38,7 +38,8 @@ namespace {
 
 // Make sure the extension types referenced in test data are registered.
 [[nodiscard]] auto RequireExtensionTypes() {
-  return ExtensionTypeGuard({uuid(), dict_extension_type()});
+  return ExtensionTypeGuard({uuid(), dict_extension_type(), dense_union_extension_type(),
+                             sparse_union_extension_type()});
 }
 
 template <typename Func>

@@ -33,7 +33,23 @@ apply_filter_impl <- function(
     out$group_by_vars <- by$names
   }
 
-  expanded_filters <- expand_across(out, quos(...))
+  dots <- quos(...)
+  verb <- if (isTRUE(negate)) "filter_out" else "filter"
+  if (any(map_lgl(dots, ~ is_call(quo_get_expr(.x), "across")))) {
+    warn(
+      paste0(
+        "Using `across()` in `",
+        verb,
+        "()` is deprecated, ",
+        "use `if_any()` or `if_all()` instead."
+      ),
+      .frequency = "regularly",
+      .frequency_id = paste0("arrow.", verb, "_across"),
+      class = "lifecycle_warning_deprecated"
+    )
+  }
+
+  expanded_filters <- expand_across(out, dots)
   if (length(expanded_filters) == 0) {
     # Nothing to do
     return(as_adq(.data))

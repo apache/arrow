@@ -220,17 +220,9 @@ tail_from_batches <- function(batches, n) {
 #'   the result; use `FALSE` to evaluate `FUN` on all batches before returning
 #'   the reader.
 #' @param ... Additional arguments passed to `FUN`
-#' @param .data.frame Deprecated argument, ignored
 #' @return An `arrow_dplyr_query`.
 #' @export
-map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = TRUE, .data.frame = NULL) {
-  if (!is.null(.data.frame)) {
-    warning(
-      "The .data.frame argument is deprecated. ",
-      "Call collect() on the result to get a data.frame.",
-      call. = FALSE
-    )
-  }
+map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = TRUE) {
   FUN <- as_mapper(FUN)
   reader <- as_record_batch_reader(X)
   dots <- list2(...)

@@ -18,6 +18,12 @@
 # Avoid name clash with `pa.struct` function
 import struct as _struct
 
+from cpython.pycapsule cimport (
+    PyCapsule_CheckExact,
+    PyCapsule_GetPointer,
+    PyCapsule_SetName,
+)
+
 
 cdef class Tensor(_Weakrefable):
     """
@@ -300,9 +306,57 @@ strides: {self.strides}"""
         buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
-    def __dlpack__(self, stream=None):
+    @staticmethod
+    def from_dlpack(x, /, *, device=None, copy=None):
+        """
+        Construct a Tensor from an object implementing the DLPack protocol.
+
+        Parameters
+        ----------
+        x : object
+            The input object containing array data, following the DLPack
+            protocol (has a ``__dlpack__`` method).
+        device : tuple[enum.Enum, int], optional
+            Designates where the resulting Tensor should reside, in the
+            format returned by :meth:`Tensor.__dlpack_device__`. When None,
+            the output Tensor occupies the same device as the source.
+            Default: None.
+        copy : bool, optional
+            Controls duplication behavior. True mandates copying; False
+            prohibits copying and raises ``BufferError`` if unavoidable;
+            None duplicates only when necessary. Default: None.
+
+        Returns
+        -------
+        Tensor
+            A Tensor housing the data from the input object, potentially
+            as a copy or view.
+        """
+        version = (DLPACK_VERSION.major, DLPACK_VERSION.minor)
+        pycapsule = x.__dlpack__(max_version=version, dl_device=device, copy=copy)
+        if not PyCapsule_CheckExact(pycapsule):
+            raise TypeError("DLPack producer did not return a PyCapsule")
+        cdef DLManagedTensorVersioned* ptr = <DLManagedTensorVersioned*>PyCapsule_GetPointer(
+            pycapsule, "dltensor_versioned")
+        if ptr == NULL:
+            raise ValueError(
+                'DLPack producer did not produce a "dltensor_versioned" PyCapsule')
+        # Mark the capsule as consumed so its destructor does not also invoke the deleter.
+        # ImportTensorVersionedFromDLPack will take ownership even if it errors (calling
+        # the deleter in that case).
+        PyCapsule_SetName(pycapsule, "used_dltensor_versioned")
+        with nogil:
+            # Copy handled on producer side
+            result = ImportTensorVersionedFromDLPack(ptr)
+        ctensor = GetResultValue(result)
+        return pyarrow_wrap_tensor(ctensor)
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
         """
         Export a Tensor as a DLPack capsule.
+
+        Without supplying max_version, it will return a legacy DLPack "dltensor" PyCapsule.
+        Please specify a version as the legacy path is deprecated.
 
         Parameters
         ----------
@@ -310,20 +364,54 @@ strides: {self.strides}"""
             A Python integer representing a pointer to a stream. Currently not supported.
             Stream is provided by the consumer to the producer to instruct the producer
             to ensure that operations can safely be performed on the array.
+        max_version : tuple[int, int], optional
+            The maximum DLPack version the consumer supports, as (major, minor).
+            A capsule of a different version may be returned, so the consumer must
+            check it. Default is None, exporting the unversioned capsule.
+        dl_device : tuple[enum.Enum, int], optional
+            The device of the exported capsule, in the format returned by
+            :meth:`__dlpack_device__`. Default is None, meaning the device of the
+            tensor itself. Since only CPU tensors are supported, any other device
+            raises ``BufferError``.
+        copy : bool, optional
+            If True, the data is always copied. If False, it is never copied and
+            ``BufferError`` is raised if a copy is required. If None (default), the
+            data is copied only if needed, which for CPU tensors is never.
+            A copy is reported to the consumer with ``DLPACK_FLAG_BITMASK_IS_COPIED``.
 
         Returns
         -------
         capsule : PyCapsule
-            A DLPack capsule for the tensor, pointing to a DLManagedTensor.
+            A DLPack capsule for the tensor, pointing to a DLManagedTensorVersioned,
+            or to a DLManagedTensor if ``max_version`` is below (1, 0).
         """
-        if stream is None:
-            dlm_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+        if stream is not None:
+            raise NotImplementedError("Only stream=None is supported.")
+        if dl_device is not None:
+            device = GetResultValue(ExportDevice(self.sp_tensor))
+            if dl_device != (device.device_type, device.device_id):
+                raise BufferError(
+                    f"Cannot export to device {dl_device}, "
+                    f"tensor is on {(device.device_type, device.device_id)}."
+                )
+        if max_version is None or max_version < (1, 0):
+            if copy is not None:
+                raise BufferError(
+                    f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
+                )
+            # Note: from March 2025 onwards, it's okay to raise BufferError here.
+            # Still we keep the V0 version as the V1 was only added in August 2026.
+            warnings.warn(
+                "Exporting an unversioned DLPack capsule is deprecated, "
+                "pass max_version=(1, 0) or higher.",
+                DeprecationWarning, stacklevel=2)
+            legacy_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+            return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
-            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
-        else:
-            raise NotImplementedError(
-                "Only stream=None is supported."
-            )
+        # Currently no major version other than legacy 0 and current 1.3
+        dlm_tensor = GetResultValue(
+            ExportTensorVersionedToDLPack(self.sp_tensor, copy == True))
+        return PyCapsule_New(dlm_tensor, 'dltensor_versioned', dlpack_versioned_pycapsule_deleter)
 
     def __dlpack_device__(self):
         """

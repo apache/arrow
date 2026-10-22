@@ -80,3 +80,37 @@ index 278bc17a1c..d47d859360 100644
  )
  file(GLOB modules "${SOURCE_PATH}/cmake_modules/Find*.cmake")
  file(REMOVE ${modules} "${SOURCE_PATH}/c++/libs/libhdfspp/libhdfspp.tar.gz")
+diff --git a/ports/uriparser/fix-glibc-2.28-reallocarray.diff b/ports/uriparser/fix-glibc-2.28-reallocarray.diff
+new file mode 100644
+index 0000000..57adef4
+--- /dev/null
++++ b/ports/uriparser/fix-glibc-2.28-reallocarray.diff
+@@ -0,0 +1,15 @@
++diff --git a/src/UriMemory.c b/src/UriMemory.c
++--- a/src/UriMemory.c
+++++ b/src/UriMemory.c
++@@ -50,6 +50,11 @@
++ #    define _DEFAULT_SOURCE 1
++ #  endif
++ 
+++// For glibc <2.29
+++#  if !defined(_GNU_SOURCE)
+++#    define _GNU_SOURCE 1
+++#  endif
+++
++ // For NetBSD (stdlib.h revision 1.122 of 2020-05-26)
++ #  if defined(__NetBSD__) && !defined(_OPENBSD_SOURCE)
++ #    define _OPENBSD_SOURCE 1
+diff --git a/ports/uriparser/portfile.cmake b/ports/uriparser/portfile.cmake
+index 5df5e94..225e5fb 100644
+--- a/ports/uriparser/portfile.cmake
++++ b/ports/uriparser/portfile.cmake
+@@ -4,6 +4,8 @@ vcpkg_from_github(
+     REF "uriparser-${VERSION}"
+     SHA512 1e4c397418e71e705b5712de2dc3ea6e95163c9d95bfbaa5f7d2fd2344d34eaf167d7d9389ab9671cfb314af026621b56e632ea34b681c2f4d7951a1b32a98b4
+     HEAD_REF master
++    PATCHES
++        fix-glibc-2.28-reallocarray.diff
+ )
+ 
+ if("tool" IN_LIST FEATURES)

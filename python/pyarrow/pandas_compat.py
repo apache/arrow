@@ -93,7 +93,7 @@ def get_numpy_logical_type_map():
     global _numpy_logical_type_map
     if not _numpy_logical_type_map:
         _numpy_logical_type_map.update({
-            np.bool_: 'bool',
+            np.bool: 'bool',
             np.int8: 'int8',
             np.int16: 'int16',
             np.int32: 'int32',
@@ -277,7 +277,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     else:
         index_descriptors = index_column_metadata = column_indexes = []
 
-    attributes = df.attrs if hasattr(df, "attrs") else {}
+    attributes = df.attrs
 
     try:
         json.dumps(attributes)
@@ -537,13 +537,12 @@ def _level_name(name):
 
 
 def _get_range_index_descriptor(level):
-    # public start/stop/step attributes added in pandas 0.25.0
     return {
         'kind': 'range',
         'name': _level_name(level.name),
-        'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
-        'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
-        'step': _pandas_api.get_rangeindex_attribute(level, 'step')
+        'start': level.start,
+        'stop': level.stop,
+        'step': level.step
     }
 
 
@@ -579,7 +578,7 @@ def dataframe_to_types(df, preserve_index, columns=None):
     types = []
     # If pandas knows type, skip conversion
     for c in columns_to_convert:
-        values = c.values
+        values = _pandas_api.get_values(c)
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         elif _pandas_api.is_extension_array_dtype(values):
@@ -647,10 +646,13 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                              f"had {result.null_count} null values")
         return result
 
-    def _can_definitely_zero_copy(arr):
-        return (isinstance(arr, np.ndarray) and
-                arr.flags.contiguous and
-                issubclass(arr.dtype.type, np.integer))
+    def _can_definitely_zero_copy(ser):
+        if isinstance(ser.dtype, np.dtype):
+            arr = ser.values
+            return (isinstance(arr, np.ndarray) and
+                    arr.flags.contiguous and
+                    issubclass(arr.dtype.type, np.integer))
+        return False
 
     if nthreads == 1:
         arrays = [convert_column(c, f)
@@ -659,7 +661,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         arrays = []
         with futures.ThreadPoolExecutor(nthreads) as executor:
             for c, f in zip(columns_to_convert, convert_fields):
-                if _can_definitely_zero_copy(c.values):
+                if _can_definitely_zero_copy(c):
                     arrays.append(convert_column(c, f))
                 else:
                     arrays.append(executor.submit(convert_column, c, f))
@@ -759,17 +761,9 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
-        if _pandas_api.is_ge_v21():
-            arr = _pandas_api.pd.array(
-                block_arr.view("int64"), dtype=dtype, copy=False
-            )
-        else:
-            arr = block_arr
-            if return_block:
-                block = _int.make_block(block_arr, placement=placement,
-                                        klass=_int.DatetimeTZBlock,
-                                        dtype=dtype)
-                return block
+        arr = _pandas_api.pd.array(
+            block_arr.view("int64"), dtype=dtype, copy=False
+        )
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -846,10 +840,7 @@ def table_to_dataframe(
         ]
         axes = [columns, index]
         mgr = BlockManager(blocks, axes)
-        if _pandas_api.is_ge_v21():
-            df = DataFrame._from_mgr(mgr, mgr.axes)
-        else:
-            df = DataFrame(mgr)
+        df = DataFrame._from_mgr(mgr, mgr.axes)
 
         df.attrs = attributes
 
@@ -883,10 +874,6 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
     categories = categories or []
 
     ext_columns = {}
-
-    # older pandas version that does not yet support extension dtypes
-    if _pandas_api.extension_dtype is None:
-        return ext_columns
 
     # use the specified mapping of built-in arrow types to pandas dtypes
     if types_mapper:

@@ -17,9 +17,13 @@
 
 #include "parquet/metadata.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
+
 #include "arrow/util/key_value_metadata.h"
+#include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/schema.h"
@@ -119,15 +123,13 @@ TEST(Metadata, TestBuildAccess) {
   auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
   std::string f_accessor_serialized_metadata = f_accessor->SerializeToString();
-  uint32_t expected_len = static_cast<uint32_t>(f_accessor_serialized_metadata.length());
+  const auto expected_len = static_cast<int64_t>(f_accessor_serialized_metadata.length());
 
-  // decoded_len is an in-out parameter
-  uint32_t decoded_len = expected_len;
   auto f_accessor_copy =
-      FileMetaData::Make(f_accessor_serialized_metadata.data(), &decoded_len);
+      FileMetaData::Make(f_accessor_serialized_metadata.data(), expected_len);
 
   // Check that all of the serialized data is consumed
-  ASSERT_EQ(expected_len, decoded_len);
+  ASSERT_EQ(expected_len, f_accessor_copy->size());
 
   // Run this block twice, one for f_accessor, one for f_accessor_copy.
   // To make sure SerializedMetadata was deserialized correctly.
@@ -284,14 +286,11 @@ std::string EncodeInt32(int32_t value) {
 constexpr int32_t kLegacyMin = 100, kLegacyMax = 200;
 
 std::string SerializeMetadata(const format::FileMetaData& thrift_metadata) {
-  std::string out;
-  ThriftSerializer{}.SerializeToString(&thrift_metadata, &out);
-  return out;
+  return std::string(ThriftSerializer{}.SerializeToString(&thrift_metadata));
 }
 
-std::shared_ptr<FileMetaData> ParseMetadata(std::string serialized_metadata) {
-  uint32_t decoded_len = static_cast<uint32_t>(serialized_metadata.size());
-  return FileMetaData::Make(serialized_metadata.data(), &decoded_len);
+std::shared_ptr<FileMetaData> ParseMetadata(std::string_view serialized_metadata) {
+  return FileMetaData::Make(serialized_metadata.data(), serialized_metadata.size());
 }
 
 format::FileMetaData SingleInt32MetadataWithStats() {
@@ -348,6 +347,23 @@ void AssertColumnChunkMinMax(const FileMetaData& metadata,
 }
 
 }  // namespace
+
+TEST(Metadata, UnknownCompressionCodecThrows) {
+  format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
+  auto metadata = ParseMetadata(SerializeMetadata(thrift_metadata));
+
+  auto& column_chunk = thrift_metadata.row_groups.at(0).columns.at(0);
+  const int32_t raw_codec = 8;
+  static_assert(sizeof(column_chunk.meta_data.codec) == sizeof(raw_codec));
+  std::memcpy(&column_chunk.meta_data.codec, &raw_codec, sizeof(raw_codec));
+
+  auto column = ColumnChunkMetaData::Make(&column_chunk, metadata->schema()->Column(0));
+
+  EXPECT_THROW_THAT([&]() { column->compression(); }, ParquetException,
+                    ::testing::Property(
+                        &ParquetException::what,
+                        ::testing::HasSubstr("Unsupported compression codec value: 8")));
+}
 
 TEST(Metadata, UnknownColumnOrderIgnoresMinMax) {
   format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();

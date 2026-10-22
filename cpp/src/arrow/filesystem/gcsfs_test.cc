@@ -77,7 +77,7 @@ class GcsTestbench : public ::testing::Environment {
     }
 
     server_process->SetArgs({"--port", port_});
-    server_process->IgnoreStderr();
+    // Keep stderr so that startup failures are visible in the test log.
     status = server_process->Execute();
     if (!status.ok()) {
       error += ": " + status.ToString();
@@ -85,8 +85,11 @@ class GcsTestbench : public ::testing::Environment {
       return;
     }
 
+    // The testbench may accept connections well before it answers requests,
+    // so poll with a per-attempt budget shorter than the overall one.
     auto testbench_is_running = [&server_process, this]() {
-      auto ready_timeout = std::chrono::seconds(10);
+      auto ready_timeout = std::chrono::seconds(60);
+      auto attempt_timeout = std::chrono::seconds(5);
       std::chrono::time_point<std::chrono::steady_clock> end =
           std::chrono::steady_clock::now() + ready_timeout;
       while (server_process->IsRunning() && std::chrono::steady_clock::now() < end) {
@@ -95,7 +98,7 @@ class GcsTestbench : public ::testing::Environment {
                 .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
                 .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
                 .set<gcs::RetryPolicyOption>(
-                    gcs::LimitedTimeRetryPolicy(ready_timeout).clone()));
+                    gcs::LimitedTimeRetryPolicy(attempt_timeout).clone()));
         auto metadata = client.GetBucketMetadata("nonexistent");
         if (metadata.status().code() == google::cloud::StatusCode::kNotFound) {
           return true;
@@ -105,7 +108,7 @@ class GcsTestbench : public ::testing::Environment {
     };
 
     if (!testbench_is_running()) {
-      error += " (failed to listen)";
+      error += " (did not become ready)";
       error_ = std::move(error);
       return;
     }

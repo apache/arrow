@@ -111,7 +111,7 @@ to step 3:
 6. Install Python (minimum supported version is 3.11):
 
    | Miniconda is preferred, see installation instructions:
-   | https://conda.io/docs/user-guide/install/index.html
+   | https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
 
 7. Install the archery toolset containing crossbow itself:
 

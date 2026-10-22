@@ -206,10 +206,10 @@ BlockSplitBloomFilter DeserializeEncryptedFromStream(
   // Bloom filter header and bitset are separate encrypted modules with different AADs.
   UpdateDecryptor(decryptor, row_group_ordinal, column_ordinal,
                   encryption::kBloomFilterHeader);
-  auto header_cipher_len = static_cast<uint32_t>(header_cipher_total_len);
+  int64_t header_cipher_len;
   try {
-    deserializer.DeserializeMessage(header_cipher_buf->data(), &header_cipher_len,
-                                    &header, decryptor);
+    header_cipher_len = deserializer.DeserializeMessage(
+        header_cipher_buf->data(), header_cipher_total_len, &header, decryptor);
   } catch (std::exception& e) {
     std::stringstream ss;
     ss << "Deserializing bloom filter header failed.\n" << e.what();
@@ -304,10 +304,10 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
 
   // Read and deserialize bloom filter header
   PARQUET_ASSIGN_OR_THROW(auto header_buf, input->Read(bloom_filter_header_read_size));
-  // This gets used, then set by DeserializeThriftMsg
-  uint32_t header_size = static_cast<uint32_t>(header_buf->size());
+  int64_t header_size;
   try {
-    deserializer.DeserializeMessage(header_buf->data(), &header_size, &header);
+    header_size =
+        deserializer.DeserializeMessage(header_buf->data(), header_buf->size(), &header);
     DCHECK_LE(header_size, header_buf->size());
   } catch (std::exception& e) {
     std::stringstream ss;

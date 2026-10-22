@@ -25,6 +25,6 @@ set -eux
   echo "CCACHE_COMPILERCHECK=content"
   echo "CCACHE_COMPRESS=1"
   echo "CCACHE_COMPRESSLEVEL=6"
-  echo "CCACHE_MAXSIZE=1G"
+  echo "CCACHE_MAXSIZE=1.5G"
   echo "CCACHE_NOHASHDIR=1"
 } >> "$GITHUB_ENV"

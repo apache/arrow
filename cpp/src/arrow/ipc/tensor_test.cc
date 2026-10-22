@@ -72,7 +72,9 @@ class TestTensorRoundTrip : public BaseTensorTest {
 
     ASSERT_OK(mmap_->Seek(0));
 
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     const int64_t expected_body_length = elem_size * tensor.size();
     ASSERT_EQ(expected_body_length, body_length);
@@ -80,7 +82,9 @@ class TestTensorRoundTrip : public BaseTensorTest {
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<Tensor> result;
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK_AND_ASSIGN(result, ReadTensor(mmap_.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     ASSERT_EQ(result->data()->size(), expected_body_length);
     ASSERT_TRUE(tensor.Equals(*result));
@@ -115,7 +119,9 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   CheckTensorRoundTrip(t_zero_length_dim);
 
   int64_t serialized_size;
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_OK(GetTensorSize(t0, &serialized_size));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(serialized_size > static_cast<int64_t>(size * sizeof(int64_t)));
 
   // ARROW-2840: Check that padding/alignment minded
@@ -151,8 +157,10 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
 
     ASSERT_OK(mmap_->Seek(0));
 
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK(
         WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     const auto& sparse_index =
         checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
@@ -166,7 +174,9 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<SparseTensor> result;
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ASSERT_EQ(SparseTensorFormat::COO, result->format_id());
 
     const auto& resulted_sparse_index =
@@ -192,8 +202,10 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
 
     ASSERT_OK(mmap_->Seek(0));
 
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK(
         WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     const auto& sparse_index =
         checked_cast<const SparseIndexType&>(*sparse_tensor.sparse_index());
@@ -209,7 +221,9 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<SparseTensor> result;
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     constexpr auto expected_format_id =
         std::is_same<SparseIndexType, SparseCSRIndex>::value ? SparseTensorFormat::CSR
@@ -233,8 +247,10 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
 
     ASSERT_OK(mmap_->Seek(0));
 
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK(
         WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     const auto& sparse_index =
         checked_cast<const SparseCSFIndex&>(*sparse_tensor.sparse_index());
@@ -259,7 +275,9 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     ASSERT_OK(mmap_->Seek(0));
 
     std::shared_ptr<SparseTensor> result;
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ASSERT_EQ(SparseTensorFormat::CSF, result->format_id());
 
     const auto& resulted_sparse_index =
@@ -565,6 +583,7 @@ IpcPayload MakeSparseTensorPayload(const std::shared_ptr<Message>& message,
 }  // namespace
 
 TEST(TestSparseCSFIndex, RejectInconsistentBufferCounts) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   // ndim == 1 is not a valid CSF index (it has no indptr buffers), and used to
   // reach SparseCSFIndex's constructor with an empty indptr vector.
   ASSERT_OK_AND_ASSIGN(auto message,
@@ -587,9 +606,11 @@ TEST(TestSparseCSFIndex, RejectInconsistentBufferCounts) {
                                           /*num_indices_buffers=*/2,
                                           /*axis_order_size=*/3));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 TEST(TestSparseCSFIndex, RejectInconsistentPayloadBufferCounts) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_OK_AND_ASSIGN(auto message,
                        MakeCSFSparseTensorMessage(/*shape=*/{4}, /*num_indptr_buffers=*/0,
                                                   /*num_indices_buffers=*/1,
@@ -603,6 +624,7 @@ TEST(TestSparseCSFIndex, RejectInconsistentPayloadBufferCounts) {
                                           /*axis_order_size=*/3));
   ASSERT_RAISES(Invalid,
                 internal::ReadSparseTensorPayload(MakeSparseTensorPayload(message, 4)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 TEST(TestSparseCSXIndex, RejectIndptrLengthOverflow) {
@@ -618,6 +640,7 @@ TEST(TestSparseCSXIndex, RejectIndptrLengthOverflow) {
 TEST(TestSparseTensor, RejectNegativeShapeAndNonZeroLength) {
   // A negative non_zero_length must be rejected by GetSparseTensorMetadata,
   // otherwise the negative size product bypasses the index buffer-size guards.
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_OK_AND_ASSIGN(
       auto message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4}, /*num_indptr_buffers=*/1,
                                                /*num_indices_buffers=*/2,
@@ -631,6 +654,7 @@ TEST(TestSparseTensor, RejectNegativeShapeAndNonZeroLength) {
                                           /*num_indices_buffers=*/2,
                                           /*axis_order_size=*/2));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 }  // namespace test

@@ -31,7 +31,7 @@ test_that("explicit type conversions with cast()", {
 
   int_types <- c(int8(), int16(), int32(), int64())
   uint_types <- c(uint8(), uint16(), uint32(), uint64())
-  float_types <- c(float32(), float64())
+  float_types <- c(float16(), float32(), float64())
 
   types <- c(
     int_types,
@@ -1063,4 +1063,15 @@ test_that("format() for unsupported types returns the input as string", {
       mutate(y = as.character(dbl)) |>
       collect()
   )
+})
+
+test_that("cast to float16 roundtrips values correctly", {
+  # Values exactly representable in half-float, so the roundtrip is exact.
+  # Regression test for GH-50378 (values were previously decoded as raw uint16 bits)
+  df <- tibble::tibble(x = c(1, 2, 3.5, -0.25, 1024, NA))
+  result <- df |>
+    arrow_table() |>
+    mutate(x = cast(x, float16())) |>
+    collect()
+  expect_identical(result$x, df$x)
 })

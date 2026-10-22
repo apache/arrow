@@ -87,6 +87,14 @@ add_arrow_test(utility-test
                EXTRA_LINK_LIBS
                ${ARROW_UTILITY_TEST_LINK_LIBS})
 
+if(ARROW_WITH_SIMDJSON)
+  add_arrow_test(simdjson-internal-test
+                 SOURCES
+                 simdjson_internal_test.cc
+                 EXTRA_LINK_LIBS
+                 arrow::simdjson)
+endif()
+
 add_arrow_test(async-utility-test
                SOURCES
                async_generator_test.cc
@@ -102,6 +110,8 @@ add_arrow_test(bit-utility-test
                rle_bitmap_test.cc
                rle_encoding_test.cc
                test_common.cc)
+
+add_arrow_test(encoding-utility-test SOURCES alp/alp_test.cc)
 
 add_arrow_test(crc32-test
                SOURCES

@@ -55,4 +55,18 @@ int64_t LogicalDenseUnionNullCount(const ArraySpan& span) {
   return null_count;
 }
 
+void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
+                              int64_t out_offset, bool set_on_null) {
+  for (int64_t i = 0; i < span.length; i++) {
+    bit_util::SetBitTo(out_bitmap, out_offset + i, set_on_null == span.IsNull(i));
+  }
+}
+
+void SetLogicalNullBitsDense(const ArraySpan& span, uint8_t* out_bitmap,
+                             int64_t out_offset, bool set_on_null) {
+  for (int64_t i = 0; i < span.length; i++) {
+    bit_util::SetBitTo(out_bitmap, out_offset + i, set_on_null == span.IsNull(i));
+  }
+}
+
 }  // namespace arrow::union_util
