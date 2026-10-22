@@ -372,19 +372,21 @@ struct TypedFuzzEncoding {
         indices_buffer.data(), static_cast<int>(indices_buffer.size()));
     ARROW_CHECK_GE(indices_size, 0);
 
-    // Decode the dictionary page with a PLAIN decoder, as a real reader does
-    auto dict_page_decoder = MakeDecoder(Encoding::PLAIN);
-    dict_page_decoder->SetData(dict_encoder->num_entries(), dict_buffer.data(),
-                               dict_size);
-
-    auto dict_decoder = MakeDictDecoder<DType>(descr_, pool());
-    dict_decoder->SetDict(dict_page_decoder.get());
-    dict_decoder->SetData(num_values_, indices_buffer.data(), indices_size);
-
+    // Decode the dictionary page with a PLAIN decoder, as a real reader does.
+    // A fresh dictionary decoder must be prepared for each chunk size, like
+    // RunOnDecodedChunks() does, otherwise the decoder is exhausted after the
+    // first pass and subsequent passes fail with "Read less values than
+    // expected" even though the indices data is complete.
     auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
       return CompareChunkAgainstReference(offset, chunk_values);
     };
     for (const int chunk_size : chunk_sizes()) {
+      auto dict_page_decoder = MakeDecoder(Encoding::PLAIN);
+      dict_page_decoder->SetData(dict_encoder->num_entries(), dict_buffer.data(),
+                                 dict_size);
+      auto dict_decoder = MakeDictDecoder<DType>(descr_, pool());
+      dict_decoder->SetDict(dict_page_decoder.get());
+      dict_decoder->SetData(num_values_, indices_buffer.data(), indices_size);
       RETURN_NOT_OK(RunOnPreparedDecoderChunks(dict_decoder.get(), chunk_size,
                                                compare_chunk));
     }

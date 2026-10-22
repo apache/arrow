@@ -78,6 +78,15 @@ rm -rf ${CORPUS_DIR}
 "${OUT}/parquet-generate-encoding-fuzz-corpus" "${CORPUS_DIR}"
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/parquet-encoding-fuzz_seed_corpus.zip"
 
+# Fuzz target dictionaries
+#
+# Dictionaries are shipped under build-support/fuzzing/dicts as
+# "<FUZZ TARGET>.dict" and copied next to the seed corpus zips, so that
+# OSS-Fuzz's build script can pick them up like the corpora above.
+
+find "${ARROW_CPP}/build-support/fuzzing/dicts" -name '*.dict' \
+  -exec cp '{}' "${OUT}/" \;
+
 # CSV
 
 rm -rf "${PANDAS_DIR}"
@@ -89,4 +98,16 @@ rm -rf "${CORPUS_DIR}"
 cp "${ARROW_ROOT}"/testing/data/csv/*.csv "${CORPUS_DIR}"
 # Add examples from Pandas test suite
 find "${PANDAS_DIR}/" -name "*.csv" -exec cp --backup=numbered '{}' "${CORPUS_DIR}" \;
+# Some Pandas CSV files are exact duplicates of each other under different
+# names, and pack_corpus.py fails on duplicate hashes; keep only one copy.
+declare -A seen=()
+while IFS= read -r -d '' f; do
+  h=$(sha1sum "$f" | cut -d' ' -f1)
+  if [[ -n "${seen[$h]}" ]]; then
+    rm -f "$f"
+  else
+    seen[$h]=1
+  fi
+done < <(find "${CORPUS_DIR}" -maxdepth 1 -type f -print0)
+
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-csv-fuzz_seed_corpus.zip"
