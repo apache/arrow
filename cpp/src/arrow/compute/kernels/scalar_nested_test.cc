@@ -465,6 +465,13 @@ TEST(TestScalarNested, ListContainsInvalid) {
                   Raises(StatusCode::NotImplemented));
     }
   }
+  EXPECT_THAT(CallFunction("list_contains", {ArrayFromJSON(list(int32()), "[]"),
+                                             ArrayFromJSON(utf8(), "[]")}),
+              Raises(StatusCode::NotImplemented));
+  // Lists only compare with null queries
+  EXPECT_THAT(CallFunction("list_contains", {ScalarFromJSON(list(list(int32())), "null"),
+                                             ArrayFromJSON(list(int32()), "[[1]]")}),
+              Raises(StatusCode::NotImplemented));
   // Like "equal", timestamps with and without a time zone don't compare
   for (auto value : {"1", "null"}) {
     EXPECT_THAT(

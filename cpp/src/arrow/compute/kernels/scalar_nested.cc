@@ -572,13 +572,27 @@ Result<std::vector<TypeHolder>> ComparableTypes(
   return types;
 }
 
-// Null queries are matched without "equal", but must be comparable all the same
-Status CheckNullQueries(KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
-                        const std::shared_ptr<DataType>& queries_type) {
-  if (queries_type->id() == Type::NA || queries_type->Equals(*values_type)) {
-    return Status::OK();
+struct ListContainsState : public KernelState {
+  explicit ListContainsState(Result<std::vector<TypeHolder>> types)
+      : types(std::move(types)) {}
+
+  // The result of ComparableTypes, raised for non-null queries only
+  Result<std::vector<TypeHolder>> types;
+};
+
+// Compare types once, raising even if there is nothing to search, like for null lists.
+// Null queries are matched without "equal", but must be comparable too unless they
+// are null-typed or of the values' type.
+Result<std::unique_ptr<KernelState>> InitListContains(KernelContext* ctx,
+                                                      const KernelInitArgs& args) {
+  const auto& values_type =
+      checked_cast<const BaseListType&>(*args.inputs[0]).value_type();
+  const auto queries_type = args.inputs[1].GetSharedPtr();
+  auto types = ComparableTypes(ctx, values_type, queries_type);
+  if (queries_type->id() != Type::NA && !queries_type->Equals(*values_type)) {
+    RETURN_NOT_OK(types.status());
   }
-  return ComparableTypes(ctx, values_type, queries_type).status();
+  return std::make_unique<ListContainsState>(std::move(types));
 }
 
 Status CastTo(KernelContext* ctx, const TypeHolder& type, Datum* datum) {
@@ -765,17 +779,15 @@ void SearchLists(ListRanges list_range, int64_t num_lists, int64_t values_start,
 }
 
 // Look up each query in the values of a single list
-Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
-                          const ArraySpan& query_span, ArraySpan* out_arr) {
-  // The types must be comparable even for a null list, like for list arrays
-  const auto& value_type = checked_cast<const BaseListType&>(*list.type).value_type();
+Status ScalarListContains(KernelContext* ctx,
+                          const Result<std::vector<TypeHolder>>& types,
+                          const BaseListScalar& list, const ArraySpan& query_span,
+                          ArraySpan* out_arr) {
   Datum queries = query_span.ToArrayData();
   const bool null_queries = queries.null_count() == queries.length();
-  std::vector<TypeHolder> types;
-  if (null_queries) {
-    RETURN_NOT_OK(CheckNullQueries(ctx, value_type, queries.type()));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(types, ComparableTypes(ctx, value_type, queries.type()));
+  if (!null_queries) {
+    // Raise even for a null list, like for list arrays
+    RETURN_NOT_OK(types.status());
   }
   bit_util::SetBitsTo(out_arr->buffers[0].data, out_arr->offset, out_arr->length,
                       list.is_valid);
@@ -789,8 +801,8 @@ Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
                         values.null_count() > 0);
     return Status::OK();
   }
-  RETURN_NOT_OK(CastTo(ctx, types[0], &values));
-  RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
+  RETURN_NOT_OK(CastTo(ctx, (*types)[0], &values));
+  RETURN_NOT_OK(CastTo(ctx, (*types)[1], &queries));
   ExecContext* exec_ctx = ctx->exec_context();
   if (is_floating(values.type()->id())) {
     // "is_in" tells -0.0 from 0.0 and NaNs with different payloads apart, so turn
@@ -820,9 +832,11 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   if (batch.length == 0) {
     return Status::OK();
   }
+  const auto& state_types = checked_cast<const ListContainsState&>(*ctx->state()).types;
   if (batch[0].is_scalar()) {
     // A scalar list is only paired with an array of queries here
-    return ScalarListContains(ctx, checked_cast<const BaseListScalar&>(*batch[0].scalar),
+    return ScalarListContains(ctx, state_types,
+                              checked_cast<const BaseListScalar&>(*batch[0].scalar),
                               batch[1].array, out_arr);
   }
   const ArraySpan& list = batch[0].array;
@@ -871,12 +885,12 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   const int64_t query_step = scalar_query ? 0 : 1;
 
   if (queries.null_count() == queries.length()) {
-    RETURN_NOT_OK(CheckNullQueries(ctx, values.type(), queries.type()));
     const ArraySpan v(*values.array());
     search([&](int64_t j, int64_t) { return v.IsNull(j); });
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto types, ComparableTypes(ctx, values.type(), queries.type()));
+  RETURN_NOT_OK(state_types.status());
+  const auto& types = *state_types;
   if constexpr (is_list_view_type<Type>::value) {
     if (!values.type()->Equals(*types[0])) {
       // Only cast the span of values that views reference. Values in gaps between
@@ -928,7 +942,8 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
 
 void AddListContainsKernels(ScalarFunction* func) {
   auto add_kernel = [&](Type::type list_type_id, ArrayKernelExec exec) {
-    ScalarKernel kernel({InputType(list_type_id), InputType::Any()}, boolean(), exec);
+    ScalarKernel kernel({InputType(list_type_id), InputType::Any()}, boolean(), exec,
+                        InitListContains);
     // A null value is searched for rather than propagated
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
