@@ -928,6 +928,25 @@ TEST(TimestampParser, StrptimeWithoutDay) {
   ASSERT_EQ(expected, converted);
 }
 
+TEST(TimestampParser, StrptimeYearOutOfRange) {
+  auto parser = TimestampParser::MakeStrptime("%s");
+  int64_t converted = 0;
+  // A value past 2038 (2100-01-01), as a strptime that parses %s into a 32-bit
+  // time_t wraps larger values into ordinary dates
+  if (!(*parser)("4102444800", 10, TimeUnit::SECOND, &converted) ||
+      converted != 4102444800) {
+    GTEST_SKIP() << "strptime does not support 64-bit %s values on this platform";
+  }
+
+  // Years that do not fit in a date::year are rejected rather than wrapped,
+  // also where tm_year + 1900 would overflow int
+  for (const std::string value :
+       {"1000000000000000", "67768036000000000", "67768036191676799"}) {
+    SCOPED_TRACE(value);
+    ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &converted));
+  }
+}
+
 TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
