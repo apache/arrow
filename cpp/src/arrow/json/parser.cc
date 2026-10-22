@@ -968,8 +968,7 @@ class ParseImpl : public BlockParser {
       if (!absent_fields_stack_[i]) {
         continue;
       }
-      auto field_builder = Cast<Kind::kObject>(parent)->field_builder(i);
-      if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
+      if (ARROW_PREDICT_FALSE(!Cast<Kind::kObject>(parent)->field_builder(i).nullable)) {
         return ParseError("a required field was absent");
       }
       RETURN_NOT_OK(builder_set_.AppendNull(parent, i));
