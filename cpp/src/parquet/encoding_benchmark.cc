@@ -1084,6 +1084,59 @@ static void ByteArrayDeltaCustomArguments(benchmark::internal::Benchmark* b) {
 BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
 BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
 
+// Same as BM_DeltaDecodingByteArray, but decoding into an Arrow builder with
+// `null-percent` of the slots null.
+static void BM_DeltaDecodingArrowByteArray(benchmark::State& state) {
+  DeltaByteArrayState delta_state(state);
+  std::vector<ByteArray> values = delta_state.MakeRandomByteArray(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  // Spread the encoded (non-null) values over enough slots to reach `null-percent`.
+  std::default_random_engine gen(/*seed=*/42);
+  std::bernoulli_distribution dist_is_null(state.range(3) / 100.0);
+  std::vector<bool> is_valid;
+  for (int32_t num_valid = 0; num_valid < delta_state.array_length;) {
+    is_valid.push_back(!dist_is_null(gen));
+    num_valid += is_valid.back();
+  }
+  const int num_slots = static_cast<int>(is_valid.size());
+  const int null_count = num_slots - delta_state.array_length;
+  std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(num_slots));
+  for (int i = 0; i < num_slots; ++i) {
+    ::arrow::bit_util::SetBitTo(valid_bits.data(), i, is_valid[i]);
+  }
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  for (auto _ : state) {
+    decoder->SetData(delta_state.array_length, buf->data(),
+                     static_cast<int>(buf->size()));
+    EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder = std::make_unique<::arrow::BinaryBuilder>(default_memory_pool());
+    decoder->DecodeArrow(num_slots, null_count, valid_bits.data(), 0, &acc);
+    ::benchmark::DoNotOptimize(acc);
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+}
+
+static void ByteArrayDeltaArrowCustomArguments(benchmark::internal::Benchmark* b) {
+  for (int max_string_length : {8, 64, 1024}) {
+    for (int batch_size : {512, 2048}) {
+      for (int prefixed_percent : {10, 90, 99}) {
+        for (int null_percent : {0, 50}) {
+          b->Args({max_string_length, batch_size, prefixed_percent, null_percent});
+        }
+      }
+    }
+  }
+  b->ArgNames({"max-string-length", "batch-size", "prefixed-percent", "null-percent"});
+}
+
+BENCHMARK(BM_DeltaDecodingArrowByteArray)->Apply(ByteArrayDeltaArrowCustomArguments);
+
 struct DeltaFLBAState {
   int32_t type_length;
   int32_t array_length;
