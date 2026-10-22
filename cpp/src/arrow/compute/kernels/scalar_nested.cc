@@ -541,15 +541,6 @@ const FunctionDoc list_element_doc(
      "is emitted. Null values emit a null in the output."),
     {"lists", "index"});
 
-// Raise the errors "equal" would when comparing these types
-Status CheckComparable(KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
-                       const std::shared_ptr<DataType>& queries_type) {
-  ARROW_ASSIGN_OR_RAISE(auto values, MakeArrayOfNull(values_type, 1, ctx->memory_pool()));
-  ARROW_ASSIGN_OR_RAISE(auto queries,
-                        MakeArrayOfNull(queries_type, 1, ctx->memory_pool()));
-  return CallFunction("equal", {values, queries}, ctx->exec_context()).status();
-}
-
 // The types "equal" compares `values` and `queries` as, raising the errors it would.
 // float16, which "equal" lacks, is compared as float32, and binary views as large
 // binary.
@@ -560,10 +551,10 @@ Result<std::vector<TypeHolder>> ComparableTypes(
   for (const auto& type : {values_type, queries_type}) {
     types.emplace_back(type->id() == Type::HALF_FLOAT ? float32() : type);
   }
-  RETURN_NOT_OK(CheckComparable(ctx, types[0].GetSharedPtr(), types[1].GetSharedPtr()));
   ARROW_ASSIGN_OR_RAISE(auto equal,
                         ctx->exec_context()->func_registry()->GetFunction("equal"));
   RETURN_NOT_OK(equal->DispatchBest(&types));
+  RETURN_NOT_OK(ValidateComparison(*types[0], *types[1]));
   for (auto& type : types) {
     if (is_binary_view_like(type.id())) {
       type = large_binary();
