@@ -553,10 +553,11 @@ Status CheckComparable(KernelContext* ctx, const std::shared_ptr<DataType>& valu
 // The types "equal" compares `values` and `queries` as, raising the errors it would.
 // float16, which "equal" lacks, is compared as float32, and binary views as large
 // binary.
-Result<std::vector<TypeHolder>> ComparableTypes(KernelContext* ctx, const Datum& values,
-                                                const Datum& queries) {
+Result<std::vector<TypeHolder>> ComparableTypes(
+    KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
+    const std::shared_ptr<DataType>& queries_type) {
   std::vector<TypeHolder> types;
-  for (const auto& type : {values.type(), queries.type()}) {
+  for (const auto& type : {values_type, queries_type}) {
     types.emplace_back(type->id() == Type::HALF_FLOAT ? float32() : type);
   }
   RETURN_NOT_OK(CheckComparable(ctx, types[0].GetSharedPtr(), types[1].GetSharedPtr()));
@@ -572,11 +573,12 @@ Result<std::vector<TypeHolder>> ComparableTypes(KernelContext* ctx, const Datum&
 }
 
 // Null queries are matched without "equal", but must be comparable all the same
-Status CheckNullQueries(KernelContext* ctx, const Datum& values, const Datum& queries) {
-  if (queries.type()->id() == Type::NA || queries.type()->Equals(*values.type())) {
+Status CheckNullQueries(KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
+                        const std::shared_ptr<DataType>& queries_type) {
+  if (queries_type->id() == Type::NA || queries_type->Equals(*values_type)) {
     return Status::OK();
   }
-  return ComparableTypes(ctx, values, queries).status();
+  return ComparableTypes(ctx, values_type, queries_type).status();
 }
 
 Status CastTo(KernelContext* ctx, const TypeHolder& type, Datum* datum) {
@@ -765,6 +767,16 @@ void SearchLists(ListRanges list_range, int64_t num_lists, int64_t values_start,
 // Look up each query in the values of a single list
 Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
                           const ArraySpan& query_span, ArraySpan* out_arr) {
+  // The types must be comparable even for a null list, like for list arrays
+  const auto& value_type = checked_cast<const BaseListType&>(*list.type).value_type();
+  Datum queries = query_span.ToArrayData();
+  const bool null_queries = queries.null_count() == queries.length();
+  std::vector<TypeHolder> types;
+  if (null_queries) {
+    RETURN_NOT_OK(CheckNullQueries(ctx, value_type, queries.type()));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(types, ComparableTypes(ctx, value_type, queries.type()));
+  }
   bit_util::SetBitsTo(out_arr->buffers[0].data, out_arr->offset, out_arr->length,
                       list.is_valid);
   out_arr->null_count = list.is_valid ? 0 : out_arr->length;
@@ -772,14 +784,11 @@ Status ScalarListContains(KernelContext* ctx, const BaseListScalar& list,
     return Status::OK();
   }
   Datum values = list.value;
-  Datum queries = query_span.ToArrayData();
-  if (queries.null_count() == queries.length()) {
-    RETURN_NOT_OK(CheckNullQueries(ctx, values, queries));
+  if (null_queries) {
     bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
                         values.null_count() > 0);
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto types, ComparableTypes(ctx, values, queries));
   RETURN_NOT_OK(CastTo(ctx, types[0], &values));
   RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
   ExecContext* exec_ctx = ctx->exec_context();
@@ -862,12 +871,12 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   const int64_t query_step = scalar_query ? 0 : 1;
 
   if (queries.null_count() == queries.length()) {
-    RETURN_NOT_OK(CheckNullQueries(ctx, values, queries));
+    RETURN_NOT_OK(CheckNullQueries(ctx, values.type(), queries.type()));
     const ArraySpan v(*values.array());
     search([&](int64_t j, int64_t) { return v.IsNull(j); });
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto types, ComparableTypes(ctx, values, queries));
+  ARROW_ASSIGN_OR_RAISE(auto types, ComparableTypes(ctx, values.type(), queries.type()));
   if constexpr (is_list_view_type<Type>::value) {
     if (!values.type()->Equals(*types[0])) {
       // Only cast the span of values that views reference. Values in gaps between

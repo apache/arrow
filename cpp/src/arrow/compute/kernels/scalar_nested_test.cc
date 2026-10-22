@@ -443,6 +443,15 @@ TEST(TestScalarNested, ListContainsInvalid) {
                                        ArrayFromJSON(value.type(), "[null, null]")}),
         Raises(StatusCode::NotImplemented));
   }
+  // Also for null lists, whose value type must be comparable all the same
+  for (Datum lists : {Datum(ArrayFromJSON(list(int32()), "[null, null]")),
+                      Datum(ScalarFromJSON(list(int32()), "null"))}) {
+    for (auto queries : {ArrayFromJSON(utf8(), R"(["a", "b"])"),
+                         ArrayFromJSON(utf8(), "[null, null]")}) {
+      EXPECT_THAT(CallFunction("list_contains", {lists, queries}),
+                  Raises(StatusCode::NotImplemented));
+    }
+  }
   // Like "equal", timestamps with and without a time zone don't compare
   for (auto value : {"1", "null"}) {
     EXPECT_THAT(
