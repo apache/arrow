@@ -473,6 +473,17 @@ TEST(TestScalarNested, ListContainsInvalid) {
                       ScalarFromJSON(timestamp(TimeUnit::SECOND), value)}),
         Raises(StatusCode::Invalid));
   }
+  // Like "equal", timestamps don't compare with durations, which don't cast to them
+  auto timestamps = list(timestamp(TimeUnit::SECOND));
+  for (Datum lists : {Datum(ArrayFromJSON(timestamps, "[[1], null]")),
+                      Datum(ScalarFromJSON(timestamps, "null"))}) {
+    for (auto queries : {"[1, null]", "[null, null]"}) {
+      EXPECT_THAT(
+          CallFunction("list_contains",
+                       {lists, ArrayFromJSON(duration(TimeUnit::SECOND), queries)}),
+          Raises(StatusCode::NotImplemented));
+    }
+  }
 }
 
 using VarLenListLikeTypeFactory =

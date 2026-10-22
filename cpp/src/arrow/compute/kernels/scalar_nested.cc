@@ -559,9 +559,14 @@ Result<std::vector<TypeHolder>> ComparableTypes(
     // Fixed-size binary values of different widths differ, as binary values do
     types = {binary(), binary()};
   }
-  for (auto& type : types) {
-    if (is_binary_view_like(type.id())) {
-      type = large_binary();
+  for (const auto& [from, to] :
+       {std::pair(values_type, &types[0]), std::pair(queries_type, &types[1])}) {
+    if (is_binary_view_like(to->id())) {
+      *to = large_binary();
+    }
+    // Raise also where there is nothing to cast, e.g. for null queries
+    if (!from->Equals(**to) && !CanCast(*from, **to)) {
+      return Status::NotImplemented("Unsupported cast from ", *from, " to ", **to);
     }
   }
   return types;
