@@ -245,6 +245,11 @@ TEST(BlockParserWithSchema, NullsInList) {
     AssertParseColumns(options, R"({"a": [null, null]})", {field("a", list(null()))},
                        {"[[null, null]]"});
   }
+
+  auto type = list(struct_({field("b", null())}));
+  options.explicit_schema = schema({field("a", type)});
+  AssertParseColumns(options, R"({"a": [{"b": null}, null]})", {field("a", type)},
+                     {R"([[{"b": null}, null]])"});
 }
 
 TEST(BlockParserWithSchema, ValidateIgnoredFields) {
@@ -303,6 +308,9 @@ TEST(BlockParser, NullsInList) {
   AssertParseColumns(options, R"({"a": [null, null], "b": [null, "hi", null]})",
                      {field("a", list(null())), field("b", list(utf8()))},
                      {"[[null, null]]", R"([[null, "hi", null]])"});
+  AssertParseColumns(options, R"({"a": [{"b": null}, null]})",
+                     {field("a", list(struct_({field("b", null())})))},
+                     {R"([[{"b": null}, null]])"});
 }
 
 TEST(BlockParser, InferNewFields) {
