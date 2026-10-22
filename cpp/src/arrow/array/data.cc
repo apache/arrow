@@ -321,7 +321,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->buffers[i] = {};
   }
 
-  if (type_id == Type::STRING_VIEW || type_id == Type::BINARY_VIEW) {
+  if (HasVariadicBuffers()) {
     // store the span of data buffers in the third buffer
     this->buffers[2] = internal::PackVariadicBuffers(std::span(data.buffers).subspan(2));
   }
@@ -687,7 +687,12 @@ std::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
 }
 
 bool ArraySpan::HasVariadicBuffers() const {
-  return type->id() == Type::BINARY_VIEW || type->id() == Type::STRING_VIEW;
+  Type::type type_id = type->id();
+  if (type_id == Type::EXTENSION) {
+    const auto* ext_type = checked_cast<const ExtensionType*>(type);
+    type_id = ext_type->storage_type()->id();
+  }
+  return type_id == Type::BINARY_VIEW || type_id == Type::STRING_VIEW;
 }
 
 std::shared_ptr<Array> ArraySpan::ToArray() const {
