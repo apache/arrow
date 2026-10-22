@@ -3684,6 +3684,29 @@ TEST(Cast, ListViewToList) {
   }
 }
 
+TEST(Cast, ListViewToListWithExtensionChild) {
+  // MakeBuilder does not support extension types, but the cast used to work by
+  // reusing the child array. The gathered values must keep working for both an
+  // extension destination and its storage type.
+  auto smallint_type = std::make_shared<SmallintType>();
+  ExtensionTypeGuard smallint_guard(smallint_type);
+
+  auto values =
+      ExtensionType::WrapArray(smallint_type, ArrayFromJSON(int16(), "[1, 2, 3, 4]"));
+  ASSERT_OK_AND_ASSIGN(auto list_view,
+                       ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0, 1]"),
+                                                 *ArrayFromJSON(int32(), "[2, 2, 1]"),
+                                                 *values));
+  CheckCast(list_view, ArrayFromJSON(list(int16()), "[[3, 4], [1, 2], [2]]"));
+
+  auto expected_values =
+      ExtensionType::WrapArray(smallint_type, ArrayFromJSON(int16(), "[3, 4, 1, 2, 2]"));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_extension,
+      ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4, 5]"), *expected_values));
+  CheckCast(list_view, expected_extension);
+}
+
 TEST(Cast, ListViewToListEdgeCases) {
   auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
 

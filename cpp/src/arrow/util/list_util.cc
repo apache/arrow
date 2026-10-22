@@ -23,6 +23,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/data.h"
+#include "arrow/extension_type.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
@@ -203,10 +204,16 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_vi
   const auto& value_type = list_view_type.value_type();
   // The value type is carried over, so that callers may cast the child.
   auto list_type = std::make_shared<DestListType>(value_type);
+  // MakeBuilder does not support extension types, so gather the values using
+  // the storage type and restore the extension type afterwards.
+  const bool is_extension = value_type->id() == Type::EXTENSION;
+  const auto builder_value_type =
+      is_extension ? checked_cast<const ExtensionType&>(*value_type).storage_type()
+                   : value_type;
 
   ARROW_ASSIGN_OR_RAISE(auto sum_of_sizes, SumOfLogicalListSizes(list_view));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
-                        MakeBuilder(value_type, pool));
+                        MakeBuilder(builder_value_type, pool));
   RETURN_NOT_OK(value_builder->Reserve(sum_of_sizes));
   auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
   RETURN_NOT_OK(list_builder->Reserve(list_view.length));
@@ -227,6 +234,12 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_vi
 
   std::shared_ptr<ArrayData> list_data;
   RETURN_NOT_OK(list_builder->FinishInternal(&list_data));
+  if (is_extension) {
+    // The builders produced storage-typed data; restore the extension types so
+    // that the result matches the requested list type.
+    list_data->child_data[0]->type = value_type;
+    list_data->type = list_type;
+  }
   return list_data;
 }
 
