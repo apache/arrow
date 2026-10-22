@@ -17,6 +17,7 @@
 
 
 from numbers import Integral
+import operator
 import warnings
 
 from pyarrow.lib import Table
@@ -166,6 +167,56 @@ class ORCFile:
         """
         columns = self._select_names(columns)
         return self.reader.read_stripe(n, columns=columns)
+
+    def iter_batches(self, batch_size=65536, stripes=None, columns=None):
+        """Read streaming batches from the file or selected stripes.
+
+        Parameters
+        ----------
+        batch_size : int, default 65536
+            Maximum number of rows per batch. Must be positive.
+        stripes : sequence of int, optional
+            Zero-based stripe indices, read in the supplied order. Repeated
+            indices repeat the corresponding rows. None reads the entire file;
+            an empty sequence produces no batches.
+        columns : list, optional
+            Column names, nested field paths, or top-level integer indices,
+            as in read_stripe. Output follows the file's column order. None
+            reads all columns; an empty list reads no columns but preserves
+            the number of rows.
+
+        Yields
+        ------
+        pyarrow.RecordBatch
+            A batch containing at most batch_size rows. Stripe boundaries may
+            produce smaller batches.
+
+        Notes
+        -----
+        Reading starts when the iterator is consumed. Call its close() method
+        to release the reader when stopping early. This does not close a source
+        supplied by the caller. Returned batches remain valid after closing.
+
+        Batches are decoded incrementally, without first constructing an Arrow
+        batch for the entire stripe. batch_size limits rows, not bytes or total
+        process memory: ORC dictionaries and decompression buffers may still
+        depend on the stripe size.
+        """
+        batch_size = operator.index(batch_size)
+        if batch_size > 2**63 - 1 or batch_size < -2**63:
+            raise OverflowError("batch_size does not fit in int64")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+        if stripes is not None:
+            stripes = tuple(operator.index(stripe) for stripe in stripes)
+            for stripe in stripes:
+                if stripe > 2**63 - 1 or stripe < -2**63:
+                    raise OverflowError("stripe index does not fit in int64")
+                if not 0 <= stripe < self.nstripes:
+                    raise ValueError(f"Out of bounds stripe: {stripe}")
+        if columns is not None:
+            columns = list(self._select_names(list(columns)))
+        return self.reader.iter_batches(batch_size, stripes, columns)
 
     def read(self, columns=None):
         """Read the whole file.

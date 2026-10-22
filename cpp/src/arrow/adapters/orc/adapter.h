@@ -135,6 +135,25 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] row_number the rows number to seek
   Status Seek(int64_t row_number);
 
+  /// \brief Read a designated stripe incrementally without changing the Seek position.
+  ///
+  /// \param[in] stripe the stripe index
+  /// \param[in] batch_size the maximum number of rows per batch, which must be positive
+  /// \return an independent reader for all fields in the stripe
+  Result<std::shared_ptr<RecordBatchReader>> GetStripeReader(int64_t stripe,
+                                                             int64_t batch_size);
+
+  /// \brief Read selected fields of a designated stripe incrementally.
+  ///
+  /// This does not change the Seek position. Field order follows the file schema.
+  /// An empty selection produces zero-column batches with the stripe's row count.
+  /// \param[in] stripe the stripe index
+  /// \param[in] batch_size the maximum number of rows per batch, which must be positive
+  /// \param[in] include_names the selected field names, including nested field paths
+  /// \return an independent reader for the selected fields in the stripe
+  Result<std::shared_ptr<RecordBatchReader>> GetStripeReader(
+      int64_t stripe, int64_t batch_size, const std::vector<std::string>& include_names);
+
   /// \brief Get a stripe level record batch iterator.
   ///
   /// Each record batch will have up to `batch_size` rows.

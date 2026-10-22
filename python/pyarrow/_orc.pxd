@@ -25,7 +25,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CResult, CTable, CMemoryPool,
                                         CKeyValueMetadata,
-                                        CRecordBatch,
+                                        CRecordBatch, CRecordBatchReader,
                                         CTable, CCompressionType,
                                         CRandomAccessFile, COutputStream,
                                         TimeUnit)
@@ -102,6 +102,13 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
         CResult[shared_ptr[CRecordBatch]] ReadStripe(int64_t stripe)
         CResult[shared_ptr[CRecordBatch]] ReadStripe(
             int64_t stripe, std_vector[c_string])
+
+        CResult[shared_ptr[CRecordBatchReader]] GetStripeReader(
+            int64_t stripe, int64_t batch_size)
+        CResult[shared_ptr[CRecordBatchReader]] GetStripeReader(
+            int64_t stripe, int64_t batch_size, const std_vector[c_string]&)
+        CResult[shared_ptr[CRecordBatchReader]] GetRecordBatchReader(
+            int64_t batch_size, const std_vector[c_string]&)
 
         CResult[shared_ptr[CTable]] Read()
         CResult[shared_ptr[CTable]] Read(std_vector[c_string])
