@@ -249,6 +249,14 @@ TEST(TestScalarNested, ListContainsNaN) {
                     "[false, true, true, false, null]");
   CheckListContains(ArrayFromJSON(list(float32()), "[[1.5], [NaN]]"),
                     ScalarFromJSON(float16(), "NaN"), "[false, true]");
+  // Null queries compare float16 as float32 too
+  input = ArrayFromJSON(list(float16()), "[[1], [null]]");
+  CheckListContains(input, ArrayFromJSON(float32(), "[null, null]"), "[false, true]");
+  CheckListContains(input, ScalarFromJSON(float32(), "null"), "[false, true]");
+  CheckListContains(ArrayFromJSON(list(float32()), "[[1], [null]]"),
+                    ArrayFromJSON(float16(), "[null, null]"), "[false, true]");
+  CheckListContains(ScalarFromJSON(list(float16()), "[1, null]"),
+                    ArrayFromJSON(float32(), "[null, null]"), "[true, true]");
 
   // NaNs with different payloads (0x7ff8000000000001, 0x7ff8000000000002) match too
   ASSERT_OK_AND_ASSIGN(auto nans,

@@ -550,14 +550,6 @@ Status CheckComparable(KernelContext* ctx, const std::shared_ptr<DataType>& valu
   return CallFunction("equal", {values, queries}, ctx->exec_context()).status();
 }
 
-// Null queries are matched without "equal", but must be comparable all the same
-Status CheckNullQueries(KernelContext* ctx, const Datum& values, const Datum& queries) {
-  if (queries.type()->id() == Type::NA || queries.type()->Equals(*values.type())) {
-    return Status::OK();
-  }
-  return CheckComparable(ctx, values.type(), queries.type());
-}
-
 // The types "equal" compares `values` and `queries` as, raising the errors it would.
 // float16, which "equal" lacks, is compared as float32, and binary views as large
 // binary.
@@ -577,6 +569,14 @@ Result<std::vector<TypeHolder>> ComparableTypes(KernelContext* ctx, const Datum&
     }
   }
   return types;
+}
+
+// Null queries are matched without "equal", but must be comparable all the same
+Status CheckNullQueries(KernelContext* ctx, const Datum& values, const Datum& queries) {
+  if (queries.type()->id() == Type::NA || queries.type()->Equals(*values.type())) {
+    return Status::OK();
+  }
+  return ComparableTypes(ctx, values, queries).status();
 }
 
 Status CastTo(KernelContext* ctx, const TypeHolder& type, Datum* datum) {
