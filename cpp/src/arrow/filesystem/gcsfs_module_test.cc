@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/filesystem/filesystem.h"
