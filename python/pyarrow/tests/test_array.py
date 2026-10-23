@@ -1083,6 +1083,38 @@ def test_dictionary_to_numpy():
 
 
 @pytest.mark.numpy
+def test_dictionary_to_numpy_without_decoding():
+    # GH-50842: a dictionary whose decoded form would overflow the 32-bit
+    # offsets of its value type (16385 * 2**17 > INT32_MAX bytes here) is
+    # converted to objects without decoding
+    value = "a" * 2**17
+    arr = pa.DictionaryArray.from_arrays(
+        np.zeros(16385, dtype=np.int16), pa.array([value]))
+    result = np.asarray(arr)
+    assert len(result) == len(arr)
+    assert result[0] == value
+    assert result[-1] == value
+
+    # With a null index (row 2) and a null dictionary value (row 1)
+    indices = np.zeros(16387, dtype=np.int16)
+    indices[1] = 1
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array(indices, mask=np.arange(16387) == 2), pa.array([value, None]))
+    result = arr.to_numpy(zero_copy_only=False)
+    assert result[0] == value
+    assert result[1] is None
+    assert result[2] is None
+    assert result[-1] == value
+
+    # Binary values
+    arr = pa.DictionaryArray.from_arrays(
+        np.zeros(16385, dtype=np.int16), pa.array([value.encode()]))
+    result = np.asarray(arr)
+    assert result[0] == value.encode()
+    assert result[-1] == value.encode()
+
+
+@pytest.mark.numpy
 def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
