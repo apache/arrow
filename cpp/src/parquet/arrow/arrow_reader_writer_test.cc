@@ -3279,9 +3279,11 @@ TEST(ArrowReadWrite, NestedRequiredFieldWithMaskedNulls) {
   CheckSimpleRoundtrip(table, /*row_group_size=*/4);
 
   auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[null, 0, 0, 4]");
-  ASSERT_OK_AND_ASSIGN(auto lists, ::arrow::ListArray::FromArrays(*offsets, *array));
+  ASSERT_OK_AND_ASSIGN(auto list_array, ::arrow::ListArray::FromArrays(*offsets, *array));
+  auto list_type = list_array->type();
   auto list_table = ::arrow::Table::Make(
-      ::arrow::schema({::arrow::field("outer", lists->type())}), {std::move(lists)});
+      ::arrow::schema({::arrow::field("outer", std::move(list_type))}),
+      {std::move(list_array)});
   ASSERT_OK(list_table->ValidateFull());
   // Round-trip null, empty, and non-empty lists in one row group.
   CheckSimpleRoundtrip(list_table, /*row_group_size=*/3);
