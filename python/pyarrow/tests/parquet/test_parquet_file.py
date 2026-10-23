@@ -201,12 +201,15 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
-def test_dotted_top_level_column_takes_precedence():
+@pytest.mark.parametrize('literal_first', [True, False])
+def test_dotted_top_level_column_takes_precedence(literal_first):
     table = pa.table({
         'a.b': [10, 20],
         'a': pa.array([{'b': 1}, {'b': 2}]),
         'other': [3, 4],
     })
+    if not literal_first:
+        table = table.select(['a', 'a.b', 'other'])
     sink = pa.BufferOutputStream()
     pq.write_table(table, sink)
     data = sink.getvalue()
@@ -220,8 +223,13 @@ def test_dotted_top_level_column_takes_precedence():
     assert pq.read_table(
         pa.BufferReader(data), columns=['a.b']).equals(expected)
     assert file_.read(columns=['a.b', 'a.b']).equals(expected)
-    assert file_.read(columns=['a.b', 'a']).equals(
-        table.select(['a.b', 'a']))
+    assert file_.read().equals(table)
+    for columns in (['a.b', 'a'], ['a', 'a.b']):
+        expected_both = table.select(columns)
+        assert file_.read(columns=columns).equals(expected_both)
+        assert file_.read_row_group(0, columns=columns).equals(expected_both)
+        assert pa.Table.from_batches(
+            list(file_.iter_batches(columns=columns))).equals(expected_both)
 
 
 def test_nested_column_selection_without_collision():
