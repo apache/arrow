@@ -1430,8 +1430,27 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         (level_info_.def_level == level_info_.repeated_ancestor_def_level + 1) &&
         leaf_field_nullable;
     if (!leaf_field_nullable && leaf_array.null_count() != 0) {
-      return Status::Invalid("Column '", descr_->name(),
-                             "' is declared non-nullable but contains nulls");
+      bool has_unmasked_nulls = true;
+      if (level_info_.HasNullableValues()) {
+        has_unmasked_nulls = false;
+        int64_t leaf_index = 0;
+        for (int64_t i = 0; i < num_levels; ++i) {
+          // Null or empty lists have no corresponding slot in the leaf array.
+          if (def_levels[i] < level_info_.repeated_ancestor_def_level) {
+            continue;
+          }
+          // A required leaf only needs to be valid when all ancestors are present.
+          if (def_levels[i] == level_info_.def_level && leaf_array.IsNull(leaf_index)) {
+            has_unmasked_nulls = true;
+            break;
+          }
+          ++leaf_index;
+        }
+      }
+      if (has_unmasked_nulls) {
+        return Status::Invalid("Column '", descr_->name(),
+                               "' is declared non-nullable but contains nulls");
+      }
     }
     bool maybe_parent_nulls = level_info_.HasNullableValues() && !single_nullable_element;
     if (maybe_parent_nulls) {
