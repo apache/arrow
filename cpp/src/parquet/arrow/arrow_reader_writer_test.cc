@@ -3262,6 +3262,46 @@ TEST(ArrowReadWrite, NestedRequiredField) {
                        /*row_group_size=*/8);
 }
 
+TEST(ArrowReadWrite, NestedRequiredFieldWithMaskedNulls) {
+  auto type =
+      ::arrow::struct_({::arrow::field("inner", ::arrow::int32(), /*nullable=*/false)});
+  auto values = ::arrow::ArrayFromJSON(type, R"([{"inner": 42}])");
+  auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, null, 0]");
+  ASSERT_OK_AND_ASSIGN(auto array, ::arrow::compute::Take(*values, *indices));
+
+  const auto& structs = checked_cast<const ::arrow::StructArray&>(*array);
+  ASSERT_EQ(structs.null_count(), 1);
+  ASSERT_EQ(structs.field(0)->null_count(), 1);
+
+  auto table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {array});
+  ASSERT_OK(table->ValidateFull());
+  CheckSimpleRoundtrip(table, /*row_group_size=*/4);
+
+  auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[null, 0, 0, 4]");
+  ASSERT_OK_AND_ASSIGN(auto list_array, ::arrow::ListArray::FromArrays(*offsets, *array));
+  auto list_type = list_array->type();
+  auto list_table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("outer", std::move(list_type))}),
+      {std::move(list_array)});
+  ASSERT_OK(list_table->ValidateFull());
+  // Round-trip null, empty, and non-empty lists in one row group.
+  CheckSimpleRoundtrip(list_table, /*row_group_size=*/3);
+
+  // Make all parent rows valid while keeping the child null.
+  ASSERT_OK_AND_ASSIGN(auto unmasked,
+                       ::arrow::StructArray::Make(structs.fields(), type->fields()));
+  auto invalid_table = ::arrow::Table::Make(table->schema(), {std::move(unmasked)});
+  // Also cover an all-null child array.
+  for (const auto& invalid_slice : {invalid_table, invalid_table->Slice(2, 1)}) {
+    ARROW_SCOPED_TRACE("num_rows = ", invalid_slice->num_rows());
+    auto sink = CreateOutputStream();
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("is declared non-nullable but contains nulls"),
+        WriteTable(*invalid_slice, ::arrow::default_memory_pool(), sink));
+  }
+}
+
 TEST(ArrowReadWrite, Decimal) {
   using ::arrow::field;
 
@@ -3843,6 +3883,10 @@ TEST(TestArrowWrite, InvalidSchema) {
   CheckWritingNonNullableColumnWithNulls(
       ::arrow::field("a", ::arrow::utf8(), /*nullable=*/false),
       R"([{"a": "foo"}, {"a": null}])");
+  CheckWritingNonNullableColumnWithNulls(
+      ::arrow::field("a", ::arrow::list(::arrow::field("item", ::arrow::int32(),
+                                                       /*nullable=*/false))),
+      R"([{"a": null}, {"a": []}, {"a": [42, null]}])");
 }
 
 void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,
