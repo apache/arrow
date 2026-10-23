@@ -32,16 +32,23 @@ Inter-Process Communication
    ipc.open_file
    ipc.new_stream
    ipc.open_stream
+   ipc.read_schema
    ipc.read_message
    ipc.read_record_batch
    ipc.get_record_batch_size
    ipc.read_tensor
    ipc.write_tensor
    ipc.get_tensor_size
+   ipc.serialize_pandas
+   ipc.deserialize_pandas
+   ipc.Alignment
    ipc.IpcReadOptions
    ipc.IpcWriteOptions
    ipc.Message
    ipc.MessageReader
+   ipc.MetadataVersion
+   ipc.ReadStats
+   ipc.WriteStats
    ipc.RecordBatchFileReader
    ipc.RecordBatchFileWriter
    ipc.RecordBatchStreamReader
