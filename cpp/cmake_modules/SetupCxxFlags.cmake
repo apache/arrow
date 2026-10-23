@@ -49,11 +49,16 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
-    # These definitions are needed for xsimd to consider the corresponding instruction
-    # sets available, but they are not set by MSVC (unlike other compilers).
-    # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
-    add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
+    # MSVC doesn't define __SSE4_1__/__SSE4_2__ even with /arch:SSE4.2 (unlike
+    # other compilers) but xsimd needs them to consider SSE4.x available. We
+    # define them only where SSE4.2 is enabled. We don't define __SSE2__
+    # because xsimd detects SSE2 by _M_X64 and simdjson >= 5 uses GCC builtins
+    # when __SSE2__ is defined.
+    # See also:
+    # * https://learn.microsoft.com/en-us/cpp/build/reference/arch-x64
+    # * https://github.com/xtensor-stack/xsimd/issues/878
+    # * https://github.com/apache/arrow/issues/51690
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2" "-D__SSE4_1__" "-D__SSE4_2__")
     set(ARROW_AVX2_FLAGS "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
     set(ARROW_BMI2_FLAGS "/arch:AVX2")
@@ -502,7 +507,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     if(NOT CXX_SUPPORTS_SSE4_2)
       message(FATAL_ERROR "SSE4.2 required but compiler doesn't support it.")
     endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SSE4_2_FLAG}")
+    list(JOIN ARROW_SSE4_2_FLAG " " ARROW_SSE4_2_FLAG_COMMAND_LINE)
+    string(APPEND CXX_COMMON_FLAGS " ${ARROW_SSE4_2_FLAG_COMMAND_LINE}")
     add_definitions(-DARROW_HAVE_SSE4_2)
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by x86.")
