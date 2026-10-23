@@ -35,6 +35,23 @@ namespace arrow {
 namespace adapters {
 namespace orc {
 
+// Forward declarations
+struct OrcSchemaManifest;
+
+/// \brief Column statistics from an ORC file
+struct OrcColumnStatistics {
+  /// \brief Whether the column contains null values
+  bool has_null;
+  /// \brief Total number of values in the column
+  int64_t num_values;
+  /// \brief Whether min/max statistics are available
+  bool has_min_max;
+  /// \brief Minimum value (nullptr if not available)
+  std::shared_ptr<Scalar> min;
+  /// \brief Maximum value (nullptr if not available)
+  std::shared_ptr<Scalar> max;
+};
+
 /// \brief Information about an ORC stripe
 struct StripeInformation {
   /// \brief Offset of the stripe from the start of the file, in bytes
@@ -128,6 +145,29 @@ class ARROW_EXPORT ORCFileReader {
   /// \return the returned RecordBatch
   Result<std::shared_ptr<RecordBatch>> ReadStripe(
       int64_t stripe, const std::vector<std::string>& include_names);
+
+  /// \brief Read multiple selected stripes as a Table
+  ///
+  /// Reads only the specified stripes and concatenates them into a single table.
+  /// This is useful for stripe-selective reading based on predicate pushdown.
+  /// If stripe_indices is empty, returns an empty table with the file's schema.
+  ///
+  /// \param[in] stripe_indices the indices of stripes to read
+  /// \return the returned Table containing data from the selected stripes
+  Result<std::shared_ptr<Table>> ReadStripes(
+      const std::vector<int64_t>& stripe_indices);
+
+  /// \brief Read multiple selected stripes with column selection as a Table
+  ///
+  /// Reads only the specified stripes and selected columns, concatenating them
+  /// into a single table.
+  /// If stripe_indices is empty, returns an empty table with the selected schema.
+  ///
+  /// \param[in] stripe_indices the indices of stripes to read
+  /// \param[in] include_indices the selected field indices to read
+  /// \return the returned Table containing data from the selected stripes and columns
+  Result<std::shared_ptr<Table>> ReadStripes(const std::vector<int64_t>& stripe_indices,
+                                              const std::vector<int>& include_indices);
 
   /// \brief Seek to designated row. Invoke NextStripeReader() after seek
   ///        will return stripe reader starting from designated row.
@@ -266,6 +306,43 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \return A KeyValueMetadata object containing the ORC metadata
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+
+  /// \brief Get file-level statistics for a column.
+  ///
+  /// \param[in] column_index the column index (0-based)
+  /// \return the column statistics
+  Result<OrcColumnStatistics> GetColumnStatistics(int column_index);
+
+  /// \brief Get stripe-level statistics for a column.
+  ///
+  /// \param[in] stripe_index the stripe index (0-based)
+  /// \param[in] column_index the column index (0-based)
+  /// \return the column statistics for the specified stripe
+  Result<OrcColumnStatistics> GetStripeColumnStatistics(int64_t stripe_index,
+                                                        int column_index);
+
+  /// \brief Get stripe-level statistics for multiple columns at once.
+  ///
+  /// More efficient than calling GetStripeColumnStatistics() in a loop
+  /// because it parses the stripe's statistics object only once.
+  ///
+  /// \param[in] stripe_index the stripe index (0-based)
+  /// \param[in] column_indices the column indices to retrieve statistics for
+  /// \return vector of column statistics, one per requested column index
+  Result<std::vector<OrcColumnStatistics>> GetStripeStatistics(
+      int64_t stripe_index, const std::vector<int>& column_indices);
+
+  /// \brief Build a schema manifest mapping Arrow fields to ORC column IDs.
+  ///
+  /// Walks the ORC type tree paired with the Arrow schema to build a mapping
+  /// from Arrow field paths to ORC physical column indices, which are needed
+  /// for statistics lookup. ORC uses depth-first pre-order numbering where
+  /// column 0 is the root struct.
+  ///
+  /// \param[in] arrow_schema the Arrow schema (from ReadSchema())
+  /// \return the built manifest or an error
+  Result<std::shared_ptr<OrcSchemaManifest>> BuildSchemaManifest(
+      const std::shared_ptr<Schema>& arrow_schema) const;
 
  private:
   class Impl;
