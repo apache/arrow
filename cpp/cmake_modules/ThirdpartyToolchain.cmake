@@ -678,6 +678,14 @@ else()
            "${THIRDPARTY_MIRROR_URL}/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_GRPC_PROTO_URL})
+  set(GRPC_PROTO_SOURCE_URL "$ENV{ARROW_GRPC_PROTO_URL}")
+else()
+  set_urls(GRPC_PROTO_SOURCE_URL
+           "https://github.com/grpc/grpc-proto/archive/${ARROW_GRPC_PROTO_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/grpc-proto-${ARROW_GRPC_PROTO_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
@@ -1925,8 +1933,13 @@ function(build_absl)
       TRUE
       PARENT_SCOPE)
 
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
+  # Abseil 20260817.0 uses O_NONBLOCK that isn't available on MinGW.
+  #
+  # TODO: Remove this workaround once we upgrade to a newer Abseil
+  # version that includes
+  # https://github.com/abseil/abseil-cpp/commit/ddbdebc6c8 .
+  if(MINGW)
+    string(APPEND CMAKE_CXX_FLAGS " -DO_NONBLOCK=0")
   endif()
 
   fetchcontent_declare(absl
@@ -1960,10 +1973,8 @@ function(build_absl)
 
   list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
-       absl::bad_any_cast_impl
-       absl::bad_optional_access
-       absl::bad_variant_access
        absl::base
+       absl::base_cpu_detect
        absl::city
        absl::civil_time
        absl::cord
@@ -1974,7 +1985,6 @@ function(build_absl)
        absl::cordz_sample_token
        absl::crc32c
        absl::crc_cord_state
-       absl::crc_cpu_detect
        absl::crc_internal
        absl::debugging_internal
        absl::decode_rust_punycode
@@ -1996,11 +2006,13 @@ function(build_absl)
        absl::flags_usage
        absl::flags_usage_internal
        absl::graphcycles_internal
+       absl::hardening
        absl::hash
        absl::hashtablez_sampler
        absl::int128
        absl::kernel_timeout_internal
        absl::leak_check
+       absl::log_entry
        absl::log_globals
        absl::log_initialize
        absl::log_internal_check_op
@@ -2015,14 +2027,13 @@ function(build_absl)
        absl::log_internal_structured_proto
        absl::log_severity
        absl::log_sink
-       absl::low_level_hash
        absl::malloc_internal
        absl::periodic_sampler
        absl::poison
        absl::random_distributions
        absl::random_internal_distribution_test_util
+       absl::random_internal_entropy_pool
        absl::random_internal_platform
-       absl::random_internal_pool_urbg
        absl::random_internal_randen
        absl::random_internal_randen_hwaes
        absl::random_internal_randen_hwaes_impl
@@ -2033,6 +2044,7 @@ function(build_absl)
        absl::raw_hash_set
        absl::raw_logging_internal
        absl::scoped_set_env
+       absl::source_location
        absl::spinlock_wait
        absl::stacktrace
        absl::status
@@ -2046,6 +2058,7 @@ function(build_absl)
        absl::throw_delegate
        absl::time
        absl::time_zone
+       absl::tracing_internal
        absl::utf8_for_code_point
        absl::vlog_config_internal)
   set(ARROW_BUNDLED_STATIC_LIBS
@@ -3424,10 +3437,21 @@ function(build_grpc)
       TRUE
       PARENT_SCOPE)
 
+  # gRPC's source archive doesn't include the third_party/grpc-proto
+  # submodule. We disable gRPC_DOWNLOAD_ARCHIVES, so we download it
+  # by ourselves.
+  fetchcontent_declare(grpc_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${GRPC_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_PROTO_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(grpc_proto)
+
   fetchcontent_declare(grpc
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${GRPC_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
+                       PATCH_COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                     ${grpc_proto_SOURCE_DIR} third_party/grpc-proto)
 
   prepare_fetchcontent()
 
@@ -3497,16 +3521,6 @@ function(build_grpc)
     add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
   endif()
 
-  # gRPC headers use deprecated std::iterator that causes compilation errors.
-  # This workaround can be removed once we upgrade to a newer gRPC version.
-  if(NOT MSVC)
-    foreach(target ${GRPC_LIBRARY_TARGETS})
-      if(TARGET ${target})
-        target_compile_options(${target} INTERFACE -Wno-error=deprecated-declarations)
-      endif()
-    endforeach()
-  endif()
-
   # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
   # continuation character in these scripts, so we have to create a copy of the
   # static lib that we will bundle later.
@@ -3533,7 +3547,19 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling)
+       gRPC::grpcpp_for_bundling
+       upb_base_lib
+       upb_descriptor_lib
+       upb_hash_lib
+       upb_json_lib
+       upb_lex_lib
+       upb_mem_lib
+       upb_message_lib
+       upb_mini_descriptor_lib
+       upb_mini_table_lib
+       upb_reflection_lib
+       upb_textformat_lib
+       upb_wire_lib)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
@@ -3848,6 +3874,19 @@ function(build_google_cloud_cpp_storage)
                                PUBLIC $<BUILD_INTERFACE:${_otel_api_includes}>)
   endif()
 
+  # google-cloud-cpp headers use deprecated Abseil APIs such as
+  # absl::visit(). They are fixed in google-cloud-cpp 3.9.0 or later
+  # but google-cloud-cpp 3.9.0 or later requires libcurl 8.7.1 or
+  # later. We can't require it because some supported platforms such as
+  # Ubuntu 24.04 ship older libcurl.
+  #
+  # TODO: Remove this workaround once we upgrade to google-cloud-cpp
+  # 3.9.0 or later.
+  if(NOT MSVC AND TARGET google_cloud_cpp_common)
+    target_compile_options(google_cloud_cpp_common
+                           INTERFACE -Wno-error=deprecated-declarations)
+  endif()
+
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
@@ -4035,6 +4074,13 @@ function(build_orc)
     if(absl_SOURCE_DIR)
       set(ORC_ABSL_INCLUDE_DIR "${absl_SOURCE_DIR}")
     endif()
+    # Protobuf 36.2 headers include utf8_validity.h in utf8_range.
+    # ORC build needs the utf8_range include directory if we're using a
+    # bundled Protobuf.
+    fetchcontent_getproperties(protobuf)
+    if(protobuf_SOURCE_DIR)
+      set(ORC_UTF8_RANGE_INCLUDE_DIR "${protobuf_SOURCE_DIR}/third_party/utf8_range")
+    endif()
 
     get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
                         INTERFACE_INCLUDE_DIRECTORIES)
@@ -4046,10 +4092,12 @@ function(build_orc)
     get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
 
+    set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
     if(ORC_ABSL_INCLUDE_DIR)
-      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS} -isystem ${ORC_ABSL_INCLUDE_DIR}")
-    else()
-      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
+      string(APPEND ORC_CXX_FLAGS " -isystem ${ORC_ABSL_INCLUDE_DIR}")
+    endif()
+    if(ORC_UTF8_RANGE_INCLUDE_DIR)
+      string(APPEND ORC_CXX_FLAGS " -isystem ${ORC_UTF8_RANGE_INCLUDE_DIR}")
     endif()
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
