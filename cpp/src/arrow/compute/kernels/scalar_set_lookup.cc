@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <type_traits>
+
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
@@ -22,6 +24,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
@@ -47,6 +50,7 @@ struct SetLookupState : public SetLookupStateBase {
 
   Status Init(const SetLookupOptions& options) {
     this->null_matching_behavior = options.GetNullMatchingBehavior();
+    this->value_set_is_floating = is_floating(options.value_set.type()->id());
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
@@ -92,8 +96,9 @@ struct SetLookupState : public SetLookupStateBase {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
-      RETURN_NOT_OK(lookup_table->GetOrInsert(
-          v, std::move(on_found), std::move(on_not_found), &unused_memo_index));
+      RETURN_NOT_OK(lookup_table->GetOrInsert(LookupKey(v), std::move(on_found),
+                                              std::move(on_not_found),
+                                              &unused_memo_index));
       ++index;
       return Status::OK();
     };
@@ -114,9 +119,22 @@ struct SetLookupState : public SetLookupStateBase {
     return VisitArraySpanInline<Type>(data, visit_valid, visit_null);
   }
 
+  // Floating-point values are looked up through their unsigned integer bit patterns
+  // (see InitStateVisitor), which would make -0.0 and +0.0 different keys. Fold -0.0
+  // into +0.0 so that set membership agrees with `equal`.
+  template <typename T>
+  T LookupKey(T value) const {
+    if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
+      constexpr T kNegativeZero = static_cast<T>(T{1} << (sizeof(T) * 8 - 1));
+      if (value == kNegativeZero && value_set_is_floating) return T{0};
+    }
+    return value;
+  }
+
   using MemoTable = typename HashTraits<Type>::MemoTableType;
   std::optional<MemoTable> lookup_table;  // use optional for delayed initialization
   MemoryPool* memory_pool;
+  bool value_set_is_floating = false;
   // When there are duplicates in value_set, the MemoTable indices must
   // be mapped back to indices in the value_set.
   std::vector<int32_t> memo_index_to_value_index;
@@ -305,7 +323,7 @@ struct IndexInVisitor {
     VisitArraySpanInline<Type>(
         input,
         [&](T v) {
-          int32_t index = state.lookup_table->Get(v);
+          int32_t index = state.lookup_table->Get(state.LookupKey(v));
           if (index != -1) {
             bitmap_writer.Set();
 
@@ -441,7 +459,7 @@ struct IsInVisitor {
     VisitArraySpanInline<Type>(
         input,
         [&](T v) {
-          if (state.lookup_table->Get(v) != -1) {  // true
+          if (state.lookup_table->Get(state.LookupKey(v)) != -1) {  // true
             writer_boolean.Set();
             writer_null.Set();
           } else if (state.null_matching_behavior == SetLookupOptions::INCONCLUSIVE &&
