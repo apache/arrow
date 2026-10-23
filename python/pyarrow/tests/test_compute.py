@@ -137,9 +137,6 @@ def test_exported_option_classes():
                                       param.VAR_KEYWORD)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
-)
 def test_option_class_equality(request):
     options = [
         pc.ArraySortOptions(),
@@ -226,12 +223,7 @@ def test_option_class_equality(request):
         buf = option.serialize()
         deserialized = pc.FunctionOptions.deserialize(buf)
         assert option == deserialized
-        # TODO remove the check under the if statement and the filterwarnings
-        # mark when the deprecated class CumulativeSumOptions is removed.
-        if repr(option).startswith("CumulativeSumOptions"):
-            assert repr(deserialized).startswith("CumulativeOptions")
-        else:
-            assert repr(option) == repr(deserialized)
+        assert repr(option) == repr(deserialized)
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
 
