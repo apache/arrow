@@ -905,11 +905,6 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
             try:
                 pandas_dtype = _pandas_api.pandas_dtype(dtype)
             except (TypeError, ValueError):
-                # Complex Arrow types (list/struct/dict/map) serialize to a numpy_type
-                # string pandas_dtype() can't parse. np.dtype() runs first and raises
-                # ValueError for strings with a comma (struct/dict/map) or TypeError
-                # otherwise (list); either way, don't guess ArrowDtype for a string we
-                # can't parse. Skip the column. GH-39914 / pandas-dev/pandas#53011.
                 continue
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
                 if isinstance(pandas_dtype, _pandas_api.pd.StringDtype):

@@ -4567,13 +4567,6 @@ def test_to_pandas_extension_dtypes_mapping_complex_type():
 
 
 def test_to_pandas_extension_dtypes_mapping_complex_type_no_types_mapper():
-    # GH-39914: without types_mapper, pandas metadata stores a numpy_type string
-    # like "list<item: string>[pyarrow]" for complex ArrowDtype columns, which
-    # pandas_dtype() can't parse back (TypeError for list, ValueError for
-    # struct/dict/map -- see the fix above). to_pandas() used to crash outright
-    # instead of skipping the column; see pandas-dev/pandas#53011. The ArrowDtype
-    # isn't expected to round-trip here -- an unparseable string isn't necessarily
-    # still an ArrowDtype, so these columns fall back to normal conversion.
     list_type = pd.ArrowDtype(pa.list_(pa.string()))
     df0 = pd.DataFrame({
         "a": pd.Series([["x"], ["x", "y"]], dtype=list_type),
