@@ -85,6 +85,11 @@ else
   "$PACKAGE_MANAGER" install -y rsync cmake curl
 fi
 
+# Newer Debian/Ubuntu require tzdata-legacy for our tests, install it if available.
+if [ "$PACKAGE_MANAGER" = "apt-get" ] && apt-cache show tzdata-legacy > /dev/null 2>&1; then
+  apt-get install -y tzdata-legacy
+fi
+
 
 # Update clang version to latest available.
 # The rhub/ubuntu-clang image ships clang-15 but CRAN's debian-clang now uses
