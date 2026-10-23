@@ -334,6 +334,15 @@ struct ValidateArrayImpl {
   }
 
   Status Visit(const UnionType& type) {
+    if (data.length > 0) {
+      if (!IsBufferValid(1)) {
+        return Status::Invalid("Non-empty union array but type ids are null");
+      }
+      if (type.mode() == UnionMode::DENSE && !IsBufferValid(2)) {
+        return Status::Invalid("Non-empty dense union array but offsets are null");
+      }
+    }
+
     for (int i = 0; i < type.num_fields(); ++i) {
       const auto& field_data = *data.child_data[i];
 
