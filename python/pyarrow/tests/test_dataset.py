@@ -946,6 +946,9 @@ def test_partition_keys():
     null = ds.field('a').is_null()
     assert ds.get_partition_keys(null) == {'a': None}
 
+    with pytest.raises(TypeError, match="Argument 'partition_expression'"):
+        ds.get_partition_keys(None)
+
 
 @pytest.mark.parquet
 def test_parquet_read_options():
