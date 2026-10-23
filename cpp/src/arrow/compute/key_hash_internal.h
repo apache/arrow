@@ -37,6 +37,7 @@ enum class BloomFilterBuildStrategy;
 //
 class ARROW_COMPUTE_EXPORT Hashing32 {
   friend class TestVectorHash;
+  friend class TestScalarHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
                                        int64_t, int, T*);
@@ -45,6 +46,13 @@ class ARROW_COMPUTE_EXPORT Hashing32 {
  public:
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint32_t* out_hash);
+
+  // Combine two hash values into one, e.g. to fold together the hashes of a nested
+  // column's child elements, or of a row's separate key columns (as HashMultiColumn
+  // does internally).
+  static uint32_t CombineHashes(uint32_t previous_hash, uint32_t hash) {
+    return CombineHashesImp(previous_hash, hash);
+  }
 
   // Clarify the max temp stack usage for HashBatch, which might be necessary for the
   // caller to be aware of at compile time to reserve enough stack size in advance. The
@@ -160,6 +168,7 @@ class ARROW_COMPUTE_EXPORT Hashing32 {
 
 class ARROW_COMPUTE_EXPORT Hashing64 {
   friend class TestVectorHash;
+  friend class TestScalarHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
                                        int64_t, int, T*);
@@ -168,6 +177,13 @@ class ARROW_COMPUTE_EXPORT Hashing64 {
  public:
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint64_t* hashes);
+
+  // Combine two hash values into one, e.g. to fold together the hashes of a nested
+  // column's child elements, or of a row's separate key columns (as HashMultiColumn
+  // does internally).
+  static uint64_t CombineHashes(uint64_t previous_hash, uint64_t hash) {
+    return CombineHashesImp(previous_hash, hash);
+  }
 
   // Clarify the max temp stack usage for HashBatch, which might be necessary for the
   // caller to be aware of at compile time to reserve enough stack size in advance. The
