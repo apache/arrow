@@ -4577,6 +4577,40 @@ def test_to_pandas_extension_dtypes_mapping_complex_type():
     pd.testing.assert_frame_equal(df0, df1)
 
 
+def test_to_pandas_extension_dtypes_mapping_complex_type_no_types_mapper():
+    list_type = pd.ArrowDtype(pa.list_(pa.string()))
+    df0 = pd.DataFrame({
+        "a": pd.Series([["x"], ["x", "y"]], dtype=list_type),
+    })
+    table = pa.Table.from_pandas(df0)
+    df1 = table.to_pandas()
+    assert df1["a"].dtype == np.dtype("object")
+    assert [list(v) for v in df1["a"]] == [["x"], ["x", "y"]]
+
+    struct_type = pd.ArrowDtype(
+        pa.struct([pa.field("bar", pa.bool_()), pa.field("baz", pa.float32())])
+    )
+    df2 = pd.DataFrame({
+        "a": pd.Series(
+            [{"bar": True, "baz": 1.0}, {"bar": False, "baz": None}],
+            dtype=struct_type,
+        ),
+    })
+    table2 = pa.Table.from_pandas(df2)
+    df3 = table2.to_pandas()
+    assert df3["a"].dtype == np.dtype("object")
+    assert df3["a"].tolist() == [
+        {"bar": True, "baz": 1.0}, {"bar": False, "baz": None}
+    ]
+
+    dict_type = pd.ArrowDtype(pa.dictionary(pa.int32(), pa.string()))
+    df4 = pd.DataFrame({"a": pd.Series(["x", "y", "x"], dtype=dict_type)})
+    table4 = pa.Table.from_pandas(df4)
+    df5 = table4.to_pandas()
+    assert isinstance(df5["a"].dtype, pd.CategoricalDtype)
+    assert df5["a"].tolist() == ["x", "y", "x"]
+
+
 def test_array_to_pandas():
     for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
                 pd.interval_range(1, 4).array]:
