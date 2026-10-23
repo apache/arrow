@@ -108,7 +108,7 @@ cdef class Statistics(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, Statistics other):
+    def equals(self, Statistics other not None):
         """
         Return whether the two column statistics objects are equal.
 
@@ -521,7 +521,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, ColumnChunkMetaData other):
+    def equals(self, ColumnChunkMetaData other not None):
         """
         Return whether the two column chunk metadata objects are equal.
 
@@ -919,7 +919,7 @@ cdef class RowGroupMetaData(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, RowGroupMetaData other):
+    def equals(self, RowGroupMetaData other not None):
         """
         Return whether the two row group metadata objects are equal.
 
@@ -1295,7 +1295,7 @@ cdef class ParquetSchema(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, ParquetSchema other):
+    def equals(self, ParquetSchema other not None):
         """
         Return whether the two schemas are equal.
 
@@ -1350,7 +1350,7 @@ cdef class ColumnSchema(_Weakrefable):
     def __reduce__(self):
         return ColumnSchema, (self.parent, self.index)
 
-    def equals(self, ColumnSchema other):
+    def equals(self, ColumnSchema other not None):
         """
         Return whether the two column schemas are equal.
 
