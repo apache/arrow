@@ -1112,7 +1112,9 @@ def test_read_table_memory_pool(tempdir, proxy_pool, use_dataset_path,
 
     result = pq.read_table(path, memory_pool=proxy_pool)
     assert result.equals(table)
-    assert proxy_pool.max_memory() > 0
+    assert proxy_pool.bytes_allocated() >= table.nbytes
+    result = None
+    assert proxy_pool.bytes_allocated() == 0
 
 
 def test_parquet_file_memory_pool(tempdir, proxy_pool):
@@ -1122,7 +1124,9 @@ def test_parquet_file_memory_pool(tempdir, proxy_pool):
 
     result = pq.ParquetFile(path, memory_pool=proxy_pool).read()
     assert result.equals(table)
-    assert proxy_pool.max_memory() > 0
+    assert proxy_pool.bytes_allocated() >= table.nbytes
+    result = None
+    assert proxy_pool.bytes_allocated() == 0
 
 
 def test_parquet_dataset_memory_pool(tempdir, proxy_pool):
@@ -1130,6 +1134,9 @@ def test_parquet_dataset_memory_pool(tempdir, proxy_pool):
     root = str(tempdir / 'dataset')
     pq.write_to_dataset(table, root, partition_cols=['part'])
 
-    result = pq.ParquetDataset(root, memory_pool=proxy_pool).read()
+    result = pq.ParquetDataset(root, memory_pool=proxy_pool).read(
+        use_threads=False)
     assert result.num_rows == table.num_rows
-    assert proxy_pool.max_memory() > 0
+    assert proxy_pool.bytes_allocated() > 0
+    result = None
+    assert proxy_pool.bytes_allocated() == 0
