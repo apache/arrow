@@ -17,9 +17,11 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "arrow/array/builder_nested.h"
@@ -1216,8 +1218,6 @@ void StringBoolTransform(KernelContext* ctx, const ExecSpan& batch,
   }
 }
 
-using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
-
 // This is an implementation of the Knuth-Morris-Pratt algorithm
 struct PlainSubstringMatcher {
   const MatchSubstringOptions& options_;
@@ -1308,7 +1308,7 @@ struct PlainEndsWithMatcher {
 
 #ifdef ARROW_WITH_RE2
 struct RegexSubstringMatcher {
-  const MatchSubstringOptions& options_;
+  MatchSubstringOptions options_;
   const RE2 regex_match_;
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
@@ -1318,11 +1318,11 @@ struct RegexSubstringMatcher {
     return matcher;
   }
 
-  explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
-                                 bool is_utf8 = true, bool literal = false)
-      : options_(options),
+  explicit RegexSubstringMatcher(MatchSubstringOptions options, bool is_utf8 = true,
+                                 bool literal = false)
+      : options_(std::move(options)),
         regex_match_(options_.pattern,
-                     MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
+                     MakeRE2Options(is_utf8, options_.ignore_case, literal)) {}
 
   bool Match(std::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
@@ -1330,6 +1330,72 @@ struct RegexSubstringMatcher {
   }
 };
 #endif
+
+struct MatchSubstringState : public KernelState {
+  MatchSubstringOptions options;
+
+  std::mutex mutex;
+  std::atomic<PlainSubstringMatcher*> plain_substring_matcher{nullptr};
+  std::unique_ptr<PlainSubstringMatcher> plain_substring_matcher_holder;
+
+  std::atomic<PlainStartsWithMatcher*> plain_starts_with_matcher{nullptr};
+  std::unique_ptr<PlainStartsWithMatcher> plain_starts_with_matcher_holder;
+
+  std::atomic<PlainEndsWithMatcher*> plain_ends_with_matcher{nullptr};
+  std::unique_ptr<PlainEndsWithMatcher> plain_ends_with_matcher_holder;
+
+#ifdef ARROW_WITH_RE2
+  std::atomic<RegexSubstringMatcher*> regex_substring_matcher{nullptr};
+  std::unique_ptr<RegexSubstringMatcher> regex_substring_matcher_holder;
+
+  enum class LikeKind { kNone, kSubstring, kStartsWith, kEndsWith, kRegex };
+  std::atomic<LikeKind> like_kind{LikeKind::kNone};
+  std::unique_ptr<MatchSubstringState> like_state;
+#endif
+
+  explicit MatchSubstringState(MatchSubstringOptions options)
+      : options(std::move(options)) {}
+
+  template <typename Matcher, typename Factory>
+  Result<Matcher*> GetOrInitMatcher(std::atomic<Matcher*>& atomic_matcher,
+                                    std::unique_ptr<Matcher>& holder, Factory&& factory) {
+    Matcher* matcher = atomic_matcher.load(std::memory_order_acquire);
+    if (ARROW_PREDICT_TRUE(matcher != nullptr)) {
+      return matcher;
+    }
+    std::lock_guard<std::mutex> lock(mutex);
+    matcher = atomic_matcher.load(std::memory_order_relaxed);
+    if (matcher != nullptr) {
+      return matcher;
+    }
+    ARROW_ASSIGN_OR_RAISE(holder, factory());
+    matcher = holder.get();
+    atomic_matcher.store(matcher, std::memory_order_release);
+    return matcher;
+  }
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    if (auto options = static_cast<const MatchSubstringOptions*>(args.options)) {
+      return std::make_unique<MatchSubstringState>(*options);
+    }
+
+    return Status::Invalid(
+        "Attempted to initialize KernelState from null FunctionOptions");
+  }
+
+  static const MatchSubstringOptions& Get(const KernelState& state) {
+    return ::arrow::internal::checked_cast<const MatchSubstringState&>(state).options;
+  }
+
+  static const MatchSubstringOptions& Get(KernelContext* ctx) {
+    return Get(*ctx->state());
+  }
+
+  static MatchSubstringState* GetState(KernelContext* ctx) {
+    return ::arrow::internal::checked_cast<MatchSubstringState*>(ctx->state());
+  }
+};
 
 template <typename Type, typename Matcher>
 struct MatchSubstringImpl {
@@ -1361,7 +1427,6 @@ struct MatchSubstringImpl {
 template <typename Type, typename Matcher>
 struct MatchSubstring {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    // TODO Cache matcher across invocations (for regex compilation)
     ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
     return MatchSubstringImpl<Type, Matcher>::Exec(ctx, batch, out, matcher.get());
   }
@@ -1371,12 +1436,19 @@ struct MatchSubstring {
 template <typename Type>
 struct MatchSubstring<Type, RegexSubstringMatcher> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    // TODO Cache matcher across invocations (for regex compilation)
+    return ExecWithState(ctx, batch, out, MatchSubstringState::GetState(ctx));
+  }
+
+  static Status ExecWithState(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
+                              MatchSubstringState* state) {
     const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
-    ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(
-                                            MatchSubstringState::Get(ctx), is_utf8));
+    ARROW_ASSIGN_OR_RAISE(
+        auto* matcher,
+        state->GetOrInitMatcher(
+            state->regex_substring_matcher, state->regex_substring_matcher_holder,
+            [&]() { return RegexSubstringMatcher::Make(state->options, is_utf8); }));
     return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                 matcher.get());
+                                                                 matcher);
   }
 };
 #endif
@@ -1384,67 +1456,105 @@ struct MatchSubstring<Type, RegexSubstringMatcher> {
 template <typename Type>
 struct MatchSubstring<Type, PlainSubstringMatcher> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    auto options = MatchSubstringState::Get(ctx);
-    if (options.ignore_case) {
+    return ExecWithState(ctx, batch, out, MatchSubstringState::GetState(ctx));
+  }
+
+  static Status ExecWithState(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
+                              MatchSubstringState* state) {
+    if (state->options.ignore_case) {
 #ifdef ARROW_WITH_RE2
       const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
-      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(options, is_utf8,
-                                                                      /*literal=*/true));
+      ARROW_ASSIGN_OR_RAISE(
+          auto* matcher, state->GetOrInitMatcher(
+                             state->regex_substring_matcher,
+                             state->regex_substring_matcher_holder, [&]() {
+                               return RegexSubstringMatcher::Make(state->options, is_utf8,
+                                                                  /*literal=*/true);
+                             }));
       return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                   matcher.get());
+                                                                   matcher);
 #else
       return Status::NotImplemented("ignore_case requires RE2");
 #endif
     }
-    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainSubstringMatcher::Make(options));
+    ARROW_ASSIGN_OR_RAISE(
+        auto* matcher,
+        state->GetOrInitMatcher(
+            state->plain_substring_matcher, state->plain_substring_matcher_holder,
+            [&]() { return PlainSubstringMatcher::Make(state->options); }));
     return MatchSubstringImpl<Type, PlainSubstringMatcher>::Exec(ctx, batch, out,
-                                                                 matcher.get());
+                                                                 matcher);
   }
 };
 
 template <typename Type>
 struct MatchSubstring<Type, PlainStartsWithMatcher> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    auto options = MatchSubstringState::Get(ctx);
-    if (options.ignore_case) {
+    return ExecWithState(ctx, batch, out, MatchSubstringState::GetState(ctx));
+  }
+
+  static Status ExecWithState(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
+                              MatchSubstringState* state) {
+    if (state->options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-      MatchSubstringOptions converted_options = options;
-      converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
       const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
-      ARROW_ASSIGN_OR_RAISE(auto matcher,
-                            RegexSubstringMatcher::Make(converted_options, is_utf8));
+      ARROW_ASSIGN_OR_RAISE(
+          auto* matcher,
+          state->GetOrInitMatcher(
+              state->regex_substring_matcher, state->regex_substring_matcher_holder,
+              [&]() {
+                MatchSubstringOptions converted_options = state->options;
+                converted_options.pattern = "^" + RE2::QuoteMeta(state->options.pattern);
+                return RegexSubstringMatcher::Make(converted_options, is_utf8);
+              }));
       return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                   matcher.get());
+                                                                   matcher);
 #else
       return Status::NotImplemented("ignore_case requires RE2");
 #endif
     }
-    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainStartsWithMatcher::Make(options));
+    ARROW_ASSIGN_OR_RAISE(
+        auto* matcher,
+        state->GetOrInitMatcher(
+            state->plain_starts_with_matcher, state->plain_starts_with_matcher_holder,
+            [&]() { return PlainStartsWithMatcher::Make(state->options); }));
     return MatchSubstringImpl<Type, PlainStartsWithMatcher>::Exec(ctx, batch, out,
-                                                                  matcher.get());
+                                                                  matcher);
   }
 };
 
 template <typename Type>
 struct MatchSubstring<Type, PlainEndsWithMatcher> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    auto options = MatchSubstringState::Get(ctx);
-    if (options.ignore_case) {
+    return ExecWithState(ctx, batch, out, MatchSubstringState::GetState(ctx));
+  }
+
+  static Status ExecWithState(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
+                              MatchSubstringState* state) {
+    if (state->options.ignore_case) {
 #ifdef ARROW_WITH_RE2
-      MatchSubstringOptions converted_options = options;
-      converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
       const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
-      ARROW_ASSIGN_OR_RAISE(auto matcher,
-                            RegexSubstringMatcher::Make(converted_options, is_utf8));
+      ARROW_ASSIGN_OR_RAISE(
+          auto* matcher,
+          state->GetOrInitMatcher(
+              state->regex_substring_matcher, state->regex_substring_matcher_holder,
+              [&]() {
+                MatchSubstringOptions converted_options = state->options;
+                converted_options.pattern = RE2::QuoteMeta(state->options.pattern) + "$";
+                return RegexSubstringMatcher::Make(converted_options, is_utf8);
+              }));
       return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
-                                                                   matcher.get());
+                                                                   matcher);
 #else
       return Status::NotImplemented("ignore_case requires RE2");
 #endif
     }
-    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
-    return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
-                                                                matcher.get());
+    ARROW_ASSIGN_OR_RAISE(
+        auto* matcher,
+        state->GetOrInitMatcher(
+            state->plain_ends_with_matcher, state->plain_ends_with_matcher_holder,
+            [&]() { return PlainEndsWithMatcher::Make(state->options); }));
+    return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out, matcher);
   }
 };
 
@@ -1536,54 +1646,73 @@ struct MatchLike {
                 "should only codegen on physical types");
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    ARROW_ASSIGN_OR_RAISE(
-        const auto like_constants,
-        MatchLikeConstants::Instance(
-            /*is_utf8=*/is_string_or_string_view(batch[0].type()->id())));
+    auto* original_state = MatchSubstringState::GetState(ctx);
+    auto kind = original_state->like_kind.load(std::memory_order_acquire);
+    if (ARROW_PREDICT_FALSE(kind == MatchSubstringState::LikeKind::kNone)) {
+      std::lock_guard<std::mutex> lock(original_state->mutex);
+      kind = original_state->like_kind.load(std::memory_order_relaxed);
+      if (kind == MatchSubstringState::LikeKind::kNone) {
+        ARROW_ASSIGN_OR_RAISE(
+            const auto like_constants,
+            MatchLikeConstants::Instance(
+                /*is_utf8=*/is_string_or_string_view(batch[0].type()->id())));
 
-    auto original_options = MatchSubstringState::Get(ctx);
-    auto original_state = ctx->state();
+        const auto& original_options = original_state->options;
+        std::string pattern;
+        bool matched = false;
+        MatchSubstringState::LikeKind determined_kind;
+        std::unique_ptr<MatchSubstringState> determined_state;
 
-    Status status;
-    std::string pattern;
-    bool matched = false;
-    if (!original_options.ignore_case) {
-      if ((matched = RE2::FullMatch(original_options.pattern,
-                                    like_constants->like_pattern_is_substring_match,
-                                    &pattern))) {
-        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-        MatchSubstringState converted_state(converted_options);
-        ctx->SetState(&converted_state);
-        status =
-            MatchSubstring<PhysicalType, PlainSubstringMatcher>::Exec(ctx, batch, out);
-      } else if ((matched = RE2::FullMatch(original_options.pattern,
-                                           like_constants->like_pattern_is_starts_with,
-                                           &pattern))) {
-        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-        MatchSubstringState converted_state(converted_options);
-        ctx->SetState(&converted_state);
-        status =
-            MatchSubstring<PhysicalType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
-      } else if ((matched = RE2::FullMatch(original_options.pattern,
-                                           like_constants->like_pattern_is_ends_with,
-                                           &pattern))) {
-        MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-        MatchSubstringState converted_state(converted_options);
-        ctx->SetState(&converted_state);
-        status =
-            MatchSubstring<PhysicalType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
+        if (!original_options.ignore_case) {
+          if ((matched = RE2::FullMatch(original_options.pattern,
+                                        like_constants->like_pattern_is_substring_match,
+                                        &pattern))) {
+            determined_kind = MatchSubstringState::LikeKind::kSubstring;
+            determined_state = std::make_unique<MatchSubstringState>(
+                MatchSubstringOptions{pattern, false});
+          } else if ((matched = RE2::FullMatch(
+                          original_options.pattern,
+                          like_constants->like_pattern_is_starts_with, &pattern))) {
+            determined_kind = MatchSubstringState::LikeKind::kStartsWith;
+            determined_state = std::make_unique<MatchSubstringState>(
+                MatchSubstringOptions{pattern, false});
+          } else if ((matched = RE2::FullMatch(original_options.pattern,
+                                               like_constants->like_pattern_is_ends_with,
+                                               &pattern))) {
+            determined_kind = MatchSubstringState::LikeKind::kEndsWith;
+            determined_state = std::make_unique<MatchSubstringState>(
+                MatchSubstringOptions{pattern, false});
+          }
+        }
+
+        if (!matched) {
+          determined_kind = MatchSubstringState::LikeKind::kRegex;
+          determined_state = std::make_unique<MatchSubstringState>(MatchSubstringOptions{
+              MakeLikeRegex(original_options), original_options.ignore_case});
+        }
+
+        original_state->like_state = std::move(determined_state);
+        original_state->like_kind.store(determined_kind, std::memory_order_release);
+        kind = determined_kind;
       }
     }
 
-    if (!matched) {
-      MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
-                                              original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<PhysicalType, RegexSubstringMatcher>::Exec(ctx, batch, out);
+    switch (kind) {
+      case MatchSubstringState::LikeKind::kSubstring:
+        return MatchSubstring<PhysicalType, PlainSubstringMatcher>::ExecWithState(
+            ctx, batch, out, original_state->like_state.get());
+      case MatchSubstringState::LikeKind::kStartsWith:
+        return MatchSubstring<PhysicalType, PlainStartsWithMatcher>::ExecWithState(
+            ctx, batch, out, original_state->like_state.get());
+      case MatchSubstringState::LikeKind::kEndsWith:
+        return MatchSubstring<PhysicalType, PlainEndsWithMatcher>::ExecWithState(
+            ctx, batch, out, original_state->like_state.get());
+      case MatchSubstringState::LikeKind::kRegex:
+        return MatchSubstring<PhysicalType, RegexSubstringMatcher>::ExecWithState(
+            ctx, batch, out, original_state->like_state.get());
+      default:
+        return Status::Invalid("Invalid like pattern kind");
     }
-    ctx->SetState(original_state);
-    return status;
   }
 };
 
