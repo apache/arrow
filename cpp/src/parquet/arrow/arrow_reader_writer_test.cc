@@ -38,20 +38,24 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/extension/json.h"
 #include "arrow/io/api.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
@@ -59,6 +63,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 
 #ifdef ARROW_CSV
 #  include "arrow/csv/api.h"
@@ -2843,11 +2848,17 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
+// Verify incremental decoding across row groups, including each final partial batch.
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
-  const int num_rows = 1024;
-  const int row_group_size = 512;
+  const int num_rows = 1000;
+  const int row_group_size = 500;
+  const int batch_size = 128;
   const int num_columns = 2;
+  const std::vector<int> expected_batch_sizes = {128, 128, 128, 116, 128, 128, 128, 116};
+  properties.set_batch_size(batch_size);
+  properties.set_pre_buffer(true);
+  properties.set_use_threads(true);
 
   std::shared_ptr<Table> table;
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
@@ -2872,35 +2883,130 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
     ASSERT_EQ(batch->num_rows(), num_rows);
   };
   {
+    // Check batch boundaries and reconstruct the original table from the results.
     ASSERT_OK_AND_ASSIGN(auto batch_generator,
                          reader->GetRecordBatchGenerator(reader, {0, 1}, {0, 1}));
-    auto fut1 = batch_generator();
-    auto fut2 = batch_generator();
-    auto fut3 = batch_generator();
-    ASSERT_OK_AND_ASSIGN(auto batch1, fut1.result());
-    ASSERT_OK_AND_ASSIGN(auto batch2, fut2.result());
-    ASSERT_OK_AND_ASSIGN(auto batch3, fut3.result());
-    ASSERT_EQ(batch3, nullptr);
-    check_batches(batch1, num_columns, row_group_size);
-    check_batches(batch2, num_columns, row_group_size);
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto batches,
+                                  ::arrow::CollectAsyncGenerator(batch_generator));
+    ASSERT_EQ(batches.size(), expected_batch_sizes.size());
+    for (size_t index = 0; index < batches.size(); ++index) {
+      check_batches(batches[index], num_columns, expected_batch_sizes[index]);
+    }
     ASSERT_OK_AND_ASSIGN(auto actual, ::arrow::Table::FromRecordBatches(
-                                          batch1->schema(), {batch1, batch2}));
+                                          batches.front()->schema(), batches));
     AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
   }
   {
-    // No columns case
+    // Preserve the generator's existing support for pulls issued before earlier pulls
+    // complete.
+    ASSERT_OK_AND_ASSIGN(auto batch_generator,
+                         reader->GetRecordBatchGenerator(reader, {0, 1}, {0, 1}));
+    auto future1 = batch_generator();
+    auto future2 = batch_generator();
+    auto future3 = batch_generator();
+    ASSERT_OK_AND_ASSIGN(auto batch1, future1.result());
+    ASSERT_OK_AND_ASSIGN(auto batch2, future2.result());
+    ASSERT_OK_AND_ASSIGN(auto batch3, future3.result());
+    check_batches(batch1, num_columns, batch_size);
+    check_batches(batch2, num_columns, batch_size);
+    check_batches(batch3, num_columns, batch_size);
+  }
+  {
+    // Guard against nested-executor deadlock: Next() could occupy the only worker,
+    // submit column work to the same pool, and wait while no worker is free to run it.
+    ASSERT_OK_AND_ASSIGN(auto shared_executor, ::arrow::internal::ThreadPool::Make(1));
+    auto shared_executor_properties = properties;
+    shared_executor_properties.set_io_context(
+        ::arrow::io::IOContext(shared_executor.get()));
+    std::unique_ptr<FileReader> unique_reader;
+    FileReaderBuilder builder;
+    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK(builder.properties(shared_executor_properties)->Build(&unique_reader));
+    std::shared_ptr<FileReader> shared_executor_reader = std::move(unique_reader);
+    ASSERT_OK_AND_ASSIGN(
+        auto batch_generator,
+        shared_executor_reader->GetRecordBatchGenerator(
+            shared_executor_reader, {0, 1}, {0, 1}, shared_executor.get(), num_rows));
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto batches,
+                                  ::arrow::CollectAsyncGenerator(batch_generator));
+    ASSERT_EQ(batches.size(), expected_batch_sizes.size());
+    for (size_t index = 0; index < batches.size(); ++index) {
+      check_batches(batches[index], num_columns, expected_batch_sizes[index]);
+    }
+  }
+  {
+    // Preserve row counts and batch boundaries when no columns are selected.
     ASSERT_OK_AND_ASSIGN(auto batch_generator,
                          reader->GetRecordBatchGenerator(reader, {0, 1}, {}));
-    auto fut1 = batch_generator();
-    auto fut2 = batch_generator();
-    auto fut3 = batch_generator();
-    ASSERT_OK_AND_ASSIGN(auto batch1, fut1.result());
-    ASSERT_OK_AND_ASSIGN(auto batch2, fut2.result());
-    ASSERT_OK_AND_ASSIGN(auto batch3, fut3.result());
-    ASSERT_EQ(batch3, nullptr);
-    check_batches(batch1, 0, row_group_size);
-    check_batches(batch2, 0, row_group_size);
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto batches,
+                                  ::arrow::CollectAsyncGenerator(batch_generator));
+    ASSERT_EQ(batches.size(), expected_batch_sizes.size());
+    for (size_t index = 0; index < batches.size(); ++index) {
+      check_batches(batches[index], 0, expected_batch_sizes[index]);
+    }
   }
+}
+
+// Verify that requesting one small batch does not decode the complete wide row group.
+// The incremental path should fit under the cap; the old eager path would fail before
+// returning its first batch because it materialized every row and column at once.
+TEST(TestArrowReadWrite, GetRecordBatchGeneratorDecodesFirstBatchWithinMemoryLimit) {
+  constexpr int num_rows = 100000;
+  constexpr int batch_size = 1000;
+  constexpr int num_columns = 32;
+  constexpr int64_t memory_limit = 8 * 1024 * 1024;
+
+  // The cap can hold one decoded batch, but not all values in the row group.
+  ASSERT_LT(static_cast<int64_t>(batch_size) * num_columns * sizeof(double),
+            memory_limit);
+  ASSERT_GT(static_cast<int64_t>(num_rows) * num_columns * sizeof(double), memory_limit);
+
+  // Constant values keep pre-buffered Parquet input small enough to isolate decoded
+  // Arrow allocations.
+  ASSERT_OK_AND_ASSIGN(
+      auto values, ::arrow::MakeArrayFromScalar(::arrow::DoubleScalar(1.0), num_rows));
+  std::vector<std::shared_ptr<::arrow::ChunkedArray>> columns;
+  std::vector<std::shared_ptr<::arrow::Field>> fields;
+  for (int column_index = 0; column_index < num_columns; ++column_index) {
+    columns.push_back(std::make_shared<::arrow::ChunkedArray>(values));
+    fields.push_back(
+        ::arrow::field("col" + std::to_string(column_index), ::arrow::float64()));
+  }
+  auto table = Table::Make(::arrow::schema(std::move(fields)), std::move(columns));
+
+  // Serialize all rows into one wide row group. The source table and Parquet buffer are
+  // created outside the capped pool so only reader-side allocations are constrained.
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, num_rows, default_arrow_writer_properties(), &buffer));
+
+  // Wrap the default pool so any reader allocation beyond the test budget returns OOM.
+  ::arrow::ProxyMemoryPool proxy_pool(::arrow::default_memory_pool());
+  ::arrow::CappedMemoryPool capped_pool(&proxy_pool, memory_limit);
+
+  // Use the pre-buffered incremental path and serial decoding for deterministic memory
+  // accounting. A successful Next() should allocate only the configured batch.
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_batch_size(batch_size);
+  properties.set_pre_buffer(true);
+  properties.set_use_threads(false);
+
+  // Build an in-memory Parquet reader whose decode allocations use the capped pool.
+  std::unique_ptr<FileReader> unique_reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(
+      builder.memory_pool(&capped_pool)->properties(properties)->Build(&unique_reader));
+  std::shared_ptr<FileReader> reader = std::move(unique_reader);
+
+  // Select every column in the only row group, but request just the first output batch.
+  ASSERT_OK_AND_ASSIGN(auto batch_generator,
+                       reader->GetRecordBatchGenerator(reader, {0}, Iota(num_columns)));
+  // An eager full-row-group decode would exceed the cap before returning this batch.
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto first_batch, batch_generator());
+  ASSERT_NE(first_batch, nullptr);
+  ASSERT_EQ(first_batch->num_columns(), num_columns);
+  ASSERT_EQ(first_batch->num_rows(), batch_size);
 }
 
 TEST(TestArrowReadWrite, ScanContents) {

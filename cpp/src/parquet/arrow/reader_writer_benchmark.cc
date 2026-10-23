@@ -19,6 +19,7 @@
 
 #include <array>
 #include <iostream>
+#include <numeric>
 #include <random>
 #include <type_traits>
 
@@ -36,6 +37,7 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/cast.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -43,6 +45,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 using arrow::Array;
 using arrow::ArrayVector;
@@ -785,20 +788,24 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
 BENCHMARK(BM_ReadMultipleRowGroups);
 
 static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
+  constexpr int64_t row_group_size = BENCHMARK_SIZE / 10;
   std::vector<int64_t> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<Table> table = TableFromVector<Int64Type>(values, true);
   auto output = CreateOutputStream();
   // This writes 10 RowGroups
-  EXIT_NOT_OK(
-      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
+  EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, row_group_size));
   PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
   std::vector<int> rgs{0, 2, 4, 6, 8};
+
+  ::parquet::ArrowReaderProperties properties;
+  properties.set_batch_size(64 * 1024);
+  properties.set_pre_buffer(true);
 
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     auto arrow_reader_result =
-        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader), properties);
     EXIT_NOT_OK(arrow_reader_result.status());
     std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
     ASSIGN_OR_ABORT(auto generator,
@@ -807,10 +814,81 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
     ASSIGN_OR_ABORT(auto batches, fut.result());
     ASSIGN_OR_ABORT(auto actual, Table::FromRecordBatches(std::move(batches)));
   }
-  SetBytesProcessed<Int64Type>(state);
+  SetBytesProcessed<Int64Type>(state, row_group_size * static_cast<int64_t>(rgs.size()));
 }
 
-BENCHMARK(BM_ReadMultipleRowGroupsGenerator);
+// The generator performs asynchronous work, so measure end-to-end wall-clock time.
+BENCHMARK(BM_ReadMultipleRowGroupsGenerator)->UseRealTime();
+
+static void BM_ReadWideRowGroupGenerator(::benchmark::State& state) {
+  constexpr int64_t num_rows = 256 * 1024;
+  constexpr int num_columns = 128;
+  const int64_t batch_size = state.range(1);
+
+  std::vector<int64_t> values(num_rows, 128);
+  auto single_column = TableFromVector<Int64Type>(values, /*nullable=*/false);
+  std::vector<std::shared_ptr<::arrow::ChunkedArray>> columns;
+  FieldVector fields;
+  columns.reserve(num_columns);
+  fields.reserve(num_columns);
+  for (int column_index = 0; column_index < num_columns; ++column_index) {
+    columns.push_back(single_column->column(0));
+    fields.push_back(::arrow::field("column" + std::to_string(column_index),
+                                    ::arrow::int64(), /*nullable=*/false));
+  }
+  auto table = Table::Make(::arrow::schema(std::move(fields)), std::move(columns));
+
+  auto output = CreateOutputStream();
+  EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, num_rows));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
+
+  ::parquet::ArrowReaderProperties properties;
+  properties.set_batch_size(batch_size);
+  properties.set_pre_buffer(true);
+  properties.set_use_threads(state.range(0) != 0);
+
+  std::vector<int> column_indices(num_columns);
+  std::iota(column_indices.begin(), column_indices.end(), 0);
+  const int64_t num_batches = (num_rows + batch_size - 1) / batch_size;
+  int64_t peak_memory = 0;
+
+  for (auto _ : state) {
+    ::arrow::ProxyMemoryPool reader_pool(::arrow::default_memory_pool());
+    auto parquet_reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+    auto arrow_reader_result =
+        FileReader::Make(&reader_pool, std::move(parquet_reader), properties);
+    EXIT_NOT_OK(arrow_reader_result.status());
+    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
+
+    ASSIGN_OR_ABORT(auto generator,
+                    arrow_reader->GetRecordBatchGenerator(
+                        arrow_reader, {0}, column_indices,
+                        ::arrow::internal::GetCpuThreadPool(), /*rows_to_readahead=*/0));
+    int64_t rows_read = 0;
+    for (int64_t batch_index = 0; batch_index < num_batches; ++batch_index) {
+      auto batch_future = generator();
+      ASSIGN_OR_ABORT(auto batch, batch_future.result());
+      rows_read += batch->num_rows();
+      ::benchmark::DoNotOptimize(batch);
+    }
+    auto end_future = generator();
+    ASSIGN_OR_ABORT(auto end, end_future.result());
+    ARROW_CHECK(::arrow::IsIterationEnd(end));
+    ARROW_CHECK_EQ(rows_read, num_rows);
+    peak_memory = std::max(peak_memory, reader_pool.max_memory());
+  }
+
+  state.counters["rows_per_second"] = ::benchmark::Counter(
+      static_cast<double>(num_rows * state.iterations()), ::benchmark::Counter::kIsRate);
+  state.counters["peak_memory_bytes"] =
+      ::benchmark::Counter(static_cast<double>(peak_memory));
+}
+
+BENCHMARK(BM_ReadWideRowGroupGenerator)
+    ->ArgNames({"use_threads", "batch_size"})
+    ->ArgsProduct({{0, 1}, {32 * 1024, 64 * 1024, 128 * 1024, 256 * 1024}})
+    ->UseRealTime();
 
 }  // namespace benchmarks
 }  // namespace parquet
