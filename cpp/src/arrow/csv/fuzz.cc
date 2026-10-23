@@ -137,8 +137,8 @@ Status ReadAllWays(io::IOContext io_context, const FuzzCsvOptions& opts,
   for (const bool newlines_in_values : {false, true}) {
     auto parse_options = opts.parse;
     parse_options.newlines_in_values = newlines_in_values;
-    auto fut = CountRowsAsync(io_context, input, GetCpuThreadPool(), opts.read,
-                              parse_options);
+    auto fut =
+        CountRowsAsync(io_context, input, GetCpuThreadPool(), opts.read, parse_options);
     st &= fut.status();
   }
 
