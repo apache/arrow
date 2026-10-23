@@ -1242,6 +1242,8 @@ class IntervalLocalizer {
     return zone_->get_info(st).offset.count();
   }
 
+  bool IsFixed() const { return zone_ == nullptr; }
+
   // UTC offset to use for converting the given local time (in `Duration`
   // units) to UTC.  Like ZonedLocalizer::ConvertLocalToSys, this returns an
   // error if the local time is ambiguous or does not exist.
@@ -1330,16 +1332,38 @@ struct TimestampIntervalArithmeticImpl {
                              int64_t months, int64_t days, Status* st) {
     if (months == 0 && days == 0) return t;
     const int64_t offset = localizer.OffsetAtSys(FloorDiv(t, kUnitsPerSecond));
-    const int64_t local = Add(t, offset * kUnitsPerSecond, st);
-    int64_t day = FloorDiv(local, kUnitsPerDay);
-    const int64_t time_of_day = local - day * kUnitsPerDay;
+    // Split before applying the offset.  A local timestamp can lie just outside
+    // int64's range even though the final UTC timestamp is representable.
+    const int64_t original_day = FloorDiv(t, kUnitsPerDay);
+    int64_t time_of_day = t % kUnitsPerDay;
+    if (time_of_day < 0) time_of_day += kUnitsPerDay;
+    time_of_day += offset * kUnitsPerSecond;
+    const int64_t carry = FloorDiv(time_of_day, kUnitsPerDay);
+    int64_t day = original_day + carry;
+    time_of_day -= carry * kUnitsPerDay;
+    const int64_t original_local_day = day;
     if (months != 0) {
       day = AddMonthsToDays(day, months);
     }
     day += days;
-    const int64_t new_local = Add(Multiply(day, kUnitsPerDay, st), time_of_day, st);
-    const int64_t new_offset = localizer.OffsetForLocal<Duration>(new_local, st);
-    return Subtract(new_local, new_offset * kUnitsPerSecond, st);
+    int64_t new_offset;
+    if (localizer.IsFixed()) {
+      new_offset = offset;
+    } else {
+      // Timezone transitions have second precision; the subsecond remainder
+      // does not affect which offset applies.
+      const int64_t local_seconds =
+          Add(Multiply(day, 86400, st), time_of_day / kUnitsPerSecond, st);
+      if (!st->ok()) return 0;
+      new_offset = localizer.OffsetForLocal<std::chrono::seconds>(local_seconds, st);
+    }
+    // Apply only the calendar and offset deltas to the original timestamp.
+    // Reconstructing day * kUnitsPerDay first can overflow near INT64_MIN.
+    const int64_t day_delta = Subtract(day, original_local_day, st);
+    const int64_t offset_delta = Subtract(offset, new_offset, st);
+    const int64_t delta = Add(Multiply(day_delta, kUnitsPerDay, st),
+                              Multiply(offset_delta, kUnitsPerSecond, st), st);
+    return Add(t, delta, st);
   }
 
   static int64_t Call(const IntervalLocalizer& localizer, int64_t t,

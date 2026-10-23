@@ -1511,6 +1511,29 @@ TEST_F(ScalarTemporalTest, TestTemporalTimestampAndIntervalAcrossDST) {
   check(add_cases, {"add", "add_checked"}, /*commutative=*/true);
   check(subtract_cases, {"subtract", "subtract_checked"}, /*commutative=*/false);
 
+  // Subtraction applies the fixed duration before the calendar day, while
+  // adding the negative interval applies the calendar day first.  The two
+  // differ across the spring DST transition; calendar-only operations agree.
+  for (auto unit : TimeUnit::values()) {
+    auto ty = timestamp(unit, "America/New_York");
+    auto start = ArrayFromJSON(ty, R"(["2025-03-10T13:30:00"])");
+    auto mixed = ScalarFromJSON(month_day_nano_interval(), "[0, 1, 86400000000000]");
+    auto negative_mixed =
+        ScalarFromJSON(month_day_nano_interval(), "[0, -1, -86400000000000]");
+    auto day = ScalarFromJSON(day_time_interval(), "[1, 0]");
+    auto negative_day = ScalarFromJSON(day_time_interval(), "[-1, 0]");
+    for (auto suffix : {"", "_checked"}) {
+      CheckScalarBinary(std::string("subtract") + suffix, start, mixed,
+                        ArrayFromJSON(ty, R"(["2025-03-08T14:30:00"])"));
+      CheckScalarBinary(std::string("add") + suffix, start, negative_mixed,
+                        ArrayFromJSON(ty, R"(["2025-03-08T13:30:00"])"));
+      auto one_day_earlier = ArrayFromJSON(ty, R"(["2025-03-09T13:30:00"])");
+      CheckScalarBinary(std::string("subtract") + suffix, start, day, one_day_earlier);
+      CheckScalarBinary(std::string("add") + suffix, start, negative_day,
+                        one_day_earlier);
+    }
+  }
+
   // day_time_interval and month_interval follow the same rules
   for (auto unit : TimeUnit::values()) {
     auto ty = timestamp(unit, "America/New_York");
@@ -1633,6 +1656,24 @@ TEST_F(ScalarTemporalTest, TestTemporalTimestampAndIntervalErrors) {
     CheckScalarBinary("add", max, ScalarFromJSON(mdn, "[0, 0, 1]"), min);
     CheckScalarBinary("subtract", min, ScalarFromJSON(mdn, "[0, 0, 1]"), max);
     ASSERT_OK(CallFunction("add", {near_max, ScalarFromJSON(month_interval(), "1")}));
+  }
+
+  // Calendar arithmetic must not overflow an intermediate local timestamp or
+  // day-to-unit multiplication when the final UTC value fits.
+  constexpr int64_t kDay = 86400000000000LL;
+  for (auto tz : {"", "+05:30", "-05:30"}) {
+    auto ty = timestamp(TimeUnit::NANO, tz);
+    auto min = ArrayFromJSON(ty, "[" + std::to_string(kMin) + "]");
+    auto min_plus_day = ArrayFromJSON(ty, "[" + std::to_string(kMin + kDay) + "]");
+    auto max = ArrayFromJSON(ty, "[" + std::to_string(kMax) + "]");
+    auto max_minus_day = ArrayFromJSON(ty, "[" + std::to_string(kMax - kDay) + "]");
+    auto day = ScalarFromJSON(day_time_interval(), "[1, 0]");
+    for (auto suffix : {"", "_checked"}) {
+      CheckScalarBinary(std::string("add") + suffix, min, day, min_plus_day);
+      CheckScalarBinary(std::string("subtract") + suffix, min_plus_day, day, min);
+      CheckScalarBinary(std::string("subtract") + suffix, max, day, max_minus_day);
+      CheckScalarBinary(std::string("add") + suffix, max_minus_day, day, max);
+    }
   }
 
   // Extreme intervals don't overflow second-resolution timestamps
