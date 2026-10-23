@@ -351,6 +351,12 @@ def test_parquet_sorting_column():
     with pytest.raises(ValueError):
         pq.SortingColumn.from_ordering(schema, (("a", "not a valid sort order")))
 
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pq.SortingColumn.from_ordering(None, ())
+
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pq.SortingColumn.to_ordering(None, ())
+
     with pytest.raises(ValueError, match="inconsistent null placement"):
         sorting_cols = (
             pq.SortingColumn(1, nulls_first=True),
