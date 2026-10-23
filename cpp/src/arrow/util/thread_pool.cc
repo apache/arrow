@@ -525,6 +525,23 @@ void ThreadPool::WaitForIdle() {
   state_->cv_idle_.wait(lk, [this] { return state_->tasks_queued_or_running_ == 0; });
 }
 
+void ThreadPool::WaitForIdle(ThreadPool& other) {
+  if (this == &other) {
+    WaitForIdle();
+    return;
+  }
+  while (true) {
+    WaitForIdle();
+    other.WaitForIdle();
+    // A task can move between pools while each pool is checked on its own.
+    std::scoped_lock lock(state_->mutex_, other.state_->mutex_);
+    if (state_->tasks_queued_or_running_ == 0 &&
+        other.state_->tasks_queued_or_running_ == 0) {
+      return;
+    }
+  }
+}
+
 ThreadPool::ThreadPool()
     : sp_state_(std::make_shared<ThreadPool::State>()),
       state_(sp_state_.get()),
@@ -843,6 +860,12 @@ Status ThreadPool::Shutdown(bool wait) {
 // needed
 void ThreadPool::WaitForIdle() {
   while (!state_->task_queue.empty()) {
+    RunTasksOnAllExecutors();
+  }
+}
+
+void ThreadPool::WaitForIdle(ThreadPool& other) {
+  while (!state_->task_queue.empty() || !other.state_->task_queue.empty()) {
     RunTasksOnAllExecutors();
   }
 }
