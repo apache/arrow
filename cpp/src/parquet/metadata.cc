@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/io/memory.h"
+#include "arrow/buffer.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
@@ -45,6 +46,37 @@
 using ::arrow::util::SecureString;
 
 namespace parquet {
+
+namespace {
+std::vector<format::SchemaElement> MaterializeSchema(
+    const std::vector<internal::DirectSchemaElement>& direct) {
+  std::vector<format::SchemaElement> result;
+  result.reserve(direct.size());
+  for (const auto& src : direct) {
+    format::SchemaElement dst;
+    if (src.has_type) dst.__set_type(src.type);
+    if (src.has_type_length) dst.__set_type_length(src.type_length);
+    if (src.has_repetition_type) dst.__set_repetition_type(src.repetition_type);
+    dst.name = src.name;
+    if (src.has_num_children) dst.__set_num_children(src.num_children);
+    if (src.has_converted_type) dst.__set_converted_type(src.converted_type);
+    if (src.has_scale) dst.__set_scale(src.scale);
+    if (src.has_precision) dst.__set_precision(src.precision);
+    if (src.has_field_id) dst.__set_field_id(src.field_id);
+    if (src.has_logical_type) dst.__set_logicalType(src.logical_type);
+    result.emplace_back(std::move(dst));
+  }
+  return result;
+}
+
+std::vector<std::string> MaterializePath(
+    const std::vector<std::string_view>& direct_path) {
+  std::vector<std::string> result;
+  result.reserve(direct_path.size());
+  for (const auto value : direct_path) result.emplace_back(value);
+  return result;
+}
+}  // namespace
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 8, 0);
@@ -317,19 +349,74 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     InitKeyValueMetadata();
   }
 
+  explicit ColumnChunkMetaDataImpl(
+      const internal::DirectColumnChunk* column, const ColumnDescriptor* descr,
+      int16_t row_group_ordinal, int16_t column_ordinal,
+      const ReaderProperties& properties, const ApplicationVersion* writer_version,
+      const std::shared_ptr<InternalFileDecryptor>& file_decryptor)
+      : column_(nullptr),
+        column_metadata_(nullptr),
+        direct_column_(column),
+        direct_metadata_(&column->metadata),
+        descr_(descr),
+        properties_(properties),
+        writer_version_(writer_version) {
+    for (const auto& encoding : direct_metadata_->encodings) {
+      encodings_.push_back(LoadEnumSafe(&encoding));
+    }
+    if (!direct_metadata_->has_encoding_stats_mask) {
+      for (const auto& encoding_stats : direct_metadata_->encoding_stats) {
+        encoding_stats_.push_back({LoadEnumSafe(&encoding_stats.page_type),
+                                   LoadEnumSafe(&encoding_stats.encoding),
+                                   encoding_stats.count});
+      }
+    }
+    if (direct_metadata_->has_size_statistics) {
+      auto& metadata = MaterializeColumnMetadata();
+      size_statistics_ =
+          std::make_shared<SizeStatistics>(FromThrift(metadata.size_statistics));
+      size_statistics_->Validate(descr_);
+    }
+    possible_stats_ = nullptr;
+    possible_encoded_stats_ = nullptr;
+    possible_geo_stats_ = nullptr;
+  }
+
   bool Equals(const ColumnChunkMetaDataImpl& other) const {
+    if (direct_metadata_ != nullptr || other.direct_metadata_ != nullptr) {
+      return file_offset() == other.file_offset() && num_values() == other.num_values() &&
+             total_compressed_size() == other.total_compressed_size();
+    }
     return *column_metadata_ == *other.column_metadata_;
   }
 
   // column chunk
-  inline int64_t file_offset() const { return column_->file_offset; }
-  inline const std::string& file_path() const { return column_->file_path; }
+  inline int64_t file_offset() const {
+    return direct_column_ != nullptr ? direct_column_->file_offset : column_->file_offset;
+  }
+  inline const std::string& file_path() const {
+    if (direct_column_ != nullptr) {
+      file_path_materialized_ = std::string(direct_column_->file_path);
+      return file_path_materialized_;
+    }
+    return column_->file_path;
+  }
 
-  inline Type::type type() const { return LoadEnumSafe(&column_metadata_->type); }
+  inline Type::type type() const {
+    return direct_metadata_ != nullptr ? LoadEnumSafe(&direct_metadata_->type)
+                                       : LoadEnumSafe(&column_metadata_->type);
+  }
 
-  inline int64_t num_values() const { return column_metadata_->num_values; }
+  inline int64_t num_values() const {
+    return direct_metadata_ != nullptr ? direct_metadata_->num_values
+                                       : column_metadata_->num_values;
+  }
 
   std::shared_ptr<schema::ColumnPath> path_in_schema() {
+    if (direct_metadata_ != nullptr) {
+      return std::make_shared<schema::ColumnPath>(
+          MaterializePath(direct_metadata_->path_in_schema));
+    }
     return std::make_shared<schema::ColumnPath>(column_metadata_->path_in_schema);
   }
 
@@ -338,14 +425,21 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // 2) Statistics must not be corrupted
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
-    if (!column_metadata_->__isset.statistics) {
+    if (direct_metadata_ != nullptr ? !direct_metadata_->has_statistics
+                                    : !column_metadata_->__isset.statistics) {
       return false;
     }
     {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_encoded_stats_ == nullptr) {
-        possible_encoded_stats_ = std::make_shared<EncodedStatistics>(
-            FromThrift(column_metadata_->statistics, GetStatisticsMinMaxField(*descr_)));
+        if (direct_metadata_ != nullptr) {
+          auto& metadata = MaterializeColumnMetadata();
+          possible_encoded_stats_ = std::make_shared<EncodedStatistics>(
+              FromThrift(metadata.statistics, GetStatisticsMinMaxField(*descr_)));
+        } else {
+          possible_encoded_stats_ = std::make_shared<EncodedStatistics>(FromThrift(
+              column_metadata_->statistics, GetStatisticsMinMaxField(*descr_)));
+        }
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
@@ -355,8 +449,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline bool is_geo_stats_set() const {
     const std::lock_guard<std::mutex> guard(stats_mutex_);
     if (possible_geo_stats_ == nullptr &&
-        column_metadata_->__isset.geospatial_statistics) {
-      possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
+        (direct_metadata_ != nullptr ? direct_metadata_->has_geospatial_statistics
+                                     : column_metadata_->__isset.geospatial_statistics)) {
+      if (direct_metadata_ != nullptr) {
+        auto& metadata = MaterializeColumnMetadata();
+        possible_geo_stats_ = MakeColumnGeometryStats(metadata, descr_);
+      } else {
+        possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
+      }
     }
 
     return possible_geo_stats_ != nullptr && possible_geo_stats_->is_valid();
@@ -370,8 +470,13 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (is_stats_set()) {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
-        possible_stats_ =
-            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
+        if (direct_metadata_ != nullptr) {
+          auto& metadata = MaterializeColumnMetadata();
+          possible_stats_ = MakeColumnStats(metadata, descr_, properties_.memory_pool());
+        } else {
+          possible_stats_ =
+              MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
+        }
       }
       return possible_stats_;
     }
@@ -387,14 +492,26 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline Compression::type compression() const {
-    return LoadEnumSafe(&column_metadata_->codec);
+    return direct_metadata_ != nullptr ? FromThriftUnsafe(direct_metadata_->codec)
+                                       : LoadEnumSafe(&column_metadata_->codec);
   }
 
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
 
   const std::vector<PageEncodingStats>& encoding_stats() const { return encoding_stats_; }
 
+  uint64_t encoding_stats_mask() const {
+    return direct_metadata_ != nullptr && direct_metadata_->has_encoding_stats_mask
+               ? direct_metadata_->encoding_stats_mask
+               : 0;
+  }
+
   inline std::optional<int64_t> bloom_filter_offset() const {
+    if (direct_metadata_ != nullptr) {
+      return direct_metadata_->has_bloom_filter_offset
+                 ? std::optional<int64_t>(direct_metadata_->bloom_filter_offset)
+                 : std::nullopt;
+    }
     if (column_metadata_->__isset.bloom_filter_offset) {
       return column_metadata_->bloom_filter_offset;
     }
@@ -402,6 +519,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline std::optional<int64_t> bloom_filter_length() const {
+    if (direct_metadata_ != nullptr) {
+      return direct_metadata_->has_bloom_filter_length
+                 ? std::optional<int64_t>(direct_metadata_->bloom_filter_length)
+                 : std::nullopt;
+    }
     if (column_metadata_->__isset.bloom_filter_length) {
       return column_metadata_->bloom_filter_length;
     }
@@ -409,30 +531,48 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline bool has_dictionary_page() const {
-    return column_metadata_->__isset.dictionary_page_offset;
+    return direct_metadata_ != nullptr ? direct_metadata_->has_dictionary_page_offset
+                                       : column_metadata_->__isset.dictionary_page_offset;
   }
 
   inline int64_t dictionary_page_offset() const {
-    return column_metadata_->dictionary_page_offset;
+    return direct_metadata_ != nullptr ? direct_metadata_->dictionary_page_offset
+                                       : column_metadata_->dictionary_page_offset;
   }
 
-  inline int64_t data_page_offset() const { return column_metadata_->data_page_offset; }
+  inline int64_t data_page_offset() const {
+    return direct_metadata_ != nullptr ? direct_metadata_->data_page_offset
+                                       : column_metadata_->data_page_offset;
+  }
 
   inline bool has_index_page() const {
-    return column_metadata_->__isset.index_page_offset;
+    return direct_metadata_ != nullptr ? direct_metadata_->has_index_page_offset
+                                       : column_metadata_->__isset.index_page_offset;
   }
 
-  inline int64_t index_page_offset() const { return column_metadata_->index_page_offset; }
+  inline int64_t index_page_offset() const {
+    return direct_metadata_ != nullptr ? direct_metadata_->index_page_offset
+                                       : column_metadata_->index_page_offset;
+  }
 
   inline int64_t total_compressed_size() const {
-    return column_metadata_->total_compressed_size;
+    return direct_metadata_ != nullptr ? direct_metadata_->total_compressed_size
+                                       : column_metadata_->total_compressed_size;
   }
 
   inline int64_t total_uncompressed_size() const {
-    return column_metadata_->total_uncompressed_size;
+    return direct_metadata_ != nullptr ? direct_metadata_->total_uncompressed_size
+                                       : column_metadata_->total_uncompressed_size;
   }
 
   inline std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const {
+    if (direct_column_ != nullptr) {
+      if (direct_column_->has_crypto_metadata) {
+        return ColumnCryptoMetaData::Make(
+            reinterpret_cast<const uint8_t*>(&direct_column_->crypto_metadata));
+      }
+      return nullptr;
+    }
     if (column_->__isset.crypto_metadata) {
       return ColumnCryptoMetaData::Make(
           reinterpret_cast<const uint8_t*>(&column_->crypto_metadata));
@@ -442,6 +582,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   std::optional<IndexLocation> GetColumnIndexLocation() const {
+    if (direct_column_ != nullptr) {
+      if (direct_column_->has_column_index_offset &&
+          direct_column_->has_column_index_length) {
+        return IndexLocation{direct_column_->column_index_offset,
+                             direct_column_->column_index_length};
+      }
+      return std::nullopt;
+    }
     if (column_->__isset.column_index_offset && column_->__isset.column_index_length) {
       return IndexLocation{column_->column_index_offset, column_->column_index_length};
     }
@@ -449,6 +597,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   std::optional<IndexLocation> GetOffsetIndexLocation() const {
+    if (direct_column_ != nullptr) {
+      if (direct_column_->has_offset_index_offset &&
+          direct_column_->has_offset_index_length) {
+        return IndexLocation{direct_column_->offset_index_offset,
+                             direct_column_->offset_index_length};
+      }
+      return std::nullopt;
+    }
     if (column_->__isset.offset_index_offset && column_->__isset.offset_index_length) {
       return IndexLocation{column_->offset_index_offset, column_->offset_index_length};
     }
@@ -456,12 +612,105 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
+    if (direct_metadata_ != nullptr && !key_value_metadata_initialized_) {
+      const_cast<ColumnChunkMetaDataImpl*>(this)->InitKeyValueMetadata();
+    }
     return key_value_metadata_;
   }
 
  private:
+  format::ColumnMetaData& MaterializeColumnMetadata() const {
+    if (direct_metadata_->materialized == nullptr) {
+      direct_metadata_->materialized = std::make_unique<format::ColumnMetaData>();
+    }
+    auto& metadata = *direct_metadata_->materialized;
+    metadata.__set_type(direct_metadata_->type);
+    metadata.__set_encodings(direct_metadata_->encodings);
+    metadata.__set_path_in_schema(MaterializePath(direct_metadata_->path_in_schema));
+    metadata.__set_codec(direct_metadata_->codec);
+    metadata.__set_num_values(direct_metadata_->num_values);
+    metadata.__set_total_uncompressed_size(direct_metadata_->total_uncompressed_size);
+    metadata.__set_total_compressed_size(direct_metadata_->total_compressed_size);
+    if (!direct_metadata_->key_value_metadata.empty()) {
+      std::vector<format::KeyValue> key_values;
+      key_values.reserve(direct_metadata_->key_value_metadata.size());
+      for (const auto& kv : direct_metadata_->key_value_metadata) {
+        format::KeyValue value;
+        value.__set_key(std::string(kv.key));
+        if (kv.has_value) value.__set_value(std::string(kv.value));
+        key_values.emplace_back(std::move(value));
+      }
+      metadata.__set_key_value_metadata(std::move(key_values));
+    }
+    metadata.__set_data_page_offset(direct_metadata_->data_page_offset);
+    if (direct_metadata_->has_index_page_offset) {
+      metadata.__set_index_page_offset(direct_metadata_->index_page_offset);
+    }
+    if (direct_metadata_->has_dictionary_page_offset) {
+      metadata.__set_dictionary_page_offset(direct_metadata_->dictionary_page_offset);
+    }
+    if (direct_metadata_->has_statistics) {
+      format::Statistics stats;
+      const auto& direct = direct_metadata_->statistics;
+      if (direct.has_max) stats.__set_max(std::string(direct.max));
+      if (direct.has_min) stats.__set_min(std::string(direct.min));
+      if (direct.has_null_count) stats.__set_null_count(direct.null_count);
+      if (direct.has_distinct_count) stats.__set_distinct_count(direct.distinct_count);
+      if (direct.has_max_value) stats.__set_max_value(std::string(direct.max_value));
+      if (direct.has_min_value) stats.__set_min_value(std::string(direct.min_value));
+      if (direct.has_max_value_exact)
+        stats.__set_is_max_value_exact(direct.is_max_value_exact);
+      if (direct.has_min_value_exact)
+        stats.__set_is_min_value_exact(direct.is_min_value_exact);
+      if (direct.has_nan_count) stats.__set_nan_count(direct.nan_count);
+      metadata.__set_statistics(stats);
+    }
+    if (!direct_metadata_->encoding_stats.empty())
+      metadata.__set_encoding_stats(direct_metadata_->encoding_stats);
+    if (direct_metadata_->has_bloom_filter_offset)
+      metadata.__set_bloom_filter_offset(direct_metadata_->bloom_filter_offset);
+    if (direct_metadata_->has_bloom_filter_length)
+      metadata.__set_bloom_filter_length(direct_metadata_->bloom_filter_length);
+    if (direct_metadata_->has_size_statistics) {
+      format::SizeStatistics stats;
+      const auto& direct = direct_metadata_->size_statistics;
+      if (direct.has_unencoded_byte_array_data_bytes)
+        stats.__set_unencoded_byte_array_data_bytes(
+            direct.unencoded_byte_array_data_bytes);
+      if (direct.has_repetition_level_histogram)
+        stats.__set_repetition_level_histogram(direct.repetition_level_histogram);
+      if (direct.has_definition_level_histogram)
+        stats.__set_definition_level_histogram(direct.definition_level_histogram);
+      metadata.__set_size_statistics(stats);
+    }
+    if (direct_metadata_->has_geospatial_statistics)
+      metadata.__set_geospatial_statistics(direct_metadata_->geospatial_statistics);
+    return metadata;
+  }
+
   void InitKeyValueMetadata() {
-    key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
+    if (direct_metadata_ != nullptr) {
+      key_value_metadata_initialized_ = true;
+      if (direct_metadata_->key_value_metadata.empty()) {
+        key_value_metadata_ = nullptr;
+      } else {
+        std::vector<std::string> keys, values;
+        keys.reserve(direct_metadata_->key_value_metadata.size());
+        values.reserve(direct_metadata_->key_value_metadata.size());
+        for (const auto& kv : direct_metadata_->key_value_metadata) {
+          keys.emplace_back(kv.key);
+          if (kv.has_value) {
+            values.emplace_back(kv.value);
+          } else {
+            values.emplace_back();
+          }
+        }
+        key_value_metadata_ =
+            std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
+      }
+    } else {
+      key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
+    }
   }
 
   mutable std::mutex stats_mutex_;
@@ -472,16 +721,30 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
   const format::ColumnMetaData* column_metadata_;
+  const internal::DirectColumnChunk* direct_column_ = nullptr;
+  const internal::DirectColumnMetadata* direct_metadata_ = nullptr;
   format::ColumnMetaData decrypted_metadata_;
   const ColumnDescriptor* descr_;
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
   std::shared_ptr<SizeStatistics> size_statistics_;
+  mutable std::string file_path_materialized_;
+  mutable bool key_value_metadata_initialized_ = false;
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     const void* metadata, const ColumnDescriptor* descr,
+    const ReaderProperties& properties, const ApplicationVersion* writer_version,
+    int16_t row_group_ordinal, int16_t column_ordinal,
+    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
+  return std::unique_ptr<ColumnChunkMetaData>(
+      new ColumnChunkMetaData(metadata, descr, row_group_ordinal, column_ordinal,
+                              properties, writer_version, std::move(file_decryptor)));
+}
+
+std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::MakeDirect(
+    const internal::DirectColumnChunk* metadata, const ColumnDescriptor* descr,
     const ReaderProperties& properties, const ApplicationVersion* writer_version,
     int16_t row_group_ordinal, int16_t column_ordinal,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
@@ -499,6 +762,15 @@ ColumnChunkMetaData::ColumnChunkMetaData(
           reinterpret_cast<const format::ColumnChunk*>(metadata), descr,
           row_group_ordinal, column_ordinal, properties, writer_version,
           std::move(file_decryptor))} {}
+
+ColumnChunkMetaData::ColumnChunkMetaData(
+    const internal::DirectColumnChunk* metadata, const ColumnDescriptor* descr,
+    int16_t row_group_ordinal, int16_t column_ordinal, const ReaderProperties& properties,
+    const ApplicationVersion* writer_version,
+    std::shared_ptr<InternalFileDecryptor> file_decryptor)
+    : impl_{new ColumnChunkMetaDataImpl(metadata, descr, row_group_ordinal,
+                                        column_ordinal, properties, writer_version,
+                                        std::move(file_decryptor))} {}
 
 ColumnChunkMetaData::~ColumnChunkMetaData() = default;
 
@@ -577,6 +849,10 @@ const std::vector<PageEncodingStats>& ColumnChunkMetaData::encoding_stats() cons
   return impl_->encoding_stats();
 }
 
+uint64_t ColumnChunkMetaData::encoding_stats_mask() const {
+  return impl_->encoding_stats_mask();
+}
+
 int64_t ColumnChunkMetaData::total_uncompressed_size() const {
   return impl_->total_uncompressed_size();
 }
@@ -626,28 +902,70 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
     }
   }
 
+  explicit RowGroupMetaDataImpl(const internal::DirectRowGroup* row_group,
+                                const SchemaDescriptor* schema,
+                                const ReaderProperties& properties,
+                                const ApplicationVersion* writer_version,
+                                std::shared_ptr<InternalFileDecryptor> file_decryptor)
+      : row_group_(nullptr),
+        direct_row_group_(row_group),
+        schema_(schema),
+        properties_(properties),
+        writer_version_(writer_version),
+        file_decryptor_(std::move(file_decryptor)) {
+    if (ARROW_PREDICT_FALSE(row_group->columns.size() >
+                            static_cast<size_t>(std::numeric_limits<int>::max()))) {
+      throw ParquetException("Row group had too many columns: ",
+                             row_group->columns.size());
+    }
+  }
+
   bool Equals(const RowGroupMetaDataImpl& other) const {
+    if (direct_row_group_ != nullptr || other.direct_row_group_ != nullptr) {
+      return num_rows() == other.num_rows() && num_columns() == other.num_columns();
+    }
     return *row_group_ == *other.row_group_;
   }
 
-  inline int num_columns() const { return static_cast<int>(row_group_->columns.size()); }
-
-  inline int64_t num_rows() const { return row_group_->num_rows; }
-
-  inline int64_t total_byte_size() const { return row_group_->total_byte_size; }
-
-  inline int64_t total_compressed_size() const {
-    return row_group_->total_compressed_size;
+  inline int num_columns() const {
+    return static_cast<int>(direct_row_group_ != nullptr
+                                ? direct_row_group_->columns.size()
+                                : row_group_->columns.size());
   }
 
-  inline int64_t file_offset() const { return row_group_->file_offset; }
+  inline int64_t num_rows() const {
+    return direct_row_group_ != nullptr ? direct_row_group_->num_rows
+                                        : row_group_->num_rows;
+  }
+
+  inline int64_t total_byte_size() const {
+    return direct_row_group_ != nullptr ? direct_row_group_->total_byte_size
+                                        : row_group_->total_byte_size;
+  }
+
+  inline int64_t total_compressed_size() const {
+    return direct_row_group_ != nullptr ? direct_row_group_->total_compressed_size
+                                        : row_group_->total_compressed_size;
+  }
+
+  inline int64_t file_offset() const {
+    return direct_row_group_ != nullptr ? direct_row_group_->file_offset
+                                        : row_group_->file_offset;
+  }
 
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
     if (i >= 0 && i < num_columns()) {
       int16_t row_group_ordinal =
-          row_group_->__isset.ordinal ? row_group_->ordinal : static_cast<int16_t>(-1);
+          direct_row_group_ != nullptr
+              ? (direct_row_group_->has_ordinal ? direct_row_group_->ordinal : -1)
+              : (row_group_->__isset.ordinal ? row_group_->ordinal : -1);
+      if (direct_row_group_ != nullptr) {
+        return ColumnChunkMetaData::MakeDirect(
+            &direct_row_group_->columns[i], schema_->Column(i), properties_,
+            writer_version_, row_group_ordinal, i, file_decryptor_);
+      }
       return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
                                        properties_, writer_version_, row_group_ordinal, i,
                                        file_decryptor_);
@@ -658,6 +976,14 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   std::vector<SortingColumn> sorting_columns() const {
     std::vector<SortingColumn> sorting_columns;
+    if (direct_row_group_ != nullptr) {
+      if (!direct_row_group_->has_sorting_columns) return {};
+      std::vector<SortingColumn> result;
+      result.reserve(direct_row_group_->sorting_columns.size());
+      for (const auto& sorting : direct_row_group_->sorting_columns)
+        result.push_back(FromThrift(sorting));
+      return result;
+    }
     if (!row_group_->__isset.sorting_columns) {
       return sorting_columns;
     }
@@ -670,6 +996,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
  private:
   const format::RowGroup* row_group_;
+  const internal::DirectRowGroup* direct_row_group_ = nullptr;
   const SchemaDescriptor* schema_;
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
@@ -684,12 +1011,28 @@ std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
       metadata, schema, properties, writer_version, std::move(file_decryptor)));
 }
 
+std::unique_ptr<RowGroupMetaData> RowGroupMetaData::MakeDirect(
+    const internal::DirectRowGroup* metadata, const SchemaDescriptor* schema,
+    const ReaderProperties& properties, const ApplicationVersion* writer_version,
+    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
+  return std::unique_ptr<RowGroupMetaData>(new RowGroupMetaData(
+      metadata, schema, properties, writer_version, std::move(file_decryptor)));
+}
+
 RowGroupMetaData::RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
                                    const ReaderProperties& properties,
                                    const ApplicationVersion* writer_version,
                                    std::shared_ptr<InternalFileDecryptor> file_decryptor)
     : impl_{new RowGroupMetaDataImpl(reinterpret_cast<const format::RowGroup*>(metadata),
                                      schema, properties, writer_version,
+                                     std::move(file_decryptor))} {}
+
+RowGroupMetaData::RowGroupMetaData(const internal::DirectRowGroup* metadata,
+                                   const SchemaDescriptor* schema,
+                                   const ReaderProperties& properties,
+                                   const ApplicationVersion* writer_version,
+                                   std::shared_ptr<InternalFileDecryptor> file_decryptor)
+    : impl_{new RowGroupMetaDataImpl(metadata, schema, properties, writer_version,
                                      std::move(file_decryptor))} {}
 
 RowGroupMetaData::~RowGroupMetaData() = default;
@@ -773,6 +1116,52 @@ static void Scrub(format::FileMetaData* md) {
   Scrub(&md->footer_signing_key_metadata);
 }
 
+class FastFileMetaData::Impl {
+ public:
+  Impl(std::shared_ptr<const ::arrow::Buffer> buffer, int64_t length,
+       const ReaderProperties& properties)
+      : buffer_(std::move(buffer)), properties_(properties) {
+    if (buffer_ == nullptr || length < 0 || length > buffer_->size()) {
+      throw ParquetException("Invalid fast metadata buffer");
+    }
+    internal::CompactInput input(buffer_->data(), length);
+    internal::ReadFastFileMetaData(input, &metadata_);
+    size_ = input.position();
+  }
+
+  int64_t size() const { return size_; }
+  int64_t num_rows() const { return metadata_.num_rows; }
+  int num_row_groups() const { return metadata_.num_row_groups; }
+  int num_schema_elements() const { return metadata_.num_schema_elements; }
+  int num_columns() const { return metadata_.num_columns; }
+  std::string_view created_by() const { return metadata_.created_by; }
+
+ private:
+  std::shared_ptr<const ::arrow::Buffer> buffer_;
+  ReaderProperties properties_;
+  internal::FastMetadataSummary metadata_;
+  int64_t size_ = 0;
+};
+
+FastFileMetaData::FastFileMetaData(
+    std::shared_ptr<const ::arrow::Buffer> serialized_metadata, int64_t metadata_len,
+    const ReaderProperties& properties)
+    : impl_(new Impl(std::move(serialized_metadata), metadata_len, properties)) {}
+
+std::shared_ptr<FastFileMetaData> FastFileMetaData::Make(
+    std::shared_ptr<const ::arrow::Buffer> serialized_metadata, int64_t metadata_len,
+    const ReaderProperties& properties) {
+  return std::shared_ptr<FastFileMetaData>(
+      new FastFileMetaData(std::move(serialized_metadata), metadata_len, properties));
+}
+
+int64_t FastFileMetaData::size() const { return impl_->size(); }
+int64_t FastFileMetaData::num_rows() const { return impl_->num_rows(); }
+int FastFileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
+int FastFileMetaData::num_schema_elements() const { return impl_->num_schema_elements(); }
+int FastFileMetaData::num_columns() const { return impl_->num_columns(); }
+std::string_view FastFileMetaData::created_by() const { return impl_->created_by(); }
+
 // file metadata
 class FileMetaData::FileMetaDataImpl {
  public:
@@ -783,19 +1172,58 @@ class FileMetaData::FileMetaDataImpl {
 
   FileMetaDataImpl(const void* metadata, int64_t metadata_len,
                    ReaderProperties properties,
-                   std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
-      : properties_(std::move(properties)), file_decryptor_(std::move(file_decryptor)) {
-    metadata_ = std::make_unique<format::FileMetaData>();
-
+                   std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr,
+                   std::shared_ptr<const ::arrow::Buffer> metadata_buffer = nullptr)
+      : properties_(std::move(properties)),
+        file_decryptor_(std::move(file_decryptor)),
+        metadata_buffer_(std::move(metadata_buffer)) {
     auto footer_decryptor =
         file_decryptor_ != nullptr ? file_decryptor_->GetFooterDecryptor() : nullptr;
 
     ThriftDeserializer deserializer(properties_);
-    metadata_len_ = deserializer.DeserializeMessage(
-        reinterpret_cast<const uint8_t*>(metadata), metadata_len, metadata_.get(),
-        footer_decryptor.get());
+    const char* generated = std::getenv("PARQUET_USE_GENERATED_THRIFT");
+    if ((generated == nullptr || generated[0] != '1') && footer_decryptor == nullptr) {
+      try {
+        direct_metadata_ = std::make_unique<internal::DirectFileMetaData>();
+        const uint8_t* parse_data = reinterpret_cast<const uint8_t*>(metadata);
+        if (footer_decryptor == nullptr && metadata_buffer_ == nullptr) {
+          // Keep one bulk copy of the footer so direct string views remain valid;
+          // this replaces thousands of independent string allocations.
+          direct_metadata_->owned_buffer = std::make_shared<std::string>(
+              reinterpret_cast<const char*>(metadata), static_cast<size_t>(metadata_len));
+          parse_data = reinterpret_cast<const uint8_t*>(direct_metadata_->owned_buffer->data());
+        } else if (footer_decryptor == nullptr) {
+          parse_data = metadata_buffer_->data();
+        }
+        metadata_len_ = deserializer.DeserializeMessage(
+            parse_data, metadata_len, direct_metadata_.get(), footer_decryptor.get());
+        if (direct_metadata_ != nullptr) {
+          for (const auto& row_group : direct_metadata_->row_groups) {
+            for (const auto& column : row_group.columns) {
+              if (column.has_encrypted_column_metadata) {
+                direct_metadata_.reset();
+                break;
+              }
+            }
+            if (direct_metadata_ == nullptr) break;
+          }
+        }
+      } catch (const ParquetException&) {
+        direct_metadata_.reset();
+      }
+    }
+    if (direct_metadata_ == nullptr) {
+      metadata_ = std::make_unique<format::FileMetaData>();
+      metadata_len_ = deserializer.DeserializeMessage(
+          reinterpret_cast<const uint8_t*>(metadata), metadata_len, metadata_.get(),
+          footer_decryptor.get());
+    }
 
-    if (metadata_->__isset.created_by) {
+    if (direct_metadata_ != nullptr) {
+      writer_version_ = direct_metadata_->has_created_by
+                            ? ApplicationVersion(std::string(direct_metadata_->created_by))
+                            : ApplicationVersion("unknown 0.0.0");
+    } else if (metadata_->__isset.created_by) {
       writer_version_ = ApplicationVersion(metadata_->created_by);
     } else {
       writer_version_ = ApplicationVersion("unknown 0.0.0");
@@ -803,7 +1231,7 @@ class FileMetaData::FileMetaDataImpl {
 
     InitSchema();
     InitColumnOrders();
-    InitKeyValueMetadata();
+    if (direct_metadata_ == nullptr) InitKeyValueMetadata();
   }
 
   bool VerifySignature(const void* signature) {
@@ -811,6 +1239,7 @@ class FileMetaData::FileMetaDataImpl {
     if (file_decryptor_ == nullptr) {
       throw ParquetException("Decryption not set properly. cannot verify signature");
     }
+    EnsureFormatMetadata();
     // serialize the footer
     ThriftSerializer serializer;
     auto serialized_data_span = serializer.SerializeToBuffer(metadata_.get());
@@ -840,23 +1269,43 @@ class FileMetaData::FileMetaDataImpl {
 
   inline int64_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
-  inline int64_t num_rows() const { return metadata_->num_rows; }
-  inline int num_row_groups() const {
-    return static_cast<int>(metadata_->row_groups.size());
+  inline int64_t num_rows() const {
+    return direct_metadata_ != nullptr ? direct_metadata_->num_rows : metadata_->num_rows;
   }
-  inline int32_t version() const { return metadata_->version; }
-  inline const std::string& created_by() const { return metadata_->created_by; }
+  inline int num_row_groups() const {
+    return static_cast<int>(direct_metadata_ != nullptr
+                                ? direct_metadata_->row_groups.size()
+                                : metadata_->row_groups.size());
+  }
+  inline int32_t version() const {
+    return direct_metadata_ != nullptr ? direct_metadata_->version : metadata_->version;
+  }
+  inline const std::string& created_by() const {
+    if (direct_metadata_ != nullptr) {
+      created_by_materialized_ = std::string(direct_metadata_->created_by);
+      return created_by_materialized_;
+    }
+    return metadata_->created_by;
+  }
   inline int num_schema_elements() const {
-    return static_cast<int>(metadata_->schema.size());
+    return static_cast<int>(direct_metadata_ != nullptr ? direct_metadata_->schema.size()
+                                                        : metadata_->schema.size());
   }
 
   inline bool is_encryption_algorithm_set() const {
-    return metadata_->__isset.encryption_algorithm;
+    return direct_metadata_ != nullptr ? direct_metadata_->has_encryption_algorithm
+                                       : metadata_->__isset.encryption_algorithm;
   }
   inline EncryptionAlgorithm encryption_algorithm() {
-    return FromThrift(metadata_->encryption_algorithm);
+    return FromThrift(direct_metadata_ != nullptr ? direct_metadata_->encryption_algorithm
+                                                  : metadata_->encryption_algorithm);
   }
   inline const std::string& footer_signing_key_metadata() {
+    if (direct_metadata_ != nullptr) {
+      footer_signing_key_materialized_ =
+          std::string(direct_metadata_->footer_signing_key_metadata);
+      return footer_signing_key_materialized_;
+    }
     return metadata_->footer_signing_key_metadata;
   }
 
@@ -864,6 +1313,7 @@ class FileMetaData::FileMetaDataImpl {
 
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor) const {
+    const_cast<FileMetaDataImpl*>(this)->EnsureFormatMetadata();
     ThriftSerializer serializer;
     // Only in encrypted files with plaintext footers the
     // encryption_algorithm is set in footer
@@ -897,21 +1347,38 @@ class FileMetaData::FileMetaDataImpl {
          << " row groups, requested metadata for row group: " << i;
       throw ParquetException(ss.str());
     }
+    if (direct_metadata_ != nullptr) {
+      return RowGroupMetaData::MakeDirect(&direct_metadata_->row_groups[i], &schema_,
+                                          properties_, &writer_version_, file_decryptor_);
+    }
     return RowGroupMetaData::Make(&metadata_->row_groups[i], &schema_, properties_,
                                   &writer_version_, file_decryptor_);
   }
 
   bool Equals(const FileMetaDataImpl& other) const {
+    if (direct_metadata_ != nullptr || other.direct_metadata_ != nullptr) {
+      const_cast<FileMetaDataImpl*>(this)->EnsureFormatMetadata();
+      const_cast<FileMetaDataImpl&>(other).EnsureFormatMetadata();
+    }
     return *metadata_ == *other.metadata_;
   }
 
   const SchemaDescriptor* schema() const { return &schema_; }
 
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
+    if (direct_metadata_ != nullptr && !key_value_metadata_initialized_) {
+      const_cast<FileMetaDataImpl*>(this)->InitKeyValueMetadata();
+    }
     return key_value_metadata_;
   }
 
   void set_file_path(const std::string& path) {
+    if (direct_metadata_ != nullptr) {
+      for (auto& row_group : direct_metadata_->row_groups) {
+        for (auto& chunk : row_group.columns) chunk.file_path = path;
+      }
+      if (metadata_ == nullptr) return;
+    }
     for (format::RowGroup& row_group : metadata_->row_groups) {
       for (format::ColumnChunk& chunk : row_group.columns) {
         chunk.__set_file_path(path);
@@ -920,6 +1387,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   format::RowGroup& row_group(int i) {
+    EnsureFormatMetadata();
     if (!(i >= 0 && i < num_row_groups())) {
       std::stringstream ss;
       ss << "The file only has " << num_row_groups()
@@ -930,13 +1398,16 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void AppendRowGroups(FileMetaDataImpl* other) {
+    EnsureFormatMetadata();
+    other->EnsureFormatMetadata();
     std::ostringstream diff_output;
     if (!schema()->Equals(*other->schema(), &diff_output)) {
       auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
       throw ParquetException(msg);
     }
 
-    // ARROW-13654: `other` may point to self, be careful not to enter an infinite loop
+    // ARROW-13654: `other` may point to self, be careful not to enter an infinite
+    // loop
     const int n = other->num_row_groups();
     // ARROW-16613: do not use reserve() as that may suppress overallocation
     // and incur O(n²) behavior on repeated calls to AppendRowGroups().
@@ -951,6 +1422,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) {
+    EnsureFormatMetadata();
     for (int i : row_groups) {
       if (i < num_row_groups()) continue;
 
@@ -991,6 +1463,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   std::string SerializeUnencrypted(bool scrub, bool debug) const {
+    const_cast<FileMetaDataImpl*>(this)->EnsureFormatMetadata();
     auto md = *metadata_;
     if (scrub) Scrub(&md);
     if (debug) {
@@ -1015,16 +1488,150 @@ class FileMetaData::FileMetaDataImpl {
   friend FileMetaDataBuilder;
   int64_t metadata_len_ = 0;
   std::unique_ptr<format::FileMetaData> metadata_;
+  std::unique_ptr<internal::DirectFileMetaData> direct_metadata_;
   SchemaDescriptor schema_;
   ApplicationVersion writer_version_;
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
   const ReaderProperties properties_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+  std::shared_ptr<const ::arrow::Buffer> metadata_buffer_;
+  mutable std::string created_by_materialized_;
+  mutable std::string footer_signing_key_materialized_;
+  mutable bool key_value_metadata_initialized_ = false;
+
+  void EnsureFormatMetadata() {
+    if (metadata_ != nullptr || direct_metadata_ == nullptr) return;
+    metadata_ = std::make_unique<format::FileMetaData>();
+    metadata_->version = direct_metadata_->version;
+    metadata_->schema = MaterializeSchema(direct_metadata_->schema);
+    metadata_->num_rows = direct_metadata_->num_rows;
+    metadata_->key_value_metadata.reserve(direct_metadata_->key_value_metadata.size());
+    for (const auto& kv : direct_metadata_->key_value_metadata) {
+      format::KeyValue value;
+      value.__set_key(std::string(kv.key));
+      if (kv.has_value) value.__set_value(std::string(kv.value));
+      metadata_->key_value_metadata.emplace_back(std::move(value));
+    }
+    metadata_->created_by = std::string(direct_metadata_->created_by);
+    metadata_->column_orders = direct_metadata_->column_orders;
+    metadata_->encryption_algorithm = direct_metadata_->encryption_algorithm;
+    metadata_->footer_signing_key_metadata =
+        std::string(direct_metadata_->footer_signing_key_metadata);
+    metadata_->__isset.key_value_metadata = direct_metadata_->has_key_value_metadata;
+    metadata_->__isset.created_by = direct_metadata_->has_created_by;
+    metadata_->__isset.column_orders = direct_metadata_->has_column_orders;
+    metadata_->__isset.encryption_algorithm = direct_metadata_->has_encryption_algorithm;
+    metadata_->__isset.footer_signing_key_metadata =
+        direct_metadata_->has_footer_signing_key_metadata;
+    metadata_->row_groups.reserve(direct_metadata_->row_groups.size());
+    for (const auto& direct_rg : direct_metadata_->row_groups) {
+      auto& rg = metadata_->row_groups.emplace_back();
+      rg.__set_total_byte_size(direct_rg.total_byte_size);
+      rg.__set_num_rows(direct_rg.num_rows);
+      if (direct_rg.has_sorting_columns)
+        rg.__set_sorting_columns(direct_rg.sorting_columns);
+      if (direct_rg.has_file_offset) rg.__set_file_offset(direct_rg.file_offset);
+      if (direct_rg.has_total_compressed_size)
+        rg.__set_total_compressed_size(direct_rg.total_compressed_size);
+      if (direct_rg.has_ordinal) rg.__set_ordinal(direct_rg.ordinal);
+      rg.columns.reserve(direct_rg.columns.size());
+      for (const auto& direct_col : direct_rg.columns) {
+        auto& col = rg.columns.emplace_back();
+        if (direct_col.has_file_path)
+          col.__set_file_path(std::string(direct_col.file_path));
+        if (direct_col.has_file_offset) col.__set_file_offset(direct_col.file_offset);
+        const auto& dm = direct_col.metadata;
+        auto& m = col.meta_data;
+        m.__set_type(dm.type);
+        m.__set_encodings(dm.encodings);
+        m.__set_path_in_schema(MaterializePath(dm.path_in_schema));
+        m.__set_codec(dm.codec);
+        m.__set_num_values(dm.num_values);
+        m.__set_total_uncompressed_size(dm.total_uncompressed_size);
+        m.__set_total_compressed_size(dm.total_compressed_size);
+        if (!dm.key_value_metadata.empty()) {
+          std::vector<format::KeyValue> key_values;
+          key_values.reserve(dm.key_value_metadata.size());
+          for (const auto& kv : dm.key_value_metadata) {
+            format::KeyValue value;
+            value.__set_key(std::string(kv.key));
+            if (kv.has_value) value.__set_value(std::string(kv.value));
+            key_values.emplace_back(std::move(value));
+          }
+          m.__set_key_value_metadata(std::move(key_values));
+        }
+        m.__set_data_page_offset(dm.data_page_offset);
+        if (dm.has_index_page_offset) m.__set_index_page_offset(dm.index_page_offset);
+        if (dm.has_dictionary_page_offset)
+          m.__set_dictionary_page_offset(dm.dictionary_page_offset);
+        if (dm.has_statistics) {
+          format::Statistics stats;
+          if (dm.statistics.has_max) stats.__set_max(std::string(dm.statistics.max));
+          if (dm.statistics.has_min) stats.__set_min(std::string(dm.statistics.min));
+          if (dm.statistics.has_null_count)
+            stats.__set_null_count(dm.statistics.null_count);
+          if (dm.statistics.has_distinct_count)
+            stats.__set_distinct_count(dm.statistics.distinct_count);
+          if (dm.statistics.has_max_value)
+            stats.__set_max_value(std::string(dm.statistics.max_value));
+          if (dm.statistics.has_min_value)
+            stats.__set_min_value(std::string(dm.statistics.min_value));
+          if (dm.statistics.has_max_value_exact)
+            stats.__set_is_max_value_exact(dm.statistics.is_max_value_exact);
+          if (dm.statistics.has_min_value_exact)
+            stats.__set_is_min_value_exact(dm.statistics.is_min_value_exact);
+          if (dm.statistics.has_nan_count) stats.__set_nan_count(dm.statistics.nan_count);
+          m.__set_statistics(stats);
+        }
+        if (!dm.encoding_stats.empty()) m.__set_encoding_stats(dm.encoding_stats);
+        if (dm.has_bloom_filter_offset)
+          m.__set_bloom_filter_offset(dm.bloom_filter_offset);
+        if (dm.has_bloom_filter_length)
+          m.__set_bloom_filter_length(dm.bloom_filter_length);
+        if (dm.has_size_statistics) {
+          format::SizeStatistics stats;
+          if (dm.size_statistics.has_unencoded_byte_array_data_bytes)
+            stats.__set_unencoded_byte_array_data_bytes(
+                dm.size_statistics.unencoded_byte_array_data_bytes);
+          if (dm.size_statistics.has_repetition_level_histogram)
+            stats.__set_repetition_level_histogram(
+                dm.size_statistics.repetition_level_histogram);
+          if (dm.size_statistics.has_definition_level_histogram)
+            stats.__set_definition_level_histogram(
+                dm.size_statistics.definition_level_histogram);
+          m.__set_size_statistics(stats);
+        }
+        if (dm.has_geospatial_statistics)
+          m.__set_geospatial_statistics(dm.geospatial_statistics);
+        col.__isset.meta_data = direct_col.has_metadata;
+        if (direct_col.has_offset_index_offset)
+          col.__set_offset_index_offset(direct_col.offset_index_offset);
+        if (direct_col.has_offset_index_length)
+          col.__set_offset_index_length(direct_col.offset_index_length);
+        if (direct_col.has_column_index_offset)
+          col.__set_column_index_offset(direct_col.column_index_offset);
+        if (direct_col.has_column_index_length)
+          col.__set_column_index_length(direct_col.column_index_length);
+        if (direct_col.has_crypto_metadata)
+          col.__set_crypto_metadata(direct_col.crypto_metadata);
+        if (direct_col.has_encrypted_column_metadata)
+          col.__set_encrypted_column_metadata(
+              std::string(direct_col.encrypted_column_metadata));
+      }
+    }
+  }
 
   void InitSchema() {
-    if (metadata_->schema.empty()) {
-      throw ParquetException("Empty file schema (no root)");
+    if (direct_metadata_ != nullptr) {
+      if (direct_metadata_->schema.empty()) {
+        throw ParquetException("Empty file schema (no root)");
+      }
+      schema_.Init(schema::UnflattenDirect(
+          std::span<const internal::DirectSchemaElement>(direct_metadata_->schema),
+          properties_.schema_depth_limit()));
+      return;
     }
+    if (metadata_->schema.empty()) throw ParquetException("Empty file schema (no root)");
     schema_.Init(schema::Unflatten(metadata_->schema,
                                    /*max_depth=*/properties_.schema_depth_limit()));
   }
@@ -1032,9 +1639,15 @@ class FileMetaData::FileMetaDataImpl {
   void InitColumnOrders() {
     // update ColumnOrder
     std::vector<parquet::ColumnOrder> column_orders;
-    if (metadata_->__isset.column_orders) {
-      column_orders.reserve(metadata_->column_orders.size());
-      for (auto& column_order : metadata_->column_orders) {
+    const bool has_orders = direct_metadata_ != nullptr
+                                ? direct_metadata_->has_column_orders
+                                : metadata_->__isset.column_orders;
+    const auto& thrift_orders = direct_metadata_ != nullptr
+                                    ? direct_metadata_->column_orders
+                                    : metadata_->column_orders;
+    if (has_orders) {
+      column_orders.reserve(thrift_orders.size());
+      for (auto& column_order : thrift_orders) {
         if (column_order.__isset.TYPE_ORDER) {
           column_orders.push_back(ColumnOrder::type_defined_);
         } else {
@@ -1049,7 +1662,22 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void InitKeyValueMetadata() {
-    key_value_metadata_ = FromThriftKeyValueMetadata(*metadata_);
+    if (direct_metadata_ == nullptr) {
+      key_value_metadata_ = FromThriftKeyValueMetadata(*metadata_);
+    } else if (direct_metadata_->key_value_metadata.empty()) {
+      key_value_metadata_ = nullptr;
+    } else {
+      std::vector<std::string> keys, values;
+      keys.reserve(direct_metadata_->key_value_metadata.size());
+      values.reserve(direct_metadata_->key_value_metadata.size());
+      for (const auto& kv : direct_metadata_->key_value_metadata) {
+        keys.emplace_back(kv.key);
+        values.emplace_back(kv.value);
+      }
+      key_value_metadata_ =
+          std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
+    }
+    key_value_metadata_initialized_ = true;
   }
 };
 
@@ -1059,6 +1687,15 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
       new FileMetaData(metadata, metadata_len, properties, std::move(file_decryptor)));
+}
+
+std::shared_ptr<FileMetaData> FileMetaData::Make(
+    std::shared_ptr<const ::arrow::Buffer> metadata, int64_t metadata_len,
+    const ReaderProperties& properties, std::shared_ptr<InternalFileDecryptor> file_decryptor) {
+  if (metadata == nullptr) throw ParquetException("Null metadata buffer");
+  return std::shared_ptr<FileMetaData>(new FileMetaData(
+      metadata->data(), metadata_len, properties, std::move(file_decryptor),
+      std::move(metadata)));
 }
 
 // (deprecated)
@@ -1073,9 +1710,10 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
 
 FileMetaData::FileMetaData(const void* metadata, int64_t metadata_len,
                            const ReaderProperties& properties,
-                           std::shared_ptr<InternalFileDecryptor> file_decryptor)
+                           std::shared_ptr<InternalFileDecryptor> file_decryptor,
+                           std::shared_ptr<const ::arrow::Buffer> metadata_buffer)
     : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
-                                 std::move(file_decryptor))) {}
+                                 std::move(file_decryptor), std::move(metadata_buffer))) {}
 
 FileMetaData::FileMetaData(ReaderProperties properties)
     : impl_(new FileMetaDataImpl(std::move(properties))) {}

@@ -180,6 +180,7 @@ set(PARQUET_SRCS
     level_comparison.cc
     level_conversion.cc
     metadata.cc
+    thrift_compact_reader.cc
     xxhasher.cc
     page_index.cc
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
