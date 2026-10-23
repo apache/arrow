@@ -712,28 +712,28 @@ def _set_default(opt, default):
                     'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
-@click.option('--with-cpp', type=bool, default=False,
+@click.option('--with-cpp', type=bool, default=None,
               help='Include C++ in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_CPP")
-@click.option('--with-dotnet', type=bool, default=False,
+@click.option('--with-dotnet', type=bool, default=None,
               help='Include .NET in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_DOTNET")
-@click.option('--with-java', type=bool, default=False,
+@click.option('--with-java', type=bool, default=None,
               help='Include Java in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_JAVA")
-@click.option('--with-js', type=bool, default=False,
+@click.option('--with-js', type=bool, default=None,
               help='Include JavaScript in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_JS")
-@click.option('--with-go', type=bool, default=False,
+@click.option('--with-go', type=bool, default=None,
               help='Include Go in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_GO")
-@click.option('--with-nanoarrow', type=bool, default=False,
+@click.option('--with-nanoarrow', type=bool, default=None,
               help='Include nanoarrow in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
-@click.option('--with-ruby', type=bool, default=False,
+@click.option('--with-ruby', type=bool, default=None,
               help='Include Ruby in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUBY")
-@click.option('--with-rust', type=bool, default=False,
+@click.option('--with-rust', type=bool, default=None,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--target-implementations', default='',
@@ -841,6 +841,12 @@ def integration(with_all=False, random_seed=12345, write_generated_json="",
     for fmt in formats:
         param = f'run_{fmt}'
         enabled_formats += args[param]
+
+    # --with-all only supplies the default for the individual --with-<lang>
+    # options, which is why those default to None: it keeps "not given" apart
+    # from an explicit "--with-java=0", so the explicit value still wins.
+    for name in [key for key in args if key.startswith('with_')]:
+        args[name] = _set_default(args[name], with_all)
 
     testers, other_testers = select_testers(**args)
 

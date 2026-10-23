@@ -37,3 +37,45 @@ def test_linking_check_dependencies(fn):
     fn.assert_called_once_with(
         Path('somelib.so'), allowed={'libarrow'}, disallowed={'libcurl'}
     )
+
+
+@patch("archery.integration.runner.run_all_tests")
+@patch("archery.integration.runner.select_testers")
+def test_integration_with_all_enables_every_implementation(select_testers,
+                                                           run_all_tests):
+    select_testers.return_value = (["tester"], [])
+    result = CliRunner().invoke(
+        archery, ["integration", "--with-all", "--run-ipc"])
+    assert result.exit_code == 0
+    enabled = {name: value
+               for name, value in select_testers.call_args.kwargs.items()
+               if name.startswith("with_")}
+    assert enabled
+    assert all(enabled.values()), enabled
+
+
+@patch("archery.integration.runner.run_all_tests")
+@patch("archery.integration.runner.select_testers")
+def test_integration_with_all_yields_to_an_explicit_option(select_testers,
+                                                           run_all_tests):
+    select_testers.return_value = (["tester"], [])
+    result = CliRunner().invoke(
+        archery, ["integration", "--with-all", "--with-java=0", "--run-ipc"])
+    assert result.exit_code == 0
+    kwargs = select_testers.call_args.kwargs
+    assert kwargs["with_java"] is False
+    assert kwargs["with_cpp"] is True
+
+
+@patch("archery.integration.runner.run_all_tests")
+@patch("archery.integration.runner.select_testers")
+def test_integration_without_with_all_enables_nothing(select_testers,
+                                                      run_all_tests):
+    select_testers.return_value = (["tester"], [])
+    result = CliRunner().invoke(archery, ["integration", "--run-ipc"])
+    assert result.exit_code == 0
+    enabled = {name: value
+               for name, value in select_testers.call_args.kwargs.items()
+               if name.startswith("with_")}
+    assert enabled
+    assert not any(enabled.values()), enabled
