@@ -3147,6 +3147,77 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
                        /*include_columns=*/{}, conversion_options);
 }
 
+void CheckInvalidEmitIndex(const std::string& rel_json) {
+  std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+  "relations": [{
+    "rel": )" + rel_json + R"(
+  }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(TableFromJSON(dummy_schema, {"[[1, 2, 3]]"}));
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  EXPECT_THAT(
+      DeserializePlans(
+          *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set, conversion_options),
+      Raises(StatusCode::Invalid, HasSubstr("Out of bounds emit index")));
+}
+
+constexpr std::string_view kEmitTestReadRel = R"({
+  "read": {
+    "base_schema": {
+      "names": ["A", "B", "C"],
+      "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]}
+    },
+    "namedTable": {"names": ["A"]}
+  }
+})";
+
+TEST(Substrait, ReadRelWithOutOfBoundsEmit) {
+  for (const char* mapping : {"[0, 3]", "[-1, 1]"}) {
+    ARROW_SCOPED_TRACE("outputMapping: ", mapping);
+    CheckInvalidEmitIndex(R"({
+      "read": {
+        "common": {"emit": {"outputMapping": )" +
+                          std::string(mapping) + R"(}},
+        "base_schema": {
+          "names": ["A", "B", "C"],
+          "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]}
+        },
+        "namedTable": {"names": ["A"]}
+      }
+    })");
+  }
+}
+
+TEST(Substrait, ProjectRelWithOutOfBoundsEmit) {
+  // The project emits the 3 input fields plus 1 expression, so 4 is out of range
+  for (const char* mapping : {"[0, 4]", "[-1, 3]"}) {
+    ARROW_SCOPED_TRACE("outputMapping: ", mapping);
+    CheckInvalidEmitIndex(R"({
+      "project": {
+        "common": {"emit": {"outputMapping": )" +
+                          std::string(mapping) + R"(}},
+        "expressions": [
+          {"selection": {"directReference": {"structField": {"field": 0}},
+                         "rootReference": {}}}
+        ],
+        "input": )" + std::string(kEmitTestReadRel) +
+                          R"(
+      }
+    })");
+  }
+}
+
 TEST(SubstraitRoundTrip, FilterRelWithEmit) {
   auto dummy_schema = schema({field("A", int32()), field("B", int32()),
                               field("C", int32()), field("D", int32())});
