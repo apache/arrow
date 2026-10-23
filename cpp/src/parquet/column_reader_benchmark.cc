@@ -72,9 +72,12 @@ class BenchmarkHelper {
     internal::LevelInfo level_info;
     level_info.def_level = descr_->max_definition_level();
     level_info.rep_level = descr_->max_repetition_level();
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable);
+    record_reader_ = internal::RecordReader::Make({
+        .descr = descr_.get(),
+        .leaf_info = level_info,
+        .read_dense_for_nullable = read_dense_for_nullable,
+        .allow_levels_optimization = true,
+    });
     record_reader_->SetPageReader(std::move(pager));
     return record_reader_.get();
   }
