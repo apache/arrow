@@ -372,6 +372,21 @@ TEST(GcsFileSystem, OptionsFromUri) {
                 GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=-1", &path));
 }
 
+TEST(GcsFileSystem, FileSystemFromUriRegistry) {
+  std::string path;
+  for (const auto* scheme : {"gs", "gcs"}) {
+    ASSERT_OK_AND_ASSIGN(
+        auto fs,
+        FileSystemFromUri(std::string(scheme) + "://anonymous@mybucket/foo", &path));
+    EXPECT_EQ(fs->type_name(), "gcs");
+    EXPECT_EQ(path, "mybucket/foo");
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("Filesystem factory does not support"),
+      FileSystemFromUriAndOptions("gs://anonymous@mybucket",
+                                  {{"foo", std::string{"bar"}}}));
+}
+
 TEST(GcsFileSystem, OptionsAccessToken) {
   TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
   auto a = GcsOptions::FromAccessToken(/*access_token=*/"accesst", expiration);

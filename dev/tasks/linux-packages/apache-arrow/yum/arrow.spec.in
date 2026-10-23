@@ -358,6 +358,40 @@ Libraries and header files for Apache Arrow Compute
 %{_libdir}/libarrow_compute.so
 %{_libdir}/pkgconfig/arrow-compute.pc
 
+%if %{use_gcs}
+%package -n %{name}%{so_version}-gcs-libs
+Summary:	C++ library for the GCS filesystem
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
+
+%description -n %{name}%{so_version}-gcs-libs
+This package contains the libraries for Apache Arrow GCS filesystem.
+
+%files -n %{name}%{so_version}-gcs-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_gcs.so.*
+
+%package gcs-devel
+Summary:	Libraries and header files for Apache Arrow GCS filesystem
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-gcs-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description gcs-devel
+Libraries and header files for Apache Arrow GCS filesystem.
+
+%files gcs-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/cmake/ArrowGcs/
+%{_libdir}/libarrow_gcs.a
+%{_libdir}/libarrow_gcs.so
+%{_libdir}/pkgconfig/arrow-gcs.pc
+%endif
+
 %package -n %{name}%{so_version}-acero-libs
 Summary:	C++ library to execute a query in streaming
 License:	Apache-2.0
