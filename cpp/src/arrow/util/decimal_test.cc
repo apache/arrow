@@ -1568,6 +1568,13 @@ TYPED_TEST(TestBasicDecimalFunctionality, Rescale) {
   ASSERT_OK_AND_EQ(TypeParam(500000), TypeParam(5).Rescale(1, 6));
   ASSERT_RAISES(Invalid, TypeParam(555555).Rescale(6, 1));
 
+  // Scale deltas larger than kMaxScale
+  constexpr int32_t kMaxScale = TypeParam::kMaxScale;
+  ASSERT_RAISES(Invalid, TypeParam(1).Rescale(kMaxScale + 1, 0));
+  ASSERT_RAISES(Invalid, TypeParam(1).Rescale(0, kMaxScale + 1));
+  ASSERT_RAISES(Invalid, TypeParam(-1).Rescale(100000, 2));
+  ASSERT_OK_AND_EQ(TypeParam(0), TypeParam(0).Rescale(100000, 2));
+
   using OrigScaleType =
       std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int8Type, Int16Type>;
   using ValueType =
@@ -2368,6 +2375,12 @@ TEST(Decimal256Test, Rescale) {
   ASSERT_OK_AND_EQ(Decimal256(5), Decimal256(500000).Rescale(6, 1));
   ASSERT_OK_AND_EQ(Decimal256(500000), Decimal256(5).Rescale(1, 6));
   ASSERT_RAISES(Invalid, Decimal256(555555).Rescale(6, 1));
+
+  // Scale deltas larger than kMaxScale
+  ASSERT_RAISES(Invalid, Decimal256(1).Rescale(Decimal256::kMaxScale + 1, 0));
+  ASSERT_RAISES(Invalid, Decimal256(1).Rescale(0, Decimal256::kMaxScale + 1));
+  ASSERT_RAISES(Invalid, Decimal256(-1).Rescale(100000, 2));
+  ASSERT_OK_AND_EQ(Decimal256(0), Decimal256(0).Rescale(100000, 2));
 
   // Test some random numbers.
   for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {

@@ -3123,6 +3123,17 @@ TEST(Cast, StringToDecimal) {
         CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_decimal + "\"]"), options);
       }
 
+      // Parsed scale far beyond the type's maximum scale
+      auto tiny = ArrayFromJSON(string_type, R"(["1E-100000", "-1E-100000"])");
+      CheckCastFails(tiny, CastOptions::Safe(decimal_type));
+      CheckCast(ArrayFromJSON(string_type, R"(["0E-100000"])"),
+                ArrayFromJSON(decimal_type, R"(["0.00"])"));
+      auto truncate_options = CastOptions::Safe(decimal_type);
+      truncate_options.allow_decimal_truncate = true;
+      ASSERT_OK_AND_ASSIGN(auto truncated, Cast(tiny, truncate_options));
+      AssertArraysEqual(*ArrayFromJSON(decimal_type, R"(["0.00", "0.00"])"),
+                        *truncated.make_array(), /*verbose=*/true);
+
 #if !defined(_WIN32) || defined(NDEBUG)
       // Test that casting is locale-independent
       // French locale uses the comma as decimal point

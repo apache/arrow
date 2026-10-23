@@ -675,9 +675,13 @@ struct StringToDecimal {
 
     if (ARROW_PREDICT_TRUE(r_parse.ok())) {
       if (allow_truncate_) {
-        return (parsed_scale < out_scale_)
-                   ? parsed_out.IncreaseScaleBy(out_scale_ - parsed_scale)
-                   : parsed_out.ReduceScaleBy(parsed_scale - out_scale_, false);
+        if (parsed_scale < out_scale_) {
+          return parsed_out.IncreaseScaleBy(out_scale_ - parsed_scale);
+        }
+        if (parsed_scale - out_scale_ > OutValue::kMaxScale) {
+          return {};  // Zero: every digit is truncated
+        }
+        return parsed_out.ReduceScaleBy(parsed_scale - out_scale_, false);
       }
 
       auto maybe_rescaled = parsed_out.Rescale(parsed_scale, out_scale_);

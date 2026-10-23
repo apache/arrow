@@ -734,6 +734,12 @@ TEST(DecimalConversion, Basics) {
   AssertConversion<Decimal128Type, Decimal128>(
       decimal128(23, 2), {"12,34.5\n", "36.37,-1e5\n"},
       {{Dec128("12.00"), Dec128("36.37")}, {Dec128("34.50"), Dec128("-100000.00")}});
+
+  // Scale far beyond the maximum decimal128 scale
+  AssertConversion<Decimal128Type, Decimal128>(decimal128(10, 2), {"0E-100000\n"},
+                                               {{Dec128("0.00")}});
+  AssertConversionError(decimal128(10, 2), {"1E-41\n"}, {0});
+  AssertConversionError(decimal128(10, 2), {"1E-100000\n"}, {0});
 }
 
 TEST(DecimalConversion, Nulls) {

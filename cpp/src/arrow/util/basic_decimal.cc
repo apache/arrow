@@ -1063,6 +1063,16 @@ DecimalStatus DecimalRescale(const DecimalClass& value, int32_t original_scale,
   const int32_t delta_scale = new_scale - original_scale;
   const int32_t abs_delta_scale = std::abs(delta_scale);
 
+  // No multiplier this large fits in the type (nor in the powers-of-ten table),
+  // so only zero can be rescaled without data loss.
+  if (ARROW_PREDICT_FALSE(abs_delta_scale > DecimalClass::kMaxScale)) {
+    if (value == 0) {
+      *out = value;
+      return DecimalStatus::kSuccess;
+    }
+    return DecimalStatus::kRescaleDataLoss;
+  }
+
   DecimalClass multiplier = DecimalClass::GetScaleMultiplier(abs_delta_scale);
 
   const bool rescale_would_cause_data_loss =
