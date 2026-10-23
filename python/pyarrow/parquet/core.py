@@ -272,6 +272,9 @@ class ParquetFile:
         If True, read Parquet logical types as Arrow extension types where
         possible (e.g., read JSON as the canonical `arrow.json` extension type
         or UUID as the canonical `arrow.uuid` extension type).
+    memory_pool : pyarrow.MemoryPool, optional
+        Pool to allocate memory from. If not passed, the default memory pool
+        is used.
 
     Examples
     --------
@@ -322,7 +325,8 @@ class ParquetFile:
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, schema_depth_limit=None,
                  filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=True):
+                 page_checksum_verification=False, arrow_extensions_enabled=True,
+                 memory_pool=None):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -332,7 +336,7 @@ class ParquetFile:
             source = filesystem.open_input_file(source)
             self._close_source = True  # We opened it here, ensure we close it.
 
-        self.reader = ParquetReader()
+        self.reader = ParquetReader(memory_pool=memory_pool)
         self.reader.open(
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
@@ -1392,6 +1396,9 @@ arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
+memory_pool : pyarrow.MemoryPool, optional
+    Pool to allocate memory from. If not passed, the default memory pool
+    is used.
 
 Examples
 --------
@@ -1406,8 +1413,10 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, schema_depth_limit=None,
                  page_checksum_verification=False,
-                 arrow_extensions_enabled=True):
+                 arrow_extensions_enabled=True, memory_pool=None):
         import pyarrow.dataset as ds
+
+        self._memory_pool = memory_pool
 
         # map format arguments
         read_options = {
@@ -1605,7 +1614,7 @@ Examples
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
-            use_threads=use_threads
+            use_threads=use_threads, memory_pool=self._memory_pool
         )
 
         # if the "pandas" metadata entry was retrieved from common_metadata,
@@ -1813,6 +1822,9 @@ arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
+memory_pool : pyarrow.MemoryPool, optional
+    Pool to allocate memory from. If not passed, the default memory pool
+    is used.
 
 Returns
 -------
@@ -1909,7 +1921,7 @@ def read_table(source, *, columns=None, use_threads=True,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None, schema_depth_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=True):
+               arrow_extensions_enabled=True, memory_pool=None):
 
     try:
         dataset = ParquetDataset(
@@ -1932,6 +1944,7 @@ def read_table(source, *, columns=None, use_threads=True,
             schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
+            memory_pool=memory_pool,
         )
     except ImportError:
         # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1980,6 +1993,7 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_container_size_limit=thrift_container_size_limit,
             schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
+            memory_pool=memory_pool,
         )
 
     return dataset.read(columns=columns, use_threads=use_threads,
