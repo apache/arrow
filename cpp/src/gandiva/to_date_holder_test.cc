@@ -85,6 +85,15 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 534643200000);
+
+  // A leap second does not make the value invalid, as the time is ignored
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder24,
+                       ToDateHolder::Make("YYYY-MM-DD HH24:MI:SS", 1));
+  s = std::string("2020-12-31 23:59:60");
+  millis_since_epoch = (*to_date_holder24)(&execution_context_, s.data(), (int)s.length(),
+                                           true, &out_valid);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(millis_since_epoch, 1609372800000);
 }
 
 TEST_F(TestToDateHolder, TestSimpleDate) {

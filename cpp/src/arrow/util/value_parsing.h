@@ -848,6 +848,12 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   // ignore the time part
   arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(ymd);
   if (!ignore_time_in_day) {
+    // Reject leap seconds, which Arrow cannot represent, instead of adding them
+    // to the time of day (which wraps them into the next minute); consistent
+    // with the ISO-8601 parser.
+    if (result.tm_sec >= 60) {
+      return false;
+    }
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
 #if !defined(_WIN32) && !defined(_AIX)
