@@ -21,11 +21,16 @@
 
 #include <stdexcept>
 #include <tuple>
+#include <vector>
 
 #include <arrow/io/file.h>
 
+#include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
@@ -228,7 +233,9 @@ class TestGeneratedEncryptionConfiguration
     if (std::get<2>(GetParam()) == AadPrefixMode::External) {
       builder.disable_aad_prefix_storage();
     }
-    FileEncryptor().EncryptFile(file_path_, builder.build());
+    auto properties = builder.build();
+    file_aad_ = properties->file_aad();
+    FileEncryptor().EncryptFile(file_path_, std::move(properties));
   }
 
  protected:
@@ -260,6 +267,37 @@ class TestGeneratedEncryptionConfiguration
     return ParquetFileReader::OpenFile(file_path_, false, reader_properties);
   }
 
+  void CheckPlaintextFooterSignature() {
+    PARQUET_ASSIGN_OR_THROW(auto file, ::arrow::io::ReadableFile::Open(file_path_));
+    PARQUET_ASSIGN_OR_THROW(auto file_size, file->GetSize());
+    ASSERT_GT(file_size, 8);
+    PARQUET_ASSIGN_OR_THROW(auto trailer, file->ReadAt(file_size - 8, 8));
+    ASSERT_EQ(trailer->size(), 8);
+    const auto footer_size = ::arrow::bit_util::FromLittleEndian(
+        ::arrow::util::SafeLoadAs<uint32_t>(trailer->data()));
+    constexpr auto signature_size = kNonceLength + kGcmTagLength;
+    ASSERT_GT(footer_size, signature_size);
+    ASSERT_LE(footer_size, file_size - 8);
+    PARQUET_ASSIGN_OR_THROW(auto footer,
+                            file->ReadAt(file_size - 8 - footer_size, footer_size));
+    ASSERT_EQ(footer->size(), footer_size);
+    const auto footer_span = footer->span_as<uint8_t>();
+    const auto metadata = footer_span.first(footer_size - signature_size);
+    const auto nonce = footer_span.subspan(metadata.size(), kNonceLength);
+    const auto tag = footer_span.last(kGcmTagLength);
+    const auto aad = CreateFooterAad(file_aad_);
+
+    // Verify the on-disk tag with GCM explicitly, independently of reader selection.
+    auto encryptor = AesEncryptor::Make(ParquetCipher::AES_GCM_V1,
+                                        kFooterEncryptionKey.size(), /*metadata=*/true,
+                                        /*write_length=*/false);
+    std::vector<uint8_t> encrypted(encryptor->CiphertextLength(metadata.size()));
+    encryptor->SignedFooterEncrypt(metadata, kFooterEncryptionKey.as_span(),
+                                   str2span(aad), nonce, encrypted);
+    EXPECT_EQ(std::vector<uint8_t>(tag.begin(), tag.end()),
+              std::vector<uint8_t>(encrypted.end() - kGcmTagLength, encrypted.end()));
+  }
+
   void ReadFirstSecretValue(std::shared_ptr<FileDecryptionProperties> properties) {
     auto reader = OpenReader(std::move(properties));
     auto column = reader->RowGroup(0)->Column(5);
@@ -271,12 +309,16 @@ class TestGeneratedEncryptionConfiguration
 
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::string file_path_;
+  std::string file_aad_;
 };
 
 TEST_P(TestGeneratedEncryptionConfiguration, AlgorithmMetadataAndRoundTrip) {
   const auto cipher = std::get<0>(GetParam());
   const bool plaintext_footer = std::get<1>(GetParam());
   const auto prefix_mode = std::get<2>(GetParam());
+  if (plaintext_footer) {
+    CheckPlaintextFooterSignature();
+  }
   auto reader = OpenReader(MakeDecryptionProperties());
   const auto metadata = reader->metadata();
   if (plaintext_footer) {
