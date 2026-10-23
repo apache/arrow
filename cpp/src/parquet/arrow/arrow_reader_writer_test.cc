@@ -2855,8 +2855,7 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
   const int row_group_size = 500;
   const int batch_size = 128;
   const int num_columns = 2;
-  const std::vector<int> expected_batch_sizes = {128, 128, 128, 116,
-                                                 128, 128, 128, 116};
+  const std::vector<int> expected_batch_sizes = {128, 128, 128, 116, 128, 128, 128, 116};
   properties.set_batch_size(batch_size);
   properties.set_pre_buffer(true);
   properties.set_use_threads(true);
@@ -2893,9 +2892,8 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
     for (size_t index = 0; index < batches.size(); ++index) {
       check_batches(batches[index], num_columns, expected_batch_sizes[index]);
     }
-    ASSERT_OK_AND_ASSIGN(
-        auto actual,
-        ::arrow::Table::FromRecordBatches(batches.front()->schema(), batches));
+    ASSERT_OK_AND_ASSIGN(auto actual, ::arrow::Table::FromRecordBatches(
+                                          batches.front()->schema(), batches));
     AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
   }
   {
@@ -2937,38 +2935,6 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
     }
   }
   {
-    // Exercise the same deadlock guard when a null executor resolves to the default
-    // CPU pool, which is also serving as the single-worker I/O executor.
-    struct CpuThreadPoolCapacityGuard {
-      int capacity = ::arrow::GetCpuThreadPoolCapacity();
-      ~CpuThreadPoolCapacityGuard() {
-        ARROW_CHECK_OK(::arrow::SetCpuThreadPoolCapacity(capacity));
-      }
-    } capacity_guard;
-    ASSERT_OK(::arrow::SetCpuThreadPoolCapacity(1));
-    auto* cpu_executor = ::arrow::internal::GetCpuThreadPool();
-    auto default_executor_properties = properties;
-    default_executor_properties.set_io_context(::arrow::io::IOContext(cpu_executor));
-    std::unique_ptr<FileReader> unique_reader;
-    FileReaderBuilder builder;
-    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
-    ASSERT_OK(builder.properties(default_executor_properties)->Build(&unique_reader));
-    std::shared_ptr<FileReader> default_executor_reader = std::move(unique_reader);
-    ASSERT_OK_AND_ASSIGN(
-        auto batch_generator,
-        default_executor_reader->GetRecordBatchGenerator(default_executor_reader,
-                                                          {0, 1}, {0, 1}));
-    auto batches_future = ::arrow::DeferNotOk(cpu_executor->Submit(
-        [batch_generator = std::move(batch_generator)]() mutable {
-          return ::arrow::CollectAsyncGenerator(batch_generator);
-        }));
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, batches_future);
-    ASSERT_EQ(batches.size(), expected_batch_sizes.size());
-    for (size_t index = 0; index < batches.size(); ++index) {
-      check_batches(batches[index], num_columns, expected_batch_sizes[index]);
-    }
-  }
-  {
     // Preserve row counts and batch boundaries when no columns are selected.
     ASSERT_OK_AND_ASSIGN(auto batch_generator,
                          reader->GetRecordBatchGenerator(reader, {0, 1}, {}));
@@ -2993,20 +2959,18 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorDecodesFirstBatchWithinMemoryLim
   // The cap can hold one decoded batch, but not all values in the row group.
   ASSERT_LT(static_cast<int64_t>(batch_size) * num_columns * sizeof(double),
             memory_limit);
-  ASSERT_GT(static_cast<int64_t>(num_rows) * num_columns * sizeof(double),
-            memory_limit);
+  ASSERT_GT(static_cast<int64_t>(num_rows) * num_columns * sizeof(double), memory_limit);
 
   // Constant values keep pre-buffered Parquet input small enough to isolate decoded
   // Arrow allocations.
   ASSERT_OK_AND_ASSIGN(
-      auto values,
-      ::arrow::MakeArrayFromScalar(::arrow::DoubleScalar(1.0), num_rows));
+      auto values, ::arrow::MakeArrayFromScalar(::arrow::DoubleScalar(1.0), num_rows));
   std::vector<std::shared_ptr<::arrow::ChunkedArray>> columns;
   std::vector<std::shared_ptr<::arrow::Field>> fields;
   for (int column_index = 0; column_index < num_columns; ++column_index) {
     columns.push_back(std::make_shared<::arrow::ChunkedArray>(values));
-    fields.push_back(::arrow::field("col" + std::to_string(column_index),
-                                    ::arrow::float64()));
+    fields.push_back(
+        ::arrow::field("col" + std::to_string(column_index), ::arrow::float64()));
   }
   auto table = Table::Make(::arrow::schema(std::move(fields)), std::move(columns));
 
@@ -3019,7 +2983,6 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorDecodesFirstBatchWithinMemoryLim
   // Wrap the default pool so any reader allocation beyond the test budget returns OOM.
   ::arrow::ProxyMemoryPool proxy_pool(::arrow::default_memory_pool());
   ::arrow::CappedMemoryPool capped_pool(&proxy_pool, memory_limit);
-  ASSERT_OK_AND_ASSIGN(auto cpu_executor, ::arrow::internal::ThreadPool::Make(1));
 
   // Use the pre-buffered incremental path and serial decoding for deterministic memory
   // accounting. A successful Next() should allocate only the configured batch.
@@ -3032,15 +2995,13 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorDecodesFirstBatchWithinMemoryLim
   std::unique_ptr<FileReader> unique_reader;
   FileReaderBuilder builder;
   ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
-  ASSERT_OK(builder.memory_pool(&capped_pool)->properties(properties)->Build(
-      &unique_reader));
+  ASSERT_OK(
+      builder.memory_pool(&capped_pool)->properties(properties)->Build(&unique_reader));
   std::shared_ptr<FileReader> reader = std::move(unique_reader);
 
   // Select every column in the only row group, but request just the first output batch.
-  ASSERT_OK_AND_ASSIGN(
-      auto batch_generator,
-      reader->GetRecordBatchGenerator(reader, {0}, Iota(num_columns),
-                      cpu_executor.get()));
+  ASSERT_OK_AND_ASSIGN(auto batch_generator,
+                       reader->GetRecordBatchGenerator(reader, {0}, Iota(num_columns)));
   // An eager full-row-group decode would exceed the cap before returning this batch.
   ASSERT_FINISHES_OK_AND_ASSIGN(auto first_batch, batch_generator());
   ASSERT_NE(first_batch, nullptr);
