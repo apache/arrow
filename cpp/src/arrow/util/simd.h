@@ -42,6 +42,10 @@
 #    include <arm_neon.h>
 #  endif
 
+#  if defined(ARROW_HAVE_RVV) || defined(ARROW_HAVE_RUNTIME_RVV)
+#    include <riscv_vector.h>
+#  endif
+
 // GH-44098: Workaround for missing _mm256_set_m128i in older versions of GCC.
 #  if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 8
 #    define _mm256_set_m128i(hi, lo) \
