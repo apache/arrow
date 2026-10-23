@@ -1455,13 +1455,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         auto chunk_def_levels = AddIfNotNull(def_levels, chunk.level_offset);
         auto chunk_rep_levels = AddIfNotNull(rep_levels, chunk.level_offset);
         if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
-          ARROW_CHECK_OK(WriteArrowDictionary(chunk_def_levels, chunk_rep_levels,
-                                              chunk.levels_to_write, *chunk_array, ctx,
-                                              maybe_parent_nulls));
+          RETURN_NOT_OK(WriteArrowDictionary(chunk_def_levels, chunk_rep_levels,
+                                             chunk.levels_to_write, *chunk_array, ctx,
+                                             maybe_parent_nulls));
         } else {
-          ARROW_CHECK_OK(WriteArrowDense(chunk_def_levels, chunk_rep_levels,
-                                         chunk.levels_to_write, *chunk_array, ctx,
-                                         maybe_parent_nulls));
+          RETURN_NOT_OK(WriteArrowDense(chunk_def_levels, chunk_rep_levels,
+                                        chunk.levels_to_write, *chunk_array, ctx,
+                                        maybe_parent_nulls));
         }
         bool is_last_chunk = i == (chunks.size() - 1);
         if (num_buffered_values_ > 0 && !is_last_chunk) {

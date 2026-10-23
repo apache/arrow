@@ -170,8 +170,9 @@ def test_coerce_timestamps_truncated(tempdir):
     ("2.6", "s", "us", "us"),
 ])
 @pytest.mark.parametrize("store_schema", [False, True])
+@pytest.mark.parametrize("use_content_defined_chunking", [False, True])
 def test_coerce_times(version, source_unit, target_unit, expected_unit,
-                      store_schema):
+                      store_schema, use_content_defined_chunking):
     units_per_second = {"s": 1, "ms": 1000, "us": 1000000, "ns": 1000000000}
     source_type = (pa.time32(source_unit) if source_unit in ("s", "ms")
                    else pa.time64(source_unit))
@@ -183,7 +184,8 @@ def test_coerce_times(version, source_unit, target_unit, expected_unit,
                         expected_type)
     buffer = io.BytesIO()
     pq.write_table(pa.table({"time": array}), buffer, version=version,
-                   coerce_timestamps=target_unit, store_schema=store_schema)
+                   coerce_timestamps=target_unit, store_schema=store_schema,
+                   use_content_defined_chunking=use_content_defined_chunking)
     buffer.seek(0)
     file = pq.ParquetFile(buffer)
     physical_type = "INT32" if expected_unit == "ms" else "INT64"
@@ -193,13 +195,17 @@ def test_coerce_times(version, source_unit, target_unit, expected_unit,
 
 
 @pytest.mark.parametrize("target_unit, value", [("us", 1001), ("ms", 1000001)])
-def test_coerce_times_truncated(target_unit, value):
+@pytest.mark.parametrize("use_content_defined_chunking", [False, True])
+def test_coerce_times_truncated(target_unit, value, use_content_defined_chunking):
     table = pa.table({"time": pa.array([value, None], pa.time64("ns"))})
     with pytest.raises(pa.ArrowInvalid, match="would lose data"):
-        pq.write_table(table, io.BytesIO(), coerce_timestamps=target_unit)
+        pq.write_table(
+            table, io.BytesIO(), coerce_timestamps=target_unit,
+            use_content_defined_chunking=use_content_defined_chunking)
     buffer = io.BytesIO()
     pq.write_table(table, buffer, coerce_timestamps=target_unit,
-                   allow_truncated_timestamps=True)
+                   allow_truncated_timestamps=True,
+                   use_content_defined_chunking=use_content_defined_chunking)
     buffer.seek(0)
     dtype = pa.time32("ms") if target_unit == "ms" else pa.time64("us")
     assert pq.read_table(buffer).column(0).combine_chunks().equals(
@@ -218,19 +224,25 @@ def test_time_default_coercion_rejects_truncation(version):
     (pa.time32("s"), "ms", 2147483647),
     (pa.time64("us"), "ms", 2147483648000),
 ])
-def test_coerce_times_overflow(source_type, target_unit, value):
+@pytest.mark.parametrize("use_content_defined_chunking", [False, True])
+def test_coerce_times_overflow(source_type, target_unit, value,
+                               use_content_defined_chunking):
     table = pa.table({"time": pa.array([value], source_type)})
     with pytest.raises(pa.ArrowInvalid, match="overflow"):
         pq.write_table(table, io.BytesIO(), coerce_timestamps=target_unit,
-                       allow_truncated_timestamps=True)
+                       allow_truncated_timestamps=True,
+                       use_content_defined_chunking=use_content_defined_chunking)
 
 
-def test_coerce_times_null_parent():
+@pytest.mark.parametrize("use_content_defined_chunking", [False, True])
+def test_coerce_times_null_parent(use_content_defined_chunking):
     child = pa.array([1001, 2000], pa.time64("ns"))
     array = pa.StructArray.from_arrays([child], names=["time"],
                                        mask=pa.array([True, False]))
     buffer = io.BytesIO()
-    pq.write_table(pa.table({"s": array}), buffer, coerce_timestamps="us")
+    pq.write_table(
+        pa.table({"s": array}), buffer, coerce_timestamps="us",
+        use_content_defined_chunking=use_content_defined_chunking)
     buffer.seek(0)
     expected_child = pa.array([None, 2], pa.time64("us"))
     expected = pa.StructArray.from_arrays([expected_child], names=["time"],
@@ -241,7 +253,8 @@ def test_coerce_times_null_parent():
 @pytest.mark.parametrize("kind", [
     "chunked", "list", "dictionary", "all_null",
 ])
-def test_coerce_times_array_layouts(kind):
+@pytest.mark.parametrize("use_content_defined_chunking", [False, True])
+def test_coerce_times_array_layouts(kind, use_content_defined_chunking):
     array = pa.array([7, 1000000, None, 2000000], pa.time64("ns")).slice(1)
     expected = pa.array([1000, None, 2000], pa.time64("us"))
     if kind == "chunked":
@@ -260,11 +273,59 @@ def test_coerce_times_array_layouts(kind):
         expected = pa.array([None, None, None], pa.time64("us"))
     buffer = io.BytesIO()
     pq.write_table(pa.table({"time": array}), buffer, version="2.4",
-                   row_group_size=1)
+                   row_group_size=1,
+                   use_content_defined_chunking=use_content_defined_chunking)
     buffer.seek(0)
     result = pq.read_table(buffer).column(0).combine_chunks()
     if pa.types.is_dictionary(result.type):
         result = result.dictionary_decode()
+    assert result.equals(expected)
+
+
+@pytest.mark.parametrize("version", ["1.0", "2.4"])
+@pytest.mark.parametrize("dictionary", [False, True])
+@pytest.mark.parametrize("allow_truncated_timestamps", [False, True])
+def test_coerce_times_content_defined_chunking(
+        version, dictionary, allow_truncated_timestamps):
+    # GH-50142: propagate conversion errors from both chunked write paths.
+    array = pa.array([1001], pa.time64("ns"))
+    if dictionary:
+        array = pa.DictionaryArray.from_arrays(pa.array([0], pa.int8()), array)
+    table = pa.table({"time": array})
+
+    with pytest.raises(pa.ArrowInvalid, match="would lose data"):
+        pq.write_table(
+            table, io.BytesIO(), version=version, compression=None,
+            allow_truncated_timestamps=allow_truncated_timestamps,
+            use_content_defined_chunking=True)
+
+
+@pytest.mark.parametrize("source_type, target_unit", [
+    (pa.time64("ns"), "us"),
+    (pa.time64("ns"), "ms"),
+    (pa.time32("s"), "us"),
+])
+def test_coerce_times_content_defined_chunking_multiple_chunks(
+        source_type, target_unit):
+    values = [i if i % 7 else None for i in range(256)]
+    units_per_second = {"s": 1, "ms": 1000, "us": 1000000, "ns": 1000000000}
+    source = pa.array([
+        value * units_per_second[source_type.unit] if value is not None else None
+        for value in values
+    ], source_type)
+    target_type = pa.time32("ms") if target_unit == "ms" else pa.time64("us")
+    expected = pa.array([
+        value * units_per_second[target_unit] if value is not None else None
+        for value in values
+    ], target_type)
+    buffer = io.BytesIO()
+    pq.write_table(
+        pa.table({"time": source}), buffer, version="2.4",
+        coerce_timestamps=target_unit, use_dictionary=False, compression=None,
+        write_batch_size=7,
+        use_content_defined_chunking={"min_chunk_size": 64, "max_chunk_size": 128})
+    buffer.seek(0)
+    result = pq.read_table(buffer).column(0).combine_chunks()
     assert result.equals(expected)
 
 
