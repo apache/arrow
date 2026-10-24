@@ -879,6 +879,13 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
   }
   int32_t parsed_precision = static_cast<int32_t>(significant_digits);
 
+  // Reject precisions that exceed the target decimal's max (GH-49817).
+  if (parsed_precision > Decimal::kMaxPrecision) {
+    return Status::Invalid(s, " requires precision ", parsed_precision,
+                           " which exceeds the ", type_name, " maximum of ",
+                           Decimal::kMaxPrecision);
+  }
+
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
     // parsed_scale = -exponent + fractional_digits, computed with overflow
@@ -946,6 +953,13 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     significant_digits += dec.whole_digits.size() - first_non_zero;
   }
   int32_t parsed_precision = static_cast<int32_t>(significant_digits);
+
+  // Reject precisions that exceed the target decimal's max (GH-49817).
+  if (parsed_precision > DecimalClass::kMaxPrecision) {
+    return Status::Invalid(s, " requires precision ", parsed_precision,
+                           " which exceeds the ", type_name, " maximum of ",
+                           DecimalClass::kMaxPrecision);
+  }
 
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
