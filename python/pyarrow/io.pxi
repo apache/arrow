@@ -193,6 +193,20 @@ cdef class NativeFile(_Weakrefable):
                 else:
                     check_status(self.output_stream.get().Close())
 
+    def abort(self):
+        """
+        Close the stream, discarding written data if the stream supports it.
+
+        For example, an S3 output stream aborts its multipart upload, so no
+        object is written. Other streams are simply closed.
+        """
+        if not self.closed:
+            with nogil:
+                if self.is_readable:
+                    check_status(self.input_stream.get().Abort())
+                else:
+                    check_status(self.output_stream.get().Abort())
+
     cdef set_random_access_file(self, shared_ptr[CRandomAccessFile] handle):
         self.input_stream = <shared_ptr[CInputStream]> handle
         self.random_access = handle
