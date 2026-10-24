@@ -30,7 +30,7 @@ namespace arrow::compute {
 
 namespace {
 
-using SmallSignedIntegerTypes = ::testing::Types<Int8Type, Int16Type>;
+using SmallIntegerTypes = ::testing::Types<Int8Type, Int16Type, UInt8Type, UInt16Type>;
 
 }  // namespace
 
@@ -120,29 +120,54 @@ void TestInversePermutationForInputOutputTypes(
 void TestInversePermutation(const std::vector<std::string>& indices_chunked_str,
                             int64_t max_index, const std::string& expected_str,
                             bool validity_must_be_null = false) {
-  TestInversePermutationForInputOutputTypes(SignedIntTypes(), SignedIntTypes(),
-                                            indices_chunked_str, max_index, expected_str,
+  TestInversePermutationForInputOutputTypes(IntTypes(), IntTypes(), indices_chunked_str,
+                                            max_index, expected_str,
                                             validity_must_be_null);
 }
 
 }  // namespace
 
-TEST(InversePermutation, InvalidOutputType) {
-  {
-    ARROW_SCOPED_TRACE("Output type unsigned");
-    auto indices = ArrayFromJSON(int32(), "[]");
-    ASSERT_RAISES_WITH_MESSAGE(
-        TypeError,
-        "Type error: Output type of inverse_permutation must be signed integer, got "
-        "uint32",
-        InversePermutation(indices, /*max_index=*/0, /*output_type=*/uint32()));
+TEST(InversePermutation, InvalidInputType) {
+  // The integer matcher must not accept non-integers of the same width.
+  for (const auto& type : {boolean(), float32(), float64(), utf8()}) {
+    ARROW_SCOPED_TRACE(type->ToString());
+    ASSERT_RAISES(NotImplemented, InversePermutation(ArrayFromJSON(type, "[null]")));
   }
+}
+
+TEST(InversePermutation, DenseValidityBitmapBoundaries) {
+  for (int64_t length : {7, 8, 9, 63, 64, 65}) {
+    for (int64_t missing : {int64_t{0}, int64_t{1}, int64_t{2}, int64_t{3}, int64_t{4},
+                            int64_t{5}, int64_t{6}, int64_t{7}, length - 1}) {
+      if (missing >= length) continue;
+      ARROW_SCOPED_TRACE("Length: " + std::to_string(length) +
+                         ", missing destination: " + std::to_string(missing));
+      std::string indices = "[";
+      std::string expected = "[";
+      for (int64_t i = 0; i < length; ++i) {
+        if (i != 0) expected += ",";
+        if (i == missing) {
+          expected += "null";
+        } else {
+          if (indices.size() > 1) indices += ",";
+          indices += std::to_string(i);
+          expected += std::to_string(i < missing ? i : i - 1);
+        }
+      }
+      indices += "]";
+      expected += "]";
+      TestInversePermutation({indices}, /*max_index=*/length - 1, expected);
+    }
+  }
+}
+
+TEST(InversePermutation, InvalidOutputType) {
   {
     ARROW_SCOPED_TRACE("Output type float");
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
         TypeError,
-        "Type error: Output type of inverse_permutation must be signed integer, got "
+        "Type error: Output type of inverse_permutation must be integer, got "
         "float",
         InversePermutation(indices, /*max_index=*/0, /*output_type=*/float32()));
   }
@@ -151,7 +176,7 @@ TEST(InversePermutation, InvalidOutputType) {
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
         TypeError,
-        "Type error: Output type of inverse_permutation must be signed integer, got "
+        "Type error: Output type of inverse_permutation must be integer, got "
         "string",
         InversePermutation(indices, /*max_index=*/0, /*output_type=*/utf8()));
   }
@@ -167,7 +192,7 @@ TEST(InversePermutation, DefaultOptions) {
   }
   {
     ARROW_SCOPED_TRACE("Default options semantics");
-    for (const auto& input_type : SignedIntTypes()) {
+    for (const auto& input_type : IntTypes()) {
       ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
       auto indices = ArrayFromJSON(input_type, "[0]");
       ASSERT_OK_AND_ASSIGN(Datum result, InversePermutation(indices));
@@ -189,6 +214,48 @@ TEST(InversePermutation, InvalidIndex) {
     ASSERT_RAISES_WITH_MESSAGE(
         IndexError, "Index error: Index out of bounds: 42",
         InversePermutation(indices, /*max_index=*/1, /*output_type=*/int32()));
+  }
+}
+
+TEST(InversePermutation, IndexBounds) {
+  for (const auto& type : IntTypes()) {
+    ARROW_SCOPED_TRACE(type->ToString());
+    const std::string invalid_index = is_signed_integer(type->id()) ? "-1" : "42";
+    for (const Datum& indices :
+         {Datum(ArrayFromJSON(type, "[" + invalid_index + "]")),
+          Datum(ChunkedArrayFromJSON(type, {"[]", "[" + invalid_index + "]"}))}) {
+      ASSERT_RAISES_WITH_MESSAGE(
+          IndexError, "Index error: Index out of bounds: " + invalid_index,
+          InversePermutation(indices, /*max_index=*/1, /*output_type=*/int64()));
+    }
+  }
+  // Reading signed indices through their unsigned representation must still reject
+  // negative values, even if that representation would fit in the output.
+  for (const auto& indices :
+       {ArrayFromJSON(int8(), "[-1]"), ArrayFromJSON(int8(), "[-128]")}) {
+    ASSERT_RAISES(IndexError, InversePermutation(indices, /*max_index=*/300,
+                                                 /*output_type=*/int64()));
+  }
+  // Do not narrow uint64 indices to int64 before checking bounds.
+  for (const std::string index : {"9223372036854775808", "18446744073709551615"}) {
+    for (const Datum& indices :
+         {Datum(ArrayFromJSON(uint64(), "[" + index + "]")),
+          Datum(ChunkedArrayFromJSON(uint64(), {"[]", "[" + index + "]"}))}) {
+      ASSERT_RAISES_WITH_MESSAGE(
+          IndexError, "Index error: Index out of bounds: " + index,
+          InversePermutation(indices, /*max_index=*/1, /*output_type=*/int64()));
+    }
+  }
+}
+
+TEST(InversePermutation, SlicedIndices) {
+  for (const auto& type : IntTypes()) {
+    auto indices = ArrayFromJSON(type, "[42, 2, null, 0, 1, 42]")->Slice(1, 4);
+    auto expected = ArrayFromJSON(type, "[2, 3, 0, null]");
+    AssertInversePermutation(indices, -1, type, expected, false);
+    auto chunked = std::make_shared<ChunkedArray>(
+        ArrayVector{indices->Slice(0, 1), indices->Slice(1)});
+    AssertInversePermutation(chunked, -1, type, expected, false);
   }
 }
 
@@ -251,7 +318,7 @@ class TestInversePermutationSmallOutputType : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestInversePermutationSmallOutputType, SmallSignedIntegerTypes);
+TYPED_TEST_SUITE(TestInversePermutationSmallOutputType, SmallIntegerTypes);
 
 TYPED_TEST(TestInversePermutationSmallOutputType, JustEnoughOutputType) {
   auto output_type = this->type_singleton();
@@ -260,7 +327,7 @@ TYPED_TEST(TestInversePermutationSmallOutputType, JustEnoughOutputType) {
   auto expected =
       ArrayFromJSON(output_type, "[" + std::to_string(input_length - 1) + "]");
   DoTestInversePermutationForInputTypes(
-      SignedIntTypes(),
+      IntTypes(),
       [&](const std::shared_ptr<DataType>& input_type) -> Result<Datum> {
         return ConstantArrayGenerator::Zeroes(input_length, input_type);
       },
@@ -271,7 +338,7 @@ TYPED_TEST(TestInversePermutationSmallOutputType, InsufficientOutputType) {
   auto output_type = this->type_singleton();
   int64_t input_length =
       static_cast<int64_t>(std::numeric_limits<typename TestFixture::CType>::max()) + 1;
-  for (const auto& input_type : SignedIntTypes()) {
+  for (const auto& input_type : IntTypes()) {
     ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
     auto indices = ConstantArrayGenerator::Zeroes(input_length, input_type);
     ASSERT_RAISES_WITH_MESSAGE(
@@ -440,7 +507,7 @@ void DoTestScatterForIndicesTypes(
 void DoTestScatter(const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Array>& indices, int64_t max_index,
                    const std::shared_ptr<Array>& expected) {
-  DoTestScatterForIndicesTypes(SignedIntTypes(), values, indices, max_index, expected);
+  DoTestScatterForIndicesTypes(IntTypes(), values, indices, max_index, expected);
 }
 
 void TestScatter(const std::shared_ptr<DataType>& value_type,
@@ -468,19 +535,17 @@ TEST(Scatter, Invalid) {
     ARROW_SCOPED_TRACE("Invalid input type");
     auto values = ArrayFromJSON(int32(), "[0]");
     {
-      ARROW_SCOPED_TRACE("uint32");
-      auto indices = ArrayFromJSON(uint32(), R"([0])");
+      ARROW_SCOPED_TRACE("float");
+      auto indices = ArrayFromJSON(float32(), R"([0])");
       ASSERT_RAISES_WITH_MESSAGE(
-          TypeError,
-          "Type error: Indices of scatter must be of signed integer type, got uint32",
+          TypeError, "Type error: Indices of scatter must be of integer type, got float",
           Scatter(values, indices));
     }
     {
       ARROW_SCOPED_TRACE("string");
       auto indices = ArrayFromJSON(utf8(), R"(["a"])");
       ASSERT_RAISES_WITH_MESSAGE(
-          TypeError,
-          "Type error: Indices of scatter must be of signed integer type, got string",
+          TypeError, "Type error: Indices of scatter must be of integer type, got string",
           Scatter(values, indices));
     }
   }
@@ -495,7 +560,7 @@ TEST(Scatter, DefaultOptions) {
   {
     ARROW_SCOPED_TRACE("Default options semantics");
     auto values = ArrayFromJSON(utf8(), R"(["a"])");
-    for (const auto& indices_type : SignedIntTypes()) {
+    for (const auto& indices_type : IntTypes()) {
       ARROW_SCOPED_TRACE("Indices type: " + indices_type->ToString());
       auto indices = ArrayFromJSON(indices_type, "[0]");
       ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices));
@@ -521,6 +586,30 @@ TEST(Scatter, InvalidIndex) {
   }
 }
 
+TEST(Scatter, UnsignedIndexBounds) {
+  auto values = ArrayFromJSON(utf8(), R"(["a"])");
+  for (const std::string index : {"9223372036854775808", "18446744073709551615"}) {
+    for (const Datum& indices :
+         {Datum(ArrayFromJSON(uint64(), "[" + index + "]")),
+          Datum(ChunkedArrayFromJSON(uint64(), {"[]", "[" + index + "]"}))}) {
+      ASSERT_RAISES_WITH_MESSAGE(IndexError, "Index error: Index out of bounds: " + index,
+                                 Scatter(values, indices, /*max_index=*/1));
+    }
+  }
+}
+
+TEST(Scatter, SlicedIndices) {
+  auto values = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])");
+  auto expected = ArrayFromJSON(utf8(), R"(["c", "d", "a", null])");
+  for (const auto& type : IntTypes()) {
+    auto indices = ArrayFromJSON(type, "[42, 2, null, 0, 1, 42]")->Slice(1, 4);
+    AssertScatterAAA(values, indices, -1, expected);
+    auto chunked = std::make_shared<ChunkedArray>(
+        ArrayVector{indices->Slice(0, 1), indices->Slice(1)});
+    AssertScatterACC(values, chunked, -1, expected);
+  }
+}
+
 template <typename ArrowType>
 class TestScatterSmallIndicesTypes : public ::testing::Test {
  protected:
@@ -531,20 +620,19 @@ class TestScatterSmallIndicesTypes : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestScatterSmallIndicesTypes, SmallSignedIntegerTypes);
+TYPED_TEST_SUITE(TestScatterSmallIndicesTypes, SmallIntegerTypes);
 
 TYPED_TEST(TestScatterSmallIndicesTypes, MaxIntegerIndex) {
   auto values = ArrayFromJSON(utf8(), R"(["a"])");
   auto indices_type = this->type_singleton();
   int64_t max_integer =
       static_cast<int64_t>(std::numeric_limits<typename TestFixture::CType>::max());
-  auto indices = ArrayFromJSON(indices_type, "[" + std::to_string(max_integer - 1) + "]");
-  ASSERT_OK_AND_ASSIGN(auto expected_prefix_nulls,
-                       MakeArrayOfNull(utf8(), max_integer - 1));
+  auto indices = ArrayFromJSON(indices_type, "[" + std::to_string(max_integer) + "]");
+  ASSERT_OK_AND_ASSIGN(auto expected_prefix_nulls, MakeArrayOfNull(utf8(), max_integer));
   auto expected_suffix_value = values;
   ASSERT_OK_AND_ASSIGN(auto expected,
                        Concatenate({expected_prefix_nulls, expected_suffix_value}));
-  DoTestScatterAAA(values, indices, /*max_index=*/max_integer - 1, expected);
+  DoTestScatterAAA(values, indices, /*max_index=*/max_integer, expected);
 }
 
 TEST(Scatter, Boolean) {
