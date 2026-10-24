@@ -1831,7 +1831,7 @@ These functions select and return a subset of their input.
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 | filter              | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
-| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(4) | :struct:`InversePermutationOptions` | \(5)  |
+| inverse_permutation | Unary  | Integer        |              | Integer \(4)        | :struct:`InversePermutationOptions` | \(5)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 | scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(6)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
