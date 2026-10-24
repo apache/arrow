@@ -1354,6 +1354,14 @@ cdef class Array(_PandasConvertible):
 
         The concrete type returned depends on the datatype.
 
+        .. warning::
+
+            The caller is responsible for providing valid Arrow data.
+            Only basic validation checks are performed when constructing
+            the array. Call ``validate(full=True)`` on the resulting array
+            before using it to perform thorough validation checks.
+            Using an array with invalid data may lead to crashes.
+
         Parameters
         ----------
         type : DataType
@@ -4211,6 +4219,14 @@ cdef class StringArray(Array):
         If there are nulls in the data, also a null_bitmap and the matching
         null_count must be passed.
 
+        .. warning::
+
+            The caller is responsible for providing valid Arrow data.
+            Only basic validation checks are performed when constructing
+            the array. Call ``validate(full=True)`` on the resulting array
+            before using it to perform thorough validation checks.
+            Using an array with invalid data may lead to crashes.
+
         Parameters
         ----------
         length : int
@@ -4248,6 +4264,14 @@ cdef class LargeStringArray(Array):
         Construct a LargeStringArray from value_offsets and data buffers.
         If there are nulls in the data, also a null_bitmap and the matching
         null_count must be passed.
+
+        .. warning::
+
+            The caller is responsible for providing valid Arrow data.
+            Only basic validation checks are performed when constructing
+            the array. Call ``validate(full=True)`` on the resulting array
+            before using it to perform thorough validation checks.
+            Using an array with invalid data may lead to crashes.
 
         Parameters
         ----------
@@ -4368,6 +4392,14 @@ cdef class DictionaryArray(Array):
                      int64_t null_count=-1, int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
+
+        .. warning::
+
+            The caller is responsible for providing valid Arrow data.
+            Only basic validation checks are performed when constructing
+            the array. Call ``validate(full=True)`` on the resulting array
+            before using it to perform thorough validation checks.
+            Using an array with invalid data may lead to crashes.
 
         Parameters
         ----------
