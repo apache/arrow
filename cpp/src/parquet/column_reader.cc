@@ -776,8 +776,8 @@ class ColumnReaderImplBase {
   bool HasNextInternal() {
     // Either there is no data page available yet, or the data page has been
     // exhausted
-    if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
-      if (!ReadNewPage() || num_buffered_values_ == 0) {
+    while (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
+      if (!ReadNewPage()) {
         return false;
       }
     }
