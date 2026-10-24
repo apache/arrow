@@ -167,6 +167,39 @@ concatenate them into a single table. You can read individual stripes with
    two: ["foo","bar","baz"]
    three: [true,false,true]
 
+To consume a file in batches without first materializing an entire stripe as
+Arrow data, use :meth:`~pyarrow.orc.ORCFile.iter_batches`:
+
+.. code-block:: python
+
+   >>> batches = orc_file.iter_batches(batch_size=2, stripes=[0], columns=['one'])
+   >>> [batch.num_rows for batch in batches]
+   [2, 1]
+
+Omitting ``stripes`` reads the entire file in physical order. An explicit
+sequence reads stripes in the supplied order, including repetitions; an empty
+sequence reads nothing. Column selection follows ``read_stripe``. In particular,
+``columns=[]`` returns zero-column batches with the correct row counts.
+
+Reading begins when the iterator is consumed. When stopping early, call
+``close()`` to release its reader:
+
+.. code-block:: python
+
+   >>> batches = orc_file.iter_batches(batch_size=2)
+   >>> try:
+   ...     first_batch = next(batches)
+   ... finally:
+   ...     batches.close()
+
+Closing the iterator does not close a file object supplied by the caller.
+Returned batches remain valid. ``batch_size`` bounds the number of output rows,
+not total process memory: ORC dictionaries, encoded streams, decompression
+buffers, and individual wide rows can still require additional memory.
+The Dataset interface also supports whole-file streaming; this method additionally
+allows callers to select individual stripes. It does not perform predicate
+pushdown or choose stripes from statistics.
+
 We can write an ORC file using ``ORCWriter``:
 
 .. code-block:: python

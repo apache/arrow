@@ -17,10 +17,14 @@
 
 import decimal
 import datetime
+import gc
+import io
 from pathlib import Path
+import random
 import shutil
 import subprocess
 import sys
+import weakref
 
 import pytest
 
@@ -125,6 +129,14 @@ def check_example_file(orc_path, expected_df, need_fix=False):
                              stop=json_pos + len(batch))
         json_pos += len(batch)
     assert json_pos == orc_file.nrows
+
+    # Exercise both the full-file and selected-stripe native batch paths on
+    # examples covering the existing reader's supported ORC types.
+    for stripes in (None, list(range(orc_file.nstripes))):
+        batches = list(orc_file.iter_batches(batch_size=127, stripes=stripes))
+        assert all(0 < batch.num_rows <= 127 for batch in batches)
+        actual = pa.Table.from_batches(batches, schema=table.schema)
+        assert actual.equals(table)
 
 
 @pytest.mark.pandas
@@ -697,3 +709,273 @@ def test_orc_writer_with_null_arrays(tempdir):
     table = pa.table({"int64": a, "utf8": b})
     with pytest.raises(pa.ArrowNotImplementedError):
         orc.write_table(table, path)
+
+
+@pytest.fixture(scope="module", params=[
+    'uncompressed', 'zlib', 'snappy', 'lz4', 'zstd'])
+def batch_file(request):
+    from pyarrow import orc
+
+    rows = 4 * 16384
+    rng = random.Random(42)
+    values = [rng.getrandbits(62) for _ in range(rows)]
+    table = pa.table({'value': values,
+                      'other': [value // 3 for value in values]})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink, stripe_size=1, batch_size=16384,
+                    compression=request.param)
+    data = sink.getvalue()
+    reader = orc.ORCFile(data)
+    assert reader.nstripes == 4
+    assert all(reader.read_stripe(i).num_rows == 16384 for i in range(4))
+    return data, table
+
+
+@pytest.mark.parametrize('batch_size', [1000, 16384, 20000, 65536])
+@pytest.mark.parametrize('stripes', [None, [2, 0, 2], []])
+def test_iter_batches_selection(batch_file, batch_size, stripes):
+    from pyarrow import orc
+
+    data, table = batch_file
+    reader = orc.ORCFile(data)
+    batches = list(reader.iter_batches(batch_size, stripes=stripes))
+    assert all(0 < batch.num_rows <= batch_size for batch in batches)
+    if stripes is None:
+        expected = table
+    else:
+        expected = pa.Table.from_batches(
+            [reader.read_stripe(i) for i in stripes], schema=table.schema)
+    actual = pa.Table.from_batches(batches, schema=table.schema)
+    assert actual.equals(expected)
+    for batch in batches:
+        batch.validate(full=True)
+
+
+@pytest.mark.parametrize('stripes', [None, [2, 0]])
+@pytest.mark.parametrize('columns', [None, [], [1], ['other', 'value'],
+                                     ['other', 'other']])
+def test_iter_batches_projection(batch_file, stripes, columns):
+    from pyarrow import orc
+
+    data, _ = batch_file
+    reader = orc.ORCFile(data)
+    batches = list(reader.iter_batches(1000, stripes, columns))
+    expected_rows = reader.nrows if stripes is None else 2 * 16384
+    assert sum(batch.num_rows for batch in batches) == expected_rows
+    assert all(0 < batch.num_rows <= 1000 for batch in batches)
+    names = reader._select_names(columns)
+    if columns == []:
+        assert all(batch.num_columns == 0 for batch in batches)
+    else:
+        expected = pa.Table.from_batches([
+            reader.read_stripe(i, columns=names)
+            for i in (range(reader.nstripes) if stripes is None else stripes)])
+        assert pa.Table.from_batches(batches).equals(expected)
+
+
+def test_iter_batches_nested_and_nulls():
+    from pyarrow import orc
+
+    table = pa.table({
+        'struct': [{'middle': {'inner': 1}, 'other': 2}, None,
+                   {'middle': {'inner': None}, 'other': 4}],
+        'list-struct': [[{'inner1': 1, 'inner2': 2}], None, []],
+        'map': pa.array([[('a', 1)], None, []], pa.map_(pa.string(), pa.int32())),
+        'text': ['hello', None, 'world'],
+        'binary': [b'abc', None, b'def'],
+    })
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    reader = orc.ORCFile(sink.getvalue())
+    for columns in (None, ['struct.middle.inner'], ['list-struct.inner1'],
+                    ['map'], [0, 2]):
+        expected = reader.read(columns=columns)
+        for stripes in (None, [0]):
+            batches = list(reader.iter_batches(1, stripes, columns))
+            assert [batch.num_rows for batch in batches] == [1, 1, 1]
+            assert pa.Table.from_batches(batches).equals(expected)
+    assert sum(b.num_rows for b in reader.iter_batches()) == 3
+
+
+@pytest.mark.parametrize('batch_size,error', [
+    (0, ValueError), (-1, ValueError), (1.5, TypeError), ('2', TypeError),
+    (None, TypeError), (2**63, OverflowError), (-2**63 - 1, OverflowError)])
+def test_iter_batches_invalid_batch_size(batch_file, batch_size, error):
+    from pyarrow import orc
+
+    reader = orc.ORCFile(batch_file[0])
+    with pytest.raises(error):
+        reader.iter_batches(batch_size)
+
+
+@pytest.mark.parametrize('stripes,error', [
+    ([-1], ValueError), ([4], ValueError), ([0, 4], ValueError),
+    ([1.2], TypeError), (['0'], TypeError), ([None], TypeError),
+    ([2**63], OverflowError), ([-2**63 - 1], OverflowError)])
+def test_iter_batches_invalid_stripes(batch_file, stripes, error):
+    from pyarrow import orc
+
+    source = BatchTrackingFile(batch_file[0].to_pybytes())
+    reader = orc.ORCFile(source)
+    source.reads.clear()
+    with pytest.raises(error):
+        reader.iter_batches(stripes=stripes)
+    assert source.reads == []
+
+
+def test_iter_batches_snapshot_and_state(batch_file):
+    from pyarrow import orc
+
+    reader = orc.ORCFile(batch_file[0])
+    stripes = [2, 0]
+    columns = ['value']
+    first = reader.iter_batches(1000, stripes, columns)
+    stripes[:] = [1]
+    columns[:] = ['other']
+    second = reader.iter_batches(7, [1])
+    retained = next(first)
+    assert retained.equals(reader.read_stripe(2, ['value']).slice(0, 1000))
+    assert next(second).equals(reader.read_stripe(1).slice(0, 7))
+    reader.read()
+    assert next(first).equals(reader.read_stripe(2, ['value']).slice(1000, 1000))
+    first.close()
+    second.close()
+    assert retained.equals(reader.read_stripe(2, ['value']).slice(0, 1000))
+    with pytest.raises(ValueError):
+        reader.iter_batches(columns=[2])
+    with pytest.raises(IOError):
+        next(reader.iter_batches(columns=['missing']))
+    assert list(reader.iter_batches(stripes=[], columns=['missing'])) == []
+
+
+@pytest.mark.numpy
+def test_iter_batches_numpy_integer_arguments():
+    from pyarrow import orc
+    import numpy as np
+
+    table = pa.table({'value': [0, 1, 2, 3]})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    reader = orc.ORCFile(sink.getvalue())
+    batches = list(reader.iter_batches(np.int64(2), [np.int64(0)]))
+    assert [batch.num_rows for batch in batches] == [2, 2]
+    assert pa.Table.from_batches(batches).equals(table)
+
+
+class BatchTrackingFile(io.BytesIO):
+    def __init__(self, data):
+        super().__init__(data)
+        self.reads = []
+        self.fail = False
+
+    def read(self, size=-1):
+        if self.fail:
+            raise OSError('injected ORC read failure')
+        offset = self.tell()
+        data = super().read(size)
+        self.reads.append((offset, len(data)))
+        return data
+
+    def readinto(self, buffer):
+        data = self.read(len(buffer))
+        buffer[:len(data)] = data
+        return len(data)
+
+
+@pytest.mark.parametrize('stripes', [None, [2, 0]], ids=['all', 'selected'])
+def test_iter_batches_lazy_close_and_owner(batch_file, monkeypatch, stripes):
+    from pyarrow import orc
+
+    source = BatchTrackingFile(batch_file[0].to_pybytes())
+    file = orc.ORCFile(source)
+    source.reads.clear()
+    reader_ref = weakref.ref(file.reader)
+    source_ref = weakref.ref(source)
+
+    for unstarted_stripes in (None, [2, 0], []):
+        unstarted = file.iter_batches(32, unstarted_stripes)
+        unstarted.close()
+        assert list(unstarted) == []
+        assert source.reads == []
+        assert not source.closed
+    del unstarted
+
+    def fail_whole_stripe(*args, **kwargs):
+        pytest.fail('iter_batches must not call read_stripe')
+
+    monkeypatch.setattr(orc.ORCFile, 'read_stripe', fail_whole_stripe)
+    iterator = file.iter_batches(32, stripes)
+    assert source.reads == []
+    del file
+    gc.collect()
+    assert reader_ref() is not None
+    retained = next(iterator)
+    start = 0 if stripes is None else stripes[0] * 16384
+    expected = batch_file[1].slice(start, 32)
+    assert pa.Table.from_batches([retained]).equals(expected)
+    assert source.reads
+    reads = list(source.reads)
+    iterator.close()
+    assert source.reads == reads
+    assert not source.closed
+    assert list(iterator) == []
+    del iterator, source
+    gc.collect()
+    assert reader_ref() is None
+    assert source_ref() is None
+    assert pa.Table.from_batches([retained]).equals(expected)
+
+
+def test_iter_batches_errors_after_output(batch_file):
+    from pyarrow import orc
+
+    source = BatchTrackingFile(batch_file[0].to_pybytes())
+    reader = orc.ORCFile(source)
+    iterator = reader.iter_batches(16384, [0, 2])
+    first = next(iterator)
+    assert first.num_rows == 16384
+    source.fail = True
+    with pytest.raises((OSError, pa.ArrowException), match='injected ORC read failure'):
+        next(iterator)
+    assert list(iterator) == []
+    assert pa.Table.from_batches([first]).equals(batch_file[1].slice(0, 16384))
+    source.fail = False
+    source.close()
+    with pytest.raises((OSError, ValueError, pa.ArrowException)):
+        next(reader.iter_batches(stripes=[2]))
+
+
+@pytest.mark.parametrize('columns', [None, []])
+def test_iter_batches_closed_source_with_buffered_rows(batch_file, columns):
+    from pyarrow import orc
+
+    source = BatchTrackingFile(batch_file[0].to_pybytes())
+    reader = orc.ORCFile(source)
+    iterator = reader.iter_batches(1, [0], columns)
+    first = next(iterator)
+    source.close()
+    with pytest.raises(ValueError, match='closed file'):
+        next(iterator)
+    assert first.num_rows == 1
+    assert list(iterator) == []
+
+
+def test_iter_batches_sources_and_empty(tmp_path, datadir):
+    from pyarrow import orc
+
+    path = tmp_path / 'batches.orc'
+    table = pa.table({'a': [1, None, 3]})
+    orc.write_table(table, path)
+    with path.open('rb') as file, pa.OSFile(str(path)) as native:
+        for source in (path, str(path), file, native,
+                       pa.BufferReader(path.read_bytes())):
+            batches = list(orc.ORCFile(source).iter_batches(2, [0]))
+            assert pa.Table.from_batches(batches).equals(table)
+    empty = orc.ORCFile(datadir / 'TestOrcFile.emptyFile.orc')
+    assert list(empty.iter_batches()) == []
+    assert list(empty.iter_batches(columns=[])) == []
+    assert list(empty.iter_batches(stripes=[])) == []
+    with pytest.raises(ValueError):
+        empty.iter_batches(stripes=[0])
+    with pytest.raises((OSError, pa.ArrowException)):
+        orc.ORCFile(pa.BufferReader(b'ORC broken file')).iter_batches()

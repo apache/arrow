@@ -18,6 +18,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <orc/OrcFile.hh>
 #include <string>
 
@@ -30,6 +31,8 @@
 #include "arrow/compute/cast.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/test_common.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -43,6 +46,7 @@ namespace liborc = orc;
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 constexpr size_t kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
@@ -454,6 +458,193 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   }
   EXPECT_EQ(num_rows, stripe_row_count * stripe_count);
   EXPECT_EQ(num_rows / reader_batch_size, batches);
+}
+
+int64_t StripeBatchValue(int64_t row, int column) {
+  return static_cast<int64_t>(
+      (static_cast<uint64_t>(row + 1) * (0x123456789abcdefULL + column)) &
+      0x7fffffffffffffffULL);
+}
+
+std::shared_ptr<Buffer> MakeStripeBatchFile(
+    int64_t rows_per_stripe, int stripes,
+    liborc::CompressionKind compression = liborc::CompressionKind_NONE) {
+  MemoryOutputStream stream(64 * 1024 * 1024);
+  auto type = liborc::Type::buildTypeFromString(
+      "struct<col0:bigint,col1:bigint,col2:bigint,col3:bigint>");
+  liborc::WriterOptions options;
+  options.setCompression(compression);
+  options.setRowIndexStride(0);
+  options.setStripeSize(stripes == 1 ? 256 * 1024 * 1024 : 1);
+  auto writer = liborc::createWriter(*type, &stream, options);
+  auto batch = writer->createRowBatch(16384);
+  auto& root = checked_cast<liborc::StructVectorBatch&>(*batch);
+  const int64_t total = rows_per_stripe * stripes;
+  for (int64_t offset = 0; offset < total; offset += 16384) {
+    root.numElements = std::min<int64_t>(16384, total - offset);
+    for (int col = 0; col < 4; ++col) {
+      auto& values = checked_cast<liborc::LongVectorBatch&>(*root.fields[col]);
+      values.numElements = root.numElements;
+      for (uint64_t row = 0; row < root.numElements; ++row) {
+        values.data[row] = StripeBatchValue(offset + row, col);
+      }
+    }
+    writer->add(root);
+  }
+  writer->close();
+  return Buffer::FromString(std::string(stream.getData(), stream.getLength()));
+}
+
+TEST(TestAdapterRead, StripeBatchSelectionAndState) {
+  auto file = std::make_shared<io::BufferReader>(MakeStripeBatchFile(16384, 4));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       adapters::orc::ORCFileReader::Open(file, default_memory_pool()));
+  ASSERT_EQ(4, reader->NumberOfStripes());
+  ASSERT_OK(reader->Seek(16384 + 7));
+  ASSERT_OK_AND_ASSIGN(auto first, reader->GetStripeReader(2, 1000));
+  ASSERT_OK_AND_ASSIGN(auto second, reader->GetStripeReader(0, 1));
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(second->ReadNext(&batch));
+  ASSERT_EQ(StripeBatchValue(0, 0),
+            checked_cast<const Int64Array&>(*batch->column(0)).Value(0));
+  ASSERT_OK_AND_ASSIGN(auto ignored, reader->ReadStripe(3));
+  int64_t rows = 0;
+  while (true) {
+    ASSERT_OK(first->ReadNext(&batch));
+    if (!batch) break;
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_LE(batch->num_rows(), 1000);
+    for (int64_t row = 0; row < batch->num_rows(); ++row) {
+      ASSERT_EQ(StripeBatchValue(2 * 16384 + rows + row, 0),
+                checked_cast<const Int64Array&>(*batch->column(0)).Value(row));
+    }
+    rows += batch->num_rows();
+  }
+  ASSERT_EQ(16384, rows);
+  ASSERT_OK_AND_ASSIGN(auto cursor_reader, reader->NextStripeReader(3));
+  ASSERT_OK(cursor_reader->ReadNext(&batch));
+  ASSERT_EQ(StripeBatchValue(16384 + 7, 0),
+            checked_cast<const Int64Array&>(*batch->column(0)).Value(0));
+  reader.reset();
+  ASSERT_OK(second->ReadNext(&batch));
+  ASSERT_EQ(StripeBatchValue(1, 0),
+            checked_cast<const Int64Array&>(*batch->column(0)).Value(0));
+}
+
+TEST(TestAdapterRead, StripeBatchProjectionAndArguments) {
+  auto file = std::make_shared<io::BufferReader>(MakeStripeBatchFile(16384, 3));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       adapters::orc::ORCFileReader::Open(file, default_memory_pool()));
+  ASSERT_RAISES(Invalid, reader->GetStripeReader(-1, 10));
+  ASSERT_RAISES(Invalid, reader->GetStripeReader(3, 10));
+  ASSERT_RAISES(Invalid, reader->GetStripeReader(0, 0));
+  ASSERT_RAISES(Invalid, reader->GetStripeReader(0, -1));
+  ASSERT_RAISES(IOError, reader->GetStripeReader(0, 10, {"missing"}));
+  ASSERT_OK_AND_ASSIGN(auto projected,
+                       reader->GetStripeReader(1, 10000, {"col2", "col0", "col0"}));
+  ASSERT_EQ(projected->schema()->field_names(),
+            (std::vector<std::string>{"col0", "col2"}));
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(projected->ReadNext(&batch));
+  ASSERT_EQ(10000, batch->num_rows());
+  ASSERT_EQ(StripeBatchValue(16384, 2),
+            checked_cast<const Int64Array&>(*batch->column(1)).Value(0));
+  ASSERT_OK_AND_ASSIGN(auto zero,
+                       reader->GetStripeReader(2, 1000, std::vector<std::string>{}));
+  int64_t rows = 0;
+  while (true) {
+    ASSERT_OK(zero->ReadNext(&batch));
+    if (!batch) break;
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_EQ(0, batch->num_columns());
+    ASSERT_GT(batch->num_rows(), 0);
+    ASSERT_LE(batch->num_rows(), 1000);
+    rows += batch->num_rows();
+  }
+  ASSERT_EQ(16384, rows);
+  ProxyMemoryPool zero_pool(default_memory_pool());
+  ASSERT_OK_AND_ASSIGN(auto zero_reader,
+                       adapters::orc::ORCFileReader::Open(file, &zero_pool));
+  ASSERT_OK_AND_ASSIGN(auto zero_batches,
+                       zero_reader->GetStripeReader(0, 1000, std::vector<std::string>{}));
+  ASSERT_OK(zero_batches->ReadNext(&batch));
+  ASSERT_EQ(1000, batch->num_rows());
+  ASSERT_EQ(0, zero_pool.max_memory());  // No full-column decode followed by projection.
+}
+
+TEST(TestAdapterRead, StripeBatchReadsOnlySelectedRange) {
+  for (auto codec : {liborc::CompressionKind_NONE, liborc::CompressionKind_ZLIB}) {
+    auto file = std::make_shared<io::BufferReader>(MakeStripeBatchFile(16384, 4, codec));
+    std::shared_ptr<io::TrackedRandomAccessFile> tracked =
+        io::TrackedRandomAccessFile::Make(file.get());
+    ASSERT_OK_AND_ASSIGN(
+        auto reader, adapters::orc::ORCFileReader::Open(tracked, default_memory_pool()));
+    ASSERT_EQ(4, reader->NumberOfStripes());
+    tracked->ResetStats();
+    for (int stripe : {2, 0}) {
+      ASSERT_OK_AND_ASSIGN(auto batches, reader->GetStripeReader(stripe, 17));
+      std::shared_ptr<RecordBatch> batch;
+      ASSERT_OK(batches->ReadNext(&batch));
+      ASSERT_EQ(17, batch->num_rows());
+      ASSERT_GT(tracked->bytes_read(), 0);
+      auto reads = tracked->num_reads();
+      batches.reset();  // Early stop must not read the rest or another stripe.
+      ASSERT_EQ(reads, tracked->num_reads());
+    }
+    for (const auto& range : tracked->get_read_ranges()) {
+      for (int stripe : {1, 3}) {
+        auto unselected = reader->GetStripeInformation(stripe);
+        ASSERT_TRUE(range.offset + range.length <= unselected.offset ||
+                    range.offset >= unselected.offset + unselected.length);
+      }
+    }
+  }
+}
+
+TEST(TestAdapterRead, StripeBatchMemoryBounded) {
+  constexpr int64_t batch_size = 256;
+  int64_t small_peak = 0;
+  for (int64_t rows : {262144, 1048576}) {
+    auto buffer = MakeStripeBatchFile(rows, 1);
+    int64_t full_peak;
+    {
+      ProxyMemoryPool pool(default_memory_pool());
+      auto file = std::make_shared<io::BufferReader>(buffer);
+      ASSERT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(file, &pool));
+      ASSERT_EQ(1, reader->NumberOfStripes());
+      ASSERT_EQ(rows, reader->GetStripeInformation(0).num_rows);
+      ASSERT_OK_AND_ASSIGN(auto batch, reader->ReadStripe(0));
+      ASSERT_EQ(rows, batch->num_rows());
+      full_peak = pool.max_memory();
+    }
+    ProxyMemoryPool pool(default_memory_pool());
+    auto file = std::make_shared<io::BufferReader>(buffer);
+    ASSERT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(file, &pool));
+    ASSERT_EQ(0, pool.bytes_allocated());
+    ASSERT_OK_AND_ASSIGN(auto batches, reader->GetStripeReader(0, batch_size));
+    ASSERT_EQ(0, pool.bytes_allocated());  // No whole-stripe Arrow allocation.
+    int64_t count = 0;
+    int64_t first_peak = 0;
+    while (true) {
+      std::shared_ptr<RecordBatch> batch;
+      ASSERT_OK(batches->ReadNext(&batch));
+      if (!batch) break;
+      ASSERT_LE(batch->num_rows(), batch_size);
+      if (count == 0) first_peak = pool.max_memory();
+      ASSERT_EQ(StripeBatchValue(count, 0),
+                checked_cast<const Int64Array&>(*batch->column(0)).Value(0));
+      count += batch->num_rows();
+    }
+    ASSERT_EQ(rows, count);
+    ASSERT_EQ(0, pool.bytes_allocated());
+    ASSERT_LT(first_peak, full_peak / 4);
+    ASSERT_LT(pool.max_memory(), full_peak / 4);
+    if (small_peak == 0) small_peak = pool.max_memory();
+    ASSERT_LE(pool.max_memory(), 2 * small_peak);
+    std::cout << "ORC_BATCH_MEMORY rows=" << rows << " batch_size=" << batch_size
+              << " full_peak=" << full_peak << " first_peak=" << first_peak
+              << " streaming_peak=" << pool.max_memory() << std::endl;
+  }
 }
 
 TEST(TestAdapterRead, ReadCharAndVarcharType) {
