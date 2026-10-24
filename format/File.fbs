@@ -38,10 +38,13 @@ table Footer {
 
 struct Block {
 
-  /// Index to the start of the RecordBatch (note this is past the Message header)
+  /// Byte offset to the start of the encapsulated IPC message, including its
+  /// continuation indicator (if present) and metadata length prefix.
   offset: long;
 
-  /// Length of the metadata
+  /// Length of the encapsulated IPC message metadata, including the continuation
+  /// indicator (if present), metadata length prefix, Message flatbuffer, and
+  /// padding. This is the byte distance from offset to the start of the body.
   metaDataLength: int;
 
   /// Length of the data (this is aligned so there can be a gap between this and
