@@ -263,7 +263,7 @@ def _perform_join(join_type, left_operand, left_keys,
 
 def _perform_join_asof(left_operand, left_on, left_by,
                        right_operand, right_on, right_by,
-                       tolerance, use_threads=True,
+                       tolerance, prefer_earlier_on_tie=True, use_threads=True,
                        output_type=Table):
     """
     Perform asof join of two tables or datasets.
@@ -284,9 +284,13 @@ def _perform_join_asof(left_operand, left_on, left_by,
         The right key (or keys) on which the join operation should be performed.
     right_by: str or list[str]
         The right key (or keys) on which the join operation should be performed.
-    tolerance : int
-        The tolerance to use for the asof join. The tolerance is interpreted in
-        the same units as the "on" key.
+    tolerance : int or 2-tuple of int
+        The tolerance to use for the asof join. A tuple gives the inclusive lower
+        and upper bounds for ``right.on - left.on``. Bounds are interpreted in the
+        same units as the "on" key.
+    prefer_earlier_on_tie : bool, default True
+        If two eligible rows are equally close, choose the row with the smaller
+        "on" value when true and the larger "on" value when false.
     output_type: Table or InMemoryDataset
         The output type for the exec plan result.
 
@@ -336,7 +340,8 @@ def _perform_join_asof(left_operand, left_on, left_by,
         )
 
     join_opts = AsofJoinNodeOptions(
-        left_on, left_by, right_on, right_by, tolerance
+        left_on, left_by, right_on, right_by, tolerance,
+        prefer_earlier_on_tie
     )
     decl = Declaration(
         "asofjoin", options=join_opts, inputs=[left_source, right_source]

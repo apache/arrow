@@ -436,13 +436,15 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
 
 cdef class _AsofJoinNodeOptions(ExecNodeOptions):
 
-    def _set_options(self, left_on, left_by, right_on, right_by, tolerance):
+    def _set_options(self, left_on, left_by, right_on, right_by, tolerance,
+                     prefer_earlier_on_tie):
         cdef:
             vector[CFieldRef] c_left_by
             vector[CFieldRef] c_right_by
             CAsofJoinKeys c_left_keys
             CAsofJoinKeys c_right_keys
             vector[CAsofJoinKeys] c_input_keys
+            CAsofJoinToleranceRange c_tolerance
 
         # Prepare left AsofJoinNodeOption::Keys
         if not isinstance(left_by, (list, tuple)):
@@ -466,10 +468,19 @@ cdef class _AsofJoinNodeOptions(ExecNodeOptions):
 
         c_input_keys.push_back(c_right_keys)
 
+        if isinstance(tolerance, (list, tuple)):
+            if len(tolerance) != 2:
+                raise ValueError("tolerance range must contain lower and upper bounds")
+            c_tolerance.lower = tolerance[0]
+            c_tolerance.upper = tolerance[1]
+        else:
+            c_tolerance.lower = tolerance if tolerance < 0 else 0
+            c_tolerance.upper = tolerance if tolerance > 0 else 0
         self.wrapped.reset(
             new CAsofJoinNodeOptions(
                 c_input_keys,
-                tolerance,
+                c_tolerance,
+                prefer_earlier_on_tie,
             )
         )
 
@@ -486,14 +497,13 @@ class AsofJoinNodeOptions(_AsofJoinNodeOptions):
         The left key on which the join operation should be performed.
         Can be a string column name or a field expression.
 
-        An inexact match is used on the "on" key, i.e. a row is considered a
-        match if and only if ``right.on - left.on`` is in the range
-        ``[min(0, tolerance), max(0, tolerance)]``.
+        An inexact match is used on the "on" key. A row is eligible when
+        ``right.on - left.on`` is in the configured tolerance range.
 
         The input dataset must be sorted by the "on" key. Must be a single
         field of a common type.
 
-        Currently, the "on" key must be an integer, date, or timestamp type.
+        Currently, the "on" key must be an integer, date, time, or timestamp type.
     left_by: str, Expression or list
         The left keys on which the join operation should be performed.
         Exact equality is used for each field of the "by" keys.
@@ -505,13 +515,20 @@ class AsofJoinNodeOptions(_AsofJoinNodeOptions):
     right_by: str, Expression or list
         The right keys on which the join operation should be performed.
         See `left_by` for details.
-    tolerance : int
-        The tolerance to use for the asof join. The tolerance is interpreted in
-        the same units as the "on" key.
+    tolerance : int or 2-tuple of int
+        The tolerance to use for the asof join. A scalar preserves the legacy
+        directional behavior. A tuple gives the inclusive lower and upper bounds
+        for ``right.on - left.on``. Bounds are interpreted in the same units as
+        the "on" key.
+    prefer_earlier_on_tie : bool, default True
+        If two eligible rows are equally close, choose the row with the smaller
+        "on" value when true and the larger "on" value when false.
     """
 
-    def __init__(self, left_on, left_by, right_on, right_by, tolerance):
-        self._set_options(left_on, left_by, right_on, right_by, tolerance)
+    def __init__(self, left_on, left_by, right_on, right_by, tolerance,
+                 prefer_earlier_on_tie=True):
+        self._set_options(left_on, left_by, right_on, right_by, tolerance,
+                          prefer_earlier_on_tie)
 
 
 cdef class Declaration(_Weakrefable):
