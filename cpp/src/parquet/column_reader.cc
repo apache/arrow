@@ -384,8 +384,10 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
   if (page_type == PageType::DATA_PAGE) {
     const format::DataPageHeader& header = current_page_header_.data_page_header;
     CheckNumValuesInHeader(header.num_values);
-    *data_page_statistics = ExtractStatsFromHeader(header, stats_min_max_field_);
     seen_num_values_ += header.num_values;
+    if (!properties_.thrift_skip_page_statistics() || data_page_filter_) {
+      *data_page_statistics = ExtractStatsFromHeader(header, stats_min_max_field_);
+    }
     if (data_page_filter_) {
       const EncodedStatistics* filter_statistics =
           data_page_statistics->is_set() ? data_page_statistics : nullptr;
@@ -405,8 +407,10 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
         header.repetition_levels_byte_length < 0) {
       throw ParquetException("Invalid page header (negative levels byte length)");
     }
-    *data_page_statistics = ExtractStatsFromHeader(header, stats_min_max_field_);
     seen_num_values_ += header.num_values;
+    if (!properties_.thrift_skip_page_statistics() || data_page_filter_) {
+      *data_page_statistics = ExtractStatsFromHeader(header, stats_min_max_field_);
+    }
     if (data_page_filter_) {
       const EncodedStatistics* filter_statistics =
           data_page_statistics->is_set() ? data_page_statistics : nullptr;
@@ -429,7 +433,11 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
 }
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
-  ThriftDeserializer deserializer(properties_);
+  // Page statistics can be skipped explicitly when no data-page filter is installed.
+  ReaderProperties page_properties = properties_;
+  page_properties.set_thrift_skip_page_statistics(
+      properties_.thrift_skip_page_statistics() && !data_page_filter_);
+  ThriftDeserializer deserializer(page_properties);
 
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with

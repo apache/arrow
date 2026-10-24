@@ -23,6 +23,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "parquet/encryption/type_fwd.h"
@@ -30,7 +31,17 @@
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/type_fwd.h"
+
+namespace arrow {
+class Buffer;
+}
+
 namespace parquet {
+
+namespace internal {
+struct DirectColumnChunk;
+struct DirectRowGroup;
+}  // namespace internal
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
@@ -113,6 +124,13 @@ class PARQUET_EXPORT ColumnChunkMetaData {
       int16_t column_ordinal = -1,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
+  static std::unique_ptr<ColumnChunkMetaData> MakeDirect(
+      const internal::DirectColumnChunk* metadata, const ColumnDescriptor* descr,
+      const ReaderProperties& properties = default_reader_properties(),
+      const ApplicationVersion* writer_version = NULLPTR, int16_t row_group_ordinal = -1,
+      int16_t column_ordinal = -1,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+
   ~ColumnChunkMetaData();
 
   bool Equals(const ColumnChunkMetaData& other) const;
@@ -146,6 +164,9 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   const std::vector<Encoding::type>& encodings() const;
   const std::vector<PageEncodingStats>& encoding_stats() const;
+  /// Return the compact encoding-statistics mask when enabled by ReaderProperties.
+  /// Each set bit corresponds to a format::Encoding value.
+  uint64_t encoding_stats_mask() const;
   std::optional<int64_t> bloom_filter_offset() const;
   std::optional<int64_t> bloom_filter_length() const;
   bool has_dictionary_page() const;
@@ -166,6 +187,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
       int16_t column_ordinal, const ReaderProperties& properties,
       const ApplicationVersion* writer_version = NULLPTR,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+  explicit ColumnChunkMetaData(
+      const internal::DirectColumnChunk* metadata, const ColumnDescriptor* descr,
+      int16_t row_group_ordinal, int16_t column_ordinal,
+      const ReaderProperties& properties,
+      const ApplicationVersion* writer_version = NULLPTR,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -177,6 +204,12 @@ class PARQUET_EXPORT RowGroupMetaData {
   /// \brief Create a RowGroupMetaData from a serialized thrift message.
   static std::unique_ptr<RowGroupMetaData> Make(
       const void* metadata, const SchemaDescriptor* schema,
+      const ReaderProperties& properties = default_reader_properties(),
+      const ApplicationVersion* writer_version = NULLPTR,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+
+  static std::unique_ptr<RowGroupMetaData> MakeDirect(
+      const internal::DirectRowGroup* metadata, const SchemaDescriptor* schema,
       const ReaderProperties& properties = default_reader_properties(),
       const ApplicationVersion* writer_version = NULLPTR,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
@@ -231,12 +264,47 @@ class PARQUET_EXPORT RowGroupMetaData {
       const ReaderProperties& properties,
       const ApplicationVersion* writer_version = NULLPTR,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+  explicit RowGroupMetaData(
+      const internal::DirectRowGroup* metadata, const SchemaDescriptor* schema,
+      const ReaderProperties& properties,
+      const ApplicationVersion* writer_version = NULLPTR,
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;
 };
 
 class FileMetaDataBuilder;
+
+/// A read-only metadata view for latency-sensitive footer inspection.
+///
+/// Unlike FileMetaData, this API does not build a SchemaDescriptor or generated
+/// Thrift compatibility objects. It only discovers footer-level counts and keeps
+/// returned string views valid through the retained serialized footer buffer.
+///
+/// This experimental summary API scans past row groups without decoding their
+/// column metadata. It is not a replacement for FileMetaData or a full metadata
+/// validator. Input must be a plaintext compact-Thrift footer; encrypted footers
+/// and incremental input are not supported by this entry point.
+class PARQUET_EXPORT FastFileMetaData {
+ public:
+  static std::shared_ptr<FastFileMetaData> Make(
+      std::shared_ptr<const ::arrow::Buffer> serialized_metadata, int64_t metadata_len,
+      const ReaderProperties& properties = default_reader_properties());
+
+  int64_t size() const;
+  int64_t num_rows() const;
+  int num_row_groups() const;
+  int num_schema_elements() const;
+  int num_columns() const;
+  std::string_view created_by() const;
+
+ private:
+  FastFileMetaData(std::shared_ptr<const ::arrow::Buffer> serialized_metadata,
+                   int64_t metadata_len, const ReaderProperties& properties);
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
 
 /// \brief FileMetaData is a proxy around format::FileMetaData.
 class PARQUET_EXPORT FileMetaData {
@@ -253,6 +321,13 @@ class PARQUET_EXPORT FileMetaData {
   /// the `size()` method.
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, int64_t metadata_len,
+      const ReaderProperties& properties = default_reader_properties(),
+      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+
+  // Internal reader path retaining the footer buffer so direct metadata can
+  // borrow strings without copying the entire footer.
+  static std::shared_ptr<FileMetaData> Make(
+      std::shared_ptr<const ::arrow::Buffer> serialized_metadata, int64_t metadata_len,
       const ReaderProperties& properties = default_reader_properties(),
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
@@ -389,7 +464,8 @@ class PARQUET_EXPORT FileMetaData {
   explicit FileMetaData(ReaderProperties properties);
   FileMetaData(const void* serialized_metadata, int64_t metadata_len,
                const ReaderProperties& properties,
-               std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+               std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR,
+               std::shared_ptr<const ::arrow::Buffer> metadata_buffer = nullptr);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
   const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
