@@ -207,7 +207,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
         pass
 
-    CTimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime)
+    CTimePoint PyDateTime_to_TimePoint(PyObject* pydatetime)
     int64_t TimePoint_to_ns(CTimePoint val)
     CTimePoint TimePoint_from_s(double val)
     CTimePoint TimePoint_from_ns(int64_t val)
@@ -277,10 +277,6 @@ cdef extern from "arrow/python/extension_type.h" namespace "arrow::py":
     c_string PyExtensionName()
     CStatus RegisterPyExtensionType(shared_ptr[CDataType])
     CStatus UnregisterPyExtensionType(c_string type_name)
-
-
-cdef extern from "arrow/python/benchmark.h" namespace "arrow::py::benchmark":
-    void Benchmark_PandasObjectIsNull(object lst) except *
 
 
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
