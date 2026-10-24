@@ -124,6 +124,16 @@ class ColumnReaderImpl : public ColumnReader {
 
   virtual ::arrow::Status LoadBatch(int64_t num_records) = 0;
 
+  virtual ::arrow::Status LoadBatchFixedLength(int64_t num_values,
+                                               int64_t expected_list_size) {
+    return LoadBatch(num_values);
+  }
+
+  virtual ::arrow::Status LoadBatchDetectFixedLength(int64_t num_records,
+                                                     int64_t* list_size) {
+    return Status::NotImplemented("fixed-length LIST detection is unavailable");
+  }
+
   virtual ::arrow::Status BuildArray(int64_t length_upper_bound,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
   virtual bool IsOrHasRepeatedChild() const = 0;
@@ -495,7 +505,7 @@ class LeafReader : public ColumnReaderImpl {
 
   bool IsOrHasRepeatedChild() const final { return false; }
 
-  Status LoadBatch(int64_t records_to_read) final {
+  Status LoadBatch(int64_t records_to_read) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     out_ = nullptr;
     record_reader_->Reset();
@@ -527,6 +537,57 @@ class LeafReader : public ColumnReaderImpl {
         num_target_row_groups == 1 ? input_->column_chunk_metadata() : nullptr, field_,
         descr_, ctx_.get(), &out_));
     return Status::OK();
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+
+  Status LoadBatchFixedLength(int64_t values_to_read, int64_t expected_list_size) final {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    out_ = nullptr;
+    record_reader_->Reset();
+    record_reader_->Reserve(values_to_read);
+    int64_t remaining = values_to_read;
+    while (remaining > 0 && record_reader_->HasMoreData()) {
+      const int64_t values_read =
+          record_reader_->ReadRecordsFixedLength(remaining, expected_list_size);
+      if (values_read < 0) {
+        if (remaining != values_to_read) {
+          return Status::Invalid(
+              "fixed-length LIST detector rejected a later page after decoding values; "
+              "disable ArrowReaderProperties::set_fixed_list_fast_path() for "
+              "variable-length "
+              "LIST columns");
+        }
+        return Status::NotImplemented(
+            "fixed-size list fast path is unavailable for this leaf");
+      }
+      remaining -= values_read;
+      if (values_read == 0) {
+        NextRowGroup();
+      }
+    }
+    if (remaining != 0) {
+      return Status::Invalid(
+          "Fixed-size list fast path reached end of column before reading ",
+          values_to_read,
+          " values; disable ArrowReaderProperties::set_fixed_list_fast_path() "
+          "for variable-length LIST columns");
+    }
+    RETURN_NOT_OK(TransferColumnData(record_reader_.get(), nullptr, field_, descr_,
+                                     ctx_.get(), &out_));
+    return Status::OK();
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+
+  Status LoadBatchDetectFixedLength(int64_t records_to_read, int64_t* list_size) final {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    out_ = nullptr;
+    record_reader_->Reset();
+    const int64_t detected = record_reader_->DetectFixedLength();
+    if (detected <= 0) {
+      return Status::NotImplemented("page is not effectively fixed-length");
+    }
+    *list_size = detected;
+    return LoadBatchFixedLength(records_to_read * detected, detected);
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
@@ -567,7 +628,7 @@ class ExtensionReader : public ColumnReaderImpl {
     return storage_reader_->GetRepLevels(data, length);
   }
 
-  Status LoadBatch(int64_t number_of_records) final {
+  Status LoadBatch(int64_t number_of_records) override {
     return storage_reader_->LoadBatch(number_of_records);
   }
 
@@ -611,8 +672,44 @@ class ListReader : public ColumnReaderImpl {
 
   bool IsOrHasRepeatedChild() const final { return true; }
 
-  Status LoadBatch(int64_t number_of_records) final {
+  Status LoadBatch(int64_t number_of_records) override {
+    if (fixed_list_fast_path_) {
+      auto status = item_reader_->LoadBatchFixedLength(
+          number_of_records * fixed_list_size_, fixed_list_size_);
+      if (status.ok()) {
+        return status;
+      }
+      if (!status.IsNotImplemented()) {
+        return status;
+      }
+      fixed_list_fast_path_ = false;
+    }
+    if (ctx_->reader_properties->fixed_list_fast_path() &&
+        field_->type()->id() == ::arrow::Type::LIST && !field_->nullable() &&
+        !item_reader_->IsOrHasRepeatedChild()) {
+      int64_t detected_size = 0;
+      auto status = LoadBatchDetectFixedLength(number_of_records, &detected_size);
+      if (status.ok()) {
+        return status;
+      }
+    }
     return item_reader_->LoadBatch(number_of_records);
+  }
+
+  Status LoadBatchDetectFixedLength(int64_t number_of_records,
+                                    int64_t* list_size) override {
+    if (field_->type()->id() != ::arrow::Type::LIST || field_->nullable() ||
+        item_reader_->IsOrHasRepeatedChild()) {
+      return Status::NotImplemented(
+          "LIST shape is not eligible for fixed-length detection");
+    }
+    auto status = item_reader_->LoadBatchDetectFixedLength(number_of_records, list_size);
+    if (!status.ok()) {
+      return status;
+    }
+    fixed_list_size_ = *list_size;
+    fixed_list_fast_path_ = true;
+    return Status::OK();
   }
 
   virtual ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
@@ -627,6 +724,32 @@ class ListReader : public ColumnReaderImpl {
 
   Status BuildArray(int64_t length_upper_bound,
                     std::shared_ptr<ChunkedArray>* out) override {
+    if (fixed_list_fast_path_ && fixed_list_size_ > 0) {
+      std::shared_ptr<ChunkedArray> child;
+      RETURN_NOT_OK(
+          item_reader_->BuildArray(length_upper_bound * fixed_list_size_, &child));
+      ARROW_ASSIGN_OR_RAISE(auto child_data, ChunksToSingle(*child));
+      const int64_t length = child_data->length / fixed_list_size_;
+      if (length * fixed_list_size_ != child_data->length) {
+        return Status::Invalid(
+            "Detected fixed-length LIST child count is not divisible by ",
+            fixed_list_size_);
+      }
+      std::shared_ptr<ResizableBuffer> offsets_buffer;
+      ARROW_ASSIGN_OR_RAISE(
+          offsets_buffer,
+          AllocateResizableBuffer(sizeof(IndexType) * (length + 1), ctx_->pool));
+      auto* offsets = reinterpret_cast<IndexType*>(offsets_buffer->mutable_data());
+      for (int64_t i = 0; i <= length; ++i) {
+        offsets[i] = static_cast<IndexType>(i * fixed_list_size_);
+      }
+      auto data = std::make_shared<ArrayData>(
+          field_->type(), length,
+          std::vector<std::shared_ptr<Buffer>>{nullptr, offsets_buffer},
+          std::vector<std::shared_ptr<ArrayData>>{std::move(child_data)});
+      *out = std::make_shared<ChunkedArray>(::arrow::MakeArray(std::move(data)));
+      return Status::OK();
+    }
     const int16_t* def_levels;
     const int16_t* rep_levels;
     int64_t num_levels;
@@ -683,11 +806,14 @@ class ListReader : public ColumnReaderImpl {
 
  protected:
   std::shared_ptr<ReaderContext> ctx_;
+  ColumnReaderImpl* item_reader() const { return item_reader_.get(); }
 
  private:
   std::shared_ptr<Field> field_;
   ::parquet::internal::LevelInfo level_info_;
   std::unique_ptr<ColumnReaderImpl> item_reader_;
+  int64_t fixed_list_size_ = 0;
+  bool fixed_list_fast_path_ = false;
 };
 
 template <typename IndexType>
@@ -727,6 +853,50 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
                       std::unique_ptr<ColumnReaderImpl> child_reader)
       : ListReader(std::move(ctx), std::move(field), level_info,
                    std::move(child_reader)) {}
+
+  Status LoadBatch(int64_t records_to_read) final {
+    const auto& type = checked_cast<const ::arrow::FixedSizeListType&>(*field()->type());
+    if (ctx_->reader_properties->fixed_list_fast_path() && !field()->nullable() &&
+        !item_reader()->field()->nullable() && type.list_size() > 0) {
+      auto status = item_reader()->LoadBatchFixedLength(
+          records_to_read * type.list_size(), type.list_size());
+      if (status.IsNotImplemented()) {
+        return ListReader<int32_t>::LoadBatch(records_to_read);
+      }
+      return status;
+    }
+    return ListReader<int32_t>::LoadBatch(records_to_read);
+  }
+
+  // A FixedSizeList schema already carries the invariant that every non-null
+  // slot contributes exactly list_size child values.  When the list itself is
+  // required, there is no need to decode or materialize Dremel levels: the
+  // child reader has already produced a flat value array and its length gives
+  // us the number of records.  This is the same fast path used by readers
+  // which detect effectively fixed-size LIST pages from their encoded levels.
+  Status BuildArray(int64_t length_upper_bound,
+                    std::shared_ptr<::arrow::ChunkedArray>* out) final {
+    const auto& type = checked_cast<const ::arrow::FixedSizeListType&>(*field()->type());
+    const int32_t list_size = type.list_size();
+    if (ctx_->reader_properties->fixed_list_fast_path() && !field()->nullable() &&
+        list_size > 0) {
+      std::shared_ptr<ChunkedArray> child;
+      RETURN_NOT_OK(item_reader()->BuildArray(length_upper_bound * list_size, &child));
+      ARROW_ASSIGN_OR_RAISE(auto child_data, ChunksToSingle(*child));
+      if (child_data->length % list_size != 0) {
+        return Status::Invalid("Fixed-size list child value count ", child_data->length,
+                               " is not divisible by list size ", list_size);
+      }
+      auto data = std::make_shared<ArrayData>(
+          field()->type(), child_data->length / list_size,
+          std::vector<std::shared_ptr<Buffer>>{nullptr},
+          std::vector<std::shared_ptr<ArrayData>>{std::move(child_data)});
+      *out = std::make_shared<ChunkedArray>(::arrow::MakeArray(std::move(data)));
+      return Status::OK();
+    }
+    return ListReader<int32_t>::BuildArray(length_upper_bound, out);
+  }
+
   ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
       std::shared_ptr<ArrayData> data) final {
     DCHECK_EQ(data->buffers.size(), 2);

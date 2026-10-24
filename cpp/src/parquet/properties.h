@@ -1175,7 +1175,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         should_load_statistics_(false),
         smallest_decimal_enabled_(false),
         convert_flba_timestamps_(true),
-        flba_timestamp_clamp_on_overflow_(false) {}
+        flba_timestamp_clamp_on_overflow_(false),
+        fixed_list_fast_path_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1336,6 +1337,12 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return flba_timestamp_clamp_on_overflow_;
   }
 
+  /// Set whether to detect and fast-path effectively fixed-length LIST pages.
+  /// Defaults to true. Disable this when reading a generic LIST column whose
+  /// list widths may change between pages.
+  void set_fixed_list_fast_path(bool enabled) { fixed_list_fast_path_ = enabled; }
+  bool fixed_list_fast_path() const { return fixed_list_fast_path_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1351,6 +1358,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool smallest_decimal_enabled_;
   bool convert_flba_timestamps_;
   bool flba_timestamp_clamp_on_overflow_;
+  bool fixed_list_fast_path_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

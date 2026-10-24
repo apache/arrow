@@ -18,6 +18,7 @@
 #include "parquet/column_reader.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <exception>
@@ -784,6 +785,82 @@ class ColumnReaderImplBase {
     return true;
   }
 
+  // Inspect a page's encoded levels with private decoders. The production
+  // decoders remain untouched, so a failed detection falls back safely.
+  int64_t DetectCurrentPageFixedLength(int64_t hint, int64_t phase) {
+    if (fixed_length_detection_ > 0) {
+      return hint == 0 || hint == fixed_length_detection_ ? fixed_length_detection_ : -1;
+    }
+    if (max_rep_level() != 1 || max_def_level() == 0 || !current_page_) {
+      return -1;
+    }
+    LevelDecoder rep_decoder(max_rep_level());
+    LevelDecoder def_decoder(max_def_level());
+    const uint8_t* buffer = current_page_->data();
+    int64_t rep_bytes = 0;
+    int64_t def_bytes = 0;
+    if (current_page_->type() == PageType::DATA_PAGE) {
+      const auto* page = static_cast<const DataPageV1*>(current_page_.get());
+      rep_bytes = rep_decoder.SetData(page->repetition_level_encoding(), max_rep_level(),
+                                      static_cast<int>(num_buffered_values_), buffer,
+                                      page->size());
+      buffer += rep_bytes;
+      def_bytes = def_decoder.SetData(page->definition_level_encoding(), max_def_level(),
+                                      static_cast<int>(num_buffered_values_), buffer,
+                                      static_cast<int32_t>(page->size() - rep_bytes));
+    } else {
+      const auto* page = static_cast<const DataPageV2*>(current_page_.get());
+      rep_decoder.SetDataV2(page->repetition_levels_byte_length(), max_rep_level(),
+                            static_cast<int>(num_buffered_values_), buffer);
+      buffer += page->repetition_levels_byte_length();
+      def_decoder.SetDataV2(page->definition_levels_byte_length(), max_def_level(),
+                            static_cast<int>(num_buffered_values_), buffer);
+    }
+    (void)def_bytes;
+
+    constexpr int kBatch = 1024;
+    std::array<int16_t, kBatch> reps{};
+    std::array<int16_t, kBatch> defs{};
+    int64_t position = 0;
+    int64_t list_size = hint;
+    while (position < num_buffered_values_) {
+      const int batch =
+          static_cast<int>(std::min<int64_t>(kBatch, num_buffered_values_ - position));
+      if (rep_decoder.Decode(batch, reps.data()) != batch ||
+          def_decoder.Decode(batch, defs.data()) != batch) {
+        return -1;
+      }
+      for (int i = 0; i < batch; ++i) {
+        const int64_t index = position + i;
+        if (defs[i] != max_def_level() || (reps[i] != 0 && reps[i] != 1)) {
+          return -1;
+        }
+        const int64_t logical_index = phase + index;
+        if (list_size > 0 && reps[i] != (logical_index % list_size == 0 ? 0 : 1)) {
+          return -1;
+        }
+        if (reps[i] == 0) {
+          if (logical_index != 0) {
+            const int64_t distance = logical_index;
+            if (list_size == 0) {
+              list_size = distance;
+            } else if (distance % list_size != 0) {
+              return -1;
+            }
+          }
+        } else if (logical_index == 0) {
+          return -1;
+        }
+      }
+      position += batch;
+    }
+    if (list_size > 0) {
+      fixed_length_detection_ = list_size;
+      return list_size;
+    }
+    return -1;
+  }
+
   // Read multiple repetition levels into preallocated memory
   // Returns the number of decoded repetition levels
   int64_t ReadRepetitionLevels(int64_t batch_size, int16_t* levels) {
@@ -807,12 +884,14 @@ class ColumnReaderImplBase {
         ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
         continue;
       } else if (current_page_->type() == PageType::DATA_PAGE) {
+        fixed_length_detection_ = 0;
         const auto* page = static_cast<const DataPageV1*>(current_page_.get());
         const int64_t levels_byte_size = InitializeLevelDecoders(
             *page, page->repetition_level_encoding(), page->definition_level_encoding());
         InitializeDataDecoder(*page, levels_byte_size);
         return true;
       } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
+        fixed_length_detection_ = 0;
         const auto* page = static_cast<const DataPageV2*>(current_page_.get());
         int64_t levels_byte_size = InitializeLevelDecodersV2(*page);
         InitializeDataDecoder(*page, levels_byte_size);
@@ -1027,6 +1106,10 @@ class ColumnReaderImplBase {
   // The number of values from the current data page that have been decoded
   // into memory or skipped over.
   int64_t num_decoded_values_ = 0;
+  // 0 means this page has not been inspected; a positive value is its
+  // detected fixed list width.
+  int64_t fixed_length_detection_ = 0;
+  int64_t fixed_length_phase_ = 0;
 
   ::arrow::MemoryPool* pool_;
 
@@ -1445,6 +1528,48 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return records_read;
   }
 
+  int64_t DetectFixedLength() override {
+    if (!this->HasNextInternal()) {
+      return -1;
+    }
+    return this->DetectCurrentPageFixedLength(/*hint=*/0, /*phase=*/0);
+  }
+
+  int64_t ReadRecordsFixedLength(int64_t num_values,
+                                 int64_t expected_list_size) override {
+    if (num_values <= 0) {
+      return 0;
+    }
+    if (this->max_def_level() != 1 || this->max_rep_level() != 1 || !uses_values_) {
+      return -1;
+    }
+    if (this->DetectCurrentPageFixedLength(
+            expected_list_size, this->fixed_length_phase_) != expected_list_size) {
+      return -1;
+    }
+    ReserveValues(num_values);
+    int64_t values_read = 0;
+    while (values_read < num_values && this->HasNextInternal()) {
+      const int64_t available = this->available_values_current_page();
+      if (available == 0) {
+        continue;
+      }
+      const int64_t to_read = std::min(num_values - values_read, available);
+      const int64_t actual =
+          this->ReadValues(to_read, values_->mutable_data_as<T>() + values_written_);
+      if (actual != to_read) {
+        throw ParquetException(
+            "Fixed-size list fast path decoded an unexpected value count");
+      }
+      this->ConsumeBufferedValues(to_read);
+      values_written_ += actual;
+      values_read += actual;
+      this->fixed_length_phase_ =
+          (this->fixed_length_phase_ + actual) % expected_list_size;
+    }
+    return values_read;
+  }
+
   // Throw away levels from start_levels_position to levels_position_.
   // Will update levels_position_, levels_written_, and levels_capacity_
   // accordingly and move the levels to left to fill in the gap.
@@ -1808,6 +1933,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
   void Reset() override {
     ResetValues();
+    this->fixed_length_phase_ = 0;
 
     if (levels_written_ > 0) {
       // Throw away levels from 0 to levels_position_.

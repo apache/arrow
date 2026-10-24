@@ -304,6 +304,15 @@ class PARQUET_EXPORT RecordReader {
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
 
+  // Read a known number of flat values without decoding definition/repetition
+  // levels. This is used by readers of required fixed-size lists.
+  // Returns -1 when the concrete reader cannot provide this fast path.
+  virtual int64_t ReadRecordsFixedLength(int64_t num_values, int64_t expected_list_size) {
+    return -1;
+  }
+
+  virtual int64_t DetectFixedLength() { return -1; }
+
   /// \brief Attempt to skip indicated number of records from column chunk.
   /// Note that for repeated fields, a record may have more than one value
   /// and all of them are skipped.
