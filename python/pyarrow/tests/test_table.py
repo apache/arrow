@@ -3548,6 +3548,51 @@ def test_table_sort_by(cls):
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
 
 
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_sort_by_dictionary(cls):
+    table = cls.from_arrays([
+        pa.array(["b", "a", None, "b", "a", "c"]).dictionary_encode(),
+        pa.array([3, 1, 4, 2, 5, 0]),
+    ], names=["keys", "values"])
+
+    assert table.sort_by("keys").to_pydict() == {
+        "keys": ["a", "a", "b", "b", "c", None],
+        "values": [1, 5, 3, 2, 0, 4]
+    }
+
+    assert table.sort_by(
+        [("keys", "descending", "at_start"), ("values", "ascending", "at_end")]
+    ).to_pydict() == {
+        "keys": [None, "c", "b", "b", "a", "a"],
+        "values": [4, 0, 2, 3, 1, 5]
+    }
+
+    assert table.sort_by(
+        [("values", "descending", "at_end"), ("keys", "ascending", "at_end")]
+    ).to_pydict()["values"] == [5, 4, 3, 2, 1, 0]
+
+    if cls is pa.Table:
+        # Batches carry different dictionaries
+        table = pa.Table.from_batches([
+            pa.record_batch({"keys": pa.array(["b", "c"]).dictionary_encode(),
+                             "values": [1, 2]}),
+            pa.record_batch({"keys": pa.array(["c", "a", "b"]).dictionary_encode(),
+                             "values": [3, 4, 5]}),
+        ])
+        assert table.sort_by(
+            [("keys", "ascending"), ("values", "descending")]
+        ).to_pydict() == {
+            "keys": ["a", "b", "b", "c", "c"],
+            "values": [4, 5, 1, 3, 2]
+        }
+
+
 def test_record_batch_sort():
     rb = pa.RecordBatch.from_arrays([
         pa.array([7, 35, 7, 5, None, None, 6, 5], type=pa.int64()),
