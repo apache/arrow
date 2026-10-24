@@ -39,6 +39,7 @@ from pyarrow._fs import (  # noqa
 FileStats = FileInfo
 
 _not_imported = []
+_not_imported_reasons = {}
 try:
     from pyarrow._azurefs import AzureFileSystem  # noqa
 except ImportError:
@@ -55,12 +56,25 @@ except ImportError:
     _not_imported.append("GcsFileSystem")
 
 try:
+    # S3 support can be installed separately, as the pyarrow-s3 package.
+    # Importing it loads libarrow_s3 so that pyarrow._s3fs can be imported.
+    import pyarrow_s3  # noqa: F401
+except ModuleNotFoundError:
+    pass
+
+try:
     from pyarrow._s3fs import (  # noqa
         AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
         S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
         finalize_s3, ensure_s3_finalized, initialize_s3, resolve_s3_region)
-except ImportError:
+except ImportError as exc:
     _not_imported.append("S3FileSystem")
+    if not isinstance(exc, ModuleNotFoundError):
+        # pyarrow._s3fs exists, but libarrow_s3 could not be loaded.
+        _not_imported_reasons["S3FileSystem"] = (
+            f"{exc}. If pyarrow was installed from PyPI, S3 support is "
+            "provided by the separate 'pyarrow-s3' package"
+        )
 else:
     # GH-38364: we don't initialize S3 eagerly as that could lead
     # to crashes at shutdown even when S3 isn't used.
@@ -72,10 +86,10 @@ else:
 
 def __getattr__(name):
     if name in _not_imported:
-        raise ImportError(
-            "The pyarrow installation is not built with support for "
-            f"'{name}'"
-        )
+        msg = f"The pyarrow installation is not built with support for '{name}'"
+        if name in _not_imported_reasons:
+            msg += f" ({_not_imported_reasons[name]})"
+        raise ImportError(msg)
 
     raise AttributeError(
         f"module 'pyarrow.fs' has no attribute '{name}'"

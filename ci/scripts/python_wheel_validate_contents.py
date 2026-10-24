@@ -40,7 +40,8 @@ def _count_docstrings(source):
 # TODO(GH-48970): Check stubs ARE present once annotations are complete
 def validate_wheel(path):
     p = Path(path)
-    wheels = list(p.glob('*.whl'))
+    # Only the core pyarrow wheel; pyarrow_s3-*.whl sits alongside it.
+    wheels = list(p.glob('pyarrow-*.whl'))
     error_msg = f"{len(wheels)} wheels found but only 1 expected ({wheels})"
     assert len(wheels) == 1, error_msg
     with zipfile.ZipFile(wheels[0]) as wheel_zip:
