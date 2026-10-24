@@ -575,7 +575,10 @@ struct ListContainsState : public KernelState {
   explicit ListContainsState(Result<std::vector<TypeHolder>> types)
       : types(std::move(types)) {}
 
-  // The result of ComparableTypes, raised for non-null queries only
+  // The result of ComparableTypes. An error is kept rather than raised for queries
+  // that are null-typed or of the values' type: all-null queries are matched by
+  // validity alone, which works even for values "equal" can't compare, like structs.
+  // The error is raised once a batch holds a non-null query.
   Result<std::vector<TypeHolder>> types;
 };
 
@@ -755,7 +758,7 @@ void SearchLists(ListRanges list_range, int64_t num_lists, int64_t values_start,
                                             return found_in(start, start + length, i++);
                                           });
   };
-  if (values_length < 32 * num_lists) {
+  if (values_length < kShortListLength * num_lists) {
     // Short lists are faster to check in full, without branching on the data
     auto exact = [&](int64_t j, int64_t i) {
       if constexpr (kConfirm) {
@@ -770,11 +773,11 @@ void SearchLists(ListRanges list_range, int64_t num_lists, int64_t values_start,
       return found;
     });
   } else {
-    // Stop after the first chunk of 16 values holding a match
+    // Stop after the first chunk holding a match
     auto any = [](auto&& predicate, int64_t start, int64_t end, int64_t i) {
       bool found = false;
-      for (int64_t chunk = start; chunk < end && !found; chunk += 16) {
-        for (int64_t j = chunk; j < std::min(chunk + 16, end); ++j) {
+      for (int64_t chunk = start; chunk < end && !found; chunk += kSearchChunkLength) {
+        for (int64_t j = chunk; j < std::min(chunk + kSearchChunkLength, end); ++j) {
           found |= predicate(j, i);
         }
       }

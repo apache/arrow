@@ -1986,9 +1986,11 @@ Structural transforms
 
 * \(7) Output is true for each list containing a value equal to the second
   argument. If the second argument is an array, each list is searched for the
-  value at the same index. Unlike ``equal``, a null second argument matches
-  null list values and a NaN second argument matches NaN list values;
-  otherwise null list values never match. Null lists emit a null in the output.
+  value at the same index, and a scalar list is searched for each value: the
+  list ``[1, 2]`` and the array ``[2, 3]`` give ``[true, false]``. Unlike
+  ``equal``, a null second argument matches null list values and a NaN second
+  argument matches NaN list values; otherwise null list values never match.
+  Null lists emit a null in the output.
 
 .. _cpp-compute-vector-replace-functions:
 
