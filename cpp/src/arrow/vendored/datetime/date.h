@@ -6018,11 +6018,12 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                     os.setstate(ios::failbit);
                     return os;
                 }
-                auto m = duration_cast<minutes>(*offset_sec);
-                auto neg = m < minutes{0};
-                m = date::abs(m);
+                auto abs_sec = date::abs(*offset_sec);
+                auto m = duration_cast<minutes>(abs_sec);
+                auto neg = *offset_sec < std::chrono::seconds{0};
                 auto h = duration_cast<hours>(m);
                 m -= h;
+                auto s = abs_sec - duration_cast<std::chrono::seconds>(duration_cast<minutes>(abs_sec));
                 if (neg)
                     os << CharT{'-'};
                 else
@@ -6035,6 +6036,14 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                 if (m < minutes{10})
                     os << CharT{'0'};
                 os << m.count();
+                if (s != std::chrono::seconds{0})
+                {
+                    if (modified != CharT{})
+                        os << CharT{':'};
+                    if (s < std::chrono::seconds{10})
+                        os << CharT{'0'};
+                    os << s.count();
+                }
                 command = nullptr;
                 modified = CharT{};
             }
