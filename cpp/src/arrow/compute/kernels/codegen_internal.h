@@ -1459,6 +1459,11 @@ bool CommonTemporalResolution(const TypeHolder* begin, size_t count,
 ARROW_EXPORT
 TypeHolder CommonBinary(const TypeHolder* begin, size_t count);
 
+/// Raise the errors comparing values of these types fails with beyond dispatch,
+/// such as for timestamps where only one has a time zone.
+ARROW_EXPORT
+Status ValidateComparison(const DataType& lhs, const DataType& rhs);
+
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
 enum class DecimalPromotion : uint8_t {
   kAdd,
