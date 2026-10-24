@@ -197,7 +197,8 @@ Result<std::shared_ptr<ArrayData>> FixedWidthKeyEncoder::Decode(uint8_t** encode
   int32_t null_count;
   RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
 
-  ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBuffer(length * byte_width_, pool));
+  ARROW_ASSIGN_OR_RAISE(auto key_buf,
+                        AllocateBuffer(int64_t{length} * byte_width_, pool));
 
   uint8_t* raw_output = key_buf->mutable_data();
   for (int32_t i = 0; i < length; ++i) {

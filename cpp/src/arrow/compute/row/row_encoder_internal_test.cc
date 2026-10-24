@@ -197,4 +197,33 @@ TEST(TestRowEncoder, LARGE_MEMORY_TEST(AppendOver2GB)) {
   ASSERT_EQ(encoder.num_rows(), 1);
 }
 
+TEST(TestRowEncoder, LARGE_MEMORY_TEST(FixedWidthDecodeAt2GB)) {
+  constexpr int32_t kValueLength = 64 * 1024;
+  constexpr int32_t kNumDecodedRows = 32 * 1024;
+  constexpr int64_t kDecodedBytes = int64_t{kNumDecodedRows} * kValueLength;
+  const std::string value(kValueLength, 'x');
+  const auto scalar = std::make_shared<FixedSizeBinaryScalar>(value);
+  ExecContext ctx;
+  RowEncoder encoder;
+  encoder.Init({fixed_size_binary(kValueLength)}, &ctx);
+  ASSERT_OK(encoder.EncodeAndAppend(ExecSpan(ExecBatch({scalar}, /*length=*/1))));
+  ASSERT_EQ(encoder.num_rows(), 1);
+
+  // Repeating a single row keeps the encoded input small. Only the decoded
+  // output reaches 32,768 * 64 KiB = 2 GiB, exceeding the signed 32-bit size
+  // limit independently of the offsets used to store encoded rows.
+  const std::vector<int32_t> row_ids(kNumDecodedRows, 0);
+  ASSERT_OK_AND_ASSIGN(auto decoded, encoder.Decode(kNumDecodedRows, row_ids.data()));
+  const auto array =
+      std::static_pointer_cast<FixedSizeBinaryArray>(decoded[0].make_array());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->length(), kNumDecodedRows);
+  ASSERT_EQ(array->null_count(), 0);
+  ASSERT_EQ(array->data()->buffers[1]->size(), kDecodedBytes);
+  // Check values throughout the output without allocating a second 2 GiB array.
+  for (const int32_t row_id : {0, kNumDecodedRows / 2, kNumDecodedRows - 1}) {
+    ASSERT_EQ(array->GetView(row_id), value);
+  }
+}
+
 }  // namespace arrow::compute::internal
