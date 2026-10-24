@@ -3930,6 +3930,71 @@ def test_list_contains_array():
     assert result.to_pylist() == [True, True, False, None]
 
 
+@pytest.mark.parametrize("value_type, values, query_type, queries", [
+    # 2**53 + 1 doesn't cast to float64, so it's only in null lists
+    (pa.int64(), [0, 1, -1, 2**53 + 1], pa.float64(), [0.0, 1.0, 1.5]),
+    (pa.float32(), [0.0, -0.0, 1.5, math.nan], pa.float64(), [0.0, 1.5, math.nan]),
+    (pa.string(), ["", "a", "ab"], pa.large_string(), ["", "a", "b"]),
+    (pa.binary(1), [b"a", b"b"], pa.binary(2), [b"ab"]),
+    # Dictionary values are null for null indices and for nulls in the dictionary
+    (pa.dictionary(pa.int8(), pa.int64()), [0, 1, None], pa.int64(), [0, 1, 2]),
+])
+def test_list_contains_matches_decoded(value_type, values, query_type, queries):
+    # Compare list_contains to searching the decoded lists, for each input form
+    def search(lists, query):
+        if lists is None:
+            return None
+        if query is None:
+            return None in lists
+        if query != query:
+            return any(v != v for v in lists if v is not None)
+        return any(v == query for v in lists if v is not None)
+
+    rng = random.Random(42)
+    n = 100
+    sizes = [rng.randint(0, 4) for _ in range(n)]
+    offsets = list(itertools.accumulate(sizes, initial=0))
+    mask = [rng.random() < 0.1 for _ in range(n)]
+    hidden = set()
+    if pa.types.is_dictionary(value_type):
+        indices = [rng.choice([0, 1, 2, None]) for _ in range(offsets[-1])]
+        child = pa.DictionaryArray.from_arrays(
+            pa.array(indices, value_type.index_type),
+            pa.array(values, value_type.value_type))
+    else:
+        child = [rng.choice(values[:3] + [None]) for _ in range(offsets[-1])]
+        for i in itertools.compress(range(n), mask):
+            child[offsets[i]:offsets[i + 1]] = values[-1:] * sizes[i]
+            hidden.update(range(offsets[i], offsets[i + 1]))
+        child = pa.array(child, value_type)
+    lists = pa.ListArray.from_arrays(offsets, child, mask=pa.array(mask))
+    forms = [
+        lists, lists.slice(7, 50), lists.cast(pa.large_list(value_type)),
+        # Views of the same lists in reverse order
+        pa.ListViewArray.from_arrays(offsets[-2::-1], sizes[::-1], child,
+                                     mask=pa.array(mask[::-1])),
+        pa.FixedSizeListArray.from_arrays(
+            child.slice(0, n), 1, mask=pa.array([i in hidden for i in range(n)])),
+    ] + [pa.chunked_array([lists.slice(i, size) for i in range(0, n, size)])
+         for size in (1, 7, n)]
+    query_array = pa.array([rng.choice(queries + [None]) for _ in range(n)],
+                           query_type)
+    for form in forms:
+        decoded = form.to_pylist()
+        for query in queries + [None]:
+            result = pc.list_contains(form, pa.scalar(query, query_type))
+            assert result.to_pylist() == [search(x, query) for x in decoded]
+        expected = [search(x, q) for x, q in zip(decoded, query_array.to_pylist())]
+        q = query_array.slice(0, len(form))
+        assert pc.list_contains(form, q).to_pylist() == expected
+        assert pc.list_contains(form, pa.chunked_array(
+            [q.slice(0, 3), q.slice(3)])).to_pylist() == expected
+    for x in lists[:10]:
+        result = pc.list_contains(x, query_array)
+        assert result.to_pylist() == [search(x.as_py(), q)
+                                      for q in query_array.to_pylist()]
+
+
 def test_list_contains_invalid():
     lists = pa.array([[1, 2], [3]])
     with pytest.raises(pa.ArrowNotImplementedError):
