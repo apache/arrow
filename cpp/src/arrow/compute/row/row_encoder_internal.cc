@@ -64,13 +64,13 @@ Status KeyEncoder::DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encod
 }
 
 void BooleanKeyEncoder::AddLength(const ExecValue&, int64_t batch_length,
-                                  int32_t* lengths) {
+                                  int64_t* lengths) {
   for (int64_t i = 0; i < batch_length; ++i) {
     lengths[i] += kByteWidth + kExtraByteForNull;
   }
 }
 
-void BooleanKeyEncoder::AddLengthNull(int32_t* length) {
+void BooleanKeyEncoder::AddLengthNull(int64_t* length) {
   *length += kByteWidth + kExtraByteForNull;
 }
 
@@ -134,13 +134,13 @@ Result<std::shared_ptr<ArrayData>> BooleanKeyEncoder::Decode(uint8_t** encoded_b
 }
 
 void FixedWidthKeyEncoder::AddLength(const ExecValue&, int64_t batch_length,
-                                     int32_t* lengths) {
+                                     int64_t* lengths) {
   for (int64_t i = 0; i < batch_length; ++i) {
     lengths[i] += byte_width_ + kExtraByteForNull;
   }
 }
 
-void FixedWidthKeyEncoder::AddLengthNull(int32_t* length) {
+void FixedWidthKeyEncoder::AddLengthNull(int64_t* length) {
   *length += byte_width_ + kExtraByteForNull;
 }
 
@@ -339,7 +339,7 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
     ARROW_DCHECK(false);
   }
 
-  int32_t total_length = 0;
+  int64_t total_length = 0;
   for (size_t i = 0; i < column_types.size(); ++i) {
     encoders_[i]->AddLengthNull(&total_length);
   }
@@ -370,7 +370,7 @@ Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
     encoders_[i]->AddLength(batch[i], batch.length, offsets_.data() + length_before + 1);
   }
 
-  int32_t total_length = offsets_[length_before];
+  int64_t total_length = offsets_[length_before];
   for (int64_t i = 0; i < batch.length; ++i) {
     total_length += offsets_[length_before + 1 + i];
     offsets_[length_before + 1 + i] = total_length;
