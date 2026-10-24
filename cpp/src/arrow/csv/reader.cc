@@ -109,6 +109,27 @@ class CSVBufferIterator {
   Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
     if (buf == nullptr) {
       // EOF
+      if (held_buffer_ != nullptr) {
+        // The last block ended with '\r' and was held back (see below).
+        // Emit it together with its trailing '\r': no block follows, so
+        // the '\r' cannot be the first half of a straddling CRLF pair.
+        auto held = std::move(held_buffer_);
+        ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(held->size() + 1));
+        memcpy(out->mutable_data(), held->data(), static_cast<size_t>(held->size()));
+        out->mutable_data()[held->size()] = '\r';
+        return TransformYield(std::shared_ptr<Buffer>(std::move(out)),
+                              /*ready_for_next=*/false);
+      }
+      if (pending_cr_) {
+        // A '\r' was withheld from the end of the previous buffer.  Emit it
+        // now so that no data is lost, and ask to be called again with the
+        // end-of-stream marker so that we can then finish the stream.
+        pending_cr_ = false;
+        ARROW_ASSIGN_OR_RAISE(auto cr, AllocateBuffer(1));
+        cr->mutable_data()[0] = '\r';
+        return TransformYield(std::shared_ptr<Buffer>(std::move(cr)),
+                              /*ready_for_next=*/false);
+      }
       return TransformFinish();
     }
 
@@ -120,25 +141,88 @@ class CSVBufferIterator {
       first_buffer_ = false;
     }
 
-    if (trailing_cr_ && buf->data()[offset] == '\n') {
-      // Skip '\r\n' line separator that started at the end of previous buffer
-      ++offset;
+    // Fuse this block with whatever was withheld from the previous one, so
+    // that a CRLF pair straddling a block boundary stays contiguous inside
+    // a single buffer, where both the chunker and the parser handle it
+    // correctly -- whether it is a line separator or data inside a quoted
+    // field (GH-51368).
+    const int64_t incoming = buf->size() - offset;
+    bool fused = false;
+    std::shared_ptr<Buffer> current;
+    if (held_buffer_ != nullptr) {
+      auto held = std::move(held_buffer_);
+      ARROW_ASSIGN_OR_RAISE(auto joined, AllocateBuffer(held->size() + 1 + incoming));
+      uint8_t* out = joined->mutable_data();
+      memcpy(out, held->data(), static_cast<size_t>(held->size()));
+      out[held->size()] = '\r';
+      if (incoming > 0) {
+        memcpy(out + held->size() + 1, buf->data() + offset,
+               static_cast<size_t>(incoming));
+      }
+      current = std::shared_ptr<Buffer>(std::move(joined));
+      fused = true;
+    } else if (pending_cr_) {
+      pending_cr_ = false;
+      ARROW_ASSIGN_OR_RAISE(auto joined, AllocateBuffer(1 + incoming));
+      uint8_t* out = joined->mutable_data();
+      out[0] = '\r';
+      if (incoming > 0) {
+        memcpy(out + 1, buf->data() + offset, static_cast<size_t>(incoming));
+      }
+      current = std::shared_ptr<Buffer>(std::move(joined));
+      fused = true;
+    } else if (offset != 0) {
+      current = SliceBuffer(buf, offset);
+    } else {
+      current = buf;
     }
 
-    trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
-    buf = SliceBuffer(std::move(buf), offset);
-    if (buf->size() == 0) {
-      // EOF
-      return TransformFinish();
-    } else {
-      return TransformYield(std::move(buf));
+    if (current->size() > 0 && current->data()[current->size() - 1] == '\r') {
+      if (fused && incoming > 0) {
+        // The fused buffer still contains a line terminator before its
+        // last byte (the re-inserted '\r' at the seam, or the one at its
+        // start), so it is safe to emit it without the trailing '\r' and
+        // let the next block complete the possible CRLF pair.
+        pending_cr_ = true;
+        // Compute the slice length before moving `current`: the
+        // evaluation order of function arguments is unspecified, so
+        // `current->size()` could otherwise be read after the move.
+        const int64_t length = current->size() - 1;
+        current = SliceBuffer(std::move(current), 0, length);
+      } else {
+        // Do not emit this block without its trailing '\r': downstream,
+        // the chunker requires the block that follows an unterminated row
+        // to contain a line terminator, and a block stripped of its only
+        // terminator (e.g. one holding just "z" from a split such as
+        // "...333,z" + "\r" + "\n") would be rejected with "straddling
+        // object straddles two block boundaries".  Hold the block back
+        // instead and prepend it to the next one above; it is flushed
+        // as-is at end of stream.  This also covers the first block: the
+        // first emitted buffer then contains the header line's
+        // terminator, which ReaderMixin::ProcessHeader relies on when it
+        // parses the first buffer on its own (e.g. block_size=4 on
+        // "a,b\r1,2\r").
+        held_buffer_ = SliceBuffer(current, 0, current->size() - 1);
+        return TransformSkip();
+      }
     }
+
+    if (current->size() == 0) {
+      // Nothing to emit (e.g. an input consisting only of a BOM)
+      return TransformFinish();
+    }
+    return TransformYield(std::move(current));
   }
 
  protected:
   bool first_buffer_ = true;
-  // Whether there was a trailing CR at the end of last received buffer
-  bool trailing_cr_ = false;
+  // Whether a trailing '\r' was withheld from the end of the last emitted
+  // buffer, to be prepended to the next one (GH-51368)
+  bool pending_cr_ = false;
+  // A block (without its trailing '\r') that ended with '\r' and was held
+  // back to be prepended to the next block, or flushed at end of stream;
+  // the '\r' that followed it is re-inserted when fusing
+  std::shared_ptr<Buffer> held_buffer_;
 };
 
 struct CSVBlock {
