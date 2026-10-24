@@ -92,6 +92,13 @@ class PARQUET_EXPORT LevelDecoder {
     int processed_count;
   };
 
+  /// Decode a batch of levels into an array and count the number of occurrences
+  /// of `value`.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were decoded.
+  CountUpToResult DecodeAndCount(int batch_size, int16_t* levels, int16_t value);
+
   /// Advance and count the number of occurrences of `value`.
   ///
   /// The count is limited to at most the next `batch_size` items.
