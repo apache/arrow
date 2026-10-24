@@ -909,6 +909,7 @@ with_wasm_support <- function(env_var_list) {
     CMAKE_WRAPPER = "emcmake",
     ARROW_DEPENDENCY_SOURCE = "BUNDLED",
     ARROW_DEPENDENCY_USE_SHARED = "OFF",
+    ARROW_SNAPPY_USE_SHARED = "OFF",
     ARROW_ENABLE_THREADING = "OFF",
     ARROW_GCS = "OFF",
     ARROW_AZURE = "OFF",
