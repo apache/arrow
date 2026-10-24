@@ -167,6 +167,8 @@ struct ListParentIndicesArray {
                              type.ToString());
   }
 
+  Status Visit(const MapType& type) { return Visit(static_cast<const DataType&>(type)); }
+
   static Result<std::shared_ptr<ArrayData>> Exec(KernelContext* ctx,
                                                  const std::shared_ptr<ArrayData>& input,
                                                  int64_t base_output_offset = 0) {
