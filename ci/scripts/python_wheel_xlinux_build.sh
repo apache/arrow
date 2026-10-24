@@ -119,6 +119,7 @@ cmake \
     -DARROW_FLIGHT="${ARROW_FLIGHT}" \
     -DARROW_GANDIVA="${ARROW_GANDIVA}" \
     -DARROW_GCS="${ARROW_GCS}" \
+    -DARROW_HARDENING=ON \
     -DARROW_HDFS="${ARROW_HDFS}" \
     -DARROW_JEMALLOC="${ARROW_JEMALLOC}" \
     -DARROW_JSON=ON \
@@ -181,6 +182,7 @@ pushd /arrow/python
 python -m build --sdist --wheel . --no-isolation \
     -C build.verbose=true \
     -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" \
+    -C cmake.args="-DARROW_HARDENING=ON" \
     -C cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
 
 if command -v ccache &> /dev/null; then
