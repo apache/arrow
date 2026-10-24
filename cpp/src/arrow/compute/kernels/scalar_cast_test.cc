@@ -414,13 +414,21 @@ TEST(Cast, FloatingToIntOverflow) {
       opts.to_type = uint8();
       CheckCastFails(ArrayFromJSON(from, "[256.0]"), opts);
       CheckCastFails(ArrayFromJSON(from, "[-1.0]"), opts);
+      CheckCast(ArrayFromJSON(from, "[255.0, null, 0.0]"),
+                ArrayFromJSON(uint8(), "[255, null, 0]"), opts);
     }
 
     auto opts = CastOptions::Safe(int8());
+    CheckCastFails(ArrayFromJSON(from, "[127.5]"), opts);
+    CheckCastFails(ArrayFromJSON(from, "[-128.5]"), opts);
     opts.allow_float_truncate = true;
     CheckCast(ArrayFromJSON(from, "[127.5, -128.5]"),
               ArrayFromJSON(int8(), "[127, -128]"), opts);
-    opts.to_type = uint8();
+
+    opts = CastOptions::Safe(uint8());
+    CheckCastFails(ArrayFromJSON(from, "[255.5]"), opts);
+    CheckCastFails(ArrayFromJSON(from, "[-0.5]"), opts);
+    opts.allow_float_truncate = true;
     CheckCast(ArrayFromJSON(from, "[255.5, -0.5]"), ArrayFromJSON(uint8(), "[255, 0]"),
               opts);
   }
@@ -428,19 +436,26 @@ TEST(Cast, FloatingToIntOverflow) {
   for (auto from : {float32(), float64()}) {
     auto opts = CastOptions::Safe(int64());
     opts.allow_float_truncate = true;
-    CheckCastFails(ArrayFromJSON(from, "[9223372036854775808.0]"), opts);
-    CheckCast(ArrayFromJSON(from, "[-9223372036854775808.0]"),
-              ArrayFromJSON(int64(), "[-9223372036854775808]"), opts);
+    for (auto json : {"[9223372036854775807]", "[9223372036854775807.5]",
+                      "[9223372036854775808.0]"}) {
+      CheckCastFails(ArrayFromJSON(from, json), opts);
+    }
+    CheckCast(ArrayFromJSON(from, "[-9223372036854775808.0, -9223372036854775808.5]"),
+              ArrayFromJSON(int64(), "[-9223372036854775808, -9223372036854775808]"),
+              opts);
     opts.to_type = uint64();
     CheckCastFails(ArrayFromJSON(from, "[18446744073709551616.0]"), opts);
   }
 
   auto opts = CastOptions::Safe(int8());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Float value 1.5"),
-                                  Cast(ArrayFromJSON(float16(), "[1.5]"), opts));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Float value 1.500000 was truncated converting to int8"),
+      Cast(ArrayFromJSON(float16(), "[1.5]"), opts));
   opts.allow_float_truncate = true;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Float value inf out"),
-                                  Cast(ArrayFromJSON(float16(), "[Inf]"), opts));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Float value inf out of range converting to int8"),
+      Cast(ArrayFromJSON(float16(), "[Inf]"), opts));
 }
 
 TEST(Cast, FloatingToFloating) {

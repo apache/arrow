@@ -74,6 +74,11 @@ struct WasTruncated {
   static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {
     return is_valid && static_cast<InT>(out_val) != in_val;
   }
+
+  static Status Error(InT in_val, const DataType& out_type) {
+    return Status::Invalid("Float value ", in_val, " was truncated converting to ",
+                           out_type);
+  }
 };
 
 // Half float to int
@@ -87,11 +92,18 @@ struct WasTruncated<HalfFloatType, OutType> {
   static bool CheckMaybeNull(OutT out_val, uint16_t in_val, bool is_valid) {
     return is_valid && static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
   }
+
+  static Status Error(uint16_t in_val, const DataType& out_type) {
+    return WasTruncated<FloatType, OutType>::Error(Float16::FromBits(in_val).ToFloat(),
+                                                   out_type);
+  }
 };
 
 template <typename InType, typename OutType, typename InT = typename InType::c_type,
           typename OutT = typename OutType::c_type>
 struct WasOutOfRange {
+  static_assert(std::is_integral_v<OutT>);
+
   static constexpr auto kMin = static_cast<InT>(std::numeric_limits<OutT>::min());
   static constexpr auto kMaxPlusOne =
       static_cast<InT>(std::numeric_limits<OutT>::max() / 2 + 1) * 2;
@@ -102,6 +114,11 @@ struct WasOutOfRange {
 
   static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {
     return is_valid && Check(out_val, in_val);
+  }
+
+  static Status Error(InT in_val, const DataType& out_type) {
+    return Status::Invalid("Float value ", in_val, " out of range converting to ",
+                           out_type);
   }
 };
 
@@ -116,6 +133,11 @@ struct WasOutOfRange<HalfFloatType, OutType> {
   static bool CheckMaybeNull(OutT out_val, uint16_t in_val, bool is_valid) {
     return is_valid && Check(out_val, in_val);
   }
+
+  static Status Error(uint16_t in_val, const DataType& out_type) {
+    return WasOutOfRange<FloatType, OutType>::Error(Float16::FromBits(in_val).ToFloat(),
+                                                    out_type);
+  }
 };
 
 // InType is a floating point type we are planning to cast to integer
@@ -124,33 +146,8 @@ template <template <typename...> class Checker, typename InType, typename OutTyp
           typename OutT = typename OutType::c_type>
 ARROW_DISABLE_UBSAN("float-cast-overflow")
 Status CheckFloatToIntValues(const ArraySpan& input, const ArraySpan& output) {
-  auto GetErrorMessage = [&](InT in_val) {
-    const auto val = [in_val] {
-      if constexpr (std::is_same_v<InType, HalfFloatType>) {
-        return Float16::FromBits(in_val).ToFloat();
-      } else {
-        return in_val;
-      }
-    }();
-    if constexpr (std::is_same_v<Checker<InType, OutType>,
-                                 WasOutOfRange<InType, OutType>>) {
-      return Status::Invalid("Float value ", val, " out of range converting to ",
-                             *output.type);
-    }
-    return Status::Invalid("Float value ", val, " was truncated converting to ",
-                           *output.type);
-  };
-
   const InT* in_data = input.GetValues<InT>(1);
   const OutT* out_data = output.GetValues<OutT>(1);
-  auto out_at = [&](int64_t i) {
-    if constexpr (std::is_same_v<Checker<InType, OutType>,
-                                 WasOutOfRange<InType, OutType>>) {
-      return OutT{};
-    } else {
-      return out_data[i];
-    }
-  };
 
   const uint8_t* bitmap = input.buffers[0].data;
   OptionalBitBlockCounter bit_counter(bitmap, input.offset, input.length);
@@ -162,27 +159,28 @@ Status CheckFloatToIntValues(const ArraySpan& input, const ArraySpan& output) {
     if (block.popcount == block.length) {
       // Fast path: branchless
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= Checker<InType, OutType>::Check(out_at(i), in_data[i]);
+        block_out_of_bounds |= Checker<InType, OutType>::Check(out_data[i], in_data[i]);
       }
     } else if (block.popcount > 0) {
       // Indices have nulls, must only boundscheck non-null values
       for (int64_t i = 0; i < block.length; ++i) {
         block_out_of_bounds |= Checker<InType, OutType>::CheckMaybeNull(
-            out_at(i), in_data[i], bit_util::GetBit(bitmap, offset_position + i));
+            out_data[i], in_data[i], bit_util::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (input.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
           if (Checker<InType, OutType>::CheckMaybeNull(
-                  out_at(i), in_data[i], bit_util::GetBit(bitmap, offset_position + i))) {
-            return GetErrorMessage(in_data[i]);
+                  out_data[i], in_data[i],
+                  bit_util::GetBit(bitmap, offset_position + i))) {
+            return Checker<InType, OutType>::Error(in_data[i], *output.type);
           }
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (Checker<InType, OutType>::Check(out_at(i), in_data[i])) {
-            return GetErrorMessage(in_data[i]);
+          if (Checker<InType, OutType>::Check(out_data[i], in_data[i])) {
+            return Checker<InType, OutType>::Error(in_data[i], *output.type);
           }
         }
       }
@@ -240,13 +238,12 @@ Status CheckFloatToInt(const ExecValue& input, const ExecResult& output) {
 
 Status CastFloatingToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-  if (options.allow_float_truncate && !options.allow_int_overflow) {
-    RETURN_NOT_OK(CheckFloatToInt<WasOutOfRange>(batch[0], *out));
-  }
   CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
                            out->array_span_mutable());
   if (!options.allow_float_truncate) {
     RETURN_NOT_OK(CheckFloatToInt<WasTruncated>(batch[0], *out));
+  } else if (!options.allow_int_overflow) {
+    RETURN_NOT_OK(CheckFloatToInt<WasOutOfRange>(batch[0], *out));
   }
   return Status::OK();
 }
