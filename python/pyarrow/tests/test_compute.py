@@ -1873,6 +1873,63 @@ def test_compare_string_scalar(typ):
     assert result.equals(con([False, True, True, None]))
 
 
+@pytest.mark.parametrize(
+    "left_type", [pa.string(), pa.large_string(), pa.string_view()]
+)
+@pytest.mark.parametrize(
+    "right_type", [pa.string(), pa.large_string(), pa.string_view()]
+)
+def test_compare_mixed_string_types(left_type, right_type):
+    # Short strings (<= 12 bytes)
+    left = pa.array(["a", "b", None, "d"], type=left_type)
+    right = pa.array(["a", "x", "c", None], type=right_type)
+
+    result = pc.equal(left, right)
+    assert result.to_pylist() == [True, False, None, None]
+
+    result = pc.not_equal(left, right)
+    assert result.to_pylist() == [False, True, None, None]
+
+    result = pc.less(left, right)
+    assert result.to_pylist() == [False, True, None, None]
+
+    # Sliced arrays
+    assert pc.equal(left.slice(1, 2), right.slice(1, 2)).to_pylist() == [False, None]
+
+    # Long strings (> 12 bytes testing out-of-line view prefix + data buffer)
+    long_left = pa.array(
+        ["this_is_a_long_string_1", "this_is_a_long_string_2", None], type=left_type
+    )
+    long_right = pa.array(
+        ["this_is_a_long_string_1", "this_is_a_different_string", "c"], type=right_type
+    )
+    assert pc.equal(long_left, long_right).to_pylist() == [True, False, None]
+
+    # Array vs Scalar
+    scalar = pa.scalar("b", type=right_type)
+    result = pc.equal(left, scalar)
+    assert result.to_pylist() == [False, True, None, False]
+
+
+@pytest.mark.parametrize(
+    "left_type", [pa.binary(), pa.large_binary(), pa.binary_view()]
+)
+@pytest.mark.parametrize(
+    "right_type", [pa.binary(), pa.large_binary(), pa.binary_view()]
+)
+def test_compare_mixed_binary_types(left_type, right_type):
+    left = pa.array([b"a", b"b", None, b"d"], type=left_type)
+    right = pa.array([b"a", b"x", b"c", None], type=right_type)
+
+    assert pc.equal(left, right).to_pylist() == [True, False, None, None]
+    assert pc.not_equal(left, right).to_pylist() == [False, True, None, None]
+    assert pc.less(left, right).to_pylist() == [False, True, None, None]
+
+    # Array vs Scalar
+    scalar = pa.scalar(b"b", type=right_type)
+    assert pc.equal(left, scalar).to_pylist() == [False, True, None, False]
+
+
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_scalar(typ):
     if typ == "array":
