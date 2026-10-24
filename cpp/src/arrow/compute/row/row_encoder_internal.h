@@ -48,11 +48,11 @@ struct ARROW_COMPUTE_EXPORT KeyEncoder {
   // sizeof(Offset) + buffer_size.
   // If Encoder is for null type, the length would add 0.
   virtual void AddLength(const ExecValue& value, int64_t batch_length,
-                         int32_t* lengths) = 0;
+                         int64_t* lengths) = 0;
 
   // Increment the length by the length of an encoded null value.
   // It's a special case for AddLength like `AddLength(Null-Scalar, 1, lengths)`.
-  virtual void AddLengthNull(int32_t* length) = 0;
+  virtual void AddLengthNull(int64_t* length) = 0;
 
   // Encode the column into the encoded_bytes, which is an array of pointers to each row
   // buffer.
@@ -89,9 +89,9 @@ struct ARROW_COMPUTE_EXPORT KeyEncoder {
 struct ARROW_COMPUTE_EXPORT BooleanKeyEncoder : KeyEncoder {
   static constexpr int kByteWidth = 1;
 
-  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
+  void AddLength(const ExecValue& data, int64_t batch_length, int64_t* lengths) override;
 
-  void AddLengthNull(int32_t* length) override;
+  void AddLengthNull(int64_t* length) override;
 
   Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override;
@@ -107,9 +107,9 @@ struct ARROW_COMPUTE_EXPORT FixedWidthKeyEncoder : KeyEncoder {
       : type_(std::move(type)),
         byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
 
-  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
+  void AddLength(const ExecValue& data, int64_t batch_length, int64_t* lengths) override;
 
-  void AddLengthNull(int32_t* length) override;
+  void AddLengthNull(int64_t* length) override;
 
   Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override;
@@ -148,7 +148,7 @@ struct BaseVarLengthKeyEncoder : KeyEncoder {
   explicit BaseVarLengthKeyEncoder(std::shared_ptr<DataType> type)
       : type_(std::move(type)) {}
 
-  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {
+  void AddLength(const ExecValue& data, int64_t batch_length, int64_t* lengths) override {
     if (data.is_array()) {
       int64_t i = 0;
       ARROW_DCHECK_EQ(data.array.length, batch_length);
@@ -156,14 +156,14 @@ struct BaseVarLengthKeyEncoder : KeyEncoder {
           data.array,
           [&](std::string_view bytes) {
             lengths[i++] +=
-                kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
+                kExtraByteForNull + sizeof(Offset) + static_cast<int64_t>(bytes.size());
           },
           [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
     } else {
       const Scalar& scalar = *data.scalar;
-      const int32_t buffer_size =
+      const int64_t buffer_size =
           scalar.is_valid
-              ? static_cast<int32_t>(UnboxScalar<VisitType>::Unbox(scalar).size())
+              ? static_cast<int64_t>(UnboxScalar<VisitType>::Unbox(scalar).size())
               : 0;
       for (int64_t i = 0; i < batch_length; i++) {
         lengths[i] += kExtraByteForNull + sizeof(Offset) + buffer_size;
@@ -171,7 +171,7 @@ struct BaseVarLengthKeyEncoder : KeyEncoder {
     }
   }
 
-  void AddLengthNull(int32_t* length) override {
+  void AddLengthNull(int64_t* length) override {
     *length += kExtraByteForNull + sizeof(Offset);
   }
 
@@ -281,9 +281,9 @@ struct ARROW_COMPUTE_EXPORT BinaryViewKeyEncoder
 };
 
 struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
-  void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override {}
+  void AddLength(const ExecValue&, int64_t batch_length, int64_t* lengths) override {}
 
-  void AddLengthNull(int32_t* length) override {}
+  void AddLengthNull(int64_t* length) override {}
 
   Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
@@ -377,7 +377,7 @@ class ARROW_COMPUTE_EXPORT RowEncoder {
       return std::string(reinterpret_cast<const char*>(encoded_nulls_.data()),
                          encoded_nulls_.size());
     }
-    int32_t row_length = offsets_[i + 1] - offsets_[i];
+    int64_t row_length = offsets_[i + 1] - offsets_[i];
     return std::string(reinterpret_cast<const char*>(bytes_.data() + offsets_[i]),
                        row_length);
   }
@@ -393,8 +393,9 @@ class ARROW_COMPUTE_EXPORT RowEncoder {
   // within the bytes_ vector. This allows for quick access to individual rows.
   //
   // The size would be num_rows + 1 if not empty, the last element is the total
-  // length of the bytes_ vector.
-  std::vector<int32_t> offsets_;
+  // length of the bytes_ vector. Use 64-bit offsets for buffers over 2GB,
+  // independently of the 32-bit row ids.
+  std::vector<int64_t> offsets_;
   // The encoded bytes of all non "kRowIdForNulls" rows.
   std::vector<uint8_t> bytes_;
   // A pre-encoded constant row with all its columns being null. Useful when
