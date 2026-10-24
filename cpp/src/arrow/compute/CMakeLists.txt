@@ -190,3 +190,25 @@ add_arrow_compute_benchmark(function_benchmark)
 add_subdirectory(kernels)
 
 add_subdirectory(row)
+
+if(ARROW_BUILD_FUZZING_UTILITIES)
+  add_executable(arrow-compute-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(arrow-compute-generate-fuzz-corpus arrow_compute_static
+                          ${ARROW_UTIL_LIB} ${ARROW_TEST_LINK_LIBS})
+  else()
+    target_link_libraries(arrow-compute-generate-fuzz-corpus arrow_compute_shared
+                          ${ARROW_UTIL_LIB} ${ARROW_TEST_LINK_LIBS})
+  endif()
+endif()
+
+add_arrow_fuzz_target(fuzz PREFIX "arrow-compute")
+
+# add_arrow_fuzz_target only links libarrow; the compute kernels (including
+# compute::Initialize()) live in the separate libarrow_compute, so link it
+# explicitly here.
+if(ARROW_BUILD_STATIC)
+  target_link_libraries(arrow-compute-fuzz arrow_compute_static)
+else()
+  target_link_libraries(arrow-compute-fuzz arrow_compute_shared)
+endif()
