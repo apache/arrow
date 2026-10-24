@@ -21,7 +21,6 @@
 #include <limits>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_nested.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -673,10 +672,9 @@ Status VisitEqual(const ArraySpan& values, const ArraySpan& queries, Visit&& vis
   }
 }
 
-// Returns a function giving the (child offset, length) of list i. With `kGathered`,
-// list views' offsets are into their gathered values instead, so the function must
-// be called for i = 0, 1, ...
-template <typename Type, bool kGathered = false>
+// Returns a function giving the (child offset, length) of list i, with no values for
+// null list views
+template <typename Type>
 auto GetListRanges(const ArraySpan& list) {
   using Range = std::pair<int64_t, int64_t>;
   if constexpr (std::is_same_v<Type, FixedSizeListType>) {
@@ -688,19 +686,11 @@ auto GetListRanges(const ArraySpan& list) {
       const auto* sizes = list.GetValues<typename Type::offset_type>(2);
       // Reading the validity bit directly keeps this cheap enough to be inlined
       const uint8_t* validity = list.MayHaveNulls() ? list.buffers[0].data : nullptr;
-      auto size = [sizes, validity, offset = list.offset](int64_t i) -> int64_t {
-        return validity == nullptr || bit_util::GetBit(validity, offset + i) ? sizes[i]
-                                                                             : 0;
+      return [offsets, sizes, validity, offset = list.offset](int64_t i) {
+        return Range(
+            offsets[i],
+            validity == nullptr || bit_util::GetBit(validity, offset + i) ? sizes[i] : 0);
       };
-      if constexpr (kGathered) {
-        return [size, start = int64_t{0}](int64_t i) mutable {
-          const int64_t length = size(i);
-          start += length;
-          return Range(start - length, length);
-        };
-      } else {
-        return [offsets, size](int64_t i) { return Range(offsets[i], size(i)); };
-      }
     } else {
       return
           [offsets](int64_t i) { return Range(offsets[i], offsets[i + 1] - offsets[i]); };
@@ -708,22 +698,44 @@ auto GetListRanges(const ArraySpan& list) {
   }
 }
 
-// Gather the child values referenced by list views, one view after the other
+// Cast `values`, the child values from `values_start` on, to `type`. Values that no list
+// references, like those of null lists, may not convert, so then they are cast as nulls.
 template <typename Type>
-Result<Datum> GatherListViewValues(KernelContext* ctx, const ArraySpan& list) {
-  auto list_range = GetListRanges<Type>(list);
-  Int64Builder indices(ctx->memory_pool());
+Status CastListValues(KernelContext* ctx, const ArraySpan& list, int64_t values_start,
+                      const TypeHolder& type, Datum* values) {
+  if (CastTo(ctx, type, values).ok()) {
+    return Status::OK();
+  }
+  auto data = values->array()->Copy();
+  ARROW_ASSIGN_OR_RAISE(auto validity, AllocateEmptyBitmap(data->offset + data->length,
+                                                           ctx->memory_pool()));
+  const auto list_range = GetListRanges<Type>(list);
   for (int64_t i = 0; i < list.length; ++i) {
-    const auto [start, length] = list_range(i);
-    RETURN_NOT_OK(indices.Reserve(length));
-    for (int64_t j = start; j < start + length; ++j) {
-      indices.UnsafeAppend(j);
+    if (list.IsValid(i)) {
+      const auto [start, length] = list_range(i);
+      bit_util::SetBitsTo(validity->mutable_data(), data->offset + start - values_start,
+                          length, true);
     }
   }
-  ARROW_ASSIGN_OR_RAISE(auto gather_indices, indices.Finish());
-  return CallFunction("take", {list.child_data[0].ToArrayData(), gather_indices},
-                      ctx->exec_context());
+  if (data->MayHaveNulls()) {
+    arrow::internal::BitmapAnd(validity->data(), data->offset, data->buffers[0]->data(),
+                               data->offset, data->length, data->offset,
+                               validity->mutable_data());
+  }
+  data->buffers[0] = std::move(validity);
+  data->null_count = kUnknownNullCount;
+  *values = std::move(data);
+  return CastTo(ctx, type, values);
 }
+
+// Whether lists are searched in full or in chunks is decided once per batch, from the
+// mean number of values per list: below kShortListLength, scanning all values without
+// branching on the data is fastest. Longer lists are searched kSearchChunkLength values
+// at a time, which compile to vector compares, stopping after the first chunk holding a
+// match. Both were tuned on int64 values, with lists of 3 to 1000 values and matches at
+// their start, middle or end (see GH-51611).
+constexpr int64_t kShortListLength = 32;
+constexpr int64_t kSearchChunkLength = 16;
 
 // Search each list for its query: `matches(j, i)` tells whether child value j matches
 // the query of list i, relative to the first child value referenced. If given,
@@ -860,15 +872,7 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   Datum values =
       list.child_data[0].ToArrayData()->Slice(values_start, values_end - values_start);
-  bool gathered = false;
   auto search = [&](auto&&... predicates) {
-    if constexpr (is_list_view_type<Type>::value) {
-      if (gathered) {
-        SearchLists(GetListRanges<Type, true>(list), list.length, /*values_start=*/0,
-                    values.length(), out_arr, predicates...);
-        return;
-      }
-    }
     SearchLists(list_range, list.length, values_start, values.length(), out_arr,
                 predicates...);
   };
@@ -897,10 +901,9 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   RETURN_NOT_OK(state_types.status());
   const auto& types = *state_types;
-  if constexpr (is_list_view_type<Type>::value) {
-    if (!values.type()->Equals(*types[0])) {
-      // Only cast the span of values that views reference. Values in gaps between
-      // views may not convert, so then only cast the referenced values.
+  if (!values.type()->Equals(*types[0])) {
+    if constexpr (is_list_view_type<Type>::value) {
+      // Only cast the span of values that views reference
       values_start = std::numeric_limits<int64_t>::max();
       values_end = 0;
       for (int64_t i = 0; i < list.length; ++i) {
@@ -913,13 +916,9 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
       values_start = std::min(values_start, values_end);
       values = list.child_data[0].ToArrayData()->Slice(values_start,
                                                        values_end - values_start);
-      if (!CastTo(ctx, types[0], &values).ok()) {
-        ARROW_ASSIGN_OR_RAISE(values, GatherListViewValues<Type>(ctx, list));
-        gathered = true;
-      }
     }
+    RETURN_NOT_OK(CastListValues<Type>(ctx, list, values_start, types[0], &values));
   }
-  RETURN_NOT_OK(CastTo(ctx, types[0], &values));
   RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
   const ArraySpan v(*values.array());
   const ArraySpan q(*queries.array());

@@ -365,6 +365,24 @@ TEST(TestScalarNested, ListContainsImplicitCast) {
                     ScalarFromJSON(int64(), "1"), "[true, false, null, false]");
   CheckListContains(ArrayFromJSON(list(decimal128(38, 2)), R"([["1.50"], ["2.50"]])"),
                     ScalarFromJSON(decimal128(3, 2), R"("1.50")"), "[true, false]");
+
+  // Values of null lists are not cast: 2^53 + 1 isn't a float64
+  auto values = ArrayFromJSON(int64(), "[9007199254740993, 1]");
+  auto validity = ArrayFromJSON(boolean(), "[false, true]")->data()->buffers[1];
+  ASSERT_OK_AND_ASSIGN(
+      auto lists, ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2]"), *values,
+                                        default_memory_pool(), validity));
+  ASSERT_OK_AND_ASSIGN(auto fixed_size_lists,
+                       FixedSizeListArray::FromArrays(values, 1, validity));
+  for (Datum input : {Datum(lists), Datum(fixed_size_lists)}) {
+    CheckListContains(input, ScalarFromJSON(float64(), "1"), "[null, true]");
+    CheckListContains(input, ArrayFromJSON(float64(), "[1, null]"), "[null, false]");
+  }
+  // Unlike values of non-null lists
+  EXPECT_THAT(CallFunction("list_contains",
+                           {ArrayFromJSON(list(int64()), "[[9007199254740993], null]"),
+                            ScalarFromJSON(float64(), "1")}),
+              Raises(StatusCode::Invalid));
 }
 
 TEST(TestScalarNested, ListContainsChunked) {
@@ -404,7 +422,7 @@ TEST(TestScalarNested, ListContainsListViewOutOfOrder) {
   CheckListContains(input->Slice(3), ScalarFromJSON(int32(), "1"), "[false, false]");
   CheckListContains(input->Slice(4), ScalarFromJSON(int32(), "1"), "[false]");
 
-  // Child values outside every view are not cast either: 2^53 + 1 isn't a float64
+  // Child values outside every view are not cast: 2^53 + 1 isn't a float64
   ASSERT_OK_AND_ASSIGN(
       input, ListViewArray::FromArrays(
                  *ArrayFromJSON(int32(), "[0, 2]"), *ArrayFromJSON(int32(), "[1, 1]"),
