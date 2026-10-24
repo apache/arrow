@@ -26,6 +26,7 @@
 #include "arrow/util/logging_internal.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
+#include "gandiva/expr_cse.h"
 #include "gandiva/function_holder_maker_registry.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
@@ -61,6 +62,49 @@ const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode& node) {
   }
 }
 
+Status ExprDecomposer::DecomposeNode(const Node& node, ValueValidityPairPtr* out) {
+  bool can_reuse = CanReuseDecomposition(node);
+  if (can_reuse) {
+    auto it = decomposed_cache_.find(&node);
+    if (it != decomposed_cache_.end()) {
+      *out = it->second;
+      return Status::OK();
+    }
+  }
+
+  ARROW_RETURN_NOT_OK(node.Accept(*this));
+  *out = std::move(result_);
+  if (can_reuse) {
+    decomposed_cache_.emplace(&node, *out);
+  }
+  return Status::OK();
+}
+
+bool ExprDecomposer::CanReuseDecomposition(const Node& node) {
+  auto cached = reusable_node_cache_.find(&node);
+  if (cached != reusable_node_cache_.end()) {
+    return cached->second;
+  }
+
+  bool reusable = false;
+  if (dynamic_cast<const FieldNode*>(&node) != nullptr ||
+      dynamic_cast<const LiteralNode*>(&node) != nullptr) {
+    reusable = true;
+  } else if (auto function_node = dynamic_cast<const FunctionNode*>(&node)) {
+    auto desc = function_node->descriptor();
+    FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
+    const NativeFunction* native_function = registry_.LookupSignature(signature);
+    reusable =
+        native_function != nullptr && CanReuseNativeFunction(registry_, *native_function);
+    for (const auto& child : function_node->children()) {
+      reusable = reusable && CanReuseDecomposition(*child);
+    }
+  }
+
+  reusable_node_cache_.emplace(&node, reusable);
+  return reusable;
+}
+
 // Decompose a field node - wherever possible, merge the validity vectors of the
 // child nodes.
 Status ExprDecomposer::Visit(const FunctionNode& in_node) {
@@ -73,10 +117,9 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
   for (auto& child : node.children()) {
-    auto status = child->Accept(*this);
-    ARROW_RETURN_NOT_OK(status);
-
-    args.push_back(result());
+    ValueValidityPairPtr child_vv;
+    ARROW_RETURN_NOT_OK(DecomposeNode(*child, &child_vv));
+    args.push_back(child_vv);
   }
 
   // Make a function holder, if required.
@@ -93,7 +136,11 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
     // These functions are decomposable, merge the validity bits of the children.
 
     std::vector<DexPtr> merged_validity;
+    std::unordered_set<const ValueValidityPair*> merged_args;
     for (auto& decomposed : args) {
+      if (!merged_args.insert(decomposed.get()).second) {
+        continue;
+      }
       // Merge the validity_expressions of the children to build a combined validity
       // expression.
       merged_validity.insert(merged_validity.end(), decomposed->validity_exprs().begin(),
@@ -130,24 +177,24 @@ Status ExprDecomposer::Visit(const IfNode& node) {
   nested_if_else_ = false;
 
   PushConditionEntry(node);
-  auto status = node.condition()->Accept(*this);
+  ValueValidityPairPtr condition_vv;
+  auto status = DecomposeNode(*node.condition(), &condition_vv);
   ARROW_RETURN_NOT_OK(status);
-  auto condition_vv = result();
   PopConditionEntry(node);
 
   // Add a local bitmap to track the output validity.
   int local_bitmap_idx = PushThenEntry(node, svd_nested_if_else);
-  status = node.then_node()->Accept(*this);
+  ValueValidityPairPtr then_vv;
+  status = DecomposeNode(*node.then_node(), &then_vv);
   ARROW_RETURN_NOT_OK(status);
-  auto then_vv = result();
   PopThenEntry(node);
 
   PushElseEntry(node, local_bitmap_idx);
   nested_if_else_ = (dynamic_cast<IfNode*>(node.else_node().get()) != nullptr);
 
-  status = node.else_node()->Accept(*this);
+  ValueValidityPairPtr else_vv;
+  status = DecomposeNode(*node.else_node(), &else_vv);
   ARROW_RETURN_NOT_OK(status);
-  auto else_vv = result();
   bool is_terminal_else = PopElseEntry(node);
 
   auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
@@ -164,10 +211,9 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
   for (auto& child : node.children()) {
-    auto status = child->Accept(*this);
-    ARROW_RETURN_NOT_OK(status);
-
-    args.push_back(result());
+    ValueValidityPairPtr child_vv;
+    ARROW_RETURN_NOT_OK(DecomposeNode(*child, &child_vv));
+    args.push_back(child_vv);
   }
 
   // Add a local bitmap to track the output validity.
@@ -190,9 +236,9 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
 Status ExprDecomposer::Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) {
   /* decompose the children. */
   std::vector<ValueValidityPairPtr> args;
-  auto status = node.eval_expr()->Accept(*this);
-  ARROW_RETURN_NOT_OK(status);
-  args.push_back(result());
+  ValueValidityPairPtr eval_vv;
+  ARROW_RETURN_NOT_OK(DecomposeNode(*node.eval_expr(), &eval_vv));
+  args.push_back(eval_vv);
   /* In always outputs valid results, so no validity dex */
   auto value_dex = std::make_shared<InExprDex<gandiva::DecimalScalar128>>(
       args, node.values(), node.get_precision(), node.get_scale());
@@ -206,9 +252,9 @@ template <typename ctype>
 Status ExprDecomposer::VisitInGeneric(const InExpressionNode<ctype>& node) {
   /* decompose the children. */
   std::vector<ValueValidityPairPtr> args;
-  auto status = node.eval_expr()->Accept(*this);
-  ARROW_RETURN_NOT_OK(status);
-  args.push_back(result());
+  ValueValidityPairPtr eval_vv;
+  ARROW_RETURN_NOT_OK(DecomposeNode(*node.eval_expr(), &eval_vv));
+  args.push_back(eval_vv);
   /* In always outputs valid results, so no validity dex */
   auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values());
   int holder_idx = annotator_.AddHolderPointer(value_dex->in_holder().get());

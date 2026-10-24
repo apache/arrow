@@ -84,13 +84,20 @@ const NativeFunction* FunctionRegistry::LookupSignature(
   return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
-Status FunctionRegistry::Add(NativeFunction func) {
+bool FunctionRegistry::IsBuiltIn(const NativeFunction& function) const {
+  return built_in_functions_.find(&function) != built_in_functions_.end();
+}
+
+Status FunctionRegistry::Add(NativeFunction func, bool is_built_in) {
   if (pc_registry_.size() == kMaxFunctionSignatures) {
     return Status::CapacityError("Exceeded max function signatures limit of ",
                                  kMaxFunctionSignatures);
   }
   pc_registry_.emplace_back(std::move(func));
   const auto& last_func = pc_registry_.back();
+  if (is_built_in) {
+    built_in_functions_.insert(&last_func);
+  }
   for (const auto& func_signature : last_func.signatures()) {
     pc_registry_map_.emplace(&func_signature, &last_func);
   }
@@ -148,7 +155,7 @@ arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
         GetHashFunctionRegistry(), GetMathOpsFunctionRegistry(),
         GetStringFunctionRegistry(), GetDateTimeArithmeticFunctionRegistry()}) {
     for (const auto& func_signature : funcs) {
-      ARROW_RETURN_NOT_OK(registry->Add(func_signature));
+      ARROW_RETURN_NOT_OK(registry->Add(func_signature, true));
     }
   }
   return registry;
