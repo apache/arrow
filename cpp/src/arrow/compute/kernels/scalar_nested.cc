@@ -798,7 +798,7 @@ Status ScalarListContains(KernelContext* ctx,
   Datum values = list.value;
   if (null_queries) {
     bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
-                        values.null_count() > 0);
+                        values.array()->ComputeLogicalNullCount() > 0);
     return Status::OK();
   }
   RETURN_NOT_OK(CastTo(ctx, (*types)[0], &values));
@@ -885,6 +885,12 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   const int64_t query_step = scalar_query ? 0 : 1;
 
   if (queries.null_count() == queries.length()) {
+    if (values.type()->id() == arrow::Type::DICTIONARY) {
+      // Values are also null where their dictionary is
+      RETURN_NOT_OK(
+          CastTo(ctx, checked_cast<const DictionaryType&>(*values.type()).value_type(),
+                 &values));
+    }
     const ArraySpan v(*values.array());
     search([&](int64_t j, int64_t) { return v.IsNull(j); });
     return Status::OK();

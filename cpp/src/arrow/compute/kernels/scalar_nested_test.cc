@@ -227,6 +227,18 @@ TEST(TestScalarNested, ListContainsNull) {
 
   input = ArrayFromJSON(list(null()), "[[null], [], null]");
   CheckListContains(input, MakeNullScalar(null()), "[true, false, null]");
+
+  // Dictionary values are also null where their dictionary is
+  ASSERT_OK_AND_ASSIGN(
+      input, ListArray::FromArrays(
+                 *ArrayFromJSON(int32(), "[0, 1, 2]"),
+                 *DictArrayFromJSON(dictionary(int8(), int64()), "[0, 1]", "[null, 1]")));
+  for (auto value : {ScalarFromJSON(int64(), "null"), MakeNullScalar(null())}) {
+    CheckListContains(input, value, "[true, false]");
+  }
+  CheckListContains(input, ArrayFromJSON(int64(), "[null, null]"), "[true, false]");
+  ASSERT_OK_AND_ASSIGN(auto list_scalar, input->GetScalar(0));
+  CheckListContains(list_scalar, ArrayFromJSON(int64(), "[null, 1]"), "[true, false]");
 }
 
 TEST(TestScalarNested, ListContainsNaN) {
