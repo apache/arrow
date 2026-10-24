@@ -2267,6 +2267,34 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
+def test_cast_struct_with_null_child():
+    struct_type = pa.struct([
+        pa.field('a', pa.int64(), nullable=False),
+        pa.field('n', pa.null()),
+    ])
+    array = pa.array([[{'a': 1, 'n': None}, {'a': 2, 'n': None}]],
+                     type=pa.list_(struct_type))
+    struct_array = array.values
+
+    sliced_struct = struct_array.slice(1, 1)
+    assert sliced_struct.cast(struct_type).validate(full=True) is None
+
+    for casted in [struct_array.cast(struct_type),
+                   pc.cast(struct_array, struct_type)]:
+        assert casted.validate(full=True) is None
+
+    casted = array.cast(array.type)
+    assert casted.validate(full=True) is None
+
+    chunked = pa.chunked_array([array]).cast(array.type)
+    for chunk in chunked.iterchunks():
+        assert chunk.validate(full=True) is None
+
+    record_batch = pa.RecordBatch.from_arrays([array], ['x'])
+    casted = record_batch.cast(pa.schema([pa.field('x', array.type)]))
+    assert casted.column(0).validate(full=True) is None
+
+
 @pytest.mark.parametrize('value_type', [pa.date32(), pa.date64()])
 def test_identity_cast_dates(value_type):
     dt = datetime.date(1990, 3, 1)
