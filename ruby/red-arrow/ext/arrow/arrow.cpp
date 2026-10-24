@@ -103,6 +103,12 @@ extern "C" void Init_arrow() {
                    reinterpret_cast<rb::RawMethod>(red_arrow::array_values),
                    0);
 
+  // Use Array#values instead of the GObject property. The physical child
+  // array is still available as values_raw.
+  auto cArrowRunEndEncodedArray =
+    rb_const_get_at(mArrow, rb_intern("RunEndEncodedArray"));
+  rb_remove_method(cArrowRunEndEncodedArray, "values");
+
   auto cArrowChunkedArray = rb_const_get_at(mArrow, rb_intern("ChunkedArray"));
   rb_define_method(cArrowChunkedArray, "values",
                    reinterpret_cast<rb::RawMethod>(red_arrow::chunked_array_values),
