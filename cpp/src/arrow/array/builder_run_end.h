@@ -115,6 +115,7 @@ class RunCompressorBuilder : public ArrayBuilder {
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
   Status AppendEmptyValues(int64_t length) override;
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
   Status AppendScalars(const ScalarVector& scalars) override;
 
@@ -236,6 +237,7 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
 
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
   Status AppendEmptyValues(int64_t length) override;
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
   Status AppendScalars(const ScalarVector& scalars) override;
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
