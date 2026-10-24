@@ -3129,6 +3129,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // extension-impl.cpp
+bool ExtensionType__is_r_type(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__is_r_type(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__is_r_type(type));
+END_CPP11
+}
+// extension-impl.cpp
 std::shared_ptr<arrow::Array> ExtensionArray__storage(const std::shared_ptr<arrow::ExtensionArray>& array);
 extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
 BEGIN_CPP11
@@ -6067,6 +6075,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExtensionType__storage_type", (DL_FUNC) &_arrow_ExtensionType__storage_type, 1}, 
 		{ "_arrow_ExtensionType__MakeArray", (DL_FUNC) &_arrow_ExtensionType__MakeArray, 2}, 
 		{ "_arrow_ExtensionType__r6_class", (DL_FUNC) &_arrow_ExtensionType__r6_class, 1}, 
+		{ "_arrow_ExtensionType__is_r_type", (DL_FUNC) &_arrow_ExtensionType__is_r_type, 1}, 
 		{ "_arrow_ExtensionArray__storage", (DL_FUNC) &_arrow_ExtensionArray__storage, 1}, 
 		{ "_arrow_arrow__RegisterRExtensionType", (DL_FUNC) &_arrow_arrow__RegisterRExtensionType, 1}, 
 		{ "_arrow_arrow__UnregisterRExtensionType", (DL_FUNC) &_arrow_arrow__UnregisterRExtensionType, 1}, 
