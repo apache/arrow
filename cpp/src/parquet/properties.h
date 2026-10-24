@@ -530,7 +530,7 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Used to set minimum threshold for V2 page data values compression
+    /// Used to set minimum compression ratio threshold for V2 page data values compression
     /// If min_space_savings unset, keep compression if compressed value is smaller.
     Builder* min_space_savings(std::optional<double> min_space_savings) {
       if (min_space_savings &&

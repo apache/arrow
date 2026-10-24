@@ -840,14 +840,6 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
-min_space_savings : float or None, default None
-    Minimum space savings required to keep compression for each V2 data page.
-    Use a value from 0.0 to 1.0. For example, 0.1 requires at least 10% savings.
-    Savings are measured on encoded values, excluding repetition and definition
-    levels. Compression is kept only if it makes the values smaller.
-    If None, no extra minimum savings is required.
-    Setting a number requires ``data_page_version="2.0"``. Using V1 or a number
-    outside the allowed range raises ``ValueError``.
 use_compliant_nested_type : bool, default True
     Whether to write compliant Parquet nested type (lists) as defined
     `here <https://github.com/apache/parquet-format/blob/master/
@@ -998,6 +990,14 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+min_space_savings : float or None, default None
+    Minimum space savings required to keep compression for each V2 data page.
+    Use a value from 0.0 to 1.0. For example, 0.1 requires at least 10% savings.
+    Savings are measured on encoded values, excluding repetition and definition
+    levels. Compression is kept only if it makes the values smaller.
+    If None, no extra minimum savings is required.
+    Setting a number requires ``data_page_version="2.0"``. Using V1 or a number
+    outside the allowed range raises ``ValueError``.
 """
 
 _parquet_writer_example_doc = """\
