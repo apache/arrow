@@ -206,6 +206,10 @@ struct ARROW_EXPORT WriteOptions {
   char delimiter = ',';
 
   /// \brief The string to write for null values. Quotes are not allowed in this string.
+  ///
+  /// If this is empty and the schema has a single column, nulls are written as `""`
+  /// (unless `quoting_style` is `QuotingStyle::None`), so that a null row is not
+  /// written as an empty line, which readers skip by default.
   std::string null_string;
 
   /// \brief IO context for writing.
