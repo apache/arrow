@@ -3938,6 +3938,8 @@ def test_list_contains_array():
     (pa.binary(1), [b"a", b"b"], pa.binary(2), [b"ab"]),
     # Dictionary values are null for null indices and for nulls in the dictionary
     (pa.dictionary(pa.int8(), pa.int64()), [0, 1, None], pa.int64(), [0, 1, 2]),
+    (pa.dictionary(pa.int8(), pa.float16()), [0.0, math.nan, None], pa.float32(),
+     [0.0, 1.0, math.nan]),
 ])
 def test_list_contains_matches_decoded(value_type, values, query_type, queries):
     # Compare list_contains to searching the decoded lists, for each input form

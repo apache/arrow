@@ -269,6 +269,19 @@ TEST(TestScalarNested, ListContainsNaN) {
                     ArrayFromJSON(float16(), "[null, null]"), "[false, true]");
   CheckListContains(ScalarFromJSON(list(float16()), "[1, null]"),
                     ArrayFromJSON(float32(), "[null, null]"), "[true, true]");
+  // Also in dictionaries, both of values and of queries
+  auto f16_dict =
+      DictArrayFromJSON(dictionary(int8(), float16()), "[0, 1, 2]", "[NaN, 1, null]");
+  ASSERT_OK_AND_ASSIGN(
+      input, ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2, 3]"), *f16_dict));
+  CheckListContains(input, ScalarFromJSON(float32(), "NaN"), "[true, false, false]");
+  CheckListContains(input, ArrayFromJSON(float32(), "[1, 1, null]"),
+                    "[false, true, true]");
+  CheckListContains(ArrayFromJSON(list(float32()), "[[NaN], [1], [null]]"), f16_dict,
+                    "[true, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto f16_nan, f16_dict->GetScalar(0));
+  CheckListContains(ArrayFromJSON(list(float32()), "[[NaN], [1], [null]]"), f16_nan,
+                    "[true, false, false]");
 
   // NaNs with different payloads (0x7ff8000000000001, 0x7ff8000000000002) match too
   ASSERT_OK_AND_ASSIGN(auto nans,

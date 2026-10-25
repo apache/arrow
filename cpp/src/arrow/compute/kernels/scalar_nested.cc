@@ -541,14 +541,18 @@ const FunctionDoc list_element_doc(
     {"lists", "index"});
 
 // The types "equal" compares `values` and `queries` as, raising the errors it would.
-// float16, which "equal" lacks, is compared as float32, and binary views as large
-// binary.
+// float16, which "equal" lacks, is compared as float32, also in dictionaries, and
+// binary views as large binary.
 Result<std::vector<TypeHolder>> ComparableTypes(
     KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
     const std::shared_ptr<DataType>& queries_type) {
   std::vector<TypeHolder> types;
   for (const auto& type : {values_type, queries_type}) {
-    types.emplace_back(type->id() == Type::HALF_FLOAT ? float32() : type);
+    // Dictionaries are compared as their values, like by "equal"
+    const auto& decoded = type->id() == Type::DICTIONARY
+                              ? checked_cast<const DictionaryType&>(*type).value_type()
+                              : type;
+    types.emplace_back(decoded->id() == Type::HALF_FLOAT ? float32() : decoded);
   }
   ARROW_ASSIGN_OR_RAISE(auto equal,
                         ctx->exec_context()->func_registry()->GetFunction("equal"));
