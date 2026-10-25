@@ -357,34 +357,33 @@ void RowEncoder::Clear() {
 }
 
 Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
+  const int64_t batch_length = batch.length;
   if (offsets_.empty()) {
     offsets_.resize(1);
     offsets_[0] = 0;
   }
   size_t length_before = offsets_.size() - 1;
-  offsets_.resize(length_before + batch.length + 1);
-  for (int64_t i = 0; i < batch.length; ++i) {
-    offsets_[length_before + 1 + i] = 0;
-  }
+  // resize value-initializes the new offsets to zero.
+  offsets_.resize(length_before + batch_length + 1);
 
   for (int i = 0; i < batch.num_values(); ++i) {
-    encoders_[i]->AddLength(batch[i], batch.length, offsets_.data() + length_before + 1);
+    encoders_[i]->AddLength(batch[i], batch_length, offsets_.data() + length_before + 1);
   }
 
   int64_t total_length = offsets_[length_before];
-  for (int64_t i = 0; i < batch.length; ++i) {
+  for (int64_t i = 0; i < batch_length; ++i) {
     total_length += offsets_[length_before + 1 + i];
     offsets_[length_before + 1 + i] = total_length;
   }
 
   bytes_.resize(total_length);
-  std::vector<uint8_t*> buf_ptrs(batch.length);
-  for (int64_t i = 0; i < batch.length; ++i) {
+  std::vector<uint8_t*> buf_ptrs(batch_length);
+  for (int64_t i = 0; i < batch_length; ++i) {
     buf_ptrs[i] = bytes_.data() + offsets_[length_before + i];
   }
 
   for (int i = 0; i < batch.num_values(); ++i) {
-    RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, buf_ptrs.data()));
+    RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch_length, buf_ptrs.data()));
   }
 
   return Status::OK();

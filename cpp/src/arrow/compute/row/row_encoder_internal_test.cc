@@ -136,6 +136,34 @@ TEST(TestKeyEncoder, BinaryViewScalar) {
   }
 }
 
+TEST(TestRowEncoder, AppendSlicesAndReuse) {
+  for (const auto& type :
+       {binary(), utf8(), large_binary(), large_utf8(), binary_view(), utf8_view()}) {
+    SCOPED_TRACE(type->ToString());
+    auto array = ArrayFromJSON(
+        type, R"(["unused", "first", null, "", "a long out-of-line value", "last"])");
+    auto expected = array->Slice(/*offset=*/1);
+    ExecContext ctx;
+    RowEncoder encoder;
+    encoder.Init({type}, &ctx);
+    // Repeat after Clear to exercise appends into retained, previously used capacity.
+    for (int round = 0; round < 2; ++round) {
+      for (const auto& [offset, length] :
+           {std::pair{1, 3}, std::pair{4, 0}, std::pair{4, 2}}) {
+        const ExecBatch batch({array->Slice(offset, length)}, length);
+        ASSERT_OK(encoder.EncodeAndAppend(ExecSpan(batch)));
+      }
+      ASSERT_EQ(encoder.num_rows(), expected->length());
+      const int32_t row_ids[] = {0, 1, 2, 3, 4};
+      ASSERT_OK_AND_ASSIGN(auto decoded, encoder.Decode(expected->length(), row_ids));
+      ASSERT_OK(decoded[0].make_array()->ValidateFull());
+      AssertArraysEqual(*expected, *decoded[0].make_array(), /*verbose=*/true);
+      encoder.Clear();
+      ASSERT_EQ(encoder.num_rows(), 0);
+    }
+  }
+}
+
 TEST(TestKeyEncoder, LARGE_MEMORY_TEST(ValueLengthOver2GB)) {
   constexpr int64_t kValueLength = (int64_t{1} << 31) + 13;
   constexpr int64_t kEncodedValueOverhead = sizeof(uint8_t) + sizeof(int64_t);

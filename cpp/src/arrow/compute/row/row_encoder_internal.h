@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <type_traits>
 
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/visibility.h"
@@ -150,15 +151,24 @@ struct BaseVarLengthKeyEncoder : KeyEncoder {
 
   void AddLength(const ExecValue& data, int64_t batch_length, int64_t* lengths) override {
     if (data.is_array()) {
-      int64_t i = 0;
       ARROW_DCHECK_EQ(data.array.length, batch_length);
-      VisitArraySpanInline<VisitType>(
-          data.array,
-          [&](std::string_view bytes) {
-            lengths[i++] +=
-                kExtraByteForNull + sizeof(Offset) + static_cast<int64_t>(bytes.size());
+      // All rows have a null marker and length prefix; only valid rows add payload.
+      for (int64_t i = 0; i < batch_length; ++i) {
+        lengths[i] += kExtraByteForNull + sizeof(Offset);
+      }
+      using Value = std::conditional_t<is_base_binary_type<VisitType>::value, Offset,
+                                       BinaryViewType::c_type>;
+      const auto* values = data.array.template GetValues<Value>(1);
+      ::arrow::internal::VisitBitBlocksVoid(
+          data.array.buffers[0].data, data.array.offset, batch_length,
+          [=](int64_t i) {
+            if constexpr (is_base_binary_type<VisitType>::value) {
+              lengths[i] += values[i + 1] - values[i];
+            } else {
+              lengths[i] += values[i].size();
+            }
           },
-          [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
+          [] {});
     } else {
       const Scalar& scalar = *data.scalar;
       const int64_t buffer_size =
