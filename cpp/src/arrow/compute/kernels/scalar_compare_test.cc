@@ -1385,6 +1385,33 @@ TEST(TestCompareKernel, TestIssue54668) {
                     ArrayFromJSON(boolean(), "[false, true]"));
   CheckScalarBinary("greater_equal", d2_arr, d1_arr,
                     ArrayFromJSON(boolean(), "[false, true]"));
+
+  // Verify negative decimal comparisons with different scales
+  // -1.00 > -9.00, so -1.00 < -9.0 is false; unscaled integers (-100 < -90) would be true
+  auto d2_neg = ArrayFromJSON(d2_type, R"(["-1.00", "-9.00"])");
+  auto d1_neg = ArrayFromJSON(d1_type, R"(["-9.0", "-1.0"])");
+  CheckScalarBinary("less", d2_neg, d1_neg,
+                    ArrayFromJSON(boolean(), "[false, true]"));
+  CheckScalarBinary("less_equal", d2_neg, d1_neg,
+                    ArrayFromJSON(boolean(), "[false, true]"));
+  CheckScalarBinary("greater", d2_neg, d1_neg,
+                    ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalarBinary("greater_equal", d2_neg, d1_neg,
+                    ArrayFromJSON(boolean(), "[true, false]"));
+
+  // Verify 12-byte inline vs 13-byte out-of-line StringView boundary & 4-byte prefix match
+  auto boundary_str =
+      ArrayFromJSON(utf8(), R"(["123456789012", "1234567890123", "prefix_alpha"])");
+  auto boundary_view =
+      ArrayFromJSON(utf8_view(), R"(["1234567890123", "123456789012", "prefix_omega"])");
+  CheckScalarBinary("less", boundary_str, boundary_view,
+                    ArrayFromJSON(boolean(), "[true, false, true]"));
+  CheckScalarBinary("less", boundary_view, boundary_str,
+                    ArrayFromJSON(boolean(), "[false, true, false]"));
+  CheckScalarBinary("equal", boundary_str, boundary_view,
+                    ArrayFromJSON(boolean(), "[false, false, false]"));
+  CheckScalarBinary("not_equal", boundary_str, boundary_view,
+                    ArrayFromJSON(boolean(), "[true, true, true]"));
 }
 
 template <typename T>

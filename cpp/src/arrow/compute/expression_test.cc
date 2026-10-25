@@ -2403,6 +2403,30 @@ TEST(Expression, TestIssue54668DecimalComparisonDifferentScales) {
   ASSERT_OK_AND_ASSIGN(auto le_res,
                        ExecuteScalarExpression(le_expr, *test_schema, batch));
   AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[true, false]")), le_res);
+
+  // Negative decimals with different scales
+  auto neg_batch = RecordBatchFromJSON(test_schema, R"([
+    {"a": "-1.00", "b": "-9.0"},
+    {"a": "-9.00", "b": "-1.0"}
+  ])");
+  // -1.00 < -9.0 -> false; -9.00 < -1.0 -> true
+  ASSERT_OK_AND_ASSIGN(auto neg_less_res,
+                       ExecuteScalarExpression(less_expr, *test_schema, neg_batch));
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, true]")), neg_less_res);
+
+  // Mixed string and string_view in expressions with literal on LHS (exercising expression flipping)
+  auto str_schema = arrow::schema({field("view_col", utf8_view())});
+  auto str_batch = RecordBatchFromJSON(str_schema, R"([
+    {"view_col": "apple"},
+    {"view_col": "banana"},
+    {"view_col": "cherry"}
+  ])");
+  // "banana" < view_col -> [false, false, true]
+  ASSERT_OK_AND_ASSIGN(auto lit_less_expr,
+                       less(literal("banana"), field_ref("view_col")).Bind(*str_schema));
+  ASSERT_OK_AND_ASSIGN(auto lit_less_res,
+                       ExecuteScalarExpression(lit_less_expr, *str_schema, str_batch));
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, false, true]")), lit_less_res);
 }
 
 }  // namespace compute
