@@ -561,10 +561,13 @@ void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
   // Fused unFOR + decode loop: undo FOR in unsigned arithmetic, reinterpret the
   // result as signed encoded integers, then apply the normative decimal decode.
   const EncodedUnsigned frame_of_ref = for_info.frame_of_reference();
+  // Read the exponent/factor once. AlpInfo stores them as uint8_t, which may
+  // alias the output stores, so reading them inside the loop blocks vectorization.
+  const AlpExponentAndFactor exponent_and_factor = alp_info.GetExponentAndFactor();
   for (size_t i = 0; i < output.size(); ++i) {
     const EncodedUnsigned unfored_value = scratch[i] + frame_of_ref;
     const EncodedSigned signed_value = util::SafeCopy<EncodedSigned>(unfored_value);
-    output[i] = AlpInlines<T>::DecodeValue(signed_value, alp_info.GetExponentAndFactor());
+    output[i] = AlpInlines<T>::DecodeValue(signed_value, exponent_and_factor);
   }
 
   PatchExceptions<TargetType>(
