@@ -1646,6 +1646,24 @@ TEST(Cast, Decimal64ToDecimal256) {
 TEST(Cast, Decimal128ToDecimal32) {
   CastOptions options;
 
+  // Safe downcasts must check the value after rescaling the full input
+  // coefficient, before narrowing it to Decimal32.
+  auto d128_12_0_overflow = ArrayFromJSON(decimal128(12, 0), R"(["5000000000"])");
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(d128_12_0_overflow, options);
+
+  auto d128_12_0_rescaled = ArrayFromJSON(decimal128(12, 0), R"(["536870912000"])");
+  Decimal32Builder d32_9_neg3_builder(decimal32(9, -3));
+  ASSERT_OK(d32_9_neg3_builder.Append(Decimal32(536870912)));
+  ASSERT_OK_AND_ASSIGN(auto d32_9_neg3, d32_9_neg3_builder.Finish());
+  options.to_type = d32_9_neg3->type();
+  CheckCast(d128_12_0_rescaled, d32_9_neg3, options);
+
+  auto d128_10_2_rescaled = ArrayFromJSON(decimal128(10, 2), R"(["30000000.00"])");
+  auto d32_9_0 = ArrayFromJSON(decimal32(9, 0), R"(["30000000"])");
+  options.to_type = d32_9_0->type();
+  CheckCast(d128_10_2_rescaled, d32_9_0, options);
+
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 

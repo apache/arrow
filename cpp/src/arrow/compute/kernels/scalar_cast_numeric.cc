@@ -490,6 +490,36 @@ struct DecimalConversions<Decimal32, InDecimal> {
   static Decimal32 ConvertOutput(Decimal32&& val) { return val; }
 };
 
+// Safe casts to Decimal32 need to rescale the full input coefficient before
+// narrowing it. Otherwise, high bits can be lost before overflow and precision
+// checks run.
+template <typename OutDecimal, typename InDecimal>
+struct SafeDecimalConversions : DecimalConversions<OutDecimal, InDecimal> {};
+
+template <>
+struct SafeDecimalConversions<Decimal32, Decimal64> {
+  static Decimal64 ConvertInput(Decimal64&& val) { return val; }
+  static Decimal32 ConvertOutput(Decimal64&& val) {
+    return Decimal32(static_cast<int32_t>(val.low_bits()));
+  }
+};
+
+template <>
+struct SafeDecimalConversions<Decimal32, Decimal128> {
+  static Decimal128 ConvertInput(Decimal128&& val) { return val; }
+  static Decimal32 ConvertOutput(Decimal128&& val) {
+    return Decimal32(static_cast<int32_t>(val.low_bits()));
+  }
+};
+
+template <>
+struct SafeDecimalConversions<Decimal32, Decimal256> {
+  static Decimal256 ConvertInput(Decimal256&& val) { return val; }
+  static Decimal32 ConvertOutput(Decimal256&& val) {
+    return Decimal32(static_cast<int32_t>(val.low_bits()));
+  }
+};
+
 template <>
 struct DecimalConversions<Decimal64, Decimal32> {
   // Convert then scale
@@ -573,7 +603,7 @@ struct UnsafeDownscaleDecimal {
 struct SafeRescaleDecimal {
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext*, Arg0Value val, Status* st) const {
-    using Conv = DecimalConversions<OutValue, Arg0Value>;
+    using Conv = SafeDecimalConversions<OutValue, Arg0Value>;
     auto maybe_rescaled =
         Conv::ConvertInput(std::move(val)).Rescale(in_scale_, out_scale_);
     if (ARROW_PREDICT_FALSE(!maybe_rescaled.ok())) {
