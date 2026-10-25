@@ -1371,6 +1371,20 @@ TEST(TestCompareKernel, TestIssue54668) {
                     ArrayFromJSON(boolean(), "[false, false, true]"));
   CheckScalarBinary("greater", view_arr, str_arr,
                     ArrayFromJSON(boolean(), "[true, false, false]"));
+
+  // Verify decimal comparisons with different scales (e.g. 1.00 < 9.0)
+  auto d2_type = decimal128(3, 2);
+  auto d1_type = decimal128(3, 1);
+  auto d2_arr = ArrayFromJSON(d2_type, R"(["1.00", "9.00"])");
+  auto d1_arr = ArrayFromJSON(d1_type, R"(["9.0", "1.0"])");
+  CheckScalarBinary("less", d2_arr, d1_arr,
+                    ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalarBinary("less_equal", d2_arr, d1_arr,
+                    ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalarBinary("greater", d2_arr, d1_arr,
+                    ArrayFromJSON(boolean(), "[false, true]"));
+  CheckScalarBinary("greater_equal", d2_arr, d1_arr,
+                    ArrayFromJSON(boolean(), "[false, true]"));
 }
 
 template <typename T>

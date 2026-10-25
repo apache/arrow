@@ -499,10 +499,11 @@ std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
-    auto in_types = kernel->signature->in_types();
-    std::reverse(in_types.begin(), in_types.end());
-    flipped_kernel.signature =
-        KernelSignature::Make(std::move(in_types), kernel->signature->out_type());
+    const auto& in_types = kernel->signature->in_types();
+    if (in_types[0] != in_types[1]) {
+      flipped_kernel.signature = KernelSignature::Make(
+          {in_types[1], in_types[0]}, kernel->signature->out_type());
+    }
     if (kernel->data) {
       auto compare_data = checked_cast<const CompareData*>(kernel->data.get());
       flipped_kernel.data =
