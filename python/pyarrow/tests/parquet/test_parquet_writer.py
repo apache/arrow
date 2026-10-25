@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import random
+
 import pytest
 
 import pyarrow as pa
@@ -81,6 +83,30 @@ def test_min_space_savings(
         assert column.total_compressed_size == column.total_uncompressed_size
     else:
         assert column.total_compressed_size < column.total_uncompressed_size
+
+
+def _v2_column_chunk(table, **options):
+    sink = pa.BufferOutputStream()
+    pq.write_table(table, sink, compression="snappy", use_dictionary=False,
+                   data_page_version="2.0", **options)
+    return pq.ParquetFile(sink.getvalue()).metadata.row_group(0).column(0)
+
+
+def test_min_space_savings_threshold():
+    rng = random.Random(42)
+    values = [rng.randrange(16) for _ in range(1000)]
+    table = pa.table({"v": pa.array(values, pa.int32())})
+
+    base = _v2_column_chunk(table)
+    savings = 1 - base.total_compressed_size / base.total_uncompressed_size
+    assert 0.1 < savings < 0.9
+
+    kept = _v2_column_chunk(table, min_space_savings=savings - 0.05)
+    assert kept.total_compressed_size == base.total_compressed_size
+
+    dropped = _v2_column_chunk(table, min_space_savings=savings + 0.05)
+    assert dropped.total_compressed_size == dropped.total_uncompressed_size
+    assert dropped.compression == "SNAPPY"
 
 
 # Tests invalid settings
