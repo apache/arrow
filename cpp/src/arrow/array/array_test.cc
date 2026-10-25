@@ -179,6 +179,10 @@ TEST_F(TestArray, TestNullCount) {
                              true, true);
     CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
                              1, 3, true, true);
+
+    // null-typed dictionary, without a validity bitmap
+    CheckDictionaryNullCount(dictionary(index_type, null()), "[null]", "[0, null, 0]", 1,
+                             3, true, true);
   }
 }
 
