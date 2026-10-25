@@ -21,6 +21,7 @@
 #include <functional>
 #include <locale>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -762,6 +763,34 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
     CheckUnique(input, ex_uniques);
     CheckValueCounts(input, ex_uniques, ex_counts);
   }
+}
+
+TEST_F(TestHashKernel, DictionaryUniqueAndValueCountsIndexOverflow) {
+  // GH-45010: unifying the chunk dictionaries can produce more entries than the
+  // index type can address
+  auto dict_ty = dictionary(int8(), int64());
+  auto make_chunk = [&](int64_t first_value, int64_t dict_length) {
+    std::vector<int64_t> values(dict_length);
+    std::iota(values.begin(), values.end(), first_value);
+    std::shared_ptr<Array> dict;
+    ArrayFromVector<Int64Type, int64_t>(values, &dict);
+    auto indices = ArrayFromJSON(int8(), "[" + std::to_string(dict_length - 1) + "]");
+    return std::make_shared<DictionaryArray>(dict_ty, indices, dict);
+  };
+
+  // 64 + 63 = 127 unified entries still fit in int8
+  auto fits = *ChunkedArray::Make({make_chunk(0, 64), make_chunk(100, 63)}, dict_ty);
+  ASSERT_OK_AND_ASSIGN(auto uniques, Unique(fits));
+  ASSERT_OK(uniques->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto counts, ValueCounts(fits));
+  ASSERT_OK(counts->ValidateFull());
+
+  // 64 + 65 = 129 unified entries do not
+  auto overflows = *ChunkedArray::Make({make_chunk(0, 64), make_chunk(100, 65)}, dict_ty);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("larger index type"),
+                                  Unique(overflows));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("larger index type"),
+                                  ValueCounts(overflows));
 }
 
 /* TODO(ARROW-4124): Determine if we want to do something that is reproducible with
