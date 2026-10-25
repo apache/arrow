@@ -540,19 +540,34 @@ const FunctionDoc list_element_doc(
      "is emitted. Null values emit a null in the output."),
     {"lists", "index"});
 
+// Dictionaries are compared as their values, like by "equal"
+const std::shared_ptr<DataType>& Decoded(const std::shared_ptr<DataType>& type) {
+  return type->id() == Type::DICTIONARY
+             ? checked_cast<const DictionaryType&>(*type).value_type()
+             : type;
+}
+
 // The types "equal" compares `values` and `queries` as, raising the errors it would.
-// float16, which "equal" lacks, is compared as float32, also in dictionaries, and
-// binary views as large binary.
+// float16, which "equal" lacks, is compared as float32, and binary views as their
+// large types, which "equal" compares with other binary types unlike views.
 Result<std::vector<TypeHolder>> ComparableTypes(
     KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
     const std::shared_ptr<DataType>& queries_type) {
   std::vector<TypeHolder> types;
-  for (const auto& type : {values_type, queries_type}) {
-    // Dictionaries are compared as their values, like by "equal"
-    const auto& decoded = type->id() == Type::DICTIONARY
-                              ? checked_cast<const DictionaryType&>(*type).value_type()
-                              : type;
-    types.emplace_back(decoded->id() == Type::HALF_FLOAT ? float32() : decoded);
+  for (const auto& type : {Decoded(values_type), Decoded(queries_type)}) {
+    switch (type->id()) {
+      case Type::HALF_FLOAT:
+        types.emplace_back(float32());
+        break;
+      case Type::STRING_VIEW:
+        types.emplace_back(large_utf8());
+        break;
+      case Type::BINARY_VIEW:
+        types.emplace_back(large_binary());
+        break;
+      default:
+        types.emplace_back(type);
+    }
   }
   ARROW_ASSIGN_OR_RAISE(auto equal,
                         ctx->exec_context()->func_registry()->GetFunction("equal"));
@@ -562,14 +577,11 @@ Result<std::vector<TypeHolder>> ComparableTypes(
     // Fixed-size binary values of different widths differ, as binary values do
     types = {binary(), binary()};
   }
-  for (const auto& [from, to] :
-       {std::pair(values_type, &types[0]), std::pair(queries_type, &types[1])}) {
-    if (is_binary_view_like(to->id())) {
-      *to = large_binary();
-    }
-    // Raise also where there is nothing to cast, e.g. for null queries
-    if (!from->Equals(**to) && !CanCast(*from, **to)) {
-      return Status::NotImplemented("Unsupported cast from ", *from, " to ", **to);
+  // Raise also where there is nothing to cast, e.g. for null queries
+  for (const auto& [from, to] : {std::pair(Decoded(values_type), types[0]),
+                                 std::pair(Decoded(queries_type), types[1])}) {
+    if (!from->Equals(*to) && !CanCast(*from, *to)) {
+      return Status::NotImplemented("Unsupported cast from ", *from, " to ", *to);
     }
   }
   return types;
@@ -588,14 +600,16 @@ struct ListContainsState : public KernelState {
 
 // Compare types once, raising even if there is nothing to search, like for null lists.
 // Null queries are matched without "equal", but must be comparable too unless they
-// are null-typed or of the values' type.
+// are null-typed or of the values' type (after decoding dictionaries).
 Result<std::unique_ptr<KernelState>> InitListContains(KernelContext* ctx,
                                                       const KernelInitArgs& args) {
   const auto& values_type =
       checked_cast<const BaseListType&>(*args.inputs[0]).value_type();
   const auto queries_type = args.inputs[1].GetSharedPtr();
   auto types = ComparableTypes(ctx, values_type, queries_type);
-  if (queries_type->id() != Type::NA && !queries_type->Equals(*values_type)) {
+  const auto& decoded_queries_type = Decoded(queries_type);
+  if (decoded_queries_type->id() != Type::NA &&
+      !decoded_queries_type->Equals(*Decoded(values_type))) {
     RETURN_NOT_OK(types.status());
   }
   return std::make_unique<ListContainsState>(std::move(types));
@@ -803,7 +817,9 @@ Status ScalarListContains(KernelContext* ctx,
                           const BaseListScalar& list, const ArraySpan& query_span,
                           ArraySpan* out_arr) {
   Datum queries = query_span.ToArrayData();
-  const bool null_queries = queries.null_count() == queries.length();
+  // Nulls in a dictionary of queries count too
+  const bool null_queries =
+      queries.array()->ComputeLogicalNullCount() == queries.length();
   if (!null_queries) {
     // Raise even for a null list, like for list arrays
     RETURN_NOT_OK(types.status());
@@ -895,13 +911,9 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   }
   const int64_t query_step = scalar_query ? 0 : 1;
 
-  if (queries.null_count() == queries.length()) {
-    if (values.type()->id() == arrow::Type::DICTIONARY) {
-      // Values are also null where their dictionary is
-      RETURN_NOT_OK(
-          CastTo(ctx, checked_cast<const DictionaryType&>(*values.type()).value_type(),
-                 &values));
-    }
+  if (queries.array()->ComputeLogicalNullCount() == queries.length()) {
+    // Values are also null where their dictionary is
+    RETURN_NOT_OK(CastTo(ctx, Decoded(values.type()), &values));
     const ArraySpan v(*values.array());
     search([&](int64_t j, int64_t) { return v.IsNull(j); });
     return Status::OK();

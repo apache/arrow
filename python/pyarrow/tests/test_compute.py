@@ -3935,6 +3935,7 @@ def test_list_contains_array():
     (pa.int64(), [0, 1, -1, 2**53 + 1], pa.float64(), [0.0, 1.0, 1.5]),
     (pa.float32(), [0.0, -0.0, 1.5, math.nan], pa.float64(), [0.0, 1.5, math.nan]),
     (pa.string(), ["", "a", "ab"], pa.large_string(), ["", "a", "b"]),
+    (pa.string_view(), ["", "a", "ab"], pa.string(), ["", "a", "b"]),
     (pa.binary(1), [b"a", b"b"], pa.binary(2), [b"ab"]),
     # Dictionary values are null for null indices and for nulls in the dictionary
     (pa.dictionary(pa.int8(), pa.int64()), [0, 1, None], pa.int64(), [0, 1, 2]),
@@ -3991,6 +3992,7 @@ def test_list_contains_matches_decoded(value_type, values, query_type, queries):
         assert pc.list_contains(form, q).to_pylist() == expected
         assert pc.list_contains(form, pa.chunked_array(
             [q.slice(0, 3), q.slice(3)])).to_pylist() == expected
+        assert pc.list_contains(form, q.dictionary_encode()).to_pylist() == expected
     for x in lists[:10]:
         result = pc.list_contains(x, query_array)
         assert result.to_pylist() == [search(x.as_py(), q)

@@ -239,6 +239,15 @@ TEST(TestScalarNested, ListContainsNull) {
   CheckListContains(input, ArrayFromJSON(int64(), "[null, null]"), "[true, false]");
   ASSERT_OK_AND_ASSIGN(auto list_scalar, input->GetScalar(0));
   CheckListContains(list_scalar, ArrayFromJSON(int64(), "[null, 1]"), "[true, false]");
+  // Also of a null-typed dictionary, both of values and of queries
+  auto null_dict = DictArrayFromJSON(dictionary(int8(), null()), "[0, 0]", "[null]");
+  ASSERT_OK_AND_ASSIGN(
+      input, ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 2]"), *null_dict));
+  CheckListContains(input, MakeNullScalar(null()), "[true, false]");
+  ASSERT_OK_AND_ASSIGN(list_scalar, input->GetScalar(0));
+  CheckListContains(list_scalar, ArrayFromJSON(int64(), "[null, null]"), "[true, true]");
+  CheckListContains(ArrayFromJSON(list(struct_({field("a", int64())})), "[[null], []]"),
+                    null_dict, "[true, false]");
 }
 
 TEST(TestScalarNested, ListContainsNaN) {
@@ -318,6 +327,11 @@ TEST(TestScalarNested, ListContainsValueTypes) {
   check(large_binary(), R"("x")", R"("y")");
   check(binary_view(), R"("x")", R"("y")");
   check(fixed_size_binary(1), R"("x")", R"("y")");
+  // String views compare with other string layouts, unlike in "equal"
+  CheckListContains(ArrayFromJSON(list(utf8()), R"([["x"], ["y"]])"),
+                    ScalarFromJSON(utf8_view(), R"("x")"), "[true, false]");
+  CheckListContains(ArrayFromJSON(list(binary_view()), R"([["x"], ["y"]])"),
+                    ArrayFromJSON(large_binary(), R"(["y", "y"])"), "[false, true]");
   check(boolean(), "true", "false");
   check(int16(), "1", "2");
   check(float16(), "1.5", "2.5");
@@ -523,15 +537,18 @@ TEST(TestScalarNested, ListContainsInvalid) {
                       ScalarFromJSON(timestamp(TimeUnit::SECOND), value)}),
         Raises(StatusCode::Invalid));
   }
-  // Like "equal", timestamps don't compare with durations, which don't cast to them
+  // Like "equal", timestamps don't compare with durations, which don't cast to them,
+  // also in dictionaries
   auto timestamps = list(timestamp(TimeUnit::SECOND));
   for (Datum lists : {Datum(ArrayFromJSON(timestamps, "[[1], null]")),
                       Datum(ScalarFromJSON(timestamps, "null"))}) {
     for (auto queries : {"[1, null]", "[null, null]"}) {
-      EXPECT_THAT(
-          CallFunction("list_contains",
-                       {lists, ArrayFromJSON(duration(TimeUnit::SECOND), queries)}),
-          Raises(StatusCode::NotImplemented));
+      auto durations = ArrayFromJSON(duration(TimeUnit::SECOND), queries);
+      ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(durations));
+      for (Datum value : {Datum(durations), encoded}) {
+        EXPECT_THAT(CallFunction("list_contains", {lists, value}),
+                    Raises(StatusCode::NotImplemented));
+      }
     }
   }
 }
