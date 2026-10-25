@@ -43,4 +43,14 @@ class TestRecordBatchReader < Test::Unit::TestCase
                    reader.read_all)
     end
   end
+
+  test("exported TableBatchReader keeps its table alive") do
+    expected = Arrow::Table.new("count" => [1, 2, 3])
+    stream =
+      Arrow::TableBatchReader.new(Arrow::Table.new("count" => [1, 2, 3])).export
+    GC.start
+
+    reader = Arrow::RecordBatchReader.import(stream)
+    assert_equal(expected, reader.read_all)
+  end
 end
