@@ -893,3 +893,40 @@ def test_geospatial_types(parquet_test_datadir):
     column_schema = metadata.schema.column(1)
     assert column_schema.name == "geography"
     assert column_schema.logical_type.type == "GEOGRAPHY"
+
+
+def test_damaged_metadata_raises_exception_not_abort(tmp_path):
+    # GH-54957: Damaged metadata or type mismatches in Parquet footer
+    # should raise a Python exception rather than aborting the process.
+    clean_path = tmp_path / "clean.parquet"
+    table = pa.table({"x": pa.array([1, 2, 3], pa.int64())})
+    pq.write_table(table, clean_path)
+
+    data = bytearray(clean_path.read_bytes())
+    # Modify repetition_type in Thrift SchemaElement for "x"
+    # (zigzag 2 = OPTIONAL -> change to 0 = REQUIRED)
+    marker = b"\x25\x02\x18\x01x"
+    idx = data.index(marker)
+    data[idx + 1] = 0
+    crash_path = tmp_path / "corrupt_levels.parquet"
+    crash_path.write_bytes(data)
+
+    md = pq.ParquetFile(crash_path).metadata
+    with pytest.raises(OSError):
+        md.row_group(0).column(0)
+
+    # Test physical type mismatch in ColumnMetaData vs SchemaElement
+    table_float = pa.table({"x": pa.array([1.0, 2.0, 3.0], pa.float64())})
+    clean_float_path = tmp_path / "clean_float.parquet"
+    pq.write_table(table_float, clean_float_path)
+
+    data_float = bytearray(clean_float_path.read_bytes())
+    marker_float = b"\x15\x0a\x25\x02\x18\x01x"
+    idx_float = data_float.index(marker_float)
+    data_float[idx_float + 1] = 0  # DOUBLE -> BOOLEAN
+    crash_float_path = tmp_path / "corrupt_stats.parquet"
+    crash_float_path.write_bytes(data_float)
+
+    col = pq.ParquetFile(crash_float_path).metadata.row_group(0).column(0)
+    with pytest.raises(OSError):
+        _ = col.statistics
