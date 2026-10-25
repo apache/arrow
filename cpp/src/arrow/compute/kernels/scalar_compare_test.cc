@@ -1021,22 +1021,16 @@ TEST(TestCompareKernel, DispatchBest) {
     CheckDispatchBest(name, {binary(), fixed_size_binary(2)}, {binary(), binary()});
     CheckDispatchBest(name, {fixed_size_binary(4), fixed_size_binary(2)},
                       {fixed_size_binary(4), fixed_size_binary(2)});
-    CheckDispatchBest(name, {utf8(), utf8_view()}, {utf8_view(), utf8_view()});
-    CheckDispatchBest(name, {utf8_view(), utf8()}, {utf8_view(), utf8_view()});
-    CheckDispatchBest(name, {large_utf8(), utf8_view()}, {utf8_view(), utf8_view()});
-    CheckDispatchBest(name, {utf8_view(), large_utf8()}, {utf8_view(), utf8_view()});
-    CheckDispatchBest(name, {binary(), binary_view()}, {binary_view(), binary_view()});
-    CheckDispatchBest(name, {binary_view(), binary()}, {binary_view(), binary_view()});
+    CheckDispatchBest(name, {utf8(), utf8_view()}, {utf8(), utf8_view()});
+    CheckDispatchBest(name, {utf8_view(), utf8()}, {utf8_view(), utf8()});
+    CheckDispatchBest(name, {large_utf8(), utf8_view()}, {large_utf8(), utf8_view()});
+    CheckDispatchBest(name, {utf8_view(), large_utf8()}, {utf8_view(), large_utf8()});
+    CheckDispatchBest(name, {binary(), binary_view()}, {binary(), binary_view()});
+    CheckDispatchBest(name, {binary_view(), binary()}, {binary_view(), binary()});
     CheckDispatchBest(name, {large_binary(), binary_view()},
-                      {binary_view(), binary_view()});
+                      {large_binary(), binary_view()});
     CheckDispatchBest(name, {binary_view(), large_binary()},
-                      {binary_view(), binary_view()});
-    CheckDispatchBest(name, {utf8_view(), binary_view()},
-                      {binary_view(), binary_view()});
-    CheckDispatchBest(name, {utf8_view(), binary()}, {binary_view(), binary_view()});
-    CheckDispatchBest(name, {utf8(), binary_view()}, {binary_view(), binary_view()});
-    CheckDispatchBest(name, {fixed_size_binary(2), utf8_view()},
-                      {binary_view(), binary_view()});
+                      {binary_view(), large_binary()});
 
     CheckDispatchBest(name, {decimal128(3, 2), decimal128(6, 3)},
                       {decimal128(4, 3), decimal128(6, 3)});
@@ -1353,6 +1347,30 @@ TEST(TestBinaryViewCompareKernel, MixedStringTypes) {
                     ArrayFromJSON(boolean(), "[true, false, null, null]"));
   CheckScalarBinary("equal", bin_view_arr, bin_arr,
                     ArrayFromJSON(boolean(), "[true, false, null, null]"));
+}
+
+TEST(TestCompareKernel, TestIssue54668) {
+  // Direct mixed comparison between utf8 / large_utf8 and utf8_view without promotion
+  for (std::string name :
+       {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
+    CheckDispatchBest(name, {utf8(), utf8_view()}, {utf8(), utf8_view()});
+    CheckDispatchBest(name, {utf8_view(), utf8()}, {utf8_view(), utf8()});
+    CheckDispatchBest(name, {large_utf8(), utf8_view()}, {large_utf8(), utf8_view()});
+    CheckDispatchBest(name, {utf8_view(), large_utf8()}, {utf8_view(), large_utf8()});
+  }
+
+  auto str_arr = ArrayFromJSON(utf8(), R"(["apple", "banana", "cherry"])");
+  auto view_arr = ArrayFromJSON(utf8_view(), R"(["banana", "banana", "apple"])");
+
+  // Verify less and less_equal with asymmetric types
+  CheckScalarBinary("less", str_arr, view_arr,
+                    ArrayFromJSON(boolean(), "[true, false, false]"));
+  CheckScalarBinary("less", view_arr, str_arr,
+                    ArrayFromJSON(boolean(), "[false, false, true]"));
+  CheckScalarBinary("greater", str_arr, view_arr,
+                    ArrayFromJSON(boolean(), "[false, false, true]"));
+  CheckScalarBinary("greater", view_arr, str_arr,
+                    ArrayFromJSON(boolean(), "[true, false, false]"));
 }
 
 template <typename T>

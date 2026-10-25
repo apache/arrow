@@ -352,6 +352,8 @@ struct CompareFunction : ScalarFunction {
     EnsureDictionaryDecoded(types);
     ReplaceNullWithOtherType(types);
 
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+
     if (auto type = CommonNumeric(*types)) {
       ReplaceTypes(type, types);
     } else if (auto type = CommonTemporal(types->data(), types->size())) {
@@ -440,6 +442,25 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
+  auto exec_base_view =
+      applicator::ScalarBinary<BooleanType, BinaryType, BinaryViewType, Op>::Exec;
+  auto exec_view_base =
+      applicator::ScalarBinary<BooleanType, BinaryViewType, BinaryType, Op>::Exec;
+  auto exec_large_view =
+      applicator::ScalarBinary<BooleanType, LargeBinaryType, BinaryViewType, Op>::Exec;
+  auto exec_view_large =
+      applicator::ScalarBinary<BooleanType, BinaryViewType, LargeBinaryType, Op>::Exec;
+
+  DCHECK_OK(func->AddKernel({utf8(), utf8_view()}, boolean(), exec_base_view));
+  DCHECK_OK(func->AddKernel({utf8_view(), utf8()}, boolean(), exec_view_base));
+  DCHECK_OK(func->AddKernel({large_utf8(), utf8_view()}, boolean(), exec_large_view));
+  DCHECK_OK(func->AddKernel({utf8_view(), large_utf8()}, boolean(), exec_view_large));
+
+  DCHECK_OK(func->AddKernel({binary(), binary_view()}, boolean(), exec_base_view));
+  DCHECK_OK(func->AddKernel({binary_view(), binary()}, boolean(), exec_view_base));
+  DCHECK_OK(func->AddKernel({large_binary(), binary_view()}, boolean(), exec_large_view));
+  DCHECK_OK(func->AddKernel({binary_view(), large_binary()}, boolean(), exec_view_large));
+
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
     DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec),
@@ -478,6 +499,10 @@ std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
+    auto in_types = kernel->signature->in_types();
+    std::reverse(in_types.begin(), in_types.end());
+    flipped_kernel.signature =
+        KernelSignature::Make(std::move(in_types), kernel->signature->out_type());
     if (kernel->data) {
       auto compare_data = checked_cast<const CompareData*>(kernel->data.get());
       flipped_kernel.data =
