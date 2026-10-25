@@ -1676,6 +1676,79 @@ TEST_F(ScalarTemporalTest, TestTemporalTimestampAndIntervalErrors) {
     }
   }
 
+  // A calendar delta whose length in the timestamp unit exceeds int64 must not
+  // overflow when the final timestamp fits.  E.g. 106752 days is more than
+  // INT64_MAX nanoseconds, but INT64_MIN ns + 106752 days == 763145224192 ns.
+  ASSERT_EQ(kMin + 106751 * kDay + kDay, 763145224192LL);
+  for (auto unit : {TimeUnit::NANO, TimeUnit::MICRO}) {
+    const int64_t units_per_day = unit == TimeUnit::NANO ? kDay : kDay / 1000;
+    // Smallest day count whose length in `unit` does not fit in int64
+    const int64_t n = kMax / units_per_day + 1;
+    // Step in two parts so that the expected values are computed without overflow
+    const int64_t from_min = kMin + (n - 1) * units_per_day + units_per_day;
+    const int64_t from_max = kMax - (n - 1) * units_per_day - units_per_day;
+    const auto n_str = std::to_string(n);
+    for (auto tz : {"", "UTC", "+05:30", "-05:30"}) {
+      auto ty = timestamp(unit, tz);
+      auto ts = [&](int64_t v) {
+        return ArrayFromJSON(ty, "[" + std::to_string(v) + "]");
+      };
+      for (auto days : {ScalarFromJSON(day_time_interval(), "[" + n_str + ", 0]"),
+                        ScalarFromJSON(mdn, "[0, " + n_str + ", 0]")}) {
+        for (auto suffix : {"", "_checked"}) {
+          const auto add = std::string("add") + suffix;
+          const auto sub = std::string("subtract") + suffix;
+          CheckScalarBinary(add, ts(kMin), days, ts(from_min));
+          CheckScalarBinary(add, days, ts(kMin), ts(from_min));
+          CheckScalarBinary(sub, ts(from_min), days, ts(kMin));
+          CheckScalarBinary(sub, ts(kMax), days, ts(from_max));
+          CheckScalarBinary(add, ts(from_max), days, ts(kMax));
+        }
+      }
+    }
+  }
+  // Same for a month delta: 3509 months is more than 106752 days.
+  for (auto tz : {"", "UTC", "+05:30", "-05:30"}) {
+    auto ty = timestamp(TimeUnit::NANO, tz);
+    // 1677-09-21T00:12:43.145224192 and 2262-04-11T23:47:16.854775807
+    auto min = ArrayFromJSON(ty, "[" + std::to_string(kMin) + "]");
+    auto max = ArrayFromJSON(ty, "[" + std::to_string(kMax) + "]");
+    // 1970-02-21T00:12:43.145224192 and 1969-11-11T23:47:16.854775807
+    auto min_plus = ArrayFromJSON(ty, "[4407163145224192]");
+    auto max_minus = ArrayFromJSON(ty, "[-4320763145224193]");
+    for (auto months : {ScalarFromJSON(month_interval(), "3509"),
+                        ScalarFromJSON(mdn, "[3509, 0, 0]")}) {
+      for (auto suffix : {"", "_checked"}) {
+        CheckScalarBinary(std::string("add") + suffix, min, months, min_plus);
+        CheckScalarBinary(std::string("subtract") + suffix, max, months, max_minus);
+      }
+    }
+  }
+  // A calendar delta whose final timestamp does not fit is still an overflow
+  // in the checked variants, and wraps around in the unchecked ones.
+  for (auto tz : {"", "+05:30"}) {
+    auto ty = timestamp(TimeUnit::NANO, tz);
+    const int64_t n = 2 * (kMax / kDay + 1);
+    auto days = ScalarFromJSON(day_time_interval(), "[" + std::to_string(n) + ", 0]");
+    auto min = ArrayFromJSON(ty, "[" + std::to_string(kMin) + "]");
+    auto max = ArrayFromJSON(ty, "[" + std::to_string(kMax) + "]");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("add_checked", {min, days}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("subtract_checked", {max, days}));
+    const uint64_t span = static_cast<uint64_t>(n) * static_cast<uint64_t>(kDay);
+    CheckScalarBinary("add", min, days,
+                      ArrayFromJSON(ty, "[" +
+                                            std::to_string(static_cast<int64_t>(
+                                                static_cast<uint64_t>(kMin) + span)) +
+                                            "]"));
+    CheckScalarBinary("subtract", max, days,
+                      ArrayFromJSON(ty, "[" +
+                                            std::to_string(static_cast<int64_t>(
+                                                static_cast<uint64_t>(kMax) - span)) +
+                                            "]"));
+  }
+
   // Extreme intervals don't overflow second-resolution timestamps
   auto ty = timestamp(TimeUnit::SECOND);
   CheckScalarBinary("add_checked", ArrayFromJSON(ty, "[0]"),

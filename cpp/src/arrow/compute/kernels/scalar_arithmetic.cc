@@ -1303,6 +1303,18 @@ struct TimestampIntervalArithmeticImpl {
     return out;
   }
 
+  // Compute day * units_per_day + rem, where 0 <= rem < units_per_day,
+  // without overflowing when only day * units_per_day is out of range.
+  // For negative days, the product is formed with one day less in magnitude
+  // and the remainder is shifted by -units_per_day instead.
+  static int64_t ComposeDays(int64_t day, int64_t rem, int64_t units_per_day,
+                             Status* st) {
+    if (day < 0) {
+      return Add(Multiply(day + 1, units_per_day, st), rem - units_per_day, st);
+    }
+    return Add(Multiply(day, units_per_day, st), rem, st);
+  }
+
   // Convert the physical part of an interval to the timestamp unit
   static int64_t PhysicalToUnit(int64_t nanoseconds, Status* st) {
     if (ARROW_PREDICT_FALSE(nanoseconds % kNanosPerUnit != 0)) {
@@ -1341,11 +1353,10 @@ struct TimestampIntervalArithmeticImpl {
     const int64_t carry = FloorDiv(time_of_day, kUnitsPerDay);
     int64_t day = original_day + carry;
     time_of_day -= carry * kUnitsPerDay;
-    const int64_t original_local_day = day;
     if (months != 0) {
       day = AddMonthsToDays(day, months);
     }
-    day += days;
+    day = Add(day, days, st);
     int64_t new_offset;
     if (localizer.IsFixed()) {
       new_offset = offset;
@@ -1353,17 +1364,17 @@ struct TimestampIntervalArithmeticImpl {
       // Timezone transitions have second precision; the subsecond remainder
       // does not affect which offset applies.
       const int64_t local_seconds =
-          Add(Multiply(day, 86400, st), time_of_day / kUnitsPerSecond, st);
+          ComposeDays(day, time_of_day / kUnitsPerSecond, 86400, st);
       if (!st->ok()) return 0;
       new_offset = localizer.OffsetForLocal<std::chrono::seconds>(local_seconds, st);
     }
-    // Apply only the calendar and offset deltas to the original timestamp.
-    // Reconstructing day * kUnitsPerDay first can overflow near INT64_MIN.
-    const int64_t day_delta = Subtract(day, original_local_day, st);
-    const int64_t offset_delta = Subtract(offset, new_offset, st);
-    const int64_t delta = Add(Multiply(day_delta, kUnitsPerDay, st),
-                              Multiply(offset_delta, kUnitsPerSecond, st), st);
-    return Add(t, delta, st);
+    // Convert back to UTC on the (day, time of day) pair, so that neither the
+    // local timestamp nor day * kUnitsPerDay has to be representable on its
+    // own: only the final timestamp must fit.
+    int64_t utc_time_of_day = time_of_day - new_offset * kUnitsPerSecond;
+    const int64_t utc_carry = FloorDiv(utc_time_of_day, kUnitsPerDay);
+    utc_time_of_day -= utc_carry * kUnitsPerDay;
+    return ComposeDays(Add(day, utc_carry, st), utc_time_of_day, kUnitsPerDay, st);
   }
 
   static int64_t Call(const IntervalLocalizer& localizer, int64_t t,
