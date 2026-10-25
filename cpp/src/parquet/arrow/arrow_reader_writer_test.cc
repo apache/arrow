@@ -2907,6 +2907,9 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
     ASSERT_OK_AND_ASSIGN(auto batch1, future1.result());
     ASSERT_OK_AND_ASSIGN(auto batch2, future2.result());
     ASSERT_OK_AND_ASSIGN(auto batch3, future3.result());
+    // The concatenating generator may have already requested the next batch. Finish all
+    // outstanding work before this generator leaves scope.
+    ASSERT_FINISHES_OK(::arrow::DiscardAllFromAsyncGenerator(std::move(batch_generator)));
     check_batches(batch1, num_columns, batch_size);
     check_batches(batch2, num_columns, batch_size);
     check_batches(batch3, num_columns, batch_size);
@@ -2984,29 +2987,35 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorDecodesFirstBatchWithinMemoryLim
   ::arrow::ProxyMemoryPool proxy_pool(::arrow::default_memory_pool());
   ::arrow::CappedMemoryPool capped_pool(&proxy_pool, memory_limit);
 
-  // Use the pre-buffered incremental path and serial decoding for deterministic memory
-  // accounting. A successful Next() should allocate only the configured batch.
-  ArrowReaderProperties properties = default_arrow_reader_properties();
-  properties.set_batch_size(batch_size);
-  properties.set_pre_buffer(true);
-  properties.set_use_threads(false);
+  {
+    // Use the pre-buffered incremental path and serial decoding for deterministic memory
+    // accounting. A successful Next() should allocate only the configured batch.
+    ArrowReaderProperties properties = default_arrow_reader_properties();
+    properties.set_batch_size(batch_size);
+    properties.set_pre_buffer(true);
+    properties.set_use_threads(false);
 
-  // Build an in-memory Parquet reader whose decode allocations use the capped pool.
-  std::unique_ptr<FileReader> unique_reader;
-  FileReaderBuilder builder;
-  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
-  ASSERT_OK(
-      builder.memory_pool(&capped_pool)->properties(properties)->Build(&unique_reader));
-  std::shared_ptr<FileReader> reader = std::move(unique_reader);
+    // Build an in-memory Parquet reader whose decode allocations use the capped pool.
+    std::unique_ptr<FileReader> unique_reader;
+    FileReaderBuilder builder;
+    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK(
+        builder.memory_pool(&capped_pool)->properties(properties)->Build(&unique_reader));
+    std::shared_ptr<FileReader> reader = std::move(unique_reader);
 
-  // Select every column in the only row group, but request just the first output batch.
-  ASSERT_OK_AND_ASSIGN(auto batch_generator,
-                       reader->GetRecordBatchGenerator(reader, {0}, Iota(num_columns)));
-  // An eager full-row-group decode would exceed the cap before returning this batch.
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto first_batch, batch_generator());
-  ASSERT_NE(first_batch, nullptr);
-  ASSERT_EQ(first_batch->num_columns(), num_columns);
-  ASSERT_EQ(first_batch->num_rows(), batch_size);
+    // Select every column in the only row group and validate the first output batch.
+    ASSERT_OK_AND_ASSIGN(auto batch_generator,
+                         reader->GetRecordBatchGenerator(reader, {0}, Iota(num_columns)));
+    // An eager full-row-group decode would exceed the cap before returning this batch.
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto first_batch, batch_generator());
+    // The generator may have already started the next batch. Drain it without retaining
+    // the remaining batches so all work finishes before the capped pools are destroyed.
+    ASSERT_FINISHES_OK(::arrow::DiscardAllFromAsyncGenerator(std::move(batch_generator)));
+    ASSERT_NE(first_batch, nullptr);
+    ASSERT_EQ(first_batch->num_columns(), num_columns);
+    ASSERT_EQ(first_batch->num_rows(), batch_size);
+  }
+  ASSERT_EQ(proxy_pool.bytes_allocated(), 0);
 }
 
 TEST(TestArrowReadWrite, ScanContents) {

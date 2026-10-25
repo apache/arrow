@@ -854,29 +854,32 @@ static void BM_ReadWideRowGroupGenerator(::benchmark::State& state) {
 
   for (auto _ : state) {
     ::arrow::ProxyMemoryPool reader_pool(::arrow::default_memory_pool());
-    auto parquet_reader =
-        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    auto arrow_reader_result =
-        FileReader::Make(&reader_pool, std::move(parquet_reader), properties);
-    EXIT_NOT_OK(arrow_reader_result.status());
-    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
+    {
+      auto parquet_reader =
+          ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+      auto arrow_reader_result =
+          FileReader::Make(&reader_pool, std::move(parquet_reader), properties);
+      EXIT_NOT_OK(arrow_reader_result.status());
+      std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
 
-    ASSIGN_OR_ABORT(auto generator,
-                    arrow_reader->GetRecordBatchGenerator(
-                        arrow_reader, {0}, column_indices,
-                        ::arrow::internal::GetCpuThreadPool(), /*rows_to_readahead=*/0));
-    int64_t rows_read = 0;
-    for (int64_t batch_index = 0; batch_index < num_batches; ++batch_index) {
-      auto batch_future = generator();
-      ASSIGN_OR_ABORT(auto batch, batch_future.result());
-      rows_read += batch->num_rows();
-      ::benchmark::DoNotOptimize(batch);
+      ASSIGN_OR_ABORT(auto generator, arrow_reader->GetRecordBatchGenerator(
+                                          arrow_reader, {0}, column_indices,
+                                          ::arrow::internal::GetCpuThreadPool(),
+                                          /*rows_to_readahead=*/0));
+      int64_t rows_read = 0;
+      for (int64_t batch_index = 0; batch_index < num_batches; ++batch_index) {
+        auto batch_future = generator();
+        ASSIGN_OR_ABORT(auto batch, batch_future.result());
+        rows_read += batch->num_rows();
+        ::benchmark::DoNotOptimize(batch);
+      }
+      auto end_future = generator();
+      ASSIGN_OR_ABORT(auto end, end_future.result());
+      ARROW_CHECK(::arrow::IsIterationEnd(end));
+      ARROW_CHECK_EQ(rows_read, num_rows);
     }
-    auto end_future = generator();
-    ASSIGN_OR_ABORT(auto end, end_future.result());
-    ARROW_CHECK(::arrow::IsIterationEnd(end));
-    ARROW_CHECK_EQ(rows_read, num_rows);
     peak_memory = std::max(peak_memory, reader_pool.max_memory());
+    ARROW_CHECK_EQ(reader_pool.bytes_allocated(), 0);
   }
 
   state.counters["rows_per_second"] = ::benchmark::Counter(

@@ -1279,7 +1279,19 @@ class RowGroupGenerator {
         reader->parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
     rows_in_flight_ += num_rows;
     ::arrow::Future<RecordBatchGenerator> row_group_read;
-    if (!reader->properties().pre_buffer()) {
+    // For threaded scans using a caller-owned CPU executor distinct from the I/O
+    // executor, retain eager row-group decoding so incremental asynchronous work
+    // cannot outlive the non-owning executor. This configuration does not receive
+    // bounded batch-level decoded memory without cancellation or executor ownership.
+    const bool has_external_cpu_executor =
+        cpu_executor_ != nullptr &&
+        cpu_executor_ != ::arrow::internal::GetCpuThreadPool();
+    const bool uses_distinct_executors =
+        cpu_executor_ != reader->properties().io_context().executor();
+    const bool can_decode_incrementally = !reader->properties().use_threads() ||
+                                          !has_external_cpu_executor ||
+                                          !uses_distinct_executors;
+    if (!reader->properties().pre_buffer() || !can_decode_incrementally) {
       row_group_read = SubmitRead(cpu_executor_, reader, row_group, column_indices);
     } else {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
