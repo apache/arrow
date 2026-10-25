@@ -1340,6 +1340,30 @@ TEST(TestBinaryViewCompareKernel, MixedStringTypes) {
   CheckScalarBinary("equal", long_str_arr, long_scalar_view,
                     ArrayFromJSON(boolean(), "[true, false, null, false]"));
 
+  // Asymmetric slice offsets
+  auto sliced_lhs = str_arr->Slice(1, 2);   // ["b", null]
+  auto sliced_rhs = view_arr->Slice(2, 2);  // ["c", null]
+  CheckScalarBinary("equal", sliced_lhs, sliced_rhs,
+                    ArrayFromJSON(boolean(), "[false, null]"));
+
+  // Null scalar comparisons
+  auto null_scalar_str = MakeNullScalar(utf8());
+  auto null_scalar_view = MakeNullScalar(utf8_view());
+  CheckScalarBinary("equal", view_arr, null_scalar_str,
+                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalarBinary("equal", str_arr, null_scalar_view,
+                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
+
+  // Embedded null bytes (\0) across inline (<=12B) and out-of-line (>12B) views
+  auto null_byte_str = ArrayFromJSON(
+      utf8(), R"(["a\u0000b", "a\u0000x", "long_prefix_\u0000_x"])");
+  auto null_byte_view = ArrayFromJSON(
+      utf8_view(), R"(["a\u0000b", "a\u0000y", "long_prefix_\u0000_y"])");
+  CheckScalarBinary("equal", null_byte_str, null_byte_view,
+                    ArrayFromJSON(boolean(), "[true, false, false]"));
+  CheckScalarBinary("less", null_byte_str, null_byte_view,
+                    ArrayFromJSON(boolean(), "[false, true, true]"));
+
   // Binary and BinaryView
   auto bin_arr = ArrayFromJSON(binary(), R"(["a", "b", null, "d"])");
   auto bin_view_arr = ArrayFromJSON(binary_view(), R"(["a", "x", "c", null])");
@@ -1412,6 +1436,15 @@ TEST(TestCompareKernel, TestIssue54668) {
                     ArrayFromJSON(boolean(), "[false, false, false]"));
   CheckScalarBinary("not_equal", boundary_str, boundary_view,
                     ArrayFromJSON(boolean(), "[true, true, true]"));
+
+  // Dictionary-encoded string vs utf8_view (both directions)
+  auto dict_str =
+      ArrayFromJSON(dictionary(int32(), utf8()), R"(["apple", "banana", null])");
+  auto plain_view = ArrayFromJSON(utf8_view(), R"(["apple", "cherry", "banana"])");
+  CheckScalarBinary("equal", dict_str, plain_view,
+                    ArrayFromJSON(boolean(), "[true, false, null]"));
+  CheckScalarBinary("equal", plain_view, dict_str,
+                    ArrayFromJSON(boolean(), "[true, false, null]"));
 }
 
 template <typename T>
