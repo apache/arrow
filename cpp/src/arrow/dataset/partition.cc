@@ -322,6 +322,13 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
   for (int i = 0; i < schema_->num_fields(); ++i) {
     if (values[i] != nullptr && values[i]->is_valid) {
       segments[i] = values[i]->ToString();
+      // The value is used verbatim as a path segment, so it must not be able
+      // to escape or add a directory level
+      if (segments[i] == "." || segments[i] == ".." ||
+          segments[i].find(fs::internal::kSep) != std::string::npos) {
+        return Status::Invalid("Partition value for ", schema_->field(i)->name(),
+                               " cannot be used as a path segment: ", segments[i]);
+      }
       continue;
     }
 

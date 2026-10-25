@@ -310,6 +310,22 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
            equal(field_ref("beta"), literal("hello"))));
 }
 
+TEST_F(TestPartitioning, DirectoryPartitioningFormatInvalidSegment) {
+  partitioning_ =
+      std::make_shared<DirectoryPartitioning>(schema({field("alpha", utf8())}));
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(equal(field_ref("alpha"), literal("..a")), "..a");
+  AssertFormatError(equal(field_ref("alpha"), literal("..")));
+  AssertFormatError(equal(field_ref("alpha"), literal(".")));
+  AssertFormatError(equal(field_ref("alpha"), literal("../../escaped")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a/b")));
+
+  partitioning_ =
+      std::make_shared<FilenamePartitioning>(schema({field("alpha", utf8())}));
+  AssertFormatError(equal(field_ref("alpha"), literal("../../escaped")));
+}
+
 TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
   auto dictionary = ArrayFromJSON(utf8(), R"(["hello", "world"])");
   partitioning_ = std::make_shared<DirectoryPartitioning>(schema({DictStr("alpha")}),
