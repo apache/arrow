@@ -72,6 +72,9 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
+          (github.event_name == 'push' &&
+           github.repository == 'apache/arrow' &&
+           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
@@ -187,7 +190,7 @@ jobs:
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
@@ -254,7 +257,7 @@ jobs:
         if: >-
           !cancelled()
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
@@ -346,6 +349,8 @@ jobs:
         if: env.TASK_NAMESPACE == 'apt'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required because the default /tmp is a size-limited tmpfs on some runner images.
+          TMPDIR: ${{ runner.temp }}
         run: |
           # Validate reproducibility. Reprotest runs the build twice
           # inside its own tempdir and doesn't copy artifacts back,

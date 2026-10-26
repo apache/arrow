@@ -102,6 +102,7 @@ RUN apt-get update -y -q && \
         libssh2-1-dev \
         libssl-dev \
         libthrift-dev \
+        liburiparser-dev \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \

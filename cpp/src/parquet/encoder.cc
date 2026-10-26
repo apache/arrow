@@ -32,6 +32,8 @@
 #include "arrow/array.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/alp/alp_codec_internal.h"
+#include "arrow/util/alp/alp_constants_internal.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -998,6 +1000,96 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 };
 
 // ----------------------------------------------------------------------
+// ALP encoder (Adaptive Lossless floating-Point)
+
+// TODO(GH-48701): encode incrementally and sample once per column chunk.
+//
+// TODO(GH-48701): fall back to PLAIN where ALP does not pay off. msg_sp in the
+// ALP paper's datasets encodes to 113% of plain. FallbackToPlainEncoding() acts
+// only on dictionary-index encodings, and the sampled estimate is a minimum over
+// vectors rather than a whole-column ratio, so both pieces are missing.
+template <typename DType>
+class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+ public:
+  using T = typename DType::c_type;
+  using ArrowType = typename EncodingTraits<DType>::ArrowType;
+  using TypedEncoder<DType>::Put;
+
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "ALP only supports float and double types");
+
+  explicit AlpEncoder(const ColumnDescriptor* descr,
+                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool} {}
+
+  // TODO(GH-48701): use a ratio estimate instead of reporting the raw buffer size
+  int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    // TODO(GH-48701): allow configuring the vector size.
+    constexpr auto kVectorSize =
+        ::arrow::util::alp::AlpFormatConstants::kDefaultVectorSize;
+
+    // An all-null optional page still has to produce a header-only page.
+    const int64_t num_elements = sink_.length() / static_cast<int64_t>(sizeof(T));
+    PARQUET_ASSIGN_OR_THROW(
+        int64_t max_comp_size,
+        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(num_elements, kVectorSize));
+
+    PARQUET_ASSIGN_OR_THROW(
+        std::shared_ptr<ResizableBuffer> compressed_buffer,
+        ::arrow::AllocateResizableBuffer(max_comp_size, this->memory_pool()));
+
+    PARQUET_ASSIGN_OR_THROW(
+        const int64_t compressed_size,
+        ::arrow::util::alp::AlpCodec<T>::Encode(
+            {reinterpret_cast<const T*>(sink_.data()), static_cast<size_t>(num_elements)},
+            kVectorSize,
+            {compressed_buffer->mutable_data(), static_cast<size_t>(max_comp_size)}));
+
+    PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compressed_size));
+    sink_.Reset();
+
+    return compressed_buffer;
+  }
+
+  void Put(const T* buffer, int num_values) override {
+    if (num_values > 0) {
+      PARQUET_THROW_NOT_OK(sink_.Append(reinterpret_cast<const uint8_t*>(buffer),
+                                        num_values * static_cast<int64_t>(sizeof(T))));
+    }
+  }
+
+  void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+                 int64_t valid_bits_offset) override {
+    if (valid_bits != NULLPTR) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
+                                                                   this->memory_pool()));
+      T* data = buffer->template mutable_data_as<T>();
+      const int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
+          src, num_values, valid_bits, valid_bits_offset, data);
+      Put(data, num_valid_values);
+    } else {
+      Put(src, num_values);
+    }
+  }
+
+  void Put(const ::arrow::Array& values) override {
+    if (values.type_id() != ArrowType::type_id) {
+      throw ParquetException(std::string() + "direct put from " +
+                             values.type()->ToString() + " not supported");
+    }
+    const auto& data = *values.data();
+    this->PutSpaced(data.GetValues<typename ArrowType::c_type>(1),
+                    static_cast<int>(data.length), data.GetValues<uint8_t>(0, 0),
+                    data.offset);
+  }
+
+ private:
+  ::arrow::BufferBuilder sink_;
+};
+
+// ----------------------------------------------------------------------
 // DELTA_BINARY_PACKED encoder
 
 /// DeltaBitPackEncoder is an encoder for the DeltaBinary Packing format
@@ -1827,6 +1919,15 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
         throw ParquetException(
             "BYTE_STREAM_SPLIT only supports FLOAT, DOUBLE, INT32, INT64 "
             "and FIXED_LEN_BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::ALP) {
+    switch (type_num) {
+      case Type::FLOAT:
+        return std::make_unique<AlpEncoder<FloatType>>(descr, pool);
+      case Type::DOUBLE:
+        return std::make_unique<AlpEncoder<DoubleType>>(descr, pool);
+      default:
+        throw ParquetException("ALP encoding only supports FLOAT and DOUBLE");
     }
   } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
     switch (type_num) {

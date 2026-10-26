@@ -30,6 +30,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/test_util.h"
@@ -169,6 +170,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       GENERATE_CASE(BINARY, ::arrow::BinaryBuilder,
                     std::string("bin_") + std::to_string(val))
       GENERATE_CASE(LARGE_BINARY, ::arrow::LargeBinaryBuilder,
+                    std::string("bin_") + std::to_string(val))
+      GENERATE_CASE(STRING_VIEW, ::arrow::StringViewBuilder,
+                    std::string("str_") + std::to_string(val))
+      GENERATE_CASE(BINARY_VIEW, ::arrow::BinaryViewBuilder,
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size =
@@ -401,6 +406,20 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data, int column
   }
 
   return result;
+}
+
+// The offsets where the data pages of a column end, counted in levels from the start of
+// the column across its row groups, which are rows for flat columns
+std::vector<int64_t> GetPageEnds(const std::shared_ptr<Buffer>& data, int column_index) {
+  std::vector<int64_t> page_ends;
+  int64_t offset = 0;
+  for (const auto& row_group : GetColumnParquetInfo(data, column_index)) {
+    for (auto page_length : row_group.page_lengths) {
+      offset += page_length;
+      page_ends.push_back(offset);
+    }
+  }
+  return page_ends;
 }
 
 // A git-hunk like side-by-side data structure to represent the differences between two
@@ -742,6 +761,10 @@ Result<int64_t> CalculateCdcSize(const std::shared_ptr<Array>& array, bool nulla
   } else if (::arrow::is_large_binary_like(type_id)) {
     auto binary_array = checked_cast<const ::arrow::LargeBinaryArray*>(array.get());
     result += binary_array->total_values_length();
+  } else if (::arrow::is_binary_view_like(type_id)) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *array->data(),
+        [&](std::string_view v) { result += static_cast<int64_t>(v.size()); }, [] {});
   } else {
     return Status::NotImplemented("CDC size calculation for type ",
                                   array->type()->ToString(), " is not implemented");
@@ -784,7 +807,8 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
     ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
   }
 
-  if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id)) {
+  if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id) ||
+      ::arrow::is_binary_view_like(type_id)) {
     int64_t offset = 0;
 
     auto page_lengths = column_info.page_lengths;
@@ -1451,7 +1475,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(
         CaseConfig{::arrow::boolean(), false}, CaseConfig{::arrow::int64(), true},
         // Binary-like
-        CaseConfig{::arrow::utf8(), false},
+        CaseConfig{::arrow::utf8(), false}, CaseConfig{::arrow::utf8_view(), true},
         CaseConfig{::arrow::fixed_size_binary(16), true},
         // Nested types
         CaseConfig{::arrow::list(::arrow::int32()), false},
@@ -1475,6 +1499,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Binary-like
         CaseConfig{::arrow::utf8(), false}, CaseConfig{::arrow::binary(), true},
         CaseConfig{::arrow::fixed_size_binary(16), true},
+        CaseConfig{::arrow::utf8_view(), false}, CaseConfig{::arrow::binary_view(), true},
         // Temporal
         CaseConfig{::arrow::date32(), false},
         CaseConfig{::arrow::time32(::arrow::TimeUnit::MILLI), true},
@@ -1697,6 +1722,41 @@ TEST_F(TestCDCMultipleRowGroups, Append) {
       ASSERT_EQ(original_page_lengths[i], modified_page_lengths[i]);
     }
     ASSERT_GT(modified_page_lengths.back(), original_page_lengths.back());
+  }
+}
+
+TEST_F(TestCDCMultipleRowGroups, IndependentOfRowGroupBoundaries) {
+  // Splitting the data into row groups must not move the content defined page
+  // boundaries, only add one at the end of each row group. For example, if the pages of
+  // a single row group file end at rows 100, 250 and 400, then with row groups of 200
+  // rows the pages must end at rows 100, 200, 250 and 400.
+  ASSERT_OK_AND_ASSIGN(auto table, ConcatAndCombine({part1_, part2_, part3_}));
+  const int64_t num_rows = table->num_rows();
+  const int64_t row_group_length = num_rows / 6;
+  ASSERT_OK_AND_ASSIGN(auto single,
+                       WriteTableToBuffer(table, kMinChunkSize, kMaxChunkSize,
+                                          /*row_group_length=*/num_rows));
+  ASSERT_OK_AND_ASSIGN(auto multi, WriteTableToBuffer(table, kMinChunkSize, kMaxChunkSize,
+                                                      row_group_length));
+  ASSERT_EQ(ReadMetaData(std::make_shared<BufferReader>(single))->num_row_groups(), 1);
+  ASSERT_EQ(ReadMetaData(std::make_shared<BufferReader>(multi))->num_row_groups(), 6);
+  // compare the page ends column by column
+  for (int col = 0; col < table->num_columns(); col++) {
+    // the page ends of the single row group file, e.g. 100, 250 and 400
+    auto single_page_ends = GetPageEnds(single, col);
+    // the page ends of the multiple row group file, e.g. 100, 200, 250 and 400
+    auto multi_page_ends = GetPageEnds(multi, col);
+    // expect the page ends of the single row group file plus one at each of the 5
+    // boundaries between the row groups, e.g. 200, the last row group ends with the data
+    // where the single row group file's last page ends too
+    auto expected = single_page_ends;
+    for (int i = 1; i < 6; i++) {
+      expected.push_back(i * row_group_length);
+    }
+    std::sort(expected.begin(), expected.end());
+    EXPECT_EQ(multi_page_ends.size(), single_page_ends.size() + 5) << "column " << col;
+    // unlike ASSERT_EQ, ContainerEq prints the page ends that differ
+    ASSERT_THAT(multi_page_ends, ::testing::ContainerEq(expected)) << "column " << col;
   }
 }
 

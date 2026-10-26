@@ -1088,6 +1088,7 @@ Examples
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
                  max_rows_per_page=None,
+                 bloom_filter_options=None,
                  use_content_defined_chunking=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
@@ -1144,6 +1145,7 @@ Examples
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             max_rows_per_page=max_rows_per_page,
+            bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
             **options)
         self.is_open = True
@@ -1279,13 +1281,14 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+partitioning : pyarrow.dataset.Partitioning or str or list of str or None, \
 default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
-    you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
+    you need to specify the field names or a full schema. If no partitioning
+    is used, pass ``None``.
+    See the ``pyarrow.dataset.partitioning()`` function for more details."""
 
 
 _parquet_dataset_example = """\

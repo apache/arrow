@@ -1949,6 +1949,18 @@ def test_arithmetic_multiply():
     assert result.equals(expected)
 
 
+def test_arithmetic_remainder_modulo():
+    left = pa.array([7, -7, 7, -7, None])
+    right = pa.array([3, 3, -3, -3, 3])
+    expected_remainder = [1, -1, 1, -1, None]
+    expected_modulo = [1, 2, -2, -1, None]
+
+    assert pc.remainder(left, right).to_pylist() == expected_remainder
+    assert pc.remainder_checked(left, right).to_pylist() == expected_remainder
+    assert pc.modulo(left, right).to_pylist() == expected_modulo
+    assert pc.modulo_checked(left, right).to_pylist() == expected_modulo
+
+
 @pytest.mark.parametrize("ty", ["round", "round_to_multiple"])
 def test_round_to_integer(ty):
     if ty == "round":
@@ -2644,8 +2656,8 @@ def _check_datetime_components(timestamps, timezone=None):
     year = ts.dt.year.astype("int64")
     month = ts.dt.month.astype("int64")
     day = ts.dt.day.astype("int64")
-    dayofweek = ts.dt.dayofweek.astype("int64")
-    dayofyear = ts.dt.dayofyear.astype("int64")
+    dayofweek = ts.dt.day_of_week.astype("int64")
+    dayofyear = ts.dt.day_of_year.astype("int64")
     quarter = ts.dt.quarter.astype("int64")
     hour = ts.dt.hour.astype("int64")
     minute = ts.dt.minute.astype("int64")
@@ -2968,7 +2980,7 @@ def test_round_temporal(unit):
     if sys.platform == "win32":
         timestamps = timestamps[:3] + timestamps[5:]
 
-    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
+    ts = pd.Series([pd.Timestamp(x).as_unit("ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
