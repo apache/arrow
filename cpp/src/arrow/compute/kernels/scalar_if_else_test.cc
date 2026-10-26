@@ -4006,7 +4006,6 @@ TEST(TestChooseKernel, Errors) {
                    {ArrayFromJSON(int64(), "[-1]"), ArrayFromJSON(int32(), "[0]")}));
 }
 
-
 template <typename Type>
 class TestConditionalBinaryView : public ::testing::Test {};
 
@@ -4017,12 +4016,12 @@ TYPED_TEST(TestConditionalBinaryView, IfElse) {
   auto type = default_type_instance<TypeParam>();
   CheckWithDifferentShapes(
       ArrayFromJSON(boolean(), "[true, false, null, true, false]"),
-      ArrayFromJSON(type,
-                    R"(["left value out of line", "", "short", null, "unused"])"),
+      ArrayFromJSON(type, R"(["left value out of line", "", "short", null, "unused"])"),
       ArrayFromJSON(type,
                     R"(["unused", "right value out of line", null, "short", null])"),
-      ArrayFromJSON(type,
-                    R"(["left value out of line", "right value out of line", null, null, null])"));
+      ArrayFromJSON(
+          type,
+          R"(["left value out of line", "right value out of line", null, null, null])"));
 }
 
 template <typename Type>
@@ -4031,14 +4030,14 @@ Result<std::shared_ptr<Array>> MakeConditionalViewInput(bool left) {
   builder.SetBlockSize(16);
   RETURN_NOT_OK(builder.Append("prefix"));
   RETURN_NOT_OK(builder.Append(left ? "first left value out of line"
-                                     : "first right value out of line"));
+                                    : "first right value out of line"));
   if (left) {
     RETURN_NOT_OK(builder.AppendNull());
   } else {
     RETURN_NOT_OK(builder.Append("second right value out of line"));
   }
   RETURN_NOT_OK(builder.Append(left ? "third left value out of line"
-                                     : "third right value out of line"));
+                                    : "third right value out of line"));
   ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
   return array->Slice(1);
 }
@@ -4057,7 +4056,8 @@ TYPED_TEST(TestConditionalBinaryView, RetainSelectedBuffers) {
         right_buffer = right.scalar_as<BaseBinaryScalar>().value;
       } else {
         ASSERT_OK_AND_ASSIGN(auto array, MakeConditionalViewInput<TypeParam>(false));
-        const auto* views = ArraySpan(*array->data()).GetValues<BinaryViewType::c_type>(1);
+        const auto* views =
+            ArraySpan(*array->data()).GetValues<BinaryViewType::c_type>(1);
         right_buffer = array->data()->buffers[2 + views[1].ref.buffer_index];
         right = std::move(array);
       }
@@ -4094,13 +4094,14 @@ TYPED_TEST(TestConditionalBinaryView, RetainSelectedBuffers) {
 
 TYPED_TEST(TestConditionalBinaryView, CaseWhenNestedOffsets) {
   auto type = default_type_instance<TypeParam>();
-  auto child = ArrayFromJSON(boolean(), "[false, false, true, false, null, true]")
-                   ->Slice(1);
+  auto child =
+      ArrayFromJSON(boolean(), "[false, false, true, false, null, true]")->Slice(1);
   auto conditions = MakeStruct({child}).make_array()->Slice(1, 3);
   auto left = ArrayFromJSON(type, R"(["left out of line", "unused", "unused"])");
   auto right = ArrayFromJSON(type, R"(["unused", "right out of line", "fallback"])");
-  CheckScalar("case_when", {conditions, left, right},
-              ArrayFromJSON(type, R"(["left out of line", "right out of line", "fallback"])"));
+  CheckScalar(
+      "case_when", {conditions, left, right},
+      ArrayFromJSON(type, R"(["left out of line", "right out of line", "fallback"])"));
   CheckScalar("case_when", {conditions, left},
               ArrayFromJSON(type, R"(["left out of line", null, null])"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -4112,13 +4113,11 @@ TYPED_TEST(TestConditionalBinaryView, ChooseInvalidIndices) {
   auto type = default_type_instance<TypeParam>();
   auto value = ScalarFromJSON(type, R"("value out of line")");
   for (int64_t index : {int64_t{-1}, int64_t{1}, std::numeric_limits<int64_t>::max()}) {
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IndexError, ::testing::HasSubstr("out of range"),
-        CallFunction("choose", {Datum(index), value}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, ::testing::HasSubstr("out of range"),
+                                    CallFunction("choose", {Datum(index), value}));
     ASSERT_OK_AND_ASSIGN(auto indices, MakeArrayFromScalar(Int64Scalar(index), 1));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IndexError, ::testing::HasSubstr("out of range"),
-        CallFunction("choose", {indices, value}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, ::testing::HasSubstr("out of range"),
+                                    CallFunction("choose", {indices, value}));
   }
 }
 
