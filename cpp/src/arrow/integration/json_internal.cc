@@ -164,10 +164,10 @@ class SchemaWriter {
     writer_->StartObject();
 
     writer_->Key("key");
-    writer_->String(key.c_str());
+    writer_->String(key);
 
     writer_->Key("value");
-    writer_->String(value.c_str());
+    writer_->String(value);
 
     writer_->EndObject();
   }
@@ -192,8 +192,11 @@ class SchemaWriter {
     // type is an extension type (GH-49704)
     if (type.value_type()->id() == Type::EXTENSION) {
       const auto& ext_type = checked_cast<const ExtensionType&>(*type.value_type());
-      WriteKeyValueMetadata(nullptr, {{kExtensionTypeKeyName, ext_type.extension_name()},
-                                      {kExtensionMetadataKeyName, ext_type.Serialize()}});
+      WriteKeyValueMetadata(type.value_metadata(),
+                            {{kExtensionTypeKeyName, ext_type.extension_name()},
+                             {kExtensionMetadataKeyName, ext_type.Serialize()}});
+    } else {
+      WriteKeyValueMetadata(type.value_metadata());
     }
     writer_->EndObject();
 
@@ -228,7 +231,11 @@ class SchemaWriter {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
       // Ensure we visit child fields first so that, in the case of nested
       // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields(), field_pos));
+      const DataType* value_type = dict_type.value_type().get();
+      while (value_type->id() == Type::EXTENSION) {
+        value_type = checked_cast<const ExtensionType&>(*value_type).storage_type().get();
+      }
+      RETURN_NOT_OK(WriteChildren(value_type->fields(), field_pos));
       ARROW_ASSIGN_OR_RAISE(const int64_t dictionary_id,
                             mapper_.GetFieldId(field_pos.path()));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
@@ -1336,7 +1343,7 @@ Result<std::shared_ptr<Field>> GetField(const JsonValue& obj, FieldPosition fiel
         }
       }
       dict_value_type = type;
-      type = ::arrow::dictionary(index_type, type, is_ordered);
+      type = ::arrow::dictionary(index_type, type, is_ordered, std::move(value_metadata));
     }
   }
 

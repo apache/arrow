@@ -786,6 +786,12 @@ class FieldToFlatbufferVisitor {
     // pass through to the value type, as we've already captured the index
     // type in the DictionaryEncoding metadata in the parent field
     const DataType& value_type = *type.value_type();
+    if (type.value_metadata()) {
+      const auto& metadata = *type.value_metadata();
+      for (int64_t i = 0; i < metadata.size(); ++i) {
+        dictionary_value_metadata_.emplace_back(metadata.key(i), metadata.value(i));
+      }
+    }
     if (value_type.id() == Type::EXTENSION) {
       // The extension metadata of the dictionary value type is written to
       // DictionaryEncoding.custom_metadata, to distinguish it from an extension
@@ -955,14 +961,13 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     // The dictionary value type may be an extension type, whose metadata is
     // found in DictionaryEncoding.custom_metadata (GH-49704)
-    if (encoding->custom_metadata() != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(auto value_metadata,
-                            internal::GetKeyValueMetadata(encoding->custom_metadata()));
-      RETURN_NOT_OK(MaybeDeserializeExtensionType(value_metadata.get(), &type));
-    }
+    ARROW_ASSIGN_OR_RAISE(auto value_metadata,
+                          internal::GetKeyValueMetadata(encoding->custom_metadata()));
+    RETURN_NOT_OK(MaybeDeserializeExtensionType(value_metadata.get(), &type));
     dict_value_type = type;
     ARROW_ASSIGN_OR_RAISE(type,
-                          DictionaryType::Make(index_type, type, encoding->isOrdered()));
+                          DictionaryType::Make(index_type, type, encoding->isOrdered(),
+                                               std::move(value_metadata)));
     dictionary_id = encoding->id();
   }
 

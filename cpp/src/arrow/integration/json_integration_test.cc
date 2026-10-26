@@ -31,6 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/extension/opaque.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/integration/json_integration.h"
 #include "arrow/integration/json_internal.h"
@@ -1294,9 +1295,13 @@ TEST(TestJsonFileReadWrite, JsonExample7) {
   ExtensionTypeGuard ext_guard(uuid_type);
   // The value type of the second dictionary is an unregistered extension type,
   // and is read as its storage type
+  auto unknown_type =
+      dictionary(int8(), fixed_size_binary(16), false,
+                 key_value_metadata({{kExtensionTypeKeyName, "unknown.extension"},
+                                     {kExtensionMetadataKeyName, ""}}));
   Schema ex_schema({field("uuid_dict", dictionary(int8(), uuid_type), /*nullable=*/true,
                           key_value_metadata({{"some_key", "some_value"}})),
-                    field("unknown_dict", dictionary(int8(), fixed_size_binary(16)))});
+                    field("unknown_dict", unknown_type)});
 
   std::shared_ptr<RecordBatch> batch;
   ReadOneBatchJson(json_example7, ex_schema, &batch);
@@ -1313,8 +1318,7 @@ TEST(TestJsonFileReadWrite, JsonExample7) {
   ASSERT_OK_AND_ASSIGN(
       auto expected_unknown_dict,
       DictionaryArray::FromArrays(
-          dictionary(int8(), fixed_size_binary(16)),
-          ArrayFromJSON(int8(), "[0, null, 0, 0]"),
+          unknown_type, ArrayFromJSON(int8(), "[0, null, 0, 0]"),
           ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef"])")));
   AssertArraysEqual(*batch->column(1), *expected_unknown_dict, /*verbose=*/true);
 }
@@ -1329,6 +1333,10 @@ TEST(TestJsonFileReadWrite, DictionaryOfExtension) {
             key_value_metadata({{"some_key", "some_value"}})),
       field("f1", list(dictionary(int32(), uuid_type))),
       field("f2", dict_extension_type()),
+      field("f3", dictionary(int32(),
+                             extension::opaque(
+                                 struct_({field("inner", dictionary(int8(), uuid_type))}),
+                                 "nested", "test"))),
   });
   TestSchemaRoundTrip(schema);
 
@@ -1394,6 +1402,47 @@ TEST(TestJsonFileReadWrite, DictionaryOfExtensionRoundTrip) {
       CheckRoundtrip(*batch);
     }
   }
+}
+
+TEST(TestJsonFileReadWrite, DictionaryValueMetadataRoundTrip) {
+  auto metadata = key_value_metadata({{"extra", std::string("a\0b", 3)}});
+  auto type = dictionary(int32(), uuid(), true, metadata);
+  auto values = ExtensionType::WrapArray(
+      uuid(), ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])"));
+  ASSERT_OK_AND_ASSIGN(
+      auto dict,
+      DictionaryArray::FromArrays(type, ArrayFromJSON(int32(), "[0, null, 1]"), values));
+  ASSERT_OK_AND_ASSIGN(auto nested, StructArray::Make({dict}, {field("d", type)}));
+  auto batch =
+      RecordBatch::Make(schema({field("nested", nested->type(), true,
+                                      key_value_metadata({{"extra", "parent"}}))}),
+                        nested->length(), {nested});
+  auto roundtrip = [](const std::shared_ptr<RecordBatch>& input)
+      -> Result<std::shared_ptr<RecordBatch>> {
+    ARROW_ASSIGN_OR_RAISE(auto writer, IntegrationJsonWriter::Open(input->schema()));
+    RETURN_NOT_OK(writer->WriteRecordBatch(*input));
+    ARROW_ASSIGN_OR_RAISE(auto json_data, writer->Finish());
+    ARROW_ASSIGN_OR_RAISE(
+        auto reader, IntegrationJsonReader::Open(std::make_shared<Buffer>(json_data)));
+    return reader->ReadRecordBatch(0);
+  };
+  ASSERT_EQ(GetExtensionType("uuid"), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto unknown, roundtrip(batch));
+  const auto& unknown_type = checked_cast<const DictionaryType&>(
+      *unknown->schema()->field(0)->type()->field(0)->type());
+  AssertTypeEqual(*fixed_size_binary(16), *unknown_type.value_type());
+  auto expected_metadata = metadata->Copy();
+  expected_metadata->Append(kExtensionTypeKeyName, "uuid");
+  expected_metadata->Append(kExtensionMetadataKeyName, "uuid-serialized");
+  ASSERT_TRUE(expected_metadata->Equals(*unknown_type.value_metadata()));
+  ASSERT_OK_AND_ASSIGN(auto rewritten, roundtrip(unknown));
+  AssertSchemaEqual(*unknown->schema(), *rewritten->schema(), true);
+  AssertBatchesEqual(*unknown, *rewritten);
+  ExtensionTypeGuard guard(uuid());
+  ASSERT_OK_AND_ASSIGN(auto restored, roundtrip(rewritten));
+  ASSERT_OK(restored->ValidateFull());
+  AssertSchemaEqual(*batch->schema(), *restored->schema(), true);
+  AssertBatchesEqual(*batch, *restored);
 }
 
 TEST_P(TestJsonRoundTrip, RoundTrip) {

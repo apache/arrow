@@ -34,6 +34,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compare.h"
+#include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -629,7 +630,8 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
                         MergeTypes(left.value_type(), right.value_type(), options));
   auto ordered = left.ordered() && right.ordered();
   if (indices && values) {
-    return dictionary(indices, values, ordered);
+    // Like Field::MergeWith, retain the metadata from the first occurrence.
+    return dictionary(indices, values, ordered, left.value_metadata());
   } else if (values) {
     return Status::TypeError("Could not merge dictionary index types");
   }
@@ -1562,17 +1564,45 @@ int DictionaryType::bit_width() const {
 Result<std::shared_ptr<DataType>> DictionaryType::Make(
     const std::shared_ptr<DataType>& index_type,
     const std::shared_ptr<DataType>& value_type, bool ordered) {
+  return Make(index_type, value_type, ordered, nullptr);
+}
+
+Result<std::shared_ptr<DataType>> DictionaryType::Make(
+    const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<DataType>& value_type, bool ordered,
+    std::shared_ptr<const KeyValueMetadata> value_metadata) {
   RETURN_NOT_OK(ValidateParameters(*index_type, *value_type));
-  return std::make_shared<DictionaryType>(index_type, value_type, ordered);
+  return std::make_shared<DictionaryType>(index_type, value_type, ordered,
+                                          std::move(value_metadata));
 }
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
                                const std::shared_ptr<DataType>& value_type, bool ordered)
+    : DictionaryType(index_type, value_type, ordered, nullptr) {}
+
+DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
+                               const std::shared_ptr<DataType>& value_type, bool ordered,
+                               std::shared_ptr<const KeyValueMetadata> value_metadata)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
       value_type_(value_type),
-      ordered_(ordered) {
+      ordered_(ordered),
+      value_metadata_(std::move(value_metadata)) {
   ARROW_CHECK_OK(ValidateParameters(*index_type_, *value_type_));
+  if (value_type_->id() == Type::EXTENSION && value_metadata_ &&
+      (value_metadata_->Contains(kExtensionTypeKeyName) ||
+       value_metadata_->Contains(kExtensionMetadataKeyName))) {
+    // The ExtensionType is authoritative. Do not serialize conflicting or
+    // duplicate extension keys, or mutate the caller's metadata.
+    auto remaining = std::make_shared<KeyValueMetadata>();
+    for (int64_t i = 0; i < value_metadata_->size(); ++i) {
+      const auto& key = value_metadata_->key(i);
+      if (key != kExtensionTypeKeyName && key != kExtensionMetadataKeyName) {
+        remaining->Append(key, value_metadata_->value(i));
+      }
+    }
+    value_metadata_ = std::move(remaining);
+  }
 }
 
 DataTypeLayout DictionaryType::layout() const {
@@ -1586,6 +1616,9 @@ std::string DictionaryType::ToString(bool show_metadata) const {
   ss << this->name() << "<values=" << value_type_->ToString(show_metadata)
      << ", indices=" << index_type_->ToString(show_metadata) << ", ordered=" << ordered_
      << ">";
+  if (show_metadata && value_metadata_ && value_metadata_->size() > 0) {
+    ss << value_metadata_->ToString();
+  }
   return ss.str();
 }
 
@@ -2931,7 +2964,21 @@ std::string DictionaryType::ComputeFingerprint() const {
     return TypeIdFingerprint(*this) + index_fingerprint + value_fingerprint +
            ordered_fingerprint;
   }
-  return ordered_fingerprint;
+  // Extension types generally have no fingerprint. Fall back to comparing
+  // the actual types instead of treating every unordered dictionary as equal.
+  return "";
+}
+
+std::string DictionaryType::ComputeMetadataFingerprint() const {
+  std::stringstream ss;
+  if (value_metadata_) {
+    AppendMetadataFingerprint(*value_metadata_, &ss);
+  }
+  const auto& value_fingerprint = value_type_->metadata_fingerprint();
+  if (!value_fingerprint.empty()) {
+    ss << "+{" << value_fingerprint << "}";
+  }
+  return ss.str();
 }
 
 std::string ListType::ComputeFingerprint() const {
@@ -3336,6 +3383,14 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
                                      const std::shared_ptr<DataType>& dict_type,
                                      bool ordered) {
   return std::make_shared<DictionaryType>(index_type, dict_type, ordered);
+}
+
+std::shared_ptr<DataType> dictionary(
+    const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<DataType>& dict_type, bool ordered,
+    std::shared_ptr<const KeyValueMetadata> value_metadata) {
+  return std::make_shared<DictionaryType>(index_type, dict_type, ordered,
+                                          std::move(value_metadata));
 }
 
 std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,

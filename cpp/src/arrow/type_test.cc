@@ -32,6 +32,7 @@
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -2296,6 +2297,56 @@ TEST(TestDictionaryType, Equals) {
   auto t5 = dictionary(int8(), int32(), /*ordered=*/false);
   auto t6 = dictionary(int8(), int32(), /*ordered=*/true);
   AssertTypeNotEqual(*t5, *t6);
+}
+
+TEST(TestDictionaryType, ValueMetadata) {
+  auto metadata = key_value_metadata({{"key", "value"}});
+  auto plain = dictionary(int8(), int32());
+  auto annotated = dictionary(int8(), int32(), false, metadata);
+  auto same = dictionary(int8(), int32(), false, metadata->Copy());
+  auto different =
+      dictionary(int8(), int32(), false, key_value_metadata({{"key", "different"}}));
+  ASSERT_TRUE(plain->Equals(annotated));
+  ASSERT_FALSE(plain->Equals(annotated, true));
+  ASSERT_TRUE(annotated->Equals(same, true));
+  ASSERT_FALSE(annotated->Equals(different, true));
+  ASSERT_TRUE(plain->Equals(
+      dictionary(int8(), int32(), false, std::make_shared<KeyValueMetadata>()), true));
+  ASSERT_EQ(plain->ToString(), annotated->ToString());
+  ASSERT_NE(plain->ToString(true), annotated->ToString(true));
+
+  // Equality and schema fingerprints must include metadata nested inside values.
+  auto nested = dictionary(int8(), struct_({field("x", annotated)}));
+  auto nested_different = dictionary(int8(), struct_({field("x", different)}));
+  ASSERT_TRUE(nested->Equals(nested_different));
+  ASSERT_FALSE(nested->Equals(nested_different, true));
+  ASSERT_FALSE(schema({field("d", nested)})
+                   ->Equals(*schema({field("d", nested_different)}), true));
+
+  auto options = Field::MergeOptions::Permissive();
+  ASSERT_OK_AND_ASSIGN(
+      auto merged, field("d", annotated)
+                       ->MergeWith(field("d", dictionary(int32(), int32())), options));
+  AssertTypeEqual(*dictionary(int32(), int32(), false, metadata), *merged->type(), true);
+}
+
+TEST(TestDictionaryType, ExtensionValueMetadata) {
+  auto metadata = key_value_metadata({{kExtensionTypeKeyName, "conflicting"},
+                                      {kExtensionMetadataKeyName, "stale"},
+                                      {"extra", "preserved"}});
+  metadata->Append(kExtensionTypeKeyName, "duplicate");
+  auto type = dictionary(int32(), uuid(), false, metadata);
+  const auto& dict = checked_cast<const DictionaryType&>(*type);
+  ASSERT_TRUE(
+      dict.value_metadata()->Equals(*key_value_metadata({{"extra", "preserved"}})));
+  ASSERT_EQ(metadata->size(), 4);  // Construction must not mutate its input.
+  ASSERT_FALSE(type->Equals(dictionary(int16(), uuid())));
+  ASSERT_FALSE(type->Equals(dictionary(int32(), complex128())));
+  ASSERT_TRUE(type->Equals(dictionary(int32(), uuid())));
+  ASSERT_FALSE(type->Equals(dictionary(int32(), uuid()), true));
+  ASSERT_TRUE(type->Equals(
+      dictionary(int32(), uuid(), false, key_value_metadata({{"extra", "preserved"}})),
+      true));
 }
 
 TEST(TypesTest, SmallestDecimal) {
