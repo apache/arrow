@@ -410,6 +410,22 @@ TEST(TestScalarNested, ListContainsImplicitCast) {
                            {ArrayFromJSON(list(int64()), "[[9007199254740993], null]"),
                             ScalarFromJSON(float64(), "1")}),
               Raises(StatusCode::Invalid));
+
+  // Nor are queries of null lists, as for a null scalar list
+  auto floats = list(float64());
+  CheckListContains(ArrayFromJSON(floats, "[null, [1]]"),
+                    ArrayFromJSON(int64(), "[9007199254740993, 1]"), "[null, true]");
+  CheckListContains(ArrayFromJSON(floats, "[null]"),
+                    ScalarFromJSON(int64(), "9007199254740993"), "[null]");
+  CheckListContains(ScalarFromJSON(floats, "null"),
+                    ArrayFromJSON(int64(), "[9007199254740993]"), "[null]");
+  // Unlike queries of non-null lists
+  for (Datum queries : {Datum(ArrayFromJSON(int64(), "[9007199254740993, 1]")),
+                        Datum(ScalarFromJSON(int64(), "9007199254740993"))}) {
+    EXPECT_THAT(
+        CallFunction("list_contains", {ArrayFromJSON(floats, "[[1], null]"), queries}),
+        Raises(StatusCode::Invalid));
+  }
 }
 
 TEST(TestScalarNested, ListContainsChunked) {
@@ -525,10 +541,14 @@ TEST(TestScalarNested, ListContainsInvalid) {
   EXPECT_THAT(CallFunction("list_contains", {ArrayFromJSON(list(int32()), "[]"),
                                              ArrayFromJSON(utf8(), "[]")}),
               Raises(StatusCode::NotImplemented));
-  // Lists only compare with null queries
-  EXPECT_THAT(CallFunction("list_contains", {ScalarFromJSON(list(list(int32())), "null"),
+  // Lists only compare with null queries, but the queries of null lists don't matter
+  EXPECT_THAT(CallFunction("list_contains", {ArrayFromJSON(list(list(int32())), "[[]]"),
                                              ArrayFromJSON(list(int32()), "[[1]]")}),
               Raises(StatusCode::NotImplemented));
+  for (Datum lists : {Datum(ArrayFromJSON(list(list(int32())), "[null]")),
+                      Datum(ScalarFromJSON(list(list(int32())), "null"))}) {
+    CheckListContains(lists, ArrayFromJSON(list(int32()), "[[1]]"), "[null]");
+  }
   // Like "equal", timestamps with and without a time zone don't compare
   for (auto value : {"1", "null"}) {
     EXPECT_THAT(

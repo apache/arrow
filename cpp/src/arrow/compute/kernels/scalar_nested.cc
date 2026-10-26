@@ -749,6 +749,33 @@ Status CastListValues(KernelContext* ctx, const ArraySpan& list, int64_t values_
   return CastTo(ctx, type, values);
 }
 
+// Take queries of null lists as nulls: like the values of null lists, they need not
+// convert or compare. A scalar query is that of every list.
+Status MaskQueries(KernelContext* ctx, const ArraySpan& list, bool scalar_query,
+                   Datum* queries) {
+  if (!list.MayHaveNulls() ||
+      !arrow::internal::may_have_validity_bitmap(queries->type()->id()) ||
+      (scalar_query && list.GetNullCount() < list.length)) {
+    return Status::OK();
+  }
+  auto data = queries->array()->Copy();
+  ARROW_ASSIGN_OR_RAISE(auto validity, AllocateEmptyBitmap(data->offset + data->length,
+                                                           ctx->memory_pool()));
+  if (!scalar_query) {
+    arrow::internal::CopyBitmap(list.buffers[0].data, list.offset, list.length,
+                                validity->mutable_data(), data->offset);
+    if (data->MayHaveNulls()) {
+      arrow::internal::BitmapAnd(validity->data(), data->offset, data->buffers[0]->data(),
+                                 data->offset, data->length, data->offset,
+                                 validity->mutable_data());
+    }
+  }
+  data->buffers[0] = std::move(validity);
+  data->null_count = kUnknownNullCount;
+  *queries = std::move(data);
+  return Status::OK();
+}
+
 // Whether lists are searched in full or in chunks is decided once per batch, from the
 // mean number of values per list: below kShortListLength, scanning all values without
 // branching on the data is fastest. Longer lists are searched kSearchChunkLength values
@@ -816,26 +843,22 @@ Status ScalarListContains(KernelContext* ctx,
                           const Result<std::vector<TypeHolder>>& types,
                           const BaseListScalar& list, const ArraySpan& query_span,
                           ArraySpan* out_arr) {
-  Datum queries = query_span.ToArrayData();
-  // Nulls in a dictionary of queries count too
-  const bool null_queries =
-      queries.array()->ComputeLogicalNullCount() == queries.length();
-  if (!null_queries) {
-    // Raise even for a null list, like for list arrays
-    RETURN_NOT_OK(types.status());
-  }
   bit_util::SetBitsTo(out_arr->buffers[0].data, out_arr->offset, out_arr->length,
                       list.is_valid);
   out_arr->null_count = list.is_valid ? 0 : out_arr->length;
   if (!list.is_valid) {
+    // Queries of null lists don't matter, like for list arrays
     return Status::OK();
   }
   Datum values = list.value;
-  if (null_queries) {
+  Datum queries = query_span.ToArrayData();
+  // Nulls in a dictionary of queries count too
+  if (queries.array()->ComputeLogicalNullCount() == queries.length()) {
     bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
                         values.array()->ComputeLogicalNullCount() > 0);
     return Status::OK();
   }
+  RETURN_NOT_OK(types.status());
   RETURN_NOT_OK(CastTo(ctx, (*types)[0], &values));
   RETURN_NOT_OK(CastTo(ctx, (*types)[1], &queries));
   ExecContext* exec_ctx = ctx->exec_context();
@@ -910,6 +933,10 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     queries = batch[1].array.ToArrayData();
   }
   const int64_t query_step = scalar_query ? 0 : 1;
+  if (!state_types.ok()) {
+    // Only null queries can be searched for, but those of null lists don't matter
+    RETURN_NOT_OK(MaskQueries(ctx, list, scalar_query, &queries));
+  }
 
   if (queries.array()->ComputeLogicalNullCount() == queries.length()) {
     // Values are also null where their dictionary is
@@ -938,7 +965,10 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     }
     RETURN_NOT_OK(CastListValues<Type>(ctx, list, values_start, types[0], &values));
   }
-  RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
+  if (!CastTo(ctx, types[1], &queries).ok()) {
+    RETURN_NOT_OK(MaskQueries(ctx, list, scalar_query, &queries));
+    RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
+  }
   const ArraySpan v(*values.array());
   const ArraySpan q(*queries.array());
   return VisitEqual(v, q, [&](auto&& equal) {
