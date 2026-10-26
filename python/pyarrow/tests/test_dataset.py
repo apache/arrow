@@ -5950,32 +5950,15 @@ def test_write_dataset_content_defined_chunking(tempdir, cdc):
 
 
 @pytest.mark.parquet
-@pytest.mark.parametrize("minimum", [None, 0.0, 0.1, 1.0])
-def test_parquet_min_space_savings(tempdir, minimum):
+def test_parquet_min_compression_savings(tempdir):
     import pyarrow.parquet as pq
 
     table = pa.table({
         "value": pa.array([0.0] * 1000, type=pa.float32())
     })
-    pq.write_to_dataset(
-        table,
-        tempdir,
-        compression="snappy",
-        use_dictionary=False,
-        data_page_version="2.0",
-        min_space_savings=minimum,
-    )
-
-    result = ds.dataset(tempdir, format="parquet").to_table()
-    assert result.equals(table)
-
-
-@pytest.mark.parquet
-def test_dataset_min_space_savings_changes_size(tempdir):
-    table = pa.table({"value": [0.0] * 1000})
     sizes = []
 
-    for minimum in [None, 1.0]:
+    for minimum in [0.0, 0.1, 1.0]:
         directory = tempdir / str(minimum)
         pq.write_to_dataset(
             table,
@@ -5983,11 +5966,13 @@ def test_dataset_min_space_savings_changes_size(tempdir):
             compression="snappy",
             use_dictionary=False,
             data_page_version="2.0",
-            min_space_savings=minimum,
+            min_compression_savings=minimum,
         )
+        result = ds.dataset(directory, format="parquet").to_table()
+        assert result.equals(table)
         sizes.append(next(directory.iterdir()).stat().st_size)
 
-    assert sizes[1] > sizes[0]
+    assert sizes[-1] > max(sizes[:-1])
 
 
 def test_make_write_options_error():

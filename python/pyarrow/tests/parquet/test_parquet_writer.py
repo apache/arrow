@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import random
-
 import pytest
 
 import pyarrow as pa
@@ -45,6 +43,7 @@ pytestmark = pytest.mark.parquet
 
 @pytest.mark.parametrize("page_version, minimum", [
     ("1.0", None),
+    ("1.0", 0.0),
     ("2.0", None),
     ("2.0", 0.0),
     ("2.0", 0.1),
@@ -52,7 +51,7 @@ pytestmark = pytest.mark.parquet
 ])
 @pytest.mark.parametrize("compression", ["none", "snappy"])
 @pytest.mark.parametrize("use_writer", [False, True])
-def test_min_space_savings(
+def test_min_compression_savings(
         minimum, page_version, compression, use_writer):
     table = pa.table({
         "value": pa.array([0.0] * 1000, type=pa.float32())
@@ -62,8 +61,9 @@ def test_min_space_savings(
         compression=compression,
         use_dictionary=False,
         data_page_version=page_version,
-        min_space_savings=minimum,
     )
+    if minimum is not None:
+        options["min_compression_savings"] = minimum
 
     if use_writer:
         with pq.ParquetWriter(sink, table.schema, **options) as writer:
@@ -85,62 +85,38 @@ def test_min_space_savings(
         assert column.total_compressed_size < column.total_uncompressed_size
 
 
-def _v2_column_chunk(table, **options):
-    sink = pa.BufferOutputStream()
-    pq.write_table(table, sink, compression="snappy", use_dictionary=False,
-                   data_page_version="2.0", **options)
-    return pq.ParquetFile(sink.getvalue()).metadata.row_group(0).column(0)
-
-
-def test_min_space_savings_threshold():
-    rng = random.Random(42)
-    values = [rng.randrange(16) for _ in range(1000)]
-    table = pa.table({"v": pa.array(values, pa.int32())})
-
-    base = _v2_column_chunk(table)
-    savings = 1 - base.total_compressed_size / base.total_uncompressed_size
-    assert 0.1 < savings < 0.9
-
-    kept = _v2_column_chunk(table, min_space_savings=savings - 0.05)
-    assert kept.total_compressed_size == base.total_compressed_size
-
-    dropped = _v2_column_chunk(table, min_space_savings=savings + 0.05)
-    assert dropped.total_compressed_size == dropped.total_uncompressed_size
-    assert dropped.compression == "SNAPPY"
-
-
 # Tests invalid settings
 @pytest.mark.parametrize(
     "minimum",
     [-0.1, 1.1, float("inf"), -float("inf"), float("nan")]
 )
 @pytest.mark.parametrize("use_writer", [False, True])
-def test_invalid_min_space_savings(minimum, use_writer):
+def test_invalid_min_compression_savings(minimum, use_writer):
     table = pa.table({"value": [1.0]})
     sink = pa.BufferOutputStream()
 
-    with pytest.raises(ValueError, match="min_space_savings"):
+    with pytest.raises(ValueError, match="min_compression_savings"):
         if use_writer:
             pq.ParquetWriter(
                 sink, table.schema, data_page_version="2.0",
-                min_space_savings=minimum)
+                min_compression_savings=minimum)
         else:
             pq.write_table(
                 table, sink, data_page_version="2.0",
-                min_space_savings=minimum)
+                min_compression_savings=minimum)
 
 
-@pytest.mark.parametrize("minimum", [0.0, 0.1, 1.0])
+@pytest.mark.parametrize("minimum", [0.1, 1.0])
 @pytest.mark.parametrize("use_writer", [False, True])
-def test_min_space_savings_rejects_v1(minimum, use_writer):
+def test_min_compression_savings_rejects_v1(minimum, use_writer):
     table = pa.table({"value": [1.0]})
     sink = pa.BufferOutputStream()
 
-    with pytest.raises(ValueError, match="min_space_savings requires V2"):
+    with pytest.raises(ValueError, match="min_compression_savings requires V2"):
         if use_writer:
-            pq.ParquetWriter(sink, table.schema, min_space_savings=minimum)
+            pq.ParquetWriter(sink, table.schema, min_compression_savings=minimum)
         else:
-            pq.write_table(table, sink, min_space_savings=minimum)
+            pq.write_table(table, sink, min_compression_savings=minimum)
 
 
 @pytest.mark.pandas

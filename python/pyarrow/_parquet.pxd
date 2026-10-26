@@ -58,7 +58,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     store_decimal_as_integer=*,
     use_content_defined_chunking=*,
     bloom_filter_options=*,
-    min_space_savings=*
+    min_compression_savings=*
 ) except *
 
 
