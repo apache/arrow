@@ -64,7 +64,8 @@ std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
   }
 
   std::string result("");
-  SetAttributeSQLWCHAR(buf.data(), ret * GetSqlWCharSize(), result);
+  SetAttributeSQLWCHAR(buf.data(), ret * static_cast<SQLINTEGER>(GetSqlWCharSize()),
+                       result);
   return result;
 }
 
@@ -110,7 +111,8 @@ std::vector<std::string> ReadAllKeys(const std::string& dsn) {
 
     std::string key("");
     SQLINTEGER key_len = static_cast<SQLINTEGER>(cur - begin);
-    SetAttributeSQLWCHAR(begin, key_len * GetSqlWCharSize(), key);
+    SetAttributeSQLWCHAR(begin, key_len * static_cast<SQLINTEGER>(GetSqlWCharSize()),
+                         key);
     keys.emplace_back(key);
     begin = ++cur;
   }

@@ -189,6 +189,30 @@ def test_file_read_all(sink_factory):
     assert result.equals(expected)
 
 
+def test_file_count_rows(file_fixture):
+    batches = file_fixture.write_batches()
+    file_contents = pa.BufferReader(file_fixture.get_source())
+
+    reader = pa.ipc.open_file(file_contents)
+
+    expected = sum(batch.num_rows for batch in batches)
+    assert reader.count_rows() == expected
+    # counting the rows does not consume the reader
+    assert reader.read_all().num_rows == expected
+    assert reader.count_rows() == expected
+
+
+def test_file_count_rows_no_batches():
+    schema = pa.schema([('a', pa.int64())])
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_file(sink, schema):
+        pass
+
+    reader = pa.ipc.open_file(sink.getvalue())
+    assert reader.num_record_batches == 0
+    assert reader.count_rows() == 0
+
+
 def test_open_file_from_buffer(file_fixture):
     # ARROW-2859; APIs accept the buffer protocol
     file_fixture.write_batches()

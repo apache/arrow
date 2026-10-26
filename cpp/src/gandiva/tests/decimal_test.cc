@@ -976,6 +976,41 @@ TEST_F(TestDecimal, TestCastVarCharDecimal) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[1]);
 }
 
+// Regression test for GH-50140: castVARCHAR(decimal) must fail gracefully instead
+// of corrupting native memory (SIGSEGV) when given an invalid output length.
+TEST_F(TestDecimal, TestCastVarCharDecimalNegativeLength) {
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  auto field_dec = field("dec", decimal_type);
+  auto schema = arrow::schema({field_dec});
+  auto field_res_str = field("res_str", utf8());
+
+  auto node_dec = TreeExprBuilder::MakeField(field_dec);
+  // A negative output length must not be used as a memcpy size.
+  auto neg_len = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(-1));
+  auto cast_varchar =
+      TreeExprBuilder::MakeFunction("castVARCHAR", {node_dec, neg_len}, utf8());
+  auto expr = TreeExprBuilder::MakeExpression(cast_varchar, field_res_str);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto array_dec =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"10.51"}, scale), {true});
+  auto in_batch = arrow::RecordBatch::Make(schema, 1, {array_dec});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  // The evaluation should report a graceful error rather than crash.
+  EXPECT_FALSE(status.ok()) << status.message();
+  EXPECT_NE(status.message().find("Output buffer length can't be negative"),
+            std::string::npos)
+      << status.message();
+}
+
 TEST_F(TestDecimal, TestCastDecimalVarChar) {
   // schema for input fields
   constexpr int32_t precision = 4;

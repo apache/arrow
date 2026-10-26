@@ -48,38 +48,6 @@ using testing::ElementsAre;
 
 namespace test {
 
-template <typename T>
-static inline bool vector_equal_with_def_levels(const std::vector<T>& left,
-                                                const std::vector<int16_t>& def_levels,
-                                                int16_t max_def_levels,
-                                                int16_t max_rep_levels,
-                                                const std::vector<T>& right) {
-  size_t i_left = 0;
-  size_t i_right = 0;
-  for (size_t i = 0; i < def_levels.size(); i++) {
-    if (def_levels[i] == max_def_levels) {
-      // Compare
-      if (left[i_left] != right[i_right]) {
-        std::cerr << "index " << i << " left was " << left[i_left] << " right was "
-                  << right[i] << std::endl;
-        return false;
-      }
-      i_left++;
-      i_right++;
-    } else if (def_levels[i] == (max_def_levels - 1)) {
-      // Null entry on the lowest nested level
-      i_right++;
-    } else if (def_levels[i] < (max_def_levels - 1)) {
-      // Null entry on a higher nesting level, only supported for non-repeating data
-      if (max_rep_levels == 0) {
-        i_right++;
-      }
-    }
-  }
-
-  return true;
-}
-
 class TestPrimitiveReader : public ::testing::Test {
  public:
   void InitReader(const ColumnDescriptor* d) {

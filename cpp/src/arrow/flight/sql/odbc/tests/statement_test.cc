@@ -401,9 +401,9 @@ TEST_F(StatementMockTest, TestSQLExecDirectVarbinaryQuery) {
   SQLLEN ind;
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetData(this->stmt, 1, SQL_C_BINARY, &varbinary_val[0], buf_len, &ind));
-  EXPECT_EQ('\xAB', varbinary_val[0]);
-  EXPECT_EQ('\xCD', varbinary_val[1]);
-  EXPECT_EQ('\xEF', varbinary_val[2]);
+  EXPECT_EQ(static_cast<char>('\xAB'), static_cast<char>(varbinary_val[0]));
+  EXPECT_EQ(static_cast<char>('\xCD'), static_cast<char>(varbinary_val[1]));
+  EXPECT_EQ(static_cast<char>('\xEF'), static_cast<char>(varbinary_val[2]));
 }
 
 // Tests with SQL_C_DEFAULT as the target type
@@ -641,9 +641,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectVarbinaryQueryDefaultType) {
   SQLLEN ind;
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetData(this->stmt, 1, SQL_C_DEFAULT, &varbinary_val[0], buf_len, &ind));
-  EXPECT_EQ('\xAB', varbinary_val[0]);
-  EXPECT_EQ('\xCD', varbinary_val[1]);
-  EXPECT_EQ('\xEF', varbinary_val[2]);
+  EXPECT_EQ(static_cast<char>('\xAB'), static_cast<char>(varbinary_val[0]));
+  EXPECT_EQ(static_cast<char>('\xCD'), static_cast<char>(varbinary_val[1]));
+  EXPECT_EQ(static_cast<char>('\xEF'), static_cast<char>(varbinary_val[2]));
 }
 
 // TODO(GH-48730): Enable this test when ARD/IRD descriptor support is fully implemented
@@ -1030,9 +1030,9 @@ TEST_F(StatementMockTest, TestSQLExecDirectVarbinaryTruncation) {
             SQLGetData(this->stmt, 1, SQL_C_BINARY, &varbinary_val[0], buf_len, &ind));
   // Verify binary truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
-  EXPECT_EQ('\xAB', varbinary_val[0]);
-  EXPECT_EQ('\xCD', varbinary_val[1]);
-  EXPECT_EQ('\xEF', varbinary_val[2]);
+  EXPECT_EQ(static_cast<char>('\xAB'), static_cast<char>(varbinary_val[0]));
+  EXPECT_EQ(static_cast<char>('\xCD'), static_cast<char>(varbinary_val[1]));
+  EXPECT_EQ(static_cast<char>('\xEF'), static_cast<char>(varbinary_val[2]));
   EXPECT_EQ(4, ind);
 
   // Fetch same column 2nd time
@@ -1043,7 +1043,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectVarbinaryTruncation) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetData(this->stmt, 1, SQL_C_BINARY, &varbinary_val2[0], buf_len, &ind));
 
-  EXPECT_EQ('\xAB', varbinary_val[0]);
+  EXPECT_EQ(static_cast<char>('\xAB'), static_cast<char>(varbinary_val2[0]));
   EXPECT_EQ(1, ind);
 
   // Attempt to fetch data 3rd time
@@ -1166,9 +1166,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
 }
 
-// MacOS Driver Manager iODBC returns SQL_ERROR when invalid buffer length is provided to
-// SQLGetData
-#ifndef __APPLE__
+// The MacOS and Linux Driver Managers return SQL_ERROR when invalid buffer length is
+// provided to SQLGetData
+#ifdef _WIN32
 TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   // Verify the driver ignores invalid buffer length for fixed data types
 
@@ -1366,7 +1366,7 @@ TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   EXPECT_EQ(59, timestamp_var.second);
   EXPECT_EQ(0, timestamp_var.fraction);
 }
-#endif  // __APPLE__
+#endif  // _WIN32
 
 TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
   // Numeric Types
@@ -1698,9 +1698,9 @@ TEST_F(StatementMockTest, TestSQLBindColVarbinaryQuery) {
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
   // Check varbinary values
-  EXPECT_EQ('\xAB', varbinary_val[0]);
-  EXPECT_EQ('\xCD', varbinary_val[1]);
-  EXPECT_EQ('\xEF', varbinary_val[2]);
+  EXPECT_EQ(static_cast<char>('\xAB'), static_cast<char>(varbinary_val[0]));
+  EXPECT_EQ(static_cast<char>('\xCD'), static_cast<char>(varbinary_val[1]));
+  EXPECT_EQ(static_cast<char>('\xEF'), static_cast<char>(varbinary_val[2]));
 }
 
 TEST_F(StatementRemoteTest, TestSQLBindColNullQuery) {
@@ -1779,6 +1779,41 @@ TYPED_TEST(StatementTest, TestSQLBindColRowFetching) {
 
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+}
+
+TYPED_TEST(StatementTest, TestChangingAppRowDescriptorRebindsColumns) {
+  SQLINTEGER implicit_value = -1;
+  SQLLEN implicit_indicator;
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &implicit_value,
+                                    sizeof(implicit_value), &implicit_indicator));
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
+   SELECT 1 AS val
+   UNION ALL SELECT 2
+   UNION ALL SELECT 3;
+ )");
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  EXPECT_EQ(1, implicit_value);
+
+  SQLHDESC explicit_ard;
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &explicit_ard));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, explicit_ard, 0));
+  SQLINTEGER explicit_value = -1;
+  SQLLEN explicit_indicator;
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &explicit_value,
+                                    sizeof(explicit_value), &explicit_indicator));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  EXPECT_EQ(2, explicit_value);
+
+  // Releasing an active explicit ARD restores and rebinds the implicit ARD.
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, explicit_ard));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  EXPECT_EQ(3, implicit_value);
+  EXPECT_EQ(2, explicit_value);
 }
 
 TYPED_TEST(StatementTest, TestSQLBindColRowArraySize) {
@@ -1981,13 +2016,35 @@ TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
+
+  // SQLMoreResults closes the current cursor when there is no next result.
+  ASSERT_EQ(SQL_ERROR, SQLCloseCursor(this->stmt));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
 
-TYPED_TEST(StatementTest, TestSQLMoreResultsInvalidFunctionSequence) {
-  // Verify function sequence error state is reported when SQLMoreResults is called
-  // without executing any queries
-  ASSERT_EQ(SQL_ERROR, SQLMoreResults(this->stmt));
+TYPED_TEST(StatementTest, TestSQLMoreResultsWithoutQuery) {
+  ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
+}
+
+TYPED_TEST(StatementTest, TestDriverManagerSQLFetchWithoutCursor) {
+  ASSERT_EQ(SQL_ERROR, SQLFetch(this->stmt));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif
+}
+
+TYPED_TEST(StatementTest, TestDriverManagerSQLGetDataWithoutCursor) {
+  SQLINTEGER value;
+  SQLLEN indicator;
+  ASSERT_EQ(SQL_ERROR,
+            SQLGetData(this->stmt, 1, SQL_C_LONG, &value, sizeof(value), &indicator));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
@@ -2174,7 +2231,11 @@ TYPED_TEST(StatementTest, SQLRowCountReturnsSuccessOnNullptr) {
 
 TYPED_TEST(StatementTest, SQLRowCountFunctionSequenceErrorOnNoQuery) {
   SQLLEN row_count = 0;
+#ifdef __linux__
+  SQLLEN expected_value = -1;
+#else  // Windows & Mac
   SQLLEN expected_value = 0;
+#endif
 
   ASSERT_EQ(SQL_ERROR, SQLRowCount(this->stmt, &row_count));
 #ifdef __APPLE__

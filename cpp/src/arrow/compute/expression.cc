@@ -123,6 +123,15 @@ const DataType* Expression::type() const {
   return CallNotNull(*this)->type.type;
 }
 
+bool Expression::nullable() const {
+  if (const Parameter* parameter = this->parameter()) {
+    if (parameter->type.type != nullptr) {
+      return parameter->nullable;
+    }
+  }
+  return true;
+}
+
 namespace {
 
 std::string PrintDatum(const Datum& datum) {
@@ -620,6 +629,7 @@ Result<Expression> BindImpl(Expression expr, const TypeOrSchema& in,
     std::copy(path.indices().begin(), path.indices().end(), param.indices.begin());
     ARROW_ASSIGN_OR_RAISE(auto field, path.Get(in));
     param.type = field->type();
+    param.nullable = path.indices().size() == 1 ? field->nullable() : true;
     return Expression{std::move(param)};
   }
 
@@ -1487,10 +1497,10 @@ Result<Expression> RemoveNamedRefs(Expression src) {
       [](Expression expr) {
         const Expression::Parameter* param = expr.parameter();
         if (param && !param->ref.IsFieldPath()) {
-          FieldPath ref_as_path(
-              std::vector<int>(param->indices.begin(), param->indices.end()));
-          return Expression(
-              Expression::Parameter{std::move(ref_as_path), param->type, param->indices});
+          auto param_as_path = *param;
+          param_as_path.ref =
+              FieldPath(std::vector<int>(param->indices.begin(), param->indices.end()));
+          return Expression(std::move(param_as_path));
         }
 
         return expr;

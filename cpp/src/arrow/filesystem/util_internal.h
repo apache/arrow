@@ -83,6 +83,7 @@ enum class AuthorityHandlingBehavior {
 /// \param supported_schemes the set of URI schemes that should be accepted
 /// \param accept_local_paths if true, allow an absolute path
 /// \return the path portion of the URI
+ARROW_EXPORT
 Result<std::string> PathFromUriHelper(const std::string& uri_string,
                                       std::vector<std::string> supported_schemes,
                                       bool accept_local_paths,
@@ -95,6 +96,7 @@ ARROW_EXPORT
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
                                  const std::string& glob);
 
+ARROW_EXPORT
 extern FileSystemGlobalOptions global_options;
 
 /// \brief Unregister filesystem factories
@@ -104,5 +106,21 @@ extern FileSystemGlobalOptions global_options;
 /// module even if the library has built-in support for the schemes in the module.
 ARROW_EXPORT
 Status UnregisterFileSystemFactory(const std::string& scheme);
+
+template <typename T>
+Result<T> GetOption(const std::string& key, const std::any& value) {
+  if (const auto* v = std::any_cast<T>(&value)) {
+    return *v;
+  }
+  return Status::Invalid("Filesystem option '", key, "' has the wrong type");
+}
+
+template <typename T>
+Result<std::shared_ptr<const T>> GetConstSharedPtrOption(const std::string& key,
+                                                         const std::any& value) {
+  if (const auto* v = std::any_cast<std::shared_ptr<const T>>(&value)) return *v;
+  if (const auto* v = std::any_cast<std::shared_ptr<T>>(&value)) return *v;
+  return Status::Invalid("Filesystem option '", key, "' has the wrong type");
+}
 
 }  // namespace arrow::fs::internal

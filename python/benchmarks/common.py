@@ -149,7 +149,7 @@ class BuiltinsGenerator(object):
         Generate a list of Python bools with *none_prob* probability of
         an entry being None.
         """
-        # Make sure we get Python bools, not np.bool_
+        # Make sure we get Python bools, not np.bool
         data = [bool(x >= 0.5) for x in self.rnd.uniform(0.0, 1.0, n)]
         assert len(data) == n
         self.sprinkle_nones(data, none_prob)

@@ -31,8 +31,7 @@ import sys
 import warnings
 from cython import sizeof
 
-# These are imprecise because the type (in pandas 0.x) depends on the presence
-# of nulls
+# These are imprecise because the type depends on the presence of nulls
 cdef dict _pandas_type_map = {}
 
 
@@ -41,7 +40,7 @@ def _get_pandas_type_map():
     if not _pandas_type_map:
         _pandas_type_map.update({
             _Type_NA: np.object_,  # NaNs
-            _Type_BOOL: np.bool_,
+            _Type_BOOL: np.bool,
             _Type_INT8: np.int8,
             _Type_INT16: np.int16,
             _Type_INT32: np.int32,
@@ -162,6 +161,11 @@ def _is_primitive(Type type):
     return is_primitive(type)
 
 
+def _is_nested(Type type):
+    # This is simply a redirect, the official API is in pyarrow.types.
+    return is_nested(type)
+
+
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
     cdef dict pandas_type_map = _get_pandas_type_map()
@@ -186,9 +190,7 @@ def _get_pandas_tz_type(arrow_type, coerce_to_ns=False):
 
 
 def _to_pandas_dtype(arrow_type, options=None):
-    coerce_to_ns = (options and options.get('coerce_temporal_nanoseconds', False)) or (
-        _pandas_api.is_v1() and arrow_type.id in
-        [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION])
+    coerce_to_ns = bool(options and options.get('coerce_temporal_nanoseconds', False))
 
     if getattr(arrow_type, 'tz', None):
         dtype = _get_pandas_tz_type(arrow_type, coerce_to_ns)

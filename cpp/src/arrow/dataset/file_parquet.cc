@@ -68,42 +68,25 @@ parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
     const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  // Can't mutate pool after construction
-  parquet::ReaderProperties properties(pool);
-  if (parquet_scan_options->reader_properties->is_buffered_stream_enabled()) {
-    properties.enable_buffered_stream();
-  } else {
-    properties.disable_buffered_stream();
-  }
-  properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
-
-  auto file_decryption_prop =
-      parquet_scan_options->reader_properties->file_decryption_properties();
+  parquet::ReaderProperties properties = *parquet_scan_options->reader_properties;
+  properties.set_memory_pool(pool);
+  properties.disable_read_dense_for_nullable();
 
 #ifdef PARQUET_REQUIRE_ENCRYPTION
   auto parquet_decrypt_config = parquet_scan_options->parquet_decryption_config;
 
   if (parquet_decrypt_config != nullptr) {
-    file_decryption_prop =
+    auto file_decryption_prop =
         parquet_decrypt_config->crypto_factory->GetFileDecryptionProperties(
             *parquet_decrypt_config->kms_connection_config,
             *parquet_decrypt_config->decryption_config, path, filesystem);
+    properties.file_decryption_properties(file_decryption_prop);
   }
 #else
   if (parquet_scan_options->parquet_decryption_config != nullptr) {
     parquet::ParquetException::NYI("Encryption is not supported in this build.");
   }
 #endif
-
-  properties.file_decryption_properties(file_decryption_prop);
-
-  properties.set_thrift_string_size_limit(
-      parquet_scan_options->reader_properties->thrift_string_size_limit());
-  properties.set_thrift_container_size_limit(
-      parquet_scan_options->reader_properties->thrift_container_size_limit());
-
-  properties.set_page_checksum_verification(
-      parquet_scan_options->reader_properties->page_checksum_verification());
 
   return properties;
 }
@@ -512,8 +495,7 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   ARROW_ASSIGN_OR_RAISE(auto arrow_reader,
                         parquet::arrow::FileReader::Make(options->pool, std::move(reader),
                                                          std::move(arrow_properties)));
-  // R build with openSUSE155 requires an explicit shared_ptr construction
-  return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
+  return arrow_reader;
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
@@ -532,37 +514,37 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                          source.filesystem(), options->pool);
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
-  return source.OpenAsync().Then([self = self, properties = std::move(properties),
-                                  source = source, options = options, metadata = metadata,
-                                  parquet_scan_options = parquet_scan_options](
-                                     const std::shared_ptr<io::RandomAccessFile>&
-                                         input) mutable {
-    return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
-        .Then(
-            [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
-            -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-              auto arrow_properties = MakeArrowReaderProperties(
-                  *self, *reader->metadata(), *options, *parquet_scan_options);
-
-              ARROW_ASSIGN_OR_RAISE(
-                  auto arrow_reader,
-                  parquet::arrow::FileReader::Make(
-                      options->pool,
-                      // TODO(ARROW-12259): workaround since we have Future<(move-only
-                      // type)> It *wouldn't* be safe to const_cast reader except that
-                      // here we know there are no other waiters on the reader.
-                      std::move(const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
-                          reader)),
-                      arrow_properties));
-
-              // R build with openSUSE155 requires an explicit shared_ptr construction
-              return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
-            },
-            [path = source.path()](const Status& status)
+  return source.OpenAsync().Then(
+      [self = self, properties = std::move(properties), source = source,
+       options = options, metadata = metadata,
+       parquet_scan_options = parquet_scan_options](
+          const std::shared_ptr<io::RandomAccessFile>& input) mutable {
+        return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
+            .Then(
+                [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
                 -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-              return WrapSourceError(status, path);
-            });
-  });
+                  auto arrow_properties = MakeArrowReaderProperties(
+                      *self, *reader->metadata(), *options, *parquet_scan_options);
+
+                  ARROW_ASSIGN_OR_RAISE(
+                      auto arrow_reader,
+                      parquet::arrow::FileReader::Make(
+                          options->pool,
+                          // TODO(ARROW-12259): workaround since we have Future<(move-only
+                          // type)> It *wouldn't* be safe to const_cast reader except that
+                          // here we know there are no other waiters on the reader.
+                          std::move(
+                              const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
+                                  reader)),
+                          arrow_properties));
+
+                  return arrow_reader;
+                },
+                [path = source.path()](const Status& status)
+                    -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                  return WrapSourceError(status, path);
+                });
+      });
 }
 
 struct SlicingGenerator {

@@ -142,7 +142,22 @@ int64_t Datum::null_count() const {
     const auto& val = *std::get<std::shared_ptr<Scalar>>(this->value);
     return val.is_valid ? 0 : 1;
   } else {
-    DCHECK(false) << "This function only valid for array-like values";
+    DCHECK(false) << "This function only valid for scalar or array-like values";
+    return 0;
+  }
+}
+
+int64_t Datum::ComputeLogicalNullCount() const {
+  if (this->kind() == Datum::ARRAY) {
+    return std::get<std::shared_ptr<ArrayData>>(this->value)->ComputeLogicalNullCount();
+  } else if (this->kind() == Datum::CHUNKED_ARRAY) {
+    return std::get<std::shared_ptr<ChunkedArray>>(this->value)
+        ->ComputeLogicalNullCount();
+  } else if (this->kind() == Datum::SCALAR) {
+    const auto& val = *std::get<std::shared_ptr<Scalar>>(this->value);
+    return val.IsLogicalNull() ? 1 : 0;
+  } else {
+    DCHECK(false) << "This function only valid for scalar or array-like values";
     return 0;
   }
 }

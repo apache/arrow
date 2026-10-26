@@ -19,6 +19,11 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  contents: read
+  # For OIDC token for sccache
+  id-token: write
+
 jobs:
   test:
     name: |
@@ -31,6 +36,7 @@ jobs:
       {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
 
+      {{ macros.github_configure_aws_credentials()|indent }}
       - name: Execute Docker Build
         shell: bash
         env:

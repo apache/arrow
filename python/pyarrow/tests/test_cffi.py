@@ -235,6 +235,39 @@ def test_export_import_array():
 
 
 @needs_cffi
+def test_export_cast_binary_view_all_inline():
+    # GH-49740: _export_to_c segmentation fault for binary_view array.
+    c_schema = ffi.new("struct ArrowSchema*")
+    ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+    c_array = ffi.new("struct ArrowArray*")
+    ptr_array = int(ffi.cast("uintptr_t", c_array))
+
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
+    old_allocated = pa.total_allocated_bytes()
+
+    # The cast used to leave a null variadic buffer slot behind when all
+    # values were inline.
+    arr = pa.array([b"a", None, b"e"], type=pa.binary()).cast(pa.binary_view())
+    arr.validate(full=True)
+    py_value = arr.to_pylist()
+    arr._export_to_c(ptr_array, ptr_schema)
+
+    assert c_array.length == 3
+    # validity, views and the appended variadic buffer sizes
+    assert c_array.n_buffers == 3
+
+    del arr
+    arr_new = pa.Array._import_from_c(ptr_array, ptr_schema)
+    assert arr_new.to_pylist() == py_value
+    assert arr_new.type == pa.binary_view()
+    del arr_new
+    assert pa.total_allocated_bytes() == old_allocated
+    # Now released
+    with assert_schema_released:
+        pa.Array._import_from_c(ptr_array, ptr_schema)
+
+
+@needs_cffi
 def test_export_import_device_array():
     check_export_import_array(
         "ArrowDeviceArray",

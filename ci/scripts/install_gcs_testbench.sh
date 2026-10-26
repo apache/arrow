@@ -45,7 +45,7 @@ fi
 : "${PIPX_PYTHON:=${PIPX_BASE_PYTHON:-$(which python3)}}"
 
 export PIP_BREAK_SYSTEM_PACKAGES=1
-${PIPX_BASE_PYTHON} -m pip install -U pipx
+${PIPX_BASE_PYTHON} -m pip install -U --ignore-installed pipx
 
 pipx_flags=(--verbose --python "${PIPX_PYTHON}")
 if [[ $(id -un) == "root" ]]; then

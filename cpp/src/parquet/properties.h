@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -67,6 +68,10 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
+// Maximum schema nesting depth. This default value is conservatively small as
+// some systems may not set a very large stack size.
+constexpr int32_t kDefaultSchemaDepthLimit = 100;
+
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 
@@ -76,6 +81,8 @@ class PARQUET_EXPORT ReaderProperties {
       : pool_(pool) {}
 
   MemoryPool* memory_pool() const { return pool_; }
+  /// Set the memory pool.
+  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
                                               int64_t start, int64_t num_bytes);
@@ -120,6 +127,15 @@ class PARQUET_EXPORT ReaderProperties {
     thrift_container_size_limit_ = size;
   }
 
+  /// \brief Return the schema nesting depth limit.
+  ///
+  /// This limit helps prevent denial of service through excessive recursion
+  /// (stack overflow) when reconstructing the Parquet schema from the file metadata.
+  /// The default value is conservative enough for most use cases.
+  int32_t schema_depth_limit() const { return schema_depth_limit_; }
+  /// Set the schema nesting depth limit.
+  void set_schema_depth_limit(int32_t size) { schema_depth_limit_ = size; }
+
   /// Set the decryption properties.
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
@@ -145,6 +161,7 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
+  int32_t schema_depth_limit_ = kDefaultSchemaDepthLimit;
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.
@@ -173,12 +190,13 @@ static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
 struct PARQUET_EXPORT BloomFilterOptions {
   /// Expected number of distinct values (NDV) in the bloom filter.
   ///
-  /// Bloom filters are most effective for high-cardinality columns. A good default
-  /// is to set ndv equal to the number of rows. Lower values reduce disk usage but
-  /// may not be worthwhile for very small NDVs.
+  /// Bloom filters are most effective for high-cardinality columns. If unset, the
+  /// writer resolves ndv to the max row group row count. Lower values reduce disk
+  /// usage but may not be worthwhile for very small NDVs.
   ///
-  /// Increasing ndv (without increasing fpp) increases disk and memory usage.
-  int32_t ndv = 1 << 20;
+  /// Increasing ndv (without increasing fpp) increases memory usage. Folding only
+  /// shrinks a filter before serialization; it will not grow an undersized filter.
+  std::optional<int64_t> ndv = std::nullopt;
 
   /// False-positive probability (FPP) of the bloom filter.
   ///
@@ -202,6 +220,23 @@ struct PARQUET_EXPORT BloomFilterOptions {
   /// | 10,000,000 | 0.05  | 13.4     | 16384 KiB |
   /// | 10,000,000 | 0.01  | 13.4     | 16384 KiB |
   double fpp = 0.05;
+
+  /// Whether to fold the bloom filter before writing it.
+  ///
+  /// If true, the writer may fold the filter before serialization to reduce disk
+  /// usage while preserving the target fpp estimate. Highly skewed block occupancy
+  /// can make this estimate optimistic; disable folding to preserve the initial
+  /// filter size.
+  ///
+  /// The writer resolves ndv and fold behavior as follows:
+  ///
+  /// | fold  | ndv       | Resolved ndv             | Write behavior |
+  /// |:------|:----------|:-------------------------|:---------------|
+  /// | true  | unset     | max row group row count  | try to fold    |
+  /// | true  | specified | specified ndv            | try to fold    |
+  /// | false | unset     | max row group row count  | do not fold    |
+  /// | false | specified | specified ndv            | do not fold    |
+  bool fold = true;
 };
 
 class PARQUET_EXPORT ColumnProperties {
@@ -251,10 +286,14 @@ class PARQUET_EXPORT ColumnProperties {
   }
 
   void set_bloom_filter_options(const BloomFilterOptions& bloom_filter_options) {
-    if (bloom_filter_options.fpp >= 1.0 || bloom_filter_options.fpp <= 0.0) {
+    if (!(bloom_filter_options.fpp > 0.0 && bloom_filter_options.fpp < 1.0)) {
       throw ParquetException(
           "Bloom filter false positive probability must be in (0.0, 1.0), got " +
           std::to_string(bloom_filter_options.fpp));
+    }
+    if (bloom_filter_options.ndv.has_value() && bloom_filter_options.ndv.value() < 0) {
+      throw ParquetException("Bloom filter number of distinct values must be >= 0, got " +
+                             std::to_string(bloom_filter_options.ndv.value()));
     }
     bloom_filter_options_ = bloom_filter_options;
   }
@@ -863,8 +902,16 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
-      for (const auto& item : bloom_filter_options_)
-        get(item.first).set_bloom_filter_options(item.second);
+      for (const auto& item : bloom_filter_options_) {
+        const auto& bloom_filter_options = item.second;
+        if (bloom_filter_options.ndv.has_value()) {
+          get(item.first).set_bloom_filter_options(bloom_filter_options);
+        } else {
+          auto resolved_options = bloom_filter_options;
+          resolved_options.ndv = max_row_group_length_;
+          get(item.first).set_bloom_filter_options(resolved_options);
+        }
+      }
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
@@ -1126,7 +1173,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
         list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false),
-        smallest_decimal_enabled_(false) {}
+        smallest_decimal_enabled_(false),
+        convert_flba_timestamps_(true),
+        flba_timestamp_clamp_on_overflow_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1264,6 +1313,29 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// this setting will be ignored.
   bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
 
+  /// \brief Set whether to infer Arrow timestamps from Parquet FLBA types.
+  ///
+  /// When enabled, Parquet FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
+  /// Values that do not fit in 64 bit timestamps are handled per
+  /// flba_timestamp_clamp_on_overflow(). When disabled, Parquet FLBA(12) TIMESTAMP
+  /// columns are read as FixedSizeBinary(12).
+  void set_convert_flba_timestamps(bool convert) { convert_flba_timestamps_ = convert; }
+  /// \brief Whether FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
+  bool convert_flba_timestamps() const { return convert_flba_timestamps_; }
+
+  /// \brief Set how out-of-range values are handled when convert_flba_timestamps() is
+  /// enabled.
+  ///
+  /// When true, Parquet FLBA(12) TIMESTAMP values that do not fit in 64 bit timestamps
+  /// are clamped to min/max INT64. When false, such values raise an error.
+  void set_flba_timestamp_clamp_on_overflow(bool clamp) {
+    flba_timestamp_clamp_on_overflow_ = clamp;
+  }
+  /// \brief Whether out-of-range FLBA(12) timestamps clamp (true) or error (false).
+  bool flba_timestamp_clamp_on_overflow() const {
+    return flba_timestamp_clamp_on_overflow_;
+  }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1277,6 +1349,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
   bool smallest_decimal_enabled_;
+  bool convert_flba_timestamps_;
+  bool flba_timestamp_clamp_on_overflow_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -1343,7 +1417,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     /// \brief EXPERIMENTAL: Write binary serialized Arrow schema to the file,
     /// to enable certain read options (like "read_dictionary") to be set
-    /// automatically
+    /// automatically or read back non-default Arrow types like ListView,
+    /// LargeListView, LargeList, and Arrow extension types.
     Builder* store_schema() {
       store_schema_ = true;
       return this;

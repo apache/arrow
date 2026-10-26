@@ -128,12 +128,12 @@ G_BEGIN_DECLS
  * string data. If you don't have Arrow format data, you need to
  * use #GArrowLargeStringArrayBuilder to create a new array.
  *
- * #GArrayBinaryViewArray is a class for variable-size binary view array.
+ * #GArrowBinaryViewArray is a class for variable-size binary view array.
  * It can store zero or more binary view data. If you don't have Arrow
  * format data, you need to use #GArrowBinaryViewArrayBuilder to create
  * a new array.
  *
- * #GArrayStringViewArray is a class for variable-size string view array.
+ * #GArrowStringViewArray is a class for variable-size string view array.
  * It can store zero or more string view data. If you don't have Arrow
  * format data, you need to use #GArrowStringViewArrayBuilder to create
  * a new array.
@@ -279,7 +279,8 @@ garrow_equal_options_get_property(GObject *object,
     g_value_set_boolean(value, priv->options.nans_equal());
     break;
   case PROP_ABSOLUTE_TOLERANCE:
-    g_value_set_double(value, priv->options.atol());
+    g_value_set_double(value,
+                       priv->options.atol().has_value() ? *priv->options.atol() : 0.0);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -348,7 +349,7 @@ garrow_equal_options_class_init(GArrowEqualOptionsClass *klass)
                              "of floating-point values",
                              -G_MAXDOUBLE,
                              G_MAXDOUBLE,
-                             options.atol(),
+                             options.atol().has_value() ? *options.atol() : 0.0,
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_ABSOLUTE_TOLERANCE, spec);
 }
@@ -2328,7 +2329,10 @@ garrow_base_binary_array_get_value(GArrowArray *array, gint64 i)
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_binary_array = std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
   auto view = arrow_binary_array->GetView(i);
-  return g_bytes_new_static(view.data(), view.length());
+  return g_bytes_new_with_free_func(view.data(),
+                                    view.length(),
+                                    g_object_unref,
+                                    g_object_ref(array));
 };
 
 template <typename BINARY_ARRAY_CLASS>
@@ -2762,7 +2766,10 @@ garrow_binary_view_array_get_value(GArrowBinaryViewArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto view = static_cast<arrow::BinaryViewArray *>(arrow_array.get())->GetView(i);
-  return g_bytes_new_static(view.data(), view.length());
+  return g_bytes_new_with_free_func(view.data(),
+                                    view.length(),
+                                    g_object_unref,
+                                    g_object_ref(array));
 }
 
 G_DEFINE_TYPE(GArrowStringViewArray,
@@ -2833,7 +2840,10 @@ garrow_string_view_array_get_value(GArrowStringViewArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto view = static_cast<arrow::StringViewArray *>(arrow_array.get())->GetView(i);
-  return g_bytes_new_static(view.data(), view.length());
+  return g_bytes_new_with_free_func(view.data(),
+                                    view.length(),
+                                    g_object_unref,
+                                    g_object_ref(array));
 }
 
 G_DEFINE_TYPE(GArrowDate32Array, garrow_date32_array, GARROW_TYPE_NUMERIC_ARRAY)
@@ -3616,7 +3626,10 @@ garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array, gint
   auto arrow_binary_array =
     std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
   auto value = arrow_binary_array->GetValue(i);
-  return g_bytes_new_static(value, arrow_binary_array->byte_width());
+  return g_bytes_new_with_free_func(value,
+                                    arrow_binary_array->byte_width(),
+                                    g_object_unref,
+                                    g_object_ref(array));
 }
 
 /**
@@ -3634,8 +3647,11 @@ garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *arra
   auto arrow_binary_array =
     std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
   auto value = arrow_binary_array->raw_values();
-  return g_bytes_new_static(value,
-                            arrow_binary_array->byte_width() * arrow_array->length());
+  return g_bytes_new_with_free_func(value,
+                                    arrow_binary_array->byte_width() *
+                                      arrow_array->length(),
+                                    g_object_unref,
+                                    g_object_ref(array));
 }
 
 G_DEFINE_TYPE(GArrowDecimal32Array,
@@ -4138,6 +4154,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::RUN_END_ENCODED:
     type = GARROW_TYPE_RUN_END_ENCODED_ARRAY;
+    break;
+  case arrow::Type::type::STRING_VIEW:
+    type = GARROW_TYPE_STRING_VIEW_ARRAY;
     break;
   case arrow::Type::type::BINARY_VIEW:
     type = GARROW_TYPE_BINARY_VIEW_ARRAY;

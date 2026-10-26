@@ -241,7 +241,7 @@ ODBCStatement::ODBCStatement(ODBCConnection& connection,
       ird_(std::make_shared<ODBCDescriptor>(spi_statement_->GetDiagnostics(), nullptr,
                                             this, false, false,
                                             connection.IsOdbc2Connection())),
-      current_ard_(built_in_apd_.get()),
+      current_ard_(built_in_ard_.get()),
       current_apd_(built_in_apd_.get()),
       row_number_(0),
       max_rows_(0),
@@ -323,6 +323,10 @@ void ODBCStatement::ExecuteDirect(const std::string& query) {
 
 bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
                           SQLUSMALLINT* row_status_array) {
+  if (!current_result_) {
+    throw DriverException("Invalid cursor state", "24000");
+  }
+
   if (has_reached_end_of_result_) {
     ird_->SetRowsProcessed(0);
     return false;
@@ -339,14 +343,15 @@ bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
     // Note that the number of ARD records can both be more or less
     // than the number of columns.
     for (size_t i = 0; i < ird_->GetRecords().size(); i++) {
+      const int column_number = static_cast<int>(i + 1);
       if (i < current_ard_->GetRecords().size() &&
           current_ard_->GetRecords()[i].is_bound) {
         const DescriptorRecord& ard_record = current_ard_->GetRecords()[i];
-        current_result_->BindColumn(i + 1, ard_record.type, ard_record.precision,
+        current_result_->BindColumn(column_number, ard_record.type, ard_record.precision,
                                     ard_record.scale, ard_record.data_ptr,
                                     GetLength(ard_record), ard_record.indicator_ptr);
       } else {
-        current_result_->BindColumn(i + 1,
+        current_result_->BindColumn(column_number,
                                     arrow::flight::sql::odbc::CDataType_CHAR
                                     /* arbitrary type, not used */,
                                     0, 0, nullptr, 0, nullptr);
@@ -557,8 +562,9 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
 
   switch (statement_attribute) {
     case SQL_ATTR_APP_PARAM_DESC: {
-      ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (desc && current_apd_ != desc) {
+      ODBCDescriptor* desc =
+          value ? static_cast<ODBCDescriptor*>(value) : built_in_apd_.get();
+      if (current_apd_ != desc) {
         if (current_apd_ != built_in_apd_.get()) {
           current_apd_->DetachFromStatement(this, true);
         }
@@ -570,12 +576,14 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
       return;
     }
     case SQL_ATTR_APP_ROW_DESC: {
-      ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (desc && current_ard_ != desc) {
+      ODBCDescriptor* desc =
+          value ? static_cast<ODBCDescriptor*>(value) : built_in_ard_.get();
+      if (current_ard_ != desc) {
         if (current_ard_ != built_in_ard_.get()) {
           current_ard_->DetachFromStatement(this, false);
         }
         current_ard_ = desc;
+        current_ard_->NotifyBindingsHaveChanged();
         if (current_ard_ != built_in_ard_.get()) {
           desc->RegisterToStatement(this, false);
         }
@@ -717,6 +725,7 @@ void ODBCStatement::RevertAppDescriptor(bool isApd) {
     current_apd_ = built_in_apd_.get();
   } else {
     current_ard_ = built_in_ard_.get();
+    current_ard_->NotifyBindingsHaveChanged();
   }
 }
 
@@ -739,6 +748,10 @@ void ODBCStatement::CloseCursor(bool suppress_errors) {
 SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                  SQLPOINTER data_ptr, SQLLEN buffer_length,
                                  SQLLEN* indicator_ptr) {
+  if (!current_result_) {
+    throw DriverException("Invalid cursor state", "24000");
+  }
+
   if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
   } else if (static_cast<size_t>(record_number) > ird_->GetRecords().size()) {
@@ -784,11 +797,8 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
 
 SQLRETURN ODBCStatement::GetMoreResults() {
   // Multiple result sets are not supported by Arrow protocol.
-  if (current_result_) {
-    return SQL_NO_DATA;
-  } else {
-    throw DriverException("Function sequence error", "HY010");
-  }
+  CloseCursor(/*suppress_errors=*/true);
+  return SQL_NO_DATA;
 }
 
 void ODBCStatement::GetColumnCount(SQLSMALLINT* column_count_ptr) {
@@ -814,6 +824,12 @@ void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
 
 void ODBCStatement::ReleaseStatement() {
   CloseCursor(true);
+  if (current_apd_ != built_in_apd_.get()) {
+    current_apd_->DetachFromStatement(this, true);
+  }
+  if (current_ard_ != built_in_ard_.get()) {
+    current_ard_->DetachFromStatement(this, false);
+  }
   connection_.DropStatement(this);
 }
 

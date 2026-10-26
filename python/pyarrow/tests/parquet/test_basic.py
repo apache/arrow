@@ -817,49 +817,6 @@ def test_parquet_file_too_small(tempdir):
         pq.read_table(path)
 
 
-@pytest.mark.pandas
-@pytest.mark.fastparquet
-@pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
-@pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
-@pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
-def test_fastparquet_cross_compatibility(tempdir):
-    fp = pytest.importorskip('fastparquet')
-
-    df = pd.DataFrame(
-        {
-            "a": list("abc"),
-            "b": list(range(1, 4)),
-            "c": np.arange(4.0, 7.0, dtype="float64"),
-            "d": [True, False, True],
-            "e": pd.date_range("20130101", periods=3),
-            "f": pd.Categorical(["a", "b", "a"]),
-            # fastparquet writes list as BYTE_ARRAY JSON, so no roundtrip
-            # "g": [[1, 2], None, [1, 2, 3]],
-        }
-    )
-    table = pa.table(df)
-
-    # Arrow -> fastparquet
-    file_arrow = str(tempdir / "cross_compat_arrow.parquet")
-    pq.write_table(table, file_arrow, compression=None)
-
-    fp_file = fp.ParquetFile(file_arrow)
-    df_fp = fp_file.to_pandas()
-    # pandas 3 defaults to StringDtype for strings, fastparquet still returns object
-    # TODO: remove astype casts once fastparquet supports pandas 3 StringDtype
-    tm.assert_frame_equal(df_fp, df.astype({"a": object}))
-
-    # Fastparquet -> arrow
-    file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
-    # fastparquet doesn't support writing pandas 3 StringDtype yet
-    fp.write(file_fastparquet, df.astype({"a": object}))
-
-    table_fp = pq.read_pandas(file_fastparquet)
-    # for fastparquet written file, categoricals comes back as strings
-    # (no arrow schema in parquet metadata)
-    tm.assert_frame_equal(table_fp.to_pandas(), df.astype({"f": object}))
-
-
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
     lambda: pa.array([0, None] * 10).dictionary_encode(),
@@ -972,6 +929,28 @@ def test_thrift_size_limits(tempdir):
     got = pq.read_table(path, thrift_string_size_limit=100 * num_cols)
     assert got == table
     got = pq.read_table(path, thrift_container_size_limit=2 * num_cols)
+    assert got == table
+    got = pq.read_table(path)
+    assert got == table
+
+
+def test_schema_depth_limit(tempdir):
+    path = tempdir / 'nested_schema.parquet'
+
+    # A 10-level nested list. The Parquet schema nesting depth will be 22:
+    # - two levels of nesting for each Arrow list
+    # - one level for the list leaf
+    # - one level for the schema root
+    array = pa.array([[[[[[[[[[[42]]]]]]]]]]])
+    table = pa.table([array], names=['nested_list'])
+    pq.write_table(table, path)
+
+    with pytest.raises(
+            OSError,
+            match="Parquet schema too deeply nested"):
+        pq.read_table(path, schema_depth_limit=21)
+
+    got = pq.read_table(path, schema_depth_limit=22)
     assert got == table
     got = pq.read_table(path)
     assert got == table

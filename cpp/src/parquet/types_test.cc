@@ -179,6 +179,24 @@ TEST(TypePrinter, StatisticsTypes) {
             FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin, LogicalType::Float16()));
 }
 
+TEST(TypePrinter, StatisticsTypesShortValue) {
+  // The Parquet spec allows truncated statistics, so a min/max may be shorter
+  // than the column's physical type. FormatStatValue must format it without
+  // reading past the end of the value buffer (caught here under ASan).
+  ASSERT_NO_THROW(FormatStatValue(Type::BOOLEAN, std::string()));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT32, std::string("abc")));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT64, std::string("abcdefg")));
+  ASSERT_NO_THROW(FormatStatValue(Type::FLOAT, std::string()));
+  ASSERT_NO_THROW(FormatStatValue(Type::DOUBLE, std::string("1234567")));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT96, std::string("12345678901")));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::INT32, std::string("abc"), LogicalType::Decimal(6, 2)));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::INT64, std::string("abcdefg"), LogicalType::Decimal(18, 4)));
+  ASSERT_NO_THROW(FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, std::string("a"),
+                                  LogicalType::Float16()));
+}
+
 TEST(TestInt96Timestamp, Decoding) {
   auto check = [](int32_t julian_day, uint64_t nanoseconds) {
 #if ARROW_LITTLE_ENDIAN

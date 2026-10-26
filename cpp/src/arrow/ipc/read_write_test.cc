@@ -156,11 +156,11 @@ TEST_P(TestMessage, SerializeCustomMetadata) {
       nullptr, key_value_metadata({}, {}),
       key_value_metadata({"foo", "bar"}, {"fizz", "buzz"})};
   for (auto metadata : cases) {
-    std::shared_ptr<Buffer> serialized;
-    ASSERT_OK(internal::WriteRecordBatchMessage(
-        /*length=*/0, /*body_length=*/0, metadata,
-        /*nodes=*/{},
-        /*buffers=*/{}, /*variadic_counts=*/{}, options_, &serialized));
+    ASSERT_OK_AND_ASSIGN(auto serialized,
+                         internal::WriteRecordBatchMessage(
+                             /*length=*/0, /*body_length=*/0, metadata,
+                             /*nodes=*/{},
+                             /*buffers=*/{}, /*variadic_counts=*/{}, options_));
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
                          Message::Open(serialized, /*body=*/nullptr));
 
@@ -361,14 +361,10 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
 
 TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   // ARROW-9399
-  std::string root;
-  ASSERT_OK(GetTestResourceRoot(&root));
-
   // schema_v6.arrow with currently nonexistent MetadataVersion::V6
-  std::stringstream schema_v6_path;
-  schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
-
-  ASSERT_OK_AND_ASSIGN(auto schema_v6_file, io::ReadableFile::Open(schema_v6_path.str()));
+  ASSERT_OK_AND_ASSIGN(auto schema_v6_path,
+                       GetTestResourcePath("forward-compatibility/schema_v6.arrow"));
+  ASSERT_OK_AND_ASSIGN(auto schema_v6_file, io::ReadableFile::Open(schema_v6_path));
 
   DictionaryMemo placeholder_memo;
   ASSERT_RAISES(Invalid, ReadSchema(schema_v6_file.get(), &placeholder_memo));
@@ -401,14 +397,18 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntervals,
     &MakeUuid,
     &MakeComplex128,
-    &MakeDictExtension};
+    &MakeDictExtension,
+    &MakeDenseUnionExtension,
+    &MakeSparseUnionExtension};
 
 static int g_file_number = 0;
 
 class ExtensionTypesMixin {
  public:
   // Register the extension types required to ensure roundtripping
-  ExtensionTypesMixin() : ext_guard_({uuid(), dict_extension_type(), complex128()}) {}
+  ExtensionTypesMixin()
+      : ext_guard_({uuid(), dict_extension_type(), complex128(),
+                    dense_union_extension_type(), sparse_union_extension_type()}) {}
 
  protected:
   ExtensionTypeGuard ext_guard_;

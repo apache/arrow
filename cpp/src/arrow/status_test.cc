@@ -28,6 +28,13 @@
 
 namespace arrow {
 
+// Keep at top of the file to make line number in asserted error message stable.
+template <typename StatusLike>
+Status ReturnNotOk(StatusLike&& status_like) {
+  RETURN_NOT_OK(status_like);
+  return Status::OK();
+}
+
 namespace {
 
 class TestStatusDetail : public StatusDetail {
@@ -314,40 +321,41 @@ std::string StripContext(const std::string& message) {
 }
 
 TEST(StatusTest, ReturnIfNotOk) {
-  auto f = [](auto v) {
-    RETURN_NOT_OK(v);
-    return Status::OK();
-  };
-
   auto ok_status = Status::OK();
   auto error_status = Status::IOError("some message");
   Status st;
 
-  st = f(ok_status);
+  st = ReturnNotOk(ok_status);
   ASSERT_TRUE(st.ok());
-  st = f(error_status);
+  st = ReturnNotOk(error_status);
+  ASSERT_EQ(st.code(), StatusCode::IOError);
+  ASSERT_EQ(StripContext(st.message()), error_status.message());
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+  ASSERT_THAT(st.message(), ::testing::EndsWith("status_test.cc:34 status_like"));
+#endif
+
+  st = ReturnNotOk(Result<int>(42));
+  ASSERT_TRUE(st.ok());
+  st = ReturnNotOk(Result<int>(error_status));
   ASSERT_EQ(st.code(), StatusCode::IOError);
   ASSERT_EQ(StripContext(st.message()), error_status.message());
 
-  st = f(Result<int>(42));
+  st = ReturnNotOk(my_namespace::StatusLike{42});
   ASSERT_TRUE(st.ok());
-  st = f(Result<int>(error_status));
-  ASSERT_EQ(st.code(), StatusCode::IOError);
-  ASSERT_EQ(StripContext(st.message()), error_status.message());
-
-  st = f(my_namespace::StatusLike{42});
-  ASSERT_TRUE(st.ok());
-  st = f(my_namespace::StatusLike{43});
+  st = ReturnNotOk(my_namespace::StatusLike{43});
   ASSERT_EQ(st.code(), StatusCode::UnknownError);
   ASSERT_EQ(StripContext(st.message()), "StatusLike: 43");
 }
 
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
-TEST(StatusTest, ToStringWithoutContextLines) {
+TEST(StatusTest, ContextLines) {
   Status status = Status::IOError("base error");
-  status.AddContextLine("file1.cc", 42, "expr");
-  status.AddContextLine("file2.cc", 100, "expr");
+  status.AddContextLine("file1.cc", 42, "expr1");
+  status.AddContextLine("file2.cc", 100, "expr2");
 
+  ASSERT_EQ(status.ToString(),
+            R"(IOError: base error
+file1.cc:42 expr1
+file2.cc:100 expr2)");
   ASSERT_EQ(status.ToStringWithoutContextLines(), "IOError: base error");
 
   Status status2(StatusCode::Invalid,
@@ -357,6 +365,5 @@ TEST(StatusTest, ToStringWithoutContextLines) {
   ASSERT_EQ(status2.ToStringWithoutContextLines(),
             "Invalid: Error message\nThis line has: a colon but no digits");
 }
-#endif
 
 }  // namespace arrow

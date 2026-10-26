@@ -22,7 +22,8 @@ from pyarrow.includes.libarrow cimport (Type, CChunkedArray, CScalar, CSchema,
                                         CStatus, CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata, CRandomAccessFile,
                                         COutputStream, CCacheOptions,
-                                        TimeUnit, CRecordBatchReader)
+                                        TimeUnit, CRecordBatchReader,
+                                        CSecureString)
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -417,6 +418,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
                                        uint32_t* metadata_len)
 
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        CMemoryPool* memory_pool() const
+        void set_memory_pool(CMemoryPool* pool)
+
         c_bool is_buffered_stream_enabled() const
         void enable_buffered_stream()
         void disable_buffered_stream()
@@ -429,6 +433,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         void set_thrift_container_size_limit(int32_t size)
         int32_t thrift_container_size_limit() const
+
+        void set_schema_depth_limit(int32_t limit)
+        int32_t schema_depth_limit() const
 
         void file_decryption_properties(shared_ptr[CFileDecryptionProperties]
                                         decryption)
@@ -635,6 +642,28 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
             " parquet::FileDecryptionProperties":
         pass
 
+    cdef cppclass CFileDecryptionPropertiesBuilder\
+            " parquet::FileDecryptionProperties::Builder":
+        CFileDecryptionPropertiesBuilder() except +
+        CFileDecryptionPropertiesBuilder* footer_key(
+            CSecureString footer_key) except +
+        CFileDecryptionPropertiesBuilder* aad_prefix(
+            c_string aad_prefix) except +
+        CFileDecryptionPropertiesBuilder* disable_footer_signature_verification() except +
+        CFileDecryptionPropertiesBuilder* plaintext_files_allowed() except +
+        shared_ptr[CFileDecryptionProperties] build() except +
+
     cdef cppclass CFileEncryptionProperties\
             " parquet::FileEncryptionProperties":
         pass
+
+    cdef cppclass CFileEncryptionPropertiesBuilder\
+            " parquet::FileEncryptionProperties::Builder":
+        CFileEncryptionPropertiesBuilder(CSecureString footer_key) except +
+        CFileEncryptionPropertiesBuilder* set_plaintext_footer() except +
+        CFileEncryptionPropertiesBuilder* algorithm(
+            ParquetCipher parquet_cipher) except +
+        CFileEncryptionPropertiesBuilder* aad_prefix(
+            c_string aad_prefix) except +
+        CFileEncryptionPropertiesBuilder* disable_aad_prefix_storage() except +
+        shared_ptr[CFileEncryptionProperties] build() except +

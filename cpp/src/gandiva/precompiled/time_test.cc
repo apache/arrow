@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <cstring>
+#include <memory>
+#include <string>
 
 #include "arrow/util/logging_internal.h"
 #include "gandiva/execution_context.h"
@@ -56,6 +61,56 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
 
   EXPECT_EQ(castDATE_date32(1), 86400000);
+}
+
+TEST(TestTime, TestCastDateInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // The invalid-value error message is built from the raw input pointer. Hold
+  // the input in an exactly-sized heap buffer with no trailing NUL so that
+  // formatting the error must respect `length` instead of scanning for a NUL;
+  // any over-read past the buffer trips AddressSanitizer.
+  const std::string value = "197201234";
+  const auto length = static_cast<int32_t>(value.size());
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), value.data(), length);
+
+  EXPECT_EQ(castDATE_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid date value 197201234");
+  context.Reset();
+}
+
+TEST(TestTime, TestCastTimestampInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // castTIMESTAMP_utf8 reaches the same set_error_for_date helper, so exercise
+  // the over-read path from that entry point with an unterminated buffer too.
+  const std::string value = "2000-01-01 24:00:00";
+  const auto length = static_cast<int32_t>(value.size());
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), value.data(), length);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 24:00:00");
+  context.Reset();
+}
+
+TEST(TestTime, TestCastTimeInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // castTIME_utf8 reaches set_error_for_date as well.
+  const std::string value = "24H00H00";
+  const auto length = static_cast<int32_t>(value.size());
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), value.data(), length);
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(), "Invalid character in time 24H00H00");
+  context.Reset();
 }
 
 TEST(TestTime, TestCastTimestamp) {
@@ -962,8 +1017,78 @@ TEST(TestTime, TestNextDay) {
 
   ts = StringToTimestamp("2015-08-06 11:12:30");
   out = next_day_from_timestamp(context_ptr, ts, "AHSRK", 5);
-  EXPECT_EQ(context.get_error(), "The weekday in this entry is invalid");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("NEXT_DAY"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("AHSRK"));
   context.Reset();
+}
+
+// Document that next_day's weekday-name matching is case-sensitive:
+// the WEEK[] lookup table holds uppercase names ("MONDAY", "TUE", ...) and
+// is_substr_utf8_utf8 does a byte-exact memcmp, so lowercase or mixed-case
+// input does not match and produces a NEXT_DAY error.
+TEST(TestTime, TestNextDayCaseSensitive) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");
+
+  // Uppercase: matches.
+  auto out = next_day_from_timestamp(context_ptr, ts, "FRIDAY", 6);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+  EXPECT_FALSE(context.has_error());
+
+  // Lowercase: does NOT match (case-sensitive memcmp against uppercase WEEK[]).
+  out = next_day_from_timestamp(context_ptr, ts, "friday", 6);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("NEXT_DAY"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("friday"));
+  context.Reset();
+
+  // Mixed case: also does NOT match.
+  out = next_day_from_timestamp(context_ptr, ts, "Friday", 6);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("NEXT_DAY"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("Friday"));
+  context.Reset();
+}
+
+// Document that next_day's weekday-name matching is loose: it uses
+// is_substr_utf8_utf8 to test whether the input is a *substring* of any
+// WEEK[] entry, walking the array in the order
+// SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY
+// and returning the FIRST match. This means single-letter prefixes 'S' and
+// 'T' are ambiguous and silently resolve to SUNDAY / TUESDAY respectively
+// (never SATURDAY / THURSDAY). Likewise, any substring shared across weekdays
+// (e.g. "DAY") matches SUNDAY because it is first in the array.
+TEST(TestTime, TestNextDayAmbiguousPrefix) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");  // Mon
+
+  // "S" -> Sunday (could have been Saturday).
+  auto out = next_day_from_timestamp(context_ptr, ts, "S", 1);
+  EXPECT_EQ(StringToTimestamp("2021-11-14 00:00:00"), out);  // next Sunday
+  EXPECT_FALSE(context.has_error());
+
+  // "T" -> Tuesday (could have been Thursday).
+  out = next_day_from_timestamp(context_ptr, ts, "T", 1);
+  EXPECT_EQ(StringToTimestamp("2021-11-09 00:00:00"), out);  // next Tuesday
+  EXPECT_FALSE(context.has_error());
+
+  // "DAY" appears in every weekday name -> matches SUNDAY (first in array).
+  out = next_day_from_timestamp(context_ptr, ts, "DAY", 3);
+  EXPECT_EQ(StringToTimestamp("2021-11-14 00:00:00"), out);  // next Sunday
+  EXPECT_FALSE(context.has_error());
+
+  // Unambiguous 2-letter prefixes work as expected.
+  out = next_day_from_timestamp(context_ptr, ts, "SA", 2);
+  EXPECT_EQ(StringToTimestamp("2021-11-13 00:00:00"), out);  // next Saturday
+  EXPECT_FALSE(context.has_error());
+
+  out = next_day_from_timestamp(context_ptr, ts, "TH", 2);
+  EXPECT_EQ(StringToTimestamp("2021-11-11 00:00:00"), out);  // next Thursday
+  EXPECT_FALSE(context.has_error());
 }
 
 TEST(TestTime, TestCastTimestampToTime) {
@@ -1172,7 +1297,7 @@ TEST(TestTime, TestCastNullableInterval) {
   EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 1201), 1201);
   // validate overflow error when using bigint as input
   castNULLABLEINTERVALYEAR_int64(context_ptr, INT64_MAX);
-  EXPECT_EQ(context.get_error(), "Integer overflow");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("Integer overflow"));
   context.Reset();
 }
 

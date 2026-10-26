@@ -151,73 +151,6 @@ constexpr bool IsSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
 template <typename Arch>
 constexpr bool IsAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
-/// Whether we are compiling for the Neon or above in the arm64 family.
-template <typename Arch>
-constexpr bool IsNeon = std::is_base_of_v<xsimd::neon, Arch>;
-
-/// Wrapper around ``xsimd::bitwise_lshift`` with optimizations for non implemented sizes.
-///
-/// We replace the variable left shift by a variable multiply with a power of two.
-///
-/// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
-/// integers per second through vectorization, Software Practice & Experience 45 (1),
-/// 2015. http://arxiv.org/abs/1209.2137
-///
-/// TODO(xsimd) Tracking in https://github.com/xtensor-stack/xsimd/pull/1220
-/// When migrating, be sure to use batch_constant overload, and not the batch one.
-template <typename Arch, typename Int, Int... kShifts>
-ARROW_FORCE_INLINE auto left_shift(const xsimd::batch<Int, Arch>& batch,
-                                   xsimd::batch_constant<Int, Arch, kShifts...> shifts)
-    -> xsimd::batch<Int, Arch> {
-  constexpr bool kIsSse2 = IsSse2<Arch>;
-  constexpr bool kIsAvx2 = IsAvx2<Arch>;
-  static_assert(
-      !(kIsSse2 && kIsAvx2),
-      "In xsimd, an x86 arch is either part of the SSE family or of the AVX family,"
-      "not both. If this check fails, it means the assumptions made here to detect SSE "
-      "and AVX are out of date.");
-
-  constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shifts;
-
-  constexpr auto IntSize = sizeof(Int);
-
-  // Sizes and architecture for which there is no variable left shift and there is a
-  // multiplication
-  if constexpr (                                                                 //
-      (kIsSse2 && (IntSize == sizeof(uint16_t) || IntSize == sizeof(uint32_t)))  //
-      || (kIsAvx2 && (IntSize == sizeof(uint16_t)))                              //
-  ) {
-    return batch * kMults;
-  }
-
-  // Architecture for which there is no variable left shift on uint8_t but a fallback
-  // exists for uint16_t.
-  if constexpr ((kIsSse2 || kIsAvx2) && (IntSize == sizeof(uint8_t))) {
-    const auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
-
-    constexpr auto kShifts0 = select_stride<uint16_t, 0>(shifts);
-    const auto shifted0 = left_shift(batch16, kShifts0) & 0x00FF;
-
-    constexpr auto kShifts1 = select_stride<uint16_t, 1>(shifts);
-    const auto shifted1 = left_shift(batch16 & 0xFF00, kShifts1);
-
-    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
-  }
-
-  // TODO(xsimd) bug fixed in xsimd 14.1.0
-  // https://github.com/xtensor-stack/xsimd/pull/1266
-#if XSIMD_VERSION_MAJOR < 14 || ((XSIMD_VERSION_MAJOR == 14) && XSIMD_VERSION_MINOR == 0)
-  if constexpr (IsNeon<Arch>) {
-    using SInt = std::make_signed_t<Int>;
-    constexpr auto signed_shifts =
-        xsimd::batch_constant<SInt, Arch, static_cast<SInt>(kShifts)...>();
-    return xsimd::kernel::bitwise_lshift(batch, signed_shifts.as_batch(), Arch{});
-  }
-#endif
-
-  return batch << shifts;
-}
-
 /// Fallback for variable shift right.
 ///
 /// When we know that the relevant bits will not overflow, we can instead shift left all
@@ -243,9 +176,8 @@ ARROW_FORCE_INLINE auto right_shift_by_excess(
 
   constexpr auto IntSize = sizeof(Int);
 
-  // Architecture for which there is no variable right shift but a larger fallback exists.
-  // TODO(xsimd) Tracking for Avx2 in https://github.com/xtensor-stack/xsimd/pull/1220
-  // When migrating, be sure to use batch_constant overload, and not the batch one.
+  // Architectures for which there is no variable right shift but a larger fallback
+  // exists.
   if constexpr (kIsAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
     using twice_uint = SizedUint<2 * IntSize>;
 
@@ -262,27 +194,17 @@ ARROW_FORCE_INLINE auto right_shift_by_excess(
     return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
   }
 
-  // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
-  // shift right will not be available but a left shift (fallback) exists.
+  // Architectures for which there is no variable right shift but a left shift exists
+  // (possibly using the multiply trick inside of xsimd).
+  // We use a variable left shift and fixed right shift.
   if constexpr (kIsSse2 && (IntSize != sizeof(uint64_t))) {
     constexpr Int kMaxRShift = max_value(std::array{kShifts...});
 
     constexpr auto kLShifts =
         xsimd::make_batch_constant<Int, kMaxRShift, Arch>() - shifts;
 
-    return xsimd::bitwise_rshift<kMaxRShift>(left_shift(batch, kLShifts));
+    return xsimd::bitwise_rshift<kMaxRShift>(batch << kLShifts);
   }
-
-  // TODO(xsimd) bug fixed in xsimd 14.1.0
-  // https://github.com/xtensor-stack/xsimd/pull/1266
-#if XSIMD_VERSION_MAJOR < 14 || ((XSIMD_VERSION_MAJOR == 14) && XSIMD_VERSION_MINOR == 0)
-  if constexpr (IsNeon<Arch>) {
-    using SInt = std::make_signed_t<Int>;
-    constexpr auto signed_shifts =
-        xsimd::batch_constant<SInt, Arch, static_cast<SInt>(kShifts)...>();
-    return xsimd::kernel::bitwise_rshift(batch, signed_shifts.as_batch(), Arch{});
-  }
-#endif
 
   return batch >> shifts;
 }
@@ -887,6 +809,8 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
       // const int packed_end_bit = packed_start_bit + kShape.packed_bit_size();
       // const int packed_end_byte = (packed_end_bit - 1) / 8 + 1;
 
+      const bool byte_aligned = packed_start_bit % 8 == 0;
+
       // Looping over maximum number of bytes that can fit a value
       // We fill more than necessary in the high swizzle because in the absence of
       // variable right shifts, we will erase some bits from the low sizzled values.
@@ -903,7 +827,12 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
         // explicit here.
         // We need to stay pessimistic with ``kOverBytes`` to avoid having a mix of right
         // and left shifts in the high swizzle.
+        // When the value is byte aligned we point the high swizzle back at the low byte
+        // instead, and pair it with a zero lshift below.
         auto high_swizzle_val = low_swizzle_val + kOverBytes;
+        if (byte_aligned) {
+          high_swizzle_val = low_swizzle_val;
+        }
         if (high_swizzle_val >= kShape.simd_byte_size()) {
           high_swizzle_val = kUndefined;
         }
@@ -915,9 +844,19 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
       }
 
       // low and high swizzles need to be rshifted but the oversized bytes create a
-      // larger lshift for high values.
+      // larger lshift for high values. A byte aligned value has no high part, so both
+      // swizzles hold the same byte and the lshift is zero. Left-shifting the high byte
+      // out by the whole lane width would also remove it, but that shift gives zero on
+      // some instruction sets and leaves the lane untouched on others, where its bits
+      // then survive the mask.
       plan.low_rshifts.at(r).at(u) = packed_start_bit % 8;
-      plan.high_lshifts.at(r).at(u) = 8 * kOverBytes - (packed_start_bit % 8);
+      if (byte_aligned) {
+        plan.high_lshifts.at(r).at(u) = 0;
+      } else {
+        plan.high_lshifts.at(r).at(u) = 8 * kOverBytes - (packed_start_bit % 8);
+      }
+      assert(static_cast<int>(plan.high_lshifts.at(r).at(u)) <
+             kShape.unpacked_bit_size());
 
       packed_start_bit += kShape.packed_bit_size();
     }
@@ -1040,7 +979,7 @@ struct LargeKernel {
 
     const auto high_swizzled = xsimd::swizzle(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
-    const auto high_shifted = left_shift(high_words, kHighLShifts);
+    const auto high_shifted = high_words << kHighLShifts;
 
     // We can have a single mask and apply it after OR because the shifts will ensure that
     // there are zeros where the high/low values are incomplete.

@@ -91,6 +91,9 @@ on git main.
 
 Please read our latest [project contribution guide][4].
 
+If you are using AI coding tools, please review our
+[AI-generated code guidance][7].
+
 ## Getting involved
 
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
@@ -114,3 +117,4 @@ We use [AWS][6] for some of the required infrastructure for the project.
 [4]: https://arrow.apache.org/docs/dev/developers/index.html
 [5]: https://runs-on.com/
 [6]: https://aws.amazon.com/
+[7]: https://arrow.apache.org/docs/dev/developers/overview.html#ai-generated-code

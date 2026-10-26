@@ -49,11 +49,16 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
-    # These definitions are needed for xsimd to consider the corresponding instruction
-    # sets available, but they are not set by MSVC (unlike other compilers).
-    # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
-    add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
+    # MSVC doesn't define __SSE4_1__/__SSE4_2__ even with /arch:SSE4.2 (unlike
+    # other compilers) but xsimd needs them to consider SSE4.x available. We
+    # define them only where SSE4.2 is enabled. We don't define __SSE2__
+    # because xsimd detects SSE2 by _M_X64 and simdjson >= 5 uses GCC builtins
+    # when __SSE2__ is defined.
+    # See also:
+    # * https://learn.microsoft.com/en-us/cpp/build/reference/arch-x64
+    # * https://github.com/xtensor-stack/xsimd/issues/878
+    # * https://github.com/apache/arrow/issues/51690
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2" "-D__SSE4_1__" "-D__SSE4_2__")
     set(ARROW_AVX2_FLAGS "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
     set(ARROW_BMI2_FLAGS "/arch:AVX2")
@@ -218,40 +223,11 @@ if(WIN32)
       set(CXX_COMMON_FLAGS "/W3 /EHsc")
     endif()
 
-    # Disable C5105 (macro expansion producing 'defined' has undefined
-    # behavior) warning because there are codes that produce this
-    # warning in Windows Kits. e.g.:
-    #
-    #   #define _CRT_INTERNAL_NONSTDC_NAMES                                            \
-    #        (                                                                          \
-    #            ( defined _CRT_DECLARE_NONSTDC_NAMES && _CRT_DECLARE_NONSTDC_NAMES) || \
-    #            (!defined _CRT_DECLARE_NONSTDC_NAMES && !__STDC__                 )    \
-    #        )
+    # Enable the conforming preprocessor to support C++20 features.
     #
     # See also:
-    # * C5105: https://docs.microsoft.com/en-US/cpp/error-messages/compiler-warnings/c5105
-    # * Related reports:
-    #   * https://developercommunity.visualstudio.com/content/problem/387684/c5105-with-stdioh-and-experimentalpreprocessor.html
-    #   * https://developercommunity.visualstudio.com/content/problem/1249671/stdc17-generates-warning-compiling-windowsh.html
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
-
-    if(ARROW_USE_CCACHE)
-      foreach(c_flag
-              CMAKE_CXX_FLAGS
-              CMAKE_CXX_FLAGS_RELEASE
-              CMAKE_CXX_FLAGS_DEBUG
-              CMAKE_CXX_FLAGS_MINSIZEREL
-              CMAKE_CXX_FLAGS_RELWITHDEBINFO
-              CMAKE_C_FLAGS
-              CMAKE_C_FLAGS_RELEASE
-              CMAKE_C_FLAGS_DEBUG
-              CMAKE_C_FLAGS_MINSIZEREL
-              CMAKE_C_FLAGS_RELWITHDEBINFO)
-        # ccache doesn't work with /Zi.
-        # See also: https://github.com/ccache/ccache/issues/1040
-        string(REPLACE "/Zi" "/Z7" ${c_flag} "${${c_flag}}")
-      endforeach()
-    endif()
+    # * https://devblogs.microsoft.com/cppblog/announcing-full-support-for-a-c-c-conformant-preprocessor-in-msvc/
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Zc:preprocessor")
 
     if(ARROW_USE_STATIC_CRT)
       foreach(c_flag
@@ -531,7 +507,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     if(NOT CXX_SUPPORTS_SSE4_2)
       message(FATAL_ERROR "SSE4.2 required but compiler doesn't support it.")
     endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SSE4_2_FLAG}")
+    list(JOIN ARROW_SSE4_2_FLAG " " ARROW_SSE4_2_FLAG_COMMAND_LINE)
+    string(APPEND CXX_COMMON_FLAGS " ${ARROW_SSE4_2_FLAG_COMMAND_LINE}")
     add_definitions(-DARROW_HAVE_SSE4_2)
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by x86.")
@@ -758,14 +735,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
       "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
   set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
   if(ARROW_TESTING)
+    # Deeply nested tests need a larger stack (1 MiB).
+    set(ARROW_EMSCRIPTEN_TEST_STACK_SIZE 1048576)
     # flags for building test executables for use in node
     if("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
       set(CMAKE_EXE_LINKER_FLAGS
-          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sSTACK_SIZE=${ARROW_EMSCRIPTEN_TEST_STACK_SIZE} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
       )
     else()
       set(CMAKE_EXE_LINKER_FLAGS
-          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sERROR_ON_WASM_CHANGES_AFTER_LINK=1 -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sERROR_ON_WASM_CHANGES_AFTER_LINK=1 -sSTACK_SIZE=${ARROW_EMSCRIPTEN_TEST_STACK_SIZE} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
       )
     endif()
   else()

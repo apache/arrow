@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:13
-ARG arch
+FROM --platform=linux/${arch} debian:13
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -53,9 +52,9 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -66,10 +65,12 @@ RUN apt-get update -y -q && \
         libprotobuf-dev \
         libprotoc-dev \
         libre2-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssl-dev \
         libthrift-dev \
+        liburiparser-dev \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \
@@ -137,6 +138,6 @@ ENV ARROW_ACERO=ON \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

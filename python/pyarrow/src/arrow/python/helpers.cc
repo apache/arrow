@@ -18,6 +18,7 @@
 // helpers.h includes a NumPy header, so we include this first
 #include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_interop.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 
 #include "arrow/python/helpers.h"
 
@@ -338,22 +339,44 @@ struct ModuleOnceRunner {
 static PyObject* uuid_UUID = nullptr;
 static ModuleOnceRunner uuid_runner("uuid");
 
-}  // namespace
-
-bool IsPyUuid(PyObject* obj) {
+PyObject* GetUuidClass() {
   uuid_runner.RunOnce([](OwnedRef& module) {
     OwnedRef ref;
     if (ImportFromModule(module.obj(), "UUID", &ref).ok()) {
       uuid_UUID = ref.obj();
     }
   });
-  if (!uuid_UUID) return false;
-  int result = PyObject_IsInstance(obj, uuid_UUID);
+  return uuid_UUID;
+}
+
+}  // namespace
+
+bool IsPyUuid(PyObject* obj) {
+  PyObject* uuid_class = GetUuidClass();
+  if (!uuid_class) return false;
+  int result = PyObject_IsInstance(obj, uuid_class);
   if (result < 0) {
     PyErr_Clear();
     return false;
   }
   return result != 0;
+}
+
+Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* kwargs) {
+  PyObject* uuid_class = GetUuidClass();
+  if (!uuid_class) {
+    return Status::Invalid("Could not import uuid.UUID");
+  }
+  OwnedRef py_bytes(
+      PyBytes_FromStringAndSize(bytes.data(), static_cast<Py_ssize_t>(bytes.size())));
+  RETURN_IF_PYERROR();
+  if (PyDict_SetItemString(kwargs, "bytes", py_bytes.obj()) < 0) {
+    RETURN_IF_PYERROR();
+  }
+  PyObject* empty_args = Py_GetConstantBorrowed(Py_CONSTANT_EMPTY_TUPLE);
+  PyObject* result = PyObject_Call(uuid_class, empty_args, kwargs);
+  RETURN_IF_PYERROR();
+  return result;
 }
 
 namespace {

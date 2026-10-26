@@ -17,7 +17,10 @@
 
 import ast
 import base64
+from datetime import datetime
+import gc
 import itertools
+import json
 import os
 import pathlib
 import signal
@@ -28,8 +31,7 @@ import tempfile
 import threading
 import time
 import traceback
-import json
-from datetime import datetime
+import weakref
 
 try:
     import numpy as np
@@ -1126,6 +1128,42 @@ def test_flight_server_location_argument():
     for location in locations:
         with FlightServerBase(location) as server:
             assert isinstance(server, FlightServerBase)
+
+
+# The following tests are for GH-50684, which was a memory leak
+# in FlightServerBase.
+def test_flight_server_is_freed():
+    # Calling server.shutdown manually should free the server object.
+    server = FlightServerBase('grpc://localhost:0')
+    server.shutdown()
+    ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
+def test_flight_server_is_freed_on_exit():
+    # Using FlightServerBase as a context manager should free
+    # the server object on exit.
+    with FlightServerBase('grpc://localhost:0') as server:
+        ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
+@pytest.mark.xfail(
+    reason="GH-50684: FlightServerBase is not freed on delete without shutdown"
+)
+def test_flight_server_is_freed_without_shutdown():
+    # GH-50684: Not calling server.shutdown() currently leaks the server object.
+    # This test is expected to fail until the issue is fixed but is included
+    # for completeness and further discussion.
+    server = FlightServerBase('grpc://localhost:0')
+    ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
 
 
 def test_server_exit_reraises_exception():

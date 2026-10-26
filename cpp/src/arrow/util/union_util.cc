@@ -33,9 +33,9 @@ int64_t LogicalSparseUnionNullCount(const ArraySpan& span) {
   const int8_t* types = span.GetValues<int8_t>(1);  // NOLINT
   int64_t null_count = 0;
   for (int64_t i = 0; i < span.length; i++) {
-    const int8_t child_id = sparse_union_type->child_ids()[types[span.offset + i]];
+    const int8_t child_id = sparse_union_type->child_ids()[types[i]];
 
-    null_count += span.child_data[child_id].IsNull(i);
+    null_count += span.child_data[child_id].IsNull(span.offset + i);
   }
   return null_count;
 }
@@ -48,11 +48,25 @@ int64_t LogicalDenseUnionNullCount(const ArraySpan& span) {
   const int32_t* offsets = span.GetValues<int32_t>(2);  // NOLINT
   int64_t null_count = 0;
   for (int64_t i = 0; i < span.length; i++) {
-    const int8_t child_id = dense_union_type->child_ids()[types[span.offset + i]];
-    const int32_t offset = offsets[span.offset + i];
+    const int8_t child_id = dense_union_type->child_ids()[types[i]];
+    const int32_t offset = offsets[i];
     null_count += span.child_data[child_id].IsNull(offset);
   }
   return null_count;
+}
+
+void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
+                              int64_t out_offset, bool set_on_null) {
+  for (int64_t i = 0; i < span.length; i++) {
+    bit_util::SetBitTo(out_bitmap, out_offset + i, set_on_null == span.IsNull(i));
+  }
+}
+
+void SetLogicalNullBitsDense(const ArraySpan& span, uint8_t* out_bitmap,
+                             int64_t out_offset, bool set_on_null) {
+  for (int64_t i = 0; i < span.length; i++) {
+    bit_util::SetBitTo(out_bitmap, out_offset + i, set_on_null == span.IsNull(i));
+  }
 }
 
 }  // namespace arrow::union_util

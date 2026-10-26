@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/extension/json.h"
@@ -455,7 +456,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::FIXED_SIZE_LIST:
     case ArrowTypeId::LARGE_LIST:
-    case ArrowTypeId::LIST: {
+    case ArrowTypeId::LIST:
+    case ArrowTypeId::LARGE_LIST_VIEW:
+    case ArrowTypeId::LIST_VIEW: {
       auto list_type = std::static_pointer_cast<::arrow::BaseListType>(field->type());
       return ListToNode(list_type, name, field->nullable(), field_id, properties,
                         arrow_properties, out);
@@ -984,6 +987,15 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
 
+template <typename ArrowListType, typename... Args>
+auto GetListFactory(Args&&... args) {
+  return [... args = std::forward<Args>(args)](FieldVector fields) mutable {
+    DCHECK_EQ(fields.size(), 1);
+    return std::make_shared<ArrowListType>(std::move(fields[0]),
+                                           std::forward<decltype(args)>(args)...);
+  };
+}
+
 std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
     const ArrowType& origin_type, const ArrowType& inferred_type) {
   switch (inferred_type.id()) {
@@ -993,28 +1005,26 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
       }
       break;
     case ::arrow::Type::LIST:
-    case ::arrow::Type::LARGE_LIST:
-      if (origin_type.id() == ::arrow::Type::LIST) {
-        return [](FieldVector fields) {
-          DCHECK_EQ(fields.size(), 1);
-          return ::arrow::list(std::move(fields[0]));
-        };
-      }
-      if (origin_type.id() == ::arrow::Type::LARGE_LIST) {
-        return [](FieldVector fields) {
-          DCHECK_EQ(fields.size(), 1);
-          return ::arrow::large_list(std::move(fields[0]));
-        };
-      }
-      if (origin_type.id() == ::arrow::Type::FIXED_SIZE_LIST) {
-        const auto list_size =
-            checked_cast<const ::arrow::FixedSizeListType&>(origin_type).list_size();
-        return [list_size](FieldVector fields) {
-          DCHECK_EQ(fields.size(), 1);
-          return ::arrow::fixed_size_list(std::move(fields[0]), list_size);
-        };
+    case ::arrow::Type::LARGE_LIST: {
+      switch (origin_type.id()) {
+        case ::arrow::Type::LIST:
+          return GetListFactory<::arrow::ListType>();
+        case ::arrow::Type::LARGE_LIST:
+          return GetListFactory<::arrow::LargeListType>();
+        case ::arrow::Type::LIST_VIEW:
+          return GetListFactory<::arrow::ListViewType>();
+        case ::arrow::Type::LARGE_LIST_VIEW:
+          return GetListFactory<::arrow::LargeListViewType>();
+        case ::arrow::Type::FIXED_SIZE_LIST: {
+          const auto list_size =
+              checked_cast<const ::arrow::FixedSizeListType&>(origin_type).list_size();
+          return GetListFactory<::arrow::FixedSizeListType>(list_size);
+        }
+        default:
+          break;
       }
       break;
+    }
     case ::arrow::Type::MAP:
       if (origin_type.id() == ::arrow::Type::MAP) {
         const bool keys_sorted =

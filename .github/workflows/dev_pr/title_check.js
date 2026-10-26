@@ -38,11 +38,41 @@ async function commentOpenGitHubIssue(github, context, pullRequestNumber) {
   });
 }
 
+/**
+ * Converts the pull request to draft.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ */
+async function convertToDraft(github, context) {
+  if (context.payload.pull_request.draft) {
+    return;
+  }
+
+  await github.graphql(
+    `
+      mutation ($pullRequestId: ID!) {
+        convertPullRequestToDraft(
+          input: {pullRequestId: $pullRequestId}
+        ) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `,
+    {
+      pullRequestId: context.payload.pull_request.node_id,
+    },
+  );
+}
+
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
   const issue = helpers.detectIssue(title)
   if (!issue) {
     await commentOpenGitHubIssue(github, context, pullRequestNumber);
+    await convertToDraft(github, context);
   }
 };

@@ -64,9 +64,11 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     re2
     Protobuf
     RapidJSON
+    simdjson
     Snappy
     Substrait
     Thrift
+    uriparser
     utf8proc
     xsimd
     ZLIB
@@ -209,6 +211,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
     build_rapidjson()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "simdjson")
+    build_simdjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
@@ -217,6 +221,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
+    build_uriparser()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -380,7 +386,7 @@ if(ARROW_WITH_OPENTELEMETRY)
 endif()
 
 if(ARROW_PARQUET)
-  set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
@@ -407,8 +413,12 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
+if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
+endif()
+
+if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
+  set(ARROW_WITH_SIMDJSON ON)
 endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT)
@@ -668,6 +678,14 @@ else()
            "${THIRDPARTY_MIRROR_URL}/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_GRPC_PROTO_URL})
+  set(GRPC_PROTO_SOURCE_URL "$ENV{ARROW_GRPC_PROTO_URL}")
+else()
+  set_urls(GRPC_PROTO_SOURCE_URL
+           "https://github.com/grpc/grpc-proto/archive/${ARROW_GRPC_PROTO_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/grpc-proto-${ARROW_GRPC_PROTO_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
@@ -763,6 +781,14 @@ else()
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_SIMDJSON_URL})
+  set(SIMDJSON_SOURCE_URL "$ENV{ARROW_SIMDJSON_URL}")
+else()
+  set_urls(SIMDJSON_SOURCE_URL
+           "https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_S2N_TLS_URL})
   set(S2N_TLS_SOURCE_URL "$ENV{ARROW_S2N_TLS_URL}")
 else()
@@ -792,6 +818,14 @@ else()
   set(THRIFT_SOURCE_URL
       "https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
       "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_URIPARSER_URL})
+  set(ARROW_URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
+else()
+  set_urls(ARROW_URIPARSER_SOURCE_URL
+           "https://github.com/uriparser/uriparser/releases/download/uriparser-${ARROW_URIPARSER_BUILD_VERSION}/uriparser-${ARROW_URIPARSER_BUILD_VERSION}.tar.bz2"
   )
 endif()
 
@@ -1220,6 +1254,12 @@ endif()
 # https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
 # 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.92.0"
+    "1.92"
+    "1.91.0"
+    "1.91"
+    "1.90.0"
+    "1.90"
     "1.89.0"
     "1.89"
     "1.88.0"
@@ -1388,10 +1428,34 @@ endif()
 # ----------------------------------------------------------------------
 # cURL
 
-macro(find_curl)
+macro(find_curl ARROW_CURL_PACKAGE_PREFIX)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
+  endif()
+  # CURL might be needed for Arrow (GCS, OpenTelemetry) or ArrowS3
+  if(NOT "CURL" IN_LIST ${ARROW_CURL_PACKAGE_PREFIX}_SYSTEM_DEPENDENCIES)
+    list(APPEND ${ARROW_CURL_PACKAGE_PREFIX}_SYSTEM_DEPENDENCIES CURL)
+  endif()
+endmacro()
+
+# ----------------------------------------------------------------------
+# pkg-config
+
+# SDK libraries (on macOS) may be available without .pc files
+macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(${PC_PREFIX}
+                      ${PC_PACKAGE}
+                      NO_CMAKE_PATH
+                      NO_CMAKE_ENVIRONMENT_PATH
+                      QUIET)
+  endif()
+  if(PkgConfig_FOUND AND ${PC_PREFIX}_FOUND)
+    string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
+  else()
+    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} in arrow.pc")
+    string(APPEND ARROW_PC_LIBS_PRIVATE " ${FALLBACK}")
   endif()
 endmacro()
 
@@ -1436,8 +1500,7 @@ macro(build_snappy)
     # ignore linker flag errors, as Snappy sets
     # -Werror -Wall, and Emscripten doesn't support -soname
     list(APPEND SNAPPY_CMAKE_ARGS
-         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
-         "-Wno-error=linkflags")
+         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}")
   endif()
 
   externalproject_add(snappy_ep
@@ -1458,7 +1521,7 @@ macro(build_snappy)
   target_include_directories(${Snappy_TARGET} BEFORE INTERFACE "${SNAPPY_PREFIX}/include")
   add_dependencies(${Snappy_TARGET} snappy_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
@@ -1561,7 +1624,7 @@ macro(build_brotli)
   target_include_directories(Brotli::brotlidec BEFORE INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
-  list(APPEND
+  list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        Brotli::brotlicommon
        Brotli::brotlienc
@@ -1656,7 +1719,7 @@ macro(build_glog)
   target_include_directories(glog::glog BEFORE INTERFACE "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
 endmacro()
 
 if(ARROW_USE_GLOG)
@@ -1725,7 +1788,7 @@ macro(build_gflags)
 
   set(GFLAGS_VENDORED TRUE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS gflags::gflags_static)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS gflags::gflags_static)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -1761,29 +1824,8 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    find_program(PATCH patch)
-    if(PATCH)
-      list(APPEND
-           THRIFT_PATCH_COMMAND
-           ${PATCH}
-           -p1
-           -i)
-    else()
-      find_program(GIT git)
-      if(GIT)
-        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
-      endif()
-    endif()
-    if(THRIFT_PATCH_COMMAND)
-      # https://github.com/apache/thrift/pull/3187
-      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
-    endif()
-  endif()
   fetchcontent_declare(thrift
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
                        URL ${THRIFT_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
@@ -1853,8 +1895,9 @@ function(build_thrift)
   set(THRIFT_VENDORED
       TRUE
       PARENT_SCOPE)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS thrift)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} thrift
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -1890,8 +1933,13 @@ function(build_absl)
       TRUE
       PARENT_SCOPE)
 
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
+  # Abseil 20260817.0 uses O_NONBLOCK that isn't available on MinGW.
+  #
+  # TODO: Remove this workaround once we upgrade to a newer Abseil
+  # version that includes
+  # https://github.com/abseil/abseil-cpp/commit/ddbdebc6c8 .
+  if(MINGW)
+    string(APPEND CMAKE_CXX_FLAGS " -DO_NONBLOCK=0")
   endif()
 
   fetchcontent_declare(absl
@@ -1922,6 +1970,101 @@ function(build_absl)
     # Cannot use set_property on alias targets (absl::time is an alias)
     target_link_libraries(time INTERFACE ${CoreFoundation})
   endif()
+
+  list(PREPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       absl::base
+       absl::base_cpu_detect
+       absl::city
+       absl::civil_time
+       absl::cord
+       absl::cord_internal
+       absl::cordz_functions
+       absl::cordz_handle
+       absl::cordz_info
+       absl::cordz_sample_token
+       absl::crc32c
+       absl::crc_cord_state
+       absl::crc_internal
+       absl::debugging_internal
+       absl::decode_rust_punycode
+       absl::demangle_internal
+       absl::demangle_rust
+       absl::die_if_null
+       absl::examine_stack
+       absl::exponential_biased
+       absl::failure_signal_handler
+       absl::flags_commandlineflag
+       absl::flags_commandlineflag_internal
+       absl::flags_config
+       absl::flags_internal
+       absl::flags_marshalling
+       absl::flags_parse
+       absl::flags_private_handle_accessor
+       absl::flags_program_name
+       absl::flags_reflection
+       absl::flags_usage
+       absl::flags_usage_internal
+       absl::graphcycles_internal
+       absl::hardening
+       absl::hash
+       absl::hashtablez_sampler
+       absl::int128
+       absl::kernel_timeout_internal
+       absl::leak_check
+       absl::log_entry
+       absl::log_globals
+       absl::log_initialize
+       absl::log_internal_check_op
+       absl::log_internal_conditions
+       absl::log_internal_fnmatch
+       absl::log_internal_format
+       absl::log_internal_globals
+       absl::log_internal_log_sink_set
+       absl::log_internal_message
+       absl::log_internal_nullguard
+       absl::log_internal_proto
+       absl::log_internal_structured_proto
+       absl::log_severity
+       absl::log_sink
+       absl::malloc_internal
+       absl::periodic_sampler
+       absl::poison
+       absl::random_distributions
+       absl::random_internal_distribution_test_util
+       absl::random_internal_entropy_pool
+       absl::random_internal_platform
+       absl::random_internal_randen
+       absl::random_internal_randen_hwaes
+       absl::random_internal_randen_hwaes_impl
+       absl::random_internal_randen_slow
+       absl::random_internal_seed_material
+       absl::random_seed_gen_exception
+       absl::random_seed_sequences
+       absl::raw_hash_set
+       absl::raw_logging_internal
+       absl::scoped_set_env
+       absl::source_location
+       absl::spinlock_wait
+       absl::stacktrace
+       absl::status
+       absl::statusor
+       absl::str_format_internal
+       absl::strerror
+       absl::strings
+       absl::strings_internal
+       absl::symbolize
+       absl::synchronization
+       absl::throw_delegate
+       absl::time
+       absl::time_zone
+       absl::tracing_internal
+       absl::utf8_for_code_point
+       absl::vlog_config_internal)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -2057,7 +2200,11 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf utf8_range)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -2065,15 +2212,14 @@ function(build_protobuf)
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
-    # cross-compiled (PyArrow on emscripten) needs utf8_range bundled explicitly.
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8_range)
-
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
+        -Dprotobuf_DEBUG_POSTFIX=
+        # OFF to avoid conda include dirs leaking into vendored Abseil
+        -Dprotobuf_WITH_ZLIB=OFF)
     if(ABSL_VENDORED)
       # Force protobuf to reuse Arrow's already-extracted absl source
       # so we don't re-download and we don't have issues with multiple abseil.
@@ -2094,102 +2240,8 @@ function(build_protobuf)
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
-    # For cross-compilation along with ExternalProject we need to
-    # manually include absl deps to the bundled static libs so that
-    # they are available for the generated code in protobuf v31.
-    list(APPEND
-         ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_any_cast_impl
-         absl::bad_optional_access
-         absl::bad_variant_access
-         absl::base
-         absl::city
-         absl::civil_time
-         absl::cord
-         absl::cord_internal
-         absl::cordz_functions
-         absl::cordz_handle
-         absl::cordz_info
-         absl::cordz_sample_token
-         absl::crc32c
-         absl::crc_cord_state
-         absl::crc_cpu_detect
-         absl::crc_internal
-         absl::debugging_internal
-         absl::decode_rust_punycode
-         absl::demangle_internal
-         absl::demangle_rust
-         absl::die_if_null
-         absl::examine_stack
-         absl::exponential_biased
-         absl::failure_signal_handler
-         absl::flags_commandlineflag
-         absl::flags_commandlineflag_internal
-         absl::flags_config
-         absl::flags_internal
-         absl::flags_marshalling
-         absl::flags_parse
-         absl::flags_private_handle_accessor
-         absl::flags_program_name
-         absl::flags_reflection
-         absl::flags_usage
-         absl::flags_usage_internal
-         absl::graphcycles_internal
-         absl::hash
-         absl::hashtablez_sampler
-         absl::int128
-         absl::kernel_timeout_internal
-         absl::leak_check
-         absl::log_globals
-         absl::log_initialize
-         absl::log_internal_check_op
-         absl::log_internal_conditions
-         absl::log_internal_fnmatch
-         absl::log_internal_format
-         absl::log_internal_globals
-         absl::log_internal_log_sink_set
-         absl::log_internal_message
-         absl::log_internal_nullguard
-         absl::log_internal_proto
-         absl::log_severity
-         absl::log_sink
-         absl::low_level_hash
-         absl::malloc_internal
-         absl::periodic_sampler
-         absl::poison
-         absl::random_distributions
-         absl::random_internal_distribution_test_util
-         absl::random_internal_platform
-         absl::random_internal_pool_urbg
-         absl::random_internal_randen
-         absl::random_internal_randen_hwaes
-         absl::random_internal_randen_hwaes_impl
-         absl::random_internal_randen_slow
-         absl::random_internal_seed_material
-         absl::random_seed_gen_exception
-         absl::random_seed_sequences
-         absl::raw_hash_set
-         absl::raw_logging_internal
-         absl::scoped_set_env
-         absl::spinlock_wait
-         absl::stacktrace
-         absl::status
-         absl::statusor
-         absl::str_format_internal
-         absl::strerror
-         absl::strings
-         absl::strings_internal
-         absl::symbolize
-         absl::synchronization
-         absl::throw_delegate
-         absl::time
-         absl::time_zone
-         absl::utf8_for_code_point
-         absl::vlog_config_internal)
   endif()
-  set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
-      PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -2427,13 +2479,17 @@ macro(build_substrait)
   set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
-  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  # Match Protobuf's visibility because target contains generated Protobuf code
+  set_target_properties(substrait
+                        PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                   CXX_VISIBILITY_PRESET hidden
+                                   VISIBILITY_INLINES_HIDDEN ON)
   target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS substrait)
 endmacro()
 
 if(ARROW_SUBSTRAIT)
@@ -2517,7 +2573,7 @@ macro(build_jemalloc)
                              INTERFACE "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
 
   set(jemalloc_VENDORED TRUE)
   # For config.h.cmake
@@ -2565,13 +2621,25 @@ if(ARROW_MIMALLOC)
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_INSTALL_TOPLEVEL=ON
+      # Don't override default malloc
       -DMI_OVERRIDE=OFF
+      -DMI_OSX_INTERPOSE=OFF
+      -DMI_OSX_ZONE=OFF
+      # Allow usage through dlopen (i.e. when libarrow.so itself is dlopen'ed)
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF
       # GH-47229: Force mimalloc to generate armv8.0 binary
       -DMI_NO_OPT_ARCH=ON)
+
+  if(APPLE)
+    list(APPEND
+         MIMALLOC_CMAKE_ARGS
+         # GH-50428: Make sure several mimalloc instances can cohabit in the same process
+         # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
+         -DMI_TLS_MODEL_LOCAL=ON)
+  endif()
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
@@ -2593,7 +2661,7 @@ if(ARROW_MIMALLOC)
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
 
   set(mimalloc_VENDORED TRUE)
 endif()
@@ -2782,34 +2850,91 @@ if(ARROW_BUILD_BENCHMARKS)
                      FALSE)
 endif()
 
-macro(build_rapidjson)
-  message(STATUS "Building RapidJSON from source")
-  set(RAPIDJSON_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DRAPIDJSON_BUILD_DOC=OFF
-      -DRAPIDJSON_BUILD_EXAMPLES=OFF
-      -DRAPIDJSON_BUILD_TESTS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+function(build_simdjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "simdjson: ")
+  message(STATUS "Building simdjson from source")
 
-  externalproject_add(rapidjson_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${RAPIDJSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
+  fetchcontent_declare(simdjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${SIMDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
 
-  set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
+  prepare_fetchcontent()
+
+  # Keep simdjson's threading configuration consistent with Arrow's,
+  # which is required for Emscripten where Arrow threading is disabled.
+  set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
+
+  # simdjson enables precompiled headers unconditionally.
+  # Recompiling simdjson.cpp against it produces differing artifacts
+  # Disable precompiled headers to avoid reproducible build failures.
+  set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+
+  fetchcontent_makeavailable(simdjson)
+
+  target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
+
+  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
+  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+    target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
+  endif()
+
+  set(SIMDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS simdjson)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+if(ARROW_WITH_SIMDJSON)
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.3.0")
+  resolve_dependency(simdjson
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_SIMDJSON_REQUIRED_VERSION})
+  if(SIMDJSON_VENDORED)
+    add_library(arrow::simdjson ALIAS simdjson)
+  else()
+    add_library(arrow::simdjson ALIAS simdjson::simdjson)
+  endif()
+endif()
+
+function(build_rapidjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "RapidJSON: ")
+  message(STATUS "Building from source")
+
+  fetchcontent_declare(rapidjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${RAPIDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
+  set(CCACHE_FOUND OFF)
+  set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+  set(RAPIDJSON_BUILD_DOC OFF)
+  set(RAPIDJSON_BUILD_EXAMPLES OFF)
+  set(RAPIDJSON_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(rapidjson)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${rapidjson_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   add_library(RapidJSON INTERFACE IMPORTED)
-  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
-  add_dependencies(RapidJSON rapidjson_ep)
+  target_include_directories(RapidJSON INTERFACE "${rapidjson_SOURCE_DIR}/include")
+  add_dependencies(RapidJSON rapidjson)
 
-  set(RAPIDJSON_VENDORED TRUE)
-endmacro()
+  set(RAPIDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
@@ -2822,51 +2947,51 @@ if(ARROW_WITH_RAPIDJSON)
                      FALSE)
 endif()
 
-macro(build_xsimd)
+function(build_xsimd)
+  list(APPEND CMAKE_MESSAGE_INDENT "xsimd: ")
   message(STATUS "Building xsimd from source")
-  set(XSIMD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xsimd_ep/src/xsimd_ep-install")
-  set(XSIMD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${XSIMD_PREFIX}")
 
-  externalproject_add(xsimd_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${XSIMD_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
+  prepare_fetchcontent()
+  fetchcontent_declare(xsimd
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${XSIMD_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(xsimd)
 
-  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${XSIMD_INCLUDE_DIR}")
-
-  add_library(arrow::xsimd INTERFACE IMPORTED)
-  target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-  add_dependencies(arrow::xsimd xsimd_ep)
-
-  set(XSIMD_VENDORED TRUE)
-endmacro()
-
-if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
-                                             ))
-  set(ARROW_USE_XSIMD TRUE)
-else()
-  set(ARROW_USE_XSIMD FALSE)
-endif()
-
-if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE
-                     IS_RUNTIME_DEPENDENCY
-                     FALSE
-                     REQUIRED_VERSION
-                     "14.0.0")
-
-  if(xsimd_SOURCE STREQUAL "BUNDLED")
-    set(ARROW_XSIMD arrow::xsimd)
-  else()
-    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
-    set(ARROW_XSIMD xsimd)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${xsimd_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
+
+  set(xsimd_INCLUDE_DIR "${xsimd_SOURCE_DIR}/include")
+  add_library(arrow::xsimd INTERFACE IMPORTED)
+  target_include_directories(arrow::xsimd INTERFACE "${xsimd_INCLUDE_DIR}")
+
+  set(XSIMD_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(xsimd_INCLUDE_DIR
+      "${xsimd_INCLUDE_DIR}"
+      PARENT_SCOPE)
+  set(xsimd_FOUND
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# Xsimd is mandatory as its CPU feature detection is the basis for Arrow CpuInfo
+resolve_dependency(xsimd
+                   FORCE_ANY_NEWER_VERSION
+                   TRUE
+                   IS_RUNTIME_DEPENDENCY
+                   FALSE
+                   REQUIRED_VERSION
+                   "14.2.0")
+
+if(xsimd_SOURCE STREQUAL "BUNDLED")
+  set(ARROW_XSIMD arrow::xsimd)
+else()
+  message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+  set(ARROW_XSIMD xsimd)
 endif()
 
 macro(build_zlib)
@@ -2890,7 +3015,7 @@ macro(build_zlib)
                  PROPERTY IMPORTED_LOCATION
                           "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
     target_include_directories(ZLIB::ZLIB INTERFACE "${EMSCRIPTEN_SYSROOT}/include")
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     if(MSVC)
@@ -2921,7 +3046,7 @@ macro(build_zlib)
     target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
 
     add_dependencies(ZLIB::ZLIB zlib_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   endif()
 
   set(ZLIB_VENDORED TRUE)
@@ -2967,8 +3092,9 @@ function(build_lz4)
 
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} lz4_static
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 endfunction()
 
@@ -3021,7 +3147,7 @@ macro(build_zstd)
 
   add_dependencies(zstd::libzstd_static zstd_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
 
   set(ZSTD_VENDORED TRUE)
 endmacro()
@@ -3073,6 +3199,7 @@ function(build_re2)
 
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
+  set(RE2_BUILD_TESTING OFF)
 
   fetchcontent_makeavailable(re2)
 
@@ -3087,9 +3214,11 @@ function(build_re2)
     set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3143,7 +3272,7 @@ macro(build_bzip2)
 
   add_dependencies(BZip2::BZip2 bzip2_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
 endmacro()
 
 if(ARROW_WITH_BZ2)
@@ -3162,6 +3291,50 @@ if(ARROW_WITH_BZ2)
     endif()
   endif()
 endif()
+
+# ----------------------------------------------------------------------
+# uriparser library
+
+function(build_uriparser)
+  list(APPEND CMAKE_MESSAGE_INDENT "uriparser: ")
+  message(STATUS "Building uriparser from source")
+
+  fetchcontent_declare(uriparser
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${ARROW_URIPARSER_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_URIPARSER_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  set(URIPARSER_BUILD_DOCS OFF)
+  set(URIPARSER_BUILD_TESTS OFF)
+  set(URIPARSER_BUILD_TOOLS OFF)
+  # Arrow only uses the char (not wchar_t) flavor of the API.
+  set(URIPARSER_BUILD_WCHAR_T OFF)
+  # Don't install uriparser into Arrow's install prefix.
+  set(URIPARSER_ENABLE_INSTALL OFF)
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    set(URIPARSER_MSVC_STATIC_CRT ON)
+  endif()
+
+  fetchcontent_makeavailable(uriparser)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS uriparser)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# uriparser is mandatory: arrow::util::Uri is part of core Arrow.
+resolve_dependency(uriparser
+                   HAVE_ALT
+                   TRUE
+                   REQUIRED_VERSION
+                   "0.9.6"
+                   PC_PACKAGE_NAMES
+                   liburiparser)
 
 macro(build_utf8proc)
   message(STATUS "Building utf8proc from source")
@@ -3199,7 +3372,7 @@ macro(build_utf8proc)
 
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
@@ -3236,9 +3409,11 @@ function(build_cares)
     target_link_libraries(c-ares INTERFACE ${LIBRESOLV_LIBRARY})
   endif()
 
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3262,10 +3437,21 @@ function(build_grpc)
       TRUE
       PARENT_SCOPE)
 
+  # gRPC's source archive doesn't include the third_party/grpc-proto
+  # submodule. We disable gRPC_DOWNLOAD_ARCHIVES, so we download it
+  # by ourselves.
+  fetchcontent_declare(grpc_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${GRPC_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_PROTO_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(grpc_proto)
+
   fetchcontent_declare(grpc
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${GRPC_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
+                       PATCH_COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                     ${grpc_proto_SOURCE_DIR} third_party/grpc-proto)
 
   prepare_fetchcontent()
 
@@ -3335,16 +3521,6 @@ function(build_grpc)
     add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
   endif()
 
-  # gRPC headers use deprecated std::iterator that causes compilation errors.
-  # This workaround can be removed once we upgrade to a newer gRPC version.
-  if(NOT MSVC)
-    foreach(target ${GRPC_LIBRARY_TARGETS})
-      if(TARGET ${target})
-        target_compile_options(${target} INTERFACE -Wno-error=deprecated-declarations)
-      endif()
-    endforeach()
-  endif()
-
   # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
   # continuation character in these scripts, so we have to create a copy of the
   # static lib that we will bundle later.
@@ -3366,15 +3542,28 @@ function(build_grpc)
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
   # Add gRPC libraries to bundled static libs.
-  list(APPEND
+  list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling)
+       gRPC::grpcpp_for_bundling
+       upb_base_lib
+       upb_descriptor_lib
+       upb_hash_lib
+       upb_json_lib
+       upb_lex_lib
+       upb_mem_lib
+       upb_message_lib
+       upb_mini_descriptor_lib
+       upb_mini_table_lib
+       upb_reflection_lib
+       upb_textformat_lib
+       upb_wire_lib)
   set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3540,9 +3729,9 @@ function(build_opentelemetry)
       opentelemetry-cpp::trace
       opentelemetry-cpp::version)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
   set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -3555,8 +3744,12 @@ if(ARROW_WITH_OPENTELEMETRY)
 
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
-  find_curl()
-  resolve_dependency(opentelemetry-cpp)
+  find_curl(ARROW)
+  resolve_dependency(opentelemetry-cpp
+                     COMPONENTS
+                     exporters_ostream
+                     exporters_otlp_http
+                     sdk)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
       opentelemetry-cpp::logs
@@ -3605,6 +3798,25 @@ function(build_google_cloud_cpp_storage)
          -p1
          -i
          ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
+  endif()
+
+  # google-cloud-cpp, which depends on OpenSSL,
+  # does not yet support OpenSSL 4.x.
+  #
+  # TODO: Once google-cloud-cpp supports OpenSSL 4.x,
+  # remove this workaround and google-cloud-cpp-openssl4-compatibility.patch.
+  # https://github.com/googleapis/google-cloud-cpp/issues/16510
+  if(PATCH)
+    if(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+      list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND COMMAND)
+    endif()
+
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-openssl4-compatibility.patch)
   endif()
 
   fetchcontent_declare(google_cloud_cpp
@@ -3662,6 +3874,19 @@ function(build_google_cloud_cpp_storage)
                                PUBLIC $<BUILD_INTERFACE:${_otel_api_includes}>)
   endif()
 
+  # google-cloud-cpp headers use deprecated Abseil APIs such as
+  # absl::visit(). They are fixed in google-cloud-cpp 3.9.0 or later
+  # but google-cloud-cpp 3.9.0 or later requires libcurl 8.7.1 or
+  # later. We can't require it because some supported platforms such as
+  # Ubuntu 24.04 ship older libcurl.
+  #
+  # TODO: Remove this workaround once we upgrade to google-cloud-cpp
+  # 3.9.0 or later.
+  if(NOT MSVC AND TARGET google_cloud_cpp_common)
+    target_compile_options(google_cloud_cpp_common
+                           INTERFACE -Wno-error=deprecated-declarations)
+  endif()
+
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
@@ -3669,54 +3894,14 @@ function(build_google_cloud_cpp_storage)
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
-  list(APPEND
+
+  list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        google-cloud-cpp::storage
        google-cloud-cpp::rest_internal
        google-cloud-cpp::common)
-
-  if(ABSL_VENDORED)
-    # Figure out what absl libraries (not header-only) are required by the
-    # google-cloud-cpp libraries above and add them to the bundled_dependencies
-    #
-    #   pkg-config --libs absl_memory absl_strings absl_str_format absl_time absl_variant absl_base absl_memory absl_optional absl_span absl_time absl_variant
-    # (and then some regexing)
-    list(APPEND
-         ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_optional_access
-         absl::bad_variant_access
-         absl::base
-         absl::civil_time
-         absl::cord
-         absl::cord_internal
-         absl::cordz_functions
-         absl::cordz_info
-         absl::cordz_handle
-         absl::crc32c
-         absl::crc_internal
-         absl::crc_cord_state
-         absl::crc_cpu_detect
-         absl::debugging_internal
-         absl::demangle_internal
-         absl::exponential_biased
-         absl::int128
-         absl::log_severity
-         absl::malloc_internal
-         absl::raw_logging_internal
-         absl::spinlock_wait
-         absl::stacktrace
-         absl::str_format_internal
-         absl::strings
-         absl::strings_internal
-         absl::symbolize
-         absl::synchronization
-         absl::throw_delegate
-         absl::time
-         absl::time_zone)
-  endif()
-
   set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -3730,7 +3915,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
 
   # curl is required on all platforms. We always use system curl to
   # avoid conflict.
-  find_curl()
+  find_curl(ARROW)
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -3837,6 +4022,10 @@ function(build_orc)
 
     fetchcontent_makeavailable(orc)
 
+    # ORC compiles generated Protobuf code into its static library
+    set_target_properties(orc PROPERTIES CXX_VISIBILITY_PRESET hidden
+                                         VISIBILITY_INLINES_HIDDEN ON)
+
     # ORC 2.2.1 unconditionally adds /std:c++17 on MSVC via
     # add_compile_options, which overrides CMAKE_CXX_STANDARD and causes
     # ABI mismatches with protobuf (GlobalEmptyStringConstexpr vs
@@ -3867,7 +4056,7 @@ function(build_orc)
     add_custom_target(orc_copy_lib ALL DEPENDS "${ORC_STATIC_LIBRARY_FOR_AR}")
     add_dependencies(orc::orc_for_bundling orc_copy_lib)
 
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc_for_bundling)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS orc::orc_for_bundling)
   else()
     set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
     set(ORC_HOME "${ORC_PREFIX}")
@@ -3885,6 +4074,13 @@ function(build_orc)
     if(absl_SOURCE_DIR)
       set(ORC_ABSL_INCLUDE_DIR "${absl_SOURCE_DIR}")
     endif()
+    # Protobuf 36.2 headers include utf8_validity.h in utf8_range.
+    # ORC build needs the utf8_range include directory if we're using a
+    # bundled Protobuf.
+    fetchcontent_getproperties(protobuf)
+    if(protobuf_SOURCE_DIR)
+      set(ORC_UTF8_RANGE_INCLUDE_DIR "${protobuf_SOURCE_DIR}/third_party/utf8_range")
+    endif()
 
     get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
                         INTERFACE_INCLUDE_DIRECTORIES)
@@ -3896,15 +4092,19 @@ function(build_orc)
     get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
 
+    set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
     if(ORC_ABSL_INCLUDE_DIR)
-      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS} -isystem ${ORC_ABSL_INCLUDE_DIR}")
-    else()
-      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
+      string(APPEND ORC_CXX_FLAGS " -isystem ${ORC_ABSL_INCLUDE_DIR}")
+    endif()
+    if(ORC_UTF8_RANGE_INCLUDE_DIR)
+      string(APPEND ORC_CXX_FLAGS " -isystem ${ORC_UTF8_RANGE_INCLUDE_DIR}")
     endif()
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         "-DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}"
+        -DCMAKE_CXX_VISIBILITY_PRESET=hidden
         "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+        -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
         -DSTOP_BUILD_ON_WARNING=OFF
         -DBUILD_LIBHDFSPP=OFF
         -DBUILD_JAVA=OFF
@@ -3963,7 +4163,7 @@ function(build_orc)
     endif()
     target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
     add_dependencies(orc::orc orc_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
   endif()
 
   set(ORC_VENDORED
@@ -4160,8 +4360,9 @@ function(build_awssdk)
   set(AWSSDK_VENDORED
       TRUE
       PARENT_SCOPE)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LINK_LIBRARIES})
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} ${AWSSDK_LINK_LIBRARIES}
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
@@ -4172,11 +4373,14 @@ endfunction()
 
 if(ARROW_S3)
   if(NOT WIN32)
-    # This is for adding system curl dependency.
-    find_curl()
+    find_curl(ARROW_S3)
   endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowS3
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-s3
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
@@ -4188,15 +4392,15 @@ if(ARROW_S3)
   if(ARROW_BUILD_STATIC)
     if(${AWSSDK_SOURCE} STREQUAL "SYSTEM")
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
-        string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
     else()
       if(UNIX)
-        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+        string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " libcurl")
       endif()
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      string(APPEND ARROW_S3_PC_REQUIRES_PRIVATE " openssl")
       if(APPLE)
-        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+        string(APPEND ARROW_S3_PC_LIBS_PRIVATE " -framework Security")
       endif()
     endif()
   endif()
@@ -4206,6 +4410,8 @@ endif()
 # Azure SDK for C++
 
 function(build_azure_sdk)
+  list(APPEND CMAKE_MESSAGE_INDENT "Azure SDK for C++: ")
+
   message(STATUS "Building Azure SDK for C++ from source")
 
   # On Windows, Azure SDK's WinHTTP transport requires WIL (Windows Implementation Libraries).
@@ -4248,20 +4454,78 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
+  list(PREPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Azure::azure-core
+       Azure::azure-identity
+       Azure::azure-storage-blobs
+       Azure::azure-storage-common
+       Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
-      Azure::azure-core
-      Azure::azure-identity
-      Azure::azure-storage-blobs
-      Azure::azure-storage-common
-      Azure::azure-storage-files-datalake
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
+  if(AZURE_SDK_VENDORED AND NOT WIN32)
+    find_curl(ARROW)
+    find_package(LibXml2 REQUIRED)
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+  endif()
+endif()
+
+if(ARROW_BUILD_STATIC)
+  if((ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+     OR (ARROW_AZURE
+         AND AZURE_SDK_VENDORED
+         AND NOT WIN32))
+    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl")
+  endif()
+  if(ARROW_AZURE
+     AND AZURE_SDK_VENDORED
+     AND NOT WIN32)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2")
+  endif()
+  if(ARROW_GCS
+     AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
+     AND absl_SOURCE STREQUAL "SYSTEM")
+    # Bundled google-cloud-cpp needs system Abseil for static linking.
+    # Abseil .pc files include indirect link dependencies that -labsl_* flags omit
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+      foreach(ARROW_GCS_ABSL_PC_PACKAGE
+              absl_base
+              absl_cord
+              absl_crc32c
+              absl_memory
+              absl_optional
+              absl_span
+              absl_str_format
+              absl_strings
+              absl_time
+              absl_variant)
+        pkg_check_modules(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC
+                          ${ARROW_GCS_ABSL_PC_PACKAGE}
+                          NO_CMAKE_PATH
+                          NO_CMAKE_ENVIRONMENT_PATH
+                          QUIET)
+        if(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC_FOUND)
+          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
+        else()
+          message(STATUS "No .pc for ${ARROW_GCS_ABSL_PC_PACKAGE}; "
+                         "static pkg-config metadata may be incomplete. Consider CMake")
+        endif()
+      endforeach()
+    else()
+      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow.pc"
+      )
+    endif()
+  endif()
 endif()
 
 # ----------------------------------------------------------------------

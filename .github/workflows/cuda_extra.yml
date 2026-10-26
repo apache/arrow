@@ -19,9 +19,16 @@ name: CUDA Extra
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '**/*cuda*'
+      - '**/*gpu*'
     tags:
       - '**'
   pull_request:
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
@@ -42,19 +49,30 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: cuda_extra
 
-  docker:
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
     needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: CUDA')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ${{ matrix.title }}
     runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64/spot=capacity-optimized"
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: CUDA')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -82,19 +100,18 @@ jobs:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: .docker
-          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
-          restore-keys: extra-${{ matrix.image }}-
+          key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -116,12 +133,17 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

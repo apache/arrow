@@ -27,12 +27,7 @@ except ImportError:
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
-from pyarrow.vendored.version import Version
-
-try:
-    import pandas as pd
-except ImportError:
-    pass
+from pyarrow.tests.test_pandas import _fully_loaded_dataframe_example
 
 
 def test_schema_constructor_errors():
@@ -55,11 +50,9 @@ def test_type_integers():
 @pytest.mark.pandas
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
-    if Version(pd.__version__) < Version("2.0.0"):
-        M8 = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
-        (pa.bool_(), np.bool_),
+        (pa.bool_(), np.bool),
         (pa.int8(), np.int8),
         (pa.int16(), np.int16),
         (pa.int32(), np.int32),
@@ -216,6 +209,7 @@ def test_from_numpy_dtype():
         (np.dtype('timedelta64[ms]'), pa.duration('ms')),
         (np.dtype('timedelta64[us]'), pa.duration('us')),
         (np.dtype('timedelta64[ns]'), pa.duration('ns')),
+        (np.dtypes.StringDType(), pa.string()),
     ]
 
     for dt, pt in cases:
@@ -725,6 +719,14 @@ def test_schema_from_pandas():
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected
+
+
+@pytest.mark.pandas
+def test_schema_from_pandas_all_types():
+    df = _fully_loaded_dataframe_example()
+    schema = pa.Schema.from_pandas(df)
+    expected = pa.Table.from_pandas(df).schema
+    assert schema == expected
 
 
 def test_schema_sizeof():

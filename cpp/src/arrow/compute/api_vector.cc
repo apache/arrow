@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -50,6 +51,7 @@ using compute::FilterOptions;
 using compute::NullPlacement;
 using compute::RankOptions;
 using compute::RankQuantileOptions;
+using compute::SearchSortedOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -81,16 +83,18 @@ struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
     return "<INVALID>";
   }
 };
+
 template <>
-struct EnumTraits<NullPlacement>
-    : BasicEnumTraits<NullPlacement, NullPlacement::AtStart, NullPlacement::AtEnd> {
-  static std::string name() { return "NullPlacement"; }
-  static std::string value_name(NullPlacement value) {
+struct EnumTraits<SearchSortedOptions::Side>
+    : BasicEnumTraits<SearchSortedOptions::Side, SearchSortedOptions::Left,
+                      SearchSortedOptions::Right> {
+  static std::string name() { return "SearchSortedOptions::Side"; }
+  static std::string value_name(SearchSortedOptions::Side value) {
     switch (value) {
-      case NullPlacement::AtStart:
-        return "AtStart";
-      case NullPlacement::AtEnd:
-        return "AtEnd";
+      case SearchSortedOptions::Left:
+        return "Left";
+      case SearchSortedOptions::Right:
+        return "Right";
     }
     return "<INVALID>";
   }
@@ -124,6 +128,7 @@ namespace compute {
 
 namespace internal {
 namespace {
+using ::arrow::internal::CoercedDataMember;
 using ::arrow::internal::DataMember;
 static auto kFilterOptionsType = GetFunctionOptionsType<FilterOptions>(
     DataMember("null_selection_behavior", &FilterOptions::null_selection_behavior));
@@ -137,9 +142,10 @@ static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOption
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
+static auto kSearchSortedOptionsType = GetFunctionOptionsType<SearchSortedOptions>(
+    DataMember("side", &SearchSortedOptions::side));
 static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
-    DataMember("sort_keys", &SortOptions::sort_keys),
-    DataMember("null_placement", &SortOptions::null_placement));
+    CoercedDataMember("sort_keys", &SortOptions::sort_keys, &SortOptions::GetSortKeys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
@@ -153,12 +159,11 @@ static auto kCumulativeOptionsType = GetFunctionOptionsType<CumulativeOptions>(
     DataMember("start", &CumulativeOptions::start),
     DataMember("skip_nulls", &CumulativeOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
-    DataMember("sort_keys", &RankOptions::sort_keys),
-    DataMember("null_placement", &RankOptions::null_placement),
+    CoercedDataMember("sort_keys", &RankOptions::sort_keys, &RankOptions::GetSortKeys),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
-static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
-    DataMember("sort_keys", &RankQuantileOptions::sort_keys),
-    DataMember("null_placement", &RankQuantileOptions::null_placement));
+static auto kRankQuantileOptionsType =
+    GetFunctionOptionsType<RankQuantileOptions>(CoercedDataMember(
+        "sort_keys", &RankQuantileOptions::sort_keys, &RankQuantileOptions::GetSortKeys));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
@@ -196,7 +201,17 @@ ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement
       null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
-SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement)
+SearchSortedOptions::SearchSortedOptions(SearchSortedOptions::Side side)
+    : FunctionOptions(internal::kSearchSortedOptionsType), side(side) {}
+constexpr char SearchSortedOptions::kTypeName[];
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
+SortOptions::SortOptions(std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(std::nullopt) {}
+SortOptions::SortOptions(std::vector<SortKey> sort_keys,
+                         std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
@@ -205,6 +220,7 @@ SortOptions::SortOptions(const Ordering& ordering)
       sort_keys(ordering.sort_keys()),
       null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
     : FunctionOptions(internal::kPartitionNthOptionsType),
@@ -233,20 +249,29 @@ CumulativeOptions::CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nu
       skip_nulls(skip_nulls) {}
 constexpr char CumulativeOptions::kTypeName[];
 
-RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
+ARROW_SUPPRESS_DEPRECATION_WARNING
+RankOptions::RankOptions(std::vector<SortKey> sort_keys,
+                         std::optional<NullPlacement> null_placement,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement),
       tiebreaker(tiebreaker) {}
+RankOptions::RankOptions(std::vector<SortKey> sort_keys,
+                         RankOptions::Tiebreaker tiebreaker)
+    : FunctionOptions(internal::kRankOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(std::nullopt),
+      tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
 RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
-                                         NullPlacement null_placement)
+                                         std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kRankQuantileOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
 constexpr char RankQuantileOptions::kTypeName[];
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
@@ -274,6 +299,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kDictionaryEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSearchSortedOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
@@ -315,6 +341,11 @@ Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
   return result.make_array();
 }
 
+Result<Datum> SearchSorted(const Datum& values, const Datum& needles,
+                           const SearchSortedOptions& options, ExecContext* ctx) {
+  return CallFunction("search_sorted", {values, needles}, &options, ctx);
+}
+
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx) {
   return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
@@ -347,7 +378,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            const ArraySortOptions& array_options,
                                            ExecContext* ctx) {
-  SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
+  SortOptions options({SortKey("", array_options.order, array_options.null_placement)});
   ARROW_ASSIGN_OR_RAISE(
       Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
   return result.make_array();

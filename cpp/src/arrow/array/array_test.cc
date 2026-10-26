@@ -50,6 +50,7 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_compat.h"
@@ -1218,6 +1219,67 @@ TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
   ASSERT_EQ(arr.data()->null_count, 0);
 }
 
+TEST(TestPrimitiveArray, ToTensor) {
+  const std::vector<int64_t> shape = {5};
+  const std::vector<int64_t> strides = {sizeof(int32_t)};
+
+  auto array = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]");
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(int32(), tensor->type());
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(strides, tensor->strides());
+  EXPECT_TRUE(tensor->is_contiguous());
+  EXPECT_TRUE(
+      TensorFromJSON(int32(), "[1, 2, 3, 4, 5]", shape, strides)->Equals(*tensor));
+}
+
+TEST(TestPrimitiveArray, ToTensorSliced) {
+  const std::vector<int64_t> shape = {3};
+  const std::vector<int64_t> strides = {sizeof(int64_t)};
+
+  auto array = ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]")->Slice(2);
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_TRUE(TensorFromJSON(int64(), "[3, 4, 5]", shape, strides)->Equals(*tensor));
+}
+
+TEST(TestPrimitiveArray, ZeroLength) {
+  Int64Builder builder;
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(int64(), tensor->type());
+  EXPECT_EQ(std::vector<int64_t>{0}, tensor->shape());
+  EXPECT_EQ(std::vector<int64_t>{sizeof(int64_t)}, tensor->strides());
+}
+
+TEST(TestPrimitiveArray, ToTensorNulls) {
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  auto array = ArrayFromJSON(int32(), "[1, null, 3]");
+
+  // Default behaviour is to not allow nulls
+  ASSERT_RAISES(Invalid, array->ToTensor());
+
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor(/* allow_nulls= */ true));
+  ASSERT_OK(tensor->Validate());
+  ASSERT_EQ(tensor->Value<Int32Type>({0}), 1);
+  ASSERT_EQ(tensor->Value<Int32Type>({2}), 3);
+  EXPECT_EQ(std::vector<int64_t>{3}, tensor->shape());
+}
+
+TEST(TestPrimitiveArray, ToTensorUnsupportedType) {
+  auto array = ArrayFromJSON(date32(), "[1, 2, 3]");
+  ASSERT_RAISES(TypeError, array->ToTensor());
+  ASSERT_RAISES(TypeError, ArrayFromJSON(utf8(), R"(["a"])")->ToTensor());
+}
+
 class TestBuilder : public ::testing::Test {
  protected:
   MemoryPool* pool_ = default_memory_pool();
@@ -2199,11 +2261,19 @@ void CheckFloatApproxEqualsWithAtol() {
   auto options = EqualOptions::Defaults().atol(0.2);
 
   ASSERT_FALSE(a->Equals(b));
+  ASSERT_TRUE(a->Equals(b, options));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_FALSE(a->Equals(b, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(a->ApproxEquals(b, options));
 
-  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options));
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b));
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
 }
 
@@ -2413,6 +2483,42 @@ void CheckFloatingZeroEquality() {
   }
 }
 
+template <typename TYPE>
+void CheckFloatApproxEqualsWithUlpDistance() {
+  using CType =
+      std::conditional_t<is_half_float_type<TYPE>::value, Float16, typename TYPE::c_type>;
+  auto type = TypeTraits<TYPE>::type_singleton();
+  std::vector<CType> a, b;
+  a = {CType(NAN), CType(+0.0), CType(INFINITY)};
+  b = {CType(NAN), CType(-0.0), CType(INFINITY)};
+  if constexpr (is_half_float_type<TYPE>::value) {
+    a.push_back(Float16(1.00097656));
+    b.push_back(Float16(0.999511719f));
+  } else if constexpr (std::is_same_v<TYPE, DoubleType>) {
+    a.push_back(CType(0.9999999999999999));
+    b.push_back(CType(1.0000000000000002));
+  } else if constexpr (std::is_same_v<TYPE, FloatType>) {
+    a.push_back(CType(1.0000001f));
+    b.push_back(CType(0.99999994f));
+  }
+
+  std::shared_ptr<Array> array_a, array_b;
+  ArrayFromVector<TYPE>(type, a, &array_a);
+  ArrayFromVector<TYPE>(type, b, &array_b);
+  auto options = EqualOptions::Defaults().ulp_distance(2);
+
+  // Check with NaN
+  ASSERT_FALSE(array_a->Equals(array_b, options));
+  ASSERT_TRUE(array_a->Equals(array_b, options.nans_equal(true)));
+
+  // Check With Signed Zero
+  ASSERT_FALSE(
+      array_a->Equals(array_b, options.nans_equal(true).signed_zeros_equal(false)));
+
+  // Check with Ulp Distance
+  ASSERT_FALSE(array_a->Equals(array_b, options.nans_equal(true).ulp_distance(1)));
+}
+
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
@@ -2444,6 +2550,12 @@ TEST(TestPrimitiveAdHoc, FloatingZeroEquality) {
   CheckFloatingZeroEquality<FloatType>();
   CheckFloatingZeroEquality<DoubleType>();
   CheckFloatingZeroEquality<HalfFloatType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingUlpDistanceEquality) {
+  CheckFloatApproxEqualsWithUlpDistance<HalfFloatType>();
+  CheckFloatApproxEqualsWithUlpDistance<FloatType>();
+  CheckFloatApproxEqualsWithUlpDistance<DoubleType>();
 }
 
 // ----------------------------------------------------------------------
@@ -3208,6 +3320,21 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendEmptyValue) {
   ASSERT_OK(result_->ValidateFull());
   // NOTE: The fact that we get 0 is really an implementation detail
   AssertArraysEqual(*result_, *ArrayFromJSON(uint8(), "[null, null, 0, 42, 0, 0]"));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestAppendValuesAfterAppend) {
+  ASSERT_OK(builder_->Append(1));
+  ASSERT_OK(builder_->Append(2));
+  ASSERT_OK(builder_->Append(3));
+  ASSERT_OK(builder_->Append(4));
+  std::vector<uint64_t> values{5, 6, 7, 8};
+  ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+  Done();
+  ASSERT_OK(result_->ValidateFull());
+
+  std::shared_ptr<Array> expected;
+  ArrayFromVector<UInt8Type>({1, 2, 3, 4, 5, 6, 7, 8}, &expected);
+  AssertArraysEqual(*expected, *result_);
 }
 
 TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {

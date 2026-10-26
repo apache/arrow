@@ -24,6 +24,7 @@
 #include "arrow/compute/ordering.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace compute {
@@ -102,10 +103,36 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
+class ARROW_EXPORT SearchSortedOptions : public FunctionOptions {
+ public:
+  enum Side {
+    Left,
+    Right,
+  };
+
+  explicit SearchSortedOptions(Side side = Side::Left);
+  static constexpr const char kTypeName[] = "SearchSortedOptions";
+  static SearchSortedOptions Defaults() { return SearchSortedOptions(); }
+
+  /// Whether to return the leftmost or rightmost insertion point.
+  Side side;
+};
+
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  explicit SortOptions(std::vector<SortKey> sort_keys = {},
-                       NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit SortOptions(std::vector<SortKey> sort_keys = {});
+
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  SortOptions(SortOptions&&) = default;
+  SortOptions(const SortOptions&) = default;
+  SortOptions& operator=(SortOptions&&) = default;
+  SortOptions& operator=(const SortOptions&) = default;
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  explicit SortOptions(std::vector<SortKey> sort_keys,
+                       std::optional<NullPlacement> null_placement);
+
   explicit SortOptions(const Ordering& ordering);
   static constexpr const char kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
@@ -114,13 +141,32 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Note: Both classes contain the exact same information.  However,
   /// sort_options should only be used in a "function options" context while Ordering
   /// is used more generally.
-  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
-  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
+  Ordering AsOrdering() && { return Ordering{std::move(sort_keys)}; }
+  Ordering AsOrdering() const& { return Ordering{sort_keys}; }
+
+  /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  std::vector<SortKey> GetSortKeys() const {
+    if (!null_placement.has_value()) {
+      return sort_keys;
+    }
+    auto overwritten_sort_keys = sort_keys;
+    for (auto& sort_key : overwritten_sort_keys) {
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(Deprecated in arrow 25.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
 };
 
 /// \brief SelectK options
@@ -152,6 +198,11 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
     return SelectKOptions{k, keys};
   }
 
+  /// Get sort_keys
+  /// will be removed after null_placement has been removed from other
+  /// SortOptions-like structs
+  std::vector<SortKey> GetSortKeys() const { return sort_keys; }
+
   /// The number of `k` elements to keep.
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
@@ -175,22 +226,48 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
-  explicit RankOptions(std::vector<SortKey> sort_keys = {},
-                       NullPlacement null_placement = NullPlacement::AtEnd,
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  explicit RankOptions(std::vector<SortKey> sort_keys,
+                       std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
-  explicit RankOptions(SortOrder order,
-                       NullPlacement null_placement = NullPlacement::AtEnd,
+  explicit RankOptions(SortOrder order, NullPlacement null_placement,
                        Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+      : RankOptions({SortKey("", order, null_placement)}, tiebreaker) {}
+
+  explicit RankOptions(std::vector<SortKey> sort_keys = {},
+                       Tiebreaker tiebreaker = RankOptions::First);
+
+  /// Convenience constructor for array inputs
+  explicit RankOptions(SortOrder order, Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions({SortKey("", order)}, tiebreaker) {}
 
   static constexpr const char kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
+  std::vector<SortKey> GetSortKeys() const {
+    if (!null_placement.has_value()) {
+      return sort_keys;
+    }
+    auto overwritten_sort_keys = sort_keys;
+    for (auto& sort_key : overwritten_sort_keys) {
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
 };
@@ -198,20 +275,41 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
 /// \brief Quantile rank options
 class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
  public:
-  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
-                               NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit RankQuantileOptions(
+      std::vector<SortKey> sort_keys = {},
+      std::optional<NullPlacement> null_placement = std::nullopt);
+
   /// Convenience constructor for array inputs
   explicit RankQuantileOptions(SortOrder order,
-                               NullPlacement null_placement = NullPlacement::AtEnd)
+                               std::optional<NullPlacement> null_placement = std::nullopt)
       : RankQuantileOptions({SortKey("", order)}, null_placement) {}
 
   static constexpr const char kTypeName[] = "RankQuantileOptions";
   static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
 
+  /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  std::vector<SortKey> GetSortKeys() const {
+    if (!null_placement.has_value()) {
+      return sort_keys;
+    }
+    auto overwritten_sort_keys = sort_keys;
+    for (auto& sort_key : overwritten_sort_keys) {
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
 };
 
 /// \brief Partitioning options for NthToIndices
@@ -514,6 +612,29 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
                                                const SelectKOptions& options,
                                                ExecContext* ctx = NULLPTR);
+
+/// \brief Find insertion indices that preserve sorted order.
+///
+/// The `values` datum must be a plain array, chunked array, or run-end encoded
+/// array (including chunked run-end encoded) sorted in ascending order.
+/// `needles` may be a scalar, plain array, chunked array, or run-end encoded
+/// array (including chunked run-end encoded) whose logical value type matches
+/// `values`.
+///
+/// Nulls in `values` are supported when clustered entirely at the start or the
+/// end of the sorted array. Non-null needles are matched only against the
+/// non-null portion of `values`. Null needles yield null outputs.
+///
+/// \param[in] values sorted array to search within
+/// \param[in] needles scalar or array-like values to search for
+/// \param[in] options selects left or right insertion semantics
+/// \param[in] ctx the function execution context, optional
+/// \return insertion indices as uint64 scalar or array
+ARROW_EXPORT
+Result<Datum> SearchSorted(
+    const Datum& values, const Datum& needles,
+    const SearchSortedOptions& options = SearchSortedOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Return the indices that would sort an array.
 ///

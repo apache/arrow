@@ -17,14 +17,11 @@
 
 ARG repo
 ARG arch
-FROM ${repo}:${arch}-conda
+ARG arch_short
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
-
-# Unless overridden use Python 3.10
-# Google GCS fails building with Python 3.11 at the moment.
-ARG python=3.10
 
 # install the required conda packages into the test environment
 # use `mold` to work around issues with GNU `ld` (GH-47015).
@@ -38,7 +35,6 @@ RUN mamba install -q -y \
         doxygen \
         libnuma \
         mold \
-        python=${python} \
         valgrind && \
     mamba clean --all --yes
 
@@ -72,7 +68,6 @@ ENV ARROW_ACERO=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
-    ARROW_S3_MODULE=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_MOLD=ON \

@@ -849,3 +849,47 @@ def test_internal_class_instantiation():
 
     with pytest.raises(TypeError, match=msg("FileMetaData")):
         pq.FileMetaData()
+
+
+def test_read_schema_uuid_extension_type(tmp_path):
+    # These are the raw 16-byte payloads for
+    # UUID("e460f970-8351-474e-ac7f-a4673e4ba8cb").bytes and
+    # UUID("1e741495-eed5-43ea-9bd7-73dc91424baf").bytes.
+    data = [
+        b'\xe4`\xf9p\x83QGN\xac\x7f\xa4g>K\xa8\xcb',
+        b'\x1et\x14\x95\xee\xd5C\xea\x9b\xd7s\xdc\x91BK\xaf',
+        None,
+    ]
+    table = pa.table([pa.array(data, type=pa.uuid())], names=["ext"])
+
+    file_path = tmp_path / "uuid.parquet"
+    file_path_str = str(file_path)
+    pq.write_table(table, file_path_str, store_schema=False)
+
+    schema_default = pq.read_schema(file_path_str)
+    assert schema_default.field("ext").type == pa.uuid()
+
+    schema_disabled = pq.read_schema(file_path_str, arrow_extensions_enabled=False)
+    assert schema_disabled.field("ext").type == pa.binary(16)
+
+
+def test_geospatial_types(parquet_test_datadir):
+    metadata = pq.read_metadata(
+        parquet_test_datadir / "geospatial" / "crs-default.parquet"
+    )
+    column_schema = metadata.schema.column(1)
+    assert column_schema.name == "geometry"
+    assert column_schema.logical_type.type == "GEOMETRY"
+
+    col_chunk = metadata.row_group(0).column(1)
+    assert col_chunk.is_geo_stats_set
+    assert isinstance(col_chunk.geo_statistics, pa._parquet.GeoStatistics)
+    assert isinstance(col_chunk.geo_statistics.geospatial_types, list)
+    assert isinstance(col_chunk.geo_statistics.xmin, float)
+
+    metadata = pq.read_metadata(
+        parquet_test_datadir / "geospatial" / "crs-geography.parquet"
+    )
+    column_schema = metadata.schema.column(1)
+    assert column_schema.name == "geography"
+    assert column_schema.logical_type.type == "GEOGRAPHY"

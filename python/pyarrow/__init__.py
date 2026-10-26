@@ -108,6 +108,17 @@ def _filesystem_is_available(fs):
         return True
 
 
+def have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
+    try:
+        from pyarrow._hdfs import _have_libhdfs  # noqa
+        return _have_libhdfs()
+    except ImportError:
+        return False
+
+
 def show_info():
     """
     Print detailed version and platform information, for error reporting
@@ -145,7 +156,10 @@ def show_info():
         print(f"  {fs: <20}: {status: <8}")
 
     print("\nCompression Codecs:")
-    codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
+    # "lz4" is an alias for "lz4_frame", so the list used to name the same
+    # codec twice and leave out lz4_raw. See _ensure_compression().
+    codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4_raw", "snappy",
+              "zstd"]
     for codec in codecs:
         status = "Enabled" if Codec.is_available(codec) else "-"
         print(f"  {codec: <20}: {status: <8}")
@@ -258,8 +272,7 @@ from pyarrow.lib import (NativeFile, PythonFile,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, MockOutputStream,
-                         input_stream, output_stream,
-                         have_libhdfs)
+                         input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables, TableGroupBy,

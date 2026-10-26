@@ -20,7 +20,7 @@
 # See: https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
 
 ARG arch=amd64
-FROM ${arch}/fedora:42
+FROM --platform=linux/${arch} fedora:42
 
 # Install build dependencies
 RUN dnf update -y && \

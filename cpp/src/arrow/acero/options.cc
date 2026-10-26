@@ -18,6 +18,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
@@ -61,6 +62,17 @@ ExecBatchIteratorMaker VecToItMaker(std::vector<ExecBatch> batches) {
       [batches_ptr = std::move(batches_ptr)] { return MakeVectorIterator(*batches_ptr); };
 }
 }  // namespace
+
+PivotLongerRowTemplate::PivotLongerRowTemplate(
+    std::vector<std::string> feature_values,
+    std::vector<std::optional<FieldRef>> measurement_values)
+    : measurement_values(std::move(measurement_values)) {
+  this->feature_values.reserve(feature_values.size());
+  for (auto& feature_value : feature_values) {
+    this->feature_values.push_back(
+        std::make_shared<StringScalar>(std::move(feature_value)));
+  }
+}
 
 ExecBatchSourceNodeOptions::ExecBatchSourceNodeOptions(
     std::shared_ptr<Schema> schema, std::vector<ExecBatch> batches,

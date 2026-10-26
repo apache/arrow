@@ -951,6 +951,36 @@ TEST(TestCountKernel, RunEndEncodedNulls) {
   ValidateCount(*array->Slice(3, 6), {3, 3});
 }
 
+TEST(TestCountKernel, SparseUnionSlicedNulls) {
+  // GH-50113: Sliced unions can report incorrect null counts in count.
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1, 1]");
+  ArrayVector children = {
+      ArrayFromJSON(float64(), "[0.5, 99.0, null, 3.0, 88.0, 77.0]"),
+      ArrayFromJSON(boolean(), "[false, null, true, false, true, false]")};
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       SparseUnionArray::Make(*type_ids, std::move(children)));
+
+  // Logical array: [0.5, null, null, 3.0, true, false].
+  ValidateCount(*array, {4, 2});
+  // Logical slice: [null, null, 3.0, true].
+  ValidateCount(*array->Slice(1, 4), {2, 2});
+}
+
+TEST(TestCountKernel, DenseUnionSlicedNulls) {
+  // GH-50113: Sliced unions can report incorrect null counts in count.
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1, 1]");
+  auto value_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1, 2]");
+  ArrayVector children = {ArrayFromJSON(float64(), "[0.5, null, 3.0]"),
+                          ArrayFromJSON(boolean(), "[null, true, false]")};
+  ASSERT_OK_AND_ASSIGN(
+      auto array, DenseUnionArray::Make(*type_ids, *value_offsets, std::move(children)));
+
+  // Logical array: [0.5, null, null, 3.0, true, false].
+  ValidateCount(*array, {4, 2});
+  // Logical slice: [null, null, 3.0, true].
+  ValidateCount(*array->Slice(1, 4), {2, 2});
+}
+
 template <typename ArrowType>
 class TestRandomNumericCountKernel : public ::testing::Test {};
 
@@ -4730,6 +4760,40 @@ TEST_F(TestPivotKernel, ScalarValue) {
   auto expected = ScalarFromJSON(expected_type, "[11.5, 11.5]");
   AssertPivot(keys, values, *expected,
               PivotWiderOptions(/*key_names=*/{"height", "width"}));
+}
+
+TEST_F(TestPivotKernel, NonMonotonicGroupId) {
+  // Hard-coded test for GH-48679: FastGrouperImpl can yield non-mononotonic group ids
+  // and the pivot_wider implementation has to account for that.
+
+  // NOTE The precise keys to trigger this situation rely on implementation details
+  // of FastGrouperImpl. Any internal change might lead to this test not exercising
+  // the desired situation anymore.
+  // (see similar test in hash_aggregate_test.cc)
+
+  auto key_type = utf8();
+  auto value_type = int16();
+  auto keys = ArrayFromJSON(key_type, R"(["m", "n", "o"])");
+  auto values = ArrayFromJSON(value_type, "[10, 11, 12]");
+  auto expected = ScalarFromJSON(
+      struct_({field("m", value_type), field("n", value_type), field("o", value_type)}),
+      "[10, 11, 12]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"m", "n", "o"}));
+}
+
+TEST_F(TestPivotKernel, NonMonotonicGroupIdWithScalarKey) {
+  // Like NonMonotonicGroupId, but with a scalar key.
+  // Even with a single key in the data, the presence of several keys in key_names
+  // can still trigger the issue.
+  auto key_type = utf8();
+  auto value_type = int16();
+
+  auto keys = ScalarFromJSON(key_type, R"("o")");
+  auto values = ArrayFromJSON(value_type, "[null, 11, null]");
+  auto expected = ScalarFromJSON(
+      struct_({field("m", value_type), field("n", value_type), field("o", value_type)}),
+      "[null, null, 11]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"m", "n", "o"}));
 }
 
 TEST_F(TestPivotKernel, EmptyInput) {

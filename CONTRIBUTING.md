@@ -25,7 +25,8 @@ The Arrow project uses GitHub as a bug tracker.  To report a bug, sign in to
 your GitHub account, navigate to [GitHub issues](https://github.com/apache/arrow/issues)
 and click on **New issue** .
 
-To be assigned to an issue, add a comment "take" to that issue.
+To be assigned to an issue, leave a comment on that issue saying you would
+like to work on it, and a committer or collaborator will assign it to you.
 
 Before you create a new bug entry, we recommend you first search among existing
 Arrow issues in
@@ -63,6 +64,11 @@ publicly on the [arrow-dev mailing-list](https://mail-archives.apache.org/mod_mb
 ## Do you have questions about the source code, the build procedure or the development process?
 
 You can also ask on the mailing-list, see above.
+
+## Are you using AI coding tools?
+
+Please review our [AI-generated code guidance](https://arrow.apache.org/docs/dev/developers/overview.html#ai-generated-code)
+before submitting AI-assisted contributions.
 
 ## Further information
 

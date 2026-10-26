@@ -26,8 +26,8 @@
 #' `FileFormat$create()` takes the following arguments:
 #' * `format`: A string identifier of the file format. Currently supported values:
 #'   * "parquet"
-#'   * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-#'     only version 2 files are supported
+#'   * "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+#'     this is deprecated)
 #'   * "csv"/"text", aliases for the same thing (because comma is the default
 #'     delimiter for text files
 #'   * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
@@ -86,7 +86,11 @@ FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) {
-    # These are aliases for the same thing
+    if (format == "feather") {
+      .Deprecated(
+        msg = '`format = "feather"` is deprecated; use `format = "ipc"` instead.'
+      )
+    }
     dataset___IpcFileFormat__Make()
   } else if (format == "json") {
     JsonFileFormat$create(...)
@@ -97,9 +101,7 @@ FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
 
 #' @export
 as.character.FileFormat <- function(x, ...) {
-  out <- x$type
-  # Slight hack: special case IPC -> feather, otherwise is just the type_name
-  ifelse(out == "ipc", "feather", out)
+  x$type
 }
 
 #' @usage NULL
@@ -142,7 +144,6 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname JsonFileFormat
 #' @name JsonFileFormat
 #' @seealso [FileFormat]
-#' @examplesIf arrow_with_dataset()
 #'
 #' @export
 JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
@@ -231,6 +232,12 @@ check_csv_file_format_args <- function(args, partitioning = NULL) {
     args$read_options <- list(col_names = args$col_names)
   }
 
+  if (!is.null(args$convert_options) && !is.null(args$timestamp_parsers)) {
+    rlang::warn(c(
+      "`timestamp_parsers` is ignored when `convert_options` is supplied.",
+      i = "Pass it via `csv_convert_options(timestamp_parsers = ...)` instead."
+    ))
+  }
   if (is.null(args$convert_options)) {
     options$convert_options <- do.call(csv_file_format_convert_opts, c(args, list(read_options = options$read_options)))
   } else if (is.list(args$convert_options)) {
@@ -427,7 +434,11 @@ csv_file_format_parse_opts <- function(...) {
     # Catch cases when the user specifies a mix of Arrow C++ options and
     # readr-style options
     if (!all(is_readr_opt)) {
-      stop("Use either Arrow parse options or readr parse options, not both", call. = FALSE)
+      abort(c(
+        "CSV parse options must be either Arrow-style or readr-style, not both.",
+        i = sprintf("Arrow options used: %s.", oxford_paste(opt_names[is_arrow_opt])),
+        i = sprintf("readr options used: %s.", oxford_paste(opt_names[is_readr_opt]))
+      ))
     }
     do.call(readr_to_csv_parse_options, opts) # all options have readr-style names
   } else {

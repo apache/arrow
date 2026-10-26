@@ -32,6 +32,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
+    ccache \
     clang \
     cmake \
     curl \
@@ -40,7 +41,6 @@ RUN \
     gi-docgen \
     git \
     libboost-filesystem-dev \
-    libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
     libc-ares-dev \
@@ -59,10 +59,13 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libthrift-dev \
+    liburiparser-dev \
     libutf8proc-dev \
+    libxml2-dev \
     libxxhash-dev \
     libzstd-dev \
     llvm-dev \
+    locales-all \
     lsb-release \
     meson \
     mold \
@@ -77,6 +80,8 @@ RUN \
     tzdata \
     valac \
     zlib1g-dev && \
+  # Ensure updating symlinks in /usr/lib/ccache/
+  update-ccache-symlinks && \
   if apt list | grep -q '^libcuda1'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   else \

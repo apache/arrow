@@ -781,7 +781,9 @@ GArrowFeatherFileReader *
 garrow_feather_file_reader_new(GArrowSeekableInputStream *file, GError **error)
 {
   auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(file);
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   auto reader = arrow::ipc::feather::Reader::Open(arrow_random_access_file);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   if (garrow::check(error, reader, "[feather-file-reader][new]")) {
     return garrow_feather_file_reader_new_raw(&(*reader));
   } else {

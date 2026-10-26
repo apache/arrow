@@ -235,7 +235,7 @@ TEST(TestTensor, MakeFailureCases) {
   ASSERT_RAISES(Invalid, Tensor::Make(nullptr, data, shape));
 
   // invalid type
-  ASSERT_RAISES(Invalid, Tensor::Make(binary(), data, shape));
+  ASSERT_RAISES(TypeError, Tensor::Make(binary(), data, shape));
 
   // null data
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), nullptr, shape));
@@ -267,6 +267,9 @@ TEST(TestTensor, MakeFailureCases) {
                                       {sizeof(double) * 6, sizeof(double) * 2}));
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
                                       {sizeof(double) * 12, sizeof(double)}));
+
+  // row-major (implicit strides) shape larger than the backing buffer
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {3, 100}));
 
   // too many dim_names are supplied
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {}, {"foo", "bar", "baz"}));

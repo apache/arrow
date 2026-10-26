@@ -59,28 +59,41 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def install/versioninfo.rc)
 endif()
 
-# On Windows, dynmaic build for ODBC is supported.
-# On unix systems, static build for ODBC is supported, all libraries are linked statically on unix.
-set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES "")
+# Initialize install interface libs (only set in Windows static build)
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
+
 if(WIN32)
-  set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES arrow_flight_sql)
-  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared arrow_odbc_spi_impl)
-  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
-       ArrowFlight::arrow_flight_sql_shared)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
-       ArrowFlight::arrow_flight_sql_static)
+  if(ARROW_BUILD_STATIC)
+    # Static Arrow deps on Windows — self-contained ODBC DLL
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static
+                                               arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+  else()
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
+                                               arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_shared)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+  endif()
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
 else()
-  # Unix
+  # Unix/macOS: driver dynamically links arrow_flight_sql so the driver and test
+  # binary share the same grpc/arrow_flight runtime.
   set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
   set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
 endif()
 
 add_arrow_lib(arrow_flight_sql_odbc
+              BUILD_SHARED
+              ON
               CMAKE_PACKAGE_NAME
               ArrowFlightSqlOdbc
               PKG_CONFIG_NAME
@@ -91,8 +104,6 @@ add_arrow_lib(arrow_flight_sql_odbc
               ${ARROW_FLIGHT_SQL_ODBC_SRCS}
               DEFINITIONS
               UNICODE
-              DEPENDENCIES
-              ${ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
@@ -109,6 +120,25 @@ add_arrow_lib(arrow_flight_sql_odbc
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)
 endforeach()
+
+if(NOT WIN32)
+  if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(ARROW_FLIGHT_SQL_ODBC_SO "${CMAKE_INSTALL_LIBDIR}")
+  else()
+    set(ARROW_FLIGHT_SQL_ODBC_SO "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+  endif()
+  string(APPEND ARROW_FLIGHT_SQL_ODBC_SO
+         "/$<TARGET_FILE_NAME:arrow_flight_sql_odbc_shared>")
+  # Expand only @...@. $<...> aren't expanded.
+  configure_file("arrow-flight-sql-odbc-template.ini.in"
+                 "arrow-flight-sql-odbc-template.ini.generate.in" @ONLY)
+  # Expand only $<...>.
+  file(GENERATE
+       OUTPUT "$<CONFIG>/arrow-flight-sql-odbc-template.ini"
+       INPUT "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight-sql-odbc-template.ini.generate.in")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/arrow-flight-sql-odbc-template.ini"
+          DESTINATION "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/flight/sql/odbc")
+endif()
 
 # Construct ODBC Windows installer. Only Release installer is supported
 if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
@@ -130,15 +160,10 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   set(CPACK_PACKAGE_CONTACT "dev@arrow.apache.org")
 
   if(WIN32)
-    # Install ODBC and its Arrow dependencies
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
             DESTINATION bin
             COMPONENT ArrowFlightSQLODBC)
-    install(TARGETS arrow_shared
-                    arrow_compute_shared
-                    arrow_flight_shared
-                    arrow_flight_sql_shared
-                    arrow_flight_sql_odbc_shared
+    install(TARGETS arrow_flight_sql_odbc_shared
                     RUNTIME_DEPENDENCIES
                     PRE_EXCLUDE_REGEXES
                     "api-ms-.*"
@@ -154,6 +179,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
     set(CPACK_WIX_UI_BANNER
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-wix-banner.bmp")
+    set(ODBC_DOC_INSTALL_DIR "doc")
   else()
     if(APPLE)
       set(CPACK_PACKAGE_FILE_NAME
@@ -172,13 +198,8 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
       set(ODBC_INSTALL_DIR "arrow-odbc/lib")
       set(ODBC_DOC_INSTALL_DIR "arrow-odbc/doc")
-    else()
-      # Linux
-      # GH-49595: TODO implement DEB installer
-      # GH-47977: TODO implement RPM installer
-      message(STATUS "ODBC_PACKAGE_FORMAT DEB not implemented, see GH-49595")
-      message(STATUS "ODBC_PACKAGE_FORMAT RPM not implemented, see GH-47977")
     endif()
+    # GH-49595: TODO implement DEB installer under `linux-packages`
 
     # Install ODBC
     install(TARGETS arrow_flight_sql_odbc_shared
@@ -206,14 +227,14 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
                         GROUP_READ
                         WORLD_EXECUTE
                         WORLD_READ)
-
-    # Install documentation files
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
-                  "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../NOTICE.txt"
-                  "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
-            DESTINATION "${ODBC_DOC_INSTALL_DIR}"
-            COMPONENT Docs)
   endif()
+
+  # Install documentation files
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../NOTICE.txt"
+                "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
+          DESTINATION "${ODBC_DOC_INSTALL_DIR}"
+          COMPONENT Docs)
 
   get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
   set(CPACK_COMPONENTS_ALL "ArrowFlightSQLODBC" "Docs")
@@ -231,10 +252,12 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
     # macOS and Linux
     set(CPACK_GENERATOR "productbuild")
   endif()
-  # GH-47877 TODO: create Linux Installer using cpack
 
   # Load CPack after all CPACK* variables are set
   include(CPack)
+  # The component name is part of the CPack file ID referenced in
+  # install/windows/arrow-flight-sql-odbc.wxs (CM_FP_ArrowFlightSQLODBC.*).
+  # Update the .wxs if it is renamed.
   cpack_add_component(ArrowFlightSQLODBC
                       DISPLAY_NAME "ODBC library"
                       DESCRIPTION "Apache Arrow Flight SQL ODBC library bin, required to install"

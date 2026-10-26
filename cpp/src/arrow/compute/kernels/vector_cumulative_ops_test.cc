@@ -949,5 +949,34 @@ TEST(TestCumulative, NaN) {
   CheckVectorUnary("cumulative_mean", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
                    ArrayFromJSON(float64(), "[5, 4.5, NaN, NaN, NaN]"));
 }
+
+TEST(TestCumulative, NegativeValues) {
+  // GH-51194: the default start for cumulative_max was initialized with
+  // std::numeric_limits<T>::min(), which is the smallest positive value for
+  // floating-point types, so non-positive values never replaced the start
+  CumulativeOptions options;
+  for (auto ty : SignedIntTypes()) {
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-2, -1, -3]"),
+                     ArrayFromJSON(ty, "[-2, -1, -1]"), &options);
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[-2, -1, -3]"),
+                     ArrayFromJSON(ty, "[-2, -2, -3]"), &options);
+  }
+
+  for (auto ty : FloatingPointTypes()) {
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-2.5, 2.5]"),
+                     ArrayFromJSON(ty, "[-2.5, 2.5]"), &options);
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[-2.5, 2.5]"),
+                     ArrayFromJSON(ty, "[-2.5, -2.5]"), &options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-2.5, -1.5, -3.5, -0.5]"),
+                     ArrayFromJSON(ty, "[-2.5, -1.5, -1.5, -0.5]"), &options);
+
+    // The default start must compare lower (higher for min) than every value
+    // of the type, including infinities
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-Inf, -2.5]"),
+                     ArrayFromJSON(ty, "[-Inf, -2.5]"), &options);
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[Inf, 2.5]"),
+                     ArrayFromJSON(ty, "[Inf, 2.5]"), &options);
+  }
+}
 }  // namespace compute
 }  // namespace arrow

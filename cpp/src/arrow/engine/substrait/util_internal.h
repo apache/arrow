@@ -79,7 +79,9 @@ Result<ExtensionSet> GetExtensionSetFromMessage(
       }
 
       default:
-        Unreachable();
+        return Status::Invalid(
+            "Invalid Substrait SimpleExtensionDeclaration: mapping_type is unset or "
+            "unknown");
     }
   }
 

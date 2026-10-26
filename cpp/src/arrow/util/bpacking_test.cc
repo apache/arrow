@@ -27,7 +27,8 @@
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512) || \
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2) ||       \
+    defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512) || \
     defined(ARROW_HAVE_RUNTIME_SVE128) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  include "arrow/util/cpu_info.h"
 #endif
@@ -273,8 +274,11 @@ TYPED_TEST(TestUnpack, UnpackScalar) {
   this->TestAll(&bpacking::unpack_scalar<TypeParam>);
 }
 
-#if defined(ARROW_HAVE_SSE4_2)
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 TYPED_TEST(TestUnpack, UnpackSse4_2) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SSE4_2)) {
+    GTEST_SKIP() << "Test requires SSE4.2";
+  }
   this->TestAll(&bpacking::unpack_sse4_2<TypeParam>);
 }
 #endif
@@ -299,15 +303,6 @@ TYPED_TEST(TestUnpack, UnpackAvx512) {
 
 #if defined(ARROW_HAVE_NEON)
 TYPED_TEST(TestUnpack, UnpackNeon) { this->TestAll(&bpacking::unpack_neon<TypeParam>); }
-#endif
-
-#if defined(ARROW_HAVE_RUNTIME_SVE128)
-TYPED_TEST(TestUnpack, UnpackSve128) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE128)) {
-    GTEST_SKIP() << "Test requires SVE128";
-  }
-  this->TestAll(&bpacking::unpack_sve128<TypeParam>);
-}
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_SVE256)

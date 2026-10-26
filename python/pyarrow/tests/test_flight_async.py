@@ -21,7 +21,7 @@ import pytest
 
 import pyarrow
 
-flight = pytest.importorskip("pyarrow.flight")
+flight = pytest.importorskip("pyarrow.flight", exc_type=ImportError)
 pytestmark = pytest.mark.flight
 
 

@@ -20,6 +20,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
   include VersionDetectable
 
   def setup
+    @env = File.expand_path("dev/release/.env")
+
     @current_commit = git_current_commit
     detect_versions
 
@@ -478,6 +480,55 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     ]
     assert_equal(expected_changes,
                  parse_patch(git("log", "-n", "1", "-p")),
+                 "Output:\n#{stdout}")
+  end
+
+  def normalized_time
+    "1970-01-01 00:00:00+00:00"
+  end
+
+  def normalize_time(string)
+    string.gsub(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/) do
+      normalized_time
+    end
+  end
+
+  def test_changelog
+    omit_on_release_branch
+
+    github_token = File.read(@env)[/^GH_TOKEN=(.*)$/, 1]
+    stdout = bump_versions("CHANGELOG",
+                           # Don't process all issues for faster testing
+                           "ARCHERY_MAX_PROJECT_ISSUES" => "10",
+                           "GH_TOKEN" => github_token)
+    changes = parse_patch(git("log", "-n", "1", "-p"))
+    sampled_changes = changes.collect do |change|
+      sampled_hunks = change[:hunks].collect do |hunk|
+        first_added_line = hunk.find {|line| line.start_with?("+")}
+        first_added_line = normalize_time(first_added_line)
+        {
+          first_added_line: first_added_line,
+          first_removed_line: hunk.find {|line| line.start_with?("-")},
+        }
+      end
+      {
+        sampled_hunks: sampled_hunks,
+        path: change[:path],
+      }
+    end
+    expected_changes = [
+      {
+        sampled_hunks: [
+          {
+            first_added_line: "+# Apache Arrow #{released_version} (#{normalized_time})",
+            first_removed_line: nil,
+          },
+        ],
+        path: "CHANGELOG.md",
+      },
+    ]
+    assert_equal(expected_changes,
+                 sampled_changes,
                  "Output:\n#{stdout}")
   end
 end

@@ -124,7 +124,8 @@ TEST(TestGdvFnStubs, TestBase64Encode) {
   value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("BASE64"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("non-negative"));
   ctx.Reset();
 }
 
@@ -153,7 +154,8 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("UNBASE64"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("non-negative"));
   ctx.Reset();
 }
 
@@ -587,6 +589,10 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
                                    std::numeric_limits<int32_t>::min(), &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "a", -2, ".", -1, -50, &out_len);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(out_len, 0);
 }
 
 TEST(TestGdvFnStubs, TestUpper) {
@@ -640,6 +646,26 @@ TEST(TestGdvFnStubs, TestUpper) {
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
                   "unexpected byte \\c3 encountered while decoding utf8 string"));
+
+  ctx.Reset();
+
+  // Max Len Test
+  out_len = -1;
+  int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  const char* out = gdv_fn_upper_utf8(ctx_ptr, "dummy", bad_len, &out_len);
+  // Expect failure
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  // Negative length test
+  out_len = -1;
+  out = gdv_fn_upper_utf8(ctx_ptr, "abc", -105, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
   ctx.Reset();
 
   std::string e(
@@ -697,6 +723,26 @@ TEST(TestGdvFnStubs, TestLower) {
   out_str = gdv_fn_lower_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  // Max Len Test
+  out_len = -1;
+  int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  const char* out = gdv_fn_lower_utf8(ctx_ptr, "dummy", bad_len, &out_len);
+  // Expect failure
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  // Negative length test
+  out_len = -1;
+  out = gdv_fn_lower_utf8(ctx_ptr, "abc", -105, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
+  ctx.Reset();
 
   std::string d("AbOJjÜoß\xc3");
   out_str = gdv_fn_lower_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
@@ -794,6 +840,25 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
                   "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+
+  // Max Len Test
+  out_len = -1;
+  int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  const char* out = gdv_fn_initcap_utf8(ctx_ptr, "dummy", bad_len, &out_len);
+  // Expect failure
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  // Negative length test
+  out_len = -1;
+  out = gdv_fn_initcap_utf8(ctx_ptr, "abc", -105, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
   ctx.Reset();
 
   std::string e(
@@ -1086,6 +1151,43 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
+TEST(TestGdvFnStubs, TestMaskTruncatedUtf8NoOverread) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = -1;
+
+  // A byte > 127 routes the mask functions through the utf8proc multi-byte path.
+  // The buffer holds a complete euro sign (0xE2 0x82 0xAC) but the reported
+  // length stops one byte short, so the trailing glyph is truncated. The
+  // functions must not read the byte past data_len: utf8proc_iterate has to be
+  // told only data_len - offset bytes remain, otherwise it consumes the
+  // out-of-range continuation byte and decodes a full glyph instead of
+  // reporting the truncated input.
+  const char buf[] = {'a', static_cast<char>(0xE2), static_cast<char>(0x82),
+                      static_cast<char>(0xAC)};
+  const int32_t truncated_len = 3;  // 'a' + first two bytes of the euro sign
+
+  ctx.Reset();
+  gdv_mask_first_n_utf8_int32(ctx_ptr, buf, truncated_len, 4, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  out_len = -1;
+  ctx.Reset();
+  mask_utf8(ctx_ptr, buf, truncated_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  // gdv_mask_last_n_utf8_int32 catches the truncated glyph in its
+  // utf8proc_decompose pre-pass, so it reports the invalid input rather than
+  // reading past data_len in the iterate loop.
+  out_len = -1;
+  ctx.Reset();
+  gdv_mask_last_n_utf8_int32(ctx_ptr, buf, truncated_len, 4, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+}
+
 TEST(TestGdvFnStubs, TestTranslate) {
   gandiva::ExecutionContext ctx;
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
@@ -1127,6 +1229,39 @@ TEST(TestGdvFnStubs, TestTranslate) {
   result = translate_utf8_utf8_utf8(ctx_ptr, "987654321", 9, "123456789", 9, "0123456789",
                                     10, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
+
+  int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 4 + 1;
+  out_len = -1;
+  const unsigned char bad_in_array[] = {0x80, 0x12, 0x13, 0x14};
+  result = translate_utf8_utf8_utf8(ctx_ptr, reinterpret_cast<const char*>(bad_in_array),
+                                    bad_in_len, "B", 1, "C", 1, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(result, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+
+  // A byte > 127 selects the multi-byte path. A truncated trailing glyph (0xE2
+  // claims a 3-byte character but only one byte is present) must not be read past
+  // the end of the input; it is passed through as a single byte. Exact-sized
+  // buffers let ASAN catch any over-read here.
+  const char truncated_in[] = {'a', static_cast<char>(0xE2)};
+  result = translate_utf8_utf8_utf8(ctx_ptr, truncated_in, 2, "x", 1, "y", 1, &out_len);
+  EXPECT_EQ(std::string(truncated_in, 2), std::string(result, out_len));
+
+  // A valid multi-byte input character absent from FROM previously over-read FROM
+  // by one byte at the end-of-list sentinel.
+  const char euro[] = {static_cast<char>(0xE2), static_cast<char>(0x82),
+                       static_cast<char>(0xAC)};
+  const char from_one[] = {'a'};
+  const char to_one[] = {'b'};
+  result = translate_utf8_utf8_utf8(ctx_ptr, euro, 3, from_one, 1, to_one, 1, &out_len);
+  EXPECT_EQ(std::string(euro, 3), std::string(result, out_len));
+
+  // A truncated trailing glyph in TO (0xE2 claims a 3-byte character but only one
+  // byte is present) previously over-read TO when a matched input char mapped to it.
+  const char trunc_to[] = {static_cast<char>(0xE2)};
+  result = translate_utf8_utf8_utf8(ctx_ptr, "a", 1, "a", 1, trunc_to, 1, &out_len);
+  EXPECT_EQ(std::string(trunc_to, 1), std::string(result, out_len));
 }
 
 TEST(TestGdvFnStubs, TestToUtcTimezone) {

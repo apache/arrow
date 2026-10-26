@@ -24,6 +24,7 @@
 
 extern "C" {
 
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,7 +81,7 @@ ENUMERIC_TYPES_UNARY(LOG10, float64)
 
 FORCE_INLINE
 void set_error_for_logbase(int64_t execution_context, double base) {
-  const char* prefix = "divide by zero error with log of base";
+  const char* prefix = "LOG: divide by zero error with log of base";
   int size = static_cast<int>(strlen(prefix)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s %f", prefix, base);
@@ -251,20 +252,28 @@ static const int64_t kFactorialLookupTable[] = {1,
                                                 121645100408832000,
                                                 2432902008176640000};
 
-#define FACTORIAL(IN_TYPE)                                                          \
-  FORCE_INLINE                                                                      \
-  gdv_int64 factorial_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE value) {               \
-    if (value < 0) {                                                                \
-      gdv_fn_context_set_error_msg(ctx, "Factorial of negative number not exist!"); \
-      return 0;                                                                     \
-    }                                                                               \
-    /* For numbers greater than 20 causes an overflow. */                           \
-    if (value > 20) {                                                               \
-      gdv_fn_context_set_error_msg(ctx, "Numbers greater than 20 cause overflow!"); \
-      return 0;                                                                     \
-    }                                                                               \
-                                                                                    \
-    return kFactorialLookupTable[static_cast<int32_t>(value)];                      \
+#define FACTORIAL(IN_TYPE)                                                               \
+  FORCE_INLINE                                                                           \
+  gdv_int64 factorial_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE value) {                    \
+    if (value < 0) {                                                                     \
+      char err_msg[96];                                                                  \
+      snprintf(err_msg, sizeof(err_msg),                                                 \
+               "FACTORIAL: input must be non-negative, got %" PRId64,                    \
+               static_cast<int64_t>(value));                                             \
+      gdv_fn_context_set_error_msg(ctx, err_msg);                                        \
+      return 0;                                                                          \
+    }                                                                                    \
+    /* For numbers greater than 20 causes an overflow. */                                \
+    if (value > 20) {                                                                    \
+      char err_msg[96];                                                                  \
+      snprintf(err_msg, sizeof(err_msg),                                                 \
+               "FACTORIAL: input %" PRId64 " exceeds maximum 20 (would overflow int64)", \
+               static_cast<int64_t>(value));                                             \
+      gdv_fn_context_set_error_msg(ctx, err_msg);                                        \
+      return 0;                                                                          \
+    }                                                                                    \
+                                                                                         \
+    return kFactorialLookupTable[static_cast<int32_t>(value)];                           \
   }
 
 FACTORIAL(int32)
@@ -315,12 +324,13 @@ gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
   if (precision >= 0) {
     return number;
   }
-  gdv_int32 abs_precision = -precision;
   // This is to ensure that there is no overflow while calculating 10^precision, 9 is
-  // the smallest N for which 10^N does not fit into 32 bits, so we can safely return 0
-  if (abs_precision > 9) {
+  // the smallest N for which 10^N does not fit into 32 bits, so we can safely return 0.
+  // The bound is checked before negating because -INT32_MIN is still negative.
+  if (precision < -9) {
     return 0;
   }
+  gdv_int32 abs_precision = -precision;
   gdv_int32 num_sign = (number > 0) ? 1 : -1;
   gdv_int32 abs_number = number * num_sign;
   gdv_int32 power_of_10 = static_cast<gdv_int32>(get_power_of_10(abs_precision));
@@ -340,12 +350,13 @@ gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision) {
   if (precision >= 0) {
     return number;
   }
-  gdv_int32 abs_precision = -precision;
   // This is to ensure that there is no overflow while calculating 10^precision, 19 is
-  // the smallest N for which 10^N does not fit into 64 bits, so we can safely return 0
-  if (abs_precision > 18) {
+  // the smallest N for which 10^N does not fit into 64 bits, so we can safely return 0.
+  // The bound is checked before negating because -INT32_MIN is still negative.
+  if (precision < -18) {
     return 0;
   }
+  gdv_int32 abs_precision = -precision;
   gdv_int32 num_sign = (number > 0) ? 1 : -1;
   gdv_int64 abs_number = number * num_sign;
   gdv_int64 power_of_10 = get_power_of_10(abs_precision);

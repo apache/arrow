@@ -870,11 +870,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        offset : int, default 0
-            Offset from start of array to slice
-        length : int, default None
+        offset : int or pyarrow.Scalar, default 0
+            Offset from start of array to slice.
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of batch starting from
-            offset)
+            offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -911,6 +913,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         cdef shared_ptr[CChunkedArray] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -918,6 +921,7 @@ cdef class ChunkedArray(_PandasConvertible):
         if length is None:
             result = self.chunked_array.Slice(offset)
         else:
+            length = operator.index(length)
             result = self.chunked_array.Slice(offset, length)
 
         return pyarrow_wrap_chunked_array(result)
@@ -1122,7 +1126,7 @@ cdef class ChunkedArray(_PandasConvertible):
         self._assert_cpu()
         return _pc().drop_null(self)
 
-    def sort(self, order="ascending", **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", **kwargs):
         """
         Sort the ChunkedArray
 
@@ -1131,6 +1135,9 @@ cdef class ChunkedArray(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -1142,7 +1149,7 @@ cdef class ChunkedArray(_PandasConvertible):
         self._assert_cpu()
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            options=_pc().SortOptions(sort_keys=[("", order, null_placement)], **kwargs)
         )
         return self.take(indices)
 
@@ -2108,11 +2115,13 @@ cdef class _Tabular(_PandasConvertible):
 
         Parameters
         ----------
-        sorting : str or list[tuple(name, order)]
+        sorting : str or list[tuple(name, order, null_placement="at_end")]
             Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+            and nulls and NaNs are placed
+            at the start or at the end ("at_start" or "at_end")
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -2143,7 +2152,7 @@ cdef class _Tabular(_PandasConvertible):
         """
         self._assert_cpu()
         if isinstance(sorting, str):
-            sorting = [(sorting, "ascending")]
+            sorting = [(sorting, "ascending", "at_end")]
 
         indices = _pc().sort_indices(
             self,
@@ -3127,11 +3136,13 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        offset : int, default 0
-            Offset from start of record batch to slice
-        length : int, default None
+        offset : int or pyarrow.Scalar, default 0
+            Offset from start of record batch to slice.
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of batch starting from
-            offset)
+            offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -3167,6 +3178,7 @@ cdef class RecordBatch(_Tabular):
         """
         cdef shared_ptr[CRecordBatch] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -3174,6 +3186,7 @@ cdef class RecordBatch(_Tabular):
         if length is None:
             result = self.batch.Slice(offset)
         else:
+            length = operator.index(length)
             result = self.batch.Slice(offset, length)
 
         return pyarrow_wrap_batch(result)
@@ -3629,7 +3642,7 @@ cdef class RecordBatch(_Tabular):
         b: [10,20,30,40,null]
 
         Convert a RecordBatch to row-major Tensor with null values
-        written as NaN values
+        written as ``NaN``:
 
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
@@ -3643,7 +3656,7 @@ cdef class RecordBatch(_Tabular):
                [ 4., 40.],
                [nan, nan]])
 
-        Convert a RecordBatch to column-major Tensor
+        Convert a RecordBatch to column-major Tensor:
 
         >>> batch.to_tensor(null_to_nan=True, row_major=False)
         <pyarrow.Tensor>
@@ -3659,15 +3672,11 @@ cdef class RecordBatch(_Tabular):
         """
         self._assert_cpu()
         cdef:
-            shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CTensor] c_tensor
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
-        c_record_batch = pyarrow_unwrap_batch(self)
         with nogil:
-            c_tensor = GetResultValue(
-                <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
-                                                                             row_major, pool))
+            c_tensor = GetResultValue(self.batch.ToTensor(null_to_nan, row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def copy_to(self, destination):
@@ -4069,10 +4078,6 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         c_options.extension_columns = make_shared[unordered_set[c_string]](
             unordered_set[c_string]({tobytes(col) for col in extension_columns}))
 
-    if pandas_api.is_v1():
-        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-        c_options.coerce_temporal_nanoseconds = True
-
     if c_options.self_destruct:
         # Move the shared_ptr, table is now unsafe to use further
         c_table = move(table.sp_table)
@@ -4249,11 +4254,13 @@ cdef class Table(_Tabular):
 
         Parameters
         ----------
-        offset : int, default 0
+        offset : int or pyarrow.Scalar, default 0
             Offset from start of table to slice.
-        length : int, default None
+            Arrow scalars must be non-null integers.
+        length : int or pyarrow.Scalar, default None
             Length of slice (default is until end of table starting from
             offset).
+            Arrow scalars must be non-null integers.
 
         Returns
         -------
@@ -4295,6 +4302,7 @@ cdef class Table(_Tabular):
         """
         cdef shared_ptr[CTable] result
 
+        offset = operator.index(offset)
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
@@ -4302,6 +4310,7 @@ cdef class Table(_Tabular):
         if length is None:
             result = self.table.Slice(offset)
         else:
+            length = operator.index(length)
             result = self.table.Slice(offset, length)
 
         return pyarrow_wrap_table(result)
@@ -4915,10 +4924,13 @@ cdef class Table(_Tabular):
         if isinstance(struct_array, Array):
             return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
         else:
-            return Table.from_batches([
-                RecordBatch.from_struct_array(chunk)
-                for chunk in struct_array.chunks
-            ])
+            chunks = struct_array.chunks or [struct_array.combine_chunks()]
+            return Table.from_batches(
+                [
+                    RecordBatch.from_struct_array(chunk)
+                    for chunk in chunks
+                ]
+            )
 
     def to_struct_array(self, max_chunksize=None):
         """
@@ -4989,7 +5001,7 @@ cdef class Table(_Tabular):
         animals: string
         ----
         n_legs: [[2,4,5,100],[2,4,5,100]]
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Flamingo","Horse","Brittle stars","Centipede"]]
+        animals: [["Flamingo",...,"Centipede"],["Flamingo",...,"Centipede"]]
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
@@ -5083,6 +5095,81 @@ cdef class Table(_Tabular):
             result.append(pyarrow_wrap_batch(batch))
 
         return result
+
+    def to_tensor(self, c_bool null_to_nan=False, c_bool row_major=True, MemoryPool memory_pool=None):
+        """
+        Convert to a :class:`~pyarrow.Tensor`.
+
+        Tables that can be converted have fields of type signed or unsigned integer or float,
+        including all bit-widths.
+
+        ``null_to_nan`` is ``False`` by default and this method will raise an error in case
+        any nulls are present. Tables with nulls can be converted with ``null_to_nan`` set to
+        ``True``. In this case null values are converted to ``NaN`` and integer type arrays are
+        promoted to the appropriate float type.
+
+        Parameters
+        ----------
+        null_to_nan : bool, default False
+            Whether to write null values in the result as ``NaN``.
+        row_major : bool, default True
+            Whether resulting Tensor is row-major or column-major
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table(
+        ...    [
+        ...       pa.chunked_array([[1, 2], [3, 4, None]], type=pa.int32()),
+        ...       pa.chunked_array([[10, 20, 30], [40, None]], type=pa.float32()),
+        ...    ], names = ["a", "b"]
+        ... )
+
+        >>> table
+        pyarrow.Table
+        a: int32
+        b: float
+        ----
+        a: [[1,2],[3,4,null]]
+        b: [[10,20,30],[40,null]]
+
+        Convert a Table to row-major Tensor with null values written as ``NaN``:
+
+        >>> table.to_tensor(null_to_nan=True)
+        <pyarrow.Tensor>
+        type: double
+        shape: (5, 2)
+        strides: (16, 8)
+        >>> table.to_tensor(null_to_nan=True).to_numpy()
+        array([[ 1., 10.],
+               [ 2., 20.],
+               [ 3., 30.],
+               [ 4., 40.],
+               [nan, nan]])
+
+        Convert a Table to column-major Tensor
+
+        >>> table.to_tensor(null_to_nan=True, row_major=False)
+        <pyarrow.Tensor>
+        type: double
+        shape: (5, 2)
+        strides: (8, 40)
+        >>> table.to_tensor(null_to_nan=True, row_major=False).to_numpy()
+        array([[ 1., 10.],
+               [ 2., 20.],
+               [ 3., 30.],
+               [ 4., 40.],
+               [nan, nan]])
+        """
+        self._assert_cpu()
+        cdef:
+            shared_ptr[CTensor] c_tensor
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        with nogil:
+            c_tensor = GetResultValue(self.table.ToTensor(null_to_nan, row_major, pool))
+        return pyarrow_wrap_tensor(c_tensor)
 
     def to_reader(self, max_chunksize=None):
         """
@@ -5789,7 +5876,7 @@ cdef class Table(_Tabular):
         ...                'n_legs': [5, 100],
         ...                'animal': ["Brittle stars", "Centipede"]})
 
-        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2)
+        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2).combine_chunks()
         pyarrow.Table
         id: int64
         year: int64

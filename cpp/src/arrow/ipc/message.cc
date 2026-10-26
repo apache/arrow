@@ -102,9 +102,8 @@ class Message::MessageImpl {
 
     if (message_->custom_metadata() != nullptr) {
       // Deserialize from Flatbuffers if first time called
-      std::shared_ptr<KeyValueMetadata> md;
-      RETURN_NOT_OK(internal::GetKeyValueMetadata(message_->custom_metadata(), &md));
-      custom_metadata_ = std::move(md);  // const-ify
+      ARROW_ASSIGN_OR_RAISE(custom_metadata_,
+                            internal::GetKeyValueMetadata(message_->custom_metadata()));
     }
 
     return Status::OK();
@@ -285,17 +284,21 @@ std::string FormatMessageType(MessageType type) {
 
 namespace {
 
-Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
-                        io::RandomAccessFile* file,
+Status ReadFieldsSubset(int64_t offset, io::RandomAccessFile* file,
                         const FieldsLoaderFunction& fields_loader,
                         const std::shared_ptr<Buffer>& metadata, int64_t required_size,
                         std::shared_ptr<Buffer>& body) {
+  DCHECK_GE(static_cast<size_t>(metadata->size()), sizeof(int32_t));
+  const auto continuation = util::SafeLoadAs<int32_t>(metadata->data());
+  // Either 8 bytes (32-bit continuation indicator + 32-bit little-endian length prefix)
+  // or 4 bytes for legacy IPC without continuation indicator
+  const auto continuation_size = (continuation == internal::kIpcContinuationToken)
+                                     ? 2 * sizeof(int32_t)
+                                     : sizeof(int32_t);
+
   const flatbuf::Message* message = nullptr;
-  uint8_t continuation_metadata_size = sizeof(int32_t) + sizeof(int32_t);
-  // skip 8 bytes (32-bit continuation indicator + 32-bit little-endian length prefix)
-  RETURN_NOT_OK(internal::VerifyMessage(metadata->data() + continuation_metadata_size,
-                                        metadata->size() - continuation_metadata_size,
-                                        &message));
+  RETURN_NOT_OK(internal::VerifyMessage(metadata->data() + continuation_size,
+                                        metadata->size() - continuation_size, &message));
   auto batch = message->header_as_RecordBatch();
   if (batch == nullptr) {
     return Status::IOError(
@@ -305,14 +308,94 @@ Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
   RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
   const auto& read_ranges = io_recorded_random_access_file.GetReadRanges();
   for (const auto& range : read_ranges) {
-    auto read_result = file->ReadAt(offset + metadata_length + range.offset, range.length,
-                                    body->mutable_data() + range.offset);
+    auto read_result = file->ReadAt(offset + metadata->size() + range.offset,
+                                    range.length, body->mutable_data() + range.offset);
     if (!read_result.ok()) {
       return Status::IOError("Failed to read message body, error ",
                              read_result.status().ToString());
     }
   }
   return Status::OK();
+}
+
+struct ReadMessageState {
+  std::unique_ptr<Message> result;
+  std::shared_ptr<MessageDecoderListener> listener;
+  std::shared_ptr<MessageDecoder> decoder;
+
+  ReadMessageState()
+      : listener(std::make_shared<AssignMessageDecoderListener>(&result)),
+        decoder(std::make_shared<MessageDecoder>(listener)) {}
+
+  // ReadMessageState points into itself, so it shouldn't be moved
+  ReadMessageState(ReadMessageState&&) = delete;
+  ReadMessageState& operator=(ReadMessageState&&) = delete;
+};
+
+// A common continuation callback for ReadMessage and ReadMessageAsync overloads
+static Result<std::unique_ptr<Message>> ReadMessageContinued(
+    int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
+    std::shared_ptr<Buffer> metadata, io::RandomAccessFile* file,
+    const FieldsLoaderFunction& fields_loader, ReadMessageState* state) {
+  MessageDecoder* decoder = state->decoder.get();
+  if (body_length.has_value()) {
+    // If body length was known, the given buffer should contain exactly the metadata
+    // followed by the body.
+    DCHECK_EQ(metadata->size(), metadata_length + *body_length);
+  }
+  ARROW_RETURN_NOT_OK(decoder->Consume(SliceBuffer(metadata, 0, metadata_length)));
+  if (decoder->buffered_size() > 0) {
+    return Status::Invalid("Message metadata too long by ", decoder->buffered_size(),
+                           " bytes");
+  }
+  switch (decoder->state()) {
+    case MessageDecoder::State::INITIAL:
+      return std::move(state->result);
+    case MessageDecoder::State::METADATA_LENGTH:
+      return Status::Invalid("metadata length is missing. File offset: ", offset,
+                             ", metadata length: ", metadata_length);
+    case MessageDecoder::State::METADATA:
+      return Status::Invalid("flatbuffer size ", decoder->next_required_size(),
+                             " invalid. File offset: ", offset,
+                             ", metadata length: ", metadata_length);
+    case MessageDecoder::State::BODY: {
+      std::shared_ptr<Buffer> body;
+      if (fields_loader) {
+        // Selective field loading: allocate a body buffer and read only the
+        // requested field ranges into it.
+        DCHECK_NE(file, nullptr);
+        ARROW_ASSIGN_OR_RAISE(
+            body, AllocateBuffer(decoder->next_required_size(), default_memory_pool()));
+        RETURN_NOT_OK(ReadFieldsSubset(offset, file, fields_loader,
+                                       SliceBuffer(metadata, 0, metadata_length),
+                                       decoder->next_required_size(), body));
+      } else if (body_length.has_value()) {
+        // Body was already read as part of the combined IO; just slice it out.
+        if (*body_length != decoder->next_required_size()) {
+          // The streaming decoder got out of sync with the actual advertised
+          // metadata and body size, which signals an invalid IPC file.
+          return Status::IOError("Invalid IPC file: advertised body size is ",
+                                 *body_length, ", but message decoder expects to read ",
+                                 decoder->next_required_size(), " bytes instead");
+        }
+        body = SliceBuffer(metadata, metadata_length,
+                           std::min(*body_length, metadata->size() - metadata_length));
+      } else {
+        // Body length was unknown; do a separate IO to read the body.
+        DCHECK_NE(file, nullptr);
+        ARROW_ASSIGN_OR_RAISE(
+            body, file->ReadAt(offset + metadata_length, decoder->next_required_size(),
+                               /*allow_short_read=*/false));
+      }
+
+      RETURN_NOT_OK(decoder->Consume(body));
+      return std::move(state->result);
+    }
+    case MessageDecoder::State::EOS:
+      return Status::Invalid("Unexpected empty message in IPC file format");
+    default:
+      return Status::Invalid("Unexpected state: ", state->decoder->state());
+  }
 }
 
 }  // namespace
@@ -330,6 +413,10 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
   }
 
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
+  if (decoder.buffered_size() > 0) {
+    return Status::Invalid("Message metadata too long by ", decoder.buffered_size(),
+                           " bytes");
+  }
 
   switch (decoder.state()) {
     case MessageDecoder::State::INITIAL:
@@ -368,69 +455,20 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
 static Result<std::unique_ptr<Message>> ReadMessageInternal(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
     io::RandomAccessFile* file, const FieldsLoaderFunction& fields_loader) {
-  std::unique_ptr<Message> result;
-  auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
-  MessageDecoder decoder(listener);
+  ReadMessageState state;
 
-  if (metadata_length < decoder.next_required_size()) {
+  if (metadata_length < state.decoder->next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
-                           decoder.next_required_size());
+                           state.decoder->next_required_size());
   }
-
   // When body_length is known, read metadata + body in one IO call.
   // Otherwise, read only metadata first.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
                         file->ReadAt(offset, metadata_length + body_length.value_or(0),
                                      /*allow_short_read=*/false));
 
-  ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(metadata, 0, metadata_length)));
-
-  switch (decoder.state()) {
-    case MessageDecoder::State::INITIAL:
-      return result;
-    case MessageDecoder::State::METADATA_LENGTH:
-      return Status::Invalid("metadata length is missing. File offset: ", offset,
-                             ", metadata length: ", metadata_length);
-    case MessageDecoder::State::METADATA:
-      return Status::Invalid("flatbuffer size ", decoder.next_required_size(),
-                             " invalid. File offset: ", offset,
-                             ", metadata length: ", metadata_length);
-    case MessageDecoder::State::BODY: {
-      std::shared_ptr<Buffer> body;
-      if (fields_loader) {
-        // Selective field loading: allocate a body buffer and read only the
-        // requested field ranges into it.
-        ARROW_ASSIGN_OR_RAISE(
-            body, AllocateBuffer(decoder.next_required_size(), default_memory_pool()));
-        RETURN_NOT_OK(ReadFieldsSubset(offset, metadata_length, file, fields_loader,
-                                       SliceBuffer(metadata, 0, metadata_length),
-                                       decoder.next_required_size(), body));
-      } else if (body_length.has_value()) {
-        // Body was already read as part of the combined IO; just slice it out.
-        if (*body_length != decoder.next_required_size()) {
-          // The streaming decoder got out of sync with the actual advertised
-          // metadata and body size, which signals an invalid IPC file.
-          return Status::IOError("Invalid IPC file: advertised body size is ",
-                                 *body_length, ", but message decoder expects to read ",
-                                 decoder.next_required_size(), " bytes instead");
-        }
-        body = SliceBuffer(metadata, metadata_length,
-                           std::min(*body_length, metadata->size() - metadata_length));
-      } else {
-        // Body length was unknown; do a separate IO to read the body.
-        ARROW_ASSIGN_OR_RAISE(
-            body, file->ReadAt(offset + metadata_length, decoder.next_required_size(),
-                               /*allow_short_read=*/false));
-      }
-
-      RETURN_NOT_OK(decoder.Consume(body));
-      return result;
-    }
-    case MessageDecoder::State::EOS:
-      return Status::Invalid("Unexpected empty message in IPC file format");
-    default:
-      return Status::Invalid("Unexpected state: ", decoder.state());
-  }
+  return ReadMessageContinued(offset, metadata_length, body_length, metadata, file,
+                              fields_loader, &state);
 }
 
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
@@ -452,14 +490,9 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
                                                   int64_t body_length,
                                                   io::RandomAccessFile* file,
                                                   const io::IOContext& context) {
-  struct State {
-    std::unique_ptr<Message> result;
-    std::shared_ptr<MessageDecoderListener> listener;
-    std::shared_ptr<MessageDecoder> decoder;
-  };
-  auto state = std::make_shared<State>();
-  state->listener = std::make_shared<AssignMessageDecoderListener>(&state->result);
-  state->decoder = std::make_shared<MessageDecoder>(state->listener);
+  // Make a std::shared_ptr so as to have a stable ReadMessageState pointer,
+  // since state->listener will point back to state->result.
+  auto state = std::make_shared<ReadMessageState>();
 
   if (metadata_length < state->decoder->next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
@@ -469,35 +502,11 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
       ->ReadAsync(context, offset, metadata_length + body_length,
                   /*allow_short_read=*/false)
       .Then([=](std::shared_ptr<Buffer> metadata) -> Result<std::shared_ptr<Message>> {
-        DCHECK_EQ(metadata->size(), metadata_length + body_length);
-        ARROW_RETURN_NOT_OK(
-            state->decoder->Consume(SliceBuffer(metadata, 0, metadata_length)));
-        switch (state->decoder->state()) {
-          case MessageDecoder::State::INITIAL:
-            return std::move(state->result);
-          case MessageDecoder::State::METADATA_LENGTH:
-            return Status::Invalid("metadata length is missing. File offset: ", offset,
-                                   ", metadata length: ", metadata_length);
-          case MessageDecoder::State::METADATA:
-            return Status::Invalid("flatbuffer size ",
-                                   state->decoder->next_required_size(),
-                                   " invalid. File offset: ", offset,
-                                   ", metadata length: ", metadata_length);
-          case MessageDecoder::State::BODY: {
-            auto body = SliceBuffer(metadata, metadata_length, body_length);
-            if (body->size() < state->decoder->next_required_size()) {
-              return Status::IOError("Expected to be able to read ",
-                                     state->decoder->next_required_size(),
-                                     " bytes for message body, got ", body->size());
-            }
-            RETURN_NOT_OK(state->decoder->Consume(body));
-            return std::move(state->result);
-          }
-          case MessageDecoder::State::EOS:
-            return Status::Invalid("Unexpected empty message in IPC file format");
-          default:
-            return Status::Invalid("Unexpected state: ", state->decoder->state());
-        }
+        // Pass a nullptr file to ensure that no further IO occurs
+        // (we have fetched all the required bytes).
+        return ReadMessageContinued(offset, metadata_length, body_length, metadata,
+                                    /*file=*/nullptr,
+                                    /*fields_loader=*/{}, state.get());
       });
 }
 
@@ -754,6 +763,8 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   int64_t next_required_size() const { return next_required_size_ - buffered_size_; }
+
+  int64_t buffered_size() const { return buffered_size_; }
 
   MessageDecoder::State state() const { return state_; }
 
@@ -1019,6 +1030,8 @@ Status MessageDecoder::Consume(std::shared_ptr<Buffer> buffer) {
 }
 
 int64_t MessageDecoder::next_required_size() const { return impl_->next_required_size(); }
+
+int64_t MessageDecoder::buffered_size() const { return impl_->buffered_size(); }
 
 MessageDecoder::State MessageDecoder::state() const { return impl_->state(); }
 

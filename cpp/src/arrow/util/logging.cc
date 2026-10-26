@@ -255,12 +255,7 @@ std::ostream& ArrowLog::Stream() {
 
 bool ArrowLog::IsEnabled() const { return is_enabled_; }
 
-ArrowLog::~ArrowLog() {
-  if (logging_provider_ != nullptr) {
-    delete reinterpret_cast<LoggingProvider*>(logging_provider_);
-    logging_provider_ = nullptr;
-  }
-}
+ArrowLog::~ArrowLog() { delete static_cast<LoggingProvider*>(logging_provider_); }
 
 }  // namespace util
 }  // namespace arrow

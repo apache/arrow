@@ -23,8 +23,10 @@
 #include <functional>
 #include <limits>
 #include <new>
+#include <optional>
 #include <sstream>
 #include <string_view>
+#include <typeinfo>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -52,6 +54,7 @@ using ::arrow::MemoryPool;
 using ::arrow::Result;
 using ::arrow::Status;
 using ::arrow::TypedBufferBuilder;
+using ::arrow::internal::FuzzStatus;
 using ::parquet::arrow::FileReader;
 
 ColumnDescriptor MakeColumnDescriptor(Type::type type, int type_length) {
@@ -140,6 +143,10 @@ std::string FuzzEncodingHeader::Serialize() const {
                             static_cast<Encoding::type>(ph.roundtrip_encoding_id),
                             static_cast<Type::type>(ph.type_id), ph.type_length,
                             ph.num_values);
+  if (!IsEncodingSupported(header.type, header.source_encoding) ||
+      !IsEncodingSupported(header.type, header.roundtrip_encoding)) {
+    return invalid_payload();
+  }
   if ((header.type == Type::FIXED_LEN_BYTE_ARRAY) ? (header.type_length <= 0)
                                                   : (header.type_length != -1)) {
     return invalid_payload();
@@ -290,23 +297,24 @@ struct TypedFuzzEncoding {
     }
 
     // Re-encode and re-decode using roundtrip encoding
-    {
-      auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
-        return CompareChunkAgainstReference(offset, chunk_values);
-      };
+    auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
+      return CompareChunkAgainstReference(offset, chunk_values);
+    };
+    auto do_roundtrip = [&]() -> Status {
       auto encoder = MakeEncoder(roundtrip_encoding_);
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       if constexpr (arrow_supported()) {
         encoder->Put(*reference_array_);
         auto reencoded_buffer = encoder->FlushValues();
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
-        auto array = DecodeArrow(roundtrip_encoding_, reencoded_data).ValueOrDie();
-        ARROW_CHECK_OK(array->ValidateFull());
-        ARROW_CHECK_OK(CompareAgainstReference(array));
+        ARROW_ASSIGN_OR_RAISE(auto array,
+                              DecodeArrow(roundtrip_encoding_, reencoded_data));
+        RETURN_NOT_OK(array->ValidateFull());
+        RETURN_NOT_OK(CompareAgainstReference(array));
         // Compare with reading raw values
         for (const int chunk_size : chunk_sizes()) {
-          ARROW_CHECK_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
-                                            chunk_size, compare_chunk));
+          RETURN_NOT_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
+                                           chunk_size, compare_chunk));
         }
       } else {
         encoder->Put(reference_values_.data(),
@@ -315,14 +323,19 @@ struct TypedFuzzEncoding {
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
         // Vary chunk sizes
         for (const int chunk_size : chunk_sizes()) {
-          ARROW_CHECK_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
-                                            chunk_size, compare_chunk));
+          RETURN_NOT_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
+                                           chunk_size, compare_chunk));
         }
       }
       END_PARQUET_CATCH_EXCEPTIONS
+      return Status::OK();
+    };
+    Status roundtrip_status = do_roundtrip();
+    // OOM when attempting to roundtrip is not a hard failure, any other error is.
+    if (!roundtrip_status.IsOutOfMemory()) {
+      ARROW_CHECK_OK(roundtrip_status);
     }
-
-    return Status::OK();
+    return roundtrip_status;
   }
 
  protected:
@@ -486,13 +499,17 @@ struct TypedFuzzEncoding {
 
 }  // namespace
 
-Status FuzzEncoding(const uint8_t* data, int64_t size) {
+FuzzStatus FuzzEncoding(const uint8_t* data, int64_t size) {
   constexpr auto kInt32Max = std::numeric_limits<int32_t>::max();
 
-  ARROW_ASSIGN_OR_RAISE(const auto parse_result,
-                        FuzzEncodingHeader::Parse(std::span(data, size)));
-  const auto header = parse_result.first;
-  const auto encoded_data = parse_result.second;
+  auto maybe_parse_result = FuzzEncodingHeader::Parse(std::span(data, size));
+  if (!maybe_parse_result.ok()) {
+    // If the fuzz encoding header is invalid, we won't save this input
+    // in the corpus, because it didn't exercise anything interesting.
+    return ::arrow::internal::SkipFuzzInput{maybe_parse_result.status()};
+  }
+  const auto header = maybe_parse_result->first;
+  const auto encoded_data = maybe_parse_result->second;
   if (encoded_data.size() > static_cast<size_t>(kInt32Max)) {
     // Unlikely but who knows?
     return Status::Invalid("Fuzz payload too large");

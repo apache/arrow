@@ -16,11 +16,12 @@
 # under the License.
 
 ARG repo
-ARG arch=amd64
-ARG python=3.10
-FROM ${repo}:${arch}-conda-python-${python}
+ARG arch
+ARG arch_short
+ARG python=3.11
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
-ARG jdk=11
+ARG jdk=17
 ARG maven=3.9.9
 RUN mamba install -q -y \
         maven=${maven} \
@@ -29,7 +30,7 @@ RUN mamba install -q -y \
     mamba clean --all --yes
 
 # installing libhdfs (JNI)
-ARG hdfs=3.2.1
+ARG hdfs=3.5.0
 ENV HADOOP_HOME=/opt/hadoop-${hdfs} \
     HADOOP_OPTS=-Djava.library.path=/opt/hadoop-${hdfs}/lib/native \
     PATH=$PATH:/opt/hadoop-${hdfs}/bin:/opt/hadoop-${hdfs}/sbin

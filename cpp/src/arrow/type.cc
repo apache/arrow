@@ -1333,8 +1333,11 @@ namespace {
 std::unordered_multimap<std::string_view, int> CreateNameToIndexMap(
     const FieldVector& fields) {
   std::unordered_multimap<std::string_view, int> name_to_index;
+  name_to_index.reserve(fields.size());
   for (size_t i = 0; i < fields.size(); ++i) {
-    name_to_index.emplace(fields[i]->name(), static_cast<int>(i));
+    const std::string_view name = fields[i]->name();
+    // The find() hint avoids libc++'s quadratic scan of equal keys on plain emplace.
+    name_to_index.emplace_hint(name_to_index.find(name), name, static_cast<int>(i));
   }
   return name_to_index;
 }
@@ -2294,7 +2297,7 @@ Schema::Schema(FieldVector fields, std::shared_ptr<const KeyValueMetadata> metad
       impl_(new Impl(std::move(fields), Endianness::Native, std::move(metadata))) {}
 
 Schema::Schema(const Schema& schema)
-    : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
+    : Schema(schema.impl_->fields_, schema.impl_->endianness_, schema.impl_->metadata_) {}
 
 Schema::~Schema() = default;
 
@@ -2568,7 +2571,9 @@ class SchemaBuilder::Impl {
   }
 
   Status AppendField(const std::shared_ptr<Field>& field) {
-    name_to_index_.emplace(field->name(), static_cast<int>(fields_.size()));
+    const std::string_view name = field->name();
+    name_to_index_.emplace_hint(name_to_index_.find(name), name,
+                                static_cast<int>(fields_.size()));
     fields_.push_back(field);
     return Status::OK();
   }
