@@ -173,3 +173,19 @@ CSV reader
 With the default :class:`conversion options <arrow::csv::ConvertOptions>`,
 the CSV reader will either return valid Arrow data or error out. Some options,
 however, allow relaxing the corresponding checks in favor of performance.
+
+
+Reporting a potential vulnerability
+===================================
+
+With all the above in mind, we welcome any report of issues where Arrow C++
+fails to meet its safety or reliability claims.
+
+For issues that affect confidentiality or integrity (for example by allowing
+an attacker to compromise a system or extract private data), please follow the
+`vulnerability reporting process <https://apache.org/security/#reporting-a-vulnerability>`__
+outlined by the Apache Software Foundation.
+
+For issues that only affect availability (such as stack exhaustion, null pointer
+dereference or a controlled crash using ``std::abort``), please make a public
+report on the `GitHub issue tracker <https://github.com/apache/arrow/issues>`__.
