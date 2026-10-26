@@ -56,7 +56,8 @@ Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
-  ${shlibs:Depends}
+  ${shlibs:Depends},
+@USE_SYSTEM_OPEN_TELEMETRY@  opentelemetry-cpp
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files.
