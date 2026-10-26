@@ -485,7 +485,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass WriterProperties:
         cppclass Builder:
             Builder* data_page_version(ParquetDataPageVersion version)
-            Builder* min_space_savings(optional[double] min_space_savings) except +
+            Builder* min_compression_savings(double min_compression_savings) except +
             Builder* version(ParquetVersion version)
             Builder* compression(ParquetCompression codec)
             Builder* compression(const c_string& path,

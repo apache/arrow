@@ -116,7 +116,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
       int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
-      std::optional<double> min_space_savings = {}) {
+      double min_compression_savings = 0.0) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -134,7 +134,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
     wp_builder.max_rows_per_page(max_rows_per_page);
-    wp_builder.min_space_savings(min_space_savings);
+    wp_builder.min_compression_savings(min_compression_savings);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -2091,7 +2091,7 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
 }
 
 // Tests the default, fixed thresholds, and both sides of the actual savings.
-TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
+TEST_F(TestValuesWriterInt32Type, MinCompressionSavingsDataPageV2) {
   // Used zeros because it compresses well
   this->SetUpSchema(Repetition::OPTIONAL);
   this->descr_ = this->schema_.Column(0);
@@ -2114,8 +2114,7 @@ TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
   ASSERT_GT(savings, 0.01);
   ASSERT_LT(savings, 0.99);
 
-  const std::vector<std::pair<std::optional<double>, bool>> cases = {
-      {std::nullopt, true},
+  const std::vector<std::pair<double, bool>> cases = {
       {0.0, true},
       {0.1, true},
       {1.0, false},
