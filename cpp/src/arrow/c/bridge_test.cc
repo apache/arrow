@@ -3156,7 +3156,7 @@ TEST_F(TestArrayImport, ListWithOffset) {
   FillListLike(4, 0, 1, list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(list(int8()), "[[], [3, 4, 5], [6], [7, 8]]"));
 
-  FillPrimitive(AddChild(), 9, 0, 0, primitive_buffers_no_nulls1_8);
+  FillPrimitive(AddChild(), 12, 0, 0, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 1, buffers_no_nulls_no_data);
   CheckImport(
       ArrayFromJSON(fixed_size_list(int8(), 3), "[[4, 5, 6], [7, 8, 9], [10, 11, 12]]"));
@@ -3166,7 +3166,7 @@ TEST_F(TestArrayImport, ListWithOffset) {
   FillListLike(4, 0, 1, list_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(list(int8()), "[[], [5, 6, 7], [8], [9, 10]]"));
 
-  FillPrimitive(AddChild(), 9, 0, 2, primitive_buffers_no_nulls1_8);
+  FillPrimitive(AddChild(), 12, 0, 2, primitive_buffers_no_nulls1_8);
   FillFixedSizeListLike(3, 0, 1, buffers_no_nulls_no_data);
   CheckImport(ArrayFromJSON(fixed_size_list(int8(), 3),
                             "[[6, 7, 8], [9, 10, 11], [12, 13, 14]]"));

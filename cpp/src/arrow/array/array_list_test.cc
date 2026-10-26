@@ -1794,6 +1794,17 @@ TEST_F(TestFixedSizeListArray, NotEnoughValues) {
   values = ArrayFromJSON(value_type_, "[1, 2, 3, 4]");
   result_ = std::make_shared<FixedSizeListArray>(type_, 1, values);
   ASSERT_OK(result_->ValidateFull());
+
+  // The array offset must be taken into account
+  result_ =
+      std::make_shared<FixedSizeListArray>(type_, 1, values, /*null_bitmap=*/nullptr,
+                                           /*null_count=*/0, /*offset=*/1);
+  ASSERT_OK(result_->ValidateFull());
+  result_ =
+      std::make_shared<FixedSizeListArray>(type_, 1, values, /*null_bitmap=*/nullptr,
+                                           /*null_count=*/0, /*offset=*/2);
+  ASSERT_RAISES(Invalid, result_->Validate());
+  ASSERT_RAISES(Invalid, result_->ValidateFull());
 }
 
 TEST_F(TestFixedSizeListArray, FlattenZeroLength) {
