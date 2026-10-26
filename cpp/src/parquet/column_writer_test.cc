@@ -29,6 +29,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/config.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -2089,25 +2090,37 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
   }
 }
 
-// Tests if compression works when:
-// - min_space_savings is unset
-// - min_space_savings = 0.1
-// - min_space_savings = 1
+// Tests the default, fixed thresholds, and both sides of the actual savings.
 TEST_F(TestValuesWriterInt32Type, MinSpaceSavingsDataPageV2) {
   // Used zeros because it compresses well
   this->SetUpSchema(Repetition::OPTIONAL);
   this->descr_ = this->schema_.Column(0);
   this->GenerateData(SMALL_SIZE);
   std::fill(this->values_.begin(), this->values_.end(), 0);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
 
   ColumnProperties column_properties;
   column_properties.set_compression(Compression::ZSTD);
+
+  // PLAIN-encoded int32 zeros have the same bytes as the input values.
+  auto codec = GetCodec(Compression::ZSTD);
+  const int64_t values_size = SMALL_SIZE * sizeof(int32_t);
+  const auto* values_bytes = reinterpret_cast<const uint8_t*>(this->values_ptr_);
+  std::vector<uint8_t> compressed(codec->MaxCompressedLen(values_size, values_bytes));
+  ASSERT_OK_AND_ASSIGN(
+      auto compressed_size,
+      codec->Compress(values_size, values_bytes, compressed.size(), compressed.data()));
+  const double savings = 1.0 - static_cast<double>(compressed_size) / values_size;
+  ASSERT_GT(savings, 0.01);
+  ASSERT_LT(savings, 0.99);
 
   const std::vector<std::pair<std::optional<double>, bool>> cases = {
       {std::nullopt, true},
       {0.0, true},
       {0.1, true},
       {1.0, false},
+      {savings - 0.01, true},
+      {savings + 0.01, false},
   };
 
   for (const auto& [minimum, expected_compressed] : cases) {
