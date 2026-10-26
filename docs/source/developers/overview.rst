@@ -191,6 +191,21 @@ submitted contributions. See the `ASF's guidance on AI-generated code
 <https://www.apache.org/legal/generative-tooling.html>`_ for further
 information on licensing considerations.
 
+We expect human contributors to actively engage on the review process. We
+recognised the value of using AI tools to understand the changes being requested
+but we expect a human-in-the-loop for all engagements. Reviewer time is limited
+and reviewers are not expected to be talking to contributors' agents but to
+contributors themselves. If a reviewer finds that a contributor seems to rely
+excessively on AI tools instead of engaging with the review, the PR might be
+closed and/or tagged with a label indicating excessive AI usage. An example of
+message that can be left on the PR is:
+
+    .. code:: console
+
+      This PR doesn't appear to comply with our policy on tool-generated content.
+      Please see our AI generated code policy on AI-generated code:
+      https://arrow.apache.org/docs/developers/overview.html#ai-generated-code
+
 .. Section on Experimental repositories:
 
 .. include:: experimental_repos.rst
