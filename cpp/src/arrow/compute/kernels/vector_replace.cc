@@ -21,6 +21,7 @@
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/logging_internal.h"
@@ -120,7 +121,9 @@ struct ReplaceMaskImpl {};
 
 template <typename Type>
 struct ReplaceMaskImpl<
-    Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value)>> {
+    Type, enable_if_t<!(is_base_binary_type<Type>::value ||
+                        is_binary_view_like_type<Type>::value ||
+                        is_null_type<Type>::value)>> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
@@ -317,6 +320,99 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
     std::shared_ptr<ArrayData> temp_output;
     RETURN_NOT_OK(builder.FinishInternal(&temp_output));
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
+    temp_output->type = array.type->GetSharedPtr();
+    out->value = std::move(temp_output);
+    return replacements_offset;
+  }
+};
+
+template <typename Type>
+struct ReplaceMaskImpl<Type, enable_if_binary_view_like<Type>> {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
+                                        const BooleanScalar& mask, ExecValue replacements,
+                                        int64_t replacements_offset, ExecResult* out) {
+    if (!mask.is_valid) {
+      // Output = null
+      ARROW_ASSIGN_OR_RAISE(
+          auto replacement_array,
+          MakeArrayOfNull(array.type->GetSharedPtr(), array.length, ctx->memory_pool()));
+      out->value = std::move(replacement_array->data());
+      return replacements_offset;
+    } else if (mask.value) {
+      // Output = replacement
+      if (replacements.is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto replacement_array,
+            MakeArrayFromScalar(*replacements.scalar, array.length, ctx->memory_pool()));
+        out->value = std::move(replacement_array->data());
+      } else {
+        // Set to be a slice of replacements. We manually adjust offset/length instead of
+        // calling ArrayData::Slice() to avoid creating an extra copy.
+        std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
+        result->offset += replacements_offset;
+        result->length = array.length;
+        // The null count from the original replacements array is not sufficient because
+        // it applies to the entire array, not this specific slice. Must mark as unknown.
+        result->null_count = kUnknownNullCount;
+        out->value = result;
+      }
+      return replacements_offset + array.length;
+    } else {
+      // Output = input
+      out->value = array.ToArrayData();
+      return replacements_offset;
+    }
+  }
+
+  static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
+                                       const ArraySpan& mask, int64_t mask_offset,
+                                       ExecValue replacements,
+                                       int64_t replacements_offset, ExecResult* out) {
+    BuilderType builder(array.type->GetSharedPtr(), ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(array.length));
+    int64_t source_offset = 0;
+
+    ArraySpan adjusted_mask = mask;
+    adjusted_mask.offset += mask_offset;
+    adjusted_mask.length = std::min(adjusted_mask.length - mask_offset, array.length);
+
+    auto get_view = [](const ArraySpan& source, int64_t idx) -> std::string_view {
+      const auto& view = source.GetValues<BinaryViewType::c_type>(1)[idx];
+      return util::FromBinaryView(view, source.GetVariadicBuffers().data());
+    };
+
+    RETURN_NOT_OK(VisitArraySpanInline<BooleanType>(
+        adjusted_mask,
+        [&](bool replace) {
+          if (replace && replacements.is_scalar()) {
+            const Scalar& scalar = *replacements.scalar;
+            if (scalar.is_valid) {
+              RETURN_NOT_OK(builder.Append(UnboxScalar<Type>::Unbox(scalar)));
+            } else {
+              RETURN_NOT_OK(builder.AppendNull());
+            }
+          } else {
+            const ArraySpan& source = replace ? replacements.array : array;
+            const int64_t offset = replace ? replacements_offset++ : source_offset;
+            if (!source.MayHaveNulls() ||
+                bit_util::GetBit(source.buffers[0].data, source.offset + offset)) {
+              RETURN_NOT_OK(builder.Append(get_view(source, offset)));
+            } else {
+              RETURN_NOT_OK(builder.AppendNull());
+            }
+          }
+          source_offset++;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(builder.AppendNull());
+          source_offset++;
+          return Status::OK();
+        }));
+    std::shared_ptr<ArrayData> temp_output;
+    RETURN_NOT_OK(builder.FinishInternal(&temp_output));
     temp_output->type = array.type->GetSharedPtr();
     out->value = std::move(temp_output);
     return replacements_offset;
@@ -628,6 +724,80 @@ struct FillNullImpl<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type>
+struct FillNullImpl<Type, enable_if_binary_view_like<Type>> {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  static Status Exec(KernelContext* ctx, const ArraySpan& current_chunk,
+                     const uint8_t* reversed_bitmap, ExecResult* out, int8_t direction,
+                     const ArraySpan& last_valid_value_chunk,
+                     int64_t* last_valid_value_offset) {
+    ArrayData* out_arr = out->array_data().get();
+
+    BuilderType builder(current_chunk.type->GetSharedPtr(), ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(current_chunk.length));
+    int64_t array_value_index = direction == 1 ? 0 : current_chunk.length - 1;
+
+    bool has_fill_value_last_chunk = *last_valid_value_offset != -1;
+    bool has_fill_value_current_chunk = false;
+
+    std::vector<std::pair<bool, int64_t>> entries_reversed;
+    entries_reversed.reserve(current_chunk.length);
+
+    RETURN_NOT_OK(VisitNullBitmapInline<>(
+        reversed_bitmap, out_arr->offset, current_chunk.length,
+        current_chunk.GetNullCount(),
+        [&]() {
+          entries_reversed.emplace_back(/*current_chunk=*/true, array_value_index);
+          *last_valid_value_offset = array_value_index;
+          has_fill_value_current_chunk = true;
+          has_fill_value_last_chunk = false;
+          array_value_index += direction;
+          return Status::OK();
+        },
+        [&]() {
+          if (has_fill_value_current_chunk) {
+            entries_reversed.emplace_back(/*current_chunk=*/true, *last_valid_value_offset);
+          } else if (has_fill_value_last_chunk) {
+            entries_reversed.emplace_back(/*current_chunk=*/false, *last_valid_value_offset);
+          } else {
+            entries_reversed.emplace_back(/*current_chunk=*/false, -1);
+          }
+          array_value_index += direction;
+          return Status::OK();
+        }));
+
+    auto get_view = [](const ArraySpan& source, int64_t idx) -> std::string_view {
+      const auto& view = source.GetValues<BinaryViewType::c_type>(1)[idx];
+      return util::FromBinaryView(view, source.GetVariadicBuffers().data());
+    };
+
+    auto append_entry = [&](const std::pair<bool, int64_t>& entry) -> Status {
+      if (entry.second == -1) {
+        return builder.AppendNull();
+      }
+      const ArraySpan& src = entry.first ? current_chunk : last_valid_value_chunk;
+      return builder.Append(get_view(src, entry.second));
+    };
+
+    if (direction == 1) {
+      for (const auto& entry : entries_reversed) {
+        RETURN_NOT_OK(append_entry(entry));
+      }
+    } else {
+      for (auto it = entries_reversed.rbegin(); it != entries_reversed.rend(); ++it) {
+        RETURN_NOT_OK(append_entry(*it));
+      }
+    }
+
+    std::shared_ptr<Array> temp_output;
+    RETURN_NOT_OK(builder.Finish(&temp_output));
+    out->value = std::move(temp_output->data());
+    out->array_data()->type = current_chunk.type->GetSharedPtr();
+    return Status::OK();
+  }
+};
+
+template <typename Type>
 struct FillNullImpl<Type, enable_if_null<Type>> {
   static Status Exec(KernelContext* ctx, const ArraySpan& array,
                      const uint8_t* reversed_bitmap, ExecResult* out, int8_t direction,
@@ -846,6 +1016,14 @@ void RegisterVectorFunction(FunctionRegistry* registry,
             Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
             registry, func.get());
+  AddKernel(Type::DECIMAL32,
+            Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL32),
+            Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
+            registry, func.get());
+  AddKernel(Type::DECIMAL64,
+            Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL64),
+            Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
+            registry, func.get());
   AddKernel(Type::DECIMAL128,
             Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL128),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
@@ -860,6 +1038,14 @@ void RegisterVectorFunction(FunctionRegistry* registry,
               GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor>(*ty), registry,
               func.get());
   }
+  AddKernel(Type::BINARY_VIEW,
+            Functor<BinaryViewType>::GetSignature(Type::BINARY_VIEW),
+            Functor<BinaryViewType>::Exec, ChunkedFunctor<BinaryViewType>::Exec,
+            registry, func.get());
+  AddKernel(Type::STRING_VIEW,
+            Functor<StringViewType>::GetSignature(Type::STRING_VIEW),
+            Functor<StringViewType>::Exec, ChunkedFunctor<StringViewType>::Exec,
+            registry, func.get());
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));
 

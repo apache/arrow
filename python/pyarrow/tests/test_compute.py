@@ -1372,6 +1372,41 @@ def test_replace_with_mask_string_type():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize("ty", [pa.string_view(), pa.binary_view()])
+def test_replace_with_mask_views(ty):
+    arr = pa.array(['apple', 'banana', 'cherry', 'date'], type=ty)
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array(['apricot', 'cantaloupe'], type=ty)
+    expected = pa.array(['apricot', 'banana', 'cantaloupe', 'date'], type=ty)
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+    # Test fill_null_forward and fill_null_backward
+    arr_with_null = pa.array(['apple', None, 'cherry', None], type=ty)
+    expected_fwd = pa.array(['apple', 'apple', 'cherry', 'cherry'], type=ty)
+    expected_bwd = pa.array(['apple', 'cherry', 'cherry', None], type=ty)
+    assert pc.fill_null_forward(arr_with_null).equals(expected_fwd)
+    assert pc.fill_null_backward(arr_with_null).equals(expected_bwd)
+
+
+@pytest.mark.parametrize("ty", [pa.decimal32(7, 2), pa.decimal64(15, 2)])
+def test_replace_with_mask_decimals(ty):
+    import decimal
+    d = decimal.Decimal
+    arr = pa.array([d('12.34'), None, d('-56.78'), d('0.00')], type=ty)
+    mask = pa.array([False, True, False, False])
+    replacements = pa.array([d('99.99')], type=ty)
+    expected = pa.array([d('12.34'), d('99.99'), d('-56.78'), d('0.00')], type=ty)
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+    # Test fill_null_forward and fill_null_backward
+    expected_fwd = pa.array([d('12.34'), d('12.34'), d('-56.78'), d('0.00')], type=ty)
+    expected_bwd = pa.array([d('12.34'), d('-56.78'), d('-56.78'), d('0.00')], type=ty)
+    assert pc.fill_null_forward(arr).equals(expected_fwd)
+    assert pc.fill_null_backward(arr).equals(expected_bwd)
+
+
 def test_replace_with_mask_float_type():
     """Test replacement with float type."""
     arr = pa.array([1.1, 2.2, 3.3, 4.4])
