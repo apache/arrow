@@ -1113,9 +1113,8 @@ TEST(CpuInfo, Basic) {
 #if defined(__riscv) && __riscv_xlen == 64
   if (ci->IsDetected(CpuInfo::RVV)) {
     EXPECT_NE(ci->hardware_flags() & CpuInfo::RVV, 0);
-    EXPECT_NE(ci->hardware_flags() &
-                  (CpuInfo::RVV128 | CpuInfo::RVV256 | CpuInfo::RVV512),
-              0);
+    EXPECT_NE(
+        ci->hardware_flags() & (CpuInfo::RVV128 | CpuInfo::RVV256 | CpuInfo::RVV512), 0);
   }
 #endif
 }
