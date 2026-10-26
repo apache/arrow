@@ -159,6 +159,20 @@ def test_type_predicates_narrow() -> None:
         lib.Decimal64Type,
     )
 
+    # Decimal types subclass FixedSizeBinaryType, but don't match it, so
+    # they must not be narrowed away when the check fails.
+    dec128 = _erase(lib.decimal128(5, 2))
+    if not types.is_fixed_size_binary(dec128):
+        assert types.is_decimal(dec128)
+        check(
+            assert_type(
+                dec128,
+                lib.Decimal32Type | lib.Decimal64Type | lib.Decimal128Type
+                | lib.Decimal256Type,
+            ),
+            lib.Decimal128Type,
+        )
+
     # Run-end encoded types are nested, so this doesn't narrow to Never.
     ree = lib.run_end_encoded(lib.int32(), lib.string())
     assert types.is_nested(ree)
