@@ -2867,11 +2867,9 @@ function(build_simdjson)
   # (GH-55267). Disable simdjson concepts for them. Arrow doesn't use that part
   # of the simdjson API.
   #
-  # This goes by the SDK directory name, which may or may not carry a minor
-  # version, e.g. "MacOSX11.sdk" on the CRAN macOS builders and "MacOSX11.3.sdk"
-  # in our as-cran CI job, so match both forms. "MacOSX13.sdk" can't be told
-  # apart from 13.3, so it's treated as too old; disabling concepts on a working
-  # toolchain is harmless. An unversioned "MacOSX.sdk" sysroot isn't detected.
+  # The SDK directory name may omit the minor version ("MacOSX11.sdk" on CRAN,
+  # "MacOSX11.3.sdk" in our as-cran CI job), so match both forms. This treats
+  # "MacOSX13.sdk" as too old, which is harmless.
   if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES
                            "MacOSX(1[0-2](\\.[0-9]+)?|13(\\.[0-2])?)\\.sdk$")
     message(STATUS "Disabling simdjson concepts for macOS SDK older than 13.3")
