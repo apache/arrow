@@ -28,6 +28,7 @@
 #include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap.h"
@@ -2838,6 +2839,203 @@ void AddPrimitiveChooseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
   }
 }
 
+
+template <typename Select>
+Status ExecBinaryViewSelection(KernelContext* ctx, const ExecSpan& batch,
+                               int first_value, Select&& select, ExecResult* out) {
+  using View = BinaryViewType::c_type;
+  std::vector<std::shared_ptr<Buffer>> buffers(2);
+  std::vector<int32_t> buffer_offsets(batch.num_values());
+  std::vector<View> scalar_views(batch.num_values());
+  constexpr size_t kMaxBuffers = std::numeric_limits<int32_t>::max();
+
+  // Retain the owners of referenced payloads and map each input's buffer indices
+  // into the output. Only view descriptors are copied below.
+  for (int arg = first_value; arg < batch.num_values(); ++arg) {
+    const auto& source = batch[arg];
+    const size_t buffer_offset = buffers.size() - 2;
+    buffer_offsets[arg] = static_cast<int32_t>(buffer_offset);
+    if (source.is_array()) {
+      const auto input_buffers = source.array.GetVariadicBuffers();
+      if (input_buffers.size() > kMaxBuffers - buffer_offset) {
+        return Status::CapacityError("Too many buffers in binary-view selection");
+      }
+      buffers.insert(buffers.end(), input_buffers.begin(), input_buffers.end());
+    } else if (source.scalar->is_valid) {
+      const auto& scalar = checked_cast<const BaseBinaryScalar&>(*source.scalar);
+      if (scalar.value->size() > std::numeric_limits<int32_t>::max()) {
+        return Status::CapacityError("Binary-view value exceeds 2GB");
+      }
+      scalar_views[arg] = util::ToBinaryView(
+          scalar.value->data(), static_cast<int32_t>(scalar.value->size()),
+          buffer_offsets[arg], 0);
+      if (!scalar_views[arg].is_inline()) {
+        if (buffer_offset == kMaxBuffers) {
+          return Status::CapacityError("Too many buffers in binary-view selection");
+        }
+        buffers.push_back(scalar.value);
+      }
+    }
+  }
+
+  ARROW_ASSIGN_OR_RAISE(buffers[0],
+                       AllocateEmptyBitmap(batch.length, ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(
+      buffers[1], AllocateBuffer(batch.length * BinaryViewType::kSize, ctx->memory_pool()));
+  auto* validity = buffers[0]->mutable_data();
+  auto* views = buffers[1]->mutable_data_as<View>();
+  int64_t null_count = 0;
+  for (int64_t row = 0; row < batch.length; ++row) {
+    ARROW_ASSIGN_OR_RAISE(int selected, select(row));
+    if (selected < 0) {
+      views[row] = View{};
+      ++null_count;
+      continue;
+    }
+    const auto& source = batch[selected];
+    const bool valid = source.is_scalar() ? source.scalar->is_valid
+                                         : source.array.IsValid(row);
+    if (!valid) {
+      views[row] = View{};
+      ++null_count;
+      continue;
+    }
+    bit_util::SetBit(validity, row);
+    if (source.is_scalar()) {
+      views[row] = scalar_views[selected];
+    } else {
+      views[row] = source.array.GetValues<View>(1)[row];
+      if (!views[row].is_inline()) {
+        views[row].ref.buffer_index += buffer_offsets[selected];
+      }
+    }
+  }
+  if (null_count == 0) {
+    buffers[0].reset();
+  }
+  out->value = ArrayData::Make(out->type()->GetSharedPtr(), batch.length,
+                               std::move(buffers), null_count);
+  return Status::OK();
+}
+
+Status IfElseBinaryViewExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  if (batch[0].is_scalar()) {
+    return IfElseGenericSXXCall(ctx, batch[0].scalar_as<BooleanScalar>(), batch[1],
+                               batch[2], out);
+  }
+  const auto& condition = batch[0].array;
+  return ExecBinaryViewSelection(
+      ctx, batch, 1,
+      [&](int64_t row) -> Result<int> {
+        if (!condition.IsValid(row)) return -1;
+        return bit_util::GetBit(condition.buffers[1].data, condition.offset + row) ? 1 : 2;
+      },
+      out);
+}
+
+Status CaseWhenBinaryViewExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
+  if (batch[0].null_count() > 0) {
+    return Status::Invalid("cond struct must not have outer nulls");
+  }
+  if (batch[0].is_scalar()) {
+    return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+  }
+  const auto& conditions = batch[0].array;
+  const bool has_else = conditions.type->num_fields() < batch.num_values() - 1;
+  return ExecBinaryViewSelection(
+      ctx, batch, 1,
+      [&](int64_t row) -> Result<int> {
+        const int64_t index = conditions.offset + row;
+        for (int arg = 0; arg < conditions.type->num_fields(); ++arg) {
+          const auto& condition = conditions.child_data[arg];
+          if (condition.IsValid(index) &&
+              bit_util::GetBit(condition.buffers[1].data, condition.offset + index)) {
+            return arg + 1;
+          }
+        }
+        return has_else ? batch.num_values() - 1 : -1;
+      },
+      out);
+}
+
+Status CoalesceBinaryViewExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
+  for (const auto& source : batch.values) {
+    if (source.is_scalar()) {
+      if (!source.scalar->is_valid) continue;
+      ARROW_ASSIGN_OR_RAISE(
+          auto result, MakeArrayFromScalar(*source.scalar, batch.length, ctx->memory_pool()));
+      out->value = result->data();
+      return Status::OK();
+    }
+    if (!source.array.MayHaveNulls()) {
+      out->value = source.array.ToArrayData();
+      return Status::OK();
+    }
+    break;
+  }
+  return ExecBinaryViewSelection(
+      ctx, batch, 0,
+      [&](int64_t row) -> Result<int> {
+        for (int arg = 0; arg < batch.num_values(); ++arg) {
+          const auto& source = batch[arg];
+          if (source.is_scalar() ? source.scalar->is_valid : source.array.IsValid(row)) {
+            return arg;
+          }
+        }
+        return -1;
+      },
+      out);
+}
+
+Status ChooseBinaryViewExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  auto select = [&](int64_t index) -> Result<int> {
+    if (index < 0 || index >= batch.num_values() - 1) {
+      return Status::IndexError("choose: index ", index, " out of range");
+    }
+    return static_cast<int>(index) + 1;
+  };
+  if (batch[0].is_scalar()) {
+    const auto& index = batch[0].scalar_as<Int64Scalar>();
+    if (!index.is_valid) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto result,
+          MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length, ctx->memory_pool()));
+      out->value = result->data();
+      return Status::OK();
+    }
+    ARROW_ASSIGN_OR_RAISE(int selected, select(index.value));
+    const auto& source = batch[selected];
+    if (source.is_array()) {
+      out->value = source.array.ToArrayData();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto result, MakeArrayFromScalar(*source.scalar, batch.length, ctx->memory_pool()));
+      out->value = result->data();
+    }
+    return Status::OK();
+  }
+  const auto& indices = batch[0].array;
+  return ExecBinaryViewSelection(
+      ctx, batch, 1,
+      [&](int64_t row) -> Result<int> {
+        if (!indices.IsValid(row)) return -1;
+        return select(indices.GetValues<int64_t>(1)[row]);
+      },
+      out);
+}
+
+void AddBinaryViewConditionalKernel(const std::shared_ptr<ScalarFunction>& function,
+                                   std::shared_ptr<KernelSignature> signature,
+                                   ArrayKernelExec exec) {
+  ScalarKernel kernel(std::move(signature), exec);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  kernel.can_write_into_slices = false;
+  DCHECK_OK(function->AddKernel(std::move(kernel)));
+}
+
 const FunctionDoc if_else_doc{"Choose values based on a condition",
                               ("`cond` must be a Boolean scalar/ array. \n`left` or "
                                "`right` must be of the same type scalar/ array.\n"
@@ -2891,6 +3089,11 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, {boolean(), float16()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
+    for (const auto& type : {utf8_view(), binary_view()}) {
+      AddBinaryViewConditionalKernel(
+          func, KernelSignature::Make({boolean(), type, type}, type),
+          IfElseBinaryViewExec);
+    }
     AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
     AddFixedWidthIfElseKernel<Decimal128Type>(func);
     AddFixedWidthIfElseKernel<Decimal256Type>(func);
@@ -2914,6 +3117,9 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
                       all_value_types_match);
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes(), all_value_types_match);
+    for (const auto& type : {utf8_view(), binary_view()}) {
+      AddCaseWhenKernel(func, type, CaseWhenBinaryViewExec, all_value_types_match);
+    }
     AddNestedCaseWhenKernels(func, all_value_types_match);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -2934,6 +3140,11 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
+    for (const auto& type : {utf8_view(), binary_view()}) {
+      AddBinaryViewConditionalKernel(
+          func, KernelSignature::Make({type}, FirstType, /*is_varargs=*/true),
+          CoalesceBinaryViewExec);
+    }
     AddNestedCoalesceKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -2951,6 +3162,11 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddChooseKernel(func, Type::DECIMAL256, ChooseFunctor<FixedSizeBinaryType>::Exec);
     for (const auto& ty : BaseBinaryTypes()) {
       AddChooseKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<ChooseFunctor>(ty));
+    }
+    for (const auto& type : {utf8_view(), binary_view()}) {
+      AddBinaryViewConditionalKernel(
+          func, KernelSignature::Make({int64(), type}, LastType, /*is_varargs=*/true),
+          ChooseBinaryViewExec);
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }

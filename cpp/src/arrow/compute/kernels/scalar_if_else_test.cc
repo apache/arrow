@@ -17,6 +17,7 @@
 
 #include <limits>
 #include <numeric>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -77,6 +78,7 @@ using IfElseNumericBasedTypes =
     ::testing::Types<UInt32Type, FloatType, Date32Type, Time32Type, TimestampType,
                      MonthIntervalType, DurationType>;
 using BaseBinaryArrowTypes = ::testing::Types<BinaryType>;
+using ConditionalBinaryArrowTypes = ::testing::Types<BinaryType, BinaryViewType>;
 using ListArrowTypes = ::testing::Types<ListType>;
 using IntegralArrowTypes = ::testing::Types<Int32Type>;
 #else
@@ -85,6 +87,9 @@ using IfElseNumericBasedTypes =
                      Int32Type, Int64Type, HalfFloatType, FloatType, DoubleType,
                      Date32Type, Date64Type, Time32Type, Time64Type, TimestampType,
                      MonthIntervalType, DurationType>;
+using ConditionalBinaryArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType,
+                     BinaryViewType, StringViewType>;
 #endif
 
 TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);
@@ -2085,7 +2090,7 @@ TEST(TestCaseWhen, FixedSizeBinaryRandom) { TestCaseWhenRandom(fixed_size_binary
 template <typename Type>
 class TestCaseWhenBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenBinary, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestCaseWhenBinary, ConditionalBinaryArrowTypes);
 
 TYPED_TEST(TestCaseWhenBinary, Basics) {
   auto type = default_type_instance<TypeParam>();
@@ -2885,7 +2890,7 @@ template <typename Type>
 class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, IfElseNumericBasedTypes);
-TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceBinary, ConditionalBinaryArrowTypes);
 TYPED_TEST_SUITE(TestCoalesceList, ListAndListViewArrowTypes);
 
 TYPED_TEST(TestCoalesceNumeric, Basics) {
@@ -3749,7 +3754,7 @@ template <typename Type>
 class TestChooseBinary : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestChooseNumeric, IfElseNumericBasedTypes);
-TYPED_TEST_SUITE(TestChooseBinary, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestChooseBinary, ConditionalBinaryArrowTypes);
 
 TYPED_TEST(TestChooseNumeric, FixedSize) {
   auto type = default_type_instance<TypeParam>();
@@ -3999,6 +4004,122 @@ TEST(TestChooseKernel, Errors) {
       IndexError, ::testing::HasSubstr("choose: index -1 out of range"),
       CallFunction("choose",
                    {ArrayFromJSON(int64(), "[-1]"), ArrayFromJSON(int32(), "[0]")}));
+}
+
+
+template <typename Type>
+class TestConditionalBinaryView : public ::testing::Test {};
+
+using ConditionalBinaryViewTypes = ::testing::Types<BinaryViewType, StringViewType>;
+TYPED_TEST_SUITE(TestConditionalBinaryView, ConditionalBinaryViewTypes);
+
+TYPED_TEST(TestConditionalBinaryView, IfElse) {
+  auto type = default_type_instance<TypeParam>();
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[true, false, null, true, false]"),
+      ArrayFromJSON(type,
+                    R"(["left value out of line", "", "short", null, "unused"])"),
+      ArrayFromJSON(type,
+                    R"(["unused", "right value out of line", null, "short", null])"),
+      ArrayFromJSON(type,
+                    R"(["left value out of line", "right value out of line", null, null, null])"));
+}
+
+template <typename Type>
+Result<std::shared_ptr<Array>> MakeConditionalViewInput(bool left) {
+  typename TypeTraits<Type>::BuilderType builder;
+  builder.SetBlockSize(16);
+  RETURN_NOT_OK(builder.Append("prefix"));
+  RETURN_NOT_OK(builder.Append(left ? "first left value out of line"
+                                     : "first right value out of line"));
+  if (left) {
+    RETURN_NOT_OK(builder.AppendNull());
+  } else {
+    RETURN_NOT_OK(builder.Append("second right value out of line"));
+  }
+  RETURN_NOT_OK(builder.Append(left ? "third left value out of line"
+                                     : "third right value out of line"));
+  ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+  return array->Slice(1);
+}
+
+TYPED_TEST(TestConditionalBinaryView, RetainSelectedBuffers) {
+  auto type = default_type_instance<TypeParam>();
+  for (const auto* function : {"if_else", "case_when", "coalesce", "choose"}) {
+    for (bool scalar_right : {false, true}) {
+      SCOPED_TRACE(function);
+      SCOPED_TRACE(scalar_right);
+      ASSERT_OK_AND_ASSIGN(auto left, MakeConditionalViewInput<TypeParam>(true));
+      Datum right;
+      std::weak_ptr<Buffer> right_buffer;
+      if (scalar_right) {
+        right = ScalarFromJSON(type, R"("second right value out of line")");
+        right_buffer = right.scalar_as<BaseBinaryScalar>().value;
+      } else {
+        ASSERT_OK_AND_ASSIGN(auto array, MakeConditionalViewInput<TypeParam>(false));
+        const auto* views = ArraySpan(*array->data()).GetValues<BinaryViewType::c_type>(1);
+        right_buffer = array->data()->buffers[2 + views[1].ref.buffer_index];
+        right = std::move(array);
+      }
+      const auto* left_views =
+          ArraySpan(*left->data()).GetValues<BinaryViewType::c_type>(1);
+      std::weak_ptr<Buffer> left_buffer =
+          left->data()->buffers[2 + left_views[2].ref.buffer_index];
+      auto condition = ArrayFromJSON(boolean(), "[true, false, true]");
+      DatumVector inputs;
+      if (std::string_view(function) == "if_else") {
+        inputs = {condition, left, right};
+      } else if (std::string_view(function) == "case_when") {
+        inputs = {MakeStruct({condition}), left, right};
+      } else if (std::string_view(function) == "choose") {
+        inputs = {ArrayFromJSON(int64(), "[0, 1, 0]"), left, right};
+      } else {
+        inputs = {left, right};
+      }
+      auto expected = ArrayFromJSON(
+          type,
+          R"(["first left value out of line", "second right value out of line", "third left value out of line"])");
+      CheckScalar(function, inputs, expected);
+      ASSERT_OK_AND_ASSIGN(auto result, CallFunction(function, inputs));
+      inputs.clear();
+      left.reset();
+      right = Datum();
+      ASSERT_FALSE(left_buffer.expired());
+      ASSERT_FALSE(right_buffer.expired());
+      ASSERT_OK(result.make_array()->ValidateFull());
+      AssertArraysEqual(*expected, *result.make_array());
+    }
+  }
+}
+
+TYPED_TEST(TestConditionalBinaryView, CaseWhenNestedOffsets) {
+  auto type = default_type_instance<TypeParam>();
+  auto child = ArrayFromJSON(boolean(), "[false, false, true, false, null, true]")
+                   ->Slice(1);
+  auto conditions = MakeStruct({child}).make_array()->Slice(1, 3);
+  auto left = ArrayFromJSON(type, R"(["left out of line", "unused", "unused"])");
+  auto right = ArrayFromJSON(type, R"(["unused", "right out of line", "fallback"])");
+  CheckScalar("case_when", {conditions, left, right},
+              ArrayFromJSON(type, R"(["left out of line", "right out of line", "fallback"])"));
+  CheckScalar("case_when", {conditions, left},
+              ArrayFromJSON(type, R"(["left out of line", null, null])"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("cond struct"),
+      CallFunction("case_when", {MakeNullScalar(conditions->type()), left}));
+}
+
+TYPED_TEST(TestConditionalBinaryView, ChooseInvalidIndices) {
+  auto type = default_type_instance<TypeParam>();
+  auto value = ScalarFromJSON(type, R"("value out of line")");
+  for (int64_t index : {int64_t{-1}, int64_t{1}, std::numeric_limits<int64_t>::max()}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IndexError, ::testing::HasSubstr("out of range"),
+        CallFunction("choose", {Datum(index), value}));
+    ASSERT_OK_AND_ASSIGN(auto indices, MakeArrayFromScalar(Int64Scalar(index), 1));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IndexError, ::testing::HasSubstr("out of range"),
+        CallFunction("choose", {indices, value}));
+  }
 }
 
 }  // namespace compute
