@@ -192,7 +192,7 @@ submitted contributions. See the `ASF's guidance on AI-generated code
 information on licensing considerations.
 
 We expect human contributors to actively engage on the review process. We
-recognised the value of using AI tools to understand the changes being requested
+recognise the value of using AI tools to understand the changes being requested
 but we expect a human-in-the-loop for all engagements. Reviewer time is limited
 and reviewers are not expected to be talking to contributors' agents but to
 contributors themselves. If a reviewer finds that a contributor seems to rely
