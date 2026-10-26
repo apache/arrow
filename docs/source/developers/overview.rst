@@ -199,13 +199,13 @@ contributors themselves. If a reviewer finds that a contributor seems to rely
 excessively on AI tools instead of engaging with the review, the PR might be
 closed and/or tagged with a label indicating excessive AI usage.
 
-  .. dropdown:: Example of message for a PR with excessive AI usage
-    :animate: fade-in-slide-down
-    :class-container: sd-shadow-none
+.. dropdown:: Example of message for a PR with excessive AI usage
+  :animate: fade-in-slide-down
+  :class-container: sd-shadow-none
 
-      This PR doesn't appear to comply with our policy on tool-generated content.
-      Please see our AI generated code policy on AI-generated code:
-      https://arrow.apache.org/docs/developers/overview.html#ai-generated-code
+    This PR doesn't appear to comply with our policy on tool-generated content.
+    Please see our AI generated code policy on AI-generated code:
+    https://arrow.apache.org/docs/developers/overview.html#ai-generated-code
 
 .. Section on Experimental repositories:
 
