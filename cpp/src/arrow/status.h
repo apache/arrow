@@ -148,11 +148,10 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
  public:
   // Create a success status.
   constexpr Status() noexcept : state_(NULLPTR) {}
+
   ARROW_FORCE_INLINE ~Status() noexcept {
     if (ARROW_PREDICT_FALSE(state_ != NULL)) {
-      if (!state_->is_constant) {
-        DeleteState();
-      }
+      DeleteState();
     }
   }
 
@@ -409,7 +408,9 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   void DeleteState() noexcept {
     // ARROW-2400: On certain compilers, splitting off the slow path improves
     // performance significantly.
-    delete state_;
+    if (!state_->is_constant) {
+      delete state_;
+    }
   }
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
@@ -419,9 +420,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
 
 void Status::MoveFrom(Status& s) {
   if (ARROW_PREDICT_FALSE(state_ != NULL)) {
-    if (!state_->is_constant) {
-      DeleteState();
-    }
+    DeleteState();
   }
   state_ = s.state_;
   s.state_ = NULLPTR;
