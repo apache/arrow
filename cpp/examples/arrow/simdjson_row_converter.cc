@@ -93,24 +93,31 @@ using JsonValue = std::optional<simdjson::dom::element>;
 
 bool IsNull(const JsonValue& value) { return !value.has_value() || value->is_null(); }
 
-// Collect the value of a field from each of the given JSON objects.
-// Missing fields, and fields of null objects, are returned as std::nullopt.
-arrow::Result<std::vector<JsonValue>> GetChildValues(
-    const std::vector<JsonValue>& objects, std::string_view name) {
-  std::vector<JsonValue> children;
-  children.reserve(objects.size());
+// Collect the values of the given fields from each JSON object, one vector per
+// field. Missing fields and fields of null objects are returned as std::nullopt.
+arrow::Result<std::vector<std::vector<JsonValue>>> GetAllChildValues(
+    const std::vector<JsonValue>& objects, const arrow::FieldVector& fields) {
+  std::vector<std::vector<JsonValue>> children(fields.size());
+  for (auto& values : children) {
+    values.reserve(objects.size());
+  }
+
   for (const JsonValue& value : objects) {
     if (IsNull(value)) {
-      children.push_back(std::nullopt);
+      for (auto& values : children) {
+        values.push_back(std::nullopt);
+      }
       continue;
     }
     ARROW_ASSIGN_OR_RAISE(auto object,
                           Unwrap(value->get_object(), "Failed to get JSON object"));
-    ARROW_ASSIGN_OR_RAISE(auto child, GetField(object, name));
-    children.push_back(child);
+    for (size_t i = 0; i < fields.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(auto child, GetField(object, fields[i]->name()));
+      children[i].push_back(child);
+    }
   }
   return children;
-}
+}  // GetAllChildValues
 
 /// \brief Visitor that appends the JSON values of one column to an Arrow builder.
 ///
@@ -197,14 +204,13 @@ class JsonValueConverter {
   arrow::Status Visit(const arrow::StructType& type) {
     auto* builder = static_cast<arrow::StructBuilder*>(builder_);
 
-    // Convert each child column recursively.
+    // Collect all child values in one pass over the rows, then convert each
+    // child column recursively.
+    ARROW_ASSIGN_OR_RAISE(auto children, GetAllChildValues(*values_, type.fields()));
     for (int i = 0; i < type.num_fields(); ++i) {
-      std::shared_ptr<arrow::Field> child_field = type.field(i);
-      ARROW_ASSIGN_OR_RAISE(auto child_values,
-                            GetChildValues(*values_, child_field->name()));
       JsonValueConverter child_converter;
       ARROW_RETURN_NOT_OK(child_converter.Convert(
-          *child_field->type(), builder->child_builder(i).get(), child_values));
+          *type.field(i)->type(), builder->child_builder(i).get(), children[i]));
     }
 
     // Make null bitmap
@@ -274,25 +280,31 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
       batch_builder,
       arrow::RecordBatchBuilder::Make(schema, arrow::default_memory_pool(), rows.size()));
 
-  // The converter below visits all rows once per column, but a DOM element is only
-  // valid until its parser is used again. So each row gets its own parser.
-  std::vector<simdjson::dom::parser> parsers(rows.size());
+  // Parse each row into its own document, so that all DOM elements remain valid while
+  // the converter visits the rows once per column. The documents must not move
+  // after parsing, so the vector is sized once and never grown.
+  simdjson::dom::parser parser;
+  std::vector<simdjson::dom::document> documents(rows.size());
+
   std::vector<JsonValue> row_values;
   row_values.reserve(rows.size());
   for (size_t i = 0; i < rows.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto row,
-                          Unwrap(parsers[i].parse(rows[i]), "Failed to parse JSON row"));
-    row_values.push_back(row);
+                          Unwrap(parser.parse_into_document(documents[i], rows[i]),
+                                 "Failed to parse JSON row"));
+    row_values.emplace_back(row);
   }
+
+  // Collect the values of all fields in one pass over the rows.
+  ARROW_ASSIGN_OR_RAISE(auto children, GetAllChildValues(row_values, schema->fields()));
 
   // Inner converter will take the values of each field and be responsible for
   // appending them to the provided array builder.
   JsonValueConverter converter;
   for (int i = 0; i < batch_builder->num_fields(); ++i) {
     std::shared_ptr<arrow::Field> field = schema->field(i);
-    ARROW_ASSIGN_OR_RAISE(auto values, GetChildValues(row_values, field->name()));
     ARROW_RETURN_NOT_OK(
-        converter.Convert(*field->type(), batch_builder->GetField(i), values));
+        converter.Convert(*field->type(), batch_builder->GetField(i), children[i]));
   }
 
   std::shared_ptr<arrow::RecordBatch> batch;
@@ -498,7 +510,7 @@ class ArrowToJsonConverter {
       std::shared_ptr<arrow::Table> table, size_t batch_size) {
     // Use TableBatchReader to divide table into smaller batches. The batches
     // created are zero-copy slices with *at most* `batch_size` rows.
-    auto batch_reader = std::make_shared<arrow::TableBatchReader>(*table);
+    auto batch_reader = std::make_shared<arrow::TableBatchReader>(std::move(table));
     batch_reader->set_chunksize(batch_size);
 
     auto read_batch = [](const std::shared_ptr<arrow::RecordBatch>& batch)
@@ -532,14 +544,14 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
     std::cout << json << std::endl;
   }
 
-  auto tags_schema = arrow::list(arrow::struct_({
+  auto metrics_schema = arrow::list(arrow::struct_({
       arrow::field("key", arrow::utf8()),
       arrow::field("value", arrow::int64()),
   }));
   auto schema = arrow::schema(
       {arrow::field("pk", arrow::int64()), arrow::field("date_created", arrow::utf8()),
        arrow::field("data", arrow::struct_({arrow::field("deleted", arrow::boolean()),
-                                            arrow::field("metrics", tags_schema)}))});
+                                            arrow::field("metrics", metrics_schema)}))});
 
   // Convert records into a table
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,

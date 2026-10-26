@@ -71,42 +71,38 @@ At the top level, we define a function ``ConvertToRecordBatch``:
    :lineno-match:
 
 First we use :class:`arrow::RecordBatchBuilder`, which conveniently creates builders
-for each field in the schema. Then for each row we parse the JSON object, iterate
-over the fields of the schema, get the builder, and append the corresponding JSON
-value using ``AppendJsonValue``.
-At the end, we call ``batch->ValidateFull()``, which checks the integrity
-of our arrays to make sure the conversion was performed correctly, which is useful
-for debugging new conversion implementations.
+for each field in the schema. We parse each JSON row into its own simdjson DOM document
+using a single parser, keeping the documents alive throughout conversion. The
+``GetAllChildValues`` helper collects the values for all fields in one pass over the rows.
+A ``JsonValueConverter`` then uses ``arrow::VisitTypeInline`` to append each column's
+values to its builder, recursively handling nested structs and lists. At the end, we call
+``batch->ValidateFull()`` to check the integrity of the resulting record batch.
 
-One level down, the ``AppendJsonValue`` function is responsible for appending a
-JSON value to an Arrow array builder according to its Arrow data type. It handles
-the types used by the example schema and recursively processes nested structs and
-lists through ``AppendJsonStruct`` and ``AppendJsonList``. Two small helpers,
-``Unwrap`` and ``GetField``, turn simdjson results into :class:`arrow::Result`
-values, so that parsing errors are reported as :class:`arrow::Status` rather than
-as exceptions.
+The ``JsonValueConverter`` class is responsible for appending JSON values to Arrow array
+builders according to their Arrow data types. It supports integers, floating-point numbers,
+strings, booleans, structs, and lists. The ``Unwrap`` helper converts simdjson results into
+``arrow::Result`` values, while ``GetField`` retrieves object fields and represents missing
+fields as ``std::nullopt``.
 
 .. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: // Convert a simdjson result into an arrow::Result
-   :end-at: }  // AppendJsonValue
+   :start-at: // Collect the values of the given fields from each JSON object, one vector per
+   :end-at: }  // GetAllChildValues
    :linenos:
    :lineno-match:
 
 Writing conversions from Arrow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To convert into rows *from* Arrow record batches, we'll process the table in
-smaller batches, converting each row of a batch into a JSON object.
+To convert Arrow data into JSON rows, we process the table in smaller batches,
+converting each row of a batch into a JSON object.
 
-At the top level, we define a ``ConvertToVector`` function that converts a single
-batch of Arrow data into JSON rows (using ``ConvertRowToJson`` for each row), and
-an ``ArrowToJsonConverter`` class whose ``ConvertToIterator`` method uses
-:class:`arrow::TableBatchReader` to iterate over slices of a table. In many cases,
-it's more optimal to perform conversions to rows in smaller batches, rather than
-doing the entire table at once. ``ConvertToIterator`` returns Arrow's iterator type
-(:class:`arrow::Iterator`) so rows could then be processed either one-at-a-time
-or be collected into a container.
+The ``ConvertToVector`` function converts a record batch into JSON rows. It uses
+``JsonColumnWriter`` to convert each column's values to JSON, then combines the columns
+into one JSON object per row. The ``ArrowToJsonConverter`` class uses
+:class:`arrow::TableBatchReader` to read the table in batches and returns an
+:class:`arrow::Iterator` of JSON rows. Processing smaller batches can be more efficient than
+converting the entire table at once.
 
 .. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
@@ -115,15 +111,15 @@ or be collected into a container.
    :linenos:
    :lineno-match:
 
-One level down, the ``WriteJsonValue`` function is responsible for writing
-an Arrow value as JSON according to its Arrow data type. It handles the
-types used by the example schema and recursively processes nested structs
-and lists through ``WriteJsonStruct`` and ``WriteJsonList``. Strings are quoted
-and escaped by the small ``AppendJsonString`` helper.
+The ``JsonColumnWriter`` class converts Arrow arrays into JSON text using
+``arrow::VisitArrayInline``. It handles primitive types, strings, structs, and lists,
+recursively converting nested arrays. The ``AppendJsonString`` helper escapes strings,
+``FormatPrimitive`` formats numeric and boolean values, and ``ObjectToJson`` combines
+converted column values into a JSON object.
 
 .. literalinclude:: ../../../../cpp/examples/arrow/simdjson_row_converter.cc
    :language: cpp
-   :start-at: // Append ``value`` to ``out`` as a quoted and escaped JSON string.
-   :end-at: }  // WriteJsonValue
+   :start-at: /// \brief Visitor that writes the elements of one Arrow array as JSON.
+   :end-at: };  // JsonColumnWriter
    :linenos:
    :lineno-match:
