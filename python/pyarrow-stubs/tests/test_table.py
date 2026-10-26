@@ -42,6 +42,11 @@ def test_table() -> None:
     check(assert_type(table.to_batches(), list[lib.RecordBatch]), list)
     check(assert_type(table.to_pydict(), dict[str, list]), dict)
 
+    # The reader isn't annotated yet, but must not reject valid usage.
+    check(table.to_reader().read_all(), lib.Table)
+    for batch in table.to_reader():
+        check(batch, lib.RecordBatch)
+
 
 def test_record_batch() -> None:
     batch = lib.record_batch({"a": [1, 2]})

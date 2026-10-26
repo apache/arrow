@@ -18,8 +18,8 @@
 # Placeholder stub - complete annotations in future PR.
 # At runtime, these symbols are provided by the pyarrow.lib C extension.
 
-from typing import Any
+from typing import Any, TypeAlias
 
-class RecordBatchReader: ...
+RecordBatchReader: TypeAlias = Any
 
 def __getattr__(name: str) -> Any: ...
