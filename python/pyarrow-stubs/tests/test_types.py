@@ -113,6 +113,13 @@ def test_map_and_run_end_encoded_types() -> None:
           lib.DataType)
 
 
+def test_types_enum() -> None:
+    assert lib.int64().id == types.TypesEnum.INT64
+    assert lib.list_(lib.int8()).id == types.TypesEnum.LIST
+    assert (lib.month_day_nano_interval().id
+            == types.TypesEnum.INTERVAL_MONTH_DAY_NANO)
+
+
 def test_field() -> None:
     field = lib.field("a", lib.int32())
     check(assert_type(field, lib.Field), lib.Field)
@@ -151,6 +158,11 @@ def test_type_predicates_narrow() -> None:
         ),
         lib.Decimal64Type,
     )
+
+    # Run-end encoded types are nested, so this doesn't narrow to Never.
+    ree = lib.run_end_encoded(lib.int32(), lib.string())
+    assert types.is_nested(ree)
+    check(assert_type(ree, lib.RunEndEncodedType), lib.RunEndEncodedType)
 
 
 def test_invalid_usage() -> None:

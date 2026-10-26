@@ -43,6 +43,24 @@ def test_array() -> None:
     check(assert_type(arr.cast("float64"), lib.Array), lib.DoubleArray)
     check(assert_type(lib.concat_arrays([arr, arr]), lib.Array),
           lib.Int64Array)
+    check(assert_type(lib.Array.from_pandas([1, 2], None, lib.int64()),
+                      lib.Array),
+          lib.Int64Array)
+
+
+def test_list_arrays() -> None:
+    lst = lib.ListArray.from_arrays([0, 1, 3], [1, 2, 3])
+    check(assert_type(lst.value_lengths(), lib.Int32Array), lib.Int32Array)
+
+    large = lib.LargeListArray.from_arrays([0, 1, 3], lib.array([1, 2, 3]))
+    check(assert_type(large.value_lengths(), lib.Int64Array), lib.Int64Array)
+
+    # MapArray is a ListArray (of key-item structs) at runtime.
+    map_arr = lib.MapArray.from_arrays([0, 2], [1, 2], ["a", "b"])
+    check(assert_type(map_arr, lib.MapArray), lib.ListArray)
+    check(assert_type(map_arr.offsets, lib.Int32Array), lib.Int32Array)
+    check(assert_type(map_arr.values, lib.Array), lib.StructArray)
+    check(assert_type(map_arr.keys, lib.Array), lib.Int64Array)
 
 
 def test_dictionary_array() -> None:
@@ -75,6 +93,7 @@ def test_chunked_array() -> None:
     check(assert_type(chunked.chunk(0), lib.Array), lib.Int64Array)
     check(assert_type(chunked.chunks, list[lib.Array]), list)
     check(assert_type(chunked.combine_chunks(), lib.Array), lib.Int64Array)
+    check(assert_type(chunked.unique(), lib.Array), lib.Int64Array)
     check(assert_type(chunked.slice(1), lib.ChunkedArray), lib.ChunkedArray)
     check(assert_type(chunked.cast(lib.float64()), lib.ChunkedArray),
           lib.ChunkedArray)
