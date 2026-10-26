@@ -680,7 +680,12 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
     if not token_expiration_date:
         token_expiration_date = 'ALREADY_EXPIRED'
     report = TokenExpirationReport(token_expiration_date, days_left)
-    email_report = TokenExpirationEmailReport(report)
+    email_report = TokenExpirationEmailReport(
+        report=report,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
 
     if send:
         ReportUtils.send_email(
