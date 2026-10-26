@@ -29,7 +29,7 @@ stubs can't drift away from what pyarrow actually returns.
 
 Code that type checkers should *reject* goes under
 ``if TYPE_CHECKING_INVALID_USAGE:`` with a ``# type: ignore[<mypy code>]``
-comment. The block never runs, and the type checkers are configured to
+comment. The block never runs, and mypy and pyright are configured to
 report unused ignores in these tests, so the test fails if the usage stops
 being an error.
 """
