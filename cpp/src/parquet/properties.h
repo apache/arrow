@@ -1338,8 +1338,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
   }
 
   /// Set whether to detect and fast-path effectively fixed-length LIST pages.
-  /// Defaults to true. Disable this when reading a generic LIST column whose
-  /// list widths may change between pages.
+  /// Defaults to false. Enable this when reading fixed-length vector-shaped
+  /// LIST columns. Disable it for generic LIST columns whose list widths may
+  /// change between pages.
   void set_fixed_list_fast_path(bool enabled) { fixed_list_fast_path_ = enabled; }
   bool fixed_list_fast_path() const { return fixed_list_fast_path_; }
 
