@@ -1106,10 +1106,12 @@ def test_timedelta_overflow():
     # microsecond resolution, not overflow
     assert pa.scalar(d, type=pa.duration('us')).as_py() == d
 
-    # second/millisecond resolution, not overflow
+    # second/millisecond resolution, not overflow (sub-unit part is truncated)
     for d in [datetime.timedelta.min, datetime.timedelta.max]:
-        assert pa.scalar(d, type=pa.duration('ms')).as_py() == d
-        assert pa.scalar(d, type=pa.duration('s')).as_py() == d
+        ms = datetime.timedelta(milliseconds=1)
+        assert pa.scalar(d, type=pa.duration('ms')).as_py() == d // ms * ms
+        s = datetime.timedelta(seconds=1)
+        assert pa.scalar(d, type=pa.duration('s')).as_py() == d // s * s
 
 
 def test_type_equality_operators():
