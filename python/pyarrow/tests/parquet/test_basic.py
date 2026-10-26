@@ -1075,3 +1075,17 @@ def test_read_table_raises_value_error_when_ds_is_unavailable(monkeypatch, sourc
 
     with pytest.raises(ValueError, match="the 'source' argument"):
         pq.read_table(source=source)
+
+
+@pytest.mark.dataset
+def test_filters_to_expression_deprecated_alias():
+    # GH-49153: ``_filters_to_expression`` is kept for a few more releases
+    # as a FutureWarning-emitting alias of ``filters_to_expression``.
+    import pyarrow.dataset as ds
+
+    filters = [("a", "==", 1)]
+    expected = pq.filters_to_expression(filters)
+    with pytest.warns(FutureWarning, match="_filters_to_expression is deprecated"):
+        result = pq._filters_to_expression(filters)
+    assert isinstance(result, ds.Expression)
+    assert result.equals(expected)

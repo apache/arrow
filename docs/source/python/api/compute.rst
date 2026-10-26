@@ -603,7 +603,6 @@ Compute Options
    CastOptions
    CountOptions
    CumulativeOptions
-   CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
    ElementWiseAggregateOptions
