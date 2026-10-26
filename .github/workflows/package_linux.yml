@@ -72,9 +72,6 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
-          (github.event_name == 'push' &&
-           github.repository == 'apache/arrow' &&
-           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
@@ -265,9 +262,7 @@ jobs:
       - name: Docker Push
         continue-on-error: true
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         run: |
           rake -C dev/tasks/linux-packages/apache-arrow docker:push:${TARGET}
       - name: Build artifact tarball
