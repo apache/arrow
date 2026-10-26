@@ -197,10 +197,11 @@ but we expect a human-in-the-loop for all engagements. Reviewer time is limited
 and reviewers are not expected to be talking to contributors' agents but to
 contributors themselves. If a reviewer finds that a contributor seems to rely
 excessively on AI tools instead of engaging with the review, the PR might be
-closed and/or tagged with a label indicating excessive AI usage. An example of
-message that can be left on the PR is:
+closed and/or tagged with a label indicating excessive AI usage.
 
-    .. code:: console
+  .. dropdown:: Example of message for a PR with excessive AI usage
+    :animate: fade-in-slide-down
+    :class-container: sd-shadow-none
 
       This PR doesn't appear to comply with our policy on tool-generated content.
       Please see our AI generated code policy on AI-generated code:
