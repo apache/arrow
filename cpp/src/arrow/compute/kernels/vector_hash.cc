@@ -515,9 +515,18 @@ class DictionaryHashKernel : public HashKernel {
       return first_dictionary_;
     }
 
-    // The output keeps the input index type, so the unified dictionary must fit in it
+    std::shared_ptr<DataType> out_dict_type;
     std::shared_ptr<Array> out_dict;
-    RETURN_NOT_OK(dictionary_unifier_->GetResultWithIndexType(index_type_, &out_dict));
+    RETURN_NOT_OK(dictionary_unifier_->GetResult(&out_dict_type, &out_dict));
+    // The output keeps the input index type, so the highest index into the unified
+    // dictionary (its length minus one) must fit in it
+    const Int64Scalar max_index(out_dict->length() - 1);
+    if (out_dict->length() > 0 &&
+        !::arrow::internal::IntegersCanFit(max_index, *index_type_).ok()) {
+      return Status::Invalid(
+          "These dictionaries cannot be combined.  The unified dictionary requires a "
+          "larger index type.");
+    }
     return out_dict;
   }
 

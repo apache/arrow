@@ -778,10 +778,11 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCountsIndexOverflow) {
     return std::make_shared<DictionaryArray>(dict_ty, indices, dict);
   };
 
-  // 64 + 63 = 127 unified entries still fit in int8
-  auto fits = *ChunkedArray::Make({make_chunk(0, 64), make_chunk(100, 63)}, dict_ty);
+  // 64 + 64 = 128 unified entries still fit in int8: the highest index is 127
+  auto fits = *ChunkedArray::Make({make_chunk(0, 64), make_chunk(100, 64)}, dict_ty);
   ASSERT_OK_AND_ASSIGN(auto uniques, Unique(fits));
   ASSERT_OK(uniques->ValidateFull());
+  ASSERT_EQ(checked_cast<const DictionaryArray&>(*uniques).dictionary()->length(), 128);
   ASSERT_OK_AND_ASSIGN(auto counts, ValueCounts(fits));
   ASSERT_OK(counts->ValidateFull());
 
