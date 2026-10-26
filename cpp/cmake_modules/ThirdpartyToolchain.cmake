@@ -2861,10 +2861,13 @@ function(build_simdjson)
 
   target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
 
-  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
+  # The macOS 11 SDK has incomplete C++20 concepts support, which prevents
   # simdjson headers from compiling. Disable simdjson concepts for this SDK.
-  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
-    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+  # The SDK directory may be named either "MacOSX11.sdk" (as on the CRAN
+  # macOS builders) or "MacOSX11.3.sdk" (as installed by our as-cran CI job),
+  # so match both.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11(\\.[0-9]+)?\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK 11")
     target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
   endif()
 
