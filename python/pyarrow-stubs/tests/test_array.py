@@ -32,6 +32,9 @@ def test_array() -> None:
     check(assert_type(arr.null_count, int), int)
     check(assert_type(len(arr), int), int)
     check(assert_type(arr.to_pylist(), list[Any]), list)
+    # Scalars aren't annotated yet, so indexing returns Any | Int64Array.
+    check(assert_type(arr[0], Any | lib.Int64Array), lib.Int64Scalar)
+    check(assert_type(arr[1:], Any | lib.Int64Array), lib.Int64Array)
 
     # Methods returning the same kind of array keep the subclass.
     check(assert_type(arr.slice(1), lib.Int64Array), lib.Int64Array)
@@ -91,6 +94,9 @@ def test_chunked_array() -> None:
     check(assert_type(chunked.type, lib.DataType), lib.DataType)
     check(assert_type(chunked.num_chunks, int), int)
     check(assert_type(chunked.chunk(0), lib.Array), lib.Int64Array)
+    # Scalars aren't annotated yet, so indexing returns Any | ChunkedArray.
+    check(assert_type(chunked[0], Any | lib.ChunkedArray), lib.Int64Scalar)
+    check(assert_type(chunked[1:], Any | lib.ChunkedArray), lib.ChunkedArray)
     check(assert_type(chunked.chunks, list[lib.Array]), list)
     check(assert_type(chunked.combine_chunks(), lib.Array), lib.Int64Array)
     check(assert_type(chunked.unique(), lib.Array), lib.Int64Array)

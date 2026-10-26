@@ -35,6 +35,12 @@ def test_table() -> None:
     # return the union here.
     check(assert_type(table.column("a"), lib.Array | lib.ChunkedArray),
           lib.ChunkedArray)
+    check(assert_type(table["a"], lib.Array | lib.ChunkedArray | lib.Table),
+          lib.ChunkedArray)
+    check(assert_type(table[0], lib.Array | lib.ChunkedArray | lib.Table),
+          lib.ChunkedArray)
+    check(assert_type(table[:1], lib.Array | lib.ChunkedArray | lib.Table),
+          lib.Table)
 
     check(assert_type(table.slice(0, 1), lib.Table), lib.Table)
     check(assert_type(table.select(["a"]), lib.Table), lib.Table)
