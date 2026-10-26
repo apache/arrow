@@ -3263,21 +3263,23 @@ TEST(ArrowReadWrite, NestedRequiredField) {
 }
 
 TEST(ArrowReadWrite, NestedRequiredFieldWithMaskedNulls) {
+  // A required child null is valid when its parent is null.
+  // Reuse the child's bitmap to construct this case explicitly.
   auto type =
       ::arrow::struct_({::arrow::field("inner", ::arrow::int32(), /*nullable=*/false)});
-  auto values = ::arrow::ArrayFromJSON(type, R"([{"inner": 42}])");
-  auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, null, 0]");
-  ASSERT_OK_AND_ASSIGN(auto array, ::arrow::compute::Take(*values, *indices));
-
-  const auto& structs = checked_cast<const ::arrow::StructArray&>(*array);
-  ASSERT_EQ(structs.null_count(), 1);
-  ASSERT_EQ(structs.field(0)->null_count(), 1);
+  auto inner = ::arrow::ArrayFromJSON(::arrow::int32(), "[42, 42, null, 42]");
+  ASSERT_OK_AND_ASSIGN(auto array, ::arrow::StructArray::Make({inner}, type->fields(),
+                                                              inner->null_bitmap()));
+  ASSERT_EQ(array->null_count(), 1);
+  ASSERT_EQ(array->field(0)->null_count(), 1);
 
   auto table = ::arrow::Table::Make(
       ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {array});
   ASSERT_OK(table->ValidateFull());
   CheckSimpleRoundtrip(table, /*row_group_size=*/4);
 
+  // Also test masked child nulls after null/empty lists in the same row group.
+  // Null/empty lists add definition levels without corresponding child values.
   auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[null, 0, 0, 4]");
   ASSERT_OK_AND_ASSIGN(auto list_array, ::arrow::ListArray::FromArrays(*offsets, *array));
   auto list_type = list_array->type();
@@ -3285,14 +3287,13 @@ TEST(ArrowReadWrite, NestedRequiredFieldWithMaskedNulls) {
       ::arrow::schema({::arrow::field("outer", std::move(list_type))}),
       {std::move(list_array)});
   ASSERT_OK(list_table->ValidateFull());
-  // Round-trip null, empty, and non-empty lists in one row group.
   CheckSimpleRoundtrip(list_table, /*row_group_size=*/3);
 
-  // Make all parent rows valid while keeping the child null.
+  // Exposing the same child null under a valid parent must fail.
   ASSERT_OK_AND_ASSIGN(auto unmasked,
-                       ::arrow::StructArray::Make(structs.fields(), type->fields()));
+                       ::arrow::StructArray::Make({std::move(inner)}, type->fields()));
   auto invalid_table = ::arrow::Table::Make(table->schema(), {std::move(unmasked)});
-  // Also cover an all-null child array.
+  // Test partially null and all-null child arrays.
   for (const auto& invalid_slice : {invalid_table, invalid_table->Slice(2, 1)}) {
     ARROW_SCOPED_TRACE("num_rows = ", invalid_slice->num_rows());
     auto sink = CreateOutputStream();
