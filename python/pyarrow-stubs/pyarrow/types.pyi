@@ -96,6 +96,7 @@ _Nested: TypeAlias = (
     | StructType
     | MapType
     | _Union
+    | RunEndEncodedType
 )
 
 
@@ -216,6 +217,47 @@ __all__ = [
 
 
 class TypesEnum(IntEnum):
-    INTERVAL_MONTHS = 0
-    INTERVAL_DAY_TIME = 1
-    INTERVAL_MONTH_DAY_NANO = 2
+    NA = 0
+    BOOL = 1
+    INT8 = 3
+    INT16 = 5
+    INT32 = 7
+    INT64 = 9
+    UINT8 = 2
+    UINT16 = 4
+    UINT32 = 6
+    UINT64 = 8
+    HALF_FLOAT = 10
+    FLOAT = 11
+    DOUBLE = 12
+    BINARY = 14
+    BINARY_VIEW = 40
+    LARGE_BINARY = 35
+    STRING = 13
+    STRING_VIEW = 39
+    LARGE_STRING = 34
+    FIXED_SIZE_BINARY = 15
+    DECIMAL32 = 43
+    DECIMAL64 = 44
+    DECIMAL128 = 23
+    DECIMAL256 = 24
+    LIST = 25
+    LARGE_LIST = 36
+    LIST_VIEW = 41
+    LARGE_LIST_VIEW = 42
+    MAP = 30
+    FIXED_SIZE_LIST = 32
+    STRUCT = 26
+    SPARSE_UNION = 27
+    DENSE_UNION = 28
+    RUN_END_ENCODED = 38
+    DATE32 = 16
+    DATE64 = 17
+    TIME32 = 19
+    TIME64 = 20
+    TIMESTAMP = 18
+    INTERVAL_MONTHS = 21
+    INTERVAL_DAY_TIME = 22
+    INTERVAL_MONTH_DAY_NANO = 37
+    DURATION = 33
+    DICTIONARY = 29

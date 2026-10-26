@@ -142,8 +142,6 @@ class _PandasConvertible(_Weakrefable):
 
 
 class Array(_PandasConvertible):
-    def as_py(self) -> list[Any]: ...
-
     def diff(self, other: Self) -> str: ...
 
     # Private attribute used internally (e.g., for column names in batches)
@@ -172,7 +170,6 @@ class Array(_PandasConvertible):
     @staticmethod
     def from_pandas(
         obj: pd.Series | np.ndarray | ArrayLike,
-        *,
         mask: Mask | None = None,
         type: DataType | None = None,
         safe: bool = True,
@@ -422,7 +419,7 @@ class BaseListArray(Array):
 
     def value_parent_indices(self) -> Int64Array: ...
 
-    def value_lengths(self) -> Int32Array: ...
+    def value_lengths(self) -> Int32Array | Int64Array: ...
 
 
 class ListArray(BaseListArray):
@@ -443,6 +440,8 @@ class ListArray(BaseListArray):
     @property
     def offsets(self) -> Int32Array: ...
 
+    def value_lengths(self) -> Int32Array: ...
+
 
 class LargeListArray(BaseListArray):
     @classmethod
@@ -461,6 +460,8 @@ class LargeListArray(BaseListArray):
 
     @property
     def offsets(self) -> Int64Array: ...
+
+    def value_lengths(self) -> Int64Array: ...
 
 
 class ListViewArray(BaseListArray):
@@ -485,6 +486,8 @@ class ListViewArray(BaseListArray):
     @property
     def sizes(self) -> Int32Array: ...
 
+    def value_lengths(self) -> Int32Array: ...
+
 
 class LargeListViewArray(BaseListArray):
     @classmethod
@@ -508,6 +511,8 @@ class LargeListViewArray(BaseListArray):
     @property
     def sizes(self) -> Int64Array: ...
 
+    def value_lengths(self) -> Int64Array: ...
+
 
 class FixedSizeListArray(BaseListArray):
     @classmethod
@@ -523,10 +528,12 @@ class FixedSizeListArray(BaseListArray):
     @property
     def values(self) -> Array: ...
 
+    def value_lengths(self) -> Int32Array: ...
 
-class MapArray(BaseListArray):
+
+class MapArray(ListArray):
     @classmethod
-    def from_arrays(
+    def from_arrays(  # type: ignore[override]
         cls,
         offsets: Int32Array | list[int] | list[int | None],
         keys: Array | np.ndarray | list,
