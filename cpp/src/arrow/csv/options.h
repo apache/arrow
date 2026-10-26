@@ -183,8 +183,9 @@ enum class ARROW_EXPORT QuotingStyle {
   /// Only enclose values in quotes which need them, because their CSV rendering can
   /// contain quotes itself (e.g. strings or binary values)
   Needed,
-  /// Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
-  /// interpret all values as strings if schema is inferred.
+  /// Enclose all valid values in quotes. Nulls are not quoted, except as described for
+  /// `WriteOptions::null_string`. May cause readers to interpret all values as strings
+  /// if schema is inferred.
   AllValid,
   /// Do not enclose any values in quotes. Prevents values from containing quotes ("),
   /// cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
@@ -207,9 +208,12 @@ struct ARROW_EXPORT WriteOptions {
 
   /// \brief The string to write for null values. Quotes are not allowed in this string.
   ///
-  /// If this is empty and the schema has a single column, nulls are written as `""`
-  /// (unless `quoting_style` is `QuotingStyle::None`), so that a null row is not
-  /// written as an empty line, which readers skip by default.
+  /// If this is empty and the schema has a single column whose valid values are never
+  /// written as `""` (anything but a string, binary or zero-width fixed size binary
+  /// column), nulls are written as `""` (unless `quoting_style` is
+  /// `QuotingStyle::None`), so that a null row is not written as an empty line, which
+  /// readers skip by default. Other columns keep the empty line, since a valid empty
+  /// value is already written as `""` there.
   std::string null_string;
 
   /// \brief IO context for writing.
