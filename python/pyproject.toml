@@ -185,3 +185,11 @@ include = ["pyarrow-stubs/tests/**"]
 [tool.ty.overrides.rules]
 # mypy and pyright check that the invalid usage in the tests is rejected.
 invalid-argument-type = "ignore"
+
+# Lints and formats the type stubs (*.pyi); see .pre-commit-config.yaml.
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# PYI: the flake8-pyi rules for type stubs.
+select = ["E", "F", "W", "PYI"]
