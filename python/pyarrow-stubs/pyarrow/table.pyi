@@ -27,7 +27,7 @@ else:
     from typing_extensions import TypeAlias
 from collections.abc import (
     Collection, Generator, Iterable, Iterator, Sequence, Mapping)
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Literal
 import builtins
 
 import numpy as np
@@ -54,22 +54,18 @@ from pyarrow._stubs_typing import (
 )
 from pyarrow.compute import Expression
 from pyarrow.interchange.dataframe import _PyArrowDataFrame
-from pyarrow.lib import Device, MemoryManager, MemoryPool, Schema
-from pyarrow.lib import Field as _Field
+from pyarrow.lib import Device, Field, MemoryManager, MemoryPool, Schema
 
-from .array import Array, StructArray, _CastAs, _PandasConvertible
+from .array import Array, StructArray, _PandasConvertible
 from .device import DeviceAllocationType
 from .io import Buffer
 from ._ipc import RecordBatchReader
-from .scalar import BooleanScalar, Int64Scalar, Scalar, StructScalar
+from .scalar import Int64Scalar, Scalar
 from .tensor import Tensor
 from ._stubs_typing import NullableCollection
-from ._types import DataType, _AsPyType, _BasicDataType, _DataTypeT
+from ._types import DataType
 
-Field: TypeAlias = _Field[DataType]
-_ScalarT = TypeVar("_ScalarT", bound=Scalar)
-_Scalar_co = TypeVar("_Scalar_co", bound=Scalar, covariant=True)
-ArrayOrChunkedArray: TypeAlias = Array[_Scalar_co] | ChunkedArray[_Scalar_co]
+ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 
 _Aggregation: TypeAlias = Literal[
     "all",
@@ -127,14 +123,14 @@ NarySelector: TypeAlias = list[str] | tuple[str, ...]
 ColumnSelector: TypeAlias = UnarySelector | NullarySelector | NarySelector
 
 
-class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
+class ChunkedArray(_PandasConvertible):
 
     def as_py(self) -> list[Any]: ...
 
     @property
     def data(self) -> Self: ...
     @property
-    def type(self: ChunkedArray[Scalar[_DataTypeT]]) -> _DataTypeT: ...
+    def type(self) -> DataType: ...
 
     # Private attribute used internally for column names
     _name: str | None
@@ -166,22 +162,22 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def __sizeof__(self) -> int: ...
 
     def __getitem__(
-        self, key: int | np.integer | builtins.slice) -> _Scalar_co | Self: ...
+        self, key: int | np.integer | builtins.slice) -> Scalar | Self: ...
 
     def getitem(self, i: int) -> Scalar: ...
-    def is_null(self, *, nan_is_null: bool = False) -> ChunkedArray[BooleanScalar]: ...
+    def is_null(self, *, nan_is_null: bool = False) -> ChunkedArray: ...
 
-    def is_nan(self) -> ChunkedArray[BooleanScalar]: ...
+    def is_nan(self) -> ChunkedArray: ...
 
-    def is_valid(self) -> ChunkedArray[BooleanScalar]: ...
+    def is_valid(self) -> ChunkedArray: ...
 
     def cast(
-        self, target_type: _CastAs | str | None, safe: bool = True,
+        self, target_type: DataType | str | None, safe: bool = True,
         options: CastOptions | None = None,
         memory_pool: MemoryPool | None = None
-    ) -> Self | ChunkedArray[Scalar[_CastAs]]: ...
+    ) -> ChunkedArray: ...
 
-    def fill_null(self, fill_value: Scalar[_DataTypeT] | Any) -> Self: ...
+    def fill_null(self, fill_value: Any) -> Self: ...
 
     def equals(self, other: Self | Any) -> bool: ...
 
@@ -193,12 +189,12 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def dictionary_encode(self, null_encoding: NullEncoding = "mask") -> Self: ...
 
     def flatten(self, memory_pool: MemoryPool |
-                None = None) -> list[ChunkedArray[Any]]: ...
+                None = None) -> list[ChunkedArray]: ...
 
     def combine_chunks(self, memory_pool: MemoryPool |
-                       None = None) -> Array[_Scalar_co]: ...
+                       None = None) -> Array: ...
 
-    def unique(self) -> ChunkedArray[_Scalar_co]: ...
+    def unique(self) -> ChunkedArray: ...
 
     def value_counts(self) -> StructArray: ...
 
@@ -208,8 +204,8 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
                null_selection_behavior: NullSelectionBehavior = "drop") -> Self: ...
 
     def index(
-        self: ChunkedArray[Scalar[_BasicDataType[_AsPyType]]],
-        value: Scalar[_DataTypeT] | _AsPyType,
+        self,
+        value: Any,
         start: int | None = None,
         end: int | None = None,
         *,
@@ -227,22 +223,20 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     @property
     def num_chunks(self) -> int: ...
 
-    def chunk(self, i: int) -> Array[_Scalar_co]: ...
+    def chunk(self, i: int) -> Array: ...
 
     @property
-    def chunks(self) -> list[Array[_Scalar_co]]: ...
+    def chunks(self) -> list[Array]: ...
 
-    def iterchunks(
-        self: ArrayOrChunkedArray[_ScalarT],
-    ) -> Generator[Array, None, None]: ...
+    def iterchunks(self) -> Generator[Array, None, None]: ...
 
-    def __iter__(self) -> Iterator[_Scalar_co]: ...
+    def __iter__(self) -> Iterator[Scalar]: ...
 
     def to_pylist(
-        self: ChunkedArray[Scalar[_BasicDataType[_AsPyType]]],
+        self,
         *,
         maps_as_pydicts: Literal["lossy", "strict"] | None = None,
-    ) -> list[_AsPyType | None]: ...
+    ) -> list[Any]: ...
 
     def __arrow_c_stream__(self, requested_schema=None) -> Any: ...
 
@@ -254,18 +248,15 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
 
 def chunked_array(
-    arrays: Iterable[NullableCollection[Any]]
+    arrays: Iterable[NullableCollection]
     | Iterable[Iterable[Any] | SupportsArrowStream | SupportsArrowArray]
-    | Iterable[Array[_ScalarT]] | Array[_ScalarT]
+    | Iterable[Array] | Array
     | SupportsArrowArray | SupportsArrowStream,
     type: DataType | str | None = None,
-) -> ChunkedArray[Scalar[Any]] | ChunkedArray[_ScalarT]: ...
+) -> ChunkedArray: ...
 
 
-_ColumnT = TypeVar("_ColumnT", bound=ArrayOrChunkedArray[Any])
-
-
-class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
+class _Tabular(_PandasConvertible):
     def __array__(self, dtype: np.dtype | None = None,
                   copy: bool | None = None) -> np.ndarray: ...
 
@@ -273,16 +264,16 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
         self, nan_as_null: bool = False, allow_copy: bool = True
     ) -> _PyArrowDataFrame: ...
 
-    def __getitem__(self, key: int | str | slice) -> _ColumnT | Self: ...
+    def __getitem__(self, key: int | str | slice) -> ArrayOrChunkedArray | Self: ...
 
     def __len__(self) -> int: ...
-    def column(self, i: int | str) -> _ColumnT: ...
+    def column(self, i: int | str) -> ArrayOrChunkedArray: ...
 
     @property
     def column_names(self) -> list[str]: ...
 
     @property
-    def columns(self) -> list[_ColumnT]: ...
+    def columns(self) -> list[Array] | list[ChunkedArray]: ...
 
     def drop_null(self) -> Self: ...
 
@@ -292,7 +283,7 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     def from_pydict(
         cls,
         mapping:
-        Mapping[Any, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
+        Mapping[Any, ArrayOrChunkedArray | list[Any] | np.ndarray | range],
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
@@ -305,7 +296,7 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
 
-    def itercolumns(self) -> Generator[_ColumnT, None, None]: ...
+    def itercolumns(self) -> Generator[ArrayOrChunkedArray, None, None]: ...
 
     @property
     def num_columns(self) -> int: ...
@@ -342,14 +333,14 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     def drop_columns(self, columns: str | list[str]) -> Self: ...
 
     def add_column(self, i: int, field_: str | Field,
-                   column: ArrayOrChunkedArray[Any] | list[list[Any]]) -> Self: ...
+                   column: ArrayOrChunkedArray | list[list[Any]]) -> Self: ...
 
     def append_column(
-        self, field_: str | Field, column: ArrayOrChunkedArray[Any] | list[list[Any]]
+        self, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
     ) -> Self: ...
 
 
-class RecordBatch(_Tabular[Array]):
+class RecordBatch(_Tabular):
     def validate(self, *, full: bool = False) -> None: ...
 
     def replace_schema_metadata(
@@ -378,7 +369,7 @@ class RecordBatch(_Tabular[Array]):
     def __sizeof__(self) -> int: ...
 
     def add_column(
-        self, i: int, field_: str | Field, column: ArrayOrChunkedArray[Any] | list
+        self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list
     ) -> Self: ...
 
     def remove_column(self, i: int) -> Self: ...
@@ -424,7 +415,7 @@ class RecordBatch(_Tabular[Array]):
 
     @classmethod
     def from_struct_array(
-        cls, struct_array: StructArray | ChunkedArray[StructScalar]
+        cls, struct_array: StructArray | ChunkedArray
     ) -> Self: ...
 
     def to_struct_array(self) -> StructArray: ...
@@ -482,7 +473,7 @@ JoinType: TypeAlias = Literal[
 ]
 
 
-class Table(_Tabular[ChunkedArray[Any]]):
+class Table(_Tabular):
     def validate(self, *, full: bool = False) -> None: ...
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
@@ -524,7 +515,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
     def from_arrays(
         cls,
         arrays:
-        Collection[ArrayOrChunkedArray[Any] | Collection[NDArray[Any]] | list[Any]],
+        Collection[ArrayOrChunkedArray | Collection[NDArray[Any]] | list[Any]],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[bytes, bytes]
@@ -535,12 +526,12 @@ class Table(_Tabular[ChunkedArray[Any]]):
 
     @classmethod
     def from_struct_array(
-        cls, struct_array: StructArray | ChunkedArray[StructScalar]
+        cls, struct_array: StructArray | ChunkedArray
     ) -> Self: ...
 
     def to_struct_array(
         self, max_chunksize: int | None = None
-    ) -> ChunkedArray[StructScalar]: ...
+    ) -> ChunkedArray: ...
 
     @classmethod
     def from_batches(cls, batches: Iterable[RecordBatch],
@@ -567,12 +558,12 @@ class Table(_Tabular[ChunkedArray[Any]]):
     def __sizeof__(self) -> int: ...
 
     def add_column(self, i: int, field_: str | Field,
-                   column: ArrayOrChunkedArray[Any] | list[list[Any]]) -> Self: ...
+                   column: ArrayOrChunkedArray | list[list[Any]]) -> Self: ...
 
     def remove_column(self, i: int) -> Self: ...
 
     def set_column(self, i: int, field_: str | Field,
-                   column: ArrayOrChunkedArray[Any] | list[list[Any]]) -> Self: ...
+                   column: ArrayOrChunkedArray | list[list[Any]]) -> Self: ...
 
     def rename_columns(self, names: list[str] | dict[str, str]) -> Self: ...
 
@@ -610,8 +601,8 @@ class Table(_Tabular[ChunkedArray[Any]]):
 
 
 def record_batch(
-    data: Mapping[str, list[Any] | Array[Any]]
-    | Collection[Array[Any] | ChunkedArray[Any] | list[Any]]
+    data: Mapping[str, list[Any] | Array]
+    | Collection[Array | ChunkedArray | list[Any]]
     | pd.DataFrame
     | SupportsArrowArray
     | SupportsArrowDeviceArray,
@@ -622,12 +613,12 @@ def record_batch(
 
 
 def table(
-    data: Collection[ArrayOrChunkedArray[Any] | list[Any] | range | str]
+    data: Collection[ArrayOrChunkedArray | list[Any] | range | str]
     | pd.DataFrame
     | SupportsArrowArray
     | SupportsArrowStream
     | SupportsArrowDeviceArray
-    | Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range]
+    | Mapping[str, list[Any] | Array | ChunkedArray | range]
     | Mapping[str, Any],
     names: list[str] | Schema | None = None,
     schema: Schema | None = None,

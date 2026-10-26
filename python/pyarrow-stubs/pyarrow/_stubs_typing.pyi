@@ -25,8 +25,7 @@ from _typeshed import (
 )
 from collections.abc import Collection, Container, Iterator, Sequence, Sized
 from decimal import Decimal
-from typing import Any, Literal, Protocol, TypeAlias, TypeVar
-from typing_extensions import TypeAliasType
+from typing import Any, Literal, Protocol, TypeAlias
 
 import numpy as np
 
@@ -55,16 +54,6 @@ NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
 
-IntegerType: TypeAlias = (
-    lib.Int8Type
-    | lib.Int16Type
-    | lib.Int32Type
-    | lib.Int64Type
-    | lib.UInt8Type
-    | lib.UInt16Type
-    | lib.UInt32Type
-    | lib.UInt64Type
-)
 PyScalar: TypeAlias = (
     bool
     | int
@@ -79,25 +68,15 @@ PyScalar: TypeAlias = (
 )
 NumpyScalar: TypeAlias = np.generic[Any]
 
-_PyScalarT_co = TypeVar("_PyScalarT_co", bound=PyScalar, covariant=True)
-_NumpyScalarT_co = TypeVar("_NumpyScalarT_co", bound=NumpyScalar, covariant=True)
-_DataTypeT_co = TypeVar("_DataTypeT_co", bound=lib.DataType, covariant=True)
-IntoArray = TypeAliasType(
-    "IntoArray",
-    Sequence[_PyScalarT_co | None]
-    | NDArray[_NumpyScalarT_co]
-    | lib.Array[lib.Scalar[_DataTypeT_co]]
-    | ChunkedArray[Any],
-    type_params=(_PyScalarT_co, _NumpyScalarT_co, _DataTypeT_co),
+Mask: TypeAlias = (
+    Sequence[bool | None] | NDArray[np.bool_] | lib.BooleanArray | ChunkedArray
 )
-
-Mask: TypeAlias = IntoArray[bool, np.bool_, lib.BoolType]
-Indices: TypeAlias = IntoArray[int, np.integer[Any], IntegerType]
-
-_T = TypeVar("_T")
-_V = TypeVar("_V", covariant=True)
-
-SingleOrList: TypeAlias = list[_T] | _T
+Indices: TypeAlias = (
+    Sequence[int | None]
+    | NDArray[np.integer[Any]]
+    | lib.IntegerArray
+    | ChunkedArray
+)
 
 class SupportsDunderEQ(Protocol):
     def __eq__(self, other: object, /) -> bool: ...
@@ -132,7 +111,7 @@ class SupportsArrowDeviceArray(Protocol):
 class SupportsArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> Any: ...
 
-class NullableCollection(Sized, Container[Any], Protocol[_V]):
-    def __iter__(self) -> Iterator[_V] | Iterator[_V | None]: ...
+class NullableCollection(Sized, Container[Any], Protocol):
+    def __iter__(self) -> Iterator[Any]: ...
     def __len__(self) -> int: ...
     def __contains__(self, item: Any, /) -> bool: ...
