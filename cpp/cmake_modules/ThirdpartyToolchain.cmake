@@ -2861,13 +2861,20 @@ function(build_simdjson)
 
   target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
 
-  # The macOS 11 SDK has incomplete C++20 concepts support, which prevents
-  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
-  # The SDK directory may be named either "MacOSX11.sdk" (as on the CRAN
-  # macOS builders) or "MacOSX11.3.sdk" (as installed by our as-cran CI job),
-  # so match both.
-  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11(\\.[0-9]+)?\\.sdk$")
-    message(STATUS "Disabling simdjson concepts for macOS SDK 11")
+  # macOS SDKs before 13.3 ship a libc++ without <ranges> and with incomplete
+  # <concepts>, but simdjson enables its C++20 concepts API from the compiler's
+  # __cpp_concepts alone, so its headers fail to compile against those SDKs
+  # (GH-55267). Disable simdjson concepts for them. Arrow doesn't use that part
+  # of the simdjson API.
+  #
+  # This goes by the SDK directory name, which may or may not carry a minor
+  # version, e.g. "MacOSX11.sdk" on the CRAN macOS builders and "MacOSX11.3.sdk"
+  # in our as-cran CI job, so match both forms. "MacOSX13.sdk" can't be told
+  # apart from 13.3, so it's treated as too old; disabling concepts on a working
+  # toolchain is harmless. An unversioned "MacOSX.sdk" sysroot isn't detected.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES
+                           "MacOSX(1[0-2](\\.[0-9]+)?|13(\\.[0-2])?)\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK older than 13.3")
     target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
   endif()
 
