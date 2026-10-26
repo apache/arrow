@@ -114,6 +114,18 @@ Running Type Checkers
 We support multiple type checkers. Their configurations are in
 ``pyproject.toml``.
 
+The easiest way to run all of them is with ``pre-commit``, which installs
+the same versions of the type checkers and stub packages for everyone. This
+also lints and formats the stubs with ruff:
+
+.. code-block::
+
+   $ pre-commit run --hook-stage manual python-stubs --all-files
+
+These hooks only run on request, not on commit.
+
+To run a type checker directly instead:
+
 **mypy**
 
 To run mypy on the PyArrow codebase:
