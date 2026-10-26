@@ -15,9 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Placeholder stub for pyarrow.lib C extension module.
-# Complete type annotations will be added in subsequent PRs.
+# Stub for the pyarrow.lib C extension module. Re-exports the modules that
+# have been annotated so far; everything else falls back to Any via
+# __getattr__ until it gets annotated in subsequent PRs.
 
 from typing import Any
+
+from pyarrow._types import *  # noqa: F401,F403
+from pyarrow.array import *  # noqa: F401,F403
+from pyarrow.builder import *  # noqa: F401,F403
+from pyarrow.config import *  # noqa: F401,F403
+from pyarrow.device import *  # noqa: F401,F403
+from pyarrow.error import *  # noqa: F401,F403
+from pyarrow.io import *  # noqa: F401,F403
+from pyarrow.memory import *  # noqa: F401,F403
+from pyarrow.scalar import *  # noqa: F401,F403
+from pyarrow.table import *  # noqa: F401,F403
+from pyarrow.tensor import *  # noqa: F401,F403
 
 def __getattr__(name: str) -> Any: ...
