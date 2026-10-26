@@ -1597,6 +1597,39 @@ TEST_F(ScalarTemporalTest, TestTemporalTimestampAndIntervalAcrossDST) {
       CallFunction("add", {unknown_tz, ScalarFromJSON(month_interval(), "1")}));
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalTimestampIntervalTimezoneBounds) {
+  constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
+  constexpr int64_t kMin = std::numeric_limits<int64_t>::min();
+  constexpr int64_t kUnitsPerDay[] = {86400, 86400000, 86400000000LL, 86400000000000LL};
+  for (auto unit : TimeUnit::values()) {
+    for (auto tz : {"+05:00", "Etc/GMT-5", "-05:00", "Etc/GMT+5"}) {
+      SCOPED_TRACE(timestamp(unit, tz)->ToString());
+      auto ty = timestamp(unit, tz);
+      auto ts = [&](int64_t value) {
+        return ArrayFromJSON(ty, "[" + std::to_string(value) + "]");
+      };
+      for (auto day : {ScalarFromJSON(day_time_interval(), "[1, 0]"),
+                       ScalarFromJSON(month_day_nano_interval(), "[0, 1, 0]")}) {
+        for (auto suffix : {"", "_checked"}) {
+          const auto add = std::string("add") + suffix;
+          const auto sub = std::string("subtract") + suffix;
+          CheckScalarBinary(add, ts(kMax - kUnitsPerDay[unit]), day, ts(kMax));
+          CheckScalarBinary(add, day, ts(kMax - kUnitsPerDay[unit]), ts(kMax));
+          CheckScalarBinary(sub, ts(kMin + kUnitsPerDay[unit]), day, ts(kMin));
+          CheckScalarBinary(add, ts(kMin), day, ts(kMin + kUnitsPerDay[unit]));
+          CheckScalarBinary(sub, ts(kMax), day, ts(kMax - kUnitsPerDay[unit]));
+        }
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            Invalid, ::testing::HasSubstr("overflow"),
+            CallFunction("add_checked", {ts(kMax - kUnitsPerDay[unit] + 1), day}));
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            Invalid, ::testing::HasSubstr("overflow"),
+            CallFunction("subtract_checked", {ts(kMin + kUnitsPerDay[unit] - 1), day}));
+      }
+    }
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalTimestampAndIntervalErrors) {
   auto mdn = month_day_nano_interval();
 

@@ -1244,14 +1244,21 @@ class IntervalLocalizer {
 
   bool IsFixed() const { return zone_ == nullptr; }
 
-  // UTC offset to use for converting the given local time (in `Duration`
-  // units) to UTC.  Like ZonedLocalizer::ConvertLocalToSys, this returns an
-  // error if the local time is ambiguous or does not exist.
-  template <typename Duration>
-  int64_t OffsetForLocal(int64_t local, Status* st) const {
+  // UTC offset for a local (day, seconds since midnight) pair. Like
+  // ZonedLocalizer::ConvertLocalToSys, reject ambiguous and nonexistent times.
+  int64_t OffsetForLocal(int64_t day, int64_t seconds_of_day, Status* st) const {
     if (zone_ == nullptr) return fixed_offset_;
-    const auto lt = local_time<Duration>{Duration{local}};
-    const auto info = zone_->get_info(floor<std::chrono::seconds>(lt));
+    constexpr int64_t kMinSeconds = std::numeric_limits<int64_t>::min();
+    constexpr int64_t kMaxSeconds = std::numeric_limits<int64_t>::max();
+    // The transition table is finite: near the int64-second bounds, use its
+    // first/last UTC offset without forming an out-of-range local timestamp.
+    // Keep a whole day of headroom because get_info(local_time) also subtracts
+    // offsets internally, which can overflow even if local seconds fit.
+    if (day <= kMinSeconds / 86400 + 1) return OffsetAtSys(kMinSeconds);
+    if (day >= kMaxSeconds / 86400 - 1) return OffsetAtSys(kMaxSeconds);
+    const auto lt = local_time<std::chrono::seconds>{
+        std::chrono::seconds{day * 86400 + seconds_of_day}};
+    const auto info = zone_->get_info(lt);
     switch (info.result) {
       case chrono::local_info::unique:
         break;
@@ -1363,10 +1370,7 @@ struct TimestampIntervalArithmeticImpl {
     } else {
       // Timezone transitions have second precision; the subsecond remainder
       // does not affect which offset applies.
-      const int64_t local_seconds =
-          ComposeDays(day, time_of_day / kUnitsPerSecond, 86400, st);
-      if (!st->ok()) return 0;
-      new_offset = localizer.OffsetForLocal<std::chrono::seconds>(local_seconds, st);
+      new_offset = localizer.OffsetForLocal(day, time_of_day / kUnitsPerSecond, st);
     }
     // Convert back to UTC on the (day, time of day) pair, so that neither the
     // local timestamp nor day * kUnitsPerDay has to be representable on its
