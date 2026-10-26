@@ -207,8 +207,9 @@ Code under ``if TYPE_CHECKING_INVALID_USAGE:`` is never executed. It should
 fail type checking, which is asserted with a ``# type: ignore[<mypy code>]``
 comment: unused ignores are reported as errors in these tests, so the test
 fails once the usage is no longer rejected. Start new test files with a
-``# mypy: warn-unused-ignores`` comment to enable this for mypy (pyright and
-ty are configured in ``pyproject.toml``).
+``# mypy: warn-unused-ignores`` comment to enable this for mypy (pyright is
+configured in ``pyproject.toml``). ty doesn't honor mypy error codes, so it
+doesn't check invalid usage.
 
 Doctest
 =======
