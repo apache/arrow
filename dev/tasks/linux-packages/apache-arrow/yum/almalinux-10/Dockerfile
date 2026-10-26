@@ -53,7 +53,6 @@ RUN \
     pkg-config \
     python3 \
     python3-pip \
-    rapidjson-devel \
     re2-devel \
     rpmdevtools \
     snappy-devel \
