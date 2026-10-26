@@ -136,6 +136,12 @@ exclude = [
 ]
 stubPath = "pyarrow-stubs"
 typeCheckingMode = "basic"
+# The type annotation tests use `# type: ignore[...]` to assert that some
+# usage is rejected, so an ignore that is no longer needed is an error there.
+executionEnvironments = [
+    { root = "pyarrow-stubs/tests", reportUnnecessaryTypeIgnoreComment = "error" },
+    { root = "." },
+]
 
 # TODO: Enable type checking once stubs are merged
 [tool.ty.environment]
@@ -149,3 +155,8 @@ exclude = [
     "examples",
     "scripts",
 ]
+
+[[tool.ty.overrides]]
+include = ["pyarrow-stubs/tests/**"]
+[tool.ty.overrides.rules]
+unused-type-ignore-comment = "error"
