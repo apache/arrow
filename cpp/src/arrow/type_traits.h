@@ -17,9 +17,11 @@
 
 #pragma once
 
+#include <array>
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/type.h"
@@ -57,6 +59,8 @@ TYPE_ID_TRAIT(STRING, StringType)
 TYPE_ID_TRAIT(BINARY, BinaryType)
 TYPE_ID_TRAIT(LARGE_STRING, LargeStringType)
 TYPE_ID_TRAIT(LARGE_BINARY, LargeBinaryType)
+TYPE_ID_TRAIT(STRING_VIEW, StringViewType)
+TYPE_ID_TRAIT(BINARY_VIEW, BinaryViewType)
 TYPE_ID_TRAIT(FIXED_SIZE_BINARY, FixedSizeBinaryType)
 TYPE_ID_TRAIT(DATE32, Date32Type)
 TYPE_ID_TRAIT(DATE64, Date64Type)
@@ -74,10 +78,13 @@ TYPE_ID_TRAIT(DECIMAL256, Decimal256Type)
 TYPE_ID_TRAIT(STRUCT, StructType)
 TYPE_ID_TRAIT(LIST, ListType)
 TYPE_ID_TRAIT(LARGE_LIST, LargeListType)
+TYPE_ID_TRAIT(LIST_VIEW, ListViewType)
+TYPE_ID_TRAIT(LARGE_LIST_VIEW, LargeListViewType)
 TYPE_ID_TRAIT(FIXED_SIZE_LIST, FixedSizeListType)
 TYPE_ID_TRAIT(MAP, MapType)
 TYPE_ID_TRAIT(DENSE_UNION, DenseUnionType)
 TYPE_ID_TRAIT(SPARSE_UNION, SparseUnionType)
+TYPE_ID_TRAIT(RUN_END_ENCODED, RunEndEncodedType)
 TYPE_ID_TRAIT(DICTIONARY, DictionaryType)
 TYPE_ID_TRAIT(EXTENSION, ExtensionType)
 
@@ -1018,6 +1025,146 @@ template <typename T, typename R = void>
 using enable_if_physical_floating_point =
     enable_if_t<is_physical_floating_type<T>::value, R>;
 
+///
+/// Compile-time collections of type ids, for metaprogramming and other purposes.
+///
+
+/// \addtogroup type-id-collections
+/// @{
+
+/// A std::array<> of all valid Type::type ids.
+constexpr auto kAllTypeIds = std::array{Type::NA,
+                                        Type::BOOL,
+                                        Type::INT8,
+                                        Type::INT16,
+                                        Type::INT32,
+                                        Type::INT64,
+                                        Type::UINT8,
+                                        Type::UINT16,
+                                        Type::UINT32,
+                                        Type::UINT64,
+                                        Type::HALF_FLOAT,
+                                        Type::FLOAT,
+                                        Type::DOUBLE,
+                                        Type::DECIMAL32,
+                                        Type::DECIMAL64,
+                                        Type::DECIMAL128,
+                                        Type::DECIMAL256,
+                                        Type::DATE32,
+                                        Type::DATE64,
+                                        Type::TIME32,
+                                        Type::TIME64,
+                                        Type::TIMESTAMP,
+                                        Type::INTERVAL_DAY_TIME,
+                                        Type::INTERVAL_MONTHS,
+                                        Type::DURATION,
+                                        Type::STRING,
+                                        Type::BINARY,
+                                        Type::LARGE_STRING,
+                                        Type::LARGE_BINARY,
+                                        Type::STRING_VIEW,
+                                        Type::BINARY_VIEW,
+                                        Type::FIXED_SIZE_BINARY,
+                                        Type::STRUCT,
+                                        Type::LIST,
+                                        Type::LARGE_LIST,
+                                        Type::LIST_VIEW,
+                                        Type::LARGE_LIST_VIEW,
+                                        Type::FIXED_SIZE_LIST,
+                                        Type::MAP,
+                                        Type::DENSE_UNION,
+                                        Type::SPARSE_UNION,
+                                        Type::DICTIONARY,
+                                        Type::EXTENSION,
+                                        Type::INTERVAL_MONTH_DAY_NANO,
+                                        Type::RUN_END_ENCODED};
+
+/// A std::array of all integer type ids
+constexpr auto kIntegerTypeIds =
+    std::array{Type::INT8,  Type::UINT8,  Type::INT16, Type::UINT16,
+               Type::INT32, Type::UINT32, Type::INT64, Type::UINT64};
+
+/// A std::array of all signed integer type ids
+constexpr auto kSignedIntegerTypeIds =
+    std::array{Type::INT8, Type::INT16, Type::INT32, Type::INT64};
+
+/// A std::array of all unsigned integer type ids
+constexpr auto kUnsignedIntegerTypeIds =
+    std::array{Type::UINT8, Type::UINT16, Type::UINT32, Type::UINT64};
+
+/// A std::array of all floating-point type ids
+constexpr auto kFloatingTypeIds = std::array{Type::HALF_FLOAT, Type::FLOAT, Type::DOUBLE};
+
+/// A std::array of all floating-point type ids, except HALF_FLOAT
+constexpr auto kPhysicalFloatingTypeIds = std::array{Type::FLOAT, Type::DOUBLE};
+
+/// A std::array of all numeric type ids (except decimals)
+constexpr auto kNumericTypeIds = std::array{
+    Type::INT8,  Type::UINT8,  Type::INT16,      Type::UINT16, Type::INT32, Type::UINT32,
+    Type::INT64, Type::UINT64, Type::HALF_FLOAT, Type::FLOAT,  Type::DOUBLE};
+
+/// A std::array of all decimal type ids
+constexpr auto kDecimalTypeIds =
+    std::array{Type::DECIMAL32, Type::DECIMAL64, Type::DECIMAL128, Type::DECIMAL256};
+
+/// A std::array of all temporal type ids (dates, times, timestamps)
+constexpr auto kTemporalTypeIds =
+    std::array{Type::DATE32, Type::DATE64, Type::TIME32, Type::TIME64, Type::TIMESTAMP};
+
+/// A std::array of all date type ids
+constexpr auto kDateTypeIds = std::array{Type::DATE32, Type::DATE64};
+
+/// A std::array of all time type ids
+constexpr auto kTimeTypeIds = std::array{Type::TIME32, Type::TIME64};
+
+/// A std::array of all interval type ids
+constexpr auto kIntervalTypeIds = std::array{
+    Type::INTERVAL_DAY_TIME, Type::INTERVAL_MONTHS, Type::INTERVAL_MONTH_DAY_NANO};
+
+/// A std::array of all primitive type ids (excluding null, decimals, binary-like)
+constexpr auto kPrimitiveTypeIds = std::array{Type::BOOL,
+                                              Type::INT8,
+                                              Type::UINT8,
+                                              Type::INT16,
+                                              Type::UINT16,
+                                              Type::INT32,
+                                              Type::UINT32,
+                                              Type::INT64,
+                                              Type::UINT64,
+                                              Type::HALF_FLOAT,
+                                              Type::FLOAT,
+                                              Type::DOUBLE,
+                                              Type::DATE32,
+                                              Type::DATE64,
+                                              Type::TIME32,
+                                              Type::TIME64,
+                                              Type::TIMESTAMP,
+                                              Type::DURATION,
+                                              Type::INTERVAL_DAY_TIME,
+                                              Type::INTERVAL_MONTHS,
+                                              Type::INTERVAL_MONTH_DAY_NANO};
+
+/// A std::array of all base-binary-like type ids
+constexpr auto kBaseBinaryLikeTypeIds =
+    std::array{Type::BINARY, Type::LARGE_BINARY, Type::STRING, Type::LARGE_STRING};
+
+/// A std::array of all binary-view-like type ids
+constexpr auto kBinaryViewLikeTypeIds = std::array{Type::BINARY_VIEW, Type::STRING_VIEW};
+
+/// @}
+
+namespace detail {
+
+template <typename T, size_t N>
+constexpr bool array_contains(const std::array<T, N>& array, T value) {
+  auto impl = [&]<std::size_t... I>(std::index_sequence<I...>) {
+    return ((std::get<I>(array) == value) || ...);
+  };  // NOLINT(readability/braces)
+  return impl(std::make_index_sequence<N>{});
+}
+
+}  // namespace detail
+
 /// @}
 
 /// \addtogroup runtime-type-predicates
@@ -1028,20 +1175,7 @@ using enable_if_physical_floating_point =
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is an integer type one
 constexpr bool is_integer(Type::type type_id) {
-  switch (type_id) {
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kIntegerTypeIds, type_id);
 }
 
 /// \brief Check for a signed integer type
@@ -1049,16 +1183,7 @@ constexpr bool is_integer(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a signed integer type one
 constexpr bool is_signed_integer(Type::type type_id) {
-  switch (type_id) {
-    case Type::INT8:
-    case Type::INT16:
-    case Type::INT32:
-    case Type::INT64:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kSignedIntegerTypeIds, type_id);
 }
 
 /// \brief Check for an unsigned integer type
@@ -1066,16 +1191,7 @@ constexpr bool is_signed_integer(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is an unsigned integer type one
 constexpr bool is_unsigned_integer(Type::type type_id) {
-  switch (type_id) {
-    case Type::UINT8:
-    case Type::UINT16:
-    case Type::UINT32:
-    case Type::UINT64:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kUnsignedIntegerTypeIds, type_id);
 }
 
 /// \brief Check for a floating point type
@@ -1083,22 +1199,14 @@ constexpr bool is_unsigned_integer(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a floating point type one
 constexpr bool is_floating(Type::type type_id) {
-  switch (type_id) {
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kFloatingTypeIds, type_id);
 }
 
 /// \brief Check for a physical floating point type
 ///
 /// This predicate matches floating-point types, except half-float.
 constexpr bool is_physical_floating(Type::type type_id) {
-  return is_floating(type_id) && type_id != Type::HALF_FLOAT;
+  return detail::array_contains(kPhysicalFloatingTypeIds, type_id);
 }
 
 /// \brief Check for a numeric type
@@ -1108,23 +1216,7 @@ constexpr bool is_physical_floating(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a numeric type one
 constexpr bool is_numeric(Type::type type_id) {
-  switch (type_id) {
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kNumericTypeIds, type_id);
 }
 
 /// \brief Check for a decimal type
@@ -1132,16 +1224,7 @@ constexpr bool is_numeric(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a decimal type one
 constexpr bool is_decimal(Type::type type_id) {
-  switch (type_id) {
-    case Type::DECIMAL32:
-    case Type::DECIMAL64:
-    case Type::DECIMAL128:
-    case Type::DECIMAL256:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kDecimalTypeIds, type_id);
 }
 
 /// \brief Check for a type that can be used as a run-end in Run-End Encoded
@@ -1168,33 +1251,7 @@ constexpr bool is_run_end_type(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a primitive type one
 constexpr bool is_primitive(Type::type type_id) {
-  switch (type_id) {
-    case Type::BOOL:
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::TIMESTAMP:
-    case Type::DURATION:
-    case Type::INTERVAL_MONTHS:
-    case Type::INTERVAL_MONTH_DAY_NANO:
-    case Type::INTERVAL_DAY_TIME:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kPrimitiveTypeIds, type_id);
 }
 
 /// \brief Check for a base-binary-like type
@@ -1205,16 +1262,7 @@ constexpr bool is_primitive(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a base-binary-like type one
 constexpr bool is_base_binary_like(Type::type type_id) {
-  switch (type_id) {
-    case Type::BINARY:
-    case Type::LARGE_BINARY:
-    case Type::STRING:
-    case Type::LARGE_STRING:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kBaseBinaryLikeTypeIds, type_id);
 }
 
 /// \brief Check for a binary-like type (i.e. with 32-bit offsets)
@@ -1314,14 +1362,7 @@ constexpr bool is_string_or_string_view(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a binary-view-like type one
 constexpr bool is_binary_view_like(Type::type type_id) {
-  switch (type_id) {
-    case Type::STRING_VIEW:
-    case Type::BINARY_VIEW:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kBinaryViewLikeTypeIds, type_id);
 }
 
 /// \brief Check for a temporal type
@@ -1329,17 +1370,7 @@ constexpr bool is_binary_view_like(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a temporal type one
 constexpr bool is_temporal(Type::type type_id) {
-  switch (type_id) {
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::TIMESTAMP:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kTemporalTypeIds, type_id);
 }
 
 /// \brief Check for a time type
@@ -1347,14 +1378,7 @@ constexpr bool is_temporal(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a primitive type one
 constexpr bool is_time(Type::type type_id) {
-  switch (type_id) {
-    case Type::TIME32:
-    case Type::TIME64:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kTimeTypeIds, type_id);
 }
 
 /// \brief Check for a date type
@@ -1362,14 +1386,7 @@ constexpr bool is_time(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a primitive type one
 constexpr bool is_date(Type::type type_id) {
-  switch (type_id) {
-    case Type::DATE32:
-    case Type::DATE64:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kDateTypeIds, type_id);
 }
 
 /// \brief Check for an interval type
@@ -1377,15 +1394,7 @@ constexpr bool is_date(Type::type type_id) {
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is an interval type one
 constexpr bool is_interval(Type::type type_id) {
-  switch (type_id) {
-    case Type::INTERVAL_MONTHS:
-    case Type::INTERVAL_DAY_TIME:
-    case Type::INTERVAL_MONTH_DAY_NANO:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kIntervalTypeIds, type_id);
 }
 
 /// \brief Check for a dictionary type
@@ -1400,17 +1409,8 @@ constexpr bool is_dictionary(Type::type type_id) { return type_id == Type::DICTI
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a fixed-size-binary type one
 constexpr bool is_fixed_size_binary(Type::type type_id) {
-  switch (type_id) {
-    case Type::DECIMAL32:
-    case Type::DECIMAL64:
-    case Type::DECIMAL128:
-    case Type::DECIMAL256:
-    case Type::FIXED_SIZE_BINARY:
-      return true;
-    default:
-      break;
-  }
-  return false;
+  return detail::array_contains(kDecimalTypeIds, type_id) ||
+         type_id == Type::FIXED_SIZE_BINARY;
 }
 
 /// \brief Check for a fixed-width type

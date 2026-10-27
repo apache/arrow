@@ -317,14 +317,11 @@ ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
   BinaryKernel func_aa =
-      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayArray, Op>(
-          compare_type);
+      GeneratePhysicalNumeric<ComparePrimitiveArrayArray, Op>(compare_type);
   BinaryKernel func_sa =
-      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveScalarArray, Op>(
-          compare_type);
+      GeneratePhysicalNumeric<ComparePrimitiveScalarArray, Op>(compare_type);
   BinaryKernel func_as =
-      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayScalar, Op>(
-          compare_type);
+      GeneratePhysicalNumeric<ComparePrimitiveArrayScalar, Op>(compare_type);
   kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
   kernel.exec = exec;
   return kernel;
@@ -429,19 +426,20 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-    auto exec =
-        GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+    auto exec = GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes,
+                                      WithType0<BooleanType>, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
   for (const auto& ty : BinaryViewTypes()) {
-    auto exec =
-        GenerateVarBinaryViewBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            *ty);
+    auto exec = GenerateVarBinaryViewBase<applicator::ScalarBinaryEqualTypes,
+                                          WithType0<BooleanType>, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+    auto exec =
+        GenerateDecimal<applicator::ScalarBinaryEqualTypes, WithType0<BooleanType>, Op>(
+            id);
     DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec),
                               /*init=*/nullptr, DecimalsHaveSameScale()));
   }

@@ -55,110 +55,45 @@ namespace arrow {
 
 using internal::checked_cast;
 
+// XXX Ideally we'd declare those fields `inline` instead, but that doesn't work
+// with MinGW's gcc.
+// (see https://github.com/apache/arrow/actions/runs/40679598086/job/122809014205)
 constexpr Type::type NullType::type_id;
 constexpr Type::type ListType::type_id;
 constexpr Type::type LargeListType::type_id;
 constexpr Type::type ListViewType::type_id;
 constexpr Type::type LargeListViewType::type_id;
-
 constexpr Type::type MapType::type_id;
-
 constexpr Type::type FixedSizeListType::type_id;
-
 constexpr Type::type BinaryType::type_id;
-
 constexpr Type::type BinaryViewType::type_id;
-
 constexpr Type::type LargeBinaryType::type_id;
-
 constexpr Type::type StringType::type_id;
-
 constexpr Type::type StringViewType::type_id;
-
 constexpr Type::type LargeStringType::type_id;
-
 constexpr Type::type FixedSizeBinaryType::type_id;
-
 constexpr Type::type StructType::type_id;
-
 constexpr Type::type Decimal32Type::type_id;
-
 constexpr Type::type Decimal64Type::type_id;
-
 constexpr Type::type Decimal128Type::type_id;
-
 constexpr Type::type Decimal256Type::type_id;
-
 constexpr Type::type SparseUnionType::type_id;
-
 constexpr Type::type DenseUnionType::type_id;
-
 constexpr Type::type Date32Type::type_id;
-
 constexpr Type::type Date64Type::type_id;
-
 constexpr Type::type Time32Type::type_id;
-
 constexpr Type::type Time64Type::type_id;
-
 constexpr Type::type TimestampType::type_id;
-
 constexpr Type::type MonthIntervalType::type_id;
-
 constexpr Type::type DayTimeIntervalType::type_id;
-
 constexpr Type::type MonthDayNanoIntervalType::type_id;
-
 constexpr Type::type DurationType::type_id;
-
 constexpr Type::type DictionaryType::type_id;
+constexpr Type::type ExtensionType::type_id;
+constexpr Type::type RunEndEncodedType::type_id;
 
 std::vector<Type::type> AllTypeIds() {
-  return {Type::NA,
-          Type::BOOL,
-          Type::INT8,
-          Type::INT16,
-          Type::INT32,
-          Type::INT64,
-          Type::UINT8,
-          Type::UINT16,
-          Type::UINT32,
-          Type::UINT64,
-          Type::HALF_FLOAT,
-          Type::FLOAT,
-          Type::DOUBLE,
-          Type::DECIMAL32,
-          Type::DECIMAL64,
-          Type::DECIMAL128,
-          Type::DECIMAL256,
-          Type::DATE32,
-          Type::DATE64,
-          Type::TIME32,
-          Type::TIME64,
-          Type::TIMESTAMP,
-          Type::INTERVAL_DAY_TIME,
-          Type::INTERVAL_MONTHS,
-          Type::DURATION,
-          Type::STRING,
-          Type::BINARY,
-          Type::LARGE_STRING,
-          Type::LARGE_BINARY,
-          Type::STRING_VIEW,
-          Type::BINARY_VIEW,
-          Type::FIXED_SIZE_BINARY,
-          Type::STRUCT,
-          Type::LIST,
-          Type::LARGE_LIST,
-          Type::LIST_VIEW,
-          Type::LARGE_LIST_VIEW,
-          Type::FIXED_SIZE_LIST,
-          Type::MAP,
-          Type::DENSE_UNION,
-          Type::SPARSE_UNION,
-          Type::DICTIONARY,
-          Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO,
-          Type::RUN_END_ENCODED};
+  return std::vector<Type::type>(kAllTypeIds.begin(), kAllTypeIds.end());
 }
 
 namespace internal {
@@ -3028,8 +2963,7 @@ std::string FixedSizeListType::ComputeFingerprint() const {
     } else {
       ss << 'N';
     }
-    ss << "[" << list_size_ << "]"
-       << "{" << child_fingerprint << "}";
+    ss << "[" << list_size_ << "]" << "{" << child_fingerprint << "}";
     return ss.str();
   }
   return "";
@@ -3548,8 +3482,7 @@ const std::vector<TimeUnit::type>& TimeUnit::values() {
 }
 
 const std::vector<Type::type>& DecimalTypeIds() {
-  static std::vector<Type::type> type_ids = {Type::DECIMAL32, Type::DECIMAL64,
-                                             Type::DECIMAL128, Type::DECIMAL256};
+  static std::vector<Type::type> type_ids{kDecimalTypeIds.begin(), kDecimalTypeIds.end()};
   return type_ids;
 }
 
