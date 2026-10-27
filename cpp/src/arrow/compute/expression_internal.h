@@ -27,6 +27,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -139,6 +140,13 @@ struct Comparison {
 
     if (is_signed_integer(to_id)) {
       if (is_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
+        // An unsigned to signed cast of the same width wraps negative when overflow
+        // is allowed, which does not preserve ordering.
+        if (is_unsigned_integer(from_id) && bit_width(to_id) == bit_width(from_id) &&
+            ::arrow::internal::checked_cast<const CastOptions&>(*call->options)
+                .allow_int_overflow) {
+          return expr;
+        }
         return StripOrderPreservingCasts(from);
       }
       return expr;
