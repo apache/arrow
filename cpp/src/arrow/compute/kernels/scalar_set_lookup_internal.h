@@ -20,18 +20,23 @@
 // Shared between the set lookup kernels (libarrow_compute) and expression
 // simplification (libarrow). Everything here must stay header-only.
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string_view>
+#include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
@@ -66,6 +71,7 @@ inline bool IsNaNScalar(const Scalar& value) {
 }
 
 inline Result<bool> IsSortedValueSet(const Array& values);
+inline Result<std::shared_ptr<Array>> SortPrimitiveValueSet(const Array& values);
 
 /// Common state for the is_in and index_in kernels.
 struct SetLookupStateBase : public KernelState {
@@ -119,6 +125,12 @@ struct SetLookupStateBase : public KernelState {
  private:
   /// \return `values` sorted with nulls removed, or nullptr if it contains NaN
   static Result<std::shared_ptr<Array>> SortValueSet(const Array& values) {
+    // Sorting a copy of primitive values directly is several times faster than
+    // the generic sort_indices + take path.
+    auto maybe_sorted = SortPrimitiveValueSet(values);
+    if (maybe_sorted.ok()) return maybe_sorted;
+    if (!maybe_sorted.status().IsNotImplemented()) return maybe_sorted.status();
+
     ARROW_ASSIGN_OR_RAISE(auto indices,
                           SortIndices(values, ArraySortOptions(SortOrder::Ascending,
                                                                NullPlacement::AtEnd)));
@@ -268,6 +280,43 @@ struct IsSortedVisitor {
   }
 };
 
+struct SortPrimitiveVisitor {
+  const Array& values;
+  std::shared_ptr<Array> result;
+
+  template <typename T>
+  enable_if_t<has_c_type<T>::value && is_searchable_value_set_type<T>::value, Status>
+  Visit(const T&) {
+    using c_type = typename T::c_type;
+    const auto* data = values.data()->template GetValues<c_type>(1);
+    std::vector<c_type> sorted;
+    sorted.reserve(values.length() - values.null_count());
+    if (values.null_count() == 0) {
+      sorted.assign(data, data + values.length());
+    } else {
+      for (int64_t i = 0; i < values.length(); ++i) {
+        if (values.IsValid(i)) sorted.push_back(data[i]);
+      }
+    }
+    // NaN would break the strict weak ordering required by std::sort. Statistics
+    // based guarantees cannot bound NaN anyway, so such a value set is not
+    // searchable (nullptr).
+    for (const auto& value : sorted) {
+      if (IsNaNValue(value)) return Status::OK();
+    }
+    std::sort(sorted.begin(), sorted.end());
+    const auto length = static_cast<int64_t>(sorted.size());
+    result = MakeArray(ArrayData::Make(values.type(), length,
+                                       {nullptr, Buffer::FromVector(std::move(sorted))},
+                                       /*null_count=*/0));
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Sorting value sets of type ", type);
+  }
+};
+
 struct SearchSortedVisitor {
   const Array& sorted;
   const Scalar& bound;
@@ -305,6 +354,16 @@ struct SearchSortedVisitor {
 inline Result<bool> IsSortedValueSet(const Array& values) {
   ARROW_DCHECK_EQ(values.null_count(), 0);
   set_lookup_detail::IsSortedVisitor visitor{values, /*result=*/false};
+  RETURN_NOT_OK(VisitTypeInline(*values.type(), &visitor));
+  return visitor.result;
+}
+
+/// Sort a value set of a primitive type, dropping nulls.
+///
+/// \return the sorted value set, or nullptr if it contains NaN
+/// \return NotImplemented for non-primitive types
+inline Result<std::shared_ptr<Array>> SortPrimitiveValueSet(const Array& values) {
+  set_lookup_detail::SortPrimitiveVisitor visitor{values, /*result=*/nullptr};
   RETURN_NOT_OK(VisitTypeInline(*values.type(), &visitor));
   return visitor.result;
 }
