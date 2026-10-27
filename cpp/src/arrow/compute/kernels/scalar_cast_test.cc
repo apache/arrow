@@ -3707,6 +3707,42 @@ TEST(Cast, ListViewToListWithExtensionChild) {
   CheckCast(list_view, expected_extension);
 }
 
+TEST(Cast, ListViewToListWithNestedExtensionChild) {
+  auto smallint_type = std::make_shared<SmallintType>();
+  ExtensionTypeGuard smallint_guard(smallint_type);
+
+  auto storage = ArrayFromJSON(int16(), "[1, 2]");
+  auto values = ExtensionType::WrapArray(smallint_type, storage);
+  ASSERT_OK_AND_ASSIGN(auto nested, StructArray::Make({values}, {"e"}));
+  ASSERT_OK_AND_ASSIGN(auto plain_nested, StructArray::Make({storage}, {"e"}));
+
+  auto offsets = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto sizes = ArrayFromJSON(int32(), "[1, 1]");
+  ASSERT_OK_AND_ASSIGN(auto view,
+                       ListViewArray::FromArrays(*offsets->Slice(0, 2), *sizes, *nested));
+  // Struct child with an extension field, targeting both the nested extension
+  // and its storage type.
+  for (const auto& child : ArrayVector{nested, plain_nested}) {
+    ASSERT_OK_AND_ASSIGN(auto expected, ListArray::FromArrays(*offsets, *child));
+    CheckCast(view, expected);
+  }
+
+  // Same with a list-valued child whose values are extensions.
+  ASSERT_OK_AND_ASSIGN(
+      auto nested_list,
+      ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2]"), *values));
+  ASSERT_OK_AND_ASSIGN(
+      auto plain_nested_list,
+      ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2]"), *storage));
+  ASSERT_OK_AND_ASSIGN(
+      auto list_view,
+      ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1]"), *sizes, *nested_list));
+  for (const auto& child : ArrayVector{nested_list, plain_nested_list}) {
+    ASSERT_OK_AND_ASSIGN(auto expected, ListArray::FromArrays(*offsets, *child));
+    CheckCast(list_view, expected);
+  }
+}
+
 TEST(Cast, ListViewToListEdgeCases) {
   auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
 

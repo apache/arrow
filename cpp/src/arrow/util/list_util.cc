@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/array_nested.h"
@@ -193,6 +194,119 @@ int64_t SumOfListViewSizes(const ArraySpan& input) {
   return sum;
 }
 
+std::shared_ptr<DataType> StorageType(const std::shared_ptr<DataType>& type);
+
+std::shared_ptr<Field> StorageField(const std::shared_ptr<Field>& field) {
+  return field->WithType(StorageType(field->type()));
+}
+
+FieldVector StorageFields(const FieldVector& fields) {
+  FieldVector storage_fields;
+  storage_fields.reserve(fields.size());
+  for (const auto& field : fields) {
+    storage_fields.push_back(StorageField(field));
+  }
+  return storage_fields;
+}
+
+/// \brief Replace every extension type by its storage type, recursively
+///
+/// `MakeBuilder` does not support extension types, so the values gathered from
+/// a list-view are built using their storage types. The original types are then
+/// restored by `RestoreType`.
+std::shared_ptr<DataType> StorageType(const std::shared_ptr<DataType>& type) {
+  switch (type->id()) {
+    case Type::EXTENSION:
+      return StorageType(checked_cast<const ExtensionType&>(*type).storage_type());
+    case Type::LIST:
+      return std::make_shared<ListType>(
+          StorageField(checked_cast<const ListType&>(*type).value_field()));
+    case Type::LARGE_LIST:
+      return std::make_shared<LargeListType>(
+          StorageField(checked_cast<const LargeListType&>(*type).value_field()));
+    case Type::LIST_VIEW:
+      return std::make_shared<ListViewType>(
+          StorageField(checked_cast<const ListViewType&>(*type).value_field()));
+    case Type::LARGE_LIST_VIEW:
+      return std::make_shared<LargeListViewType>(
+          StorageField(checked_cast<const LargeListViewType&>(*type).value_field()));
+    case Type::MAP: {
+      const auto& map_type = checked_cast<const MapType&>(*type);
+      return std::make_shared<MapType>(StorageField(map_type.key_field()),
+                                       StorageField(map_type.item_field()),
+                                       map_type.keys_sorted());
+    }
+    case Type::FIXED_SIZE_LIST: {
+      const auto& list_type = checked_cast<const FixedSizeListType&>(*type);
+      return std::make_shared<FixedSizeListType>(StorageField(list_type.value_field()),
+                                                 list_type.list_size());
+    }
+    case Type::STRUCT:
+      return std::make_shared<StructType>(StorageFields(type->fields()));
+    case Type::SPARSE_UNION: {
+      const auto& union_type = checked_cast<const SparseUnionType&>(*type);
+      return std::make_shared<SparseUnionType>(StorageFields(union_type.fields()),
+                                               union_type.type_codes());
+    }
+    case Type::DENSE_UNION: {
+      const auto& union_type = checked_cast<const DenseUnionType&>(*type);
+      return std::make_shared<DenseUnionType>(StorageFields(union_type.fields()),
+                                              union_type.type_codes());
+    }
+    case Type::RUN_END_ENCODED: {
+      const auto& ree_type = checked_cast<const RunEndEncodedType&>(*type);
+      return std::make_shared<RunEndEncodedType>(ree_type.run_end_type(),
+                                                 StorageType(ree_type.value_type()));
+    }
+    case Type::DICTIONARY: {
+      const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+      return std::make_shared<DictionaryType>(dict_type.index_type(),
+                                              StorageType(dict_type.value_type()),
+                                              dict_type.ordered());
+    }
+    default:
+      return type;
+  }
+}
+
+/// \brief Restore the original (possibly nested) types on gathered array data
+void RestoreType(const std::shared_ptr<DataType>& type, ArrayData* data,
+                 bool update_type = true) {
+  if (update_type) {
+    data->type = type;
+  }
+  switch (type->id()) {
+    case Type::EXTENSION:
+      RestoreType(checked_cast<const ExtensionType&>(*type).storage_type(), data,
+                  /*update_type=*/false);
+      break;
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
+    case Type::MAP:
+    case Type::FIXED_SIZE_LIST:
+      RestoreType(type->field(0)->type(), data->child_data[0].get());
+      break;
+    case Type::STRUCT:
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
+    case Type::RUN_END_ENCODED:
+      for (int i = 0; i < type->num_fields(); ++i) {
+        RestoreType(type->field(i)->type(), data->child_data[i].get());
+      }
+      break;
+    case Type::DICTIONARY:
+      if (data->dictionary) {
+        RestoreType(checked_cast<const DictionaryType&>(*type).value_type(),
+                    data->dictionary.get());
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 /// \param list_view A LIST_VIEW or LARGE_LIST_VIEW array
 template <typename DestListType, typename SrcListViewType>
 Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_view,
@@ -204,16 +318,10 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_vi
   const auto& value_type = list_view_type.value_type();
   // The value type is carried over, so that callers may cast the child.
   auto list_type = std::make_shared<DestListType>(value_type);
-  // MakeBuilder does not support extension types, so gather the values using
-  // the storage type and restore the extension type afterwards.
-  const bool is_extension = value_type->id() == Type::EXTENSION;
-  const auto builder_value_type =
-      is_extension ? checked_cast<const ExtensionType&>(*value_type).storage_type()
-                   : value_type;
 
   ARROW_ASSIGN_OR_RAISE(auto sum_of_sizes, SumOfLogicalListSizes(list_view));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
-                        MakeBuilder(builder_value_type, pool));
+                        MakeBuilder(StorageType(value_type), pool));
   RETURN_NOT_OK(value_builder->Reserve(sum_of_sizes));
   auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
   RETURN_NOT_OK(list_builder->Reserve(list_view.length));
@@ -234,12 +342,10 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_vi
 
   std::shared_ptr<ArrayData> list_data;
   RETURN_NOT_OK(list_builder->FinishInternal(&list_data));
-  if (is_extension) {
-    // The builders produced storage-typed data; restore the extension types so
-    // that the result matches the requested list type.
-    list_data->child_data[0]->type = value_type;
-    list_data->type = list_type;
-  }
+  // The builders produced storage-typed data; restore the original types,
+  // including extension types nested anywhere in the value type.
+  list_data->type = list_type;
+  RestoreType(value_type, list_data->child_data[0].get());
   return list_data;
 }
 
