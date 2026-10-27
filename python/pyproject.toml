@@ -148,6 +148,8 @@ executionEnvironments = [
     { root = "pyarrow-stubs/tests", reportUnnecessaryTypeIgnoreComment = "error" },
     { root = "." },
 ]
+# In editable install, pyright finds the stubs but compiled modules (e.g. pyarrow.lib)
+reportMissingModuleSource = false
 
 # TODO: Enable type checking once stubs are merged
 [tool.ty.environment]
