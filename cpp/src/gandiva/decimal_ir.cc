@@ -246,9 +246,10 @@ DecimalIR::ValueWithOverflow DecimalIR::AddWithOverflowCheck(const ValueFull& x,
 // This is pretty complex, so use CPP fns.
 llvm::Value* DecimalIR::AddLarge(const ValueFull& x, const ValueFull& y,
                                  const ValueFull& out) {
-  auto block = ir_builder()->GetInsertBlock();
-  auto out_high_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_hi", block);
-  auto out_low_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_low", block);
+  auto& entry = ir_builder()->GetInsertBlock()->getParent()->getEntryBlock();
+  llvm::IRBuilder<> entry_builder(&entry, entry.begin());
+  auto out_high_ptr = entry_builder.CreateAlloca(types()->i64_type(), nullptr, "out_hi");
+  auto out_low_ptr = entry_builder.CreateAlloca(types()->i64_type(), nullptr, "out_low");
   auto x_split = ValueSplit::MakeFromInt128(this, x.value());
   auto y_split = ValueSplit::MakeFromInt128(this, y.value());
 
@@ -454,9 +455,12 @@ llvm::Value* DecimalIR::CallDecimalFunction(const std::string& function_name,
   llvm::Value* result = nullptr;
   if (return_type == i128) {
     // for i128 ret, replace with two int64* args, and join them.
-    auto block = ir_builder()->GetInsertBlock();
-    auto out_high_ptr = new llvm::AllocaInst(i64, 0, "out_hi", block);
-    auto out_low_ptr = new llvm::AllocaInst(i64, 0, "out_low", block);
+    // Decimal calls can be emitted inside the record loop or a CASE branch.
+    // Allocate return slots once per invocation, rather than once per row.
+    auto& entry = ir_builder()->GetInsertBlock()->getParent()->getEntryBlock();
+    llvm::IRBuilder<> entry_builder(&entry, entry.begin());
+    auto out_high_ptr = entry_builder.CreateAlloca(i64, nullptr, "out_hi");
+    auto out_low_ptr = entry_builder.CreateAlloca(i64, nullptr, "out_low");
     dis_assembled_args.push_back(out_high_ptr);
     dis_assembled_args.push_back(out_low_ptr);
 
