@@ -1373,6 +1373,22 @@ TEST_F(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
   this->CheckDecodeArrowNonNullUsingDictBuilder();
 }
 
+TEST_F(DictEncoding, CheckDecodeArrowDictBuilderTruncatedIndices) {
+  // The index stream ends before num_values - null_count indices have been
+  // decoded, so a refill of the index buffer returns no indices at all
+  InitTestCase(::arrow::binary(), /*null_probability=*/0.5, /*create_dict=*/true);
+  dict_decoder_->SetData(num_values_, buffer_->data(),
+                         static_cast<int>(buffer_->size()) / 2);
+  auto builder = CreateDictBuilder();
+  EXPECT_THROW_THAT(
+      [&]() {
+        decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, builder.get());
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("Invalid number of indices")));
+}
+
 TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
   for (auto np : null_probabilities_) {
     InitTestCase(::arrow::binary(), np, /*create_dict=*/true);

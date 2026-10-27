@@ -1392,6 +1392,9 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
         int32_t batch_size =
             std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
         int num_indices = idx_decoder_.GetBatch(indices, batch_size);
+        if (ARROW_PREDICT_FALSE(num_indices < 1)) {
+          return Status::Invalid("Invalid number of indices: ", num_indices);
+        }
 
         int i = 0;
         while (true) {
