@@ -33,7 +33,7 @@ closest file to the code you are editing takes precedence.
   dependent bindings when you touch C++.
 - Java, Go, Rust, C#, JavaScript, Swift, and Julia are **not** in this
   repository. They live in `apache/arrow-java`, `apache/arrow-go`,
-  `apache/arrow-rs`, `apache/arrow-csharp`, `apache/arrow-js`,
+  `apache/arrow-rs`, `apache/arrow-dotnet`, `apache/arrow-js`,
   `apache/arrow-swift`, and `apache/arrow-julia`. Do not look for or
   recreate them here.
 - Generated files are committed and must not be hand-edited:
