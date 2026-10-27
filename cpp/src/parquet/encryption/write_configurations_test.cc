@@ -285,11 +285,13 @@ class TestGeneratedEncryptionConfiguration
     const auto metadata = footer_span.first(footer_size - signature_size);
     const auto nonce = footer_span.subspan(metadata.size(), kNonceLength);
     const auto tag = footer_span.last(kGcmTagLength);
-    const auto aad = CreateFooterAad(file_aad_);
+    // Footer AAD is the file AAD followed by the footer module type byte.
+    const auto aad = file_aad_ + static_cast<char>(kFooter);
 
     // Verify the on-disk tag with GCM explicitly, independently of reader selection.
     auto encryptor = AesEncryptor::Make(ParquetCipher::AES_GCM_V1,
-                                        kFooterEncryptionKey.size(), /*metadata=*/true,
+                                        static_cast<int32_t>(kFooterEncryptionKey.size()),
+                                        /*metadata=*/true,
                                         /*write_length=*/false);
     std::vector<uint8_t> encrypted(encryptor->CiphertextLength(metadata.size()));
     encryptor->SignedFooterEncrypt(metadata, kFooterEncryptionKey.as_span(),
