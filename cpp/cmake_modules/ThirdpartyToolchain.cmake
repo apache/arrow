@@ -2865,7 +2865,8 @@ function(build_simdjson)
   # <concepts>, but simdjson enables its C++20 concepts API from the compiler's
   # __cpp_concepts alone, so its headers fail to compile against those SDKs
   # (GH-55267). Disable simdjson concepts for them. Arrow doesn't use that part
-  # of the simdjson API.
+  # of the simdjson API. simdjson considers these SDKs unsupported and won't fix
+  # this upstream, see https://github.com/simdjson/simdjson/issues/2787.
   #
   # The SDK directory name may omit the minor version ("MacOSX11.sdk" on CRAN,
   # "MacOSX11.3.sdk" in our as-cran CI job), so match both forms. This treats
