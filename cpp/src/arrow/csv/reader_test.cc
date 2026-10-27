@@ -356,6 +356,141 @@ void TestMixedLineEndingsStraddling(TableReaderFactory reader_factory) {
   }
 }
 
+void TestQuotedCRStraddling(TableReaderFactory reader_factory) {
+  // Review round 3 on GH-51368: with block_size=8, the '\r' that closes
+  // the quoted field in the last row sits inside a quoted field, so it
+  // must not be treated as a row terminator at a buffer join.  Upstream
+  // reads 3 rows; v3 failed this case in all three reader modes.
+  const std::string data = "a,b\r1,x\r2,\r3,\"a\rb\"\r";
+  const std::vector<int64_t> expected_a = {1, 2, 3};
+  const std::vector<std::string> expected_b = {"x", "", "a\rb"};
+
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.newlines_in_values = true;
+  auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(data));
+  ASSERT_EQ("", ReadAndCheckTable(reader_factory, input, parse_options,
+                                  /*block_size=*/8, expected_a, expected_b));
+}
+
+void TestQuotedCRBlindSpots(TableReaderFactory reader_factory) {
+  // Blind-spot cases around the v4 rule (strip a fused buffer's trailing
+  // '\r' only when the stream ends cleanly at a line boundary). Each case
+  // is a valid CSV file that upstream must read; the matrix runs every
+  // case at every small block size, where buffer joins land inside
+  // quoted fields, on escaped quotes, on mid-field (literal) quotes, and
+  // on quoted CRLF pairs. Failures are collected and reported together
+  // so the patched-vs-upstream comparison can tell regressions apart
+  // from pre-existing chunker limits.
+  struct Case {
+    std::string name;
+    std::string data;
+    std::vector<int64_t> expected_a;
+    std::vector<std::string> expected_b;
+    bool escaping = false;
+    char escape_char = '"';
+  };
+  const std::vector<Case> cases = {
+      {"dmitry-quoted-cr", "a,b\r1,x\r2,\r3,\"a\rb\"\r", {1, 2, 3}, {"x", "", "a\rb"}},
+      {"dmitry-no-final-ending",
+       "a,b\r1,x\r2,\r3,\"a\rb\"",
+       {1, 2, 3},
+       {"x", "", "a\rb"}},
+      {"escaped-quote-and-cr", "a,b\r1,\"x\"\"y\rz\"\r", {1}, {"x\"y\rz"}},
+      {"quoted-crlf", "a,b\r1,\"p\r\nq\"\r2,z\r", {1, 2}, {"p\r\nq", "z"}},
+      {"two-quoted-crs", "a,b\r1,\"m\rn\"\r2,\"o\rp\"\r", {1, 2}, {"m\rn", "o\rp"}},
+      {"mid-field-literal-quote", "a,b\r1,x\"y\r2,z\r", {1, 2}, {"x\"y", "z"}},
+      {"empty-quoted-field", "a,b\r1,x\r2,\"\"\r3,z\r", {1, 2, 3}, {"x", "", "z"}},
+      {"quoted-field-is-just-cr", "a,b\r1,\"\r\"\r2,z\r", {1, 2}, {"\r", "z"}},
+      {"escaped-quote-at-end", "a,b\r1,\"a\"\"\"\r", {1}, {"a\""}},
+      {"backslash-escaped-quote-and-cr",
+       "a,b\r1,\"a\\\"b\rc\"\r",
+       {1},
+       {"a\"b\rc"},
+       /*escaping=*/true,
+       /*escape_char=*/'\\'},
+  };
+  const std::vector<int32_t> block_sizes = {4, 5, 6, 7, 8, 9, 11, 16};
+
+  // Combos that fail on unpatched upstream too (verified 2026-10-26 by
+  // running this test against upstream via `git stash` of reader.cc):
+  // at tiny block sizes these rows span more than two blocks, which the
+  // chunker cannot handle -- a pre-existing limit, not a regression.
+  // Upstream failed 20 combos; the patched code fails only these 16 and
+  // additionally fixes 4 (quoted-crlf at block_size=9, where upstream
+  // corrupts the value; dmitry-no-final-ending at block_size=4; and the
+  // dmitry short-read patterns {8,8,2,1} and {4,4,8,2,1}). Excluded
+  // combos are skipped, so the test asserts the patched pass set is a
+  // superset of upstream's.
+  const auto is_excluded = [](const std::string& name, int32_t block_size) {
+    static const std::vector<std::pair<std::string, int32_t>> excluded = {
+        {"dmitry-quoted-cr", 4},
+        {"dmitry-quoted-cr", 6},
+        {"escaped-quote-and-cr", 4},
+        {"escaped-quote-and-cr", 5},
+        {"escaped-quote-and-cr", 6},
+        {"escaped-quote-and-cr", 7},
+        {"quoted-crlf", 4},
+        {"quoted-crlf", 5},
+        {"quoted-crlf", 6},
+        {"two-quoted-crs", 5},
+        {"escaped-quote-at-end", 5},
+        {"backslash-escaped-quote-and-cr", 4},
+        {"backslash-escaped-quote-and-cr", 5},
+        {"backslash-escaped-quote-and-cr", 6},
+        {"backslash-escaped-quote-and-cr", 7},
+    };
+    return std::find(excluded.begin(), excluded.end(),
+                     std::make_pair(name, block_size)) != excluded.end();
+  };
+
+  std::vector<std::string> failures;
+  for (const auto& c : cases) {
+    for (int32_t block_size : block_sizes) {
+      if (is_excluded(c.name, block_size)) continue;
+      auto parse_options = ParseOptions::Defaults();
+      parse_options.newlines_in_values = true;
+      parse_options.escaping = c.escaping;
+      parse_options.escape_char = c.escape_char;
+      auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>(c.data));
+      auto problem = ReadAndCheckTable(reader_factory, input, parse_options, block_size,
+                                       c.expected_a, c.expected_b);
+      if (!problem.empty()) {
+        failures.push_back("case=" + c.name +
+                           " block_size=" + std::to_string(block_size) + ": " + problem);
+      }
+    }
+  }
+  // Short-read delivery patterns on the two sharpest cases. The
+  // escaped-quote-and-cr {5,7} pattern is excluded for the same
+  // pre-existing reason as above (it fails on upstream too).
+  for (const auto& c : {cases[0], cases[2]}) {
+    for (const auto& chunks :
+         {std::vector<int64_t>{8, 8, 2, 1}, std::vector<int64_t>{16, 2, 1},
+          std::vector<int64_t>{4, 4, 8, 2, 1}, std::vector<int64_t>{5, 7}}) {
+      if (c.name == "escaped-quote-and-cr" && chunks[0] == 5) continue;
+      auto parse_options = ParseOptions::Defaults();
+      parse_options.newlines_in_values = true;
+      parse_options.escaping = c.escaping;
+      parse_options.escape_char = c.escape_char;
+      auto input =
+          std::make_shared<ChunkedInputStream>(std::make_shared<Buffer>(c.data), chunks);
+      auto problem = ReadAndCheckTable(reader_factory, input, parse_options,
+                                       /*block_size=*/8, c.expected_a, c.expected_b);
+      if (!problem.empty()) {
+        failures.push_back("case=" + c.name + " short-read chunks[0]=" +
+                           std::to_string(chunks[0]) + ": " + problem);
+      }
+    }
+  }
+  if (!failures.empty()) {
+    std::string joined;
+    for (const auto& f : failures) {
+      joined += "\n  " + f;
+    }
+    FAIL() << "blind-spot failures:" << joined;
+  }
+}
+
 void TestSmallInputsAcrossBlockSizes(TableReaderFactory reader_factory) {
   // Systematically read small inputs across line-ending styles, presence
   // or absence of a final line ending, small block sizes and field styles,
@@ -585,6 +720,12 @@ TEST(SerialReaderTests, HeaderRowEndingAtBlockBoundary) {
 TEST(SerialReaderTests, MixedLineEndingsStraddling) {
   TestMixedLineEndingsStraddling(MakeSerialFactory());
 }
+TEST(SerialReaderTests, QuotedCRStraddling) {
+  TestQuotedCRStraddling(MakeSerialFactory());
+}
+TEST(SerialReaderTests, QuotedCRBlindSpots) {
+  TestQuotedCRBlindSpots(MakeSerialFactory());
+}
 TEST(SerialReaderTests, SmallInputsAcrossBlockSizes) {
   TestSmallInputsAcrossBlockSizes(MakeSerialFactory());
 }
@@ -635,6 +776,14 @@ TEST(AsyncReaderTests, HeaderRowEndingAtBlockBoundary) {
 TEST(AsyncReaderTests, MixedLineEndingsStraddling) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
   TestMixedLineEndingsStraddling(table_factory);
+}
+TEST(AsyncReaderTests, QuotedCRStraddling) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestQuotedCRStraddling(table_factory);
+}
+TEST(AsyncReaderTests, QuotedCRBlindSpots) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
+  TestQuotedCRBlindSpots(table_factory);
 }
 TEST(AsyncReaderTests, SmallInputsAcrossBlockSizes) {
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory());
@@ -702,6 +851,12 @@ TEST(StreamingReaderTests, HeaderRowEndingAtBlockBoundary) {
 }
 TEST(StreamingReaderTests, MixedLineEndingsStraddling) {
   TestMixedLineEndingsStraddling(MakeStreamingFactory());
+}
+TEST(StreamingReaderTests, QuotedCRStraddling) {
+  TestQuotedCRStraddling(MakeStreamingFactory());
+}
+TEST(StreamingReaderTests, QuotedCRBlindSpots) {
+  TestQuotedCRBlindSpots(MakeStreamingFactory());
 }
 TEST(StreamingReaderTests, SmallInputsAcrossBlockSizes) {
   TestSmallInputsAcrossBlockSizes(MakeStreamingFactory());
