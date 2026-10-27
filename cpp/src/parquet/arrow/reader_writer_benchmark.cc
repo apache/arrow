@@ -255,7 +255,7 @@ static void BM_WriteFloatLayout(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto output = CreateOutputStream();
     EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output,
-                          table->num_rows(), properties));
+                           table->num_rows(), properties));
   }
 
   const int64_t total_values = state.iterations() * num_values;
