@@ -1125,7 +1125,7 @@ struct AsciiPadTransform : public StringTransformBase {
     // This is likely very overallocated but hard to do better without
     // actually looking at each string (because of strings that may be
     // longer than the given width)
-    return input_ncodeunits + ninputs * options_.width;
+    return PadMaxCodeunits(ninputs, input_ncodeunits, options_.width, 1);
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,

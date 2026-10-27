@@ -931,7 +931,7 @@ struct Utf8PadTransform : public StringTransformBase {
     // actually looking at each string (because of strings that may be
     // longer than the given width)
     // One codepoint may be up to 4 bytes
-    return input_ncodeunits + 4 * ninputs * options_.width;
+    return PadMaxCodeunits(ninputs, input_ncodeunits, options_.width, 4);
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
@@ -1023,7 +1023,7 @@ struct Utf8ZeroFillTransform : public StringTransformBase {
   }
 
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    return input_ncodeunits + 4 * ninputs * options_.width;
+    return PadMaxCodeunits(ninputs, input_ncodeunits, options_.width, 4);
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,

@@ -17,11 +17,14 @@
 
 #pragma once
 
+#include <algorithm>
+#include <limits>
 #include <sstream>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 namespace compute {
@@ -48,6 +51,24 @@ struct StringTransformBase {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
 };
+
+// Upper bound on the output size of a padding transform that pads each of `ninputs`
+// strings to `width` characters of at most `max_char_codeunits` codeunits each.
+// A negative width leaves strings unchanged, and an estimate that doesn't fit in
+// int64_t saturates so that the output allocation fails instead of being undersized.
+inline int64_t PadMaxCodeunits(int64_t ninputs, int64_t input_ncodeunits, int64_t width,
+                               int64_t max_char_codeunits) {
+  int64_t pad_ncodeunits = 0;
+  int64_t max_ncodeunits = 0;
+  if (::arrow::internal::MultiplyWithOverflow(std::max<int64_t>(width, 0),
+                                              max_char_codeunits, &pad_ncodeunits) ||
+      ::arrow::internal::MultiplyWithOverflow(pad_ncodeunits, ninputs, &pad_ncodeunits) ||
+      ::arrow::internal::AddWithOverflow(input_ncodeunits, pad_ncodeunits,
+                                         &max_ncodeunits)) {
+    return std::numeric_limits<int64_t>::max();
+  }
+  return max_ncodeunits;
+}
 
 template <typename offset_type>
 static int64_t GetVarBinaryValuesLength(const ArraySpan& span) {

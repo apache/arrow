@@ -2433,6 +2433,15 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_lpad", {input}, &options_bad));
+
+  // A negative width leaves strings unchanged
+  PadOptions options_negative{/*width=*/-100, "\xe2\x80\x88"};
+  this->CheckUnary("utf8_lpad", R"([null, "a", "b\u00E1r", "foobar"])", this->type(),
+                   R"([null, "a", "b\u00E1r", "foobar"])", &options_negative);
+
+  // An output size estimate that overflows int64_t must not undersize the output
+  PadOptions options_huge{/*width=*/int64_t{1} << 62, "\xe2\x80\x88"};
+  ASSERT_NOT_OK(CallFunction("utf8_lpad", {input}, &options_huge));
 }
 
 TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
@@ -2478,6 +2487,15 @@ TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_zero_fill", {input}, &options_bad));
+
+  // A negative width leaves strings unchanged
+  options = ZeroFillOptions{/*width=*/-100};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", null, "foobar"])", this->type(),
+                   R"(["1", "-2", null, "foobar"])", &options);
+
+  // An output size estimate that overflows int64_t must not undersize the output
+  options = ZeroFillOptions{/*width=*/int64_t{1} << 62};
+  ASSERT_NOT_OK(CallFunction("utf8_zero_fill", {input}, &options));
 }
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -2815,6 +2833,17 @@ TYPED_TEST(TestStringKernels, PadAscii) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one byte"),
                                   CallFunction("ascii_lpad", {input}, &options_bad));
+
+  // A negative width leaves strings unchanged
+  PadOptions options_negative{/*width=*/-100, " "};
+  this->CheckUnary("ascii_lpad", R"([null, "a", "bar", "foobar"])", this->type(),
+                   R"([null, "a", "bar", "foobar"])", &options_negative);
+
+  // An output size estimate that overflows int64_t must not undersize the output
+  PadOptions options_huge{/*width=*/int64_t{1} << 62, " "};
+  ASSERT_NOT_OK(CallFunction("ascii_lpad",
+                             {ArrayFromJSON(this->type(), R"(["a", "b", "c", "d"])")},
+                             &options_huge));
 }
 
 TYPED_TEST(TestStringKernels, TrimWhitespaceAscii) {
