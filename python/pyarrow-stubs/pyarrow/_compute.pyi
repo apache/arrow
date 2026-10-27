@@ -23,4 +23,3 @@ from typing import Any, TypeAlias
 Expression: TypeAlias = Any
 
 def __getattr__(name: str) -> Any: ...
-
