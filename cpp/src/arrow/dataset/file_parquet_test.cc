@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <numeric>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -34,6 +35,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -745,6 +747,82 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
                            less(field_ref(FieldRef("struct", "i32")), literal(6)));
   CountRowGroupsInFragment(fragment, {1},
                            equal(field_ref(FieldRef("struct", "str")), literal("2")));
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
+  // Row group i holds i64 == 10 * i, ..., 10 * i + 9, so that its statistics
+  // yield a range guarantee rather than a single known value.
+  constexpr int kNumRowGroups = 8;
+  auto iota64 = [](int64_t start, int64_t end) {
+    std::vector<int64_t> values(end - start);
+    std::iota(values.begin(), values.end(), start);
+    return values;
+  };
+  auto dataset_schema = schema({field("i64", int64())});
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    std::shared_ptr<Array> values;
+    ArrayFromVector<Int64Type, int64_t>(iota64(10 * i, 10 * i + 10), &values);
+    batches.push_back(RecordBatch::Make(dataset_schema, values->length(), {values}));
+  }
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchReader::Make(std::move(batches), dataset_schema));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(dataset_schema->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+
+  auto is_in = [](std::shared_ptr<Array> set) {
+    return call("is_in", {field_ref("i64")}, compute::SetLookupOptions{std::move(set)});
+  };
+  auto as_int64_array = [](const std::vector<int64_t>& values) {
+    std::shared_ptr<Array> array;
+    ArrayFromVector<Int64Type, int64_t>(values, &array);
+    return array;
+  };
+  auto expect_row_groups = [&](compute::Expression filter,
+                               const std::vector<int>& expected_row_groups) {
+    SetFilter(std::move(filter));
+    ASSERT_OK_AND_ASSIGN(auto fragments,
+                         parquet_fragment->SplitByRowGroup(opts_->filter));
+    std::vector<int> row_groups;
+    for (const auto& split : fragments) {
+      for (int row_group :
+           checked_pointer_cast<ParquetFileFragment>(split)->row_groups()) {
+        row_groups.push_back(row_group);
+      }
+    }
+    EXPECT_EQ(row_groups, expected_row_groups);
+  };
+
+  // A value set longer than the exact simplification threshold whose hull
+  // [0, 79] spans every row group but which contains no value in [20, 39].
+  std::vector<int64_t> values = iota64(0, 20);
+  for (int64_t v : iota64(40, 80)) values.push_back(v);
+  ASSERT_GT(values.size(), 50);
+
+  // Only the row groups holding a value of the set are read.
+  expect_row_groups(is_in(as_int64_array(values)), {0, 1, 4, 5, 6, 7});
+
+  // Unsorted value sets with duplicates behave the same.
+  std::vector<int64_t> shuffled(values.rbegin(), values.rend());
+  shuffled.insert(shuffled.end(), values.begin(), values.end());
+  expect_row_groups(is_in(as_int64_array(shuffled)), {0, 1, 4, 5, 6, 7});
+
+  // Values beyond the data select nothing.
+  expect_row_groups(is_in(as_int64_array(iota64(1000, 1100))), {});
+
+  // Values cast from a narrower type are handled too.
+  std::shared_ptr<Array> int32_set;
+  ArrayFromVector<Int32Type, int32_t>(std::vector<int32_t>(values.begin(), values.end()),
+                                      &int32_set);
+  expect_row_groups(is_in(int32_set), {0, 1, 4, 5, 6, 7});
+
+  // Combined with other predicates.
+  expect_row_groups(
+      and_(is_in(as_int64_array(values)), less(field_ref("i64"), literal<int64_t>(50))),
+      {0, 1, 4});
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
