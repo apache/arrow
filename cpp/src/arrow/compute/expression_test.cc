@@ -2315,6 +2315,30 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
     Simplify{is_in(str, utf8(), strings, null_matching)}
         .WithGuarantee(greater(str, literal("k1")))
         .ExpectUnchanged();
+    // Unsorted strings with duplicates take the generic sorting path
+    std::string unsorted_strings = "[";
+    for (int i = 59; i >= 0; --i) {
+      unsorted_strings += "\"k" + std::to_string(100 + i) + "\",";
+      unsorted_strings += "\"k" + std::to_string(100 + i) + "\",";
+    }
+    unsorted_strings.back() = ']';
+    Simplify{is_in(str, utf8(), unsorted_strings, null_matching)}
+        .WithGuarantee(and_(greater(str, literal("k110")), less(str, literal("k111"))))
+        .Expect(false);
+    Simplify{is_in(str, utf8(), unsorted_strings, null_matching)}
+        .WithGuarantee(
+            and_(greater(str, literal("k110")), less_equal(str, literal("k111"))))
+        .ExpectUnchanged();
+    // ... as do value sets with nulls, which INCONCLUSIVE cannot simplify
+    auto with_null = Simplify{is_in(str, utf8(), concat_json(unsorted_strings, "[null]"),
+                                    null_matching)}
+                         .WithGuarantee(and_(greater(str, literal("k110")),
+                                             less(str, literal("k111"))));
+    if (null_matching == SetLookupOptions::INCONCLUSIVE) {
+      with_null.ExpectUnchanged();
+    } else {
+      with_null.Expect(false);
+    }
 
     // Floats
     Simplify{is_in(f64, float64(), range, null_matching)}
