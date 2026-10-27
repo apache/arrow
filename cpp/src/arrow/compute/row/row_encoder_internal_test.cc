@@ -167,25 +167,32 @@ TEST(TestRowEncoder, AppendSlicesAndReuse) {
 TEST(TestKeyEncoder, LARGE_MEMORY_TEST(ValueLengthOver2GB)) {
   constexpr int64_t kValueLength = (int64_t{1} << 31) + 13;
   constexpr int64_t kEncodedValueOverhead = sizeof(uint8_t) + sizeof(int64_t);
+  constexpr int64_t kBatchLength = 3;
   // A single value exceeds the signed 32-bit length limit. Only its length is
   // inspected, so the buffer need not be initialized or copied by this test.
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> bytes, AllocateBuffer(kValueLength));
   LargeBinaryScalar scalar(bytes);
   VarLengthKeyEncoder<LargeBinaryType> encoder(large_binary());
-  int64_t length = 0;
-  encoder.AddLength(ExecValue(&scalar), /*batch_length=*/1, &length);
+  std::array<int64_t, kBatchLength> lengths{};
+  encoder.AddLength(ExecValue(&scalar), kBatchLength, lengths.data());
   // The encoded value includes a null byte and an int64_t length prefix.
-  ASSERT_EQ(length, kValueLength + kEncodedValueOverhead);
+  for (int64_t length : lengths) {
+    ASSERT_EQ(length, kValueLength + kEncodedValueOverhead);
+  }
 
   // Length calculation must not narrow either scalar or array values, nor the
   // combined length of multiple columns in a single encoded row.
-  // Reuse the same buffer through the array path and add to the existing length
-  // rather than resetting it, as when encoding a second column in the same row.
-  auto offsets = Buffer::FromVector<int64_t>({0, kValueLength});
-  auto array = ArrayData::Make(large_binary(), /*length=*/1, {nullptr, offsets, bytes},
-                               /*null_count=*/0);
-  encoder.AddLength(ExecValue(*array), /*batch_length=*/1, &length);
-  ASSERT_EQ(length, 2 * (kValueLength + kEncodedValueOverhead));
+  // Reuse the same buffer for a large value, an empty value and a null. Add to
+  // the existing lengths, as when encoding a second column in each row.
+  auto validity = Buffer::FromVector<uint8_t>({0b00000011});
+  auto offsets =
+      Buffer::FromVector<int64_t>({0, kValueLength, kValueLength, kValueLength});
+  auto array = ArrayData::Make(large_binary(), kBatchLength, {validity, offsets, bytes},
+                               /*null_count=*/1);
+  encoder.AddLength(ExecValue(*array), kBatchLength, lengths.data());
+  ASSERT_EQ(lengths[0], 2 * (kValueLength + kEncodedValueOverhead));
+  ASSERT_EQ(lengths[1], kValueLength + 2 * kEncodedValueOverhead);
+  ASSERT_EQ(lengths[2], kValueLength + 2 * kEncodedValueOverhead);
 }
 
 TEST(TestRowEncoder, LARGE_MEMORY_TEST(AppendOver2GB)) {
@@ -211,6 +218,7 @@ TEST(TestRowEncoder, LARGE_MEMORY_TEST(AppendOver2GB)) {
   const int32_t row_ids[] = {0, kBatchLength - 1, kNumRows - 2, kNumRows - 1,
                              RowEncoder::kRowIdForNulls()};
   ASSERT_OK_AND_ASSIGN(auto decoded, encoder.Decode(kNumDecodedValues + 1, row_ids));
+  ASSERT_OK(decoded[0].make_array()->ValidateFull());
   ASSERT_OK_AND_ASSIGN(auto expected, MakeArrayFromScalar(*scalar, kNumDecodedValues));
   ASSERT_OK_AND_ASSIGN(auto nulls, MakeArrayOfNull(large_utf8(), /*length=*/1));
   AssertArraysEqual(*expected,

@@ -943,6 +943,7 @@ TEST(Grouper, LARGE_MEMORY_TEST(BatchOver2GB)) {
 
   // All rows must receive group 0, despite the large temporary batch encoding.
   ASSERT_OK_AND_ASSIGN(auto groups, grouper->Consume(ExecSpan(batch)));
+  ASSERT_OK(groups.make_array()->ValidateFull());
   AssertArraysEqual(*expected, *groups.make_array());
   ASSERT_EQ(grouper->num_groups(), 1);
 
@@ -950,11 +951,13 @@ TEST(Grouper, LARGE_MEMORY_TEST(BatchOver2GB)) {
   // for every row, and GetUniques must decode just the one original value.
   ASSERT_OK(grouper->Populate(ExecSpan(batch)));
   ASSERT_OK_AND_ASSIGN(auto found, grouper->Lookup(ExecSpan(batch)));
+  ASSERT_OK(found.make_array()->ValidateFull());
   AssertArraysEqual(*expected, *found.make_array());
   ASSERT_EQ(grouper->num_groups(), 1);
 
   ASSERT_OK_AND_ASSIGN(auto uniques, grouper->GetUniques());
   ASSERT_OK_AND_ASSIGN(auto expected_unique, MakeArrayFromScalar(*value, /*length=*/1));
+  ASSERT_OK(uniques[0].make_array()->ValidateFull());
   AssertArraysEqual(*expected_unique, *uniques[0].make_array());
 }
 
@@ -986,6 +989,9 @@ TEST(Grouper, LARGE_MEMORY_TEST(UniqueKeysOver2GB)) {
     } else {
       ASSERT_OK_AND_ASSIGN(auto groups, grouper->Consume(ExecSpan(batch)));
       auto group_array = groups.make_array();
+      ASSERT_OK(group_array->ValidateFull());
+      ASSERT_EQ(group_array->length(), kBatchLength);
+      ASSERT_EQ(group_array->null_count(), 0);
       const auto& group_ids = checked_cast<const UInt32Array&>(*group_array);
       for (int32_t i = 0; i < kBatchLength; ++i) {
         ASSERT_EQ(group_ids.Value(i), first_id + i);
@@ -998,6 +1004,7 @@ TEST(Grouper, LARGE_MEMORY_TEST(UniqueKeysOver2GB)) {
   // return null for the miss without inserting a new group.
   const ExecBatch query({ArrayFromJSON(int32(), "[32767, 0, -1]"), value}, /*length=*/3);
   ASSERT_OK_AND_ASSIGN(auto found, grouper->Lookup(ExecSpan(query)));
+  ASSERT_OK(found.make_array()->ValidateFull());
   AssertArraysEqual(*ArrayFromJSON(uint32(), "[32767, 0, null]"), *found.make_array());
   ASSERT_EQ(grouper->num_groups(), kNumGroups);
 

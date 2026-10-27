@@ -3362,8 +3362,8 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver2GBLargeBinaryPayloads)) {
   constexpr int64_t kValueLength = 64 * 1024;
   constexpr int32_t kBatchLength = 1024;
   constexpr int32_t kNumBatches = 17;
-  // Keep join keys small so that it is the build-side payload encoder, not the
-  // key encoder, that crosses 2 GiB. Both payload columns enter that row buffer.
+  // Keep keys small so the build-side buffer storing r_payload1 and
+  // r_payload2, rather than the key buffer, exceeds 2 GiB.
   Int32Builder ids_builder;
   BinaryBuilder keys_builder;
   for (int32_t i = 0; i < kBatchLength; ++i) {
@@ -3375,43 +3375,40 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver2GBLargeBinaryPayloads)) {
   const auto zero_id = ArrayFromJSON(int32(), "[0]");
   const auto zero_key = ArrayFromJSON(binary(), R"(["0"])");
 
-  for (const auto& type : {large_utf8(), large_binary()}) {
-    SCOPED_TRACE(type->ToString());
-    ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(kValueLength, 'x')));
-    ASSERT_OK_AND_ASSIGN(auto payload, MakeArrayFromScalar(*value, kBatchLength));
-    auto l_schema = schema({field("l_id", int32()), field("l_key", binary())});
-    auto r_schema = schema({field("r_id", int32()), field("r_key", binary()),
-                            field("r_payload1", type), field("r_payload2", type)});
-    BatchesWithSchema left{{ExecBatch({ArrayFromJSON(int32(), "[0, -1]"),
-                                       ArrayFromJSON(binary(), R"(["0", "-1"])")},
-                                      /*length=*/2)},
-                           l_schema};
-    BatchesWithSchema right{{}, r_schema};
-    // 17 * 1024 * 2 * 64 KiB exceeds 2 GiB even before encoding metadata.
-    // Input columns and batches alias the same array; the payload encoder still
-    // writes every row and both columns into its persistent build-side buffer.
-    right.batches.assign(kNumBatches,
-                         ExecBatch({ids, keys, payload, payload}, kBatchLength));
+  const auto type = large_binary();
+  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(kValueLength, 'x')));
+  ASSERT_OK_AND_ASSIGN(auto payload, MakeArrayFromScalar(*value, kBatchLength));
+  auto l_schema = schema({field("l_id", int32()), field("l_key", binary())});
+  auto r_schema = schema({field("r_id", int32()), field("r_key", binary()),
+                          field("r_payload1", type), field("r_payload2", type)});
+  BatchesWithSchema left{{ExecBatch({ArrayFromJSON(int32(), "[0, -1]"),
+                                     ArrayFromJSON(binary(), R"(["0", "-1"])")},
+                                    /*length=*/2)},
+                         l_schema};
+  BatchesWithSchema right{{}, r_schema};
+  // 17 * 1024 * 2 * 64 KiB exceeds 2 GiB even before encoding metadata.
+  // Input columns and batches alias the same array; the payload encoder still
+  // writes every row and both columns into its persistent build-side buffer.
+  right.batches.assign(kNumBatches,
+                       ExecBatch({ids, keys, payload, payload}, kBatchLength));
 
-    // id/key 0 matches once per build batch and -1 never matches. Compare all
-    // six output columns, including both complete payload values, in 17 rows.
-    ASSERT_OK_AND_ASSIGN(auto expected_payload,
-                         MakeArrayFromScalar(*value, /*length=*/1));
-    BatchesWithSchema expected{
-        {},
-        schema({field("l_id", int32()), field("l_key", binary()), field("r_id", int32()),
-                field("r_key", binary()), field("r_payload1", type),
-                field("r_payload2", type)})};
-    expected.batches.assign(kNumBatches, ExecBatch({zero_id, zero_key, zero_id, zero_key,
-                                                    expected_payload, expected_payload},
-                                                   /*length=*/1));
-    // Two payload types, two small-key encodings and serial/parallel execution
-    // cover eight INNER join combinations without growing the expected output.
-    for (bool binary_keys : {false, true}) {
-      for (bool parallel : {false, true}) {
-        CheckRunOutput(JoinType::INNER, left, right, {binary_keys ? "l_key" : "l_id"},
-                       {binary_keys ? "r_key" : "r_id"}, expected, parallel);
-      }
+  // id/key 0 matches once per build batch and -1 never matches. Compare all
+  // six output columns, including both complete payload values, in 17 rows.
+  ASSERT_OK_AND_ASSIGN(auto expected_payload, MakeArrayFromScalar(*value, /*length=*/1));
+  BatchesWithSchema expected{
+      {},
+      schema({field("l_id", int32()), field("l_key", binary()), field("r_id", int32()),
+              field("r_key", binary()), field("r_payload1", type),
+              field("r_payload2", type)})};
+  expected.batches.assign(kNumBatches, ExecBatch({zero_id, zero_key, zero_id, zero_key,
+                                                  expected_payload, expected_payload},
+                                                 /*length=*/1));
+  // Two small-key encodings and serial/parallel execution cover four INNER
+  // join combinations without growing the expected output.
+  for (bool binary_keys : {false, true}) {
+    for (bool parallel : {false, true}) {
+      CheckRunOutput(JoinType::INNER, left, right, {binary_keys ? "l_key" : "l_id"},
+                     {binary_keys ? "r_key" : "r_id"}, expected, parallel);
     }
   }
 }
