@@ -1442,7 +1442,11 @@ endmacro()
 # pkg-config
 
 # SDK libraries (on macOS) may be available without .pc files
-macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
+macro(arrow_append_pc_system_library
+      PC_PACKAGE
+      PC_PREFIX
+      FALLBACK
+      ARROW_PC_TARGET)
   find_package(PkgConfig QUIET)
   if(PkgConfig_FOUND)
     pkg_check_modules(${PC_PREFIX}
@@ -1452,10 +1456,10 @@ macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
                       QUIET)
   endif()
   if(PkgConfig_FOUND AND ${PC_PREFIX}_FOUND)
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
+    string(APPEND ${ARROW_PC_TARGET}_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
   else()
-    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} in arrow.pc")
-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${FALLBACK}")
+    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} for ${ARROW_PC_TARGET}")
+    string(APPEND ${ARROW_PC_TARGET}_PC_LIBS_PRIVATE " ${FALLBACK}")
   endif()
 endmacro()
 
@@ -3915,8 +3919,14 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
 
   # curl is required on all platforms. We always use system curl to
   # avoid conflict.
-  find_curl(ARROW)
-  resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
+  find_curl(ARROW_GCS)
+  resolve_dependency(google_cloud_cpp_storage
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowGcs
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-gcs
+                     PC_PACKAGE_NAMES
+                     google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
@@ -4480,16 +4490,18 @@ if(ARROW_WITH_AZURE_SDK)
 endif()
 
 if(ARROW_BUILD_STATIC)
-  if((ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
-     OR (ARROW_AZURE
-         AND AZURE_SDK_VENDORED
-         AND NOT WIN32))
-    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl")
+  if(ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+    arrow_append_pc_system_library("libcurl" ARROW_GCS_CURL_PC "-lcurl" ARROW_GCS)
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
-    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2")
+    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl" ARROW)
+  endif()
+  if(ARROW_AZURE
+     AND AZURE_SDK_VENDORED
+     AND NOT WIN32)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2" ARROW)
   endif()
   if(ARROW_GCS
      AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
@@ -4515,14 +4527,14 @@ if(ARROW_BUILD_STATIC)
                           NO_CMAKE_ENVIRONMENT_PATH
                           QUIET)
         if(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC_FOUND)
-          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
+          string(APPEND ARROW_GCS_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
         else()
           message(STATUS "No .pc for ${ARROW_GCS_ABSL_PC_PACKAGE}; "
                          "static pkg-config metadata may be incomplete. Consider CMake")
         endif()
       endforeach()
     else()
-      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow.pc"
+      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow-gcs.pc"
       )
     endif()
   endif()
