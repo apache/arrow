@@ -17,12 +17,10 @@
 
 from typing import NamedTuple
 
-
 class VersionInfo(NamedTuple):
     major: int
     minor: int
     patch: int
-
 
 class CppBuildInfo(NamedTuple):
     version: str
@@ -37,26 +35,21 @@ class CppBuildInfo(NamedTuple):
     package_kind: str
     build_type: str
 
-
 class BuildInfo(NamedTuple):
     build_type: str
     cpp_build_info: CppBuildInfo
 
-
 class RuntimeInfo(NamedTuple):
     simd_level: str
     detected_simd_level: str
-
 
 build_info: BuildInfo
 cpp_build_info: CppBuildInfo
 cpp_version: str
 cpp_version_info: VersionInfo
 
-
 def runtime_info() -> RuntimeInfo: ...
 def set_timezone_db_path(path: str) -> None: ...
-
 
 __all__ = [
     "VersionInfo",

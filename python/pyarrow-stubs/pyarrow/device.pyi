@@ -19,7 +19,6 @@ import enum
 
 from pyarrow.lib import _Weakrefable
 
-
 class DeviceAllocationType(enum.Enum):
     CPU = enum.auto()
     CUDA = enum.auto()
@@ -36,31 +35,27 @@ class DeviceAllocationType(enum.Enum):
     WEBGPU = enum.auto()
     HEXAGON = enum.auto()
 
-
 class Device(_Weakrefable):
     @property
     def type_name(self) -> str: ...
-
     @property
     def device_id(self) -> int: ...
-
     @property
     def is_cpu(self) -> bool: ...
-
     @property
     def device_type(self) -> DeviceAllocationType: ...
-
 
 class MemoryManager(_Weakrefable):
     @property
     def device(self) -> Device: ...
-
     @property
     def is_cpu(self) -> bool: ...
 
-
 def default_cpu_memory_manager() -> MemoryManager: ...
 
-
-__all__ = ["DeviceAllocationType", "Device",
-           "MemoryManager", "default_cpu_memory_manager"]
+__all__ = [
+    "DeviceAllocationType",
+    "Device",
+    "MemoryManager",
+    "default_cpu_memory_manager",
+]
