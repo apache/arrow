@@ -2787,7 +2787,7 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
-cdef class Decima32Array(FixedSizeBinaryArray):
+cdef class Decimal32Array(FixedSizeBinaryArray):
     """
     Concrete class for Arrow arrays of decimal32 data type.
     """
