@@ -59,9 +59,10 @@ component before building, rather than guessing:
   `docs/source/developers/guide/step_by_step/testing.rst`
 
 Build and run the affected tests locally before pushing. CI is not a
-substitute: it is slow, shared, and reviewers notice when a test was
-never compiled. Enable GitHub Actions on your fork to see CI results
-before opening a PR.
+substitute for a component's unit tests: it is slow and shared, and a
+test that was never compiled is the first thing a reviewer sees. If
+you cannot build the component, enable GitHub Actions on your fork
+and don't open the PR until the jobs your change touches pass there.
 
 Run pre-commit on the files you changed:
 
@@ -99,9 +100,13 @@ pre-commit run -a                   # every hook
   bug, or what changed. If a comment says "this change", "now",
   "still", or "previously", delete it or move it to the PR description.
   A bare `// GH-12345` above a regression test is fine.
-- Performance claims need numbers: put local benchmark results in the
-  PR description, and note there if a CI benchmark run would help. A
-  maintainer can trigger one.
+- Performance claims need numbers. For C++, run
+  `archery benchmark diff --benchmark-filter=<name> HEAD upstream/main`
+  (see `docs/source/developers/benchmarks.rst`) and paste the table
+  into the PR description. Pass the baseline explicitly: the default
+  is `origin/HEAD`, which is the fork, not `apache/arrow`. A
+  maintainer can also trigger the CI benchmark run; note in the
+  description if that would help.
 
 ## Git
 
