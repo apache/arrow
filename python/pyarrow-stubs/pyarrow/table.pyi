@@ -25,8 +25,7 @@ if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
     from typing_extensions import TypeAlias
-from collections.abc import (
-    Collection, Generator, Iterable, Iterator, Sequence, Mapping)
+from collections.abc import Collection, Generator, Iterable, Iterator, Sequence, Mapping
 from typing import Any, Literal
 import builtins
 
@@ -114,17 +113,20 @@ _AggregationPrefixed: TypeAlias = Literal[
     "hash_variance",
 ]
 Aggregation: TypeAlias = _Aggregation | _AggregationPrefixed | str
-AggregateOptions: TypeAlias = (ScalarAggregateOptions | CountOptions
-                               | TDigestOptions | VarianceOptions | FunctionOptions)
+AggregateOptions: TypeAlias = (
+    ScalarAggregateOptions
+    | CountOptions
+    | TDigestOptions
+    | VarianceOptions
+    | FunctionOptions
+)
 
 UnarySelector: TypeAlias = str
 NullarySelector: TypeAlias = tuple[()]
 NarySelector: TypeAlias = list[str] | tuple[str, ...]
 ColumnSelector: TypeAlias = UnarySelector | NullarySelector | NarySelector
 
-
 class ChunkedArray(_PandasConvertible):
-
     @property
     def data(self) -> Self: ...
     @property
@@ -148,59 +150,39 @@ class ChunkedArray(_PandasConvertible):
 
     format = to_string
     def validate(self, *, full: bool = False) -> None: ...
-
     @property
     def null_count(self) -> int: ...
-
     @property
     def nbytes(self) -> int: ...
-
     def get_total_buffer_size(self) -> int: ...
-
     def __sizeof__(self) -> int: ...
-
-    def __getitem__(
-        self, key: int | np.integer | builtins.slice) -> Scalar | Self: ...
-
+    def __getitem__(self, key: int | np.integer | builtins.slice) -> Scalar | Self: ...
     def getitem(self, i: int) -> Scalar: ...
     def is_null(self, *, nan_is_null: bool = False) -> ChunkedArray: ...
-
     def is_nan(self) -> ChunkedArray: ...
-
     def is_valid(self) -> ChunkedArray: ...
-
     def cast(
-        self, target_type: DataType | str | None, safe: bool = True,
+        self,
+        target_type: DataType | str | None,
+        safe: bool = True,
         options: CastOptions | None = None,
-        memory_pool: MemoryPool | None = None
+        memory_pool: MemoryPool | None = None,
     ) -> ChunkedArray: ...
-
     def fill_null(self, fill_value: Any) -> Self: ...
-
     def equals(self, other: Self | Any) -> bool: ...
-
     def to_numpy(self, zero_copy_only: bool = False) -> np.ndarray: ...
-
-    def __array__(self, dtype: np.dtype | None = None,
-                  copy: bool | None = None) -> np.ndarray: ...
-
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray: ...
     def dictionary_encode(self, null_encoding: NullEncoding = "mask") -> Self: ...
-
-    def flatten(self, memory_pool: MemoryPool |
-                None = None) -> list[ChunkedArray]: ...
-
-    def combine_chunks(self, memory_pool: MemoryPool |
-                       None = None) -> Array: ...
-
+    def flatten(self, memory_pool: MemoryPool | None = None) -> list[ChunkedArray]: ...
+    def combine_chunks(self, memory_pool: MemoryPool | None = None) -> Array: ...
     def unique(self) -> Array: ...
-
     def value_counts(self) -> StructArray: ...
-
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
-
-    def filter(self, mask: Mask,
-               null_selection_behavior: NullSelectionBehavior = "drop") -> Self: ...
-
+    def filter(
+        self, mask: Mask, null_selection_behavior: NullSelectionBehavior = "drop"
+    ) -> Self: ...
     def index(
         self,
         value: Any,
@@ -209,83 +191,61 @@ class ChunkedArray(_PandasConvertible):
         *,
         memory_pool: MemoryPool | None = None,
     ) -> Int64Scalar: ...
-
     def take(self, indices: Indices) -> Self: ...
-
     def drop_null(self) -> Self: ...
-
     def sort(self, order: Order = "ascending", **kwargs) -> Self: ...
-
     def unify_dictionaries(self, memory_pool: MemoryPool | None = None) -> Self: ...
-
     @property
     def num_chunks(self) -> int: ...
-
     def chunk(self, i: int) -> Array: ...
-
     @property
     def chunks(self) -> list[Array]: ...
-
     def iterchunks(self) -> Generator[Array, None, None]: ...
-
     def __iter__(self) -> Iterator[Scalar]: ...
-
     def to_pylist(
         self,
         *,
         maps_as_pydicts: Literal["lossy", "strict"] | None = None,
     ) -> list[Any]: ...
-
     def __arrow_c_stream__(self, requested_schema=None) -> Any: ...
-
     @classmethod
     def _import_from_c_capsule(cls, stream) -> Self: ...
-
     @property
     def is_cpu(self) -> bool: ...
-
 
 def chunked_array(
     arrays: Iterable[NullableCollection]
     | Iterable[Iterable[Any] | SupportsArrowStream | SupportsArrowArray]
-    | Iterable[Array] | Array
-    | SupportsArrowArray | SupportsArrowStream,
+    | Iterable[Array]
+    | Array
+    | SupportsArrowArray
+    | SupportsArrowStream,
     type: DataType | str | None = None,
 ) -> ChunkedArray: ...
 
-
 class _Tabular(_PandasConvertible):
-    def __array__(self, dtype: np.dtype | None = None,
-                  copy: bool | None = None) -> np.ndarray: ...
-
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray: ...
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True
     ) -> _PyArrowDataFrame: ...
-
     def __getitem__(self, key: int | str | slice) -> ArrayOrChunkedArray | Self: ...
-
     def __len__(self) -> int: ...
     def column(self, i: int | str) -> ArrayOrChunkedArray: ...
-
     @property
     def column_names(self) -> list[str]: ...
-
     @property
     def columns(self) -> list[Array] | list[ChunkedArray]: ...
-
     def drop_null(self) -> Self: ...
-
     def field(self, i: int | str) -> Field: ...
-
     @classmethod
     def from_pydict(
         cls,
-        mapping:
-        Mapping[Any, ArrayOrChunkedArray | list[Any] | np.ndarray | range],
+        mapping: Mapping[Any, ArrayOrChunkedArray | list[Any] | np.ndarray | range],
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
-
     @classmethod
     def from_pylist(
         cls,
@@ -293,101 +253,80 @@ class _Tabular(_PandasConvertible):
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
-
     def itercolumns(self) -> Generator[ArrayOrChunkedArray, None, None]: ...
-
     @property
     def num_columns(self) -> int: ...
     @property
     def num_rows(self) -> int: ...
     @property
     def shape(self) -> tuple[int, int]: ...
-
     @property
     def schema(self) -> Schema: ...
     @property
     def nbytes(self) -> int: ...
     def sort_by(self, sorting: str | list[tuple[str, Order]], **kwargs) -> Self: ...
-
     def take(self, indices: Indices) -> Self: ...
-
     def filter(
         self,
         mask: Mask | Expression,
-        null_selection_behavior: NullSelectionBehavior = "drop") -> Self: ...
-
+        null_selection_behavior: NullSelectionBehavior = "drop",
+    ) -> Self: ...
     def to_pydict(
         self, *, maps_as_pydicts: Literal["lossy", "strict"] | None = None
     ) -> dict[str, list[Any]]: ...
-
     def to_pylist(
         self, *, maps_as_pydicts: Literal["lossy", "strict"] | None = None
     ) -> list[dict[str, Any]]: ...
-
-    def to_string(self, *, show_metadata: bool = False,
-                  preview_cols: int = 0) -> str: ...
-
+    def to_string(
+        self, *, show_metadata: bool = False, preview_cols: int = 0
+    ) -> str: ...
     def remove_column(self, i: int) -> Self: ...
     def drop_columns(self, columns: str | list[str]) -> Self: ...
-
-    def add_column(self, i: int, field_: str | Field,
-                   column: ArrayOrChunkedArray | list[list[Any]]) -> Self: ...
-
+    def add_column(
+        self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
+    ) -> Self: ...
     def append_column(
         self, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
     ) -> Self: ...
 
-
 class RecordBatch(_Tabular):
     def validate(self, *, full: bool = False) -> None: ...
-
     def replace_schema_metadata(
         self,
         metadata: dict[str, str]
         | dict[bytes, bytes]
         | dict[bytes, str]
         | dict[str, bytes]
-        | None = None
+        | None = None,
     ) -> Self: ...
-
     @property
     def num_columns(self) -> int: ...
-
     @property
     def num_rows(self) -> int: ...
-
     @property
     def schema(self) -> Schema: ...
-
     @property
     def nbytes(self) -> int: ...
-
     def get_total_buffer_size(self) -> int: ...
-
     def __sizeof__(self) -> int: ...
-
     def add_column(
         self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list
     ) -> Self: ...
-
     def remove_column(self, i: int) -> Self: ...
-
     def set_column(self, i: int, field_: str | Field, column: Array | list) -> Self: ...
-
     def rename_columns(self, names: list[str] | dict[str, str]) -> Self: ...
-
     def serialize(self, memory_pool: MemoryPool | None = None) -> Buffer: ...
-
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
-
     def equals(self, other: Self | Any, check_metadata: bool = False) -> bool: ...
-
-    def select(self, columns: Iterable[str] |
-               Iterable[int] | NDArray[np.str_]) -> Self: ...
-
-    def cast(self, target_schema: Schema, safe: bool | None = None,
-             options: CastOptions | None = None) -> Self: ...
-
+    def select(
+        self, columns: Iterable[str] | Iterable[int] | NDArray[np.str_]
+    ) -> Self: ...
+    def cast(
+        self,
+        target_schema: Schema,
+        safe: bool | None = None,
+        options: CastOptions | None = None,
+    ) -> Self: ...
     @classmethod
     def from_arrays(
         cls,
@@ -400,7 +339,6 @@ class RecordBatch(_Tabular):
         | Mapping[str, bytes]
         | None = None,
     ) -> Self: ...
-
     @classmethod
     def from_pandas(
         cls,
@@ -410,54 +348,35 @@ class RecordBatch(_Tabular):
         nthreads: int | None = None,
         columns: Sequence[str | int] | None = None,
     ) -> Self: ...
-
     @classmethod
-    def from_struct_array(
-        cls, struct_array: StructArray | ChunkedArray
-    ) -> Self: ...
-
+    def from_struct_array(cls, struct_array: StructArray | ChunkedArray) -> Self: ...
     def to_struct_array(self) -> StructArray: ...
-
     def to_tensor(
         self,
         null_to_nan: bool = False,
         row_major: bool = True,
         memory_pool: MemoryPool | None = None,
     ) -> Tensor: ...
-
     def _export_to_c(self, out_ptr: int, out_schema_ptr: int = 0): ...
-
     @classmethod
     def _import_from_c(cls, in_ptr: int, schema: Schema) -> Self: ...
-
     def __arrow_c_array__(self, requested_schema=None): ...
-
     def __arrow_c_stream__(self, requested_schema=None): ...
-
     @classmethod
     def _import_from_c_capsule(cls, schema_capsule, array_capsule) -> Self: ...
-
     def _export_to_c_device(self, out_ptr: int, out_schema_ptr: int = 0) -> None: ...
-
     @classmethod
     def _import_from_c_device(cls, in_ptr: int, schema: Schema) -> Self: ...
-
     def __arrow_c_device_array__(self, requested_schema=None, **kwargs): ...
-
     @classmethod
     def _import_from_c_device_capsule(cls, schema_capsule, array_capsule) -> Self: ...
-
     @property
     def device_type(self) -> DeviceAllocationType: ...
-
     @property
     def is_cpu(self) -> bool: ...
-
     def copy_to(self, destination: MemoryManager | Device) -> Self: ...
 
-
 def table_to_blocks(options, table: Table, categories, extension_columns): ...
-
 
 JoinType: TypeAlias = Literal[
     "left semi",
@@ -470,34 +389,30 @@ JoinType: TypeAlias = Literal[
     "full outer",
 ]
 
-
 class Table(_Tabular):
     def validate(self, *, full: bool = False) -> None: ...
-
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
-
-    def select(self, columns: Iterable[str] |
-               Iterable[int] | NDArray[np.str_]) -> Self: ...
-
+    def select(
+        self, columns: Iterable[str] | Iterable[int] | NDArray[np.str_]
+    ) -> Self: ...
     def replace_schema_metadata(
-        self, metadata: dict[str, str]
+        self,
+        metadata: dict[str, str]
         | dict[bytes, bytes]
         | dict[bytes, str]
         | dict[str, bytes]
-        | None = None
+        | None = None,
     ) -> Self: ...
-
     def flatten(self, memory_pool: MemoryPool | None = None) -> Self: ...
-
     def combine_chunks(self, memory_pool: MemoryPool | None = None) -> Self: ...
-
     def unify_dictionaries(self, memory_pool: MemoryPool | None = None) -> Self: ...
-
     def equals(self, other: Self | Any, check_metadata: bool = False) -> bool: ...
-
-    def cast(self, target_schema: Schema, safe: bool | None = None,
-             options: CastOptions | None = None) -> Self: ...
-
+    def cast(
+        self,
+        target_schema: Schema,
+        safe: bool | None = None,
+        options: CastOptions | None = None,
+    ) -> Self: ...
     @classmethod
     def from_pandas(
         cls,
@@ -508,68 +423,49 @@ class Table(_Tabular):
         columns: Sequence[str | int] | None = None,
         safe: bool = True,
     ) -> Self: ...
-
     @classmethod
     def from_arrays(
         cls,
-        arrays:
-        Collection[ArrayOrChunkedArray | Collection[NDArray[Any]] | list[Any]],
+        arrays: Collection[ArrayOrChunkedArray | Collection[NDArray[Any]] | list[Any]],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[bytes, bytes]
         | Mapping[str, str]
         | Mapping[bytes, str]
-        | Mapping[str, bytes] | None = None,
+        | Mapping[str, bytes]
+        | None = None,
     ) -> Self: ...
-
     @classmethod
-    def from_struct_array(
-        cls, struct_array: StructArray | ChunkedArray
+    def from_struct_array(cls, struct_array: StructArray | ChunkedArray) -> Self: ...
+    def to_struct_array(self, max_chunksize: int | None = None) -> ChunkedArray: ...
+    @classmethod
+    def from_batches(
+        cls, batches: Iterable[RecordBatch], schema: Schema | None = None
     ) -> Self: ...
-
-    def to_struct_array(
-        self, max_chunksize: int | None = None
-    ) -> ChunkedArray: ...
-
-    @classmethod
-    def from_batches(cls, batches: Iterable[RecordBatch],
-                     schema: Schema | None = None) -> Self: ...
-
     def to_batches(self, max_chunksize: int | None = None) -> list[RecordBatch]: ...
-
     def to_reader(self, max_chunksize: int | None = None) -> RecordBatchReader: ...
-
     @property
     def schema(self) -> Schema: ...
-
     @property
     def num_columns(self) -> int: ...
-
     @property
     def num_rows(self) -> int: ...
-
     @property
     def nbytes(self) -> int: ...
-
     def get_total_buffer_size(self) -> int: ...
-
     def __sizeof__(self) -> int: ...
-
-    def add_column(self, i: int, field_: str | Field,
-                   column: ArrayOrChunkedArray | list[list[Any]]) -> Self: ...
-
+    def add_column(
+        self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
+    ) -> Self: ...
     def remove_column(self, i: int) -> Self: ...
-
-    def set_column(self, i: int, field_: str | Field,
-                   column: ArrayOrChunkedArray | list[list[Any]]) -> Self: ...
-
+    def set_column(
+        self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
+    ) -> Self: ...
     def rename_columns(self, names: list[str] | dict[str, str]) -> Self: ...
-
     def drop(self, columns: str | list[str]) -> Self: ...
-
-    def group_by(self, keys: str | list[str],
-                 use_threads: bool = True) -> TableGroupBy: ...
-
+    def group_by(
+        self, keys: str | list[str], use_threads: bool = True
+    ) -> TableGroupBy: ...
     def join(
         self,
         right_table: Self,
@@ -581,7 +477,6 @@ class Table(_Tabular):
         coalesce_keys: bool = True,
         use_threads: bool = True,
     ) -> Self: ...
-
     def join_asof(
         self,
         right_table: Self,
@@ -591,12 +486,9 @@ class Table(_Tabular):
         right_on: str | list[str] | None = None,
         right_by: str | list[str] | None = None,
     ) -> Self: ...
-
     def __arrow_c_stream__(self, requested_schema=None): ...
-
     @property
     def is_cpu(self) -> bool: ...
-
 
 def record_batch(
     data: Mapping[str, list[Any] | Array]
@@ -608,8 +500,6 @@ def record_batch(
     schema: Schema | None = None,
     metadata: Mapping[str | bytes, str | bytes] | None = None,
 ) -> RecordBatch: ...
-
-
 def table(
     data: Collection[ArrayOrChunkedArray | list[Any] | range | str]
     | pd.DataFrame
@@ -623,8 +513,6 @@ def table(
     metadata: Mapping[str | bytes, str | bytes] | None = None,
     nthreads: int | None = None,
 ) -> Table: ...
-
-
 def concat_tables(
     tables: Iterable[Table],
     memory_pool: MemoryPool | None = None,
@@ -632,14 +520,12 @@ def concat_tables(
     **kwargs: Any,
 ) -> Table: ...
 
-
 class TableGroupBy:
-
     keys: str | list[str]
 
-    def __init__(self, table: Table, keys: str |
-                 list[str], use_threads: bool = True): ...
-
+    def __init__(
+        self, table: Table, keys: str | list[str], use_threads: bool = True
+    ): ...
     def aggregate(
         self,
         aggregations: Iterable[
@@ -647,16 +533,13 @@ class TableGroupBy:
             | tuple[ColumnSelector, Aggregation, AggregateOptions | None]
         ],
     ) -> Table: ...
-
     def _table(self) -> Table: ...
     @property
     def _use_threads(self) -> bool: ...
 
-
 def concat_batches(
     recordbatches: Iterable[RecordBatch], memory_pool: MemoryPool | None = None
 ) -> RecordBatch: ...
-
 
 __all__ = [
     "ChunkedArray",
