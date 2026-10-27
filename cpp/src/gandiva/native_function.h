@@ -44,6 +44,8 @@ class GANDIVA_EXPORT NativeFunction {
   static constexpr int32_t kNeedsContext = (1 << 1);
   static constexpr int32_t kNeedsFunctionHolder = (1 << 2);
   static constexpr int32_t kCanReturnErrors = (1 << 3);
+  // Allocates from the context arena without returning a string or binary.
+  static constexpr int32_t kUsesArena = (1 << 4);
 
   const std::vector<FunctionSignature>& signatures() const { return signatures_; }
   std::string pc_name() const { return pc_name_; }
@@ -52,6 +54,7 @@ class GANDIVA_EXPORT NativeFunction {
   bool NeedsContext() const { return (flags_ & kNeedsContext) != 0; }
   bool NeedsFunctionHolder() const { return (flags_ & kNeedsFunctionHolder) != 0; }
   bool CanReturnErrors() const { return (flags_ & kCanReturnErrors) != 0; }
+  bool UsesArena() const { return (flags_ & kUsesArena) != 0; }
 
   NativeFunction(const std::string& base_name, const std::vector<std::string>& aliases,
                  const DataTypeVector& param_types, const DataTypePtr& ret_type,

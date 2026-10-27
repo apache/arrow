@@ -1263,6 +1263,12 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
   auto llvm_return_type = types->IRType(arrow_return_type_id);
   DecimalIR decimalIR(generator_->engine_.get());
 
+  // The arena is released per row, so a function that allocates from it needs that
+  // even when it does not return a string.
+  if (func->UsesArena()) {
+    has_arena_allocs_ = true;
+  }
+
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
     // For decimal fns, the output precision/scale are passed along as parameters.
     //
