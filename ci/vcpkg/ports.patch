@@ -101,3 +101,34 @@ index 5df5e94..225e5fb 100644
  )
  
  if("tool" IN_LIST FEATURES)
+diff --git a/ports/nanoarrow/portfile.cmake b/ports/nanoarrow/portfile.cmake
+index 34f113f..10ca500 100644
+--- a/ports/nanoarrow/portfile.cmake
++++ b/ports/nanoarrow/portfile.cmake
+@@ -24,6 +24,10 @@ vcpkg_cmake_configure(
+     OPTIONS
+         -DNANOARROW_INSTALL_SHARED=${NANOARROW_INSTALL_SHARED}
+         -DNANOARROW_DEBUG_EXTRA_WARNINGS=OFF
++        # Prefix the C symbols so that consumers linking nanoarrow
++        # statically (e.g. azure-storage-blobs-cpp inside libarrow) do
++        # not export or clash on plain Arrow* names.
++        -DNANOARROW_NAMESPACE=VcpkgNanoarrow
+         ${FEATURE_OPTIONS}
+         ${FLATCCRT_OPTIONS}
+ )
+@@ -36,12 +40,12 @@ vcpkg_cmake_config_fixup(
+     DO_NOT_DELETE_PARENT_CONFIG_PATH
+ )
+ 
+-# Fix bare "flatccrt" in INTERFACE_LINK_LIBRARIES - Windows needs the full path
++# Fix bare "flatccrt" in INTERFACE_LINK_LIBRARIES - consumers need the full path
+ # Tracked upstream at https://github.com/apache/arrow-nanoarrow/issues/922
+-if ("ipc" IN_LIST FEATURES AND VCPKG_TARGET_IS_WINDOWS)
++if ("ipc" IN_LIST FEATURES)
+     vcpkg_replace_string("${CURRENT_PACKAGES_DIR}/share/nanoarrow/nanoarrow-targets.cmake"
+         [[\$<LINK_ONLY:flatccrt>]]
+-        [[\$<LINK_ONLY:${_IMPORT_PREFIX}/lib/flatccrt.lib>]]
++        "\\\$<LINK_ONLY:\${_IMPORT_PREFIX}/lib/${VCPKG_TARGET_STATIC_LIBRARY_PREFIX}flatccrt${VCPKG_TARGET_STATIC_LIBRARY_SUFFIX}>"
+     )
+ endif()
+ 
