@@ -19,13 +19,17 @@
 
 #include <stdio.h>
 
+#include <fstream>
+#include <optional>
 #include <stdexcept>
 #include <tuple>
 #include <vector>
 
 #include <arrow/io/file.h>
 
+#include "arrow/util/config.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/column_reader.h"
@@ -42,6 +46,11 @@
  * different encryption configurations.
  * The files are saved in temporary folder and will be deleted after reading
  * them in read_configurations_test.cc test.
+ *
+ * To regenerate the corresponding files in the parquet-testing repository, set the
+ * PARQUET_ENCRYPTION_TEST_OUTPUT_DIR environment variable to a directory. The files
+ * are then written with the same layout as the parquet-testing files, and a copy of
+ * each file (without the "tmp_" prefix) is written to that directory.
  *
  * A detailed description of the Parquet Modular Encryption specification can be found
  * here:
@@ -66,6 +75,9 @@
  *                                  identity storage in file metadata.
  *  - Encryption configuration 6:   Encrypt two columns and the footer, with different
  *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
+ *  - Encryption configuration 7:   Encrypt two columns, with different keys.
+ *                                  Don't encrypt the footer.
+ *                                  Use the alternative (AES_GCM_CTR_V1) algorithm.
  */
 
 namespace parquet::encryption::test {
@@ -78,8 +90,19 @@ class TestEncryptionConfiguration : public ::testing::Test {
  public:
   static void SetUpTestCase();
 
+  void SetUp() override {
+#ifndef ARROW_WITH_SNAPPY
+    if (output_dir_.has_value()) {
+      FAIL() << "Generating parquet-testing files requires Snappy compression";
+    }
+#endif
+  }
+
  protected:
-  FileEncryptor encryptor_;
+  // Set when generating files for the parquet-testing repository
+  const std::optional<std::string> output_dir_ = GetOutputDir();
+  FileEncryptor encryptor_ =
+      output_dir_.has_value() ? FileEncryptor::ForParquetTestingFiles() : FileEncryptor();
 
   std::string path_to_double_field_ = kDoubleFieldName;
   std::string path_to_float_field_ = kFloatFieldName;
@@ -93,6 +116,35 @@ class TestEncryptionConfiguration : public ::testing::Test {
                    std::string file_name) {
     std::string file = temp_dir->path().ToString() + file_name;
     encryptor_.EncryptFile(file, encryption_configurations);
+    CopyToOutputDir(file, file_name);
+  }
+
+  static std::optional<std::string> GetOutputDir() {
+    auto maybe_output_dir =
+        ::arrow::internal::GetEnvVar("PARQUET_ENCRYPTION_TEST_OUTPUT_DIR");
+    if (!maybe_output_dir.ok()) {
+      return std::nullopt;
+    }
+    return maybe_output_dir.MoveValueUnsafe();
+  }
+
+  // Copy the file to the output directory if it is set, so the parquet-testing
+  // files can be regenerated.
+  void CopyToOutputDir(const std::string& file, const std::string& file_name) const {
+    if (!output_dir_.has_value()) {
+      return;
+    }
+    std::string output_name = file_name;
+    const std::string tmp_prefix = "tmp_";
+    if (output_name.rfind(tmp_prefix, 0) == 0) {
+      output_name = output_name.substr(tmp_prefix.size());
+    }
+    std::ifstream src(file, std::ios::binary);
+    std::ofstream dst(*output_dir_ + "/" + output_name, std::ios::binary);
+    ASSERT_TRUE(src.good() && dst.good())
+        << "Failed to copy " << file << " to " << *output_dir_;
+    dst << src.rdbuf();
+    ASSERT_TRUE(dst.good()) << "Failed to write " << output_name;
   }
 };
 
@@ -201,6 +253,25 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
                             ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
                             ->build(),
                         "tmp_encrypt_columns_and_footer_ctr.parquet.encrypted"));
+}
+
+TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooterUseAES_GCM_CTR) {
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encryption_cols7;
+  encryption_cols7[path_to_double_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
+  encryption_cols7[path_to_float_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
+  encryption_cols7[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
+
+  FileEncryptionProperties::Builder file_encryption_builder_7(kFooterEncryptionKey_);
+
+  EXPECT_NO_THROW(
+      this->EncryptFile(file_encryption_builder_7.footer_key_metadata("kf")
+                            ->encrypted_columns(std::move(encryption_cols7))
+                            ->set_plaintext_footer()
+                            ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
+                            ->build(),
+                        "tmp_encrypt_columns_plaintext_footer_ctr.parquet.encrypted"));
 }
 
 enum class AadPrefixMode { None, Stored, External };
