@@ -60,7 +60,6 @@ function configure_binaries() {
 
   OPENSSL_LIBS="-lcrypto -lcrypt32"
   MIMALLOC_LIBS="-lbcrypt -lpsapi"
-  BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
   # We build aws-sdk-cpp bundled now, so the AWS libs are included in arrow_bundled_dependencies
   # but we also need to include these Windows system libraries
   AWS_LIBS="-luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp -lsecur32 -lshlwapi -lncrypt"
@@ -91,7 +90,7 @@ function configure_binaries() {
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
   PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow_s3 \
             -larrow_gcs -larrow -larrow_bundled_dependencies \
-            -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
+            -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
 
 }
