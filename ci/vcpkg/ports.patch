@@ -132,3 +132,41 @@ index 34f113f..10ca500 100644
      )
  endif()
  
+diff --git a/ports/protobuf/fix-msvc-global-empty-string.patch b/ports/protobuf/fix-msvc-global-empty-string.patch
+new file mode 100644
+index 0000000..da1d995
+--- /dev/null
++++ b/ports/protobuf/fix-msvc-global-empty-string.patch
+@@ -0,0 +1,20 @@
++diff --git a/src/google/protobuf/port.h b/src/google/protobuf/port.h
++index 7347203..a587be8 100644
++--- a/src/google/protobuf/port.h
+++++ b/src/google/protobuf/port.h
++@@ -876,9 +876,14 @@ class alignas(8) GlobalEmptyStringConstexpr {
++   // evaluation, not that a constant evaluated instance can leak into runtime.
++   // Memory allocated during constant evaluation can't be used for runtime
++   // objects.
++-#if !defined(__XTENSA__)
+++#if !defined(__XTENSA__) && !defined(_MSC_VER)
++   // Disable the optimization for Xtensa.
++   // Compilation fails on Xtensa: b/467129751
+++  // Disable the optimization for MSVC too, as protobuf 33.x did.
+++  // MSVC mangles the type of fixed_address_empty_string into its symbol
+++  // name, so libprotobuf and generated code built with different C++
+++  // standards (C++17 vs C++20) fail to link.
+++  // See https://github.com/microsoft/vcpkg/issues/54654
++   template <
++       typename Alloc = NonConstexprAllocator<char>,
++       int = std::basic_string<char, std::char_traits<char>, Alloc>().size()>
+diff --git a/ports/protobuf/portfile.cmake b/ports/protobuf/portfile.cmake
+index 74570d4..ae656fc 100644
+--- a/ports/protobuf/portfile.cmake
++++ b/ports/protobuf/portfile.cmake
+@@ -11,6 +11,7 @@ vcpkg_from_github(
+         fix-install-dirs.patch
+         fix-constinit-with-clang-cl.patch
+         fix-upb.patch
++        fix-msvc-global-empty-string.patch
+ )
+ 
+ string(COMPARE EQUAL "${TARGET_TRIPLET}" "${HOST_TRIPLET}" protobuf_BUILD_PROTOC_BINARIES)
