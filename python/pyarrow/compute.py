@@ -562,7 +562,9 @@ def fill_null(values, fill_value):
     if not isinstance(fill_value, (pa.Array, pa.ChunkedArray, pa.Scalar)):
         fill_value = pa.scalar(fill_value, type=values.type)
     elif values.type != fill_value.type:
-        fill_value = pa.scalar(fill_value.as_py(), type=values.type)
+        # Cast rather than going through as_py(), which only exists on Scalar
+        # and so failed with an AttributeError for array fill values.
+        fill_value = fill_value.cast(values.type)
 
     return call_function("coalesce", [values, fill_value])
 
