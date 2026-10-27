@@ -149,6 +149,8 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   // Create a success status.
   constexpr Status() noexcept : state_(NULLPTR) {}
 
+  // GH-47774: force-inline the Status destructor's hot path
+  // and keep it as lean as possible.
   ARROW_FORCE_INLINE ~Status() noexcept {
     if (ARROW_PREDICT_FALSE(state_ != NULL)) {
       DeleteState();
