@@ -596,6 +596,16 @@ These requirements apply to this extension type.
 
   Extension metadata is an empty string.
 
+Relative URI resolution
+-----------------------
+
+Unlike in Parquet, an ``offset`` paired with a relative ``uri`` is meaningless
+in this extension type.
+
+Parquet readers can attempt to resolve relative URIs by checking for the
+referenced file relative to the source Parquet file's location. If successful,
+they should record the absolute URI in the Arrow array's ``uri`` field.
+
 Examples
 --------
 
