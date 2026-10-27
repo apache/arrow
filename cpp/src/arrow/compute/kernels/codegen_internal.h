@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -49,6 +50,7 @@
 #include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visit_data_inline.h"
 
@@ -1016,8 +1018,8 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 // subclass corresponding to the type passed as argument (not template type) to
 // the function.
 //
-// For example, GenerateNumeric<FUNCTOR, Type0>(int32()) will select a kernel
-// instantiated like FUNCTOR<Type0, Int32Type>. Any additional variadic
+// For example, GenerateNumeric<FUNCTOR>(int32()) will select a kernel
+// instantiated like FUNCTOR<Int32Type>. Any additional variadic
 // template arguments will be passed as additional template arguments to the
 // kernel template.
 
@@ -1028,9 +1030,9 @@ struct GetTypeId {
   Type::type id;
   GetTypeId(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
       : id(type->id()) {}
-  GetTypeId(const DataType& type)  // NOLINT implicit construction
+  constexpr GetTypeId(const DataType& type)  // NOLINT implicit construction
       : id(type.id()) {}
-  GetTypeId(Type::type id)  // NOLINT implicit construction
+  constexpr GetTypeId(Type::type id)  // NOLINT implicit construction
       : id(id) {}
 };
 
@@ -1053,221 +1055,252 @@ struct FailFunctor<VectorKernel::ChunkedExec> {
   }
 };
 
-// GD for numeric types (integer and floating point)
-template <template <typename...> class Generator, typename Type0, typename... Args>
-auto GenerateNumeric(detail::GetTypeId get_id) {
-  using KernelType = decltype(&Generator<Type0, Int8Type, Args...>::Exec);
-  switch (get_id.id) {
+constexpr Type::type TypeIdIdentity(Type::type id) { return id; }
+
+constexpr std::optional<Type::type> TypeIdToUnsigned(Type::type id) {
+  switch (id) {
     case Type::INT8:
-      return Generator<Type0, Int8Type, Args...>::Exec;
     case Type::UINT8:
-      return Generator<Type0, UInt8Type, Args...>::Exec;
+      return Type::UINT8;
     case Type::INT16:
-      return Generator<Type0, Int16Type, Args...>::Exec;
     case Type::UINT16:
-      return Generator<Type0, UInt16Type, Args...>::Exec;
+      return Type::UINT16;
     case Type::INT32:
-      return Generator<Type0, Int32Type, Args...>::Exec;
     case Type::UINT32:
-      return Generator<Type0, UInt32Type, Args...>::Exec;
+      return Type::UINT32;
     case Type::INT64:
-      return Generator<Type0, Int64Type, Args...>::Exec;
     case Type::UINT64:
-      return Generator<Type0, UInt64Type, Args...>::Exec;
-    case Type::FLOAT:
-      return Generator<Type0, FloatType, Args...>::Exec;
-    case Type::DOUBLE:
-      return Generator<Type0, DoubleType, Args...>::Exec;
+      return Type::UINT64;
     default:
-      ARROW_DCHECK(false);
-      return FailFunctor<KernelType>::Exec;
+      return std::nullopt;
   }
 }
 
-// Generate a kernel given a templated functor for floating point types
-//
-// See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
-  switch (get_id.id) {
+constexpr std::optional<Type::type> TypeIdToPhysicalNumeric(Type::type id) {
+  switch (id) {
+    case Type::INT8:
+      return Type::INT8;
+    case Type::INT16:
+      return Type::INT16;
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Type::INT32;
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Type::INT64;
+    case Type::UINT8:
+      return Type::UINT8;
+    case Type::UINT16:
+      return Type::UINT16;
+    case Type::UINT32:
+      return Type::UINT32;
+    case Type::UINT64:
+      return Type::UINT64;
+    case Type::HALF_FLOAT:
+      return Type::HALF_FLOAT;
     case Type::FLOAT:
-      return Generator<Type0, FloatType, Args...>::Exec;
+      return Type::FLOAT;
     case Type::DOUBLE:
-      return Generator<Type0, DoubleType, Args...>::Exec;
+      return Type::DOUBLE;
     default:
-      ARROW_DCHECK(false);
-      return nullptr;
+      return std::nullopt;
   }
+}
+
+constexpr std::optional<Type::type> TypeIdToPhysicalBinary(Type::type id) {
+  switch (id) {
+    case Type::BINARY:
+    case Type::STRING:
+      return Type::BINARY;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return Type::LARGE_BINARY;
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return Type::BINARY_VIEW;
+    default:
+      return std::nullopt;
+  }
+}
+
+constexpr std::optional<Type::type> TypeIdToPrimitiveAgnostic(Type::type id) {
+  switch (id) {
+    case Type::NA:
+      return Type::NA;
+    case Type::BOOL:
+      return Type::BOOL;
+    case Type::UINT8:
+    case Type::INT8:
+      return Type::UINT8;
+    case Type::UINT16:
+    case Type::INT16:
+    case Type::HALF_FLOAT:
+      return Type::UINT16;
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::FLOAT:
+    case Type::DATE32:
+    case Type::TIME32:
+    case Type::INTERVAL_MONTHS:
+      return Type::UINT32;
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::DOUBLE:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+    case Type::INTERVAL_DAY_TIME:
+      return Type::UINT64;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return Type::INTERVAL_MONTH_DAY_NANO;
+    default:
+      return std::nullopt;
+  }
+}
+
+// A special marker for GenerateKernelExec that indicates its type parameter
+// should be passed *before* the generated type parameter.
+template <typename T>
+struct WithType0 {
+  using Type = T;
+};
+
+// A special marker for GenerateKernelExec that indicates the generated type
+// parameter should be passed twice.
+struct WithFirstTypeTwice {};
+
+namespace detail {
+
+template <typename Array, std::size_t... I>
+constexpr auto array_to_tuple_impl(const Array& a, std::index_sequence<I...>) {
+  return std::make_tuple(a[I]...);
+}
+
+template <typename T, std::size_t N>
+constexpr auto array_to_tuple(const std::array<T, N>& a) {
+  return array_to_tuple_impl(a, std::make_index_sequence<N>{});
+}
+
+template <typename Tup>
+constexpr auto tuple_to_array(const Tup& tup) {
+  return std::apply([](auto&&... elements) { return std::array{elements...}; }, tup);
+}
+
+}  // namespace detail
+
+// Concatenate a number of std::array's
+template <typename... Args>
+constexpr auto array_cat(Args&&... args) {
+  return detail::tuple_to_array(std::tuple_cat(detail::array_to_tuple(args)...));
+}
+
+namespace detail {
+
+template <template <typename...> class Generator, typename... Args>
+struct GeneratorApplicator {
+  using Type = Generator<Args...>;
+};
+
+template <template <typename...> class Generator, typename Arg1, typename Type0,
+          typename... Args>
+struct GeneratorApplicator<Generator, Arg1, WithType0<Type0>, Args...> {
+  using Type = GeneratorApplicator<Generator, Type0, Arg1, Args...>::Type;
+};
+
+template <template <typename...> class Generator, typename Arg1, typename... Args>
+struct GeneratorApplicator<Generator, Arg1, WithFirstTypeTwice, Args...> {
+  using Type = GeneratorApplicator<Generator, Arg1, Arg1, Args...>::Type;
+};
+
+template <auto Transform, auto TypeIdArray, size_t ArrayIndex,
+          template <typename...> class Generator, typename... Args>
+  requires std::invocable<decltype(Transform), Type::type>
+auto GenerateKernelExecImpl(Type::type id) {
+  constexpr auto kNumTypeIds = std::tuple_size_v<decltype(TypeIdArray)>;
+  static_assert(ArrayIndex < kNumTypeIds);
+
+  constexpr Type::type match_id = std::get<ArrayIndex>(TypeIdArray);
+  // The transformer may return Type::type or std::optional<Type::type>
+  constexpr std::optional<Type::type> transformed_id = std::optional{Transform(match_id)};
+  static_assert(transformed_id.has_value(), "Transform function didn't accept match_id");
+
+  using TransformedType = typename TypeIdTraits<transformed_id.value()>::Type;
+  constexpr auto match_val =
+      GeneratorApplicator<Generator, TransformedType, Args...>::Type::Exec;
+
+  if constexpr (ArrayIndex == kNumTypeIds - 1) {
+    ARROW_CHECK(id == match_id) << "Unmatched type id in kernel generation";
+    return match_val;
+  } else {
+    auto fallback = [&]() {
+      return GenerateKernelExecImpl<Transform, TypeIdArray, ArrayIndex + 1, Generator,
+                                    Args...>(id);
+    };
+    // Help the compiler infer the proper return type for this function
+    using RetType = std::common_type_t<decltype(match_val), decltype(fallback())>;
+    if (id == match_id) {
+      return RetType{match_val};
+    } else {
+      return RetType{fallback()};
+    }
+  }
+}
+
+}  // namespace detail
+
+template <auto Transform, auto TypeIdArray, template <typename...> class Generator,
+          typename... Args>
+  requires std::invocable<decltype(Transform), Type::type>
+auto GenerateKernelExec(detail::GetTypeId get_id) {
+  return detail::GenerateKernelExecImpl<Transform, TypeIdArray, /*ArrayIndex=*/0,
+                                        Generator, Args...>(get_id.id);
+}
+
+template <auto TypeIdArray, template <typename...> class Generator, typename... Args>
+auto GenerateKernelExec(detail::GetTypeId get_id) {
+  return detail::GenerateKernelExecImpl<TypeIdIdentity, TypeIdArray,
+                                        /*ArrayIndex=*/0, Generator, Args...>(get_id.id);
+}
+
+// GD for numeric types (integer and floating point)
+template <template <typename...> class Generator, typename... Args>
+auto GenerateNumeric(detail::GetTypeId get_id) {
+  return GenerateKernelExec<array_cat(kIntegerTypeIds, kPhysicalFloatingTypeIds),
+                            Generator, Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for integer types
 //
-// See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0,
-          typename KernelType = ArrayKernelExec, typename... Args>
-KernelType GenerateInteger(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return Generator<Type0, Int8Type, Args...>::Exec;
-    case Type::INT16:
-      return Generator<Type0, Int16Type, Args...>::Exec;
-    case Type::INT32:
-      return Generator<Type0, Int32Type, Args...>::Exec;
-    case Type::INT64:
-      return Generator<Type0, Int64Type, Args...>::Exec;
-    case Type::UINT8:
-      return Generator<Type0, UInt8Type, Args...>::Exec;
-    case Type::UINT16:
-      return Generator<Type0, UInt16Type, Args...>::Exec;
-    case Type::UINT32:
-      return Generator<Type0, UInt32Type, Args...>::Exec;
-    case Type::UINT64:
-      return Generator<Type0, UInt64Type, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
+template <template <typename...> class Generator, typename... Args>
+auto GenerateInteger(detail::GetTypeId get_id) {
+  return GenerateKernelExec<kIntegerTypeIds, Generator, Args...>(get_id);
 }
 
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return Generator<Type0, Int8Type, Args...>::Exec;
-    case Type::INT16:
-      return Generator<Type0, Int16Type, Args...>::Exec;
-    case Type::INT32:
-    case Type::DATE32:
-    case Type::TIME32:
-      return Generator<Type0, Int32Type, Args...>::Exec;
-    case Type::INT64:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME64:
-    case Type::DURATION:
-      return Generator<Type0, Int64Type, Args...>::Exec;
-    case Type::UINT8:
-      return Generator<Type0, UInt8Type, Args...>::Exec;
-    case Type::UINT16:
-      return Generator<Type0, UInt16Type, Args...>::Exec;
-    case Type::UINT32:
-      return Generator<Type0, UInt32Type, Args...>::Exec;
-    case Type::UINT64:
-      return Generator<Type0, UInt64Type, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
+template <template <typename...> class Generator, typename... Args>
+auto ArithmeticExec(detail::GetTypeId get_id) {
+  return GenerateKernelExec<TypeIdToPhysicalNumeric,
+                            array_cat(kIntegerTypeIds, kPhysicalFloatingTypeIds,
+                                      std::array{Type::TIMESTAMP, Type::DURATION}),
+                            Generator, WithFirstTypeTwice, Args...>(get_id);
 }
 
-template <template <typename...> class KernelGenerator, typename Op,
-          typename KernelType = ArrayKernelExec, typename... Args>
-KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, UInt8Type, Op, Args...>::Exec;
-    case Type::INT16:
-      return KernelGenerator<Int16Type, Int16Type, Op, Args...>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, UInt16Type, Op, Args...>::Exec;
-    case Type::INT32:
-      return KernelGenerator<Int32Type, Int32Type, Op, Args...>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, UInt32Type, Op, Args...>::Exec;
-    case Type::DURATION:
-    case Type::INT64:
-    case Type::TIMESTAMP:
-      return KernelGenerator<Int64Type, Int64Type, Op, Args...>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, UInt64Type, Op, Args...>::Exec;
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, FloatType, Op, Args...>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return FailFunctor<KernelType>::Exec;
-  }
-}
-
-template <typename ReturnType, template <typename... Args> class Generator,
-          typename... Args>
-ReturnType GeneratePhysicalNumericGeneric(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return Generator<Int8Type, Args...>::Exec;
-    case Type::INT16:
-      return Generator<Int16Type, Args...>::Exec;
-    case Type::INT32:
-    case Type::DATE32:
-    case Type::TIME32:
-      return Generator<Int32Type, Args...>::Exec;
-    case Type::INT64:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME64:
-    case Type::DURATION:
-      return Generator<Int64Type, Args...>::Exec;
-    case Type::UINT8:
-      return Generator<UInt8Type, Args...>::Exec;
-    case Type::UINT16:
-      return Generator<UInt16Type, Args...>::Exec;
-    case Type::UINT32:
-      return Generator<UInt32Type, Args...>::Exec;
-    case Type::UINT64:
-      return Generator<UInt64Type, Args...>::Exec;
-    case Type::FLOAT:
-      return Generator<FloatType, Args...>::Exec;
-    case Type::DOUBLE:
-      return Generator<DoubleType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
-}
 template <template <typename... Args> class Generator, typename... Args>
-ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
-  return GeneratePhysicalNumericGeneric<ArrayKernelExec, Generator, Args...>(get_id);
+auto GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+  return GenerateKernelExec<TypeIdToPhysicalNumeric,
+                            array_cat(kIntegerTypeIds, kPhysicalFloatingTypeIds,
+                                      kTemporalTypeIds, std::array{Type::DURATION}),
+                            Generator, Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for decimal types
 template <template <typename... Args> class Generator, typename... Args>
-ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::DECIMAL32:
-      return Generator<Decimal32Type, Args...>::Exec;
-    case Type::DECIMAL64:
-      return Generator<Decimal64Type, Args...>::Exec;
-    case Type::DECIMAL128:
-      return Generator<Decimal128Type, Args...>::Exec;
-    case Type::DECIMAL256:
-      return Generator<Decimal256Type, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
-}
-
-// Generate a kernel given a templated functor for integer types
-//
-// See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return Generator<Type0, Int8Type, Args...>::Exec;
-    case Type::INT16:
-      return Generator<Type0, Int16Type, Args...>::Exec;
-    case Type::INT32:
-      return Generator<Type0, Int32Type, Args...>::Exec;
-    case Type::INT64:
-      return Generator<Type0, Int64Type, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
+auto GenerateDecimalToDecimal(detail::GetTypeId get_id) {
+  return GenerateKernelExec<kDecimalTypeIds, Generator, Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor. Only a single template is
@@ -1277,43 +1310,11 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
 // bits).
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
-          typename... Args>
-KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::NA:
-      return Generator<NullType, Args...>::Exec;
-    case Type::BOOL:
-      return Generator<BooleanType, Args...>::Exec;
-    case Type::UINT8:
-    case Type::INT8:
-      return Generator<UInt8Type, Args...>::Exec;
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::HALF_FLOAT:
-      return Generator<UInt16Type, Args...>::Exec;
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::FLOAT:
-    case Type::DATE32:
-    case Type::TIME32:
-    case Type::INTERVAL_MONTHS:
-      return Generator<UInt32Type, Args...>::Exec;
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::DOUBLE:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME64:
-    case Type::DURATION:
-    case Type::INTERVAL_DAY_TIME:
-      return Generator<UInt64Type, Args...>::Exec;
-    case Type::INTERVAL_MONTH_DAY_NANO:
-      return Generator<MonthDayNanoIntervalType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return FailFunctor<KernelType>::Exec;
-  }
+template <template <typename...> class Generator, typename... Args>
+auto GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+  return GenerateKernelExec<TypeIdToPrimitiveAgnostic,
+                            array_cat(kPrimitiveTypeIds, std::array{Type::NA}), Generator,
+                            Args...>(get_id);
 }
 
 // Similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
@@ -1323,18 +1324,8 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
 // This helps cut down on code generation (see GH-50615).
 template <template <typename...> class Generator, typename... Args>
 auto GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
-  using KernelType = decltype(&Generator<BinaryType, Args...>::Exec);
-  switch (get_id.id) {
-    case Type::BINARY:
-    case Type::STRING:
-      return Generator<BinaryType, Args...>::Exec;
-    case Type::LARGE_BINARY:
-    case Type::LARGE_STRING:
-      return Generator<LargeBinaryType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return FailFunctor<KernelType>::Exec;
-  }
+  return GenerateKernelExec<TypeIdToPhysicalBinary, kBaseBinaryLikeTypeIds, Generator,
+                            Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for base binary types. Generates
@@ -1343,80 +1334,37 @@ auto GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
 // BaseBinarySpecific.
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::BINARY:
-    case Type::STRING:
-      return Generator<Type0, BinaryType, Args...>::Exec;
-    case Type::LARGE_BINARY:
-    case Type::LARGE_STRING:
-      return Generator<Type0, LargeBinaryType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
+template <template <typename...> class Generator, typename... Args>
+auto GenerateVarBinaryBase(detail::GetTypeId get_id) {
+  return GenerateKernelExec<TypeIdToPhysicalBinary, kBaseBinaryLikeTypeIds, Generator,
+                            Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for binary-view types. Generates a
 // single kernel for binary/string-view.
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::BINARY_VIEW:
-    case Type::STRING_VIEW:
-      return Generator<Type0, BinaryViewType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
+template <template <typename...> class Generator, typename... Args>
+auto GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
+  return GenerateKernelExec<TypeIdToPhysicalBinary, kBinaryViewLikeTypeIds, Generator,
+                            Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for temporal types
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::DATE32:
-      return Generator<Type0, Date32Type, Args...>::Exec;
-    case Type::DATE64:
-      return Generator<Type0, Date64Type, Args...>::Exec;
-    case Type::DURATION:
-      return Generator<Type0, DurationType, Args...>::Exec;
-    case Type::TIME32:
-      return Generator<Type0, Time32Type, Args...>::Exec;
-    case Type::TIME64:
-      return Generator<Type0, Time64Type, Args...>::Exec;
-    case Type::TIMESTAMP:
-      return Generator<Type0, TimestampType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
+template <template <typename...> class Generator, typename... Args>
+auto GenerateTemporal(detail::GetTypeId get_id) {
+  return GenerateKernelExec<array_cat(kTemporalTypeIds, std::array{Type::DURATION}),
+                            Generator, Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for decimal types
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
+template <template <typename...> class Generator, typename... Args>
 auto GenerateDecimal(detail::GetTypeId get_id) {
-  using KernelType = decltype(&Generator<Type0, Decimal256Type, Args...>::Exec);
-  switch (get_id.id) {
-    case Type::DECIMAL32:
-      return Generator<Type0, Decimal32Type, Args...>::Exec;
-    case Type::DECIMAL64:
-      return Generator<Type0, Decimal64Type, Args...>::Exec;
-    case Type::DECIMAL128:
-      return Generator<Type0, Decimal128Type, Args...>::Exec;
-    case Type::DECIMAL256:
-      return Generator<Type0, Decimal256Type, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return KernelType(nullptr);
-  }
+  return GenerateKernelExec<kDecimalTypeIds, Generator, Args...>(get_id);
 }
 
 // END of kernel generator-dispatchers

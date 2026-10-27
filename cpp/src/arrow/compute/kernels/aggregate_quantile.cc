@@ -496,7 +496,7 @@ Status CheckQuantileOptions(KernelContext* ctx) {
   return Status::OK();
 }
 
-template <typename OutputTypeUnused, typename InType>
+template <typename InType>
 struct QuantileExecutor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckQuantileOptions(ctx));
@@ -504,7 +504,7 @@ struct QuantileExecutor {
   }
 };
 
-template <typename OutputTypeUnused, typename InType>
+template <typename InType>
 struct QuantileExecutorChunked {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     RETURN_NOT_OK(CheckQuantileOptions(ctx));
@@ -531,14 +531,14 @@ void AddQuantileKernels(VectorFunction* func) {
   for (const auto& ty : NumericTypes()) {
     base.signature = KernelSignature::Make({InputType(ty)}, OutputType(ResolveOutput));
     // output type is determined at runtime, set template argument to nulltype
-    base.exec = GenerateNumeric<QuantileExecutor, NullType>(*ty);
-    base.exec_chunked = GenerateNumeric<QuantileExecutorChunked, NullType>(*ty);
+    base.exec = GenerateNumeric<QuantileExecutor>(*ty);
+    base.exec_chunked = GenerateNumeric<QuantileExecutorChunked>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
   for (auto type_id : DecimalTypeIds()) {
     base.signature = KernelSignature::Make({type_id}, OutputType(ResolveOutput));
-    base.exec = GenerateDecimal<QuantileExecutor, NullType>(type_id);
-    base.exec_chunked = GenerateDecimal<QuantileExecutorChunked, NullType>(type_id);
+    base.exec = GenerateDecimal<QuantileExecutor>(type_id);
+    base.exec_chunked = GenerateDecimal<QuantileExecutorChunked>(type_id);
     DCHECK_OK(func->AddKernel(base));
   }
 }
