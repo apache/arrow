@@ -1276,6 +1276,57 @@ TEST_F(TestProjector, TestLevenshtein) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_lev, outputs.at(0));
 }
 
+// Per-row arena scratch space is released after each row only if the expression contains
+// a function that returns a string. levenshtein returns an int32 but takes
+// (shorter_len + 1) * 2 ints of arena scratch per row, so on its own it holds that
+// memory until the end of the batch.
+TEST_F(TestProjector, TestLevenshteinArenaGrowth) {
+  constexpr int kNumRecords = 1 << 18;
+  constexpr int kStringLen = 16;
+  // About 35 MiB of scratch for the whole batch if it is not released row by row.
+  constexpr int64_t kScratchBytes =
+      static_cast<int64_t>(kNumRecords) * (kStringLen + 1) * 2 * sizeof(int);
+  // Outputs and one arena chunk need about 1 MiB when it is released, so this leaves a
+  // wide margin on both sides.
+  constexpr int64_t kMaxBatchBytes = kScratchBytes / 4;
+
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({f0, f1});
+  auto field_lev = field("levenshtein", arrow::int32());
+
+  std::string left(kStringLen, 'a');
+  std::string right = left;
+  right[0] = 'b';
+  std::vector<std::string> lefts(kNumRecords, left);
+  std::vector<std::string> rights(kNumRecords, right);
+  std::vector<bool> validity(kNumRecords, true);
+  std::vector<int32_t> expected_values(kNumRecords, 1);
+  auto in_batch = arrow::RecordBatch::Make(
+      schema, kNumRecords,
+      {MakeArrowArrayUtf8(lefts, validity), MakeArrowArrayUtf8(rights, validity)});
+  auto expected = MakeArrowArrayInt32(expected_values, validity);
+
+  auto expression = TreeExprBuilder::MakeExpression("levenshtein", {f0, f1}, field_lev);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expression}, TestConfiguration(), &projector));
+
+  // The execution context's arena draws from the default pool, whichever pool is
+  // passed to Evaluate, and returns everything by the end of the call. Measure the
+  // bytes requested from the default pool during the call, not the live bytes.
+  auto* default_pool = arrow::default_memory_pool();
+  const int64_t before = default_pool->total_bytes_allocated();
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+  const int64_t allocated = default_pool->total_bytes_allocated() - before;
+
+  ASSERT_EQ(outputs.size(), 1);
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+  EXPECT_LT(allocated, kMaxBatchBytes)
+      << "allocated " << allocated / (1 << 20) << " MiB while evaluating " << kNumRecords
+      << " rows; the arena is not released per row";
+}
+
 TEST_F(TestProjector, TestQuote) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
