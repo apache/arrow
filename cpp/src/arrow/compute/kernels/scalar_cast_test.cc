@@ -3693,10 +3693,10 @@ TEST(Cast, ListViewToListWithExtensionChild) {
 
   auto values =
       ExtensionType::WrapArray(smallint_type, ArrayFromJSON(int16(), "[1, 2, 3, 4]"));
-  ASSERT_OK_AND_ASSIGN(auto list_view,
-                       ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0, 1]"),
-                                                 *ArrayFromJSON(int32(), "[2, 2, 1]"),
-                                                 *values));
+  ASSERT_OK_AND_ASSIGN(
+      auto list_view,
+      ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0, 1]"),
+                                *ArrayFromJSON(int32(), "[2, 2, 1]"), *values));
   CheckCast(list_view, ArrayFromJSON(list(int16()), "[[3, 4], [1, 2], [2]]"));
 
   auto expected_values =
