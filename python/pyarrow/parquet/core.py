@@ -1922,6 +1922,7 @@ def read_table(source, *, columns=None, use_threads=True,
                page_checksum_verification=False,
                arrow_extensions_enabled=True, memory_pool=None):
 
+    read_kwargs = {"memory_pool": memory_pool}
     try:
         dataset = ParquetDataset(
             source,
@@ -1944,7 +1945,6 @@ def read_table(source, *, columns=None, use_threads=True,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
         )
-        read_kwargs = {"memory_pool": memory_pool}
     except ImportError:
         # fall back on ParquetFile for simple cases when pyarrow.dataset
         # module is not available
