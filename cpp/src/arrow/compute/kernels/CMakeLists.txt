@@ -20,12 +20,14 @@ arrow_install_all_headers("arrow/compute/kernels")
 # ----------------------------------------------------------------------
 # Tests that don't require the full kernel library
 
-# Define arrow_compute_kernels_testing object library for common test files
+# Define arrow_compute_kernels_testing interface library for common test files.
+# test_util_internal.cc is compiled as a source of each test executable so that
+# it uses the same compile definitions (e.g. ARROW_STATIC on Windows) as the test.
 if(ARROW_TESTING)
-  add_library(arrow_compute_kernels_testing OBJECT test_util_internal.cc)
-  # Even though this is still just an object library we still need to "link" our
-  # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_compute_kernels_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  add_library(arrow_compute_kernels_testing INTERFACE)
+  target_sources(arrow_compute_kernels_testing INTERFACE test_util_internal.cc)
+  target_link_libraries(arrow_compute_kernels_testing
+                        INTERFACE arrow_compute_core_testing)
 endif()
 
 add_arrow_test(scalar_cast_test
@@ -33,8 +35,7 @@ add_arrow_test(scalar_cast_test
                SOURCES
                scalar_cast_test.cc
                EXTRA_LINK_LIBS
-               arrow_compute_kernels_testing
-               arrow_compute_core_testing)
+               arrow_compute_kernels_testing)
 
 # ----------------------------------------------------------------------
 # Scalar kernels

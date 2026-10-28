@@ -28,28 +28,23 @@ else()
   set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_shared ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
-# Define arrow_compute_core_testing object library for common test files requiring
+# The following testing libraries are interface libraries. Their sources are
+# compiled as sources of each test executable so that they use the same compile
+# definitions (e.g. ARROW_STATIC on Windows) as the test.
+
+# Define arrow_compute_core_testing interface library for common test files requiring
 # only core compute. No extra kernels are required.
 if(ARROW_TESTING)
-  add_library(arrow_compute_core_testing OBJECT test_util_internal.cc)
-  # Even though this is still just an object library we still need to "link" our
-  # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_compute_core_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  add_library(arrow_compute_core_testing INTERFACE)
+  target_sources(arrow_compute_core_testing INTERFACE test_util_internal.cc)
+  target_link_libraries(arrow_compute_core_testing INTERFACE ${ARROW_GTEST_GMOCK})
 endif()
 
-# Define arrow_compute_testing object library for test files requiring extra kernels.
+# Define arrow_compute_testing interface library for test files requiring extra kernels.
 if(ARROW_TESTING AND ARROW_COMPUTE)
-  set(ARROW_COMPUTE_TESTING_SRCS test_env.cc)
-  add_library(arrow_compute_testing OBJECT ${ARROW_COMPUTE_TESTING_SRCS})
-  # Even though this is still just an object library we still need to "link"
-  # arrow_compute_core_testing so that is also included correctly
-  target_link_libraries(arrow_compute_testing
-                        PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
-                        PUBLIC ${ARROW_GTEST_GTEST})
-  if(ARROW_BUILD_STATIC AND WIN32)
-    target_compile_definitions(arrow_compute_testing PUBLIC ARROW_COMPUTE_STATIC
-                                                            ARROW_STATIC)
-  endif()
+  add_library(arrow_compute_testing INTERFACE)
+  target_sources(arrow_compute_testing INTERFACE test_env.cc)
+  target_link_libraries(arrow_compute_testing INTERFACE arrow_compute_core_testing)
 endif()
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")

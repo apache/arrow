@@ -123,12 +123,13 @@ foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
 
-# Define arrow_dataset_testing object library for common test files
+# Define arrow_dataset_testing interface library for common test files.
+# test_util_internal.cc is compiled as a source of each test executable so that
+# it uses the same compile definitions (e.g. ARROW_STATIC on Windows) as the test.
 if(ARROW_TESTING)
-  add_library(arrow_dataset_testing OBJECT test_util_internal.cc)
-  # Even though this is still just an object library we still need to "link" our
-  # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_dataset_testing PRIVATE ${ARROW_DATASET_TEST_LINK_LIBS})
+  add_library(arrow_dataset_testing INTERFACE)
+  target_sources(arrow_dataset_testing INTERFACE test_util_internal.cc)
+  target_link_libraries(arrow_dataset_testing INTERFACE ${ARROW_GTEST_GMOCK})
   list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
 endif()
 
