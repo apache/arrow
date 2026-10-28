@@ -285,7 +285,8 @@ struct Examples<bool> {
 
 static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
                                std::shared_ptr<WriterProperties> properties,
-                               int64_t num_values = -1, int64_t total_bytes = -1) {
+                               int64_t num_values = -1, int64_t total_bytes = -1,
+                               bool fixed_list_fast_path = false) {
   // Make sure we roundtrip Arrow types by storing the schema
   auto arrow_properties = ArrowWriterProperties::Builder().store_schema()->build();
   auto output = CreateOutputStream();
@@ -296,8 +297,10 @@ static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
   for (auto _ : state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    auto arrow_reader_result =
-        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    ArrowReaderProperties reader_properties;
+    reader_properties.set_fixed_list_fast_path(fixed_list_fast_path);
+    auto arrow_reader_result = FileReader::Make(::arrow::default_memory_pool(),
+                                                std::move(reader), reader_properties);
     EXIT_NOT_OK(arrow_reader_result.status());
     auto arrow_reader = std::move(*arrow_reader_result);
 
@@ -679,6 +682,103 @@ static void BM_ReadListColumn(::benchmark::State& state) {
 }
 
 BENCHMARK(BM_ReadListColumn)->Apply(NestedReadArguments);
+
+// Fixed-size-list reader benchmark.  This exercises the same physical Parquet
+// LIST encoding as a vector column while exposing the fixed-size invariant to
+// the Arrow reader.  The reader fast path can therefore avoid decoding the
+// definition/repetition levels and rebuilding offsets.
+static std::shared_ptr<Table> MakeVectorFloatTable(int32_t list_size, bool fixed_size) {
+  constexpr int64_t kTotalValues = 4 * 1024 * 1024;
+  const int64_t num_records = kTotalValues / list_size;
+  NumericBuilder<::arrow::FloatType> builder;
+  std::vector<float> values(static_cast<size_t>(num_records * list_size));
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = static_cast<float>((i * 17) % 100003) / 101.0f;
+  }
+  EXIT_NOT_OK(builder.AppendValues(values.data(), static_cast<int64_t>(values.size())));
+  std::shared_ptr<Array> child;
+  EXIT_NOT_OK(builder.Finish(&child));
+  auto child_field = ::arrow::field("item", ::arrow::float32(), /*nullable=*/false);
+  std::shared_ptr<::arrow::DataType> type;
+  std::shared_ptr<Array> array;
+  if (fixed_size) {
+    type = ::arrow::fixed_size_list(child_field, list_size);
+    auto array_result = ::arrow::FixedSizeListArray::FromArrays(child, type);
+    EXIT_NOT_OK(array_result.status());
+    array = *array_result;
+  } else {
+    type = ::arrow::list(child_field);
+    std::shared_ptr<::arrow::Buffer> offsets =
+        ::arrow::AllocateBuffer(sizeof(int32_t) * (num_records + 1)).ValueOrDie();
+    auto* offset_data = offsets->mutable_data_as<int32_t>();
+    for (int64_t i = 0; i <= num_records; ++i) {
+      offset_data[i] = static_cast<int32_t>(i * list_size);
+    }
+    auto data = ::arrow::ArrayData::Make(
+        type, num_records,
+        std::vector<std::shared_ptr<::arrow::Buffer>>{nullptr, std::move(offsets)},
+        std::vector<std::shared_ptr<::arrow::ArrayData>>{child->data()}, nullptr, 0);
+    array = ::arrow::MakeArray(std::move(data));
+  }
+  auto schema = ::arrow::schema({field("vector", type, /*nullable=*/false)});
+  return Table::Make(schema, {std::move(array)}, num_records);
+}
+
+template <Encoding::type encoding>
+static void BM_ReadFixedSizeFloatList(::benchmark::State& state) {
+  const int32_t list_size = static_cast<int32_t>(state.range(0));
+  auto table = MakeVectorFloatTable(list_size, /*fixed_size=*/true);
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->compression(Compression::ZSTD)
+                        ->encoding(encoding)
+                        ->build();
+  BenchmarkReadTable(state, *table, properties, table->num_rows(),
+                     table->num_rows() * list_size * sizeof(float),
+                     /*fixed_list_fast_path=*/true);
+}
+
+static void BM_ReadFixedSizeFloatListPlain(::benchmark::State& state) {
+  BM_ReadFixedSizeFloatList<Encoding::PLAIN>(state);
+}
+static void BM_ReadFixedSizeFloatListByteStreamSplit(::benchmark::State& state) {
+  BM_ReadFixedSizeFloatList<Encoding::BYTE_STREAM_SPLIT>(state);
+}
+static void BM_ReadFixedSizeFloatListAlp(::benchmark::State& state) {
+  BM_ReadFixedSizeFloatList<Encoding::ALP>(state);
+}
+
+BENCHMARK(BM_ReadFixedSizeFloatListPlain)->Arg(3)->Arg(16)->Arg(768);
+BENCHMARK(BM_ReadFixedSizeFloatListByteStreamSplit)->Arg(3)->Arg(16)->Arg(768);
+BENCHMARK(BM_ReadFixedSizeFloatListAlp)->Arg(3)->Arg(16)->Arg(768);
+
+template <Encoding::type encoding>
+static void BM_ReadFloatList(::benchmark::State& state) {
+  const int32_t list_size = static_cast<int32_t>(state.range(0));
+  auto table = MakeVectorFloatTable(list_size, /*fixed_size=*/false);
+  auto properties = WriterProperties::Builder()
+                        .disable_dictionary()
+                        ->compression(Compression::ZSTD)
+                        ->encoding(encoding)
+                        ->build();
+  BenchmarkReadTable(state, *table, properties, table->num_rows(),
+                     table->num_rows() * list_size * sizeof(float),
+                     /*fixed_list_fast_path=*/true);
+}
+
+static void BM_ReadFloatListPlain(::benchmark::State& state) {
+  BM_ReadFloatList<Encoding::PLAIN>(state);
+}
+static void BM_ReadFloatListByteStreamSplit(::benchmark::State& state) {
+  BM_ReadFloatList<Encoding::BYTE_STREAM_SPLIT>(state);
+}
+static void BM_ReadFloatListAlp(::benchmark::State& state) {
+  BM_ReadFloatList<Encoding::ALP>(state);
+}
+
+BENCHMARK(BM_ReadFloatListPlain)->Arg(3)->Arg(16)->Arg(768);
+BENCHMARK(BM_ReadFloatListByteStreamSplit)->Arg(3)->Arg(16)->Arg(768);
+BENCHMARK(BM_ReadFloatListAlp)->Arg(3)->Arg(16)->Arg(768);
 
 static void BM_ReadListOfStructColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
