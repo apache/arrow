@@ -648,7 +648,13 @@ def test_head(dataset, dataset_reader):
     result = dataset_reader.head(dataset, 1024, columns=['i64']).to_pydict()
     assert result == {'i64': list(range(5)) * 2}
 
+    with pytest.raises(ValueError, match="num_rows must be non-negative"):
+        dataset_reader.head(dataset, -1)
+
     fragment = next(dataset.get_fragments())
+    with pytest.raises(ValueError, match="num_rows must be non-negative"):
+        fragment.head(-1)
+
     result = fragment.head(1, columns=['i64']).to_pydict()
     assert result == {'i64': [0]}
 

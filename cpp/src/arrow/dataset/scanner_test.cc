@@ -1634,6 +1634,7 @@ TEST_P(TestScanner, Head) {
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(0));
   AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+  ASSERT_RAISES(Invalid, scanner->Head(-1));
 
   ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch}));
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size));
