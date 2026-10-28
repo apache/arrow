@@ -3743,6 +3743,131 @@ TEST(Cast, ListViewToListWithNestedExtensionChild) {
   }
 }
 
+// A run-end encoded storage is the only storage type whose builder checks the
+// type of the array it appends, so an extension type over it exercises the
+// storage-typed gathering of a list-view (GH-51612).
+class RunEndEncodedExtensionArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+class RunEndEncodedExtensionType : public ExtensionType {
+ public:
+  RunEndEncodedExtensionType() : ExtensionType(run_end_encoded(int32(), int32())) {}
+
+  std::string extension_name() const override { return "ree-extension"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name();
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<RunEndEncodedExtensionArray>(std::move(data));
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(std::shared_ptr<DataType> storage_type,
+                                                const std::string&) const override {
+    return std::make_shared<RunEndEncodedExtensionType>();
+  }
+
+  std::string Serialize() const override { return ""; }
+};
+
+TEST(Cast, ListViewToListWithRunEndEncodedChild) {
+  auto ree_ext_type = std::make_shared<RunEndEncodedExtensionType>();
+  ExtensionTypeGuard ree_ext_guard(ree_ext_type);
+
+  // values = [1, 2, 3, 4], as a run-end encoded array and as an extension of it
+  ASSERT_OK_AND_ASSIGN(auto ree_values,
+                       RunEndEncodedArray::Make(4, ArrayFromJSON(int32(), "[1, 2, 3, 4]"),
+                                                ArrayFromJSON(int32(), "[1, 2, 3, 4]")));
+  auto ext_values = ExtensionType::WrapArray(ree_ext_type, ree_values);
+
+  // views = [[3, 4], [1, 2], [2]], gathering [3, 4, 1, 2, 2] in list order
+  auto offsets = ArrayFromJSON(int32(), "[2, 0, 1]");
+  auto sizes = ArrayFromJSON(int32(), "[2, 2, 1]");
+  auto list_offsets = ArrayFromJSON(int32(), "[0, 2, 4, 5]");
+  ASSERT_OK_AND_ASSIGN(
+      auto gathered_ree,
+      RunEndEncodedArray::Make(5, ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]"),
+                               ArrayFromJSON(int32(), "[3, 4, 1, 2, 2]")));
+  ASSERT_OK_AND_ASSIGN(auto expected_ree,
+                       ListArray::FromArrays(*list_offsets, *gathered_ree));
+
+  // A run-end encoded child is gathered through its own type.
+  ASSERT_OK_AND_ASSIGN(auto list_view,
+                       ListViewArray::FromArrays(*offsets, *sizes, *ree_values));
+  ASSERT_OK_AND_ASSIGN(Datum out, Cast(list_view, expected_ree->type()));
+  AssertDatumsEqual(expected_ree, out);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_large,
+      LargeListArray::FromArrays(*ArrayFromJSON(int64(), "[0, 2, 4, 5]"), *gathered_ree));
+  ASSERT_OK_AND_ASSIGN(out, Cast(list_view, expected_large->type()));
+  AssertDatumsEqual(expected_large, out);
+
+  // An extension child is gathered through its storage type, which the run-end
+  // encoded builder compares with its own type.
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_ext,
+      ListArray::FromArrays(*list_offsets,
+                            *ExtensionType::WrapArray(ree_ext_type, gathered_ree)));
+  ASSERT_OK_AND_ASSIGN(list_view,
+                       ListViewArray::FromArrays(*offsets, *sizes, *ext_values));
+  ASSERT_OK_AND_ASSIGN(out, Cast(list_view, expected_ext->type()));
+  ASSERT_TRUE(out.type()->Equals(*expected_ext->type()));
+  ASSERT_OK(MakeArray(out.array())->ValidateFull());
+  // Extension arrays whose storage is run-end encoded cannot be compared, so
+  // compare the offsets and the gathered storage values instead.
+  const auto out_child_array = MakeArray(out.array()->child_data[0]);
+  const auto& out_child = checked_cast<const ExtensionArray&>(*out_child_array);
+  ASSERT_OK_AND_ASSIGN(auto storage_list,
+                       ListArray::FromArrays(*list_offsets, *out_child.storage()));
+  AssertArraysEqual(*expected_ree, *storage_list);
+}
+
+TEST(Cast, ListViewToListWithNestedRunEndEncodedChild) {
+  auto smallint_type = smallint();
+  ExtensionTypeGuard smallint_guard(smallint_type);
+
+  // values = [1, 2, 3, 4], with the extension type as the value type of the runs
+  ASSERT_OK_AND_ASSIGN(auto ree_values,
+                       RunEndEncodedArray::Make(
+                           4, ArrayFromJSON(int32(), "[1, 2, 3, 4]"),
+                           ExtensionType::WrapArray(
+                               smallint_type, ArrayFromJSON(int16(), "[1, 2, 3, 4]"))));
+
+  // The same views as above, gathering [3, 4, 1, 2, 2] in list order
+  auto offsets = ArrayFromJSON(int32(), "[2, 0, 1]");
+  auto sizes = ArrayFromJSON(int32(), "[2, 2, 1]");
+  auto list_offsets = ArrayFromJSON(int32(), "[0, 2, 4, 5]");
+  ASSERT_OK_AND_ASSIGN(
+      auto gathered_ree,
+      RunEndEncodedArray::Make(
+          5, ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]"),
+          ExtensionType::WrapArray(smallint_type,
+                                   ArrayFromJSON(int16(), "[3, 4, 1, 2, 2]"))));
+
+  // The extension type is nested in the value type of the runs.
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ListArray::FromArrays(*list_offsets, *gathered_ree));
+  ASSERT_OK_AND_ASSIGN(auto list_view,
+                       ListViewArray::FromArrays(*offsets, *sizes, *ree_values));
+  ASSERT_OK_AND_ASSIGN(Datum out, Cast(list_view, expected->type()));
+  AssertDatumsEqual(expected, out);
+
+  // ... and behind a struct, which the struct builder forwards to the run-end
+  // encoded field builder.
+  ASSERT_OK_AND_ASSIGN(auto nested, StructArray::Make({ree_values}, {"e"}));
+  ASSERT_OK_AND_ASSIGN(auto gathered_nested, StructArray::Make({gathered_ree}, {"e"}));
+  ASSERT_OK_AND_ASSIGN(auto expected_nested,
+                       ListArray::FromArrays(*list_offsets, *gathered_nested));
+  ASSERT_OK_AND_ASSIGN(auto nested_view,
+                       ListViewArray::FromArrays(*offsets, *sizes, *nested));
+  ASSERT_OK_AND_ASSIGN(out, Cast(nested_view, expected_nested->type()));
+  AssertDatumsEqual(expected_nested, out);
+}
+
 TEST(Cast, ListViewToListEdgeCases) {
   auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
 
