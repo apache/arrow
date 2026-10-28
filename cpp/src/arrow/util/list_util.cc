@@ -307,6 +307,28 @@ void RestoreType(const std::shared_ptr<DataType>& type, ArrayData* data,
   }
 }
 
+/// \brief Rewrite the type of a span and of all its children to a storage type
+///
+/// The gathered values are appended to storage-typed builders (see
+/// `StorageType`), so the appended slices have to be seen through those same
+/// storage types: a builder may check or inspect the type of the array it is
+/// given (e.g. `RunEndEncodedBuilder` or `DictionaryBuilder`).
+///
+/// \pre `span` has the layout of `storage_type`, i.e. the two only differ by
+///      extension types
+void ApplyStorageType(ArraySpan* span, const std::shared_ptr<DataType>& storage_type) {
+  span->type = storage_type.get();
+  if (storage_type->id() == Type::DICTIONARY) {
+    // An ArraySpan holds the dictionary of a dictionary array in its first child
+    const auto& dict_type = checked_cast<const DictionaryType&>(*storage_type);
+    ApplyStorageType(&span->child_data[0], dict_type.value_type());
+    return;
+  }
+  for (int i = 0; i < static_cast<int>(span->child_data.size()); ++i) {
+    ApplyStorageType(&span->child_data[i], storage_type->field(i)->type());
+  }
+}
+
 /// \param list_view A LIST_VIEW or LARGE_LIST_VIEW array
 template <typename DestListType, typename SrcListViewType>
 Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_view,
@@ -316,12 +338,15 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_vi
 
   const auto& list_view_type = checked_cast<const SrcListViewType&>(*list_view.type);
   const auto& value_type = list_view_type.value_type();
+  // MakeBuilder does not support extension types, so the values are gathered
+  // through their storage types.
+  const auto storage_value_type = StorageType(value_type);
   // The value type is carried over, so that callers may cast the child.
   auto list_type = std::make_shared<DestListType>(value_type);
 
   ARROW_ASSIGN_OR_RAISE(auto sum_of_sizes, SumOfLogicalListSizes(list_view));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
-                        MakeBuilder(StorageType(value_type), pool));
+                        MakeBuilder(storage_value_type, pool));
   RETURN_NOT_OK(value_builder->Reserve(sum_of_sizes));
   auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
   RETURN_NOT_OK(list_builder->Reserve(list_view.length));
@@ -331,7 +356,10 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(const ArraySpan& list_vi
   const uint8_t* validity = list_view.buffers[0].data;
   const auto* offsets = list_view.GetValues<src_offset_type>(1);
   const auto* sizes = list_view.GetValues<src_offset_type>(2);
-  const ArraySpan values{list_view.child_data[0]};
+  // The value builder is storage-typed, so the appended slices must be seen
+  // through the storage types as well (GH-51612).
+  ArraySpan values{list_view.child_data[0]};
+  ApplyStorageType(&values, storage_value_type);
   for (int64_t i = 0; i < list_view.length; ++i) {
     const bool is_valid = !validity || bit_util::GetBit(validity, list_view.offset + i);
     // A null view contributes no values, whatever size it declares.
