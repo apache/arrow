@@ -1396,9 +1396,6 @@ arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
-memory_pool : pyarrow.MemoryPool, optional
-    Pool to allocate memory from. If not passed, the default memory pool
-    is used.
 
 Examples
 --------
@@ -1413,10 +1410,8 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, schema_depth_limit=None,
                  page_checksum_verification=False,
-                 arrow_extensions_enabled=True, memory_pool=None):
+                 arrow_extensions_enabled=True):
         import pyarrow.dataset as ds
-
-        self._memory_pool = memory_pool
 
         # map format arguments
         read_options = {
@@ -1546,7 +1541,8 @@ Examples
         """
         return self._dataset.schema
 
-    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False,
+             memory_pool=None):
         """
         Read (multiple) Parquet files as a single pyarrow.Table.
 
@@ -1560,6 +1556,9 @@ Examples
         use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded.
+        memory_pool : pyarrow.MemoryPool, optional
+            Pool to allocate memory from. If not passed, the default memory
+            pool is used.
 
         Returns
         -------
@@ -1614,7 +1613,7 @@ Examples
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
-            use_threads=use_threads, memory_pool=self._memory_pool
+            use_threads=use_threads, memory_pool=memory_pool
         )
 
         # if the "pandas" metadata entry was retrieved from common_metadata,
@@ -1944,8 +1943,8 @@ def read_table(source, *, columns=None, use_threads=True,
             schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
-            memory_pool=memory_pool,
         )
+        read_kwargs = {"memory_pool": memory_pool}
     except ImportError:
         # fall back on ParquetFile for simple cases when pyarrow.dataset
         # module is not available
@@ -1995,9 +1994,12 @@ def read_table(source, *, columns=None, use_threads=True,
             page_checksum_verification=page_checksum_verification,
             memory_pool=memory_pool,
         )
+        # ParquetFile takes the pool when it is opened, not when it is read
+        read_kwargs = {}
 
     return dataset.read(columns=columns, use_threads=use_threads,
-                        use_pandas_metadata=use_pandas_metadata)
+                        use_pandas_metadata=use_pandas_metadata,
+                        **read_kwargs)
 
 
 read_table.__doc__ = _read_table_docstring.format(

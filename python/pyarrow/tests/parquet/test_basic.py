@@ -1134,8 +1134,8 @@ def test_parquet_dataset_memory_pool(tempdir, proxy_pool):
     root = str(tempdir / 'dataset')
     pq.write_to_dataset(table, root, partition_cols=['part'])
 
-    result = pq.ParquetDataset(root, memory_pool=proxy_pool).read(
-        use_threads=False)
+    result = pq.ParquetDataset(root).read(
+        use_threads=False, memory_pool=proxy_pool)
     assert result.num_rows == table.num_rows
     assert proxy_pool.bytes_allocated() > 0
     result = None
