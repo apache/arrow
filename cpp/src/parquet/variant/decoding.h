@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <variant>
@@ -112,7 +113,7 @@ class PARQUET_EXPORT VariantObjectView {
  public:
   static constexpr VariantBasicType kBasicType = VariantBasicType::kObject;
 
-  const std::vector<VariantObjectField>& fields() const { return fields_; }
+  std::span<const VariantObjectField> fields() const { return fields_; }
   bool ContainsField(std::string_view name) const;
   /// Return a field by name, or nullopt if it does not exist.
   std::optional<VariantValueView> GetField(std::string_view name) const;
@@ -134,7 +135,7 @@ class PARQUET_EXPORT VariantArrayView {
  public:
   static constexpr VariantBasicType kBasicType = VariantBasicType::kArray;
 
-  const std::vector<std::string_view>& elements() const { return elements_; }
+  std::span<const std::string_view> elements() const { return elements_; }
   /// Return an element by index, or nullopt if the index is out of bounds.
   std::optional<VariantValueView> GetElement(size_t index) const;
 

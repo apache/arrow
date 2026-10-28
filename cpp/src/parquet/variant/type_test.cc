@@ -133,9 +133,9 @@ TEST(TestVariantType, InvalidStorage) {
                field("typed_value", dictionary(int32(), utf8()))});
   auto dictionary_value = struct_({field("metadata", binary(), false),
                                    field("value", dictionary(int32(), binary()), false)});
-  auto dictionary_metadata =
-      struct_({field("metadata", dictionary(int32(), binary()), false),
-               field("value", binary(), false)});
+  auto run_end_value = struct_(
+      {field("metadata", binary(), false),
+       field("value", ::arrow::run_end_encoded(::arrow::int16(), binary()), false)});
   auto required_nested_value =
       struct_({field("metadata", binary(), false), field("value", binary()),
                field("typed_value",
@@ -150,7 +150,7 @@ TEST(TestVariantType, InvalidStorage) {
   ASSERT_RAISES(Invalid, VariantExtensionType::Make(extra));
   ASSERT_RAISES(Invalid, VariantExtensionType::Make(dictionary_typed_value));
   ASSERT_RAISES(Invalid, VariantExtensionType::Make(dictionary_value));
-  ASSERT_RAISES(Invalid, VariantExtensionType::Make(dictionary_metadata));
+  ASSERT_RAISES(Invalid, VariantExtensionType::Make(run_end_value));
   ASSERT_RAISES(Invalid, VariantExtensionType::Make(required_nested_value));
 
   std::array invalid_typed_value_types{
@@ -189,6 +189,45 @@ TEST(TestVariantType, ReadStorage) {
                field("typed_value",
                      struct_({field("a", typed_only_field_group, /*nullable=*/false)}))});
   ASSERT_OK(variant_type->Deserialize(shredded_object, /*serialized_data=*/""));
+}
+
+TEST(TestVariantType, EncodedMetadata) {
+  const auto base_storage =
+      struct_({field("metadata", binary(), false), field("value", binary(), false)});
+  ASSERT_OK_AND_ASSIGN(auto base_type, VariantExtensionType::Make(base_storage));
+  const auto& extension =
+      ::arrow::internal::checked_cast<const ExtensionType&>(*base_type);
+  for (const auto& value_type : {binary(), ::arrow::large_binary(), binary_view()}) {
+    for (const auto& metadata_type : {dictionary(int32(), value_type),
+                                      ::arrow::run_end_encoded(int32(), value_type)}) {
+      SCOPED_TRACE(metadata_type->ToString());
+      const auto storage = struct_(
+          {field("metadata", metadata_type, false), field("value", binary(), false)});
+      ASSERT_TRUE(VariantExtensionType::IsSupportedStorageType(storage));
+      ASSERT_OK(VariantExtensionType::Make(storage));
+      ASSERT_OK(extension.Deserialize(storage, ""));
+      ASSERT_OK(extension.Deserialize(struct_({field("metadata", metadata_type, false),
+                                               field("typed_value", int64())}),
+                                      ""));
+    }
+  }
+  for (const auto& metadata_type :
+       {dictionary(int32(), binary()),
+        ::arrow::run_end_encoded(::arrow::int16(), binary())}) {
+    SCOPED_TRACE(metadata_type->ToString());
+    ASSERT_RAISES(Invalid,
+                  VariantExtensionType::Make(struct_({field("metadata", metadata_type),
+                                                      field("value", binary(), false)})));
+  }
+  for (const auto& metadata_type :
+       {dictionary(int32(), int32()), ::arrow::run_end_encoded(::arrow::int16(), utf8()),
+        dictionary(int32(), ::arrow::run_end_encoded(int32(), binary())),
+        ::arrow::run_end_encoded(int32(), dictionary(int32(), binary()))}) {
+    const auto storage = struct_(
+        {field("metadata", metadata_type, false), field("value", binary(), false)});
+    ASSERT_RAISES(Invalid, VariantExtensionType::Make(storage));
+    ASSERT_RAISES(Invalid, extension.Deserialize(storage, ""));
+  }
 }
 
 }  // namespace parquet::variant

@@ -83,24 +83,34 @@ void ValidateVariantArrayRows(const VariantArray& array,
   }
 
   auto row_plan = internal::CompileVariantRowPlan(value_array, typed_array);
+  const bool encoded_metadata =
+      metadata_array->type_id() == ::arrow::Type::DICTIONARY ||
+      metadata_array->type_id() == ::arrow::Type::RUN_END_ENCODED;
   std::string_view last_metadata_bytes;
   std::optional<VariantMetadataView> last_metadata;
   VisitVisibleRowRuns(valid_rows, array, [&](int64_t first_row, int64_t row_count) {
-    if (metadata_array->data()->MayHaveNulls() &&
-        ::arrow::internal::CountSetBits(metadata_array->null_bitmap_data(),
-                                        metadata_array->offset() + first_row,
-                                        row_count) != row_count) {
-      throw ParquetInvalidOrCorruptedFileException(
-          "Invalid Variant extension storage: metadata is null");
-    }
-
-    for (int64_t row = first_row; row < first_row + row_count; ++row) {
-      auto metadata_value = internal::BinaryFieldView(*metadata_array, row);
-      if (!last_metadata.has_value() || last_metadata_bytes != metadata_value) {
-        last_metadata = VariantMetadataView::Make(metadata_value);
-        last_metadata_bytes = metadata_value;
+    auto validate_rows = [&](auto field_view) {
+      for (int64_t row = first_row; row < first_row + row_count; ++row) {
+        const auto metadata_value = field_view(*metadata_array, row);
+        if (!last_metadata.has_value() || last_metadata_bytes != metadata_value) {
+          last_metadata = VariantMetadataView::Make(metadata_value);
+          last_metadata_bytes = metadata_value;
+        }
+        internal::ProcessSlot<strict>(*last_metadata, row_plan, row);
       }
-      internal::ProcessSlot<strict>(*last_metadata, row_plan, row);
+    };
+
+    if (!encoded_metadata) {
+      if (metadata_array->data()->MayHaveNulls() &&
+          ::arrow::internal::CountSetBits(metadata_array->null_bitmap_data(),
+                                          metadata_array->offset() + first_row,
+                                          row_count) != row_count) {
+        throw ParquetInvalidOrCorruptedFileException(
+            "Invalid Variant extension storage: metadata is null");
+      }
+      validate_rows(internal::BinaryFieldView);
+    } else {
+      validate_rows(internal::MetadataFieldView);
     }
   });
 }

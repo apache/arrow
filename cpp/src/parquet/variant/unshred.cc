@@ -17,10 +17,12 @@
 
 #include "parquet/variant/unshred.h"
 
+#include <memory>
+#include <utility>
+
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
-#include "parquet/exception.h"
 #include "parquet/variant/array_internal.h"
 #include "parquet/variant/decoding.h"
 #include "parquet/variant/slot_internal.h"
@@ -38,10 +40,9 @@ void AppendUnshreddedRow(std::string_view metadata_value,
                          const internal::CompiledVariantRowPlan& row_plan, int64_t row,
                          VariantValueArrayBuilder& value_builder) {
   auto metadata = VariantMetadataView::Make(metadata_value);
-  auto row_builder = value_builder.BindMetadata(metadata);
-  internal::BuildTarget target{internal::BuildTarget::Row{row_builder}};
+  internal::BuildTarget target{
+      internal::BuildTarget::Root{.builder = value_builder, .metadata = metadata}};
   internal::ProcessSlot<false>(metadata, row_plan, row, &target);
-  row_builder.Finish();
 }
 
 }  // namespace
@@ -61,11 +62,7 @@ std::shared_ptr<::arrow::extension::VariantArray> UnshredVariantArray(
   ::arrow::internal::VisitBitBlocksVoid(
       array.null_bitmap_data(), array.offset(), array.length(),
       [&](int64_t row) {
-        if (metadata_array->IsNull(row)) {
-          throw ParquetInvalidOrCorruptedFileException(
-              "Invalid Variant extension storage: metadata is null");
-        }
-        auto metadata_value = internal::BinaryFieldView(*metadata_array, row);
+        auto metadata_value = internal::MetadataFieldView(*metadata_array, row);
         AppendUnshreddedRow(metadata_value, row_plan, row, value_builder);
       },
       [&] { value_builder.AppendNull(); });

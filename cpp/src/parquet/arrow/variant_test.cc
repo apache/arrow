@@ -19,11 +19,15 @@
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/base64.h"
+#include "arrow/util/key_value_metadata.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
@@ -37,6 +41,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace parquet::arrow {
@@ -72,6 +77,52 @@ std::shared_ptr<::arrow::DataType> ExpectedShreddedStorageType(
                              field("items", list_group_type, false)});
   return struct_({field("metadata", binary_type, false), field("value", binary_type),
                   field("typed_value", typed_type)});
+}
+
+::arrow::Result<std::shared_ptr<::arrow::Table>> ReadVariantTable(
+    const std::shared_ptr<::arrow::Buffer>& buffer) {
+  FileReaderBuilder builder;
+  RETURN_NOT_OK(builder.Open(std::make_shared<::arrow::io::BufferReader>(buffer)));
+  ArrowReaderProperties properties;
+  properties.set_arrow_extensions_enabled(true);
+  properties.set_read_dictionary(0, true);
+  properties.set_read_dictionary(1, true);
+  builder.properties(properties);
+  ARROW_ASSIGN_OR_RAISE(auto reader, builder.Build());
+  return reader->ReadTable();
+}
+
+// Inject a schema hint for inputs the writer cannot produce. Supported inputs use
+// store_schema() in the round-trip test.
+::arrow::Result<std::shared_ptr<::arrow::Table>> ReadVariantWithSchemaHint(
+    const variant::EncodedVariantValue& encoded,
+    const std::shared_ptr<::arrow::DataType>& hint_storage) {
+  const auto storage_type =
+      struct_({field("metadata", binary(), false), field("value", binary(), false)});
+  const auto variant_type = ::arrow::extension::variant(storage_type);
+  auto table = VariantTable(variant_type,
+                            {BinaryArrayFromValues({std::string_view{*encoded.metadata},
+                                                    std::string_view{*encoded.metadata}}),
+                             BinaryArrayFromValues({std::string_view{*encoded.value},
+                                                    std::string_view{*encoded.value}})},
+                            storage_type->fields());
+  ::arrow::ExtensionTypeGuard guard(variant_type);
+
+  auto hint_schema =
+      ::arrow::schema({field("variant", ::arrow::extension::variant(hint_storage))});
+  ARROW_ASSIGN_OR_RAISE(auto serialized, ::arrow::ipc::SerializeSchema(*hint_schema));
+  auto metadata = ::arrow::key_value_metadata(
+      {"ARROW:schema"}, {::arrow::util::base64_encode(std::string_view{*serialized})});
+  ARROW_ASSIGN_OR_RAISE(auto sink, ::arrow::io::BufferOutputStream::Create());
+  ARROW_ASSIGN_OR_RAISE(
+      auto writer,
+      FileWriter::Open(*table->schema(), ::arrow::default_memory_pool(), sink,
+                       default_writer_properties(), default_arrow_writer_properties()));
+  RETURN_NOT_OK(writer->WriteTable(*table, table->num_rows()));
+  RETURN_NOT_OK(writer->AddKeyValueMetadata(metadata));
+  RETURN_NOT_OK(writer->Close());
+  ARROW_ASSIGN_OR_RAISE(auto buffer, sink->Finish());
+  return ReadVariantTable(buffer);
 }
 
 }  // namespace
@@ -316,6 +367,70 @@ TEST(TestVariantExtensionType, ReadsWithDictionaryOption) {
   ASSERT_NE(nullptr, read_table->GetColumnByName(field->name()));
 }
 
+TEST(TestVariantExtensionType, RoundTripsDictionaryMetadataWithStoredSchema) {
+  const auto encoded = Int8Variant(42);
+  for (const auto& value_type : {binary(), ::arrow::large_binary()}) {
+    SCOPED_TRACE(value_type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto scalar, ::arrow::MakeScalar(value_type, encoded.metadata));
+    ASSERT_OK_AND_ASSIGN(auto dictionary_values,
+                         ::arrow::MakeArrayFromScalar(*scalar, 1));
+    ASSERT_OK_AND_ASSIGN(
+        auto metadata,
+        ::arrow::DictionaryArray::FromArrays(
+            ::arrow::ArrayFromJSON(::arrow::int8(), "[0, 0]"), dictionary_values));
+    auto storage_type = struct_(
+        {field("metadata", metadata->type(), false), field("value", binary(), false)});
+    auto variant_type = ::arrow::extension::variant(storage_type);
+    auto table = VariantTable(
+        variant_type,
+        {metadata, BinaryArrayFromValues({std::string_view{*encoded.value},
+                                          std::string_view{*encoded.value}})},
+        storage_type->fields());
+    ::arrow::ExtensionTypeGuard guard(variant_type);
+    ASSERT_OK_AND_ASSIGN(
+        auto buffer,
+        WriteVariantTable(table, default_writer_properties(),
+                          ArrowWriterProperties::Builder().store_schema()->build()));
+    ASSERT_OK_AND_ASSIGN(auto restored, ReadVariantTable(buffer));
+    ASSERT_OK(restored->ValidateFull());
+    ASSERT_EQ(2, restored->num_rows());
+    const auto& array = ::arrow::internal::checked_cast<const VariantArray&>(
+        *restored->column(0)->chunk(0));
+    ASSERT_TRUE(array.metadata()->type()->Equals(value_type));
+    ASSERT_EQ(::arrow::Type::BINARY, array.value()->type_id());
+    variant::internal::AssertEncodedRow(array, 0, encoded);
+    variant::internal::AssertEncodedRow(array, 1, encoded);
+  }
+}
+
+TEST(TestVariantExtensionType, ReadsEncodedMetadataSchemaHint) {
+  const auto encoded = Int8Variant(42);
+  // The C++ writer does not support REE input or decoding Dictionary<BinaryView>.
+  // Test reader compatibility using ordinary binary data with encoded schema hints.
+  for (const auto& [metadata_type, value_type] :
+       {std::make_pair(::arrow::run_end_encoded(::arrow::int16(), binary()), binary()),
+        std::make_pair(
+            ::arrow::run_end_encoded(::arrow::int16(), ::arrow::large_binary()),
+            ::arrow::large_binary()),
+        std::make_pair(::arrow::run_end_encoded(::arrow::int16(), ::arrow::binary_view()),
+                       ::arrow::binary_view()),
+        std::make_pair(::arrow::dictionary(::arrow::int8(), ::arrow::binary_view()),
+                       ::arrow::binary_view())}) {
+    SCOPED_TRACE(metadata_type->ToString());
+    auto hint_storage = struct_(
+        {field("metadata", metadata_type, false), field("value", binary(), false)});
+    ASSERT_OK_AND_ASSIGN(auto restored, ReadVariantWithSchemaHint(encoded, hint_storage));
+    ASSERT_OK(restored->ValidateFull());
+    ASSERT_EQ(2, restored->num_rows());
+    const auto& array = ::arrow::internal::checked_cast<const VariantArray&>(
+        *restored->column(0)->chunk(0));
+    ASSERT_TRUE(array.metadata()->type()->Equals(value_type));
+    ASSERT_EQ(::arrow::Type::BINARY, array.value()->type_id());
+    variant::internal::AssertEncodedRow(array, 0, encoded);
+    variant::internal::AssertEncodedRow(array, 1, encoded);
+  }
+}
+
 TEST(TestVariantExtensionType, WriterWritesUuid) {
   auto metadata = EmptyVariantMetadata();
   auto storage_type =
@@ -336,8 +451,8 @@ TEST(TestVariantExtensionType, WriterWritesUuid) {
 TEST(TestVariantExtensionType, WriterValidatesShreddedObjectConflicts) {
   variant::VariantBuilder object_builder;
   auto object = object_builder.StartObject();
-  object.AppendShortString("event_type", "login");
-  object.Finish();
+  object.AddShortString("event_type", "login");
+  std::move(object).Finish();
   auto encoded = object_builder.Finish();
 
   auto field_group_type =
@@ -387,12 +502,12 @@ TEST(TestVariantExtensionType, WriterValidatesShreddedObjectConflicts) {
 TEST(TestVariantExtensionType, WriterRoundTripsManualShreddedVariant) {
   variant::VariantBuilder expected_builder;
   auto expected_object = expected_builder.StartObject();
-  expected_object.AppendInt64("count", 2);
+  expected_object.AddInt64("count", 2);
   auto expected_items = expected_object.StartList("items");
   expected_items.AppendInt64(1);
   expected_items.AppendInt64(2);
-  expected_items.Finish();
-  expected_object.Finish();
+  std::move(expected_items).Finish();
+  std::move(expected_object).Finish();
   auto expected = expected_builder.Finish();
 
   auto count_group = MakeInt64FieldGroup({std::nullopt}, "[2]");
@@ -437,20 +552,20 @@ TEST(TestVariantExtensionType, WriterRoundTripsShredVariantArray) {
   variant::VariantArrayBuilder input_builder;
   input_builder.AppendNull();
   auto object = input_builder.StartObject();
-  object.AppendInt64("count", 2);
+  object.AddInt64("count", 2);
   auto items = object.StartList("items");
   items.AppendInt64(1);
   items.AppendString("residual");
-  items.Finish();
-  object.AppendBoolean("extra", true);
-  object.Finish();
+  std::move(items).Finish();
+  object.AddBoolean("extra", true);
+  std::move(object).Finish();
 
   variant::VariantBuilder list_builder;
   list_builder.AddFieldName("count");
   list_builder.AddFieldName("items");
   auto list = list_builder.StartList();
   list.AppendInt64(3);
-  list.Finish();
+  std::move(list).Finish();
   input_builder.AppendEncoded(list_builder.Finish());
   auto input = input_builder.Finish();
 

@@ -21,6 +21,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/ree_util.h"
 #include "parquet/exception.h"
 
 namespace parquet::variant::internal {
@@ -40,6 +41,29 @@ std::string_view BinaryFieldView(const Array& array, int64_t row) {
       throw ParquetInvalidOrCorruptedFileException("Expected binary Variant field, got ",
                                                    array.type()->ToString());
   }
+}
+
+std::string_view MetadataFieldView(const Array& array, int64_t row) {
+  const Array* values = &array;
+  if (array.type_id() == ::arrow::Type::DICTIONARY) {
+    if (array.IsNull(row)) {
+      throw ParquetInvalidOrCorruptedFileException(
+          "Invalid Variant extension storage: metadata is null");
+    }
+    const auto& dictionary = checked_cast<const ::arrow::DictionaryArray&>(array);
+    row = dictionary.GetValueIndex(row);
+    values = dictionary.dictionary().get();
+  } else if (array.type_id() == ::arrow::Type::RUN_END_ENCODED) {
+    const auto& ree = checked_cast<const ::arrow::RunEndEncodedArray&>(array);
+    row = ::arrow::ree_util::FindPhysicalIndex(::arrow::ArraySpan(*ree.data()), row,
+                                               ree.offset());
+    values = ree.values().get();
+  }
+  if (values->IsNull(row)) {
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant extension storage: metadata is null");
+  }
+  return BinaryFieldView(*values, row);
 }
 
 std::shared_ptr<Array> ValuesArray(const Array& array) {

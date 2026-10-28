@@ -1226,6 +1226,32 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   return Status::OK();
 }
 
+// Normalize the ARROW:schema hint: Parquet stores the logical metadata bytes,
+// not the Arrow encoding wrapper.
+// Only the metadata child of this Variant is normalized; other fields retain
+// their original types for the storage compatibility check below.
+std::shared_ptr<ArrowType> VariantReadStorageType(
+    const std::shared_ptr<ArrowType>& storage_type) {
+  auto fields = storage_type->fields();
+  for (auto& field : fields) {
+    if (field->name() != "metadata") {
+      continue;
+    }
+    const auto& type = *field->type();
+    if (type.id() == ::arrow::Type::DICTIONARY) {
+      field = field->WithType(
+          checked_cast<const ::arrow::DictionaryType&>(type).value_type());
+      return ::arrow::struct_(std::move(fields));
+    }
+    if (type.id() == ::arrow::Type::RUN_END_ENCODED) {
+      field = field->WithType(
+          checked_cast<const ::arrow::RunEndEncodedType&>(type).value_type());
+      return ::arrow::struct_(std::move(fields));
+    }
+  }
+  return storage_type;
+}
+
 // Restore original Arrow field information that was serialized as Parquet metadata
 // but that is not necessarily present in the field reconstituted from Parquet data
 // (for example, Parquet timestamp types doesn't carry timezone information).
@@ -1406,29 +1432,42 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& origin_extension_type =
         checked_cast<const ::arrow::ExtensionType&>(*origin_type);
+    std::string origin_extension_name = origin_extension_type.extension_name();
+
+    // Whether or not the inferred type is also an extension type. This can occur when
+    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
+    // are not currently inferred for any other reason.
+    const bool arrow_extension_inferred =
+        inferred->field->type()->id() == ::arrow::Type::EXTENSION;
+
+    // Variant may already be inferred as an extension from its Parquet logical type.
+    // Unwrap it so the stored Arrow schema can restore its nested storage fields.
+    if (origin_extension_name == kVariantExtensionName && arrow_extension_inferred) {
+      const auto& inferred_extension_type =
+          checked_cast<const ::arrow::ExtensionType&>(*inferred->field->type());
+      inferred->field = inferred->field->WithType(inferred_extension_type.storage_type());
+    }
 
     // (Recursively) Apply the original storage metadata from the original storage field
     // This applies extension types to child elements, if any.
-    auto origin_storage_field =
-        origin_field.WithType(origin_extension_type.storage_type());
+    auto origin_storage_type = origin_extension_type.storage_type();
+    if (origin_extension_name == kVariantExtensionName) {
+      origin_storage_type = VariantReadStorageType(origin_storage_type);
+    }
+    auto origin_storage_field = origin_field.WithType(origin_storage_type);
     RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
 
     // Use the inferred type after child updates for below checks to see if
     // we can restore an extension type on the output.
     const auto& inferred_type = inferred->field->type();
 
-    // Whether or not the inferred type is also an extension type. This can occur when
-    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
-    // are not currently inferred for any other reason.
-    bool arrow_extension_inferred = inferred_type->id() == ::arrow::Type::EXTENSION;
-
     // Check if the inferred storage type is compatible with the extension type
     // we're hoping to apply. We assume that if an extension type was inferred
     // that it was constructed with a valid storage type. Otherwise, we check with
     // extension types that we know about for valid storage, falling back to
     // storage type equality for extension types that we don't know about.
-    std::string origin_extension_name = origin_extension_type.extension_name();
     bool extension_supports_inferred_storage;
+    auto restored_type = origin_type;
 
     if (origin_extension_name == "arrow.json") {
       extension_supports_inferred_storage =
@@ -1440,9 +1479,16 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
           arrow_extension_inferred ||
           ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
     } else if (origin_extension_name == kVariantExtensionName) {
-      extension_supports_inferred_storage =
-          arrow_extension_inferred ||
-          VariantExtensionType::IsSupportedStorageType(inferred_type);
+      if (!origin_storage_type->Equals(*inferred_type)) {
+        return Status::Invalid("Stored Arrow Variant storage type ",
+                               origin_extension_type.storage_type()->ToString(),
+                               " does not match Parquet storage ",
+                               inferred_type->ToString());
+      }
+      ARROW_ASSIGN_OR_RAISE(restored_type,
+                            origin_extension_type.Deserialize(
+                                inferred_type, origin_extension_type.Serialize()));
+      extension_supports_inferred_storage = true;
     } else {
       extension_supports_inferred_storage =
           origin_extension_type.storage_type()->Equals(*inferred_type);
@@ -1452,7 +1498,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
     // the Arrow storage type we would otherwise return, we restore the extension
     // type to the output.
     if (extension_supports_inferred_storage) {
-      inferred->field = inferred->field->WithType(origin_type);
+      inferred->field = inferred->field->WithType(restored_type);
     }
 
     modified = true;

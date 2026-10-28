@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -51,7 +52,7 @@ static_assert(!CanMakeValidatedVariantValueView<VariantMetadataView>);
 
 TEST(TestVariantEncoding, EmptyMetadata) {
   VariantBuilder builder;
-  builder.AppendVariantNull();
+  builder.SetVariantNull();
   auto encoded = builder.Finish();
   ASSERT_EQ("\x01\x00\x00"sv, std::string_view{*encoded.metadata});
 
@@ -84,44 +85,41 @@ TEST(TestVariantEncoding, Primitive) {
     ASSERT_EQ(expected, std::get<VariantPrimitiveView>(view.data()).type());
   };
 
-  check([](VariantBuilder& b) { b.AppendVariantNull(); }, VariantPrimitiveType::kNull);
-  check([](VariantBuilder& b) { b.AppendBoolean(true); },
+  check([](VariantBuilder& b) { b.SetVariantNull(); }, VariantPrimitiveType::kNull);
+  check([](VariantBuilder& b) { b.SetBoolean(true); },
         VariantPrimitiveType::kBooleanTrue);
-  check([](VariantBuilder& b) { b.AppendInt8(1); }, VariantPrimitiveType::kInt8);
-  check([](VariantBuilder& b) { b.AppendInt16(2); }, VariantPrimitiveType::kInt16);
-  check([](VariantBuilder& b) { b.AppendInt32(3); }, VariantPrimitiveType::kInt32);
-  check([](VariantBuilder& b) { b.AppendInt64(4); }, VariantPrimitiveType::kInt64);
-  check([](VariantBuilder& b) { b.AppendFloat(1.5F); }, VariantPrimitiveType::kFloat);
-  check([](VariantBuilder& b) { b.AppendDouble(2.5); }, VariantPrimitiveType::kDouble);
-  check([](VariantBuilder& b) { b.AppendDecimal4(::arrow::Decimal32(123), 2); },
+  check([](VariantBuilder& b) { b.SetInt8(1); }, VariantPrimitiveType::kInt8);
+  check([](VariantBuilder& b) { b.SetInt16(2); }, VariantPrimitiveType::kInt16);
+  check([](VariantBuilder& b) { b.SetInt32(3); }, VariantPrimitiveType::kInt32);
+  check([](VariantBuilder& b) { b.SetInt64(4); }, VariantPrimitiveType::kInt64);
+  check([](VariantBuilder& b) { b.SetFloat(1.5F); }, VariantPrimitiveType::kFloat);
+  check([](VariantBuilder& b) { b.SetDouble(2.5); }, VariantPrimitiveType::kDouble);
+  check([](VariantBuilder& b) { b.SetDecimal4(::arrow::Decimal32(123), 2); },
         VariantPrimitiveType::kDecimal4);
-  check([](VariantBuilder& b) { b.AppendDecimal8(::arrow::Decimal64(123), 2); },
+  check([](VariantBuilder& b) { b.SetDecimal8(::arrow::Decimal64(123), 2); },
         VariantPrimitiveType::kDecimal8);
-  check([&](VariantBuilder& b) { b.AppendDecimal16(::arrow::Decimal128(1, 0), 2); },
+  check([&](VariantBuilder& b) { b.SetDecimal16(::arrow::Decimal128(1, 0), 2); },
         VariantPrimitiveType::kDecimal16);
-  check([](VariantBuilder& b) { b.AppendBinary("abc"); }, VariantPrimitiveType::kBinary);
-  check([](VariantBuilder& b) { b.AppendString("abc"); }, VariantPrimitiveType::kString);
-  check([](VariantBuilder& b) { b.AppendDate(1); }, VariantPrimitiveType::kDate);
-  check([](VariantBuilder& b) { b.AppendTimeNTZMicros(1); },
+  check([](VariantBuilder& b) { b.SetBinary("abc"); }, VariantPrimitiveType::kBinary);
+  check([](VariantBuilder& b) { b.SetString("abc"); }, VariantPrimitiveType::kString);
+  check([](VariantBuilder& b) { b.SetDate(1); }, VariantPrimitiveType::kDate);
+  check([](VariantBuilder& b) { b.SetTimeNTZMicros(1); },
         VariantPrimitiveType::kTimeNTZMicros);
-  check([](VariantBuilder& b) { b.AppendTimestampMicros(1, true); },
+  check([](VariantBuilder& b) { b.SetTimestampMicros(1, true); },
         VariantPrimitiveType::kTimestampMicros);
-  check([](VariantBuilder& b) { b.AppendTimestampMicros(1, false); },
+  check([](VariantBuilder& b) { b.SetTimestampMicros(1, false); },
         VariantPrimitiveType::kTimestampNTZMicros);
-  check([](VariantBuilder& b) { b.AppendTimestampNanos(1, true); },
+  check([](VariantBuilder& b) { b.SetTimestampNanos(1, true); },
         VariantPrimitiveType::kTimestampNanos);
-  check([](VariantBuilder& b) { b.AppendTimestampNanos(1, false); },
+  check([](VariantBuilder& b) { b.SetTimestampNanos(1, false); },
         VariantPrimitiveType::kTimestampNTZNanos);
-  check(
-      [&](VariantBuilder& b) {
-        b.AppendUuid(std::string_view(uuid.data(), uuid.size()));
-      },
-      VariantPrimitiveType::kUuid);
+  check([&](VariantBuilder& b) { b.SetUuid(std::string_view(uuid.data(), uuid.size())); },
+        VariantPrimitiveType::kUuid);
 }
 
 TEST(TestVariantEncoding, ShortString) {
   VariantBuilder builder;
-  builder.AppendShortString("abc");
+  builder.SetShortString("abc");
   auto encoded = builder.Finish();
   auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
   auto view = VariantValueView::Make(std::string_view{*encoded.value}, metadata);
@@ -172,7 +170,7 @@ TEST(TestVariantEncoding, PeekBasicType) {
 
 TEST(TestVariantEncoding, ValidateValue) {
   VariantBuilder builder;
-  builder.AppendVariantNull();
+  builder.SetVariantNull();
   auto encoded = builder.Finish();
   auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
 
@@ -186,14 +184,17 @@ TEST(TestVariantEncoding, ValidateValue) {
 TEST(TestVariantEncoding, ChildAccess) {
   VariantBuilder builder;
   auto object = builder.StartObject();
+  // Write payloads out of field-name order so object offsets are not monotonic.
+  object.AddShortString("z", "last");
   auto list = object.StartList("items");
   list.AppendInt32(42);
-  list.Finish();
-  object.Finish();
+  std::move(list).Finish();
+  std::move(object).Finish();
 
   auto encoded = builder.Finish();
   auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
-  auto root = VariantValueView::Make(std::string_view{*encoded.value}, metadata);
+  auto root =
+      VariantValueView::MakeWithValidate(std::string_view{*encoded.value}, metadata);
 
   const auto& object_view = std::get<VariantObjectView>(root.data());
   auto items_by_name = object_view.GetField("items");
@@ -202,7 +203,10 @@ TEST(TestVariantEncoding, ChildAccess) {
   ASSERT_TRUE(items_by_index.has_value());
   ASSERT_EQ(items_by_name->value(), items_by_index->value());
   ASSERT_FALSE(object_view.GetField("missing").has_value());
-  ASSERT_FALSE(object_view.GetField(1).has_value());
+  ASSERT_FALSE(object_view.GetField(2).has_value());
+  auto last = object_view.GetField("z");
+  ASSERT_TRUE(last.has_value());
+  ASSERT_EQ("last", std::get<VariantShortStringView>(last->data()).string());
 
   const auto& array = std::get<VariantArrayView>(items_by_name->data());
   auto element = array.GetElement(0);
@@ -214,7 +218,7 @@ TEST(TestVariantEncoding, ChildAccess) {
 
 TEST(TestVariantEncoding, InvalidValue) {
   VariantBuilder builder;
-  builder.AppendVariantNull();
+  builder.SetVariantNull();
   auto encoded = builder.Finish();
   auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
 
@@ -246,9 +250,9 @@ TEST(TestVariantEncoding, InvalidValue) {
 TEST(TestVariantEncoding, InvalidObject) {
   VariantBuilder builder;
   auto object = builder.StartObject();
-  object.AppendVariantNull("a");
-  object.AppendVariantNull("b");
-  object.Finish();
+  object.AddVariantNull("a");
+  object.AddVariantNull("b");
+  std::move(object).Finish();
   auto encoded = builder.Finish();
   auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
 

@@ -1157,6 +1157,51 @@ TEST_F(TestConvertParquetSchema, ParquetVariantShreddedWithoutValue) {
   ASSERT_TRUE(variant_type->storage_type()->Equals(storage_type));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetVariantStoredMismatch) {
+  auto parquet_variant = GroupNode::Make(
+      "variant", Repetition::OPTIONAL,
+      {PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("value", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("typed_value", Repetition::OPTIONAL, ParquetType::INT64)},
+      LogicalType::Variant());
+  auto stored_storage =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("value", ::arrow::binary()),
+                        ::arrow::field("typed_value", ::arrow::int16())});
+  auto stored_variant = ::arrow::extension::variant(stored_storage);
+  auto stored_schema = ::arrow::schema({::arrow::field("variant", stored_variant)});
+  std::shared_ptr<KeyValueMetadata> metadata;
+  ASSERT_OK(ArrowSchemaToParquetMetadata(stored_schema, metadata));
+
+  ::arrow::ExtensionTypeGuard guard(stored_variant);
+  ArrowReaderProperties properties;
+  properties.set_arrow_extensions_enabled(false);
+  ASSERT_RAISES(Invalid, ConvertSchema({parquet_variant}, metadata, properties));
+
+  // Flattening encoded metadata must not hide extra fields in the stored schema.
+  auto unshredded_variant = GroupNode::Make(
+      "variant", Repetition::OPTIONAL,
+      {PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("value", Repetition::REQUIRED, ParquetType::BYTE_ARRAY)},
+      LogicalType::Variant());
+  properties.set_arrow_extensions_enabled(true);
+  for (const auto& metadata_type :
+       {::arrow::dictionary(::arrow::int8(), ::arrow::binary()),
+        ::arrow::run_end_encoded(::arrow::int16(), ::arrow::binary())}) {
+    SCOPED_TRACE(metadata_type->ToString());
+    auto encoded_storage =
+        ::arrow::struct_({::arrow::field("metadata", metadata_type, false),
+                          ::arrow::field("value", ::arrow::binary()),
+                          ::arrow::field("typed_value", ::arrow::int64())});
+    auto encoded_schema = ::arrow::schema(
+        {::arrow::field("variant", ::arrow::extension::variant(encoded_storage))});
+    std::shared_ptr<KeyValueMetadata> encoded_metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(encoded_schema, encoded_metadata));
+    ASSERT_RAISES(Invalid,
+                  ConvertSchema({unshredded_variant}, encoded_metadata, properties));
+  }
+}
+
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowJsonExtension) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(

@@ -22,6 +22,7 @@
 #include <deque>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -35,6 +36,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/small_vector.h"
 #include "parquet/exception.h"
 #include "parquet/variant/append_table_internal.h"
 #include "parquet/variant/array_internal.h"
@@ -54,6 +56,7 @@ using ::arrow::StructType;
 using ::arrow::Type;
 using ::arrow::TypedBufferBuilder;
 using ::arrow::extension::VariantExtensionType;
+using ::arrow::internal::SmallVector;
 using internal::BinaryViewColumnBuilder;
 
 namespace bit_util = ::arrow::bit_util;
@@ -100,147 +103,164 @@ uint8_t WidthForValue(uint64_t value) {
   return 4;
 }
 
-class MetadataBuilder {
- public:
-  virtual ~MetadataBuilder() = default;
+}  // namespace
 
-  virtual void Reserve(int64_t capacity) = 0;
-  // Returns an existing or newly assigned field ID, or throws if the field
-  // cannot be added or resolved.
-  virtual uint32_t TryUpsert(std::string_view name) = 0;
-  virtual std::string_view FieldName(uint32_t id) const = 0;
-  virtual size_t size() const = 0;
-  virtual void Truncate(size_t size) = 0;
-  virtual void AppendTo(BufferBuilder& out) const = 0;
-};
+struct MetadataBuilder::Impl {
+  explicit Impl(MemoryPool* pool) : pool(pool) {}
 
-class WritableMetadataBuilder : public MetadataBuilder {
- public:
-  void Reserve(int64_t capacity) override {
-    if (capacity < 0) {
-      throw ParquetException("Variant metadata capacity must be non-negative");
-    }
-    field_ids_.reserve(capacity);
-  }
-
-  uint32_t TryUpsert(std::string_view name) override {
-    auto it = field_ids_.find(name);
-    if (it != field_ids_.end()) {
+  uint32_t TryUpsert(std::string_view name) {
+    if (auto it = field_ids.find(name); it != field_ids.end()) {
       return it->second;
     }
-    if (field_names_.size() >= std::numeric_limits<uint32_t>::max()) {
+    if (field_names.size() >= std::numeric_limits<uint32_t>::max()) {
       throw ParquetException("Variant metadata dictionary is too large");
     }
     internal::ValidateUtf8(name, "metadata dictionary string");
 
-    const auto id = field_names_.size();
-    if (field_names_.empty()) {
-      is_sorted_ = true;
-    } else if (is_sorted_ && !(field_names_.back() < name)) {
-      is_sorted_ = false;
+    const auto id = field_names.size();
+    if (field_names.empty()) {
+      is_sorted = true;
+    } else if (is_sorted && !(field_names.back() < name)) {
+      is_sorted = false;
     }
-    field_names_.emplace_back(name);
-    field_ids_.emplace(field_names_.back(), id);
+    field_names.emplace_back(name);
+    field_ids.emplace(field_names.back(), id);
     return static_cast<uint32_t>(id);
   }
 
-  std::string_view FieldName(uint32_t id) const override {
-    DCHECK_LT(id, field_names_.size());
-    return field_names_[id];
-  }
-
-  size_t size() const override { return field_names_.size(); }
-
-  void Truncate(size_t size) override {
-    if (size == field_names_.size()) {
+  void Truncate(size_t size) noexcept {
+    if (size == field_names.size()) {
       return;
     }
-    DCHECK_LT(size, field_names_.size());
-    while (field_names_.size() > size) {
-      const auto field_name = std::string_view{field_names_.back()};
-      const auto erased = field_ids_.erase(field_name);
+    DCHECK_LT(size, field_names.size());
+    while (field_names.size() > size) {
+      const auto field_name = std::string_view{field_names.back()};
+      const auto erased = field_ids.erase(field_name);
       DCHECK_EQ(erased, 1);
-      field_names_.pop_back();
+      field_names.pop_back();
     }
-    is_sorted_ = std::ranges::is_sorted(field_names_);
+    is_sorted = std::ranges::is_sorted(field_names);
   }
 
-  void AppendTo(BufferBuilder& out) const override {
+  void AppendDictionary(BufferBuilder& out) const {
     uint64_t bytes_size = 0;
-    for (const auto& string : field_names_) {
+    for (const auto& string : field_names) {
       bytes_size += string.size();
     }
-    if (field_names_.size() > std::numeric_limits<uint32_t>::max() ||
+    if (field_names.size() > std::numeric_limits<uint32_t>::max() ||
         bytes_size > std::numeric_limits<uint32_t>::max()) {
       throw ParquetException("Variant metadata dictionary is too large");
     }
 
     const uint8_t offset_size =
-        WidthForValue(std::max<uint64_t>(field_names_.size(), bytes_size));
+        WidthForValue(std::max<uint64_t>(field_names.size(), bytes_size));
     PARQUET_THROW_NOT_OK(out.Reserve(
-        1 + offset_size + (field_names_.size() + 1) * offset_size + bytes_size));
+        1 + offset_size + (field_names.size() + 1) * offset_size + bytes_size));
 
-    const bool sorted_strings = !field_names_.empty() && is_sorted_;
+    const bool sorted_strings = !field_names.empty() && is_sorted;
     const auto header =
         static_cast<uint8_t>(internal::kVariantVersion |
                              (sorted_strings ? internal::kMetadataSortedStringsMask : 0) |
                              ((offset_size - 1) << 6));
     PARQUET_THROW_NOT_OK(out.Append(&header, sizeof(header)));
-    AppendLittleEndian(out, static_cast<uint32_t>(field_names_.size()), offset_size);
+    AppendLittleEndian(out, static_cast<uint32_t>(field_names.size()), offset_size);
 
     uint32_t offset = 0;
     AppendLittleEndian(out, offset, offset_size);
-    for (const auto& string : field_names_) {
+    for (const auto& string : field_names) {
       offset += static_cast<uint32_t>(string.size());
       AppendLittleEndian(out, offset, offset_size);
     }
-    for (const auto& string : field_names_) {
+    for (const auto& string : field_names) {
       PARQUET_THROW_NOT_OK(out.Append(string));
     }
   }
 
- private:
-  std::deque<std::string> field_names_;
-  std::unordered_map<std::string_view, uint32_t> field_ids_;
-  bool is_sorted_ = false;
+  MemoryPool* pool;
+  std::deque<std::string> field_names;
+  std::unordered_map<std::string_view, uint32_t> field_ids;
+  bool is_sorted = false;
 };
 
-class ReadOnlyMetadataBuilder : public MetadataBuilder {
+MetadataBuilder::MetadataBuilder(MemoryPool* pool)
+    : impl_(std::make_unique<Impl>(pool)) {}
+MetadataBuilder::~MetadataBuilder() = default;
+
+void MetadataBuilder::Reserve(int64_t capacity) {
+  if (capacity < 0) {
+    throw ParquetException("Variant metadata capacity must be non-negative");
+  }
+  impl_->field_ids.reserve(capacity);
+}
+
+uint32_t MetadataBuilder::TryUpsert(std::string_view name) {
+  return impl_->TryUpsert(name);
+}
+
+size_t MetadataBuilder::size() const { return impl_->field_names.size(); }
+
+std::shared_ptr<Buffer> MetadataBuilder::Finish() {
+  BufferBuilder output(impl_->pool);
+  impl_->AppendDictionary(output);
+  PARQUET_ASSIGN_OR_THROW(auto out, output.Finish());
+  impl_->Truncate(0);
+  return out;
+}
+
+namespace internal {
+
+// A borrowed dictionary for value construction, independent of metadata output.
+class MetadataDictionary {
  public:
-  explicit ReadOnlyMetadataBuilder(const VariantMetadataView& metadata)
-      : metadata_(metadata) {}
+  explicit MetadataDictionary(MetadataBuilder& builder) : builder_(&builder) {}
+  explicit MetadataDictionary(const VariantMetadataView& view) : view_(&view) {}
 
-  void Reserve(int64_t) override {}
-
-  uint32_t TryUpsert(std::string_view name) override {
+  uint32_t TryUpsert(std::string_view name) {
+    if (builder_) {
+      return builder_->TryUpsert(name);
+    }
     auto it = field_ids_.find(name);
     if (it != field_ids_.end()) {
       return it->second;
     }
-    auto field_id = metadata_.FindString(name);
+    auto field_id = view_->FindString(name);
     if (!field_id.has_value()) {
       throw ParquetInvalidOrCorruptedFileException(
           "Invalid shredded Variant: field name '", name,
           "' is not in metadata dictionary");
     }
-    field_ids_.emplace(metadata_.string(*field_id), *field_id);
+    field_ids_.emplace(view_->string(*field_id), *field_id);
     return *field_id;
   }
 
-  std::string_view FieldName(uint32_t id) const override { return metadata_.string(id); }
+  size_t size() const { return builder_ ? builder_->size() : view_->dictionary_size(); }
 
-  size_t size() const override { return metadata_.dictionary_size(); }
+  std::string_view FieldName(uint32_t id) const {
+    if (builder_) {
+      const auto& names = builder_->impl_->field_names;
+      DCHECK_LT(id, names.size());
+      return names[id];
+    }
+    return view_->string(id);
+  }
 
-  void Truncate(size_t size) override { DCHECK_EQ(size, metadata_.dictionary_size()); }
-
-  void AppendTo(BufferBuilder& out) const override {
-    PARQUET_THROW_NOT_OK(out.Append(metadata_.metadata()));
+  void Truncate(size_t size) noexcept {
+    if (builder_) {
+      builder_->impl_->Truncate(size);
+    } else {
+      DCHECK_EQ(size, view_->dictionary_size());
+    }
   }
 
  private:
-  const VariantMetadataView& metadata_;
+  MetadataBuilder* builder_ = nullptr;
+  const VariantMetadataView* view_ = nullptr;
   std::unordered_map<std::string_view, uint32_t> field_ids_;
 };
+
+}  // namespace internal
+
+namespace {
 
 class VariantValueWriter {
  public:
@@ -370,26 +390,28 @@ struct VariantBuildFrame {
   size_t parent_frame = 0;
   size_t parent_entry_count = 0;
   bool has_parent = false;
-  std::vector<VariantFieldDescriptor> fields{};
-  std::vector<uint32_t> offsets{};
+  SmallVector<VariantFieldDescriptor, 8> object_fields{};
+  SmallVector<uint32_t, 16> list_offsets{};
   std::unordered_set<uint32_t> object_field_ids{};
   bool finished = false;
 };
 
 struct VariantBuildState {
-  VariantBuildState(BufferBuilder& value, std::unique_ptr<MetadataBuilder> metadata)
-      : value(value), root_value_start(value.length()), metadata(std::move(metadata)) {}
+  VariantBuildState(BufferBuilder& value, MetadataBuilder& metadata)
+      : value(value), root_value_start(value.length()), metadata(metadata) {}
 
-  void Reset(std::unique_ptr<MetadataBuilder> new_metadata) {
+  VariantBuildState(BufferBuilder& value, const VariantMetadataView& metadata)
+      : value(value), root_value_start(value.length()), metadata(metadata) {}
+
+  void ResetRoot() noexcept {
     root_value_start = value.length();
-    metadata = std::move(new_metadata);
     frames.clear();
     root_has_value = false;
   }
 
   BufferBuilder& value;
   int64_t root_value_start;
-  std::unique_ptr<MetadataBuilder> metadata;
+  internal::MetadataDictionary metadata;
   std::vector<VariantBuildFrame> frames;
   bool root_has_value = false;
 };
@@ -416,13 +438,14 @@ void CheckTopFrame(const VariantBuildState& state, size_t frame_index) {
 
 void TruncateFrameEntries(VariantBuildFrame& frame, size_t entry_count) {
   if (frame.kind == VariantContainerKind::Object) {
-    frame.fields.resize(entry_count);
-    frame.object_field_ids.clear();
-    for (const auto& field : frame.fields) {
-      frame.object_field_ids.insert(field.field_id);
+    DCHECK_LE(entry_count, frame.object_fields.size());
+    for (size_t i = entry_count; i < frame.object_fields.size(); ++i) {
+      frame.object_field_ids.erase(frame.object_fields[i].field_id);
     }
+    frame.object_fields.resize(entry_count);
   } else {
-    frame.offsets.resize(entry_count);
+    DCHECK_LE(entry_count, frame.list_offsets.size());
+    frame.list_offsets.resize(entry_count);
   }
 }
 
@@ -437,15 +460,15 @@ void MakeRoomForHeader(BufferBuilder& out, int64_t offset, int64_t header_size) 
 
 void BuildObjectHeader(VariantBuildState& state, const VariantBuildFrame& frame,
                        uint32_t values_size) {
-  if (frame.fields.size() > std::numeric_limits<uint32_t>::max()) {
+  if (frame.object_fields.size() > std::numeric_limits<uint32_t>::max()) {
     throw ParquetException("Variant object has too many fields");
   }
 
-  std::vector<VariantFieldDescriptor> fields = frame.fields;
+  auto fields = frame.object_fields;
   std::ranges::sort(fields, [&](const VariantFieldDescriptor& left,
                                 const VariantFieldDescriptor& right) {
-    return state.metadata->FieldName(left.field_id) <
-           state.metadata->FieldName(right.field_id);
+    return state.metadata.FieldName(left.field_id) <
+           state.metadata.FieldName(right.field_id);
   });
 
   uint32_t max_field_id = 0;
@@ -479,13 +502,13 @@ void BuildObjectHeader(VariantBuildState& state, const VariantBuildFrame& frame,
 
 void BuildListHeader(VariantBuildState& state, const VariantBuildFrame& frame,
                      uint32_t values_size) {
-  if (frame.offsets.size() > std::numeric_limits<uint32_t>::max()) {
+  if (frame.list_offsets.size() > std::numeric_limits<uint32_t>::max()) {
     throw ParquetException("Variant array has too many elements");
   }
 
   const uint8_t offset_size = WidthForValue(values_size);
-  const bool is_large = frame.offsets.size() > std::numeric_limits<uint8_t>::max();
-  const auto element_count = static_cast<int64_t>(frame.offsets.size());
+  const bool is_large = frame.list_offsets.size() > std::numeric_limits<uint8_t>::max();
+  const auto element_count = static_cast<int64_t>(frame.list_offsets.size());
   const uint8_t count_size = is_large ? 4 : 1;
   const int64_t header_size = 1 + count_size + (element_count + 1) * offset_size;
 
@@ -494,9 +517,9 @@ void BuildListHeader(VariantBuildState& state, const VariantBuildFrame& frame,
       static_cast<uint8_t>(((((is_large ? 1 : 0) << 2) | (offset_size - 1)) << 2) |
                            static_cast<uint8_t>(VariantBasicType::kArray));
   PARQUET_THROW_NOT_OK(state.value.Append(&header, sizeof(header)));
-  AppendLittleEndian(state.value, static_cast<uint32_t>(frame.offsets.size()),
+  AppendLittleEndian(state.value, static_cast<uint32_t>(frame.list_offsets.size()),
                      count_size);
-  for (const auto offset : frame.offsets) {
+  for (const auto offset : frame.list_offsets) {
     AppendLittleEndian(state.value, offset, offset_size);
   }
   AppendLittleEndian(state.value, values_size, offset_size);
@@ -555,23 +578,23 @@ std::pair<size_t, size_t> PrepareObjectField(VariantBuildState& state, size_t fr
                                              std::string_view field_name) {
   CheckTopFrame<VariantContainerKind::Object>(state, frame_index);
   auto& frame = state.frames.back();
-  const auto metadata_size = state.metadata->size();
-  const auto entry_count = frame.fields.size();
+  const auto metadata_size = state.metadata.size();
+  const auto entry_count = frame.object_fields.size();
 
-  const auto field_id = state.metadata->TryUpsert(field_name);
+  const auto field_id = state.metadata.TryUpsert(field_name);
   if (!frame.object_field_ids.insert(field_id).second) {
-    state.metadata->Truncate(metadata_size);
+    state.metadata.Truncate(metadata_size);
     throw ParquetException("Duplicate Variant object field: ", field_name);
   }
   const auto offset = state.value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (std::cmp_greater(offset, std::numeric_limits<uint32_t>::max())) {
-    state.metadata->Truncate(metadata_size);
-    TruncateFrameEntries(frame, entry_count);
+    frame.object_field_ids.erase(field_id);
+    state.metadata.Truncate(metadata_size);
     throw ParquetException("Variant object values are too large");
   }
-  frame.fields.push_back(VariantFieldDescriptor{.field_id = field_id,
-                                                .offset = static_cast<uint32_t>(offset)});
+  frame.object_fields.push_back(VariantFieldDescriptor{
+      .field_id = field_id, .offset = static_cast<uint32_t>(offset)});
   return {metadata_size, entry_count};
 }
 
@@ -587,7 +610,7 @@ void AppendObjectValueWith(VariantBuildState& state, size_t frame_index,
     std::invoke(std::forward<Write>(write), writer);
   } catch (...) {
     state.value.Rewind(value_size);
-    state.metadata->Truncate(metadata_size);
+    state.metadata.Truncate(metadata_size);
     TruncateFrameEntries(state.frames[frame_index], entry_count);
     throw;
   }
@@ -596,14 +619,14 @@ void AppendObjectValueWith(VariantBuildState& state, size_t frame_index,
 size_t PrepareListElement(VariantBuildState& state, size_t frame_index) {
   CheckTopFrame<VariantContainerKind::List>(state, frame_index);
   auto& frame = state.frames.back();
-  const auto entry_count = frame.offsets.size();
+  const auto entry_count = frame.list_offsets.size();
 
   const auto offset = state.value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (std::cmp_greater(offset, std::numeric_limits<uint32_t>::max())) {
     throw ParquetException("Variant array values are too large");
   }
-  frame.offsets.push_back(static_cast<uint32_t>(offset));
+  frame.list_offsets.push_back(static_cast<uint32_t>(offset));
   return entry_count;
 }
 
@@ -635,9 +658,9 @@ struct NestedVariantBuilderImpl {
     if (!active || frame_index >= state.frames.size()) {
       return;
     }
-    const auto frame = state.frames[frame_index];
+    const auto& frame = state.frames[frame_index];
     state.value.Rewind(frame.value_start);
-    state.metadata->Truncate(frame.metadata_size);
+    state.metadata.Truncate(frame.metadata_size);
     if (frame.has_parent && frame.parent_frame < state.frames.size()) {
       TruncateFrameEntries(state.frames[frame.parent_frame], frame.parent_entry_count);
     }
@@ -653,65 +676,66 @@ struct NestedVariantBuilderImpl {
 }  // namespace internal
 
 struct VariantBuilder::Impl {
-  explicit Impl(MemoryPool* pool, bool validate)
-      : pool(pool),
-        value_builder(pool),
-        validate(validate),
-        state(value_builder, std::make_unique<WritableMetadataBuilder>()) {}
+  explicit Impl(VariantBuilderOptions options)
+      : metadata_builder(options.pool),
+        value_builder(options.pool),
+        validate_on_finish(options.validate_on_finish),
+        state(value_builder, metadata_builder) {}
 
-  void Reset() {
+  void Reset() noexcept {
+    metadata_builder.impl_->Truncate(0);
     value_builder.Reset();
-    state.Reset(std::make_unique<WritableMetadataBuilder>());
+    state.ResetRoot();
   }
 
-  MemoryPool* pool;
+  MetadataBuilder metadata_builder;
   BufferBuilder value_builder;
-  bool validate;
+  bool validate_on_finish;
   VariantBuildState state;
 };
 
-VariantBuilder::VariantBuilder(MemoryPool* pool, bool validate)
-    : impl_(std::make_unique<Impl>(pool, validate)) {}
+VariantBuilder::VariantBuilder(VariantBuilderOptions options)
+    : impl_(std::make_unique<Impl>(options)) {}
 VariantBuilder::~VariantBuilder() = default;
 VariantBuilder::VariantBuilder(VariantBuilder&&) noexcept = default;
 VariantBuilder& VariantBuilder::operator=(VariantBuilder&&) noexcept = default;
 
 void VariantBuilder::ReserveFieldNames(int64_t capacity) {
-  impl_->state.metadata->Reserve(capacity);
+  impl_->metadata_builder.Reserve(capacity);
 }
 
 uint32_t VariantBuilder::AddFieldName(std::string_view name) {
-  return impl_->state.metadata->TryUpsert(name);
+  return impl_->metadata_builder.TryUpsert(name);
 }
 
-#define DEFINE_DIRECT_APPEND(NAME, decl_args, ...)                  \
-  void VariantBuilder::Append##NAME decl_args {                     \
+#define DEFINE_DIRECT_SET(NAME, decl_args, ...)                     \
+  void VariantBuilder::Set##NAME decl_args {                        \
     AppendValueWith(impl_->state, [&](VariantValueWriter& writer) { \
       writer.Append<VariantPrimitiveType::k##NAME>(__VA_ARGS__);    \
     });                                                             \
   }
-PARQUET_VARIANT_DIRECT_APPEND_LIST(DEFINE_DIRECT_APPEND)
-#undef DEFINE_DIRECT_APPEND
+PARQUET_VARIANT_DIRECT_APPEND_LIST(DEFINE_DIRECT_SET)
+#undef DEFINE_DIRECT_SET
 
-#define DEFINE_SPECIAL_APPEND(NAME, decl_args, ...)                 \
-  void VariantBuilder::Append##NAME decl_args {                     \
+#define DEFINE_SPECIAL_SET(NAME, decl_args, ...)                    \
+  void VariantBuilder::Set##NAME decl_args {                        \
     AppendValueWith(impl_->state, [&](VariantValueWriter& writer) { \
       writer.Append##NAME(__VA_ARGS__);                             \
     });                                                             \
   }
-PARQUET_VARIANT_SPECIAL_APPEND_LIST(DEFINE_SPECIAL_APPEND)
-DEFINE_SPECIAL_APPEND(EncodedValue, (std::string_view value), value)
-#undef DEFINE_SPECIAL_APPEND
+PARQUET_VARIANT_SPECIAL_APPEND_LIST(DEFINE_SPECIAL_SET)
+DEFINE_SPECIAL_SET(EncodedValue, (std::string_view value), value)
+#undef DEFINE_SPECIAL_SET
 
 template <VariantContainerKind kind>
 std::unique_ptr<internal::NestedVariantBuilderImpl> StartContainer(
-    VariantBuildState& state) {
+    VariantBuildState& state, RootFinishCallback callback = {}) {
   CheckRootWritable(state);
   state.frames.push_back(VariantBuildFrame{.kind = kind,
                                            .value_start = state.value.length(),
-                                           .metadata_size = state.metadata->size()});
+                                           .metadata_size = state.metadata.size()});
   return std::make_unique<internal::NestedVariantBuilderImpl>(
-      state, state.frames.size() - 1, RootFinishCallback{});
+      state, state.frames.size() - 1, std::move(callback));
 }
 
 VariantObjectBuilder VariantBuilder::StartObject() {
@@ -730,13 +754,13 @@ EncodedVariantValue VariantBuilder::Finish() {
     throw ParquetException("Cannot finish empty VariantBuilder");
   }
 
-  BufferBuilder metadata_builder(impl_->pool);
-  impl_->state.metadata->AppendTo(metadata_builder);
+  BufferBuilder metadata_builder(impl_->metadata_builder.impl_->pool);
+  impl_->metadata_builder.impl_->AppendDictionary(metadata_builder);
   PARQUET_ASSIGN_OR_THROW(auto metadata, metadata_builder.Finish());
   PARQUET_ASSIGN_OR_THROW(auto value, impl_->state.value.Finish());
   EncodedVariantValue out{.metadata = std::move(metadata), .value = std::move(value)};
   Reset();
-  if (impl_->validate) {
+  if (impl_->validate_on_finish) {
     auto metadata_view = VariantMetadataView::Make(std::string_view{*out.metadata});
     VariantValueView::Validate(std::string_view{*out.value}, metadata_view);
   }
@@ -760,25 +784,25 @@ VariantObjectBuilder& VariantObjectBuilder::operator=(VariantObjectBuilder&&) no
     (std::string_view field_name __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
 #endif
 
-#define DEFINE_OBJECT_DIRECT_APPEND(NAME, decl_args, ...)                              \
-  void VariantObjectBuilder::Append##NAME VARIANT_OBJECT_DECL decl_args {              \
+#define DEFINE_OBJECT_DIRECT_ADD(NAME, decl_args, ...)                                 \
+  void VariantObjectBuilder::Add##NAME VARIANT_OBJECT_DECL decl_args {                 \
     AppendObjectValueWith(impl_->state, impl_->frame_index, field_name,                \
                           [&](VariantValueWriter& writer) {                            \
                             writer.Append<VariantPrimitiveType::k##NAME>(__VA_ARGS__); \
                           });                                                          \
   }
-PARQUET_VARIANT_DIRECT_APPEND_LIST(DEFINE_OBJECT_DIRECT_APPEND)
-#undef DEFINE_OBJECT_DIRECT_APPEND
+PARQUET_VARIANT_DIRECT_APPEND_LIST(DEFINE_OBJECT_DIRECT_ADD)
+#undef DEFINE_OBJECT_DIRECT_ADD
 
-#define DEFINE_OBJECT_SPECIAL_APPEND(NAME, decl_args, ...)                      \
-  void VariantObjectBuilder::Append##NAME VARIANT_OBJECT_DECL decl_args {       \
+#define DEFINE_OBJECT_SPECIAL_ADD(NAME, decl_args, ...)                         \
+  void VariantObjectBuilder::Add##NAME VARIANT_OBJECT_DECL decl_args {          \
     AppendObjectValueWith(                                                      \
         impl_->state, impl_->frame_index, field_name,                           \
         [&](VariantValueWriter& writer) { writer.Append##NAME(__VA_ARGS__); }); \
   }
-PARQUET_VARIANT_SPECIAL_APPEND_LIST(DEFINE_OBJECT_SPECIAL_APPEND)
-DEFINE_OBJECT_SPECIAL_APPEND(EncodedValue, (std::string_view value), value)
-#undef DEFINE_OBJECT_SPECIAL_APPEND
+PARQUET_VARIANT_SPECIAL_APPEND_LIST(DEFINE_OBJECT_SPECIAL_ADD)
+DEFINE_OBJECT_SPECIAL_ADD(EncodedValue, (std::string_view value), value)
+#undef DEFINE_OBJECT_SPECIAL_ADD
 
 #undef VARIANT_OBJECT_DECL
 
@@ -813,7 +837,7 @@ VariantListBuilder VariantObjectBuilder::StartList(std::string_view field_name) 
       ObjectStartContainer<VariantContainerKind::List>(*impl_, field_name));
 }
 
-void VariantObjectBuilder::Finish() {
+void VariantObjectBuilder::Finish() && {
   FinishFrame<VariantContainerKind::Object>(impl_->state, impl_->frame_index,
                                             impl_->callback);
   impl_->active = false;
@@ -851,7 +875,7 @@ template <VariantContainerKind kind>
 std::unique_ptr<internal::NestedVariantBuilderImpl> ListStartContainer(
     internal::NestedVariantBuilderImpl& impl) {
   const auto entry_count = PrepareListElement(impl.state, impl.frame_index);
-  return StartChildContainer<kind>(impl, impl.state.metadata->size(), entry_count);
+  return StartChildContainer<kind>(impl, impl.state.metadata.size(), entry_count);
 }
 
 VariantObjectBuilder VariantListBuilder::StartObject() {
@@ -862,7 +886,7 @@ VariantListBuilder VariantListBuilder::StartList() {
   return VariantListBuilder(ListStartContainer<VariantContainerKind::List>(*impl_));
 }
 
-void VariantListBuilder::Finish() {
+void VariantListBuilder::Finish() && {
   FinishFrame<VariantContainerKind::List>(impl_->state, impl_->frame_index,
                                           impl_->callback);
   impl_->active = false;
@@ -871,11 +895,11 @@ void VariantListBuilder::Finish() {
 struct VariantArrayBuilder::Impl {
   explicit Impl(MemoryPool* pool)
       : pool(pool),
+        metadata_builder(pool),
         metadata_column(pool),
         value_column(pool),
         validity_builder(pool),
-        state(value_column.bytes_builder(), std::make_unique<WritableMetadataBuilder>()) {
-  }
+        state(value_column.bytes_builder(), metadata_builder) {}
 
   void AppendNull() {
     const auto metadata_mark = metadata_column.mark();
@@ -893,7 +917,7 @@ struct VariantArrayBuilder::Impl {
 
   template <typename Write>
   void AppendValue(Write&& write) {
-    state.Reset(std::make_unique<WritableMetadataBuilder>());
+    state.ResetRoot();
     AppendValueWith(state, std::forward<Write>(write));
     CommitBuiltRow(state);
   }
@@ -923,15 +947,17 @@ struct VariantArrayBuilder::Impl {
     value_mark.bytes_length = value_start;
     try {
       const auto metadata_start = metadata_column.bytes_builder().length();
-      state.metadata->AppendTo(metadata_column.bytes_builder());
+      metadata_builder.impl_->AppendDictionary(metadata_column.bytes_builder());
       metadata_column.AppendView(metadata_start);
       value_column.AppendView(value_start);
       PARQUET_THROW_NOT_OK(validity_builder.Append(true));
     } catch (...) {
       metadata_column.Rollback(metadata_mark);
       value_column.Rollback(value_mark);
+      metadata_builder.impl_->Truncate(0);
       throw;
     }
+    metadata_builder.impl_->Truncate(0);
   }
 
   std::shared_ptr<VariantArray> Finish() {
@@ -952,6 +978,7 @@ struct VariantArrayBuilder::Impl {
   }
 
   MemoryPool* pool;
+  MetadataBuilder metadata_builder;
   BinaryViewColumnBuilder metadata_column;
   BinaryViewColumnBuilder value_column;
   TypedBufferBuilder<bool> validity_builder;
@@ -985,6 +1012,15 @@ VariantArrayBuilder::VariantArrayBuilder(VariantArrayBuilder&&) noexcept = defau
 VariantArrayBuilder& VariantArrayBuilder::operator=(VariantArrayBuilder&&) noexcept =
     default;
 
+void VariantArrayBuilder::Reserve(int64_t additional_capacity) {
+  if (additional_capacity == 0) {
+    return;
+  }
+  impl_->metadata_column.Reserve(additional_capacity);
+  impl_->value_column.Reserve(additional_capacity);
+  PARQUET_THROW_NOT_OK(impl_->validity_builder.Reserve(additional_capacity));
+}
+
 void VariantArrayBuilder::AppendNull() { impl_->AppendNull(); }
 
 #define DEFINE_ARRAY_DIRECT_APPEND(NAME, decl_args, ...)         \
@@ -1010,14 +1046,9 @@ void VariantArrayBuilder::AppendEncoded(const EncodedVariantValue& value) {
 
 template <VariantContainerKind kind, typename ImplType>
 std::unique_ptr<internal::NestedVariantBuilderImpl> ArrayStartContainer(ImplType& impl) {
-  impl.state.Reset(std::make_unique<WritableMetadataBuilder>());
-  impl.state.frames.push_back(
-      VariantBuildFrame{.kind = kind,
-                        .value_start = impl.state.value.length(),
-                        .metadata_size = impl.state.metadata->size()});
-  return std::make_unique<internal::NestedVariantBuilderImpl>(
-      impl.state, impl.state.frames.size() - 1,
-      std::bind_front(&ImplType::CommitBuiltRow, &impl));
+  impl.state.ResetRoot();
+  return StartContainer<kind>(impl.state,
+                              std::bind_front(&ImplType::CommitBuiltRow, &impl));
 }
 
 VariantObjectBuilder VariantArrayBuilder::StartObject() {
@@ -1051,15 +1082,13 @@ struct VariantValueArrayBuilder::Impl {
     }
   }
 
-  void AppendEncodedValue(std::string_view value) {
-    if (value.empty()) {
-      throw ParquetException("Encoded Variant value length cannot be 0");
-    }
+  template <typename Write>
+  void AppendValue(Write&& write) {
     const auto value_mark = value_column.mark();
     try {
-      const auto value_start = value_column.bytes_builder().length();
-      PARQUET_THROW_NOT_OK(value_column.bytes_builder().Append(value));
-      value_column.AppendView(value_start);
+      VariantValueWriter writer(value_column.bytes_builder());
+      std::invoke(std::forward<Write>(write), writer);
+      value_column.AppendView(value_mark.bytes_length);
       PARQUET_THROW_NOT_OK(validity_builder.Append(true));
     } catch (...) {
       value_column.Rollback(value_mark);
@@ -1067,14 +1096,7 @@ struct VariantValueArrayBuilder::Impl {
     }
   }
 
-  void CommitBuiltRow(VariantBuildState& state) {
-    if (!state.frames.empty()) {
-      throw ParquetException("Cannot commit Variant value row with active containers");
-    }
-    if (!state.root_has_value) {
-      throw ParquetException("Cannot commit empty Variant value row");
-    }
-
+  void CommitBuiltRow(size_t metadata_checkpoint, VariantBuildState& state) {
     const auto value_start = state.root_value_start;
     auto value_mark = value_column.mark();
     DCHECK_LT(value_start, value_mark.bytes_length);
@@ -1084,14 +1106,18 @@ struct VariantValueArrayBuilder::Impl {
       PARQUET_THROW_NOT_OK(validity_builder.Append(true));
     } catch (...) {
       value_column.Rollback(value_mark);
+      state.metadata.Truncate(metadata_checkpoint);
       throw;
     }
   }
 
-  void DiscardBuiltRow(VariantBuildState& state) {
-    value_column.bytes_builder().Rewind(state.root_value_start);
-    state.frames.clear();
-    state.root_has_value = false;
+  template <VariantContainerKind kind, typename Metadata>
+  std::unique_ptr<internal::NestedVariantBuilderImpl> StartContainerWithMetadata(
+      Metadata& metadata) {
+    state.emplace(value_column.bytes_builder(), metadata);
+    const auto metadata_checkpoint = state->metadata.size();
+    return StartContainer<kind>(
+        *state, std::bind_front(&Impl::CommitBuiltRow, this, metadata_checkpoint));
   }
 
   std::shared_ptr<BinaryViewArray> Finish() {
@@ -1103,6 +1129,7 @@ struct VariantValueArrayBuilder::Impl {
   MemoryPool* pool;
   BinaryViewColumnBuilder value_column;
   TypedBufferBuilder<bool> validity_builder;
+  std::optional<VariantBuildState> state;
 };
 
 VariantValueArrayBuilder::VariantValueArrayBuilder(MemoryPool* pool)
@@ -1115,15 +1142,6 @@ VariantValueArrayBuilder& VariantValueArrayBuilder::operator=(
 
 void VariantValueArrayBuilder::AppendNull() { impl_->AppendNull(); }
 
-void VariantValueArrayBuilder::AppendEncodedValue(std::string_view value) {
-  impl_->AppendEncodedValue(value);
-}
-
-VariantValueRowBuilder VariantValueArrayBuilder::BindMetadata(
-    const VariantMetadataView& metadata) {
-  return {*this, metadata};
-}
-
 std::shared_ptr<BinaryViewArray> VariantValueArrayBuilder::Finish() {
   auto out = impl_->Finish();
   Reset();
@@ -1132,65 +1150,44 @@ std::shared_ptr<BinaryViewArray> VariantValueArrayBuilder::Finish() {
 
 void VariantValueArrayBuilder::Reset() { impl_ = std::make_unique<Impl>(impl_->pool); }
 
-struct VariantValueRowBuilder::Impl {
-  Impl(VariantValueArrayBuilder::Impl& parent, const VariantMetadataView& metadata)
-      : parent(parent),
-        state(parent.value_column.bytes_builder(),
-              std::make_unique<ReadOnlyMetadataBuilder>(metadata)) {}
-
-  ~Impl() {
-    if (!finished) {
-      parent.DiscardBuiltRow(state);
-    }
+#define DEFINE_VALUE_ARRAY_DIRECT_APPEND(NAME, decl_args, ...)   \
+  void VariantValueArrayBuilder::Append##NAME decl_args {        \
+    impl_->AppendValue([&](VariantValueWriter& writer) {         \
+      writer.Append<VariantPrimitiveType::k##NAME>(__VA_ARGS__); \
+    });                                                          \
   }
+PARQUET_VARIANT_DIRECT_APPEND_LIST(DEFINE_VALUE_ARRAY_DIRECT_APPEND)
+#undef DEFINE_VALUE_ARRAY_DIRECT_APPEND
 
-  VariantValueArrayBuilder::Impl& parent;
-  VariantBuildState state;
-  bool finished = false;
-};
-
-VariantValueRowBuilder::VariantValueRowBuilder(VariantValueArrayBuilder& parent,
-                                               const VariantMetadataView& metadata)
-    : impl_(std::make_unique<Impl>(*parent.impl_, metadata)) {}
-VariantValueRowBuilder::~VariantValueRowBuilder() = default;
-VariantValueRowBuilder::VariantValueRowBuilder(VariantValueRowBuilder&&) noexcept =
-    default;
-VariantValueRowBuilder& VariantValueRowBuilder::operator=(
-    VariantValueRowBuilder&&) noexcept = default;
-
-#define DEFINE_VALUE_ROW_DIRECT_APPEND(NAME, decl_args, ...)        \
-  void VariantValueRowBuilder::Append##NAME decl_args {             \
-    AppendValueWith(impl_->state, [&](VariantValueWriter& writer) { \
-      writer.Append<VariantPrimitiveType::k##NAME>(__VA_ARGS__);    \
-    });                                                             \
+#define DEFINE_VALUE_ARRAY_SPECIAL_APPEND(NAME, decl_args, ...)                 \
+  void VariantValueArrayBuilder::Append##NAME decl_args {                       \
+    impl_->AppendValue(                                                         \
+        [&](VariantValueWriter& writer) { writer.Append##NAME(__VA_ARGS__); }); \
   }
-PARQUET_VARIANT_DIRECT_APPEND_LIST(DEFINE_VALUE_ROW_DIRECT_APPEND)
-#undef DEFINE_VALUE_ROW_DIRECT_APPEND
+PARQUET_VARIANT_SPECIAL_APPEND_LIST(DEFINE_VALUE_ARRAY_SPECIAL_APPEND)
+DEFINE_VALUE_ARRAY_SPECIAL_APPEND(EncodedValue, (std::string_view value), value)
+#undef DEFINE_VALUE_ARRAY_SPECIAL_APPEND
 
-#define DEFINE_VALUE_ROW_SPECIAL_APPEND(NAME, decl_args, ...)       \
-  void VariantValueRowBuilder::Append##NAME decl_args {             \
-    AppendValueWith(impl_->state, [&](VariantValueWriter& writer) { \
-      writer.Append##NAME(__VA_ARGS__);                             \
-    });                                                             \
-  }
-PARQUET_VARIANT_SPECIAL_APPEND_LIST(DEFINE_VALUE_ROW_SPECIAL_APPEND)
-DEFINE_VALUE_ROW_SPECIAL_APPEND(EncodedValue, (std::string_view value), value)
-#undef DEFINE_VALUE_ROW_SPECIAL_APPEND
-
-VariantObjectBuilder VariantValueRowBuilder::StartObject() {
-  return VariantObjectBuilder(StartContainer<VariantContainerKind::Object>(impl_->state));
+VariantObjectBuilder VariantValueArrayBuilder::StartObject(MetadataBuilder& metadata) {
+  return VariantObjectBuilder(
+      impl_->StartContainerWithMetadata<VariantContainerKind::Object>(metadata));
 }
 
-VariantListBuilder VariantValueRowBuilder::StartList() {
-  return VariantListBuilder(StartContainer<VariantContainerKind::List>(impl_->state));
+VariantObjectBuilder VariantValueArrayBuilder::StartObject(
+    const VariantMetadataView& metadata) {
+  return VariantObjectBuilder(
+      impl_->StartContainerWithMetadata<VariantContainerKind::Object>(metadata));
 }
 
-void VariantValueRowBuilder::Finish() {
-  if (impl_->finished) {
-    throw ParquetException("Variant value row is already finished");
-  }
-  impl_->parent.CommitBuiltRow(impl_->state);
-  impl_->finished = true;
+VariantListBuilder VariantValueArrayBuilder::StartList(MetadataBuilder& metadata) {
+  return VariantListBuilder(
+      impl_->StartContainerWithMetadata<VariantContainerKind::List>(metadata));
+}
+
+VariantListBuilder VariantValueArrayBuilder::StartList(
+    const VariantMetadataView& metadata) {
+  return VariantListBuilder(
+      impl_->StartContainerWithMetadata<VariantContainerKind::List>(metadata));
 }
 
 std::shared_ptr<VariantArray> MakeVariantArrayFromStorage(

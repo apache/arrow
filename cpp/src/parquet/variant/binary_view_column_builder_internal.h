@@ -66,6 +66,18 @@ class BinaryViewColumnBuilder {
 
   int64_t length() const { return views_.length(); }
 
+  void Reserve(int64_t additional_capacity) {
+    if (additional_capacity < 0) {
+      throw ParquetException("Binary view capacity must be non-negative");
+    }
+    constexpr int64_t kMaxCapacity =
+        std::numeric_limits<int64_t>::max() / sizeof(::arrow::BinaryViewType::c_type);
+    if (additional_capacity > kMaxCapacity - length()) {
+      throw ParquetException("Binary view capacity is too large");
+    }
+    PARQUET_THROW_NOT_OK(views_.Reserve(additional_capacity));
+  }
+
   std::string_view SliceFrom(int64_t start) const {
     DCHECK_LE(start, bytes_.length());
     const auto size = bytes_.length() - start;

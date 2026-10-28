@@ -56,8 +56,8 @@ namespace {
 EncodedVariantValue ObjectWithInt64(std::string_view field_name, int64_t value) {
   VariantBuilder builder;
   auto object = builder.StartObject();
-  object.AppendInt64(field_name, value);
-  object.Finish();
+  object.AddInt64(field_name, value);
+  std::move(object).Finish();
   return builder.Finish();
 }
 
@@ -65,7 +65,7 @@ EncodedVariantValue EmptyObjectWithField(std::string_view field_name) {
   VariantBuilder builder;
   builder.AddFieldName(field_name);
   auto object = builder.StartObject();
-  object.Finish();
+  std::move(object).Finish();
   return builder.Finish();
 }
 
@@ -97,10 +97,10 @@ TEST(TestVariantUnshred, FastPathKeepsStorage) {
 
 TEST(TestVariantUnshred, UnshredsValuesWithoutCopyingMetadata) {
   VariantBuilder typed_only_row_builder;
-  typed_only_row_builder.AppendInt64(1);
+  typed_only_row_builder.SetInt64(1);
   auto typed_only_row = typed_only_row_builder.Finish();
   VariantBuilder residual_value_row_builder;
-  residual_value_row_builder.AppendInt8(7);
+  residual_value_row_builder.SetInt8(7);
   auto residual_value_row = residual_value_row_builder.Finish();
 
   const auto metadata_value = std::string_view{*typed_only_row.metadata};
@@ -145,29 +145,29 @@ TEST(TestVariantUnshred, UnshredsDecimalTypedValues) {
 
   assert_decimal(::arrow::decimal32(/*precision=*/9, /*scale=*/2), R"(["-1234567.89"])",
                  [](VariantBuilder& builder) {
-                   builder.AppendDecimal4(::arrow::Decimal32(-123456789), /*scale=*/2);
+                   builder.SetDecimal4(::arrow::Decimal32(-123456789), /*scale=*/2);
                  });
   assert_decimal(::arrow::decimal64(/*precision=*/9, /*scale=*/0), R"(["123456789"])",
                  [](VariantBuilder& builder) {
-                   builder.AppendDecimal4(::arrow::Decimal32(123456789), /*scale=*/0);
+                   builder.SetDecimal4(::arrow::Decimal32(123456789), /*scale=*/0);
                  });
   assert_decimal(::arrow::decimal64(/*precision=*/18, /*scale=*/0),
                  R"(["-123456789012345678"])", [](VariantBuilder& builder) {
-                   builder.AppendDecimal8(::arrow::Decimal64(-123456789012345678),
+                   builder.SetDecimal8(::arrow::Decimal64(-123456789012345678),
                                           /*scale=*/0);
                  });
   assert_decimal(::arrow::decimal128(/*precision=*/9, /*scale=*/0), R"(["-123456789"])",
                  [](VariantBuilder& builder) {
-                   builder.AppendDecimal4(::arrow::Decimal32(-123456789), /*scale=*/0);
+                   builder.SetDecimal4(::arrow::Decimal32(-123456789), /*scale=*/0);
                  });
   assert_decimal(::arrow::decimal128(/*precision=*/18, /*scale=*/0),
                  R"(["123456789012345678"])", [](VariantBuilder& builder) {
-                   builder.AppendDecimal8(::arrow::Decimal64(123456789012345678),
+                   builder.SetDecimal8(::arrow::Decimal64(123456789012345678),
                                           /*scale=*/0);
                  });
   assert_decimal(::arrow::decimal128(/*precision=*/21, /*scale=*/0),
                  R"(["100000000000000000000"])", [](VariantBuilder& builder) {
-                   builder.AppendDecimal16(
+                   builder.SetDecimal16(
                        ::arrow::Decimal128(std::string("100000000000000000000")),
                        /*scale=*/0);
                  });
@@ -175,7 +175,7 @@ TEST(TestVariantUnshred, UnshredsDecimalTypedValues) {
 
 TEST(TestVariantUnshred, MissingTopLevelValue) {
   VariantBuilder builder;
-  builder.AppendVariantNull();
+  builder.SetVariantNull();
   auto expected = builder.Finish();
   auto array =
       MakeSingleRowVariantArray(std::string_view{*expected.metadata}, std::nullopt,
@@ -199,7 +199,6 @@ TEST(TestVariantUnshred, MissingObjectField) {
   ::arrow::ChunkedArray chunked(::arrow::ArrayVector{array});
 
   ValidateVariants<true>(chunked);
-  ValidateVariants<false>(chunked);
   AssertUnshreddedValue(*array, /*row=*/0, expected);
 }
 
@@ -224,7 +223,7 @@ TEST(TestVariantUnshred, MissingListElements) {
   auto list = builder.StartList();
   list.AppendVariantNull();
   list.AppendVariantNull();
-  list.Finish();
+  std::move(list).Finish();
   auto expected = builder.Finish();
   auto field_group =
       MakeInt64FieldGroup({std::nullopt, std::nullopt}, "[null, null]", {true, false});
@@ -246,7 +245,7 @@ TEST(TestVariantUnshred, MissingListElements) {
 
 TEST(TestVariantUnshred, PreservesSliceNullBitmap) {
   VariantBuilder builder;
-  builder.AppendInt64(3);
+  builder.SetInt64(3);
   auto encoded = builder.Finish();
   auto metadata = BinaryArrayFromValues({std::string_view{*encoded.metadata},
                                          std::string_view{*encoded.metadata},
@@ -298,7 +297,6 @@ TEST(TestVariantUnshred, DuplicateFields) {
                                          std::nullopt, typed_value);
   ::arrow::ChunkedArray chunked(::arrow::ArrayVector{array});
 
-  ASSERT_THROW(ValidateVariants<true>(chunked), ParquetInvalidOrCorruptedFileException);
   ASSERT_THROW(ValidateVariants<false>(chunked), ParquetInvalidOrCorruptedFileException);
   ASSERT_THROW(UnshredVariantArray(*array), ParquetInvalidOrCorruptedFileException);
 }

@@ -64,6 +64,9 @@ struct CompiledTypedScalarPlan {
   bool adjusted_to_utc = false;
 };
 
+// Object nodes contain mutable validation caches, so execution state is not yet
+// separate from the compiled plan. Do not use the same plan concurrently in
+// ProcessSlot(), even through const references.
 struct CompiledVariantRowPlan {
   struct FieldGroup {
     std::shared_ptr<::arrow::Array> array;
@@ -88,6 +91,8 @@ struct CompiledVariantRowPlan {
   struct Object {
     std::vector<ObjectField> fields;
     std::unordered_set<std::string_view> field_names;
+    // Borrows bytes from the input metadata array, which must outlive this plan.
+    mutable std::optional<std::string_view> last_validated_metadata;
   };
 
   struct Typed {
@@ -101,8 +106,9 @@ struct CompiledVariantRowPlan {
 };
 
 struct BuildTarget {
-  struct Row {
-    std::reference_wrapper<VariantValueRowBuilder> builder;
+  struct Root {
+    std::reference_wrapper<VariantValueArrayBuilder> builder;
+    std::reference_wrapper<const VariantMetadataView> metadata;
   };
 
   struct ObjectField {
@@ -114,7 +120,7 @@ struct BuildTarget {
     std::reference_wrapper<VariantListBuilder> builder;
   };
 
-  using Destination = std::variant<Row, ObjectField, ListElement>;
+  using Destination = std::variant<Root, ObjectField, ListElement>;
   Destination destination;
 };
 

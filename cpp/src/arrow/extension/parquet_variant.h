@@ -33,9 +33,14 @@ class ARROW_EXPORT VariantArray : public ExtensionArray {
   using ExtensionArray::ExtensionArray;
 
   /// \brief The metadata child array.
+  ///
+  /// Binary, LargeBinary, or BinaryView, optionally dictionary- or run-end-encoded.
   std::shared_ptr<Array> metadata() const;
 
-  /// \brief The residual value child array, or null if it is absent from storage.
+  /// \brief The residual value child array.
+  ///
+  /// This is always present in compliant Variant storage, but may be null when
+  /// reading an out-of-spec typed-only Variant from Parquet.
   std::shared_ptr<Array> value() const;
 
   /// \brief The typed value child array, or null for an unshredded Variant array.
@@ -66,8 +71,11 @@ class ARROW_EXPORT VariantArray : public ExtensionArray {
 ///   optional &lt;type&gt; typed_value;
 /// }
 ///
-/// The value and typed_value fields are optional in the schema, but at least one
-/// must be present.
+/// The metadata and value fields must be present in the storage schema. The value
+/// field is non-nullable for unshredded storage and nullable for shredded storage.
+/// The typed_value field is present only for shredded storage.
+/// In Arrow storage, metadata may be dictionary- or run-end-encoded with
+/// binary-like values.
 ///
 /// To read more about variant shredding, see the variant shredding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantShredding.md

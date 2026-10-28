@@ -24,6 +24,7 @@
 
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/small_vector.h"
 #include "parquet/exception.h"
 #include "parquet/variant/format_internal.h"
 
@@ -45,7 +46,10 @@ class ViewAccess {
 
 namespace {
 
+using ::arrow::internal::SmallVector;
 using internal::ViewAccess;
+
+constexpr size_t kInlineElements = 16;
 
 uint32_t ReadLittleEndian(std::string_view data, size_t offset, size_t width) {
   DCHECK_LE(width, sizeof(uint32_t));
@@ -164,7 +168,7 @@ size_t ParseArray(std::string_view value, const VariantMetadataView& metadata,
 
   CheckAvailable(value, offset, OffsetBytes(offset_count, offset_size), "array offsets");
 
-  std::vector<uint32_t> offsets(offset_count);
+  SmallVector<uint32_t, kInlineElements + 1> offsets(offset_count);
   for (size_t i = 0; i < offset_count; ++i) {
     offsets[i] = ReadLittleEndian(value, offset, offset_size);
     offset += offset_size;
@@ -226,7 +230,7 @@ size_t ParseObject(std::string_view value, const VariantMetadataView& metadata,
 
   CheckAvailable(value, offset, static_cast<size_t>(num_elements) * id_size,
                  "object field ids");
-  std::vector<uint32_t> field_ids(num_elements);
+  SmallVector<uint32_t, kInlineElements> field_ids(num_elements);
   for (uint32_t i = 0; i < num_elements; ++i) {
     field_ids[i] = ReadLittleEndian(value, offset, id_size);
     offset += id_size;
@@ -235,7 +239,7 @@ size_t ParseObject(std::string_view value, const VariantMetadataView& metadata,
   const size_t offset_count = OffsetCount(num_elements);
   CheckAvailable(value, offset, OffsetBytes(offset_count, offset_size),
                  "object field offsets");
-  std::vector<uint32_t> field_offsets(offset_count);
+  SmallVector<uint32_t, kInlineElements + 1> field_offsets(offset_count);
   for (size_t i = 0; i < offset_count; ++i) {
     field_offsets[i] = ReadLittleEndian(value, offset, offset_size);
     offset += offset_size;
@@ -274,7 +278,7 @@ size_t ParseObject(std::string_view value, const VariantMetadataView& metadata,
     }
   }
 
-  std::vector<uint32_t> value_offsets = field_offsets;
+  auto value_offsets = out != nullptr ? field_offsets : std::move(field_offsets);
   std::ranges::sort(value_offsets);
   if (std::ranges::adjacent_find(value_offsets) != value_offsets.end()) {
     throw ParquetInvalidOrCorruptedFileException(
@@ -397,7 +401,7 @@ VariantMetadataView VariantMetadataView::ParsePrefix(std::string_view data,
   const size_t offset_bytes = OffsetBytes(offset_count, view.offset_size_);
   CheckAvailable(data, offsets_offset, offset_bytes, "metadata dictionary offsets");
 
-  std::vector<uint32_t> offsets(offset_count);
+  SmallVector<uint32_t, kInlineElements + 1> offsets(offset_count);
   for (size_t i = 0; i < offset_count; ++i) {
     offsets[i] =
         ReadLittleEndian(data, offsets_offset + i * view.offset_size_, view.offset_size_);

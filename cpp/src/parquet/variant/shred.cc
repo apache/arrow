@@ -448,15 +448,13 @@ class ObjectShredNode : public ShredNode {
     if (first_residual == object_fields.end()) {
       AppendResidualNull();
     } else {
-      auto row = residual_.BindMetadata(metadata);
-      auto residual_object = row.StartObject();
+      auto residual_object = residual_.StartObject(metadata);
       for (auto it = first_residual; it != object_fields.end(); ++it) {
         if (!requested_field_names_.contains(it->name)) {
-          residual_object.AppendEncodedValue(it->name, it->value);
+          residual_object.AddEncodedValue(it->name, it->value);
         }
       }
-      residual_object.Finish();
-      row.Finish();
+      std::move(residual_object).Finish();
     }
 
     PARQUET_THROW_NOT_OK(typed_validity_.Append(true));
@@ -815,7 +813,7 @@ std::unique_ptr<ShredNode> CompileShredNode(const std::shared_ptr<DataType>& tar
 }  // namespace
 
 std::shared_ptr<VariantArray> ShredVariantArray(
-    const VariantArray& array, const std::shared_ptr<DataType>& typed_value_type,
+    const VariantArray& array, const std::shared_ptr<DataType>& target_shredded_type,
     MemoryPool* pool) {
   if (array.is_shredded()) {
     throw ParquetException("Cannot shred an already shredded Variant array");
@@ -826,7 +824,7 @@ std::shared_ptr<VariantArray> ShredVariantArray(
   DCHECK_NE(value_array, nullptr);
 
   ::arrow::compute::ExecContext ctx(pool);
-  auto root = CompileShredNode(typed_value_type, &ctx, pool);
+  auto root = CompileShredNode(target_shredded_type, &ctx, pool);
   auto output_type = ::arrow::struct_(
       {::arrow::field("metadata", metadata_array->type(), /*nullable=*/false),
        ::arrow::field("value", ::arrow::binary_view()),
@@ -840,11 +838,11 @@ std::shared_ptr<VariantArray> ShredVariantArray(
       root->AppendParentNull();
       continue;
     }
-    if (metadata_array->IsNull(row) || value_array->IsNull(row)) {
+    if (value_array->IsNull(row)) {
       throw ParquetInvalidOrCorruptedFileException(
-          "Invalid unshredded Variant: visible metadata or value is null");
+          "Invalid unshredded Variant: visible value is null");
     }
-    const auto metadata_bytes = internal::BinaryFieldView(*metadata_array, row);
+    const auto metadata_bytes = internal::MetadataFieldView(*metadata_array, row);
     if (!last_metadata.has_value() || last_metadata_bytes != metadata_bytes) {
       last_metadata = VariantMetadataView::Make(metadata_bytes);
       last_metadata_bytes = metadata_bytes;

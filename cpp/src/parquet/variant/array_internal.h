@@ -33,6 +33,9 @@ PARQUET_EXPORT
 std::string_view BinaryFieldView(const ::arrow::Array& array, int64_t row);
 
 PARQUET_EXPORT
+std::string_view MetadataFieldView(const ::arrow::Array& array, int64_t row);
+
+PARQUET_EXPORT
 std::shared_ptr<::arrow::Array> ValuesArray(const ::arrow::Array& array);
 
 std::pair<int64_t, int64_t> ValuesRangeAt(const ::arrow::Array& array, int64_t row);

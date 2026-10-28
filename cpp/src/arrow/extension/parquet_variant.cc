@@ -32,6 +32,23 @@ namespace arrow::extension {
 
 namespace {
 
+bool IsSupportedMetadataType(const DataType& type) {
+  switch (type.id()) {
+    case Type::DICTIONARY: {
+      const auto& dictionary = internal::checked_cast<const DictionaryType&>(type);
+      return is_integer(dictionary.index_type()->id()) &&
+             is_binary_or_binary_view(dictionary.value_type()->id());
+    }
+    case Type::RUN_END_ENCODED: {
+      const auto& ree = internal::checked_cast<const RunEndEncodedType&>(type);
+      return RunEndEncodedType::RunEndTypeValid(*ree.run_end_type()) &&
+             is_binary_or_binary_view(ree.value_type()->id());
+    }
+    default:
+      return is_binary_or_binary_view(type.storage_id());
+  }
+}
+
 bool IsSupportedPrimitiveTypedValue(const std::shared_ptr<DataType>& type) {
   switch (type->id()) {
     case Type::BOOL:
@@ -146,7 +163,7 @@ bool IsSupportedStorageTypeImpl(const std::shared_ptr<DataType>& storage_type) {
 
   for (const auto& field : storage_type->fields()) {
     if (field->name() == "metadata") {
-      if (metadata != nullptr || !is_binary_or_binary_view(field->type()->storage_id()) ||
+      if (metadata != nullptr || !IsSupportedMetadataType(*field->type()) ||
           field->nullable()) {
         return false;
       }

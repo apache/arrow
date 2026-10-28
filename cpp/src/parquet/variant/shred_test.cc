@@ -23,6 +23,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"  // IWYU pragma: keep
@@ -223,69 +224,67 @@ TEST(TestVariantShred, AlreadyShredded) {
 
 TEST(TestVariantShred, Primitive) {
   AssertConverted(
-      ::arrow::boolean(), [](VariantBuilder& builder) { builder.AppendBoolean(true); },
-      [](VariantBuilder& builder) { builder.AppendBoolean(true); });
+      ::arrow::boolean(), [](VariantBuilder& builder) { builder.SetBoolean(true); },
+      [](VariantBuilder& builder) { builder.SetBoolean(true); });
   AssertConverted(
-      ::arrow::int32(), [](VariantBuilder& builder) { builder.AppendInt32(7); },
-      [](VariantBuilder& builder) { builder.AppendInt32(7); });
+      ::arrow::int32(), [](VariantBuilder& builder) { builder.SetInt32(7); },
+      [](VariantBuilder& builder) { builder.SetInt32(7); });
   AssertConverted(
-      ::arrow::float32(), [](VariantBuilder& builder) { builder.AppendFloat(9); },
-      [](VariantBuilder& builder) { builder.AppendFloat(9); });
+      ::arrow::float32(), [](VariantBuilder& builder) { builder.SetFloat(9); },
+      [](VariantBuilder& builder) { builder.SetFloat(9); });
   AssertConverted(
-      ::arrow::boolean(), [](VariantBuilder& builder) { builder.AppendInt16(1); },
-      [](VariantBuilder& builder) { builder.AppendBoolean(true); });
+      ::arrow::boolean(), [](VariantBuilder& builder) { builder.SetInt16(1); },
+      [](VariantBuilder& builder) { builder.SetBoolean(true); });
   AssertConverted(
-      ::arrow::int8(), [](VariantBuilder& builder) { builder.AppendBoolean(true); },
-      [](VariantBuilder& builder) { builder.AppendInt8(1); });
+      ::arrow::int8(), [](VariantBuilder& builder) { builder.SetBoolean(true); },
+      [](VariantBuilder& builder) { builder.SetInt8(1); });
   AssertConverted(
-      ::arrow::int16(), [](VariantBuilder& builder) { builder.AppendInt8(7); },
-      [](VariantBuilder& builder) { builder.AppendInt16(7); });
+      ::arrow::int16(), [](VariantBuilder& builder) { builder.SetInt8(7); },
+      [](VariantBuilder& builder) { builder.SetInt16(7); });
   AssertConverted(
-      ::arrow::int32(), [](VariantBuilder& builder) { builder.AppendInt16(7); },
-      [](VariantBuilder& builder) { builder.AppendInt32(7); });
+      ::arrow::int32(), [](VariantBuilder& builder) { builder.SetInt16(7); },
+      [](VariantBuilder& builder) { builder.SetInt32(7); });
   AssertConverted(
-      ::arrow::int64(), [](VariantBuilder& builder) { builder.AppendInt8(7); },
-      [](VariantBuilder& builder) { builder.AppendInt64(7); });
+      ::arrow::int64(), [](VariantBuilder& builder) { builder.SetInt8(7); },
+      [](VariantBuilder& builder) { builder.SetInt64(7); });
   AssertConverted(
-      ::arrow::float32(), [](VariantBuilder& builder) { builder.AppendInt16(9); },
-      [](VariantBuilder& builder) { builder.AppendFloat(9); });
+      ::arrow::float32(), [](VariantBuilder& builder) { builder.SetInt16(9); },
+      [](VariantBuilder& builder) { builder.SetFloat(9); });
   AssertConverted(
-      ::arrow::float64(), [](VariantBuilder& builder) { builder.AppendInt16(9); },
-      [](VariantBuilder& builder) { builder.AppendDouble(9); });
+      ::arrow::float64(), [](VariantBuilder& builder) { builder.SetInt16(9); },
+      [](VariantBuilder& builder) { builder.SetDouble(9); });
   AssertConverted(
-      ::arrow::boolean(), [](VariantBuilder& builder) { builder.AppendString("true"); },
-      [](VariantBuilder& builder) { builder.AppendBoolean(true); });
+      ::arrow::boolean(), [](VariantBuilder& builder) { builder.SetString("true"); },
+      [](VariantBuilder& builder) { builder.SetBoolean(true); });
   AssertConverted(
       ::arrow::utf8_view(),
-      [](VariantBuilder& builder) { builder.AppendShortString("hello"); },
-      [](VariantBuilder& builder) { builder.AppendShortString("hello"); });
+      [](VariantBuilder& builder) { builder.SetShortString("hello"); },
+      [](VariantBuilder& builder) { builder.SetShortString("hello"); });
   const std::string long_string(80, 'x');
   AssertConverted(
       ::arrow::utf8(),
-      [&long_string](VariantBuilder& builder) { builder.AppendString(long_string); },
-      [&long_string](VariantBuilder& builder) { builder.AppendString(long_string); });
+      [&long_string](VariantBuilder& builder) { builder.SetString(long_string); },
+      [&long_string](VariantBuilder& builder) { builder.SetString(long_string); });
   AssertConverted(
       ::arrow::large_utf8(),
-      [&long_string](VariantBuilder& builder) { builder.AppendString(long_string); },
-      [&long_string](VariantBuilder& builder) { builder.AppendString(long_string); });
+      [&long_string](VariantBuilder& builder) { builder.SetString(long_string); },
+      [&long_string](VariantBuilder& builder) { builder.SetString(long_string); });
   AssertConverted(
-      ::arrow::binary(), [](VariantBuilder& builder) { builder.AppendBinary("abc"); },
-      [](VariantBuilder& builder) { builder.AppendBinary("abc"); });
+      ::arrow::binary(), [](VariantBuilder& builder) { builder.SetBinary("abc"); },
+      [](VariantBuilder& builder) { builder.SetBinary("abc"); });
   AssertConverted(
-      ::arrow::binary_view(),
-      [](VariantBuilder& builder) { builder.AppendBinary("abc"); },
-      [](VariantBuilder& builder) { builder.AppendBinary("abc"); });
+      ::arrow::binary_view(), [](VariantBuilder& builder) { builder.SetBinary("abc"); },
+      [](VariantBuilder& builder) { builder.SetBinary("abc"); });
   AssertConverted(
-      ::arrow::large_binary(),
-      [](VariantBuilder& builder) { builder.AppendBinary("abc"); },
-      [](VariantBuilder& builder) { builder.AppendBinary("abc"); });
+      ::arrow::large_binary(), [](VariantBuilder& builder) { builder.SetBinary("abc"); },
+      [](VariantBuilder& builder) { builder.SetBinary("abc"); });
   AssertConverted(
-      ::arrow::date32(), [](VariantBuilder& builder) { builder.AppendDate(123); },
-      [](VariantBuilder& builder) { builder.AppendDate(123); });
+      ::arrow::date32(), [](VariantBuilder& builder) { builder.SetDate(123); },
+      [](VariantBuilder& builder) { builder.SetDate(123); });
   AssertConverted(
       ::arrow::time64(::arrow::TimeUnit::MICRO),
-      [](VariantBuilder& builder) { builder.AppendTimeNTZMicros(123); },
-      [](VariantBuilder& builder) { builder.AppendTimeNTZMicros(123); });
+      [](VariantBuilder& builder) { builder.SetTimeNTZMicros(123); },
+      [](VariantBuilder& builder) { builder.SetTimeNTZMicros(123); });
 }
 
 TEST(TestVariantShred, MixedPrimitive) {
@@ -297,7 +296,7 @@ TEST(TestVariantShred, MixedPrimitive) {
   auto shredded = ShredVariantArray(*builder.Finish(), ::arrow::int64());
   for (int64_t row = 0; row < shredded->length(); ++row) {
     VariantBuilder expected;
-    expected.AppendInt64(row + 1);
+    expected.SetInt64(row + 1);
     AssertUnshreddedValue(*shredded, row, expected.Finish());
   }
   ValidateVariants<true>(ChunkedArray{shredded});
@@ -305,39 +304,39 @@ TEST(TestVariantShred, MixedPrimitive) {
 
 TEST(TestVariantShred, PrimitiveFallback) {
   VariantBuilder overflow;
-  overflow.AppendInt64(128);
+  overflow.SetInt64(128);
   AssertFallback(overflow.Finish(), ::arrow::int8());
 
   VariantBuilder fractional;
-  fractional.AppendDouble(1.5);
+  fractional.SetDouble(1.5);
   AssertFallback(fractional.Finish(), ::arrow::int64());
 
   VariantBuilder nan;
-  nan.AppendDouble(std::numeric_limits<double>::quiet_NaN());
+  nan.SetDouble(std::numeric_limits<double>::quiet_NaN());
   AssertFallback(nan.Finish(), ::arrow::int64());
 
   VariantBuilder infinity;
-  infinity.AppendDouble(std::numeric_limits<double>::infinity());
+  infinity.SetDouble(std::numeric_limits<double>::infinity());
   AssertFallback(infinity.Finish(), ::arrow::int64());
 
   VariantBuilder malformed;
-  malformed.AppendString("not-a-decimal");
+  malformed.SetString("not-a-decimal");
   AssertFallback(malformed.Finish(), ::arrow::decimal64(18, 2));
 
   VariantBuilder wrong_family;
-  wrong_family.AppendString("42");
+  wrong_family.SetString("42");
   AssertFallback(wrong_family.Finish(), ::arrow::int64());
 
   VariantBuilder null_value;
-  null_value.AppendVariantNull();
+  null_value.SetVariantNull();
   AssertFallback(null_value.Finish(), ::arrow::int64());
 
   VariantBuilder decimal_boolean;
-  decimal_boolean.AppendDecimal4(::arrow::Decimal32(1), /*scale=*/0);
+  decimal_boolean.SetDecimal4(::arrow::Decimal32(1), /*scale=*/0);
   AssertFallback(decimal_boolean.Finish(), ::arrow::boolean());
 
   VariantBuilder boolean_decimal;
-  boolean_decimal.AppendBoolean(true);
+  boolean_decimal.SetBoolean(true);
   AssertFallback(boolean_decimal.Finish(), ::arrow::decimal32(9, 0));
 }
 
@@ -345,29 +344,29 @@ TEST(TestVariantShred, Decimal) {
   AssertConverted(
       ::arrow::decimal32(9, 2),
       [](VariantBuilder& builder) {
-        builder.AppendDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
+        builder.SetDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
       },
       [](VariantBuilder& builder) {
-        builder.AppendDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
+        builder.SetDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
       });
   AssertConverted(
-      ::arrow::decimal32(9, 2), [](VariantBuilder& builder) { builder.AppendInt16(12); },
+      ::arrow::decimal32(9, 2), [](VariantBuilder& builder) { builder.SetInt16(12); },
       [](VariantBuilder& builder) {
-        builder.AppendDecimal4(::arrow::Decimal32(1200), /*scale=*/2);
+        builder.SetDecimal4(::arrow::Decimal32(1200), /*scale=*/2);
       });
   AssertConverted(
       ::arrow::decimal64(18, 3),
       [](VariantBuilder& builder) {
-        builder.AppendDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
+        builder.SetDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
       },
       [](VariantBuilder& builder) {
-        builder.AppendDecimal8(::arrow::Decimal64(12340), /*scale=*/3);
+        builder.SetDecimal8(::arrow::Decimal64(12340), /*scale=*/3);
       });
   AssertConverted(
       ::arrow::decimal128(38, 2),
-      [](VariantBuilder& builder) { builder.AppendString("12.34"); },
+      [](VariantBuilder& builder) { builder.SetString("12.34"); },
       [](VariantBuilder& builder) {
-        builder.AppendDecimal16(::arrow::Decimal128(1234), /*scale=*/2);
+        builder.SetDecimal16(::arrow::Decimal128(1234), /*scale=*/2);
       });
 }
 
@@ -380,7 +379,7 @@ TEST(TestVariantShred, DecimalScales) {
   constexpr std::array<int64_t, 3> expected_values = {1200, 1230, 3400};
   for (int64_t row = 0; row < shredded->length(); ++row) {
     VariantBuilder expected;
-    expected.AppendDecimal8(::arrow::Decimal64(expected_values[row]), /*scale=*/3);
+    expected.SetDecimal8(::arrow::Decimal64(expected_values[row]), /*scale=*/3);
     AssertUnshreddedValue(*shredded, row, expected.Finish());
   }
   ValidateVariants<true>(ChunkedArray{shredded});
@@ -388,32 +387,32 @@ TEST(TestVariantShred, DecimalScales) {
 
 TEST(TestVariantShred, DecimalFallback) {
   VariantBuilder precision_overflow;
-  precision_overflow.AppendDecimal8(::arrow::Decimal64(1234), /*scale=*/0);
+  precision_overflow.SetDecimal8(::arrow::Decimal64(1234), /*scale=*/0);
   AssertFallback(precision_overflow.Finish(), ::arrow::decimal32(3, 0));
 }
 
 TEST(TestVariantShred, Temporal) {
   AssertConverted(
       ::arrow::timestamp(::arrow::TimeUnit::MICRO),
-      [](VariantBuilder& builder) { builder.AppendTimestampMicros(12, false); },
-      [](VariantBuilder& builder) { builder.AppendTimestampMicros(12, false); });
+      [](VariantBuilder& builder) { builder.SetTimestampMicros(12, false); },
+      [](VariantBuilder& builder) { builder.SetTimestampMicros(12, false); });
   AssertConverted(
       ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC"),
-      [](VariantBuilder& builder) { builder.AppendTimestampMicros(12, true); },
-      [](VariantBuilder& builder) { builder.AppendTimestampNanos(12000, true); });
+      [](VariantBuilder& builder) { builder.SetTimestampMicros(12, true); },
+      [](VariantBuilder& builder) { builder.SetTimestampNanos(12000, true); });
 
   VariantBuilder wrong_timezone;
-  wrong_timezone.AppendTimestampMicros(12, false);
+  wrong_timezone.SetTimestampMicros(12, false);
   AssertFallback(wrong_timezone.Finish(),
                  ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"));
 
   VariantBuilder nanos_to_micros;
-  nanos_to_micros.AppendTimestampNanos(12000, true);
+  nanos_to_micros.SetTimestampNanos(12000, true);
   AssertFallback(nanos_to_micros.Finish(),
                  ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"));
 
   VariantBuilder overflow;
-  overflow.AppendTimestampMicros(std::numeric_limits<int64_t>::max() / 1000 + 1, true);
+  overflow.SetTimestampMicros(std::numeric_limits<int64_t>::max() / 1000 + 1, true);
   AssertFallback(overflow.Finish(), ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC"));
 }
 
@@ -421,20 +420,20 @@ TEST(TestVariantShred, Uuid) {
   constexpr std::string_view uuid = "0123456789abcdef";
   AssertConverted(
       ::arrow::fixed_size_binary(16),
-      [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); },
-      [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); });
+      [uuid](VariantBuilder& builder) { builder.SetUuid(uuid); },
+      [uuid](VariantBuilder& builder) { builder.SetUuid(uuid); });
   AssertConverted(
       ::arrow::extension::uuid(),
-      [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); },
-      [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); });
+      [uuid](VariantBuilder& builder) { builder.SetUuid(uuid); },
+      [uuid](VariantBuilder& builder) { builder.SetUuid(uuid); });
 }
 
 TEST(TestVariantShred, Object) {
   VariantArrayBuilder builder;
   auto object = builder.StartObject();
-  object.AppendInt8("a", 1);
-  object.AppendString("b", "x");
-  object.Finish();
+  object.AddInt8("a", 1);
+  object.AddString("b", "x");
+  std::move(object).Finish();
   auto input = builder.Finish();
 
   auto target = ::arrow::struct_(
@@ -453,9 +452,9 @@ TEST(TestVariantShred, Object) {
 
   VariantBuilder expected_builder;
   auto expected_object = expected_builder.StartObject();
-  expected_object.AppendInt64("a", 1);
-  expected_object.AppendString("b", "x");
-  expected_object.Finish();
+  expected_object.AddInt64("a", 1);
+  expected_object.AddString("b", "x");
+  std::move(expected_object).Finish();
   ValidateVariants<true>(ChunkedArray{shredded});
   AssertUnshreddedValue(*shredded, 0, expected_builder.Finish());
 }
@@ -463,9 +462,9 @@ TEST(TestVariantShred, Object) {
 TEST(TestVariantShred, ObjectResidual) {
   VariantBuilder input_builder;
   auto input_object = input_builder.StartObject();
-  input_object.AppendString("a", "bad");
-  input_object.AppendInt8("extra", 2);
-  input_object.Finish();
+  input_object.AddString("a", "bad");
+  input_object.AddInt8("extra", 2);
+  std::move(input_object).Finish();
   auto input = input_builder.Finish();
   auto target = ::arrow::struct_({::arrow::field("a", ::arrow::int64())});
   auto shredded = ShredVariantArray(*SingleValue(input), target);
@@ -481,8 +480,8 @@ TEST(TestVariantShred, ObjectResidual) {
   VariantBuilder missing_builder;
   missing_builder.AddFieldName("a");
   auto missing_object = missing_builder.StartObject();
-  missing_object.AppendInt8("extra", 2);
-  missing_object.Finish();
+  missing_object.AddInt8("extra", 2);
+  std::move(missing_object).Finish();
   auto missing = ShredVariantArray(*SingleValue(missing_builder.Finish()), target);
   const auto& missing_typed = checked_cast<const StructArray&>(*missing->typed_value());
   const auto& missing_group = checked_cast<const StructArray&>(*missing_typed.field(0));
@@ -492,8 +491,8 @@ TEST(TestVariantShred, ObjectResidual) {
 
   VariantArrayBuilder null_builder;
   auto null_object = null_builder.StartObject();
-  null_object.AppendVariantNull("a");
-  null_object.Finish();
+  null_object.AddVariantNull("a");
+  std::move(null_object).Finish();
   auto explicit_null = ShredVariantArray(*null_builder.Finish(), target);
   const auto& null_typed =
       checked_cast<const StructArray&>(*explicit_null->typed_value());
@@ -501,13 +500,13 @@ TEST(TestVariantShred, ObjectResidual) {
   ASSERT_FALSE(null_group.field(0)->IsNull(0));
   ASSERT_TRUE(null_group.field(1)->IsNull(0));
   VariantBuilder null_value_builder;
-  null_value_builder.AppendVariantNull();
+  null_value_builder.SetVariantNull();
   ASSERT_EQ(std::string_view{*null_value_builder.Finish().value},
             checked_cast<const BinaryViewArray&>(*null_group.field(0)).GetView(0));
 
   VariantBuilder non_object_builder;
   non_object_builder.AddFieldName("a");
-  non_object_builder.AppendInt8(1);
+  non_object_builder.SetInt8(1);
   AssertFallback(non_object_builder.Finish(), target);
 }
 
@@ -521,7 +520,7 @@ TEST(TestVariantShred, MetadataNames) {
   VariantBuilder nested_builder;
   nested_builder.AddFieldName("a");
   auto object = nested_builder.StartObject();
-  object.Finish();
+  std::move(object).Finish();
   auto nested_target = ::arrow::struct_(
       {::arrow::field("a", ::arrow::struct_({::arrow::field("b", ::arrow::int64())}))});
   ASSERT_THROW(ShredVariantArray(*SingleValue(nested_builder.Finish()), nested_target),
@@ -534,7 +533,7 @@ TEST(TestVariantShred, ListKinds) {
   list.AppendInt8(1);
   list.AppendString("bad");
   list.AppendVariantNull();
-  list.Finish();
+  std::move(list).Finish();
   builder.AppendInt8(7);
   builder.AppendNull();
   auto input = builder.Finish();
@@ -584,12 +583,12 @@ TEST(TestVariantShred, ListKinds) {
     ASSERT_TRUE(values.field(1)->IsNull(1));
     ASSERT_TRUE(values.field(1)->IsNull(2));
     VariantBuilder null_value_builder;
-    null_value_builder.AppendVariantNull();
+    null_value_builder.SetVariantNull();
     ASSERT_EQ(std::string_view{*null_value_builder.Finish().value}, residual.GetView(2));
 
     const auto& root_residual = checked_cast<const BinaryViewArray&>(*shredded->value());
     VariantBuilder scalar_builder;
-    scalar_builder.AppendInt8(7);
+    scalar_builder.SetInt8(7);
     auto scalar = scalar_builder.Finish();
     ASSERT_EQ(std::string_view{*scalar.value}, root_residual.GetView(1));
     ASSERT_TRUE(shredded->IsNull(2));
@@ -599,7 +598,7 @@ TEST(TestVariantShred, ListKinds) {
     expected_list.AppendInt64(1);
     expected_list.AppendString("bad");
     expected_list.AppendVariantNull();
-    expected_list.Finish();
+    std::move(expected_list).Finish();
     ValidateVariants<true>(ChunkedArray{shredded});
     AssertUnshreddedValue(*shredded, 0, expected_builder.Finish());
     AssertUnshreddedValue(*shredded, 1, scalar);
@@ -608,7 +607,7 @@ TEST(TestVariantShred, ListKinds) {
 
 TEST(TestVariantShred, ListResidual) {
   VariantBuilder scalar;
-  scalar.AppendInt8(1);
+  scalar.SetInt8(1);
   auto scalar_input = scalar.Finish();
   auto target = ::arrow::list(::arrow::int64());
   AssertFallback(scalar_input, target);
@@ -617,14 +616,14 @@ TEST(TestVariantShred, ListResidual) {
   auto list = builder.StartList();
   list.AppendInt8(1);
   list.AppendString("bad");
-  list.Finish();
+  std::move(list).Finish();
   auto shredded = ShredVariantArray(*builder.Finish(), target);
   const auto& typed = *shredded->typed_value();
   const auto& values = checked_cast<const StructArray&>(*internal::ValuesArray(typed));
   const auto& residual = checked_cast<const BinaryViewArray&>(*values.field(0));
 
   VariantBuilder bad_element;
-  bad_element.AppendString("bad");
+  bad_element.SetString("bad");
   ASSERT_EQ(std::string_view{*bad_element.Finish().value}, residual.GetView(1));
 }
 
@@ -633,10 +632,10 @@ TEST(TestVariantShred, Nested) {
   auto root = builder.StartObject();
   auto items = root.StartList("items");
   auto item = items.StartObject();
-  item.AppendInt8("x", 3);
-  item.Finish();
-  items.Finish();
-  root.Finish();
+  item.AddInt8("x", 3);
+  std::move(item).Finish();
+  std::move(items).Finish();
+  std::move(root).Finish();
   auto input = builder.Finish();
 
   auto target = ::arrow::struct_({::arrow::field(
@@ -648,10 +647,10 @@ TEST(TestVariantShred, Nested) {
   auto expected_root = expected_builder.StartObject();
   auto expected_items = expected_root.StartList("items");
   auto expected_item = expected_items.StartObject();
-  expected_item.AppendInt64("x", 3);
-  expected_item.Finish();
-  expected_items.Finish();
-  expected_root.Finish();
+  expected_item.AddInt64("x", 3);
+  std::move(expected_item).Finish();
+  std::move(expected_items).Finish();
+  std::move(expected_root).Finish();
   ValidateVariants<true>(ChunkedArray{shredded});
   AssertUnshreddedValue(*shredded, 0, expected_builder.Finish());
 }
@@ -661,7 +660,7 @@ TEST(TestVariantShred, FixedSize) {
   auto list = builder.StartList();
   list.AppendInt8(1);
   list.AppendInt8(2);
-  list.Finish();
+  std::move(list).Finish();
   ASSERT_THROW(
       ShredVariantArray(*builder.Finish(),
                         ::arrow::fixed_size_list(::arrow::field("item", ::arrow::int64()),
@@ -687,10 +686,10 @@ TEST(TestVariantShred, NullsAndSlices) {
   ASSERT_EQ(input->metadata()->data().get(), shredded->metadata()->data().get());
 
   VariantBuilder null_expected;
-  null_expected.AppendVariantNull();
+  null_expected.SetVariantNull();
   AssertUnshreddedValue(*shredded, 1, null_expected.Finish());
   VariantBuilder int_expected;
-  int_expected.AppendInt64(2);
+  int_expected.SetInt64(2);
   AssertUnshreddedValue(*shredded, 2, int_expected.Finish());
   ValidateVariants<true>(ChunkedArray{shredded});
 }
@@ -698,13 +697,13 @@ TEST(TestVariantShred, NullsAndSlices) {
 TEST(TestVariantShred, PerRowMetadata) {
   VariantArrayBuilder builder;
   auto first = builder.StartObject();
-  first.AppendInt8("a", 1);
-  first.AppendString("first", "x");
-  first.Finish();
+  first.AddInt8("a", 1);
+  first.AddString("first", "x");
+  std::move(first).Finish();
   auto second = builder.StartObject();
-  second.AppendInt16("a", 2);
-  second.AppendBoolean("second", true);
-  second.Finish();
+  second.AddInt16("a", 2);
+  second.AddBoolean("second", true);
+  std::move(second).Finish();
   auto input = builder.Finish();
   auto shredded = ShredVariantArray(
       *input, ::arrow::struct_({::arrow::field("a", ::arrow::int64())}));
@@ -719,15 +718,15 @@ TEST(TestVariantShred, PerRowMetadata) {
 
   VariantBuilder first_expected_builder;
   auto first_expected = first_expected_builder.StartObject();
-  first_expected.AppendInt64("a", 1);
-  first_expected.AppendString("first", "x");
-  first_expected.Finish();
+  first_expected.AddInt64("a", 1);
+  first_expected.AddString("first", "x");
+  std::move(first_expected).Finish();
   AssertUnshreddedValue(*shredded, 0, first_expected_builder.Finish());
   VariantBuilder second_expected_builder;
   auto second_expected = second_expected_builder.StartObject();
-  second_expected.AppendInt64("a", 2);
-  second_expected.AppendBoolean("second", true);
-  second_expected.Finish();
+  second_expected.AddInt64("a", 2);
+  second_expected.AddBoolean("second", true);
+  std::move(second_expected).Finish();
   AssertUnshreddedValue(*shredded, 1, second_expected_builder.Finish());
   for (int64_t row = 0; row < input->length(); ++row) {
     VariantMetadataView::Make(output_metadata.GetView(row));
@@ -761,7 +760,7 @@ TEST(TestVariantShred, AllNull) {
 
 TEST(TestVariantShred, HiddenNullBytes) {
   VariantBuilder valid_builder;
-  valid_builder.AppendInt8(1);
+  valid_builder.SetInt8(1);
   auto valid = valid_builder.Finish();
   auto metadata = BinaryArrayFromValues(
       {std::string_view("\xff", 1), std::string_view{*valid.metadata}});

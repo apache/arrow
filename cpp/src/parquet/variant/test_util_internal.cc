@@ -112,14 +112,14 @@ Result<std::shared_ptr<::arrow::extension::VariantArray>> RoundTripVariantArray(
 
 std::shared_ptr<Buffer> EmptyVariantMetadata() {
   VariantBuilder builder;
-  builder.AppendVariantNull();
+  builder.SetVariantNull();
   auto encoded = builder.Finish();
   return std::move(encoded.metadata);
 }
 
 EncodedVariantValue Int8Variant(int8_t value) {
   VariantBuilder builder;
-  builder.AppendInt8(value);
+  builder.SetInt8(value);
   return builder.Finish();
 }
 
@@ -156,7 +156,7 @@ std::shared_ptr<::arrow::StructArray> MakeInt64FieldGroup(
 void AssertEncodedRow(const ::arrow::extension::VariantArray& array, int64_t row,
                       const EncodedVariantValue& expected) {
   ASSERT_EQ(std::string_view{*expected.metadata},
-            BinaryFieldView(*array.metadata(), row));
+            MetadataFieldView(*array.metadata(), row));
   ASSERT_EQ(std::string_view{*expected.value}, BinaryFieldView(*array.value(), row));
 }
 

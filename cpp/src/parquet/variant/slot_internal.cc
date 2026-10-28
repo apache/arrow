@@ -65,7 +65,7 @@ using ::arrow::internal::checked_cast;
           using Target = std::decay_t<decltype(destination)>;               \
           auto& builder = destination.builder.get();                        \
           if constexpr (std::is_same_v<Target, BuildTarget::ObjectField>) { \
-            builder.Append##NAME(VARIANT_OBJECT_CALL_ARGS(__VA_ARGS__));    \
+            builder.Add##NAME(VARIANT_OBJECT_CALL_ARGS(__VA_ARGS__));       \
           } else {                                                          \
             builder.Append##NAME(__VA_ARGS__);                              \
           }                                                                 \
@@ -87,6 +87,8 @@ VariantObjectBuilder StartObject(BuildTarget& target) {
         auto& builder = destination.builder.get();
         if constexpr (std::is_same_v<Target, BuildTarget::ObjectField>) {
           return builder.StartObject(destination.field_name);
+        } else if constexpr (std::is_same_v<Target, BuildTarget::Root>) {
+          return builder.StartObject(destination.metadata.get());
         } else {
           return builder.StartObject();
         }
@@ -101,6 +103,8 @@ VariantListBuilder StartList(BuildTarget& target) {
         auto& builder = destination.builder.get();
         if constexpr (std::is_same_v<Target, BuildTarget::ObjectField>) {
           return builder.StartList(destination.field_name);
+        } else if constexpr (std::is_same_v<Target, BuildTarget::Root>) {
+          return builder.StartList(destination.metadata.get());
         } else {
           return builder.StartList();
         }
@@ -307,6 +311,10 @@ CompiledVariantRowPlan CompileVariantRowPlanImpl(
 
 void ValidateTypedFieldNames(const VariantMetadataView& metadata,
                              const CompiledVariantRowPlan::Object& object) {
+  if (object.last_validated_metadata.has_value() &&
+      *object.last_validated_metadata == metadata.metadata()) {
+    return;
+  }
   for (const auto& field : object.fields) {
     if (!metadata.FindString(field.field_name).has_value()) {
       throw ParquetInvalidOrCorruptedFileException(
@@ -314,6 +322,7 @@ void ValidateTypedFieldNames(const VariantMetadataView& metadata,
           "' is not in metadata dictionary");
     }
   }
+  object.last_validated_metadata = metadata.metadata();
 }
 
 std::string_view GetStringScalarView(const CompiledTypedScalarPlan& plan,
@@ -495,7 +504,7 @@ void ProcessTypedArraySlot(const VariantMetadataView& metadata,
                                child_target_ptr);
   }
   if (list_builder.has_value()) {
-    list_builder->Finish();
+    std::move(*list_builder).Finish();
   }
 }
 
@@ -602,7 +611,7 @@ void ProcessTypedObjectSlot(const VariantMetadataView& metadata,
     ProcessObjectResidual<strict>(*object_value_view, object, child_target_ptr);
   }
   if (object_builder.has_value()) {
-    object_builder->Finish();
+    std::move(*object_builder).Finish();
   }
 }
 

@@ -35,7 +35,7 @@ namespace parquet::variant {
 /// value column. Successful conversions are materialized as the target type and may
 /// therefore change the encoded Variant representation after unshredding.
 ///
-/// Input metadata and parent SQL nulls are preserved. The metadata child may be reused,
+/// Input metadata and parent nulls are preserved. The metadata child may be reused,
 /// but the output always has a deterministic shredded schema containing value and
 /// typed_value, including for empty and all-parent-null inputs. The input must contain
 /// metadata and value fields and must not already contain typed_value. Invalid targets,
@@ -44,7 +44,7 @@ namespace parquet::variant {
 PARQUET_EXPORT
 std::shared_ptr<::arrow::extension::VariantArray> ShredVariantArray(
     const ::arrow::extension::VariantArray& array,
-    const std::shared_ptr<::arrow::DataType>& typed_value_type,
+    const std::shared_ptr<::arrow::DataType>& target_shredded_type,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 }  // namespace parquet::variant
