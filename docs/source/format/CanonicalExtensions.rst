@@ -599,12 +599,13 @@ These requirements apply to this extension type.
 Relative URI resolution
 -----------------------
 
-Unlike in Parquet, an ``offset`` paired with a relative ``uri`` is meaningless
-in this extension type.
+Unlike in Parquet, an ``offset`` paired with a relative ``uri`` is hard to interpret
+in this extension type. While Parquet file's location can suggest a starting
+point for the relative path, an extension type will not carry no such
+information.
 
-Parquet readers can attempt to resolve relative URIs by checking for the
-referenced file relative to the source Parquet file's location. If successful,
-they should record the absolute URI in the Arrow array's ``uri`` field.
+It is up to the application layer to handle what the meaning of the relative
+paths is if they are provided.
 
 Examples
 --------
