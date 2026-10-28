@@ -541,13 +541,37 @@ TEST(TestScalarNested, ListContainsInvalid) {
   EXPECT_THAT(CallFunction("list_contains", {ArrayFromJSON(list(int32()), "[]"),
                                              ArrayFromJSON(utf8(), "[]")}),
               Raises(StatusCode::NotImplemented));
-  // Lists only compare with null queries, but the queries of null lists don't matter
-  EXPECT_THAT(CallFunction("list_contains", {ArrayFromJSON(list(list(int32())), "[[]]"),
-                                             ArrayFromJSON(list(int32()), "[[1]]")}),
-              Raises(StatusCode::NotImplemented));
-  for (Datum lists : {Datum(ArrayFromJSON(list(list(int32())), "[null]")),
-                      Datum(ScalarFromJSON(list(list(int32())), "null"))}) {
-    CheckListContains(lists, ArrayFromJSON(list(int32()), "[[1]]"), "[null]");
+  // Lists, unions and run-end encoded values only compare with null queries, which
+  // only need validity. Other queries raise, also for null lists.
+  auto union_type = sparse_union({field("i", int64()), field("s", utf8())}, {0, 1});
+  auto ree_type = run_end_encoded(int32(), int64());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> ree_queries,
+                       RunEndEncodedArray::Make(2, ArrayFromJSON(int32(), "[2]"),
+                                                ArrayFromJSON(int64(), "[1]")));
+  ASSERT_OK_AND_ASSIGN(auto null_ree_queries, MakeArrayOfNull(ree_type, 2));
+  for (const auto& [queries, null_queries] :
+       {std::pair(ArrayFromJSON(list(int32()), "[[1], null]"),
+                  ArrayFromJSON(list(int32()), "[null, null]")),
+        std::pair(ArrayFromJSON(union_type, R"([[0, 1], [1, "a"]])"),
+                  ArrayFromJSON(union_type, "[[0, null], [1, null]]")),
+        std::pair(ree_queries, null_ree_queries)}) {
+    ARROW_SCOPED_TRACE(*queries->type());
+    ASSERT_OK_AND_ASSIGN(auto null_lists, MakeArrayOfNull(list(queries->type()), 2));
+    ASSERT_OK_AND_ASSIGN(
+        auto empty_and_null,
+        ListArray::FromArrays(
+            *ArrayFromJSON(int32(), "[0, 0, 0]"), *null_queries->Slice(0, 0),
+            default_memory_pool(),
+            ArrayFromJSON(boolean(), "[true, false]")->data()->buffers[1]));
+    for (Datum lists : {Datum(null_lists), Datum(MakeNullScalar(list(queries->type()))),
+                        Datum(empty_and_null)}) {
+      EXPECT_THAT(CallFunction("list_contains", {lists, queries}),
+                  Raises(StatusCode::NotImplemented));
+    }
+    CheckListContains(null_lists, null_queries, "[null, null]");
+    CheckListContains(MakeNullScalar(list(queries->type())), null_queries,
+                      "[null, null]");
+    CheckListContains(empty_and_null, null_queries, "[false, null]");
   }
   // Like "equal", timestamps with and without a time zone don't compare
   for (auto value : {"1", "null"}) {

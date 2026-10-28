@@ -724,8 +724,10 @@ auto GetListRanges(const ArraySpan& list) {
 template <typename Type>
 Status CastListValues(KernelContext* ctx, const ArraySpan& list, int64_t values_start,
                       const TypeHolder& type, Datum* values) {
-  if (CastTo(ctx, type, values).ok()) {
-    return Status::OK();
+  // Only failures that depend on the values are retried, not unsupported casts
+  Status status = CastTo(ctx, type, values);
+  if (!status.IsInvalid()) {
+    return status;
   }
   auto data = values->array()->Copy();
   ARROW_ASSIGN_OR_RAISE(auto validity, AllocateEmptyBitmap(data->offset + data->length,
@@ -750,7 +752,7 @@ Status CastListValues(KernelContext* ctx, const ArraySpan& list, int64_t values_
 }
 
 // Take queries of null lists as nulls: like the values of null lists, they need not
-// convert or compare. A scalar query is that of every list.
+// convert. A scalar query is that of every list. Types still need to compare.
 Status MaskQueries(KernelContext* ctx, const ArraySpan& list, bool scalar_query,
                    Datum* queries) {
   if (!list.MayHaveNulls() ||
@@ -843,22 +845,27 @@ Status ScalarListContains(KernelContext* ctx,
                           const Result<std::vector<TypeHolder>>& types,
                           const BaseListScalar& list, const ArraySpan& query_span,
                           ArraySpan* out_arr) {
+  Datum queries = query_span.ToArrayData();
+  // Nulls in a dictionary of queries count too
+  const bool null_queries =
+      queries.array()->ComputeLogicalNullCount() == queries.length();
+  if (!null_queries) {
+    // Types that don't compare raise even for a null list, like for list arrays
+    RETURN_NOT_OK(types.status());
+  }
   bit_util::SetBitsTo(out_arr->buffers[0].data, out_arr->offset, out_arr->length,
                       list.is_valid);
   out_arr->null_count = list.is_valid ? 0 : out_arr->length;
   if (!list.is_valid) {
-    // Queries of null lists don't matter, like for list arrays
+    // Unlike types, values of null lists and their queries don't matter
     return Status::OK();
   }
   Datum values = list.value;
-  Datum queries = query_span.ToArrayData();
-  // Nulls in a dictionary of queries count too
-  if (queries.array()->ComputeLogicalNullCount() == queries.length()) {
+  if (null_queries) {
     bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
                         values.array()->ComputeLogicalNullCount() > 0);
     return Status::OK();
   }
-  RETURN_NOT_OK(types.status());
   RETURN_NOT_OK(CastTo(ctx, (*types)[0], &values));
   RETURN_NOT_OK(CastTo(ctx, (*types)[1], &queries));
   ExecContext* exec_ctx = ctx->exec_context();
@@ -933,10 +940,6 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     queries = batch[1].array.ToArrayData();
   }
   const int64_t query_step = scalar_query ? 0 : 1;
-  if (!state_types.ok()) {
-    // Only null queries can be searched for, but those of null lists don't matter
-    RETURN_NOT_OK(MaskQueries(ctx, list, scalar_query, &queries));
-  }
 
   if (queries.array()->ComputeLogicalNullCount() == queries.length()) {
     // Values are also null where their dictionary is
@@ -965,10 +968,13 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     }
     RETURN_NOT_OK(CastListValues<Type>(ctx, list, values_start, types[0], &values));
   }
-  if (!CastTo(ctx, types[1], &queries).ok()) {
+  Status status = CastTo(ctx, types[1], &queries);
+  if (status.IsInvalid()) {
+    // Queries that don't convert may be those of null lists, which don't matter
     RETURN_NOT_OK(MaskQueries(ctx, list, scalar_query, &queries));
-    RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
+    status = CastTo(ctx, types[1], &queries);
   }
+  RETURN_NOT_OK(status);
   const ArraySpan v(*values.array());
   const ArraySpan q(*queries.array());
   return VisitEqual(v, q, [&](auto&& equal) {
