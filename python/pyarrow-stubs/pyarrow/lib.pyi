@@ -22,15 +22,15 @@
 from typing import Any
 
 from pyarrow._types import *  # noqa: F401,F403
-from pyarrow.array import *  # noqa: F401,F403
-from pyarrow.builder import *  # noqa: F401,F403
-from pyarrow.config import *  # noqa: F401,F403
-from pyarrow.device import *  # noqa: F401,F403
-from pyarrow.error import *  # noqa: F401,F403
-from pyarrow.io import *  # noqa: F401,F403
-from pyarrow.memory import *  # noqa: F401,F403
-from pyarrow.scalar import *  # noqa: F401,F403
-from pyarrow.table import *  # noqa: F401,F403
-from pyarrow.tensor import *  # noqa: F401,F403
+from pyarrow.__lib.array import *  # noqa: F401,F403
+from pyarrow.__lib.builder import *  # noqa: F401,F403
+from pyarrow.__lib.config import *  # noqa: F401,F403
+from pyarrow.__lib.device import *  # noqa: F401,F403
+from pyarrow.__lib.error import *  # noqa: F401,F403
+from pyarrow.__lib.io import *  # noqa: F401,F403
+from pyarrow.__lib.memory import *  # noqa: F401,F403
+from pyarrow.__lib.scalar import *  # noqa: F401,F403
+from pyarrow.__lib.table import *  # noqa: F401,F403
+from pyarrow.__lib.tensor import *  # noqa: F401,F403
 
 def __getattr__(name: str) -> Any: ...
