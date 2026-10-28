@@ -242,6 +242,7 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
   return num_encoded;
 }
 
+// Encode a repeated marker such as "present" without first building a marker array
 int LevelEncoder::EncodeRepeated(int batch_size, int16_t level) {
   if (!rle_encoder_ || encoding_ != Encoding::RLE || batch_size < 0 || level < 0 ||
       static_cast<uint64_t>(level) >= (uint64_t{1} << bit_width_)) {
@@ -252,6 +253,7 @@ int LevelEncoder::EncodeRepeated(int batch_size, int16_t level) {
   return encoded;
 }
 
+// Encode 0 for each list start and 1 for the remaining values in that list
 int LevelEncoder::EncodeFixedSizeList(int batch_size, int32_t list_size) {
   if (!rle_encoder_ || encoding_ != Encoding::RLE || bit_width_ != 1 || batch_size < 0 ||
       list_size <= 0) {
@@ -872,7 +874,7 @@ class ColumnWriterImpl {
         repetition_levels_sink_.Append(levels, sizeof(int16_t) * num_levels));
   }
 
-  // RLE encode the src_buffer into dest_buffer and return the encoded size
+  // Encode marker arrays or known fixed-size-list patterns into page bytes
   int64_t RleEncodeLevels(const void* src_buffer, ResizableBuffer* dest_buffer,
                           int16_t max_level, bool include_length_prefix = true,
                           bool is_repetition = false);
@@ -1284,6 +1286,7 @@ inline void DoInBatchesRepeated(const int16_t* def_levels, const int16_t* rep_le
   }
 }
 
+// Use the list size to find batch boundaries while keeping the existing page breaks
 template <typename Action, typename GetBufferedRows>
 inline void DoInBatchesFixedSizeList(int64_t num_levels, int32_t list_size,
                                      int64_t batch_size, int64_t max_rows_per_page,
@@ -1309,6 +1312,7 @@ inline void DoInBatchesFixedSizeList(int64_t num_levels, int32_t list_size,
       action(offset, count, true);
       offset += count;
     } else {
+      // Handle the last list separately to match when the existing writer ends a page
       const int64_t last_row = num_levels - list_size;
       action(offset, last_row - offset, true);
       action(last_row, list_size, !pages_change_on_record_boundaries);
@@ -1803,6 +1807,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   int64_t WriteLevels(int64_t num_levels, const int16_t* def_levels,
                       const int16_t* rep_levels) {
     if (fixed_size_list_size_ > 0) {
+      // Count rows and markers using the list size instead of scanning marker arrays
       ARROW_DCHECK_EQ(num_levels % fixed_size_list_size_, 0);
       const int64_t rows = num_levels / fixed_size_list_size_;
       if (page_size_statistics_) {

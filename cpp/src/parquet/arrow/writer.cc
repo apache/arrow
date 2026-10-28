@@ -135,6 +135,7 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   return Status::OK();
 }
 
+// Check that all chunks contain supported fixed-size lists with no missing values
 bool CanWriteFixedSizeLists(const std::vector<std::shared_ptr<Array>>& arrays) {
   if (arrays.empty() || arrays.front()->type_id() != ::arrow::Type::FIXED_SIZE_LIST) {
     return false;
@@ -215,6 +216,7 @@ class ArrowColumnWriterV2 {
           fast_ctx.fixed_size_list_size = type.list_size();
           for (const auto& array : fixed_size_lists_) {
             const auto& lists = checked_cast<const ::arrow::FixedSizeListArray&>(*array);
+            // Take only the numbers belonging to this slice of lists
             auto values = lists.values()->Slice(lists.value_offset(0),
                                                 lists.length() * type.list_size());
             RETURN_NOT_OK(column_writer->WriteArrow(nullptr, nullptr, values->length(),
@@ -351,6 +353,7 @@ class ArrowColumnWriterV2 {
       }
       values_written += chunk_write_size;
     }
+    // Check every chunk before choosing one writing path for the column
     if (row_group_writer->buffered() || !CanWriteFixedSizeLists(arrays)) {
       for (const auto& array : arrays) {
         ARROW_ASSIGN_OR_RAISE(auto builder,

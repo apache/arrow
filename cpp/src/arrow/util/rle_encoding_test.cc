@@ -1454,6 +1454,7 @@ TEST(RleBitPacked, GetBatchSpacedRoundtripUint64) {
   DoTestGetBatchSpacedRoundtrip<uint64_t>();
 }
 
+// Check that writing repeated values together gives the same bytes as one at a time
 TEST(RleBitPacked, PutRepeatedMatchesPut) {
   for (int width : {0, 1, 2, 3, 8, 16, 32, 64}) {
     const uint64_t maximum =
@@ -1494,6 +1495,7 @@ TEST(RleBitPacked, PutRepeatedMatchesPut) {
   }
 }
 
+// Check that both ways of writing stop at the same point when the buffer fills up
 TEST(RleBitPacked, PutRepeatedFullBufferMatchesPut) {
   for (int width : {1, 3, 16}) {
     const int capacity = static_cast<int>(RleBitPackedEncoder::MinBufferSize(width));

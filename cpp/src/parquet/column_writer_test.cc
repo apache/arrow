@@ -1248,6 +1248,7 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   writer->Close();
 }
 
+// Check that encoding a marker by count gives the same bytes as encoding its array
 TEST(TestLevelEncoder, EncodeRepeatedMatchesEncode) {
   for (int16_t maximum : {1, 2, 3, 7}) {
     for (int16_t level : {int16_t{0}, maximum}) {
@@ -1270,6 +1271,7 @@ TEST(TestLevelEncoder, EncodeRepeatedMatchesEncode) {
   }
 }
 
+// Check that invalid marker values, counts and encoder settings are rejected
 TEST(TestLevelEncoder, EncodeRepeatedRejectsInvalidInput) {
   LevelEncoder encoder;
   EXPECT_THROW(encoder.EncodeRepeated(1, 1), ParquetException);
@@ -1283,6 +1285,7 @@ TEST(TestLevelEncoder, EncodeRepeatedRejectsInvalidInput) {
   EXPECT_THROW(encoder.EncodeRepeated(1, 1), ParquetException);
 }
 
+// Check that list sizes produce the same marker bytes as explicit 0 and 1 arrays
 TEST(TestLevelEncoder, EncodeFixedSizeListMatchesEncode) {
   for (int32_t list_size : {1, 3, 8, 9, 16, 768}) {
     for (int count : {0, 1, 7, 8, 9, 63, 64, 767, 768, 4097}) {
@@ -1306,6 +1309,7 @@ TEST(TestLevelEncoder, EncodeFixedSizeListMatchesEncode) {
   }
 }
 
+// Check that invalid list sizes, counts and encoder settings are rejected
 TEST(TestLevelEncoder, EncodeFixedSizeListRejectsInvalidInput) {
   LevelEncoder encoder;
   EXPECT_THROW(encoder.EncodeFixedSizeList(3, 3), ParquetException);
@@ -1349,6 +1353,7 @@ class TestFixedSizeListWriter : public ::testing::Test {
   ArrowWriteContext context_{::arrow::default_memory_pool(), arrow_properties_.get()};
 };
 
+// Check that incompatible writes are rejected and valid shortcut writes still work
 TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
   MakeWriter(Type::INT32);
   auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5, 6]");
@@ -1377,6 +1382,7 @@ TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
   EXPECT_EQ(4, writer_->rows_written());
 }
 
+// Check that the numeric shortcut rejects strings when called directly
 TEST_F(TestFixedSizeListWriter, RejectsUnsupportedType) {
   MakeWriter(Type::BYTE_ARRAY);
   auto values = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])");
@@ -1386,6 +1392,7 @@ TEST_F(TestFixedSizeListWriter, RejectsUnsupportedType) {
   EXPECT_EQ(0, writer_->rows_written());
 }
 
+// Check that callers cannot supply both marker arrays and a list-size shortcut
 TEST_F(TestFixedSizeListWriter, RejectsMarkersWithRecipe) {
   MakeWriter(Type::INT32);
   auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3]");

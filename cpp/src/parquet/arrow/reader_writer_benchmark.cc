@@ -222,6 +222,7 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, false, BooleanType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
+// Measure writing the same numbers as a flat column or fixed-size lists
 static void BM_WriteFloatLayout(::benchmark::State& state) {
   const bool use_lists = state.range(0) == 1;
   const int32_t list_size = static_cast<int32_t>(state.range(1));
@@ -263,6 +264,7 @@ static void BM_WriteFloatLayout(::benchmark::State& state) {
   state.SetBytesProcessed(total_values * sizeof(float));
 }
 
+// Run both layouts with six list sizes and both Parquet page versions
 static void FloatLayoutWriteArguments(::benchmark::internal::Benchmark* b) {
   for (int64_t layout : {0, 1}) {
     for (int64_t list_size : {1, 3, 8, 9, 16, 768}) {

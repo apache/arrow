@@ -710,7 +710,7 @@ class RleBitPackedEncoder {
   /// This value must be representable with bit_width_ bits.
   bool Put(uint64_t value);
 
-  /// Encode up to count copies of value and return the number accepted.
+  /// Encode the same value up to count times and return how many were accepted
   int PutRepeated(uint64_t value, int count);
 
   /// Flushes any pending values to the underlying buffer.
@@ -1536,6 +1536,7 @@ inline int RleBitPackedEncoder::PutRepeated(uint64_t value, int count) {
   int encoded = 0;
   while (encoded < count && !buffer_full_) {
     if (current_value_ == value && repeat_count_ > 8) {
+      // Extend an existing repeat by adding to its count instead of visiting each value
       const int added =
           std::min(count - encoded, std::numeric_limits<int>::max() - repeat_count_);
       repeat_count_ += added;

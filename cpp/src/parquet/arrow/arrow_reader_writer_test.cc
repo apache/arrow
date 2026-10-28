@@ -3532,6 +3532,7 @@ TEST(ArrowReadWrite, EmptyListView) {
   ASSERT_EQ(0, list_view.value_sizes()->size());
 }
 
+// Build the same numbers as fixed-size and ordinary lists for comparison
 template <typename ArrowType>
 static Result<std::pair<std::shared_ptr<Table>, std::shared_ptr<Table>>>
 MakeFixedListTestTables(int32_t list_size, bool root_nullable, bool item_nullable,
@@ -3576,6 +3577,7 @@ MakeFixedListTestTables(int32_t list_size, bool root_nullable, bool item_nullabl
   return std::make_pair(make_table(fixed), make_table(ordinary));
 }
 
+// Write a test table into memory so we can compare its saved bytes
 static Result<std::shared_ptr<Buffer>> WriteFixedListTestTable(
     const Table& table, const std::shared_ptr<WriterProperties>& properties,
     int64_t row_group_size, bool store_schema = false, bool buffered = false) {
@@ -3608,6 +3610,7 @@ static Result<std::shared_ptr<Buffer>> WriteFixedListTestTable(
   return sink->Finish();
 }
 
+// Compare saved bytes and read-back data across different writer settings
 template <typename ArrowType>
 static void CheckFixedSizeListFastPath() {
   struct Settings {
@@ -3678,6 +3681,7 @@ static void CheckFixedSizeListFastPath() {
   }
 }
 
+// Check that the shortcut saves identical files and reads back the original lists
 TEST(ArrowReadWrite, FixedSizeListFastPathMatchesList) {
   ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::Int32Type>());
   ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::Int64Type>());
@@ -3685,6 +3689,7 @@ TEST(ArrowReadWrite, FixedSizeListFastPathMatchesList) {
   ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::DoubleType>());
 }
 
+// Measure the highest amount of writer memory tracked by Arrow during a write
 static Result<int64_t> MeasureFixedListWriterMemory(const Table& table) {
   ::arrow::ProxyMemoryPool pool(default_memory_pool());
   {
@@ -3705,6 +3710,7 @@ static Result<int64_t> MeasureFixedListWriterMemory(const Table& table) {
   return pool.max_memory();
 }
 
+// Check that the shortcut saves at least one marker array worth of temporary memory
 TEST(ArrowReadWrite, FixedSizeListFastPathUsesLessMemory) {
   constexpr int64_t rows = 65536;
   constexpr int32_t list_size = 3;
@@ -3719,6 +3725,7 @@ TEST(ArrowReadWrite, FixedSizeListFastPathUsesLessMemory) {
   ASSERT_LE(fast_peak + one_marker_array, generic_peak);
 }
 
+// Check that missing lists, missing values and unsupported settings keep correct output
 TEST(ArrowReadWrite, FixedSizeListFallbackMatchesList) {
   const std::vector<std::vector<std::string>> cases = {
       {R"([{"root": [1, 2, 3]}])", R"([{"root": [4, 5, 6]}, {"root": [7, 8, 9]}])"},

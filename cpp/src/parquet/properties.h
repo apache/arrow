@@ -1591,7 +1591,7 @@ struct ArrowWriteContext {
   MemoryPool* memory_pool;
   const ArrowWriterProperties* properties;
 
-  // Positive only for a column of complete, non-null fixed-size lists.
+  // Use a positive list size only when every list and value is present
   int32_t fixed_size_list_size = 0;
 
   // Buffer used for storing the data of an array converted to the physical type
