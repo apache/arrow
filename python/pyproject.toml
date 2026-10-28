@@ -177,7 +177,7 @@ exclude = [
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/pyarrow/array.pyi"]
+include = ["pyarrow-stubs/pyarrow/__lib/array.pyi"]
 [tool.ty.overrides.rules]
 # Some array classes override methods with a different signature at runtime.
 invalid-method-override = "ignore"

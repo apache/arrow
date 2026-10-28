@@ -52,8 +52,8 @@ import builtins
 
 from .scalar import Int64Scalar, Scalar
 from .device import DeviceAllocationType
-from ._types import BaseExtensionType, DataType, Field, StructType
-from ._stubs_typing import NullableCollection
+from pyarrow._types import BaseExtensionType, DataType, Field, StructType
+from pyarrow._stubs_typing import NullableCollection
 
 def array(
     values: NullableCollection
