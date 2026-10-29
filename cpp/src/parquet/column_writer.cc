@@ -1004,11 +1004,15 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
                                        int64_t repetition_levels_rle_size,
                                        int64_t uncompressed_size,
                                        const std::shared_ptr<Buffer>& values) {
-  // Use Arrow::Buffer::shrink_to_fit = false
-  // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
-  PARQUET_THROW_NOT_OK(uncompressed_data_->Resize(uncompressed_size, false));
-  ConcatenateBuffers(definition_levels_rle_size, repetition_levels_rle_size, values,
-                     uncompressed_data_->mutable_data());
+  auto uncompressed_data = values;
+  if (definition_levels_rle_size > 0 || repetition_levels_rle_size > 0) {
+    // Use Arrow::Buffer::shrink_to_fit = false
+    // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
+    PARQUET_THROW_NOT_OK(uncompressed_data_->Resize(uncompressed_size, false));
+    ConcatenateBuffers(definition_levels_rle_size, repetition_levels_rle_size, values,
+                       uncompressed_data_->mutable_data());
+    uncompressed_data = uncompressed_data_;
+  }
   auto [page_stats, page_size_stats] = GetPageStatistics();
   page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
   page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
@@ -1016,10 +1020,10 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
 
   std::shared_ptr<Buffer> compressed_data;
   if (pager_->has_compressor()) {
-    pager_->Compress(*(uncompressed_data_.get()), compressor_temp_buffer_.get());
+    pager_->Compress(*uncompressed_data, compressor_temp_buffer_.get());
     compressed_data = compressor_temp_buffer_;
   } else {
-    compressed_data = uncompressed_data_;
+    compressed_data = std::move(uncompressed_data);
   }
 
   int32_t num_values = static_cast<int32_t>(num_buffered_values_);
@@ -1089,8 +1093,6 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
-    PARQUET_ASSIGN_OR_THROW(auto data_copy,
-                            combined->CopySlice(0, combined->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_rows, encoding_, def_levels_byte_length,
         rep_levels_byte_length, uncompressed_size, page_is_compressed,
