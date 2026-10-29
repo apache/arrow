@@ -456,19 +456,18 @@ class ArrayLoader {
 
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(LoadList(type));
-    if (!out_->child_data.empty()) {
-      // Ensure that GetNullCount() calls in MapArray::ValidateChildData
-      // don't access invalid memory.
-      // We cannot call array validation as it will fail on non-native endianness
-      // (due to checking the last offset on variable-width data) or missing
-      // dictionaries (they are not yet populated at this point).
-      const ArrayData& child_data = *out_->child_data[0];
-      if (child_data.null_count != 0) {
-        return Status::Invalid("Map array child array should have no nulls");
-      }
-      if (!child_data.child_data.empty() && child_data.child_data[0]->null_count != 0) {
-        return Status::Invalid("Map array keys array should have no nulls");
-      }
+    DCHECK_EQ(out_->child_data.size(), 1);  // ensured by LoadList()
+    // Ensure that GetNullCount() calls in MapArray::ValidateChildData
+    // don't access invalid memory.
+    // We cannot call array validation as it will fail on non-native endianness
+    // (due to checking the last offset on variable-width data) or missing
+    // dictionaries (they are not yet populated at this point).
+    const ArrayData& child_data = *out_->child_data[0];
+    if (child_data.null_count != 0) {
+      return Status::Invalid("Map array child array should have no nulls");
+    }
+    if (!child_data.child_data.empty() && child_data.child_data[0]->null_count != 0) {
+      return Status::Invalid("Map array keys array should have no nulls");
     }
     // If we don't do this, MapArray::SetData will abort on invalid data.
     return MapArray::ValidateChildData(out_->child_data);
