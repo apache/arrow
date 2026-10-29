@@ -54,22 +54,26 @@ runs:
         path: ${{ steps.ccache-info.outputs.cache-dir }}
         key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
         restore-keys: cpp-odbc-ccache-windows-x64-
-    - name: Checkout vcpkg
-      uses: actions/checkout@v6
-      with:
-        persist-credentials: false
-        fetch-depth: 0
-        path: vcpkg
-        repository: microsoft/vcpkg
-    - name: Bootstrap vcpkg
-      shell: pwsh
+    - name: Install vcpkg
+      shell: bash
       run: |
-        vcpkg\bootstrap-vcpkg.bat
-        $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
-        Write-Output ${VCPKG_ROOT} | `
-          Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
-        Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
-          Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
+        # GH-55316: Use the vcpkg version pinned in .env and apply
+        # ci/vcpkg/ports.patch like other vcpkg based builds do.
+        ci/scripts/install_vcpkg.sh vcpkg
+        VCPKG_ROOT=$(cygpath --windows "$(pwd)/vcpkg")
+        echo "${VCPKG_ROOT}" >> "${GITHUB_PATH}"
+        echo "VCPKG_ROOT=${VCPKG_ROOT}" >> "${GITHUB_ENV}"
+        # We use manifest mode with builtin-baseline. vcpkg resolves
+        # ports from its versions database in manifest mode, so local
+        # changes by ports.patch are ignored unless the patched ports
+        # are used as overlay ports.
+        vcpkg_ports_dir=$(cygpath --mixed "$(pwd)/vcpkg/ports")
+        overlay_ports=()
+        for port in $(sed -n -E 's,^diff --git a/ports/([^/]+)/.*,\1,p' \
+                        ci/vcpkg/ports.patch | sort -u); do
+          overlay_ports+=("${vcpkg_ports_dir}/${port}")
+        done
+        echo "VCPKG_OVERLAY_PORTS=$(IFS=';'; echo "${overlay_ports[*]}")" >> "${GITHUB_ENV}"
     - name: Setup NuGet credentials for vcpkg caching
       shell: bash
       run: |
