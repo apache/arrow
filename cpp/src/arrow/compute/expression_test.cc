@@ -2524,6 +2524,124 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       .Expect(greater(field_ref("u32"), literal(5)));
 }
 
+TEST(Expression, SimplifyIsInLargeValueSetNullableRange) {
+  auto i32 = field_ref("i32");
+  auto u32 = field_ref("u32");
+  auto gapped = concat_json(make_range_json(1, 50), make_range_json(100, 150));
+  // This is the shape of Parquet statistics when a row group may contain nulls.
+  auto range = and_(greater_equal(i32, literal(51)), less_equal(i32, literal(99)));
+  auto nullable_range = or_(range, is_null(i32));
+
+  for (auto null_matching :
+       {SetLookupOptions::MATCH, SetLookupOptions::SKIP, SetLookupOptions::EMIT_NULL,
+        SetLookupOptions::INCONCLUSIVE}) {
+    for (bool value_set_has_null : {false, true}) {
+      SCOPED_TRACE(null_matching);
+      SCOPED_TRACE(value_set_has_null);
+      auto values = ArrayFromJSON(
+          int32(), value_set_has_null ? concat_json(gapped, "[null]") : gapped);
+      auto filter = call("is_in", {i32}, SetLookupOptions{values, null_matching});
+      auto simplified = Simplify{filter}.WithGuarantee(nullable_range);
+      if (null_matching == SetLookupOptions::SKIP ||
+          (null_matching == SetLookupOptions::MATCH && !value_set_has_null)) {
+        simplified.Expect(false);
+      } else {
+        simplified.ExpectUnchanged();
+      }
+
+      // A matching non-null member prevents pruning regardless of null behavior.
+      Simplify{filter}
+          .WithGuarantee(
+              or_(and_(greater_equal(i32, literal(50)), less_equal(i32, literal(99))),
+                  is_null(i32)))
+          .ExpectUnchanged();
+
+      // Do not infer bounds on a different field from the null branch.
+      Simplify{filter}.WithGuarantee(or_(range, is_null(u32))).ExpectUnchanged();
+      auto u32_range =
+          and_(greater_equal(u32, literal(51)), less_equal(u32, literal(99)));
+      Simplify{filter}
+          .WithGuarantee(or_(and_(range, u32_range), is_null(u32)))
+          .ExpectUnchanged();
+
+      // Another inequality can exclude nulls while the nullable range supplies
+      // both bounds needed to find the gap in the value set.
+      auto non_nullable =
+          Simplify{filter}.WithGuarantee(and_(nullable_range, greater(i32, literal(0))));
+      if (null_matching == SetLookupOptions::INCONCLUSIVE && value_set_has_null) {
+        non_nullable.ExpectUnchanged();
+      } else {
+        non_nullable.Expect(false);
+      }
+
+      // Verify that simplification also preserves the values on null input.
+      ASSERT_OK_AND_ASSIGN(auto bound_filter, filter.Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(auto simplified_filter,
+                           SimplifyWithGuarantee(bound_filter, nullable_range));
+      auto input = RecordBatchFromJSON(
+          kBoringSchema, R"([{"i32": null}, {"i32": 51}, {"i32": 75}, {"i32": 99}])");
+      Datum evaluated, simplified_evaluated;
+      ExpectExecute(bound_filter, input, &evaluated);
+      ExpectExecute(simplified_filter, input, &simplified_evaluated);
+      if (simplified_evaluated.is_scalar()) {
+        ASSERT_OK_AND_ASSIGN(
+            simplified_evaluated,
+            MakeArrayFromScalar(*simplified_evaluated.scalar(), input->num_rows()));
+      }
+      AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+    }
+  }
+}
+
+TEST(Expression, SimplifyIsInDeprecatedSkipNulls) {
+  auto i32 = field_ref("i32");
+  auto input = RecordBatchFromJSON(kBoringSchema,
+                                   R"([{"i32": null}, {"i32": 1001}, {"i32": 1002}])");
+  // Cover both the filter-and-rebind and the large-value-set paths, including
+  // options whose deprecated field overrides a conflicting modern enum.
+  for (int num_values : {10, 100}) {
+    for (auto behavior : {SetLookupOptions::MATCH, SetLookupOptions::SKIP,
+                          SetLookupOptions::EMIT_NULL, SetLookupOptions::INCONCLUSIVE}) {
+      for (bool skip_nulls : {false, true}) {
+        SCOPED_TRACE(num_values);
+        SCOPED_TRACE(behavior);
+        SCOPED_TRACE(skip_nulls);
+        SetLookupOptions options{
+            ArrayFromJSON(int32(), concat_json(make_range_json(1, num_values), "[null]")),
+            behavior};
+        options.skip_nulls = skip_nulls;
+        ASSERT_OK_AND_ASSIGN(auto filter,
+                             call("is_in", {i32}, options).Bind(*kBoringSchema));
+        for (int bound : {3, 1000}) {
+          SCOPED_TRACE(bound);
+          auto guarantee = or_(greater(i32, literal(bound)), is_null(i32));
+          ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
+          if (bound == 1000) {
+            if (skip_nulls) {
+              EXPECT_EQ(simplified, literal(false));
+            } else {
+              EXPECT_TRUE(simplified.IsSatisfiable());
+            }
+          }
+
+          Datum evaluated, simplified_evaluated;
+          ExpectExecute(filter, input, &evaluated);
+          ExpectExecute(simplified, input, &simplified_evaluated);
+          if (simplified_evaluated.is_scalar()) {
+            ASSERT_OK_AND_ASSIGN(
+                simplified_evaluated,
+                MakeArrayFromScalar(*simplified_evaluated.scalar(), input->num_rows()));
+          }
+          auto expected = ArrayFromJSON(
+              boolean(), skip_nulls ? "[false, false, false]" : "[true, false, false]");
+          AssertDatumsEqual(expected, evaluated, /*verbose=*/true);
+          AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+        }
+      }
+    }
+  }
+}
+
 TEST(Expression, SimplifyThenExecute) {
   auto filter =
       or_({equal(field_ref("f32"), literal(0)),
