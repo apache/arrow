@@ -40,7 +40,7 @@ on:
 
 concurrency:
   # Cancel superseded fork pushes; unrelated labels must not cancel running builds.
-  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.event.pull_request.number || (github.repository != 'apache/arrow' && github.ref) || github.sha }}-${{ github.event.action == 'labeled' && github.event.label.name != 'CI: Upstream' }}
+  group: "${{ github.workflow }}-${{ github.repository }}-${{ github.event.pull_request.number || (github.repository != 'apache/arrow' && github.ref) || github.sha }}-${{ github.event.action == 'labeled' && github.event.label.name != 'CI: Upstream' }}"
   cancel-in-progress: true
 
 permissions:
