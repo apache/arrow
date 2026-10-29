@@ -292,27 +292,31 @@ TEST(BlockParser, MultiDelimiter) {
   options.delimiter_string = "||";
 
   {
+    // Parse multiple input views with unmatched pipes, a quoted delimiter, and
+    // a final row without a newline.
     BlockParser parser(options);
-    AssertParseFinal(parser, Views({"a||b||c\n", "d||\"e||f\"||g"}));
-    AssertColumnsEq(parser, {{"a", "d"}, {"b", "e||f"}, {"c", "g"}},
+    AssertParseFinal(parser, Views({"|a||b|c||d|\n", "e||\"f||g\"||h"}));
+    AssertColumnsEq(parser, {{"|a", "e"}, {"b|c", "f||g"}, {"d|", "h"}},
                     {{false, false}, {false, true}, {false, false}});
   }
   {
+    // Recognize a quoted field with an embedded newline after a delimiter mismatch.
     BlockParser parser(options);
     AssertParseFinal(parser, "a|b||\"c\n d\"||e\n");
     AssertColumnsEq(parser, {{"a|b"}, {"c\n d"}, {"e"}}, {{false}, {true}, {false}});
   }
   {
+    // Leading, consecutive, and trailing delimiters produce empty fields at EOF.
     BlockParser parser(options);
-    AssertParseFinal(parser, "||a||||b||");
-    AssertColumnsEq(parser, {{""}, {"a"}, {""}, {"b"}, {""}});
+    AssertParseFinal(parser, "||a|b||||c||");
+    AssertColumnsEq(parser, {{""}, {"a|b"}, {""}, {"c"}, {""}});
   }
 
   options.escaping = true;
   {
     BlockParser parser(options);
-    AssertParseFinal(parser, R"(a\|||b||"c\||d")");
-    AssertColumnsEq(parser, {{"a|"}, {"b"}, {"c||d"}}, {{false}, {false}, {true}});
+    AssertParseFinal(parser, R"(a\|||b|c||"d\||e")");
+    AssertColumnsEq(parser, {{"a|"}, {"b|c"}, {"d||e"}}, {{false}, {false}, {true}});
   }
 }
 

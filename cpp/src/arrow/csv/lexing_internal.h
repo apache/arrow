@@ -64,13 +64,6 @@ decltype(auto) DispatchBool(Fn&& fn, Rest... rest)
   }
 }
 
-inline std::string_view GetDelimiter(const ParseOptions& options) {
-  if (!options.delimiter_string.empty()) {
-    return options.delimiter_string;
-  }
-  return {&options.delimiter, 1};
-}
-
 inline char GetDelimiterFirstByte(const ParseOptions& options) {
   if (!options.delimiter_string.empty()) {
     return options.delimiter_string.front();

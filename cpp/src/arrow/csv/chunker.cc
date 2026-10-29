@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -47,19 +48,15 @@ class Lexer {
   };
 
   explicit Lexer(const ParseOptions& options)
-      : options_(options),
-        bulk_filter_(options_),
-        delimiter_matcher_(InitDelimiterMatcher(options_)) {
+      : options_(options), bulk_filter_(options_) {
     DCHECK_EQ(SpecializedOptions::quoting, options_.quoting);
     DCHECK_EQ(SpecializedOptions::escaping, options_.escaping);
-  }
-
-  void Reset() {
-    state_ = FIELD_START;
     if constexpr (SpecializedOptions::multi_delimiter) {
-      delimiter_matcher_.Reset();
+      delimiter_matcher_.emplace(options_.delimiter_string);
     }
   }
+
+  void Reset() { state_ = FIELD_START; }
 
   // Decide whether it's worth using a bulk filter over the given data area
   bool ShouldUseBulkFilter(const char* data, const char* data_end) {
@@ -114,6 +111,9 @@ class Lexer {
     }
 
   FieldStart:
+    if constexpr (SpecializedOptions::multi_delimiter) {
+      delimiter_matcher_->Reset();
+    }
     if constexpr (!SpecializedOptions::quoting) {
       goto InField;
     } else {
@@ -135,7 +135,7 @@ class Lexer {
     // Inside a non-quoted part of a field
     if constexpr (UseBulkFilter) {
       if constexpr (SpecializedOptions::multi_delimiter) {
-        if (!delimiter_matcher_.has_partial_match()) {
+        if (!delimiter_matcher_->has_partial_match()) {
           const char* bulk_end = RunBulkFilter(data, data_end);
           if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
             state_ = IN_FIELD;
@@ -163,7 +163,7 @@ class Lexer {
     c = *data++;
     if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
       if constexpr (SpecializedOptions::multi_delimiter) {
-        delimiter_matcher_.Reset();
+        delimiter_matcher_->Reset();
       }
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         state_ = AT_ESCAPE;
@@ -183,7 +183,7 @@ class Lexer {
     }
     if constexpr (SpecializedOptions::quoting) {
       if constexpr (SpecializedOptions::multi_delimiter) {
-        if (ARROW_PREDICT_FALSE(delimiter_matcher_.Consume(c))) {
+        if (ARROW_PREDICT_FALSE(delimiter_matcher_->Consume(c))) {
           goto FieldStart;
         }
       } else if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
@@ -254,9 +254,6 @@ class Lexer {
 
   LineEnd:
     state_ = FIELD_START;
-    if constexpr (SpecializedOptions::multi_delimiter) {
-      delimiter_matcher_.Reset();
-    }
     return data;
 
   AbortLine:
@@ -291,20 +288,7 @@ class Lexer {
   const BulkFilterType bulk_filter_;
   State state_ = FIELD_START;
 
- private:
-  struct Empty {};
-
-  static auto InitDelimiterMatcher(const ParseOptions& options) {
-    if constexpr (SpecializedOptions::multi_delimiter) {
-      return internal::StreamingDelimiterMatcher(internal::GetDelimiter(options));
-    } else {
-      return Empty{};
-    }
-  }
-
-  [[no_unique_address]]
-  std::conditional_t<SpecializedOptions::multi_delimiter,
-                     internal::StreamingDelimiterMatcher, Empty> delimiter_matcher_;
+  std::optional<internal::StreamingDelimiterMatcher> delimiter_matcher_;
 };
 
 // A BoundaryFinder implementation that assumes CSV cells can contain raw newlines,
@@ -425,13 +409,18 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
   } else {
     // Unlike the parser, the chunker only needs delimiters to identify field starts
     // for quote recognition.  Without quoting, delimiters cannot affect line boundaries.
-    const bool multi_delimiter = options.quoting && !options.delimiter_string.empty();
+    auto lexing_options = options;
+    if (lexing_options.delimiter_string.size() == 1) {
+      lexing_options.delimiter = lexing_options.delimiter_string.front();
+    }
+    const bool multi_delimiter = options.quoting && options.delimiter_string.size() > 1;
     delimiter = internal::DispatchBool(
         [&]<bool Quoting, bool Escaping, bool MultiDelimiter>()
             -> std::shared_ptr<BoundaryFinder> {
           using SpecializedOptions =
               internal::SpecializedOptions<Quoting, Escaping, MultiDelimiter>;
-          return std::make_shared<LexingBoundaryFinder<SpecializedOptions>>(options);
+          return std::make_shared<LexingBoundaryFinder<SpecializedOptions>>(
+              std::move(lexing_options));
         },
         options.quoting, options.escaping, multi_delimiter);
   }

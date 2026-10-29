@@ -47,15 +47,16 @@ Status ParseOptions::Validate() const {
                                  std::string::npos)) {
     return Status::Invalid("ParseOptions: delimiter_string cannot contain \\r or \\n");
   }
-  // The chunker handles quotes before delimiter matching at field boundaries, so
-  // allowing the quote character at the start of a delimiter could make it disagree
-  // with the parser.
-  const char delimiter_first_byte =
-      delimiter_string.empty() ? delimiter : delimiter_string.front();
-  if (ARROW_PREDICT_FALSE(quoting && delimiter_first_byte == quote_char)) {
-    return Status::Invalid(
-        "ParseOptions: delimiter cannot start with the quote character when quoting is "
-        "enabled");
+  if (quoting) {
+    // Keep structural characters out of delimiters when quoting is enabled.
+    const bool delimiter_contains_quote =
+        delimiter_string.empty() ? delimiter == quote_char
+                                 : delimiter_string.find(quote_char) != std::string::npos;
+    if (ARROW_PREDICT_FALSE(delimiter_contains_quote)) {
+      return Status::Invalid(
+          "ParseOptions: delimiter cannot contain the quote character when quoting is "
+          "enabled");
+    }
   }
   if (ARROW_PREDICT_FALSE(quoting && (quote_char == '\n' || quote_char == '\r'))) {
     return Status::Invalid("ParseOptions: quote_char cannot be \\r or \\n");

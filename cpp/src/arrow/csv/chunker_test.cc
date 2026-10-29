@@ -195,17 +195,19 @@ TEST_P(BaseChunkerTest, QuotingNewline) {
 
 TEST_P(BaseChunkerTest, MultiDelimiter) {
   if (!options_.newlines_in_values) {
-    return;
+    GTEST_SKIP() << "Quoted newlines require newlines_in_values";
   }
   options_.delimiter_string = "||";
+  options_.escaping = true;
   MakeChunker();
 
-  auto partial = std::make_shared<Buffer>("name|");
-  auto block = std::make_shared<Buffer>("|message||\"hello\nworld\"||42\nnext||row\n");
+  // The escape breaks the delimiter prefix, so the quote before "me" is literal.
+  auto partial = std::make_shared<Buffer>("na|\\x|\"me|");
+  auto block = std::make_shared<Buffer>("|mes|sage||\"hello\nworld\"||42\nnext||row\n");
   std::shared_ptr<Buffer> completion;
   std::shared_ptr<Buffer> rest;
   ASSERT_OK(chunker_->ProcessWithPartial(partial, block, &completion, &rest));
-  ASSERT_EQ(completion->ToString(), "|message||\"hello\nworld\"||42\n");
+  ASSERT_EQ(completion->ToString(), "|mes|sage||\"hello\nworld\"||42\n");
   ASSERT_EQ(rest->ToString(), "next||row\n");
 
   partial = std::make_shared<Buffer>("name|");
