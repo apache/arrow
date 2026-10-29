@@ -778,7 +778,7 @@ class BlockParserImpl {
                                                                           out_size);
         },
         options_.quoting, options_.escaping, options_.ignore_extra_columns,
-        !options_.delimiter_string.empty());
+        options_.delimiter_string.size() > 1);
   }
 
  protected:
@@ -802,9 +802,13 @@ BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int64_t first_r
     : BlockParser(default_memory_pool(), options, num_cols, first_row, max_num_rows) {}
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
-                         int64_t first_row, int32_t max_num_rows)
-    : impl_(new BlockParserImpl(pool, std::move(options), num_cols, first_row,
-                                max_num_rows)) {}
+                         int64_t first_row, int32_t max_num_rows) {
+  if (options.delimiter_string.size() == 1) {
+    options.delimiter = options.delimiter_string.front();
+  }
+  impl_ = std::make_unique<BlockParserImpl>(pool, std::move(options), num_cols, first_row,
+                                            max_num_rows);
+}
 
 BlockParser::~BlockParser() {}
 
