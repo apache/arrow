@@ -1751,9 +1751,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         int64_t values_to_write = 0;
         int64_t spaced_values_to_write = 0;
         for (int x = 0; x < batch_size; x++) {
-          values_to_write += def_levels[x] == level_info_.def_level ? 1 : 0;
+          values_to_write += def_levels[x] == def_level ? 1 : 0;
           spaced_values_to_write +=
-              def_levels[x] >= level_info_.repeated_ancestor_def_level ? 1 : 0;
+              def_levels[x] >= repeated_ancestor_def_level ? 1 : 0;
         }
         *out_values_to_write += values_to_write;
         *out_spaced_values_to_write += spaced_values_to_write;
