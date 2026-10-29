@@ -1167,6 +1167,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(true),
+        auto_evict_read_cache_(false),
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
         binary_type_(kArrowDefaultBinaryType),
@@ -1252,6 +1253,14 @@ class PARQUET_EXPORT ArrowReaderProperties {
   void set_pre_buffer(bool pre_buffer) { pre_buffer_ = pre_buffer; }
   /// Return whether read coalescing is enabled.
   bool pre_buffer() const { return pre_buffer_; }
+
+  /// Enable eviction of pre-buffered ranges as record batch generators consume them.
+  ///
+  /// This is intended for one-pass consumers. It is safe with any row group order, but
+  /// file order allows the cache to release memory progressively. Default is false.
+  void set_auto_evict_read_cache(bool auto_evict) { auto_evict_read_cache_ = auto_evict; }
+  /// Return whether consumed pre-buffered ranges are evicted.
+  bool auto_evict_read_cache() const { return auto_evict_read_cache_; }
 
   /// Set options for read coalescing. This can be used to tune the
   /// implementation for characteristics of different filesystems.
@@ -1341,6 +1350,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
   bool pre_buffer_;
+  bool auto_evict_read_cache_;
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
