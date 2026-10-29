@@ -21,9 +21,12 @@
 #include <limits>
 #include <numeric>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
+#include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -183,82 +186,11 @@ class ArrayCompareSorter<DictionaryType> {
   Result<NullLikePartition> operator()(std::span<uint64_t> indices, const Array& array,
                                        int64_t offset, const ArraySortOptions& options,
                                        ExecContext* ctx) {
-    const auto& dict_array = checked_cast<const DictionaryArray&>(array);
-    const auto& dict_values = dict_array.dictionary();
-    const auto& dict_indices = dict_array.indices();
-
-    // Algorithm:
-    // 1) Use the Rank function to get an exactly-equivalent-order array
-    //    of the dictionary values, but with a datatype that's friendlier to
-    //    sorting (uint64).
-    // 2) Act as if we were sorting a dictionary array with the same indices,
-    //    but with the ranks as dictionary values.
-    // 2a) Dictionary-decode the ranks by calling Take.
-    // 2b) Sort the decoded ranks. Not only those are uint64, they are dense
-    //     in a [0, k) range where k is the number of unique dictionary values.
-    //     Therefore, unless the dictionary is very large, a fast counting sort
-    //     will be used.
-    //
-    // The bottom line is that performance will usually be much better
-    // (potentially an order of magnitude faster) than by naively decoding
-    // the original dictionary and sorting the decoded version.
-
-    std::shared_ptr<Array> decoded_ranks;
-    // Skip the rank/take steps for cases with only nulls or no indices
-    if (dict_indices->length() == 0 ||
-        dict_indices->null_count() == dict_indices->length() ||
-        dict_values->null_count() == dict_values->length()) {
-      ARROW_ASSIGN_OR_RAISE(decoded_ranks, MakeArrayOfNull(uint64(), dict_array.length(),
-                                                           ctx->memory_pool()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto ranks, RanksWithNulls(dict_values, ctx));
-
-      ARROW_ASSIGN_OR_RAISE(decoded_ranks,
-                            Take(*ranks, *dict_indices, TakeOptions::Defaults(), ctx));
-    }
-
-    DCHECK_EQ(decoded_ranks->type_id(), Type::UINT64);
-    DCHECK_EQ(decoded_ranks->length(), dict_array.length());
-    ARROW_ASSIGN_OR_RAISE(auto rank_sorter, GetArraySorter(*decoded_ranks->type()));
-
-    return rank_sorter(indices, *decoded_ranks, offset, options, ctx);
-  }
-
- private:
-  static Result<std::shared_ptr<Array>> RanksWithNulls(
-      const std::shared_ptr<Array>& array, ExecContext* ctx) {
-    // Notes:
-    // * The order is always ascending here, since the goal is to produce
-    //   an exactly-equivalent-order of the dictionary values.
-    // * We're going to re-emit nulls in the output, so we can just always consider
-    //   them "at the end".  Note that choosing AtStart would merely shift other
-    //   ranks by 1 if there are any nulls...
-    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
-                             RankOptions::Dense);
-
-    auto data = array->data();
-    std::shared_ptr<Buffer> null_bitmap;
-    if (array->null_count() > 0) {
-      null_bitmap = array->null_bitmap();
-      data = array->data()->Copy();
-      if (data->offset > 0) {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, arrow::internal::CopyBitmap(
-                                               ctx->memory_pool(), null_bitmap->data(),
-                                               data->offset, data->length));
-      }
-      data->buffers[0] = nullptr;
-      data->null_count = 0;
-    }
-    ARROW_ASSIGN_OR_RAISE(auto rank_datum,
-                          CallFunction("rank", {std::move(data)}, &rank_options, ctx));
-    auto rank_data = rank_datum.array();
-    DCHECK_EQ(rank_data->GetNullCount(), 0);
-    // If there were nulls in the input, paste them in the output
-    if (null_bitmap) {
-      rank_data->buffers[0] = std::move(null_bitmap);
-      rank_data->null_count = array->null_count();
-    }
-    return MakeArray(rank_data);
+    ARROW_ASSIGN_OR_RAISE(auto sortable,
+                          DictionaryToSortable(MakeArray(array.data()), ctx));
+    DCHECK_EQ(sortable->length(), array.length());
+    ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*sortable->type()));
+    return sorter(indices, *sortable, offset, options, ctx);
   }
 };
 
@@ -648,6 +580,142 @@ const FunctionDoc partition_nth_indices_doc(
 Result<ArraySortFunc> GetArraySorter(const DataType& type) {
   ArraySorterFactory factory;
   return factory.MakeSorter(type);
+}
+
+namespace {
+
+Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array,
+                                              ExecContext* ctx) {
+  // Notes:
+  // - The order is always ascending here.
+  // - Nulls are kept in the output, so we consider them at the end.
+  RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
+                           RankOptions::Dense);
+
+  auto data = array->data();
+  std::shared_ptr<Buffer> null_bitmap;
+  if (array->null_count() > 0) {
+    null_bitmap = array->null_bitmap();
+    data = array->data()->Copy();
+    if (data->offset > 0) {
+      ARROW_ASSIGN_OR_RAISE(null_bitmap, arrow::internal::CopyBitmap(
+                                             ctx->memory_pool(), null_bitmap->data(),
+                                             data->offset, data->length));
+    }
+    data->buffers[0] = nullptr;
+    data->null_count = 0;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto rank_datum,
+                        CallFunction("rank", {std::move(data)}, &rank_options, ctx));
+  auto rank_data = rank_datum.array();
+  DCHECK_EQ(rank_data->GetNullCount(), 0);
+  // If there were nulls in the input, paste them in the output
+  if (null_bitmap) {
+    rank_data->buffers[0] = std::move(null_bitmap);
+    rank_data->null_count = array->null_count();
+  }
+  return MakeArray(rank_data);
+}
+
+// Ranks of the concatenated `dictionaries`. Distinct dictionaries usually overlap,
+// so only their distinct values are ranked.
+Result<std::shared_ptr<Array>> RanksOfConcatenated(const ArrayVector& dictionaries,
+                                                   ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(auto concatenated, Concatenate(dictionaries, ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto encoded_datum,
+                        CallFunction("dictionary_encode", {concatenated}, ctx));
+  const auto encoded = encoded_datum.make_array();
+  const auto& encoded_dict = checked_cast<const DictionaryArray&>(*encoded);
+  ARROW_ASSIGN_OR_RAISE(auto distinct_ranks,
+                        RanksWithNulls(encoded_dict.dictionary(), ctx));
+  return Take(*distinct_ranks, *encoded_dict.indices(), TakeOptions::Defaults(), ctx);
+}
+
+}  // namespace
+
+Result<std::shared_ptr<ChunkedArray>> DictionaryToSortable(const ChunkedArray& values,
+                                                           ExecContext* ctx) {
+  const auto& dict_type = checked_cast<const DictionaryType&>(*values.type());
+  const auto& value_type = dict_type.value_type();
+  ArrayVector out(values.num_chunks());
+
+  // Ranks cannot represent NaN, which sorts as null-like rather than as the
+  // greatest value, so floating-point dictionaries are decoded instead.
+  if (value_type->id() == Type::FLOAT || value_type->id() == Type::DOUBLE) {
+    for (int i = 0; i < values.num_chunks(); ++i) {
+      const auto& dict_array = checked_cast<const DictionaryArray&>(*values.chunk(i));
+      ARROW_ASSIGN_OR_RAISE(out[i], Take(*dict_array.dictionary(), *dict_array.indices(),
+                                         TakeOptions::Defaults(), ctx));
+    }
+    return std::make_shared<ChunkedArray>(std::move(out), value_type);
+  }
+
+  // Algorithm:
+  // 1) Use the Rank function to get an equivalent array
+  //    of the dictionary values. Chunks may carry different dictionaries, so all
+  //    distinct dictionaries are ranked together to make the ranks comparable
+  //    across chunks.
+  // 2) Act as if we were sorting a dictionary array with the same indices,
+  //    but with the ranks as dictionary values.
+  // 2a) Dictionary-decode the ranks by calling Take.
+  // 2b) Sort the decoded ranks (uint64), which should be dense, so we can use a
+  //     fast sort for most instances.
+
+  ArrayVector dictionaries;
+  std::vector<int64_t> dictionary_offsets;
+  std::unordered_map<const ArrayData*, size_t> dictionary_slots;
+  // Index into `dictionaries` per chunk, or -1 for a chunk that is entirely null
+  std::vector<int64_t> chunk_slots(values.num_chunks(), -1);
+  int64_t total_dictionary_length = 0;
+  for (int i = 0; i < values.num_chunks(); ++i) {
+    const auto& dict_array = checked_cast<const DictionaryArray&>(*values.chunk(i));
+    const auto& dict_indices = dict_array.indices();
+    const auto& dict_values = dict_array.dictionary();
+    // Skip the rank/take steps for chunks with only nulls or no indices
+    if (dict_indices->length() == 0 ||
+        dict_indices->null_count() == dict_indices->length() ||
+        dict_values->null_count() == dict_values->length()) {
+      continue;
+    }
+    auto [it, inserted] =
+        dictionary_slots.try_emplace(dict_values->data().get(), dictionaries.size());
+    if (inserted) {
+      dictionaries.push_back(dict_values);
+      dictionary_offsets.push_back(total_dictionary_length);
+      total_dictionary_length += dict_values->length();
+    }
+    chunk_slots[i] = static_cast<int64_t>(it->second);
+  }
+
+  std::shared_ptr<Array> ranks;
+  if (dictionaries.size() == 1) {
+    ARROW_ASSIGN_OR_RAISE(ranks, RanksWithNulls(dictionaries[0], ctx));
+  } else if (dictionaries.size() > 1) {
+    ARROW_ASSIGN_OR_RAISE(ranks, RanksOfConcatenated(dictionaries, ctx));
+  }
+
+  for (int i = 0; i < values.num_chunks(); ++i) {
+    const auto& dict_array = checked_cast<const DictionaryArray&>(*values.chunk(i));
+    const int64_t slot = chunk_slots[i];
+    if (slot < 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          out[i], MakeArrayOfNull(uint64(), dict_array.length(), ctx->memory_pool()));
+      continue;
+    }
+    const auto chunk_ranks =
+        ranks->Slice(dictionary_offsets[slot], dictionaries[slot]->length());
+    ARROW_ASSIGN_OR_RAISE(
+        out[i], Take(*chunk_ranks, *dict_array.indices(), TakeOptions::Defaults(), ctx));
+    DCHECK_EQ(out[i]->type_id(), Type::UINT64);
+  }
+  return std::make_shared<ChunkedArray>(std::move(out), uint64());
+}
+
+Result<std::shared_ptr<Array>> DictionaryToSortable(const std::shared_ptr<Array>& values,
+                                                    ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(auto sortable, DictionaryToSortable(ChunkedArray(values), ctx));
+  DCHECK_EQ(sortable->num_chunks(), 1);
+  return sortable->chunk(0);
 }
 
 void RegisterVectorArraySort(FunctionRegistry* registry) {
