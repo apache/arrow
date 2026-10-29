@@ -52,7 +52,7 @@ import builtins
 
 from .scalar import Int64Scalar, Scalar
 from .device import DeviceAllocationType
-from pyarrow._types import BaseExtensionType, DataType, Field, StructType
+from .types import BaseExtensionType, DataType, Field, StructType
 from pyarrow._stubs_typing import NullableCollection
 
 def array(

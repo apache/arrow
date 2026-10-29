@@ -58,11 +58,11 @@ from pyarrow.lib import Device, Field, MemoryManager, MemoryPool, Schema
 from .array import Array, StructArray, _PandasConvertible
 from .device import DeviceAllocationType
 from .io import Buffer
-from pyarrow._ipc import RecordBatchReader
+from .ipc import RecordBatchReader
 from .scalar import Int64Scalar, Scalar
 from .tensor import Tensor
 from pyarrow._stubs_typing import NullableCollection
-from pyarrow._types import DataType
+from .types import DataType
 
 ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 
