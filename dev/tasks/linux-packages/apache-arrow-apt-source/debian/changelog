@@ -1,3 +1,9 @@
+apache-arrow-apt-source (26.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcd@apache.org>  Thu, 29 Oct 2026 13:42:28 -0000
+
 apache-arrow-apt-source (26.0.0-1) unstable; urgency=low
 
   * New upstream release.
