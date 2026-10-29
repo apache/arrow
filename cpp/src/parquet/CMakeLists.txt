@@ -337,7 +337,7 @@ if(ARROW_TESTING)
   list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
 endif()
 
-if(NOT ARROW_BUILD_SHARED)
+if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS parquet_static
                                     ${PARQUET_TEST_LINK_LIBS} benchmark::benchmark_main)
 else()
