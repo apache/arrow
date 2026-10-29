@@ -2201,6 +2201,7 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     int64_t remaining_data_length = 0;
     // Set when there are nulls: the runs of valid slots. The nulls before a run are
     // appended when its first value is; `position` is the end of the current run.
+    // Nulls after the last run are not appended here; the caller must append them.
     ::arrow::internal::SetBitRunReader* valid_runs = nullptr;
     int64_t position = 0;
     int64_t run_remaining = 0;
@@ -2240,6 +2241,7 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
       if (valid_runs != nullptr) {
         if (run_remaining == 0) {
           const auto run = valid_runs->NextRun();
+          DCHECK_GT(run.length, 0);
           PARQUET_THROW_NOT_OK(helper->AppendNulls(run.position - position));
           position = run.position + run.length;
           run_remaining = run.length;
