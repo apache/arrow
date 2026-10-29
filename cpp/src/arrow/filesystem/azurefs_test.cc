@@ -509,6 +509,24 @@ TEST(AzureFileSystem, InitializingFilesystemWithoutAccountNameFails) {
   ASSERT_RAISES(Invalid, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, FileSystemFromUriRegistry) {
+  std::string path;
+  for (const auto& scheme : {"abfs", "abfss"}) {
+    ASSERT_OK_AND_ASSIGN(
+        auto fs, FileSystemFromUri(std::string(scheme) +
+                                       "://account.blob.core.windows.net/container/dir/"
+                                       "blob?credential_kind=anonymous",
+                                   &path));
+    EXPECT_EQ(fs->type_name(), "abfs");
+    EXPECT_EQ(path, "container/dir/blob");
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("Filesystem factory does not support"),
+      FileSystemFromUriAndOptions(
+          "abfs://account.blob.core.windows.net/container?credential_kind=anonymous",
+          {{"foo", std::string{"bar"}}}));
+}
+
 TEST(AzureFileSystem, InitializeWithDefaultCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
