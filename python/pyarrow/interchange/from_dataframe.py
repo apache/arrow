@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+import array
+import sys
 from typing import (
     Any,
     Tuple,
@@ -301,6 +303,7 @@ def parse_datetime_format_str(format_str):
 
 def map_date_type(data_type):
     """Map column date type to pyarrow date type. """
+    # Buffer endianness conversion is handled in buffers_to_array.
     kind, bit_width, f_string, _ = data_type
 
     if kind == DtypeKind.DATETIME:
@@ -367,9 +370,12 @@ def buffers_to_array(
     except TypeError:
         offset_buff = None
 
-    # Construct a pyarrow Buffer
-    data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
-                                       base=data_buff)
+    # Arrow buffers use native endianness. The interchange protocol allows
+    # producers to expose buffers in either byte order, so normalize fixed-
+    # width values before interpreting them as Arrow arrays.
+    data_pa_buffer = _buffer_with_native_endianness(
+        data_buff, data_type, allow_copy
+    )
 
     # Construct a validity pyarrow Buffer, if applicable
     if validity_buff:
@@ -394,9 +400,9 @@ def buffers_to_array(
         _, offset_bit_width, _, _ = offset_dtype
         # If an offset buffer exists, construct an offset pyarrow Buffer
         # and add it to the construction of an array
-        offset_pa_buffer = pa.foreign_buffer(offset_buff.ptr,
-                                             offset_buff.bufsize,
-                                             base=offset_buff)
+        offset_pa_buffer = _buffer_with_native_endianness(
+            offset_buff, offset_dtype, allow_copy
+        )
 
         if data_type[2] == 'U':
             string_type = pa.large_string()
@@ -420,6 +426,46 @@ def buffers_to_array(
         )
 
     return array
+
+
+def _buffer_with_native_endianness(buffer, dtype, allow_copy):
+    """Wrap a protocol buffer, byte-swapping it when necessary."""
+    _, bit_width, _, endianness = dtype
+    native_endianness = "<" if sys.byteorder == "little" else ">"
+
+    if bit_width <= 8 or endianness in ("=", "|", native_endianness):
+        return pa.foreign_buffer(buffer.ptr, buffer.bufsize, base=buffer)
+
+    if endianness not in ("<", ">"):
+        raise ValueError(f"Unsupported endianness {endianness!r}")
+
+    if not allow_copy:
+        raise RuntimeError(
+            "Converting non-native endianness requires a copy which is "
+            "forbidden by allow_copy=False"
+        )
+
+    itemsize = bit_width // 8
+    if bit_width % 8 or buffer.bufsize % itemsize:
+        raise ValueError(
+            f"Buffer size {buffer.bufsize} is not a multiple of "
+            f"dtype width {bit_width}"
+        )
+
+    raw = pa.foreign_buffer(buffer.ptr, buffer.bufsize, base=buffer).to_pybytes()
+    typecode = next(
+        (code for code in "HIQ" if array.array(code).itemsize == itemsize),
+        None,
+    )
+    if typecode is None:
+        raise NotImplementedError(
+            f"No native array type with {itemsize}-byte elements is available"
+        )
+
+    native_values = array.array(typecode)
+    native_values.frombytes(raw)
+    native_values.byteswap()
+    return pa.py_buffer(native_values.tobytes())
 
 
 def validity_buffer_from_mask(
