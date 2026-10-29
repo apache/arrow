@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 26.0.0
+# arrow 26.0.1
 
 ## Breaking changes
 
