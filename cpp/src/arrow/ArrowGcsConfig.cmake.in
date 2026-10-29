@@ -42,10 +42,19 @@ if(TARGET ArrowGcs::arrow_gcs_static
    AND ARROW_GCS_BUNDLED_STATIC_LIBS
    AND NOT TARGET ArrowGcs::arrow_gcs_bundled_dependencies)
   add_library(ArrowGcs::arrow_gcs_bundled_dependencies STATIC IMPORTED)
+  get_target_property(arrow_gcs_bundled_dependencies_link_libs ArrowGcs::arrow_gcs_static
+                      INTERFACE_LINK_LIBRARIES)
+  list(REMOVE_ITEM arrow_gcs_bundled_dependencies_link_libs
+       ArrowGcs::arrow_gcs_bundled_dependencies Arrow::arrow_static)
   if("@absl_SOURCE@" STREQUAL "BUNDLED")
-    target_link_libraries(ArrowGcs::arrow_gcs_bundled_dependencies
-                          INTERFACE Arrow::arrow_bundled_dependencies)
+    list(APPEND arrow_gcs_bundled_dependencies_link_libs
+         Arrow::arrow_bundled_dependencies)
   endif()
+  if(NOT WIN32)
+    list(APPEND arrow_gcs_bundled_dependencies_link_libs OpenSSL::Crypto)
+  endif()
+  target_link_libraries(ArrowGcs::arrow_gcs_bundled_dependencies
+                        INTERFACE ${arrow_gcs_bundled_dependencies_link_libs})
   get_target_property(arrow_gcs_static_configurations ArrowGcs::arrow_gcs_static
                       IMPORTED_CONFIGURATIONS)
   foreach(CONFIGURATION ${arrow_gcs_static_configurations})
