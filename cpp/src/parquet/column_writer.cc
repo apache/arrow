@@ -1710,7 +1710,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      const int64_t new_rows = std::count(rep_levels, rep_levels + num_levels, int16_t{0});
+      const int64_t new_rows =
+          std::count(rep_levels, rep_levels + num_levels, int16_t{0});
       rows_written_ += new_rows;
       num_buffered_rows_ += new_rows;
 
@@ -1742,11 +1743,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
       } else {
+        // Accumulate in locals: accumulating through the int64_t* out-params makes
+        // every iteration a memory read-modify-write, which blocks vectorization.
+        const int16_t def_level = level_info_.def_level;
+        const int16_t repeated_ancestor_def_level =
+            level_info_.repeated_ancestor_def_level;
+        int64_t values_to_write = 0;
+        int64_t spaced_values_to_write = 0;
         for (int x = 0; x < batch_size; x++) {
-          *out_values_to_write += def_levels[x] == level_info_.def_level ? 1 : 0;
-          *out_spaced_values_to_write +=
+          values_to_write += def_levels[x] == level_info_.def_level ? 1 : 0;
+          spaced_values_to_write +=
               def_levels[x] >= level_info_.repeated_ancestor_def_level ? 1 : 0;
         }
+        *out_values_to_write += values_to_write;
+        *out_spaced_values_to_write += spaced_values_to_write;
         *null_count = batch_size - *out_values_to_write;
       }
       return;
@@ -1802,7 +1812,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      const int64_t new_rows = std::count(rep_levels, rep_levels + num_levels, int16_t{0});
+      const int64_t new_rows =
+          std::count(rep_levels, rep_levels + num_levels, int16_t{0});
       rows_written_ += new_rows;
       num_buffered_rows_ += new_rows;
       WriteRepetitionLevels(num_levels, rep_levels);
