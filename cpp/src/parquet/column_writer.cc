@@ -1273,6 +1273,17 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   return Status::OK();
 }
 
+// Per-batch value counts derived from definition levels.
+struct LeafValueCounts {
+  // Number of non-null leaf values, i.e. levels with def_level == max_def_level.
+  int64_t values = 0;
+  // Number of leaf array slots (non-null values plus null slots), i.e. levels with
+  // def_level >= repeated_ancestor_def_level.
+  int64_t spaced_values = 0;
+  // Null count of the leaf array slots.
+  int64_t null_count = 0;
+};
+
 }  // namespace
 
 template <typename ParquetType>
@@ -1387,12 +1398,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     // Like WriteBatch, but for spaced values
     int64_t value_offset = 0;
     auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
-      int64_t batch_num_values = 0;
-      int64_t batch_num_spaced_values = 0;
-      int64_t null_count;
-      MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
-                                 &batch_num_values, &batch_num_spaced_values,
-                                 &null_count);
+      const LeafValueCounts counts =
+          MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size);
+      const int64_t batch_num_values = counts.values;
+      const int64_t batch_num_spaced_values = counts.spaced_values;
 
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
@@ -1724,14 +1733,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return values_to_write;
   }
 
-  // This method will always update the three output parameters,
-  // out_values_to_write, out_spaced_values_to_write and null_count.  Additionally
-  // it will update the validity bitmap if required (i.e. if at least one level
-  // of nullable structs directly precede the leaf node).
-  void MaybeCalculateValidityBits(const int16_t* def_levels, int64_t batch_size,
-                                  int64_t* out_values_to_write,
-                                  int64_t* out_spaced_values_to_write,
-                                  int64_t* null_count) {
+  // Computes the leaf value counts of a batch of levels.  Additionally it will
+  // update the validity bitmap if required (i.e. if at least one level of
+  // nullable structs directly precede the leaf node).
+  LeafValueCounts MaybeCalculateValidityBits(const int16_t* def_levels,
+                                             int64_t batch_size) {
+    LeafValueCounts counts;
     if (bits_buffer_ == nullptr) {
       if (level_info_.def_level == 0) {
         // In this case def levels should be null and we only
@@ -1739,26 +1746,26 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         // the batch size passed in (max def_level == 0 indicates
         // there cannot be repeated or null fields).
         DCHECK_EQ(def_levels, nullptr);
-        *out_values_to_write = batch_size;
-        *out_spaced_values_to_write = batch_size;
-        *null_count = 0;
+        counts.values = batch_size;
+        counts.spaced_values = batch_size;
+        counts.null_count = 0;
       } else {
-        // Accumulate in locals: accumulating through the int64_t* out-params makes
-        // every iteration a memory read-modify-write, which blocks vectorization.
+        // Accumulate in plain locals rather than struct members so the compiler
+        // can keep them in registers and vectorize the loop.
         const int16_t def_level = level_info_.def_level;
         const int16_t repeated_ancestor_def_level =
             level_info_.repeated_ancestor_def_level;
-        int64_t values_to_write = 0;
-        int64_t spaced_values_to_write = 0;
-        for (int x = 0; x < batch_size; x++) {
-          values_to_write += def_levels[x] == def_level ? 1 : 0;
-          spaced_values_to_write += def_levels[x] >= repeated_ancestor_def_level ? 1 : 0;
+        int64_t values = 0;
+        int64_t spaced_values = 0;
+        for (int64_t x = 0; x < batch_size; x++) {
+          values += def_levels[x] == def_level ? 1 : 0;
+          spaced_values += def_levels[x] >= repeated_ancestor_def_level ? 1 : 0;
         }
-        *out_values_to_write += values_to_write;
-        *out_spaced_values_to_write += spaced_values_to_write;
-        *null_count = batch_size - *out_values_to_write;
+        counts.values = values;
+        counts.spaced_values = spaced_values;
+        counts.null_count = batch_size - values;
       }
-      return;
+      return counts;
     }
     // Shrink to fit possible causes another allocation, and would only be necessary
     // on the last batch.
@@ -1772,9 +1779,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     io.valid_bits = bits_buffer_->mutable_data();
     io.values_read_upper_bound = batch_size;
     internal::DefLevelsToBitmap(def_levels, batch_size, level_info_, &io);
-    *out_values_to_write = io.values_read - io.null_count;
-    *out_spaced_values_to_write = io.values_read;
-    *null_count = io.null_count;
+    counts.values = io.values_read - io.null_count;
+    counts.spaced_values = io.values_read;
+    counts.null_count = io.null_count;
+    return counts;
   }
 
   Result<std::shared_ptr<Array>> MaybeReplaceValidity(std::shared_ptr<Array> array,
@@ -2052,14 +2060,13 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
 
   int64_t value_offset = 0;
   auto WriteIndicesChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
-    int64_t batch_num_values = 0;
-    int64_t batch_num_spaced_values = 0;
-    int64_t null_count = ::arrow::kUnknownNullCount;
     // Bits is not null for nullable values.  At this point in the code we can't
     // determine if the leaf array has the same null values as any parents it might have
     // had so we need to recompute it from def levels.
-    MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
-                               &batch_num_values, &batch_num_spaced_values, &null_count);
+    const LeafValueCounts counts =
+        MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size);
+    const int64_t batch_num_values = counts.values;
+    const int64_t batch_num_spaced_values = counts.spaced_values;
     WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
@@ -2069,7 +2076,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     }
     PARQUET_ASSIGN_OR_THROW(
         writeable_indices,
-        MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
+        MaybeReplaceValidity(writeable_indices, counts.null_count, ctx->memory_pool));
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
@@ -2523,18 +2530,17 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
 
   int64_t value_offset = 0;
   auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
-    int64_t batch_num_values = 0;
-    int64_t batch_num_spaced_values = 0;
-    int64_t null_count = 0;
-
-    MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
-                               &batch_num_values, &batch_num_spaced_values, &null_count);
+    const LeafValueCounts counts =
+        MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size);
+    const int64_t batch_num_values = counts.values;
+    const int64_t batch_num_spaced_values = counts.spaced_values;
     WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
     PARQUET_ASSIGN_OR_THROW(
-        data_slice, MaybeReplaceValidity(data_slice, null_count, ctx->memory_pool));
+        data_slice,
+        MaybeReplaceValidity(data_slice, counts.null_count, ctx->memory_pool));
 
     current_encoder_->Put(*data_slice);
     // Null values in ancestors count as nulls.
