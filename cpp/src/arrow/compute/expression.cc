@@ -1161,6 +1161,64 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
 namespace {
 
+// The order preserving casts wrapping an Expression, outermost first, and the
+// wrapped Expression. See Comparison::StripOrderPreservingCasts.
+struct OrderPreservingCasts {
+  std::vector<const Expression::Call*> casts;
+  const Expression* inner;
+  // Whether the composed casts map distinct values to distinct values. Each cast
+  // is nondecreasing, so `x > b` implies `cast(x) >= cast(b)`, but only through
+  // injective casts does it imply `cast(x) > cast(b)`. Integer widenings are
+  // injective, as are casts to a floating point type whose mantissa holds every
+  // value of the source type; float64 to float32 or int64 to float64 are not.
+  bool injective = true;
+
+  static OrderPreservingCasts Strip(const Expression& expr) {
+    OrderPreservingCasts out;
+    const Expression* lhs = &expr;
+    while (lhs->call() && lhs->call()->function_name == "cast" &&
+           &Comparison::StripOrderPreservingCasts(*lhs) != lhs) {
+      const Expression& from = lhs->call()->arguments[0];
+      out.injective = out.injective && IsInjective(from.type()->id(), lhs->type()->id());
+      out.casts.push_back(lhs->call());
+      lhs = &from;
+    }
+    out.inner = lhs;
+    return out;
+  }
+
+  static bool IsInjective(Type::type from, Type::type to) {
+    // Only integer widenings are stripped between integer types.
+    if (!is_floating(to)) return true;
+    if (is_floating(from)) return bit_width(from) <= bit_width(to);
+    const int mantissa_bits = to == Type::DOUBLE ? 53 : to == Type::FLOAT ? 24 : 11;
+    return bit_width(from) <= mantissa_bits;
+  }
+
+  // Put a bound on the wrapped Expression through the casts, innermost first and
+  // with the same options.
+  Result<std::shared_ptr<Scalar>> ApplyToBound(std::shared_ptr<Scalar> bound,
+                                               ExecContext* exec_context) const {
+    for (auto it = casts.rbegin(); it != casts.rend(); ++it) {
+      const auto& options = checked_cast<const CastOptions&>(*(*it)->options);
+      ARROW_ASSIGN_OR_RAISE(Datum cast,
+                            Cast(Datum(std::move(bound)), options, exec_context));
+      bound = cast.scalar();
+    }
+    return bound;
+  }
+
+  // The comparison between the cast Expression and a cast bound implied by `cmp`
+  // between the wrapped Expression and the bound: strict bounds are weakened to
+  // inclusive ones unless the casts are injective.
+  Comparison::type ApplyToComparison(Comparison::type cmp) const {
+    if (injective) return cmp;
+    if (cmp == Comparison::GREATER) return Comparison::GREATER_EQUAL;
+    if (cmp == Comparison::LESS) return Comparison::LESS_EQUAL;
+    return cmp;
+  }
+};
+
 // An inequality comparison which a target Expression is known to satisfy. If nullable,
 // the target may evaluate to null in addition to values satisfying the comparison.
 struct Inequality {
@@ -1173,51 +1231,27 @@ struct Inequality {
   // Whether target can be null
   bool nullable;
 
-  // Extract an Inequality if possible, derived from "less",
-  // "greater", "less_equal", and "greater_equal" expressions,
-  // possibly disjuncted with an "is_null" Expression.
-  // cmp(a, 2)
-  // cmp(a, 2) or is_null(a)
-  static std::optional<Inequality> ExtractOne(const Expression& guarantee) {
-    auto call = guarantee.call();
-    if (!call) return std::nullopt;
-
-    if (call->function_name == "or_kleene") {
-      // expect the LHS to be a usable field inequality
-      auto out = ExtractOneFromComparison(call->arguments[0]);
-      if (!out) return std::nullopt;
-
-      // expect the RHS to be an is_null expression
-      auto call_rhs = call->arguments[1].call();
-      if (!call_rhs) return std::nullopt;
-      if (call_rhs->function_name != "is_null") return std::nullopt;
-
-      // ... and that it references the same target
-      auto target = call_rhs->arguments[0].field_ref();
-      if (!target) return std::nullopt;
-      if (*target != out->target) return std::nullopt;
-
-      out->nullable = true;
-      return out;
-    }
-
-    // fall back to a simple comparison with no "is_null"
-    return ExtractOneFromComparison(guarantee);
-  }
-
-  // Also extract the bounds of a nullable range, as produced by Parquet:
-  // (cmp(a, min) and cmp(a, max)) or is_null(a).
-  // Each bound is only guaranteed for non-null values of the same field.
+  // Extract the inequalities implied by a guarantee, derived from "less",
+  // "greater", "less_equal", "greater_equal" and "equal" expressions, possibly
+  // disjuncted with an "is_null" Expression:
+  //   cmp(a, 2)
+  //   cmp(a, 2) or is_null(a)
+  //   (cmp(a, 2) and cmp(a, 5)) or is_null(a)
+  // The last is the shape of a Parquet row group's statistics when it may contain
+  // nulls. In a disjunction each bound only holds for non-null values of the field.
   static std::vector<Inequality> Extract(const Expression& guarantee) {
-    if (auto inequality = ExtractOne(guarantee)) return {*inequality};
+    if (auto inequality = ExtractOneFromComparison(guarantee)) return {*inequality};
 
     auto call = guarantee.call();
     if (!call || call->function_name != "or_kleene") return {};
+
+    // expect the RHS to be an is_null expression ...
     auto null_call = call->arguments[1].call();
     if (!null_call || null_call->function_name != "is_null") return {};
     auto target = null_call->arguments[0].field_ref();
     if (!target) return {};
 
+    // ... and the LHS to be a conjunction of usable inequalities on the same field
     std::vector<Inequality> inequalities;
     for (const auto& member : GuaranteeConjunctionMembers(call->arguments[0])) {
       auto inequality = ExtractOneFromComparison(member);
@@ -1247,6 +1281,20 @@ struct Inequality {
     }
 
     return std::nullopt;
+  }
+
+  /// This inequality restated for the target wrapped in `casts`: through casts
+  /// which are not injective `x > b` only implies `cast(x) >= cast(b)`, so the
+  /// comparison is weakened and the bound is put through the casts (`b` may round
+  /// to a value the expression compares with). Nullopt if the bound cannot be cast.
+  std::optional<std::pair<Comparison::type, Datum>> ThroughCasts(
+      const OrderPreservingCasts& casts) const {
+    Comparison::type cast_cmp = casts.ApplyToComparison(cmp);
+    if (casts.injective) return std::make_pair(cast_cmp, bound);
+    ExecContext exec_context;
+    auto cast_bound = casts.ApplyToBound(bound.scalar(), &exec_context);
+    if (!cast_bound.ok()) return std::nullopt;
+    return std::make_pair(cast_cmp, Datum(*cast_bound));
   }
 
   /// The given expression simplifies to `value` if the inequality
@@ -1301,9 +1349,16 @@ struct Inequality {
       return std::nullopt;
     }
 
-    const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
+    auto casts = OrderPreservingCasts::Strip(is_in_call->arguments[0]);
+    const Expression& lhs = *casts.inner;
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
+
+    // The guarantee bounds the field but the value set is matched against the
+    // cast field.
+    auto through_casts = guarantee.ThroughCasts(casts);
+    if (!through_casts) return std::nullopt;
+    const auto& [cmp, bound] = *through_casts;
 
     FilterOptions::NullSelectionBehavior null_selection{};
     switch (options->GetNullMatchingBehavior()) {
@@ -1327,9 +1382,9 @@ struct Inequality {
         break;
     }
 
-    std::string func_name = Comparison::GetName(guarantee.cmp);
+    std::string func_name = Comparison::GetName(cmp);
     DCHECK_NE(func_name, "na");
-    std::vector<Datum> args{options->value_set, guarantee.bound};
+    std::vector<Datum> args{options->value_set, bound};
     ARROW_ASSIGN_OR_RAISE(Datum filter_mask, CallFunction(func_name, args));
     FilterOptions filter_options(null_selection);
     ARROW_ASSIGN_OR_RAISE(Datum simplified_value_set,
@@ -1352,7 +1407,7 @@ struct Inequality {
   }
 
   /// \brief Simplify the given expression given this inequality as a guarantee.
-  Result<Expression> Simplify(Expression expr) {
+  Result<Expression> Simplify(Expression expr) const {
     const auto& guarantee = *this;
 
     auto call = expr.call();
@@ -1380,26 +1435,32 @@ struct Inequality {
     if (!rhs) return expr;
     if (!rhs->is_scalar()) return expr;
 
-    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+    auto casts = OrderPreservingCasts::Strip(call->arguments[0]);
+    const Expression& lhs = *casts.inner;
     if (!lhs.field_ref()) return expr;
     if (*lhs.field_ref() != guarantee.target) return expr;
+
+    // The guarantee bounds the field but the expression compares the cast field.
+    auto through_casts = guarantee.ThroughCasts(casts);
+    if (!through_casts) return expr;
+    const auto& [guarantee_cmp, bound] = *through_casts;
 
     // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
     // RHS of the guarantee. N.B. Comparison::type is a bitmask
     ARROW_ASSIGN_OR_RAISE(const Comparison::type cmp_rhs_bound,
-                          Comparison::Execute(*rhs, guarantee.bound));
+                          Comparison::Execute(*rhs, bound));
     DCHECK_NE(cmp_rhs_bound, Comparison::NA);
 
     if (cmp_rhs_bound == Comparison::EQUAL) {
       // RHS of filter is equal to RHS of guarantee
 
-      if ((*cmp & guarantee.cmp) == guarantee.cmp) {
+      if ((*cmp & guarantee_cmp) == guarantee_cmp) {
         // guarantee is a subset of filter, so all data will be included
         // x > 1, x >= 1, x != 1 guaranteed by x > 1
         return simplified_to(lhs, true);
       }
 
-      if ((*cmp & guarantee.cmp) == 0) {
+      if ((*cmp & guarantee_cmp) == 0) {
         // guarantee disjoint with filter, so all data will be excluded
         // x > 1, x >= 1 unsatisfiable if x == 1
         return simplified_to(lhs, false);
@@ -1408,12 +1469,12 @@ struct Inequality {
       return expr;
     }
 
-    if (guarantee.cmp & cmp_rhs_bound) {
+    if (guarantee_cmp & cmp_rhs_bound) {
       // We guarantee (x (?) N) and are trying to simplify (x (?) M).  We know
       // either M < N or M > N (i.e. cmp_rhs_bound is either LESS or GREATER).
 
       // If M > N, then if the guarantee is (x > N), (x >= N), or (x != N)
-      // (i.e. guarantee.cmp & cmp_rhs_bound), we cannot do anything with the
+      // (i.e. guarantee_cmp & cmp_rhs_bound), we cannot do anything with the
       // guarantee, and bail out here.
 
       // For example, take M = 5, N = 3. Then cmp_rhs_bound = GREATER.
@@ -1425,7 +1486,7 @@ struct Inequality {
 
     if (*cmp & Comparison::GetFlipped(cmp_rhs_bound)) {
       // x > 1, x >= 1, x != 1 guaranteed by x >= 3
-      // (where `guarantee.cmp` is GREATER_EQUAL, `cmp_rhs_bound` is LESS)
+      // (where `guarantee_cmp` is GREATER_EQUAL, `cmp_rhs_bound` is LESS)
       return simplified_to(lhs, true);
     } else {
       // x < 1, x <= 1, x == 1 unsatisfiable if x >= 3
@@ -1482,23 +1543,12 @@ Result<Expression> SimplifyIsInWithInequalities(
     return expr;
   }
 
-  // Strip the order preserving casts wrapping the argument one at a time, keeping
-  // them (outermost first) so that bounds can be put through the same casts.
-  std::vector<const Expression::Call*> casts;
-  const Expression* lhs = &call->arguments[0];
-  while (lhs->call() && lhs->call()->function_name == "cast" &&
-         &Comparison::StripOrderPreservingCasts(*lhs) != lhs) {
-    casts.push_back(lhs->call());
-    lhs = &lhs->call()->arguments[0];
-  }
+  // Strip the order preserving casts wrapping the argument, keeping them so that
+  // bounds can be put through the same casts.
+  auto casts = OrderPreservingCasts::Strip(call->arguments[0]);
+  const Expression* lhs = casts.inner;
   if (!lhs->field_ref()) return expr;
   const FieldRef& target = *lhs->field_ref();
-  // The stripped casts are nondecreasing but, when the argument is floating point,
-  // not necessarily injective (e.g. float64 to float32 or int64 to float64), so
-  // `x > b` only implies `cast(x) >= cast(b)`: strict bounds have to be weakened
-  // to inclusive ones below. Integer widenings are injective.
-  const bool weaken_strict_bounds =
-      !casts.empty() && is_floating(call->arguments[0].type()->id());
 
   std::vector<const Inequality*> applicable;
   for (const Inequality& inequality : inequalities) {
@@ -1553,27 +1603,18 @@ Result<Expression> SimplifyIsInWithInequalities(
       }
       bound = maybe_cast->scalar();
     }
-    // Put the bound through the casts the field goes through, innermost first and
-    // with the same options. Since each cast is nondecreasing, `x <= b` implies
-    // `cast(x) <= cast(b)` even if `cast(b)` rounds, so no exactness is needed.
-    bool cast_failed = false;
-    for (auto it = casts.rbegin(); it != casts.rend(); ++it) {
-      const auto& cast_options = checked_cast<const CastOptions&>(*(*it)->options);
-      auto maybe_cast = Cast(Datum(bound), cast_options, &exec_context);
-      if (!maybe_cast.ok()) {
-        cast_failed = true;
-        break;
-      }
-      bound = maybe_cast->scalar();
-    }
-    if (cast_failed || !bound->type->Equals(*sorted->type())) continue;
+    // Put the bound through the casts the field goes through. Since each cast is
+    // nondecreasing, `x <= b` implies `cast(x) <= cast(b)` even if `cast(b)`
+    // rounds, so no exactness is needed.
+    auto cast_bound = casts.ApplyToBound(std::move(bound), &exec_context);
+    if (!cast_bound.ok()) continue;
+    bound = *cast_bound;
+    if (!bound->type->Equals(*sorted->type())) continue;
     if (!bound->is_valid || internal::IsNaNScalar(*bound)) continue;
 
-    Comparison::type cmp = inequality->cmp;
-    if (weaken_strict_bounds) {
-      if (cmp == Comparison::GREATER) cmp = Comparison::GREATER_EQUAL;
-      if (cmp == Comparison::LESS) cmp = Comparison::LESS_EQUAL;
-    }
+    // Strict bounds are weakened to inclusive ones through casts which are not
+    // injective: f64 = 51.00000001 satisfies f64 > 51 but casts to 51f.
+    Comparison::type cmp = casts.ApplyToComparison(inequality->cmp);
 
     ARROW_ASSIGN_OR_RAISE(
         int64_t lower, internal::SearchSortedValueSet(*sorted, *bound, /*upper=*/false));
@@ -1655,14 +1696,26 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   };
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
-  // `is_in` calls with large value sets are simplified against all inequalities
-  // on their argument at once, see SimplifyIsInWithInequalities.
+  // The inequalities on fields implied by the guarantee. A field which is also
+  // guaranteed valid cannot be null, whatever its inequalities admit.
   std::vector<Inequality> inequalities;
   for (const auto& guarantee : conjunction_members) {
     for (const auto& inequality : Inequality::Extract(guarantee)) {
       inequalities.push_back(inequality);
     }
   }
+  for (const auto& guarantee : conjunction_members) {
+    auto call = guarantee.call();
+    if (!call || call->function_name != "is_valid") continue;
+    auto target = call->arguments[0].field_ref();
+    if (!target) continue;
+    for (auto& inequality : inequalities) {
+      if (inequality.target == *target) inequality.nullable = false;
+    }
+  }
+
+  // `is_in` calls with large value sets are simplified against all inequalities
+  // on their argument at once, see SimplifyIsInWithInequalities.
   if (!inequalities.empty()) {
     Expression before = expr;
     ARROW_ASSIGN_OR_RAISE(expr, ModifyExpression(
@@ -1677,33 +1730,30 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
     }
   }
 
+  for (const Inequality& inequality : inequalities) {
+    ARROW_ASSIGN_OR_RAISE(auto simplified,
+                          ModifyExpression(
+                              std::move(expr), [](Expression expr) { return expr; },
+                              [&](Expression expr, ...) -> Result<Expression> {
+                                return inequality.Simplify(std::move(expr));
+                              }));
+
+    if (Expression::Identical(simplified, expr)) continue;
+
+    expr = std::move(simplified);
+    RETURN_NOT_OK(CanonicalizeAndFoldConstants());
+  }
+
   for (const auto& guarantee : conjunction_members) {
-    if (!guarantee.call()) continue;
+    if (!guarantee.call() || guarantee.call()->function_name != "is_valid") continue;
 
-    if (auto inequality = Inequality::ExtractOne(guarantee)) {
-      ARROW_ASSIGN_OR_RAISE(auto simplified,
-                            ModifyExpression(
-                                std::move(expr), [](Expression expr) { return expr; },
-                                [&](Expression expr, ...) -> Result<Expression> {
-                                  return inequality->Simplify(std::move(expr));
-                                }));
+    ARROW_ASSIGN_OR_RAISE(auto simplified, SimplifyIsValidGuarantee(
+                                               std::move(expr), *CallNotNull(guarantee)));
 
-      if (Expression::Identical(simplified, expr)) continue;
+    if (Expression::Identical(simplified, expr)) continue;
 
-      expr = std::move(simplified);
-      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
-    }
-
-    if (guarantee.call()->function_name == "is_valid") {
-      ARROW_ASSIGN_OR_RAISE(
-          auto simplified,
-          SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
-
-      if (Expression::Identical(simplified, expr)) continue;
-
-      expr = std::move(simplified);
-      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
-    }
+    expr = std::move(simplified);
+    RETURN_NOT_OK(CanonicalizeAndFoldConstants());
   }
 
   return expr;
