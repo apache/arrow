@@ -329,11 +329,13 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
 endif()
 
 if(ARROW_TESTING)
-  add_library(parquet_testing OBJECT test_util.cc)
-  # Even though this is still just an object library we still need to
-  # "link" our dependencies so that include paths are configured
-  # correctly
-  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  # Define parquet_testing interface library for common test files.
+  # test_util.cc is compiled as a source of each test executable so that
+  # it uses the same compile definitions (e.g. PARQUET_STATIC on Windows)
+  # as the test.
+  add_library(parquet_testing INTERFACE)
+  target_sources(parquet_testing INTERFACE test_util.cc)
+  target_link_libraries(parquet_testing INTERFACE ${ARROW_GTEST_GMOCK})
   list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
 endif()
 
