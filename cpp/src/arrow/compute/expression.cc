@@ -1205,6 +1205,29 @@ struct Inequality {
     return ExtractOneFromComparison(guarantee);
   }
 
+  // Also extract the bounds of a nullable range, as produced by Parquet:
+  // (cmp(a, min) and cmp(a, max)) or is_null(a).
+  // Each bound is only guaranteed for non-null values of the same field.
+  static std::vector<Inequality> Extract(const Expression& guarantee) {
+    if (auto inequality = ExtractOne(guarantee)) return {*inequality};
+
+    auto call = guarantee.call();
+    if (!call || call->function_name != "or_kleene") return {};
+    auto null_call = call->arguments[1].call();
+    if (!null_call || null_call->function_name != "is_null") return {};
+    auto target = null_call->arguments[0].field_ref();
+    if (!target) return {};
+
+    std::vector<Inequality> inequalities;
+    for (const auto& member : GuaranteeConjunctionMembers(call->arguments[0])) {
+      auto inequality = ExtractOneFromComparison(member);
+      if (!inequality || inequality->target != *target) continue;
+      inequality->nullable = true;
+      inequalities.push_back(*inequality);
+    }
+    return inequalities;
+  }
+
   static std::optional<Inequality> ExtractOneFromComparison(const Expression& guarantee) {
     auto call = guarantee.call();
     if (!call) return std::nullopt;
@@ -1283,7 +1306,7 @@ struct Inequality {
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
 
     FilterOptions::NullSelectionBehavior null_selection{};
-    switch (options->null_matching_behavior) {
+    switch (options->GetNullMatchingBehavior()) {
       case SetLookupOptions::MATCH:
         null_selection =
             guarantee.nullable ? FilterOptions::EMIT_NULL : FilterOptions::DROP;
@@ -1320,7 +1343,7 @@ struct Inequality {
     simplified_call.function_name = "is_in";
     simplified_call.arguments = is_in_call->arguments;
     simplified_call.options = std::make_shared<SetLookupOptions>(
-        simplified_value_set, options->null_matching_behavior);
+        simplified_value_set, options->GetNullMatchingBehavior());
     ARROW_ASSIGN_OR_RAISE(
         Expression simplified_expr,
         BindNonRecursive(std::move(simplified_call),
@@ -1417,7 +1440,7 @@ struct Inequality {
 /// \param nullable whether the data matched against the value set may be null
 bool IsInWithoutMatchesIsFalse(const SetLookupOptions& options, bool value_set_has_null,
                                bool nullable) {
-  switch (options.null_matching_behavior) {
+  switch (options.GetNullMatchingBehavior()) {
     case SetLookupOptions::MATCH:
       // A null in the value set matches nulls in the data.
       return !(nullable && value_set_has_null);
@@ -1636,8 +1659,8 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   // on their argument at once, see SimplifyIsInWithInequalities.
   std::vector<Inequality> inequalities;
   for (const auto& guarantee : conjunction_members) {
-    if (auto inequality = Inequality::ExtractOne(guarantee)) {
-      inequalities.push_back(*inequality);
+    for (const auto& inequality : Inequality::Extract(guarantee)) {
+      inequalities.push_back(inequality);
     }
   }
   if (!inequalities.empty()) {

@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -823,6 +824,71 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
   expect_row_groups(
       and_(is_in(as_int64_array(values)), less(field_ref("i64"), literal<int64_t>(50))),
       {0, 1, 4});
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsInWithNulls) {
+  // Each row group contains ten distinct values and a null, so its statistics
+  // yield (i64 >= min and i64 <= max) or is_null(i64).
+  auto dataset_schema = schema({field("i64", int64())});
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (int i = 0; i < 3; ++i) {
+    std::vector<int64_t> values(11);
+    std::iota(values.begin(), values.end(), 10 * i);
+    std::vector<bool> valid(values.size(), true);
+    valid.back() = false;
+    std::shared_ptr<Array> array;
+    ArrayFromVector<Int64Type, int64_t>(valid, values, &array);
+    batches.push_back(RecordBatch::Make(dataset_schema, array->length(), {array}));
+  }
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchReader::Make(std::move(batches), dataset_schema));
+  auto source = GetFileSource(reader.get());
+  SetSchema(dataset_schema->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+
+  // The hull spans all three row groups but no member occurs in [10, 19].
+  std::vector<int64_t> values(70);
+  std::iota(values.begin(), values.begin() + 10, 0);
+  std::iota(values.begin() + 10, values.end(), 20);
+  ASSERT_GT(values.size(), 50);
+  auto expect_row_groups = [&](bool value_set_has_null,
+                               compute::SetLookupOptions::NullMatchingBehavior behavior,
+                               const std::vector<int>& expected,
+                               std::optional<bool> skip_nulls = std::nullopt) {
+    SCOPED_TRACE(value_set_has_null);
+    SCOPED_TRACE(behavior);
+    auto set_values = values;
+    std::vector<bool> valid(values.size(), true);
+    if (value_set_has_null) {
+      set_values.push_back(0);
+      valid.push_back(false);
+    }
+    std::shared_ptr<Array> value_set;
+    ArrayFromVector<Int64Type, int64_t>(valid, set_values, &value_set);
+    compute::SetLookupOptions options{std::move(value_set), behavior};
+    options.skip_nulls = skip_nulls;
+    SetFilter(call("is_in", {field_ref("i64")}, options));
+    ASSERT_OK_AND_ASSIGN(auto fragments,
+                         parquet_fragment->SplitByRowGroup(opts_->filter));
+    std::vector<int> row_groups;
+    for (const auto& split : fragments) {
+      for (int row_group :
+           checked_pointer_cast<ParquetFileFragment>(split)->row_groups()) {
+        row_groups.push_back(row_group);
+      }
+    }
+    EXPECT_EQ(row_groups, expected);
+  };
+
+  expect_row_groups(false, compute::SetLookupOptions::MATCH, {0, 2});
+  // A null in a MATCH set matches the nulls in every row group.
+  expect_row_groups(true, compute::SetLookupOptions::MATCH, {0, 1, 2});
+  expect_row_groups(false, compute::SetLookupOptions::SKIP, {0, 2});
+  expect_row_groups(true, compute::SetLookupOptions::SKIP, {0, 2});
+  // The deprecated flag takes precedence over a conflicting enum value.
+  expect_row_groups(true, compute::SetLookupOptions::SKIP, {0, 1, 2}, false);
+  expect_row_groups(true, compute::SetLookupOptions::MATCH, {0, 2}, true);
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
