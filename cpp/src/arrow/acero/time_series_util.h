@@ -17,14 +17,25 @@
 
 #pragma once
 
+#include <limits>
+#include <type_traits>
+
 #include "arrow/record_batch.h"
 #include "arrow/type_traits.h"
 
 namespace arrow::acero {
 
 // normalize the value to unsigned 64-bits while preserving ordering of values
-template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
-uint64_t NormalizeTime(T t);
+template <typename T,
+          enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>, bool> = true>
+uint64_t NormalizeTime(T t) {
+  using U = std::make_unsigned_t<T>;
+  U normalized = static_cast<U>(t);
+  if constexpr (std::is_signed_v<T>) {
+    normalized ^= U{1} << (std::numeric_limits<U>::digits - 1);
+  }
+  return static_cast<uint64_t>(normalized);
+}
 
 uint64_t GetTime(const RecordBatch* batch, Type::type time_type, int col, uint64_t row);
 
