@@ -377,27 +377,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
             indices = _codes_to_indices(
                 values.codes, mask, index_type, memory_pool)
-            try:
-                dictionary = array(
-                    values.categories, type=value_type,
-                    from_pandas=True, memory_pool=memory_pool)
-            except TypeError:
-                # TODO when removing the deprecation warning, this whole
-                # try/except can be removed (to bubble the TypeError of
-                # the first array(..) call)
-                if value_type is not None:
-                    warnings.warn(
-                        "The dtype of the 'categories' of the passed "
-                        f"categorical values ({values.categories.dtype}) does not match the "
-                        f"specified type ({value_type}). For now ignoring the specified "
-                        "type, but in the future this mismatch will raise a "
-                        "TypeError",
-                        FutureWarning, stacklevel=2)
-                    dictionary = array(
-                        values.categories, from_pandas=True,
-                        memory_pool=memory_pool)
-                else:
-                    raise
+            dictionary = array(
+                values.categories, type=value_type,
+                from_pandas=True, memory_pool=memory_pool)
 
             return DictionaryArray.from_arrays(
                 indices, dictionary, ordered=values.ordered, safe=safe)
@@ -2787,7 +2769,7 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
-cdef class Decima32Array(FixedSizeBinaryArray):
+cdef class Decimal32Array(FixedSizeBinaryArray):
     """
     Concrete class for Arrow arrays of decimal32 data type.
     """
@@ -4040,24 +4022,6 @@ cdef class UnionArray(Array):
     """
     Concrete class for Arrow arrays of a Union data type.
     """
-
-    def child(self, int pos):
-        """
-        DEPRECATED, use field() instead.
-
-        Parameters
-        ----------
-        pos : int
-            The physical index of the union child field (not its type code).
-
-        Returns
-        -------
-        field : pyarrow.Field
-            The given child field.
-        """
-        import warnings
-        warnings.warn("child is deprecated, use field", FutureWarning)
-        return self.field(pos)
 
     def field(self, int pos):
         """

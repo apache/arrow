@@ -19,19 +19,6 @@ index 73f5aece46..68cdb3966f 100644
  )
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
-diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
-index 7764357a6d..da7374ecec 100644
---- a/ports/llvm/portfile.cmake
-+++ b/ports/llvm/portfile.cmake
-@@ -302,6 +302,8 @@ vcpkg_cmake_configure(
-         ${FEATURE_OPTIONS}
-     MAYBE_UNUSED_VARIABLES 
-         COMPILER_RT_ENABLE_IOS
-+        BOLT_TOOLS_INSTALL_DIR
-+        LIBOMP_INSTALL_ALIASES
- )
- 
- vcpkg_cmake_install(ADD_BIN_TO_PATH)
 diff --git a/ports/orc/orc-fix-exception-propagation.diff b/ports/orc/orc-fix-exception-propagation.diff
 new file mode 100644
 index 0000000000..25568e70cd
@@ -114,3 +101,72 @@ index 5df5e94..225e5fb 100644
  )
  
  if("tool" IN_LIST FEATURES)
+diff --git a/ports/nanoarrow/portfile.cmake b/ports/nanoarrow/portfile.cmake
+index 34f113f..10ca500 100644
+--- a/ports/nanoarrow/portfile.cmake
++++ b/ports/nanoarrow/portfile.cmake
+@@ -24,6 +24,10 @@ vcpkg_cmake_configure(
+     OPTIONS
+         -DNANOARROW_INSTALL_SHARED=${NANOARROW_INSTALL_SHARED}
+         -DNANOARROW_DEBUG_EXTRA_WARNINGS=OFF
++        # Prefix the C symbols so that consumers linking nanoarrow
++        # statically (e.g. azure-storage-blobs-cpp inside libarrow) do
++        # not export or clash on plain Arrow* names.
++        -DNANOARROW_NAMESPACE=VcpkgNanoarrow
+         ${FEATURE_OPTIONS}
+         ${FLATCCRT_OPTIONS}
+ )
+@@ -36,12 +40,12 @@ vcpkg_cmake_config_fixup(
+     DO_NOT_DELETE_PARENT_CONFIG_PATH
+ )
+ 
+-# Fix bare "flatccrt" in INTERFACE_LINK_LIBRARIES - Windows needs the full path
++# Fix bare "flatccrt" in INTERFACE_LINK_LIBRARIES - consumers need the full path
+ # Tracked upstream at https://github.com/apache/arrow-nanoarrow/issues/922
+-if ("ipc" IN_LIST FEATURES AND VCPKG_TARGET_IS_WINDOWS)
++if ("ipc" IN_LIST FEATURES)
+     vcpkg_replace_string("${CURRENT_PACKAGES_DIR}/share/nanoarrow/nanoarrow-targets.cmake"
+         [[\$<LINK_ONLY:flatccrt>]]
+-        [[\$<LINK_ONLY:${_IMPORT_PREFIX}/lib/flatccrt.lib>]]
++        "\\\$<LINK_ONLY:\${_IMPORT_PREFIX}/lib/${VCPKG_TARGET_STATIC_LIBRARY_PREFIX}flatccrt${VCPKG_TARGET_STATIC_LIBRARY_SUFFIX}>"
+     )
+ endif()
+ 
+diff --git a/ports/protobuf/fix-msvc-global-empty-string.patch b/ports/protobuf/fix-msvc-global-empty-string.patch
+new file mode 100644
+index 0000000..da1d995
+--- /dev/null
++++ b/ports/protobuf/fix-msvc-global-empty-string.patch
+@@ -0,0 +1,20 @@
++diff --git a/src/google/protobuf/port.h b/src/google/protobuf/port.h
++index 7347203..a587be8 100644
++--- a/src/google/protobuf/port.h
+++++ b/src/google/protobuf/port.h
++@@ -876,9 +876,14 @@ class alignas(8) GlobalEmptyStringConstexpr {
++   // evaluation, not that a constant evaluated instance can leak into runtime.
++   // Memory allocated during constant evaluation can't be used for runtime
++   // objects.
++-#if !defined(__XTENSA__)
+++#if !defined(__XTENSA__) && !defined(_MSC_VER)
++   // Disable the optimization for Xtensa.
++   // Compilation fails on Xtensa: b/467129751
+++  // Disable the optimization for MSVC too, as protobuf 33.x did.
+++  // MSVC mangles the type of fixed_address_empty_string into its symbol
+++  // name, so libprotobuf and generated code built with different C++
+++  // standards (C++17 vs C++20) fail to link.
+++  // See https://github.com/microsoft/vcpkg/issues/54654
++   template <
++       typename Alloc = NonConstexprAllocator<char>,
++       int = std::basic_string<char, std::char_traits<char>, Alloc>().size()>
+diff --git a/ports/protobuf/portfile.cmake b/ports/protobuf/portfile.cmake
+index 74570d4..ae656fc 100644
+--- a/ports/protobuf/portfile.cmake
++++ b/ports/protobuf/portfile.cmake
+@@ -11,6 +11,7 @@ vcpkg_from_github(
+         fix-install-dirs.patch
+         fix-constinit-with-clang-cl.patch
+         fix-upb.patch
++        fix-msvc-global-empty-string.patch
+ )
+ 
+ string(COMPARE EQUAL "${TARGET_TRIPLET}" "${HOST_TRIPLET}" protobuf_BUILD_PROTOC_BINARIES)

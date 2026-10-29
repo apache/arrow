@@ -63,9 +63,6 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
-          (github.event_name == 'push' &&
-           github.repository == 'apache/arrow' &&
-           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: CUDA')
@@ -109,7 +106,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
@@ -139,17 +136,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

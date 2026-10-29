@@ -1139,6 +1139,26 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   AssertArraysEqual(*src, *dst);
 }
 
+// GH-54924: ArraySpan::HasVariadicBuffers must look through extension types.
+TEST_F(TestArray, TestBinaryViewExtensionArraySpanRoundtrip) {
+  auto storage = ArrayFromJSON(
+      binary_view(),
+      R"([null, "short", "long string that is not inlined", "another somewhat long string"])");
+  auto extension_type = binary_view_extension_type();
+  auto extension_array = ExtensionType::WrapArray(extension_type, storage);
+  ASSERT_OK(extension_array->ValidateFull());
+
+  ArraySpan span(*extension_array->data());
+  ASSERT_TRUE(span.HasVariadicBuffers());
+  ASSERT_EQ(span.GetVariadicBuffers().size(), storage->data()->buffers.size() - 2);
+
+  auto roundtripped = span.ToArray();
+  ASSERT_OK(roundtripped->ValidateFull());
+  AssertArraysEqual(*extension_array, *roundtripped);
+  ASSERT_EQ(roundtripped->data()->buffers.size(),
+            extension_array->data()->buffers.size());
+}
+
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto null_buffer = Buffer::FromString("\xff");

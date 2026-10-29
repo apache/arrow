@@ -72,9 +72,6 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
-          (github.event_name == 'push' &&
-           github.repository == 'apache/arrow' &&
-           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
@@ -190,7 +187,7 @@ jobs:
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
@@ -234,7 +231,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -257,7 +254,7 @@ jobs:
         if: >-
           !cancelled()
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
@@ -265,9 +262,7 @@ jobs:
       - name: Docker Push
         continue-on-error: true
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         run: |
           rake -C dev/tasks/linux-packages/apache-arrow docker:push:${TARGET}
       - name: Build artifact tarball
@@ -349,6 +344,8 @@ jobs:
         if: env.TASK_NAMESPACE == 'apt'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required because the default /tmp is a size-limited tmpfs on some runner images.
+          TMPDIR: ${{ runner.temp }}
         run: |
           # Validate reproducibility. Reprotest runs the build twice
           # inside its own tempdir and doesn't copy artifacts back,

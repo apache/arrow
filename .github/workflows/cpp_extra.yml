@@ -85,9 +85,6 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
-          (github.event_name == 'push' &&
-           github.repository == 'apache/arrow' &&
-           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
@@ -149,7 +146,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -178,17 +175,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -238,7 +232,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -260,16 +254,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ github.actor }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -315,7 +307,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ccache
           key: jni-macos
@@ -361,7 +353,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ccache
           key: jni-macos
@@ -416,7 +408,7 @@ jobs:
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -490,7 +482,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -524,7 +516,7 @@ jobs:
           docker compose up -d dremio
           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -540,17 +532,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: ubuntu-cpp-odbc
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -614,7 +603,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -637,7 +626,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}

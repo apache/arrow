@@ -870,17 +870,20 @@ TEST(TimestampParser, StrptimeParser) {
   }
 
   // Unparseable strings
-  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6",
-                                           // Impossible dates are rejected rather
-                                           // than rolled over into the next month
-                                           "2/30/2000 12:34:56", "4/31/2000 12:34:56",
-                                           "2/29/2001 12:34:56",
-                                           // A zero day is rejected rather than
-                                           // taken as the first of the month
-                                           "2/00/2000 12:34:56",
-                                           // A zero month is rejected rather than
-                                           // taken as December of the previous year
-                                           "0/15/2000 12:34:56"};
+  std::vector<std::string> unparseables = {
+      "foo", "5/1/2000", "5/1/2000 12:34:56:6",
+      // Impossible dates are rejected rather
+      // than rolled over into the next month
+      "2/30/2000 12:34:56", "4/31/2000 12:34:56", "2/29/2001 12:34:56",
+      // A zero day is rejected rather than
+      // taken as the first of the month
+      "2/00/2000 12:34:56",
+      // A zero month is rejected rather than
+      // taken as December of the previous year
+      "0/15/2000 12:34:56",
+      // Leap seconds are rejected, as by the
+      // ISO-8601 parser
+      "5/31/2000 12:30:60", "5/31/2000 23:59:60", "5/31/2000 23:59:61"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
@@ -926,6 +929,25 @@ TEST(TimestampParser, StrptimeWithoutDay) {
   ASSERT_TRUE((*parser)("2000-02", 7, TimeUnit::SECOND, &converted));
   ASSERT_TRUE(ParseTimestampISO8601("2000-02-01", 10, TimeUnit::SECOND, &expected));
   ASSERT_EQ(expected, converted);
+}
+
+TEST(TimestampParser, StrptimeYearOutOfRange) {
+  auto parser = TimestampParser::MakeStrptime("%s");
+  int64_t converted = 0;
+  // A value past 2038 (2100-01-01), as a strptime that parses %s into a 32-bit
+  // time_t wraps larger values into ordinary dates
+  if (!(*parser)("4102444800", 10, TimeUnit::SECOND, &converted) ||
+      converted != 4102444800) {
+    GTEST_SKIP() << "strptime does not support 64-bit %s values on this platform";
+  }
+
+  // Years that do not fit in a date::year are rejected rather than wrapped,
+  // also where tm_year + 1900 would overflow int
+  for (const std::string value :
+       {"1000000000000000", "67768036000000000", "67768036191676799"}) {
+    SCOPED_TRACE(value);
+    ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &converted));
+  }
 }
 
 TEST(TimestampParser, StrptimeZoneOffset) {

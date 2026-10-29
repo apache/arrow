@@ -148,8 +148,16 @@ write_dataset <- function(
       msg = '`format = "feather"` is deprecated; use `format = "ipc"` instead.'
     )
   }
+  if (format == "txt") {
+    .Deprecated(
+      msg = '`format = "txt"` is deprecated; use `format = "csv"` instead.'
+    )
+  }
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
+  }
+  if (format %in% c("text", "txt")) {
+    format <- "csv"
   }
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
@@ -194,9 +202,6 @@ write_dataset <- function(
   path_and_fs <- get_path_and_filesystem(path)
 
   dots <- list(...)
-  if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
-    stop("A delimiter must be given for a txt format.")
-  }
   if (format == "tsv" && any(c("delimiter", "delim") %in% names(dots))) {
     stop("Can't set a delimiter for the tsv format.")
   }
@@ -316,7 +321,7 @@ write_delim_dataset <- function(
   write_dataset(
     dataset = dataset,
     path = path,
-    format = "txt",
+    format = "text",
     partitioning = partitioning,
     basename_template = basename_template,
     hive_style = hive_style,
