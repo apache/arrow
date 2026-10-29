@@ -250,6 +250,38 @@ A pull request opened beyond that limit is automatically closed by a GitHub
 Actions workflow, with a comment explaining why. Once one of your other pull
 requests has been merged or closed, you can reopen it.
 
+.. _fork-ci:
+
+CI on contributor forks
++++++++++++++++++++++++
+
+For fork pull requests targeting ``main``, builds and tests run on the
+contributor's fork. Enable workflows in your fork's **Actions** tab before
+pushing. Each ``(fork)`` check links to that workflow's run for the current
+branch head. Results refresh after upstream workflow completion and periodically;
+scheduled updates can be delayed. Rerun failed jobs in your fork.
+
+If no run exists for the current commit (for example, an edit did not match a
+workflow's push path filters), run the missing workflow on your branch:
+
+.. code-block:: shell
+
+   gh workflow run cpp.yml --repo YOUR-LOGIN/arrow --ref YOUR-BRANCH
+
+When a maintainer requests ``CI: Extra`` builds, push again or manually run
+``cpp_extra.yml``, ``r_extra.yml``, or ``package_linux.yml`` as requested.
+An upstream label cannot start a run in another user's fork. Subsequent
+matching pushes discover the open PR's Extra labels automatically.
+For ``verify_rc.yml``, also supply ``-f rc_tag=apache-arrow-VERSION-rcN``.
+
+Fork checks are informational: contributors control their workflow definitions,
+and these runs test the branch head rather than its merge with ``main``.
+Arrow has no merge queue. Maintainers can apply ``CI: Upstream`` to run
+the requested workflows against the PR merge ref upstream; subsequent pushes
+also run upstream while the label remains. Main, tags, nightly builds, and
+release-branch PRs retain their existing validation. CUDA and the C++
+large-memory job continue to use Arrow's specialized runners upstream.
+
 .. _issue-assignment:
 
 Issue assignment
