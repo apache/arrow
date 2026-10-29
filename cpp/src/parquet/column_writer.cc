@@ -1710,12 +1710,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      for (int64_t i = 0; i < num_levels; ++i) {
-        if (rep_levels[i] == 0) {
-          rows_written_++;
-          num_buffered_rows_++;
-        }
-      }
+      const int64_t new_rows = std::count(rep_levels, rep_levels + num_levels, int16_t{0});
+      rows_written_ += new_rows;
+      num_buffered_rows_ += new_rows;
 
       WriteRepetitionLevels(num_levels, rep_levels);
     } else {
@@ -1805,12 +1802,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      for (int64_t i = 0; i < num_levels; ++i) {
-        if (rep_levels[i] == 0) {
-          rows_written_++;
-          num_buffered_rows_++;
-        }
-      }
+      const int64_t new_rows = std::count(rep_levels, rep_levels + num_levels, int16_t{0});
+      rows_written_ += new_rows;
+      num_buffered_rows_ += new_rows;
       WriteRepetitionLevels(num_levels, rep_levels);
     } else {
       // Each value is exactly one row
