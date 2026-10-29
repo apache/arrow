@@ -2021,6 +2021,132 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
           true_unless_null(field_ref("i32"))));  // not satisfiable, will drop row group
 }
 
+TEST(Expression, SimplifyWithNullableRangeGuarantee) {
+  // The shape of Parquet statistics for a row group which may contain nulls: both
+  // bounds hold for every non-null value.
+  auto i32 = field_ref("i32");
+  auto u32 = field_ref("u32");
+  auto range = and_(greater_equal(i32, literal(1)), less_equal(i32, literal(5)));
+  auto nullable_range = or_(range, is_null(i32));
+
+  Simplify{greater(i32, literal(10))}
+      .WithGuarantee(nullable_range)
+      .Expect(not_(true_unless_null(i32)));
+  Simplify{less(i32, literal(0))}
+      .WithGuarantee(nullable_range)
+      .Expect(not_(true_unless_null(i32)));
+  Simplify{less(i32, literal(10))}
+      .WithGuarantee(nullable_range)
+      .Expect(true_unless_null(i32));
+  Simplify{less(i32, literal(3))}.WithGuarantee(nullable_range).ExpectUnchanged();
+  Simplify{is_null(i32)}.WithGuarantee(nullable_range).ExpectUnchanged();
+  Simplify{is_valid(i32)}.WithGuarantee(nullable_range).ExpectUnchanged();
+
+  // Small value sets are filtered by both bounds
+  auto is_in = [&](std::string json_array) {
+    return call(
+        "is_in", {i32},
+        SetLookupOptions{ArrayFromJSON(int32(), json_array), SetLookupOptions::MATCH});
+  };
+  Simplify{is_in("[10, 11]")}.WithGuarantee(nullable_range).Expect(false);
+  Simplify{is_in("[0, 3, 11]")}.WithGuarantee(nullable_range).Expect(is_in("[3]"));
+
+  // Bounds are not inferred for a field other than the one which may be null
+  Simplify{greater(i32, literal(10))}
+      .WithGuarantee(or_(range, is_null(u32)))
+      .ExpectUnchanged();
+
+  // is_valid elsewhere in the guarantee rules out the nulls
+  auto valid_range = and_(nullable_range, is_valid(i32));
+  Simplify{greater(i32, literal(10))}.WithGuarantee(valid_range).Expect(false);
+  Simplify{less(i32, literal(10))}.WithGuarantee(valid_range).Expect(true);
+  Simplify{is_null(i32)}.WithGuarantee(valid_range).Expect(false);
+}
+
+TEST(Expression, SimplifyComparisonThroughNonInjectiveCast) {
+  auto i32 = field_ref("i32");
+  auto i64 = field_ref("i64");
+  auto f32 = field_ref("f32");
+  auto f64 = field_ref("f64");
+
+  // Casts which are not injective only bound the cast field inclusively:
+  // f64 = 51.00000001 satisfies f64 > 51 and casts to 51f.
+  auto f64_as_f32 = cast(f64, float32());
+  Simplify{equal(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .ExpectUnchanged();
+  Simplify{less_equal(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .ExpectUnchanged();
+  Simplify{greater(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .ExpectUnchanged();
+  Simplify{less(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .Expect(false);
+  Simplify{greater_equal(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .Expect(true);
+  Simplify{greater(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater(f64, literal(51.5)))
+      .Expect(true);
+  // The bound of the guarantee is rounded through the cast before being compared:
+  // f64 = 50.99999999 satisfies f64 <= 50.99999999 and casts to 51f.
+  Simplify{equal(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(less_equal(f64, literal(50.99999999)))
+      .ExpectUnchanged();
+  Simplify{less_equal(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(greater_equal(f64, literal(51.00000001)))
+      .ExpectUnchanged();
+  Simplify{equal(f64_as_f32, literal(51.0F))}
+      .WithGuarantee(less_equal(f64, literal(50.5)))
+      .Expect(false);
+  // Small is_in value sets are filtered the same way
+  auto is_in_f32 = [&](std::string json_array) {
+    return call(
+        "is_in", {f64_as_f32},
+        SetLookupOptions{ArrayFromJSON(float32(), json_array), SetLookupOptions::MATCH});
+  };
+  Simplify{is_in_f32("[50, 51]")}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .Expect(is_in_f32("[51]"));
+  Simplify{is_in_f32("[51]")}
+      .WithGuarantee(greater(f64, literal(51.0)))
+      .ExpectUnchanged();
+  Simplify{is_in_f32("[51]")}
+      .WithGuarantee(less_equal(f64, literal(50.99999999)))
+      .ExpectUnchanged();
+  Simplify{is_in_f32("[51]")}.WithGuarantee(greater(f64, literal(51.5))).Expect(false);
+
+  // Nor is int64 to float64: 2^53 + 1 casts to 2^53 (when the cast is allowed to
+  // truncate; a safe cast fails on values outside [-2^53, 2^53] and so does any
+  // bound outside that range, which is then ignored)
+  auto i64_as_f64 = call("cast", {i64}, CastOptions::Unsafe(float64()));
+  Simplify{equal(i64_as_f64, literal(9007199254740992.0))}
+      .WithGuarantee(greater(i64, literal<int64_t>(9007199254740992)))
+      .ExpectUnchanged();
+  Simplify{equal(i64_as_f64, literal(9007199254740992.0))}
+      .WithGuarantee(greater_equal(i64, literal<int64_t>(9007199254740994)))
+      .Expect(false);
+  Simplify{equal(cast(i64, float64()), literal(9007199254740992.0))}
+      .WithGuarantee(greater_equal(i64, literal<int64_t>(9007199254740994)))
+      .ExpectUnchanged();
+  Simplify{greater(cast(i32, float32()), literal(5.0F))}
+      .WithGuarantee(greater(i32, literal(5)))
+      .ExpectUnchanged();
+
+  // Widening casts are injective, so strict bounds stay strict
+  Simplify{greater(cast(i32, int64()), literal<int64_t>(5))}
+      .WithGuarantee(greater(i32, literal(5)))
+      .Expect(true);
+  Simplify{greater(cast(i32, float64()), literal(5.0))}
+      .WithGuarantee(greater(i32, literal(5)))
+      .Expect(true);
+  Simplify{greater(cast(f32, float64()), literal(5.0))}
+      .WithGuarantee(greater(f32, literal(5.0F)))
+      .Expect(true);
+}
+
 TEST(Expression, SimplifyIsIn) {
   auto is_in = [](Expression field, std::shared_ptr<DataType> value_set_type,
                   std::string json_array,
@@ -2572,6 +2698,13 @@ TEST(Expression, SimplifyIsInLargeValueSetNullableRange) {
         non_nullable.ExpectUnchanged();
       } else {
         non_nullable.Expect(false);
+      }
+      // ... as can is_valid elsewhere in the guarantee.
+      auto valid = Simplify{filter}.WithGuarantee(and_(nullable_range, is_valid(i32)));
+      if (null_matching == SetLookupOptions::INCONCLUSIVE && value_set_has_null) {
+        valid.ExpectUnchanged();
+      } else {
+        valid.Expect(false);
       }
 
       // Verify that simplification also preserves the values on null input.
