@@ -62,8 +62,8 @@ inline bool IsControlChar(uint8_t c) { return c < ' '; }
 
 enum class DelimiterMatch { kNoMatch, kMatch, kPartial };
 
-DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
-                              const char* data_end, bool is_final) {
+inline DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
+                                     const char* data_end, bool is_final) {
   DCHECK(!delimiter.empty());
   const auto available = static_cast<size_t>(data_end - data);
   const auto compared = std::min(available, delimiter.size());
@@ -334,6 +334,22 @@ class BlockParserImpl {
         values_writer->FinishField(parsed_writer);
       }
     };
+    auto ConsumeDelimiter = [&]() {
+      if constexpr (SpecializedOptions::multi_delimiter) {
+        const auto& delimiter = options_.delimiter_string;
+        const auto match = MatchDelimiter(delimiter, data, data_end, is_final);
+        if (match == DelimiterMatch::kMatch) {
+          data += delimiter.size();
+        }
+        return match;
+      } else {
+        if (*data == options_.delimiter) {
+          ++data;
+          return DelimiterMatch::kMatch;
+        }
+        return DelimiterMatch::kNoMatch;
+      }
+    };
 
     values_writer->BeginLine();
     parsed_writer->BeginLine();
@@ -358,31 +374,20 @@ class BlockParserImpl {
 
   FieldStart:
     // At the start of a field
-    {
-      size_t delimiter_len = 0;
-      if constexpr (SpecializedOptions::multi_delimiter) {
-        const auto delimiter = internal::GetDelimiter(options_);
-        const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
-        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kPartial)) {
-          goto AbortLine;
-        }
-        if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kMatch)) {
-          delimiter_len = delimiter.size();
-        }
-      } else if (*data == options_.delimiter) {
-        delimiter_len = 1;
-      }
-      if (ARROW_PREDICT_FALSE(delimiter_len > 0)) {
+    switch (ConsumeDelimiter()) {
+      case DelimiterMatch::kPartial:
+        goto AbortLine;
+      case DelimiterMatch::kMatch:
         // Empty cells are very common in some files, shortcut them
         StartField(false /* quoted */);
         FinishField();
-        data += delimiter_len;
         ++num_cols;
         if (ARROW_PREDICT_FALSE(data == data_end)) {
           goto AbortLine;
         }
         goto FieldStart;
-      }
+      case DelimiterMatch::kNoMatch:
+        break;
     }
 
     // Quoting is only recognized at start of field
@@ -426,19 +431,13 @@ class BlockParserImpl {
       }
       goto InField;
     }
-    if constexpr (SpecializedOptions::multi_delimiter) {
-      const auto delimiter = internal::GetDelimiter(options_);
-      const auto delimiter_match = MatchDelimiter(delimiter, data, data_end, is_final);
-      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kPartial)) {
+    switch (ConsumeDelimiter()) {
+      case DelimiterMatch::kPartial:
         goto AbortLine;
-      }
-      if (ARROW_PREDICT_FALSE(delimiter_match == DelimiterMatch::kMatch)) {
-        data += delimiter.size();
+      case DelimiterMatch::kMatch:
         goto FieldEnd;
-      }
-    } else if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
-      ++data;
-      goto FieldEnd;
+      case DelimiterMatch::kNoMatch:
+        break;
     }
     ++data;
     if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
