@@ -31,8 +31,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-lz4"
-         "${MINGW_PACKAGE_PREFIX}-zstd"
-         "${MINGW_PACKAGE_PREFIX}-brotli")
+         "${MINGW_PACKAGE_PREFIX}-zstd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-ccache"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
@@ -96,6 +95,9 @@ build() {
   # But one on rtools packages doesn't have the fix. So we can't use
   # the MINGW one.
 
+  # We use the bundled Brotli instead of the MINGW one because the one
+  # on rtools packages is unmaintained and stuck at 1.0.9.
+
   # MSYS2_ARG_CONV_EXCL is needed to prevent autoconverting CMAKE_INSTALL_PREFIX
   # to Windows paths. See https://www.msys2.org/docs/filesystem-paths/#process-arguments
 
@@ -137,6 +139,7 @@ build() {
     -DARROW_ZSTD_USE_SHARED=OFF \
     -DARROW_CXXFLAGS="${CPPFLAGS}" \
     -DAWSSDK_SOURCE=BUNDLED \
+    -DBrotli_SOURCE=BUNDLED \
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
