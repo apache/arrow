@@ -92,7 +92,19 @@ struct ConversionSchema {
 // An iterator of Buffers that makes sure there is no straddling CRLF sequence.
 class CSVBufferIterator {
  public:
-  explicit CSVBufferIterator(ParseOptions options) : options_(std::move(options)) {}
+  explicit CSVBufferIterator(ParseOptions options) : options_(std::move(options)) {
+    // Quote tracking is only needed when a trailing '\r' can be quoted
+    // data. That happens only when the chunker is quote-aware, i.e. when
+    // quoting is enabled AND newlines in values are allowed: MakeChunker
+    // picks the lexing boundary finder only then, and otherwise splits
+    // rows at raw newlines, so every '\r' is a terminator and stripping
+    // is always consistent with the chunker. In all other configurations
+    // the old rule -- strip whenever fused -- is exact, and running the
+    // lexer would be a wasted second pass over the data. In particular
+    // the default configuration (newlines_in_values=false) pays no cost
+    // at all for this fix.
+    track_lexer_ = options_.quoting && options_.newlines_in_values;
+  }
 
   static Iterator<std::shared_ptr<Buffer>> Make(
       Iterator<std::shared_ptr<Buffer>> buffer_iterator, const ParseOptions& options) {
@@ -152,12 +164,16 @@ class CSVBufferIterator {
     const int64_t incoming = buf->size() - offset;
 
     // Advance the lexing state over the newly arrived bytes, in stream
-    // order. Bytes withheld earlier (held_buffer_ / pending_cr_) were
-    // already lexed when they first arrived, and the '\r' re-inserted at
-    // a fusion seam below is that same byte, so only the incoming bytes
-    // are new. The state after this call is the state at the end of the
-    // fused buffer, which the strip decision below relies on.
-    AdvanceLexer(buf->data() + offset, incoming);
+    // order, but only when the state can affect the strip decision below
+    // (see track_lexer_). Bytes withheld earlier (held_buffer_ /
+    // pending_cr_) were already lexed when they first arrived, and the
+    // '\r' re-inserted at a fusion seam below is that same byte, so only
+    // the incoming bytes are new. The state after this call is the state
+    // at the end of the fused buffer, which the strip decision below
+    // relies on.
+    if (track_lexer_) {
+      AdvanceLexer(buf->data() + offset, incoming);
+    }
     bool fused = false;
     std::shared_ptr<Buffer> current;
     if (held_buffer_ != nullptr) {
@@ -189,10 +205,14 @@ class CSVBufferIterator {
     }
 
     if (current->size() > 0 && current->data()[current->size() - 1] == '\r') {
-      if (fused && incoming > 0 && lexer_state_ == LexerState::FIELD_START) {
-        // The fused buffer ends with a '\r' that cleanly ended a line
-        // (the lexer is back at a field start), so the buffer still
-        // contains complete lines before its last byte. It is safe to
+      if (fused && incoming > 0 &&
+          (!track_lexer_ || lexer_state_ == LexerState::FIELD_START)) {
+        // The fused buffer ends with a '\r' that the chunker will treat
+        // as a line terminator: either the lexer is back at a field start
+        // (tracked case), or quote tracking is off because the chunker
+        // splits at raw newlines in this configuration (see track_lexer_).
+        // Either way the buffer still contains complete lines before its
+        // last byte. It is safe to
         // emit it without the trailing '\r' and let the next block
         // complete the possible CRLF pair: the withheld '\r' is itself
         // a line terminator for whatever row tail follows it.
@@ -269,6 +289,11 @@ class CSVBufferIterator {
     AT_QUOTED_QUOTE,
   };
   ParseOptions options_;
+  // Whether the quote tracking above runs at all: false unless quoting is
+  // enabled and newlines in values are allowed (see the constructor).
+  // When false, the strip decision falls back to the pre-v4 rule and the
+  // lexer state is never consulted.
+  bool track_lexer_ = false;
   LexerState lexer_state_ = LexerState::FIELD_START;
 
   void AdvanceLexer(const uint8_t* data, int64_t size) {
