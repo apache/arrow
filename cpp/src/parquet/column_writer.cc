@@ -1006,9 +1006,9 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
                                        const std::shared_ptr<Buffer>& values) {
   auto uncompressed_data = values;
   if (definition_levels_rle_size > 0 || repetition_levels_rle_size > 0) {
-    // Use Arrow::Buffer::shrink_to_fit = false
-    // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
-    PARQUET_THROW_NOT_OK(uncompressed_data_->Resize(uncompressed_size, false));
+    // Underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
+    PARQUET_THROW_NOT_OK(
+        uncompressed_data_->Resize(uncompressed_size, /*shrink_to_fit=*/false));
     ConcatenateBuffers(definition_levels_rle_size, repetition_levels_rle_size, values,
                        uncompressed_data_->mutable_data());
     uncompressed_data = uncompressed_data_;
