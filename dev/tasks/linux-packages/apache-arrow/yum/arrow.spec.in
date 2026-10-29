@@ -387,7 +387,7 @@ Libraries and header files for Apache Arrow GCS filesystem.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_libdir}/cmake/ArrowGcs/
-%{_libdir}/libarrow_gcs.a
+%{_libdir}/libarrow_gcs*.a
 %{_libdir}/libarrow_gcs.so
 %{_libdir}/pkgconfig/arrow-gcs.pc
 %endif
