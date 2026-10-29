@@ -213,7 +213,7 @@ class ORCFile:
                 if not 0 <= stripe < self.nstripes:
                     raise ValueError(f"Out of bounds stripe: {stripe}")
         if columns is not None:
-            columns = list(self._select_names(list(columns)))
+            columns = self._select_names(list(columns))
         return self.reader.iter_batches(batch_size, stripes, columns)
 
     def read(self, columns=None):

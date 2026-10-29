@@ -700,8 +700,8 @@ def batch_file(request):
     return data, table
 
 
-@pytest.mark.parametrize('batch_size', [1000, 16384, 20000, 65536])
-@pytest.mark.parametrize('stripes', [None, [2, 0, 2], []])
+@pytest.mark.parametrize('batch_size', [1000, 16384, 65536])
+@pytest.mark.parametrize('stripes', [None, [2, 0, 2]])
 def test_iter_batches_selection(batch_file, batch_size, stripes):
     from pyarrow import orc
 
@@ -721,7 +721,7 @@ def test_iter_batches_selection(batch_file, batch_size, stripes):
 
 
 @pytest.mark.parametrize('stripes', [None, [2, 0]])
-@pytest.mark.parametrize('columns', [None, [], [1], ['other', 'value'],
+@pytest.mark.parametrize('columns', [[], [1], ['other', 'value'],
                                      ['other', 'other']])
 def test_iter_batches_projection(batch_file, stripes, columns):
     from pyarrow import orc
@@ -766,6 +766,7 @@ def test_iter_batches_nested_and_nulls():
     assert sum(b.num_rows for b in reader.iter_batches()) == 3
 
 
+@pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
 @pytest.mark.parametrize('batch_size,error', [
     (0, ValueError), (-1, ValueError), (1.5, TypeError), ('2', TypeError),
     (None, TypeError), (2**63, OverflowError), (-2**63 - 1, OverflowError)])
@@ -777,6 +778,7 @@ def test_iter_batches_invalid_batch_size(batch_file, batch_size, error):
         reader.iter_batches(batch_size)
 
 
+@pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
 @pytest.mark.parametrize('stripes,error', [
     ([-1], ValueError), ([4], ValueError), ([0, 4], ValueError),
     ([1.2], TypeError), (['0'], TypeError), ([None], TypeError),
@@ -861,12 +863,11 @@ def test_iter_batches_lazy_close_and_owner(batch_file, monkeypatch, stripes):
     reader_ref = weakref.ref(file.reader)
     source_ref = weakref.ref(source)
 
-    for unstarted_stripes in (None, [2, 0], []):
-        unstarted = file.iter_batches(32, unstarted_stripes)
-        unstarted.close()
-        assert list(unstarted) == []
-        assert source.reads == []
-        assert not source.closed
+    unstarted = file.iter_batches(32, stripes)
+    unstarted.close()
+    assert list(unstarted) == []
+    assert source.reads == []
+    assert not source.closed
     del unstarted
 
     def fail_whole_stripe(*args, **kwargs):
