@@ -31,7 +31,7 @@ else:
 
 import pyarrow.lib as lib
 
-from pyarrow._types import (
+from pyarrow.__lib.types import (
     BinaryType,
     BinaryViewType,
     BoolType,

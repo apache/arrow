@@ -21,7 +21,7 @@
 
 from typing import Any
 
-from pyarrow._types import *  # noqa: F401,F403
+from pyarrow.__lib.types import *  # noqa: F401,F403
 from pyarrow.__lib.array import *  # noqa: F401,F403
 from pyarrow.__lib.builder import *  # noqa: F401,F403
 from pyarrow.__lib.config import *  # noqa: F401,F403

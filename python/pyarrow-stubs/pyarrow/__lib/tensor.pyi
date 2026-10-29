@@ -26,7 +26,7 @@ from collections.abc import Sequence
 import numpy as np
 
 from pyarrow.lib import _Weakrefable
-from pyarrow._types import DataType
+from .types import DataType
 from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
 from sparse import COO  # type: ignore[import-untyped, import-not-found]
 
