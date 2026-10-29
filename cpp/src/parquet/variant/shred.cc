@@ -737,15 +737,28 @@ void ValidatePrimitiveTarget(const std::shared_ptr<DataType>& target) {
     case ::arrow::Type::LARGE_STRING:
     case ::arrow::Type::STRING_VIEW:
       return;
-    case ::arrow::Type::DECIMAL32:
-    case ::arrow::Type::DECIMAL64:
-    case ::arrow::Type::DECIMAL128: {
-      const auto& decimal = checked_cast<const ::arrow::DecimalType&>(*target);
-      if (decimal.scale() < 0 || decimal.scale() > decimal.precision()) {
-        throw ParquetException("Invalid Variant shredding decimal type: ",
-                               target->ToString());
+    case ::arrow::Type::DECIMAL32: {
+      const auto& decimal = checked_cast<const ::arrow::Decimal32Type&>(*target);
+      if (decimal.scale() >= 0 && decimal.scale() <= decimal.precision()) {
+        return;
       }
-      return;
+      break;
+    }
+    case ::arrow::Type::DECIMAL64: {
+      const auto& decimal = checked_cast<const ::arrow::Decimal64Type&>(*target);
+      if (decimal.precision() > ::arrow::Decimal32Type::kMaxPrecision &&
+          decimal.scale() >= 0 && decimal.scale() <= decimal.precision()) {
+        return;
+      }
+      break;
+    }
+    case ::arrow::Type::DECIMAL128: {
+      const auto& decimal = checked_cast<const ::arrow::Decimal128Type&>(*target);
+      if (decimal.precision() > ::arrow::Decimal64Type::kMaxPrecision &&
+          decimal.scale() >= 0 && decimal.scale() <= decimal.precision()) {
+        return;
+      }
+      break;
     }
     case ::arrow::Type::TIME64:
       if (checked_cast<const ::arrow::Time64Type&>(*target).unit() == TimeUnit::MICRO) {
@@ -759,16 +772,9 @@ void ValidatePrimitiveTarget(const std::shared_ptr<DataType>& target) {
       }
       break;
     }
-    case ::arrow::Type::FIXED_SIZE_BINARY:
-      if (checked_cast<const ::arrow::FixedSizeBinaryType&>(*target).byte_width() == 16) {
-        return;
-      }
-      break;
     case ::arrow::Type::EXTENSION: {
       const auto& extension = checked_cast<const ::arrow::ExtensionType&>(*target);
-      if (extension.extension_name() == "arrow.uuid" &&
-          ::arrow::extension::UuidType::IsSupportedStorageType(
-              extension.storage_type())) {
+      if (extension.extension_name() == "arrow.uuid") {
         return;
       }
       break;

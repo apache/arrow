@@ -105,7 +105,9 @@ TEST(TestVariantType, Storage) {
   ASSERT_OK(VariantExtensionType::Make(shredded_list));
 
   for (const auto& typed_value_type :
-       {binary_view(), utf8_view(), ::arrow::extension::uuid(),
+       {binary_view(), utf8_view(), ::arrow::extension::uuid(), decimal32(1, 0),
+        decimal32(9, 9), decimal64(10, 0), decimal64(18, 18), decimal128(19, 0),
+        decimal128(38, 38),
         list_view(field("element", shredded_field_group, /*nullable=*/false)),
         large_list_view(field("element", shredded_field_group, /*nullable=*/false)),
         fixed_size_list(field("element", shredded_field_group, /*nullable=*/false),
@@ -113,7 +115,9 @@ TEST(TestVariantType, Storage) {
     auto valid_shredded_type =
         struct_({field("metadata", binary(), /*nullable=*/false),
                  field("value", binary()), field("typed_value", typed_value_type)});
-    ASSERT_OK(VariantExtensionType::Make(valid_shredded_type));
+    ASSERT_OK_AND_ASSIGN(auto type, VariantExtensionType::Make(valid_shredded_type));
+    ASSERT_OK(::arrow::internal::checked_cast<const ExtensionType&>(*type).Deserialize(
+        valid_shredded_type, ""));
   }
 }
 
@@ -154,21 +158,31 @@ TEST(TestVariantType, InvalidStorage) {
   ASSERT_RAISES(Invalid, VariantExtensionType::Make(required_nested_value));
 
   std::array invalid_typed_value_types{
+      ::arrow::null(),
+      ::arrow::uint8(),
+      ::arrow::uint16(),
+      ::arrow::uint32(),
       uint64(),
       duration(TimeUnit::MICRO),
       timestamp(TimeUnit::MILLI),
       struct_({}),
-      fixed_size_binary(/*byte_width=*/8),
+      fixed_size_binary(/*byte_width=*/16),
+      decimal64(/*precision=*/9, /*scale=*/2),
+      decimal128(/*precision=*/9, /*scale=*/2),
+      decimal128(/*precision=*/18, /*scale=*/2),
       decimal32(/*precision=*/8, /*scale=*/9),
       decimal64(/*precision=*/16, /*scale=*/17),
       decimal128(/*precision=*/32, /*scale=*/-1),
       decimal256(/*precision=*/39, /*scale=*/0),
   };
+  VariantExtensionType extension(
+      struct_({field("metadata", binary(), false), field("value", binary(), false)}));
   for (const auto& typed_value_type : invalid_typed_value_types) {
     auto invalid_shredded_type =
         struct_({field("metadata", binary(), /*nullable=*/false),
                  field("value", binary()), field("typed_value", typed_value_type)});
-    ASSERT_RAISES(Invalid, VariantExtensionType::Make(std::move(invalid_shredded_type)));
+    ASSERT_RAISES(Invalid, VariantExtensionType::Make(invalid_shredded_type));
+    ASSERT_RAISES(Invalid, extension.Deserialize(invalid_shredded_type, ""));
   }
 }
 

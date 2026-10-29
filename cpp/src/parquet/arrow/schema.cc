@@ -252,16 +252,24 @@ Status VariantPrimitiveToNode(const std::shared_ptr<Field>& field, NodePtr* out)
       const auto& decimal = checked_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal.precision();
       scale = decimal.scale();
-      if (precision <= 9) {
+      if (scale < 0 || scale > precision) {
+        return Status::Invalid("Invalid Variant decimal type: ", decimal.ToString());
+      }
+      if (decimal.id() == ArrowTypeId::DECIMAL32 && precision >= 1 && precision <= 9) {
         type = ParquetType::INT32;
-      } else if (precision <= 18) {
+      } else if (decimal.id() == ArrowTypeId::DECIMAL64 && precision > 9 &&
+                 precision <= 18) {
         type = ParquetType::INT64;
-      } else {
+      } else if (decimal.id() == ArrowTypeId::DECIMAL128 && precision > 18 &&
+                 precision <= 38) {
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;
         length = ::arrow::DecimalType::DecimalSize(precision);
+      } else {
+        return Status::Invalid("Invalid Variant decimal type: ", decimal.ToString());
       }
       PARQUET_CATCH_NOT_OK(logical_type = LogicalType::Decimal(precision, scale));
-    } break;
+      break;
+    }
     case ArrowTypeId::DATE32:
       type = ParquetType::INT32;
       logical_type = LogicalType::Date();
@@ -301,11 +309,6 @@ Status VariantPrimitiveToNode(const std::shared_ptr<Field>& field, NodePtr* out)
     case ArrowTypeId::STRING_VIEW:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::String();
-      break;
-    case ArrowTypeId::FIXED_SIZE_BINARY:
-      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
-      logical_type = LogicalType::UUID();
-      length = 16;
       break;
     case ArrowTypeId::EXTENSION: {
       const auto& ext_type = checked_cast<const ::arrow::ExtensionType&>(*field->type());
@@ -776,28 +779,65 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
 }
 
-bool IsInsideVariantLogicalType(const Node& node) {
-  const Node* current = node.parent();
-  while (current != nullptr) {
-    if (current->logical_type()->is_variant()) {
-      return true;
-    }
-    current = current->parent();
-  }
-  return false;
-}
-
 // ----------------------------------------------------------------------
 // Schema logic
 
 ::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
-                        GetArrowType(primitive_node, ctx->properties, ctx->metadata));
+  auto is_inside_variant = [](const Node& node) {
+    const Node* current = node.parent();
+    while (current != nullptr) {
+      if (current->logical_type()->is_variant()) {
+        return true;
+      }
+      current = current->parent();
+    }
+    return false;
+  };
+
+  const bool inside_variant = is_inside_variant(primitive_node);
+  std::shared_ptr<ArrowType> storage_type;
+  // Variant decimals must use canonical precision bands, independently of the
+  // smallest_decimal_enabled inference used by ordinary columns.
+  if (inside_variant &&
+      primitive_node.logical_type()->type() == LogicalType::Type::DECIMAL) {
+    const auto& decimal =
+        checked_cast<const DecimalLogicalType&>(*primitive_node.logical_type());
+    // DecimalLogicalType already guarantees 0 <= scale <= precision.
+    switch (primitive_node.physical_type()) {
+      case ParquetType::INT32: {
+        ARROW_ASSIGN_OR_RAISE(storage_type, ::arrow::Decimal32Type::Make(
+                                                decimal.precision(), decimal.scale()));
+        break;
+      }
+      case ParquetType::INT64: {
+        if (decimal.precision() <= ::arrow::Decimal32Type::kMaxPrecision) {
+          return Status::Invalid("Variant INT64 decimal precision must be at least 10");
+        }
+        ARROW_ASSIGN_OR_RAISE(storage_type, ::arrow::Decimal64Type::Make(
+                                                decimal.precision(), decimal.scale()));
+        break;
+      }
+      case ParquetType::BYTE_ARRAY:
+      case ParquetType::FIXED_LEN_BYTE_ARRAY: {
+        if (decimal.precision() <= ::arrow::Decimal64Type::kMaxPrecision) {
+          return Status::Invalid("Variant binary decimal precision must be at least 19");
+        }
+        ARROW_ASSIGN_OR_RAISE(storage_type, ::arrow::Decimal128Type::Make(
+                                                decimal.precision(), decimal.scale()));
+        break;
+      }
+      default:
+        return Status::Invalid("Invalid Variant decimal physical type: ",
+                               primitive_node.physical_type());
+    }
+  } else {
+    ARROW_ASSIGN_OR_RAISE(storage_type,
+                          GetArrowType(primitive_node, ctx->properties, ctx->metadata));
+  }
   if (ctx->properties.read_dictionary(column_index) &&
-      IsDictionaryReadSupported(*storage_type) &&
-      !IsInsideVariantLogicalType(primitive_node)) {
+      IsDictionaryReadSupported(*storage_type) && !inside_variant) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
   }
   return storage_type;
@@ -1230,7 +1270,7 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 // not the Arrow encoding wrapper.
 // Only the metadata child of this Variant is normalized; other fields retain
 // their original types for the storage compatibility check below.
-std::shared_ptr<ArrowType> VariantReadStorageType(
+std::shared_ptr<ArrowType> NormalizeVariantMetadataEncoding(
     const std::shared_ptr<ArrowType>& storage_type) {
   auto fields = storage_type->fields();
   for (auto& field : fields) {
@@ -1256,7 +1296,8 @@ std::shared_ptr<ArrowType> VariantReadStorageType(
 // but that is not necessarily present in the field reconstituted from Parquet data
 // (for example, Parquet timestamp types doesn't carry timezone information).
 
-Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
+Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred,
+                                   bool restore_field_names = false);
 
 template <typename ArrowListType, typename... Args>
 auto GetListFactory(Args&&... args) {
@@ -1313,7 +1354,8 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
 }
 
 Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
-                                          SchemaField* inferred) {
+                                          SchemaField* inferred,
+                                          bool restore_field_names = false) {
   bool modified = false;
 
   auto& origin_type = origin_field.type();
@@ -1332,7 +1374,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
       for (int i = 0; i < inferred_type->num_fields(); ++i) {
         ARROW_ASSIGN_OR_RAISE(
             const bool child_modified,
-            ApplyOriginalMetadata(*origin_type->field(i), &inferred->children[i]));
+            ApplyOriginalMetadata(*origin_type->field(i), &inferred->children[i],
+                                  restore_field_names));
         modified |= child_modified;
       }
       if (modified) {
@@ -1407,6 +1450,11 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     }
   }
 
+  if (restore_field_names && origin_field.name() != inferred->field->name()) {
+    inferred->field = inferred->field->WithName(origin_field.name());
+    modified = true;
+  }
+
   // Restore field metadata
   std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
   if (field_metadata != nullptr) {
@@ -1421,7 +1469,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   return modified;
 }
 
-Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred) {
+Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred,
+                                   bool restore_field_names) {
   bool modified = false;
 
   auto& origin_type = origin_field.type();
@@ -1447,15 +1496,17 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
           checked_cast<const ::arrow::ExtensionType&>(*inferred->field->type());
       inferred->field = inferred->field->WithType(inferred_extension_type.storage_type());
     }
+    restore_field_names |= origin_extension_name == kVariantExtensionName;
 
     // (Recursively) Apply the original storage metadata from the original storage field
     // This applies extension types to child elements, if any.
     auto origin_storage_type = origin_extension_type.storage_type();
     if (origin_extension_name == kVariantExtensionName) {
-      origin_storage_type = VariantReadStorageType(origin_storage_type);
+      origin_storage_type = NormalizeVariantMetadataEncoding(origin_storage_type);
     }
     auto origin_storage_field = origin_field.WithType(origin_storage_type);
-    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred,
+                                               restore_field_names));
 
     // Use the inferred type after child updates for below checks to see if
     // we can restore an extension type on the output.
@@ -1503,7 +1554,8 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
 
     modified = true;
   } else {
-    ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred));
+    ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred,
+                                                                 restore_field_names));
   }
 
   return modified;

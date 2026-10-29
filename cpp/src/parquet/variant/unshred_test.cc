@@ -147,23 +147,10 @@ TEST(TestVariantUnshred, UnshredsDecimalTypedValues) {
                  [](VariantBuilder& builder) {
                    builder.SetDecimal4(::arrow::Decimal32(-123456789), /*scale=*/2);
                  });
-  assert_decimal(::arrow::decimal64(/*precision=*/9, /*scale=*/0), R"(["123456789"])",
-                 [](VariantBuilder& builder) {
-                   builder.SetDecimal4(::arrow::Decimal32(123456789), /*scale=*/0);
-                 });
   assert_decimal(::arrow::decimal64(/*precision=*/18, /*scale=*/0),
                  R"(["-123456789012345678"])", [](VariantBuilder& builder) {
                    builder.SetDecimal8(::arrow::Decimal64(-123456789012345678),
-                                          /*scale=*/0);
-                 });
-  assert_decimal(::arrow::decimal128(/*precision=*/9, /*scale=*/0), R"(["-123456789"])",
-                 [](VariantBuilder& builder) {
-                   builder.SetDecimal4(::arrow::Decimal32(-123456789), /*scale=*/0);
-                 });
-  assert_decimal(::arrow::decimal128(/*precision=*/18, /*scale=*/0),
-                 R"(["123456789012345678"])", [](VariantBuilder& builder) {
-                   builder.SetDecimal8(::arrow::Decimal64(123456789012345678),
-                                          /*scale=*/0);
+                                       /*scale=*/0);
                  });
   assert_decimal(::arrow::decimal128(/*precision=*/21, /*scale=*/0),
                  R"(["100000000000000000000"])", [](VariantBuilder& builder) {
@@ -171,6 +158,33 @@ TEST(TestVariantUnshred, UnshredsDecimalTypedValues) {
                        ::arrow::Decimal128(std::string("100000000000000000000")),
                        /*scale=*/0);
                  });
+}
+
+TEST(TestVariantUnshred, RejectsNonCanonicalDecimalTypedValues) {
+  auto metadata = internal::EmptyVariantMetadata();
+  for (const auto& type : {::arrow::decimal64(9, 0), ::arrow::decimal128(9, 0),
+                           ::arrow::decimal128(18, 0), ::arrow::decimal32(9, -1),
+                           ::arrow::decimal64(10, 11), ::arrow::decimal128(19, 20)}) {
+    SCOPED_TRACE(type->ToString());
+    auto storage_type = struct_({field("metadata", binary(), false),
+                                 field("value", binary()), field("typed_value", type)});
+    // Bypass the checked factory to exercise validation of an invalid input array.
+    auto variant_type =
+        std::make_shared<::arrow::extension::VariantExtensionType>(storage_type);
+    ASSERT_OK_AND_ASSIGN(
+        auto storage,
+        ::arrow::StructArray::Make({BinaryArrayFromValues({std::string_view{*metadata}}),
+                                    BinaryArrayFromValues({std::nullopt}),
+                                    ::arrow::ArrayFromJSON(type, "[null]")},
+                                   storage_type->fields()));
+    auto array =
+        std::make_shared<::arrow::extension::VariantArray>(variant_type, storage);
+    ASSERT_THROW(UnshredVariantArray(*array), ParquetInvalidOrCorruptedFileException);
+    ASSERT_THROW(ValidateVariants<true>(::arrow::ChunkedArray{array}),
+                 ParquetInvalidOrCorruptedFileException);
+    ASSERT_THROW(ValidateVariants<false>(::arrow::ChunkedArray{array}),
+                 ParquetInvalidOrCorruptedFileException);
+  }
 }
 
 TEST(TestVariantUnshred, MissingTopLevelValue) {

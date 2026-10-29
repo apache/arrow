@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace parquet::variant {
+
+inline constexpr size_t kMaxShortStringSize = 63;
 
 enum class VariantBasicType : uint8_t {
   kPrimitive = 0,

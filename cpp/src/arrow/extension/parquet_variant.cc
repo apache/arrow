@@ -32,6 +32,27 @@ namespace arrow::extension {
 
 namespace {
 
+// Variant typed_value decimals use disjoint precision bands, unlike ordinary
+// Arrow decimals, which may use a wider type than their precision requires.
+bool IsSupportedVariantDecimal(const DecimalType& type) {
+  const auto precision = type.precision();
+  if (precision < 1 || type.scale() < 0 || type.scale() > precision) {
+    return false;
+  }
+  switch (type.id()) {
+    case Type::DECIMAL32:
+      return precision <= Decimal32Type::kMaxPrecision;
+    case Type::DECIMAL64:
+      return precision > Decimal32Type::kMaxPrecision &&
+             precision <= Decimal64Type::kMaxPrecision;
+    case Type::DECIMAL128:
+      return precision > Decimal64Type::kMaxPrecision &&
+             precision <= Decimal128Type::kMaxPrecision;
+    default:
+      return false;
+  }
+}
+
 bool IsSupportedMetadataType(const DataType& type) {
   switch (type.id()) {
     case Type::DICTIONARY: {
@@ -70,7 +91,7 @@ bool IsSupportedPrimitiveTypedValue(const std::shared_ptr<DataType>& type) {
     case Type::DECIMAL64:
     case Type::DECIMAL128: {
       const auto& decimal = internal::checked_cast<const DecimalType&>(*type);
-      return decimal.scale() >= 0 && decimal.scale() <= decimal.precision();
+      return IsSupportedVariantDecimal(decimal);
     }
     case Type::TIME64:
       return internal::checked_cast<const Time64Type&>(*type).unit() == TimeUnit::MICRO;
@@ -78,8 +99,6 @@ bool IsSupportedPrimitiveTypedValue(const std::shared_ptr<DataType>& type) {
       const auto unit = internal::checked_cast<const TimestampType&>(*type).unit();
       return unit == TimeUnit::MICRO || unit == TimeUnit::NANO;
     }
-    case Type::FIXED_SIZE_BINARY:
-      return internal::checked_cast<const FixedSizeBinaryType&>(*type).byte_width() == 16;
     case Type::EXTENSION: {
       const auto& ext_type = internal::checked_cast<const ExtensionType&>(*type);
       return ext_type.extension_name() == "arrow.uuid";

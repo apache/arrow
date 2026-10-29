@@ -331,7 +331,7 @@ class VariantValueWriter {
   }
 
   void AppendShortString(std::string_view value) {
-    if (value.size() >= 64) {
+    if (value.size() > kMaxShortStringSize) {
       throw ParquetException("Variant short string value must be shorter than 64 bytes");
     }
     internal::ValidateUtf8(value, "short string value");
@@ -777,12 +777,8 @@ VariantObjectBuilder::VariantObjectBuilder(VariantObjectBuilder&&) noexcept = de
 VariantObjectBuilder& VariantObjectBuilder::operator=(VariantObjectBuilder&&) noexcept =
     default;
 
-#ifdef _MSC_VER
-#  define VARIANT_OBJECT_DECL(...) (std::string_view field_name, ##__VA_ARGS__)
-#else
-#  define VARIANT_OBJECT_DECL(...) \
-    (std::string_view field_name __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
-#endif
+#define VARIANT_OBJECT_DECL(...) \
+  (std::string_view field_name __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
 
 #define DEFINE_OBJECT_DIRECT_ADD(NAME, decl_args, ...)                                 \
   void VariantObjectBuilder::Add##NAME VARIANT_OBJECT_DECL decl_args {                 \
