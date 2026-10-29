@@ -824,7 +824,7 @@ jobs:
       ARROW_USE_STATIC_CRT: OFF
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
-      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
+      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,1800;nuget,GitHub,readwrite'
       # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
       # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
       VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
