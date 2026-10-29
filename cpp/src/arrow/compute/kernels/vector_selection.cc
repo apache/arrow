@@ -27,6 +27,7 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
@@ -40,6 +41,7 @@
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
@@ -47,6 +49,7 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/union_util.h"
 
 namespace arrow {
 
@@ -70,33 +73,91 @@ using TakeState = OptionsWrapper<TakeOptions>;
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
-std::shared_ptr<arrow::BooleanArray> MakeDropNullFilter(const Array& values) {
+int64_t DropNullCount(const Array& values) {
+  if (is_union(values.type_id())) {
+    return values.data()->MayHaveLogicalNulls() ? values.ComputeLogicalNullCount() : 0;
+  }
+  return values.null_count();
+}
+
+bool HasExtensionType(const DataType& type) {
+  if (type.id() == Type::EXTENSION) {
+    return true;
+  }
+  if (type.id() == Type::RUN_END_ENCODED) {
+    // Keep the existing run-end encoded empty-array path unchanged.
+    return false;
+  }
+  if (type.id() == Type::DICTIONARY) {
+    const auto& dictionary_type = checked_cast<const DictionaryType&>(type);
+    return HasExtensionType(*dictionary_type.value_type());
+  }
+  for (const auto& field : type.fields()) {
+    if (HasExtensionType(*field->type())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Result<std::shared_ptr<Array>> MakeDropNullEmptyArray(
+    const std::shared_ptr<DataType>& type, ExecContext* ctx) {
+  if (is_union(type->id()) || HasExtensionType(*type)) {
+    // Unlike MakeEmptyArray, this doesn't require builders for extension children.
+    return MakeArrayOfNull(type, 0, ctx->memory_pool());
+  }
+  return MakeEmptyArray(type, ctx->memory_pool());
+}
+
+Result<std::shared_ptr<BooleanArray>> MakeDropNullFilter(const Array& values,
+                                                         ExecContext* ctx) {
+  if (is_union(values.type_id())) {
+    ARROW_ASSIGN_OR_RAISE(auto validity,
+                          AllocateEmptyBitmap(values.length(), ctx->memory_pool()));
+    const ArraySpan span(*values.data());
+    if (values.type_id() == Type::SPARSE_UNION) {
+      union_util::SetLogicalNullBitsSparse(span, validity->mutable_data(), 0,
+                                           /*set_on_null=*/false);
+    } else {
+      union_util::SetLogicalNullBitsDense(span, validity->mutable_data(), 0,
+                                          /*set_on_null=*/false);
+    }
+    return std::make_shared<BooleanArray>(values.length(), std::move(validity));
+  }
   auto& bitmap_buffer = values.null_bitmap();
   return std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
                                         values.offset());
 }
 
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
-  if (values->null_count() == 0) {
+  const auto null_count = DropNullCount(*values);
+  if (null_count == 0) {
     return values;
   }
-  if (values->null_count() == values->length()) {
-    return MakeEmptyArray(values->type(), ctx->memory_pool());
+  if (null_count == values->length()) {
+    return MakeDropNullEmptyArray(values->type(), ctx);
   }
   if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
   }
-  auto drop_null_filter = Datum{MakeDropNullFilter(*values)};
-  return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
+  ARROW_ASSIGN_OR_RAISE(auto drop_null_filter, MakeDropNullFilter(*values, ctx));
+  return Filter(values, Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
 
 Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
                                    ExecContext* ctx) {
-  if (values->null_count() == 0) {
+  auto null_count = values->null_count();
+  if (is_union(values->type()->id())) {
+    for (const auto& chunk : values->chunks()) {
+      null_count += DropNullCount(*chunk);
+    }
+  }
+  if (null_count == 0) {
     return values;
   }
-  if (values->null_count() == values->length()) {
-    return ChunkedArray::MakeEmpty(values->type(), ctx->memory_pool());
+  if (null_count == values->length()) {
+    ARROW_ASSIGN_OR_RAISE(auto empty, MakeDropNullEmptyArray(values->type(), ctx));
+    return std::make_shared<ChunkedArray>(std::move(empty));
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
   for (const auto& chunk : values->chunks()) {
@@ -113,7 +174,7 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
   // Compute an upper bound of the final null count
   int64_t null_count = 0;
   for (const auto& column : batch->columns()) {
-    null_count += column->null_count();
+    null_count += DropNullCount(*column);
   }
   if (null_count == 0) {
     return batch;
@@ -126,7 +187,12 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
       bit_util::SetBitsTo(dst->mutable_data(), 0, batch->num_rows(), false);
       break;
     }
-    if (column->null_bitmap_data()) {
+    if (is_union(column->type_id())) {
+      ARROW_ASSIGN_OR_RAISE(auto validity, MakeDropNullFilter(*column, ctx));
+      ::arrow::internal::BitmapAnd(validity->values()->data(), validity->offset(),
+                                   dst->data(), 0, column->length(), 0,
+                                   dst->mutable_data());
+    } else if (column->null_bitmap_data()) {
       ::arrow::internal::BitmapAnd(column->null_bitmap_data(), column->offset(),
                                    dst->data(), 0, column->length(), 0,
                                    dst->mutable_data());
@@ -134,7 +200,12 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
   }
   auto drop_null_filter = std::make_shared<BooleanArray>(batch->num_rows(), dst);
   if (drop_null_filter->true_count() == 0) {
-    return RecordBatch::MakeEmpty(batch->schema(), ctx->memory_pool());
+    ArrayVector empty_columns;
+    for (const auto& column : batch->columns()) {
+      ARROW_ASSIGN_OR_RAISE(auto empty, MakeDropNullEmptyArray(column->type(), ctx));
+      empty_columns.push_back(std::move(empty));
+    }
+    return RecordBatch::Make(batch->schema(), 0, std::move(empty_columns));
   }
   return Filter(Datum(batch), Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
@@ -147,7 +218,7 @@ Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ct
   int64_t null_count = 0;
   for (const auto& col : table->columns()) {
     for (const auto& column_chunk : col->chunks()) {
-      null_count += column_chunk->null_count();
+      null_count += DropNullCount(*column_chunk);
     }
   }
   if (null_count == 0) {
