@@ -147,18 +147,28 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
     -DARROW_EXAMPLE_S3_STATIC_CHECK=ON \
+    -DARROW_EXAMPLE_GCS_STATIC_CHECK=OFF \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
+  # Check S3 before discovering GCS dependencies
+  cmake --build "${build_dir}/examples/minimal_build"
+  cmake -S "${source_dir}/examples/minimal_build" \
+    -B "${build_dir}/examples/minimal_build" \
+    -DARROW_EXAMPLE_GCS_STATIC_CHECK=ON
   cmake --build "${build_dir}/examples/minimal_build"
   pushd "${source_dir}/examples/minimal_build"
   # PATH= is for Windows.
   PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
     "${build_dir}/examples/minimal_build/arrow-example"
-  # Test static linking with S3
-  s3_example="${build_dir}/examples/minimal_build/arrow-example-s3-static"
-  if [ -x "${s3_example}" ]; then
-    PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
-      "${s3_example}"
-  fi
+  # Test static filesystem linking
+  for static_example in arrow-example-s3-static \
+                        arrow-example-gcs-static \
+                        arrow-example-s3-gcs-static; do
+    example="${build_dir}/examples/minimal_build/${static_example}"
+    if [ -x "${example}" ]; then
+      PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
+        "${example}"
+    fi
+  done
   popd
 fi
 

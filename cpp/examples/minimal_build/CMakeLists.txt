@@ -67,3 +67,30 @@ elseif(ARROW_EXAMPLE_S3_STATIC_CHECK)
   message(STATUS "Skipping arrow-example-s3-static: "
                  "requires ARROW_S3 and Arrow::arrow_static")
 endif()
+
+option(ARROW_EXAMPLE_GCS_STATIC_CHECK "Verify GCS and static linking" OFF)
+if(ARROW_EXAMPLE_GCS_STATIC_CHECK
+   AND ARROW_GCS
+   AND TARGET Arrow::arrow_static)
+  find_package(ArrowGcs REQUIRED)
+  if(NOT TARGET ArrowGcs::arrow_gcs_static)
+    message(FATAL_ERROR "ArrowGcs::arrow_gcs_static not found")
+  endif()
+  add_executable(arrow-example-gcs-static example.cc)
+  target_compile_definitions(arrow-example-gcs-static
+                             PRIVATE ARROW_EXAMPLE_GCS_STATIC_CHECK)
+  target_link_libraries(arrow-example-gcs-static PRIVATE ArrowGcs::arrow_gcs_static)
+
+  if(TARGET ArrowS3::arrow_s3_static)
+    add_executable(arrow-example-s3-gcs-static example.cc)
+    target_compile_definitions(arrow-example-s3-gcs-static
+                               PRIVATE ARROW_EXAMPLE_S3_STATIC_CHECK
+                                       ARROW_EXAMPLE_GCS_STATIC_CHECK)
+    target_link_libraries(arrow-example-s3-gcs-static PRIVATE ArrowS3::arrow_s3_static
+                                                              ArrowGcs::arrow_gcs_static)
+  endif()
+
+elseif(ARROW_EXAMPLE_GCS_STATIC_CHECK)
+  message(STATUS "Skipping GCS static examples: requires ARROW_GCS and Arrow::arrow_static"
+  )
+endif()
