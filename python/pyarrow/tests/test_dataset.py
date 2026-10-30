@@ -566,6 +566,14 @@ def test_scanner_options(dataset):
 
 
 @pytest.mark.parquet
+@pytest.mark.parametrize("fragment_readahead", [0, 1])
+def test_scanner_no_fragment_readahead(dataset, fragment_readahead):
+    # GH-48111: this used to hang with fragment_readahead=0
+    table = dataset.scanner(fragment_readahead=fragment_readahead).to_table()
+    assert table.equals(dataset.to_table())
+
+
+@pytest.mark.parquet
 def test_scanner(dataset, dataset_reader):
     scanner = dataset_reader.scanner(
         dataset, memory_pool=pa.default_memory_pool())
