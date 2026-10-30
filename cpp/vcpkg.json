@@ -46,7 +46,6 @@
     "openssl",
     "orc",
     "protobuf",
-    "rapidjson",
     "re2",
     "simdjson",
     "snappy",

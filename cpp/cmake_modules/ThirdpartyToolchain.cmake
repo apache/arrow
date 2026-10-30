@@ -63,7 +63,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     orc
     re2
     Protobuf
-    RapidJSON
     simdjson
     Snappy
     Substrait
@@ -209,8 +208,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
-    build_rapidjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "simdjson")
     build_simdjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
@@ -411,10 +408,6 @@ endif()
 
 if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
-endif()
-
-if(ARROW_JSON)
-  set(ARROW_WITH_RAPIDJSON ON)
 endif()
 
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
@@ -771,14 +764,6 @@ else()
   set_urls(RE2_SOURCE_URL
            "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz")
-endif()
-
-if(DEFINED ENV{ARROW_RAPIDJSON_URL})
-  set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
-else()
-  set_urls(RAPIDJSON_SOURCE_URL
-           "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
-           "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SIMDJSON_URL})
@@ -2887,46 +2872,6 @@ if(ARROW_WITH_SIMDJSON)
   else()
     add_library(arrow::simdjson ALIAS simdjson::simdjson)
   endif()
-endif()
-
-function(build_rapidjson)
-  list(APPEND CMAKE_MESSAGE_INDENT "RapidJSON: ")
-  message(STATUS "Building from source")
-
-  fetchcontent_declare(rapidjson
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${RAPIDJSON_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}")
-  prepare_fetchcontent()
-  set(CCACHE_FOUND OFF)
-  set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-  set(RAPIDJSON_BUILD_DOC OFF)
-  set(RAPIDJSON_BUILD_EXAMPLES OFF)
-  set(RAPIDJSON_BUILD_TESTS OFF)
-  fetchcontent_makeavailable(rapidjson)
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${rapidjson_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  add_library(RapidJSON INTERFACE IMPORTED)
-  target_include_directories(RapidJSON INTERFACE "${rapidjson_SOURCE_DIR}/include")
-  add_dependencies(RapidJSON rapidjson)
-
-  set(RAPIDJSON_VENDORED
-      TRUE
-      PARENT_SCOPE)
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
-if(ARROW_WITH_RAPIDJSON)
-  set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
-  resolve_dependency(RapidJSON
-                     HAVE_ALT
-                     TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_RAPIDJSON_REQUIRED_VERSION}
-                     IS_RUNTIME_DEPENDENCY
-                     FALSE)
 endif()
 
 function(build_xsimd)

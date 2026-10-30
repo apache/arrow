@@ -58,7 +58,6 @@
     "json": {
       "description": "JSON support",
       "dependencies": [
-        "rapidjson",
         "simdjson"
       ]
     },

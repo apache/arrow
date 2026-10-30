@@ -57,7 +57,6 @@ apt install -y \
   python3-pip \
   python3-rados \
   rados-objclass-dev \
-  rapidjson-dev \
   tzdata \
   wget
 
