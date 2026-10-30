@@ -136,6 +136,9 @@ TEST(InversePermutation, InvalidInputType) {
 }
 
 TEST(InversePermutation, DenseValidityBitmapBoundaries) {
+  // Leave one destination missing and check the inverse values and validity bitmap.
+  // For length = 8, missing = 3: [0, 1, 2, 4, 5, 6, 7] -> [0, 1, 2, null, 3, 4, 5, 6].
+  // Vary output length and the first null bit around byte and word boundaries.
   for (int64_t length : {7, 8, 9, 63, 64, 65}) {
     for (int64_t missing : {int64_t{0}, int64_t{1}, int64_t{2}, int64_t{3}, int64_t{4},
                             int64_t{5}, int64_t{6}, int64_t{7}, length - 1}) {
@@ -213,7 +216,7 @@ TEST(InversePermutation, InvalidIndex) {
     auto indices = ArrayFromJSON(int32(), "[42]");
     ASSERT_RAISES_WITH_MESSAGE(
         IndexError, "Index error: Index out of bounds: 42",
-        InversePermutation(indices, /*max_index=*/1, /*output_type=*/int32()));
+        InversePermutation(indices, /*max_index=*/41, /*output_type=*/int32()));
   }
 }
 
@@ -226,7 +229,7 @@ TEST(InversePermutation, IndexBounds) {
           Datum(ChunkedArrayFromJSON(type, {"[]", "[" + invalid_index + "]"}))}) {
       ASSERT_RAISES_WITH_MESSAGE(
           IndexError, "Index error: Index out of bounds: " + invalid_index,
-          InversePermutation(indices, /*max_index=*/1, /*output_type=*/int64()));
+          InversePermutation(indices, /*max_index=*/41, /*output_type=*/int64()));
     }
   }
   // Reading signed indices through their unsigned representation must still reject
@@ -250,12 +253,15 @@ TEST(InversePermutation, IndexBounds) {
 
 TEST(InversePermutation, SlicedIndices) {
   for (const auto& type : IntTypes()) {
-    auto indices = ArrayFromJSON(type, "[42, 2, null, 0, 1, 42]")->Slice(1, 4);
+    auto indices =
+        ArrayFromJSON(type, "[42, 2, null, 0, 1, 42]")->Slice(/*offset=*/1, /*length=*/4);
     auto expected = ArrayFromJSON(type, "[2, 3, 0, null]");
-    AssertInversePermutation(indices, -1, type, expected, false);
-    auto chunked = std::make_shared<ChunkedArray>(
-        ArrayVector{indices->Slice(0, 1), indices->Slice(1)});
-    AssertInversePermutation(chunked, -1, type, expected, false);
+    AssertInversePermutation(indices, /*max_index=*/-1, type, expected,
+                             /*validity_must_be_null=*/false);
+    auto chunked = std::make_shared<ChunkedArray>(ArrayVector{
+        indices->Slice(/*offset=*/0, /*length=*/1), indices->Slice(/*offset=*/1)});
+    AssertInversePermutation(chunked, /*max_index=*/-1, type, expected,
+                             /*validity_must_be_null=*/false);
   }
 }
 
@@ -602,11 +608,12 @@ TEST(Scatter, SlicedIndices) {
   auto values = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])");
   auto expected = ArrayFromJSON(utf8(), R"(["c", "d", "a", null])");
   for (const auto& type : IntTypes()) {
-    auto indices = ArrayFromJSON(type, "[42, 2, null, 0, 1, 42]")->Slice(1, 4);
-    AssertScatterAAA(values, indices, -1, expected);
-    auto chunked = std::make_shared<ChunkedArray>(
-        ArrayVector{indices->Slice(0, 1), indices->Slice(1)});
-    AssertScatterACC(values, chunked, -1, expected);
+    auto indices =
+        ArrayFromJSON(type, "[42, 2, null, 0, 1, 42]")->Slice(/*offset=*/1, /*length=*/4);
+    AssertScatterAAA(values, indices, /*max_index=*/-1, expected);
+    auto chunked = std::make_shared<ChunkedArray>(ArrayVector{
+        indices->Slice(/*offset=*/0, /*length=*/1), indices->Slice(/*offset=*/1)});
+    AssertScatterACC(values, chunked, /*max_index=*/-1, expected);
   }
 }
 

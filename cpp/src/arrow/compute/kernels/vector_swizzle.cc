@@ -13,7 +13,7 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.#include "arrow/compute/api_vector.h"
+// under the License.
 
 #include <algorithm>
 #include <type_traits>
@@ -76,26 +76,24 @@ using UnsignedIntegerType =
 // Keep it separate from the indexed writes, and generate whole bitmap bytes
 // instead of clearing one bit at a time for every missing destination.
 template <typename OutputCType>
-ARROW_NOINLINE Status InversePermutationValidity(KernelContext* ctx,
-                                                 const OutputCType* data,
-                                                 int64_t input_length,
-                                                 int64_t output_length,
-                                                 std::shared_ptr<Buffer>* validity_buf) {
+ARROW_NOINLINE Result<std::shared_ptr<Buffer>> InversePermutationValidity(
+    KernelContext* ctx, const OutputCType* data, int64_t input_length,
+    int64_t output_length) {
   if (output_length == 0) {
-    return Status::OK();
+    return nullptr;
   }
   const auto invalid = static_cast<OutputCType>(input_length);
   const auto* first_invalid = std::find(data, data + output_length, invalid);
   const int64_t offset = first_invalid - data;
   if (offset == output_length) {
-    return Status::OK();
+    return nullptr;
   }
-  ARROW_ASSIGN_OR_RAISE(*validity_buf, ctx->AllocateBitmap(output_length));
-  auto* validity = (*validity_buf)->mutable_data();
+  ARROW_ASSIGN_OR_RAISE(auto validity_buf, ctx->AllocateBitmap(output_length));
+  auto* validity = validity_buf->mutable_data();
   bit_util::SetBitmap(validity, /*offset=*/0, /*length=*/offset);
   ::arrow::internal::GenerateBitsUnrolled(validity, offset, output_length - offset,
                                           [&]() { return *first_invalid++ != invalid; });
-  return Status::OK();
+  return validity_buf;
 }
 
 template <typename IndexCType>
@@ -289,9 +287,10 @@ struct InversePermutationImpl {
     // only when an "impossible" value is seen.
     if constexpr (!likely_many_nulls) {
       using UnsignedOutputCType = std::make_unsigned_t<OutputCType>;
-      RETURN_NOT_OK(
+      ARROW_ASSIGN_OR_RAISE(
+          validity_buf_,
           InversePermutationValidity(ctx_, data_buf_->data_as<UnsignedOutputCType>(),
-                                     input_length_, output_length_, &validity_buf_));
+                                     input_length_, output_length_));
     }
 
     return Status::OK();
