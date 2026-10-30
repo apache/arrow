@@ -23,6 +23,7 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
@@ -91,7 +92,7 @@ ARROW_NOINLINE Status InversePermutationValidity(KernelContext* ctx,
   }
   ARROW_ASSIGN_OR_RAISE(*validity_buf, ctx->AllocateBitmap(output_length));
   auto* validity = (*validity_buf)->mutable_data();
-  bit_util::SetBitmap(validity, 0, offset);
+  bit_util::SetBitmap(validity, /*offset=*/0, /*length=*/offset);
   ::arrow::internal::GenerateBitsUnrolled(validity, offset, output_length - offset,
                                           [&]() { return *first_invalid++ != invalid; });
   return Status::OK();
@@ -306,18 +307,25 @@ struct InversePermutation {
   template <typename ValidFunc, typename NullFunc>
   static Status VisitIndices(const ArraySpan& span, ValidFunc&& valid_func,
                              NullFunc&& null_func) {
-    // Avoid per-block validity dispatch when every input index is valid.
-    if (!span.MayHaveNulls()) {
-      if (span.length != 0) {
-        const auto* indices = span.GetValues<typename IndexType::c_type>(1);
-        for (int64_t i = 0; i < span.length; ++i) {
-          RETURN_NOT_OK(valid_func(indices[i]));
-        }
-      }
+    if (span.length == 0) {
       return Status::OK();
     }
-    return VisitArraySpanInline<IndexType>(span, std::forward<ValidFunc>(valid_func),
-                                           std::forward<NullFunc>(null_func));
+    const auto* indices = span.GetValues<typename IndexType::c_type>(1);
+    const uint8_t* validity = span.MayHaveNulls() ? span.buffers[0].data : nullptr;
+    return ::arrow::internal::VisitBitRuns(
+        validity, span.offset, span.length,
+        [&](int64_t start, int64_t length, bool valid) {
+          if (valid) {
+            for (int64_t i = start; i < start + length; ++i) {
+              RETURN_NOT_OK(valid_func(indices[i]));
+            }
+          } else {
+            for (int64_t i = 0; i < length; ++i) {
+              RETURN_NOT_OK(null_func());
+            }
+          }
+          return Status::OK();
+        });
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
