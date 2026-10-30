@@ -136,15 +136,100 @@ repos:
       - id: flake8
         alias: python
         name: Python Lint
+        additional_dependencies:
+          - flake8-pyi
         args:
           - "--config"
           - "python/setup.cfg"
+          - "--extend-select"
+          - "Y"
+          - "--per-file-ignores"
+          - "python/pyarrow-stubs/pyarrow/*.pyi:E301,E302,E305,E701,F821"
         files: >-
           ^(c_glib|dev|python)/
+        types:
+          - file
+        types_or:
+          - python
+          - pyi
         exclude: >-
           (
           ?^python/pyarrow/vendored/|
           )
+  # Linting, formatting and type checking of the type stubs. These hooks only
+  # run on request, not on commit or in the existing CI jobs:
+  #   pre-commit run --hook-stage manual python-stubs --all-files
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff-check
+        alias: python-stubs
+        name: Python Stubs Lint (ruff)
+        stages:
+          - manual
+        args:
+          - "--fix"
+        files: >-
+          ^python/pyarrow-stubs/
+        types:
+          - pyi
+      - id: ruff-format
+        alias: python-stubs
+        name: Python Stubs Format (ruff)
+        stages:
+          - manual
+        files: >-
+          ^python/pyarrow-stubs/
+        types:
+          - pyi
+  - repo: local
+    hooks:
+      - id: mypy
+        alias: python-stubs
+        name: Python Stubs Type Check (mypy)
+        stages:
+          - manual
+        language: python
+        entry: bash -c "cd python && exec mypy"
+        pass_filenames: false
+        files: >-
+          ^python/(pyarrow-stubs/|pyproject\.toml$)
+        additional_dependencies: &python-type-check-dependencies
+          - fsspec==2026.9.0
+          - mypy==2.4.0
+          - numpy==2.4.6
+          - pandas-stubs==3.0.5.260914
+          # Provides the modules that aren't annotated yet, e.g. pyarrow.compute.
+          - pyarrow==26.0.0
+          - pyright==1.1.414
+          - scipy-stubs==1.17.1.5
+          - ty==0.0.92
+          - types-cffi==2.1.0.20260827
+          - types-psutil==7.2.2.20260906
+          - types-python-dateutil==2.9.0.20261021
+          - types-requests==2.33.0.20261006
+      - id: pyright
+        alias: python-stubs
+        name: Python Stubs Type Check (pyright)
+        stages:
+          - manual
+        language: python
+        entry: pyright -p python/pyproject.toml
+        pass_filenames: false
+        files: >-
+          ^python/(pyarrow-stubs/|pyproject\.toml$)
+        additional_dependencies: *python-type-check-dependencies
+      - id: ty
+        alias: python-stubs
+        name: Python Stubs Type Check (ty)
+        stages:
+          - manual
+        language: python
+        entry: ty check --project python
+        pass_filenames: false
+        files: >-
+          ^python/(pyarrow-stubs/|pyproject\.toml$)
+        additional_dependencies: *python-type-check-dependencies
   - repo: https://github.com/MarcoGorelli/cython-lint
     rev: v0.21.1
     hooks:

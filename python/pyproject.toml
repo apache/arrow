@@ -122,6 +122,12 @@ exclude = [
     "^scripts/",
 ]
 
+# Modules that will be annotated in later PRs (GH-32609). Treat them as Any
+# rather than type checking their sources.
+[[tool.mypy.overrides]]
+module = ["pyarrow._compute", "pyarrow.compute", "pyarrow.interchange.*"]
+follow_imports = "skip"
+
 # TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
@@ -136,10 +142,28 @@ exclude = [
 ]
 stubPath = "pyarrow-stubs"
 typeCheckingMode = "basic"
+# The type annotation tests use `# type: ignore[...]` to assert that some
+# usage is rejected, so an ignore that is no longer needed is an error there.
+executionEnvironments = [
+    { root = "pyarrow-stubs/tests", reportUnnecessaryTypeIgnoreComment = "error" },
+    { root = "." },
+]
+# In editable install, pyright finds the stubs but compiled modules (e.g. pyarrow.lib)
+reportMissingModuleSource = false
 
 # TODO: Enable type checking once stubs are merged
 [tool.ty.environment]
 extra-paths = ["pyarrow-stubs"]
+
+[tool.ty.analysis]
+# Modules that will be annotated in later PRs (GH-32609), and the optional
+# sparse dependency, which has no type hints. Treat them as Any.
+replace-imports-with-any = [
+    "pyarrow._compute",
+    "pyarrow.compute",
+    "pyarrow.interchange.**",
+    "sparse",
+]
 
 [tool.ty.src]
 include = ["pyarrow-stubs"]
@@ -149,3 +173,32 @@ exclude = [
     "examples",
     "scripts",
 ]
+
+# numpy, pandas and scipy are optional dependencies. A `ty: ignore` comment on
+# their imports would be reported as unused whenever they are installed.
+[[tool.ty.overrides]]
+include = ["pyarrow-stubs/pyarrow/**"]
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+
+# ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
+# rules that those comments suppress for mypy.
+[[tool.ty.overrides]]
+include = ["pyarrow-stubs/pyarrow/__lib/array.pyi"]
+[tool.ty.overrides.rules]
+# Some array classes override methods with a different signature at runtime.
+invalid-method-override = "ignore"
+
+[[tool.ty.overrides]]
+include = ["pyarrow-stubs/tests/**"]
+[tool.ty.overrides.rules]
+# mypy and pyright check that the invalid usage in the tests is rejected.
+invalid-argument-type = "ignore"
+
+# Lints and formats the type stubs (*.pyi); see .pre-commit-config.yaml.
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# PYI: the flake8-pyi rules for type stubs.
+select = ["E", "F", "W", "PYI"]
