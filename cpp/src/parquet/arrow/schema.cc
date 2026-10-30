@@ -100,6 +100,24 @@ Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
                   const std::string& name, bool nullable, int field_id,
                   const WriterProperties& properties,
                   const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  if (type->id() == ArrowTypeId::FIXED_SIZE_LIST &&
+      arrow_properties.vector_logical_type() &&
+      type->value_type()->id() != ArrowTypeId::DICTIONARY) {
+    const int32_t list_size =
+        checked_cast<const ::arrow::FixedSizeListType&>(*type).list_size();
+    // VECTOR elements are required; the writer checks the data has no nulls.
+    NodePtr element;
+    RETURN_NOT_OK(FieldToNode("element", type->value_field()->WithNullable(false),
+                              properties, arrow_properties, &element));
+    if (list_size > 0 && schema::IsValidVectorElement(*element)) {
+      NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
+      *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {list},
+                             LogicalType::Vector(list_size), field_id);
+      return Status::OK();
+    }
+    // Otherwise fall back to an ordinary LIST
+  }
+
   NodePtr element;
   std::string value_name =
       arrow_properties.compliant_nested_types() ? "element" : type->value_field()->name();
@@ -842,11 +860,53 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   return Status::OK();
 }
 
+Status VectorToSchemaField(const GroupNode& group, LevelInfo current_levels,
+                           SchemaTreeContext* ctx, const SchemaField* parent,
+                           SchemaField* out) {
+  // The canonical structure is validated when the GroupNode is created:
+  //
+  // required/optional group name=whatever (VECTOR(N)) {
+  //   repeated group name=list {
+  //     required TYPE element;
+  //   }
+  // }
+  //
+  // yields fixed_size_list<element: TYPE not null>[N] ?nullable
+  const auto& vector_type = checked_cast<const VectorLogicalType&>(*group.logical_type());
+
+  if (group.is_optional()) {
+    current_levels.IncrementOptional();
+  }
+
+  out->children.resize(1);
+  SchemaField* child_field = &out->children[0];
+
+  ctx->LinkParent(out, parent);
+  ctx->LinkParent(child_field, out);
+
+  int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
+  const auto& list_group = checked_cast<const GroupNode&>(*group.field(0));
+  RETURN_NOT_OK(
+      NodeToSchemaField(*list_group.field(0), current_levels, ctx, out, child_field));
+
+  out->field = ::arrow::field(
+      group.name(),
+      ::arrow::fixed_size_list(child_field->field, vector_type.num_elements()),
+      group.is_optional(), FieldIdMetadata(group.field_id()));
+  out->level_info = current_levels;
+  // At this point current levels contains the def level for this list,
+  // we need to reset to the prior parent.
+  out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
+  return Status::OK();
+}
+
 Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
                           SchemaTreeContext* ctx, const SchemaField* parent,
                           SchemaField* out) {
   if (node.logical_type()->is_list()) {
     return ListToSchemaField(node, current_levels, ctx, parent, out);
+  } else if (node.logical_type()->is_vector()) {
+    return VectorToSchemaField(node, current_levels, ctx, parent, out);
   } else if (node.logical_type()->is_map()) {
     return MapToSchemaField(node, current_levels, ctx, parent, out);
   }
@@ -1025,6 +1085,17 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
       }
       break;
     }
+    case ::arrow::Type::FIXED_SIZE_LIST:
+      // Inferred from a VECTOR-annotated group
+      if (origin_type.id() == ::arrow::Type::FIXED_SIZE_LIST) {
+        const auto list_size =
+            checked_cast<const ::arrow::FixedSizeListType&>(inferred_type).list_size();
+        if (checked_cast<const ::arrow::FixedSizeListType&>(origin_type).list_size() ==
+            list_size) {
+          return GetListFactory<::arrow::FixedSizeListType>(list_size);
+        }
+      }
+      break;
     case ::arrow::Type::MAP:
       if (origin_type.id() == ::arrow::Type::MAP) {
         const bool keys_sorted =
@@ -1063,6 +1134,15 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
             const bool child_modified,
             ApplyOriginalMetadata(*origin_type->field(i), &inferred->children[i]));
         modified |= child_modified;
+      }
+      if (inferred_type->id() == ::arrow::Type::FIXED_SIZE_LIST) {
+        // VECTOR elements are always required in Parquet, but the original Arrow
+        // element field may have been nullable (the writer checked it had no nulls).
+        SchemaField* element = &inferred->children[0];
+        if (origin_type->field(0)->nullable() && !element->field->nullable()) {
+          element->field = element->field->WithNullable(true);
+          modified = true;
+        }
       }
       if (modified) {
         // Recreate this field using the modified child fields

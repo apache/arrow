@@ -635,3 +635,148 @@ def test_undefined_logical_type(parquet_test_datadir):
         b"unknown string 2",
         b"unknown string 3"
     ]
+
+
+# Parquet VECTOR logical type
+# -----------------------------------------------------------------------------
+
+def _write_vector_table(table, **write_table_kwargs):
+    buf = pa.BufferOutputStream()
+    _write_table(table, buf, use_vector_logical_type=True, **write_table_kwargs)
+    return buf.getvalue()
+
+
+def _parquet_schema_string(buf):
+    return repr(pq.ParquetFile(pa.BufferReader(buf)).schema)
+
+
+@pytest.mark.parametrize("value_type", [
+    pa.float16(), pa.float32(), pa.float64(), pa.bool_(), pa.int8(),
+    pa.int32(), pa.int64(), pa.uint64(), pa.decimal128(10, 2),
+])
+def test_vector_roundtrip(value_type):
+    if value_type == pa.float16():
+        if np is None:
+            pytest.skip("float16 values require numpy")
+        values = [np.float16(v) for v in (1.0, -2.0, 0.5, 65504.0)]
+    elif value_type == pa.bool_():
+        values = [True, False, False, True]
+    elif pa.types.is_decimal(value_type):
+        values = [decimal.Decimal(v) for v in ("1.25", "-3.50", "0.00", "99.99")]
+    else:
+        values = [1, 0, 3, 4]
+    vectors = [values[:2], None, values[2:]]
+    # pa.list_(value_type, 2) has a nullable element field
+    table = pa.table({"v": pa.array(vectors, pa.list_(value_type, 2))})
+
+    buf = _write_vector_table(table)
+    assert "group field_id=-1 v (Vector(num_elements=2))" in \
+        _parquet_schema_string(buf)
+    metadata = pq.read_metadata(pa.BufferReader(buf))
+    assert metadata.schema.column(0).path == "v.list.element"
+    assert metadata.schema.column(0).max_definition_level == 2
+
+    # The stored Arrow schema restores the original type
+    result = _read_table(pa.BufferReader(buf))
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+    # Without it, VECTOR is read as a FixedSizeList with required elements
+    buf = _write_vector_table(table, store_schema=False)
+    result = _read_table(pa.BufferReader(buf))
+    expected_type = pa.list_(pa.field("element", value_type, nullable=False), 2)
+    assert result.schema == pa.schema([pa.field("v", expected_type)])
+    assert result.column("v").to_pylist() == table.column("v").to_pylist()
+
+
+def test_vector_nested_roundtrip():
+    vector_type = pa.list_(pa.float32(), 3)
+    table = pa.table({
+        "list_of_vectors": pa.array(
+            [[[1, 2, 3], None], None, []], pa.list_(vector_type)),
+        "struct_with_vector": pa.array(
+            [{"a": 1, "v": [1, 2, 3]}, None, {"a": None, "v": None}],
+            pa.struct([("a", pa.int32()), ("v", vector_type)])),
+        # Null structs carry no elements for their required vector
+        "struct_with_required_vector": pa.array(
+            [{"v": [1, 2, 3]}, None, {"v": [4, 5, 6]}],
+            pa.struct([pa.field("v", vector_type, nullable=False)])),
+        "map_of_vectors": pa.array(
+            [[("x", [1, 2, 3])], None, [("y", None)]],
+            pa.map_(pa.string(), vector_type)),
+        # Only the inner FixedSizeList is a VECTOR
+        "vector_of_vectors": pa.array(
+            [[[1, 2, 3], [4, 5, 6]], None, [None, [7, 8, 9]]],
+            pa.list_(vector_type, 2)),
+    })
+    buf = _write_vector_table(table)
+    assert _parquet_schema_string(buf).count("(Vector(num_elements=3))") == 5
+    result = _read_table(pa.BufferReader(buf))
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+
+def test_vector_fixed_shape_tensor_roundtrip():
+    tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 2])
+    storage = pa.array([[1, 2, 3, 4], [5, 6, 7, 8]], pa.list_(pa.float32(), 4))
+    table = pa.table({"t": pa.ExtensionArray.from_storage(tensor_type, storage)})
+    buf = _write_vector_table(table)
+    assert "(Vector(num_elements=4))" in _parquet_schema_string(buf)
+    result = _read_table(pa.BufferReader(buf))
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+
+def test_vector_disabled_by_default():
+    table = pa.table({"v": pa.array([[1, 2], None], pa.list_(pa.float32(), 2))})
+    buf = pa.BufferOutputStream()
+    _write_table(table, buf)
+    schema_string = _parquet_schema_string(buf.getvalue())
+    assert "Vector" not in schema_string
+    assert "group field_id=-1 v (List)" in schema_string
+
+
+@pytest.mark.parametrize("value_type", [
+    pa.string(), pa.binary(), pa.date32(), pa.timestamp("us"), pa.list_(pa.int32())
+])
+def test_vector_ineligible_falls_back_to_list(value_type):
+    arr = pa.array([None, None], pa.list_(value_type, 2))
+    table = pa.table({"v": arr})
+    buf = _write_vector_table(table)
+    schema_string = _parquet_schema_string(buf)
+    assert "Vector" not in schema_string
+    assert "group field_id=-1 v (List)" in schema_string
+    result = _read_table(pa.BufferReader(buf))
+    assert result.equals(table)
+
+
+@pytest.mark.parametrize("value_type", [pa.float32(), pa.float64()])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_vector_non_finite_element_raises(value_type, value):
+    table = pa.table({"v": pa.array([[1, 2], [3, value]], pa.list_(value_type, 2))})
+    with pytest.raises(pa.ArrowInvalid,
+                       match="VECTOR column 'v.list.element' contains a "
+                             "non-finite element"):
+        _write_vector_table(table)
+    # Allowed when written as an ordinary LIST
+    result = _roundtrip_table(table)
+    assert result.schema == table.schema
+
+
+def test_vector_null_element_raises():
+    table = pa.table({"v": pa.array([[1, 2], [3, None]], pa.list_(pa.float32(), 2))})
+    with pytest.raises(pa.ArrowInvalid,
+                       match="VECTOR column 'v.list.element' contains a null "
+                             "element"):
+        _write_vector_table(table)
+
+
+def test_vector_dataset_write_option(tempdir):
+    ds = pytest.importorskip("pyarrow.dataset")
+    table = pa.table({"v": pa.array([[1, 2], None], pa.list_(pa.float32(), 2))})
+    file_options = ds.ParquetFileFormat().make_write_options(
+        use_vector_logical_type=True)
+    ds.write_dataset(table, tempdir, format="parquet", file_options=file_options)
+    path = next(tempdir.glob("*.parquet"))
+    assert "(Vector(num_elements=2))" in repr(pq.ParquetFile(path).schema)
+    assert pq.read_table(path).equals(table)

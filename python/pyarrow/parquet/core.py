@@ -930,6 +930,14 @@ write_time_adjusted_to_utc : bool, default False
     are expressed in reference to midnight in the UTC timezone.
     If False (the default), the TIME columns are assumed to be expressed
     in reference to midnight in an unknown, presumably local, timezone.
+use_vector_logical_type : bool, default False
+    EXPERIMENTAL: Write FixedSizeList columns with the Parquet VECTOR logical
+    type when their element type maps to a Parquet BOOLEAN, INT32, INT64,
+    FLOAT, DOUBLE, FLOAT16 or DECIMAL primitive. VECTOR elements are written
+    as required, and writing fails if a non-null list contains a null or
+    non-finite (NaN or infinite) element. Other FixedSizeList columns are
+    written as ordinary LISTs. Readers that do not support VECTOR read these
+    columns as ordinary LISTs.
 max_rows_per_page : int, default None
     Maximum number of rows per page within a column chunk.
     If None, use the default of 20000.
@@ -1091,6 +1099,7 @@ Examples
                  sorting_columns=None,
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
+                 use_vector_logical_type=False,
                  max_rows_per_page=None,
                  bloom_filter_options=None,
                  use_content_defined_chunking=False,
@@ -1148,6 +1157,7 @@ Examples
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+            use_vector_logical_type=use_vector_logical_type,
             max_rows_per_page=max_rows_per_page,
             bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
@@ -2052,6 +2062,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 sorting_columns=None,
                 store_decimal_as_integer=False,
                 write_time_adjusted_to_utc=False,
+                use_vector_logical_type=False,
                 max_rows_per_page=None,
                 bloom_filter_options=None,
                 use_content_defined_chunking=False,
@@ -2087,6 +2098,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 sorting_columns=sorting_columns,
                 store_decimal_as_integer=store_decimal_as_integer,
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+                use_vector_logical_type=use_vector_logical_type,
                 max_rows_per_page=max_rows_per_page,
                 bloom_filter_options=bloom_filter_options,
                 use_content_defined_chunking=use_content_defined_chunking,
