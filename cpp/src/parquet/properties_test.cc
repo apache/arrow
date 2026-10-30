@@ -80,6 +80,53 @@ TEST(TestWriterProperties, DefaultCompression) {
             ::arrow::util::kUseDefaultCompressionLevel);
 }
 
+// Checks the default, stored, and copied min_compression_savings.
+TEST(TestWriterProperties, MinCompressionSavings) {
+  WriterProperties::Builder builder;
+  ASSERT_EQ(kDefaultMinCompressionSavings, builder.build()->min_compression_savings());
+
+  builder.data_page_version(ParquetDataPageVersion::V2);
+  for (double savings : {0.0, kDefaultMinCompressionSavings, 0.1, 1.0}) {
+    auto properties = builder.min_compression_savings(savings)->build();
+    ASSERT_EQ(savings, properties->min_compression_savings());
+
+    auto copied = WriterProperties::Builder(*properties).build();
+    ASSERT_EQ(properties->min_compression_savings(), copied->min_compression_savings());
+  }
+
+  auto properties = builder.min_compression_savings(0.0)->build();
+  ASSERT_EQ(0.0, properties->min_compression_savings());
+}
+
+// Tests for invalid settings
+TEST(TestWriterProperties, InvalidMinCompressionSavings) {
+  for (double savings : {-0.1, 1.1, std::numeric_limits<double>::infinity(),
+                         -std::numeric_limits<double>::infinity(),
+                         std::numeric_limits<double>::quiet_NaN()}) {
+    EXPECT_THROW(WriterProperties::Builder().min_compression_savings(savings),
+                 ParquetException);
+  }
+}
+
+TEST(TestWriterProperties, MinCompressionSavingsRequiresDataPageV2) {
+  for (double savings : {2 * kDefaultMinCompressionSavings, 0.1, 1.0}) {
+    WriterProperties::Builder builder;
+    builder.min_compression_savings(savings);
+    EXPECT_THROW(builder.build(), ParquetException);
+
+    builder.data_page_version(ParquetDataPageVersion::V2);
+    EXPECT_NO_THROW(builder.build());
+
+    builder.data_page_version(ParquetDataPageVersion::V1);
+    EXPECT_THROW(builder.build(), ParquetException);
+
+    builder.min_compression_savings(0.0);
+    EXPECT_NO_THROW(builder.build());
+    builder.min_compression_savings(kDefaultMinCompressionSavings);
+    EXPECT_NO_THROW(builder.build());
+  }
+}
+
 TEST(TestWriterProperties, AdvancedHandling) {
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);

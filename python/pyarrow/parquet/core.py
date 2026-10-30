@@ -25,6 +25,7 @@ import json
 import os
 import re
 import operator
+import sys
 
 import pyarrow as pa
 
@@ -994,6 +995,13 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+min_compression_savings : float, default sys.float_info.epsilon
+    Minimum space savings required to keep compression for each V2 data page.
+    Use a value from 0.0 to 1.0. For example, 0.1 requires at least 10% savings.
+    Savings are measured on encoded values, excluding repetition and definition
+    levels. The default is double epsilon (about 2.22e-16), so compression must
+    save space. Values above this default require ``data_page_version="2.0"``. Using
+    a larger value with V1 or a number outside the allowed range raises ``ValueError``.
 """
 
 _parquet_writer_example_doc = """\
@@ -1094,6 +1102,7 @@ Examples
                  max_rows_per_page=None,
                  bloom_filter_options=None,
                  use_content_defined_chunking=False,
+                 min_compression_savings=sys.float_info.epsilon,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1151,6 +1160,7 @@ Examples
             max_rows_per_page=max_rows_per_page,
             bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
+            min_compression_savings=min_compression_savings,
             **options)
         self.is_open = True
 
@@ -2055,6 +2065,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 max_rows_per_page=None,
                 bloom_filter_options=None,
                 use_content_defined_chunking=False,
+                min_compression_savings=sys.float_info.epsilon,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2090,6 +2101,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 max_rows_per_page=max_rows_per_page,
                 bloom_filter_options=bloom_filter_options,
                 use_content_defined_chunking=use_content_defined_chunking,
+                min_compression_savings=min_compression_savings,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
