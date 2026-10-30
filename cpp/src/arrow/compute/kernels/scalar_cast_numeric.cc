@@ -336,6 +336,38 @@ struct CastFunctor<HalfFloatType, StringType, enable_if_t<true>> {
 };
 
 // ----------------------------------------------------------------------
+// Decimal rescaling for truncating casts
+
+// IncreaseScaleBy() and ReduceScaleBy() look up a table of powers of ten and only
+// accept a scale change in [0, kMaxScale].  A scale change computed from decimal
+// types or from a parsed decimal string is not bounded this way (a decimal type's
+// scale can be any int32_t value), so it must be checked first.
+
+template <typename Decimal>
+Decimal UnsafeIncreaseScaleBy(const Decimal& val, int64_t increase_by, Status* st) {
+  DCHECK_GE(increase_by, 0);
+  if (ARROW_PREDICT_FALSE(increase_by > Decimal::kMaxScale)) {
+    // Any non-zero value overflows
+    if (val != Decimal{}) {
+      *st = Status::Invalid("Rescaling decimal value by ", increase_by,
+                            " digits would overflow");
+    }
+    return Decimal{};
+  }
+  return val.IncreaseScaleBy(static_cast<int32_t>(increase_by));
+}
+
+template <typename Decimal>
+Decimal UnsafeReduceScaleBy(const Decimal& val, int64_t reduce_by) {
+  DCHECK_GE(reduce_by, 0);
+  if (ARROW_PREDICT_FALSE(reduce_by > Decimal::kMaxScale)) {
+    // Any value is less than 10^(kMaxScale + 1) in magnitude, so it truncates to zero
+    return Decimal{};
+  }
+  return val.ReduceScaleBy(static_cast<int32_t>(reduce_by), /*round=*/false);
+}
+
+// ----------------------------------------------------------------------
 // Decimal to integer
 
 struct DecimalToIntegerMixin {
@@ -364,7 +396,8 @@ struct UnsafeUpscaleDecimalToInteger : public DecimalToIntegerMixin {
 
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext* ctx, Arg0Value val, Status* st) const {
-    return ToInteger<OutValue>(ctx, val.IncreaseScaleBy(-in_scale_), st);
+    return ToInteger<OutValue>(
+        ctx, UnsafeIncreaseScaleBy(val, -static_cast<int64_t>(in_scale_), st), st);
   }
 };
 
@@ -373,7 +406,7 @@ struct UnsafeDownscaleDecimalToInteger : public DecimalToIntegerMixin {
 
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext* ctx, Arg0Value val, Status* st) const {
-    return ToInteger<OutValue>(ctx, val.ReduceScaleBy(in_scale_, false), st);
+    return ToInteger<OutValue>(ctx, UnsafeReduceScaleBy(val, in_scale_), st);
   }
 };
 
@@ -553,11 +586,12 @@ struct DecimalConversions<Decimal128, Decimal32> {
 
 struct UnsafeUpscaleDecimal {
   template <typename OutValue, typename Arg0Value>
-  OutValue Call(KernelContext*, Arg0Value val, Status*) const {
+  OutValue Call(KernelContext*, Arg0Value val, Status* st) const {
     using Conv = DecimalConversions<OutValue, Arg0Value>;
-    return Conv::ConvertOutput(Conv::ConvertInput(std::move(val)).IncreaseScaleBy(by_));
+    return Conv::ConvertOutput(
+        UnsafeIncreaseScaleBy(Conv::ConvertInput(std::move(val)), by_, st));
   }
-  int32_t by_;
+  int64_t by_;
 };
 
 struct UnsafeDownscaleDecimal {
@@ -565,9 +599,9 @@ struct UnsafeDownscaleDecimal {
   OutValue Call(KernelContext*, Arg0Value val, Status*) const {
     using Conv = DecimalConversions<OutValue, Arg0Value>;
     return Conv::ConvertOutput(
-        Conv::ConvertInput(std::move(val)).ReduceScaleBy(by_, false));
+        UnsafeReduceScaleBy(Conv::ConvertInput(std::move(val)), by_));
   }
-  int32_t by_;
+  int64_t by_;
 };
 
 struct SafeRescaleDecimal {
@@ -604,15 +638,17 @@ struct CastFunctor<O, I,
     const auto out_scale = out_type.scale();
 
     if (options.allow_decimal_truncate) {
-      if (in_scale < out_scale) {
+      // Computed in 64 bits as the scales can be any int32_t values
+      const int64_t delta_scale = static_cast<int64_t>(out_scale) - in_scale;
+      if (delta_scale > 0) {
         // Unsafe upscale
         applicator::ScalarUnaryNotNullStateful<O, I, UnsafeUpscaleDecimal> kernel(
-            UnsafeUpscaleDecimal{out_scale - in_scale});
+            UnsafeUpscaleDecimal{delta_scale});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
         applicator::ScalarUnaryNotNullStateful<O, I, UnsafeDownscaleDecimal> kernel(
-            UnsafeDownscaleDecimal{in_scale - out_scale});
+            UnsafeDownscaleDecimal{-delta_scale});
         return kernel.Exec(ctx, batch, out);
       }
     }
@@ -675,9 +711,10 @@ struct StringToDecimal {
 
     if (ARROW_PREDICT_TRUE(r_parse.ok())) {
       if (allow_truncate_) {
-        return (parsed_scale < out_scale_)
-                   ? parsed_out.IncreaseScaleBy(out_scale_ - parsed_scale)
-                   : parsed_out.ReduceScaleBy(parsed_scale - out_scale_, false);
+        // The parsed scale comes from the string's exponent and can be arbitrarily large
+        const int64_t delta_scale = static_cast<int64_t>(out_scale_) - parsed_scale;
+        return (delta_scale > 0) ? UnsafeIncreaseScaleBy(parsed_out, delta_scale, st)
+                                 : UnsafeReduceScaleBy(parsed_out, -delta_scale);
       }
 
       auto maybe_rescaled = parsed_out.Rescale(parsed_scale, out_scale_);

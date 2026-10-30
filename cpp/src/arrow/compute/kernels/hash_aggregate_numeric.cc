@@ -315,6 +315,11 @@ struct GroupedProductImpl final
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
 
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    RETURN_NOT_OK(MultiplyTraits<AccType>::CheckType(*args.inputs[0]));
+    return Base::Init(ctx, args);
+  }
+
   static CType NullValue(const DataType& out_type) {
     return MultiplyTraits<AccType>::one(out_type);
   }
