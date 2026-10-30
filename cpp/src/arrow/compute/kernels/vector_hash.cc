@@ -445,9 +445,11 @@ class NullHashKernel : public HashKernel {
 
 class DictionaryHashKernel : public HashKernel {
  public:
-  explicit DictionaryHashKernel(std::unique_ptr<HashKernel> indices_kernel,
-                                std::shared_ptr<DataType> dictionary_value_type)
+  DictionaryHashKernel(std::unique_ptr<HashKernel> indices_kernel,
+                       std::shared_ptr<DataType> index_type,
+                       std::shared_ptr<DataType> dictionary_value_type)
       : indices_kernel_(std::move(indices_kernel)),
+        index_type_(std::move(index_type)),
         dictionary_value_type_(std::move(dictionary_value_type)) {}
 
   Status Reset() override { return indices_kernel_->Reset(); }
@@ -513,15 +515,25 @@ class DictionaryHashKernel : public HashKernel {
       return first_dictionary_;
     }
 
-    auto out_dict_type = first_dictionary_->type();
+    std::shared_ptr<DataType> out_dict_type;
     std::shared_ptr<Array> out_dict;
     RETURN_NOT_OK(dictionary_unifier_->GetResult(&out_dict_type, &out_dict));
+    // The output keeps the input index type, so the highest index into the unified
+    // dictionary (its length minus one) must fit in it
+    const Int64Scalar max_index(out_dict->length() - 1);
+    if (out_dict->length() > 0 &&
+        !::arrow::internal::IntegersCanFit(max_index, *index_type_).ok()) {
+      return Status::Invalid(
+          "These dictionaries cannot be combined.  The unified dictionary requires a "
+          "larger index type.");
+    }
     return out_dict;
   }
 
  private:
   std::unique_ptr<HashKernel> indices_kernel_;
   std::shared_ptr<Array> first_dictionary_;
+  std::shared_ptr<DataType> index_type_;
   std::shared_ptr<DataType> dictionary_value_type_;
   std::unique_ptr<DictionaryUnifier> dictionary_unifier_;
 };
@@ -597,7 +609,7 @@ Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto indices_hasher,
                         GetHashInit<Action>(dict_type.index_type()->id())(ctx, args));
   return std::make_unique<DictionaryHashKernel>(
-      checked_pointer_cast<HashKernel>(std::move(indices_hasher)),
+      checked_pointer_cast<HashKernel>(std::move(indices_hasher)), dict_type.index_type(),
       dict_type.value_type());
 }
 
