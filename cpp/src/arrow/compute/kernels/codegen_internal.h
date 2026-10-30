@@ -1337,6 +1337,20 @@ auto GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   }
 }
 
+// Similar to GenerateTypeAgnosticVarBinaryBase, but for binary view types
+template <template <typename...> class Generator, typename... Args>
+auto GenerateTypeAgnosticVarBinaryViewBase(detail::GetTypeId get_id) {
+  using KernelType = decltype(&Generator<BinaryViewType, Args...>::Exec);
+  switch (get_id.id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return Generator<BinaryViewType, Args...>::Exec;
+    default:
+      ARROW_DCHECK(false);
+      return FailFunctor<KernelType>::Exec;
+  }
+}
+
 // Generate a kernel given a templated functor for base binary types. Generates
 // a single kernel for binary/string and large binary/large string. If your kernel
 // implementation needs access to the specific type at compile time, please use
