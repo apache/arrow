@@ -53,9 +53,15 @@ ARROW_EXPORT Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input);
 /// \brief Materialize a (large)list array from a list-view array
 ///
 /// The returned array data has `dest_type_id`'s layout: freshly computed list
-/// offsets and a child array gathering the values referenced by every view, in
+/// offsets and a child array holding the values referenced by every view, in
 /// list order. The value type is the input's, so that callers may cast the
 /// child afterwards.
+///
+/// When the views are contiguous, i.e. when every valid view starts where the
+/// previous one ended, the values are not copied: the child array is a slice of
+/// the input's child, narrowed down to the values that the valid views
+/// reference. Otherwise the referenced values are gathered into a new child
+/// array.
 ///
 /// \param input The input list-view array
 /// \param dest_type_id Either `Type::LIST` or `Type::LARGE_LIST`

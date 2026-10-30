@@ -1048,6 +1048,14 @@ class TestListConversions : public ::testing::Test {
             *checked_pointer_cast<SrcListViewArrayClass>(list_view_wo_nulls), pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*expected_list_wo_nulls, *result, /*verbose=*/true);
+
+    // The views are contiguous, so the values are kept as they are (GH-51612).
+    ASSERT_EQ(result->values()->data()->buffers[1].get(),
+              checked_pointer_cast<SrcListViewArrayClass>(list_view_wo_nulls)
+                  ->values()
+                  ->data()
+                  ->buffers[1]
+                  .get());
   }
 
   template <typename DestListType, typename SrcListViewType>

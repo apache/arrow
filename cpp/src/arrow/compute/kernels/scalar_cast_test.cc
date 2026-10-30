@@ -3684,6 +3684,77 @@ TEST(Cast, ListViewToList) {
   }
 }
 
+TEST(Cast, ListViewToListKeepsContiguousValues) {
+  // Views that are in order and contiguous describe a list already: the cast
+  // slices the values instead of gathering them (GH-51612).
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+
+  auto check = [&](const std::string& name, const std::shared_ptr<Array>& list_view,
+                   const std::shared_ptr<Array>& expected_values,
+                   const std::shared_ptr<Array>& expected) {
+    ARROW_SCOPED_TRACE(name);
+    ASSERT_OK_AND_ASSIGN(Datum out, Cast(list_view, expected->type()));
+    AssertDatumsEqual(expected, out);
+    const auto out_values = MakeArray(out.array()->child_data[0]);
+    ASSERT_OK(out_values->ValidateFull());
+    AssertBufferSame(*expected_values, *out_values, 1);
+  };
+
+  ASSERT_OK_AND_ASSIGN(
+      auto contiguous,
+      ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4]"),
+                                *ArrayFromJSON(int32(), "[2, 2, 0]"), *values));
+  check("contiguous", contiguous, values,
+        ArrayFromJSON(list(int32()), "[[1, 2], [3, 4], []]"));
+  check("contiguous", contiguous, values,
+        ArrayFromJSON(large_list(int32()), "[[1, 2], [3, 4], []]"));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto large_contiguous,
+      LargeListViewArray::FromArrays(*ArrayFromJSON(int64(), "[0, 2, 4]"),
+                                     *ArrayFromJSON(int64(), "[2, 2, 0]"), *values));
+  check("large_contiguous", large_contiguous, values,
+        ArrayFromJSON(list(int32()), "[[1, 2], [3, 4], []]"));
+  check("large_contiguous", large_contiguous, values,
+        ArrayFromJSON(large_list(int32()), "[[1, 2], [3, 4], []]"));
+
+  {
+    // The kept values are still cast to the destination value type.
+    ASSERT_OK_AND_ASSIGN(Datum out, Cast(contiguous, list(int64())));
+    AssertDatumsEqual(ArrayFromJSON(list(int64()), "[[1, 2], [3, 4], []]"), out);
+  }
+
+  {
+    // A null view keeps no value: the values that only it references are
+    // dropped, which narrows the kept values without copying them.
+    ASSERT_OK_AND_ASSIGN(auto lv, ListViewArray::FromArrays(
+                                      *ArrayFromJSON(int32(), "[0, 2, 4]"),
+                                      *ArrayFromJSON(int32(), "[2, 2, 0]"), *values));
+    check("null view", MaskArrayWithNullsAt(lv, {0}), values,
+          ArrayFromJSON(list(int32()), "[null, [3, 4], []]"));
+  }
+
+  {
+    // A sliced contiguous list-view keeps its values too, and its validity
+    // bitmap is copied out of the way of the slice.
+    auto lv = ArrayFromJSON(list_view(int32()), "[[1, 2], [3, 4], [5], [6, 7, 8]]");
+    auto lv_values = checked_cast<const ListViewArray&>(*lv).values();
+    auto sliced = MaskArrayWithNullsAt(lv, {3})->Slice(1, 3);
+    check("sliced", sliced, lv_values,
+          ArrayFromJSON(list(int32()), "[[3, 4], [5], null]"));
+  }
+
+  // Out-of-order views cannot be sliced: their values are gathered instead.
+  ASSERT_OK_AND_ASSIGN(
+      auto out_of_order,
+      ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0, 1]"),
+                                *ArrayFromJSON(int32(), "[2, 2, 1]"), *values));
+  ASSERT_OK_AND_ASSIGN(Datum out, Cast(out_of_order, list(int32())));
+  AssertDatumsEqual(ArrayFromJSON(list(int32()), "[[3, 4], [1, 2], [2]]"), out);
+  const auto gathered = MakeArray(out.array()->child_data[0]);
+  ASSERT_NE(gathered->data()->buffers[1].get(), values->data()->buffers[1].get());
+}
+
 TEST(Cast, ListViewToListWithExtensionChild) {
   // MakeBuilder does not support extension types, but the cast used to work by
   // reusing the child array. The gathered values must keep working for both an

@@ -177,6 +177,34 @@ TEST(TestListFromListView, GathersOutOfOrderViews) {
                     /*verbose=*/true);
 }
 
+TEST(TestListFromListView, KeepsContiguousViewsValues) {
+  // Contiguous views describe a list already: the values are sliced instead of
+  // being gathered, and the values that only the null views reference are left
+  // out of the slice.
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(3));
+  bit_util::SetBitTo(validity->mutable_data(), 0, /*value=*/false);
+  bit_util::SetBitTo(validity->mutable_data(), 1, /*value=*/true);
+  bit_util::SetBitTo(validity->mutable_data(), 2, /*value=*/true);
+  // The first view is null and declares values [1, 2], which no other view
+  // references.
+  ASSERT_OK_AND_ASSIGN(
+      auto view, ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4]"),
+                                           *ArrayFromJSON(int32(), "[2, 2, 0]"), *values,
+                                           default_memory_pool(), validity,
+                                           /*null_count=*/1));
+  ASSERT_OK_AND_ASSIGN(auto data, list_util::internal::ListFromListView(
+                                      *view->data(), Type::LIST, default_memory_pool()));
+  auto result = MakeArray(data);
+  ASSERT_OK(result->ValidateFull());
+  AssertArraysEqual(*ArrayFromJSON(list(int32()), "[null, [3, 4], []]"), *result,
+                    /*verbose=*/true);
+
+  const auto& list = checked_cast<const ListArray&>(*result);
+  ASSERT_EQ(list.values()->data()->offset, 2);
+  ASSERT_EQ(list.values()->data()->buffers[1].get(), values->data()->buffers[1].get());
+}
+
 TEST(TestListFromListView, SkipsValuesOfNullViews) {
   // A null view must not contribute any values, whatever size it declares.
   ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(3));
