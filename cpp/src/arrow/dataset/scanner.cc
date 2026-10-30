@@ -593,6 +593,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::TakeRows(const Array& indices) {
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::Head(int64_t num_rows) {
+  if (num_rows < 0) {
+    return Status::Invalid("num_rows must be non-negative");
+  }
   if (num_rows == 0) {
     return Table::FromRecordBatches(options()->projected_schema, {});
   }
