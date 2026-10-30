@@ -116,8 +116,9 @@ std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding);
 
 /// \brief Options for key-value based partitioning (hive/directory).
 struct ARROW_DS_EXPORT KeyValuePartitioningOptions {
-  /// After splitting a path into components, decode the path components
-  /// before parsing according to this scheme.
+  /// How to encode and decode partition segment values. With SegmentEncoding::Uri,
+  /// values are URI-decoded when parsing and URI-encoded when formatting (Hive
+  /// partitioning only). With SegmentEncoding::None, values are used as-is.
   SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 };
 
@@ -132,8 +133,9 @@ struct ARROW_DS_EXPORT PartitioningFactoryOptions {
   /// will only check discovered fields against the schema and update internal
   /// state (such as dictionaries).
   std::shared_ptr<Schema> schema;
-  /// After splitting a path into components, decode the path components
-  /// before parsing according to this scheme.
+  /// How to encode and decode partition segment values. With SegmentEncoding::Uri,
+  /// values are URI-decoded when parsing and URI-encoded when formatting (Hive
+  /// partitioning only). With SegmentEncoding::None, values are used as-is.
   SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 
   KeyValuePartitioningOptions AsPartitioningOptions() const;
