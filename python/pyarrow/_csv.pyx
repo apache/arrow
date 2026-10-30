@@ -379,6 +379,8 @@ cdef class ParseOptions(_Weakrefable):
         parsing (because of a mismatching number of columns).
         It should accept a single InvalidRow argument and return either
         "skip" or "error" depending on the desired outcome.
+    pad_short_rows : bool, optional (default False)
+        Whether rows with fewer columns than expected are padded with nulls.
 
     Examples
     --------
@@ -432,7 +434,8 @@ cdef class ParseOptions(_Weakrefable):
 
     def __init__(self, *, delimiter=None, quote_char=None, double_quote=None,
                  escape_char=None, newlines_in_values=None,
-                 ignore_empty_lines=None, invalid_row_handler=None):
+                 ignore_empty_lines=None, invalid_row_handler=None,
+                 pad_short_rows=None):
         if delimiter is not None:
             self.delimiter = delimiter
         if quote_char is not None:
@@ -447,6 +450,8 @@ cdef class ParseOptions(_Weakrefable):
             self.ignore_empty_lines = ignore_empty_lines
         if invalid_row_handler is not None:
             self.invalid_row_handler = invalid_row_handler
+        if pad_short_rows is not None:
+            self.pad_short_rows = pad_short_rows
 
     @property
     def delimiter(self):
@@ -556,6 +561,17 @@ cdef class ParseOptions(_Weakrefable):
     def ignore_empty_lines(self, value):
         deref(self.options).ignore_empty_lines = value
 
+    @property
+    def pad_short_rows(self):
+        """
+        Whether rows with fewer columns than expected are padded with nulls.
+        """
+        return deref(self.options).pad_short_rows
+
+    @pad_short_rows.setter
+    def pad_short_rows(self, value):
+        deref(self.options).pad_short_rows = value
+
     def validate(self):
         check_status(deref(self.options).Validate())
 
@@ -576,7 +592,8 @@ cdef class ParseOptions(_Weakrefable):
             self.escape_char == other.escape_char and
             self.newlines_in_values == other.newlines_in_values and
             self.ignore_empty_lines == other.ignore_empty_lines and
-            self._invalid_row_handler == other._invalid_row_handler
+            self._invalid_row_handler == other._invalid_row_handler and
+            self.pad_short_rows == other.pad_short_rows
         )
 
     @staticmethod
@@ -588,12 +605,20 @@ cdef class ParseOptions(_Weakrefable):
     def __getstate__(self):
         return (self.delimiter, self.quote_char, self.double_quote,
                 self.escape_char, self.newlines_in_values,
-                self.ignore_empty_lines, self.invalid_row_handler)
+                self.ignore_empty_lines, self.invalid_row_handler,
+                self.pad_short_rows)
 
     def __setstate__(self, state):
-        (self.delimiter, self.quote_char, self.double_quote,
-         self.escape_char, self.newlines_in_values,
-         self.ignore_empty_lines, self.invalid_row_handler) = state
+        if len(state) == 7:
+            (self.delimiter, self.quote_char, self.double_quote,
+             self.escape_char, self.newlines_in_values,
+             self.ignore_empty_lines, self.invalid_row_handler) = state
+            self.pad_short_rows = False
+        else:
+            (self.delimiter, self.quote_char, self.double_quote,
+             self.escape_char, self.newlines_in_values,
+             self.ignore_empty_lines, self.invalid_row_handler,
+             self.pad_short_rows) = state
 
     def __eq__(self, other):
         try:
@@ -610,7 +635,8 @@ cdef class ParseOptions(_Weakrefable):
     newlines_in_values={self.newlines_in_values},
     ignore_empty_lines={self.ignore_empty_lines},
     invalid_row_handler={getattr(self.invalid_row_handler, '__name__',
-                                 self.invalid_row_handler)}""")
+                                 self.invalid_row_handler)},
+    pad_short_rows={self.pad_short_rows}""")
 
     def __repr__(self):
         return (f"<pyarrow.csv.ParseOptions>({self._repr_base()})")
