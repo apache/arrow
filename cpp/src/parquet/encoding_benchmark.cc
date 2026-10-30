@@ -1084,6 +1084,172 @@ static void ByteArrayDeltaCustomArguments(benchmark::internal::Benchmark* b) {
 BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
 BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
 
+// Same as BM_DeltaDecodingByteArray, but decoding into an Arrow builder with
+// `null-percent` of the slots null.
+static void BM_DeltaDecodingArrowByteArray(benchmark::State& state) {
+  DeltaByteArrayState delta_state(state);
+  std::vector<ByteArray> values = delta_state.MakeRandomByteArray(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  // Spread the encoded (non-null) values over enough slots to reach `null-percent`.
+  std::default_random_engine gen(/*seed=*/42);
+  std::bernoulli_distribution dist_is_null(state.range(3) / 100.0);
+  std::vector<bool> is_valid;
+  for (int32_t num_valid = 0; num_valid < delta_state.array_length;) {
+    is_valid.push_back(!dist_is_null(gen));
+    num_valid += is_valid.back();
+  }
+  const int num_slots = static_cast<int>(is_valid.size());
+  const int null_count = num_slots - delta_state.array_length;
+  std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(num_slots));
+  for (int i = 0; i < num_slots; ++i) {
+    ::arrow::bit_util::SetBitTo(valid_bits.data(), i, is_valid[i]);
+  }
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  for (auto _ : state) {
+    decoder->SetData(delta_state.array_length, buf->data(),
+                     static_cast<int>(buf->size()));
+    EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder = std::make_unique<::arrow::BinaryBuilder>(default_memory_pool());
+    decoder->DecodeArrow(num_slots, null_count, valid_bits.data(), 0, &acc);
+    ::benchmark::DoNotOptimize(acc);
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+}
+
+static void ByteArrayDeltaArrowCustomArguments(benchmark::internal::Benchmark* b) {
+  for (int max_string_length : {8, 64, 1024}) {
+    for (int batch_size : {512, 2048}) {
+      for (int prefixed_percent : {10, 90, 99}) {
+        for (int null_percent : {0, 50}) {
+          b->Args({max_string_length, batch_size, prefixed_percent, null_percent});
+        }
+      }
+    }
+  }
+  b->ArgNames({"max-string-length", "batch-size", "prefixed-percent", "null-percent"});
+}
+
+BENCHMARK(BM_DeltaDecodingArrowByteArray)->Apply(ByteArrayDeltaArrowCustomArguments);
+
+struct DeltaFLBAState {
+  int32_t type_length;
+  int32_t array_length;
+  int32_t total_data_size;
+  double prefixed_probability;
+  std::vector<uint8_t> buf;
+  std::shared_ptr<ColumnDescriptor> descr;
+
+  explicit DeltaFLBAState(const benchmark::State& state)
+      : type_length(static_cast<int32_t>(state.range(0))),
+        array_length(static_cast<int32_t>(state.range(1))),
+        total_data_size(type_length * array_length),
+        prefixed_probability(state.range(2) / 100.0),
+        descr(std::make_shared<ColumnDescriptor>(
+            PrimitiveNode::Make("flba", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                                ConvertedType::NONE, type_length),
+            /*max_definition_level=*/0, /*max_repetition_level=*/0)) {}
+
+  std::vector<FLBA> MakeRandomFLBA(uint32_t seed) {
+    std::default_random_engine gen(seed);
+    std::uniform_int_distribution<int> dist_byte(0, 255);
+    std::bernoulli_distribution dist_has_prefix(prefixed_probability);
+    std::uniform_real_distribution<double> dist_prefix_length(0, 1);
+
+    std::vector<FLBA> out(array_length);
+    buf.resize(total_data_size);
+    auto buf_ptr = buf.data();
+
+    for (int32_t i = 0; i < array_length; ++i) {
+      out[i] = FLBA(buf_ptr);
+
+      bool do_prefix = i > 0 && dist_has_prefix(gen);
+      int prefix_len = 0;
+      if (do_prefix) {
+        prefix_len = static_cast<int>(std::ceil(type_length * dist_prefix_length(gen)));
+      }
+      for (int j = 0; j < prefix_len; ++j) {
+        buf_ptr[j] = out[i - 1].ptr[j];
+      }
+      for (int j = prefix_len; j < type_length; ++j) {
+        buf_ptr[j] = static_cast<uint8_t>(dist_byte(gen));
+      }
+      buf_ptr += type_length;
+    }
+    return out;
+  }
+};
+
+static void BM_DeltaDecodingFLBA(benchmark::State& state) {
+  DeltaFLBAState delta_state(state);
+  const ColumnDescriptor* descr = delta_state.descr.get();
+  std::vector<FLBA> values = delta_state.MakeRandomFLBA(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY,
+                                            /*use_dictionary=*/false, descr);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr);
+  for (auto _ : state) {
+    decoder->SetData(delta_state.array_length, buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+    ::benchmark::DoNotOptimize(values);
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+  state.counters["compression_ratio"] =
+      static_cast<double>(delta_state.total_data_size) / buf->size();
+}
+
+// Same as above, but decoding densely into a caller-provided buffer instead of
+// producing one pointer per value.
+static void BM_DeltaDecodingDenseFLBA(benchmark::State& state) {
+  DeltaFLBAState delta_state(state);
+  const ColumnDescriptor* descr = delta_state.descr.get();
+  std::vector<FLBA> values = delta_state.MakeRandomFLBA(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY,
+                                            /*use_dictionary=*/false, descr);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr);
+  auto* flba_decoder = dynamic_cast<FLBADecoder*>(decoder.get());
+  std::vector<uint8_t> decoded(delta_state.total_data_size);
+  for (auto _ : state) {
+    decoder->SetData(delta_state.array_length, buf->data(),
+                     static_cast<int>(buf->size()));
+    flba_decoder->Decode(decoded.data(), delta_state.array_length);
+    ::benchmark::DoNotOptimize(decoded);
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+  state.counters["compression_ratio"] =
+      static_cast<double>(delta_state.total_data_size) / buf->size();
+}
+
+static void FLBADeltaCustomArguments(benchmark::internal::Benchmark* b) {
+  // 2 bytes is float16, 16 bytes is decimal128.
+  for (int type_length : {2, 16}) {
+    for (int batch_size : {512, 2048}) {
+      for (int prefixed_percent : {10, 90, 99}) {
+        b->Args({type_length, batch_size, prefixed_percent});
+      }
+    }
+  }
+  b->ArgNames({"type-length", "batch-size", "prefixed-percent"});
+}
+
+BENCHMARK(BM_DeltaDecodingFLBA)->Apply(FLBADeltaCustomArguments);
+BENCHMARK(BM_DeltaDecodingDenseFLBA)->Apply(FLBADeltaCustomArguments);
+
 static void BM_RleEncodingBoolean(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::RLE);
