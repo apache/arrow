@@ -55,6 +55,22 @@ The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHu
 - ``dev.yml`` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 - ``dev_pr.yml`` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds assignee to the appropriate GitHub issue if needed (or adds a comment requesting the user to include the issue id in the title), and adds any relevant GitHub labels
 
+Maintaining the Crossbow GitHub token
+-------------------------------------
+
+The ``comment_bot.yml`` workflow uses ``CROSSBOW_GITHUB_TOKEN`` when it
+submits Crossbow jobs from pull-request comments.  The token must have the
+following GitHub scopes:
+
+- ``contents:write``
+- ``actions:write``
+- ``workflows:write``
+
+When the token-expiration notification is received, generate a replacement
+token with these scopes and send it to Apache INFRA.  INFRA updates the
+``CROSSBOW_GITHUB_TOKEN`` Actions secret.  The replacement also needs to be
+updated in the Crossbow repository and in the Azure Pipelines configuration.
+
 Extended builds
 -----------------------
 
