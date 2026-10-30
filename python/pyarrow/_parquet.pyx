@@ -26,7 +26,7 @@ from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
-from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
+from pyarrow.lib cimport (_Weakrefable, CacheOptions, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Table, KeyValueMetadata,
@@ -1588,6 +1588,7 @@ cdef class ParquetReader(_Weakrefable):
              read_dictionary=None, binary_type=None, list_type=None,
              FileMetaData metadata=None,
              int buffer_size=0, bint pre_buffer=True,
+             CacheOptions cache_options=None,
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
@@ -1608,6 +1609,11 @@ cdef class ParquetReader(_Weakrefable):
         metadata : FileMetaData, optional
         buffer_size : int, default 0
         pre_buffer : bool, default True
+        cache_options : pyarrow.CacheOptions, optional
+            Cache options used when pre_buffer is enabled. The default values
+            should be good for most use cases. You may want to adjust these
+            for example if you have exceptionally high latency to the file
+            system.
         coerce_int96_timestamp_unit : str, optional
         decryption_properties : FileDecryptionProperties, optional
         thrift_string_size_limit : int, optional
@@ -1659,6 +1665,9 @@ cdef class ParquetReader(_Weakrefable):
                 decryption_properties.unwrap())
 
         arrow_props.set_pre_buffer(pre_buffer)
+
+        if cache_options is not None:
+            arrow_props.set_cache_options(cache_options.unwrap())
 
         properties.set_page_checksum_verification(page_checksum_verification)
 
