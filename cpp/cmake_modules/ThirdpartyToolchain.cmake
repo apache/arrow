@@ -2827,8 +2827,30 @@ function(build_simdjson)
   list(APPEND CMAKE_MESSAGE_INDENT "simdjson: ")
   message(STATUS "Building simdjson from source")
 
+  # simdjson v5.0's key_selector.h uses __builtin_ctz/__builtin_ctzll which
+  # are GCC/Clang builtins not available on MSVC. Apply a patch that adds
+  # _BitScanForward/_BitScanForward64 equivalents for MSVC.
+  set(SIMDJSON_PATCH_COMMAND)
+  if(MSVC)
+    find_program(SIMDJSON_PATCH patch)
+    if(SIMDJSON_PATCH)
+      set(SIMDJSON_PATCH_COMMAND ${SIMDJSON_PATCH} -p1 -i)
+    else()
+      find_program(SIMDJSON_GIT git)
+      if(SIMDJSON_GIT)
+        set(SIMDJSON_PATCH_COMMAND ${SIMDJSON_GIT} apply)
+      endif()
+    endif()
+    if(SIMDJSON_PATCH_COMMAND)
+      list(APPEND SIMDJSON_PATCH_COMMAND
+           ${CMAKE_CURRENT_LIST_DIR}/simdjson-msvc-ctz.patch)
+      message(STATUS "Will apply simdjson MSVC CTZ compatibility patch")
+    endif()
+  endif()
+
   fetchcontent_declare(simdjson
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       PATCH_COMMAND ${SIMDJSON_PATCH_COMMAND}
                        URL ${SIMDJSON_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
 
@@ -2837,6 +2859,11 @@ function(build_simdjson)
   # Keep simdjson's threading configuration consistent with Arrow's,
   # which is required for Emscripten where Arrow threading is disabled.
   set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
+
+  # Enable parsing of NaN and Infinity literals in JSON (permitted by
+  # Arrow's JSON reader even though not in strict JSON). Requires
+  # simdjson >= 5.0.
+  set(SIMDJSON_ENABLE_NAN_INF ON)
 
   # simdjson enables precompiled headers unconditionally.
   # Recompiling simdjson.cpp against it produces differing artifacts
