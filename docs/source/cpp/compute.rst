@@ -494,6 +494,21 @@ arguments to floating-point, while mixed decimal and integer arguments will
 cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
+``add``, ``subtract`` and their checked variants also accept a timestamp and an
+interval (``month_interval``, ``day_time_interval`` or
+``month_day_nano_interval``), returning a timestamp of the same type
+(``add`` also accepts the interval as first argument).  Months and days are
+calendar units applied to the local time of the timestamp, so adding one day
+keeps the same wall clock time even across a daylight saving time transition.
+The sub-day part of the interval is a fixed duration, and returns an
+``Invalid`` :class:`Status` if it is not a multiple of the timestamp unit.
+``add`` applies months, then days, then the sub-day part; ``subtract``
+applies the sub-day part first, then months, then days.  When adding months,
+the day of month is clamped to the last day of the resulting month (e.g.
+January 31st plus one month is February 28th or 29th).  An ``Invalid``
+:class:`Status` is returned if the resulting local time is ambiguous or does
+not exist.
+
 +-------------------+--------+-------------------------+-------------------------------+-------+
 | Function name     | Arity  | Input types             | Output type                   | Notes |
 +===================+========+=========================+===============================+=======+
