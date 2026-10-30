@@ -319,7 +319,7 @@ def _ensure_format(obj):
 
 def _ensure_multiple_sources(paths, filesystem=None):
     """
-    Treat a list of paths as files belonging to a single file system
+    Treat a list of paths or FileInfo objects as files on one file system.
 
     If the file system is local then also validates that all paths
     are referencing existing *files* otherwise any non-file paths will be
@@ -327,7 +327,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
 
     Parameters
     ----------
-    paths : list of path-like
+    paths : list of path-like or FileInfo
         Note that URIs are not allowed.
     filesystem : FileSystem or str, optional
         If an URI is passed, then its path component will act as a prefix for
@@ -335,8 +335,9 @@ def _ensure_multiple_sources(paths, filesystem=None):
 
     Returns
     -------
-    (FileSystem, list of str)
-        File system object and a list of normalized paths.
+    (FileSystem, list of str or FileInfo)
+        File system object and a list of normalized paths, or FileInfo
+        objects when both kinds of source are present.
 
     Raises
     ------
@@ -347,7 +348,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
         not a file.
     """
     from pyarrow.fs import (
-        LocalFileSystem, SubTreeFileSystem, _MockFileSystem, FileType,
+        LocalFileSystem, SubTreeFileSystem, _MockFileSystem, FileInfo, FileType,
         _ensure_filesystem
     )
 
@@ -364,14 +365,24 @@ def _ensure_multiple_sources(paths, filesystem=None):
          isinstance(filesystem.base_fs, LocalFileSystem))
     )
 
-    # allow normalizing irregular paths such as Windows local paths
-    paths = [filesystem.normalize_path(_stringify_path(p)) for p in paths]
+    # Preserve supplied FileInfo objects (including their size and mtime).
+    # Normalize path-like entries as for a list containing only paths.
+    has_file_infos = any(isinstance(p, FileInfo) for p in paths)
+    if has_file_infos:
+        paths = [p if isinstance(p, FileInfo) else
+                 filesystem.normalize_path(_stringify_path(p)) for p in paths]
+        path_entries = [p for p in paths if not isinstance(p, FileInfo)]
+    else:
+        paths = [filesystem.normalize_path(_stringify_path(p)) for p in paths]
+        path_entries = paths
 
     # validate that all of the paths are pointing to existing *files*
     # possible improvement is to group the file_infos by type and raise for
     # multiple paths per error category
+    if is_local or has_file_infos:
+        path_infos = filesystem.get_file_info(path_entries)
     if is_local:
-        for info in filesystem.get_file_info(paths):
+        for info in path_infos:
             file_type = info.type
             if file_type == FileType.File:
                 continue
@@ -388,6 +399,11 @@ def _ensure_multiple_sources(paths, filesystem=None):
                     f'Path {info.path} exists but its type is unknown (could be a '
                     'special file such as a Unix socket or character device, '
                     'or Windows NUL / CON / ...)')
+
+    if has_file_infos:
+        path_infos = iter(path_infos)
+        paths = [p if isinstance(p, FileInfo) else next(path_infos)
+                 for p in paths]
 
     return filesystem, paths
 
@@ -458,7 +474,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        if source and isinstance(source[0], FileInfo):
+        if source and all(isinstance(item, FileInfo) for item in source):
             if filesystem is None:
                 # fall back to local file system as the default
                 fs = LocalFileSystem()
@@ -598,17 +614,17 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets, (list of) \
-RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
+    source : path, list of paths or FileInfo, dataset, list of datasets, \
+(list of) RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
             The directory gets discovered recursively according to a
             partitioning scheme if given.
-        List of file paths:
+        List of file paths or FileInfo objects:
             Create a FileSystemDataset from explicitly given files. The files
             must be located on the same filesystem given by the filesystem
-            parameter.
+            parameter. Paths and FileInfo objects may be mixed.
             Note that in contrary of construction from a single file, passing
             URIs as paths is not allowed.
         List of datasets:

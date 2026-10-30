@@ -3355,6 +3355,8 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
 cdef vector[CFileInfo] unwrap_finfos(finfos):
     cdef vector[CFileInfo] o_vect
     for fi in finfos:
+        if not isinstance(fi, FileInfo):
+            raise TypeError("Expected all items to be FileInfo objects")
         o_vect.push_back((<FileInfo> fi).unwrap())
     return o_vect
 
@@ -3367,8 +3369,9 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
     ----------
     filesystem : pyarrow.fs.FileSystem
         Filesystem to discover.
-    paths_or_selector : pyarrow.fs.FileSelector or list of path-likes
-        Either a Selector object or a list of path-like objects.
+    paths_or_selector : pyarrow.fs.FileSelector, list of path-likes or list of FileInfo
+        Either a Selector object, a list of path-like objects, or a list of
+        FileInfo objects. Lists must not mix path-likes and FileInfo objects.
     format : FileFormat
         Currently only ParquetFileFormat and IpcFileFormat are supported.
     options : FileSystemFactoryOptions, optional
