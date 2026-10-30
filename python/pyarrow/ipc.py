@@ -38,7 +38,7 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
     Parameters
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
-        Either an in-memory buffer, or a readable file object.
+        Either an in-memory buffer, file path, or a readable file object.
         If you want to use memory map use MemoryMappedFile as source.
     options : pyarrow.ipc.IpcReadOptions
         Options for IPC deserialization.
@@ -97,7 +97,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
     Parameters
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
-        Either an in-memory buffer, or a readable file object.
+        Either an in-memory buffer, file path, or a readable file object.
         If you want to use memory map use MemoryMappedFile as source.
     footer_offset : int, default None
         If the file is embedded in some larger file, this is the byte offset to
@@ -172,7 +172,7 @@ def open_stream(source, *, options=None, memory_pool=None):
     Parameters
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
-        Either an in-memory buffer, or a readable file object.
+        Either an in-memory buffer, file path, or a readable file object.
     options : pyarrow.ipc.IpcReadOptions
         Options for IPC serialization.
         If None, default values will be used.
@@ -211,7 +211,7 @@ def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
     Parameters
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
-        Either an in-memory buffer, or a readable file object.
+        Either an in-memory buffer, file path, or a readable file object.
     footer_offset : int, default None
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data.
