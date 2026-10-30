@@ -37,6 +37,12 @@
 #include "arrow/python/python_test.h"
 #include "arrow/python/python_to_arrow.h"
 
+// Py_REFCNT is an exported stable-ABI function only on CPython 3.14+;
+// earlier interpreters provide it as a macro/inline, so calling it as a
+// function fails to resolve at import on 3.11-3.13. Read the raw refcount
+// field directly: the 16-byte header layout (ob_refcnt first) is stable.
+#define PyRawRefCnt(o) ((PyObject *)(o))->ob_refcnt
+
 #define ASSERT_EQ(x, y)                                                        \
   {                                                                            \
     auto&& _left = (x);                                                        \
@@ -144,8 +150,8 @@ Status TestOwnedRefMoves() {
     ASSERT_EQ(ref.obj(), nullptr);
   }
   vec.emplace_back(v);
-  ASSERT_EQ(Py_REFCNT(u), 1);
-  ASSERT_EQ(Py_REFCNT(v), 1);
+  ASSERT_EQ(PyRawRefCnt(u), 1);
+  ASSERT_EQ(PyRawRefCnt(v), 1);
   return Status::OK();
 }
 
@@ -168,8 +174,8 @@ Status TestOwnedRefNoGILMoves() {
       ASSERT_EQ(ref.obj(), nullptr);
     }
     vec.emplace_back(v);
-    ASSERT_EQ(Py_REFCNT(u), 1);
-    ASSERT_EQ(Py_REFCNT(v), 1);
+    ASSERT_EQ(PyRawRefCnt(u), 1);
+    ASSERT_EQ(PyRawRefCnt(v), 1);
     return Status::OK();
   }
 }
@@ -282,14 +288,21 @@ Status TestRestorePyErrorBasics() {
 
 Status TestPyBufferInvalidInputObject() {
   std::shared_ptr<Buffer> res;
-  PyObject* input = Py_None;
-  auto old_refcnt = Py_REFCNT(input);
+  // Use a non-immortal heap object: for immortal objects (e.g. Py_None),
+  // CPython >= 3.14 deliberately applies pre-3.14-style Py_INCREF (saturating
+  // low-32-bit bump) while skipping the matching Py_DECREF, so a balanced
+  // incref/decref pair drifts Py_REFCNT by +1 per pair and the raw field
+  // value encodes immortal flags. A fresh list keeps the refcount assertion
+  // meaningful on all interpreters.
+  OwnedRef list_ref(PyList_New(0));
+  PyObject* input = list_ref.obj();
+  auto old_refcnt = PyRawRefCnt(input);
   {
     Status st = PyBuffer::FromPyObject(input).status();
     ASSERT_TRUE_MSG(IsPyError(st), st.ToString());
     ASSERT_FALSE(PyErr_Occurred());
   }
-  ASSERT_EQ(old_refcnt, Py_REFCNT(input));
+  ASSERT_EQ(old_refcnt, PyRawRefCnt(input));
   return Status::OK();
 }
 
@@ -303,16 +316,16 @@ Status TestPyBufferNumpyArray() {
   OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
   PyObject* arr = arr_ref.obj();
   ASSERT_NE(arr, nullptr);
-  auto old_refcnt = Py_REFCNT(arr);
+  auto old_refcnt = PyRawRefCnt(arr);
   auto buf = std::move(PyBuffer::FromPyObject(arr)).ValueOrDie();
 
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
   ASSERT_TRUE(buf->is_mutable());
   ASSERT_EQ(buf->mutable_data(), buf->data());
-  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt + 1, PyRawRefCnt(arr));
   buf.reset();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt, PyRawRefCnt(arr));
 
   // Read-only
   PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(arr), NPY_ARRAY_WRITEABLE);
@@ -320,9 +333,9 @@ Status TestPyBufferNumpyArray() {
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
   ASSERT_FALSE(buf->is_mutable());
-  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt + 1, PyRawRefCnt(arr));
   buf.reset();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt, PyRawRefCnt(arr));
 
   return Status::OK();
 }
@@ -333,16 +346,16 @@ Status TestNumPyBufferNumpyArray() {
   OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
   PyObject* arr = arr_ref.obj();
   ASSERT_NE(arr, nullptr);
-  auto old_refcnt = Py_REFCNT(arr);
+  auto old_refcnt = PyRawRefCnt(arr);
 
   auto buf = std::make_shared<NumPyBuffer>(arr);
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
   ASSERT_TRUE(buf->is_mutable());
   ASSERT_EQ(buf->mutable_data(), buf->data());
-  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt + 1, PyRawRefCnt(arr));
   buf.reset();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt, PyRawRefCnt(arr));
 
   // Read-only
   PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(arr), NPY_ARRAY_WRITEABLE);
@@ -350,9 +363,9 @@ Status TestNumPyBufferNumpyArray() {
   ASSERT_TRUE(buf->is_cpu());
   ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
   ASSERT_FALSE(buf->is_mutable());
-  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt + 1, PyRawRefCnt(arr));
   buf.reset();
-  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+  ASSERT_EQ(old_refcnt, PyRawRefCnt(arr));
 
   return Status::OK();
 }
