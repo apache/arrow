@@ -29,7 +29,9 @@ on:
       - 'ci/scripts/matlab*.sh'
       - 'matlab/**'
       - 'cpp/src/arrow/**'
+  workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.github/workflows/matlab.yml'
       - 'ci/scripts/matlab*.sh'
@@ -37,18 +39,27 @@ on:
       - 'cpp/src/arrow/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  # Cancel superseded fork pushes; unrelated labels must not cancel running builds.
+  group: "${{ github.workflow }}-${{ github.repository }}-${{ github.event.pull_request.number || (github.repository != 'apache/arrow' && github.ref) || github.sha }}-${{ github.event.action == 'labeled' && github.event.label.name != 'CI: Upstream' }}"
   cancel-in-progress: true
 
 permissions:
   contents: read
 
+# Fork PRs to main run in the contributor's fork; CI: Upstream requests merge-ref validation.
 jobs:
 
   ubuntu:
     name: AMD64 Ubuntu 22.04 MATLAB
     runs-on: ubuntu-22.04
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: &run-builds >-
+      !contains(github.event.pull_request.title, 'WIP') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'CI: Upstream') &&
+      (github.event_name != 'pull_request' ||
+       github.repository != 'apache/arrow' ||
+       github.base_ref != 'main' ||
+       github.event.pull_request.head.repo.full_name == github.repository ||
+       contains(github.event.pull_request.labels.*.name, 'CI: Upstream'))
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -90,7 +101,7 @@ jobs:
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} MATLAB
     runs-on: macos-${{ matrix.macos-version }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     strategy:
       matrix:
         include:
@@ -139,7 +150,7 @@ jobs:
   windows:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     steps:
       - name: Check out repository
         uses: actions/checkout@v7

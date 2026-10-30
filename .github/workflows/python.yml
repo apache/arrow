@@ -32,7 +32,9 @@ on:
       - 'compose.yaml'
       - 'docs/source/python/**'
       - 'python/**'
+  workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.dockerignore'
       - '.github/workflows/python.yml'
@@ -43,7 +45,8 @@ on:
       - 'python/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  # Cancel superseded fork pushes; unrelated labels must not cancel running builds.
+  group: "${{ github.workflow }}-${{ github.repository }}-${{ github.event.pull_request.number || (github.repository != 'apache/arrow' && github.ref) || github.sha }}-${{ github.event.action == 'labeled' && github.event.label.name != 'CI: Upstream' }}"
   cancel-in-progress: true
 
 permissions:
@@ -53,12 +56,20 @@ env:
   ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
+# Fork PRs to main run in the contributor's fork; CI: Upstream requests merge-ref validation.
 jobs:
 
   docker:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: &run-builds >-
+      !contains(github.event.pull_request.title, 'WIP') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'CI: Upstream') &&
+      (github.event_name != 'pull_request' ||
+       github.repository != 'apache/arrow' ||
+       github.base_ref != 'main' ||
+       github.event.pull_request.head.repo.full_name == github.repository ||
+       contains(github.event.pull_request.labels.*.name, 'CI: Upstream'))
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -147,7 +158,7 @@ jobs:
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
     runs-on: macos-${{ matrix.macos-version }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -254,7 +265,7 @@ jobs:
   windows:
     name: AMD64 Windows 2022 Python 3.13
     runs-on: windows-2022
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     timeout-minutes: 60
     env:
       CCACHE_DIR: C:/ccache

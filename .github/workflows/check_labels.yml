@@ -60,5 +60,20 @@ jobs:
                 echo "LABELS"
               } >> "${GITHUB_OUTPUT}"
               ;;
+            # A push to a contributor fork can pick up labels on its open PR.
+            # Adding a label alone cannot dispatch into another user's fork;
+            # the contributor can push again or run that workflow manually.
+            push)
+              if [ "${GITHUB_REPOSITORY}" != "apache/arrow" ] && [ "${GITHUB_REF_TYPE}" = "branch" ]; then
+                {
+                  echo "ci-extra-labels<<LABELS"
+                  gh pr list --repo apache/arrow --base main --state open \
+                    --head "${GITHUB_REPOSITORY_OWNER}:${GITHUB_REF_NAME}" \
+                    --json labels \
+                    --jq '[.[].labels[].name | select(startswith("CI: Extra"))] | unique'
+                  echo "LABELS"
+                } >> "${GITHUB_OUTPUT}"
+              fi
+              ;;
             # Other event types trigger through specific rules in `*_extra.yml`
           esac

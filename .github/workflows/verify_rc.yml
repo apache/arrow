@@ -22,6 +22,7 @@ on:
     tags:
       - "*-rc*"
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - ".github/workflows/verify_rc.yml"
   workflow_dispatch:
@@ -41,6 +42,14 @@ env:
 
 jobs:
   target:
+    if: >-
+      !contains(github.event.pull_request.title, 'WIP') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'CI: Upstream') &&
+      (github.event_name != 'pull_request' ||
+       github.repository != 'apache/arrow' ||
+       github.base_ref != 'main' ||
+       github.event.pull_request.head.repo.full_name == github.repository ||
+       contains(github.event.pull_request.labels.*.name, 'CI: Upstream'))
     name: Target
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -62,7 +71,7 @@ jobs:
               tag="$(gh release list \
                        --jq '.[] | select(.isPrerelease) | .tagName' \
                        --json tagName,isPrerelease \
-                       --repo ${GITHUB_REPOSITORY} | \
+                       --repo apache/arrow | \
                        head -n1)"
               ;;
             *)
