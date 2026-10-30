@@ -52,6 +52,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
@@ -3612,7 +3613,17 @@ static const std::vector<FixedSizeListTestCase> kFixedSizeListTestCases = {
           {"root": [[1, 2], null, [3, 4]]},
           {"root": null},
           {"root": [null, [5, 6]]},
-          {"root": []}])"}};
+          {"root": []}])"},
+    // Non-nullable fixed-size list under a nullable struct: null struct slots
+    // carry no child values
+    {.type = ::arrow::struct_(
+         {::arrow::field("v", ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/2),
+                         /*nullable=*/false)}),
+     .json = R"([
+          {"root": {"v": [1, 2]}},
+          {"root": null},
+          {"root": {"v": [3, 4]}},
+          {"root": null}])"}};
 
 TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {
   const auto& test_case = GetParam();
@@ -3624,6 +3635,331 @@ TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {
 
 INSTANTIATE_TEST_SUITE_P(ArrowReadWrite, TestFixedSizeListRoundTrip,
                          ::testing::ValuesIn(kFixedSizeListTestCases));
+
+std::shared_ptr<ArrowWriterProperties> FiniteVectorWriterProperties(
+    bool store_schema = true) {
+  ArrowWriterProperties::Builder builder;
+  builder.enable_finite_vector_logical_type();
+  if (store_schema) {
+    builder.store_schema();
+  }
+  return builder.build();
+}
+
+class TestFiniteVectorRoundTrip : public ::testing::TestWithParam<FixedSizeListTestCase> {
+};
+
+static const std::vector<FixedSizeListTestCase> kFiniteVectorTestCases = {
+    {.type = ::arrow::fixed_size_list(::arrow::float32(), /*list_size=*/3), .json = R"([
+          {"root": [1.5, -2.0, 3.25]},
+          {"root": null},
+          {"root": [0.0, -0.0, 1e30]}])"},
+    {.type = ::arrow::fixed_size_list(
+         ::arrow::field("element", ::arrow::float64(), /*nullable=*/false),
+         /*list_size=*/2),
+     .json = R"([
+          {"root": [1.5, -2.0]},
+          {"root": [0.0, 4.9e-324]}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::boolean(), /*list_size=*/4), .json = R"([
+          {"root": [true, false, false, true]},
+          {"root": null}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::int8(), /*list_size=*/2), .json = R"([
+          {"root": [-128, 127]},
+          {"root": null},
+          {"root": [0, 1]}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::uint64(), /*list_size=*/1), .json = R"([
+          {"root": [18446744073709551615]},
+          {"root": [0]}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::int64(), /*list_size=*/2), .json = R"([
+          {"root": null},
+          {"root": null}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::decimal128(10, 2), /*list_size=*/2),
+     .json = R"([
+          {"root": ["1.25", "-3.50"]},
+          {"root": null}])"},
+    // Only the inner FixedSizeList is a FINITE_VECTOR
+    {.type = ::arrow::fixed_size_list(
+         ::arrow::fixed_size_list(::arrow::float32(), /*list_size=*/2),
+         /*list_size=*/2),
+     .json = R"([
+          {"root": [[1, 2], [3, 4]]},
+          {"root": null},
+          {"root": [[5, 6], null]}])"},
+    {.type = ::arrow::list(::arrow::fixed_size_list(::arrow::float32(), /*list_size=*/2)),
+     .json = R"([
+          {"root": [[1, 2], null, [3, 4]]},
+          {"root": null},
+          {"root": [null, [5, 6]]},
+          {"root": []}])"},
+    {.type = ::arrow::struct_(
+         {::arrow::field("a", ::arrow::int32()),
+          ::arrow::field("v", ::arrow::fixed_size_list(::arrow::int32(), 2))}),
+     .json = R"([
+          {"root": {"a": 1, "v": [1, 2]}},
+          {"root": null},
+          {"root": {"a": null, "v": null}},
+          {"root": {"a": 4, "v": [3, 4]}}])"},
+    {.type =
+         ::arrow::map(::arrow::utf8(), ::arrow::fixed_size_list(::arrow::float64(), 2)),
+     .json = R"([
+          {"root": [["a", [1, 2]], ["b", null]]},
+          {"root": null},
+          {"root": [["c", [3, 4]]]}])"},
+    // Required vector inside a nullable struct
+    {.type = ::arrow::struct_(
+         {::arrow::field("v", ::arrow::fixed_size_list(::arrow::float32(), 2),
+                         /*nullable=*/false)}),
+     .json = R"([
+          {"root": {"v": [1, 2]}},
+          {"root": null},
+          {"root": {"v": [3, 4]}},
+          {"root": null}])"},
+    // Required vector inside a nullable struct inside a list
+    {.type = ::arrow::list(::arrow::struct_(
+         {::arrow::field("v", ::arrow::fixed_size_list(::arrow::float32(), 2),
+                         /*nullable=*/false)})),
+     .json = R"([
+          {"root": [{"v": [1, 2]}, null]},
+          {"root": null},
+          {"root": []},
+          {"root": [null, {"v": [3, 4]}]}])"},
+};
+
+TEST_P(TestFiniteVectorRoundTrip, RoundTrip) {
+  const auto& test_case = GetParam();
+  auto table = ::arrow::TableFromJSON(
+      ::arrow::schema({::arrow::field("root", test_case.type)}), {test_case.json});
+  CheckSimpleRoundtrip(table, 2, FiniteVectorWriterProperties());
+
+  // Every leaf column is the element of a FINITE_VECTOR-annotated group
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, 2, FiniteVectorWriterProperties(), &buffer));
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  const SchemaDescriptor* schema = reader->metadata()->schema();
+  int num_vectors = 0;
+  for (int i = 0; i < schema->num_columns(); ++i) {
+    const auto* vector = schema->Column(i)->schema_node()->parent()->parent();
+    num_vectors += vector->logical_type()->is_finite_vector() ? 1 : 0;
+  }
+  ASSERT_GT(num_vectors, 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(ArrowReadWrite, TestFiniteVectorRoundTrip,
+                         ::testing::ValuesIn(kFiniteVectorTestCases));
+
+TEST(TestFiniteVectorReadWrite, SchemaInFile) {
+  auto type = ::arrow::fixed_size_list(::arrow::float32(), 3);
+  auto table = ::arrow::TableFromJSON(::arrow::schema({::arrow::field("v", type)}),
+                                      {R"([{"v": [1, 2, 3]}, {"v": null}])"});
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, table->num_rows(),
+                         FiniteVectorWriterProperties(/*store_schema=*/false), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  const SchemaDescriptor* schema = reader->metadata()->schema();
+  const auto& vector = *schema->group_node()->field(0);
+  ASSERT_TRUE(vector.logical_type()->Equals(*LogicalType::FiniteVector(3)));
+  ASSERT_EQ(vector.converted_type(), ConvertedType::LIST);
+  ASSERT_TRUE(vector.is_optional());
+  const ColumnDescriptor* column = schema->Column(0);
+  ASSERT_EQ(column->path()->ToDotString(), "v.list.element");
+  ASSERT_EQ(column->schema_node()->repetition(), Repetition::REQUIRED);
+  ASSERT_EQ(column->max_definition_level(), 2);
+
+  // Without a stored Arrow schema the element field is read as non-nullable
+  std::shared_ptr<Table> result;
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, /*use_threads=*/false,
+                                            table->num_rows(), {}, &result,
+                                            FiniteVectorWriterProperties(false)));
+  ASSERT_OK(result->ValidateFull());
+  auto expected_type = ::arrow::fixed_size_list(
+      ::arrow::field("element", ::arrow::float32(), /*nullable=*/false), 3);
+  ASSERT_TRUE(result->schema()->field(0)->type()->Equals(*expected_type))
+      << result->schema()->field(0)->type()->ToString();
+  auto expected =
+      ::arrow::TableFromJSON(::arrow::schema({::arrow::field("v", expected_type)}),
+                             {R"([{"v": [1, 2, 3]}, {"v": null}])"});
+  ::arrow::AssertTablesEqual(*expected, *result, /*same_chunk_layout=*/false);
+}
+
+TEST(TestFiniteVectorReadWrite, HalfFloat) {
+  // 1.0, -2.0, 0.5, 65504 (largest finite half float)
+  auto values = ArrayFromJSON(::arrow::uint16(), "[15360, 49152, 14336, 31743]");
+  auto half_values = std::make_shared<::arrow::HalfFloatArray>(
+      values->length(), values->data()->buffers[1]);
+  ASSERT_OK_AND_ASSIGN(auto vectors,
+                       ::arrow::FixedSizeListArray::FromArrays(half_values, 2));
+  auto table = Table::Make(::arrow::schema({::arrow::field("v", vectors->type())}),
+                           {std::make_shared<ChunkedArray>(vectors)});
+  CheckSimpleRoundtrip(table, 2, FiniteVectorWriterProperties());
+
+  // Infinity and NaN have all exponent bits set
+  for (uint16_t non_finite : {0x7c00, 0xfc00, 0x7e00}) {
+    auto bad_values =
+        ArrayFromJSON(::arrow::uint16(), "[15360, " + std::to_string(non_finite) + "]");
+    auto bad_half_values = std::make_shared<::arrow::HalfFloatArray>(
+        bad_values->length(), bad_values->data()->buffers[1]);
+    ASSERT_OK_AND_ASSIGN(auto bad_vectors,
+                         ::arrow::FixedSizeListArray::FromArrays(bad_half_values, 2));
+    auto bad_table =
+        Table::Make(::arrow::schema({::arrow::field("v", bad_vectors->type())}),
+                    {std::make_shared<ChunkedArray>(bad_vectors)});
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("contains a non-finite element"),
+        WriteTableToBuffer(bad_table, 2, default_writer_properties(),
+                           FiniteVectorWriterProperties()));
+  }
+}
+
+// An extension type wrapping an arbitrary storage type, used to nest extensions
+class WrapperExtensionType : public ::arrow::ExtensionType {
+ public:
+  WrapperExtensionType(std::shared_ptr<DataType> storage, std::string name)
+      : ::arrow::ExtensionType(std::move(storage)), name_(std::move(name)) {}
+  std::string extension_name() const override { return name_; }
+  bool ExtensionEquals(const ::arrow::ExtensionType& other) const override {
+    return other.extension_name() == name_ &&
+           other.storage_type()->Equals(storage_type());
+  }
+  std::shared_ptr<Array> MakeArray(
+      std::shared_ptr<::arrow::ArrayData> data) const override {
+    return std::make_shared<::arrow::ExtensionArray>(std::move(data));
+  }
+  ::arrow::Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
+    return std::make_shared<WrapperExtensionType>(std::move(storage_type), name_);
+  }
+  std::string Serialize() const override { return ""; }
+
+ private:
+  std::string name_;
+};
+
+TEST(TestFiniteVectorReadWrite, NestedExtensionTypes) {
+  // Extension<Extension<FixedSizeList<float>[2]>> with a nullable element field:
+  // every extension layer must be unwrapped when the element is made required.
+  auto storage_type = ::arrow::fixed_size_list(::arrow::float32(), 2);
+  auto inner_type = std::make_shared<WrapperExtensionType>(storage_type, "test.inner");
+  auto outer_type = std::make_shared<WrapperExtensionType>(inner_type, "test.outer");
+  auto storage = ArrayFromJSON(storage_type, "[[1, 2], null, [3, 4]]");
+  auto inner = ::arrow::ExtensionType::WrapArray(inner_type, storage);
+  auto outer = ::arrow::ExtensionType::WrapArray(outer_type, inner);
+  auto table = Table::Make(::arrow::schema({::arrow::field("v", outer_type)}),
+                           {std::make_shared<ChunkedArray>(outer)});
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, table->num_rows(),
+                                             FiniteVectorWriterProperties(), &buffer));
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  ASSERT_TRUE(
+      reader->metadata()->schema()->group_node()->field(0)->logical_type()->Equals(
+          *LogicalType::FiniteVector(2)));
+
+  // The extension types are not registered, so the storage is read back
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                                   ::arrow::default_memory_pool()));
+  std::shared_ptr<Table> result;
+  ASSERT_OK(arrow_reader->ReadTable(&result));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(result->num_rows(), 3);
+  ASSERT_OK_AND_ASSIGN(auto read_values, ::arrow::compute::Cast(
+                                             *result->column(0)->chunk(0), storage_type));
+  ::arrow::AssertArraysEqual(*storage, *read_values, /*verbose=*/true);
+}
+
+TEST(TestFiniteVectorReadWrite, InvalidElements) {
+  auto write = [](const std::shared_ptr<DataType>& type, const std::string& json) {
+    auto table =
+        ::arrow::TableFromJSON(::arrow::schema({::arrow::field("v", type)}), {json});
+    return WriteTableToBuffer(table, table->num_rows(), default_writer_properties(),
+                              FiniteVectorWriterProperties());
+  };
+  for (const auto& value_type : {::arrow::float32(), ::arrow::float64()}) {
+    SCOPED_TRACE(value_type->ToString());
+    auto type = ::arrow::fixed_size_list(value_type, 2);
+    for (const char* value : {"NaN", "Inf", "-Inf"}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid,
+          ::testing::HasSubstr("FINITE_VECTOR column 'v.list.element' contains a "
+                               "non-finite element"),
+          write(type, std::string(R"([{"v": [1, 2]}, {"v": [3, )") + value + "]}]"));
+    }
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "FINITE_VECTOR column 'v.list.element' contains a null element"),
+        write(type, R"([{"v": [1, 2]}, {"v": [3, null]}])"));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("contains a null element"),
+      write(::arrow::fixed_size_list(::arrow::int32(), 2), R"([{"v": [null, 1]}])"));
+
+  // Same data is fine when written as an ordinary LIST
+  auto table = ::arrow::TableFromJSON(
+      ::arrow::schema(
+          {::arrow::field("v", ::arrow::fixed_size_list(::arrow::float32(), 2))}),
+      {R"([{"v": [NaN, null]}])"});
+  ASSERT_OK(WriteTableToBuffer(table, 1, default_writer_properties(),
+                               default_arrow_writer_properties()));
+}
+
+TEST(TestFiniteVectorReadWrite, ElementsUnderNullParentsAreNotValidated) {
+  // Values under null vectors or null ancestors are not written and so may be
+  // anything.
+  auto values = ArrayFromJSON(::arrow::float32(), "[1, 2, NaN, null, 5, 6]");
+  ASSERT_OK_AND_ASSIGN(auto vectors, ::arrow::FixedSizeListArray::FromArrays(values, 2));
+  const std::vector<uint8_t> validity = {1, 0, 1};
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, ::arrow::internal::BytesToBits(validity));
+  auto with_nulls = std::make_shared<::arrow::FixedSizeListArray>(vectors->type(), 3,
+                                                                  values, null_bitmap, 1);
+  auto table = Table::Make(::arrow::schema({::arrow::field("v", vectors->type())}),
+                           {std::make_shared<ChunkedArray>(with_nulls)});
+  ASSERT_OK(WriteTableToBuffer(table, 3, default_writer_properties(),
+                               FiniteVectorWriterProperties()));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto structs,
+      ::arrow::StructArray::Make({vectors}, {::arrow::field("v", vectors->type())},
+                                 null_bitmap, 1));
+  auto struct_table = Table::Make(::arrow::schema({::arrow::field("s", structs->type())}),
+                                  {std::make_shared<ChunkedArray>(structs)});
+  ASSERT_OK(WriteTableToBuffer(struct_table, 3, default_writer_properties(),
+                               FiniteVectorWriterProperties()));
+}
+
+TEST(TestFiniteVectorReadWrite, InvalidLengthInFile) {
+  // A FINITE_VECTOR(3) column containing a vector with 2 elements
+  auto element = PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::FLOAT);
+  auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  auto vector =
+      GroupNode::Make("v", Repetition::OPTIONAL, {list}, LogicalType::FiniteVector(3));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {vector}));
+
+  auto sink = CreateOutputStream();
+  auto writer = ParquetFileWriter::Open(sink, schema);
+  RowGroupWriter* rg_writer = writer->AppendRowGroup();
+  auto* col_writer = static_cast<FloatWriter*>(rg_writer->NextColumn());
+  // [1, 2, 3], null, [4, 5]
+  std::vector<int16_t> def_levels = {2, 2, 2, 0, 2, 2};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 0, 0, 1};
+  std::vector<float> values = {1, 2, 3, 4, 5};
+  col_writer->WriteBatch(static_cast<int64_t>(def_levels.size()), def_levels.data(),
+                         rep_levels.data(), values.data());
+  col_writer->Close();
+  rg_writer->Close();
+  writer->Close();
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Expected all lists to be of size=3"),
+      reader->ReadTable());
+}
 
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;

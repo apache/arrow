@@ -640,7 +640,10 @@ class ListReader : public ColumnReaderImpl {
     std::shared_ptr<ResizableBuffer> validity_buffer;
     ::parquet::internal::ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = length_upper_bound;
-    if (field_->nullable()) {
+    // A fixed-size list always needs a validity bitmap, even when its field is
+    // not nullable: slots under a null ancestor (e.g. a null struct) carry no
+    // child values and must be told apart from invalid empty lists.
+    if (field_->nullable() || field_->type()->id() == ::arrow::Type::FIXED_SIZE_LIST) {
       ARROW_ASSIGN_OR_RAISE(validity_buffer,
                             AllocateResizableBuffer(
                                 bit_util::BytesForBits(length_upper_bound), ctx_->pool));

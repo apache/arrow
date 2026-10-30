@@ -162,6 +162,7 @@ class PARQUET_EXPORT LogicalType {
       GEOMETRY,
       GEOGRAPHY,
       VARIANT,
+      FINITE_VECTOR,
       NONE  // Not a real logical type; should always be last element
     };
   };
@@ -233,6 +234,11 @@ class PARQUET_EXPORT LogicalType {
 
   static std::shared_ptr<const LogicalType> Geometry(std::string crs = "");
 
+  /// \brief Create a FiniteVector logical type
+  /// \param[in] num_elements the number of elements in each non-null vector,
+  /// must be greater than zero
+  static std::shared_ptr<const LogicalType> FiniteVector(int32_t num_elements);
+
   static std::shared_ptr<const LogicalType> Geography(
       std::string crs = "", LogicalType::EdgeInterpolationAlgorithm algorithm =
                                 EdgeInterpolationAlgorithm::SPHERICAL);
@@ -293,6 +299,7 @@ class PARQUET_EXPORT LogicalType {
   bool is_geometry() const;
   bool is_geography() const;
   bool is_variant() const;
+  bool is_finite_vector() const;
   bool is_none() const;
   /// \brief Return true if this logical type is of a known type.
   bool is_valid() const;
@@ -507,6 +514,19 @@ class PARQUET_EXPORT VariantLogicalType : public LogicalType {
 
  private:
   VariantLogicalType() = default;
+};
+
+/// \brief Allowed for group nodes only. Annotates the outer group of a
+/// canonical 3-level LIST whose non-null values contain exactly num_elements
+/// required, finite primitive elements.
+class PARQUET_EXPORT FiniteVectorLogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make(int32_t num_elements);
+
+  int32_t num_elements() const;
+
+ private:
+  FiniteVectorLogicalType() = default;
 };
 
 /// \brief Allowed for any physical type.

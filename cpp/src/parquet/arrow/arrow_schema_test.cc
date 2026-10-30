@@ -2575,4 +2575,216 @@ TEST_F(TestLevels, ListErrors) {
   }
 }
 
+namespace {
+
+NodePtr MakeFiniteVectorNode(const std::string& name, Repetition::type repetition,
+                             NodePtr element, int32_t num_elements) {
+  auto list = GroupNode::Make("list", Repetition::REPEATED, {std::move(element)});
+  return GroupNode::Make(name, repetition, {list},
+                         LogicalType::FiniteVector(num_elements));
+}
+
+}  // namespace
+
+TEST_F(TestConvertParquetSchema, ParquetFiniteVector) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // optional group v1 (FINITE_VECTOR(3)) {
+  //   repeated group list {
+  //     required float element;
+  //   }
+  // }
+  parquet_fields.push_back(MakeFiniteVectorNode(
+      "v1", Repetition::OPTIONAL,
+      PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::FLOAT), 3));
+  arrow_fields.push_back(::arrow::field(
+      "v1", ::arrow::fixed_size_list(::arrow::field("element", FLOAT, false), 3), true));
+
+  // required group v2 (FINITE_VECTOR(2)) {
+  //   repeated group list {
+  //     required fixed_len_byte_array(2) element (FLOAT16);
+  //   }
+  // }
+  parquet_fields.push_back(MakeFiniteVectorNode(
+      "v2", Repetition::REQUIRED,
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Float16(),
+                          ParquetType::FIXED_LEN_BYTE_ARRAY, 2),
+      2));
+  arrow_fields.push_back(::arrow::field(
+      "v2",
+      ::arrow::fixed_size_list(::arrow::field("element", ::arrow::float16(), false), 2),
+      false));
+
+  // optional group v3 (FINITE_VECTOR(1)) {
+  //   repeated group list {
+  //     required int64 element (INT(64, false));
+  //   }
+  // }
+  parquet_fields.push_back(MakeFiniteVectorNode(
+      "v3", Repetition::OPTIONAL,
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Int(64, false),
+                          ParquetType::INT64),
+      1));
+  arrow_fields.push_back(::arrow::field(
+      "v3",
+      ::arrow::fixed_size_list(::arrow::field("element", ::arrow::uint64(), false), 1),
+      true));
+
+  // optional group outer (LIST) {
+  //   repeated group list {
+  //     optional group element (FINITE_VECTOR(4)) {
+  //       repeated group list {
+  //         required double element;
+  //       }
+  //     }
+  //   }
+  // }
+  {
+    auto vector = MakeFiniteVectorNode(
+        "element", Repetition::OPTIONAL,
+        PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::DOUBLE), 4);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {vector});
+    parquet_fields.push_back(
+        GroupNode::Make("outer", Repetition::OPTIONAL, {list}, LogicalType::List()));
+    auto arrow_vector = ::arrow::field(
+        "element", ::arrow::fixed_size_list(::arrow::field("element", DOUBLE, false), 4),
+        true);
+    arrow_fields.push_back(::arrow::field("outer", ::arrow::list(arrow_vector), true));
+  }
+
+  ASSERT_OK(ConvertSchema(parquet_fields));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema(arrow_fields)));
+}
+
+TEST_F(TestConvertParquetSchema, ParquetFiniteVectorLevels) {
+  // optional group v (FINITE_VECTOR(3)) {
+  //   repeated group list {
+  //     required float element;
+  //   }
+  // }
+  ASSERT_OK(ConvertSchema({MakeFiniteVectorNode(
+      "v", Repetition::OPTIONAL,
+      PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::FLOAT), 3)}));
+  const ColumnDescriptor* descr = descr_.Column(0);
+  ASSERT_EQ(descr->max_definition_level(), 2);
+  ASSERT_EQ(descr->max_repetition_level(), 1);
+}
+
+TEST_F(TestConvertArrowSchema, ParquetFiniteVector) {
+  auto vector_props = [] {
+    return ArrowWriterProperties::Builder().enable_finite_vector_logical_type()->build();
+  };
+  auto required_element = [](ParquetType::type type) {
+    return PrimitiveNode::Make("element", Repetition::REQUIRED, type);
+  };
+
+  struct Case {
+    std::shared_ptr<::arrow::DataType> value_type;
+    NodePtr element;
+  };
+  std::vector<Case> cases = {
+      {BOOL, required_element(ParquetType::BOOLEAN)},
+      {FLOAT, required_element(ParquetType::FLOAT)},
+      {DOUBLE, required_element(ParquetType::DOUBLE)},
+      {INT32, required_element(ParquetType::INT32)},
+      {INT64, required_element(ParquetType::INT64)},
+      {::arrow::int8(),
+       PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Int(8, true),
+                           ParquetType::INT32)},
+      {::arrow::uint64(),
+       PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Int(64, false),
+                           ParquetType::INT64)},
+      {::arrow::float16(),
+       PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Float16(),
+                           ParquetType::FIXED_LEN_BYTE_ARRAY, 2)},
+      {::arrow::decimal128(10, 2),
+       PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Decimal(10, 2),
+                           ParquetType::FIXED_LEN_BYTE_ARRAY, 5)},
+  };
+  for (const auto& c : cases) {
+    SCOPED_TRACE(c.value_type->ToString());
+    for (bool element_nullable : {false, true}) {
+      // The element is always required, whatever the Arrow element nullability
+      auto type = ::arrow::fixed_size_list(
+          ::arrow::field("item", c.value_type, element_nullable), 3);
+      ASSERT_OK(ConvertSchema({::arrow::field("v", type, true)}, vector_props()));
+      ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+          {MakeFiniteVectorNode("v", Repetition::OPTIONAL, c.element, 3)}));
+      ASSERT_OK(ConvertSchema({::arrow::field("v", type, false)}, vector_props()));
+      ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+          {MakeFiniteVectorNode("v", Repetition::REQUIRED, c.element, 3)}));
+    }
+  }
+}
+
+TEST_F(TestConvertArrowSchema, ParquetFiniteVectorDisabledByDefault) {
+  auto type = ::arrow::fixed_size_list(::arrow::field("item", FLOAT, false), 3);
+  ASSERT_OK(ConvertSchema({::arrow::field("v", type, true)}));
+  auto list = GroupNode::Make(
+      "list", Repetition::REPEATED,
+      {PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::FLOAT)});
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+      {GroupNode::Make("v", Repetition::OPTIONAL, {list}, LogicalType::List())}));
+}
+
+// An extension type whose storage is dictionary-encoded floats
+class DictionaryFloatExtensionType : public ::arrow::ExtensionType {
+ public:
+  DictionaryFloatExtensionType()
+      : ::arrow::ExtensionType(::arrow::dictionary(::arrow::int32(), FLOAT)) {}
+  std::string extension_name() const override { return "dictionary-float-extension"; }
+  bool ExtensionEquals(const ::arrow::ExtensionType& other) const override {
+    return other.extension_name() == extension_name();
+  }
+  std::shared_ptr<::arrow::Array> MakeArray(
+      std::shared_ptr<::arrow::ArrayData> data) const override {
+    return std::make_shared<::arrow::ExtensionArray>(std::move(data));
+  }
+  ::arrow::Result<std::shared_ptr<::arrow::DataType>> Deserialize(
+      std::shared_ptr<::arrow::DataType> storage_type,
+      const std::string& serialized) const override {
+    return std::make_shared<DictionaryFloatExtensionType>();
+  }
+  std::string Serialize() const override { return ""; }
+};
+
+TEST_F(TestConvertArrowSchema, ParquetFiniteVectorFallbackToList) {
+  auto vector_props =
+      ArrowWriterProperties::Builder().enable_finite_vector_logical_type()->build();
+  // FixedSizeLists with ineligible element types are written as LISTs
+  for (const auto& value_type :
+       {::arrow::utf8(), ::arrow::binary(), ::arrow::date32(),
+        ::arrow::timestamp(TimeUnit::MICRO), ::arrow::fixed_size_binary(4),
+        ::arrow::dictionary(::arrow::int32(), FLOAT),
+        std::static_pointer_cast<::arrow::DataType>(
+            std::make_shared<DictionaryFloatExtensionType>()),
+        ::arrow::struct_({::arrow::field("a", FLOAT)}), ::arrow::list(FLOAT)}) {
+    SCOPED_TRACE(value_type->ToString());
+    auto type = ::arrow::fixed_size_list(::arrow::field("item", value_type, false), 2);
+    ASSERT_OK(ConvertSchema({::arrow::field("v", type, true)}, vector_props));
+    const auto& node = *result_schema_->group_node()->field(0);
+    ASSERT_TRUE(node.logical_type()->is_list()) << node.logical_type()->ToString();
+  }
+
+  // A null-typed element must stay nullable, so it cannot be a FINITE_VECTOR element
+  auto null_elements = ::arrow::fixed_size_list(::arrow::null(), 2);
+  ASSERT_OK(ConvertSchema({::arrow::field("v", null_elements, true)}, vector_props));
+  ASSERT_TRUE(result_schema_->group_node()->field(0)->logical_type()->is_list());
+
+  // Zero-sized FixedSizeLists are written as LISTs
+  auto zero_sized = ::arrow::fixed_size_list(::arrow::field("item", FLOAT, false), 0);
+  ASSERT_OK(ConvertSchema({::arrow::field("v", zero_sized, true)}, vector_props));
+  ASSERT_TRUE(result_schema_->group_node()->field(0)->logical_type()->is_list());
+
+  // Only the innermost of nested FixedSizeLists is a FINITE_VECTOR
+  auto nested = ::arrow::fixed_size_list(::arrow::fixed_size_list(FLOAT, 2), 3);
+  ASSERT_OK(ConvertSchema({::arrow::field("v", nested, true)}, vector_props));
+  const auto& outer =
+      static_cast<const GroupNode&>(*result_schema_->group_node()->field(0));
+  ASSERT_TRUE(outer.logical_type()->is_list());
+  const auto& inner = *static_cast<const GroupNode&>(*outer.field(0)).field(0);
+  ASSERT_TRUE(inner.logical_type()->Equals(*LogicalType::FiniteVector(2)));
+}
+
 }  // namespace parquet::arrow

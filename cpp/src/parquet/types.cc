@@ -613,6 +613,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     }
 
     return VariantLogicalType::Make(spec_version);
+  } else if (type.__isset.FINITE_VECTOR) {
+    return FiniteVectorLogicalType::Make(type.FINITE_VECTOR.num_elements);
   } else {
     // Sentinel type for one we do not recognize
     return UndefinedLogicalType::Make();
@@ -682,6 +684,10 @@ std::shared_ptr<const LogicalType> LogicalType::Geography(
 
 std::shared_ptr<const LogicalType> LogicalType::Variant(int8_t spec_version) {
   return VariantLogicalType::Make(spec_version);
+}
+
+std::shared_ptr<const LogicalType> LogicalType::FiniteVector(int32_t num_elements) {
+  return FiniteVectorLogicalType::Make(num_elements);
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -772,6 +778,7 @@ class LogicalType::Impl {
   class Geometry;
   class Geography;
   class Variant;
+  class FiniteVector;
   class No;
   class Undefined;
 
@@ -853,6 +860,9 @@ bool LogicalType::is_geography() const {
 bool LogicalType::is_variant() const {
   return impl_->type() == LogicalType::Type::VARIANT;
 }
+bool LogicalType::is_finite_vector() const {
+  return impl_->type() == LogicalType::Type::FINITE_VECTOR;
+}
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
   return impl_->type() != LogicalType::Type::UNDEFINED;
@@ -861,7 +871,8 @@ bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
   return impl_->type() == LogicalType::Type::LIST ||
          impl_->type() == LogicalType::Type::MAP ||
-         impl_->type() == LogicalType::Type::VARIANT;
+         impl_->type() == LogicalType::Type::VARIANT ||
+         impl_->type() == LogicalType::Type::FINITE_VECTOR;
 }
 bool LogicalType::is_nonnested() const { return !is_nested(); }
 bool LogicalType::is_serialized() const { return impl_->is_serialized(); }
@@ -2038,6 +2049,74 @@ format::LogicalType LogicalType::Impl::Variant::ToThrift() const {
 std::shared_ptr<const LogicalType> VariantLogicalType::Make(const int8_t spec_version) {
   auto logical_type = std::shared_ptr<VariantLogicalType>(new VariantLogicalType());
   logical_type->impl_.reset(new LogicalType::Impl::Variant(spec_version));
+  return logical_type;
+}
+
+class LogicalType::Impl::FiniteVector final : public LogicalType::Impl::SimpleCompatible,
+                                              public LogicalType::Impl::Inapplicable {
+ public:
+  friend class FiniteVectorLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
+
+  int32_t num_elements() const { return num_elements_; }
+
+ private:
+  explicit FiniteVector(int32_t num_elements)
+      : LogicalType::Impl(LogicalType::Type::FINITE_VECTOR, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::LIST),
+        num_elements_(num_elements) {}
+
+  int32_t num_elements_;
+};
+
+int32_t FiniteVectorLogicalType::num_elements() const {
+  return (dynamic_cast<const LogicalType::Impl::FiniteVector&>(*impl_)).num_elements();
+}
+
+std::string LogicalType::Impl::FiniteVector::ToString() const {
+  std::stringstream type;
+  type << "FiniteVector(num_elements=" << num_elements_ << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::FiniteVector::ToJSON() const {
+  ::arrow::internal::JsonWriter writer;
+  writer.StartObject();
+  writer.StringField("Type", "FiniteVector");
+  writer.IntField("num_elements", num_elements_);
+  writer.EndObject();
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
+}
+
+format::LogicalType LogicalType::Impl::FiniteVector::ToThrift() const {
+  format::LogicalType type;
+  format::FiniteVectorType vector_type;
+  vector_type.__set_num_elements(num_elements_);
+  type.__set_FINITE_VECTOR(vector_type);
+  return type;
+}
+
+bool LogicalType::Impl::FiniteVector::Equals(const LogicalType& other) const {
+  if (!other.is_finite_vector()) {
+    return false;
+  }
+  const auto& other_vector = checked_cast<const FiniteVectorLogicalType&>(other);
+  return num_elements_ == other_vector.num_elements();
+}
+
+std::shared_ptr<const LogicalType> FiniteVectorLogicalType::Make(int32_t num_elements) {
+  if (num_elements <= 0) {
+    throw ParquetException("FiniteVector logical type requires num_elements > 0, got ",
+                           num_elements);
+  }
+  auto logical_type =
+      std::shared_ptr<FiniteVectorLogicalType>(new FiniteVectorLogicalType());
+  logical_type->impl_.reset(new LogicalType::Impl::FiniteVector(num_elements));
   return logical_type;
 }
 
