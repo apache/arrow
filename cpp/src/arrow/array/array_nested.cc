@@ -432,7 +432,11 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(
   RETURN_NOT_OK(list_builder->Reserve(list_view_data->length));
 
   ArraySpan values{*list_view_data->child_data[0]};
-  const auto* in_validity_bitmap = list_view_data->GetValues<uint8_t>(0);
+  // The bitmap is bit-packed, so the element offset has to be applied as a bit
+  // offset: GetValues() would apply it as a byte offset, and the bit offset
+  // would then be applied a second time (GH-51613).
+  const uint8_t* in_validity_bitmap =
+      list_view_data->buffers[0] ? list_view_data->buffers[0]->data() : NULLPTR;
   const auto* in_offsets = list_view_data->GetValues<offset_type>(1);
   const auto* in_sizes = list_view_data->GetValues<offset_type>(2);
   for (int64_t i = 0; i < list_view_data->length; ++i) {
