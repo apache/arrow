@@ -162,7 +162,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                  PyObject** out)
 
     void c_set_default_memory_pool \
-        " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\
+        " arrow::py::set_default_memory_pool"(CMemoryPool* pool)
 
     CMemoryPool* c_get_memory_pool \
         " arrow::py::get_memory_pool"()
