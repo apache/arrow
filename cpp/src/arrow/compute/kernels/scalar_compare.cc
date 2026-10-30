@@ -501,8 +501,12 @@ std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
     ScalarKernel flipped_kernel = *kernel;
     const auto& in_types = kernel->signature->in_types();
     if (in_types[0] != in_types[1]) {
-      flipped_kernel.signature = KernelSignature::Make(
-          {in_types[1], in_types[0]}, kernel->signature->out_type());
+      // Currently, all heterogeneous-type kernels (e.g. utf8 vs utf8_view) have no
+      // match constraint, so we can safely create a new signature without one.
+      // For symmetric-type kernels (e.g. decimal128 vs decimal128), we preserve the
+      // original signature which may carry constraints like DecimalsHaveSameScale.
+      flipped_kernel.signature = KernelSignature::Make({in_types[1], in_types[0]},
+                                                       kernel->signature->out_type());
     }
     if (kernel->data) {
       auto compare_data = checked_cast<const CompareData*>(kernel->data.get());

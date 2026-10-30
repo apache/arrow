@@ -2379,7 +2379,7 @@ TEST(Projection, AugmentWithKnownValues) {
       }));
 }
 
-TEST(Expression, TestIssue54668DecimalComparisonDifferentScales) {
+TEST(Expression, DecimalComparisonDifferentScales) {
   auto test_schema = arrow::schema({
       field("a", decimal128(3, 2)),
       field("b", decimal128(3, 1)),
@@ -2413,8 +2413,11 @@ TEST(Expression, TestIssue54668DecimalComparisonDifferentScales) {
   ASSERT_OK_AND_ASSIGN(auto neg_less_res,
                        ExecuteScalarExpression(less_expr, *test_schema, neg_batch));
   AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, true]")), neg_less_res);
+}
 
-  // Mixed string and string_view in expressions with literal on LHS (exercising expression flipping)
+TEST(Expression, MixedStringViewExpressionFlipping) {
+  // Mixed string and string_view in expressions with literal on LHS
+  // (exercises expression flipping through MakeFlippedCompare)
   auto str_schema = arrow::schema({field("view_col", utf8_view())});
   auto str_batch = RecordBatchFromJSON(str_schema, R"([
     {"view_col": "apple"},
@@ -2426,7 +2429,8 @@ TEST(Expression, TestIssue54668DecimalComparisonDifferentScales) {
                        less(literal("banana"), field_ref("view_col")).Bind(*str_schema));
   ASSERT_OK_AND_ASSIGN(auto lit_less_res,
                        ExecuteScalarExpression(lit_less_expr, *str_schema, str_batch));
-  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, false, true]")), lit_less_res);
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, false, true]")),
+                    lit_less_res);
 }
 
 }  // namespace compute

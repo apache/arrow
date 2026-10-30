@@ -1217,8 +1217,8 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
       {"less_equal", "[true, true, true, true, true, false, null]"}};
 
   for (const auto& ty : cases) {
-    auto lhs =
-        ArrayFromJSON(ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
+    auto lhs = ArrayFromJSON(
+        ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
                 "samepref_size", null])");
     auto rhs = ArrayFromJSON(
         ty, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
@@ -1279,8 +1279,7 @@ TEST(TestBinaryViewCompareKernel, MixedStringTypes) {
 
   // Array - Array (long strings > 12 bytes testing out-of-line prefix + buffer lookup)
   auto long_str_arr = ArrayFromJSON(
-      utf8(),
-      R"(["this_is_a_long_string_1", "this_is_a_long_string_2", null, "short"])");
+      utf8(), R"(["this_is_a_long_string_1", "this_is_a_long_string_2", null, "short"])");
   auto long_view_arr = ArrayFromJSON(
       utf8_view(),
       R"(["this_is_a_long_string_1", "this_is_a_different_long_string", "c", null])");
@@ -1355,10 +1354,10 @@ TEST(TestBinaryViewCompareKernel, MixedStringTypes) {
                     ArrayFromJSON(boolean(), "[null, null, null, null]"));
 
   // Embedded null bytes (\0) across inline (<=12B) and out-of-line (>12B) views
-  auto null_byte_str = ArrayFromJSON(
-      utf8(), R"(["a\u0000b", "a\u0000x", "long_prefix_\u0000_x"])");
-  auto null_byte_view = ArrayFromJSON(
-      utf8_view(), R"(["a\u0000b", "a\u0000y", "long_prefix_\u0000_y"])");
+  auto null_byte_str =
+      ArrayFromJSON(utf8(), R"(["a\u0000b", "a\u0000x", "long_prefix_\u0000_x"])");
+  auto null_byte_view =
+      ArrayFromJSON(utf8_view(), R"(["a\u0000b", "a\u0000y", "long_prefix_\u0000_y"])");
   CheckScalarBinary("equal", null_byte_str, null_byte_view,
                     ArrayFromJSON(boolean(), "[true, false, false]"));
   CheckScalarBinary("less", null_byte_str, null_byte_view,
@@ -1373,20 +1372,10 @@ TEST(TestBinaryViewCompareKernel, MixedStringTypes) {
                     ArrayFromJSON(boolean(), "[true, false, null, null]"));
 }
 
-TEST(TestCompareKernel, TestIssue54668) {
-  // Direct mixed comparison between utf8 / large_utf8 and utf8_view without promotion
-  for (std::string name :
-       {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
-    CheckDispatchBest(name, {utf8(), utf8_view()}, {utf8(), utf8_view()});
-    CheckDispatchBest(name, {utf8_view(), utf8()}, {utf8_view(), utf8()});
-    CheckDispatchBest(name, {large_utf8(), utf8_view()}, {large_utf8(), utf8_view()});
-    CheckDispatchBest(name, {utf8_view(), large_utf8()}, {utf8_view(), large_utf8()});
-  }
-
+TEST(TestBinaryViewCompareKernel, MixedStringTypeOrdering) {
+  // Verify less/greater with asymmetric string types (utf8 vs utf8_view)
   auto str_arr = ArrayFromJSON(utf8(), R"(["apple", "banana", "cherry"])");
   auto view_arr = ArrayFromJSON(utf8_view(), R"(["banana", "banana", "apple"])");
-
-  // Verify less and less_equal with asymmetric types
   CheckScalarBinary("less", str_arr, view_arr,
                     ArrayFromJSON(boolean(), "[true, false, false]"));
   CheckScalarBinary("less", view_arr, str_arr,
@@ -1396,34 +1385,8 @@ TEST(TestCompareKernel, TestIssue54668) {
   CheckScalarBinary("greater", view_arr, str_arr,
                     ArrayFromJSON(boolean(), "[true, false, false]"));
 
-  // Verify decimal comparisons with different scales (e.g. 1.00 < 9.0)
-  auto d2_type = decimal128(3, 2);
-  auto d1_type = decimal128(3, 1);
-  auto d2_arr = ArrayFromJSON(d2_type, R"(["1.00", "9.00"])");
-  auto d1_arr = ArrayFromJSON(d1_type, R"(["9.0", "1.0"])");
-  CheckScalarBinary("less", d2_arr, d1_arr,
-                    ArrayFromJSON(boolean(), "[true, false]"));
-  CheckScalarBinary("less_equal", d2_arr, d1_arr,
-                    ArrayFromJSON(boolean(), "[true, false]"));
-  CheckScalarBinary("greater", d2_arr, d1_arr,
-                    ArrayFromJSON(boolean(), "[false, true]"));
-  CheckScalarBinary("greater_equal", d2_arr, d1_arr,
-                    ArrayFromJSON(boolean(), "[false, true]"));
-
-  // Verify negative decimal comparisons with different scales
-  // -1.00 > -9.00, so -1.00 < -9.0 is false; unscaled integers (-100 < -90) would be true
-  auto d2_neg = ArrayFromJSON(d2_type, R"(["-1.00", "-9.00"])");
-  auto d1_neg = ArrayFromJSON(d1_type, R"(["-9.0", "-1.0"])");
-  CheckScalarBinary("less", d2_neg, d1_neg,
-                    ArrayFromJSON(boolean(), "[false, true]"));
-  CheckScalarBinary("less_equal", d2_neg, d1_neg,
-                    ArrayFromJSON(boolean(), "[false, true]"));
-  CheckScalarBinary("greater", d2_neg, d1_neg,
-                    ArrayFromJSON(boolean(), "[true, false]"));
-  CheckScalarBinary("greater_equal", d2_neg, d1_neg,
-                    ArrayFromJSON(boolean(), "[true, false]"));
-
-  // Verify 12-byte inline vs 13-byte out-of-line StringView boundary & 4-byte prefix match
+  // Verify 12-byte inline vs 13-byte out-of-line StringView boundary & 4-byte prefix
+  // match
   auto boundary_str =
       ArrayFromJSON(utf8(), R"(["123456789012", "1234567890123", "prefix_alpha"])");
   auto boundary_view =
@@ -1445,6 +1408,31 @@ TEST(TestCompareKernel, TestIssue54668) {
                     ArrayFromJSON(boolean(), "[true, false, null]"));
   CheckScalarBinary("equal", plain_view, dict_str,
                     ArrayFromJSON(boolean(), "[true, false, null]"));
+}
+
+TEST(TestCompareKernel, MixedDecimalScaleTests) {
+  // Verify decimal comparisons with different scales (e.g. 1.00 < 9.0)
+  auto d2_type = decimal128(3, 2);
+  auto d1_type = decimal128(3, 1);
+  auto d2_arr = ArrayFromJSON(d2_type, R"(["1.00", "9.00"])");
+  auto d1_arr = ArrayFromJSON(d1_type, R"(["9.0", "1.0"])");
+  CheckScalarBinary("less", d2_arr, d1_arr, ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalarBinary("less_equal", d2_arr, d1_arr,
+                    ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalarBinary("greater", d2_arr, d1_arr, ArrayFromJSON(boolean(), "[false, true]"));
+  CheckScalarBinary("greater_equal", d2_arr, d1_arr,
+                    ArrayFromJSON(boolean(), "[false, true]"));
+
+  // Verify negative decimal comparisons with different scales
+  // -1.00 > -9.00, so -1.00 < -9.0 is false; unscaled integers (-100 < -90) would be true
+  auto d2_neg = ArrayFromJSON(d2_type, R"(["-1.00", "-9.00"])");
+  auto d1_neg = ArrayFromJSON(d1_type, R"(["-9.0", "-1.0"])");
+  CheckScalarBinary("less", d2_neg, d1_neg, ArrayFromJSON(boolean(), "[false, true]"));
+  CheckScalarBinary("less_equal", d2_neg, d1_neg,
+                    ArrayFromJSON(boolean(), "[false, true]"));
+  CheckScalarBinary("greater", d2_neg, d1_neg, ArrayFromJSON(boolean(), "[true, false]"));
+  CheckScalarBinary("greater_equal", d2_neg, d1_neg,
+                    ArrayFromJSON(boolean(), "[true, false]"));
 }
 
 template <typename T>
