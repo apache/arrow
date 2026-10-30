@@ -1933,10 +1933,19 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   DictionaryType(const std::shared_ptr<DataType>& index_type,
                  const std::shared_ptr<DataType>& value_type, bool ordered = false);
 
+  DictionaryType(const std::shared_ptr<DataType>& index_type,
+                 const std::shared_ptr<DataType>& value_type, bool ordered,
+                 std::shared_ptr<const KeyValueMetadata> value_metadata);
+
   // A constructor variant that validates its input parameters
   static Result<std::shared_ptr<DataType>> Make(
       const std::shared_ptr<DataType>& index_type,
       const std::shared_ptr<DataType>& value_type, bool ordered = false);
+
+  static Result<std::shared_ptr<DataType>> Make(
+      const std::shared_ptr<DataType>& index_type,
+      const std::shared_ptr<DataType>& value_type, bool ordered,
+      std::shared_ptr<const KeyValueMetadata> value_metadata);
 
   std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "dictionary"; }
@@ -1948,6 +1957,14 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   const std::shared_ptr<DataType>& index_type() const { return index_type_; }
   const std::shared_ptr<DataType>& value_type() const { return value_type_; }
 
+  /// Metadata of the dictionary values, separate from the enclosing Field metadata.
+  /// This includes unregistered extension annotations. When value_type() is an
+  /// ExtensionType, its extension keys are represented by that type instead and
+  /// are removed from the supplied metadata without modifying it.
+  const std::shared_ptr<const KeyValueMetadata>& value_metadata() const {
+    return value_metadata_;
+  }
+
   bool ordered() const { return ordered_; }
 
  protected:
@@ -1955,11 +1972,13 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
                                    const DataType& value_type);
 
   std::string ComputeFingerprint() const override;
+  std::string ComputeMetadataFingerprint() const override;
 
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
   std::shared_ptr<DataType> value_type_;
   bool ordered_;
+  std::shared_ptr<const KeyValueMetadata> value_metadata_;
 };
 
 // ----------------------------------------------------------------------

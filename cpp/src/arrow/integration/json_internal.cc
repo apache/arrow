@@ -164,10 +164,10 @@ class SchemaWriter {
     writer_->StartObject();
 
     writer_->Key("key");
-    writer_->String(key.c_str());
+    writer_->String(key);
 
     writer_->Key("value");
-    writer_->String(value.c_str());
+    writer_->String(value);
 
     writer_->EndObject();
   }
@@ -187,6 +187,17 @@ class SchemaWriter {
 
     writer_->Key("isOrdered");
     writer_->Bool(type.ordered());
+
+    // Emulate DictionaryEncoding.custom_metadata for a dictionary whose value
+    // type is an extension type (GH-49704)
+    if (type.value_type()->id() == Type::EXTENSION) {
+      const auto& ext_type = checked_cast<const ExtensionType&>(*type.value_type());
+      WriteKeyValueMetadata(type.value_metadata(),
+                            {{kExtensionTypeKeyName, ext_type.extension_name()},
+                             {kExtensionMetadataKeyName, ext_type.Serialize()}});
+    } else {
+      WriteKeyValueMetadata(type.value_metadata());
+    }
     writer_->EndObject();
 
     return Status::OK();
@@ -220,7 +231,11 @@ class SchemaWriter {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
       // Ensure we visit child fields first so that, in the case of nested
       // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields(), field_pos));
+      const DataType* value_type = dict_type.value_type().get();
+      while (value_type->id() == Type::EXTENSION) {
+        value_type = checked_cast<const ExtensionType&>(*value_type).storage_type().get();
+      }
+      RETURN_NOT_OK(WriteChildren(value_type->fields(), field_pos));
       ARROW_ASSIGN_OR_RAISE(const int64_t dictionary_id,
                             mapper_.GetFieldId(field_pos.path()));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
@@ -451,7 +466,14 @@ class SchemaWriter {
     return Status::OK();
   }
 
-  Status Visit(const DictionaryType& type) { return VisitType(*type.value_type()); }
+  Status Visit(const DictionaryType& type) {
+    const DataType* value_type = type.value_type().get();
+    if (value_type->id() == Type::EXTENSION) {
+      // The extension metadata is written to the "dictionary" object
+      value_type = checked_cast<const ExtensionType&>(*value_type).storage_type().get();
+    }
+    return VisitType(*value_type);
+  }
 
   Status Visit(const RunEndEncodedType& type) {
     WriteName("runendencoded", type);
@@ -1301,8 +1323,27 @@ Result<std::shared_ptr<Field>> GetField(const JsonValue& obj, FieldPosition fiel
       std::shared_ptr<DataType> index_type;
       RETURN_NOT_OK(
           ParseDictionary(dictionary_object, &dictionary_id, &is_ordered, &index_type));
+
+      // Emulate DictionaryEncoding.custom_metadata, which holds the extension
+      // metadata of the dictionary value type (GH-49704)
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<KeyValueMetadata> value_metadata,
+                            GetKeyValueMetadata(dictionary_object));
+      int value_ext_name_index = value_metadata->FindKey(kExtensionTypeKeyName);
+      if (value_ext_name_index != -1) {
+        auto value_ext_type =
+            GetExtensionType(value_metadata->value(value_ext_name_index));
+        // As with IPC, an unregistered extension type leaves the storage type
+        if (value_ext_type != nullptr) {
+          int value_ext_data_index = value_metadata->FindKey(kExtensionMetadataKeyName);
+          ARROW_ASSIGN_OR_RAISE(
+              type, value_ext_type->Deserialize(
+                        type, value_ext_data_index == -1
+                                  ? ""
+                                  : value_metadata->value(value_ext_data_index)));
+        }
+      }
       dict_value_type = type;
-      type = ::arrow::dictionary(index_type, type, is_ordered);
+      type = ::arrow::dictionary(index_type, type, is_ordered, std::move(value_metadata));
     }
   }
 

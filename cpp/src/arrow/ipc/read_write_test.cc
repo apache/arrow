@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -30,7 +31,9 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -51,10 +54,12 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/ubsan.h"
 
+#include "generated/File_generated.h"     // IWYU pragma: keep
 #include "generated/Message_generated.h"  // IWYU pragma: keep
 
 namespace arrow {
@@ -368,6 +373,372 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 
   DictionaryMemo placeholder_memo;
   ASSERT_RAISES(Invalid, ReadSchema(schema_v6_file.get(), &placeholder_memo));
+}
+
+// GH-49704: dictionary-encoded extension types
+
+// An extension type over an arbitrary storage type, e.g. a dictionary type
+// whose value type is itself an extension type
+class AnyStorageExtensionType : public ExtensionType {
+ public:
+  explicit AnyStorageExtensionType(std::shared_ptr<DataType> storage_type)
+      : ExtensionType(std::move(storage_type)) {}
+
+  std::string extension_name() const override { return "any-storage"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name() &&
+           other.storage_type()->Equals(*storage_type());
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<ExtensionArray>(std::move(data));
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
+    if (serialized != "any-storage-serialized") {
+      return Status::Invalid("Type identifier did not match: '", serialized, "'");
+    }
+    return std::make_shared<AnyStorageExtensionType>(std::move(storage_type));
+  }
+
+  std::string Serialize() const override { return "any-storage-serialized"; }
+};
+
+// Return the first field of a schema serialized as an IPC message
+const flatbuf::Field* GetFirstFlatbufferField(const Message& message) {
+  const auto* fb_message = flatbuf::GetMessage(message.metadata()->data());
+  const auto* fb_schema = fb_message->header_as_Schema();
+  EXPECT_NE(fb_schema, nullptr);
+  EXPECT_EQ(fb_schema->fields()->size(), 1);
+  return fb_schema->fields()->Get(0);
+}
+
+void AssertKeyValues(
+    const KeyValueMetadata& expected,
+    const flatbuffers::Vector<flatbuffers::Offset<flatbuf::KeyValue>>* kv) {
+  ASSERT_NE(kv, nullptr);
+  ASSERT_OK_AND_ASSIGN(auto actual, internal::GetKeyValueMetadata(kv));
+  ASSERT_TRUE(actual->Equals(expected))
+      << "expected: " << expected.ToString() << " actual: " << actual->ToString();
+}
+
+// Serialize a schema of one field the way the IPC writer would, with explicit
+// Field.custom_metadata and DictionaryEncoding.custom_metadata
+Result<std::shared_ptr<Schema>> ReadSingleDictionaryFieldSchema(
+    flatbuf::Type fb_type, int index_bit_width,
+    const std::vector<std::pair<std::string, std::string>>& field_metadata,
+    const std::vector<std::pair<std::string, std::string>>& dictionary_metadata) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto make_key_values =
+      [&](const std::vector<std::pair<std::string, std::string>>& metadata)
+      -> flatbuffers::Offset<internal::KVVector> {
+    if (metadata.empty()) {
+      return 0;
+    }
+    std::vector<internal::KeyValueOffset> key_values;
+    for (const auto& [key, value] : metadata) {
+      key_values.push_back(
+          flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value)));
+    }
+    return fbb.CreateVector(key_values);
+  };
+
+  flatbuffers::Offset<void> type_offset;
+  switch (fb_type) {
+    case flatbuf::Type::Type_FixedSizeBinary:
+      type_offset = flatbuf::CreateFixedSizeBinary(fbb, 16).Union();
+      break;
+    case flatbuf::Type::Type_Utf8:
+      type_offset = flatbuf::CreateUtf8(fbb).Union();
+      break;
+    default:
+      return Status::NotImplemented("Unsupported test type");
+  }
+  auto fb_dictionary_metadata = make_key_values(dictionary_metadata);
+  auto index_type = flatbuf::CreateInt(fbb, index_bit_width, /*is_signed=*/true);
+  auto encoding = flatbuf::CreateDictionaryEncoding(
+      fbb, /*id=*/0, index_type, /*isOrdered=*/false,
+      flatbuf::DictionaryKind::DictionaryKind_DenseArray, fb_dictionary_metadata);
+  auto fb_field_metadata = make_key_values(field_metadata);
+  auto fb_field = flatbuf::CreateField(
+      fbb, fbb.CreateString("f0"), /*nullable=*/true, fb_type, type_offset, encoding,
+      fbb.CreateVector(std::vector<flatbuffers::Offset<flatbuf::Field>>{}),
+      fb_field_metadata);
+  auto fb_schema = flatbuf::CreateSchema(
+      fbb, flatbuf::Endianness::Endianness_Little,
+      fbb.CreateVector(std::vector<flatbuffers::Offset<flatbuf::Field>>{fb_field}));
+  fbb.Finish(fb_schema);
+
+  DictionaryMemo memo;
+  std::shared_ptr<Schema> schema;
+  RETURN_NOT_OK(internal::GetSchema(
+      flatbuffers::GetRoot<flatbuf::Schema>(fbb.GetBufferPointer()), &memo, &schema));
+  return schema;
+}
+
+TEST_F(TestSchemaMetadata, DictionaryOfExtensionFields) {
+  ExtensionTypeGuard guard(uuid());
+  auto canonical_uuid = extension::uuid();
+  CheckSchemaRoundtrip(Schema({
+      field("f0", dictionary(int32(), canonical_uuid)),
+      field("f1", dictionary(int8(), uuid(), /*ordered=*/true)),
+      field("f2", list(dictionary(int16(), canonical_uuid))),
+      field("f3", struct_({field("s", dictionary(int32(), uuid()))})),
+      field("f4", dictionary(int32(), canonical_uuid), /*nullable=*/true,
+            key_value_metadata({{"key", "value"}})),
+  }));
+}
+
+TEST_F(TestSchemaMetadata, ExtensionWithDictionaryStorage) {
+  auto any_storage_ext =
+      std::make_shared<AnyStorageExtensionType>(dictionary(int8(), extension::uuid()));
+  ExtensionTypeGuard guard({dict_extension_type(), any_storage_ext});
+  CheckSchemaRoundtrip(Schema({
+      field("f0", dict_extension_type()),
+      // An extension type with a dictionary storage type whose value type is
+      // an extension type
+      field("f1", any_storage_ext),
+  }));
+}
+
+TEST_F(TestSchemaMetadata, DictionaryOfExtensionFlatbuffer) {
+  auto check_serialized = [](const std::shared_ptr<Field>& field,
+                             const KeyValueMetadata* expected_field_metadata,
+                             const KeyValueMetadata* expected_dictionary_metadata) {
+    ASSERT_OK_AND_ASSIGN(auto buffer, SerializeSchema(Schema({field})));
+    io::BufferReader reader(buffer);
+    ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(&reader));
+    const flatbuf::Field* fb_field = GetFirstFlatbufferField(*message);
+    ASSERT_NE(fb_field->dictionary(), nullptr);
+    if (expected_field_metadata == nullptr) {
+      ASSERT_EQ(fb_field->custom_metadata(), nullptr);
+    } else {
+      AssertKeyValues(*expected_field_metadata, fb_field->custom_metadata());
+    }
+    if (expected_dictionary_metadata == nullptr) {
+      // The member is omitted, rather than written as an empty vector
+      ASSERT_EQ(fb_field->dictionary()->custom_metadata(), nullptr);
+    } else {
+      AssertKeyValues(*expected_dictionary_metadata,
+                      fb_field->dictionary()->custom_metadata());
+    }
+  };
+
+  // The extension metadata of the dictionary value type goes to
+  // DictionaryEncoding.custom_metadata, not Field.custom_metadata
+  KeyValueMetadata uuid_metadata({"ARROW:extension:name", "ARROW:extension:metadata"},
+                                 {"arrow.uuid", ""});
+  check_serialized(field("f0", dictionary(int32(), extension::uuid())), nullptr,
+                   &uuid_metadata);
+  KeyValueMetadata field_metadata({"key"}, {"value"});
+  check_serialized(
+      field("f0", dictionary(int32(), extension::uuid()), true, field_metadata.Copy()),
+      &field_metadata, &uuid_metadata);
+
+  // A dictionary whose value type is not an extension type
+  check_serialized(field("f0", dictionary(int32(), utf8())), nullptr, nullptr);
+
+  // An extension type whose storage type is a dictionary keeps its metadata
+  // in Field.custom_metadata
+  KeyValueMetadata dict_ext_metadata({"ARROW:extension:name", "ARROW:extension:metadata"},
+                                     {"dict-extension", "dict-extension-serialized"});
+  check_serialized(field("f0", dict_extension_type()), &dict_ext_metadata, nullptr);
+
+  // Both
+  KeyValueMetadata any_storage_metadata(
+      {"ARROW:extension:name", "ARROW:extension:metadata"},
+      {"any-storage", "any-storage-serialized"});
+  check_serialized(field("f0", std::make_shared<AnyStorageExtensionType>(
+                                   dictionary(int8(), extension::uuid()))),
+                   &any_storage_metadata, &uuid_metadata);
+}
+
+TEST_F(TestSchemaMetadata, DictionaryOfUnregisteredExtension) {
+  // The example "uuid" extension type is not registered: the dictionary value
+  // type is read as its storage type
+  ASSERT_OK_AND_ASSIGN(
+      auto buffer, SerializeSchema(Schema({field("f0", dictionary(int32(), uuid()))})));
+  io::BufferReader reader(buffer);
+  DictionaryMemo memo;
+  ASSERT_OK_AND_ASSIGN(auto schema, ReadSchema(&reader, &memo));
+  auto uuid_metadata = key_value_metadata(
+      {{kExtensionTypeKeyName, "uuid"}, {kExtensionMetadataKeyName, "uuid-serialized"}});
+  AssertSchemaEqual(Schema({field("f0", dictionary(int32(), fixed_size_binary(16), false,
+                                                   uuid_metadata))}),
+                    *schema, /*check_metadata=*/true);
+
+  ASSERT_OK_AND_ASSIGN(schema, ReadSingleDictionaryFieldSchema(
+                                   flatbuf::Type::Type_FixedSizeBinary, 32, {},
+                                   {{"ARROW:extension:name", "unknown.extension"},
+                                    {"ARROW:extension:metadata", "unknown-serialized"}}));
+  auto unknown_metadata =
+      key_value_metadata({{kExtensionTypeKeyName, "unknown.extension"},
+                          {kExtensionMetadataKeyName, "unknown-serialized"}});
+  AssertSchemaEqual(Schema({field("f0", dictionary(int32(), fixed_size_binary(16), false,
+                                                   unknown_metadata))}),
+                    *schema, /*check_metadata=*/true);
+}
+
+TEST_F(TestSchemaMetadata, DictionaryOfExtensionManualFlatbuffer) {
+  ASSERT_OK_AND_ASSIGN(
+      auto schema,
+      ReadSingleDictionaryFieldSchema(
+          flatbuf::Type::Type_FixedSizeBinary, 32, {{"key", "value"}},
+          {{"ARROW:extension:name", "arrow.uuid"}, {"ARROW:extension:metadata", ""}}));
+  AssertSchemaEqual(Schema({field("f0", dictionary(int32(), extension::uuid()), true,
+                                  key_value_metadata({{"key", "value"}}))}),
+                    *schema, /*check_metadata=*/true);
+}
+
+TEST_F(TestSchemaMetadata, DictionaryEncodingMetadataPreserved) {
+  auto extra_metadata = key_value_metadata({{"some_key", "some_value"}});
+  auto expected_storage = Schema(
+      {field("f0", dictionary(int32(), fixed_size_binary(16), false, extra_metadata))});
+  ASSERT_OK_AND_ASSIGN(
+      auto schema, ReadSingleDictionaryFieldSchema(flatbuf::Type::Type_FixedSizeBinary,
+                                                   32, {}, {{"some_key", "some_value"}}));
+  AssertSchemaEqual(expected_storage, *schema, /*check_metadata=*/true);
+  CheckSchemaRoundtrip(*schema);
+
+  ASSERT_OK_AND_ASSIGN(schema, ReadSingleDictionaryFieldSchema(
+                                   flatbuf::Type::Type_FixedSizeBinary, 32, {},
+                                   {{"ARROW:extension:name", "unknown.extension"},
+                                    {"ARROW:extension:metadata", ""},
+                                    {"some_key", "some_value"}}));
+  auto unknown_metadata =
+      key_value_metadata({{kExtensionTypeKeyName, "unknown.extension"},
+                          {kExtensionMetadataKeyName, ""},
+                          {"some_key", "some_value"}});
+  AssertSchemaEqual(Schema({field("f0", dictionary(int32(), fixed_size_binary(16), false,
+                                                   unknown_metadata))}),
+                    *schema, /*check_metadata=*/true);
+  CheckSchemaRoundtrip(*schema);
+
+  ASSERT_OK_AND_ASSIGN(
+      schema, ReadSingleDictionaryFieldSchema(flatbuf::Type::Type_FixedSizeBinary, 32, {},
+                                              {{"ARROW:extension:name", "arrow.uuid"},
+                                               {"ARROW:extension:metadata", ""},
+                                               {"some_key", "some_value"}}));
+  AssertSchemaEqual(Schema({field("f0", dictionary(int32(), extension::uuid(), false,
+                                                   extra_metadata))}),
+                    *schema, /*check_metadata=*/true);
+  CheckSchemaRoundtrip(*schema);
+}
+
+TEST(TestDictionaryValueMetadata, UnknownExtensionRoundTrip) {
+  auto value_type = uuid();  // Deliberately unregistered during the first two reads.
+  auto extra = key_value_metadata({{"extra", std::string("a\0b", 3)}});
+  auto field_metadata = key_value_metadata({{"extra", "field value"}});
+  auto type = dictionary(int32(), value_type, true, extra);
+  auto storage = ArrayFromJSON(fixed_size_binary(16),
+                               R"(["0123456789abcdef", null, "abcdef0123456789"])");
+  auto values = ExtensionType::WrapArray(value_type, storage);
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       DictionaryArray::FromArrays(
+                           type, ArrayFromJSON(int32(), "[2, null, 0, 1]"), values));
+  // An extension value can itself contain a dictionary. Both dictionary
+  // annotations must survive while neither extension is registered.
+  ASSERT_OK_AND_ASSIGN(auto nested_values,
+                       StructArray::Make({array}, {field("inner", type)}));
+  auto nested_extension =
+      std::make_shared<AnyStorageExtensionType>(nested_values->type());
+  auto nested_type = dictionary(int16(), nested_extension, false, extra);
+  ASSERT_OK_AND_ASSIGN(auto nested,
+                       DictionaryArray::FromArrays(
+                           nested_type, ArrayFromJSON(int16(), "[0, 2, null, 3]"),
+                           ExtensionType::WrapArray(nested_extension, nested_values)));
+  auto batch = RecordBatch::Make(
+      schema({field("f0", type, true, field_metadata), field("nested", nested_type)}),
+      array->length(), {array, nested});
+
+  for (bool file : {false, true}) {
+    ARROW_SCOPED_TRACE("file = ", file);
+    auto roundtrip = [file](const std::shared_ptr<RecordBatch>& input)
+        -> Result<std::shared_ptr<RecordBatch>> {
+      ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
+      ARROW_ASSIGN_OR_RAISE(auto writer, file ? MakeFileWriter(sink, input->schema())
+                                              : MakeStreamWriter(sink, input->schema()));
+      RETURN_NOT_OK(writer->WriteRecordBatch(*input));
+      RETURN_NOT_OK(writer->Close());
+      ARROW_ASSIGN_OR_RAISE(auto buffer, sink->Finish());
+      auto source = std::make_shared<io::BufferReader>(buffer);
+      if (file) {
+        ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(source));
+        return reader->ReadRecordBatch(0);
+      }
+      ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(source));
+      return reader->Next();
+    };
+
+    ASSERT_EQ(GetExtensionType("uuid"), nullptr);
+    ASSERT_OK_AND_ASSIGN(auto unknown, roundtrip(batch));
+    ASSERT_OK(unknown->ValidateFull());
+    const auto& unknown_type =
+        checked_cast<const DictionaryType&>(*unknown->schema()->field(0)->type());
+    AssertTypeEqual(*fixed_size_binary(16), *unknown_type.value_type());
+    auto expected_metadata = extra->Copy();
+    expected_metadata->Append(kExtensionTypeKeyName, "uuid");
+    expected_metadata->Append(kExtensionMetadataKeyName, "uuid-serialized");
+    ASSERT_TRUE(expected_metadata->Equals(*unknown_type.value_metadata()));
+    ASSERT_TRUE(field_metadata->Equals(*unknown->schema()->field(0)->metadata()));
+    AssertArraysEqual(
+        *storage,
+        *checked_cast<const DictionaryArray&>(*unknown->column(0)).dictionary());
+
+    ASSERT_OK_AND_ASSIGN(auto rewritten, roundtrip(unknown));
+    AssertSchemaEqual(*unknown->schema(), *rewritten->schema(), true);
+    AssertBatchesEqual(*unknown, *rewritten);
+
+    ExtensionTypeGuard guard({value_type, nested_extension});
+    ASSERT_OK_AND_ASSIGN(auto restored, roundtrip(rewritten));
+    ASSERT_OK(restored->ValidateFull());
+    AssertSchemaEqual(*batch->schema(), *restored->schema(), true);
+    AssertBatchesEqual(*batch, *restored);
+  }
+}
+
+TEST_F(TestSchemaMetadata, LegacyDictionaryExtensionMetadataOnField) {
+  // Before GH-49704, the extension metadata of a dictionary-encoded field was
+  // only ever written to Field.custom_metadata, which is still read as an
+  // extension type whose storage type is a dictionary
+  {
+    ExtensionTypeGuard guard(dict_extension_type());
+    ASSERT_OK_AND_ASSIGN(auto schema,
+                         ReadSingleDictionaryFieldSchema(
+                             flatbuf::Type::Type_Utf8, 8,
+                             {{"ARROW:extension:name", "dict-extension"},
+                              {"ARROW:extension:metadata", "dict-extension-serialized"}},
+                             {}));
+    AssertSchemaEqual(Schema({field("f0", dict_extension_type())}), *schema,
+                      /*check_metadata=*/true);
+  }
+  {
+    // An unregistered extension type leaves the dictionary type and the metadata
+    auto metadata = key_value_metadata({{"ARROW:extension:name", "unknown.extension"},
+                                        {"ARROW:extension:metadata", ""}});
+    ASSERT_OK_AND_ASSIGN(auto schema, ReadSingleDictionaryFieldSchema(
+                                          flatbuf::Type::Type_FixedSizeBinary, 32,
+                                          {{"ARROW:extension:name", "unknown.extension"},
+                                           {"ARROW:extension:metadata", ""}},
+                                          {}));
+    AssertSchemaEqual(
+        Schema({field("f0", dictionary(int32(), fixed_size_binary(16)), true, metadata)}),
+        *schema, /*check_metadata=*/true);
+  }
+  {
+    // This is ambiguous, and arrow.uuid does not support a dictionary storage type
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        "Invalid: Invalid storage type for UuidType: "
+        "dictionary<values=fixed_size_binary[16], indices=int32, ordered=0>",
+        ReadSingleDictionaryFieldSchema(
+            flatbuf::Type::Type_FixedSizeBinary, 32,
+            {{"ARROW:extension:name", "arrow.uuid"}, {"ARROW:extension:metadata", ""}},
+            {}));
+  }
 }
 
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
@@ -1042,6 +1413,62 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
 
   ASSERT_OK(MakeDeeplyNestedListView(&batch));
   TestGetRecordBatchSize(options_, batch);
+}
+
+TEST_F(TestWriteRecordBatch, DictionaryOfExtensionFileFooter) {
+  // GH-49704: the schema in the IPC file footer also carries the extension
+  // metadata of the dictionary value type in DictionaryEncoding.custom_metadata
+  auto type = dictionary(int32(), extension::uuid());
+  auto values = ExtensionType::WrapArray(
+      extension::uuid(), ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef"])"));
+  ASSERT_OK_AND_ASSIGN(
+      auto array,
+      DictionaryArray::FromArrays(type, ArrayFromJSON(int32(), "[0, null]"), values));
+  auto batch = RecordBatch::Make(schema({field("f0", type)}), 2, {array});
+
+  ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeFileWriter(sink, batch->schema()));
+  ASSERT_OK(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  // The file ends with the footer, its int32 length and the "ARROW1" magic
+  const uint8_t* end = buffer->data() + buffer->size() - 6;
+  int32_t footer_length;
+  std::memcpy(&footer_length, end - sizeof(int32_t), sizeof(int32_t));
+  footer_length = bit_util::FromLittleEndian(footer_length);
+  const uint8_t* footer_data = end - sizeof(int32_t) - footer_length;
+  flatbuffers::Verifier verifier(footer_data, footer_length);
+  ASSERT_TRUE(flatbuf::VerifyFooterBuffer(verifier));
+  const auto* fb_fields = flatbuf::GetFooter(footer_data)->schema()->fields();
+  ASSERT_EQ(fb_fields->size(), 1);
+  const flatbuf::Field* fb_field = fb_fields->Get(0);
+  ASSERT_EQ(fb_field->custom_metadata(), nullptr);
+  ASSERT_NE(fb_field->dictionary(), nullptr);
+  AssertKeyValues(KeyValueMetadata({"ARROW:extension:name", "ARROW:extension:metadata"},
+                                   {"arrow.uuid", ""}),
+                  fb_field->dictionary()->custom_metadata());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchFileReader::Open(
+                                        std::make_shared<io::BufferReader>(buffer)));
+  AssertSchemaEqual(*batch->schema(), *reader->schema());
+  ASSERT_OK_AND_ASSIGN(auto read_batch, reader->ReadRecordBatch(0));
+  AssertBatchesEqual(*batch, *read_batch);
+}
+
+TEST_F(TestWriteRecordBatch, DictionaryOfExtension) {
+  // GH-49704: a dictionary whose value type is an extension type
+  auto storage = ArrayFromJSON(fixed_size_binary(16),
+                               R"(["0123456789abcdef", "abcdef0123456789", null])");
+  auto indices = ArrayFromJSON(int32(), "[0, 1, null, 1, 0, 2]");
+  for (const auto& value_type : {extension::uuid(), uuid()}) {
+    ARROW_SCOPED_TRACE("value_type = ", value_type->ToString());
+    auto values = ExtensionType::WrapArray(value_type, storage);
+    ASSERT_OK_AND_ASSIGN(
+        auto array,
+        DictionaryArray::FromArrays(dictionary(int32(), value_type), indices, values));
+    CheckRoundtrip(array);
+  }
 }
 
 class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
@@ -1946,6 +2373,72 @@ TEST(TestDictionaryBatch, DictionaryReplacement) {
   ASSERT_OK(helper.ReadBatch(&out_batch));
 
   ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
+// GH-49704: delta and replacement dictionaries whose value type is an
+// extension type
+std::shared_ptr<Array> UuidDictionaryValues(const std::string& json) {
+  return ExtensionType::WrapArray(extension::uuid(),
+                                  ArrayFromJSON(fixed_size_binary(16), json));
+}
+
+TEST(TestDictionaryBatch, DictionaryOfExtensionDelta) {
+  auto type = dictionary(int32(), extension::uuid());
+  auto schema = ::arrow::schema({field("f0", type)});
+  auto dict1 = UuidDictionaryValues(R"(["0123456789abcdef", "abcdef0123456789"])");
+  auto dict2 = UuidDictionaryValues(R"(["ffffffffffffffff"])");
+  ASSERT_OK_AND_ASSIGN(auto full_dict, Concatenate({dict1, dict2}));
+  ASSERT_OK_AND_ASSIGN(
+      auto array, DictionaryArray::FromArrays(
+                      type, ArrayFromJSON(int32(), "[2, 0, null, 1, 2]"), full_dict));
+  auto in_batch = RecordBatch::Make(schema, array->length(), {array});
+
+  DictionaryBatchHelper helper(*schema);
+  ASSERT_OK(helper.Start());
+  ASSERT_OK(helper.WriteDictionary(0L, dict1, /*is_delta=*/false));
+  ASSERT_OK(helper.WriteDictionary(0L, dict2, /*is_delta=*/true));
+  ASSERT_OK(helper.WriteBatchPayload(*in_batch));
+  ASSERT_OK(helper.Close());
+
+  std::shared_ptr<RecordBatch> out_batch;
+  ASSERT_OK(helper.ReadBatch(&out_batch));
+  ASSERT_OK(out_batch->ValidateFull());
+  AssertSchemaEqual(*schema, *out_batch->schema());
+  ASSERT_BATCHES_EQUAL(*in_batch, *out_batch);
+}
+
+TEST(TestDictionaryBatch, DictionaryOfExtensionReplacement) {
+  auto type = dictionary(int32(), extension::uuid());
+  auto schema = ::arrow::schema({field("f0", type)});
+  auto make_batch = [&](const std::shared_ptr<Array>& dict) {
+    auto array = *DictionaryArray::FromArrays(
+        type, ArrayFromJSON(int32(), "[1, 0, null, 1]"), dict);
+    return RecordBatch::Make(schema, array->length(), {array});
+  };
+  auto dict1 = UuidDictionaryValues(R"(["0123456789abcdef", "abcdef0123456789"])");
+  auto dict2 = UuidDictionaryValues(R"(["ffffffffffffffff", "0000000000000000"])");
+  auto batch1 = make_batch(dict1);
+  auto batch2 = make_batch(dict2);
+
+  // A stream with a dictionary replacement between two record batches
+  ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeStreamWriter(sink, schema));
+  ASSERT_OK(writer->WriteRecordBatch(*batch1));
+  ASSERT_OK(writer->WriteRecordBatch(*batch2));
+  ASSERT_OK(writer->Close());
+  ASSERT_EQ(writer->stats().num_replaced_dictionaries, 1);
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchStreamReader::Open(
+                                        std::make_shared<io::BufferReader>(buffer)));
+  AssertSchemaEqual(*schema, *reader->schema());
+  for (const auto& expected : {batch1, batch2}) {
+    std::shared_ptr<RecordBatch> actual;
+    ASSERT_OK(reader->ReadNext(&actual));
+    ASSERT_NE(actual, nullptr);
+    ASSERT_OK(actual->ValidateFull());
+    ASSERT_BATCHES_EQUAL(*expected, *actual);
+  }
 }
 
 TEST_P(TestFileFormat, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
