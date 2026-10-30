@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <limits>
 
+#include "arrow/util/endian.h"
 #include "parquet/level_comparison.h"
 
 namespace parquet::internal {
@@ -51,6 +52,28 @@ MinMax FindMinMaxSimd(const int16_t* levels, int64_t num_levels) {
     out.max = std::max(levels[i], out.max);
   }
   return out;
+}
+
+/// Build a bitmap (LSB first, little-endian) with bit i set iff levels[i] > rhs.
+///
+/// \param[in] num_levels must be in [0, 64].
+template <typename Arch>
+uint64_t GreaterThanBitmapSimd(const int16_t* levels, int64_t num_levels, int16_t rhs) {
+  using batch = xsimd::batch<int16_t, Arch>;
+  constexpr int64_t kLanes = static_cast<int64_t>(batch::size);
+  static_assert(kLanes <= 64);
+
+  const batch vrhs(rhs);
+  uint64_t mask = 0;
+  int64_t i = 0;
+  for (; i + kLanes <= num_levels; i += kLanes) {
+    const auto gt = batch::load_unaligned(levels + i) > vrhs;
+    mask |= static_cast<uint64_t>(gt.mask()) << i;
+  }
+  for (; i < num_levels; ++i) {
+    mask |= static_cast<uint64_t>(levels[i] > rhs) << i;
+  }
+  return ::arrow::bit_util::ToLittleEndian(mask);
 }
 
 }  // namespace parquet::internal
