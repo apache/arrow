@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -28,6 +29,8 @@
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
 #include "parquet/schema_internal.h"
+
+#include "parquet/direct_metadata.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
@@ -615,6 +618,71 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> elements,
   if (pos != elements.size()) {
     throw ParquetException("Malformed Parquet schema: too many elements");
   }
+  return root;
+}
+
+NodePtr UnflattenDirect(
+    std::span<const internal::DirectSchemaElement> elements, int max_depth) {
+  if (elements.empty()) throw ParquetException("Empty Parquet schema (no root)");
+  size_t pos = 0;
+  size_t num_reserved = 0;
+  auto converted_type = [](format::ConvertedType::type value) {
+    // The generated Thrift enum omits the internal NONE sentinel used by the
+    // parquet C++ schema API, so all real values are shifted by one.
+    return static_cast<ConvertedType::type>(static_cast<int>(value) + 1);
+  };
+  std::function<NodePtr(int)> next = [&](int depth) -> NodePtr {
+    if (pos == elements.size())
+      throw ParquetException("Malformed Parquet schema: not enough elements");
+    const auto& element = elements[pos++];
+    const auto repetition = static_cast<Repetition::type>(element.repetition_type);
+    const int field_id = element.has_field_id ? element.field_id : -1;
+    const bool leaf = element.has_type &&
+                      (!element.has_num_children || element.num_children == 0);
+    if (leaf) {
+      if (!element.has_type)
+        throw ParquetException("Malformed Parquet schema: leaf has no type");
+      if (element.has_logical_type) {
+        auto logical = LogicalType::FromThrift(element.logical_type);
+        if (logical && !logical->is_applicable(static_cast<Type::type>(element.type),
+                                               element.has_type_length ? element.type_length : 0)) {
+          logical = UndefinedLogicalType::Make();
+        }
+        return PrimitiveNode::Make(std::string(element.name), repetition, std::move(logical),
+                                   static_cast<Type::type>(element.type),
+                                   element.has_type_length ? element.type_length : 0,
+                                   field_id);
+      }
+      return PrimitiveNode::Make(
+          std::string(element.name), repetition, static_cast<Type::type>(element.type),
+          element.has_converted_type ? converted_type(element.converted_type)
+                                     : ConvertedType::NONE,
+          element.has_type_length ? element.type_length : 0,
+          element.has_precision ? element.precision : -1, element.has_scale ? element.scale : -1,
+          field_id);
+    }
+    if (depth >= max_depth)
+      throw ParquetException("Parquet schema too deeply nested, consider increasing schema depth limit");
+    if (element.num_children < 0)
+      throw ParquetException("Malformed Parquet schema: negative number of children");
+    num_reserved += static_cast<size_t>(element.num_children);
+    if (num_reserved > elements.size())
+      throw ParquetException("Malformed Parquet schema: not enough elements");
+    NodeVector fields;
+    fields.reserve(static_cast<size_t>(element.num_children));
+    for (int i = 0; i < element.num_children; ++i) fields.emplace_back(next(depth + 1));
+    if (element.has_logical_type) {
+      return GroupNode::Make(std::string(element.name), repetition, fields,
+                             LogicalType::FromThrift(element.logical_type), field_id);
+    }
+    return GroupNode::Make(std::string(element.name), repetition, fields,
+                           element.has_converted_type ? converted_type(element.converted_type)
+                                                      : ConvertedType::NONE,
+                           field_id);
+  };
+  auto root = next(1);
+  if (pos != elements.size())
+    throw ParquetException("Malformed Parquet schema: too many elements");
   return root;
 }
 

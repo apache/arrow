@@ -17,12 +17,14 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/io/caching.h"
@@ -156,6 +158,52 @@ class PARQUET_EXPORT ReaderProperties {
   void set_footer_read_size(size_t size) { footer_read_size_ = size; }
   size_t footer_read_size() const { return footer_read_size_; }
 
+  /// Skip decoding column-level statistics in the custom metadata parser.
+  /// The fields remain available as absent statistics to callers.
+  bool thrift_skip_column_statistics() const { return thrift_skip_column_statistics_; }
+  void set_thrift_skip_column_statistics(bool value) {
+    thrift_skip_column_statistics_ = value;
+  }
+
+  /// Skip decoding page encoding statistics in the custom metadata parser.
+  bool thrift_skip_encoding_statistics() const {
+    return thrift_skip_encoding_statistics_;
+  }
+  void set_thrift_skip_encoding_statistics(bool value) {
+    thrift_skip_encoding_statistics_ = value;
+  }
+
+  /// Skip decoding size statistics in the custom metadata parser.
+  bool thrift_skip_size_statistics() const { return thrift_skip_size_statistics_; }
+  void set_thrift_skip_size_statistics(bool value) {
+    thrift_skip_size_statistics_ = value;
+  }
+
+  /// Decode statistics only for the listed flattened leaf-column indices.
+  /// Calling this enables a selective metadata policy; an empty list skips all
+  /// three statistics groups.
+  const std::vector<int32_t>& thrift_statistics_columns() const {
+    return thrift_statistics_columns_;
+  }
+  bool thrift_statistics_columns_set() const { return thrift_statistics_columns_set_; }
+  void set_thrift_statistics_columns(std::vector<int32_t> columns) {
+    std::sort(columns.begin(), columns.end());
+    columns.erase(std::unique(columns.begin(), columns.end()), columns.end());
+    thrift_statistics_columns_ = std::move(columns);
+    thrift_statistics_columns_set_ = true;
+  }
+  void clear_thrift_statistics_columns() {
+    thrift_statistics_columns_.clear();
+    thrift_statistics_columns_set_ = false;
+  }
+
+  bool thrift_skip_page_statistics() const { return thrift_skip_page_statistics_; }
+  void set_thrift_skip_page_statistics(bool value) {
+    thrift_skip_page_statistics_ = value;
+  }
+  bool thrift_encoding_stats_as_mask() const { return thrift_encoding_stats_as_mask_; }
+  void set_thrift_encoding_stats_as_mask(bool value) { thrift_encoding_stats_as_mask_ = value; }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
@@ -166,6 +214,13 @@ class PARQUET_EXPORT ReaderProperties {
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.
   bool read_dense_for_nullable_ = false;
+  bool thrift_skip_column_statistics_ = false;
+  bool thrift_skip_encoding_statistics_ = false;
+  bool thrift_skip_size_statistics_ = false;
+  bool thrift_statistics_columns_set_ = false;
+  std::vector<int32_t> thrift_statistics_columns_;
+  bool thrift_skip_page_statistics_ = false;
+  bool thrift_encoding_stats_as_mask_ = false;
   size_t footer_read_size_ = kDefaultFooterReadSize;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
