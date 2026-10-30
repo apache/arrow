@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -174,6 +175,8 @@ ReaderProperties PARQUET_EXPORT default_reader_properties();
 
 static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr int64_t kDefaultMaxRowsPerPage = 20'000;
+static constexpr double kDefaultMinCompressionSavings =
+    std::numeric_limits<double>::epsilon();
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
@@ -531,7 +534,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Used to set minimum compression ratio threshold for V2 page data values
-    /// compression. The default is 0.0: keep compression if values become smaller.
+    /// compression. The default is double epsilon: keep compression if values become
+    /// smaller.
     Builder* min_compression_savings(double min_compression_savings) {
       if (!(min_compression_savings >= 0.0 && min_compression_savings <= 1.0)) {
         throw ParquetException("min_compression_savings must be in range [0, 1]");
@@ -894,7 +898,7 @@ class PARQUET_EXPORT WriterProperties {
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
-      if (min_compression_savings_ != 0.0 &&
+      if (min_compression_savings_ > kDefaultMinCompressionSavings &&
           data_page_version_ == ParquetDataPageVersion::V1) {
         throw ParquetException("min_compression_savings requires V2 data pages");
       }
@@ -949,7 +953,7 @@ class PARQUET_EXPORT WriterProperties {
     int64_t max_rows_per_page_;
     ParquetVersion::type version_;
     ParquetDataPageVersion data_page_version_;
-    double min_compression_savings_ = 0.0;
+    double min_compression_savings_ = kDefaultMinCompressionSavings;
     std::string created_by_;
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
