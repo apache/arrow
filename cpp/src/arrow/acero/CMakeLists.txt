@@ -117,24 +117,24 @@ foreach(LIB_TARGET ${ARROW_ACERO_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ACERO_EXPORTING)
 endforeach()
 
-# Define arrow_acero_testing interface library for common test files.
-# Its sources are compiled as sources of each test executable so that they use
-# the same compile definitions (e.g. ARROW_STATIC on Windows) as the test.
+# Define arrow_acero_testing static library for common test files.
+# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
+# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
   # test_nodes.cc isn't used by all tests but link to it for simple
   # CMakeLists.txt.
-  add_library(arrow_acero_testing INTERFACE)
-  target_sources(arrow_acero_testing INTERFACE test_nodes.cc test_util_internal.cc)
-  target_link_libraries(arrow_acero_testing INTERFACE arrow_compute_core_testing)
+  add_library(arrow_acero_testing STATIC test_nodes.cc test_util_internal.cc)
+  target_link_libraries(arrow_acero_testing PUBLIC ${ARROW_ACERO_TEST_LINK_LIBS}
+                                                   arrow_compute_core_testing)
   # Only for test_nodes.cc.
   if(ARROW_WITH_OPENTELEMETRY)
-    target_link_libraries(arrow_acero_testing INTERFACE ${ARROW_OPENTELEMETRY_LIBS})
+    target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
-  # arrow_compute_testing will register the kernels for Gtest. In order to register the kernels
+  # arrow_compute_testing_main will register the kernels for Gtest. In order to register the kernels
   # for Google benchmark we use a custom main function used on add_arrow_compute_benchmark.
   set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS ${ARROW_ACERO_TEST_LINK_LIBS}
                                             arrow_acero_testing)
-  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
+  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing_main)
 endif()
 # Only for hash_aggregate_test.cc.
 if(ARROW_USE_BOOST)

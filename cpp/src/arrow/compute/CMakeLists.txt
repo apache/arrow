@@ -28,23 +28,36 @@ else()
   set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_shared ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
-# The following testing libraries are interface libraries. Their sources are
-# compiled as sources of each test executable so that they use the same compile
-# definitions (e.g. ARROW_STATIC on Windows) as the test.
-
-# Define arrow_compute_core_testing interface library for common test files requiring
+# Define arrow_compute_core_testing static library for common test files requiring
 # only core compute. No extra kernels are required.
+#
+# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
+# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
-  add_library(arrow_compute_core_testing INTERFACE)
-  target_sources(arrow_compute_core_testing INTERFACE test_util_internal.cc)
-  target_link_libraries(arrow_compute_core_testing INTERFACE ${ARROW_GTEST_GMOCK})
+  add_library(arrow_compute_core_testing STATIC test_util_internal.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(arrow_compute_core_testing
+                          PUBLIC ${ARROW_TEST_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(arrow_compute_core_testing
+                          PUBLIC ${ARROW_TEST_SHARED_LINK_LIBS})
+  endif()
 endif()
 
-# Define arrow_compute_testing interface library for test files requiring extra kernels.
+# Define arrow_compute_testing_main interface library that provides main()
+# for tests requiring extra kernels. main() initializes extra kernels.
+#
+# This is an interface library. test_env.cc is compiled as a source of
+# each test executable. If we use a static library, main() in
+# GTest::gmock_main may be used instead.
+#
+# This doesn't link any Apache Arrow C++ library. So this can be used
+# by tests that use different linkage from ARROW_TEST_LINKAGE such as
+# Flight SQL tests.
 if(ARROW_TESTING AND ARROW_COMPUTE)
-  add_library(arrow_compute_testing INTERFACE)
-  target_sources(arrow_compute_testing INTERFACE test_env.cc)
-  target_link_libraries(arrow_compute_testing INTERFACE arrow_compute_core_testing)
+  add_library(arrow_compute_testing_main INTERFACE)
+  target_sources(arrow_compute_testing_main INTERFACE test_env.cc)
+  target_link_libraries(arrow_compute_testing_main INTERFACE ${ARROW_GTEST_GTEST})
 endif()
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
@@ -165,7 +178,7 @@ add_arrow_compute_test(expression_test
                        SOURCES
                        expression_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_testing)
+                       arrow_compute_testing_main)
 
 add_arrow_compute_test(row_test
                        SOURCES
@@ -178,7 +191,8 @@ add_arrow_compute_test(row_test
                        row/row_test.cc
                        util_internal_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_testing)
+                       arrow_compute_core_testing
+                       arrow_compute_testing_main)
 
 add_arrow_compute_benchmark(function_benchmark)
 

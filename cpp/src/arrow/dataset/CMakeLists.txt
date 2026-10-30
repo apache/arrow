@@ -112,24 +112,31 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing
-                                   arrow_compute_testing ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS
+      arrow_dataset_static arrow_acero_testing arrow_compute_testing_main
+      ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing
-                                   arrow_compute_testing ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS
+      arrow_dataset_shared arrow_acero_testing arrow_compute_testing_main
+      ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
 
-# Define arrow_dataset_testing interface library for common test files.
-# test_util_internal.cc is compiled as a source of each test executable so that
-# it uses the same compile definitions (e.g. ARROW_STATIC on Windows) as the test.
+# Define arrow_dataset_testing static library for common test files.
+# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
+# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
-  add_library(arrow_dataset_testing INTERFACE)
-  target_sources(arrow_dataset_testing INTERFACE test_util_internal.cc)
-  target_link_libraries(arrow_dataset_testing INTERFACE ${ARROW_GTEST_GMOCK})
+  add_library(arrow_dataset_testing STATIC test_util_internal.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(arrow_dataset_testing PUBLIC arrow_dataset_static
+                                                       ${ARROW_TEST_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(arrow_dataset_testing PUBLIC arrow_dataset_shared
+                                                       ${ARROW_TEST_SHARED_LINK_LIBS})
+  endif()
   list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
 endif()
 

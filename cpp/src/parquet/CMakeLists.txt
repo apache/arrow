@@ -329,13 +329,15 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
 endif()
 
 if(ARROW_TESTING)
-  # Define parquet_testing interface library for common test files.
-  # test_util.cc is compiled as a source of each test executable so that
-  # it uses the same compile definitions (e.g. PARQUET_STATIC on Windows)
-  # as the test.
-  add_library(parquet_testing INTERFACE)
-  target_sources(parquet_testing INTERFACE test_util.cc)
-  target_link_libraries(parquet_testing INTERFACE ${ARROW_GTEST_GMOCK})
+  # Define parquet_testing static library for common test files.
+  # It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
+  # definitions (e.g. PARQUET_STATIC on Windows) as tests.
+  add_library(parquet_testing STATIC test_util.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(parquet_testing PUBLIC parquet_static ${PARQUET_TEST_LINK_LIBS})
+  else()
+    target_link_libraries(parquet_testing PUBLIC parquet_shared ${PARQUET_TEST_LINK_LIBS})
+  endif()
   list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
 endif()
 

@@ -140,7 +140,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     else()
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
-    list(APPEND ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS arrow_compute_testing)
+    list(APPEND ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS arrow_compute_testing_main)
 
     if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
