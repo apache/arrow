@@ -29,7 +29,7 @@ void Benchmark_PandasObjectIsNull(PyObject* list) {
   }
   Py_ssize_t i, n = PyList_GET_SIZE(list);
   for (i = 0; i < n; i++) {
-    internal::PandasObjectIsNull(PyList_GET_ITEM(list, i));
+    internal::PandasObjectIsNull(PyList_GetItem(list, i));
   }
 }
 
