@@ -2184,5 +2184,206 @@ TEST_F(TestFillNullType, TestFillOnNullType) {
   this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null])"),
                             this->array(R"([null, null])"));
 }
+
+TEST(TestVectorReplace, TestIssue55256) {
+  auto mask = ArrayFromJSON(boolean(), "[false, true, false]");
+
+  // 1. replace_with_mask on utf8_view
+  auto view_arr = ArrayFromJSON(utf8_view(), "[\"apple\", null, \"cherry\"]");
+  auto replacements = ArrayFromJSON(utf8_view(), "[\"banana\"]");
+  auto expected = ArrayFromJSON(utf8_view(), "[\"apple\", \"banana\", \"cherry\"]");
+  ASSERT_OK_AND_ASSIGN(auto res1, ReplaceWithMask(view_arr, mask, replacements));
+  AssertArraysEqual(*expected, *res1.make_array());
+
+  // 2. fill_null_forward on utf8_view
+  auto expected_fwd = ArrayFromJSON(utf8_view(), "[\"apple\", \"apple\", \"cherry\"]");
+  ASSERT_OK_AND_ASSIGN(auto res2, FillNullForward(view_arr));
+  AssertArraysEqual(*expected_fwd, *res2.make_array());
+
+  // 3. fill_null_backward on utf8_view
+  auto expected_bwd = ArrayFromJSON(utf8_view(), "[\"apple\", \"cherry\", \"cherry\"]");
+  ASSERT_OK_AND_ASSIGN(auto res3, FillNullBackward(view_arr));
+  AssertArraysEqual(*expected_bwd, *res3.make_array());
+
+  // 4. replace_with_mask on decimal32
+  auto dec32_type = decimal32(7, 2);
+  auto dec_arr = ArrayFromJSON(dec32_type, "[\"12.34\", null, \"56.78\"]");
+  auto dec_repl = ArrayFromJSON(dec32_type, "[\"99.99\"]");
+  auto dec_expected = ArrayFromJSON(dec32_type, "[\"12.34\", \"99.99\", \"56.78\"]");
+  ASSERT_OK_AND_ASSIGN(auto res4, ReplaceWithMask(dec_arr, mask, dec_repl));
+  AssertArraysEqual(*dec_expected, *res4.make_array());
+
+  // 5. replace_with_mask on decimal64
+  auto dec64_type = decimal64(15, 2);
+  auto dec64_arr = ArrayFromJSON(dec64_type, "[\"12.34\", null, \"56.78\"]");
+  auto dec64_repl = ArrayFromJSON(dec64_type, "[\"99.99\"]");
+  auto dec64_expected = ArrayFromJSON(dec64_type, "[\"12.34\", \"99.99\", \"56.78\"]");
+  ASSERT_OK_AND_ASSIGN(auto res5, ReplaceWithMask(dec64_arr, mask, dec64_repl));
+  AssertArraysEqual(*dec64_expected, *res5.make_array());
+}
+
+TEST(TestVectorReplace, ReplaceWithMaskStringViewStorageTiers) {
+  // Test inline (< 12 bytes), at-limit (12 bytes), and out-of-line (> 12 bytes and large > 4KiB)
+  std::string large_string(4500, 'Z');
+
+  auto input = ArrayFromJSON(
+      utf8_view(),
+      "[\"\", \"four\", \"eleven_byte\", \"twelve_bytes\", \"thirteen_bytes\", null, \"" +
+          large_string + "\"]");
+  auto mask = ArrayFromJSON(boolean(), "[true, false, true, false, true, true, false]");
+  auto replacements = ArrayFromJSON(
+      utf8_view(), "[\"rep0\", \"replacement_11\", \"short\", \"replaces_null\"]");
+  auto expected = ArrayFromJSON(
+      utf8_view(), "[\"rep0\", \"four\", \"replacement_11\", \"twelve_bytes\", "
+                   "\"short\", \"replaces_null\", \"" +
+                       large_string + "\"]");
+
+  ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(input, mask, replacements));
+  ASSERT_OK(actual.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *actual.make_array());
+
+  // Scalar mask replacing all elements
+  auto all_true = std::make_shared<BooleanScalar>(true);
+  auto all_false = std::make_shared<BooleanScalar>(false);
+  auto null_mask = std::make_shared<BooleanScalar>();
+
+  ASSERT_OK_AND_ASSIGN(auto scalar_repl, MakeScalar(utf8_view(), "repl_all"));
+  ASSERT_OK_AND_ASSIGN(auto rep_all, ReplaceWithMask(input, all_true, scalar_repl));
+  ASSERT_OK(rep_all.make_array()->ValidateFull());
+  auto expected_all = ArrayFromJSON(
+      utf8_view(), "[\"repl_all\", \"repl_all\", \"repl_all\", \"repl_all\", "
+                   "\"repl_all\", \"repl_all\", \"repl_all\"]");
+  AssertArraysEqual(*expected_all, *rep_all.make_array());
+
+  ASSERT_OK_AND_ASSIGN(auto rep_none, ReplaceWithMask(input, all_false, scalar_repl));
+  ASSERT_OK(rep_none.make_array()->ValidateFull());
+  AssertArraysEqual(*input, *rep_none.make_array());
+
+  ASSERT_OK_AND_ASSIGN(auto rep_null, ReplaceWithMask(input, null_mask, scalar_repl));
+  ASSERT_OK(rep_null.make_array()->ValidateFull());
+  auto expected_nulls =
+      ArrayFromJSON(utf8_view(), "[null, null, null, null, null, null, null]");
+  AssertArraysEqual(*expected_nulls, *rep_null.make_array());
+}
+
+TEST(TestVectorReplace, ReplaceWithMaskAsymmetricSlicing) {
+  // Input sliced with offset 1
+  auto raw_input = ArrayFromJSON(
+      utf8_view(), "[\"ignore\", \"alpha\", \"beta\", \"gamma\", \"delta\", \"extra\"]");
+  auto input_sliced = raw_input->Slice(1, 4);
+
+  auto raw_mask = ArrayFromJSON(boolean(), "[false, false, true, false, true, false]");
+  auto mask_sliced = raw_mask->Slice(1, 4);
+
+  auto raw_repl =
+      ArrayFromJSON(utf8_view(), "[\"skip\", \"BETA_REPL\", \"DELTA_REPL\", \"unused\"]");
+  auto repl_sliced = raw_repl->Slice(1, 2);
+
+  auto expected =
+      ArrayFromJSON(utf8_view(), "[\"alpha\", \"BETA_REPL\", \"gamma\", \"DELTA_REPL\"]");
+
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       ReplaceWithMask(input_sliced, mask_sliced, repl_sliced));
+  ASSERT_OK(actual.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *actual.make_array());
+}
+
+TEST(TestVectorReplace, ReplaceWithMaskEmbeddedNulls) {
+  std::string str1("hello\0world", 11);
+  std::string str2("view\0test", 9);
+  std::string repl1("foo\0bar\0baz", 11);
+
+  StringViewBuilder builder;
+  ASSERT_OK(builder.Append(str1));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(str2));
+  ASSERT_OK_AND_ASSIGN(auto view_arr, builder.Finish());
+
+  StringViewBuilder repl_builder;
+  ASSERT_OK(repl_builder.Append(repl1));
+  ASSERT_OK_AND_ASSIGN(auto view_repl, repl_builder.Finish());
+
+  auto mask = ArrayFromJSON(boolean(), "[false, true, false]");
+
+  ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(view_arr, mask, view_repl));
+  ASSERT_OK(actual.make_array()->ValidateFull());
+
+  // Verify byte equality including embedded nulls
+  StringViewBuilder exp_builder;
+  ASSERT_OK(exp_builder.Append(str1));
+  ASSERT_OK(exp_builder.Append(repl1));
+  ASSERT_OK(exp_builder.Append(str2));
+  ASSERT_OK_AND_ASSIGN(auto view_exp, exp_builder.Finish());
+
+  AssertArraysEqual(*view_exp, *actual.make_array());
+}
+
+TEST(TestVectorReplace, FillNullViewsChunkedCarryOver) {
+  // Test ChunkedArray with cross-chunk carry-over
+  auto chunk1 = ArrayFromJSON(utf8_view(), "[\"first\", null]");
+  auto chunk2 = ArrayFromJSON(utf8_view(), "[null, null]");
+  auto chunk3 = ArrayFromJSON(utf8_view(), "[null, \"last\", null]");
+
+  auto chunked_input =
+      std::make_shared<ChunkedArray>(ArrayVector{chunk1, chunk2, chunk3});
+
+  // FillNullForward: "first" should carry forward across chunk 2 into chunk 3 until "last"
+  auto exp_fwd_1 = ArrayFromJSON(utf8_view(), "[\"first\", \"first\"]");
+  auto exp_fwd_2 = ArrayFromJSON(utf8_view(), "[\"first\", \"first\"]");
+  auto exp_fwd_3 = ArrayFromJSON(utf8_view(), "[\"first\", \"last\", \"last\"]");
+  auto expected_fwd =
+      std::make_shared<ChunkedArray>(ArrayVector{exp_fwd_1, exp_fwd_2, exp_fwd_3});
+
+  ASSERT_OK_AND_ASSIGN(auto actual_fwd, FillNullForward(chunked_input));
+  AssertChunkedEquivalent(*expected_fwd, *actual_fwd.chunked_array());
+
+  // FillNullBackward: "last" carries backward to start of chunk 3, through chunk 2, and into chunk 1
+  auto exp_bwd_1 = ArrayFromJSON(utf8_view(), "[\"first\", \"last\"]");
+  auto exp_bwd_2 = ArrayFromJSON(utf8_view(), "[\"last\", \"last\"]");
+  auto exp_bwd_3 = ArrayFromJSON(utf8_view(), "[\"last\", \"last\", null]");
+  auto expected_bwd =
+      std::make_shared<ChunkedArray>(ArrayVector{exp_bwd_1, exp_bwd_2, exp_bwd_3});
+
+  ASSERT_OK_AND_ASSIGN(auto actual_bwd, FillNullBackward(chunked_input));
+  AssertChunkedEquivalent(*expected_bwd, *actual_bwd.chunked_array());
+}
+
+TEST(TestVectorReplace, Decimal32AndDecimal64Full) {
+  auto dt32 = decimal32(7, 2);
+  auto arr32 = ArrayFromJSON(dt32, "[\"10.50\", null, \"-25.00\", null]");
+  auto repl32 = ArrayFromJSON(dt32, "[\"99.99\"]");
+  auto mask32 = ArrayFromJSON(boolean(), "[false, true, false, false]");
+  auto exp32 = ArrayFromJSON(dt32, "[\"10.50\", \"99.99\", \"-25.00\", null]");
+
+  ASSERT_OK_AND_ASSIGN(auto actual32, ReplaceWithMask(arr32, mask32, repl32));
+  AssertArraysEqual(*exp32, *actual32.make_array());
+
+  // FillNullForward decimal32
+  auto exp_fwd32 = ArrayFromJSON(dt32, "[\"10.50\", \"10.50\", \"-25.00\", \"-25.00\"]");
+  ASSERT_OK_AND_ASSIGN(auto act_fwd32, FillNullForward(arr32));
+  AssertArraysEqual(*exp_fwd32, *act_fwd32.make_array());
+
+  // FillNullBackward decimal32
+  auto exp_bwd32 = ArrayFromJSON(dt32, "[\"10.50\", \"-25.00\", \"-25.00\", null]");
+  ASSERT_OK_AND_ASSIGN(auto act_bwd32, FillNullBackward(arr32));
+  AssertArraysEqual(*exp_bwd32, *act_bwd32.make_array());
+
+  // Decimal64
+  auto dt64 = decimal64(15, 4);
+  auto arr64 = ArrayFromJSON(dt64, "[null, \"12345.6789\", null, \"-99999.0000\"]");
+  auto repl64 = ArrayFromJSON(dt64, "[\"0.0000\"]");
+  auto mask64 = ArrayFromJSON(boolean(), "[true, false, false, false]");
+  auto exp64 = ArrayFromJSON(dt64, "[\"0.0000\", \"12345.6789\", null, \"-99999.0000\"]");
+
+  ASSERT_OK_AND_ASSIGN(auto actual64, ReplaceWithMask(arr64, mask64, repl64));
+  AssertArraysEqual(*exp64, *actual64.make_array());
+
+  // Type mismatch error check: different scale should fail
+  auto dt32_diff_scale = decimal32(7, 3);
+  auto repl_diff_scale = ArrayFromJSON(dt32_diff_scale, "[\"99.999\"]");
+  ASSERT_RAISES(Invalid, ReplaceWithMask(arr32, mask32, repl_diff_scale));
+}
+
+
 }  // namespace compute
 }  // namespace arrow
