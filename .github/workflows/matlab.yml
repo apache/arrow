@@ -18,10 +18,12 @@
 name: MATLAB
 
 on:
+  workflow_call:
   push:
     branches:
       - '**'
       - '!dependabot/**'
+      - '!gh-readonly-queue/**'
     tags:
       - '**'
     paths:
@@ -37,7 +39,7 @@ on:
       - 'cpp/src/arrow/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}-matlab
   cancel-in-progress: true
 
 permissions:
