@@ -769,7 +769,7 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     Parquet implementations, so version='1.0' is likely the choice that
     maximizes file compatibility.
     UINT32 and some logical types are only available with version '2.4'.
-    Nanosecond timestamps are only available with version '2.6'.
+    Nanosecond timestamps and times are only available with version '2.6'.
     Other features such as compression algorithms or the new serialized
     data page format must be enabled separately (see 'compression' and
     'data_page_version').
@@ -791,7 +791,8 @@ use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
-    Cast timestamps to a particular resolution. If omitted, defaults are chosen
+    Cast timestamps and time-of-day values to a particular resolution.
+    If omitted, defaults are chosen
     depending on `version`. For ``version='1.0'`` and ``version='2.4'``,
     nanoseconds are cast to microseconds ('us'), while for
     ``version='2.6'`` (the default), they are written natively without loss
@@ -801,9 +802,10 @@ coerce_timestamps : str, default None
     unless ``allow_truncated_timestamps=True`` is given.
     Valid values: {None, 'ms', 'us'}
 allow_truncated_timestamps : bool, default False
-    Allow loss of data when coercing timestamps to a particular
-    resolution. E.g. if microsecond or nanosecond data is lost when coercing to
-    'ms', do not raise an exception. Passing ``allow_truncated_timestamp=True``
+    Allow loss of data when coercing timestamps or time-of-day values
+    to a particular resolution. E.g. if microsecond or nanosecond data is lost
+    when coercing to 'ms', do not raise an exception. Passing
+    ``allow_truncated_timestamp=True``
     will NOT result in the truncation exception being ignored unless
     ``coerce_timestamps`` is not None.
 data_page_size : int, default None
