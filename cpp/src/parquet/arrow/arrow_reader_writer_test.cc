@@ -3085,6 +3085,21 @@ std::shared_ptr<Table> InvalidTable() {
   return Table::Make(schema, {array1, array2});
 }
 
+TEST(TestArrowReadWrite, ReadEmptyDataPages) {
+  // A data page without values doesn't end the column chunk, the column chunk of the file
+  // starts with such a page and has another one in the middle
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      FileReader::Make(::arrow::default_memory_pool(),
+                       ParquetFileReader::OpenFile(
+                           test::get_data_file("empty_data_pages.parquet"), false)));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->ReadTable());
+  auto expected = ::arrow::TableFromJSON(
+      ::arrow::schema({::arrow::field("int64", ::arrow::int64(), /*nullable=*/false)}),
+      {R"([{"int64": 1}, {"int64": 2}, {"int64": 3}])"});
+  AssertTablesEqual(*expected, *table, /*same_chunk_layout=*/false);
+}
+
 TEST(TestArrowReadWrite, InvalidTable) {
   // ARROW-4774: Shouldn't segfault on writing an invalid table.
   auto sink = CreateOutputStream();
