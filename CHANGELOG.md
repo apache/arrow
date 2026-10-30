@@ -1,4 +1,36 @@
 
+# Apache Arrow 26.0.1 (2026-10-30)
+
+## Bug Fixes
+
+* [GH-51018](https://github.com/apache/arrow/issues/51018) - [C++] Fix indices_nonzero segfault on chunkless ChunkedArray (#51021)
+* [GH-51669](https://github.com/apache/arrow/issues/51669) - [C++][Parquet] Preserve cipher in plaintext footer metadata (#54884)
+* [GH-51684](https://github.com/apache/arrow/issues/51684) - [C++][Parquet][FOLLOWUP] Speed up content-defined chunking with a local gear hash (#51692)
+* [GH-51684](https://github.com/apache/arrow/issues/51684) - [C++][Parquet] Keep the CDC chunking state across row groups (#51685)
+* [GH-51690](https://github.com/apache/arrow/issues/51690) - [C++] Don't define __SSE2__ globally with MSVC (#53952)
+* [GH-51751](https://github.com/apache/arrow/issues/51751) - [CI][Packaging] Fix formula path for homebrew-cpp job (#51756)
+* [GH-53518](https://github.com/apache/arrow/issues/53518) - [Parquet] Reject unsupported compression codecs (#53522)
+* [GH-54489](https://github.com/apache/arrow/issues/54489) - [CI][Integration] Install jpype1 from conda-forge in conda-integration image (#54490)
+* [GH-54595](https://github.com/apache/arrow/issues/54595) - [Packaging] Revert the unnecessary commit for https://github.com/apache/arrow/issues/54595
+* [GH-54595](https://github.com/apache/arrow/issues/54595) - [Packaging][CI] Fix regex on update_deb_package_names to cover the 3 on libarrow_s3 (#54608)
+* [GH-54928](https://github.com/apache/arrow/issues/54928) - [Packaging][CI] Change TMPDIR for reproducible builds to avoid out of space (#54943)
+* [GH-54936](https://github.com/apache/arrow/issues/54936) - [C++] Ensure reading an invalid map array from IPC doesn't crash (#54939)
+* [GH-55112](https://github.com/apache/arrow/issues/55112) - [Packaging][Debian] Add missing opentelemetry-cpp dependency (#55249)
+* [GH-55113](https://github.com/apache/arrow/issues/55113) - [CI][R] Install tzdata-legacy if available so tests are able to find required timezones (#55114)
+* [GH-55165](https://github.com/apache/arrow/issues/55165) - [C++][Packaging][R] Use Brotli 1.2.1 for bundled, vcpkg and R Windows builds (#55167)
+* [GH-55267](https://github.com/apache/arrow/issues/55267) - [C++][R] Arrow 26.0.0 fails to build on CRAN macOS builders: bundled simdjson C++20 concepts don't compile with the macOS 11 SDK (#55273)
+* [GH-55316](https://github.com/apache/arrow/issues/55316) - [CI][FlightRPC][ODBC] Apply ports.patch in Windows build (#55317)
+
+
+## New Features and Improvements
+
+* [GH-50544](https://github.com/apache/arrow/issues/50544) - [C++][Gandiva] Fix out-of-bounds read in round with most negative precision (#50545)
+* [GH-51354](https://github.com/apache/arrow/issues/51354) - [C++][Parquet] Update bundled Apache Thrift to 0.24.0 (#51559)
+* [GH-51817](https://github.com/apache/arrow/issues/51817) - [Dev][Release] Add support for RC curl in `download_rc_binaries.py` (#51818)
+* [GH-52161](https://github.com/apache/arrow/issues/52161) - [C++][Parquet] Add support for string/binary view to content defined chunking writer (#52162)
+
+
+
 # Apache Arrow 26.0.0 (2026-10-01 00:00:00+00:00)
 
 ## Bug Fixes
