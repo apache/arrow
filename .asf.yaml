@@ -45,6 +45,16 @@ github:
     review_drafts: false
     review_on_push: true
 
+  pull_requests:
+    # Limit the number of concurrently open pull requests a contributor
+    # without write access can have. Pull requests over the cap can't be
+    # opened; draft pull requests count towards the cap. See
+    # https://arrow.apache.org/docs/dev/developers/bug_reports.html#pr-limit
+    creation_cap:
+      enabled: true
+      max_open_pull_requests: 3
+      include_drafts: true
+
 notifications:
   commits:      commits@arrow.apache.org
   issues_status: issues@arrow.apache.org
