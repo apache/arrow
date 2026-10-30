@@ -116,8 +116,6 @@ foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
 endforeach()
 
 # Define arrow_dataset_testing static library for common test files.
-# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
-# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
   add_library(arrow_dataset_testing STATIC test_util_internal.cc)
   if(ARROW_TEST_LINKAGE STREQUAL "static")

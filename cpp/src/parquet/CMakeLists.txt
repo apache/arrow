@@ -311,8 +311,6 @@ endif()
 
 if(ARROW_TESTING)
   # Define parquet_testing static library for common test files.
-  # It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
-  # definitions (e.g. PARQUET_STATIC on Windows) as tests.
   add_library(parquet_testing STATIC test_util.cc)
   if(ARROW_TEST_LINKAGE STREQUAL "static")
     target_link_libraries(parquet_testing PUBLIC parquet_static)

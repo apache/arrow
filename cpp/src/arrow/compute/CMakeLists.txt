@@ -45,11 +45,10 @@ if(ARROW_TESTING)
 endif()
 
 # Define arrow_compute_testing_main interface library that provides main()
-# for tests requiring extra kernels. main() initializes extra kernels.
+# initializing extra kernels.
 #
-# This is an interface library. test_env.cc is compiled as a source of
-# each test executable. If we use a static library, main() in
-# GTest::gmock_main may be used instead.
+# test_env.cc is compiled as a source of each test executable. If we use
+# a static library, main() in GTest::gmock_main may be used instead.
 #
 # This doesn't link any Apache Arrow C++ library. So this can be used
 # by tests that use different linkage from ARROW_TEST_LINKAGE such as

@@ -21,8 +21,6 @@ arrow_install_all_headers("arrow/compute/kernels")
 # Tests that don't require the full kernel library
 
 # Define arrow_compute_kernels_testing static library for common test files.
-# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
-# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
   add_library(arrow_compute_kernels_testing STATIC test_util_internal.cc)
   target_link_libraries(arrow_compute_kernels_testing PUBLIC arrow_compute_core_testing)

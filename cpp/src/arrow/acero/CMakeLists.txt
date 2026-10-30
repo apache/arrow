@@ -112,8 +112,6 @@ foreach(LIB_TARGET ${ARROW_ACERO_LIBRARIES})
 endforeach()
 
 # Define arrow_acero_testing static library for common test files.
-# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
-# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
   # test_nodes.cc isn't used by all tests but link to it for simple
   # CMakeLists.txt.
@@ -155,9 +153,7 @@ function(add_arrow_acero_test REL_TEST_NAME)
     set(LABELS "arrow_acero")
   endif()
 
-  # arrow_compute_testing_main will register the kernels for GTest. In order to register
-  # the kernels for Google benchmark we use a custom main function used on
-  # add_arrow_compute_benchmark.
+  # arrow_compute_testing_main registers the extra kernels.
   set(EXTRA_LINK_LIBS arrow_acero_testing arrow_compute_testing_main)
   # Only for hash_aggregate_test.cc.
   if(ARROW_USE_BOOST)
