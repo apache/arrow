@@ -1270,7 +1270,9 @@ TEST(TestLogicalTypeConstruction, FactoryExceptions) {
       []() { DecimalLogicalType::Make(0); },       // Invalid precision
       []() { DecimalLogicalType::Make(0, 0); },    // Invalid precision
       []() { DecimalLogicalType::Make(10, -1); },  // Invalid scale
-      []() { DecimalLogicalType::Make(10, 11); }   // Invalid scale
+      []() { DecimalLogicalType::Make(10, 11); },  // Invalid scale
+      []() { VectorLogicalType::Make(0); },        // Invalid num_elements
+      []() { VectorLogicalType::Make(-1); }        // Invalid num_elements
   };
 
   for (auto f : cases) {
@@ -1323,6 +1325,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
       {VariantLogicalType::Make(), true, true, true},
+      {VectorLogicalType::Make(4), true, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1659,6 +1662,8 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
        R"({"Type":"Geography","crs":"srid:1234","algorithm":"karney"})"},
       {LogicalType::Variant(), "Variant(1)", R"({"Type":"Variant","SpecVersion":1})"},
       {LogicalType::Variant(2), "Variant(2)", R"({"Type":"Variant","SpecVersion":2})"},
+      {LogicalType::Vector(768), "Vector(num_elements=768)",
+       R"({"Type":"Vector","num_elements":768})"},
       {LogicalType::None(), "None", R"({"Type":"None"})"},
   };
 
@@ -1712,6 +1717,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::Geometry(), SortOrder::UNKNOWN},
       {LogicalType::Geography(), SortOrder::UNKNOWN},
       {LogicalType::Variant(), SortOrder::UNKNOWN},
+      {LogicalType::Vector(3), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
@@ -2462,6 +2468,173 @@ TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
   // Verify that specification_version is set properly
   ASSERT_TRUE(elements[0].logicalType.VARIANT.__isset.specification_version);
   ASSERT_EQ(elements[0].logicalType.VARIANT.specification_version, spec_version);
+}
+
+namespace {
+
+NodePtr MakeVectorNode(NodePtr element, int32_t num_elements = 3,
+                       Repetition::type repetition = Repetition::OPTIONAL,
+                       const std::string& list_name = "list") {
+  auto list = GroupNode::Make(list_name, Repetition::REPEATED, {std::move(element)});
+  return GroupNode::Make("vector", repetition, {list}, LogicalType::Vector(num_elements));
+}
+
+}  // namespace
+
+TEST(TestVectorLogicalType, Properties) {
+  auto logical_type = LogicalType::Vector(3);
+  ASSERT_TRUE(logical_type->is_vector());
+  ASSERT_FALSE(logical_type->is_list());
+  ASSERT_EQ(checked_cast<const VectorLogicalType&>(*logical_type).num_elements(), 3);
+  ASSERT_TRUE(logical_type->Equals(*LogicalType::Vector(3)));
+  ASSERT_FALSE(logical_type->Equals(*LogicalType::Vector(4)));
+  ASSERT_FALSE(logical_type->Equals(*LogicalType::List()));
+  ASSERT_FALSE(LogicalType::List()->Equals(*logical_type));
+  ASSERT_FALSE(logical_type->is_applicable(Type::FLOAT));
+
+  // Writers must also set ConvertedType::LIST
+  schema::DecimalMetadata decimal_metadata;
+  ASSERT_EQ(logical_type->ToConvertedType(&decimal_metadata), ConvertedType::LIST);
+  ASSERT_FALSE(decimal_metadata.isset);
+  ASSERT_TRUE(logical_type->is_compatible(ConvertedType::LIST));
+  ASSERT_FALSE(logical_type->is_compatible(ConvertedType::MAP));
+}
+
+TEST(TestVectorLogicalType, ValidStructure) {
+  std::vector<NodePtr> elements = {
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::BOOLEAN),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::FLOAT),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::DOUBLE),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::INT32),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::INT64),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Int(8, true),
+                          Type::INT32),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Int(64, false),
+                          Type::INT64),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Decimal(9, 2),
+                          Type::INT32),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Decimal(18, 2),
+                          Type::INT64),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Decimal(20, 2),
+                          Type::FIXED_LEN_BYTE_ARRAY, 9),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Float16(),
+                          Type::FIXED_LEN_BYTE_ARRAY, 2),
+  };
+  for (size_t i = 0; i < elements.size(); ++i) {
+    SCOPED_TRACE(i);
+    const NodePtr& element = elements[i];
+    ASSERT_TRUE(IsValidVectorElement(*element));
+    ASSERT_NO_THROW(MakeVectorNode(element));
+    ASSERT_NO_THROW(MakeVectorNode(element, 3, Repetition::REQUIRED));
+  }
+}
+
+TEST(TestVectorLogicalType, InvalidStructure) {
+  auto float_element = [](Repetition::type repetition = Repetition::REQUIRED,
+                          const std::string& name = "element") {
+    return PrimitiveNode::Make(name, repetition, Type::FLOAT);
+  };
+  // Disallowed element types
+  std::vector<NodePtr> elements = {
+      float_element(Repetition::OPTIONAL),
+      float_element(Repetition::REPEATED),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::BYTE_ARRAY),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::String(),
+                          Type::BYTE_ARRAY),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::INT96),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          ConvertedType::NONE, 4),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::Date(),
+                          Type::INT32),
+      PrimitiveNode::Make("element", Repetition::REQUIRED,
+                          LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+                          Type::INT64),
+      PrimitiveNode::Make("element", Repetition::REQUIRED, LogicalType::UUID(),
+                          Type::FIXED_LEN_BYTE_ARRAY, 16),
+      GroupNode::Make("element", Repetition::REQUIRED, {float_element()}),
+  };
+  for (size_t i = 0; i < elements.size(); ++i) {
+    SCOPED_TRACE(i);
+    const NodePtr& element = elements[i];
+    ASSERT_FALSE(IsValidVectorElement(*element));
+    ASSERT_THROW(MakeVectorNode(element), ParquetException);
+  }
+
+  // Wrong element or list names
+  ASSERT_THROW(MakeVectorNode(float_element(Repetition::REQUIRED, "item")),
+               ParquetException);
+  ASSERT_THROW(MakeVectorNode(float_element(), 3, Repetition::OPTIONAL, "array"),
+               ParquetException);
+  // Repeated vector
+  ASSERT_THROW(MakeVectorNode(float_element(), 3, Repetition::REPEATED),
+               ParquetException);
+  // 2-level structure
+  ASSERT_THROW(
+      GroupNode::Make("vector", Repetition::OPTIONAL,
+                      {float_element(Repetition::REPEATED)}, LogicalType::Vector(3)),
+      ParquetException);
+  // Middle level not repeated
+  ASSERT_THROW(
+      GroupNode::Make("vector", Repetition::OPTIONAL,
+                      {GroupNode::Make("list", Repetition::REQUIRED, {float_element()})},
+                      LogicalType::Vector(3)),
+      ParquetException);
+  // Annotated middle level
+  ASSERT_THROW(GroupNode::Make("vector", Repetition::OPTIONAL,
+                               {GroupNode::Make("list", Repetition::REPEATED,
+                                                {float_element()}, LogicalType::List())},
+                               LogicalType::Vector(3)),
+               ParquetException);
+  // Multiple children
+  ASSERT_THROW(GroupNode::Make("vector", Repetition::OPTIONAL,
+                               {GroupNode::Make("list", Repetition::REPEATED,
+                                                {float_element(), float_element()})},
+                               LogicalType::Vector(3)),
+               ParquetException);
+  // No children
+  ASSERT_THROW(
+      GroupNode::Make("vector", Repetition::OPTIONAL, {}, LogicalType::Vector(3)),
+      ParquetException);
+}
+
+TEST(TestVectorLogicalType, ThriftRoundtrip) {
+  auto element = PrimitiveNode::Make("element", Repetition::REQUIRED, Type::FLOAT);
+  auto root =
+      GroupNode::Make("schema", Repetition::REQUIRED, {MakeVectorNode(element, 768)});
+
+  std::vector<SchemaElement> elements;
+  SchemaToThrift(static_cast<const GroupNode*>(root.get()), &elements);
+  ASSERT_EQ(elements.size(), 4);
+  ASSERT_EQ(elements[1].name, "vector");
+  ASSERT_TRUE(elements[1].__isset.logicalType);
+  ASSERT_TRUE(elements[1].logicalType.__isset.VECTOR);
+  ASSERT_EQ(elements[1].logicalType.VECTOR.num_elements, 768);
+  ASSERT_TRUE(elements[1].__isset.converted_type);
+  ASSERT_EQ(elements[1].converted_type, format::ConvertedType::LIST);
+
+  auto roundtripped = Unflatten(elements, /*max_depth=*/100);
+  ASSERT_TRUE(roundtripped->Equals(root.get()));
+  const auto& vector = *static_cast<const GroupNode&>(*roundtripped).field(0);
+  ASSERT_TRUE(vector.logical_type()->Equals(*LogicalType::Vector(768)));
+
+  // Invalid num_elements in the file
+  elements[1].logicalType.VECTOR.num_elements = 0;
+  ASSERT_THROW(Unflatten(elements, /*max_depth=*/100), ParquetException);
+
+  // Invalid structure in the file
+  elements[1].logicalType.VECTOR.num_elements = 768;
+  elements[3].repetition_type = FieldRepetitionType::OPTIONAL;
+  ASSERT_THROW(Unflatten(elements, /*max_depth=*/100), ParquetException);
+}
+
+TEST(TestVectorLogicalType, PrintSchema) {
+  auto element = PrimitiveNode::Make("element", Repetition::REQUIRED, Type::FLOAT);
+  auto root = GroupNode::Make("schema", Repetition::REQUIRED, {MakeVectorNode(element)});
+  std::stringstream ss;
+  PrintSchema(root.get(), ss);
+  ASSERT_THAT(
+      ss.str(),
+      ::testing::HasSubstr("optional group field_id=-1 vector (Vector(num_elements=3))"));
 }
 
 }  // namespace schema
