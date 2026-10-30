@@ -22,6 +22,7 @@ import gc
 import itertools
 import json
 import os
+import pickle
 import pathlib
 import signal
 import struct
@@ -2057,6 +2058,67 @@ def test_roundtrip_types():
         b'endpoint app metadata'
     )
     assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
+
+
+def test_pickle_flight_types():
+    """Flight value types should round-trip through pickle (GH-35150)."""
+    action = flight.Action("action1", b"action1-body")
+    assert action == pickle.loads(pickle.dumps(action))
+
+    ticket = flight.Ticket("foo")
+    assert ticket == pickle.loads(pickle.dumps(ticket))
+
+    result = flight.Result(b"result1")
+    assert result == pickle.loads(pickle.dumps(result))
+
+    basic_auth = flight.BasicAuth("username1", "password1")
+    assert basic_auth == pickle.loads(pickle.dumps(basic_auth))
+
+    schema_result = flight.SchemaResult(pa.schema([('a', pa.int32())]))
+    assert schema_result == pickle.loads(pickle.dumps(schema_result))
+
+    desc = flight.FlightDescriptor.for_command("test")
+    assert desc == pickle.loads(pickle.dumps(desc))
+
+    desc = flight.FlightDescriptor.for_path("a", "b", "test.arrow")
+    assert desc == pickle.loads(pickle.dumps(desc))
+
+    location = flight.Location.for_grpc_tcp('localhost', 5005)
+    assert location == pickle.loads(pickle.dumps(location))
+
+    endpoint = flight.FlightEndpoint(
+        ticket,
+        ['grpc://test', location],
+        pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
+        b'endpoint app metadata'
+    )
+    assert endpoint == pickle.loads(pickle.dumps(endpoint))
+
+    info = flight.FlightInfo(
+        pa.schema([('a', pa.int32())]),
+        desc,
+        [
+            flight.FlightEndpoint(b'', ['grpc://test']),
+            flight.FlightEndpoint(
+                b'',
+                [location],
+                pa.scalar("2023-04-05T12:34:56.789012345").cast(pa.timestamp("ns")),
+                b'endpoint app metadata'
+            ),
+        ],
+        1,
+        42,
+        True,
+        b'test app metadata'
+    )
+    info2 = pickle.loads(pickle.dumps(info))
+    assert info.schema == info2.schema
+    assert info.descriptor == info2.descriptor
+    assert info.total_bytes == info2.total_bytes
+    assert info.total_records == info2.total_records
+    assert info.ordered == info2.ordered
+    assert info.app_metadata == info2.app_metadata
+    assert info.endpoints == info2.endpoints
 
 
 def test_roundtrip_errors():
