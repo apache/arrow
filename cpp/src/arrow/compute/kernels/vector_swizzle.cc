@@ -242,9 +242,9 @@ struct InversePermutationImpl {
   }
 };
 
-template <typename Ignored, typename Type>
+template <typename Type>
 struct InversePermutation {
-  using ThisType = InversePermutation<Ignored, Type>;
+  using ThisType = InversePermutation<Type>;
   using IndexType = Type;
   using ShapeType = ArraySpan;
 
@@ -266,9 +266,9 @@ struct InversePermutation {
   }
 };
 
-template <typename Ignored, typename Type>
+template <typename Type>
 struct InversePermutationChunked {
-  using ThisType = InversePermutationChunked<Ignored, Type>;
+  using ThisType = InversePermutationChunked<Type>;
   using IndexType = Type;
   using ShapeType = std::shared_ptr<ChunkedArray>;
 
@@ -307,10 +307,8 @@ void RegisterVectorInversePermutation(FunctionRegistry* registry) {
         KernelSignature::Make({InputType(match::SameTypeId(type_id))},
                               OutputType(ResolveInversePermutationOutputType));
     kernel.init = InversePermutationState::Init;
-    kernel.exec = GenerateInteger<InversePermutation, void, ArrayKernelExec>(type_id);
-    kernel.exec_chunked =
-        GenerateInteger<InversePermutationChunked, void, VectorKernel::ChunkedExec>(
-            type_id);
+    kernel.exec = GenerateInteger<InversePermutation>(type_id);
+    kernel.exec_chunked = GenerateInteger<InversePermutationChunked>(type_id);
     kernel.can_execute_chunkwise = false;
     kernel.output_chunked = false;
     DCHECK_OK(function->AddKernel(std::move(kernel)));

@@ -514,7 +514,8 @@ void AddListElementKernels(ScalarFunction* func) {
     auto output = OutputType{ListValuesType};
     auto sig = KernelSignature::Make(std::move(inputs), std::move(output),
                                      /*is_varargs=*/false);
-    auto scalar_exec = GenerateInteger<Functor, InListType>({index_type->id()});
+    auto scalar_exec =
+        GenerateInteger<Functor, WithType0<InListType>>({index_type->id()});
     ScalarKernel kernel{std::move(sig), std::move(scalar_exec)};
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
