@@ -377,6 +377,7 @@ TEST(ScalarMemoTable, StressInt64) {
   ASSERT_EQ(table.size(), map.size());
 }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
 TEST(ScalarMemoTable, MergeTablePropagatesInsertError) {
   int64_t bytes_allocated_limit = 0;
   {
@@ -402,6 +403,7 @@ TEST(ScalarMemoTable, MergeTablePropagatesInsertError) {
 
   ASSERT_RAISES(OutOfMemory, target.MergeTable(source));
 }
+#endif
 
 TEST(BinaryMemoTable, Basics) {
   std::string A = "", B = "a", C = "foo", D = "bar", E, F;
@@ -507,6 +509,7 @@ TEST(BinaryMemoTable, Stress) {
   ASSERT_EQ(table.size(), map.size());
 }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
 TEST(BinaryMemoTable, MergeTablePropagatesInsertError) {
   const std::vector<std::string> initial_values = {"a", "bb", "ccc", "dddd"};
   const std::string extra_value(4096, 'x');
@@ -535,7 +538,7 @@ TEST(BinaryMemoTable, MergeTablePropagatesInsertError) {
 
   ASSERT_RAISES(OutOfMemory, target.MergeTable(source));
 }
-
+#endif
 TEST(BinaryMemoTable, Empty) {
   BinaryMemoTable<BinaryBuilder> table(default_memory_pool());
   ASSERT_EQ(table.size(), 0);
