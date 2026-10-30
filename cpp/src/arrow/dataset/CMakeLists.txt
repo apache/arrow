@@ -111,16 +111,6 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_dataset_static PUBLIC ARROW_DS_STATIC)
 endif()
 
-if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS
-      arrow_dataset_static arrow_acero_testing arrow_compute_testing_main
-      ${ARROW_TEST_STATIC_LINK_LIBS})
-else()
-  set(ARROW_DATASET_TEST_LINK_LIBS
-      arrow_dataset_shared arrow_acero_testing arrow_compute_testing_main
-      ${ARROW_TEST_SHARED_LINK_LIBS})
-endif()
-
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
@@ -137,7 +127,7 @@ if(ARROW_TESTING)
     target_link_libraries(arrow_dataset_testing PUBLIC arrow_dataset_shared
                                                        ${ARROW_TEST_SHARED_LINK_LIBS})
   endif()
-  list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
+  target_link_libraries(arrow_dataset_testing PUBLIC arrow_acero_testing)
 endif()
 
 # Adding unit tests part of the "dataset" portion of the test suite
@@ -157,10 +147,9 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
     set(PREFIX "arrow-dataset")
   endif()
 
+  set(EXTRA_LINK_LIBS arrow_dataset_testing arrow_compute_testing_main)
   if(ARG_EXTRA_LINK_LIBS)
-    set(EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
-  else()
-    set(EXTRA_LINK_LIBS ${ARROW_DATASET_TEST_LINK_LIBS})
+    list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
   endif()
 
   if(ARG_LABELS)
@@ -194,12 +183,11 @@ if(ARROW_CSV)
 endif()
 
 if(ARROW_JSON)
-  add_arrow_dataset_test(file_json_test EXTRA_LINK_LIBS ${ARROW_DATASET_TEST_LINK_LIBS}
-                         arrow::simdjson)
+  add_arrow_dataset_test(file_json_test EXTRA_LINK_LIBS arrow::simdjson)
 endif()
 
 if(ARROW_ORC)
-  add_arrow_dataset_test(file_orc_test EXTRA_LINK_LIBS ${ARROW_DATASET_TEST_LINK_LIBS})
+  add_arrow_dataset_test(file_orc_test)
 endif()
 
 if(ARROW_PARQUET)
