@@ -42,6 +42,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/extension/json.h"
 #include "arrow/io/api.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -3570,6 +3571,234 @@ TEST(ArrowReadWrite, EmptyListView) {
   ASSERT_EQ(0, list_view.value_offsets()->size());
   ASSERT_NE(nullptr, list_view.value_sizes());
   ASSERT_EQ(0, list_view.value_sizes()->size());
+}
+
+// Build the same numbers as fixed-size and ordinary lists for comparison
+template <typename ArrowType>
+static Result<std::pair<std::shared_ptr<Table>, std::shared_ptr<Table>>>
+MakeFixedListTestTables(int32_t list_size, bool root_nullable, bool item_nullable,
+                        int64_t rows = 65, bool chunked = true) {
+  ::arrow::NumericBuilder<ArrowType> values_builder;
+  const int64_t value_count = (rows + 2) * list_size + 3;
+  RETURN_NOT_OK(values_builder.Reserve(value_count));
+  for (int64_t i = 0; i < value_count; ++i) {
+    RETURN_NOT_OK(values_builder.Append(
+        static_cast<typename ArrowType::c_type>((i * 17) % 1009 - 504)));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto values, values_builder.Finish());
+  values = values->Slice(3, (rows + 2) * list_size);
+  ::arrow::Int32Builder offsets_builder;
+  for (int64_t i = 0; i <= rows + 2; ++i) {
+    RETURN_NOT_OK(offsets_builder.Append(static_cast<int32_t>(i * list_size)));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto offsets, offsets_builder.Finish());
+  auto item = ::arrow::field("item", std::make_shared<ArrowType>(), item_nullable);
+  ARROW_ASSIGN_OR_RAISE(auto fixed,
+                        ::arrow::FixedSizeListArray::FromArrays(
+                            values, ::arrow::fixed_size_list(item, list_size)));
+  ARROW_ASSIGN_OR_RAISE(auto ordinary, ::arrow::ListArray::FromArrays(::arrow::list(item),
+                                                                      *offsets, *values));
+  auto make_table = [&](const std::shared_ptr<Array>& array) {
+    auto sliced = array->Slice(1, rows);
+    ArrayVector chunks;
+    if (chunked) {
+      const int64_t first = rows / 3;
+      const int64_t second = rows / 3;
+      chunks = {sliced->Slice(0, 0), sliced->Slice(0, first), sliced->Slice(first, 0),
+                sliced->Slice(first, second),
+                sliced->Slice(first + second, rows - first - second)};
+    } else {
+      chunks = {sliced};
+    }
+    auto column = std::make_shared<ChunkedArray>(chunks);
+    auto schema =
+        ::arrow::schema({::arrow::field("root", sliced->type(), root_nullable)});
+    return Table::Make(schema, {column});
+  };
+  return std::make_pair(make_table(fixed), make_table(ordinary));
+}
+
+// Write a test table into memory so we can compare its saved bytes
+static Result<std::shared_ptr<Buffer>> WriteFixedListTestTable(
+    const Table& table, const std::shared_ptr<WriterProperties>& properties,
+    int64_t row_group_size, bool store_schema = false, bool buffered = false) {
+  ArrowWriterProperties::Builder arrow_properties;
+  arrow_properties.set_use_threads(false);
+  if (store_schema) {
+    arrow_properties.store_schema();
+  }
+  ARROW_ASSIGN_OR_RAISE(auto sink, ::arrow::io::BufferOutputStream::Create());
+  if (buffered) {
+    ARROW_ASSIGN_OR_RAISE(auto writer,
+                          FileWriter::Open(*table.schema(), default_memory_pool(), sink,
+                                           properties, arrow_properties.build()));
+    RETURN_NOT_OK(writer->NewBufferedRowGroup());
+    ::arrow::TableBatchReader batches(table);
+    batches.set_chunksize(7);
+    while (true) {
+      std::shared_ptr<::arrow::RecordBatch> batch;
+      RETURN_NOT_OK(batches.ReadNext(&batch));
+      if (!batch) {
+        break;
+      }
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+    }
+    RETURN_NOT_OK(writer->Close());
+  } else {
+    RETURN_NOT_OK(WriteTable(table, default_memory_pool(), sink, row_group_size,
+                             properties, arrow_properties.build()));
+  }
+  return sink->Finish();
+}
+
+// Compare saved bytes and read-back data across different writer settings
+template <typename ArrowType>
+static void CheckFixedSizeListFastPath() {
+  struct Settings {
+    int64_t batch_size;
+    int64_t page_size;
+    int64_t rows_per_page;
+    int64_t row_group_size;
+    int64_t dictionary_size;
+  };
+  const std::vector<Settings> settings = {
+      {1, 64, 1, 1, -1},
+      {7, 128, 3, 17, 64},
+      {1024, 1 << 20, 4096, 65, 1 << 20},
+  };
+  for (int32_t list_size : {1, 3, 8, 9, 16, 768}) {
+    for (bool root_nullable : {false, true}) {
+      for (bool item_nullable : {false, true}) {
+        ASSERT_OK_AND_ASSIGN(auto tables, MakeFixedListTestTables<ArrowType>(
+                                              list_size, root_nullable, item_nullable));
+        const auto& fixed_table = tables.first;
+        const auto& list_table = tables.second;
+        for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+          for (bool page_index : {false, true}) {
+            for (const auto& setting : settings) {
+              SCOPED_TRACE(::testing::Message()
+                           << "list_size=" << list_size << " root_nullable="
+                           << root_nullable << " item_nullable=" << item_nullable
+                           << " version=" << static_cast<int>(version) << " page_index="
+                           << page_index << " batch_size=" << setting.batch_size);
+              WriterProperties::Builder builder;
+              builder.data_page_version(version);
+              builder.write_batch_size(setting.batch_size);
+              builder.data_pagesize(setting.page_size);
+              builder.max_rows_per_page(setting.rows_per_page);
+              builder.set_size_statistics_level(SizeStatisticsLevel::PageAndColumnChunk);
+              if (page_index) {
+                builder.enable_write_page_index();
+              } else {
+                builder.disable_write_page_index();
+              }
+              if (setting.dictionary_size < 0) {
+                builder.disable_dictionary();
+              } else {
+                builder.enable_dictionary();
+                builder.dictionary_pagesize_limit(setting.dictionary_size);
+              }
+              auto properties = builder.build();
+              ASSERT_OK_AND_ASSIGN(auto expected,
+                                   WriteFixedListTestTable(*list_table, properties,
+                                                           setting.row_group_size));
+              ASSERT_OK_AND_ASSIGN(auto actual,
+                                   WriteFixedListTestTable(*fixed_table, properties,
+                                                           setting.row_group_size));
+              ASSERT_TRUE(expected->Equals(*actual));
+              ASSERT_OK_AND_ASSIGN(auto stored,
+                                   WriteFixedListTestTable(*fixed_table, properties,
+                                                           setting.row_group_size, true));
+              ASSERT_OK_AND_ASSIGN(auto reader,
+                                   OpenFile(std::make_shared<BufferReader>(stored),
+                                            default_memory_pool()));
+              ASSERT_OK_AND_ASSIGN(auto restored, reader->ReadTable());
+              ASSERT_TRUE(fixed_table->Equals(*restored));
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Check that the shortcut saves identical files and reads back the original lists
+TEST(ArrowReadWrite, FixedSizeListFastPathMatchesList) {
+  ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::Int32Type>());
+  ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::Int64Type>());
+  ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::FloatType>());
+  ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::DoubleType>());
+}
+
+// Measure the highest amount of writer memory tracked by Arrow during a write
+static Result<int64_t> MeasureFixedListWriterMemory(const Table& table) {
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  {
+    ARROW_ASSIGN_OR_RAISE(auto sink, ::arrow::io::BufferOutputStream::Create());
+    WriterProperties::Builder properties;
+    properties.memory_pool(&pool);
+    properties.disable_dictionary();
+    properties.compression(Compression::UNCOMPRESSED);
+    properties.write_batch_size(table.num_rows() * 3);
+    properties.data_pagesize(64 << 20);
+    properties.max_rows_per_page(table.num_rows() + 1);
+    properties.set_size_statistics_level(SizeStatisticsLevel::None);
+    ArrowWriterProperties::Builder arrow_properties;
+    arrow_properties.set_use_threads(false);
+    RETURN_NOT_OK(WriteTable(table, &pool, sink, table.num_rows(), properties.build(),
+                             arrow_properties.build()));
+  }
+  return pool.max_memory();
+}
+
+// Check that the shortcut saves at least one marker array worth of temporary memory
+TEST(ArrowReadWrite, FixedSizeListFastPathUsesLessMemory) {
+  constexpr int64_t rows = 65536;
+  constexpr int32_t list_size = 3;
+  ASSERT_OK_AND_ASSIGN(auto tables, MakeFixedListTestTables<::arrow::FloatType>(
+                                        list_size, false, false, rows, false));
+  ASSERT_OK_AND_ASSIGN(const int64_t fast_peak,
+                       MeasureFixedListWriterMemory(*tables.first));
+  ASSERT_OK_AND_ASSIGN(const int64_t generic_peak,
+                       MeasureFixedListWriterMemory(*tables.second));
+  const int64_t one_marker_array =
+      rows * list_size * static_cast<int64_t>(sizeof(int16_t));
+  ASSERT_LE(fast_peak + one_marker_array, generic_peak);
+}
+
+// Check that missing lists, missing values and unsupported settings keep correct output
+TEST(ArrowReadWrite, FixedSizeListFallbackMatchesList) {
+  const std::vector<std::vector<std::string>> cases = {
+      {R"([{"root": [1, 2, 3]}])", R"([{"root": [4, 5, 6]}, {"root": [7, 8, 9]}])"},
+      {R"([{"root": [1, 2, 3]}])", R"([{"root": null}, {"root": [4, null, 6]}])"},
+  };
+  auto item = ::arrow::field("item", ::arrow::int32());
+  auto fixed_schema =
+      ::arrow::schema({::arrow::field("root", ::arrow::fixed_size_list(item, 3))});
+  auto list_schema = ::arrow::schema({::arrow::field("root", ::arrow::list(item))});
+  for (const auto& json : cases) {
+    auto fixed_table = ::arrow::TableFromJSON(fixed_schema, json);
+    auto list_table = ::arrow::TableFromJSON(list_schema, json);
+    for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+      for (bool buffered : {false, true}) {
+        for (bool content_defined : {false, true}) {
+          WriterProperties::Builder builder;
+          builder.data_page_version(version);
+          if (content_defined) {
+            builder.enable_content_defined_chunking();
+          }
+          auto properties = builder.build();
+          ASSERT_OK_AND_ASSIGN(
+              auto expected,
+              WriteFixedListTestTable(*list_table, properties, 65, false, buffered));
+          ASSERT_OK_AND_ASSIGN(
+              auto actual,
+              WriteFixedListTestTable(*fixed_table, properties, 65, false, buffered));
+          ASSERT_TRUE(expected->Equals(*actual));
+        }
+      }
+    }
+  }
 }
 
 struct FixedSizeListTestCase {

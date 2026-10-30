@@ -73,6 +73,12 @@ class PARQUET_EXPORT LevelEncoder {
   // Encodes a batch of levels from an array and returns the number of levels encoded
   int Encode(int batch_size, const int16_t* levels);
 
+  // Encode one marker many times without an input array using RLE
+  int EncodeRepeated(int batch_size, int16_t level);
+
+  // Encode markers from a list start such as 0, 1, 1 for lists of size 3
+  int EncodeFixedSizeList(int batch_size, int32_t list_size);
+
   int32_t len() {
     if (encoding_ != Encoding::RLE) {
       throw ParquetException("Only implemented for RLE encoding");

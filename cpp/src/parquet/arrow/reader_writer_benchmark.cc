@@ -222,6 +222,61 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, false, BooleanType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
+// Measure writing the same numbers as a flat column or fixed-size lists
+static void BM_WriteFloatLayout(::benchmark::State& state) {
+  const bool use_lists = state.range(0) == 1;
+  const int32_t list_size = static_cast<int32_t>(state.range(1));
+  const auto page_version =
+      state.range(2) == 1 ? ParquetDataPageVersion::V1 : ParquetDataPageVersion::V2;
+  const int64_t num_values = (BENCHMARK_SIZE / list_size) * list_size;
+
+  ::arrow::random::RandomArrayGenerator rng(500);
+  auto values = rng.Float32(num_values, -1.0f, 1.0f, 0.0);
+  std::shared_ptr<::arrow::Array> column = values;
+
+  if (use_lists) {
+    auto item_field = ::arrow::field("item", ::arrow::float32(), false);
+    auto list_type = ::arrow::fixed_size_list(item_field, list_size);
+    auto lists = ::arrow::FixedSizeListArray::FromArrays(values, list_type);
+    EXIT_NOT_OK(lists.status());
+    column = *lists;
+  }
+
+  auto column_field = ::arrow::field("column", column->type(), false);
+  auto schema = ::arrow::schema({column_field});
+  auto table = ::arrow::Table::Make(schema, {column});
+
+  WriterProperties::Builder builder;
+  builder.disable_dictionary();
+  builder.compression(Compression::UNCOMPRESSED);
+  builder.data_page_version(page_version);
+  auto properties = builder.build();
+
+  state.SetLabel(use_lists ? "fixed_size_list" : "flat");
+  while (state.KeepRunning()) {
+    auto output = CreateOutputStream();
+    EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output,
+                           table->num_rows(), properties));
+  }
+
+  const int64_t total_values = state.iterations() * num_values;
+  state.SetItemsProcessed(total_values);
+  state.SetBytesProcessed(total_values * sizeof(float));
+}
+
+// Run both layouts with six list sizes and both Parquet page versions
+static void FloatLayoutWriteArguments(::benchmark::internal::Benchmark* b) {
+  for (int64_t layout : {0, 1}) {
+    for (int64_t list_size : {1, 3, 8, 9, 16, 768}) {
+      for (int64_t page_version : {1, 2}) {
+        b->Args({layout, list_size, page_version});
+      }
+    }
+  }
+}
+
+BENCHMARK(BM_WriteFloatLayout)->Apply(FloatLayoutWriteArguments);
+
 int32_t kInfiniteUniqueValues = -1;
 
 std::shared_ptr<Table> RandomStringTable(std::shared_ptr<::arrow::DataType> type,
