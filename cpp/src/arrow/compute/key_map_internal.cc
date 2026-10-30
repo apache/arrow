@@ -616,6 +616,52 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
   ARROW_DCHECK(static_cast<int>(num_ids) <= (1 << log_minibatch_));
   ARROW_DCHECK(static_cast<int>(max_id + 1) <= (1 << log_minibatch_));
 
+  // --- Optimization: Pre-grow the hash table if we estimate that this batch of new
+  // keys would trigger many individual grow_double calls. When num_ids is large (e.g.,
+  // every row in a minibatch is a new key) and the hash table is still small, the
+  // original do-while loop would call grow_double once per capacity threshold, resulting
+  // in O(log(num_final_slots)) individual grows, each reprocessing all existing entries.
+  // Instead, grow to the estimated required capacity upfront so map_new_keys_helper can
+  // insert all new keys without repeated resize breaks.
+  {
+    // Conservative estimate: assume all num_ids are genuinely new (best upper bound).
+    int64_t new_total = static_cast<int64_t>(num_inserted_) +
+                        static_cast<int64_t>(num_ids);
+
+    // Find the smallest log_blocks whose load-factor capacity strictly exceeds
+    // new_total (one above the exact count). Using a strict greater-than avoids a
+    // corner case where capacity == new_total would still let map_new_keys_helper
+    // trigger an out_of_capacity stop (which fires when num_inserted_ == num_groups_limit).
+    //
+    // Mirrors num_groups_for_resize():
+    //   small tables (log_blocks <= 9): 50% load factor
+    //   large tables (log_blocks > 9):  75% load factor
+    int target_log_blocks = log_blocks_;
+    while (target_log_blocks < 31) {
+      int64_t num_slots = num_slots_from_log_blocks(target_log_blocks);
+      int64_t capacity;
+      if (target_log_blocks <= 9) {
+        capacity = num_slots / 2;
+      } else {
+        capacity = num_slots * 3 / 4;
+      }
+      if (capacity > new_total) break;
+      ++target_log_blocks;
+    }
+
+    // Only pre-grow if it actually saves work: more than one grow_double would
+    // otherwise be required.  A single grow_double is cheap enough to keep the
+    // fast path untouched.
+    int grows_needed = target_log_blocks - log_blocks_;
+    if (grows_needed > 1) {
+      for (int i = 0; i < grows_needed; ++i) {
+        RETURN_NOT_OK(grow_double());
+      }
+      // init_slot_ids_for_new_keys below will recompute starting slot ids using the
+      // new log_blocks_, so no extra bookkeeping is needed here.
+    }
+  }
+
   // Allocate temporary buffers for slot ids and initialize them
   auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack, max_id + 1);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
