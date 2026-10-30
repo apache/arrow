@@ -16,10 +16,12 @@
 # under the License.
 # mypy: warn-unused-ignores
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Literal
 
 import pyarrow.lib as lib
 import pyarrow.types as types
+from typing_extensions import CapsuleType
 
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
 
@@ -139,6 +141,15 @@ def test_schema() -> None:
     check(assert_type(schema[0], lib.Field), lib.Field)
 
 
+def test_key_value_metadata() -> None:
+    # The runtime yields generators instead of Mapping views (duplicated keys)
+    metadata = lib.KeyValueMetadata([(b"a", b"1"), (b"a", b"2")])
+    check(assert_type(metadata.keys(), Iterator[bytes]), Iterator)
+    check(assert_type(metadata.values(), Iterator[bytes]), Iterator)
+    check(assert_type(metadata.items(), Iterator[tuple[bytes, bytes]]),
+          Iterator)
+
+
 def test_type_predicates_narrow() -> None:
     lst = _erase(lib.list_(lib.int32()))
     assert types.is_list(lst)
@@ -177,6 +188,31 @@ def test_type_predicates_narrow() -> None:
     ree = lib.run_end_encoded(lib.int32(), lib.string())
     assert types.is_nested(ree)
     check(assert_type(ree, lib.RunEndEncodedType), lib.RunEndEncodedType)
+
+
+def test_import_from_c_capsule() -> None:
+    capsule = lib.int32().__arrow_c_schema__()
+    check(assert_type(capsule, CapsuleType), CapsuleType)
+
+    # The import methods are static and return whatever type the C schema
+    # holds, not the class they are called on.
+    imported = lib.ListType._import_from_c_capsule(capsule)
+    check(assert_type(imported, lib.DataType), lib.DataType)
+    assert not isinstance(imported, lib.ListType)
+
+    field = lib.field("a", lib.int32())
+    field_capsule = field.__arrow_c_schema__()
+    check(assert_type(field_capsule, CapsuleType), CapsuleType)
+
+    imported_field = lib.Field._import_from_c_capsule(field_capsule)
+    check(assert_type(imported_field, lib.Field), lib.Field)
+
+    schema = lib.schema([field])
+    schema_capsule = schema.__arrow_c_schema__()
+    check(assert_type(schema_capsule, CapsuleType), CapsuleType)
+
+    imported_schema = lib.Schema._import_from_c_capsule(schema_capsule)
+    check(assert_type(imported_schema, lib.Schema), lib.Schema)
 
 
 def test_invalid_usage() -> None:
