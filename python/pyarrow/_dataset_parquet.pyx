@@ -20,6 +20,7 @@
 """Dataset support for Parquet file format."""
 
 from cython.operator cimport dereference as deref
+from libc.float cimport DBL_EPSILON
 
 import os
 import warnings
@@ -708,7 +709,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_byte_stream_split=False,
             column_encoding=None,
             data_page_version="1.0",
-            min_compression_savings=0.0,
+            min_compression_savings=DBL_EPSILON,
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,

@@ -116,7 +116,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
       int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
-      double min_compression_savings = 0.0) {
+      double min_compression_savings = kDefaultMinCompressionSavings) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -2115,6 +2115,7 @@ TEST_F(TestValuesWriterInt32Type, MinCompressionSavingsDataPageV2) {
   ASSERT_LT(savings, 0.99);
 
   const std::vector<std::pair<double, bool>> cases = {
+      {kDefaultMinCompressionSavings, true},
       {0.0, true},
       {0.1, true},
       {1.0, false},

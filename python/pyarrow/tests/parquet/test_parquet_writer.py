@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import sys
+
 import pytest
 
 import pyarrow as pa
@@ -44,8 +46,10 @@ pytestmark = pytest.mark.parquet
 @pytest.mark.parametrize("page_version, minimum", [
     ("1.0", None),
     ("1.0", 0.0),
+    ("1.0", sys.float_info.epsilon),
     ("2.0", None),
     ("2.0", 0.0),
+    ("2.0", sys.float_info.epsilon),
     ("2.0", 0.1),
     ("2.0", 1.0),
 ])
@@ -106,7 +110,7 @@ def test_invalid_min_compression_savings(minimum, use_writer):
                 min_compression_savings=minimum)
 
 
-@pytest.mark.parametrize("minimum", [0.1, 1.0])
+@pytest.mark.parametrize("minimum", [2 * sys.float_info.epsilon, 0.1, 1.0])
 @pytest.mark.parametrize("use_writer", [False, True])
 def test_min_compression_savings_rejects_v1(minimum, use_writer):
     table = pa.table({"value": [1.0]})

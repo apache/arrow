@@ -83,10 +83,10 @@ TEST(TestWriterProperties, DefaultCompression) {
 // Checks the default, stored, and copied min_compression_savings.
 TEST(TestWriterProperties, MinCompressionSavings) {
   WriterProperties::Builder builder;
-  ASSERT_EQ(0.0, builder.build()->min_compression_savings());
+  ASSERT_EQ(kDefaultMinCompressionSavings, builder.build()->min_compression_savings());
 
   builder.data_page_version(ParquetDataPageVersion::V2);
-  for (double savings : {0.0, 0.1, 1.0}) {
+  for (double savings : {0.0, kDefaultMinCompressionSavings, 0.1, 1.0}) {
     auto properties = builder.min_compression_savings(savings)->build();
     ASSERT_EQ(savings, properties->min_compression_savings());
 
@@ -109,7 +109,7 @@ TEST(TestWriterProperties, InvalidMinCompressionSavings) {
 }
 
 TEST(TestWriterProperties, MinCompressionSavingsRequiresDataPageV2) {
-  for (double savings : {0.1, 1.0}) {
+  for (double savings : {2 * kDefaultMinCompressionSavings, 0.1, 1.0}) {
     WriterProperties::Builder builder;
     builder.min_compression_savings(savings);
     EXPECT_THROW(builder.build(), ParquetException);
@@ -121,6 +121,8 @@ TEST(TestWriterProperties, MinCompressionSavingsRequiresDataPageV2) {
     EXPECT_THROW(builder.build(), ParquetException);
 
     builder.min_compression_savings(0.0);
+    EXPECT_NO_THROW(builder.build());
+    builder.min_compression_savings(kDefaultMinCompressionSavings);
     EXPECT_NO_THROW(builder.build());
   }
 }
