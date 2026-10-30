@@ -33,8 +33,8 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     arrow::Result<std::unique_ptr<FlightStreamReader>> result;
     std::shared_ptr<FlightSqlClient> temp_flight_sql_client;
     auto endpoint_locations = endpoint.locations;
-    if (endpoint_locations.empty()) {
-      // list of Locations needs to be empty to proceed
+    if (endpoint_locations.empty() ||
+        endpoint_locations[0].scheme() == Location::ReuseConnection().scheme()) {
       result = flight_sql_client.DoGet(call_options, ticket);
     } else {
       // If it is non-empty, the driver should create a FlightSqlClient to connect to one
@@ -67,8 +67,8 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
       bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
 
       // If result is valid, save the temp Flight SQL Client for future stream reader
-      // call. temp_flight_sql_client is intentionally null if the list of endpoint
-      // Locations is empty.
+      // call. temp_flight_sql_client is intentionally null if the endpoint is read
+      // from the original connection.
       // After all data is fetched from reader, the temp client is closed.
       if (is_not_ok || is_not_empty) {
         return std::make_optional(
