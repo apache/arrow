@@ -478,6 +478,20 @@ TEST(Decimal128Test, FromStringLimits) {
                           38, 38);
 }
 
+TEST(Decimal128Test, RescaleScaleParsedFromStringOutOfRange) {
+  // A negative exponent with few significant digits parses to a small precision but
+  // a scale far beyond kMaxScale. Rescaling that value to the target scale (as the
+  // CSV decimal converter does) used to index the scale-multiplier table out of
+  // bounds; it now fails cleanly.
+  Decimal128 value;
+  int32_t precision = 0;
+  int32_t scale = 0;
+  ASSERT_OK(Decimal128::FromString("1E-100", &value, &precision, &scale));
+  ASSERT_EQ(precision, 1);
+  ASSERT_EQ(scale, 100);
+  ASSERT_RAISES(Invalid, value.Rescale(scale, 0));
+}
+
 TEST(Decimal256Test, FromStringLimits) {
   // Positive / zero exponent
   AssertDecimalFromString(
@@ -1599,6 +1613,13 @@ TYPED_TEST(TestBasicDecimalFunctionality, Rescale) {
       ASSERT_OK_AND_EQ(TypeParam(-1), negative_value.Rescale(new_scale, original_scale));
     }
   }
+
+  // A scale change larger than kMaxScale used to index the scale-multiplier table
+  // out of bounds (an out-of-bounds read caught by ASAN). It now reports data loss
+  // for both the multiply and divide directions. A delta of exactly kMaxScale is the
+  // largest valid multiplier and is exercised by the loops above.
+  ASSERT_RAISES(Invalid, TypeParam(1).Rescale(0, TypeParam::kMaxScale + 1));
+  ASSERT_RAISES(Invalid, TypeParam(1).Rescale(TypeParam::kMaxScale + 1, 0));
 }
 
 TYPED_TEST(TestBasicDecimalFunctionality, Mod) {
