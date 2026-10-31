@@ -40,15 +40,14 @@
 #else
 #  define PyDateTimeAPI ::arrow::py::internal::datetime_api
 
-// Under Py_LIMITED_API (the cp311-abi3 build) CPython's <datetime.h> is
-// entirely absent (it lives behind #ifndef Py_LIMITED_API), so neither the
-// PyDateTime_CAPI struct nor the PyDate_Check / PyDate_FromDate macros are
-// provided. The datetime C-API is still exposed at runtime through the
-// "datetime.datetime_CAPI" capsule (which InitDatetime() imports and stores in
-// datetime_api); the struct layout is a documented, stable part of that
-// capsule contract. Define the struct and the check/constructor macros we use
-// so the same code compiles in the limited-API build. The layout must stay in
-// sync with CPython's Modules/_datetimemodule.c datetime_capsule.
+// Under Py_LIMITED_API, CPython's <datetime.h> is #ifdef'd out entirely, so
+// we define the PyDateTime_CAPI struct and the check/constructor macros we
+// use ourselves. The C-API itself is still available at runtime through the
+// "datetime.datetime_CAPI" capsule (imported by InitDatetime). CPython calls
+// this struct "private and subject to change"; it has been append-only since
+// 3.3 and is identical across 3.11.0-3.14.0. We only read fields that exist
+// in 3.11, and InitDatetime checks the capsule version, so drift fails
+// loudly instead of corrupting silently.
 #  ifdef Py_LIMITED_API
 #    ifndef DATETIME_H
 #      define DATETIME_H
@@ -130,21 +129,21 @@ void InitDatetime();
 ARROW_PYTHON_EXPORT
 PyObject* NewMonthDayNanoTupleType();
 
-// Reads an integer field ("year", "hour", "days", ...) off a Python
-// date/time/datetime/timedelta object through the stable C-API. The fast
-// datetime struct-field accessors (PyDateTime_TIME_GET_HOUR etc.) are hidden
-// under Py_LIMITED_API (abi3), so attribute access is the portable path.
-// Callers pass a type-checked object, so the field is guaranteed present and
-// integral; a failure is a genuine invariant violation.
+// Reads an integer field ("year", "hour", "days", ...) off a date/time
+// object. The struct-field accessors are hidden under Py_LIMITED_API, so
+// attribute access is the portable path. Subclasses pass the check macros
+// and can shadow a field with a raising property or a non-int value, so on
+// failure we return -1 with the Python exception left set; call sites must
+// RETURN_IF_PYERROR.
 ARROW_PYTHON_EXPORT
 inline int64_t PyDatetimeField(PyObject* obj, const char* name) {
   OwnedRef field(PyObject_GetAttrString(obj, name));
   if (ARROW_PREDICT_FALSE(field.obj() == nullptr)) {
-    Py_FatalError("arrow: failed to read datetime field");
+    return -1;  // exception already set by the attribute access
   }
   long long v = PyLong_AsLongLong(field.obj());
   if (ARROW_PREDICT_FALSE(v == -1 && PyErr_Occurred())) {
-    Py_FatalError("arrow: datetime field is not an integer");
+    return -1;  // TypeError/OverflowError already set by PyLong_AsLongLong
   }
   return v;
 }

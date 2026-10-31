@@ -285,7 +285,9 @@ PyObject* NewMonthDayNanoTupleType() {
       Py_FatalError("Could not initialize MonthDayNanoTuple");
     }
   }
-  Py_INCREF(MonthDayNanoTupleType);
+  // Py_INCREF takes PyObject*; pass the base explicitly — the PyTypeObject* to
+  // PyObject* derived-to-base conversion is not implicit here under the limited API.
+  Py_INCREF((PyObject*)MonthDayNanoTupleType);
   return (PyObject*)MonthDayNanoTupleType;
 }
 

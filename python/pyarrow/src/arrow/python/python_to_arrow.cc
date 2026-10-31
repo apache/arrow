@@ -300,6 +300,7 @@ class PyValue {
       RETURN_NOT_OK(
           internal::CIntFromPython(obj, &value, "Integer too large for date32"));
     }
+    RETURN_IF_PYERROR();  // datetime helpers report via the Python error channel
     return value;
   }
 
@@ -316,6 +317,7 @@ class PyValue {
       RETURN_NOT_OK(
           internal::CIntFromPython(obj, &value, "Integer too large for date64"));
     }
+    RETURN_IF_PYERROR();
     return value;
   }
 
@@ -335,6 +337,7 @@ class PyValue {
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int32"));
     }
+    RETURN_IF_PYERROR();
     return value;
   }
 
@@ -354,6 +357,7 @@ class PyValue {
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int64"));
     }
+    RETURN_IF_PYERROR();
     return value;
   }
 
@@ -413,6 +417,7 @@ class PyValue {
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
     }
+    RETURN_IF_PYERROR();
     return value;
   }
 
@@ -491,6 +496,7 @@ class PyValue {
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
     }
+    RETURN_IF_PYERROR();
     return value;
   }
 
@@ -1163,11 +1169,10 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       // the stable-API equivalent, but returns a borrowed reference.
       PyObject* name = PyList_GetItem(field_names, i);
       RETURN_IF_PYERROR();
-      OwnedRef nameref(name);
       // PyDict_GetItemRef is full-C-API (3.13+); PyDict_GetItemWithError is the
       // stable-API equivalent (returns NULL for a missing key without raising).
       PyObject* value = PyDict_GetItemWithError(dict, name);
-      OwnedRef valueref(value);
+      // Both are borrowed for the loop iteration; do not wrap in OwnedRef.
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
     return Status::OK();
@@ -1201,7 +1206,6 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       // returns a borrowed reference.
       PyObject* name = PyList_GetItem(field_names, i);
       RETURN_IF_PYERROR();
-      OwnedRef nameref(name);
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
 
