@@ -1,4 +1,3 @@
-
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -8,7 +7,6 @@
 // with the License.  You may obtain a copy of the License at
 //
 //   http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -17,20 +15,39 @@
 // under the License.
 
 // Releases abandoned assignments on newcomer-friendly issues:
-//   - a linked PR is closed without merging -> unassign immediately
-//   - no linked PR and no assignee comment for WARN_AFTER_DAYS -> warn,
+//   - a linked PR is closed without merging and no other open linked PR
+//     exists from the same author -> unassign immediately
+//   - no qualifying activity for WARN_AFTER_DAYS -> warn,
 //     then unassign GRACE_DAYS later if there is still no activity.
 
 const helpers = require("./dev_pr/helpers.js");
 
-const WARN_AFTER_DAYS = 5 / (24 * 60); // 5 minutes
-const GRACE_DAYS = 1 / (24 * 60);      // 1 minute
+const WARN_AFTER_DAYS = 5;
+const GRACE_DAYS = 3;
 const LABELS = ["good-first-issue", "good-second-issue"];
 const DAY = 24 * 60 * 60 * 1000;
+const TIMER_PAUSE_LABELS = [
+  "awaiting review",
+  "awaiting committer review",
+  "awaiting change review",
+  "awaiting merge",
+];
+
+// GitHub author associations used to identify maintainers and collaborators.
+const isMaintainer = association =>
+  ["MEMBER", "OWNER", "COLLABORATOR"].includes(association);
+
+// A PR awaiting review or merge is not considered inactive.
+const hasTimerPauseLabel = pr =>
+  pr.labels.some(label =>
+    TIMER_PAUSE_LABELS.includes(label.name.toLowerCase())
+  );
 
 const same = (a, b) => a?.toLowerCase() === b?.toLowerCase();
+
 const hasNewcomerLabel = issue =>
   issue.labels.some(label => LABELS.includes(label.name));
+
 const warningMarker = login =>
   `<!-- unassign-bot-warning:${login.toLowerCase()} -->`;
 
@@ -82,12 +99,23 @@ module.exports = async ({ github, context }) => {
       return;
     }
 
-    const issue = await github.rest.issues
-      .get({ owner, repo, issue_number: number })
-      .then(r => r.data, () => null);  // the title may name a missing issue
+    let issue;
+    try {
+      issue = (
+        await github.rest.issues.get({
+          owner,
+          repo,
+          issue_number: number,
+        })
+      ).data;
+    } catch (error) {
+      if (error.status !== 404) {
+        throw error;
+      }
 
-    if (!issue) {
-      console.log(`Skipping PR #${pr.number}: referenced issue #${number} was not found`);
+      console.log(
+        `Skipping PR #${pr.number}: referenced issue #${number} was not found`
+      );
       return;
     }
 
@@ -122,7 +150,7 @@ module.exports = async ({ github, context }) => {
     return;
   }
 
-  // Scheduled / manual: warn, then release assignments with no author PR.
+  // Scheduled / manual: warn, then release inactive assignments.
   const byNumber = new Map();
 
   for (const label of LABELS) {
@@ -138,19 +166,23 @@ module.exports = async ({ github, context }) => {
     }
   }
 
+  // Fetch open PRs once and reuse them for all assigned issues.
   const openPrs = await paginate(github.rest.pulls.list, { state: "open" });
+
+  let failures = 0;
 
   for (const issue of byNumber.values()) {
     for (const { login } of issue.assignees) {
       try {
-        // An open linked PR protects only its own author.
-        const hasOpenPr = openPrs.some(
+        // Only consider linked PRs opened by this assignee.
+        const linkedPrs = openPrs.filter(
           pr =>
             linkedIssue(pr) === issue.number &&
             same(pr.user.login, login)
         );
 
-        if (hasOpenPr) {
+        // Pause the timer while the PR is awaiting review.
+        if (linkedPrs.some(hasTimerPauseLabel)) {
           continue;
         }
 
@@ -158,6 +190,8 @@ module.exports = async ({ github, context }) => {
           issue_number: issue.number,
         });
 
+        // Use the most recent assignment event to avoid counting activity from
+        // before the contributor was assigned.
         const assignedAt = Math.max(
           0,
           ...events
@@ -170,7 +204,7 @@ module.exports = async ({ github, context }) => {
         );
 
         if (!assignedAt) {
-          continue;  // unknown assignment time: keep the assignment
+          continue; // Unknown assignment time: keep the assignment.
         }
 
         const comments = await paginate(github.rest.issues.listComments, {
@@ -178,11 +212,94 @@ module.exports = async ({ github, context }) => {
           since: new Date(assignedAt).toISOString(),
         });
 
+        // Activity on a linked PR counts when it comes from the assignee or
+        // someone with maintainer/collaborator permissions.
+        const prActivity = [];
+
+        for (const pr of linkedPrs) {
+          const [prComments, reviewComments, reviews, labelEvents, commits] =
+            await Promise.all([
+              paginate(github.rest.issues.listComments, {
+                issue_number: pr.number,
+                since: new Date(assignedAt).toISOString(),
+              }),
+              paginate(github.rest.pulls.listReviewComments, {
+                pull_number: pr.number,
+                since: new Date(assignedAt).toISOString(),
+              }),
+              paginate(github.rest.pulls.listReviews, {
+                pull_number: pr.number,
+              }),
+              paginate(github.rest.issues.listEvents, {
+                issue_number: pr.number,
+              }),
+              paginate(github.rest.pulls.listCommits, {
+                pull_number: pr.number,
+              }),
+            ]);
+
+          prActivity.push(
+            ...prComments
+              .filter(
+                c =>
+                  Date.parse(c.created_at) >= assignedAt &&
+                  (same(c.user?.login, login) ||
+                    isMaintainer(c.author_association))
+              )
+              .map(c => Date.parse(c.created_at)),
+
+            ...reviewComments
+              .filter(
+                c =>
+                  Date.parse(c.created_at) >= assignedAt &&
+                  (same(c.user?.login, login) ||
+                    isMaintainer(c.author_association))
+              )
+              .map(c => Date.parse(c.created_at)),
+
+            ...reviews
+              .filter(
+                r =>
+                  r.submitted_at &&
+                  Date.parse(r.submitted_at) >= assignedAt &&
+                  (same(r.user?.login, login) ||
+                    isMaintainer(r.author_association))
+              )
+              .map(r => Date.parse(r.submitted_at)),
+
+            // Removing a timer-pausing label starts a fresh countdown.
+            ...labelEvents
+              .filter(
+                event =>
+                  event.event === "unlabeled" &&
+                  TIMER_PAUSE_LABELS.includes(
+                    event.label?.name?.toLowerCase()
+                  ) &&
+                  Date.parse(event.created_at) >= assignedAt
+              )
+              .map(event => Date.parse(event.created_at)),
+
+            ...commits
+              .filter(
+                commit =>
+                  Date.parse(commit.commit.committer.date) >= assignedAt &&
+                  same(commit.committer?.login, login)
+              )
+              .map(commit => Date.parse(commit.commit.committer.date))
+          );
+        }
+
+        // The latest qualifying activity determines when the inactivity period starts.
         const lastActivity = Math.max(
           assignedAt,
           ...comments
-            .filter(comment => same(comment.user?.login, login))
-            .map(comment => Date.parse(comment.created_at))
+            .filter(
+              c =>
+                Date.parse(c.created_at) >= assignedAt &&
+                same(c.user?.login, login)
+            )
+            .map(c => Date.parse(c.created_at)),
+          ...prActivity
         );
 
         if (Date.now() - lastActivity < WARN_AFTER_DAYS * DAY) {
@@ -190,19 +307,17 @@ module.exports = async ({ github, context }) => {
         }
 
         const warning = comments.find(
-          comment =>
-            comment.body.includes(warningMarker(login)) &&
-            Date.parse(comment.created_at) >= lastActivity
+          c =>
+            c.body.includes(warningMarker(login)) &&
+            Date.parse(c.created_at) >= lastActivity
         );
 
         if (!warning) {
-          console.log(`Warning ${login} on #${issue.number}`);
-
           await comment(
             issue.number,
-            `${warningMarker(login)}\n@${login}, there has been no linked pull request ` +
-              `or comment from you on this issue for ${WARN_AFTER_DAYS} days. It will be ` +
-              `unassigned in ${GRACE_DAYS} days unless you comment here or open a PR.`
+            `${warningMarker(login)}\n@${login}, there has been no qualifying activity ` +
+            `on this issue or its linked PR for ${WARN_AFTER_DAYS} days. It will be ` +
+            `unassigned in ${GRACE_DAYS} days unless there is further activity.`
           );
         } else if (
           Date.now() - Date.parse(warning.created_at) >= GRACE_DAYS * DAY
@@ -214,8 +329,12 @@ module.exports = async ({ github, context }) => {
           );
         }
       } catch (error) {
-        console.log(`Failed on #${issue.number} (${login}): ${error.message}`);
+        failures++;
+        console.error(`Failed on #${issue.number} (${login})`, error);
       }
     }
+  }
+  if (failures > 0) {
+    throw new Error(`Failed to process ${failures} assignment(s).`);
   }
 };
