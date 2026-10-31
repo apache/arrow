@@ -171,6 +171,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "SVE128" # fixed size SVE
                        "SVE256" # "
                        "SVE512" # "
+                       "RVV" # size agnostic RVV
+                       "RVV128" # fixed size RVV
+                       "RVV256" # "
+                       "RVV512" # "
                        "DEFAULT")
 
   define_option_string(ARROW_RUNTIME_SIMD_LEVEL
@@ -183,6 +187,9 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "SVE128" # fixed size SVE
                        "SVE256" # "
                        "SVE512" # "
+                       "RVV128" # fixed size RVV
+                       "RVV256" # "
+                       "RVV512" # "
                        "MAX")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
