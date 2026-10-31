@@ -2379,5 +2379,59 @@ TEST(Projection, AugmentWithKnownValues) {
       }));
 }
 
+TEST(Expression, DecimalComparisonDifferentScales) {
+  auto test_schema = arrow::schema({
+      field("a", decimal128(3, 2)),
+      field("b", decimal128(3, 1)),
+  });
+
+  auto batch = RecordBatchFromJSON(test_schema, R"([
+    {"a": "1.00", "b": "9.0"},
+    {"a": "9.00", "b": "1.0"}
+  ])");
+
+  // 1.00 < 9.0 -> true; 9.00 < 1.0 -> false
+  ASSERT_OK_AND_ASSIGN(auto less_expr,
+                       less(field_ref("a"), field_ref("b")).Bind(*test_schema));
+  ASSERT_OK_AND_ASSIGN(auto less_res,
+                       ExecuteScalarExpression(less_expr, *test_schema, batch));
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[true, false]")), less_res);
+
+  // 1.00 <= 9.0 -> true; 9.00 <= 1.0 -> false
+  ASSERT_OK_AND_ASSIGN(auto le_expr,
+                       less_equal(field_ref("a"), field_ref("b")).Bind(*test_schema));
+  ASSERT_OK_AND_ASSIGN(auto le_res,
+                       ExecuteScalarExpression(le_expr, *test_schema, batch));
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[true, false]")), le_res);
+
+  // Negative decimals with different scales
+  auto neg_batch = RecordBatchFromJSON(test_schema, R"([
+    {"a": "-1.00", "b": "-9.0"},
+    {"a": "-9.00", "b": "-1.0"}
+  ])");
+  // -1.00 < -9.0 -> false; -9.00 < -1.0 -> true
+  ASSERT_OK_AND_ASSIGN(auto neg_less_res,
+                       ExecuteScalarExpression(less_expr, *test_schema, neg_batch));
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, true]")), neg_less_res);
+}
+
+TEST(Expression, MixedStringViewExpressionFlipping) {
+  // Mixed string and string_view in expressions with literal on LHS
+  // (exercises expression flipping through MakeFlippedCompare)
+  auto str_schema = arrow::schema({field("view_col", utf8_view())});
+  auto str_batch = RecordBatchFromJSON(str_schema, R"([
+    {"view_col": "apple"},
+    {"view_col": "banana"},
+    {"view_col": "cherry"}
+  ])");
+  // "banana" < view_col -> [false, false, true]
+  ASSERT_OK_AND_ASSIGN(auto lit_less_expr,
+                       less(literal("banana"), field_ref("view_col")).Bind(*str_schema));
+  ASSERT_OK_AND_ASSIGN(auto lit_less_res,
+                       ExecuteScalarExpression(lit_less_expr, *str_schema, str_batch));
+  AssertDatumsEqual(Datum(ArrayFromJSON(boolean(), "[false, false, true]")),
+                    lit_less_res);
+}
+
 }  // namespace compute
 }  // namespace arrow
