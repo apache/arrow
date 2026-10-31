@@ -14,3 +14,84 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+name: Unassign Inactive Contributors
+
+on:
+  # Time-based expiry: the only place where inactivity is evaluated.
+  schedule:
+    - cron: "0 10 * * *"
+  # Manual run. Defaults to a dry run that only logs what would happen.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only log what would be unassigned, change nothing"
+        type: boolean
+        default: true
+  # Immediate handling when a linked PR is closed without merging.
+  # pull_request_target is required so that the token can write to the
+  # issue when the PR comes from a fork. No PR code is checked out or run.
+  pull_request_target:
+    types:
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Unassign Inactive Contributors
+
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+  pull_request_target:
+    types:
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: unassign-inactive-contributors
+  cancel-in-progress: false
+
+jobs:
+  unassign-inactive-contributors:
+    name: Unassign inactive contributors
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - name: Run unassign bot
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const unassignBot = require("./.github/workflows/unassign_bot.js");
+            await unassignBot({ github, context, core });
