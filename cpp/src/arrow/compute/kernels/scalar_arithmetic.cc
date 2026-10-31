@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/compare.h"
@@ -28,6 +29,7 @@
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
@@ -747,6 +749,11 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
   }
 }
 
+bool HasInterval(const std::vector<TypeHolder>& types) {
+  return std::any_of(types.begin(), types.end(),
+                     [](const TypeHolder& type) { return is_interval(type.id()); });
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -771,8 +778,10 @@ struct ArithmeticFunction : ScalarFunction {
 
     EnsureDictionaryDecoded(types);
 
-    // Only promote types for binary functions
-    if (types->size() == 2) {
+    // Only promote types for binary functions.  Temporal arguments are not
+    // promoted when combined with an interval, as an interval does not
+    // have a unit (e.g. date32 + interval should not become a timestamp).
+    if (types->size() == 2 && !HasInterval(*types)) {
       ReplaceNullWithOtherType(types);
       TimeUnit::type finest_unit;
       if (CommonTemporalResolution(types->data(), types->size(), &finest_unit)) {
@@ -1124,6 +1133,350 @@ void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
       ScalarBinary<Time64Type, DurationType, Time64Type, Op<86400000000000>>::Exec;
   DCHECK_OK(func->AddKernel({duration(unit), time64(unit)}, OutputType(LastType),
                             std::move(exec_4)));
+}
+
+// ----------------------------------------------------------------------
+// Timestamp +/- interval arithmetic
+//
+// An interval is split into a calendar part (months and days) and a physical
+// part (the milliseconds of a day_time_interval or the nanoseconds of a
+// month_day_nano_interval).  The calendar part is applied to the local
+// (wall clock) time of the timestamp, so that for example adding one day
+// keeps the same wall clock time across a DST transition.  The physical part
+// is a fixed duration.
+//
+// `add` applies months, then days, then the physical part.  `subtract`
+// applies the physical part first, so that subtracting e.g. "1 day 24 hours"
+// undoes adding it.  Months are applied before days in both cases, as in
+// Pandas' DateOffset and PostgreSQL.
+//
+// Adding months clamps the day of month to the last day of the resulting
+// month (e.g. Jan 31 + 1 month = Feb 28).  An error is returned if the
+// resulting local time is ambiguous or does not exist, as when adding a
+// DateOffset to a timezone-aware Pandas Series.
+
+struct CalendarInterval {
+  int32_t months;
+  int32_t days;
+  int64_t nanoseconds;
+};
+
+CalendarInterval ToCalendarInterval(int32_t months) { return {months, 0, 0}; }
+
+CalendarInterval ToCalendarInterval(DayTimeIntervalType::DayMilliseconds v) {
+  return {0, v.days, static_cast<int64_t>(v.milliseconds) * 1000000};
+}
+
+CalendarInterval ToCalendarInterval(MonthDayNanoIntervalType::MonthDayNanos v) {
+  return {v.months, v.days, v.nanoseconds};
+}
+
+int64_t FloorDiv(int64_t x, int64_t y) {
+  const int64_t q = x / y;
+  return (x % y != 0 && ((x < 0) != (y < 0))) ? q - 1 : q;
+}
+
+// Proleptic Gregorian calendar conversions, using 64-bit years so that the
+// whole range of second-resolution timestamps is covered.
+// See https://howardhinnant.github.io/date_algorithms.html
+int64_t DaysFromCivil(int64_t y, int64_t m, int64_t d) {
+  y -= m <= 2;
+  const int64_t era = FloorDiv(y, 400);
+  const int64_t yoe = y - era * 400;
+  const int64_t doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+  const int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + doe - 719468;
+}
+
+void CivilFromDays(int64_t z, int64_t* y, int64_t* m, int64_t* d) {
+  z += 719468;
+  const int64_t era = FloorDiv(z, 146097);
+  const int64_t doe = z - era * 146097;
+  const int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+  const int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+  const int64_t mp = (5 * doy + 2) / 153;
+  *d = doy - (153 * mp + 2) / 5 + 1;
+  *m = mp < 10 ? mp + 3 : mp - 9;
+  *y = yoe + era * 400 + (*m <= 2);
+}
+
+int64_t LastDayOfMonth(int64_t y, int64_t m) {
+  if (m == 2) {
+    const bool is_leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    return is_leap ? 29 : 28;
+  }
+  return (m == 4 || m == 6 || m == 9 || m == 11) ? 30 : 31;
+}
+
+// Add a number of months to a day count, clamping the day of month.
+int64_t AddMonthsToDays(int64_t days, int64_t months) {
+  int64_t y, m, d;
+  CivilFromDays(days, &y, &m, &d);
+  const int64_t total_months = y * 12 + (m - 1) + months;
+  y = FloorDiv(total_months, 12);
+  m = total_months - y * 12 + 1;
+  return DaysFromCivil(y, m, std::min(d, LastDayOfMonth(y, m)));
+}
+
+// Converts between UTC and local time (in seconds) for a timestamp's timezone.
+class IntervalLocalizer {
+ public:
+  static Result<IntervalLocalizer> Make(const std::string& timezone) {
+    IntervalLocalizer localizer;
+    if (timezone.empty()) return localizer;
+    ARROW_ASSIGN_OR_RAISE(ArrowTimeZone tz, LocateZone(timezone));
+    if (auto zone = std::get_if<const time_zone*>(&tz)) {
+      localizer.zone_ = *zone;
+    } else {
+      const auto& offset_zone = std::get<OffsetZone>(tz);
+      localizer.fixed_offset_ =
+          offset_zone.get_info(sys_time<std::chrono::seconds>{}).offset.count();
+    }
+    return localizer;
+  }
+
+  // UTC offset in effect at the given UTC instant
+  int64_t OffsetAtSys(int64_t sys_seconds) const {
+    if (zone_ == nullptr) return fixed_offset_;
+    const auto st = sys_time<std::chrono::seconds>{std::chrono::seconds{sys_seconds}};
+    return zone_->get_info(st).offset.count();
+  }
+
+  bool IsFixed() const { return zone_ == nullptr; }
+
+  // UTC offset for a local (day, seconds since midnight) pair. Like
+  // ZonedLocalizer::ConvertLocalToSys, reject ambiguous and nonexistent times.
+  int64_t OffsetForLocal(int64_t day, int64_t seconds_of_day, Status* st) const {
+    if (zone_ == nullptr) return fixed_offset_;
+    constexpr int64_t kMinSeconds = std::numeric_limits<int64_t>::min();
+    constexpr int64_t kMaxSeconds = std::numeric_limits<int64_t>::max();
+    // The transition table is finite: near the int64-second bounds, use its
+    // first/last UTC offset without forming an out-of-range local timestamp.
+    // Keep a whole day of headroom because get_info(local_time) also subtracts
+    // offsets internally, which can overflow even if local seconds fit.
+    if (day <= kMinSeconds / 86400 + 1) return OffsetAtSys(kMinSeconds);
+    if (day >= kMaxSeconds / 86400 - 1) return OffsetAtSys(kMaxSeconds);
+    const auto lt = local_time<std::chrono::seconds>{
+        std::chrono::seconds{day * 86400 + seconds_of_day}};
+    const auto info = zone_->get_info(lt);
+    switch (info.result) {
+      case chrono::local_info::unique:
+        break;
+      case chrono::local_info::nonexistent:
+        *st = Status::Invalid("Local time does not exist: ",
+                              chrono::nonexistent_local_time(lt, info).what());
+        break;
+      case chrono::local_info::ambiguous:
+        *st = Status::Invalid("Local time is ambiguous: ",
+                              chrono::ambiguous_local_time(lt, info).what());
+        break;
+    }
+    return info.first.offset.count();
+  }
+
+ private:
+  const time_zone* zone_ = nullptr;
+  int64_t fixed_offset_ = 0;
+};
+
+template <typename Duration, bool kChecked>
+struct TimestampIntervalArithmeticImpl {
+  static constexpr int64_t kUnitsPerSecond = Duration::period::den;
+  static constexpr int64_t kUnitsPerDay = 86400 * kUnitsPerSecond;
+  static constexpr int64_t kNanosPerUnit = 1000000000 / kUnitsPerSecond;
+
+  // Overflow-aware helpers: in unchecked mode, results wrap around.
+  static int64_t Add(int64_t a, int64_t b, Status* st) {
+    int64_t out;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(a, b, &out)) && kChecked) {
+      *st = Status::Invalid("overflow");
+    }
+    return out;
+  }
+
+  static int64_t Multiply(int64_t a, int64_t b, Status* st) {
+    int64_t out;
+    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(a, b, &out)) && kChecked) {
+      *st = Status::Invalid("overflow");
+    }
+    return out;
+  }
+
+  static int64_t Subtract(int64_t a, int64_t b, Status* st) {
+    int64_t out;
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(a, b, &out)) && kChecked) {
+      *st = Status::Invalid("overflow");
+    }
+    return out;
+  }
+
+  // Compute day * units_per_day + rem, where 0 <= rem < units_per_day,
+  // without overflowing when only day * units_per_day is out of range.
+  // For negative days, the product is formed with one day less in magnitude
+  // and the remainder is shifted by -units_per_day instead.
+  static int64_t ComposeDays(int64_t day, int64_t rem, int64_t units_per_day,
+                             Status* st) {
+    if (day < 0) {
+      return Add(Multiply(day + 1, units_per_day, st), rem - units_per_day, st);
+    }
+    return Add(Multiply(day, units_per_day, st), rem, st);
+  }
+
+  // Convert the physical part of an interval to the timestamp unit
+  static int64_t PhysicalToUnit(int64_t nanoseconds, Status* st) {
+    if (ARROW_PREDICT_FALSE(nanoseconds % kNanosPerUnit != 0)) {
+      *st = Status::Invalid("Interval has a component of ", nanoseconds,
+                            " nanoseconds which cannot be represented in a timestamp ",
+                            "with unit ", UnitName());
+      return 0;
+    }
+    return nanoseconds / kNanosPerUnit;
+  }
+
+  static constexpr const char* UnitName() {
+    switch (kUnitsPerSecond) {
+      case 1:
+        return "s";
+      case 1000:
+        return "ms";
+      case 1000000:
+        return "us";
+      default:
+        return "ns";
+    }
+  }
+
+  // Add months, then days, to the local time of `t`.
+  static int64_t AddCalendar(const IntervalLocalizer& localizer, int64_t t,
+                             int64_t months, int64_t days, Status* st) {
+    if (months == 0 && days == 0) return t;
+    const int64_t offset = localizer.OffsetAtSys(FloorDiv(t, kUnitsPerSecond));
+    // Split before applying the offset.  A local timestamp can lie just outside
+    // int64's range even though the final UTC timestamp is representable.
+    const int64_t original_day = FloorDiv(t, kUnitsPerDay);
+    int64_t time_of_day = t % kUnitsPerDay;
+    if (time_of_day < 0) time_of_day += kUnitsPerDay;
+    time_of_day += offset * kUnitsPerSecond;
+    const int64_t carry = FloorDiv(time_of_day, kUnitsPerDay);
+    int64_t day = original_day + carry;
+    time_of_day -= carry * kUnitsPerDay;
+    if (months != 0) {
+      day = AddMonthsToDays(day, months);
+    }
+    day = Add(day, days, st);
+    int64_t new_offset;
+    if (localizer.IsFixed()) {
+      new_offset = offset;
+    } else {
+      // Timezone transitions have second precision; the subsecond remainder
+      // does not affect which offset applies.
+      new_offset = localizer.OffsetForLocal(day, time_of_day / kUnitsPerSecond, st);
+    }
+    // Convert back to UTC on the (day, time of day) pair, so that neither the
+    // local timestamp nor day * kUnitsPerDay has to be representable on its
+    // own: only the final timestamp must fit.
+    int64_t utc_time_of_day = time_of_day - new_offset * kUnitsPerSecond;
+    const int64_t utc_carry = FloorDiv(utc_time_of_day, kUnitsPerDay);
+    utc_time_of_day -= utc_carry * kUnitsPerDay;
+    return ComposeDays(Add(day, utc_carry, st), utc_time_of_day, kUnitsPerDay, st);
+  }
+
+  static int64_t Call(const IntervalLocalizer& localizer, int64_t t,
+                      const CalendarInterval& interval, bool subtract, Status* st) {
+    const int64_t physical = PhysicalToUnit(interval.nanoseconds, st);
+    if (!subtract) {
+      t = AddCalendar(localizer, t, interval.months, interval.days, st);
+      return Add(t, physical, st);
+    }
+    t = Subtract(t, physical, st);
+    return AddCalendar(localizer, t, -static_cast<int64_t>(interval.months),
+                       -static_cast<int64_t>(interval.days), st);
+  }
+};
+
+template <typename Duration, bool kChecked, bool kSubtract>
+struct TimestampIntervalOp {
+  IntervalLocalizer localizer;
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 t, Arg1 interval, Status* st) const {
+    return TimestampIntervalArithmeticImpl<Duration, kChecked>::Call(
+        localizer, t, ToCalendarInterval(interval), kSubtract, st);
+  }
+};
+
+// Same as TimestampIntervalOp, but with the interval as first argument
+template <typename Duration, bool kChecked>
+struct IntervalTimestampOp {
+  IntervalLocalizer localizer;
+
+  template <typename T, typename Arg0, typename Arg1>
+  T Call(KernelContext*, Arg0 interval, Arg1 t, Status* st) const {
+    return TimestampIntervalArithmeticImpl<Duration, kChecked>::Call(
+        localizer, t, ToCalendarInterval(interval), /*subtract=*/false, st);
+  }
+};
+
+template <typename Duration, typename IntervalType, bool kChecked, bool kSubtract,
+          bool kIntervalFirst>
+struct TimestampIntervalKernel {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto& timezone = GetInputTimezone(*batch[kIntervalFirst ? 1 : 0].type());
+    ARROW_ASSIGN_OR_RAISE(auto localizer, IntervalLocalizer::Make(timezone));
+    if constexpr (kIntervalFirst) {
+      using Op = IntervalTimestampOp<Duration, kChecked>;
+      applicator::ScalarBinaryNotNullStateful<TimestampType, IntervalType, TimestampType,
+                                              Op>
+          kernel{Op{localizer}};
+      return kernel.Exec(ctx, batch, out);
+    } else {
+      using Op = TimestampIntervalOp<Duration, kChecked, kSubtract>;
+      applicator::ScalarBinaryNotNullStateful<TimestampType, TimestampType, IntervalType,
+                                              Op>
+          kernel{Op{localizer}};
+      return kernel.Exec(ctx, batch, out);
+    }
+  }
+};
+
+template <typename Duration, bool kChecked, bool kSubtract, typename IntervalType>
+void AddTimestampIntervalKernel(ScalarFunction* func, TimeUnit::type unit,
+                                const std::shared_ptr<DataType>& interval_type) {
+  InputType ts_type(match::TimestampTypeUnit(unit));
+  DCHECK_OK(
+      func->AddKernel({ts_type, interval_type}, OutputType(FirstType),
+                      TimestampIntervalKernel<Duration, IntervalType, kChecked, kSubtract,
+                                              /*kIntervalFirst=*/false>::Exec));
+  if constexpr (!kSubtract) {
+    DCHECK_OK(func->AddKernel(
+        {interval_type, ts_type}, OutputType(LastType),
+        TimestampIntervalKernel<Duration, IntervalType, kChecked, kSubtract,
+                                /*kIntervalFirst=*/true>::Exec));
+  }
+}
+
+template <typename Duration, bool kChecked, bool kSubtract>
+void AddTimestampIntervalKernels(ScalarFunction* func, TimeUnit::type unit) {
+  AddTimestampIntervalKernel<Duration, kChecked, kSubtract, MonthIntervalType>(
+      func, unit, month_interval());
+  AddTimestampIntervalKernel<Duration, kChecked, kSubtract, DayTimeIntervalType>(
+      func, unit, day_time_interval());
+  AddTimestampIntervalKernel<Duration, kChecked, kSubtract, MonthDayNanoIntervalType>(
+      func, unit, month_day_nano_interval());
+}
+
+// Add {add,subtract}[_checked](timestamp, interval) -> timestamp kernels, and
+// add[_checked](interval, timestamp) -> timestamp kernels.
+template <bool kChecked, bool kSubtract>
+void AddTimestampIntervalKernels(ScalarFunction* func) {
+  AddTimestampIntervalKernels<std::chrono::seconds, kChecked, kSubtract>(
+      func, TimeUnit::SECOND);
+  AddTimestampIntervalKernels<std::chrono::milliseconds, kChecked, kSubtract>(
+      func, TimeUnit::MILLI);
+  AddTimestampIntervalKernels<std::chrono::microseconds, kChecked, kSubtract>(
+      func, TimeUnit::MICRO);
+  AddTimestampIntervalKernels<std::chrono::nanoseconds, kChecked, kSubtract>(
+      func, TimeUnit::NANO);
 }
 
 const FunctionDoc absolute_value_doc{
@@ -1550,6 +1903,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   AddArithmeticFunctionTimeDuration<AddTimeDuration>(add);
   AddArithmeticFunctionDurationTime<AddTimeDuration>(add);
 
+  // Add add(timestamp, interval) -> timestamp and add(interval, timestamp)
+  AddTimestampIntervalKernels</*kChecked=*/false, /*kSubtract=*/false>(add.get());
+
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
@@ -1577,6 +1933,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   AddArithmeticFunctionTimeDuration<AddTimeDurationChecked>(add_checked);
   AddArithmeticFunctionDurationTime<AddTimeDurationChecked>(add_checked);
+
+  // Add add_checked(timestamp, interval) -> timestamp and
+  // add_checked(interval, timestamp) -> timestamp
+  AddTimestampIntervalKernels</*kChecked=*/true, /*kSubtract=*/false>(add_checked.get());
 
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
@@ -1635,6 +1995,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                 duration(TimeUnit::MILLI), std::move(exec_date_64)));
 
   AddArithmeticFunctionTimeDuration<SubtractTimeDuration>(subtract);
+
+  // Add subtract(timestamp, interval) -> timestamp
+  AddTimestampIntervalKernels</*kChecked=*/false, /*kSubtract=*/true>(subtract.get());
 
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
@@ -1701,6 +2064,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   AddArithmeticFunctionTimeDuration<SubtractTimeDurationChecked>(subtract_checked);
+
+  // Add subtract_checked(timestamp, interval) -> timestamp
+  AddTimestampIntervalKernels</*kChecked=*/true, /*kSubtract=*/true>(
+      subtract_checked.get());
 
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
