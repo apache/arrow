@@ -17,7 +17,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/util.h"
 #include "arrow/util/list_util.h"
 
 #include "arrow/testing/builder.h"
@@ -159,5 +161,58 @@ class TestListUtils : public ::testing::Test {
 TYPED_TEST_SUITE(TestListUtils, ListAndListViewTypes);
 
 TYPED_TEST(TestListUtils, RangeOfValuesUsed) { this->TestRangeOfValuesUsed(); }
+
+TEST(TestListFromListView, GathersOutOfOrderViews) {
+  // The behavioural contract is covered by Cast.ListViewToList; the null-view
+  // and error cases are pinned here where the helper lives.
+  ASSERT_OK_AND_ASSIGN(
+      auto view, ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0, 1]"),
+                                           *ArrayFromJSON(int32(), "[2, 2, 1]"),
+                                           *ArrayFromJSON(int32(), "[1, 2, 3, 4]")));
+  ASSERT_OK_AND_ASSIGN(auto data, list_util::internal::ListFromListView(
+                                      *view->data(), Type::LIST, default_memory_pool()));
+  auto result = MakeArray(data);
+  ASSERT_OK(result->ValidateFull());
+  AssertArraysEqual(*ArrayFromJSON(list(int32()), "[[3, 4], [1, 2], [2]]"), *result,
+                    /*verbose=*/true);
+}
+
+TEST(TestListFromListView, SkipsValuesOfNullViews) {
+  // A null view must not contribute any values, whatever size it declares.
+  ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(3));
+  // A set bit means valid, so start from "all valid" then clear the middle one.
+  bit_util::SetBitTo(validity->mutable_data(), 0, /*value=*/true);
+  bit_util::SetBitTo(validity->mutable_data(), 1, /*value=*/false);
+  bit_util::SetBitTo(validity->mutable_data(), 2, /*value=*/true);
+  ASSERT_OK_AND_ASSIGN(auto view,
+                       ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 2]"),
+                                                 *ArrayFromJSON(int32(), "[2, 2, 2]"),
+                                                 *ArrayFromJSON(int32(), "[1, 2, 3, 4]"),
+                                                 default_memory_pool(), validity,
+                                                 /*null_count=*/1));
+  ASSERT_OK_AND_ASSIGN(auto data, list_util::internal::ListFromListView(
+                                      *view->data(), Type::LIST, default_memory_pool()));
+  auto result = MakeArray(data);
+  ASSERT_OK(result->ValidateFull());
+  AssertArraysEqual(*ArrayFromJSON(list(int32()), "[[1, 2], null, [3, 4]]"), *result,
+                    /*verbose=*/true);
+}
+
+TEST(TestListFromListView, RejectsNonListViewInput) {
+  // Only list-views can be converted: a plain list has no independent sizes.
+  auto array = ArrayFromJSON(list(int32()), "[[1, 2], [3]]");
+  ASSERT_RAISES(TypeError, list_util::internal::ListFromListView(
+                               *array->data(), Type::LIST, default_memory_pool()));
+}
+
+TEST(TestListFromListView, RejectsNonListDestinationType) {
+  ASSERT_OK_AND_ASSIGN(
+      auto view, ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2]"),
+                                           *ArrayFromJSON(int32(), "[2, 2]"),
+                                           *ArrayFromJSON(int32(), "[1, 2, 3, 4]")));
+  ASSERT_RAISES(TypeError,
+                list_util::internal::ListFromListView(
+                    *view->data(), Type::FIXED_SIZE_LIST, default_memory_pool()));
+}
 
 }  // namespace arrow
