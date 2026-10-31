@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <functional>
 #include <iosfwd>
+#include <limits>
 #include <locale>
 #include <memory>
 #include <stdexcept>
@@ -36,6 +37,7 @@
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -303,6 +305,48 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
 
   // Empty Arrays
   CheckIsIn(type, "[]", "[]", "[]");
+}
+
+// -0.0 and +0.0 compare equal, so each of them must be found in a set holding the other
+template <typename ArrowType>
+void CheckIsInSignedZero() {
+  using CType = typename ArrowType::c_type;
+  std::shared_ptr<Array> input, positive_zero, negative_zero, both;
+  ArrayFromVector<ArrowType>({CType(-0.0), CType(0.0), CType(1.5)}, &input);
+  ArrayFromVector<ArrowType>({CType(0.0)}, &positive_zero);
+  ArrayFromVector<ArrowType>({CType(-0.0)}, &negative_zero);
+  ArrayFromVector<ArrowType>({CType(2.5), CType(-0.0), CType(0.0)}, &both);
+
+  CheckIsIn(input, positive_zero, "[true, true, false]");
+  CheckIsIn(input, negative_zero, "[true, true, false]");
+  CheckIsIn(input, both, "[true, true, false]");
+
+  std::shared_ptr<Array> other;
+  ArrayFromVector<ArrowType>({CType(2.5)}, &other);
+  CheckIsInChunked(std::make_shared<ChunkedArray>(ArrayVector{input}),
+                   std::make_shared<ChunkedArray>(ArrayVector{other, positive_zero}),
+                   ChunkedArrayFromJSON(boolean(), {"[true, true, false]"}));
+}
+
+// The bit pattern of -0.0 is the smallest signed integer of the same width,
+// which must not be folded into 0
+template <typename ArrowType>
+void CheckIsInSmallestInteger() {
+  using CType = typename ArrowType::c_type;
+  std::shared_ptr<Array> input, zero, smallest;
+  ArrayFromVector<ArrowType>({std::numeric_limits<CType>::min(), CType(0)}, &input);
+  ArrayFromVector<ArrowType>({CType(0)}, &zero);
+  ArrayFromVector<ArrowType>({std::numeric_limits<CType>::min()}, &smallest);
+
+  CheckIsIn(input, zero, "[false, true]");
+  CheckIsIn(input, smallest, "[true, false]");
+}
+
+TEST_F(TestIsInKernel, SignedZero) {
+  CheckIsInSignedZero<FloatType>();
+  CheckIsInSignedZero<DoubleType>();
+  CheckIsInSmallestInteger<Int32Type>();
+  CheckIsInSmallestInteger<Int64Type>();
 }
 
 TEST_F(TestIsInKernel, NullType) {
@@ -1428,6 +1472,40 @@ TEST_F(TestIndexInKernel, Boolean) {
 
   // Both array have Nulls
   CheckIndexIn(boolean(), "[null, null, null, null]", "[null]", "[0, 0, 0, 0]");
+}
+
+template <typename ArrowType>
+void CheckIndexInSignedZero(TestIndexInKernel* test) {
+  using CType = typename ArrowType::c_type;
+  std::shared_ptr<Array> input, positive_zero, negative_zero, both;
+  ArrayFromVector<ArrowType>({CType(-0.0), CType(0.0), CType(1.5)}, &input);
+  ArrayFromVector<ArrowType>({CType(0.0)}, &positive_zero);
+  ArrayFromVector<ArrowType>({CType(-0.0)}, &negative_zero);
+  ArrayFromVector<ArrowType>({CType(2.5), CType(-0.0), CType(0.0)}, &both);
+
+  test->CheckIndexIn(input, positive_zero, "[0, 0, null]");
+  test->CheckIndexIn(input, negative_zero, "[0, 0, null]");
+  // Both zeros are the same value: the first one in the value set is reported
+  test->CheckIndexIn(input, both, "[1, 1, null]");
+}
+
+template <typename ArrowType>
+void CheckIndexInSmallestInteger(TestIndexInKernel* test) {
+  using CType = typename ArrowType::c_type;
+  std::shared_ptr<Array> input, zero, smallest;
+  ArrayFromVector<ArrowType>({std::numeric_limits<CType>::min(), CType(0)}, &input);
+  ArrayFromVector<ArrowType>({CType(0)}, &zero);
+  ArrayFromVector<ArrowType>({std::numeric_limits<CType>::min()}, &smallest);
+
+  test->CheckIndexIn(input, zero, "[null, 0]");
+  test->CheckIndexIn(input, smallest, "[0, null]");
+}
+
+TEST_F(TestIndexInKernel, SignedZero) {
+  CheckIndexInSignedZero<FloatType>(this);
+  CheckIndexInSignedZero<DoubleType>(this);
+  CheckIndexInSmallestInteger<Int32Type>(this);
+  CheckIndexInSmallestInteger<Int64Type>(this);
 }
 
 TEST_F(TestIndexInKernel, ImplicitlyCastValueSet) {
