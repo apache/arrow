@@ -1598,6 +1598,23 @@ TEST(Substrait, InvalidDecimalPrecisionReturnsStatus) {
               Raises(StatusCode::Invalid, HasSubstr("Decimal precision out of range")));
 }
 
+TEST(Substrait, DecimalPrecisionBoundaries) {
+  ExtensionSet empty;
+  for (int precision : {0, 1, 38, 39}) {
+    SCOPED_TRACE(precision);
+    auto json = "{\"decimal\": {\"precision\": " + std::to_string(precision) + "}}";
+    ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Type", json));
+    auto result = DeserializeType(*buf, empty);
+    if (precision == 0 || precision == 39) {
+      EXPECT_THAT(result, Raises(StatusCode::Invalid,
+                                 HasSubstr("Decimal precision out of range")));
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto type, std::move(result));
+      EXPECT_EQ(*type, *decimal128(precision, 0));
+    }
+  }
+}
+
 TEST(Substrait, JoinPlanBasic) {
   std::string substrait_json = R"({
   "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
