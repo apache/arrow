@@ -371,6 +371,49 @@ void ArchVerifyCpuRequirements(const CpuInfo* ci) {
   }
 }
 
+#elif XSIMD_TARGET_RISCV
+//------------------------------ RISCV64 ------------------------------//
+bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
+  enum {
+    USER_SIMD_NONE,
+    USER_SIMD_RVV,
+    USER_SIMD_RVV128,
+    USER_SIMD_RVV256,
+    USER_SIMD_RVV512,
+    USER_SIMD_MAX,
+  };
+
+  int level = USER_SIMD_MAX;
+  if (simd_level == "RVV") {
+    level = USER_SIMD_RVV;
+  } else if (simd_level == "RVV128") {
+    level = USER_SIMD_RVV128;
+  } else if (simd_level == "RVV256") {
+    level = USER_SIMD_RVV256;
+  } else if (simd_level == "RVV512") {
+    level = USER_SIMD_RVV512;
+  } else if (simd_level == "NONE") {
+    level = USER_SIMD_NONE;
+  } else {
+    return false;
+  }
+
+  if (level < USER_SIMD_RVV512) *hardware_flags &= ~CpuInfo::RVV512;
+  if (level < USER_SIMD_RVV256) *hardware_flags &= ~CpuInfo::RVV256;
+  if (level < USER_SIMD_RVV128) *hardware_flags &= ~CpuInfo::RVV128;
+  if (level < USER_SIMD_RVV) *hardware_flags &= ~CpuInfo::RVV;
+  return true;
+}
+
+void ArchVerifyCpuRequirements(const CpuInfo* ci) {
+#  if defined(ARROW_HAVE_RVV128) || defined(ARROW_HAVE_RVV256) || \
+      defined(ARROW_HAVE_RVV512) || defined(ARROW_HAVE_RVV_SIZELESS)
+  if (!ci->IsDetected(CpuInfo::RVV)) {
+    DCHECK(false) << "CPU does not support the RISC-V Vector instruction set";
+  }
+#  endif
+}
+
 #else
 //------------------------------ PPC, ... ------------------------------//
 bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
