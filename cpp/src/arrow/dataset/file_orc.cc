@@ -76,19 +76,19 @@ class OrcScanTask {
 
         auto materialized_fields = scan_options.MaterializedFields();
         // filter out virtual columns
-        std::vector<std::string> included_fields;
+        std::vector<int> included_indices;
         ARROW_ASSIGN_OR_RAISE(auto schema, reader->ReadSchema());
         for (const auto& ref : materialized_fields) {
           ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*schema));
           if (match.indices().empty()) continue;
 
-          included_fields.push_back(schema->field(match.indices()[0])->name());
+          included_indices.push_back(match.indices()[0]);
         }
 
         std::shared_ptr<RecordBatchReader> record_batch_reader;
-        ARROW_ASSIGN_OR_RAISE(
-            record_batch_reader,
-            reader->GetRecordBatchReader(scan_options.batch_size, included_fields));
+        ARROW_ASSIGN_OR_RAISE(record_batch_reader,
+                              reader->GetRecordBatchReaderByIndices(
+                                  scan_options.batch_size, included_indices));
 
         return RecordBatchIterator(Impl{std::move(record_batch_reader)});
       }

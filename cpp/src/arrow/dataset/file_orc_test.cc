@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "arrow/adapters/orc/adapter.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -74,6 +75,25 @@ TEST_P(TestOrcFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   TestScanProjectedNested();
+}
+TEST_P(TestOrcFileFormatScan, ScanDottedFieldNameCollision) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("a.b", int32()), field("a", struct_({field("b", int32())})),
+              field("other", int32())}),
+      R"([[1, {"b": 10}, 101], [2, {"b": 20}, 102]])");
+  ASSERT_OK_AND_ASSIGN(auto expected, batch->SelectColumns({0, 2}));
+  for (const auto& indices : {std::vector<int>{0, 1, 2}, {1, 0, 2}}) {
+    ASSERT_OK_AND_ASSIGN(auto reordered, batch->SelectColumns(indices));
+    this->SetSchema(reordered->schema()->fields());
+    this->Project({"a.b"});
+    this->SetFilter(greater(field_ref("other"), literal(100)));
+    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({reordered}));
+    auto source = this->GetFileSource(reader.get());
+    ASSERT_OK_AND_ASSIGN(auto batches,
+                         PhysicalBatches(this->MakeFragment(*source)).ToVector());
+    ASSERT_EQ(batches.size(), 1);
+    AssertBatchesEqual(*expected, *batches[0]);
+  }
 }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   TestScanProjectedMissingCols();

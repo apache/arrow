@@ -174,6 +174,16 @@ class ARROW_EXPORT ORCFileReader {
   Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
       int64_t batch_size, const std::vector<std::string>& include_names);
 
+  /// \brief Get an entire-file record batch iterator by top-level field index.
+  ///
+  /// Field order follows the file schema; repeated indices do not duplicate fields.
+  /// An empty selection reads all fields, as in GetRecordBatchReader().
+  /// \param[in] batch_size the maximum number of rows per batch, which must be positive
+  /// \param[in] include_indices the zero-based top-level field indices to read
+  /// \return the record batch iterator
+  Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReaderByIndices(
+      int64_t batch_size, const std::vector<int>& include_indices);
+
   /// \brief The number of stripes in the file
   int64_t NumberOfStripes();
 
