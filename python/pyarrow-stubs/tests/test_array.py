@@ -51,6 +51,12 @@ def test_array() -> None:
           lib.Int64Array)
 
 
+def test_import_from_c_capsule() -> None:
+    capsules = lib.array([1, 2]).__arrow_c_array__()
+    imported = lib.BooleanArray._import_from_c_capsule(*capsules)
+    check(assert_type(imported, lib.Array), lib.Int64Array)
+
+
 def test_list_arrays() -> None:
     lst = lib.ListArray.from_arrays([0, 1, 3], [1, 2, 3])
     check(assert_type(lst.value_lengths(), lib.Int32Array), lib.Int32Array)
