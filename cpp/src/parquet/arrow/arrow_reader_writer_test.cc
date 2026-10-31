@@ -3453,6 +3453,22 @@ TEST(ArrowReadWrite, ListWithNoValues) {
   CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
+TEST(ArrowReadWrite, NestedDictionaryMultipleRowGroups) {
+  // GH-45087: reading several row groups at once yields one chunk per row group
+  // for a nested dictionary leaf, and the chunks have different dictionaries.
+  using ::arrow::field;
+
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  for (const auto& type : {list(dict_type), ::arrow::large_list(dict_type)}) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    auto array =
+        ::arrow::ArrayFromJSON(type, R"([["a"], ["b", "a"], ["c", "a"], ["b"]])");
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+    CheckSimpleRoundtrip(table, /*row_group_size=*/2, props_store_schema);
+  }
+}
+
 TEST(ArrowReadWrite, Map) {
   using ::arrow::field;
   using ::arrow::map;
