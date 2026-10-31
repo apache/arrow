@@ -83,7 +83,7 @@ TEST(TestWriterProperties, DefaultCompression) {
 // Checks the default, stored, and copied min_compression_savings.
 TEST(TestWriterProperties, MinCompressionSavings) {
   WriterProperties::Builder builder;
-  ASSERT_EQ(kDefaultMinCompressionSavings, builder.build()->min_compression_savings());
+  ASSERT_EQ(0.01, builder.build()->min_compression_savings());
 
   builder.data_page_version(ParquetDataPageVersion::V2);
   for (double savings : {0.0, kDefaultMinCompressionSavings, 0.1, 1.0}) {

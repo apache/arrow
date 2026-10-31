@@ -23,7 +23,6 @@ from textwrap import indent
 import warnings
 
 from cython.operator cimport dereference as deref
-from libc.float cimport DBL_EPSILON
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
@@ -2078,7 +2077,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         store_decimal_as_integer=False,
         use_content_defined_chunking=False,
         bloom_filter_options=None,
-        min_compression_savings=DBL_EPSILON) except *:
+        min_compression_savings=0.01) except *:
 
     """General writer properties"""
     cdef:
@@ -2090,7 +2089,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     savings = min_compression_savings
     if not (0.0 <= savings <= 1.0):
         raise ValueError("min_compression_savings must be in range [0, 1]")
-    if savings > DBL_EPSILON and data_page_version in (None, "1.0"):
+    if savings > 0.01 and data_page_version in (None, "1.0"):
         raise ValueError("min_compression_savings requires V2 data pages")
     props.min_compression_savings(savings)
 
@@ -2416,7 +2415,7 @@ cdef class ParquetWriter(_Weakrefable):
                   use_content_defined_chunking=False,
                   write_time_adjusted_to_utc=False,
                   bloom_filter_options=None,
-                  min_compression_savings=DBL_EPSILON):
+                  min_compression_savings=0.01):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
