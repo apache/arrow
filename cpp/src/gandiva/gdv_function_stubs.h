@@ -128,8 +128,9 @@ const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_l
                                    gdv_boolean x_isvalid, int32_t* out_length);
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
-                               int32_t* precision_from_str, int32_t* scale_from_str,
-                               int64_t* dec_high_from_str, uint64_t* dec_low_from_str);
+                               int32_t out_scale, int32_t* precision_from_str,
+                               int32_t* scale_from_str, int64_t* dec_high_from_str,
+                               uint64_t* dec_low_from_str);
 
 char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
                            int32_t x_scale, int32_t* dec_str_len);
