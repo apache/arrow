@@ -28,28 +28,35 @@ else()
   set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_shared ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
-# Define arrow_compute_core_testing object library for common test files requiring
+# Define arrow_compute_core_testing static library for common test files requiring
 # only core compute. No extra kernels are required.
+#
+# It links libraries for ARROW_TEST_LINKAGE. So it uses the same compile
+# definitions (e.g. ARROW_STATIC on Windows) as tests.
 if(ARROW_TESTING)
-  add_library(arrow_compute_core_testing OBJECT test_util_internal.cc)
-  # Even though this is still just an object library we still need to "link" our
-  # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_compute_core_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  add_library(arrow_compute_core_testing STATIC test_util_internal.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(arrow_compute_core_testing
+                          PUBLIC ${ARROW_TEST_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(arrow_compute_core_testing
+                          PUBLIC ${ARROW_TEST_SHARED_LINK_LIBS})
+  endif()
 endif()
 
-# Define arrow_compute_testing object library for test files requiring extra kernels.
+# Define arrow_compute_testing_main interface library that provides main()
+# initializing extra kernels.
+#
+# test_env.cc is compiled as a source of each test executable. If we use
+# a static library, main() in GTest::gmock_main may be used instead.
+#
+# This doesn't link any Apache Arrow C++ library. So this can be used
+# by tests that use different linkage from ARROW_TEST_LINKAGE such as
+# Flight SQL tests.
 if(ARROW_TESTING AND ARROW_COMPUTE)
-  set(ARROW_COMPUTE_TESTING_SRCS test_env.cc)
-  add_library(arrow_compute_testing OBJECT ${ARROW_COMPUTE_TESTING_SRCS})
-  # Even though this is still just an object library we still need to "link"
-  # arrow_compute_core_testing so that is also included correctly
-  target_link_libraries(arrow_compute_testing
-                        PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
-                        PUBLIC ${ARROW_GTEST_GTEST})
-  if(ARROW_BUILD_STATIC AND WIN32)
-    target_compile_definitions(arrow_compute_testing PUBLIC ARROW_COMPUTE_STATIC
-                                                            ARROW_STATIC)
-  endif()
+  add_library(arrow_compute_testing_main INTERFACE)
+  target_sources(arrow_compute_testing_main INTERFACE test_env.cc)
+  target_link_libraries(arrow_compute_testing_main INTERFACE ${ARROW_GTEST_GTEST})
 endif()
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
@@ -170,7 +177,7 @@ add_arrow_compute_test(expression_test
                        SOURCES
                        expression_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_testing)
+                       arrow_compute_testing_main)
 
 add_arrow_compute_test(row_test
                        SOURCES
@@ -183,7 +190,8 @@ add_arrow_compute_test(row_test
                        row/row_test.cc
                        util_internal_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_testing)
+                       arrow_compute_core_testing
+                       arrow_compute_testing_main)
 
 add_arrow_compute_benchmark(function_benchmark)
 

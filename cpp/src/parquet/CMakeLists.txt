@@ -41,23 +41,14 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
                         "${multi_value_args}"
                         ${ARGN})
 
-  set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
-
-  if(ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(${REL_TEST_NAME}
-                  STATIC_LINK_LIBS
-                  parquet_static
-                  ${PARQUET_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS}
-                  ${ARG_UNPARSED_ARGUMENTS})
-  else()
-    add_test_case(${REL_TEST_NAME}
-                  STATIC_LINK_LIBS
-                  parquet_shared
-                  ${PARQUET_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS}
-                  ${ARG_UNPARSED_ARGUMENTS})
-  endif()
+  add_test_case(${REL_TEST_NAME}
+                STATIC_LINK_LIBS
+                parquet_testing
+                PREFIX
+                "parquet"
+                LABELS
+                "parquet-tests"
+                ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 function(ADD_PARQUET_FUZZ_TARGET REL_FUZZING_NAME)
@@ -108,7 +99,8 @@ function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
                 ${PREFIX}
                 LABELS
                 "parquet-benchmarks"
-                ${PARQUET_BENCHMARK_LINK_OPTION}
+                EXTRA_LINK_LIBS
+                parquet_testing
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -122,16 +114,6 @@ if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 else()
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
-endif()
-
-set(PARQUET_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS} thrift::thrift)
-if(APPLE)
-  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
-elseif(NOT MSVC)
-  if(ARROW_ENABLE_THREADING)
-    list(APPEND PARQUET_TEST_LINK_LIBS Threads::Threads)
-  endif()
-  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 #
@@ -251,6 +233,7 @@ list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
                    encryption/openssl_internal.cc)
   # Encryption key management
@@ -289,6 +272,7 @@ endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -322,25 +306,30 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
-  list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
   list(APPEND PARQUET_LIBRARIES parquet_test_support)
 endif()
 
 if(ARROW_TESTING)
-  add_library(parquet_testing OBJECT test_util.cc)
-  # Even though this is still just an object library we still need to
-  # "link" our dependencies so that include paths are configured
-  # correctly
-  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
-endif()
-
-if(NOT ARROW_BUILD_SHARED)
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS parquet_static
-                                    ${PARQUET_TEST_LINK_LIBS} benchmark::benchmark_main)
-else()
-  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared
-                                    ${PARQUET_TEST_LINK_LIBS})
+  # Define parquet_testing static library for common test files.
+  add_library(parquet_testing STATIC test_util.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(parquet_testing PUBLIC parquet_static)
+  else()
+    target_link_libraries(parquet_testing PUBLIC parquet_shared)
+  endif()
+  if(TARGET parquet_test_support)
+    target_link_libraries(parquet_testing PUBLIC parquet_test_support)
+  endif()
+  target_link_libraries(parquet_testing PUBLIC ${ARROW_TEST_LINK_LIBS} thrift::thrift
+                                               simdjson::simdjson)
+  if(APPLE)
+    target_link_libraries(parquet_testing PUBLIC ${CMAKE_DL_LIBS})
+  elseif(NOT MSVC)
+    if(ARROW_ENABLE_THREADING)
+      target_link_libraries(parquet_testing PUBLIC Threads::Threads)
+    endif()
+    target_link_libraries(parquet_testing PUBLIC ${CMAKE_DL_LIBS})
+  endif()
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
