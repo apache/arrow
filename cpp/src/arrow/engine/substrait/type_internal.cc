@@ -171,7 +171,9 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
 
     case substrait::Type::kDecimal: {
       const auto& decimal = type.decimal();
-      return FromProtoImpl<Decimal128Type>(decimal, decimal.precision(), decimal.scale());
+      ARROW_ASSIGN_OR_RAISE(auto decimal_type,
+                            Decimal128Type::Make(decimal.precision(), decimal.scale()));
+      return std::make_pair(std::move(decimal_type), IsNullable(decimal));
     }
 
     case substrait::Type::kStruct: {
