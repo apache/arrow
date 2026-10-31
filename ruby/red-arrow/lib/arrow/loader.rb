@@ -47,7 +47,6 @@ module Arrow
 
       [
         @base_module::BinaryScalar,
-        @base_module::Buffer,
         @base_module::DenseUnionScalar,
         @base_module::FixedSizeBinaryScalar,
         @base_module::LargeBinaryScalar,

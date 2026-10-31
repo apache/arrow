@@ -17,15 +17,37 @@
 
 class BufferTest < Test::Unit::TestCase
   sub_test_case(".new") do
-    test("GC") do
+    test("copies String data") do
       data = "Hello"
-      data_id = data.object_id
-      weak_map = ObjectSpace::WeakMap.new
-      weak_map[data_id] = data
-      _buffer = Arrow::Buffer.new(data)
-      data = nil
+      buffer = Arrow::Buffer.new(data)
+      data.replace("World")
+      assert_equal("Hello", buffer.data.to_s)
+    end
+
+    data("String" => false,
+         "GLib::Bytes" => true)
+    test("GC with an array holding the native buffer") do |use_bytes|
+      chunked_array = build_buffer_backed_array(use_bytes)
       GC.start
-      assert_equal("Hello", weak_map[data_id])
+      Array.new(10_000) { [7, 7, 7].pack("l*") }
+      assert_equal([1, 2, 3], chunked_array.to_a)
+    end
+
+    data("String" => false,
+         "GLib::Bytes" => true)
+    test("GC with a slice holding the native buffer") do |use_bytes|
+      sliced_array = build_buffer_backed_array(use_bytes).slice(1, 2)
+      GC.start
+      Array.new(10_000) { [7, 7, 7].pack("l*") }
+      assert_equal([2, 3], sliced_array.to_a)
+    end
+
+    def build_buffer_backed_array(use_bytes)
+      data = [1, 2, 3].pack("l*")
+      data = GLib::Bytes.new(data) if use_bytes
+      buffer = Arrow::Buffer.new(data)
+      array = Arrow::Int32Array.new(3, buffer, nil, 0)
+      Arrow::ChunkedArray.new([array])
     end
   end
 
