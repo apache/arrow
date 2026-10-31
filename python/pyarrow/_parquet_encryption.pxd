@@ -21,6 +21,10 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libparquet_encryption cimport *
 from pyarrow.includes.libparquet cimport (
+    c_map,
+    CColumnDecryptionProperties,
+    CColumnDecryptionPropertiesBuilder,
+    CColumnEncryptionProperties,
     CSecureString,
     CFileDecryptionPropertiesBuilder,
     CFileEncryptionPropertiesBuilder,

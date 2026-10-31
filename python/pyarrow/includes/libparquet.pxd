@@ -17,6 +17,8 @@
 
 # distutils: language = c++
 
+from libcpp.map cimport map as c_map
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (Type, CChunkedArray, CScalar, CSchema,
                                         CStatus, CTable, CMemoryPool, CBuffer,
@@ -638,6 +640,22 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         const COutputStream* sink)
 
 cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
+    cdef cppclass CColumnEncryptionProperties\
+            " parquet::ColumnEncryptionProperties":
+        @staticmethod
+        shared_ptr[CColumnEncryptionProperties] WithColumnKey(
+            CSecureString key, c_string key_metadata) except +
+
+    cdef cppclass CColumnDecryptionProperties\
+            " parquet::ColumnDecryptionProperties":
+        pass
+
+    cdef cppclass CColumnDecryptionPropertiesBuilder\
+            " parquet::ColumnDecryptionProperties::Builder":
+        CColumnDecryptionPropertiesBuilder(c_string name) except +
+        CColumnDecryptionPropertiesBuilder* key(CSecureString key) except +
+        shared_ptr[CColumnDecryptionProperties] build() except +
+
     cdef cppclass CFileDecryptionProperties\
             " parquet::FileDecryptionProperties":
         pass
@@ -647,6 +665,8 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
         CFileDecryptionPropertiesBuilder() except +
         CFileDecryptionPropertiesBuilder* footer_key(
             CSecureString footer_key) except +
+        CFileDecryptionPropertiesBuilder* column_keys(
+            c_map[c_string, shared_ptr[CColumnDecryptionProperties]] column_keys) except +
         CFileDecryptionPropertiesBuilder* aad_prefix(
             c_string aad_prefix) except +
         CFileDecryptionPropertiesBuilder* disable_footer_signature_verification() except +
@@ -666,4 +686,6 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
         CFileEncryptionPropertiesBuilder* aad_prefix(
             c_string aad_prefix) except +
         CFileEncryptionPropertiesBuilder* disable_aad_prefix_storage() except +
+        CFileEncryptionPropertiesBuilder* encrypted_columns(
+            c_map[c_string, shared_ptr[CColumnEncryptionProperties]] columns) except +
         shared_ptr[CFileEncryptionProperties] build() except +
