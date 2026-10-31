@@ -200,13 +200,51 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
     DCHECK(!timezone.empty());
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     ARROW_ASSIGN_OR_RAISE(auto locale, GetLocale("C"));
-    TimestampFormatter<Duration> formatter{
-        timezone == "UTC" ? kUtcFormatString : kFormatString, tz, locale};
+    if (timezone == "UTC") {
+      TimestampFormatter<Duration> formatter{kUtcFormatString, tz, locale};
+      return VisitArraySpanInline<TimestampType>(
+          input,
+          [&](value_type v) {
+            ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(v));
+            return builder->Append(std::move(formatted));
+          },
+          [&]() {
+            builder->UnsafeAppendNull();
+            return Status::OK();
+          });
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto utc_tz, LocateZone("UTC"));
+    TimestampFormatter<Duration> utc_formatter{kUtcFormatString, utc_tz, locale};
+    std::ostringstream bufstream;
+    bufstream.imbue(locale);
+    bufstream.exceptions(std::ios::failbit | std::ios::badbit);
+
     return VisitArraySpanInline<TimestampType>(
         input,
         [&](value_type v) {
-          ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(v));
-          return builder->Append(std::move(formatted));
+          bufstream.str("");
+          const auto timepoint = sys_time<Duration>(Duration{v});
+          bool subminute_offset = false;
+          auto format_zoned_time = [&](auto&& zt) {
+            if (ARROW_PREDICT_FALSE(zt.get_info().offset.count() % 60 != 0)) {
+              subminute_offset = true;
+              return Status::OK();
+            }
+            try {
+              chrono::to_stream(bufstream, kFormatString.c_str(), zt);
+              return Status::OK();
+            } catch (const std::runtime_error& ex) {
+              bufstream.clear();
+              return Status::Invalid("Failed formatting timestamp: ", ex.what());
+            }
+          };
+          RETURN_NOT_OK(ApplyTimeZone(tz, timepoint, format_zoned_time));
+          if (ARROW_PREDICT_FALSE(subminute_offset)) {
+            ARROW_ASSIGN_OR_RAISE(auto formatted, utc_formatter(v));
+            return builder->Append(std::move(formatted));
+          }
+          return builder->Append(bufstream.str());
         },
         [&]() {
           builder->UnsafeAppendNull();

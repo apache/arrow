@@ -2348,6 +2348,12 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   StrptimeOptions options2("%Y-%m-%dT%H:%M%z", TimeUnit::MICRO, /*error_is_null=*/true);
   this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO, "UTC"), output,
                    &options2);
+
+  // empty format does not crash and handles error_is_null
+  StrptimeOptions options_empty("", TimeUnit::MICRO, /*error_is_null=*/true);
+  std::string output_empty = R"([null, null, null])";
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output_empty,
+                   &options_empty);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
