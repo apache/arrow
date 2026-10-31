@@ -16,6 +16,9 @@
 // under the License.
 
 #include <arrow/csv/api.h>
+#ifdef ARROW_EXAMPLE_GCS_STATIC_CHECK
+#  include <arrow/filesystem/gcsfs.h>
+#endif
 #ifdef ARROW_EXAMPLE_S3_STATIC_CHECK
 #  include <arrow/filesystem/s3fs.h>
 #endif
@@ -61,6 +64,12 @@ Status RunMain(int argc, char** argv) {
   std::cerr << "* Verify S3 initializes and finalizes" << std::endl;
   ARROW_RETURN_NOT_OK(arrow::fs::EnsureS3Initialized());
   ARROW_RETURN_NOT_OK(arrow::fs::EnsureS3Finalized());
+#endif
+
+#ifdef ARROW_EXAMPLE_GCS_STATIC_CHECK
+  std::cerr << "* Verify GCS filesystem construction" << std::endl;
+  ARROW_RETURN_NOT_OK(
+      arrow::fs::GcsFileSystem::Make(arrow::fs::GcsOptions::Anonymous()).status());
 #endif
 
   return Status::OK();
