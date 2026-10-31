@@ -38,7 +38,7 @@ jobs:
           - { r_image: "ubuntu-clang" }  # ~ r-devel-linux-x86_64-debian-clang
           - { r_image: "ubuntu-next" }  # ~ r-patched-linux-x86_64
           - { r_image: "ubuntu-release" }  # ~ r-release-linux-x86_64
-          - { r_image: "clang22", skip_vignettes: true }  # ~ r-devel-linux-x86_64-fedora-clang
+          - { r_image: "clang23", skip_vignettes: true }  # ~ r-devel-linux-x86_64-fedora-clang
     env:
       R_ORG: "rhub"
       R_IMAGE: {{ '${{ matrix.config.r_image }}' }}
