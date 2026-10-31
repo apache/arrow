@@ -168,9 +168,7 @@ constexpr bool HasSingleBit(T x) noexcept {
 }
 
 // Returns ceil(log2(x)).
-static inline int Log2(uint64_t x) {
-  return BitWidth(x - 1);
-}
+static inline int Log2(uint64_t x) { return BitWidth(x - 1); }
 
 //
 // Utilities for reading and writing individual bits by their index
