@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -175,8 +174,7 @@ ReaderProperties PARQUET_EXPORT default_reader_properties();
 
 static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr int64_t kDefaultMaxRowsPerPage = 20'000;
-static constexpr double kDefaultMinCompressionSavings =
-    std::numeric_limits<double>::epsilon();
+static constexpr double kDefaultMinCompressionSavings = 0.01;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
@@ -534,8 +532,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Used to set minimum compression ratio threshold for V2 page data values
-    /// compression. The default is double epsilon: keep compression if values become
-    /// smaller.
+    /// compression. The default is 0.01: keep compression if it saves at least 1%.
     Builder* min_compression_savings(double min_compression_savings) {
       if (!(min_compression_savings >= 0.0 && min_compression_savings <= 1.0)) {
         throw ParquetException("min_compression_savings must be in range [0, 1]");
