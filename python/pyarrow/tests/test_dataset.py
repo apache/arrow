@@ -3433,6 +3433,59 @@ def test_orc_format(tempdir, dataset_reader):
 
 
 @pytest.mark.orc
+@pytest.mark.parametrize('literal_first', [True, False])
+@pytest.mark.parametrize('in_memory', [True, False])
+@pytest.mark.parametrize('empty', [True, False])
+def test_orc_dotted_field_identity(
+        tempdir, dataset_reader, literal_first, in_memory, empty):
+    from pyarrow import orc
+    table = pa.table({'a.b': [1, 2, None],
+                      'a': [{'b': 10}, None, {'b': 30}],
+                      'other': [101, 102, 103]})
+    if not literal_first:
+        table = table.select(['a', 'a.b', 'other'])
+    if empty:
+        table = table.slice(0, 0)
+    output = pa.BufferOutputStream() if in_memory else str(tempdir / 'dotted.orc')
+    orc.write_table(table, output)
+    dataset = (
+        ds.OrcFileFormat().make_fragment(pa.BufferReader(output.getvalue()))
+        if in_memory else ds.dataset(output, format='orc'))
+
+    assert dataset_reader.to_table(dataset).equals(table)
+    projected = dataset_reader.to_table(dataset, columns=['a.b'], batch_size=1)
+    assert projected.equals(table.select(['a.b']))
+    assert all(len(chunk) <= 1 for chunk in projected['a.b'].chunks)
+    predicate = ds.field('a.b') > 1
+    assert dataset_reader.to_table(
+        dataset, columns=['other'], filter=predicate).equals(
+            table.filter(predicate).select(['other']))
+    columns = {'literal': ds.field('a.b'), 'nested': ds.field(('a', 'b'))}
+    expected = pa.table({'literal': [1, 2, None],
+                         'nested': [10, None, 30]}).slice(0, table.num_rows)
+    assert dataset_reader.to_table(dataset, columns=columns).equals(expected)
+    assert dataset_reader.to_table(dataset, columns=[]).num_rows == table.num_rows
+
+
+@pytest.mark.orc
+def test_orc_dotted_field_schema_evolution(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a.b': [1, 2], 'a': [{'b': 10}, {'b': 20}]})
+    paths = []
+    for i, columns in enumerate([['a.b', 'a'], ['a', 'a.b'], ['a']]):
+        path = str(tempdir / f'part{i}.orc')
+        orc.write_table(table.select(columns), path)
+        paths.append(path)
+    dataset = ds.dataset(paths, format='orc', schema=table.schema)
+    missing = table.set_column(0, table.schema.field(0), pa.nulls(2, pa.int64()))
+    expected = pa.concat_tables([table, table, missing])
+    assert dataset_reader.to_table(dataset).equals(expected)
+    assert dataset_reader.to_table(
+        dataset, columns=['a.b'], filter=ds.field('a.b') > 1).equals(
+            pa.table({'a.b': [2, 2]}))
+
+
+@pytest.mark.orc
 def test_orc_scan_options(tempdir, dataset_reader):
     from pyarrow import orc
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
