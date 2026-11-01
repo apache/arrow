@@ -2792,6 +2792,16 @@ TEST_F(CastTimezone, TimestampWithZoneToString) {
         ArrayFromJSON(
             string_type,
             R"(["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"])"));
+
+    CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO, "Africa/Monrovia"),
+                            "[-302443200000000]"),
+              ArrayFromJSON(string_type,
+                            R"(["1960-06-01 12:00:00.000000Z"])"));
+
+    CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO, "Europe/Paris"),
+                            "[-2195899200000000]"),
+              ArrayFromJSON(string_type,
+                            R"(["1900-06-01 12:00:00.000000Z"])"));
   }
 }
 

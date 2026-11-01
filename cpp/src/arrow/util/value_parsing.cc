@@ -78,11 +78,14 @@ class StrptimeTimestampParser : public TimestampParser {
  public:
   explicit StrptimeTimestampParser(std::string format)
       : format_(std::move(format)), have_zone_offset_(false) {
-    // Check for use of %z
+    // Check for use of %z or %Ez
     size_t cur = 0;
     while (cur < format_.size()) {
       if (format_[cur] == '%') {
-        if (cur + 1 < format_.size() && format_[cur + 1] == 'z') {
+        if (cur + 1 < format_.size() &&
+            (format_[cur + 1] == 'z' ||
+             (format_[cur + 1] == 'E' && cur + 2 < format_.size() &&
+              format_[cur + 2] == 'z'))) {
           have_zone_offset_ = true;
           break;
         }
