@@ -160,10 +160,14 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   return ret;                                                                   \
   }
 
-// Macro for date64 type. Output is always "YYYY-MM-DD" = 10 chars max.
+// Macro for date64 type. StringFormatter<Date64Type> emits "YYYY-MM-DD" for
+// ordinary dates, but widens to "-YYYYY-MM-DD" for years outside four digits and
+// to "<value out of range: <int64>>" for millisecond values beyond its supported
+// year range, so the rendering can be well over 10 bytes. Size the buffer for the
+// longest one: "<value out of range: " (21) + up to 20 int64 digits + ">" (1).
 #define GDV_FN_CAST_VARLEN_TYPE_FROM_DATE64(IN_TYPE, CAST_NAME, ARROW_TYPE)  \
   GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                              \
-  constexpr int32_t max_date_str_len = 10;                                   \
+  constexpr int32_t max_date_str_len = 42;                                   \
   int32_t alloc_len =                                                        \
       static_cast<int32_t>(len < max_date_str_len ? len : max_date_str_len); \
   GDV_FN_CAST_VARLEN_ALLOC(alloc_len)                                        \
