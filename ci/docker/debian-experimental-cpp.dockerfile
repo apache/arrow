@@ -88,7 +88,6 @@ RUN if [ -n "${gcc}" ]; then \
         python3-dev \
         python3-pip \
         python3-venv \
-        rapidjson-dev \
         rsync \
         tzdata \
         tzdata-legacy \
