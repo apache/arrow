@@ -498,6 +498,8 @@ physical type.
 +-------------------+-----------------------------+------------------------------+-----------+
 | GEOGRAPHY         | BYTE_ARRAY                  | Extension (``geoarrow.wkb``) | \(6) \(7) |
 +-------------------+-----------------------------+------------------------------+-----------+
+| FINITE_VECTOR     | Any                         | FixedSizeList                | \(8)      |
++-------------------+-----------------------------+------------------------------+-----------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
@@ -517,6 +519,12 @@ physical type.
   When ``false``, the underlying storage type is read.
 
 * \(7) Requires that the ``geoarrow.wkb`` extension type is registered.
+
+* \(8) EXPERIMENTAL. On the write side, a FixedSizeList is only mapped to a
+  Parquet FINITE_VECTOR if ``enable_finite_vector_logical_type`` is set in
+  ``ArrowWriterProperties`` and its element type maps to a Parquet BOOLEAN,
+  INT32, INT64, FLOAT, DOUBLE, FLOAT16 or DECIMAL primitive. Writing fails if
+  a non-null list contains a null or non-finite element.
 
 *Unsupported logical types:* BSON.  If such a type is encountered
 when reading a Parquet file, the default physical type mapping is used (for

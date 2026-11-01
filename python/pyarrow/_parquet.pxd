@@ -69,6 +69,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     use_compliant_nested_type=*,
     store_schema=*,
     write_time_adjusted_to_utc=*,
+    use_finite_vector_logical_type=*,
 ) except *
 
 
