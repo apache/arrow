@@ -303,6 +303,10 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     name: AMD64 Windows 2022 AVX2 C++
     uses: ./.github/workflows/cpp_windows.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: write
     with:
       arch: x64
       os: windows-2022

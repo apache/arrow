@@ -194,6 +194,10 @@ jobs:
     if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ARM64 Windows 11 MSVC
     uses: ./.github/workflows/cpp_windows.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: write
     with:
       arch: arm64
       os: windows-11-arm
