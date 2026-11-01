@@ -15,8 +15,6 @@
 // under the License.
 
 // Releases abandoned assignments on newcomer-friendly issues:
-//   - a linked PR is closed without merging and no other open linked PR
-//     exists from the same author -> unassign immediately
 //   - no qualifying activity for WARN_AFTER_DAYS -> warn,
 //     then unassign GRACE_DAYS later if there is still no activity.
 
@@ -44,9 +42,6 @@ const hasTimerPauseLabel = pr =>
   );
 
 const same = (a, b) => a?.toLowerCase() === b?.toLowerCase();
-
-const hasNewcomerLabel = issue =>
-  issue.labels.some(label => LABELS.includes(label.name));
 
 const warningMarker = login =>
   `<!-- unassign-bot-warning:${login.toLowerCase()} -->`;
@@ -90,67 +85,7 @@ module.exports = async ({ github, context }) => {
     );
   }
 
-  // A linked PR was closed without merging.
-  if (context.eventName === "pull_request_target") {
-    const pr = context.payload.pull_request;
-    const number = linkedIssue(pr);
-
-    if (context.payload.action !== "closed" || pr.merged || !number) {
-      return;
-    }
-
-    let issue;
-    try {
-      issue = (
-        await github.rest.issues.get({
-          owner,
-          repo,
-          issue_number: number,
-        })
-      ).data;
-    } catch (error) {
-      if (error.status !== 404) {
-        throw error;
-      }
-
-      console.log(
-        `Skipping PR #${pr.number}: referenced issue #${number} was not found`
-      );
-      return;
-    }
-
-    const author = pr.user.login;
-
-    if (
-      !hasNewcomerLabel(issue) ||
-      !issue.assignees.some(a => same(a.login, author))
-    ) {
-      return;
-    }
-
-    // Another PR protects its own author, not this contributor.
-    const open = await paginate(github.rest.pulls.list, { state: "open" });
-
-    if (
-      open.some(
-        p =>
-          p.number !== pr.number &&
-          linkedIssue(p) === number &&
-          same(p.user.login, author)
-      )
-    ) {
-      return;
-    }
-
-    await unassign(
-      number,
-      author,
-      `PR #${pr.number} was closed without being merged`
-    );
-    return;
-  }
-
-  // Scheduled / manual: warn, then release inactive assignments.
+  // Scheduled: warn, then release inactive assignments.
   const byNumber = new Map();
 
   for (const label of LABELS) {
@@ -207,25 +142,33 @@ module.exports = async ({ github, context }) => {
           continue; // Unknown assignment time: keep the assignment.
         }
 
+        const since = new Date(assignedAt).toISOString();
         const comments = await paginate(github.rest.issues.listComments, {
           issue_number: issue.number,
-          since: new Date(assignedAt).toISOString(),
+          since,
         });
 
         // Activity on a linked PR counts when it comes from the assignee or
         // someone with maintainer/collaborator permissions.
         const prActivity = [];
+        const activityDates = (items, getDate, qualifies = () => true) =>
+          items
+            .filter(item => {
+              const timestamp = Date.parse(getDate(item));
+              return timestamp >= assignedAt && qualifies(item);
+            })
+            .map(item => Date.parse(getDate(item)));
 
         for (const pr of linkedPrs) {
           const [prComments, reviewComments, reviews, labelEvents, commits] =
             await Promise.all([
               paginate(github.rest.issues.listComments, {
                 issue_number: pr.number,
-                since: new Date(assignedAt).toISOString(),
+                since,
               }),
               paginate(github.rest.pulls.listReviewComments, {
                 pull_number: pr.number,
-                since: new Date(assignedAt).toISOString(),
+                since,
               }),
               paginate(github.rest.pulls.listReviews, {
                 pull_number: pr.number,
@@ -239,53 +182,36 @@ module.exports = async ({ github, context }) => {
             ]);
 
           prActivity.push(
-            ...prComments
-              .filter(
-                c =>
-                  Date.parse(c.created_at) >= assignedAt &&
-                  (same(c.user?.login, login) ||
-                    isMaintainer(c.author_association))
-              )
-              .map(c => Date.parse(c.created_at)),
+            ...activityDates(
+              [...prComments, ...reviewComments],
+              c => c.created_at,
+              c =>
+                same(c.user?.login, login) ||
+                isMaintainer(c.author_association)
+            ),
 
-            ...reviewComments
-              .filter(
-                c =>
-                  Date.parse(c.created_at) >= assignedAt &&
-                  (same(c.user?.login, login) ||
-                    isMaintainer(c.author_association))
-              )
-              .map(c => Date.parse(c.created_at)),
-
-            ...reviews
-              .filter(
-                r =>
-                  r.submitted_at &&
-                  Date.parse(r.submitted_at) >= assignedAt &&
-                  (same(r.user?.login, login) ||
-                    isMaintainer(r.author_association))
-              )
-              .map(r => Date.parse(r.submitted_at)),
+            ...activityDates(
+              reviews.filter(review => review.submitted_at),
+              review => review.submitted_at,
+              review =>
+                same(review.user?.login, login) ||
+                isMaintainer(review.author_association)
+            ),
 
             // Removing a timer-pausing label starts a fresh countdown.
-            ...labelEvents
-              .filter(
-                event =>
-                  event.event === "unlabeled" &&
-                  TIMER_PAUSE_LABELS.includes(
-                    event.label?.name?.toLowerCase()
-                  ) &&
-                  Date.parse(event.created_at) >= assignedAt
-              )
-              .map(event => Date.parse(event.created_at)),
+            ...activityDates(
+              labelEvents,
+              event => event.created_at,
+              event =>
+                event.event === "unlabeled" &&
+                TIMER_PAUSE_LABELS.includes(event.label?.name?.toLowerCase())
+            ),
 
-            ...commits
-              .filter(
-                commit =>
-                  Date.parse(commit.commit.committer.date) >= assignedAt &&
-                  same(commit.committer?.login, login)
-              )
-              .map(commit => Date.parse(commit.commit.committer.date))
+            ...activityDates(
+              commits,
+              commit => commit.commit.committer.date,
+              commit => same(commit.committer?.login, login)
+            )
           );
         }
 
@@ -316,8 +242,8 @@ module.exports = async ({ github, context }) => {
           await comment(
             issue.number,
             `${warningMarker(login)}\n@${login}, there has been no qualifying activity ` +
-            `on this issue or its linked PR for ${WARN_AFTER_DAYS} days. It will be ` +
-            `unassigned in ${GRACE_DAYS} days unless there is further activity.`
+              `on this issue or its linked PR for ${WARN_AFTER_DAYS} days. It will be ` +
+              `unassigned in ${GRACE_DAYS} days unless there is further activity.`
           );
         } else if (
           Date.now() - Date.parse(warning.created_at) >= GRACE_DAYS * DAY
