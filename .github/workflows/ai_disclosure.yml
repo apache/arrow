@@ -42,8 +42,8 @@ jobs:
       # Always run the script from main, never from the PR head.
       - uses: actions/checkout@v7
         with:
-          repository: apache/arrow
-          ref: main
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
 
       - name: Check AI disclosure
