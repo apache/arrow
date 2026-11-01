@@ -710,6 +710,9 @@ class RleBitPackedEncoder {
   /// This value must be representable with bit_width_ bits.
   bool Put(uint64_t value);
 
+  /// Encode the same value up to count times and return how many were accepted
+  int PutRepeated(uint64_t value, int count);
+
   /// Flushes any pending values to the underlying buffer.
   /// Returns the total number of bytes written
   int Flush();
@@ -1524,6 +1527,28 @@ inline bool RleBitPackedEncoder::Put(uint64_t value) {
     FlushBufferedValues(false);
   }
   return true;
+}
+
+inline int RleBitPackedEncoder::PutRepeated(uint64_t value, int count) {
+  ARROW_DCHECK_GE(count, 0);
+  ARROW_DCHECK(bit_width_ == 64 || value < (uint64_t{1} << bit_width_));
+
+  int encoded = 0;
+  while (encoded < count && !buffer_full_) {
+    if (current_value_ == value && repeat_count_ > 8) {
+      // Extend an existing repeat by adding to its count instead of visiting each value
+      const int added =
+          std::min(count - encoded, std::numeric_limits<int>::max() - repeat_count_);
+      repeat_count_ += added;
+      encoded += added;
+      break;
+    }
+    if (!Put(value)) {
+      break;
+    }
+    ++encoded;
+  }
+  return encoded;
 }
 
 inline void RleBitPackedEncoder::FlushLiteralRun(bool update_indicator_byte) {

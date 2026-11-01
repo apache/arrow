@@ -22,9 +22,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/config.h"
@@ -1277,6 +1280,162 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   typed_writer->WriteBatchSpaced(14, def_levels.data(), rep_levels.data(),
                                  valid_bits->data(), 0, values_data);
   writer->Close();
+}
+
+// Check that encoding a marker by count gives the same bytes as encoding its array
+TEST(TestLevelEncoder, EncodeRepeatedMatchesEncode) {
+  for (int16_t maximum : {1, 2, 3, 7}) {
+    for (int16_t level : {int16_t{0}, maximum}) {
+      for (int count : {0, 1, 7, 8, 9, 767, 768, 4096}) {
+        const int capacity = LevelEncoder::MaxBufferSize(Encoding::RLE, maximum, count);
+        std::vector<int16_t> levels(count, level);
+        std::vector<uint8_t> expected(capacity);
+        std::vector<uint8_t> actual(capacity);
+        LevelEncoder reference;
+        LevelEncoder encoder;
+        reference.Init(Encoding::RLE, maximum, count, expected.data(), capacity);
+        encoder.Init(Encoding::RLE, maximum, count, actual.data(), capacity);
+        ASSERT_EQ(count, reference.Encode(count, levels.data()));
+        ASSERT_EQ(count, encoder.EncodeRepeated(count, level));
+        expected.resize(reference.len());
+        actual.resize(encoder.len());
+        ASSERT_EQ(expected, actual);
+      }
+    }
+  }
+}
+
+// Check that invalid marker values, counts and encoder settings are rejected
+TEST(TestLevelEncoder, EncodeRepeatedRejectsInvalidInput) {
+  LevelEncoder encoder;
+  EXPECT_THROW(encoder.EncodeRepeated(1, 1), ParquetException);
+  const int capacity = LevelEncoder::MaxBufferSize(Encoding::RLE, 1, 8);
+  std::vector<uint8_t> buffer(capacity);
+  encoder.Init(Encoding::RLE, 1, 8, buffer.data(), capacity);
+  EXPECT_THROW(encoder.EncodeRepeated(-1, 1), ParquetException);
+  EXPECT_THROW(encoder.EncodeRepeated(1, -1), ParquetException);
+  EXPECT_THROW(encoder.EncodeRepeated(1, 2), ParquetException);
+  encoder.Init(Encoding::BIT_PACKED, 1, 8, buffer.data(), capacity);
+  EXPECT_THROW(encoder.EncodeRepeated(1, 1), ParquetException);
+}
+
+// Check that list sizes produce the same marker bytes as explicit 0 and 1 arrays
+TEST(TestLevelEncoder, EncodeFixedSizeListMatchesEncode) {
+  for (int32_t list_size : {1, 3, 8, 9, 16, 768}) {
+    for (int count : {0, 1, 7, 8, 9, 63, 64, 767, 768, 4097}) {
+      const int capacity = LevelEncoder::MaxBufferSize(Encoding::RLE, 1, count);
+      std::vector<int16_t> levels(count);
+      for (int i = 0; i < count; ++i) {
+        levels[i] = i % list_size == 0 ? 0 : 1;
+      }
+      std::vector<uint8_t> expected(capacity);
+      std::vector<uint8_t> actual(capacity);
+      LevelEncoder reference;
+      LevelEncoder encoder;
+      reference.Init(Encoding::RLE, 1, count, expected.data(), capacity);
+      encoder.Init(Encoding::RLE, 1, count, actual.data(), capacity);
+      ASSERT_EQ(count, reference.Encode(count, levels.data()));
+      ASSERT_EQ(count, encoder.EncodeFixedSizeList(count, list_size));
+      expected.resize(reference.len());
+      actual.resize(encoder.len());
+      ASSERT_EQ(expected, actual);
+    }
+  }
+}
+
+// Check that invalid list sizes, counts and encoder settings are rejected
+TEST(TestLevelEncoder, EncodeFixedSizeListRejectsInvalidInput) {
+  LevelEncoder encoder;
+  EXPECT_THROW(encoder.EncodeFixedSizeList(3, 3), ParquetException);
+  const int capacity = LevelEncoder::MaxBufferSize(Encoding::RLE, 2, 8);
+  std::vector<uint8_t> buffer(capacity);
+  encoder.Init(Encoding::RLE, 1, 8, buffer.data(), capacity);
+  EXPECT_THROW(encoder.EncodeFixedSizeList(-1, 3), ParquetException);
+  EXPECT_THROW(encoder.EncodeFixedSizeList(3, 0), ParquetException);
+  EXPECT_THROW(encoder.EncodeFixedSizeList(3, -1), ParquetException);
+  encoder.Init(Encoding::RLE, 2, 8, buffer.data(), capacity);
+  EXPECT_THROW(encoder.EncodeFixedSizeList(3, 3), ParquetException);
+}
+
+class TestFixedSizeListWriter : public ::testing::Test {
+ protected:
+  void MakeWriter(Type::type physical_type) {
+    auto item = PrimitiveNode::Make("item", Repetition::OPTIONAL, physical_type);
+    auto repeated = GroupNode::Make("list", Repetition::REPEATED, {item});
+    auto field =
+        GroupNode::Make("root", Repetition::OPTIONAL, {repeated}, ConvertedType::LIST);
+    schema_.Init(GroupNode::Make("schema", Repetition::REQUIRED, {field}));
+    properties_ = WriterProperties::Builder().disable_dictionary()->build();
+    metadata_ = ColumnChunkMetaDataBuilder::Make(properties_, schema_.Column(0));
+    auto pager = PageWriter::Open(CreateOutputStream(), Compression::UNCOMPRESSED,
+                                  metadata_.get());
+    writer_ = ColumnWriter::Make(metadata_.get(), std::move(pager), properties_.get());
+  }
+
+  void TearDown() override {
+    if (writer_) {
+      ASSERT_NO_THROW(writer_->Close());
+    }
+  }
+
+  SchemaDescriptor schema_;
+  std::shared_ptr<WriterProperties> properties_;
+  std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
+  std::shared_ptr<ColumnWriter> writer_;
+  std::shared_ptr<ArrowWriterProperties> arrow_properties_ =
+      default_arrow_writer_properties();
+  ArrowWriteContext context_{::arrow::default_memory_pool(), arrow_properties_.get()};
+};
+
+// Check that incompatible writes are rejected and valid shortcut writes still work
+TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
+  MakeWriter(Type::INT32);
+  auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5, 6]");
+  context_.fixed_size_list_size = 3;
+  ASSERT_OK(writer_->WriteArrow(nullptr, nullptr, 6, *values, &context_, true));
+  EXPECT_EQ(2, writer_->rows_written());
+  EXPECT_EQ(0, writer_->estimated_buffered_def_level_bytes());
+  EXPECT_EQ(0, writer_->estimated_buffered_rep_level_bytes());
+
+  auto typed = std::static_pointer_cast<Int32Writer>(writer_);
+  const int16_t definitions[] = {3, 2, 3};
+  const int16_t repetitions[] = {0, 1, 1};
+  const int32_t packed[] = {7, 9};
+  const int32_t spaced[] = {7, 0, 9};
+  const uint8_t validity = 0x05;
+  EXPECT_THROW(typed->WriteBatch(3, definitions, repetitions, packed), ParquetException);
+  EXPECT_THROW(typed->WriteBatchSpaced(3, definitions, repetitions, &validity, 0, spaced),
+               ParquetException);
+  auto packed_array = ::arrow::ArrayFromJSON(::arrow::int32(), "[7, 9]");
+  context_.fixed_size_list_size = 0;
+  EXPECT_TRUE(
+      writer_->WriteArrow(definitions, repetitions, 3, *packed_array, &context_, true)
+          .IsInvalid());
+  context_.fixed_size_list_size = 3;
+  ASSERT_OK(writer_->WriteArrow(nullptr, nullptr, 6, *values, &context_, true));
+  EXPECT_EQ(4, writer_->rows_written());
+}
+
+// Check that the numeric shortcut rejects strings when called directly
+TEST_F(TestFixedSizeListWriter, RejectsUnsupportedType) {
+  MakeWriter(Type::BYTE_ARRAY);
+  auto values = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])");
+  context_.fixed_size_list_size = 3;
+  EXPECT_TRUE(
+      writer_->WriteArrow(nullptr, nullptr, 3, *values, &context_, true).IsInvalid());
+  EXPECT_EQ(0, writer_->rows_written());
+}
+
+// Check that callers cannot supply both marker arrays and a list-size shortcut
+TEST_F(TestFixedSizeListWriter, RejectsMarkersWithRecipe) {
+  MakeWriter(Type::INT32);
+  auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3]");
+  const int16_t definitions[] = {3, 3, 3};
+  const int16_t repetitions[] = {0, 1, 1};
+  context_.fixed_size_list_size = 3;
+  EXPECT_TRUE(writer_->WriteArrow(definitions, repetitions, 3, *values, &context_, true)
+                  .IsInvalid());
+  EXPECT_EQ(0, writer_->rows_written());
 }
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,

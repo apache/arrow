@@ -1591,6 +1591,9 @@ struct ArrowWriteContext {
   MemoryPool* memory_pool;
   const ArrowWriterProperties* properties;
 
+  // Use a positive list size only when every list and value is present
+  int32_t fixed_size_list_size = 0;
+
   // Buffer used for storing the data of an array converted to the physical type
   // as expected by parquet-cpp.
   std::shared_ptr<ResizableBuffer> data_buffer;
