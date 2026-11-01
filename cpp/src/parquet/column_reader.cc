@@ -1145,8 +1145,8 @@ class ColumnChunkReader {
 
   /// Return true if there is more data.
   ///
-  /// If the current page is exhausted, it will process more pages until some data
-  /// page is found.
+  /// If the current page is exhausted, it will process more pages until a data page
+  /// with values is found or the column chunk ends.
   bool EnsureDataPage();
 
   /// Check the encoding of the current page or throw an exception.
@@ -1279,8 +1279,8 @@ template <typename Traits>
 bool ColumnChunkReader<Traits>::EnsureDataPage() {
   // Either there is no data page available yet, or the data page has been
   // exhausted
-  if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
-    if (!ReadNewPage() || num_buffered_values_ == 0) {
+  while (num_decoded_values_ == num_buffered_values_) {
+    if (!ReadNewPage()) {
       return false;
     }
   }
@@ -1438,7 +1438,7 @@ int32_t ColumnChunkReader<Traits>::AdvanceLevels(int32_t num_levels) {
 template <typename Traits>
 int64_t ColumnChunkReader<Traits>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
-  // Optimization: Do not call HasNext() when values_to_skip == 0.
+  // Optimization: Do not call EnsureDataPage() when values_to_skip == 0.
   while (values_to_skip > 0 && EnsureDataPage()) {
     // If the number of values to skip is more than the number of undecoded values, skip
     // the whole Page without decoding levels or values.
@@ -1925,11 +1925,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
     /// or observe the desired number of records
     const int32_t batch_size =
         narrow_min(level_batch_size, this->available_values_current_page());
-
-    // No more data in column
-    if (batch_size == 0) {
-      break;
-    }
+    ARROW_DCHECK_GT(batch_size, 0);
 
     if (this->max_def_level() > 0) {
       def_levels_.Decode(this->def_levels_decoder_, batch_size);
@@ -2020,7 +2016,7 @@ int64_t TypedRecordReader<DT, VS>::SkipRecordsRepeated(int64_t num_records) {
   // of its values yet.
   while (!at_record_start_ || skipped_records < num_records) {
     // Is there more data to read in this row group?
-    // HasNextInternal() will advance to the next page if necessary.
+    // EnsureDataPage() will advance to the next page if necessary.
     if (!this->EnsureDataPage()) {
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
@@ -2037,13 +2033,7 @@ int64_t TypedRecordReader<DT, VS>::SkipRecordsRepeated(int64_t num_records) {
         std::min<int64_t>(level_batch_size, this->available_values_current_page());
     // available_values_current_page fits in int32_t
     const auto batch_size = static_cast<int32_t>(batch_size_64);
-
-    // No more data in column. This must be an empty page.
-    // If we had exhausted the last page, HasNextInternal() must have advanced
-    // to the next page. So there must be available values to process.
-    if (batch_size == 0) {
-      break;
-    }
+    ARROW_DCHECK_GT(batch_size, 0);
 
     def_levels_.Decode(this->def_levels_decoder_, batch_size);
     rep_levels_.Decode(this->rep_levels_decoder_, batch_size);
