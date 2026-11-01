@@ -590,6 +590,97 @@ precision requires) are not valid ``typed_value`` storage.
      ``UInt8`` values become Variant ``int16``, stored either Variant-encoded
      in ``value`` or in an ``Int16`` ``typed_value`` column.
 
+.. _parquet_file_extension:
+
+Parquet File
+============
+
+File represents a reference to a range of bytes stored inline or in an external
+file. It is intended for use cases such as file inventories, manifests, and
+references to unstructured data such as images or audio files in object
+storage.
+
+Field semantics, byte resolution rules, and value validation are defined by the
+`Parquet FILE logical type specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#file>`__.
+These requirements apply to this extension type.
+
+* Extension name: ``arrow.parquet.file``.
+
+* The storage type of this extension is a ``Struct`` containing at least one of
+  the following nullable fields:
+
+  .. list-table::
+     :header-rows: 1
+
+     * - Field
+       - Type
+     * - ``uri``
+       - ``String``, ``LargeString``, or ``StringView``
+     * - ``offset``
+       - ``Int64``
+     * - ``size``
+       - ``Int64``
+     * - ``content_type``
+       - ``String``, ``LargeString``, or ``StringView``
+     * - ``checksum``
+       - ``String``, ``LargeString``, or ``StringView``
+     * - ``inline``
+       - ``Binary``, ``LargeBinary``, or ``BinaryView``
+
+  The fields may be in any order and must be accessed by case-sensitive name,
+  not by position. Each field may occur at most once and may be omitted from
+  the ``Struct`` when it is not used. The ``Struct`` must not contain fields
+  other than those listed above.
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Extension metadata is an empty string.
+
+Relative URI resolution
+-----------------------
+
+Unlike in Parquet, an ``offset`` paired with a relative ``uri`` is hard to interpret
+in this extension type. While Parquet file's location can suggest a starting
+point for the relative path, an extension type will not carry no such
+information.
+
+It is up to the application layer to handle what the meaning of the relative
+paths is if they are provided.
+
+Examples
+--------
+
+A storage type containing all defined fields is::
+
+  Struct<
+    uri: String,
+    offset: Int64,
+    size: Int64,
+    content_type: String,
+    checksum: String,
+    inline: Binary
+  >
+
+All six child fields in this example are nullable. An inline-only storage type
+may contain only the fields it uses::
+
+  Struct<
+    inline: Binary,
+    content_type: String
+  >
+
+Similarly, a whole-file external reference may use::
+
+  Struct<
+    uri: String,
+    content_type: String,
+    checksum: String
+  >
+
 .. _timestamp_with_offset_extension:
 
 Timestamp With Offset
