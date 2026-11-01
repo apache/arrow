@@ -85,6 +85,9 @@ Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
   FieldVector emit_fields(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
+    if (map_id < 0 || map_id >= input_schema->num_fields()) {
+      return Status::Invalid("Out of bounds emit index ", map_id);
+    }
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
     emit_fields[i] = input_schema->field(map_id);
   }
@@ -111,6 +114,9 @@ Result<DeclarationInfo> ProcessEmitProject(
         std::vector<compute::Expression> emit_proj_exprs(emit_size);
         for (int i = 0; i < emit_size; i++) {
           int32_t map_id = emit.output_mapping(i);
+          if (map_id < 0 || map_id >= input_schema->num_fields()) {
+            return Status::Invalid("Out of bounds emit index ", map_id);
+          }
           emit_fields[i] = input_schema->field(map_id);
           emit_proj_exprs[i] = std::move(proj_options.expressions[map_id]);
         }
