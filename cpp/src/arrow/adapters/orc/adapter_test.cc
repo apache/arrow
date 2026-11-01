@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <iostream>
+#include <optional>
 #include <orc/OrcFile.hh>
 #include <string>
 
@@ -501,7 +502,7 @@ TEST(TestAdapterRead, StripeBatchSelectionAndState) {
                        adapters::orc::ORCFileReader::Open(file, default_memory_pool()));
   ASSERT_EQ(4, reader->NumberOfStripes());
   ASSERT_OK(reader->Seek(16384 + 7));
-  ASSERT_OK_AND_ASSIGN(auto first, reader->GetStripeReader(2, 1000));
+  ASSERT_OK_AND_ASSIGN(auto first, reader->GetStripeReader(2, 1000, std::nullopt));
   ASSERT_OK_AND_ASSIGN(auto second, reader->GetStripeReader(0, 1));
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(second->ReadNext(&batch));
@@ -539,9 +540,11 @@ TEST(TestAdapterRead, StripeBatchProjectionAndArguments) {
   ASSERT_RAISES(Invalid, reader->GetStripeReader(3, 10));
   ASSERT_RAISES(Invalid, reader->GetStripeReader(0, 0));
   ASSERT_RAISES(Invalid, reader->GetStripeReader(0, -1));
-  ASSERT_RAISES(IOError, reader->GetStripeReader(0, 10, {"missing"}));
+  ASSERT_RAISES(IOError,
+                reader->GetStripeReader(0, 10, std::vector<std::string>{"missing"}));
   ASSERT_OK_AND_ASSIGN(auto projected,
-                       reader->GetStripeReader(1, 10000, {"col2", "col0", "col0"}));
+                       reader->GetStripeReader(
+                           1, 10000, std::vector<std::string>{"col2", "col0", "col0"}));
   ASSERT_EQ(projected->schema()->field_names(),
             (std::vector<std::string>{"col0", "col2"}));
   std::shared_ptr<RecordBatch> batch;
@@ -580,8 +583,8 @@ TEST(TestAdapterRead, StripeBatchReadsOnlySelectedRange) {
     ASSERT_OK_AND_ASSIGN(
         auto reader, adapters::orc::ORCFileReader::Open(tracked, default_memory_pool()));
     ASSERT_EQ(4, reader->NumberOfStripes());
-    tracked->ResetStats();
     for (int stripe : {2, 0}) {
+      tracked->ResetStats();
       ASSERT_OK_AND_ASSIGN(auto batches, reader->GetStripeReader(stripe, 17));
       std::shared_ptr<RecordBatch> batch;
       ASSERT_OK(batches->ReadNext(&batch));
@@ -590,12 +593,13 @@ TEST(TestAdapterRead, StripeBatchReadsOnlySelectedRange) {
       auto reads = tracked->num_reads();
       batches.reset();  // Early stop must not read the rest or another stripe.
       ASSERT_EQ(reads, tracked->num_reads());
-    }
-    for (const auto& range : tracked->get_read_ranges()) {
-      for (int stripe : {1, 3}) {
-        auto unselected = reader->GetStripeInformation(stripe);
-        ASSERT_TRUE(range.offset + range.length <= unselected.offset ||
-                    range.offset >= unselected.offset + unselected.length);
+      for (const auto& range : tracked->get_read_ranges()) {
+        for (int other = 0; other < reader->NumberOfStripes(); ++other) {
+          if (other == stripe) continue;
+          auto unselected = reader->GetStripeInformation(other);
+          ASSERT_TRUE(range.offset + range.length <= unselected.offset ||
+                      range.offset >= unselected.offset + unselected.length);
+        }
       }
     }
   }

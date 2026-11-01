@@ -371,12 +371,14 @@ cdef class ORCReader(_Weakrefable):
             shared_ptr[CRecordBatchReader] batch_reader
             shared_ptr[CRecordBatch] batch
             std_vector[c_string] names
+            optional[std_vector[c_string]] selected_names
             int64_t stripe
 
         if batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
         if columns is not None:
             names = [tobytes(name) for name in columns]
+            selected_names = optional[std_vector[c_string]](names)
 
         # Keep self (and its source) alive for the generator's entire lifetime.
         if stripes is None and (columns is None or len(columns) != 0):
@@ -394,15 +396,10 @@ cdef class ORCReader(_Weakrefable):
                             self.reader.get().GetRecordBatchReader(batch_size, names))
                 else:
                     stripe = index
-                    if columns is None:
-                        with nogil:
-                            batch_reader = GetResultValue(
-                                self.reader.get().GetStripeReader(stripe, batch_size))
-                    else:
-                        with nogil:
-                            batch_reader = GetResultValue(
-                                self.reader.get().GetStripeReader(
-                                    stripe, batch_size, names))
+                    with nogil:
+                        batch_reader = GetResultValue(
+                            self.reader.get().GetStripeReader(
+                                stripe, batch_size, selected_names))
                 while True:
                     if self.source_handle.get().closed():
                         raise ValueError("I/O operation on closed file")

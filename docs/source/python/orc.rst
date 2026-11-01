@@ -178,8 +178,10 @@ Arrow data, use :meth:`~pyarrow.orc.ORCFile.iter_batches`:
 
 Omitting ``stripes`` reads the entire file in physical order. An explicit
 sequence reads stripes in the supplied order, including repetitions; an empty
-sequence reads nothing. Column selection follows ``read_stripe``. In particular,
-``columns=[]`` returns zero-column batches with the correct row counts.
+sequence reads nothing. Column selection follows ``read_stripe``: use column
+names (including nested paths) or top-level integer indices. Mixing names and
+indices is not supported. ``columns=[]`` returns zero-column batches with the
+correct row counts.
 
 Reading begins when the iterator is consumed. When stopping early, call
 ``close()`` to release its reader:

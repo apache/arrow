@@ -507,22 +507,15 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Result<std::shared_ptr<RecordBatchReader>> GetStripeReader(int64_t stripe,
-                                                             int64_t batch_size) {
-    return GetStripeReader(stripe, batch_size, DefaultRowReaderOptions());
-  }
-
   Result<std::shared_ptr<RecordBatchReader>> GetStripeReader(
-      int64_t stripe, int64_t batch_size, const std::vector<std::string>& include_names) {
-    auto opts = DefaultRowReaderOptions();
-    RETURN_NOT_OK(SelectNames(&opts, include_names));
-    return GetStripeReader(stripe, batch_size, std::move(opts));
-  }
-
-  Result<std::shared_ptr<RecordBatchReader>> GetStripeReader(
-      int64_t stripe, int64_t batch_size, liborc::RowReaderOptions opts) {
+      int64_t stripe, int64_t batch_size,
+      const std::optional<std::vector<std::string>>& include_names) {
     if (batch_size <= 0) {
       return Status::Invalid("batch_size must be greater than zero");
+    }
+    auto opts = DefaultRowReaderOptions();
+    if (include_names.has_value()) {
+      RETURN_NOT_OK(SelectNames(&opts, *include_names));
     }
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
     std::unique_ptr<liborc::RowReader> row_reader;
@@ -647,12 +640,8 @@ Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(
 Status ORCFileReader::Seek(int64_t row_number) { return impl_->Seek(row_number); }
 
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetStripeReader(
-    int64_t stripe, int64_t batch_size) {
-  return impl_->GetStripeReader(stripe, batch_size);
-}
-
-Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetStripeReader(
-    int64_t stripe, int64_t batch_size, const std::vector<std::string>& include_names) {
+    int64_t stripe, int64_t batch_size,
+    const std::optional<std::vector<std::string>>& include_names) {
   return impl_->GetStripeReader(stripe, batch_size, include_names);
 }
 

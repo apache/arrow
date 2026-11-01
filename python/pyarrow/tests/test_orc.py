@@ -794,6 +794,16 @@ def test_iter_batches_invalid_stripes(batch_file, stripes, error):
     assert source.reads == []
 
 
+@pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
+@pytest.mark.parametrize('columns', [[0, 'other'], ['value', 1]])
+def test_iter_batches_mixed_columns(batch_file, columns):
+    from pyarrow import orc
+
+    reader = orc.ORCFile(batch_file[0])
+    with pytest.raises(TypeError, match='cannot mix names and integer indices'):
+        reader.iter_batches(columns=columns)
+
+
 def test_iter_batches_snapshot_and_state(batch_file):
     from pyarrow import orc
 

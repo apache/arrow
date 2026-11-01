@@ -104,9 +104,8 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
             int64_t stripe, std_vector[c_string])
 
         CResult[shared_ptr[CRecordBatchReader]] GetStripeReader(
-            int64_t stripe, int64_t batch_size)
-        CResult[shared_ptr[CRecordBatchReader]] GetStripeReader(
-            int64_t stripe, int64_t batch_size, const std_vector[c_string]&)
+            int64_t stripe, int64_t batch_size,
+            const optional[std_vector[c_string]]&)
         CResult[shared_ptr[CRecordBatchReader]] GetRecordBatchReader(
             int64_t batch_size, const std_vector[c_string]&)
 
