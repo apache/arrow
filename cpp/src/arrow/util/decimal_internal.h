@@ -20,6 +20,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <string_view>
 #include <type_traits>
 
 #include "arrow/type_fwd.h"
@@ -29,6 +30,21 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace internal {
+
+struct DecimalComponents {
+  std::string_view whole_digits;
+  std::string_view fractional_digits;
+  int32_t exponent = 0;
+  char sign = 0;
+  bool has_exponent = false;
+};
+
+ARROW_EXPORT bool ParseDecimalComponents(const char* s, size_t size,
+                                         DecimalComponents* out);
+
+}  // namespace internal
 
 constexpr auto kInt32DecimalDigits =
     static_cast<size_t>(std::numeric_limits<int32_t>::digits10);
