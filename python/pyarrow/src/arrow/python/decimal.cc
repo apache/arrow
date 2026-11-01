@@ -99,8 +99,24 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
   auto string_bytes = decimal_string.c_str();
   ARROW_DCHECK_NE(string_bytes, nullptr);
 
-  return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
-                               static_cast<Py_ssize_t>(string_size));
+  // Deliberately avoid any "#" format specifier (PyObject_CallFunction,
+  // Py_BuildValue): in CPython 3.11 the non-SizeT va-build path raises
+  // "SystemError: PY_SSIZE_T_CLEAN macro must be defined for '#' formats",
+  // and the PY_SSIZE_T_CLEAN remap is compile-time-only — CPython >= 3.13
+  // headers (used for this abi3 build) no longer remap, so a binary built
+  // against them hits the 3.11 check at runtime. Build the string argument
+  // directly. PyUnicode_FromStringAndSize (3.0) and
+  // PyObject_CallFunctionObjArgs (3.4) are stable limited-API; note
+  // PyObject_CallOneArg (3.9) is declared only in cpython/abstract.h,
+  // which is not visible under Py_LIMITED_API.
+  PyObject* arg = PyUnicode_FromStringAndSize(string_bytes,
+                                               static_cast<Py_ssize_t>(string_size));
+  if (ARROW_PREDICT_FALSE(arg == nullptr)) {
+    return nullptr;
+  }
+  PyObject* result = PyObject_CallFunctionObjArgs(decimal_constructor, arg, NULL);
+  Py_DECREF(arg);
+  return result;
 }
 
 namespace {
@@ -159,7 +175,7 @@ Status InternalDecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
     return InternalDecimalFromPythonDecimal<ArrowDecimal>(obj, arrow_type, out);
   } else {
     return Status::TypeError("int or Decimal object expected, got ",
-                             Py_TYPE(obj)->tp_name);
+                             internal::PyObject_StdStringTypeName(obj));
   }
 }
 
