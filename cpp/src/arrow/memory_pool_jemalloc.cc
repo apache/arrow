@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstring>
+#include <string>
 
 #include "arrow/memory_pool_internal.h"
 #include "arrow/util/io_util.h"
@@ -130,8 +131,8 @@ void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size, int64_t al
 }
 
 void JemallocAllocator::ReleaseUnused() {
-  int err =
-      mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
+  const std::string purge_name = "arena." + std::to_string(MALLCTL_ARENAS_ALL) + ".purge";
+  int err = mallctl(purge_name.c_str(), nullptr, nullptr, nullptr, 0);
   DCHECK_EQ(err, 0) << "Failed to purge jemalloc arenas: " << std::strerror(err);
 }
 
