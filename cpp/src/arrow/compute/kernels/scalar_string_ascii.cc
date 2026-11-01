@@ -2642,7 +2642,11 @@ struct SliceBytesTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_bytes;
     }
-    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    // SliceOptions uses INT64_MIN/MAX for open-ended bounds. Clamp both bounds
+    // before arithmetic so equivalent out-of-range indices cannot overflow the size estimate.
+    const int64_t start = std::clamp(opt.start, -input_bytes, input_bytes);
+    const int64_t stop = std::clamp(opt.stop, -input_bytes, input_bytes);
+    int64_t max_slice_bytes = (stop - start + opt.step - 1) / opt.step;
     return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
   }
 
