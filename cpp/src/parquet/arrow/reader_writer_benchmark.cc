@@ -36,6 +36,7 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/cast.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -721,6 +722,111 @@ static void BM_ReadListColumn(::benchmark::State& state) {
 }
 
 BENCHMARK(BM_ReadListColumn)->Apply(NestedReadArguments);
+
+// Compare the same float values as a flat column and as fixed-size lists.
+// Fixture generation, writing, and the checked warm-up read are outside timing.
+static void BM_ReadFloatLayout(::benchmark::State& state) {
+  const bool use_lists = state.range(0) == 1;
+  const int32_t list_size = static_cast<int32_t>(state.range(1));
+  const auto page_version =
+      state.range(2) == 1 ? ParquetDataPageVersion::V1 : ParquetDataPageVersion::V2;
+  const bool use_zstd = state.range(3) != 0;
+  const int64_t page_size = state.range(4);
+  const int64_t num_values = (BENCHMARK_SIZE / list_size) * list_size;
+
+  ::arrow::random::RandomArrayGenerator rng(500);
+  auto values = rng.Float32(num_values, /*min=*/-1.0f, /*max=*/1.0f,
+                            /*null_probability=*/0.0);
+  std::shared_ptr<Array> column = values;
+  if (use_lists) {
+    auto item = ::arrow::field("item", ::arrow::float32(), /*nullable=*/false);
+    auto type = ::arrow::fixed_size_list(item, list_size);
+    PARQUET_ASSIGN_OR_THROW(column,
+                            ::arrow::FixedSizeListArray::FromArrays(values, type));
+  }
+  auto schema =
+      ::arrow::schema({::arrow::field("column", column->type(), /*nullable=*/false)});
+  auto expected = Table::Make(schema, {column});
+  EXIT_NOT_OK(expected->ValidateFull());
+
+  auto properties =
+      WriterProperties::Builder()
+          .disable_dictionary()
+          ->encoding(Encoding::PLAIN)
+          ->compression(use_zstd ? Compression::ZSTD : Compression::UNCOMPRESSED)
+          ->data_page_version(page_version)
+          ->data_pagesize(page_size)
+          ->build();
+  // Preserve the Arrow type so the nested case exercises FixedSizeListReader.
+  auto arrow_properties = ArrowWriterProperties::Builder().store_schema()->build();
+  auto output = CreateOutputStream();
+  EXIT_NOT_OK(WriteTable(*expected, ::arrow::default_memory_pool(), output,
+                         expected->num_rows(), properties, arrow_properties));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
+
+  ArrowReaderProperties reader_properties;
+  reader_properties.set_use_threads(false);
+  // ReadTable reads the whole row group; both layouts contain the same number
+  // of child values. The streaming record-batch size does not apply here.
+  auto read = [&](::arrow::MemoryPool* pool) {
+    auto parquet_reader = ParquetFileReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(buffer), ReaderProperties(pool));
+    PARQUET_ASSIGN_OR_THROW(auto reader, FileReader::Make(pool, std::move(parquet_reader),
+                                                          reader_properties));
+    PARQUET_ASSIGN_OR_THROW(auto table, reader->ReadTable());
+    return table;
+  };
+
+  // Measure Arrow-managed allocations on one untimed read. This includes the
+  // decoded output, but excludes the input file and non-pool allocations.
+  ::arrow::ProxyMemoryPool read_pool(::arrow::default_memory_pool());
+  {
+    auto actual = read(&read_pool);
+    EXIT_NOT_OK(actual->ValidateFull());
+    if (!expected->Equals(*actual)) {
+      state.SkipWithError(
+          "Float layout did not round-trip with identical type and values");
+      return;
+    }
+  }
+  state.counters["peak_read_bytes"] = static_cast<double>(read_pool.max_memory());
+  state.counters["read_allocations"] = static_cast<double>(read_pool.num_allocations());
+  state.counters["file_bytes"] = static_cast<double>(buffer->size());
+  state.counters["float_values"] = static_cast<double>(num_values);
+  state.SetLabel(use_lists ? "fixed_size_list" : "flat");
+
+  // Each iteration opens a fresh reader over the same in-memory file and reads
+  // the whole column. Reader setup and result destruction are timed as well.
+  for (auto _ : state) {
+    auto actual = read(::arrow::default_memory_pool());
+    ::benchmark::DoNotOptimize(actual.get());
+  }
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(float));
+}
+
+static void FloatLayoutReadArguments(::benchmark::internal::Benchmark* b) {
+  for (int64_t list_size : {1, 3, 8, 9, 15, 16, 768}) {
+    for (int64_t page_version : {1, 2}) {
+      for (int64_t zstd : {0, 1}) {
+        for (int64_t layout : {0, 1}) {
+          b->Args({layout, list_size, page_version, zstd, 1024 * 1024});
+        }
+      }
+      // Also measure many small pages for coordinates and embeddings.
+      if (list_size == 3 || list_size == 768) {
+        for (int64_t layout : {0, 1}) {
+          b->Args({layout, list_size, page_version, 0, 8 * 1024});
+        }
+      }
+    }
+  }
+}
+
+BENCHMARK(BM_ReadFloatLayout)
+    ->Apply(FloatLayoutReadArguments)
+    ->ArgNames({"layout", "list_size", "page_version", "zstd", "page_bytes"})
+    ->UseRealTime();
 
 static void BM_ReadListOfStructColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
