@@ -79,6 +79,8 @@ template <typename Type, typename Enable = void>
 struct MultiplyTraits {
   using CType = typename TypeTraits<Type>::CType;
 
+  static Status CheckType(const DataType&) { return Status::OK(); }
+
   constexpr static CType one(const DataType&) { return static_cast<CType>(1); }
 
   constexpr static CType Multiply(const DataType&, CType lhs, CType rhs) {
@@ -89,6 +91,17 @@ struct MultiplyTraits {
 template <typename Type>
 struct MultiplyTraits<Type, enable_if_decimal<Type>> {
   using CType = typename TypeTraits<Type>::CType;
+
+  // one() and Multiply() rescale by the type's scale, which IncreaseScaleBy()
+  // and ReduceScaleBy() only accept in [0, kMaxScale]
+  static Status CheckType(const DataType& ty) {
+    const int32_t scale = static_cast<const Type&>(ty).scale();
+    if (scale < 0 || scale > CType::kMaxScale) {
+      return Status::NotImplemented("Product of decimal type with scale outside [0, ",
+                                    CType::kMaxScale, "]: ", ty);
+    }
+    return Status::OK();
+  }
 
   constexpr static CType one(const DataType& ty) {
     // Return 1 scaled to output type scale

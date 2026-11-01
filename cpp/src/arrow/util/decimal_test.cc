@@ -899,6 +899,19 @@ class TestDecimalFromReal : public ::testing::Test {
       ASSERT_RAISES(Invalid, Decimal::FromReal(-1e+36, 36, 0));
     }
   }
+
+  void TestScaleOutOfRange() {
+    // GH-55340: a decimal type's scale is not bounded by kMaxScale
+    constexpr int32_t kPrecision = Decimal::kMaxPrecision;
+    // Overflows at a very large scale
+    ASSERT_RAISES(Invalid, Decimal::FromReal(Real{1}, kPrecision, 1000));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(Real{1}, kPrecision,
+                                             std::numeric_limits<int32_t>::max()));
+    // Rounds to zero at a very small scale
+    CheckDecimalFromRealIntegerString<Decimal>(Real{1}, kPrecision, -1000, "0");
+    CheckDecimalFromRealIntegerString<Decimal>(Real{1}, kPrecision,
+                                               std::numeric_limits<int32_t>::min(), "0");
+  }
 };
 
 using RealTypes =
@@ -911,6 +924,8 @@ TYPED_TEST_SUITE(TestDecimalFromReal, RealTypes);
 TYPED_TEST(TestDecimalFromReal, TestSuccess) { this->TestSuccess(); }
 
 TYPED_TEST(TestDecimalFromReal, TestErrors) { this->TestErrors(); }
+
+TYPED_TEST(TestDecimalFromReal, TestScaleOutOfRange) { this->TestScaleOutOfRange(); }
 
 // Tests for Decimal128::FromReal(float, ...) and Decimal256::FromReal(float, ...)
 template <typename T>
@@ -1206,10 +1221,32 @@ class TestDecimalToReal : public ::testing::Test {
       }
     }
   }
+
+  void TestScaleOutOfRange() {
+    // GH-55340: a decimal type's scale is not bounded by kMaxScale
+    // A value not precisely representable by Real, so that it is not converted at once
+    const std::string value =
+        std::is_same_v<Real, float> ? "123456789" : "123456789012345678";
+    if (value.size() <= Decimal::kMaxPrecision) {
+      // Above kMaxScale, a decimal value has no integer part
+      for (int32_t scale : {Decimal::kMaxScale + 1, Decimal::kMaxScale + 20}) {
+#ifdef __MINGW32__  // MinGW has precision issues
+        if constexpr (std::is_same_v<Real, double>) continue;
+#endif
+        const Real expected = static_cast<Real>(std::stod(value)) * Pow10(-scale);
+        CheckDecimalToRealApprox<Decimal>(value, scale, expected);
+        CheckDecimalToRealApprox<Decimal>("-" + value, scale, -expected);
+      }
+      CheckDecimalToReal<Decimal, Real>(value, std::numeric_limits<int32_t>::max(), 0);
+    }
+    CheckDecimalToReal<Decimal, Real>("1", std::numeric_limits<int32_t>::min(),
+                                      std::numeric_limits<Real>::infinity());
+  }
 };
 
 TYPED_TEST_SUITE(TestDecimalToReal, RealTypes);
 TYPED_TEST(TestDecimalToReal, TestSuccess) { this->TestSuccess(); }
+TYPED_TEST(TestDecimalToReal, TestScaleOutOfRange) { this->TestScaleOutOfRange(); }
 
 // Custom test for Decimal::ToReal<float>
 template <typename DecimalType>
