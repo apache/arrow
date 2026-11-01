@@ -239,6 +239,7 @@ cdef class ORCReader(_Weakrefable):
         object source
         CMemoryPool* allocator
         unique_ptr[ORCFileReader] reader
+        shared_ptr[CRandomAccessFile] source_handle
 
     def __cinit__(self, MemoryPool memory_pool=None):
         self.allocator = maybe_unbox_memory_pool(memory_pool)
@@ -250,6 +251,7 @@ cdef class ORCReader(_Weakrefable):
         self.source = source
 
         get_reader(source, use_memory_map, &rd_handle)
+        self.source_handle = rd_handle
         with nogil:
             self.reader = move(GetResultValue(
                 ORCFileReader.Open(rd_handle, self.allocator)
@@ -363,6 +365,54 @@ cdef class ORCReader(_Weakrefable):
                 )
 
         return pyarrow_wrap_batch(sp_record_batch)
+
+    def iter_batches(self, int64_t batch_size, stripes=None, columns=None):
+        cdef:
+            shared_ptr[CRecordBatchReader] batch_reader
+            shared_ptr[CRecordBatch] batch
+            std_vector[c_string] names
+            optional[std_vector[c_string]] selected_names
+            int64_t stripe
+
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+        if columns is not None:
+            names = [tobytes(name) for name in columns]
+            selected_names = optional[std_vector[c_string]](names)
+
+        # Keep self (and its source) alive for the generator's entire lifetime.
+        if stripes is None and (columns is None or len(columns) != 0):
+            stripe_indices = [None]
+        elif stripes is None:
+            stripe_indices = range(self.nstripes())
+        else:
+            stripe_indices = stripes
+
+        try:
+            for index in stripe_indices:
+                if index is None:
+                    with nogil:
+                        batch_reader = GetResultValue(
+                            self.reader.get().GetRecordBatchReader(batch_size, names))
+                else:
+                    stripe = index
+                    with nogil:
+                        batch_reader = GetResultValue(
+                            self.reader.get().GetStripeReader(
+                                stripe, batch_size, selected_names))
+                while True:
+                    if self.source_handle.get().closed():
+                        raise ValueError("I/O operation on closed file")
+                    with nogil:
+                        check_status(batch_reader.get().ReadNext(&batch))
+                    if batch.get() == NULL:
+                        break
+                    yield pyarrow_wrap_batch(batch)
+                    batch.reset()
+                batch_reader.reset()
+        finally:
+            batch.reset()
+            batch_reader.reset()
 
     def read(self, columns=None):
         cdef:

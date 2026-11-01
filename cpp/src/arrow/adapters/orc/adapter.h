@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "arrow/adapters/orc/options.h"
@@ -134,6 +135,19 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \param[in] row_number the rows number to seek
   Status Seek(int64_t row_number);
+
+  /// \brief Read selected fields of a designated stripe incrementally.
+  ///
+  /// This does not change the Seek position. Field order follows the file schema.
+  /// \param[in] stripe the stripe index
+  /// \param[in] batch_size the maximum number of rows per batch, which must be positive
+  /// \param[in] include_names the selected field names, including nested field paths.
+  /// std::nullopt reads all fields; an empty vector produces zero-column batches
+  /// with the stripe's row count.
+  /// \return an independent reader for the selected fields in the stripe
+  Result<std::shared_ptr<RecordBatchReader>> GetStripeReader(
+      int64_t stripe, int64_t batch_size,
+      const std::optional<std::vector<std::string>>& include_names = std::nullopt);
 
   /// \brief Get a stripe level record batch iterator.
   ///
