@@ -24,12 +24,14 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
+using internal::IntegersCanFit;
 using internal::ParseTimestampISO8601;
 using internal::ParseYYYY_MM_DD;
 
@@ -495,6 +497,22 @@ struct CastFunctor<O, I,
   }
 };
 
+// Integer values represent days when cast to date32.  Keep the same
+// overflow-checking semantics as integer-to-integer casts while writing the
+// result into the date32 array's int32 storage.
+template <typename I>
+struct CastFunctor<Date32Type, I, enable_if_t<is_integer_type<I>::value>> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto& options = checked_cast<const CastState&>(*ctx->state()).options;
+    if (!options.allow_int_overflow) {
+      RETURN_NOT_OK(IntegersCanFit(batch[0].array, *int32()));
+    }
+    CastNumberToNumberUnsafe(batch[0].type()->id(), Type::INT32, batch[0].array,
+                             out->array_span_mutable());
+    return Status::OK();
+  }
+};
+
 namespace {
 
 template <typename Type>
@@ -523,8 +541,17 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
   // date32 -> date32
   AddZeroCopyCast(Type::DATE32, date32(), date32(), func.get());
 
-  // int32 -> date32
+  // int32 -> date32 (zero copy)
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
+
+  // Other integer types -> date32
+  for (const auto& in_ty : IntTypes()) {
+    if (in_ty->id() == Type::INT32) {
+      continue;
+    }
+    auto exec = GenerateInteger<CastFunctor, Date32Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, date32(), std::move(exec)));
+  }
 
   // date64 -> date32
   AddSimpleCast<Date64Type, Date32Type>(date64(), date32(), func.get());

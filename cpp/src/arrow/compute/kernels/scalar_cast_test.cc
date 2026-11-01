@@ -219,6 +219,9 @@ TEST(Cast, CanCast) {
   ExpectCanCast(null(), {smallint()});
   ExpectCanCast(tinyint(), {smallint()});  // cast between compatible storage types
 
+  for (const auto& integer_type : kIntegerTypes) {
+    ExpectCanCast(integer_type, {date32()});
+  }
   ExpectCanCast(date32(), {utf8(), large_utf8()});
   ExpectCanCast(date64(), {utf8(), large_utf8()});
   ExpectCanCast(timestamp(TimeUnit::NANO), {utf8(), large_utf8()});
@@ -2829,6 +2832,18 @@ TEST(Cast, DateToDate) {
   // Divide, truncate
   options.allow_time_truncate = true;
   CheckCast(day_64_will_be_truncated, day_32, options);
+}
+
+TEST(Cast, IntegerToDate32) {
+  auto expected = ArrayFromJSON(date32(), "[0, null, 1, 2]");
+  for (const auto& integer_type : kIntegerTypes) {
+    CheckCast(ArrayFromJSON(integer_type, "[0, null, 1, 2]"), expected);
+  }
+
+  CheckCastFails(ArrayFromJSON(int64(), "[0, 2147483648]"),
+                 CastOptions::Safe(date32()));
+  CheckCastFails(ArrayFromJSON(uint64(), "[0, 4294967296]"),
+                 CastOptions::Safe(date32()));
 }
 
 TEST(Cast, DateZeroCopy) {
