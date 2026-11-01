@@ -17,6 +17,21 @@
 
 module Arrow
   class Buffer
+    alias_method :initialize_raw, :initialize
+    private :initialize_raw
+
+    # @param data [String, GLib::Bytes] Data copied into native-owned storage.
+    def initialize(data)
+      case data
+      when String
+        initialize_owned(data)
+      when GLib::Bytes
+        initialize_owned(data.to_s)
+      else
+        initialize_raw(data)
+      end
+    end
+
     class << self
       # @api private
       def try_convert(value)

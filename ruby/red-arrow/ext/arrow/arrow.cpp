@@ -44,6 +44,16 @@ namespace red_arrow {
     VALUE nanosecond;
   }
 
+  VALUE
+  buffer_initialize_owned(VALUE self, VALUE data)
+  {
+    StringValue(data);
+    auto buffer = arrow::Buffer::FromString(
+      std::string(RSTRING_PTR(data), RSTRING_LEN(data)));
+    G_INITIALIZE(self, garrow_buffer_new_raw(&buffer));
+    return Qnil;
+  }
+
   void
   record_batch_reader_mark(gpointer object)
   {
@@ -97,6 +107,11 @@ namespace red_arrow {
 
 extern "C" void Init_arrow() {
   auto mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
+
+  auto cArrowBuffer = rb_const_get_at(mArrow, rb_intern("Buffer"));
+  rb_define_private_method(cArrowBuffer, "initialize_owned",
+                           reinterpret_cast<rb::RawMethod>(red_arrow::buffer_initialize_owned),
+                           1);
 
   auto cArrowArray = rb_const_get_at(mArrow, rb_intern("Array"));
   rb_define_method(cArrowArray, "values",
