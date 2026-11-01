@@ -2076,13 +2076,22 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         sorting_columns=None,
         store_decimal_as_integer=False,
         use_content_defined_chunking=False,
-        bloom_filter_options=None) except *:
+        bloom_filter_options=None,
+        min_compression_savings=0.01) except *:
 
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
         CdcOptions cdc_options
+        double savings
+
+    savings = min_compression_savings
+    if not (0.0 <= savings <= 1.0):
+        raise ValueError("min_compression_savings must be in range [0, 1]")
+    if savings > 0.01 and data_page_version in (None, "1.0"):
+        raise ValueError("min_compression_savings requires V2 data pages")
+    props.min_compression_savings(savings)
 
     # data_page_version
 
@@ -2405,7 +2414,8 @@ cdef class ParquetWriter(_Weakrefable):
                   store_decimal_as_integer=False,
                   use_content_defined_chunking=False,
                   write_time_adjusted_to_utc=False,
-                  bloom_filter_options=None):
+                  bloom_filter_options=None,
+                  min_compression_savings=0.01):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2442,7 +2452,8 @@ cdef class ParquetWriter(_Weakrefable):
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
             use_content_defined_chunking=use_content_defined_chunking,
-            bloom_filter_options=bloom_filter_options
+            bloom_filter_options=bloom_filter_options,
+            min_compression_savings=min_compression_savings,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

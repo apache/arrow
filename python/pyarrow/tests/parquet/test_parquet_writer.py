@@ -41,6 +41,86 @@ except ImportError:
 pytestmark = pytest.mark.parquet
 
 
+@pytest.mark.parametrize("page_version, minimum", [
+    ("1.0", None),
+    ("1.0", 0.0),
+    ("1.0", 0.01),
+    ("2.0", None),
+    ("2.0", 0.0),
+    ("2.0", 0.01),
+    ("2.0", 0.1),
+    ("2.0", 1.0),
+])
+@pytest.mark.parametrize("compression", ["none", "snappy"])
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_min_compression_savings(
+        minimum, page_version, compression, use_writer):
+    table = pa.table({
+        "value": pa.array([0.0] * 1000, type=pa.float32())
+    })
+    sink = pa.BufferOutputStream()
+    options = dict(
+        compression=compression,
+        use_dictionary=False,
+        data_page_version=page_version,
+    )
+    if minimum is not None:
+        options["min_compression_savings"] = minimum
+
+    if use_writer:
+        with pq.ParquetWriter(sink, table.schema, **options) as writer:
+            writer.write_table(table)
+    else:
+        pq.write_table(table, sink, **options)
+
+    buf = sink.getvalue()
+    assert pq.read_table(buf).equals(table)
+
+    column = pq.ParquetFile(buf).metadata.row_group(0).column(0)
+    expect_uncompressed = (
+        compression == "none"
+        or (page_version == "2.0" and minimum == 1.0)
+    )
+    if expect_uncompressed:
+        assert column.total_compressed_size == column.total_uncompressed_size
+    else:
+        assert column.total_compressed_size < column.total_uncompressed_size
+
+
+# Tests invalid settings
+@pytest.mark.parametrize(
+    "minimum",
+    [-0.1, 1.1, float("inf"), -float("inf"), float("nan")]
+)
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_invalid_min_compression_savings(minimum, use_writer):
+    table = pa.table({"value": [1.0]})
+    sink = pa.BufferOutputStream()
+
+    with pytest.raises(ValueError, match="min_compression_savings"):
+        if use_writer:
+            pq.ParquetWriter(
+                sink, table.schema, data_page_version="2.0",
+                min_compression_savings=minimum)
+        else:
+            pq.write_table(
+                table, sink, data_page_version="2.0",
+                min_compression_savings=minimum)
+
+
+@pytest.mark.parametrize("minimum", [0.02, 0.1, 1.0])
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_min_compression_savings_rejects_v1(minimum, use_writer):
+    table = pa.table({"value": [1.0]})
+    sink = pa.BufferOutputStream()
+
+    with pytest.raises(ValueError, match="min_compression_savings requires V2"):
+        if use_writer:
+            pq.ParquetWriter(sink, table.schema, min_compression_savings=minimum)
+        else:
+            pq.write_table(table, sink, min_compression_savings=minimum)
+
+
 @pytest.mark.pandas
 def test_parquet_incremental_file_build(tempdir):
     df = _test_dataframe(100)
