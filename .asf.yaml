@@ -28,8 +28,37 @@ github:
     discussions: true
 
   protected_branches:
-    # protect main against force push
-    main: {}
+    main:
+      required_status_checks:
+        # The queue tests the combined commit against current main.
+        strict: false
+        contexts:
+          - Merge Queue
+
+  rulesets:
+    - name: Merge Queue
+      target: branch
+      enforcement: active
+      bypass_actors:
+        # apache/root (ASF Infra) can recover a blocked queue.
+        - actor_id: 118420
+          actor_type: Team
+          bypass_mode: always
+      conditions:
+        ref_name:
+          include: [refs/heads/main]
+          exclude: []
+      rules:
+        - type: merge_queue
+          parameters:
+            merge_method: SQUASH
+            grouping_strategy: ALLGREEN
+            # Start with one candidate at a time to bound runner demand.
+            max_entries_to_build: 1
+            min_entries_to_merge: 1
+            max_entries_to_merge: 1
+            min_entries_to_merge_wait_minutes: 0
+            check_response_timeout_minutes: 360
 
   collaborators:
     - alinaliBQ

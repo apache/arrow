@@ -18,10 +18,12 @@
 name: C++
 
 on:
+  workflow_call:
   push:
     branches:
       - '**'
       - '!dependabot/**'
+      - '!gh-readonly-queue/**'
     tags:
       - '**'
     paths:
@@ -61,7 +63,7 @@ on:
       - 'testing'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}-cpp
   cancel-in-progress: true
 
 permissions:
