@@ -411,20 +411,16 @@ TEST(TestScalarNested, ListContainsImplicitCast) {
                             ScalarFromJSON(float64(), "1")}),
               Raises(StatusCode::Invalid));
 
-  // Nor are queries of null lists, as for a null scalar list
+  // Queries are cast like for "equal", even those of null lists
   auto floats = list(float64());
-  CheckListContains(ArrayFromJSON(floats, "[null, [1]]"),
-                    ArrayFromJSON(int64(), "[9007199254740993, 1]"), "[null, true]");
-  CheckListContains(ArrayFromJSON(floats, "[null]"),
-                    ScalarFromJSON(int64(), "9007199254740993"), "[null]");
-  CheckListContains(ScalarFromJSON(floats, "null"),
-                    ArrayFromJSON(int64(), "[9007199254740993]"), "[null]");
-  // Unlike queries of non-null lists
-  for (Datum queries : {Datum(ArrayFromJSON(int64(), "[9007199254740993, 1]")),
-                        Datum(ScalarFromJSON(int64(), "9007199254740993"))}) {
-    EXPECT_THAT(
-        CallFunction("list_contains", {ArrayFromJSON(floats, "[[1], null]"), queries}),
-        Raises(StatusCode::Invalid));
+  for (Datum lists : {Datum(ArrayFromJSON(floats, "[[1], null]")),
+                      Datum(ArrayFromJSON(floats, "[null, null]")),
+                      Datum(ScalarFromJSON(floats, "null"))}) {
+    for (Datum queries : {Datum(ArrayFromJSON(int64(), "[9007199254740993, 1]")),
+                          Datum(ScalarFromJSON(int64(), "9007199254740993"))}) {
+      EXPECT_THAT(CallFunction("list_contains", {lists, queries}),
+                  Raises(StatusCode::Invalid));
+    }
   }
 }
 

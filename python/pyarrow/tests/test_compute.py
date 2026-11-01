@@ -4000,11 +4000,13 @@ def test_list_contains_matches_decoded(value_type, values, query_type, queries):
 
 
 def test_list_contains_null_list_queries():
-    # Like values of null lists, their queries aren't cast: 2**53 + 1 isn't a float64
+    # Unlike values of null lists, their queries are cast, as for "equal":
+    # 2**53 + 1 isn't a float64
     ty = pa.list_(pa.float64())
     queries = pa.array([2**53 + 1], pa.int64())
     for lists in (pa.scalar(None, ty), pa.array([None], ty)):
-        assert pc.list_contains(lists, queries).to_pylist() == [None]
+        with pytest.raises(pa.ArrowInvalid):
+            pc.list_contains(lists, queries)
 
 
 def test_list_contains_invalid():

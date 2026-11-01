@@ -551,7 +551,7 @@ const std::shared_ptr<DataType>& Decoded(const std::shared_ptr<DataType>& type) 
 // float16, which "equal" lacks, is compared as float32, and binary views as their
 // large types, which "equal" compares with other binary types unlike views.
 Result<std::vector<TypeHolder>> ComparableTypes(
-    KernelContext* ctx, const std::shared_ptr<DataType>& values_type,
+    FunctionRegistry* registry, const std::shared_ptr<DataType>& values_type,
     const std::shared_ptr<DataType>& queries_type) {
   std::vector<TypeHolder> types;
   for (const auto& type : {Decoded(values_type), Decoded(queries_type)}) {
@@ -569,8 +569,7 @@ Result<std::vector<TypeHolder>> ComparableTypes(
         types.emplace_back(type);
     }
   }
-  ARROW_ASSIGN_OR_RAISE(auto equal,
-                        ctx->exec_context()->func_registry()->GetFunction("equal"));
+  ARROW_ASSIGN_OR_RAISE(auto equal, registry->GetFunction("equal"));
   RETURN_NOT_OK(equal->DispatchBest(&types));
   RETURN_NOT_OK(ValidateComparison(*types[0], *types[1]));
   if (types[0].id() == Type::FIXED_SIZE_BINARY && *types[0] != *types[1]) {
@@ -606,7 +605,8 @@ Result<std::unique_ptr<KernelState>> InitListContains(KernelContext* ctx,
   const auto& values_type =
       checked_cast<const BaseListType&>(*args.inputs[0]).value_type();
   const auto queries_type = args.inputs[1].GetSharedPtr();
-  auto types = ComparableTypes(ctx, values_type, queries_type);
+  auto types =
+      ComparableTypes(ctx->exec_context()->func_registry(), values_type, queries_type);
   const auto& decoded_queries_type = Decoded(queries_type);
   if (decoded_queries_type->id() != Type::NA &&
       !decoded_queries_type->Equals(*Decoded(values_type))) {
@@ -751,33 +751,6 @@ Status CastListValues(KernelContext* ctx, const ArraySpan& list, int64_t values_
   return CastTo(ctx, type, values);
 }
 
-// Take queries of null lists as nulls: like the values of null lists, they need not
-// convert. A scalar query is that of every list. Types still need to compare.
-Status MaskQueries(KernelContext* ctx, const ArraySpan& list, bool scalar_query,
-                   Datum* queries) {
-  if (!list.MayHaveNulls() ||
-      !arrow::internal::may_have_validity_bitmap(queries->type()->id()) ||
-      (scalar_query && list.GetNullCount() < list.length)) {
-    return Status::OK();
-  }
-  auto data = queries->array()->Copy();
-  ARROW_ASSIGN_OR_RAISE(auto validity, AllocateEmptyBitmap(data->offset + data->length,
-                                                           ctx->memory_pool()));
-  if (!scalar_query) {
-    arrow::internal::CopyBitmap(list.buffers[0].data, list.offset, list.length,
-                                validity->mutable_data(), data->offset);
-    if (data->MayHaveNulls()) {
-      arrow::internal::BitmapAnd(validity->data(), data->offset, data->buffers[0]->data(),
-                                 data->offset, data->length, data->offset,
-                                 validity->mutable_data());
-    }
-  }
-  data->buffers[0] = std::move(validity);
-  data->null_count = kUnknownNullCount;
-  *queries = std::move(data);
-  return Status::OK();
-}
-
 // Whether lists are searched in full or in chunks is decided once per batch, from the
 // mean number of values per list: below kShortListLength, scanning all values without
 // branching on the data is fastest. Longer lists are searched kSearchChunkLength values
@@ -857,7 +830,7 @@ Status ScalarListContains(KernelContext* ctx,
                       list.is_valid);
   out_arr->null_count = list.is_valid ? 0 : out_arr->length;
   if (!list.is_valid) {
-    // Unlike types, values of null lists and their queries don't matter
+    // Unlike types, values of null lists don't matter
     return Status::OK();
   }
   Datum values = list.value;
@@ -968,13 +941,8 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     }
     RETURN_NOT_OK(CastListValues<Type>(ctx, list, values_start, types[0], &values));
   }
-  Status status = CastTo(ctx, types[1], &queries);
-  if (status.IsInvalid()) {
-    // Queries that don't convert may be those of null lists, which don't matter
-    RETURN_NOT_OK(MaskQueries(ctx, list, scalar_query, &queries));
-    status = CastTo(ctx, types[1], &queries);
-  }
-  RETURN_NOT_OK(status);
+  // Already done by ListContainsFunction, unless the kernel is called directly
+  RETURN_NOT_OK(CastTo(ctx, types[1], &queries));
   const ArraySpan v(*values.array());
   const ArraySpan q(*queries.array());
   return VisitEqual(v, q, [&](auto&& equal) {
@@ -999,6 +967,25 @@ Status ListContains(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
     return Status::OK();
   });
 }
+
+// Queries are cast to the type they compare as before the kernel runs, like for "equal"
+class ListContainsFunction : public ScalarFunction {
+ public:
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
+    if (const auto* list_type = dynamic_cast<const BaseListType*>((*types)[0].type)) {
+      // Types that don't compare are left to the kernel, as null queries need no cast
+      auto comparable = ComparableTypes(GetFunctionRegistry(), list_type->value_type(),
+                                        (*types)[1].GetSharedPtr());
+      if (comparable.ok()) {
+        (*types)[1] = (*comparable)[1];
+      }
+    }
+    return DispatchExact(*types);
+  }
+};
 
 void AddListContainsKernels(ScalarFunction* func) {
   auto add_kernel = [&](Type::type list_type_id, ArrayKernelExec exec) {
@@ -1448,8 +1435,8 @@ void RegisterScalarNested(FunctionRegistry* registry) {
   AddListElementKernels(list_element.get());
   DCHECK_OK(registry->AddFunction(std::move(list_element)));
 
-  auto list_contains = std::make_shared<ScalarFunction>("list_contains", Arity::Binary(),
-                                                        list_contains_doc);
+  auto list_contains = std::make_shared<ListContainsFunction>(
+      "list_contains", Arity::Binary(), list_contains_doc);
   AddListContainsKernels(list_contains.get());
   DCHECK_OK(registry->AddFunction(std::move(list_contains)));
 
