@@ -216,7 +216,41 @@ Expression$op <- function(FUN, ..., args = list(...)) {
     }
     return(out)
   } else if (FUN == "%%") {
-    return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
+    # Prefer `modulo` over rewriting through `%/%` (which goes via float64).
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    is_int <- function(x) {
+      is.integer(x) ||
+        (inherits(x, "ArrowObject") && x$type_id() %in% int_type_ids)
+    }
+
+    if (is_int(args[[1]]) && is_int(args[[2]])) {
+      if (inherits(args[[1]], "ArrowObject")) {
+        out_type <- args[[1]]$type()
+      } else {
+        out_type <- int32()
+      }
+      if (inherits(args[[2]], "ArrowObject")) {
+        divisor_type <- args[[2]]$type()
+      } else {
+        divisor_type <- int32()
+      }
+      # `modulo` errors on divide-by-zero; R returns NA for integer `%% 0`.
+      zero <- Expression$op("==", args[[2]], 0L)
+      safe_divisor <- Expression$create(
+        "if_else",
+        zero,
+        Scalar$create(1L, divisor_type),
+        args[[2]]
+      )
+      rem <- Expression$create("modulo", args = list(args[[1]], safe_divisor))
+      return(Expression$create(
+        "if_else",
+        zero,
+        Scalar$create(NA_integer_, out_type),
+        rem
+      ))
+    }
+    return(Expression$create("modulo", args = args))
   }
 
   Expression$create(.operator_map[[FUN]], args = args)
