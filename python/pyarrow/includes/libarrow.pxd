@@ -1860,6 +1860,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool use_threads
         c_bool ensure_native_endian
         CAlignment ensure_alignment
+        CCacheOptions pre_buffer_cache_options
 
         @staticmethod
         CIpcReadOptions Defaults()

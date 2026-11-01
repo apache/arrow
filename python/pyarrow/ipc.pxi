@@ -150,6 +150,8 @@ cdef class IpcReadOptions(_Weakrefable):
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
         the top-level schema
+    pre_buffer_cache_options : pyarrow.CacheOptions, optional
+        Cache options used when pre-buffering is requested.
     """
     __slots__ = ()
 
@@ -157,13 +159,16 @@ cdef class IpcReadOptions(_Weakrefable):
 
     def __init__(self, *, bint ensure_native_endian=True,
                  Alignment ensure_alignment=Alignment.Any,
-                 bint use_threads=True, list included_fields=None):
+                 bint use_threads=True, list included_fields=None,
+                 pre_buffer_cache_options=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
         self.ensure_alignment = ensure_alignment
         self.use_threads = use_threads
         if included_fields is not None:
             self.included_fields = included_fields
+        if pre_buffer_cache_options is not None:
+            self.pre_buffer_cache_options = pre_buffer_cache_options
 
     @property
     def ensure_native_endian(self):
@@ -197,6 +202,14 @@ cdef class IpcReadOptions(_Weakrefable):
     def included_fields(self, list value not None):
         self.c_options.included_fields = value
 
+    @property
+    def pre_buffer_cache_options(self):
+        return CacheOptions.wrap(self.c_options.pre_buffer_cache_options)
+
+    @pre_buffer_cache_options.setter
+    def pre_buffer_cache_options(self, CacheOptions value):
+        self.c_options.pre_buffer_cache_options = value.unwrap()
+
     def __repr__(self):
         alignment = Alignment(self.ensure_alignment).name
 
@@ -204,7 +217,8 @@ cdef class IpcReadOptions(_Weakrefable):
                 f"ensure_native_endian={self.ensure_native_endian} "
                 f"ensure_alignment={alignment} "
                 f"use_threads={self.use_threads} "
-                f"included_fields={self.included_fields}>")
+                f"included_fields={self.included_fields} "
+                f"pre_buffer_cache_options={self.pre_buffer_cache_options}>")
 
 
 cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c):
@@ -216,6 +230,8 @@ cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c):
         ensure_alignment=c.ensure_alignment,
         use_threads=c.use_threads,
         included_fields=c.included_fields,
+        pre_buffer_cache_options=CacheOptions.wrap(
+            c.pre_buffer_cache_options),
     )
 
 
