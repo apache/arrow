@@ -142,4 +142,19 @@ class TestCast < Test::Unit::TestCase
                    build_binary_array(["\xff"]).cast(string_data_type, options))
     end
   end
+
+  def test_string_view
+    values = ["a", nil, "b"]
+    string_view_data_type = Arrow::StringViewDataType.new
+    array = build_string_array(values).cast(string_view_data_type)
+    actual_values = array.length.times.collect do |i|
+      if array.null?(i)
+        nil
+      else
+        array.get_value(i).to_s
+      end
+    end
+    assert_equal([Arrow::StringViewArray, values],
+                 [array.class, actual_values])
+  end
 end

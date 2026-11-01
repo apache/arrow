@@ -138,20 +138,39 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   return (v << n) >> n;
 }
 
-// Returns ceil(log2(x)).
-static inline int Log2(uint64_t x) {
-  // DCHECK_GT(x, 0);
-
-// TODO: We can remove this condition once CRAN upgrades its macOS
-// SDK from 11.3.
-// __apple_build_version__ should be defined only on Apple clang
-// std::bit_width is guarded by __cpp_lib_int_pow2, not __cpp_lib_bitops
+// Returns the number of bits needed to represent x, i.e. std::bit_width(x).
+//
+// The libc++ in the macOS 11.3 SDK used by CRAN only has the pre-standard
+// name std::log2p1. __apple_build_version__ should be defined only on Apple
+// clang. The macOS 12 SDKs have std::bit_width but leave __cpp_lib_bitops
+// undefined, so the check uses __cpp_lib_int_pow2, the feature-test macro for
+// std::bit_width and std::has_single_bit.
+// TODO: We can remove this condition once CRAN upgrades its macOS SDK from 11.3.
+template <typename T>
+constexpr int BitWidth(T x) noexcept {
+  static_assert(std::is_unsigned_v<T>, "BitWidth requires an unsigned integer type");
 #if defined(__apple_build_version__) && !defined(__cpp_lib_int_pow2)
-  return std::log2p1(x - 1);
+  return static_cast<int>(std::log2p1(x));
 #else
-  return std::bit_width(x - 1);
+  return static_cast<int>(std::bit_width(x));
 #endif
 }
+
+// Returns true if x is a power of two, i.e. std::has_single_bit(x).
+// See the note on BitWidth: the macOS 11.3 SDK only has the pre-standard
+// name std::ispow2.
+template <typename T>
+constexpr bool HasSingleBit(T x) noexcept {
+  static_assert(std::is_unsigned_v<T>, "HasSingleBit requires an unsigned integer type");
+#if defined(__apple_build_version__) && !defined(__cpp_lib_int_pow2)
+  return std::ispow2(x);
+#else
+  return std::has_single_bit(x);
+#endif
+}
+
+// Returns ceil(log2(x)).
+static inline int Log2(uint64_t x) { return BitWidth(x - 1); }
 
 //
 // Utilities for reading and writing individual bits by their index

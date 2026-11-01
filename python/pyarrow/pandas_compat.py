@@ -578,7 +578,7 @@ def dataframe_to_types(df, preserve_index, columns=None):
     types = []
     # If pandas knows type, skip conversion
     for c in columns_to_convert:
-        values = c.values
+        values = _pandas_api.get_values(c)
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         elif _pandas_api.is_extension_array_dtype(values):
@@ -646,10 +646,13 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                              f"had {result.null_count} null values")
         return result
 
-    def _can_definitely_zero_copy(arr):
-        return (isinstance(arr, np.ndarray) and
-                arr.flags.contiguous and
-                issubclass(arr.dtype.type, np.integer))
+    def _can_definitely_zero_copy(ser):
+        if isinstance(ser.dtype, np.dtype):
+            arr = ser.values
+            return (isinstance(arr, np.ndarray) and
+                    arr.flags.contiguous and
+                    issubclass(arr.dtype.type, np.integer))
+        return False
 
     if nthreads == 1:
         arrays = [convert_column(c, f)
@@ -658,7 +661,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         arrays = []
         with futures.ThreadPoolExecutor(nthreads) as executor:
             for c, f in zip(columns_to_convert, convert_fields):
-                if _can_definitely_zero_copy(c.values):
+                if _can_definitely_zero_copy(c):
                     arrays.append(convert_column(c, f))
                 else:
                     arrays.append(executor.submit(convert_column, c, f))

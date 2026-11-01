@@ -34,7 +34,7 @@ MemoryPool* fuzzing_memory_pool() {
   return pool.get();
 }
 
-void LogFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
+int LogFuzzStatus(const FuzzStatus& st, const uint8_t* data, int64_t size) {
   static const int kVerbosity = []() {
     auto maybe_env_value =
         GetEnvVarInteger("ARROW_FUZZING_VERBOSITY", /*min_value=*/0, /*max_value=*/1);
@@ -48,13 +48,23 @@ void LogFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
     return 0;
   }();
 
-  if (!st.ok() && kVerbosity >= 1) {
+  const auto& reason = FuzzReason(st);
+  bool skip_input = std::holds_alternative<SkipFuzzInput>(st);
+  if (skip_input) {
+    if (kVerbosity >= 1) {
+      ARROW_LOG(WARNING) << "Skipping input with size=" << size << ": "
+                         << reason.ToString();
+    }
+  } else if (reason.IsOutOfMemory()) {
     ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
-                       << " failed: " << st.ToString();
-  } else if (st.IsOutOfMemory()) {
-    ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
-                       << " hit allocation failure: " << st.ToString();
+                       << " hit allocation failure: " << reason.ToString();
+  } else {
+    if (!reason.ok() && kVerbosity >= 1) {
+      ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
+                         << " failed: " << reason.ToString();
+    }
   }
+  return skip_input ? -1 : 0;
 }
 
 }  // namespace arrow::internal

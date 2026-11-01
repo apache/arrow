@@ -137,6 +137,25 @@ template <typename Int>
   return false;
 }
 
+template <typename Int>
+[[nodiscard]] bool ModuloWithOverflowGeneric(Int u, Int v, Int* out) {
+  if (v == 0) {
+    *out = Int{};
+    return true;
+  }
+  // INT_MIN % -1 is undefined behavior (the quotient is not representable) and
+  // traps on some targets, but the mathematical result is 0.
+  if constexpr (std::is_signed_v<Int>) {
+    constexpr auto kMin = std::numeric_limits<Int>::min();
+    if (u == kMin && v == -1) {
+      *out = 0;
+      return true;
+    }
+  }
+  *out = u % v;
+  return false;
+}
+
 // Define non-generic versions of the above so as to benefit from automatic
 // integer conversion, to allow for mixed-type calls such as
 // AddWithOverflow(int32_t, int64_t, int64_t*).
@@ -160,6 +179,7 @@ NON_GENERIC_OPS_WITH_OVERFLOW(AddWithOverflow)
 NON_GENERIC_OPS_WITH_OVERFLOW(SubtractWithOverflow)
 NON_GENERIC_OPS_WITH_OVERFLOW(MultiplyWithOverflow)
 NON_GENERIC_OPS_WITH_OVERFLOW(DivideWithOverflow)
+NON_GENERIC_OPS_WITH_OVERFLOW(ModuloWithOverflow)
 
 #undef NON_GENERIC_OPS_WITH_OVERFLOW
 #undef NON_GENERIC_OP_WITH_OVERFLOW

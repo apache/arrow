@@ -175,6 +175,7 @@ add_arrow_compute_test(expression_test
 add_arrow_compute_test(row_test
                        SOURCES
                        key_hash_test.cc
+                       key_map_test.cc
                        light_array_test.cc
                        row/compare_test.cc
                        row/grouper_test.cc

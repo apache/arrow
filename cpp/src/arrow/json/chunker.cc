@@ -32,30 +32,16 @@ namespace arrow {
 namespace json {
 namespace {
 
-// XXX We could try to SIMD-accelerate this routine but it's called only
-// once per chunk and also will presumably examine a minimal amount of bytes.
-int64_t ConsumeWhitespace(std::string_view view) {
-  const auto ws_count = view.find_first_not_of(" \t\r\n");
-  if (ws_count == std::string_view::npos) {
-    return view.size();
-  }
-  return static_cast<int64_t>(ws_count);
-}
-
-Status ConsumeDocument(simdjson::ondemand::document_stream::iterator& it) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto document, internal::ResolveSimdjsonResult(*it, "Failed to get JSON document"));
-  ARROW_ASSIGN_OR_RAISE(
-      auto value,
-      internal::ResolveSimdjsonResult(document.get_value(), "Failed to get JSON value"));
-  return internal::ConsumeJsonValue(value);
-}
-
 // A BoundaryFinder implementation that assumes JSON objects can contain raw newlines,
-// and uses actual JSON parsing to delimit them.
+// and uses the structural indexes computed by simdjson to delimit them.
 class ParsingBoundaryFinder : public BoundaryFinder {
  public:
-  explicit ParsingBoundaryFinder(MemoryPool* pool) : pool_(pool) {}
+  explicit ParsingBoundaryFinder(MemoryPool* pool) : pool_(pool) {
+    // A simdjson document stream may start a thread to index the next batch in the
+    // background. We do not want to do this eagerly as we might not need to parse
+    // the next block
+    parser_.threaded = false;
+  }
 
   Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
@@ -122,8 +108,8 @@ class ParsingBoundaryFinder : public BoundaryFinder {
   }
 
   // Find the first or last JSON object (depending on `find_last`)
-  // and return the consumed JSON byte length, or 0 if no valid document
-  // can be parsed.
+  // and return the consumed JSON byte length, or 0 if no complete document
+  // can be found.
   Result<size_t> FindDocument(simdjson::padded_string_view input, bool find_last) {
     simdjson::ondemand::document_stream stream;
     // XXX Should be pass a specific batch_size?
@@ -137,8 +123,8 @@ class ParsingBoundaryFinder : public BoundaryFinder {
 
     int64_t consumed_length = 0;
     if (!find_last) {
-      // Parsing the first document only.
-      if (!ConsumeDocument(it).ok()) {
+      // Delimiting the first document only.
+      if (it.error()) {
         // Could be either a partial document or invalid JSON, we'll let
         // followup chunker or parser calls decide.
         return 0;
@@ -148,7 +134,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
       consumed_length = it.current_index() + it.source().size();
     } else {
       while (it != stream.end()) {
-        if (!ConsumeDocument(it).ok()) {
+        if (it.error()) {
           // Could be either a partial document or invalid JSON, we'll let
           // followup chunker or parser calls decide.
           break;
@@ -160,7 +146,8 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     if (consumed_length > 0) {
       // If we found at least one document, also consume its trailing whitespace
       // to avoid stray bytes at the end of the stream.
-      consumed_length += ConsumeWhitespace(input.substr(consumed_length));
+      consumed_length += internal::ConsumeJsonWhitespace(input.substr(consumed_length),
+                                                         /*trailing=*/false);
     }
     return consumed_length;
   }

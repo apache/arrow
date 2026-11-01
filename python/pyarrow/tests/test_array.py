@@ -21,6 +21,7 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
+import operator
 import pytest
 import struct
 import subprocess
@@ -35,6 +36,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 @pytest.mark.processes
@@ -1806,12 +1808,6 @@ def test_cast_chunked_array_empty():
         assert result.equals(expected)
 
 
-def test_chunked_array_data_warns():
-    with pytest.warns(FutureWarning):
-        res = pa.chunked_array([[]]).data
-    assert isinstance(res, pa.ChunkedArray)
-
-
 @pytest.mark.numpy
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting.
@@ -2736,6 +2732,8 @@ def test_array_from_list_of_timestamps(unit):
 
 @pytest.mark.numpy
 def test_array_from_timestamp_with_generic_unit():
+    if Version(np.__version__) >= Version("2.5.0"):
+        pytest.skip("generic units of timedelta64 deprecated")
     n = np.datetime64('NaT')
     x = np.datetime64('2017-01-01 01:01:01.111111111')
     y = np.datetime64('2018-11-22 12:24:48.111111111')
@@ -2777,11 +2775,13 @@ def test_array_from_numpy_timedelta(dtype, type):
 @pytest.mark.numpy
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
-    td = np.timedelta64(1)
+    if Version(np.__version__) < Version("2.5.0"):
+        # Generic units of timedelta64 deprecated in NumPy 2.5
+        td = np.timedelta64(1)
 
-    for data in [[td], np.array([td])]:
-        with pytest.raises(NotImplementedError):
-            pa.array(data)
+        for data in [[td], np.array([td])]:
+            with pytest.raises(NotImplementedError):
+                pa.array(data)
 
     # unsupported unit
     td = np.timedelta64(1, 'M')
@@ -2980,6 +2980,85 @@ def test_array_from_numpy_unicode(string_type):
     arrow_arr = pa.array(arr, string_type)
     expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
+
+
+@pytest.fixture
+def numpy_string_dtype():
+    dtypes = pytest.importorskip("numpy.dtypes")
+    return dtypes.StringDType
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.string(),
+    pa.large_string(),
+    pa.string_view()])
+def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
+    values = [
+        "short",
+        "a" * 100,
+        "b" * 300,
+        "árvíztűrő tükörfúrógép 🥐 你好",
+        "🥐" * 200,
+        "",
+    ]
+    arr = np.array(values, dtype=numpy_string_dtype())
+
+    arrow_arr = pa.array(arr, type=string_type)
+
+    arrow_arr.validate(full=True)
+    assert arrow_arr.type == (string_type or pa.string())
+    assert arrow_arr.to_pylist() == arr.tolist()
+
+    strided = np.array(list(itertools.chain.from_iterable(
+        zip(values, itertools.repeat("skip")))),
+        dtype=numpy_string_dtype())[::2]
+    arrow_arr = pa.array(strided, type=string_type)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == values
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('na_object, expected', [
+    (None, None),
+    (float("nan"), None),
+    ("__placeholder__", "__placeholder__"),
+])
+def test_array_from_numpy_string_dtype_na_object(
+        numpy_string_dtype, na_object, expected):
+    arr = np.array(["some", na_object, "strings"],
+                   dtype=numpy_string_dtype(na_object=na_object))
+
+    arrow_arr = pa.array(arr)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == ["some", expected, "strings"]
+
+    mask = np.array([False, False, True])
+    arrow_arr = pa.array(arr, mask=mask)
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == ["some", expected, None]
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype_rejects_non_string_type(
+        numpy_string_dtype):
+    arr = np.array(["some", "strings"], dtype=numpy_string_dtype())
+
+    msg = "Expected an Arrow string type.*got binary"
+    with pytest.raises(TypeError, match=msg):
+        pa.array(arr, type=pa.binary())
+
+
+@pytest.mark.numpy
+def test_array_from_list_of_numpy_string_dtype_arrays(numpy_string_dtype):
+    values = [["a", "bb"], ["ccc"]]
+    arrays = [np.array(v, dtype=numpy_string_dtype()) for v in values]
+
+    result = pa.array(arrays)
+
+    assert result.type == pa.list_(pa.string())
+    assert result.to_pylist() == values
 
 
 @pytest.mark.numpy
@@ -4669,3 +4748,38 @@ def test_dictionary_uint64_index_to_pandas():
     result = arr.to_pandas()
     assert list(result.cat.categories) == ["a", "b"]
     assert result.cat.codes.tolist() == [0, 1, -1, 0]
+
+
+@pytest.mark.parametrize("op", [
+    operator.add,
+    operator.sub,
+    operator.mul,
+    operator.truediv,
+    operator.pow,
+    operator.and_,
+    operator.or_,
+    operator.xor,
+    operator.lshift,
+    operator.rshift,
+])
+def test_arithmetic_dunders_unknown_types(op):
+    # GH-49826
+    class MyObj:
+        def __radd__(self, other):
+            return "reflected"
+
+        __rsub__ = __rmul__ = __rtruediv__ = __rpow__ = __radd__
+        __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
+
+    assert op(pa.array([1, 2, 3]), MyObj()) == "reflected"
+
+    # If NotImplemented is returned for both sides of the operation
+    # Python will fallback to a TypeError
+    with pytest.raises(TypeError, match="unsupported operand type\\(s\\)"):
+        op(pa.array([1, 2, 3]), object())
+
+
+def test_arithmetic_dunder_raises_arrow_invalid():
+    # GH-49826
+    with pytest.raises(pa.ArrowInvalid, match="divide by zero"):
+        pa.array([1, 2, 3]) / pa.scalar(0)

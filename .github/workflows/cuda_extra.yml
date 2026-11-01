@@ -106,7 +106,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
@@ -136,17 +136,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

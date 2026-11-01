@@ -23,8 +23,10 @@
 #include <functional>
 #include <limits>
 #include <new>
+#include <optional>
 #include <sstream>
 #include <string_view>
+#include <typeinfo>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -52,6 +54,7 @@ using ::arrow::MemoryPool;
 using ::arrow::Result;
 using ::arrow::Status;
 using ::arrow::TypedBufferBuilder;
+using ::arrow::internal::FuzzStatus;
 using ::parquet::arrow::FileReader;
 
 ColumnDescriptor MakeColumnDescriptor(Type::type type, int type_length) {
@@ -140,6 +143,10 @@ std::string FuzzEncodingHeader::Serialize() const {
                             static_cast<Encoding::type>(ph.roundtrip_encoding_id),
                             static_cast<Type::type>(ph.type_id), ph.type_length,
                             ph.num_values);
+  if (!IsEncodingSupported(header.type, header.source_encoding) ||
+      !IsEncodingSupported(header.type, header.roundtrip_encoding)) {
+    return invalid_payload();
+  }
   if ((header.type == Type::FIXED_LEN_BYTE_ARRAY) ? (header.type_length <= 0)
                                                   : (header.type_length != -1)) {
     return invalid_payload();
@@ -492,13 +499,17 @@ struct TypedFuzzEncoding {
 
 }  // namespace
 
-Status FuzzEncoding(const uint8_t* data, int64_t size) {
+FuzzStatus FuzzEncoding(const uint8_t* data, int64_t size) {
   constexpr auto kInt32Max = std::numeric_limits<int32_t>::max();
 
-  ARROW_ASSIGN_OR_RAISE(const auto parse_result,
-                        FuzzEncodingHeader::Parse(std::span(data, size)));
-  const auto header = parse_result.first;
-  const auto encoded_data = parse_result.second;
+  auto maybe_parse_result = FuzzEncodingHeader::Parse(std::span(data, size));
+  if (!maybe_parse_result.ok()) {
+    // If the fuzz encoding header is invalid, we won't save this input
+    // in the corpus, because it didn't exercise anything interesting.
+    return ::arrow::internal::SkipFuzzInput{maybe_parse_result.status()};
+  }
+  const auto header = maybe_parse_result->first;
+  const auto encoded_data = maybe_parse_result->second;
   if (encoded_data.size() > static_cast<size_t>(kInt32Max)) {
     // Unlikely but who knows?
     return Status::Invalid("Fuzz payload too large");

@@ -744,7 +744,8 @@ class ColumnWriterImpl {
  public:
   ColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                   Encoding::type encoding, const WriterProperties* properties)
+                   Encoding::type encoding, const WriterProperties* properties,
+                   internal::ContentDefinedChunker* content_defined_chunker)
       : metadata_(metadata),
         descr_(metadata->descr()),
         level_info_(internal::LevelInfo::ComputeLevelInfo(metadata->descr())),
@@ -763,7 +764,8 @@ class ColumnWriterImpl {
         closed_(false),
         fallback_(false),
         definition_levels_sink_(allocator_),
-        repetition_levels_sink_(allocator_) {
+        repetition_levels_sink_(allocator_),
+        content_defined_chunker_(content_defined_chunker) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -774,12 +776,6 @@ class ColumnWriterImpl {
     if (pager_->has_compressor()) {
       compressor_temp_buffer_ =
           std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
-    }
-    if (properties_->content_defined_chunking_enabled()) {
-      auto cdc_options = properties_->content_defined_chunking_options();
-      content_defined_chunker_.emplace(level_info_, cdc_options.min_chunk_size,
-                                       cdc_options.max_chunk_size,
-                                       cdc_options.norm_level);
     }
   }
 
@@ -912,7 +908,9 @@ class ColumnWriterImpl {
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
 
-  std::optional<internal::ContentDefinedChunker> content_defined_chunker_;
+  // The chunker of the column owned by the file writer, null without content defined
+  // chunking
+  internal::ContentDefinedChunker* content_defined_chunker_;
 
  private:
   void InitSinks() {
@@ -1286,9 +1284,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
                         Encoding::type encoding, const WriterProperties* properties,
-                        BloomFilter* bloom_filter)
-      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
-                         properties) {
+                        BloomFilter* bloom_filter,
+                        internal::ContentDefinedChunker* content_defined_chunker)
+      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
+                         content_defined_chunker) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
                                    descr_, properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
@@ -1330,7 +1329,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                      const int16_t* rep_levels, const T* values) override {
-    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+    if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       throw ParquetException(
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
@@ -1373,7 +1372,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override {
-    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
+    if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       throw ParquetException(
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
@@ -1397,18 +1396,19 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
+      const int64_t parquet_null_count = batch_size - batch_num_values;
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0,
-                          /*num_levels=*/batch_size, null_count);
+                          /*num_levels=*/batch_size, parquet_null_count);
       } else {
         WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
                           valid_bits_offset + value_offset, /*num_levels=*/batch_size,
-                          null_count);
+                          parquet_null_count);
       }
-      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values, null_count,
-                                   check_page);
+      CommitWriteAndCheckPageLimit(batch_size, batch_num_spaced_values,
+                                   parquet_null_count, check_page);
       value_offset += batch_num_spaced_values;
 
       // Dictionary size checked separately from data page size since we
@@ -1430,8 +1430,27 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         (level_info_.def_level == level_info_.repeated_ancestor_def_level + 1) &&
         leaf_field_nullable;
     if (!leaf_field_nullable && leaf_array.null_count() != 0) {
-      return Status::Invalid("Column '", descr_->name(),
-                             "' is declared non-nullable but contains nulls");
+      bool has_unmasked_nulls = true;
+      if (level_info_.HasNullableValues()) {
+        has_unmasked_nulls = false;
+        int64_t leaf_index = 0;
+        for (int64_t i = 0; i < num_levels; ++i) {
+          // Null or empty lists have no corresponding slot in the leaf array.
+          if (def_levels[i] < level_info_.repeated_ancestor_def_level) {
+            continue;
+          }
+          // A required leaf only needs to be valid when all ancestors are present.
+          if (def_levels[i] == level_info_.def_level && leaf_array.IsNull(leaf_index)) {
+            has_unmasked_nulls = true;
+            break;
+          }
+          ++leaf_index;
+        }
+      }
+      if (has_unmasked_nulls) {
+        return Status::Invalid("Column '", descr_->name(),
+                               "' is declared non-nullable but contains nulls");
+      }
     }
     bool maybe_parent_nulls = level_info_.HasNullableValues() && !single_nullable_element;
     if (maybe_parent_nulls) {
@@ -1442,8 +1461,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
 
-    if (ARROW_PREDICT_FALSE(properties_->content_defined_chunking_enabled())) {
-      DCHECK(content_defined_chunker_.has_value());
+    if (ARROW_PREDICT_FALSE(content_defined_chunker_ != nullptr)) {
       auto chunks = content_defined_chunker_->GetChunks(def_levels, rep_levels,
                                                         num_levels, leaf_array);
       for (size_t i = 0; i < chunks.size(); i++) {
@@ -2051,7 +2069,9 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
-    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, null_count, check_page);
+    const int64_t parquet_null_count = batch_size - batch_num_values;
+    CommitWriteAndCheckPageLimit(batch_size, batch_num_values, parquet_null_count,
+                                 check_page);
     value_offset += batch_num_spaced_values;
   };
 
@@ -2697,10 +2717,10 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
 // ----------------------------------------------------------------------
 // Dynamic column writer constructor
 
-std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
-                                                 std::unique_ptr<PageWriter> pager,
-                                                 const WriterProperties* properties,
-                                                 BloomFilter* bloom_filter) {
+std::shared_ptr<ColumnWriter> ColumnWriter::Make(
+    ColumnChunkMetaDataBuilder* metadata, std::unique_ptr<PageWriter> pager,
+    const WriterProperties* properties, BloomFilter* bloom_filter,
+    internal::ContentDefinedChunker* content_defined_chunker) {
   const ColumnDescriptor* descr = metadata->descr();
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
@@ -2722,35 +2742,50 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
       }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties,
-          /*bloom_filter=*/nullptr);
+          /*bloom_filter=*/nullptr, content_defined_chunker);
     }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::INT64:
       return std::make_shared<TypedColumnWriterImpl<Int64Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::INT96:
       return std::make_shared<TypedColumnWriterImpl<Int96Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::FLOAT:
       return std::make_shared<TypedColumnWriterImpl<FloatType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::DOUBLE:
       return std::make_shared<TypedColumnWriterImpl<DoubleType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<ByteArrayType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
+          content_defined_chunker);
     default:
       ParquetException::NYI("Column writer not implemented for type: " +
                             TypeToString(descr->physical_type()));
   }
   // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);
+}
+
+std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
+                                                 std::unique_ptr<PageWriter> pager,
+                                                 const WriterProperties* properties,
+                                                 BloomFilter* bloom_filter) {
+  return Make(metadata, std::move(pager), properties, bloom_filter,
+              /*content_defined_chunker=*/nullptr);
 }
 
 }  // namespace parquet

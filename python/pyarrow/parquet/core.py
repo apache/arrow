@@ -198,7 +198,7 @@ def filters_to_expression(filters):
 
 _filters_to_expression = _deprecate_api(
     "_filters_to_expression", "filters_to_expression",
-    filters_to_expression, "10.0.0", DeprecationWarning)
+    filters_to_expression, "10.0.0", FutureWarning)
 
 
 # ----------------------------------------------------------------------
@@ -272,6 +272,9 @@ class ParquetFile:
         If True, read Parquet logical types as Arrow extension types where
         possible (e.g., read JSON as the canonical `arrow.json` extension type
         or UUID as the canonical `arrow.uuid` extension type).
+    memory_pool : pyarrow.MemoryPool, optional
+        Pool to allocate memory from. If not passed, the default memory pool
+        is used.
 
     Examples
     --------
@@ -322,7 +325,8 @@ class ParquetFile:
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, schema_depth_limit=None,
                  filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=True):
+                 page_checksum_verification=False, arrow_extensions_enabled=True,
+                 memory_pool=None):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -332,7 +336,7 @@ class ParquetFile:
             source = filesystem.open_input_file(source)
             self._close_source = True  # We opened it here, ensure we close it.
 
-        self.reader = ParquetReader()
+        self.reader = ParquetReader(memory_pool=memory_pool)
         self.reader.open(
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
@@ -1088,6 +1092,7 @@ Examples
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
                  max_rows_per_page=None,
+                 bloom_filter_options=None,
                  use_content_defined_chunking=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
@@ -1144,6 +1149,7 @@ Examples
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             max_rows_per_page=max_rows_per_page,
+            bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
             **options)
         self.is_open = True
@@ -1279,13 +1285,14 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+partitioning : pyarrow.dataset.Partitioning or str or list of str or None, \
 default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
-    you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
+    you need to specify the field names or a full schema. If no partitioning
+    is used, pass ``None``.
+    See the ``pyarrow.dataset.partitioning()`` function for more details."""
 
 
 _parquet_dataset_example = """\
@@ -1534,7 +1541,8 @@ Examples
         """
         return self._dataset.schema
 
-    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False,
+             memory_pool=None):
         """
         Read (multiple) Parquet files as a single pyarrow.Table.
 
@@ -1548,6 +1556,9 @@ Examples
         use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded.
+        memory_pool : pyarrow.MemoryPool, optional
+            Pool to allocate memory from. If not passed, the default memory
+            pool is used.
 
         Returns
         -------
@@ -1602,7 +1613,7 @@ Examples
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
-            use_threads=use_threads
+            use_threads=use_threads, memory_pool=memory_pool
         )
 
         # if the "pandas" metadata entry was retrieved from common_metadata,
@@ -1810,6 +1821,9 @@ arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
+memory_pool : pyarrow.MemoryPool, optional
+    Pool to allocate memory from. If not passed, the default memory pool
+    is used.
 
 Returns
 -------
@@ -1906,8 +1920,9 @@ def read_table(source, *, columns=None, use_threads=True,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None, schema_depth_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=True):
+               arrow_extensions_enabled=True, memory_pool=None):
 
+    read_kwargs = {"memory_pool": memory_pool}
     try:
         dataset = ParquetDataset(
             source,
@@ -1977,10 +1992,14 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_container_size_limit=thrift_container_size_limit,
             schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
+            memory_pool=memory_pool,
         )
+        # ParquetFile takes the pool when it is opened, not when it is read
+        read_kwargs = {}
 
     return dataset.read(columns=columns, use_threads=use_threads,
-                        use_pandas_metadata=use_pandas_metadata)
+                        use_pandas_metadata=use_pandas_metadata,
+                        **read_kwargs)
 
 
 read_table.__doc__ = _read_table_docstring.format(

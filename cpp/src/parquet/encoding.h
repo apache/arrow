@@ -482,6 +482,12 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
 ///
 /// Only non-dictionary encodings are returned.
 PARQUET_EXPORT
-std::vector<Encoding::type> SupportedEncodings(Type::type physical_type);
+const std::vector<Encoding::type>& SupportedEncodings(Type::type physical_type);
+
+/// Return whether the encoding is supported for the given physical type
+///
+/// Dictionary encodings return false.
+PARQUET_EXPORT
+bool IsEncodingSupported(Type::type physical_type, Encoding::type encoding);
 
 }  // namespace parquet

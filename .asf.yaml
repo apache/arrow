@@ -38,6 +38,7 @@ github:
     - hiroyuki-sato
     - HyukjinKwon
     - Reranko05
+    - rustyconover
 
   copilot_code_review:
     enabled: true

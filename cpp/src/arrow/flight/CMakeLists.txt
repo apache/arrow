@@ -123,9 +123,9 @@ function(arrow_set_generated_proto_files_properties)
   set(GENERATED_FILES ${ARGN})
   set_source_files_properties(${GENERATED_FILES} PROPERTIES GENERATED TRUE)
   if(MSVC)
-    # Suppress missing dll-interface warning
+    # Suppress warnings caused by Protobuf (dll-interface)
     set_source_files_properties(${GENERATED_FILES}
-                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                PROPERTIES COMPILE_OPTIONS "/wd4251;/wd4275"
                                            SKIP_UNITY_BUILD_INCLUSION TRUE)
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Disable -Wmissing-declarations
@@ -186,9 +186,11 @@ set(ARROW_FLIGHT_SRCS
     server_tracing_middleware.cc
     transport.cc
     transport_server.cc
+    transport_server_internal.cc
     # Bundle the gRPC impl with libarrow_flight
     transport/grpc/grpc_client.cc
     transport/grpc/grpc_server.cc
+    transport/grpc/grpc_server_internal.cc
     transport/grpc/serialization_internal.cc
     transport/grpc/protocol_grpc_internal.cc
     transport/grpc/util_internal.cc
