@@ -2292,6 +2292,17 @@ def test_cast_timestamp_to_int():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
+def test_cast_date32_from_numpy_integers():
+    expected = pa.array([datetime.date(1970, 1, 1),
+                         datetime.date(1970, 1, 2),
+                         datetime.date(1970, 1, 3)], type=pa.date32())
+    for dtype in ['int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32',
+                  'int64', 'uint64']:
+        result = pa.array(np.array([0, 1, 2], dtype=dtype), type=pa.date32())
+        assert result.equals(expected)
+
+
 def test_cast_date32_to_int():
     arr = pa.array([0, 1, 2], type='i4')
 
