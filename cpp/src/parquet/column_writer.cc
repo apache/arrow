@@ -963,6 +963,9 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
 }
 
 void ColumnWriterImpl::AddDataPage() {
+  if (num_buffered_values_ == 0) {
+    return;
+  }
   int64_t definition_levels_rle_size = 0;
   int64_t repetition_levels_rle_size = 0;
 
@@ -1857,7 +1860,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     num_buffered_encoded_values_ += num_values;
     num_buffered_nulls_ += num_nulls;
 
-    if (check_page_limit &&
+    if (check_page_limit && num_buffered_values_ > 0 &&
         (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize() ||
          num_buffered_rows_ >= properties_->max_rows_per_page())) {
       AddDataPage();
