@@ -52,7 +52,7 @@ This pull request has been converted to Draft until the disclosure is completed.
 
 const AI_ONLY_COMMENT = `${COMMENT_MARKER}
 
-This pull request has been automatically closed because both its authorship and review disclosures indicate AI-only involvement.
+This pull request has been automatically closed because its authorship indicates AI involvement without human review.
 
 Contributions involving AI assistance are welcome. However, we require human involvement in the contribution and its review.
 
@@ -61,6 +61,12 @@ If this classification is incorrect, please reopen the pull request and correct 
 const RESOLVED_COMMENT = `${COMMENT_MARKER}
 
 The AI disclosure is now complete. No further action is required.`;
+
+const READY_WITHOUT_DISCLOSURE_COMMENT = `${COMMENT_MARKER}
+
+This pull request was marked Ready for review, but the AI disclosure is still missing or incomplete.
+
+Please add and complete both AI disclosure sections in the pull request description before marking it Ready for review again.`;
 
 function parseDisclosure(body) {
   const lines = body.split(/\r?\n/);
@@ -130,7 +136,7 @@ function parseDisclosure(body) {
     authorship.length === 1 &&
     authorship[0] === "AI" &&
     review.length === 1 &&
-    review[0] === "AI"
+    ["AI", "Not reviewed"].includes(review[0])
   ) {
     return {status: "ai-only", authorship, review};
   }
@@ -154,7 +160,8 @@ async function updateDisclosureComment(
   github,
   context,
   pullRequestNumber,
-  body
+  body,
+  createNew = false
 ) {
   const existing = await findDisclosureComment(
     github,
@@ -166,7 +173,7 @@ async function updateDisclosureComment(
     repo: context.repo.repo,
     body
   };
-  await (existing
+  await (existing && !createNew
     ? github.rest.issues.updateComment({...params, comment_id: existing.id})
     : github.rest.issues.createComment({
         ...params,
@@ -202,7 +209,10 @@ async function checkDisclosure({github, context, core}) {
       github,
       context,
       pullRequestNumber,
-      INCOMPLETE_COMMENT
+      context.payload.action === "ready_for_review"
+        ? READY_WITHOUT_DISCLOSURE_COMMENT
+        : INCOMPLETE_COMMENT,
+      context.payload.action === "ready_for_review"
     );
 
     await github.graphql(
