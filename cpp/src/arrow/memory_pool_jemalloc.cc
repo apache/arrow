@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstring>
+
 #include "arrow/memory_pool_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"  // IWYU pragma: keep
@@ -128,7 +130,9 @@ void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size, int64_t al
 }
 
 void JemallocAllocator::ReleaseUnused() {
-  mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
+  int err =
+      mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
+  DCHECK_EQ(err, 0) << "Failed to purge jemalloc arenas: " << std::strerror(err);
 }
 
 void JemallocAllocator::PrintStats() {
