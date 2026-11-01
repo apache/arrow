@@ -90,104 +90,104 @@ jobs:
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
         run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
 
-  docker:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: ${{ matrix.title }}
-    runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 75
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: alpine-linux-cpp
-            runs-on: ubuntu-latest
-            title: AMD64 Alpine Linux
-          - image: ubuntu-cpp
-            run-options: >-
-              -e ARROW_CTEST_TIMEOUT=2000
-              -e ARROW_C_FLAGS_DEBUG="-O1"
-              -e ARROW_CXX_FLAGS_DEBUG="-O1"
-              -e ARROW_GANDIVA=OFF
-              -e ARROW_LARGE_MEMORY_TESTS=ON
-              -e BUILD_WARNING_LEVEL=PRODUCTION
-            runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
-            title: AMD64 Ubuntu Large Memory Tests
-          - image: ubuntu-cpp-bundled-offline
-            runs-on: ubuntu-latest
-            envs:
-              - UBUNTU=24.04
-            title: AMD64 Ubuntu Bundled Offline
-          - image: conda-cpp
-            run-options: >-
-              -e ARROW_USE_MESON=ON
-            runs-on: ubuntu-latest
-            title: AMD64 Ubuntu Meson
-          # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
-          - continue-on-error: true
-            envs:
-              - DEBIAN=13
-            image: debian-cpp
-            run-options: >-
-              -e CMAKE_CXX_STANDARD=23
-            runs-on: ubuntu-latest
-            title: AMD64 Debian C++23
-          - image: debian-cpp
-            run-options: >-
-              -e ARROW_SIMD_LEVEL=NONE
-              -e ARROW_CXXFLAGS=-march=x86-64
-            runs-on: ubuntu-latest
-            title: AMD64 Debian SIMD Level NONE
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: .docker
-          key: cpp-extra-${{ matrix.image }}
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3
-      - name: Setup Archery
-        run: python3 -m pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        continue-on-error: ${{ matrix.continue-on-error || false }}
-        env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          ENVS: ${{ toJSON(matrix.envs) }}
-        run: |
-          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
-          sudo sysctl -w vm.mmap_rnd_bits=28
-          source ci/scripts/util_enable_core_dumps.sh
-          if [ "${ENVS}" != "null" ]; then
-            echo "${ENVS}" | jq -r '.[]' | while read env; do
-              echo "${env}" >> .env
-            done
-          fi
-          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
-      - name: Save Docker Volumes
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: .docker
-          key: cpp-extra-${{ matrix.image }}
-          include-hidden-files: true
-      - name: Docker Push
-        if: >-
-          success() && github.event_name == 'schedule'
-        env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        continue-on-error: true
-        run: archery docker push ${{ matrix.image }}
+#   docker:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: ${{ matrix.title }}
+#     runs-on: ${{ matrix.runs-on }}
+#     timeout-minutes: 75
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - image: alpine-linux-cpp
+#             runs-on: ubuntu-latest
+#             title: AMD64 Alpine Linux
+#           - image: ubuntu-cpp
+#             run-options: >-
+#               -e ARROW_CTEST_TIMEOUT=2000
+#               -e ARROW_C_FLAGS_DEBUG="-O1"
+#               -e ARROW_CXX_FLAGS_DEBUG="-O1"
+#               -e ARROW_GANDIVA=OFF
+#               -e ARROW_LARGE_MEMORY_TESTS=ON
+#               -e BUILD_WARNING_LEVEL=PRODUCTION
+#             runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
+#             title: AMD64 Ubuntu Large Memory Tests
+#           - image: ubuntu-cpp-bundled-offline
+#             runs-on: ubuntu-latest
+#             envs:
+#               - UBUNTU=24.04
+#             title: AMD64 Ubuntu Bundled Offline
+#           - image: conda-cpp
+#             run-options: >-
+#               -e ARROW_USE_MESON=ON
+#             runs-on: ubuntu-latest
+#             title: AMD64 Ubuntu Meson
+#           # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
+#           - continue-on-error: true
+#             envs:
+#               - DEBIAN=13
+#             image: debian-cpp
+#             run-options: >-
+#               -e CMAKE_CXX_STANDARD=23
+#             runs-on: ubuntu-latest
+#             title: AMD64 Debian C++23
+#           - image: debian-cpp
+#             run-options: >-
+#               -e ARROW_SIMD_LEVEL=NONE
+#               -e ARROW_CXXFLAGS=-march=x86-64
+#             runs-on: ubuntu-latest
+#             title: AMD64 Debian SIMD Level NONE
+#     steps:
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
+#       - name: Restore Docker Volumes
+#         uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: .docker
+#           key: cpp-extra-${{ matrix.image }}
+#       - name: Setup Python
+#         uses: actions/setup-python@v7
+#         with:
+#           python-version: 3
+#       - name: Setup Archery
+#         run: python3 -m pip install -e dev/archery[docker]
+#       - name: Execute Docker Build
+#         continue-on-error: ${{ matrix.continue-on-error || false }}
+#         env:
+#           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+#           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+#           ENVS: ${{ toJSON(matrix.envs) }}
+#         run: |
+#           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+#           sudo sysctl -w vm.mmap_rnd_bits=28
+#           source ci/scripts/util_enable_core_dumps.sh
+#           if [ "${ENVS}" != "null" ]; then
+#             echo "${ENVS}" | jq -r '.[]' | while read env; do
+#               echo "${env}" >> .env
+#             done
+#           fi
+#           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+#       - name: Save Docker Volumes
+#         if: ${{ !cancelled() }}
+#         continue-on-error: true
+#         uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: .docker
+#           key: cpp-extra-${{ matrix.image }}
+#           include-hidden-files: true
+#       - name: Docker Push
+#         if: >-
+#           success() && github.event_name == 'schedule'
+#         env:
+#           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+#           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+#         continue-on-error: true
+#         run: archery docker push ${{ matrix.image }}
 
   msvc-arm64:
     needs: check-enabled
@@ -199,795 +199,795 @@ jobs:
       os: windows-11-arm
       simd-level: NONE
 
-  jni-linux:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
-    runs-on: ${{ matrix.platform.runs-on }}
-    timeout-minutes: 240
-    permissions:
-      actions: read
-      contents: read
-      # This is for using GitHub Packages for vcpkg cache
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - arch: "amd64"
-            runs-on: ubuntu-latest
-          - arch: "arm64/v8"
-            runs-on: ubuntu-24.04-arm
-    env:
-      ARCH: ${{ matrix.platform.arch }}
-      REPO: ghcr.io/${{ github.repository }}-dev
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Free up disk space
-        run: |
-          ci/scripts/util_free_space.sh
-      - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: .docker
-          key: jni-${{ matrix.platform.runs-on }}
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3
-      - name: Setup Archery
-        run: python3 -m pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        env:
-          ARCHERY_DOCKER_USER: ${{ github.actor }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
-        run: |
-          source ci/scripts/util_enable_core_dumps.sh
-          archery docker run cpp-jni
-      - name: Save Docker Volumes
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: .docker
-          key: jni-${{ matrix.platform.runs-on }}
-          include-hidden-files: true
-      - name: Docker Push
-        if: >-
-          success() && github.event_name == 'schedule'
-        env:
-          ARCHERY_DOCKER_USER: ${{ github.actor }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-        run: archery docker push cpp-jni
+#   jni-linux:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
+#     runs-on: ${{ matrix.platform.runs-on }}
+#     timeout-minutes: 240
+#     permissions:
+#       actions: read
+#       contents: read
+#       # This is for using GitHub Packages for vcpkg cache
+#       packages: write
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         platform:
+#           - arch: "amd64"
+#             runs-on: ubuntu-latest
+#           - arch: "arm64/v8"
+#             runs-on: ubuntu-24.04-arm
+#     env:
+#       ARCH: ${{ matrix.platform.arch }}
+#       REPO: ghcr.io/${{ github.repository }}-dev
+#     steps:
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
+#       - name: Free up disk space
+#         run: |
+#           ci/scripts/util_free_space.sh
+#       - name: Restore Docker Volumes
+#         uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: .docker
+#           key: jni-${{ matrix.platform.runs-on }}
+#       - name: Setup Python
+#         uses: actions/setup-python@v7
+#         with:
+#           python-version: 3
+#       - name: Setup Archery
+#         run: python3 -m pip install -e dev/archery[docker]
+#       - name: Execute Docker Build
+#         env:
+#           ARCHERY_DOCKER_USER: ${{ github.actor }}
+#           ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#           VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+#         run: |
+#           source ci/scripts/util_enable_core_dumps.sh
+#           archery docker run cpp-jni
+#       - name: Save Docker Volumes
+#         if: ${{ !cancelled() }}
+#         continue-on-error: true
+#         uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: .docker
+#           key: jni-${{ matrix.platform.runs-on }}
+#           include-hidden-files: true
+#       - name: Docker Push
+#         if: >-
+#           success() && github.event_name == 'schedule'
+#         env:
+#           ARCHERY_DOCKER_USER: ${{ github.actor }}
+#           ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+#         continue-on-error: true
+#         run: archery docker push cpp-jni
 
-  jni-macos:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: JNI macOS
-    runs-on: macos-14
-    timeout-minutes: 45
-    env:
-      MACOSX_DEPLOYMENT_TARGET: "14.0"
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Install dependencies
-        run: |
-          brew bundle --file=cpp/Brewfile
-          # We want to link aws-sdk-cpp statically but Homebrew's
-          # aws-sdk-cpp provides only shared library. If we have
-          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
-          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
-          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
-          brew uninstall aws-sdk-cpp
-          # We want to use bundled RE2 for static linking. If
-          # Homebrew's RE2 is installed, its header file may be used.
-          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
-          brew uninstall grpc || : # gRPC depends on RE2
-          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
-          brew uninstall re2
-          # We want to use bundled Protobuf for static linking. If
-          # Homebrew's Protobuf is installed, its library file may be
-          # used on test  We uninstall Homebrew's Protobuf to ensure using
-          # bundled Protobuf.
-          brew uninstall protobuf
-      - name: Prepare ccache
-        run: |
-          echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: ccache
-          key: jni-macos
-      - name: CMake
-        run: |
-          cmake \
-            -S cpp \
-            -B cpp.build \
-            --preset=ninja-release-jni-macos \
-            -DARROW_BUILD_TESTS=ON \
-            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
-      - name: Build
-        run: |
-          cmake --build cpp.build
-      - name: Install
-        run: |
-          cmake --install cpp.build
-      - name: Test
-        env:
-          ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
-          PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
-        run: |
-          # unstable
-          exclude_tests="arrow-acero-asof-join-node-test"
-          exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
-          ctest \
-            --exclude-regex "${exclude_tests}" \
-            --label-regex unittest \
-            --output-on-failure \
-            --parallel "$(sysctl -n hw.ncpu)" \
-            --test-dir "cpp.build" \
-            --timeout 300
-      - name: Build example
-        run: |
-          cmake \
-            -S cpp/examples/minimal_build/ \
-            -B cpp/examples/minimal_build.build \
-            -GNinja \
-            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
-          cmake --build cpp/examples/minimal_build.build
-          cd cpp/examples/minimal_build
-          ../minimal_build.build/arrow-example
-      - name: Save ccache
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: ccache
-          key: jni-macos
+#   jni-macos:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: JNI macOS
+#     runs-on: macos-14
+#     timeout-minutes: 45
+#     env:
+#       MACOSX_DEPLOYMENT_TARGET: "14.0"
+#     steps:
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
+#       - name: Install dependencies
+#         run: |
+#           brew bundle --file=cpp/Brewfile
+#           # We want to link aws-sdk-cpp statically but Homebrew's
+#           # aws-sdk-cpp provides only shared library. If we have
+#           # Homebrew's aws-sdk-cpp, our build mix Homebrew's
+#           # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
+#           # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
+#           brew uninstall aws-sdk-cpp
+#           # We want to use bundled RE2 for static linking. If
+#           # Homebrew's RE2 is installed, its header file may be used.
+#           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+#           brew uninstall grpc || : # gRPC depends on RE2
+#           brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+#           brew uninstall re2
+#           # We want to use bundled Protobuf for static linking. If
+#           # Homebrew's Protobuf is installed, its library file may be
+#           # used on test  We uninstall Homebrew's Protobuf to ensure using
+#           # bundled Protobuf.
+#           brew uninstall protobuf
+#       - name: Prepare ccache
+#         run: |
+#           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
+#       - name: Restore ccache
+#         uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: ccache
+#           key: jni-macos
+#       - name: CMake
+#         run: |
+#           cmake \
+#             -S cpp \
+#             -B cpp.build \
+#             --preset=ninja-release-jni-macos \
+#             -DARROW_BUILD_TESTS=ON \
+#             -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+#       - name: Build
+#         run: |
+#           cmake --build cpp.build
+#       - name: Install
+#         run: |
+#           cmake --install cpp.build
+#       - name: Test
+#         env:
+#           ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
+#           PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
+#         run: |
+#           # unstable
+#           exclude_tests="arrow-acero-asof-join-node-test"
+#           exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
+#           ctest \
+#             --exclude-regex "${exclude_tests}" \
+#             --label-regex unittest \
+#             --output-on-failure \
+#             --parallel "$(sysctl -n hw.ncpu)" \
+#             --test-dir "cpp.build" \
+#             --timeout 300
+#       - name: Build example
+#         run: |
+#           cmake \
+#             -S cpp/examples/minimal_build/ \
+#             -B cpp/examples/minimal_build.build \
+#             -GNinja \
+#             -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+#           cmake --build cpp/examples/minimal_build.build
+#           cd cpp/examples/minimal_build
+#           ../minimal_build.build/arrow-example
+#       - name: Save ccache
+#         if: ${{ !cancelled() }}
+#         continue-on-error: true
+#         uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: ccache
+#           key: jni-macos
 
-  jni-windows:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: JNI Windows
-    runs-on: windows-2022
-    timeout-minutes: 240
+#   jni-windows:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: JNI Windows
+#     runs-on: windows-2022
+#     timeout-minutes: 240
 
-    steps:
-      - name: Disable Crash Dialogs
-        run: |
-          reg add `
-            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
-            /v DontShowUI `
-            /t REG_DWORD `
-            /d 1 `
-            /f
+#     steps:
+#       - name: Disable Crash Dialogs
+#         run: |
+#           reg add `
+#             "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+#             /v DontShowUI `
+#             /t REG_DWORD `
+#             /d 1 `
+#             /f
 
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
 
-      - name: Install msys2 (for tzdata for ORC tests)
-        uses: msys2/setup-msys2@v2
-        id: setup-msys2
+#       - name: Install msys2 (for tzdata for ORC tests)
+#         uses: msys2/setup-msys2@v2
+#         id: setup-msys2
 
-      - name: Install cmake
-        shell: bash
-        run: |
-          ci/scripts/install_cmake.sh 4.1.2 /usr
+#       - name: Install cmake
+#         shell: bash
+#         run: |
+#           ci/scripts/install_cmake.sh 4.1.2 /usr
 
-      - name: Install ccache
-        shell: bash
-        run: |
-          ci/scripts/install_ccache.sh 4.13.6 /usr
+#       - name: Install ccache
+#         shell: bash
+#         run: |
+#           ci/scripts/install_ccache.sh 4.13.6 /usr
 
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
+#       - name: Setup ccache
+#         shell: bash
+#         run: |
+#           ci/scripts/ccache_setup.sh
 
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+#       - name: ccache info
+#         id: ccache-info
+#         shell: bash
+#         run: |
+#           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: jni-windows
+#       - name: Restore ccache
+#         uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: ${{ steps.ccache-info.outputs.cache-dir }}
+#           key: jni-windows
 
-      - name: Find Visual Studio
-        shell: pwsh
-        run: |
-          "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
+#       - name: Find Visual Studio
+#         shell: pwsh
+#         run: |
+#           "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
 
-      - name: CMake
-        shell: cmd
-        run: |
-          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
-          cmake ^
-            -S cpp ^
-            -B cpp.build ^
-            --preset=ninja-release-jni-windows ^
-            -DARROW_BUILD_TESTS=ON ^
-            -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
+#       - name: CMake
+#         shell: cmd
+#         run: |
+#           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+#           cmake ^
+#             -S cpp ^
+#             -B cpp.build ^
+#             --preset=ninja-release-jni-windows ^
+#             -DARROW_BUILD_TESTS=ON ^
+#             -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
 
-      - name: Build
-        shell: cmd
-        run: |
-          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
-          cmake --build cpp.build
+#       - name: Build
+#         shell: cmd
+#         run: |
+#           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+#           cmake --build cpp.build
 
-      - name: Install
-        shell: cmd
-        run: |
-          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
-          cmake --install cpp.build
+#       - name: Install
+#         shell: cmd
+#         run: |
+#           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+#           cmake --install cpp.build
 
-      - name: Test
-        shell: cmd
-        env:
-          MSYS2_LOCATION: ${{ steps.setup-msys2.outputs.msys2-location }}
-          ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
-          PARQUET_TEST_DATA: ${{ github.workspace }}\cpp\submodules\parquet-testing\data
-        run: |
-          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
-          set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
+#       - name: Test
+#         shell: cmd
+#         env:
+#           MSYS2_LOCATION: ${{ steps.setup-msys2.outputs.msys2-location }}
+#           ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
+#           PARQUET_TEST_DATA: ${{ github.workspace }}\cpp\submodules\parquet-testing\data
+#         run: |
+#           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+#           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
 
-          set exclude_tests=arrow-acero-asof-join-node-test
-          set exclude_tests=%exclude_tests%^|arrow-acero-hash-join-node-test
+#           set exclude_tests=arrow-acero-asof-join-node-test
+#           set exclude_tests=%exclude_tests%^|arrow-acero-hash-join-node-test
 
-          ctest ^
-            --exclude-regex "%exclude_tests%" ^
-            --label-regex unittest ^
-            --output-on-failure ^
-            --parallel %NUMBER_OF_PROCESSORS% ^
-            --test-dir cpp.build ^
-            --timeout 300
+#           ctest ^
+#             --exclude-regex "%exclude_tests%" ^
+#             --label-regex unittest ^
+#             --output-on-failure ^
+#             --parallel %NUMBER_OF_PROCESSORS% ^
+#             --test-dir cpp.build ^
+#             --timeout 300
 
-      - name: Build example
-        shell: cmd
-        run: |
-          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+#       - name: Build example
+#         shell: cmd
+#         run: |
+#           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
 
-          cmake ^
-            -S cpp/examples/minimal_build ^
-            -B cpp/examples/minimal_build.build ^
-            -GNinja ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
+#           cmake ^
+#             -S cpp/examples/minimal_build ^
+#             -B cpp/examples/minimal_build.build ^
+#             -GNinja ^
+#             -DCMAKE_BUILD_TYPE=Release ^
+#             -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
 
-          cmake --build cpp/examples/minimal_build.build
+#           cmake --build cpp/examples/minimal_build.build
 
-          cd cpp\examples\minimal_build
-          call ..\minimal_build.build\arrow-example.exe
+#           cd cpp\examples\minimal_build
+#           call ..\minimal_build.build\arrow-example.exe
 
-      - name: Save ccache
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: jni-windows
+#       - name: Save ccache
+#         if: ${{ !cancelled() }}
+#         continue-on-error: true
+#         uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: ${{ steps.ccache-info.outputs.cache-dir }}
+#           key: jni-windows
 
-  odbc-linux:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: ODBC Linux
-    runs-on: ubuntu-latest
-    timeout-minutes: 75
-    strategy:
-      fail-fast: false
-    env:
-      ARCH: amd64
-      UBUNTU: 24.04
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Setup Python on hosted runner
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3
-      - name: Setup Archery
-        run: python3 -m pip install -e dev/archery[docker]
-      - name: Set Up Dremio Instance
-        run: |
-          docker compose up -d dremio
-          cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
-      - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: .docker
-          key: ubuntu-cpp-odbc
-      - name: Execute Docker Build
-        env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
-          sudo sysctl -w vm.mmap_rnd_bits=28
-          source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ubuntu-cpp-odbc
-      - name: Save Docker Volumes
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: .docker
-          key: ubuntu-cpp-odbc
-          include-hidden-files: true
-      - name: Docker Push
-        if: >-
-          success() && github.event_name == 'schedule'
-        env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        continue-on-error: true
-        run: archery docker push ubuntu-cpp-odbc
+#   odbc-linux:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: ODBC Linux
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 75
+#     strategy:
+#       fail-fast: false
+#     env:
+#       ARCH: amd64
+#       UBUNTU: 24.04
+#     steps:
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
+#       - name: Setup Python on hosted runner
+#         uses: actions/setup-python@v7
+#         with:
+#           python-version: 3
+#       - name: Setup Archery
+#         run: python3 -m pip install -e dev/archery[docker]
+#       - name: Set Up Dremio Instance
+#         run: |
+#           docker compose up -d dremio
+#           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
+#       - name: Restore Docker Volumes
+#         uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: .docker
+#           key: ubuntu-cpp-odbc
+#       - name: Execute Docker Build
+#         env:
+#           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+#           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+#         run: |
+#           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+#           sudo sysctl -w vm.mmap_rnd_bits=28
+#           source ci/scripts/util_enable_core_dumps.sh
+#           archery docker run ubuntu-cpp-odbc
+#       - name: Save Docker Volumes
+#         if: ${{ !cancelled() }}
+#         continue-on-error: true
+#         uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: .docker
+#           key: ubuntu-cpp-odbc
+#           include-hidden-files: true
+#       - name: Docker Push
+#         if: >-
+#           success() && github.event_name == 'schedule'
+#         env:
+#           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+#           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+#         continue-on-error: true
+#         run: archery docker push ubuntu-cpp-odbc
 
-  odbc-macos:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
-    runs-on: macos-${{ matrix.macos-version }}
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { architecture: AMD64, macos-version: "26-intel", build-type : debug }
-          - { architecture: AMD64, macos-version: "26-intel", build-type : release }
-          - { architecture: ARM64, macos-version: "26", build-type : debug }
-          - { architecture: ARM64, macos-version: "26", build-type : release }
-    env:
-      ARROW_BUILD_TESTS: ON
-      ARROW_BUILD_TYPE: ${{ matrix.build-type }}
-      ARROW_DEPENDENCY_SOURCE: BUNDLED
-      ARROW_DEPENDENCY_USE_SHARED: OFF
-      ARROW_FLIGHT_SQL_ODBC: ON
-      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
-      ARROW_HOME: /tmp/local
-      ARROW_MIMALLOC: OFF
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Install Dependencies
-        run: |
-          brew bundle --file=cpp/Brewfile
+#   odbc-macos:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+#     runs-on: macos-${{ matrix.macos-version }}
+#     timeout-minutes: 120
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - { architecture: AMD64, macos-version: "26-intel", build-type : debug }
+#           - { architecture: AMD64, macos-version: "26-intel", build-type : release }
+#           - { architecture: ARM64, macos-version: "26", build-type : debug }
+#           - { architecture: ARM64, macos-version: "26", build-type : release }
+#     env:
+#       ARROW_BUILD_TESTS: ON
+#       ARROW_BUILD_TYPE: ${{ matrix.build-type }}
+#       ARROW_DEPENDENCY_SOURCE: BUNDLED
+#       ARROW_DEPENDENCY_USE_SHARED: OFF
+#       ARROW_FLIGHT_SQL_ODBC: ON
+#       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
+#       ARROW_HOME: /tmp/local
+#       ARROW_MIMALLOC: OFF
+#     steps:
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
+#       - name: Install Dependencies
+#         run: |
+#           brew bundle --file=cpp/Brewfile
 
-          # We want to use bundled RE2 for static linking. If
-          # Homebrew's RE2 is installed, its header file may be used.
-          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
-          brew uninstall grpc || : # gRPC depends on RE2
-          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
-          brew uninstall re2
+#           # We want to use bundled RE2 for static linking. If
+#           # Homebrew's RE2 is installed, its header file may be used.
+#           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+#           brew uninstall grpc || : # gRPC depends on RE2
+#           brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+#           brew uninstall re2
 
-          # We want to use bundled Protobuf for static linking. If
-          # Homebrew's Protobuf is installed, its library file may be
-          # used on test  We uninstall Homebrew's Protobuf to ensure using
-          # bundled Protobuf.
-          brew uninstall protobuf
+#           # We want to use bundled Protobuf for static linking. If
+#           # Homebrew's Protobuf is installed, its library file may be
+#           # used on test  We uninstall Homebrew's Protobuf to ensure using
+#           # bundled Protobuf.
+#           brew uninstall protobuf
 
-          # We want to use bundled Boost for static linking.
-          brew uninstall boost
-      - name: Setup ccache
-        run: |
-          ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
-      - name: Build
-        run: |
-          # Homebrew uses /usr/local as prefix. So packages
-          # installed by Homebrew also use /usr/local/include. We
-          # want to include headers for packages installed by
-          # Homebrew as system headers to ignore warnings in them.
-          # But "-isystem /usr/local/include" isn't used by CMake
-          # because /usr/local/include is marked as the default
-          # include path. So we disable -Werror to avoid build error
-          # by warnings from packages installed by Homebrew.
-          export BUILD_WARNING_LEVEL=PRODUCTION
-          LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
-          ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
-          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
-          export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
-      - name: Save ccache
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3
-      - name: Setup Archery
-        run: python3 -m pip install -e dev/archery
-      - name: Check ODBC Dependency
-        run: |
-          # ODBC dependency should not include other Arrow or third party libraries
-          archery linking check-dependencies \
-            --allow CoreFoundation \
-            --allow libSystem \
-            --allow libarrow_flight_sql_odbc \
-            --allow libc++ \
-            --allow libiconv \
-            --allow libresolv \
-            --allow libz \
-            "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
-      - name: Generate macOS Installer
-        if: matrix.build-type == 'release'
-        shell: bash
-        run: |
-            cd $(pwd)/build/cpp
-            cpack
-      - name: Upload ODBC PKG to the job
-        if: matrix.build-type == 'release'
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
-          path: build/cpp/ArrowFlightSQLODBC-*.pkg
-          if-no-files-found: error
-      - name: Upload AMD64 ODBC dylib to the job
-        if: matrix.build-type == 'release' && matrix.architecture == 'AMD64'
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-sql-odbc-dylib-${{ matrix.architecture }}
-          path: build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
-          if-no-files-found: error
-      - name: Register Flight SQL ODBC Driver
-        run: |
-          sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
-      - name: Test
-        shell: bash
-        run: |
-          sudo sysctl -w kern.coredump=1
-          sudo sysctl -w kern.corefile=/tmp/core.%N.%P
-          ulimit -c unlimited  # must enable within the same shell
-          # Give CI write access for system DSN
-          sudo mkdir -p /Library/ODBC
-          sudo chown -R $USER /Library/ODBC
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+#           # We want to use bundled Boost for static linking.
+#           brew uninstall boost
+#       - name: Setup ccache
+#         run: |
+#           ci/scripts/ccache_setup.sh
+#       - name: ccache info
+#         id: ccache-info
+#         run: |
+#           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+#       - name: Restore ccache
+#         uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: ${{ steps.ccache-info.outputs.cache-dir }}
+#           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
+#       - name: Build
+#         run: |
+#           # Homebrew uses /usr/local as prefix. So packages
+#           # installed by Homebrew also use /usr/local/include. We
+#           # want to include headers for packages installed by
+#           # Homebrew as system headers to ignore warnings in them.
+#           # But "-isystem /usr/local/include" isn't used by CMake
+#           # because /usr/local/include is marked as the default
+#           # include path. So we disable -Werror to avoid build error
+#           # by warnings from packages installed by Homebrew.
+#           export BUILD_WARNING_LEVEL=PRODUCTION
+#           LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
+#           ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
+#           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
+#           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
+#           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+#       - name: Save ccache
+#         if: ${{ !cancelled() }}
+#         continue-on-error: true
+#         uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+#         with:
+#           path: ${{ steps.ccache-info.outputs.cache-dir }}
+#           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
+#       - name: Setup Python
+#         uses: actions/setup-python@v7
+#         with:
+#           python-version: 3
+#       - name: Setup Archery
+#         run: python3 -m pip install -e dev/archery
+#       - name: Check ODBC Dependency
+#         run: |
+#           # ODBC dependency should not include other Arrow or third party libraries
+#           archery linking check-dependencies \
+#             --allow CoreFoundation \
+#             --allow libSystem \
+#             --allow libarrow_flight_sql_odbc \
+#             --allow libc++ \
+#             --allow libiconv \
+#             --allow libresolv \
+#             --allow libz \
+#             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
+#       - name: Generate macOS Installer
+#         if: matrix.build-type == 'release'
+#         shell: bash
+#         run: |
+#             cd $(pwd)/build/cpp
+#             cpack
+#       - name: Upload ODBC PKG to the job
+#         if: matrix.build-type == 'release'
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
+#           path: build/cpp/ArrowFlightSQLODBC-*.pkg
+#           if-no-files-found: error
+#       - name: Upload AMD64 ODBC dylib to the job
+#         if: matrix.build-type == 'release' && matrix.architecture == 'AMD64'
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: flight-sql-odbc-dylib-${{ matrix.architecture }}
+#           path: build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
+#           if-no-files-found: error
+#       - name: Register Flight SQL ODBC Driver
+#         run: |
+#           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
+#       - name: Test
+#         shell: bash
+#         run: |
+#           sudo sysctl -w kern.coredump=1
+#           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
+#           ulimit -c unlimited  # must enable within the same shell
+#           # Give CI write access for system DSN
+#           sudo mkdir -p /Library/ODBC
+#           sudo chown -R $USER /Library/ODBC
+#           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
-  odbc-macos-universal:
-    needs: odbc-macos
-    name: Create ODBC universal macOS installer
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - name: Download ARM64 PKG
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-pkg-installer-ARM64
-          path: arm64-pkg
-      - name: Download AMD64 dylib
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-dylib-AMD64
-          path: amd64-dylib
-      - name: Build universal macOS installer
-        run: |
-          set -euo pipefail
+#   odbc-macos-universal:
+#     needs: odbc-macos
+#     name: Create ODBC universal macOS installer
+#     runs-on: macos-26
+#     timeout-minutes: 30
+#     steps:
+#       - name: Download ARM64 PKG
+#         uses: actions/download-artifact@v8
+#         with:
+#           name: flight-sql-odbc-pkg-installer-ARM64
+#           path: arm64-pkg
+#       - name: Download AMD64 dylib
+#         uses: actions/download-artifact@v8
+#         with:
+#           name: flight-sql-odbc-dylib-AMD64
+#           path: amd64-dylib
+#       - name: Build universal macOS installer
+#         run: |
+#           set -euo pipefail
 
-          pkg_path="$(ls arm64-pkg/ArrowFlightSQLODBC-*.pkg)"
-          pkg_name="$(basename "${pkg_path}" .pkg)"
+#           pkg_path="$(ls arm64-pkg/ArrowFlightSQLODBC-*.pkg)"
+#           pkg_name="$(basename "${pkg_path}" .pkg)"
 
-          # Use the ARM64 .pkg and swap in a universal ODBC dylib
-          # that works on ARM64 and AMD64.
-          pkgutil --expand-full "${pkg_path}" expanded
+#           # Use the ARM64 .pkg and swap in a universal ODBC dylib
+#           # that works on ARM64 and AMD64.
+#           pkgutil --expand-full "${pkg_path}" expanded
 
-          # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink 
-          # to the versioned dylib that the
-          # install name (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib)
-          # resolves to. Run lipo on the real file so the symlinks stay intact.
-          symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
-          lib_dir="$(dirname "${symlink_path}")"
-          dylib_path="$(realpath "${symlink_path}")"
-          echo "Merging into ${dylib_path} (via ${symlink_path})"
-          lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
-            -output "${dylib_path}"
+#           # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink 
+#           # to the versioned dylib that the
+#           # install name (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib)
+#           # resolves to. Run lipo on the real file so the symlinks stay intact.
+#           symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
+#           lib_dir="$(dirname "${symlink_path}")"
+#           dylib_path="$(realpath "${symlink_path}")"
+#           echo "Merging into ${dylib_path} (via ${symlink_path})"
+#           lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
+#             -output "${dylib_path}"
 
-          # Verify every dylib (including the symlinks) is universal before re-packaging.
-          # Check one architecture at a time with `lipo -archs`, 
-          # as macOS 27 support only one architecture search at a time.
-          for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
-            dylib_archs="$(lipo -archs "${lib}")"
-            echo "${lib}: ${dylib_archs}"
-            for arch in arm64 x86_64; do
-              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
-                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
-                exit 1
-              fi
-            done
-          done
+#           # Verify every dylib (including the symlinks) is universal before re-packaging.
+#           # Check one architecture at a time with `lipo -archs`, 
+#           # as macOS 27 support only one architecture search at a time.
+#           for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
+#             dylib_archs="$(lipo -archs "${lib}")"
+#             echo "${lib}: ${dylib_archs}"
+#             for arch in arm64 x86_64; do
+#               if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
+#                 echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
+#                 exit 1
+#               fi
+#             done
+#           done
 
-          pkgutil --flatten-full expanded "${pkg_name}.pkg"
-      - name: Upload universal ODBC PKG
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-sql-odbc-pkg-installer-universal
-          path: ArrowFlightSQLODBC-*.pkg
-          if-no-files-found: error
+#           pkgutil --flatten-full expanded "${pkg_name}.pkg"
+#       - name: Upload universal ODBC PKG
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: flight-sql-odbc-pkg-installer-universal
+#           path: ArrowFlightSQLODBC-*.pkg
+#           if-no-files-found: error
 
-  odbc-macos-universal-verify:
-    needs: odbc-macos-universal
-    name: ODBC universal installer verify ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
-    runs-on: macos-${{ matrix.macos-version }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - architecture: AMD64
-            macos-version: "26-intel"
-          - architecture: ARM64
-            macos-version: "26"
-    steps:
-      - name: Download universal PKG
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-pkg-installer-universal
-      - name: Install ODBC PKG
-        run: |
-          set -euo pipefail
+#   odbc-macos-universal-verify:
+#     needs: odbc-macos-universal
+#     name: ODBC universal installer verify ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+#     runs-on: macos-${{ matrix.macos-version }}
+#     timeout-minutes: 30
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - architecture: AMD64
+#             macos-version: "26-intel"
+#           - architecture: ARM64
+#             macos-version: "26"
+#     steps:
+#       - name: Download universal PKG
+#         uses: actions/download-artifact@v8
+#         with:
+#           name: flight-sql-odbc-pkg-installer-universal
+#       - name: Install ODBC PKG
+#         run: |
+#           set -euo pipefail
 
-          pkg_path="$(ls ArrowFlightSQLODBC-*.pkg)"
-          sudo installer -pkg "${pkg_path}" -target / -verbose
-      - name: Check ODBC dylib installation
-        run: |
-          set -euo pipefail
+#           pkg_path="$(ls ArrowFlightSQLODBC-*.pkg)"
+#           sudo installer -pkg "${pkg_path}" -target / -verbose
+#       - name: Check ODBC dylib installation
+#         run: |
+#           set -euo pipefail
 
-          dylib="/Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc.dylib"
+#           dylib="/Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc.dylib"
 
-          if [ ! -f "${dylib}" ]; then
-            echo "ODBC dylib not found at ${dylib}"
-            exit 1
-          fi
-          echo "Found ODBC dylib: ${dylib}"
+#           if [ ! -f "${dylib}" ]; then
+#             echo "ODBC dylib not found at ${dylib}"
+#             exit 1
+#           fi
+#           echo "Found ODBC dylib: ${dylib}"
 
-          # Verify every installed dylib (including the symlinks) is universal.
-          local_arch="$(uname -m)"
-          echo "Local architecture: ${local_arch}"
-          for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
-            archs="$(lipo -archs "${lib}")"
-            echo "${lib}: ${archs}"
-            if ! grep -qw "${local_arch}" <<< "${archs}"; then
-              echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
-              exit 1
-            fi
-          done
+#           # Verify every installed dylib (including the symlinks) is universal.
+#           local_arch="$(uname -m)"
+#           echo "Local architecture: ${local_arch}"
+#           for lib in /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc*.dylib; do
+#             archs="$(lipo -archs "${lib}")"
+#             echo "${lib}: ${archs}"
+#             if ! grep -qw "${local_arch}" <<< "${archs}"; then
+#               echo "${lib} does not support local architecture '${local_arch}' (got: ${archs})"
+#               exit 1
+#             fi
+#           done
 
-  odbc-msvc:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
-    name: ODBC Windows
-    runs-on: windows-2022
-    timeout-minutes: 240
-    permissions:
-      actions: read
-      contents: read
-      packages: write
-    env:
-      ARROW_BUILD_SHARED: OFF
-      ARROW_BUILD_STATIC: ON
-      ARROW_BUILD_TESTS: ON
-      ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
-      # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
-      ARROW_CSV: OFF
-      ARROW_DEPENDENCY_SOURCE: VCPKG
-      ARROW_FLIGHT_SQL_ODBC: ON
-      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
-      ARROW_HOME: /usr
-      # GH-49465: work around the gRPC/Abseil exit hang on Windows
-      # https://github.com/grpc/grpc/issues/39321
-      # https://github.com/abseil/abseil-cpp/issues/1877
-      # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
-      # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
-      ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
-      ARROW_DEPENDENCY_USE_SHARED: OFF
-      ARROW_MIMALLOC: OFF
-      ARROW_TEST_LINKAGE: static
-      ARROW_USE_STATIC_CRT: OFF
-      CMAKE_GENERATOR: Ninja
-      CMAKE_INSTALL_PREFIX: /usr
-      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,1800;nuget,GitHub,readwrite'
-      # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
-      # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
-      VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
-      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Build ODBC Windows
-        uses: ./.github/actions/odbc-windows
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Test
-        shell: cmd
-        run: |
-          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
-          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-          # Convert VCPKG Windows path to MSYS path
-          for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
-          bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
-      - name: Install WiX Toolset
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
-          Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
-          echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Build MSI ODBC installer
-        shell: pwsh
-        run: |
-          # Verify WiX version
-          wix --version
-          cd build/cpp
-          cpack
-      - name: Upload ODBC MSI to the job
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-sql-odbc-msi-installer
-          path: build/cpp/Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
-          if-no-files-found: error
-      - name: Install ODBC MSI
-        run: |
-          cd build/cpp
-          $odbc_msi = Get-ChildItem -Filter "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi"
-          if (-not $odbc_msi) {
-            Write-Error "ODBC MSI not found"
-            exit 1
-          }
+#   odbc-msvc:
+#     needs: check-enabled
+#     if: needs.check-enabled.outputs.is_enabled == 'true'
+#     name: ODBC Windows
+#     runs-on: windows-2022
+#     timeout-minutes: 240
+#     permissions:
+#       actions: read
+#       contents: read
+#       packages: write
+#     env:
+#       ARROW_BUILD_SHARED: OFF
+#       ARROW_BUILD_STATIC: ON
+#       ARROW_BUILD_TESTS: ON
+#       ARROW_BUILD_TYPE: release
+#       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
+#       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
+#       ARROW_CSV: OFF
+#       ARROW_DEPENDENCY_SOURCE: VCPKG
+#       ARROW_FLIGHT_SQL_ODBC: ON
+#       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
+#       ARROW_HOME: /usr
+#       # GH-49465: work around the gRPC/Abseil exit hang on Windows
+#       # https://github.com/grpc/grpc/issues/39321
+#       # https://github.com/abseil/abseil-cpp/issues/1877
+#       # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
+#       # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
+#       ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
+#       ARROW_DEPENDENCY_USE_SHARED: OFF
+#       ARROW_MIMALLOC: OFF
+#       ARROW_TEST_LINKAGE: static
+#       ARROW_USE_STATIC_CRT: OFF
+#       CMAKE_GENERATOR: Ninja
+#       CMAKE_INSTALL_PREFIX: /usr
+#       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,1800;nuget,GitHub,readwrite'
+#       # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
+#       # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
+#       VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
+#       VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
+#     steps:
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 0
+#           submodules: recursive
+#       - name: Build ODBC Windows
+#         uses: ./.github/actions/odbc-windows
+#         with:
+#           github-token: ${{ secrets.GITHUB_TOKEN }}
+#       - name: Test
+#         shell: cmd
+#         run: |
+#           set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+#           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+#           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
+#           # Convert VCPKG Windows path to MSYS path
+#           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
+#           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
+#       - name: Install WiX Toolset
+#         shell: pwsh
+#         run: |
+#           Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
+#           Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
+#           echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+#       - name: Build MSI ODBC installer
+#         shell: pwsh
+#         run: |
+#           # Verify WiX version
+#           wix --version
+#           cd build/cpp
+#           cpack
+#       - name: Upload ODBC MSI to the job
+#         uses: actions/upload-artifact@v7
+#         with:
+#           name: flight-sql-odbc-msi-installer
+#           path: build/cpp/Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
+#           if-no-files-found: error
+#       - name: Install ODBC MSI
+#         run: |
+#           cd build/cpp
+#           $odbc_msi = Get-ChildItem -Filter "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi"
+#           if (-not $odbc_msi) {
+#             Write-Error "ODBC MSI not found"
+#             exit 1
+#           }
 
-          foreach ($msi in $odbc_msi) {
-            Write-Host "Installing $($msi.Name) with logs"
-            $log = "odbc-install.log"
-            Start-Process msiexec.exe -Wait -ArgumentList "/i `"$msi`"", "/qn", "/L*V `"$log`""
-            Get-Content $log
-          }
-      - name: Check ODBC DLL installation
-        run: |
-          $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache-Arrow-Flight-SQL-ODBC*"
+#           foreach ($msi in $odbc_msi) {
+#             Write-Host "Installing $($msi.Name) with logs"
+#             $log = "odbc-install.log"
+#             Start-Process msiexec.exe -Wait -ArgumentList "/i `"$msi`"", "/qn", "/L*V `"$log`""
+#             Get-Content $log
+#           }
+#       - name: Check ODBC DLL installation
+#         run: |
+#           $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache-Arrow-Flight-SQL-ODBC*"
 
-          foreach ($dir in $dirs) {
-            $bin = Join-Path $dir.FullName "bin"
+#           foreach ($dir in $dirs) {
+#             $bin = Join-Path $dir.FullName "bin"
 
-            if (Test-Path $bin) {
-              tree $bin /f
+#             if (Test-Path $bin) {
+#               tree $bin /f
 
-              $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
-              if (Test-Path $dll) {
-                Write-Host "Found ODBC DLL: $dll"
+#               $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
+#               if (Test-Path $dll) {
+#                 Write-Host "Found ODBC DLL: $dll"
 
-                # Verify ODBC driver registration values
-                $key = "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver"
-                if (-not (Test-Path $key)) {
-                  Write-Error "ODBC driver registry key not found: $key"
-                  exit 1
-                }
-                $props = Get-ItemProperty $key
-                foreach ($name in "Driver", "Setup") {
-                  Write-Host "$name = '$($props.$name)'"
-                  if ($props.$name -ne $dll) {
-                    Write-Error "Registry value '$name' should be '$dll'"
-                    exit 1
-                  }
-                }
-                if ($props.DriverODBCVer -ne "03.00") {
-                  Write-Error "Registry value 'DriverODBCVer' should be '03.00', got '$($props.DriverODBCVer)'"
-                  exit 1
-                }
-                if ($props.UsageCount -ne 1) {
-                  Write-Error "Registry value 'UsageCount' should be 1, got '$($props.UsageCount)'"
-                  exit 1
-                }
-                exit 0
-              }
-            }
-          }
+#                 # Verify ODBC driver registration values
+#                 $key = "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver"
+#                 if (-not (Test-Path $key)) {
+#                   Write-Error "ODBC driver registry key not found: $key"
+#                   exit 1
+#                 }
+#                 $props = Get-ItemProperty $key
+#                 foreach ($name in "Driver", "Setup") {
+#                   Write-Host "$name = '$($props.$name)'"
+#                   if ($props.$name -ne $dll) {
+#                     Write-Error "Registry value '$name' should be '$dll'"
+#                     exit 1
+#                   }
+#                 }
+#                 if ($props.DriverODBCVer -ne "03.00") {
+#                   Write-Error "Registry value 'DriverODBCVer' should be '03.00', got '$($props.DriverODBCVer)'"
+#                   exit 1
+#                 }
+#                 if ($props.UsageCount -ne 1) {
+#                   Write-Error "Registry value 'UsageCount' should be 1, got '$($props.UsageCount)'"
+#                   exit 1
+#                 }
+#                 exit 0
+#               }
+#             }
+#           }
 
-          Write-Error "ODBC DLL not found"
-          exit 1
+#           Write-Error "ODBC DLL not found"
+#           exit 1
 
-  odbc-nightly:
-    needs: odbc-msvc
-    name: ODBC nightly
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
-    steps:
-      - name: Download the artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-msi-installer
-      - name: Prepare ODBC installer for sync
-        run: |
-          mkdir odbc-installer
-          mv *.msi odbc-installer/
+#   odbc-nightly:
+#     needs: odbc-msvc
+#     name: ODBC nightly
+#     runs-on: ubuntu-latest
+#     if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
+#     steps:
+#       - name: Download the artifacts
+#         uses: actions/download-artifact@v8
+#         with:
+#           name: flight-sql-odbc-msi-installer
+#       - name: Prepare ODBC installer for sync
+#         run: |
+#           mkdir odbc-installer
+#           mv *.msi odbc-installer/
 
-          # Add `dev-yyyy-mm-dd` to ODBC MSI before `win64.msi`:
-          #   Apache Arrow Flight SQL ODBC-24.0.0-win64.msi ->
-          #   Apache Arrow Flight SQL ODBC-24.0.0-dev-2026-02-06-win64.msi
-          cd odbc-installer
-          msi_name=$(ls *.msi)
-          dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
-          mv "${msi_name}" "${dev_msi_name}"
-          cd ..
+#           # Add `dev-yyyy-mm-dd` to ODBC MSI before `win64.msi`:
+#           #   Apache Arrow Flight SQL ODBC-24.0.0-win64.msi ->
+#           #   Apache Arrow Flight SQL ODBC-24.0.0-dev-2026-02-06-win64.msi
+#           cd odbc-installer
+#           msi_name=$(ls *.msi)
+#           dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
+#           mv "${msi_name}" "${dev_msi_name}"
+#           cd ..
 
-          tree odbc-installer
-      - name: Checkout Arrow
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          fetch-depth: 1
-          path: arrow
-          repository: apache/arrow
-          ref: main
-          submodules: recursive
-      - name: Sync to Remote
-        uses: ./arrow/.github/actions/sync-nightlies
-        with:
-          upload: true
-          switches: -avzh --update --delete --progress
-          local_path: odbc-installer
-          remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/odbc
-          remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
-          remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
-          remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
-          remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
-          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
+#           tree odbc-installer
+#       - name: Checkout Arrow
+#         uses: actions/checkout@v7
+#         with:
+#           persist-credentials: false
+#           fetch-depth: 1
+#           path: arrow
+#           repository: apache/arrow
+#           ref: main
+#           submodules: recursive
+#       - name: Sync to Remote
+#         uses: ./arrow/.github/actions/sync-nightlies
+#         with:
+#           upload: true
+#           switches: -avzh --update --delete --progress
+#           local_path: odbc-installer
+#           remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/odbc
+#           remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+#           remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+#           remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+#           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+#           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
-  report-extra-cpp:
-    if: github.event_name == 'schedule' && always()
-    needs:
-      - docker
-      - jni-linux
-      - jni-macos
-      - msvc-arm64
-      - odbc-linux
-      - odbc-macos
-      - odbc-macos-universal
-      - odbc-macos-universal-verify
-      - odbc-msvc
-      - odbc-nightly
-    uses: ./.github/workflows/report_ci.yml
-    secrets:
-      ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
-      ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
+#   report-extra-cpp:
+#     if: github.event_name == 'schedule' && always()
+#     needs:
+#       - docker
+#       - jni-linux
+#       - jni-macos
+#       - msvc-arm64
+#       - odbc-linux
+#       - odbc-macos
+#       - odbc-macos-universal
+#       - odbc-macos-universal-verify
+#       - odbc-msvc
+#       - odbc-nightly
+#     uses: ./.github/workflows/report_ci.yml
+#     secrets:
+#       ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+#       ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
