@@ -218,7 +218,7 @@ class SubstraitSchema:
         return py_substrait.proto.ExtendedExpression.FromString(self.expression)
 
 
-def serialize_schema(schema):
+def serialize_schema(Schema schema not None):
     """
     Serialize a schema into a SubstraitSchema object.
 
@@ -293,7 +293,8 @@ def deserialize_schema(buf):
     return pyarrow_wrap_schema(c_schema)
 
 
-def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False):
+def serialize_expressions(exprs, names, Schema schema not None, *,
+                          allow_arrow_extensions=False):
     """
     Serialize a collection of expressions into Substrait
 
