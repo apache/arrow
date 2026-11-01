@@ -184,13 +184,14 @@ async function updateDisclosureComment(
 async function checkDisclosure({github, context, core}) {
   const pullRequest = context.payload.pull_request;
   const pullRequestNumber = pullRequest.number;
+  const isReadyForReview = context.payload.action === "ready_for_review";
 
   if (pullRequest.state !== "open") {
     core.info(`Skipping #${pullRequestNumber}: pull request is not open.`);
     return;
   }
 
-  if (pullRequest.draft) {
+  if (pullRequest.draft && !isReadyForReview) {
     core.info(`Skipping #${pullRequestNumber}: pull request is a draft.`);
     return;
   }
@@ -205,15 +206,21 @@ async function checkDisclosure({github, context, core}) {
   core.info(`Disclosure status for #${pullRequestNumber}: ${result.status}.`);
 
   if (result.status === "incomplete") {
-    await updateDisclosureComment(
-      github,
-      context,
-      pullRequestNumber,
-      context.payload.action === "ready_for_review"
-        ? READY_WITHOUT_DISCLOSURE_COMMENT
-        : INCOMPLETE_COMMENT,
-      context.payload.action === "ready_for_review"
-    );
+    if (isReadyForReview) {
+      await github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: pullRequestNumber,
+        body: READY_WITHOUT_DISCLOSURE_COMMENT
+      });
+    } else {
+      await updateDisclosureComment(
+        github,
+        context,
+        pullRequestNumber,
+        INCOMPLETE_COMMENT
+      );
+    }
 
     await github.graphql(
       `mutation($pullRequestId: ID!) {
