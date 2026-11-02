@@ -98,7 +98,7 @@ function run_test() {
     STATUS=1
   fi
   cat "${LOGFILE}.raw" \
-    | "${PYTHON:-python}" "${ROOT}/build-support/asan_symbolize.py" \
+    | "${PYTHON:-python3}" "${ROOT}/build-support/asan_symbolize.py" \
     | "${CXXFILT:-c++filt}" \
     | "$pipe_cmd" 2>&1 | tee "$LOGFILE"
   rm -f "${LOGFILE}.raw"
