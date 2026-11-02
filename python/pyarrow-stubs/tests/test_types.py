@@ -16,7 +16,7 @@
 # under the License.
 # mypy: warn-unused-ignores
 
-from collections.abc import Iterator
+from collections.abc import Hashable, Iterator
 from typing import TYPE_CHECKING, Literal
 
 import pyarrow.lib as lib
@@ -122,6 +122,11 @@ def test_types_enum() -> None:
             == types.TypesEnum.INTERVAL_MONTH_DAY_NANO)
 
 
+def test_data_type_hashable() -> None:
+    data_type: Hashable = lib.int32()
+    check(assert_type(hash(data_type), int), int)
+
+
 def test_field() -> None:
     field = lib.field("a", lib.int32())
     check(assert_type(field, lib.Field), lib.Field)
@@ -221,3 +226,4 @@ def test_invalid_usage() -> None:
         lib.field("a")  # type: ignore[call-overload]
         lib.list_(1)  # type: ignore[call-overload]
         lib.decimal128("10")  # type: ignore[arg-type]
+        _: Hashable = lib.KeyValueMetadata({b"a": b"1"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501
