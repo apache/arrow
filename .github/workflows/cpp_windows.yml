@@ -47,7 +47,7 @@ jobs:
       packages: write
     env:
       ARROW_AZURE: ON
-      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BOOST_USE_SHARED: ON
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
@@ -76,7 +76,6 @@ jobs:
       ARROW_WITH_ZSTD: ON
       # The Azure SDK isn't in cpp/vcpkg.json.
       Azure_SOURCE: BUNDLED
-      BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
