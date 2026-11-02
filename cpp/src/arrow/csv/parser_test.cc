@@ -244,20 +244,13 @@ void AssertColumnEqWithMissing(const BlockParser& parser, int32_t col_index,
   ASSERT_EQ(missing, expected_missing);
 }
 
-void AssertColumnsEq(const BlockParser& parser,
-                     const std::vector<std::vector<std::string>>& expected) {
+template <typename ColumnChecker>
+void AssertColumnsEqImpl(const BlockParser& parser,
+                         const std::vector<std::vector<std::string>>& expected,
+                         ColumnChecker&& check_column) {
   ASSERT_EQ(parser.num_cols(), expected.size());
   for (int32_t col_index = 0; col_index < parser.num_cols(); ++col_index) {
-    AssertColumnEq(parser, col_index, expected[col_index]);
-  }
-}
-
-void AssertColumnsEq(const BlockParser& parser,
-                     const std::vector<std::vector<std::string>>& expected,
-                     const std::vector<std::vector<bool>>& quoted) {
-  ASSERT_EQ(parser.num_cols(), expected.size());
-  for (int32_t col_index = 0; col_index < parser.num_cols(); ++col_index) {
-    AssertColumnEq(parser, col_index, expected[col_index], quoted[col_index]);
+    check_column(col_index);
   }
   uint32_t total_bytes = 0;
   for (const auto& col : expected) {
@@ -266,6 +259,32 @@ void AssertColumnsEq(const BlockParser& parser,
     }
   }
   ASSERT_EQ(total_bytes, parser.num_bytes());
+}
+
+void AssertColumnsEq(const BlockParser& parser,
+                     const std::vector<std::vector<std::string>>& expected) {
+  AssertColumnsEqImpl(parser, expected, [&](int32_t col_index) {
+    AssertColumnEq(parser, col_index, expected[col_index]);
+  });
+}
+
+void AssertColumnsEq(const BlockParser& parser,
+                     const std::vector<std::vector<std::string>>& expected,
+                     const std::vector<std::vector<bool>>& quoted) {
+  ASSERT_EQ(expected.size(), quoted.size());
+  AssertColumnsEqImpl(parser, expected, [&](int32_t col_index) {
+    AssertColumnEq(parser, col_index, expected[col_index], quoted[col_index]);
+  });
+}
+
+void AssertColumnsEqWithMissing(const BlockParser& parser,
+                                const std::vector<std::vector<std::string>>& expected,
+                                const std::vector<std::vector<bool>>& expected_missing) {
+  ASSERT_EQ(expected.size(), expected_missing.size());
+  AssertColumnsEqImpl(parser, expected, [&](int32_t col_index) {
+    AssertColumnEqWithMissing(parser, col_index, expected[col_index],
+                              expected_missing[col_index]);
+  });
 }
 
 TEST(BlockParser, Basics) {
@@ -351,13 +370,14 @@ TEST(BlockParser, PadShortRows) {
     BlockParser parser(options, /*num_cols=*/3);
     AssertParseOk(parser, short_row + "3" + delimiter + "4" + delimiter + "5\n6" +
                               delimiter + "7" + delimiter + "\n");
-    AssertColumnEq(parser, 0, {"1", "3", "6"});
-    AssertColumnEq(parser, 1, {"2", "4", "7"});
-    AssertColumnEqWithMissing(parser, 2, {"", "5", ""}, {true, false, false});
+    AssertColumnsEqWithMissing(
+        parser, {{"1", "3", "6"}, {"2", "4", "7"}, {"", "5", ""}},
+        {{false, false, false}, {false, false, false}, {true, false, false}});
 
     BlockParser final_parser(options, /*num_cols=*/3);
     AssertParseFinal(final_parser, "6" + delimiter + "7" + delimiter);
-    AssertColumnsEq(final_parser, {{"6"}, {"7"}, {""}});
+    AssertColumnsEqWithMissing(final_parser, {{"6"}, {"7"}, {""}},
+                               {{false}, {false}, {false}});
 
     // Padding short rows must not accept extra columns.
     BlockParser wide_parser(options, /*num_cols=*/2);
@@ -419,12 +439,11 @@ TEST(BlockParser, PadAndIgnore) {
     BlockParser parser(options, /*num_cols=*/2);
     AssertParseFinal(parser, "a" + delimiter + "b" + delimiter + "\"extra" + delimiter +
                                  "field\"\nd\ne" + delimiter);
-    AssertColumnEq(parser, 0, {"a", "d", "e"});
-    AssertColumnEqWithMissing(parser, 1, {"b", "", ""}, {false, true, false});
+    AssertColumnsEqWithMissing(parser, {{"a", "d", "e"}, {"b", "", ""}},
+                               {{false, false, false}, {false, true, false}});
 
     AssertParseFinal(parser, "d");
-    AssertColumnEq(parser, 0, {"d"});
-    AssertColumnEqWithMissing(parser, 1, {""}, {true});
+    AssertColumnsEqWithMissing(parser, {{"d"}, {""}}, {{false}, {true}});
   }
 }
 
