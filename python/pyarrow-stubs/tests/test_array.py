@@ -19,6 +19,7 @@
 from typing import Any, cast
 
 import pyarrow.lib as lib
+from typing_extensions import CapsuleType
 
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
 
@@ -49,6 +50,16 @@ def test_array() -> None:
     check(assert_type(lib.Array.from_pandas([1, 2], None, lib.int64()),
                       lib.Array),
           lib.Int64Array)
+
+
+def test_array_dlpack() -> None:
+    arr = cast(lib.Int64Array, lib.array([1, 2]))
+    capsule = arr.__dlpack__(
+        max_version=(1, 0),
+        dl_device=arr.__dlpack_device__(),
+        copy=False,
+    )
+    check(assert_type(capsule, Any), CapsuleType)
 
 
 def test_import_from_c_capsule() -> None:
