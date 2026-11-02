@@ -17,16 +17,8 @@
 
 const COMMENT_MARKER = "<!-- arrow-ai-disclosure-check -->";
 
-const SECTIONS = [
-  {
-    heading: "PR code and description written by:",
-    options: ["Human", "AI"]
-  },
-  {
-    heading: "Reviewed before submission by:",
-    options: ["Human", "AI", "Not reviewed"]
-  }
-];
+const AUTHORSHIP_HEADING = "**PR code and description written by:**";
+const REVIEW_HEADING = "**Reviewed before submission by:**";
 
 const INCOMPLETE_COMMENT = `${COMMENT_MARKER}
 
@@ -47,7 +39,7 @@ If the disclosure is not present, add the following to the pull request descript
 - [ ] AI
 - [ ] Not reviewed
 
-Once you have completed the disclosure, please manually mark this pull request as **Ready for review**
+Once you have completed the disclosure, please manually mark this pull request as **Ready for review**.
 This pull request has been converted to Draft until the disclosure is completed.`;
 
 const AI_ONLY_COMMENT = `${COMMENT_MARKER}
@@ -62,75 +54,80 @@ const RESOLVED_COMMENT = `${COMMENT_MARKER}
 
 The AI disclosure is now complete. No further action is required.`;
 
-const READY_WITHOUT_DISCLOSURE_COMMENT = `${COMMENT_MARKER}
+function parseSection(lines, start, end, options) {
+  const found = new Set();
+  const selected = [];
 
-This pull request was marked Ready for review, but the AI disclosure is still missing or incomplete.
+  for (const line of lines.slice(start + 1, end)) {
+    const match = line.match(/^\s*-\s+\[([ xX])\]\s*(.*?)\s*$/);
 
-Please add and complete both AI disclosure sections in the pull request description before marking it Ready for review again.`;
+    if (!match) {
+      continue;
+    }
+
+    const option = match[2];
+    const checked = match[1].toLowerCase() === "x";
+
+    if (!options.includes(option) || found.has(option)) {
+      return null;
+    }
+
+    found.add(option);
+
+    if (checked) {
+      selected.push(option);
+    }
+  }
+
+  if (found.size !== options.length || selected.length === 0) {
+    return null;
+  }
+
+  return selected;
+}
 
 function parseDisclosure(body) {
   const lines = body.split(/\r?\n/);
-  // Keep the sections ordered so unrelated checkboxes cannot be misclassified.
-  const sections = lines.flatMap((line, lineNumber) =>
-    SECTIONS
-      .filter(({heading}) => line.trim() === `**${heading}**`)
-      .map((section) => ({...section, line: lineNumber}))
-  );
+  const normalizedLines = lines.map((line) => line.trim());
+
+  const authorshipStart = normalizedLines.indexOf(AUTHORSHIP_HEADING);
+  const reviewStart = normalizedLines.indexOf(REVIEW_HEADING);
 
   if (
-    sections.length !== SECTIONS.length ||
-    sections.some((section, index) => section.heading !== SECTIONS[index].heading)
+    authorshipStart === -1 ||
+    reviewStart <= authorshipStart ||
+    normalizedLines.lastIndexOf(AUTHORSHIP_HEADING) !== authorshipStart ||
+    normalizedLines.lastIndexOf(REVIEW_HEADING) !== reviewStart
   ) {
     return {status: "incomplete"};
   }
 
-  const selected = sections.map((section, index) => {
-    const nextSection = sections[index + 1];
-    let endLine = nextSection?.line ?? lines.length;
+  const reviewEnd = normalizedLines.findIndex(
+    (line, index) =>
+      index > reviewStart && /^\*\*[^*].+?\*\*$/.test(line)
+  );
 
-    // The final section ends at the next Markdown heading, if there is one.
-    if (!nextSection) {
-      const headingLine = lines.findIndex(
-        (line, lineNumber) =>
-          lineNumber > section.line &&
-          /^\s*\*\*[^*].+?\*\*\s*$/.test(line)
-      );
-      if (headingLine !== -1) {
-        endLine = headingLine;
-      }
-    }
+  const authorship = parseSection(
+    lines,
+    authorshipStart,
+    reviewStart,
+    ["Human", "AI"]
+  );
 
-    const selections = lines
-      .slice(section.line + 1, endLine)
-      .filter((line) => /^\s*-\s+\[[ xX]\]\s*.+$/.test(line))
-      .map((line) => {
-        const [, checked, option] = line.match(
-          /^\s*-\s+\[([ xX])\]\s*(.*?)\s*$/
-        );
-        return {checked: checked.toLowerCase() === "x", option};
-      });
-    const foundOptions = selections.map(({option}) => option);
+  const review = parseSection(
+    lines,
+    reviewStart,
+    reviewEnd === -1 ? lines.length : reviewEnd,
+    ["Human", "AI", "Not reviewed"]
+  );
 
-    // Every declared option must appear once, with at least one selected.
-    if (
-      foundOptions.length !== section.options.length ||
-      section.options.some((option) => !foundOptions.includes(option)) ||
-      new Set(foundOptions).size !== foundOptions.length ||
-      !selections.some(({checked}) => checked)
-    ) {
-      return null;
-    }
-
-    return selections
-      .filter(({checked}) => checked)
-      .map(({option}) => option);
-  });
-
-  if (selected.some((section) => section === null)) {
+  if (
+    !authorship ||
+    !review ||
+    (review.includes("Not reviewed") && review.length > 1)
+  ) {
     return {status: "incomplete"};
   }
-
-  const [authorship, review] = selected;
 
   if (
     authorship.length === 1 &&
@@ -160,25 +157,31 @@ async function updateDisclosureComment(
   github,
   context,
   pullRequestNumber,
-  body,
-  createNew = false
+  body
 ) {
   const existing = await findDisclosureComment(
     github,
     context,
     pullRequestNumber
   );
-  const params = {
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    body
-  };
-  await (existing && !createNew
-    ? github.rest.issues.updateComment({...params, comment_id: existing.id})
-    : github.rest.issues.createComment({
-        ...params,
-        issue_number: pullRequestNumber
-      }));
+
+  if (existing) {
+    if (existing.body !== body) {
+      await github.rest.issues.updateComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        comment_id: existing.id,
+        body
+      });
+    }
+  } else {
+    await github.rest.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: pullRequestNumber,
+      body
+    });
+  }
 }
 
 async function checkDisclosure({github, context, core}) {
@@ -206,21 +209,12 @@ async function checkDisclosure({github, context, core}) {
   core.info(`Disclosure status for #${pullRequestNumber}: ${result.status}.`);
 
   if (result.status === "incomplete") {
-    if (isReadyForReview) {
-      await github.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: pullRequestNumber,
-        body: READY_WITHOUT_DISCLOSURE_COMMENT
-      });
-    } else {
-      await updateDisclosureComment(
-        github,
-        context,
-        pullRequestNumber,
-        INCOMPLETE_COMMENT
-      );
-    }
+    await updateDisclosureComment(
+      github,
+      context,
+      pullRequestNumber,
+      INCOMPLETE_COMMENT
+    );
 
     await github.graphql(
       `mutation($pullRequestId: ID!) {
@@ -234,6 +228,7 @@ async function checkDisclosure({github, context, core}) {
       }`,
       {pullRequestId: pullRequest.node_id}
     );
+
     return;
   }
 
@@ -256,7 +251,6 @@ async function checkDisclosure({github, context, core}) {
     return;
   }
 
-  // Update an existing bot comment, but don't create one for valid disclosures.
   const existing = await findDisclosureComment(
     github,
     context,
