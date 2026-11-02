@@ -55,6 +55,65 @@ void CheckColumnBounds(int column_index, size_t max_columns) {
 
 namespace schema {
 
+namespace {
+
+// FINITE_VECTOR must annotate the canonical 3-level LIST structure:
+//
+// <optional|required> group <name> (FINITE_VECTOR(<num_elements>)) {
+//   repeated group list {
+//     required <element-type> element;
+//   }
+// }
+void CheckFiniteVectorStructure(const GroupNode& vector) {
+  auto fail = [&](const std::string& reason) {
+    throw ParquetException("Invalid FINITE_VECTOR-annotated group '", vector.name(),
+                           "': ", reason);
+  };
+  if (vector.is_repeated()) {
+    fail("must not be repeated");
+  }
+  if (vector.field_count() != 1) {
+    fail("must have a single child");
+  }
+  const Node& list = *vector.field(0);
+  if (!list.is_group() || !list.is_repeated() || list.name() != "list" ||
+      !list.logical_type()->is_none()) {
+    fail("child must be an unannotated repeated group named 'list'");
+  }
+  const auto& list_group = static_cast<const GroupNode&>(list);
+  if (list_group.field_count() != 1 || list_group.field(0)->name() != "element") {
+    fail("repeated group must have a single child named 'element'");
+  }
+  if (!IsValidFiniteVectorElement(*list_group.field(0))) {
+    fail(
+        "element must be a required BOOLEAN, INT32, INT64, FLOAT, DOUBLE, "
+        "FLOAT16 or DECIMAL primitive");
+  }
+}
+
+}  // namespace
+
+bool IsValidFiniteVectorElement(const Node& node) {
+  if (!node.is_primitive() || !node.is_required()) {
+    return false;
+  }
+  const auto& primitive = static_cast<const PrimitiveNode&>(node);
+  const LogicalType& logical_type = *primitive.logical_type();
+  switch (primitive.physical_type()) {
+    case Type::BOOLEAN:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return logical_type.is_none();
+    case Type::INT32:
+    case Type::INT64:
+      return logical_type.is_none() || logical_type.is_int() || logical_type.is_decimal();
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return logical_type.is_float16() || logical_type.is_decimal();
+    default:
+      return false;
+  }
+}
+
 // ----------------------------------------------------------------------
 // ColumnPath
 
@@ -363,6 +422,10 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
   for (NodePtr& field : fields_) {
     field->SetParent(this);
     field_name_to_idx_.emplace(field->name(), field_idx++);
+  }
+
+  if (logical_type_->is_finite_vector()) {
+    CheckFiniteVectorStructure(*this);
   }
 }
 

@@ -481,6 +481,19 @@ struct FileType {
 }
 
 /**
+* Finite fixed-length vector logical type annotation
+*
+* Annotates the outer group of a three-level structure that is the same as
+* the one used for LIST-annotated groups. Each non-null vector MUST contain
+* exactly num_elements elements.
+*
+* See LogicalTypes.md for details.
+*/
+struct FiniteVectorType {
+  1: required i32 num_elements
+}
+
+/**
  * LogicalType annotations to replace ConvertedType.
  *
  * To maintain compatibility, implementations using LogicalType for a
@@ -514,6 +527,7 @@ union LogicalType {
   17: GeometryType GEOMETRY   // no compatible ConvertedType
   18: GeographyType GEOGRAPHY // no compatible ConvertedType
   19: FileType FILE           // no compatible ConvertedType
+  20: FiniteVectorType FINITE_VECTOR // use ConvertedType LIST
 }
 
 /**
@@ -1130,6 +1144,7 @@ union ColumnOrder {
    *   GEOMETRY - undefined
    *   GEOGRAPHY - undefined
    *   FILE - undefined
+   *   FINITE_VECTOR - undefined
    *
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true

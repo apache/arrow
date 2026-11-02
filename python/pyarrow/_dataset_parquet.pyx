@@ -622,6 +622,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             "use_compliant_nested_type",
             "store_schema",
             "write_time_adjusted_to_utc",
+            "use_finite_vector_logical_type",
         }
 
         setters = set()
@@ -683,6 +684,9 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             ),
             store_schema=self._properties["store_schema"],
             write_time_adjusted_to_utc=self._properties["write_time_adjusted_to_utc"],
+            use_finite_vector_logical_type=(
+                self._properties["use_finite_vector_logical_type"]
+            ),
         )
 
     def _set_encryption_config(self):
@@ -722,6 +726,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             store_decimal_as_integer=False,
             use_content_defined_chunking=False,
             write_time_adjusted_to_utc=False,
+            use_finite_vector_logical_type=False,
             bloom_filter_options=None,
         )
 

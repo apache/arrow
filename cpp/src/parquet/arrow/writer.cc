@@ -18,6 +18,7 @@
 #include "parquet/arrow/writer.h"
 
 #include <algorithm>
+#include <cmath>
 #include <deque>
 #include <memory>
 #include <string>
@@ -48,6 +49,7 @@
 #include "parquet/schema.h"
 
 using arrow::Array;
+using arrow::ArrayData;
 using arrow::BinaryArray;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
@@ -56,6 +58,7 @@ using arrow::DictionaryArray;
 using arrow::ExtensionArray;
 using arrow::ExtensionType;
 using arrow::Field;
+using arrow::FieldVector;
 using arrow::FixedSizeBinaryArray;
 using arrow::ListArray;
 using arrow::MemoryPool;
@@ -106,6 +109,146 @@ bool HasNullableRoot(const SchemaManifest& schema_manifest,
     current_field = schema_manifest.GetParent(current_field);
   }
   return nullable;
+}
+
+// Returns the root ancestor of |schema_field|.
+const SchemaField* GetRootField(const SchemaManifest& schema_manifest,
+                                const SchemaField* schema_field) {
+  while (const SchemaField* parent = schema_manifest.GetParent(schema_field)) {
+    schema_field = parent;
+  }
+  return schema_field;
+}
+
+// Returns a nested type of the same kind as |type| with the given child |fields|.
+Result<std::shared_ptr<DataType>> WithChildFields(const DataType& type,
+                                                  FieldVector fields) {
+  switch (type.id()) {
+    case ::arrow::Type::STRUCT:
+      return ::arrow::struct_(std::move(fields));
+    case ::arrow::Type::LIST:
+      return ::arrow::list(std::move(fields[0]));
+    case ::arrow::Type::LARGE_LIST:
+      return ::arrow::large_list(std::move(fields[0]));
+    case ::arrow::Type::LIST_VIEW:
+      return ::arrow::list_view(std::move(fields[0]));
+    case ::arrow::Type::LARGE_LIST_VIEW:
+      return ::arrow::large_list_view(std::move(fields[0]));
+    case ::arrow::Type::FIXED_SIZE_LIST:
+      return ::arrow::fixed_size_list(
+          std::move(fields[0]),
+          checked_cast<const ::arrow::FixedSizeListType&>(type).list_size());
+    case ::arrow::Type::MAP:
+      return std::make_shared<::arrow::MapType>(
+          std::move(fields[0]),
+          checked_cast<const ::arrow::MapType&>(type).keys_sorted());
+    default:
+      return Status::NotImplemented("Cannot rebuild nested type ", type.ToString());
+  }
+}
+
+// The element of a FINITE_VECTOR-annotated group is a required Parquet field, but the
+// corresponding Arrow FixedSizeList element field may be nullable. Mark such
+// element fields non-nullable so that the computed definition levels match the
+// Parquet schema. The absence of nulls is checked when the leaf values are
+// written (see CheckFiniteVectorElements).
+//
+// |schema_field| comes from the SchemaManifest built from the Parquet schema,
+// where a FixedSizeList is only inferred from a FINITE_VECTOR-annotated group.
+Result<std::shared_ptr<ArrayData>> MakeFiniteVectorElementsRequired(
+    const std::shared_ptr<ArrayData>& data, const SchemaField& schema_field) {
+  std::shared_ptr<DataType> type = data->type;
+  // Extension types may be nested; schema conversion unwraps them all.
+  while (type->id() == ::arrow::Type::EXTENSION) {
+    type = checked_cast<const ExtensionType&>(*type).storage_type();
+  }
+  const int num_fields = type->num_fields();
+  if (!::arrow::is_nested(type->id()) ||
+      static_cast<size_t>(num_fields) != schema_field.children.size() ||
+      static_cast<size_t>(num_fields) != data->child_data.size()) {
+    return data;
+  }
+
+  bool modified = false;
+  std::vector<std::shared_ptr<ArrayData>> children(num_fields);
+  for (int i = 0; i < num_fields; ++i) {
+    ARROW_ASSIGN_OR_RAISE(
+        children[i],
+        MakeFiniteVectorElementsRequired(data->child_data[i], schema_field.children[i]));
+    modified |= children[i] != data->child_data[i];
+  }
+  const bool is_vector =
+      type->id() == ::arrow::Type::FIXED_SIZE_LIST &&
+      schema_field.field->type()->id() == ::arrow::Type::FIXED_SIZE_LIST &&
+      type->field(0)->nullable();
+  if (!modified && !is_vector) {
+    return data;
+  }
+
+  FieldVector fields = type->fields();
+  for (int i = 0; i < num_fields; ++i) {
+    fields[i] = fields[i]->WithType(children[i]->type);
+  }
+  if (is_vector) {
+    fields[0] = fields[0]->WithNullable(false);
+  }
+  // Extension types are dropped; only the storage is needed for writing.
+  auto out = data->Copy();
+  ARROW_ASSIGN_OR_RAISE(out->type, WithChildFields(*type, std::move(fields)));
+  out->child_data = std::move(children);
+  return out;
+}
+
+// Checks that the values written for the element of a FINITE_VECTOR-annotated group
+// are non-null and finite.
+Status CheckFiniteVectorElements(const Array& values, const ColumnDescriptor& descr) {
+  const Array* storage = &values;
+  while (storage->type_id() == ::arrow::Type::EXTENSION) {
+    storage = checked_cast<const ExtensionArray&>(*storage).storage().get();
+  }
+  if (storage->type_id() == ::arrow::Type::DICTIONARY) {
+    // Excluded when the schema is derived (see IsFiniteVectorEligibleValueType); the
+    // checks below need decoded values.
+    return Status::Invalid("FINITE_VECTOR column '", descr.path()->ToDotString(),
+                           "' cannot be written from dictionary-encoded values");
+  }
+  if (storage->null_count() != 0) {
+    return Status::Invalid("FINITE_VECTOR column '", descr.path()->ToDotString(),
+                           "' contains a null element");
+  }
+  bool finite = true;
+  switch (storage->type_id()) {
+    case ::arrow::Type::HALF_FLOAT: {
+      const auto& array = checked_cast<const ::arrow::HalfFloatArray&>(*storage);
+      // All exponent bits set means infinity or NaN
+      finite = std::none_of(array.raw_values(), array.raw_values() + array.length(),
+                            [](uint16_t v) { return (v & 0x7c00) == 0x7c00; });
+    } break;
+    case ::arrow::Type::FLOAT: {
+      const auto& array = checked_cast<const ::arrow::FloatArray&>(*storage);
+      finite = std::all_of(array.raw_values(), array.raw_values() + array.length(),
+                           [](float v) { return std::isfinite(v); });
+    } break;
+    case ::arrow::Type::DOUBLE: {
+      const auto& array = checked_cast<const ::arrow::DoubleArray&>(*storage);
+      finite = std::all_of(array.raw_values(), array.raw_values() + array.length(),
+                           [](double v) { return std::isfinite(v); });
+    } break;
+    default:
+      break;
+  }
+  if (!finite) {
+    return Status::Invalid("FINITE_VECTOR column '", descr.path()->ToDotString(),
+                           "' contains a non-finite element");
+  }
+  return Status::OK();
+}
+
+// Returns true if |descr| is the element column of a FINITE_VECTOR-annotated group.
+bool IsFiniteVectorElement(const ColumnDescriptor& descr) {
+  const schema::Node* list = descr.schema_node()->parent();
+  return list != nullptr && list->parent() != nullptr &&
+         list->parent()->logical_type()->is_finite_vector();
 }
 
 Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
@@ -165,6 +308,7 @@ class ArrowColumnWriterV2 {
       } else {
         PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
       }
+      const bool is_vector_element = IsFiniteVectorElement(*column_writer->descr());
       for (auto& level_builder : level_builders_) {
         RETURN_NOT_OK(level_builder->Write(
             leaf_idx, ctx, [&](const MultipathLevelBuilderResult& result) {
@@ -187,6 +331,10 @@ class ArrowColumnWriterV2 {
                 }
                 ARROW_ASSIGN_OR_RAISE(values_array,
                                       ::arrow::Concatenate(arrays, ctx->memory_pool));
+              }
+              if (is_vector_element) {
+                RETURN_NOT_OK(
+                    CheckFiniteVectorElements(*values_array, *column_writer->descr()));
               }
 
               return column_writer->WriteArrow(result.def_levels, result.rep_levels,
@@ -243,6 +391,7 @@ class ArrowColumnWriterV2 {
     std::vector<std::unique_ptr<MultipathLevelBuilder>> builders;
     const int leaf_count = CalculateLeafCount(data.type().get());
     bool is_nullable = false;
+    const SchemaField* root_field = nullptr;
 
     int column_index = 0;
     if (row_group_writer->buffered()) {
@@ -260,6 +409,7 @@ class ArrowColumnWriterV2 {
       bool nullable_root = HasNullableRoot(schema_manifest, schema_field);
       if (leaf_offset == 0) {
         is_nullable = nullable_root;
+        root_field = GetRootField(schema_manifest, schema_field);
       }
 
 // Don't validate common ancestry for all leafs if not in debug.
@@ -281,6 +431,14 @@ class ArrowColumnWriterV2 {
       // The chunk offset here will be 0 except for possibly the first chunk
       // because of the advancing logic above
       std::shared_ptr<Array> array_to_write = chunk.Slice(chunk_offset, chunk_write_size);
+      if (root_field != nullptr) {
+        ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<ArrayData> prepared,
+            MakeFiniteVectorElementsRequired(array_to_write->data(), *root_field));
+        if (prepared != array_to_write->data()) {
+          array_to_write = ::arrow::MakeArray(std::move(prepared));
+        }
+      }
 
       if (array_to_write->length() > 0) {
         ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
