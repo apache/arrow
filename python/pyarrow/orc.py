@@ -130,6 +130,11 @@ class ORCFile:
         if columns is None:
             return None
 
+        columns = list(columns)
+        if any(isinstance(col, Integral) for col in columns) and any(
+                not isinstance(col, Integral) for col in columns):
+            raise TypeError("columns cannot mix names and integer indices")
+
         schema = self.schema
         names = []
         for col in columns:
@@ -202,23 +207,14 @@ class ORCFile:
         depend on the stripe size.
         """
         batch_size = operator.index(batch_size)
-        if batch_size > 2**63 - 1 or batch_size < -2**63:
-            raise OverflowError("batch_size does not fit in int64")
         if batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
         if stripes is not None:
             stripes = tuple(operator.index(stripe) for stripe in stripes)
             for stripe in stripes:
-                if stripe > 2**63 - 1 or stripe < -2**63:
-                    raise OverflowError("stripe index does not fit in int64")
                 if not 0 <= stripe < self.nstripes:
                     raise ValueError(f"Out of bounds stripe: {stripe}")
-        if columns is not None:
-            columns = list(columns)
-            if any(isinstance(col, Integral) for col in columns) and any(
-                    not isinstance(col, Integral) for col in columns):
-                raise TypeError("columns cannot mix names and integer indices")
-            columns = self._select_names(columns)
+        columns = self._select_names(columns)
         return self.reader.iter_batches(batch_size, stripes, columns)
 
     def read(self, columns=None):

@@ -769,7 +769,7 @@ def test_iter_batches_nested_and_nulls():
 @pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
 @pytest.mark.parametrize('batch_size,error', [
     (0, ValueError), (-1, ValueError), (1.5, TypeError), ('2', TypeError),
-    (None, TypeError), (2**63, OverflowError), (-2**63 - 1, OverflowError)])
+    (None, TypeError), (2**63, OverflowError), (-2**63 - 1, ValueError)])
 def test_iter_batches_invalid_batch_size(batch_file, batch_size, error):
     from pyarrow import orc
 
@@ -782,7 +782,7 @@ def test_iter_batches_invalid_batch_size(batch_file, batch_size, error):
 @pytest.mark.parametrize('stripes,error', [
     ([-1], ValueError), ([4], ValueError), ([0, 4], ValueError),
     ([1.2], TypeError), (['0'], TypeError), ([None], TypeError),
-    ([2**63], OverflowError), ([-2**63 - 1], OverflowError)])
+    ([2**63], ValueError), ([-2**63 - 1], ValueError)])
 def test_iter_batches_invalid_stripes(batch_file, stripes, error):
     from pyarrow import orc
 
@@ -795,13 +795,16 @@ def test_iter_batches_invalid_stripes(batch_file, stripes, error):
 
 
 @pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
+@pytest.mark.parametrize('method', ['read', 'read_stripe', 'iter_batches'])
 @pytest.mark.parametrize('columns', [[0, 'other'], ['value', 1]])
-def test_iter_batches_mixed_columns(batch_file, columns):
+def test_mixed_column_selection(batch_file, method, columns):
     from pyarrow import orc
 
     reader = orc.ORCFile(batch_file[0])
+    read = getattr(reader, method)
+    args = (0,) if method == 'read_stripe' else ()
     with pytest.raises(TypeError, match='cannot mix names and integer indices'):
-        reader.iter_batches(columns=columns)
+        read(*args, columns=columns)
 
 
 def test_iter_batches_snapshot_and_state(batch_file):

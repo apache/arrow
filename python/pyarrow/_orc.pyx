@@ -374,13 +374,12 @@ cdef class ORCReader(_Weakrefable):
             optional[std_vector[c_string]] selected_names
             int64_t stripe
 
-        if batch_size <= 0:
-            raise ValueError("batch_size must be greater than zero")
         if columns is not None:
             names = [tobytes(name) for name in columns]
             selected_names = optional[std_vector[c_string]](names)
 
-        # Keep self (and its source) alive for the generator's entire lifetime.
+        # None selects a whole-file reader. Zero-column projection needs
+        # individual stripe readers to preserve row counts.
         if stripes is None and (columns is None or len(columns) != 0):
             stripe_indices = [None]
         elif stripes is None:

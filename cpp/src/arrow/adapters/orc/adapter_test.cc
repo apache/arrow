@@ -18,7 +18,6 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include <iostream>
 #include <optional>
 #include <orc/OrcFile.hh>
 #include <string>
@@ -645,9 +644,6 @@ TEST(TestAdapterRead, StripeBatchMemoryBounded) {
     ASSERT_LT(pool.max_memory(), full_peak / 4);
     if (small_peak == 0) small_peak = pool.max_memory();
     ASSERT_LE(pool.max_memory(), 2 * small_peak);
-    std::cout << "ORC_BATCH_MEMORY rows=" << rows << " batch_size=" << batch_size
-              << " full_peak=" << full_peak << " first_peak=" << first_peak
-              << " streaming_peak=" << pool.max_memory() << std::endl;
   }
 }
 
