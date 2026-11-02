@@ -26,8 +26,8 @@ else:
 
 from typing import Any, Literal
 
-import numpy as np
-import pandas as pd
+import numpy as np  # type: ignore[import-not-found]
+import pandas as pd  # type: ignore[import-not-found,import-untyped]
 
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
@@ -56,8 +56,7 @@ from .types import BaseExtensionType, DataType, Field, StructType
 from pyarrow._stubs_typing import NullableCollection
 
 def array(
-    values: NullableCollection
-    | Iterable[Any]
+    values: Iterable[Any]
     | SupportsArrowArray
     | SupportsArrowDeviceArray
     | SupportsPyArrowArray,
@@ -69,10 +68,7 @@ def array(
     memory_pool: MemoryPool | None = None,
 ) -> ArrayLike: ...
 def asarray(
-    values: NullableCollection
-    | Iterable[Any]
-    | SupportsArrowArray
-    | SupportsArrowDeviceArray,
+    values: Iterable[Any] | SupportsArrowArray | SupportsArrowDeviceArray,
     type: Any | None = None,
 ) -> ArrayLike: ...
 def nulls(
@@ -238,7 +234,14 @@ class Array(_PandasConvertible):
     def __arrow_c_device_array__(self, requested_schema=None, **kwargs) -> Any: ...
     @staticmethod
     def _import_from_c_device_capsule(schema_capsule, array_capsule) -> Array: ...
-    def __dlpack__(self, stream: int | None = None) -> Any: ...
+    def __dlpack__(
+        self,
+        *,
+        stream: int | None = None,
+        max_version: tuple[int, int] | None = None,
+        dl_device: tuple[int, int] | None = None,
+        copy: bool | None = None,
+    ) -> Any: ...
     def __dlpack_device__(self) -> tuple[int, int]: ...
     @property
     def device_type(self) -> DeviceAllocationType: ...
