@@ -531,8 +531,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Used to set minimum compression ratio threshold for V2 page data values
-    /// compression. The default is 0.01: keep compression if it saves at least 1%.
+    /// Set minimum compression ratio threshold for V2 data pages.
+    /// The default is 0.01: keep compression if it saves at least 1%.
     Builder* min_compression_savings(double min_compression_savings) {
       if (!(min_compression_savings >= 0.0 && min_compression_savings <= 1.0)) {
         throw ParquetException("min_compression_savings must be in range [0, 1]");
