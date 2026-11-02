@@ -1467,6 +1467,11 @@ TEST(Cast, Decimal64ToDecimal32) {
     options.to_type = expected->type();
     CheckCastFails(d64_4_2, options);
   }
+
+  // GH-53288: coefficient wider than the target precision must be rejected
+  options.allow_decimal_truncate = false;
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(ArrayFromJSON(decimal64(18, 0), R"(["5000000000."])"), options);
 }
 
 TEST(Cast, Decimal64ToDecimal128) {
@@ -1724,45 +1729,23 @@ TEST(Cast, Decimal128ToDecimal32) {
     options.to_type = expected->type();
     CheckCastFails(d128_4_2, options);
   }
-}
 
-// GH-53288: narrowing to Decimal32 must rescale and range-check the full-width
-// coefficient. Truncating to 32 bits first silently wrapped the value. One
-// specialization serves every source width, so all of them were affected.
-TEST(Cast, DecimalToDecimal32NarrowingChecksFullCoefficient) {
-  CastOptions options;
+  // GH-53288: rescale and range-check happen at the source width
   options.allow_decimal_truncate = false;
-
-  // Ten-digit coefficient does not fit decimal32(9, 0). Truncating first yielded
-  // 5000000000 - 2^32 = 705032704, which does fit, so the cast wrongly succeeded.
-  auto too_wide = ArrayFromJSON(decimal128(12, 0), R"(["5000000000."])");
   options.to_type = decimal32(9, 0);
-  CheckCastFails(too_wide, options);
+  CheckCastFails(ArrayFromJSON(decimal128(12, 0), R"(["5000000000."])"), options);
 
-  // 536870912000 is exactly 125 * 2^32, so the low 32 bits are zero. Rescaling by
-  // -3 first gives 536870912, which fits decimal32(9, -3) and must be preserved.
   Decimal32Builder builder(decimal32(9, -3));
-  ASSERT_OK(builder.Append(Decimal32(536870912)));  // 536870912 * 10^3
-  ASSERT_OK_AND_ASSIGN(auto expected_negative_scale, builder.Finish());
-
-  auto negative_scale_input = ArrayFromJSON(decimal128(12, 0), R"(["536870912000."])");
-  CheckCast(negative_scale_input, expected_negative_scale, options);
-
-  // 30000000.00 has an unscaled value of 3000000000, which wraps to a negative
-  // int32. The wrapped value is no longer divisible by 100, so the exact rescale
-  // was rejected as a data loss.
-  auto exact_rescale = ArrayFromJSON(decimal128(12, 2), R"(["30000000.00"])");
-  CheckCast(exact_rescale, ArrayFromJSON(decimal32(9, 0), R"(["30000000."])"), options);
-
-  // The same specialization serves every source width, so check the other two.
-  options.to_type = decimal32(9, 0);
-  CheckCastFails(ArrayFromJSON(decimal64(18, 0), R"(["5000000000."])"), options);
-  CheckCastFails(ArrayFromJSON(decimal256(40, 0), R"(["5000000000."])"), options);
-
-  // With truncation allowed the rescale now also happens at the source width, so
-  // the downscale sees 536870912000 rather than its low 32 bits.
+  ASSERT_OK(builder.Append(Decimal32(536870912)));
+  ASSERT_OK_AND_ASSIGN(auto d32_9_m3, builder.Finish());
+  auto d128_12_0 = ArrayFromJSON(decimal128(12, 0), R"(["536870912000."])");
+  CheckCast(d128_12_0, d32_9_m3, options);
   options.allow_decimal_truncate = true;
-  CheckCast(negative_scale_input, expected_negative_scale, options);
+  CheckCast(d128_12_0, d32_9_m3, options);
+
+  options.allow_decimal_truncate = false;
+  CheckCast(ArrayFromJSON(decimal128(12, 2), R"(["30000000.00"])"),
+            ArrayFromJSON(decimal32(9, 0), R"(["30000000."])"), options);
 }
 
 TEST(Cast, Decimal128ToDecimal64) {
@@ -2016,6 +1999,11 @@ TEST(Cast, Decimal256ToDecimal32) {
     options.to_type = expected->type();
     CheckCastFails(d256_4_2, options);
   }
+
+  // GH-53288: coefficient wider than the target precision must be rejected
+  options.allow_decimal_truncate = false;
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(ArrayFromJSON(decimal256(40, 0), R"(["5000000000."])"), options);
 }
 
 TEST(Cast, Decimal256ToDecimal64) {
