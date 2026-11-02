@@ -31,8 +31,8 @@
 
 namespace arrow::compute {
 
+using ::arrow::internal::MapVector;
 using compute::ExecBatch;
-using internal::MapVector;
 
 ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json) {
   auto fields = ::arrow::internal::MapVector(
