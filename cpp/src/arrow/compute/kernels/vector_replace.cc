@@ -789,10 +789,10 @@ struct FillNullImpl<Type, enable_if_binary_view_like<Type>> {
       }
     }
 
-    std::shared_ptr<Array> temp_output;
-    RETURN_NOT_OK(builder.Finish(&temp_output));
-    out->value = std::move(temp_output->data());
-    out->array_data()->type = current_chunk.type->GetSharedPtr();
+    std::shared_ptr<ArrayData> temp_output;
+    RETURN_NOT_OK(builder.FinishInternal(&temp_output));
+    temp_output->type = current_chunk.type->GetSharedPtr();
+    out->value = std::move(temp_output);
     return Status::OK();
   }
 };
