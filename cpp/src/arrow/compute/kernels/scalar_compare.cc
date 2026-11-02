@@ -300,13 +300,7 @@ struct CompareKernel {
 template <typename Op>
 struct CompareTimestamps {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
-    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
-    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
-      return Status::Invalid(
-          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
-          lhs, " and ", rhs);
-    }
+    RETURN_NOT_OK(ValidateComparison(*batch[0].type(), *batch[1].type()));
     return CompareKernel<Int64Type>::Exec(ctx, batch, out);
   }
 };
