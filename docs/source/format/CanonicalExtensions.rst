@@ -601,8 +601,7 @@ Relative URI resolution
 
 Unlike in Parquet, an ``offset`` paired with a relative ``uri`` is hard to interpret
 in this extension type. While Parquet file's location can suggest a starting
-point for the relative path, an extension type will not carry no such
-information.
+point for the relative path, an extension type will not carry such information.
 
 It is up to the application layer to handle what the meaning of the relative
 paths is if they are provided.
