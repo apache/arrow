@@ -195,10 +195,11 @@ cdef class NativeFile(_Weakrefable):
 
     def abort(self):
         """
-        Close the stream, discarding written data if the stream supports it.
+        Close the stream abruptly.
 
-        For example, an S3 output stream aborts its multipart upload, so no
-        object is written. Other streams are simply closed.
+        Output streams of :class:`~pyarrow.fs.S3FileSystem` discard all written
+        data: the multipart upload is aborted and no object is written. Other
+        streams may keep the written data.
         """
         if not self.closed:
             with nogil:
