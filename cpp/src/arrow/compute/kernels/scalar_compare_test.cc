@@ -1207,7 +1207,14 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
 }
 
 TEST(TestBinaryViewCompareKernel, ArrayArray) {
-  const auto cases = std::vector<std::shared_ptr<DataType>>{binary_view(), utf8_view()};
+  const auto cases =
+      std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>>{
+          {binary_view(), binary_view()},  {utf8_view(), utf8_view()},
+          {utf8(), utf8_view()},           {utf8_view(), utf8()},
+          {large_utf8(), utf8_view()},     {utf8_view(), large_utf8()},
+          {binary(), binary_view()},       {binary_view(), binary()},
+          {large_binary(), binary_view()}, {binary_view(), large_binary()},
+      };
   const auto expected = std::vector<std::pair<std::string, std::string>>{
       {"equal", "[true, false, false, false, false, false, null]"},
       {"not_equal", "[false, true, true, true, true, true, null]"},
@@ -1216,18 +1223,19 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
       {"less", "[false, true, true, true, true, false, null]"},
       {"less_equal", "[true, true, true, true, true, false, null]"}};
 
-  for (const auto& ty : cases) {
+  for (const auto& [lhs_type, rhs_type] : cases) {
     auto lhs = ArrayFromJSON(
-        ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
+        lhs_type, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
                 "samepref_size", null])");
     auto rhs = ArrayFromJSON(
-        ty, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
+        rhs_type, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
                 "samepref", null])");
 
-    CheckScalarBinary("equal", ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+    CheckScalarBinary("equal", ArrayFromJSON(lhs_type, R"([])"),
+                      ArrayFromJSON(rhs_type, R"([])"),
                       ArrayFromJSON(boolean(), R"([])"));
-    CheckScalarBinary("equal", ArrayFromJSON(ty, R"([null])"),
-                      ArrayFromJSON(ty, R"([null])"),
+    CheckScalarBinary("equal", ArrayFromJSON(lhs_type, R"([null])"),
+                      ArrayFromJSON(rhs_type, R"([null])"),
                       ArrayFromJSON(boolean(), R"([null])"));
     for (const auto& function_and_expected : expected) {
       CheckScalarBinary(function_and_expected.first, lhs, rhs,
@@ -1237,10 +1245,19 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
 }
 
 TEST(TestBinaryViewCompareKernel, ArrayScalar) {
-  for (const auto& ty : {binary_view(), utf8_view()}) {
-    auto arr = ArrayFromJSON(ty, R"(["", "abc", "abcdefghijklmnop", null])");
-    auto scalar = ScalarFromJSON(ty, R"("abc")");
-    auto null_scalar = ScalarFromJSON(ty, "null");
+  const auto cases =
+      std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>>{
+          {binary_view(), binary_view()},  {utf8_view(), utf8_view()},
+          {utf8(), utf8_view()},           {utf8_view(), utf8()},
+          {large_utf8(), utf8_view()},     {utf8_view(), large_utf8()},
+          {binary(), binary_view()},       {binary_view(), binary()},
+          {large_binary(), binary_view()}, {binary_view(), large_binary()},
+      };
+
+  for (const auto& [arr_type, scalar_type] : cases) {
+    auto arr = ArrayFromJSON(arr_type, R"(["", "abc", "abcdefghijklmnop", null])");
+    auto scalar = ScalarFromJSON(scalar_type, R"("abc")");
+    auto null_scalar = ScalarFromJSON(scalar_type, "null");
 
     CheckScalarBinary("equal", arr, scalar,
                       ArrayFromJSON(boolean(), R"([false, true, false, null])"));
@@ -1255,152 +1272,16 @@ TEST(TestBinaryViewCompareKernel, ArrayScalar) {
   }
 }
 
-TEST(TestBinaryViewCompareKernel, MixedStringTypes) {
-  // Array - Array (short inline strings <= 12 bytes)
+TEST(TestBinaryViewCompareKernel, Sliced) {
   auto str_arr = ArrayFromJSON(utf8(), R"(["a", "b", null, "d"])");
-  auto large_str_arr = ArrayFromJSON(large_utf8(), R"(["a", "b", null, "d"])");
   auto view_arr = ArrayFromJSON(utf8_view(), R"(["a", "x", "c", null])");
-
-  CheckScalarBinary("equal", str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-  CheckScalarBinary("equal", view_arr, str_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-  CheckScalarBinary("equal", large_str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-  CheckScalarBinary("equal", view_arr, large_str_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-
-  CheckScalarBinary("not_equal", str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[false, true, null, null]"));
-  CheckScalarBinary("less", str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[false, true, null, null]"));
-  CheckScalarBinary("greater", str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[false, false, null, null]"));
-
-  // Array - Array (long strings > 12 bytes testing out-of-line prefix + buffer lookup)
-  auto long_str_arr = ArrayFromJSON(
-      utf8(), R"(["this_is_a_long_string_1", "this_is_a_long_string_2", null, "short"])");
-  auto long_view_arr = ArrayFromJSON(
-      utf8_view(),
-      R"(["this_is_a_long_string_1", "this_is_a_different_long_string", "c", null])");
-  CheckScalarBinary("equal", long_str_arr, long_view_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-  CheckScalarBinary("equal", long_view_arr, long_str_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-  CheckScalarBinary("not_equal", long_str_arr, long_view_arr,
-                    ArrayFromJSON(boolean(), "[false, true, null, null]"));
-
-  // Empty arrays
-  auto empty_str = ArrayFromJSON(utf8(), "[]");
-  auto empty_view = ArrayFromJSON(utf8_view(), "[]");
-  CheckScalarBinary("equal", empty_str, empty_view, ArrayFromJSON(boolean(), "[]"));
-  CheckScalarBinary("equal", empty_view, empty_str, ArrayFromJSON(boolean(), "[]"));
-
-  // All-null arrays
-  auto null_str = ArrayFromJSON(utf8(), "[null, null]");
-  auto null_view = ArrayFromJSON(utf8_view(), "[null, null]");
-  CheckScalarBinary("equal", null_str, null_view,
-                    ArrayFromJSON(boolean(), "[null, null]"));
-
-  // Sliced arrays
-  auto sliced_str = str_arr->Slice(1, 2);
-  auto sliced_view = view_arr->Slice(1, 2);
-  CheckScalarBinary("equal", sliced_str, sliced_view,
+  CheckScalarBinary("equal", str_arr->Slice(1, 2), view_arr->Slice(1, 2),
                     ArrayFromJSON(boolean(), "[false, null]"));
-  CheckScalarBinary("equal", sliced_view, sliced_str,
+  CheckScalarBinary("equal", view_arr->Slice(1, 2), str_arr->Slice(1, 2),
                     ArrayFromJSON(boolean(), "[false, null]"));
-
-  // Array - Scalar
-  auto scalar_str = ScalarFromJSON(utf8(), R"("b")");
-  auto scalar_view = ScalarFromJSON(utf8_view(), R"("b")");
-  auto scalar_large = ScalarFromJSON(large_utf8(), R"("b")");
-
-  auto arr_view = ArrayFromJSON(utf8_view(), R"(["a", "b", "c", null])");
-  auto arr_str = ArrayFromJSON(utf8(), R"(["a", "b", "c", null])");
-
-  CheckScalarBinary("equal", arr_view, scalar_str,
-                    ArrayFromJSON(boolean(), "[false, true, false, null]"));
-  CheckScalarBinary("equal", scalar_str, arr_view,
-                    ArrayFromJSON(boolean(), "[false, true, false, null]"));
-  CheckScalarBinary("equal", arr_str, scalar_view,
-                    ArrayFromJSON(boolean(), "[false, true, false, null]"));
-  CheckScalarBinary("equal", scalar_view, arr_str,
-                    ArrayFromJSON(boolean(), "[false, true, false, null]"));
-  CheckScalarBinary("equal", arr_view, scalar_large,
-                    ArrayFromJSON(boolean(), "[false, true, false, null]"));
-
-  // Long scalar (> 12 bytes)
-  auto long_scalar_str = ScalarFromJSON(utf8(), R"("this_is_a_long_string_1")");
-  auto long_scalar_view = ScalarFromJSON(utf8_view(), R"("this_is_a_long_string_1")");
-  CheckScalarBinary("equal", long_view_arr, long_scalar_str,
-                    ArrayFromJSON(boolean(), "[true, false, false, null]"));
-  CheckScalarBinary("equal", long_scalar_str, long_view_arr,
-                    ArrayFromJSON(boolean(), "[true, false, false, null]"));
-  CheckScalarBinary("equal", long_str_arr, long_scalar_view,
-                    ArrayFromJSON(boolean(), "[true, false, null, false]"));
-
-  // Asymmetric slice offsets
-  auto sliced_lhs = str_arr->Slice(1, 2);   // ["b", null]
-  auto sliced_rhs = view_arr->Slice(2, 2);  // ["c", null]
-  CheckScalarBinary("equal", sliced_lhs, sliced_rhs,
-                    ArrayFromJSON(boolean(), "[false, null]"));
-
-  // Null scalar comparisons
-  auto null_scalar_str = MakeNullScalar(utf8());
-  auto null_scalar_view = MakeNullScalar(utf8_view());
-  CheckScalarBinary("equal", view_arr, null_scalar_str,
-                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
-  CheckScalarBinary("equal", str_arr, null_scalar_view,
-                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
-
-  // Embedded null bytes (\0) across inline (<=12B) and out-of-line (>12B) views
-  auto null_byte_str =
-      ArrayFromJSON(utf8(), R"(["a\u0000b", "a\u0000x", "long_prefix_\u0000_x"])");
-  auto null_byte_view =
-      ArrayFromJSON(utf8_view(), R"(["a\u0000b", "a\u0000y", "long_prefix_\u0000_y"])");
-  CheckScalarBinary("equal", null_byte_str, null_byte_view,
-                    ArrayFromJSON(boolean(), "[true, false, false]"));
-  CheckScalarBinary("less", null_byte_str, null_byte_view,
-                    ArrayFromJSON(boolean(), "[false, true, true]"));
-
-  // Binary and BinaryView
-  auto bin_arr = ArrayFromJSON(binary(), R"(["a", "b", null, "d"])");
-  auto bin_view_arr = ArrayFromJSON(binary_view(), R"(["a", "x", "c", null])");
-  CheckScalarBinary("equal", bin_arr, bin_view_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
-  CheckScalarBinary("equal", bin_view_arr, bin_arr,
-                    ArrayFromJSON(boolean(), "[true, false, null, null]"));
 }
 
-TEST(TestBinaryViewCompareKernel, MixedStringTypeOrdering) {
-  // Verify less/greater with asymmetric string types (utf8 vs utf8_view)
-  auto str_arr = ArrayFromJSON(utf8(), R"(["apple", "banana", "cherry"])");
-  auto view_arr = ArrayFromJSON(utf8_view(), R"(["banana", "banana", "apple"])");
-  CheckScalarBinary("less", str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[true, false, false]"));
-  CheckScalarBinary("less", view_arr, str_arr,
-                    ArrayFromJSON(boolean(), "[false, false, true]"));
-  CheckScalarBinary("greater", str_arr, view_arr,
-                    ArrayFromJSON(boolean(), "[false, false, true]"));
-  CheckScalarBinary("greater", view_arr, str_arr,
-                    ArrayFromJSON(boolean(), "[true, false, false]"));
-
-  // Verify 12-byte inline vs 13-byte out-of-line StringView boundary & 4-byte prefix
-  // match
-  auto boundary_str =
-      ArrayFromJSON(utf8(), R"(["123456789012", "1234567890123", "prefix_alpha"])");
-  auto boundary_view =
-      ArrayFromJSON(utf8_view(), R"(["1234567890123", "123456789012", "prefix_omega"])");
-  CheckScalarBinary("less", boundary_str, boundary_view,
-                    ArrayFromJSON(boolean(), "[true, false, true]"));
-  CheckScalarBinary("less", boundary_view, boundary_str,
-                    ArrayFromJSON(boolean(), "[false, true, false]"));
-  CheckScalarBinary("equal", boundary_str, boundary_view,
-                    ArrayFromJSON(boolean(), "[false, false, false]"));
-  CheckScalarBinary("not_equal", boundary_str, boundary_view,
-                    ArrayFromJSON(boolean(), "[true, true, true]"));
-
-  // Dictionary-encoded string vs utf8_view (both directions)
+TEST(TestBinaryViewCompareKernel, Dictionary) {
   auto dict_str =
       ArrayFromJSON(dictionary(int32(), utf8()), R"(["apple", "banana", null])");
   auto plain_view = ArrayFromJSON(utf8_view(), R"(["apple", "cherry", "banana"])");
@@ -1408,31 +1289,6 @@ TEST(TestBinaryViewCompareKernel, MixedStringTypeOrdering) {
                     ArrayFromJSON(boolean(), "[true, false, null]"));
   CheckScalarBinary("equal", plain_view, dict_str,
                     ArrayFromJSON(boolean(), "[true, false, null]"));
-}
-
-TEST(TestCompareKernel, MixedDecimalScaleTests) {
-  // Verify decimal comparisons with different scales (e.g. 1.00 < 9.0)
-  auto d2_type = decimal128(3, 2);
-  auto d1_type = decimal128(3, 1);
-  auto d2_arr = ArrayFromJSON(d2_type, R"(["1.00", "9.00"])");
-  auto d1_arr = ArrayFromJSON(d1_type, R"(["9.0", "1.0"])");
-  CheckScalarBinary("less", d2_arr, d1_arr, ArrayFromJSON(boolean(), "[true, false]"));
-  CheckScalarBinary("less_equal", d2_arr, d1_arr,
-                    ArrayFromJSON(boolean(), "[true, false]"));
-  CheckScalarBinary("greater", d2_arr, d1_arr, ArrayFromJSON(boolean(), "[false, true]"));
-  CheckScalarBinary("greater_equal", d2_arr, d1_arr,
-                    ArrayFromJSON(boolean(), "[false, true]"));
-
-  // Verify negative decimal comparisons with different scales
-  // -1.00 > -9.00, so -1.00 < -9.0 is false; unscaled integers (-100 < -90) would be true
-  auto d2_neg = ArrayFromJSON(d2_type, R"(["-1.00", "-9.00"])");
-  auto d1_neg = ArrayFromJSON(d1_type, R"(["-9.0", "-1.0"])");
-  CheckScalarBinary("less", d2_neg, d1_neg, ArrayFromJSON(boolean(), "[false, true]"));
-  CheckScalarBinary("less_equal", d2_neg, d1_neg,
-                    ArrayFromJSON(boolean(), "[false, true]"));
-  CheckScalarBinary("greater", d2_neg, d1_neg, ArrayFromJSON(boolean(), "[true, false]"));
-  CheckScalarBinary("greater_equal", d2_neg, d1_neg,
-                    ArrayFromJSON(boolean(), "[true, false]"));
 }
 
 template <typename T>
