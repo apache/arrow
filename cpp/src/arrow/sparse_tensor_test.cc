@@ -1807,6 +1807,144 @@ TEST(TestSparseCSFTensorValidation, RejectScalarIndices) {
   ASSERT_RAISES(Invalid, sparse_tensor.ToTensor());
 }
 
+TEST(TestSparseTensorValidation, RejectNonPackedIndexVectors) {
+  std::vector<int64_t> indptr_values = {0, 1, 2};
+  std::vector<int64_t> indices_values = {0, 1};
+  std::vector<int64_t> strided_indptr_values = {0, 1, 2, 1, 2};
+  std::vector<int64_t> strided_indices_values = {0, 1, 1};
+  std::vector<int64_t> zero = {0};
+  std::vector<int64_t> values = {42, 43};
+  const std::vector<int64_t> shape = {2, 2};
+  auto valid_indptr = std::make_shared<Tensor>(int64(), Buffer::Wrap(indptr_values),
+                                               std::vector<int64_t>{3});
+  auto valid_indices = std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                                std::vector<int64_t>{2});
+
+  for (const int64_t stride : {0, 16}) {
+    SCOPED_TRACE(stride);
+    auto strided_indptr = std::make_shared<Tensor>(
+        int64(), stride == 0 ? Buffer::Wrap(zero) : Buffer::Wrap(strided_indptr_values),
+        std::vector<int64_t>{3}, std::vector<int64_t>{stride});
+    auto strided_indices = std::make_shared<Tensor>(
+        int64(), stride == 0 ? Buffer::Wrap(zero) : Buffer::Wrap(strided_indices_values),
+        std::vector<int64_t>{2}, std::vector<int64_t>{stride});
+    // Both layouts are valid tensor views, but compressed indices must be packed.
+    ASSERT_OK(strided_indptr->Validate());
+    ASSERT_OK(strided_indices->Validate());
+    for (const bool replace_indptr : {false, true}) {
+      SCOPED_TRACE(replace_indptr);
+      auto indptr = replace_indptr ? strided_indptr : valid_indptr;
+      auto indices = replace_indptr ? valid_indices : strided_indices;
+      auto csr_index = std::make_shared<SparseCSRIndex>(indptr, indices);
+      auto csc_index = std::make_shared<SparseCSCIndex>(indptr, indices);
+      auto csf_index = std::make_shared<SparseCSFIndex>(
+          std::vector<std::shared_ptr<Tensor>>{indptr},
+          std::vector<std::shared_ptr<Tensor>>{valid_indices, indices},
+          std::vector<int64_t>{0, 1});
+      ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(csr_index, int64(),
+                                                   Buffer::Wrap(values), shape, {}));
+      ASSERT_RAISES(Invalid, SparseCSCMatrix::Make(csc_index, int64(),
+                                                   Buffer::Wrap(values), shape, {}));
+      ASSERT_RAISES(Invalid, SparseCSFTensor::Make(csf_index, int64(),
+                                                   Buffer::Wrap(values), shape, {}));
+      for (const auto& tensor : std::vector<std::shared_ptr<SparseTensor>>{
+               std::make_shared<SparseCSRMatrix>(csr_index, int64(), Buffer::Wrap(values),
+                                                 shape, std::vector<std::string>{}),
+               std::make_shared<SparseCSCMatrix>(csc_index, int64(), Buffer::Wrap(values),
+                                                 shape, std::vector<std::string>{}),
+               std::make_shared<SparseCSFTensor>(csf_index, int64(), Buffer::Wrap(values),
+                                                 shape, std::vector<std::string>{})}) {
+        SCOPED_TRACE(tensor->sparse_index()->ToString());
+        ASSERT_RAISES(Invalid, tensor->ToTensor());
+      }
+    }
+  }
+}
+
+TEST(TestSparseCSFTensorValidation, RejectMalformedIndexVectors) {
+  std::vector<int64_t> indptr_values = {0, 1, 2};
+  std::vector<int64_t> indices_values = {0, 1};
+  std::vector<float> float_indices_values = {0, 1};
+  const std::vector<int64_t> shape = {2, 2};
+  auto indptr = std::make_shared<Tensor>(int64(), Buffer::Wrap(indptr_values),
+                                         std::vector<int64_t>{3});
+  auto first_indices = std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                                std::vector<int64_t>{2});
+  for (const auto& invalid_indices : std::vector<std::shared_ptr<Tensor>>{
+           std::make_shared<Tensor>(int64(), Buffer::FromString(""),
+                                    std::vector<int64_t>{2}),
+           std::make_shared<Tensor>(int64(), nullptr, std::vector<int64_t>{2}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                    std::vector<int64_t>{}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                    std::vector<int64_t>{1, 2}),
+           std::make_shared<Tensor>(uint64(), Buffer::Wrap(indices_values),
+                                    std::vector<int64_t>{2}),
+           std::make_shared<Tensor>(float32(), Buffer::Wrap(float_indices_values),
+                                    std::vector<int64_t>{2})}) {
+    auto index = std::make_shared<SparseCSFIndex>(
+        std::vector<std::shared_ptr<Tensor>>{indptr},
+        std::vector<std::shared_ptr<Tensor>>{first_indices, invalid_indices},
+        std::vector<int64_t>{0, 1});
+    ASSERT_RAISES(Invalid, index->ValidateShape(shape));
+  }
+}
+
+TEST(TestSparseCSFTensorValidation, RejectMalformedIndptrVectors) {
+  std::vector<int64_t> indptr_values = {0, 1, 2};
+  std::vector<int64_t> indices_values = {0, 1};
+  const std::vector<int64_t> shape = {2, 2};
+  auto indices = std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                          std::vector<int64_t>{2});
+  for (const auto& invalid_indptr : std::vector<std::shared_ptr<Tensor>>{
+           std::make_shared<Tensor>(int64(), Buffer::FromString(""),
+                                    std::vector<int64_t>{3}),
+           std::make_shared<Tensor>(int64(), nullptr, std::vector<int64_t>{3}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indptr_values),
+                                    std::vector<int64_t>{}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indptr_values),
+                                    std::vector<int64_t>{1, 3}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indptr_values),
+                                    std::vector<int64_t>{2}),
+           std::make_shared<Tensor>(int64(), Buffer::FromString(""),
+                                    std::vector<int64_t>{0})}) {
+    auto index = std::make_shared<SparseCSFIndex>(
+        std::vector<std::shared_ptr<Tensor>>{invalid_indptr},
+        std::vector<std::shared_ptr<Tensor>>{indices, indices},
+        std::vector<int64_t>{0, 1});
+    ASSERT_RAISES(Invalid, index->ValidateShape(shape));
+  }
+}
+
+TEST(TestSparseTensorValidation, EmptyCompressedIndexVectors) {
+  std::vector<int64_t> indptr_values = {0};
+  std::vector<int64_t> csc_indptr_values = {0, 0, 0};
+  auto empty = Buffer::FromString("");
+  const std::vector<int64_t> shape = {0, 2};
+  ASSERT_OK_AND_ASSIGN(
+      auto csr_index,
+      SparseCSRIndex::Make(int64(), shape, 0, Buffer::Wrap(indptr_values), empty));
+  ASSERT_OK_AND_ASSIGN(
+      auto csc_index,
+      SparseCSCIndex::Make(int64(), shape, 0, Buffer::Wrap(csc_indptr_values), empty));
+  ASSERT_OK_AND_ASSIGN(auto csf_index, SparseCSFIndex::Make(int64(), {0, 0}, {0, 1},
+                                                            {Buffer::Wrap(indptr_values)},
+                                                            {empty, empty}));
+  for (const auto& tensor : std::vector<std::shared_ptr<SparseTensor>>{
+           std::make_shared<SparseCSRMatrix>(csr_index, int64(), empty, shape,
+                                             std::vector<std::string>{}),
+           std::make_shared<SparseCSCMatrix>(csc_index, int64(), empty, shape,
+                                             std::vector<std::string>{}),
+           std::make_shared<SparseCSFTensor>(csf_index, int64(), empty, shape,
+                                             std::vector<std::string>{})}) {
+    SCOPED_TRACE(tensor->sparse_index()->ToString());
+    ASSERT_OK(tensor->sparse_index()->ValidateShape(shape));
+    ASSERT_OK_AND_ASSIGN(auto dense, tensor->ToTensor());
+    ASSERT_EQ(dense->shape(), shape);
+    ASSERT_EQ(dense->data()->size(), 0);
+  }
+}
+
 TEST(TestSparseTensorValidation, LargeDimensionsWithSmallIndices) {
   std::vector<int64_t> indptr_values = {0, 1};
   std::vector<uint8_t> first_indices = {0};
