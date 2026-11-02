@@ -162,6 +162,20 @@ TEST(TestSparseCOOIndex, RejectShortIndicesBuffer) {
                     /*indices_strides=*/{2 * sizeof(int32_t), sizeof(int32_t)}, data));
 }
 
+TEST(TestSparseCOOIndex, RejectOverflowingIndicesLayout) {
+  const std::vector<int64_t> indices_shape = {
+      std::numeric_limits<int64_t>::max() / 16 + 2, 2};
+  const std::vector<int64_t> indices_strides = {16, 8};
+  auto data = Buffer::FromString("");
+  ASSERT_RAISES(Invalid, SparseCOOIndex::Make(int64(), indices_shape, indices_strides,
+                                              data, /*is_canonical=*/true));
+
+  auto coords = std::make_shared<Tensor>(int64(), data, indices_shape, indices_strides);
+  auto index = std::make_shared<SparseCOOIndex>(coords, /*is_canonical=*/true);
+  SparseCOOTensor sparse_tensor(index, int64(), data, {1, 1}, {});
+  ASSERT_RAISES(Invalid, sparse_tensor.ToTensor());
+}
+
 TEST(TestSparseCSRIndex, Make) {
   std::vector<int32_t> indptr_values = {0, 2, 4, 6, 8, 10, 12};
   std::vector<int32_t> indices_values = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
@@ -1746,6 +1760,8 @@ TEST(TestSparseCSFIndex, RejectInvalidAxisOrder) {
                                               /*axis_order=*/{0, 2}, indptr, indices));
   ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int64(), /*indices_shapes=*/{1, 1},
                                               /*axis_order=*/{0, 0}, indptr, indices));
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int64(), /*indices_shapes=*/{1, 1},
+                                              /*axis_order=*/{-1, 0}, indptr, indices));
 }
 
 TEST(TestSparseCSFTensorValidation, RejectOutOfBoundsIndex) {

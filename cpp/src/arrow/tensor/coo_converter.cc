@@ -315,6 +315,9 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
     int64_t offset = 0;
 
     for (int j = 0; j < ndim; ++j) {
+      // ToTensor validated the coordinate matrix's maximum byte offset, so these
+      // products and their sum cannot overflow. This matrix has two axes: nonzero
+      // entry (i) and tensor dimension (j), even when the tensor has more axes.
       const auto* index_data =
           coords_data + i * coords_strides[0] + j * coords_strides[1];
       const auto index = static_cast<int64_t>(

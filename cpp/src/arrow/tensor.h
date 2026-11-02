@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,11 @@ constexpr bool is_tensor_supported(Type::type type_id) {
 }
 
 namespace internal {
+
+/// Check that permutation contains each index in [0, permutation.size()) once.
+/// Internal API; exported so tests can link against the shared library.
+ARROW_EXPORT
+Status IsPermutationValid(std::span<const int64_t> permutation);
 
 ARROW_EXPORT
 Status ComputeRowMajorStrides(const FixedWidthType& type,

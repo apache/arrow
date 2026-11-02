@@ -22,6 +22,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <span>
 #include <type_traits>
 
 #include "arrow/compare.h"
@@ -129,7 +130,10 @@ Status ValidateSparseIndexBounds(const Tensor& indices, int64_t dimension_size,
                                  const char* type_name) {
   return VisitType(*indices.type(), [&](const auto& type) -> Status {
     using IndexType = std::decay_t<decltype(type)>;
-    if constexpr (is_integer(IndexType::type_id) && IndexType::type_id != Type::UINT64) {
+    if constexpr (is_signed_integer(IndexType::type_id) ||
+                  std::is_same_v<IndexType, UInt8Type> ||
+                  std::is_same_v<IndexType, UInt16Type> ||
+                  std::is_same_v<IndexType, UInt32Type>) {
       const auto* values =
           reinterpret_cast<const typename IndexType::c_type*>(indices.raw_data());
       for (int64_t i = 0; i < indices.shape()[0]; ++i) {
@@ -149,23 +153,21 @@ Status ValidateSparseIndptr(const Tensor& indptr, int64_t indices_length,
                             const char* type_name) {
   return VisitType(*indptr.type(), [&](const auto& type) -> Status {
     using IndexType = std::decay_t<decltype(type)>;
-    if constexpr (is_integer(IndexType::type_id) && IndexType::type_id != Type::UINT64) {
-      const auto* values =
-          reinterpret_cast<const typename IndexType::c_type*>(indptr.raw_data());
-      int64_t previous = values[0];
-      if (previous != 0) {
+    if constexpr (is_signed_integer(IndexType::type_id) ||
+                  std::is_same_v<IndexType, UInt8Type> ||
+                  std::is_same_v<IndexType, UInt16Type> ||
+                  std::is_same_v<IndexType, UInt32Type>) {
+      const auto values = std::span(
+          reinterpret_cast<const typename IndexType::c_type*>(indptr.raw_data()),
+          static_cast<size_t>(indptr.shape()[0]));
+      if (values.front() != 0) {
         return Status::Invalid(type_name, " indptr must start at 0");
       }
-      for (int64_t i = 1; i < indptr.shape()[0]; ++i) {
-        const int64_t current = values[i];
-        if (current < previous || current > indices_length) {
-          return Status::Invalid(type_name,
-                                 " indptr values must be non-decreasing and not exceed "
-                                 "the indices length");
-        }
-        previous = current;
+      // Sorted pointers with these endpoints are all within [0, indices_length].
+      if (!std::is_sorted(values.begin(), values.end())) {
+        return Status::Invalid(type_name, " indptr values must be non-decreasing");
       }
-      if (previous != indices_length) {
+      if (values.back() != indices_length) {
         return Status::Invalid(type_name, " indptr must end at the indices length");
       }
       return Status::OK();
@@ -453,15 +455,7 @@ inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indpt
     return Status::Invalid(
         "Length of indices must be equal to number of dimensions for SparseCSFIndex.");
   }
-  std::vector<bool> seen(num_indices, false);
-  for (const int64_t axis : axis_order) {
-    if (axis < 0 || axis >= num_indices || seen[axis]) {
-      return Status::Invalid(
-          "SparseCSFIndex axis_order must be a permutation of the dimensions");
-    }
-    seen[axis] = true;
-  }
-  return Status::OK();
+  return internal::IsPermutationValid(axis_order);
 }
 
 }  // namespace

@@ -1163,23 +1163,32 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
   auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
                                                 indices_value_type.is_signed());
 
-  int64_t offset = 0;
-  std::vector<flatbuf::Buffer> indptr, indices;
-
-  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indptr()) {
-    const int64_t size = tensor->data()->size();
-    const int64_t padded_size = PaddedLength(size, kArrowIpcAlignment);
-
-    indptr.push_back({offset, size});
-    offset += padded_size;
-  }
-  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indices()) {
-    const int64_t size = tensor->data()->size();
-    const int64_t padded_size = PaddedLength(size, kArrowIpcAlignment);
-
-    indices.push_back({offset, size});
-    offset += padded_size;
-  }
+  size_t buffer_index = 0;
+  auto make_buffers =
+      [&](const std::vector<std::shared_ptr<Tensor>>& tensors,
+          const DataType& value_type) -> Result<std::vector<flatbuf::Buffer>> {
+    std::vector<flatbuf::Buffer> result;
+    result.reserve(tensors.size());
+    for (const auto& tensor : tensors) {
+      RETURN_NOT_OK(tensor->Validate());
+      if (tensor->ndim() != 1 || !tensor->is_contiguous() ||
+          !tensor->type()->Equals(value_type)) {
+        return Status::Invalid("CSF index buffers must be contiguous vectors of ",
+                               value_type.ToString());
+      }
+      // Backing buffers can contain trailing bytes. Describe only the logical
+      // elements, but use the serializer's offsets to account for those bytes.
+      ARROW_ASSIGN_OR_RAISE(const int64_t size, ::arrow::internal::ComputeTensorSize(
+                                                    tensor->shape(), tensor->strides(),
+                                                    value_type.byte_width()));
+      result.emplace_back(buffers[buffer_index++].offset, size);
+    }
+    return result;
+  };
+  ARROW_ASSIGN_OR_RAISE(auto indptr,
+                        make_buffers(sparse_index.indptr(), indptr_value_type));
+  ARROW_ASSIGN_OR_RAISE(auto indices,
+                        make_buffers(sparse_index.indices(), indices_value_type));
 
   auto fb_indices = fbb.CreateVectorOfStructs(indices);
   auto fb_indptr = fbb.CreateVectorOfStructs(indptr);

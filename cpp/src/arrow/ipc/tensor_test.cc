@@ -527,6 +527,81 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
 
+TEST(TestSparseCSFIndex, RejectInvalidIndexBuffers) {
+  const std::vector<int64_t> indptr_values = {0, 1};
+  const std::vector<int64_t> indices_values = {0, 0, 1};
+  const std::vector<int32_t> narrow_indices_values = {0};
+  const std::vector<int64_t> values = {42};
+  auto indptr = std::make_shared<Tensor>(int64(), Buffer::Wrap(indptr_values),
+                                         std::vector<int64_t>{2});
+  auto first_indices = std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                                std::vector<int64_t>{1});
+  for (const auto& invalid_indices : std::vector<std::shared_ptr<Tensor>>{
+           std::make_shared<Tensor>(int64(), Buffer::FromString(""),
+                                    std::vector<int64_t>{1}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                    std::vector<int64_t>{}),
+           std::make_shared<Tensor>(int64(), Buffer::Wrap(indices_values),
+                                    std::vector<int64_t>{2}, std::vector<int64_t>{16}),
+           std::make_shared<Tensor>(int32(), Buffer::Wrap(narrow_indices_values),
+                                    std::vector<int64_t>{1})}) {
+    auto index = std::make_shared<SparseCSFIndex>(
+        std::vector<std::shared_ptr<Tensor>>{indptr},
+        std::vector<std::shared_ptr<Tensor>>{first_indices, invalid_indices},
+        std::vector<int64_t>{0, 1});
+    SparseCSFTensor tensor(index, int64(), Buffer::Wrap(values), {1, 2}, {});
+    IpcPayload payload;
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    ASSERT_RAISES(Invalid,
+                  GetSparseTensorPayload(tensor, default_memory_pool(), &payload));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  }
+}
+
+TEST(TestSparseCSFIndex, RoundTripWithTrailingBufferBytes) {
+  const std::vector<int64_t> indptr_values = {0, 1};
+  const std::vector<int64_t> indices_values = {0};
+  const std::vector<int64_t> values = {42};
+
+  for (const int trailing_size : {1, 8, 9}) {
+    SCOPED_TRACE(trailing_size);
+    const std::string trailing_bytes(trailing_size, '\xff');
+    auto indptr_buffer =
+        Buffer::FromString(Buffer::Wrap(indptr_values)->ToString() + trailing_bytes);
+    auto indices_buffer =
+        Buffer::FromString(Buffer::Wrap(indices_values)->ToString() + trailing_bytes);
+    ASSERT_OK_AND_ASSIGN(auto index,
+                         SparseCSFIndex::Make(int64(), {1, 1}, {0, 1}, {indptr_buffer},
+                                              {indices_buffer, indices_buffer}));
+    ASSERT_OK_AND_ASSIGN(
+        auto tensor,
+        SparseCSFTensor::Make(index, int64(), Buffer::Wrap(values), {1, 1}, {}));
+
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    IpcPayload payload;
+    ASSERT_OK(GetSparseTensorPayload(*tensor, default_memory_pool(), &payload));
+    ASSERT_OK_AND_ASSIGN(auto from_payload, internal::ReadSparseTensorPayload(payload));
+    ASSERT_TRUE(from_payload->Equals(*tensor));
+
+    ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+    int32_t metadata_length;
+    int64_t body_length;
+    ASSERT_OK(WriteSparseTensor(*tensor, sink.get(), &metadata_length, &body_length));
+    ASSERT_OK_AND_ASSIGN(auto serialized, sink->Finish());
+    io::BufferReader reader(serialized);
+    ASSERT_OK_AND_ASSIGN(auto result, ReadSparseTensor(&reader));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
+    ASSERT_TRUE(result->Equals(*tensor));
+    const auto& result_index =
+        checked_cast<const SparseCSFIndex&>(*result->sparse_index());
+    ASSERT_EQ(result_index.indptr()[0]->data()->size(), 2 * sizeof(int64_t));
+    for (const auto& indices : result_index.indices()) {
+      ASSERT_EQ(indices->data()->size(), sizeof(int64_t));
+    }
+  }
+}
+
 namespace {
 
 // Build a SparseTensor IPC message carrying a CSF index with caller-controlled
@@ -620,7 +695,9 @@ TEST(TestSparseCSFIndex, RejectInvalidAxisOrder) {
                                                                 /*num_indptr_buffers=*/1,
                                                                 /*num_indices_buffers=*/2,
                                                                 /*axis_order_size=*/2));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_RAISES(Invalid,
                 internal::ReadSparseTensorPayload(MakeSparseTensorPayload(message, 4)));
 }
