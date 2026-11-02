@@ -22,6 +22,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <type_traits>
 
 #include "arrow/compare.h"
 #include "arrow/type_traits.h"
@@ -123,6 +124,57 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
 
 namespace {
 
+// Callers validate vector ranks, buffers, and indptr lengths before inspecting values.
+Status ValidateSparseIndexBounds(const Tensor& indices, int64_t dimension_size,
+                                 const char* type_name) {
+  return VisitType(*indices.type(), [&](const auto& type) -> Status {
+    using IndexType = std::decay_t<decltype(type)>;
+    if constexpr (is_integer(IndexType::type_id) && IndexType::type_id != Type::UINT64) {
+      const auto* values =
+          reinterpret_cast<const typename IndexType::c_type*>(indices.raw_data());
+      for (int64_t i = 0; i < indices.shape()[0]; ++i) {
+        const int64_t index = values[i];
+        if (index < 0 || index >= dimension_size) {
+          return Status::Invalid(type_name, " index is out of bounds");
+        }
+      }
+      return Status::OK();
+    } else {
+      return Status::Invalid("Unsupported sparse index value type: ", type.ToString());
+    }
+  });
+}
+
+Status ValidateSparseIndptr(const Tensor& indptr, int64_t indices_length,
+                            const char* type_name) {
+  return VisitType(*indptr.type(), [&](const auto& type) -> Status {
+    using IndexType = std::decay_t<decltype(type)>;
+    if constexpr (is_integer(IndexType::type_id) && IndexType::type_id != Type::UINT64) {
+      const auto* values =
+          reinterpret_cast<const typename IndexType::c_type*>(indptr.raw_data());
+      int64_t previous = values[0];
+      if (previous != 0) {
+        return Status::Invalid(type_name, " indptr must start at 0");
+      }
+      for (int64_t i = 1; i < indptr.shape()[0]; ++i) {
+        const int64_t current = values[i];
+        if (current < previous || current > indices_length) {
+          return Status::Invalid(type_name,
+                                 " indptr values must be non-decreasing and not exceed "
+                                 "the indices length");
+        }
+        previous = current;
+      }
+      if (previous != indices_length) {
+        return Status::Invalid(type_name, " indptr must end at the indices length");
+      }
+      return Status::OK();
+    } else {
+      return Status::Invalid("Unsupported sparse index value type: ", type.ToString());
+    }
+  });
+}
+
 inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
                                           const std::vector<int64_t>& shape,
                                           const std::vector<int64_t>& strides) {
@@ -143,10 +195,6 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
 
 void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t row,
                           std::vector<int64_t>* out_index) {
-  const auto& fw_index_value_type =
-      internal::checked_cast<const FixedWidthType&>(*coords->type());
-  const size_t indices_elsize = fw_index_value_type.bit_width() / CHAR_BIT;
-
   const auto& shape = coords->shape();
   const int64_t non_zero_length = shape[0];
   DCHECK(0 <= row && row < non_zero_length);
@@ -154,31 +202,16 @@ void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t r
   const int64_t ndim = shape[1];
   out_index->resize(ndim);
 
-  switch (indices_elsize) {
-    case 1:  // Int8, UInt8
+  VisitType(*coords->type(), [&](const auto& type) -> void {
+    using IndexType = std::decay_t<decltype(type)>;
+    if constexpr (is_integer(IndexType::type_id)) {
       for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt8Type>({row, i}));
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<IndexType>({row, i}));
       }
-      break;
-    case 2:  // Int16, UInt16
-      for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt16Type>({row, i}));
-      }
-      break;
-    case 4:  // Int32, UInt32
-      for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt32Type>({row, i}));
-      }
-      break;
-    case 8:  // Int64
-      for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = coords->Value<Int64Type>({row, i});
-      }
-      break;
-    default:
+    } else {
       DCHECK(false) << "Must not reach here";
-      break;
-  }
+    }
+  });
 }
 
 bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
@@ -304,8 +337,6 @@ Status SparseCOOIndex::ValidateShape(const std::vector<int64_t>& shape) const {
     return Status::Invalid(
         "shape length is inconsistent with the coords matrix in COO index");
   }
-  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(coords_->type(), shape));
-
   std::vector<int64_t> index;
   for (int64_t i = 0; i < coords_->shape()[0]; ++i) {
     GetCOOIndexTensorRow(coords_, i, &index);
@@ -375,7 +406,6 @@ Status ValidateSparseCSXIndexContents(SparseMatrixCompressedAxis compressed_axis
                                        indices->shape(), type_name));
   RETURN_NOT_OK(indptr->Validate());
   RETURN_NOT_OK(indices->Validate());
-  RETURN_NOT_OK(CheckSparseIndexMaximumValue(indices->type(), shape));
 
   ARROW_ASSIGN_OR_RAISE(const int64_t expected_indptr_length,
                         ComputeSparseCSXIndptrLength(compressed_axis, shape));
@@ -383,39 +413,9 @@ Status ValidateSparseCSXIndexContents(SparseMatrixCompressedAxis compressed_axis
     return Status::Invalid("shape is inconsistent with the ", type_name);
   }
 
-  const int64_t non_zero_length = indices->shape()[0];
-  const int indptr_elsize = indptr->type()->byte_width();
-  const uint8_t* indptr_data = indptr->raw_data();
-  int64_t previous =
-      SparseTensorConverterMixin::GetIndexValue(indptr_data, indptr_elsize);
-  if (previous != 0) {
-    return Status::Invalid(type_name, " indptr must start at 0");
-  }
-  for (int64_t i = 1; i < expected_indptr_length; ++i) {
-    const int64_t current = SparseTensorConverterMixin::GetIndexValue(
-        indptr_data + i * indptr_elsize, indptr_elsize);
-    if (current < previous || current > non_zero_length) {
-      return Status::Invalid(type_name,
-                             " indptr values must be non-decreasing and not exceed "
-                             "the indices length");
-    }
-    previous = current;
-  }
-  if (previous != non_zero_length) {
-    return Status::Invalid(type_name, " indptr must end at the indices length");
-  }
-
+  RETURN_NOT_OK(ValidateSparseIndptr(*indptr, indices->shape()[0], type_name));
   const int64_t minor_axis = compressed_axis == SparseMatrixCompressedAxis::ROW ? 1 : 0;
-  const int indices_elsize = indices->type()->byte_width();
-  const uint8_t* indices_data = indices->raw_data();
-  for (int64_t i = 0; i < non_zero_length; ++i) {
-    const int64_t index = SparseTensorConverterMixin::GetIndexValue(
-        indices_data + i * indices_elsize, indices_elsize);
-    if (index < 0 || index >= shape[minor_axis]) {
-      return Status::Invalid(type_name, " index is out of bounds");
-    }
-  }
-  return Status::OK();
+  return ValidateSparseIndexBounds(*indices, shape[minor_axis], type_name);
 }
 
 void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
@@ -517,25 +517,18 @@ Status SparseCSFIndex::ValidateShape(const std::vector<int64_t>& shape) const {
   if (shape.size() != axis_order_.size()) {
     return Status::Invalid("shape length is inconsistent with the SparseCSFIndex");
   }
-  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_.front()->type(), shape));
+  // Validate every indices vector before reading the next vector's length below.
+  for (const auto& indices : indices_) {
+    if (indices->ndim() != 1) {
+      return Status::Invalid("SparseCSFIndex indices must be vectors");
+    }
+    RETURN_NOT_OK(indices->Validate());
+  }
 
   for (int64_t dim = 0; dim < static_cast<int64_t>(indices_.size()); ++dim) {
     const auto& cur_indices = indices_[dim];
-    if (cur_indices->ndim() != 1) {
-      return Status::Invalid("SparseCSFIndex indices must be vectors");
-    }
-    RETURN_NOT_OK(cur_indices->Validate());
-
-    const int indices_elsize = cur_indices->type()->byte_width();
-    const uint8_t* indices_data = cur_indices->raw_data();
-    for (int64_t i = 0; i < cur_indices->shape()[0]; ++i) {
-      const int64_t index = internal::SparseTensorConverterMixin::GetIndexValue(
-          indices_data + i * indices_elsize, indices_elsize);
-      if (index < 0 || index >= shape[axis_order_[dim]]) {
-        return Status::Invalid("SparseCSFIndex index is out of bounds for dimension ",
-                               axis_order_[dim]);
-      }
-    }
+    RETURN_NOT_OK(
+        ValidateSparseIndexBounds(*cur_indices, shape[axis_order_[dim]], kTypeName));
 
     if (dim == static_cast<int64_t>(indptr_.size())) {
       continue;
@@ -548,27 +541,8 @@ Status SparseCSFIndex::ValidateShape(const std::vector<int64_t>& shape) const {
     }
     RETURN_NOT_OK(cur_indptr->Validate());
 
-    const int indptr_elsize = cur_indptr->type()->byte_width();
-    const uint8_t* indptr_data = cur_indptr->raw_data();
-    int64_t previous =
-        internal::SparseTensorConverterMixin::GetIndexValue(indptr_data, indptr_elsize);
-    if (previous != 0) {
-      return Status::Invalid("SparseCSFIndex indptr must start at 0");
-    }
-    const int64_t next_indices_length = indices_[dim + 1]->shape()[0];
-    for (int64_t i = 1; i < cur_indptr->shape()[0]; ++i) {
-      const int64_t current = internal::SparseTensorConverterMixin::GetIndexValue(
-          indptr_data + i * indptr_elsize, indptr_elsize);
-      if (current < previous || current > next_indices_length) {
-        return Status::Invalid(
-            "SparseCSFIndex indptr values must be non-decreasing and not exceed "
-            "the next indices length");
-      }
-      previous = current;
-    }
-    if (previous != next_indices_length) {
-      return Status::Invalid("SparseCSFIndex indptr must end at the next indices length");
-    }
+    RETURN_NOT_OK(
+        ValidateSparseIndptr(*cur_indptr, indices_[dim + 1]->shape()[0], kTypeName));
   }
   return Status::OK();
 }
