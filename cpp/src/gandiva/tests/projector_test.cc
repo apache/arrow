@@ -1276,6 +1276,96 @@ TEST_F(TestProjector, TestLevenshtein) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_lev, outputs.at(0));
 }
 
+// Per-row arena scratch space is released after each row only if the expression contains
+// a function that returns a string. levenshtein returns an int32 but takes
+// (shorter_len + 1) * 2 ints of arena scratch per row, so on its own it holds that
+// memory until the end of the batch.
+TEST_F(TestProjector, TestLevenshteinArenaGrowth) {
+  constexpr int kNumRecords = 1 << 18;
+  constexpr int kStringLen = 16;
+  // About 35 MiB of scratch for the whole batch if it is not released row by row.
+  constexpr int64_t kScratchBytes =
+      static_cast<int64_t>(kNumRecords) * (kStringLen + 1) * 2 * sizeof(int);
+  // Outputs and one arena chunk need about 1 MiB when it is released, so this leaves a
+  // wide margin on both sides.
+  constexpr int64_t kMaxBatchBytes = kScratchBytes / 4;
+
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({f0, f1});
+  auto field_lev = field("levenshtein", arrow::int32());
+
+  std::string left(kStringLen, 'a');
+  std::string right = left;
+  right[0] = 'b';
+  std::vector<std::string> lefts(kNumRecords, left);
+  std::vector<std::string> rights(kNumRecords, right);
+  std::vector<bool> validity(kNumRecords, true);
+  std::vector<int32_t> expected_values(kNumRecords, 1);
+  auto in_batch = arrow::RecordBatch::Make(
+      schema, kNumRecords,
+      {MakeArrowArrayUtf8(lefts, validity), MakeArrowArrayUtf8(rights, validity)});
+  auto expected = MakeArrowArrayInt32(expected_values, validity);
+
+  auto expression = TreeExprBuilder::MakeExpression("levenshtein", {f0, f1}, field_lev);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expression}, TestConfiguration(), &projector));
+
+  // The execution context's arena draws from the default pool, whichever pool is
+  // passed to Evaluate, and returns everything by the end of the call. Measure the
+  // bytes requested from the default pool during the call, not the live bytes.
+  auto* default_pool = arrow::default_memory_pool();
+  const int64_t before = default_pool->total_bytes_allocated();
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+  const int64_t allocated = default_pool->total_bytes_allocated() - before;
+
+  ASSERT_EQ(outputs.size(), 1);
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+  EXPECT_LT(allocated, kMaxBatchBytes)
+      << "allocated " << allocated / (1 << 20) << " MiB while evaluating " << kNumRecords
+      << " rows; the arena is not released per row";
+}
+
+// upper() takes its result from the arena, but the expression returns an int32. The arena
+// must still be released after each row.
+TEST_F(TestProjector, TestNestedStringFunctionArenaGrowth) {
+  constexpr int kNumRecords = 1 << 18;
+  constexpr int kStringLen = 64;
+  // 16 MiB of upper() results for the whole batch if they are not released row by row.
+  constexpr int64_t kScratchBytes = static_cast<int64_t>(kNumRecords) * kStringLen;
+  // Outputs and one arena chunk need about 1 MiB when it is released.
+  constexpr int64_t kMaxBatchBytes = kScratchBytes / 4;
+
+  auto in_field = field("in", arrow::utf8());
+  auto schema = arrow::schema({in_field});
+  auto upper = TreeExprBuilder::MakeFunction(
+      "upper", {TreeExprBuilder::MakeField(in_field)}, arrow::utf8());
+  auto length = TreeExprBuilder::MakeFunction("length", {upper}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(length, field("out", arrow::int32()));
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  std::vector<std::string> values(kNumRecords, std::string(kStringLen, 'a'));
+  std::vector<bool> validity(kNumRecords, true);
+  auto in_batch = arrow::RecordBatch::Make(schema, kNumRecords,
+                                           {MakeArrowArrayUtf8(values, validity)});
+  auto expected =
+      MakeArrowArrayInt32(std::vector<int32_t>(kNumRecords, kStringLen), validity);
+
+  auto* default_pool = arrow::default_memory_pool();
+  const int64_t before = default_pool->total_bytes_allocated();
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+  const int64_t allocated = default_pool->total_bytes_allocated() - before;
+
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs.at(0));
+  EXPECT_LT(allocated, kMaxBatchBytes)
+      << "allocated " << allocated / (1 << 20) << " MiB while evaluating " << kNumRecords
+      << " rows; the arena is not released per row";
+}
+
 TEST_F(TestProjector, TestQuote) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
@@ -3759,6 +3849,45 @@ TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+// scratch_length takes arena scratch memory but returns an int32. The arena must still be
+// released after each row.
+TEST_F(TestProjector, TestExtendedCFunctionArenaGrowth) {
+  constexpr int kNumRecords = 1 << 18;
+  constexpr int kStringLen = 64;
+  // 16 MiB of scratch for the whole batch if it is not released row by row.
+  constexpr int64_t kScratchBytes = static_cast<int64_t>(kNumRecords) * kStringLen;
+  // Outputs and one arena chunk need about 1 MiB when it is released.
+  constexpr int64_t kMaxBatchBytes = kScratchBytes / 4;
+
+  auto in_field = field("in", arrow::utf8());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression("scratch_length", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config = TestConfigWithArenaScratchFunction(std::move(external_registry));
+  ASSERT_OK(Projector::Make(schema, {expr}, config, &projector));
+
+  std::vector<std::string> values(kNumRecords, std::string(kStringLen, 'a'));
+  std::vector<bool> validity(kNumRecords, true);
+  auto in_batch = arrow::RecordBatch::Make(schema, kNumRecords,
+                                           {MakeArrowArrayUtf8(values, validity)});
+  auto expected =
+      MakeArrowArrayInt32(std::vector<int32_t>(kNumRecords, kStringLen), validity);
+
+  auto* default_pool = arrow::default_memory_pool();
+  const int64_t before = default_pool->total_bytes_allocated();
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+  const int64_t allocated = default_pool->total_bytes_allocated() - before;
+
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs.at(0));
+  EXPECT_LT(allocated, kMaxBatchBytes)
+      << "allocated " << allocated / (1 << 20) << " MiB while evaluating " << kNumRecords
+      << " rows; the arena is not released per row";
 }
 
 TEST_F(TestProjector, TestRandomNoArgs) {

@@ -57,6 +57,10 @@ class SimpleArena {
   // total bytes available for allocations.
   int64_t avail_bytes() { return avail_bytes_; }
 
+  // Non-zero if Allocate() was called since the last Reset(). Generated code reads it to
+  // skip the Reset() call when nothing was allocated.
+  uint8_t* used_ptr() { return &used_; }
+
  private:
   struct Chunk {
     Chunk(uint8_t* buf, int64_t size) : buf_(buf), size_(size) {}
@@ -88,6 +92,9 @@ class SimpleArena {
 
   // List of allocated chunks.
   std::vector<Chunk> chunks_;
+
+  // Non-zero if Allocate() was called since the last Reset().
+  uint8_t used_;
 };
 
 inline SimpleArena::SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size)
@@ -95,11 +102,13 @@ inline SimpleArena::SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size)
       min_chunk_size_(min_chunk_size),
       total_bytes_(0),
       avail_bytes_(0),
-      avail_buf_(NULL) {}
+      avail_buf_(NULL),
+      used_(0) {}
 
 inline SimpleArena::~SimpleArena() { ReleaseChunks(false /*retain_first*/); }
 
 inline uint8_t* SimpleArena::Allocate(int64_t size) {
+  used_ = 1;
   if (avail_bytes_ < size) {
     auto status = AllocateChunk(std::max(size, min_chunk_size_));
     if (!status.ok()) {
@@ -131,6 +140,7 @@ inline arrow::Status SimpleArena::AllocateChunk(int64_t size) {
 // By retaining the first chunk, the number of malloc calls are reduced to one per batch,
 // instead of one per record.
 inline void SimpleArena::Reset() {
+  used_ = 0;
   if (chunks_.size() == 0) {
     // if there are no chunks, nothing to do.
     return;

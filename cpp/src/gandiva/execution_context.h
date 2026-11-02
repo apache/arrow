@@ -41,6 +41,17 @@ class ExecutionContext {
 
   SimpleArena* arena() { return &arena_; }
 
+  // Byte offset of the arena's "used" flag from the start of a context. Generated code
+  // reads the flag through the context pointer it already has.
+  static int64_t arena_used_offset() {
+    static const int64_t offset = [] {
+      ExecutionContext context;
+      return reinterpret_cast<char*>(context.arena()->used_ptr()) -
+             reinterpret_cast<char*>(&context);
+    }();
+    return offset;
+  }
+
   void Reset() {
     error_msg_.clear();
     arena_.Reset();
