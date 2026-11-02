@@ -380,6 +380,33 @@ TEST_F(MessageDecodingTest, ReadMessageAsync) {
   }
 }
 
+TEST_F(MessageDecodingTest, ReadSchemaAcceptsSchemaMessage) {
+  auto schema = ::arrow::schema({field("f0", int32())});
+  DictionaryFieldMapper mapper(*schema);
+  ASSERT_OK_AND_ASSIGN(auto schema_metadata,
+                       WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults()));
+  ASSERT_OK_AND_ASSIGN(auto schema_message,
+                       Message::Open(schema_metadata, /*body=*/nullptr));
+  ASSERT_EQ(schema_message->type(), MessageType::SCHEMA);
+  ASSERT_OK_AND_ASSIGN(auto parsed_schema, ReadSchema(*schema_message, nullptr));
+  AssertSchemaEqual(*schema, *parsed_schema);
+}
+
+TEST_F(MessageDecodingTest, ReadSchemaRejectsNonSchemaMessage) {
+  for (const auto& params : message_params()) {
+    ARROW_SCOPED_TRACE("Params: ", params);
+    ASSERT_OK_AND_ASSIGN(auto sample_message, GetSampleMessage(params));
+    std::shared_ptr<Buffer> body =
+        sample_message.body_bytes->size() > 0 ? sample_message.body_bytes : nullptr;
+    ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(sample_message.metadata_bytes, body));
+    ASSERT_EQ(message->type(), MessageType::RECORD_BATCH);
+    DictionaryMemo memo;
+    ASSERT_RAISES_WITH_MESSAGE(
+        IOError, "IOError: Expected IPC message of type schema but got record batch",
+        ReadSchema(*message, &memo));
+  }
+}
+
 TEST_F(MessageDecodingTest, ReadMessage3) {
   int padding_size;
 
