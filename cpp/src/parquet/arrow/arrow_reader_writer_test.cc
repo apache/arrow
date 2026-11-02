@@ -3469,6 +3469,33 @@ TEST(ArrowReadWrite, NestedDictionaryMultipleRowGroups) {
   }
 }
 
+TEST(ArrowReadWrite, NestedDictionaryDifferentDictionariesPerRowGroup) {
+  using ::arrow::field;
+
+  auto type = list(::arrow::dictionary(::arrow::int32(), ::arrow::utf8()));
+  // One input chunk per row group, each with its own dictionary.
+  auto chunk1 = ::arrow::ArrayFromJSON(type, R"([["a"], ["b", "a"]])");
+  auto chunk2 = ::arrow::ArrayFromJSON(type, R"([["c", "a"], ["b"]])");
+  auto schema = ::arrow::schema({field("root", type)});
+  auto input = Table::Make(
+      schema, {std::make_shared<::arrow::ChunkedArray>(ArrayVector{chunk1, chunk2})});
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  std::shared_ptr<Table> result;
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(input, /*use_threads=*/false,
+                                            /*row_group_size=*/2, {}, &result,
+                                            props_store_schema));
+  ASSERT_OK(result->ValidateFull());
+  ::arrow::AssertSchemaEqual(*schema, *result->schema(), /*check_metadata=*/false);
+
+  // Compare the decoded strings, so the order of the merged dictionary does not matter.
+  auto expected = ::arrow::ChunkedArrayFromJSON(
+      list(::arrow::utf8()), {R"([["a"], ["b", "a"], ["c", "a"], ["b"]])"});
+  ASSERT_OK_AND_ASSIGN(auto decoded,
+                       ::arrow::compute::Cast(result->column(0), list(::arrow::utf8())));
+  ::arrow::AssertChunkedEqual(*expected, *decoded.chunked_array());
+}
+
 TEST(ArrowReadWrite, Map) {
   using ::arrow::field;
   using ::arrow::map;
