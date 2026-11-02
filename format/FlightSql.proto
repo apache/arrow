@@ -833,6 +833,105 @@ enum SqlInfo {
    * - true: if invoking user-defined or vendor functions using the stored procedure escape syntax is supported.
    */
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
+
+  /*
+   * Retrieves the supported row-limit and offset grammars. Limiting and
+   * offsetting are reported separately because servers often accept a grammar
+   * for limiting that they do not accept together with an offset:
+   * SQL_LIMIT_OFFSET_LIMIT and SQL_LIMIT_OFFSET_FETCH_FIRST only limit,
+   * SQL_LIMIT_OFFSET_LIMIT_OFFSET and SQL_LIMIT_OFFSET_OFFSET_FETCH limit and
+   * offset, and SQL_LIMIT_OFFSET_TOP only limits and does not compose with an
+   * offset.
+   *
+   * SQL_LIMIT_OFFSET_FETCH_WITHOUT_ORDER_BY qualifies the two FETCH grammars:
+   * unless it is set, they are only accepted in a query that has an ORDER BY
+   * clause.
+   *
+   * Returns an int32 bitmask value representing the supported grammars.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * grammars.
+   *
+   * For instance:
+   * - return 0 (\b0)       => [] (no row-limit grammar is supported);
+   * - return 1 (\b1)       => [SQL_LIMIT_OFFSET_LIMIT];
+   * - return 3 (\b11)      => [SQL_LIMIT_OFFSET_LIMIT, SQL_LIMIT_OFFSET_LIMIT_OFFSET];
+   * - return 24 (\b11000)  => [SQL_LIMIT_OFFSET_OFFSET_FETCH, SQL_LIMIT_OFFSET_TOP];
+   * - return 44 (\b101100) => [SQL_LIMIT_OFFSET_FETCH_FIRST, SQL_LIMIT_OFFSET_OFFSET_FETCH,
+   *                            SQL_LIMIT_OFFSET_FETCH_WITHOUT_ORDER_BY].
+   * Valid grammars are described under `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
+   */
+  SQL_SUPPORTED_LIMIT_OFFSET = 577;
+
+  /*
+   * Retrieves the supported syntaxes for explicit null ordering in ORDER BY.
+   * Distinct from SQL_NULL_ORDERING (507), which reports the server's default
+   * null ordering rather than which explicit syntax parses.
+   *
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0) => [] (no explicit null-ordering syntax is supported);
+   * - return 1 (\b1) => [SQL_NULLS_ORDERING_FIRST_LAST].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
+   */
+  SQL_SUPPORTED_NULLS_ORDERING = 578;
+
+  /*
+   * Retrieves the supported ways of escaping the wildcard characters '%' and
+   * '_' in a LIKE pattern. Supersedes SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE (523),
+   * which cannot describe a server that escapes without an ESCAPE clause.
+   *
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (a literal wildcard cannot be matched);
+   * - return 1 (\b1)   => [SQL_LIKE_ESCAPE_CLAUSE];
+   * - return 2 (\b10)  => [SQL_LIKE_ESCAPE_IMPLICIT_BACKSLASH];
+   * - return 3 (\b11)  => [SQL_LIKE_ESCAPE_CLAUSE, SQL_LIKE_ESCAPE_IMPLICIT_BACKSLASH].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlLikeEscapeSyntax`.
+   */
+  SQL_SUPPORTED_LIKE_ESCAPE = 579;
+
+  /*
+   * Retrieves the supported spellings of a parameter marker in a prepared
+   * statement.
+   *
+   * Clients that generate SQL are encouraged to send values as bound
+   * parameters instead of writing them as literals. How a value is spelled as
+   * a literal differs between servers for nearly every type (booleans, dates
+   * and timestamps, strings containing a backslash or characters outside
+   * ASCII, binary values, floating point values), while a bound value is
+   * transferred as Arrow data and needs no spelling. The spelling of the
+   * marker itself is then the one thing a client has to know.
+   *
+   * A syntax must only be reported if a statement using it can be prepared
+   * and executed with parameters bound as described for
+   * CommandPreparedStatementQuery, and if a marker is accepted wherever a
+   * value is compared with a column, including each element of an IN list.
+   *
+   * Parameters are bound by position. For the numbered syntaxes a client
+   * should number the markers from 1 in the order they appear and use each
+   * number once: servers differ in whether a numbered marker takes the
+   * parameter with that number or the one at its position in the statement,
+   * and the two only coincide for a statement written that way.
+   *
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0)     => [] (no marker listed here is supported);
+   * - return 1 (\b1)     => [SQL_PARAMETER_MARKER_QUESTION_MARK];
+   * - return 2 (\b10)    => [SQL_PARAMETER_MARKER_DOLLAR_NUMBERED];
+   * - return 3 (\b11)    => [SQL_PARAMETER_MARKER_QUESTION_MARK, SQL_PARAMETER_MARKER_DOLLAR_NUMBERED];
+   * - return 8 (\b1000)  => [SQL_PARAMETER_MARKER_AT_P_NUMBERED].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlParameterMarkerSyntax`.
+   */
+  SQL_SUPPORTED_PARAMETER_MARKER = 580;
 }
 
 // The level of support for Flight SQL transaction RPCs.
@@ -955,6 +1054,49 @@ enum SqlSupportsConvert {
   SQL_CONVERT_TINYINT = 17;
   SQL_CONVERT_VARBINARY = 18;
   SQL_CONVERT_VARCHAR = 19;
+}
+
+enum SqlLimitOffsetSyntax {
+  // LIMIT n  (PostgreSQL, MySQL, SQLite, DuckDB, Trino, ...)
+  SQL_LIMIT_OFFSET_LIMIT = 0;
+  // LIMIT n OFFSET m  (PostgreSQL, MySQL, SQLite, DuckDB, ...). Not implied by
+  // SQL_LIMIT_OFFSET_LIMIT: Trino and Presto accept LIMIT n but not this.
+  SQL_LIMIT_OFFSET_LIMIT_OFFSET = 1;
+  // FETCH FIRST n ROWS ONLY, with no OFFSET clause  (ANSI, Oracle, PostgreSQL, Trino)
+  SQL_LIMIT_OFFSET_FETCH_FIRST = 2;
+  // OFFSET m ROWS FETCH NEXT n ROWS ONLY  (ANSI, SQL Server, Oracle, PostgreSQL)
+  SQL_LIMIT_OFFSET_OFFSET_FETCH = 3;
+  // SELECT TOP n ...  (SQL Server, Sybase, Snowflake). Limit-only; does not
+  // compose with offset.
+  SQL_LIMIT_OFFSET_TOP = 4;
+  // The FETCH grammars above are accepted in a query with no ORDER BY clause
+  // (Oracle, PostgreSQL, Trino). Not set by SQL Server, which requires one.
+  SQL_LIMIT_OFFSET_FETCH_WITHOUT_ORDER_BY = 5;
+}
+
+enum SqlNullsOrderingSyntax {
+  // ORDER BY col [ASC|DESC] NULLS FIRST|LAST
+  SQL_NULLS_ORDERING_FIRST_LAST = 0;
+}
+
+enum SqlLikeEscapeSyntax {
+  // col LIKE 'a!%b' ESCAPE '!', with an escape character of the client's choice
+  // (ANSI, PostgreSQL, MySQL, SQL Server, Oracle, Trino)
+  SQL_LIKE_ESCAPE_CLAUSE = 0;
+  // col LIKE 'a\%b': a backslash escapes with no ESCAPE clause
+  // (PostgreSQL, MySQL, ClickHouse, DataFusion)
+  SQL_LIKE_ESCAPE_IMPLICIT_BACKSLASH = 1;
+}
+
+enum SqlParameterMarkerSyntax {
+  // col = ?  (MySQL, SQLite, DuckDB, Trino, ...)
+  SQL_PARAMETER_MARKER_QUESTION_MARK = 0;
+  // col = $1  (PostgreSQL, SQLite, DuckDB, DataFusion)
+  SQL_PARAMETER_MARKER_DOLLAR_NUMBERED = 1;
+  // col = :1  (Oracle, SQLite, DataFusion)
+  SQL_PARAMETER_MARKER_COLON_NUMBERED = 2;
+  // col = @p1  (SQL Server)
+  SQL_PARAMETER_MARKER_AT_P_NUMBERED = 3;
 }
 
 /**

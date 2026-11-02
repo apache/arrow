@@ -849,6 +849,38 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// escape syntax is supported.
     SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576,
 
+    /// Retrieves the supported row-limit and offset grammars as an int32
+    /// bitmask. Limiting and offsetting are reported separately, and
+    /// SQL_LIMIT_OFFSET_FETCH_WITHOUT_ORDER_BY tells whether the FETCH
+    /// grammars need an ORDER BY clause. Valid grammars are described under
+    /// `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
+    SQL_SUPPORTED_LIMIT_OFFSET = 577,
+
+    /// Retrieves the supported syntaxes for explicit null ordering in
+    /// ORDER BY as an int32 bitmask. Distinct from SQL_NULL_ORDERING (507),
+    /// which reports the server's default null ordering rather than which
+    /// explicit syntax parses. Valid syntaxes are described under
+    /// `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
+    SQL_SUPPORTED_NULLS_ORDERING = 578,
+
+    /// Retrieves the supported ways of escaping the wildcard characters '%'
+    /// and '_' in a LIKE pattern as an int32 bitmask. Supersedes
+    /// SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE (523), which cannot describe a server
+    /// that escapes without an ESCAPE clause. Valid syntaxes are described
+    /// under `arrow.flight.protocol.sql.SqlLikeEscapeSyntax`.
+    SQL_SUPPORTED_LIKE_ESCAPE = 579,
+
+    /// Retrieves the supported spellings of a parameter marker in a prepared
+    /// statement as an int32 bitmask. Clients that generate SQL are
+    /// encouraged to send values as bound parameters instead of writing them
+    /// as literals, whose spelling differs between servers for nearly every
+    /// type. A syntax must only be reported if a marker is accepted wherever
+    /// a value is compared with a column. Parameters are bound by position;
+    /// for the numbered syntaxes a client should number the markers from 1 in
+    /// the order they appear and use each number once. Valid syntaxes are
+    /// described under `arrow.flight.protocol.sql.SqlParameterMarkerSyntax`.
+    SQL_SUPPORTED_PARAMETER_MARKER = 580,
+
     /// @}
   };
 
@@ -899,6 +931,58 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     SQL_CONVERT_TINYINT = 17,
     SQL_CONVERT_VARBINARY = 18,
     SQL_CONVERT_VARCHAR = 19,
+  };
+
+  /// Grammars for row limiting and offset. Limiting and offsetting are
+  /// separate values because servers often accept a grammar for limiting that
+  /// they do not accept together with an offset.
+  enum SqlLimitOffsetSyntax {
+    /// LIMIT n  (PostgreSQL, MySQL, SQLite, DuckDB, Trino, ...)
+    SQL_LIMIT_OFFSET_LIMIT = 0,
+    /// LIMIT n OFFSET m  (PostgreSQL, MySQL, SQLite, DuckDB, ...). Not implied
+    /// by SQL_LIMIT_OFFSET_LIMIT: Trino and Presto accept LIMIT n but not this.
+    SQL_LIMIT_OFFSET_LIMIT_OFFSET = 1,
+    /// FETCH FIRST n ROWS ONLY, with no OFFSET clause  (ANSI, Oracle,
+    /// PostgreSQL, Trino)
+    SQL_LIMIT_OFFSET_FETCH_FIRST = 2,
+    /// OFFSET m ROWS FETCH NEXT n ROWS ONLY  (ANSI, SQL Server, Oracle,
+    /// PostgreSQL)
+    SQL_LIMIT_OFFSET_OFFSET_FETCH = 3,
+    /// SELECT TOP n ...  (SQL Server, Sybase, Snowflake). Limit-only; does
+    /// not compose with offset.
+    SQL_LIMIT_OFFSET_TOP = 4,
+    /// The FETCH grammars above are accepted in a query with no ORDER BY
+    /// clause (Oracle, PostgreSQL, Trino). Not set by SQL Server, which
+    /// requires one.
+    SQL_LIMIT_OFFSET_FETCH_WITHOUT_ORDER_BY = 5,
+  };
+
+  /// Syntax accepted for explicit null ordering in ORDER BY.
+  enum SqlNullsOrderingSyntax {
+    /// ORDER BY col [ASC|DESC] NULLS FIRST|LAST
+    SQL_NULLS_ORDERING_FIRST_LAST = 0,
+  };
+
+  /// Ways of escaping the wildcard characters '%' and '_' in a LIKE pattern.
+  enum SqlLikeEscapeSyntax {
+    /// col LIKE 'a!%b' ESCAPE '!', with an escape character of the client's
+    /// choice  (ANSI, PostgreSQL, MySQL, SQL Server, Oracle, Trino)
+    SQL_LIKE_ESCAPE_CLAUSE = 0,
+    /// col LIKE 'a\\%b': a backslash escapes with no ESCAPE clause
+    /// (PostgreSQL, MySQL, ClickHouse, DataFusion)
+    SQL_LIKE_ESCAPE_IMPLICIT_BACKSLASH = 1,
+  };
+
+  /// Spellings of a parameter marker in a prepared statement.
+  enum SqlParameterMarkerSyntax {
+    /// col = ?  (MySQL, SQLite, DuckDB, Trino, ...)
+    SQL_PARAMETER_MARKER_QUESTION_MARK = 0,
+    /// col = $1  (PostgreSQL, SQLite, DuckDB, DataFusion)
+    SQL_PARAMETER_MARKER_DOLLAR_NUMBERED = 1,
+    /// col = :1  (Oracle, SQLite, DataFusion)
+    SQL_PARAMETER_MARKER_COLON_NUMBERED = 2,
+    /// col = @p1  (SQL Server)
+    SQL_PARAMETER_MARKER_AT_P_NUMBERED = 3,
   };
 };
 
