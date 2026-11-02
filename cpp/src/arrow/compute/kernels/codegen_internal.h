@@ -1002,7 +1002,22 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 // looping over vectors of data types rather than using macros or other
 // approaches.
 //
-// The kernel functor must be of the form:
+// A typical kernel functor is of the form:
+//
+// template <typename Type1, Args...>
+// struct FUNCTOR {
+//   static void Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+//     // IMPLEMENTATION
+//   }
+// };
+//
+// For example, GenerateNumeric<FUNCTOR>(int32()) will select a kernel
+// instantiated like FUNCTOR<Int32Type>. Any additional variadic
+// template arguments will be passed as additional template arguments to the
+// kernel template.
+//
+// In some instances, the functor needs to be parametered using several types,
+// for example both by input type and return type:
 //
 // template <typename Type0, typename Type1, Args...>
 // struct FUNCTOR {
@@ -1011,17 +1026,19 @@ using ScalarBinaryNotNullStatefulEqualTypes =
 //   }
 // };
 //
-// When you pass FUNCTOR to a GD function, you must pass at least one static
-// type along with the functor -- this is often the fixed return type of the
-// functor. This Type0 argument is passed as the first argument to the functor
-// during instantiation. The 2nd type passed to the functor is the DataType
-// subclass corresponding to the type passed as argument (not template type) to
-// the function.
+// If you want the GD function to instantiate the Type1 parameter of FUNCTOR
+// while passing Type0 explicitly *before* Type1 in the template parameter list,
+// you can use the WithType0<> template parameter.
+// For example, GenerateNumeric<FUNCTOR, WithType0<StringType>>(int32()) will
+// select a kernel instantiated like FUNCTOR<StringType, Int32Type>.
 //
-// For example, GenerateNumeric<FUNCTOR>(int32()) will select a kernel
-// instantiated like FUNCTOR<Int32Type>. Any additional variadic
-// template arguments will be passed as additional template arguments to the
-// kernel template.
+// (note that calling GenerateNumeric<FUNCTOR, StringType>(int32()) would instead
+//  select a kernel instantiated like FUNCTOR<Int32Type, StringType>).
+//
+// Similarly, the WithFirstTypeTwice template parameter instructs the GD to pass
+// its generated template parameter twice.
+// In the example above, calling GenerateNumeric<FUNCTOR, WithFirstTypeTwice>(int32())
+// will select a kernel instantiated like FUNCTOR<Int32Type, Int32Type>.
 
 namespace detail {
 
