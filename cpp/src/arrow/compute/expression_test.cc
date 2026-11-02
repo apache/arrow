@@ -2178,6 +2178,20 @@ TEST(Expression, SimplifyThenExecute) {
   AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
 }
 
+TEST(Expression, SimplifyIsInSignedZero) {
+  // Parquet statistics of a column holding only zeros are min=-0.0 and max=+0.0, which
+  // become the guarantee `x == -0.0`. It must not rule out `x in {0.0}`.
+  SetLookupOptions in_zero_f64{ArrayFromJSON(float64(), "[0.0]")};
+  Simplify{call("is_in", {field_ref("f64")}, in_zero_f64)}
+      .WithGuarantee(equal(field_ref("f64"), literal(-0.0)))
+      .Expect(true);
+
+  SetLookupOptions in_zero_f32{ArrayFromJSON(float32(), "[0.0]")};
+  Simplify{call("is_in", {field_ref("f32")}, in_zero_f32)}
+      .WithGuarantee(equal(field_ref("f32"), literal(-0.0f)))
+      .Expect(true);
+}
+
 TEST(Expression, SimplifyIsInThenExecute) {
   auto input = RecordBatchFromJSON(kBoringSchema, R"([
       {"i64": 2, "i32": 5},
