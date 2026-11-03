@@ -20,7 +20,6 @@
 #include <functional>
 #include <memory>
 #include <numeric>
-#include <optional>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -751,87 +750,12 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
-  // Row group i holds i64 == 10 * i, ..., 10 * i + 9, so that its statistics
-  // yield a range guarantee rather than a single known value.
+  // Row group i holds i64 == 10 * i, ..., 10 * i + 9 and a null, so that its
+  // statistics yield (i64 >= min and i64 <= max) or is_null(i64).
   constexpr int kNumRowGroups = 8;
-  auto iota64 = [](int64_t start, int64_t end) {
-    std::vector<int64_t> values(end - start);
-    std::iota(values.begin(), values.end(), start);
-    return values;
-  };
   auto dataset_schema = schema({field("i64", int64())});
   std::vector<std::shared_ptr<RecordBatch>> batches;
   for (int i = 0; i < kNumRowGroups; ++i) {
-    std::shared_ptr<Array> values;
-    ArrayFromVector<Int64Type, int64_t>(iota64(10 * i, 10 * i + 10), &values);
-    batches.push_back(RecordBatch::Make(dataset_schema, values->length(), {values}));
-  }
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchReader::Make(std::move(batches), dataset_schema));
-  auto source = GetFileSource(reader.get());
-
-  SetSchema(dataset_schema->fields());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-  auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
-
-  auto is_in = [](std::shared_ptr<Array> set) {
-    return call("is_in", {field_ref("i64")}, compute::SetLookupOptions{std::move(set)});
-  };
-  auto as_int64_array = [](const std::vector<int64_t>& values) {
-    std::shared_ptr<Array> array;
-    ArrayFromVector<Int64Type, int64_t>(values, &array);
-    return array;
-  };
-  auto expect_row_groups = [&](compute::Expression filter,
-                               const std::vector<int>& expected_row_groups) {
-    SetFilter(std::move(filter));
-    ASSERT_OK_AND_ASSIGN(auto fragments,
-                         parquet_fragment->SplitByRowGroup(opts_->filter));
-    std::vector<int> row_groups;
-    for (const auto& split : fragments) {
-      for (int row_group :
-           checked_pointer_cast<ParquetFileFragment>(split)->row_groups()) {
-        row_groups.push_back(row_group);
-      }
-    }
-    EXPECT_EQ(row_groups, expected_row_groups);
-  };
-
-  // A value set longer than the exact simplification threshold whose hull
-  // [0, 79] spans every row group but which contains no value in [20, 39].
-  std::vector<int64_t> values = iota64(0, 20);
-  for (int64_t v : iota64(40, 80)) values.push_back(v);
-  ASSERT_GT(values.size(), 50);
-
-  // Only the row groups holding a value of the set are read.
-  expect_row_groups(is_in(as_int64_array(values)), {0, 1, 4, 5, 6, 7});
-
-  // Unsorted value sets with duplicates behave the same.
-  std::vector<int64_t> shuffled(values.rbegin(), values.rend());
-  shuffled.insert(shuffled.end(), values.begin(), values.end());
-  expect_row_groups(is_in(as_int64_array(shuffled)), {0, 1, 4, 5, 6, 7});
-
-  // Values beyond the data select nothing.
-  expect_row_groups(is_in(as_int64_array(iota64(1000, 1100))), {});
-
-  // Values cast from a narrower type are handled too.
-  std::shared_ptr<Array> int32_set;
-  ArrayFromVector<Int32Type, int32_t>(std::vector<int32_t>(values.begin(), values.end()),
-                                      &int32_set);
-  expect_row_groups(is_in(int32_set), {0, 1, 4, 5, 6, 7});
-
-  // Combined with other predicates.
-  expect_row_groups(
-      and_(is_in(as_int64_array(values)), less(field_ref("i64"), literal<int64_t>(50))),
-      {0, 1, 4});
-}
-
-TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsWithNulls) {
-  // Each row group contains ten distinct values and a null, so its statistics
-  // yield (i64 >= min and i64 <= max) or is_null(i64).
-  auto dataset_schema = schema({field("i64", int64())});
-  std::vector<std::shared_ptr<RecordBatch>> batches;
-  for (int i = 0; i < 3; ++i) {
     std::vector<int64_t> values(11);
     std::iota(values.begin(), values.end(), 10 * i);
     std::vector<bool> valid(values.size(), true);
@@ -847,13 +771,8 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsWithNulls) {
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
   auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
 
-  // The hull spans all three row groups but no member occurs in [10, 19].
-  std::vector<int64_t> values(70);
-  std::iota(values.begin(), values.begin() + 10, 0);
-  std::iota(values.begin() + 10, values.end(), 20);
-  ASSERT_GT(values.size(), 50);
   auto expect_row_groups = [&](compute::Expression filter,
-                               const std::vector<int>& expected) {
+                               const std::vector<int>& expected_row_groups) {
     SetFilter(std::move(filter));
     ASSERT_OK_AND_ASSIGN(auto fragments,
                          parquet_fragment->SplitByRowGroup(opts_->filter));
@@ -864,53 +783,82 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsWithNulls) {
         row_groups.push_back(row_group);
       }
     }
-    EXPECT_EQ(row_groups, expected);
+    EXPECT_EQ(row_groups, expected_row_groups);
   };
-  auto expect_is_in = [&](bool value_set_has_null,
-                          compute::SetLookupOptions::NullMatchingBehavior behavior,
-                          const std::vector<int>& expected,
-                          std::optional<bool> skip_nulls = std::nullopt) {
-    SCOPED_TRACE(value_set_has_null);
-    SCOPED_TRACE(behavior);
-    auto set_values = values;
+  using compute::SetLookupOptions;
+  auto make_set = [](std::vector<int64_t> values, bool with_null = false) {
     std::vector<bool> valid(values.size(), true);
-    if (value_set_has_null) {
-      set_values.push_back(0);
+    if (with_null) {
+      values.push_back(0);
       valid.push_back(false);
     }
-    std::shared_ptr<Array> value_set;
-    ArrayFromVector<Int64Type, int64_t>(valid, set_values, &value_set);
-    compute::SetLookupOptions options{std::move(value_set), behavior};
-    options.skip_nulls = skip_nulls;
-    expect_row_groups(call("is_in", {field_ref("i64")}, options), expected);
+    std::shared_ptr<Array> array;
+    ArrayFromVector<Int64Type, int64_t>(valid, values, &array);
+    return array;
+  };
+  auto is_in = [](std::shared_ptr<Array> set,
+                  SetLookupOptions::NullMatchingBehavior behavior =
+                      SetLookupOptions::MATCH) {
+    return call("is_in", {field_ref("i64")}, SetLookupOptions{std::move(set), behavior});
   };
 
-  expect_is_in(false, compute::SetLookupOptions::MATCH, {0, 2});
-  // A null in a MATCH set matches the nulls in every row group.
-  expect_is_in(true, compute::SetLookupOptions::MATCH, {0, 1, 2});
-  expect_is_in(false, compute::SetLookupOptions::SKIP, {0, 2});
-  expect_is_in(true, compute::SetLookupOptions::SKIP, {0, 2});
-  // Nulls which produce null rather than false are pruned too.
-  expect_is_in(false, compute::SetLookupOptions::EMIT_NULL, {0, 2});
-  expect_is_in(true, compute::SetLookupOptions::EMIT_NULL, {0, 2});
-  expect_is_in(false, compute::SetLookupOptions::INCONCLUSIVE, {0, 2});
-  expect_is_in(true, compute::SetLookupOptions::INCONCLUSIVE, {0, 2});
+  // A value set longer than the exact simplification threshold whose hull [0, 79]
+  // spans every row group but which contains no value in [20, 39]. Only the row
+  // groups holding a value of the set are read.
+  std::vector<int64_t> values(60);
+  std::iota(values.begin(), values.begin() + 20, 0);
+  std::iota(values.begin() + 20, values.end(), 40);
+  const std::vector<int> matching = {0, 1, 4, 5, 6, 7};
+  const auto all = ::arrow::internal::Iota(kNumRowGroups);
+  expect_row_groups(is_in(make_set(values)), matching);
+
+  // Unsorted value sets with duplicates behave the same.
+  std::vector<int64_t> shuffled(values.rbegin(), values.rend());
+  shuffled.insert(shuffled.end(), values.begin(), values.end());
+  expect_row_groups(is_in(make_set(shuffled)), matching);
+
+  // Values beyond the data select nothing.
+  std::vector<int64_t> beyond(100);
+  std::iota(beyond.begin(), beyond.end(), 1000);
+  expect_row_groups(is_in(make_set(beyond)), {});
+
+  // Values cast from a narrower type are handled too.
+  std::shared_ptr<Array> int32_set;
+  ArrayFromVector<Int32Type, int32_t>(std::vector<int32_t>(values.begin(), values.end()),
+                                      &int32_set);
+  expect_row_groups(is_in(int32_set), matching);
+
+  // Combined with other predicates.
+  expect_row_groups(
+      and_(is_in(make_set(values)), less(field_ref("i64"), literal<int64_t>(50))),
+      {0, 1, 4});
+
+  // Only a null in a MATCH value set matches the nulls in every row group; nulls
+  // which produce null rather than false are pruned too.
+  for (auto behavior : {SetLookupOptions::MATCH, SetLookupOptions::SKIP,
+                        SetLookupOptions::EMIT_NULL, SetLookupOptions::INCONCLUSIVE}) {
+    SCOPED_TRACE(behavior);
+    expect_row_groups(is_in(make_set(values), behavior), matching);
+    expect_row_groups(is_in(make_set(values, /*with_null=*/true), behavior),
+                      behavior == SetLookupOptions::MATCH ? all : matching);
+  }
   // The deprecated flag takes precedence over a conflicting enum value.
-  expect_is_in(true, compute::SetLookupOptions::SKIP, {0, 1, 2}, false);
-  expect_is_in(true, compute::SetLookupOptions::MATCH, {0, 2}, true);
+  for (bool skip_nulls : {false, true}) {
+    SetLookupOptions options{
+        make_set(values, /*with_null=*/true),
+        skip_nulls ? SetLookupOptions::MATCH : SetLookupOptions::SKIP};
+    options.skip_nulls = skip_nulls;
+    expect_row_groups(call("is_in", {field_ref("i64")}, options),
+                      skip_nulls ? matching : all);
+  }
 
   // Comparisons and small value sets are pruned against the same statistics.
   expect_row_groups(greater(field_ref("i64"), literal<int64_t>(100)), {});
   expect_row_groups(less(field_ref("i64"), literal<int64_t>(10)), {0});
-  expect_row_groups(is_null(field_ref("i64")), {0, 1, 2});
-  std::shared_ptr<Array> small_set;
-  ArrayFromVector<Int64Type, int64_t>({5, 25}, &small_set);
-  expect_row_groups(
-      call("is_in", {field_ref("i64")}, compute::SetLookupOptions{small_set}), {0, 2});
-  expect_row_groups(
-      and_(call("is_in", {field_ref("i64")}, compute::SetLookupOptions{small_set}),
-           is_valid(field_ref("i64"))),
-      {0, 2});
+  expect_row_groups(is_null(field_ref("i64")), all);
+  auto small_set = ArrayFromJSON(int64(), "[5, 25]");
+  expect_row_groups(is_in(small_set), {0, 2});
+  expect_row_groups(and_(is_in(small_set), is_valid(field_ref("i64"))), {0, 2});
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {

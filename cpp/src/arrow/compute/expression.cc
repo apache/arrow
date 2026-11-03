@@ -1535,13 +1535,13 @@ Result<std::optional<Expression>> SimplifyIsInWithoutMatches(
 /// \brief Simplify an `is_in` call with a large value set against all inequality
 ///   guarantees on its argument at once.
 ///
-/// Rather than filtering the value set (see Inequality::SimplifyIsIn), this binary
+/// Rather than filtering the value set (see Inequality::SimplifyIsIn), this
 /// searches the sorted copy of the value set kept in the kernel state for the
-/// range of values admitted by the inequalities. If that range is empty the call
-/// is simplified to what it evaluates to without matches (`false`, or null for
-/// the rows the null matching behavior makes null); otherwise it is left
-/// unchanged. This is exact for any
-/// number of values and costs O(log N) per guarantee, with no rebinding.
+/// range of values admitted by the inequalities (`search_sorted`). If that range is
+/// empty the call is simplified to what it evaluates to without matches (`false`,
+/// or null for the rows the null matching behavior makes null); otherwise it is
+/// left unchanged. This is exact for any number of values and costs O(log N) per
+/// guarantee, with no rebinding.
 ///
 /// Applying all inequalities on a field together matters: a row group's
 /// statistics yield `x >= min and x <= max`, and neither bound on its own can
@@ -1628,17 +1628,27 @@ Result<Expression> SimplifyIsInWithInequalities(
     Comparison::type cmp = casts.ApplyToComparison(inequality->cmp);
     DCHECK_NE(cmp, Comparison::NA);
 
+    // The index of the first value not less than the bound (Left) or greater than
+    // the bound (Right).
+    auto search = [&](SearchSortedOptions::Side side) -> Result<int64_t> {
+      ARROW_ASSIGN_OR_RAISE(
+          Datum index,
+          SearchSorted(sorted, bound, SearchSortedOptions(side), &exec_context));
+      return static_cast<int64_t>(index.scalar_as<UInt64Scalar>().value);
+    };
     // Unless the comparison admits values below the bound, skip them (and the
     // bound itself unless it is admitted); likewise for values above the bound.
     const bool admits_bound = cmp & Comparison::EQUAL;
     if (!(cmp & Comparison::LESS)) {
-      ARROW_ASSIGN_OR_RAISE(int64_t index, internal::SearchSortedValueSet(
-                                               *sorted, *bound, /*upper=*/!admits_bound));
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t index,
+          search(admits_bound ? SearchSortedOptions::Left : SearchSortedOptions::Right));
       begin = std::max(begin, index);
     }
     if (!(cmp & Comparison::GREATER)) {
-      ARROW_ASSIGN_OR_RAISE(int64_t index, internal::SearchSortedValueSet(
-                                               *sorted, *bound, /*upper=*/admits_bound));
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t index,
+          search(admits_bound ? SearchSortedOptions::Right : SearchSortedOptions::Left));
       end = std::min(end, index);
     }
   }
