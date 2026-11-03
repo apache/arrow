@@ -163,18 +163,37 @@ Status DoMain(const std::string& out_dir) {
 
   ARROW_ASSIGN_OR_RAISE(auto batches, Batches());
 
-  auto options = WriteOptions::Defaults();
-  RETURN_NOT_OK(options.Validate());
+  // Generate several dialect variants of each batch, matching the option
+  // rotations performed by the fuzz target (see csv/fuzz.cc).
+  std::vector<WriteOptions> option_variants;
+  auto append_variant = [&](std::function<void(WriteOptions&)> fn) {
+    auto options = WriteOptions::Defaults();
+    fn(options);
+    if (options.Validate().ok()) {
+      option_variants.push_back(std::move(options));
+    }
+  };
+  append_variant([](WriteOptions&) {});
+  append_variant([](WriteOptions& o) { o.delimiter = ';'; });
+  append_variant([](WriteOptions& o) { o.delimiter = '\t'; });
+  append_variant([](WriteOptions& o) { o.quoting_style = QuotingStyle::AllValid; });
+  append_variant([](WriteOptions& o) { o.include_header = false; });
+  // Small batch sizes exercise the writer's chunking and produce files that
+  // make the reader merge many batches.
+  append_variant([](WriteOptions& o) { o.batch_size = 7; });
+  append_variant([](WriteOptions& o) { o.null_string = "N/A"; });
 
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
-    ARROW_ASSIGN_OR_RAISE(auto buffer, WriteRecordBatch(batch, options));
+    for (const auto& options : option_variants) {
+      ARROW_ASSIGN_OR_RAISE(auto buffer, WriteRecordBatch(batch, options));
 
-    ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
-    std::cerr << sample_fn.ToString() << std::endl;
-    ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
-    RETURN_NOT_OK(file->Write(buffer));
-    RETURN_NOT_OK(file->Close());
+      ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
+      std::cerr << sample_fn.ToString() << std::endl;
+      ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
+      RETURN_NOT_OK(file->Write(buffer));
+      RETURN_NOT_OK(file->Close());
+    }
   }
   return Status::OK();
 }
