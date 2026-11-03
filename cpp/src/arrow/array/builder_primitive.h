@@ -24,8 +24,10 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/array/data.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
 
 namespace arrow {
@@ -57,6 +59,26 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
 
   Status Append(std::nullptr_t) { return AppendNull(); }
+
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    if (!scalar.type->Equals(type())) {
+      return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+    return AppendNulls(n_repeats);
+  }
+
+  Status AppendScalars(const ScalarVector& scalars) override {
+    if (scalars.empty()) return Status::OK();
+    for (const auto& scalar : scalars) {
+      if (!scalar->type->Equals(type())) {
+        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                               " to builder for type ", type()->ToString());
+      }
+    }
+    return AppendNulls(static_cast<int64_t>(scalars.size()));
+  }
 
   Status AppendArraySlice(const ArraySpan&, int64_t, int64_t length) override {
     return AppendNulls(length);
@@ -137,6 +159,39 @@ class NumericBuilder
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, value_type{});  // zero
     UnsafeSetNotNull(length);
+    return Status::OK();
+  }
+
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
+    const auto& s =
+        internal::checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar);
+    ARROW_RETURN_NOT_OK(Reserve(n_repeats));
+    if (s.is_valid) {
+      for (int64_t i = 0; i < n_repeats; ++i) {
+        UnsafeAppend(s.value);
+      }
+    } else {
+      for (int64_t i = 0; i < n_repeats; ++i) {
+        UnsafeAppendNull();
+      }
+    }
+    return Status::OK();
+  }
+
+  Status AppendScalars(const ScalarVector& scalars) override {
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*this, scalars));
+    ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
+    for (const auto& scalar : scalars) {
+      if (!scalar->is_valid) {
+        UnsafeAppendNull();
+      } else {
+        const auto& s =
+            internal::checked_cast<const typename TypeTraits<T>::ScalarType&>(*scalar);
+        UnsafeAppend(s.value);
+      }
+    }
     return Status::OK();
   }
 
@@ -531,6 +586,37 @@ class ARROW_EXPORT BooleanBuilder
   Status Append(const bool val) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(val);
+    return Status::OK();
+  }
+
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
+    const auto& s = internal::checked_cast<const BooleanScalar&>(scalar);
+    ARROW_RETURN_NOT_OK(Reserve(n_repeats));
+    if (s.is_valid) {
+      for (int64_t i = 0; i < n_repeats; ++i) {
+        UnsafeAppend(s.value);
+      }
+    } else {
+      for (int64_t i = 0; i < n_repeats; ++i) {
+        UnsafeAppendNull();
+      }
+    }
+    return Status::OK();
+  }
+
+  Status AppendScalars(const ScalarVector& scalars) override {
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*this, scalars));
+    ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
+    for (const auto& scalar : scalars) {
+      if (!scalar->is_valid) {
+        UnsafeAppendNull();
+      } else {
+        const auto& s = internal::checked_cast<const BooleanScalar&>(*scalar);
+        UnsafeAppend(s.value);
+      }
+    }
     return Status::OK();
   }
 
