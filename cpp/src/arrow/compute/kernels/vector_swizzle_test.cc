@@ -204,32 +204,28 @@ TEST(InversePermutation, DefaultOptions) {
   }
 }
 
-TEST(InversePermutation, InvalidIndex) {
+TEST(InversePermutation, IndexBounds) {
   {
-    ARROW_SCOPED_TRACE("Negative index");
+    ARROW_SCOPED_TRACE("Negative index with default options");
     auto indices = ArrayFromJSON(int32(), "[-1]");
     ASSERT_RAISES_WITH_MESSAGE(IndexError, "Index error: Index out of bounds: -1",
                                InversePermutation(indices));
   }
-  {
-    ARROW_SCOPED_TRACE("Exceeds max_index");
-    auto indices = ArrayFromJSON(int32(), "[42]");
-    ASSERT_RAISES_WITH_MESSAGE(
-        IndexError, "Index error: Index out of bounds: 42",
-        InversePermutation(indices, /*max_index=*/41, /*output_type=*/int32()));
-  }
-}
-
-TEST(InversePermutation, IndexBounds) {
   for (const auto& type : IntTypes()) {
     ARROW_SCOPED_TRACE(type->ToString());
-    const std::string invalid_index = is_signed_integer(type->id()) ? "-1" : "42";
-    for (const Datum& indices :
-         {Datum(ArrayFromJSON(type, "[" + invalid_index + "]")),
-          Datum(ChunkedArrayFromJSON(type, {"[]", "[" + invalid_index + "]"}))}) {
-      ASSERT_RAISES_WITH_MESSAGE(
-          IndexError, "Index error: Index out of bounds: " + invalid_index,
-          InversePermutation(indices, /*max_index=*/41, /*output_type=*/int64()));
+    std::vector<std::string> invalid_indices{"42"};
+    if (is_signed_integer(type->id())) {
+      invalid_indices.push_back("-1");
+    }
+    for (const auto& invalid_index : invalid_indices) {
+      ARROW_SCOPED_TRACE(invalid_index);
+      for (const Datum& indices :
+           {Datum(ArrayFromJSON(type, "[" + invalid_index + "]")),
+            Datum(ChunkedArrayFromJSON(type, {"[]", "[" + invalid_index + "]"}))}) {
+        ASSERT_RAISES_WITH_MESSAGE(
+            IndexError, "Index error: Index out of bounds: " + invalid_index,
+            InversePermutation(indices, /*max_index=*/41, /*output_type=*/int64()));
+      }
     }
   }
   // Reading signed indices through their unsigned representation must still reject

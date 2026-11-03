@@ -126,8 +126,6 @@ struct InversePermutationImpl {
 
   template <typename Type>
   enable_if_t<is_integer_type<Type>::value, Status> Visit(const Type& output_type) {
-    // Keep output execution specialized so the loops remain inlineable. Sharing
-    // output signedness can cause aggressive outlining and regress throughput.
     using OutputCType = typename Type::c_type;
 
     RETURN_NOT_OK(CheckInput(output_type));
