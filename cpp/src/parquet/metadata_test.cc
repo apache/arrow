@@ -22,6 +22,7 @@
 
 #include <cstring>
 
+#include "arrow/buffer.h"
 #include "arrow/util/key_value_metadata.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
@@ -347,6 +348,70 @@ void AssertColumnChunkMinMax(const FileMetaData& metadata,
 }
 
 }  // namespace
+
+TEST(Metadata, FastMetadataSummaryRetainsFooter) {
+  auto thrift = SingleInt32MetadataWithStats();
+  thrift.__set_created_by("synthetic-parser-experiment");
+  auto serialized = SerializeMetadata(thrift);
+  auto expected = FileMetaData::Make(serialized.data(), serialized.size());
+  std::shared_ptr<const ::arrow::Buffer> buffer =
+      ::arrow::Buffer::FromString(std::move(serialized));
+  auto summary = FastFileMetaData::Make(buffer, buffer->size());
+  EXPECT_EQ(expected->size(), summary->size());
+  EXPECT_EQ(expected->num_rows(), summary->num_rows());
+  EXPECT_EQ(expected->num_row_groups(), summary->num_row_groups());
+  EXPECT_EQ(expected->num_schema_elements(), summary->num_schema_elements());
+  EXPECT_EQ(expected->num_columns(), summary->num_columns());
+  buffer.reset();
+  EXPECT_EQ("synthetic-parser-experiment", summary->created_by());
+}
+
+TEST(Metadata, FastMetadataSummaryRejectsInvalidBuffers) {
+  auto buffer = ::arrow::Buffer::FromString(
+      SerializeMetadata(SingleInt32MetadataWithStats()));
+  EXPECT_THROW(FastFileMetaData::Make(nullptr, 0), ParquetException);
+  EXPECT_THROW(FastFileMetaData::Make(buffer, -1), ParquetException);
+  EXPECT_THROW(FastFileMetaData::Make(buffer, buffer->size() + 1), ParquetException);
+  EXPECT_THROW(FastFileMetaData::Make(buffer, buffer->size() - 1), ParquetException);
+}
+
+TEST(Metadata, CustomDeserializerStatisticsPolicies) {
+  const auto serialized = SerializeMetadata(SingleInt32MetadataWithStats());
+  ReaderProperties properties;
+  properties.set_thrift_skip_column_statistics(true);
+  properties.set_thrift_skip_encoding_statistics(true);
+  properties.set_thrift_skip_size_statistics(true);
+
+  format::FileMetaData parsed;
+  ThriftDeserializer deserializer(properties);
+  ASSERT_GT(
+      deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized.data()),
+                                      serialized.size(), &parsed),
+      0);
+  ASSERT_FALSE(parsed.row_groups.empty());
+  ASSERT_FALSE(parsed.row_groups[0].columns.empty());
+  const auto& column = parsed.row_groups[0].columns[0].meta_data;
+  EXPECT_FALSE(column.__isset.statistics);
+  EXPECT_FALSE(column.__isset.encoding_stats);
+  EXPECT_FALSE(column.__isset.size_statistics);
+}
+
+TEST(Metadata, CustomDeserializerEncodingStatisticsMask) {
+  auto thrift = SingleInt32MetadataWithStats();
+  format::PageEncodingStats encoding_stats;
+  encoding_stats.__set_page_type(format::PageType::DATA_PAGE);
+  encoding_stats.__set_encoding(format::Encoding::PLAIN);
+  encoding_stats.__set_count(3);
+  thrift.row_groups[0].columns[0].meta_data.__set_encoding_stats({encoding_stats});
+  const auto serialized = SerializeMetadata(thrift);
+  ReaderProperties properties;
+  properties.set_thrift_encoding_stats_as_mask(true);
+  auto metadata = FileMetaData::Make(serialized.data(), serialized.size(), properties);
+  auto column = metadata->RowGroup(0)->ColumnChunk(0);
+  EXPECT_EQ(uint64_t{1} << static_cast<int>(format::Encoding::PLAIN),
+            column->encoding_stats_mask());
+  EXPECT_TRUE(column->encoding_stats().empty());
+}
 
 TEST(Metadata, UnknownCompressionCodecThrows) {
   format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
