@@ -180,7 +180,7 @@ parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, ma
 
 register_bindings_conditional <- function() {
   register_binding("%in%", function(x, table) {
-    # We use `is_in` here, unlike with Arrays, which use `is_in_meta_binary`
+    # We use `is_in` here, unlike with Arrays, which use `is_in_binary`
     value_set <- Array$create(table)
     # If possible, `table` should be the same type as `x`
     # Try downcasting here; otherwise Acero may upcast x to table's type
