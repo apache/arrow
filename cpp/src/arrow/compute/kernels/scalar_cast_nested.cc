@@ -191,20 +191,53 @@ struct CastVarToFixedList {
   // Additionally, checks if the null slots are all the list size. Returns true
   // if so, which can be used to optimize the cast.
   static Result<bool> ValidateLengths(const ArraySpan& in_array, int32_t list_size) {
-    const auto* offsets = in_array.GetValues<src_offset_type>(1);
-    src_offset_type expected_offset = offsets[0] + list_size;
-    // If there are nulls, it's possible that the null slots are the correct
-    // size. That enables an optimization later in this function.
-    bool nulls_have_correct_length = true;
-    if (in_array.GetNullCount() > 0) {
-      for (int64_t i = 1; i <= in_array.length; ++i) {
-        if (in_array.IsNull(i - 1)) {
-          if (offsets[i] != expected_offset) {
-            nulls_have_correct_length = false;
+    if constexpr (is_list_view_type<SrcType>::value) {
+      const auto* offsets = in_array.GetValues<src_offset_type>(1);
+      const auto* sizes = in_array.GetValues<src_offset_type>(2);
+      bool can_use_slice = true;
+      src_offset_type expected_offset = in_array.length > 0 ? offsets[0] : 0;
+      for (int64_t i = 0; i < in_array.length; ++i) {
+        if (in_array.IsNull(i)) {
+          if (sizes[i] != list_size || offsets[i] != expected_offset) {
+            can_use_slice = false;
           }
-          // If element is null, it can be any size, so the next offset is valid.
-          expected_offset = offsets[i] + list_size;
         } else {
+          if (sizes[i] != list_size) {
+            return Status::Invalid("ListType can only be casted to FixedSizeListType ",
+                                   "if the lists are all the expected size.");
+          }
+          if (offsets[i] != expected_offset) {
+            can_use_slice = false;
+          }
+        }
+        expected_offset += list_size;
+      }
+      return can_use_slice;
+    } else {
+      const auto* offsets = in_array.GetValues<src_offset_type>(1);
+      src_offset_type expected_offset = in_array.length > 0 ? offsets[0] + list_size : 0;
+      // If there are nulls, it's possible that the null slots are the correct
+      // size. That enables an optimization later in this function.
+      bool can_use_slice = true;
+      if (in_array.GetNullCount() > 0) {
+        for (int64_t i = 1; i <= in_array.length; ++i) {
+          if (in_array.IsNull(i - 1)) {
+            if (offsets[i] != expected_offset) {
+              can_use_slice = false;
+            }
+            // If element is null, it can be any size, so the next offset is valid.
+            expected_offset = offsets[i] + list_size;
+          } else {
+            if (offsets[i] != expected_offset) {
+              return Status::Invalid("ListType can only be casted to FixedSizeListType ",
+                                     "if the lists are all the expected size.");
+            }
+            expected_offset += list_size;
+          }
+        }
+      } else {
+        // Don't need to check null slots if there are no nulls
+        for (int64_t i = 1; i <= in_array.length; ++i) {
           if (offsets[i] != expected_offset) {
             return Status::Invalid("ListType can only be casted to FixedSizeListType ",
                                    "if the lists are all the expected size.");
@@ -212,17 +245,8 @@ struct CastVarToFixedList {
           expected_offset += list_size;
         }
       }
-    } else {
-      // Don't need to check null slots if there are no nulls
-      for (int64_t i = 1; i <= in_array.length; ++i) {
-        if (offsets[i] != expected_offset) {
-          return Status::Invalid("ListType can only be casted to FixedSizeListType ",
-                                 "if the lists are all the expected size.");
-        }
-        expected_offset += list_size;
-      }
+      return can_use_slice;
     }
-    return nulls_have_correct_length;
   }
 
   // Build take indices for the values. This is used to fill in the null slots
@@ -236,9 +260,9 @@ struct CastVarToFixedList {
     RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
     for (int64_t offset_i = 0; offset_i < in_array.length; ++offset_i) {
       if (in_array.IsNull(offset_i)) {
-        // If element is null, just fill in the null slots with first value.
+        // If element is null, fill in the null slots with null values.
         for (int64_t j = 0; j < list_size; ++j) {
-          builder.UnsafeAppend(0);
+          builder.UnsafeAppendNull();
         }
       } else {
         int64_t value_i = offsets[offset_i];
@@ -260,7 +284,7 @@ struct CastVarToFixedList {
     const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
     const int32_t list_size = out_type.list_size();
 
-    ARROW_ASSIGN_OR_RAISE(bool nulls_have_correct_length,
+    ARROW_ASSIGN_OR_RAISE(bool can_use_slice,
                           ValidateLengths(in_array, list_size));
 
     ArrayData* out_array = out->array_data().get();
@@ -275,18 +299,25 @@ struct CastVarToFixedList {
     DCHECK(cast_values_datum.is_array());
     std::shared_ptr<ArrayData> cast_values = cast_values_datum.array();
 
-    const auto* offsets = in_array.GetValues<src_offset_type>(1);
-    if (in_array.GetNullCount() > 0 && !nulls_have_correct_length) {
-      // We need to fill in the null slots, so we'll use Take on the values.
+    if (cast_values->length == 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto null_values,
+          MakeArrayOfNull(child_type, in_array.length * list_size, ctx->memory_pool()));
+      cast_values = null_values->data();
+    } else if (!can_use_slice) {
+      // We need to reorder, handle gaps, or fill in null slots: use Take on the values.
       ARROW_ASSIGN_OR_RAISE(auto indices, BuildTakeIndices(in_array, list_size, ctx));
       ARROW_ASSIGN_OR_RAISE(auto take_result,
                             Take(cast_values, Datum(indices),
                                  TakeOptions::NoBoundsCheck(), ctx->exec_context()));
       DCHECK(take_result.is_array());
       cast_values = take_result.array();
-    } else if (offsets[0] != 0) {
-      // No nulls, but we need to slice the values
-      cast_values = cast_values->Slice(offsets[0], in_array.length * list_size);
+    } else {
+      const auto* offsets = in_array.GetValues<src_offset_type>(1);
+      const src_offset_type first_offset = in_array.length > 0 ? offsets[0] : 0;
+      if (first_offset != 0 || cast_values->length > in_array.length * list_size) {
+        cast_values = cast_values->Slice(first_offset, in_array.length * list_size);
+      }
     }
 
     out_array->child_data.emplace_back(std::move(cast_values));
