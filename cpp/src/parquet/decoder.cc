@@ -2105,7 +2105,9 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
   // Output that produces one `T` (`ByteArray` or `FixedLenByteArray`) per value.
   // A value is only copied (into `buffered_data_`) when both its prefix and its
   // suffix are non-empty; otherwise it references the suffix in the page or the
-  // previous value.
+  // previous value. The exception is the first value with an empty suffix: its
+  // prefix is copied too, since it would otherwise reference the mutable
+  // `last_value_`.
   struct ValueOutput {
     T* buffer;
     ResizableBuffer* buffered_data;
@@ -2286,6 +2288,9 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
       const std::string_view suffix{reinterpret_cast<const char*>(suffix_data),
                                     static_cast<size_t>(suffix_lengths[i])};
       suffix_data += suffix.size();
+      if (ARROW_PREDICT_FALSE(prefix_len < 0)) {
+        throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
+      }
       if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len) > prefix.length())) {
         throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
       }

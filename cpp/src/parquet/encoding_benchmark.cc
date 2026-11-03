@@ -1118,7 +1118,7 @@ static void BM_DeltaDecodingArrowByteArray(benchmark::State& state) {
     decoder->DecodeArrow(num_slots, null_count, valid_bits.data(), 0, &acc);
     ::benchmark::DoNotOptimize(acc);
   }
-  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetItemsProcessed(state.iterations() * num_slots);
   state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
 }
 
