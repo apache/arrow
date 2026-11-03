@@ -1540,8 +1540,9 @@ Result<std::optional<Expression>> SimplifyIsInWithoutMatches(
 /// range of values admitted by the inequalities (`search_sorted`). If that range is
 /// empty the call is simplified to what it evaluates to without matches (`false`,
 /// or null for the rows the null matching behavior makes null); otherwise it is
-/// left unchanged. This is exact for any number of values and costs O(log N) per
-/// guarantee, with no rebinding.
+/// left unchanged. This costs O(log N) per guarantee, with no rebinding, and is exact
+/// for value sets of up to kIsInMaxSortedValueSet values. Longer value sets are only
+/// bounded by their smallest and largest value.
 ///
 /// Applying all inequalities on a field together matters: a row group's
 /// statistics yield `x >= min and x <= max`, and neither bound on its own can
@@ -1579,7 +1580,8 @@ Result<Expression> SimplifyIsInWithInequalities(
   if (!state.value_set_type->Equals(*call->arguments[0].type())) return expr;
 
   // Only materialize the (lazily sorted) value set once we know it can be used.
-  std::shared_ptr<Array> sorted = state.GetSortedValueSet();
+  const auto sorted_value_set = state.GetSortedValueSet();
+  const std::shared_ptr<Array>& sorted = sorted_value_set.values;
   if (!sorted) return expr;
   DCHECK(sorted->type()->Equals(*call->arguments[0].type()));
 
@@ -1654,8 +1656,12 @@ Result<Expression> SimplifyIsInWithInequalities(
   }
 
   // Some value set member may occur in the data: leave the call unchanged rather
-  // than rebinding it against a narrowed value set.
-  if (begin < end) return expr;
+  // than rebinding it against a narrowed value set. Of a value set known only by its
+  // smallest and largest value, a member may occur unless all admitted values lie
+  // below or above both.
+  const bool may_match =
+      sorted_value_set.exact ? begin < end : begin < sorted->length() && end > 0;
+  if (may_match) return expr;
 
   ARROW_ASSIGN_OR_RAISE(auto simplified,
                         SimplifyIsInWithoutMatches(call->arguments[0], *options,
