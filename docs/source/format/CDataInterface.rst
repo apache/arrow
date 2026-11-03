@@ -537,6 +537,14 @@ For dictionary-encoded arrays, the :c:member:`ArrowSchema.format` string
 encodes the *index* type.  The dictionary *value* type can be read
 from the :c:member:`ArrowSchema.dictionary` structure.
 
+The :c:member:`ArrowSchema.metadata` of the :c:member:`ArrowSchema.dictionary`
+structure holds the metadata of the dictionary value type, such as the
+extension type of the dictionary values, while the parent structure's
+:c:member:`ArrowSchema.metadata` applies to the dictionary-encoded type as a
+whole.  In the IPC format, these correspond to the ``custom_metadata`` of the
+``DictionaryEncoding`` and of the ``Field``, respectively (see
+:ref:`format_metadata_extension_types_dictionary`).
+
 The same holds for :c:member:`ArrowArray` structure: while the parent
 structure points to the index data, the :c:member:`ArrowArray.dictionary`
 points to the dictionary values array.
