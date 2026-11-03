@@ -69,6 +69,7 @@ test = [
 checks = [
     "GL10",
     "PR01",
+    "PR02",
     "PR03",
     "PR04",
     "PR05",
