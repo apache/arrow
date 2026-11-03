@@ -51,6 +51,10 @@ def test_array() -> None:
                       lib.Array),
           lib.Int64Array)
 
+    other = check(cast(lib.StringArray, lib.array(["a", "b", None])), lib.StringArray)
+    check(assert_type(arr.equals(arr), bool), bool)
+    check(assert_type(arr.equals(other), bool), bool)
+
 
 def test_array_dlpack() -> None:
     arr = cast(lib.Int64Array, lib.array([1, 2]))
@@ -128,3 +132,5 @@ def test_invalid_usage() -> None:
     if TYPE_CHECKING_INVALID_USAGE:
         arr.cast(1)  # type: ignore[arg-type]
         arr.slice("1")  # type: ignore[arg-type]
+        arr.equals(object())  # type: ignore[arg-type]
+        arr.equals(None)  # type: ignore[arg-type]
