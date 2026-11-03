@@ -41,11 +41,13 @@ struct GArrowChunkedArrayPrivate
 {
   std::shared_ptr<arrow::ChunkedArray> chunked_array;
   GArrowDataType *data_type;
+  GPtrArray *chunks;
 };
 
 enum {
   PROP_CHUNKED_ARRAY = 1,
   PROP_DATA_TYPE,
+  PROP_CHUNKS,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowChunkedArray, garrow_chunked_array, G_TYPE_OBJECT)
@@ -55,6 +57,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowChunkedArray, garrow_chunked_array, G_TYPE_OBJE
     garrow_chunked_array_get_instance_private(GARROW_CHUNKED_ARRAY(obj)))
 
 static void
+garrow_chunked_array_chunk_unref(gpointer chunk)
+{
+  if (chunk) {
+    g_object_unref(chunk);
+  }
+}
+
+static void
 garrow_chunked_array_dispose(GObject *object)
 {
   auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(object);
@@ -62,6 +72,11 @@ garrow_chunked_array_dispose(GObject *object)
   if (priv->data_type) {
     g_object_unref(priv->data_type);
     priv->data_type = nullptr;
+  }
+
+  if (priv->chunks) {
+    g_ptr_array_unref(priv->chunks);
+    priv->chunks = nullptr;
   }
 
   G_OBJECT_CLASS(garrow_chunked_array_parent_class)->dispose(object);
@@ -92,6 +107,18 @@ garrow_chunked_array_set_property(GObject *object,
     break;
   case PROP_DATA_TYPE:
     priv->data_type = GARROW_DATA_TYPE(g_value_dup_object(value));
+    break;
+  case PROP_CHUNKS:
+    {
+      auto chunks = static_cast<GList *>(g_value_get_pointer(value));
+      if (chunks) {
+        priv->chunks =
+          g_ptr_array_new_full(g_list_length(chunks), garrow_chunked_array_chunk_unref);
+        for (auto node = chunks; node; node = g_list_next(node)) {
+          g_ptr_array_add(priv->chunks, g_object_ref(node->data));
+        }
+      }
+    }
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -146,6 +173,13 @@ garrow_chunked_array_class_init(GArrowChunkedArrayClass *klass)
     GARROW_TYPE_DATA_TYPE,
     static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA_TYPE, spec);
+
+  spec = g_param_spec_pointer(
+    "chunks",
+    "Chunks",
+    "The chunks of this chunked array",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_CHUNKS, spec);
 }
 
 /**
@@ -168,7 +202,7 @@ garrow_chunked_array_new(GList *chunks, GError **error)
   auto arrow_chunked_array_result = arrow::ChunkedArray::Make(arrow_chunks);
   if (garrow::check(error, arrow_chunked_array_result, "[chunked-array][new]")) {
     auto arrow_chunked_array = *arrow_chunked_array_result;
-    return garrow_chunked_array_new_raw(&arrow_chunked_array);
+    return garrow_chunked_array_new_raw(&arrow_chunked_array, nullptr, chunks);
   } else {
     return nullptr;
   }
@@ -315,19 +349,66 @@ garrow_chunked_array_get_n_chunks(GArrowChunkedArray *chunked_array)
  * @chunked_array: A #GArrowChunkedArray.
  * @i: The index of the target chunk.
  *
- * Returns: (transfer full): The i-th chunk of the chunked array.
+ * The returned chunk is cached. The same object is returned for the
+ * same @i.
+ *
+ * Returns: (transfer full) (nullable): The i-th chunk of the chunked
+ *   array on success, %NULL on out of index.
  */
 GArrowArray *
 garrow_chunked_array_get_chunk(GArrowChunkedArray *chunked_array, guint i)
 {
-  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  auto arrow_chunk = arrow_chunked_array->chunk(i);
-  return garrow_array_new_raw(&arrow_chunk);
+  auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(chunked_array);
+  const auto n_chunks = garrow_chunked_array_get_n_chunks(chunked_array);
+  if (i >= n_chunks) {
+    return nullptr;
+  }
+  if (!priv->chunks) {
+    priv->chunks = g_ptr_array_new_full(n_chunks, garrow_chunked_array_chunk_unref);
+    g_ptr_array_set_size(priv->chunks, n_chunks);
+  }
+  auto chunk = static_cast<GArrowArray *>(g_ptr_array_index(priv->chunks, i));
+  if (!chunk) {
+    const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+    auto arrow_chunk = arrow_chunked_array->chunk(i);
+    chunk = garrow_array_new_raw(&arrow_chunk);
+    g_ptr_array_index(priv->chunks, i) = chunk;
+  }
+  return GARROW_ARRAY(g_object_ref(chunk));
+}
+
+/**
+ * garrow_chunked_array_peek_chunk:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @i: The index of the target chunk.
+ *
+ * This returns the cached @i-th chunk. This never creates a new
+ * chunk object.
+ *
+ * Returns: (transfer none) (nullable): The @i-th chunk in the chunked
+ *   array if it's already created, %NULL otherwise.
+ *
+ * Since: 27.0.0
+ */
+GArrowArray *
+garrow_chunked_array_peek_chunk(GArrowChunkedArray *chunked_array, guint i)
+{
+  auto priv = GARROW_CHUNKED_ARRAY_GET_PRIVATE(chunked_array);
+  if (!priv->chunks) {
+    return nullptr;
+  }
+  if (i >= priv->chunks->len) {
+    return nullptr;
+  }
+  return static_cast<GArrowArray *>(g_ptr_array_index(priv->chunks, i));
 }
 
 /**
  * garrow_chunked_array_get_chunks:
  * @chunked_array: A #GArrowChunkedArray.
+ *
+ * The returned chunks are cached. The same objects are returned for
+ * each call.
  *
  * Returns: (element-type GArrowArray) (transfer full):
  *   The chunks in the chunked array.
@@ -335,12 +416,11 @@ garrow_chunked_array_get_chunk(GArrowChunkedArray *chunked_array, guint i)
 GList *
 garrow_chunked_array_get_chunks(GArrowChunkedArray *chunked_array)
 {
-  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  const auto n_chunks = garrow_chunked_array_get_n_chunks(chunked_array);
 
   GList *chunks = NULL;
-  for (auto arrow_chunk : arrow_chunked_array->chunks()) {
-    GArrowArray *chunk = garrow_array_new_raw(&arrow_chunk);
-    chunks = g_list_prepend(chunks, chunk);
+  for (guint i = 0; i < n_chunks; ++i) {
+    chunks = g_list_prepend(chunks, garrow_chunked_array_get_chunk(chunked_array, i));
   }
 
   return g_list_reverse(chunks);
@@ -470,11 +550,21 @@ GArrowChunkedArray *
 garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array,
                              GArrowDataType *data_type)
 {
+  return garrow_chunked_array_new_raw(arrow_chunked_array, data_type, nullptr);
+}
+
+GArrowChunkedArray *
+garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array,
+                             GArrowDataType *data_type,
+                             GList *chunks)
+{
   auto chunked_array = GARROW_CHUNKED_ARRAY(g_object_new(GARROW_TYPE_CHUNKED_ARRAY,
                                                          "chunked-array",
                                                          arrow_chunked_array,
                                                          "data-type",
                                                          data_type,
+                                                         "chunks",
+                                                         chunks,
                                                          NULL));
   return chunked_array;
 }
