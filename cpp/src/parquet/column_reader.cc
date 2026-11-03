@@ -1139,6 +1139,9 @@ class ColumnChunkReader {
     decoders_.clear();
     new_dictionary_ = nullptr;
     current_encoding_ = Encoding::UNKNOWN;
+    // Values left in the previous page belong to the previous column chunk
+    num_buffered_values_ = 0;
+    num_decoded_values_ = 0;
   }
 
   bool HasPageReader() const { return pager_ != nullptr; }
@@ -2171,6 +2174,10 @@ void TypedRecordReader<DT, VS>::Reset() {
 template <typename DT, typename VS>
 void TypedRecordReader<DT, VS>::SetPageReader(std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
+  // Drop levels decoded from the previous column chunk but not consumed yet
+  const int64_t levels_end = levels_written();
+  def_levels_.Erase(levels_position_, levels_end);  // potentially no-op if void
+  rep_levels_.Erase(levels_position_, levels_end);  // potentially no-op if void
   Base::SetPageReader(std::move(reader));
 }
 

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
@@ -740,6 +741,125 @@ TEST(TestFileReader, RecordReaderWithExposingDictionary) {
     ASSERT_EQ(std::string_view(reinterpret_cast<const char* const>(dict[indices[i]].ptr),
                                dict[indices[i]].len),
               col_typed[i]);
+  }
+}
+
+// Write a dictionary-encoded INT32 column in two row groups with different
+// dictionaries. The second column is optional with nulls.
+std::shared_ptr<Buffer> MakeTwoRowGroupDictionaryFile(int num_rows_per_group) {
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("required", Repetition::REQUIRED, Type::INT32,
+                                       ConvertedType::NONE));
+  fields.push_back(PrimitiveNode::Make("optional", Repetition::OPTIONAL, Type::INT32,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  std::shared_ptr<WriterProperties> writer_props =
+      WriterProperties::Builder().enable_dictionary()->build();
+  PARQUET_ASSIGN_OR_THROW(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+  for (int rg = 0; rg < 2; ++rg) {
+    RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+    std::vector<int32_t> values;
+    std::vector<int16_t> def_levels;
+    for (int i = 0; i < num_rows_per_group; ++i) {
+      values.push_back(rg * 100 + i % 3);
+      def_levels.push_back(i % 4 == 0 ? 0 : 1);
+    }
+    static_cast<Int32Writer*>(rg_writer->NextColumn())
+        ->WriteBatch(num_rows_per_group, nullptr, nullptr, values.data());
+    std::vector<int32_t> present_values;
+    for (int i = 0; i < num_rows_per_group; ++i) {
+      if (def_levels[i] == 1) present_values.push_back(values[i]);
+    }
+    static_cast<Int32Writer*>(rg_writer->NextColumn())
+        ->WriteBatch(num_rows_per_group, def_levels.data(), nullptr,
+                     present_values.data());
+    rg_writer->Close();
+  }
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, out_file->Finish());
+  return buffer;
+}
+
+// Read the records of the second row group of the file written by
+// MakeTwoRowGroupDictionaryFile and check their values
+void CheckSecondRowGroupRecords(internal::RecordReader* record_reader, int column,
+                                int num_rows) {
+  ASSERT_EQ(record_reader->ReadRecords(num_rows), num_rows);
+  const auto* values = reinterpret_cast<const int32_t*>(record_reader->values());
+  int64_t value_index = 0;
+  for (int i = 0; i < num_rows; ++i) {
+    if (column == 1 && i % 4 == 0) {
+      if (record_reader->nullable_values()) {
+        // Spaced values: skip the null slot
+        ++value_index;
+      }
+      continue;
+    }
+    ASSERT_EQ(values[value_index], 100 + i % 3);
+    ++value_index;
+  }
+  ASSERT_EQ(record_reader->values_written(), value_index);
+}
+
+TEST(TestFileReader, RecordReaderSetPageReaderAfterFullReadSucceeds) {
+  const int num_rows = 8;
+  auto file_buf = MakeTwoRowGroupDictionaryFile(num_rows);
+
+  for (int column : {0, 1}) {
+    ARROW_SCOPED_TRACE("column = ", column);
+    auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::Open(in_file);
+    ASSERT_EQ(file_reader->metadata()->num_row_groups(), 2);
+    const ColumnDescriptor* descr = file_reader->metadata()->schema()->Column(column);
+    auto record_reader =
+        internal::RecordReader::Make(descr, internal::LevelInfo::ComputeLevelInfo(descr));
+
+    // Read the first row group to the end
+    record_reader->SetPageReader(file_reader->RowGroup(0)->GetColumnPageReader(column));
+    ASSERT_EQ(record_reader->ReadRecords(num_rows), num_rows);
+    record_reader->Reset();
+
+    // Advance to the second row group: the dictionary and the records are the
+    // ones of the second row group
+    record_reader->SetPageReader(file_reader->RowGroup(1)->GetColumnPageReader(column));
+    int32_t dict_len = 0;
+    auto dict =
+        reinterpret_cast<const int32_t*>(record_reader->ReadDictionary(&dict_len));
+    ASSERT_NE(dict, nullptr);
+    std::vector<int32_t> dict_values(dict, dict + dict_len);
+    std::sort(dict_values.begin(), dict_values.end());
+    ASSERT_EQ(dict_values, (std::vector<int32_t>{100, 101, 102}));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckSecondRowGroupRecords(record_reader.get(), column, num_rows));
+  }
+}
+
+TEST(TestFileReader, RecordReaderSetPageReaderAfterPartialReadDoesNotReusePage) {
+  const int num_rows = 8;
+  auto file_buf = MakeTwoRowGroupDictionaryFile(num_rows);
+
+  for (int column : {0, 1}) {
+    ARROW_SCOPED_TRACE("column = ", column);
+    auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::Open(in_file);
+    ASSERT_EQ(file_reader->metadata()->num_row_groups(), 2);
+    const ColumnDescriptor* descr = file_reader->metadata()->schema()->Column(column);
+    auto record_reader =
+        internal::RecordReader::Make(descr, internal::LevelInfo::ComputeLevelInfo(descr));
+
+    // Read only part of the first row group
+    record_reader->SetPageReader(file_reader->RowGroup(0)->GetColumnPageReader(column));
+    ASSERT_EQ(record_reader->ReadRecords(2), 2);
+    record_reader->Reset();
+
+    // Advance to the second row group: the values left in the first row group
+    // are not returned
+    record_reader->SetPageReader(file_reader->RowGroup(1)->GetColumnPageReader(column));
+    ASSERT_NO_FATAL_FAILURE(
+        CheckSecondRowGroupRecords(record_reader.get(), column, num_rows));
   }
 }
 
