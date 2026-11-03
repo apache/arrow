@@ -478,6 +478,7 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
 
 static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
                                     const DictionaryType& type, int64_t dictionary_id,
+                                    flatbuffers::Offset<KVVector> value_metadata,
                                     DictionaryOffset* out) {
   // We assume that the dictionary index type (as an integer) has already been
   // validated elsewhere, and can safely assume we are dealing with integers
@@ -486,8 +487,9 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
   auto index_type_offset =
       flatbuf::CreateInt(fbb, index_type.bit_width(), index_type.is_signed());
 
-  *out = flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset,
-                                           type.ordered());
+  *out = flatbuf::CreateDictionaryEncoding(
+      fbb, dictionary_id, index_type_offset, type.ordered(),
+      flatbuf::DictionaryKind::DictionaryKind_DenseArray, value_metadata);
   return Status::OK();
 }
 
@@ -783,7 +785,25 @@ class FieldToFlatbufferVisitor {
     // In this library, the dictionary "type" is a logical construct. Here we
     // pass through to the value type, as we've already captured the index
     // type in the DictionaryEncoding metadata in the parent field
-    return VisitType(*checked_cast<const DictionaryType&>(type).value_type());
+    const DataType& value_type = *type.value_type();
+    if (type.value_metadata()) {
+      const auto& metadata = *type.value_metadata();
+      for (int64_t i = 0; i < metadata.size(); ++i) {
+        dictionary_value_metadata_.emplace_back(metadata.key(i), metadata.value(i));
+      }
+    }
+    if (value_type.id() == Type::EXTENSION) {
+      // The extension metadata of the dictionary value type is written to
+      // DictionaryEncoding.custom_metadata, to distinguish it from an extension
+      // type whose storage type is a dictionary (GH-49704).
+      const auto& ext_type = checked_cast<const ExtensionType&>(value_type);
+      dictionary_value_metadata_.emplace_back(kExtensionTypeKeyName,
+                                              ext_type.extension_name());
+      dictionary_value_metadata_.emplace_back(kExtensionMetadataKeyName,
+                                              ext_type.Serialize());
+      return VisitType(*ext_type.storage_type());
+    }
+    return VisitType(value_type);
   }
 
   Status Visit(const RunEndEncodedType& type) {
@@ -822,9 +842,19 @@ class FieldToFlatbufferVisitor {
     if (storage_type->id() == Type::DICTIONARY) {
       ARROW_ASSIGN_OR_RAISE(const auto dictionary_id,
                             mapper_.GetFieldId(field_pos_.path()));
+      // Omit DictionaryEncoding.custom_metadata (rather than writing an empty
+      // vector) if the dictionary value type has no metadata
+      flatbuffers::Offset<KVVector> fb_value_metadata;
+      if (!dictionary_value_metadata_.empty()) {
+        std::vector<KeyValueOffset> value_key_values;
+        for (const auto& [key, value] : dictionary_value_metadata_) {
+          value_key_values.push_back(AppendKeyValue(fbb_, key, value));
+        }
+        fb_value_metadata = fbb_.CreateVector(value_key_values);
+      }
       RETURN_NOT_OK(GetDictionaryEncoding(
           fbb_, field, checked_cast<const DictionaryType&>(*storage_type), dictionary_id,
-          &dictionary));
+          fb_value_metadata, &dictionary));
     }
 
     auto metadata = field->metadata();
@@ -859,7 +889,36 @@ class FieldToFlatbufferVisitor {
   Offset type_offset_;
   std::vector<FieldOffset> children_;
   std::unordered_map<std::string, std::string> extra_type_metadata_;
+  // Metadata of the dictionary value type, for DictionaryEncoding.custom_metadata
+  std::vector<std::pair<std::string, std::string>> dictionary_value_metadata_;
 };
+
+// If `metadata` describes a registered extension type, deserialize that
+// extension type over `*type` and remove the extension keys from `metadata`,
+// for faithful roundtripping. If the extension type is unknown, we do not raise
+// and simply leave the storage type.
+Status MaybeDeserializeExtensionType(KeyValueMetadata* metadata,
+                                     std::shared_ptr<DataType>* type) {
+  if (metadata == nullptr) {
+    return Status::OK();
+  }
+  int name_index = metadata->FindKey(kExtensionTypeKeyName);
+  if (name_index == -1) {
+    return Status::OK();
+  }
+  std::shared_ptr<ExtensionType> ext_type = GetExtensionType(metadata->value(name_index));
+  if (ext_type == nullptr) {
+    return Status::OK();
+  }
+  int data_index = metadata->FindKey(kExtensionMetadataKeyName);
+  std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
+
+  ARROW_ASSIGN_OR_RAISE(*type, ext_type->Deserialize(*type, type_data));
+  if (data_index != -1) {
+    return metadata->DeleteMany({name_index, data_index});
+  }
+  return metadata->Delete(name_index);
+}
 
 Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
                            DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* out) {
@@ -900,35 +959,20 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
     auto int_data = encoding->indexType();
     CHECK_FLATBUFFERS_NOT_NULL(int_data, "DictionaryEncoding.indexType");
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
+    // The dictionary value type may be an extension type, whose metadata is
+    // found in DictionaryEncoding.custom_metadata (GH-49704)
+    ARROW_ASSIGN_OR_RAISE(auto value_metadata,
+                          internal::GetKeyValueMetadata(encoding->custom_metadata()));
+    RETURN_NOT_OK(MaybeDeserializeExtensionType(value_metadata.get(), &type));
     dict_value_type = type;
     ARROW_ASSIGN_OR_RAISE(type,
-                          DictionaryType::Make(index_type, type, encoding->isOrdered()));
+                          DictionaryType::Make(index_type, type, encoding->isOrdered(),
+                                               std::move(value_metadata)));
     dictionary_id = encoding->id();
   }
 
   // 4. Is it an extension type?
-  if (metadata != nullptr) {
-    // Look for extension metadata in custom_metadata field
-    int name_index = metadata->FindKey(kExtensionTypeKeyName);
-    if (name_index != -1) {
-      std::shared_ptr<ExtensionType> ext_type =
-          GetExtensionType(metadata->value(name_index));
-      if (ext_type != nullptr) {
-        int data_index = metadata->FindKey(kExtensionMetadataKeyName);
-        std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
-
-        ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
-        // Remove the metadata, for faithful roundtripping
-        if (data_index != -1) {
-          RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
-        } else {
-          RETURN_NOT_OK(metadata->Delete(name_index));
-        }
-      }
-      // NOTE: if extension type is unknown, we do not raise here and
-      // simply return the storage type.
-    }
-  }
+  RETURN_NOT_OK(MaybeDeserializeExtensionType(metadata.get(), &type));
 
   // Reconstruct field
   auto field_name = StringFromFlatbuffers(field->name());

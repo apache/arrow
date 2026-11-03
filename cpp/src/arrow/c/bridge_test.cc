@@ -2280,6 +2280,38 @@ TEST_F(TestSchemaImport, RegisteredExtension) {
   }
 }
 
+TEST(TestDictionaryValueMetadata, CDataRoundTrip) {
+  auto metadata = key_value_metadata({{"extra", std::string("a\0b", 3)}});
+  auto parent_metadata = key_value_metadata({{"extra", "parent"}});
+  auto type = dictionary(int32(), uuid(), true, metadata);
+  auto expected =
+      field("d", struct_({field("values", list(type))}), true, parent_metadata);
+  auto roundtrip =
+      [](const std::shared_ptr<Field>& input) -> Result<std::shared_ptr<Field>> {
+    ArrowSchema c_schema{};
+    RETURN_NOT_OK(ExportField(*input, &c_schema));
+    SchemaExportGuard guard(&c_schema);
+    return ImportField(&c_schema);
+  };
+
+  ASSERT_EQ(GetExtensionType("uuid"), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto unknown, roundtrip(expected));
+  const auto& dictionary_type = checked_cast<const DictionaryType&>(
+      *unknown->type()->field(0)->type()->field(0)->type());
+  AssertTypeEqual(*fixed_size_binary(16), *dictionary_type.value_type());
+  auto unknown_metadata = metadata->Copy();
+  unknown_metadata->Append(kExtensionTypeKeyName, "uuid");
+  unknown_metadata->Append(kExtensionMetadataKeyName, "uuid-serialized");
+  ASSERT_TRUE(unknown_metadata->Equals(*dictionary_type.value_metadata()));
+  ASSERT_TRUE(parent_metadata->Equals(*unknown->metadata()));
+
+  ASSERT_OK_AND_ASSIGN(auto rewritten, roundtrip(unknown));
+  ASSERT_TRUE(unknown->Equals(rewritten, true));
+  ExtensionTypeGuard extension(uuid());
+  ASSERT_OK_AND_ASSIGN(auto restored, roundtrip(rewritten));
+  ASSERT_TRUE(expected->Equals(restored, true));
+}
+
 TEST_F(TestSchemaImport, FormatStringError) {
   FillPrimitive("");
   CheckImportError();

@@ -269,7 +269,8 @@ struct SchemaExporter {
       // child dictionary struct describes value type.
       RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), this));
       dict_exporter_ = std::make_unique<SchemaExporter>();
-      RETURN_NOT_OK(dict_exporter_->ExportType(*dict_type.value_type()));
+      RETURN_NOT_OK(dict_exporter_->ExportField(
+          Field("", dict_type.value_type(), true, dict_type.value_metadata())));
     } else {
       RETURN_NOT_OK(VisitTypeInline(type, this));
     }
@@ -1064,7 +1065,8 @@ struct SchemaImporter {
       SchemaImporter dict_importer;
       RETURN_NOT_OK(dict_importer.ImportDict(this, c_struct_->dictionary));
       bool ordered = (c_struct_->flags & ARROW_FLAG_DICTIONARY_ORDERED) != 0;
-      type_ = dictionary(type_, dict_importer.type_, ordered);
+      type_ = dictionary(type_, dict_importer.type_, ordered,
+                         std::move(dict_importer.metadata_.metadata));
     }
 
     // Import metadata

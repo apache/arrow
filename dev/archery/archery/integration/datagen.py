@@ -1311,11 +1311,21 @@ class DictionaryField(Field):
         return self.dictionary.field._get_children()
 
     def _get_dictionary(self):
-        return OrderedDict([
+        entries = [
             ('id', self.dictionary.id_),
             ('indexType', self.index_field._get_type()),
             ('isOrdered', self.dictionary.ordered)
-        ])
+        ]
+        # The extension metadata of a dictionary value type is given in the
+        # "metadata" member of the "dictionary" object (GH-49704)
+        value_field = self.dictionary.field
+        if isinstance(value_field, ExtensionField):
+            extension_type = value_field.extension_type
+            entries.append(('metadata', metadata_key_values([
+                ('ARROW:extension:name', extension_type.extension_name),
+                ('ARROW:extension:metadata', extension_type.serialized),
+            ])))
+        return OrderedDict(entries)
 
     def generate_column(self, size, name=None):
         if name is None:
@@ -1938,6 +1948,33 @@ def generate_extension_case():
                           dictionaries=[dict0])
 
 
+def generate_dictionary_extension_case():
+    # Dictionaries whose value type is an extension type (GH-49704)
+    uuid_type = ExtensionType('arrow.uuid', '',
+                              FixedSizeBinaryField('', 16))
+    opaque_type = ExtensionType(
+        'arrow.opaque',
+        '{"type_name":"geometry","vendor_name":"archery"}',
+        StringField(''))
+
+    dict0 = Dictionary(0, ExtensionField('uuids', uuid_type),
+                       size=5, name='DICT0')
+    dict1 = Dictionary(1, ExtensionField('opaques', opaque_type),
+                       size=10, name='DICT1')
+
+    fields = [
+        DictionaryField('uuid_dict', get_field('', 'int8'), dict0),
+        DictionaryField('opaque_dict', get_field('', 'int32'), dict1,
+                        metadata=[('some_key', 'some_value')]),
+        ListField('list_of_uuid_dict',
+                  DictionaryField('item', get_field('', 'int16'), dict0)),
+    ]
+
+    batch_sizes = [0, 13]
+    return _generate_file("dictionary_extension", fields, batch_sizes,
+                          dictionaries=[dict0, dict1])
+
+
 def generate_extension_wrapped_union_case():
     # Unions wrapped in an extension type, exercising the extension/union
     # interaction across implementations (see the C++ fix in GH-50623).
@@ -2072,6 +2109,24 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Ruby'),
 
         generate_extension_wrapped_union_case(),
+
+        generate_dictionary_extension_case()
+        # TODO(https://github.com/apache/arrow/issues/49704): implement
+        # DictionaryEncoding.custom_metadata
+        .skip_tester('.NET')
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Ruby')
+        # Go support is in the companion arrow-go pull request; enable it once
+        # that lands, since integration CI builds arrow-go from main
+        .skip_tester('Go')
+        # Rust cannot represent a dictionary of an extension type
+        # (https://github.com/apache/arrow-rs/issues/7982): it reads a
+        # dictionary of the storage type and does not write the value type
+        # metadata. It could consume this case but cannot produce it, and
+        # archery has no producer-only skip.
+        .skip_tester('Rust'),
     ]
 
     generated_paths = []
