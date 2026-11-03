@@ -150,7 +150,8 @@ TEST(TestBooleanScalar, Cast) {
       ARROW_SCOPED_TRACE("to type: ", to_type->ToString());
       ASSERT_OK_AND_ASSIGN(auto casted, Cast(scalar, to_type));
       ASSERT_EQ(casted.scalar()->type->id(), to_type->id());
-      ASSERT_EQ(casted.scalar()->ToString(), std::to_string(b));
+      ASSERT_EQ(casted.scalar()->ToString(),
+                std::to_string(b) + (is_floating(*to_type) ? ".0" : ""));
     }
 
     // String type.

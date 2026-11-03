@@ -3571,9 +3571,12 @@ TEST(Cast, IntToString) {
 TEST(Cast, FloatingToString) {
   for (auto float_type : {float16(), float32(), float64()}) {
     for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
-      CheckCast(ArrayFromJSON(float_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-                ArrayFromJSON(string_type,
-                              R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+      CheckCast(
+          ArrayFromJSON(float_type,
+                        "[0.0, -0.0, 20.0, -20.0, 1.5, -Inf, Inf, NaN, null]"),
+          ArrayFromJSON(
+              string_type,
+              R"(["0.0", "-0.0", "20.0", "-20.0", "1.5", "-inf", "inf", "nan", null])"));
     }
   }
 }
