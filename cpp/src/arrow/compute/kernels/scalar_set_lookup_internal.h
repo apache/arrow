@@ -21,7 +21,6 @@
 // simplification (libarrow). Everything here must stay header-only.
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -40,6 +39,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
+#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -55,19 +55,28 @@ namespace arrow::compute::internal {
 /// Value sets up to this length are simplified against a guarantee by filtering
 /// the value set and rebinding the `is_in` call (see SimplifyIsIn in expression.cc).
 /// Longer value sets are instead binary searched through SetLookupStateBase::
-/// sorted_value_set, which only ever simplifies the call to `false`, see
+/// GetSortedValueSet, which only ever simplifies the call to `false`, see
 /// https://github.com/apache/arrow/issues/46777
 constexpr int64_t kIsInSimplificationMaxValueSet = 50;
 
+template <typename ValueType>
+bool IsNaNValue(const ValueType&) {
+  return false;
+}
+inline bool IsNaNValue(float value) { return std::isnan(value); }
+inline bool IsNaNValue(double value) { return std::isnan(value); }
+
 /// Whether a (valid) scalar of a floating point type is NaN.
 inline bool IsNaNScalar(const Scalar& value) {
-  if (value.type->id() == Type::FLOAT) {
-    return std::isnan(::arrow::internal::checked_cast<const FloatScalar&>(value).value);
+  switch (value.type->id()) {
+    case Type::FLOAT:
+      return IsNaNValue(::arrow::internal::checked_cast<const FloatScalar&>(value).value);
+    case Type::DOUBLE:
+      return IsNaNValue(
+          ::arrow::internal::checked_cast<const DoubleScalar&>(value).value);
+    default:
+      return false;
   }
-  if (value.type->id() == Type::DOUBLE) {
-    return std::isnan(::arrow::internal::checked_cast<const DoubleScalar&>(value).value);
-  }
-  return false;
 }
 
 inline Result<bool> IsSortedValueSet(const Array& values);
@@ -82,21 +91,12 @@ struct SetLookupStateBase : public KernelState {
 
   /// Make the value set available to GetSortedValueSet().
   ///
-  /// Called once by the `is_in` kernel init, before the state is shared. If the
-  /// value set is sorted already it is used as is; otherwise sorting is deferred
-  /// to the first call of GetSortedValueSet() so that only expressions which are
-  /// simplified against guarantees pay for it.
-  Status SetSearchableValueSet(std::shared_ptr<Array> values) {
-    if (values->null_count() == 0) {
-      ARROW_ASSIGN_OR_RAISE(bool sorted, IsSortedValueSet(*values));
-      if (sorted) {
-        sorted_value_set_ = std::move(values);
-        sorted_value_set_ready_.store(true, std::memory_order_release);
-        return Status::OK();
-      }
-    }
-    unsorted_value_set_ = std::move(values);
-    return Status::OK();
+  /// Called once by the `is_in` kernel init, before the state is shared. Nothing
+  /// is computed until the first call of GetSortedValueSet(), so that only
+  /// expressions which are simplified against guarantees pay for it.
+  void SetSearchableValueSet(Datum value_set, MemoryPool* pool) {
+    searchable_value_set_ = std::move(value_set);
+    searchable_value_set_pool_ = pool;
   }
 
   /// A copy of the value set sorted ascending in the order of the comparison
@@ -107,86 +107,57 @@ struct SetLookupStateBase : public KernelState {
   /// holds and contains no NaN. It is computed at most once; concurrent calls are
   /// safe.
   std::shared_ptr<Array> GetSortedValueSet() const {
-    if (!sorted_value_set_ready_.load(std::memory_order_acquire)) {
-      std::lock_guard<std::mutex> lock(sorted_value_set_mutex_);
-      if (!sorted_value_set_ready_.load(std::memory_order_relaxed)) {
-        if (unsorted_value_set_) {
-          // Best effort: a failure only disables the simplification of `is_in`
-          // against guarantees.
-          sorted_value_set_ = SortValueSet(*unsorted_value_set_).ValueOr(nullptr);
-          unsorted_value_set_.reset();
-        }
-        sorted_value_set_ready_.store(true, std::memory_order_release);
+    std::call_once(sorted_value_set_once_, [this] {
+      if (searchable_value_set_.is_arraylike()) {
+        // Best effort: a failure only disables the simplification of `is_in`
+        // against guarantees.
+        sorted_value_set_ =
+            SortValueSet(searchable_value_set_, searchable_value_set_pool_)
+                .ValueOr(nullptr);
+        searchable_value_set_ = Datum();
       }
-    }
+    });
     return sorted_value_set_;
   }
 
  private:
-  /// \return `values` sorted with nulls removed, or nullptr if it contains NaN
-  static Result<std::shared_ptr<Array>> SortValueSet(const Array& values) {
+  /// \return `value_set` sorted with nulls removed, or nullptr if it contains NaN
+  static Result<std::shared_ptr<Array>> SortValueSet(const Datum& value_set,
+                                                     MemoryPool* pool) {
+    std::shared_ptr<Array> values;
+    if (value_set.is_array()) {
+      values = value_set.make_array();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(values,
+                            Concatenate(value_set.chunked_array()->chunks(), pool));
+    }
+    // An already sorted value set is used as is.
+    if (values->null_count() == 0) {
+      ARROW_ASSIGN_OR_RAISE(bool sorted, IsSortedValueSet(*values));
+      if (sorted) return values;
+    }
+
     // Sorting a copy of primitive values directly is several times faster than
     // the generic sort_indices + take path.
-    auto maybe_sorted = SortPrimitiveValueSet(values);
-    if (maybe_sorted.ok()) return maybe_sorted;
-    if (!maybe_sorted.status().IsNotImplemented()) return maybe_sorted.status();
+    auto maybe_sorted = SortPrimitiveValueSet(*values);
+    if (!maybe_sorted.status().IsNotImplemented()) return maybe_sorted;
 
+    // Only decimal and binary types get here, neither of which has NaN.
     ARROW_ASSIGN_OR_RAISE(auto indices,
-                          SortIndices(values, ArraySortOptions(SortOrder::Ascending,
-                                                               NullPlacement::AtEnd)));
+                          SortIndices(*values, ArraySortOptions(SortOrder::Ascending,
+                                                                NullPlacement::AtEnd)));
     ARROW_ASSIGN_OR_RAISE(Datum taken,
                           Take(values, indices, TakeOptions::NoBoundsCheck()));
     auto sorted = taken.make_array();
-    sorted = sorted->Slice(0, sorted->length() - sorted->null_count());
-    // NaN sorts after every other value and before nulls. Statistics based
-    // guarantees cannot bound NaN, so such a value set is not searchable.
-    if (sorted->length() > 0 && is_floating(sorted->type_id())) {
-      ARROW_ASSIGN_OR_RAISE(auto last, sorted->GetScalar(sorted->length() - 1));
-      if (IsNaNScalar(*last)) return std::shared_ptr<Array>(nullptr);
-    }
-    return sorted;
+    return sorted->Slice(0, sorted->length() - sorted->null_count());
   }
 
-  mutable std::mutex sorted_value_set_mutex_;
-  mutable std::atomic<bool> sorted_value_set_ready_{false};
-  mutable std::shared_ptr<Array> unsorted_value_set_;
+  mutable std::once_flag sorted_value_set_once_;
+  // Released once sorted_value_set_ is computed.
+  mutable Datum searchable_value_set_;
+  MemoryPool* searchable_value_set_pool_ = default_memory_pool();
   mutable std::shared_ptr<Array> sorted_value_set_;
 };
-
-/// Whether value sets of this type can be binary searched with a comparator that
-/// agrees with both the sorting kernels and the comparison kernels.
-inline bool IsSearchableValueSetType(const DataType& type) {
-  switch (type.id()) {
-    case Type::INT8:
-    case Type::INT16:
-    case Type::INT32:
-    case Type::INT64:
-    case Type::UINT8:
-    case Type::UINT16:
-    case Type::UINT32:
-    case Type::UINT64:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::TIMESTAMP:
-    case Type::DURATION:
-    case Type::DECIMAL32:
-    case Type::DECIMAL64:
-    case Type::DECIMAL128:
-    case Type::DECIMAL256:
-    case Type::STRING:
-    case Type::LARGE_STRING:
-    case Type::BINARY:
-    case Type::LARGE_BINARY:
-    case Type::FIXED_SIZE_BINARY:
-      return true;
-    default:
-      return false;
-  }
-}
 
 namespace set_lookup_detail {
 
@@ -246,12 +217,15 @@ struct is_searchable_value_set_type<
     T, std::void_t<decltype(ValueSetAccessor<T>::Get(std::declval<const Array&>(), 0))>>
     : std::true_type {};
 
-template <typename ValueType>
-bool IsNaNValue(const ValueType&) {
-  return false;
-}
-inline bool IsNaNValue(float value) { return std::isnan(value); }
-inline bool IsNaNValue(double value) { return std::isnan(value); }
+struct IsSearchableTypeVisitor {
+  bool result = false;
+
+  template <typename T>
+  Status Visit(const T&) {
+    result = is_searchable_value_set_type<T>::value;
+    return Status::OK();
+  }
+};
 
 struct IsSortedVisitor {
   const Array& values;
@@ -348,6 +322,14 @@ struct SearchSortedVisitor {
 };
 
 }  // namespace set_lookup_detail
+
+/// Whether value sets of this type can be binary searched with a comparator that
+/// agrees with both the sorting kernels and the comparison kernels.
+inline bool IsSearchableValueSetType(const DataType& type) {
+  set_lookup_detail::IsSearchableTypeVisitor visitor;
+  ARROW_UNUSED(VisitTypeInline(type, &visitor));
+  return visitor.result;
+}
 
 /// Whether `values` (which must contain no nulls) is sorted ascending in the order
 /// of the comparison kernels and contains no NaN.

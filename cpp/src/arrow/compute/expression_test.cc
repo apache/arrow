@@ -2455,13 +2455,13 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
         .WithGuarantee(
             and_(greater(str, literal("k110")), less_equal(str, literal("k111"))))
         .ExpectUnchanged();
-    // ... as do value sets with nulls, which INCONCLUSIVE cannot simplify
+    // ... as do value sets with nulls, which make any non-match null for INCONCLUSIVE
     auto with_null = Simplify{is_in(str, utf8(), concat_json(unsorted_strings, "[null]"),
                                     null_matching)}
                          .WithGuarantee(and_(greater(str, literal("k110")),
                                              less(str, literal("k111"))));
     if (null_matching == SetLookupOptions::INCONCLUSIVE) {
-      with_null.ExpectUnchanged();
+      with_null.Expect(null_literal(boolean()));
     } else {
       with_null.Expect(false);
     }
@@ -2599,13 +2599,13 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       .WithGuarantee(nullable_guarantee)
       .Expect(false);
 
-  // EMIT_NULL: nulls produce null
+  // EMIT_NULL: nulls produce null, which is still never true
   Simplify{is_in(i32, int32(), range_with_null, SetLookupOptions::EMIT_NULL)}
       .WithGuarantee(nullable_guarantee)
-      .ExpectUnchanged();
+      .Expect(not_(true_unless_null(i32)));
   Simplify{is_in(i32, int32(), range, SetLookupOptions::EMIT_NULL)}
       .WithGuarantee(nullable_guarantee)
-      .ExpectUnchanged();
+      .Expect(not_(true_unless_null(i32)));
   Simplify{is_in(i32, int32(), range_with_null, SetLookupOptions::EMIT_NULL)}
       .WithGuarantee(non_nullable_guarantee)
       .Expect(false);
@@ -2617,13 +2617,13 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   // contains a null
   Simplify{is_in(i32, int32(), range_with_null, SetLookupOptions::INCONCLUSIVE)}
       .WithGuarantee(nullable_guarantee)
-      .ExpectUnchanged();
+      .Expect(null_literal(boolean()));
   Simplify{is_in(i32, int32(), range, SetLookupOptions::INCONCLUSIVE)}
       .WithGuarantee(nullable_guarantee)
-      .ExpectUnchanged();
+      .Expect(not_(true_unless_null(i32)));
   Simplify{is_in(i32, int32(), range_with_null, SetLookupOptions::INCONCLUSIVE)}
       .WithGuarantee(non_nullable_guarantee)
-      .ExpectUnchanged();
+      .Expect(null_literal(boolean()));
   Simplify{is_in(i32, int32(), range, SetLookupOptions::INCONCLUSIVE)}
       .WithGuarantee(non_nullable_guarantee)
       .Expect(false);
@@ -2637,6 +2637,17 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       .Expect(false);
   Simplify{is_in(i32, int32(), gapped, SetLookupOptions::MATCH)}
       .WithGuarantee(or_(equal(i32, literal(50)), is_null(i32)))
+      .ExpectUnchanged();
+
+  // Chunked value sets are concatenated before they are sorted
+  SetLookupOptions chunked_options{
+      ChunkedArrayFromJSON(int32(), {make_range_json(100, 150), make_range_json(1, 50)}),
+      SetLookupOptions::MATCH};
+  Simplify{call("is_in", {i32}, chunked_options)}
+      .WithGuarantee(and_(greater(i32, literal(50)), less(i32, literal(100))))
+      .Expect(false);
+  Simplify{call("is_in", {i32}, chunked_options)}
+      .WithGuarantee(and_(greater_equal(i32, literal(50)), less(i32, literal(100))))
       .ExpectUnchanged();
 
   // The large value set is simplified in combination with other simplifications
@@ -2668,11 +2679,17 @@ TEST(Expression, SimplifyIsInLargeValueSetNullableRange) {
           int32(), value_set_has_null ? concat_json(gapped, "[null]") : gapped);
       auto filter = call("is_in", {i32}, SetLookupOptions{values, null_matching});
       auto simplified = Simplify{filter}.WithGuarantee(nullable_range);
-      if (null_matching == SetLookupOptions::SKIP ||
-          (null_matching == SetLookupOptions::MATCH && !value_set_has_null)) {
-        simplified.Expect(false);
-      } else {
+      // No member of the value set can occur, so the call is never true unless a
+      // null in a MATCH value set matches the nulls.
+      if (null_matching == SetLookupOptions::MATCH && value_set_has_null) {
         simplified.ExpectUnchanged();
+      } else if (null_matching == SetLookupOptions::INCONCLUSIVE && value_set_has_null) {
+        simplified.Expect(null_literal(boolean()));
+      } else if (null_matching == SetLookupOptions::EMIT_NULL ||
+                 null_matching == SetLookupOptions::INCONCLUSIVE) {
+        simplified.Expect(not_(true_unless_null(i32)));
+      } else {
+        simplified.Expect(false);
       }
 
       // A matching non-null member prevents pruning regardless of null behavior.
@@ -2695,14 +2712,14 @@ TEST(Expression, SimplifyIsInLargeValueSetNullableRange) {
       auto non_nullable =
           Simplify{filter}.WithGuarantee(and_(nullable_range, greater(i32, literal(0))));
       if (null_matching == SetLookupOptions::INCONCLUSIVE && value_set_has_null) {
-        non_nullable.ExpectUnchanged();
+        non_nullable.Expect(null_literal(boolean()));
       } else {
         non_nullable.Expect(false);
       }
       // ... as can is_valid elsewhere in the guarantee.
       auto valid = Simplify{filter}.WithGuarantee(and_(nullable_range, is_valid(i32)));
       if (null_matching == SetLookupOptions::INCONCLUSIVE && value_set_has_null) {
-        valid.ExpectUnchanged();
+        valid.Expect(null_literal(boolean()));
       } else {
         valid.Expect(false);
       }

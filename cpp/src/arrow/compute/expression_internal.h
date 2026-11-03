@@ -110,49 +110,41 @@ struct Comparison {
     return less.scalar_as<BooleanScalar>().value ? LESS : GREATER;
   }
 
+  // Whether `call` is a cast which preserves the ordering of its argument.
+  static bool IsOrderPreservingCast(const Expression::Call& call) {
+    if (call.function_name != "cast") return false;
+
+    auto from_id = call.arguments[0].type()->id();
+    auto to_id = call.type.id();
+
+    if (is_floating(to_id)) {
+      return is_integer(from_id) || is_floating(from_id);
+    }
+
+    if (is_unsigned_integer(to_id)) {
+      return is_unsigned_integer(from_id) && bit_width(to_id) >= bit_width(from_id);
+    }
+
+    if (is_signed_integer(to_id)) {
+      if (!is_integer(from_id) || bit_width(to_id) < bit_width(from_id)) return false;
+      // An unsigned to signed cast of the same width wraps negative when overflow
+      // is allowed, which does not preserve ordering.
+      return !(is_unsigned_integer(from_id) && bit_width(to_id) == bit_width(from_id) &&
+               ::arrow::internal::checked_cast<const CastOptions&>(*call.options)
+                   .allow_int_overflow);
+    }
+
+    return false;
+  }
+
   // Given an Expression wrapped in casts which preserve ordering
   // (for example, cast(field_ref("i16"), to_type=int32())), unwrap the inner Expression.
   // This is used to destructure implicitly cast field_refs during Expression
   // simplification.
   static const Expression& StripOrderPreservingCasts(const Expression& expr) {
     auto call = expr.call();
-    if (!call) return expr;
-    if (call->function_name != "cast") return expr;
-
-    const Expression& from = call->arguments[0];
-
-    auto from_id = from.type()->id();
-    auto to_id = expr.type()->id();
-
-    if (is_floating(to_id)) {
-      if (is_integer(from_id) || is_floating(from_id)) {
-        return StripOrderPreservingCasts(from);
-      }
-      return expr;
-    }
-
-    if (is_unsigned_integer(to_id)) {
-      if (is_unsigned_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
-        return StripOrderPreservingCasts(from);
-      }
-      return expr;
-    }
-
-    if (is_signed_integer(to_id)) {
-      if (is_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
-        // An unsigned to signed cast of the same width wraps negative when overflow
-        // is allowed, which does not preserve ordering.
-        if (is_unsigned_integer(from_id) && bit_width(to_id) == bit_width(from_id) &&
-            ::arrow::internal::checked_cast<const CastOptions&>(*call->options)
-                .allow_int_overflow) {
-          return expr;
-        }
-        return StripOrderPreservingCasts(from);
-      }
-      return expr;
-    }
-
-    return expr;
+    if (!call || !IsOrderPreservingCast(*call)) return expr;
+    return StripOrderPreservingCasts(call->arguments[0]);
   }
 
   static type GetFlipped(type op) {

@@ -1176,8 +1176,7 @@ struct OrderPreservingCasts {
   static OrderPreservingCasts Strip(const Expression& expr) {
     OrderPreservingCasts out;
     const Expression* lhs = &expr;
-    while (lhs->call() && lhs->call()->function_name == "cast" &&
-           &Comparison::StripOrderPreservingCasts(*lhs) != lhs) {
+    while (lhs->call() && Comparison::IsOrderPreservingCast(*lhs->call())) {
       const Expression& from = lhs->call()->arguments[0];
       out.injective = out.injective && IsInjective(from.type()->id(), lhs->type()->id());
       out.casts.push_back(lhs->call());
@@ -1219,8 +1218,35 @@ struct OrderPreservingCasts {
   }
 };
 
+// An Expression which evaluates to `value` where `target` is valid and to null where
+// it is null: true_unless_null(target) or invert(true_unless_null(target)).
+//
+// true_unless_null is cheap; it purely reuses the validity bitmap for the values
+// buffer. Inversion is less cheap but we expect that term never to be evaluated
+// since invert(true_unless_null(x)) is not satisfiable.
+Result<Expression> ValueUnlessNull(const Expression& target, bool value) {
+  ExecContext exec_context;
+
+  Expression::Call call;
+  call.function_name = "true_unless_null";
+  call.arguments = {target};
+  ARROW_ASSIGN_OR_RAISE(auto true_unless_null,
+                        BindNonRecursive(std::move(call),
+                                         /*insert_implicit_casts=*/false, &exec_context));
+  if (value) return true_unless_null;
+
+  Expression::Call invert;
+  invert.function_name = "invert";
+  invert.arguments = {std::move(true_unless_null)};
+  return BindNonRecursive(std::move(invert),
+                          /*insert_implicit_casts=*/false, &exec_context);
+}
+
 // An inequality comparison which a target Expression is known to satisfy. If nullable,
 // the target may evaluate to null in addition to values satisfying the comparison.
+//
+// `target` and `bound` refer into the guarantee the inequality was extracted from,
+// which must outlive it.
 struct Inequality {
   // The inequality type
   Comparison::type cmp;
@@ -1303,27 +1329,8 @@ struct Inequality {
   Result<Expression> simplified_to(const Expression& bound_target, bool value) const {
     if (!nullable) return literal(value);
 
-    ExecContext exec_context;
-
     // Data may be null, so comparison will yield `value` - or null IFF the data was null
-    //
-    // true_unless_null is cheap; it purely reuses the validity bitmap for the values
-    // buffer. Inversion is less cheap but we expect that term never to be evaluated
-    // since invert(true_unless_null(x)) is not satisfiable.
-    Expression::Call call;
-    call.function_name = "true_unless_null";
-    call.arguments = {bound_target};
-    ARROW_ASSIGN_OR_RAISE(
-        auto true_unless_null,
-        BindNonRecursive(std::move(call),
-                         /*insert_implicit_casts=*/false, &exec_context));
-    if (value) return true_unless_null;
-
-    Expression::Call invert;
-    invert.function_name = "invert";
-    invert.arguments = {std::move(true_unless_null)};
-    return BindNonRecursive(std::move(invert),
-                            /*insert_implicit_casts=*/false, &exec_context);
+    return ValueUnlessNull(bound_target, value);
   }
 
   /// Simplify an `is_in` call against an inequality guarantee.
@@ -1495,28 +1502,34 @@ struct Inequality {
   }
 };
 
-/// \brief Whether an `is_in` call can be simplified to `false` once we know that
-///   none of its (non-null) value set members can occur in the data.
+/// \brief What an `is_in` call evaluates to once we know that none of its
+///   (non-null) value set members can occur in the data.
 ///
-/// \param nullable whether the data matched against the value set may be null
-bool IsInWithoutMatchesIsFalse(const SetLookupOptions& options, bool value_set_has_null,
-                               bool nullable) {
+/// \param arg the argument of the call
+/// \param nullable whether `arg` may be null
+/// \return the equivalent Expression, or nullopt if the call may still be true
+Result<std::optional<Expression>> SimplifyIsInWithoutMatches(
+    const Expression& arg, const SetLookupOptions& options, bool value_set_has_null,
+    bool nullable) {
   switch (options.GetNullMatchingBehavior()) {
     case SetLookupOptions::MATCH:
       // A null in the value set matches nulls in the data.
-      return !(nullable && value_set_has_null);
+      if (nullable && value_set_has_null) return std::nullopt;
+      return literal(false);
     case SetLookupOptions::SKIP:
       // Nulls in the data produce false.
-      return true;
+      return literal(false);
+    case SetLookupOptions::INCONCLUSIVE:
+      // Any non-match produces null if the value set contains a null, as do
+      // nulls in the data.
+      if (value_set_has_null) return literal(MakeNullScalar(boolean()));
+      [[fallthrough]];
     case SetLookupOptions::EMIT_NULL:
       // Nulls in the data produce null.
-      return !nullable;
-    case SetLookupOptions::INCONCLUSIVE:
-      // Nulls in the data produce null and so does any non-match if the value
-      // set contains a null.
-      return !nullable && !value_set_has_null;
+      if (!nullable) return literal(false);
+      return ValueUnlessNull(arg, false);
   }
-  return false;
+  return std::nullopt;
 }
 
 /// \brief Simplify an `is_in` call with a large value set against all inequality
@@ -1525,7 +1538,9 @@ bool IsInWithoutMatchesIsFalse(const SetLookupOptions& options, bool value_set_h
 /// Rather than filtering the value set (see Inequality::SimplifyIsIn), this binary
 /// searches the sorted copy of the value set kept in the kernel state for the
 /// range of values admitted by the inequalities. If that range is empty the call
-/// is simplified to `false`; otherwise it is left unchanged. This is exact for any
+/// is simplified to what it evaluates to without matches (`false`, or null for
+/// the rows the null matching behavior makes null); otherwise it is left
+/// unchanged. This is exact for any
 /// number of values and costs O(log N) per guarantee, with no rebinding.
 ///
 /// Applying all inequalities on a field together matters: a row group's
@@ -1552,11 +1567,7 @@ Result<Expression> SimplifyIsInWithInequalities(
 
   std::vector<const Inequality*> applicable;
   for (const Inequality& inequality : inequalities) {
-    if (inequality.target != target) continue;
-    if (inequality.cmp == Comparison::NA || inequality.cmp == Comparison::NOT_EQUAL) {
-      continue;
-    }
-    applicable.push_back(&inequality);
+    if (inequality.target == target) applicable.push_back(&inequality);
   }
   if (applicable.empty()) return expr;
 
@@ -1605,41 +1616,30 @@ Result<Expression> SimplifyIsInWithInequalities(
     }
     // Put the bound through the casts the field goes through. Since each cast is
     // nondecreasing, `x <= b` implies `cast(x) <= cast(b)` even if `cast(b)`
-    // rounds, so no exactness is needed.
+    // rounds, so no exactness is needed. The last cast is to the argument type, and
+    // a valid non-NaN bound stays valid and non-NaN.
     auto cast_bound = casts.ApplyToBound(std::move(bound), &exec_context);
     if (!cast_bound.ok()) continue;
     bound = *cast_bound;
-    if (!bound->type->Equals(*sorted->type())) continue;
-    if (!bound->is_valid || internal::IsNaNScalar(*bound)) continue;
+    DCHECK(bound->type->Equals(*sorted->type()));
 
     // Strict bounds are weakened to inclusive ones through casts which are not
     // injective: f64 = 51.00000001 satisfies f64 > 51 but casts to 51f.
     Comparison::type cmp = casts.ApplyToComparison(inequality->cmp);
+    DCHECK_NE(cmp, Comparison::NA);
 
-    ARROW_ASSIGN_OR_RAISE(
-        int64_t lower, internal::SearchSortedValueSet(*sorted, *bound, /*upper=*/false));
-    ARROW_ASSIGN_OR_RAISE(
-        int64_t upper, internal::SearchSortedValueSet(*sorted, *bound, /*upper=*/true));
-    switch (cmp) {
-      case Comparison::GREATER_EQUAL:
-        begin = std::max(begin, lower);
-        break;
-      case Comparison::GREATER:
-        begin = std::max(begin, upper);
-        break;
-      case Comparison::LESS_EQUAL:
-        end = std::min(end, upper);
-        break;
-      case Comparison::LESS:
-        end = std::min(end, lower);
-        break;
-      case Comparison::EQUAL:
-        begin = std::max(begin, lower);
-        end = std::min(end, upper);
-        break;
-      case Comparison::NA:
-      case Comparison::NOT_EQUAL:
-        break;
+    // Unless the comparison admits values below the bound, skip them (and the
+    // bound itself unless it is admitted); likewise for values above the bound.
+    const bool admits_bound = cmp & Comparison::EQUAL;
+    if (!(cmp & Comparison::LESS)) {
+      ARROW_ASSIGN_OR_RAISE(int64_t index, internal::SearchSortedValueSet(
+                                               *sorted, *bound, /*upper=*/!admits_bound));
+      begin = std::max(begin, index);
+    }
+    if (!(cmp & Comparison::GREATER)) {
+      ARROW_ASSIGN_OR_RAISE(int64_t index, internal::SearchSortedValueSet(
+                                               *sorted, *bound, /*upper=*/admits_bound));
+      end = std::min(end, index);
     }
   }
 
@@ -1647,10 +1647,10 @@ Result<Expression> SimplifyIsInWithInequalities(
   // than rebinding it against a narrowed value set.
   if (begin < end) return expr;
 
-  if (!IsInWithoutMatchesIsFalse(*options, state.value_set_has_null, nullable)) {
-    return expr;
-  }
-  return literal(false);
+  ARROW_ASSIGN_OR_RAISE(auto simplified,
+                        SimplifyIsInWithoutMatches(call->arguments[0], *options,
+                                                   state.value_set_has_null, nullable));
+  return simplified ? *std::move(simplified) : expr;
 }
 
 /// \brief Simplify an expression given a guarantee, if the guarantee
@@ -1697,7 +1697,8 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
   // The inequalities on fields implied by the guarantee. A field which is also
-  // guaranteed valid cannot be null, whatever its inequalities admit.
+  // guaranteed valid cannot be null, whatever its inequalities admit. They refer
+  // into conjunction_members, which must not change from here on.
   std::vector<Inequality> inequalities;
   for (const auto& guarantee : conjunction_members) {
     for (const auto& inequality : Inequality::Extract(guarantee)) {

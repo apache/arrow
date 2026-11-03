@@ -890,6 +890,11 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsWithNulls) {
   expect_is_in(true, compute::SetLookupOptions::MATCH, {0, 1, 2});
   expect_is_in(false, compute::SetLookupOptions::SKIP, {0, 2});
   expect_is_in(true, compute::SetLookupOptions::SKIP, {0, 2});
+  // Nulls which produce null rather than false are pruned too.
+  expect_is_in(false, compute::SetLookupOptions::EMIT_NULL, {0, 2});
+  expect_is_in(true, compute::SetLookupOptions::EMIT_NULL, {0, 2});
+  expect_is_in(false, compute::SetLookupOptions::INCONCLUSIVE, {0, 2});
+  expect_is_in(true, compute::SetLookupOptions::INCONCLUSIVE, {0, 2});
   // The deprecated flag takes precedence over a conflicting enum value.
   expect_is_in(true, compute::SetLookupOptions::SKIP, {0, 1, 2}, false);
   expect_is_in(true, compute::SetLookupOptions::MATCH, {0, 2}, true);

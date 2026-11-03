@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
-#include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -168,7 +167,8 @@ struct InitStateVisitor {
   TypeHolder arg_type;
   std::unique_ptr<KernelState> result;
 
-  // Whether to populate SetLookupStateBase::sorted_value_set (is_in only).
+  // Whether to make the value set available to
+  // SetLookupStateBase::GetSortedValueSet (is_in only).
   bool compute_sorted_value_set;
 
   InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args,
@@ -260,23 +260,10 @@ struct InitStateVisitor {
     if (compute_sorted_value_set &&
         options.value_set.length() > kIsInSimplificationMaxValueSet &&
         IsSearchableValueSetType(*options.value_set.type())) {
-      // Best effort: a missing sorted copy only disables the simplification of
-      // `is_in` against guarantees, see SetLookupStateBase::GetSortedValueSet.
-      auto maybe_values = MaterializedValueSet();
-      if (maybe_values.ok()) {
-        ARROW_UNUSED(checked_cast<SetLookupStateBase*>(result.get())
-                         ->SetSearchableValueSet(*std::move(maybe_values)));
-      }
+      checked_cast<SetLookupStateBase*>(result.get())
+          ->SetSearchableValueSet(options.value_set, ctx->exec_context()->memory_pool());
     }
     return std::move(result);
-  }
-
-  Result<std::shared_ptr<Array>> MaterializedValueSet() {
-    if (options.value_set.is_array()) {
-      return options.value_set.make_array();
-    }
-    return Concatenate(options.value_set.chunked_array()->chunks(),
-                       ctx->exec_context()->memory_pool());
   }
 };
 
