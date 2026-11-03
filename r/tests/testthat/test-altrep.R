@@ -654,3 +654,64 @@ test_that("Materialized ALTREP arrays don't cause arrow to crash when attempting
   expect_equal(infer_type(b_int), int32())
   expect_equal(as_arrow_array(b_int), a_int)
 })
+
+test_that("strings returned by ALTREP Elt() survive garbage collection", {
+  # Base R may hold the CHARSXP returned by STRING_ELT() across an allocation,
+  # so an unmaterialized ALTREP string vector must keep every string it has
+  # handed out reachable (GH-51198). Reproducer adapted from
+  # https://gist.github.com/traversc/a5204821451198d457edc38cceda9d90
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  skip_on_cran()
+
+  # Build the string inside Arrow so that this R session never holds a CHARSXP
+  # with these contents: the only one is the one Elt() creates. It is large so
+  # that R returns its memory to the OS when it is freed, which turns a silent
+  # read of freed memory into a crash.
+  input <- call_function(
+    "binary_repeat",
+    Array$create("a"),
+    Array$create(16L * 1024L * 1024L)
+  )$as_vector()
+  expect_true(is_arrow_altrep(input))
+  expect_false(test_arrow_altrep_is_materialized(input))
+
+  # A latin1 target makes charmatch() allocate (for UTF-8 translation) while
+  # it still holds the pointer to the element of `input`.
+  target <- rawToChar(as.raw(c(rep.int(0x61L, 64L), 0xe9L)))
+  Encoding(target) <- "latin1"
+  target <- rep.int(target, 256L)
+
+  gctorture(TRUE)
+  on.exit(gctorture(FALSE), add = TRUE)
+  observed <- charmatch(input, target, nomatch = NA_integer_)
+  gctorture(FALSE)
+
+  expect_identical(observed, NA_integer_)
+})
+
+test_that("ALTREP string vectors reuse cached strings when materializing", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  values <- c("a", NA, "", "d", NA, "f")
+
+  for (x in list(Array$create(values), ChunkedArray$create(values[1:2], values[3:6]))) {
+    alt <- x$as_vector()
+    expect_true(is_arrow_altrep(alt))
+
+    # Element access goes through Elt() and fills the cache
+    expect_identical(alt[c(1, 2, 3)], values[c(1, 2, 3)])
+    expect_false(test_arrow_altrep_is_materialized(alt))
+
+    # Materializing must reuse the cached strings and convert only the rest
+    expect_true(test_arrow_altrep_force_materialize(alt))
+    expect_true(test_arrow_altrep_is_materialized(alt))
+    expect_identical(alt, values)
+    expect_identical(test_arrow_altrep_copy_by_element(alt), values)
+  }
+
+  # Large string type shares the implementation
+  alt <- Array$create(values, type = large_utf8())$as_vector()
+  expect_true(is_arrow_altrep(alt))
+  expect_identical(alt[c(6, 1)], values[c(6, 1)])
+  expect_true(test_arrow_altrep_force_materialize(alt))
+  expect_identical(alt, values)
+})
