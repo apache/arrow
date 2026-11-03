@@ -15,44 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const COMMENT_MARKER = "<!-- arrow-ai-disclosure-check -->";
+const fs = require("fs");
 
-const AUTHORSHIP_HEADING = "**PR code and description written by:**";
-const REVIEW_HEADING = "**Reviewed before submission by:**";
-
-const INCOMPLETE_COMMENT = `${COMMENT_MARKER}
-
-The AI disclosure in this pull request is missing or incomplete.
-
-Please complete both disclosure sections in the pull request description by selecting the applicable checkboxes. Once the disclosure is complete, you can mark the pull request as ready for review.
-
-If the disclosure is not present, add the following to the pull request description:
-
-**PR code and description written by:**
-
-- [ ] Human
-- [ ] AI
-
-**Reviewed before submission by:**
-
-- [ ] Human
-- [ ] AI
-- [ ] Not reviewed
-
-Once you have completed the disclosure, please manually mark this pull request as **Ready for review**.
-This pull request has been converted to Draft until the disclosure is completed.`;
-
-const AI_ONLY_COMMENT = `${COMMENT_MARKER}
-
-This pull request has been automatically closed because its authorship indicates AI involvement without human review.
-
-Contributions involving AI assistance are welcome. However, we require human involvement in the contribution and its review.
-
-If this classification is incorrect, please reopen the pull request and correct the disclosure.`;
-
-const RESOLVED_COMMENT = `${COMMENT_MARKER}
-
-The AI disclosure is now complete. No further action is required.`;
+const AUTHORSHIP_HEADING = "PR code and description written by:";
+const REVIEW_HEADING = "Reviewed before submission by:";
 
 function parseSection(lines, start, end, options) {
   const found = new Set();
@@ -62,56 +28,62 @@ function parseSection(lines, start, end, options) {
     const match = line.match(/^\s*-\s+\[([ xX])\]\s*(.*?)\s*$/);
 
     if (!match) {
+      if (/^\s*-\s+\[/.test(line)) return null;
       continue;
     }
 
     const option = match[2];
-    const checked = match[1].toLowerCase() === "x";
 
-    if (!options.includes(option) || found.has(option)) {
-      return null;
-    }
+    if (!options.includes(option) || found.has(option)) return null;
 
     found.add(option);
 
-    if (checked) {
+    if (match[1].toLowerCase() === "x") {
       selected.push(option);
     }
   }
 
-  if (found.size !== options.length || selected.length === 0) {
+  if (
+    found.size !== options.length ||
+    selected.length === 0 ||
+    (selected.includes("Not reviewed") && selected.length > 1)
+  ) {
     return null;
   }
 
   return selected;
 }
 
+function normalizeHeading(line) {
+  return line.trim().replace(/^\*\*(.*?)\*\*$/, "$1");
+}
+
+function isHeading(line) {
+  const trimmed = line.trim();
+  return /^#{1,6}\s/.test(trimmed) || /^\*\*.+\*\*$/.test(trimmed);
+}
+
 function parseDisclosure(body) {
   const lines = body.split(/\r?\n/);
-  const normalizedLines = lines.map((line) => line.trim());
-
-  const authorshipStart = normalizedLines.indexOf(AUTHORSHIP_HEADING);
-  const reviewStart = normalizedLines.indexOf(REVIEW_HEADING);
+  const headings = lines.map(normalizeHeading);
+  const authorshipStart = headings.indexOf(AUTHORSHIP_HEADING);
+  const reviewStart = headings.indexOf(REVIEW_HEADING);
 
   if (
     authorshipStart === -1 ||
     reviewStart <= authorshipStart ||
-    normalizedLines.lastIndexOf(AUTHORSHIP_HEADING) !== authorshipStart ||
-    normalizedLines.lastIndexOf(REVIEW_HEADING) !== reviewStart
+    headings.lastIndexOf(AUTHORSHIP_HEADING) !== authorshipStart ||
+    headings.lastIndexOf(REVIEW_HEADING) !== reviewStart
   ) {
     return {status: "incomplete"};
   }
 
-  const reviewEnd = normalizedLines.findIndex(
-    (line, index) =>
-      index > reviewStart && /^\*\*[^*].+?\*\*$/.test(line)
+  const reviewEnd = lines.findIndex(
+    (line, index) => index > reviewStart && isHeading(line)
   );
 
   const authorship = parseSection(
-    lines,
-    authorshipStart,
-    reviewStart,
-    ["Human", "AI"]
+    lines, authorshipStart, reviewStart, ["Human", "AI"]
   );
 
   const review = parseSection(
@@ -121,86 +93,70 @@ function parseDisclosure(body) {
     ["Human", "AI", "Not reviewed"]
   );
 
-  if (
-    !authorship ||
-    !review ||
-    (review.includes("Not reviewed") && review.length > 1)
-  ) {
+  if (!authorship || !review) {
     return {status: "incomplete"};
   }
 
-  if (
-    authorship.length === 1 &&
-    authorship[0] === "AI" &&
-    review.length === 1 &&
-    ["AI", "Not reviewed"].includes(review[0])
-  ) {
-    return {status: "ai-only", authorship, review};
+  if (review.includes("Human")) {
+    return {status: "complete"};
   }
 
-  return {status: "complete", authorship, review};
+  if (authorship.length === 1 && authorship[0] === "AI") {
+    return {status: "ai-unreviewed"};
+  }
+
+  return {status: "needs-human-review"};
 }
 
-async function findDisclosureComment(github, context, pullRequestNumber) {
-  const comments = await github.paginate(github.rest.issues.listComments, {
+/**
+ * Adds a comment to the pull request.
+ */
+async function createDisclosureComment(
+  github, context, pullRequestNumber, body
+) {
+  await github.rest.issues.createComment({
     owner: context.repo.owner,
     repo: context.repo.repo,
     issue_number: pullRequestNumber,
-    per_page: 100
+    body
   });
-  return comments.find((comment) =>
-    comment.user.type === "Bot" && comment.body.includes(COMMENT_MARKER)
+}
+
+/**
+ * Converts the pull request to Draft unless it is already a draft.
+ *
+ * @param {Object} github
+ * @param {Object} context
+ */
+async function convertToDraft(github, context) {
+  if (context.payload.pull_request.draft) return;
+
+  await github.graphql(
+    `
+      mutation ($pullRequestId: ID!) {
+        convertPullRequestToDraft(
+          input: {pullRequestId: $pullRequestId}
+        ) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `,
+    {pullRequestId: context.payload.pull_request.node_id}
   );
 }
 
-async function updateDisclosureComment(
-  github,
-  context,
-  pullRequestNumber,
-  body
-) {
-  const existing = await findDisclosureComment(
-    github,
-    context,
-    pullRequestNumber
-  );
-
-  if (existing) {
-    if (existing.body !== body) {
-      await github.rest.issues.updateComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        comment_id: existing.id,
-        body
-      });
-    }
-  } else {
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: pullRequestNumber,
-      body
-    });
-  }
-}
-
-async function checkDisclosure({github, context, core}) {
+module.exports = async ({github, context, core}) => {
   const pullRequest = context.payload.pull_request;
   const pullRequestNumber = pullRequest.number;
-  const isReadyForReview = context.payload.action === "ready_for_review";
 
-  if (pullRequest.state !== "open") {
-    core.info(`Skipping #${pullRequestNumber}: pull request is not open.`);
-    return;
-  }
-
-  if (pullRequest.draft && !isReadyForReview) {
-    core.info(`Skipping #${pullRequestNumber}: pull request is a draft.`);
-    return;
-  }
-
-  if (pullRequest.user.type === "Bot") {
-    core.info(`Skipping #${pullRequestNumber}: author is a bot.`);
+  if (
+    pullRequest.state !== "open" ||
+    (pullRequest.draft && context.payload.action !== "ready_for_review") ||
+    pullRequest.user?.type === "Bot"
+  ) {
+    core.info(`Skipping #${pullRequestNumber}: not an eligible pull request.`);
     return;
   }
 
@@ -208,36 +164,17 @@ async function checkDisclosure({github, context, core}) {
 
   core.info(`Disclosure status for #${pullRequestNumber}: ${result.status}.`);
 
-  if (result.status === "incomplete") {
-    await updateDisclosureComment(
-      github,
-      context,
-      pullRequestNumber,
-      INCOMPLETE_COMMENT
-    );
-
-    await github.graphql(
-      `mutation($pullRequestId: ID!) {
-        convertPullRequestToDraft(
-          input: {pullRequestId: $pullRequestId}
-        ) {
-          pullRequest {
-            isDraft
-          }
-        }
-      }`,
-      {pullRequestId: pullRequest.node_id}
-    );
-
+  if (result.status === "complete") {
     return;
   }
 
-  if (result.status === "ai-only") {
-    await updateDisclosureComment(
+  if (result.status === "ai-unreviewed") {
+    await createDisclosureComment(
       github,
       context,
       pullRequestNumber,
-      AI_ONLY_COMMENT
+      `This pull request has been automatically closed because its authorship is AI-only and it has no human review.
+        Contributions involving AI assistance are welcome. However, we require human involvement in the contribution and its review.`
     );
 
     await github.rest.pulls.update({
@@ -247,25 +184,20 @@ async function checkDisclosure({github, context, core}) {
       state: "closed"
     });
 
-    core.info(`Closed #${pullRequestNumber}: AI-only authorship and review.`);
+    core.info(`Closed #${pullRequestNumber}: AI-only authorship without human review.`);
     return;
   }
 
-  const existing = await findDisclosureComment(
+  await createDisclosureComment(
     github,
     context,
-    pullRequestNumber
+    pullRequestNumber,
+    result.status === "incomplete"
+      ? fs.readFileSync(`${__dirname}/incomplete.md`, "utf8")
+      : `This pull request has been converted to Draft because it has not been reviewed by a human. Please review your contribution 
+          yourself before marking this pull request as ready for review. 
+          \nOnce you have completed your review, update the review disclosure section and mark this pull request as Ready for review.`
   );
 
-  if (existing && existing.body !== RESOLVED_COMMENT) {
-    await github.rest.issues.updateComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      comment_id: existing.id,
-      body: RESOLVED_COMMENT
-    });
-  }
-}
-
-module.exports = checkDisclosure;
-module.exports.parseDisclosure = parseDisclosure;
+  await convertToDraft(github, context);
+};
