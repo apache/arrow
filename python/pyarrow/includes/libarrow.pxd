@@ -2900,6 +2900,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef c_string ToString(DatumType kind)
 
+    cdef cppclass CFunctionExecutor "arrow::compute::FunctionExecutor":
+        CStatus Init(const CFunctionOptions* options,
+                     CExecContext* exec_ctx)
+        CResult[CDatum] Execute(const vector[CDatum]& args,
+                                 int64_t length)
+
+    CResult[shared_ptr[CFunctionExecutor]] GetFunctionExecutor(
+        const c_string& func_name, const vector[CDatum]& args,
+        const CFunctionOptions* options, CFunctionRegistry* func_registry)
+
 
 cdef extern from * namespace "arrow::compute":
     # inlined from compute/function_internal.h to avoid exposing
