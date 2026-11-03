@@ -799,7 +799,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   return true;
 }
 
-#if defined(_WIN32) || defined(ARROW_WITH_MUSL)
+#if defined(_WIN32) || defined(__EMSCRIPTEN__) || defined(ARROW_WITH_MUSL)
 static constexpr bool kStrptimeSupportsZone = false;
 #else
 static constexpr bool kStrptimeSupportsZone = true;
@@ -818,7 +818,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   // Default the day to the first for formats without a day directive, so that
   // an explicitly parsed zero day is not mistaken for an omitted one
   result.tm_mday = 1;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
+  // Emscripten's strptime() normalizes out-of-range fields through a JavaScript
+  // Date (e.g. February 30 becomes March 1), which defeats the checks below
   char* ret = arrow_strptime(clean_copy.c_str(), format, &result);
 #else
   char* ret = strptime(clean_copy.c_str(), format, &result);
