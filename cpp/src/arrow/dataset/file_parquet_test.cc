@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/scanner.h"
@@ -823,9 +824,7 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
   expect_row_groups(is_in(make_set(beyond)), {});
 
   // Values cast from a narrower type are handled too.
-  std::shared_ptr<Array> int32_set;
-  ArrayFromVector<Int32Type, int32_t>(std::vector<int32_t>(values.begin(), values.end()),
-                                      &int32_set);
+  ASSERT_OK_AND_ASSIGN(auto int32_set, compute::Cast(*make_set(values), int32()));
   expect_row_groups(is_in(int32_set), matching);
 
   // Combined with other predicates.
