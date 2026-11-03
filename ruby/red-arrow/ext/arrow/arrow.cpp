@@ -49,7 +49,7 @@ namespace red_arrow {
   {
     auto reader = GARROW_RECORD_BATCH_READER(object);
     auto sources = garrow_record_batch_reader_get_sources(reader);
-    for (auto source = sources; sources; sources = g_list_next(sources)) {
+    for (auto source = sources; source; source = g_list_next(source)) {
       rbgobj_gc_mark_instance(source->data);
     }
   }

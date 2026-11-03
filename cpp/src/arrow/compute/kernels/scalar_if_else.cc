@@ -1303,7 +1303,7 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
                                const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec =
-        internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec, ArrayKernelExec,
+        internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec,
                                                 /*AllocateMem=*/std::false_type>(*type);
     // cond array needs to be boolean always
     std::shared_ptr<KernelSignature> sig;

@@ -913,7 +913,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        FunctionDoc doc) {
   auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -927,7 +927,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
                                                               FunctionDoc doc) {
   auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
+    auto exec = ArithmeticExec<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -939,7 +939,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
                                                             FunctionDoc doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
+    auto exec = ArithmeticExec<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -975,7 +975,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string n
                                                                    FunctionDoc doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
+    auto exec = ArithmeticExec<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -990,7 +990,7 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     if (!arrow::is_unsigned_integer(ty->id())) {
-      auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
+      auto exec = ArithmeticExec<ScalarUnaryNotNull, Op>(ty);
       DCHECK_OK(func->AddKernel({ty}, ty, exec));
     }
   }
@@ -1508,7 +1508,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // abs(duration)
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, AbsoluteValue>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnary, AbsoluteValue>(duration(unit));
     DCHECK_OK(
         absolute_value->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }
@@ -1521,8 +1521,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
   // abs_checked(duraton)
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ArithmeticExecFromOp<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
     DCHECK_OK(absolute_value_checked->AddKernel({duration(unit)},
                                                 OutputType(duration(unit)), exec));
   }
@@ -1543,7 +1542,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Add>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Add>(Type::DURATION);
     DCHECK_OK(add->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
@@ -1570,7 +1569,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
     DCHECK_OK(
         add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
@@ -1587,7 +1586,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type},
                                   OutputType::Resolver(ResolveTemporalOutput),
                                   std::move(exec)));
@@ -1604,7 +1603,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
@@ -1646,8 +1645,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract_checked(timestamp, timestamp) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
     DCHECK_OK(subtract_checked->AddKernel({in_type, in_type},
                                           OutputType::Resolver(ResolveTemporalOutput),
                                           std::move(exec)));
@@ -1664,8 +1662,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract_checked(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
     DCHECK_OK(
         subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
@@ -1710,7 +1707,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
     DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
     DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
@@ -1724,8 +1721,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
     DCHECK_OK(
         multiply_checked->AddKernel({duration(unit), int64()}, duration(unit), exec));
     DCHECK_OK(
@@ -1805,7 +1801,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add neg(duration) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnary, Negate>(duration(unit));
     DCHECK_OK(negate->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }
 
@@ -1819,7 +1815,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add neg_checked(duration) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnaryNotNull, Negate>(duration(unit));
     DCHECK_OK(
         negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }

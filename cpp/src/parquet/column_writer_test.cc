@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -27,6 +29,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/config.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -112,7 +115,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
-      int64_t max_rows_per_page = kDefaultMaxRowsPerPage) {
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
+      double min_compression_savings = kDefaultMinCompressionSavings) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -130,6 +134,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
     wp_builder.max_rows_per_page(max_rows_per_page);
+    wp_builder.min_compression_savings(min_compression_savings);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -2118,6 +2123,66 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     verify_only_one_uncompressed_page(/*total_num_values=*/1);
   }
 }
+
+// Tests the default, fixed thresholds, and both sides of the actual savings.
+TEST_F(TestValuesWriterInt32Type, MinCompressionSavingsDataPageV2) {
+  // Used zeros because it compresses well
+  this->SetUpSchema(Repetition::OPTIONAL);
+  this->descr_ = this->schema_.Column(0);
+  this->GenerateData(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), 0);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
+
+  ColumnProperties column_properties;
+  column_properties.set_compression(Compression::ZSTD);
+
+  // PLAIN-encoded int32 zeros have the same bytes as the input values.
+  auto codec = GetCodec(Compression::ZSTD);
+  const int64_t values_size = SMALL_SIZE * sizeof(int32_t);
+  const auto* values_bytes = reinterpret_cast<const uint8_t*>(this->values_ptr_);
+  std::vector<uint8_t> compressed(codec->MaxCompressedLen(values_size, values_bytes));
+  ASSERT_OK_AND_ASSIGN(
+      auto compressed_size,
+      codec->Compress(values_size, values_bytes, compressed.size(), compressed.data()));
+  const double savings = 1.0 - static_cast<double>(compressed_size) / values_size;
+  ASSERT_GT(savings, 0.01);
+  ASSERT_LT(savings, 0.99);
+
+  const std::vector<std::pair<double, bool>> cases = {
+      {kDefaultMinCompressionSavings, true},
+      {0.0, true},
+      {0.1, true},
+      {1.0, false},
+      {savings - 0.01, true},
+      {savings + 0.01, false},
+  };
+
+  for (const auto& [minimum, expected_compressed] : cases) {
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2, false, kDefaultDataPageSize,
+                          kDefaultMaxRowsPerPage, minimum);
+
+    writer->WriteBatch(SMALL_SIZE, this->def_levels_.data(), nullptr, this->values_ptr_);
+    writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+
+    auto page_reader =
+        PageReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
+                         Compression::ZSTD, default_reader_properties(), *this->descr_);
+
+    auto page = page_reader->NextPage();
+
+    ASSERT_NE(page, nullptr);
+    ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
+
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+
+    ASSERT_EQ(expected_compressed, data_page->is_compressed());
+  }
+}
+
 #endif
 
 // Test writing and reading geometry columns

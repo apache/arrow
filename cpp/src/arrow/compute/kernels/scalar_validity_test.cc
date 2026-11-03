@@ -202,6 +202,13 @@ TEST(TestValidityKernels, IsValidIsNullNullType) {
                    ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
 }
 
+TEST(TestValidityKernels, IsValidIsNullDictionaryOfNullType) {
+  // The dictionary has no validity bitmap
+  auto arr = DictArrayFromJSON(dictionary(int8(), null()), "[0, null, 0]", "[null]");
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[true, true, true]"));
+  CheckScalarUnary("is_valid", arr, ArrayFromJSON(boolean(), "[false, false, false]"));
+}
+
 TEST(TestValidityKernels, IsNullSetsZeroNullCount) {
   auto arr = ArrayFromJSON(int32(), "[1, 2, 3, 4, null]");
   ASSERT_OK_AND_ASSIGN(Datum out, IsNull(arr));
