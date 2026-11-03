@@ -2875,6 +2875,8 @@ cdef class RecordBatch(_Tabular):
 
         if isinstance(field_, Field):
             c_field = field_
+            if c_arr.type == null() and c_field.type != null():
+                c_arr = c_arr.cast(c_field.type)
         else:
             c_field = field(field_, c_arr.type)
 
@@ -2973,6 +2975,8 @@ cdef class RecordBatch(_Tabular):
 
         if isinstance(field_, Field):
             c_field = field_
+            if c_arr.type == null() and c_field.type != null():
+                c_arr = c_arr.cast(c_field.type)
         else:
             c_field = field(field_, c_arr.type)
 
@@ -5412,6 +5416,8 @@ cdef class Table(_Tabular):
 
         if isinstance(field_, Field):
             c_field = field_
+            if c_arr.type == null() and c_field.type != null():
+                c_arr = c_arr.cast(c_field.type)
         else:
             c_field = field(field_, c_arr.type)
 
@@ -5501,6 +5507,8 @@ cdef class Table(_Tabular):
 
         if isinstance(field_, Field):
             c_field = field_
+            if c_arr.type == null() and c_field.type != null():
+                c_arr = c_arr.cast(c_field.type)
         else:
             c_field = field(field_, c_arr.type)
 
