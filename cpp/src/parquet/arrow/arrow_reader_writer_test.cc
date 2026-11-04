@@ -3144,6 +3144,46 @@ TEST(TestArrowReadWrite, ManySmallLists) {
                        default_arrow_writer_properties());
 }
 
+static void AssertNoEmptyDataPages(const std::shared_ptr<Buffer>& buffer) {
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<BufferReader>(buffer), default_reader_properties());
+  for (int rg = 0; rg < file_reader->metadata()->num_row_groups(); ++rg) {
+    auto row_group = file_reader->RowGroup(rg);
+    for (int col = 0; col < row_group->metadata()->num_columns(); ++col) {
+      auto page_reader = row_group->GetColumnPageReader(col);
+      while (auto page = page_reader->NextPage()) {
+        if (page->type() == PageType::DATA_PAGE || page->type() == PageType::DATA_PAGE_V2) {
+          auto data_page = std::static_pointer_cast<DataPage>(page);
+          EXPECT_GT(data_page->num_values(), 0);
+        }
+      }
+    }
+  }
+}
+
+TEST(TestArrowReadWrite, WriterDoesNotEmitEmptyDataPages) {
+  // GH-54533: Ensure writer never emits data pages with zero values when writing
+  // repeated types with small data page sizes.
+  auto list_type = ::arrow::list(::arrow::boolean());
+  auto array = ArrayFromJSON(list_type, "[[true]]");
+  auto field = ::arrow::field("c0", list_type);
+  auto schema = ::arrow::schema({field});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props = WriterProperties::Builder()
+                          .data_pagesize(64)
+                          ->data_page_version(ParquetDataPageVersion::V2)
+                          ->build();
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                table->num_rows(), writer_props,
+                                default_arrow_writer_properties()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  AssertNoEmptyDataPages(buffer);
+}
+
 TEST(TestArrowReadWrite, SingleRowRepeatedSmallPageSize) {
   // GH-54533: When writing a repeated column with a single row / small page size,
   // the writer must not emit an empty leading data page, and the reader must
