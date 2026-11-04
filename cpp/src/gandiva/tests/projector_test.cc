@@ -1276,10 +1276,10 @@ TEST_F(TestProjector, TestLevenshtein) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_lev, outputs.at(0));
 }
 
-// Per-row arena scratch space is released after each row only if the expression contains
-// a function that returns a string. levenshtein returns an int32 but takes
-// (shorter_len + 1) * 2 ints of arena scratch per row, so on its own it holds that
-// memory until the end of the batch.
+// Before this fix, per-row arena scratch space was released after each row only if the
+// expression contained a function that returned a string. levenshtein returns an int32
+// but takes (shorter_len + 1) * 2 ints of arena scratch per row, so on its own it holds
+// that memory until the end of the batch.
 TEST_F(TestProjector, TestLevenshteinArenaGrowth) {
   constexpr int kNumRecords = 1 << 18;
   constexpr int kStringLen = 16;

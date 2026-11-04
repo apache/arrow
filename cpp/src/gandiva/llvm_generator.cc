@@ -25,7 +25,6 @@
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
-#include "gandiva/execution_context.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
 #include "gandiva/llvm_types.h"
@@ -395,6 +394,13 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
 
   // add jump to "loop block" at the end of the "setup block".
   builder->SetInsertPoint(loop_entry);
+  llvm::Value* arena_used_ptr = nullptr;
+  if (visitor.has_arena_allocs()) {
+    // Get the arena state pointer once per generated function instead of baking the
+    // ExecutionContext layout into the generated code.
+    arena_used_ptr = AddFunctionCall("gdv_fn_context_arena_used_ptr",
+                                     types()->i8_ptr_type(), {arg_context_ptr});
+  }
   builder->CreateBr(loop_body);
 
   // save the value in the output vector.
@@ -434,11 +440,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
         llvm::BasicBlock::Create(*context(), "arena_reset", fn, loop_exit);
     llvm::BasicBlock* loop_latch =
         llvm::BasicBlock::Create(*context(), "loop_latch", fn, loop_exit);
-    llvm::Value* used_addr = builder->CreateAdd(
-        arg_context_ptr, types()->i64_constant(ExecutionContext::arena_used_offset()));
-    llvm::Value* arena_used = builder->CreateLoad(
-        types()->i8_type(), builder->CreateIntToPtr(used_addr, types()->i8_ptr_type()),
-        "arena_used");
+    llvm::Value* arena_used =
+        builder->CreateLoad(types()->i8_type(), arena_used_ptr, "arena_used");
     builder->CreateCondBr(
         builder->CreateICmpNE(arena_used, types()->i8_constant(0), "arena_used?"),
         arena_reset, loop_latch);
