@@ -60,7 +60,7 @@ and test the result on their own platform in order to cast a +1 vote.
    # here are a couple of examples, but see the source code for the available options
    TEST_DEFAULT=0 TEST_CPP=1 verify-release-candidate.sh $VERSION $RC_NUM  # only C++ tests
    TEST_DEFAULT=0 TEST_CPP=1 TEST_PYTHON=1 verify-release-candidate.sh $VERSION $RC_NUM  # C++ and Python tests
-   TEST_DEFAULT=0 TEST_INTEGRATION_CPP=1 TEST_INTEGRATION_JAVA=1 verify-release-candidate.sh $VERSION $RC_NUM  # C++ and Java integration tests
+   TEST_DEFAULT=0 TEST_INTEGRATION_CPP=1 verify-release-candidate.sh $VERSION $RC_NUM  # C++ integration tests
 
 Binary verification
 ^^^^^^^^^^^^^^^^^^^
@@ -78,7 +78,6 @@ test them in order to cast a positive vote.
    TEST_DEFAULT=0 TEST_WHEELS=1 verify-release-candidate.sh $VERSION $RC_NUM  # only Wheels
    TEST_DEFAULT=0 TEST_APT=1 verify-release-candidate.sh $VERSION $RC_NUM  # only APT packages
    TEST_DEFAULT=0 TEST_YUM=1 verify-release-candidate.sh $VERSION $RC_NUM  # only YUM packages
-   TEST_DEFAULT=0 TEST_JARS=1 verify-release-candidate.sh $VERSION $RC_NUM  # only JARS
 
 Windows
 -------
@@ -115,15 +114,12 @@ macOS ARM
 
    # From the arrow clone
    brew install gpg
+   # The rest is not needed with USE_CONDA=1
    brew bundle --file=cpp/Brewfile
    brew bundle --file=c_glib/Brewfile
-   brew uninstall node
-   # You might need to add node, ruby java and maven to the PATH, follow
+   # You might need to add ruby to the PATH, follow
    # instructions from brew after installing.
-   brew install node@20
    brew install ruby
-   brew install openjdk
-   brew install maven
 
 Windows 11
 ----------
