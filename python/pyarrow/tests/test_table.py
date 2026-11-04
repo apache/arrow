@@ -895,8 +895,6 @@ def test_recordbatch_from_struct_array():
 
 
 def test_recordbatch_from_struct_array_with_list_offsets():
-    import pyarrow as pa
-
     struct_type = pa.struct([("x", pa.int64()), ("y", pa.int64())])
 
     list0 = [{"x": 1, "y": 2}, {"x": 3, "y": 4}]
