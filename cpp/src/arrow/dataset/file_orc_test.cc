@@ -81,18 +81,23 @@ TEST_P(TestOrcFileFormatScan, ScanDottedFieldNameCollision) {
       schema({field("a.b", int32()), field("a", struct_({field("b", int32())})),
               field("other", int32())}),
       R"([[1, {"b": 10}, 101], [2, {"b": 20}, 102]])");
-  ASSERT_OK_AND_ASSIGN(auto expected, batch->SelectColumns({0, 2}));
+  this->SetSchema(
+      {batch->schema()->field(1), batch->schema()->field(0), batch->schema()->field(2)});
+  using Projection = std::pair<FieldRef, int>;
   for (const auto& indices : {std::vector<int>{0, 1, 2}, {1, 0, 2}}) {
     ASSERT_OK_AND_ASSIGN(auto reordered, batch->SelectColumns(indices));
-    this->SetSchema(reordered->schema()->fields());
-    this->Project({"a.b"});
-    this->SetFilter(greater(field_ref("other"), literal(100)));
-    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({reordered}));
-    auto source = this->GetFileSource(reader.get());
-    ASSERT_OK_AND_ASSIGN(auto batches,
-                         PhysicalBatches(this->MakeFragment(*source)).ToVector());
-    ASSERT_EQ(batches.size(), 1);
-    AssertBatchesEqual(*expected, *batches[0]);
+    for (const auto& [ref, field_index] :
+         {Projection{FieldRef("a.b"), 0}, {FieldRef(0), 1}, {FieldRef(0, 0), 1}}) {
+      this->Project({field_ref(ref)}, {"selected"});
+      this->SetFilter(greater(field_ref("other"), literal(100)));
+      ASSERT_OK_AND_ASSIGN(auto expected, batch->SelectColumns({field_index, 2}));
+      ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({reordered}));
+      auto source = this->GetFileSource(reader.get());
+      ASSERT_OK_AND_ASSIGN(auto batches,
+                           PhysicalBatches(this->MakeFragment(*source)).ToVector());
+      ASSERT_EQ(batches.size(), 1);
+      AssertBatchesEqual(*expected, *batches[0]);
+    }
   }
 }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {

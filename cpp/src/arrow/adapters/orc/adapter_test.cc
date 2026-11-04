@@ -466,42 +466,47 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
 }
 
 TEST(TestAdapterRead, RecordBatchReaderByIndices) {
-  auto table = TableFromJSON(
-      schema({field("a", struct_({field("b", int64())})), field("a.b", int64()),
+  auto input = TableFromJSON(
+      schema({field("a", struct_({field("b", int64())})),
+              field("a.b", int64(), true, key_value_metadata({"role"}, {"literal"})),
               field("other", struct_({field("v", int64())}))}),
       {R"([[{"b": 10}, 1, {"v": 101}], [null, 2, {"v": 102}],
           [{"b": 30}, null, null]])"});
-  ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
-  ASSERT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
-  ASSERT_OK(writer->Write(*table));
-  ASSERT_OK(writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-  ASSERT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(
-                                        std::make_shared<io::BufferReader>(buffer),
-                                        default_memory_pool()));
-  auto check = [&](Result<std::shared_ptr<RecordBatchReader>> maybe_stream,
-                   const std::vector<int>& columns) {
-    ASSERT_OK_AND_ASSIGN(auto stream, std::move(maybe_stream));
-    ASSERT_OK_AND_ASSIGN(auto batches, stream->ToRecordBatches());
-    for (const auto& batch : batches) {
-      ASSERT_LE(batch->num_rows(), 2);
+  for (const auto& table : {input, input->Slice(0, 0)}) {
+    ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+    ASSERT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
+    ASSERT_OK(writer->Write(*table));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ASSERT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(
+                                          std::make_shared<io::BufferReader>(buffer),
+                                          default_memory_pool()));
+    auto check = [&](Result<std::shared_ptr<RecordBatchReader>> maybe_stream,
+                     const std::vector<int>& columns) {
+      ASSERT_OK_AND_ASSIGN(auto stream, std::move(maybe_stream));
+      ASSERT_OK_AND_ASSIGN(auto expected, table->SelectColumns(columns));
+      AssertSchemaEqual(expected->schema(), stream->schema(), /*check_metadata=*/true);
+      ASSERT_OK_AND_ASSIGN(auto batches, stream->ToRecordBatches());
+      for (const auto& batch : batches) {
+        ASSERT_LE(batch->num_rows(), 2);
+      }
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           Table::FromRecordBatches(stream->schema(), batches));
+      AssertTablesEqual(*expected, *actual, false, false);
+    };
+    using Selection = std::pair<std::vector<int>, std::vector<int>>;
+    for (const auto& [indices, columns] :
+         {Selection{{1}, {1}}, {{0}, {0}}, {{2, 1, 1}, {1, 2}}, {{}, {0, 1, 2}}}) {
+      check(reader->GetRecordBatchReaderByIndices(2, indices), columns);
     }
-    ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatches(batches));
-    ASSERT_OK_AND_ASSIGN(auto expected, table->SelectColumns(columns));
-    AssertTablesEqual(*expected, *actual, false, false);
-  };
-  using Selection = std::pair<std::vector<int>, std::vector<int>>;
-  for (const auto& [indices, columns] :
-       {Selection{{1}, {1}}, {{0}, {0}}, {{2, 1, 1}, {1, 2}}, {{}, {0, 1, 2}}}) {
-    check(reader->GetRecordBatchReaderByIndices(2, indices), columns);
+    check(reader->GetRecordBatchReader(2, {"a"}), {0});
+    check(reader->GetRecordBatchReader(2, {"other.v"}), {2});
+    check(reader->GetRecordBatchReader(2, {}), {0, 1, 2});
+    ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(2, {-1}));
+    ASSERT_RAISES(IOError, reader->GetRecordBatchReaderByIndices(2, {3}));
+    ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(0, {1}));
+    ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(-1, {1}));
   }
-  check(reader->GetRecordBatchReader(2, {"a"}), {0});
-  check(reader->GetRecordBatchReader(2, {"other.v"}), {2});
-  check(reader->GetRecordBatchReader(2, {}), {0, 1, 2});
-  ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(2, {-1}));
-  ASSERT_RAISES(IOError, reader->GetRecordBatchReaderByIndices(2, {3}));
-  ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(0, {1}));
-  ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(-1, {1}));
 }
 
 TEST(TestAdapterRead, ReadCharAndVarcharType) {

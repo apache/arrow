@@ -3468,6 +3468,40 @@ def test_orc_dotted_field_identity(
 
 
 @pytest.mark.orc
+@pytest.mark.parametrize('nested', [False, True])
+@pytest.mark.parametrize('use_filter', [False, True])
+def test_orc_positional_field_identity(tempdir, dataset_reader, nested, use_filter):
+    from pyarrow import orc
+    table = pa.table({'a': [{'b': 10}, None, {'b': None}], 'a.b': [1, 2, 3]})
+    path = str(tempdir / 'positional.orc')
+    orc.write_table(table.select(['a.b', 'a']), path)
+    dataset = ds.dataset(path, format='orc', schema=table.schema)
+    reference = ds.field((0, 0)) if nested else ds.field(0)
+    if use_filter:
+        actual = dataset_reader.to_table(
+            dataset, columns=['a.b'], filter=reference.is_valid())
+        expected = pa.table({'a.b': [1] if nested else [1, 3]})
+    else:
+        actual = dataset_reader.to_table(dataset, columns={'selected': reference})
+        values = table['a'].flatten()[0] if nested else table['a']
+        expected = pa.table({'selected': values})
+    assert actual.equals(expected)
+
+
+@pytest.mark.orc
+def test_orc_duplicate_field_positional_projection(dataset_reader):
+    from pyarrow import orc
+    table = pa.Table.from_arrays([[1, 2], [3, 4]], names=['f', 'f'])
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    fragment = ds.OrcFileFormat().make_fragment(pa.BufferReader(sink.getvalue()))
+    for index in range(2):
+        actual = dataset_reader.to_table(
+            fragment, schema=table.schema, columns={'selected': ds.field(index)})
+        assert actual.equals(table.select([index]).rename_columns(['selected']))
+
+
+@pytest.mark.orc
 def test_orc_dotted_field_schema_evolution(tempdir, dataset_reader):
     from pyarrow import orc
     table = pa.table({'a.b': [1, 2], 'a': [{'b': 10}, {'b': 20}]})
