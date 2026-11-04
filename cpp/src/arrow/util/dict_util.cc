@@ -46,7 +46,8 @@ int64_t LogicalNullCount(const ArraySpan& span) {
           // in the dictionary array to see if they are null
           for (int64_t i = position; i < position + length; i++) {
             CType index = indices_data[i];
-            if (!bit_util::GetBit(dictionary_valid_bitmap,
+            if (!dictionary_valid_bitmap ||
+                !bit_util::GetBit(dictionary_valid_bitmap,
                                   index + dictionary_span.offset)) {
               null_count++;
             }
@@ -77,7 +78,8 @@ void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_
           // in the dictionary array to see if they are null
           for (int64_t i = position; i < position + length; i++) {
             CType index = indices_data[i];
-            bool is_null = !bit_util::GetBit(dictionary_valid_bitmap,
+            bool is_null = !dictionary_valid_bitmap ||
+                           !bit_util::GetBit(dictionary_valid_bitmap,
                                              index + dictionary_span.offset);
             bit_util::SetBitTo(out_bitmap, out_offset + i, is_null == set_on_null);
           }

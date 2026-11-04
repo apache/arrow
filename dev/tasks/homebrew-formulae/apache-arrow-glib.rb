@@ -45,6 +45,8 @@ class ApacheArrowGlib < Formula
   depends_on "apache-arrow"
   depends_on "glib"
 
+  deny_network_access!
+
   def install
     system "meson", "setup", "build", "c_glib", *std_meson_args
     system "meson", "compile", "-C", "build", "--verbose"
