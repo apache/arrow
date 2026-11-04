@@ -393,7 +393,7 @@ GArrowTableBatchReader *
 garrow_table_batch_reader_new(GArrowTable *table)
 {
   auto arrow_table = garrow_table_get_raw(table);
-  auto arrow_table_batch_reader = std::make_shared<arrow::TableBatchReader>(*arrow_table);
+  auto arrow_table_batch_reader = std::make_shared<arrow::TableBatchReader>(arrow_table);
   return garrow_table_batch_reader_new_raw(&arrow_table_batch_reader, table);
 }
 
