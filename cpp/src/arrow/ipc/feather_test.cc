@@ -170,6 +170,17 @@ TEST(TestFeatherWriteProperties, Defaults) {
 #endif
 }
 
+TEST(TestFeatherReader, RejectsInvalidV1Metadata) {
+  // 36-byte Feather V1 file with a zero-length metadata region.
+  const std::string poc = std::string("FEA1") + std::string(24, '\xff') +
+                          std::string(4, '\0') + std::string("FEA1");
+  ASSERT_EQ(36, poc.size());
+
+  auto source = std::make_shared<io::BufferReader>(Buffer::FromString(poc));
+  std::shared_ptr<Reader> reader;
+  ASSERT_RAISES(Invalid, Reader::Open(source).Value(&reader));
+}
+
 TEST_P(TestFeather, ReadIndicesOrNames) {
   std::shared_ptr<RecordBatch> batch1;
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
