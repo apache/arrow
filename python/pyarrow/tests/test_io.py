@@ -109,6 +109,7 @@ def test_python_file_abort():
     f.abort()
     assert f.closed
     assert not buf.closed
+    assert buf.getvalue() == b'data'
 
 
 def test_python_file_read():
