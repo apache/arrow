@@ -640,6 +640,42 @@ TEST(TestReadMessage, ReadBodyWithLength) {
   ASSERT_TRUE(message->Verify());
 }
 
+TEST(TestReadMessage, ReadBodyWithInvalidLength) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
+  int32_t metadata_length;
+  int64_t body_length;
+  ASSERT_OK(WriteRecordBatch(*batch, 0, stream.get(), &metadata_length, &body_length,
+                             IpcWriteOptions::Defaults()));
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
+  io::BufferReader reader(buffer);
+
+  // Negative body_length should fail
+  ASSERT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("body_length should be non-negative"),
+      ReadMessage(0, metadata_length, -1, &reader));
+
+  // Overflowing body_length should fail
+  ASSERT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("body_length overflows when added to metadata_length"),
+      ReadMessage(0, metadata_length, std::numeric_limits<int64_t>::max(), &reader));
+
+  // Async overload should also validate body_length
+  ASSERT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("body_length should be non-negative"),
+      ReadMessageAsync(0, metadata_length, -1, &reader).status());
+
+  ASSERT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("body_length overflows when added to metadata_length"),
+      ReadMessageAsync(0, metadata_length, std::numeric_limits<int64_t>::max(), &reader)
+          .status());
+}
+
 TEST(TestMetadata, GetMetadataVersion) {
   ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
                                      flatbuf::MetadataVersion::MetadataVersion_V1));

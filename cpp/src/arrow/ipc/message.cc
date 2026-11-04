@@ -37,6 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/future.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 
@@ -461,11 +462,22 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
     return Status::Invalid("metadata_length should be at least ",
                            state.decoder->next_required_size());
   }
+
+  int64_t total_length = metadata_length;
+  if (body_length.has_value()) {
+    if (body_length.value() < 0) {
+      return Status::Invalid("body_length should be non-negative");
+    }
+    if (internal::AddWithOverflow(static_cast<int64_t>(metadata_length),
+                                  body_length.value(), &total_length)) {
+      return Status::Invalid("body_length overflows when added to metadata_length");
+    }
+  }
+
   // When body_length is known, read metadata + body in one IO call.
   // Otherwise, read only metadata first.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
-                        file->ReadAt(offset, metadata_length + body_length.value_or(0),
-                                     /*allow_short_read=*/false));
+                        file->ReadAt(offset, total_length, /*allow_short_read=*/false));
 
   return ReadMessageContinued(offset, metadata_length, body_length, metadata, file,
                               fields_loader, &state);
@@ -498,9 +510,17 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
     return Status::Invalid("metadata_length should be at least ",
                            state->decoder->next_required_size());
   }
+  if (body_length < 0) {
+    return Status::Invalid("body_length should be non-negative");
+  }
+  int64_t total_length = 0;
+  if (internal::AddWithOverflow(static_cast<int64_t>(metadata_length), body_length,
+                                &total_length)) {
+    return Status::Invalid("body_length overflows when added to metadata_length");
+  }
+
   return file
-      ->ReadAsync(context, offset, metadata_length + body_length,
-                  /*allow_short_read=*/false)
+      ->ReadAsync(context, offset, total_length, /*allow_short_read=*/false)
       .Then([=](std::shared_ptr<Buffer> metadata) -> Result<std::shared_ptr<Message>> {
         // Pass a nullptr file to ensure that no further IO occurs
         // (we have fetched all the required bytes).
