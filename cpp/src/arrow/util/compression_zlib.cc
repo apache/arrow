@@ -145,6 +145,14 @@ class GZipDecompressor : public Decompressor {
                                       int64_t output_len, uint8_t* output) override {
     static constexpr auto input_limit =
         static_cast<int64_t>(std::numeric_limits<uInt>::max());
+
+    // Some zlib versions return Z_STREAM_ERROR if next_out is NULL, even when
+    // avail_out is 0. Our streaming API uses need_more_output to request a
+    // non-empty buffer in that case.
+    if (output_len == 0) {
+      return DecompressResult{0, 0, true};
+    }
+
     stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
     stream_.avail_in = static_cast<uInt>(std::min(input_len, input_limit));
     stream_.next_out = reinterpret_cast<Bytef*>(output);
