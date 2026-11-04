@@ -885,7 +885,7 @@ TEST(TimestampParser, StrptimeParser) {
       // ISO-8601 parser
       "5/31/2000 12:30:60", "5/31/2000 23:59:60", "5/31/2000 23:59:61"};
 #ifdef __EMSCRIPTEN__
-  // Emscripten's strptime() rolls over out-of-range fields (for example Feb 30 -> Mar 1)
+  // Emscripten's strptime() normalizes invalid dates/times. See GH-55397
   unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6"};
 #endif
   for (auto& value : unparseables) {
