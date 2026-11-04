@@ -905,7 +905,10 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
         if name not in ext_columns and dtype not in _pandas_supported_numpy_types:
             # pandas_dtype is expensive, so avoid doing this for types
             # that are certainly numpy dtypes
-            pandas_dtype = _pandas_api.pandas_dtype(dtype)
+            try:
+                pandas_dtype = _pandas_api.pandas_dtype(dtype)
+            except (TypeError, ValueError):
+                continue
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
                 if isinstance(pandas_dtype, _pandas_api.pd.StringDtype):
                     # when the metadata indicate to use the string dtype,
