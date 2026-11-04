@@ -23,8 +23,7 @@ const PAUSE_LABELS = [
   "awaiting merge",
 ];
 const DAY = 24 * 60 * 60 * 1000;
-const WARN_AFTER = 5 * DAY;
-const GRACE_PERIOD = 3 * DAY;
+const INACTIVITY_PERIOD = 15 * DAY;
 
 /**
  * Returns whether two GitHub usernames match, ignoring case.
@@ -34,14 +33,6 @@ const GRACE_PERIOD = 3 * DAY;
  */
 const sameUser = (a, b) =>
   Boolean(a && b && a.toLowerCase() === b.toLowerCase());
-
-/**
- * Returns a unique marker for the user's inactivity warning.
- *
- * @param {String} login
- */
-const warningMarker = login =>
-  `<!-- unassign-bot-warning:${login.toLowerCase()} -->`;
 
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
@@ -176,34 +167,15 @@ module.exports = async ({ github, context }) => {
             }
           }
 
-          const now = Date.now();
-          if (now - lastActivity < WARN_AFTER) continue;
+          if (Date.now() - lastActivity < INACTIVITY_PERIOD) continue;
 
-          // Find an existing warning posted after the latest activity.
-          const marker = warningMarker(login);
-          const warning = events.find(
-            event =>
-              event.event === "commented" &&
-              event.body?.includes(marker) &&
-              Date.parse(event.created_at) >= lastActivity
+          await unassign(
+            issue.number,
+            login,
+            `@${login}, you have been automatically unassigned from this issue ` +
+              `after 8 days without activity. If you are still working on it, ` +
+              `please comment here so a maintainer can reassign it.`
           );
-
-          if (!warning) {
-            await comment(
-              issue.number,
-              `${marker}\n@${login}, there has been no qualifying activity for 5 days. ` +
-                `This issue will be unassigned in 3 days unless there is further activity.`
-            );
-          } else if (
-            now - Date.parse(warning.created_at) >= GRACE_PERIOD
-          ) {
-            await unassign(
-              issue.number,
-              login,
-              `This issue was automatically unassigned from @${login} due to inactivity. ` +
-                `If you are still working on it, please comment here so a maintainer can reassign it.`
-            );
-          }
         } catch (error) {
           failures++;
           console.error(`Failed to process #${issue.number} for ${login}`, error);
