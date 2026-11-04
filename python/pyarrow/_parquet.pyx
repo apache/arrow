@@ -1216,6 +1216,49 @@ cdef class FileMetaData(_Weakrefable):
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(deref(c_metadata))
 
+    def subset(self, row_group_indices):
+        """
+        Return a FileMetaData containing a subset of the row groups.
+
+        This can be used to extract the metadata of a single data file from
+        a combined ``_metadata`` file (see :func:`pyarrow.parquet.write_metadata`),
+        to pass it to :meth:`pyarrow.dataset.ParquetFileFormat.make_fragment`.
+
+        Parameters
+        ----------
+        row_group_indices : list of int
+            Indices of the row groups to include, in the order they should
+            appear in the returned metadata.
+
+        Returns
+        -------
+        metadata : FileMetaData
+            A new FileMetaData with the same schema and the selected row groups.
+            Row groups are renumbered from 0 in the order given.
+
+        Raises
+        ------
+        IndexError
+            If an index is negative or not lower than ``num_row_groups``.
+        """
+        cdef:
+            vector[int] c_row_groups
+            shared_ptr[CFileMetaData] c_subset
+            int num_row_groups = self._metadata.num_row_groups()
+            int index
+            FileMetaData result
+
+        for index in row_group_indices:
+            if index < 0 or index >= num_row_groups:
+                raise IndexError('{0} out of bounds'.format(index))
+            c_row_groups.push_back(index)
+
+        with nogil:
+            c_subset = self._metadata.Subset(c_row_groups)
+        result = FileMetaData.__new__(FileMetaData)
+        result.init(c_subset)
+        return result
+
     def write_metadata_file(self, where):
         """
         Write the metadata to a metadata-only Parquet file.
