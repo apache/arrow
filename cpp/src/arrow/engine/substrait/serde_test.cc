@@ -3172,16 +3172,6 @@ void CheckInvalidEmitIndex(const std::string& rel_json) {
       Raises(StatusCode::Invalid, HasSubstr("Out of bounds emit index")));
 }
 
-constexpr std::string_view kEmitTestReadRel = R"({
-  "read": {
-    "base_schema": {
-      "names": ["A", "B", "C"],
-      "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]}
-    },
-    "namedTable": {"names": ["A"]}
-  }
-})";
-
 TEST(Substrait, ReadRelWithOutOfBoundsEmit) {
   for (const char* mapping : {"[0, 3]", "[-1, 1]"}) {
     ARROW_SCOPED_TRACE("outputMapping: ", mapping);
@@ -3211,8 +3201,15 @@ TEST(Substrait, ProjectRelWithOutOfBoundsEmit) {
           {"selection": {"directReference": {"structField": {"field": 0}},
                          "rootReference": {}}}
         ],
-        "input": )" + std::string(kEmitTestReadRel) +
-                          R"(
+        "input": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]}
+            },
+            "namedTable": {"names": ["A"]}
+          }
+        }
       }
     })");
   }
