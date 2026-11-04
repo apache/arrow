@@ -17,9 +17,11 @@
 
 #if defined(ARROW_HAVE_NEON)
 #  define FIND_MIN_MAX_PLATFORM FindMinMaxNeon
+#  define GREATER_THAN_BITMAP_PLATFORM GreaterThanBitmapNeon
 #  define ARCH_PLATFORM xsimd::neon64
 #elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  define FIND_MIN_MAX_PLATFORM FindMinMaxSse42
+#  define GREATER_THAN_BITMAP_PLATFORM GreaterThanBitmapSse42
 #  define ARCH_PLATFORM xsimd::sse4_2
 #endif
 
@@ -34,8 +36,14 @@ MinMax FIND_MIN_MAX_PLATFORM(const int16_t* levels, int64_t num_levels) {
   return FindMinMaxSimd<ARCH_PLATFORM>(levels, num_levels);
 }
 
+uint64_t GREATER_THAN_BITMAP_PLATFORM(const int16_t* levels, int64_t num_levels,
+                                      int16_t rhs) {
+  return GreaterThanBitmapSimd<ARCH_PLATFORM>(levels, num_levels, rhs);
+}
+
 }  // namespace parquet::internal
 
 #  undef ARCH_PLATFORM
+#  undef GREATER_THAN_BITMAP_PLATFORM
 #  undef FIND_MIN_MAX_PLATFORM
 #endif  // FIND_MIN_MAX_PLATFORM
