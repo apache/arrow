@@ -26,22 +26,52 @@ const DAY = 24 * 60 * 60 * 1000;
 const WARN_AFTER = 5 * DAY;
 const GRACE_PERIOD = 3 * DAY;
 
+/**
+ * Returns whether two GitHub usernames match, ignoring case.
+ *
+ * @param {String} a
+ * @param {String} b
+ */
 const sameUser = (a, b) =>
   Boolean(a && b && a.toLowerCase() === b.toLowerCase());
-const isMaintainer = association =>
-  ["MEMBER", "OWNER", "COLLABORATOR"].includes(association);
+
+/**
+ * Returns a unique marker for the user's inactivity warning.
+ *
+ * @param {String} login
+ */
 const warningMarker = login =>
   `<!-- unassign-bot-warning:${login.toLowerCase()} -->`;
 
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
+
+  /**
+   * Retrieves all pages of a GitHub API response.
+   *
+   * @param {Function} method
+   * @param {Object} params
+   */
   const paginate = (method, params) =>
     github.paginate(method, { owner, repo, per_page: 100, ...params });
+
+  /**
+   * Posts a comment on the specified issue.
+   *
+   * @param {Number} issue_number
+   * @param {String} body
+   */
   const comment = (issue_number, body) =>
     github.rest.issues.createComment({ owner, repo, issue_number, body });
 
+  /**
+   * Removes the user from an issue and explains why they were unassigned.
+   *
+   * @param {Number} issue_number
+   * @param {String} login
+   * @param {String} message
+   */
   const unassign = async (issue_number, login, message) => {
-    console.log(`Unassigning ${login} from #${issue_number}`);
     await github.rest.issues.removeAssignees({
       owner,
       repo,
@@ -54,7 +84,7 @@ module.exports = async ({ github, context }) => {
   const processed = new Set();
   let failures = 0;
 
-  // Process each issue only once, even when it has both newcomer labels.
+  // Process each newcomer label, avoiding duplicate issues.
   for (const label of LABELS) {
     const issues = await paginate(github.rest.issues.listForRepo, {
       state: "open",
@@ -62,54 +92,30 @@ module.exports = async ({ github, context }) => {
     });
 
     for (const issue of issues) {
-      if (issue.pull_request || !issue.assignees.length || processed.has(issue.number)) {
+      if (
+        issue.pull_request ||
+        !issue.assignees?.length ||
+        processed.has(issue.number)
+      ) {
         continue;
       }
       processed.add(issue.number);
 
+      // Retrieve the timeline once and reuse it for every assignee.
+      let events;
+      try {
+        events = await paginate(github.rest.issues.listEventsForTimeline, {
+          issue_number: issue.number,
+        });
+      } catch (error) {
+        failures++;
+        console.error(`Failed to retrieve timeline for #${issue.number}`, error);
+        continue;
+      }
+
       for (const { login } of issue.assignees) {
         try {
-          // Timeline includes issue activity and the current details of linked PRs.
-          const events = await paginate(github.rest.issues.listEventsForTimeline, {
-            issue_number: issue.number,
-          });
-
-          const linkedPrs = events
-            .filter(
-              event =>
-                event.event === "cross-referenced" &&
-                event.source?.issue?.pull_request
-            )
-            .map(event => event.source.issue)
-            .filter(pr => sameUser(pr.user?.login, login));
-
-          const openLinkedPrs = linkedPrs.filter(pr => pr.state === "open");
-
-          // A linked PR awaiting review or merge pauses the inactivity timer.
-          if (
-            openLinkedPrs.some(pr =>
-              pr.labels?.some(label =>
-                PAUSE_LABELS.includes(label.name.toLowerCase())
-              )
-            )
-          ) {
-            continue;
-          }
-
-          // Unassign if a linked PR was closed without being merged.
-          const closedUnmergedPr = linkedPrs.find(
-            pr => pr.state === "closed" && !pr.pull_request.merged_at
-          );
-
-          if (closedUnmergedPr) {
-            await unassign(
-              issue.number,
-              login,
-              `This issue was automatically unassigned from @${login} because their linked pull request #${closedUnmergedPr.number} was closed without being merged.`
-            );
-            continue;
-          }
-
+          // Use the most recent assignment to reset the inactivity period.
           const assignedAt = Math.max(
             0,
             ...events
@@ -119,76 +125,61 @@ module.exports = async ({ github, context }) => {
                   sameUser(event.assignee?.login, login)
               )
               .map(event => Date.parse(event.created_at))
+              .filter(Number.isFinite)
           );
+
           if (!assignedAt) continue;
 
-          // Start at the assignment time so activity before assignment is ignored.
+          // Consider only open PRs authored by the assignee.
+          const linkedPrs = events
+            .filter(
+              event =>
+                event.event === "cross-referenced" &&
+                event.source?.issue?.pull_request
+            )
+            .map(event => event.source.issue)
+            .filter(
+              pr => pr.state === "open" && sameUser(pr.user?.login, login)
+            );
+
+          // Do not unassign users while their PRs are awaiting review or merge.
+          if (
+            linkedPrs.some(pr =>
+              pr.labels?.some(({ name }) =>
+                PAUSE_LABELS.includes(name?.toLowerCase())
+              )
+            )
+          ) {
+            continue;
+          }
+
+          // Start with the assignment time and consider subsequent issue comments.
           let lastActivity = assignedAt;
+
           for (const event of events) {
-            if (event.event === "commented" && sameUser(event.user?.login, login)) {
-              lastActivity = Math.max(lastActivity, Date.parse(event.created_at));
+            if (
+              event.event === "commented" &&
+              sameUser(event.user?.login, login)
+            ) {
+              lastActivity = Math.max(
+                lastActivity,
+                Date.parse(event.created_at)
+              );
             }
           }
 
-          for (const pr of openLinkedPrs) {
-            const [prEvents, reviewComments, commits] = await Promise.all([
-              paginate(github.rest.issues.listEventsForTimeline, {
-                issue_number: pr.number,
-              }),
-              paginate(github.rest.pulls.listReviewComments, {
-                pull_number: pr.number,
-              }),
-              paginate(github.rest.pulls.listCommits, {
-                pull_number: pr.number,
-              }),
-            ]);
-
-            for (const event of prEvents) {
-              const isCommentOrReview =
-                ["commented", "reviewed"].includes(event.event) &&
-                (sameUser(event.user?.login, login) ||
-                  isMaintainer(event.author_association));
-
-              const isPauseLabelRemoved =
-                event.event === "unlabeled" &&
-                PAUSE_LABELS.includes(event.label?.name?.toLowerCase());
-
-              if (isCommentOrReview || isPauseLabelRemoved) {
-                lastActivity = Math.max(
-                  lastActivity,
-                  Date.parse(event.submitted_at || event.created_at)
-                );
-              }
-            }
-
-            // Inline review comments are not included in the PR timeline.
-            for (const comment of reviewComments) {
-              if (
-                sameUser(comment.user?.login, login) ||
-                isMaintainer(comment.author_association)
-              ) {
-                lastActivity = Math.max(
-                  lastActivity,
-                  Date.parse(comment.created_at)
-                );
-              }
-            }
-
-            // Match commits using the associated GitHub author account.
-            for (const commit of commits) {
-              const committedAt = Date.parse(commit.commit.author.date);
-
-              if (
-                sameUser(commit.author?.login, login) &&
-                Number.isFinite(committedAt)
-              ) {
-                lastActivity = Math.max(lastActivity, committedAt);
-              }
+          // Use the latest update time of linked PRs as an activity signal.
+          for (const pr of linkedPrs) {
+            const updatedAt = Date.parse(pr.updated_at);
+            if (Number.isFinite(updatedAt)) {
+              lastActivity = Math.max(lastActivity, updatedAt);
             }
           }
 
-          if (Date.now() - lastActivity < WARN_AFTER) continue;
+          const now = Date.now();
+          if (now - lastActivity < WARN_AFTER) continue;
 
+          // Find an existing warning posted after the latest activity.
           const marker = warningMarker(login);
           const warning = events.find(
             event =>
@@ -196,13 +187,16 @@ module.exports = async ({ github, context }) => {
               event.body?.includes(marker) &&
               Date.parse(event.created_at) >= lastActivity
           );
+
           if (!warning) {
             await comment(
               issue.number,
               `${marker}\n@${login}, there has been no qualifying activity for 5 days. ` +
                 `This issue will be unassigned in 3 days unless there is further activity.`
             );
-          } else if (Date.now() - Date.parse(warning.created_at) >= GRACE_PERIOD) {
+          } else if (
+            now - Date.parse(warning.created_at) >= GRACE_PERIOD
+          ) {
             await unassign(
               issue.number,
               login,
