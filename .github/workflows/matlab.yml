@@ -70,14 +70,20 @@ jobs:
         id: ccache-info
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v6
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/**', '!matlab/build/**') }}
-          restore-keys: matlab-ccache-ubuntu-
+          key: matlab-ccache-ubuntu
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: matlab-ccache-ubuntu
       - name: Run MATLAB Tests
         env:
           # Add the installation directory to the MATLAB Search Path by
@@ -119,14 +125,20 @@ jobs:
         id: ccache-info
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v6
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**', '!matlab/build/**') }}
-          restore-keys: matlab-ccache-macos-
+          key: matlab-ccache-macos-${{ matrix.architecture }}
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: matlab-ccache-macos-${{ matrix.architecture }}
       - name: Run MATLAB Tests
         env:
           # Add the installation directory to the MATLAB Search Path by
@@ -160,13 +172,11 @@ jobs:
         id: ccache-info
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v6
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
         with:
-          path: |
-            ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-windows-${{ hashFiles('cpp/**', 'matlab/**', '!matlab/build/**') }}
-          restore-keys: matlab-ccache-windows-
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: matlab-ccache-windows
       - name: Find Visual Studio
         shell: pwsh
         run: |
@@ -176,6 +186,13 @@ jobs:
         run: |
           call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           bash -c "ci/scripts/matlab_build.sh $(pwd)"
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: matlab-ccache-windows
       - name: Run MATLAB Tests
         env:
           # Add the installation directory to the MATLAB Search Path by
