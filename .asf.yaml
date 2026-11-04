@@ -55,7 +55,14 @@ github:
       max_open_pull_requests: 3
       include_drafts: true
       bypass_users:
+        - alinaliBQ
+        - AntoinePrv
+        - EnricoMi
+        - hiroyuki-sato
+        - HyukjinKwon
         - pearu
+        - Reranko05
+        - rustyconover
 
 notifications:
   commits:      commits@arrow.apache.org
