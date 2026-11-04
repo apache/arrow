@@ -102,6 +102,15 @@ def test_python_file_write():
         pa.PythonFile(StringIO())
 
 
+def test_python_file_abort():
+    buf = BytesIO()
+    f = pa.PythonFile(buf, mode='w')
+    f.write(b'data')
+    f.abort()
+    assert f.closed
+    assert not buf.closed
+
+
 def test_python_file_read():
     data = b'some sample data'
 
