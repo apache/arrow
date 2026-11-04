@@ -384,9 +384,6 @@ maybe_setup_conda() {
     fi
     # Activate the environment
     conda activate $env
-    if [ -x "${CONDA_PREFIX}/bin/pkg-config" ]; then
-      export PKG_CONFIG="${CONDA_PREFIX}/bin/pkg-config"
-    fi
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
