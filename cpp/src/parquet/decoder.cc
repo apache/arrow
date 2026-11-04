@@ -2050,7 +2050,6 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
         pool_(pool),
         prefix_len_decoder_(nullptr, pool),
         suffix_decoder_(nullptr, pool),
-        last_value_in_previous_page_(""),
         buffered_prefix_length_(AllocateBuffer(pool, 0)),
         buffered_data_(AllocateBuffer(pool, 0)) {}
 
@@ -2081,8 +2080,6 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     // at this time, the decoder_ will be at the start of the encoded suffix data.
     suffix_decoder_.SetData(num_values, data + suffix_begins, bytes_left);
 
-    // TODO: read corrupted files written with bug(PARQUET-246). last_value_ should be set
-    // to last_value_in_previous_page_ when decoding a new page(except the first page)
     last_value_.clear();
   }
 
@@ -2309,10 +2306,6 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     num_valid_values_ -= max_values;
     last_value_ = std::string{prefix};
 
-    if (num_valid_values_ == 0) {
-      last_value_in_previous_page_ = last_value_;
-    }
-
     return max_values;
   }
 
@@ -2363,8 +2356,6 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
   DeltaLengthByteArrayDecoder suffix_decoder_;
   std::string last_value_;
-  // string buffer for last value in previous page
-  std::string last_value_in_previous_page_;
   int num_valid_values_{0};
   uint32_t prefix_len_offset_{0};
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
