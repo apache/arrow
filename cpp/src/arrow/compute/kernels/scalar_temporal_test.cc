@@ -3874,6 +3874,25 @@ TEST_F(ScalarTemporalTest, TestDurationTemporalWeekMultipleOverflow) {
   }
 }
 
+TEST_F(ScalarTemporalTest, DurationNegateCheckedOverflow) {
+  for (auto unit : TimeUnit::values()) {
+    auto type = duration(unit);
+    auto overflow = ArrayFromJSON(type, "[-9223372036854775808]");
+    ASSERT_RAISES(Invalid, CallFunction("negate_checked", {overflow}));
+    ASSERT_OK_AND_ASSIGN(auto scalar, overflow->GetScalar(0));
+    ASSERT_RAISES(Invalid, CallFunction("negate_checked", {scalar}));
+
+    auto values = ArrayFromJSON(type,
+                                "[-9223372036854775807, 9223372036854775807, "
+                                "null, -1, 0, 1]");
+    auto expected = ArrayFromJSON(type,
+                                  "[9223372036854775807, -9223372036854775807, "
+                                  "null, 1, 0, -1]");
+    CheckScalarUnary("negate_checked", values, expected);
+    CheckScalarUnary("negate", overflow, overflow);
+  }
+}
+
 TEST_F(ScalarTemporalTest, DurationUnaryArithmetics) {
   auto arr = ArrayFromJSON(duration(TimeUnit::SECOND), "[2, -1, null, 3, 0]");
   CheckScalarUnary("negate", arr,
