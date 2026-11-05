@@ -329,9 +329,11 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
       switch (options_.segment_encoding) {
         case SegmentEncoding::None: {
           // Without encoding, it's an error to write values that are not a valid path
-          // segment
-          if (value == "." || value == ".." ||
-              value.find(fs::internal::kSep) != std::string::npos) {
+          // segment. Backslashes are rejected on all platforms as they are a path
+          // separator on Windows. Windows also strips trailing "." and " " characters
+          // from path names, and this also covers the "." and ".." special names.
+          if (value.find_first_of("/\\") != std::string::npos ||
+              (!value.empty() && (value.back() == '.' || value.back() == ' '))) {
             return Status::Invalid("Partition value for ", schema_->field(i)->name(),
                                    " is not a valid path segment: '", value,
                                    "'. Use SegmentEncoding::Uri to write this value.");
@@ -365,6 +367,11 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
           // starting with "." or "_" by default.
           if (!escaped.empty() && (escaped[0] == '.' || escaped[0] == '_')) {
             escaped.replace(0, 1, PercentEncode(escaped[0]));
+          }
+          // Windows strips trailing "." characters from path names, so escape a
+          // trailing "." too. (A trailing space is already escaped by UriEscape.)
+          if (!escaped.empty() && escaped.back() == '.') {
+            escaped.replace(escaped.size() - 1, 1, PercentEncode('.'));
           }
           segments[i] = std::move(escaped);
           break;

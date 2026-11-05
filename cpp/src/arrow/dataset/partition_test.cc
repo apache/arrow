@@ -258,12 +258,16 @@ TEST_F(TestPartitioning, DirectoryPartitioningEscapesValues) {
   AssertFormat(equal(field_ref("part"), literal("ab\\cd")), "ab%5Ccd");
   AssertFormat(equal(field_ref("part"), literal("<test>")), "%3Ctest%3E");
   AssertFormat(equal(field_ref("part"), literal(":|*")), "%3A%7C%2A");
-  // "." is only escaped when it is the first character
+  // "." is only escaped when it is the first or last character
   AssertFormat(equal(field_ref("part"), literal("a.b")), "a.b");
   AssertFormat(equal(field_ref("part"), literal(".")), "%2E");
-  AssertFormat(equal(field_ref("part"), literal("..")), "%2E.");
+  AssertFormat(equal(field_ref("part"), literal("..")), "%2E%2E");
+  AssertFormat(equal(field_ref("part"), literal("...")), "%2E.%2E");
+  AssertFormat(equal(field_ref("part"), literal("a.")), "a%2E");
+  AssertFormat(equal(field_ref("part"), literal("a ")), "a%20");
   AssertFormat(equal(field_ref("part"), literal(".hidden")), "%2Ehidden");
   AssertFormat(equal(field_ref("part"), literal("../escaped")), "%2E.%2Fescaped");
+  AssertFormat(equal(field_ref("part"), literal("..\\escaped")), "%2E.%5Cescaped");
   // "_" is only escaped when it is the first character
   AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
   AssertFormat(equal(field_ref("part"), literal("_unknown")), "%5Funknown");
@@ -313,7 +317,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
     all_dirs.push_back(dir.full_path);
   }
   std::sort(all_dirs.begin(), all_dirs.end());
-  std::vector<std::string> expected_dirs = {"dataset", "dataset/%2E", "dataset/%2E.",
+  std::vector<std::string> expected_dirs = {"dataset", "dataset/%2E", "dataset/%2E%2E",
                                             "dataset/%2E.%2Fescaped",
                                             "dataset/%5Funknown"};
   ASSERT_EQ(all_dirs, expected_dirs);
@@ -360,6 +364,12 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("part"), literal("a/b")));
   AssertFormatError(equal(field_ref("part"), literal(".")));
   AssertFormatError(equal(field_ref("part"), literal("..")));
+  // Backslash is a path separator on Windows, so is rejected on all platforms
+  AssertFormatError(equal(field_ref("part"), literal("..\\escaped")));
+  AssertFormatError(equal(field_ref("part"), literal("a\\b")));
+  // Windows strips trailing "." and " " from path names
+  AssertFormatError(equal(field_ref("part"), literal("a.")));
+  AssertFormatError(equal(field_ref("part"), literal("a ")));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioning) {
@@ -696,12 +706,14 @@ TEST_F(TestPartitioning, FilenamePartitioningEscapesValues) {
   AssertFormat(equal(field_ref("alpha"), literal("ab\\cd")), "", "ab%5Ccd_");
   AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "%3Ctest%3E_");
   AssertFormat(equal(field_ref("alpha"), literal(":|*")), "", "%3A%7C%2A_");
-  // "." is only escaped when it is the first character of a segment
+  // "." is only escaped when it is the first or last character of a segment
   AssertFormat(equal(field_ref("alpha"), literal("a.b")), "", "a.b_");
   AssertFormat(equal(field_ref("alpha"), literal(".")), "", "%2E_");
-  AssertFormat(equal(field_ref("alpha"), literal("..")), "", "%2E._");
+  AssertFormat(equal(field_ref("alpha"), literal("..")), "", "%2E%2E_");
+  AssertFormat(equal(field_ref("alpha"), literal("a.")), "", "a%2E_");
   AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", "%2Ehidden_");
   AssertFormat(equal(field_ref("alpha"), literal("../escaped")), "", "%2E.%2Fescaped_");
+  AssertFormat(equal(field_ref("alpha"), literal("..\\escaped")), "", "%2E.%5Cescaped_");
   // "_" is the segment separator, so it is always escaped
   AssertFormat(equal(field_ref("alpha"), literal("a_b")), "", "a%5Fb_");
   AssertFormat(equal(field_ref("alpha"), literal("_unknown")), "", "%5Funknown_");
@@ -736,6 +748,10 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("alpha"), literal("a/b")));
   AssertFormatError(equal(field_ref("alpha"), literal(".")));
   AssertFormatError(equal(field_ref("alpha"), literal("..")));
+  AssertFormatError(equal(field_ref("alpha"), literal("..\\escaped")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a\\b")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a.")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a ")));
   AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
                          equal(field_ref("beta"), literal("a/b"))));
 
