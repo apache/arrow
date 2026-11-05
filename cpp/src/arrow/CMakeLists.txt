@@ -33,16 +33,6 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS)
 set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
-if(ARROW_AZURE)
-  if(Azure_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${AZURE_SDK_LINK_LIBRARIES})
-  elseif(Azure_SOURCE STREQUAL "BUNDLED")
-    if(NOT WIN32)
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl LibXml2::LibXml2)
-    endif()
-  endif()
-endif()
-
 if(ARROW_USE_OPENSSL)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
@@ -964,9 +954,61 @@ if(ARROW_FILESYSTEM)
       filesystem/util_internal.cc)
 
   if(ARROW_AZURE)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/azurefs.cc)
-    set_source_files_properties(filesystem/azurefs.cc
+    set(ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+    if(Azure_SOURCE STREQUAL "SYSTEM")
+      list(APPEND ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS ${AZURE_SDK_LINK_LIBRARIES})
+    elseif(Azure_SOURCE STREQUAL "BUNDLED")
+      if(NOT WIN32)
+        list(APPEND ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl
+             LibXml2::LibXml2)
+      endif()
+    endif()
+    set(ARROW_AZURE_LIB_SRCS filesystem/azurefs_module.cc filesystem/azurefs.cc)
+    set_source_files_properties(filesystem/azurefs_module.cc filesystem/azurefs.cc
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    # If libarrow_azure.a is only built, "pkg-config --cflags --libs
+    # arrow-azure" outputs build flags for static linking not shared
+    # linking. ARROW_AZURE_PC_* except ARROW_AZURE_PC_*_PRIVATE are for the
+    # static linking case.
+    if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+      string(APPEND ARROW_AZURE_PC_CFLAGS "${ARROW_AZURE_PC_CFLAGS_PRIVATE}")
+      set(ARROW_AZURE_PC_CFLAGS_PRIVATE "")
+      set(ARROW_AZURE_PC_LIBS "${ARROW_AZURE_PC_LIBS_PRIVATE}")
+      set(ARROW_AZURE_PC_LIBS_PRIVATE "")
+      set(ARROW_AZURE_PC_REQUIRES "${ARROW_AZURE_PC_REQUIRES_PRIVATE}")
+      set(ARROW_AZURE_PC_REQUIRES_PRIVATE "")
+    else()
+      set(ARROW_AZURE_PC_LIBS "")
+      set(ARROW_AZURE_PC_REQUIRES "")
+    endif()
+    add_arrow_lib(arrow_azure
+                  CMAKE_PACKAGE_NAME
+                  ArrowAzure
+                  PKG_CONFIG_NAME
+                  arrow-azure
+                  SOURCES
+                  ${ARROW_AZURE_LIB_SRCS}
+                  SHARED_LINK_LIBS
+                  arrow_shared
+                  SHARED_PRIVATE_LINK_LIBS
+                  ${AZURE_SDK_LINK_LIBRARIES}
+                  SHARED_INSTALL_INTERFACE_LIBS
+                  Arrow::arrow_shared
+                  STATIC_LINK_LIBS
+                  arrow_static
+                  ${AZURE_SDK_LINK_LIBRARIES}
+                  STATIC_INSTALL_INTERFACE_LIBS
+                  ${ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS}
+                  SHARED_LINK_FLAGS
+                  ${ARROW_VERSION_SCRIPT_FLAGS}
+                  OUTPUTS
+                  ARROW_AZURE_LIBRARIES)
+    foreach(LIB_TARGET ${ARROW_AZURE_LIBRARIES})
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_AZURE_EXPORTING)
+    endforeach()
+    if(ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(arrow_azure_static PUBLIC ARROW_AZURE_STATIC)
+    endif()
   endif()
   if(ARROW_GCS)
     set(ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
@@ -1085,12 +1127,6 @@ if(ARROW_FILESYSTEM)
   endif()
 
   arrow_add_object_library(ARROW_FILESYSTEM ${ARROW_FILESYSTEM_SRCS})
-  if(ARROW_AZURE)
-    foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
-      target_link_libraries(${ARROW_FILESYSTEM_TARGET}
-                            PRIVATE ${AZURE_SDK_LINK_LIBRARIES})
-    endforeach()
-  endif()
   if(ARROW_HDFS)
     foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
       target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE arrow::hadoop)
