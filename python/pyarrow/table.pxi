@@ -3428,13 +3428,13 @@ cdef class RecordBatch(_Tabular):
             return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
-    def from_arrays(list arrays, names=None, schema=None, metadata=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
         Parameters
         ----------
-        arrays : list of pyarrow.Array
+        arrays : list or tuple of pyarrow.Array
             One for each field in RecordBatch
         names : list of str, optional
             Names for the batch fields. If not passed, schema must be passed
@@ -6080,7 +6080,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
         return RecordBatch.from_pandas(data, schema=schema)
 
     else:
-        raise TypeError("Expected pandas DataFrame or list of arrays")
+        raise TypeError("Expected pandas DataFrame or list/tuple of arrays")
 
 
 def table(data, names=None, schema=None, metadata=None, nthreads=None):

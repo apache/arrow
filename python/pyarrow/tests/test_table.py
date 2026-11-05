@@ -2770,6 +2770,14 @@ c0: [[1,2,3,4,1,...,4,1,2,3,4]]
 c1: [[10,20,30,40,10,...,40,10,20,30,40]]"""
 
 
+def test_record_batch_from_tuple_of_arrays():
+    # GH-55418: record_batch must accept a tuple of arrays like a list
+    batch = pa.record_batch((pa.array([1]),), names=["a"])
+    assert batch.num_columns == 1
+    assert batch.column(0).to_pylist() == [1]
+    assert batch == pa.record_batch([pa.array([1])], names=["a"])
+
+
 def test_record_batch_repr_to_string():
     # Schema passed explicitly
     schema = pa.schema([pa.field('c0', pa.int16(),
