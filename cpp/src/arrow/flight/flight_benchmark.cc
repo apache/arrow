@@ -114,11 +114,13 @@ struct PerformanceStats {
   }
 
   // ns -> us
-  uint64_t max_latency() const { return latencies.Max() / 1000; }
+  uint64_t max_latency() const { return static_cast<uint64_t>(latencies.Max() / 1000); }
 
-  uint64_t mean_latency() const { return latencies.Mean() / 1000; }
+  uint64_t mean_latency() const { return static_cast<uint64_t>(latencies.Mean() / 1000); }
 
-  uint64_t quantile_latency(double q) const { return latencies.Quantile(q) / 1000; }
+  uint64_t quantile_latency(double q) const {
+    return static_cast<uint64_t>(latencies.Quantile(q) / 1000);
+  }
 };
 
 Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
@@ -282,7 +284,8 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   // Plan the query
   FlightDescriptor descriptor;
   descriptor.type = FlightDescriptor::CMD;
-  perf.SerializeToString(&descriptor.cmd);
+  ARROW_RETURN_IF(!perf.SerializeToString(&descriptor.cmd),
+                  Status::Invalid("Failed to serialize the performance request"));
 
   ARROW_ASSIGN_OR_RAISE(auto plan, client->GetFlightInfo(call_options, descriptor));
 
@@ -307,7 +310,8 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
     }
 
     perf::Token token;
-    token.ParseFromString(endpoint.ticket.ticket);
+    ARROW_RETURN_IF(!token.ParseFromString(endpoint.ticket.ticket),
+                    Status::Invalid("Failed to parse the performance ticket"));
 
     const auto& result = test_loop(data_client, call_options, token, endpoint, stats);
     if (result.ok()) {
