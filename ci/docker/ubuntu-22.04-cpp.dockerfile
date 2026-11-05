@@ -130,7 +130,7 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists*
 
 # install emscripten using EMSDK
-ARG emscripten_version="3.1.45"
+ARG emscripten_version="4.0.14"
 RUN cd ~ && git clone https://github.com/emscripten-core/emsdk.git && \
     cd emsdk && \
     ./emsdk install ${emscripten_version} && \

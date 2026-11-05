@@ -747,11 +747,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
           "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sERROR_ON_WASM_CHANGES_AFTER_LINK=1 -sSTACK_SIZE=${ARROW_EMSCRIPTEN_TEST_STACK_SIZE} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
       )
     endif()
-    # Abseil stack trace via emscripten_stack_snapshot() abort on Emscripten<4.0.14
-    # if offset converter isn't enabled. Emscripten 4.0.14 removed the offset converter
-    if(EMSCRIPTEN_VERSION VERSION_LESS "4.0.14")
-      string(APPEND CMAKE_EXE_LINKER_FLAGS " -sUSE_OFFSET_CONVERTER=1")
-    endif()
   else()
     set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH")
   endif()
