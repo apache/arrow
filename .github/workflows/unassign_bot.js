@@ -16,12 +16,6 @@
 // under the License.
 
 const LABELS = ["good-first-issue", "good-second-issue"];
-const PAUSE_LABELS = [
-  "awaiting review",
-  "awaiting committer review",
-  "awaiting change review",
-  "awaiting merge",
-];
 const DAY = 24 * 60 * 60 * 1000;
 const INACTIVITY_PERIOD = 15 * DAY;
 
@@ -92,7 +86,7 @@ module.exports = async ({ github, context }) => {
       }
       processed.add(issue.number);
 
-      // Retrieve the timeline once and reuse it for every assignee.
+      // Retrieve the timeline to determine assignments and linked PRs.
       let events;
       try {
         events = await paginate(github.rest.issues.listEventsForTimeline, {
@@ -106,7 +100,7 @@ module.exports = async ({ github, context }) => {
 
       for (const { login } of issue.assignees) {
         try {
-          // Use the most recent assignment to reset the inactivity period.
+          // Use the most recent assignment to start the inactivity period.
           const assignedAt = Math.max(
             0,
             ...events
@@ -121,49 +115,44 @@ module.exports = async ({ github, context }) => {
 
           if (!assignedAt) continue;
 
-          // Consider only open PRs authored by the assignee.
+          // Find the assignee's linked PR. Each contributor is expected
+          // to have at most one linked PR for a particular issue.
           const linkedPrs = events
             .filter(
               event =>
                 event.event === "cross-referenced" &&
-                event.source?.issue?.pull_request
+                event.source?.issue?.pull_request &&
+                sameUser(event.source.issue.user?.login, login)
             )
-            .map(event => event.source.issue)
-            .filter(
-              pr => pr.state === "open" && sameUser(pr.user?.login, login)
-            );
+            .map(event => event.source.issue);
 
-          // Do not unassign users while their PRs are awaiting review or merge.
-          if (
-            linkedPrs.some(pr =>
-              pr.labels?.some(({ name }) =>
-                PAUSE_LABELS.includes(name?.toLowerCase())
-              )
-            )
-          ) {
-            continue;
-          }
-
-          // Start with the assignment time and consider subsequent issue comments.
           let lastActivity = assignedAt;
 
-          for (const event of events) {
-            if (
-              event.event === "commented" &&
-              sameUser(event.user?.login, login)
-            ) {
-              lastActivity = Math.max(
-                lastActivity,
-                Date.parse(event.created_at)
-              );
-            }
-          }
+          // Check the most recently updated open PR authored by the assignee.
+          const linkedPr = linkedPrs
+            .filter(pr => pr.state === "open")
+            .sort(
+              (a, b) =>
+                Date.parse(b.updated_at) - Date.parse(a.updated_at)
+            )[0];
 
-          // Use the latest update time of linked PRs as an activity signal.
-          for (const pr of linkedPrs) {
-            const updatedAt = Date.parse(pr.updated_at);
-            if (Number.isFinite(updatedAt)) {
-              lastActivity = Math.max(lastActivity, updatedAt);
+          if (linkedPr) {
+            // Fetch the latest PR state and activity timestamp.
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: linkedPr.number,
+            });
+
+            // Only an open PR authored by the assignee counts as activity.
+            if (
+              pr.state === "open" &&
+              sameUser(pr.user?.login, login)
+            ) {
+              const updatedAt = Date.parse(pr.updated_at);
+              if (Number.isFinite(updatedAt)) {
+                lastActivity = Math.max(lastActivity, updatedAt);
+              }
             }
           }
 
@@ -173,8 +162,8 @@ module.exports = async ({ github, context }) => {
             issue.number,
             login,
             `@${login}, you have been automatically unassigned from this issue ` +
-              `after 8 days without activity. If you are still working on it, ` +
-              `please comment here so a maintainer can reassign it.`
+              `after 15 days without activity on your linked PR. If you are ` +
+              `still working on it, please comment here so a maintainer can reassign it.`
           );
         } catch (error) {
           failures++;
