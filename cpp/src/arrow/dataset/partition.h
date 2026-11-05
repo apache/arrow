@@ -118,6 +118,11 @@ std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding);
 struct ARROW_DS_EXPORT KeyValuePartitioningOptions {
   /// After splitting a path into components, decode the path components
   /// before parsing according to this scheme.
+  ///
+  /// For directory and filename partitioning, partition values are also encoded
+  /// according to this scheme when formatting paths for writing. With
+  /// SegmentEncoding::None, values that are not valid path segments (containing
+  /// a path separator, or equal to "." or "..") raise errors.
   SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 };
 

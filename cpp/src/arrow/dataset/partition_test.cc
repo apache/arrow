@@ -30,6 +30,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
@@ -243,6 +244,114 @@ TEST_F(TestPartitioning, DirectoryPartitioningEquals) {
   EXPECT_FALSE(part->Equals(*other));
   EXPECT_TRUE(part->Equals(*another));
   EXPECT_TRUE(another->Equals(*some_other));
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningEscapesValues) {
+  partitioning_ =
+      std::make_shared<DirectoryPartitioning>(schema({field("part", utf8())}));
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(equal(field_ref("part"), literal("plain")), "plain");
+  AssertFormat(equal(field_ref("part"), literal("a b")), "a%20b");
+  AssertFormat(equal(field_ref("part"), literal("100%")), "100%25");
+  AssertFormat(equal(field_ref("part"), literal("a/b")), "a%2Fb");
+  AssertFormat(equal(field_ref("part"), literal("ab\\cd")), "ab%5Ccd");
+  AssertFormat(equal(field_ref("part"), literal("<test>")), "%3Ctest%3E");
+  AssertFormat(equal(field_ref("part"), literal(":|*")), "%3A%7C%2A");
+  // "." is only escaped when it is the first character
+  AssertFormat(equal(field_ref("part"), literal("a.b")), "a.b");
+  AssertFormat(equal(field_ref("part"), literal(".")), "%2E");
+  AssertFormat(equal(field_ref("part"), literal("..")), "%2E.");
+  AssertFormat(equal(field_ref("part"), literal(".hidden")), "%2Ehidden");
+  AssertFormat(equal(field_ref("part"), literal("../escaped")), "%2E.%2Fescaped");
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
+  // Write and scan a dataset, to check that escaped directories are created
+  // inside the base directory and aren't skipped by discovery when starting
+  // with a ".".
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> filesystem,
+                       fs::internal::MockFileSystem::Make(mock_now, {}));
+  auto base_path = "dataset";
+  ASSERT_OK(filesystem->CreateDir(base_path));
+  auto schema = arrow::schema(
+      {arrow::field("part", arrow::utf8()), arrow::field("x", arrow::int32())});
+
+  auto table = TableFromJSON(schema, {
+                                         R"([
+    ["../escaped", 0],
+    [".", 1],
+    ["..", 2]
+  ])",
+                                     });
+
+  auto dataset = std::make_shared<dataset::InMemoryDataset>(table);
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+  auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
+  auto partitioning = std::make_shared<dataset::DirectoryPartitioning>(partition_schema);
+  auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
+  dataset::FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = ipc_format->DefaultWriteOptions();
+  write_options.filesystem = filesystem;
+  write_options.base_dir = base_path;
+  write_options.partitioning = partitioning;
+  write_options.basename_template = "part{i}.arrow";
+  ASSERT_OK(dataset::FileSystemDataset::Write(write_options, scanner));
+
+  auto mockfs =
+      arrow::internal::checked_pointer_cast<fs::internal::MockFileSystem>(filesystem);
+  std::vector<std::string> all_dirs;
+  for (const auto& dir : mockfs->AllDirs()) {
+    all_dirs.push_back(dir.full_path);
+  }
+  std::sort(all_dirs.begin(), all_dirs.end());
+  std::vector<std::string> expected_dirs = {"dataset", "dataset/%2E", "dataset/%2E.",
+                                            "dataset/%2E.%2Fescaped"};
+  ASSERT_EQ(all_dirs, expected_dirs);
+
+  // Read dataset back to verify partition values round-trip correctly
+  fs::FileSelector selector;
+  selector.base_dir = base_path;
+  selector.recursive = true;
+  FileSystemFactoryOptions factory_options;
+  factory_options.partitioning = partitioning;
+  factory_options.partition_base_dir = base_path;
+  ASSERT_OK_AND_ASSIGN(
+      auto factory,
+      FileSystemDatasetFactory::Make(filesystem, selector, ipc_format, factory_options));
+  ASSERT_OK_AND_ASSIGN(auto read_dataset, factory->Finish());
+  ASSERT_OK_AND_ASSIGN(auto read_scanner_builder, read_dataset->NewScan());
+  ASSERT_OK(read_scanner_builder->Project({"part", "x"}));
+  ASSERT_OK_AND_ASSIGN(auto read_scanner, read_scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto read_table, read_scanner->ToTable());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sort_indices,
+      compute::SortIndices(read_table, compute::SortOptions({compute::SortKey("x")})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(read_table, sort_indices));
+  AssertTablesEqual(*table, *sorted.table(), /*same_chunk_layout=*/false);
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
+  KeyValuePartitioningOptions options;
+  options.segment_encoding = SegmentEncoding::None;
+  partitioning_ = std::make_shared<DirectoryPartitioning>(schema({field("part", utf8())}),
+                                                          ArrayVector(), options);
+  written_schema_ = partitioning_->schema();
+
+  // Values are written unescaped and round-trip without decoding
+  AssertFormat(equal(field_ref("part"), literal("a b")), "a b");
+  AssertFormat(equal(field_ref("part"), literal("a%20b")), "a%20b");
+  AssertFormat(equal(field_ref("part"), literal("<test>")), "<test>");
+
+  // Values that aren't a single valid path segment are rejected
+  AssertFormatError(equal(field_ref("part"), literal("../escaped")));
+  AssertFormatError(equal(field_ref("part"), literal("a/b")));
+  AssertFormatError(equal(field_ref("part"), literal(".")));
+  AssertFormatError(equal(field_ref("part"), literal("..")));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioning) {

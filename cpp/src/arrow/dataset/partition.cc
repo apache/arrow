@@ -321,7 +321,34 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
 
   for (int i = 0; i < schema_->num_fields(); ++i) {
     if (values[i] != nullptr && values[i]->is_valid) {
-      segments[i] = values[i]->ToString();
+      std::string value = values[i]->ToString();
+      switch (options_.segment_encoding) {
+        case SegmentEncoding::None: {
+          // Without encoding, it's an error to write values that are not a valid path
+          // segment
+          if (value == "." || value == ".." ||
+              value.find(fs::internal::kSep) != std::string::npos) {
+            return Status::Invalid("Partition value for ", schema_->field(i)->name(),
+                                   " is not a valid path segment: '", value,
+                                   "'. Use SegmentEncoding::Uri to write this value.");
+          }
+          segments[i] = std::move(value);
+          break;
+        }
+        case SegmentEncoding::Uri: {
+          segments[i] = ::arrow::util::UriEscape(value);
+          // A "." isn't normally required to be escaped, but "." and ".." are not
+          // valid directory names, and dataset discovery skips directories starting
+          // with ".".
+          if (!segments[i].empty() && segments[i][0] == '.') {
+            segments[i] = "%2E" + segments[i].substr(1);
+          }
+          break;
+        }
+        default:
+          return Status::NotImplemented("Unknown segment encoding: ",
+                                        options_.segment_encoding);
+      }
       continue;
     }
 
