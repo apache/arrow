@@ -536,7 +536,7 @@ Libraries and header files for Apache Arrow Flight SQL.
 %package -n %{name}%{so_version}-flight-sql-odbc-libs
 Summary:	C++ library for interacting with SQL databases via ODBC.
 License:	Apache-2.0
-Requires:	%{name}%{so_version}-flight-sql-libs = %{version}-%{release}
+# ODBC statically links to Arrow Libraries on Linux
 Requires(post):	/usr/bin/odbcinst
 Requires(postun):	/usr/bin/odbcinst
 
