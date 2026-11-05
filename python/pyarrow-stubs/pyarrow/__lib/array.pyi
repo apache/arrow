@@ -34,6 +34,7 @@ from pyarrow._stubs_typing import (
     ArrayLike,
     Indices,
     Mask,
+    MapsAsPydicts,
     Order,
     SupportsArrowArray,
     SupportsArrowDeviceArray,
@@ -119,17 +120,13 @@ class _PandasConvertible(_Weakrefable):
         safe: bool = True,
         split_blocks: bool = False,
         self_destruct: bool = False,
-        maps_as_pydicts: Literal["None", "lossy", "strict"] | None = None,
+        maps_as_pydicts: MapsAsPydicts | None = None,
         types_mapper: Any = None,  # Callable[[DataType], ExtensionDtype | None] | None
         coerce_temporal_nanoseconds: bool = False,
     ) -> pd.Series | pd.DataFrame: ...
 
 class Array(_PandasConvertible):
     def diff(self, other: Self) -> str: ...
-
-    # Private attribute used internally (e.g., for column names in batches)
-    _name: str | None
-
     def cast(
         self,
         target_type: DataType | str,

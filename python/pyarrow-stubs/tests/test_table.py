@@ -16,6 +16,10 @@
 # under the License.
 # mypy: warn-unused-ignores
 
+from types import MappingProxyType
+
+import pytest
+
 import pyarrow.lib as lib
 
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
@@ -44,9 +48,29 @@ def test_table() -> None:
 
     check(assert_type(table.slice(0, 1), lib.Table), lib.Table)
     check(assert_type(table.select(["a"]), lib.Table), lib.Table)
+    check(assert_type(table.select(["a", 1]), lib.Table), lib.Table)
+    check(assert_type(table.equals(None), bool), bool)
     check(assert_type(table.combine_chunks(), lib.Table), lib.Table)
     check(assert_type(table.to_batches(), list[lib.RecordBatch]), list)
     check(assert_type(table.to_pydict(), dict[str, list]), dict)
+    check(assert_type(lib.Table.from_arrays([(1, 2)], names=["a"]), lib.Table),
+          lib.Table)
+
+    chunked = lib.chunked_array([[1, 2]])
+    check(assert_type(table.add_column(0, "c", chunked), lib.Table), lib.Table)
+    check(assert_type(table.add_column(0, "c", lib.array([1, 2])), lib.Table),
+          lib.Table)
+    check(assert_type(table.add_column(0, "c", [[1], [2]]), lib.Table),
+          lib.Table)
+    check(assert_type(table.add_column(0, "c", [lib.array([1, 2])]), lib.Table),
+          lib.Table)
+
+    table = lib.table(([1],), names=["a"])
+    check(assert_type(table, lib.Table), lib.Table)
+
+    chunked_struct = lib.chunked_array([[{"x": 1}]])
+    check(assert_type(lib.Table.from_struct_array(chunked_struct), lib.Table),
+          lib.Table)
 
     # The reader isn't annotated yet, but must not reject valid usage.
     check(table.to_reader().read_all(), lib.Table)
@@ -55,7 +79,7 @@ def test_table() -> None:
 
 
 def test_record_batch() -> None:
-    batch = lib.record_batch({"a": [1, 2]})
+    batch = lib.record_batch({"a": [1, 2]})  # from a dict
     check(assert_type(batch, lib.RecordBatch), lib.RecordBatch)
     check(assert_type(batch.num_rows, int), int)
     check(assert_type(batch.column(0), lib.Array | lib.ChunkedArray),
@@ -64,10 +88,65 @@ def test_record_batch() -> None:
     check(assert_type(lib.Table.from_batches([batch]), lib.Table), lib.Table)
     check(assert_type(lib.concat_batches([batch, batch]), lib.RecordBatch),
           lib.RecordBatch)
+    check(assert_type(batch.add_column(0, "b", lib.array([3, 4])),
+                      lib.RecordBatch),
+          lib.RecordBatch)
+    check(assert_type(batch.add_column(0, "b", [3, 4]), lib.RecordBatch),
+          lib.RecordBatch)
+    check(assert_type(batch.equals(batch), bool), bool)
+    # Any object can be compared, a non-batch returns False
+    check(assert_type(batch.equals(42), bool), bool)
+
+    batch = lib.record_batch([lib.array([1])], names=["a"])  # from a list
+    check(assert_type(batch, lib.RecordBatch), lib.RecordBatch)
+
+    struct_array = batch.to_struct_array()
+    check(assert_type(lib.RecordBatch.from_struct_array(struct_array),
+                      lib.RecordBatch),
+          lib.RecordBatch)
+
+
+def test_record_batch_from_pandas() -> None:
+    pd = pytest.importorskip("pandas")
+    df = pd.DataFrame({"a": [1], "b": [2]})
+    # Columns only need to be iterable, e.g. a generator.
+    batch = lib.RecordBatch.from_pandas(df, columns=(c for c in ["a"]))
+    check(assert_type(batch, lib.RecordBatch), lib.RecordBatch)
+
+
+def test_chunked_array() -> None:
+    chunked_array = lib.chunked_array([[1, 2], [None]])
+    check(assert_type(chunked_array, lib.ChunkedArray), lib.ChunkedArray)
+    check(assert_type(chunked_array.cast(lib.int32(), safe=None), lib.ChunkedArray),
+          lib.ChunkedArray)
+    check(assert_type(chunked_array.fill_null(0), lib.ChunkedArray), lib.ChunkedArray)
+    check(assert_type(chunked_array.sort(null_placement="at_start"), lib.ChunkedArray),
+          lib.ChunkedArray)
+    check(assert_type(chunked_array.equals(None), bool), bool)
+
+    arr = lib.array([1, 2])
+    check(assert_type(lib.chunked_array(arr), lib.ChunkedArray),
+          lib.ChunkedArray)
+    check(assert_type(lib.chunked_array([arr, [3]]), lib.ChunkedArray),
+          lib.ChunkedArray)
 
 
 def test_invalid_usage() -> None:
     table = lib.table({"a": [1, 2]})
+    columns = {"a": lib.array([1])}.values()  # dict as non-sequence example
+
     if TYPE_CHECKING_INVALID_USAGE:
         table.column(1.5)  # type: ignore[arg-type]
         table.slice("0")  # type: ignore[arg-type]
+        lib.Table.from_arrays(columns, names=["a"])  # type: ignore[arg-type]
+
+
+def test_record_batch_invalid_usage() -> None:
+    arr = lib.array([1])
+    chunked = lib.chunked_array([[{"a": 1}]])
+    if TYPE_CHECKING_INVALID_USAGE:
+        lib.RecordBatch.from_arrays((arr,), names=["a"])  # type: ignore[arg-type]
+        lib.RecordBatch.from_struct_array(chunked)  # type: ignore[arg-type]
+        lib.record_batch((arr,), names=["a"])  # type: ignore[arg-type]
+        # Only a `dict` is passed on to `from_pydict`, other mappings raise
+        lib.record_batch(MappingProxyType({"a": [1]}))  # type: ignore[arg-type]
