@@ -105,8 +105,9 @@ namespace grpc {
 // Those two functions are defined in serialization_internal.cc
 
 // Write FlightData to a grpc::ByteBuffer without extra copying
-::grpc::Status FlightDataSerialize(const arrow::flight::FlightPayload& msg,
-                                   ::grpc::ByteBuffer* out, bool* own_buffer);
+ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataSerialize(
+    const arrow::flight::FlightPayload& msg, ::grpc::ByteBuffer* out,
+    bool* own_buffer);
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying

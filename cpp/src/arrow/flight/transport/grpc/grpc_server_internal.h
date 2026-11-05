@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -26,7 +27,9 @@
 #include <grpcpp/grpcpp.h>
 
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/server_middleware.h"
+#include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/util/uri.h"
 
@@ -112,9 +115,24 @@ class GrpcServerCallContext : public ServerCallContext {
 template <typename GrpcContext>
 class GrpcServerCallContextHelper {
  public:
+  /// A token validator for servers that have no ServerAuthHandler: the async
+  /// server plugs AsyncGenericFlightServerBase::ValidateToken in here.
+  using ValidateTokenFn =
+      std::function<Status(const ServerCallContext& context, const std::string& token,
+                           std::string* peer_identity)>;
+
+  /// The async handshake hook: the transport reads one Handshake request,
+  /// calls this, then writes the response it filled in.
+  using HandshakeFn =
+      std::function<Status(const ServerCallContext& context, const std::string& request,
+                           std::string* response)>;
+
   GrpcServerCallContextHelper(std::shared_ptr<ServerAuthHandler> auth_handler,
-                              MiddlewareFactoryList middleware)
-      : auth_handler_(std::move(auth_handler)), middleware_(std::move(middleware)) {}
+                              MiddlewareFactoryList middleware,
+                              ValidateTokenFn validate_token = {})
+      : auth_handler_(std::move(auth_handler)),
+        middleware_(std::move(middleware)),
+        validate_token_(std::move(validate_token)) {}
 
   // Authenticate the client (if applicable) and construct the call context
   ::grpc::Status MakeCallContext(FlightMethod method, GrpcContext* context,
@@ -154,7 +172,7 @@ class GrpcServerCallContextHelper {
   // Authenticate the client (if applicable) and construct the call context
   ::grpc::Status CheckAuth(FlightMethod method, GrpcContext* context,
                            GrpcServerCallContext<GrpcContext>* flight_context) const {
-    if (!auth_handler_) {
+    if (!auth_handler_ && !validate_token_) {
       const auto auth_context = context->auth_context();
       if (auth_context && auth_context->IsPeerAuthenticated()) {
         auto peer_identity = auth_context->GetPeerIdentity();
@@ -174,7 +192,10 @@ class GrpcServerCallContextHelper {
         token = std::string(auth_header->second.data(), auth_header->second.length());
       }
       auto auth_status =
-          auth_handler_->IsValid(*flight_context, token, &flight_context->peer_identity_);
+          validate_token_
+              ? validate_token_(*flight_context, token, &flight_context->peer_identity_)
+              : auth_handler_->IsValid(*flight_context, token,
+                                       &flight_context->peer_identity_);
       if (!auth_status.ok()) {
         return flight_context->FinishRequest(auth_status);
       }
@@ -187,6 +208,7 @@ class GrpcServerCallContextHelper {
  private:
   std::shared_ptr<ServerAuthHandler> auth_handler_;
   MiddlewareFactoryList middleware_;
+  ValidateTokenFn validate_token_;
 };
 
 struct GrpcServerEndpoint {

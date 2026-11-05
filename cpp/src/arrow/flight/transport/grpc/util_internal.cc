@@ -310,9 +310,10 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   return {grpc_code, std::move(transport_status.message)};
 }
 
-/// Convert an Arrow status to a gRPC status, and add extra headers to
-/// the response to encode the original Arrow status.
-::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
+namespace {
+// Shared body: convert and attach the Arrow status as trailing metadata.
+template <typename Context>
+::grpc::Status ToGrpcStatusWithContext(const Status& arrow_status, Context* ctx) {
   ::grpc::Status status = ToRawGrpcStatus(arrow_status);
   if (!status.ok() && ctx) {
     const std::string code = ToChars(static_cast<int>(arrow_status.code()));
@@ -327,8 +328,20 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
       ctx->AddTrailingMetadata(kBinaryErrorDetailsKey, fsd->extra_info());
     }
   }
-
   return status;
+}
+}  // namespace
+
+/// Convert an Arrow status to a gRPC status, and add extra headers to
+/// the response to encode the original Arrow status.
+::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
+  return ToGrpcStatusWithContext(arrow_status, ctx);
+}
+
+/// Same, for the callback API's server context.
+::grpc::Status ToGrpcStatus(const Status& arrow_status,
+                            ::grpc::CallbackServerContext* ctx) {
+  return ToGrpcStatusWithContext(arrow_status, ctx);
 }
 
 #if GRPC_CPP_VERSION_CHECK(1, 80, 0)
