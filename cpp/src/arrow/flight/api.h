@@ -23,6 +23,7 @@
 #include "arrow/flight/client_tracing_middleware.h"
 #include "arrow/flight/middleware.h"
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_async.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/server_tracing_middleware.h"

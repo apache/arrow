@@ -298,6 +298,62 @@ void ServerSignalState::WaitForSignals(
   }
 }
 
+ServerLifecycle::ServerLifecycle(const char* server_name) : server_name_(server_name) {}
+
+ServerLifecycle::~ServerLifecycle() = default;
+
+Status ServerLifecycle::Init(const FlightServerOptions& options,
+                             std::unique_ptr<ServerTransport> transport) {
+  ARROW_ASSIGN_OR_RAISE(auto uri, options.location.uri());
+  transport_ = std::move(transport);
+  return transport_->Init(options, uri);
+}
+
+int ServerLifecycle::port() const { return location().port(); }
+
+Location ServerLifecycle::location() const { return transport_->location(); }
+
+Status ServerLifecycle::SetShutdownOnSignals(const std::vector<int>& signals) {
+  return signal_state_.SetShutdownOnSignals(signals);
+}
+
+Status ServerLifecycle::Serve() {
+  if (!transport_) {
+    return Status::UnknownError("Server did not start properly");
+  }
+  return signal_state_.Serve(
+      [this]() -> Status { return transport_->Wait(); },
+      [this](const std::chrono::system_clock::time_point* deadline) -> Status {
+        return Shutdown(deadline);
+      },
+      "Error shutting down server");
+}
+
+int ServerLifecycle::GotSignal() const { return signal_state_.GotSignal(); }
+
+Status ServerLifecycle::Shutdown(const std::chrono::system_clock::time_point* deadline) {
+  if (!transport_) {
+    return Status::Invalid("Shutdown() on uninitialized ", server_name_);
+  }
+  return signal_state_.Shutdown(
+      [this](const std::chrono::system_clock::time_point* maybe_deadline) -> Status {
+        if (maybe_deadline) {
+          return transport_->Shutdown(*maybe_deadline);
+        }
+        return transport_->Shutdown();
+      },
+      deadline);
+}
+
+Status ServerLifecycle::Wait() {
+  return signal_state_.Wait([this] {
+    if (!transport_) {
+      return Status::Invalid("Wait() on uninitialized ", server_name_);
+    }
+    return transport_->Wait();
+  });
+}
+
 Status WriteDataStream(std::unique_ptr<FlightDataStream> data_stream,
                        ServerDataStream* stream) {
   if (!data_stream) {

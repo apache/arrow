@@ -17,6 +17,10 @@
 
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 
+#include <string_view>
+
+#include "arrow/flight/types.h"
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -125,7 +129,12 @@ class GrpcBuffer : public MutableBuffer {
   grpc_slice slice_;
 };
 
-// Destructor callback for grpc::Slice
+}  // namespace
+
+// Destructor callback for grpc::Slice. Declared here (rather than in the
+// header) so -Wmissing-declarations is happy.
+void ReleaseBuffer(void* buf_ptr);
+
 void ReleaseBuffer(void* buf_ptr) {
   delete reinterpret_cast<std::shared_ptr<Buffer>*>(buf_ptr);
 }
@@ -149,7 +158,24 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   return slice;
 }
 
-}  // namespace
+// Initialize arrow Buffer from gRPC ByteBuffer
+Status WrapGrpcBuffer(::grpc::ByteBuffer* cpp_buf, std::shared_ptr<Buffer>* out) {
+  return GrpcBuffer::Wrap(cpp_buf, out);
+}
+
+arrow::Result<std::string> BytesFromBuffer(const ::grpc::ByteBuffer& buffer,
+                                           std::string_view error_message) {
+  std::vector<::grpc::Slice> slices;
+  if (!buffer.Dump(&slices).ok()) {
+    return MakeFlightError(FlightStatusCode::Internal, std::string(error_message));
+  }
+  std::string bytes;
+  bytes.reserve(buffer.Length());
+  for (const auto& slice : slices) {
+    bytes.append(reinterpret_cast<const char*>(slice.begin()), slice.size());
+  }
+  return bytes;
+}
 
 ::grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
                                    bool* own_buffer) {
