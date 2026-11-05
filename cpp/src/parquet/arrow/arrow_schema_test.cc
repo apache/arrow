@@ -1871,6 +1871,38 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
+TEST_F(TestConvertArrowSchema, ParquetTimeCoercion) {
+  auto schema =
+      ::arrow::schema({::arrow::field("seconds", ::arrow::time32(TimeUnit::SECOND)),
+                       ::arrow::field("nanos", ::arrow::time64(TimeUnit::NANO))});
+  auto arrow_properties = ArrowWriterProperties::Builder()
+                              .coerce_timestamps(TimeUnit::NANO)
+                              ->set_time_adjusted_to_utc(true)
+                              ->build();
+  for (auto version : {ParquetVersion::PARQUET_1_0, ParquetVersion::PARQUET_2_4,
+                       ParquetVersion::PARQUET_2_6}) {
+    auto properties = WriterProperties::Builder().version(version)->build();
+    auto status =
+        ToParquetSchema(schema.get(), *properties, *arrow_properties, &result_schema_);
+    if (version != ParquetVersion::PARQUET_2_6) {
+      ASSERT_RAISES(NotImplemented, status);
+      continue;
+    }
+    ASSERT_OK(status);
+    const auto logical_type = LogicalType::Time(true, LogicalType::TimeUnit::NANOS);
+    for (int i = 0; i < schema->num_fields(); ++i) {
+      const auto* column = result_schema_->Column(i);
+      ASSERT_EQ(column->physical_type(), ParquetType::INT64);
+      ASSERT_TRUE(column->logical_type()->Equals(*logical_type));
+    }
+  }
+  arrow_properties =
+      ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::SECOND)->build();
+  ASSERT_RAISES(NotImplemented,
+                ToParquetSchema(schema.get(), *default_writer_properties(),
+                                *arrow_properties, &result_schema_));
+}
+
 TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
   // Verify Parquet Time types have the appropriate isAdjustedToUTC value, depending
   // on the return value of ArrowWriterProperties::write_time_adjusted_to_utc()
