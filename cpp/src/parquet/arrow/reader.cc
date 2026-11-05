@@ -92,7 +92,7 @@ namespace {
   switch (chunked.num_chunks()) {
     case 0: {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> array,
-                            ::arrow::MakeArrayOfNull(chunked.type(), 0));
+                            ::arrow::MakeArrayOfNull(chunked.type(), 0, pool));
       return array->data();
     }
     case 1:
